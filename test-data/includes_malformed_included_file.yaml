@@ -1,0 +1,9 @@
+# Main file that includes a malformed YAML file
+
+includes:
+  - file: includes_malformed_syntax.yaml
+    as: bad
+
+revenue:
+  value: null
+  formula: "=@bad.base_price * 10"

@@ -52,7 +52,8 @@ struct Cli {
 enum Commands {
     #[command(long_about = "Calculate all formulas in a YAML file.
 
-Evaluates formulas in dependency order and updates values in the file.
+Evaluates formulas in dependency order and updates values in ALL files
+(main file + all included files) - just like Excel updates all worksheets.
 
 CROSS-FILE REFERENCES:
   Add 'includes:' section to reference other files:
@@ -65,6 +66,10 @@ CROSS-FILE REFERENCES:
 
   Then use @alias.variable in formulas:
     formula: \"=@pricing.base_price * volume - @costs.total\"
+
+IMPORTANT: Calculate updates ALL files in the chain (Excel-style)!
+  If pricing.yaml has stale formulas, they will be recalculated too.
+  This ensures data integrity across all referenced files.
 
 Use --dry-run to preview changes without modifying files.")]
     /// Calculate all formulas in a YAML file
@@ -92,8 +97,8 @@ Use --dry-run to preview changes without modifying files.")]
 
     #[command(long_about = "Validate formulas without calculating.
 
-Checks that all formula values match their calculations.
-Detects stale values that need recalculation.
+Checks that all formula values match their calculations across ALL files
+(main file + all included files). Detects stale values that need recalculation.
 
 CROSS-FILE REFERENCES:
   Validates formulas using @alias.variable syntax:
@@ -103,7 +108,11 @@ CROSS-FILE REFERENCES:
       as: pricing
 
   Formula example:
-    formula: \"=@pricing.base_price * 10\"")]
+    formula: \"=@pricing.base_price * 10\"
+
+NOTE: Validation checks ALL files in the chain.
+  If any included file has stale values, validation will fail.
+  Run 'calculate' to update all files.")]
     /// Validate formulas without calculating
     Validate {
         /// Path to YAML file (can include other files via 'includes' section)
@@ -127,15 +136,15 @@ fn main() -> ForgeResult<()> {
                 println!("{}", "📋 DRY RUN MODE - No changes will be written\n".yellow());
             }
 
-            // Parse YAML file and extract variables with formulas
+            // Parse YAML file and extract variables with formulas (including referenced files)
             if verbose {
-                println!("{}", "📖 Parsing YAML file...".cyan());
+                println!("{}", "📖 Parsing YAML file and includes...".cyan());
             }
-            let variables = parser::parse_yaml_file(&file)?;
+            let parsed = parser::parse_yaml_with_includes(&file)?;
 
             if verbose {
-                println!("   Found {} variables with formulas\n", variables.len());
-                for (name, var) in &variables {
+                println!("   Found {} variables with formulas\n", parsed.variables.len());
+                for (name, var) in &parsed.variables {
                     if let Some(formula) = &var.formula {
                         println!("   {} = {}", name.bright_blue(), formula.dimmed());
                     }
@@ -143,7 +152,7 @@ fn main() -> ForgeResult<()> {
                 println!();
             }
 
-            if variables.is_empty() {
+            if parsed.variables.is_empty() {
                 println!("{}", "⚠️  No formulas found in YAML file".yellow());
                 return Ok(());
             }
@@ -152,7 +161,7 @@ fn main() -> ForgeResult<()> {
             if verbose {
                 println!("{}", "🧮 Calculating formulas in dependency order...".cyan());
             }
-            let mut calculator = Calculator::new(variables);
+            let mut calculator = Calculator::new(parsed.variables.clone());
             let results = calculator.calculate_all()?;
 
             // Display results
@@ -162,13 +171,19 @@ fn main() -> ForgeResult<()> {
             }
             println!();
 
-            // Write back to file (unless dry run)
+            // Write back to ALL files (main + includes) - Excel-style (unless dry run)
             if !dry_run {
                 if verbose {
-                    println!("{}", "💾 Writing updated values to file...".cyan());
+                    println!("{}", "💾 Writing updated values to all files (main + includes)...".cyan());
                 }
-                writer::update_yaml_file(&file, &results)?;
-                println!("{}", "✨ File updated successfully!".bold().green());
+                writer::update_all_yaml_files(&file, &parsed, &results, &parsed.variables)?;
+
+                if parsed.includes.is_empty() {
+                    println!("{}", "✨ File updated successfully!".bold().green());
+                } else {
+                    println!("{}", format!("✨ {} files updated successfully! (main + {} includes)",
+                        1 + parsed.includes.len(), parsed.includes.len()).bold().green());
+                }
             } else {
                 println!("{}", "📋 Dry run complete - no changes written".yellow());
             }
@@ -189,8 +204,9 @@ fn main() -> ForgeResult<()> {
             println!("{}", "✅ Validating formulas".bold().green());
             println!("   File: {}\n", file.display());
 
-            // Parse YAML file and get current values
-            let variables = parser::parse_yaml_file(&file)?;
+            // Parse YAML file and includes - get current values from ALL files
+            let parsed = parser::parse_yaml_with_includes(&file)?;
+            let variables = parsed.variables;
 
             if variables.is_empty() {
                 println!("{}", "⚠️  No formulas found in YAML file".yellow());

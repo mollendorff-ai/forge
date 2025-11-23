@@ -413,7 +413,7 @@ fn e2e_includes_calculate_updates_correctly() {
     assert!(calculate.status.success(), "Calculate should succeed");
 
     let stdout = String::from_utf8_lossy(&calculate.stdout);
-    assert!(stdout.contains("File updated successfully"));
+    assert!(stdout.contains("updated successfully"), "Should show success message");
 
     // Verify it's valid after calculation
     let validate = Command::new(forge_binary())
@@ -510,4 +510,127 @@ fn e2e_includes_mixed_refs_validates_after_calculate() {
     let stdout = String::from_utf8_lossy(&validate.stdout);
     assert!(stdout.contains("All formulas are valid"));
     assert!(stdout.contains("All values match their formulas"));
+}
+
+// ========== Multi-File Update Tests (Excel-style) ==========
+
+#[test]
+fn e2e_calculate_updates_all_files_stale_included_file() {
+    // Copy files to temp location
+    let temp_dir = tempfile::tempdir().unwrap();
+
+    // Copy main file
+    let main_orig = test_data_path("includes_stale_included_file.yaml");
+    let main_temp = temp_dir.path().join("includes_stale_included_file.yaml");
+    fs::copy(&main_orig, &main_temp).unwrap();
+
+    // Copy included file with STALE values
+    let included_orig = test_data_path("includes_stale_values.yaml");
+    let included_temp = temp_dir.path().join("includes_stale_values.yaml");
+    fs::copy(&included_orig, &included_temp).unwrap();
+
+    // Verify included file is stale before calculate
+    let included_content_before = fs::read_to_string(&included_temp).unwrap();
+    assert!(included_content_before.contains("value: 50"));  // Stale value
+
+    // Run calculate
+    let calculate = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&main_temp)
+        .output()
+        .unwrap();
+
+    assert!(calculate.status.success(), "Calculate should succeed");
+
+    let stdout = String::from_utf8_lossy(&calculate.stdout);
+    assert!(stdout.contains("2 files updated"));
+
+    // Verify included file was updated to correct value
+    let included_content_after = fs::read_to_string(&included_temp).unwrap();
+    assert!(included_content_after.contains("200"));  // Should be 200 (100 * 2)
+    assert!(!included_content_after.contains("value: 50"));  // Stale value should be gone
+
+    // Verify validation now passes
+    let validate = Command::new(forge_binary())
+        .arg("validate")
+        .arg(&main_temp)
+        .output()
+        .unwrap();
+
+    assert!(validate.status.success(), "Validation should pass after calculate updates all files");
+
+    let validate_stdout = String::from_utf8_lossy(&validate.stdout);
+    assert!(validate_stdout.contains("All values match their formulas"));
+}
+
+#[test]
+fn e2e_calculate_with_malformed_included_file() {
+    let file = test_data_path("includes_malformed_included_file.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    assert!(!output.status.success(), "Malformed included file should fail");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+
+    assert!(
+        combined.contains("Failed to parse included file") ||
+        combined.contains("includes_malformed_syntax.yaml"),
+        "Should report malformed included file error, got: {}",
+        combined
+    );
+}
+
+#[test]
+fn e2e_calculate_with_invalid_formula_in_included_file() {
+    let file = test_data_path("includes_invalid_formula_in_included.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    assert!(!output.status.success(), "Invalid formula in included file should fail");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+
+    assert!(
+        combined.contains("Eval") ||
+        combined.contains("UNDEFINED_VARIABLE") ||
+        combined.contains("unknown variable"),
+        "Should report invalid formula error, got: {}",
+        combined
+    );
+}
+
+#[test]
+fn e2e_validate_detects_stale_values_in_included_files() {
+    let file = test_data_path("includes_stale_included_file.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("validate")
+        .arg(&file)
+        .output()
+        .expect("Failed to execute");
+
+    assert!(!output.status.success(), "Should detect stale values in included files");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should report the mismatch from the included file
+    assert!(stdout.contains("@stale.calculated_value"));
+    assert!(stdout.contains("Current:  50"));
+    assert!(stdout.contains("Expected: 200"));
+    assert!(stdout.contains("value mismatches"));
 }

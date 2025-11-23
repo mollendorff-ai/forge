@@ -1,0 +1,10 @@
+# Main file that includes a file with STALE values
+
+includes:
+  - file: includes_stale_values.yaml
+    as: stale
+
+# This will use the stale value from the included file
+total:
+  value: null
+  formula: "=@stale.calculated_value * 2"

@@ -1,0 +1,9 @@
+# Main file that includes a file with invalid formulas
+
+includes:
+  - file: includes_bad_formula.yaml
+    as: bad
+
+revenue:
+  value: null
+  formula: "=@bad.result * 10"
