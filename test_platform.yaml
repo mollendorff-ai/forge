@@ -1,0 +1,8 @@
+platform_economics:
+  take_rate:
+    value: 0.1
+    formula: null
+test:
+  gross_margin:
+    value: 0.9
+    formula: =1 - platform_take_rate

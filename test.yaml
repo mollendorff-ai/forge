@@ -1,0 +1,20 @@
+pricing:
+  base_price:
+    value: 100.0
+    formula: null
+  discount_rate:
+    value: 0.1
+    formula: null
+  final_price:
+    value: 90.0
+    formula: =base_price * (1 - discount_rate)
+margins:
+  platform_take_rate:
+    value: 0.1
+    formula: null
+  gross_margin:
+    value: 0.9
+    formula: =1 - platform_take_rate
+  net_margin:
+    value: 0.45
+    formula: =gross_margin * 0.5

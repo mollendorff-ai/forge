@@ -1,0 +1,8 @@
+ltv:
+  weighted_average:
+    value: 100.0
+    formula: null
+test:
+  result:
+    value: 200.0
+    formula: =ltv_weighted_average * 2
