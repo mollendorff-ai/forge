@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "YAML formula calculator with Excel-style cross-file references - Built for AI-assisted financial modeling"
@@ -15,6 +15,10 @@ exclude = [
     "test-data/*",
     ".git*",
 ]
+
+[[bin]]
+name = "forge"
+path = "src/main.rs"
 
 [dependencies]
 # YAML parsing

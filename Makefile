@@ -64,31 +64,31 @@ post-build:
 build: pre-build
 	@echo "🔨 Building release binary..."
 	@cargo build --release
-	@echo "✅ Binary: target/release/mouvify-forge"
-	@ls -lh target/release/mouvify-forge
+	@echo "✅ Binary: target/release/forge"
+	@ls -lh target/release/forge
 	@$(MAKE) -s post-build
 
 build-static:
 	@echo "🔨 Building static release binary (musl)..."
 	@cargo build --release --target x86_64-unknown-linux-musl
-	@echo "✅ Binary: target/x86_64-unknown-linux-musl/release/mouvify-forge"
-	@ls -lh target/x86_64-unknown-linux-musl/release/mouvify-forge
+	@echo "✅ Binary: target/x86_64-unknown-linux-musl/release/forge"
+	@ls -lh target/x86_64-unknown-linux-musl/release/forge
 
 build-compressed: build-static
 	@echo ""
 ifdef HAS_UPX
 	@echo "📦 BEFORE compression:"
-	@ls -lh target/x86_64-unknown-linux-musl/release/mouvify-forge | tail -1
-	@BEFORE=$$(stat -c%s target/x86_64-unknown-linux-musl/release/mouvify-forge 2>/dev/null || stat -f%z target/x86_64-unknown-linux-musl/release/mouvify-forge); \
+	@ls -lh target/x86_64-unknown-linux-musl/release/forge | tail -1
+	@BEFORE=$$(stat -c%s target/x86_64-unknown-linux-musl/release/forge 2>/dev/null || stat -f%z target/x86_64-unknown-linux-musl/release/forge); \
 	echo ""; \
 	echo "🗜️  Compressing with UPX --best --lzma..."; \
-	upx --best --lzma target/x86_64-unknown-linux-musl/release/mouvify-forge; \
+	upx --best --lzma target/x86_64-unknown-linux-musl/release/forge; \
 	echo ""; \
 	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
 	echo "✨ WOW! AFTER compression:"; \
 	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
-	ls -lh target/x86_64-unknown-linux-musl/release/mouvify-forge | tail -1; \
-	AFTER=$$(stat -c%s target/x86_64-unknown-linux-musl/release/mouvify-forge 2>/dev/null || stat -f%z target/x86_64-unknown-linux-musl/release/mouvify-forge); \
+	ls -lh target/x86_64-unknown-linux-musl/release/forge | tail -1; \
+	AFTER=$$(stat -c%s target/x86_64-unknown-linux-musl/release/forge 2>/dev/null || stat -f%z target/x86_64-unknown-linux-musl/release/forge); \
 	SAVED=$$(($$BEFORE - $$AFTER)); \
 	PERCENT=$$(awk "BEGIN {printf \"%.1f\", ($$SAVED / $$BEFORE) * 100}"); \
 	echo ""; \
@@ -97,29 +97,29 @@ ifdef HAS_UPX
 else
 	@echo "⚠️  UPX not found - install with: sudo apt install upx-ucl"
 	@echo "📦 Static binary built (not compressed):"
-	@ls -lh target/x86_64-unknown-linux-musl/release/mouvify-forge
+	@ls -lh target/x86_64-unknown-linux-musl/release/forge
 endif
 
-install-system: build
-	@echo "📦 Installing mouvify-forge to /usr/local/bin (system-wide)..."
-	@sudo install -m 755 target/release/mouvify-forge /usr/local/bin/mouvify-forge
-	@echo "✅ Installed to /usr/local/bin/mouvify-forge"
-	@echo "🔍 Verify with: mouvify-forge --version"
+install-system: clean build-compressed
+	@echo "📦 Installing forge to /usr/local/bin (system-wide)..."
+	@sudo install -m 755 target/x86_64-unknown-linux-musl/release/forge /usr/local/bin/forge
+	@echo "✅ Installed to /usr/local/bin/forge"
+	@echo "🔍 Verify with: forge --version"
 
-install-user: build
-	@echo "📦 Installing mouvify-forge to ~/.local/bin (user-only)..."
+install-user: clean build-compressed
+	@echo "📦 Installing forge to ~/.local/bin (user-only)..."
 	@mkdir -p ~/.local/bin
-	@install -m 755 target/release/mouvify-forge ~/.local/bin/mouvify-forge
-	@echo "✅ Installed to ~/.local/bin/mouvify-forge"
+	@install -m 755 target/x86_64-unknown-linux-musl/release/forge ~/.local/bin/forge
+	@echo "✅ Installed to ~/.local/bin/forge"
 	@echo "💡 Make sure ~/.local/bin is in your PATH"
-	@echo "🔍 Verify with: mouvify-forge --version"
+	@echo "🔍 Verify with: forge --version"
 
 install: install-system
 
 uninstall:
-	@echo "🗑️  Uninstalling mouvify-forge..."
-	@sudo rm -f /usr/local/bin/mouvify-forge 2>/dev/null || true
-	@rm -f ~/.local/bin/mouvify-forge 2>/dev/null || true
+	@echo "🗑️  Uninstalling forge..."
+	@sudo rm -f /usr/local/bin/forge 2>/dev/null || true
+	@rm -f ~/.local/bin/forge 2>/dev/null || true
 	@echo "✅ Uninstalled from both /usr/local/bin and ~/.local/bin"
 
 lint:
