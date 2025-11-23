@@ -38,11 +38,26 @@ build-static:
 build-compressed: build-static
 	@echo ""
 ifdef HAS_UPX
-	@echo "🗜️  Compressing binary with UPX..."
-	@upx --best --lzma target/x86_64-unknown-linux-musl/release/mouvify-forge
-	@echo ""
-	@echo "✨ Compressed binary ready!"
-	@ls -lh target/x86_64-unknown-linux-musl/release/mouvify-forge
+	@echo "📦 BEFORE compression:"
+	@ls -lh target/x86_64-unknown-linux-musl/release/mouvify-forge | tail -1
+	@BEFORE=$$(stat -c%s target/x86_64-unknown-linux-musl/release/mouvify-forge 2>/dev/null || stat -f%z target/x86_64-unknown-linux-musl/release/mouvify-forge); \
+	echo ""; \
+	echo "⏸️  Press ENTER to compress with UPX --best --lzma..."; \
+	read dummy; \
+	echo ""; \
+	echo "🗜️  Compressing..."; \
+	upx --best --lzma target/x86_64-unknown-linux-musl/release/mouvify-forge; \
+	echo ""; \
+	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+	echo "✨ WOW! AFTER compression:"; \
+	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+	ls -lh target/x86_64-unknown-linux-musl/release/mouvify-forge | tail -1; \
+	AFTER=$$(stat -c%s target/x86_64-unknown-linux-musl/release/mouvify-forge 2>/dev/null || stat -f%z target/x86_64-unknown-linux-musl/release/mouvify-forge); \
+	SAVED=$$(($$BEFORE - $$AFTER)); \
+	PERCENT=$$(awk "BEGIN {printf \"%.1f\", ($$SAVED / $$BEFORE) * 100}"); \
+	echo ""; \
+	echo "🎉 Saved: $$SAVED bytes ($$PERCENT% smaller!)"; \
+	echo "📊 From $$(numfmt --to=iec-i --suffix=B $$BEFORE 2>/dev/null || echo $$BEFORE bytes) → $$(numfmt --to=iec-i --suffix=B $$AFTER 2>/dev/null || echo $$AFTER bytes)"
 else
 	@echo "⚠️  UPX not found - install with: sudo apt install upx-ucl"
 	@echo "📦 Static binary built (not compressed):"
