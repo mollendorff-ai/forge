@@ -242,19 +242,40 @@ Tested with:
 
 ## Development
 
-### Run tests:
+The project includes a Makefile with common build and test targets:
+
+### Quick start:
 ```bash
-cargo test
+make help                 # Show all available commands
+make build-compressed     # Build optimized 440KB binary
+make test                 # Validate and test all examples
 ```
 
-### Build release:
+### Build targets:
 ```bash
-cargo build --release
+make build                # Standard release build
+make build-static         # Static musl build (1.2MB)
+make build-compressed     # Static + UPX compression (440KB)
 ```
 
-### Run with logging:
+### Test targets:
 ```bash
-RUST_LOG=debug mouvify-forge calculate file.yaml
+make test-validate        # Validate all test-data/*.yaml files
+make test-calculate       # Dry-run calculations on test files
+make test                 # Run both validation and calculation tests
+```
+
+The `test-data/` directory contains example YAML files demonstrating various formula patterns:
+- `test.yaml` - Basic calculations
+- `test_financial.yaml` - Financial metrics (CAC, LTV, unit economics)
+- `test_platform.yaml` - Platform economics
+- `test_underscore.yaml` - Variable name resolution examples
+
+### Cargo commands:
+```bash
+cargo test                # Run unit tests
+cargo build --release     # Build release binary
+RUST_LOG=debug cargo run -- calculate file.yaml  # Debug logging
 ```
 
 ## License
