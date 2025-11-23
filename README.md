@@ -353,9 +353,9 @@ Tested with:
 - [x] Dry-run mode for safe testing
 - [x] Circular dependency detection
 - [x] Cross-file references with includes
+- [ ] Excel export (.xlsx) - Export calculated YAML to Excel spreadsheets
 - [ ] Audit trail generation (coming soon)
 - [ ] Formula debugging mode
-- [ ] Integration tests with real-world YAML
 - [ ] Performance optimization for large files
 - [ ] Support for arrays/lists in formulas
 - [ ] Custom function definitions
