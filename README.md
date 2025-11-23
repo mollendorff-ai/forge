@@ -1,5 +1,10 @@
 # 🔥 Forge
 
+[![Crates.io](https://img.shields.io/crates/v/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
+[![Downloads](https://img.shields.io/crates/d/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub release](https://img.shields.io/github/v/release/royalbit/forge)](https://github.com/royalbit/forge/releases)
+
 **Forge your data from YAML blueprints**
 
 A Rust-based YAML formula calculator that transforms structured data files with embedded formulas into calculated results. Think Excel formulas, but for YAML files under version control.
@@ -44,13 +49,31 @@ This tool was **built by AI, for AI-assisted workflows**. We practice what we pr
 
 ## Installation
 
-### From crates.io:
+### 📦 Download Pre-built Binary (Recommended)
+
+Download the latest release for your platform:
+
+**Linux (x86_64):**
+```bash
+# Download the latest release
+curl -L https://github.com/royalbit/forge/releases/latest/download/forge-linux-x86_64 -o forge
+
+# Make it executable
+chmod +x forge
+
+# Move to PATH (optional)
+sudo mv forge /usr/local/bin/forge
+```
+
+[📥 All releases](https://github.com/royalbit/forge/releases)
+
+### 🦀 From crates.io:
 
 ```bash
 cargo install royalbit-forge
 ```
 
-### From source with Makefile:
+### 🔧 From source with Makefile:
 
 ```bash
 git clone https://github.com/royalbit/forge
