@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 /// Execute the calculate command
 pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()> {
-    println!("{}", "🔥 Mouvify Forge - Calculating formulas".bold().green());
+    println!("{}", "🔥 Forge - Calculating formulas".bold().green());
     println!("   File: {}\n", file.display());
 
     if dry_run {
@@ -151,7 +151,7 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
 
         println!(
             "{}",
-            "💡 Run 'mouvify-forge calculate' to update values"
+            "💡 Run 'forge calculate' to update values"
                 .bold()
                 .yellow()
         );

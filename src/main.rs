@@ -1,10 +1,10 @@
 use clap::{Parser, Subcommand};
-use mouvify_forge::cli;
-use mouvify_forge::error::ForgeResult;
+use royalbit_forge::cli;
+use royalbit_forge::error::ForgeResult;
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "mouvify-forge")]
+#[command(name = "forge")]
 #[command(about = "YAML formula calculator - Forge your data from YAML blueprints")]
 #[command(long_about = "YAML formula calculator with cross-file references.
 
@@ -31,9 +31,9 @@ CROSS-FILE REFERENCES:
   Use @alias.variable syntax to reference included variables.
 
 EXAMPLES:
-  mouvify-forge calculate model.yaml
-  mouvify-forge validate financials.yaml
-  mouvify-forge calculate --dry-run --verbose assumptions.yaml")]
+  forge calculate model.yaml
+  forge validate financials.yaml
+  forge calculate --dry-run --verbose assumptions.yaml")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]

@@ -1,4 +1,4 @@
-# 🔥 mouvify-forge
+# 🔥 Forge
 
 **Forge your data from YAML blueprints**
 
@@ -8,7 +8,7 @@ A Rust-based YAML formula calculator that transforms structured data files with 
 
 **Problem:** You have financial models, calculations, or derived metrics in YAML files (for version control and AI collaboration), but you need to manually recalculate values when assumptions change.
 
-**Solution:** Embed formulas directly in your YAML. `mouvify-forge` evaluates them automatically, resolving dependencies and updating calculated values.
+**Solution:** Embed formulas directly in your YAML. `forge` evaluates them automatically, resolving dependencies and updating calculated values.
 
 ### Why YAML + Formulas for AI Workflows?
 
@@ -18,7 +18,7 @@ When collaborating with AI assistants on financial models or complex calculation
 - Copying cell values manually (error-prone, loses formulas)
 - Re-explaining the model structure every conversation
 
-**The mouvify-forge Solution:**
+**The Forge Solution:**
 YAML with embedded formulas is **token-efficient** and **AI-friendly**:
 - **Compact format:** A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screenshots)
 - **Preserves formulas:** AI can see and reason about calculations directly
@@ -47,14 +47,14 @@ This tool was **built by AI, for AI-assisted workflows**. We practice what we pr
 ### From crates.io:
 
 ```bash
-cargo install mouvify-forge
+cargo install royalbit-forge
 ```
 
 ### From source with Makefile:
 
 ```bash
-git clone https://github.com/royalbit/mouvify-forge
-cd mouvify-forge
+git clone https://github.com/royalbit/forge
+cd forge
 
 # Install system-wide (default, requires sudo)
 make install
@@ -77,8 +77,8 @@ cargo install --path .
 For a maximally optimized, portable binary:
 
 ```bash
-git clone https://github.com/royalbit/mouvify-forge
-cd mouvify-forge
+git clone https://github.com/royalbit/forge
+cd forge
 
 # Build statically-linked binary with musl
 make build-static
@@ -109,12 +109,12 @@ pricing:
 
 ### Run forge:
 ```bash
-mouvify-forge calculate pricing.yaml --verbose
+forge calculate pricing.yaml --verbose
 ```
 
 Output:
 ```
-🔥 Mouvify Forge - Calculating formulas
+🔥 Forge - Calculating formulas
    File: pricing.yaml
 
 📖 Parsing YAML file...
@@ -151,22 +151,22 @@ pricing:
 
 ### Calculate formulas in a file:
 ```bash
-mouvify-forge calculate models/assumptions.yaml
+forge calculate models/assumptions.yaml
 ```
 
 ### Dry-run (preview changes):
 ```bash
-mouvify-forge calculate models/assumptions.yaml --dry-run
+forge calculate models/assumptions.yaml --dry-run
 ```
 
 ### Show audit trail for a specific variable:
 ```bash
-mouvify-forge audit models/assumptions.yaml gross_margin
+forge audit models/assumptions.yaml gross_margin
 ```
 
 ### Validate formulas (check for errors):
 ```bash
-mouvify-forge validate models/assumptions.yaml
+forge validate models/assumptions.yaml
 ```
 
 ## Formula Syntax
@@ -330,12 +330,12 @@ src/
 **Why this structure?**
 - **Modularity:** Easy to add new commands or formula features
 - **Testability:** Each module can be tested independently
-- **Library-ready:** `lib.rs` exposes a clean API for embedding mouvify-forge in other tools
+- **Library-ready:** `lib.rs` exposes a clean API for embedding forge in other tools
 - **Maintainability:** Clear separation of concerns (parsing ≠ calculation ≠ output)
 
 ## Status
 
-**✅ WORKING** - mouvify-forge is fully functional!
+**✅ WORKING** - forge is fully functional!
 
 Tested with:
 - ✅ Simple calculations (pricing, margins)
@@ -449,4 +449,4 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 
 ## Why "Forge"?
 
-A forge is where raw materials are transformed into refined tools. Similarly, `mouvify-forge` transforms raw YAML data (with formulas) into calculated, refined results. You're forging your data! 🔥
+A forge is where raw materials are transformed into refined tools. Similarly, `forge` transforms raw YAML data (with formulas) into calculated, refined results. You're forging your data! 🔥

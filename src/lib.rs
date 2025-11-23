@@ -1,4 +1,4 @@
-//! Mouvify Forge - YAML formula calculator with Excel-style cross-file references
+//! Forge - YAML formula calculator with Excel-style cross-file references
 //!
 //! This library provides functionality to parse YAML files containing formulas,
 //! calculate them in dependency order, and update values across multiple files.
@@ -14,15 +14,15 @@
 //! # Example
 //!
 //! ```no_run
-//! use mouvify_forge::parser;
-//! use mouvify_forge::core::Calculator;
+//! use royalbit_forge::parser;
+//! use royalbit_forge::core::Calculator;
 //! use std::path::Path;
 //!
 //! let path = Path::new("model.yaml");
 //! let parsed = parser::parse_yaml_with_includes(path)?;
 //! let mut calculator = Calculator::new(parsed.variables.clone());
 //! let results = calculator.calculate_all()?;
-//! # Ok::<(), mouvify_forge::error::ForgeError>(())
+//! # Ok::<(), royalbit_forge::error::ForgeError>(())
 //! ```
 
 pub mod cli;
