@@ -15,9 +15,23 @@ use error::ForgeResult;
 #[command(name = "mouvify-forge")]
 #[command(about = "YAML formula calculator - Forge your data from YAML blueprints")]
 #[command(long_about = "YAML formula calculator with cross-file references.\n\n\
-    Embed Excel-style formulas in YAML files and automatically calculate values.\n\
-    Supports splitting models across multiple files with 'includes' for better organization.\n\n\
-    Examples:\n  \
+    Embed Excel-style formulas in YAML files and automatically calculate values.\n\n\
+    CROSS-FILE REFERENCES:\n\
+      Include other YAML files and reference their variables:\n\n\
+      # main.yaml\n\
+      includes:\n\
+        - file: pricing.yaml\n\
+          as: pricing\n\
+        - file: costs.yaml\n\
+          as: costs\n\n\
+      revenue:\n\
+        value: null\n\
+        formula: \"=@pricing.base_price * volume\"\n\n\
+      margin:\n\
+        value: null\n\
+        formula: \"=revenue - @costs.total_cost\"\n\n\
+    Use @alias.variable syntax to reference included variables.\n\n\
+    EXAMPLES:\n  \
       mouvify-forge calculate model.yaml\n  \
       mouvify-forge validate financials.yaml\n  \
       mouvify-forge calculate --dry-run --verbose assumptions.yaml")]
@@ -32,7 +46,17 @@ enum Commands {
     /// Calculate all formulas in a YAML file
     ///
     /// Evaluates formulas in dependency order and updates values in the file.
-    /// Supports cross-file references via 'includes' section.
+    ///
+    /// CROSS-FILE REFERENCES:
+    ///   Add 'includes' section to reference other YAML files:
+    ///
+    ///   includes:
+    ///     - file: pricing.yaml
+    ///       as: pricing
+    ///
+    ///   Then use @alias.variable in formulas:
+    ///   formula: "=@pricing.base_price * 10"
+    ///
     /// Use --dry-run to preview changes without modifying files.
     Calculate {
         /// Path to YAML file (can include other files via 'includes' section)
@@ -60,7 +84,16 @@ enum Commands {
     ///
     /// Checks that all formula values match their calculations.
     /// Detects stale values that need recalculation.
-    /// Supports cross-file references via 'includes' section.
+    ///
+    /// CROSS-FILE REFERENCES:
+    ///   Validates formulas that reference other files via 'includes':
+    ///
+    ///   includes:
+    ///     - file: pricing.yaml
+    ///       as: pricing
+    ///
+    ///   Formulas using @alias.variable will be validated:
+    ///   formula: "=@pricing.base_price * 10"
     Validate {
         /// Path to YAML file (can include other files via 'includes' section)
         file: PathBuf,
