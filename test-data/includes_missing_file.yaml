@@ -1,0 +1,9 @@
+# Test for missing included file error handling
+
+includes:
+  - file: this_file_does_not_exist.yaml
+    as: missing
+
+revenue:
+  value: null
+  formula: "=@missing.base_price * 10"

@@ -1,0 +1,9 @@
+# Test circular dependency across files - File A
+
+includes:
+  - file: includes_circular_b.yaml
+    as: b
+
+value_a:
+  value: null
+  formula: "=@b.value_b + 1"

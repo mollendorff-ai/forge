@@ -1,0 +1,9 @@
+# Test for invalid alias reference (alias doesn't exist)
+
+includes:
+  - file: includes_pricing.yaml
+    as: pricing
+
+revenue:
+  value: null
+  formula: "=@invalid_alias.base_price * 10"

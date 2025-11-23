@@ -1,0 +1,10 @@
+# Real circular dependency test - File B depends back on A (via value_a)
+
+# Note: This creates a circular dependency if A includes B and B's formula
+# references A's variable. However, our current implementation doesn't support
+# B including A back (would be infinite recursion at parse time).
+# Instead, this tests a formula in B that would reference A's variable if it could.
+
+value_b:
+  value: null
+  formula: "=value_a + 1"

@@ -1,0 +1,9 @@
+# Real circular dependency test - File A depends on B
+
+includes:
+  - file: includes_circular_real_b.yaml
+    as: b
+
+value_a:
+  value: null
+  formula: "=@b.value_b + 1"

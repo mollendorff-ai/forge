@@ -1,0 +1,30 @@
+# Test mixing local and included variable references in same formula
+
+includes:
+  - file: includes_pricing.yaml
+    as: pricing
+  - file: includes_costs.yaml
+    as: costs
+
+# Local variables
+volume:
+  value: 100
+  formula: null
+
+local_overhead:
+  value: 0.10
+  formula: null
+
+# Formula mixing local and included references
+total_revenue:
+  value: null
+  formula: "=@pricing.base_price * volume * (1 - @pricing.discount_rate)"
+
+total_cost:
+  value: null
+  formula: "=(@costs.unit_cost * volume) + (@costs.shipping_cost * volume)"
+
+# Mix all three types: local, pricing include, costs include
+net_profit:
+  value: null
+  formula: "=(total_revenue - total_cost) * (1 - local_overhead)"

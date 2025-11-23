@@ -259,3 +259,255 @@ fn e2e_basic_test_file_validates() {
 
     assert!(output.status.success(), "test.yaml should be valid");
 }
+
+// ========== Cross-File Reference Tests ==========
+
+#[test]
+fn e2e_includes_main_validates() {
+    let file = test_data_path("includes_main.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("validate")
+        .arg(&file)
+        .output()
+        .expect("Failed to execute");
+
+    assert!(output.status.success(), "includes_main.yaml should be valid");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("All formulas are valid"));
+    assert!(stdout.contains("All values match their formulas"));
+}
+
+#[test]
+fn e2e_includes_complex_validates() {
+    let file = test_data_path("includes_complex.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("validate")
+        .arg(&file)
+        .output()
+        .expect("Failed to execute");
+
+    assert!(output.status.success(), "includes_complex.yaml should be valid");
+}
+
+#[test]
+fn e2e_includes_calculate_with_verbose() {
+    let file = test_data_path("includes_main.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&file)
+        .arg("--dry-run")
+        .arg("--verbose")
+        .output()
+        .expect("Failed to execute");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should show cross-file references in formulas
+    assert!(stdout.contains("@pricing.base_price"));
+    assert!(stdout.contains("@costs.unit_cost"));
+
+    // Should show calculation results
+    assert!(stdout.contains("final_price"));
+    assert!(stdout.contains("margin"));
+}
+
+#[test]
+fn e2e_includes_missing_file_fails_gracefully() {
+    let file = test_data_path("includes_missing_file.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    assert!(!output.status.success(), "Missing included file should fail");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+
+    assert!(
+        combined.contains("Failed to read included file") ||
+        combined.contains("this_file_does_not_exist.yaml") ||
+        combined.contains("No such file"),
+        "Should report missing file error, got: {}",
+        combined
+    );
+}
+
+#[test]
+fn e2e_includes_invalid_alias_fails() {
+    let file = test_data_path("includes_invalid_alias.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    assert!(!output.status.success(), "Invalid alias reference should fail");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+
+    // Should fail during evaluation (variable not found)
+    assert!(
+        combined.contains("Eval") ||
+        combined.contains("invalid_alias") ||
+        combined.contains("UNDEFINED_VARIABLE"),
+        "Should report invalid alias error, got: {}",
+        combined
+    );
+}
+
+#[test]
+fn e2e_includes_revenue_with_internal_formulas() {
+    let file = test_data_path("includes_revenue.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("validate")
+        .arg(&file)
+        .output()
+        .expect("Failed to execute");
+
+    // This file has formulas that reference variables within the same file
+    assert!(output.status.success(), "includes_revenue.yaml should be valid");
+}
+
+#[test]
+fn e2e_includes_calculate_updates_correctly() {
+    // Copy main file AND included files to temp location
+    let temp_dir = tempfile::tempdir().unwrap();
+
+    // Copy main file
+    let original_main = test_data_path("includes_main.yaml");
+    let temp_main = temp_dir.path().join("includes_main.yaml");
+    fs::copy(&original_main, &temp_main).unwrap();
+
+    // Copy included files
+    let pricing_orig = test_data_path("includes_pricing.yaml");
+    let pricing_temp = temp_dir.path().join("includes_pricing.yaml");
+    fs::copy(&pricing_orig, &pricing_temp).unwrap();
+
+    let costs_orig = test_data_path("includes_costs.yaml");
+    let costs_temp = temp_dir.path().join("includes_costs.yaml");
+    fs::copy(&costs_orig, &costs_temp).unwrap();
+
+    // Run calculate
+    let calculate = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&temp_main)
+        .output()
+        .unwrap();
+
+    assert!(calculate.status.success(), "Calculate should succeed");
+
+    let stdout = String::from_utf8_lossy(&calculate.stdout);
+    assert!(stdout.contains("File updated successfully"));
+
+    // Verify it's valid after calculation
+    let validate = Command::new(forge_binary())
+        .arg("validate")
+        .arg(&temp_main)
+        .output()
+        .unwrap();
+
+    assert!(validate.status.success(), "Should be valid after calculate");
+}
+
+#[test]
+fn e2e_includes_circular_dependency_detected() {
+    let file = test_data_path("includes_with_circular_dep.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    assert!(!output.status.success(), "Circular dependency should be detected");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
+
+    assert!(
+        combined.contains("Circular dependency"),
+        "Should detect circular dependency, got: {}",
+        combined
+    );
+}
+
+#[test]
+fn e2e_includes_mixed_local_and_included_refs() {
+    let file = test_data_path("includes_mixed_refs.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    assert!(output.status.success(), "Mixed refs should work");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should calculate correctly with mix of local and included vars
+    assert!(stdout.contains("total_revenue"));
+    assert!(stdout.contains("total_cost"));
+    assert!(stdout.contains("net_profit"));
+}
+
+#[test]
+fn e2e_includes_mixed_refs_validates_after_calculate() {
+    // Copy main file AND included files to temp location
+    let temp_dir = tempfile::tempdir().unwrap();
+
+    // Copy main file
+    let original_main = test_data_path("includes_mixed_refs.yaml");
+    let temp_main = temp_dir.path().join("includes_mixed_refs.yaml");
+    fs::copy(&original_main, &temp_main).unwrap();
+
+    // Copy included files
+    let pricing_orig = test_data_path("includes_pricing.yaml");
+    let pricing_temp = temp_dir.path().join("includes_pricing.yaml");
+    fs::copy(&pricing_orig, &pricing_temp).unwrap();
+
+    let costs_orig = test_data_path("includes_costs.yaml");
+    let costs_temp = temp_dir.path().join("includes_costs.yaml");
+    fs::copy(&costs_orig, &costs_temp).unwrap();
+
+    // Run calculate
+    let calculate = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&temp_main)
+        .output()
+        .unwrap();
+
+    assert!(calculate.status.success(), "Calculate should succeed");
+
+    // Verify values are correct by validation
+    let validate = Command::new(forge_binary())
+        .arg("validate")
+        .arg(&temp_main)
+        .output()
+        .unwrap();
+
+    assert!(validate.status.success(), "Should be valid after calculate");
+
+    let stdout = String::from_utf8_lossy(&validate.stdout);
+    assert!(stdout.contains("All formulas are valid"));
+    assert!(stdout.contains("All values match their formulas"));
+}

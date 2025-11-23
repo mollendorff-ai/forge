@@ -185,4 +185,83 @@ mod tests {
         assert_eq!(var.formula, Some("=1 - platform_take_rate".to_string()));
         assert_eq!(var.value, Some(0.90));
     }
+
+    #[test]
+    fn test_extract_includes() {
+        let yaml = r#"
+        includes:
+          - file: pricing.yaml
+            as: pricing
+          - file: costs.yaml
+            as: costs
+
+        revenue:
+          value: 100
+          formula: null
+        "#;
+
+        let parsed: Value = serde_yaml::from_str(yaml).unwrap();
+        let includes = extract_includes(&parsed).unwrap();
+
+        assert_eq!(includes.len(), 2);
+        assert_eq!(includes[0].file, "pricing.yaml");
+        assert_eq!(includes[0].r#as, "pricing");
+        assert_eq!(includes[1].file, "costs.yaml");
+        assert_eq!(includes[1].r#as, "costs");
+    }
+
+    #[test]
+    fn test_no_includes() {
+        let yaml = r#"
+        revenue:
+          value: 100
+          formula: null
+        "#;
+
+        let parsed: Value = serde_yaml::from_str(yaml).unwrap();
+        let includes = extract_includes(&parsed).unwrap();
+
+        assert_eq!(includes.len(), 0);
+    }
+
+    #[test]
+    fn test_variables_with_alias_prefix() {
+        let yaml = r#"
+        base_price:
+          value: 100
+          formula: null
+        "#;
+
+        let parsed: Value = serde_yaml::from_str(yaml).unwrap();
+        let mut variables = HashMap::new();
+        extract_variables(&parsed, String::new(), Some("pricing".to_string()), &mut variables).unwrap();
+
+        // Should have @pricing prefix
+        assert!(variables.contains_key("@pricing.base_price"));
+        let var = variables.get("@pricing.base_price").unwrap();
+        assert_eq!(var.value, Some(100.0));
+        assert_eq!(var.alias, Some("pricing".to_string()));
+    }
+
+    #[test]
+    fn test_includes_key_not_treated_as_variable() {
+        let yaml = r#"
+        includes:
+          - file: pricing.yaml
+            as: pricing
+
+        revenue:
+          value: 100
+          formula: null
+        "#;
+
+        let parsed: Value = serde_yaml::from_str(yaml).unwrap();
+        let mut variables = HashMap::new();
+        extract_variables(&parsed, String::new(), None, &mut variables).unwrap();
+
+        // Should not have 'includes' as a variable
+        assert!(!variables.contains_key("includes"));
+        // Should have revenue
+        assert!(variables.contains_key("revenue"));
+    }
 }

@@ -1,0 +1,14 @@
+# Test circular dependency in main file using included variables
+
+includes:
+  - file: includes_pricing.yaml
+    as: pricing
+
+# Create circular dependency
+value_x:
+  value: null
+  formula: "=value_y + @pricing.base_price"
+
+value_y:
+  value: null
+  formula: "=value_x + 10"

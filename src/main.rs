@@ -13,7 +13,14 @@ use error::ForgeResult;
 
 #[derive(Parser)]
 #[command(name = "mouvify-forge")]
-#[command(about = "YAML formula calculator - Forge your data from YAML blueprints", long_about = None)]
+#[command(about = "YAML formula calculator - Forge your data from YAML blueprints")]
+#[command(long_about = "YAML formula calculator with cross-file references.\n\n\
+    Embed Excel-style formulas in YAML files and automatically calculate values.\n\
+    Supports splitting models across multiple files with 'includes' for better organization.\n\n\
+    Examples:\n  \
+      mouvify-forge calculate model.yaml\n  \
+      mouvify-forge validate financials.yaml\n  \
+      mouvify-forge calculate --dry-run --verbose assumptions.yaml")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -23,8 +30,12 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Calculate all formulas in a YAML file
+    ///
+    /// Evaluates formulas in dependency order and updates values in the file.
+    /// Supports cross-file references via 'includes' section.
+    /// Use --dry-run to preview changes without modifying files.
     Calculate {
-        /// Path to YAML file
+        /// Path to YAML file (can include other files via 'includes' section)
         file: PathBuf,
 
         /// Preview changes without writing to file
@@ -46,8 +57,12 @@ enum Commands {
     },
 
     /// Validate formulas without calculating
+    ///
+    /// Checks that all formula values match their calculations.
+    /// Detects stale values that need recalculation.
+    /// Supports cross-file references via 'includes' section.
     Validate {
-        /// Path to YAML file
+        /// Path to YAML file (can include other files via 'includes' section)
         file: PathBuf,
     },
 }
