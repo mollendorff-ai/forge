@@ -10,6 +10,9 @@ pub enum ForgeError {
     #[error("YAML parsing error: {0}")]
     Yaml(#[from] serde_yaml::Error),
 
+    #[error("Parse error: {0}")]
+    Parse(String),
+
     #[error("Formula evaluation error: {0}")]
     Eval(String),
 

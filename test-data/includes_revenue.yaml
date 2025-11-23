@@ -1,0 +1,19 @@
+# Revenue calculations with internal formulas
+
+monthly_users:
+  value: 1000
+  formula: null
+
+arpu:
+  value: 10
+  formula: null
+
+# Internal formula (references within same file)
+mrr:
+  value: null
+  formula: "=monthly_users * arpu"
+
+# Another internal formula
+arr:
+  value: null
+  formula: "=mrr * 12"

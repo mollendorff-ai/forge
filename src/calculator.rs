@@ -1,6 +1,6 @@
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{EvalContext, Variable};
-use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::graph::DiGraph;
 use petgraph::algo::toposort;
 use std::collections::HashMap;
 
@@ -270,8 +270,8 @@ impl Calculator {
         let formula = formula.trim_start_matches('=');
         let mut deps = Vec::new();
 
-        // Extract all words (variable names)
-        for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
+        // Extract all words (variable names), including @ for cross-file refs
+        for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.' && c != '@') {
             if !word.is_empty() && !word.chars().next().unwrap().is_numeric() {
                 if let Some(var_name) = self.find_variable_name(word) {
                     if !deps.contains(&var_name) {
@@ -291,9 +291,9 @@ impl Calculator {
         // Replace variable names with values
         let mut expr = formula.to_string();
 
-        // Extract all potential variable names from the formula
+        // Extract all potential variable names from the formula, including @ for cross-file refs
         let words: Vec<&str> = formula
-            .split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.')
+            .split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.' && c != '@')
             .filter(|w| !w.is_empty() && !w.chars().next().unwrap().is_numeric())
             .collect();
 
@@ -324,6 +324,7 @@ mod tests {
                 path: "base".to_string(),
                 value: Some(100.0),
                 formula: None,
+                alias: None,
             },
         );
 
@@ -333,6 +334,7 @@ mod tests {
                 path: "result".to_string(),
                 value: None,
                 formula: Some("=base * 2".to_string()),
+                alias: None,
             },
         );
 

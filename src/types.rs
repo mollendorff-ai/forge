@@ -1,6 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Represents an included YAML file with an alias
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Include {
+    pub file: String,
+    pub r#as: String,
+}
+
 /// Represents a value with an optional formula
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FormulaValue {
@@ -14,6 +21,15 @@ pub struct Variable {
     pub path: String,
     pub value: Option<f64>,
     pub formula: Option<String>,
+    /// The alias of the file this variable came from (None for main file)
+    pub alias: Option<String>,
+}
+
+/// Parsed YAML data with includes
+#[derive(Debug)]
+pub struct ParsedYaml {
+    pub includes: Vec<Include>,
+    pub variables: HashMap<String, Variable>,
 }
 
 /// Context for formula evaluation

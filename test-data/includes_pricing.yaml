@@ -1,0 +1,13 @@
+# Pricing data to be included by other files
+
+base_price:
+  value: 100
+  formula: null
+
+discount_rate:
+  value: 0.15
+  formula: null
+
+premium_multiplier:
+  value: 1.5
+  formula: null

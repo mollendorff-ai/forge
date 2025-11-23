@@ -15,6 +15,7 @@ A Rust-based YAML formula calculator that transforms structured data files with 
 - ✅ **Formula evaluation** - Embed `formula: "=expression"` anywhere in YAML
 - ✅ **Dependency resolution** - Automatically calculates in the correct order
 - ✅ **Variable lookup** - Reference other YAML values by path (e.g., `platform_take_rate`)
+- ✅ **Cross-file references** - Include and reference other YAML files like Excel worksheets
 - ✅ **Audit trail** - See exactly how each value was calculated
 - ✅ **Type-safe** - Rust guarantees no crashes from malformed data
 - ✅ **Fast** - Compiled binary, instant evaluation
@@ -155,6 +156,51 @@ payback_months:
   formula: "=cac / (revenue.monthly * gross_margin)"
 ```
 
+## Cross-File References
+
+Split your models across multiple YAML files and reference them like Excel worksheets:
+
+### Include files with aliases:
+```yaml
+# main.yaml
+includes:
+  - file: pricing.yaml
+    as: pricing
+  - file: costs.yaml
+    as: costs
+
+# Reference variables from included files with @alias.variable
+revenue:
+  value: null
+  formula: "=@pricing.base_price * volume"
+
+margin:
+  value: null
+  formula: "=revenue - @costs.total_cost"
+```
+
+### Included files can have formulas too:
+```yaml
+# pricing.yaml
+base_price:
+  value: 100
+  formula: null
+
+discount:
+  value: 0.15
+  formula: null
+
+final_price:
+  value: null
+  formula: "=base_price * (1 - discount)"
+```
+
+### Benefits:
+- **Modular models** - Separate assumptions, revenue, costs into different files
+- **Reusable components** - Include the same pricing model in multiple scenarios
+- **Token-efficient** - Share compact YAML files instead of Excel screenshots when working with AI
+- **No collisions** - Each included file has its own namespace via the `as` alias
+
 ## Use Cases
 
 ### 1. Financial Models
@@ -233,6 +279,7 @@ Tested with:
 - [x] Verbose output with colored results
 - [x] Dry-run mode for safe testing
 - [x] Circular dependency detection
+- [x] Cross-file references with includes
 - [ ] Audit trail generation (coming soon)
 - [ ] Formula debugging mode
 - [ ] Integration tests with real-world YAML

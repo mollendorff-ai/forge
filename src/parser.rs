@@ -1,75 +1,156 @@
 use crate::error::{ForgeError, ForgeResult};
-use crate::types::Variable;
+use crate::types::{Include, ParsedYaml, Variable};
 use serde_yaml::Value;
 use std::collections::HashMap;
+use std::path::Path;
 
-/// Parse YAML and extract all variables with formulas
-pub fn parse_yaml_file(path: &std::path::Path) -> ForgeResult<HashMap<String, Variable>> {
+/// Parse YAML and extract all variables with formulas (with includes support)
+pub fn parse_yaml_file(path: &Path) -> ForgeResult<HashMap<String, Variable>> {
+    let parsed = parse_yaml_with_includes(path)?;
+    Ok(parsed.variables)
+}
+
+/// Parse YAML file with includes and return complete parsed data
+pub fn parse_yaml_with_includes(path: &Path) -> ForgeResult<ParsedYaml> {
     let content = std::fs::read_to_string(path)?;
     let yaml: Value = serde_yaml::from_str(&content)?;
 
-    let mut variables = HashMap::new();
-    extract_variables(&yaml, String::new(), &mut variables)?;
+    // Extract includes from the YAML
+    let includes = extract_includes(&yaml)?;
 
-    Ok(variables)
+    // Parse main file variables
+    let mut all_variables = HashMap::new();
+    extract_variables(&yaml, String::new(), None, &mut all_variables)?;
+
+    // Parse variables from each included file
+    let base_dir = path.parent().unwrap_or_else(|| Path::new("."));
+    for include in &includes {
+        let include_path = base_dir.join(&include.file);
+        let include_content = std::fs::read_to_string(&include_path)
+            .map_err(|e| ForgeError::Parse(format!(
+                "Failed to read included file '{}': {}",
+                include.file,
+                e
+            )))?;
+        let include_yaml: Value = serde_yaml::from_str(&include_content)
+            .map_err(|e| ForgeError::Parse(format!(
+                "Failed to parse included file '{}': {}",
+                include.file,
+                e
+            )))?;
+
+        // Extract variables with the alias
+        extract_variables(&include_yaml, String::new(), Some(include.r#as.clone()), &mut all_variables)?;
+    }
+
+    Ok(ParsedYaml {
+        includes,
+        variables: all_variables,
+    })
+}
+
+/// Extract includes from YAML
+fn extract_includes(value: &Value) -> ForgeResult<Vec<Include>> {
+    if let Value::Mapping(map) = value {
+        if let Some(includes_val) = map.get("includes") {
+            if let Value::Sequence(seq) = includes_val {
+                let mut includes = Vec::new();
+                for item in seq {
+                    let include: Include = serde_yaml::from_value(item.clone())
+                        .map_err(|e| ForgeError::Parse(format!("Invalid include format: {}", e)))?;
+                    includes.push(include);
+                }
+                return Ok(includes);
+            }
+        }
+    }
+    Ok(Vec::new())
 }
 
 /// Recursively extract variables from YAML structure
 fn extract_variables(
     value: &Value,
     path: String,
+    alias: Option<String>,
     variables: &mut HashMap<String, Variable>,
 ) -> ForgeResult<()> {
     match value {
         Value::Mapping(map) => {
+            // Skip the "includes" key - don't process it as a variable
+            if path == "includes" {
+                return Ok(());
+            }
+
             // Check if this is a variable (has "value" key)
             if let Some(val) = map.get("value") {
                 let formula = map.get("formula");
+
+                // Build the full variable key with alias prefix if present
+                let var_key = if let Some(ref a) = alias {
+                    format!("@{}.{}", a, path)
+                } else {
+                    path.clone()
+                };
+
                 let var = Variable {
                     path: path.clone(),
                     value: val.as_f64(),
                     formula: formula.and_then(|f| f.as_str().map(|s| s.to_string())),
+                    alias: alias.clone(),
                 };
 
                 // Include variables with formulas OR base variables with values
                 if let Some(f) = &var.formula {
                     if f.starts_with('=') {
-                        variables.insert(path.clone(), var);
+                        variables.insert(var_key, var);
                     }
                 } else if var.value.is_some() {
                     // Base variable (no formula, but has a value)
-                    variables.insert(path.clone(), var);
+                    variables.insert(var_key, var);
                 }
             }
 
             // Recursively process all map entries
             for (key, val) in map {
                 if let Some(key_str) = key.as_str() {
+                    // Skip "includes" key
+                    if path.is_empty() && key_str == "includes" {
+                        continue;
+                    }
+
                     let new_path = if path.is_empty() {
                         key_str.to_string()
                     } else {
                         format!("{}.{}", path, key_str)
                     };
-                    extract_variables(val, new_path, variables)?;
+                    extract_variables(val, new_path, alias.clone(), variables)?;
                 }
             }
         }
         Value::Sequence(seq) => {
             for (i, val) in seq.iter().enumerate() {
                 let new_path = format!("{}[{}]", path, i);
-                extract_variables(val, new_path, variables)?;
+                extract_variables(val, new_path, alias.clone(), variables)?;
             }
         }
         Value::Number(num) => {
             // Handle plain scalar numbers (e.g., louis_annual: 75000)
             if !path.is_empty() {
                 if let Some(f64_val) = num.as_f64() {
+                    // Build the full variable key with alias prefix if present
+                    let var_key = if let Some(ref a) = alias {
+                        format!("@{}.{}", a, path)
+                    } else {
+                        path.clone()
+                    };
+
                     let var = Variable {
                         path: path.clone(),
                         value: Some(f64_val),
                         formula: None,
+                        alias: alias.clone(),
                     };
-                    variables.insert(path, var);
+                    variables.insert(var_key, var);
                 }
             }
         }
@@ -93,7 +174,7 @@ mod tests {
 
         let parsed: Value = serde_yaml::from_str(yaml).unwrap();
         let mut variables = HashMap::new();
-        extract_variables(&parsed, String::new(), &mut variables).unwrap();
+        extract_variables(&parsed, String::new(), None, &mut variables).unwrap();
 
         // Parser extracts both gross_margin and gross_margin.value
         assert_eq!(variables.len(), 2);
