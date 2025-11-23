@@ -22,16 +22,28 @@ A Rust-based YAML formula calculator that transforms structured data files with 
 
 ## Installation
 
+### Standard installation:
+
 ```bash
 cargo install --path .
 ```
 
-Or build from source:
+### Optimized static build (440KB binary):
+
+For a maximally optimized, portable binary:
+
 ```bash
-git clone https://github.com/lctavares/mouvify-forge
+git clone https://github.com/royalbit/mouvify-forge
 cd mouvify-forge
-cargo build --release
+
+# Build statically-linked binary with musl
+cargo build --release --target x86_64-unknown-linux-musl
+
+# Compress with UPX (optional, reduces 1.2MB → 440KB)
+upx --best --lzma target/x86_64-unknown-linux-musl/release/mouvify-forge
 ```
+
+Result: 440KB executable with zero dependencies
 
 ## Quick Start
 
