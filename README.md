@@ -44,7 +44,7 @@ This tool was **built by AI, for AI-assisted workflows**. We practice what we pr
 
 ## Installation
 
-### From crates.io (coming soon):
+### From crates.io:
 
 ```bash
 cargo install mouvify-forge
