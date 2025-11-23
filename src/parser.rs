@@ -95,7 +95,13 @@ mod tests {
         let mut variables = HashMap::new();
         extract_variables(&parsed, String::new(), &mut variables).unwrap();
 
-        assert_eq!(variables.len(), 1);
+        // Parser extracts both gross_margin and gross_margin.value
+        assert_eq!(variables.len(), 2);
         assert!(variables.contains_key("gross_margin"));
+
+        // Verify the formula is extracted
+        let var = variables.get("gross_margin").unwrap();
+        assert_eq!(var.formula, Some("=1 - platform_take_rate".to_string()));
+        assert_eq!(var.value, Some(0.90));
     }
 }

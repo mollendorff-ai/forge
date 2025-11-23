@@ -1,7 +1,7 @@
 # Mouvify Forge - YAML Formula Calculator
 # Build and test targets for optimized binary
 
-.PHONY: help build build-static build-compressed test test-validate test-calculate test-all clean clean-test
+.PHONY: help build build-static build-compressed test test-unit test-integration test-validate test-calculate test-all clean clean-test
 
 # Detect if upx is available
 HAS_UPX := $(shell command -v upx 2> /dev/null)
@@ -15,9 +15,12 @@ help:
 	@echo "  make build-compressed   - Static + UPX compressed (440KB)"
 	@echo ""
 	@echo "Test Targets:"
+	@echo "  make test               - Run all cargo tests (unit + integration)"
+	@echo "  make test-unit          - Run unit tests only"
+	@echo "  make test-integration   - Run integration tests only"
 	@echo "  make test-validate      - Validate all test-data files"
 	@echo "  make test-calculate     - Calculate all test-data files (dry-run)"
-	@echo "  make test               - Run both validation and calculation tests"
+	@echo "  make test-all           - Run cargo tests + validate + calculate"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make clean              - Remove build artifacts"
@@ -83,7 +86,19 @@ test-calculate:
 	done
 	@echo "✅ All test calculations completed successfully!"
 
-test: test-validate test-calculate
+test:
+	@echo "🧪 Running all cargo tests..."
+	@cargo test
+
+test-unit:
+	@echo "🧪 Running unit tests..."
+	@cargo test --lib
+
+test-integration:
+	@echo "🧪 Running integration tests..."
+	@cargo test --test validation_tests
+
+test-all: test test-validate test-calculate
 	@echo ""
 	@echo "🎉 All tests passed!"
 
