@@ -39,12 +39,11 @@ fn e2e_malformed_yaml_fails_gracefully() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
 
     assert!(
         combined.contains("Yaml") || combined.contains("EOF") || combined.contains("scanning"),
-        "Should report YAML parsing error, got: {}",
-        combined
+        "Should report YAML parsing error, got: {combined}"
     );
 }
 
@@ -63,12 +62,11 @@ fn e2e_invalid_formula_variable_not_found() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
 
     assert!(
         combined.contains("Eval") || combined.contains("unknown variable") || combined.contains("UNDEFINED_VARIABLE"),
-        "Should report variable not found error, got: {}",
-        combined
+        "Should report variable not found error, got: {combined}"
     );
 }
 
@@ -332,14 +330,13 @@ fn e2e_includes_missing_file_fails_gracefully() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
 
     assert!(
         combined.contains("Failed to read included file") ||
         combined.contains("this_file_does_not_exist.yaml") ||
         combined.contains("No such file"),
-        "Should report missing file error, got: {}",
-        combined
+        "Should report missing file error, got: {combined}"
     );
 }
 
@@ -358,15 +355,14 @@ fn e2e_includes_invalid_alias_fails() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
 
     // Should fail during evaluation (variable not found)
     assert!(
         combined.contains("Eval") ||
         combined.contains("invalid_alias") ||
         combined.contains("UNDEFINED_VARIABLE"),
-        "Should report invalid alias error, got: {}",
-        combined
+        "Should report invalid alias error, got: {combined}"
     );
 }
 
@@ -440,12 +436,11 @@ fn e2e_includes_circular_dependency_detected() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
 
     assert!(
         combined.contains("Circular dependency"),
-        "Should detect circular dependency, got: {}",
-        combined
+        "Should detect circular dependency, got: {combined}"
     );
 }
 
@@ -578,13 +573,12 @@ fn e2e_calculate_with_malformed_included_file() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
 
     assert!(
         combined.contains("Failed to parse included file") ||
         combined.contains("includes_malformed_syntax.yaml"),
-        "Should report malformed included file error, got: {}",
-        combined
+        "Should report malformed included file error, got: {combined}"
     );
 }
 
@@ -603,14 +597,13 @@ fn e2e_calculate_with_invalid_formula_in_included_file() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let combined = format!("{}{}", stdout, stderr);
+    let combined = format!("{stdout}{stderr}");
 
     assert!(
         combined.contains("Eval") ||
         combined.contains("UNDEFINED_VARIABLE") ||
         combined.contains("unknown variable"),
-        "Should report invalid formula error, got: {}",
-        combined
+        "Should report invalid formula error, got: {combined}"
     );
 }
 

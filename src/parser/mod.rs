@@ -4,12 +4,6 @@ use serde_yaml::Value;
 use std::collections::HashMap;
 use std::path::Path;
 
-/// Parse YAML and extract all variables with formulas (with includes support)
-pub fn parse_yaml_file(path: &Path) -> ForgeResult<HashMap<String, Variable>> {
-    let parsed = parse_yaml_with_includes(path)?;
-    Ok(parsed.variables)
-}
-
 /// Parse YAML file with includes and return complete parsed data
 pub fn parse_yaml_with_includes(path: &Path) -> ForgeResult<ParsedYaml> {
     let content = std::fs::read_to_string(path)?;
@@ -57,7 +51,7 @@ fn extract_includes(value: &Value) -> ForgeResult<Vec<Include>> {
                 let mut includes = Vec::new();
                 for item in seq {
                     let include: Include = serde_yaml::from_value(item.clone())
-                        .map_err(|e| ForgeError::Parse(format!("Invalid include format: {}", e)))?;
+                        .map_err(|e| ForgeError::Parse(format!("Invalid include format: {e}")))?;
                     includes.push(include);
                 }
                 return Ok(includes);
@@ -87,7 +81,7 @@ fn extract_variables(
 
                 // Build the full variable key with alias prefix if present
                 let var_key = if let Some(ref a) = alias {
-                    format!("@{}.{}", a, path)
+                    format!("@{a}.{path}")
                 } else {
                     path.clone()
                 };
@@ -95,7 +89,7 @@ fn extract_variables(
                 let var = Variable {
                     path: path.clone(),
                     value: val.as_f64(),
-                    formula: formula.and_then(|f| f.as_str().map(|s| s.to_string())),
+                    formula: formula.and_then(|f| f.as_str().map(std::string::ToString::to_string)),
                     alias: alias.clone(),
                 };
 
@@ -121,7 +115,7 @@ fn extract_variables(
                     let new_path = if path.is_empty() {
                         key_str.to_string()
                     } else {
-                        format!("{}.{}", path, key_str)
+                        format!("{path}.{key_str}")
                     };
                     extract_variables(val, new_path, alias.clone(), variables)?;
                 }
@@ -129,7 +123,7 @@ fn extract_variables(
         }
         Value::Sequence(seq) => {
             for (i, val) in seq.iter().enumerate() {
-                let new_path = format!("{}[{}]", path, i);
+                let new_path = format!("{path}[{i}]");
                 extract_variables(val, new_path, alias.clone(), variables)?;
             }
         }
@@ -139,16 +133,16 @@ fn extract_variables(
                 if let Some(f64_val) = num.as_f64() {
                     // Build the full variable key with alias prefix if present
                     let var_key = if let Some(ref a) = alias {
-                        format!("@{}.{}", a, path)
+                        format!("@{a}.{path}")
                     } else {
                         path.clone()
                     };
 
                     let var = Variable {
-                        path: path.clone(),
+                        path,
                         value: Some(f64_val),
                         formula: None,
-                        alias: alias.clone(),
+                        alias,
                     };
                     variables.insert(var_key, var);
                 }
@@ -188,7 +182,7 @@ mod tests {
 
     #[test]
     fn test_extract_includes() {
-        let yaml = r#"
+        let yaml = r"
         includes:
           - file: pricing.yaml
             as: pricing
@@ -198,7 +192,7 @@ mod tests {
         revenue:
           value: 100
           formula: null
-        "#;
+        ";
 
         let parsed: Value = serde_yaml::from_str(yaml).unwrap();
         let includes = extract_includes(&parsed).unwrap();
@@ -212,11 +206,11 @@ mod tests {
 
     #[test]
     fn test_no_includes() {
-        let yaml = r#"
+        let yaml = r"
         revenue:
           value: 100
           formula: null
-        "#;
+        ";
 
         let parsed: Value = serde_yaml::from_str(yaml).unwrap();
         let includes = extract_includes(&parsed).unwrap();
@@ -226,11 +220,11 @@ mod tests {
 
     #[test]
     fn test_variables_with_alias_prefix() {
-        let yaml = r#"
+        let yaml = r"
         base_price:
           value: 100
           formula: null
-        "#;
+        ";
 
         let parsed: Value = serde_yaml::from_str(yaml).unwrap();
         let mut variables = HashMap::new();
@@ -245,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_includes_key_not_treated_as_variable() {
-        let yaml = r#"
+        let yaml = r"
         includes:
           - file: pricing.yaml
             as: pricing
@@ -253,7 +247,7 @@ mod tests {
         revenue:
           value: 100
           formula: null
-        "#;
+        ";
 
         let parsed: Value = serde_yaml::from_str(yaml).unwrap();
         let mut variables = HashMap::new();

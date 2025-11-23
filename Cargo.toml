@@ -2,9 +2,19 @@
 name = "mouvify-forge"
 version = "0.1.0"
 edition = "2021"
-authors = ["Louis Tavares <louis@royalbit.ca>"]
-description = "YAML formula calculator and evaluator - Transform YAML files with embedded formulas"
+authors = ["Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
+description = "YAML formula calculator with Excel-style cross-file references - Built for AI-assisted financial modeling"
 repository = "https://github.com/royalbit/mouvify-forge"
+homepage = "https://github.com/royalbit/mouvify-forge"
+documentation = "https://github.com/royalbit/mouvify-forge#readme"
+license = "MIT"
+keywords = ["yaml", "formula", "calculator", "excel", "financial"]
+categories = ["command-line-utilities", "parsing", "development-tools"]
+readme = "README.md"
+exclude = [
+    "test-data/*",
+    ".git*",
+]
 
 [dependencies]
 # YAML parsing

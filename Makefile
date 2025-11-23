@@ -1,7 +1,7 @@
 # Mouvify Forge - YAML Formula Calculator
 # Build and test targets for optimized binary
 
-.PHONY: help build build-static build-compressed test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage clean clean-test
+.PHONY: help build build-static build-compressed install install-user install-system uninstall lint lint-fix test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage clean clean-test pre-build post-build
 
 # Detect if upx is available
 HAS_UPX := $(shell command -v upx 2> /dev/null)
@@ -10,9 +10,19 @@ help:
 	@echo "Mouvify Forge - Available Commands"
 	@echo ""
 	@echo "Build Targets:"
-	@echo "  make build              - Standard release build"
+	@echo "  make build              - Standard release build (with pre/post checks)"
 	@echo "  make build-static       - Static release build (musl, 1.2MB)"
 	@echo "  make build-compressed   - Static + UPX compressed (440KB)"
+	@echo ""
+	@echo "Install Targets:"
+	@echo "  make install            - Install to /usr/local/bin (system-wide, requires sudo)"
+	@echo "  make install-user       - Install to ~/.local/bin (user-only, no sudo)"
+	@echo "  make install-system     - Same as install (system-wide)"
+	@echo "  make uninstall          - Uninstall from both locations"
+	@echo ""
+	@echo "Lint Targets:"
+	@echo "  make lint               - Run pedantic clippy checks"
+	@echo "  make lint-fix           - Auto-fix clippy warnings"
 	@echo ""
 	@echo "Test Targets:"
 	@echo "  make test               - Run all cargo tests (unit + integration + E2E)"
@@ -21,18 +31,42 @@ help:
 	@echo "  make test-e2e           - Run E2E tests with actual YAML files"
 	@echo "  make test-validate      - Validate all test-data files"
 	@echo "  make test-calculate     - Calculate all test-data files (dry-run)"
-	@echo "  make test-all           - Run ALL tests (19 total)"
+	@echo "  make test-all           - Run ALL tests (40 total)"
 	@echo "  make test-coverage      - Show test coverage summary"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make clean              - Remove build artifacts"
 	@echo "  make clean-test         - Restore test-data to original state"
 
-build:
+pre-build:
+	@echo "🔍 Running pre-build checks..."
+	@echo ""
+	@echo "1️⃣  Running lint (pedantic clippy)..."
+	@$(MAKE) -s lint
+	@echo ""
+	@echo "2️⃣  Running unit tests..."
+	@cargo test --lib --quiet
+	@echo "✅ Unit tests passed!"
+	@echo ""
+	@echo "✅ Pre-build checks complete!"
+	@echo ""
+
+post-build:
+	@echo ""
+	@echo "🧪 Running post-build checks..."
+	@echo ""
+	@echo "1️⃣  Running E2E tests..."
+	@cargo test --quiet
+	@echo "✅ All tests passed!"
+	@echo ""
+	@echo "✅ Post-build checks complete!"
+
+build: pre-build
 	@echo "🔨 Building release binary..."
 	@cargo build --release
 	@echo "✅ Binary: target/release/mouvify-forge"
 	@ls -lh target/release/mouvify-forge
+	@$(MAKE) -s post-build
 
 build-static:
 	@echo "🔨 Building static release binary (musl)..."
@@ -65,6 +99,50 @@ else
 	@echo "📦 Static binary built (not compressed):"
 	@ls -lh target/x86_64-unknown-linux-musl/release/mouvify-forge
 endif
+
+install-system: build
+	@echo "📦 Installing mouvify-forge to /usr/local/bin (system-wide)..."
+	@sudo install -m 755 target/release/mouvify-forge /usr/local/bin/mouvify-forge
+	@echo "✅ Installed to /usr/local/bin/mouvify-forge"
+	@echo "🔍 Verify with: mouvify-forge --version"
+
+install-user: build
+	@echo "📦 Installing mouvify-forge to ~/.local/bin (user-only)..."
+	@mkdir -p ~/.local/bin
+	@install -m 755 target/release/mouvify-forge ~/.local/bin/mouvify-forge
+	@echo "✅ Installed to ~/.local/bin/mouvify-forge"
+	@echo "💡 Make sure ~/.local/bin is in your PATH"
+	@echo "🔍 Verify with: mouvify-forge --version"
+
+install: install-system
+
+uninstall:
+	@echo "🗑️  Uninstalling mouvify-forge..."
+	@sudo rm -f /usr/local/bin/mouvify-forge 2>/dev/null || true
+	@rm -f ~/.local/bin/mouvify-forge 2>/dev/null || true
+	@echo "✅ Uninstalled from both /usr/local/bin and ~/.local/bin"
+
+lint:
+	@echo "🔍 Running pedantic clippy checks..."
+	@cargo clippy --all-targets --all-features -- \
+		-W clippy::pedantic \
+		-W clippy::nursery \
+		-W clippy::cargo \
+		-A clippy::missing_errors_doc \
+		-A clippy::missing_panics_doc \
+		-A clippy::module_name_repetitions
+	@echo "✅ Clippy checks passed!"
+
+lint-fix:
+	@echo "🔧 Running clippy with auto-fix..."
+	@cargo clippy --fix --allow-dirty --allow-staged --all-targets --all-features -- \
+		-W clippy::pedantic \
+		-W clippy::nursery \
+		-W clippy::cargo \
+		-A clippy::missing_errors_doc \
+		-A clippy::missing_panics_doc \
+		-A clippy::module_name_repetitions
+	@echo "✅ Auto-fix complete!"
 
 test-validate:
 	@echo "🔍 Validating all test-data files..."

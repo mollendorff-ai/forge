@@ -10,6 +10,27 @@ A Rust-based YAML formula calculator that transforms structured data files with 
 
 **Solution:** Embed formulas directly in your YAML. `mouvify-forge` evaluates them automatically, resolving dependencies and updating calculated values.
 
+### Why YAML + Formulas for AI Workflows?
+
+**The Token Efficiency Problem:**
+When collaborating with AI assistants on financial models or complex calculations, sharing Excel files means:
+- Sending screenshots (high token cost, no editability)
+- Copying cell values manually (error-prone, loses formulas)
+- Re-explaining the model structure every conversation
+
+**The mouvify-forge Solution:**
+YAML with embedded formulas is **token-efficient** and **AI-friendly**:
+- **Compact format:** A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screenshots)
+- **Preserves formulas:** AI can see and reason about calculations directly
+- **Version controllable:** Git-friendly plain text, not binary .xlsx
+- **Human readable:** Both you and AI can read/modify without special tools
+- **Self-documenting:** The structure IS the documentation
+
+**Real-world benefit:**
+Instead of wasting 2000 tokens showing Claude a screenshot of your revenue model, you share a 50-line YAML file. The AI instantly understands your assumptions, formulas, and dependencies. You save tokens for actual analysis instead of data transfer.
+
+This tool was **built by AI, for AI-assisted workflows**. We practice what we preach.
+
 ## Features
 
 - ✅ **Formula evaluation** - Embed `formula: "=expression"` anywhere in YAML
@@ -23,7 +44,29 @@ A Rust-based YAML formula calculator that transforms structured data files with 
 
 ## Installation
 
-### Standard installation:
+### From crates.io (coming soon):
+
+```bash
+cargo install mouvify-forge
+```
+
+### From source with Makefile:
+
+```bash
+git clone https://github.com/royalbit/mouvify-forge
+cd mouvify-forge
+
+# Install system-wide (default, requires sudo)
+make install
+
+# OR install for current user only (no sudo needed)
+make install-user
+
+# Uninstall from both locations
+make uninstall
+```
+
+### Manual installation:
 
 ```bash
 cargo install --path .
@@ -38,10 +81,10 @@ git clone https://github.com/royalbit/mouvify-forge
 cd mouvify-forge
 
 # Build statically-linked binary with musl
-cargo build --release --target x86_64-unknown-linux-musl
+make build-static
 
 # Compress with UPX (optional, reduces 1.2MB → 440KB)
-upx --best --lzma target/x86_64-unknown-linux-musl/release/mouvify-forge
+make build-compressed
 ```
 
 Result: 440KB executable with zero dependencies
@@ -244,6 +287,8 @@ analytics:
 
 ## Architecture
 
+### Data Flow
+
 ```
 Input YAML
     ↓
@@ -259,6 +304,34 @@ Update Values
     ↓
 Write Output YAML
 ```
+
+### Code Structure
+
+The project is organized into clean, modular Rust modules:
+
+```
+src/
+├── lib.rs              # Public library API
+├── main.rs             # CLI entry point
+├── cli/                # Command-line interface
+│   ├── mod.rs
+│   └── commands.rs     # Command handlers (calculate, validate, audit)
+├── core/               # Core calculation engine
+│   ├── mod.rs
+│   └── calculator.rs   # Formula evaluation & dependency resolution
+├── parser/             # YAML parsing with includes
+│   └── mod.rs          # Variable extraction & cross-file refs
+├── writer/             # YAML output generation
+│   └── mod.rs          # Single-file & multi-file updates
+├── error.rs            # Error types & result handling
+└── types.rs            # Core data structures (Variable, ParsedYaml)
+```
+
+**Why this structure?**
+- **Modularity:** Easy to add new commands or formula features
+- **Testability:** Each module can be tested independently
+- **Library-ready:** `lib.rs` exposes a clean API for embedding mouvify-forge in other tools
+- **Maintainability:** Clear separation of concerns (parsing ≠ calculation ≠ output)
 
 ## Status
 
@@ -289,47 +362,90 @@ Tested with:
 
 ## Development
 
-The project includes a Makefile with common build and test targets:
+The project includes a comprehensive Makefile with build, test, lint, and install targets:
 
 ### Quick start:
 ```bash
 make help                 # Show all available commands
+make build                # Build with pre/post checks (lint + tests)
 make build-compressed     # Build optimized 440KB binary
-make test                 # Validate and test all examples
+make test-all             # Run all tests (40 total)
 ```
 
 ### Build targets:
 ```bash
-make build                # Standard release build
+make build                # Standard release build (with pre/post checks)
 make build-static         # Static musl build (1.2MB)
 make build-compressed     # Static + UPX compression (440KB)
+make pre-build            # Run lint + unit tests (before build)
+make post-build           # Run E2E tests (after build)
+```
+
+### Install targets:
+```bash
+make install              # Install to /usr/local/bin (system-wide, default)
+make install-user         # Install to ~/.local/bin (user-only, no sudo)
+make install-system       # Same as install (system-wide)
+make uninstall            # Uninstall from both locations
+```
+
+### Lint targets (pedantic clippy):
+```bash
+make lint                 # Run pedantic clippy checks
+make lint-fix             # Auto-fix clippy warnings
 ```
 
 ### Test targets:
 ```bash
-make test-validate        # Validate all test-data/*.yaml files
+make test                 # Run all cargo tests (40 tests)
+make test-unit            # Run unit tests only
+make test-integration     # Run integration tests only
+make test-e2e             # Run E2E tests with actual YAML files
+make test-validate        # Validate all test-data files
 make test-calculate       # Dry-run calculations on test files
-make test                 # Run both validation and calculation tests
+make test-all             # Run ALL tests (40 total)
+make test-coverage        # Show test coverage summary
 ```
+
+### Test Coverage
+
+40 tests covering:
+- **Unit tests (9):** Core parsing, calculation, and writing logic
+- **E2E tests (25):** Full workflows with real YAML files
+- **Validation tests (5):** Data integrity and stale value detection
+- **Library test (1):** Public API validation
 
 The `test-data/` directory contains example YAML files demonstrating various formula patterns:
 - `test.yaml` - Basic calculations
 - `test_financial.yaml` - Financial metrics (CAC, LTV, unit economics)
 - `test_platform.yaml` - Platform economics
 - `test_underscore.yaml` - Variable name resolution examples
+- `includes_*.yaml` - Cross-file reference examples
 
 ### Cargo commands:
 ```bash
-cargo test                # Run unit tests
+cargo test                # Run all 40 tests
 cargo build --release     # Build release binary
 RUST_LOG=debug cargo run -- calculate file.yaml  # Debug logging
+cargo clippy              # Run linter
 ```
 
 ## License
 
-Proprietary - Copyright © 2025 RoyalBit Inc. All rights reserved.
+MIT License - Copyright © 2025 RoyalBit Inc.
 
-Built for Mouvify. Not licensed for external use.
+Yes, it's MIT. Yes, you can use it. Yes, even commercially.
+
+**But here's the twist:**
+If this tool saves you hours of Excel hell, consider:
+1. ⭐ Starring the repo (helps others find it)
+2. 🐛 Filing issues when you find bugs (makes it better for everyone)
+3. 🎁 Contributing code (because open source runs on coffee and pull requests)
+
+**The actual legal part:**
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software... (you know the drill, see [LICENSE](LICENSE) for the boring but important legal text).
+
+**TL;DR:** Do whatever you want with it. We're not the license police. But if you save a million dollars with this tool, buying us a coffee would be cool. ☕
 
 ## Why "Forge"?
 

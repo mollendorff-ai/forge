@@ -11,6 +11,7 @@ pub struct Calculator {
 }
 
 impl Calculator {
+    #[must_use] 
     pub fn new(variables: HashMap<String, Variable>) -> Self {
         Self {
             variables,
@@ -49,7 +50,7 @@ impl Calculator {
 
         // Extract last component (after last underscore or dot)
         let last_component = search_name
-            .rsplit(|c| c == '_' || c == '.')
+            .rsplit(['_', '.'])
             .next()
             .unwrap_or(search_name);
 
@@ -58,15 +59,15 @@ impl Calculator {
 
         for var_name in self.variables.keys() {
             // Match full name as suffix (highest priority)
-            if var_name.ends_with(&format!(".{}", search_name))
-                || var_name.ends_with(&format!(".{}", search_as_path)) {
+            if var_name.ends_with(&format!(".{search_name}"))
+                || var_name.ends_with(&format!(".{search_as_path}")) {
                 candidates.push(var_name.clone());
             }
         }
 
         // If we found matches with full search name, use the shortest
         if !candidates.is_empty() {
-            candidates.sort_by_key(|a| a.len());
+            candidates.sort_by_key(std::string::String::len);
             return Some(candidates[0].clone());
         }
 
@@ -85,7 +86,7 @@ impl Calculator {
                         // Check if first component CONTAINS the search first part (platform in platform_economics)
                         // AND last component matches or ends with the search last part (rate matches take_rate)
                         if var_parts[0].contains(first)
-                            && (var_last == last || var_last.ends_with(&format!("_{}", last))) {
+                            && (var_last == last || var_last.ends_with(&format!("_{last}"))) {
                             candidates.push(var_name.clone());
                         }
                     }
@@ -94,19 +95,19 @@ impl Calculator {
         }
 
         if !candidates.is_empty() {
-            candidates.sort_by_key(|a| a.len());
+            candidates.sort_by_key(std::string::String::len);
             return Some(candidates[0].clone());
         }
 
         // Fall back to matching just last component only if nothing else matched
         for var_name in self.variables.keys() {
-            if var_name.ends_with(&format!(".{}", last_component)) {
+            if var_name.ends_with(&format!(".{last_component}")) {
                 candidates.push(var_name.clone());
             }
         }
 
         if !candidates.is_empty() {
-            candidates.sort_by_key(|a| a.len());
+            candidates.sort_by_key(std::string::String::len);
             return Some(candidates[0].clone());
         }
 
@@ -141,7 +142,7 @@ impl Calculator {
 
         // Extract last component (after last underscore or dot)
         let last_component = search_name
-            .rsplit(|c| c == '_' || c == '.')
+            .rsplit(['_', '.'])
             .next()
             .unwrap_or(search_name);
 
@@ -150,8 +151,8 @@ impl Calculator {
 
         for (var_name, &value) in &self.context.variables {
             // Match full name as suffix (highest priority)
-            if var_name.ends_with(&format!(".{}", search_name))
-                || var_name.ends_with(&format!(".{}", search_as_path)) {
+            if var_name.ends_with(&format!(".{search_name}"))
+                || var_name.ends_with(&format!(".{search_as_path}")) {
                 candidates.push((var_name.clone(), value));
             }
         }
@@ -177,7 +178,7 @@ impl Calculator {
                         // Check if first component CONTAINS the search first part (platform in platform_economics)
                         // AND last component matches or ends with the search last part (rate matches take_rate)
                         if var_parts[0].contains(first)
-                            && (var_last == last || var_last.ends_with(&format!("_{}", last))) {
+                            && (var_last == last || var_last.ends_with(&format!("_{last}"))) {
                             candidates.push((var_name.clone(), value));
                         }
                     }
@@ -192,7 +193,7 @@ impl Calculator {
 
         // Fall back to matching just last component only if nothing else matched
         for (var_name, &value) in &self.context.variables {
-            if var_name.ends_with(&format!(".{}", last_component)) {
+            if var_name.ends_with(&format!(".{last_component}")) {
                 candidates.push((var_name.clone(), value));
             }
         }
@@ -306,7 +307,7 @@ impl Calculator {
 
         // Evaluate using meval
         meval::eval_str(&expr)
-            .map_err(|e| ForgeError::Eval(format!("Failed to evaluate '{}': {}", expr, e)))
+            .map_err(|e| ForgeError::Eval(format!("Failed to evaluate '{expr}': {e}")))
     }
 }
 

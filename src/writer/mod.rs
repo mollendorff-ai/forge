@@ -20,7 +20,7 @@ pub fn update_all_yaml_files(
             let file_key = var.alias.clone();
             values_by_file
                 .entry(file_key)
-                .or_insert_with(HashMap::new)
+                .or_default()
                 .insert(var.path.clone(), calculated_value);
         }
     }
@@ -77,30 +77,27 @@ fn update_value_recursive(yaml: &mut Value, path_parts: &[&str], index: usize, n
 
     let current_part = path_parts[index];
 
-    match yaml {
-        Value::Mapping(map) => {
-            // If this is the last part of the path
-            if index == path_parts.len() - 1 {
-                // Look for the value field to update
-                if let Some(entry) = map.get_mut(&Value::String(current_part.to_string())) {
-                    if let Value::Mapping(inner_map) = entry {
-                        // Update the "value" field
-                        if inner_map.contains_key(&Value::String("value".to_string())) {
-                            inner_map.insert(
-                                Value::String("value".to_string()),
-                                Value::Number(serde_yaml::Number::from(new_value)),
-                            );
-                        }
+    if let Value::Mapping(map) = yaml {
+        // If this is the last part of the path
+        if index == path_parts.len() - 1 {
+            // Look for the value field to update
+            if let Some(entry) = map.get_mut(Value::String(current_part.to_string())) {
+                if let Value::Mapping(inner_map) = entry {
+                    // Update the "value" field
+                    if inner_map.contains_key(Value::String("value".to_string())) {
+                        inner_map.insert(
+                            Value::String("value".to_string()),
+                            Value::Number(serde_yaml::Number::from(new_value)),
+                        );
                     }
                 }
-            } else {
-                // Continue recursing
-                if let Some(entry) = map.get_mut(&Value::String(current_part.to_string())) {
-                    update_value_recursive(entry, path_parts, index + 1, new_value);
-                }
+            }
+        } else {
+            // Continue recursing
+            if let Some(entry) = map.get_mut(Value::String(current_part.to_string())) {
+                update_value_recursive(entry, path_parts, index + 1, new_value);
             }
         }
-        _ => {}
     }
 }
 

@@ -35,7 +35,7 @@ test:
     formula: "=1 - take_rate"
 "#;
 
-    let mut temp_file = NamedTempFile::new().unwrap();
+    let temp_file = NamedTempFile::new().unwrap();
     fs::write(temp_file.path(), yaml_content).unwrap();
 
     let output = Command::new(forge_binary())
@@ -65,7 +65,7 @@ test:
     formula: "=1 - take_rate"
 "#;
 
-    let mut temp_file = NamedTempFile::new().unwrap();
+    let temp_file = NamedTempFile::new().unwrap();
     fs::write(temp_file.path(), yaml_content).unwrap();
 
     let output = Command::new(forge_binary())
@@ -97,7 +97,7 @@ test:
     formula: "=1 - take_rate"
 "#;
 
-    let mut temp_file = NamedTempFile::new().unwrap();
+    let temp_file = NamedTempFile::new().unwrap();
     fs::write(temp_file.path(), yaml_content).unwrap();
 
     // Run calculate
@@ -143,7 +143,7 @@ calculated:
     formula: "=a * b"
 "#;
 
-    let mut temp_file = NamedTempFile::new().unwrap();
+    let temp_file = NamedTempFile::new().unwrap();
     fs::write(temp_file.path(), yaml_content).unwrap();
 
     let output = Command::new(forge_binary())
@@ -176,7 +176,7 @@ test:
     formula: "=1 - take_rate"
 "#;
 
-    let mut temp_file = NamedTempFile::new().unwrap();
+    let temp_file = NamedTempFile::new().unwrap();
     fs::write(temp_file.path(), yaml_content).unwrap();
 
     let original_content = fs::read_to_string(temp_file.path()).unwrap();

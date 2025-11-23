@@ -8,13 +8,6 @@ pub struct Include {
     pub r#as: String,
 }
 
-/// Represents a value with an optional formula
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FormulaValue {
-    pub value: Option<f64>,
-    pub formula: Option<String>,
-}
-
 /// A variable in the YAML file
 #[derive(Debug, Clone)]
 pub struct Variable {
@@ -37,7 +30,14 @@ pub struct EvalContext {
     pub variables: HashMap<String, f64>,
 }
 
+impl Default for EvalContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EvalContext {
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             variables: HashMap::new(),
@@ -46,9 +46,5 @@ impl EvalContext {
 
     pub fn set(&mut self, name: String, value: f64) {
         self.variables.insert(name, value);
-    }
-
-    pub fn get(&self, name: &str) -> Option<f64> {
-        self.variables.get(name).copied()
     }
 }

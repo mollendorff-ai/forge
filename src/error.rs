@@ -16,14 +16,8 @@ pub enum ForgeError {
     #[error("Formula evaluation error: {0}")]
     Eval(String),
 
-    #[error("Variable not found: {0}")]
-    VariableNotFound(String),
-
     #[error("Circular dependency detected: {0}")]
     CircularDependency(String),
-
-    #[error("Invalid formula syntax: {0}")]
-    InvalidFormula(String),
 
     #[error("Validation error: {0}")]
     Validation(String),
