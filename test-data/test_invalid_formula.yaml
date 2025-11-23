@@ -1,0 +1,10 @@
+# INVALID FORMULA SYNTAX - Uses undefined variable
+platform:
+  take_rate:
+    value: 0.10
+    formula: null
+
+test:
+  gross_margin:
+    value: 0.90
+    formula: "=1 - UNDEFINED_VARIABLE"

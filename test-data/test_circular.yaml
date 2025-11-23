@@ -1,0 +1,9 @@
+# CIRCULAR DEPENDENCY - A depends on B, B depends on A
+test:
+  a:
+    value: 10
+    formula: "=b * 2"
+
+  b:
+    value: 20
+    formula: "=a / 2"

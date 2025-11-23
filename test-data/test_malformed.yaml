@@ -1,0 +1,7 @@
+# MALFORMED YAML - Missing closing quotes, wrong indentation
+platform:
+  take_rate:
+    value: 0.10
+    formula: "=1 -
+  gross_margin:
+    value: 0.90
