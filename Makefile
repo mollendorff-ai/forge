@@ -42,10 +42,7 @@ ifdef HAS_UPX
 	@ls -lh target/x86_64-unknown-linux-musl/release/mouvify-forge | tail -1
 	@BEFORE=$$(stat -c%s target/x86_64-unknown-linux-musl/release/mouvify-forge 2>/dev/null || stat -f%z target/x86_64-unknown-linux-musl/release/mouvify-forge); \
 	echo ""; \
-	echo "⏸️  Press ENTER to compress with UPX --best --lzma..."; \
-	read dummy; \
-	echo ""; \
-	echo "🗜️  Compressing..."; \
+	echo "🗜️  Compressing with UPX --best --lzma..."; \
 	upx --best --lzma target/x86_64-unknown-linux-musl/release/mouvify-forge; \
 	echo ""; \
 	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
