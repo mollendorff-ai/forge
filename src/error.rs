@@ -21,4 +21,7 @@ pub enum ForgeError {
 
     #[error("Invalid formula syntax: {0}")]
     InvalidFormula(String),
+
+    #[error("Validation error: {0}")]
+    Validation(String),
 }

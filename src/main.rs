@@ -130,7 +130,7 @@ fn main() -> ForgeResult<()> {
             println!("{}", "✅ Validating formulas".bold().green());
             println!("   File: {}\n", file.display());
 
-            // Parse YAML file
+            // Parse YAML file and get current values
             let variables = parser::parse_yaml_file(&file)?;
 
             if variables.is_empty() {
@@ -140,19 +140,71 @@ fn main() -> ForgeResult<()> {
 
             println!("   Found {} variables with formulas", variables.len());
 
-            // Try to build dependency graph (will fail on circular deps)
-            let mut calculator = Calculator::new(variables);
-            match calculator.calculate_all() {
-                Ok(_) => {
-                    println!("\n{}", "✅ All formulas are valid!".bold().green());
-                }
+            // Calculate what values SHOULD be based on formulas
+            let mut calculator = Calculator::new(variables.clone());
+            let calculated_values = match calculator.calculate_all() {
+                Ok(vals) => vals,
                 Err(e) => {
-                    println!("\n{}", format!("❌ Validation failed: {}", e).bold().red());
+                    println!("\n{}", format!("❌ Formula validation failed: {}", e).bold().red());
                     return Err(e);
+                }
+            };
+
+            // Compare calculated values vs. current values in file
+            let mut mismatches = Vec::new();
+            const TOLERANCE: f64 = 0.0001; // Floating point comparison tolerance
+
+            for (var_name, calculated_value) in &calculated_values {
+                if let Some(var) = variables.get(var_name) {
+                    if let Some(current_value) = var.value {
+                        // Check if values match within tolerance
+                        let diff = (current_value - calculated_value).abs();
+                        if diff > TOLERANCE {
+                            mismatches.push((
+                                var_name.clone(),
+                                current_value,
+                                *calculated_value,
+                                diff,
+                            ));
+                        }
+                    }
                 }
             }
 
-            Ok(())
+            // Report results
+            println!();
+            if mismatches.is_empty() {
+                println!("{}", "✅ All formulas are valid!".bold().green());
+                println!("{}", "✅ All values match their formulas!".bold().green());
+                Ok(())
+            } else {
+                println!(
+                    "{}",
+                    format!("❌ Found {} value mismatches!", mismatches.len())
+                        .bold()
+                        .red()
+                );
+                println!("{}", "   File needs recalculation!\n".yellow());
+
+                for (name, current, expected, diff) in &mismatches {
+                    println!("   {}", name.bright_blue().bold());
+                    println!("      Current:  {}", format!("{}", current).red());
+                    println!("      Expected: {}", format!("{}", expected).green());
+                    println!("      Diff:     {}", format!("{:.6}", diff).yellow());
+                    println!();
+                }
+
+                println!(
+                    "{}",
+                    "💡 Run 'mouvify-forge calculate' to update values"
+                        .bold()
+                        .yellow()
+                );
+
+                Err(error::ForgeError::Validation(
+                    "Values do not match formulas - file needs recalculation".to_string(),
+                ))
+            }
         }
     }
 }
