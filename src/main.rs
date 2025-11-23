@@ -14,27 +14,34 @@ use error::ForgeResult;
 #[derive(Parser)]
 #[command(name = "mouvify-forge")]
 #[command(about = "YAML formula calculator - Forge your data from YAML blueprints")]
-#[command(long_about = "YAML formula calculator with cross-file references.\n\n\
-    Embed Excel-style formulas in YAML files and automatically calculate values.\n\n\
-    CROSS-FILE REFERENCES:\n\
-      Include other YAML files and reference their variables:\n\n\
-      # main.yaml\n\
-      includes:\n\
-        - file: pricing.yaml\n\
-          as: pricing\n\
-        - file: costs.yaml\n\
-          as: costs\n\n\
-      revenue:\n\
-        value: null\n\
-        formula: \"=@pricing.base_price * volume\"\n\n\
-      margin:\n\
-        value: null\n\
-        formula: \"=revenue - @costs.total_cost\"\n\n\
-    Use @alias.variable syntax to reference included variables.\n\n\
-    EXAMPLES:\n  \
-      mouvify-forge calculate model.yaml\n  \
-      mouvify-forge validate financials.yaml\n  \
-      mouvify-forge calculate --dry-run --verbose assumptions.yaml")]
+#[command(long_about = "YAML formula calculator with cross-file references.
+
+Embed Excel-style formulas in YAML files and automatically calculate values.
+
+CROSS-FILE REFERENCES:
+  Include other YAML files and reference their variables:
+
+  # main.yaml
+  includes:
+    - file: pricing.yaml
+      as: pricing
+    - file: costs.yaml
+      as: costs
+
+  revenue:
+    value: null
+    formula: \"=@pricing.base_price * volume\"
+
+  margin:
+    value: null
+    formula: \"=revenue - @costs.total_cost\"
+
+  Use @alias.variable syntax to reference included variables.
+
+EXAMPLES:
+  mouvify-forge calculate model.yaml
+  mouvify-forge validate financials.yaml
+  mouvify-forge calculate --dry-run --verbose assumptions.yaml")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -43,21 +50,24 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    #[command(long_about = "Calculate all formulas in a YAML file.
+
+Evaluates formulas in dependency order and updates values in the file.
+
+CROSS-FILE REFERENCES:
+  Add 'includes:' section to reference other files:
+
+  includes:
+    - file: pricing.yaml
+      as: pricing
+    - file: costs.yaml
+      as: costs
+
+  Then use @alias.variable in formulas:
+    formula: \"=@pricing.base_price * volume - @costs.total\"
+
+Use --dry-run to preview changes without modifying files.")]
     /// Calculate all formulas in a YAML file
-    ///
-    /// Evaluates formulas in dependency order and updates values in the file.
-    ///
-    /// CROSS-FILE REFERENCES:
-    ///   Add 'includes' section to reference other YAML files:
-    ///
-    ///   includes:
-    ///     - file: pricing.yaml
-    ///       as: pricing
-    ///
-    ///   Then use @alias.variable in formulas:
-    ///   formula: "=@pricing.base_price * 10"
-    ///
-    /// Use --dry-run to preview changes without modifying files.
     Calculate {
         /// Path to YAML file (can include other files via 'includes' section)
         file: PathBuf,
@@ -80,20 +90,21 @@ enum Commands {
         variable: String,
     },
 
+    #[command(long_about = "Validate formulas without calculating.
+
+Checks that all formula values match their calculations.
+Detects stale values that need recalculation.
+
+CROSS-FILE REFERENCES:
+  Validates formulas using @alias.variable syntax:
+
+  includes:
+    - file: pricing.yaml
+      as: pricing
+
+  Formula example:
+    formula: \"=@pricing.base_price * 10\"")]
     /// Validate formulas without calculating
-    ///
-    /// Checks that all formula values match their calculations.
-    /// Detects stale values that need recalculation.
-    ///
-    /// CROSS-FILE REFERENCES:
-    ///   Validates formulas that reference other files via 'includes':
-    ///
-    ///   includes:
-    ///     - file: pricing.yaml
-    ///       as: pricing
-    ///
-    ///   Formulas using @alias.variable will be validated:
-    ///   formula: "=@pricing.base_price * 10"
     Validate {
         /// Path to YAML file (can include other files via 'includes' section)
         file: PathBuf,
