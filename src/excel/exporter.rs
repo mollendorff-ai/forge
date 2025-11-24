@@ -2,7 +2,7 @@
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{ColumnValue, ParsedModel, Table};
-use rust_xlsxwriter::{Workbook, Worksheet};
+use rust_xlsxwriter::{Formula, Workbook, Worksheet};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -55,12 +55,18 @@ impl ExcelExporter {
         let mut column_names: Vec<&String> = table.columns.keys().collect();
         column_names.sort(); // Alphabetical order for now
 
-        // Build column name → column index mapping (used in Phase 3.2 for formulas)
-        let _column_map: HashMap<String, usize> = column_names
+        // Build column name → Excel column letter mapping
+        let column_map: HashMap<String, String> = column_names
             .iter()
             .enumerate()
-            .map(|(idx, name)| ((*name).clone(), idx))
+            .map(|(idx, name)| {
+                let col_letter = super::FormulaTranslator::column_index_to_letter(idx);
+                ((*name).clone(), col_letter)
+            })
             .collect();
+
+        // Create formula translator
+        let translator = super::FormulaTranslator::new(column_map);
 
         // Write header row (row 0)
         for (col_idx, col_name) in column_names.iter().enumerate() {
@@ -82,22 +88,27 @@ impl ExcelExporter {
 
         // Write data rows (starting at row 1)
         for row_idx in 0..row_count {
+            let excel_row = (row_idx + 1) as u32 + 1; // +1 for header row, +1 for Excel 1-indexing = row 2 for first data row
+
             for (col_idx, col_name) in column_names.iter().enumerate() {
                 if let Some(column) = table.columns.get(*col_name) {
                     // Check if this is a calculated column (has formula)
-                    if table.row_formulas.contains_key(*col_name) {
-                        // Skip calculated columns for now (Phase 3.2 will handle formulas)
-                        continue;
+                    if let Some(formula) = table.row_formulas.get(*col_name) {
+                        // Translate and write formula
+                        let excel_formula = translator.translate_row_formula(formula, excel_row)?;
+                        worksheet
+                            .write_formula(excel_row - 1, col_idx as u16, Formula::new(&excel_formula))
+                            .map_err(|e| ForgeError::Export(format!("Failed to write formula: {}", e)))?;
+                    } else {
+                        // Write data value
+                        self.write_cell_value(
+                            worksheet,
+                            excel_row - 1, // Excel row is 1-indexed, worksheet API is 0-indexed
+                            col_idx as u16,
+                            &column.values,
+                            row_idx,
+                        )?;
                     }
-
-                    // Write data value
-                    self.write_cell_value(
-                        worksheet,
-                        (row_idx + 1) as u32, // +1 for header row
-                        col_idx as u16,
-                        &column.values,
-                        row_idx,
-                    )?;
                 }
             }
         }
