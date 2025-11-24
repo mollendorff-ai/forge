@@ -287,7 +287,7 @@ validate-yaml:
 	fi
 
 validate-diagrams:
-	@echo "🎨 Checking for PlantUML diagrams..."
+	@echo "🎨 Validating PlantUML diagrams..."
 	@if [ -d "diagrams" ] && find diagrams -name "*.puml" -o -name "*.plantuml" 2>/dev/null | grep -q .; then \
 		if [ -x "bin/validate-plantuml.sh" ]; then \
 			./bin/validate-plantuml.sh; \
@@ -297,7 +297,8 @@ validate-diagrams:
 			exit 1; \
 		fi; \
 	else \
-		echo "ℹ️  No PlantUML diagrams found (skipping)"; \
+		echo "ℹ️  No .puml files found in diagrams/ (see diagrams/README.md to get started)"; \
+		echo "✅ Diagram validation skipped"; \
 	fi
 
 validate-all: validate-docs validate-yaml validate-diagrams
