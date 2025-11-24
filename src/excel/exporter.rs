@@ -51,8 +51,21 @@ impl ExcelExporter {
             .set_name(table_name)
             .map_err(|e| ForgeError::Export(format!("Failed to set worksheet name: {}", e)))?;
 
-        // Get column names in a deterministic order
-        let mut column_names: Vec<&String> = table.columns.keys().collect();
+        // Get column names in a deterministic order (data + formula columns)
+        let mut column_names: Vec<String> = Vec::new();
+
+        // Add data columns
+        for name in table.columns.keys() {
+            column_names.push(name.clone());
+        }
+
+        // Add formula columns
+        for name in table.row_formulas.keys() {
+            if !column_names.contains(name) {
+                column_names.push(name.clone());
+            }
+        }
+
         column_names.sort(); // Alphabetical order for now
 
         // Build column name → Excel column letter mapping
@@ -61,7 +74,7 @@ impl ExcelExporter {
             .enumerate()
             .map(|(idx, name)| {
                 let col_letter = super::FormulaTranslator::column_index_to_letter(idx);
-                ((*name).clone(), col_letter)
+                (name.clone(), col_letter)
             })
             .collect();
 
@@ -71,44 +84,39 @@ impl ExcelExporter {
         // Write header row (row 0)
         for (col_idx, col_name) in column_names.iter().enumerate() {
             worksheet
-                .write_string(0, col_idx as u16, *col_name)
+                .write_string(0, col_idx as u16, col_name)
                 .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
         }
 
-        // Get row count from first column
-        let row_count = if let Some(first_col_name) = column_names.first() {
-            if let Some(column) = table.columns.get(*first_col_name) {
-                column.len()
-            } else {
-                0
-            }
-        } else {
-            0
-        };
+        // Get row count from first data column
+        let row_count = table
+            .columns
+            .values()
+            .next()
+            .map(|col| col.len())
+            .unwrap_or(0);
 
         // Write data rows (starting at row 1)
         for row_idx in 0..row_count {
             let excel_row = (row_idx + 1) as u32 + 1; // +1 for header row, +1 for Excel 1-indexing = row 2 for first data row
 
             for (col_idx, col_name) in column_names.iter().enumerate() {
-                if let Some(column) = table.columns.get(*col_name) {
-                    // Check if this is a calculated column (has formula)
-                    if let Some(formula) = table.row_formulas.get(*col_name) {
-                        // Translate and write formula
-                        let excel_formula = translator.translate_row_formula(formula, excel_row)?;
-                        worksheet
-                            .write_formula(excel_row - 1, col_idx as u16, Formula::new(&excel_formula))
-                            .map_err(|e| ForgeError::Export(format!("Failed to write formula: {}", e)))?;
-                    } else {
-                        // Write data value
-                        self.write_cell_value(
-                            worksheet,
-                            excel_row - 1, // Excel row is 1-indexed, worksheet API is 0-indexed
-                            col_idx as u16,
-                            &column.values,
-                            row_idx,
-                        )?;
-                    }
+                // Check if this is a calculated column (has formula)
+                if let Some(formula) = table.row_formulas.get(col_name) {
+                    // Translate and write formula
+                    let excel_formula = translator.translate_row_formula(formula, excel_row)?;
+                    worksheet
+                        .write_formula(excel_row - 1, col_idx as u16, Formula::new(&excel_formula))
+                        .map_err(|e| ForgeError::Export(format!("Failed to write formula: {}", e)))?;
+                } else if let Some(column) = table.columns.get(col_name) {
+                    // Write data value
+                    self.write_cell_value(
+                        worksheet,
+                        excel_row - 1, // Excel row is 1-indexed, worksheet API is 0-indexed
+                        col_idx as u16,
+                        &column.values,
+                        row_idx,
+                    )?;
                 }
             }
         }

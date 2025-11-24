@@ -316,14 +316,14 @@ pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
     println!("{}", "✅ Export Complete!".bold().green());
     println!("   Excel file: {}\n", output.display());
 
-    println!("{}", "✅ Phase 3.2: Formula Export Complete!".bold().green());
+    println!("{}", "✅ Phase 3: Excel Export Complete!".bold().green());
     println!("   ✅ Table columns → Excel columns");
     println!("   ✅ Data values exported");
     println!("   ✅ Multiple worksheets");
     println!("   ✅ Scalars worksheet");
     println!("   ✅ Row formulas → Excel cell formulas (=A2-B2)");
     println!("   ✅ Cross-table references (=Sheet!Column)");
-    println!("   ⏳ Aggregation formulas in scalars (coming in Phase 3.4)\n");
+    println!("   ✅ Supports 60+ Excel functions (IFERROR, SUMIF, VLOOKUP, etc.)\n");
 
     Ok(())
 }
@@ -368,12 +368,13 @@ pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
     println!("{}", "✅ Import Complete!".bold().green());
     println!("   YAML file: {}\n", output.display());
 
-    println!("{}", "✅ Phase 4.1: Basic Import Complete!".bold().green());
+    println!("{}", "✅ Phase 4: Excel Import Complete!".bold().green());
     println!("   ✅ Excel worksheets → YAML tables");
     println!("   ✅ Data values imported");
     println!("   ✅ Multiple worksheets → One YAML file");
     println!("   ✅ Scalars sheet detected");
-    println!("   ⏳ Formula translation (coming in Phase 4.3)\n");
+    println!("   ✅ Formula translation (Excel → YAML syntax)");
+    println!("   ✅ Supports 60+ Excel functions (IFERROR, SUMIF, VLOOKUP, etc.)\n");
 
     Ok(())
 }

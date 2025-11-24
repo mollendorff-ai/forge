@@ -71,10 +71,72 @@ impl FormulaTranslator {
 
     /// Check if a word is an Excel function
     fn is_excel_function(&self, word: &str) -> bool {
+        let upper = word.to_uppercase();
         matches!(
-            word.to_uppercase().as_str(),
-            "SUM" | "AVERAGE" | "MAX" | "MIN" | "IF" | "COUNT" | "COUNTA"
-            | "PRODUCT" | "ABS" | "ROUND" | "SQRT" | "POW" | "PI"
+            upper.as_str(),
+            // Aggregation functions
+            "SUM"
+                | "AVERAGE"
+                | "MAX"
+                | "MIN"
+                | "COUNT"
+                | "COUNTA"
+                | "PRODUCT"
+                // Conditional aggregations
+                | "SUMIF"
+                | "SUMIFS"
+                | "COUNTIF"
+                | "COUNTIFS"
+                | "AVERAGEIF"
+                | "AVERAGEIFS"
+                // Logical functions
+                | "IF"
+                | "AND"
+                | "OR"
+                | "NOT"
+                | "XOR"
+                | "TRUE"
+                | "FALSE"
+                | "IFERROR"
+                | "IFNA"
+                // Math functions
+                | "ABS"
+                | "ROUND"
+                | "ROUNDUP"
+                | "ROUNDDOWN"
+                | "SQRT"
+                | "POW"
+                | "EXP"
+                | "LN"
+                | "LOG"
+                | "LOG10"
+                | "PI"
+                | "E"
+                | "MOD"
+                | "CEILING"
+                | "FLOOR"
+                // Text functions
+                | "CONCATENATE"
+                | "LEFT"
+                | "RIGHT"
+                | "MID"
+                | "LEN"
+                | "UPPER"
+                | "LOWER"
+                | "TRIM"
+                // Date functions
+                | "TODAY"
+                | "NOW"
+                | "DATE"
+                | "YEAR"
+                | "MONTH"
+                | "DAY"
+                // Lookup functions
+                | "VLOOKUP"
+                | "HLOOKUP"
+                | "XLOOKUP"
+                | "INDEX"
+                | "MATCH"
         )
     }
 
