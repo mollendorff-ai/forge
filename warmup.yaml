@@ -40,6 +40,27 @@ session_initialization:
         purpose: "JSON Schema for v1.0.0 model validation"
         note: "Update when adding new features to v1.0.0 model"
 
+  step_1b_check_current_date:
+    description: "CRITICAL: Always check current date for online searches"
+    importance: "🚨 HIGH PRIORITY 🚨"
+    rationale: "Claude's training data is several months old (Jan 2025 cutoff)"
+
+    what_to_do:
+      - "ALWAYS check <env> tag for Today's date before online searches"
+      - "When searching: Add current year/date to query"
+      - "Example: 'Rust async 2025' NOT 'Rust async'"
+      - "Verify crates.io versions are CURRENT, not from training data"
+      - "Check GitHub repos for recent activity before recommending"
+
+    bad_example:
+      query: "best rust excel library"
+      problem: "Might return 2024 results if Claude assumes old date"
+
+    good_example:
+      query: "best rust excel library 2025"
+      check_env: "Today's date: 2025-11-23"
+      note: "Explicitly include current year in search"
+
   step_2_git_status:
     description: "Check current branch and uncommitted changes"
     commands:
@@ -94,11 +115,24 @@ session_initialization:
           - "Malformed YAML"
 
       code_quality:
-        - "No warnings in release build"
+        - "No warnings in release build (ZERO tolerance)"
         - "Use meaningful variable names"
         - "Add doc comments for public APIs"
         - "Follow existing code style"
         - "Prefer Edit over Write for existing files"
+
+      linting:
+        philosophy: "User has OCD for good looking code 😊 - use MOST STRICT linting"
+        requirements:
+          - "Run cargo clippy --all-targets -- -D warnings (treat warnings as errors)"
+          - "Use rustfmt with default settings"
+          - "No unused imports, variables, or functions"
+          - "Prefer explicit over implicit (no _ when you can name it)"
+          - "Use clippy pedantic when possible"
+        commands:
+          - "cargo fmt -- --check (verify formatting)"
+          - "cargo clippy --release -- -D warnings (no warnings allowed)"
+          - "cargo build --release (must be clean)"
 
       git_workflow:
         commit_messages:
@@ -137,26 +171,130 @@ session_initialization:
           - "Adding CLI flags → Update --help text"
           - "Changing API → Add doc comments"
 
+library_and_dependency_management:
+  philosophy: "Don't reinvent the wheel - leverage FOSS ecosystem"
+
+  before_implementing_complex_code:
+    description: "Check for existing FOSS libraries BEFORE writing complex code"
+    steps:
+      - "Search crates.io for relevant functionality"
+      - "Check license compatibility (we use MIT)"
+      - "Verify library is maintained (recent commits, active issues)"
+      - "Check download counts and GitHub stars"
+      - "Review documentation quality"
+      - "Test with small example before integrating"
+
+    compatible_licenses:
+      perfect:
+        - "MIT"
+        - "Apache-2.0"
+        - "BSD-2-Clause"
+        - "BSD-3-Clause"
+      acceptable:
+        - "ISC"
+        - "Unlicense"
+        - "CC0-1.0"
+      incompatible:
+        - "GPL (any version) - copyleft, conflicts with MIT"
+        - "AGPL - copyleft"
+        - "LGPL - complicated compatibility"
+
+    evaluation_checklist:
+      - "☐ License is MIT-compatible"
+      - "☐ Last commit within 6 months"
+      - "☐ Has documentation"
+      - "☐ No critical security issues"
+      - "☐ Reasonable download count (or new but promising)"
+      - "☐ Solves our problem completely (or mostly)"
+
+    example_workflow:
+      scenario: "Need to export to Excel"
+      step_1: "Search: 'rust excel xlsx 2025' (include current year!)"
+      step_2: "Check top results: rust_xlsxwriter, calamine, umya-spreadsheet"
+      step_3: "Review licenses: rust_xlsxwriter (MIT ✅), calamine (MIT ✅)"
+      step_4: "Check maintenance: rust_xlsxwriter (active ✅)"
+      step_5: "Read docs: rust_xlsxwriter has good examples ✅"
+      step_6: "Decision: Use rust_xlsxwriter"
+      dont_do: "Write Excel export from scratch (thousands of lines!)"
+
+  keeping_dependencies_updated:
+    description: "Regularly update dependencies to latest versions"
+    importance: "Security, bug fixes, performance, new features"
+
+    when_to_update:
+      - "Start of new implementation phase"
+      - "Before release"
+      - "When security advisory published"
+      - "When new feature needed from dependency"
+
+    how_to_update:
+      check_outdated:
+        command: "cargo outdated"
+        install: "cargo install cargo-outdated"
+        purpose: "Shows which dependencies have updates"
+
+      update_minor:
+        command: "cargo update"
+        purpose: "Update to latest compatible versions (respects Cargo.toml semver)"
+        safe: "Yes - follows semver"
+
+      update_major:
+        steps:
+          - "Review CHANGELOG for breaking changes"
+          - "Update Cargo.toml version requirement"
+          - "Run cargo update"
+          - "Fix any breaking changes"
+          - "Run full test suite"
+        caution: "May require code changes"
+
+      update_all:
+        command: "cargo upgrade"
+        install: "cargo install cargo-edit"
+        purpose: "Upgrade all deps to latest (including major versions)"
+        caution: "Test thoroughly after this!"
+
+    testing_after_update:
+      - "cargo test --release (all tests must pass)"
+      - "cargo clippy --release (no new warnings)"
+      - "cargo build --release (verify compilation)"
+      - "Run key e2e tests manually"
+
+    current_dependencies:
+      note: "Check Cargo.toml for current versions"
+      critical_deps:
+        - "xlformula_engine - Excel formula engine"
+        - "serde/serde_yaml - YAML parsing"
+        - "clap - CLI parsing"
+        - "petgraph - Dependency graph"
+        - "jsonschema - JSON Schema validation"
+
 work_session_checklist:
   before_coding:
     - "☐ Read warmup.yaml (this file)"
+    - "☐ CHECK CURRENT DATE in <env> (for online searches!)"
     - "☐ Load context files (README, roadmap, DESIGN_V1, KNOWN_BUGS)"
     - "☐ Check git status and current branch"
     - "☐ Run tests to verify baseline"
     - "☐ Review current phase in roadmap"
+    - "☐ Check if dependencies need updating (cargo outdated)"
     - "☐ Create TodoWrite list for session goals"
 
   during_coding:
+    - "☐ BEFORE complex code: Check for FOSS libraries (crates.io search)"
     - "☐ Write tests FIRST (TDD when possible)"
     - "☐ Test edge cases thoroughly"
     - "☐ Update JSON Schema if model changes"
     - "☐ Document bugs in KNOWN_BUGS.md if found"
     - "☐ Update TodoWrite list as you progress"
     - "☐ Run tests frequently (cargo test --lib)"
+    - "☐ Run clippy frequently (cargo clippy --release)"
+    - "☐ Format code (cargo fmt)"
 
   after_coding:
+    - "☐ Run cargo fmt (format code)"
+    - "☐ Run cargo clippy --release -- -D warnings (ZERO warnings!)"
     - "☐ Run full test suite (cargo test --release)"
-    - "☐ Ensure no warnings (cargo build --release)"
+    - "☐ Ensure clean build (cargo build --release)"
     - "☐ Update documentation (README, DESIGN_V1, roadmap)"
     - "☐ Update --help if CLI changed"
     - "☐ Git add and commit with good message"
@@ -280,21 +418,28 @@ key_files_map:
     - "test-data/v1.0/budget_vs_actual.yaml"
 
 tips_for_success:
+  - "🚨 CHECK CURRENT DATE in <env> before ANY online search!"
   - "Think harder before implementing - plan the solution"
+  - "BEFORE complex code: Search crates.io for existing libraries"
   - "Write tests first when possible (TDD)"
   - "Test edge cases - empty arrays, nulls, invalid inputs"
+  - "Run clippy frequently - user has OCD for clean code 😊"
+  - "ZERO warnings policy - treat warnings as errors"
   - "Update documentation as you code, not after"
   - "Commit frequently with descriptive messages"
   - "Use TodoWrite to track progress"
   - "Ask user for clarification on ambiguous requirements"
   - "Check KNOWN_BUGS.md before fixing similar issues"
+  - "Check license compatibility (MIT-compatible only)"
 
 collaboration_notes:
   user_preferences:
     - "User values: zero errors, 100% accuracy, thorough testing"
+    - "User has OCD for beautiful code - ZERO warnings, strict linting"
     - "User says 'Punch it!' when ready to proceed"
     - "User says 'Think harder' when wanting deeper analysis"
     - "User provides context from previous sessions via summary"
+    - "Always check current date before online searches (training data is old!)"
 
 session_end_checklist:
   - "☐ All tests passing"
