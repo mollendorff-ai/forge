@@ -45,6 +45,7 @@ Forge follows a **layered architecture** with clear separation of concerns:
 6. **Types Layer** - Shared data structures and enums
 
 This separation enables:
+
 - Independent testing of each layer
 - Easy addition of new formats (JSON, CSV, etc.)
 - Version-specific implementations without breaking changes
@@ -150,29 +151,37 @@ exporter --> errors
 importer --> errors
 
 note right of array_calc
-  **v1.0.0 Calculator**
+
+#### v1.0.0 Calculator
+
   - 3,440 lines
   - Array operations
   - Row-wise formulas
   - Two-phase calculation
+
 end note
 
 note right of scalar_calc
-  **v0.2.0 Calculator**
+
+#### v0.2.0 Calculator
+
   - 401 lines
   - Scalar operations
   - Cross-file references
   - Backwards compatible
+
 end note
 
 note bottom of parser
-  **Dual-version support**
+
+#### Dual-version support
+
   Auto-detects v0.2.0 vs v1.0.0
   Parses both formats
 end note
 
 @enduml
-```
+```text
 
 ### Component Responsibilities Matrix
 
@@ -202,6 +211,7 @@ end note
 **Responsibility:** Entry point for all user interactions. Parses command-line arguments and routes to appropriate handlers.
 
 **Key Technologies:**
+
 - `clap` v4.5 - Declarative argument parsing
 - Derive macros for automatic help generation
 
@@ -209,14 +219,19 @@ end note
 
 ```rust
 // From: /home/rex/src/utils/forge/src/main.rs:1-220
+
 #[derive(Parser)]
+
+
 #[command(name = "forge")]
+
 struct Cli {
     #[command(subcommand)]
     command: Commands,
 }
 
 #[derive(Subcommand)]
+
 enum Commands {
     Calculate { file: PathBuf, dry_run: bool, verbose: bool },
     Audit { file: PathBuf, variable: String },
@@ -224,15 +239,15 @@ enum Commands {
     Export { input: PathBuf, output: PathBuf, verbose: bool },
     Import { input: PathBuf, output: PathBuf, verbose: bool },
 }
-```
+```text
 
 **Interface:**
 
-```
+```text
 Input:  Command-line arguments (String[])
 Output: ForgeResult<()>
 Errors: Propagated from command handlers
-```
+```text
 
 **Design Decisions:**
 
@@ -264,7 +279,7 @@ pub fn validate(file: PathBuf) -> ForgeResult<()>
 pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()>
-```
+```text
 
 **Calculate Command Flow:**
 
@@ -306,19 +321,21 @@ endif
 stop
 
 @enduml
-```
+```text
 
 **Design Patterns:**
 
 1. **Version Dispatch Pattern**
+
    ```rust
    match model.version {
        ForgeVersion::V1_0_0 => /* ArrayCalculator */,
        ForgeVersion::V0_2_0 => /* Calculator */,
    }
-   ```
+```text
 
 2. **Early Validation Pattern**
+
    ```rust
    if dry_run {
        println!("DRY RUN MODE");
@@ -327,7 +344,7 @@ stop
    if !dry_run {
        writer::update_all_yaml_files(...)?;
    }
-   ```
+```text
 
 3. **Progressive Disclosure**
    - Verbose mode shows detailed steps
@@ -346,7 +363,7 @@ fn parse_v1_model(path: &Path, yaml: &Value) -> ForgeResult<ParsedModel>
 fn parse_v0_model(path: &Path, yaml: &Value) -> ForgeResult<ParsedModel>
 pub fn parse_yaml_with_includes(path: &Path) -> ForgeResult<ParsedYaml>
 fn validate_against_schema(yaml: &Value) -> ForgeResult<()>
-```
+```text
 
 **Version Detection Algorithm:**
 
@@ -393,7 +410,7 @@ endif
 stop
 
 @enduml
-```
+```text
 
 **Schema Validation:**
 
@@ -413,7 +430,7 @@ fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
 
     Ok(())
 }
-```
+```text
 
 **Design Decisions:**
 
@@ -484,7 +501,7 @@ pub struct Variable {
     pub formula: Option<String>,
     pub alias: Option<String>,  // For cross-file references
 }
-```
+```text
 
 **Type System Design:**
 
@@ -558,20 +575,24 @@ Table --> Column : contains
 Column --> ColumnValue : contains
 
 note right of ColumnValue
-  **Type Safety**
+
+#### Type Safety
+
   Homogeneous arrays only
   No mixed types allowed
   Enforced at parse time
 end note
 
 note bottom of ParsedModel
-  **Unified Model**
+
+#### Unified Model
+
   Supports both v0.2.0 and v1.0.0
   Version-specific fields clearly marked
 end note
 
 @enduml
-```
+```text
 
 **Key Invariants:**
 
@@ -598,7 +619,7 @@ impl Table {
         Ok(())
     }
 }
-```
+```text
 
 ### 5. Array Calculator (/home/rex/src/utils/forge/src/core/array_calculator.rs)
 
@@ -666,7 +687,7 @@ partition "Phase 2: Calculate Scalars" {
 stop
 
 @enduml
-```
+```text
 
 **Core Functions:**
 
@@ -696,11 +717,11 @@ impl ArrayCalculator {
 
     fn calculate_scalars(&mut self) -> ForgeResult<()>
 }
-```
+```text
 
 **Dependency Resolution Example:**
 
-```
+```yaml
 Given tables:
   pl_2025: { revenue, cogs, gross_profit: =revenue - cogs }
   pl_2026: { revenue: =pl_2025.revenue * 1.2, cogs, profit }
@@ -709,9 +730,11 @@ Dependency graph:
   pl_2025 → pl_2026 (pl_2026.revenue references pl_2025)
 
 Calculation order:
+
   1. pl_2025 (no dependencies)
   2. pl_2026 (depends on pl_2025)
-```
+
+```text
 
 **Row-wise Formula Evaluation:**
 
@@ -743,7 +766,7 @@ fn evaluate_rowwise_formula(&mut self, table: &Table, formula: &str)
     let mut results = Vec::new();
     for row_idx in 0..row_count {
         // Create resolver for this specific row
-        let resolver = |var_name: String| -> types::Value {
+ let resolver = |var_name: String| -> types::Value {
             // Resolve column value at row_idx
             get_column_value_at_row(table, &var_name, row_idx)
         };
@@ -756,7 +779,7 @@ fn evaluate_rowwise_formula(&mut self, table: &Table, formula: &str)
     // Convert to appropriate ColumnValue type
     Ok(convert_to_column_value(results))
 }
-```
+```text
 
 **Design Decisions:**
 
@@ -803,7 +826,7 @@ impl Calculator {
     fn evaluate_formula(&self, formula: &str, context: &EvalContext)
         -> ForgeResult<f64>
 }
-```
+```text
 
 **Cross-File Reference Resolution:**
 
@@ -826,6 +849,7 @@ note right
   - main.yaml
   - pricing.yaml (as: pricing)
   - costs.yaml (as: costs)
+
 end note
 
 calc -> calc : build_dependency_graph()
@@ -847,6 +871,7 @@ note right
   1. base_price
   2. unit_cost
   3. profit
+
 end note
 
 calc -> calc : evaluate_formula("=@pricing.base_price * 10")
@@ -858,7 +883,7 @@ calc --> main : 990.0
 deactivate calc
 
 @enduml
-```
+```text
 
 **Variable Resolution Logic:**
 
@@ -893,7 +918,7 @@ fn resolve_variable(name: &str, variables: &HashMap<String, Variable>)
 
     Err(ForgeError::Eval(format!("Variable not found: {}", name)))
 }
-```
+```text
 
 ### 7. Writer Layer (/home/rex/src/utils/forge/src/writer/mod.rs)
 
@@ -910,7 +935,7 @@ pub fn update_all_yaml_files(
     results: &HashMap<String, f64>,
     variables: &HashMap<String, Variable>,
 ) -> ForgeResult<()>
-```
+```text
 
 **Update Algorithm:**
 
@@ -958,11 +983,12 @@ partition "File Update" {
 stop
 
 @enduml
-```
+```text
 
 **Design Decision: Why not use serde_yaml directly?**
 
 Serde_yaml doesn't preserve:
+
 - Comments (`# This is a comment`)
 - Key ordering
 - Whitespace formatting
@@ -1047,7 +1073,7 @@ main --> User : ✨ Files updated successfully!
 deactivate main
 
 @enduml
-```
+```text
 
 ### Export Command - Component Collaboration
 
@@ -1114,7 +1140,7 @@ main --> User : ✅ Exported to output.xlsx
 deactivate main
 
 @enduml
-```
+```text
 
 ### Version Detection - Component Interaction
 
@@ -1162,7 +1188,7 @@ end
 deactivate parser
 
 @enduml
-```
+```text
 
 ---
 
@@ -1172,43 +1198,43 @@ deactivate parser
 
 **1. CLI ↔ Core Boundary**
 
-```
+```text
 Interface: ParsedModel, ForgeResult<T>
 Data Flow: CLI → Core (input), Core → CLI (output)
 Coupling: Loose (via types.rs)
-```
+```text
 
 **2. Core ↔ Parser Boundary**
 
-```
+```text
 Interface: parse_model() returns ParsedModel
 Data Flow: Parser → Core (one-way)
 Coupling: Medium (shared types)
-```
+```text
 
 **3. Core ↔ Writer Boundary**
 
-```
+```text
 Interface: update_all_yaml_files()
 Data Flow: Core → Writer (calculated values)
 Coupling: Medium (shared types)
-```
+```text
 
 **4. Core ↔ Excel Boundary**
 
-```
+```text
 Interface: ExcelExporter, ExcelImporter
 Data Flow: Bidirectional (import/export)
 Coupling: Loose (via ParsedModel)
-```
+```text
 
 **5. All ↔ Types Boundary**
 
-```
+```text
 Interface: Public types (Column, Table, etc.)
 Data Flow: Shared read access
 Coupling: Strong (central data structures)
-```
+```text
 
 ### Dependency Graph
 
@@ -1279,19 +1305,23 @@ package "Foundation" {
 [importer.rs] --> [types.rs]
 
 note right of [types.rs]
-  **Foundation Module**
+
+#### Foundation Module
+
   No dependencies except stdlib
   Shared by all modules
 end note
 
 note right of [error.rs]
-  **Error Types**
+
+#### Error Types
+
   Used by all modules
   Unified error handling
 end note
 
 @enduml
-```
+```text
 
 ### Boundary Enforcement
 
@@ -1307,7 +1337,7 @@ pub fn calculate_all(self) -> ForgeResult<ParsedModel>
 fn get_table_calculation_order(&self, ...) -> ForgeResult<Vec<String>>
 fn calculate_table(&mut self, ...) -> ForgeResult<Table>
 fn evaluate_rowwise_formula(&mut self, ...) -> ForgeResult<ColumnValue>
-```
+```text
 
 **2. Type Boundaries**
 
@@ -1320,7 +1350,7 @@ pub enum ColumnValue { ... }
 struct ArrayCalculator {
     model: ParsedModel,  // Owns the model
 }
-```
+```text
 
 **3. Error Boundaries**
 
@@ -1337,7 +1367,7 @@ ForgeError::CircularDependency("Circular dependency detected")
 // Excel errors
 ForgeError::Export("Failed to write formula")
 ForgeError::Import("Failed to read worksheet")
-```
+```text
 
 ---
 
@@ -1363,19 +1393,22 @@ ForgeError::Import("Failed to read worksheet")
 /// - Schema is valid (v1.0.0)
 /// - Cross-file references are resolved (v0.2.0)
 pub fn parse_model(path: &Path) -> ForgeResult<ParsedModel>
-```
+```text
 
 **Preconditions:**
+
 - File exists and is readable
 - File contains valid YAML
 
 **Postconditions:**
+
 - Model version is V0_2_0 or V1_0_0
 - All table columns have same length
 - All formulas reference existing columns
 - No duplicate column names within a table
 
 **Error Conditions:**
+
 - `ForgeError::IO` - File not found or permission denied
 - `ForgeError::Parse` - Invalid YAML syntax
 - `ForgeError::Validation` - Schema validation failed
@@ -1396,18 +1429,21 @@ pub fn parse_model(path: &Path) -> ForgeResult<ParsedModel>
 /// - No formula evaluated before its dependencies
 /// - Circular dependencies detected and rejected
 pub fn calculate_all(self) -> ForgeResult<ParsedModel>
-```
+```text
 
 **Preconditions:**
+
 - Model is valid (all columns exist)
 - No circular dependencies
 
 **Postconditions:**
+
 - All formula columns have calculated values
 - Result values match formula definitions
 - Original data columns unchanged
 
 **Error Conditions:**
+
 - `ForgeError::CircularDependency` - Circular reference detected
 - `ForgeError::Eval` - Formula evaluation failed
 - `ForgeError::Eval` - Column not found
@@ -1431,19 +1467,22 @@ pub fn calculate_all(self) -> ForgeResult<ParsedModel>
 /// - Row formulas translated to Excel syntax
 /// - Data values written with correct types
 pub fn export(&self, output_path: &Path) -> ForgeResult<()>
-```
+```text
 
 **Preconditions:**
+
 - Model is v1.0.0 (has tables)
 - Output path is writable
 
 **Postconditions:**
+
 - Excel file created at output_path
 - All tables exported as worksheets
 - Formulas translated to Excel syntax
 - Data types preserved (Number, Text, Boolean, Date)
 
 **Error Conditions:**
+
 - `ForgeError::Export` - Failed to write file
 - `ForgeError::Export` - Formula translation failed
 
@@ -1466,19 +1505,22 @@ pub fn export(&self, output_path: &Path) -> ForgeResult<()>
 /// - Formulas preserved as Excel syntax
 /// - Data types inferred correctly
 pub fn import(&self, input_path: &Path) -> ForgeResult<ParsedModel>
-```
+```text
 
 **Preconditions:**
+
 - Input file exists and is valid Excel format
 - File is readable
 
 **Postconditions:**
+
 - Model version is V1_0_0
 - All worksheets imported as tables
 - Formulas preserved (as Excel syntax initially)
 - Data types correctly inferred
 
 **Error Conditions:**
+
 - `ForgeError::Import` - Failed to read file
 - `ForgeError::Import` - Invalid Excel format
 
@@ -1488,11 +1530,12 @@ pub fn import(&self, input_path: &Path) -> ForgeResult<ParsedModel>
 
 ### Pattern 1: Linear Pipeline (Calculate v0.2.0)
 
-```
+```text
 YAML File → Parser → Calculator → Writer → Updated YAML Files
-```
+```text
 
 **Characteristics:**
+
 - One-way data flow
 - Each stage transforms data
 - No cycles or feedback loops
@@ -1510,17 +1553,18 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
     }
     Ok(())
 }
-```
+```text
 
 ### Pattern 2: Two-Phase Pipeline (Calculate v1.0.0)
 
-```
+```text
 YAML File → Parser → ArrayCalculator
                          ↓
                     Phase 1: Tables → Phase 2: Scalars → Result
-```
+```text
 
 **Characteristics:**
+
 - Sequential phases with dependencies
 - Phase 2 depends on Phase 1 output
 - No feedback between phases
@@ -1545,16 +1589,17 @@ pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
 
     Ok(self.model)
 }
-```
+```text
 
 ### Pattern 3: Bidirectional Bridge (Excel Integration)
 
-```
+```text
 YAML ←→ ParsedModel ←→ Excel
      (Parser/Writer)   (Exporter/Importer)
-```
+```text
 
 **Characteristics:**
+
 - Two-way conversion
 - Lossless round-trip (ideally)
 - Formula translation in both directions
@@ -1571,15 +1616,16 @@ exporter.export(&output)?;
 let importer = ExcelImporter::new();
 let model = importer.import(&input)?;
 writer::write_model(&output, &model)?;
-```
+```text
 
 ### Pattern 4: Dependency-Driven Execution
 
-```
+```text
 Variables → Dependency Graph → Topological Sort → Ordered Execution
-```
+```text
 
 **Characteristics:**
+
 - Order determined by dependencies
 - Parallel execution possible (not implemented yet)
 - Circular dependencies rejected
@@ -1621,7 +1667,7 @@ fn get_table_calculation_order(&self, table_names: &[String])
     }
 
     // Topological sort
-    let order = toposort(&graph, None).map_err(|_| {
+ let order = toposort(&graph, None).map_err(|_| {
         ForgeError::CircularDependency(
             "Circular dependency detected between tables".to_string(),
         )
@@ -1629,12 +1675,12 @@ fn get_table_calculation_order(&self, table_names: &[String])
 
     let ordered_names: Vec<String> = order
         .iter()
-        .filter_map(|idx| graph.node_weight(*idx).cloned())
+ .filter_map(|idx| graph.node_weight(*idx).cloned())
         .collect();
 
     Ok(ordered_names)
 }
-```
+```text
 
 ---
 
@@ -1643,11 +1689,13 @@ fn get_table_calculation_order(&self, table_names: &[String])
 ### v0.2.0 Components (Backwards Compatible)
 
 **Active Components:**
+
 - `calculator.rs` - Scalar calculator
 - `parse_v0_model()` - v0.2.0 parser
 - `parse_yaml_with_includes()` - Include handling
 
 **Data Structures:**
+
 ```rust
 pub struct Variable {
     pub path: String,
@@ -1660,9 +1708,10 @@ pub struct Include {
     pub file: String,
     pub r#as: String,
 }
-```
+```text
 
 **Key Features:**
+
 - Cross-file references (`@alias.variable`)
 - Scalar values only
 - Discrete formulas (`{value, formula}`)
@@ -1670,11 +1719,13 @@ pub struct Include {
 ### v1.0.0 Components (Current)
 
 **Active Components:**
+
 - `array_calculator.rs` - Array calculator
 - `parse_v1_model()` - v1.0.0 parser
 - Excel integration (exporter, importer)
 
 **Data Structures:**
+
 ```rust
 pub struct Table {
     pub name: String,
@@ -1688,9 +1739,10 @@ pub enum ColumnValue {
     Date(Vec<String>),
     Boolean(Vec<bool>),
 }
-```
+```text
 
 **Key Features:**
+
 - Column arrays
 - Row-wise formulas
 - Aggregation formulas
@@ -1714,14 +1766,16 @@ pub fn parse_model(path: &Path) -> ForgeResult<ParsedModel> {
         ForgeVersion::V0_2_0 => parse_v0_model(path, &yaml),
     }
 }
-```
+```text
 
 **Benefits:**
+
 - No breaking changes for existing users
 - Easy migration path (v0.2.0 → v1.0.0)
 - Both versions tested and maintained
 
 **Trade-offs:**
+
 - Increased code complexity
 - Larger binary size
 - More test coverage needed
@@ -1745,19 +1799,22 @@ let result = calculate(
     &resolver,  // Variable resolver closure
     &NoCustomFunction,  // No custom functions
 )?;
-```
+```text
 
 **Supported Functions:**
+
 - Math: SUM, AVERAGE, MAX, MIN, ABS, ROUND, SQRT, POWER
 - Logic: IF, AND, OR, NOT
 - Text: LEFT, RIGHT, CONCATENATE
 - Conditional: SUMIF, COUNTIF, AVERAGEIF
 
 **Integration Points:**
+
 - `array_calculator.rs:400+` - Row-wise formula evaluation
 - `calculator.rs` - Scalar formula evaluation
 
 **Design Decision:** Why xlformula_engine?
+
 - Excel-compatible syntax
 - No need to implement 47+ functions manually
 - Active maintenance and updates
@@ -1779,14 +1836,16 @@ let node_b = graph.add_node("B");
 graph.add_edge(node_a, node_b, ());  // A → B
 
 let order = toposort(&graph, None)?;  // Returns [A, B]
-```
+```text
 
 **Integration Points:**
+
 - `array_calculator.rs:36-81` - Table dependency resolution
 - `array_calculator.rs:136-176` - Column dependency resolution
 - `calculator.rs` - Variable dependency resolution
 
 **Design Decision:** Why petgraph?
+
 - Robust topological sort
 - Automatic cycle detection
 - Standard library in Rust ecosystem
@@ -1803,13 +1862,15 @@ use serde_yaml::Value;
 
 let yaml: Value = serde_yaml::from_str(&content)?;
 let tables = yaml.get("tables")?;
-```
+```text
 
 **Integration Points:**
+
 - `parser/mod.rs` - YAML parsing
 - `writer/mod.rs` - YAML serialization
 
 **Design Decision:** Why serde_yaml?
+
 - De facto standard for YAML in Rust
 - Serde integration (derive macros)
 - Good error messages
@@ -1829,12 +1890,14 @@ let worksheet = workbook.add_worksheet();
 worksheet.write_string(0, 0, "Header")?;
 worksheet.write_formula(1, 0, Formula::new("=A1+B1"))?;
 workbook.save("output.xlsx")?;
-```
+```text
 
 **Integration Points:**
+
 - `excel/exporter.rs` - Excel file creation
 
 **Design Decision:** Why rust_xlsxwriter?
+
 - Pure Rust (no external dependencies)
 - Fast and efficient
 - Supports formulas
@@ -1854,12 +1917,14 @@ let worksheet = workbook.worksheet_range("Sheet1")?;
 for row in worksheet.rows() {
     // Process row
 }
-```
+```text
 
 **Integration Points:**
+
 - `excel/importer.rs` - Excel file reading
 
 **Design Decision:** Why calamine?
+
 - Fast Excel reading
 - Supports .xlsx, .xls, .ods
 - Formula preservation
@@ -1875,16 +1940,19 @@ for row in worksheet.rows() {
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
+
 struct Cli {
     #[command(subcommand)]
     command: Commands,
 }
-```
+```text
 
 **Integration Points:**
+
 - `main.rs` - CLI definition
 
 **Design Decision:** Why clap?
+
 - Derive macros for clean code
 - Automatic help generation
 - Subcommand support
@@ -1930,19 +1998,23 @@ package "External Libraries" {
 [main.rs] --> [clap\nv4.5] : CLI parsing
 
 note right of [xlformula_engine\nv0.1.18]
-  **Formula Engine**
+
+#### Formula Engine
+
   47+ Excel functions
   Excel-compatible syntax
 end note
 
 note right of [petgraph\nv0.6]
-  **Graph Algorithms**
+
+#### Graph Algorithms
+
   Topological sort
   Cycle detection
 end note
 
 @enduml
-```
+```text
 
 ---
 

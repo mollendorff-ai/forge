@@ -41,18 +41,22 @@ Formulas reference other variables, creating **dependencies**. Calculating in th
 **Example Problem:**
 
 ```yaml
+
 # Wrong order calculation
+
 profit: =revenue - costs    # revenue not yet calculated!
 revenue: =price * quantity  # Calculate revenue AFTER using it?
-```
+```text
 
 **Solution: Dependency Resolution**
 
-```
+```text
+
 1. Build dependency graph: revenue → profit
 2. Topological sort: [revenue, profit]
 3. Calculate in order: revenue first, then profit
-```
+
+```text
 
 ### Design Principles
 
@@ -71,13 +75,14 @@ revenue: =price * quantity  # Calculate revenue AFTER using it?
 **Definition:** A directed graph with no cycles.
 
 **Properties:**
+
 - **Directed**: Edges have direction (A → B means A depends on B)
 - **Acyclic**: No path from a node back to itself
 - **Topological Order**: Nodes can be linearly ordered such that every edge points forward
 
 **Example:**
 
-```
+```text
 Variables: a, b, c, d
 Dependencies:
   a depends on b    (a → b)
@@ -93,7 +98,7 @@ Graph:
       a
 
 Topological Order: [d, b, c, a] or [d, c, b, a]
-```
+```text
 
 ### Graph Representation
 
@@ -114,7 +119,7 @@ struct Graph {
 //   "c": ["d"],
 //   "d": [],
 // }
-```
+```text
 
 **petgraph Representation:**
 
@@ -135,7 +140,7 @@ graph.add_edge(d, b, ());  // b depends on d
 graph.add_edge(d, c, ());  // c depends on d
 graph.add_edge(b, a, ());  // a depends on b
 graph.add_edge(c, a, ());  // a depends on c
-```
+```text
 
 ---
 
@@ -163,17 +168,17 @@ pl_2025:
   row_formulas:
     gross_profit: "=revenue - cogs"          # Depends on revenue, cogs
     gross_margin: "=gross_profit / revenue"  # Depends on gross_profit, revenue
-```
+```text
 
 **Dependency Graph:**
 
-```
+```text
 revenue ──┐
           ├──→ gross_profit ──→ gross_margin
 cogs ─────┘              ↑
                          │
 revenue ─────────────────┘
-```
+```text
 
 **Calculation Order:** `[gross_profit, gross_margin]`
 
@@ -209,7 +214,7 @@ fn get_formula_calculation_order(&self, table: &Table) -> ForgeResult<Vec<String
     }
 
     // Topological sort
-    let order = toposort(&graph, None).map_err(|_| {
+ let order = toposort(&graph, None).map_err(|_| {
         ForgeError::CircularDependency(
             "Circular dependency detected in table formulas".to_string(),
         )
@@ -217,12 +222,12 @@ fn get_formula_calculation_order(&self, table: &Table) -> ForgeResult<Vec<String
 
     let ordered_names: Vec<String> = order
         .iter()
-        .filter_map(|idx| graph.node_weight(*idx).cloned())
+ .filter_map(|idx| graph.node_weight(*idx).cloned())
         .collect();
 
     Ok(ordered_names)
 }
-```
+```text
 
 ### Level 2: Table Dependencies
 
@@ -242,13 +247,13 @@ pl_2026:
 pl_2027:
   row_formulas:
     revenue: "=pl_2026.revenue * 1.15"  # Depends on pl_2026
-```
+```text
 
 **Dependency Graph:**
 
-```
+```text
 pl_2025 → pl_2026 → pl_2027
-```
+```text
 
 **Calculation Order:** `[pl_2025, pl_2026, pl_2027]`
 
@@ -291,7 +296,7 @@ fn get_table_calculation_order(&self, table_names: &[String])
     }
 
     // Topological sort
-    let order = toposort(&graph, None).map_err(|_| {
+ let order = toposort(&graph, None).map_err(|_| {
         ForgeError::CircularDependency(
             "Circular dependency detected between tables".to_string(),
         )
@@ -299,12 +304,12 @@ fn get_table_calculation_order(&self, table_names: &[String])
 
     let ordered_names: Vec<String> = order
         .iter()
-        .filter_map(|idx| graph.node_weight(*idx).cloned())
+ .filter_map(|idx| graph.node_weight(*idx).cloned())
         .collect();
 
     Ok(ordered_names)
 }
-```
+```text
 
 ### Level 3: Scalar Dependencies
 
@@ -326,13 +331,13 @@ summary:
 
   growth_rate:
     formula: "=avg_revenue * 0.1"     # Depends on avg_revenue scalar
-```
+```text
 
 **Dependency Graph:**
 
-```
+```text
 pl_2025 → total_revenue → avg_revenue → growth_rate
-```
+```text
 
 **Calculation Order:** `[total_revenue, avg_revenue, growth_rate]`
 
@@ -348,7 +353,8 @@ pl_2025 → total_revenue → avg_revenue → growth_rate
 
 **Algorithm:**
 
-```
+```text
+
 1. Find all nodes with in-degree 0 (no dependencies)
 2. Add them to the queue
 3. While queue is not empty:
@@ -359,11 +365,12 @@ pl_2025 → total_revenue → avg_revenue → growth_rate
       - If target's in-degree becomes 0, add to queue
 4. If all nodes processed, return sorted list
 5. Otherwise, cycle detected
-```
+
+```text
 
 **Example:**
 
-```
+```text
 Graph:
   a → b → d
   a → c → d
@@ -394,20 +401,23 @@ Step 5: Process d
         queue = []
 
 Result: [a, b, c, d]
-```
+```text
 
 ### DFS-Based Topological Sort (petgraph)
 
 **petgraph uses a DFS-based algorithm:**
 
-```
+```text
+
 1. Start DFS from each unvisited node
 2. Mark nodes as visited
 3. After processing all children, add node to result
 4. Reverse the result
-```
+
+```text
 
 **Properties:**
+
 - **Time Complexity:** O(V + E) where V = vertices, E = edges
 - **Space Complexity:** O(V) for visited set and result list
 - **Deterministic:** Same input produces same output
@@ -428,7 +438,7 @@ graph.add_edge(a, c, ());  // c depends on a
 
 let order = toposort(&graph, None).unwrap();
 // order = [a, b, c] or [a, c, b] (both valid)
-```
+```text
 
 ---
 
@@ -445,13 +455,13 @@ a:
   formula: "=b"
 b:
   formula: "=a"
-```
+```text
 
 **Dependency Graph:**
 
-```
+```text
 a → b → a  (cycle!)
-```
+```text
 
 **Error:** "Circular dependency detected: a → b → a"
 
@@ -464,13 +474,13 @@ b:
   formula: "=c * 2"
 c:
   formula: "=a - 5"
-```
+```text
 
 **Dependency Graph:**
 
-```
+```text
 a → b → c → a  (cycle!)
-```
+```text
 
 **Error:** "Circular dependency detected: a → b → c → a"
 
@@ -485,7 +495,7 @@ let order = toposort(&graph, None).map_err(|cycle| {
         "Circular dependency detected".to_string()
     )
 })?;
-```
+```text
 
 **How it works:**
 
@@ -521,7 +531,7 @@ fn has_cycle_dfs(
 
     false
 }
-```
+```text
 
 ### Real-World Example
 
@@ -536,26 +546,28 @@ customers:
 
 arpu:
   value: 50
-```
+```text
 
 **Dependency Graph:**
 
-```
+```text
 revenue → customers → revenue  (cycle!)
-```
+```text
 
 **Error Message:**
 
-```
+```text
 Error: Circular dependency detected in scalar formulas
   revenue depends on customers
   customers depends on revenue
-```
+```text
 
 **Fix:**
 
 ```yaml
+
 # Remove circular dependency
+
 customers:
   value: 1000  # Define explicitly
 
@@ -564,7 +576,7 @@ revenue:
 
 arpu:
   value: 50
-```
+```text
 
 ---
 
@@ -593,11 +605,11 @@ summary:
 
   high_margin_pct:
     formula: "=high_margin_count / 4 * 100"
-```
+```text
 
 **Dependency Hierarchy:**
 
-```
+```text
 Level 1 (Columns):
   revenue, cogs → gross_profit → gross_margin → tier
 
@@ -607,18 +619,20 @@ Level 2 (Tables):
 Level 3 (Scalars):
   pl_2025 → total_revenue
   pl_2025 → high_margin_count → high_margin_pct
-```
+```text
 
 **Calculation Order:**
 
-```
+```text
+
 1. pl_2025.gross_profit (depends on revenue, cogs)
 2. pl_2025.gross_margin (depends on gross_profit, revenue)
 3. pl_2025.tier (depends on gross_margin)
 4. total_revenue (depends on pl_2025)
 5. high_margin_count (depends on pl_2025)
 6. high_margin_pct (depends on high_margin_count)
-```
+
+```text
 
 ### Cross-Level Dependencies
 
@@ -648,29 +662,32 @@ summary:
 
   growth:
     formula: "=total_2026 / total_2025 - 1"
-```
+```text
 
 **Full Dependency Graph:**
 
-```
+```text
 pricing → sales_2025 → sales_2026
             ↓              ↓
         total_2025 → growth ← total_2026
-```
+```text
 
 **Calculation Order:**
 
-```
+```text
 Phase 1 (Tables):
+
   1. pricing
   2. sales_2025 (depends on pricing)
   3. sales_2026 (depends on sales_2025)
 
 Phase 2 (Scalars):
+
   4. total_2025 (depends on sales_2025)
   5. total_2026 (depends on sales_2026)
   6. growth (depends on total_2025, total_2026)
-```
+
+```text
 
 ---
 
@@ -701,7 +718,7 @@ let node_b = graph.add_node("b".to_string());
 
 // Add edge from a to b
 graph.add_edge(node_a, node_b, ());
-```
+```text
 
 **2. NodeIndex**
 
@@ -713,7 +730,7 @@ let idx: NodeIndex = graph.add_node("value");
 
 // Use to retrieve node data
 let node_data = graph.node_weight(idx);
-```
+```text
 
 **3. Algorithms**
 
@@ -727,7 +744,7 @@ let order = toposort(&graph, None)?;
 if is_cyclic_directed(&graph) {
     println!("Graph has a cycle!");
 }
-```
+```text
 
 ### Forge's petgraph Usage
 
@@ -764,31 +781,31 @@ let order = toposort(&graph, None).map_err(|_| {
 // 5. Extract ordered names
 let ordered_names: Vec<String> = order
     .iter()
-    .filter_map(|idx| graph.node_weight(*idx).cloned())
+ .filter_map(|idx| graph.node_weight(*idx).cloned())
     .collect();
-```
+```text
 
 ### Memory Usage
 
 **Per-graph overhead:**
 
-```
+```text
 DiGraph structure: ~48 bytes
 NodeIndex: 8 bytes each
 Edge: 16 bytes each (from, to)
 Node data: sizeof(T) bytes each
-```
+```text
 
 **Example:**
 
-```
+```text
 10 nodes (String, avg 10 chars):
   NodeIndex: 10 * 8 = 80 bytes
   Node data: 10 * (24 + 10) = 340 bytes
   Edges (20): 20 * 16 = 320 bytes
   Graph struct: 48 bytes
   Total: ~788 bytes
-```
+```text
 
 ---
 
@@ -808,16 +825,17 @@ Node data: sizeof(T) bytes each
 
 **Total complexity for Forge:**
 
-```
+```text
 Build graph: O(V + F) where F = total formula length
 Topological sort: O(V + E)
 Total: O(V + E + F)
-```
+```text
 
 **Real-world example:**
 
-```
+```text
 Model with:
+
   - 10 tables
   - 50 columns with formulas
   - 20 scalars
@@ -828,31 +846,31 @@ E = 80 * 5 = 400 edges
 
 Time: O(80 + 400) = O(480) operations
 Actual time: <1ms
-```
+```text
 
 ### Space Complexity
 
 **Graph storage:**
 
-```
+```text
 Space = O(V + E)
-```
+```text
 
 **Example:**
 
-```
+```text
 80 nodes, 400 edges:
   Node storage: 80 * 40 bytes = 3.2 KB
   Edge storage: 400 * 16 bytes = 6.4 KB
   Hash maps: 80 * 24 bytes = 1.9 KB
   Total: ~12 KB
-```
+```text
 
 ### Performance Benchmarks
 
 **Test Case: Large Financial Model**
 
-```
+```text
 Tables: 15
 Rows per table: 50
 Columns per table: 20
@@ -867,7 +885,7 @@ Results:
   Total: 188ms
 
 Dependency resolution is <2% of total time
-```
+```text
 
 ### Optimization Opportunities
 
@@ -888,12 +906,12 @@ struct Calculator {
 }
 
 fn calculate_all(&mut self) {
-    let order = self.dependency_cache.get_or_insert_with(|| {
+ let order = self.dependency_cache.get_or_insert_with(|| {
         build_graph_and_sort().unwrap()
     });
     // Use cached order
 }
-```
+```text
 
 **2. Incremental dependency tracking**
 
@@ -910,7 +928,7 @@ fn recalculate_incremental(&self, changed: &HashSet<String>) {
         calculate(node);
     }
 }
-```
+```text
 
 ---
 
@@ -924,7 +942,7 @@ fn recalculate_incremental(&self, changed: &HashSet<String>) {
 pl_2025:
   columns:
     revenue: [100, 120, 150]  # No formulas
-```
+```text
 
 **Handling:**
 
@@ -933,7 +951,7 @@ let formula_order = self.get_formula_calculation_order(&table)?;
 if formula_order.is_empty() {
     return Ok(table.clone());  // No formulas, return as-is
 }
-```
+```text
 
 ### Edge Case 2: Self-Reference
 
@@ -942,7 +960,7 @@ if formula_order.is_empty() {
 ```yaml
 a:
   formula: "=a + 1"  # Self-reference
-```
+```text
 
 **Detection:**
 
@@ -951,7 +969,7 @@ a:
 toposort(&graph, None).map_err(|_| {
     ForgeError::CircularDependency("a references itself".to_string())
 })
-```
+```text
 
 ### Edge Case 3: Missing Dependency
 
@@ -960,7 +978,7 @@ toposort(&graph, None).map_err(|_| {
 ```yaml
 profit:
   formula: "=revenue - costs"  # 'costs' doesn't exist
-```
+```text
 
 **Handling:**
 
@@ -974,7 +992,7 @@ for dep in deps {
         )));
     }
 }
-```
+```text
 
 ### Edge Case 4: Diamond Dependency
 
@@ -985,17 +1003,17 @@ d: {value: 100}
 b: {formula: "=d * 2"}
 c: {formula: "=d * 3"}
 a: {formula: "=b + c"}
-```
+```text
 
 **Dependency Graph:**
 
-```
+```text
     d
    / \
   b   c
    \ /
     a
-```
+```text
 
 **Handling:**
 
@@ -1007,20 +1025,23 @@ Topological sort handles correctly: `[d, b, c, a]` or `[d, c, b, a]`
 **Scenario:** Multiple independent subgraphs
 
 ```yaml
+
 # Group 1
+
 a: {formula: "=b"}
 b: {value: 10}
 
 # Group 2 (independent)
+
 x: {formula: "=y"}
 y: {value: 20}
-```
+```text
 
 **Dependency Graph:**
 
-```
+```text
 b → a    (independent from)    y → x
-```
+```text
 
 **Handling:**
 
@@ -1033,23 +1054,25 @@ Result: `[b, a, y, x]` (or any valid interleaving)
 
 **Bad Error:**
 
-```
+```text
 Error: Circular dependency
-```
+```text
 
 **Good Error:**
 
-```
+```text
 Error: Circular dependency detected in table 'pl_2025'
 
 Dependency chain:
   profit → revenue → profit
 
 To fix this:
+
   1. Remove the circular reference
   2. Define one of these variables explicitly
   3. Check your formula logic
-```
+
+```text
 
 **Implementation:**
 
@@ -1060,7 +1083,7 @@ fn format_cycle_error(cycle: &[String]) -> String {
         cycle.join(" → ")
     )
 }
-```
+```text
 
 ---
 

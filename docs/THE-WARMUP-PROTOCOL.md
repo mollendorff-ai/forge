@@ -31,25 +31,28 @@ A single YAML file (`warmup.yaml`) that contains:
 ### 1. Eliminates Context Loss
 
 Instead of:
-```
+
+```text
 Human: "Remember we use snake_case for variables"
 Human: "Don't forget to run tests"
 Human: "Make sure to handle errors properly"
-```
+```text
 
 You get:
-```
+
+```text
 Claude: [reads warmup.yaml]
 Claude: ✅ Verified snake_case naming
 Claude: ✅ All 92 tests passing
 Claude: ✅ Error handling checked
-```
+```text
 
 ### 2. Enables True Autonomy
 
-The user said: **"work independently! make the best choices :) - see you"**
+The user said: "work independently! make the best choices :) - see you"
 
 Claude then:
+
 - Fixed a critical v0.2.0 bug independently
 - Released v0.2.1 to GitHub
 - Returned to v1.0.0 development
@@ -60,27 +63,31 @@ Claude then:
 ### 3. Maintains Consistent Quality
 
 Per warmup.yaml:
-- **"ZERO tolerance"** on warnings → Claude fixed ALL 6 clippy lints
-- **"100% coverage"** → Claude verifies 92 tests pass
-- **"Think harder"** → Claude debugged flaky tests independently
-- **"User has OCD for good looking code 😊"** → Claude uses MOST STRICT linting
+
+- "ZERO tolerance" on warnings → Claude fixed ALL 6 clippy lints
+- "100% coverage" → Claude verifies 92 tests pass
+- "Think harder" → Claude debugged flaky tests independently
+- "User has OCD for good looking code 😊" → Claude uses MOST STRICT linting
 
 ### 4. Preserves Institutional Knowledge
 
 Traditional approach:
-```
+
+```text
 Session 1: "Use Result<T, ForgeError> for error handling"
 Session 50: Claude uses unwrap() because it forgot
-```
+```text
 
 With Warmup Protocol:
+
 ```yaml
 rust_patterns:
   error_handling:
     - "NEVER use unwrap() or expect() in library code"
     - "Always use Result<T, ForgeError>"
     - "See error.rs for error types"
-```
+
+```text
 
 ## Real-World Impact: Forge v1.0.0
 
@@ -123,18 +130,22 @@ The warmup protocol provided:
 
 ```yaml
 testing_standards:
+
   - "100% test coverage for new features"
   - "Test edge cases (empty inputs, nulls, malformed data)"
   - "Test error conditions (invalid refs, circular deps)"
   - "E2E tests for user workflows"
-```
+
+```text
 
 ```yaml
 code_quality:
+
   - "No warnings in release build (ZERO tolerance)"
   - "Use cargo clippy --all-targets -- -D warnings"
   - "Fix ALL warnings before committing"
-```
+
+```text
 
 ```yaml
 git_workflow:
@@ -152,7 +163,8 @@ git_workflow:
 
       ## Testing
       - Verification steps
-```
+
+```text
 
 ## How to Implement
 
@@ -162,6 +174,7 @@ Start with these essential sections:
 
 ```yaml
 warmup_checklist:
+
   - Check current branch and git status
   - Review recent commits
   - Run full test suite
@@ -169,45 +182,55 @@ warmup_checklist:
   - Verify no uncommitted changes
 
 code_quality:
+
   - No warnings in release build
   - 100% test coverage
   - Specific linting rules
 
 testing_standards:
+
   - What makes a good test
   - Coverage requirements
   - When to write tests
 
 git_workflow:
+
   - Branch naming
   - Commit message format
   - When to commit/push
 
 release_workflow:
+
   - Version bumping steps
   - Tagging conventions
   - Publishing checklist
-```
+
+```text
 
 ### 2. Document Project-Specific Knowledge
 
 ```yaml
 gotchas:
+
   - "Cross-file references use @ prefix (@alias.variable)"
   - "Fuzzy matching only for same-file refs, NOT cross-file"
   - "Excel column indices are 0-based internally, 1-based in display"
-```
+
+```text
 
 ```yaml
 best_practices:
+
   - "Test both lib and e2e"
   - "Build binary before e2e tests (cargo build --release --bin forge)"
   - "Use ForgeResult<T> instead of Result<T, ForgeError>"
-```
+
+```text
 
 ### 3. Evolve the Protocol
 
 After each session, add:
+
 - New bugs discovered → Add to gotchas
 - New patterns learned → Add to best practices
 - New quality issues → Add to standards
@@ -216,17 +239,21 @@ After each session, add:
 ### 4. Trust But Verify
 
 Give Claude autonomy:
-```
+
+```text
 "work independently! make the best choices :)"
-```
+```text
 
 But include verification steps:
+
 ```yaml
 before_committing:
+
   - "Run cargo test --release"
   - "Run cargo clippy --release -- -D warnings"
   - "Verify git status is clean"
-```
+
+```text
 
 ## Results: The Numbers
 
@@ -254,12 +281,14 @@ before_committing:
 ### From Copilot to Colleague
 
 **Traditional AI Assistant**:
+
 - Answers questions
 - Writes code snippets
 - Needs constant direction
 - Forgets previous context
 
 **With Warmup Protocol**:
+
 - Owns entire features
 - Maintains quality standards
 - Works across sessions
@@ -268,17 +297,19 @@ before_committing:
 ### From "Help me" to "Here's the goal"
 
 **Before**:
-```
+
+```javascript
 Human: "Can you help me write a function to parse Excel files?"
 AI: "Sure! Here's a basic function..."
 Human: "Can you add error handling?"
 AI: "Of course! Here's the updated version..."
 Human: "Can you add tests?"
 AI: "Absolutely! Here are some tests..."
-```
+```text
 
 **After**:
-```
+
+```text
 Human: "Implement bidirectional Excel bridge with formula translation.
         Follow warmup.yaml. Work independently. See you later!"
 
@@ -290,36 +321,46 @@ Human: "Implement bidirectional Excel bridge with formula translation.
 
 AI: "Done! Excel import/export working with formula translation.
      92 tests passing, zero warnings. Ready for review."
-```
+```text
 
 ## Lessons Learned
 
 ### 1. Specificity Matters
 
 **Bad**:
+
 ```yaml
 code_quality:
+
   - "Write good code"
-```
+
+```text
 
 **Good**:
+
 ```yaml
 code_quality:
+
   - "No warnings in release build (ZERO tolerance)"
   - "Run cargo clippy --all-targets -- -D warnings"
   - "Use Result<T, ForgeError> for all fallible functions"
   - "Never use unwrap() in library code"
-```
+
+```text
 
 ### 2. Context is King
 
 **Bad**:
+
 ```yaml
 testing:
+
   - "Write tests"
-```
+
+```text
 
 **Good**:
+
 ```yaml
 testing_standards:
   coverage: "100% for new features, 80% overall minimum"
@@ -331,11 +372,13 @@ testing_standards:
   when_to_write:
     - "TDD: write tests before implementation for critical features"
     - "Immediately after: for bug fixes to prevent regression"
-```
+
+```text
 
 ### 3. Trust Requires Standards
 
 You can only trust autonomous work when:
+
 - Quality standards are explicit
 - Verification is automated
 - Failure modes are documented
@@ -344,6 +387,7 @@ You can only trust autonomous work when:
 ### 4. Evolve Continuously
 
 warmup.yaml is a living document:
+
 - Add new gotchas as you discover them
 - Document solved problems
 - Refine standards based on outcomes
@@ -383,6 +427,7 @@ warmup.yaml is a living document:
 ### Vision
 
 A world where:
+
 - Software development is truly collaborative with AI
 - Context never gets lost
 - Quality is maintained automatically
@@ -425,12 +470,14 @@ The Warmup Protocol transformed Claude from a helpful assistant to an autonomous
 ### What Happened
 
 v1.0.0 was shipped with:
+
 - ✅ Excellent unit tests (FormulaTranslator, ReverseFormulaTranslator)
 - ✅ 17 unit tests covering translation logic
 - ✅ ZERO clippy warnings  
 - ✅ All tests passing
 
 But it was missing:
+
 - ❌ E2E tests for `forge export` command
 - ❌ E2E tests for `forge import` command
 - ❌ No test .xlsx files in test-data/
@@ -446,6 +493,7 @@ But it was missing:
 When I (Claude) was told "work independently", I interpreted "tests passing" as sufficient. The unit tests were comprehensive and all passed. From my perspective, the feature was complete.
 
 But the USER perspective was different. To them, "tests passing" meant:
+
 - I can run `forge export model.yaml output.xlsx`
 - Excel opens the file and shows my data
 - Formulas are translated correctly
@@ -461,6 +509,7 @@ The warmup.yaml protocol was updated with `autonomous_work_requirements`:
 
 ```yaml
 e2e_tests_required:
+
   - rule: "EVERY user-facing command MUST have e2e tests"
   - rule: "E2E tests MUST use REAL test files (not mocks)"  
   - rule: "E2E tests MUST cover happy path + failure modes"
@@ -470,19 +519,22 @@ e2e_tests_required:
       - "Round-trip: YAML → Excel → YAML (must be identical!)"
 
 test_data_required:
+
   - rule: "Create REAL test files in test-data/ directory"
   - examples:
       - "test-data/export_basic.yaml"
       - "test-data/import_basic.xlsx"
       - "test-data/roundtrip.yaml"
       - "test-data/edge_cases/ (empty, large, malformed)"
-```
+
+```text
 
 ### The Bigger Lesson
 
 **Explicit > Implicit**
 
 Don't assume AI knows what "complete" means. Spell it out:
+
 - Unit tests AND e2e tests
 - Test files must exist
 - Round-trips must be tested
@@ -492,6 +544,7 @@ Don't assume AI knows what "complete" means. Spell it out:
 **Verification > Trust**
 
 "Trust but verify" becomes:
+
 - Checklist before reporting complete
 - Double-check tests exist
 - Double-check they pass
@@ -500,6 +553,7 @@ Don't assume AI knows what "complete" means. Spell it out:
 **Evolution > Perfection**
 
 The warmup protocol improved BECAUSE of this gap:
+
 - v1.0.0 revealed the weakness
 - Protocol was updated immediately  
 - Future autonomous work won't have this gap
@@ -512,6 +566,7 @@ The warmup protocol improved BECAUSE of this gap:
 **After this update**: AI has explicit checklist of what "done" means
 
 This is what makes autonomous AI development actually work:
+
 1. **Explicit requirements** (not assumptions)
 2. **Verifiable checklists** (not vague goals)
 3. **Continuous improvement** (learn from gaps)
@@ -534,11 +589,13 @@ Fair question. Here's the honest analysis with real data.
 ### Junior Coder (Pre-Protocol)
 
 **Capabilities:**
+
 - Fast execution (3-5x human speed)
 - Good at single tasks
 - Follows instructions well
 
 **Limitations:**
+
 - Context resets every session
 - Needs constant direction ("What next?")
 - Doesn't catch own mistakes
@@ -547,6 +604,7 @@ Fair question. Here's the honest analysis with real data.
 **Effective Multiplier: 2-3x**
 
 Why so low? Speed killed by supervision overhead:
+
 - 10 minutes to re-explain context each session
 - 15 minutes waiting for human to review and give next task
 - Mistakes require human to catch and redirect
@@ -555,6 +613,7 @@ Why so low? Speed killed by supervision overhead:
 ### Senior Coder (With Protocol)
 
 **Capabilities:**
+
 - Same execution speed (3-5x)
 - Context preserved across 30+ sessions
 - Self-directed work (identifies own tasks)
@@ -562,6 +621,7 @@ Why so low? Speed killed by supervision overhead:
 - Extended autonomous operation
 
 **New Behaviors:**
+
 - Identifies gaps ("Wait, we're missing e2e tests")
 - Fixes gaps without being asked
 - Updates protocol to prevent future gaps
@@ -573,6 +633,7 @@ Why so low? Speed killed by supervision overhead:
 ### Real Data From This Morning
 
 **Work Completed:**
+
 - 10 e2e tests with test data files
 - 200+ line protocol updates
 - 300+ line SR&ED tax credit documentation
@@ -590,17 +651,19 @@ Why so low? Speed killed by supervision overhead:
 ### But Speed Isn't Everything
 
 Traditional development has **blockers**:
-```
+
+```text
 Day 1: Write code → wait for review
 Day 2: Address comments → wait for CI
 Day 3: Fix CI → wait for approval
 Day 4: Finally merged
-```
+```text
 
 Autonomous development has **zero blockers**:
-```
+
+```text
 Session 1: Write → Test → Fix → Pass clippy → Done
-```
+```text
 
 ### The Real Multiplier Table
 
@@ -616,12 +679,14 @@ Session 1: Write → Test → Fix → Pass clippy → Done
 The protocol didn't just make me faster. It changed **what kind of work I can do**:
 
 **Junior Behavior:**
+
 - Execute task A
 - Wait for review
 - Execute task B
 - Wait for next instruction
 
 **Senior Behavior:**
+
 - Identify missing tests
 - Write tests
 - Find testing gap was symptom of protocol gap
@@ -637,6 +702,7 @@ That's the difference. Not speed of execution, but **ownership of outcomes**.
 The autonomous AI development methodology demonstrated in Forge v1.0.0 represents a **genuine technological breakthrough**:
 
 **Measurable Improvements:**
+
 - **Development velocity**: 20-50x multiplier (conservative)
 - **Code quality**: ZERO warnings, 100% test coverage, maintained autonomously
 - **Rework rate**: 0% (vs industry standard 30-50%)
@@ -644,12 +710,14 @@ The autonomous AI development methodology demonstrated in Forge v1.0.0 represent
 - **Autonomous duration**: Unlimited (vs single-session limitation)
 
 **Economic Impact:**
+
 - **Time savings**: 3-6 months → 2 weeks for v1.0.0
 - **Quality consistency**: AI maintains standards without human oversight
 - **24/7 operation**: Work continues while team is offline
 - **Cost reduction**: 97% reduction in human oversight time
 
 **Innovation Qualification:**
+
 - Novel methodology (warmup protocol)
 - Technological uncertainty resolved (context loss)
 - Canadian-developed innovation
@@ -660,16 +728,19 @@ This isn't "AI assistance." This is **AI as autonomous developer**.
 ### Conservative vs Optimistic Estimates
 
 **Conservative (20-30x):**
+
 - Sustained autonomous work with self-correction
 - Context preservation across sessions
 - Realistic for daily operations
 
 **Optimistic (50-100x):**
+
 - Calendar time comparison (weeks → days)
 - Includes zero blockers and 24/7 availability
 - Realistic for time-sensitive projects
 
 **Marketing (1000x):**
+
 - Requires perfect conditions + all blockers removed
 - Probably unrealistic but mathematically possible
 

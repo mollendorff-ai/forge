@@ -112,30 +112,30 @@ partition "Result Handling" {
 stop
 
 @enduml
-```
+```text
 
 ### Two-Phase Calculation Model
 
 **Phase 1: Tables (Row-wise formulas)**
 
-```
+```text
 For each table in dependency order:
   For each row in table:
     For each formula column:
       Resolve column_ref[row_idx] → value
       Evaluate formula with values
       Store result in column[row_idx]
-```
+```text
 
 **Phase 2: Scalars (Aggregations)**
 
-```
+```text
 For each scalar in dependency order:
   Extract table.column references
   Get entire column array
   Apply aggregation (SUM, AVERAGE, etc.)
   Store scalar result
-```
+```text
 
 **Code Implementation:**
 
@@ -157,7 +157,7 @@ pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
 
     Ok(self.model)
 }
-```
+```text
 
 ---
 
@@ -191,30 +191,36 @@ match result {
     types::Value::Error(e) => eprintln!("Error: {:?}", e),
     _ => {}
 }
-```
+```text
 
 ### Supported Functions (47+)
 
 **Aggregation Functions:**
+
 - `SUM`, `AVERAGE`, `MAX`, `MIN`, `COUNT`, `PRODUCT`
 
 **Conditional Aggregations:**
+
 - `SUMIF`, `SUMIFS`, `COUNTIF`, `COUNTIFS`
 - `AVERAGEIF`, `AVERAGEIFS`, `MAXIFS`, `MINIFS`
 
 **Logical Functions:**
+
 - `IF`, `AND`, `OR`, `NOT`, `XOR`, `IFERROR`, `IFNA`
 
 **Math Functions:**
+
 - `ABS`, `ROUND`, `ROUNDUP`, `ROUNDDOWN`
 - `SQRT`, `POWER`, `EXP`, `LN`, `LOG`, `LOG10`
 - `MOD`, `CEILING`, `FLOOR`, `PI`, `E`
 
 **Text Functions:**
+
 - `CONCATENATE`, `LEFT`, `RIGHT`, `MID`
 - `LEN`, `UPPER`, `LOWER`, `TRIM`
 
 **Date Functions:**
+
 - `TODAY`, `NOW`, `DATE`, `YEAR`, `MONTH`, `DAY`
 
 ### Type Mapping
@@ -262,7 +268,7 @@ match result {
         )));
     }
 }
-```
+```text
 
 ---
 
@@ -282,11 +288,11 @@ pl_2025:
   row_formulas:
     profit: "=revenue - cogs"
     margin: "=profit / revenue"
-```
+```text
 
 **Evaluation:**
 
-```
+```text
 Row 0: profit[0] = revenue[0] - cogs[0] = 100000 - 30000 = 70000
 Row 1: profit[1] = revenue[1] - cogs[1] = 120000 - 36000 = 84000
 Row 2: profit[2] = revenue[2] - cogs[2] = 150000 - 45000 = 105000
@@ -295,7 +301,7 @@ Row 3: profit[3] = revenue[3] - cogs[3] = 180000 - 54000 = 126000
 Row 0: margin[0] = profit[0] / revenue[0] = 70000 / 100000 = 0.7
 Row 1: margin[1] = profit[1] / revenue[1] = 84000 / 120000 = 0.7
 ...
-```
+```text
 
 ### Evaluation Algorithm
 
@@ -341,7 +347,7 @@ partition "Per-Row Evaluation" {
 stop
 
 @enduml
-```
+```text
 
 ### Code Implementation
 
@@ -388,8 +394,8 @@ fn evaluate_rowwise_formula(&mut self, table: &Table, formula: &str)
     for row_idx in 0..row_count {
         // Preprocess formula for custom functions
         let processed_formula = if self.has_custom_math_function(&formula_str)
-            || self.has_custom_text_function(&formula_str)
-            || self.has_custom_date_function(&formula_str)
+ || self.has_custom_text_function(&formula_str)
+ || self.has_custom_date_function(&formula_str)
         {
             self.preprocess_custom_functions(&formula_str, row_idx, table)?
         } else {
@@ -397,7 +403,7 @@ fn evaluate_rowwise_formula(&mut self, table: &Table, formula: &str)
         };
 
         // Create a resolver for this specific row
-        let resolver = |var_name: String| -> types::Value {
+ let resolver = |var_name: String| -> types::Value {
             // Check if this is a cross-table reference (table.column format)
             if var_name.contains('.') {
                 let parts: Vec<&str> = var_name.split('.').collect();
@@ -479,7 +485,7 @@ fn evaluate_rowwise_formula(&mut self, table: &Table, formula: &str)
         )),
     }
 }
-```
+```text
 
 ### Variable Resolution
 
@@ -518,7 +524,7 @@ let resolver = |var_name: String| -> types::Value {
     }
     types::Value::Error(types::Error::Reference)
 };
-```
+```text
 
 ### Cross-Table References
 
@@ -536,14 +542,14 @@ pl_2026:
     revenue: [120000, 144000, 180000, 216000]
   row_formulas:
     growth: "=pl_2026.revenue / pl_2025.revenue - 1"
-```
+```text
 
 **Evaluation:**
 
-```
+```text
 Row 0: growth[0] = pl_2026.revenue[0] / pl_2025.revenue[0] - 1
                = 120000 / 100000 - 1 = 0.2 (20% growth)
-```
+```text
 
 **Resolution Logic:**
 
@@ -562,7 +568,7 @@ if var_name.contains('.') {
     }
     return types::Value::Error(types::Error::Value);
 }
-```
+```text
 
 ---
 
@@ -575,7 +581,9 @@ Aggregation formulas reduce an **entire column array** to a **single scalar valu
 **Common Patterns:**
 
 ```yaml
+
 # Simple aggregations
+
 total_revenue:
   value: null
   formula: "=SUM(pl_2025.revenue)"
@@ -589,6 +597,7 @@ max_revenue:
   formula: "=MAX(pl_2025.revenue)"
 
 # Conditional aggregations
+
 high_revenue_count:
   value: null
   formula: "=COUNTIF(pl_2025.revenue, \">100000\")"
@@ -596,23 +605,23 @@ high_revenue_count:
 total_high_margin:
   value: null
   formula: "=SUMIF(pl_2025.margin, \">0.7\", pl_2025.revenue)"
-```
+```text
 
 ### Aggregation Types
 
 **1. Simple Aggregations**
 
-```
+```text
 SUM(column)       → Σ column[i]
 AVERAGE(column)   → (Σ column[i]) / n
 MAX(column)       → max(column[i])
 MIN(column)       → min(column[i])
 COUNT(column)     → count of non-empty values
-```
+```text
 
 **2. Conditional Aggregations**
 
-```
+```text
 SUMIF(range, criteria, sum_range)
   → Σ sum_range[i] where range[i] meets criteria
 
@@ -621,14 +630,14 @@ COUNTIF(range, criteria)
 
 AVERAGEIF(range, criteria, avg_range)
   → (Σ avg_range[i] where range[i] meets criteria) / count
-```
+```text
 
 **3. Multi-Condition Aggregations**
 
-```
+```text
 SUMIFS(sum_range, criteria_range1, criteria1, criteria_range2, criteria2, ...)
   → Σ sum_range[i] where all criteria are met
-```
+```text
 
 ### Evaluation Algorithm
 
@@ -664,7 +673,7 @@ else (complex)
 endif
 
 @enduml
-```
+```text
 
 ### Code Implementation
 
@@ -705,10 +714,10 @@ fn evaluate_aggregation(&self, formula: &str) -> ForgeResult<f64> {
     let (table_name, col_name) = self.parse_table_column_ref(&arg)?;
 
     // Get the column
-    let table = self.model.tables.get(table_name).ok_or_else(|| {
+ let table = self.model.tables.get(table_name).ok_or_else(|| {
         ForgeError::Eval(format!("Table '{}' not found", table_name))
     })?;
-    let column = table.columns.get(col_name).ok_or_else(|| {
+ let column = table.columns.get(col_name).ok_or_else(|| {
         ForgeError::Eval(format!(
             "Column '{}' not found in table '{}'",
             col_name, table_name
@@ -767,28 +776,30 @@ fn evaluate_aggregation(&self, formula: &str) -> ForgeResult<f64> {
         ))),
     }
 }
-```
+```text
 
 ### Conditional Aggregations
 
 **SUMIF Example:**
 
 ```yaml
+
 # Sum revenue where margin > 0.7
+
 high_margin_revenue:
   value: null
   formula: "=SUMIF(pl_2025.margin, \">0.7\", pl_2025.revenue)"
-```
+```text
 
 **Evaluation:**
 
-```
+```text
 For i in 0..row_count:
   if margin[i] > 0.7:
     sum += revenue[i]
 
 Result: sum
-```
+```text
 
 **Implementation:**
 
@@ -824,7 +835,7 @@ fn evaluate_sumif(&self, range: &Column, criteria: &str, sum_range: &Column)
 
     Ok(sum)
 }
-```
+```text
 
 ---
 
@@ -835,6 +846,7 @@ fn evaluate_sumif(&self, range: &Column, criteria: &str, sum_range: &Column)
 xlformula_engine v0.1.18 has limited function support. Some functions need preprocessing before evaluation.
 
 **Unsupported Functions:**
+
 - `ROUND`, `ROUNDUP`, `ROUNDDOWN`, `CEILING`, `FLOOR`
 - `SQRT`, `POWER` (partially supported)
 - `CONCAT`, `TRIM`, `UPPER`, `LOWER`, `LEN`, `MID`
@@ -846,14 +858,14 @@ Convert unsupported functions to equivalent expressions before sending to xlform
 
 **Examples:**
 
-```
+```text
 ROUND(value, 2)           → custom Rust implementation
 SQRT(value)               → POWER(value, 0.5)
 CEILING(value)            → custom implementation
 CONCAT(a, b)              → a & b (text concatenation)
 TRIM(text)                → custom preprocessing
 TODAY()                   → "2025-11-24" (current date)
-```
+```text
 
 ### Implementation
 
@@ -881,7 +893,7 @@ fn preprocess_custom_functions(&self, formula: &str, row_idx: usize, table: &Tab
 
     Ok(result)
 }
-```
+```text
 
 **ROUND Preprocessing:**
 
@@ -917,7 +929,7 @@ fn preprocess_round(&self, formula: &str, row_idx: usize, table: &Table)
 
     Ok(result)
 }
-```
+```text
 
 **TODAY Preprocessing:**
 
@@ -928,7 +940,7 @@ fn preprocess_today(&self, formula: &str) -> String {
     let today = Local::now().format("%Y-%m-%d").to_string();
     formula.replace("TODAY()", &format!("\"{}\"", today))
 }
-```
+```text
 
 ---
 
@@ -946,11 +958,12 @@ pl_2025:
     revenue: [100, 120, 150]
   row_formulas:
     profit: "=revenue * 0.2"  # revenue resolves to revenue[row_idx]
-```
+```text
 
 **2. Scalar Formulas (Global Context)**
 
 Variables resolve to:
+
 1. Other scalar values
 2. Aggregations over columns
 3. Array indexing (e.g., `table.column[0]`)
@@ -960,7 +973,7 @@ summary:
   total: "=SUM(pl_2025.revenue)"  # Aggregation
   first: "=pl_2025.revenue[0]"     # Array indexing
   margin: "=total / 100000"        # Scalar reference
-```
+```text
 
 **3. Cross-File References (v0.2.0)**
 
@@ -968,11 +981,12 @@ Variables resolve via alias prefix.
 
 ```yaml
 includes:
+
   - file: pricing.yaml
     as: pricing
 
 revenue: "=@pricing.base_price * volume"
-```
+```text
 
 ### Resolution Algorithm
 
@@ -1009,7 +1023,7 @@ else (scalar)
 endif
 
 @enduml
-```
+```text
 
 ---
 
@@ -1018,68 +1032,85 @@ endif
 ### 1. Arithmetic Operations
 
 ```yaml
+
 # Basic arithmetic
+
 profit: "=revenue - costs"
 margin: "=profit / revenue"
 total: "=a + b + c"
 
 # Parentheses
+
 net: "=(revenue - cogs - opex) * (1 - tax_rate)"
-```
+```text
 
 ### 2. Logical Expressions
 
 ```yaml
+
 # Conditional logic
+
 category: "=IF(revenue > 100000, \"High\", \"Low\")"
 valid: "=AND(margin > 0.2, revenue > 50000)"
 
 # Nested IF
+
 tier: "=IF(revenue > 1000000, \"A\", IF(revenue > 500000, \"B\", \"C\"))"
-```
+```text
 
 ### 3. Text Operations
 
 ```yaml
+
 # Concatenation
+
 full_name: "=first_name & \" \" & last_name"
 
 # Text functions
+
 initials: "=LEFT(first_name, 1) & LEFT(last_name, 1)"
 upper_name: "=UPPER(full_name)"
-```
+```text
 
 ### 4. Date Calculations
 
 ```yaml
+
 # Date functions
+
 current_year: "=YEAR(TODAY())"
 age: "=YEAR(TODAY()) - YEAR(birthdate)"
-```
+```text
 
 ### 5. Aggregations
 
 ```yaml
+
 # Simple aggregations
+
 total_revenue: "=SUM(pl_2025.revenue)"
 avg_margin: "=AVERAGE(pl_2025.margin)"
 max_sales: "=MAX(sales.monthly_total)"
 
 # Conditional aggregations
+
 high_performers: "=COUNTIF(employees.rating, \">4\")"
 bonus_pool: "=SUMIF(employees.rating, \">=4\", employees.salary)"
-```
+```text
 
 ### 6. Array Indexing
 
 ```yaml
+
 # Indexing into arrays
+
 first_month: "=pl_2025.revenue[0]"
 last_month: "=pl_2025.revenue[3]"
 
 # Growth calculations
+
 cagr: "=(pl_2025.revenue[3] / pl_2025.revenue[0]) ^ (1/3) - 1"
-```
+```text
 
 ### 7. Cross-Table References
 
@@ -1089,7 +1120,7 @@ pl_2026:
     # Reference another table's column
     growth: "=(revenue / pl_2025.revenue) - 1"
     yoy_change: "=revenue - pl_2025.revenue"
-```
+```text
 
 ---
 
@@ -1099,12 +1130,13 @@ pl_2026:
 
 **Row-wise Formula Evaluation:**
 
-```
+```text
 Per table: O(rows * columns * formula_complexity)
 Total: O(Σ(table.rows * table.calculated_cols))
-```
+```text
 
 **Example:**
+
 - 4 tables with 12 rows each
 - 3 calculated columns per table
 - Formula complexity: O(1) (simple arithmetic)
@@ -1112,19 +1144,21 @@ Total: O(Σ(table.rows * table.calculated_cols))
 
 **Aggregation Evaluation:**
 
-```
+```text
 Per aggregation: O(column_length)
 Total: O(Σ(aggregation.column_length))
-```
+```text
 
 ### Space Complexity
 
 **Per Formula Evaluation:**
+
 - Resolver closure: O(1) stack allocation
 - Result vector: O(rows) for row-wise formulas
 - xlformula_engine AST: O(formula_length)
 
 **Total Model:**
+
 - Input model: O(tables * rows * columns)
 - Calculated values: O(calculated_cols * rows)
 - Total: O(tables * rows * (data_cols + calc_cols))
@@ -1142,7 +1176,7 @@ let order = toposort(&dependency_graph, None)?;
 for var in order {
     calculate(var);  // All dependencies already calculated
 }
-```
+```text
 
 **2. Lazy Evaluation** (Not yet implemented)
 
@@ -1151,7 +1185,7 @@ for var in order {
 if !requested_columns.contains(col_name) {
     continue;  // Skip calculation
 }
-```
+```text
 
 **3. Parallel Row Evaluation** (Not yet implemented)
 
@@ -1161,9 +1195,9 @@ use rayon::prelude::*;
 
 let results: Vec<f64> = (0..row_count)
     .into_par_iter()  // Parallel iterator
-    .map(|row_idx| evaluate_formula(formula, row_idx))
+ .map(|row_idx| evaluate_formula(formula, row_idx))
     .collect();
-```
+```text
 
 **4. Formula Caching**
 
@@ -1177,17 +1211,19 @@ let parsed = parse_formula::parse_string_to_formula(formula, None);
 let parsed = formula_cache.get_or_insert(formula, || {
     parse_formula::parse_string_to_formula(formula, None)
 });
-```
+```text
 
 ### Performance Benchmarks
 
 **Real-world Test Case:**
+
 - File: `test-data/v1.0/quarterly_pl.yaml`
 - Tables: 4
 - Rows per table: 12
 - Total formulas: 850+
 
 **Results:**
+
 - Total time: <200ms
 - Average per formula: ~0.23ms
 - Parsing: ~50ms
@@ -1195,6 +1231,7 @@ let parsed = formula_cache.get_or_insert(formula, || {
 - Writing: ~50ms
 
 **Comparison to AI Validation:**
+
 - AI validation: 128 minutes (7,680 seconds)
 - Forge: 0.2 seconds
 - Speedup: 38,400x faster
@@ -1211,7 +1248,8 @@ let parsed = formula_cache.get_or_insert(formula, || {
 profit: "=revenue -"  # Incomplete expression
 
 # Error: Parse error: Unexpected end of formula
-```
+
+```text
 
 **2. Reference Errors**
 
@@ -1219,7 +1257,8 @@ profit: "=revenue -"  # Incomplete expression
 profit: "=revenue - cost"  # 'cost' doesn't exist
 
 # Error: Column 'cost' not found in table
-```
+
+```text
 
 **3. Type Errors**
 
@@ -1227,7 +1266,8 @@ profit: "=revenue - cost"  # 'cost' doesn't exist
 result: "=revenue + quarter"  # Number + Text
 
 # Error: Type mismatch: Cannot add Number and Text
-```
+
+```text
 
 **4. Length Mismatch Errors**
 
@@ -1240,7 +1280,8 @@ pl_2025:
     profit: "=revenue - costs"
 
 # Error: Column 'costs' has 4 rows, expected 3 rows
-```
+
+```text
 
 **5. Circular Dependency Errors**
 
@@ -1251,7 +1292,8 @@ b:
   formula: "=a + 1"
 
 # Error: Circular dependency detected: a → b → a
-```
+
+```text
 
 ### Error Context
 
@@ -1262,27 +1304,29 @@ ForgeError::Eval(format!(
     "Formula '{}' at row {} in table '{}': Column '{}' not found",
     formula, row_idx, table_name, col_name
 ))
-```
+```text
 
 **Example Error Message:**
 
-```
+```text
 Error: Evaluation error: Formula '=revenue - cost' at row 2 in table 'pl_2025':
 Column 'cost' not found
 
 Available columns: revenue, cogs, quarter
-```
+```text
 
 ### Error Recovery
 
 **Fail-Fast Strategy:**
 
 Forge does not attempt to recover from formula errors. On first error:
+
 1. Stop calculation
 2. Report error with full context
 3. Return to user for correction
 
 **Why fail-fast?**
+
 - Financial calculations must be 100% accurate
 - Partial results are misleading
 - User must fix the issue, not work around it

@@ -67,7 +67,7 @@
 table_name:
   column1: [1, 2, 3]
   column2: [4, 5, 6]
-```
+```text
 
 ---
 
@@ -127,7 +127,7 @@ table_name:
 tax_rate:
   value: 0.25
   formula: null
-```
+```text
 
 **v1.0.0 aggregation result:** `total: =SUM(revenue)` (produces scalar)
 

@@ -90,31 +90,39 @@ cicd --> forge : Automated validation
 
 ' Notes
 note right of forge
-  **Core Capabilities:**
+
+#### Core Capabilities
+
   - Calculate formulas
   - Validate models
   - Export to Excel
   - Import from Excel
   - Cross-file references
+
 end note
 
 note left of analyst
-  **Use Cases:**
+
+#### Use Cases
+
   - Quarterly P&L models
   - Budget vs Actual
   - SaaS unit economics
   - Financial projections
+
 end note
 
 note bottom of forge
-  **Zero Hallucinations**
+
+#### Zero Hallucinations
+
   Deterministic calculations
   47+ Excel functions
   Type-safe arrays
 end note
 
 @enduml
-```
+```text
 
 ### Users
 
@@ -261,29 +269,38 @@ calc --> errors
 
 ' Notes
 note right of calc
-  **v1.0.0 Calculator**
+
+#### v1.0.0 Calculator
+
   - Array operations
   - Row-wise formulas
   - Aggregation formulas
   - 47+ Excel functions
+
 end note
 
 note right of legacy_calc
-  **v0.2.0 Calculator**
+
+#### v0.2.0 Calculator
+
   - Scalar operations
   - Cross-file references
   - Backwards compatibility
+
 end note
 
 note bottom of types
-  **Type-Safe Data**
+
+#### Type-Safe Data
+
   - ColumnValue enum
   - Table struct
   - ParsedModel
+
 end note
 
 @enduml
-```
+```text
 
 ---
 
@@ -355,7 +372,7 @@ end note
 
 ## Module Structure
 
-```
+```text
 forge/
 ├── src/
 │   ├── lib.rs                    # Library exports (7 modules)
@@ -383,7 +400,7 @@ forge/
 └── schema/                       # JSON Schema for validation
 
 **Total:** ~7,436 lines of Rust code
-```
+```text
 
 ### Module Responsibilities
 
@@ -403,7 +420,7 @@ forge/
 
 ### Calculate Command Flow
 
-```
+```text
 User Input (YAML file)
     ↓
 CLI Parser (clap)
@@ -440,11 +457,11 @@ Version Detection (v0.2.0 or v1.0.0)
                      │
                      ↓
                  Updated Files
-```
+```text
 
 ### Export/Import Flow
 
-```
+```text
 YAML Model                       Excel Workbook
     ↓                                 ↑
 Parser                          Exporter
@@ -456,7 +473,7 @@ Importer                        rust_xlsxwriter
 calamine                         .xlsx File
     ↑
 Excel Workbook
-```
+```text
 
 ---
 

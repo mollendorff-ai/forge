@@ -35,6 +35,7 @@ This document provides a comprehensive specification of Forge's data model, incl
 - **Serialization** - YAML and Excel representation
 
 Understanding this data model is essential for:
+
 - **Developers** implementing new features
 - **Contributors** fixing bugs or adding functions
 - **Architects** evaluating design decisions
@@ -149,45 +150,55 @@ Table --> Column : contains
 Column --> ColumnValue : contains
 
 note right of ColumnValue
-  **Homogeneous Arrays**
+
+#### Homogeneous Arrays
+
   All elements must be
   the same type
 end note
 
 note bottom of ParsedModel
-  **Unified Model**
+
+#### Unified Model
+
   Supports both v0.2.0
   and v1.0.0 formats
 end note
 
 note right of ForgeError
-  **Error Handling**
+
+#### Error Handling
+
   All operations return
   ForgeResult<T>
 end note
 
 @enduml
-```
+```text
 
 ### Type Categories
 
 **1. Value Types (Data)**
+
 - `f64` - Floating-point numbers
 - `String` - UTF-8 text
 - `bool` - Boolean true/false
 - ISO date strings (YYYY-MM-DD)
 
 **2. Collection Types**
+
 - `Vec<T>` - Homogeneous arrays
 - `HashMap<K, V>` - Key-value mappings
 - `Option<T>` - Optional values
 
 **3. Enum Types (Variants)**
+
 - `ForgeVersion` - v0.2.0 or v1.0.0
 - `ColumnValue` - Typed column arrays
 - `ForgeError` - Error categories
 
 **4. Struct Types (Aggregates)**
+
 - `Column` - Named typed array
 - `Table` - Collection of columns
 - `ParsedModel` - Complete model
@@ -205,7 +216,9 @@ end note
 
 ```rust
 // From: /home/rex/src/utils/forge/src/types.rs:84-121
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+
 pub enum ColumnValue {
     /// Array of numbers (f64)
     Number(Vec<f64>),
@@ -240,11 +253,11 @@ impl ColumnValue {
         }
     }
 }
-```
+```text
 
 **Memory Layout:**
 
-```
+```text
 ColumnValue::Number(Vec<f64>)
 ├─ Tag (enum discriminant): 1 byte
 ├─ Vec metadata:
@@ -256,39 +269,49 @@ ColumnValue::Number(Vec<f64>)
 
 Total stack size: 25 bytes (1 + 24)
 Heap size: 8 * len bytes
-```
+```text
 
 **Examples:**
 
 ```yaml
+
 # Number column (quarterly revenue)
+
 revenue:
+
   - 100000
   - 120000
   - 150000
   - 180000
 
 # Text column (quarter names)
+
 quarter:
+
   - "Q1 2025"
   - "Q2 2025"
   - "Q3 2025"
   - "Q4 2025"
 
 # Date column (period end dates)
+
 period_end:
+
   - "2025-03"
   - "2025-06"
   - "2025-09"
   - "2025-12"
 
 # Boolean column (target achieved)
+
 target_met:
+
   - false
   - true
   - true
   - true
-```
+
+```text
 
 **Design Decisions:**
 
@@ -316,7 +339,9 @@ target_met:
 
 ```rust
 // From: /home/rex/src/utils/forge/src/types.rs:123-142
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+
 pub struct Column {
     pub name: String,
     pub values: ColumnValue,
@@ -335,11 +360,11 @@ impl Column {
         self.values.is_empty()
     }
 }
-```
+```text
 
 **Memory Layout:**
 
-```
+```text
 Column
 ├─ name: String (24 bytes on stack + heap)
 │  ├─ pointer: 8 bytes
@@ -349,7 +374,7 @@ Column
 
 Total stack size: 49 bytes
 Heap size: name.len() + values.heap_size()
-```
+```text
 
 **Invariants:**
 
@@ -376,7 +401,7 @@ let quarters = Column::new(
         "Q4 2025".to_string(),
     ])
 );
-```
+```text
 
 ### 3. Table Struct
 
@@ -386,7 +411,9 @@ let quarters = Column::new(
 
 ```rust
 // From: /home/rex/src/utils/forge/src/types.rs:144-190
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+
 pub struct Table {
     pub name: String,
     pub columns: HashMap<String, Column>,
@@ -412,7 +439,7 @@ impl Table {
     }
 
     pub fn row_count(&self) -> usize {
-        self.columns.values().next().map_or(0, |col| col.len())
+ self.columns.values().next().map_or(0, |col| col.len())
     }
 
     pub fn validate_lengths(&self) -> Result<(), String> {
@@ -428,7 +455,7 @@ impl Table {
         Ok(())
     }
 }
-```
+```text
 
 **Invariants:**
 
@@ -463,25 +490,31 @@ Table --> cols
 Table --> formulas
 
 note right of Table
-  **Row Count: 4**
+
+#### Row Count: 4
+
   All columns must have
   exactly 4 elements
 end note
 
 note bottom of formulas
-  **Formula Columns**
+
+#### Formula Columns
+
   Not yet calculated
   Will be added to columns
   after evaluation
 end note
 
 @enduml
-```
+```text
 
 **Examples:**
 
 ```yaml
+
 # In YAML format
+
 pl_2025:
   columns:
     revenue: [100000, 120000, 150000, 180000]
@@ -490,7 +523,7 @@ pl_2025:
   row_formulas:
     gross_profit: "=revenue - cogs"
     gross_margin: "=gross_profit / revenue"
-```
+```text
 
 ```rust
 // In Rust code
@@ -511,7 +544,7 @@ table.add_row_formula("gross_margin".to_string(), "=gross_profit / revenue".to_s
 
 // Validate all columns have same length
 table.validate_lengths().expect("Length mismatch");
-```
+```text
 
 ### 4. ParsedModel Struct
 
@@ -521,7 +554,9 @@ table.validate_lengths().expect("Length mismatch");
 
 ```rust
 // From: /home/rex/src/utils/forge/src/types.rs:220-265
+
 #[derive(Debug, Serialize, Deserialize)]
+
 pub struct ParsedModel {
     /// Model version detected
     pub version: ForgeVersion,
@@ -562,7 +597,7 @@ impl ParsedModel {
         self.aggregations.insert(name, formula);
     }
 }
-```
+```text
 
 **Version-Specific Fields:**
 
@@ -608,7 +643,7 @@ note right
 end note
 
 @enduml
-```
+```text
 
 ### 5. Variable Struct (v0.2.0 Scalars)
 
@@ -618,7 +653,9 @@ end note
 
 ```rust
 // From: /home/rex/src/utils/forge/src/types.rs:203-211
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+
 pub struct Variable {
     pub path: String,
     pub value: Option<f64>,
@@ -626,7 +663,7 @@ pub struct Variable {
     /// The alias of the file this variable came from (None for main file)
     pub alias: Option<String>,
 }
-```
+```text
 
 **Fields:**
 
@@ -638,17 +675,20 @@ pub struct Variable {
 **Examples:**
 
 ```yaml
+
 # In YAML (v0.2.0)
+
 revenue:
   value: 1000000
   formula: "=@pricing.base_price * volume"
 
 # In YAML (v1.0.0 scalar)
+
 summary:
   total_revenue:
     value: 550000
     formula: "=SUM(pl_2025.revenue)"
-```
+```text
 
 ```rust
 // In Rust code
@@ -665,7 +705,7 @@ let imported_var = Variable {
     formula: None,
     alias: Some("pricing".to_string()),
 };
-```
+```text
 
 ### 6. ForgeVersion Enum
 
@@ -675,7 +715,9 @@ let imported_var = Variable {
 
 ```rust
 // From: /home/rex/src/utils/forge/src/types.rs:8-77
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+
 pub enum ForgeVersion {
     /// v0.2.0 - Scalar model (discrete values with {value, formula})
     V0_2_0,
@@ -721,7 +763,7 @@ impl ForgeVersion {
         ForgeVersion::V0_2_0
     }
 }
-```
+```text
 
 **Detection Algorithm:**
 
@@ -764,7 +806,7 @@ endif
 stop
 
 @enduml
-```
+```text
 
 ---
 
@@ -773,6 +815,7 @@ stop
 ### v0.2.0 Scalar Model
 
 **Characteristics:**
+
 - Discrete scalar values
 - Cross-file references via `includes`
 - Formula syntax: `=@alias.variable`
@@ -781,8 +824,11 @@ stop
 **YAML Structure:**
 
 ```yaml
+
 # main.yaml
+
 includes:
+
   - file: pricing.yaml
     as: pricing
   - file: costs.yaml
@@ -799,11 +845,11 @@ volume:
 profit:
   value: null
   formula: "=revenue - @costs.total"
-```
+```text
 
 **Data Flow:**
 
-```
+```text
 pricing.yaml (base_price=99) ──┐
                                 ├──> revenue = 99 * 1000 = 99000
 volume=1000 ────────────────────┘
@@ -811,11 +857,12 @@ volume=1000 ────────────────────┘
 revenue=99000 ──┐
                 ├──> profit = 99000 - 5000 = 94000
 costs.yaml (total=5000) ────┘
-```
+```text
 
 ### v1.0.0 Array Model
 
 **Characteristics:**
+
 - Column arrays for tables
 - Row-wise formulas (element-wise operations)
 - Aggregation formulas (column → scalar)
@@ -842,7 +889,7 @@ summary:
   avg_margin:
     value: null
     formula: "=AVERAGE(pl_2025.gross_margin)"
-```
+```text
 
 **Data Structure:**
 
@@ -887,7 +934,9 @@ table --> formulas
 model --> scalars
 
 note right of formulas
-  **Row-wise formulas**
+
+#### Row-wise formulas
+
   Evaluated per row:
   gross_profit[0] = revenue[0] - cogs[0]
   gross_profit[1] = revenue[1] - cogs[1]
@@ -895,7 +944,9 @@ note right of formulas
 end note
 
 note bottom of scalars
-  **Aggregations**
+
+#### Aggregations
+
   Reduce columns to scalars:
   total_revenue = SUM(revenue)
   = 100k + 120k + 150k + 180k
@@ -903,7 +954,7 @@ note bottom of scalars
 end note
 
 @enduml
-```
+```text
 
 ---
 
@@ -922,7 +973,7 @@ let numbers = ColumnValue::Number(vec![1.0, 2.0, 3.0]);
 //                                       ^^^  ^^^^^^  ^^^^
 //                                       f64  &str    bool
 // Compiler error: mismatched types
-```
+```text
 
 **2. Ownership and Borrowing**
 
@@ -935,7 +986,7 @@ let calculator = ArrayCalculator::new(model);  // model moved
 
 // Get model back with calculated values
 let calculated_model = calculator.calculate_all()?;  // ownership returned
-```
+```text
 
 **3. Option Types for Null Safety**
 
@@ -950,7 +1001,7 @@ match variable.value {
     Some(v) => println!("Value: {}", v),
     None => println!("No value yet"),
 }
-```
+```text
 
 ### Runtime Invariants
 
@@ -970,9 +1021,10 @@ pub fn validate_lengths(&self) -> Result<(), String> {
     }
     Ok(())
 }
-```
+```text
 
 **Enforcement:**
+
 - Called after parsing (parser/mod.rs:97-101)
 - Called before calculation
 - User sees clear error: "Column 'profit' has 3 rows, expected 4 rows"
@@ -986,10 +1038,11 @@ let order = toposort(&graph, None).map_err(|_| {
         "Circular dependency detected between tables".to_string()
     )
 })?;
-```
+```text
 
 **Examples:**
-```
+
+```text
 ✗ Invalid: revenue depends on profit, profit depends on revenue
   revenue: =profit * 1.2
   profit: =revenue - costs
@@ -998,7 +1051,7 @@ let order = toposort(&graph, None).map_err(|_| {
   revenue: 100000
   costs: 30000
   profit: =revenue - costs
-```
+```text
 
 **3. Formula Column References**
 
@@ -1017,9 +1070,10 @@ if let Some(col) = table.columns.get(col_ref) {
         col_ref
     )));
 }
-```
+```text
 
 **Enforcement:**
+
 - Before formula evaluation
 - Checks all referenced columns exist
 - Validates row counts match
@@ -1029,14 +1083,18 @@ if let Some(col) = table.columns.get(col_ref) {
 **Forge NEVER implicitly converts types.**
 
 ```yaml
+
 # ✗ Invalid - mixed types in column
+
 revenue:
+
   - 100000      # Number
   - "Q2"        # Text
   - true        # Boolean
 
 # Parser error: "Expected Number, found Text"
-```
+
+```text
 
 **xlformula_engine handles conversions:**
 
@@ -1045,7 +1103,7 @@ revenue:
 =IF(revenue > 100000, "High", "Low")  // Number → Boolean, result is Text
 =TEXT(date, "YYYY-MM")                // Date → Text
 =VALUE("123.45")                      // Text → Number
-```
+```text
 
 **Forge preserves result types:**
 
@@ -1055,7 +1113,7 @@ let result = calculate("=IF(revenue > 100000, \"High\", \"Low\")", ...)?;
 
 // Store as Text column
 ColumnValue::Text(vec!["High".to_string(), "Low".to_string(), ...])
-```
+```text
 
 ---
 
@@ -1117,7 +1175,7 @@ writer -> yaml : write updated file
 deactivate writer
 
 @enduml
-```
+```text
 
 ### Memory Ownership Transfer
 
@@ -1136,9 +1194,10 @@ write_model(&file, &calculated_model)?;  // borrow
 
 // 5. Model still available for other operations
 export_to_excel(&calculated_model, &excel_file)?;
-```
+```text
 
 **Why this pattern?**
+
 - **Efficiency**: No unnecessary clones
 - **Safety**: Cannot use model while being calculated
 - **Clarity**: Explicit ownership transfer
@@ -1151,7 +1210,7 @@ export_to_excel(&calculated_model, &excel_file)?;
 
 **ParsedModel Layout:**
 
-```
+```text
 ParsedModel (stack)
 ├─ version: ForgeVersion              8 bytes (enum + padding)
 ├─ tables: HashMap<String, Table>     48 bytes (3 pointers)
@@ -1161,11 +1220,11 @@ ParsedModel (stack)
 
 Total stack: ~176 bytes
 Heap: All strings, vectors, hashmaps
-```
+```text
 
 **Table Layout:**
 
-```
+```text
 Table (stack)
 ├─ name: String                       24 bytes
 ├─ columns: HashMap<String, Column>   48 bytes
@@ -1173,11 +1232,11 @@ Table (stack)
 
 Total stack: ~120 bytes
 Heap: name string + all columns + formulas
-```
+```text
 
 **Column Layout:**
 
-```
+```text
 Column (stack)
 ├─ name: String                       24 bytes
 └─ values: ColumnValue                25 bytes
@@ -1186,7 +1245,7 @@ Column (stack)
 
 Total stack: ~49 bytes
 Heap: name string + Vec data
-```
+```text
 
 ### Performance Characteristics
 
@@ -1200,6 +1259,7 @@ Heap: name string + Vec data
 | `export()` | O(t·r·c) | O(t·r·c) | O(t·r·c) |
 
 Where:
+
 - n = size of YAML file
 - c = number of columns
 - t = number of tables
@@ -1218,6 +1278,7 @@ Where:
 **Memory Optimization Strategies:**
 
 1. **String Interning** (not yet implemented)
+
    ```rust
    // Current: Each column name is a separate String
    // Future: Use Rc<str> for shared strings
@@ -1225,19 +1286,21 @@ Where:
        pub name: Rc<str>,  // Shared reference
        pub values: ColumnValue,
    }
-   ```
+```text
 
 2. **Copy-on-Write** (used in calculator)
+
    ```rust
    // Clone only when needed
    let table = self.model.tables.get(&table_name).unwrap().clone();
-   ```
+```text
 
 3. **Streaming Serialization** (future optimization)
+
    ```rust
    // Current: Load entire model into memory
    // Future: Stream large tables to disk
-   ```
+```text
 
 ---
 
@@ -1248,13 +1311,15 @@ Where:
 **Serde Integration:**
 
 ```rust
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+
 pub struct Table {
     pub name: String,
     pub columns: HashMap<String, Column>,
     pub row_formulas: HashMap<String, String>,
 }
-```
+```text
 
 **YAML Representation:**
 
@@ -1271,7 +1336,7 @@ pl_2025:
       - 45000
   row_formulas:
     profit: "=revenue - cogs"
-```
+```text
 
 **Custom Serialization (future):**
 
@@ -1286,7 +1351,7 @@ impl Serialize for Column {
         self.values.serialize(serializer)
     }
 }
-```
+```text
 
 ### Excel Serialization
 
@@ -1310,7 +1375,7 @@ for row_idx in 0..row_count {
         }
     }
 }
-```
+```text
 
 **Type Mapping:**
 
@@ -1335,6 +1400,7 @@ for row_idx in 0..row_count {
 use thiserror::Error;
 
 #[derive(Error, Debug)]
+
 pub enum ForgeError {
     #[error("IO error: {0}")]
     IO(String),
@@ -1372,7 +1438,7 @@ impl From<serde_yaml::Error> for ForgeError {
         ForgeError::Parse(err.to_string())
     }
 }
-```
+```text
 
 ### Error Hierarchy
 
@@ -1392,42 +1458,57 @@ enum ForgeError {
 }
 
 note right of ForgeError::IO
-  **IO Errors**
+
+#### IO Errors
+
   - File not found
   - Permission denied
   - Disk full
+
 end note
 
 note right of ForgeError::Parse
-  **Parse Errors**
+
+#### Parse Errors
+
   - Invalid YAML syntax
   - Type mismatch
   - Missing required field
+
 end note
 
 note right of ForgeError::Eval
-  **Evaluation Errors**
+
+#### Evaluation Errors
+
   - Column not found
   - Formula syntax error
   - Division by zero
   - Type error in formula
+
 end note
 
 note right of ForgeError::CircularDependency
-  **Circular Dependencies**
+
+#### Circular Dependencies
+
   - A depends on B, B depends on A
   - Detected during topological sort
+
 end note
 
 note right of ForgeError::Validation
-  **Validation Errors**
+
+#### Validation Errors
+
   - Column length mismatch
   - Schema validation failed
   - Invalid date format
+
 end note
 
 @enduml
-```
+```text
 
 ### Error Usage Examples
 
@@ -1460,7 +1541,7 @@ let order = toposort(&graph, None).map_err(|_| {
         "Circular dependency detected".to_string()
     )
 })?;
-```
+```text
 
 ---
 

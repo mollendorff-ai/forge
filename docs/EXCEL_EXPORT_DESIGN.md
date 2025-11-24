@@ -22,7 +22,7 @@ Export v1.0.0 array models to Excel spreadsheets with **100% formula fidelity**.
 
 ### File Structure
 
-```
+```text
 quarterly_pl.yaml (input)
   ├── tables:
   │   ├── pl_2025 (3 columns: revenue, cogs, gross_profit)
@@ -45,13 +45,14 @@ quarterly_pl.xlsx (output)
   └── Sheet: Scalars
       ├── annual_2025.total_revenue: =SUM(pl_2025!A:A)
       └── ...
-```
+```text
 
 ### Mapping Strategy
 
 #### 1. Tables → Worksheets
 
 Each table becomes a separate worksheet:
+
 - **Sheet name:** `table_name` (e.g., "pl_2025")
 - **Header row:** Column names in row 1 (A1, B1, C1, ...)
 - **Data rows:** Start at row 2
@@ -59,6 +60,7 @@ Each table becomes a separate worksheet:
 #### 2. Columns → Excel Columns
 
 Direct 1:1 mapping:
+
 - First column → Column A
 - Second column → Column B
 - Formula column → Excel formula (e.g., `=A2-B2` for revenue - cogs)
@@ -68,6 +70,7 @@ Direct 1:1 mapping:
 Convert YAML row formulas to Excel cell formulas:
 
 **YAML:**
+
 ```yaml
 tables:
   pl_2025:
@@ -76,55 +79,60 @@ tables:
       cogs: [300, 360, 450, 540]
     row_formulas:
       gross_profit: =revenue - cogs
-```
+```text
 
 **Excel (pl_2025 sheet):**
-```
+
+```text
    A        B      C
 1  revenue  cogs   gross_profit
 2  1000     300    =A2-B2       <- Formula!
 3  1200     360    =A3-B3       <- Formula!
 4  1500     450    =A4-B4       <- Formula!
 5  1800     540    =A5-B5       <- Formula!
-```
+```text
 
 #### 4. Cross-Table References
 
 Convert `table.column` syntax to Excel sheet references:
 
 **YAML:**
+
 ```yaml
 final_pl:
   row_formulas:
     revenue: =pl_2025.revenue
-```
+```text
 
 **Excel (final_pl sheet):**
-```
+
+```text
    A
 1  revenue
 2  =pl_2025!A2    <- Sheet reference!
 3  =pl_2025!A3
 4  =pl_2025!A4
 5  =pl_2025!A5
-```
+```text
 
 #### 5. Scalars → Dedicated Sheet
 
 Create "Scalars" worksheet:
 
 **Layout:**
-```
+
+```text
    A                               B
 1  Name                            Formula
 2  annual_2025.total_revenue       =SUM(pl_2025!A:A)
 3  annual_2025.total_cogs          =SUM(pl_2025!B:B)
 4  annual_2025.gross_profit        =B2-B3
-```
+```text
 
 ## Implementation Plan
 
 ### Phase 3.1: Basic Table Export
+
 - Create `src/excel/mod.rs` module
 - Implement `ExcelExporter` struct
 - Export table columns (data only, no formulas yet)
@@ -132,18 +140,21 @@ Create "Scalars" worksheet:
 - **Test:** Simple table with 2 data columns
 
 ### Phase 3.2: Formula Translation
+
 - Implement `FormulaTranslator` to convert YAML → Excel formulas
 - Handle variable name → column letter mapping (revenue → A)
 - Generate cell formulas for each row (=A2-B2, =A3-B3, ...)
 - **Test:** Table with row formula (gross_profit = revenue - cogs)
 
 ### Phase 3.3: Cross-Table References
+
 - Detect `table.column` pattern in formulas
 - Convert to Excel sheet references (=Sheet!Column)
 - Handle row-wise expansion (=pl_2025!A2 for row 2)
 - **Test:** final_pl referencing pl_2025.revenue
 
 ### Phase 3.4: Scalar Export
+
 - Create "Scalars" worksheet
 - Export scalar names and formulas
 - Convert aggregations: SUM(table.column) → =SUM(Sheet!Column:Column)
@@ -151,6 +162,7 @@ Create "Scalars" worksheet:
 - **Test:** annual_2025.total_revenue = SUM(pl_2025.revenue)
 
 ### Phase 3.5: CLI Integration
+
 - Add `export` subcommand to CLI
 - Usage: `forge export input.yaml output.xlsx`
 - Support `--verbose` flag for progress
@@ -159,74 +171,87 @@ Create "Scalars" worksheet:
 ## Formula Translation Examples
 
 ### Simple Arithmetic
+
 ```yaml
 YAML:  =revenue - cogs
 Excel: =A2-B2  (for row 2)
        =A3-B3  (for row 3)
        ...
-```
+```text
 
 ### Cross-Table Reference
+
 ```yaml
 YAML:  =pl_2025.revenue
 Excel: =pl_2025!A2  (for row 2)
        =pl_2025!A3  (for row 3)
        ...
-```
+```text
 
 ### Mixed Operations
+
 ```yaml
 YAML:  =gross_profit / revenue
 Excel: =C2/A2  (for row 2, assuming gross_profit is column C)
-```
+```text
 
 ### Aggregation (Scalars)
+
 ```yaml
 YAML:  =SUM(pl_2025.revenue)
 Excel: =SUM(pl_2025!A:A)
-```
+```text
 
 ### Array Indexing (Scalars)
+
 ```yaml
 YAML:  =revenue[3] / revenue[0] - 1
 Excel: =A4/A1-1  (0-indexed in YAML → 1-indexed in Excel, +1 for header)
-```
+```text
 
 ## Technical Challenges
 
 ### Challenge 1: Formula Parser
+
 - Need to parse YAML formulas to identify variable references
 - Convert variable names to column letters (revenue → A, cogs → B)
 - Preserve formula operators and functions (+, -, *, /, SUM, etc.)
 
 **Solution:**
+
 - Use regex to extract variable names
 - Build column name → column letter mapping from table structure
 - Replace variable names with Excel column references
 
 ### Challenge 2: Row-wise Formula Expansion
+
 - Single YAML formula → Multiple Excel formulas (one per row)
 - Must adjust row numbers (=A2-B2, =A3-B3, =A4-B4, ...)
 
 **Solution:**
+
 - For each row index i, generate formula with row number (i + 2) (1-indexed + header)
 - Use rust_xlsxwriter's Formula struct for each cell
 
 ### Challenge 3: Cross-Table Reference Translation
+
 - Detect `table.column` pattern
 - Find column letter in target table
 - Generate sheet reference (=SheetName!ColumnRow)
 
 **Solution:**
+
 - Pattern matching: if formula contains `.`, split on `.`
 - Look up table name and column name
 - Build Excel reference: `={table_name}!{col_letter}{row_num}`
 
 ### Challenge 4: Aggregation Translation
+
 - SUM(table.column) → =SUM(Sheet!A:A)
 - AVERAGE, MAX, MIN similarly
 
 **Solution:**
+
 - Detect aggregation functions (SUM, AVERAGE, MAX, MIN)
 - Extract table.column argument
 - Convert to Excel range reference (A:A for entire column)
@@ -241,6 +266,7 @@ Excel: =A4/A1-1  (0-indexed in YAML → 1-indexed in Excel, +1 for header)
 ## Testing Strategy
 
 ### Unit Tests
+
 1. `test_column_letter_mapping` - revenue → A, cogs → B
 2. `test_simple_formula_translation` - =revenue-cogs → =A2-B2
 3. `test_cross_table_reference` - =table.col → =Sheet!A2
@@ -248,11 +274,13 @@ Excel: =A4/A1-1  (0-indexed in YAML → 1-indexed in Excel, +1 for header)
 5. `test_array_indexing_translation` - col[3] → A4
 
 ### Integration Tests
+
 1. `test_export_simple_table` - 2 data columns, 1 calculated
 2. `test_export_multiple_tables` - 3 tables, cross-references
 3. `test_export_with_scalars` - Tables + scalars sheet
 
 ### E2E Test
+
 1. `test_export_quarterly_pl` - Full quarterly_pl.yaml → .xlsx
    - Verify Excel file opens in LibreOffice/Excel
    - Verify formulas calculate correctly
@@ -280,7 +308,7 @@ impl ExcelExporter {
 let model = parse_model("input.yaml")?;
 let exporter = ExcelExporter::new(model);
 exporter.export("output.xlsx")?;
-```
+```text
 
 ### Internal Modules
 
@@ -302,11 +330,12 @@ impl FormulaTranslator {
         formula: &str,
     ) -> ForgeResult<String> { ... }
 }
-```
+```text
 
 ## Success Criteria
 
 ✅ **Phase 3 Complete When:**
+
 1. quarterly_pl.yaml exports to .xlsx ✅
 2. Excel file opens in Excel/LibreOffice ✅
 3. All formulas calculate correctly ✅
