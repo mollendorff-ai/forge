@@ -1,0 +1,8 @@
+# Table with multiple formula types for testing translation
+pl_statement:
+  month: ["Jan", "Feb", "Mar"]
+  revenue: [50000, 55000, 60000]
+  cogs: [20000, 22000, 24000]
+  gross_profit: "=revenue - cogs"
+  gross_margin: "=(revenue - cogs) / revenue"
+  margin_percent: "=gross_margin * 100"

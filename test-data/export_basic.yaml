@@ -1,0 +1,7 @@
+# Basic table for export testing
+financial_summary:
+  quarter: ["Q1", "Q2", "Q3", "Q4"]
+  revenue: [100000, 120000, 150000, 180000]
+  expenses: [60000, 70000, 85000, 95000]
+  profit: "=revenue - expenses"
+  margin: "=(revenue - expenses) / revenue"
