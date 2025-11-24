@@ -1,0 +1,157 @@
+_forge_version: "1.0.0"
+
+# Phase 4: Date Functions Test Suite
+# Tests TODAY, NOW, DATE, YEAR, MONTH, DAY, DATEDIF, EDATE, EOMONTH
+
+# Note: TODAY() and NOW() return current date/time, so values will vary
+# We test that they return valid numbers (Excel date serial numbers)
+# For reproducible tests, we use DATE() function with known values
+
+# DATE function tests (create date from year, month, day)
+# Excel date serial: days since 1900-01-01 (or 1904-01-01 on Mac)
+date_2024_01_01: "=DATE(2024, 1, 1)"  # Expected: 45292 (Excel serial)
+date_2024_06_15: "=DATE(2024, 6, 15)"  # Expected: 45458
+date_2024_12_31: "=DATE(2024, 12, 31)"  # Expected: 45657
+date_2023_01_01: "=DATE(2023, 1, 1)"  # Expected: 44927
+date_2025_01_01: "=DATE(2025, 1, 1)"  # Expected: 45658
+
+# Array of dates
+date_array:
+  years: [2024, 2024, 2024, 2024, 2024]
+  months: [1, 2, 3, 4, 5]
+  days: [1, 1, 1, 1, 1]
+  dates: "=DATE(years, months, days)"
+
+# YEAR function tests (extract year from date)
+year_2024: "=YEAR(DATE(2024, 6, 15))"  # Expected: 2024
+year_2023: "=YEAR(DATE(2023, 12, 31))"  # Expected: 2023
+year_2025: "=YEAR(DATE(2025, 1, 1))"  # Expected: 2025
+year_array:
+  dates: "=DATE(2024, [1, 2, 3, 4, 5], 1)"
+  years: "=YEAR(dates)"  # Expected: [2024, 2024, 2024, 2024, 2024]
+
+# MONTH function tests (extract month from date)
+month_jan: "=MONTH(DATE(2024, 1, 15))"  # Expected: 1
+month_jun: "=MONTH(DATE(2024, 6, 15))"  # Expected: 6
+month_dec: "=MONTH(DATE(2024, 12, 31))"  # Expected: 12
+month_array:
+  dates: "=DATE(2024, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 15)"
+  months: "=MONTH(dates)"  # Expected: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+# DAY function tests (extract day from date)
+day_1st: "=DAY(DATE(2024, 6, 1))"  # Expected: 1
+day_15th: "=DAY(DATE(2024, 6, 15))"  # Expected: 15
+day_31st: "=DAY(DATE(2024, 1, 31))"  # Expected: 31
+day_array:
+  dates: "=DATE(2024, 1, [1, 5, 10, 15, 20, 25, 31])"
+  days: "=DAY(dates)"  # Expected: [1, 5, 10, 15, 20, 25, 31]
+
+# DATEDIF function tests (calculate difference between dates)
+# DATEDIF(start_date, end_date, unit)
+# Units: "D" (days), "M" (months), "Y" (years), "YM" (months ignoring years), "MD" (days ignoring months/years), "YD" (days ignoring years)
+datedif_days: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 1, 31), \"D\")"  # Expected: 30
+datedif_months: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 6, 1), \"M\")"  # Expected: 5
+datedif_years: "=DATEDIF(DATE(2020, 1, 1), DATE(2024, 1, 1), \"Y\")"  # Expected: 4
+datedif_ym: "=DATEDIF(DATE(2023, 3, 15), DATE(2024, 9, 20), \"YM\")"  # Expected: 6 (months, ignoring years)
+datedif_md: "=DATEDIF(DATE(2024, 1, 5), DATE(2024, 3, 25), \"MD\")"  # Expected: 20 (days, ignoring months)
+datedif_yd: "=DATEDIF(DATE(2023, 3, 15), DATE(2024, 9, 20), \"YD\")"  # Expected: days since last birthday
+
+# EDATE function tests (add months to a date)
+# EDATE(start_date, months) - returns date that is N months before/after start_date
+edate_plus_1: "=EDATE(DATE(2024, 1, 15), 1)"  # Expected: DATE(2024, 2, 15)
+edate_plus_6: "=EDATE(DATE(2024, 1, 15), 6)"  # Expected: DATE(2024, 7, 15)
+edate_minus_1: "=EDATE(DATE(2024, 1, 15), -1)"  # Expected: DATE(2023, 12, 15)
+edate_plus_12: "=EDATE(DATE(2024, 1, 15), 12)"  # Expected: DATE(2025, 1, 15)
+edate_array:
+  start: "=DATE(2024, 1, 1)"
+  months_to_add: [1, 2, 3, 4, 5, 6]
+  future_dates: "=EDATE(start, months_to_add)"
+
+# EOMONTH function tests (end of month)
+# EOMONTH(start_date, months) - returns last day of month N months before/after start_date
+eomonth_same: "=EOMONTH(DATE(2024, 1, 15), 0)"  # Expected: DATE(2024, 1, 31)
+eomonth_next: "=EOMONTH(DATE(2024, 1, 15), 1)"  # Expected: DATE(2024, 2, 29) - 2024 is leap year
+eomonth_prev: "=EOMONTH(DATE(2024, 1, 15), -1)"  # Expected: DATE(2023, 12, 31)
+eomonth_june: "=EOMONTH(DATE(2024, 6, 15), 0)"  # Expected: DATE(2024, 6, 30)
+eomonth_feb_leap: "=EOMONTH(DATE(2024, 2, 1), 0)"  # Expected: DATE(2024, 2, 29)
+eomonth_array:
+  start: "=DATE(2024, 1, 15)"
+  months_offset: [0, 1, 2, 3, 4, 5]
+  month_ends: "=EOMONTH(start, months_offset)"
+
+# Combined date operations
+project_timeline:
+  start_date: "=DATE(2024, 1, 1)"
+  duration_months: [1, 2, 3, 6, 12]
+  end_dates: "=EDATE(start_date, duration_months)"
+  end_of_month: "=EOMONTH(start_date, duration_months)"
+  project_days: "=DATEDIF(start_date, end_dates, \"D\")"
+
+age_calculation:
+  birth_dates: "=DATE([1990, 1985, 2000, 1995, 1992], [5, 3, 8, 12, 1], [15, 22, 10, 5, 30])"
+  reference_date: "=DATE(2024, 1, 1)"
+  ages_years: "=DATEDIF(birth_dates, reference_date, \"Y\")"
+  ages_months: "=DATEDIF(birth_dates, reference_date, \"M\")"
+
+fiscal_year:
+  # Fiscal year ending June 30
+  dates: "=DATE(2024, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 15)"
+  years: "=YEAR(dates)"
+  months: "=MONTH(dates)"
+  days: "=DAY(dates)"
+  # For fiscal year calculation: if month > 6, FY = year + 1, else FY = year
+  # This would require IF function: =IF(months > 6, years + 1, years)
+
+subscription_tracking:
+  start_dates: "=DATE(2024, [1, 2, 3, 4, 5], 1)"
+  subscription_months: [12, 6, 3, 12, 24]
+  renewal_dates: "=EDATE(start_dates, subscription_months)"
+  days_until_renewal: "=DATEDIF(start_dates, renewal_dates, \"D\")"
+
+quarterly_dates:
+  year: 2024
+  q1_start: "=DATE(year, 1, 1)"
+  q1_end: "=EOMONTH(q1_start, 2)"
+  q2_start: "=EDATE(q1_start, 3)"
+  q2_end: "=EOMONTH(q2_start, 2)"
+  q3_start: "=EDATE(q1_start, 6)"
+  q3_end: "=EOMONTH(q3_start, 2)"
+  q4_start: "=EDATE(q1_start, 9)"
+  q4_end: "=EOMONTH(q4_start, 2)"
+
+# Edge cases
+edge_cases:
+  # Leap year handling
+  leap_year_2024: "=DATE(2024, 2, 29)"  # Valid
+  leap_year_end: "=EOMONTH(DATE(2024, 2, 1), 0)"  # Should be 2/29/2024
+  non_leap_2023: "=DATE(2023, 2, 28)"  # Last day of Feb in non-leap year
+
+  # Month boundaries
+  jan_31_plus_1month: "=EDATE(DATE(2024, 1, 31), 1)"  # Should handle 31st → end of Feb
+  end_of_year: "=DATE(2024, 12, 31)"
+  start_of_year: "=DATE(2024, 1, 1)"
+
+  # Date arithmetic
+  year_diff: "=DATEDIF(DATE(2023, 1, 1), DATE(2024, 1, 1), \"Y\")"  # Exactly 1 year
+  same_date_diff: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 1, 1), \"D\")"  # 0 days
+
+  # Extract components and rebuild
+  original: "=DATE(2024, 6, 15)"
+  extracted_year: "=YEAR(original)"
+  extracted_month: "=MONTH(original)"
+  extracted_day: "=DAY(original)"
+  rebuilt: "=DATE(extracted_year, extracted_month, extracted_day)"  # Should equal original
+
+# Real-world scenarios
+employee_tenure:
+  hire_dates: "=DATE([2020, 2021, 2022, 2023], [1, 6, 3, 9], [15, 1, 20, 10])"
+  eval_date: "=DATE(2024, 1, 1)"
+  years_of_service: "=DATEDIF(hire_dates, eval_date, \"Y\")"
+  total_months: "=DATEDIF(hire_dates, eval_date, \"M\")"
+
+payment_schedule:
+  first_payment: "=DATE(2024, 1, 15)"
+  payment_intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  payment_dates: "=EDATE(first_payment, payment_intervals)"
+  payment_months: "=MONTH(payment_dates)"
+  payment_years: "=YEAR(payment_dates)"

@@ -417,9 +417,9 @@ mod tests {
         match result {
             ColumnValue::Boolean(bools) => {
                 assert_eq!(bools.len(), 3);
-                assert_eq!(bools[0], true);
-                assert_eq!(bools[1], false);
-                assert_eq!(bools[2], false); // Empty → false
+                assert!(bools[0]);
+                assert!(!bools[1]);
+                assert!(!bools[2]); // Empty → false
             }
             _ => panic!("Expected Boolean column"),
         }

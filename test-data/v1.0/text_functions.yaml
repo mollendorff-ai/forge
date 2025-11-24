@@ -1,0 +1,161 @@
+_forge_version: "1.0.0"
+
+# Phase 3: Text Functions Test Suite
+# Tests CONCAT, TRIM, UPPER, LOWER, LEN, MID, LEFT, RIGHT
+
+# Test data arrays for comprehensive testing
+test_strings:
+  simple: [hello, world, test, data, array]
+  mixed_case: [Hello, WORLD, TeSt, DaTa, ArRaY]
+  with_spaces: ["  hello  ", "  world  ", "  test  ", "  data  ", "  array  "]
+  sentences: [The quick brown fox, jumps over the lazy dog, Hello World, Testing 123, UPPERCASE TEXT]
+  numbers: ["123", "456", "789", "012", "345"]
+
+# CONCAT function tests (concatenate strings)
+concat_simple: "=CONCAT(\"Hello\", \" \", \"World\")"  # Expected: "Hello World"
+concat_two: "=CONCAT(\"Forge\", \"v1.0\")"  # Expected: "Forgev1.0"
+concat_numbers: "=CONCAT(\"Year: \", \"2024\")"  # Expected: "Year: 2024"
+concat_empty: "=CONCAT(\"\", \"test\", \"\")"  # Expected: "test"
+concat_many: "=CONCAT(\"a\", \"b\", \"c\", \"d\", \"e\")"  # Expected: "abcde"
+
+# TRIM function tests (remove leading/trailing spaces)
+trim_both: "=TRIM(\"  hello  \")"  # Expected: "hello"
+trim_leading: "=TRIM(\"  hello\")"  # Expected: "hello"
+trim_trailing: "=TRIM(\"hello  \")"  # Expected: "hello"
+trim_none: "=TRIM(\"hello\")"  # Expected: "hello"
+trim_internal: "=TRIM(\"hello  world\")"  # Expected: "hello world" (keeps internal spaces)
+trim_array:
+  values: "=test_strings.with_spaces"
+  trimmed: "=TRIM(values)"
+
+# UPPER function tests (convert to uppercase)
+upper_lower: "=UPPER(\"hello\")"  # Expected: "HELLO"
+upper_mixed: "=UPPER(\"HeLLo\")"  # Expected: "HELLO"
+upper_already: "=UPPER(\"HELLO\")"  # Expected: "HELLO"
+upper_sentence: "=UPPER(\"hello world\")"  # Expected: "HELLO WORLD"
+upper_numbers: "=UPPER(\"test123\")"  # Expected: "TEST123"
+upper_array:
+  values: "=test_strings.mixed_case"
+  uppercase: "=UPPER(values)"
+
+# LOWER function tests (convert to lowercase)
+lower_upper: "=LOWER(\"HELLO\")"  # Expected: "hello"
+lower_mixed: "=LOWER(\"HeLLo\")"  # Expected: "hello"
+lower_already: "=LOWER(\"hello\")"  # Expected: "hello"
+lower_sentence: "=LOWER(\"HELLO WORLD\")"  # Expected: "hello world"
+lower_numbers: "=LOWER(\"TEST123\")"  # Expected: "test123"
+lower_array:
+  values: "=test_strings.mixed_case"
+  lowercase: "=LOWER(values)"
+
+# LEN function tests (string length)
+len_short: "=LEN(\"hi\")"  # Expected: 2
+len_medium: "=LEN(\"hello\")"  # Expected: 5
+len_sentence: "=LEN(\"hello world\")"  # Expected: 11
+len_empty: "=LEN(\"\")"  # Expected: 0
+len_spaces: "=LEN(\"   \")"  # Expected: 3
+len_numbers: "=LEN(\"12345\")"  # Expected: 5
+len_array:
+  values: "=test_strings.simple"
+  lengths: "=LEN(values)"
+
+# MID function tests (extract substring)
+mid_start: "=MID(\"hello world\", 1, 5)"  # Expected: "hello"
+mid_middle: "=MID(\"hello world\", 7, 5)"  # Expected: "world"
+mid_single: "=MID(\"hello\", 3, 1)"  # Expected: "l"
+mid_all: "=MID(\"hello\", 1, 10)"  # Expected: "hello" (length exceeds string)
+mid_end: "=MID(\"hello world\", 7, 100)"  # Expected: "world"
+
+# LEFT function tests (extract from left)
+left_short: "=LEFT(\"hello\", 2)"  # Expected: "he"
+left_medium: "=LEFT(\"hello world\", 5)"  # Expected: "hello"
+left_all: "=LEFT(\"hello\", 10)"  # Expected: "hello" (length exceeds string)
+left_one: "=LEFT(\"hello\", 1)"  # Expected: "h"
+left_zero: "=LEFT(\"hello\", 0)"  # Expected: ""
+left_array:
+  values: "=test_strings.sentences"
+  first_3: "=LEFT(values, 3)"
+  first_5: "=LEFT(values, 5)"
+
+# RIGHT function tests (extract from right)
+right_short: "=RIGHT(\"hello\", 2)"  # Expected: "lo"
+right_medium: "=RIGHT(\"hello world\", 5)"  # Expected: "world"
+right_all: "=RIGHT(\"hello\", 10)"  # Expected: "hello" (length exceeds string)
+right_one: "=RIGHT(\"hello\", 1)"  # Expected: "o"
+right_zero: "=RIGHT(\"hello\", 0)"  # Expected: ""
+right_array:
+  values: "=test_strings.sentences"
+  last_3: "=RIGHT(values, 3)"
+  last_5: "=RIGHT(values, 5)"
+
+# Combined text operations
+name_processing:
+  first_names: [john, jane, bob, alice, charlie]
+  last_names: [smith, doe, jones, williams, brown]
+  # Convert to proper case (UPPER first char, LOWER rest)
+  first_upper: "=UPPER(first_names)"
+  last_upper: "=UPPER(last_names)"
+  # Combine names
+  full_names: "=CONCAT(first_upper, \" \", last_upper)"
+
+data_cleaning:
+  raw_data: ["  Product A  ", "  PRODUCT B  ", "  product c  ", "  PRODUCT D  ", "  Product E  "]
+  # Clean and normalize
+  trimmed: "=TRIM(raw_data)"
+  normalized: "=UPPER(trimmed)"
+  lengths: "=LEN(normalized)"
+
+string_analysis:
+  texts: [Hello World, Testing 123, Short, A longer text string, X]
+  lengths: "=LEN(texts)"
+  first_char: "=LEFT(texts, 1)"
+  last_char: "=RIGHT(texts, 1)"
+  middle_3: "=MID(texts, 2, 3)"
+  uppercase: "=UPPER(texts)"
+  lowercase: "=LOWER(texts)"
+
+# Complex text transformations
+email_parsing:
+  emails: [user@example.com, admin@test.org, info@company.net]
+  # Would need additional functions like FIND for full parsing
+  # For now just test basic operations
+  uppercase_emails: "=UPPER(emails)"
+  lengths: "=LEN(emails)"
+
+code_formatting:
+  variable_names: [userName, productId, orderTotal, customerId, itemCount]
+  uppercase: "=UPPER(variable_names)"
+  lowercase: "=LOWER(variable_names)"
+  lengths: "=LEN(variable_names)"
+
+# Edge cases
+edge_cases:
+  # Empty strings
+  empty_len: "=LEN(\"\")"
+  empty_upper: "=UPPER(\"\")"
+  empty_lower: "=LOWER(\"\")"
+  empty_left: "=LEFT(\"\", 5)"
+  empty_right: "=RIGHT(\"\", 5)"
+
+  # Single character
+  single_len: "=LEN(\"a\")"
+  single_upper: "=UPPER(\"a\")"
+  single_lower: "=UPPER(\"A\")"
+
+  # Special characters
+  special_len: "=LEN(\"!@#$%\")"
+  special_upper: "=UPPER(\"!@#$%\")"
+
+  # Numbers as text
+  num_text_len: "=LEN(\"12345\")"
+  num_text_left: "=LEFT(\"12345\", 2)"
+  num_text_right: "=RIGHT(\"12345\", 2)"
+
+# Performance test with larger arrays
+large_dataset:
+  values: [text1, text2, text3, text4, text5, text6, text7, text8, text9, text10, text11, text12, text13, text14, text15, text16, text17, text18, text19, text20]
+  uppercase: "=UPPER(values)"
+  lowercase: "=LOWER(values)"
+  lengths: "=LEN(values)"
+  first_chars: "=LEFT(values, 1)"
+  last_chars: "=RIGHT(values, 1)"
