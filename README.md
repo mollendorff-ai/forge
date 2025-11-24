@@ -65,7 +65,7 @@ Working on financial models with AI (ChatGPT, Claude, Copilot)?
 - <0.001 Wh energy (local CPU)
 - ~0.0005g CO2
 
-**→ 99.6% reduction in carbon footprint**
+→ 99.6% reduction in carbon footprint**
 
 **At enterprise scale (20 people, daily validations):**
 
@@ -283,6 +283,7 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 ## 🏆 What's New in v1.2.0
 
 **4 Powerful Lookup Functions** (Started Nov 24, 2025):
+
 - **MATCH** - Find position of value in array (exact/approximate match)
 - **INDEX** - Return value at specific position (1-based indexing)
 - **XLOOKUP** - Modern Excel lookup with if_not_found support
@@ -337,7 +338,7 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ## 💻 Development
 
-### Build from source:
+### Build from source
 
 ```bash
 git clone https://github.com/royalbit/forge
@@ -345,13 +346,13 @@ cd forge
 cargo build --release
 ```
 
-### Run tests:
+### Run tests
 
 ```bash
 cargo test
 ```
 
-### Quality checks:
+### Quality checks
 
 ```bash
 cargo clippy --all-targets -- -D warnings
@@ -425,6 +426,6 @@ And because AI **forged** this tool autonomously. 🔥
 
 ---
 
-**Built autonomously by Claude Sonnet 4.5 | November 23-24, 2025 | ~23.5 hours | 141 tests**
+Built autonomously by Claude Sonnet 4.5 | November 23-24, 2025 | ~23.5 hours | 141 tests
 
 **Save money. Save the planet. Trust the math.** 🌍

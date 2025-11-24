@@ -11,6 +11,7 @@ This directory contains JSON Schema definitions for Forge models.
 JSON Schema validates the **structure** of your YAML files before Forge processes them.
 
 **Benefits:**
+
 - ✅ **Catch errors early** - Before formulas are evaluated
 - ✅ **IDE autocomplete** - VSCode/IntelliJ suggest valid keys
 - ✅ **Type safety** - Ensure arrays are homogeneous
@@ -41,6 +42,7 @@ Install the **YAML extension** by Red Hat:
 3. Rename your files to `*.forge.yaml` or place them in a `forge-models/` directory
 
 **You now get:**
+
 - ✅ Autocomplete for column names
 - ✅ Real-time validation errors
 - ✅ Documentation on hover
@@ -87,9 +89,11 @@ forge calculate model.yaml --skip-schema-validation
 ### v1.0.0 Model
 
 **Required:**
+
 - `_forge_version: "1.0.0"` at top level
 
 **Tables (Column Arrays):**
+
 - All arrays in a table must be homogeneous
 - Number arrays: `[100, 120, 150]`
 - Text arrays: `["Q1", "Q2", "Q3"]`
@@ -97,10 +101,12 @@ forge calculate model.yaml --skip-schema-validation
 - Boolean arrays: `[true, false, true]`
 
 **Formulas:**
+
 - Row-wise: `=revenue - expenses` (applied to each element)
 - Aggregation: `=SUM(revenue)` (single result)
 
 **Scalars (v0.2.0 compatible):**
+
 - Must have `value` and `formula` keys
 - Value: number or null
 - Formula: string starting with `=` or null
@@ -108,11 +114,13 @@ forge calculate model.yaml --skip-schema-validation
 ### Common Errors
 
 **❌ Mixed-type array:**
+
 ```yaml
 revenue: [100, "Q2", 150]  # ERROR: Number and String mixed
 ```
 
 **❌ Missing required keys:**
+
 ```yaml
 assumptions:
   tax_rate:
@@ -121,11 +129,13 @@ assumptions:
 ```
 
 **❌ Invalid formula pattern:**
+
 ```yaml
 total: "SUM(revenue)"  # ERROR: Missing '=' prefix
 ```
 
 **✅ Correct:**
+
 ```yaml
 revenue: [100, 120, 150]  # Homogeneous number array
 total: "=SUM(revenue)"    # Valid aggregation formula
@@ -138,11 +148,13 @@ total: "=SUM(revenue)"    # Valid aggregation formula
 After modifying `forge-v1.0.schema.json`:
 
 1. Validate the schema itself:
+
 ```bash
 jsonschema --check-schema schema/forge-v1.0.schema.json
 ```
 
 2. Test against example files:
+
 ```bash
 jsonschema -i test-data/v1.0/saas_unit_economics.yaml schema/forge-v1.0.schema.json
 ```
@@ -152,6 +164,7 @@ jsonschema -i test-data/v1.0/saas_unit_economics.yaml schema/forge-v1.0.schema.j
 ### Schema Versioning
 
 Each Forge version has its own schema:
+
 - `forge-v0.2.schema.json` - v0.2.0 scalar model
 - `forge-v1.0.schema.json` - v1.0.0 array model
 - `forge-v2.0.schema.json` - Future versions
@@ -166,6 +179,7 @@ Each Forge version has its own schema:
 ## Examples
 
 See `test-data/v1.0/` for complete examples:
+
 - `saas_unit_economics.yaml` - Cohort analysis
 - `quarterly_pl.yaml` - P&L statement
 - `budget_vs_actual.yaml` - Variance analysis

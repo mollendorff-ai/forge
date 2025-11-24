@@ -53,7 +53,7 @@ This document provides a comprehensive specification of Forge's formula evaluati
 
 ### Two-Phase Calculation Model
 
-**Phase 1: Tables (Row-wise formulas)**
+#### Phase 1: Tables (Row-wise formulas)
 
 ```text
 For each table in dependency order:
