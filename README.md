@@ -156,20 +156,14 @@ Result: 440KB executable with zero dependencies
 
 ## Quick Start
 
-### Input YAML (before):
+### Input YAML (v1.0.0 array syntax):
 ```yaml
-pricing:
-  base_price:
-    value: 100
-    formula: null  # Manual input
-
-  discount_rate:
-    value: 0.10
-    formula: null  # Manual input
-
-  final_price:
-    value: null  # To be calculated
-    formula: "=base_price * (1 - discount_rate)"
+# pricing.yaml
+pricing_table:
+  product: ["Widget A", "Widget B", "Widget C"]
+  base_price: [100, 150, 200]
+  discount_rate: [0.10, 0.15, 0.20]
+  final_price: "=base_price * (1 - discount_rate)"
 ```
 
 ### Run forge:
@@ -183,34 +177,39 @@ Output:
    File: pricing.yaml
 
 📖 Parsing YAML file...
-   Found 3 variables with formulas
-
-   pricing.final_price = =base_price * (1 - discount_rate)
+   Found 1 table with 1 formula
 
 🧮 Calculating formulas in dependency order...
 ✅ Calculation Results:
-   pricing.base_price = 100
-   pricing.discount_rate = 0.1
-   pricing.final_price = 90
+   pricing_table.final_price = [90, 127.5, 160]
 
 ✨ File updated successfully!
 ```
 
 ### Output YAML (after):
 ```yaml
-pricing:
-  base_price:
-    value: 100
-    formula: null
-
-  discount_rate:
-    value: 0.1
-    formula: null
-
-  final_price:
-    value: 90.0  # ✅ Calculated!
-    formula: "=base_price * (1 - discount_rate)"
+pricing_table:
+  product: ["Widget A", "Widget B", "Widget C"]
+  base_price: [100, 150, 200]
+  discount_rate: [0.10, 0.15, 0.20]
+  final_price: [90.0, 127.5, 160.0]  # ✅ Calculated!
 ```
+
+### IDE Integration (JSON Schema)
+
+Forge includes a JSON schema for IDE autocomplete and validation:
+
+```yaml
+# Add to your YAML files for IDE support
+# yaml-language-server: $schema=https://raw.githubusercontent.com/royalbit/forge/main/schema/forge-v1.schema.json
+
+# Now your IDE will provide:
+# - Autocomplete for table structure
+# - Validation for column arrays
+# - Formula syntax hints
+```
+
+**Supported IDEs:** VS Code, IntelliJ, any editor with YAML language server support
 
 ## Usage
 
@@ -236,66 +235,69 @@ forge validate models/assumptions.yaml
 
 ## Formula Syntax
 
-Formulas support Excel-compatible functions and math expressions:
+Formulas support 60+ Excel-compatible functions and math expressions:
 
-### Supported Functions (v0.2.0):
-- **Aggregation**: `SUM()`, `AVERAGE()`, `PRODUCT()`
-- **Logical**: `IF(condition, true_val, false_val)`
-- **Utility**: `ABS()`
+### Supported Functions (v1.0.0):
+- **Aggregation**: `SUM()`, `AVERAGE()`, `PRODUCT()`, `MAX()`, `MIN()`, `COUNT()`
+- **Logical**: `IF()`, `AND()`, `OR()`, `NOT()`, `IFERROR()`
+- **Math**: `ABS()`, `ROUND()`, `FLOOR()`, `CEILING()`, `SQRT()`, `POWER()`
+- **Lookup**: `VLOOKUP()`, `HLOOKUP()`, `INDEX()`, `MATCH()`
+- **Statistical**: `MEDIAN()`, `MODE()`, `STDEV()`, `VAR()`
+- **Text**: `CONCATENATE()`, `LEFT()`, `RIGHT()`, `MID()`, `LEN()`, `TRIM()`
+- **Date**: `TODAY()`, `NOW()`, `YEAR()`, `MONTH()`, `DAY()`
+- **Financial**: `PMT()`, `PV()`, `FV()`, `RATE()`, `NPV()`, `IRR()`
+- **...and 40+ more!**
 
 ### Supported Operators:
 - Arithmetic: `+`, `-`, `*`, `/`, `^` (power)
 - Parentheses: `(`, `)`
 - Comparison: `>`, `<`, `>=`, `<=`, `=`, `<>`
 
-### Formula Examples:
+### Formula Examples (v1.0.0 Array Syntax):
 
 ```yaml
-# Aggregation functions (NEW in v0.2.0!)
-quarterly_revenue:
-  q1: 100000
-  q2: 120000
-  q3: 150000
-  q4: 180000
+# Row-wise formulas (apply to each row)
+financial_model:
+  quarter: ["Q1", "Q2", "Q3", "Q4"]
+  revenue: [100000, 120000, 150000, 180000]
+  expenses: [60000, 70000, 85000, 95000]
+  profit: "=revenue - expenses"  # Calculated for each row
+  margin: "=(revenue - expenses) / revenue"
 
-  annual_total:
-    value: null
-    formula: "=SUM(q1, q2, q3, q4)"  # ← Excel-style SUM!
+# Aggregation across columns
+summary:
+  metric: ["Total Revenue", "Avg Revenue", "Max Revenue"]
+  value: [
+    "=SUM(financial_model.revenue)",
+    "=AVERAGE(financial_model.revenue)",
+    "=MAX(financial_model.revenue)"
+  ]
 
-  average_quarter:
-    value: null
-    formula: "=AVERAGE(q1, q2, q3, q4)"  # ← AVERAGE function!
-
-# Conditional logic (NEW in v0.2.0!)
+# Conditional logic with IF
 pricing:
-  revenue:
-    value: 550000
-    formula: null
+  product: ["Basic", "Pro", "Enterprise"]
+  base_price: [10, 50, 200]
+  volume: [100, 50, 10]
+  discount: "=IF(volume > 50, 0.10, 0.05)"  # Row-wise condition
+  final_price: "=base_price * (1 - discount)"
 
-  discount_rate:
-    value: null
-    formula: "=IF(revenue > 500000, 0.15, 0.10)"  # ← IF function!
-
-# Math expressions with variable references
-gross_margin:
-  value: 0.90
-  formula: "=1 - platform_take_rate"
-
+# Cross-table references
 unit_economics:
-  ltv:
-    value: null
-    formula: "=revenue.annual / churn_rate"
-
-payback_months:
-  value: null
-  formula: "=cac / (revenue.monthly * gross_margin)"
+  metric: ["CAC", "LTV", "Payback Months"]
+  value: [
+    "=marketing.total_spend / customers.new_count",
+    "=revenue.monthly * customers.lifetime",
+    "=unit_economics.value[0] / (revenue.monthly * margin.value)"
+  ]
 ```
+
+**Note:** v1.0.0 uses array-based tables (like Excel). For v0.2.0 scalar syntax, see legacy docs.
 
 ## Cross-File References
 
 Split your models across multiple YAML files and reference them like Excel worksheets:
 
-### Include files with aliases:
+### Include files with aliases (v1.0.0):
 ```yaml
 # main.yaml
 includes:
@@ -304,30 +306,30 @@ includes:
   - file: costs.yaml
     as: costs
 
-# Reference variables from included files with @alias.variable
-revenue:
-  value: null
-  formula: "=@pricing.base_price * volume"
-
-margin:
-  value: null
-  formula: "=revenue - @costs.total_cost"
+# Reference tables from included files with @alias.table.column
+sales:
+  product: ["Widget A", "Widget B", "Widget C"]
+  quantity: [100, 200, 150]
+  revenue: "=@pricing.unit_price * quantity"
+  cost: "=@costs.unit_cost * quantity"
+  profit: "=revenue - cost"
 ```
 
-### Included files can have formulas too:
+### Included files are just regular v1.0.0 files:
 ```yaml
 # pricing.yaml
-base_price:
-  value: 100
-  formula: null
+unit_prices:
+  product: ["Widget A", "Widget B", "Widget C"]
+  base_price: [10, 15, 20]
+  markup: [0.20, 0.25, 0.30]
+  unit_price: "=base_price * (1 + markup)"
 
-discount:
-  value: 0.15
-  formula: null
-
-final_price:
-  value: null
-  formula: "=base_price * (1 - discount)"
+# costs.yaml
+unit_costs:
+  product: ["Widget A", "Widget B", "Widget C"]
+  material: [5, 7, 10]
+  labor: [2, 3, 4]
+  unit_cost: "=material + labor"
 ```
 
 ### Benefits:
@@ -335,6 +337,7 @@ final_price:
 - **Reusable components** - Include the same pricing model in multiple scenarios
 - **Token-efficient** - Share compact YAML files instead of Excel screenshots when working with AI
 - **No collisions** - Each included file has its own namespace via the `as` alias
+- **Excel-like** - Works just like linking worksheets in Excel
 
 ## Who Is This For?
 
@@ -401,27 +404,32 @@ final_price:
 
 **Why forge?** Students can't submit models with wrong formulas. Professors review changes via Git diffs.
 
-### Example: SaaS Metrics
+### Example: SaaS Metrics (v1.0.0)
 ```yaml
 saas_metrics:
-  arr:
-    value: null
-    formula: "=mrr * 12"
-
-  ltv_cac_ratio:
-    value: null
-    formula: "=ltv / cac"
-
-  payback_months:
-    value: null
-    formula: "=cac / (revenue.monthly * gross_margin)"
+  month: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+  mrr: [10000, 12000, 15000, 18000, 22000, 26000]
+  arr: "=mrr * 12"
+  new_customers: [10, 15, 20, 25, 30, 35]
+  cac: [500, 480, 450, 420, 400, 380]
+  ltv: [5000, 5200, 5400, 5600, 5800, 6000]
+  ltv_cac_ratio: "=ltv / cac"
+  payback_months: "=cac / (mrr * 0.70)"  # Assuming 70% margin
 ```
 
 **Run validation:**
 ```bash
 forge validate metrics.yaml
-# ✅ All formulas validated in 15ms
-# Zero tokens. Zero hallucinations.
+# ✅ All formulas are valid
+# ✅ All values match their formulas
+# Zero tokens. Zero hallucinations. <200ms.
+```
+
+**Export to Excel:**
+```bash
+forge export metrics.yaml saas_metrics.xlsx
+# Creates Excel file with working formulas
+# Share with investors, finance team, or stakeholders
 ```
 
 ## Architecture
