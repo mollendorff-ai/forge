@@ -1,0 +1,341 @@
+# 🔥 Forge Roadmap to 1.0.0
+# Track the evolution from current state to production-ready 1.0.0
+# This file itself is a YAML model - we should be able to use forge on it later!
+
+metadata:
+  current_version: "0.1.3"
+  target_version: "1.0.0"
+  last_updated: "2025-11-23"
+  maintainer: "RoyalBit Inc."
+
+# Version milestones
+milestones:
+  v0_1_3:
+    version: "0.1.3"
+    status: completed
+    release_date: "2025-11-23"
+    description: "Current stable release"
+    features:
+      - "Basic formula evaluation with meval"
+      - "Cross-file references with includes"
+      - "Dependency resolution and topological sort"
+      - "Validation command"
+      - "Circular dependency detection"
+    capabilities:
+      - "Simple math operations (+, -, *, /, ^)"
+      - "Variable references (dot notation)"
+      - "Cross-file references (@alias.variable)"
+      - "Dry-run mode"
+      - "Verbose output"
+
+  v0_2_0:
+    version: "0.2.0"
+    status: in_progress
+    target_date: "2025-12-01"
+    description: "Excel-compatible formula functions"
+    branch: "feature/formula-functions"
+    breaking_changes: false
+    features:
+      - "Replace meval with xlformula_engine"
+      - "Excel-compatible formula functions"
+      - "Better error messages with formula context"
+      - "Optional version metadata in YAML files"
+    new_functions:
+      aggregation:
+        - "SUM(a, b, c, ...)"
+        - "AVERAGE(a, b, c, ...)"
+        - "COUNT(a, b, c, ...)"
+        - "MAX(a, b, c, ...)"
+        - "MIN(a, b, c, ...)"
+        - "PRODUCT(a, b, c, ...)"
+      logical:
+        - "IF(condition, true_value, false_value)"
+        - "AND(a, b, c, ...)"
+        - "OR(a, b, c, ...)"
+        - "NOT(a)"
+        - "XOR(a, b)"
+      utility:
+        - "ABS(a)"
+        - "ISBLANK(a)"
+    model_compatibility:
+      old_model: "✅ Full backwards compatibility"
+      new_model: "❌ Not yet (comes in v1.0.0)"
+    testing:
+      - "Unit tests for each new function"
+      - "E2E tests with financial model examples"
+      - "Validation tests for function results"
+    documentation:
+      - "Update README with function examples"
+      - "Add formula function reference"
+      - "Migration guide (none needed - backwards compatible)"
+
+  v0_3_0:
+    version: "0.3.0"
+    status: planned
+    target_date: "2025-12-15"
+    description: "Developer experience improvements"
+    breaking_changes: false
+    features:
+      - "Implement audit trail command (currently stubbed)"
+      - "Watch mode (auto-recalculate on file changes)"
+      - "Better error messages with file:line context"
+      - "Pre-commit hook template"
+      - "Performance benchmarks with criterion"
+    new_commands:
+      - "forge watch models/*.yaml"
+      - "forge audit model.yaml variable_name"
+      - "forge init-hooks"
+      - "forge bench"
+    improvements:
+      - "Show dependency chain in errors"
+      - "Suggest fixes for typos in variable names"
+      - "Incremental recalculation (only changed vars)"
+    testing:
+      - "Benchmark suite for performance claims"
+      - "Test audit trail output"
+      - "Test watch mode with file changes"
+
+  v0_4_0:
+    version: "0.4.0"
+    status: planned
+    target_date: "2026-01-15"
+    description: "Array model preparation"
+    breaking_changes: false
+    features:
+      - "Auto-detection of model version (v1 vs v2)"
+      - "Model upgrade command (forge upgrade)"
+      - "Support both nested dict and array models"
+      - "Version metadata in YAML (_forge_version)"
+    new_commands:
+      - "forge upgrade old_model.yaml --output new_model.yaml"
+      - "forge detect-version model.yaml"
+    model_support:
+      nested_dict: "✅ Full support (legacy v1 model)"
+      column_arrays: "✅ Full support (new v2 model)"
+    conversion:
+      - "Detect array-like patterns (q1, q2, q3, q4)"
+      - "Auto-convert to column arrays"
+      - "Update formula references"
+      - "Backup original files"
+    testing:
+      - "Test auto-detection logic"
+      - "Test conversion accuracy"
+      - "Test both models side-by-side"
+
+  v1_0_0:
+    version: "1.0.0"
+    status: planned
+    target_date: "2026-02-01"
+    description: "Production-ready with Excel export"
+    breaking_changes: true
+    breaking_change_details:
+      - "Default to v2 array model (v1 still supported via flag)"
+      - "Excel export assumes column arrays"
+    features:
+      - "Excel export (.xlsx)"
+      - "Excel import (.xlsx to YAML)"
+      - "Array formulas"
+      - "Conditional aggregation (SUMIF, AVERAGEIF, COUNTIF)"
+      - "Financial functions (NPV, IRR, PMT, FV, PV)"
+    new_functions:
+      conditional_aggregation:
+        - "SUMIF(range, condition)"
+        - "AVERAGEIF(range, condition)"
+        - "COUNTIF(range, condition)"
+      financial:
+        - "NPV(rate, values...)"
+        - "IRR(values...)"
+        - "PMT(rate, nper, pv)"
+        - "FV(rate, nper, pmt, pv)"
+        - "PV(rate, nper, pmt, fv)"
+    new_commands:
+      - "forge export model.yaml --output model.xlsx"
+      - "forge import model.xlsx --output model.yaml"
+    model:
+      default: "v2 (column arrays)"
+      legacy: "v1 (nested dicts) with --legacy flag"
+    excel_export:
+      - "YAML objects → Excel sheets"
+      - "YAML arrays → Excel columns"
+      - "Formulas → Excel formulas"
+      - "Preserve formatting metadata"
+    testing:
+      - "Round-trip tests (YAML → Excel → YAML)"
+      - "Formula preservation tests"
+      - "Large file performance tests (10k+ cells)"
+    documentation:
+      - "Complete migration guide (v1 → v2)"
+      - "Excel export/import tutorial"
+      - "Best practices guide"
+      - "Video walkthrough"
+
+# Feature tracking
+features:
+  formula_functions:
+    version_introduced: "0.2.0"
+    status: in_progress
+    priority: high
+    effort: medium
+    description: "Excel-compatible formula functions (SUM, AVG, IF, etc.)"
+    dependencies: []
+
+  audit_trail:
+    version_introduced: "0.3.0"
+    status: planned
+    priority: medium
+    effort: low
+    description: "Show how a value was calculated with dependency chain"
+    dependencies: []
+
+  watch_mode:
+    version_introduced: "0.3.0"
+    status: planned
+    priority: medium
+    effort: medium
+    description: "Auto-recalculate when files change"
+    dependencies: []
+
+  array_model:
+    version_introduced: "0.4.0"
+    status: planned
+    priority: high
+    effort: high
+    description: "Column array model for Excel-like tables"
+    dependencies: ["formula_functions"]
+
+  model_conversion:
+    version_introduced: "0.4.0"
+    status: planned
+    priority: high
+    effort: medium
+    description: "Auto-detect and convert between model versions"
+    dependencies: ["array_model"]
+
+  excel_export:
+    version_introduced: "1.0.0"
+    status: planned
+    priority: high
+    effort: high
+    description: "Export YAML to Excel .xlsx files"
+    dependencies: ["array_model", "model_conversion"]
+
+  excel_import:
+    version_introduced: "1.0.0"
+    status: planned
+    priority: medium
+    effort: high
+    description: "Import Excel .xlsx to YAML"
+    dependencies: ["excel_export"]
+
+  conditional_aggregation:
+    version_introduced: "1.0.0"
+    status: planned
+    priority: medium
+    effort: medium
+    description: "SUMIF, AVERAGEIF, COUNTIF functions"
+    dependencies: ["formula_functions", "array_model"]
+
+  financial_functions:
+    version_introduced: "1.0.0"
+    status: planned
+    priority: low
+    effort: high
+    description: "NPV, IRR, PMT, FV, PV functions"
+    dependencies: ["formula_functions"]
+
+# Technical debt and improvements
+technical_debt:
+  replace_meval:
+    status: in_progress
+    priority: high
+    version: "0.2.0"
+    description: "Replace meval with xlformula_engine for Excel compatibility"
+
+  proper_formula_parser:
+    status: completed_via_xlformula_engine
+    priority: high
+    version: "0.2.0"
+    description: "Replace regex-based formula parsing with proper parser"
+
+  incremental_calculation:
+    status: planned
+    priority: medium
+    version: "0.3.0"
+    description: "Only recalculate variables affected by changes"
+
+  better_error_messages:
+    status: planned
+    priority: high
+    version: "0.3.0"
+    description: "File:line context, dependency chains, typo suggestions"
+
+# Community and ecosystem
+ecosystem:
+  vscode_extension:
+    status: idea
+    priority: low
+    version: "post-1.0.0"
+    description: "Syntax highlighting, inline values, error squiggles"
+
+  github_action:
+    status: idea
+    priority: medium
+    version: "post-1.0.0"
+    description: "Validate formulas in CI/CD"
+
+  web_ui:
+    status: idea
+    priority: low
+    version: "post-1.0.0"
+    description: "Visual formula builder for non-technical users"
+
+  python_bindings:
+    status: idea
+    priority: low
+    version: "post-1.0.0"
+    description: "Use forge from Python via PyO3"
+
+# Success metrics
+metrics:
+  performance:
+    current: "<200ms for 850 formulas"
+    v0_2_0_target: "<250ms for 850 formulas (slight overhead from xlformula_engine)"
+    v1_0_0_target: "<300ms for 1000 formulas with Excel export"
+
+  test_coverage:
+    current: "40 tests (unit + integration + E2E)"
+    v0_2_0_target: "60+ tests (add function tests)"
+    v1_0_0_target: "100+ tests (comprehensive coverage)"
+
+  downloads:
+    current: "TBD (track from crates.io)"
+    v1_0_0_target: "1000+ downloads"
+
+  github_stars:
+    current: "TBD"
+    v1_0_0_target: "100+ stars"
+
+  adoption:
+    target: "10+ companies using in production by v1.0.0"
+
+# Risk management
+risks:
+  xlformula_engine_maintenance:
+    probability: medium
+    impact: high
+    mitigation: "Fork if needed, or contribute back to maintain it"
+
+  excel_format_complexity:
+    probability: high
+    impact: medium
+    mitigation: "Use rust_xlsxwriter (battle-tested library)"
+
+  backwards_compatibility:
+    probability: low
+    impact: high
+    mitigation: "Maintain v1 model support through v1.x, deprecate in v2.0.0"
+
+  performance_regression:
+    probability: medium
+    impact: medium
+    mitigation: "Benchmark suite in v0.3.0, track performance over time"
