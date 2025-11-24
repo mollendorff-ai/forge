@@ -107,7 +107,9 @@ impl ExcelExporter {
                     let excel_formula = translator.translate_row_formula(formula, excel_row)?;
                     worksheet
                         .write_formula(excel_row - 1, col_idx as u16, Formula::new(&excel_formula))
-                        .map_err(|e| ForgeError::Export(format!("Failed to write formula: {}", e)))?;
+                        .map_err(|e| {
+                            ForgeError::Export(format!("Failed to write formula: {}", e))
+                        })?;
                 } else if let Some(column) = table.columns.get(col_name) {
                     // Write data value
                     self.write_cell_value(
@@ -136,9 +138,9 @@ impl ExcelExporter {
         match values {
             ColumnValue::Number(nums) => {
                 if let Some(&value) = nums.get(index) {
-                    worksheet
-                        .write_number(row, col, value)
-                        .map_err(|e| ForgeError::Export(format!("Failed to write number: {}", e)))?;
+                    worksheet.write_number(row, col, value).map_err(|e| {
+                        ForgeError::Export(format!("Failed to write number: {}", e))
+                    })?;
                 }
             }
             ColumnValue::Text(texts) => {
@@ -157,9 +159,9 @@ impl ExcelExporter {
             }
             ColumnValue::Boolean(bools) => {
                 if let Some(&value) = bools.get(index) {
-                    worksheet
-                        .write_boolean(row, col, value)
-                        .map_err(|e| ForgeError::Export(format!("Failed to write boolean: {}", e)))?;
+                    worksheet.write_boolean(row, col, value).map_err(|e| {
+                        ForgeError::Export(format!("Failed to write boolean: {}", e))
+                    })?;
                 }
             }
         }
@@ -169,9 +171,9 @@ impl ExcelExporter {
     /// Export scalars to a dedicated "Scalars" worksheet
     fn export_scalars(&self, workbook: &mut Workbook) -> ForgeResult<()> {
         let worksheet = workbook.add_worksheet();
-        worksheet
-            .set_name("Scalars")
-            .map_err(|e| ForgeError::Export(format!("Failed to set Scalars worksheet name: {}", e)))?;
+        worksheet.set_name("Scalars").map_err(|e| {
+            ForgeError::Export(format!("Failed to set Scalars worksheet name: {}", e))
+        })?;
 
         // Write header row
         worksheet
@@ -193,22 +195,22 @@ impl ExcelExporter {
 
             if let Some(var) = self.model.scalars.get(*name) {
                 // Write name
-                worksheet
-                    .write_string(row, 0, *name)
-                    .map_err(|e| ForgeError::Export(format!("Failed to write scalar name: {}", e)))?;
+                worksheet.write_string(row, 0, *name).map_err(|e| {
+                    ForgeError::Export(format!("Failed to write scalar name: {}", e))
+                })?;
 
                 // Write value (if present)
                 if let Some(value) = var.value {
-                    worksheet
-                        .write_number(row, 1, value)
-                        .map_err(|e| ForgeError::Export(format!("Failed to write scalar value: {}", e)))?;
+                    worksheet.write_number(row, 1, value).map_err(|e| {
+                        ForgeError::Export(format!("Failed to write scalar value: {}", e))
+                    })?;
                 }
 
                 // Write formula (if present) - Phase 3.4 will translate these
                 if let Some(formula) = &var.formula {
-                    worksheet
-                        .write_string(row, 2, formula)
-                        .map_err(|e| ForgeError::Export(format!("Failed to write scalar formula: {}", e)))?;
+                    worksheet.write_string(row, 2, formula).map_err(|e| {
+                        ForgeError::Export(format!("Failed to write scalar formula: {}", e))
+                    })?;
                 }
             }
         }

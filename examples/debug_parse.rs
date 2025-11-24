@@ -10,7 +10,10 @@ fn main() {
     println!("\nTables:");
     for (table_name, table) in &model.tables {
         println!("\n  Table: {}", table_name);
-        println!("    Columns: {:?}", table.columns.keys().collect::<Vec<_>>());
+        println!(
+            "    Columns: {:?}",
+            table.columns.keys().collect::<Vec<_>>()
+        );
         println!("    Row formulas: {:?}", table.row_formulas);
     }
 }
