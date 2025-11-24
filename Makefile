@@ -1,4 +1,4 @@
-# Mouvify Forge - YAML Formula Calculator
+# Forge - YAML Formula Calculator
 # Build and test targets for optimized binary
 
 .PHONY: help build build-static build-compressed install install-user install-system uninstall lint lint-fix test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage clean clean-test pre-build post-build
@@ -7,7 +7,7 @@
 HAS_UPX := $(shell command -v upx 2> /dev/null)
 
 help:
-	@echo "Mouvify Forge - Available Commands"
+	@echo "Forge - Available Commands"
 	@echo ""
 	@echo "Build Targets:"
 	@echo "  make build              - Standard release build (with pre/post checks)"

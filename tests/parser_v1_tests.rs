@@ -11,7 +11,12 @@ fn test_parse_saas_unit_economics() {
             assert_eq!(model.version, royalbit_forge::types::ForgeVersion::V1_0_0);
             println!("Tables: {}", model.tables.len());
             for (name, table) in &model.tables {
-                println!("  - {}: {} columns, {} rows", name, table.columns.len(), table.row_count());
+                println!(
+                    "  - {}: {} columns, {} rows",
+                    name,
+                    table.columns.len(),
+                    table.row_count()
+                );
             }
             println!("Scalars: {}", model.scalars.len());
         }
@@ -33,7 +38,12 @@ fn test_parse_quarterly_pl() {
             assert_eq!(model.version, royalbit_forge::types::ForgeVersion::V1_0_0);
             println!("Tables: {}", model.tables.len());
             for (name, table) in &model.tables {
-                println!("  - {}: {} columns, {} rows", name, table.columns.len(), table.row_count());
+                println!(
+                    "  - {}: {} columns, {} rows",
+                    name,
+                    table.columns.len(),
+                    table.row_count()
+                );
             }
             println!("Scalars: {}", model.scalars.len());
         }
@@ -55,7 +65,12 @@ fn test_parse_budget_vs_actual() {
             assert_eq!(model.version, royalbit_forge::types::ForgeVersion::V1_0_0);
             println!("Tables: {}", model.tables.len());
             for (name, table) in &model.tables {
-                println!("  - {}: {} columns, {} rows", name, table.columns.len(), table.row_count());
+                println!(
+                    "  - {}: {} columns, {} rows",
+                    name,
+                    table.columns.len(),
+                    table.row_count()
+                );
             }
             println!("Scalars: {}", model.scalars.len());
         }

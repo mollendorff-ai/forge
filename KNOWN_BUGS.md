@@ -183,11 +183,11 @@ fn resolve_variable(&self, var_name: &str, current_path: &Path) -> Option<Value>
 }
 ```
 
-### Affected Files in mouvify-business
+### Affected Files in Production
 
-- `models/assumptions_base.yaml` - 10 errors (312 formulas total)
-- `models/assumptions_conservative.yaml` - 10 errors (199 formulas total)
-- `ideas/investor-materials-for-later/models/assumptions_aggressive.yaml` - 8 errors (199 formulas total)
+- `assumptions_base.yaml` - 10 errors (312 formulas total)
+- `assumptions_conservative.yaml` - 10 errors (199 formulas total)
+- `assumptions_aggressive.yaml` - 8 errors (199 formulas total)
 
 **Total:** 28 value mismatches detected across 710 formulas (3.9% error rate)
 
@@ -240,10 +240,10 @@ Error: YAML parsing failed
 
 Split into separate single-document files.
 
-### Affected Files in mouvify-business
+### Affected Files in Production
 
-- `models/year1_grant_scenarios.yaml`
-- `ideas/investor-materials-for-later/models/saas-unit-economics.yaml`
+- `year1_grant_scenarios.yaml`
+- `saas-unit-economics.yaml`
 
 ### Priority
 
