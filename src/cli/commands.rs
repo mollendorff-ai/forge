@@ -1,6 +1,7 @@
-use crate::core::Calculator;
+use crate::core::{ArrayCalculator, Calculator};
 use crate::error::ForgeResult;
 use crate::parser;
+use crate::types::ForgeVersion;
 use crate::writer;
 use colored::Colorize;
 use std::path::PathBuf;
@@ -29,80 +30,152 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
         );
     }
 
-    // Parse YAML file and extract variables with formulas (including referenced files)
+    // Parse file and detect version
     if verbose {
-        println!("{}", "📖 Parsing YAML file and includes...".cyan());
+        println!("{}", "📖 Parsing YAML file...".cyan());
     }
-    let parsed = parser::parse_yaml_with_includes(&file)?;
 
-    if verbose {
-        println!(
-            "   Found {} variables with formulas\n",
-            parsed.variables.len()
-        );
-        for (name, var) in &parsed.variables {
-            if let Some(formula) = &var.formula {
-                println!("   {} = {}", name.bright_blue(), formula.dimmed());
+    // Try v1.0.0 first (parse_model auto-detects version)
+    let model = parser::parse_model(&file)?;
+
+    match model.version {
+        ForgeVersion::V1_0_0 => {
+            // v1.0.0 Array Model - use ArrayCalculator
+            if verbose {
+                println!("   Detected: v1.0.0 Array Model");
+                println!(
+                    "   Found {} tables, {} scalars\n",
+                    model.tables.len(),
+                    model.scalars.len()
+                );
             }
+
+            // Calculate using ArrayCalculator
+            if verbose {
+                println!(
+                    "{}",
+                    "🧮 Calculating tables and scalars...".cyan()
+                );
+            }
+
+            let calculator = ArrayCalculator::new(model);
+            let result = calculator.calculate_all()?;
+
+            // Display results
+            println!("{}", "✅ Calculation Results:".bold().green());
+
+            // Show table results
+            for (table_name, table) in &result.tables {
+                println!("   📊 Table: {}", table_name.bright_blue().bold());
+                for (col_name, column) in &table.columns {
+                    println!(
+                        "      {} ({} rows)",
+                        col_name.cyan(),
+                        column.values.len()
+                    );
+                }
+            }
+
+            // Show scalar results
+            if !result.scalars.is_empty() {
+                println!("\n   📐 Scalars:");
+                for (name, var) in &result.scalars {
+                    if let Some(value) = var.value {
+                        println!(
+                            "      {} = {}",
+                            name.bright_blue(),
+                            format!("{value}").bold()
+                        );
+                    }
+                }
+            }
+            println!();
+
+            // TODO: Implement v1.0.0 writer
+            if dry_run {
+                println!("{}", "📋 Dry run complete - no changes written".yellow());
+            } else {
+                println!("{}", "⚠️  v1.0.0 file writing not yet implemented".yellow());
+                println!("{}", "   Results calculated successfully but not written back".yellow());
+            }
+
+            Ok(())
         }
-        println!();
-    }
+        ForgeVersion::V0_2_0 => {
+            // v0.2.0 Scalar Model - use old Calculator (with includes support)
+            let parsed = parser::parse_yaml_with_includes(&file)?;
 
-    if parsed.variables.is_empty() {
-        println!("{}", "⚠️  No formulas found in YAML file".yellow());
-        return Ok(());
-    }
+            if verbose {
+                println!("   Detected: v0.2.0 Scalar Model");
+                println!(
+                    "   Found {} variables with formulas\n",
+                    parsed.variables.len()
+                );
+                for (name, var) in &parsed.variables {
+                    if let Some(formula) = &var.formula {
+                        println!("   {} = {}", name.bright_blue(), formula.dimmed());
+                    }
+                }
+                println!();
+            }
 
-    // Calculate all formulas
-    if verbose {
-        println!(
-            "{}",
-            "🧮 Calculating formulas in dependency order...".cyan()
-        );
-    }
-    let mut calculator = Calculator::new(parsed.variables.clone());
-    let results = calculator.calculate_all()?;
+            if parsed.variables.is_empty() {
+                println!("{}", "⚠️  No formulas found in YAML file".yellow());
+                return Ok(());
+            }
 
-    // Display results
-    println!("{}", "✅ Calculation Results:".bold().green());
-    for (var_name, value) in &results {
-        println!(
-            "   {} = {}",
-            var_name.bright_blue(),
-            format!("{value}").bold()
-        );
-    }
-    println!();
+            // Calculate all formulas
+            if verbose {
+                println!(
+                    "{}",
+                    "🧮 Calculating formulas in dependency order...".cyan()
+                );
+            }
+            let mut calculator = Calculator::new(parsed.variables.clone());
+            let results = calculator.calculate_all()?;
 
-    // Write back to ALL files (main + includes) - Excel-style (unless dry run)
-    if dry_run {
-        println!("{}", "📋 Dry run complete - no changes written".yellow());
-    } else {
-        if verbose {
-            println!(
-                "{}",
-                "💾 Writing updated values to all files (main + includes)...".cyan()
-            );
+            // Display results
+            println!("{}", "✅ Calculation Results:".bold().green());
+            for (var_name, value) in &results {
+                println!(
+                    "   {} = {}",
+                    var_name.bright_blue(),
+                    format!("{value}").bold()
+                );
+            }
+            println!();
+
+            // Write back to ALL files (main + includes) - Excel-style (unless dry run)
+            if dry_run {
+                println!("{}", "📋 Dry run complete - no changes written".yellow());
+            } else {
+                if verbose {
+                    println!(
+                        "{}",
+                        "💾 Writing updated values to all files (main + includes)...".cyan()
+                    );
+                }
+                writer::update_all_yaml_files(&file, &parsed, &results, &parsed.variables)?;
+
+                if parsed.includes.is_empty() {
+                    println!("{}", "✨ File updated successfully!".bold().green());
+                } else {
+                    println!(
+                        "{}",
+                        format!(
+                            "✨ {} files updated successfully! (main + {} includes)",
+                            1 + parsed.includes.len(),
+                            parsed.includes.len()
+                        )
+                        .bold()
+                        .green()
+                    );
+                }
+            }
+
+            Ok(())
         }
-        writer::update_all_yaml_files(&file, &parsed, &results, &parsed.variables)?;
-
-        if parsed.includes.is_empty() {
-            println!("{}", "✨ File updated successfully!".bold().green());
-        } else {
-            println!(
-                "{}",
-                format!(
-                    "✨ {} files updated successfully! (main + {} includes)",
-                    1 + parsed.includes.len(),
-                    parsed.includes.len()
-                )
-                .bold()
-                .green()
-            );
-        }
     }
-
-    Ok(())
 }
 
 /// Execute the audit command

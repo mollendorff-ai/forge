@@ -215,7 +215,7 @@ fn parse_nested_scalars(
                 // This is a scalar variable
                 let full_path = format!("{}.{}", parent_key, key_str);
                 let variable = parse_scalar_variable(value, &full_path, None)?;
-                model.add_scalar(parent_key.to_string(), variable);
+                model.add_scalar(full_path.clone(), variable);
             }
         }
     }
