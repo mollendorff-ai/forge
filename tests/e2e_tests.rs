@@ -6,13 +6,13 @@ fn forge_binary() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("target");
     path.push("release");
-    path.push("mouvify-forge");
+    path.push("forge");
 
     if !path.exists() {
         path.pop();
         path.pop();
         path.push("debug");
-        path.push("mouvify-forge");
+        path.push("forge");
     }
 
     path
@@ -121,7 +121,7 @@ fn e2e_stale_values_detected() {
     assert!(stdout.contains("Diff:"));
 
     // Should suggest fix
-    assert!(stdout.contains("Run 'mouvify-forge calculate' to update values"));
+    assert!(stdout.contains("Run 'forge calculate' to update values"));
 }
 
 #[test]

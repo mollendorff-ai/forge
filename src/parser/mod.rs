@@ -51,16 +51,14 @@ pub fn parse_yaml_with_includes(path: &Path) -> ForgeResult<ParsedYaml> {
 /// Extract includes from YAML
 fn extract_includes(value: &Value) -> ForgeResult<Vec<Include>> {
     if let Value::Mapping(map) = value {
-        if let Some(includes_val) = map.get("includes") {
-            if let Value::Sequence(seq) = includes_val {
-                let mut includes = Vec::new();
-                for item in seq {
-                    let include: Include = serde_yaml::from_value(item.clone())
-                        .map_err(|e| ForgeError::Parse(format!("Invalid include format: {e}")))?;
-                    includes.push(include);
-                }
-                return Ok(includes);
+        if let Some(Value::Sequence(seq)) = map.get("includes") {
+            let mut includes = Vec::new();
+            for item in seq {
+                let include: Include = serde_yaml::from_value(item.clone())
+                    .map_err(|e| ForgeError::Parse(format!("Invalid include format: {e}")))?;
+                includes.push(include);
             }
+            return Ok(includes);
         }
     }
     Ok(Vec::new())

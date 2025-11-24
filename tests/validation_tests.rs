@@ -8,14 +8,14 @@ fn forge_binary() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("target");
     path.push("release");
-    path.push("mouvify-forge");
+    path.push("forge");
 
     if !path.exists() {
         // Fall back to debug build
         path.pop();
         path.pop();
         path.push("debug");
-        path.push("mouvify-forge");
+        path.push("forge");
     }
 
     path

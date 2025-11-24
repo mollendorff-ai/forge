@@ -78,15 +78,15 @@ fn update_value_recursive(yaml: &mut Value, path_parts: &[&str], index: usize, n
         // If this is the last part of the path
         if index == path_parts.len() - 1 {
             // Look for the value field to update
-            if let Some(entry) = map.get_mut(Value::String(current_part.to_string())) {
-                if let Value::Mapping(inner_map) = entry {
-                    // Update the "value" field
-                    if inner_map.contains_key(Value::String("value".to_string())) {
-                        inner_map.insert(
-                            Value::String("value".to_string()),
-                            Value::Number(serde_yaml::Number::from(new_value)),
-                        );
-                    }
+            if let Some(Value::Mapping(inner_map)) =
+                map.get_mut(Value::String(current_part.to_string()))
+            {
+                // Update the "value" field
+                if inner_map.contains_key(Value::String("value".to_string())) {
+                    inner_map.insert(
+                        Value::String("value".to_string()),
+                        Value::Number(serde_yaml::Number::from(new_value)),
+                    );
                 }
             }
         } else {
