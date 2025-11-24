@@ -61,9 +61,7 @@ impl ExcelImporter {
         }
 
         // Get formula range for this sheet
-        let formula_range = workbook
-            .worksheet_formula(sheet_name)
-            .ok();
+        let formula_range = workbook.worksheet_formula(sheet_name).ok();
 
         // Process as regular table
         self.process_table_sheet(sheet_name, range, formula_range.as_ref(), model)
@@ -113,10 +111,7 @@ impl ExcelImporter {
                     columns_data.get_mut(col_name).unwrap().push(cell.clone());
                 } else {
                     // Empty cell - use default based on column type
-                    columns_data
-                        .get_mut(col_name)
-                        .unwrap()
-                        .push(Data::Empty);
+                    columns_data.get_mut(col_name).unwrap().push(Data::Empty);
                 }
             }
         }
@@ -351,10 +346,7 @@ mod tests {
             importer.sanitize_table_name("P&L Statement"),
             "pandl_statement"
         );
-        assert_eq!(
-            importer.sanitize_table_name("Revenue-2025"),
-            "revenue_2025"
-        );
+        assert_eq!(importer.sanitize_table_name("Revenue-2025"), "revenue_2025");
         assert_eq!(
             importer.sanitize_table_name("Special@#$Chars"),
             "specialchars"

@@ -54,10 +54,7 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
 
             // Calculate using ArrayCalculator
             if verbose {
-                println!(
-                    "{}",
-                    "🧮 Calculating tables and scalars...".cyan()
-                );
+                println!("{}", "🧮 Calculating tables and scalars...".cyan());
             }
 
             let calculator = ArrayCalculator::new(model);
@@ -70,11 +67,7 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
             for (table_name, table) in &result.tables {
                 println!("   📊 Table: {}", table_name.bright_blue().bold());
                 for (col_name, column) in &table.columns {
-                    println!(
-                        "      {} ({} rows)",
-                        col_name.cyan(),
-                        column.values.len()
-                    );
+                    println!("      {} ({} rows)", col_name.cyan(), column.values.len());
                 }
             }
 
@@ -98,7 +91,10 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
                 println!("{}", "📋 Dry run complete - no changes written".yellow());
             } else {
                 println!("{}", "⚠️  v1.0.0 file writing not yet implemented".yellow());
-                println!("{}", "   Results calculated successfully but not written back".yellow());
+                println!(
+                    "{}",
+                    "   Results calculated successfully but not written back".yellow()
+                );
             }
 
             Ok(())
@@ -292,7 +288,8 @@ pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
     // Verify it's a v1.0.0 model
     if model.version != ForgeVersion::V1_0_0 {
         return Err(ForgeError::Export(
-            "Excel export only supports v1.0.0 array models. This file appears to be v0.2.0.".to_string(),
+            "Excel export only supports v1.0.0 array models. This file appears to be v0.2.0."
+                .to_string(),
         ));
     }
 
@@ -348,7 +345,11 @@ pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 
         for (table_name, table) in &model.tables {
             println!("   📊 Table: {}", table_name.bright_blue());
-            println!("      {} columns, {} rows", table.columns.len(), table.row_count());
+            println!(
+                "      {} columns, {} rows",
+                table.columns.len(),
+                table.row_count()
+            );
         }
         println!();
     }
@@ -359,11 +360,9 @@ pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
     }
 
     // Serialize model to YAML
-    let yaml_string = serde_yaml::to_string(&model)
-        .map_err(ForgeError::Yaml)?;
+    let yaml_string = serde_yaml::to_string(&model).map_err(ForgeError::Yaml)?;
 
-    fs::write(&output, yaml_string)
-        .map_err(ForgeError::Io)?;
+    fs::write(&output, yaml_string).map_err(ForgeError::Io)?;
 
     println!("{}", "✅ Import Complete!".bold().green());
     println!("   YAML file: {}\n", output.display());

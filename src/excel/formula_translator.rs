@@ -21,11 +21,7 @@ impl FormulaTranslator {
     /// Example:
     /// - Input: `=revenue - cogs`, row_idx 0, excel_row 2
     /// - Output: `=A2-B2`
-    pub fn translate_row_formula(
-        &self,
-        formula: &str,
-        excel_row: u32,
-    ) -> ForgeResult<String> {
+    pub fn translate_row_formula(&self, formula: &str, excel_row: u32) -> ForgeResult<String> {
         // Remove leading = if present
         let formula_body = formula.strip_prefix('=').unwrap_or(formula);
 
@@ -224,11 +220,15 @@ mod tests {
         let translator = FormulaTranslator::new(column_map);
 
         // Test simple subtraction (row 2 in Excel)
-        let result = translator.translate_row_formula("=revenue - cogs", 2).unwrap();
+        let result = translator
+            .translate_row_formula("=revenue - cogs", 2)
+            .unwrap();
         assert_eq!(result, "=A2 - B2");
 
         // Test division (row 3 in Excel)
-        let result = translator.translate_row_formula("=revenue / cogs", 3).unwrap();
+        let result = translator
+            .translate_row_formula("=revenue / cogs", 3)
+            .unwrap();
         assert_eq!(result, "=A3 / B3");
     }
 
@@ -241,7 +241,9 @@ mod tests {
 
         let translator = FormulaTranslator::new(column_map);
 
-        let result = translator.translate_row_formula("=sales_marketing + rd + ga", 2).unwrap();
+        let result = translator
+            .translate_row_formula("=sales_marketing + rd + ga", 2)
+            .unwrap();
         assert_eq!(result, "=A2 + B2 + C2");
     }
 
@@ -280,7 +282,9 @@ mod tests {
         let translator = FormulaTranslator::new(column_map);
 
         // Test formula without leading =
-        let result = translator.translate_row_formula("revenue - cogs", 2).unwrap();
+        let result = translator
+            .translate_row_formula("revenue - cogs", 2)
+            .unwrap();
         assert_eq!(result, "=A2 - B2");
     }
 }

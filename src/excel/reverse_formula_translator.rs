@@ -314,4 +314,3 @@ mod tests {
         assert_eq!(result, "=IF(revenue>0,cogs,gross_profit)");
     }
 }
-

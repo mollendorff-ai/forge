@@ -90,10 +90,9 @@ impl ArrayCalculator {
                 // This might be table.column reference
                 if let Ok((table_name, _col_name)) = self.parse_table_column_ref(word) {
                     // Check if this table exists
-                    if self.model.tables.contains_key(&table_name)
-                        && !deps.contains(&table_name) {
-                            deps.push(table_name);
-                        }
+                    if self.model.tables.contains_key(&table_name) && !deps.contains(&table_name) {
+                        deps.push(table_name);
+                    }
                 }
             }
         }
@@ -241,7 +240,11 @@ impl ArrayCalculator {
     /// Evaluate a row-wise formula (element-wise operations)
     /// Example: profit = revenue - expenses
     /// Evaluates: profit[i] = revenue[i] - expenses[i] for all i
-    fn evaluate_rowwise_formula(&mut self, table: &Table, formula: &str) -> ForgeResult<ColumnValue> {
+    fn evaluate_rowwise_formula(
+        &mut self,
+        table: &Table,
+        formula: &str,
+    ) -> ForgeResult<ColumnValue> {
         let formula_str = if !formula.starts_with('=') {
             format!("={}", formula.trim())
         } else {
@@ -363,9 +366,11 @@ impl ArrayCalculator {
                                     }
                                     ColumnValue::Boolean(bools) => {
                                         if let Some(&val) = bools.get(row_idx) {
-                                            return types::Value::Boolean(
-                                                if val { types::Boolean::True } else { types::Boolean::False }
-                                            );
+                                            return types::Value::Boolean(if val {
+                                                types::Boolean::True
+                                            } else {
+                                                types::Boolean::False
+                                            });
                                         }
                                     }
                                     ColumnValue::Date(dates) => {
@@ -396,9 +401,11 @@ impl ArrayCalculator {
                         }
                         ColumnValue::Boolean(bools) => {
                             if let Some(&val) = bools.get(row_idx) {
-                                return types::Value::Boolean(
-                                    if val { types::Boolean::True } else { types::Boolean::False }
-                                );
+                                return types::Value::Boolean(if val {
+                                    types::Boolean::True
+                                } else {
+                                    types::Boolean::False
+                                });
                             }
                         }
                         ColumnValue::Date(dates) => {
@@ -413,8 +420,10 @@ impl ArrayCalculator {
             };
 
             // Parse and calculate for this row
-            let parsed =
-                parse_formula::parse_string_to_formula(&processed_formula, None::<NoCustomFunction>);
+            let parsed = parse_formula::parse_string_to_formula(
+                &processed_formula,
+                None::<NoCustomFunction>,
+            );
             let result = calculate::calculate_formula(parsed, Some(&resolver));
 
             match result {
@@ -553,11 +562,17 @@ impl ArrayCalculator {
 
     /// Extract scalar dependencies from a formula with scoping
     /// Uses same scoping logic as evaluate_scalar_with_resolver
-    fn extract_scalar_dependencies(&self, formula: &str, scalar_name: &str) -> ForgeResult<Vec<String>> {
+    fn extract_scalar_dependencies(
+        &self,
+        formula: &str,
+        scalar_name: &str,
+    ) -> ForgeResult<Vec<String>> {
         let mut deps = Vec::new();
 
         // Extract parent section from scalar_name (e.g., "annual_2025" from "annual_2025.total_revenue")
-        let parent_section = scalar_name.rfind('.').map(|dot_pos| &scalar_name[..dot_pos]);
+        let parent_section = scalar_name
+            .rfind('.')
+            .map(|dot_pos| &scalar_name[..dot_pos]);
 
         // Extract all words (variable references) from formula
         for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
@@ -661,7 +676,10 @@ impl ArrayCalculator {
                 .ok_or_else(|| ForgeError::Eval(format!("Table '{}' not found", table_name)))?;
 
             let column = table.columns.get(col_name).ok_or_else(|| {
-                ForgeError::Eval(format!("Column '{}' not found in table '{}'", col_name, table_name))
+                ForgeError::Eval(format!(
+                    "Column '{}' not found in table '{}'",
+                    col_name, table_name
+                ))
             })?;
 
             let value = match &column.values {
@@ -780,7 +798,8 @@ impl ArrayCalculator {
         let upper = formula.to_uppercase();
         let func_pattern = format!("{}(", func_name);
 
-        let start = upper.find(&func_pattern)
+        let start = upper
+            .find(&func_pattern)
             .ok_or_else(|| ForgeError::Eval(format!("Function {} not found", func_name)))?
             + func_pattern.len();
 
@@ -802,7 +821,11 @@ impl ArrayCalculator {
     }
 
     /// Evaluate single-criteria conditional aggregations (SUMIF, COUNTIF, AVERAGEIF)
-    fn evaluate_single_criteria_aggregation(&self, func_name: &str, args: &[String]) -> ForgeResult<f64> {
+    fn evaluate_single_criteria_aggregation(
+        &self,
+        func_name: &str,
+        args: &[String],
+    ) -> ForgeResult<f64> {
         // Validate argument count
         let expected_args = if func_name == "COUNTIF" { 2 } else { 3 };
         if args.len() != expected_args {
@@ -837,11 +860,9 @@ impl ArrayCalculator {
             criteria_column
         } else {
             let (value_table_name, value_col) = self.parse_table_column_ref(args[2].trim())?;
-            let value_table = self
-                .model
-                .tables
-                .get(&value_table_name)
-                .ok_or_else(|| ForgeError::Eval(format!("Table '{}' not found", value_table_name)))?;
+            let value_table = self.model.tables.get(&value_table_name).ok_or_else(|| {
+                ForgeError::Eval(format!("Table '{}' not found", value_table_name))
+            })?;
 
             value_table.columns.get(&value_col).ok_or_else(|| {
                 ForgeError::Eval(format!(
@@ -960,7 +981,11 @@ impl ArrayCalculator {
     }
 
     /// Evaluate multiple-criteria conditional aggregations (SUMIFS, COUNTIFS, AVERAGEIFS, MAXIFS, MINIFS)
-    fn evaluate_multiple_criteria_aggregation(&self, func_name: &str, args: &[String]) -> ForgeResult<f64> {
+    fn evaluate_multiple_criteria_aggregation(
+        &self,
+        func_name: &str,
+        args: &[String],
+    ) -> ForgeResult<f64> {
         // COUNTIFS has a different arg structure: pairs of criteria_range/criteria only
         // SUMIFS/AVERAGEIFS/MAXIFS/MINIFS: value_range, criteria_range1, criteria1, ...
 
@@ -968,7 +993,8 @@ impl ArrayCalculator {
             // COUNTIFS: just pairs of criteria_range/criteria
             if args.is_empty() || !args.len().is_multiple_of(2) {
                 return Err(ForgeError::Eval(
-                    "COUNTIFS requires even number of arguments (criteria_range1, criteria1, ...)".to_string()
+                    "COUNTIFS requires even number of arguments (criteria_range1, criteria1, ...)"
+                        .to_string(),
                 ));
             }
             // Use first criteria range as the value range for counting
@@ -1041,11 +1067,10 @@ impl ArrayCalculator {
             let (criteria_table, criteria_col) = self.parse_table_column_ref(args[i].trim())?;
             let criteria_str = args[i + 1].trim();
 
-            let table = self
-                .model
-                .tables
-                .get(&criteria_table)
-                .ok_or_else(|| ForgeError::Eval(format!("Table '{}' not found", criteria_table)))?;
+            let table =
+                self.model.tables.get(&criteria_table).ok_or_else(|| {
+                    ForgeError::Eval(format!("Table '{}' not found", criteria_table))
+                })?;
 
             let criteria_column = table.columns.get(&criteria_col).ok_or_else(|| {
                 ForgeError::Eval(format!(
@@ -1066,7 +1091,10 @@ impl ArrayCalculator {
                     }
 
                     for (j, &crit_val) in criteria_nums.iter().enumerate() {
-                        if !self.matches_criteria(crit_val, criteria_str).unwrap_or(false) {
+                        if !self
+                            .matches_criteria(crit_val, criteria_str)
+                            .unwrap_or(false)
+                        {
                             matching_rows[j] = false;
                         }
                     }
@@ -1081,7 +1109,10 @@ impl ArrayCalculator {
                     }
 
                     for (j, crit_val) in criteria_text.iter().enumerate() {
-                        if !self.matches_text_criteria(crit_val, criteria_str).unwrap_or(false) {
+                        if !self
+                            .matches_text_criteria(crit_val, criteria_str)
+                            .unwrap_or(false)
+                        {
                             matching_rows[j] = false;
                         }
                     }
@@ -1108,13 +1139,7 @@ impl ArrayCalculator {
             let matched_values: Vec<f64> = nums
                 .iter()
                 .enumerate()
-                .filter_map(|(i, &val)| {
-                    if matching_rows[i] {
-                        Some(val)
-                    } else {
-                        None
-                    }
-                })
+                .filter_map(|(i, &val)| if matching_rows[i] { Some(val) } else { None })
                 .collect();
 
             match func_name {
@@ -1130,7 +1155,10 @@ impl ArrayCalculator {
                     if matched_values.is_empty() {
                         f64::NEG_INFINITY
                     } else {
-                        matched_values.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+                        matched_values
+                            .iter()
+                            .copied()
+                            .fold(f64::NEG_INFINITY, f64::max)
                     }
                 }
                 "MINIFS" => {
@@ -1161,32 +1189,45 @@ impl ArrayCalculator {
         let criteria = criteria.trim_matches('"').trim_matches('\'');
 
         if let Some(stripped) = criteria.strip_prefix(">=") {
-            let threshold = stripped.trim().parse::<f64>()
+            let threshold = stripped
+                .trim()
+                .parse::<f64>()
                 .map_err(|_| ForgeError::Eval(format!("Invalid criteria: {}", criteria)))?;
             Ok(value >= threshold)
         } else if let Some(stripped) = criteria.strip_prefix("<=") {
-            let threshold = stripped.trim().parse::<f64>()
+            let threshold = stripped
+                .trim()
+                .parse::<f64>()
                 .map_err(|_| ForgeError::Eval(format!("Invalid criteria: {}", criteria)))?;
             Ok(value <= threshold)
         } else if let Some(stripped) = criteria.strip_prefix("<>") {
-            let threshold = stripped.trim().parse::<f64>()
+            let threshold = stripped
+                .trim()
+                .parse::<f64>()
                 .map_err(|_| ForgeError::Eval(format!("Invalid criteria: {}", criteria)))?;
             Ok((value - threshold).abs() > 1e-10)
         } else if let Some(stripped) = criteria.strip_prefix('>') {
-            let threshold = stripped.trim().parse::<f64>()
+            let threshold = stripped
+                .trim()
+                .parse::<f64>()
                 .map_err(|_| ForgeError::Eval(format!("Invalid criteria: {}", criteria)))?;
             Ok(value > threshold)
         } else if let Some(stripped) = criteria.strip_prefix('<') {
-            let threshold = stripped.trim().parse::<f64>()
+            let threshold = stripped
+                .trim()
+                .parse::<f64>()
                 .map_err(|_| ForgeError::Eval(format!("Invalid criteria: {}", criteria)))?;
             Ok(value < threshold)
         } else if let Some(stripped) = criteria.strip_prefix('=') {
-            let threshold = stripped.trim().parse::<f64>()
+            let threshold = stripped
+                .trim()
+                .parse::<f64>()
                 .map_err(|_| ForgeError::Eval(format!("Invalid criteria: {}", criteria)))?;
             Ok((value - threshold).abs() < 1e-10)
         } else {
             // No operator - assume equality
-            let threshold = criteria.parse::<f64>()
+            let threshold = criteria
+                .parse::<f64>()
                 .map_err(|_| ForgeError::Eval(format!("Invalid criteria: {}", criteria)))?;
             Ok((value - threshold).abs() < 1e-10)
         }
@@ -1308,7 +1349,9 @@ impl ArrayCalculator {
     /// Evaluate scalar formula with variable resolver
     fn evaluate_scalar_with_resolver(&self, formula: &str, scalar_name: &str) -> ForgeResult<f64> {
         // Extract parent section from scalar_name (e.g., "annual_2025" from "annual_2025.total_revenue")
-        let parent_section = scalar_name.rfind('.').map(|dot_pos| scalar_name[..dot_pos].to_string());
+        let parent_section = scalar_name
+            .rfind('.')
+            .map(|dot_pos| scalar_name[..dot_pos].to_string());
 
         let resolver = move |var_name: String| -> types::Value {
             // Strategy 1: Try exact match
@@ -1401,16 +1444,58 @@ impl ArrayCalculator {
                 let upper = word.to_uppercase();
                 if !matches!(
                     upper.as_str(),
-                    "SUM" | "AVERAGE" | "AVG" | "MAX" | "MIN" | "COUNT"
-                        | "SUMIF" | "COUNTIF" | "AVERAGEIF" | "SUMIFS" | "COUNTIFS" | "AVERAGEIFS"
-                        | "MAXIFS" | "MINIFS"
-                        | "IF" | "AND" | "OR" | "NOT" | "ABS"
-                        | "ROUND" | "ROUNDUP" | "ROUNDDOWN" | "CEILING" | "FLOOR"
-                        | "MOD" | "POWER" | "SQRT" | "POW" | "EXP" | "LN" | "LOG"
-                        | "CONCAT" | "TRIM" | "UPPER" | "LOWER" | "LEN" | "MID" | "LEFT" | "RIGHT"
-                        | "TODAY" | "NOW" | "DATE" | "YEAR" | "MONTH" | "DAY"
-                        | "DATEDIF" | "EDATE" | "EOMONTH"
-                        | "MATCH" | "INDEX" | "VLOOKUP" | "XLOOKUP"
+                    "SUM"
+                        | "AVERAGE"
+                        | "AVG"
+                        | "MAX"
+                        | "MIN"
+                        | "COUNT"
+                        | "SUMIF"
+                        | "COUNTIF"
+                        | "AVERAGEIF"
+                        | "SUMIFS"
+                        | "COUNTIFS"
+                        | "AVERAGEIFS"
+                        | "MAXIFS"
+                        | "MINIFS"
+                        | "IF"
+                        | "AND"
+                        | "OR"
+                        | "NOT"
+                        | "ABS"
+                        | "ROUND"
+                        | "ROUNDUP"
+                        | "ROUNDDOWN"
+                        | "CEILING"
+                        | "FLOOR"
+                        | "MOD"
+                        | "POWER"
+                        | "SQRT"
+                        | "POW"
+                        | "EXP"
+                        | "LN"
+                        | "LOG"
+                        | "CONCAT"
+                        | "TRIM"
+                        | "UPPER"
+                        | "LOWER"
+                        | "LEN"
+                        | "MID"
+                        | "LEFT"
+                        | "RIGHT"
+                        | "TODAY"
+                        | "NOW"
+                        | "DATE"
+                        | "YEAR"
+                        | "MONTH"
+                        | "DAY"
+                        | "DATEDIF"
+                        | "EDATE"
+                        | "EOMONTH"
+                        | "MATCH"
+                        | "INDEX"
+                        | "VLOOKUP"
+                        | "XLOOKUP"
                 ) && !refs.contains(&word.to_string())
                 {
                     refs.push(word.to_string());
@@ -1470,7 +1555,9 @@ impl ArrayCalculator {
     /// Evaluate SQRT function: SQRT(number)
     fn eval_sqrt(&self, value: f64) -> ForgeResult<f64> {
         if value < 0.0 {
-            return Err(ForgeError::Eval("SQRT: Cannot compute square root of negative number".to_string()));
+            return Err(ForgeError::Eval(
+                "SQRT: Cannot compute square root of negative number".to_string(),
+            ));
         }
         Ok(value.sqrt())
     }
@@ -1554,9 +1641,13 @@ impl ArrayCalculator {
     fn eval_year(&self, date: &str) -> ForgeResult<f64> {
         let parts: Vec<&str> = date.split('-').collect();
         if parts.len() != 3 {
-            return Err(ForgeError::Eval(format!("YEAR: Invalid date format '{}'", date)));
+            return Err(ForgeError::Eval(format!(
+                "YEAR: Invalid date format '{}'",
+                date
+            )));
         }
-        let year = parts[0].parse::<f64>()
+        let year = parts[0]
+            .parse::<f64>()
             .map_err(|_| ForgeError::Eval(format!("YEAR: Invalid year in '{}'", date)))?;
         Ok(year)
     }
@@ -1565,9 +1656,13 @@ impl ArrayCalculator {
     fn eval_month(&self, date: &str) -> ForgeResult<f64> {
         let parts: Vec<&str> = date.split('-').collect();
         if parts.len() != 3 {
-            return Err(ForgeError::Eval(format!("MONTH: Invalid date format '{}'", date)));
+            return Err(ForgeError::Eval(format!(
+                "MONTH: Invalid date format '{}'",
+                date
+            )));
         }
-        let month = parts[1].parse::<f64>()
+        let month = parts[1]
+            .parse::<f64>()
             .map_err(|_| ForgeError::Eval(format!("MONTH: Invalid month in '{}'", date)))?;
         Ok(month)
     }
@@ -1576,9 +1671,13 @@ impl ArrayCalculator {
     fn eval_day(&self, date: &str) -> ForgeResult<f64> {
         let parts: Vec<&str> = date.split('-').collect();
         if parts.len() != 3 {
-            return Err(ForgeError::Eval(format!("DAY: Invalid date format '{}'", date)));
+            return Err(ForgeError::Eval(format!(
+                "DAY: Invalid date format '{}'",
+                date
+            )));
         }
-        let day = parts[2].parse::<f64>()
+        let day = parts[2]
+            .parse::<f64>()
             .map_err(|_| ForgeError::Eval(format!("DAY: Invalid day in '{}'", date)))?;
         Ok(day)
     }
@@ -1630,7 +1729,12 @@ impl ArrayCalculator {
 
     /// Preprocess formula to handle custom functions
     /// This is called before xlformula_engine evaluation for row-wise formulas
-    fn preprocess_custom_functions(&self, formula: &str, row_idx: usize, table: &Table) -> ForgeResult<String> {
+    fn preprocess_custom_functions(
+        &self,
+        formula: &str,
+        row_idx: usize,
+        table: &Table,
+    ) -> ForgeResult<String> {
         let mut result = formula.to_string();
 
         // Phase 2: Math functions
@@ -1658,7 +1762,12 @@ impl ArrayCalculator {
 
     /// Replace math functions with evaluated results
     /// Process from innermost to outermost for nested functions
-    fn replace_math_functions(&self, formula: &str, row_idx: usize, table: &Table) -> ForgeResult<String> {
+    fn replace_math_functions(
+        &self,
+        formula: &str,
+        row_idx: usize,
+        table: &Table,
+    ) -> ForgeResult<String> {
         use regex::Regex;
         let mut result = formula.to_string();
         let mut prev_result = String::new();
@@ -1703,7 +1812,10 @@ impl ArrayCalculator {
             }
 
             // ROUNDUP(number, digits)
-            for cap in re_roundup.captures_iter(&result.clone()).collect::<Vec<_>>() {
+            for cap in re_roundup
+                .captures_iter(&result.clone())
+                .collect::<Vec<_>>()
+            {
                 let full = cap.get(0).unwrap().as_str();
                 let num_expr = cap.get(1).unwrap().as_str();
                 let digits_expr = cap.get(2).unwrap().as_str();
@@ -1716,7 +1828,10 @@ impl ArrayCalculator {
             }
 
             // ROUNDDOWN(number, digits)
-            for cap in re_rounddown.captures_iter(&result.clone()).collect::<Vec<_>>() {
+            for cap in re_rounddown
+                .captures_iter(&result.clone())
+                .collect::<Vec<_>>()
+            {
                 let full = cap.get(0).unwrap().as_str();
                 let num_expr = cap.get(1).unwrap().as_str();
                 let digits_expr = cap.get(2).unwrap().as_str();
@@ -1729,7 +1844,10 @@ impl ArrayCalculator {
             }
 
             // CEILING(number, significance)
-            for cap in re_ceiling.captures_iter(&result.clone()).collect::<Vec<_>>() {
+            for cap in re_ceiling
+                .captures_iter(&result.clone())
+                .collect::<Vec<_>>()
+            {
                 let full = cap.get(0).unwrap().as_str();
                 let num_expr = cap.get(1).unwrap().as_str();
                 let sig_expr = cap.get(2).unwrap().as_str();
@@ -1786,7 +1904,12 @@ impl ArrayCalculator {
 
     /// Replace text functions with evaluated results (returns quoted strings for xlformula_engine)
     /// Process from innermost to outermost for nested functions
-    fn replace_text_functions(&self, formula: &str, row_idx: usize, table: &Table) -> ForgeResult<String> {
+    fn replace_text_functions(
+        &self,
+        formula: &str,
+        row_idx: usize,
+        table: &Table,
+    ) -> ForgeResult<String> {
         use regex::Regex;
         let mut result = formula.to_string();
         let mut prev_result = String::new();
@@ -1805,19 +1928,19 @@ impl ArrayCalculator {
 
             // CONCAT/CONCATENATE - variable arguments
             for cap in re_concat.captures_iter(&result.clone()).collect::<Vec<_>>() {
-            let full = cap.get(0).unwrap().as_str();
-            let args_str = cap.get(1).unwrap().as_str();
-            let args = self.parse_function_args(args_str)?;
+                let full = cap.get(0).unwrap().as_str();
+                let args_str = cap.get(1).unwrap().as_str();
+                let args = self.parse_function_args(args_str)?;
 
-            let mut texts = Vec::new();
-            for arg in args {
-                let text = self.eval_text_expression(&arg, row_idx, table)?;
-                texts.push(text);
+                let mut texts = Vec::new();
+                for arg in args {
+                    let text = self.eval_text_expression(&arg, row_idx, table)?;
+                    texts.push(text);
+                }
+
+                let concatenated = self.eval_concat(texts);
+                result = result.replace(full, &format!("\"{}\"", concatenated));
             }
-
-            let concatenated = self.eval_concat(texts);
-            result = result.replace(full, &format!("\"{}\"", concatenated));
-        }
 
             // TRIM(text)
             for cap in re_trim.captures_iter(&result.clone()).collect::<Vec<_>>() {
@@ -1884,7 +2007,12 @@ impl ArrayCalculator {
 
     /// Replace date functions with evaluated results
     /// Process from innermost to outermost for nested functions
-    fn replace_date_functions(&self, formula: &str, row_idx: usize, table: &Table) -> ForgeResult<String> {
+    fn replace_date_functions(
+        &self,
+        formula: &str,
+        row_idx: usize,
+        table: &Table,
+    ) -> ForgeResult<String> {
         use regex::Regex;
         let mut result = formula.to_string();
         let mut prev_result = String::new();
@@ -1964,12 +2092,17 @@ impl ArrayCalculator {
         let expr = expr.trim();
 
         // Check if it's a quoted string (shouldn't be in numeric context, but handle gracefully)
-        if (expr.starts_with('"') && expr.ends_with('"')) || (expr.starts_with('\'') && expr.ends_with('\'')) {
-            let unquoted = &expr[1..expr.len()-1];
+        if (expr.starts_with('"') && expr.ends_with('"'))
+            || (expr.starts_with('\'') && expr.ends_with('\''))
+        {
+            let unquoted = &expr[1..expr.len() - 1];
             if let Ok(num) = unquoted.parse::<f64>() {
                 return Ok(num);
             }
-            return Err(ForgeError::Eval(format!("Cannot convert '{}' to number", unquoted)));
+            return Err(ForgeError::Eval(format!(
+                "Cannot convert '{}' to number",
+                unquoted
+            )));
         }
 
         // Try parsing as literal number
@@ -1981,11 +2114,18 @@ impl ArrayCalculator {
         if let Some(col) = table.columns.get(expr) {
             match &col.values {
                 ColumnValue::Number(nums) => {
-                    return nums.get(row_idx).copied()
-                        .ok_or_else(|| ForgeError::Eval(format!("Index {} out of bounds for column '{}'", row_idx, expr)));
+                    return nums.get(row_idx).copied().ok_or_else(|| {
+                        ForgeError::Eval(format!(
+                            "Index {} out of bounds for column '{}'",
+                            row_idx, expr
+                        ))
+                    });
                 }
                 _ => {
-                    return Err(ForgeError::Eval(format!("Column '{}' is not numeric", expr)));
+                    return Err(ForgeError::Eval(format!(
+                        "Column '{}' is not numeric",
+                        expr
+                    )));
                 }
             }
         }
@@ -1993,36 +2133,60 @@ impl ArrayCalculator {
         // Try using xlformula_engine for simple expressions (like "6 + 1")
         let formula = format!("={}", expr);
         let parsed = parse_formula::parse_string_to_formula(&formula, None::<NoCustomFunction>);
-        let result = calculate::calculate_formula(parsed, Some(&|_: String| types::Value::Error(types::Error::Reference)));
+        let result = calculate::calculate_formula(
+            parsed,
+            Some(&|_: String| types::Value::Error(types::Error::Reference)),
+        );
 
         match result {
             types::Value::Number(n) => Ok(n as f64),
-            _ => Err(ForgeError::Eval(format!("Cannot evaluate expression '{}'", expr)))
+            _ => Err(ForgeError::Eval(format!(
+                "Cannot evaluate expression '{}'",
+                expr
+            ))),
         }
     }
 
     /// Evaluate a simple expression to get a text value
-    fn eval_text_expression(&self, expr: &str, row_idx: usize, table: &Table) -> ForgeResult<String> {
+    fn eval_text_expression(
+        &self,
+        expr: &str,
+        row_idx: usize,
+        table: &Table,
+    ) -> ForgeResult<String> {
         let expr = expr.trim();
 
         // Try parsing as literal string (quoted)
-        if (expr.starts_with('"') && expr.ends_with('"')) || (expr.starts_with('\'') && expr.ends_with('\'')) {
-            return Ok(expr[1..expr.len()-1].to_string());
+        if (expr.starts_with('"') && expr.ends_with('"'))
+            || (expr.starts_with('\'') && expr.ends_with('\''))
+        {
+            return Ok(expr[1..expr.len() - 1].to_string());
         }
 
         // Try as column reference
         if let Some(col) = table.columns.get(expr) {
             match &col.values {
                 ColumnValue::Text(texts) => {
-                    return texts.get(row_idx).cloned()
-                        .ok_or_else(|| ForgeError::Eval(format!("Index {} out of bounds for column '{}'", row_idx, expr)));
+                    return texts.get(row_idx).cloned().ok_or_else(|| {
+                        ForgeError::Eval(format!(
+                            "Index {} out of bounds for column '{}'",
+                            row_idx, expr
+                        ))
+                    });
                 }
                 ColumnValue::Date(dates) => {
-                    return dates.get(row_idx).cloned()
-                        .ok_or_else(|| ForgeError::Eval(format!("Index {} out of bounds for column '{}'", row_idx, expr)));
+                    return dates.get(row_idx).cloned().ok_or_else(|| {
+                        ForgeError::Eval(format!(
+                            "Index {} out of bounds for column '{}'",
+                            row_idx, expr
+                        ))
+                    });
                 }
                 _ => {
-                    return Err(ForgeError::Eval(format!("Column '{}' is not text or date", expr)));
+                    return Err(ForgeError::Eval(format!(
+                        "Column '{}' is not text or date",
+                        expr
+                    )));
                 }
             }
         }
@@ -2037,7 +2201,12 @@ impl ArrayCalculator {
 
     /// Replace lookup functions with evaluated results
     /// Process MATCH first, then INDEX (since INDEX may contain MATCH), then VLOOKUP, then XLOOKUP
-    fn replace_lookup_functions(&self, formula: &str, row_idx: usize, table: &Table) -> ForgeResult<String> {
+    fn replace_lookup_functions(
+        &self,
+        formula: &str,
+        row_idx: usize,
+        table: &Table,
+    ) -> ForgeResult<String> {
         use regex::Regex;
         let mut result = formula.to_string();
         let mut prev_result = String::new();
@@ -2045,7 +2214,8 @@ impl ArrayCalculator {
         // Create regex patterns once
         let re_match = Regex::new(r"MATCH\(([^,]+),\s*([^,]+)(?:,\s*([^)]+))?\)").unwrap();
         let re_index = Regex::new(r"INDEX\(([^,]+),\s*([^)]+)\)").unwrap();
-        let re_vlookup = Regex::new(r"VLOOKUP\(([^,]+),\s*([^,]+),\s*([^,]+)(?:,\s*([^)]+))?\)").unwrap();
+        let re_vlookup =
+            Regex::new(r"VLOOKUP\(([^,]+),\s*([^,]+),\s*([^,]+)(?:,\s*([^)]+))?\)").unwrap();
         let re_xlookup = Regex::new(r"XLOOKUP\(([^,]+),\s*([^,]+),\s*([^,]+)(?:,\s*([^,]+))?(?:,\s*([^,]+))?(?:,\s*([^)]+))?\)").unwrap();
 
         // Keep processing until no more changes (handles nested functions)
@@ -2060,7 +2230,13 @@ impl ArrayCalculator {
                 let lookup_array_expr = cap.get(2).unwrap().as_str();
                 let match_type_expr = cap.get(3).map(|m| m.as_str()).unwrap_or("0");
 
-                let match_result = self.eval_match(lookup_value_expr, lookup_array_expr, match_type_expr, row_idx, table)?;
+                let match_result = self.eval_match(
+                    lookup_value_expr,
+                    lookup_array_expr,
+                    match_type_expr,
+                    row_idx,
+                    table,
+                )?;
                 result = result.replace(full, &match_result.to_string());
             }
 
@@ -2075,7 +2251,10 @@ impl ArrayCalculator {
             }
 
             // VLOOKUP(lookup_value, table_array, col_index_num, [range_lookup])
-            for cap in re_vlookup.captures_iter(&result.clone()).collect::<Vec<_>>() {
+            for cap in re_vlookup
+                .captures_iter(&result.clone())
+                .collect::<Vec<_>>()
+            {
                 let full = cap.get(0).unwrap().as_str();
                 let lookup_value_expr = cap.get(1).unwrap().as_str();
                 let table_array_expr = cap.get(2).unwrap().as_str();
@@ -2094,7 +2273,10 @@ impl ArrayCalculator {
             }
 
             // XLOOKUP(lookup_value, lookup_array, return_array, [if_not_found], [match_mode], [search_mode])
-            for cap in re_xlookup.captures_iter(&result.clone()).collect::<Vec<_>>() {
+            for cap in re_xlookup
+                .captures_iter(&result.clone())
+                .collect::<Vec<_>>()
+            {
                 let full = cap.get(0).unwrap().as_str();
                 let lookup_value_expr = cap.get(1).unwrap().as_str();
                 let lookup_array_expr = cap.get(2).unwrap().as_str();
@@ -2171,14 +2353,12 @@ impl ArrayCalculator {
                     }
                 }
 
-                best_match
-                    .map(|i| (i + 1) as f64)
-                    .ok_or_else(|| {
-                        ForgeError::Eval(format!(
-                            "MATCH: No value less than or equal to '{}' found",
-                            self.format_lookup_value(&lookup_value)
-                        ))
-                    })
+                best_match.map(|i| (i + 1) as f64).ok_or_else(|| {
+                    ForgeError::Eval(format!(
+                        "MATCH: No value less than or equal to '{}' found",
+                        self.format_lookup_value(&lookup_value)
+                    ))
+                })
             }
             -1 => {
                 // Find smallest value greater than or equal to lookup_value
@@ -2197,14 +2377,12 @@ impl ArrayCalculator {
                     }
                 }
 
-                best_match
-                    .map(|i| (i + 1) as f64)
-                    .ok_or_else(|| {
-                        ForgeError::Eval(format!(
-                            "MATCH: No value greater than or equal to '{}' found",
-                            self.format_lookup_value(&lookup_value)
-                        ))
-                    })
+                best_match.map(|i| (i + 1) as f64).ok_or_else(|| {
+                    ForgeError::Eval(format!(
+                        "MATCH: No value greater than or equal to '{}' found",
+                        self.format_lookup_value(&lookup_value)
+                    ))
+                })
             }
             _ => Err(ForgeError::Eval(format!(
                 "MATCH: Invalid match_type '{}' (must be -1, 0, or 1)",
@@ -2275,8 +2453,7 @@ impl ArrayCalculator {
 
         // Parse table_array_expr to get table name and columns
         // Expected format: "table_name" or "table_name.first_col:table_name.last_col"
-        let (table_name, first_col_name, num_columns) =
-            self.parse_table_array(table_array_expr)?;
+        let (table_name, first_col_name, num_columns) = self.parse_table_array(table_array_expr)?;
 
         if col_index > num_columns {
             return Err(ForgeError::Eval(format!(
@@ -2290,7 +2467,8 @@ impl ArrayCalculator {
         let lookup_array = self.get_column_array(&lookup_col_ref)?;
 
         // Get the return column (col_index position in table array)
-        let return_col_name = self.get_column_name_at_offset(&table_name, &first_col_name, col_index - 1)?;
+        let return_col_name =
+            self.get_column_name_at_offset(&table_name, &first_col_name, col_index - 1)?;
         let return_col_ref = format!("{}.{}", table_name, return_col_name);
         let return_array = self.get_column_array(&return_col_ref)?;
 
@@ -2391,7 +2569,8 @@ impl ArrayCalculator {
                     {
                         if *val_num >= *lookup_num
                             && (best_match.is_none()
-                                || *val_num < self.get_number_value(&lookup_array[best_match.unwrap()]))
+                                || *val_num
+                                    < self.get_number_value(&lookup_array[best_match.unwrap()]))
                         {
                             best_match = Some(i);
                         }
@@ -2414,7 +2593,8 @@ impl ArrayCalculator {
                     {
                         if *val_num <= *lookup_num
                             && (best_match.is_none()
-                                || *val_num > self.get_number_value(&lookup_array[best_match.unwrap()]))
+                                || *val_num
+                                    > self.get_number_value(&lookup_array[best_match.unwrap()]))
                         {
                             best_match = Some(i);
                         }
@@ -2500,9 +2680,11 @@ impl ArrayCalculator {
         // Parse table.column reference
         let (table_name, col_name) = self.parse_table_column_ref(col_ref)?;
 
-        let table = self.model.tables.get(&table_name).ok_or_else(|| {
-            ForgeError::Eval(format!("Table '{}' not found", table_name))
-        })?;
+        let table = self
+            .model
+            .tables
+            .get(&table_name)
+            .ok_or_else(|| ForgeError::Eval(format!("Table '{}' not found", table_name)))?;
 
         let column = table.columns.get(&col_name).ok_or_else(|| {
             ForgeError::Eval(format!(
@@ -2514,18 +2696,15 @@ impl ArrayCalculator {
         // Convert ColumnValue to Vec<LookupValue>
         match &column.values {
             ColumnValue::Number(nums) => Ok(nums.iter().map(|&n| LookupValue::Number(n)).collect()),
-            ColumnValue::Text(texts) => Ok(texts
-                .iter()
-                .map(|s| LookupValue::Text(s.clone()))
-                .collect()),
-            ColumnValue::Date(dates) => Ok(dates
-                .iter()
-                .map(|s| LookupValue::Text(s.clone()))
-                .collect()),
-            ColumnValue::Boolean(bools) => Ok(bools
-                .iter()
-                .map(|&b| LookupValue::Boolean(b))
-                .collect()),
+            ColumnValue::Text(texts) => {
+                Ok(texts.iter().map(|s| LookupValue::Text(s.clone())).collect())
+            }
+            ColumnValue::Date(dates) => {
+                Ok(dates.iter().map(|s| LookupValue::Text(s.clone())).collect())
+            }
+            ColumnValue::Boolean(bools) => {
+                Ok(bools.iter().map(|&b| LookupValue::Boolean(b)).collect())
+            }
         }
     }
 
@@ -2602,19 +2781,11 @@ impl ArrayCalculator {
             // Just a table name - use all columns
             if let Some(table) = self.model.tables.get(expr) {
                 if table.columns.is_empty() {
-                    return Err(ForgeError::Eval(format!(
-                        "Table '{}' has no columns",
-                        expr
-                    )));
+                    return Err(ForgeError::Eval(format!("Table '{}' has no columns", expr)));
                 }
 
                 // Get first column name (tables maintain insertion order via LinkedHashMap-like behavior)
-                let first_col_name = table
-                    .columns
-                    .keys()
-                    .next()
-                    .unwrap()
-                    .clone();
+                let first_col_name = table.columns.keys().next().unwrap().clone();
 
                 return Ok((expr.to_string(), first_col_name, table.columns.len()));
             }
@@ -2637,18 +2808,18 @@ impl ArrayCalculator {
                 // Count columns from col1 to col2
                 if let Some(table) = self.model.tables.get(&table1) {
                     let col_names: Vec<String> = table.columns.keys().cloned().collect();
-                    let start_idx = col_names
-                        .iter()
-                        .position(|c| c == &col1)
-                        .ok_or_else(|| {
-                            ForgeError::Eval(format!("Column '{}' not found in table '{}'", col1, table1))
-                        })?;
-                    let end_idx = col_names
-                        .iter()
-                        .position(|c| c == &col2)
-                        .ok_or_else(|| {
-                            ForgeError::Eval(format!("Column '{}' not found in table '{}'", col2, table1))
-                        })?;
+                    let start_idx = col_names.iter().position(|c| c == &col1).ok_or_else(|| {
+                        ForgeError::Eval(format!(
+                            "Column '{}' not found in table '{}'",
+                            col1, table1
+                        ))
+                    })?;
+                    let end_idx = col_names.iter().position(|c| c == &col2).ok_or_else(|| {
+                        ForgeError::Eval(format!(
+                            "Column '{}' not found in table '{}'",
+                            col2, table1
+                        ))
+                    })?;
 
                     if start_idx > end_idx {
                         return Err(ForgeError::Eval(format!(
@@ -2676,17 +2847,22 @@ impl ArrayCalculator {
         start_col: &str,
         offset: usize,
     ) -> ForgeResult<String> {
-        let table = self.model.tables.get(table_name).ok_or_else(|| {
-            ForgeError::Eval(format!("Table '{}' not found", table_name))
-        })?;
+        let table = self
+            .model
+            .tables
+            .get(table_name)
+            .ok_or_else(|| ForgeError::Eval(format!("Table '{}' not found", table_name)))?;
 
         let col_names: Vec<String> = table.columns.keys().cloned().collect();
-        let start_idx = col_names.iter().position(|c| c == start_col).ok_or_else(|| {
-            ForgeError::Eval(format!(
-                "Column '{}' not found in table '{}'",
-                start_col, table_name
-            ))
-        })?;
+        let start_idx = col_names
+            .iter()
+            .position(|c| c == start_col)
+            .ok_or_else(|| {
+                ForgeError::Eval(format!(
+                    "Column '{}' not found in table '{}'",
+                    start_col, table_name
+                ))
+            })?;
 
         let target_idx = start_idx + offset;
 
@@ -3097,7 +3273,12 @@ mod tests {
 
         // Should average: (75000 + 60000 + 95000) / 3 = 76666.67
         let expected = (75000.0 + 60000.0 + 95000.0) / 3.0;
-        let actual = result.scalars.get("avg_senior_salary").unwrap().value.unwrap();
+        let actual = result
+            .scalars
+            .get("avg_senior_salary")
+            .unwrap()
+            .value
+            .unwrap();
         assert!((actual - expected).abs() < 0.01);
     }
 
@@ -3170,7 +3351,9 @@ mod tests {
         let electronics_revenue = Variable {
             path: "electronics_revenue".to_string(),
             value: None,
-            formula: Some("=SUMIF(products.category, \"Electronics\", products.revenue)".to_string()),
+            formula: Some(
+                "=SUMIF(products.category, \"Electronics\", products.revenue)".to_string(),
+            ),
             alias: None,
         };
         model.add_scalar("electronics_revenue".to_string(), electronics_revenue);
@@ -3217,7 +3400,8 @@ mod tests {
             path: "north_high_revenue".to_string(),
             value: None,
             formula: Some(
-                "=SUMIFS(sales.revenue, sales.region, \"North\", sales.amount, \">=150\")".to_string(),
+                "=SUMIFS(sales.revenue, sales.region, \"North\", sales.amount, \">=150\")"
+                    .to_string(),
             ),
             alias: None,
         };
@@ -3351,7 +3535,9 @@ mod tests {
         let max_result = Variable {
             path: "max_result".to_string(),
             value: None,
-            formula: Some("=MAXIFS(sales.revenue, sales.region, \"North\", sales.quarter, \"2\")".to_string()),
+            formula: Some(
+                "=MAXIFS(sales.revenue, sales.region, \"North\", sales.quarter, \"2\")".to_string(),
+            ),
             alias: None,
         };
         model.add_scalar("max_result".to_string(), max_result);
@@ -3360,7 +3546,10 @@ mod tests {
         let result = calculator.calculate_all().unwrap();
 
         // Should return max of: 1500, 1800 = 1800
-        assert_eq!(result.scalars.get("max_result").unwrap().value, Some(1800.0));
+        assert_eq!(
+            result.scalars.get("max_result").unwrap().value,
+            Some(1800.0)
+        );
     }
 
     #[test]
@@ -3427,7 +3616,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let rounded_1 = result_table.columns.get("rounded_1").unwrap();
@@ -3477,7 +3668,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let rounded_up = result_table.columns.get("rounded_up").unwrap();
@@ -3500,11 +3693,16 @@ mod tests {
             "values".to_string(),
             ColumnValue::Number(vec![1.789, 2.345, 3.999]),
         ));
-        table.add_row_formula("rounded_down".to_string(), "=ROUNDDOWN(values, 1)".to_string());
+        table.add_row_formula(
+            "rounded_down".to_string(),
+            "=ROUNDDOWN(values, 1)".to_string(),
+        );
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let rounded_down = result_table.columns.get("rounded_down").unwrap();
@@ -3532,7 +3730,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let ceiling_1 = result_table.columns.get("ceiling_1").unwrap();
@@ -3572,7 +3772,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let floor_1 = result_table.columns.get("floor_1").unwrap();
@@ -3612,7 +3814,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let mod_3 = result_table.columns.get("mod_3").unwrap();
@@ -3651,7 +3855,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let sqrt_values = result_table.columns.get("sqrt_values").unwrap();
@@ -3681,7 +3887,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let power_2 = result_table.columns.get("power_2").unwrap();
@@ -3720,7 +3928,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let complex = result_table.columns.get("complex").unwrap();
@@ -3745,17 +3955,30 @@ mod tests {
 
         table.add_column(Column::new(
             "first".to_string(),
-            ColumnValue::Text(vec!["Hello".to_string(), "Good".to_string(), "Nice".to_string()]),
+            ColumnValue::Text(vec![
+                "Hello".to_string(),
+                "Good".to_string(),
+                "Nice".to_string(),
+            ]),
         ));
         table.add_column(Column::new(
             "second".to_string(),
-            ColumnValue::Text(vec!["World".to_string(), "Day".to_string(), "Work".to_string()]),
+            ColumnValue::Text(vec![
+                "World".to_string(),
+                "Day".to_string(),
+                "Work".to_string(),
+            ]),
         ));
-        table.add_row_formula("combined".to_string(), "=CONCAT(first, \" \", second)".to_string());
+        table.add_row_formula(
+            "combined".to_string(),
+            "=CONCAT(first, \" \", second)".to_string(),
+        );
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let combined = result_table.columns.get("combined").unwrap();
@@ -3786,7 +4009,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let trimmed = result_table.columns.get("trimmed").unwrap();
@@ -3807,13 +4032,19 @@ mod tests {
 
         table.add_column(Column::new(
             "text".to_string(),
-            ColumnValue::Text(vec!["hello".to_string(), "world".to_string(), "Test".to_string()]),
+            ColumnValue::Text(vec![
+                "hello".to_string(),
+                "world".to_string(),
+                "Test".to_string(),
+            ]),
         ));
         table.add_row_formula("upper".to_string(), "=UPPER(text)".to_string());
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let upper = result_table.columns.get("upper").unwrap();
@@ -3834,13 +4065,19 @@ mod tests {
 
         table.add_column(Column::new(
             "text".to_string(),
-            ColumnValue::Text(vec!["HELLO".to_string(), "WORLD".to_string(), "Test".to_string()]),
+            ColumnValue::Text(vec![
+                "HELLO".to_string(),
+                "WORLD".to_string(),
+                "Test".to_string(),
+            ]),
         ));
         table.add_row_formula("lower".to_string(), "=LOWER(text)".to_string());
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let lower = result_table.columns.get("lower").unwrap();
@@ -3861,13 +4098,19 @@ mod tests {
 
         table.add_column(Column::new(
             "text".to_string(),
-            ColumnValue::Text(vec!["hello".to_string(), "hi".to_string(), "testing".to_string()]),
+            ColumnValue::Text(vec![
+                "hello".to_string(),
+                "hi".to_string(),
+                "testing".to_string(),
+            ]),
         ));
         table.add_row_formula("length".to_string(), "=LEN(text)".to_string());
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let length = result_table.columns.get("length").unwrap();
@@ -3888,14 +4131,20 @@ mod tests {
 
         table.add_column(Column::new(
             "text".to_string(),
-            ColumnValue::Text(vec!["hello".to_string(), "world".to_string(), "testing".to_string()]),
+            ColumnValue::Text(vec![
+                "hello".to_string(),
+                "world".to_string(),
+                "testing".to_string(),
+            ]),
         ));
         table.add_row_formula("mid_2_3".to_string(), "=MID(text, 2, 3)".to_string());
         table.add_row_formula("mid_1_2".to_string(), "=MID(text, 1, 2)".to_string());
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let mid_2_3 = result_table.columns.get("mid_2_3").unwrap();
@@ -3932,7 +4181,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let processed = result_table.columns.get("processed").unwrap();
@@ -3966,11 +4217,16 @@ mod tests {
             "day".to_string(),
             ColumnValue::Number(vec![15.0, 20.0, 31.0]),
         ));
-        table.add_row_formula("full_date".to_string(), "=DATE(year, month, day)".to_string());
+        table.add_row_formula(
+            "full_date".to_string(),
+            "=DATE(year, month, day)".to_string(),
+        );
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let full_date = result_table.columns.get("full_date").unwrap();
@@ -4001,7 +4257,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let year_val = result_table.columns.get("year_val").unwrap();
@@ -4032,7 +4290,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let month_val = result_table.columns.get("month_val").unwrap();
@@ -4063,7 +4323,9 @@ mod tests {
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let day_val = result_table.columns.get("day_val").unwrap();
@@ -4086,11 +4348,16 @@ mod tests {
             "date".to_string(),
             ColumnValue::Date(vec!["2025-06-15".to_string(), "2024-12-31".to_string()]),
         ));
-        table.add_row_formula("next_month".to_string(), "=DATE(YEAR(date), MONTH(date) + 1, DAY(date))".to_string());
+        table.add_row_formula(
+            "next_month".to_string(),
+            "=DATE(YEAR(date), MONTH(date) + 1, DAY(date))".to_string(),
+        );
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let next_month = result_table.columns.get("next_month").unwrap();
@@ -4118,14 +4385,20 @@ mod tests {
         ));
         table.add_column(Column::new(
             "labels".to_string(),
-            ColumnValue::Text(vec!["item".to_string(), "data".to_string(), "test".to_string()]),
+            ColumnValue::Text(vec![
+                "item".to_string(),
+                "data".to_string(),
+                "test".to_string(),
+            ]),
         ));
         table.add_row_formula("rounded".to_string(), "=ROUND(values, 1)".to_string());
         table.add_row_formula("upper_labels".to_string(), "=UPPER(labels)".to_string());
 
         model.add_table(table);
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("data").unwrap();
 
         let rounded = result_table.columns.get("rounded").unwrap();
@@ -4187,7 +4460,9 @@ mod tests {
         model.add_table(sales);
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("sales").unwrap();
 
         let position = result_table.columns.get("position").unwrap();
@@ -4230,7 +4505,9 @@ mod tests {
         model.add_table(test);
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("test").unwrap();
 
         let name = result_table.columns.get("name").unwrap();
@@ -4285,7 +4562,9 @@ mod tests {
         model.add_table(sales);
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("sales").unwrap();
 
         let product_name = result_table.columns.get("product_name").unwrap();
@@ -4346,7 +4625,9 @@ mod tests {
         model.add_table(sales);
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("sales").unwrap();
 
         let product_name = result_table.columns.get("product_name").unwrap();
@@ -4388,12 +4669,15 @@ mod tests {
         ));
         sales.add_row_formula(
             "product_name".to_string(),
-            "=XLOOKUP(product_id, products.product_id, products.product_name, \"Not Found\")".to_string(),
+            "=XLOOKUP(product_id, products.product_id, products.product_name, \"Not Found\")"
+                .to_string(),
         );
         model.add_table(sales);
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let result_table = result.tables.get("sales").unwrap();
 
         let product_name = result_table.columns.get("product_name").unwrap();

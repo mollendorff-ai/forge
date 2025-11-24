@@ -735,7 +735,10 @@ fn e2e_export_with_formulas_translates_correctly() {
     );
 
     // Verify Excel file was created
-    assert!(excel_file.exists(), "Excel file with formulas should be created");
+    assert!(
+        excel_file.exists(),
+        "Excel file with formulas should be created"
+    );
 
     // Verify file is valid Excel format (non-zero size)
     let metadata = fs::metadata(&excel_file).unwrap();
@@ -759,14 +762,19 @@ fn e2e_export_nonexistent_file_fails_gracefully() {
         .output()
         .expect("Failed to execute export");
 
-    assert!(!output.status.success(), "Export should fail for nonexistent file");
+    assert!(
+        !output.status.success(),
+        "Export should fail for nonexistent file"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}{stderr}");
 
     assert!(
-        combined.contains("No such file") || combined.contains("not found") || combined.contains("Failed to read"),
+        combined.contains("No such file")
+            || combined.contains("not found")
+            || combined.contains("Failed to read"),
         "Should report file not found error, got: {combined}"
     );
 }
@@ -784,7 +792,10 @@ fn e2e_export_malformed_yaml_fails_gracefully() {
         .output()
         .expect("Failed to execute export");
 
-    assert!(!output.status.success(), "Export should fail for malformed YAML");
+    assert!(
+        !output.status.success(),
+        "Export should fail for malformed YAML"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -833,11 +844,17 @@ fn e2e_import_excel_to_yaml() {
     );
 
     // Verify YAML file was created
-    assert!(imported_yaml.exists(), "Imported YAML file should be created");
+    assert!(
+        imported_yaml.exists(),
+        "Imported YAML file should be created"
+    );
 
     // Verify YAML file has content
     let imported_content = fs::read_to_string(&imported_yaml).unwrap();
-    assert!(!imported_content.is_empty(), "Imported YAML should not be empty");
+    assert!(
+        !imported_content.is_empty(),
+        "Imported YAML should not be empty"
+    );
 
     // Verify it contains expected table name
     assert!(
@@ -871,14 +888,19 @@ fn e2e_import_nonexistent_excel_fails_gracefully() {
         .output()
         .expect("Failed to execute import");
 
-    assert!(!output.status.success(), "Import should fail for nonexistent file");
+    assert!(
+        !output.status.success(),
+        "Import should fail for nonexistent file"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}{stderr}");
 
     assert!(
-        combined.contains("No such file") || combined.contains("not found") || combined.contains("Failed"),
+        combined.contains("No such file")
+            || combined.contains("not found")
+            || combined.contains("Failed"),
         "Should report file not found error, got: {combined}"
     );
 }
@@ -935,9 +957,18 @@ fn e2e_roundtrip_yaml_excel_yaml_preserves_data() {
 
     // The imported YAML uses internal format, which is valid but different
     // For now, verify basic structure exists
-    assert!(final_content.contains("version:"), "Should have version field");
-    assert!(final_content.contains("tables:"), "Should have tables field");
-    assert!(final_content.contains("test_table"), "Should have test_table");
+    assert!(
+        final_content.contains("version:"),
+        "Should have version field"
+    );
+    assert!(
+        final_content.contains("tables:"),
+        "Should have tables field"
+    );
+    assert!(
+        final_content.contains("test_table"),
+        "Should have test_table"
+    );
 
     // TODO: Full semantic comparison once import produces user-friendly format
     // The current limitation is documented in warmup.yaml for future enhancement
@@ -978,7 +1009,8 @@ fn e2e_roundtrip_with_formulas_preserves_formulas() {
         "Should preserve gross_profit formula"
     );
     assert!(
-        final_content.contains("gross_margin") || final_content.contains("(revenue - cogs) / revenue"),
+        final_content.contains("gross_margin")
+            || final_content.contains("(revenue - cogs) / revenue"),
         "Should preserve gross_margin formula"
     );
     assert!(
@@ -1022,5 +1054,8 @@ fn e2e_export_multiple_tables() {
 
     // Verify file size indicates valid Excel file
     let metadata = fs::metadata(&excel_file).unwrap();
-    assert!(metadata.len() > 1000, "Excel file should be reasonably sized");
+    assert!(
+        metadata.len() > 1000,
+        "Excel file should be reasonably sized"
+    );
 }
