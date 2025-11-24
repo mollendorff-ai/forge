@@ -1,6 +1,6 @@
-# Known Bugs in Forge v0.1.3
+# Known Bugs in Forge
 
-This document tracks known bugs and limitations in RoyalBit Forge.
+This document tracks known bugs and limitations in RoyalBit Forge across all versions.
 
 ---
 
@@ -248,6 +248,149 @@ Split into separate single-document files.
 ### Priority
 
 **P2 - Nice to Have:** Workaround is straightforward (split files).
+
+---
+
+## Bug #3: Fuzzy Variable Matching Too Permissive
+
+**Severity:** 🟡 **MAJOR**
+**Affects:** v0.2.0 scalar calculator (NOT v1.0.0 array calculator)
+**Status:** Documented, not blocking v1.0.0
+**Discovered:** 2025-11-23
+**Test:** `e2e_includes_invalid_alias_fails`
+
+### Description
+
+The fuzzy variable matching algorithm in `src/core/calculator.rs` is too permissive when matching variable names for cross-file references. It allows invalid alias references to incorrectly match valid aliases.
+
+### Example
+
+```yaml
+includes:
+  - file: includes_pricing.yaml
+    as: pricing
+
+revenue:
+  value: null
+  formula: "=@invalid_alias.base_price * 10"  # Should FAIL but doesn't!
+```
+
+**Expected:** Error - `@invalid_alias` not found
+**Actual:** Succeeds by fuzzy-matching to `@pricing.base_price`
+
+### Impact
+
+- ❌ Typos in alias names silently match wrong variables
+- ❌ Could cause incorrect calculations in production
+- ✅ Does NOT affect v1.0.0 array calculator (different resolver)
+- ✅ Test exists but was passing incorrectly (now documented)
+
+**Risk Level:** Medium - Only affects v0.2.0 scalar models with cross-file refs
+
+### Root Cause
+
+The fuzzy matching logic in `find_variable_name()` and `find_value_in_context()` uses partial string matching:
+
+```rust
+// From src/core/calculator.rs:80-93
+if var_parts[0].contains(first)  // ← Too permissive!
+    && (var_last == last || var_last.ends_with(&format!("_{last}")))
+{
+    candidates.push(var_name.clone());
+}
+```
+
+The algorithm tries to be helpful by matching partial strings, but this allows `@invalid_alias` to match `@pricing` through various fuzzy paths.
+
+### Workaround
+
+1. **Use exact variable names** - No typos in aliases or variable references
+2. **Test with `--dry-run`** - Verify calculated values before saving
+3. **Code review formulas** - Manual inspection of cross-file references
+4. **Prefer v1.0.0 array model** - Different calculator without this issue
+
+### Reproduction Steps
+
+1. Create test file `test-data/includes_invalid_alias.yaml`:
+   ```yaml
+   includes:
+     - file: includes_pricing.yaml
+       as: pricing
+
+   revenue:
+     value: null
+     formula: "=@invalid_alias.base_price * 10"
+   ```
+
+2. Run: `cargo build --release && ./target/release/forge calculate test-data/includes_invalid_alias.yaml --dry-run`
+
+3. **Expected:** Command fails with "variable not found" error
+   **Actual:** Command succeeds, calculation uses @pricing.base_price
+
+### Suggested Fix (Post-1.0.0)
+
+**Option 1: Strict Alias Matching (Recommended)**
+```rust
+fn find_variable_name(&self, search_name: &str) -> Option<String> {
+    // Exact match first
+    if self.variables.contains_key(search_name) {
+        return Some(search_name.to_string());
+    }
+
+    // For @alias.var refs, require EXACT alias match
+    if search_name.starts_with('@') {
+        let parts: Vec<&str> = search_name.splitn(2, '.').collect();
+        if parts.len() == 2 {
+            let alias_part = parts[0];  // @alias
+            let var_part = parts[1];    // variable
+
+            // Only fuzzy-match within exact alias scope
+            for var_name in self.variables.keys() {
+                if var_name.starts_with(alias_part) && var_name.ends_with(var_part) {
+                    return Some(var_name.clone());
+                }
+            }
+        }
+    }
+
+    // Regular fuzzy matching for non-alias refs
+    // ... (existing logic)
+}
+```
+
+**Option 2: Add `--strict` Mode**
+- Disable fuzzy matching entirely
+- Require exact variable names
+- Better for production use
+
+**Option 3: Deprecate in v1.0.0**
+- Document as v0.2.0 limitation
+- v1.0.0 array calculator doesn't use fuzzy matching
+- Fix in v0.2.1 if needed
+
+### Testing
+
+Current test **incorrectly passes** - it expects failure but command succeeds:
+
+```bash
+# Should fail but doesn't
+cargo test --release e2e_includes_invalid_alias_fails
+```
+
+To verify fix:
+1. Apply suggested fix to `src/core/calculator.rs`
+2. Re-run test - should now pass (command correctly fails)
+3. Verify legitimate fuzzy matches still work
+
+### Related Issues
+
+- Related to Bug #1 (variable scoping) but different mechanism
+- Affects cross-file references only
+- Does not affect within-file variable resolution
+
+### Priority
+
+**P2 - Medium:** Documented workaround exists. Not blocking v1.0.0 since array calculator uses different resolver. Can fix in v0.2.1 patch or post-1.0.0 if needed.
 
 ---
 

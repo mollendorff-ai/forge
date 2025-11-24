@@ -1,0 +1,305 @@
+# 🔥 Forge - Session Warmup Checklist
+# Purpose: Initialize Claude Code sessions with full context and workflow
+# Usage: User says "run warmup" or "run warmup.yaml"
+
+session_initialization:
+  greeting: "Welcome back! Loading Forge context..."
+
+  step_1_load_context:
+    description: "Read these files to understand current state"
+    files_to_read:
+      - path: "README.md"
+        purpose: "Project overview, features, usage examples"
+
+      - path: "roadmap.yaml"
+        purpose: "Current version, implementation phases, progress tracking"
+        key_sections:
+          - "metadata.current_version"
+          - "milestones.v1_0_0.implementation_phases"
+          - "milestones.v1_0_0.testing_status"
+
+      - path: "DESIGN_V1.md"
+        purpose: "v1.0.0 array model specification (800+ lines)"
+        key_sections:
+          - "Model Structure"
+          - "Formula Evaluation"
+          - "Type System"
+          - "Testing Strategy"
+
+      - path: "KNOWN_BUGS.md"
+        purpose: "Documented bugs and workarounds"
+        action: "Review before making changes that might affect these areas"
+
+      - path: "Cargo.toml"
+        purpose: "Current version number, dependencies"
+        key_fields:
+          - "version"
+          - "dependencies"
+
+      - path: "schema/forge-v1.0.schema.json"
+        purpose: "JSON Schema for v1.0.0 model validation"
+        note: "Update when adding new features to v1.0.0 model"
+
+  step_2_git_status:
+    description: "Check current branch and uncommitted changes"
+    commands:
+      - "git status"
+      - "git log --oneline -5"
+      - "git branch --show-current"
+    expected_branch: "feature/v1.0.0-array-model"
+    action: "If on different branch, ask user about intent"
+
+  step_3_run_tests:
+    description: "Verify everything works before starting"
+    commands:
+      - command: "cargo test --lib --release"
+        purpose: "Run unit tests"
+        expected: "All tests passing"
+
+      - command: "cargo test --release"
+        purpose: "Run all tests (unit + integration + e2e)"
+        expected: "24-25 e2e tests passing (1 known fuzzy matching issue)"
+
+      - command: "cargo build --release"
+        purpose: "Ensure clean build"
+        expected: "No warnings or errors"
+
+  step_4_understand_workflow:
+    description: "Our development workflow and standards"
+    standards:
+      testing:
+        unit_tests:
+          - "100% coverage of new code"
+          - "Test happy paths AND edge cases"
+          - "Test error conditions"
+          - "Use descriptive test names"
+
+        integration_tests:
+          - "Test with real v1.0 example files"
+          - "Test cross-module interactions"
+
+        e2e_tests:
+          - "Test full CLI workflows"
+          - "Test with multiple file scenarios"
+          - "Test error handling"
+
+        edge_cases:
+          - "Empty arrays"
+          - "Single-element arrays"
+          - "Very large numbers"
+          - "Division by zero"
+          - "Circular dependencies"
+          - "Missing columns"
+          - "Type mismatches"
+          - "Malformed YAML"
+
+      code_quality:
+        - "No warnings in release build"
+        - "Use meaningful variable names"
+        - "Add doc comments for public APIs"
+        - "Follow existing code style"
+        - "Prefer Edit over Write for existing files"
+
+      git_workflow:
+        commit_messages:
+          format: |
+            <Title: imperative mood, 50 chars>
+
+            <Body: what and why, 72 char wrap>
+
+            Key additions:
+            - Feature 1
+            - Feature 2
+
+            Test coverage: X tests passing
+
+            🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+            Co-Authored-By: Claude <noreply@anthropic.com>
+
+          examples:
+            - "Add support for aggregation formulas"
+            - "Fix precision issues in array calculator"
+            - "Update roadmap with Phase 2 progress"
+
+        commit_strategy:
+          - "Commit logical units of work"
+          - "Keep commits focused and atomic"
+          - "Run tests before committing"
+          - "Update roadmap in separate commit"
+
+      documentation:
+        update_when:
+          - "Adding new features → Update README.md"
+          - "Changing model structure → Update DESIGN_V1.md and schema"
+          - "Completing phases → Update roadmap.yaml"
+          - "Discovering bugs → Update KNOWN_BUGS.md"
+          - "Adding CLI flags → Update --help text"
+          - "Changing API → Add doc comments"
+
+work_session_checklist:
+  before_coding:
+    - "☐ Read warmup.yaml (this file)"
+    - "☐ Load context files (README, roadmap, DESIGN_V1, KNOWN_BUGS)"
+    - "☐ Check git status and current branch"
+    - "☐ Run tests to verify baseline"
+    - "☐ Review current phase in roadmap"
+    - "☐ Create TodoWrite list for session goals"
+
+  during_coding:
+    - "☐ Write tests FIRST (TDD when possible)"
+    - "☐ Test edge cases thoroughly"
+    - "☐ Update JSON Schema if model changes"
+    - "☐ Document bugs in KNOWN_BUGS.md if found"
+    - "☐ Update TodoWrite list as you progress"
+    - "☐ Run tests frequently (cargo test --lib)"
+
+  after_coding:
+    - "☐ Run full test suite (cargo test --release)"
+    - "☐ Ensure no warnings (cargo build --release)"
+    - "☐ Update documentation (README, DESIGN_V1, roadmap)"
+    - "☐ Update --help if CLI changed"
+    - "☐ Git add and commit with good message"
+    - "☐ Update roadmap in separate commit"
+    - "☐ Push to remote (git push)"
+
+  completing_phase:
+    - "☐ All phase features implemented"
+    - "☐ 100% test coverage with edge cases"
+    - "☐ Documentation complete"
+    - "☐ Roadmap updated (phase status: completed)"
+    - "☐ Git push"
+    - "☐ Discuss release strategy with user"
+
+release_workflow:
+  version_bump:
+    description: "Update version across all files"
+    files_to_update:
+      - "Cargo.toml (version field)"
+      - "roadmap.yaml (metadata.current_version)"
+      - "README.md (version badges if present)"
+
+    version_strategy:
+      major: "Breaking changes (0.x.0 → 1.0.0)"
+      minor: "New features, backwards compatible (0.2.0 → 0.3.0)"
+      patch: "Bug fixes (0.2.0 → 0.2.1)"
+
+  pre_release_checklist:
+    - "☐ All tests passing (cargo test --release)"
+    - "☐ Documentation updated"
+    - "☐ CHANGELOG updated (if exists)"
+    - "☐ Version bumped in Cargo.toml"
+    - "☐ Roadmap updated"
+    - "☐ Commit: 'Bump version to X.Y.Z'"
+    - "☐ Git push"
+
+  publish_to_crates_io:
+    description: "Publish new version to crates.io"
+    prerequisites:
+      - "User must provide API key"
+      - "User command: 'pass crates.io' or provide key"
+
+    commands:
+      - step: "Login to crates.io"
+        command: "cargo login <API_KEY>"
+        note: "Key comes from user's password manager"
+
+      - step: "Publish crate"
+        command: "cargo publish"
+        expected: "Success message with download URL"
+
+      - step: "Verify publication"
+        command: "Open https://crates.io/crates/royalbit-forge"
+        check: "New version visible"
+
+  publish_to_github:
+    description: "Create GitHub release with binary"
+    prerequisites:
+      - "Merged to main branch"
+      - "Version tagged"
+
+    commands:
+      - step: "Merge feature branch"
+        commands:
+          - "git checkout main"
+          - "git merge feature/v1.0.0-array-model"
+          - "git push origin main"
+
+      - step: "Create release"
+        command: "gh release create vX.Y.Z --title 'vX.Y.Z: <Title>' --notes '<Release notes>'"
+        note: "Include compiled binary: target/release/forge"
+
+  post_release:
+    - "☐ Verify crates.io publication"
+    - "☐ Verify GitHub release"
+    - "☐ Test installation: cargo install royalbit-forge"
+    - "☐ Update roadmap (milestone status: released)"
+    - "☐ Create next feature branch if needed"
+
+known_issues:
+  fuzzy_matching_bug:
+    file: "KNOWN_BUGS.md"
+    status: "Documented, not blocking v1.0.0"
+    description: "Fuzzy variable matching too permissive (@invalid_alias matches @pricing)"
+    workaround: "Use exact names or fix in post-1.0.0"
+
+current_implementation_focus:
+  phase: "Phase 2: Array-aware Calculator"
+  status: "In progress (50%)"
+  next_steps:
+    - "Implement aggregation formulas (SUM, AVERAGE)"
+    - "Add table.column reference parsing"
+    - "Implement cross-table references"
+    - "Add array indexing (revenue[0])"
+    - "Test with v1.0 example files"
+
+key_files_map:
+  source:
+    - "src/types.rs - Type definitions (ForgeVersion, ColumnValue, Table, ParsedModel)"
+    - "src/parser/mod.rs - Parsing logic (parse_model for unified parsing)"
+    - "src/core/calculator.rs - v0.2.0 scalar calculator"
+    - "src/core/array_calculator.rs - v1.0.0 array calculator"
+    - "src/cli/commands.rs - CLI command implementations"
+
+  tests:
+    - "tests/parser_v1_tests.rs - v1.0 parser integration tests"
+    - "tests/array_calculator_tests.rs - Array calculator tests"
+    - "tests/e2e_tests.rs - End-to-end CLI tests"
+    - "tests/validation_tests.rs - Validation workflow tests"
+
+  documentation:
+    - "README.md - User-facing documentation"
+    - "DESIGN_V1.md - v1.0.0 technical specification"
+    - "roadmap.yaml - Development roadmap and progress"
+    - "KNOWN_BUGS.md - Bug tracking"
+    - "schema/forge-v1.0.schema.json - JSON Schema for v1.0.0"
+
+  examples:
+    - "test-data/v1.0/saas_unit_economics.yaml"
+    - "test-data/v1.0/quarterly_pl.yaml"
+    - "test-data/v1.0/budget_vs_actual.yaml"
+
+tips_for_success:
+  - "Think harder before implementing - plan the solution"
+  - "Write tests first when possible (TDD)"
+  - "Test edge cases - empty arrays, nulls, invalid inputs"
+  - "Update documentation as you code, not after"
+  - "Commit frequently with descriptive messages"
+  - "Use TodoWrite to track progress"
+  - "Ask user for clarification on ambiguous requirements"
+  - "Check KNOWN_BUGS.md before fixing similar issues"
+
+collaboration_notes:
+  user_preferences:
+    - "User values: zero errors, 100% accuracy, thorough testing"
+    - "User says 'Punch it!' when ready to proceed"
+    - "User says 'Think harder' when wanting deeper analysis"
+    - "User provides context from previous sessions via summary"
+
+session_end_checklist:
+  - "☐ All tests passing"
+  - "☐ All changes committed"
+  - "☐ Changes pushed to remote"
+  - "☐ Roadmap updated if phase progress changed"
+  - "☐ TodoWrite list reflects accurate status"
+  - "☐ User knows current status and next steps"

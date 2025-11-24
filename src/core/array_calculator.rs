@@ -16,10 +16,7 @@ impl ArrayCalculator {
     /// Calculate all formulas in the model
     /// Returns updated model with calculated values
     pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
-        // For now, just process each table independently
-        // TODO: Add dependency resolution for cross-table references
-
-        // Clone table names to avoid borrow checker issues
+        // Step 1: Calculate all tables (row-wise formulas)
         let table_names: Vec<String> = self.model.tables.keys().cloned().collect();
 
         for table_name in table_names {
@@ -27,6 +24,10 @@ impl ArrayCalculator {
             let calculated_table = self.calculate_table(&table_name, &table)?;
             self.model.tables.insert(table_name, calculated_table);
         }
+
+        // Step 2: Calculate scalar aggregations
+        // TODO: Add dependency resolution for scalars
+        // For now, we'll skip scalar calculations as they need more complex handling
 
         Ok(self.model)
     }
