@@ -1,5 +1,6 @@
 use crate::core::{ArrayCalculator, Calculator};
-use crate::error::ForgeResult;
+use crate::error::{ForgeError, ForgeResult};
+use crate::excel::ExcelExporter;
 use crate::parser;
 use crate::types::ForgeVersion;
 use crate::writer;
@@ -272,4 +273,54 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
             "Values do not match formulas - file needs recalculation".to_string(),
         ))
     }
+}
+
+/// Execute the export command
+pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()> {
+    println!("{}", "🔥 Forge - Excel Export".bold().green());
+    println!("   Input:  {}", input.display());
+    println!("   Output: {}\n", output.display());
+
+    // Parse the YAML file
+    if verbose {
+        println!("{}", "📖 Parsing YAML file...".cyan());
+    }
+
+    let model = parser::parse_model(&input)?;
+
+    // Verify it's a v1.0.0 model
+    if model.version != ForgeVersion::V1_0_0 {
+        return Err(ForgeError::Export(
+            "Excel export only supports v1.0.0 array models. This file appears to be v0.2.0.".to_string(),
+        ));
+    }
+
+    if verbose {
+        println!("   Detected: v1.0.0 Array Model");
+        println!(
+            "   Found {} tables, {} scalars\n",
+            model.tables.len(),
+            model.scalars.len()
+        );
+    }
+
+    // Export to Excel
+    if verbose {
+        println!("{}", "📊 Exporting to Excel...".cyan());
+    }
+
+    let exporter = ExcelExporter::new(model);
+    exporter.export(&output)?;
+
+    println!("{}", "✅ Export Complete!".bold().green());
+    println!("   Excel file: {}\n", output.display());
+
+    println!("{}", "ℹ️  Phase 3.1: Basic Export".yellow());
+    println!("   ✅ Table columns → Excel columns");
+    println!("   ✅ Data values exported");
+    println!("   ✅ Multiple worksheets");
+    println!("   ✅ Scalars worksheet");
+    println!("   ⏳ Formulas (coming in Phase 3.2)\n");
+
+    Ok(())
 }

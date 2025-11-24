@@ -48,6 +48,9 @@ regex = "1.11"
 # Pretty output
 colored = "2.1"
 
+# Excel export (v1.0.0 array model)
+rust_xlsxwriter = "0.90"
+
 [dev-dependencies]
 # Testing
 pretty_assertions = "1.4"
