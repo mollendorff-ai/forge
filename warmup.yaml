@@ -331,14 +331,35 @@ session_initialization:
           - "Check GLOSSARY.md for canonical term names"
           - "Keep focused: max 15-20 elements per diagram"
           - "Use subgraphs for logical grouping"
-          - "Add styling with classDef for visual hierarchy"
+          - "🚨 CRITICAL: Use VANILLA Mermaid (no theme/color customization)"
+
+        github_theming_rules:
+          critical_rule: "DO NOT customize themes or colors - breaks GitHub auto-detection"
+          what_breaks_auto_theming:
+            - "❌ %%{init: {'theme': 'dark'}}%% - theme directives"
+            - "❌ classDef myStyle fill:#90EE90 - custom colors"
+            - "❌ class nodeX myStyle - applying custom styles"
+          what_is_safe:
+            - "✅ Standard shapes: [], [()], [()] - Mermaid syntax"
+            - "✅ Arrow labels: -->|text| - standard syntax"
+            - "✅ Subgraphs: subgraph name - standard syntax"
+            - "✅ Emojis in labels: ['🔥 Text'] - just Unicode text"
+            - "✅ Line breaks: <br/> - standard HTML"
+          why_vanilla_works:
+            - "GitHub auto-detects user's light/dark theme preference"
+            - "GitHub applies appropriate colors automatically"
+            - "ANY customization overrides this and breaks on one theme"
+            - "Vanilla Mermaid = works perfectly on BOTH light and dark"
+          tested_and_verified: "2025-11-24 - tested on GitHub with dark theme user"
 
         resources:
           docs: "https://mermaid.js.org/"
           live_editor: "https://mermaid.live/"
           github_docs: "https://github.blog/2022-02-14-include-diagrams-markdown-files-mermaid/"
+          stackoverflow: "https://stackoverflow.com/questions/75827387"
+          github_community: "https://github.com/orgs/community/discussions/35733"
 
-        reminder: "📊 Mermaid renders natively on GitHub - no external tools needed!"
+        reminder: "📊 Use VANILLA Mermaid on GitHub - let GitHub handle themes automatically!"
 
       documentation:
         update_when:
