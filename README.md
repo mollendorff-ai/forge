@@ -179,6 +179,10 @@ pricing_table:
 - 📖 [Examples](docs/EXAMPLES.md) - Real-world usage patterns
 - 💵 [AI Economics & Carbon Footprint](docs/AI_ECONOMICS.md) - Cost savings + environmental impact
 - 🎯 [Features](docs/FEATURES.md) - Complete feature reference
+- 🏗️ [Architecture Documentation](docs/architecture/README.md) - **Complete technical architecture** (8 docs, 296KB)
+  - System design, component interactions, data model, algorithms
+  - Formula evaluation pipeline, dependency resolution, Excel integration
+  - CLI architecture, testing strategy, PlantUML diagrams
 - 🗺️ [Roadmap](docs/ROADMAP.md) - What's coming next
 - 🤖 [Autonomous Developer Story](docs/AUTONOMOUS_STORY.md) - How AI built this in 12.5 hours
 
