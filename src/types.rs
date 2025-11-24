@@ -6,7 +6,7 @@ use std::collections::HashMap;
 //==============================================================================
 
 /// Forge model version
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ForgeVersion {
     /// v0.2.0 - Scalar model (discrete values with {value, formula})
     V0_2_0,
@@ -81,7 +81,7 @@ impl ForgeVersion {
 //==============================================================================
 
 /// Column value types (homogeneous arrays)
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ColumnValue {
     /// Array of numbers (f64)
     Number(Vec<f64>),
@@ -121,7 +121,7 @@ impl ColumnValue {
 }
 
 /// A column in a table (v1.0.0)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
     pub values: ColumnValue,
@@ -142,7 +142,7 @@ impl Column {
 }
 
 /// A table with column arrays (v1.0.0)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Table {
     pub name: String,
     pub columns: HashMap<String, Column>,
@@ -201,7 +201,7 @@ pub struct Include {
 }
 
 /// A variable in the YAML file
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Variable {
     pub path: String,
     pub value: Option<f64>,
@@ -222,7 +222,7 @@ pub struct ParsedYaml {
 //==============================================================================
 
 /// Parsed model that supports both v0.2.0 and v1.0.0 formats
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ParsedModel {
     /// Model version detected
     pub version: ForgeVersion,
