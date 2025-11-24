@@ -114,21 +114,26 @@ milestones:
       phase_2_calculator:
         name: "Array-aware Calculator"
         status: in_progress
-        progress: "50%"
+        progress: "75%"
         commits:
           - "63a5c99: Implement Phase 2 Part 1: Row-wise formulas"
+          - "82d4216: Implement Phase 2 Part 2: Aggregation formulas and scalar calculation"
         features_completed:
           - "✅ Row-wise formula evaluation (element-wise operations)"
           - "✅ Intra-table dependency resolution"
           - "✅ Formulas like profit[i] = revenue[i] - expenses[i]"
+          - "✅ Aggregation formulas (SUM, AVERAGE, MAX, MIN)"
+          - "✅ Cross-table references (table.column syntax)"
+          - "✅ Array indexing (table.column[index])"
+          - "✅ Scalar dependency resolution with topological sort"
+          - "✅ Mixed row-wise and scalar calculations"
         features_in_progress:
-          - "⏸️ Aggregation formulas (SUM, AVERAGE, MAX, MIN)"
-          - "⏸️ Cross-table references (table1.column2)"
-          - "⏸️ Array indexing (revenue[0])"
+          - "⏸️ Conditional aggregation (SUMIF, COUNTIF, AVERAGEIF)"
         features_pending:
-          - "⏸️ Conditional aggregation (SUMIF, COUNTIF)"
           - "⏸️ Cross-file array references (@alias.table.column)"
-        test_coverage: "32/32 unit tests + 1 array calculator test passing"
+          - "⏸️ Formula references in row-wise formulas (cross-table)"
+        test_coverage: "37/37 unit tests + 24/25 e2e tests passing"
+        notes: "Core calculator functionality complete. Remaining: conditional aggregations and cross-file refs"
 
       phase_3_excel_export:
         name: "Excel Export"
@@ -211,7 +216,7 @@ features:
   array_model:
     version_introduced: "1.0.0"
     status: in_progress
-    progress: "50%"
+    progress: "75%"
     priority: high
     effort: high
     description: "Column array model for Excel-like tables"
@@ -220,12 +225,15 @@ features:
       - "Array parser with type validation"
       - "Row-wise formula evaluation"
       - "Intra-table dependency resolution"
+      - "Aggregation formulas (SUM, AVERAGE, MAX, MIN)"
+      - "Cross-table references (table.column)"
+      - "Array indexing (table.column[index])"
+      - "Scalar dependency resolution"
     in_progress:
-      - "Aggregation formulas"
-      - "Cross-table references"
+      - "Conditional aggregations (SUMIF, COUNTIF, AVERAGEIF)"
     pending:
-      - "Array indexing"
-      - "Conditional aggregations"
+      - "Cross-file array references (@alias.table.column)"
+      - "Excel export (Phase 3)"
 
   model_conversion:
     version_introduced: "1.0.0"
