@@ -57,7 +57,55 @@ Forge's data model follows these principles:
 
 ### Type Hierarchy
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    subgraph "Primitive Types"
+        F64["f64<br/>Floating-point numbers"]
+        String["String<br/>UTF-8 text"]
+        Bool["bool<br/>true/false"]
+        Date["ISO Date<br/>YYYY-MM-DD"]
+    end
+
+    subgraph "Collection Types"
+        VecF64["Vec&lt;f64&gt;"]
+        VecString["Vec&lt;String&gt;"]
+        VecBool["Vec&lt;bool&gt;"]
+        HashMap["HashMap&lt;K, V&gt;"]
+        Option["Option&lt;T&gt;"]
+    end
+
+    subgraph "Enum Types"
+        ForgeVersion["ForgeVersion<br/>V0_2_0 | V1_0_0"]
+        ColumnValue["ColumnValue<br/>Number | Text | Date | Boolean"]
+        ForgeError["ForgeError<br/>IO | Parse | Validation | Eval"]
+    end
+
+    subgraph "Struct Types"
+        Column["Column<br/>name + values"]
+        Table["Table<br/>columns + row_formulas"]
+        Variable["Variable<br/>value + formula + alias"]
+        ParsedModel["ParsedModel<br/>Unified model"]
+    end
+
+    F64 --> VecF64
+    String --> VecString
+    Bool --> VecBool
+
+    VecF64 -->|Number| ColumnValue
+    VecString -->|Text| ColumnValue
+    VecString -->|Date| ColumnValue
+    VecBool -->|Boolean| ColumnValue
+
+    ColumnValue --> Column
+    HashMap --> Column
+    Column --> Table
+    HashMap --> Table
+
+    Option --> Variable
+    Variable --> ParsedModel
+    Table --> ParsedModel
+    ForgeVersion --> ParsedModel
+```
 
 ### Type Categories
 
@@ -349,7 +397,35 @@ impl Table {
 
 **Table Structure Diagram:**
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Table["Table<br/>name: String"]
+
+    subgraph "Columns HashMap"
+        Col1["revenue:<br/>ColumnValue::Number<br/>[100000, 120000, 150000]"]
+        Col2["cogs:<br/>ColumnValue::Number<br/>[30000, 36000, 45000]"]
+        Col3["quarter:<br/>ColumnValue::Text<br/>['Q1', 'Q2', 'Q3']"]
+    end
+
+    subgraph "Row Formulas HashMap"
+        Formula1["gross_profit:<br/>'=revenue - cogs'"]
+        Formula2["gross_margin:<br/>'=gross_profit / revenue'"]
+    end
+
+    subgraph "Calculated Columns"
+        Calc1["gross_profit:<br/>ColumnValue::Number<br/>[70000, 84000, 105000]"]
+        Calc2["gross_margin:<br/>ColumnValue::Number<br/>[0.70, 0.70, 0.70]"]
+    end
+
+    Table --> Col1
+    Table --> Col2
+    Table --> Col3
+    Table --> Formula1
+    Table --> Formula2
+
+    Formula1 -.->|Evaluates to| Calc1
+    Formula2 -.->|Evaluates to| Calc2
+```
 
 **Examples:**
 
@@ -453,7 +529,27 @@ impl ParsedModel {
 
 **Model Lifecycle:**
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph LR
+    YAMLFile["📄 YAML File"]
+    Parser["Parser"]
+    EmptyModel["ParsedModel::new()<br/>Empty model"]
+    PopulatedModel["ParsedModel<br/>With tables/scalars"]
+    Calculator["Calculator"]
+    CalculatedModel["ParsedModel<br/>With calculated values"]
+    Writer["Writer"]
+    UpdatedYAML["📄 Updated YAML"]
+
+    YAMLFile --> Parser
+    Parser --> EmptyModel
+    EmptyModel -->|Add tables| PopulatedModel
+    EmptyModel -->|Add scalars| PopulatedModel
+    EmptyModel -->|Add aggregations| PopulatedModel
+    PopulatedModel --> Calculator
+    Calculator --> CalculatedModel
+    CalculatedModel --> Writer
+    Writer --> UpdatedYAML
+```
 
 ### 5. Variable Struct (v0.2.0 Scalars)
 
@@ -577,7 +673,22 @@ impl ForgeVersion {
 
 **Detection Algorithm:**
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["Read YAML file"]
+    Parse["Parse YAML structure"]
+    CheckTables{"Has 'tables' key?"}
+    ValidateSchema{"Valid v1.0.0 schema?"}
+    V1["✅ ForgeVersion::V1_0_0"]
+    V0["✅ ForgeVersion::V0_2_0<br/>Backwards compatible"]
+
+    Start --> Parse
+    Parse --> CheckTables
+    CheckTables -->|Yes| ValidateSchema
+    CheckTables -->|No| V0
+    ValidateSchema -->|Valid| V1
+    ValidateSchema -->|Invalid| V0
+```
 
 ---
 
@@ -664,7 +775,36 @@ summary:
 
 **Data Structure:**
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Model["ParsedModel<br/>version: V1_0_0"]
+
+    subgraph "Tables"
+        Table1["pl_2025<br/>Table"]
+        Cols1["columns:<br/>revenue, cogs, quarter"]
+        Formulas1["row_formulas:<br/>gross_profit, gross_margin"]
+    end
+
+    subgraph "Scalars/Aggregations"
+        Agg1["total_revenue:<br/>'=SUM(pl_2025.revenue)'"]
+        Agg2["avg_margin:<br/>'=AVERAGE(pl_2025.gross_margin)'"]
+    end
+
+    subgraph "Calculated Results"
+        ColResults["Calculated columns:<br/>gross_profit: [70000, 84000, 105000]<br/>gross_margin: [0.70, 0.70, 0.70]"]
+        AggResults["Calculated scalars:<br/>total_revenue: 370000<br/>avg_margin: 0.70"]
+    end
+
+    Model --> Table1
+    Table1 --> Cols1
+    Table1 --> Formulas1
+    Model --> Agg1
+    Model --> Agg2
+
+    Formulas1 -.->|Phase 1| ColResults
+    Agg1 -.->|Phase 2| AggResults
+    Agg2 -.->|Phase 2| AggResults
+```
 
 ---
 
@@ -831,7 +971,33 @@ ColumnValue::Text(vec!["High".to_string(), "Low".to_string(), ...])
 
 ### Parse → Calculate → Write Pipeline
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+sequenceDiagram
+    participant File as YAML File
+    participant Parser
+    participant Model as ParsedModel
+    participant Calc as Calculator
+    participant Writer
+
+    File->>Parser: Read file
+    Parser->>Parser: Parse YAML
+    Parser->>Parser: Detect version
+    Parser->>Model: Create ParsedModel
+    Parser->>Model: Add tables/scalars
+    Model-->>Parser: Populated model
+
+    Parser->>Calc: new(model)<br/>Transfer ownership
+    Note over Calc: Phase 1: Calculate tables
+    Note over Calc: Phase 2: Calculate scalars
+    Calc->>Model: Update values
+    Calc-->>Parser: Return calculated model<br/>Restore ownership
+
+    Parser->>Writer: update_files(&model)<br/>Borrow model
+    Writer->>File: Write updated YAML
+    Writer-->>Parser: Success
+
+    Note over Model: Model still owned<br/>by parser
+```
 
 ### Memory Ownership Transfer
 
@@ -1098,7 +1264,43 @@ impl From<serde_yaml::Error> for ForgeError {
 
 ### Error Hierarchy
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Result["Result&lt;T, ForgeError&gt;<br/>Type alias: ForgeResult&lt;T&gt;"]
+
+    ForgeError["ForgeError<br/>Main error enum"]
+
+    subgraph "Error Variants"
+        IO["IO(std::io::Error)<br/>File not found, permission denied"]
+        Parse["Parse(serde_yaml::Error)<br/>Invalid YAML syntax"]
+        Validation["Validation(String)<br/>Schema validation failed"]
+        Eval["Eval(String)<br/>Formula evaluation error"]
+        Circular["CircularDependency(String)<br/>Circular reference detected"]
+        Export["Export(String)<br/>Excel export failed"]
+        Import["Import(String)<br/>Excel import failed"]
+    end
+
+    subgraph "External Error Types"
+        StdIO["std::io::Error"]
+        SerdeYAML["serde_yaml::Error"]
+        JSONSchema["jsonschema::ValidationError"]
+        XLFormula["xlformula_engine::Error"]
+    end
+
+    Result --> ForgeError
+    ForgeError --> IO
+    ForgeError --> Parse
+    ForgeError --> Validation
+    ForgeError --> Eval
+    ForgeError --> Circular
+    ForgeError --> Export
+    ForgeError --> Import
+
+    StdIO -.->|From| IO
+    SerdeYAML -.->|From| Parse
+    JSONSchema -.->|Manual| Validation
+    XLFormula -.->|Manual| Eval
+```
 
 ### Error Usage Examples
 

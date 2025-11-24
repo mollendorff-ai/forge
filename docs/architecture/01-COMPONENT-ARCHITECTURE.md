@@ -57,7 +57,56 @@ This separation enables:
 
 ### High-Level Component Diagram
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    User["👤 User"]
+
+    subgraph "CLI Layer"
+        Main["main.rs<br/>CLI Entry Point"]
+        Commands["cli/commands.rs<br/>Command Handlers"]
+    end
+
+    subgraph "Parser Layer"
+        Parser["parser/mod.rs<br/>YAML Parser<br/>Version Detection"]
+    end
+
+    subgraph "Core Layer"
+        ArrayCalc["array_calculator.rs<br/>v1.0.0 Array Calculator<br/>3,440 lines"]
+        ScalarCalc["calculator.rs<br/>v0.2.0 Scalar Calculator<br/>401 lines"]
+    end
+
+    subgraph "Writer Layer"
+        Writer["writer/mod.rs<br/>YAML File Updates<br/>300+ lines"]
+    end
+
+    subgraph "Excel Layer"
+        Exporter["excel/exporter.rs<br/>YAML → Excel<br/>218 lines"]
+        Importer["excel/importer.rs<br/>Excel → YAML<br/>400+ lines"]
+        FormulaTranslator["formula_translator.rs<br/>YAML formulas → Excel<br/>286 lines"]
+        ReverseTranslator["reverse_formula_translator.rs<br/>Excel formulas → YAML<br/>300+ lines"]
+    end
+
+    subgraph "Types Layer"
+        Types["types.rs<br/>Data Structures<br/>Table, Column, ColumnValue<br/>290 lines"]
+    end
+
+    User --> Main
+    Main --> Commands
+    Commands --> Parser
+    Commands --> ArrayCalc
+    Commands --> ScalarCalc
+    Commands --> Writer
+    Commands --> Exporter
+    Commands --> Importer
+    Parser --> Types
+    ArrayCalc --> Types
+    ScalarCalc --> Types
+    Writer --> Types
+    Exporter --> Types
+    Exporter --> FormulaTranslator
+    Importer --> Types
+    Importer --> ReverseTranslator
+```
 
 ### Component Responsibilities Matrix
 
@@ -159,7 +208,36 @@ pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()>
 
 **Calculate Command Flow:**
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["🚀 forge calculate file.yaml"]
+    ParseYAML["Parse YAML<br/>parser::parse_model()"]
+    DetectVersion["Detect Version<br/>V0_2_0 or V1_0_0"]
+
+    V0Branch["v0.2.0 Path"]
+    V1Branch["v1.0.0 Path"]
+
+    ScalarCalc["Calculator::new()<br/>calculate_all()"]
+    ArrayCalc["ArrayCalculator::new()<br/>calculate_all()"]
+
+    CheckDryRun{"Dry Run?"}
+    UpdateFiles["writer::update_all_yaml_files()<br/>Write results"]
+    DisplayResults["Display results to user"]
+    Done["✅ Done"]
+
+    Start --> ParseYAML
+    ParseYAML --> DetectVersion
+    DetectVersion -->|V0_2_0| V0Branch
+    DetectVersion -->|V1_0_0| V1Branch
+    V0Branch --> ScalarCalc
+    V1Branch --> ArrayCalc
+    ScalarCalc --> CheckDryRun
+    ArrayCalc --> CheckDryRun
+    CheckDryRun -->|No| UpdateFiles
+    CheckDryRun -->|Yes| DisplayResults
+    UpdateFiles --> DisplayResults
+    DisplayResults --> Done
+```
 
 **Design Patterns:**
 
@@ -205,7 +283,20 @@ fn validate_against_schema(yaml: &Value) -> ForgeResult<()>
 
 **Version Detection Algorithm:**
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["Parse YAML File"]
+    CheckTables{"Has 'tables' key?"}
+    CheckV1Schema{"Valid v1.0.0 schema?"}
+    V1["✅ Version: V1_0_0"]
+    V0["✅ Version: V0_2_0<br/>Backwards Compatible"]
+
+    Start --> CheckTables
+    CheckTables -->|Yes| CheckV1Schema
+    CheckTables -->|No| V0
+    CheckV1Schema -->|Yes| V1
+    CheckV1Schema -->|No| V0
+```
 
 **Schema Validation:**
 
@@ -300,7 +391,46 @@ pub struct Variable {
 
 **Type System Design:**
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    ParsedModel["ParsedModel<br/>Unified model for both versions"]
+
+    subgraph "v1.0.0 - Array Model"
+        Tables["HashMap&lt;String, Table&gt;<br/>tables"]
+        Table["Table<br/>name, columns, row_formulas"]
+        Columns["HashMap&lt;String, Column&gt;<br/>columns"]
+        Column["Column<br/>name, values"]
+        ColumnValue["ColumnValue<br/>Number | Text | Date | Boolean"]
+        NumberVec["Vec&lt;f64&gt;"]
+        TextVec["Vec&lt;String&gt;"]
+        DateVec["Vec&lt;String&gt;"]
+        BoolVec["Vec&lt;bool&gt;"]
+    end
+
+    subgraph "v0.2.0 - Scalar Model"
+        Scalars["HashMap&lt;String, Variable&gt;<br/>scalars"]
+        Variable["Variable<br/>path, value, formula, alias"]
+    end
+
+    subgraph "Shared"
+        Aggregations["HashMap&lt;String, String&gt;<br/>aggregations"]
+        Includes["Vec&lt;Include&gt;<br/>includes"]
+    end
+
+    ParsedModel --> Tables
+    ParsedModel --> Scalars
+    ParsedModel --> Aggregations
+    ParsedModel --> Includes
+    Tables --> Table
+    Table --> Columns
+    Columns --> Column
+    Column --> ColumnValue
+    ColumnValue -->|Number| NumberVec
+    ColumnValue -->|Text| TextVec
+    ColumnValue -->|Date| DateVec
+    ColumnValue -->|Boolean| BoolVec
+    Scalars --> Variable
+```
 
 **Key Invariants:**
 
@@ -337,7 +467,38 @@ impl Table {
 
 **Key Algorithm - Two-Phase Calculation:**
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["ArrayCalculator::calculate_all()"]
+
+    subgraph "Phase 1: Calculate Tables"
+        GetTables["Get all table names"]
+        BuildGraph["Build dependency graph<br/>Cross-table references"]
+        TopoSort["Topological sort<br/>Calculation order"]
+        CalcTables["For each table in order:<br/>calculate_table()"]
+        RowFormulas["Evaluate row-wise formulas<br/>For each row: 0..row_count"]
+        UpdateTable["Update table with results"]
+    end
+
+    subgraph "Phase 2: Calculate Scalars"
+        GetScalars["Get scalar aggregations"]
+        EvalAggregations["Evaluate aggregations<br/>SUM, AVERAGE, etc."]
+        UpdateScalars["Update scalar values"]
+    end
+
+    Done["Return updated ParsedModel"]
+
+    Start --> GetTables
+    GetTables --> BuildGraph
+    BuildGraph --> TopoSort
+    TopoSort --> CalcTables
+    CalcTables --> RowFormulas
+    RowFormulas --> UpdateTable
+    UpdateTable --> GetScalars
+    GetScalars --> EvalAggregations
+    EvalAggregations --> UpdateScalars
+    UpdateScalars --> Done
+```
 
 **Core Functions:**
 
@@ -480,7 +641,41 @@ impl Calculator {
 
 **Cross-File Reference Resolution:**
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    MainFile["📄 main.yaml"]
+    IncludeFile["📄 constants.yaml"]
+
+    subgraph "main.yaml"
+        Include["includes:<br/>- file: constants.yaml<br/>  as: const"]
+        Revenue["revenue: 1000000"]
+        TaxFormula["tax: =@const.tax_rate * revenue"]
+    end
+
+    subgraph "constants.yaml"
+        TaxRate["tax_rate: 0.25"]
+        TaxRateAlias["alias: const"]
+    end
+
+    subgraph "Resolution Process"
+        ParseIncludes["Parse includes<br/>Load constants.yaml"]
+        MapAlias["Map alias 'const' → constants.yaml"]
+        ResolveRef["Resolve @const.tax_rate<br/>Find variable with alias='const'"]
+        GetValue["Get tax_rate value: 0.25"]
+        Calculate["Calculate: 0.25 * 1000000 = 250000"]
+    end
+
+    MainFile --> Include
+    Include --> ParseIncludes
+    ParseIncludes --> IncludeFile
+    IncludeFile --> TaxRate
+    TaxRate --> TaxRateAlias
+    TaxRateAlias --> MapAlias
+    TaxFormula --> ResolveRef
+    MapAlias --> ResolveRef
+    ResolveRef --> GetValue
+    GetValue --> Calculate
+```
 
 **Variable Resolution Logic:**
 
@@ -536,7 +731,34 @@ pub fn update_all_yaml_files(
 
 **Update Algorithm:**
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["update_all_yaml_files()"]
+    ReadOriginal["Read original YAML<br/>Preserve formatting"]
+    ParseStructure["Parse YAML structure<br/>serde_yaml::Value"]
+
+    subgraph "Update Loop"
+        GetResult["For each result<br/>variable → value"]
+        FindPath["Find path in YAML tree<br/>tables.revenue.values"]
+        UpdateValue["Update value in place<br/>Preserve comments"]
+        NextResult["Next result"]
+    end
+
+    Serialize["Serialize to YAML<br/>serde_yaml::to_string()"]
+    WriteFile["Write updated file<br/>Overwrite original"]
+    Done["✅ Done"]
+
+    Start --> ReadOriginal
+    ReadOriginal --> ParseStructure
+    ParseStructure --> GetResult
+    GetResult --> FindPath
+    FindPath --> UpdateValue
+    UpdateValue --> NextResult
+    NextResult -->|More results| GetResult
+    NextResult -->|Done| Serialize
+    Serialize --> WriteFile
+    WriteFile --> Done
+```
 
 **Design Decision: Why not use serde_yaml directly?**
 
@@ -555,15 +777,86 @@ Solution: Parse → Update specific paths → Serialize
 
 ### Calculate Command - Component Collaboration
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI as main.rs
+    participant Cmd as commands.rs
+    participant Parser
+    participant Calc as ArrayCalculator
+    participant Writer
+
+    User->>CLI: forge calculate file.yaml
+    CLI->>Cmd: calculate(file, dry_run, verbose)
+    Cmd->>Parser: parse_model(file)
+    Parser-->>Cmd: ParsedModel
+    Cmd->>Calc: new(model)
+    Cmd->>Calc: calculate_all()
+    Calc->>Calc: Phase 1: Calculate tables
+    Calc->>Calc: Phase 2: Calculate scalars
+    Calc-->>Cmd: Updated ParsedModel
+    alt dry_run = false
+        Cmd->>Writer: update_all_yaml_files()
+        Writer-->>Cmd: Success
+    end
+    Cmd->>User: Display results
+```
 
 ### Export Command - Component Collaboration
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI as main.rs
+    participant Cmd as commands.rs
+    participant Parser
+    participant Exporter as ExcelExporter
+    participant Trans as FormulaTranslator
+
+    User->>CLI: forge export input.yaml output.xlsx
+    CLI->>Cmd: export(input, output, verbose)
+    Cmd->>Parser: parse_model(input)
+    Parser-->>Cmd: ParsedModel
+    Cmd->>Exporter: new(model)
+    Cmd->>Exporter: export(output)
+    loop For each table
+        Exporter->>Trans: translate_formula(yaml_formula)
+        Trans-->>Exporter: Excel formula
+        Exporter->>Exporter: Write worksheet
+    end
+    Exporter-->>Cmd: Success
+    Cmd->>User: ✅ Exported to output.xlsx
+```
 
 ### Version Detection - Component Interaction
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+sequenceDiagram
+    participant File as YAML File
+    participant Parser
+    participant Schema as JSON Schema
+    participant Model as ParsedModel
+
+    Parser->>File: Read file contents
+    File-->>Parser: YAML string
+    Parser->>Parser: serde_yaml::from_str()
+    Parser->>Parser: Check for 'tables' key
+    alt Has 'tables'
+        Parser->>Schema: validate_against_schema()
+        alt Valid v1.0.0
+            Schema-->>Parser: Valid
+            Parser->>Parser: parse_v1_model()
+            Parser-->>Model: V1_0_0 model
+        else Invalid schema
+            Schema-->>Parser: Invalid
+            Parser->>Parser: parse_v0_model()
+            Parser-->>Model: V0_2_0 model
+        end
+    else No 'tables'
+        Parser->>Parser: parse_v0_model()
+        Parser-->>Model: V0_2_0 model
+    end
+```
 
 ---
 
@@ -613,7 +906,79 @@ Coupling: Strong (central data structures)
 
 ### Dependency Graph
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    subgraph "Entry Point"
+        Main["main.rs"]
+    end
+
+    subgraph "CLI Layer"
+        Commands["cli/commands.rs"]
+    end
+
+    subgraph "Core Processing"
+        Parser["parser/mod.rs"]
+        ArrayCalc["array_calculator.rs"]
+        ScalarCalc["calculator.rs"]
+        Writer["writer/mod.rs"]
+    end
+
+    subgraph "Excel Bridge"
+        Exporter["excel/exporter.rs"]
+        Importer["excel/importer.rs"]
+        FormulaT["formula_translator.rs"]
+        ReverseT["reverse_formula_translator.rs"]
+    end
+
+    subgraph "Foundation"
+        Types["types.rs"]
+        Error["error.rs"]
+    end
+
+    subgraph "External Dependencies"
+        Clap["clap<br/>CLI parsing"]
+        SerdeYAML["serde_yaml<br/>YAML I/O"]
+        XLFormula["xlformula_engine<br/>Formula eval"]
+        PetGraph["petgraph<br/>Dependency graphs"]
+        RustXLSX["rust_xlsxwriter<br/>Excel write"]
+        Calamine["calamine<br/>Excel read"]
+    end
+
+    Main --> Commands
+    Commands --> Parser
+    Commands --> ArrayCalc
+    Commands --> ScalarCalc
+    Commands --> Writer
+    Commands --> Exporter
+    Commands --> Importer
+
+    Parser --> Types
+    Parser --> Error
+    Parser --> SerdeYAML
+
+    ArrayCalc --> Types
+    ArrayCalc --> Error
+    ArrayCalc --> XLFormula
+    ArrayCalc --> PetGraph
+
+    ScalarCalc --> Types
+    ScalarCalc --> Error
+    ScalarCalc --> XLFormula
+    ScalarCalc --> PetGraph
+
+    Writer --> Types
+    Writer --> SerdeYAML
+
+    Exporter --> Types
+    Exporter --> FormulaT
+    Exporter --> RustXLSX
+
+    Importer --> Types
+    Importer --> ReverseT
+    Importer --> Calamine
+
+    Main --> Clap
+```
 
 ### Boundary Enforcement
 
@@ -1252,7 +1617,37 @@ struct Cli {
 
 ### Dependency Graph
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    subgraph "Forge Core"
+        ArrayCalc["ArrayCalculator"]
+        ScalarCalc["Calculator"]
+        Parser["Parser"]
+        Writer["Writer"]
+        Exporter["ExcelExporter"]
+        Importer["ExcelImporter"]
+    end
+
+    subgraph "External Libraries"
+        XLFormula["xlformula_engine v0.1.18<br/>Excel formula evaluation<br/>50+ functions"]
+        PetGraph["petgraph v0.6<br/>Dependency graphs<br/>Topological sort"]
+        SerdeYAML["serde_yaml v0.9<br/>YAML serialization<br/>Deserialization"]
+        RustXLSX["rust_xlsxwriter v0.90<br/>Excel file creation<br/>Formula writing"]
+        Calamine["calamine v0.31<br/>Excel file reading<br/>Formula preservation"]
+        Clap["clap v4.5<br/>CLI argument parsing<br/>Derive macros"]
+    end
+
+    ArrayCalc --> XLFormula
+    ArrayCalc --> PetGraph
+    ScalarCalc --> XLFormula
+    ScalarCalc --> PetGraph
+    Parser --> SerdeYAML
+    Writer --> SerdeYAML
+    Exporter --> RustXLSX
+    Importer --> Calamine
+    ArrayCalc -.->|uses| Clap
+    ScalarCalc -.->|uses| Clap
+```
 
 ---
 
