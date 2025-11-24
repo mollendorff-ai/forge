@@ -57,7 +57,6 @@ Forge provides:
 ## System Context
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'background':'#ffffff'}}}%%
 graph TB
     %% External Actors
     analyst["👤 Financial Analyst<br/>Quarterly P&L, Budgets,<br/>Sensitivity Analysis"]
@@ -162,7 +161,6 @@ graph TB
 ## High-Level Architecture
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': {'background':'#ffffff'}}}%%
 graph TB
     %% User layer
     user["☁️ User<br/>forge calculate<br/>forge validate<br/>forge export<br/>forge import"]
