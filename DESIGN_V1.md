@@ -574,7 +574,86 @@ Error: Variable not found: 'revenu'
 
 ---
 
+## JSON Schema Validation
+
+### Why JSON Schema?
+
+For **financial models**, structural validation is non-negotiable:
+
+**Zero Errors Requirement:**
+- Structure errors caught **before** formula evaluation
+- Type safety enforced at parse time
+- Homogeneous arrays validated
+- Required fields checked
+
+**Developer Experience:**
+- **IDE autocomplete** - VSCode/IntelliJ suggest valid keys
+- **Real-time validation** - Errors highlighted as you type
+- **Self-documenting** - Schema IS the specification
+- **Team guardrails** - Prevents invalid models
+
+### Schema Location
+
+`schema/forge-v1.0.schema.json` - Complete JSON Schema for v1.0.0 model
+
+### IDE Integration
+
+**VSCode (Recommended):**
+```json
+// .vscode/settings.json
+{
+  "yaml.schemas": {
+    "./schema/forge-v1.0.schema.json": ["test-data/v1.0/*.yaml"]
+  }
+}
+```
+
+**In YAML files:**
+```yaml
+# yaml-language-server: $schema=../../schema/forge-v1.0.schema.json
+
+_forge_version: "1.0.0"
+# IDE now provides autocomplete and validation!
+```
+
+### Validation Rules
+
+✅ **Enforced:**
+- `_forge_version: "1.0.0"` required
+- Arrays must be homogeneous (all numbers, all text, etc.)
+- Formulas must start with `=`
+- Scalars must have both `value` and `formula` keys
+- Aggregations require function name (SUM, MAX, etc.)
+
+❌ **Rejected:**
+```yaml
+revenue: [100, "Q2", 150]  # Mixed types
+total: "SUM(revenue)"       # Missing '='
+tax_rate: { value: 0.25 }  # Missing 'formula' key
+```
+
+### Command-Line Validation
+
+```bash
+# Automatic validation (default in v1.0.0)
+forge validate model.yaml
+
+# Explicit schema validation
+forge validate-schema model.yaml
+
+# Skip validation (not recommended for financial models!)
+forge calculate --skip-schema-validation model.yaml
+```
+
+---
+
 ## Implementation Phases
+
+### Phase 0: JSON Schema (Week 0 - DONE ✅)
+- ✅ Complete JSON Schema definition
+- ✅ IDE integration documentation
+- ✅ Schema references in examples
+- ✅ Validation rules documented
 
 ### Phase 1: Parser (Week 1)
 - ✅ Detect arrays vs scalars
