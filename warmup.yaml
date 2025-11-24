@@ -471,8 +471,10 @@ autonomous_work_requirements:
 
     readme_updates:
       - rule: "README.md MUST reflect ALL new features"
+      - rule: "CLI --help (src/main.rs) MUST match README messaging"
       - rule: "Usage examples MUST be tested and working"
       - rule: "Installation instructions MUST be current"
+      - note: "Users see --help before README - keep them in sync!"
 
     roadmap_updates:
       - rule: "roadmap.yaml MUST be updated with phase completion"
