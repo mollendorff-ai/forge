@@ -1,9 +1,7 @@
-use crate::core::{ArrayCalculator, Calculator};
+use crate::core::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
 use crate::excel::{ExcelExporter, ExcelImporter};
 use crate::parser;
-use crate::types::ForgeVersion;
-use crate::writer;
 use colored::Colorize;
 use std::fs;
 use std::path::PathBuf;
@@ -32,148 +30,67 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
         );
     }
 
-    // Parse file and detect version
+    // Parse file
     if verbose {
         println!("{}", "📖 Parsing YAML file...".cyan());
     }
 
-    // Try v1.0.0 first (parse_model auto-detects version)
     let model = parser::parse_model(&file)?;
 
-    match model.version {
-        ForgeVersion::V1_0_0 => {
-            // v1.0.0 Array Model - use ArrayCalculator
-            if verbose {
-                println!("   Detected: v1.0.0 Array Model");
-                println!(
-                    "   Found {} tables, {} scalars\n",
-                    model.tables.len(),
-                    model.scalars.len()
-                );
-            }
+    if verbose {
+        println!(
+            "   Found {} tables, {} scalars\n",
+            model.tables.len(),
+            model.scalars.len()
+        );
+    }
 
-            // Calculate using ArrayCalculator
-            if verbose {
-                println!("{}", "🧮 Calculating tables and scalars...".cyan());
-            }
+    // Calculate using ArrayCalculator
+    if verbose {
+        println!("{}", "🧮 Calculating tables and scalars...".cyan());
+    }
 
-            let calculator = ArrayCalculator::new(model);
-            let result = calculator.calculate_all()?;
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all()?;
 
-            // Display results
-            println!("{}", "✅ Calculation Results:".bold().green());
+    // Display results
+    println!("{}", "✅ Calculation Results:".bold().green());
 
-            // Show table results
-            for (table_name, table) in &result.tables {
-                println!("   📊 Table: {}", table_name.bright_blue().bold());
-                for (col_name, column) in &table.columns {
-                    println!("      {} ({} rows)", col_name.cyan(), column.values.len());
-                }
-            }
-
-            // Show scalar results
-            if !result.scalars.is_empty() {
-                println!("\n   📐 Scalars:");
-                for (name, var) in &result.scalars {
-                    if let Some(value) = var.value {
-                        println!(
-                            "      {} = {}",
-                            name.bright_blue(),
-                            format!("{value}").bold()
-                        );
-                    }
-                }
-            }
-            println!();
-
-            // TODO: Implement v1.0.0 writer
-            if dry_run {
-                println!("{}", "📋 Dry run complete - no changes written".yellow());
-            } else {
-                println!("{}", "⚠️  v1.0.0 file writing not yet implemented".yellow());
-                println!(
-                    "{}",
-                    "   Results calculated successfully but not written back".yellow()
-                );
-            }
-
-            Ok(())
+    // Show table results
+    for (table_name, table) in &result.tables {
+        println!("   📊 Table: {}", table_name.bright_blue().bold());
+        for (col_name, column) in &table.columns {
+            println!("      {} ({} rows)", col_name.cyan(), column.values.len());
         }
-        ForgeVersion::V0_2_0 => {
-            // v0.2.0 Scalar Model - use old Calculator (with includes support)
-            let parsed = parser::parse_yaml_with_includes(&file)?;
+    }
 
-            if verbose {
-                println!("   Detected: v0.2.0 Scalar Model");
+    // Show scalar results
+    if !result.scalars.is_empty() {
+        println!("\n   📐 Scalars:");
+        for (name, var) in &result.scalars {
+            if let Some(value) = var.value {
                 println!(
-                    "   Found {} variables with formulas\n",
-                    parsed.variables.len()
-                );
-                for (name, var) in &parsed.variables {
-                    if let Some(formula) = &var.formula {
-                        println!("   {} = {}", name.bright_blue(), formula.dimmed());
-                    }
-                }
-                println!();
-            }
-
-            if parsed.variables.is_empty() {
-                println!("{}", "⚠️  No formulas found in YAML file".yellow());
-                return Ok(());
-            }
-
-            // Calculate all formulas
-            if verbose {
-                println!(
-                    "{}",
-                    "🧮 Calculating formulas in dependency order...".cyan()
-                );
-            }
-            let mut calculator = Calculator::new(parsed.variables.clone());
-            let results = calculator.calculate_all()?;
-
-            // Display results
-            println!("{}", "✅ Calculation Results:".bold().green());
-            for (var_name, value) in &results {
-                println!(
-                    "   {} = {}",
-                    var_name.bright_blue(),
+                    "      {} = {}",
+                    name.bright_blue(),
                     format!("{value}").bold()
                 );
             }
-            println!();
-
-            // Write back to ALL files (main + includes) - Excel-style (unless dry run)
-            if dry_run {
-                println!("{}", "📋 Dry run complete - no changes written".yellow());
-            } else {
-                if verbose {
-                    println!(
-                        "{}",
-                        "💾 Writing updated values to all files (main + includes)...".cyan()
-                    );
-                }
-                writer::update_all_yaml_files(&file, &parsed, &results, &parsed.variables)?;
-
-                if parsed.includes.is_empty() {
-                    println!("{}", "✨ File updated successfully!".bold().green());
-                } else {
-                    println!(
-                        "{}",
-                        format!(
-                            "✨ {} files updated successfully! (main + {} includes)",
-                            1 + parsed.includes.len(),
-                            parsed.includes.len()
-                        )
-                        .bold()
-                        .green()
-                    );
-                }
-            }
-
-            Ok(())
         }
     }
+    println!();
+
+    // TODO: Implement v1.0.0 writer
+    if dry_run {
+        println!("{}", "📋 Dry run complete - no changes written".yellow());
+    } else {
+        println!("{}", "⚠️  File writing not yet implemented".yellow());
+        println!(
+            "{}",
+            "   Results calculated successfully but not written back".yellow()
+        );
+    }
+
+    Ok(())
 }
 
 /// Execute the audit command
@@ -188,23 +105,42 @@ pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()> {
 
 /// Execute the validate command
 pub fn validate(file: PathBuf) -> ForgeResult<()> {
-    println!("{}", "✅ Validating formulas".bold().green());
+    println!("{}", "✅ Validating model".bold().green());
     println!("   File: {}\n", file.display());
 
-    // Parse YAML file and includes - get current values from ALL files
-    let parsed = parser::parse_yaml_with_includes(&file)?;
-    let variables = parsed.variables;
+    // Parse YAML file
+    let model = parser::parse_model(&file)?;
 
-    if variables.is_empty() {
-        println!("{}", "⚠️  No formulas found in YAML file".yellow());
+    if model.tables.is_empty() && model.scalars.is_empty() {
+        println!("{}", "⚠️  No tables or scalars found in YAML file".yellow());
         return Ok(());
     }
 
-    println!("   Found {} variables with formulas", variables.len());
+    println!(
+        "   Found {} tables, {} scalars",
+        model.tables.len(),
+        model.scalars.len()
+    );
+
+    // Validate tables
+    for (name, table) in &model.tables {
+        if let Err(e) = table.validate_lengths() {
+            println!(
+                "\n{}",
+                format!("❌ Table '{}' validation failed: {}", name, e)
+                    .bold()
+                    .red()
+            );
+            return Err(ForgeError::Validation(format!(
+                "Table '{}' validation failed: {}",
+                name, e
+            )));
+        }
+    }
 
     // Calculate what values SHOULD be based on formulas
-    let mut calculator = Calculator::new(variables.clone());
-    let calculated_values = match calculator.calculate_all() {
+    let calculator = ArrayCalculator::new(model.clone());
+    let calculated = match calculator.calculate_all() {
         Ok(vals) => vals,
         Err(e) => {
             println!(
@@ -219,13 +155,15 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
     let mut mismatches = Vec::new();
     const TOLERANCE: f64 = 0.0001; // Floating point comparison tolerance
 
-    for (var_name, calculated_value) in &calculated_values {
-        if let Some(var) = variables.get(var_name) {
-            if let Some(current_value) = var.value {
-                // Check if values match within tolerance
-                let diff = (current_value - calculated_value).abs();
-                if diff > TOLERANCE {
-                    mismatches.push((var_name.clone(), current_value, *calculated_value, diff));
+    for (var_name, var) in &calculated.scalars {
+        if let Some(calculated_value) = var.value {
+            if let Some(original) = model.scalars.get(var_name) {
+                if let Some(current_value) = original.value {
+                    // Check if values match within tolerance
+                    let diff = (current_value - calculated_value).abs();
+                    if diff > TOLERANCE {
+                        mismatches.push((var_name.clone(), current_value, calculated_value, diff));
+                    }
                 }
             }
         }
@@ -234,8 +172,8 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
     // Report results
     println!();
     if mismatches.is_empty() {
-        println!("{}", "✅ All formulas are valid!".bold().green());
-        println!("{}", "✅ All values match their formulas!".bold().green());
+        println!("{}", "✅ All tables are valid!".bold().green());
+        println!("{}", "✅ All scalar values match their formulas!".bold().green());
         Ok(())
     } else {
         println!(
@@ -285,16 +223,7 @@ pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 
     let model = parser::parse_model(&input)?;
 
-    // Verify it's a v1.0.0 model
-    if model.version != ForgeVersion::V1_0_0 {
-        return Err(ForgeError::Export(
-            "Excel export only supports v1.0.0 array models. This file appears to be v0.2.0."
-                .to_string(),
-        ));
-    }
-
     if verbose {
-        println!("   Detected: v1.0.0 Array Model");
         println!(
             "   Found {} tables, {} scalars\n",
             model.tables.len(),

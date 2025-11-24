@@ -2,7 +2,7 @@
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::excel::reverse_formula_translator::ReverseFormulaTranslator;
-use crate::types::{Column, ColumnValue, ForgeVersion, ParsedModel, Table, Variable};
+use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 use calamine::{open_workbook, Data, Range, Reader, Xlsx};
 use std::collections::HashMap;
 use std::path::Path;
@@ -27,7 +27,7 @@ impl ExcelImporter {
             .map_err(|e| ForgeError::IO(format!("Failed to open Excel file: {}", e)))?;
 
         // Create model
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         // Get all sheet names
         let sheet_names = workbook.sheet_names().to_vec();
@@ -224,7 +224,6 @@ impl ExcelImporter {
                 path: name.clone(),
                 value,
                 formula,
-                alias: None,
             };
             model.add_scalar(name, variable);
         }

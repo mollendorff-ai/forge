@@ -139,14 +139,6 @@ graph TB
 - **Explicit errors** - "Column 'profit' has 3 rows, expected 4"
 - **No hidden conversions** - Types don't auto-convert
 
-### 5. Backwards Compatibility
-
-**Principle:** v0.2.0 models still work in v1.0.0+ releases.
-
-- **Version detection** - Auto-detects v0.2.0 vs v1.0.0
-- **Dual calculators** - Separate engines for each version
-- **No breaking changes** - Old models never break
-
 ---
 
 ## High-Level Architecture
@@ -165,8 +157,7 @@ graph TB
     %% Core Processing
     subgraph core["Core Processing"]
         parser["parser/mod.rs"]
-        calc["core/array_calculator.rs<br/><br/>v1.0.0 Calculator:<br/>• Array operations<br/>• Row-wise formulas<br/>• Aggregation formulas<br/>• 50+ Excel functions"]
-        legacy_calc["core/calculator.rs<br/><br/>v0.2.0 Calculator:<br/>• Scalar operations<br/>• Cross-file references<br/>• Backwards compatibility"]
+        calc["core/array_calculator.rs<br/><br/>Calculator:<br/>• Array operations<br/>• Row-wise formulas<br/>• Aggregation formulas<br/>• 50+ Excel functions"]
         writer["writer/mod.rs"]
     end
 
@@ -198,8 +189,7 @@ graph TB
 
     %% Command routing
     commands -->|parse YAML| parser
-    commands -->|calculate v1.0| calc
-    commands -->|calculate v0.2| legacy_calc
+    commands -->|calculate| calc
     commands -->|export to Excel| exporter
     commands -->|import from Excel| importer
     commands -->|write YAML| writer
@@ -211,8 +201,6 @@ graph TB
     calc -->|resolve dependencies| graph
     calc -->|operate on data| types
     calc --> errors
-    legacy_calc -->|evaluate formulas| xle
-    legacy_calc -->|resolve dependencies| graph
     writer -->|serialize| yaml
     parser --> errors
 
@@ -281,7 +269,6 @@ graph TB
 - **136 tests passing** - 86 unit, 33 e2e, 6 integration, 5 validation, 3 doc
 - **Zero warnings** - cargo clippy pedantic mode
 - **Zero bugs** - No known bugs in production (see KNOWN_BUGS.md for non-critical issues)
-- **Backwards compatible** - v0.2.0 models still work
 
 ### Environmental Impact
 
@@ -301,8 +288,7 @@ forge/
 │   ├── types.rs                  # Data structures (290 lines)
 │   ├── error.rs                  # Error types (33 lines)
 │   ├── core/
-│   │   ├── calculator.rs         # v0.2.0 scalar calculator (401 lines)
-│   │   └── array_calculator.rs   # v1.0.0 array calculator (3,440 lines)
+│   │   └── array_calculator.rs   # Array calculator (3,440 lines)
 │   ├── parser/
 │   │   └── mod.rs                # YAML parser (1,011 lines)
 │   ├── excel/
@@ -328,8 +314,8 @@ forge/
 | Module | Responsibility | Key Types |
 |--------|----------------|-----------|
 | **types** | Data structures | `Model`, `Table`, `Column`, `ColumnValue` |
-| **parser** | YAML parsing | `parse_model()`, version detection |
-| **core** | Formula calculation | `Calculator`, `ArrayCalculator` |
+| **parser** | YAML parsing | `parse_model()` |
+| **core** | Formula calculation | `ArrayCalculator` |
 | **excel** | Excel integration | `Exporter`, `Importer`, `FormulaTranslator` |
 | **writer** | YAML serialization | `update_all_yaml_files()` |
 | **cli** | Command handling | `calculate()`, `validate()`, `export()`, `import()` |
@@ -350,34 +336,15 @@ Command Handler (calculate)
     ↓
 YAML Parser (serde_yaml)
     ↓
-Version Detection (v0.2.0 or v1.0.0)
+Array Calculator
     ↓
-┌─────────────┬─────────────┐
-│  v1.0.0     │   v0.2.0    │
-├─────────────┼─────────────┤
-│ Array       │  Scalar     │
-│ Calculator  │ Calculator  │
-└──────┬──────┴──────┬──────┘
-       │             │
-       ↓             ↓
-  Dependency     Dependency
-  Resolution     Resolution
-  (petgraph)     (petgraph)
-       │             │
-       ↓             ↓
-   Formula        Formula
-  Evaluation     Evaluation
-(xlformula_engine) (xlformula_engine)
-       │             │
-       ↓             ↓
-   Results        Results
-       │             │
-       ↓             ↓
-  Display        YAML Writer
-   (stdout)     (serde_yaml)
-                     │
-                     ↓
-                 Updated Files
+Dependency Resolution (petgraph)
+    ↓
+Formula Evaluation (xlformula_engine)
+    ↓
+Results
+    ↓
+Display (stdout)
 ```text
 
 ### Export/Import Flow
@@ -432,13 +399,6 @@ Excel Workbook
 ---
 
 ## Architecture Evolution
-
-### v0.2.0 (October 2023)
-
-- Scalar calculator with xlformula_engine
-- Cross-file references with includes
-- 7 Excel functions (SUM, AVERAGE, IF, ABS, MAX, MIN, PRODUCT)
-- v0.2.0 model: `{value: number, formula: string}`
 
 ### v1.0.0 (November 2023)
 

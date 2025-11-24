@@ -1,11 +1,11 @@
 use royalbit_forge::core::ArrayCalculator;
 use royalbit_forge::parser::parse_model;
-use royalbit_forge::types::{Column, ColumnValue, ForgeVersion, ParsedModel, Table};
+use royalbit_forge::types::{Column, ColumnValue, ParsedModel, Table};
 use std::path::Path;
 
 #[test]
 fn test_simple_table_calculation() {
-    let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+    let mut model = ParsedModel::new();
 
     let mut table = Table::new("financials".to_string());
     table.add_column(Column::new(
@@ -93,7 +93,7 @@ fn test_calculate_quarterly_pl() {
 
 #[test]
 fn test_text_left_function() {
-    let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+    let mut model = ParsedModel::new();
     let mut table = Table::new("text".to_string());
 
     table.add_column(Column::new(
@@ -129,7 +129,7 @@ fn test_text_left_function() {
 
 #[test]
 fn test_text_right_function() {
-    let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+    let mut model = ParsedModel::new();
     let mut table = Table::new("text".to_string());
 
     table.add_column(Column::new(
@@ -171,7 +171,7 @@ fn test_text_right_function() {
 
 #[test]
 fn test_text_column_support() {
-    let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+    let mut model = ParsedModel::new();
     let mut table = Table::new("text_test".to_string());
 
     table.add_column(Column::new(
@@ -207,7 +207,7 @@ fn test_text_column_support() {
 
 #[test]
 fn test_mixed_column_types() {
-    let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+    let mut model = ParsedModel::new();
     let mut table = Table::new("mixed".to_string());
 
     table.add_column(Column::new(

@@ -2,82 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 //==============================================================================
-// Forge Version Detection
-//==============================================================================
-
-/// Forge model version
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ForgeVersion {
-    /// v0.2.0 - Scalar model (discrete values with {value, formula})
-    V0_2_0,
-    /// v1.0.0 - Array model (column arrays for Excel compatibility)
-    V1_0_0,
-}
-
-impl ForgeVersion {
-    /// Detect version from YAML content
-    pub fn detect(yaml: &serde_yaml::Value) -> Self {
-        // Check for explicit version marker
-        if let Some(version_val) = yaml.get("_forge_version") {
-            if let Some(version_str) = version_val.as_str() {
-                if version_str.starts_with("1.0") {
-                    return ForgeVersion::V1_0_0;
-                }
-            }
-        }
-
-        // Check for v0.2.0 specific features FIRST
-        // includes: field indicates v0.2.0 cross-file references
-        if yaml.get("includes").is_some() {
-            return ForgeVersion::V0_2_0;
-        }
-
-        // Check for v1.0.0 specific features
-        // tables: field with columns indicates v1.0.0 array model
-        if let Some(tables_val) = yaml.get("tables") {
-            if let Some(tables_map) = tables_val.as_mapping() {
-                // Check if any table has a "columns" field
-                for (_table_name, table_val) in tables_map {
-                    if let Some(table_map) = table_val.as_mapping() {
-                        if table_map.contains_key("columns") {
-                            return ForgeVersion::V1_0_0;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Fallback: Check for array pattern (v1.0.0 indicator)
-        // This catches v1.0.0 files that use scalars with arrays
-        if Self::has_array_values(yaml) {
-            return ForgeVersion::V1_0_0;
-        }
-
-        // Default to v0.2.0 for backwards compatibility
-        ForgeVersion::V0_2_0
-    }
-
-    /// Check if YAML contains array values (v1.0.0 pattern)
-    fn has_array_values(yaml: &serde_yaml::Value) -> bool {
-        match yaml {
-            serde_yaml::Value::Mapping(map) => {
-                for (_key, value) in map {
-                    if value.is_sequence() {
-                        return true;
-                    }
-                    if Self::has_array_values(value) {
-                        return true;
-                    }
-                }
-                false
-            }
-            _ => false,
-        }
-    }
-}
-
-//==============================================================================
-// v1.0.0 Array Model Types
+// Forge v1.0.0 Array Model Types
 //==============================================================================
 
 /// Column value types (homogeneous arrays)
@@ -120,7 +45,7 @@ impl ColumnValue {
     }
 }
 
-/// A column in a table (v1.0.0)
+/// A column in a table
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
@@ -141,7 +66,7 @@ impl Column {
     }
 }
 
-/// A table with column arrays (v1.0.0)
+/// A table with column arrays
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Table {
     pub name: String,
@@ -190,63 +115,39 @@ impl Table {
 }
 
 //==============================================================================
-// v0.2.0 Scalar Model Types (Backwards Compatible)
+// Scalar Variables (for aggregations and summary values)
 //==============================================================================
 
-/// Represents an included YAML file with an alias
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Include {
-    pub file: String,
-    pub r#as: String,
-}
-
-/// A variable in the YAML file
+/// A scalar variable with optional formula
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Variable {
     pub path: String,
     pub value: Option<f64>,
     pub formula: Option<String>,
-    /// The alias of the file this variable came from (None for main file)
-    pub alias: Option<String>,
-}
-
-/// Parsed YAML data with includes (v0.2.0 - kept for backwards compatibility)
-#[derive(Debug)]
-pub struct ParsedYaml {
-    pub includes: Vec<Include>,
-    pub variables: HashMap<String, Variable>,
 }
 
 //==============================================================================
-// Unified Model (v0.2.0 + v1.0.0)
+// Parsed Model
 //==============================================================================
 
-/// Parsed model that supports both v0.2.0 and v1.0.0 formats
-#[derive(Debug, Serialize, Deserialize)]
+/// Parsed Forge model (v1.0.0 array format)
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParsedModel {
-    /// Model version detected
-    pub version: ForgeVersion,
-
-    /// Tables (v1.0.0 only)
+    /// Tables with column arrays
     pub tables: HashMap<String, Table>,
 
-    /// Scalar variables (v0.2.0 compatible, also used in v1.0.0 for summary values)
+    /// Scalar variables (for summary values and aggregations)
     pub scalars: HashMap<String, Variable>,
 
-    /// Includes (both versions)
-    pub includes: Vec<Include>,
-
-    /// Aggregation formulas (v1.0.0 - formulas that reduce columns to scalars)
+    /// Aggregation formulas (formulas that reduce columns to scalars)
     pub aggregations: HashMap<String, String>,
 }
 
 impl ParsedModel {
-    pub fn new(version: ForgeVersion) -> Self {
+    pub fn new() -> Self {
         Self {
-            version,
             tables: HashMap::new(),
             scalars: HashMap::new(),
-            includes: Vec::new(),
             aggregations: HashMap::new(),
         }
     }
@@ -264,26 +165,8 @@ impl ParsedModel {
     }
 }
 
-/// Context for formula evaluation
-pub struct EvalContext {
-    pub variables: HashMap<String, f64>,
-}
-
-impl Default for EvalContext {
+impl Default for ParsedModel {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl EvalContext {
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            variables: HashMap::new(),
-        }
-    }
-
-    pub fn set(&mut self, name: String, value: f64) {
-        self.variables.insert(name, value);
     }
 }

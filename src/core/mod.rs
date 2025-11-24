@@ -1,7 +1,5 @@
-//! Core calculation engine with dependency resolution
+//! Core calculation engine for v1.0.0 array models
 
 pub mod array_calculator;
-pub mod calculator;
 
 pub use array_calculator::ArrayCalculator;
-pub use calculator::Calculator;

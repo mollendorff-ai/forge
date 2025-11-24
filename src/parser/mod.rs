@@ -1,29 +1,17 @@
 use crate::error::{ForgeError, ForgeResult};
-use crate::types::{
-    Column, ColumnValue, ForgeVersion, Include, ParsedModel, ParsedYaml, Table, Variable,
-};
+use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 use jsonschema::JSONSchema;
 use serde_yaml::Value;
-use std::collections::HashMap;
-use std::path::Path;
 
-/// Parse a Forge model file (v0.2.0 or v1.0.0) and return a unified ParsedModel.
+/// Parse a Forge model file (v1.0.0 array format) and return a ParsedModel.
 ///
-/// This is the main entry point for parsing Forge YAML files. It automatically detects
-/// the model version and parses accordingly:
-/// - v1.0.0: Array model with tables, columns, and Excel-compatible formulas
-/// - v0.2.0: Scalar model (backwards compatible)
-///
-/// # Version Detection
-/// The parser detects v1.0.0 models by:
-/// 1. Explicit `_forge_version: "1.0.0"` marker (recommended)
-/// 2. Presence of array values in the YAML structure
+/// This is the main entry point for parsing Forge YAML files.
 ///
 /// # Arguments
 /// * `path` - Path to the Forge YAML file
 ///
 /// # Returns
-/// * `Ok(ParsedModel)` - Successfully parsed model with version, tables, and scalars
+/// * `Ok(ParsedModel)` - Successfully parsed model with tables and scalars
 /// * `Err(ForgeError)` - Parse error with detailed context
 ///
 /// # Example
@@ -32,35 +20,25 @@ use std::path::Path;
 /// use std::path::Path;
 ///
 /// let model = parse_model(Path::new("model.yaml"))?;
-/// println!("Version: {:?}", model.version);
 /// println!("Tables: {}", model.tables.len());
 /// # Ok::<(), royalbit_forge::error::ForgeError>(())
 /// ```
-pub fn parse_model(path: &Path) -> ForgeResult<ParsedModel> {
+pub fn parse_model(path: &std::path::Path) -> ForgeResult<ParsedModel> {
     let content = std::fs::read_to_string(path)?;
     let yaml: Value = serde_yaml::from_str(&content)?;
 
-    // Detect version
-    let version = ForgeVersion::detect(&yaml);
-
-    match version {
-        ForgeVersion::V1_0_0 => parse_v1_model(path, &yaml),
-        ForgeVersion::V0_2_0 => parse_v0_model(path, &yaml),
-    }
+    parse_v1_model(&yaml)
 }
 
 /// Parse v1.0.0 array model
-fn parse_v1_model(_path: &Path, yaml: &Value) -> ForgeResult<ParsedModel> {
+fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
     // Optionally validate against JSON Schema if available
     if let Err(e) = validate_against_schema(yaml) {
         // Schema validation is optional - warn but continue
         eprintln!("Warning: Schema validation failed: {}", e);
     }
 
-    let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
-
-    // Extract includes
-    model.includes = extract_includes(yaml)?;
+    let mut model = ParsedModel::new();
 
     // Parse each top-level key as either a table or scalar
     if let Value::Mapping(map) = yaml {
@@ -70,7 +48,7 @@ fn parse_v1_model(_path: &Path, yaml: &Value) -> ForgeResult<ParsedModel> {
                 .ok_or_else(|| ForgeError::Parse("Table name must be a string".to_string()))?;
 
             // Skip special keys
-            if key_str == "_forge_version" || key_str == "includes" {
+            if key_str == "_forge_version" {
                 continue;
             }
 
@@ -79,7 +57,7 @@ fn parse_v1_model(_path: &Path, yaml: &Value) -> ForgeResult<ParsedModel> {
                 // Check if it has {value, formula} pattern (scalar)
                 if inner_map.contains_key("value") || inner_map.contains_key("formula") {
                     // This is a scalar variable
-                    let variable = parse_scalar_variable(value, key_str, None)?;
+                    let variable = parse_scalar_variable(value, key_str)?;
                     model.add_scalar(key_str.to_string(), variable);
                 } else if is_nested_scalar_section(inner_map) {
                     // This is a section containing nested scalars (e.g., summary.total)
@@ -130,61 +108,6 @@ fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
     Ok(())
 }
 
-/// Parse v0.2.0 scalar model (backwards compatible)
-fn parse_v0_model(path: &Path, _yaml: &Value) -> ForgeResult<ParsedModel> {
-    let parsed_yaml = parse_yaml_with_includes(path)?;
-    let mut model = ParsedModel::new(ForgeVersion::V0_2_0);
-
-    model.includes = parsed_yaml.includes;
-    model.scalars = parsed_yaml.variables;
-
-    Ok(model)
-}
-
-/// Parse YAML file with includes and return complete parsed data (v0.2.0)
-pub fn parse_yaml_with_includes(path: &Path) -> ForgeResult<ParsedYaml> {
-    let content = std::fs::read_to_string(path)?;
-    let yaml: Value = serde_yaml::from_str(&content)?;
-
-    // Extract includes from the YAML
-    let includes = extract_includes(&yaml)?;
-
-    // Parse main file variables
-    let mut all_variables = HashMap::new();
-    extract_variables(&yaml, String::new(), None, &mut all_variables)?;
-
-    // Parse variables from each included file
-    let base_dir = path.parent().unwrap_or_else(|| Path::new("."));
-    for include in &includes {
-        let include_path = base_dir.join(&include.file);
-        let include_content = std::fs::read_to_string(&include_path).map_err(|e| {
-            ForgeError::Parse(format!(
-                "Failed to read included file '{}': {}",
-                include.file, e
-            ))
-        })?;
-        let include_yaml: Value = serde_yaml::from_str(&include_content).map_err(|e| {
-            ForgeError::Parse(format!(
-                "Failed to parse included file '{}': {}",
-                include.file, e
-            ))
-        })?;
-
-        // Extract variables with the alias
-        extract_variables(
-            &include_yaml,
-            String::new(),
-            Some(include.r#as.clone()),
-            &mut all_variables,
-        )?;
-    }
-
-    Ok(ParsedYaml {
-        includes,
-        variables: all_variables,
-    })
-}
-
 /// Check if a mapping contains nested scalar sections (e.g., summary.total)
 fn is_nested_scalar_section(map: &serde_yaml::Mapping) -> bool {
     // Check if all children are mappings with {value, formula} pattern
@@ -214,7 +137,7 @@ fn parse_nested_scalars(
             if child_map.contains_key("value") || child_map.contains_key("formula") {
                 // This is a scalar variable
                 let full_path = format!("{}.{}", parent_key, key_str);
-                let variable = parse_scalar_variable(value, &full_path, None)?;
+                let variable = parse_scalar_variable(value, &full_path)?;
                 model.add_scalar(full_path.clone(), variable);
             }
         }
@@ -256,12 +179,8 @@ fn parse_table(name: &str, map: &serde_yaml::Mapping) -> ForgeResult<Table> {
     Ok(table)
 }
 
-/// Parse a scalar variable (v0.2.0 compatible)
-fn parse_scalar_variable(
-    value: &Value,
-    path: &str,
-    alias: Option<String>,
-) -> ForgeResult<Variable> {
+/// Parse a scalar variable
+fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable> {
     if let Value::Mapping(map) = value {
         let val = map.get("value").and_then(|v| v.as_f64());
         let formula = map
@@ -272,7 +191,6 @@ fn parse_scalar_variable(
             path: path.to_string(),
             value: val,
             formula,
-            alias,
         })
     } else {
         Err(ForgeError::Parse(format!(
@@ -448,264 +366,13 @@ fn type_name(val: &Value) -> &'static str {
     }
 }
 
-/// Extract includes from YAML
-fn extract_includes(value: &Value) -> ForgeResult<Vec<Include>> {
-    if let Value::Mapping(map) = value {
-        if let Some(Value::Sequence(seq)) = map.get("includes") {
-            let mut includes = Vec::new();
-            for item in seq {
-                let include: Include = serde_yaml::from_value(item.clone())
-                    .map_err(|e| ForgeError::Parse(format!("Invalid include format: {e}")))?;
-                includes.push(include);
-            }
-            return Ok(includes);
-        }
-    }
-    Ok(Vec::new())
-}
-
-/// Recursively extract variables from YAML structure
-fn extract_variables(
-    value: &Value,
-    path: String,
-    alias: Option<String>,
-    variables: &mut HashMap<String, Variable>,
-) -> ForgeResult<()> {
-    match value {
-        Value::Mapping(map) => {
-            // Skip the "includes" key - don't process it as a variable
-            if path == "includes" {
-                return Ok(());
-            }
-
-            // Check if this is a variable (has "value" key)
-            if let Some(val) = map.get("value") {
-                let formula = map.get("formula");
-
-                // Build the full variable key with alias prefix if present
-                let var_key = if let Some(ref a) = alias {
-                    format!("@{a}.{path}")
-                } else {
-                    path.clone()
-                };
-
-                let var = Variable {
-                    path: path.clone(),
-                    value: val.as_f64(),
-                    formula: formula.and_then(|f| f.as_str().map(std::string::ToString::to_string)),
-                    alias: alias.clone(),
-                };
-
-                // Include variables with formulas OR base variables with values
-                if let Some(f) = &var.formula {
-                    if f.starts_with('=') {
-                        variables.insert(var_key, var);
-                    }
-                } else if var.value.is_some() {
-                    // Base variable (no formula, but has a value)
-                    variables.insert(var_key, var);
-                }
-            }
-
-            // Recursively process all map entries
-            for (key, val) in map {
-                if let Some(key_str) = key.as_str() {
-                    // Skip "includes" key
-                    if path.is_empty() && key_str == "includes" {
-                        continue;
-                    }
-
-                    let new_path = if path.is_empty() {
-                        key_str.to_string()
-                    } else {
-                        format!("{path}.{key_str}")
-                    };
-                    extract_variables(val, new_path, alias.clone(), variables)?;
-                }
-            }
-        }
-        Value::Sequence(seq) => {
-            for (i, val) in seq.iter().enumerate() {
-                let new_path = format!("{path}[{i}]");
-                extract_variables(val, new_path, alias.clone(), variables)?;
-            }
-        }
-        Value::Number(num) => {
-            // Handle plain scalar numbers (e.g., louis_annual: 75000)
-            if !path.is_empty() {
-                if let Some(f64_val) = num.as_f64() {
-                    // Build the full variable key with alias prefix if present
-                    let var_key = if let Some(ref a) = alias {
-                        format!("@{a}.{path}")
-                    } else {
-                        path.clone()
-                    };
-
-                    let var = Variable {
-                        path,
-                        value: Some(f64_val),
-                        formula: None,
-                        alias,
-                    };
-                    variables.insert(var_key, var);
-                }
-            }
-        }
-        _ => {}
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_parse_simple_formula() {
-        let yaml = r#"
-        gross_margin:
-          value: 0.90
-          formula: "=1 - platform_take_rate"
-        "#;
-
-        let parsed: Value = serde_yaml::from_str(yaml).unwrap();
-        let mut variables = HashMap::new();
-        extract_variables(&parsed, String::new(), None, &mut variables).unwrap();
-
-        // Parser extracts both gross_margin and gross_margin.value
-        assert_eq!(variables.len(), 2);
-        assert!(variables.contains_key("gross_margin"));
-
-        // Verify the formula is extracted
-        let var = variables.get("gross_margin").unwrap();
-        assert_eq!(var.formula, Some("=1 - platform_take_rate".to_string()));
-        assert_eq!(var.value, Some(0.90));
-    }
-
-    #[test]
-    fn test_extract_includes() {
-        let yaml = r"
-        includes:
-          - file: pricing.yaml
-            as: pricing
-          - file: costs.yaml
-            as: costs
-
-        revenue:
-          value: 100
-          formula: null
-        ";
-
-        let parsed: Value = serde_yaml::from_str(yaml).unwrap();
-        let includes = extract_includes(&parsed).unwrap();
-
-        assert_eq!(includes.len(), 2);
-        assert_eq!(includes[0].file, "pricing.yaml");
-        assert_eq!(includes[0].r#as, "pricing");
-        assert_eq!(includes[1].file, "costs.yaml");
-        assert_eq!(includes[1].r#as, "costs");
-    }
-
-    #[test]
-    fn test_no_includes() {
-        let yaml = r"
-        revenue:
-          value: 100
-          formula: null
-        ";
-
-        let parsed: Value = serde_yaml::from_str(yaml).unwrap();
-        let includes = extract_includes(&parsed).unwrap();
-
-        assert_eq!(includes.len(), 0);
-    }
-
-    #[test]
-    fn test_variables_with_alias_prefix() {
-        let yaml = r"
-        base_price:
-          value: 100
-          formula: null
-        ";
-
-        let parsed: Value = serde_yaml::from_str(yaml).unwrap();
-        let mut variables = HashMap::new();
-        extract_variables(
-            &parsed,
-            String::new(),
-            Some("pricing".to_string()),
-            &mut variables,
-        )
-        .unwrap();
-
-        // Should have @pricing prefix
-        assert!(variables.contains_key("@pricing.base_price"));
-        let var = variables.get("@pricing.base_price").unwrap();
-        assert_eq!(var.value, Some(100.0));
-        assert_eq!(var.alias, Some("pricing".to_string()));
-    }
-
-    #[test]
-    fn test_includes_key_not_treated_as_variable() {
-        let yaml = r"
-        includes:
-          - file: pricing.yaml
-            as: pricing
-
-        revenue:
-          value: 100
-          formula: null
-        ";
-
-        let parsed: Value = serde_yaml::from_str(yaml).unwrap();
-        let mut variables = HashMap::new();
-        extract_variables(&parsed, String::new(), None, &mut variables).unwrap();
-
-        // Should not have 'includes' as a variable
-        assert!(!variables.contains_key("includes"));
-        // Should have revenue
-        assert!(variables.contains_key("revenue"));
-    }
-
     // =========================================================================
     // v1.0.0 Array Model Tests
     // =========================================================================
-
-    #[test]
-    fn test_version_detection_explicit() {
-        let yaml = r"
-        _forge_version: '1.0.0'
-        data:
-          values: [1, 2, 3]
-        ";
-        let parsed: Value = serde_yaml::from_str(yaml).unwrap();
-        let version = ForgeVersion::detect(&parsed);
-        assert_eq!(version, ForgeVersion::V1_0_0);
-    }
-
-    #[test]
-    fn test_version_detection_arrays() {
-        let yaml = r"
-        data:
-          values: [1, 2, 3]
-        ";
-        let parsed: Value = serde_yaml::from_str(yaml).unwrap();
-        let version = ForgeVersion::detect(&parsed);
-        assert_eq!(version, ForgeVersion::V1_0_0);
-    }
-
-    #[test]
-    fn test_version_detection_scalars() {
-        let yaml = r"
-        revenue:
-          value: 100
-          formula: null
-        ";
-        let parsed: Value = serde_yaml::from_str(yaml).unwrap();
-        let version = ForgeVersion::detect(&parsed);
-        assert_eq!(version, ForgeVersion::V0_2_0);
-    }
 
     #[test]
     fn test_parse_number_array() {
@@ -922,7 +589,6 @@ sales:
 
         let result = parse_model(temp_file.path()).unwrap();
 
-        assert_eq!(result.version, ForgeVersion::V1_0_0);
         assert_eq!(result.tables.len(), 1);
         assert!(result.tables.contains_key("sales"));
 
@@ -953,36 +619,9 @@ summary:
 
         let result = parse_model(temp_file.path()).unwrap();
 
-        assert_eq!(result.version, ForgeVersion::V1_0_0);
         assert_eq!(result.tables.len(), 1);
         assert_eq!(result.scalars.len(), 1);
         assert!(result.scalars.contains_key("summary.total"));
-    }
-
-    #[test]
-    fn test_parse_v0_model_backwards_compat() {
-        use std::io::Write;
-        use tempfile::NamedTempFile;
-
-        let yaml_content = r#"
-revenue:
-  value: 100
-  formula: null
-
-profit:
-  value: null
-  formula: "=revenue * 0.2"
-"#;
-
-        let mut temp_file = NamedTempFile::new().unwrap();
-        temp_file.write_all(yaml_content.as_bytes()).unwrap();
-
-        let result = parse_model(temp_file.path()).unwrap();
-
-        assert_eq!(result.version, ForgeVersion::V0_2_0);
-        assert_eq!(result.tables.len(), 0); // No tables in v0.2.0
-        assert!(result.scalars.contains_key("revenue"));
-        assert!(result.scalars.contains_key("profit"));
     }
 
     #[test]
