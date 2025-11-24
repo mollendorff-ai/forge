@@ -21,4 +21,10 @@ pub enum ForgeError {
 
     #[error("Validation error: {0}")]
     Validation(String),
+
+    #[error("Excel export error: {0}")]
+    Export(String),
+
+    #[error("IO error: {0}")]
+    IO(String),
 }

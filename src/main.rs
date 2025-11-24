@@ -110,6 +110,39 @@ NOTE: Validation checks ALL files in the chain.
         /// Path to YAML file (can include other files via 'includes' section)
         file: PathBuf,
     },
+
+    #[command(long_about = "Export v1.0.0 array model to Excel .xlsx format.
+
+Converts YAML column arrays to Excel worksheets with full formula support.
+Each table becomes a separate worksheet. Formulas are translated to Excel syntax.
+
+SUPPORTED FEATURES (Phase 3.1 - Basic Export):
+  ✅ Table columns → Excel columns (A, B, C, ...)
+  ✅ Data values (Number, Text, Date, Boolean)
+  ✅ Multiple tables → Multiple worksheets
+  ✅ Scalars → Dedicated \"Scalars\" worksheet
+
+COMING SOON (Phase 3.2+):
+  ⏳ Row formulas → Excel cell formulas (=A2-B2)
+  ⏳ Cross-table references (=Sheet!Column)
+  ⏳ Aggregation formulas (=SUM(Sheet!A:A))
+
+EXAMPLE:
+  forge export quarterly_pl.yaml quarterly_pl.xlsx
+
+NOTE: Only works with v1.0.0 array models. v0.2.0 scalar models are not supported.")]
+    /// Export v1.0.0 array model to Excel .xlsx
+    Export {
+        /// Path to v1.0.0 YAML file (must have 'tables' section)
+        input: PathBuf,
+
+        /// Output Excel file path (.xlsx)
+        output: PathBuf,
+
+        /// Show verbose export steps
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 fn main() -> ForgeResult<()> {
@@ -125,5 +158,11 @@ fn main() -> ForgeResult<()> {
         Commands::Audit { file, variable } => cli::audit(file, variable),
 
         Commands::Validate { file } => cli::validate(file),
+
+        Commands::Export {
+            input,
+            output,
+            verbose,
+        } => cli::export(input, output, verbose),
     }
 }
