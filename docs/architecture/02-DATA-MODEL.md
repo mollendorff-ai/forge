@@ -1,7 +1,7 @@
 # Data Model Architecture
 
 **Document Version:** 1.0.0
-**Forge Version:** v1.1.2
+**Forge Version:** v1.2.1
 **Last Updated:** 2025-11-24
 **Status:** Complete
 
@@ -57,124 +57,7 @@ Forge's data model follows these principles:
 
 ### Type Hierarchy
 
-```plantuml
-@startuml type-hierarchy
-!theme plain
-title Forge Type System Hierarchy
-
-abstract class Value {
-  +type_name(): &str
-  +is_empty(): bool
-}
-
-enum ForgeVersion {
-  V0_2_0
-  V1_0_0
-  --
-  +detect(yaml: &Value): Self
-}
-
-enum ColumnValue {
-  Number(Vec<f64>)
-  Text(Vec<String>)
-  Date(Vec<String>)
-  Boolean(Vec<bool>)
-  --
-  +len(): usize
-  +is_empty(): bool
-  +type_name(): &str
-}
-
-class Column {
-  +name: String
-  +values: ColumnValue
-  --
-  +new(name, values): Self
-  +len(): usize
-  +is_empty(): bool
-}
-
-class Table {
-  +name: String
-  +columns: HashMap<String, Column>
-  +row_formulas: HashMap<String, String>
-  --
-  +new(name): Self
-  +add_column(Column)
-  +add_row_formula(name, formula)
-  +row_count(): usize
-  +validate_lengths(): Result<()>
-}
-
-class ParsedModel {
-  +version: ForgeVersion
-  +tables: HashMap<String, Table>
-  +scalars: HashMap<String, Variable>
-  +includes: Vec<Include>
-  +aggregations: HashMap<String, String>
-  --
-  +new(version): Self
-  +add_table(Table)
-  +add_scalar(name, Variable)
-  +add_aggregation(name, formula)
-}
-
-class Variable {
-  +path: String
-  +value: Option<f64>
-  +formula: Option<String>
-  +alias: Option<String>
-}
-
-class Include {
-  +file: String
-  +r#as: String
-}
-
-enum ForgeError {
-  IO(String)
-  Parse(String)
-  Eval(String)
-  CircularDependency(String)
-  Validation(String)
-  Export(String)
-  Import(String)
-}
-
-Value <|-- ColumnValue : implements
-ParsedModel --> ForgeVersion : uses
-ParsedModel --> Table : contains
-ParsedModel --> Variable : contains
-ParsedModel --> Include : contains
-Table --> Column : contains
-Column --> ColumnValue : contains
-
-note right of ColumnValue
-
-#### Homogeneous Arrays
-
-  All elements must be
-  the same type
-end note
-
-note bottom of ParsedModel
-
-#### Unified Model
-
-  Supports both v0.2.0
-  and v1.0.0 formats
-end note
-
-note right of ForgeError
-
-#### Error Handling
-
-  All operations return
-  ForgeResult<T>
-end note
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Type Categories
 
@@ -466,48 +349,7 @@ impl Table {
 
 **Table Structure Diagram:**
 
-```plantuml
-@startuml table-structure
-!theme plain
-title Table Structure - In-Memory Representation
-
-object Table {
-  name = "pl_2025"
-}
-
-map "columns: HashMap" as cols {
-  "revenue" => Column(Number[4])
-  "cogs" => Column(Number[4])
-  "quarter" => Column(Text[4])
-}
-
-map "row_formulas: HashMap" as formulas {
-  "gross_profit" => "=revenue - cogs"
-  "gross_margin" => "=gross_profit / revenue"
-}
-
-Table --> cols
-Table --> formulas
-
-note right of Table
-
-#### Row Count: 4
-
-  All columns must have
-  exactly 4 elements
-end note
-
-note bottom of formulas
-
-#### Formula Columns
-
-  Not yet calculated
-  Will be added to columns
-  after evaluation
-end note
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 **Examples:**
 
@@ -611,39 +453,7 @@ impl ParsedModel {
 
 **Model Lifecycle:**
 
-```plantuml
-@startuml model-lifecycle
-!theme plain
-title ParsedModel Lifecycle
-
-state "YAML File" as yaml
-state "Parsing" as parse
-state "Validated Model" as validated
-state "Calculated Model" as calculated
-state "Serialized" as serialized
-
-[*] --> yaml : User creates
-
-yaml --> parse : parse_model()
-parse --> validated : version detected,\nstructure validated
-
-validated --> calculated : ArrayCalculator::calculate_all()
-note right
-  Tables calculated first,
-  then scalars
-end note
-
-calculated --> serialized : serde_yaml::to_string()
-serialized --> [*] : write to file
-
-validated --> serialized : export to Excel
-note right
-  Skip calculation,
-  export raw data
-end note
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### 5. Variable Struct (v0.2.0 Scalars)
 
@@ -767,46 +577,7 @@ impl ForgeVersion {
 
 **Detection Algorithm:**
 
-```plantuml
-@startuml version-detection
-!theme plain
-title Version Detection Algorithm
-
-start
-
-:Read YAML;
-
-if (Has "_forge_version: 1.0.x"?) then (yes)
-  :Return V1_0_0;
-  stop
-endif
-
-if (Has "includes:" field?) then (yes)
-  :Return V0_2_0;
-  note right
-    includes indicates
-    cross-file refs
-    (v0.2.0 only)
-  end note
-  stop
-endif
-
-if (Has "tables:" with "columns:"?) then (yes)
-  :Return V1_0_0;
-  stop
-endif
-
-if (Contains array values?) then (yes)
-  :Return V1_0_0;
-  stop
-endif
-
-:Return V0_2_0\n(backwards compatible);
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ---
 
@@ -893,68 +664,7 @@ summary:
 
 **Data Structure:**
 
-```plantuml
-@startuml v1-data-structure
-!theme plain
-title v1.0.0 Data Structure
-
-object "ParsedModel" as model {
-  version = V1_0_0
-}
-
-map "tables" as tables {
-  "pl_2025" => Table
-}
-
-object "Table: pl_2025" as table {
-  name = "pl_2025"
-  row_count = 4
-}
-
-map "columns" as cols {
-  "revenue" => [100k, 120k, 150k, 180k]
-  "cogs" => [30k, 36k, 45k, 54k]
-  "quarter" => ["Q1", "Q2", "Q3", "Q4"]
-}
-
-map "row_formulas" as formulas {
-  "gross_profit" => "=revenue - cogs"
-  "gross_margin" => "=gross_profit / revenue"
-}
-
-map "scalars" as scalars {
-  "summary.total_revenue" => Variable
-  "summary.avg_margin" => Variable
-}
-
-model --> tables
-tables --> table
-table --> cols
-table --> formulas
-model --> scalars
-
-note right of formulas
-
-#### Row-wise formulas
-
-  Evaluated per row:
-  gross_profit[0] = revenue[0] - cogs[0]
-  gross_profit[1] = revenue[1] - cogs[1]
-  ...
-end note
-
-note bottom of scalars
-
-#### Aggregations
-
-  Reduce columns to scalars:
-  total_revenue = SUM(revenue)
-  = 100k + 120k + 150k + 180k
-  = 550k
-end note
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ---
 
@@ -1121,61 +831,7 @@ ColumnValue::Text(vec!["High".to_string(), "Low".to_string(), ...])
 
 ### Parse → Calculate → Write Pipeline
 
-```plantuml
-@startuml data-flow
-!theme plain
-title Data Flow Through Forge
-
-participant "YAML File" as yaml
-participant "Parser" as parser
-participant "ParsedModel" as model
-participant "ArrayCalculator" as calc
-participant "xlformula_engine" as xle
-participant "Writer" as writer
-
-yaml -> parser : read file
-activate parser
-
-parser -> parser : serde_yaml::from_str()
-parser -> model : new(version)
-activate model
-
-parser -> model : add_table(table)
-parser -> model : add_scalar(scalar)
-
-parser --> calc : ParsedModel\n(ownership transferred)
-deactivate parser
-deactivate model
-
-activate calc
-
-calc -> calc : Phase 1: Calculate tables
-loop for each table
-  loop for each row
-    calc -> xle : calculate(formula, row_idx)
-    xle --> calc : result
-    calc -> model : add calculated value
-  end
-end
-
-calc -> calc : Phase 2: Calculate scalars
-loop for each scalar
-  calc -> xle : calculate(aggregation)
-  xle --> calc : result
-  calc -> model : update scalar value
-end
-
-calc --> writer : ParsedModel\n(with calculated values)
-deactivate calc
-
-activate writer
-
-writer -> writer : serde_yaml::to_string()
-writer -> yaml : write updated file
-deactivate writer
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Memory Ownership Transfer
 
@@ -1442,73 +1098,7 @@ impl From<serde_yaml::Error> for ForgeError {
 
 ### Error Hierarchy
 
-```plantuml
-@startuml error-hierarchy
-!theme plain
-title Error Type Hierarchy
-
-enum ForgeError {
-  IO(String)
-  Parse(String)
-  Eval(String)
-  CircularDependency(String)
-  Validation(String)
-  Export(String)
-  Import(String)
-}
-
-note right of ForgeError::IO
-
-#### IO Errors
-
-  - File not found
-  - Permission denied
-  - Disk full
-
-end note
-
-note right of ForgeError::Parse
-
-#### Parse Errors
-
-  - Invalid YAML syntax
-  - Type mismatch
-  - Missing required field
-
-end note
-
-note right of ForgeError::Eval
-
-#### Evaluation Errors
-
-  - Column not found
-  - Formula syntax error
-  - Division by zero
-  - Type error in formula
-
-end note
-
-note right of ForgeError::CircularDependency
-
-#### Circular Dependencies
-
-  - A depends on B, B depends on A
-  - Detected during topological sort
-
-end note
-
-note right of ForgeError::Validation
-
-#### Validation Errors
-
-  - Column length mismatch
-  - Schema validation failed
-  - Invalid date format
-
-end note
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Error Usage Examples
 

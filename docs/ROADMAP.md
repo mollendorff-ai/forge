@@ -4,7 +4,7 @@ User-friendly version of the development roadmap.
 
 ## ✅ Completed
 
-### v1.1.0 (November 2025) - Essential Excel Functions
+### v1.2.1 (November 2025) - Essential Excel Functions
 
 - ✅ Conditional aggregations (SUMIF, COUNTIF, AVERAGEIF, +5 more)
 - ✅ Math & precision (ROUND, SQRT, POWER, +5 more)
@@ -100,7 +100,7 @@ Vote for features: https://github.com/royalbit/forge/discussions
 
 ## 📈 Development Stats
 
-- **v1.1.0**: <4 hours, 27 functions, 136 tests
+- **v1.2.1**: <4 hours, 27 functions, 136 tests
 - **v1.0.0**: 8.5 hours, complete rewrite, 100 tests
 - **Velocity**: 20-50x faster than traditional development
 - **Quality**: Zero bugs shipped, zero warnings

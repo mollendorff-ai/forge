@@ -287,18 +287,10 @@ validate-yaml:
 	fi
 
 validate-diagrams:
-	@echo "🎨 Validating PlantUML diagrams..."
+	@echo "🎨 Diagram validation (Mermaid diagrams are validated by GitHub)"
+	@echo "✅ Mermaid diagrams embedded in markdown - no validation needed"
 	@if [ -d "diagrams" ] && find diagrams -name "*.puml" -o -name "*.plantuml" 2>/dev/null | grep -q .; then \
-		if [ -x "bin/validate-plantuml.sh" ]; then \
-			./bin/validate-plantuml.sh; \
-		else \
-			echo "❌ Validation script not found or not executable"; \
-			echo "    Run: chmod +x bin/validate-plantuml.sh"; \
-			exit 1; \
-		fi; \
-	else \
-		echo "ℹ️  No .puml files found in diagrams/ (see diagrams/README.md to get started)"; \
-		echo "✅ Diagram validation skipped"; \
+		echo "⚠️  Warning: Found old PlantUML files in diagrams/ - consider removing"; \
 	fi
 
 validate-all: validate-docs validate-yaml validate-diagrams

@@ -1,7 +1,7 @@
 # Testing Architecture
 
 **Document Version:** 1.0.0
-**Forge Version:** v1.1.2
+**Forge Version:** v1.2.1
 **Last Updated:** 2025-11-24
 **Status:** Complete
 
@@ -78,72 +78,7 @@ Forge tests focus on:
 
 ### Testing Philosophy
 
-```plantuml
-@startuml test-strategy
-!theme plain
-title Forge Testing Strategy
-
-package "Unit Tests (86)" {
-  [Formula Evaluation]
-  [Data Type Conversion]
-  [Column Mapping]
-  [Dependency Graph]
-  [Parser Logic]
-}
-
-package "Integration Tests (6)" {
-  [Parser + Calculator]
-  [Calculator + Writer]
-  [Exporter + Translator]
-}
-
-package "E2E Tests (33)" {
-  [CLI Commands]
-  [File I/O]
-  [Error Messages]
-  [Cross-File Refs]
-}
-
-package "Validation Tests (5)" {
-  [Stale Detection]
-  [Calculate Updates]
-}
-
-package "Doc Tests (3)" {
-  [README Examples]
-  [Code Comments]
-}
-
-[Unit Tests (86)] --> [Fast Feedback\n<1 second]
-[Integration Tests (6)] --> [Component Interaction\n<2 seconds]
-[E2E Tests (33)] --> [Real Usage\n<10 seconds]
-[Validation Tests (5)] --> [Correctness\n<2 seconds]
-[Doc Tests (3)] --> [Documentation\n<1 second]
-
-note right of [Unit Tests (86)]
-
-#### Focus
-
-  - Individual functions
-  - Pure logic
-  - Type conversions
-  - Edge cases
-
-end note
-
-note right of [E2E Tests (33)]
-
-#### Focus
-
-  - Full CLI workflow
-  - File operations
-  - Error handling
-  - User experience
-
-end note
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### What to Test
 
@@ -235,7 +170,7 @@ end note
 - Array calculator tests
 - Excel export tests
 
-**v1.1.0 (November 2023):**
+**v1.2.1 (November 2023):**
 
 - 136 tests (+36)
 - 27 new function tests
@@ -1646,4 +1581,4 @@ fn test_old_implementation() {
 
 **End of Testing Architecture Documentation**
 
-This completes the comprehensive testing architecture guide for Forge v1.1.2. For questions or contributions, see [README.md](../../README.md).
+This completes the comprehensive testing architecture guide for Forge v1.2.1. For questions or contributions, see [README.md](../../README.md).

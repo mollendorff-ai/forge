@@ -1,7 +1,7 @@
 # Forge Architecture Overview
 
 **Document Version:** 1.0.0
-**Forge Version:** v1.1.2
+**Forge Version:** v1.2.1
 **Last Updated:** 2025-11-24
 **Status:** Complete
 
@@ -56,73 +56,43 @@ Forge provides:
 
 ## System Context
 
-```plantuml
-@startuml system-context
-!theme plain
-title Forge System Context - Who Uses Forge and What Systems It Integrates With
+```mermaid
+graph TB
+    %% External Actors
+    analyst["👤 Financial Analyst<br/>Quarterly P&L, Budgets,<br/>Sensitivity Analysis"]
+    datascientist["👤 Data Scientist<br/>Data Processing,<br/>Transform & Validate"]
+    developer["👤 Developer<br/>Automate Calculations,<br/>App Integration"]
+    business["👤 Business User<br/>Business Logic,<br/>Pricing, Unit Economics"]
 
-' External actors
-actor "Financial Analyst" as analyst #LightBlue
-actor "Data Scientist" as datascientist #LightBlue
-actor "Developer" as developer #LightBlue
-actor "Business User" as business #LightBlue
+    %% Forge System
+    forge["🔥 Forge<br/>YAML Formula Calculator<br/><br/>✓ Calculate formulas<br/>✓ Validate models<br/>✓ Export to Excel<br/>✓ Import from Excel<br/>✓ Cross-file references<br/><br/>Zero Hallucinations:<br/>50+ Excel functions<br/>Type-safe arrays"]
 
-' Forge system (center)
-rectangle "Forge\nYAML Formula Calculator" as forge #LightGreen {
-}
+    %% External Systems
+    git[("📦 Git Repository<br/>Version Control")]
+    excel[("📊 Excel Files<br/>.xlsx")]
+    yaml[("📄 YAML Files")]
+    cicd[("⚙️ CI/CD Pipeline<br/>Automated Validation")]
 
-' External systems
-database "Git Repository" as git #LightGray
-file "Excel Files (.xlsx)" as excel #LightGray
-file "YAML Files" as yaml #LightGray
-cloud "CI/CD Pipeline" as cicd #LightGray
+    %% Relationships
+    analyst -->|Creates financial models| forge
+    datascientist -->|Data processing & analysis| forge
+    developer -->|Automates calculations| forge
+    business -->|Business logic modeling| forge
 
-' Relationships
-analyst --> forge : Creates financial models
-datascientist --> forge : Data processing & analysis
-developer --> forge : Automates calculations
-business --> forge : Business logic modeling
+    forge -->|Reads/Writes| yaml
+    forge -->|Imports/Exports| excel
+    forge <-->|Version control| git
+    cicd -->|Automated validation| forge
 
-forge --> yaml : Reads/Writes
-forge --> excel : Imports/Exports
-forge <--> git : Version control
-cicd --> forge : Automated validation
+    %% Styling
+    classDef forgeStyle fill:#90EE90,stroke:#333,stroke-width:3px
+    classDef userStyle fill:#ADD8E6,stroke:#333,stroke-width:2px
+    classDef systemStyle fill:#E0E0E0,stroke:#333,stroke-width:2px
 
-' Notes
-note right of forge
-
-#### Core Capabilities
-
-  - Calculate formulas
-  - Validate models
-  - Export to Excel
-  - Import from Excel
-  - Cross-file references
-
-end note
-
-note left of analyst
-
-#### Use Cases
-
-  - Quarterly P&L models
-  - Budget vs Actual
-  - SaaS unit economics
-  - Financial projections
-
-end note
-
-note bottom of forge
-
-#### Zero Hallucinations
-
-  Deterministic calculations
-  50+ Excel functions
-  Type-safe arrays
-end note
-
-@enduml
-```text
+    class forge forgeStyle
+    class analyst,datascientist,developer,business userStyle
+    class git,excel,yaml,cicd systemStyle
+```
 
 ### Users
 
@@ -190,117 +160,77 @@ end note
 
 ## High-Level Architecture
 
-```plantuml
-@startuml high-level-architecture
-!theme plain
-title Forge v1.1.0 High-Level Architecture
+```mermaid
+graph TB
+    %% User layer
+    user["☁️ User<br/>forge calculate<br/>forge validate<br/>forge export<br/>forge import"]
 
-' Top: User interaction
-cloud "User" as user
+    %% CLI Layer
+    subgraph cli["🔷 CLI Layer"]
+        main["main.rs"]
+        commands["cli/commands.rs"]
+    end
 
-' CLI Layer
-package "CLI Layer" #LightBlue {
-  [main.rs] as main
-  [cli/commands.rs] as commands
-}
+    %% Core Processing
+    subgraph core["🟢 Core Processing"]
+        parser["parser/mod.rs"]
+        calc["core/array_calculator.rs<br/><br/>v1.0.0 Calculator:<br/>• Array operations<br/>• Row-wise formulas<br/>• Aggregation formulas<br/>• 50+ Excel functions"]
+        legacy_calc["core/calculator.rs<br/><br/>v0.2.0 Calculator:<br/>• Scalar operations<br/>• Cross-file references<br/>• Backwards compatibility"]
+        writer["writer/mod.rs"]
+    end
 
-' Core Processing
-package "Core Processing" #LightGreen {
-  [parser/mod.rs] as parser
-  [core/array_calculator.rs] as calc
-  [core/calculator.rs] as legacy_calc
-  [writer/mod.rs] as writer
-}
+    %% Excel Integration
+    subgraph excel["🟡 Excel Integration"]
+        exporter["excel/exporter.rs"]
+        importer["excel/importer.rs"]
+        translator["excel/formula_translator.rs"]
+    end
 
-' Excel Integration
-package "Excel Integration" #LightYellow {
-  [excel/exporter.rs] as exporter
-  [excel/importer.rs] as importer
-  [excel/formula_translator.rs] as translator
-}
+    %% Data Structures
+    subgraph data["🔵 Data Structures"]
+        types["types.rs<br/><br/>Type-Safe Data:<br/>• ColumnValue enum<br/>• Table struct<br/>• ParsedModel"]
+        errors["error.rs"]
+    end
 
-' Data Layer
-package "Data Structures" #LightCyan {
-  [types.rs] as types
-  [error.rs] as errors
-}
+    %% External Libraries
+    subgraph ext["⬜ External Libraries"]
+        xle[("xlformula_engine")]
+        graph[("petgraph")]
+        yaml[("serde_yaml")]
+        xlsx_writer[("rust_xlsxwriter")]
+        xlsx_reader[("calamine")]
+    end
 
-' External Dependencies
-package "External Libraries" #LightGray {
-  database "xlformula_engine" as xle
-  database "petgraph" as graph
-  database "serde_yaml" as yaml
-  database "rust_xlsxwriter" as xlsx_writer
-  database "calamine" as xlsx_reader
-}
+    %% User interactions
+    user --> main
+    main --> commands
 
-' User interactions
-user --> main : "forge calculate\nforge validate\nforge export\nforge import"
-main --> commands
+    %% Command routing
+    commands -->|parse YAML| parser
+    commands -->|calculate v1.0| calc
+    commands -->|calculate v0.2| legacy_calc
+    commands -->|export to Excel| exporter
+    commands -->|import from Excel| importer
+    commands -->|write YAML| writer
 
-' Command routing
-commands --> parser : parse YAML
-commands --> calc : calculate (v1.0)
-commands --> legacy_calc : calculate (v0.2)
-commands --> exporter : export to Excel
-commands --> importer : import from Excel
-commands --> writer : write YAML
+    %% Core dependencies
+    parser -->|deserialize| yaml
+    parser -->|create Model| types
+    calc -->|evaluate formulas| xle
+    calc -->|resolve dependencies| graph
+    calc -->|operate on data| types
+    calc --> errors
+    legacy_calc -->|evaluate formulas| xle
+    legacy_calc -->|resolve dependencies| graph
+    writer -->|serialize| yaml
+    parser --> errors
 
-' Core dependencies
-parser --> yaml : deserialize
-parser --> types : create Model
-calc --> xle : evaluate formulas
-calc --> graph : resolve dependencies
-calc --> types : operate on data
-legacy_calc --> xle : evaluate formulas
-legacy_calc --> graph : resolve dependencies
-writer --> yaml : serialize
-
-' Excel dependencies
-exporter --> xlsx_writer : create workbook
-exporter --> translator : translate formulas
-importer --> xlsx_reader : read workbook
-importer --> translator : reverse translate
-
-' Cross-module
-calc --> types
-parser --> errors
-calc --> errors
-
-' Notes
-note right of calc
-
-#### v1.0.0 Calculator
-
-  - Array operations
-  - Row-wise formulas
-  - Aggregation formulas
-  - 50+ Excel functions
-
-end note
-
-note right of legacy_calc
-
-#### v0.2.0 Calculator
-
-  - Scalar operations
-  - Cross-file references
-  - Backwards compatibility
-
-end note
-
-note bottom of types
-
-#### Type-Safe Data
-
-  - ColumnValue enum
-  - Table struct
-  - ParsedModel
-
-end note
-
-@enduml
-```text
+    %% Excel dependencies
+    exporter -->|create workbook| xlsx_writer
+    exporter -->|translate formulas| translator
+    importer -->|read workbook| xlsx_reader
+    importer -->|reverse translate| translator
+```
 
 ---
 
@@ -335,7 +265,7 @@ end note
 - **cargo test** - Unit, integration, and e2e testing
 - **markdownlint-cli2** - Markdown validation
 - **yamllint** - YAML validation
-- **PlantUML** - Architecture diagrams
+- **Mermaid** - Architecture diagrams (GitHub-native rendering)
 
 ---
 
@@ -529,7 +459,7 @@ Excel Workbook
 - 100 tests passing
 - 12.5 hours development time (autonomous AI)
 
-### v1.1.0 (November 2023)
+### v1.2.1 (November 2023)
 
 - **27 new Excel functions** (conditional, math, text, date)
 - 136 tests passing
@@ -598,7 +528,7 @@ Financial calculations must be **unambiguous**:
 
 - ✅ **20-50x velocity** vs manual coding (warmup protocol)
 - ✅ **12.5 hours** for v1.0.0 (autonomous AI)
-- ✅ **<8 hours** for v1.1.0 (27 functions)
+- ✅ **<8 hours** for v1.2.1 (27 functions)
 - ✅ **Zero rework** (correct first time)
 
 ---

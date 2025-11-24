@@ -14,7 +14,7 @@ Complete reference for all Forge capabilities.
 
 ### 47+ Excel-Compatible Functions
 
-**v1.1.0 Functions (27 new):**
+**v1.2.1 Functions (27 new):**
 
 - Conditional: SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, AVERAGEIFS, MAXIFS, MINIFS
 - Math: ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER

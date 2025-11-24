@@ -1,6 +1,6 @@
 # Forge Architecture Documentation
 
-## Complete technical documentation for Forge v1.1.2 architecture
+## Complete technical documentation for Forge v1.2.1 architecture
 
 **Last Updated:** 2025-11-24
 
@@ -316,7 +316,7 @@ Then read others as needed based on your work area.
 
 - **[../../README.md](../../README.md)** - User guide, features, quick start
 - **[../../DESIGN_V1.md](../../DESIGN_V1.md)** - v1.0.0 array model specification (800+ lines)
-- **[../../CHANGELOG.md](../../CHANGELOG.md)** - Version history (v0.1.0 → v1.1.2)
+- **[../../CHANGELOG.md](../../CHANGELOG.md)** - Version history (v0.1.0 → v1.2.1)
 - **[../../KNOWN_BUGS.md](../../KNOWN_BUGS.md)** - Known issues and workarounds
 
 ### Related Developer Documentation
@@ -438,7 +438,7 @@ make validate-docs
 
 git add docs/architecture/
 git commit -m "docs: Update formula evaluation for NEW_FUNCTION"
-```text
+```
 
 ### Quarterly Review
 
@@ -544,7 +544,7 @@ When creating new architecture docs, follow this structure:
 
 **Previous:** [link]
 **Next:** [link]
-```text
+```
 
 ---
 
