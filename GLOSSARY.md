@@ -542,6 +542,132 @@ tax_rate:
 
 ---
 
+## Diagram Terms
+
+### PlantUML
+
+**Correct:** PlantUML (capitalized P, capitalized UML, no space)
+
+**Wrong:** plantuml, Plant UML, PlantUml, PLANTUML
+
+**Definition:** Open-source tool for creating UML and architecture diagrams from plain text descriptions.
+
+**Usage:**
+
+- ✅ "Create diagrams with PlantUML"
+- ✅ "PlantUML server validation"
+- ❌ "plantuml diagrams" (wrong capitalization)
+
+**File extensions:** `.puml` or `.plantuml`
+
+---
+
+### .puml (file extension)
+
+**Correct:** .puml (lowercase, dot prefix)
+
+**Wrong:** .PUML, .Puml, .plantuml (use .puml as primary)
+
+**Definition:** File extension for PlantUML diagram source files.
+
+**Usage:**
+
+- ✅ `diagrams/architecture-overview.puml`
+- ✅ "Validate all .puml files"
+- ⚠️ `.plantuml` (acceptable but .puml preferred)
+
+**Naming:** Use kebab-case: `data-model-v1.0.puml`
+
+---
+
+### Sequence diagram
+
+**Correct:** sequence diagram (lowercase, two words)
+
+**Wrong:** sequence-diagram, sequenceDiagram, Sequence Diagram (unless title case)
+
+**Definition:** Diagram showing interactions between components over time, typically for workflows or protocols.
+
+**Usage:**
+
+- ✅ "Create a sequence diagram for the calculate workflow"
+- ✅ "Sequence diagrams show time-ordered interactions"
+- ❌ "Sequence-diagram validation" (no hyphen)
+
+**When to use:** User workflows, API call sequences, multi-step processes
+
+---
+
+### Component diagram
+
+**Correct:** component diagram (lowercase, two words)
+
+**Wrong:** component-diagram, componentDiagram
+
+**Definition:** Diagram showing system architecture, modules, and their relationships.
+
+**Usage:**
+
+- ✅ "Component diagram of Forge architecture"
+- ✅ "Use component diagrams for high-level structure"
+
+**When to use:** System architecture, module dependencies, integration points
+
+---
+
+### Class diagram
+
+**Correct:** class diagram (lowercase, two words)
+
+**Wrong:** class-diagram, classDiagram, UML class diagram (redundant - all class diagrams are UML)
+
+**Definition:** Diagram showing data structures, types, and their relationships.
+
+**Usage:**
+
+- ✅ "Class diagram of the v1.0.0 data model"
+- ✅ "Class diagrams document type hierarchies"
+
+**When to use:** Data models, type systems, inheritance relationships
+
+---
+
+### Flowchart
+
+**Correct:** flowchart (lowercase, one word)
+
+**Wrong:** flow-chart, flow chart, FlowChart
+
+**Definition:** Diagram showing decision logic, algorithms, or process flows.
+
+**Usage:**
+
+- ✅ "Flowchart for formula evaluation logic"
+- ✅ "Use flowcharts for complex decision trees"
+- ❌ "Flow-chart diagram" (flowchart is one word)
+
+**When to use:** Decision logic, algorithms, conditional flows
+
+---
+
+### diagrams/ (directory)
+
+**Correct:** diagrams/ (lowercase, no hyphen, trailing slash when referring to directory)
+
+**Wrong:** Diagrams/, diagram/, DIAGRAMS/
+
+**Definition:** Directory containing PlantUML diagram source files (.puml).
+
+**Usage:**
+
+- ✅ `diagrams/architecture-overview.puml`
+- ✅ "Store all diagrams in diagrams/"
+- ❌ `Diagrams/overview.puml` (wrong case)
+
+**Structure:** Flat directory (no subdirectories yet)
+
+---
+
 ## Style Consistency
 
 ### Zero tolerance

@@ -293,6 +293,68 @@ session_initialization:
 
         reminder: "💰 This documentation = real money in tax credits. Don't skip it!"
 
+      diagrams:
+        description: "📊 PlantUML architecture and design diagrams"
+        importance: "Visual documentation for complex systems"
+        location: "diagrams/"
+        format: ".puml files (PlantUML syntax)"
+        server: "https://www.plantuml.com/plantuml"
+
+        when_to_create:
+          major_versions:
+            - "New major release (v1.0, v2.0) - architecture overview"
+            - "Significant architectural changes - component diagrams"
+            - "New subsystems - integration diagrams"
+          complex_features:
+            - "Multi-step workflows - sequence diagrams"
+            - "Decision logic - flowcharts"
+            - "Data model changes - class diagrams"
+          documentation:
+            - "README needs visual aid - architecture diagram"
+            - "DESIGN_V1 explaining algorithms - flow diagram"
+            - "SRED explaining novel approach - sequence/component diagram"
+
+        diagram_types:
+          sequence:
+            when: "User workflows, cross-component interactions"
+            example: "forge calculate workflow, export with formulas"
+          component:
+            when: "System architecture, module relationships"
+            example: "Core engine, Excel bridge, CLI interface"
+          class:
+            when: "Data models, type systems"
+            example: "v1.0.0 array model, ColumnValue enum"
+          flowchart:
+            when: "Decision logic, algorithms"
+            example: "Formula evaluation, dependency resolution"
+
+        workflow:
+          - "1️⃣ Create .puml file in diagrams/"
+          - "2️⃣ Write PlantUML syntax (see diagrams/README.md for examples)"
+          - "3️⃣ Validate: make validate-diagrams"
+          - "4️⃣ Reference from documentation (README, DESIGN_V1, etc.)"
+          - "5️⃣ Commit .puml file + updated docs together"
+
+        best_practices:
+          - "Use kebab-case naming: architecture-overview.puml"
+          - "Include version if specific: data-model-v1.0.puml"
+          - "Add title and theme: title My Diagram, !theme plain"
+          - "Check GLOSSARY.md for canonical term names"
+          - "Keep focused: max 15-20 elements per diagram"
+          - "Add notes to explain complex parts"
+
+        validation:
+          command: "make validate-diagrams"
+          what_it_checks: "Syntax errors via PlantUML server"
+          when_to_run: "After creating/editing .puml files, before commit"
+
+        resources:
+          guide: "diagrams/README.md"
+          web_editor: "https://www.plantuml.com/plantuml/uml/"
+          docs: "https://plantuml.com/guide"
+
+        reminder: "📊 A diagram is worth a thousand words. Use them for complex systems!"
+
       documentation:
         update_when:
           - "Adding new features → Update README.md"
