@@ -57,7 +57,6 @@ Forge provides:
 ## System Context
 
 ```mermaid
-%%{init: {'theme':'dark'}}%%
 graph TB
     %% External Actors
     analyst["👤 Financial Analyst<br/>Quarterly P&L, Budgets,<br/>Sensitivity Analysis"]
@@ -84,15 +83,6 @@ graph TB
     forge -->|Imports/Exports| excel
     forge <-->|Version control| git
     cicd -->|Automated validation| forge
-
-    %% Styling
-    classDef forgeStyle fill:#90EE90,stroke:#333,stroke-width:3px
-    classDef userStyle fill:#ADD8E6,stroke:#333,stroke-width:2px
-    classDef systemStyle fill:#E0E0E0,stroke:#333,stroke-width:2px
-
-    class forge forgeStyle
-    class analyst,datascientist,developer,business userStyle
-    class git,excel,yaml,cicd systemStyle
 ```
 
 ### Users
@@ -162,19 +152,18 @@ graph TB
 ## High-Level Architecture
 
 ```mermaid
-%%{init: {'theme':'dark'}}%%
 graph TB
     %% User layer
     user["☁️ User<br/>forge calculate<br/>forge validate<br/>forge export<br/>forge import"]
 
     %% CLI Layer
-    subgraph cli["🔷 CLI Layer"]
+    subgraph cli["CLI Layer"]
         main["main.rs"]
         commands["cli/commands.rs"]
     end
 
     %% Core Processing
-    subgraph core["🟢 Core Processing"]
+    subgraph core["Core Processing"]
         parser["parser/mod.rs"]
         calc["core/array_calculator.rs<br/><br/>v1.0.0 Calculator:<br/>• Array operations<br/>• Row-wise formulas<br/>• Aggregation formulas<br/>• 50+ Excel functions"]
         legacy_calc["core/calculator.rs<br/><br/>v0.2.0 Calculator:<br/>• Scalar operations<br/>• Cross-file references<br/>• Backwards compatibility"]
@@ -182,20 +171,20 @@ graph TB
     end
 
     %% Excel Integration
-    subgraph excel["🟡 Excel Integration"]
+    subgraph excel["Excel Integration"]
         exporter["excel/exporter.rs"]
         importer["excel/importer.rs"]
         translator["excel/formula_translator.rs"]
     end
 
     %% Data Structures
-    subgraph data["🔵 Data Structures"]
+    subgraph data["Data Structures"]
         types["types.rs<br/><br/>Type-Safe Data:<br/>• ColumnValue enum<br/>• Table struct<br/>• ParsedModel"]
         errors["error.rs"]
     end
 
     %% External Libraries
-    subgraph ext["⬜ External Libraries"]
+    subgraph ext["External Libraries"]
         xle[("xlformula_engine")]
         graph[("petgraph")]
         yaml[("serde_yaml")]
