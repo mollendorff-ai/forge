@@ -297,7 +297,7 @@ impl ArrayCalculator {
                 .and_then(|v| v.formula.clone());
 
             if let Some(formula) = formula {
-                let value = self.evaluate_scalar_formula(&formula)?;
+                let value = self.evaluate_scalar_formula(&formula, &scalar_name)?;
 
                 // Update the scalar with calculated value
                 if let Some(var) = self.model.scalars.get_mut(&scalar_name) {
@@ -374,7 +374,7 @@ impl ArrayCalculator {
     }
 
     /// Evaluate a scalar formula (aggregations, array indexing, scalar operations)
-    fn evaluate_scalar_formula(&self, formula: &str) -> ForgeResult<f64> {
+    fn evaluate_scalar_formula(&self, formula: &str, scalar_name: &str) -> ForgeResult<f64> {
         let formula_str = if !formula.starts_with('=') {
             format!("={}", formula.trim())
         } else {
@@ -400,11 +400,11 @@ impl ArrayCalculator {
             } else {
                 // Complex formula with array indexing - preprocess it
                 let processed = self.preprocess_array_indexing(&formula_str)?;
-                self.evaluate_scalar_with_resolver(&processed)
+                self.evaluate_scalar_with_resolver(&processed, scalar_name)
             }
         } else {
             // Regular scalar formula - use xlformula_engine
-            self.evaluate_scalar_with_resolver(&formula_str)
+            self.evaluate_scalar_with_resolver(&formula_str, scalar_name)
         }
     }
 
@@ -579,16 +579,36 @@ impl ArrayCalculator {
     }
 
     /// Evaluate scalar formula with variable resolver
-    fn evaluate_scalar_with_resolver(&self, formula: &str) -> ForgeResult<f64> {
-        let resolver = |var_name: String| -> types::Value {
-            // Try to find scalar variable
+    fn evaluate_scalar_with_resolver(&self, formula: &str, scalar_name: &str) -> ForgeResult<f64> {
+        // Extract parent section from scalar_name (e.g., "annual_2025" from "annual_2025.total_revenue")
+        let parent_section = if let Some(dot_pos) = scalar_name.rfind('.') {
+            Some(scalar_name[..dot_pos].to_string())
+        } else {
+            None
+        };
+
+        let resolver = move |var_name: String| -> types::Value {
+            // Strategy 1: Try exact match
             if let Some(var) = self.model.scalars.get(&var_name) {
                 if let Some(value) = var.value {
                     return types::Value::Number(value as f32);
                 }
             }
 
-            // Try table.column reference (returns first value)
+            // Strategy 2: If we're in a section and var_name is simple, try prefixing with parent section
+            if let Some(ref section) = parent_section {
+                if !var_name.contains('.') {
+                    // Simple name - try prefixing with parent section
+                    let scoped_name = format!("{}.{}", section, var_name);
+                    if let Some(var) = self.model.scalars.get(&scoped_name) {
+                        if let Some(value) = var.value {
+                            return types::Value::Number(value as f32);
+                        }
+                    }
+                }
+            }
+
+            // Strategy 3: Try table.column reference (returns first value)
             if var_name.contains('.') {
                 if let Ok((table_name, col_name)) = self.parse_table_column_ref(&var_name) {
                     if let Some(table) = self.model.tables.get(&table_name) {
