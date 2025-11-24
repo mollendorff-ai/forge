@@ -2,4 +2,4 @@
 
 pub mod commands;
 
-pub use commands::{audit, calculate, validate};
+pub use commands::{audit, calculate, export, import, validate};

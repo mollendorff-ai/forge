@@ -42,7 +42,7 @@ test:
         .arg("validate")
         .arg(temp_file.path())
         .output()
-        .expect("Failed to execute mouvify-forge");
+        .expect("Failed to execute forge");
 
     assert!(
         output.status.success(),
@@ -75,7 +75,7 @@ test:
         .arg("validate")
         .arg(temp_file.path())
         .output()
-        .expect("Failed to execute mouvify-forge");
+        .expect("Failed to execute forge");
 
     assert!(
         !output.status.success(),
@@ -111,7 +111,7 @@ test:
         .arg("calculate")
         .arg(temp_file.path())
         .output()
-        .expect("Failed to execute mouvify-forge calculate");
+        .expect("Failed to execute forge calculate");
 
     assert!(output.status.success(), "Calculate should succeed");
 
@@ -124,7 +124,7 @@ test:
         .arg("validate")
         .arg(temp_file.path())
         .output()
-        .expect("Failed to execute mouvify-forge validate");
+        .expect("Failed to execute forge validate");
 
     assert!(
         validate_output.status.success(),
@@ -159,7 +159,7 @@ calculated:
         .arg("validate")
         .arg(temp_file.path())
         .output()
-        .expect("Failed to execute mouvify-forge");
+        .expect("Failed to execute forge");
 
     assert!(!output.status.success(), "Validation should fail");
 
@@ -196,7 +196,7 @@ test:
         .arg(temp_file.path())
         .arg("--dry-run")
         .output()
-        .expect("Failed to execute mouvify-forge");
+        .expect("Failed to execute forge");
 
     assert!(output.status.success(), "Dry run should succeed");
 

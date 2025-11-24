@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../schema/forge-v1.0.schema.json
+
+# v1.0.0 Array Model Example: Budget vs Actual
+# This demonstrates conditional aggregation and variance analysis
+_forge_version: "1.0.0"
+
+# Monthly budget
+budget_2025:
+  month: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+  revenue: [100000, 105000, 110000, 115000, 120000, 125000]
+  expenses: [80000, 82000, 84000, 86000, 88000, 90000]
+  profit: "=revenue - expenses"
+
+# Actual results
+actual_2025:
+  month: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+  revenue: [98000, 107000, 112000, 113000, 125000, 130000]
+  expenses: [81000, 83000, 85000, 87000, 89000, 92000]
+  profit: "=revenue - expenses"
+
+# Variance analysis
+variance:
+  month: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+
+  # Calculate variances
+  revenue_variance: "=actual_2025.revenue - budget_2025.revenue"
+  revenue_variance_pct: "=revenue_variance / budget_2025.revenue"
+
+  expense_variance: "=actual_2025.expenses - budget_2025.expenses"
+  expense_variance_pct: "=expense_variance / budget_2025.expenses"
+
+  profit_variance: "=actual_2025.profit - budget_2025.profit"
+
+  # Flag months (boolean)
+  revenue_over_budget: "=revenue_variance > 0"
+  expenses_over_budget: "=expense_variance > 0"
+
+# Summary statistics
+summary:
+  # Total variances
+  total_revenue_variance:
+    value: null
+    formula: "=SUM(variance.revenue_variance)"
+
+  total_expense_variance:
+    value: null
+    formula: "=SUM(variance.expense_variance)"
+
+  # Conditional aggregations (NEW in v1.0.0!)
+  months_over_revenue_budget:
+    value: null
+    formula: "=COUNTIF(variance.revenue_variance, > 0)"
+
+  months_under_revenue_budget:
+    value: null
+    formula: "=COUNTIF(variance.revenue_variance, < 0)"
+
+  revenue_when_over_budget:
+    value: null
+    formula: "=SUMIF(variance.revenue_variance, > 0)"
+
+  revenue_when_under_budget:
+    value: null
+    formula: "=SUMIF(variance.revenue_variance, < 0)"
+
+  # Average variances
+  avg_revenue_variance_pct:
+    value: null
+    formula: "=AVERAGE(variance.revenue_variance_pct)"
+
+  max_revenue_overperformance:
+    value: null
+    formula: "=MAX(variance.revenue_variance)"
+
+  max_revenue_underperformance:
+    value: null
+    formula: "=MIN(variance.revenue_variance)"
+
+# Performance score
+score:
+  revenue_accuracy:
+    value: null
+    formula: "=1 - ABS(summary.avg_revenue_variance_pct)"
+
+  overall_performance:
+    value: null
+    formula: "=IF(summary.total_revenue_variance > 0, 'Over Target', 'Under Target')"
+
+# Expected Excel export:
+# Sheet 1: "budget_2025" - Planned numbers
+# Sheet 2: "actual_2025" - Real results
+# Sheet 3: "variance" - Differences with conditional formatting
+# Sheet 4: "summary" - Aggregated analysis
+# Sheet 5: "score" - Performance metrics
