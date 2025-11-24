@@ -431,19 +431,38 @@ release_workflow:
   publish_to_github:
     description: "Create GitHub release with binary"
     prerequisites:
-      - "Merged to main branch"
-      - "Version tagged"
+      - "All tests passing"
+      - "Version bumped in Cargo.toml and roadmap.yaml"
+      - "Documentation updated"
 
     commands:
       - step: "Merge feature branch"
         commands:
           - "git checkout main"
-          - "git merge feature/v1.0.0-array-model"
-          - "git push origin main"
+          - "git merge feature/vX.Y.Z --no-ff"
+          - "Resolve any conflicts (typically Cargo.toml version)"
 
-      - step: "Create release"
-        command: "gh release create vX.Y.Z --title 'vX.Y.Z: <Title>' --notes '<Release notes>'"
-        note: "Include compiled binary: target/release/forge"
+      - step: "Create annotated tag"
+        command: "git tag -a vX.Y.Z -m 'vX.Y.Z: <Short description>...'"
+        note: "Use multi-line message with full release notes"
+
+      - step: "Push to GitHub"
+        commands:
+          - "git push origin main"
+          - "git push origin vX.Y.Z"
+
+      - step: "Build release binary"
+        commands:
+          - "cargo build --release --bin forge"
+          - "tar -czf forge-vX.Y.Z-linux-x86_64.tar.gz -C target/release forge"
+
+      - step: "Create GitHub release"
+        command: |
+          gh release create vX.Y.Z \
+            --title "vX.Y.Z: <Title> 🔥" \
+            --notes "<Full release notes>" \
+            forge-vX.Y.Z-linux-x86_64.tar.gz
+        note: "Use heredoc for release notes, include markdown formatting"
 
   post_release:
     - "☐ Verify crates.io publication"
