@@ -3,7 +3,7 @@
 # This file itself is a YAML model - we should be able to use forge on it later!
 
 metadata:
-  current_version: "0.2.0"
+  current_version: "1.0.0"
   target_version: "1.0.0"
   last_updated: "2025-11-23"
   maintainer: "RoyalBit Inc."
