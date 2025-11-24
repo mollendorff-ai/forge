@@ -90,11 +90,10 @@ impl ArrayCalculator {
                 // This might be table.column reference
                 if let Ok((table_name, _col_name)) = self.parse_table_column_ref(word) {
                     // Check if this table exists
-                    if self.model.tables.contains_key(&table_name) {
-                        if !deps.contains(&table_name) {
+                    if self.model.tables.contains_key(&table_name)
+                        && !deps.contains(&table_name) {
                             deps.push(table_name);
                         }
-                    }
                 }
             }
         }
@@ -433,11 +432,7 @@ impl ArrayCalculator {
         let mut deps = Vec::new();
 
         // Extract parent section from scalar_name (e.g., "annual_2025" from "annual_2025.total_revenue")
-        let parent_section = if let Some(dot_pos) = scalar_name.rfind('.') {
-            Some(&scalar_name[..dot_pos])
-        } else {
-            None
-        };
+        let parent_section = scalar_name.rfind('.').map(|dot_pos| &scalar_name[..dot_pos]);
 
         // Extract all words (variable references) from formula
         for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
@@ -681,11 +676,7 @@ impl ArrayCalculator {
     /// Evaluate scalar formula with variable resolver
     fn evaluate_scalar_with_resolver(&self, formula: &str, scalar_name: &str) -> ForgeResult<f64> {
         // Extract parent section from scalar_name (e.g., "annual_2025" from "annual_2025.total_revenue")
-        let parent_section = if let Some(dot_pos) = scalar_name.rfind('.') {
-            Some(scalar_name[..dot_pos].to_string())
-        } else {
-            None
-        };
+        let parent_section = scalar_name.rfind('.').map(|dot_pos| scalar_name[..dot_pos].to_string());
 
         let resolver = move |var_name: String| -> types::Value {
             // Strategy 1: Try exact match

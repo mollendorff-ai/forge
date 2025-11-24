@@ -108,8 +108,7 @@ impl ExcelImporter {
 
         // Collect all data (skip header row)
         for row in 1..height {
-            for col in 0..width {
-                let col_name = &column_names[col];
+            for (col, col_name) in column_names.iter().enumerate().take(width) {
                 if let Some(cell) = range.get((row, col)) {
                     columns_data.get_mut(col_name).unwrap().push(cell.clone());
                 } else {
