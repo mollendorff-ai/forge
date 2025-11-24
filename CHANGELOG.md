@@ -177,7 +177,7 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 - JSON schema: schema/forge-v1.0.schema.json
 
 ### Development
-- Built in 2 weeks using warmup protocol (autonomous AI development)
+- Built in 12.5 hours using warmup protocol (overnight + morning) (autonomous AI development)
 - SR&ED documented: 7 research entries
 - Zero bugs shipped to production
 - 100% backwards compatible with v0.2.0
