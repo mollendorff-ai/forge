@@ -30,8 +30,8 @@ milestones:
 
   v0_2_0:
     version: "0.2.0"
-    status: in_progress
-    target_date: "2025-12-01"
+    status: completed
+    release_date: "2025-11-23"
     description: "Excel-compatible formula functions"
     branch: "feature/formula-functions"
     breaking_changes: false

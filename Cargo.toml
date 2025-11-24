@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2021"
 authors = ["Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "Stop AI hallucinations & save $40K-$132K/year. Deterministic YAML formula validator for AI-assisted financial modeling. Validates 850+ formulas in <200ms with zero tokens."
@@ -25,8 +25,8 @@ path = "src/main.rs"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 
-# Expression evaluation
-meval = "0.2"
+# Expression evaluation (Excel-compatible formulas)
+xlformula_engine = "0.1.4"
 
 # CLI
 clap = { version = "4.5", features = ["derive"] }

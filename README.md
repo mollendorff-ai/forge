@@ -236,29 +236,56 @@ forge validate models/assumptions.yaml
 
 ## Formula Syntax
 
-Formulas are simple math expressions with variable references:
+Formulas support Excel-compatible functions and math expressions:
 
-### Supported operators:
+### Supported Functions (v0.2.0):
+- **Aggregation**: `SUM()`, `AVERAGE()`, `PRODUCT()`
+- **Logical**: `IF(condition, true_val, false_val)`
+- **Utility**: `ABS()`
+
+### Supported Operators:
 - Arithmetic: `+`, `-`, `*`, `/`, `^` (power)
 - Parentheses: `(`, `)`
-- Functions: `sqrt()`, `abs()`, `min()`, `max()`
+- Comparison: `>`, `<`, `>=`, `<=`, `=`, `<>`
 
-### Variable references:
-Reference other YAML values by their key path:
+### Formula Examples:
 
 ```yaml
-# Simple reference
+# Aggregation functions (NEW in v0.2.0!)
+quarterly_revenue:
+  q1: 100000
+  q2: 120000
+  q3: 150000
+  q4: 180000
+
+  annual_total:
+    value: null
+    formula: "=SUM(q1, q2, q3, q4)"  # ← Excel-style SUM!
+
+  average_quarter:
+    value: null
+    formula: "=AVERAGE(q1, q2, q3, q4)"  # ← AVERAGE function!
+
+# Conditional logic (NEW in v0.2.0!)
+pricing:
+  revenue:
+    value: 550000
+    formula: null
+
+  discount_rate:
+    value: null
+    formula: "=IF(revenue > 500000, 0.15, 0.10)"  # ← IF function!
+
+# Math expressions with variable references
 gross_margin:
   value: 0.90
   formula: "=1 - platform_take_rate"
 
-# Nested reference with dot notation
 unit_economics:
   ltv:
     value: null
     formula: "=revenue.annual / churn_rate"
 
-# Math expressions
 payback_months:
   value: null
   formula: "=cac / (revenue.monthly * gross_margin)"

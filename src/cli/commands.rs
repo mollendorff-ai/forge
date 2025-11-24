@@ -5,6 +5,18 @@ use crate::writer;
 use colored::Colorize;
 use std::path::PathBuf;
 
+/// Format a number for display, removing unnecessary decimal places
+fn format_number(n: f64) -> String {
+    // Round to 6 decimal places for display (sufficient for most financial calculations)
+    // This also handles f32 precision artifacts from xlformula_engine
+    let rounded = (n * 1e6).round() / 1e6;
+    // Format with up to 6 decimal places, removing trailing zeros
+    format!("{:.6}", rounded)
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_string()
+}
+
 /// Execute the calculate command
 pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()> {
     println!("{}", "🔥 Forge - Calculating formulas".bold().green());
@@ -165,8 +177,9 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
 
         for (name, current, expected, diff) in &mismatches {
             println!("   {}", name.bright_blue().bold());
-            println!("      Current:  {}", format!("{current}").red());
-            println!("      Expected: {}", format!("{expected}").green());
+            // Format numbers with reasonable precision (remove trailing zeros)
+            println!("      Current:  {}", format!("{}", format_number(*current)).red());
+            println!("      Expected: {}", format!("{}", format_number(*expected)).green());
             println!("      Diff:     {}", format!("{diff:.6}").yellow());
             println!();
         }

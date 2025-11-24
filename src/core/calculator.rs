@@ -3,6 +3,7 @@ use crate::types::{EvalContext, Variable};
 use petgraph::algo::toposort;
 use petgraph::graph::DiGraph;
 use std::collections::HashMap;
+use xlformula_engine::{calculate, parse_formula, types, NoCustomFunction};
 
 /// Formula calculator with dependency resolution
 pub struct Calculator {
@@ -285,29 +286,73 @@ impl Calculator {
         Ok(deps)
     }
 
-    /// Evaluate a formula expression
+    /// Evaluate a formula expression using xlformula_engine
     fn evaluate_formula(&self, formula: &str) -> ForgeResult<f64> {
-        let formula = formula.trim_start_matches('=').trim();
+        let formula_str = if !formula.starts_with('=') {
+            format!("={}", formula.trim())
+        } else {
+            formula.to_string()
+        };
 
-        // Replace variable names with values
-        let mut expr = formula.to_string();
+        // Pre-process formula: Replace @ symbols with underscores for xlformula_engine compatibility
+        // @pricing.base_price → _pricing_base_price
+        let processed_formula = formula_str.replace('@', "_");
 
-        // Extract all potential variable names from the formula, including @ for cross-file refs
-        let words: Vec<&str> = formula
-            .split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.' && c != '@')
-            .filter(|w| !w.is_empty() && !w.chars().next().unwrap().is_numeric())
-            .collect();
+        // Create a reference resolver that looks up variables in our context
+        let resolver = |var_name: String| -> types::Value {
+            // Convert back from processed name to original
+            // _pricing_base_price → @pricing.base_price
+            let original_name = if var_name.starts_with('_') {
+                // This might be a cross-file reference
+                // Try both @alias.var format and the processed format
+                let with_at = format!("@{}", &var_name[1..]); // Remove leading _
 
-        // Replace each variable name with its value
-        for word in words {
-            if let Some(value) = self.find_value_in_context(word) {
-                expr = expr.replace(word, &value.to_string());
+                // Try to find with @ first (for cross-file refs)
+                if let Some(value) = self.find_value_in_context(&with_at) {
+                    return types::Value::Number(value as f32);
+                }
+
+                // Otherwise use the var_name as-is
+                var_name.clone()
+            } else {
+                var_name.clone()
+            };
+
+            // Try to find the variable in our context
+            if let Some(value) = self.find_value_in_context(&original_name) {
+                types::Value::Number(value as f32)
+            } else {
+                // Variable not found - return error
+                types::Value::Error(types::Error::Value)
             }
-        }
+        };
 
-        // Evaluate using meval
-        meval::eval_str(&expr)
-            .map_err(|e| ForgeError::Eval(format!("Failed to evaluate '{expr}': {e}")))
+        // Parse the processed formula
+        let parsed = parse_formula::parse_string_to_formula(&processed_formula, None::<NoCustomFunction>);
+
+        // Calculate the result
+        let result = calculate::calculate_formula(parsed, Some(&resolver));
+
+        // Convert result to f64
+        match result {
+            types::Value::Number(n) => {
+                // Round to 6 decimal places to avoid f32 precision issues
+                // This is important for financial calculations where 0.9 should be 0.9, not 0.8999999761581421
+                // f32 has ~7 decimal digits of precision, but only 6-7 are reliable
+                // 6 decimal places is sufficient for most financial calculations
+                let value = n as f64;
+                let rounded = (value * 1e6).round() / 1e6;
+                Ok(rounded)
+            }
+            types::Value::Error(e) => Err(ForgeError::Eval(format!(
+                "Formula '{}' returned error: {:?}",
+                formula_str, e
+            ))),
+            other => Err(ForgeError::Eval(format!(
+                "Formula '{}' returned unexpected type: {:?}",
+                formula_str, other
+            ))),
+        }
     }
 }
 
