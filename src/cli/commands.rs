@@ -315,12 +315,14 @@ pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
     println!("{}", "✅ Export Complete!".bold().green());
     println!("   Excel file: {}\n", output.display());
 
-    println!("{}", "ℹ️  Phase 3.1: Basic Export".yellow());
+    println!("{}", "✅ Phase 3.2: Formula Export Complete!".bold().green());
     println!("   ✅ Table columns → Excel columns");
     println!("   ✅ Data values exported");
     println!("   ✅ Multiple worksheets");
     println!("   ✅ Scalars worksheet");
-    println!("   ⏳ Formulas (coming in Phase 3.2)\n");
+    println!("   ✅ Row formulas → Excel cell formulas (=A2-B2)");
+    println!("   ✅ Cross-table references (=Sheet!Column)");
+    println!("   ⏳ Aggregation formulas in scalars (coming in Phase 3.4)\n");
 
     Ok(())
 }
