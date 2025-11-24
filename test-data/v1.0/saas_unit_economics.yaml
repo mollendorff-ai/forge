@@ -1,0 +1,75 @@
+# v1.0.0 Array Model Example: SaaS Unit Economics
+# This demonstrates column arrays for time-series financial data
+_forge_version: "1.0.0"
+
+# Monthly cohort performance
+monthly_cohorts:
+  month: ["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06"]
+  new_customers: [10, 15, 20, 25, 30, 35]
+  churned_customers: [2, 3, 4, 5, 6, 7]
+  mrr_per_customer: [100, 100, 100, 100, 100, 100]
+
+  # Row-wise calculated columns
+  net_new_customers: "=new_customers - churned_customers"
+  monthly_mrr: "=net_new_customers * mrr_per_customer"
+  churn_rate: "=churned_customers / new_customers"
+
+# Summary metrics (aggregations)
+summary:
+  total_new_customers:
+    value: null
+    formula: "=SUM(monthly_cohorts.new_customers)"
+
+  total_churned:
+    value: null
+    formula: "=SUM(monthly_cohorts.churned_customers)"
+
+  total_mrr:
+    value: null
+    formula: "=SUM(monthly_cohorts.monthly_mrr)"
+
+  avg_churn_rate:
+    value: null
+    formula: "=AVERAGE(monthly_cohorts.churn_rate)"
+
+  best_month_new_customers:
+    value: null
+    formula: "=MAX(monthly_cohorts.new_customers)"
+
+  worst_month_churn_rate:
+    value: null
+    formula: "=MAX(monthly_cohorts.churn_rate)"
+
+# Unit economics assumptions (scalars)
+assumptions:
+  cac:
+    value: 500
+    formula: null
+
+  annual_revenue_per_customer:
+    value: null
+    formula: "=monthly_cohorts.mrr_per_customer[0] * 12"
+
+  ltv:
+    value: null
+    formula: "=annual_revenue_per_customer / avg_churn_rate"
+
+  ltv_cac_ratio:
+    value: null
+    formula: "=ltv / cac"
+
+  payback_months:
+    value: null
+    formula: "=cac / monthly_cohorts.mrr_per_customer[0]"
+
+# Expected Excel export:
+# Sheet 1: "monthly_cohorts"
+#   Columns: month, new_customers, churned_customers, mrr_per_customer,
+#            net_new_customers, monthly_mrr, churn_rate
+#   6 rows of data
+#
+# Sheet 2: "summary"
+#   Key-value pairs with calculated totals
+#
+# Sheet 3: "assumptions"
+#   Key-value pairs with unit economics

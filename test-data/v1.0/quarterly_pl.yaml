@@ -1,0 +1,75 @@
+# v1.0.0 Array Model Example: Quarterly P&L Statement
+# This demonstrates financial statement modeling
+_forge_version: "1.0.0"
+
+# Quarterly profit & loss
+pl_2025:
+  quarter: ["Q1", "Q2", "Q3", "Q4"]
+  revenue: [1000000, 1200000, 1500000, 1800000]
+  cogs: [300000, 360000, 450000, 540000]
+
+  # Calculated columns (row-wise)
+  gross_profit: "=revenue - cogs"
+  gross_margin: "=gross_profit / revenue"
+
+# Operating expenses (separate table)
+opex_2025:
+  quarter: ["Q1", "Q2", "Q3", "Q4"]
+  sales_marketing: [200000, 220000, 250000, 280000]
+  rd: [150000, 160000, 170000, 180000]
+  ga: [100000, 105000, 110000, 115000]
+
+  # Total operating expenses
+  total_opex: "=sales_marketing + rd + ga"
+
+# Combined P&L (references other tables)
+final_pl:
+  quarter: ["Q1", "Q2", "Q3", "Q4"]
+
+  # Reference other tables
+  revenue: "=pl_2025.revenue"
+  gross_profit: "=pl_2025.gross_profit"
+  operating_expenses: "=opex_2025.total_opex"
+
+  # Operating profit
+  ebitda: "=gross_profit - operating_expenses"
+  ebitda_margin: "=ebitda / revenue"
+
+# Annual summaries
+annual_2025:
+  total_revenue:
+    value: null
+    formula: "=SUM(pl_2025.revenue)"
+
+  total_gross_profit:
+    value: null
+    formula: "=SUM(pl_2025.gross_profit)"
+
+  avg_gross_margin:
+    value: null
+    formula: "=total_gross_profit / total_revenue"
+
+  total_ebitda:
+    value: null
+    formula: "=SUM(final_pl.ebitda)"
+
+  avg_ebitda_margin:
+    value: null
+    formula: "=total_ebitda / total_revenue"
+
+# Growth metrics
+growth:
+  revenue_q4_vs_q1:
+    value: null
+    formula: "=pl_2025.revenue[3] / pl_2025.revenue[0] - 1"
+
+  quarterly_avg_growth:
+    value: null
+    formula: "=(pl_2025.revenue[3] / pl_2025.revenue[0]) ^ (1/3) - 1"
+
+# Expected Excel export:
+# Sheet 1: "pl_2025" - Revenue, COGS, GP, GM%
+# Sheet 2: "opex_2025" - S&M, R&D, G&A, Total
+# Sheet 3: "final_pl" - Combined P&L
+# Sheet 4: "annual_2025" - Summary metrics
+# Sheet 5: "growth" - Growth calculations
