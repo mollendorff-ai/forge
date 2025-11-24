@@ -17,6 +17,40 @@ Future features under consideration:
 
 ---
 
+## [1.2.1] - 2025-11-24
+
+### 📚 Documentation Improvements
+
+Documentation-only patch release.
+
+### Added
+
+- **TEST_COVERAGE_AUDIT.md** - Comprehensive test coverage analysis
+  - Honest assessment: "GOOD coverage (not 100%, but production-ready)"
+  - 141 tests passing (1 ignored) across all categories
+  - Detailed breakdown by feature (Lookup, Math, Text, Date, Conditional Aggregations)
+  - Identified gaps and recommendations for v1.2.2+
+  - Target for v1.2.2: 160+ tests with edge case coverage
+
+### Changed
+
+- Replaced "zero bugs" claims with honest, testable metrics
+  - README: "production-tested" and "141 tests passing"
+  - Cargo.toml: "production-tested"
+  - CLI: "141 tests passing"
+- Updated all documentation to reflect accurate test counts (141 passing, 1 ignored)
+
+### Quality
+
+- ✅ 141 tests passing, 0 failures
+- ✅ Zero warnings (clippy strict mode: `-D warnings`)
+- ✅ All 50+ Excel functions tested
+- ✅ <200ms performance validated
+
+**Philosophy:** Pragmatic honesty over marketing claims. "Not tested ≠ Broken."
+
+---
+
 ## [1.2.0] - 2025-11-24
 
 ### 🎉 Lookup Functions Release
