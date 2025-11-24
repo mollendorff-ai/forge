@@ -78,7 +78,45 @@ Forge tests focus on:
 
 ### Testing Philosophy
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    subgraph "Test Pyramid"
+        E2E["E2E Tests<br/>33 tests<br/>Full command workflows"]
+        Integration["Integration Tests<br/>6 tests<br/>Component interactions"]
+        Unit["Unit Tests<br/>91 tests<br/>Individual functions"]
+    end
+
+    subgraph "Test Categories"
+        Formula["Formula Evaluation<br/>50+ Excel functions"]
+        Dependency["Dependency Resolution<br/>Topological sort"]
+        Parser["YAML Parsing<br/>v0.2.0 + v1.0.0"]
+        Excel["Excel Integration<br/>Import/Export + Translation"]
+        Error["Error Handling<br/>All error types"]
+    end
+
+    subgraph "Quality Assurance"
+        Clippy["clippy --all-targets<br/>-D warnings<br/>Zero warnings"]
+        Fmt["cargo fmt<br/>Code formatting"]
+        CI["CI/CD<br/>GitHub Actions<br/>Automated testing"]
+    end
+
+    Unit --> E2E
+    Integration --> E2E
+    Formula --> Unit
+    Dependency --> Unit
+    Parser --> Unit
+    Parser --> Integration
+    Excel --> Integration
+    Error --> Unit
+
+    E2E --> Clippy
+    E2E --> Fmt
+    E2E --> CI
+
+    Result["✅ 141 tests passing<br/>0 warnings<br/>Production-ready"]
+
+    CI --> Result
+```
 
 ### What to Test
 
