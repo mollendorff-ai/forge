@@ -714,88 +714,490 @@ autonomous_work_requirements:
       This is why these autonomous work requirements now exist.
 
 release_workflow:
-  version_bump:
+  overview:
+    description: "Complete release protocol - comprehensive, production-ready"
+    when_to_use: "When releasing a new version to crates.io and GitHub"
+    estimated_time: "30-45 minutes for full process"
+
+  step_1_documentation_audit:
+    description: "Verify ALL documentation is updated and consistent"
+    critical: "🚨 MANDATORY - catches documentation drift"
+
+    locations_to_check:
+      cli_help:
+        file: "src/main.rs"
+        what: "CLI --help text (long_about)"
+        verify:
+          - "Function count matches reality (e.g., 50+ functions)"
+          - "New features listed with examples"
+          - "Version-specific notes (v1.1.0, v1.2.0, etc.)"
+
+      architecture_docs:
+        files:
+          - "docs/architecture/00-OVERVIEW.md"
+          - "docs/architecture/03-FORMULA-EVALUATION.md"
+          - "docs/architecture/06-CLI-ARCHITECTURE.md"
+        verify:
+          - "Supported Functions list includes ALL functions"
+          - "Function count consistent (50+ everywhere)"
+          - "New features documented with signatures"
+          - "CLI help example matches src/main.rs"
+
+      changelog:
+        file: "CHANGELOG.md"
+        verify:
+          - "[Unreleased] section exists for current version"
+          - "All new features documented with signatures"
+          - "Breaking changes clearly marked"
+          - "Testing stats updated (e.g., 141 tests passing)"
+          - "Development time documented"
+
+      readme:
+        file: "README.md"
+        verify:
+          - "What's New section matches CHANGELOG"
+          - "Feature list complete"
+          - "Function count matches (50+)"
+          - "Examples work with current version"
+
+      roadmap:
+        file: "roadmap.yaml"
+        verify:
+          - "Current version status: in_progress or completed"
+          - "Progress section updated with completion dates"
+          - "Next version planned"
+
+    command: "Run documentation audit checklist above manually"
+
+  step_2_comprehensive_testing:
+    description: "Test EVERYTHING - unit, integration, E2E, edge cases"
+    critical: "🚨 MANDATORY - zero bugs shipped"
+
+    unit_tests:
+      command: "cargo test --lib --release"
+      expected: "All tests pass, zero warnings"
+      what_it_tests:
+        - "All Excel functions (50+ functions)"
+        - "Edge cases: empty arrays, type mismatches, boundaries"
+        - "Lookup functions: MATCH, INDEX, XLOOKUP, VLOOKUP"
+        - "Formula parsing and evaluation"
+        - "Type conversions and validations"
+
+    integration_tests:
+      command: "cargo test --test integration_tests --release"
+      expected: "All integration tests pass"
+      what_it_tests:
+        - "Cross-file references"
+        - "Multi-table calculations"
+        - "Complex formula chains"
+
+    e2e_tests:
+      command: "cargo test --test e2e_tests --release"
+      expected: "All E2E tests pass (typically 33+ tests)"
+      what_it_tests:
+        - "CLI commands: calculate, validate, export, import, audit"
+        - "Excel import/export with formula translation"
+        - "Roundtrip: YAML → Excel → YAML preservation"
+        - "Error handling: malformed files, circular dependencies"
+        - "Cross-file includes and dependencies"
+        - "Stale value detection"
+
+    all_tests:
+      command: "cargo test --release"
+      expected: "140+ tests passing, ZERO failures"
+      note: "This runs all test suites above"
+
+    edge_case_coverage_checklist:
+      lookup_functions:
+        - "☐ MATCH: exact, ascending approximate, descending approximate"
+        - "☐ MATCH: not found scenarios"
+        - "☐ INDEX: valid position, out of bounds"
+        - "☐ XLOOKUP: exact match, if_not_found"
+        - "☐ VLOOKUP: basic (note: limited implementation)"
+        - "☐ Cross-table lookups: INDEX(MATCH(...)) pattern"
+      excel_functions:
+        - "☐ All 27 v1.1.0 functions tested"
+        - "☐ Empty arrays, null values"
+        - "☐ Type mismatches (text in numeric function)"
+        - "☐ Boundary conditions (division by zero, negative dates)"
+      excel_integration:
+        - "☐ Import: numbers, text, dates, booleans, formulas"
+        - "☐ Export: formula translation (60+ Excel functions)"
+        - "☐ Roundtrip: data and formula preservation"
+        - "☐ Multiple tables, cross-sheet references"
+        - "☐ Edge cases: empty cells, malformed data"
+
+  step_3_lint_all:
+    description: "Lint code and documentation"
+    critical: "Required for production quality"
+
+    rust_lint:
+      command: "cargo clippy --all-targets -- -D warnings"
+      expected: "ZERO warnings (strict mode)"
+      note: "If warnings exist, fix them before release"
+
+    rust_format:
+      command: "cargo fmt -- --check"
+      expected: "No formatting changes needed"
+      fix_command: "cargo fmt"
+
+    markdown_lint:
+      command: "make validate-docs"
+      expected: "<50 errors (edge cases only acceptable)"
+      note: "Fix critical errors, edge cases can wait"
+
+    yaml_lint:
+      command: "make validate-yaml"
+      expected: "ZERO errors"
+      critical: "YAML errors = data corruption risk"
+
+    plantuml_diagrams:
+      command: "make validate-diagrams"
+      expected: "All diagrams valid"
+      note: "Only if diagrams exist"
+
+  step_4_version_bump:
     description: "Update version across all files"
-    files_to_update:
-      - "Cargo.toml (version field)"
-      - "roadmap.yaml (metadata.current_version)"
-      - "README.md (version badges if present)"
 
     version_strategy:
-      major: "Breaking changes (0.x.0 → 1.0.0)"
-      minor: "New features, backwards compatible (0.2.0 → 0.3.0)"
-      patch: "Bug fixes (0.2.0 → 0.2.1)"
+      major: "Breaking changes (1.0.0 → 2.0.0)"
+      minor: "New features, backwards compatible (1.1.0 → 1.2.0)"
+      patch: "Bug fixes (1.1.0 → 1.1.1)"
 
-  pre_release_checklist:
-    - "☐ All tests passing (cargo test --release)"
-    - "☐ Documentation updated"
-    - "☐ CHANGELOG updated (if exists)"
-    - "☐ Version bumped in Cargo.toml"
-    - "☐ Roadmap updated"
-    - "☐ Commit: 'Bump version to X.Y.Z'"
-    - "☐ Git push"
+    files_to_update:
+      cargo_toml:
+        file: "Cargo.toml"
+        field: "version = \"X.Y.Z\""
+        example: "version = \"1.2.0\""
 
-  publish_to_crates_io:
-    description: "Publish new version to crates.io"
-    prerequisites:
-      - "User must provide API key"
-      - "User command: 'pass crates.io' or provide key"
+      roadmap:
+        file: "roadmap.yaml"
+        field: "metadata.current_version"
+        example: "current_version: \"1.2.0\""
 
-    commands:
-      - step: "Login to crates.io"
-        command: "cargo login <API_KEY>"
-        note: "Key comes from user's password manager"
+      changelog:
+        file: "CHANGELOG.md"
+        action: "Change [Unreleased] to [X.Y.Z] - YYYY-MM-DD"
+        example: "## [1.2.0] - 2025-11-24"
 
-      - step: "Publish crate"
-        command: "cargo publish"
-        expected: "Success message with download URL"
+      readme:
+        file: "README.md"
+        action: "Update 'What's New' section title"
+        example: "## 🏆 What's New in v1.2.0"
 
-      - step: "Verify publication"
-        command: "Open https://crates.io/crates/royalbit-forge"
-        check: "New version visible"
+    command_sequence:
+      - "Update Cargo.toml version"
+      - "Update roadmap.yaml current_version"
+      - "Update CHANGELOG.md [Unreleased] → [X.Y.Z] - DATE"
+      - "Update README.md 'What's New' → 'What Was New'"
+      - "git add Cargo.toml roadmap.yaml CHANGELOG.md README.md"
+      - "git commit -m 'chore: Bump version to vX.Y.Z'"
 
-  publish_to_github:
-    description: "Create GitHub release with binary"
-    prerequisites:
-      - "All tests passing"
-      - "Version bumped in Cargo.toml and roadmap.yaml"
-      - "Documentation updated"
+  step_5_commit_and_push:
+    description: "Commit release and push to main"
 
     commands:
-      - step: "Merge feature branch"
-        commands:
-          - "git checkout main"
-          - "git merge feature/vX.Y.Z --no-ff"
-          - "Resolve any conflicts (typically Cargo.toml version)"
+      - command: "git add -A"
+        note: "Stage all changes"
 
-      - step: "Create annotated tag"
-        command: "git tag -a vX.Y.Z -m 'vX.Y.Z: <Short description>...'"
-        note: "Use multi-line message with full release notes"
+      - command: "git status"
+        note: "Review what's being committed"
 
-      - step: "Push to GitHub"
-        commands:
-          - "git push origin main"
-          - "git push origin vX.Y.Z"
+      - command: "git commit -m 'release: vX.Y.Z - <title>'"
+        example: "git commit -m 'release: v1.2.0 - Lookup Functions (MATCH, INDEX, XLOOKUP, VLOOKUP)'"
+        note: "Use conventional commit format"
 
-      - step: "Build release binary"
-        commands:
-          - "cargo build --release --bin forge"
-          - "tar -czf forge-vX.Y.Z-linux-x86_64.tar.gz -C target/release forge"
+      - command: "git push origin main"
+        note: "Push to GitHub main branch"
 
-      - step: "Create GitHub release"
-        command: |
-          gh release create vX.Y.Z \
-            --title "vX.Y.Z: <Title> 🔥" \
-            --notes "<Full release notes>" \
-            forge-vX.Y.Z-linux-x86_64.tar.gz
-        note: "Use heredoc for release notes, include markdown formatting"
+  step_6_build_release_binary:
+    description: "Build optimized production binary"
 
-  post_release:
-    - "☐ Verify crates.io publication"
-    - "☐ Verify GitHub release"
-    - "☐ Test installation: cargo install royalbit-forge"
-    - "☐ Update roadmap (milestone status: released)"
-    - "☐ Create next feature branch if needed"
+    build_command:
+      command: "cargo build --release"
+      expected: "Successful build in target/release/forge"
+      time: "~2-3 minutes"
+
+    strip_binary:
+      command: "strip target/release/forge"
+      purpose: "Remove debug symbols, reduce size"
+      note: "Optional but recommended"
+
+    compress_binary:
+      command: "tar -czf forge-vX.Y.Z-linux-x86_64.tar.gz -C target/release forge"
+      example: "tar -czf forge-v1.2.0-linux-x86_64.tar.gz -C target/release forge"
+      output: "forge-vX.Y.Z-linux-x86_64.tar.gz (~2-3 MB compressed)"
+
+    verify_binary:
+      command: "./target/release/forge --version"
+      expected: "forge X.Y.Z"
+
+  step_7_install_locally:
+    description: "Test local installation"
+
+    using_makefile:
+      command: "make install"
+      installs_to: "/usr/local/bin/forge"
+      requires: "sudo access"
+
+    using_cargo:
+      command: "cargo install --path . --force"
+      installs_to: "~/.cargo/bin/forge"
+      note: "Rebuilds and installs from source"
+
+    verify_installation:
+      command: "forge --version"
+      expected: "forge X.Y.Z"
+      command2: "which forge"
+      expected2: "/usr/local/bin/forge or ~/.cargo/bin/forge"
+
+  step_8_publish_to_crates_io:
+    description: "Publish to crates.io registry"
+    critical: "🚨 IRREVERSIBLE - cannot unpublish versions"
+
+    prerequisites:
+      - "☑ All tests passing (step 2)"
+      - "☑ All lints clean (step 3)"
+      - "☑ Version bumped (step 4)"
+      - "☑ Changes committed and pushed (step 5)"
+      - "☑ Binary built and tested (step 6-7)"
+
+    get_api_key:
+      command: "pass crates.io"
+      note: "Retrieves API token from password manager"
+      alternative: "Get from https://crates.io/settings/tokens"
+
+    login:
+      command: "cargo login <API_KEY>"
+      note: "Only needed once per machine"
+      stored_in: "~/.cargo/credentials.toml"
+
+    dry_run:
+      command: "cargo publish --dry-run"
+      purpose: "Verify package before publishing"
+      checks:
+        - "All files included"
+        - "No large files (>10 MB warning)"
+        - "Dependencies resolvable"
+        - "Manifest valid"
+
+    publish:
+      command: "cargo publish"
+      expected: "Uploading royalbit-forge vX.Y.Z"
+      time: "~30-60 seconds"
+      output: "Published successfully"
+
+    verify_publication:
+      wait: "2-3 minutes for crates.io to index"
+      command: "Open https://crates.io/crates/royalbit-forge"
+      check:
+        - "New version visible"
+        - "Documentation link works"
+        - "Download count incrementing"
+
+    test_installation:
+      command: "cargo install royalbit-forge --version X.Y.Z"
+      note: "Test in separate directory/machine"
+      verify: "forge --version shows X.Y.Z"
+
+  step_9_create_github_release:
+    description: "Create GitHub release with binary and notes"
+
+    create_git_tag:
+      command: "git tag -a vX.Y.Z -m 'vX.Y.Z: <Short description>'"
+      example: "git tag -a v1.2.0 -m 'v1.2.0: Lookup Functions (MATCH, INDEX, XLOOKUP, VLOOKUP)'"
+      note: "Annotated tags include metadata"
+
+    push_tag:
+      command: "git push origin vX.Y.Z"
+      example: "git push origin v1.2.0"
+
+    create_release:
+      command: |
+        gh release create vX.Y.Z \
+          --title "vX.Y.Z: <Title> 🔥" \
+          --notes-file RELEASE_NOTES.md \
+          forge-vX.Y.Z-linux-x86_64.tar.gz
+      example: |
+        gh release create v1.2.0 \
+          --title "v1.2.0: Lookup Functions 🔥" \
+          --notes "$(cat <<'EOF'
+        ## 🎉 Lookup Functions Release
+
+        **4 powerful lookup functions for cross-table data relationships:**
+
+        - **MATCH** - Find position in array (exact/approximate)
+        - **INDEX** - Return value at position (1-based)
+        - **XLOOKUP** - Modern Excel lookup with if_not_found
+        - **VLOOKUP** - Classic lookup (limited, use INDEX/MATCH)
+
+        **Combined:** Use INDEX(MATCH(...)) for flexible lookups!
+
+        ### Quality
+        - ✅ 141 tests passing (+5 new)
+        - ✅ Zero clippy warnings
+        - ✅ 690 lines production code
+        - ✅ <3 hours autonomous development
+
+        ### Installation
+        \`\`\`bash
+        cargo install royalbit-forge
+        \`\`\`
+
+        Or download binary: forge-v1.2.0-linux-x86_64.tar.gz
+
+        **Full changelog:** [CHANGELOG.md](CHANGELOG.md)
+        EOF
+        )" \
+          forge-v1.2.0-linux-x86_64.tar.gz
+
+    verify_release:
+      command: "Open https://github.com/royalbit/forge/releases"
+      check:
+        - "New release visible"
+        - "Binary attached and downloadable"
+        - "Release notes formatted correctly"
+        - "Tag linked properly"
+
+  step_10_update_crate_page:
+    description: "Update crates.io metadata (if needed)"
+    note: "Usually automatic from Cargo.toml, but verify"
+
+    what_syncs_automatically:
+      - "Description (from Cargo.toml description)"
+      - "Documentation link (from Cargo.toml documentation)"
+      - "Repository link (from Cargo.toml repository)"
+      - "License (from Cargo.toml license)"
+      - "README (from README.md)"
+      - "Categories and keywords (from Cargo.toml)"
+
+    manual_updates:
+      url: "https://crates.io/crates/royalbit-forge/settings"
+      can_update:
+        - "Crate owners"
+        - "README content (if not auto-syncing)"
+        - "Yanking versions (if critical bug found)"
+
+    verify_metadata:
+      check:
+        - "☐ Description clear and accurate"
+        - "☐ Documentation link works"
+        - "☐ Repository link works"
+        - "☐ README renders correctly"
+        - "☐ Keywords help discoverability"
+
+  step_11_post_release_verification:
+    description: "Final verification and cleanup"
+
+    verification_checklist:
+      - "☐ crates.io shows new version: https://crates.io/crates/royalbit-forge"
+      - "☐ GitHub release exists: https://github.com/royalbit/forge/releases"
+      - "☐ Binary downloadable and works"
+      - "☐ cargo install royalbit-forge installs new version"
+      - "☐ Documentation builds: https://docs.rs/royalbit-forge"
+      - "☐ forge --version shows correct version"
+      - "☐ All tests still passing: cargo test"
+
+    update_roadmap:
+      file: "roadmap.yaml"
+      action: "Mark milestone as completed"
+      example: |
+        v1_2_0:
+          status: completed  # was: in_progress
+          released_date: "2025-11-24"
+
+    create_next_milestone:
+      action: "Start planning next version"
+      tasks:
+        - "Create roadmap entry for vX.Y+1.0"
+        - "Identify next features from backlog"
+        - "Update CHANGELOG.md with [Unreleased] section"
+
+    social_media:
+      optional: "Share release on social media"
+      platforms:
+        - "Twitter/X: New version of Forge released!"
+        - "LinkedIn: Professional announcement"
+        - "Reddit: r/rust announcement (follow subreddit rules)"
+        - "Hacker News: Show HN (if major release)"
+
+  troubleshooting:
+    crates_io_publish_fails:
+      error: "crate version already exists"
+      solution: "Bump version in Cargo.toml, can't overwrite published versions"
+
+    crates_io_publish_fails_token:
+      error: "authentication token invalid"
+      solution: "cargo login <API_KEY> with fresh token from crates.io/settings/tokens"
+
+    github_release_fails:
+      error: "tag already exists"
+      solution: "Delete tag: git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z"
+
+    binary_not_found:
+      error: "forge-vX.Y.Z-linux-x86_64.tar.gz not found"
+      solution: "Run step 6 (build release binary) first"
+
+    tests_failing:
+      error: "Some tests fail"
+      solution: "DO NOT RELEASE. Fix tests first. ZERO failures required."
+
+  release_example_session:
+    description: "Complete example of v1.2.0 release"
+    commands: |
+      # Step 1: Documentation audit (manual checklist)
+      # Step 2: Test everything
+      cargo test --release
+      # → 141 tests passing ✅
+
+      # Step 3: Lint all
+      cargo clippy --all-targets -- -D warnings
+      make validate-docs
+      make validate-yaml
+      # → All clean ✅
+
+      # Step 4: Version bump
+      # Edit Cargo.toml: version = "1.2.0"
+      # Edit roadmap.yaml: current_version: "1.2.0"
+      # Edit CHANGELOG.md: ## [1.2.0] - 2025-11-24
+      git add -A
+      git commit -m "chore: Bump version to v1.2.0"
+
+      # Step 5: Push
+      git push origin main
+
+      # Step 6: Build binary
+      cargo build --release
+      strip target/release/forge
+      tar -czf forge-v1.2.0-linux-x86_64.tar.gz -C target/release forge
+
+      # Step 7: Install locally
+      make install
+      forge --version  # → forge 1.2.0 ✅
+
+      # Step 8: Publish to crates.io
+      pass crates.io  # → get API key
+      cargo login <API_KEY>
+      cargo publish --dry-run  # → verify
+      cargo publish  # → publish ✅
+
+      # Wait 2-3 minutes for indexing
+
+      # Step 9: GitHub release
+      git tag -a v1.2.0 -m "v1.2.0: Lookup Functions"
+      git push origin v1.2.0
+      gh release create v1.2.0 \
+        --title "v1.2.0: Lookup Functions 🔥" \
+        --notes "<release notes>" \
+        forge-v1.2.0-linux-x86_64.tar.gz
+
+      # Step 10: Verify crates.io page (automatic)
+
+      # Step 11: Post-release verification
+      cargo install royalbit-forge --version 1.2.0
+      # Update roadmap.yaml status: completed
+
+      # 🎉 Release complete!
 
 known_issues:
   fuzzy_matching_bug:
