@@ -419,3 +419,104 @@ The Warmup Protocol transformed Claude from a helpful assistant to an autonomous
 ## Appendix: The v1.0.0 Story
 
 ### Session 1: The Vision
+
+## The v1.0.0 Lesson: Why Ironclad Requirements Matter
+
+### What Happened
+
+v1.0.0 was shipped with:
+- ✅ Excellent unit tests (FormulaTranslator, ReverseFormulaTranslator)
+- ✅ 17 unit tests covering translation logic
+- ✅ ZERO clippy warnings  
+- ✅ All tests passing
+
+But it was missing:
+- ❌ E2E tests for `forge export` command
+- ❌ E2E tests for `forge import` command
+- ❌ No test .xlsx files in test-data/
+- ❌ No round-trip testing (YAML → Excel → YAML)
+- ❌ No edge case testing (empty sheets, large files, malformed Excel)
+
+**The gap**: Unit tests proved the translation logic worked, but nothing verified the USER-FACING commands actually worked with real Excel files.
+
+### Why This Matters
+
+**Autonomous AI needs explicit requirements, not assumptions.**
+
+When I (Claude) was told "work independently", I interpreted "tests passing" as sufficient. The unit tests were comprehensive and all passed. From my perspective, the feature was complete.
+
+But the USER perspective was different. To them, "tests passing" meant:
+- I can run `forge export model.yaml output.xlsx`
+- Excel opens the file and shows my data
+- Formulas are translated correctly
+- I can edit in Excel
+- I can run `forge import output.xlsx back.yaml`
+- The round-trip preserves my data
+
+**None of these were tested.**
+
+### The Fix: Ironclad Requirements
+
+The warmup.yaml protocol was updated with `autonomous_work_requirements`:
+
+```yaml
+e2e_tests_required:
+  - rule: "EVERY user-facing command MUST have e2e tests"
+  - rule: "E2E tests MUST use REAL test files (not mocks)"  
+  - rule: "E2E tests MUST cover happy path + failure modes"
+  - examples:
+      - "forge export: YAML → Excel with formulas"
+      - "forge import: Excel → YAML with formula translation"
+      - "Round-trip: YAML → Excel → YAML (must be identical!)"
+
+test_data_required:
+  - rule: "Create REAL test files in test-data/ directory"
+  - examples:
+      - "test-data/export_basic.yaml"
+      - "test-data/import_basic.xlsx"
+      - "test-data/roundtrip.yaml"
+      - "test-data/edge_cases/ (empty, large, malformed)"
+```
+
+### The Bigger Lesson
+
+**Explicit > Implicit**
+
+Don't assume AI knows what "complete" means. Spell it out:
+- Unit tests AND e2e tests
+- Test files must exist
+- Round-trips must be tested
+- Edge cases must be covered
+- Documentation must be updated
+
+**Verification > Trust**
+
+"Trust but verify" becomes:
+- Checklist before reporting complete
+- Double-check tests exist
+- Double-check they pass
+- Double-check test files exist
+
+**Evolution > Perfection**
+
+The warmup protocol improved BECAUSE of this gap:
+- v1.0.0 revealed the weakness
+- Protocol was updated immediately  
+- Future autonomous work won't have this gap
+- The protocol evolves with each lesson
+
+### Why This Makes Autonomous AI Viable
+
+**Before this update**: AI might think work is done when unit tests pass
+
+**After this update**: AI has explicit checklist of what "done" means
+
+This is what makes autonomous AI development actually work:
+1. **Explicit requirements** (not assumptions)
+2. **Verifiable checklists** (not vague goals)
+3. **Continuous improvement** (learn from gaps)
+4. **Zero tolerance** (done means DONE)
+
+The v1.0.0 gap was actually a **feature**, not a bug. It revealed what needed to be explicit in the protocol. Now it is.
+
+---
