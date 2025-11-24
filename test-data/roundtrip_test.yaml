@@ -1,0 +1,7 @@
+# Simple table for round-trip testing (YAML → Excel → YAML should be identical)
+test_table:
+  name: ["Alice", "Bob", "Charlie"]
+  base_salary: [50000, 60000, 70000]
+  bonus_percent: [0.10, 0.15, 0.20]
+  bonus: "=base_salary * bonus_percent"
+  total_comp: "=base_salary + bonus"
