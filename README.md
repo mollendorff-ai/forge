@@ -138,7 +138,7 @@ cargo install royalbit-forge
 curl -L https://github.com/royalbit/forge/releases/latest/download/forge-linux-x86_64 -o forge
 chmod +x forge
 sudo mv forge /usr/local/bin/
-```text
+```
 
 **[Full installation guide →](docs/INSTALLATION.md)**
 
@@ -152,13 +152,13 @@ pricing_table:
   base_price: [100, 150, 200]
   discount_rate: [0.10, 0.15, 0.20]
   final_price: "=base_price * (1 - discount_rate)"
-```text
+```
 
 **Run:**
 
 ```bash
 forge calculate pricing.yaml
-```text
+```
 
 **Output:**
 
@@ -168,7 +168,7 @@ pricing_table:
   base_price: [100, 150, 200]
   discount_rate: [0.10, 0.15, 0.20]
   final_price: [90.0, 127.5, 160.0]  # ✅ Calculated!
-```text
+```
 
 **Zero tokens. Zero hallucinations. <200ms.**
 
@@ -343,20 +343,20 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 git clone https://github.com/royalbit/forge
 cd forge
 cargo build --release
-```text
+```
 
 ### Run tests:
 
 ```bash
 cargo test
-```text
+```
 
 ### Quality checks:
 
 ```bash
 cargo clippy --all-targets -- -D warnings
 cargo fmt -- --check
-```text
+```
 
 **Makefile available** for common tasks (`make install`, `make test`, etc.)
 

@@ -34,7 +34,7 @@ pricing_table:
 
 ## Financial Models
 
-### SaaS Metrics (v1.1.0)
+### SaaS Metrics (v1.2.1)
 
 ```yaml
 saas_metrics:
@@ -48,7 +48,7 @@ saas_metrics:
   payback_months: "=cac / (mrr * 0.70)"
 
 summary:
-  # v1.1.0 conditional aggregations
+  # v1.2.1 conditional aggregations
   total_arr:
     value: null
     formula: "=SUM(saas_metrics.arr)"
@@ -136,7 +136,7 @@ pricing:
   final_price: "=base_price * (1 - discount)"
 ```text
 
-### Multi-Criteria Filtering (v1.1.0)
+### Multi-Criteria Filtering (v1.2.1)
 
 ```yaml
 sales:
@@ -150,7 +150,7 @@ analysis:
     formula: "=SUMIFS(sales.revenue, sales.region, 'North', sales.category, 'Tech')"
 ```text
 
-### Precision Control (v1.1.0)
+### Precision Control (v1.2.1)
 
 ```yaml
 calculations:

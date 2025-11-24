@@ -1,7 +1,7 @@
 # CLI Architecture
 
 **Document Version:** 1.0.0
-**Forge Version:** v1.1.2
+**Forge Version:** v1.2.1
 **Last Updated:** 2025-11-24
 **Status:** Complete
 
@@ -83,77 +83,7 @@ Forge is built as a **command-line tool first**, with the library (`royalbit_for
 
 ### High-Level Architecture
 
-```plantuml
-@startuml cli-architecture
-!theme plain
-title CLI Architecture - Command Flow
-
-actor User
-
-package "Entry Point" {
-  [main.rs] as main
-  [Cli::parse()] as parser
-}
-
-package "Command Enum" {
-  [Commands::Calculate] as calc_cmd
-  [Commands::Validate] as val_cmd
-  [Commands::Export] as exp_cmd
-  [Commands::Import] as imp_cmd
-  [Commands::Audit] as aud_cmd
-}
-
-package "Command Handlers" {
-  [cli::calculate()] as calc_handler
-  [cli::validate()] as val_handler
-  [cli::export()] as exp_handler
-  [cli::import()] as imp_handler
-  [cli::audit()] as aud_handler
-}
-
-package "Core Library" {
-  [Parser] as lib_parser
-  [ArrayCalculator] as lib_calc
-  [ExcelExporter] as lib_export
-  [ExcelImporter] as lib_import
-  [Writer] as lib_writer
-}
-
-User --> main : forge calculate file.yaml
-
-main --> parser : parse argv
-parser --> calc_cmd : match command
-
-calc_cmd --> calc_handler : dispatch
-
-calc_handler --> lib_parser : parse YAML
-calc_handler --> lib_calc : calculate
-calc_handler --> lib_writer : update files
-
-calc_handler --> User : display results\nexit code
-
-note right of parser
-
-#### clap 4.5
-
-  Type-safe argument parsing
-  Auto-generated help text
-  Validation built-in
-end note
-
-note bottom of calc_handler
-
-#### Command Handler Pattern
-
-  1. Parse arguments
-  2. Call library functions
-  3. Format output
-  4. Return exit code
-
-end note
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Command Responsibility Matrix
 
@@ -167,44 +97,7 @@ end note
 
 ### Command Dependencies
 
-```plantuml
-@startuml command-dependencies
-!theme plain
-title Command Dependencies on Core Library
-
-package "CLI Commands" {
-  [calculate] as calc
-  [validate] as val
-  [export] as exp
-  [import] as imp
-}
-
-package "Core Library" {
-  [parser::parse_model] as parse1
-  [parser::parse_yaml_with_includes] as parse2
-  [ArrayCalculator] as array_calc
-  [Calculator] as scalar_calc
-  [writer::update_all_yaml_files] as writer
-  [ExcelExporter] as exporter
-  [ExcelImporter] as importer
-}
-
-calc --> parse1 : v1.0.0 models
-calc --> parse2 : v0.2.0 models
-calc --> array_calc : v1.0.0
-calc --> scalar_calc : v0.2.0
-calc --> writer : v0.2.0 only
-
-val --> parse2
-val --> scalar_calc
-
-exp --> parse1
-exp --> exporter
-
-imp --> importer
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ---
 
@@ -506,55 +399,7 @@ fn main() -> ForgeResult<()> {
 
 **Routing Flow:**
 
-```plantuml
-@startuml routing-flow
-!theme plain
-title Command Routing Flow
-
-start
-
-:User executes:\nforge calculate file.yaml;
-
-:main() called;
-
-:Cli::parse()\nParse argv with clap;
-
-if (Parse successful?) then (yes)
-  :Match cli.command;
-
-  partition "Command Dispatch" {
-    switch (Command?)
-    case (Calculate)
-      :cli::calculate(file, dry_run, verbose);
-    case (Validate)
-      :cli::validate(file);
-    case (Export)
-      :cli::export(input, output, verbose);
-    case (Import)
-      :cli::import(input, output, verbose);
-    case (Audit)
-      :cli::audit(file, variable);
-    endswitch
-  }
-
-  if (Handler returns Ok?) then (yes)
-    :Return Ok(());
-    :Exit code 0;
-  else (Err)
-    :Return Err(e);
-    :Print error;
-    :Exit code 1;
-  endif
-
-else (parse failed)
-  :clap prints error + help;
-  :Exit code 1;
-endif
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Command Handler Interface
 
@@ -733,53 +578,7 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
 
 ### Calculate Flow
 
-```plantuml
-@startuml calculate-flow
-!theme plain
-title Calculate Command Flow
-
-start
-
-:User: forge calculate file.yaml;
-
-:Print banner;
-
-if (--dry-run?) then (yes)
-  :Print dry run warning;
-endif
-
-:Parse YAML file;
-
-if (Version?) then (v1.0.0)
-  :ArrayCalculator::new(model);
-  :calculate_all()?;
-  :Display table results;
-  :Display scalar results;
-
-  if (--dry-run?) then (yes)
-    :Print "no changes written";
-  else (no)
-    :Print "v1.0.0 writer not yet implemented";
-  endif
-
-else (v0.2.0)
-  :parse_yaml_with_includes()?;
-  :Calculator::new(variables);
-  :calculate_all()?;
-  :Display results;
-
-  if (--dry-run?) then (yes)
-    :Print "no changes written";
-  else (no)
-    :update_all_yaml_files()?;
-    :Print success message;
-  endif
-endif
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Output Examples
 
@@ -953,57 +752,7 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
 
 ### Validate Flow
 
-```plantuml
-@startuml validate-flow
-!theme plain
-title Validate Command Flow
-
-start
-
-:User: forge validate file.yaml;
-
-:Print banner;
-
-:parse_yaml_with_includes()?;
-
-if (Has formulas?) then (no)
-  :Print "No formulas found";
-  stop
-endif
-
-:Calculator::calculate_all()?;
-
-if (Calculation succeeds?) then (yes)
-
-  :Compare calculated vs current values;
-
-  :For each variable {;
- if (|current - calculated| > 0.0001?) then (yes)
-    :Add to mismatches;
-  endif
-  :};
-
-  if (Any mismatches?) then (no)
-    :Print "✅ All formulas valid";
-    :Return Ok(());
-    :Exit code 0;
-  else (yes)
-    :Print mismatch details;
-    :Suggest "forge calculate";
-    :Return Err(Validation);
-    :Exit code 1;
-  endif
-
-else (calculation failed)
-  :Print calculation error;
-  :Return Err(e);
-  :Exit code 1;
-endif
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Output Examples
 
@@ -1128,43 +877,7 @@ pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 
 ### Export Flow
 
-```plantuml
-@startuml export-flow
-!theme plain
-title Export Command Flow
-
-start
-
-:User: forge export in.yaml out.xlsx;
-
-:Print banner;
-
-:parse_model(input)?;
-
-if (Version is v1.0.0?) then (yes)
-
-  if (--verbose?) then (yes)
-    :Print model info;
-  endif
-
-  :ExcelExporter::new(model);
-  :exporter.export(output)?;
-
-  :Print success message;
-  :Print feature checklist;
-
-  :Return Ok(());
-  :Exit code 0;
-
-else (v0.2.0)
-  :Return Err("v1.0.0 required");
-  :Exit code 1;
-endif
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Output Example
 
@@ -1275,38 +988,7 @@ pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 
 ### Import Flow
 
-```plantuml
-@startuml import-flow
-!theme plain
-title Import Command Flow
-
-start
-
-:User: forge import in.xlsx out.yaml;
-
-:Print banner;
-
-:ExcelImporter::new(input);
-:importer.import()?;
-
-if (--verbose?) then (yes)
-  :Print tables/scalars count;
-  :Print table details;
-endif
-
-:Serialize model to YAML;
-:fs::write(output, yaml)?;
-
-:Print success message;
-:Print feature checklist;
-
-:Return Ok(());
-:Exit code 0;
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Output Example
 

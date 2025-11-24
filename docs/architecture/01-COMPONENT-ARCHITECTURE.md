@@ -1,7 +1,7 @@
 # Component Architecture
 
 **Document Version:** 1.0.0
-**Forge Version:** v1.1.2
+**Forge Version:** v1.2.1
 **Last Updated:** 2025-11-24
 **Status:** Complete
 
@@ -57,131 +57,7 @@ This separation enables:
 
 ### High-Level Component Diagram
 
-```plantuml
-@startuml component-architecture
-!theme plain
-title Forge Component Architecture - Detailed View
-
-package "CLI Layer" {
-  [main.rs] as main
-  [cli/commands.rs] as commands
-}
-
-package "Parser Layer" {
-  [parser/mod.rs] as parser
-  [Version Detector] as version_detector
-  [Schema Validator] as schema_validator
-}
-
-package "Core Layer" {
-  [array_calculator.rs] as array_calc
-  [calculator.rs] as scalar_calc
-  [Dependency Resolver] as dep_resolver
-  [Formula Evaluator] as formula_eval
-}
-
-package "Writer Layer" {
-  [writer/mod.rs] as writer
-  [YAML Serializer] as yaml_serializer
-}
-
-package "Excel Layer" {
-  [excel/exporter.rs] as exporter
-  [excel/importer.rs] as importer
-  [formula_translator.rs] as translator
-  [reverse_formula_translator.rs] as reverse_translator
-}
-
-package "Types Layer" {
-  [types.rs] as types
-  [error.rs] as errors
-}
-
-package "External Libraries" {
-  [xlformula_engine] as xle
-  [petgraph] as petgraph_lib
-  [serde_yaml] as serde
-  [rust_xlsxwriter] as xlsx_writer
-  [calamine] as xlsx_reader
-}
-
-' CLI Layer connections
-main --> commands : routes commands
-commands --> parser : parse YAML
-commands --> array_calc : calculate v1.0
-commands --> scalar_calc : calculate v0.2
-commands --> exporter : export to Excel
-commands --> importer : import from Excel
-commands --> writer : write YAML
-
-' Parser Layer connections
-parser --> version_detector : detect version
-parser --> schema_validator : validate structure
-parser --> types : create Model
-parser --> serde : deserialize YAML
-
-' Core Layer connections
-array_calc --> dep_resolver : resolve dependencies
-array_calc --> formula_eval : evaluate formulas
-array_calc --> types : read/write data
-scalar_calc --> dep_resolver : resolve dependencies
-scalar_calc --> formula_eval : evaluate formulas
-
-' Writer Layer connections
-writer --> yaml_serializer : serialize data
-writer --> serde : write YAML
-
-' Excel Layer connections
-exporter --> translator : translate formulas
-exporter --> xlsx_writer : create workbook
-importer --> reverse_translator : reverse translate
-importer --> xlsx_reader : read workbook
-translator --> types : read model data
-importer --> types : create model
-
-' External dependencies
-dep_resolver --> petgraph_lib : topological sort
-formula_eval --> xle : evaluate Excel functions
-
-' Shared dependencies
-array_calc --> errors
-scalar_calc --> errors
-parser --> errors
-exporter --> errors
-importer --> errors
-
-note right of array_calc
-
-#### v1.0.0 Calculator
-
-  - 3,440 lines
-  - Array operations
-  - Row-wise formulas
-  - Two-phase calculation
-
-end note
-
-note right of scalar_calc
-
-#### v0.2.0 Calculator
-
-  - 401 lines
-  - Scalar operations
-  - Cross-file references
-  - Backwards compatible
-
-end note
-
-note bottom of parser
-
-#### Dual-version support
-
-  Auto-detects v0.2.0 vs v1.0.0
-  Parses both formats
-end note
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Component Responsibilities Matrix
 
@@ -283,45 +159,7 @@ pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()>
 
 **Calculate Command Flow:**
 
-```plantuml
-@startuml calculate-command-flow
-!theme plain
-title Calculate Command - Internal Flow
-
-start
-
-:User executes\n**forge calculate model.yaml**;
-
-:Parse command-line args\n(clap);
-
-:Read YAML file;
-
-:Detect version\n(v0.2.0 or v1.0.0);
-
-if (Version?) then (v1.0.0)
-  :Parse as array model;
-  :Create ArrayCalculator;
-  :Calculate tables\n(two-phase);
-  :Calculate scalars;
-  :Display results;
-  note right
-    v1.0.0 writer
-    not yet implemented
-  end note
-else (v0.2.0)
-  :Parse with includes;
-  :Create Calculator;
-  :Build dependency graph;
-  :Topological sort;
-  :Evaluate formulas;
-  :Write ALL files\n(main + includes);
-  :Display success;
-endif
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 **Design Patterns:**
 
@@ -367,50 +205,7 @@ fn validate_against_schema(yaml: &Value) -> ForgeResult<()>
 
 **Version Detection Algorithm:**
 
-```plantuml
-@startuml version-detection
-!theme plain
-title Version Detection Algorithm
-
-start
-
-:Read YAML file;
-
-if (Has "_forge_version" field?) then (yes)
-  if (Starts with "1.0"?) then (yes)
-    :Return **V1_0_0**;
-    stop
-  else (no)
-    :Continue checking;
-  endif
-endif
-
-if (Has "includes" field?) then (yes)
-  :Return **V0_2_0**;
-  note right
-    includes: indicates
-    cross-file references
-    (v0.2.0 feature)
-  end note
-  stop
-endif
-
-if (Has "tables" with "columns"?) then (yes)
-  :Return **V1_0_0**;
-  stop
-endif
-
-if (Contains array values?) then (yes)
-  :Return **V1_0_0**;
-  stop
-endif
-
-:Return **V0_2_0**\n(default for backwards compatibility);
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 **Schema Validation:**
 
@@ -505,94 +300,7 @@ pub struct Variable {
 
 **Type System Design:**
 
-```plantuml
-@startuml type-hierarchy
-!theme plain
-title Forge Type Hierarchy
-
-class ForgeVersion {
-  V0_2_0
-  V1_0_0
-  --
-  +detect(yaml: &Value): Self
-}
-
-class ColumnValue {
-  Number(Vec<f64>)
-  Text(Vec<String>)
-  Date(Vec<String>)
-  Boolean(Vec<bool>)
-  --
-  +len(): usize
-  +is_empty(): bool
-  +type_name(): &str
-}
-
-class Column {
-  +name: String
-  +values: ColumnValue
-  --
-  +new(name, values): Self
-  +len(): usize
-}
-
-class Table {
-  +name: String
-  +columns: HashMap<String, Column>
-  +row_formulas: HashMap<String, String>
-  --
-  +new(name): Self
-  +add_column(column: Column)
-  +add_row_formula(name, formula)
-  +row_count(): usize
-  +validate_lengths(): Result<()>
-}
-
-class ParsedModel {
-  +version: ForgeVersion
-  +tables: HashMap<String, Table>
-  +scalars: HashMap<String, Variable>
-  +includes: Vec<Include>
-  +aggregations: HashMap<String, String>
-  --
-  +new(version): Self
-  +add_table(table: Table)
-  +add_scalar(name, variable)
-  +add_aggregation(name, formula)
-}
-
-class Variable {
-  +path: String
-  +value: Option<f64>
-  +formula: Option<String>
-  +alias: Option<String>
-}
-
-ParsedModel --> ForgeVersion : uses
-ParsedModel --> Table : contains
-ParsedModel --> Variable : contains
-Table --> Column : contains
-Column --> ColumnValue : contains
-
-note right of ColumnValue
-
-#### Type Safety
-
-  Homogeneous arrays only
-  No mixed types allowed
-  Enforced at parse time
-end note
-
-note bottom of ParsedModel
-
-#### Unified Model
-
-  Supports both v0.2.0 and v1.0.0
-  Version-specific fields clearly marked
-end note
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 **Key Invariants:**
 
@@ -629,65 +337,7 @@ impl Table {
 
 **Key Algorithm - Two-Phase Calculation:**
 
-```plantuml
-@startuml two-phase-calculation
-!theme plain
-title ArrayCalculator - Two-Phase Calculation Algorithm
-
-start
-
-:Receive ParsedModel;
-
-partition "Phase 1: Calculate Tables" {
-  :Build table dependency graph\n(cross-table references);
-
-  :Topological sort\n(petgraph);
-
-  :For each table in order {
-
-  partition "Table Calculation" {
-    :Build column dependency graph\n(within table);
-
-    :Topological sort columns;
-
-    :For each formula column {
-
-    if (Is aggregation?) then (yes)
-      :Error: Aggregations\nbelonging in scalars;
-      stop
-    else (no)
-      :Evaluate row-wise formula\n(element-wise);
-
-      :Create result column;
-
-      :Add to table;
-    endif
-    }
-  }
-  }
-
-  :Update model with calculated tables;
-}
-
-partition "Phase 2: Calculate Scalars" {
-  :Build scalar dependency graph\n(references to tables);
-
-  :Topological sort scalars;
-
-  :For each scalar formula {
-
-  :Evaluate aggregation\n(SUM, AVERAGE, etc.);
-
-  :Store result;
-  }
-}
-
-:Return calculated model;
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 **Core Functions:**
 
@@ -830,60 +480,7 @@ impl Calculator {
 
 **Cross-File Reference Resolution:**
 
-```plantuml
-@startuml cross-file-references
-!theme plain
-title Cross-File Reference Resolution (v0.2.0)
-
-participant "main.yaml" as main
-participant "Calculator" as calc
-participant "pricing.yaml" as pricing
-participant "costs.yaml" as costs
-
-main -> calc : calculate()
-activate calc
-
-calc -> calc : parse_yaml_with_includes()
-note right
-  Reads:
-  - main.yaml
-  - pricing.yaml (as: pricing)
-  - costs.yaml (as: costs)
-
-end note
-
-calc -> calc : build_dependency_graph()
-note right
-  Variables:
-  - revenue (main)
-  - base_price (pricing)
-  - unit_cost (costs)
-  - profit = @pricing.base_price * qty - @costs.unit_cost
-
-  Dependencies:
-  base_price → profit
-  unit_cost → profit
-end note
-
-calc -> calc : topological_sort()
-note right
-  Order:
-  1. base_price
-  2. unit_cost
-  3. profit
-
-end note
-
-calc -> calc : evaluate_formula("=@pricing.base_price * 10")
-calc -> pricing : resolve("@pricing.base_price")
-pricing --> calc : 99.0
-calc -> calc : evaluate("=99.0 * 10")
-calc --> main : 990.0
-
-deactivate calc
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 **Variable Resolution Logic:**
 
@@ -939,51 +536,7 @@ pub fn update_all_yaml_files(
 
 **Update Algorithm:**
 
-```plantuml
-@startuml yaml-update-algorithm
-!theme plain
-title YAML Update Algorithm - Preserving Structure
-
-start
-
-:Receive calculated values;
-
-:For each file (main + includes) {
-
-partition "File Update" {
-  :Read original YAML as string;
-
-  :Parse YAML to Value tree;
-
-  :Traverse tree depth-first;
-
-  :For each node {
-
-  if (Has "formula" field?) then (yes)
-    :Extract variable path;
-
-    if (Value in results?) then (yes)
-      :Update "value" field;
-      note right
-        Preserve original formatting:
-        - Indentation
-        - Comments
-        - Key ordering
-      end note
-    endif
-  endif
-  }
-
-  :Serialize back to YAML;
-
-  :Write to file;
-}
-}
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 **Design Decision: Why not use serde_yaml directly?**
 
@@ -1002,193 +555,15 @@ Solution: Parse → Update specific paths → Serialize
 
 ### Calculate Command - Component Collaboration
 
-```plantuml
-@startuml calculate-collaboration
-!theme plain
-title Calculate Command - Component Collaboration Diagram
-
-actor User
-participant "main.rs" as main
-participant "commands.rs" as cmd
-participant "parser/mod.rs" as parser
-participant "array_calculator.rs" as calc
-participant "xlformula_engine" as xle
-participant "petgraph" as pg
-participant "writer/mod.rs" as writer
-
-User -> main : forge calculate model.yaml
-activate main
-
-main -> cmd : calculate(file, dry_run, verbose)
-activate cmd
-
-cmd -> parser : parse_model(&file)
-activate parser
-
-parser -> parser : detect_version()
-parser -> parser : parse_v1_model()
-parser --> cmd : ParsedModel
-deactivate parser
-
-cmd -> calc : new(model)
-activate calc
-
-cmd -> calc : calculate_all()
-
-calc -> pg : build_graph()
-pg --> calc : graph
-
-calc -> pg : toposort(graph)
-pg --> calc : calculation_order
-
-loop for each table
-  calc -> calc : calculate_table()
-
-  loop for each formula
-    calc -> xle : calculate(formula, resolver)
-    xle --> calc : result
-  end
-end
-
-loop for each scalar
-  calc -> xle : calculate(formula, resolver)
-  xle --> calc : result
-end
-
-calc --> cmd : calculated_model
-deactivate calc
-
-alt if not dry_run
-  cmd -> writer : update_all_yaml_files()
-  activate writer
-  writer -> writer : update_values()
-  writer --> cmd : success
-  deactivate writer
-end
-
-cmd --> main : Ok(())
-deactivate cmd
-
-main --> User : ✨ Files updated successfully!
-deactivate main
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Export Command - Component Collaboration
 
-```plantuml
-@startuml export-collaboration
-!theme plain
-title Export Command - Component Collaboration Diagram
-
-actor User
-participant "main.rs" as main
-participant "commands.rs" as cmd
-participant "parser/mod.rs" as parser
-participant "exporter.rs" as exporter
-participant "formula_translator.rs" as translator
-participant "rust_xlsxwriter" as xlsx
-
-User -> main : forge export model.yaml output.xlsx
-activate main
-
-main -> cmd : export(input, output, verbose)
-activate cmd
-
-cmd -> parser : parse_model(&input)
-activate parser
-parser --> cmd : ParsedModel
-deactivate parser
-
-cmd -> exporter : new(model)
-activate exporter
-
-cmd -> exporter : export(&output_path)
-
-loop for each table
-  exporter -> exporter : export_table(table)
-
-  exporter -> translator : new(column_map)
-  activate translator
-
-  loop for each row
-    alt if has formula
-      exporter -> translator : translate_row_formula(formula, row)
-      translator --> exporter : excel_formula
-      exporter -> xlsx : write_formula(row, col, formula)
-    else has data
-      exporter -> xlsx : write_number/text/boolean(row, col, value)
-    end
-  end
-
-  deactivate translator
-end
-
-exporter -> exporter : export_scalars()
-
-exporter -> xlsx : save(output_path)
-xlsx --> exporter : success
-
-exporter --> cmd : Ok(())
-deactivate exporter
-
-cmd --> main : Ok(())
-deactivate cmd
-
-main --> User : ✅ Exported to output.xlsx
-deactivate main
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Version Detection - Component Interaction
 
-```plantuml
-@startuml version-detection-interaction
-!theme plain
-title Version Detection - Component Interaction
-
-participant "commands.rs" as cmd
-participant "parser/mod.rs" as parser
-participant "types.rs" as types
-participant "array_calculator.rs" as array_calc
-participant "calculator.rs" as scalar_calc
-
-cmd -> parser : parse_model(&file)
-activate parser
-
-parser -> types : ForgeVersion::detect(&yaml)
-activate types
-
-alt Explicit version marker
-  types --> parser : V1_0_0 or V0_2_0
-else Has "includes" field
-  types --> parser : V0_2_0
-else Has "tables" with "columns"
-  types --> parser : V1_0_0
-else Has array values
-  types --> parser : V1_0_0
-else Default
-  types --> parser : V0_2_0 (backwards compatible)
-end
-
-deactivate types
-
-alt if V1_0_0
-  parser -> parser : parse_v1_model()
-  parser --> cmd : ParsedModel(V1_0_0)
-  cmd -> array_calc : new(model)
-else if V0_2_0
-  parser -> parser : parse_v0_model()
-  parser --> cmd : ParsedModel(V0_2_0)
-  cmd -> scalar_calc : new(variables)
-end
-
-deactivate parser
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ---
 
@@ -1238,90 +613,7 @@ Coupling: Strong (central data structures)
 
 ### Dependency Graph
 
-```plantuml
-@startuml module-dependencies
-!theme plain
-title Module Dependency Graph
-
-package "Public API" {
-  [main.rs]
-  [lib.rs]
-}
-
-package "CLI" {
-  [commands.rs]
-}
-
-package "Core" {
-  [array_calculator.rs]
-  [calculator.rs]
-}
-
-package "Parser" {
-  [parser/mod.rs]
-}
-
-package "Writer" {
-  [writer/mod.rs]
-}
-
-package "Excel" {
-  [exporter.rs]
-  [importer.rs]
-  [formula_translator.rs]
-}
-
-package "Foundation" {
-  [types.rs]
-  [error.rs]
-}
-
-[main.rs] --> [commands.rs]
-[lib.rs] --> [parser/mod.rs]
-[lib.rs] --> [array_calculator.rs]
-[lib.rs] --> [calculator.rs]
-[lib.rs] --> [types.rs]
-
-[commands.rs] --> [parser/mod.rs]
-[commands.rs] --> [array_calculator.rs]
-[commands.rs] --> [calculator.rs]
-[commands.rs] --> [exporter.rs]
-[commands.rs] --> [importer.rs]
-[commands.rs] --> [writer/mod.rs]
-
-[array_calculator.rs] --> [types.rs]
-[array_calculator.rs] --> [error.rs]
-[calculator.rs] --> [types.rs]
-[calculator.rs] --> [error.rs]
-
-[parser/mod.rs] --> [types.rs]
-[parser/mod.rs] --> [error.rs]
-
-[writer/mod.rs] --> [types.rs]
-[writer/mod.rs] --> [error.rs]
-
-[exporter.rs] --> [types.rs]
-[exporter.rs] --> [formula_translator.rs]
-[importer.rs] --> [types.rs]
-
-note right of [types.rs]
-
-#### Foundation Module
-
-  No dependencies except stdlib
-  Shared by all modules
-end note
-
-note right of [error.rs]
-
-#### Error Types
-
-  Used by all modules
-  Unified error handling
-end note
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Boundary Enforcement
 
@@ -1960,61 +1252,7 @@ struct Cli {
 
 ### Dependency Graph
 
-```plantuml
-@startuml external-dependencies
-!theme plain
-title External Dependencies
-
-package "Forge" {
-  [array_calculator.rs]
-  [calculator.rs]
-  [parser/mod.rs]
-  [writer/mod.rs]
-  [excel/exporter.rs]
-  [excel/importer.rs]
-  [main.rs]
-}
-
-package "External Libraries" {
-  [xlformula_engine\nv0.1.18]
-  [petgraph\nv0.6]
-  [serde_yaml\nv0.9]
-  [rust_xlsxwriter\nv0.90]
-  [calamine\nv0.31]
-  [clap\nv4.5]
-}
-
-[array_calculator.rs] --> [xlformula_engine\nv0.1.18] : formula evaluation
-[array_calculator.rs] --> [petgraph\nv0.6] : dependency graph
-[calculator.rs] --> [xlformula_engine\nv0.1.18] : formula evaluation
-[calculator.rs] --> [petgraph\nv0.6] : dependency graph
-
-[parser/mod.rs] --> [serde_yaml\nv0.9] : deserialize
-[writer/mod.rs] --> [serde_yaml\nv0.9] : serialize
-
-[excel/exporter.rs] --> [rust_xlsxwriter\nv0.90] : create Excel
-[excel/importer.rs] --> [calamine\nv0.31] : read Excel
-
-[main.rs] --> [clap\nv4.5] : CLI parsing
-
-note right of [xlformula_engine\nv0.1.18]
-
-#### Formula Engine
-
-  50+ Excel functions
-  Excel-compatible syntax
-end note
-
-note right of [petgraph\nv0.6]
-
-#### Graph Algorithms
-
-  Topological sort
-  Cycle detection
-end note
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ---
 

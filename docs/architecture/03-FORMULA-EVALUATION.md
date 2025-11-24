@@ -1,7 +1,7 @@
 # Formula Evaluation Architecture
 
 **Document Version:** 1.0.0
-**Forge Version:** v1.1.2
+**Forge Version:** v1.2.1
 **Last Updated:** 2025-11-24
 **Status:** Complete
 
@@ -49,70 +49,7 @@ This document provides a comprehensive specification of Forge's formula evaluati
 
 ### High-Level Architecture
 
-```plantuml
-@startuml formula-evaluation-pipeline
-!theme plain
-title Formula Evaluation Pipeline
-
-start
-
-:User defines formula\nin YAML;
-
-partition "Parse Phase" {
-  :Read YAML file;
-  :Parse formula string;
-  :Extract dependencies;
-}
-
-partition "Dependency Resolution" {
-  :Build dependency graph;
-  :Topological sort;
-  if (Circular dependency?) then (yes)
-    :Error: Circular dependency;
-    stop
-  endif
-}
-
-partition "Preprocessing" {
-  if (Has custom functions?) then (yes)
-    :Preprocess ROUND, SQRT, etc;
-  endif
-
-  if (Has array indexing?) then (yes)
-    :Replace table.column[idx]\nwith actual values;
-  endif
-}
-
-partition "Evaluation" {
-  if (Row-wise formula?) then (yes)
-    :For each row {
-      :Resolve column values;
-      :Call xlformula_engine;
-      :Collect result;
-    }
-  elseif (Aggregation?) then (aggregation)
-    :Get column array;
-    :Apply aggregation;
-    :Return scalar;
-  else (scalar)
-    :Resolve variables;
-    :Call xlformula_engine;
-    :Return value;
-  endif
-}
-
-partition "Result Handling" {
-  :Convert xlformula type\nto Forge type;
-  :Validate result;
-  :Store in model;
-}
-
-:Return calculated model;
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Two-Phase Calculation Model
 
@@ -312,49 +249,7 @@ Row 1: margin[1] = profit[1] / revenue[1] = 84000 / 120000 = 0.7
 
 ### Evaluation Algorithm
 
-```plantuml
-@startuml rowwise-evaluation
-!theme plain
-title Row-wise Formula Evaluation Algorithm
-
-start
-
-:Receive formula string\n(e.g., "=revenue - cogs");
-
-:Get row count from table;
-
-:Extract column references\n(e.g., ["revenue", "cogs"]);
-
-:Validate all columns exist\nand have correct length;
-
-:Initialize result vectors;
-
-:For row_idx in 0..row_count {
-
-partition "Per-Row Evaluation" {
-  :Create resolver closure;
-  note right
-    resolver("revenue") → revenue[row_idx]
-    resolver("cogs") → cogs[row_idx]
-  end note
-
-  :Call xlformula_engine\nwith resolver;
-
-  :Get result value;
-
-  :Append to result vector;
-}
-
-}
-
-:Convert result vector\nto ColumnValue;
-
-:Return calculated column;
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Code Implementation
 
@@ -648,39 +543,7 @@ SUMIFS(sum_range, criteria_range1, criteria1, criteria_range2, criteria2, ...)
 
 ### Evaluation Algorithm
 
-```plantuml
-@startuml aggregation-evaluation
-!theme plain
-title Aggregation Formula Evaluation
-
-start
-
-:Receive formula\n(e.g., "=SUM(table.column)");
-
-:Detect aggregation type;
-
-if (Simple aggregation?) then (yes)
-  :Extract table.column;
-  :Get column array;
-  :Apply aggregation\n(SUM, AVG, MAX, MIN);
-  :Return scalar result;
-  stop
-elseif (Conditional?) then (conditional)
-  :Extract criteria range,\ncriteria, sum range;
-  :Get all column arrays;
-  :Filter rows by criteria;
-  :Apply aggregation\nto filtered rows;
-  :Return scalar result;
-  stop
-else (complex)
-  :Preprocess formula;
-  :Use xlformula_engine\nwith resolver;
-  :Return scalar result;
-  stop
-endif
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Code Implementation
 
@@ -997,40 +860,7 @@ revenue: "=@pricing.base_price * volume"
 
 ### Resolution Algorithm
 
-```plantuml
-@startuml variable-resolution
-!theme plain
-title Variable Resolution Algorithm
-
-start
-
-:Encounter variable name\n(e.g., "revenue");
-
-if (In row-wise context?) then (yes)
-  :Resolve to column value\nat current row index;
-  :revenue → revenue[row_idx];
-  stop
-elseif (Contains "."?) then (table.column)
-  if (Array indexing?) then (yes)
-    :table.column[idx];
-    :Get column value at index;
-    stop
-  else (aggregation)
-    :table.column;
-    :Get entire column array;
-    stop
-  endif
-elseif (Has "@" prefix?) then (cross-file)
-  :@alias.variable;
-  :Look up in included file;
-  stop
-else (scalar)
-  :Look up in scalars map;
-  stop
-endif
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ---
 

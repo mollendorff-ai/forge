@@ -6,7 +6,7 @@
 
 ```bash
 cargo install royalbit-forge
-```text
+```
 
 ### Pre-built Binary (Linux):
 
@@ -14,7 +14,7 @@ cargo install royalbit-forge
 curl -L https://github.com/royalbit/forge/releases/latest/download/forge-linux-x86_64 -o forge
 chmod +x forge
 sudo mv forge /usr/local/bin/forge
-```text
+```
 
 ## Advanced Installation
 
@@ -35,7 +35,7 @@ make install-user
 # Uninstall
 
 make uninstall
-```text
+```
 
 ### From Source:
 
@@ -43,7 +43,7 @@ make uninstall
 git clone https://github.com/royalbit/forge
 cd forge
 cargo install --path .
-```text
+```
 
 ### Optimized Static Build (440KB):
 
@@ -58,7 +58,7 @@ make build-static
 # Compress with UPX (optional)
 
 make build-compressed
-```text
+```
 
 Result: 440KB executable with zero dependencies
 
@@ -76,7 +76,7 @@ forge --help
 
 # ...
 
-```text
+```
 
 ## IDE Integration
 
@@ -86,7 +86,7 @@ Add to your YAML files:
 
 # yaml-language-server: $schema=https://raw.githubusercontent.com/royalbit/forge/main/schema/forge-v1.schema.json
 
-```text
+```
 
 Supported: VS Code, IntelliJ, any YAML language server
 
@@ -98,7 +98,7 @@ Add to PATH:
 
 ```bash
 export PATH="$HOME/.cargo/bin:$PATH"
-```text
+```
 
 ### Build errors
 
@@ -106,6 +106,6 @@ Update Rust:
 
 ```bash
 rustup update stable
-```text
+```
 
 For more help: https://github.com/royalbit/forge/issues

@@ -1,7 +1,7 @@
 # Excel Integration Architecture
 
 **Document Version:** 1.0.0
-**Forge Version:** v1.1.2
+**Forge Version:** v1.2.1
 **Last Updated:** 2025-11-24
 **Status:** Complete
 
@@ -80,72 +80,7 @@ This 1:1 mapping ensures:
 
 ### High-Level Architecture
 
-```plantuml
-@startuml excel-integration-overview
-!theme plain
-title Excel Integration - Bidirectional Conversion
-
-package "YAML Model" {
-  [ParsedModel] as model
-  [Table: financials] as table1
-  [Table: expenses] as table2
-  [Scalars] as scalars
-}
-
-package "Excel Workbook" {
-  [Worksheet: financials] as sheet1
-  [Worksheet: expenses] as sheet2
-  [Worksheet: Scalars] as sheet3
-}
-
-package "Export Pipeline" {
-  [ExcelExporter] as exporter
-  [FormulaTranslator] as translator
-  [rust_xlsxwriter] as writer
-}
-
-package "Import Pipeline" {
-  [ExcelImporter] as importer
-  [ReverseFormulaTranslator] as reverse
-  [calamine] as reader
-}
-
-' Export flow
-model --> exporter : export()
-exporter --> translator : translate formulas
-translator --> writer : write .xlsx
-writer --> sheet1 : create
-writer --> sheet2 : create
-writer --> sheet3 : create
-
-' Import flow
-sheet1 --> reader : read .xlsx
-sheet2 --> reader : read .xlsx
-sheet3 --> reader : read .xlsx
-reader --> importer : import()
-importer --> reverse : translate formulas
-reverse --> model : create ParsedModel
-
-note right of translator
-
-#### YAML → Excel
-
-  =revenue - cogs
-  ↓
-  =A2-B2
-end note
-
-note left of reverse
-
-#### Excel → YAML
-
-  =A2-B2
-  ↓
-  =revenue - cogs
-end note
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### Conversion Guarantees
 
@@ -178,66 +113,7 @@ Excel → YAML → Excel ≈ Original Excel
 
 ### Export Pipeline Overview
 
-```plantuml
-@startuml export-pipeline
-!theme plain
-title Export Pipeline - YAML to Excel
-
-start
-
-:Parse YAML file;
-:Create ParsedModel;
-
-partition "Workbook Creation" {
-  :Create empty Workbook;
-  :workbook = Workbook::new();
-}
-
-partition "Table Export Loop" {
-  :For each table in model.tables {;
-
-  :Create worksheet;
-  :worksheet.set_name(table_name);
-
-  :Build column mapping\n(revenue → A, cogs → B);
-
-  :Write header row\n(row 0: column names);
-
-  :Get row count from\nfirst data column;
-
-  partition "Data Row Loop" {
-    :For each row_idx in 0..row_count {;
-
-    :For each column {;
-
-    if (Is formula column?) then (yes)
-      :Translate formula\nfor this row;
-      :Write formula cell;
-    else (no)
-      :Write data value;
-    endif
-
-    :}
-  }
-
-  :}
-}
-
-partition "Scalars Export" {
-  if (Has scalars?) then (yes)
-    :Create "Scalars" worksheet;
-    :Write header: Name, Value, Formula;
-    :Write each scalar as row;
-  endif
-}
-
-:Save workbook to .xlsx file;
-:workbook.save(path)?;
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### ExcelExporter Implementation
 
@@ -463,69 +339,7 @@ fn export_scalars(&self, workbook: &mut Workbook) -> ForgeResult<()> {
 
 ### Import Pipeline Overview
 
-```plantuml
-@startuml import-pipeline
-!theme plain
-title Import Pipeline - Excel to YAML
-
-start
-
-:Open Excel workbook\nwith calamine;
-
-:Get all worksheet names;
-
-:Create empty ParsedModel\n(version = V1_0_0);
-
-partition "Worksheet Loop" {
-  :For each worksheet {;
-
-  if (Worksheet is empty?) then (yes)
-    :Skip worksheet;
-  elseif (Name == "Scalars"?) then (yes)
-    :process_scalars_sheet();
-  else (regular table)
-    :process_table_sheet();
-  endif
-
-  :}
-}
-
-partition "Table Processing" {
-  :Read header row (row 0);
-  :Extract column names;
-
-  :Read all data rows\n(skip header);
-
-  :Detect column types\nfrom first non-empty cell;
-
-  :Build column map\n(A → revenue, B → cogs);
-
-  :Create ReverseFormulaTranslator;
-
-  partition "Column Loop" {
-    :For each column {;
-
-    if (Has formula in row 1?) then (yes)
-      :Extract formula from\nformula_range;
-      :Translate Excel → YAML;
-      :Add as row_formula;
-    else (data column)
-      :Convert Data array\nto ColumnValue;
-      :Add as Column;
-    endif
-
-    :}
-  }
-
-  :Add table to model;
-}
-
-:Return ParsedModel;
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 ### ExcelImporter Implementation
 
@@ -798,48 +612,7 @@ fn process_scalars_sheet(
 
 **File:** `/home/rex/src/utils/forge/src/excel/formula_translator.rs` (286 lines)
 
-```plantuml
-@startuml forward-translation
-!theme plain
-title Forward Formula Translation - YAML to Excel
-
-start
-
-:Input: YAML formula\n"=revenue - cogs"\nRow: 2;
-
-:Remove leading =;
-
-:Create regex pattern\nfor variable names;
-
-:Find all variable\nreferences in formula;
-
-partition "Variable Replacement" {
-  :For each variable (reverse order) {;
-
-  if (Is Excel function?) then (yes)
-    :Skip (SUM, IF, etc.);
-  elseif (Is table.column ref?) then (yes)
-    :Split by '.';
-    :table.column → Sheet!Column2;
-  else (simple column ref)
-    :Look up in column_map;
-    :revenue → A;
-    :Append row number;
-    :revenue → A2;
-  endif
-
-  :Replace in formula;
-  :}
-}
-
-:Add leading =;
-
-:Output: Excel formula\n"=A2-B2";
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 **FormulaTranslator Structure:**
 
@@ -999,52 +772,7 @@ fn is_excel_function(&self, word: &str) -> bool {
 
 **File:** `/home/rex/src/utils/forge/src/excel/reverse_formula_translator.rs` (318 lines)
 
-```plantuml
-@startuml reverse-translation
-!theme plain
-title Reverse Formula Translation - Excel to YAML
-
-start
-
-:Input: Excel formula\n"=B2-A2";
-
-:Remove leading =;
-
-partition "Three-Phase Translation" {
-
-  partition "Phase 1: Sheet References" {
-    :Pattern: Sheet!A1;
-    :Extract sheet name;
-    :Extract column letter;
-    :Map to table.column;
-    :Sheet1!A2 → sheet1.revenue;
-  }
-
-  partition "Phase 2: Range References" {
-    :Pattern: A:A or A1:A10;
-    :Verify same column;
-    :Map column to name;
-    :SUM(A:A) → SUM(revenue);
-  }
-
-  partition "Phase 3: Cell References" {
-    :Pattern: B2, A3, AA10;
-    :Skip Excel functions;
-    :Map column letter;
-    :Strip row number;
-    :B2 → cogs;
-    :A2 → revenue;
-  }
-}
-
-:Add leading =;
-
-:Output: YAML formula\n"=cogs - revenue";
-
-stop
-
-@enduml
-```text
+*[Diagram to be recreated in Mermaid format]*
 
 **ReverseFormulaTranslator Structure:**
 

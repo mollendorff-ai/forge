@@ -76,7 +76,7 @@ When you ask ChatGPT, Claude, or Copilot to validate financial formulas, they ha
 
 **What happens:**
 
-```text
+```
 Input (your prompt + all files):     70,000 tokens
 Output (AI response):                 30,000 tokens
 
@@ -84,7 +84,7 @@ Cost per validation:
   Input:  70,000 × $3.00 / 1M  = $0.21
   Output: 30,000 × $15.00 / 1M = $0.45
   Total:  $0.66 per validation
-```text
+```
 
 **With Forge:**
 
@@ -94,7 +94,7 @@ forge validate
 Tokens:  0
 Cost:    $0.00
 Time:    <200ms
-```text
+```
 
 **Savings per validation:** $0.66
 
@@ -432,7 +432,7 @@ AI inference consumes:
 
 **AI Approach:**
 
-```text
+```
 You: "Validate these 850 formulas"
 AI:  *burns 100,000 tokens*
 AI:  "Everything looks good!"
@@ -445,11 +445,11 @@ You: "What else did you miss?"
 Cost: $1-5 per iteration
 Time: 5-15 minutes total
 Confidence: 85-95%
-```text
+```
 
 **Forge Approach:**
 
-```text
+```
 You: forge validate model.yaml
 Forge: <200ms>
 Forge: ✅ All formulas valid OR ❌ Error in revenue[3]: ...
@@ -457,7 +457,7 @@ Forge: ✅ All formulas valid OR ❌ Error in revenue[3]: ...
 Cost: $0
 Time: <1 second
 Confidence: 100%
-```text
+```
 
 ### The Psychological Cost
 
@@ -514,13 +514,13 @@ Confidence: 100%
 
 ```bash
 cargo install royalbit-forge
-```text
+```
 
 **Start saving money and carbon:**
 
 ```bash
 forge validate your-model.yaml
-```text
+```
 
 **That's it.** You're now part of the green coding revolution.
 
