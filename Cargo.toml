@@ -24,9 +24,13 @@ path = "src/main.rs"
 # YAML parsing
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
+serde_json = "1.0"  # JSON handling for schema validation
 
 # Expression evaluation (Excel-compatible formulas)
 xlformula_engine = "0.1.4"
+
+# JSON Schema validation (v1.0.0 array model)
+jsonschema = "0.18"
 
 # CLI
 clap = { version = "4.5", features = ["derive"] }
