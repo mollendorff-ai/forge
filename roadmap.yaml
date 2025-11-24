@@ -336,22 +336,6 @@ features:
     dependencies: []
     note: "v0.2.0 intentionally limited to basic functions to avoid migration complexity with v1.0.0 array model"
 
-  audit_trail:
-    version_introduced: "0.3.0"
-    status: planned
-    priority: medium
-    effort: low
-    description: "Show how a value was calculated with dependency chain"
-    dependencies: []
-
-  watch_mode:
-    version_introduced: "0.3.0"
-    status: planned
-    priority: medium
-    effort: medium
-    description: "Auto-recalculate when files change"
-    dependencies: []
-
   array_model:
     version_introduced: "1.0.0"
     status: completed
