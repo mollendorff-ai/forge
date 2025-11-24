@@ -5,6 +5,59 @@ All notable changes to Forge will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - v1.2.0 In Progress
+
+### 🎉 Lookup Functions Release (Started 2025-11-24)
+
+Built autonomously via warmup protocol in <3 hours.
+
+### Added
+
+#### Lookup Functions (4 functions)
+
+- `MATCH(lookup_value, lookup_array, match_type)` - Find position of value in array
+  - Supports exact match (0), ascending approximate (1), descending approximate (-1)
+  - Excel-compatible behavior
+- `INDEX(array, row_num)` - Return value at specific position
+  - 1-based indexing (Excel-compatible)
+  - Works with any column reference
+- `XLOOKUP(lookup_value, lookup_array, return_array, if_not_found)` - Modern Excel lookup
+  - Bidirectional lookup
+  - Built-in if_not_found support
+  - Recommended for production use
+- `VLOOKUP(lookup_value, table_array, col_index_num, range_lookup)` - Classic vertical lookup
+  - Limited implementation (HashMap column ordering issue)
+  - **Recommendation:** Use INDEX/MATCH pattern for production
+
+**Combined Pattern:** Use `INDEX(MATCH(...))` for flexible cross-table lookups!
+
+### Enhanced
+
+- ArrayCalculator: Preprocessing approach for whole-column lookup semantics
+- Type-safe matching with LookupValue enum (Number/Text/Boolean)
+- Nested function support (INDEX(MATCH(...)) pattern)
+
+### Testing
+
+- **141 tests passing** (up from 136 in v1.1.0)
+- 5 comprehensive unit tests for lookup functions
+- ZERO clippy warnings in strict mode
+
+### Documentation
+
+- Updated README.md with v1.2.0 section
+- Updated CLI --help with lookup functions
+- Updated architecture docs (03-FORMULA-EVALUATION.md)
+- SR&ED Entry 9 documenting research & implementation
+
+### Development Stats
+
+- **Time:** <3 hours (autonomous AI via warmup protocol)
+- **Quality:** 690 lines production code, zero warnings
+- **Innovation:** Preprocessing approach for lookups in row-wise model
+
+---
+
 ## [1.1.0] - 2025-11-24
 
 ### 🎉 Major Release: 27 Essential Excel Functions
