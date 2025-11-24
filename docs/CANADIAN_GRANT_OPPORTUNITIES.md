@@ -883,16 +883,19 @@ Partner with established Montreal organization to:
    - **Target**: $200K-$500K
 
 10. **Apply to Prompt Partenar-IA**
+
    - **Value**: Up to $1.5M (35-50% coverage)
    - Collaborative AI projects
    - Identify partner, submit Q2 2026
 
 11. **Apply to Telegraph I Fund**
+
    - **Value**: $250K-$750K investment
    - Quebec AI innovation
    - Prepare materials Q2 2026
 
 12. **Apply to Montreal Open Innovation**
+
    - Identify partner by March 2026
    - Co-develop proposal
    - Submit Q2 2026
@@ -901,21 +904,25 @@ Partner with established Montreal organization to:
 ### **Phase 3: Long-term (Q4 2026+)**
 
 13. **PME MTL Eco-Responsible Grant**
+
    - **Value**: Up to $40K (75% coverage)
    - Sustainable development practices
    - Apply when eco-project planned
 
 14. **CanExport SMEs** (when reopens)
+
    - If expanding Forge internationally
    - Trade shows, international marketing
    - **Target**: $50K (when available)
 
 15. **Scale AI Ecosystem**
+
    - Connect with Montreal AI ecosystem
    - Explore accelerator partnerships
    - **Target**: $120K through incubators
 
 16. **Canadian Technology Accelerator**
+
    - Global expansion (12 tech hubs)
    - Women-led priority (Kantia 51%)
    - Apply 2027+ when ready for international markets
@@ -1059,19 +1066,19 @@ Most grants require **active R&D or commercialization work**. Plan applications 
    - Request Industrial Technology Advisor meeting
    - Prepare pitch deck (warmup protocol innovation)
 
-### **Key Contacts**
+### Key Contacts
 
-**NRC IRAP**
+#### NRC IRAP
 
 - Phone: 1-877-994-4727
 - Website: [nrc.canada.ca/irap](https://nrc.canada.ca/en/support-technology-innovation)
 
-**Investissement Québec**
+#### Investissement Québec
 
 - Website: [investquebec.com](https://www.investquebec.com)
 - Montreal office: Contact for PIIA and Innovation Program
 
-**Montreal Economic Development**
+#### Montreal Economic Development
 
 - Website: [montreal.ca/innovation](https://montreal.ca)
 - Program: Open Innovation Subsidy

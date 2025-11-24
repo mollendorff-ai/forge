@@ -61,26 +61,26 @@ Forge's data model follows these principles:
 
 ### Type Categories
 
-**1. Value Types (Data)**
+#### 1. Value Types (Data)
 
 - `f64` - Floating-point numbers
 - `String` - UTF-8 text
 - `bool` - Boolean true/false
 - ISO date strings (YYYY-MM-DD)
 
-**2. Collection Types**
+#### 2. Collection Types
 
 - `Vec<T>` - Homogeneous arrays
 - `HashMap<K, V>` - Key-value mappings
 - `Option<T>` - Optional values
 
-**3. Enum Types (Variants)**
+#### 3. Enum Types (Variants)
 
 - `ForgeVersion` - v0.2.0 or v1.0.0
 - `ColumnValue` - Typed column arrays
 - `ForgeError` - Error categories
 
-**4. Struct Types (Aggregates)**
+#### 4. Struct Types (Aggregates)
 
 - `Column` - Named typed array
 - `Table` - Collection of columns

@@ -146,7 +146,8 @@ Use topological sorting to determine calculation order, then evaluate formula pe
            graph.add_edge(dep, col_name);  // dep → col_name
        }
    }
-```
+
+```json
 
 2. **Topological Sort:**
    - Detects circular dependencies (compile-time guarantee)

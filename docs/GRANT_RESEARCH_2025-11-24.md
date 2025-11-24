@@ -2,7 +2,7 @@
 
 **Research Date**: November 24, 2025
 **Researcher**: Claude (Autonomous AI) following warmup.yaml protocol
-**Current Date Verified**: 2025-11-24 (from <env> tag)
+**Current Date Verified**: 2025-11-24 (from warmup.yaml)
 **Search Strategy**: Included "2025" in all queries per warmup protocol
 
 ---
@@ -47,7 +47,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 
 ---
 
-### 2. AI Compute Access Fund ⭐ NEW IN 2025!
+### 2. AI Compute Access Fund ⭐ NEW IN 2025
 
 **Program**: Government of Canada (launched March 2025)
 **Value**: $100,000 - $5,000,000 over up to 3 years

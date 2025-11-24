@@ -2,13 +2,13 @@
 
 ## Quick Install (Recommended)
 
-### From crates.io:
+### From crates.io
 
 ```bash
 cargo install royalbit-forge
 ```
 
-### Pre-built Binary (Linux):
+### Pre-built Binary (Linux)
 
 ```bash
 curl -L https://github.com/royalbit/forge/releases/latest/download/forge-linux-x86_64 -o forge
@@ -18,7 +18,7 @@ sudo mv forge /usr/local/bin/forge
 
 ## Advanced Installation
 
-### With Makefile:
+### With Makefile
 
 ```bash
 git clone https://github.com/royalbit/forge
@@ -37,7 +37,7 @@ make install-user
 make uninstall
 ```
 
-### From Source:
+### From Source
 
 ```bash
 git clone https://github.com/royalbit/forge
@@ -45,7 +45,7 @@ cd forge
 cargo install --path .
 ```
 
-### Optimized Static Build (440KB):
+### Optimized Static Build (440KB)
 
 ```bash
 git clone https://github.com/royalbit/forge

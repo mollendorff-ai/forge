@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planning v1.3.0
 
 Future features under consideration:
+
 - Financial functions (NPV, IRR, PMT, FV, PV)
 - Scenario analysis support
 - Additional text and date functions
@@ -349,7 +350,7 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 
 ---
 
-## [Unreleased]
+## [Unreleased - Future Plans]
 
 ### v1.2.0 - Planned (Q1 2026)
 
