@@ -271,7 +271,7 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ---
 
-## 🏆 What's New in v1.2.0 (In Progress)
+## 🏆 What's New in v1.2.0
 
 **4 Powerful Lookup Functions** (Started Nov 24, 2025):
 - **MATCH** - Find position of value in array (exact/approximate match)
