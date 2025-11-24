@@ -173,11 +173,12 @@ milestones:
 features:
   formula_functions:
     version_introduced: "0.2.0"
-    status: in_progress
+    status: completed
     priority: high
     effort: medium
-    description: "Excel-compatible formula functions (SUM, AVG, IF, etc.)"
+    description: "Excel-compatible formula functions (SUM, AVERAGE, PRODUCT, IF, ABS)"
     dependencies: []
+    note: "v0.2.0 intentionally limited to basic functions to avoid migration complexity with v1.0.0 array model"
 
   audit_trail:
     version_introduced: "0.3.0"

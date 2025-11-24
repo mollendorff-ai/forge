@@ -476,11 +476,17 @@ src/
 
 **✅ WORKING** - forge is fully functional!
 
+**v0.2.0 Release (2025-11-23):**
+- ✅ Excel-compatible formula functions (SUM, AVERAGE, PRODUCT, IF, ABS)
+- ✅ Replaces meval with xlformula_engine
+- ✅ 100% backwards compatible
+
 Tested with:
 - ✅ Simple calculations (pricing, margins)
 - ✅ Complex financial models (CAC, LTV, weighted averages)
 - ✅ Deeply nested YAML structures
 - ✅ Multi-level formula dependencies
+- ✅ Excel-style aggregation functions (NEW in v0.2.0)
 
 ## Roadmap
 
