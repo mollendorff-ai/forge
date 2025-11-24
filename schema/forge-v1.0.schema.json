@@ -1,0 +1,223 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/royalbit/forge/schema/v1.0.json",
+  "title": "Forge v1.0.0 Financial Model",
+  "description": "JSON Schema for Forge v1.0.0 array-based financial models with Excel compatibility",
+  "type": "object",
+
+  "properties": {
+    "_forge_version": {
+      "type": "string",
+      "enum": ["1.0.0"],
+      "description": "Forge model version identifier"
+    }
+  },
+
+  "additionalProperties": {
+    "oneOf": [
+      { "$ref": "#/definitions/Table" },
+      { "$ref": "#/definitions/ScalarGroup" }
+    ]
+  },
+
+  "definitions": {
+    "Table": {
+      "title": "Table (Column Arrays)",
+      "description": "A table with column arrays that maps to an Excel sheet",
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/definitions/NumberArray" },
+          { "$ref": "#/definitions/TextArray" },
+          { "$ref": "#/definitions/DateArray" },
+          { "$ref": "#/definitions/BooleanArray" },
+          { "$ref": "#/definitions/RowFormula" },
+          { "$ref": "#/definitions/AggregationFormula" }
+        ]
+      },
+      "examples": [
+        {
+          "quarterly_revenue": {
+            "quarter": ["Q1", "Q2", "Q3", "Q4"],
+            "revenue": [100000, 120000, 150000, 180000],
+            "profit": "=revenue * 0.2"
+          }
+        }
+      ]
+    },
+
+    "NumberArray": {
+      "title": "Number Array",
+      "description": "Homogeneous array of numbers (maps to Excel column with Number format)",
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 1,
+      "examples": [
+        [100, 120, 150, 180],
+        [0.10, 0.15, 0.20, 0.25]
+      ]
+    },
+
+    "TextArray": {
+      "title": "Text Array",
+      "description": "Homogeneous array of strings (maps to Excel column with Text format)",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "examples": [
+        ["Q1", "Q2", "Q3", "Q4"],
+        ["Jan", "Feb", "Mar"]
+      ]
+    },
+
+    "DateArray": {
+      "title": "Date Array",
+      "description": "Homogeneous array of ISO date strings (maps to Excel column with Date format)",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "date",
+        "pattern": "^\\d{4}-\\d{2}(-\\d{2})?$"
+      },
+      "minItems": 1,
+      "examples": [
+        ["2025-01", "2025-02", "2025-03"],
+        ["2025-01-01", "2025-02-01", "2025-03-01"]
+      ]
+    },
+
+    "BooleanArray": {
+      "title": "Boolean Array",
+      "description": "Homogeneous array of booleans (maps to Excel TRUE/FALSE)",
+      "type": "array",
+      "items": {
+        "type": "boolean"
+      },
+      "minItems": 1,
+      "examples": [
+        [true, false, true, false],
+        [true, true, false]
+      ]
+    },
+
+    "RowFormula": {
+      "title": "Row-wise Formula",
+      "description": "Formula applied element-wise to each row (like Excel drag-down)",
+      "type": "string",
+      "pattern": "^=.+",
+      "examples": [
+        "=revenue - expenses",
+        "=price * quantity",
+        "=profit / revenue"
+      ]
+    },
+
+    "AggregationFormula": {
+      "title": "Aggregation Formula",
+      "description": "Formula that aggregates column to single value",
+      "type": "string",
+      "pattern": "^=(SUM|AVERAGE|MAX|MIN|COUNT|PRODUCT|SUMIF|AVERAGEIF|COUNTIF)\\(.+\\)",
+      "examples": [
+        "=SUM(revenue)",
+        "=AVERAGE(profit_margin)",
+        "=MAX(quarterly_revenue)",
+        "=SUMIF(revenue, > 100000)"
+      ]
+    },
+
+    "ScalarGroup": {
+      "title": "Scalar Group",
+      "description": "Group of scalar values (v0.2.0 compatible, maps to named cells)",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Scalar"
+      },
+      "examples": [
+        {
+          "assumptions": {
+            "tax_rate": {
+              "value": 0.25,
+              "formula": null
+            },
+            "discount_rate": {
+              "value": 0.10,
+              "formula": null
+            }
+          }
+        }
+      ]
+    },
+
+    "Scalar": {
+      "title": "Scalar Value",
+      "description": "Single value with optional formula (v0.2.0 compatible)",
+      "type": "object",
+      "properties": {
+        "value": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "null" }
+          ],
+          "description": "Current calculated value (null if not yet calculated)"
+        },
+        "formula": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^=.+",
+              "description": "Formula expression starting with ="
+            },
+            {
+              "type": "null",
+              "description": "No formula (manual input value)"
+            }
+          ]
+        }
+      },
+      "required": ["value", "formula"],
+      "examples": [
+        {
+          "value": 0.90,
+          "formula": "=1 - platform_take_rate"
+        },
+        {
+          "value": 0.10,
+          "formula": null
+        }
+      ]
+    }
+  },
+
+  "examples": [
+    {
+      "_forge_version": "1.0.0",
+      "quarterly_revenue": {
+        "quarter": ["Q1", "Q2", "Q3", "Q4"],
+        "revenue": [100000, 120000, 150000, 180000],
+        "expenses": [80000, 90000, 100000, 110000],
+        "profit": "=revenue - expenses",
+        "margin": "=profit / revenue"
+      },
+      "summary": {
+        "total_revenue": {
+          "value": 550000,
+          "formula": "=SUM(quarterly_revenue.revenue)"
+        },
+        "avg_margin": {
+          "value": 0.36,
+          "formula": "=AVERAGE(quarterly_revenue.margin)"
+        }
+      },
+      "assumptions": {
+        "tax_rate": {
+          "value": 0.25,
+          "formula": null
+        }
+      }
+    }
+  ]
+}

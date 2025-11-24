@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "0.2.1"
+version = "1.0.0"
 edition = "2021"
 authors = ["Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "Stop AI hallucinations & save $40K-$132K/year. Deterministic YAML formula validator for AI-assisted financial modeling. Validates 850+ formulas in <200ms with zero tokens."
@@ -24,9 +24,13 @@ path = "src/main.rs"
 # YAML parsing
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
+serde_json = "1.0"  # JSON handling for schema validation
 
 # Expression evaluation (Excel-compatible formulas)
 xlformula_engine = "0.1.4"
+
+# JSON Schema validation (v1.0.0 array model)
+jsonschema = "0.18"
 
 # CLI
 clap = { version = "4.5", features = ["derive"] }
@@ -38,8 +42,17 @@ thiserror = "1.0"
 # Dependency graph (for formula ordering)
 petgraph = "0.6"
 
+# Regex for array indexing preprocessing
+regex = "1.11"
+
 # Pretty output
 colored = "2.1"
+
+# Excel export (v1.0.0 array model)
+rust_xlsxwriter = "0.90"
+
+# Excel import (v1.0.0 array model)
+calamine = "0.31"
 
 [dev-dependencies]
 # Testing

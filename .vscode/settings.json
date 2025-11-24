@@ -1,0 +1,10 @@
+{
+  "yaml.schemas": {
+    "./schema/forge-v1.0.schema.json": [
+      "test-data/v1.0/*.yaml"
+    ]
+  },
+  "yaml.customTags": [
+    "!forge 1.0.0"
+  ]
+}

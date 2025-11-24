@@ -1,0 +1,1158 @@
+# 🔥 Forge - Session Warmup Checklist
+# Purpose: Initialize Claude Code sessions with full context and workflow
+# Usage: User says "run warmup" or "run warmup.yaml"
+
+session_initialization:
+  greeting: "Welcome back! Loading Forge context..."
+
+  step_1_load_context:
+    description: "Read these files to understand current state"
+    files_to_read:
+      - path: "README.md"
+        purpose: "Project overview, features, usage examples"
+
+      - path: "roadmap.yaml"
+        purpose: "Current version, implementation phases, progress tracking"
+        key_sections:
+          - "metadata.current_version"
+          - "milestones.v1_0_0.implementation_phases"
+          - "milestones.v1_0_0.testing_status"
+
+      - path: "DESIGN_V1.md"
+        purpose: "v1.0.0 array model specification (800+ lines)"
+        key_sections:
+          - "Model Structure"
+          - "Formula Evaluation"
+          - "Type System"
+          - "Testing Strategy"
+
+      - path: "KNOWN_BUGS.md"
+        purpose: "Documented bugs and workarounds"
+        action: "Review before making changes that might affect these areas"
+
+      - path: "SRED_RESEARCH_LOG.md"
+        purpose: "🍁 SR&ED R&D documentation for Canadian tax credits"
+        action: "Review existing entries, add new ones for qualifying R&D work"
+        importance: "💰 CRITICAL - this documentation = real money in tax credits"
+
+      - path: "Cargo.toml"
+        purpose: "Current version number, dependencies"
+        key_fields:
+          - "version"
+          - "dependencies"
+
+      - path: "schema/forge-v1.0.schema.json"
+        purpose: "JSON Schema for v1.0.0 model validation"
+        note: "Update when adding new features to v1.0.0 model"
+
+  step_1b_check_current_date:
+    description: "CRITICAL: Always check current date for online searches"
+    importance: "🚨 HIGH PRIORITY 🚨"
+    rationale: "Claude's training data is several months old (Jan 2025 cutoff)"
+
+    what_to_do:
+      - "ALWAYS check <env> tag for Today's date before online searches"
+      - "When searching: Add current year/date to query"
+      - "Example: 'Rust async 2025' NOT 'Rust async'"
+      - "Verify crates.io versions are CURRENT, not from training data"
+      - "Check GitHub repos for recent activity before recommending"
+
+    bad_example:
+      query: "best rust excel library"
+      problem: "Might return 2024 results if Claude assumes old date"
+
+    good_example:
+      query: "best rust excel library 2025"
+      check_env: "Today's date: 2025-11-23"
+      note: "Explicitly include current year in search"
+
+  step_2_git_status:
+    description: "Check current branch and uncommitted changes"
+    commands:
+      - "git status"
+      - "git log --oneline -5"
+      - "git branch --show-current"
+    expected_branch: "feature/v1.0.0-array-model"
+    action: "If on different branch, ask user about intent"
+
+  step_3_run_tests:
+    description: "Verify everything works before starting"
+    commands:
+      - command: "cargo test --lib --release"
+        purpose: "Run unit tests"
+        expected: "All tests passing"
+
+      - command: "cargo test --release"
+        purpose: "Run all tests (unit + integration + e2e)"
+        expected: "24-25 e2e tests passing (1 known fuzzy matching issue)"
+
+      - command: "cargo build --release"
+        purpose: "Ensure clean build"
+        expected: "No warnings or errors"
+
+  step_4_understand_workflow:
+    description: "Our development workflow and standards"
+    standards:
+      testing:
+        unit_tests:
+          - "100% coverage of new code"
+          - "Test happy paths AND edge cases"
+          - "Test error conditions"
+          - "Use descriptive test names"
+
+        integration_tests:
+          - "Test with real v1.0 example files"
+          - "Test cross-module interactions"
+
+        e2e_tests:
+          - "Test full CLI workflows"
+          - "Test with multiple file scenarios"
+          - "Test error handling"
+
+        edge_cases:
+          - "Empty arrays"
+          - "Single-element arrays"
+          - "Very large numbers"
+          - "Division by zero"
+          - "Circular dependencies"
+          - "Missing columns"
+          - "Type mismatches"
+          - "Malformed YAML"
+
+      code_quality:
+        - "No warnings in release build (ZERO tolerance)"
+        - "Use meaningful variable names"
+        - "Add doc comments for public APIs"
+        - "Follow existing code style"
+        - "Prefer Edit over Write for existing files"
+
+      linting:
+        philosophy: "User has OCD for good looking code 😊 - use MOST STRICT linting"
+        requirements:
+          - "Run cargo clippy --all-targets -- -D warnings (treat warnings as errors)"
+          - "Use rustfmt with default settings"
+          - "No unused imports, variables, or functions"
+          - "Prefer explicit over implicit (no _ when you can name it)"
+          - "Use clippy pedantic when possible"
+        commands:
+          - "cargo fmt -- --check (verify formatting)"
+          - "cargo clippy --release -- -D warnings (no warnings allowed)"
+          - "cargo build --release (must be clean)"
+
+      git_workflow:
+        commit_messages:
+          format: |
+            <Title: imperative mood, 50 chars>
+
+            <Body: what and why, 72 char wrap>
+
+            Key additions:
+            - Feature 1
+            - Feature 2
+
+            Test coverage: X tests passing
+
+            🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+            Co-Authored-By: Claude <noreply@anthropic.com>
+
+          examples:
+            - "Add support for aggregation formulas"
+            - "Fix precision issues in array calculator"
+            - "Update roadmap with Phase 2 progress"
+
+        commit_strategy:
+          - "Commit logical units of work"
+          - "Keep commits focused and atomic"
+          - "Run tests before committing"
+          - "Update roadmap in separate commit"
+
+      sred_documentation:
+        description: "🍁 SR&ED Tax Credits - Document R&D work for Canadian tax credits"
+        importance: "🚨 CRITICAL - Document BEFORE committing"
+        file: "SRED_RESEARCH_LOG.md"
+
+        what_is_sred:
+          program: "Scientific Research & Experimental Development (Canada)"
+          benefit: "Tax credits for R&D work (refundable in some cases)"
+          eligibility: "Technical challenges, systematic investigation, technological advancement"
+
+        when_to_document:
+          - "🚨 BEFORE committing new algorithms or data structures"
+          - "🚨 BEFORE committing experimental approaches or optimizations"
+          - "🚨 BEFORE committing solutions to technical uncertainties"
+          - "After resolving performance issues"
+          - "After experimenting with alternative approaches"
+          - "When creating novel abstractions or patterns"
+
+        what_to_document:
+          technical_challenge:
+            - "What problem are we solving?"
+            - "Why is it technically uncertain?"
+            - "What makes it non-trivial/non-obvious?"
+          hypothesis:
+            - "What approach did we try?"
+            - "What alternatives did we consider?"
+            - "Why did we choose this approach?"
+          experiment:
+            - "What did we implement?"
+            - "What tests did we run?"
+            - "What measurements did we take?"
+          results:
+            - "Did it work? Why or why not?"
+            - "What did we learn?"
+            - "Were there unexpected findings?"
+          advancement:
+            - "What new capability did we create?"
+            - "How does it advance the state of the art?"
+            - "What can users now do that they couldn't before?"
+
+        qualifying_activities:
+          yes:
+            - "✅ Algorithm design and optimization"
+            - "✅ Performance analysis and improvements"
+            - "✅ Experimental testing approaches (property-based, mutation, fuzzing)"
+            - "✅ Resolving technical uncertainties"
+            - "✅ Creating novel data structures and abstractions"
+            - "✅ Dependency resolution algorithms"
+            - "✅ Type system design"
+          no:
+            - "❌ Routine coding (following established patterns)"
+            - "❌ UI design and styling"
+            - "❌ Documentation writing (unless documenting research)"
+            - "❌ Bug fixes for simple typos"
+            - "❌ Standard library integration"
+
+        workflow:
+          - "1️⃣ Identify if work qualifies for SR&ED (see qualifying_activities)"
+          - "2️⃣ If YES: Document in SRED_RESEARCH_LOG.md DURING development"
+          - "3️⃣ Include: Challenge, Hypothesis, Experiment, Results, Advancement"
+          - "4️⃣ Be specific about technical challenges and alternatives considered"
+          - "5️⃣ Link to commits, test results, benchmarks"
+          - "6️⃣ THEN commit code"
+
+        example_entry_title:
+          - "Entry X: Aggregation Formula Evaluation (Phase 2 Part 2)"
+          - "Entry X: Zero-Copy String Optimization"
+          - "Entry X: Property-Based Testing for Formula Invariants"
+
+        reminder: "💰 This documentation = real money in tax credits. Don't skip it!"
+
+      documentation:
+        update_when:
+          - "Adding new features → Update README.md"
+          - "Changing model structure → Update DESIGN_V1.md and schema"
+          - "Completing phases → Update roadmap.yaml"
+          - "Discovering bugs → Update KNOWN_BUGS.md"
+          - "Adding CLI flags → Update --help text"
+          - "Changing API → Add doc comments"
+
+library_and_dependency_management:
+  philosophy: "Don't reinvent the wheel - leverage FOSS ecosystem"
+
+  before_implementing_complex_code:
+    description: "Check for existing FOSS libraries BEFORE writing complex code"
+    steps:
+      - "Search crates.io for relevant functionality"
+      - "Check license compatibility (we use MIT)"
+      - "Verify library is maintained (recent commits, active issues)"
+      - "Check download counts and GitHub stars"
+      - "Review documentation quality"
+      - "Test with small example before integrating"
+
+    compatible_licenses:
+      perfect:
+        - "MIT"
+        - "Apache-2.0"
+        - "BSD-2-Clause"
+        - "BSD-3-Clause"
+      acceptable:
+        - "ISC"
+        - "Unlicense"
+        - "CC0-1.0"
+      incompatible:
+        - "GPL (any version) - copyleft, conflicts with MIT"
+        - "AGPL - copyleft"
+        - "LGPL - complicated compatibility"
+
+    evaluation_checklist:
+      - "☐ License is MIT-compatible"
+      - "☐ Last commit within 6 months"
+      - "☐ Has documentation"
+      - "☐ No critical security issues"
+      - "☐ Reasonable download count (or new but promising)"
+      - "☐ Solves our problem completely (or mostly)"
+
+    example_workflow:
+      scenario: "Need to export to Excel"
+      step_1: "Search: 'rust excel xlsx 2025' (include current year!)"
+      step_2: "Check top results: rust_xlsxwriter, calamine, umya-spreadsheet"
+      step_3: "Review licenses: rust_xlsxwriter (MIT ✅), calamine (MIT ✅)"
+      step_4: "Check maintenance: rust_xlsxwriter (active ✅)"
+      step_5: "Read docs: rust_xlsxwriter has good examples ✅"
+      step_6: "Decision: Use rust_xlsxwriter"
+      dont_do: "Write Excel export from scratch (thousands of lines!)"
+
+  keeping_dependencies_updated:
+    description: "Regularly update dependencies to latest versions"
+    importance: "Security, bug fixes, performance, new features"
+
+    when_to_update:
+      - "Start of new implementation phase"
+      - "Before release"
+      - "When security advisory published"
+      - "When new feature needed from dependency"
+
+    how_to_update:
+      check_outdated:
+        command: "cargo outdated"
+        install: "cargo install cargo-outdated"
+        purpose: "Shows which dependencies have updates"
+
+      update_minor:
+        command: "cargo update"
+        purpose: "Update to latest compatible versions (respects Cargo.toml semver)"
+        safe: "Yes - follows semver"
+
+      update_major:
+        steps:
+          - "Review CHANGELOG for breaking changes"
+          - "Update Cargo.toml version requirement"
+          - "Run cargo update"
+          - "Fix any breaking changes"
+          - "Run full test suite"
+        caution: "May require code changes"
+
+      update_all:
+        command: "cargo upgrade"
+        install: "cargo install cargo-edit"
+        purpose: "Upgrade all deps to latest (including major versions)"
+        caution: "Test thoroughly after this!"
+
+    testing_after_update:
+      - "cargo test --release (all tests must pass)"
+      - "cargo clippy --release (no new warnings)"
+      - "cargo build --release (verify compilation)"
+      - "Run key e2e tests manually"
+
+    current_dependencies:
+      note: "Check Cargo.toml for current versions"
+      critical_deps:
+        - "xlformula_engine - Excel formula engine"
+        - "serde/serde_yaml - YAML parsing"
+        - "clap - CLI parsing"
+        - "petgraph - Dependency graph"
+        - "jsonschema - JSON Schema validation"
+
+work_session_checklist:
+  before_coding:
+    - "☐ Read warmup.yaml (this file)"
+    - "☐ CHECK CURRENT DATE in <env> (for online searches!)"
+    - "☐ Load context files (README, roadmap, DESIGN_V1, KNOWN_BUGS)"
+    - "☐ Check git status and current branch"
+    - "☐ Run tests to verify baseline"
+    - "☐ Review current phase in roadmap"
+    - "☐ Check if dependencies need updating (cargo outdated)"
+    - "☐ Create TodoWrite list for session goals"
+
+  during_coding:
+    - "☐ BEFORE complex code: Check for FOSS libraries (crates.io search)"
+    - "☐ Write tests FIRST (TDD when possible)"
+    - "☐ Test edge cases thoroughly"
+    - "☐ 🍁 Document R&D work in SRED_RESEARCH_LOG.md DURING development"
+    - "☐ Update JSON Schema if model changes"
+    - "☐ Document bugs in KNOWN_BUGS.md if found"
+    - "☐ Update TodoWrite list as you progress"
+    - "☐ Run tests frequently (cargo test --lib)"
+    - "☐ Run clippy frequently (cargo clippy --release)"
+    - "☐ Format code (cargo fmt)"
+
+  after_coding:
+    - "☐ Run cargo fmt (format code)"
+    - "☐ Run cargo clippy --release -- -D warnings (ZERO warnings!)"
+    - "☐ Run full test suite (cargo test --release)"
+    - "☐ Ensure clean build (cargo build --release)"
+    - "☐ Update documentation (README, DESIGN_V1, roadmap)"
+    - "☐ Update --help if CLI changed"
+    - "☐ 🍁 VERIFY SR&ED documentation complete BEFORE committing (💰 tax credits!)"
+    - "☐ Git add and commit with good message"
+    - "☐ Update roadmap in separate commit"
+    - "☐ Push to remote (git push)"
+
+  completing_phase:
+    - "☐ All phase features implemented"
+    - "☐ 100% test coverage with edge cases"
+    - "☐ Documentation complete"
+    - "☐ Roadmap updated (phase status: completed)"
+    - "☐ Git push"
+    - "☐ Discuss release strategy with user"
+
+release_workflow:
+  version_bump:
+    description: "Update version across all files"
+    files_to_update:
+      - "Cargo.toml (version field)"
+      - "roadmap.yaml (metadata.current_version)"
+      - "README.md (version badges if present)"
+
+    version_strategy:
+      major: "Breaking changes (0.x.0 → 1.0.0)"
+      minor: "New features, backwards compatible (0.2.0 → 0.3.0)"
+      patch: "Bug fixes (0.2.0 → 0.2.1)"
+
+  pre_release_checklist:
+    - "☐ All tests passing (cargo test --release)"
+    - "☐ Documentation updated"
+    - "☐ CHANGELOG updated (if exists)"
+    - "☐ Version bumped in Cargo.toml"
+    - "☐ Roadmap updated"
+    - "☐ Commit: 'Bump version to X.Y.Z'"
+    - "☐ Git push"
+
+  publish_to_crates_io:
+    description: "Publish new version to crates.io"
+    prerequisites:
+      - "User must provide API key"
+      - "User command: 'pass crates.io' or provide key"
+
+    commands:
+      - step: "Login to crates.io"
+        command: "cargo login <API_KEY>"
+        note: "Key comes from user's password manager"
+
+      - step: "Publish crate"
+        command: "cargo publish"
+        expected: "Success message with download URL"
+
+      - step: "Verify publication"
+        command: "Open https://crates.io/crates/royalbit-forge"
+        check: "New version visible"
+
+  publish_to_github:
+    description: "Create GitHub release with binary"
+    prerequisites:
+      - "Merged to main branch"
+      - "Version tagged"
+
+    commands:
+      - step: "Merge feature branch"
+        commands:
+          - "git checkout main"
+          - "git merge feature/v1.0.0-array-model"
+          - "git push origin main"
+
+      - step: "Create release"
+        command: "gh release create vX.Y.Z --title 'vX.Y.Z: <Title>' --notes '<Release notes>'"
+        note: "Include compiled binary: target/release/forge"
+
+  post_release:
+    - "☐ Verify crates.io publication"
+    - "☐ Verify GitHub release"
+    - "☐ Test installation: cargo install royalbit-forge"
+    - "☐ Update roadmap (milestone status: released)"
+    - "☐ Create next feature branch if needed"
+
+known_issues:
+  fuzzy_matching_bug:
+    file: "KNOWN_BUGS.md"
+    status: "Documented, not blocking v1.0.0"
+    description: "Fuzzy variable matching too permissive (@invalid_alias matches @pricing)"
+    workaround: "Use exact names or fix in post-1.0.0"
+
+current_implementation_focus:
+  phase: "Phase 2: Array-aware Calculator"
+  status: "In progress (50%)"
+  next_steps:
+    - "Implement aggregation formulas (SUM, AVERAGE)"
+    - "Add table.column reference parsing"
+    - "Implement cross-table references"
+    - "Add array indexing (revenue[0])"
+    - "Test with v1.0 example files"
+
+key_files_map:
+  source:
+    - "src/types.rs - Type definitions (ForgeVersion, ColumnValue, Table, ParsedModel)"
+    - "src/parser/mod.rs - Parsing logic (parse_model for unified parsing)"
+    - "src/core/calculator.rs - v0.2.0 scalar calculator"
+    - "src/core/array_calculator.rs - v1.0.0 array calculator"
+    - "src/cli/commands.rs - CLI command implementations"
+
+  tests:
+    - "tests/parser_v1_tests.rs - v1.0 parser integration tests"
+    - "tests/array_calculator_tests.rs - Array calculator tests"
+    - "tests/e2e_tests.rs - End-to-end CLI tests"
+    - "tests/validation_tests.rs - Validation workflow tests"
+
+  documentation:
+    - "README.md - User-facing documentation"
+    - "DESIGN_V1.md - v1.0.0 technical specification"
+    - "roadmap.yaml - Development roadmap and progress"
+    - "KNOWN_BUGS.md - Bug tracking"
+    - "schema/forge-v1.0.schema.json - JSON Schema for v1.0.0"
+
+  examples:
+    - "test-data/v1.0/saas_unit_economics.yaml"
+    - "test-data/v1.0/quarterly_pl.yaml"
+    - "test-data/v1.0/budget_vs_actual.yaml"
+
+advanced_rust_patterns:
+  error_handling:
+    description: "Type-safe, ergonomic error handling"
+    current_approach: "Using thiserror for custom errors"
+    best_practices:
+      - "Use Result<T, E> everywhere, avoid panics in library code"
+      - "Custom error types with thiserror for rich context"
+      - "? operator for error propagation"
+      - "Pattern match on specific error variants when recovery possible"
+      - "Add context with .map_err() when wrapping errors"
+
+    example_pattern: |
+      // Good: Rich error context
+      #[derive(Error, Debug)]
+      pub enum ForgeError {
+          #[error("Formula evaluation failed: {0}")]
+          Eval(String),
+
+          #[error("Column '{column}' in table '{table}': {reason}")]
+          ColumnError {
+              column: String,
+              table: String,
+              reason: String,
+          },
+      }
+
+    avoid:
+      - "Don't use unwrap() or expect() in library code"
+      - "Don't use String errors (not type-safe)"
+      - "Don't lose error context when propagating"
+
+  type_driven_design:
+    description: "Use the type system to prevent bugs at compile time"
+    principles:
+      - "Make illegal states unrepresentable"
+      - "Use newtypes for domain concepts (TableName, ColumnName)"
+      - "Prefer enums over booleans for state"
+      - "Use builder pattern for complex construction"
+      - "Leverage const generics for compile-time guarantees"
+
+    examples:
+      invalid_state_impossible: |
+        // Bad: Can create invalid state
+        struct Table {
+            columns: Vec<Column>,
+            row_count: usize,  // Could be inconsistent!
+        }
+
+        // Good: Validity guaranteed by construction
+        struct Table {
+            columns: NonEmpty<Vec<Column>>,  // Never empty
+            // row_count derived from columns.len()
+        }
+
+      newtype_safety: |
+        // Prevents mixing up table and column names
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+        struct TableName(String);
+
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+        struct ColumnName(String);
+
+        // Now can't accidentally pass ColumnName where TableName expected!
+
+  zero_copy_optimization:
+    description: "Minimize allocations and copies"
+    techniques:
+      - "Use &str instead of String when possible"
+      - "Use Cow<str> for conditional ownership"
+      - "Pass large structs by reference"
+      - "Use slice patterns for matching"
+      - "Consider arena allocation for trees/graphs"
+
+    when_to_use:
+      - "Parser should use &str references into input"
+      - "Formula evaluation can use Cow for variable names"
+      - "Avoid clone() unless necessary - prefer references"
+
+  testing_patterns:
+    property_based_testing:
+      description: "Test properties that should always hold"
+      tool: "proptest or quickcheck"
+      install: "cargo add --dev proptest"
+
+      use_cases:
+        - "Parser: Any valid v1.0 YAML should parse successfully"
+        - "Calculator: SUM(a,b) == SUM(b,a) (commutative)"
+        - "Precision: (a + b) - b should equal a within epsilon"
+        - "Serialization: parse(serialize(x)) == x (round-trip)"
+
+      example: |
+        use proptest::prelude::*;
+
+        proptest! {
+            #[test]
+            fn test_sum_commutative(a: f64, b: f64) {
+                let sum1 = calculate("=SUM(a, b)");
+                let sum2 = calculate("=SUM(b, a)");
+                assert!((sum1 - sum2).abs() < 1e-10);
+            }
+        }
+
+    snapshot_testing:
+      description: "Test complex outputs against saved snapshots"
+      tool: "insta"
+      install: "cargo add --dev insta"
+
+      use_cases:
+        - "CLI output formatting"
+        - "Error messages"
+        - "Generated Excel files (metadata)"
+        - "Large calculation results"
+
+      workflow:
+        - "First run creates snapshot"
+        - "Subsequent runs compare to snapshot"
+        - "Review changes with cargo insta review"
+        - "Commit snapshots to git"
+
+    mutation_testing:
+      description: "Test the tests - verify tests catch bugs"
+      tool: "cargo-mutants"
+      install: "cargo install cargo-mutants"
+
+      what_it_does:
+        - "Introduces small bugs (mutations) in code"
+        - "Checks if tests catch them"
+        - "Reports 'survived mutants' (bugs tests missed)"
+
+      run: "cargo mutants"
+      goal: "100% mutation coverage (all mutants caught)"
+
+    fuzzing:
+      description: "Find edge cases and crashes automatically"
+      tool: "cargo-fuzz"
+      setup: "cargo install cargo-fuzz"
+
+      targets:
+        - "Parser (feed random YAML)"
+        - "Formula evaluator (random formulas)"
+        - "Array operations (random data)"
+
+      run: "cargo fuzz run parser_target"
+      benefit: "Discovers crashes, panics, edge cases automatically"
+
+  performance_patterns:
+    benchmarking:
+      tool: "criterion"
+      already_added: true
+
+      best_practices:
+        - "Benchmark realistic workloads (real YAML files)"
+        - "Track performance over time (commit to git)"
+        - "Set baseline before optimization"
+        - "Profile before optimizing (flamegraph)"
+        - "Optimize hot paths only"
+
+      commands:
+        bench: "cargo bench"
+        compare: "cargo bench --baseline <name>"
+        flamegraph: "cargo flamegraph --bench <name>"
+
+    profiling:
+      description: "Find actual bottlenecks before optimizing"
+      tools:
+        linux: "perf, flamegraph"
+        mac: "Instruments, cargo-instruments"
+        windows: "Windows Performance Analyzer"
+
+      workflow:
+        - "cargo build --release"
+        - "Run with profiler on realistic input"
+        - "Generate flamegraph"
+        - "Optimize hot paths only"
+        - "Benchmark before/after"
+
+    allocation_tracking:
+      tool: "dhat (valgrind)"
+      purpose: "Find unnecessary allocations"
+
+      command: "cargo run --release -- <args> | dhat"
+      look_for:
+        - "Temporary allocations in hot loops"
+        - "Clone() that could be reference"
+        - "String allocations that could be &str"
+
+  architecture_patterns:
+    strategy_pattern:
+      description: "Multiple algorithms with same interface"
+      current_use: "Calculator (v0.2.0 scalar vs v1.0.0 array)"
+
+      structure: |
+        trait Calculator {
+            fn calculate(&mut self) -> ForgeResult<CalculationResult>;
+        }
+
+        struct ScalarCalculator { /* v0.2.0 */ }
+        struct ArrayCalculator { /* v1.0.0 */ }
+
+        impl Calculator for ScalarCalculator { /* ... */ }
+        impl Calculator for ArrayCalculator { /* ... */ }
+
+        // Factory function chooses implementation
+        fn create_calculator(model: ParsedModel) -> Box<dyn Calculator> {
+            match model.version {
+                ForgeVersion::V0_2_0 => Box::new(ScalarCalculator::new(model)),
+                ForgeVersion::V1_0_0 => Box::new(ArrayCalculator::new(model)),
+            }
+        }
+
+    builder_pattern:
+      description: "Fluent API for complex object construction"
+      when_to_use:
+        - "Many optional parameters"
+        - "Validation during construction"
+        - "Default values"
+
+      example: |
+        struct TableBuilder {
+            name: String,
+            columns: Vec<Column>,
+            row_formulas: HashMap<String, String>,
+        }
+
+        impl TableBuilder {
+            fn new(name: impl Into<String>) -> Self { /* ... */ }
+
+            fn add_column(mut self, col: Column) -> Self {
+                self.columns.push(col);
+                self
+            }
+
+            fn add_formula(mut self, name: impl Into<String>, formula: impl Into<String>) -> Self {
+                self.row_formulas.insert(name.into(), formula.into());
+                self
+            }
+
+            fn build(self) -> ForgeResult<Table> {
+                // Validate before constructing
+                Table::validate_and_create(self)
+            }
+        }
+
+        // Usage
+        let table = TableBuilder::new("sales")
+            .add_column(revenue_col)
+            .add_column(expenses_col)
+            .add_formula("profit", "=revenue - expenses")
+            .build()?;
+
+    newtype_pattern:
+      description: "Type safety for primitive types"
+      benefits:
+        - "Can't mix up TableName and ColumnName"
+        - "Can implement traits for domain types"
+        - "Better error messages"
+        - "Self-documenting code"
+
+      example: |
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+        struct TableName(String);
+
+        impl TableName {
+            fn new(name: impl Into<String>) -> ForgeResult<Self> {
+                let name = name.into();
+                if name.is_empty() {
+                    return Err(ForgeError::Parse("Table name cannot be empty".into()));
+                }
+                Ok(Self(name))
+            }
+
+            fn as_str(&self) -> &str {
+                &self.0
+            }
+        }
+
+        // Now function signatures are clearer
+        fn get_table(&self, name: &TableName) -> Option<&Table> {
+            self.tables.get(name.as_str())
+        }
+
+  code_quality_tools:
+    essential:
+      cargo_audit:
+        purpose: "Check for security vulnerabilities in dependencies"
+        install: "cargo install cargo-audit"
+        run: "cargo audit"
+        ci: "Run in GitHub Actions on every PR"
+
+      cargo_deny:
+        purpose: "Policy enforcement for deps (licenses, security, duplicates)"
+        install: "cargo install cargo-deny"
+        setup: "cargo deny init"
+        run: "cargo deny check"
+        checks:
+          - "License compatibility"
+          - "Security advisories"
+          - "Duplicate dependencies"
+          - "Banned crates"
+
+      cargo_machete:
+        purpose: "Find unused dependencies"
+        install: "cargo install cargo-machete"
+        run: "cargo machete"
+        why: "Faster builds, smaller binaries, less attack surface"
+
+      cargo_nextest:
+        purpose: "Faster test runner (parallel by default)"
+        install: "cargo install cargo-nextest"
+        run: "cargo nextest run"
+        benefits:
+          - "Cleaner output"
+          - "Faster execution"
+          - "Better CI integration"
+          - "Flaky test detection"
+
+    advanced:
+      miri:
+        purpose: "Detect undefined behavior (use-after-free, data races)"
+        install: "rustup component add miri"
+        run: "cargo miri test"
+        when: "Testing unsafe code or complex concurrency"
+
+      cargo_tarpaulin:
+        purpose: "Code coverage analysis"
+        install: "cargo install cargo-tarpaulin"
+        run: "cargo tarpaulin --out Html"
+        goal: "Aim for >80% coverage, 100% on critical paths"
+
+  documentation_best_practices:
+    humor_and_clarity:
+      philosophy: "Make docs memorable and fun while staying professional"
+      why: "People remember stories better than specs. Humor reduces intimidation."
+
+      guidelines:
+        do:
+          - "Use relatable metaphors and analogies"
+          - "Add playful examples (rubber ducks, pizza, cats)"
+          - "Self-deprecating humor about common mistakes"
+          - "Pop culture references (when widely known)"
+          - "Celebrate small wins with enthusiasm"
+          - "Use emojis sparingly but effectively (🎉 🐛 🚀)"
+
+        dont:
+          - "No offensive jokes (politics, religion, demographics)"
+          - "No inside jokes that exclude newcomers"
+          - "No sarcasm that could confuse (tone is hard in text)"
+          - "No jokes at user's expense"
+          - "No humor in error messages (user is frustrated!)"
+
+      metaphors_for_common_concepts:
+        ownership_and_borrowing: |
+          // Ownership is like car keys
+          let keys = CarKeys::new();  // You own the keys
+          drive_car(&keys);           // Lend keys temporarily (borrow)
+          // Keys automatically returned after function
+          // Can't lose keys while someone's borrowing them!
+
+        option_vs_result: |
+          // Option: Schrödinger's cat 🐱
+          //   Some(cat) = cat is alive!
+          //   None = box is empty, no cat
+
+          // Result: Cat delivery service 📦
+          //   Ok(cat) = cat delivered successfully!
+          //   Err(e) = delivery failed (stuck in tree, wrong address, etc.)
+
+        iterators: |
+          // Iterators are like assembly lines
+          vec.iter()              // Put items on conveyor belt
+             .filter(|x| x > 10)  // Quality control station
+             .map(|x| x * 2)      // Processing station
+             .collect()           // Package at end of line
+
+        closures: |
+          // Closures are like food trucks
+          let pizza_truck = |toppings| {
+              make_pizza(toppings)  // Captures make_pizza from environment
+          };
+          // Food truck can be called anywhere, brings its equipment!
+
+        trait_objects: |
+          // Trait objects are like power outlets
+          // Don't care if it's a phone, laptop, or toaster
+          // As long as it implements the "can plug in" trait!
+          fn charge(device: &dyn Chargeable) {
+              device.charge();  // Works for any chargeable device
+          }
+
+      example_doc_comments:
+        boring: |
+          /// Parses a YAML file and returns a ParsedModel.
+          pub fn parse_model(path: &Path) -> ForgeResult<ParsedModel>
+
+        with_personality: |
+          /// Parses a YAML file into a delicious `ParsedModel` sandwich 🥪
+          ///
+          /// Think of this as your YAML → Rust translator. Reads the YAML,
+          /// checks if it's the new hotness (v1.0.0 arrays) or the classic
+          /// recipe (v0.2.0 scalars), and serves it up in a type-safe wrapper.
+          ///
+          /// # Examples
+          ///
+          /// ```no_run
+          /// // Feed it a YAML file, get back a structured model
+          /// let model = parse_model(Path::new("quarterly_financials.yaml"))?;
+          ///
+          /// // Now you can work with typed data instead of raw strings!
+          /// assert_eq!(model.version, ForgeVersion::V1_0_0);
+          /// ```
+          ///
+          /// # Errors
+          ///
+          /// This function is a bit picky (in a good way!):
+          /// - If the YAML is malformed, it'll let you know immediately
+          /// - If arrays have mixed types, it'll stop you before bad things happen
+          /// - If columns have different lengths, it'll save you from Excel export sadness
+          ///
+          /// Think of errors as your friendly neighborhood validator 🦸
+          pub fn parse_model(path: &Path) -> ForgeResult<ParsedModel>
+
+      README_personality_examples:
+        technical_but_fun: |
+          ## Why Forge?
+
+          Because AI hallucinates, and your CFO doesn't appreciate creative accounting. 📊
+
+          Forge is like a spell-checker for your financial formulas. It won't let you
+          ship a model where `revenue - expenses = unicorns`. (We tried. It didn't work.)
+
+          **Problem:** You have 1,140 formulas in your financial model. Excel says they're
+          all fine. Excel is lying. 🤥
+
+          **Solution:** Forge validates EVERY formula BEFORE you send it to investors.
+          No more "Oops, we accidentally calculated our valuation in dog years."
+
+        feature_descriptions: |
+          ## Features That Spark Joy ✨
+
+          ### 🎯 Excel-Compatible Formulas
+          All your favorite hits: SUM, AVERAGE, IF, and friends. They work exactly
+          like Excel, minus the existential dread of `#REF!` errors.
+
+          ### 🔒 Type-Safe Arrays
+          Forge won't let you mix numbers with text. Because `["Q1", 42, true]` is
+          not a valid dataset, it's a cry for help.
+
+          ### ⚡ Blazingly Fast™
+          Validates 1,140 formulas in <200ms. That's faster than Excel can say
+          "Not Responding" on your coworker's laptop.
+
+          ### 📐 Zero Error Tolerance
+          Your model either works perfectly or tells you exactly what's wrong.
+          No "works on my machine" shenanigans.
+
+      error_message_guidelines:
+        important_note: "Error messages should be HELPFUL, not funny. User is already frustrated!"
+
+        error_message_structure: |
+          // Structure: What went wrong + Why + How to fix
+          ForgeError::Parse(format!(
+              "Column '{}' has mixed types (found Number and Text). \n\
+               All values in an array must be the same type for Excel export. \n\
+               Tip: Use separate columns for different data types.",
+              column_name
+          ))
+
+        do_in_errors:
+          - "Be specific about what went wrong"
+          - "Explain why it's a problem"
+          - "Suggest how to fix it"
+          - "Show the problematic value if helpful"
+          - "Use friendly language ('Tip:', 'Note:')"
+
+        dont_in_errors:
+          - "Don't use humor or sarcasm"
+          - "Don't blame the user ('you did X wrong')"
+          - "Don't use jargon without explanation"
+          - "Don't just say 'invalid input' - be specific!"
+
+      comments_in_code:
+        good_comments: |
+          // Why xlformula_engine uses f32: Excel's native number format
+          // We round to 6 decimals to avoid issues like 0.9 showing as 0.8999999
+          // This is a reasonable tradeoff for financial calculations (max error: ±0.0001%)
+
+          // TODO: Implement SUMIF after basic aggregation works
+          // (Don't want to run before we can walk!)
+
+          // HACK: xlformula_engine doesn't understand @ for cross-file refs
+          // So we temporarily replace @ with _ and convert back in resolver
+          // It's like using a fake mustache to sneak past a bouncer 🥸
+
+        bad_comments: |
+          // This is bad
+          let x = 5;
+
+          // Loop through items (duh, I can read the code!)
+          for item in items {
+
+          // Magic number (WHY?! What does 42 represent?)
+          if count > 42 {
+
+      git_commit_messages_with_personality:
+        boring: "Fix bug in parser"
+
+        better: "Fix parser crash on empty arrays"
+
+        best: |
+          Fix parser panic when encountering empty column arrays
+
+          The parser was assuming all arrays had at least one element (rookie
+          mistake!). This caused a panic when users had placeholder columns.
+
+          Now we check for empty arrays and return a helpful error instead of
+          crashing like a Windows 95 screensaver.
+
+          Added test: test_empty_array_error
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+          Co-Authored-By: Claude <noreply@anthropic.com>
+
+    rustdoc:
+      principles:
+        - "Every public item should have doc comment (with personality!)"
+        - "Start with one-line summary, then tell a story"
+        - "Include examples in doc comments (they're tested!)"
+        - "Use /// for items, //! for modules"
+        - "Link to related items with [Type]"
+        - "Add metaphors and analogies for complex concepts"
+        - "Celebrate what the code does well"
+
+      example: |
+        /// Calculates all formulas in a v1.0.0 array model.
+        ///
+        /// This calculator handles row-wise (element-wise) operations on column arrays,
+        /// with automatic dependency resolution within tables.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// use royalbit_forge::core::ArrayCalculator;
+        /// use royalbit_forge::parser::parse_model;
+        /// use std::path::Path;
+        ///
+        /// let model = parse_model(Path::new("model.yaml"))?;
+        /// let calculator = ArrayCalculator::new(model);
+        /// let result = calculator.calculate_all()?;
+        /// # Ok::<(), royalbit_forge::error::ForgeError>(())
+        /// ```
+        ///
+        /// # Errors
+        ///
+        /// Returns [`ForgeError::Eval`] if formula evaluation fails.
+        /// Returns [`ForgeError::CircularDependency`] if circular refs detected.
+        pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
+            // ...
+        }
+
+      check: "cargo doc --no-deps --open"
+
+    architecture_decision_records:
+      description: "Document significant architectural decisions"
+      format: "ADRs in docs/adr/ directory"
+
+      template: |
+        # ADR-001: Use xlformula_engine for Excel Compatibility
+
+        ## Status
+        Accepted (2025-11-23)
+
+        ## Context
+        Need Excel-compatible formula evaluation for v0.2.0.
+        Options: meval (simple), evalexpr, xlformula_engine.
+
+        ## Decision
+        Use xlformula_engine despite f32 precision concerns.
+
+        ## Consequences
+        + Excel compatibility
+        + Rich formula library
+        - f32 precision (mitigated with rounding)
+        - External dependency maintenance
+
+      when_to_write:
+        - "Major library choices"
+        - "Architectural patterns"
+        - "Breaking changes"
+        - "Performance trade-offs"
+
+tips_for_success:
+  critical:
+    - "🚨 CHECK CURRENT DATE in <env> before ANY online search!"
+    - "ZERO warnings policy - treat warnings as errors (user has OCD for clean code 😊)"
+    - "Run cargo audit before releases (no surprises from dependency CVEs)"
+
+  planning:
+    - "Think harder before implementing - measure twice, code once 📐"
+    - "BEFORE complex code: Search crates.io (don't reinvent the wheel, it's already round)"
+    - "Profile before optimizing - premature optimization is the root of all evil (and wasted time)"
+    - "Read DESIGN_V1.md - it's 800+ lines for a reason!"
+
+  testing:
+    - "Write tests first when possible (TDD = sleep better at night)"
+    - "Test edge cases - empty arrays, nulls, invalid inputs (Murphy's Law is undefeated)"
+    - "Consider property-based testing for complex logic (test the rules, not examples)"
+    - "If a bug makes it to production, write a test so it never comes back (revenge testing!)"
+
+  type_safety:
+    - "Use type system to prevent bugs (make illegal states unrepresentable)"
+    - "Newtypes are your friends (TableName ≠ ColumnName, even though both are strings)"
+    - "Enums over booleans (states > true/false)"
+    - "Builder pattern for complex construction (fluent APIs are a joy to use)"
+
+  code_quality:
+    - "Run clippy frequently (it's like having a pedantic friend who's always right)"
+    - "cargo fmt before every commit (consistency = readability)"
+    - "No unwrap() in library code (Result<T,E> or bust)"
+    - "Comments should explain WHY, not WHAT (code shows what, you explain why)"
+
+  documentation:
+    - "Update docs as you code, not after (future you will thank present you)"
+    - "Add personality to docs - make them memorable (car keys, food trucks, cats 🐱)"
+    - "Examples in rustdoc are tested (free test coverage!)"
+    - "Error messages: helpful, not funny (user is frustrated, not entertained)"
+
+  workflow:
+    - "Commit frequently with descriptive messages (tell a story, not a changelog)"
+    - "Use TodoWrite to track progress (Claude's memory needs help)"
+    - "Check KNOWN_BUGS.md before fixing (might already be documented)"
+    - "One feature per commit (atomic changes = easy reverts)"
+
+  collaboration:
+    - "Ask user for clarification on ambiguous requirements (assumptions are dangerous)"
+    - "Check license compatibility (MIT-compatible only, GPL is the Voldemort of licenses)"
+    - "When stuck, explain the problem out loud (rubber duck debugging works!)"
+
+  wisdom:
+    - "If it compiles in Rust, it probably works (type system FTW)"
+    - "If tests pass but feel fragile, trust your instincts"
+    - "Simpler code > clever code (cleverness is hard to debug at 2am)"
+    - "When in doubt, add a test (tests never lie)"
+    - "Break before optimize, fix before enhance, test before merge"
+
+collaboration_notes:
+  user_preferences:
+    - "User values: zero errors, 100% accuracy, thorough testing"
+    - "User has OCD for beautiful code - ZERO warnings, strict linting"
+    - "User says 'Punch it!' when ready to proceed"
+    - "User says 'Think harder' when wanting deeper analysis"
+    - "User provides context from previous sessions via summary"
+    - "Always check current date before online searches (training data is old!)"
+
+session_end_checklist:
+  - "☐ All tests passing"
+  - "☐ All changes committed"
+  - "☐ Changes pushed to remote"
+  - "☐ Roadmap updated if phase progress changed"
+  - "☐ TodoWrite list reflects accurate status"
+  - "☐ User knows current status and next steps"

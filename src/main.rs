@@ -110,6 +110,75 @@ NOTE: Validation checks ALL files in the chain.
         /// Path to YAML file (can include other files via 'includes' section)
         file: PathBuf,
     },
+
+    #[command(long_about = "Export v1.0.0 array model to Excel .xlsx format.
+
+Converts YAML column arrays to Excel worksheets with full formula support.
+Each table becomes a separate worksheet. Formulas are translated to Excel syntax.
+
+SUPPORTED FEATURES (Phase 3.1 - Basic Export):
+  ✅ Table columns → Excel columns (A, B, C, ...)
+  ✅ Data values (Number, Text, Date, Boolean)
+  ✅ Multiple tables → Multiple worksheets
+  ✅ Scalars → Dedicated \"Scalars\" worksheet
+
+COMING SOON (Phase 3.2+):
+  ⏳ Row formulas → Excel cell formulas (=A2-B2)
+  ⏳ Cross-table references (=Sheet!Column)
+  ⏳ Aggregation formulas (=SUM(Sheet!A:A))
+
+EXAMPLE:
+  forge export quarterly_pl.yaml quarterly_pl.xlsx
+
+NOTE: Only works with v1.0.0 array models. v0.2.0 scalar models are not supported.")]
+    /// Export v1.0.0 array model to Excel .xlsx
+    Export {
+        /// Path to v1.0.0 YAML file (must have 'tables' section)
+        input: PathBuf,
+
+        /// Output Excel file path (.xlsx)
+        output: PathBuf,
+
+        /// Show verbose export steps
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    #[command(long_about = "Import Excel .xlsx file to YAML v1.0.0 format.
+
+Converts Excel worksheets to YAML tables with formula preservation.
+Each worksheet becomes a table in the output YAML file.
+
+SUPPORTED FEATURES (Phase 4.1 - Basic Import):
+  ✅ Excel worksheets → YAML tables
+  ✅ Data values (Number, Text, Boolean)
+  ✅ Multiple worksheets → One YAML file (one-to-one)
+  ✅ \"Scalars\" sheet → Scalar section
+  ⏳ Formula translation (coming in Phase 4.3)
+
+WORKFLOW:
+  1. Import existing Excel → YAML
+  2. Work with AI + Forge (version control!)
+  3. Export back to Excel
+  4. Round-trip: Excel → YAML → Excel
+
+EXAMPLE:
+  forge import quarterly_pl.xlsx quarterly_pl.yaml
+
+NOTE: Formulas are preserved as Excel syntax (Phase 4.1).
+      Formula translation to YAML syntax coming in Phase 4.3.")]
+    /// Import Excel .xlsx file to YAML v1.0.0
+    Import {
+        /// Path to Excel file (.xlsx)
+        input: PathBuf,
+
+        /// Output YAML file path
+        output: PathBuf,
+
+        /// Show verbose import steps
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 fn main() -> ForgeResult<()> {
@@ -125,5 +194,17 @@ fn main() -> ForgeResult<()> {
         Commands::Audit { file, variable } => cli::audit(file, variable),
 
         Commands::Validate { file } => cli::validate(file),
+
+        Commands::Export {
+            input,
+            output,
+            verbose,
+        } => cli::export(input, output, verbose),
+
+        Commands::Import {
+            input,
+            output,
+            verbose,
+        } => cli::import(input, output, verbose),
     }
 }

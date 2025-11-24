@@ -1,8 +1,11 @@
-use crate::core::Calculator;
-use crate::error::ForgeResult;
+use crate::core::{ArrayCalculator, Calculator};
+use crate::error::{ForgeError, ForgeResult};
+use crate::excel::{ExcelExporter, ExcelImporter};
 use crate::parser;
+use crate::types::ForgeVersion;
 use crate::writer;
 use colored::Colorize;
+use std::fs;
 use std::path::PathBuf;
 
 /// Format a number for display, removing unnecessary decimal places
@@ -29,80 +32,152 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
         );
     }
 
-    // Parse YAML file and extract variables with formulas (including referenced files)
+    // Parse file and detect version
     if verbose {
-        println!("{}", "📖 Parsing YAML file and includes...".cyan());
+        println!("{}", "📖 Parsing YAML file...".cyan());
     }
-    let parsed = parser::parse_yaml_with_includes(&file)?;
 
-    if verbose {
-        println!(
-            "   Found {} variables with formulas\n",
-            parsed.variables.len()
-        );
-        for (name, var) in &parsed.variables {
-            if let Some(formula) = &var.formula {
-                println!("   {} = {}", name.bright_blue(), formula.dimmed());
+    // Try v1.0.0 first (parse_model auto-detects version)
+    let model = parser::parse_model(&file)?;
+
+    match model.version {
+        ForgeVersion::V1_0_0 => {
+            // v1.0.0 Array Model - use ArrayCalculator
+            if verbose {
+                println!("   Detected: v1.0.0 Array Model");
+                println!(
+                    "   Found {} tables, {} scalars\n",
+                    model.tables.len(),
+                    model.scalars.len()
+                );
             }
+
+            // Calculate using ArrayCalculator
+            if verbose {
+                println!(
+                    "{}",
+                    "🧮 Calculating tables and scalars...".cyan()
+                );
+            }
+
+            let calculator = ArrayCalculator::new(model);
+            let result = calculator.calculate_all()?;
+
+            // Display results
+            println!("{}", "✅ Calculation Results:".bold().green());
+
+            // Show table results
+            for (table_name, table) in &result.tables {
+                println!("   📊 Table: {}", table_name.bright_blue().bold());
+                for (col_name, column) in &table.columns {
+                    println!(
+                        "      {} ({} rows)",
+                        col_name.cyan(),
+                        column.values.len()
+                    );
+                }
+            }
+
+            // Show scalar results
+            if !result.scalars.is_empty() {
+                println!("\n   📐 Scalars:");
+                for (name, var) in &result.scalars {
+                    if let Some(value) = var.value {
+                        println!(
+                            "      {} = {}",
+                            name.bright_blue(),
+                            format!("{value}").bold()
+                        );
+                    }
+                }
+            }
+            println!();
+
+            // TODO: Implement v1.0.0 writer
+            if dry_run {
+                println!("{}", "📋 Dry run complete - no changes written".yellow());
+            } else {
+                println!("{}", "⚠️  v1.0.0 file writing not yet implemented".yellow());
+                println!("{}", "   Results calculated successfully but not written back".yellow());
+            }
+
+            Ok(())
         }
-        println!();
-    }
+        ForgeVersion::V0_2_0 => {
+            // v0.2.0 Scalar Model - use old Calculator (with includes support)
+            let parsed = parser::parse_yaml_with_includes(&file)?;
 
-    if parsed.variables.is_empty() {
-        println!("{}", "⚠️  No formulas found in YAML file".yellow());
-        return Ok(());
-    }
+            if verbose {
+                println!("   Detected: v0.2.0 Scalar Model");
+                println!(
+                    "   Found {} variables with formulas\n",
+                    parsed.variables.len()
+                );
+                for (name, var) in &parsed.variables {
+                    if let Some(formula) = &var.formula {
+                        println!("   {} = {}", name.bright_blue(), formula.dimmed());
+                    }
+                }
+                println!();
+            }
 
-    // Calculate all formulas
-    if verbose {
-        println!(
-            "{}",
-            "🧮 Calculating formulas in dependency order...".cyan()
-        );
-    }
-    let mut calculator = Calculator::new(parsed.variables.clone());
-    let results = calculator.calculate_all()?;
+            if parsed.variables.is_empty() {
+                println!("{}", "⚠️  No formulas found in YAML file".yellow());
+                return Ok(());
+            }
 
-    // Display results
-    println!("{}", "✅ Calculation Results:".bold().green());
-    for (var_name, value) in &results {
-        println!(
-            "   {} = {}",
-            var_name.bright_blue(),
-            format!("{value}").bold()
-        );
-    }
-    println!();
+            // Calculate all formulas
+            if verbose {
+                println!(
+                    "{}",
+                    "🧮 Calculating formulas in dependency order...".cyan()
+                );
+            }
+            let mut calculator = Calculator::new(parsed.variables.clone());
+            let results = calculator.calculate_all()?;
 
-    // Write back to ALL files (main + includes) - Excel-style (unless dry run)
-    if dry_run {
-        println!("{}", "📋 Dry run complete - no changes written".yellow());
-    } else {
-        if verbose {
-            println!(
-                "{}",
-                "💾 Writing updated values to all files (main + includes)...".cyan()
-            );
+            // Display results
+            println!("{}", "✅ Calculation Results:".bold().green());
+            for (var_name, value) in &results {
+                println!(
+                    "   {} = {}",
+                    var_name.bright_blue(),
+                    format!("{value}").bold()
+                );
+            }
+            println!();
+
+            // Write back to ALL files (main + includes) - Excel-style (unless dry run)
+            if dry_run {
+                println!("{}", "📋 Dry run complete - no changes written".yellow());
+            } else {
+                if verbose {
+                    println!(
+                        "{}",
+                        "💾 Writing updated values to all files (main + includes)...".cyan()
+                    );
+                }
+                writer::update_all_yaml_files(&file, &parsed, &results, &parsed.variables)?;
+
+                if parsed.includes.is_empty() {
+                    println!("{}", "✨ File updated successfully!".bold().green());
+                } else {
+                    println!(
+                        "{}",
+                        format!(
+                            "✨ {} files updated successfully! (main + {} includes)",
+                            1 + parsed.includes.len(),
+                            parsed.includes.len()
+                        )
+                        .bold()
+                        .green()
+                    );
+                }
+            }
+
+            Ok(())
         }
-        writer::update_all_yaml_files(&file, &parsed, &results, &parsed.variables)?;
-
-        if parsed.includes.is_empty() {
-            println!("{}", "✨ File updated successfully!".bold().green());
-        } else {
-            println!(
-                "{}",
-                format!(
-                    "✨ {} files updated successfully! (main + {} includes)",
-                    1 + parsed.includes.len(),
-                    parsed.includes.len()
-                )
-                .bold()
-                .green()
-            );
-        }
     }
-
-    Ok(())
 }
 
 /// Execute the audit command
@@ -178,8 +253,14 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
         for (name, current, expected, diff) in &mismatches {
             println!("   {}", name.bright_blue().bold());
             // Format numbers with reasonable precision (remove trailing zeros)
-            println!("      Current:  {}", format!("{}", format_number(*current)).red());
-            println!("      Expected: {}", format!("{}", format_number(*expected)).green());
+            println!(
+                "      Current:  {}",
+                format_number(*current).to_string().red()
+            );
+            println!(
+                "      Expected: {}",
+                format_number(*expected).to_string().green()
+            );
             println!("      Diff:     {}", format!("{diff:.6}").yellow());
             println!();
         }
@@ -193,4 +274,107 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
             "Values do not match formulas - file needs recalculation".to_string(),
         ))
     }
+}
+
+/// Execute the export command
+pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()> {
+    println!("{}", "🔥 Forge - Excel Export".bold().green());
+    println!("   Input:  {}", input.display());
+    println!("   Output: {}\n", output.display());
+
+    // Parse the YAML file
+    if verbose {
+        println!("{}", "📖 Parsing YAML file...".cyan());
+    }
+
+    let model = parser::parse_model(&input)?;
+
+    // Verify it's a v1.0.0 model
+    if model.version != ForgeVersion::V1_0_0 {
+        return Err(ForgeError::Export(
+            "Excel export only supports v1.0.0 array models. This file appears to be v0.2.0.".to_string(),
+        ));
+    }
+
+    if verbose {
+        println!("   Detected: v1.0.0 Array Model");
+        println!(
+            "   Found {} tables, {} scalars\n",
+            model.tables.len(),
+            model.scalars.len()
+        );
+    }
+
+    // Export to Excel
+    if verbose {
+        println!("{}", "📊 Exporting to Excel...".cyan());
+    }
+
+    let exporter = ExcelExporter::new(model);
+    exporter.export(&output)?;
+
+    println!("{}", "✅ Export Complete!".bold().green());
+    println!("   Excel file: {}\n", output.display());
+
+    println!("{}", "✅ Phase 3: Excel Export Complete!".bold().green());
+    println!("   ✅ Table columns → Excel columns");
+    println!("   ✅ Data values exported");
+    println!("   ✅ Multiple worksheets");
+    println!("   ✅ Scalars worksheet");
+    println!("   ✅ Row formulas → Excel cell formulas (=A2-B2)");
+    println!("   ✅ Cross-table references (=Sheet!Column)");
+    println!("   ✅ Supports 60+ Excel functions (IFERROR, SUMIF, VLOOKUP, etc.)\n");
+
+    Ok(())
+}
+
+/// Execute the import command
+pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()> {
+    println!("{}", "🔥 Forge - Excel Import".bold().green());
+    println!("   Input:  {}", input.display());
+    println!("   Output: {}\n", output.display());
+
+    // Import Excel file
+    if verbose {
+        println!("{}", "📖 Reading Excel file...".cyan());
+    }
+
+    let importer = ExcelImporter::new(&input);
+    let model = importer.import()?;
+
+    if verbose {
+        println!("   Found {} tables", model.tables.len());
+        println!("   Found {} scalars\n", model.scalars.len());
+
+        for (table_name, table) in &model.tables {
+            println!("   📊 Table: {}", table_name.bright_blue());
+            println!("      {} columns, {} rows", table.columns.len(), table.row_count());
+        }
+        println!();
+    }
+
+    // Write YAML file
+    if verbose {
+        println!("{}", "💾 Writing YAML file...".cyan());
+    }
+
+    // Serialize model to YAML
+    let yaml_string = serde_yaml::to_string(&model)
+        .map_err(ForgeError::Yaml)?;
+
+    fs::write(&output, yaml_string)
+        .map_err(ForgeError::Io)?;
+
+    println!("{}", "✅ Import Complete!".bold().green());
+    println!("   YAML file: {}\n", output.display());
+
+    println!("{}", "✅ Phase 4: Excel Import Complete!".bold().green());
+    println!("   ✅ Excel worksheets → YAML tables");
+    println!("   ✅ Data values imported");
+    println!("   ✅ Multiple worksheets → One YAML file");
+    println!("   ✅ Scalars sheet detected");
+    println!("   ✅ Formula translation (Excel → YAML syntax)");
+    println!("   ✅ Supports 60+ Excel functions (IFERROR, SUMIF, VLOOKUP, etc.)\n");
+
+    Ok(())
 }

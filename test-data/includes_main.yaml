@@ -13,7 +13,7 @@ margin:
   value: 44.0
   formula: =final_price - total_cost
 margin_percent:
-  value: 0.5176470588235295
+  value: 0.517647
   formula: =margin / final_price
 premium_price:
   value: 150.0
