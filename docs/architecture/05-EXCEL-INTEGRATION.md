@@ -61,7 +61,7 @@ This 1:1 mapping ensures:
 - ✅ Row-wise formulas → Excel cell formulas (=A2-B2)
 - ✅ Cross-table references → Sheet references (=Sheet1!A2)
 - ✅ Aggregation formulas → Summary rows
-- ✅ 47+ Excel functions preserved
+- ✅ 50+ Excel functions preserved
 - ✅ Data types: Number, Text, Date, Boolean
 
 **Import (Excel → YAML):**

@@ -381,7 +381,7 @@ Forge doesn't replace Excel. It provides:
 - ✅ All 7 modules documented (100%)
 - ✅ All 17 source files referenced
 - ✅ All 5 CLI commands explained
-- ✅ All 47+ Excel functions listed
+- ✅ All 50+ Excel functions listed
 - ✅ All test types covered
 
 **Architectural Coverage:

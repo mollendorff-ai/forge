@@ -193,7 +193,7 @@ match result {
 }
 ```text
 
-### Supported Functions (47+)
+### Supported Functions (50+)
 
 **Aggregation Functions:**
 

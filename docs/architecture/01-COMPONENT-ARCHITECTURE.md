@@ -1747,7 +1747,7 @@ pub enum ColumnValue {
 - Row-wise formulas
 - Aggregation formulas
 - Excel export/import
-- 47+ Excel functions
+- 50+ Excel functions
 
 ### Version Coexistence Strategy
 
@@ -2001,7 +2001,7 @@ note right of [xlformula_engine\nv0.1.18]
 
 #### Formula Engine
 
-  47+ Excel functions
+  50+ Excel functions
   Excel-compatible syntax
 end note
 
