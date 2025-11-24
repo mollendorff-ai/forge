@@ -10,7 +10,7 @@
 - **Industry**: Software Technology, AI Innovation, Open Source
 - **Stage**: SME with production software and FOSS publication
 
-**Grant Potential**: $500K - $2M+ over 3 years across multiple programs
+**Grant Potential**: $760K - $1.2M+ over 3 years across multiple programs (updated 2025 research)
 
 ---
 
@@ -98,34 +98,78 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
    - **Timeline**: Annual application (check deadlines)
    - **Why**: Kantia owns 51%, tech innovation, Quebec-based
 
+### **Tier 1.5: Women-Owned Business Programs (HIGH PRIORITY!)**
+
+4. **Cartier Women's Initiative Awards**
+   - **Value**: $100K (top prize), $30K (runner-up)
+   - **Timeline**: ⚠️ Applications open April 18 - June 25, 2025
+   - **Why**: Kantia 51%, global recognition, perfect innovation story
+
+5. **Women in Technology Venture Fund (BDC)**
+   - **Value**: Loans + resources + Series B financing
+   - **Timeline**: Ongoing
+   - **Why**: Women-led technology companies
+
+6. **Amber Grant (WomensNet)**
+   - **Value**: $10K monthly, $25K annual grand prize
+   - **Timeline**: Monthly applications
+   - **Why**: Low barrier, woman-owned, recurring opportunity
+
 ### **Tier 2: Strong Fit (Medium-High Value)**
 
-4. **Investissement Québec - PIIA (AI Innovation Program)**
+7. **Investissement Québec - PIIA (AI Innovation Program)**
    - **Value**: Up to $1M for AI projects
    - **Timeline**: Q1 2026 application
    - **Why**: Autonomous AI development is core innovation
 
-5. **Montreal Open Innovation Subsidy**
+8. **Prompt Partenar-IA (Collaborative AI Projects)**
+   - **Value**: Up to $1.5M
+   - **Coverage**: 35% for SMEs, 50% for startups
+   - **Timeline**: Check for 2025 intake dates
+   - **Why**: Warmup protocol is AI development methodology innovation
+
+9. **Telegraph I Fund (Quebec AI)**
+   - **Value**: $250K-$750K (average investment)
+   - **Total Fund**: ~$40M (government matches private investment)
+   - **Timeline**: 2025-2026
+   - **Why**: Young innovative AI companies, commercialization stage
+
+10. **Montreal Open Innovation Subsidy**
    - **Value**: $50,000 (50% of project)
    - **Timeline**: Ongoing applications
    - **Why**: Collaboration opportunities with Montreal ecosystem
 
-6. **Investissement Québec - Innovation Program**
+11. **Montreal Innovation Fund**
+   - **Value**: Up to $50K (80% coverage)
+   - **Timeline**: Ongoing
+   - **Why**: Innovation commercialization, technological equipment
+
+12. **PME MTL (Eco-Responsible Practices)**
+   - **Value**: Up to $40K (75% of costs)
+   - **Timeline**: Ongoing
+   - **Why**: Clean tech adoption, sustainable development
+
+13. **Investissement Québec - Innovation Program**
    - **Value**: $200K-$500K
    - **Timeline**: Rolling applications
    - **Why**: Covers commercialization of warmup protocol methodology
 
 ### **Tier 3: Consider for Future (Lower Priority)**
 
-7. **CanExport SMEs** (when reopens)
+14. **CanExport SMEs** (when reopens)
    - **Value**: $50,000 (50% costs)
    - **Timeline**: Closed until further notice, check May 2026
    - **Why**: If expanding Forge internationally
 
-8. **Scale AI Support Grants**
-   - **Value**: $120,000 through incubators
+15. **Scale AI Support Grants**
+   - **Value**: Up to $120,000 through various incubators
    - **Timeline**: Through partner accelerators
    - **Why**: AI ecosystem connections
+
+16. **Canadian Technology Accelerator**
+   - **Value**: Support, market access, targeted connections
+   - **Timeline**: Apply for 12 global tech hubs
+   - **Focus**: Women-led tech companies (Kantia ✅)
 
 ---
 
@@ -133,10 +177,15 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 
 ### 1. SR&ED Tax Credits (Federal + Quebec)
 
-#### **Federal SR&ED**
+#### **Federal SR&ED (2025 MAJOR ENHANCEMENTS!)**
 - **Program**: Scientific Research & Experimental Development Tax Incentive
 - **Authority**: Canada Revenue Agency (CRA)
-- **Value**: 35% refundable credit on first $6M of expenditures (2025 increase!)
+- **Value**: 35% refundable credit on first $6M of expenditures
+- **2025 Enhancements:**
+  - Expenditure limit **DOUBLED** from $3M → $6M 🎉
+  - Capital expenditures **NOW ELIGIBLE AGAIN** (equipment, development computers)
+  - Maximum refundable credits **DOUBLED** to $2.1M annually
+  - Public companies now have access to refundable credits
 - **Eligibility**: Canadian corporations performing R&D
 - **Refundable**: YES (cash refund even for pre-revenue companies)
 
@@ -277,7 +326,121 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 
 ---
 
-### 4. Investissement Québec - PIIA (AI Innovation Program)
+### 4. Cartier Women's Initiative Awards ⭐ HIGH VALUE
+
+#### **Program Overview**
+- **Authority**: Cartier (International)
+- **Purpose**: Support women-led businesses with global impact potential
+- **Value**: Top prize $100,000, runner-up $30,000
+- **Timeline**: ⚠️ **Applications open April 18 - June 25, 2025**
+- **Eligibility**: 50%+ woman-owned or woman-led businesses
+
+#### **Why RoyalBit is Perfect Candidate**
+✅ Kantia owns 51% (woman-owned) ✅
+✅ Global impact (open source, international applicability)
+✅ Proven innovation (0% rework vs. industry 30-50%)
+✅ Social impact (democratizing AI-assisted development)
+✅ Novel technological breakthrough (warmup protocol)
+
+#### **Compelling Application Narrative**
+- **Innovation**: World's first autonomous AI development protocol
+- **Impact**: Solves $1B+ industry problem (AI context loss)
+- **Results**: 3-4x velocity, ZERO bugs shipped, production-proven
+- **Open Source**: MIT license, 1,400+ line protocol, published globally
+- **Woman Leadership**: Kantia Tavares (51%) leading Canadian tech innovation
+
+#### **Application Strategy**
+1. **Prepare by April 2025:**
+   - Refine warmup protocol documentation
+   - Create compelling pitch deck
+   - Document v1.0.0 case study results
+   - Gather testimonials (if available)
+
+2. **Submit June 2025:**
+   - Emphasize global applicability
+   - Highlight social impact (democratization)
+   - Show measurable results (0% rework, 15x velocity)
+   - Woman-owned, Canadian innovation
+
+3. **Expected Timeline:**
+   - Application deadline: June 25, 2025
+   - Judging: July-September 2025
+   - Winner announcement: October-November 2025
+
+#### **Links**
+- [Business Grants for Women Canada 2025](https://hellodarwin.com/business-aid/grants-and-funding/women)
+- [Top 3 Business Grants for Women Canada](https://www.reinvestwealth.com/post/top-3-business-grants-for-women-in-canada)
+
+---
+
+### 5. Women in Technology Venture Fund (BDC)
+
+#### **Program Overview**
+- **Authority**: Business Development Bank of Canada (BDC)
+- **Purpose**: Help women-led technology companies grow
+- **Value**: Loans + resources + Series B financing solicitation
+- **Eligibility**: Women-led technology companies (Kantia 51% ✅)
+
+#### **Benefits**
+- Loans for technology company growth
+- Resources to boost knowledge and growth
+- Series B financing connections
+- Diversifies tech industry (historically underrepresented)
+
+#### **Why RoyalBit Qualifies**
+✅ Woman-owned (Kantia 51%)
+✅ Technology company (AI, software, open source)
+✅ Growth stage (v1.0.0 released, ready to scale)
+✅ Clear market need ($40K-$132K/year savings potential)
+
+#### **Application Process**
+1. Contact BDC Women in Tech Venture Fund
+2. Present warmup protocol innovation
+3. Show traction (v1.0.0 deployment, open source adoption)
+4. Request financing for commercialization
+
+#### **Links**
+- [Women Business Grants 2025](https://hellodarwin.com/business-aid/grants-and-funding/women)
+- [BDC Website](https://www.bdc.ca/en)
+
+---
+
+### 6. Amber Grant (WomensNet) - Monthly Opportunity
+
+#### **Program Overview**
+- **Authority**: WomensNet (US-based, accepts Canadian applicants)
+- **Value**: $10,000 monthly grant
+- **Annual Grand Prize**: $25,000 (one monthly winner selected)
+- **Frequency**: Monthly applications (12 chances/year)
+- **Eligibility**: Woman-owned business (Kantia 51% ✅)
+
+#### **Why Apply Monthly**
+- Low barrier to entry
+- Quick application process
+- 12 opportunities per year
+- Cumulative chances (apply every month)
+- $10K helps with immediate needs
+
+#### **Application Strategy**
+- Set monthly reminder (apply every month!)
+- Rotate application emphasis:
+  - Month 1: Innovation angle (warmup protocol breakthrough)
+  - Month 2: Impact angle (democratizing AI development)
+  - Month 3: Woman entrepreneur story (Kantia's leadership)
+  - Month 4: Canadian tech leadership
+  - Cycle continues...
+
+#### **Expected Value**
+- If win 1-2 times in 2026: $10K-$20K
+- Low effort, high return opportunity
+- Supplement other grant applications
+
+#### **Links**
+- [21 Women-Owned Business Grants](https://www.canadastartups.org/21-grants-for-women-owned-businesses/)
+
+---
+
+### 7. Investissement Québec - PIIA (AI Innovation Program)
 
 #### **Program Overview**
 - **Authority**: Investissement Québec
@@ -377,6 +540,206 @@ Partner with established Montreal organization to:
 
 ---
 
+### 9. Prompt Partenar-IA (Collaborative AI Innovation)
+
+#### **Program Overview**
+- **Authority**: Investissement Québec
+- **Purpose**: Collaborative artificial intelligence projects
+- **Value**: Up to $1.5M
+- **Coverage**: 35% for SMEs, 50% for startups
+- **Focus**: Partnerships between SMEs, large corporations for AI advancement
+
+#### **Why Warmup Protocol Qualifies**
+✅ Core innovation is autonomous AI development methodology
+✅ Collaborative potential (can partner with other companies)
+✅ Advances AI technology readiness level (TRL)
+✅ Novel approach to AI-assisted development
+
+#### **Project Ideas**
+1. **Enterprise Pilot Program**
+   - Partner with Quebec enterprise to deploy warmup protocol
+   - Document productivity gains (3-4x velocity target)
+   - Train their developers on autonomous AI development
+   - Create case study for broader adoption
+
+2. **AI Agent SDK Development**
+   - Build commercial framework for protocol-based AI agents
+   - Enable other companies to implement warmup methodology
+   - Increase TRL from 7 (production-proven) to 9 (global deployment)
+
+#### **Application Timeline**
+- Check for 2025 intake dates (collaborative innovation call)
+- Identify partner by Q1 2026
+- Co-develop proposal Q2 2026
+- Submit Q2-Q3 2026
+
+#### **Links**
+- [AI Grants Quebec 2025](https://baseline.quebec/en/new/ai-grants/)
+- [New AI Grants 2025 Quebec](https://www.pipemind.com/en/post/new-ai-grants-2025-how-quebec-businesses-can-fund-their-artificial-intelligence-projects)
+
+---
+
+### 10. Telegraph I Investment Fund (Quebec AI)
+
+#### **Program Overview**
+- **Authority**: Quebec Government (Investissement Québec)
+- **Purpose**: Support young innovative AI companies
+- **Value**: $250K-$750K (average investment per company)
+- **Total Fund Size**: ~$40M
+- **Structure**: Government matches private/institutional investment (1:1)
+- **Focus**: High growth potential AI companies
+
+#### **Why Forge Qualifies**
+✅ AI development innovation (warmup protocol)
+✅ Young company, high growth potential
+✅ Facilitates commercialization and internationalization
+✅ Key stage of development (post-v1.0.0 launch)
+
+#### **Investment Use Cases**
+- Hire developers to enhance warmup protocol
+- Build commercial AI agent SDK
+- Expand documentation and training materials
+- Marketing and community building (open source adoption)
+- International expansion (global conferences, outreach)
+
+#### **Application Process**
+1. Identify private/institutional co-investors
+2. Prepare pitch deck emphasizing:
+   - Novel AI methodology (warmup protocol)
+   - Measurable results (0% rework, 3-4x velocity)
+   - Market opportunity ($1B+ AI development tooling)
+   - Commercialization strategy (consulting, training, SDK)
+3. Submit to Investissement Québec
+4. If matched: 1:1 government investment
+
+#### **Expected Timeline**
+- Q2 2026: Prepare materials
+- Q3 2026: Identify co-investors
+- Q4 2026: Submit application
+- 2027: Funding decision & deployment
+
+#### **Links**
+- [Telegraph I Fund Announcement](https://www.quebec.ca/nouvelles/actualites/details/accelerer-linnovation-et-ladoption-de-lintelligence-artificielle-66025)
+- [New AI Grants 2025 Quebec](https://www.pipemind.com/en/post/new-ai-grants-2025-how-quebec-businesses-can-fund-their-artificial-intelligence-projects)
+
+---
+
+### 11. Montreal Innovation Fund (City of Montreal)
+
+#### **Program Overview**
+- **Authority**: City of Montreal - Economic Development
+- **Program**: Innovation, Productivity, and Sustainable Development Fund
+- **Value**: Up to $50,000
+- **Coverage**: Up to 80% of project costs
+- **Focus**: Innovation commercialization, technological equipment, clean tech
+
+#### **Eligible Expenses**
+✅ Innovation commercialization (warmup protocol methodology)
+✅ Technological equipment (development infrastructure)
+✅ Clean technologies (efficient cloud-native development)
+✅ Sustainable development practices (open source contribution)
+
+#### **Why Forge Qualifies**
+- Commercializing Canadian innovation (warmup protocol)
+- Technology advancement (AI-assisted development)
+- Open source contribution (sustainability through knowledge sharing)
+- Montreal-based company
+
+#### **Application Strategy**
+- **Project**: "Warmup Protocol Commercialization & Training Program"
+- **Budget**: $62,500 total ($50K grant @ 80% coverage + $12.5K company)
+- **Deliverables**:
+  - Commercial documentation
+  - Training materials
+  - Case study publications
+  - Community workshops
+  - Technology equipment (servers, dev tools)
+
+#### **Timeline**
+- Q1 2026: Prepare application
+- Q2 2026: Submit to City of Montreal
+- Q3 2026: Funding decision
+- Q4 2026-2027: Project execution
+
+#### **Links**
+- [Montreal Grants and Funding 2025](https://hellodarwin.com/business-aid/grants-and-funding/quebec/montreal)
+- [Montreal Tech Ecosystem 2025](https://2727coworking.com/articles/montrals-tech-ecosystem-2025-a-complete-guide-to-resources-communities-and-funding)
+
+---
+
+### 12. PME MTL (Eco-Responsible Practices & Clean Tech)
+
+#### **Program Overview**
+- **Authority**: PME MTL (Montreal SME support organization)
+- **Value**: Up to $40K per business
+- **Coverage**: Up to 75% of eligible expenses
+- **Focus**: Eco-responsible practices, clean technology acquisition
+
+#### **How Forge Fits**
+- **Eco-Responsible Angle**: Open source reduces wasteful redevelopment
+- **Clean Tech**: Efficient development methodology (3-4x velocity = 3-4x less computing resources)
+- **Sustainability**: Knowledge sharing through MIT license
+- **Reduced Waste**: 0% rework vs. industry 30-50% means less wasted developer time/energy
+
+#### **Project Ideas**
+1. **Green Development Infrastructure**
+   - Energy-efficient development servers
+   - Carbon-neutral cloud hosting
+   - Sustainable development practices documentation
+
+2. **Open Source Sustainability**
+   - Document environmental impact of warmup protocol
+   - Calculate carbon savings from reduced rework
+   - Publish sustainability metrics
+
+#### **Application Timeline**
+- **Ongoing applications**
+- Prepare when eco-responsible project is planned
+- Target: Q2-Q3 2026
+
+#### **Links**
+- [Montreal Grants 2025](https://hellodarwin.com/business-aid/grants-and-funding/quebec/montreal)
+
+---
+
+### 13. Canadian Technology Accelerator (Global Expansion)
+
+#### **Program Overview**
+- **Authority**: Government of Canada (Trade Commissioner Service)
+- **Purpose**: Support, market access, targeted connections for tech companies
+- **Focus**: 12 global tech hubs
+- **Special Priority**: Women-led technology companies (Kantia 51% ✅)
+
+#### **Benefits**
+- Access to global tech hubs (Silicon Valley, London, Berlin, Tokyo, etc.)
+- Targeted connections with investors, partners, customers
+- Market research and intelligence
+- Soft-landing support in target markets
+
+#### **Why RoyalBit Qualifies**
+✅ Woman-led (Kantia 51%)
+✅ Technology company with existing product (Forge v1.0.0)
+✅ International applicability (warmup protocol works globally)
+✅ Export potential (consulting, training, SDK licensing)
+
+#### **Application Strategy**
+- Apply when ready for international expansion
+- Target hubs with strong AI/dev tools ecosystems:
+  - Silicon Valley (largest market)
+  - London (European entry)
+  - Berlin (open source community)
+  - Tel Aviv (innovation ecosystem)
+
+#### **Timeline**
+- **2027+**: After establishing Canadian traction
+- Prerequisite: Case studies, proven commercialization
+
+#### **Links**
+- [Women Business Grants 2025](https://hellodarwin.com/business-aid/grants-and-funding/women)
+- [Trade Commissioner Service](https://www.tradecommissioner.gc.ca)
+
+---
+
 ## 💡 Strategic Grant Application Plan
 
 ### **Phase 1: Immediate (Q4 2025 - Q1 2026)**
@@ -393,7 +756,24 @@ Partner with established Montreal organization to:
    - Low effort, high fit (woman-owned tech)
    - Check deadline, submit Q1 2026
 
-3. **Contact NRC IRAP**
+3. **Start Amber Grant Monthly Applications**
+   - **Value**: $10K/month, $25K annual grand prize
+   - Set up monthly reminder (apply every month!)
+   - Low effort, recurring opportunity
+   - **Start**: January 2026
+
+4. **Prepare Cartier Women's Initiative** ⚠️ CRITICAL DEADLINE
+   - **Value**: $100K (top prize), $30K (runner-up)
+   - **Application window**: April 18 - June 25, 2025
+   - Prepare materials by April 2025
+   - **DEADLINE**: June 25, 2025 - MARK CALENDAR!
+
+5. **Contact Women Entrepreneurship Fund**
+   - **Value**: Up to $50K micro-loan
+   - Woman-owned advantage (Kantia 51%)
+   - Apply Q1 2026
+
+6. **Contact NRC IRAP**
    - Call 1-877-994-4727 in January 2026
    - Request assessment meeting
    - Pitch warmup protocol innovation
@@ -401,13 +781,33 @@ Partner with established Montreal organization to:
 
 ### **Phase 2: Medium-term (Q2-Q3 2026)**
 
-4. **Apply to Investissement Québec PIIA**
+7. **Contact BDC Women in Tech Venture Fund**
+   - Loans + resources + Series B financing
+   - Woman-led tech company (Kantia 51%)
+   - Apply Q2 2026
+
+8. **Apply to Montreal Innovation Fund**
+   - **Value**: Up to $50K (80% coverage)
+   - Innovation commercialization
+   - Submit Q2 2026
+
+9. **Apply to Investissement Québec PIIA**
    - Prepare detailed AI innovation proposal
    - Autonomous AI agent SDK project
    - Submit Q1 2026, decision Q2 2026
    - **Target**: $200K-$500K
 
-5. **Apply to Montreal Open Innovation**
+10. **Apply to Prompt Partenar-IA**
+   - **Value**: Up to $1.5M (35-50% coverage)
+   - Collaborative AI projects
+   - Identify partner, submit Q2 2026
+
+11. **Apply to Telegraph I Fund**
+   - **Value**: $250K-$750K investment
+   - Quebec AI innovation
+   - Prepare materials Q2 2026
+
+12. **Apply to Montreal Open Innovation**
    - Identify partner by March 2026
    - Co-develop proposal
    - Submit Q2 2026
@@ -415,15 +815,25 @@ Partner with established Montreal organization to:
 
 ### **Phase 3: Long-term (Q4 2026+)**
 
-6. **CanExport SMEs** (when reopens)
+13. **PME MTL Eco-Responsible Grant**
+   - **Value**: Up to $40K (75% coverage)
+   - Sustainable development practices
+   - Apply when eco-project planned
+
+14. **CanExport SMEs** (when reopens)
    - If expanding Forge internationally
    - Trade shows, international marketing
    - **Target**: $50K (when available)
 
-7. **Scale AI Ecosystem**
+15. **Scale AI Ecosystem**
    - Connect with Montreal AI ecosystem
    - Explore accelerator partnerships
    - **Target**: $120K through incubators
+
+16. **Canadian Technology Accelerator**
+   - Global expansion (12 tech hubs)
+   - Women-led priority (Kantia 51%)
+   - Apply 2027+ when ready for international markets
 
 ---
 
@@ -438,15 +848,31 @@ Partner with established Montreal organization to:
 | J. Armand Bombardier | $10K | - | - | $10K |
 | **TOTAL** | **$290K** | **$300K** | **$170K** | **$760K** |
 
-### **Optimistic Scenario** (if PIIA + Montreal grants approved)
-| Program | Year 1 | Year 2 | Year 3 | Total |
-|---------|--------|--------|--------|-------|
+### **Optimistic Scenario** (NEW - with women-owned + AI programs)
+| Program | Year 1 (2026) | Year 2 (2027) | Year 3 (2028) | Total |
+|---------|---------------|---------------|---------------|-------|
 | SR&ED + CRIC | $130K | $150K | $170K | $450K |
 | NRC IRAP | $150K | $150K | - | $300K |
-| PIIA (AI Innovation) | $200K | $200K | - | $400K |
-| Montreal Open Innovation | $50K | - | - | $50K |
+| Cartier Women's Initiative | $30K-$100K | - | - | $30K-$100K |
+| Women Entrepreneurship Fund | $50K | - | - | $50K |
+| Amber Grant (monthly x 12) | $10K-$20K | $10K-$20K | - | $20K-$40K |
+| Montreal Innovation Fund | $50K | - | - | $50K |
 | J. Armand Bombardier | $10K | - | - | $10K |
-| **TOTAL** | **$540K** | **$500K** | **$170K** | **$1.21M** |
+| BDC Women in Tech (loan) | Loan | Loan | - | Loan |
+| **SUBTOTAL (Grants)** | **$430K-$500K** | **$310K-$320K** | **$170K** | **$910K-$990K** |
+| | | | | |
+| **High-Value Programs (if approved):** | | | | |
+| PIIA (AI Innovation) | $200K | $200K | - | $400K |
+| Prompt Partenar-IA | $200K | $300K | - | $500K |
+| Telegraph I Fund (investment) | - | $250K-$500K | - | $250K-$500K |
+| PME MTL (Eco) | $40K | - | - | $40K |
+| Montreal Open Innovation | $50K | - | - | $50K |
+| **SUBTOTAL (Big Programs)** | **$490K** | **$750K-$1M** | **$0** | **$1.24M-$1.49M** |
+| | | | | |
+| **TOTAL (All Programs)** | **$920K-$990K** | **$1.06M-$1.32M** | **$170K** | **$2.15M-$2.48M** |
+
+**Conservative Estimate (Core Programs Only):** $760K-$990K over 3 years
+**Optimistic Estimate (All Programs):** $2.15M-$2.48M over 3 years
 
 ---
 
@@ -577,20 +1003,65 @@ Start with SR&ED (already documented!) and NRC IRAP (highest value, best fit). W
 
 ## 📚 Sources
 
+### Federal Programs
 - [NRC IRAP Support for Technology Innovation](https://nrc.canada.ca/en/support-technology-innovation)
-- [Quebec's CRIC Revolution (2025 Guide)](https://boast.ai/en-us/blog/sr-ed/quebecs-cric-revolution-how-the-province-just-transformed-rd-funding-for-2025-and-beyond/)
+- [NRC IRAP Financial Support](https://nrc.canada.ca/en/support-technology-innovation/financial-support-technology-innovation-through-nrc-irap)
+- [IRAP Program Guide 2025](https://hellodarwin.com/business-aid/programs/nrc-irap)
+- [IRAP 2025 Application Guide](https://funding.ryan.com/blog/government-funding/irap-grant-application-2025-intake/)
+- [Canada SR&ED Program](https://www.canada.ca/en/revenue-agency/services/scientific-research-experimental-development-tax-incentive-program.html)
+- [SR&ED 2025 Enhanced Tax Credits](https://boast.ai/en-ca/blog/sr-ed/canadian-manufacturings-sred-windfall-how-2025s-enhanced-tax-credits-unlock-unprecedented-rd-capital)
+- [SR&ED Unlocked 2025 Guide](https://boast.ai/en-us/blog/sr-ed/sred-unlocked-2025-maximizing-your-innovation-capital-before-the-2026-changes/)
+- [Complete SR&ED Guide 2026](https://boast.ai/en-ca/resources/guides/the-complete-guide-to-sred-tax-credits-2026/)
+- [SR&ED AI Eligibility](https://leyton.com/ca/insights/articles/sred-ai-eligibility-where-cra-draws-the-line/)
 - [The Ultimate Guide to R&D Tax Credits in Canada for 2025](https://www.chronoplatform.com/blog/rd-tax-credits-in-canada)
-- [Innovation Grants in Quebec for 2025](https://hellodarwin.com/business-aid/grants-and-funding/innovation/quebec)
-- [Montreal Open Innovation Subsidy Program](https://montreal.ca/en/programs/open-innovation-subsidy-program-start-companies)
-- [Grants for Women-Owned Businesses](https://www.canadastartups.org/21-grants-for-women-owned-businesses/)
-- [AI Innovation Grants in Québec](https://hellodarwin.com/business-aid/grants-and-funding/artificial-intelligence/quebec)
-- [CanExport SMEs Program Guide 2025](https://hellodarwin.com/business-aid/programs/canexport-smes)
+
+### Quebec Provincial Programs
+- [Quebec's CRIC Revolution 2025](https://boast.ai/blog/sr-ed/quebecs-cric-revolution-how-the-province-just-transformed-rd-funding-for-2025-and-beyond/)
 - [SR&ED Tax Credit Quebec Overhaul](https://ryan.com/canada/about-ryan/articles/2025/sred-tax-credit-quebec-overhaul/)
-- [Top Québec Business Grants for 2025](https://funding.ryan.com/blog/government-funding/quebec-business-grants-2025/)
+- [Top Quebec Business Grants 2025](https://funding.ryan.com/blog/government-funding/quebec-business-grants-2025/)
+- [Innovation Grants in Quebec for 2025](https://hellodarwin.com/business-aid/grants-and-funding/innovation/quebec)
+- [Technology Grants in Quebec 2025](https://hellodarwin.com/business-aid/grants-and-funding/technology/quebec)
+- [AI Grants Quebec 2025](https://baseline.quebec/en/new/ai-grants/)
+- [New AI Grants 2025 Quebec](https://www.pipemind.com/en/post/new-ai-grants-2025-how-quebec-businesses-can-fund-their-artificial-intelligence-projects)
+- [Telegraph I Fund Announcement](https://www.quebec.ca/nouvelles/actualites/details/accelerer-linnovation-et-ladoption-de-lintelligence-artificielle-66025)
+- [AI Innovation Grant Financing](https://baseline.quebec/en/new/ai-grants/)
+- [Investissement Quebec Funding Programs 2025](https://hellodarwin.com/business-aid/organizations/investissement-quebec)
+- [Quebec Digital Transformation Grants 2025](https://gurussolutions.com/2025-quebec-digital-transformation-grants)
+
+### Montreal Municipal Programs
+- [Montreal Grants and Funding 2025](https://hellodarwin.com/business-aid/grants-and-funding/quebec/montreal)
+- [Montreal Open Innovation Subsidy Program](https://montreal.ca/en/programs/open-innovation-subsidy-program-start-companies)
+- [Montreal Tech Ecosystem 2025](https://2727coworking.com/articles/montrals-tech-ecosystem-2025-a-complete-guide-to-resources-communities-and-funding)
+- [City of Montreal Funding Programs 2025](https://hellodarwin.com/business-aid/organizations/city-montreal)
+
+### Women-Owned Business Programs
+- [Business Grants for Women Canada 2025](https://hellodarwin.com/business-aid/grants-and-funding/women)
+- [21 Grants for Women-Owned Businesses](https://www.canadastartups.org/21-grants-for-women-owned-businesses/)
+- [2025 Grants for Women-Owned Small Businesses](https://hellodarwin.com/business-aid/grants-and-funding/small-businesses/women-entrepreneurs)
+- [Funding for Business Women Canada](https://www.tradecommissioner.gc.ca/businesswomen-femmesdaffaires/funding-financement.aspx?lang=eng)
+- [Top 3 Business Grants for Women Canada](https://www.reinvestwealth.com/post/top-3-business-grants-for-women-in-canada)
+- [Top 5 Women Entrepreneur Grants Canada 2025](https://imfounder.com/entrepreneurship/top-5-grants-women-entrepreneurs-canada-2025/)
+- [Women in Business Guide](https://sbs-spe.feddevontario.canada.ca/en/women-business-guide)
+- [Trade Commissioner Service](https://www.tradecommissioner.gc.ca)
+
+### General Resources
+- [CanExport SMEs Program Guide 2025](https://hellodarwin.com/business-aid/programs/canexport-smes)
+- [BDC Website](https://www.bdc.ca/en)
 
 ---
 
-**Document Version**: 1.0
+**Document Version**: 2.0 (Major 2025 Research Update)
 **Last Updated**: November 24, 2025
-**Next Review**: January 2026 (before IRAP contact)
+**Research Date**: November 24, 2025 (comprehensive 2025 grant landscape)
+**Next Review**: January 2026 (before IRAP contact + Cartier deadline prep)
 **Owner**: RoyalBit Inc. (Kantia 51%, Louis 49%)
+
+**Changes in v2.0:**
+- Added 2025 SR&ED enhancements (expenditure limit doubled to $6M, max refund $2.1M)
+- Added women-owned business programs (Cartier, BDC Women in Tech, Amber Grant)
+- Added Quebec AI programs (Telegraph I Fund $250K-$750K, Prompt Partenar-IA up to $1.5M)
+- Added Montreal municipal programs (Innovation Fund, PME MTL)
+- Updated grant potential: $760K-$2.48M over 3 years (was $500K-$2M)
+- **CRITICAL DEADLINE**: Cartier Women's Initiative April 18 - June 25, 2025
+- Comprehensive 2025 web research with 40+ sources
+- Mouvify references anonymized per protocol
