@@ -65,7 +65,9 @@ fn e2e_invalid_formula_variable_not_found() {
     let combined = format!("{stdout}{stderr}");
 
     assert!(
-        combined.contains("Eval") || combined.contains("unknown variable") || combined.contains("UNDEFINED_VARIABLE"),
+        combined.contains("Eval")
+            || combined.contains("unknown variable")
+            || combined.contains("UNDEFINED_VARIABLE"),
         "Should report variable not found error, got: {combined}"
     );
 }
@@ -101,7 +103,10 @@ fn e2e_stale_values_detected() {
         .output()
         .expect("Failed to execute");
 
-    assert!(!output.status.success(), "Stale values should fail validation");
+    assert!(
+        !output.status.success(),
+        "Stale values should fail validation"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
@@ -170,7 +175,10 @@ fn e2e_calculate_updates_stale_file() {
         .output()
         .unwrap();
 
-    assert!(validate_after.status.success(), "Should be valid after calculate");
+    assert!(
+        validate_after.status.success(),
+        "Should be valid after calculate"
+    );
 
     let stdout = String::from_utf8_lossy(&validate_after.stdout);
     assert!(stdout.contains("All values match their formulas"));
@@ -216,7 +224,10 @@ fn e2e_platform_test_file_validates() {
         .output()
         .expect("Failed to execute");
 
-    assert!(output.status.success(), "test_platform.yaml should be valid");
+    assert!(
+        output.status.success(),
+        "test_platform.yaml should be valid"
+    );
 }
 
 #[test]
@@ -229,7 +240,10 @@ fn e2e_financial_test_file_validates() {
         .output()
         .expect("Failed to execute");
 
-    assert!(output.status.success(), "test_financial.yaml should be valid");
+    assert!(
+        output.status.success(),
+        "test_financial.yaml should be valid"
+    );
 }
 
 #[test]
@@ -242,7 +256,10 @@ fn e2e_underscore_test_file_validates() {
         .output()
         .expect("Failed to execute");
 
-    assert!(output.status.success(), "test_underscore.yaml should be valid");
+    assert!(
+        output.status.success(),
+        "test_underscore.yaml should be valid"
+    );
 }
 
 #[test]
@@ -270,7 +287,10 @@ fn e2e_includes_main_validates() {
         .output()
         .expect("Failed to execute");
 
-    assert!(output.status.success(), "includes_main.yaml should be valid");
+    assert!(
+        output.status.success(),
+        "includes_main.yaml should be valid"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("All formulas are valid"));
@@ -287,7 +307,10 @@ fn e2e_includes_complex_validates() {
         .output()
         .expect("Failed to execute");
 
-    assert!(output.status.success(), "includes_complex.yaml should be valid");
+    assert!(
+        output.status.success(),
+        "includes_complex.yaml should be valid"
+    );
 }
 
 #[test]
@@ -326,16 +349,19 @@ fn e2e_includes_missing_file_fails_gracefully() {
         .output()
         .expect("Failed to execute");
 
-    assert!(!output.status.success(), "Missing included file should fail");
+    assert!(
+        !output.status.success(),
+        "Missing included file should fail"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}{stderr}");
 
     assert!(
-        combined.contains("Failed to read included file") ||
-        combined.contains("this_file_does_not_exist.yaml") ||
-        combined.contains("No such file"),
+        combined.contains("Failed to read included file")
+            || combined.contains("this_file_does_not_exist.yaml")
+            || combined.contains("No such file"),
         "Should report missing file error, got: {combined}"
     );
 }
@@ -351,7 +377,10 @@ fn e2e_includes_invalid_alias_fails() {
         .output()
         .expect("Failed to execute");
 
-    assert!(!output.status.success(), "Invalid alias reference should fail");
+    assert!(
+        !output.status.success(),
+        "Invalid alias reference should fail"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -359,9 +388,9 @@ fn e2e_includes_invalid_alias_fails() {
 
     // Should fail during evaluation (variable not found)
     assert!(
-        combined.contains("Eval") ||
-        combined.contains("invalid_alias") ||
-        combined.contains("UNDEFINED_VARIABLE"),
+        combined.contains("Eval")
+            || combined.contains("invalid_alias")
+            || combined.contains("UNDEFINED_VARIABLE"),
         "Should report invalid alias error, got: {combined}"
     );
 }
@@ -377,7 +406,10 @@ fn e2e_includes_revenue_with_internal_formulas() {
         .expect("Failed to execute");
 
     // This file has formulas that reference variables within the same file
-    assert!(output.status.success(), "includes_revenue.yaml should be valid");
+    assert!(
+        output.status.success(),
+        "includes_revenue.yaml should be valid"
+    );
 }
 
 #[test]
@@ -409,7 +441,10 @@ fn e2e_includes_calculate_updates_correctly() {
     assert!(calculate.status.success(), "Calculate should succeed");
 
     let stdout = String::from_utf8_lossy(&calculate.stdout);
-    assert!(stdout.contains("updated successfully"), "Should show success message");
+    assert!(
+        stdout.contains("updated successfully"),
+        "Should show success message"
+    );
 
     // Verify it's valid after calculation
     let validate = Command::new(forge_binary())
@@ -432,7 +467,10 @@ fn e2e_includes_circular_dependency_detected() {
         .output()
         .expect("Failed to execute");
 
-    assert!(!output.status.success(), "Circular dependency should be detected");
+    assert!(
+        !output.status.success(),
+        "Circular dependency should be detected"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -526,7 +564,7 @@ fn e2e_calculate_updates_all_files_stale_included_file() {
 
     // Verify included file is stale before calculate
     let included_content_before = fs::read_to_string(&included_temp).unwrap();
-    assert!(included_content_before.contains("value: 50"));  // Stale value
+    assert!(included_content_before.contains("value: 50")); // Stale value
 
     // Run calculate
     let calculate = Command::new(forge_binary())
@@ -542,8 +580,8 @@ fn e2e_calculate_updates_all_files_stale_included_file() {
 
     // Verify included file was updated to correct value
     let included_content_after = fs::read_to_string(&included_temp).unwrap();
-    assert!(included_content_after.contains("200"));  // Should be 200 (100 * 2)
-    assert!(!included_content_after.contains("value: 50"));  // Stale value should be gone
+    assert!(included_content_after.contains("200")); // Should be 200 (100 * 2)
+    assert!(!included_content_after.contains("value: 50")); // Stale value should be gone
 
     // Verify validation now passes
     let validate = Command::new(forge_binary())
@@ -552,7 +590,10 @@ fn e2e_calculate_updates_all_files_stale_included_file() {
         .output()
         .unwrap();
 
-    assert!(validate.status.success(), "Validation should pass after calculate updates all files");
+    assert!(
+        validate.status.success(),
+        "Validation should pass after calculate updates all files"
+    );
 
     let validate_stdout = String::from_utf8_lossy(&validate.stdout);
     assert!(validate_stdout.contains("All values match their formulas"));
@@ -569,15 +610,18 @@ fn e2e_calculate_with_malformed_included_file() {
         .output()
         .expect("Failed to execute");
 
-    assert!(!output.status.success(), "Malformed included file should fail");
+    assert!(
+        !output.status.success(),
+        "Malformed included file should fail"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}{stderr}");
 
     assert!(
-        combined.contains("Failed to parse included file") ||
-        combined.contains("includes_malformed_syntax.yaml"),
+        combined.contains("Failed to parse included file")
+            || combined.contains("includes_malformed_syntax.yaml"),
         "Should report malformed included file error, got: {combined}"
     );
 }
@@ -593,16 +637,19 @@ fn e2e_calculate_with_invalid_formula_in_included_file() {
         .output()
         .expect("Failed to execute");
 
-    assert!(!output.status.success(), "Invalid formula in included file should fail");
+    assert!(
+        !output.status.success(),
+        "Invalid formula in included file should fail"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}{stderr}");
 
     assert!(
-        combined.contains("Eval") ||
-        combined.contains("UNDEFINED_VARIABLE") ||
-        combined.contains("unknown variable"),
+        combined.contains("Eval")
+            || combined.contains("UNDEFINED_VARIABLE")
+            || combined.contains("unknown variable"),
         "Should report invalid formula error, got: {combined}"
     );
 }
@@ -617,7 +664,10 @@ fn e2e_validate_detects_stale_values_in_included_files() {
         .output()
         .expect("Failed to execute");
 
-    assert!(!output.status.success(), "Should detect stale values in included files");
+    assert!(
+        !output.status.success(),
+        "Should detect stale values in included files"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 

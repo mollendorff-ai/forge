@@ -11,7 +11,10 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
     println!("   File: {}\n", file.display());
 
     if dry_run {
-        println!("{}", "📋 DRY RUN MODE - No changes will be written\n".yellow());
+        println!(
+            "{}",
+            "📋 DRY RUN MODE - No changes will be written\n".yellow()
+        );
     }
 
     // Parse YAML file and extract variables with formulas (including referenced files)
@@ -21,7 +24,10 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
     let parsed = parser::parse_yaml_with_includes(&file)?;
 
     if verbose {
-        println!("   Found {} variables with formulas\n", parsed.variables.len());
+        println!(
+            "   Found {} variables with formulas\n",
+            parsed.variables.len()
+        );
         for (name, var) in &parsed.variables {
             if let Some(formula) = &var.formula {
                 println!("   {} = {}", name.bright_blue(), formula.dimmed());
@@ -37,7 +43,10 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
 
     // Calculate all formulas
     if verbose {
-        println!("{}", "🧮 Calculating formulas in dependency order...".cyan());
+        println!(
+            "{}",
+            "🧮 Calculating formulas in dependency order...".cyan()
+        );
     }
     let mut calculator = Calculator::new(parsed.variables.clone());
     let results = calculator.calculate_all()?;
@@ -45,7 +54,11 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
     // Display results
     println!("{}", "✅ Calculation Results:".bold().green());
     for (var_name, value) in &results {
-        println!("   {} = {}", var_name.bright_blue(), format!("{value}").bold());
+        println!(
+            "   {} = {}",
+            var_name.bright_blue(),
+            format!("{value}").bold()
+        );
     }
     println!();
 
@@ -54,15 +67,26 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
         println!("{}", "📋 Dry run complete - no changes written".yellow());
     } else {
         if verbose {
-            println!("{}", "💾 Writing updated values to all files (main + includes)...".cyan());
+            println!(
+                "{}",
+                "💾 Writing updated values to all files (main + includes)...".cyan()
+            );
         }
         writer::update_all_yaml_files(&file, &parsed, &results, &parsed.variables)?;
 
         if parsed.includes.is_empty() {
             println!("{}", "✨ File updated successfully!".bold().green());
         } else {
-            println!("{}", format!("✨ {} files updated successfully! (main + {} includes)",
-                1 + parsed.includes.len(), parsed.includes.len()).bold().green());
+            println!(
+                "{}",
+                format!(
+                    "✨ {} files updated successfully! (main + {} includes)",
+                    1 + parsed.includes.len(),
+                    parsed.includes.len()
+                )
+                .bold()
+                .green()
+            );
         }
     }
 
@@ -100,7 +124,10 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
     let calculated_values = match calculator.calculate_all() {
         Ok(vals) => vals,
         Err(e) => {
-            println!("\n{}", format!("❌ Formula validation failed: {e}").bold().red());
+            println!(
+                "\n{}",
+                format!("❌ Formula validation failed: {e}").bold().red()
+            );
             return Err(e);
         }
     };
@@ -115,12 +142,7 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
                 // Check if values match within tolerance
                 let diff = (current_value - calculated_value).abs();
                 if diff > TOLERANCE {
-                    mismatches.push((
-                        var_name.clone(),
-                        current_value,
-                        *calculated_value,
-                        diff,
-                    ));
+                    mismatches.push((var_name.clone(), current_value, *calculated_value, diff));
                 }
             }
         }
@@ -151,9 +173,7 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
 
         println!(
             "{}",
-            "💡 Run 'forge calculate' to update values"
-                .bold()
-                .yellow()
+            "💡 Run 'forge calculate' to update values".bold().yellow()
         );
 
         Err(crate::error::ForgeError::Validation(

@@ -44,10 +44,7 @@ pub fn update_all_yaml_files(
 }
 
 /// Update YAML file with calculated values
-pub fn update_yaml_file(
-    path: &Path,
-    calculated_values: &HashMap<String, f64>,
-) -> ForgeResult<()> {
+pub fn update_yaml_file(path: &Path, calculated_values: &HashMap<String, f64>) -> ForgeResult<()> {
     // Read original YAML
     let content = fs::read_to_string(path)?;
     let mut yaml: Value = serde_yaml::from_str(&content)?;
@@ -105,8 +102,8 @@ fn update_value_recursive(yaml: &mut Value, path_parts: &[&str], index: usize, n
 mod tests {
     use super::*;
     use crate::types::Include;
-    use tempfile::{NamedTempFile, tempdir};
     use std::io::Write;
+    use tempfile::{tempdir, NamedTempFile};
 
     #[test]
     fn test_update_simple_value() {
@@ -134,7 +131,9 @@ gross_margin:
 
         // Create main file
         let main_path = temp_dir.path().join("main.yaml");
-        fs::write(&main_path, r#"
+        fs::write(
+            &main_path,
+            r#"
 includes:
   - file: included.yaml
     as: inc
@@ -142,30 +141,42 @@ includes:
 total:
   value: 0.0
   formula: "=@inc.base * 2"
-"#).unwrap();
+"#,
+        )
+        .unwrap();
 
         // Create included file
         let included_path = temp_dir.path().join("included.yaml");
-        fs::write(&included_path, r#"
+        fs::write(
+            &included_path,
+            r#"
 base:
   value: 0.0
   formula: "=10 * 5"
-"#).unwrap();
+"#,
+        )
+        .unwrap();
 
         // Set up test data
         let mut all_variables = HashMap::new();
-        all_variables.insert("total".to_string(), Variable {
-            path: "total".to_string(),
-            value: Some(0.0),
-            formula: Some("=@inc.base * 2".to_string()),
-            alias: None,
-        });
-        all_variables.insert("@inc.base".to_string(), Variable {
-            path: "base".to_string(),
-            value: Some(0.0),
-            formula: Some("=10 * 5".to_string()),
-            alias: Some("inc".to_string()),
-        });
+        all_variables.insert(
+            "total".to_string(),
+            Variable {
+                path: "total".to_string(),
+                value: Some(0.0),
+                formula: Some("=@inc.base * 2".to_string()),
+                alias: None,
+            },
+        );
+        all_variables.insert(
+            "@inc.base".to_string(),
+            Variable {
+                path: "base".to_string(),
+                value: Some(0.0),
+                formula: Some("=10 * 5".to_string()),
+                alias: Some("inc".to_string()),
+            },
+        );
 
         let mut calculated_values = HashMap::new();
         calculated_values.insert("total".to_string(), 100.0);
@@ -197,7 +208,9 @@ base:
 
         // Create main file
         let main_path = temp_dir.path().join("main.yaml");
-        fs::write(&main_path, r#"
+        fs::write(
+            &main_path,
+            r#"
 includes:
   - file: pricing.yaml
     as: pricing
@@ -207,44 +220,63 @@ includes:
 margin:
   value: 0.0
   formula: "=@pricing.price - @costs.cost"
-"#).unwrap();
+"#,
+        )
+        .unwrap();
 
         // Create pricing file
         let pricing_path = temp_dir.path().join("pricing.yaml");
-        fs::write(&pricing_path, r#"
+        fs::write(
+            &pricing_path,
+            r#"
 price:
   value: 0.0
   formula: "=100 * 1.2"
-"#).unwrap();
+"#,
+        )
+        .unwrap();
 
         // Create costs file
         let costs_path = temp_dir.path().join("costs.yaml");
-        fs::write(&costs_path, r#"
+        fs::write(
+            &costs_path,
+            r#"
 cost:
   value: 0.0
   formula: "=50 + 10"
-"#).unwrap();
+"#,
+        )
+        .unwrap();
 
         // Set up test data
         let mut all_variables = HashMap::new();
-        all_variables.insert("margin".to_string(), Variable {
-            path: "margin".to_string(),
-            value: Some(0.0),
-            formula: Some("=@pricing.price - @costs.cost".to_string()),
-            alias: None,
-        });
-        all_variables.insert("@pricing.price".to_string(), Variable {
-            path: "price".to_string(),
-            value: Some(0.0),
-            formula: Some("=100 * 1.2".to_string()),
-            alias: Some("pricing".to_string()),
-        });
-        all_variables.insert("@costs.cost".to_string(), Variable {
-            path: "cost".to_string(),
-            value: Some(0.0),
-            formula: Some("=50 + 10".to_string()),
-            alias: Some("costs".to_string()),
-        });
+        all_variables.insert(
+            "margin".to_string(),
+            Variable {
+                path: "margin".to_string(),
+                value: Some(0.0),
+                formula: Some("=@pricing.price - @costs.cost".to_string()),
+                alias: None,
+            },
+        );
+        all_variables.insert(
+            "@pricing.price".to_string(),
+            Variable {
+                path: "price".to_string(),
+                value: Some(0.0),
+                formula: Some("=100 * 1.2".to_string()),
+                alias: Some("pricing".to_string()),
+            },
+        );
+        all_variables.insert(
+            "@costs.cost".to_string(),
+            Variable {
+                path: "cost".to_string(),
+                value: Some(0.0),
+                formula: Some("=50 + 10".to_string()),
+                alias: Some("costs".to_string()),
+            },
+        );
 
         let mut calculated_values = HashMap::new();
         calculated_values.insert("margin".to_string(), 60.0);

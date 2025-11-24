@@ -44,7 +44,10 @@ test:
         .output()
         .expect("Failed to execute mouvify-forge");
 
-    assert!(output.status.success(), "Validation should pass with correct values");
+    assert!(
+        output.status.success(),
+        "Validation should pass with correct values"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("All formulas are valid"));
@@ -74,7 +77,10 @@ test:
         .output()
         .expect("Failed to execute mouvify-forge");
 
-    assert!(!output.status.success(), "Validation should fail with wrong values");
+    assert!(
+        !output.status.success(),
+        "Validation should fail with wrong values"
+    );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Found 1 value mismatches"));
@@ -120,7 +126,10 @@ test:
         .output()
         .expect("Failed to execute mouvify-forge validate");
 
-    assert!(validate_output.status.success(), "Validation should pass after calculate");
+    assert!(
+        validate_output.status.success(),
+        "Validation should pass after calculate"
+    );
 }
 
 #[test]
@@ -193,5 +202,8 @@ test:
 
     // Verify file was NOT modified
     let after_content = fs::read_to_string(temp_file.path()).unwrap();
-    assert_eq!(original_content, after_content, "Dry run should not modify file");
+    assert_eq!(
+        original_content, after_content,
+        "Dry run should not modify file"
+    );
 }

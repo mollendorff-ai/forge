@@ -1,7 +1,7 @@
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{EvalContext, Variable};
-use petgraph::graph::DiGraph;
 use petgraph::algo::toposort;
+use petgraph::graph::DiGraph;
 use std::collections::HashMap;
 
 /// Formula calculator with dependency resolution
@@ -11,7 +11,7 @@ pub struct Calculator {
 }
 
 impl Calculator {
-    #[must_use] 
+    #[must_use]
     pub fn new(variables: HashMap<String, Variable>) -> Self {
         Self {
             variables,
@@ -49,10 +49,7 @@ impl Calculator {
         }
 
         // Extract last component (after last underscore or dot)
-        let last_component = search_name
-            .rsplit(['_', '.'])
-            .next()
-            .unwrap_or(search_name);
+        let last_component = search_name.rsplit(['_', '.']).next().unwrap_or(search_name);
 
         // Collect all potential matches, prefer shorter paths (more specific)
         let mut candidates: Vec<String> = Vec::new();
@@ -60,7 +57,8 @@ impl Calculator {
         for var_name in self.variables.keys() {
             // Match full name as suffix (highest priority)
             if var_name.ends_with(&format!(".{search_name}"))
-                || var_name.ends_with(&format!(".{search_as_path}")) {
+                || var_name.ends_with(&format!(".{search_as_path}"))
+            {
                 candidates.push(var_name.clone());
             }
         }
@@ -86,7 +84,8 @@ impl Calculator {
                         // Check if first component CONTAINS the search first part (platform in platform_economics)
                         // AND last component matches or ends with the search last part (rate matches take_rate)
                         if var_parts[0].contains(first)
-                            && (var_last == last || var_last.ends_with(&format!("_{last}"))) {
+                            && (var_last == last || var_last.ends_with(&format!("_{last}")))
+                        {
                             candidates.push(var_name.clone());
                         }
                     }
@@ -141,10 +140,7 @@ impl Calculator {
         }
 
         // Extract last component (after last underscore or dot)
-        let last_component = search_name
-            .rsplit(['_', '.'])
-            .next()
-            .unwrap_or(search_name);
+        let last_component = search_name.rsplit(['_', '.']).next().unwrap_or(search_name);
 
         // Collect all potential matches, prefer shorter paths (more specific)
         let mut candidates: Vec<(String, f64)> = Vec::new();
@@ -152,7 +148,8 @@ impl Calculator {
         for (var_name, &value) in &self.context.variables {
             // Match full name as suffix (highest priority)
             if var_name.ends_with(&format!(".{search_name}"))
-                || var_name.ends_with(&format!(".{search_as_path}")) {
+                || var_name.ends_with(&format!(".{search_as_path}"))
+            {
                 candidates.push((var_name.clone(), value));
             }
         }
@@ -178,7 +175,8 @@ impl Calculator {
                         // Check if first component CONTAINS the search first part (platform in platform_economics)
                         // AND last component matches or ends with the search last part (rate matches take_rate)
                         if var_parts[0].contains(first)
-                            && (var_last == last || var_last.ends_with(&format!("_{last}"))) {
+                            && (var_last == last || var_last.ends_with(&format!("_{last}")))
+                        {
                             candidates.push((var_name.clone(), value));
                         }
                     }
@@ -272,7 +270,9 @@ impl Calculator {
         let mut deps = Vec::new();
 
         // Extract all words (variable names), including @ for cross-file refs
-        for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.' && c != '@') {
+        for word in
+            formula.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.' && c != '@')
+        {
             if !word.is_empty() && !word.chars().next().unwrap().is_numeric() {
                 if let Some(var_name) = self.find_variable_name(word) {
                     if !deps.contains(&var_name) {

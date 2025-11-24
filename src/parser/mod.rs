@@ -20,21 +20,26 @@ pub fn parse_yaml_with_includes(path: &Path) -> ForgeResult<ParsedYaml> {
     let base_dir = path.parent().unwrap_or_else(|| Path::new("."));
     for include in &includes {
         let include_path = base_dir.join(&include.file);
-        let include_content = std::fs::read_to_string(&include_path)
-            .map_err(|e| ForgeError::Parse(format!(
+        let include_content = std::fs::read_to_string(&include_path).map_err(|e| {
+            ForgeError::Parse(format!(
                 "Failed to read included file '{}': {}",
-                include.file,
-                e
-            )))?;
-        let include_yaml: Value = serde_yaml::from_str(&include_content)
-            .map_err(|e| ForgeError::Parse(format!(
+                include.file, e
+            ))
+        })?;
+        let include_yaml: Value = serde_yaml::from_str(&include_content).map_err(|e| {
+            ForgeError::Parse(format!(
                 "Failed to parse included file '{}': {}",
-                include.file,
-                e
-            )))?;
+                include.file, e
+            ))
+        })?;
 
         // Extract variables with the alias
-        extract_variables(&include_yaml, String::new(), Some(include.r#as.clone()), &mut all_variables)?;
+        extract_variables(
+            &include_yaml,
+            String::new(),
+            Some(include.r#as.clone()),
+            &mut all_variables,
+        )?;
     }
 
     Ok(ParsedYaml {
@@ -228,7 +233,13 @@ mod tests {
 
         let parsed: Value = serde_yaml::from_str(yaml).unwrap();
         let mut variables = HashMap::new();
-        extract_variables(&parsed, String::new(), Some("pricing".to_string()), &mut variables).unwrap();
+        extract_variables(
+            &parsed,
+            String::new(),
+            Some("pricing".to_string()),
+            &mut variables,
+        )
+        .unwrap();
 
         // Should have @pricing prefix
         assert!(variables.contains_key("@pricing.base_price"));

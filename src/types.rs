@@ -37,7 +37,7 @@ impl Default for EvalContext {
 }
 
 impl EvalContext {
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             variables: HashMap::new(),
