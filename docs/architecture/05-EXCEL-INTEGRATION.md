@@ -80,7 +80,40 @@ This 1:1 mapping ensures:
 
 ### High-Level Architecture
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    subgraph "Export Direction: YAML → Excel"
+        YAMLFile1["📄 YAML File<br/>model.yaml"]
+        Parser1["Parser<br/>parse_model()"]
+        Model1["ParsedModel<br/>v1.0.0"]
+        Exporter["ExcelExporter<br/>export()"]
+        FormulaT["FormulaTranslator<br/>translate_row_formula()"]
+        ExcelFile1["📊 Excel File<br/>model.xlsx"]
+
+        YAMLFile1 --> Parser1
+        Parser1 --> Model1
+        Model1 --> Exporter
+        Exporter --> FormulaT
+        FormulaT --> ExcelFile1
+    end
+
+    subgraph "Import Direction: Excel → YAML"
+        ExcelFile2["📊 Excel File<br/>model.xlsx"]
+        Importer["ExcelImporter<br/>import()"]
+        ReverseT["ReverseFormulaTranslator<br/>translate()"]
+        Model2["ParsedModel<br/>v1.0.0"]
+        Writer["Writer<br/>write_model()"]
+        YAMLFile2["📄 YAML File<br/>model.yaml"]
+
+        ExcelFile2 --> Importer
+        Importer --> ReverseT
+        ReverseT --> Model2
+        Model2 --> Writer
+        Writer --> YAMLFile2
+    end
+
+    RoundTrip["Round-trip property:<br/>YAML → Excel → YAML ≈ Original"]
+```
 
 ### Conversion Guarantees
 
@@ -113,7 +146,46 @@ Excel → YAML → Excel ≈ Original Excel
 
 ### Export Pipeline Overview
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["ExcelExporter::export(output_path)"]
+    CreateWorkbook["Create Workbook<br/>rust_xlsxwriter::Workbook"]
+
+    subgraph "For each table in ParsedModel"
+        CreateWorksheet["Create worksheet<br/>workbook.add_worksheet()"]
+        WriteHeaders["Write column headers<br/>Row 1"]
+
+        subgraph "Write Data Columns"
+            GetDataCols["Get data columns"]
+            WriteDataLoop["For each row<br/>write values"]
+        end
+
+        subgraph "Write Formula Columns"
+            GetFormulaCols["Get row_formulas"]
+            CreateColMap["Create column_name → letter map"]
+            TranslateLoop["For each formula"]
+            CallTranslator["FormulaTranslator::translate_row_formula()"]
+            WriteFormula["Write Excel formula"]
+        end
+    end
+
+    SaveWorkbook["workbook.save(output_path)"]
+    Done["✅ Excel file created"]
+
+    Start --> CreateWorkbook
+    CreateWorkbook --> CreateWorksheet
+    CreateWorksheet --> WriteHeaders
+    WriteHeaders --> GetDataCols
+    GetDataCols --> WriteDataLoop
+    WriteDataLoop --> GetFormulaCols
+    GetFormulaCols --> CreateColMap
+    CreateColMap --> TranslateLoop
+    TranslateLoop --> CallTranslator
+    CallTranslator --> WriteFormula
+    WriteFormula -->|More tables| CreateWorksheet
+    WriteFormula -->|Done| SaveWorkbook
+    SaveWorkbook --> Done
+```
 
 ### ExcelExporter Implementation
 
@@ -339,7 +411,63 @@ fn export_scalars(&self, workbook: &mut Workbook) -> ForgeResult<()> {
 
 ### Import Pipeline Overview
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["ExcelImporter::import()"]
+    OpenWorkbook["Open workbook<br/>calamine::open_workbook()"]
+    CreateModel["ParsedModel::new(V1_0_0)"]
+    GetSheets["Get all sheet names"]
+
+    subgraph "For each worksheet"
+        GetRange["Get worksheet range<br/>Data bounds"]
+        ReadHeaders["Read row 1<br/>Column names"]
+
+        subgraph "Infer Column Types"
+            ScanColumn["Scan column values"]
+            InferType{"Infer type<br/>Number | Text | Boolean | Date"}
+        end
+
+        subgraph "Read Column Data"
+            ReadLoop["For each row (2..n)"]
+            ReadValue["Read cell value"]
+            ConvertType["Convert to inferred type"]
+            AppendValue["Append to column vector"]
+        end
+
+        subgraph "Detect & Translate Formulas"
+            DetectFormula{"Cell has formula?"}
+            GetExcelFormula["Get Excel formula string"]
+            CallReverseT["ReverseFormulaTranslator::translate()"]
+            StoreYAMLFormula["Store as row_formula"]
+        end
+
+        CreateTable["Create Table from columns"]
+    end
+
+    AddToModel["model.add_table(table)"]
+    ReturnModel["Return ParsedModel"]
+
+    Start --> OpenWorkbook
+    OpenWorkbook --> CreateModel
+    CreateModel --> GetSheets
+    GetSheets --> GetRange
+    GetRange --> ReadHeaders
+    ReadHeaders --> ScanColumn
+    ScanColumn --> InferType
+    InferType --> ReadLoop
+    ReadLoop --> ReadValue
+    ReadValue --> ConvertType
+    ConvertType --> AppendValue
+    AppendValue --> DetectFormula
+    DetectFormula -->|Yes| GetExcelFormula
+    GetExcelFormula --> CallReverseT
+    CallReverseT --> StoreYAMLFormula
+    DetectFormula -->|No| CreateTable
+    StoreYAMLFormula --> CreateTable
+    CreateTable --> AddToModel
+    AddToModel -->|More sheets| GetRange
+    AddToModel -->|Done| ReturnModel
+```
 
 ### ExcelImporter Implementation
 
@@ -612,7 +740,52 @@ fn process_scalars_sheet(
 
 **File:** `/home/rex/src/utils/forge/src/excel/formula_translator.rs` (286 lines)
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["YAML Formula:<br/>'=revenue - cogs'"]
+    Strip["Remove leading ="]
+    CreateMap["column_map:<br/>revenue → A<br/>cogs → B"]
+
+    subgraph "Pattern Matching"
+        FindVars["Find variable references<br/>Regex: [a-zA-Z_][a-zA-Z0-9_]*"]
+        MatchLoop["For each match (reverse order)"]
+        CheckType{"Variable type?"}
+    end
+
+    subgraph "Replacement Strategy"
+        LocalCol["Local column<br/>'revenue'"]
+        TableCol["Cross-table<br/>'pl_2025.revenue'"]
+        ExcelFunc["Excel function<br/>'SUM', 'IF', etc."]
+    end
+
+    LocalReplace["Replace: revenue → A2"]
+    TableReplace["Replace: pl_2025.revenue → pl_2025!A2"]
+    FuncPreserve["Preserve: SUM → SUM"]
+
+    Combine["Combine replacements"]
+    AddEquals["Add leading ="]
+    Result["Excel Formula:<br/>'=A2-B2'"]
+
+    Start --> Strip
+    Strip --> CreateMap
+    CreateMap --> FindVars
+    FindVars --> MatchLoop
+    MatchLoop --> CheckType
+
+    CheckType -->|Local| LocalCol
+    CheckType -->|Cross-table| TableCol
+    CheckType -->|Function| ExcelFunc
+
+    LocalCol --> LocalReplace
+    TableCol --> TableReplace
+    ExcelFunc --> FuncPreserve
+
+    LocalReplace --> Combine
+    TableReplace --> Combine
+    FuncPreserve --> Combine
+    Combine --> AddEquals
+    AddEquals --> Result
+```
 
 **FormulaTranslator Structure:**
 
@@ -772,7 +945,49 @@ fn is_excel_function(&self, word: &str) -> bool {
 
 **File:** `/home/rex/src/utils/forge/src/excel/reverse_formula_translator.rs` (318 lines)
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["Excel Formula:<br/>'=A2-B2'"]
+    Strip["Remove leading ="]
+    CreateMap["column_map:<br/>A → revenue<br/>B → cogs"]
+
+    subgraph "Translation Stages"
+        Stage1["1. Translate cross-sheet refs<br/>Sheet!A1 → table.column"]
+        Stage2["2. Translate range refs<br/>SUM(A:A) → SUM(revenue)"]
+        Stage3["3. Translate cell refs<br/>B2 → cogs"]
+    end
+
+    subgraph "Pattern Matching"
+        FindSheetRefs["Find: Sheet!Cell"]
+        FindRangeRefs["Find: COL:COL"]
+        FindCellRefs["Find: A1, B2, etc."]
+    end
+
+    subgraph "Replacements"
+        SheetReplace["pl_2025!A2 → pl_2025.revenue"]
+        RangeReplace["A:A → revenue"]
+        CellReplace["A2 → revenue<br/>B2 → cogs<br/>(remove row number)"]
+    end
+
+    Combine["Combine all replacements"]
+    AddEquals["Add leading ="]
+    Result["YAML Formula:<br/>'=revenue-cogs'"]
+
+    Start --> Strip
+    Strip --> CreateMap
+    CreateMap --> Stage1
+    Stage1 --> FindSheetRefs
+    FindSheetRefs --> SheetReplace
+    SheetReplace --> Stage2
+    Stage2 --> FindRangeRefs
+    FindRangeRefs --> RangeReplace
+    RangeReplace --> Stage3
+    Stage3 --> FindCellRefs
+    FindCellRefs --> CellReplace
+    CellReplace --> Combine
+    Combine --> AddEquals
+    AddEquals --> Result
+```
 
 **ReverseFormulaTranslator Structure:**
 
