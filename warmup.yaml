@@ -417,20 +417,420 @@ key_files_map:
     - "test-data/v1.0/quarterly_pl.yaml"
     - "test-data/v1.0/budget_vs_actual.yaml"
 
+advanced_rust_patterns:
+  error_handling:
+    description: "Type-safe, ergonomic error handling"
+    current_approach: "Using thiserror for custom errors"
+    best_practices:
+      - "Use Result<T, E> everywhere, avoid panics in library code"
+      - "Custom error types with thiserror for rich context"
+      - "? operator for error propagation"
+      - "Pattern match on specific error variants when recovery possible"
+      - "Add context with .map_err() when wrapping errors"
+
+    example_pattern: |
+      // Good: Rich error context
+      #[derive(Error, Debug)]
+      pub enum ForgeError {
+          #[error("Formula evaluation failed: {0}")]
+          Eval(String),
+
+          #[error("Column '{column}' in table '{table}': {reason}")]
+          ColumnError {
+              column: String,
+              table: String,
+              reason: String,
+          },
+      }
+
+    avoid:
+      - "Don't use unwrap() or expect() in library code"
+      - "Don't use String errors (not type-safe)"
+      - "Don't lose error context when propagating"
+
+  type_driven_design:
+    description: "Use the type system to prevent bugs at compile time"
+    principles:
+      - "Make illegal states unrepresentable"
+      - "Use newtypes for domain concepts (TableName, ColumnName)"
+      - "Prefer enums over booleans for state"
+      - "Use builder pattern for complex construction"
+      - "Leverage const generics for compile-time guarantees"
+
+    examples:
+      invalid_state_impossible: |
+        // Bad: Can create invalid state
+        struct Table {
+            columns: Vec<Column>,
+            row_count: usize,  // Could be inconsistent!
+        }
+
+        // Good: Validity guaranteed by construction
+        struct Table {
+            columns: NonEmpty<Vec<Column>>,  // Never empty
+            // row_count derived from columns.len()
+        }
+
+      newtype_safety: |
+        // Prevents mixing up table and column names
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+        struct TableName(String);
+
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+        struct ColumnName(String);
+
+        // Now can't accidentally pass ColumnName where TableName expected!
+
+  zero_copy_optimization:
+    description: "Minimize allocations and copies"
+    techniques:
+      - "Use &str instead of String when possible"
+      - "Use Cow<str> for conditional ownership"
+      - "Pass large structs by reference"
+      - "Use slice patterns for matching"
+      - "Consider arena allocation for trees/graphs"
+
+    when_to_use:
+      - "Parser should use &str references into input"
+      - "Formula evaluation can use Cow for variable names"
+      - "Avoid clone() unless necessary - prefer references"
+
+  testing_patterns:
+    property_based_testing:
+      description: "Test properties that should always hold"
+      tool: "proptest or quickcheck"
+      install: "cargo add --dev proptest"
+
+      use_cases:
+        - "Parser: Any valid v1.0 YAML should parse successfully"
+        - "Calculator: SUM(a,b) == SUM(b,a) (commutative)"
+        - "Precision: (a + b) - b should equal a within epsilon"
+        - "Serialization: parse(serialize(x)) == x (round-trip)"
+
+      example: |
+        use proptest::prelude::*;
+
+        proptest! {
+            #[test]
+            fn test_sum_commutative(a: f64, b: f64) {
+                let sum1 = calculate("=SUM(a, b)");
+                let sum2 = calculate("=SUM(b, a)");
+                assert!((sum1 - sum2).abs() < 1e-10);
+            }
+        }
+
+    snapshot_testing:
+      description: "Test complex outputs against saved snapshots"
+      tool: "insta"
+      install: "cargo add --dev insta"
+
+      use_cases:
+        - "CLI output formatting"
+        - "Error messages"
+        - "Generated Excel files (metadata)"
+        - "Large calculation results"
+
+      workflow:
+        - "First run creates snapshot"
+        - "Subsequent runs compare to snapshot"
+        - "Review changes with cargo insta review"
+        - "Commit snapshots to git"
+
+    mutation_testing:
+      description: "Test the tests - verify tests catch bugs"
+      tool: "cargo-mutants"
+      install: "cargo install cargo-mutants"
+
+      what_it_does:
+        - "Introduces small bugs (mutations) in code"
+        - "Checks if tests catch them"
+        - "Reports 'survived mutants' (bugs tests missed)"
+
+      run: "cargo mutants"
+      goal: "100% mutation coverage (all mutants caught)"
+
+    fuzzing:
+      description: "Find edge cases and crashes automatically"
+      tool: "cargo-fuzz"
+      setup: "cargo install cargo-fuzz"
+
+      targets:
+        - "Parser (feed random YAML)"
+        - "Formula evaluator (random formulas)"
+        - "Array operations (random data)"
+
+      run: "cargo fuzz run parser_target"
+      benefit: "Discovers crashes, panics, edge cases automatically"
+
+  performance_patterns:
+    benchmarking:
+      tool: "criterion"
+      already_added: true
+
+      best_practices:
+        - "Benchmark realistic workloads (real YAML files)"
+        - "Track performance over time (commit to git)"
+        - "Set baseline before optimization"
+        - "Profile before optimizing (flamegraph)"
+        - "Optimize hot paths only"
+
+      commands:
+        bench: "cargo bench"
+        compare: "cargo bench --baseline <name>"
+        flamegraph: "cargo flamegraph --bench <name>"
+
+    profiling:
+      description: "Find actual bottlenecks before optimizing"
+      tools:
+        linux: "perf, flamegraph"
+        mac: "Instruments, cargo-instruments"
+        windows: "Windows Performance Analyzer"
+
+      workflow:
+        - "cargo build --release"
+        - "Run with profiler on realistic input"
+        - "Generate flamegraph"
+        - "Optimize hot paths only"
+        - "Benchmark before/after"
+
+    allocation_tracking:
+      tool: "dhat (valgrind)"
+      purpose: "Find unnecessary allocations"
+
+      command: "cargo run --release -- <args> | dhat"
+      look_for:
+        - "Temporary allocations in hot loops"
+        - "Clone() that could be reference"
+        - "String allocations that could be &str"
+
+  architecture_patterns:
+    strategy_pattern:
+      description: "Multiple algorithms with same interface"
+      current_use: "Calculator (v0.2.0 scalar vs v1.0.0 array)"
+
+      structure: |
+        trait Calculator {
+            fn calculate(&mut self) -> ForgeResult<CalculationResult>;
+        }
+
+        struct ScalarCalculator { /* v0.2.0 */ }
+        struct ArrayCalculator { /* v1.0.0 */ }
+
+        impl Calculator for ScalarCalculator { /* ... */ }
+        impl Calculator for ArrayCalculator { /* ... */ }
+
+        // Factory function chooses implementation
+        fn create_calculator(model: ParsedModel) -> Box<dyn Calculator> {
+            match model.version {
+                ForgeVersion::V0_2_0 => Box::new(ScalarCalculator::new(model)),
+                ForgeVersion::V1_0_0 => Box::new(ArrayCalculator::new(model)),
+            }
+        }
+
+    builder_pattern:
+      description: "Fluent API for complex object construction"
+      when_to_use:
+        - "Many optional parameters"
+        - "Validation during construction"
+        - "Default values"
+
+      example: |
+        struct TableBuilder {
+            name: String,
+            columns: Vec<Column>,
+            row_formulas: HashMap<String, String>,
+        }
+
+        impl TableBuilder {
+            fn new(name: impl Into<String>) -> Self { /* ... */ }
+
+            fn add_column(mut self, col: Column) -> Self {
+                self.columns.push(col);
+                self
+            }
+
+            fn add_formula(mut self, name: impl Into<String>, formula: impl Into<String>) -> Self {
+                self.row_formulas.insert(name.into(), formula.into());
+                self
+            }
+
+            fn build(self) -> ForgeResult<Table> {
+                // Validate before constructing
+                Table::validate_and_create(self)
+            }
+        }
+
+        // Usage
+        let table = TableBuilder::new("sales")
+            .add_column(revenue_col)
+            .add_column(expenses_col)
+            .add_formula("profit", "=revenue - expenses")
+            .build()?;
+
+    newtype_pattern:
+      description: "Type safety for primitive types"
+      benefits:
+        - "Can't mix up TableName and ColumnName"
+        - "Can implement traits for domain types"
+        - "Better error messages"
+        - "Self-documenting code"
+
+      example: |
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+        struct TableName(String);
+
+        impl TableName {
+            fn new(name: impl Into<String>) -> ForgeResult<Self> {
+                let name = name.into();
+                if name.is_empty() {
+                    return Err(ForgeError::Parse("Table name cannot be empty".into()));
+                }
+                Ok(Self(name))
+            }
+
+            fn as_str(&self) -> &str {
+                &self.0
+            }
+        }
+
+        // Now function signatures are clearer
+        fn get_table(&self, name: &TableName) -> Option<&Table> {
+            self.tables.get(name.as_str())
+        }
+
+  code_quality_tools:
+    essential:
+      cargo_audit:
+        purpose: "Check for security vulnerabilities in dependencies"
+        install: "cargo install cargo-audit"
+        run: "cargo audit"
+        ci: "Run in GitHub Actions on every PR"
+
+      cargo_deny:
+        purpose: "Policy enforcement for deps (licenses, security, duplicates)"
+        install: "cargo install cargo-deny"
+        setup: "cargo deny init"
+        run: "cargo deny check"
+        checks:
+          - "License compatibility"
+          - "Security advisories"
+          - "Duplicate dependencies"
+          - "Banned crates"
+
+      cargo_machete:
+        purpose: "Find unused dependencies"
+        install: "cargo install cargo-machete"
+        run: "cargo machete"
+        why: "Faster builds, smaller binaries, less attack surface"
+
+      cargo_nextest:
+        purpose: "Faster test runner (parallel by default)"
+        install: "cargo install cargo-nextest"
+        run: "cargo nextest run"
+        benefits:
+          - "Cleaner output"
+          - "Faster execution"
+          - "Better CI integration"
+          - "Flaky test detection"
+
+    advanced:
+      miri:
+        purpose: "Detect undefined behavior (use-after-free, data races)"
+        install: "rustup component add miri"
+        run: "cargo miri test"
+        when: "Testing unsafe code or complex concurrency"
+
+      cargo_tarpaulin:
+        purpose: "Code coverage analysis"
+        install: "cargo install cargo-tarpaulin"
+        run: "cargo tarpaulin --out Html"
+        goal: "Aim for >80% coverage, 100% on critical paths"
+
+  documentation_best_practices:
+    rustdoc:
+      principles:
+        - "Every public item should have doc comment"
+        - "Start with one-line summary, then details"
+        - "Include examples in doc comments (they're tested!)"
+        - "Use /// for items, //! for modules"
+        - "Link to related items with [Type]"
+
+      example: |
+        /// Calculates all formulas in a v1.0.0 array model.
+        ///
+        /// This calculator handles row-wise (element-wise) operations on column arrays,
+        /// with automatic dependency resolution within tables.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// use royalbit_forge::core::ArrayCalculator;
+        /// use royalbit_forge::parser::parse_model;
+        /// use std::path::Path;
+        ///
+        /// let model = parse_model(Path::new("model.yaml"))?;
+        /// let calculator = ArrayCalculator::new(model);
+        /// let result = calculator.calculate_all()?;
+        /// # Ok::<(), royalbit_forge::error::ForgeError>(())
+        /// ```
+        ///
+        /// # Errors
+        ///
+        /// Returns [`ForgeError::Eval`] if formula evaluation fails.
+        /// Returns [`ForgeError::CircularDependency`] if circular refs detected.
+        pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
+            // ...
+        }
+
+      check: "cargo doc --no-deps --open"
+
+    architecture_decision_records:
+      description: "Document significant architectural decisions"
+      format: "ADRs in docs/adr/ directory"
+
+      template: |
+        # ADR-001: Use xlformula_engine for Excel Compatibility
+
+        ## Status
+        Accepted (2025-11-23)
+
+        ## Context
+        Need Excel-compatible formula evaluation for v0.2.0.
+        Options: meval (simple), evalexpr, xlformula_engine.
+
+        ## Decision
+        Use xlformula_engine despite f32 precision concerns.
+
+        ## Consequences
+        + Excel compatibility
+        + Rich formula library
+        - f32 precision (mitigated with rounding)
+        - External dependency maintenance
+
+      when_to_write:
+        - "Major library choices"
+        - "Architectural patterns"
+        - "Breaking changes"
+        - "Performance trade-offs"
+
 tips_for_success:
   - "🚨 CHECK CURRENT DATE in <env> before ANY online search!"
   - "Think harder before implementing - plan the solution"
   - "BEFORE complex code: Search crates.io for existing libraries"
   - "Write tests first when possible (TDD)"
+  - "Consider property-based testing for complex logic"
   - "Test edge cases - empty arrays, nulls, invalid inputs"
   - "Run clippy frequently - user has OCD for clean code 😊"
   - "ZERO warnings policy - treat warnings as errors"
+  - "Use type system to prevent bugs (newtypes, enums over bools)"
+  - "Profile before optimizing - don't guess"
   - "Update documentation as you code, not after"
   - "Commit frequently with descriptive messages"
   - "Use TodoWrite to track progress"
   - "Ask user for clarification on ambiguous requirements"
   - "Check KNOWN_BUGS.md before fixing similar issues"
   - "Check license compatibility (MIT-compatible only)"
+  - "Run cargo audit before releases"
 
 collaboration_notes:
   user_preferences:
