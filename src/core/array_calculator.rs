@@ -213,13 +213,301 @@ impl ArrayCalculator {
     /// Calculate scalar values and aggregations
     /// Returns updated model with calculated scalars
     fn calculate_scalars(&mut self) -> ForgeResult<()> {
-        // TODO: Implement scalar calculation with dependency resolution
-        // This includes:
-        // - Aggregation formulas: SUM(table.column), AVERAGE(table.column)
-        // - Cross-table references: table.column
-        // - Array indexing: table.column[index]
-        // - Scalar dependencies: margin = profit / revenue
+        // Get all scalar variable names that have formulas
+        let scalar_names: Vec<String> = self
+            .model
+            .scalars
+            .iter()
+            .filter(|(_, var)| var.formula.is_some())
+            .map(|(name, _)| name.clone())
+            .collect();
+
+        // Build dependency graph and calculate in order
+        let calc_order = self.get_scalar_calculation_order(&scalar_names)?;
+
+        // Calculate each scalar in dependency order
+        for scalar_name in calc_order {
+            let formula = self
+                .model
+                .scalars
+                .get(&scalar_name)
+                .and_then(|v| v.formula.clone());
+
+            if let Some(formula) = formula {
+                let value = self.evaluate_scalar_formula(&formula)?;
+
+                // Update the scalar with calculated value
+                if let Some(var) = self.model.scalars.get_mut(&scalar_name) {
+                    var.value = Some(value);
+                }
+            }
+        }
+
         Ok(())
+    }
+
+    /// Get calculation order for scalars (topological sort)
+    fn get_scalar_calculation_order(&self, scalar_names: &[String]) -> ForgeResult<Vec<String>> {
+        use petgraph::algo::toposort;
+        use petgraph::graph::DiGraph;
+        use std::collections::HashMap;
+
+        let mut graph = DiGraph::new();
+        let mut node_indices = HashMap::new();
+
+        // Create nodes for all scalars
+        for name in scalar_names {
+            let idx = graph.add_node(name.clone());
+            node_indices.insert(name.clone(), idx);
+        }
+
+        // Add edges for dependencies
+        for name in scalar_names {
+            if let Some(var) = self.model.scalars.get(name) {
+                if let Some(formula) = &var.formula {
+                    let deps = self.extract_scalar_dependencies(formula)?;
+                    for dep in deps {
+                        // Only add dependency if it's another scalar
+                        if let Some(&dep_idx) = node_indices.get(&dep) {
+                            if let Some(&name_idx) = node_indices.get(name) {
+                                graph.add_edge(dep_idx, name_idx, ());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Topological sort
+        let order = toposort(&graph, None).map_err(|_| {
+            ForgeError::CircularDependency(
+                "Circular dependency detected in scalar formulas".to_string(),
+            )
+        })?;
+
+        let ordered_names: Vec<String> = order
+            .iter()
+            .filter_map(|idx| graph.node_weight(*idx).cloned())
+            .collect();
+
+        Ok(ordered_names)
+    }
+
+    /// Extract scalar dependencies from a formula
+    fn extract_scalar_dependencies(&self, formula: &str) -> ForgeResult<Vec<String>> {
+        let mut deps = Vec::new();
+
+        // Simple extraction - look for words that match scalar names
+        for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
+            if !word.is_empty()
+                && self.model.scalars.contains_key(word)
+                && !deps.contains(&word.to_string())
+            {
+                deps.push(word.to_string());
+            }
+        }
+
+        Ok(deps)
+    }
+
+    /// Evaluate a scalar formula (aggregations, array indexing, scalar operations)
+    fn evaluate_scalar_formula(&self, formula: &str) -> ForgeResult<f64> {
+        let formula_str = if !formula.starts_with('=') {
+            format!("={}", formula.trim())
+        } else {
+            formula.to_string()
+        };
+
+        // Check if this formula contains aggregation functions or array indexing
+        if self.is_aggregation_formula(&formula_str) {
+            self.evaluate_aggregation(&formula_str)
+        } else if formula_str.contains('[') && formula_str.contains(']') {
+            self.evaluate_array_indexing(&formula_str)
+        } else {
+            // Regular scalar formula - use xlformula_engine
+            self.evaluate_scalar_with_resolver(&formula_str)
+        }
+    }
+
+    /// Evaluate aggregation formula (SUM, AVERAGE, MAX, MIN)
+    fn evaluate_aggregation(&self, formula: &str) -> ForgeResult<f64> {
+        let upper = formula.to_uppercase();
+
+        // Extract function name and argument
+        let (func_name, arg) = if let Some(start) = upper.find("SUM(") {
+            ("SUM", self.extract_function_arg(formula, start + 4)?)
+        } else if let Some(start) = upper.find("AVERAGE(") {
+            ("AVERAGE", self.extract_function_arg(formula, start + 8)?)
+        } else if let Some(start) = upper.find("AVG(") {
+            ("AVG", self.extract_function_arg(formula, start + 4)?)
+        } else if let Some(start) = upper.find("MAX(") {
+            ("MAX", self.extract_function_arg(formula, start + 4)?)
+        } else if let Some(start) = upper.find("MIN(") {
+            ("MIN", self.extract_function_arg(formula, start + 4)?)
+        } else {
+            return Err(ForgeError::Eval("Unknown aggregation function".to_string()));
+        };
+
+        // Parse table.column reference
+        let (table_name, col_name) = self.parse_table_column_ref(&arg)?;
+
+        // Get the column
+        let table = self
+            .model
+            .tables
+            .get(&table_name)
+            .ok_or_else(|| ForgeError::Eval(format!("Table '{}' not found", table_name)))?;
+
+        let column = table.columns.get(&col_name).ok_or_else(|| {
+            ForgeError::Eval(format!(
+                "Column '{}' not found in table '{}'",
+                col_name, table_name
+            ))
+        })?;
+
+        // Apply aggregation function
+        match &column.values {
+            ColumnValue::Number(nums) => {
+                let result = match func_name {
+                    "SUM" => nums.iter().sum(),
+                    "AVERAGE" | "AVG" => {
+                        if nums.is_empty() {
+                            0.0
+                        } else {
+                            nums.iter().sum::<f64>() / nums.len() as f64
+                        }
+                    }
+                    "MAX" => nums.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+                    "MIN" => nums.iter().copied().fold(f64::INFINITY, f64::min),
+                    _ => {
+                        return Err(ForgeError::Eval(format!(
+                            "Unsupported aggregation function: {}",
+                            func_name
+                        )))
+                    }
+                };
+                Ok(result)
+            }
+            _ => Err(ForgeError::Eval(format!(
+                "Aggregation functions require numeric columns, got {}",
+                column.values.type_name()
+            ))),
+        }
+    }
+
+    /// Evaluate array indexing (e.g., table.column[3])
+    fn evaluate_array_indexing(&self, formula: &str) -> ForgeResult<f64> {
+        // Find the array reference pattern: table.column[index]
+        let formula = formula.trim_start_matches('=').trim();
+
+        let bracket_pos = formula
+            .find('[')
+            .ok_or_else(|| ForgeError::Eval("Missing '[' in array index".to_string()))?;
+
+        let table_col = &formula[..bracket_pos];
+        let index_part = &formula[bracket_pos + 1..];
+
+        let index_end = index_part
+            .find(']')
+            .ok_or_else(|| ForgeError::Eval("Missing ']' in array index".to_string()))?;
+
+        let index_str = &index_part[..index_end];
+        let index = index_str
+            .parse::<usize>()
+            .map_err(|_| ForgeError::Eval(format!("Invalid array index: {}", index_str)))?;
+
+        // Parse table.column reference
+        let (table_name, col_name) = self.parse_table_column_ref(table_col)?;
+
+        // Get the column value at index
+        let table = self
+            .model
+            .tables
+            .get(&table_name)
+            .ok_or_else(|| ForgeError::Eval(format!("Table '{}' not found", table_name)))?;
+
+        let column = table
+            .columns
+            .get(&col_name)
+            .ok_or_else(|| ForgeError::Eval(format!("Column '{}' not found", col_name)))?;
+
+        match &column.values {
+            ColumnValue::Number(nums) => nums
+                .get(index)
+                .copied()
+                .ok_or_else(|| ForgeError::Eval(format!("Index {} out of bounds", index))),
+            _ => Err(ForgeError::Eval(format!(
+                "Array indexing requires numeric column, got {}",
+                column.values.type_name()
+            ))),
+        }
+    }
+
+    /// Evaluate scalar formula with variable resolver
+    fn evaluate_scalar_with_resolver(&self, formula: &str) -> ForgeResult<f64> {
+        let resolver = |var_name: String| -> types::Value {
+            // Try to find scalar variable
+            if let Some(var) = self.model.scalars.get(&var_name) {
+                if let Some(value) = var.value {
+                    return types::Value::Number(value as f32);
+                }
+            }
+
+            // Try table.column reference (returns first value)
+            if var_name.contains('.') {
+                if let Ok((table_name, col_name)) = self.parse_table_column_ref(&var_name) {
+                    if let Some(table) = self.model.tables.get(&table_name) {
+                        if let Some(column) = table.columns.get(&col_name) {
+                            if let ColumnValue::Number(nums) = &column.values {
+                                if let Some(&first) = nums.first() {
+                                    return types::Value::Number(first as f32);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            types::Value::Error(types::Error::Value)
+        };
+
+        let parsed = parse_formula::parse_string_to_formula(formula, None::<NoCustomFunction>);
+        let result = calculate::calculate_formula(parsed, Some(&resolver));
+
+        match result {
+            types::Value::Number(n) => Ok(n as f64),
+            types::Value::Error(e) => Err(ForgeError::Eval(format!(
+                "Formula '{}' returned error: {:?}",
+                formula, e
+            ))),
+            other => Err(ForgeError::Eval(format!(
+                "Formula '{}' returned unexpected type: {:?}",
+                formula, other
+            ))),
+        }
+    }
+
+    /// Parse table.column reference
+    fn parse_table_column_ref(&self, ref_str: &str) -> ForgeResult<(String, String)> {
+        let parts: Vec<&str> = ref_str.trim().split('.').collect();
+        if parts.len() == 2 {
+            Ok((parts[0].to_string(), parts[1].to_string()))
+        } else {
+            Err(ForgeError::Eval(format!(
+                "Invalid table.column reference: {}",
+                ref_str
+            )))
+        }
+    }
+
+    /// Extract function argument from formula
+    fn extract_function_arg(&self, formula: &str, start: usize) -> ForgeResult<String> {
+        let rest = &formula[start..];
+        let end = rest
+            .find(')')
+            .ok_or_else(|| ForgeError::Eval("Missing closing parenthesis".to_string()))?;
+
+        Ok(rest[..end].trim().to_string())
     }
 
     /// Extract column names referenced in a formula
@@ -328,5 +616,211 @@ mod tests {
             .unwrap();
         assert!(refs2.contains(&"revenue".to_string()));
         assert!(refs2.contains(&"fixed_cost".to_string()));
+    }
+
+    #[test]
+    fn test_aggregation_sum() {
+        use crate::types::Variable;
+
+        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+
+        // Create a table with revenue column
+        let mut table = Table::new("sales".to_string());
+        table.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0, 400.0]),
+        ));
+        model.add_table(table);
+
+        // Add scalar with SUM formula
+        let total_revenue = Variable {
+            path: "total_revenue".to_string(),
+            value: None,
+            formula: Some("=SUM(sales.revenue)".to_string()),
+            alias: None,
+        };
+        model.add_scalar("total_revenue".to_string(), total_revenue);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+
+        let total = result.scalars.get("total_revenue").unwrap();
+        assert_eq!(total.value, Some(1000.0));
+    }
+
+    #[test]
+    fn test_aggregation_average() {
+        use crate::types::Variable;
+
+        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+
+        let mut table = Table::new("metrics".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0, 40.0]),
+        ));
+        model.add_table(table);
+
+        let avg_value = Variable {
+            path: "avg_value".to_string(),
+            value: None,
+            formula: Some("=AVERAGE(metrics.values)".to_string()),
+            alias: None,
+        };
+        model.add_scalar("avg_value".to_string(), avg_value);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().unwrap();
+
+        let avg = result.scalars.get("avg_value").unwrap();
+        assert_eq!(avg.value, Some(25.0));
+    }
+
+    #[test]
+    fn test_array_indexing() {
+        use crate::types::Variable;
+
+        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+
+        let mut table = Table::new("quarterly".to_string());
+        table.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![1000.0, 1200.0, 1500.0, 1800.0]),
+        ));
+        model.add_table(table);
+
+        let q1_revenue = Variable {
+            path: "q1_revenue".to_string(),
+            value: None,
+            formula: Some("=quarterly.revenue[0]".to_string()),
+            alias: None,
+        };
+        model.add_scalar("q1_revenue".to_string(), q1_revenue);
+
+        let q4_revenue = Variable {
+            path: "q4_revenue".to_string(),
+            value: None,
+            formula: Some("=quarterly.revenue[3]".to_string()),
+            alias: None,
+        };
+        model.add_scalar("q4_revenue".to_string(), q4_revenue);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().unwrap();
+
+        assert_eq!(
+            result.scalars.get("q1_revenue").unwrap().value,
+            Some(1000.0)
+        );
+        assert_eq!(
+            result.scalars.get("q4_revenue").unwrap().value,
+            Some(1800.0)
+        );
+    }
+
+    #[test]
+    fn test_scalar_dependencies() {
+        use crate::types::Variable;
+
+        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+
+        let mut table = Table::new("pl".to_string());
+        table.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![1000.0, 1200.0]),
+        ));
+        table.add_column(Column::new(
+            "cogs".to_string(),
+            ColumnValue::Number(vec![300.0, 360.0]),
+        ));
+        model.add_table(table);
+
+        // total_revenue depends on table
+        let total_revenue = Variable {
+            path: "total_revenue".to_string(),
+            value: None,
+            formula: Some("=SUM(pl.revenue)".to_string()),
+            alias: None,
+        };
+        model.add_scalar("total_revenue".to_string(), total_revenue);
+
+        // total_cogs depends on table
+        let total_cogs = Variable {
+            path: "total_cogs".to_string(),
+            value: None,
+            formula: Some("=SUM(pl.cogs)".to_string()),
+            alias: None,
+        };
+        model.add_scalar("total_cogs".to_string(), total_cogs);
+
+        // gross_profit depends on total_revenue and total_cogs
+        let gross_profit = Variable {
+            path: "gross_profit".to_string(),
+            value: None,
+            formula: Some("=total_revenue - total_cogs".to_string()),
+            alias: None,
+        };
+        model.add_scalar("gross_profit".to_string(), gross_profit);
+
+        // gross_margin depends on gross_profit and total_revenue
+        let gross_margin = Variable {
+            path: "gross_margin".to_string(),
+            value: None,
+            formula: Some("=gross_profit / total_revenue".to_string()),
+            alias: None,
+        };
+        model.add_scalar("gross_margin".to_string(), gross_margin);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().unwrap();
+
+        assert_eq!(
+            result.scalars.get("total_revenue").unwrap().value,
+            Some(2200.0)
+        );
+        assert_eq!(result.scalars.get("total_cogs").unwrap().value, Some(660.0));
+        assert_eq!(
+            result.scalars.get("gross_profit").unwrap().value,
+            Some(1540.0)
+        );
+        assert!((result.scalars.get("gross_margin").unwrap().value.unwrap() - 0.7).abs() < 0.0001);
+    }
+
+    #[test]
+    fn test_aggregation_max_min() {
+        use crate::types::Variable;
+
+        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![15.0, 42.0, 8.0, 23.0]),
+        ));
+        model.add_table(table);
+
+        let max_value = Variable {
+            path: "max_value".to_string(),
+            value: None,
+            formula: Some("=MAX(data.values)".to_string()),
+            alias: None,
+        };
+        model.add_scalar("max_value".to_string(), max_value);
+
+        let min_value = Variable {
+            path: "min_value".to_string(),
+            value: None,
+            formula: Some("=MIN(data.values)".to_string()),
+            alias: None,
+        };
+        model.add_scalar("min_value".to_string(), min_value);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().unwrap();
+
+        assert_eq!(result.scalars.get("max_value").unwrap().value, Some(42.0));
+        assert_eq!(result.scalars.get("min_value").unwrap().value, Some(8.0));
     }
 }
