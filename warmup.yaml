@@ -30,6 +30,11 @@ session_initialization:
         purpose: "Documented bugs and workarounds"
         action: "Review before making changes that might affect these areas"
 
+      - path: "SRED_RESEARCH_LOG.md"
+        purpose: "🍁 SR&ED R&D documentation for Canadian tax credits"
+        action: "Review existing entries, add new ones for qualifying R&D work"
+        importance: "💰 CRITICAL - this documentation = real money in tax credits"
+
       - path: "Cargo.toml"
         purpose: "Current version number, dependencies"
         key_fields:
@@ -162,6 +167,77 @@ session_initialization:
           - "Run tests before committing"
           - "Update roadmap in separate commit"
 
+      sred_documentation:
+        description: "🍁 SR&ED Tax Credits - Document R&D work for Canadian tax credits"
+        importance: "🚨 CRITICAL - Document BEFORE committing"
+        file: "SRED_RESEARCH_LOG.md"
+
+        what_is_sred:
+          program: "Scientific Research & Experimental Development (Canada)"
+          benefit: "Tax credits for R&D work (refundable in some cases)"
+          eligibility: "Technical challenges, systematic investigation, technological advancement"
+
+        when_to_document:
+          - "🚨 BEFORE committing new algorithms or data structures"
+          - "🚨 BEFORE committing experimental approaches or optimizations"
+          - "🚨 BEFORE committing solutions to technical uncertainties"
+          - "After resolving performance issues"
+          - "After experimenting with alternative approaches"
+          - "When creating novel abstractions or patterns"
+
+        what_to_document:
+          technical_challenge:
+            - "What problem are we solving?"
+            - "Why is it technically uncertain?"
+            - "What makes it non-trivial/non-obvious?"
+          hypothesis:
+            - "What approach did we try?"
+            - "What alternatives did we consider?"
+            - "Why did we choose this approach?"
+          experiment:
+            - "What did we implement?"
+            - "What tests did we run?"
+            - "What measurements did we take?"
+          results:
+            - "Did it work? Why or why not?"
+            - "What did we learn?"
+            - "Were there unexpected findings?"
+          advancement:
+            - "What new capability did we create?"
+            - "How does it advance the state of the art?"
+            - "What can users now do that they couldn't before?"
+
+        qualifying_activities:
+          yes:
+            - "✅ Algorithm design and optimization"
+            - "✅ Performance analysis and improvements"
+            - "✅ Experimental testing approaches (property-based, mutation, fuzzing)"
+            - "✅ Resolving technical uncertainties"
+            - "✅ Creating novel data structures and abstractions"
+            - "✅ Dependency resolution algorithms"
+            - "✅ Type system design"
+          no:
+            - "❌ Routine coding (following established patterns)"
+            - "❌ UI design and styling"
+            - "❌ Documentation writing (unless documenting research)"
+            - "❌ Bug fixes for simple typos"
+            - "❌ Standard library integration"
+
+        workflow:
+          - "1️⃣ Identify if work qualifies for SR&ED (see qualifying_activities)"
+          - "2️⃣ If YES: Document in SRED_RESEARCH_LOG.md DURING development"
+          - "3️⃣ Include: Challenge, Hypothesis, Experiment, Results, Advancement"
+          - "4️⃣ Be specific about technical challenges and alternatives considered"
+          - "5️⃣ Link to commits, test results, benchmarks"
+          - "6️⃣ THEN commit code"
+
+        example_entry_title:
+          - "Entry X: Aggregation Formula Evaluation (Phase 2 Part 2)"
+          - "Entry X: Zero-Copy String Optimization"
+          - "Entry X: Property-Based Testing for Formula Invariants"
+
+        reminder: "💰 This documentation = real money in tax credits. Don't skip it!"
+
       documentation:
         update_when:
           - "Adding new features → Update README.md"
@@ -283,6 +359,7 @@ work_session_checklist:
     - "☐ BEFORE complex code: Check for FOSS libraries (crates.io search)"
     - "☐ Write tests FIRST (TDD when possible)"
     - "☐ Test edge cases thoroughly"
+    - "☐ 🍁 Document R&D work in SRED_RESEARCH_LOG.md DURING development"
     - "☐ Update JSON Schema if model changes"
     - "☐ Document bugs in KNOWN_BUGS.md if found"
     - "☐ Update TodoWrite list as you progress"
@@ -297,6 +374,7 @@ work_session_checklist:
     - "☐ Ensure clean build (cargo build --release)"
     - "☐ Update documentation (README, DESIGN_V1, roadmap)"
     - "☐ Update --help if CLI changed"
+    - "☐ 🍁 VERIFY SR&ED documentation complete BEFORE committing (💰 tax credits!)"
     - "☐ Git add and commit with good message"
     - "☐ Update roadmap in separate commit"
     - "☐ Push to remote (git push)"
@@ -747,13 +825,208 @@ advanced_rust_patterns:
         goal: "Aim for >80% coverage, 100% on critical paths"
 
   documentation_best_practices:
+    humor_and_clarity:
+      philosophy: "Make docs memorable and fun while staying professional"
+      why: "People remember stories better than specs. Humor reduces intimidation."
+
+      guidelines:
+        do:
+          - "Use relatable metaphors and analogies"
+          - "Add playful examples (rubber ducks, pizza, cats)"
+          - "Self-deprecating humor about common mistakes"
+          - "Pop culture references (when widely known)"
+          - "Celebrate small wins with enthusiasm"
+          - "Use emojis sparingly but effectively (🎉 🐛 🚀)"
+
+        dont:
+          - "No offensive jokes (politics, religion, demographics)"
+          - "No inside jokes that exclude newcomers"
+          - "No sarcasm that could confuse (tone is hard in text)"
+          - "No jokes at user's expense"
+          - "No humor in error messages (user is frustrated!)"
+
+      metaphors_for_common_concepts:
+        ownership_and_borrowing: |
+          // Ownership is like car keys
+          let keys = CarKeys::new();  // You own the keys
+          drive_car(&keys);           // Lend keys temporarily (borrow)
+          // Keys automatically returned after function
+          // Can't lose keys while someone's borrowing them!
+
+        option_vs_result: |
+          // Option: Schrödinger's cat 🐱
+          //   Some(cat) = cat is alive!
+          //   None = box is empty, no cat
+
+          // Result: Cat delivery service 📦
+          //   Ok(cat) = cat delivered successfully!
+          //   Err(e) = delivery failed (stuck in tree, wrong address, etc.)
+
+        iterators: |
+          // Iterators are like assembly lines
+          vec.iter()              // Put items on conveyor belt
+             .filter(|x| x > 10)  // Quality control station
+             .map(|x| x * 2)      // Processing station
+             .collect()           // Package at end of line
+
+        closures: |
+          // Closures are like food trucks
+          let pizza_truck = |toppings| {
+              make_pizza(toppings)  // Captures make_pizza from environment
+          };
+          // Food truck can be called anywhere, brings its equipment!
+
+        trait_objects: |
+          // Trait objects are like power outlets
+          // Don't care if it's a phone, laptop, or toaster
+          // As long as it implements the "can plug in" trait!
+          fn charge(device: &dyn Chargeable) {
+              device.charge();  // Works for any chargeable device
+          }
+
+      example_doc_comments:
+        boring: |
+          /// Parses a YAML file and returns a ParsedModel.
+          pub fn parse_model(path: &Path) -> ForgeResult<ParsedModel>
+
+        with_personality: |
+          /// Parses a YAML file into a delicious `ParsedModel` sandwich 🥪
+          ///
+          /// Think of this as your YAML → Rust translator. Reads the YAML,
+          /// checks if it's the new hotness (v1.0.0 arrays) or the classic
+          /// recipe (v0.2.0 scalars), and serves it up in a type-safe wrapper.
+          ///
+          /// # Examples
+          ///
+          /// ```no_run
+          /// // Feed it a YAML file, get back a structured model
+          /// let model = parse_model(Path::new("quarterly_financials.yaml"))?;
+          ///
+          /// // Now you can work with typed data instead of raw strings!
+          /// assert_eq!(model.version, ForgeVersion::V1_0_0);
+          /// ```
+          ///
+          /// # Errors
+          ///
+          /// This function is a bit picky (in a good way!):
+          /// - If the YAML is malformed, it'll let you know immediately
+          /// - If arrays have mixed types, it'll stop you before bad things happen
+          /// - If columns have different lengths, it'll save you from Excel export sadness
+          ///
+          /// Think of errors as your friendly neighborhood validator 🦸
+          pub fn parse_model(path: &Path) -> ForgeResult<ParsedModel>
+
+      README_personality_examples:
+        technical_but_fun: |
+          ## Why Forge?
+
+          Because AI hallucinates, and your CFO doesn't appreciate creative accounting. 📊
+
+          Forge is like a spell-checker for your financial formulas. It won't let you
+          ship a model where `revenue - expenses = unicorns`. (We tried. It didn't work.)
+
+          **Problem:** You have 1,140 formulas in your financial model. Excel says they're
+          all fine. Excel is lying. 🤥
+
+          **Solution:** Forge validates EVERY formula BEFORE you send it to investors.
+          No more "Oops, we accidentally calculated our valuation in dog years."
+
+        feature_descriptions: |
+          ## Features That Spark Joy ✨
+
+          ### 🎯 Excel-Compatible Formulas
+          All your favorite hits: SUM, AVERAGE, IF, and friends. They work exactly
+          like Excel, minus the existential dread of `#REF!` errors.
+
+          ### 🔒 Type-Safe Arrays
+          Forge won't let you mix numbers with text. Because `["Q1", 42, true]` is
+          not a valid dataset, it's a cry for help.
+
+          ### ⚡ Blazingly Fast™
+          Validates 1,140 formulas in <200ms. That's faster than Excel can say
+          "Not Responding" on your coworker's laptop.
+
+          ### 📐 Zero Error Tolerance
+          Your model either works perfectly or tells you exactly what's wrong.
+          No "works on my machine" shenanigans.
+
+      error_message_guidelines:
+        important_note: "Error messages should be HELPFUL, not funny. User is already frustrated!"
+
+        error_message_structure: |
+          // Structure: What went wrong + Why + How to fix
+          ForgeError::Parse(format!(
+              "Column '{}' has mixed types (found Number and Text). \n\
+               All values in an array must be the same type for Excel export. \n\
+               Tip: Use separate columns for different data types.",
+              column_name
+          ))
+
+        do_in_errors:
+          - "Be specific about what went wrong"
+          - "Explain why it's a problem"
+          - "Suggest how to fix it"
+          - "Show the problematic value if helpful"
+          - "Use friendly language ('Tip:', 'Note:')"
+
+        dont_in_errors:
+          - "Don't use humor or sarcasm"
+          - "Don't blame the user ('you did X wrong')"
+          - "Don't use jargon without explanation"
+          - "Don't just say 'invalid input' - be specific!"
+
+      comments_in_code:
+        good_comments: |
+          // Why xlformula_engine uses f32: Excel's native number format
+          // We round to 6 decimals to avoid issues like 0.9 showing as 0.8999999
+          // This is a reasonable tradeoff for financial calculations (max error: ±0.0001%)
+
+          // TODO: Implement SUMIF after basic aggregation works
+          // (Don't want to run before we can walk!)
+
+          // HACK: xlformula_engine doesn't understand @ for cross-file refs
+          // So we temporarily replace @ with _ and convert back in resolver
+          // It's like using a fake mustache to sneak past a bouncer 🥸
+
+        bad_comments: |
+          // This is bad
+          let x = 5;
+
+          // Loop through items (duh, I can read the code!)
+          for item in items {
+
+          // Magic number (WHY?! What does 42 represent?)
+          if count > 42 {
+
+      git_commit_messages_with_personality:
+        boring: "Fix bug in parser"
+
+        better: "Fix parser crash on empty arrays"
+
+        best: |
+          Fix parser panic when encountering empty column arrays
+
+          The parser was assuming all arrays had at least one element (rookie
+          mistake!). This caused a panic when users had placeholder columns.
+
+          Now we check for empty arrays and return a helpful error instead of
+          crashing like a Windows 95 screensaver.
+
+          Added test: test_empty_array_error
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+          Co-Authored-By: Claude <noreply@anthropic.com>
+
     rustdoc:
       principles:
-        - "Every public item should have doc comment"
-        - "Start with one-line summary, then details"
+        - "Every public item should have doc comment (with personality!)"
+        - "Start with one-line summary, then tell a story"
         - "Include examples in doc comments (they're tested!)"
         - "Use /// for items, //! for modules"
         - "Link to related items with [Type]"
+        - "Add metaphors and analogies for complex concepts"
+        - "Celebrate what the code does well"
 
       example: |
         /// Calculates all formulas in a v1.0.0 array model.
@@ -814,23 +1087,58 @@ advanced_rust_patterns:
         - "Performance trade-offs"
 
 tips_for_success:
-  - "🚨 CHECK CURRENT DATE in <env> before ANY online search!"
-  - "Think harder before implementing - plan the solution"
-  - "BEFORE complex code: Search crates.io for existing libraries"
-  - "Write tests first when possible (TDD)"
-  - "Consider property-based testing for complex logic"
-  - "Test edge cases - empty arrays, nulls, invalid inputs"
-  - "Run clippy frequently - user has OCD for clean code 😊"
-  - "ZERO warnings policy - treat warnings as errors"
-  - "Use type system to prevent bugs (newtypes, enums over bools)"
-  - "Profile before optimizing - don't guess"
-  - "Update documentation as you code, not after"
-  - "Commit frequently with descriptive messages"
-  - "Use TodoWrite to track progress"
-  - "Ask user for clarification on ambiguous requirements"
-  - "Check KNOWN_BUGS.md before fixing similar issues"
-  - "Check license compatibility (MIT-compatible only)"
-  - "Run cargo audit before releases"
+  critical:
+    - "🚨 CHECK CURRENT DATE in <env> before ANY online search!"
+    - "ZERO warnings policy - treat warnings as errors (user has OCD for clean code 😊)"
+    - "Run cargo audit before releases (no surprises from dependency CVEs)"
+
+  planning:
+    - "Think harder before implementing - measure twice, code once 📐"
+    - "BEFORE complex code: Search crates.io (don't reinvent the wheel, it's already round)"
+    - "Profile before optimizing - premature optimization is the root of all evil (and wasted time)"
+    - "Read DESIGN_V1.md - it's 800+ lines for a reason!"
+
+  testing:
+    - "Write tests first when possible (TDD = sleep better at night)"
+    - "Test edge cases - empty arrays, nulls, invalid inputs (Murphy's Law is undefeated)"
+    - "Consider property-based testing for complex logic (test the rules, not examples)"
+    - "If a bug makes it to production, write a test so it never comes back (revenge testing!)"
+
+  type_safety:
+    - "Use type system to prevent bugs (make illegal states unrepresentable)"
+    - "Newtypes are your friends (TableName ≠ ColumnName, even though both are strings)"
+    - "Enums over booleans (states > true/false)"
+    - "Builder pattern for complex construction (fluent APIs are a joy to use)"
+
+  code_quality:
+    - "Run clippy frequently (it's like having a pedantic friend who's always right)"
+    - "cargo fmt before every commit (consistency = readability)"
+    - "No unwrap() in library code (Result<T,E> or bust)"
+    - "Comments should explain WHY, not WHAT (code shows what, you explain why)"
+
+  documentation:
+    - "Update docs as you code, not after (future you will thank present you)"
+    - "Add personality to docs - make them memorable (car keys, food trucks, cats 🐱)"
+    - "Examples in rustdoc are tested (free test coverage!)"
+    - "Error messages: helpful, not funny (user is frustrated, not entertained)"
+
+  workflow:
+    - "Commit frequently with descriptive messages (tell a story, not a changelog)"
+    - "Use TodoWrite to track progress (Claude's memory needs help)"
+    - "Check KNOWN_BUGS.md before fixing (might already be documented)"
+    - "One feature per commit (atomic changes = easy reverts)"
+
+  collaboration:
+    - "Ask user for clarification on ambiguous requirements (assumptions are dangerous)"
+    - "Check license compatibility (MIT-compatible only, GPL is the Voldemort of licenses)"
+    - "When stuck, explain the problem out loud (rubber duck debugging works!)"
+
+  wisdom:
+    - "If it compiles in Rust, it probably works (type system FTW)"
+    - "If tests pass but feel fragile, trust your instincts"
+    - "Simpler code > clever code (cleverness is hard to debug at 2am)"
+    - "When in doubt, add a test (tests never lie)"
+    - "Break before optimize, fix before enhance, test before merge"
 
 collaboration_notes:
   user_preferences:

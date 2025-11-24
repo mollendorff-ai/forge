@@ -178,8 +178,14 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
         for (name, current, expected, diff) in &mismatches {
             println!("   {}", name.bright_blue().bold());
             // Format numbers with reasonable precision (remove trailing zeros)
-            println!("      Current:  {}", format!("{}", format_number(*current)).red());
-            println!("      Expected: {}", format!("{}", format_number(*expected)).green());
+            println!(
+                "      Current:  {}",
+                format_number(*current).to_string().red()
+            );
+            println!(
+                "      Expected: {}",
+                format_number(*expected).to_string().green()
+            );
             println!("      Diff:     {}", format!("{diff:.6}").yellow());
             println!();
         }
