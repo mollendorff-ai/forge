@@ -49,7 +49,50 @@ This document provides a comprehensive specification of Forge's formula evaluati
 
 ### High-Level Architecture
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["ArrayCalculator::calculate_all()"]
+
+    subgraph "Phase 1: Row-wise Formulas"
+        BuildTableGraph["Build table dependency graph<br/>Cross-table references"]
+        TopoSortTables["Topological sort<br/>Calculation order"]
+        LoopTables["For each table in order"]
+        BuildColGraph["Build column dependency graph<br/>Within table"]
+        TopoSortCols["Topological sort columns"]
+        EvalRowFormulas["For each formula column<br/>evaluate_rowwise_formula()"]
+        LoopRows["For each row: 0..row_count"]
+        ResolveVars["Resolve column[row_idx] → value"]
+        EvalFormula["xlformula_engine::calculate()"]
+        StoreResult["Store result[row_idx]"]
+    end
+
+    subgraph "Phase 2: Aggregations"
+        LoopAggs["For each aggregation formula"]
+        ExtractRef["Extract table.column reference"]
+        GetColumn["Get full column array"]
+        ApplyAgg["Apply SUM, AVERAGE, etc."]
+        StoreScalar["Store scalar result"]
+    end
+
+    Done["Return updated ParsedModel"]
+
+    Start --> BuildTableGraph
+    BuildTableGraph --> TopoSortTables
+    TopoSortTables --> LoopTables
+    LoopTables --> BuildColGraph
+    BuildColGraph --> TopoSortCols
+    TopoSortCols --> EvalRowFormulas
+    EvalRowFormulas --> LoopRows
+    LoopRows --> ResolveVars
+    ResolveVars --> EvalFormula
+    EvalFormula --> StoreResult
+    StoreResult --> LoopAggs
+    LoopAggs --> ExtractRef
+    ExtractRef --> GetColumn
+    GetColumn --> ApplyAgg
+    ApplyAgg --> StoreScalar
+    StoreScalar --> Done
+```
 
 ### Two-Phase Calculation Model
 
@@ -249,7 +292,36 @@ Row 1: margin[1] = profit[1] / revenue[1] = 84000 / 120000 = 0.7
 
 ### Evaluation Algorithm
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["evaluate_rowwise_formula(table, formula)"]
+    GetRowCount["row_count = table.row_count()"]
+    ExtractRefs["extract_column_references(formula)"]
+    ValidateRefs["Validate all column refs exist"]
+
+    subgraph "For each row: 0..row_count"
+        CreateResolver["Create variable resolver closure"]
+        GetRowValues["Get column[row_idx] for each ref"]
+        CallEngine["xlformula_engine::calculate(formula, resolver)"]
+        CollectResult["Append result to results vector"]
+    end
+
+    ConvertType["Infer result type<br/>Number | Text | Boolean"]
+    CreateColumn["Create ColumnValue enum"]
+    Return["Return ColumnValue"]
+
+    Start --> GetRowCount
+    GetRowCount --> ExtractRefs
+    ExtractRefs --> ValidateRefs
+    ValidateRefs --> CreateResolver
+    CreateResolver --> GetRowValues
+    GetRowValues --> CallEngine
+    CallEngine --> CollectResult
+    CollectResult -->|More rows| CreateResolver
+    CollectResult -->|Done| ConvertType
+    ConvertType --> CreateColumn
+    CreateColumn --> Return
+```
 
 ### Code Implementation
 
@@ -543,7 +615,56 @@ SUMIFS(sum_range, criteria_range1, criteria1, criteria_range2, criteria2, ...)
 
 ### Evaluation Algorithm
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["evaluate_aggregation(formula)"]
+    CheckConditional{"Conditional aggregation?<br/>SUMIF, COUNTIF, etc."}
+
+    subgraph "Conditional Path"
+        ParseCriteria["Parse criteria and ranges"]
+        GetRanges["Get column arrays"]
+        FilterRows["Filter rows matching criteria"]
+        ApplyAggFunc["Apply aggregation function"]
+        ReturnCond["Return result"]
+    end
+
+    subgraph "Simple Aggregation Path"
+        ExtractFunc["Extract function name<br/>SUM, AVERAGE, MAX, MIN, COUNT"]
+        ParseRef["Parse table.column reference"]
+        GetTable["Get table from model"]
+        GetCol["Get column from table"]
+        ApplyFunc{"Apply function"}
+        SumCase["SUM: Σ values"]
+        AvgCase["AVERAGE: Σ values / count"]
+        MaxCase["MAX: max(values)"]
+        MinCase["MIN: min(values)"]
+        CountCase["COUNT: length(values)"]
+        ReturnSimple["Return result"]
+    end
+
+    Start --> CheckConditional
+    CheckConditional -->|Yes| ParseCriteria
+    ParseCriteria --> GetRanges
+    GetRanges --> FilterRows
+    FilterRows --> ApplyAggFunc
+    ApplyAggFunc --> ReturnCond
+
+    CheckConditional -->|No| ExtractFunc
+    ExtractFunc --> ParseRef
+    ParseRef --> GetTable
+    GetTable --> GetCol
+    GetCol --> ApplyFunc
+    ApplyFunc -->|SUM| SumCase
+    ApplyFunc -->|AVERAGE| AvgCase
+    ApplyFunc -->|MAX| MaxCase
+    ApplyFunc -->|MIN| MinCase
+    ApplyFunc -->|COUNT| CountCase
+    SumCase --> ReturnSimple
+    AvgCase --> ReturnSimple
+    MaxCase --> ReturnSimple
+    MinCase --> ReturnSimple
+    CountCase --> ReturnSimple
+```
 
 ### Code Implementation
 
@@ -860,7 +981,42 @@ revenue: "=@pricing.base_price * volume"
 
 ### Resolution Algorithm
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["Formula: '=@pricing.base_price * volume'"]
+    Parse["Parse formula"]
+    DetectRef{"Detect @alias.variable"}
+
+    subgraph "Cross-File Resolution"
+        ExtractAlias["Extract alias: 'pricing'"]
+        ExtractVar["Extract variable: 'base_price'"]
+        FindInclude["Find include with alias='pricing'"]
+        LoadFile["Load included file<br/>pricing.yaml"]
+        GetVariable["Get variable 'base_price'"]
+        GetValue["Get value: 99"]
+    end
+
+    ResolveLocal["Resolve local variable 'volume'<br/>value: 1000"]
+    SubstituteVars["Substitute: '=99 * 1000'"]
+    Evaluate["xlformula_engine::calculate()"]
+    Result["Result: 99000"]
+
+    Start --> Parse
+    Parse --> DetectRef
+    DetectRef -->|Found @alias.variable| ExtractAlias
+    ExtractAlias --> ExtractVar
+    ExtractVar --> FindInclude
+    FindInclude --> LoadFile
+    LoadFile --> GetVariable
+    GetVariable --> GetValue
+    GetValue --> ResolveLocal
+    DetectRef -->|No cross-file ref| ResolveLocal
+    ResolveLocal --> SubstituteVars
+    SubstituteVars --> Evaluate
+    Evaluate --> Result
+```
+
+**Note:** Cross-file references with `@alias.variable` syntax are for v0.2.0 backwards compatibility. v1.0.0 uses `table.column` references instead.
 
 ---
 
