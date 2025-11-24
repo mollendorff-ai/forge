@@ -360,10 +360,10 @@ pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 
     // Serialize model to YAML
     let yaml_string = serde_yaml::to_string(&model)
-        .map_err(|e| ForgeError::Yaml(e))?;
+        .map_err(ForgeError::Yaml)?;
 
     fs::write(&output, yaml_string)
-        .map_err(|e| ForgeError::Io(e))?;
+        .map_err(ForgeError::Io)?;
 
     println!("{}", "✅ Import Complete!".bold().green());
     println!("   YAML file: {}\n", output.display());
