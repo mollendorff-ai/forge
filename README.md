@@ -500,7 +500,9 @@ Tested with:
 - [x] Circular dependency detection
 - [x] Cross-file references with includes
 
-### v1.0.0 - Array Model (Completed)
+### v1.0.0 - Array Model with Bidirectional Excel Bridge (In Progress)
+
+**Core Array Model:** ✅ COMPLETE
 - [x] Column arrays with Excel 1:1 mapping
 - [x] Row-wise formula evaluation (=revenue - expenses)
 - [x] Cross-table references (=pl_2025.revenue)
@@ -511,15 +513,46 @@ Tested with:
 - [x] Scalar dependency resolution with 3-strategy scoping
 - [x] Version auto-detection (v0.2.0 vs v1.0.0)
 - [x] JSON Schema validation
-- [x] 100% test coverage (75 tests passing)
+- [x] 100% test coverage (81 tests passing)
 
-### Future Enhancements
-- [ ] Excel export (.xlsx) - Export v1.0.0 array models to Excel spreadsheets
+**Killer Feature #1: Excel Export** ✅ COMPLETE (Phase 3)
+- [x] YAML → Excel (.xlsx) export
+- [x] Tables → Worksheets
+- [x] Row formulas → Excel cell formulas (=A2-B2)
+- [x] Cross-table references → Sheet references (=Sheet!Column)
+- [x] Multiple worksheets
+- [x] Scalars worksheet
+- [x] Formula translation engine with regex parsing
+- [x] CLI: `forge export input.yaml output.xlsx`
+
+**Killer Feature #2: Excel Import** ⏳ IN PROGRESS (Phase 4 - WIP)
+- [x] Excel (.xlsx) → YAML import (basic structure)
+- [x] Read Excel worksheets → Tables (calamine integration)
+- [x] CLI: `forge import input.xlsx output.yaml` (added)
+- [ ] Parse Excel formulas → YAML syntax (Phase 4.3 - TODO)
+- [ ] Detect cross-sheet references → table.column (Phase 4.3 - TODO)
+- [ ] Round-trip testing (Excel → YAML → Excel = identical)
+- [ ] Enable AI-assisted workflow with existing Excel files
+- [ ] Version control for Excel files (convert to YAML!)
+
+**Complete Workflow:** 🎯 THE VISION
+```
+1. Import existing Excel → YAML
+2. Work with AI + Forge (version control, 100% accuracy)
+3. Export back to Excel (with working formulas)
+4. Collaborate with stakeholders in Excel
+5. Re-import changes → YAML → Version control
+```
+
+### Future Enhancements (v1.1.0+)
+- [ ] Scalar aggregation formulas in export (=SUM(table.col) → =SUM(Sheet!A:A))
 - [ ] v1.0.0 file writer (write calculated values back to YAML)
 - [ ] Audit trail generation
 - [ ] Formula debugging mode
 - [ ] Performance optimization for large files
 - [ ] Custom function definitions
+- [ ] Named ranges support
+- [ ] Chart import/export
 
 ## Development
 
