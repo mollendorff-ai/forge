@@ -195,6 +195,13 @@ match result {
 
 ### Supported Functions (50+)
 
+**Lookup Functions (v1.2.0):**
+
+- `MATCH(lookup_value, lookup_array, match_type)` - Find position of value in array
+- `INDEX(array, row_num)` - Return value at specific position (1-based indexing)
+- `XLOOKUP(lookup_value, lookup_array, return_array, if_not_found)` - Modern Excel lookup
+- `VLOOKUP(lookup_value, table_array, col_index_num, range_lookup)` - Classic vertical lookup (limited, use INDEX/MATCH)
+
 **Aggregation Functions:**
 
 - `SUM`, `AVERAGE`, `MAX`, `MIN`, `COUNT`, `PRODUCT`
