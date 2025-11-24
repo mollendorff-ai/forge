@@ -387,6 +387,209 @@ work_session_checklist:
     - "☐ Git push"
     - "☐ Discuss release strategy with user"
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 🤖 AUTONOMOUS WORK REQUIREMENTS - IRONCLAD RULES
+# ═══════════════════════════════════════════════════════════════════════════
+# These are NON-NEGOTIABLE requirements when working autonomously.
+# Violation of ANY of these means the work is NOT production-ready.
+# ═══════════════════════════════════════════════════════════════════════════
+
+autonomous_work_requirements:
+  philosophy: |
+    When user says "work independently" or gives autonomous instructions,
+    these requirements are MANDATORY. No shortcuts. No "almost done".
+    Production-ready means ALL requirements met.
+
+  testing_requirements:
+    description: "100% test coverage is NON-NEGOTIABLE"
+
+    unit_tests_required:
+      - rule: "EVERY public function MUST have unit tests"
+      - rule: "EVERY error path MUST be tested"
+      - rule: "EVERY edge case MUST be covered"
+      - examples:
+          - "Empty inputs (empty strings, empty arrays, nulls)"
+          - "Boundary values (0, negative, MAX_INT)"
+          - "Invalid inputs (malformed data, wrong types)"
+          - "Large inputs (1000+ rows, deeply nested structures)"
+
+    e2e_tests_required:
+      - rule: "EVERY user-facing command MUST have e2e tests"
+      - rule: "E2E tests MUST use REAL test files (not mocks)"
+      - rule: "E2E tests MUST cover happy path + failure modes"
+      - examples:
+          - "forge calculate: success case + stale values + errors"
+          - "forge validate: passing + failing validation"
+          - "forge export: YAML → Excel with formulas"
+          - "forge import: Excel → YAML with formula translation"
+          - "Round-trip: YAML → Excel → YAML (must be identical!)"
+
+    test_data_required:
+      - rule: "Create REAL test files in test-data/ directory"
+      - rule: "Include edge case test files (empty, large, malformed)"
+      - examples:
+          - "test-data/export_basic.yaml (simple export test)"
+          - "test-data/export_with_formulas.yaml (formula translation)"
+          - "test-data/import_basic.xlsx (Excel import test)"
+          - "test-data/import_with_formulas.xlsx (reverse translation)"
+          - "test-data/roundtrip.yaml (start here, export, import, compare)"
+          - "test-data/edge_cases/ (empty sheets, 1000+ rows, malformed)"
+
+    coverage_verification:
+      - command: "cargo test --release"
+      - requirement: "ALL tests MUST pass (not 99%, ALL)"
+      - command: "cargo test --release -- --nocapture"
+      - requirement: "Run e2e tests and VERIFY actual files created/read"
+      - verification: "Manually check test-data/ files exist and are correct"
+
+  code_quality_requirements:
+    description: "ZERO tolerance for warnings or errors"
+
+    compilation:
+      - command: "cargo build --release"
+      - requirement: "MUST succeed with ZERO errors"
+      - note: "If it doesn't compile, it's not done"
+
+    linting:
+      - command: "cargo clippy --release -- -D warnings"
+      - requirement: "MUST pass with ZERO warnings"
+      - note: "User has OCD for good looking code - use MOST STRICT linting"
+      - action: "Fix ALL warnings before considering work complete"
+
+    formatting:
+      - command: "cargo fmt"
+      - requirement: "MUST be run before every commit"
+      - note: "Consistent formatting = professional code"
+
+  documentation_requirements:
+    description: "Documentation MUST be complete and accurate"
+
+    inline_documentation:
+      - rule: "EVERY public function MUST have doc comments"
+      - rule: "Doc comments MUST include examples for non-trivial functions"
+      - rule: "Error conditions MUST be documented"
+
+    readme_updates:
+      - rule: "README.md MUST reflect ALL new features"
+      - rule: "Usage examples MUST be tested and working"
+      - rule: "Installation instructions MUST be current"
+
+    roadmap_updates:
+      - rule: "roadmap.yaml MUST be updated with phase completion"
+      - rule: "current_version MUST match Cargo.toml"
+      - rule: "Completed phases MUST be marked with timestamps"
+
+    sred_documentation:
+      - rule: "🍁 SRED_RESEARCH_LOG.md MUST be updated for R&D work"
+      - importance: "💰 CRITICAL - this = real money in tax credits"
+      - requirement: "Document uncertainties, hypotheses, experiments, results"
+      - frequency: "DURING development, not after"
+
+  feature_completeness:
+    description: "Features MUST be fully implemented, not partially"
+
+    definition_of_done:
+      - "✅ Implementation complete (not 'mostly done')"
+      - "✅ Unit tests written and passing"
+      - "✅ E2E tests written and passing"
+      - "✅ Edge cases tested"
+      - "✅ Error handling tested"
+      - "✅ Documentation updated (inline, README, roadmap)"
+      - "✅ SR&ED documentation updated"
+      - "✅ ZERO warnings from clippy"
+      - "✅ Code formatted with cargo fmt"
+      - "✅ Git committed with descriptive message"
+
+    not_done_if:
+      - "❌ Tests are commented out or skipped"
+      - "❌ TODO comments remain for core functionality"
+      - "❌ Error handling is missing or uses unwrap()"
+      - "❌ Documentation is placeholder or outdated"
+      - "❌ Clippy warnings exist ('I'll fix them later')"
+      - "❌ E2E tests don't exist for user-facing commands"
+      - "❌ Test data files don't exist"
+
+  autonomous_work_checklist:
+    description: "Use this checklist when working autonomously"
+
+    before_starting:
+      - "☐ Read and understand user's autonomous instruction"
+      - "☐ Create TodoWrite list with ALL tasks (implementation + tests + docs)"
+      - "☐ Identify what tests need to be created (unit + e2e + test data)"
+      - "☐ Verify baseline: all existing tests passing"
+
+    during_implementation:
+      - "☐ Write unit tests FIRST or alongside implementation"
+      - "☐ Create test data files as you go"
+      - "☐ Test edge cases (empty, null, invalid, large)"
+      - "☐ Document uncertainties in SR&ED log"
+      - "☐ Run tests frequently (cargo test)"
+      - "☐ Fix warnings immediately (don't accumulate)"
+
+    after_implementation:
+      - "☐ Write e2e tests for ALL user-facing commands"
+      - "☐ Verify e2e tests with REAL files (not mocks)"
+      - "☐ Test round-trip scenarios (if applicable)"
+      - "☐ Run cargo clippy --release -- -D warnings → ZERO warnings"
+      - "☐ Run cargo test --release → ALL passing"
+      - "☐ Update inline documentation"
+      - "☐ Update README.md with new features"
+      - "☐ Update roadmap.yaml with completion status"
+      - "☐ Update SR&ED log with final results"
+      - "☐ Run cargo fmt"
+      - "☐ Git commit with descriptive message"
+
+    before_reporting_complete:
+      - "☐ Double-check: ALL tests passing?"
+      - "☐ Double-check: ZERO clippy warnings?"
+      - "☐ Double-check: E2E tests exist and pass?"
+      - "☐ Double-check: Test data files exist?"
+      - "☐ Double-check: Documentation updated?"
+      - "☐ Double-check: SR&ED log updated?"
+      - "☐ If ANY checkbox unchecked → NOT DONE, keep working"
+
+  success_criteria:
+    description: "How to know autonomous work is truly complete"
+
+    technical_criteria:
+      - "✅ cargo build --release → success"
+      - "✅ cargo test --release → all tests pass"
+      - "✅ cargo clippy --release -- -D warnings → zero warnings"
+      - "✅ cargo fmt → already formatted"
+      - "✅ E2E tests exist for every user command"
+      - "✅ Test data files exist in test-data/"
+      - "✅ Round-trip tests pass (if applicable)"
+
+    documentation_criteria:
+      - "✅ README.md reflects new features"
+      - "✅ roadmap.yaml shows completion"
+      - "✅ SRED_RESEARCH_LOG.md updated"
+      - "✅ Inline docs complete"
+
+    quality_criteria:
+      - "✅ No unwrap() in library code"
+      - "✅ No TODOs for core functionality"
+      - "✅ Error messages are helpful"
+      - "✅ Edge cases handled gracefully"
+
+    user_experience_criteria:
+      - "✅ Commands work as user expects"
+      - "✅ Error messages guide user to solution"
+      - "✅ Examples in README work when copy-pasted"
+      - "✅ Installation instructions are current"
+
+  lessons_learned:
+    v1_0_0_gap: |
+      v1.0.0 was released with excellent unit tests for FormulaTranslator and
+      ReverseFormulaTranslator, BUT missing e2e tests for `forge export` and
+      `forge import` commands. This gap meant the core USER-FACING features
+      were not tested end-to-end with real .xlsx files.
+
+      LESSON: Unit tests alone are NOT enough. E2E tests for every user command
+      are MANDATORY. Create test-data/*.xlsx files and verify round-trips.
+
+      This is why these autonomous work requirements now exist.
+
 release_workflow:
   version_bump:
     description: "Update version across all files"
