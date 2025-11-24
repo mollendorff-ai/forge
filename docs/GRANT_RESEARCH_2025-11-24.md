@@ -10,6 +10,7 @@
 ## 🔍 Research Summary
 
 Conducted comprehensive online search for Canadian grants applicable to:
+
 1. **Forge FOSS Tool** - YAML formula calculator with Excel bridge
 2. **Warmup Protocol** - Autonomous AI development methodology
 3. **RoyalBit Inc.** - 51% woman-owned (Kantia Tavares), Montreal, Quebec
@@ -23,11 +24,13 @@ Conducted comprehensive online search for Canadian grants applicable to:
 ### 1. IRAP (Industrial Research Assistance Program)
 
 **Eligibility Confirmed** ✅:
+
 - Incorporated, profit-oriented SME in Canada with ≤500 employees
 - Pursuing growth through technology-driven innovation
 - Must develop/commercialize innovative products, services, or processes in Canada
 
 **Funding Streams**:
+
 1. **Small Projects** (Accelerated Review): Up to $50K for R&D/commercialization
 2. **Mid-sized Projects**: Up to $10M (typically R&D, new products, software)
 3. **Youth Employment**: Up to $30K/graduate (ages 15-30, 12-month placement)
@@ -37,6 +40,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Contact**: 1-877-994-4727
 
 **Sources**:
+
 - [Financial support for technology innovation through NRC IRAP](https://nrc.canada.ca/en/support-technology-innovation/financial-support-technology-innovation-through-nrc-irap)
 - [Industrial Research Assistance Program (IRAP) — Financial Assistance | Program Guide 2025](https://hellodarwin.com/business-aid/programs/nrc-irap)
 - [NRC IRAP Research Grants for Canadian Businesses](https://funding.ryan.com/government-funding/research-development/nrc-irap-research-grants/)
@@ -51,6 +55,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Total Program Budget**: $300M
 
 **Why We Qualify**:
+
 - SME status ✅
 - AI methodology innovation (Warmup Protocol) ✅
 - Made-in-Canada solution ✅
@@ -59,6 +64,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Perfect Fit**: Warmup Protocol is AI development methodology innovation - directly aligned with program purpose.
 
 **Sources**:
+
 - [Government of Canada introduces AI Compute Access Fund to support Canadian innovators](https://www.canada.ca/en/innovation-science-economic-development/news/2025/03/government-of-canada-introduces-ai-compute-access-fund-to-support-canadian-innovators.html)
 - [AI Compute Access Fund](https://ised-isde.canada.ca/site/ised/en/canadian-sovereign-ai-compute-strategy/ai-compute-access-fund)
 
@@ -75,6 +81,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Estimated Annual Value**: $130K+ (Federal 35% + Quebec 30% combined on $200K R&D spending)
 
 **Sources**:
+
 - [Top Canadian Government Funding Programs for Software Development in 2025](https://funding.ryan.com/blog/government-funding/top-funding-programs-for-software-development/)
 - [Leading Canadian Government Funding Opportunities for Software Development in 2024](https://www.srjca.com/canadian-government-funding-for-software-development/)
 
@@ -88,11 +95,13 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Focus**: Large-scale projects with global market potential
 
 **Why We Qualify**:
+
 - Warmup Protocol has global applicability ✅
 - Open source demonstrates broader impact ✅
 - Proven in production (v1.0.0 built autonomously) ✅
 
 **Sources**:
+
 - [Innovation Grants in Canada for 2025](https://hellodarwin.com/business-aid/grants-and-funding/innovation)
 
 ---
@@ -107,6 +116,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Application Angle**: Forge could be extended to web application, or Warmup Protocol productized as SaaS platform
 
 **Sources**:
+
 - [Top Canadian Government Funding Programs for Software Development in 2025](https://funding.ryan.com/blog/government-funding/top-funding-programs-for-software-development/)
 
 ---
@@ -120,16 +130,19 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Coverage**: 50% for startups, 35% for SMEs
 
 **PROMPT SIPEM**:
+
 - Focuses on accelerating productivity of Quebec manufacturing through innovation
 - Funding up to 50% with maximum $10,000
 - Identifies technological opportunities and develops solutions for digital transformation
 
 **Why We Qualify**:
+
 - Warmup Protocol is AI methodology innovation ✅
 - Demonstrated productivity improvements (3-4x velocity) ✅
 - Quebec-based company ✅
 
 **Sources**:
+
 - [Artificial Intelligence Grant: How to finance your AI project?](https://baseline.quebec/en/new/ai-grants/)
 - [R&D Grants in Québec for 2025](https://hellodarwin.com/business-aid/researchers-and-facilities/quebec)
 
@@ -143,11 +156,13 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Focus**: Innovation-driven technology sectors
 
 **Why We Qualify**:
+
 - Documented R&D in SR&ED log ✅
 - Innovation in both Forge tool and Warmup Protocol ✅
 - Quebec-based research ✅
 
 **Sources**:
+
 - [Support Program for Research and Innovation Organisations (PSO) | Program Guide 2025](https://hellodarwin.com/business-aid/programs/support-program-research-innovation-organisations)
 
 ---
@@ -155,19 +170,23 @@ Conducted comprehensive online search for Canadian grants applicable to:
 ### 8. Quebec Digital Transformation Grants
 
 **Canada Digital Adoption Program (CDAP)**:
+
 - Up to $2,400 for e-commerce and online sales growth
 - Up to $15,000 for digital transformation plan creation
 
 **Quebec City Programs**:
+
 - **Productivité et automatisation**: 50% of eligible expenses up to $500,000 per project
 - Addresses productivity improvements and labor shortages through cutting-edge technologies
 - Labor challenges funding: up to 50% of eligible expenses up to $100,000 per project
 
 **Revenu Québec Tax Credit**:
+
 - Refundable tax credit up to 30% of eligible salaries in software development
 - Targets digital businesses developing or integrating AI solutions
 
 **Sources**:
+
 - [2025 Québec Digital Transformation Grants | Gurus Solutions](https://gurussolutions.com/2025-quebec-digital-transformation-grants)
 - [R&D Grants in Québec for 2025](https://hellodarwin.com/business-aid/researchers-and-facilities/quebec)
 
@@ -181,6 +200,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Purpose**: Bring innovations to market
 
 **Sources**:
+
 - [Technology Grants in Quebec for 2025](https://hellodarwin.com/business-aid/grants-and-funding/technology/quebec)
 
 ---
@@ -195,11 +215,13 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Eligible Expenses**: Innovation commercialization, technological equipment, clean technologies, sustainable development practices
 
 **Why We Qualify**:
+
 - Innovation commercialization ✅
 - Technological equipment ✅
 - Productivity improvements (Warmup Protocol) ✅
 
 **Sources**:
+
 - [Grants and Funding in Montreal for 2025](https://hellodarwin.com/business-aid/grants-and-funding/quebec/montreal)
 - [City of Montreal (MTL) Funding Programs | 2025](https://hellodarwin.com/business-aid/organizations/city-montreal)
 
@@ -212,11 +234,13 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Clean Technology Acquisition**: Up to $60,000 (75% of eligible expenses)
 
 **Why We Qualify**:
+
 - Forge reduces computational waste (no AI tokens for validation) ✅
 - Warmup Protocol reduces rework (0% vs. 30-50% = less compute waste) ✅
 - Energy-efficient Rust binary (440KB compressed) ✅
 
 **Sources**:
+
 - [Grants and Funding in Montreal for 2025](https://hellodarwin.com/business-aid/grants-and-funding/quebec/montreal)
 
 ---
@@ -229,6 +253,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Eligibility**: Startups <5 years old, revenue <$2M, 2+ employees, majority Canadian capital
 
 **Why We'd Qualify** (for next cycle):
+
 - All eligibility criteria met ✅
 - Collaborative innovation focus ✅
 - Novel technology solutions ✅
@@ -236,6 +261,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Action**: Monitor for 2026 cycle opening
 
 **Sources**:
+
 - [Open Innovation Subsidy Program for start-up companies | Ville de Montréal](https://montreal.ca/en/programs/open-innovation-subsidy-program-start-companies)
 - [Montréal's Tech Ecosystem 2025: A Complete Guide to Resources, Communities, and Funding](https://2727coworking.com/articles/montrals-tech-ecosystem-2025-a-complete-guide-to-resources-communities-and-funding)
 
@@ -248,6 +274,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Startup Montréal "Révélations"**: Government-sponsored cohort with grants and connections
 
 **Sources**:
+
 - [Top Startup Accelerators in Montreal [2025]](https://www.growthmentor.com/location/montreal/startup-accelerators/)
 - [Montreal Startup Accelerators, Incubators & Grants: A Guide](https://2727coworking.com/articles/montreal-startup-accelerators-incubators-grants)
 
@@ -265,12 +292,14 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Application Window**: ⚠️ **August 5-19, 2025 (8am-8pm Eastern)**
 
 **Eligibility**:
+
 - 51%+ owned and controlled by women ✅ **WE QUALIFY**
 - Canadian business ✅
 
 **ACTION REQUIRED**: Mark calendar for August 5-19, 2025!
 
 **Sources**:
+
 - [Celebrating Women Grant | BMO for Women](https://www.bmoforwomen.com/en/grant/)
 - [55+ Grants for Women Entrepreneurs in 2025](https://www.canadastartups.org/2024-grants-for-women-entrepreneurs-55-business-grants-for-female-owned-businesses/)
 
@@ -280,11 +309,16 @@ Conducted comprehensive online search for Canadian grants applicable to:
 
 **Program**: Quebec recognition for women-led innovation
 **Value**: $10,000 per grant
-**Eligibility**: 50%+ women-owned, 1-5 years old, Quebec-based ✅ **WE QUALIFY**
-**Focus**: Processing/manufacturing, cultural/creative industries, **technological innovation**
+
+#### Eligibility: 50%+ women-owned, 1-5 years old, Quebec-based ✅ WE QUALIFY
+
+
+#### Focus: Processing/manufacturing, cultural/creative industries, technological innovation
+
 **Application Deadline**: Typically January 15 (target 2026)
 
 **Sources**:
+
 - [Grants for women entrepreneurs | Grant Guide 2025](https://hellodarwin.com/business-aid/programs/grants-women-entrepreneurs)
 - [21 Grants for Women-Owned Businesses in 2025](https://www.canadastartups.org/21-grants-for-women-owned-businesses/)
 
@@ -298,6 +332,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Why We Qualify**: All requirements met ✅
 
 **Sources**:
+
 - [55+ Grants for Women Entrepreneurs in 2025](https://www.canadastartups.org/2024-grants-for-women-entrepreneurs-55-business-grants-for-female-owned-businesses/)
 
 ---
@@ -306,12 +341,15 @@ Conducted comprehensive online search for Canadian grants applicable to:
 
 **Program**: Women's Entrepreneurship Fund (Quebec)
 **Value**: Up to $50,000 in micro-loans + grants
-**Eligibility**: At least one woman in strategic position with 25%+ ownership ✅ **WE QUALIFY**
+
+#### Eligibility: At least one woman in strategic position with 25%+ ownership ✅ WE QUALIFY
+
 **Coverage**: Quebec flexipreneurs and women entrepreneurs
 
 **Why We Qualify**: Kantia owns 51% (exceeds 25% requirement) ✅
 
 **Sources**:
+
 - [Business Grants and Funding for Women in Canada for 2025](https://hellodarwin.com/business-aid/grants-and-funding/women)
 - [Grants for women entrepreneurs | Grant Guide 2025](https://hellodarwin.com/business-aid/programs/grants-women-entrepreneurs)
 
@@ -325,6 +363,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Focus**: Addressing systemic barriers for women's entrepreneurial success across Quebec
 
 **Why We Qualify**:
+
 - Woman-owned business (51%) ✅
 - Quebec-based ✅
 - Technology innovation ✅
@@ -332,6 +371,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Application Path**: Through CDEC de Québec or similar support organizations
 
 **Sources**:
+
 - [Federal funding to help increase opportunities for women in Quebec](https://www.canada.ca/en/women-gender-equality/news/2025/03/federal-funding-to-help-increase-opportunities-for-women-in-quebec-and-build-a-more-resilient-economy-for-everyone-in-canada.html)
 
 ---
@@ -344,6 +384,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Delivery**: Through recognized not-for-profit organizations
 
 **Sources**:
+
 - [2025 Grants for Women-Owned Small Businesses in Canada](https://hellodarwin.com/business-aid/grants-and-funding/small-businesses/women-entrepreneurs)
 
 ---
@@ -359,6 +400,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Why We Qualify**: Warmup Protocol is AI development methodology innovation
 
 **Sources**:
+
 - [Artificial Intelligence Grants and Funding in Canada in 2025](https://hellodarwin.com/business-aid/grants-and-funding/artificial-intelligence)
 
 ---
@@ -371,6 +413,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Focus**: AI R&D aligned with local economic priorities
 
 **Sources**:
+
 - [Regional Artificial Intelligence Initiative - Province of British Columbia](https://www2.gov.bc.ca/gov/content/employment-business/economic-development/funding-and-grants/regional-artificial-intelligence-initiative)
 - [Top Artificial Intelligence (AI) Grants and Tax Credit Programs in Canada](https://funding.ryan.com/blog/government-funding/top-ai-funding-programs-grants-tax-credits/)
 
@@ -386,6 +429,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Potential Application**: Document autonomous AI development methodology research
 
 **Sources**:
+
 - [CIFAR AI Catalyst Grants](https://cifar.ca/ai/cifar-ai-catalyst-grants/)
 
 ---
@@ -445,23 +489,27 @@ Conducted comprehensive online search for Canadian grants applicable to:
 ### Why RoyalBit Inc. is Exceptionally Well-Positioned
 
 **1. Triple Advantage**:
+
 - **Technology Innovation** (Forge + Warmup Protocol)
 - **Woman-Owned Business** (51% Kantia)
 - **Quebec Location** (federal + provincial + municipal programs)
 
 **2. Proven Track Record**:
+
 - v1.0.0 built autonomously in 2 weeks ✅
 - ZERO bugs shipped, 100% test coverage ✅
 - Open source publication (MIT license) ✅
 - SR&ED research documented (1,420+ lines) ✅
 
 **3. Measurable Impact**:
+
 - 3-4x development velocity
 - 0% rework (vs. industry 30-50%)
 - $40K-$132K/year enterprise savings potential
 - 97% reduction in human oversight
 
 **4. Multiple Grant Streams**:
+
 - Federal: IRAP, AI Compute Fund, SR&ED
 - Provincial: PROMPT, PSO, Digital Transformation
 - Municipal: Innovation Fund, PME MTL
@@ -554,22 +602,27 @@ This isn't incremental improvement. This is paradigm shift from 'AI assists deve
 ## 📞 Key Contacts & Resources
 
 ### Federal
+
 - **IRAP**: 1-877-994-4727 | [nrc.canada.ca/irap](https://nrc.canada.ca/en/support-technology-innovation)
 - **AI Compute Fund**: [ised-isde.canada.ca](https://ised-isde.canada.ca/site/ised/en/canadian-sovereign-ai-compute-strategy/ai-compute-access-fund)
 
 ### Quebec
+
 - **Investissement Québec**: [investquebec.com](https://www.investquebec.com)
 - **PROMPT**: [baseline.quebec](https://baseline.quebec/en/new/ai-grants/)
 
 ### Montreal
+
 - **PME MTL**: Local office for SME support programs
 - **City Innovation Programs**: [montreal.ca](https://montreal.ca)
 
 ### Woman-Owned
+
 - **BMO Celebrating Women**: [bmoforwomen.com/grant](https://www.bmoforwomen.com/en/grant/)
 - **Femmessor Quebec**: Quebec women entrepreneur support
 
 ### Grant Search Platforms
+
 - **helloDarwin**: [hellodarwin.com/business-aid/grants-and-funding](https://hellodarwin.com/business-aid/grants-and-funding)
 - **Ryan Funding Database**: [funding.ryan.com](https://funding.ryan.com)
 - **Canada Startups**: [canadastartups.org](https://www.canadastartups.org)
@@ -592,6 +645,7 @@ This isn't incremental improvement. This is paradigm shift from 'AI assists deve
 **This isn't speculation - these are legitimate programs where RoyalBit Inc. is a perfect fit.**
 
 **First Steps**:
+
 1. Call IRAP (1-877-994-4727) - **Do this in January 2026**
 2. Mark calendar: BMO Celebrating Women Grant (August 5-19, 2025)
 3. Continue SR&ED documentation (file with 2025 taxes in June 2026)
@@ -604,6 +658,7 @@ This isn't incremental improvement. This is paradigm shift from 'AI assists deve
 All sources cited above, compiled:
 
 **Federal Programs**:
+
 - [Financial support for technology innovation through NRC IRAP](https://nrc.canada.ca/en/support-technology-innovation/financial-support-technology-innovation-through-nrc-irap)
 - [Industrial Research Assistance Program (IRAP) — Financial Assistance | Program Guide 2025](https://hellodarwin.com/business-aid/programs/nrc-irap)
 - [NRC IRAP Research Grants for Canadian Businesses](https://funding.ryan.com/government-funding/research-development/nrc-irap-research-grants/)
@@ -614,6 +669,7 @@ All sources cited above, compiled:
 - [Innovation Grants in Canada for 2025](https://hellodarwin.com/business-aid/grants-and-funding/innovation)
 
 **Quebec Programs**:
+
 - [R&D Grants in Québec for 2025](https://hellodarwin.com/business-aid/researchers-and-facilities/quebec)
 - [Innovation Grants in Quebec for 2025](https://hellodarwin.com/business-aid/grants-and-funding/innovation/quebec)
 - [Technology Grants in Quebec for 2025](https://hellodarwin.com/business-aid/grants-and-funding/technology/quebec)
@@ -623,6 +679,7 @@ All sources cited above, compiled:
 - [Top Québec Business Grants, Loans, and Tax Credits for 2025](https://funding.ryan.com/blog/government-funding/quebec-business-grants-2025/)
 
 **Montreal Programs**:
+
 - [Montréal's Tech Ecosystem 2025: A Complete Guide to Resources, Communities, and Funding](https://2727coworking.com/articles/montrals-tech-ecosystem-2025-a-complete-guide-to-resources-communities-and-funding)
 - [Grants and Funding in Montreal for 2025](https://hellodarwin.com/business-aid/grants-and-funding/quebec/montreal)
 - [City of Montreal (MTL) Funding Programs | 2025](https://hellodarwin.com/business-aid/organizations/city-montreal)
@@ -632,6 +689,7 @@ All sources cited above, compiled:
 - [Montreal Startup Accelerators, Incubators & Grants: A Guide](https://2727coworking.com/articles/montreal-startup-accelerators-incubators-grants)
 
 **Woman-Owned Business Programs**:
+
 - [55+ Grants for Women Entrepreneurs in 2025: Business Grants for Female-Owned Businesses](https://www.canadastartups.org/2024-grants-for-women-entrepreneurs-55-business-grants-for-female-owned-businesses/)
 - [Celebrating Women Grant | BMO for Women](https://www.bmoforwomen.com/en/grant/)
 - [Business Grants and Funding for Women in Canada for 2025](https://hellodarwin.com/business-aid/grants-and-funding/women)
@@ -641,6 +699,7 @@ All sources cited above, compiled:
 - [Federal funding to help increase opportunities for women in Quebec](https://www.canada.ca/en/women-gender-equality/news/2025/03/federal-funding-to-help-increase-opportunities-for-women-in-quebec-and-build-a-more-resilient-economy-for-everyone-in-canada.html)
 
 **AI & Technology Programs**:
+
 - [Artificial Intelligence Grants and Funding in Canada in 2025](https://hellodarwin.com/business-aid/grants-and-funding/artificial-intelligence)
 - [Top Artificial Intelligence (AI) Grants and Tax Credit Programs in Canada](https://funding.ryan.com/blog/government-funding/top-ai-funding-programs-grants-tax-credits/)
 - [CIFAR AI Catalyst Grants](https://cifar.ca/ai/cifar-ai-catalyst-grants/)

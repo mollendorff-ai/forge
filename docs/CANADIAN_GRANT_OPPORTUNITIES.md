@@ -5,6 +5,7 @@
 **Project Context**: Forge is an open-source YAML formula calculator that solves real business problems (created for internal use at RoyalBit). The **warmup protocol** innovation enables autonomous AI development - a Canadian technological breakthrough with measurable R&D advancement.
 
 **Company Profile**:
+
 - **RoyalBit Inc.** (Montreal, Quebec, Canada)
 - **Ownership**: Kantia (51% - woman-owned), Louis (49%)
 - **Industry**: Software Technology, AI Innovation, Open Source
@@ -21,19 +22,22 @@
 The warmup protocol demonstrated in Forge v1.0.0 represents a **genuine technological breakthrough** with quantifiable advantages:
 
 **Development Velocity Multipliers:**
+
 | Metric | Traditional AI | With Warmup Protocol | Improvement |
-|--------|---------------|---------------------|-------------|
+| ------ | -------------- | -------------------- | ----------- |
 | Execution speed | 3-5x | 5-10x | 2x faster |
 | With context preservation | Single session | 15-20x | Infinite sessions |
 | Autonomous operation | Single task | 30-50x | Complete features |
 | Calendar time | N/A | 50-100x | Weeks → Days |
 
-**Conservative Multiplier: 20-30x**
-**Optimistic Multiplier: 50-100x** (calendar time)
+#### Conservative Multiplier: 20-30x
+
+#### Optimistic Multiplier: 50-100x (calendar time)
 
 ### **Real-World Validation**
 
 **v1.0.0 Development:**
+
 - **Time**: 2 weeks autonomous development
 - **Traditional equivalent**: 3-6 months with same quality bar
 - **Code**: 3,500 lines (implementation) + 2,500 lines (tests)
@@ -42,6 +46,7 @@ The warmup protocol demonstrated in Forge v1.0.0 represents a **genuine technolo
 - **Human intervention**: ~5 architectural questions total
 
 **This Morning's Work (Real Data):**
+
 - **Time**: 4 hours
 - **Deliverables**:
   - 10 e2e tests with test data files
@@ -56,6 +61,7 @@ The warmup protocol demonstrated in Forge v1.0.0 represents a **genuine technolo
 ### **Why This Matters for Grants**
 
 **Innovation Criteria:**
+
 - ✅ Novel methodology (warmup protocol)
 - ✅ Technological uncertainty resolved (context loss problem)
 - ✅ Canadian-developed innovation (Montreal, QC)
@@ -63,6 +69,7 @@ The warmup protocol demonstrated in Forge v1.0.0 represents a **genuine technolo
 - ✅ Competitive advantage quantified
 
 **Competitive Positioning:**
+
 - **Development velocity**: 20-50x faster than traditional teams
 - **Code quality**: Maintained autonomously (ZERO warnings, 100% coverage)
 - **Rework rate**: 0% (vs industry 30-50%)
@@ -70,6 +77,7 @@ The warmup protocol demonstrated in Forge v1.0.0 represents a **genuine technolo
 - **Time to market**: 3-6 months → 2 weeks
 
 **Economic Impact:**
+
 - **Direct**: $130K+ annual SR&ED tax credits
 - **Efficiency**: 3-4x development velocity = competitive moat
 - **Quality**: Zero bugs shipped = reduced support costs
@@ -135,41 +143,41 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
    - **Why**: Young innovative AI companies, commercialization stage
 
 10. **Montreal Open Innovation Subsidy**
-   - **Value**: $50,000 (50% of project)
-   - **Timeline**: Ongoing applications
-   - **Why**: Collaboration opportunities with Montreal ecosystem
+    - **Value**: $50,000 (50% of project)
+    - **Timeline**: Ongoing applications
+    - **Why**: Collaboration opportunities with Montreal ecosystem
 
 11. **Montreal Innovation Fund**
-   - **Value**: Up to $50K (80% coverage)
-   - **Timeline**: Ongoing
-   - **Why**: Innovation commercialization, technological equipment
+    - **Value**: Up to $50K (80% coverage)
+    - **Timeline**: Ongoing
+    - **Why**: Innovation commercialization, technological equipment
 
 12. **PME MTL (Eco-Responsible Practices)**
-   - **Value**: Up to $40K (75% of costs)
-   - **Timeline**: Ongoing
-   - **Why**: Clean tech adoption, sustainable development
+    - **Value**: Up to $40K (75% of costs)
+    - **Timeline**: Ongoing
+    - **Why**: Clean tech adoption, sustainable development
 
 13. **Investissement Québec - Innovation Program**
-   - **Value**: $200K-$500K
-   - **Timeline**: Rolling applications
-   - **Why**: Covers commercialization of warmup protocol methodology
+    - **Value**: $200K-$500K
+    - **Timeline**: Rolling applications
+    - **Why**: Covers commercialization of warmup protocol methodology
 
 ### **Tier 3: Consider for Future (Lower Priority)**
 
 14. **CanExport SMEs** (when reopens)
-   - **Value**: $50,000 (50% costs)
-   - **Timeline**: Closed until further notice, check May 2026
-   - **Why**: If expanding Forge internationally
+    - **Value**: $50,000 (50% costs)
+    - **Timeline**: Closed until further notice, check May 2026
+    - **Why**: If expanding Forge internationally
 
 15. **Scale AI Support Grants**
-   - **Value**: Up to $120,000 through various incubators
-   - **Timeline**: Through partner accelerators
-   - **Why**: AI ecosystem connections
+    - **Value**: Up to $120,000 through various incubators
+    - **Timeline**: Through partner accelerators
+    - **Why**: AI ecosystem connections
 
 16. **Canadian Technology Accelerator**
-   - **Value**: Support, market access, targeted connections
-   - **Timeline**: Apply for 12 global tech hubs
-   - **Focus**: Women-led tech companies (Kantia ✅)
+    - **Value**: Support, market access, targeted connections
+    - **Timeline**: Apply for 12 global tech hubs
+    - **Focus**: Women-led tech companies (Kantia ✅)
 
 ---
 
@@ -178,6 +186,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 ### 1. SR&ED Tax Credits (Federal + Quebec)
 
 #### **Federal SR&ED (2025 MAJOR ENHANCEMENTS!)**
+
 - **Program**: Scientific Research & Experimental Development Tax Incentive
 - **Authority**: Canada Revenue Agency (CRA)
 - **Value**: 35% refundable credit on first $6M of expenditures
@@ -190,6 +199,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 - **Refundable**: YES (cash refund even for pre-revenue companies)
 
 #### **Quebec CRIC** (New for 2025!)
+
 - **Program**: Tax Credit for Research, Innovation and Commercialization
 - **Authority**: Revenu Québec
 - **Rates**:
@@ -199,10 +209,12 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 - **Start Date**: March 25, 2025
 
 #### **Combined Benefit**
+
 - Federal 35% + Quebec 30% = **65% of R&D costs refunded!**
 - For $200K R&D spending: $70K federal + $60K Quebec = **$130K refund**
 
 #### **Eligible Activities for Forge Project**
+
 ✅ Algorithm development (formula evaluation, dependency resolution)
 ✅ Excel formula translation (bidirectional bridge R&D)
 ✅ Autonomous AI protocol development (Experiment 14 in SR&ED log)
@@ -211,6 +223,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 ✅ Capital equipment (new for 2025: development computers!)
 
 #### **Application Process**
+
 1. **Document During Development** (already doing this!)
    - SRED_RESEARCH_LOG.md contains 14 experiments
    - Autonomous AI protocol = Experiment 14
@@ -229,6 +242,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
    - **Total**: $130,000 refundable credits
 
 #### **Links**
+
 - [Canada SR&ED Program](https://www.canada.ca/en/revenue-agency/services/scientific-research-experimental-development-tax-incentive-program.html)
 - [The Ultimate Guide to R&D Tax Credits in Canada for 2025](https://www.chronoplatform.com/blog/rd-tax-credits-in-canada)
 - [Quebec's CRIC Revolution (2025 Guide)](https://boast.ai/en-us/blog/sr-ed/quebecs-cric-revolution-how-the-province-just-transformed-rd-funding-for-2025-and-beyond/)
@@ -239,6 +253,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 ### 2. NRC IRAP (Industrial Research Assistance Program)
 
 #### **Program Overview**
+
 - **Authority**: National Research Council Canada
 - **Purpose**: Support SMEs in R&D and commercialization
 - **Value**: Up to $10M (typically $300K-$500K)
@@ -246,19 +261,23 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 - **Type**: Non-repayable contribution (grant, not loan)
 
 #### **Eligibility**
+
 ✅ RoyalBit qualifies:
+
 - Incorporated in Canada ✅
 - ≤500 employees ✅
 - For-profit SME ✅
 - Technology-driven innovation ✅
 
 #### **Why Forge + Warmup Protocol is Perfect Fit**
+
 - **Innovation**: Autonomous AI development methodology
 - **Commercialization**: Open source + consulting services model
 - **Market Need**: Solving $40K-$132K/year AI hallucination costs
 - **Technical Risk**: Resolved uncertainty in Experiment 14 (SR&ED)
 
 #### **Eligible Project Activities**
+
 ✅ Enhancing warmup protocol with additional autonomous features
 ✅ Building AI agent SDK for protocol-based development
 ✅ Creating training/certification program for autonomous AI development
@@ -266,6 +285,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 ✅ Hiring developers/researchers to advance protocol
 
 #### **Application Process**
+
 1. **Contact ITA** (Industrial Technology Advisor)
    - Phone: 1-877-994-4727
    - Request initial assessment meeting
@@ -286,14 +306,17 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
    - Project start: June 2026
 
 #### **Strategic Pitch**
+
 "The warmup protocol solves a $1B+ industry problem: AI context loss prevents autonomous development. Our innovation enables 3-4x faster development with ZERO bugs. We've proven it works (v1.0.0 case study), published it open source (MIT), and documented the R&D (SRED). Now we need IRAP support to commercialize this Canadian technological breakthrough."
 
 #### **Expected Value**
+
 - **Project Budget**: $400,000 over 18 months
 - **IRAP Contribution**: $300,000 (75%)
 - **Company Investment**: $100,000 (salaries, infrastructure)
 
 #### **Links**
+
 - [NRC IRAP Support for Technology Innovation](https://nrc.canada.ca/en/support-technology-innovation)
 - [NRC IRAP Financial Support](https://nrc.canada.ca/en/support-technology-innovation/financial-support-technology-innovation-through-nrc-irap)
 - [IRAP Program Guide 2025](https://hellodarwin.com/business-aid/programs/nrc-irap)
@@ -303,24 +326,28 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 ### 3. J. Armand Bombardier Excellence Grants for Women Entrepreneurs
 
 #### **Program Overview**
+
 - **Authority**: Quebec government
 - **Purpose**: Recognize innovative tech projects led by women
 - **Value**: $10,000 per company
 - **Eligibility**: 50%+ woman-owned, 1-5 years old, tech innovation
 
 #### **RoyalBit Perfect Fit**
+
 ✅ Kantia owns 51% (woman-owned)
 ✅ Technology innovation (AI development protocol)
 ✅ Quebec-based company
 ✅ Eligible sectors: AI, software, ICT
 
 #### **Application Strategy**
+
 - **Highlight**: Woman-owned tech company solving $40K-$132K/year industry problem
 - **Innovation**: World's first autonomous AI development protocol
 - **Impact**: Open source (MIT), 1,400+ line protocol, production-proven
 - **Timeline**: Check annual application deadlines (typically Q1-Q2)
 
 #### **Links**
+
 - [21 Grants for Women-Owned Businesses](https://www.canadastartups.org/21-grants-for-women-owned-businesses/)
 - [Quebec Women Entrepreneur Grants (2025 Guide)](https://hellodarwin.com/business-aid/programs/grants-women-entrepreneurs)
 
@@ -329,6 +356,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 ### 4. Cartier Women's Initiative Awards ⭐ HIGH VALUE
 
 #### **Program Overview**
+
 - **Authority**: Cartier (International)
 - **Purpose**: Support women-led businesses with global impact potential
 - **Value**: Top prize $100,000, runner-up $30,000
@@ -336,6 +364,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 - **Eligibility**: 50%+ woman-owned or woman-led businesses
 
 #### **Why RoyalBit is Perfect Candidate**
+
 ✅ Kantia owns 51% (woman-owned) ✅
 ✅ Global impact (open source, international applicability)
 ✅ Proven innovation (0% rework vs. industry 30-50%)
@@ -343,6 +372,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 ✅ Novel technological breakthrough (warmup protocol)
 
 #### **Compelling Application Narrative**
+
 - **Innovation**: World's first autonomous AI development protocol
 - **Impact**: Solves $1B+ industry problem (AI context loss)
 - **Results**: 3-4x velocity, ZERO bugs shipped, production-proven
@@ -350,6 +380,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 - **Woman Leadership**: Kantia Tavares (51%) leading Canadian tech innovation
 
 #### **Application Strategy**
+
 1. **Prepare by April 2025:**
    - Refine warmup protocol documentation
    - Create compelling pitch deck
@@ -368,6 +399,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
    - Winner announcement: October-November 2025
 
 #### **Links**
+
 - [Business Grants for Women Canada 2025](https://hellodarwin.com/business-aid/grants-and-funding/women)
 - [Top 3 Business Grants for Women Canada](https://www.reinvestwealth.com/post/top-3-business-grants-for-women-in-canada)
 
@@ -376,30 +408,35 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 ### 5. Women in Technology Venture Fund (BDC)
 
 #### **Program Overview**
+
 - **Authority**: Business Development Bank of Canada (BDC)
 - **Purpose**: Help women-led technology companies grow
 - **Value**: Loans + resources + Series B financing solicitation
 - **Eligibility**: Women-led technology companies (Kantia 51% ✅)
 
 #### **Benefits**
+
 - Loans for technology company growth
 - Resources to boost knowledge and growth
 - Series B financing connections
 - Diversifies tech industry (historically underrepresented)
 
 #### **Why RoyalBit Qualifies**
+
 ✅ Woman-owned (Kantia 51%)
 ✅ Technology company (AI, software, open source)
 ✅ Growth stage (v1.0.0 released, ready to scale)
 ✅ Clear market need ($40K-$132K/year savings potential)
 
 #### **Application Process**
+
 1. Contact BDC Women in Tech Venture Fund
 2. Present warmup protocol innovation
 3. Show traction (v1.0.0 deployment, open source adoption)
 4. Request financing for commercialization
 
 #### **Links**
+
 - [Women Business Grants 2025](https://hellodarwin.com/business-aid/grants-and-funding/women)
 - [BDC Website](https://www.bdc.ca/en)
 
@@ -408,6 +445,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 ### 6. Amber Grant (WomensNet) - Monthly Opportunity
 
 #### **Program Overview**
+
 - **Authority**: WomensNet (US-based, accepts Canadian applicants)
 - **Value**: $10,000 monthly grant
 - **Annual Grand Prize**: $25,000 (one monthly winner selected)
@@ -415,6 +453,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 - **Eligibility**: Woman-owned business (Kantia 51% ✅)
 
 #### **Why Apply Monthly**
+
 - Low barrier to entry
 - Quick application process
 - 12 opportunities per year
@@ -422,6 +461,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 - $10K helps with immediate needs
 
 #### **Application Strategy**
+
 - Set monthly reminder (apply every month!)
 - Rotate application emphasis:
   - Month 1: Innovation angle (warmup protocol breakthrough)
@@ -431,11 +471,13 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
   - Cycle continues...
 
 #### **Expected Value**
+
 - If win 1-2 times in 2026: $10K-$20K
 - Low effort, high return opportunity
 - Supplement other grant applications
 
 #### **Links**
+
 - [21 Women-Owned Business Grants](https://www.canadastartups.org/21-grants-for-women-owned-businesses/)
 
 ---
@@ -443,18 +485,21 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 ### 7. Investissement Québec - PIIA (AI Innovation Program)
 
 #### **Program Overview**
+
 - **Authority**: Investissement Québec
 - **Stream**: Stream 2 for SMEs
 - **Purpose**: AI innovation project subsidies
 - **Value**: Significant subsidies (details vary by project)
 
 #### **Why Apply**
+
 - Core innovation is **autonomous AI development**
 - Proven technological advancement (SR&ED Experiment 14)
 - Measurable results (3-4x velocity, 0% rework vs. industry 30-50%)
 - Broader applicability (any software project can use protocol)
 
 #### **Project Proposal Ideas**
+
 1. **Autonomous AI Agent SDK**
    - Build framework for protocol-based AI agents
    - Enable other companies to replicate our success
@@ -471,12 +516,14 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
    - Next evolution of warmup protocol
 
 #### **Application Timeline**
+
 - **Q4 2025**: Prepare detailed proposal
 - **Q1 2026**: Submit application
 - **Q2 2026**: Funding decision
 - **Q3 2026**: Project start (if approved)
 
 #### **Links**
+
 - [AI Innovation Grant Financing](https://baseline.quebec/en/new/ai-grants/)
 - [Artificial Intelligence (AI) Grants in Québec](https://hellodarwin.com/business-aid/grants-and-funding/artificial-intelligence/quebec)
 
@@ -485,30 +532,36 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 ### 5. Montreal Open Innovation Subsidy Program
 
 #### **Program Overview**
+
 - **Authority**: City of Montreal (Ville de Montréal)
 - **Purpose**: Facilitate startup-enterprise collaborations
 - **Value**: $50,000 (50% of project cost)
 - **Eligibility**: Emerging companies testing innovative solutions
 
 #### **Application Strategy**
+
 Partner with established Montreal organization to:
+
 - Test warmup protocol in their software development
 - Document results (velocity, quality, cost savings)
 - Case study for protocol effectiveness
 - Win-win: They get productivity boost, we get validation
 
 #### **Potential Partners**
+
 - Montreal tech companies (e.g., Lightspeed, Sonder, Breather)
 - AI research labs (Mila, Element AI spinoffs)
 - Accelerators (FounderFuel, Techstars Montreal)
 
 #### **Timeline**
+
 - **Q1 2026**: Identify partner
 - **Q2 2026**: Develop proposal together
 - **Q3 2026**: Submit application
 - **Q4 2026**: Project execution (if approved)
 
 #### **Links**
+
 - [Montreal Open Innovation Subsidy Program](https://montreal.ca/en/programs/open-innovation-subsidy-program-start-companies)
 - [City of Montreal Funding Programs (2025)](https://hellodarwin.com/business-aid/organizations/city-montreal)
 
@@ -517,12 +570,14 @@ Partner with established Montreal organization to:
 ### 6. Investissement Québec - Innovation Program
 
 #### **Program Overview**
+
 - **Authority**: Investissement Québec
 - **Purpose**: Development, validation, prototyping, commercialization
 - **Value**: $200K-$500K (non-repayable or repayable support)
 - **Coverage**: Varies by project stage
 
 #### **Project Idea: Warmup Protocol Commercialization**
+
 - Develop commercial support offering
 - Create training materials
 - Build consulting practice
@@ -530,11 +585,13 @@ Partner with established Montreal organization to:
 - Document ROI case studies
 
 #### **Application Timeline**
+
 - **Rolling applications** (apply when ready)
 - Prepare comprehensive business plan
 - Include v1.0.0 case study as proof of concept
 
 #### **Links**
+
 - [Innovation Grants in Quebec for 2025](https://hellodarwin.com/business-aid/grants-and-funding/innovation/quebec)
 - [Top Québec Business Grants (2025)](https://funding.ryan.com/blog/government-funding/quebec-business-grants-2025/)
 
@@ -543,6 +600,7 @@ Partner with established Montreal organization to:
 ### 9. Prompt Partenar-IA (Collaborative AI Innovation)
 
 #### **Program Overview**
+
 - **Authority**: Investissement Québec
 - **Purpose**: Collaborative artificial intelligence projects
 - **Value**: Up to $1.5M
@@ -550,12 +608,14 @@ Partner with established Montreal organization to:
 - **Focus**: Partnerships between SMEs, large corporations for AI advancement
 
 #### **Why Warmup Protocol Qualifies**
+
 ✅ Core innovation is autonomous AI development methodology
 ✅ Collaborative potential (can partner with other companies)
 ✅ Advances AI technology readiness level (TRL)
 ✅ Novel approach to AI-assisted development
 
 #### **Project Ideas**
+
 1. **Enterprise Pilot Program**
    - Partner with Quebec enterprise to deploy warmup protocol
    - Document productivity gains (3-4x velocity target)
@@ -568,12 +628,14 @@ Partner with established Montreal organization to:
    - Increase TRL from 7 (production-proven) to 9 (global deployment)
 
 #### **Application Timeline**
+
 - Check for 2025 intake dates (collaborative innovation call)
 - Identify partner by Q1 2026
 - Co-develop proposal Q2 2026
 - Submit Q2-Q3 2026
 
 #### **Links**
+
 - [AI Grants Quebec 2025](https://baseline.quebec/en/new/ai-grants/)
 - [New AI Grants 2025 Quebec](https://www.pipemind.com/en/post/new-ai-grants-2025-how-quebec-businesses-can-fund-their-artificial-intelligence-projects)
 
@@ -582,6 +644,7 @@ Partner with established Montreal organization to:
 ### 10. Telegraph I Investment Fund (Quebec AI)
 
 #### **Program Overview**
+
 - **Authority**: Quebec Government (Investissement Québec)
 - **Purpose**: Support young innovative AI companies
 - **Value**: $250K-$750K (average investment per company)
@@ -590,12 +653,14 @@ Partner with established Montreal organization to:
 - **Focus**: High growth potential AI companies
 
 #### **Why Forge Qualifies**
+
 ✅ AI development innovation (warmup protocol)
 ✅ Young company, high growth potential
 ✅ Facilitates commercialization and internationalization
 ✅ Key stage of development (post-v1.0.0 launch)
 
 #### **Investment Use Cases**
+
 - Hire developers to enhance warmup protocol
 - Build commercial AI agent SDK
 - Expand documentation and training materials
@@ -603,6 +668,7 @@ Partner with established Montreal organization to:
 - International expansion (global conferences, outreach)
 
 #### **Application Process**
+
 1. Identify private/institutional co-investors
 2. Prepare pitch deck emphasizing:
    - Novel AI methodology (warmup protocol)
@@ -613,12 +679,14 @@ Partner with established Montreal organization to:
 4. If matched: 1:1 government investment
 
 #### **Expected Timeline**
+
 - Q2 2026: Prepare materials
 - Q3 2026: Identify co-investors
 - Q4 2026: Submit application
 - 2027: Funding decision & deployment
 
 #### **Links**
+
 - [Telegraph I Fund Announcement](https://www.quebec.ca/nouvelles/actualites/details/accelerer-linnovation-et-ladoption-de-lintelligence-artificielle-66025)
 - [New AI Grants 2025 Quebec](https://www.pipemind.com/en/post/new-ai-grants-2025-how-quebec-businesses-can-fund-their-artificial-intelligence-projects)
 
@@ -627,6 +695,7 @@ Partner with established Montreal organization to:
 ### 11. Montreal Innovation Fund (City of Montreal)
 
 #### **Program Overview**
+
 - **Authority**: City of Montreal - Economic Development
 - **Program**: Innovation, Productivity, and Sustainable Development Fund
 - **Value**: Up to $50,000
@@ -634,18 +703,21 @@ Partner with established Montreal organization to:
 - **Focus**: Innovation commercialization, technological equipment, clean tech
 
 #### **Eligible Expenses**
+
 ✅ Innovation commercialization (warmup protocol methodology)
 ✅ Technological equipment (development infrastructure)
 ✅ Clean technologies (efficient cloud-native development)
 ✅ Sustainable development practices (open source contribution)
 
 #### **Why Forge Qualifies**
+
 - Commercializing Canadian innovation (warmup protocol)
 - Technology advancement (AI-assisted development)
 - Open source contribution (sustainability through knowledge sharing)
 - Montreal-based company
 
 #### **Application Strategy**
+
 - **Project**: "Warmup Protocol Commercialization & Training Program"
 - **Budget**: $62,500 total ($50K grant @ 80% coverage + $12.5K company)
 - **Deliverables**:
@@ -656,12 +728,14 @@ Partner with established Montreal organization to:
   - Technology equipment (servers, dev tools)
 
 #### **Timeline**
+
 - Q1 2026: Prepare application
 - Q2 2026: Submit to City of Montreal
 - Q3 2026: Funding decision
 - Q4 2026-2027: Project execution
 
 #### **Links**
+
 - [Montreal Grants and Funding 2025](https://hellodarwin.com/business-aid/grants-and-funding/quebec/montreal)
 - [Montreal Tech Ecosystem 2025](https://2727coworking.com/articles/montrals-tech-ecosystem-2025-a-complete-guide-to-resources-communities-and-funding)
 
@@ -670,18 +744,21 @@ Partner with established Montreal organization to:
 ### 12. PME MTL (Eco-Responsible Practices & Clean Tech)
 
 #### **Program Overview**
+
 - **Authority**: PME MTL (Montreal SME support organization)
 - **Value**: Up to $40K per business
 - **Coverage**: Up to 75% of eligible expenses
 - **Focus**: Eco-responsible practices, clean technology acquisition
 
 #### **How Forge Fits**
+
 - **Eco-Responsible Angle**: Open source reduces wasteful redevelopment
 - **Clean Tech**: Efficient development methodology (3-4x velocity = 3-4x less computing resources)
 - **Sustainability**: Knowledge sharing through MIT license
 - **Reduced Waste**: 0% rework vs. industry 30-50% means less wasted developer time/energy
 
 #### **Project Ideas**
+
 1. **Green Development Infrastructure**
    - Energy-efficient development servers
    - Carbon-neutral cloud hosting
@@ -693,11 +770,13 @@ Partner with established Montreal organization to:
    - Publish sustainability metrics
 
 #### **Application Timeline**
+
 - **Ongoing applications**
 - Prepare when eco-responsible project is planned
 - Target: Q2-Q3 2026
 
 #### **Links**
+
 - [Montreal Grants 2025](https://hellodarwin.com/business-aid/grants-and-funding/quebec/montreal)
 
 ---
@@ -705,24 +784,28 @@ Partner with established Montreal organization to:
 ### 13. Canadian Technology Accelerator (Global Expansion)
 
 #### **Program Overview**
+
 - **Authority**: Government of Canada (Trade Commissioner Service)
 - **Purpose**: Support, market access, targeted connections for tech companies
 - **Focus**: 12 global tech hubs
 - **Special Priority**: Women-led technology companies (Kantia 51% ✅)
 
 #### **Benefits**
+
 - Access to global tech hubs (Silicon Valley, London, Berlin, Tokyo, etc.)
 - Targeted connections with investors, partners, customers
 - Market research and intelligence
 - Soft-landing support in target markets
 
 #### **Why RoyalBit Qualifies**
+
 ✅ Woman-led (Kantia 51%)
 ✅ Technology company with existing product (Forge v1.0.0)
 ✅ International applicability (warmup protocol works globally)
 ✅ Export potential (consulting, training, SDK licensing)
 
 #### **Application Strategy**
+
 - Apply when ready for international expansion
 - Target hubs with strong AI/dev tools ecosystems:
   - Silicon Valley (largest market)
@@ -731,10 +814,12 @@ Partner with established Montreal organization to:
   - Tel Aviv (innovation ecosystem)
 
 #### **Timeline**
+
 - **2027+**: After establishing Canadian traction
 - Prerequisite: Case studies, proven commercialization
 
 #### **Links**
+
 - [Women Business Grants 2025](https://hellodarwin.com/business-aid/grants-and-funding/women)
 - [Trade Commissioner Service](https://www.tradecommissioner.gc.ca)
 
@@ -840,6 +925,7 @@ Partner with established Montreal organization to:
 ## 📊 Projected Grant Revenue (3-Year Outlook)
 
 ### **Conservative Scenario**
+
 | Program | Year 1 (2026) | Year 2 (2027) | Year 3 (2028) | Total |
 |---------|---------------|---------------|---------------|--------|
 | SR&ED (Federal) | $70K | $80K | $90K | $240K |
@@ -849,6 +935,7 @@ Partner with established Montreal organization to:
 | **TOTAL** | **$290K** | **$300K** | **$170K** | **$760K** |
 
 ### **Optimistic Scenario** (NEW - with women-owned + AI programs)
+
 | Program | Year 1 (2026) | Year 2 (2027) | Year 3 (2028) | Total |
 |---------|---------------|---------------|---------------|-------|
 | SR&ED + CRIC | $130K | $150K | $170K | $450K |
@@ -879,27 +966,32 @@ Partner with established Montreal organization to:
 ## 🎯 Key Success Factors
 
 ### **1. Document Everything**
+
 ✅ Already doing this with SRED_RESEARCH_LOG.md
 ✅ Warmup protocol documents methodology
 ✅ v1.0.0 case study proves effectiveness
 
 ### **2. Emphasize Woman-Owned**
+
 - Kantia owns 51% → qualifies for woman-owned grants
 - Highlight in ALL applications
 - Seek out woman entrepreneur programs first
 
 ### **3. Leverage Open Source**
+
 - MIT license = Canadian innovation shared globally
 - Shows commitment to knowledge dissemination
 - Strengthens SR&ED "advancement of knowledge" criterion
 
 ### **4. Quantify Impact**
+
 - $40K-$132K/year savings demonstrated
 - 3-4x development velocity measured
 - 0% rework vs. industry 30-50%
 - ZERO bugs shipped (production quality)
 
 ### **5. Canadian Technological Breakthrough**
+
 - World's first autonomous AI development protocol
 - Solves $1B+ industry problem (AI context loss)
 - Made in Quebec, benefits Canadian tech sector
@@ -911,12 +1003,14 @@ Partner with established Montreal organization to:
 ### **For Grant Applications**
 
 **DO:**
+
 - Mention Forge as tool solving real business problems
 - Reference "internal product development" (true)
 - Highlight open source contribution (MIT license)
 - Emphasize R&D methodology advancement
 
 **DON'T (Yet):**
+
 - Name specific client products (Mouvify)
 - Disclose proprietary client information
 - Make commitments that conflict with client work
@@ -925,10 +1019,12 @@ Partner with established Montreal organization to:
 
 ### **Regarding Mouvify Reference**
 
-**What to say in applications:**
+#### What to say in applications
+
 "Forge was created to solve challenges we encountered in our internal software development projects, specifically around financial modeling accuracy and AI-assisted development quality control. The tool has been battle-tested in production use and is now being released as open source to benefit the broader Canadian tech community."
 
 **What NOT to say:**
+
 - Don't name Mouvify in grant applications (yet)
 - Don't disclose client-specific details
 - Don't reveal proprietary business logic
@@ -936,6 +1032,7 @@ Partner with established Montreal organization to:
 ### **Timeline Alignment**
 
 Most grants require **active R&D or commercialization work**. Plan applications to coincide with:
+
 - SR&ED: Document 2025 work, file mid-2026
 - IRAP: Apply Q1 2026 for 18-month project starting Q2 2026
 - PIIA: Apply Q1 2026 for multi-year AI innovation project
@@ -965,18 +1062,22 @@ Most grants require **active R&D or commercialization work**. Plan applications 
 ### **Key Contacts**
 
 **NRC IRAP**
+
 - Phone: 1-877-994-4727
 - Website: [nrc.canada.ca/irap](https://nrc.canada.ca/en/support-technology-innovation)
 
 **Investissement Québec**
+
 - Website: [investquebec.com](https://www.investquebec.com)
 - Montreal office: Contact for PIIA and Innovation Program
 
 **Montreal Economic Development**
+
 - Website: [montreal.ca/innovation](https://montreal.ca)
 - Program: Open Innovation Subsidy
 
 **SR&ED Consultants** (consider hiring)
+
 - Boast.ai: [boast.ai/en-ca](https://boast.ai/en-ca)
 - Ayming Canada: [ayming.ca](https://www.ayming.ca)
 - Ryan: [funding.ryan.com](https://funding.ryan.com)
@@ -988,6 +1089,7 @@ Most grants require **active R&D or commercialization work**. Plan applications 
 **Realistic 3-Year Grant Revenue**: $760K - $1.2M
 
 **Key Enablers**:
+
 - Woman-owned company (51% Kantia)
 - Canadian tech innovation (warmup protocol)
 - Open source contribution (MIT license)
@@ -1004,6 +1106,7 @@ Start with SR&ED (already documented!) and NRC IRAP (highest value, best fit). W
 ## 📚 Sources
 
 ### Federal Programs
+
 - [NRC IRAP Support for Technology Innovation](https://nrc.canada.ca/en/support-technology-innovation)
 - [NRC IRAP Financial Support](https://nrc.canada.ca/en/support-technology-innovation/financial-support-technology-innovation-through-nrc-irap)
 - [IRAP Program Guide 2025](https://hellodarwin.com/business-aid/programs/nrc-irap)
@@ -1016,6 +1119,7 @@ Start with SR&ED (already documented!) and NRC IRAP (highest value, best fit). W
 - [The Ultimate Guide to R&D Tax Credits in Canada for 2025](https://www.chronoplatform.com/blog/rd-tax-credits-in-canada)
 
 ### Quebec Provincial Programs
+
 - [Quebec's CRIC Revolution 2025](https://boast.ai/blog/sr-ed/quebecs-cric-revolution-how-the-province-just-transformed-rd-funding-for-2025-and-beyond/)
 - [SR&ED Tax Credit Quebec Overhaul](https://ryan.com/canada/about-ryan/articles/2025/sred-tax-credit-quebec-overhaul/)
 - [Top Quebec Business Grants 2025](https://funding.ryan.com/blog/government-funding/quebec-business-grants-2025/)
@@ -1029,12 +1133,14 @@ Start with SR&ED (already documented!) and NRC IRAP (highest value, best fit). W
 - [Quebec Digital Transformation Grants 2025](https://gurussolutions.com/2025-quebec-digital-transformation-grants)
 
 ### Montreal Municipal Programs
+
 - [Montreal Grants and Funding 2025](https://hellodarwin.com/business-aid/grants-and-funding/quebec/montreal)
 - [Montreal Open Innovation Subsidy Program](https://montreal.ca/en/programs/open-innovation-subsidy-program-start-companies)
 - [Montreal Tech Ecosystem 2025](https://2727coworking.com/articles/montrals-tech-ecosystem-2025-a-complete-guide-to-resources-communities-and-funding)
 - [City of Montreal Funding Programs 2025](https://hellodarwin.com/business-aid/organizations/city-montreal)
 
 ### Women-Owned Business Programs
+
 - [Business Grants for Women Canada 2025](https://hellodarwin.com/business-aid/grants-and-funding/women)
 - [21 Grants for Women-Owned Businesses](https://www.canadastartups.org/21-grants-for-women-owned-businesses/)
 - [2025 Grants for Women-Owned Small Businesses](https://hellodarwin.com/business-aid/grants-and-funding/small-businesses/women-entrepreneurs)
@@ -1045,6 +1151,7 @@ Start with SR&ED (already documented!) and NRC IRAP (highest value, best fit). W
 - [Trade Commissioner Service](https://www.tradecommissioner.gc.ca)
 
 ### General Resources
+
 - [CanExport SMEs Program Guide 2025](https://hellodarwin.com/business-aid/programs/canexport-smes)
 - [BDC Website](https://www.bdc.ca/en)
 
@@ -1057,6 +1164,7 @@ Start with SR&ED (already documented!) and NRC IRAP (highest value, best fit). W
 **Owner**: RoyalBit Inc. (Kantia 51%, Louis 49%)
 
 **Changes in v2.0:**
+
 - Added 2025 SR&ED enhancements (expenditure limit doubled to $6M, max refund $2.1M)
 - Added women-owned business programs (Cartier, BDC Women in Tech, Amber Grant)
 - Added Quebec AI programs (Telegraph I Fund $250K-$750K, Prompt Partenar-IA up to $1.5M)

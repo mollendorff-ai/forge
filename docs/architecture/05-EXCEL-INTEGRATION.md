@@ -36,7 +36,7 @@ This document provides comprehensive coverage of Forge's **bidirectional Excel i
 
 ### Design Philosophy
 
-**"Excel compatibility = Excel data structures"**
+Excel compatibility = Excel data structures
 
 Forge achieves trivial bidirectional conversion by mapping YAML structures 1:1 with Excel:
 
@@ -46,6 +46,7 @@ Forge achieves trivial bidirectional conversion by mapping YAML structures 1:1 w
 - **Aggregations** ↔ Excel summary formulas (=SUM(A:A))
 
 This 1:1 mapping ensures:
+
 - No information loss during conversion
 - Predictable round-trip behavior
 - Excel users feel at home
@@ -54,6 +55,7 @@ This 1:1 mapping ensures:
 ### Key Features
 
 **Export (YAML → Excel):**
+
 - ✅ Multiple tables → Multiple worksheets
 - ✅ Column arrays → Excel columns with headers
 - ✅ Row-wise formulas → Excel cell formulas (=A2-B2)
@@ -63,6 +65,7 @@ This 1:1 mapping ensures:
 - ✅ Data types: Number, Text, Date, Boolean
 
 **Import (Excel → YAML):**
+
 - ✅ Multiple worksheets → Single YAML with tables
 - ✅ Excel columns → Column arrays
 - ✅ Excel formulas → YAML formula syntax
@@ -124,21 +127,25 @@ importer --> reverse : translate formulas
 reverse --> model : create ParsedModel
 
 note right of translator
-  **YAML → Excel**
+
+#### YAML → Excel
+
   =revenue - cogs
   ↓
   =A2-B2
 end note
 
 note left of reverse
-  **Excel → YAML**
+
+#### Excel → YAML
+
   =A2-B2
   ↓
   =revenue - cogs
 end note
 
 @enduml
-```
+```text
 
 ### Conversion Guarantees
 
@@ -151,10 +158,10 @@ end note
 
 **Round-trip Properties:**
 
-```
+```text
 YAML → Excel → YAML ≈ Original YAML
 Excel → YAML → Excel ≈ Original Excel
-```
+```text
 
 **Known Limitations:**
 
@@ -230,7 +237,7 @@ partition "Scalars Export" {
 stop
 
 @enduml
-```
+```text
 
 ### ExcelExporter Implementation
 
@@ -250,7 +257,7 @@ impl ExcelExporter {
     }
 
     pub fn export(&self, output_path: &Path) -> ForgeResult<()>
-```
+```text
 
 **Main Export Flow:**
 
@@ -272,11 +279,11 @@ pub fn export(&self, output_path: &Path) -> ForgeResult<()> {
     // Save workbook to file
     workbook
         .save(output_path)
-        .map_err(|e| ForgeError::IO(format!("Failed to save Excel file: {}", e)))?;
+ .map_err(|e| ForgeError::IO(format!("Failed to save Excel file: {}", e)))?;
 
     Ok(())
 }
-```
+```text
 
 ### Table Export Process
 
@@ -300,7 +307,7 @@ for name in table.row_formulas.keys() {
 }
 
 column_names.sort(); // Alphabetical order for now
-```
+```text
 
 **Column Mapping Creation:**
 
@@ -310,12 +317,12 @@ column_names.sort(); // Alphabetical order for now
 let column_map: HashMap<String, String> = column_names
     .iter()
     .enumerate()
-    .map(|(idx, name)| {
+ .map(|(idx, name)| {
         let col_letter = super::FormulaTranslator::column_index_to_letter(idx);
         (name.clone(), col_letter)
     })
     .collect();
-```
+```text
 
 **Header Row Writing:**
 
@@ -325,9 +332,9 @@ let column_map: HashMap<String, String> = column_names
 for (col_idx, col_name) in column_names.iter().enumerate() {
     worksheet
         .write_string(0, col_idx as u16, col_name)
-        .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
+ .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
 }
-```
+```text
 
 **Data vs Formula Cell Handling:**
 
@@ -343,7 +350,7 @@ for row_idx in 0..row_count {
             let excel_formula = translator.translate_row_formula(formula, excel_row)?;
             worksheet
                 .write_formula(excel_row - 1, col_idx as u16, Formula::new(&excel_formula))
-                .map_err(|e| ForgeError::Export(format!("Failed to write formula: {}", e)))?;
+ .map_err(|e| ForgeError::Export(format!("Failed to write formula: {}", e)))?;
         } else if let Some(column) = table.columns.get(col_name) {
             // Write data value
             self.write_cell_value(
@@ -356,7 +363,7 @@ for row_idx in 0..row_count {
         }
     }
 }
-```
+```text
 
 ### Data Type Export
 
@@ -396,7 +403,7 @@ fn write_cell_value(
     }
     Ok(())
 }
-```
+```text
 
 ### Scalars Export
 
@@ -438,17 +445,17 @@ fn export_scalars(&self, workbook: &mut Workbook) -> ForgeResult<()> {
 
     Ok(())
 }
-```
+```text
 
 **Scalars Layout:**
 
-```
+```text
 | Name          | Value    | Formula              |
 |---------------|----------|----------------------|
 | total_revenue | 50000    | =SUM(financials.revenue) |
 | avg_profit    | 1250     | =AVERAGE(financials.profit) |
 | target_margin | 0.25     | null                 |
-```
+```text
 
 ---
 
@@ -518,7 +525,7 @@ partition "Table Processing" {
 stop
 
 @enduml
-```
+```text
 
 ### ExcelImporter Implementation
 
@@ -538,7 +545,7 @@ impl ExcelImporter {
             path: path.as_ref().to_path_buf(),
         }
     }
-```
+```text
 
 **Main Import Flow:**
 
@@ -547,7 +554,7 @@ impl ExcelImporter {
 pub fn import(&self) -> ForgeResult<ParsedModel> {
     // Open Excel workbook
     let mut workbook: Xlsx<_> = open_workbook(&self.path)
-        .map_err(|e| ForgeError::IO(format!("Failed to open Excel file: {}", e)))?;
+ .map_err(|e| ForgeError::IO(format!("Failed to open Excel file: {}", e)))?;
 
     // Create model
     let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
@@ -564,7 +571,7 @@ pub fn import(&self) -> ForgeResult<ParsedModel> {
 
     Ok(model)
 }
-```
+```text
 
 ### Table Sheet Processing
 
@@ -594,7 +601,7 @@ for col in 0..width {
         column_names.push(format!("col_{}", col));
     }
 }
-```
+```text
 
 **Data Collection:**
 
@@ -620,7 +627,7 @@ for row in 1..height {
         }
     }
 }
-```
+```text
 
 **Formula Detection and Translation:**
 
@@ -664,13 +671,13 @@ for (col_idx, col_name) in column_names.iter().enumerate() {
     // Regular data column - convert to ColumnValue
     let data = &columns_data[col_name];
     // Skip if all data is empty (formula columns may show as empty/zero values)
-    if data.iter().all(|cell| matches!(cell, Data::Empty)) {
+ if data.iter().all(|cell| matches!(cell, Data::Empty)) {
         continue;
     }
     let column_value = self.convert_to_column_value(data)?;
     table.add_column(Column::new(col_name.clone(), column_value));
 }
-```
+```text
 
 ### Data Type Detection
 
@@ -682,15 +689,15 @@ fn convert_to_column_value(&self, data: &[Data]) -> ForgeResult<ColumnValue> {
     // Detect column type from first non-empty cell
     let first_type = data
         .iter()
-        .find(|cell| !matches!(cell, Data::Empty))
-        .ok_or_else(|| ForgeError::Import("Column has no data".to_string()))?;
+ .find(|cell| !matches!(cell, Data::Empty))
+ .ok_or_else(|| ForgeError::Import("Column has no data".to_string()))?;
 
     match first_type {
         Data::Float(_) | Data::Int(_) => {
             // Number column
             let numbers: Vec<f64> = data
                 .iter()
-                .map(|cell| match cell {
+ .map(|cell| match cell {
                     Data::Float(f) => *f,
                     Data::Int(i) => *i as f64,
                     Data::Empty => 0.0, // Default for empty cells
@@ -701,14 +708,14 @@ fn convert_to_column_value(&self, data: &[Data]) -> ForgeResult<ColumnValue> {
         }
         Data::String(_) => {
             // Text column
-            let texts: Vec<String> = data.iter().map(|cell| cell.to_string()).collect();
+ let texts: Vec<String> = data.iter().map(|cell| cell.to_string()).collect();
             Ok(ColumnValue::Text(texts))
         }
         Data::Bool(_) => {
             // Boolean column
             let bools: Vec<bool> = data
                 .iter()
-                .map(|cell| match cell {
+ .map(|cell| match cell {
                     Data::Bool(b) => *b,
                     Data::Empty => false,
                     _ => false,
@@ -718,12 +725,12 @@ fn convert_to_column_value(&self, data: &[Data]) -> ForgeResult<ColumnValue> {
         }
         _ => {
             // Default to text
-            let texts: Vec<String> = data.iter().map(|cell| cell.to_string()).collect();
+ let texts: Vec<String> = data.iter().map(|cell| cell.to_string()).collect();
             Ok(ColumnValue::Text(texts))
         }
     }
 }
-```
+```text
 
 ### Scalars Import
 
@@ -781,7 +788,7 @@ fn process_scalars_sheet(
 
     Ok(())
 }
-```
+```text
 
 ---
 
@@ -832,7 +839,7 @@ partition "Variable Replacement" {
 stop
 
 @enduml
-```
+```text
 
 **FormulaTranslator Structure:**
 
@@ -848,7 +855,7 @@ impl FormulaTranslator {
         Self { column_map }
     }
 }
-```
+```text
 
 **Translation Algorithm:**
 
@@ -865,7 +872,7 @@ pub fn translate_row_formula(
     // Pattern to match variable names (alphanumeric + underscore, but not starting with digit)
     // Also matches table.column references
     let var_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)\b")
-        .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+ .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
 
     let mut result = formula_body.to_string();
 
@@ -901,7 +908,7 @@ pub fn translate_row_formula(
 
     Ok(format!("={}", result))
 }
-```
+```text
 
 **Excel Function Detection:**
 
@@ -976,7 +983,7 @@ fn is_excel_function(&self, word: &str) -> bool {
             | "MATCH"
     )
 }
-```
+```text
 
 **Translation Examples:**
 
@@ -1037,7 +1044,7 @@ partition "Three-Phase Translation" {
 stop
 
 @enduml
-```
+```text
 
 **ReverseFormulaTranslator Structure:**
 
@@ -1053,7 +1060,7 @@ impl ReverseFormulaTranslator {
         Self { column_map }
     }
 }
-```
+```text
 
 **Translation Algorithm:**
 
@@ -1083,7 +1090,7 @@ fn translate_formula_body(&self, formula: &str) -> ForgeResult<String> {
 
     Ok(result)
 }
-```
+```text
 
 **Phase 1: Sheet References**
 
@@ -1091,8 +1098,8 @@ fn translate_formula_body(&self, formula: &str) -> ForgeResult<String> {
 // From: reverse_formula_translator.rs:52-96
 fn translate_sheet_references(&self, formula: &str) -> ForgeResult<String> {
     // Pattern: SheetName!A1 or 'Sheet Name'!A1 or Sheet!columnName2 (with row number)
-    let sheet_ref_pattern = Regex::new(r"('[^']+'|[\w]+)!([\w]+)\d+")
-        .map_err(|e| ForgeError::Import(format!("Regex error: {}", e)))?;
+ let sheet_ref_pattern = Regex::new(r"('[^']+'|[\w]+)!([\w]+)\d+")
+ .map_err(|e| ForgeError::Import(format!("Regex error: {}", e)))?;
 
     let mut result = formula.to_string();
 
@@ -1113,11 +1120,11 @@ fn translate_sheet_references(&self, formula: &str) -> ForgeResult<String> {
             let table_name = self.sanitize_name(clean_sheet);
 
             // Check if col_ref is a column letter (A, B, AA) or column name
-            let col_name = if col_ref.chars().all(|c| c.is_ascii_uppercase()) {
+ let col_name = if col_ref.chars().all(|c| c.is_ascii_uppercase()) {
                 // It's a column letter - map it
                 self.column_map
                     .get(col_ref)
-                    .map(|s| s.as_str())
+ .map(|s| s.as_str())
                     .unwrap_or(col_ref)
             } else {
                 // It's already a column name - use as is
@@ -1132,7 +1139,7 @@ fn translate_sheet_references(&self, formula: &str) -> ForgeResult<String> {
 
     Ok(result)
 }
-```
+```text
 
 **Phase 2: Range References**
 
@@ -1140,8 +1147,8 @@ fn translate_sheet_references(&self, formula: &str) -> ForgeResult<String> {
 // From: reverse_formula_translator.rs:98-151
 fn translate_range_references(&self, formula: &str) -> ForgeResult<String> {
     // Pattern: A:A (column range) or A1:A10 (cell range with same column)
-    let range_pattern = Regex::new(r"\b([A-Z]+):([A-Z]+)\b|\b([A-Z]+)(\d+):([A-Z]+)(\d+)\b")
-        .map_err(|e| ForgeError::Import(format!("Regex error: {}", e)))?;
+ let range_pattern = Regex::new(r"\b([A-Z]+):([A-Z]+)\b|\b([A-Z]+)(\d+):([A-Z]+)(\d+)\b")
+ .map_err(|e| ForgeError::Import(format!("Regex error: {}", e)))?;
 
     let mut result = formula.to_string();
 
@@ -1181,7 +1188,7 @@ fn translate_range_references(&self, formula: &str) -> ForgeResult<String> {
             let col_name = self
                 .column_map
                 .get(col_letter)
-                .map(|s| s.as_str())
+ .map(|s| s.as_str())
                 .unwrap_or(col_letter);
 
             result.replace_range(match_obj.range(), col_name);
@@ -1190,7 +1197,7 @@ fn translate_range_references(&self, formula: &str) -> ForgeResult<String> {
 
     Ok(result)
 }
-```
+```text
 
 **Phase 3: Cell References**
 
@@ -1199,7 +1206,7 @@ fn translate_range_references(&self, formula: &str) -> ForgeResult<String> {
 fn translate_cell_references(&self, formula: &str) -> ForgeResult<String> {
     // Pattern: Column letter followed by row number (A1, B2, AA10, etc.)
     let cell_ref_pattern = Regex::new(r"\b([A-Z]+)(\d+)\b")
-        .map_err(|e| ForgeError::Import(format!("Regex error: {}", e)))?;
+ .map_err(|e| ForgeError::Import(format!("Regex error: {}", e)))?;
 
     let mut result = formula.to_string();
 
@@ -1219,7 +1226,7 @@ fn translate_cell_references(&self, formula: &str) -> ForgeResult<String> {
             let col_name = self
                 .column_map
                 .get(col_letter)
-                .map(|s| s.as_str())
+ .map(|s| s.as_str())
                 .unwrap_or(col_letter);
 
             result.replace_range(match_obj.range(), col_name);
@@ -1228,7 +1235,7 @@ fn translate_cell_references(&self, formula: &str) -> ForgeResult<String> {
 
     Ok(result)
 }
-```
+```text
 
 **Translation Examples:**
 
@@ -1252,7 +1259,9 @@ fn translate_cell_references(&self, formula: &str) -> ForgeResult<String> {
 **Round-Trip Preservation:**
 
 ```yaml
+
 # Original YAML
+
 tables:
   financials:
     columns:
@@ -1261,12 +1270,14 @@ tables:
     row_formulas:
       gross_profit: "=revenue - cogs"
       margin: "=gross_profit / revenue"
-```
+```text
 
 **After Export → Import:**
 
 ```yaml
+
 # Imported YAML (after round-trip)
+
 tables:
   financials:
     columns:
@@ -1275,7 +1286,7 @@ tables:
     row_formulas:
       gross_profit: "=revenue - cogs"  # Preserved!
       margin: "=gross_profit / revenue"  # Preserved!
-```
+```text
 
 **What Gets Lost:**
 
@@ -1312,7 +1323,7 @@ pub fn column_index_to_letter(index: usize) -> String {
 
     result
 }
-```
+```text
 
 **Algorithm Explanation:**
 
@@ -1339,7 +1350,9 @@ The algorithm converts 0-based indices to Excel's A, B, ..., Z, AA, AB, ... syst
 
 ```rust
 // From: formula_translator.rs:209-216
+
 #[test]
+
 fn test_column_index_to_letter() {
     assert_eq!(FormulaTranslator::column_index_to_letter(0), "A");
     assert_eq!(FormulaTranslator::column_index_to_letter(1), "B");
@@ -1348,7 +1361,7 @@ fn test_column_index_to_letter() {
     assert_eq!(FormulaTranslator::column_index_to_letter(27), "AB");
     assert_eq!(FormulaTranslator::column_index_to_letter(701), "ZZ");
 }
-```
+```text
 
 ### Sheet Name Sanitization
 
@@ -1370,10 +1383,10 @@ fn sanitize_table_name(&self, sheet_name: &str) -> String {
         .replace("&", "and")
         .replace("-", "_")
         .chars()
-        .filter(|c| c.is_alphanumeric() || *c == '_')
+ .filter(|c| c.is_alphanumeric() || *c == '_')
         .collect()
 }
-```
+```text
 
 **Sanitization Examples:**
 
@@ -1389,7 +1402,9 @@ fn sanitize_table_name(&self, sheet_name: &str) -> String {
 
 ```rust
 // From: importer.rs:346-362
+
 #[test]
+
 fn test_sanitize_table_name() {
     let importer = create_test_importer();
 
@@ -1407,7 +1422,7 @@ fn test_sanitize_table_name() {
         "specialchars"
     );
 }
-```
+```text
 
 ### Column Ordering
 
@@ -1444,7 +1459,7 @@ for name in table.row_formulas.keys() {
 }
 
 column_names.sort(); // Alphabetical order for now
-```
+```text
 
 **Alternative Strategies (Future):**
 
@@ -1478,10 +1493,10 @@ ColumnValue::Number(nums) => {
     if let Some(&value) = nums.get(index) {
         worksheet
             .write_number(row, col, value)
-            .map_err(|e| ForgeError::Export(format!("Failed to write number: {}", e)))?;
+ .map_err(|e| ForgeError::Export(format!("Failed to write number: {}", e)))?;
     }
 }
-```
+```text
 
 - Writes as Excel number (double precision float)
 - Excel displays with default number format
@@ -1495,10 +1510,10 @@ ColumnValue::Text(texts) => {
     if let Some(value) = texts.get(index) {
         worksheet
             .write_string(row, col, value)
-            .map_err(|e| ForgeError::Export(format!("Failed to write text: {}", e)))?;
+ .map_err(|e| ForgeError::Export(format!("Failed to write text: {}", e)))?;
     }
 }
-```
+```text
 
 - Writes as Excel string
 - Preserves exact text content
@@ -1512,10 +1527,10 @@ ColumnValue::Date(dates) => {
     if let Some(value) = dates.get(index) {
         worksheet
             .write_string(row, col, value) // TODO: Date formatting
-            .map_err(|e| ForgeError::Export(format!("Failed to write date: {}", e)))?;
+ .map_err(|e| ForgeError::Export(format!("Failed to write date: {}", e)))?;
     }
 }
-```
+```text
 
 - Currently exports as text string
 - Future: Convert to Excel date format (days since 1900-01-01)
@@ -1529,10 +1544,10 @@ ColumnValue::Boolean(bools) => {
     if let Some(&value) = bools.get(index) {
         worksheet
             .write_boolean(row, col, value)
-            .map_err(|e| ForgeError::Export(format!("Failed to write boolean: {}", e)))?;
+ .map_err(|e| ForgeError::Export(format!("Failed to write boolean: {}", e)))?;
     }
 }
-```
+```text
 
 - Writes as Excel boolean (TRUE/FALSE)
 - Excel displays as TRUE or FALSE
@@ -1555,7 +1570,7 @@ Data::Float(_) | Data::Int(_) => {
     // Number column
     let numbers: Vec<f64> = data
         .iter()
-        .map(|cell| match cell {
+ .map(|cell| match cell {
             Data::Float(f) => *f,
             Data::Int(i) => *i as f64,
             Data::Empty => 0.0, // Default for empty cells
@@ -1564,7 +1579,7 @@ Data::Float(_) | Data::Int(_) => {
         .collect();
     Ok(ColumnValue::Number(numbers))
 }
-```
+```text
 
 **Text Detection:**
 
@@ -1572,10 +1587,10 @@ Data::Float(_) | Data::Int(_) => {
 // From: importer.rs:262-266
 Data::String(_) => {
     // Text column
-    let texts: Vec<String> = data.iter().map(|cell| cell.to_string()).collect();
+ let texts: Vec<String> = data.iter().map(|cell| cell.to_string()).collect();
     Ok(ColumnValue::Text(texts))
 }
-```
+```text
 
 **Boolean Detection:**
 
@@ -1585,7 +1600,7 @@ Data::Bool(_) => {
     // Boolean column
     let bools: Vec<bool> = data
         .iter()
-        .map(|cell| match cell {
+ .map(|cell| match cell {
             Data::Bool(b) => *b,
             Data::Empty => false,
             _ => false,
@@ -1593,7 +1608,7 @@ Data::Bool(_) => {
         .collect();
     Ok(ColumnValue::Boolean(bools))
 }
-```
+```text
 
 **Default to Text:**
 
@@ -1601,10 +1616,10 @@ Data::Bool(_) => {
 // From: importer.rs:278-282
 _ => {
     // Default to text
-    let texts: Vec<String> = data.iter().map(|cell| cell.to_string()).collect();
+ let texts: Vec<String> = data.iter().map(|cell| cell.to_string()).collect();
     Ok(ColumnValue::Text(texts))
 }
-```
+```text
 
 ### Type Conversion Edge Cases
 
@@ -1628,7 +1643,9 @@ Excel allows mixed types (e.g., "Q1", 100, TRUE in same column). Forge enforces 
 
 ```rust
 // From: importer.rs:365-386
+
 #[test]
+
 fn test_convert_to_column_value_numbers() {
     let importer = create_test_importer();
     let data = vec![
@@ -1651,7 +1668,7 @@ fn test_convert_to_column_value_numbers() {
         _ => panic!("Expected Number column"),
     }
 }
-```
+```text
 
 ---
 
@@ -1666,7 +1683,7 @@ tables:
   empty_table:
     columns: {}
     row_formulas: {}
-```
+```text
 
 **Handling:** Creates worksheet with name only, no data or headers.
 
@@ -1678,7 +1695,7 @@ tables:
     columns: {}
     row_formulas:
       result: "=10 * 20"
-```
+```text
 
 **Problem:** No data columns → can't determine row count → formula not evaluated.
 
@@ -1692,7 +1709,7 @@ tables:
     row_formulas:
       a: "=b + 1"
       b: "=a + 1"
-```
+```text
 
 **Handling:** Detected during dependency resolution, error before export starts.
 
@@ -1701,13 +1718,13 @@ tables:
 ```yaml
 row_formulas:
   profit: "=revenue - costs"  # 'costs' column doesn't exist
-```
+```text
 
 **Error:**
 
-```
+```text
 Error: Column 'costs' not found in table
-```
+```text
 
 **Very Wide Tables (>16,384 columns):**
 
@@ -1768,7 +1785,7 @@ pub enum ForgeError {
     Export(String),  // Used for Excel export errors
     // ...
 }
-```
+```text
 
 **Common Export Errors:**
 
@@ -1785,7 +1802,7 @@ pub enum ForgeError {
     IO(String),      // File not found, permission denied
     // ...
 }
-```
+```text
 
 **Common Import Errors:**
 
@@ -1831,7 +1848,7 @@ pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
     println!("{}", "✅ Export Complete!".bold().green());
     Ok(())
 }
-```
+```text
 
 ---
 
@@ -1863,7 +1880,7 @@ worksheet.write_boolean(2, 0, true)?;
 
 // Save
 workbook.save("output.xlsx")?;
-```
+```text
 
 **Strengths:**
 
@@ -1917,7 +1934,7 @@ match cell {
     Some(Data::Bool(b)) => println!("Boolean: {}", b),
     _ => {}
 }
-```
+```text
 
 **Strengths:**
 
@@ -1950,7 +1967,7 @@ match cell {
 [dependencies]
 rust_xlsxwriter = "0.90"
 calamine = "0.31"
-```
+```text
 
 ### Why Two Libraries?
 
@@ -1977,13 +1994,14 @@ Potential to switch to unified library if one emerges with both read/write suppo
 
 **Complexity Analysis:**
 
-```
+```text
 T = # tables
 C = # columns per table
 R = # rows per table
 F = # formula columns
 
 Time Complexity:
+
 - Workbook creation: O(1)
 - Table iteration: O(T)
 - Column mapping: O(C)
@@ -1996,7 +2014,7 @@ For typical model (T=5, C=10, R=100, F=5, L=50):
   5 × 100 × 10 × 5 × 50 = 1,250,000 operations
 
 Expected time: <500ms for typical model
-```
+```text
 
 **Memory Usage:**
 
@@ -2017,13 +2035,14 @@ Expected time: <500ms for typical model
 
 **Complexity Analysis:**
 
-```
+```text
 S = # sheets
 C = # columns per sheet
 R = # rows per sheet
 F = # formula cells
 
 Time Complexity:
+
 - Workbook opening: O(1) [lazy]
 - Sheet iteration: O(S)
 - Header reading: O(C)
@@ -2036,7 +2055,7 @@ For typical workbook (S=5, C=10, R=100, F=50, L=50):
   5 × 100 × 10 + 50 × 50 = 5,000 + 2,500 = 7,500 operations
 
 Expected time: <300ms for typical workbook
-```
+```text
 
 **Memory Usage:**
 

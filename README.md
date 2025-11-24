@@ -28,6 +28,7 @@ Stop losing money to AI hallucinations and token costs. Forge is a deterministic
 Working on financial models with AI (ChatGPT, Claude, Copilot)?
 
 **One intensive weekend:**
+
 - Excel + AI validation: **$130.50** (18.5M input + 5M output tokens)
 - YAML + AI validation: **$91.50** (33% token reduction)
 - **YAML + Forge: $13.50** (validation = 0 tokens, AI only for logic)
@@ -35,6 +36,7 @@ Working on financial models with AI (ChatGPT, Claude, Copilot)?
 **→ Save $117 in one weekend. Scale to $819/year for personal projects.**
 
 **Enterprise teams (daily modeling):**
+
 - Small team (3 analysts): **~$40,000/year saved**
 - Hedge fund quants (5 analysts): **~$132,000/year saved**
 - Finance team (20 people): **~$85,000/year saved**
@@ -48,11 +50,13 @@ Working on financial models with AI (ChatGPT, Claude, Copilot)?
 ## 🌱 Greener AI: The Carbon Impact
 
 **Every AI validation request:**
+
 - 70,000+ tokens consumed
 - ~0.5 Wh energy (GPU + data center)
 - ~0.25g CO2 emissions
 
 **Forge's local validation:**
+
 - 0 tokens
 - <0.001 Wh energy (local CPU)
 - ~0.0005g CO2
@@ -60,6 +64,7 @@ Working on financial models with AI (ChatGPT, Claude, Copilot)?
 **→ 99.6% reduction in carbon footprint**
 
 **At enterprise scale (20 people, daily validations):**
+
 - AI approach: ~60 kg CO2/year
 - Forge approach: ~0.24 kg CO2/year
 - **Equivalent to removing 13 cars from the road for a day**
@@ -94,6 +99,7 @@ Let AI do what it's brilliant at (structure, logic, reasoning).
 Let Forge guarantee the math is **mathematically correct**.
 
 **What Forge does:**
+
 - ✅ Validates 850 formulas across 15 files in **<200ms**
 - ✅ Detects inconsistencies AI misses (transposed digits, incomplete updates)
 - ✅ Auto-calculates cross-file dependencies (like Excel workbooks)
@@ -104,9 +110,11 @@ Let Forge guarantee the math is **mathematically correct**.
 **The workflow shift:**
 
 **Before (AI does math):**
+
 1. Ask AI to update pricing → 2. AI updates files (with errors) → 3. Ask AI to validate (70K tokens, $0.21) → 4. AI says "looks good" (it's not) → 5. Manual verification finds errors → 6. Repeat
 
 **After (AI + Forge):**
+
 1. Ask AI to update pricing logic → 2. Run `forge validate` (0 tokens, $0, 200ms) → 3. Fix errors deterministically → 4. Done.
 
 ---
@@ -116,41 +124,47 @@ Let Forge guarantee the math is **mathematically correct**.
 ### Installation
 
 ```bash
+
 # From crates.io (recommended)
+
 cargo install royalbit-forge
 
 # Or download pre-built binary
+
 curl -L https://github.com/royalbit/forge/releases/latest/download/forge-linux-x86_64 -o forge
 chmod +x forge
 sudo mv forge /usr/local/bin/
-```
+```text
 
 **[Full installation guide →](docs/INSTALLATION.md)**
 
 ### Basic Example
 
 **Input (pricing.yaml):**
+
 ```yaml
 pricing_table:
   product: ["Widget A", "Widget B", "Widget C"]
   base_price: [100, 150, 200]
   discount_rate: [0.10, 0.15, 0.20]
   final_price: "=base_price * (1 - discount_rate)"
-```
+```text
 
 **Run:**
+
 ```bash
 forge calculate pricing.yaml
-```
+```text
 
 **Output:**
+
 ```yaml
 pricing_table:
   product: ["Widget A", "Widget B", "Widget C"]
   base_price: [100, 150, 200]
   discount_rate: [0.10, 0.15, 0.20]
   final_price: [90.0, 127.5, 160.0]  # ✅ Calculated!
-```
+```text
 
 **Zero tokens. Zero hallucinations. <200ms.**
 
@@ -193,6 +207,7 @@ pricing_table:
 Think Excel formulas, but for YAML files under version control.
 
 **Why YAML + formulas?**
+
 - **33-40% fewer AI tokens** vs Excel (text format, visible formulas)
 - **Git-friendly:** Version control, code review, CI/CD
 - **AI-readable:** No screenshots, no binary formats
@@ -207,12 +222,14 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 ## 📊 Production-Ready Quality
 
 **v1.1.0 (November 2025):**
+
 - **136 tests passing** (up from 100 in v1.0.0)
 - **Zero warnings** (clippy strict mode: `-D warnings`)
 - **Zero bugs** in production
 - **<4 hours development** (autonomous AI)
 
 **v1.0.0 (November 2025):**
+
 - **100 tests passing** (complete rewrite)
 - **Zero warnings**, zero bugs
 - **8.5 hours development** (overnight autonomous)
@@ -224,24 +241,28 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 ## 🌟 Who Is This For?
 
 ### For Individual Developers
+
 - Save $819/year on AI validation costs
 - Reduce carbon footprint by 99.6%
 - Get deterministic results in <200ms
 - Work faster with AI + Forge combo
 
 ### For Finance Teams
+
 - Validate financial models without AI hallucinations
 - Protect against multi-million dollar errors
 - Version control your models (Git-friendly)
 - Export to Excel for stakeholders
 
 ### For Data Analysts
+
 - Build reproducible analysis pipelines
 - Collaborate via pull requests
 - CI/CD validation in GitHub Actions
 - Never lose formulas again
 
 ### For Academics & Students
+
 - Reproducible research with Git tracking
 - Grade assignments with `forge validate`
 - Teach finance with version-controlled models
@@ -254,19 +275,23 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 **27 Essential Excel Functions** (Released Nov 24, 2025):
 
 **Conditional Aggregations:**
+
 - SUMIF, COUNTIF, AVERAGEIF - Single criteria
 - SUMIFS, COUNTIFS, AVERAGEIFS - Multiple criteria
 - MAXIFS, MINIFS - Conditional min/max
 
 **Math & Precision:**
+
 - ROUND, ROUNDUP, ROUNDDOWN - Decimal control
 - CEILING, FLOOR - Round to multiples
 - MOD, SQRT, POWER - Math operations
 
 **Text Functions:**
+
 - CONCAT, TRIM, UPPER, LOWER, LEN, MID
 
 **Date Functions:**
+
 - TODAY, DATE, YEAR, MONTH, DAY
 
 **Development time:** <4 hours autonomous
@@ -291,22 +316,25 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 ## 💻 Development
 
 ### Build from source:
+
 ```bash
 git clone https://github.com/royalbit/forge
 cd forge
 cargo build --release
-```
+```text
 
 ### Run tests:
+
 ```bash
 cargo test
-```
+```text
 
 ### Quality checks:
+
 ```bash
 cargo clippy --all-targets -- -D warnings
 cargo fmt -- --check
-```
+```text
 
 **Makefile available** for common tasks (`make install`, `make test`, etc.)
 
@@ -319,6 +347,7 @@ cargo fmt -- --check
 **Contributing:** Issues and PRs welcome at https://github.com/royalbit/forge
 
 **Authors:**
+
 - Claude (Sonnet 4.5) - AI Developer (lead)
 - Louis Tavares - Human Collaborator
 - RoyalBit Inc.
@@ -330,6 +359,7 @@ cargo fmt -- --check
 This isn't AI-assisted development. This is **AI development**.
 
 Forge was built autonomously by Claude Sonnet 4.5 using a novel [warmup protocol](docs/AUTONOMOUS_STORY.md) methodology:
+
 - **12.5 hours total** (v1.0.0 + v1.1.0 combined)
 - **Zero bugs shipped** to production
 - **Zero refactoring** needed (production-ready first iteration)
@@ -344,17 +374,20 @@ Forge was built autonomously by Claude Sonnet 4.5 using a novel [warmup protocol
 ## 🙏 Acknowledgments
 
 **Built with:**
+
 - Rust - The language that makes AI-generated code actually work
 - xlformula_engine - Excel-compatible formula evaluation
 - serde_yaml - YAML parsing
 - calamine & rust_xlsxwriter - Excel integration
 
 **Inspired by:**
+
 - The need to stop AI from hallucinating numbers
 - The desire to make AI-assisted development actually productive
 - The warmup protocol methodology
 
 **For:**
+
 - Developers who trust AI but verify the math
 - Finance teams who can't afford errors
 - The planet (99.6% less carbon than AI validation)

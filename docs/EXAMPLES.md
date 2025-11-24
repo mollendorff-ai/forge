@@ -7,27 +7,30 @@ Real-world usage examples and patterns.
 ### Basic Calculation
 
 **Input (pricing.yaml):**
+
 ```yaml
 pricing_table:
   product: ["Widget A", "Widget B", "Widget C"]
   base_price: [100, 150, 200]
   discount_rate: [0.10, 0.15, 0.20]
   final_price: "=base_price * (1 - discount_rate)"
-```
+```text
 
 **Run:**
+
 ```bash
 forge calculate pricing.yaml
-```
+```text
 
 **Output:**
+
 ```yaml
 pricing_table:
   product: ["Widget A", "Widget B", "Widget C"]
   base_price: [100, 150, 200]
   discount_rate: [0.10, 0.15, 0.20]
   final_price: [90.0, 127.5, 160.0]  # ✅ Calculated!
-```
+```text
 
 ## Financial Models
 
@@ -57,7 +60,7 @@ summary:
   avg_ltv_high_growth:
     value: null
     formula: "=AVERAGEIF(saas_metrics.mrr, > 15000, saas_metrics.ltv)"
-```
+```text
 
 ### Quarterly P&L
 
@@ -81,7 +84,7 @@ summary:
   avg_gross_margin:
     value: null
     formula: "=AVERAGE(pl_2025_q1.gross_margin)"
-```
+```text
 
 ## Advanced Features
 
@@ -97,26 +100,29 @@ revenue:
   product: ["A", "B", "C"]
   sales: [100000, 150000, 200000]
   tax: "=sales * assumptions.tax_rate"  # Cross-table ref
-```
+```text
 
 ### Excel Integration
 
 **Export to Excel:**
+
 ```bash
 forge export model.yaml model.xlsx
-```
+```text
 
 **Import from Excel:**
+
 ```bash
 forge import model.xlsx model.yaml
-```
+```text
 
 **Round-trip:**
+
 ```bash
 forge export model.yaml temp.xlsx
 forge import temp.xlsx model_roundtrip.yaml
 diff model.yaml model_roundtrip.yaml  # Should be identical!
-```
+```text
 
 ## Common Patterns
 
@@ -128,7 +134,7 @@ pricing:
   base_price: [100, 95, 90, 85]
   discount: "=IF(volume > 100, 0.20, IF(volume > 50, 0.10, 0))"
   final_price: "=base_price * (1 - discount)"
-```
+```text
 
 ### Multi-Criteria Filtering (v1.1.0)
 
@@ -142,7 +148,7 @@ analysis:
   north_tech_revenue:
     value: null
     formula: "=SUMIFS(sales.revenue, sales.region, 'North', sales.category, 'Tech')"
-```
+```text
 
 ### Precision Control (v1.1.0)
 
@@ -152,6 +158,6 @@ calculations:
   rounded: "=ROUND(raw_values, 2)"
   rounded_up: "=ROUNDUP(raw_values, 1)"
   rounded_down: "=ROUNDDOWN(raw_values, 0)"
-```
+```text
 
 For more examples, see test-data/v1.0/ in the repository.

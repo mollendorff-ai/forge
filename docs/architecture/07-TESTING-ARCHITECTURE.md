@@ -41,7 +41,7 @@ This document provides comprehensive coverage of Forge's **testing strategy**, i
 
 ### Design Philosophy
 
-**"Test behavior, not implementation"**
+Test behavior, not implementation
 
 Forge tests focus on:
 
@@ -52,7 +52,7 @@ Forge tests focus on:
 
 **Testing Pyramid:**
 
-```
+```text
         /\
        /  \      3 doc tests
       / E2E\     33 e2e tests
@@ -62,7 +62,7 @@ Forge tests focus on:
   /    Unit    \ 86 unit tests
  /--------------\
      (136 total)
-```
+```text
 
 ### Key Principles
 
@@ -121,23 +121,29 @@ package "Doc Tests (3)" {
 [Doc Tests (3)] --> [Documentation\n<1 second]
 
 note right of [Unit Tests (86)]
-  **Focus:**
+
+#### Focus
+
   - Individual functions
   - Pure logic
   - Type conversions
   - Edge cases
+
 end note
 
 note right of [E2E Tests (33)]
-  **Focus:**
+
+#### Focus
+
   - Full CLI workflow
   - File operations
   - Error handling
   - User experience
+
 end note
 
 @enduml
-```
+```text
 
 ### What to Test
 
@@ -217,23 +223,27 @@ end note
 ### Test Growth Over Time
 
 **v0.2.0 (October 2023):**
+
 - 15 tests
 - Unit tests only
 - Basic formula evaluation
 
 **v1.0.0 (November 2023):**
+
 - 100 tests (+85)
 - E2E tests added
 - Array calculator tests
 - Excel export tests
 
 **v1.1.0 (November 2023):**
+
 - 136 tests (+36)
 - 27 new function tests
 - Import/validation tests
 - Parser v1 tests
 
 **Target v1.2.0:**
+
 - 200+ tests (planned)
 - Property-based tests
 - Fuzzing tests
@@ -248,6 +258,7 @@ end note
 **Focus:** Test individual functions in isolation
 
 **Characteristics:**
+
 - Fast (<1ms per test)
 - No I/O (no file reads/writes)
 - Deterministic (no randomness)
@@ -262,7 +273,9 @@ end note
 **File:** `/home/rex/src/utils/forge/src/excel/formula_translator.rs:204-286`
 
 ```rust
+
 #[cfg(test)]
+
 mod tests {
     use super::*;
 
@@ -318,14 +331,16 @@ mod tests {
         assert_eq!(result, "=pl_2025!revenue2");
     }
 }
-```
+```text
 
 **Example: Importer Unit Tests**
 
 **File:** `/home/rex/src/utils/forge/src/excel/importer.rs:317-437`
 
 ```rust
+
 #[cfg(test)]
+
 mod tests {
     use super::*;
 
@@ -417,7 +432,7 @@ mod tests {
         }
     }
 }
-```
+```text
 
 ### Array Calculator Unit Tests
 
@@ -435,7 +450,9 @@ mod tests {
 
 ```rust
 // From: array_calculator_tests.rs:7-61
+
 #[test]
+
 fn test_simple_table_calculation() {
     let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
 
@@ -491,7 +508,7 @@ fn test_simple_table_calculation() {
 
     println!("✓ Simple table calculation succeeded");
 }
-```
+```text
 
 ### Unit Test Naming Convention
 
@@ -514,6 +531,7 @@ fn test_simple_table_calculation() {
 **Focus:** Test component interactions
 
 **Characteristics:**
+
 - Medium speed (~100ms per test)
 - Multiple modules tested together
 - Realistic data flows
@@ -524,7 +542,9 @@ fn test_simple_table_calculation() {
 **Parser + Calculator:**
 
 ```rust
+
 #[test]
+
 fn test_parse_and_calculate_quarterly_pl() {
     let path = Path::new("test-data/v1.0/quarterly_pl.yaml");
 
@@ -543,12 +563,14 @@ fn test_parse_and_calculate_quarterly_pl() {
     let gross_profit = table.columns.get("gross_profit").unwrap();
     assert_eq!(gross_profit.values.len(), 4);
 }
-```
+```text
 
 **Exporter + Translator:**
 
 ```rust
+
 #[test]
+
 fn test_export_with_formula_translation() {
     // Create model with formulas
     let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
@@ -570,12 +592,14 @@ fn test_export_with_formula_translation() {
     let metadata = fs::metadata(temp_file.path()).unwrap();
     assert!(metadata.len() > 0);
 }
-```
+```text
 
 **Importer + Reverse Translator:**
 
 ```rust
+
 #[test]
+
 fn test_import_with_formula_reverse_translation() {
     // Create Excel file with formulas
     // (Assume test-data/test_formulas.xlsx exists)
@@ -590,7 +614,7 @@ fn test_import_with_formula_reverse_translation() {
     let formula = table.row_formulas.get("b").unwrap();
     assert_eq!(formula, "=a * 2"); // Excel "=A2*2" → YAML "=a * 2"
 }
-```
+```text
 
 ---
 
@@ -601,6 +625,7 @@ fn test_import_with_formula_reverse_translation() {
 **Focus:** Test complete user workflows through CLI
 
 **Characteristics:**
+
 - Slow (~500ms per test)
 - Full CLI execution
 - File I/O
@@ -636,7 +661,7 @@ fn test_data_path(filename: &str) -> PathBuf {
     path.push(filename);
     path
 }
-```
+```text
 
 ### E2E Test Categories
 
@@ -644,7 +669,9 @@ fn test_data_path(filename: &str) -> PathBuf {
 
 ```rust
 // From: e2e_tests.rs:28-48
+
 #[test]
+
 fn e2e_malformed_yaml_fails_gracefully() {
     let file = test_data_path("test_malformed.yaml");
 
@@ -661,17 +688,19 @@ fn e2e_malformed_yaml_fails_gracefully() {
     let combined = format!("{stdout}{stderr}");
 
     assert!(
-        combined.contains("Yaml") || combined.contains("EOF") || combined.contains("scanning"),
+ combined.contains("Yaml") || combined.contains("EOF") || combined.contains("scanning"),
         "Should report YAML parsing error, got: {combined}"
     );
 }
-```
+```text
 
 **2. Validation Workflow (10 tests)**
 
 ```rust
 // From: e2e_tests.rs:96-125
+
 #[test]
+
 fn e2e_stale_values_detected() {
     let file = test_data_path("test_stale.yaml");
 
@@ -701,12 +730,14 @@ fn e2e_stale_values_detected() {
     // Should suggest fix
     assert!(stdout.contains("Run 'forge calculate' to update values"));
 }
-```
+```text
 
 **3. Calculate Workflow (7 tests)**
 
 ```rust
+
 #[test]
+
 fn e2e_calculate_updates_stale_file() {
     // Copy stale file to temp location
     let original = test_data_path("test_stale.yaml");
@@ -735,12 +766,14 @@ fn e2e_calculate_updates_stale_file() {
     let stdout = String::from_utf8_lossy(&output2.stdout);
     assert!(stdout.contains("All formulas are valid"));
 }
-```
+```text
 
 **4. Cross-File References (5 tests)**
 
 ```rust
+
 #[test]
+
 fn e2e_includes_basic_flow() {
     let file = test_data_path("includes_main.yaml");
 
@@ -756,12 +789,14 @@ fn e2e_includes_basic_flow() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("All formulas are valid"));
 }
-```
+```text
 
 **5. Export/Import (3 tests)**
 
 ```rust
+
 #[test]
+
 fn e2e_export_to_excel() {
     let input = test_data_path("v1.0/quarterly_pl.yaml");
     let temp_dir = tempfile::tempdir().unwrap();
@@ -780,7 +815,7 @@ fn e2e_export_to_excel() {
     let stdout = String::from_utf8_lossy(&result.stdout);
     assert!(stdout.contains("Export Complete"));
 }
-```
+```text
 
 ### E2E Test Output Verification
 
@@ -810,7 +845,7 @@ assert!(stdout.contains("All formulas are valid"));
 // 3. Stderr (if errors expected)
 let stderr = String::from_utf8_lossy(&output.stderr);
 assert!(stderr.is_empty());
-```
+```text
 
 ---
 
@@ -818,7 +853,7 @@ assert!(stderr.is_empty());
 
 ### Directory Structure
 
-```
+```text
 forge/
 ├── src/
 │   ├── lib.rs                    # Doc tests
@@ -848,7 +883,7 @@ forge/
     ├── excel_export.rs
     ├── excel_import.rs
     └── validation_check.rs
-```
+```text
 
 ### Test Location Guidelines
 
@@ -878,43 +913,43 @@ forge/
 
 ```bash
 cargo test
-```
+```text
 
 **Unit tests only:**
 
 ```bash
 cargo test --lib
-```
+```text
 
 **Integration tests only:**
 
 ```bash
 cargo test --test '*'
-```
+```text
 
 **Specific test:**
 
 ```bash
 cargo test test_simple_table_calculation
-```
+```text
 
 **E2E tests only:**
 
 ```bash
 cargo test --test e2e_tests
-```
+```text
 
 **Verbose output:**
 
 ```bash
 cargo test -- --nocapture
-```
+```text
 
 **Single-threaded (for debugging):**
 
 ```bash
 cargo test -- --test-threads=1
-```
+```text
 
 ---
 
@@ -972,6 +1007,7 @@ cargo test -- --test-threads=1
 **Example:**
 
 ```yaml
+
 # test_stale.yaml - Values don't match formulas (for validation testing)
 
 platform:
@@ -988,7 +1024,7 @@ unit_economics:
   ratio:
     value: 2.0         # WRONG! Should be 1.8
     formula: "=1 + gross_margin"
-```
+```text
 
 ### Managing Test Data
 
@@ -1001,16 +1037,19 @@ unit_economics:
 **Maintenance:**
 
 ```bash
+
 # Validate all test data
+
 for file in test-data/*.yaml; do
-  forge validate "$file" || echo "INVALID: $file"
+ forge validate "$file" || echo "INVALID: $file"
 done
 
 # Recalculate all test data
+
 for file in test-data/*.yaml; do
   forge calculate "$file"
 done
-```
+```text
 
 ---
 
@@ -1023,24 +1062,28 @@ done
 **Example Properties:**
 
 1. **Round-trip preservation:**
-   ```
+
+```text
    YAML → Excel → YAML ≈ Original YAML
-   ```
+```text
 
 2. **Calculation idempotence:**
-   ```
+
+```text
    calculate(calculate(model)) = calculate(model)
-   ```
+```text
 
 3. **Validation correctness:**
-   ```
+
+```text
    validate(calculate(model)) = Success
-   ```
+```text
 
 4. **Formula commutativity:**
-   ```
+
+```text
    "=a + b" produces same result as "=b + a"
-   ```
+```text
 
 ### Planned Implementation
 
@@ -1070,7 +1113,7 @@ proptest! {
         prop_assert_eq!(yaml_formula, back);
     }
 }
-```
+```text
 
 **Benefits:**
 
@@ -1110,15 +1153,19 @@ proptest! {
 **tarpaulin (Rust coverage tool):**
 
 ```bash
+
 # Install
+
 cargo install cargo-tarpaulin
 
 # Run coverage
+
 cargo tarpaulin --out Html --output-dir coverage/
 
 # View report
+
 open coverage/index.html
-```
+```text
 
 **Coverage Goals:**
 
@@ -1260,19 +1307,22 @@ jobs:
 
       - name: Check formatting
         run: cargo fmt --all -- --check
-```
+```text
 
 ### Pre-Commit Hook
 
 **File:** `.git/hooks/pre-commit`
 
 ```bash
+
 #!/bin/bash
+
 set -e
 
 echo "Running pre-commit checks..."
 
 # 1. Format check
+
 echo "→ Checking code formatting..."
 cargo fmt --all -- --check || {
   echo "❌ Code not formatted. Run 'cargo fmt' to fix."
@@ -1280,6 +1330,7 @@ cargo fmt --all -- --check || {
 }
 
 # 2. Linting
+
 echo "→ Running clippy..."
 cargo clippy -- -D warnings || {
   echo "❌ Clippy warnings found."
@@ -1287,6 +1338,7 @@ cargo clippy -- -D warnings || {
 }
 
 # 3. Unit tests (fast)
+
 echo "→ Running unit tests..."
 cargo test --lib --quiet || {
   echo "❌ Unit tests failed."
@@ -1294,10 +1346,11 @@ cargo test --lib --quiet || {
 }
 
 # 4. Validate test data
+
 echo "→ Validating test YAML files..."
 for file in test-data/test_valid*.yaml test-data/includes_main.yaml; do
   if [ -f "$file" ]; then
-    cargo run --quiet -- validate "$file" > /dev/null || {
+ cargo run --quiet -- validate "$file" > /dev/null || {
       echo "❌ Validation failed for $file"
       exit 1
     }
@@ -1305,13 +1358,13 @@ for file in test-data/test_valid*.yaml test-data/includes_main.yaml; do
 done
 
 echo "✅ All pre-commit checks passed!"
-```
+```text
 
 **Installation:**
 
 ```bash
 chmod +x .git/hooks/pre-commit
-```
+```text
 
 ### CI Performance
 
@@ -1360,9 +1413,11 @@ chmod +x .git/hooks/pre-commit
 **Slow Test Detection:**
 
 ```bash
+
 # Show slow tests (>1s)
+
 cargo test -- --nocapture 2>&1 | grep -E "test .* ok$" | awk '{print $2, $4}' | sort -nk2
-```
+```text
 
 **Optimization Techniques:**
 
@@ -1381,8 +1436,8 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 fn bench_formula_evaluation(c: &mut Criterion) {
     let model = create_large_model(1000); // 1000 formulas
 
-    c.bench_function("calculate 1000 formulas", |b| {
-        b.iter(|| {
+ c.bench_function("calculate 1000 formulas", |b| {
+ b.iter(|| {
             let calculator = ArrayCalculator::new(model.clone());
             black_box(calculator.calculate_all().unwrap())
         })
@@ -1391,7 +1446,7 @@ fn bench_formula_evaluation(c: &mut Criterion) {
 
 criterion_group!(benches, bench_formula_evaluation);
 criterion_main!(benches);
-```
+```text
 
 **Planned Benchmarks:**
 
@@ -1409,6 +1464,7 @@ criterion_main!(benches);
 **Best Practices:**
 
 1. **One assertion per test** (when possible)
+
    ```rust
    // Good
    #[test]
@@ -1429,9 +1485,10 @@ criterion_main!(benches);
        assert_eq!(column_index_to_letter(26), "AA");
        // ... 50 more assertions
    }
-   ```
+```text
 
 2. **Clear test names**
+
    ```rust
    // Good
    #[test]
@@ -1440,9 +1497,10 @@ criterion_main!(benches);
    // Bad
    #[test]
    fn test_case_3() { ... }
-   ```
+```text
 
 3. **Self-contained tests**
+
    ```rust
    // Good
    #[test]
@@ -1458,7 +1516,7 @@ criterion_main!(benches);
    fn test_export() {
        unsafe { GLOBAL_MODEL.as_ref().unwrap() } // ❌
    }
-   ```
+```text
 
 ### Flaky Test Detection
 
@@ -1488,7 +1546,7 @@ let temp = "/tmp/test.yaml"; // ❌ Race condition
 
 // Fix: Use unique temp files
 let temp = NamedTempFile::new().unwrap(); // ✅
-```
+```text
 
 ### Deprecating Tests
 
@@ -1508,15 +1566,21 @@ let temp = NamedTempFile::new().unwrap(); // ✅
 
 ```rust
 // 1. Mark as deprecated
+
 #[test]
+
+
 #[ignore] // Skip in normal runs
+
+
 #[deprecated(note = "Use test_new_implementation instead")]
+
 fn test_old_implementation() {
     // Keep for reference but don't run
 }
 
 // 2. Remove after 1-2 releases
-```
+```text
 
 ---
 

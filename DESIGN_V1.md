@@ -34,7 +34,9 @@
 ### Basic Table Structure
 
 ```yaml
+
 # This is a TABLE - maps to Excel sheet
+
 quarterly_revenue:
   # Column arrays - each becomes an Excel column
   period: [Q1, Q2, Q3, Q4]
@@ -47,10 +49,11 @@ quarterly_revenue:
   # Formula on entire column (aggregation)
   total_revenue: "=SUM(revenue)"
   avg_profit: "=AVERAGE(profit)"
-```
+```text
 
 **Excel export:**
-```
+
+```text
 | Period | Revenue | Expenses | Profit |
 |--------|---------|----------|--------|
 | Q1     | 100000  | 80000    | 20000  |
@@ -60,7 +63,7 @@ quarterly_revenue:
 |--------|---------|----------|--------|
 | Total  | 550000  |          |        |
 | Avg    |         |          | 42500  |
-```
+```text
 
 ---
 
@@ -76,11 +79,12 @@ table_name:
   column2: [val4, val5, val6]
   formula_column: "=column1 + column2"  # Row-wise
   summary: "=SUM(column1)"  # Scalar
-```
+```text
 
 **Detection:** Object with array values
 **Excel mapping:** Sheet with columns
 **Formula scope:**
+
 - Array formula → Applied to each row
 - Aggregation → Single cell
 
@@ -97,7 +101,7 @@ assumptions:
   gross_margin:
     value: 0.90
     formula: "=1 - platform_take_rate"
-```
+```text
 
 **Detection:** Object with `value` and `formula` keys
 **Excel mapping:** Named cells or key-value table
@@ -121,7 +125,7 @@ quarterly_data:
   avg_quarter:
     value: 137.5
     formula: "=AVERAGE(revenue)"
-```
+```text
 
 **Detection:** Mix of arrays and {value, formula} objects
 **Excel mapping:** Table + summary rows below
@@ -134,9 +138,10 @@ quarterly_data:
 
 ```yaml
 profit: "=revenue - expenses"
-```
+```text
 
 **Evaluation:**
+
 - `profit[0] = revenue[0] - expenses[0]`
 - `profit[1] = revenue[1] - expenses[1]`
 - ...
@@ -144,6 +149,7 @@ profit: "=revenue - expenses"
 **Excel equivalent:** `=A2-B2` dragged down
 
 **Requirements:**
+
 - All referenced columns must have same length
 - Error if mismatched lengths
 - Result is an array of same length
@@ -153,14 +159,16 @@ profit: "=revenue - expenses"
 ```yaml
 total: "=SUM(revenue)"
 max_revenue: "=MAX(revenue)"
-```
+```text
 
 **Evaluation:**
+
 - `total = revenue[0] + revenue[1] + ... + revenue[n]`
 
 **Excel equivalent:** `=SUM(A2:A5)`
 
 **Requirements:**
+
 - Function must be aggregation (SUM, AVG, MAX, MIN, COUNT)
 - Result is a scalar
 - Can reference multiple columns: `=SUM(revenue, expenses)`
@@ -168,14 +176,18 @@ max_revenue: "=MAX(revenue)"
 ### Cross-Column References
 
 ```yaml
+
 # In table1
+
 revenue: [100, 120, 150]
 
 # In table2 (different table/sheet)
+
 growth: "=table1.revenue[1] / table1.revenue[0] - 1"
-```
+```text
 
 **Requirements:**
+
 - Explicit table.column notation
 - Array indexing with [n]
 - Or full array reference: `=SUM(table1.revenue)`
@@ -205,17 +217,22 @@ growth: "=table1.revenue[1] / table1.revenue[0] - 1"
 ### Type Checking
 
 ```yaml
+
 # Valid - homogeneous
+
 revenue: [100, 120, 150]
 
 # INVALID - mixed types (ERROR!)
+
 mixed: [100, "Q2", true]  # ❌ Type error
 
 # Valid - explicit conversion
+
 quarter_num: "=NUMBERVALUE(quarter_text)"
-```
+```text
 
 **Enforcement:**
+
 - Parser validates array homogeneity
 - Type mismatch = immediate error
 - No implicit conversions (fail fast)
@@ -231,12 +248,13 @@ quarterly_revenue:
   period: [Q1, Q2, Q3, Q4]
   revenue: [100, 120, 150, 180]
   profit: "=revenue * 0.2"
-```
+```text
 
 **Excel output:**
 
 Sheet name: `quarterly_revenue`
-```
+
+```text
 A      | B       | C
 -------|---------|-------
 period | revenue | profit
@@ -244,9 +262,10 @@ Q1     | 100     | 20
 Q2     | 120     | 24
 Q3     | 150     | 30
 Q4     | 180     | 36
-```
+```text
 
 **Formula mapping:**
+
 - YAML: `profit: "=revenue * 0.2"`
 - Excel: `C2: =B2*0.2` (dragged to C5)
 
@@ -257,16 +276,17 @@ assumptions:
   tax_rate:
     value: 0.25
     formula: null
-```
+```text
 
 **Excel output:**
 
 Sheet name: `assumptions`
-```
+
+```text
 A         | B
 ----------|-----
 tax_rate  | 0.25
-```
+```text
 
 Named range: `tax_rate` = 0.25
 
@@ -279,10 +299,11 @@ quarterly:
   total:
     value: 550
     formula: "=SUM(revenue)"
-```
+```text
 
 **Excel output:**
-```
+
+```text
 A      | B
 -------|-------
        | revenue
@@ -292,7 +313,7 @@ Q3     | 150
 Q4     | 180
 -------|-------
 Total  | 550     # =SUM(B2:B5)
-```
+```text
 
 ---
 
@@ -321,10 +342,11 @@ Total  | 550     # =SUM(B2:B5)
 - `COUNTIF(column, condition)` - Count where true
 
 Example:
+
 ```yaml
 high_revenue_count: "=COUNTIF(revenue, > 150000)"
 high_revenue_total: "=SUMIF(revenue, > 150000)"
-```
+```text
 
 ### Logical (Row-wise)
 
@@ -356,27 +378,32 @@ fn detect_model_version(yaml: &Value) -> ModelVersion {
     // Default to v0.2.0 for backwards compat
     ModelVersion::V0_2
 }
-```
+```text
 
 ### Migration Path
 
 **Manual upgrade:**
+
 ```bash
 forge upgrade model-v0.2.yaml --output model-v1.0.yaml
-```
+```text
 
 **Automatic upgrade (in-place):**
+
 ```bash
 forge upgrade model.yaml --in-place --backup
-```
+```text
 
 **Preview changes:**
+
 ```bash
 forge upgrade model.yaml --dry-run
-```
+```text
 
 **Output:**
+
 ```diff
+
 - q1: 100
 - q2: 120
 - q3: 150
@@ -385,7 +412,8 @@ forge upgrade model.yaml --dry-run
 
 + revenue: [100, 120, 150, 180]
 + annual_total: "=SUM(revenue)"
-```
+
+```text
 
 ### Conversion Rules
 
@@ -407,6 +435,7 @@ forge upgrade model.yaml --dry-run
 ### Level 1: Unit Tests
 
 **Parser Tests:**
+
 - ✅ Parse homogeneous arrays
 - ✅ Reject mixed-type arrays
 - ✅ Detect model version correctly
@@ -414,6 +443,7 @@ forge upgrade model.yaml --dry-run
 - ✅ Handle single-element arrays
 
 **Calculator Tests:**
+
 - ✅ Row-wise formulas (element-wise ops)
 - ✅ Column aggregation (SUM, AVG, MAX, MIN)
 - ✅ Conditional aggregation (SUMIF, COUNTIF)
@@ -421,6 +451,7 @@ forge upgrade model.yaml --dry-run
 - ✅ Length validation (mismatched columns)
 
 **Writer Tests:**
+
 - ✅ Write arrays back to YAML
 - ✅ Preserve formatting
 - ✅ Update calculated values
@@ -428,11 +459,13 @@ forge upgrade model.yaml --dry-run
 ### Level 2: Integration Tests
 
 **Cross-file references:**
+
 - ✅ Reference arrays from other files
 - ✅ Mixed array + scalar references
 - ✅ Circular dependency detection
 
 **Formula evaluation:**
+
 - ✅ Complex nested formulas
 - ✅ Multiple array operations
 - ✅ Edge cases (division by zero, null values)
@@ -442,6 +475,7 @@ forge upgrade model.yaml --dry-run
 **Test data:** Real-world financial model scenarios
 
 1. **SaaS Unit Economics:**
+
    ```yaml
    monthly_cohorts:
      month: [Jan, Feb, Mar, Apr, May, Jun]
@@ -453,9 +487,10 @@ forge upgrade model.yaml --dry-run
    summary:
      total_new_mrr: "=SUM(monthly_cohorts.new_mrr)"
      avg_churn_rate: "=AVERAGE(monthly_cohorts.churn_mrr / monthly_cohorts.new_mrr)"
-   ```
+```text
 
 2. **Multi-Year Budget:**
+
    ```yaml
    budget:
      year: [2024, 2025, 2026]
@@ -466,9 +501,10 @@ forge upgrade model.yaml --dry-run
    metrics:
      cagr: "=(budget.revenue[2] / budget.revenue[0]) ^ (1/2) - 1"
      avg_margin: "=AVERAGE(budget.gross_profit / budget.revenue)"
-   ```
+```text
 
 3. **Quarterly P&L:**
+
    ```yaml
    pl_2025:
      quarter: [Q1, Q2, Q3, Q4]
@@ -481,11 +517,12 @@ forge upgrade model.yaml --dry-run
      total_revenue: "=SUM(pl_2025.revenue)"
      total_profit: "=SUM(pl_2025.profit)"
      avg_margin: "=total_profit / total_revenue"
-   ```
+```text
 
 ### Level 4: Round-Trip Tests
 
 **YAML → Excel → YAML:**
+
 1. Start with YAML model
 2. Export to Excel
 3. Manually edit values in Excel
@@ -494,12 +531,14 @@ forge upgrade model.yaml --dry-run
 6. Verify values match
 
 **Precision Tests:**
+
 - ✅ Financial calculations (0.01 precision)
 - ✅ Percentage calculations (0.0001 precision)
 - ✅ Large numbers (millions, billions)
 - ✅ Small numbers (basis points)
 
 **Edge Cases:**
+
 - ✅ Empty arrays
 - ✅ Single-element arrays
 - ✅ Null/missing values
@@ -510,6 +549,7 @@ forge upgrade model.yaml --dry-run
 ### Level 5: Property-Based Tests
 
 **Generate random financial models:**
+
 - Random table sizes (1-1000 rows)
 - Random formula combinations
 - Random number ranges
@@ -523,29 +563,35 @@ forge upgrade model.yaml --dry-run
 ### Parse-Time Errors (Fail Fast)
 
 ```yaml
+
 # Mixed-type array
+
 revenue: [100, "Q2", 150]  # ❌ ERROR: Array must be homogeneous
-```
+```text
 
 Error:
-```
+
+```text
 Error: Parse error in file 'model.yaml' at line 2
   revenue: [100, "Q2", 150]
            ^^^^^
   Type mismatch: Array contains both Number (100) and String ("Q2")
 
   Fix: Ensure all array elements are the same type
-```
+```text
 
 ### Formula Errors (Detailed Context)
 
 ```yaml
 profit: "=revenue - expenses"
+
 # But: revenue has 4 elements, expenses has 3
-```
+
+```text
 
 Error:
-```
+
+```text
 Error: Formula evaluation error in 'profit'
   profit: "=revenue - expenses"
           ^^^^^^^^^^^^^^^^^^^^
@@ -554,23 +600,24 @@ Error: Formula evaluation error in 'profit'
   In file: model.yaml:5
 
   Fix: Ensure all columns in row-wise formula have same length
-```
+```text
 
 ### Validation Errors (Helpful Suggestions)
 
 ```yaml
 total: "=SUM(revenu)"  # Typo
-```
+```text
 
 Error:
-```
+
+```text
 Error: Variable not found: 'revenu'
   total: "=SUM(revenu)"
               ^^^^^^^
   Did you mean: 'revenue'?
 
   Available columns: revenue, expenses, profit
-```
+```text
 
 ---
 
@@ -581,12 +628,14 @@ Error: Variable not found: 'revenu'
 For **financial models**, structural validation is non-negotiable:
 
 **Zero Errors Requirement:**
+
 - Structure errors caught **before** formula evaluation
 - Type safety enforced at parse time
 - Homogeneous arrays validated
 - Required fields checked
 
 **Developer Experience:**
+
 - **IDE autocomplete** - VSCode/IntelliJ suggest valid keys
 - **Real-time validation** - Errors highlighted as you type
 - **Self-documenting** - Schema IS the specification
@@ -599,6 +648,7 @@ For **financial models**, structural validation is non-negotiable:
 ### IDE Integration
 
 **VSCode (Recommended):**
+
 ```json
 // .vscode/settings.json
 {
@@ -606,19 +656,24 @@ For **financial models**, structural validation is non-negotiable:
     "./schema/forge-v1.0.schema.json": ["test-data/v1.0/*.yaml"]
   }
 }
-```
+```text
 
 **In YAML files:**
+
 ```yaml
+
 # yaml-language-server: $schema=../../schema/forge-v1.0.schema.json
 
 _forge_version: "1.0.0"
+
 # IDE now provides autocomplete and validation!
-```
+
+```text
 
 ### Validation Rules
 
 ✅ **Enforced:**
+
 - `_forge_version: "1.0.0"` required
 - Arrays must be homogeneous (all numbers, all text, etc.)
 - Formulas must start with `=`
@@ -626,36 +681,43 @@ _forge_version: "1.0.0"
 - Aggregations require function name (SUM, MAX, etc.)
 
 ❌ **Rejected:**
+
 ```yaml
 revenue: [100, "Q2", 150]  # Mixed types
 total: "SUM(revenue)"       # Missing '='
 tax_rate: { value: 0.25 }  # Missing 'formula' key
-```
+```text
 
 ### Command-Line Validation
 
 ```bash
+
 # Automatic validation (default in v1.0.0)
+
 forge validate model.yaml
 
 # Explicit schema validation
+
 forge validate-schema model.yaml
 
 # Skip validation (not recommended for financial models!)
+
 forge calculate --skip-schema-validation model.yaml
-```
+```text
 
 ---
 
 ## Implementation Phases
 
 ### Phase 0: JSON Schema (Week 0 - DONE ✅)
+
 - ✅ Complete JSON Schema definition
 - ✅ IDE integration documentation
 - ✅ Schema references in examples
 - ✅ Validation rules documented
 
 ### Phase 1: Parser (Week 1)
+
 - ✅ Detect arrays vs scalars
 - ✅ Type checking (homogeneous arrays)
 - ✅ Model version detection
@@ -663,6 +725,7 @@ forge calculate --skip-schema-validation model.yaml
 - ✅ Unit tests (50+ tests)
 
 ### Phase 2: Calculator (Week 2)
+
 - ✅ Row-wise formula evaluation
 - ✅ Column aggregation
 - ✅ New functions (MAX, MIN, COUNT)
@@ -670,6 +733,7 @@ forge calculate --skip-schema-validation model.yaml
 - ✅ Integration tests (20+ tests)
 
 ### Phase 3: Excel Export (Week 3)
+
 - ✅ Table → Sheet mapping
 - ✅ Formula translation
 - ✅ Formatting (headers, summaries)
@@ -677,6 +741,7 @@ forge calculate --skip-schema-validation model.yaml
 - ✅ E2E tests with real models
 
 ### Phase 4: Migration Tool (Week 4)
+
 - ✅ Auto-detect conversion patterns
 - ✅ Formula rewriting
 - ✅ Backup/preview mode
@@ -684,6 +749,7 @@ forge calculate --skip-schema-validation model.yaml
 - ✅ Migration tests
 
 ### Phase 5: Testing & Polish (Week 5)
+
 - ✅ Round-trip tests
 - ✅ Precision tests
 - ✅ Property-based tests
@@ -695,6 +761,7 @@ forge calculate --skip-schema-validation model.yaml
 ## Success Criteria
 
 ### Functional Requirements
+
 - ✅ Parse array and scalar models
 - ✅ Evaluate row-wise and aggregation formulas
 - ✅ Export to Excel (.xlsx)
@@ -702,6 +769,7 @@ forge calculate --skip-schema-validation model.yaml
 - ✅ Upgrade v0.2.0 → v1.0.0
 
 ### Quality Requirements
+
 - ✅ 100+ unit tests passing
 - ✅ 50+ E2E tests with real models
 - ✅ Round-trip tests (YAML → Excel → YAML)
@@ -709,11 +777,13 @@ forge calculate --skip-schema-validation model.yaml
 - ✅ Helpful error messages (file:line context)
 
 ### Performance Requirements
+
 - ✅ 10,000 row table in <1 second
 - ✅ Complex model (100 formulas) in <500ms
 - ✅ Excel export (10 sheets) in <2 seconds
 
 ### User Experience
+
 - ✅ Clear documentation with examples
 - ✅ Migration guide (v0.2.0 → v1.0.0)
 - ✅ Video tutorial
@@ -753,6 +823,7 @@ forge calculate --skip-schema-validation model.yaml
 ### Risk 1: xlformula_engine limitations
 
 **Mitigation:**
+
 - Fork xlformula_engine if needed
 - Or build custom formula evaluator
 - Fallback: Keep using xlformula_engine for scalars, custom for arrays
@@ -760,6 +831,7 @@ forge calculate --skip-schema-validation model.yaml
 ### Risk 2: Excel compatibility
 
 **Mitigation:**
+
 - Test with Excel 365, Excel 2019, LibreOffice
 - Document known incompatibilities
 - Provide export options (strict/compatible modes)
@@ -767,6 +839,7 @@ forge calculate --skip-schema-validation model.yaml
 ### Risk 3: Migration complexity
 
 **Mitigation:**
+
 - Extensive testing with real user models
 - Dry-run mode shows changes before applying
 - Backup files automatically
@@ -775,6 +848,7 @@ forge calculate --skip-schema-validation model.yaml
 ### Risk 4: Performance with large datasets
 
 **Mitigation:**
+
 - Benchmark with 100K+ row tables
 - Lazy evaluation where possible
 - Parallel formula evaluation
@@ -796,6 +870,7 @@ forge calculate --skip-schema-validation model.yaml
 ---
 
 **This design prioritizes:**
+
 - ✅ Financial accuracy (zero errors)
 - ✅ Excel compatibility (trivial export)
 - ✅ Testing rigor (100% coverage)

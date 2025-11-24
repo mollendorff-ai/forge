@@ -1,9 +1,11 @@
 # Forge Architecture Documentation
 
-**Complete technical documentation for Forge v1.1.2 architecture**
+## Complete technical documentation for Forge v1.1.2 architecture
 
 **Last Updated:** 2025-11-24
+
 **Status:** Complete
+
 **Coverage:** 8 comprehensive documents, 296KB total
 
 ---
@@ -13,7 +15,7 @@
 ### Quick Navigation
 
 | Document | Focus Area | Lines | Status |
-|----------|------------|-------|--------|
+| -------- | ---------- | ----- | ------ |
 | [00-OVERVIEW](00-OVERVIEW.md) | System context, principles, high-level architecture | ~1,000 | ✅ Complete |
 | [01-COMPONENT-ARCHITECTURE](01-COMPONENT-ARCHITECTURE.md) | Module boundaries, interfaces, interactions | ~2,000 | ✅ Complete |
 | [02-DATA-MODEL](02-DATA-MODEL.md) | Type system, structs, memory layout | ~1,500 | ✅ Complete |
@@ -31,7 +33,7 @@
 
 ### For New Developers
 
-**Recommended order:**
+**Recommended order:
 
 1. **[00-OVERVIEW](00-OVERVIEW.md)** - Start here! System context, key principles
 2. **[02-DATA-MODEL](02-DATA-MODEL.md)** - Understand core data structures
@@ -43,27 +45,31 @@ Then read others as needed based on your work area.
 
 ### For Contributors
 
-**By contribution type:**
+**By contribution type:
 
-**Adding Excel functions:**
+**Adding Excel functions:
+
 - [03-FORMULA-EVALUATION](03-FORMULA-EVALUATION.md) - Custom function preprocessing
 - [05-EXCEL-INTEGRATION](05-EXCEL-INTEGRATION.md) - Formula translation
 
-**Fixing bugs:**
+**Fixing bugs:
+
 - [07-TESTING-ARCHITECTURE](07-TESTING-ARCHITECTURE.md) - Test strategy
 - [01-COMPONENT-ARCHITECTURE](01-COMPONENT-ARCHITECTURE.md) - Module interactions
 
-**Performance optimization:**
+**Performance optimization:
+
 - [04-DEPENDENCY-RESOLUTION](04-DEPENDENCY-RESOLUTION.md) - O(V+E) algorithms
 - [03-FORMULA-EVALUATION](03-FORMULA-EVALUATION.md) - Evaluation performance
 
-**Adding commands:**
+**Adding commands:
+
 - [06-CLI-ARCHITECTURE](06-CLI-ARCHITECTURE.md) - Command structure
 - [01-COMPONENT-ARCHITECTURE](01-COMPONENT-ARCHITECTURE.md) - Component integration
 
 ### For Architects
 
-**System design perspective:**
+**System design perspective:
 
 1. **[00-OVERVIEW](00-OVERVIEW.md)** - Architecture principles, design philosophy
 2. **[01-COMPONENT-ARCHITECTURE](01-COMPONENT-ARCHITECTURE.md)** - Module boundaries, coupling
@@ -72,7 +78,7 @@ Then read others as needed based on your work area.
 
 ### For Technical Writers
 
-**Documentation perspective:**
+**Documentation perspective:
 
 1. **[00-OVERVIEW](00-OVERVIEW.md)** - High-level terminology
 2. **[02-DATA-MODEL](02-DATA-MODEL.md)** - Type system glossary
@@ -85,9 +91,10 @@ Then read others as needed based on your work area.
 
 ### 00-OVERVIEW.md
 
-**System Context & High-Level Architecture**
+#### System Context & High-Level Architecture
 
-**What's inside:**
+**What's inside:
+
 - System context diagram (users, external systems)
 - Architecture principles (determinism, type safety, etc.)
 - High-level component diagram
@@ -96,7 +103,8 @@ Then read others as needed based on your work area.
 - Data flow overview
 - Performance characteristics
 
-**Key sections:**
+**Key sections:
+
 - Problem statement (AI hallucinations, Excel lock-in)
 - Solution (deterministic, YAML-first, bidirectional)
 - 5 architecture principles
@@ -109,9 +117,10 @@ Then read others as needed based on your work area.
 
 ### 01-COMPONENT-ARCHITECTURE.md
 
-**Module Boundaries, Interfaces, and Interactions**
+#### Module Boundaries, Interfaces, and Interactions
 
-**What's inside:**
+**What's inside:
+
 - Detailed component diagram
 - Module responsibility matrix (7 modules)
 - Interface contracts for each module
@@ -120,7 +129,8 @@ Then read others as needed based on your work area.
 - External dependency integration
 - Error propagation paths
 
-**Key sections:**
+**Key sections:
+
 - Parser interface (3 public functions)
 - Calculator interface (2 versions)
 - Excel module interface (export/import)
@@ -133,9 +143,10 @@ Then read others as needed based on your work area.
 
 ### 02-DATA-MODEL.md
 
-**Type System, Data Structures, Memory Layout**
+#### Type System, Data Structures, Memory Layout
 
-**What's inside:**
+**What's inside:
+
 - Type hierarchy diagram
 - ColumnValue enum (4 variants)
 - Column, Table, ParsedModel structs
@@ -144,7 +155,8 @@ Then read others as needed based on your work area.
 - Memory layout analysis
 - Serialization/deserialization
 
-**Key sections:**
+**Key sections:
+
 - Type safety enforcement
 - Homogeneous array validation
 - Column length validation
@@ -158,9 +170,10 @@ Then read others as needed based on your work area.
 
 ### 03-FORMULA-EVALUATION.md
 
-**Calculation Pipeline, xlformula_engine Integration**
+#### Calculation Pipeline, xlformula_engine Integration
 
-**What's inside:**
+**What's inside:
+
 - Formula evaluation pipeline diagram
 - Row-wise formula evaluation (O(n) per column)
 - Aggregation formula evaluation (O(n) per aggregation)
@@ -169,7 +182,8 @@ Then read others as needed based on your work area.
 - xlformula_engine integration (47+ functions)
 - Performance optimization strategies
 
-**Key sections:**
+**Key sections:
+
 - Two-phase calculation (tables then scalars)
 - Formula parsing and AST generation
 - Resolver function patterns
@@ -183,9 +197,10 @@ Then read others as needed based on your work area.
 
 ### 04-DEPENDENCY-RESOLUTION.md
 
-**Graph Algorithms, Topological Sort, Circular Detection**
+#### Graph Algorithms, Topological Sort, Circular Detection
 
-**What's inside:**
+**What's inside:
+
 - Dependency graph construction
 - Three-level system (column, table, scalar)
 - Topological sorting algorithm
@@ -194,7 +209,8 @@ Then read others as needed based on your work area.
 - Performance analysis (O(V+E))
 - Edge cases and error handling
 
-**Key sections:**
+**Key sections:
+
 - DiGraph construction
 - Dependency extraction (regex-based)
 - Fuzzy variable matching
@@ -208,9 +224,10 @@ Then read others as needed based on your work area.
 
 ### 05-EXCEL-INTEGRATION.md
 
-**Bidirectional YAML↔Excel Conversion**
+#### Bidirectional YAML↔Excel Conversion
 
-**What's inside:**
+**What's inside:
+
 - Export pipeline (YAML → Excel .xlsx)
 - Import pipeline (Excel .xlsx → YAML)
 - Forward formula translation (286 lines)
@@ -220,7 +237,8 @@ Then read others as needed based on your work area.
 - rust_xlsxwriter and calamine integration
 - Round-trip preservation strategy
 
-**Key sections:**
+**Key sections:
+
 - Column letter conversion (0→A, 25→Z, 26→AA)
 - Formula translation rules (60+ Excel functions)
 - Cell reference handling (A2 → column_name)
@@ -234,9 +252,10 @@ Then read others as needed based on your work area.
 
 ### 06-CLI-ARCHITECTURE.md
 
-**Command Structure, Argument Parsing, Error Handling**
+#### Command Structure, Argument Parsing, Error Handling
 
-**What's inside:**
+**What's inside:
+
 - clap 4.5 framework integration
 - 5 commands: calculate, validate, export, import, audit
 - Command routing (main.rs → cli/commands.rs)
@@ -246,7 +265,8 @@ Then read others as needed based on your work area.
 - Exit codes for CI/CD
 - Help text generation
 
-**Key sections:**
+**Key sections:
+
 - Command structure (380 lines analyzed)
 - calculate command implementation
 - validate command implementation
@@ -262,9 +282,10 @@ Then read others as needed based on your work area.
 
 ### 07-TESTING-ARCHITECTURE.md
 
-**Test Strategy, Coverage, Quality Assurance**
+#### Test Strategy, Coverage, Quality Assurance
 
-**What's inside:**
+**What's inside:
+
 - 136 tests breakdown (86 unit, 33 e2e, etc.)
 - Test organization (inline, tests/, examples/)
 - Unit testing strategy (63.2% of tests)
@@ -274,7 +295,8 @@ Then read others as needed based on your work area.
 - Coverage analysis (~80%)
 - CI/CD integration
 
-**Key sections:**
+**Key sections:
+
 - Testing pyramid visualization
 - Unit tests in 8 modules
 - E2E tests (1,026 lines analyzed)
@@ -333,6 +355,7 @@ Then read others as needed based on your work area.
 > "Excel compatibility = Excel data structures + Excel formulas"
 
 Forge doesn't replace Excel. It provides:
+
 - Version-controllable alternative (YAML)
 - Validation without AI (deterministic)
 - Modular models (cross-file references)
@@ -353,14 +376,16 @@ Forge doesn't replace Excel. It provides:
 
 ### Coverage
 
-**Code Coverage:**
+**Code Coverage:
+
 - ✅ All 7 modules documented (100%)
 - ✅ All 17 source files referenced
 - ✅ All 5 CLI commands explained
 - ✅ All 47+ Excel functions listed
 - ✅ All test types covered
 
-**Architectural Coverage:**
+**Architectural Coverage:
+
 - ✅ System context (users, external systems)
 - ✅ Component architecture (module interactions)
 - ✅ Data model (type system, structs)
@@ -385,7 +410,7 @@ Forge doesn't replace Excel. It provides:
 
 ### Updating Documentation
 
-**When to update:**
+**When to update:
 
 1. **Major versions** (v2.0.0) - Update all docs
 2. **New features** - Update relevant doc (e.g., new function → 03, new command → 06)
@@ -393,26 +418,31 @@ Forge doesn't replace Excel. It provides:
 4. **Dependency changes** - Update 00-OVERVIEW technology stack
 5. **Performance improvements** - Update relevant algorithm docs
 
-**Update workflow:**
+**Update workflow:
 
 ```bash
+
 # 1. Edit documentation
+
 vim docs/architecture/03-FORMULA-EVALUATION.md
 
 # 2. Validate diagrams (if changed)
+
 make validate-diagrams
 
 # 3. Validate markdown
+
 make validate-docs
 
 # 4. Commit with clear message
+
 git add docs/architecture/
 git commit -m "docs: Update formula evaluation for NEW_FUNCTION"
-```
+```text
 
 ### Quarterly Review
 
-**Checklist:**
+**Checklist:
 
 - ☐ All documents reflect current architecture?
 - ☐ Code citations still accurate (file:line)?
@@ -482,6 +512,7 @@ Focus on algorithmic deep dives:
 When creating new architecture docs, follow this structure:
 
 ```markdown
+
 # Title
 
 **Document Version:** 1.0.0
@@ -492,44 +523,48 @@ When creating new architecture docs, follow this structure:
 ---
 
 ## Table of Contents
+
 [List of sections]
 
 ---
 
 ## Introduction
+
 [What this document covers]
 
 ## [Main Content Sections]
+
 [Technical details with diagrams]
 
 ## Related Documentation
+
 [Cross-references]
 
 ---
 
 **Previous:** [link]
 **Next:** [link]
-```
+```text
 
 ---
 
 ## 🚀 Next Steps
 
-**For new developers:**
+**For new developers:
 
 1. Read [00-OVERVIEW](00-OVERVIEW.md)
 2. Set up development environment (see [../../README.md#installation](../../README.md#installation))
 3. Run tests: `make test`
 4. Explore codebase with architecture knowledge
 
-**For contributors:**
+**For contributors:
 
 1. Choose your focus area (formulas, CLI, Excel, etc.)
 2. Read relevant architecture doc
 3. Check [../../roadmap.yaml](../../roadmap.yaml) for open tasks
 4. Follow [../../warmup.yaml](../../warmup.yaml) development protocol
 
-**For architects:**
+**For architects:
 
 1. Review all 8 documents
 2. Understand design principles and trade-offs
