@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "0.2.1"
+version = "1.0.0"
 edition = "2021"
 authors = ["Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "Stop AI hallucinations & save $40K-$132K/year. Deterministic YAML formula validator for AI-assisted financial modeling. Validates 850+ formulas in <200ms with zero tokens."
