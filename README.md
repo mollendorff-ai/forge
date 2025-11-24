@@ -9,6 +9,7 @@
 > **🤖 Built by Claude Sonnet 4.5 in Autonomous Mode**
 >
 > This production-ready tool was developed entirely by AI using the [warmup protocol](docs/AUTONOMOUS_STORY.md):
+>
 > - **v1.0.0 + v1.1.0**: 12.5 hours total (overnight Nov 23 → morning Nov 24, 2025)
 > - **136 tests passing**, zero warnings, zero bugs shipped
 > - From "AI Assistant" to "Senior Developer" in one release cycle
@@ -174,7 +175,7 @@ pricing_table:
 
 ## ⚡ Features
 
-- ✅ **31 Excel-compatible functions** - MATCH, INDEX, XLOOKUP, SUMIF, ROUND, and more
+- ✅ **50+ Excel-compatible functions** - MATCH, INDEX, XLOOKUP, SUMIF, ROUND, and more
 - ✅ **Bidirectional Excel bridge** - Import/export .xlsx with formulas
 - ✅ **Type-safe arrays** - Numbers, Text, Dates, Booleans
 - ✅ **Cross-file references** - Include YAML files like Excel worksheets

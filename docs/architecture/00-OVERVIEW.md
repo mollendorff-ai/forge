@@ -28,7 +28,7 @@
 Forge is a **deterministic YAML formula calculator** with **bidirectional Excel integration**. It enables financial modeling, business calculations, and data processing with:
 
 - **Zero hallucinations** - Mathematical calculations, not AI pattern matching
-- **Excel compatibility** - 47+ Excel functions, formula preservation
+- **Excel compatibility** - 50+ Excel functions, formula preservation
 - **Type-safe arrays** - Homogeneous column arrays with compile-time safety
 - **Version control** - YAML files tracked in Git, not binary Excel files
 - **Cross-file references** - Modular models with `@alias.variable` syntax
@@ -117,7 +117,7 @@ note bottom of forge
 #### Zero Hallucinations
 
   Deterministic calculations
-  47+ Excel functions
+  50+ Excel functions
   Type-safe arrays
 end note
 
@@ -275,7 +275,7 @@ note right of calc
   - Array operations
   - Row-wise formulas
   - Aggregation formulas
-  - 47+ Excel functions
+  - 50+ Excel functions
 
 end note
 
@@ -352,7 +352,7 @@ end note
 
 - **850+ formulas tested** - Real-world financial models
 - **Cross-file includes** - Modular models up to 10+ files
-- **47+ Excel functions** - Growing function library
+- **50+ Excel functions** - Growing function library
 - **Type-safe arrays** - Any array length supported
 
 ### Reliability
