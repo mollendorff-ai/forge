@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=../../schema/forge-v1.0.schema.json
+
 # v1.0.0 Array Model Example: Quarterly P&L Statement
 # This demonstrates financial statement modeling
 _forge_version: "1.0.0"
