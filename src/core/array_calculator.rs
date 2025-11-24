@@ -25,9 +25,8 @@ impl ArrayCalculator {
             self.model.tables.insert(table_name, calculated_table);
         }
 
-        // Step 2: Calculate scalar aggregations
-        // TODO: Add dependency resolution for scalars
-        // For now, we'll skip scalar calculations as they need more complex handling
+        // Step 2: Calculate scalar aggregations and formulas
+        self.calculate_scalars()?;
 
         Ok(self.model)
     }
@@ -93,9 +92,9 @@ impl ArrayCalculator {
 
         // Topological sort
         let order = toposort(&graph, None).map_err(|_| {
-            ForgeError::CircularDependency(format!(
-                "Circular dependency detected in table formulas"
-            ))
+            ForgeError::CircularDependency(
+                "Circular dependency detected in table formulas".to_string(),
+            )
         })?;
 
         let ordered_names: Vec<String> = order
@@ -123,11 +122,7 @@ impl ArrayCalculator {
     /// Evaluate a row-wise formula (element-wise operations)
     /// Example: profit = revenue - expenses
     /// Evaluates: profit[i] = revenue[i] - expenses[i] for all i
-    fn evaluate_rowwise_formula(
-        &self,
-        table: &Table,
-        formula: &str,
-    ) -> ForgeResult<ColumnValue> {
+    fn evaluate_rowwise_formula(&self, table: &Table, formula: &str) -> ForgeResult<ColumnValue> {
         let formula_str = if !formula.starts_with('=') {
             format!("={}", formula.trim())
         } else {
@@ -215,6 +210,18 @@ impl ArrayCalculator {
         Ok(ColumnValue::Number(results))
     }
 
+    /// Calculate scalar values and aggregations
+    /// Returns updated model with calculated scalars
+    fn calculate_scalars(&mut self) -> ForgeResult<()> {
+        // TODO: Implement scalar calculation with dependency resolution
+        // This includes:
+        // - Aggregation formulas: SUM(table.column), AVERAGE(table.column)
+        // - Cross-table references: table.column
+        // - Array indexing: table.column[index]
+        // - Scalar dependencies: margin = profit / revenue
+        Ok(())
+    }
+
     /// Extract column names referenced in a formula
     /// Simple implementation - looks for words that match column names
     fn extract_column_references(&self, formula: &str) -> ForgeResult<Vec<String>> {
@@ -228,7 +235,8 @@ impl ArrayCalculator {
                 let upper = word.to_uppercase();
                 if !matches!(
                     upper.as_str(),
-                    "SUM" | "AVERAGE"
+                    "SUM"
+                        | "AVERAGE"
                         | "AVG"
                         | "MAX"
                         | "MIN"
@@ -241,10 +249,9 @@ impl ArrayCalculator {
                         | "ROUND"
                         | "POWER"
                         | "SQRT"
-                ) {
-                    if !refs.contains(&word.to_string()) {
-                        refs.push(word.to_string());
-                    }
+                ) && !refs.contains(&word.to_string())
+                {
+                    refs.push(word.to_string());
                 }
             }
         }
@@ -309,7 +316,9 @@ mod tests {
         let model = ParsedModel::new(ForgeVersion::V1_0_0);
         let calc = ArrayCalculator::new(model);
 
-        let refs = calc.extract_column_references("=revenue - expenses").unwrap();
+        let refs = calc
+            .extract_column_references("=revenue - expenses")
+            .unwrap();
         assert_eq!(refs.len(), 2);
         assert!(refs.contains(&"revenue".to_string()));
         assert!(refs.contains(&"expenses".to_string()));

@@ -302,10 +302,10 @@ impl Calculator {
         let resolver = |var_name: String| -> types::Value {
             // Convert back from processed name to original
             // _pricing_base_price → @pricing.base_price
-            let original_name = if var_name.starts_with('_') {
+            let original_name = if let Some(stripped) = var_name.strip_prefix('_') {
                 // This might be a cross-file reference
                 // Try both @alias.var format and the processed format
-                let with_at = format!("@{}", &var_name[1..]); // Remove leading _
+                let with_at = format!("@{}", stripped); // Remove leading _
 
                 // Try to find with @ first (for cross-file refs)
                 if let Some(value) = self.find_value_in_context(&with_at) {
@@ -328,7 +328,8 @@ impl Calculator {
         };
 
         // Parse the processed formula
-        let parsed = parse_formula::parse_string_to_formula(&processed_formula, None::<NoCustomFunction>);
+        let parsed =
+            parse_formula::parse_string_to_formula(&processed_formula, None::<NoCustomFunction>);
 
         // Calculate the result
         let result = calculate::calculate_formula(parsed, Some(&resolver));
