@@ -1,0 +1,28 @@
+_forge_version: "1.0.0"
+
+# Sales data with conditional aggregations demo
+# Demonstrates SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, AVERAGEIFS, MAXIFS, MINIFS
+
+sales_2024:
+  quarter: [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]
+  region: [North, South, East, North, South, East, North, South, East, North, South, East]
+  revenue: [100000, 120000, 90000, 110000, 130000, 95000, 120000, 140000, 100000, 130000, 150000, 105000]
+  units: [1000, 1200, 900, 1100, 1300, 950, 1200, 1400, 1000, 1300, 1500, 1050]
+  price_per_unit: "=revenue / units"
+
+# Simple SUMIF/COUNTIF/AVERAGEIF
+north_revenue: "=SUMIF(sales_2024.region, \"North\", sales_2024.revenue)"
+north_count: "=COUNTIF(sales_2024.region, \"North\")"
+high_revenue_avg: "=AVERAGEIF(sales_2024.revenue, \">110000\", sales_2024.revenue)"
+
+# Multiple criteria with *IFS functions
+q4_north_revenue: "=SUMIFS(sales_2024.revenue, sales_2024.quarter, \"4\", sales_2024.region, \"North\")"
+high_volume_count: "=COUNTIFS(sales_2024.units, \">1200\")"
+q2_south_avg: "=AVERAGEIFS(sales_2024.revenue, sales_2024.quarter, \"2\", sales_2024.region, \"South\")"
+best_north_quarter: "=MAXIFS(sales_2024.revenue, sales_2024.region, \"North\")"
+lowest_east_quarter: "=MINIFS(sales_2024.revenue, sales_2024.region, \"East\")"
+
+# Analysis metrics
+total_revenue: "=SUM(sales_2024.revenue)"
+north_percentage: "=north_revenue / total_revenue"
+avg_price_per_unit: "=AVERAGE(sales_2024.price_per_unit)"

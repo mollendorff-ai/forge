@@ -1,0 +1,138 @@
+_forge_version: "1.0.0"
+
+# Phase 2: Math & Precision Functions Test Suite
+# Tests ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER
+
+# Test data arrays for comprehensive testing
+test_numbers:
+  positive: [123.456, 789.123, 45.678, 12.345, 0.123]
+  negative: [-123.456, -789.123, -45.678, -12.345, -0.123]
+  mixed: [123.456, -789.123, 45.678, -12.345, 0.123]
+  integers: [100, 200, 300, 400, 500]
+  decimals: [1.5, 2.7, 3.3, 4.9, 5.1]
+
+# ROUND function tests (round to nearest)
+round_to_0: "=ROUND(123.456, 0)"  # Expected: 123
+round_to_1: "=ROUND(123.456, 1)"  # Expected: 123.5
+round_to_2: "=ROUND(123.456, 2)"  # Expected: 123.46
+round_to_minus1: "=ROUND(123.456, -1)"  # Expected: 120
+round_negative: "=ROUND(-123.456, 2)"  # Expected: -123.46
+round_array:
+  values: "=test_numbers.positive"
+  rounded_0: "=ROUND(values, 0)"
+  rounded_1: "=ROUND(values, 1)"
+  rounded_2: "=ROUND(values, 2)"
+
+# ROUNDUP function tests (always round up/away from zero)
+roundup_to_0: "=ROUNDUP(123.456, 0)"  # Expected: 124
+roundup_to_1: "=ROUNDUP(123.456, 1)"  # Expected: 123.5
+roundup_to_2: "=ROUNDUP(123.456, 2)"  # Expected: 123.46
+roundup_negative: "=ROUNDUP(-123.456, 0)"  # Expected: -124 (away from zero)
+roundup_small: "=ROUNDUP(0.123, 1)"  # Expected: 0.2
+
+# ROUNDDOWN function tests (always round down/toward zero)
+rounddown_to_0: "=ROUNDDOWN(123.456, 0)"  # Expected: 123
+rounddown_to_1: "=ROUNDDOWN(123.456, 1)"  # Expected: 123.4
+rounddown_to_2: "=ROUNDDOWN(123.456, 2)"  # Expected: 123.45
+rounddown_negative: "=ROUNDDOWN(-123.456, 0)"  # Expected: -123 (toward zero)
+rounddown_small: "=ROUNDDOWN(0.123, 1)"  # Expected: 0.1
+
+# CEILING function tests (round up to nearest multiple of significance)
+ceiling_basic: "=CEILING(4.3, 1)"  # Expected: 5
+ceiling_to_5: "=CEILING(23, 5)"  # Expected: 25
+ceiling_to_10: "=CEILING(123, 10)"  # Expected: 130
+ceiling_decimal: "=CEILING(1.23, 0.5)"  # Expected: 1.5
+ceiling_negative: "=CEILING(-4.3, 1)"  # Expected: -4 (toward positive infinity)
+ceiling_array:
+  values: "=test_numbers.decimals"
+  ceil_1: "=CEILING(values, 1)"
+  ceil_5: "=CEILING(test_numbers.positive, 5)"
+
+# FLOOR function tests (round down to nearest multiple of significance)
+floor_basic: "=FLOOR(4.3, 1)"  # Expected: 4
+floor_to_5: "=FLOOR(23, 5)"  # Expected: 20
+floor_to_10: "=FLOOR(123, 10)"  # Expected: 120
+floor_decimal: "=FLOOR(1.23, 0.5)"  # Expected: 1.0
+floor_negative: "=FLOOR(-4.3, 1)"  # Expected: -5 (toward negative infinity)
+floor_array:
+  values: "=test_numbers.decimals"
+  floor_1: "=FLOOR(values, 1)"
+
+# MOD function tests (modulo/remainder)
+mod_basic: "=MOD(10, 3)"  # Expected: 1
+mod_exact: "=MOD(10, 5)"  # Expected: 0
+mod_decimal: "=MOD(10.5, 3)"  # Expected: 1.5
+mod_negative_dividend: "=MOD(-10, 3)"  # Expected: 2 (Excel behavior)
+mod_negative_divisor: "=MOD(10, -3)"  # Expected: -2 (Excel behavior)
+mod_array:
+  values: "=test_numbers.integers"
+  mod_3: "=MOD(values, 3)"
+  mod_7: "=MOD(values, 7)"
+
+# SQRT function tests (square root)
+sqrt_4: "=SQRT(4)"  # Expected: 2
+sqrt_9: "=SQRT(9)"  # Expected: 3
+sqrt_16: "=SQRT(16)"  # Expected: 4
+sqrt_2: "=SQRT(2)"  # Expected: 1.414213...
+sqrt_decimal: "=SQRT(0.25)"  # Expected: 0.5
+sqrt_100: "=SQRT(100)"  # Expected: 10
+sqrt_array:
+  values: "=test_numbers.integers"
+  roots: "=SQRT(values)"
+
+# POWER function tests (exponentiation)
+power_2_3: "=POWER(2, 3)"  # Expected: 8
+power_10_2: "=POWER(10, 2)"  # Expected: 100
+power_5_3: "=POWER(5, 3)"  # Expected: 125
+power_decimal_base: "=POWER(2.5, 2)"  # Expected: 6.25
+power_decimal_exp: "=POWER(4, 0.5)"  # Expected: 2 (square root)
+power_negative_exp: "=POWER(2, -2)"  # Expected: 0.25
+power_zero_exp: "=POWER(123, 0)"  # Expected: 1
+power_array:
+  values: "=test_numbers.integers"
+  squared: "=POWER(values, 2)"
+  cubed: "=POWER(values, 3)"
+
+# Combined calculations demonstrating real-world usage
+financial_rounding:
+  prices: [19.99, 29.95, 39.99, 49.95, 59.99]
+  tax_rate: 0.13
+  subtotal: "=SUM(prices)"
+  tax_raw: "=subtotal * tax_rate"
+  tax_rounded: "=ROUND(tax_raw, 2)"
+  total: "=subtotal + tax_rounded"
+
+scientific_calculations:
+  radius_values: [1, 2, 3, 4, 5]
+  pi: 3.14159265359
+  # Area = π * r²
+  areas: "=pi * POWER(radius_values, 2)"
+  areas_rounded: "=ROUND(areas, 2)"
+  # Circumference = 2 * π * r
+  circumferences: "=2 * pi * radius_values"
+  circumferences_rounded: "=ROUND(circumferences, 2)"
+
+precision_edge_cases:
+  # Test floating point precision
+  half_up: "=ROUND(2.5, 0)"  # Expected: 3 (banker's rounding may vary)
+  half_down: "=ROUND(1.5, 0)"  # Expected: 2
+  very_small: "=ROUND(0.000123456, 5)"  # Expected: 0.00012
+  very_large: "=ROUND(123456789.123456, 2)"  # Expected: 123456789.12
+
+  # Modulo edge cases
+  mod_same: "=MOD(5, 5)"  # Expected: 0
+  mod_larger_divisor: "=MOD(3, 5)"  # Expected: 3
+
+  # Power edge cases
+  zero_to_zero: "=POWER(0, 0)"  # Expected: 1 (mathematical convention)
+  one_to_large: "=POWER(1, 1000)"  # Expected: 1
+
+# Performance test with larger arrays
+large_dataset:
+  values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+  rounded: "=ROUND(values, 0)"
+  squared: "=POWER(values, 2)"
+  sqrt_values: "=SQRT(values)"
+  mod_5: "=MOD(values, 5)"
+  ceiling_10: "=CEILING(values, 10)"
+  floor_3: "=FLOOR(values, 3)"

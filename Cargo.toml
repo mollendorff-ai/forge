@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "1.0.2"
+version = "1.1.0"
 edition = "2021"
 authors = ["Claude (Sonnet 4.5) - AI Developer <noreply@anthropic.com>", "Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "Bidirectional Excel-YAML bridge with formula translation. Built autonomously by AI in 2 weeks (20-50x velocity). 100 tests, ZERO warnings, 0 bugs. Stop AI hallucinations, save $40K-$132K/year."
@@ -27,7 +27,7 @@ serde_yaml = "0.9"
 serde_json = "1.0"  # JSON handling for schema validation
 
 # Expression evaluation (Excel-compatible formulas)
-xlformula_engine = "0.1.4"
+xlformula_engine = "0.1.18"
 
 # JSON Schema validation (v1.0.0 array model)
 jsonschema = "0.18"
