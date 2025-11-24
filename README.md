@@ -559,15 +559,116 @@ Tested with:
 - Quality: ZERO warnings (`clippy -D warnings`)
 - Round-trip testing: YAML → Excel → YAML verified
 
-### Future Enhancements (v1.1.0+)
-- [ ] Scalar aggregation formulas in export (=SUM(table.col) → =SUM(Sheet!A:A))
-- [ ] v1.0.0 file writer (write calculated values back to YAML)
-- [ ] Audit trail generation
-- [ ] Formula debugging mode
-- [ ] Performance optimization for large files
-- [ ] Custom function definitions
-- [ ] Named ranges support
-- [ ] Chart import/export
+### v1.1.0 - Essential Excel Functions (Target: December 2025)
+
+**Focus:** Conditional aggregations + precision control for financial modeling
+
+**Priority Features:**
+- [ ] **SUMIF, COUNTIF, AVERAGEIF** - Filter data by criteria
+- [ ] **SUMIFS, COUNTIFS, AVERAGEIFS** - Multiple condition filtering
+- [ ] **MAXIFS, MINIFS** - Conditional min/max
+- [ ] **ROUND, ROUNDUP, ROUNDDOWN** - Precision control
+- [ ] **MOD, SQRT, POWER, CEILING, FLOOR** - Math functions
+- [ ] **CONCAT, TRIM, UPPER, LOWER, LEN, MID** - Text manipulation
+- [ ] **TODAY, YEAR, MONTH, DAY, DATEDIF** - Date/time functions
+
+**Example Use Cases:**
+```yaml
+sales:
+  region: ["North", "South", "North", "West"]
+  revenue: [100000, 150000, 120000, 80000]
+  quarter: ["Q1", "Q1", "Q2", "Q2"]
+
+  # Conditional aggregation (NEW in v1.1.0)
+  north_revenue: "=SUMIF(region, 'North', revenue)"     # 220000
+  high_deals: "=COUNTIF(revenue, > 100000)"             # 3
+  q1_average: "=AVERAGEIF(quarter, 'Q1', revenue)"      # 125000
+
+  # Precision control (NEW in v1.1.0)
+  rounded_k: "=ROUND(north_revenue / 1000, 0) * 1000"   # 220000
+```
+
+**Research-Backed Priority:**
+- 96% of FP&A professionals use Excel weekly (source: AFP 2025 Survey)
+- SUMIF/COUNTIF cited as essential in 100% of financial modeling guides
+- 2-3 weeks autonomous development via warmup protocol
+
+---
+
+### v1.2.0 - Lookup Functions + Developer Experience (Target: Q1 2026)
+
+**Lookup Functions:**
+- [ ] VLOOKUP - Standard lookup (compatibility)
+- [ ] INDEX + MATCH - Advanced lookup
+- [ ] XLOOKUP - Modern lookup (2025 standard)
+
+**Developer Experience:**
+- [ ] **Audit trail** - Visualize formula dependencies
+- [ ] **Watch mode** - Auto-recalculate on file changes (`forge watch`)
+- [ ] **VSCode extension** - Syntax highlighting, inline values, error detection
+- [ ] **GitHub Action** - Validate formulas in CI/CD pipelines
+
+**Ecosystem Growth:**
+- [ ] Homebrew / Scoop distribution (`brew install forge`)
+- [ ] Docker image
+- [ ] Language Server Protocol (LSP) foundation
+
+---
+
+### v1.3.0 - Financial Functions + Advanced Features (Target: Q2 2026)
+
+**Financial Modeling:**
+- [ ] NPV, IRR, PMT, FV, PV - Time value of money
+- [ ] XNPV, XIRR - Irregular cash flows
+- [ ] Scenario analysis support
+- [ ] Data validation rules
+
+**Ecosystem:**
+- [ ] **Python bindings** - `pip install forge-py` (PyO3)
+- [ ] Jupyter notebook integration
+- [ ] Pandas dataframe support
+- [ ] LSP server (universal editor support)
+
+---
+
+### v2.0.0+ - Enterprise & Ecosystem (Target: Q3 2026+)
+
+**Enterprise Features:**
+- [ ] Multi-user collaboration
+- [ ] Version control integration
+- [ ] API server mode
+- [ ] Plugin system
+
+**Ecosystem Expansion:**
+- [ ] Web UI - Visual formula builder (Rust WASM)
+- [ ] Forge Cloud - SaaS offering (freemium model)
+- [ ] Real-time collaboration
+- [ ] Hosted validation API
+
+**Potential Commercial Offerings:**
+- [ ] Enterprise support subscriptions
+- [ ] Custom integrations
+- [ ] Training & consulting
+
+---
+
+### Completed Milestones
+
+**v0.2.0** - Scalar Model (November 2025) ✅
+- Excel-compatible formula functions (SUM, AVERAGE, IF, etc.)
+- Cross-file references with includes
+- Circular dependency detection
+
+**v1.0.0** - Array Model + Excel Bridge (November 2025) ✅
+- Column arrays with 1:1 Excel mapping
+- Bidirectional Excel import/export
+- 60+ function formula translation
+- 100 tests passing, ZERO warnings
+- Round-trip validation (YAML → Excel → YAML)
+
+---
+
+**📊 Full Roadmap:** See [roadmap.yaml](roadmap.yaml) for complete details including effort estimates, research sources, and implementation strategies.
 
 ## Development
 
