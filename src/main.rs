@@ -143,6 +143,42 @@ NOTE: Only works with v1.0.0 array models. v0.2.0 scalar models are not supporte
         #[arg(short, long)]
         verbose: bool,
     },
+
+    #[command(long_about = "Import Excel .xlsx file to YAML v1.0.0 format.
+
+Converts Excel worksheets to YAML tables with formula preservation.
+Each worksheet becomes a table in the output YAML file.
+
+SUPPORTED FEATURES (Phase 4.1 - Basic Import):
+  ✅ Excel worksheets → YAML tables
+  ✅ Data values (Number, Text, Boolean)
+  ✅ Multiple worksheets → One YAML file (one-to-one)
+  ✅ \"Scalars\" sheet → Scalar section
+  ⏳ Formula translation (coming in Phase 4.3)
+
+WORKFLOW:
+  1. Import existing Excel → YAML
+  2. Work with AI + Forge (version control!)
+  3. Export back to Excel
+  4. Round-trip: Excel → YAML → Excel
+
+EXAMPLE:
+  forge import quarterly_pl.xlsx quarterly_pl.yaml
+
+NOTE: Formulas are preserved as Excel syntax (Phase 4.1).
+      Formula translation to YAML syntax coming in Phase 4.3.")]
+    /// Import Excel .xlsx file to YAML v1.0.0
+    Import {
+        /// Path to Excel file (.xlsx)
+        input: PathBuf,
+
+        /// Output YAML file path
+        output: PathBuf,
+
+        /// Show verbose import steps
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 fn main() -> ForgeResult<()> {
@@ -164,5 +200,11 @@ fn main() -> ForgeResult<()> {
             output,
             verbose,
         } => cli::export(input, output, verbose),
+
+        Commands::Import {
+            input,
+            output,
+            verbose,
+        } => cli::import(input, output, verbose),
     }
 }

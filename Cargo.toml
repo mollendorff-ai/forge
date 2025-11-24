@@ -51,6 +51,9 @@ colored = "2.1"
 # Excel export (v1.0.0 array model)
 rust_xlsxwriter = "0.90"
 
+# Excel import (v1.0.0 array model)
+calamine = "0.31"
+
 [dev-dependencies]
 # Testing
 pretty_assertions = "1.4"

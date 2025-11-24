@@ -1,10 +1,11 @@
 use crate::core::{ArrayCalculator, Calculator};
 use crate::error::{ForgeError, ForgeResult};
-use crate::excel::ExcelExporter;
+use crate::excel::{ExcelExporter, ExcelImporter};
 use crate::parser;
 use crate::types::ForgeVersion;
 use crate::writer;
 use colored::Colorize;
+use std::fs;
 use std::path::PathBuf;
 
 /// Format a number for display, removing unnecessary decimal places
@@ -323,6 +324,56 @@ pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
     println!("   ✅ Row formulas → Excel cell formulas (=A2-B2)");
     println!("   ✅ Cross-table references (=Sheet!Column)");
     println!("   ⏳ Aggregation formulas in scalars (coming in Phase 3.4)\n");
+
+    Ok(())
+}
+
+/// Execute the import command
+pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()> {
+    println!("{}", "🔥 Forge - Excel Import".bold().green());
+    println!("   Input:  {}", input.display());
+    println!("   Output: {}\n", output.display());
+
+    // Import Excel file
+    if verbose {
+        println!("{}", "📖 Reading Excel file...".cyan());
+    }
+
+    let importer = ExcelImporter::new(&input);
+    let model = importer.import()?;
+
+    if verbose {
+        println!("   Found {} tables", model.tables.len());
+        println!("   Found {} scalars\n", model.scalars.len());
+
+        for (table_name, table) in &model.tables {
+            println!("   📊 Table: {}", table_name.bright_blue());
+            println!("      {} columns, {} rows", table.columns.len(), table.row_count());
+        }
+        println!();
+    }
+
+    // Write YAML file
+    if verbose {
+        println!("{}", "💾 Writing YAML file...".cyan());
+    }
+
+    // Serialize model to YAML
+    let yaml_string = serde_yaml::to_string(&model)
+        .map_err(|e| ForgeError::Yaml(e))?;
+
+    fs::write(&output, yaml_string)
+        .map_err(|e| ForgeError::Io(e))?;
+
+    println!("{}", "✅ Import Complete!".bold().green());
+    println!("   YAML file: {}\n", output.display());
+
+    println!("{}", "✅ Phase 4.1: Basic Import Complete!".bold().green());
+    println!("   ✅ Excel worksheets → YAML tables");
+    println!("   ✅ Data values imported");
+    println!("   ✅ Multiple worksheets → One YAML file");
+    println!("   ✅ Scalars sheet detected");
+    println!("   ⏳ Formula translation (coming in Phase 4.3)\n");
 
     Ok(())
 }
