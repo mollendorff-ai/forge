@@ -140,6 +140,13 @@ impl Calculator {
             return Some(val);
         }
 
+        // CRITICAL FIX: For cross-file references (@alias.variable), require exact alias match
+        // Do NOT use fuzzy matching for cross-file references to prevent @invalid_alias matching @pricing
+        if search_name.starts_with('@') {
+            // Cross-file reference - already tried exact matches above, don't fuzzy match
+            return None;
+        }
+
         // Extract last component (after last underscore or dot)
         let last_component = search_name.rsplit(['_', '.']).next().unwrap_or(search_name);
 
