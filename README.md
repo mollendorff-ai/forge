@@ -174,7 +174,7 @@ pricing_table:
 
 ## ⚡ Features
 
-- ✅ **47+ Excel-compatible functions** - SUMIF, ROUND, CONCAT, TODAY, and more
+- ✅ **31 Excel-compatible functions** - MATCH, INDEX, XLOOKUP, SUMIF, ROUND, and more
 - ✅ **Bidirectional Excel bridge** - Import/export .xlsx with formulas
 - ✅ **Type-safe arrays** - Numbers, Text, Dates, Booleans
 - ✅ **Cross-file references** - Include YAML files like Excel worksheets
@@ -270,7 +270,19 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ---
 
-## 🏆 What's New in v1.1.0
+## 🏆 What's New in v1.2.0 (In Progress)
+
+**4 Powerful Lookup Functions** (Started Nov 24, 2025):
+- **MATCH** - Find position of value in array (exact/approximate match)
+- **INDEX** - Return value at specific position (1-based indexing)
+- **XLOOKUP** - Modern Excel lookup with if_not_found support
+- **VLOOKUP** - Classic vertical lookup (use INDEX/MATCH for production)
+
+**Combined:** Use `INDEX(MATCH(...))` for flexible lookups across tables!
+
+---
+
+## 🏆 What Was New in v1.1.0
 
 **27 Essential Excel Functions** (Released Nov 24, 2025):
 
