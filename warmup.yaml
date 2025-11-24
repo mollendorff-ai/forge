@@ -75,6 +75,61 @@ session_initialization:
     expected_branch: "feature/v1.0.0-array-model"
     action: "If on different branch, ask user about intent"
 
+  step_2b_validation_baseline:
+    description: "Run validation baseline (catch existing issues BEFORE making changes)"
+    importance: "🚨 CRITICAL - Know clean vs dirty state before starting work"
+    rationale: |
+      Documentation is code. Linting catches consistency issues.
+      Must know baseline state to avoid "did I break this or was it already broken?"
+
+    commands:
+      markdown_lint:
+        command: "make validate-docs"
+        tool: "markdownlint-cli2"
+        config: ".markdownlint.json"
+        install: "npm install -g markdownlint-cli2"
+        validates:
+          - "README.md"
+          - "DESIGN_V1.md"
+          - "KNOWN_BUGS.md"
+          - "SRED_RESEARCH_LOG.md"
+          - "docs/**/*.md"
+
+      yaml_lint:
+        command: "make validate-yaml"
+        tool: "yamllint"
+        config: ".yamllint"
+        install: "pip install yamllint"
+        validates:
+          - "warmup.yaml"
+          - "roadmap.yaml"
+
+      diagram_lint:
+        command: "make validate-diagrams"
+        tool: "PlantUML (public server)"
+        server: "https://www.plantuml.com/plantuml"
+        script: "bin/validate-plantuml.sh"
+        validates: "diagrams/*.puml (if present)"
+        note: "Skipped if no diagrams directory"
+
+      full_validation:
+        command: "make validate-all"
+        runs: "All validators in sequence"
+        convenience: "Single command for complete validation"
+
+    if_validation_fails:
+      - "Note failures but continue (may be fixing them this session)"
+      - "Report baseline status to user"
+      - "Track which validators passed/failed"
+      - "Include status in greeting"
+
+    reporting:
+      template: |
+        Validation Baseline:
+        - Markdown: [PASS/FAIL - X files]
+        - YAML: [PASS/FAIL - X files]
+        - Diagrams: [PASS/FAIL/SKIPPED - X files]
+
   step_3_run_tests:
     description: "Verify everything works before starting"
     commands:
@@ -348,9 +403,10 @@ work_session_checklist:
   before_coding:
     - "☐ Read warmup.yaml (this file)"
     - "☐ CHECK CURRENT DATE in <env> (for online searches!)"
-    - "☐ Load context files (README, roadmap, DESIGN_V1, KNOWN_BUGS)"
+    - "☐ Run validation baseline (make validate-all)"
+    - "☐ Load context files (README, roadmap, DESIGN_V1, KNOWN_BUGS, GLOSSARY)"
     - "☐ Check git status and current branch"
-    - "☐ Run tests to verify baseline"
+    - "☐ Run tests to verify baseline (cargo test --release)"
     - "☐ Review current phase in roadmap"
     - "☐ Check if dependencies need updating (cargo outdated)"
     - "☐ Create TodoWrite list for session goals"
@@ -359,21 +415,24 @@ work_session_checklist:
     - "☐ BEFORE complex code: Check for FOSS libraries (crates.io search)"
     - "☐ Write tests FIRST (TDD when possible)"
     - "☐ Test edge cases thoroughly"
+    - "☐ Check GLOSSARY.md for terminology consistency"
     - "☐ 🍁 Document R&D work in SRED_RESEARCH_LOG.md DURING development"
     - "☐ Update JSON Schema if model changes"
     - "☐ Document bugs in KNOWN_BUGS.md if found"
     - "☐ Update TodoWrite list as you progress"
     - "☐ Run tests frequently (cargo test --lib)"
     - "☐ Run clippy frequently (cargo clippy --release)"
-    - "☐ Format code (cargo fmt)"
+    - "☐ Format code frequently (cargo fmt)"
 
   after_coding:
     - "☐ Run cargo fmt (format code)"
     - "☐ Run cargo clippy --release -- -D warnings (ZERO warnings!)"
     - "☐ Run full test suite (cargo test --release)"
     - "☐ Ensure clean build (cargo build --release)"
+    - "☐ Run validation (make validate-all - markdown + YAML)"
     - "☐ Update documentation (README, DESIGN_V1, roadmap)"
     - "☐ Update --help if CLI changed"
+    - "☐ Check terminology consistency (GLOSSARY.md)"
     - "☐ 🍁 VERIFY SR&ED documentation complete BEFORE committing (💰 tax credits!)"
     - "☐ Git add and commit with good message"
     - "☐ Update roadmap in separate commit"

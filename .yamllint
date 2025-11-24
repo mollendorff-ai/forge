@@ -1,0 +1,31 @@
+---
+extends: default
+
+rules:
+  line-length:
+    max: 150
+    level: warning
+
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+
+  trailing-spaces:
+    level: error
+
+  key-duplicates:
+    level: error
+
+  document-start:
+    present: false
+
+  comments:
+    min-spaces-from-content: 1
+
+  comments-indentation:
+    level: warning
+
+  truthy:
+    allowed-values: ['true', 'false', 'yes', 'no']
+    check-keys: false
