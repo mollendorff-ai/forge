@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "YAML formula calculator with Excel-style cross-file references - Built for AI-assisted financial modeling"
