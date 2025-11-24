@@ -25,7 +25,9 @@ fn test_simple_table_calculation() {
     model.add_table(table);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all().expect("Calculation should succeed");
+    let result = calculator
+        .calculate_all()
+        .expect("Calculation should succeed");
 
     let result_table = result.tables.get("financials").unwrap();
 

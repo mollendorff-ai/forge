@@ -95,9 +95,9 @@ fn parse_v1_model(_path: &Path, yaml: &Value) -> ForgeResult<ParsedModel> {
 
     // Validate all tables
     for (name, table) in &model.tables {
-        table.validate_lengths().map_err(|e| {
-            ForgeError::Validation(format!("Table '{}': {}", name, e))
-        })?;
+        table
+            .validate_lengths()
+            .map_err(|e| ForgeError::Validation(format!("Table '{}': {}", name, e)))?;
     }
 
     Ok(model)
@@ -120,9 +120,7 @@ fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
 
     // Validate
     if let Err(errors) = compiled_schema.validate(&json_value) {
-        let error_messages: Vec<String> = errors
-            .map(|e| format!("  - {}", e))
-            .collect();
+        let error_messages: Vec<String> = errors.map(|e| format!("  - {}", e)).collect();
         return Err(ForgeError::Validation(format!(
             "Schema validation failed:\n{}",
             error_messages.join("\n")
@@ -762,11 +760,7 @@ mod tests {
 
     #[test]
     fn test_parse_boolean_array() {
-        let yaml_seq: Vec<Value> = vec![
-            Value::Bool(true),
-            Value::Bool(false),
-            Value::Bool(true),
-        ];
+        let yaml_seq: Vec<Value> = vec![Value::Bool(true), Value::Bool(false), Value::Bool(true)];
         let result = parse_array_value("test_col", &yaml_seq).unwrap();
 
         match result {
@@ -779,10 +773,7 @@ mod tests {
 
     #[test]
     fn test_mixed_type_array_error() {
-        let yaml_seq: Vec<Value> = vec![
-            Value::Number(1.into()),
-            Value::String("text".to_string()),
-        ];
+        let yaml_seq: Vec<Value> = vec![Value::Number(1.into()), Value::String("text".to_string())];
         let result = parse_array_value("test_col", &yaml_seq);
 
         assert!(result.is_err());
@@ -805,7 +796,7 @@ mod tests {
         // Mix valid date format with invalid - should fail
         let yaml_seq: Vec<Value> = vec![
             Value::String("2025-01".to_string()), // Valid date
-            Value::String("2025-1".to_string()), // Invalid: needs zero padding
+            Value::String("2025-1".to_string()),  // Invalid: needs zero padding
         ];
         let result = parse_array_value("test_col", &yaml_seq);
 
@@ -867,7 +858,10 @@ mod tests {
             assert_eq!(table.columns.len(), 2); // Only data columns
             assert_eq!(table.row_formulas.len(), 1); // One formula
             assert!(table.row_formulas.contains_key("profit"));
-            assert_eq!(table.row_formulas.get("profit").unwrap(), "=revenue - expenses");
+            assert_eq!(
+                table.row_formulas.get("profit").unwrap(),
+                "=revenue - expenses"
+            );
         } else {
             panic!("Expected mapping");
         }
@@ -911,8 +905,8 @@ mod tests {
 
     #[test]
     fn test_parse_v1_model_simple() {
-        use tempfile::NamedTempFile;
         use std::io::Write;
+        use tempfile::NamedTempFile;
 
         let yaml_content = r#"
 _forge_version: "1.0.0"
@@ -939,8 +933,8 @@ sales:
 
     #[test]
     fn test_parse_v1_model_with_scalars() {
-        use tempfile::NamedTempFile;
         use std::io::Write;
+        use tempfile::NamedTempFile;
 
         let yaml_content = r#"
 _forge_version: "1.0.0"
@@ -967,8 +961,8 @@ summary:
 
     #[test]
     fn test_parse_v0_model_backwards_compat() {
-        use tempfile::NamedTempFile;
         use std::io::Write;
+        use tempfile::NamedTempFile;
 
         let yaml_content = r#"
 revenue:
