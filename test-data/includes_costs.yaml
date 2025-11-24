@@ -1,13 +1,9 @@
-# Cost data to be included by other files
-
 unit_cost:
-  value: 30
+  value: 30.0
   formula: null
-
 overhead_rate:
-  value: 0.20
+  value: 0.2
   formula: null
-
 shipping_cost:
-  value: 5
+  value: 5.0
   formula: null

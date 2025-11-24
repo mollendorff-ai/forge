@@ -956,7 +956,7 @@ summary:
         assert_eq!(result.version, ForgeVersion::V1_0_0);
         assert_eq!(result.tables.len(), 1);
         assert_eq!(result.scalars.len(), 1);
-        assert!(result.scalars.contains_key("summary"));
+        assert!(result.scalars.contains_key("summary.total"));
     }
 
     #[test]

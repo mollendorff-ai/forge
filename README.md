@@ -490,6 +490,7 @@ Tested with:
 
 ## Roadmap
 
+### v0.2.0 - Scalar Model (Completed)
 - [x] Basic formula evaluation
 - [x] Dependency resolution
 - [x] Smart variable name resolution (short names + full paths)
@@ -498,11 +499,26 @@ Tested with:
 - [x] Dry-run mode for safe testing
 - [x] Circular dependency detection
 - [x] Cross-file references with includes
-- [ ] Excel export (.xlsx) - Export calculated YAML to Excel spreadsheets
-- [ ] Audit trail generation (coming soon)
+
+### v1.0.0 - Array Model (Completed)
+- [x] Column arrays with Excel 1:1 mapping
+- [x] Row-wise formula evaluation (=revenue - expenses)
+- [x] Cross-table references (=pl_2025.revenue)
+- [x] Aggregation functions (SUM, AVERAGE, MAX, MIN)
+- [x] Array indexing (revenue[3])
+- [x] Nested scalar sections with automatic scoping
+- [x] Table dependency ordering (topological sort)
+- [x] Scalar dependency resolution with 3-strategy scoping
+- [x] Version auto-detection (v0.2.0 vs v1.0.0)
+- [x] JSON Schema validation
+- [x] 100% test coverage (75 tests passing)
+
+### Future Enhancements
+- [ ] Excel export (.xlsx) - Export v1.0.0 array models to Excel spreadsheets
+- [ ] v1.0.0 file writer (write calculated values back to YAML)
+- [ ] Audit trail generation
 - [ ] Formula debugging mode
 - [ ] Performance optimization for large files
-- [ ] Support for arrays/lists in formulas
 - [ ] Custom function definitions
 
 ## Development

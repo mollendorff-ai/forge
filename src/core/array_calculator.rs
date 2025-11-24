@@ -16,10 +16,11 @@ impl ArrayCalculator {
     /// Calculate all formulas in the model
     /// Returns updated model with calculated values
     pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
-        // Step 1: Calculate all tables (row-wise formulas)
+        // Step 1: Calculate all tables (row-wise formulas) in dependency order
         let table_names: Vec<String> = self.model.tables.keys().cloned().collect();
+        let calc_order = self.get_table_calculation_order(&table_names)?;
 
-        for table_name in table_names {
+        for table_name in calc_order {
             let table = self.model.tables.get(&table_name).unwrap().clone();
             let calculated_table = self.calculate_table(&table_name, &table)?;
             self.model.tables.insert(table_name, calculated_table);
@@ -29,6 +30,76 @@ impl ArrayCalculator {
         self.calculate_scalars()?;
 
         Ok(self.model)
+    }
+
+    /// Get calculation order for tables (topological sort based on cross-table references)
+    fn get_table_calculation_order(&self, table_names: &[String]) -> ForgeResult<Vec<String>> {
+        use petgraph::algo::toposort;
+        use petgraph::graph::DiGraph;
+        use std::collections::HashMap;
+
+        let mut graph = DiGraph::new();
+        let mut node_indices = HashMap::new();
+
+        // Create nodes for all tables
+        for name in table_names {
+            let idx = graph.add_node(name.clone());
+            node_indices.insert(name.clone(), idx);
+        }
+
+        // Add edges for cross-table dependencies
+        for name in table_names {
+            if let Some(table) = self.model.tables.get(name) {
+                // Check all row formulas for cross-table references
+                for formula in table.row_formulas.values() {
+                    let deps = self.extract_table_dependencies_from_formula(formula)?;
+                    for dep_table in deps {
+                        // Only add edge if dependency is another table
+                        if let Some(&dep_idx) = node_indices.get(&dep_table) {
+                            if let Some(&name_idx) = node_indices.get(name) {
+                                graph.add_edge(dep_idx, name_idx, ());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Topological sort
+        let order = toposort(&graph, None).map_err(|_| {
+            ForgeError::CircularDependency(
+                "Circular dependency detected between tables".to_string(),
+            )
+        })?;
+
+        let ordered_names: Vec<String> = order
+            .iter()
+            .filter_map(|idx| graph.node_weight(*idx).cloned())
+            .collect();
+
+        Ok(ordered_names)
+    }
+
+    /// Extract table names referenced in a formula (e.g., "pl_2025" from "=pl_2025.revenue")
+    fn extract_table_dependencies_from_formula(&self, formula: &str) -> ForgeResult<Vec<String>> {
+        let mut deps = Vec::new();
+
+        // Look for table.column patterns
+        for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
+            if word.contains('.') {
+                // This might be table.column reference
+                if let Ok((table_name, _col_name)) = self.parse_table_column_ref(word) {
+                    // Check if this table exists
+                    if self.model.tables.contains_key(&table_name) {
+                        if !deps.contains(&table_name) {
+                            deps.push(table_name);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(deps)
     }
 
     /// Calculate all formulas in a table
@@ -328,7 +399,7 @@ impl ArrayCalculator {
         for name in scalar_names {
             if let Some(var) = self.model.scalars.get(name) {
                 if let Some(formula) = &var.formula {
-                    let deps = self.extract_scalar_dependencies(formula)?;
+                    let deps = self.extract_scalar_dependencies(formula, name)?;
                     for dep in deps {
                         // Only add dependency if it's another scalar
                         if let Some(&dep_idx) = node_indices.get(&dep) {
@@ -356,18 +427,47 @@ impl ArrayCalculator {
         Ok(ordered_names)
     }
 
-    /// Extract scalar dependencies from a formula
-    fn extract_scalar_dependencies(&self, formula: &str) -> ForgeResult<Vec<String>> {
+    /// Extract scalar dependencies from a formula with scoping
+    /// Uses same scoping logic as evaluate_scalar_with_resolver
+    fn extract_scalar_dependencies(&self, formula: &str, scalar_name: &str) -> ForgeResult<Vec<String>> {
         let mut deps = Vec::new();
 
-        // Simple extraction - look for words that match scalar names
+        // Extract parent section from scalar_name (e.g., "annual_2025" from "annual_2025.total_revenue")
+        let parent_section = if let Some(dot_pos) = scalar_name.rfind('.') {
+            Some(&scalar_name[..dot_pos])
+        } else {
+            None
+        };
+
+        // Extract all words (variable references) from formula
         for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
-            if !word.is_empty()
-                && self.model.scalars.contains_key(word)
-                && !deps.contains(&word.to_string())
-            {
-                deps.push(word.to_string());
+            if word.is_empty() {
+                continue;
             }
+
+            // Strategy 1: Try exact match
+            if self.model.scalars.contains_key(word) {
+                if !deps.contains(&word.to_string()) {
+                    deps.push(word.to_string());
+                }
+                continue;
+            }
+
+            // Strategy 2: If we're in a section and word is simple, try prefixing with parent section
+            if let Some(section) = parent_section {
+                if !word.contains('.') {
+                    let scoped_name = format!("{}.{}", section, word);
+                    if self.model.scalars.contains_key(&scoped_name) {
+                        if !deps.contains(&scoped_name) {
+                            deps.push(scoped_name);
+                        }
+                        continue;
+                    }
+                }
+            }
+
+            // Strategy 3: Could be a table.column reference, not a scalar dependency
+            // Skip it (no dependency edge needed)
         }
 
         Ok(deps)
