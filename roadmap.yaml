@@ -498,17 +498,27 @@ technical_debt:
 
   v1_2_0:
     version: "1.2.0"
-    status: planned
+    status: in_progress
+    started_date: "2025-11-24"
     target_date: "2026-Q1"
     description: "Lookup functions + developer experience improvements"
     priority_features:
-      - "VLOOKUP, INDEX, MATCH, XLOOKUP"
+      - "✅ MATCH, INDEX, XLOOKUP (DONE - 690 lines, 141 tests)"
+      - "⚠️ VLOOKUP (DONE - limited, use INDEX/MATCH)"
       - "Audit trail (formula dependency visualization)"
       - "Watch mode (auto-recalculate on file changes)"
       - "Performance optimizations"
     nice_to_have:
       - "Financial functions (NPV, IRR, PMT)"
       - "Additional text functions"
+    progress:
+      lookup_functions:
+        status: completed
+        completed_date: "2025-11-24"
+        effort: "<3 hours autonomous"
+        functions_added: "MATCH, INDEX, XLOOKUP, VLOOKUP"
+        tests: "5 unit tests, all passing"
+        quality: "ZERO warnings, 141 total tests passing"
 
   v1_3_0:
     version: "1.3.0"
