@@ -83,7 +83,62 @@ Forge is built as a **command-line tool first**, with the library (`royalbit_for
 
 ### High-Level Architecture
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    User["👤 User"]
+    CLI["forge CLI<br/>main.rs"]
+
+    subgraph "Commands (clap subcommands)"
+        Calculate["calculate<br/>Evaluate formulas"]
+        Validate["validate<br/>Check correctness"]
+        Export["export<br/>YAML → Excel"]
+        Import["import<br/>Excel → YAML"]
+        Audit["audit<br/>Dependency trail"]
+    end
+
+    subgraph "Command Handlers (commands.rs)"
+        CalcHandler["calculate_handler()"]
+        ValidateHandler["validate_handler()"]
+        ExportHandler["export_handler()"]
+        ImportHandler["import_handler()"]
+        AuditHandler["audit_handler()"]
+    end
+
+    subgraph "Core Components"
+        Parser["Parser"]
+        Calculator["Calculator"]
+        Writer["Writer"]
+        Exporter["ExcelExporter"]
+        Importer["ExcelImporter"]
+    end
+
+    User --> CLI
+    CLI --> Calculate
+    CLI --> Validate
+    CLI --> Export
+    CLI --> Import
+    CLI --> Audit
+
+    Calculate --> CalcHandler
+    Validate --> ValidateHandler
+    Export --> ExportHandler
+    Import --> ImportHandler
+    Audit --> AuditHandler
+
+    CalcHandler --> Parser
+    CalcHandler --> Calculator
+    CalcHandler --> Writer
+
+    ValidateHandler --> Parser
+
+    ExportHandler --> Parser
+    ExportHandler --> Exporter
+
+    ImportHandler --> Importer
+    ImportHandler --> Writer
+
+    AuditHandler --> Parser
+```
 
 ### Command Responsibility Matrix
 
@@ -97,7 +152,35 @@ Forge is built as a **command-line tool first**, with the library (`royalbit_for
 
 ### Command Dependencies
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph LR
+    Calculate["calculate"]
+    Validate["validate"]
+    Export["export"]
+    Import["import"]
+    Audit["audit"]
+
+    Parser["Parser"]
+    Calculator["ArrayCalculator"]
+    Writer["Writer"]
+    Exporter["ExcelExporter"]
+    Importer["ExcelImporter"]
+
+    Calculate --> Parser
+    Calculate --> Calculator
+    Calculate --> Writer
+
+    Validate --> Parser
+    Validate --> Calculator
+
+    Export --> Parser
+    Export --> Exporter
+
+    Import --> Importer
+    Import --> Writer
+
+    Audit --> Parser
+```
 
 ---
 
@@ -399,7 +482,46 @@ fn main() -> ForgeResult<()> {
 
 **Routing Flow:**
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["forge <command> <args>"]
+    ParseCLI["Cli::parse()"]
+    MatchCommand{"match cli.command"}
+
+    Calculate["Commands::Calculate"]
+    Validate["Commands::Validate"]
+    Export["Commands::Export"]
+    Import["Commands::Import"]
+    Audit["Commands::Audit"]
+
+    CalcHandler["cli::calculate(file, dry_run, verbose)"]
+    ValidateHandler["cli::validate(file)"]
+    ExportHandler["cli::export(input, output, verbose)"]
+    ImportHandler["cli::import(input, output, verbose)"]
+    AuditHandler["cli::audit(file, variable)"]
+
+    Done["Result<()>"]
+
+    Start --> ParseCLI
+    ParseCLI --> MatchCommand
+    MatchCommand -->|calculate| Calculate
+    MatchCommand -->|validate| Validate
+    MatchCommand -->|export| Export
+    MatchCommand -->|import| Import
+    MatchCommand -->|audit| Audit
+
+    Calculate --> CalcHandler
+    Validate --> ValidateHandler
+    Export --> ExportHandler
+    Import --> ImportHandler
+    Audit --> AuditHandler
+
+    CalcHandler --> Done
+    ValidateHandler --> Done
+    ExportHandler --> Done
+    ImportHandler --> Done
+    AuditHandler --> Done
+```
 
 ### Command Handler Interface
 
@@ -578,7 +700,40 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
 
 ### Calculate Flow
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["forge calculate file.yaml --dry-run"]
+    ParseArgs["clap parse arguments"]
+    CallHandler["commands::calculate()"]
+    ParseModel["parser::parse_model()"]
+    DetectVersion{"Version?"}
+
+    V1["v1.0.0 path"]
+    V0["v0.2.0 path"]
+
+    ArrayCalc["ArrayCalculator::calculate_all()"]
+    ScalarCalc["Calculator::calculate_all()"]
+
+    CheckDryRun{"--dry-run?"}
+    WriteFiles["writer::update_all_yaml_files()"]
+    DisplayResults["Display results"]
+    Done["Exit 0"]
+
+    Start --> ParseArgs
+    ParseArgs --> CallHandler
+    CallHandler --> ParseModel
+    ParseModel --> DetectVersion
+    DetectVersion -->|V1_0_0| V1
+    DetectVersion -->|V0_2_0| V0
+    V1 --> ArrayCalc
+    V0 --> ScalarCalc
+    ArrayCalc --> CheckDryRun
+    ScalarCalc --> CheckDryRun
+    CheckDryRun -->|No| WriteFiles
+    CheckDryRun -->|Yes| DisplayResults
+    WriteFiles --> DisplayResults
+    DisplayResults --> Done
+```
 
 ### Output Examples
 
@@ -752,7 +907,41 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
 
 ### Validate Flow
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["forge validate file.yaml"]
+    ParseArgs["clap parse arguments"]
+    CallHandler["commands::validate()"]
+    ParseModel["parser::parse_model()"]
+    CheckVersion{"Version?"}
+
+    V1["v1.0.0"]
+    V0["v0.2.0"]
+
+    ArrayCalc["ArrayCalculator::calculate_all()"]
+    ScalarCalc["Calculator::calculate_all()"]
+
+    Success{"Success?"}
+    ValidMsg["✅ All formulas valid"]
+    ErrorMsg["❌ Errors found"]
+    Exit0["Exit 0"]
+    Exit1["Exit 1"]
+
+    Start --> ParseArgs
+    ParseArgs --> CallHandler
+    CallHandler --> ParseModel
+    ParseModel --> CheckVersion
+    CheckVersion -->|V1_0_0| V1
+    CheckVersion -->|V0_2_0| V0
+    V1 --> ArrayCalc
+    V0 --> ScalarCalc
+    ArrayCalc --> Success
+    ScalarCalc --> Success
+    Success -->|Yes| ValidMsg
+    Success -->|No| ErrorMsg
+    ValidMsg --> Exit0
+    ErrorMsg --> Exit1
+```
 
 ### Output Examples
 
@@ -877,7 +1066,44 @@ pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 
 ### Export Flow
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["forge export input.yaml output.xlsx"]
+    ParseArgs["clap parse arguments"]
+    CallHandler["commands::export()"]
+    ParseModel["parser::parse_model()"]
+    CheckV1{"v1.0.0?"}
+
+    CreateExporter["ExcelExporter::new(model)"]
+    Export["exporter.export(output_path)"]
+
+    subgraph "ExcelExporter"
+        CreateWorkbook["Create workbook"]
+        LoopTables["For each table"]
+        WriteSheet["Write worksheet"]
+        TranslateFormulas["FormulaTranslator::translate()"]
+    end
+
+    Success["✅ Exported to .xlsx"]
+    Error["❌ v0.2.0 not supported for export"]
+    Exit0["Exit 0"]
+    Exit1["Exit 1"]
+
+    Start --> ParseArgs
+    ParseArgs --> CallHandler
+    CallHandler --> ParseModel
+    ParseModel --> CheckV1
+    CheckV1 -->|Yes| CreateExporter
+    CheckV1 -->|No| Error
+    CreateExporter --> Export
+    Export --> CreateWorkbook
+    CreateWorkbook --> LoopTables
+    LoopTables --> WriteSheet
+    WriteSheet --> TranslateFormulas
+    TranslateFormulas --> Success
+    Success --> Exit0
+    Error --> Exit1
+```
 
 ### Output Example
 
@@ -988,7 +1214,46 @@ pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 
 ### Import Flow
 
-*[Diagram to be recreated in Mermaid format]*
+```mermaid
+graph TB
+    Start["forge import input.xlsx output.yaml"]
+    ParseArgs["clap parse arguments"]
+    CallHandler["commands::import()"]
+
+    CreateImporter["ExcelImporter::new(input_path)"]
+    Import["importer.import()"]
+
+    subgraph "ExcelImporter"
+        OpenWorkbook["Open .xlsx workbook"]
+        LoopSheets["For each worksheet"]
+        ReadData["Read column data"]
+        InferTypes["Infer column types"]
+        DetectFormulas["Detect formulas"]
+        TranslateFormulas["ReverseFormulaTranslator::translate()"]
+        CreateTable["Create Table"]
+    end
+
+    CreateModel["Create ParsedModel (v1.0.0)"]
+    WriteYAML["writer::write_model()"]
+    Success["✅ Imported to YAML"]
+    Exit0["Exit 0"]
+
+    Start --> ParseArgs
+    ParseArgs --> CallHandler
+    CallHandler --> CreateImporter
+    CreateImporter --> Import
+    Import --> OpenWorkbook
+    OpenWorkbook --> LoopSheets
+    LoopSheets --> ReadData
+    ReadData --> InferTypes
+    InferTypes --> DetectFormulas
+    DetectFormulas --> TranslateFormulas
+    TranslateFormulas --> CreateTable
+    CreateTable --> CreateModel
+    CreateModel --> WriteYAML
+    WriteYAML --> Success
+    Success --> Exit0
+```
 
 ### Output Example
 
