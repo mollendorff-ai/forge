@@ -1,54 +1,31 @@
-//! Forge - YAML formula calculator with Excel-style cross-file references
+//! Forge - YAML formula calculator with Excel-style arrays
 //!
 //! This library provides functionality to parse YAML files containing formulas,
-//! calculate them in dependency order, and update values across multiple files.
+//! calculate them in dependency order, and update values.
 //!
 //! # Features
 //!
 //! - Excel-style formulas in YAML files (SUM, AVERAGE, IF, etc.)
-//! - Array model (v1.0.0) for Excel-compatible column-based data
-//! - Scalar model (v0.2.0) for backwards compatibility
-//! - Cross-file references using `@alias.variable` syntax
-//! - Automatic dependency resolution
-//! - Multi-file updates (Excel-style behavior)
-//! - JSON Schema validation (v1.0.0)
+//! - Array model for Excel-compatible column-based data
+//! - JSON Schema validation
 //! - Type-safe homogeneous arrays (Number, Text, Date, Boolean)
+//! - Excel import/export
 //!
-//! # Model Versions
-//!
-//! ## v1.0.0 - Array Model (Excel-compatible)
-//! Column arrays that map directly to Excel columns for trivial export.
-//! Supports row-wise formulas, aggregations, and type-safe arrays.
-//!
-//! ## v0.2.0 - Scalar Model (Backwards compatible)
-//! Individual variables with {value, formula} pattern.
-//!
-//! # Example (v1.0.0)
+//! # Example
 //!
 //! ```no_run
 //! use royalbit_forge::parser::parse_model;
+//! use royalbit_forge::core::ArrayCalculator;
 //! use std::path::Path;
 //!
 //! let path = Path::new("model.yaml");
 //! let model = parse_model(path)?;
 //!
-//! println!("Version: {:?}", model.version);
 //! println!("Tables: {}", model.tables.len());
 //! println!("Scalars: {}", model.scalars.len());
-//! # Ok::<(), royalbit_forge::error::ForgeError>(())
-//! ```
 //!
-//! # Example (v0.2.0)
-//!
-//! ```no_run
-//! use royalbit_forge::parser::parse_yaml_with_includes;
-//! use royalbit_forge::core::Calculator;
-//! use std::path::Path;
-//!
-//! let path = Path::new("model.yaml");
-//! let parsed = parse_yaml_with_includes(path)?;
-//! let mut calculator = Calculator::new(parsed.variables.clone());
-//! let results = calculator.calculate_all()?;
+//! let calculator = ArrayCalculator::new(model);
+//! let result = calculator.calculate_all()?;
 //! # Ok::<(), royalbit_forge::error::ForgeError>(())
 //! ```
 
@@ -62,6 +39,4 @@ pub mod writer;
 
 // Re-export commonly used types
 pub use error::{ForgeError, ForgeResult};
-pub use types::{
-    Column, ColumnValue, ForgeVersion, Include, ParsedModel, ParsedYaml, Table, Variable,
-};
+pub use types::{Column, ColumnValue, ParsedModel, Table, Variable};

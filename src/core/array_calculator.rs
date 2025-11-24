@@ -2901,11 +2901,10 @@ enum LookupValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::ForgeVersion;
 
     #[test]
     fn test_simple_rowwise_formula() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("test".to_string());
         table.add_column(Column::new(
@@ -2939,7 +2938,7 @@ mod tests {
 
     #[test]
     fn test_is_aggregation_formula() {
-        let model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let model = ParsedModel::new();
         let calc = ArrayCalculator::new(model);
 
         assert!(calc.is_aggregation_formula("=SUM(revenue)"));
@@ -2951,7 +2950,7 @@ mod tests {
 
     #[test]
     fn test_extract_column_references() {
-        let model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let model = ParsedModel::new();
         let calc = ArrayCalculator::new(model);
 
         let refs = calc
@@ -2972,7 +2971,7 @@ mod tests {
     fn test_aggregation_sum() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         // Create a table with revenue column
         let mut table = Table::new("sales".to_string());
@@ -2987,7 +2986,6 @@ mod tests {
             path: "total_revenue".to_string(),
             value: None,
             formula: Some("=SUM(sales.revenue)".to_string()),
-            alias: None,
         };
         model.add_scalar("total_revenue".to_string(), total_revenue);
 
@@ -3004,7 +3002,7 @@ mod tests {
     fn test_aggregation_average() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("metrics".to_string());
         table.add_column(Column::new(
@@ -3017,7 +3015,6 @@ mod tests {
             path: "avg_value".to_string(),
             value: None,
             formula: Some("=AVERAGE(metrics.values)".to_string()),
-            alias: None,
         };
         model.add_scalar("avg_value".to_string(), avg_value);
 
@@ -3032,7 +3029,7 @@ mod tests {
     fn test_array_indexing() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("quarterly".to_string());
         table.add_column(Column::new(
@@ -3045,7 +3042,6 @@ mod tests {
             path: "q1_revenue".to_string(),
             value: None,
             formula: Some("=quarterly.revenue[0]".to_string()),
-            alias: None,
         };
         model.add_scalar("q1_revenue".to_string(), q1_revenue);
 
@@ -3053,7 +3049,6 @@ mod tests {
             path: "q4_revenue".to_string(),
             value: None,
             formula: Some("=quarterly.revenue[3]".to_string()),
-            alias: None,
         };
         model.add_scalar("q4_revenue".to_string(), q4_revenue);
 
@@ -3074,7 +3069,7 @@ mod tests {
     fn test_scalar_dependencies() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("pl".to_string());
         table.add_column(Column::new(
@@ -3092,7 +3087,6 @@ mod tests {
             path: "total_revenue".to_string(),
             value: None,
             formula: Some("=SUM(pl.revenue)".to_string()),
-            alias: None,
         };
         model.add_scalar("total_revenue".to_string(), total_revenue);
 
@@ -3101,7 +3095,6 @@ mod tests {
             path: "total_cogs".to_string(),
             value: None,
             formula: Some("=SUM(pl.cogs)".to_string()),
-            alias: None,
         };
         model.add_scalar("total_cogs".to_string(), total_cogs);
 
@@ -3110,7 +3103,6 @@ mod tests {
             path: "gross_profit".to_string(),
             value: None,
             formula: Some("=total_revenue - total_cogs".to_string()),
-            alias: None,
         };
         model.add_scalar("gross_profit".to_string(), gross_profit);
 
@@ -3119,7 +3111,6 @@ mod tests {
             path: "gross_margin".to_string(),
             value: None,
             formula: Some("=gross_profit / total_revenue".to_string()),
-            alias: None,
         };
         model.add_scalar("gross_margin".to_string(), gross_margin);
 
@@ -3142,7 +3133,7 @@ mod tests {
     fn test_aggregation_max_min() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("data".to_string());
         table.add_column(Column::new(
@@ -3155,7 +3146,6 @@ mod tests {
             path: "max_value".to_string(),
             value: None,
             formula: Some("=MAX(data.values)".to_string()),
-            alias: None,
         };
         model.add_scalar("max_value".to_string(), max_value);
 
@@ -3163,7 +3153,6 @@ mod tests {
             path: "min_value".to_string(),
             value: None,
             formula: Some("=MIN(data.values)".to_string()),
-            alias: None,
         };
         model.add_scalar("min_value".to_string(), min_value);
 
@@ -3178,7 +3167,7 @@ mod tests {
     fn test_sumif_numeric_criteria() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("sales".to_string());
         table.add_column(Column::new(
@@ -3196,7 +3185,6 @@ mod tests {
             path: "high_revenue".to_string(),
             value: None,
             formula: Some("=SUMIF(sales.amount, \">100\", sales.revenue)".to_string()),
-            alias: None,
         };
         model.add_scalar("high_revenue".to_string(), high_revenue);
 
@@ -3214,7 +3202,7 @@ mod tests {
     fn test_countif_numeric_criteria() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("data".to_string());
         table.add_column(Column::new(
@@ -3228,7 +3216,6 @@ mod tests {
             path: "passing_count".to_string(),
             value: None,
             formula: Some("=COUNTIF(data.scores, \">=85\")".to_string()),
-            alias: None,
         };
         model.add_scalar("passing_count".to_string(), passing_count);
 
@@ -3246,7 +3233,7 @@ mod tests {
     fn test_averageif_numeric_criteria() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("employees".to_string());
         table.add_column(Column::new(
@@ -3264,7 +3251,6 @@ mod tests {
             path: "avg_senior_salary".to_string(),
             value: None,
             formula: Some("=AVERAGEIF(employees.years, \">=3\", employees.salary)".to_string()),
-            alias: None,
         };
         model.add_scalar("avg_senior_salary".to_string(), avg_senior_salary);
 
@@ -3286,7 +3272,7 @@ mod tests {
     fn test_countif_text_criteria() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("products".to_string());
         table.add_column(Column::new(
@@ -3310,7 +3296,6 @@ mod tests {
             path: "electronics_count".to_string(),
             value: None,
             formula: Some("=COUNTIF(products.category, \"Electronics\")".to_string()),
-            alias: None,
         };
         model.add_scalar("electronics_count".to_string(), electronics_count);
 
@@ -3328,7 +3313,7 @@ mod tests {
     fn test_sumif_text_criteria() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("products".to_string());
         table.add_column(Column::new(
@@ -3354,7 +3339,6 @@ mod tests {
             formula: Some(
                 "=SUMIF(products.category, \"Electronics\", products.revenue)".to_string(),
             ),
-            alias: None,
         };
         model.add_scalar("electronics_revenue".to_string(), electronics_revenue);
 
@@ -3372,7 +3356,7 @@ mod tests {
     fn test_sumifs_multiple_criteria() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("sales".to_string());
         table.add_column(Column::new(
@@ -3403,7 +3387,6 @@ mod tests {
                 "=SUMIFS(sales.revenue, sales.region, \"North\", sales.amount, \">=150\")"
                     .to_string(),
             ),
-            alias: None,
         };
         model.add_scalar("north_high_revenue".to_string(), north_high_revenue);
 
@@ -3421,7 +3404,7 @@ mod tests {
     fn test_countifs_multiple_criteria() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("data".to_string());
         table.add_column(Column::new(
@@ -3445,7 +3428,6 @@ mod tests {
             path: "count_result".to_string(),
             value: None,
             formula: Some("=COUNTIFS(data.category, \"A\", data.value, \">20\")".to_string()),
-            alias: None,
         };
         model.add_scalar("count_result".to_string(), count_result);
 
@@ -3460,7 +3442,7 @@ mod tests {
     fn test_averageifs_multiple_criteria() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("employees".to_string());
         table.add_column(Column::new(
@@ -3491,7 +3473,6 @@ mod tests {
                 "=AVERAGEIFS(employees.salary, employees.department, \"Sales\", employees.years, \">=4\")"
                     .to_string(),
             ),
-            alias: None,
         };
         model.add_scalar("avg_result".to_string(), avg_result);
 
@@ -3509,7 +3490,7 @@ mod tests {
     fn test_maxifs_multiple_criteria() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("sales".to_string());
         table.add_column(Column::new(
@@ -3538,7 +3519,6 @@ mod tests {
             formula: Some(
                 "=MAXIFS(sales.revenue, sales.region, \"North\", sales.quarter, \"2\")".to_string(),
             ),
-            alias: None,
         };
         model.add_scalar("max_result".to_string(), max_result);
 
@@ -3556,7 +3536,7 @@ mod tests {
     fn test_minifs_multiple_criteria() {
         use crate::types::Variable;
 
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         let mut table = Table::new("inventory".to_string());
         table.add_column(Column::new(
@@ -3586,7 +3566,6 @@ mod tests {
                 "=MINIFS(inventory.price, inventory.product, \"Widget\", inventory.quantity, \">=75\")"
                     .to_string(),
             ),
-            alias: None,
         };
         model.add_scalar("min_result".to_string(), min_result);
 
@@ -3603,7 +3582,7 @@ mod tests {
 
     #[test]
     fn test_round_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -3657,7 +3636,7 @@ mod tests {
 
     #[test]
     fn test_roundup_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -3686,7 +3665,7 @@ mod tests {
 
     #[test]
     fn test_rounddown_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -3718,7 +3697,7 @@ mod tests {
 
     #[test]
     fn test_ceiling_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -3760,7 +3739,7 @@ mod tests {
 
     #[test]
     fn test_floor_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -3802,7 +3781,7 @@ mod tests {
 
     #[test]
     fn test_mod_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -3844,7 +3823,7 @@ mod tests {
 
     #[test]
     fn test_sqrt_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -3875,7 +3854,7 @@ mod tests {
 
     #[test]
     fn test_power_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -3917,7 +3896,7 @@ mod tests {
 
     #[test]
     fn test_math_functions_combined() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -3950,7 +3929,7 @@ mod tests {
 
     #[test]
     fn test_concat_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -3994,7 +3973,7 @@ mod tests {
 
     #[test]
     fn test_trim_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -4027,7 +4006,7 @@ mod tests {
 
     #[test]
     fn test_upper_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -4060,7 +4039,7 @@ mod tests {
 
     #[test]
     fn test_lower_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -4093,7 +4072,7 @@ mod tests {
 
     #[test]
     fn test_len_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -4126,7 +4105,7 @@ mod tests {
 
     #[test]
     fn test_mid_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -4170,7 +4149,7 @@ mod tests {
 
     #[test]
     fn test_text_functions_combined() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -4202,7 +4181,7 @@ mod tests {
 
     #[test]
     fn test_date_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -4242,7 +4221,7 @@ mod tests {
 
     #[test]
     fn test_year_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -4275,7 +4254,7 @@ mod tests {
 
     #[test]
     fn test_month_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -4308,7 +4287,7 @@ mod tests {
 
     #[test]
     fn test_day_function() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -4341,7 +4320,7 @@ mod tests {
 
     #[test]
     fn test_date_functions_combined() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -4376,7 +4355,7 @@ mod tests {
 
     #[test]
     fn test_mixed_math_and_text_functions() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
 
         table.add_column(Column::new(
@@ -4428,7 +4407,7 @@ mod tests {
 
     #[test]
     fn test_match_exact() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         // Create products table
         let mut products = Table::new("products".to_string());
@@ -4478,7 +4457,7 @@ mod tests {
 
     #[test]
     fn test_index_basic() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         // Create products table
         let mut products = Table::new("products".to_string());
@@ -4523,7 +4502,7 @@ mod tests {
 
     #[test]
     fn test_index_match_combined() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         // Create products table
         let mut products = Table::new("products".to_string());
@@ -4594,7 +4573,7 @@ mod tests {
 
     #[test]
     fn test_xlookup_exact_match() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         // Create products table
         let mut products = Table::new("products".to_string());
@@ -4643,7 +4622,7 @@ mod tests {
 
     #[test]
     fn test_xlookup_with_if_not_found() {
-        let mut model = ParsedModel::new(ForgeVersion::V1_0_0);
+        let mut model = ParsedModel::new();
 
         // Create products table
         let mut products = Table::new("products".to_string());

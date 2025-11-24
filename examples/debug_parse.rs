@@ -6,7 +6,6 @@ fn main() {
     let model = parser::parse_model(&path).unwrap();
 
     println!("=== Parsed Model ===");
-    println!("Version: {:?}", model.version);
     println!("\nTables:");
     for (table_name, table) in &model.tables {
         println!("\n  Table: {}", table_name);
