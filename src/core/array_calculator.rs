@@ -142,7 +142,45 @@ impl ArrayCalculator {
 
         // Validate all columns exist and have correct length
         for col_ref in &col_refs {
-            if let Some(col) = table.columns.get(col_ref) {
+            // Check if this is a cross-table reference (table.column format)
+            if col_ref.contains('.') {
+                // Cross-table reference - validate it exists
+                let parts: Vec<&str> = col_ref.split('.').collect();
+                if parts.len() == 2 {
+                    let ref_table_name = parts[0];
+                    let ref_col_name = parts[1];
+
+                    if let Some(ref_table) = self.model.tables.get(ref_table_name) {
+                        if let Some(ref_col) = ref_table.columns.get(ref_col_name) {
+                            if ref_col.values.len() != row_count {
+                                return Err(ForgeError::Eval(format!(
+                                    "Column '{}.{}' has {} rows, expected {}",
+                                    ref_table_name,
+                                    ref_col_name,
+                                    ref_col.values.len(),
+                                    row_count
+                                )));
+                            }
+                        } else {
+                            return Err(ForgeError::Eval(format!(
+                                "Column '{}' not found in table '{}'",
+                                ref_col_name, ref_table_name
+                            )));
+                        }
+                    } else {
+                        return Err(ForgeError::Eval(format!(
+                            "Table '{}' not found",
+                            ref_table_name
+                        )));
+                    }
+                } else {
+                    return Err(ForgeError::Eval(format!(
+                        "Invalid cross-table reference: {}",
+                        col_ref
+                    )));
+                }
+            } else if let Some(col) = table.columns.get(col_ref) {
+                // Local column reference
                 if col.values.len() != row_count {
                     return Err(ForgeError::Eval(format!(
                         "Column '{}' has {} rows, expected {}",
@@ -164,7 +202,32 @@ impl ArrayCalculator {
         for row_idx in 0..row_count {
             // Create a resolver for this specific row
             let resolver = |var_name: String| -> types::Value {
-                // Check if this is a column reference
+                // Check if this is a cross-table reference (table.column format)
+                if var_name.contains('.') {
+                    let parts: Vec<&str> = var_name.split('.').collect();
+                    if parts.len() == 2 {
+                        let ref_table_name = parts[0];
+                        let ref_col_name = parts[1];
+
+                        if let Some(ref_table) = self.model.tables.get(ref_table_name) {
+                            if let Some(ref_col) = ref_table.columns.get(ref_col_name) {
+                                match &ref_col.values {
+                                    ColumnValue::Number(nums) => {
+                                        if let Some(&val) = nums.get(row_idx) {
+                                            return types::Value::Number(val as f32);
+                                        }
+                                    }
+                                    _ => {
+                                        return types::Value::Error(types::Error::Value);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    return types::Value::Error(types::Error::Value);
+                }
+
+                // Local column reference
                 if let Some(col) = table.columns.get(&var_name) {
                     // Get the value at this row index
                     match &col.values {
@@ -318,15 +381,87 @@ impl ArrayCalculator {
             formula.to_string()
         };
 
-        // Check if this formula contains aggregation functions or array indexing
-        if self.is_aggregation_formula(&formula_str) {
+        // Check if this formula contains aggregation functions (but not mixed with other operations)
+        if self.is_aggregation_formula(&formula_str) && !formula_str.contains('[') {
             self.evaluate_aggregation(&formula_str)
         } else if formula_str.contains('[') && formula_str.contains(']') {
-            self.evaluate_array_indexing(&formula_str)
+            // Check if it's a pure array indexing formula (just =table.column[index])
+            let trimmed = formula_str.trim_start_matches('=').trim();
+            if trimmed.matches('[').count() == 1
+                && !trimmed.contains('+')
+                && !trimmed.contains('-')
+                && !trimmed.contains('*')
+                && !trimmed.contains('/')
+                && !trimmed.contains('^')
+                && !trimmed.contains('(')
+            {
+                // Pure array indexing
+                self.evaluate_array_indexing(&formula_str)
+            } else {
+                // Complex formula with array indexing - preprocess it
+                let processed = self.preprocess_array_indexing(&formula_str)?;
+                self.evaluate_scalar_with_resolver(&processed)
+            }
         } else {
             // Regular scalar formula - use xlformula_engine
             self.evaluate_scalar_with_resolver(&formula_str)
         }
+    }
+
+    /// Preprocess formula to replace array indexing with actual values
+    /// Converts: =(pl_2025.revenue[3] / pl_2025.revenue[0]) ^ (1/3) - 1
+    /// To: =(1800000 / 1000000) ^ (1/3) - 1
+    fn preprocess_array_indexing(&self, formula: &str) -> ForgeResult<String> {
+        use regex::Regex;
+
+        // Pattern: table_name.column_name[index]
+        // Match word characters (including _), a dot, more word characters, then [number]
+        let re = Regex::new(r"(\w+)\.(\w+)\[(\d+)\]")
+            .map_err(|e| ForgeError::Eval(format!("Regex error: {}", e)))?;
+
+        let mut result = formula.to_string();
+
+        // Find all matches and replace them with their values
+        let captures: Vec<_> = re.captures_iter(formula).collect();
+        for cap in captures {
+            let full_match = cap.get(0).unwrap().as_str();
+            let table_name = cap.get(1).unwrap().as_str();
+            let col_name = cap.get(2).unwrap().as_str();
+            let index_str = cap.get(3).unwrap().as_str();
+
+            let index = index_str
+                .parse::<usize>()
+                .map_err(|_| ForgeError::Eval(format!("Invalid index: {}", index_str)))?;
+
+            // Get the actual value
+            let table = self
+                .model
+                .tables
+                .get(table_name)
+                .ok_or_else(|| ForgeError::Eval(format!("Table '{}' not found", table_name)))?;
+
+            let column = table.columns.get(col_name).ok_or_else(|| {
+                ForgeError::Eval(format!("Column '{}' not found in table '{}'", col_name, table_name))
+            })?;
+
+            let value = match &column.values {
+                ColumnValue::Number(nums) => nums
+                    .get(index)
+                    .copied()
+                    .ok_or_else(|| ForgeError::Eval(format!("Index {} out of bounds", index)))?,
+                _ => {
+                    return Err(ForgeError::Eval(format!(
+                        "Array indexing requires numeric column, got {}",
+                        column.values.type_name()
+                    )))
+                }
+            };
+
+            // Replace the array indexing with the actual value
+            result = result.replace(full_match, &value.to_string());
+        }
+
+        Ok(result)
     }
 
     /// Evaluate aggregation formula (SUM, AVERAGE, MAX, MIN)
