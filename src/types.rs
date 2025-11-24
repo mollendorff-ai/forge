@@ -26,7 +26,29 @@ impl ForgeVersion {
             }
         }
 
-        // Check for array pattern (v1.0.0 indicator)
+        // Check for v0.2.0 specific features FIRST
+        // includes: field indicates v0.2.0 cross-file references
+        if yaml.get("includes").is_some() {
+            return ForgeVersion::V0_2_0;
+        }
+
+        // Check for v1.0.0 specific features
+        // tables: field with columns indicates v1.0.0 array model
+        if let Some(tables_val) = yaml.get("tables") {
+            if let Some(tables_map) = tables_val.as_mapping() {
+                // Check if any table has a "columns" field
+                for (_table_name, table_val) in tables_map {
+                    if let Some(table_map) = table_val.as_mapping() {
+                        if table_map.contains_key("columns") {
+                            return ForgeVersion::V1_0_0;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fallback: Check for array pattern (v1.0.0 indicator)
+        // This catches v1.0.0 files that use scalars with arrays
         if Self::has_array_values(yaml) {
             return ForgeVersion::V1_0_0;
         }
