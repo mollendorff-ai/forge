@@ -32,7 +32,7 @@ impl ArrayCalculator {
     }
 
     /// Calculate all formulas in a table
-    fn calculate_table(&self, table_name: &str, table: &Table) -> ForgeResult<Table> {
+    fn calculate_table(&mut self, table_name: &str, table: &Table) -> ForgeResult<Table> {
         let mut working_table = table.clone();
 
         // Build dependency order for formulas
@@ -122,7 +122,7 @@ impl ArrayCalculator {
     /// Evaluate a row-wise formula (element-wise operations)
     /// Example: profit = revenue - expenses
     /// Evaluates: profit[i] = revenue[i] - expenses[i] for all i
-    fn evaluate_rowwise_formula(&self, table: &Table, formula: &str) -> ForgeResult<ColumnValue> {
+    fn evaluate_rowwise_formula(&mut self, table: &Table, formula: &str) -> ForgeResult<ColumnValue> {
         let formula_str = if !formula.starts_with('=') {
             format!("={}", formula.trim())
         } else {
