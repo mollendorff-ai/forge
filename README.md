@@ -14,7 +14,7 @@
 >   - v1.0.0: 12.5 hours (overnight autonomous development)
 >   - v1.1.0: <8 hours (27 essential Excel functions)
 >   - v1.2.0: <3 hours (4 lookup functions)
-> - **141 tests passing**, zero warnings, zero bugs shipped
+> - **141 tests passing**, zero warnings, production-tested
 > - From "AI Assistant" to "Senior Developer" across three major releases
 >
 > *[Read the full autonomous development story →](docs/AUTONOMOUS_STORY.md)*
@@ -229,19 +229,19 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 - **141 tests passing** (up from 136 in v1.1.0)
 - **Zero warnings** (clippy strict mode: `-D warnings`)
-- **Zero bugs** in production
+- **Production-tested** with comprehensive test suite
 - **<3 hours development** (autonomous AI)
 
 **v1.1.0 (November 2025):**
 
 - **136 tests passing** (up from 100 in v1.0.0)
-- **Zero warnings**, zero bugs
+- **Zero warnings**, extensively tested
 - **<8 hours development** (autonomous AI)
 
 **v1.0.0 (November 2025):**
 
 - **100 tests passing** (complete rewrite)
-- **Zero warnings**, zero bugs
+- **Zero warnings**, production-ready
 - **12.5 hours development** (overnight autonomous)
 
 **Development methodology:** Autonomous AI via [warmup protocol](docs/AUTONOMOUS_STORY.md)
@@ -383,10 +383,10 @@ This isn't AI-assisted development. This is **AI development**.
 Forge was built autonomously by Claude Sonnet 4.5 using a novel [warmup protocol](docs/AUTONOMOUS_STORY.md) methodology:
 
 - **~23.5 hours total** (v1.0.0 + v1.1.0 + v1.2.0, Nov 23-24, 2025)
-- **Zero bugs shipped** to production
+- **Production-tested** across all releases
 - **Zero refactoring** needed (production-ready first iteration)
 - **141 tests, 0 warnings** maintained throughout
-- **50+ Excel functions** implemented with full test coverage
+- **50+ Excel functions** implemented with comprehensive test suite
 
 **The breakthrough:** Not smarter AI, but structured autonomy with deterministic success criteria.
 
@@ -425,6 +425,6 @@ And because AI **forged** this tool autonomously. 🔥
 
 ---
 
-**Built autonomously by Claude Sonnet 4.5 | November 23-24, 2025 | ~23.5 hours | Zero bugs**
+**Built autonomously by Claude Sonnet 4.5 | November 23-24, 2025 | ~23.5 hours | 141 tests**
 
 **Save money. Save the planet. Trust the math.** 🌍

@@ -7,7 +7,7 @@ use std::path::PathBuf;
 #[command(name = "forge")]
 #[command(about = "Stop AI hallucinations. Save money. Save the planet. Trust the math.")]
 #[command(long_about = "Forge - Deterministic YAML formula calculator
-Built autonomously by AI in 12.5 hours. Zero bugs shipped.
+Built autonomously by AI in ~23.5 hours. 141 tests passing.
 
 STOP AI HALLUCINATIONS:
   AI validation:  70K tokens, $0.66, 0.25g CO2, 30-60s, ~90% accuracy
