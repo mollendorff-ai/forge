@@ -61,7 +61,6 @@ fn test_simple_table_calculation() {
 }
 
 #[test]
-#[ignore] // TODO: Debug column resolution in complex scenarios
 fn test_calculate_quarterly_pl() {
     let path = Path::new("test-data/v1.0/quarterly_pl.yaml");
     let model = parse_model(path).expect("Failed to parse");
