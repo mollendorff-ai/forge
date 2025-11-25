@@ -566,14 +566,14 @@ technical_debt:
     version: "1.5.0"
     status: planned
     target_date: "2026-Q1"
-    description: "VSCode Extension (Research-backed: 73.6% market share)"
-    research_basis: "VSCode used by 73.6% of developers (Stack Overflow 2024). 60,000+ extensions in marketplace."
+    description: "Editor Extensions (VSCode + Zed) - Multi-editor strategy"
+    research_basis: "CORRECTED Nov 2025: VSCode ~51% share (not 73.6%!). Zed is #2 AI IDE with 150K users."
 
     priority_features:
       vscode_extension:
-        priority: critical
+        priority: high
         effort: "2-3 weeks"
-        rationale: "VSCode dominates with 73.6% market share. Real-time validation reduces errors by 50% (IaC research)."
+        rationale: "VSCode has ~51% market share (corrected from outdated 73.6%). Still largest but not dominant."
         features:
           - "Syntax highlighting for Forge YAML"
           - "Inline formula evaluation (hover to see calculated values)"
@@ -584,10 +584,27 @@ technical_debt:
           - "50+ function signature hints"
         marketplace_strategy: "Target 10K installs in first quarter"
 
+      zed_extension:
+        priority: high
+        effort: "1-2 weeks"
+        rationale: |
+          Zed is #2 most popular AI IDE (State of AI 2025).
+          150K active devs/month, 9% of Rust devs use it.
+          Used by Anthropic, Linear, Ramp, Shopify.
+          Forge is Rust-native - perfect fit for Zed's Rust community!
+          $32M Sequoia funding (Aug 2025) = growing fast.
+        features:
+          - "Syntax highlighting for Forge YAML"
+          - "Inline formula evaluation"
+          - "Integration with Zed's Agent Server Extensions (ACP)"
+          - "Real-time validation"
+        why_prioritize: "Rust community overlap + fastest-growing AI IDE"
+
       lsp_foundation:
-        priority: medium
-        rationale: "LSP enables support for vim, emacs, Sublime, JetBrains - broader reach"
-        note: "Build LSP server to power VSCode extension, then release standalone"
+        priority: critical
+        rationale: "LSP enables BOTH VSCode and Zed extensions from same codebase. Also vim, emacs, JetBrains."
+        note: "Build LSP server FIRST, then thin wrappers for each editor"
+        efficiency: "One LSP server powers ALL editor extensions"
 
   v1_6_0:
     version: "1.6.0"
@@ -622,24 +639,53 @@ technical_debt:
           - "Scenario switching via CLI flag"
           - "Scenario comparison reports"
 
+  v1_7_0:
+    version: "1.7.0"
+    status: planned
+    target_date: "2026-Q1"
+    description: "MCP Server - Forge as AI Agent Tool (DE-FACTO STANDARD!)"
+    research_basis: |
+      MCP is NOW the de-facto standard (Nov 2025).
+      Adopted by OpenAI, Google DeepMind, thousands of community servers.
+      This should be SOONER than v2.0 - moved up from original plan!
+
+    priority_features:
+      mcp_server:
+        priority: CRITICAL
+        effort: "2-3 weeks"
+        rationale: |
+          MCP is NOW the de-facto standard for AI tool connections.
+          OpenAI and Google DeepMind have adopted MCP!
+          Thousands of MCP servers built by community.
+          Enterprise implementations: BCC Research, MathWorks MATLAB.
+          Forge as MCP server = instant integration with ALL AI agents.
+        features:
+          - "Forge as MCP server for Claude Code, Copilot, Cursor"
+          - "AI agents can validate formulas autonomously"
+          - "Natural language formula queries"
+          - "Agent-driven model updates"
+          - "Integration with Zed's Agent Server Extensions (ACP)"
+        security_considerations:
+          - "April 2025: Security researchers flagged prompt injection risks"
+          - "Implement tool permission controls"
+          - "Audit logging for all MCP operations"
+        example: "Claude: 'Validate all formulas in the Q4 forecast' → Forge MCP validates and reports"
+        integrations:
+          - "Claude Code (native)"
+          - "GitHub Copilot agent mode"
+          - "Cursor parallel agents"
+          - "Zed Agent Server Extensions"
+          - "Any MCP-compatible client"
+
   v2_0_0:
     version: "2.0.0"
     status: planned
     target_date: "2026-Q2+"
-    description: "AI Agent Integration + Enterprise Features"
+    description: "Enterprise Features + API Server"
     breaking_changes: true
-    research_basis: "Claude Opus 4.5 (Nov 24, 2025) = 'best model for coding, agents'. MCP enables deep integration."
+    research_basis: "Enterprise needs: audit trails (Harness success), policy-as-code, multi-user collaboration"
 
     priority_features:
-      mcp_server:
-        priority: critical
-        rationale: "MCP (Model Context Protocol) enables Claude Code integration. Agentic tools are transforming dev workflows."
-        features:
-          - "Forge as MCP server for Claude Code"
-          - "AI agents can validate formulas autonomously"
-          - "Natural language formula queries"
-          - "Agent-driven model updates"
-        example: "Claude: 'Validate all formulas in the Q4 forecast' → Forge MCP validates and reports"
 
       api_server_mode:
         priority: high
@@ -692,16 +738,32 @@ research_2025:
     forge_differentiator: "YAML-native, Git-friendly, deterministic (no AI hallucinations), open source"
 
   developer_experience_trends:
-    source: "Stack Overflow 2024, DX research 2025"
+    source: "State of AI 2025, Zed/Sequoia, GitHub Docs - Updated Nov 25, 2025"
+    CORRECTED_DATA:
+      note: "Previous data was from Jan 2025 training - OUTDATED!"
+      vscode_actual_share: "~51% (NOT 73.6% as previously stated)"
+      zed_emergence: "Zed is #2 most popular AI IDE (State of AI 2025)"
     key_findings:
-      - "GitHub Actions: 4M+ organizations, fastest-growing CI/CD"
-      - "VSCode: 73.6% market share (nearest competitor 30%)"
-      - "68% of developers use AI tools for coding tasks"
-      - "50% productivity boost from deep work (minimize context switching)"
-      - "GitHub CLI (gh) widely adopted - command line is standard"
+      - "VSCode: ~51% market share (corrected from outdated 73.6%)"
+      - "Zed: 150K active devs/month, 9% of Rust devs (up from 1%!)"
+      - "Zed: #2 most popular AI IDE overall (State of AI 2025)"
+      - "Zed: $32M Series B from Sequoia (Aug 2025)"
+      - "Zed: Used by Anthropic, Linear, Ramp, Shopify engineering teams"
+      - "GitHub Copilot now includes GPT-5, Claude Sonnet 4.5, Gemini 2.5 Pro"
+      - "Multi-model workflows are the norm (devs use 2-3 tools together)"
+      - "AI-first IDEs are 'booming' - billions in market opportunity"
+    zed_technical:
+      performance: "Opens 100K line repo in 0.8s (VSCode: 6s, Cursor: 4.5s)"
+      built_with: "Rust + GPUI framework"
+      recent_launches:
+        - "Nov 13, 2025: Agent Server Extensions (ACP-compatible)"
+        - "Oct 30, 2025: OpenAI Codex agent integration"
+        - "Oct 16, 2025: Zed for Windows released"
     implications:
-      - "GitHub Action is critical for enterprise adoption"
-      - "VSCode extension is essential (73.6% reach)"
+      - "GitHub Action still critical for enterprise adoption"
+      - "VSCode extension important but NOT 73.6% - more like 51%"
+      - "Zed extension should be considered (Rust-native, #2 AI IDE)"
+      - "Multi-editor strategy needed (VSCode + Zed + JetBrains)"
       - "Watch mode enables deep work"
 
   ai_autonomous_coding_trends:
@@ -722,6 +784,20 @@ research_2025:
         forge_implication: "COMPETITIVE THREAT - but Forge is deterministic, Claude still hallucinates"
       anthropic_valuation: "$350 billion (Microsoft + Nvidia investments)"
       market_share: "Anthropic 32% enterprise AI (ahead of OpenAI 25%)"
+      mcp_status:
+        current: "DE-FACTO STANDARD (Nov 2025)"
+        adoption: "Thousands of MCP servers built by community"
+        major_adopters: "OpenAI and Google DeepMind have adopted MCP!"
+        enterprise: "BCC Research, MathWorks MATLAB MCP servers launched"
+        security_note: "April 2025: Security researchers flagged prompt injection risks"
+        source: "https://www.anthropic.com/news/model-context-protocol"
+      github_copilot_models:
+        available_now:
+          - "GPT-5, GPT-5.1-Codex, GPT-5.1-Codex-Mini"
+          - "Claude Sonnet 4, Claude Sonnet 4.5 (GA Oct 13, 2025)"
+          - "Gemini 2.5 Pro"
+        pricing: "$10/month Pro with 300 premium model requests"
+        platforms: "VSCode, Visual Studio, JetBrains, Xcode, Eclipse"
     key_findings:
       - "Claude Opus 4.5 is 'best model in the world for coding' (released Nov 24, 2025)"
       - "Claude Sonnet 4.5 handles 30+ hours autonomous coding"
@@ -777,11 +853,11 @@ ecosystem:
 
   vscode_extension:
     status: planned
-    priority: critical
+    priority: high
     version: "1.5.0"
     effort: "2-3 weeks"
     description: "VSCode extension for Forge YAML files"
-    research_backing: "VSCode: 73.6% market share (Stack Overflow 2024). Real-time validation reduces errors 50%."
+    research_backing: "CORRECTED: VSCode ~51% market share (not 73.6%!). Still largest, but not dominant."
     features:
       - "Syntax highlighting for Forge YAML"
       - "Inline formula evaluation (hover to see calculated values)"
@@ -791,41 +867,69 @@ ecosystem:
       - "Jump to definition (Ctrl+Click on variable)"
       - "Function signature hints"
     value_proposition: "Makes Forge first-class in developer workflows"
-    community_impact: "CRITICAL - 73.6% of developers use VSCode"
-    marketplace_target: "10K installs in first quarter"
+    community_impact: "HIGH - ~51% of developers use VSCode (corrected from 73.6%)"
+    marketplace_target: "Target 10K installs in first quarter"
 
-  language_server_protocol:
+  zed_extension:
     status: planned
     priority: high
     version: "1.5.0"
-    effort: "Built into VSCode extension, standalone later"
-    description: "LSP server for Forge (powers VSCode + other editors)"
+    effort: "1-2 weeks"
+    description: "Zed extension for Forge YAML files"
+    research_backing: |
+      Zed is #2 most popular AI IDE (State of AI 2025).
+      150K active devs/month, 9% of Rust devs (up from 1%!).
+      $32M Sequoia Series B (Aug 2025).
+      Used by Anthropic, Linear, Ramp, Shopify engineering teams.
+      Forge is Rust-native = PERFECT fit for Zed's Rust community!
     features:
-      - "Universal editor support (vim, emacs, Sublime, JetBrains)"
+      - "Syntax highlighting for Forge YAML"
+      - "Inline formula evaluation"
+      - "Integration with Zed Agent Server Extensions (ACP)"
+      - "Real-time validation"
+    why_prioritize: "Rust community overlap + fastest-growing AI IDE + Anthropic uses Zed!"
+    community_impact: "HIGH - #2 AI IDE, Rust-native audience"
+
+  language_server_protocol:
+    status: planned
+    priority: critical
+    version: "1.5.0"
+    effort: "2-3 weeks (then powers all extensions)"
+    description: "LSP server for Forge - ONE server powers ALL editors"
+    research_backing: "Build LSP first, then thin wrappers. More efficient than separate implementations."
+    features:
+      - "Universal editor support (VSCode, Zed, vim, emacs, JetBrains)"
       - "Hover documentation"
       - "Go to definition"
       - "Find references"
       - "Rename refactoring"
-    dependencies: ["vscode_extension"]
-    note: "Build LSP core for VSCode extension, release standalone for v1.6.0"
+    efficiency: "One LSP server powers VSCode + Zed + all other editors"
+    note: "Build LSP core FIRST, then editor-specific thin wrappers"
 
   mcp_server:
     status: planned
-    priority: high
-    version: "2.0.0"
+    priority: CRITICAL
+    version: "1.7.0"
     effort: "2-3 weeks"
-    description: "Model Context Protocol server for AI agent integration"
-    research_backing: "MCP enables Claude Code integration. 2025 paradigm shift to autonomous AI agents."
+    description: "Model Context Protocol server - DE-FACTO STANDARD for AI agents"
+    research_backing: |
+      MCP is NOW the de-facto standard (Nov 2025).
+      Adopted by OpenAI and Google DeepMind!
+      Thousands of community MCP servers.
+      Enterprise: BCC Research, MathWorks MATLAB servers launched.
     features:
-      - "Forge as MCP server for Claude Code"
+      - "Forge as MCP server for Claude Code, Copilot, Cursor, Zed"
       - "AI agents can validate formulas autonomously"
       - "Natural language formula queries"
       - "Agent-driven model updates"
     use_cases:
       - "Claude: 'Validate Q4 forecast' → Forge validates"
       - "Copilot agent mode integration"
-      - "Automated financial model auditing"
-    community_impact: "HIGH - Enables AI-native workflows"
+      - "Cursor parallel agents"
+      - "Zed Agent Server Extensions (ACP)"
+      - "Any MCP-compatible client"
+    community_impact: "CRITICAL - MCP is THE standard for AI tool integration"
+    security_note: "April 2025: Prompt injection risks flagged - implement permission controls"
 
   web_ui:
     status: idea
