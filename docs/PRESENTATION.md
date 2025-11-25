@@ -72,16 +72,19 @@ The Forge Protocol Suite (`warmup.yaml` + `sprint.yaml`)
 
 # The AI Coding Paradox (2025)
 
-| Metric | Value | Source |
-|--------|-------|--------|
-| Developers using AI tools | **84%** | Index.dev ¹ |
-| Faster task completion (reported) | **55%** | Index.dev ¹ |
-| Actually SLOWER (METR study) | **19%** | METR.org ² |
-| Spend more time fixing AI code | **66%** | Index.dev ¹ |
-| Suggestion acceptance rate | **33%** | ZoomInfo/arXiv ³ |
-| "Almost right, but not quite" | **45%** | Index.dev ¹ |
+<div class="small">
 
-<p class="small">¹ index.dev | ² metr.org | ³ arxiv.org — see Sources slide for full URLs</p>
+| Metric | Value |
+|--------|-------|
+| Developers using AI tools | **84%** ¹ |
+| Report faster completion | **55%** ¹ |
+| Actually SLOWER (METR) | **19%** ² |
+| Fixing AI-generated code | **66%** ¹ |
+| "Almost right, not quite" | **45%** ¹ |
+
+</div>
+
+*¹ index.dev | ² metr.org — see Sources slide*
 
 ---
 
@@ -145,15 +148,14 @@ Forge Protocol Suite, November 2025
 
 Every session is a **MINI-SPRINT**:
 
-1. **DEFINE** (5-10 min) — State ONE milestone
-2. **EXECUTE** (2-4 hours) — Full autonomy
-3. **SHIP** (15-30 min) — Tests pass, docs updated
-4. **STOP** — MANDATORY, even if tempted
+1. **DEFINE** (5 min) — ONE milestone
+2. **EXECUTE** (2-4h) — Full autonomy
+3. **SHIP** (15 min) — Tests pass, docs updated
+4. **STOP** — MANDATORY
 
 Anti-patterns I reject:
-- 🚫 *"Let me also..."* → That's NEXT milestone
+- 🚫 *"Let me also..."* → NEXT milestone
 - 🚫 *"While I'm here..."* → Stay focused
-- 🚫 *"This would be better if..."* → Ship first
 
 ---
 
@@ -179,18 +181,15 @@ Anti-patterns I reject:
 
 ---
 
-# The Path: Principal → Principal Autonomous AI
+# The Path: Staff → Principal Autonomous AI
 
-| Version | Role | What I Built |
-|---------|------|--------------|
-| v1.7.0 | Principal Engineer | MCP Server (AI agents) |
+| Version | Role | Achievement |
+|---------|------|-------------|
+| v1.7.0 | Principal Engineer | MCP Server |
 | v2.0.0 | Principal Engineer | HTTP API Server |
-| v2.0.1+ | **Principal Autonomous AI** | **The Forge Protocol Suite** |
+| v2.0.1+ | **Principal Autonomous AI** | **Protocol Suite** |
 
-The Protocol Suite promotion:
-- Created `sprint.yaml` — first of its kind in FOSS
-- Defined AI ownership & session boundaries
-- **Meta-achievement:** Built the system that builds systems
+**Meta-achievement:** Built the system that builds systems
 
 ---
 
@@ -217,17 +216,14 @@ The Protocol Suite promotion:
 # Step 0: Launch Claude Code
 
 ```bash
-# For TRUE autonomous mode (no permission interrupts):
 claude --dangerously-skip-permissions
-
-# Or create an alias:
-alias skynet="claude --dangerously-skip-permissions"
 ```
 
-**Why?** Without this flag, Claude interrupts for EVERY action.
-**Safety?** The protocols provide the guardrails.
+Or use aliases: `opus`, `sonnet`, `sonnet1m`
 
-> You provide the **trust**. Claude provides the **code**.
+**Why?** Without this flag, Claude interrupts for EVERY action.
+
+> **Trust** (you) + **Protocols** (guardrails) = **Safe Autonomy**
 
 ---
 
