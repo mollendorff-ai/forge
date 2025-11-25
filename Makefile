@@ -1,7 +1,7 @@
 # Forge - YAML Formula Calculator
 # Build and test targets for optimized binary
 
-.PHONY: help build build-static build-compressed install install-user install-system uninstall lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
+.PHONY: help build build-static build-compressed install install-user install-system uninstall lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check presentation presentation-pdf presentation-pptx
 
 # Detect if upx is available
 HAS_UPX := $(shell command -v upx 2> /dev/null)
@@ -41,6 +41,11 @@ help:
 	@echo "  make validate-yaml      - Validate YAML files (yamllint)"
 	@echo "  make validate-diagrams  - Validate PlantUML diagrams (if present)"
 	@echo "  make validate-all       - Run ALL validators (docs + yaml + diagrams)"
+	@echo ""
+	@echo "Presentation:"
+	@echo "  make presentation       - Generate PDF presentation (installs marp if needed)"
+	@echo "  make presentation-pdf   - Generate PDF presentation"
+	@echo "  make presentation-pptx  - Generate PowerPoint presentation"
 	@echo ""
 	@echo "Workflows:"
 	@echo "  make pre-commit         - Full pre-commit check (format + lint + test + validate-all)"
@@ -279,7 +284,7 @@ validate-docs:
 validate-yaml:
 	@echo "📄 Validating YAML files..."
 	@if command -v yamllint >/dev/null 2>&1; then \
-		yamllint warmup.yaml roadmap.yaml 2>/dev/null && \
+		yamllint warmup.yaml sprint.yaml roadmap.yaml 2>/dev/null && \
 		echo "✅ YAML validation passed"; \
 	else \
 		echo "❌ yamllint not found. Run: pip install yamllint"; \
@@ -313,14 +318,17 @@ install-tools:
 	@echo "3. yamllint (YAML validation)"
 	@echo "   pip install yamllint"
 	@echo ""
-	@echo "4. PlantUML (diagram validation - optional)"
+	@echo "4. Marp CLI (presentation generation)"
+	@echo "   npm install -g @marp-team/marp-cli"
+	@echo ""
+	@echo "5. PlantUML (diagram validation - optional)"
 	@echo "   Using public server: https://www.plantuml.com/plantuml"
-	@echo "   Scripts: bin/validate-plantuml.sh"
 	@echo ""
 	@echo "Current status:"
 	@command -v cargo >/dev/null 2>&1 && echo "  ✅ Rust/Cargo installed" || echo "  ❌ Rust/Cargo not found"
 	@command -v markdownlint-cli2 >/dev/null 2>&1 && echo "  ✅ markdownlint-cli2 installed" || echo "  ❌ markdownlint-cli2 not found"
 	@command -v yamllint >/dev/null 2>&1 && echo "  ✅ yamllint installed" || echo "  ❌ yamllint not found"
+	@command -v marp >/dev/null 2>&1 && echo "  ✅ Marp CLI installed" || echo "  ❌ Marp CLI not found"
 	@curl -s --head --max-time 5 https://www.plantuml.com/plantuml/png/ >/dev/null 2>&1 && echo "  ✅ PlantUML server accessible" || echo "  ⚠️  PlantUML server unreachable"
 	@echo ""
 
@@ -337,3 +345,34 @@ pre-commit: format-check lint test validate-all
 check: format-check lint test-unit validate-docs
 	@echo ""
 	@echo "✅ Quick checks passed!"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PRESENTATION TARGETS
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Check if marp-cli is installed
+HAS_MARP := $(shell command -v marp 2> /dev/null)
+
+presentation: presentation-pdf
+	@echo ""
+	@echo "✅ Presentation generated: Forge_Protocol_Suite.pdf"
+
+presentation-pdf:
+	@echo "📊 Generating PDF presentation..."
+ifndef HAS_MARP
+	@echo "⚠️  Marp CLI not found. Installing..."
+	@npm install -g @marp-team/marp-cli
+endif
+	@marp docs/PRESENTATION.md -o Forge_Protocol_Suite.pdf --pdf --allow-local-files
+	@echo "✅ Generated: Forge_Protocol_Suite.pdf"
+	@ls -lh Forge_Protocol_Suite.pdf
+
+presentation-pptx:
+	@echo "📊 Generating PowerPoint presentation..."
+ifndef HAS_MARP
+	@echo "⚠️  Marp CLI not found. Installing..."
+	@npm install -g @marp-team/marp-cli
+endif
+	@marp docs/PRESENTATION.md -o Forge_Protocol_Suite.pptx --pptx --allow-local-files
+	@echo "✅ Generated: Forge_Protocol_Suite.pptx"
+	@ls -lh Forge_Protocol_Suite.pptx

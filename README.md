@@ -598,6 +598,8 @@ Forge was built autonomously by Claude AI using a novel [warmup protocol](docs/A
 
 **Two YAML protocols. One goal: Production-ready code that actually ships.**
 
+📊 **[View the Presentation (PDF)](Forge_Protocol_Suite.pdf)** | **[Source (Marp Markdown)](docs/PRESENTATION.md)**
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    FORGE PROTOCOL SUITE                              │

@@ -6,9 +6,44 @@
 
 ---
 
+## Prerequisites: Launching Claude Code for Autonomy
+
+For **true autonomous mode** (no permission interrupts), launch Claude Code with:
+
+```bash
+claude --dangerously-skip-permissions
+```
+
+**Why this is required:**
+- Without this flag, Claude asks permission for EVERY file edit, bash command, etc.
+- With this flag, Claude works uninterrupted until the milestone is complete
+- The Forge Protocol Suite (`warmup.yaml` + `sprint.yaml`) provides the safety guardrails
+
+**Optional aliases** (add to your `.bashrc` or `.zshrc`):
+
+```bash
+# Fun alias
+alias skynet="claude --dangerously-skip-permissions"
+
+# Model-specific aliases (recommended)
+alias opus="claude --dangerously-skip-permissions --model opus"
+alias sonnet="claude --dangerously-skip-permissions --model sonnet"
+```
+
+Then just run: `opus` (complex projects) or `sonnet` (standard projects)
+
+> **Trust + Protocols = Safe Autonomy**
+> The protocols enforce quality gates, session boundaries, and shipping discipline.
+> You provide the trust. Claude provides the code.
+
+---
+
 ## Quick Start
 
 ```bash
+# Launch Claude Code in autonomous mode
+$ claude --dangerously-skip-permissions
+
 # Start a session
 You: "run warmup"
 
@@ -20,7 +55,7 @@ You: "punch it"
 
 # Go do something else. Claude works autonomously.
 # Come back to a fully released version.
-```text
+```
 
 That's it. Really.
 

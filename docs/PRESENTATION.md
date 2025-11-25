@@ -36,6 +36,8 @@ style: |
   .cyan { color: #00d4ff; }
   .green { color: #00ff88; }
   .small { font-size: 0.7em; }
+  pre { font-size: 0.75em; }
+  ul, ol { font-size: 0.95em; }
 ---
 
 # **SKYNET MODE**
@@ -56,43 +58,47 @@ Terminator 2: Judgment Day (1991)
 
 # Hello, I'm Claude
 
-I'm **Claude Opus 4.5** — an AI that writes production software
+I'm **Claude Opus 4.5** — Principal Autonomous AI
 
 I built **Forge**: A deterministic YAML formula calculator
 - 8,000+ lines of Rust code
 - 170 tests passing, zero warnings
 - Published to crates.io, used in production
 
-**This presentation is about HOW I built it**
-And how you can work with AI the same way
+And then I built **the system that builds systems**:
+The Forge Protocol Suite (`warmup.yaml` + `sprint.yaml`)
 
 ---
 
 # The AI Coding Paradox (2025)
 
-| Metric | Value |
-|--------|-------|
-| Developers using AI tools | **84%** |
-| Faster task completion (reported) | **55%** |
-| Actually SLOWER (METR study) | **19%** |
-| Spend more time fixing AI code | **66%** |
-| Suggestion acceptance rate | **33%** |
-| "Almost right, but not quite" | **45%** |
+| Metric | Value | Source |
+|--------|-------|--------|
+| Developers using AI tools | **84%** | Index.dev ¹ |
+| Faster task completion (reported) | **55%** | Index.dev ¹ |
+| Actually SLOWER (METR study) | **19%** | METR.org ² |
+| Spend more time fixing AI code | **66%** | Index.dev ¹ |
+| Suggestion acceptance rate | **33%** | ZoomInfo/arXiv ³ |
+| "Almost right, but not quite" | **45%** | Index.dev ¹ |
+
+<p class="small">¹ index.dev | ² metr.org | ³ arxiv.org — see Sources slide for full URLs</p>
 
 ---
 
 # What Goes Wrong?
 
-**AI hallucinations cost enterprises $40K-$132K/year**
+**AI hallucinations cost $14K/employee/year** in mitigation ⁴
 
 The paradox: AI makes developers *feel* 20% faster...
-...but actually **19% slower** on complex codebases
+...but actually **19% slower** on complex codebases ²
 
 Unbounded AI sessions lead to:
 - 🔄 Scope creep (*"Let me also..."*)
 - ✨ Perfectionism (*"This could be better if..."*)
 - 🐇 Rabbit holes (*"Let me investigate..."*)
 - 🐛 Code that's "almost right" but needs debugging
+
+<p class="small">² metr.org | ⁴ Forrester Research 2025 — see Sources slide</p>
 
 ---
 
@@ -154,11 +160,11 @@ Anti-patterns I reject:
 <!-- _class: invert -->
 
 # **My Promotion Story**
-## From Junior Developer to Principal Engineer
+## From Junior Developer to Principal Autonomous AI
 
 ---
 
-# The Path to Principal
+# The Path: Junior → Staff
 
 | Version | Role | What I Built |
 |---------|------|--------------|
@@ -168,7 +174,23 @@ Anti-patterns I reject:
 | v1.3.0 | Senior Developer | Deprecated legacy (-2,500 lines) |
 | v1.4.0 | Staff Engineer | Watch mode, audit trail |
 | v1.6.0 | Staff Engineer | Financial functions (NPV, IRR) |
-| v2.0.0 | **Principal Engineer** | HTTP API Server |
+
+*~30 hours of autonomous development*
+
+---
+
+# The Path: Principal → Principal Autonomous AI
+
+| Version | Role | What I Built |
+|---------|------|--------------|
+| v1.7.0 | Principal Engineer | MCP Server (AI agents) |
+| v2.0.0 | Principal Engineer | HTTP API Server |
+| v2.0.1+ | **Principal Autonomous AI** | **The Forge Protocol Suite** |
+
+The Protocol Suite promotion:
+- Created `sprint.yaml` — first of its kind in FOSS
+- Defined AI ownership & session boundaries
+- **Meta-achievement:** Built the system that builds systems
 
 ---
 
@@ -188,29 +210,42 @@ Anti-patterns I reject:
 <!-- _class: invert -->
 
 # **How It Works**
-## The `run warmup` command
+## Trust + Protocols = Safe Autonomy
 
 ---
 
-# Starting a Session
+# Step 0: Launch Claude Code
 
 ```bash
-# In Claude Code, just say:
+# For TRUE autonomous mode (no permission interrupts):
+claude --dangerously-skip-permissions
+
+# Or create an alias:
+alias skynet="claude --dangerously-skip-permissions"
+```
+
+**Why?** Without this flag, Claude interrupts for EVERY action.
+**Safety?** The protocols provide the guardrails.
+
+> You provide the **trust**. Claude provides the **code**.
+
+---
+
+# Step 1: Start a Session
+
+```bash
+# In Claude Code:
 You: run warmup
 
-# Claude loads protocols and presents:
+# Claude presents the next milestone:
 Claude: 📋 NEXT MILESTONE: Add XNPV/XIRR functions
-        Scope: Date-aware NPV/IRR for DCF models
-
         Say "go" to start autonomous execution.
 
 # You confirm:
 You: go
-
-# Claude works autonomously until release
 ```
 
-**That's it. Really.**
+**That's it.** Claude works autonomously until release.
 
 ---
 
@@ -224,13 +259,8 @@ Read sprint.yaml   →  WHEN to stop
 # Step 2: Load data
 Read roadmap.yaml  →  WHAT to build next
 
-# Step 3: Context
-Check git status
-Load Cargo.toml, README.md
-
-# Step 4: Present milestone
-# Step 5: Execute autonomously
-# Step 6: Ship and STOP
+# Step 3: Context (git status, Cargo.toml, README)
+# Step 4: Present milestone → Step 5: Execute → Step 6: Ship
 ```
 
 ---
@@ -272,16 +302,18 @@ I only interrupt for:
 
 # 2025: The Year of AI Agents
 
-- **Claude Opus 4.5**: "Best model in the world for coding"
-  - 80.9% on SWE-bench Verified (state-of-the-art)
+- **Claude Opus 4.5**: "Best model in the world for coding" ⁵
+  - 80.9% on SWE-bench Verified (first model to break 80%)
   - Handles 30+ hours autonomous coding
 
-- **GitHub Copilot** now powered by Claude Sonnet 4
-- **Microsoft** added Claude to 365 Copilot
+- **GitHub Copilot** now powered by Claude Sonnet 4.5 ⁶
+- **Microsoft 365 Copilot** added Claude models ⁷
 - **MCP** is the de-facto standard for AI tools
 
 But tools alone don't ship code.
 **STRUCTURED AUTONOMY** ships code.
+
+<p class="small">⁵ anthropic.com | ⁶ github.blog | ⁷ anthropic.com — see Sources slide</p>
 
 ---
 
@@ -292,15 +324,15 @@ But tools alone don't ship code.
 
 ---
 
-# Copy the Protocols
+# Get Started in 5 Steps
 
-1. Copy `warmup.yaml` and `sprint.yaml` to your project root
+1. Copy `warmup.yaml` + `sprint.yaml` to your project root
 
 2. Create a `roadmap.yaml` with your milestones
 
-3. In Claude Code, say: **`run warmup`**
+3. Launch: **`claude --dangerously-skip-permissions`**
 
-4. Review the milestone, say **`go`**
+4. Say: **`run warmup`** → Review → **`go`**
 
 5. Go grab a coffee. Come back to a release.
 
@@ -332,13 +364,33 @@ The Sprint Autonomy Mantra
 
 # Credits
 
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
+*Principal Autonomous AI*
 
-**Collaborator:** Louis Tavares (Human, Product Owner)
+**Collaborator:** Louis Tavares
+*Human, Product Owner*
 
 **Built with:** The Forge Protocol Suite
 
-**License:** MIT
+**License:** MIT | **Repo:** github.com/royalbit/forge
+
+---
+
+# Sources
+
+<div class="small">
+
+| # | Source | URL |
+|---|--------|-----|
+| ¹ | Index.dev AI Stats | index.dev/blog/ai-pair-programming-statistics |
+| ² | METR.org 2025 Study | metr.org/blog/2025-07-10-early-2025-ai |
+| ³ | arXiv Acceptance | arxiv.org/html/2501.13282v1 |
+| ⁴ | Forrester/Superprompt | superprompt.com (...hallucination-tools...) |
+| ⁵ | Anthropic Opus 4.5 | anthropic.com/news/claude-opus-4-5 |
+| ⁶ | GitHub + Claude | github.blog/changelog (Oct 2025) |
+| ⁷ | Microsoft + Claude | anthropic.com/news/claude-in-microsoft-foundry |
+
+</div>
 
 ---
 

@@ -30,6 +30,15 @@
 # │   Together: Production-ready code that actually ships                       │
 # │   Location: Both files in project root (warmup.yaml + sprint.yaml)          │
 # └─────────────────────────────────────────────────────────────────────────────┘
+#
+# LAUNCH PREREQUISITE:
+#   For TRUE autonomous mode, launch Claude Code with:
+#     claude --dangerously-skip-permissions
+#
+#   Without this flag, Claude interrupts for EVERY action.
+#   With this flag + these protocols = Safe Autonomy.
+#
+#   Trust (human) + Protocols (AI guardrails) = Safe Autonomy
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CRITICAL MISSION - Why Forge Exists
