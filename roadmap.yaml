@@ -4,7 +4,7 @@
 
 metadata:
   current_version: "2.2.0"
-  target_version: "2.3.0"
+  target_version: "2.2.1"
   last_updated: "2025-11-25"
   maintainer: "RoyalBit Inc."
   notes: "v2.0.1 released. Roadmap refocused on FINANCIAL CLI FIRST - integrations deprioritized."
@@ -830,6 +830,34 @@ technical_debt:
           revenue           $1.2M     $1.8M       $0.9M
           profit            $200K     $450K       -$50K
           runway_months     18        36          8
+
+  v2_2_1:
+    version: "2.2.1"
+    status: planned
+    target_date: "2025-11-25"
+    description: "Excel Function Sync - Add missing functions to Excel export/import"
+    priority: HIGH
+    effort: "<1 hour"
+    rationale: |
+      Excel export/import is missing 15+ functions added in v1.1.0-v2.1.0.
+      Must sync before adding more features to avoid technical debt.
+
+    missing_functions:
+      financial:
+        - "NPV, IRR, PMT, FV, PV, RATE, NPER"
+        - "XNPV, XIRR"
+      date:
+        - "DATEDIF, EDATE, EOMONTH"
+      other:
+        - "CHOOSE, MAXIFS, MINIFS, POWER, CONCAT"
+
+    files_to_update:
+      - "src/excel/formula_translator.rs - is_excel_function()"
+      - "src/excel/reverse_formula_translator.rs - is_excel_function()"
+
+    testing:
+      - "Add round-trip tests for new functions"
+      - "Verify export with XNPV/XIRR formulas"
 
   v2_3_0:
     version: "2.3.0"
