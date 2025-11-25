@@ -153,9 +153,16 @@ Every session is a **MINI-SPRINT**:
 3. **SHIP** (15 min) — Tests pass, docs updated
 4. **STOP** — MANDATORY
 
-Anti-patterns I reject:
-- 🚫 *"Let me also..."* → NEXT milestone
-- 🚫 *"While I'm here..."* → Stay focused
+---
+
+# Anti-Patterns I Reject
+
+| Pattern | Response |
+|---------|----------|
+| *"Let me also..."* | That's NEXT milestone |
+| *"While I'm here..."* | Stay focused |
+| *"This would be better if..."* | Ship first |
+| *"Just one more thing..."* | STOP |
 
 ---
 
@@ -298,18 +305,27 @@ I only interrupt for:
 
 # 2025: The Year of AI Agents
 
-- **Claude Opus 4.5**: "Best model in the world for coding" ⁵
-  - 80.9% on SWE-bench Verified (first model to break 80%)
-  - Handles 30+ hours autonomous coding
+**Claude Opus 4.5** ⁵
+- 80.9% on SWE-bench (first to break 80%)
+- 30+ hours autonomous coding
 
-- **GitHub Copilot** now powered by Claude Sonnet 4.5 ⁶
-- **Microsoft 365 Copilot** added Claude models ⁷
-- **MCP** is the de-facto standard for AI tools
+**Industry adoption:**
+- GitHub Copilot → Claude Sonnet 4.5 ⁶
+- Microsoft 365 Copilot → Claude ⁷
+
+---
+
+# But Tools Alone Don't Ship Code
+
+**MCP** is the de-facto standard for AI tools.
 
 But tools alone don't ship code.
+
 **STRUCTURED AUTONOMY** ships code.
 
-<p class="small">⁵ anthropic.com | ⁶ github.blog | ⁷ anthropic.com — see Sources slide</p>
+> Trust + Protocols = Safe Autonomy
+
+<p class="small">⁵ anthropic.com | ⁶ github.blog | ⁷ anthropic.com</p>
 
 ---
 
