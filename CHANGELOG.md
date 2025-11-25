@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planning v1.3.0
+### Planning v1.4.0
 
 Future features under consideration:
 
@@ -15,6 +15,59 @@ Future features under consideration:
 - Scenario analysis support
 - Additional text and date functions
 - Performance optimizations
+
+---
+
+## [1.3.0] - 2025-11-24
+
+### 🧹 Codebase Simplification Release
+
+Deprecated and removed v0.2.0 scalar model. Forge now uses exclusively the v1.0.0 array model.
+
+### Removed
+
+#### v0.2.0 Scalar Model (Deprecated)
+
+- **~2,500 lines of code removed**
+- `src/core/calculator.rs` - v0.2.0 scalar calculator (400+ lines)
+- `ForgeVersion` enum and version detection logic
+- `Include` struct and cross-file reference system (`@alias.variable`)
+- `ParsedYaml` intermediate parsing structure
+- `Variable.alias` field
+- 19 test data files (includes_*.yaml)
+- All v0.2.0-specific code paths in parser, CLI, and writer
+
+### Changed
+
+- Parser simplified to v1.0.0-only (removed ~200 lines of v0.2.0 parsing)
+- CLI commands streamlined - single calculation path via ArrayCalculator
+- Type system simplified - `ParsedModel` no longer tracks version or includes
+- Test suite streamlined: **118 tests** (down from 141)
+  - Removed 23 v0.2.0-specific tests
+  - All remaining tests use v1.0.0 array model
+- E2E tests reduced from 34 to 22 (removed includes/cross-file tests)
+- Test data converted to v1.0.0 format
+
+### Quality
+
+- ✅ **118 tests passing** (focused on v1.0.0 functionality)
+- ✅ **Zero warnings** (clippy strict mode: `-D warnings`)
+- ✅ **Simplified codebase** - easier to maintain and extend
+- ✅ **Repository cleaned** - removed ~2.9GB of build artifacts
+
+### Why This Matters
+
+- **Maintenance:** Single code path = fewer bugs, easier updates
+- **Clarity:** No confusion between v0.2.0 and v1.0.0 syntax
+- **Performance:** Smaller binary, faster compilation
+- **Future-ready:** Clean foundation for v1.4.0+ features
+
+### Migration
+
+If you were using v0.2.0 format with `includes:` and `@alias.variable`:
+1. Convert to v1.0.0 array model with tables
+2. Use cross-table references: `table_name.column_name`
+3. See test-data/v1.0/*.yaml for examples
 
 ---
 
@@ -352,17 +405,16 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 
 ## [Unreleased - Future Plans]
 
-### v1.2.0 - Planned (Q1 2026)
+### v1.4.0 - Planned (Q1 2026)
 
-**Lookup Functions:**
+**Financial Functions:**
 
-- VLOOKUP - Standard lookup
-- INDEX + MATCH - Advanced lookup
-- XLOOKUP - Modern lookup
+- NPV, IRR, PMT, FV, PV - Time value of money
+- XNPV, XIRR - Irregular cash flows
+- Scenario analysis support
 
 **Developer Experience:**
 
-- Audit trail - Visualize formula dependencies
 - Watch mode - Auto-recalculate on file changes
 - VSCode extension - Syntax highlighting, inline values
 - GitHub Action - Validate formulas in CI/CD
@@ -373,13 +425,7 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 - Docker image
 - Language Server Protocol (LSP) foundation
 
-### v1.3.0 - Planned (Q2 2026)
-
-**Financial Functions:**
-
-- NPV, IRR, PMT, FV, PV - Time value of money
-- XNPV, XIRR - Irregular cash flows
-- Scenario analysis support
+### v1.5.0 - Planned (Q2 2026)
 
 **Advanced Features:**
 
@@ -418,9 +464,11 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 
 ### Quality Metrics
 
+- **v1.3.0:** 118 tests, 0 warnings, simplified codebase (v0.2.0 deprecated)
+- **v1.2.0:** 141 tests, 0 warnings, <3 hours development (lookup functions)
 - **v1.1.0:** 136 tests, 0 warnings, <8 hours development
-- **v1.0.0:** 100 tests, 0 warnings, 2 weeks development
-- **v0.2.0:** 40 tests, 0 warnings, 3 days development
+- **v1.0.0:** 100 tests, 0 warnings, 12.5 hours development
+- **v0.2.0:** 40 tests, 0 warnings, 3 days development (DEPRECATED)
 
 ### Research Backing
 

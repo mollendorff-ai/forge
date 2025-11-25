@@ -1,9 +1,9 @@
 [package]
 name = "royalbit-forge"
-version = "1.2.1"
+version = "1.3.0"
 edition = "2021"
 authors = ["Claude (Sonnet 4.5) - AI Developer <noreply@anthropic.com>", "Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
-description = "Bidirectional Excel-YAML bridge with 50+ Excel functions. Built autonomously by AI in ~23.5 hours (20-50x velocity). 141 tests, zero warnings, production-tested. Stop AI hallucinations, save $40K-$132K/year."
+description = "Bidirectional Excel-YAML bridge with 50+ Excel functions. Built autonomously by AI in ~23.5 hours (20-50x velocity). 118 tests, zero warnings, production-tested. Stop AI hallucinations, save $40K-$132K/year."
 repository = "https://github.com/royalbit/forge"
 homepage = "https://github.com/royalbit/forge"
 documentation = "https://github.com/royalbit/forge#readme"
