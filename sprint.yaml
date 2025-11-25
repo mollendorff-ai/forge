@@ -19,6 +19,12 @@ launch:
     fun: 'alias skynet="claude --dangerously-skip-permissions"'
     opus: 'alias opus="claude --dangerously-skip-permissions --model opus"'
     sonnet: 'alias sonnet="claude --dangerously-skip-permissions --model sonnet"'
+    sonnet1m: 'alias sonnet1m="claude --dangerously-skip-permissions --model sonnet[1m]"'
+
+  model_guide:
+    opus: "Complex projects - best reasoning"
+    sonnet: "Standard projects - fast and capable"
+    sonnet1m: "SUPER LARGE projects - 1M token context"
 
   trust_equation: "Trust (human) + Protocols (AI guardrails) = Safe Autonomy"
 
