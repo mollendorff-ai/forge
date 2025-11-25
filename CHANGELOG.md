@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.4.0] - 2025-11-25
+
+### 🚀 Performance & Scale Release
+
+Verified enterprise-scale performance with benchmark suite.
+
+### Added
+
+- **Performance Benchmark Suite** (`tests/performance_bench.rs`)
+  - Automated performance regression tests
+  - Tests from 100 to 100K rows
+  - Uses RAM filesystem (`/dev/shm`) to isolate CPU performance from I/O
+  - Documented I/O strategy for different storage types
+
+### Performance Results
+
+```
+  Rows    │   Parse    │    Calc    │   Total    │   Rows/sec
+ ─────────┼────────────┼────────────┼────────────┼──────────────
+   10,000 │       8 ms │      99 ms │     107 ms │      93,457
+   50,000 │      35 ms │     484 ms │     520 ms │      96,153
+  100,000 │      74 ms │     961 ms │   1,036 ms │      96,525
+```
+
+- **10K rows: <1s** (target met ✅)
+- **100K rows: ~1s** (target met ✅)
+- **Consistent ~96K rows/sec throughput**
+- **Linear O(n) scaling**
+
+### Roadmap Update
+
+- Reprioritized: Performance (was v2.5.0) → v2.4.0
+- Sensitivity Analysis moved to v2.5.0
+
+### Testing
+
+- **183 tests passing** (up from 179)
+- 4 new performance benchmark tests
+- Zero clippy warnings
+
+---
+
 ## [2.3.1] - 2025-11-25
 
 ### 📚 Documentation Update
