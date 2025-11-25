@@ -474,6 +474,40 @@ Starting fresh each session means:
 
 ---
 
+## Adapting the Protocols for Your Project
+
+**Important:** These protocols are **Rust-optimized** for Forge development. If you want to use them for other projects, you'll need to adapt them.
+
+### What to Replace
+
+| Rust/Forge | Python | Node.js | Go | Docs Only |
+|------------|--------|---------|----|-----------|
+| `cargo build` | `pip install` | `npm install` | `go build` | N/A |
+| `cargo test` | `pytest` | `npm test` | `go test` | N/A |
+| `cargo clippy` | `ruff`/`flake8` | `eslint` | `golint` | `markdownlint` |
+| `cargo fmt` | `black`/`ruff` | `prettier` | `gofmt` | `prettier` |
+| `crates.io` | PyPI | npmjs.com | pkg.go.dev | N/A |
+| `Cargo.toml` | `pyproject.toml` | `package.json` | `go.mod` | N/A |
+
+### Core Principles Stay the Same
+
+Regardless of stack, these principles are universal:
+
+- **ZERO warnings** policy (adapt linter)
+- **4-hour maximum** sessions
+- **ONE milestone** per session
+- **Ship releasable** work
+- **Done > Perfect**
+
+### Fork, Don't Copy
+
+1. Fork `warmup.yaml` and `sprint.yaml`
+2. Search/replace tooling references
+3. Update release targets for your ecosystem
+4. Keep the session constraints and anti-patterns
+
+---
+
 ## See Also
 
 - **[AUTONOMOUS_SESSION_GUIDE.md](AUTONOMOUS_SESSION_GUIDE.md)** - How to run autonomous sessions (start here!)
