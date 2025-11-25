@@ -7,7 +7,7 @@ use std::path::PathBuf;
 #[command(name = "forge")]
 #[command(about = "Stop AI hallucinations. Save money. Save the planet. Trust the math.")]
 #[command(long_about = "Forge - Deterministic YAML formula calculator
-Built autonomously by AI in ~36 hours. 176 tests passing.
+Built autonomously by AI in ~37 hours. 179 tests passing.
 
 STOP AI HALLUCINATIONS:
   AI validation:  70K tokens, $0.66, 0.25g CO2, 30-60s, ~90% accuracy
@@ -37,6 +37,7 @@ EXAMPLES:
   forge calculate model.yaml             # Update all formulas
   forge calculate model.yaml -s base     # With scenario
   forge compare model.yaml -s a,b,c      # Compare scenarios
+  forge variance budget.yaml actual.yaml # Budget vs actual analysis
   forge export model.yaml out.xlsx       # Export to Excel
 
 Docs: https://github.com/royalbit/forge | Built by Claude AI")]
@@ -269,6 +270,55 @@ OUTPUT:
         #[arg(short, long)]
         verbose: bool,
     },
+
+    #[command(long_about = "Compare budget vs actual with variance analysis.
+
+Calculates variances between two YAML files (budget and actual).
+Shows absolute variance, percentage variance, and favorability status.
+
+INPUTS:
+  Both files must be YAML format (use 'forge import' for Excel files first).
+  Variables are matched by name across both files.
+
+VARIANCE TYPES:
+  For revenue/income: actual > budget = favorable (✅)
+  For expenses/costs: actual < budget = favorable (✅)
+
+THRESHOLD:
+  Use --threshold to flag significant variances (default: 10%)
+  Variances exceeding threshold are marked with ⚠️
+
+OUTPUT FORMATS:
+  Terminal table (default)
+  YAML: forge variance budget.yaml actual.yaml -o report.yaml
+  Excel: forge variance budget.yaml actual.yaml -o report.xlsx
+
+EXAMPLES:
+  forge variance budget.yaml actual.yaml
+  forge variance budget.yaml actual.yaml --threshold 5
+  forge variance budget.yaml actual.yaml -o variance_report.xlsx
+
+See ADR-002 for design rationale on YAML-only inputs.")]
+    /// Compare budget vs actual with variance analysis
+    Variance {
+        /// Path to budget YAML file
+        budget: PathBuf,
+
+        /// Path to actual YAML file
+        actual: PathBuf,
+
+        /// Variance threshold percentage for alerts (default: 10)
+        #[arg(short, long, default_value = "10")]
+        threshold: f64,
+
+        /// Output file (optional: .yaml or .xlsx)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 fn main() -> ForgeResult<()> {
@@ -309,5 +359,13 @@ fn main() -> ForgeResult<()> {
             scenarios,
             verbose,
         } => cli::compare(file, scenarios, verbose),
+
+        Commands::Variance {
+            budget,
+            actual,
+            threshold,
+            output,
+            verbose,
+        } => cli::variance(budget, actual, threshold, output, verbose),
     }
 }

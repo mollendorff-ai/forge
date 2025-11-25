@@ -3,8 +3,8 @@
 # Research-backed priorities based on 2025 financial modeling & data analysis trends
 
 metadata:
-  current_version: "2.2.0"
-  target_version: "2.2.1"
+  current_version: "2.3.0"
+  target_version: "2.4.0"
   last_updated: "2025-11-25"
   maintainer: "RoyalBit Inc."
   notes: "v2.0.1 released. Roadmap refocused on FINANCIAL CLI FIRST - integrations deprioritized."
@@ -833,8 +833,8 @@ technical_debt:
 
   v2_2_1:
     version: "2.2.1"
-    status: planned
-    target_date: "2025-11-25"
+    status: completed
+    released_date: "2025-11-25"
     description: "Excel Function Sync - Add missing functions to Excel export/import"
     priority: HIGH
     effort: "<1 hour"
@@ -861,8 +861,8 @@ technical_debt:
 
   v2_3_0:
     version: "2.3.0"
-    status: planned
-    target_date: "2026-Q1"
+    status: completed
+    released_date: "2025-11-25"
     description: "Variance Analysis - Budget vs Actual with automated insights"
     priority: HIGH
     effort: "1-2 sessions"
