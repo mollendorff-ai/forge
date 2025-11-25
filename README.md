@@ -499,6 +499,31 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ## 💻 Development
 
+### Contributing with AI (Recommended)
+
+The **most important command** for Forge development:
+
+```bash
+# Start a Claude Code session and say:
+run warmup
+```
+
+This loads the **Forge Protocol Suite** - two YAML protocols that enable sustainable autonomous AI development:
+
+| Protocol | File | Purpose |
+|----------|------|---------|
+| **Warmup** | `warmup.yaml` | HOW to develop (quality, testing, docs) |
+| **Sprint** | `sprint.yaml` | WHEN to stop (bounded sessions, shipping) |
+
+**The workflow:**
+
+1. `run warmup` → Loads both protocols + roadmap
+2. Claude presents the next milestone
+3. Say `go` → Autonomous execution begins
+4. Claude ships when done (tests pass, docs updated)
+
+**[Full Session Guide →](docs/AUTONOMOUS_SESSION_GUIDE.md)**
+
 ### Build from source
 
 ```bash
@@ -571,20 +596,35 @@ Forge was built autonomously by Claude AI using a novel [warmup protocol](docs/A
 
 ## 🚀 The Forge Protocol Suite
 
-**Two protocols. One goal: Production-ready code that actually ships.**
+**Two YAML protocols. One goal: Production-ready code that actually ships.**
 
-```mermaid
-graph LR
-    subgraph warmup["WARMUP PROTOCOL"]
-        W["HOW to develop<br/>• Quality standards<br/>• Coding principles<br/>• Testing requirements"]
-    end
-    subgraph sprint["SPRINT AUTONOMY"]
-        S["WHEN to stop<br/>• Bounded sessions<br/>• Milestone sizing<br/>• Shipping discipline"]
-    end
-    warmup ---|+| sprint --> R["🚀 Ships!"]
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    FORGE PROTOCOL SUITE                              │
+│                                                                      │
+│   warmup.yaml              +           sprint.yaml                   │
+│   ─────────────                        ────────────                  │
+│   HOW to develop                       WHEN to stop                  │
+│   • Quality standards                  • 4-hour max sessions         │
+│   • Testing requirements               • ONE milestone per session   │
+│   • Documentation rules                • Mandatory STOP phase        │
+│   • What "done" means                  • Anti-pattern guards         │
+│                                        • AI ownership rules          │
+│                                                                      │
+│   Together → Production-ready code that actually ships               │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Sprint Autonomy Protocol
+### Quick Start: `run warmup`
+
+```bash
+# In Claude Code, say:
+run warmup
+```
+
+This loads both protocols and presents the next milestone from `roadmap.yaml`.
+
+### Sprint Autonomy Protocol (`sprint.yaml`)
 
 > "Skynet Mode" — But With an Off Switch
 
@@ -614,7 +654,24 @@ graph LR
 
 **Result:** 8 releases in ~35 hours, each production-ready immediately.
 
-**[Full Sprint Autonomy Protocol →](docs/SPRINT_AUTONOMY_PROTOCOL.md)** | **[Session Guide (start here!) →](docs/AUTONOMOUS_SESSION_GUIDE.md)**
+### Files
+
+**Protocols (Rules - Stable):**
+
+| File | Purpose |
+|------|---------|
+| `warmup.yaml` | HOW to develop - quality, testing, documentation |
+| `sprint.yaml` | WHEN to stop - session boundaries, shipping discipline |
+
+**Data (Content - Dynamic):**
+
+| File | Purpose |
+|------|---------|
+| `roadmap.yaml` | WHAT to build - milestones, priorities, features |
+
+*Protocols define the rules. Roadmap is the data they consume.*
+
+**[Full Session Guide →](docs/AUTONOMOUS_SESSION_GUIDE.md)** | **[Sprint Protocol Details →](docs/SPRINT_AUTONOMY_PROTOCOL.md)**
 
 ---
 

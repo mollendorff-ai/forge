@@ -4,6 +4,10 @@
 
 > "Skynet Mode" - But With an Off Switch
 
+> **📍 Primary Source: [`sprint.yaml`](../sprint.yaml)**
+>
+> This document is a human-readable guide. The canonical, machine-readable protocol is in `sprint.yaml` at the project root. When in doubt, `sprint.yaml` is the source of truth.
+
 ---
 
 ## Part of the Forge Protocol Suite
@@ -18,17 +22,32 @@ graph TB
             w4["• Testing requirements"]
             w5["• What 'done' means"]
         end
-        subgraph sprint["SPRINT AUTONOMY<br/>(this document)"]
+        subgraph sprint["SPRINT AUTONOMY<br/>(sprint.yaml)"]
             s1["WHEN to stop"]
             s2["• Bounded sessions"]
             s3["• Milestone sizing"]
             s4["• Shipping discipline"]
-            s5["• Quota preservation"]
+            s5["• AI ownership rules"]
         end
     end
     warmup ---|+| sprint
     suite --> result["Production-ready code that actually ships"]
 ```
+
+**Protocols (Rules - Stable):**
+
+| File | Purpose |
+|------|---------|
+| `warmup.yaml` | HOW to develop - quality, testing, documentation |
+| `sprint.yaml` | WHEN to stop - session boundaries, shipping discipline |
+
+**Data (Content - Dynamic):**
+
+| File | Purpose |
+|------|---------|
+| `roadmap.yaml` | WHAT to build - milestones, priorities |
+
+*Protocols define the rules. Roadmap is the data they consume.*
 
 **Why two protocols?**
 

@@ -3,11 +3,15 @@
 # Research-backed priorities based on 2025 financial modeling & data analysis trends
 
 metadata:
-  current_version: "2.0.0"
+  current_version: "2.0.1"
   target_version: "2.1.0"
   last_updated: "2025-11-25"
   maintainer: "RoyalBit Inc."
-  notes: "v2.0.0 RELEASED! Enterprise HTTP API Server. 170 tests passing. Built by Claude Opus 4.5."
+  notes: "v2.0.1 released. Roadmap refocused on FINANCIAL CLI FIRST - integrations deprioritized."
+  philosophy: |
+    Forge is an INTERNAL FINANCIAL CLI TOOL first.
+    External integrations (MCP, LSP, VSCode, Zed) are deprioritized to v3.x.
+    Priority: Core financial functionality that CFOs and FP&A teams actually need.
 
 # Version milestones
 milestones:
@@ -572,9 +576,10 @@ technical_debt:
 
   v1_5_0:
     version: "1.5.0"
-    status: planned
-    target_date: "2026-Q1"
-    description: "Editor Extensions (VSCode + Zed) - Multi-editor strategy"
+    status: deprioritized
+    moved_to: "v3.0.0"
+    target_date: "2026-Q3+"
+    description: "Editor Extensions (VSCode + Zed) - DEPRIORITIZED, moved to v3.x"
     research_basis: "CORRECTED Nov 2025: VSCode ~51% share (not 73.6%!). Zed is #2 AI IDE with 150K users."
 
     priority_features:
@@ -616,9 +621,10 @@ technical_debt:
 
   v1_6_0:
     version: "1.6.0"
-    status: planned
-    target_date: "2026-Q1"
-    description: "Financial Functions (NPV, IRR, PMT) - Complete DCF modeling"
+    status: completed_partial
+    note: "Basic NPV/IRR/PMT/FV/PV/RATE/NPER shipped. XNPV/XIRR moved to v2.1.0"
+    target_date: "completed 2025-11"
+    description: "Financial Functions (NPV, IRR, PMT) - PARTIAL, XNPV/XIRR in v2.1.0"
     research_basis: "CFOs need tools that adapt quickly and deliver ROI. DCF functions essential for financial modeling."
 
     priority_features:
@@ -649,9 +655,10 @@ technical_debt:
 
   v1_7_0:
     version: "1.7.0"
-    status: planned
-    target_date: "2026-Q1"
-    description: "MCP Server - Forge as AI Agent Tool (DE-FACTO STANDARD!)"
+    status: deprioritized
+    moved_to: "v3.0.0"
+    target_date: "2026-Q3+"
+    description: "MCP Server - DEPRIORITIZED, moved to v3.x (basic forge-mcp already exists)"
     research_basis: |
       MCP is NOW the de-facto standard (Nov 2025).
       Adopted by OpenAI, Google DeepMind, thousands of community servers.
@@ -722,6 +729,270 @@ technical_debt:
           - "Change tracking and audit log"
           - "Role-based access control"
           - "Integration with Teams/Slack"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # v2.1.0 - v2.5.0: FINANCIAL CLI FIRST (New Priority)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  v2_1_0:
+    version: "2.1.0"
+    status: planned
+    target_date: "2025-12"
+    description: "Advanced Financial Functions - XNPV/XIRR + Scenario Support"
+    priority: CRITICAL
+    effort: "1-2 sessions"
+    research_basis: |
+      "XNPV and XIRR are far more precise and should be used instead of NPV/IRR"
+      - Corporate Finance Institute, 2025
+      "The number one formula in Excel for finance professionals has to be XNPV"
+      - Workday Financial Analysis Guide
+
+    features:
+      xnpv_xirr:
+        priority: CRITICAL
+        description: "Date-aware NPV/IRR for irregular cash flows (real-world DCF)"
+        functions:
+          - "XNPV(rate, values, dates) - NPV with specific dates per cash flow"
+          - "XIRR(values, dates, guess) - IRR with specific dates per cash flow"
+        rationale: |
+          Regular NPV/IRR assume equal time periods between cash flows.
+          Real financial models have irregular payment dates.
+          XNPV/XIRR are the PROFESSIONAL STANDARD for DCF valuation.
+        use_cases:
+          - "Startup valuation with irregular funding rounds"
+          - "Real estate with variable rent collection dates"
+          - "Project finance with milestone-based payments"
+
+      scenario_foundation:
+        priority: HIGH
+        description: "CHOOSE function for scenario switching in models"
+        functions:
+          - "CHOOSE(index, value1, value2, ...) - Select value by scenario index"
+        use_cases:
+          - "=CHOOSE(scenario, 0.05, 0.08, 0.12) for growth rate scenarios"
+          - "Base/optimistic/pessimistic model switching"
+
+      date_functions:
+        priority: MEDIUM
+        description: "Essential date arithmetic for financial modeling"
+        functions:
+          - "DATEDIF(start, end, unit) - Difference between dates (Y/M/D)"
+          - "EDATE(start, months) - Add/subtract months from date"
+          - "EOMONTH(start, months) - End of month after adding months"
+        use_cases:
+          - "Contract expiration tracking"
+          - "Subscription period calculations"
+          - "Age of accounts receivable"
+
+  v2_2_0:
+    version: "2.2.0"
+    status: planned
+    target_date: "2026-Q1"
+    description: "Scenario Management - Multi-scenario models with CLI support"
+    priority: HIGH
+    effort: "1-2 sessions"
+    research_basis: |
+      "Multi-scenario modeling is vital to effective stress testing and risk management"
+      - KPMG CFO Survey 2025
+      "CFOs need tools that adapt quickly, scale easily, and deliver real ROI"
+      - Prophix Financial Modeling Guide
+
+    features:
+      named_scenarios:
+        description: "Define scenarios directly in YAML"
+        syntax: |
+          scenarios:
+            base:
+              growth_rate: 0.05
+              churn_rate: 0.02
+            optimistic:
+              growth_rate: 0.12
+              churn_rate: 0.01
+            pessimistic:
+              growth_rate: 0.02
+              churn_rate: 0.05
+
+      cli_scenario_flag:
+        description: "Switch scenarios via CLI"
+        commands:
+          - "forge calculate model.yaml --scenario=optimistic"
+          - "forge calculate model.yaml --scenario=pessimistic"
+        default: "base scenario if not specified"
+
+      scenario_comparison:
+        description: "Compare outputs across scenarios"
+        commands:
+          - "forge compare model.yaml --scenarios=base,optimistic,pessimistic"
+        output: |
+          Scenario Comparison: model.yaml
+          ─────────────────────────────────────────────────
+          Variable          Base      Optimistic  Pessimistic
+          revenue           $1.2M     $1.8M       $0.9M
+          profit            $200K     $450K       -$50K
+          runway_months     18        36          8
+
+  v2_3_0:
+    version: "2.3.0"
+    status: planned
+    target_date: "2026-Q1"
+    description: "Variance Analysis - Budget vs Actual with automated insights"
+    priority: HIGH
+    effort: "1-2 sessions"
+    research_basis: |
+      "CFOs should repeat budget vs actual analysis every month at least"
+      - Vareto Finance Guide 2025
+      "A budget variance by itself doesn't tell the full story - you need root causes"
+      - TeamProcure Variance Report Guide
+
+    features:
+      variance_command:
+        description: "Compare budget to actual with variance calculations"
+        commands:
+          - "forge variance budget.yaml actual.yaml"
+          - "forge variance budget.yaml actual.yaml --threshold=10"
+        output: |
+          Budget vs Actual Variance Analysis
+          ─────────────────────────────────────────────────
+          Variable        Budget    Actual    Variance    %
+          revenue         $1.0M     $1.1M     +$100K    +10% ✅
+          expenses        $800K     $850K     +$50K     +6%  ⚠️
+          profit          $200K     $250K     +$50K     +25% ✅
+
+          ✅ Favorable (3)  ⚠️ Watch (1)  ❌ Unfavorable (0)
+
+      variance_functions:
+        description: "Built-in variance calculation functions"
+        functions:
+          - "VARIANCE(budget, actual) - Absolute variance"
+          - "VARIANCE_PCT(budget, actual) - Percentage variance"
+          - "IS_FAVORABLE(budget, actual, type) - Boolean check"
+        type_options: ["revenue", "expense", "profit"]
+
+      threshold_alerts:
+        description: "Flag variances exceeding threshold"
+        feature: "Configurable threshold (default 10%)"
+        use_case: "Automated alerting for significant deviations"
+
+  v2_4_0:
+    version: "2.4.0"
+    status: planned
+    target_date: "2026-Q1"
+    description: "Sensitivity Analysis - Data tables and goal seek"
+    priority: MEDIUM
+    effort: "2 sessions"
+    research_basis: |
+      "Once the DCF model is complete, it's time to layer on sensitivity analysis
+      to determine what value range the business could be worth"
+      - Corporate Finance Institute DCF Guide
+
+    features:
+      one_variable_table:
+        description: "Vary one input, see output range"
+        command: "forge sensitivity model.yaml --vary=growth_rate --range=0.01,0.15,0.02 --output=npv"
+        output: |
+          Sensitivity Analysis: growth_rate → npv
+          ─────────────────────────────────────────
+          growth_rate    npv
+          1%             $1.2M
+          3%             $1.8M
+          5%             $2.5M
+          7%             $3.4M
+          ...
+
+      two_variable_table:
+        description: "Vary two inputs, matrix output"
+        command: "forge sensitivity model.yaml --vary=growth_rate,discount_rate --output=npv"
+        output: "Matrix showing NPV for each combination"
+
+      goal_seek:
+        description: "Find input value to achieve target output"
+        command: "forge goal-seek model.yaml --target=profit --value=100000 --vary=price"
+        output: "Price must be $X to achieve $100K profit"
+
+      break_even:
+        description: "Find break-even point"
+        command: "forge break-even model.yaml --output=profit --vary=units"
+        output: "Break-even at X units"
+
+  v2_5_0:
+    version: "2.5.0"
+    status: planned
+    target_date: "2026-Q2"
+    description: "Performance & Scale - Handle enterprise-size models"
+    priority: MEDIUM
+    effort: "1-2 sessions"
+    research_basis: |
+      "Excel struggles with 1M+ rows - dedicated tools needed"
+      - Financial Modeling Software Guide 2025
+
+    features:
+      large_model_support:
+        description: "Handle 10K+ row models efficiently"
+        target: "<1s for 10K rows, <5s for 100K rows"
+
+      incremental_calculation:
+        description: "Only recalculate changed cells and dependents"
+        benefit: "10x faster for small changes to large models"
+
+      calculation_caching:
+        description: "Cache intermediate results"
+        benefit: "Faster repeated calculations"
+
+      memory_optimization:
+        description: "Stream large files instead of loading fully"
+        benefit: "Handle models larger than available RAM"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # v3.x: EXTERNAL INTEGRATIONS (Deprioritized)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  v3_0_0:
+    version: "3.0.0"
+    status: backlog
+    target_date: "2026-Q3+"
+    description: "External Integrations - DEPRIORITIZED from v1.5-v1.7"
+    priority: LOW
+    rationale: |
+      Forge is an INTERNAL FINANCIAL CLI TOOL first.
+      These integrations are valuable but not core to the mission.
+      Ship when financial CLI is complete and battle-tested.
+
+    moved_from_v1_5_0:
+      vscode_extension:
+        original_priority: high
+        new_priority: backlog
+        features:
+          - "Syntax highlighting for Forge YAML"
+          - "Inline formula evaluation"
+          - "Error squiggles"
+          - "Autocomplete"
+
+      zed_extension:
+        original_priority: high
+        new_priority: backlog
+        features:
+          - "Syntax highlighting"
+          - "Inline formula evaluation"
+          - "Agent Server Extensions integration"
+
+      lsp_server:
+        original_priority: critical
+        new_priority: backlog
+        note: "Foundation for all editor extensions"
+
+    moved_from_v1_7_0:
+      mcp_server:
+        original_priority: CRITICAL
+        new_priority: backlog
+        rationale: |
+          MCP is valuable for AI agent integration but not core.
+          Already have forge-mcp binary - enhancement can wait.
+
+    other_integrations:
+      - "Python bindings (PyO3)"
+      - "Web UI"
+      - "Homebrew/Scoop packages"
+      - "Docker image"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 🔬 2025 MARKET RESEARCH (Updated 2025-11-25)
