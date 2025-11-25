@@ -333,3 +333,278 @@ pub async fn import_excel(Json(req): Json<ImportRequest>) -> impl IntoResponse {
         })),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ==================== ApiResponse Tests ====================
+
+    #[test]
+    fn test_api_response_ok_creates_success_response() {
+        let response: ApiResponse<String> = ApiResponse::ok("test data".to_string());
+
+        assert!(response.success);
+        assert_eq!(response.data, Some("test data".to_string()));
+        assert!(response.error.is_none());
+        assert!(!response.request_id.is_empty());
+        // Verify UUID format (8-4-4-4-12)
+        assert_eq!(response.request_id.len(), 36);
+    }
+
+    #[test]
+    fn test_api_response_ok_with_struct() {
+        let health = HealthResponse {
+            status: "healthy".to_string(),
+            uptime_message: "running".to_string(),
+        };
+        let response = ApiResponse::ok(health);
+
+        assert!(response.success);
+        assert!(response.data.is_some());
+        let data = response.data.unwrap();
+        assert_eq!(data.status, "healthy");
+        assert_eq!(data.uptime_message, "running");
+    }
+
+    #[test]
+    fn test_api_response_err_creates_error_response() {
+        let response: ApiResponse<String> = ApiResponse::err("Something went wrong");
+
+        assert!(!response.success);
+        assert!(response.data.is_none());
+        assert_eq!(response.error, Some("Something went wrong".to_string()));
+        assert!(!response.request_id.is_empty());
+    }
+
+    #[test]
+    fn test_api_response_request_id_is_unique() {
+        let response1: ApiResponse<String> = ApiResponse::ok("test1".to_string());
+        let response2: ApiResponse<String> = ApiResponse::ok("test2".to_string());
+
+        assert_ne!(response1.request_id, response2.request_id);
+    }
+
+    // ==================== Response Struct Default Tests ====================
+
+    #[test]
+    fn test_validate_response_default() {
+        let response = ValidateResponse::default();
+
+        assert!(!response.valid);
+        assert!(response.file_path.is_empty());
+        assert!(response.message.is_empty());
+    }
+
+    #[test]
+    fn test_calculate_response_default() {
+        let response = CalculateResponse::default();
+
+        assert!(!response.calculated);
+        assert!(!response.dry_run);
+        assert!(response.file_path.is_empty());
+        assert!(response.message.is_empty());
+    }
+
+    #[test]
+    fn test_audit_response_default() {
+        let response = AuditResponse::default();
+
+        assert!(!response.audited);
+        assert!(response.file_path.is_empty());
+        assert!(response.variable.is_empty());
+        assert!(response.message.is_empty());
+    }
+
+    #[test]
+    fn test_export_response_default() {
+        let response = ExportResponse::default();
+
+        assert!(!response.exported);
+        assert!(response.yaml_path.is_empty());
+        assert!(response.excel_path.is_empty());
+        assert!(response.message.is_empty());
+    }
+
+    #[test]
+    fn test_import_response_default() {
+        let response = ImportResponse::default();
+
+        assert!(!response.imported);
+        assert!(response.excel_path.is_empty());
+        assert!(response.yaml_path.is_empty());
+        assert!(response.message.is_empty());
+    }
+
+    // ==================== Request Deserialization Tests ====================
+
+    #[test]
+    fn test_validate_request_deserialize() {
+        let json = r#"{"file_path": "model.yaml"}"#;
+        let req: ValidateRequest = serde_json::from_str(json).unwrap();
+
+        assert_eq!(req.file_path, "model.yaml");
+    }
+
+    #[test]
+    fn test_calculate_request_deserialize_with_dry_run() {
+        let json = r#"{"file_path": "model.yaml", "dry_run": true}"#;
+        let req: CalculateRequest = serde_json::from_str(json).unwrap();
+
+        assert_eq!(req.file_path, "model.yaml");
+        assert!(req.dry_run);
+    }
+
+    #[test]
+    fn test_calculate_request_deserialize_dry_run_defaults_false() {
+        let json = r#"{"file_path": "model.yaml"}"#;
+        let req: CalculateRequest = serde_json::from_str(json).unwrap();
+
+        assert_eq!(req.file_path, "model.yaml");
+        assert!(!req.dry_run);
+    }
+
+    #[test]
+    fn test_audit_request_deserialize() {
+        let json = r#"{"file_path": "model.yaml", "variable": "total_revenue"}"#;
+        let req: AuditRequest = serde_json::from_str(json).unwrap();
+
+        assert_eq!(req.file_path, "model.yaml");
+        assert_eq!(req.variable, "total_revenue");
+    }
+
+    #[test]
+    fn test_export_request_deserialize() {
+        let json = r#"{"yaml_path": "model.yaml", "excel_path": "output.xlsx"}"#;
+        let req: ExportRequest = serde_json::from_str(json).unwrap();
+
+        assert_eq!(req.yaml_path, "model.yaml");
+        assert_eq!(req.excel_path, "output.xlsx");
+    }
+
+    #[test]
+    fn test_import_request_deserialize() {
+        let json = r#"{"excel_path": "input.xlsx", "yaml_path": "output.yaml"}"#;
+        let req: ImportRequest = serde_json::from_str(json).unwrap();
+
+        assert_eq!(req.excel_path, "input.xlsx");
+        assert_eq!(req.yaml_path, "output.yaml");
+    }
+
+    // ==================== Response Serialization Tests ====================
+
+    #[test]
+    fn test_health_response_serialize() {
+        let response = HealthResponse {
+            status: "healthy".to_string(),
+            uptime_message: "Server is running".to_string(),
+        };
+        let json = serde_json::to_string(&response).unwrap();
+
+        assert!(json.contains("\"status\":\"healthy\""));
+        assert!(json.contains("\"uptime_message\":\"Server is running\""));
+    }
+
+    #[test]
+    fn test_version_response_serialize() {
+        let response = VersionResponse {
+            version: "2.0.0".to_string(),
+            features: vec!["validate".to_string(), "calculate".to_string()],
+        };
+        let json = serde_json::to_string(&response).unwrap();
+
+        assert!(json.contains("\"version\":\"2.0.0\""));
+        assert!(json.contains("\"features\":[\"validate\",\"calculate\"]"));
+    }
+
+    #[test]
+    fn test_validate_response_serialize() {
+        let response = ValidateResponse {
+            valid: true,
+            file_path: "model.yaml".to_string(),
+            message: "Validation successful".to_string(),
+        };
+        let json = serde_json::to_string(&response).unwrap();
+
+        assert!(json.contains("\"valid\":true"));
+        assert!(json.contains("\"file_path\":\"model.yaml\""));
+        assert!(json.contains("\"message\":\"Validation successful\""));
+    }
+
+    #[test]
+    fn test_calculate_response_serialize() {
+        let response = CalculateResponse {
+            calculated: true,
+            file_path: "model.yaml".to_string(),
+            dry_run: false,
+            message: "Calculation completed".to_string(),
+        };
+        let json = serde_json::to_string(&response).unwrap();
+
+        assert!(json.contains("\"calculated\":true"));
+        assert!(json.contains("\"dry_run\":false"));
+    }
+
+    #[test]
+    fn test_api_response_serializes_without_none_fields() {
+        let response: ApiResponse<String> = ApiResponse::ok("data".to_string());
+        let json = serde_json::to_string(&response).unwrap();
+
+        // error field should be skipped when None
+        assert!(!json.contains("\"error\""));
+        assert!(json.contains("\"success\":true"));
+        assert!(json.contains("\"data\":\"data\""));
+    }
+
+    #[test]
+    fn test_api_response_error_serializes_without_data() {
+        let response: ApiResponse<String> = ApiResponse::err("error message");
+        let json = serde_json::to_string(&response).unwrap();
+
+        // data field should be skipped when None
+        assert!(!json.contains("\"data\""));
+        assert!(json.contains("\"success\":false"));
+        assert!(json.contains("\"error\":\"error message\""));
+    }
+
+    // ==================== EndpointInfo Tests ====================
+
+    #[test]
+    fn test_endpoint_info_serialize() {
+        let info = EndpointInfo {
+            path: "/api/v1/validate".to_string(),
+            method: "POST".to_string(),
+            description: "Validate a YAML model".to_string(),
+        };
+        let json = serde_json::to_string(&info).unwrap();
+
+        assert!(json.contains("\"path\":\"/api/v1/validate\""));
+        assert!(json.contains("\"method\":\"POST\""));
+        assert!(json.contains("\"description\":\"Validate a YAML model\""));
+    }
+
+    #[test]
+    fn test_root_response_has_all_endpoints() {
+        let response = RootResponse {
+            name: "Forge API Server".to_string(),
+            version: "2.0.0".to_string(),
+            description: "Enterprise HTTP API".to_string(),
+            endpoints: vec![
+                EndpointInfo {
+                    path: "/health".to_string(),
+                    method: "GET".to_string(),
+                    description: "Health check".to_string(),
+                },
+                EndpointInfo {
+                    path: "/api/v1/validate".to_string(),
+                    method: "POST".to_string(),
+                    description: "Validate".to_string(),
+                },
+            ],
+        };
+
+        assert_eq!(response.endpoints.len(), 2);
+        assert_eq!(response.endpoints[0].path, "/health");
+        assert_eq!(response.endpoints[1].path, "/api/v1/validate");
+    }
+}

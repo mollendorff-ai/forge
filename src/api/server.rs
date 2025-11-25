@@ -120,10 +120,73 @@ async fn shutdown_signal() {
 mod tests {
     use super::*;
 
+    // ==================== ApiConfig Tests ====================
+
     #[test]
     fn test_default_config() {
         let config = ApiConfig::default();
         assert_eq!(config.host, "127.0.0.1");
         assert_eq!(config.port, 8080);
+    }
+
+    #[test]
+    fn test_config_custom_values() {
+        let config = ApiConfig {
+            host: "0.0.0.0".to_string(),
+            port: 3000,
+        };
+        assert_eq!(config.host, "0.0.0.0");
+        assert_eq!(config.port, 3000);
+    }
+
+    #[test]
+    fn test_config_clone() {
+        let config1 = ApiConfig::default();
+        let config2 = config1.clone();
+        assert_eq!(config1.host, config2.host);
+        assert_eq!(config1.port, config2.port);
+    }
+
+    #[test]
+    fn test_config_address_format() {
+        let config = ApiConfig {
+            host: "192.168.1.100".to_string(),
+            port: 9090,
+        };
+        let addr_str = format!("{}:{}", config.host, config.port);
+        assert_eq!(addr_str, "192.168.1.100:9090");
+
+        // Verify it parses to SocketAddr
+        let addr: SocketAddr = addr_str.parse().unwrap();
+        assert_eq!(addr.port(), 9090);
+    }
+
+    // ==================== AppState Tests ====================
+
+    #[test]
+    fn test_app_state_version() {
+        let state = AppState {
+            version: "2.0.0".to_string(),
+        };
+        assert_eq!(state.version, "2.0.0");
+    }
+
+    #[test]
+    fn test_app_state_clone() {
+        let state1 = AppState {
+            version: "2.0.0".to_string(),
+        };
+        let state2 = state1.clone();
+        assert_eq!(state1.version, state2.version);
+    }
+
+    #[test]
+    fn test_app_state_in_arc() {
+        let state = Arc::new(AppState {
+            version: "2.0.0".to_string(),
+        });
+        let state_clone = Arc::clone(&state);
+        assert_eq!(state.version, state_clone.version);
+        assert_eq!(Arc::strong_count(&state), 2);
     }
 }
