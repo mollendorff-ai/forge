@@ -18,6 +18,17 @@ Future features under consideration:
 
 ---
 
+## [1.3.1] - 2025-11-25
+
+### 📚 Documentation Cleanup
+
+- Reorganized root folder - moved internal docs to `docs/internal/`
+- Updated AI-PROMOTION-STORY.md with v1.1.0-v1.3.0 achievements
+- Deleted obsolete planning documents
+- Cleaner project structure
+
+---
+
 ## [1.3.0] - 2025-11-24
 
 ### 🧹 Codebase Simplification Release
