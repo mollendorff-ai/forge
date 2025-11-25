@@ -1,0 +1,94 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Forge YAML",
+  "scopeName": "source.forge-yaml",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#formula" },
+    { "include": "#string" },
+    { "include": "#number" },
+    { "include": "#boolean" },
+    { "include": "#key" },
+    { "include": "#forge-functions" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "#.*$",
+      "name": "comment.line.number-sign.forge-yaml"
+    },
+    "formula": {
+      "match": "\"=([^\"]+)\"",
+      "name": "string.interpolated.forge-yaml",
+      "captures": {
+        "1": {
+          "patterns": [
+            { "include": "#forge-functions" },
+            { "include": "#formula-operators" },
+            { "include": "#formula-numbers" },
+            { "include": "#formula-references" }
+          ]
+        }
+      }
+    },
+    "forge-functions": {
+      "match": "\\b(SUM|AVERAGE|AVG|COUNT|MAX|MIN|PRODUCT|SUMIF|COUNTIF|AVERAGEIF|SUMIFS|COUNTIFS|AVERAGEIFS|MAXIFS|MINIFS|IF|AND|OR|NOT|IFERROR|ROUND|ROUNDUP|ROUNDDOWN|CEILING|FLOOR|SQRT|POWER|MOD|ABS|CONCAT|UPPER|LOWER|TRIM|LEN|MID|LEFT|RIGHT|TODAY|NOW|DATE|YEAR|MONTH|DAY|DATEDIF|EDATE|EOMONTH|MATCH|INDEX|XLOOKUP|VLOOKUP|HLOOKUP|NPV|IRR|PMT|FV|PV|XNPV|XIRR)\\b",
+      "name": "support.function.forge-yaml"
+    },
+    "formula-operators": {
+      "match": "[+\\-*/^<>=!&|]",
+      "name": "keyword.operator.forge-yaml"
+    },
+    "formula-numbers": {
+      "match": "\\b\\d+(\\.\\d+)?\\b",
+      "name": "constant.numeric.forge-yaml"
+    },
+    "formula-references": {
+      "patterns": [
+        {
+          "match": "@[a-zA-Z_][a-zA-Z0-9_]*\\.[a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)?",
+          "name": "variable.other.cross-file.forge-yaml"
+        },
+        {
+          "match": "[a-zA-Z_][a-zA-Z0-9_]*\\.[a-zA-Z_][a-zA-Z0-9_]*",
+          "name": "variable.other.table-column.forge-yaml"
+        },
+        {
+          "match": "[a-zA-Z_][a-zA-Z0-9_]*\\[\\d+\\]",
+          "name": "variable.other.indexed.forge-yaml"
+        },
+        {
+          "match": "[a-zA-Z_][a-zA-Z0-9_]*",
+          "name": "variable.other.forge-yaml"
+        }
+      ]
+    },
+    "string": {
+      "patterns": [
+        {
+          "match": "\"[^\"]*\"",
+          "name": "string.quoted.double.forge-yaml"
+        },
+        {
+          "match": "'[^']*'",
+          "name": "string.quoted.single.forge-yaml"
+        }
+      ]
+    },
+    "number": {
+      "match": "\\b\\d+(\\.\\d+)?\\b",
+      "name": "constant.numeric.forge-yaml"
+    },
+    "boolean": {
+      "match": "\\b(true|false|null)\\b",
+      "name": "constant.language.forge-yaml"
+    },
+    "key": {
+      "match": "^\\s*([a-zA-Z_][a-zA-Z0-9_]*):",
+      "captures": {
+        "1": {
+          "name": "entity.name.tag.forge-yaml"
+        }
+      }
+    }
+  }
+}

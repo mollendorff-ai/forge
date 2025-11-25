@@ -1,0 +1,119 @@
+{
+  "name": "forge-yaml",
+  "displayName": "Forge YAML",
+  "description": "Language support for Forge YAML formula files - syntax highlighting, validation, and autocomplete",
+  "version": "1.5.0",
+  "publisher": "royalbit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/royalbit/forge"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters"
+  ],
+  "keywords": [
+    "yaml",
+    "forge",
+    "excel",
+    "formula",
+    "financial",
+    "spreadsheet"
+  ],
+  "activationEvents": [
+    "onLanguage:yaml",
+    "workspaceContains:**/*.forge.yaml",
+    "workspaceContains:**/*.yaml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "forge-yaml",
+        "aliases": [
+          "Forge YAML",
+          "forge"
+        ],
+        "extensions": [
+          ".forge.yaml",
+          ".forge.yml"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "forge-yaml",
+        "scopeName": "source.forge-yaml",
+        "path": "./syntaxes/forge-yaml.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Forge YAML",
+      "properties": {
+        "forge.lspPath": {
+          "type": "string",
+          "default": "forge-lsp",
+          "description": "Path to the Forge LSP server executable"
+        },
+        "forge.validateOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate Forge YAML files on save"
+        },
+        "forge.validateOnType": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate Forge YAML files while typing"
+        },
+        "forge.showCalculatedValues": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show calculated values on hover"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "forge.validate",
+        "title": "Forge: Validate Current File"
+      },
+      {
+        "command": "forge.calculate",
+        "title": "Forge: Calculate All Formulas"
+      },
+      {
+        "command": "forge.exportExcel",
+        "title": "Forge: Export to Excel"
+      },
+      {
+        "command": "forge.showAudit",
+        "title": "Forge: Show Audit Trail"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0",
+    "@vscode/test-electron": "^2.3.0"
+  }
+}
