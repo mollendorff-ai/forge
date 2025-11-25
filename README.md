@@ -1,12 +1,12 @@
 # Forge
 
-> Bidirectional Excel-YAML bridge with 60+ Excel functions
+> Deterministic formula validation. Zero tokens. Zero emissions.
 
 [![CI](https://github.com/royalbit/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/royalbit/forge/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Stop AI hallucinations in financial models.** Forge validates formulas deterministically - zero tokens, 100% accuracy.
+**Green coding for financial models.** YAML uses 33% fewer tokens than Excel. Forge validates locally - no AI needed. Less compute = less CO₂.
 
 ## Performance
 
