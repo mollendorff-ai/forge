@@ -226,6 +226,9 @@ impl ArrayCalculator {
             || upper.contains("YEAR(")
             || upper.contains("MONTH(")
             || upper.contains("DAY(")
+            || upper.contains("DATEDIF(")
+            || upper.contains("EDATE(")
+            || upper.contains("EOMONTH(")
     }
 
     /// Check if formula contains lookup functions that need special handling
@@ -249,6 +252,7 @@ impl ArrayCalculator {
             || upper.contains("PV(")
             || upper.contains("RATE(")
             || upper.contains("NPER(")
+            || upper.contains("CHOOSE(")
     }
 
     /// Evaluate a row-wise formula (element-wise operations)
@@ -655,6 +659,9 @@ impl ArrayCalculator {
         } else if self.has_financial_function(&formula_str) {
             // Financial functions - evaluate them specially
             self.evaluate_financial_formula(&formula_str, scalar_name)
+        } else if self.has_custom_date_function(&formula_str) {
+            // Date functions - evaluate them specially
+            self.evaluate_date_formula(&formula_str, scalar_name)
         } else {
             // Regular scalar formula - use xlformula_engine
             self.evaluate_scalar_with_resolver(&formula_str, scalar_name)
@@ -671,6 +678,27 @@ impl ArrayCalculator {
 
         // Process financial functions
         let processed = self.replace_financial_functions(&resolved, 0, &empty_table)?;
+
+        // If the result is just a number, parse it directly
+        let trimmed = processed.trim().trim_start_matches('=');
+        if let Ok(value) = trimmed.parse::<f64>() {
+            return Ok(value);
+        }
+
+        // Otherwise evaluate with xlformula_engine
+        self.evaluate_scalar_with_resolver(&processed, scalar_name)
+    }
+
+    /// Evaluate a formula containing date functions (for scalar context)
+    fn evaluate_date_formula(&self, formula: &str, scalar_name: &str) -> ForgeResult<f64> {
+        // First resolve all scalar references to their values
+        let resolved = self.resolve_scalar_references(formula, scalar_name)?;
+
+        // Create an empty table for context (not used for scalar evaluation)
+        let empty_table = Table::new("_scalar_context".to_string());
+
+        // Process date functions
+        let processed = self.replace_date_functions(&resolved, 0, &empty_table)?;
 
         // If the result is just a number, parse it directly
         let trimmed = processed.trim().trim_start_matches('=');
@@ -707,9 +735,12 @@ impl ArrayCalculator {
             let is_function = matches!(
                 upper.as_str(),
                 "PMT" | "FV" | "PV" | "NPV" | "IRR" | "NPER" | "RATE"
+                    | "XNPV" | "XIRR" | "CHOOSE"
                     | "SUM" | "AVERAGE" | "COUNT" | "MAX" | "MIN"
                     | "IF" | "AND" | "OR" | "NOT" | "TRUE" | "FALSE"
                     | "ROUND" | "ROUNDUP" | "ROUNDDOWN" | "ABS" | "SQRT" | "POWER" | "MOD"
+                    | "DATEDIF" | "EDATE" | "EOMONTH"
+                    | "DATE" | "YEAR" | "MONTH" | "DAY" | "TODAY" | "NOW"
             );
 
             if is_function {
@@ -1771,6 +1802,146 @@ impl ArrayCalculator {
         Ok(day)
     }
 
+    /// Evaluate DATEDIF function: DATEDIF(start_date, end_date, unit)
+    /// unit: "Y" for years, "M" for months, "D" for days
+    fn eval_datedif(&self, start_date: &str, end_date: &str, unit: &str) -> ForgeResult<f64> {
+        let start = start_date.trim().trim_matches('"');
+        let end = end_date.trim().trim_matches('"');
+
+        // Parse start date
+        let start_parts: Vec<&str> = start.split('-').collect();
+        let (start_year, start_month, start_day) = if start_parts.len() >= 2 {
+            let y = start_parts[0].parse::<i32>().map_err(|_|
+                ForgeError::Eval(format!("DATEDIF: Invalid start year in '{}'", start)))?;
+            let m = start_parts[1].parse::<i32>().map_err(|_|
+                ForgeError::Eval(format!("DATEDIF: Invalid start month in '{}'", start)))?;
+            let d = if start_parts.len() == 3 {
+                start_parts[2].parse::<i32>().map_err(|_|
+                    ForgeError::Eval(format!("DATEDIF: Invalid start day in '{}'", start)))?
+            } else { 1 };
+            (y, m, d)
+        } else {
+            return Err(ForgeError::Eval(format!("DATEDIF: Invalid start date format '{}'", start)));
+        };
+
+        // Parse end date
+        let end_parts: Vec<&str> = end.split('-').collect();
+        let (end_year, end_month, end_day) = if end_parts.len() >= 2 {
+            let y = end_parts[0].parse::<i32>().map_err(|_|
+                ForgeError::Eval(format!("DATEDIF: Invalid end year in '{}'", end)))?;
+            let m = end_parts[1].parse::<i32>().map_err(|_|
+                ForgeError::Eval(format!("DATEDIF: Invalid end month in '{}'", end)))?;
+            let d = if end_parts.len() == 3 {
+                end_parts[2].parse::<i32>().map_err(|_|
+                    ForgeError::Eval(format!("DATEDIF: Invalid end day in '{}'", end)))?
+            } else { 1 };
+            (y, m, d)
+        } else {
+            return Err(ForgeError::Eval(format!("DATEDIF: Invalid end date format '{}'", end)));
+        };
+
+        match unit {
+            "Y" => {
+                // Complete years between dates
+                let mut years = end_year - start_year;
+                if end_month < start_month || (end_month == start_month && end_day < start_day) {
+                    years -= 1;
+                }
+                Ok(years.max(0) as f64)
+            }
+            "M" => {
+                // Complete months between dates
+                let mut months = (end_year - start_year) * 12 + (end_month - start_month);
+                if end_day < start_day {
+                    months -= 1;
+                }
+                Ok(months.max(0) as f64)
+            }
+            "D" => {
+                // Days between dates
+                let start_serial = self.date_to_excel_serial(start_year, start_month as u32, start_day as u32)?;
+                let end_serial = self.date_to_excel_serial(end_year, end_month as u32, end_day as u32)?;
+                Ok((end_serial - start_serial).max(0.0))
+            }
+            _ => Err(ForgeError::Eval(format!("DATEDIF: Invalid unit '{}' (use Y, M, or D)", unit)))
+        }
+    }
+
+    /// Evaluate EDATE function: EDATE(start_date, months)
+    /// Returns the date that is the specified number of months before or after the start date
+    fn eval_edate(&self, start_date: &str, months: i32) -> ForgeResult<String> {
+        let start = start_date.trim().trim_matches('"');
+
+        // Parse start date
+        let parts: Vec<&str> = start.split('-').collect();
+        let (year, month, day) = if parts.len() >= 2 {
+            let y = parts[0].parse::<i32>().map_err(|_|
+                ForgeError::Eval(format!("EDATE: Invalid year in '{}'", start)))?;
+            let m = parts[1].parse::<i32>().map_err(|_|
+                ForgeError::Eval(format!("EDATE: Invalid month in '{}'", start)))?;
+            let d = if parts.len() == 3 {
+                parts[2].parse::<i32>().map_err(|_|
+                    ForgeError::Eval(format!("EDATE: Invalid day in '{}'", start)))?
+            } else { 1 };
+            (y, m, d)
+        } else {
+            return Err(ForgeError::Eval(format!("EDATE: Invalid date format '{}'", start)));
+        };
+
+        // Add months
+        let total_months = (year * 12 + (month - 1)) + months;
+        let new_year = total_months / 12;
+        let new_month = (total_months % 12) + 1;
+        let new_month = if new_month <= 0 { new_month + 12 } else { new_month };
+        let new_year = if total_months < 0 && new_month > 0 { new_year - 1 } else { new_year };
+
+        // Adjust day if it exceeds days in new month
+        let days_in_new_month = self.days_in_month(new_year, new_month as u32);
+        let new_day = day.min(days_in_new_month as i32);
+
+        Ok(format!("{:04}-{:02}-{:02}", new_year, new_month, new_day))
+    }
+
+    /// Evaluate EOMONTH function: EOMONTH(start_date, months)
+    /// Returns the last day of the month that is the specified number of months before or after the start date
+    fn eval_eomonth(&self, start_date: &str, months: i32) -> ForgeResult<String> {
+        let start = start_date.trim().trim_matches('"');
+
+        // Parse start date
+        let parts: Vec<&str> = start.split('-').collect();
+        let (year, month) = if parts.len() >= 2 {
+            let y = parts[0].parse::<i32>().map_err(|_|
+                ForgeError::Eval(format!("EOMONTH: Invalid year in '{}'", start)))?;
+            let m = parts[1].parse::<i32>().map_err(|_|
+                ForgeError::Eval(format!("EOMONTH: Invalid month in '{}'", start)))?;
+            (y, m)
+        } else {
+            return Err(ForgeError::Eval(format!("EOMONTH: Invalid date format '{}'", start)));
+        };
+
+        // Add months
+        let total_months = (year * 12 + (month - 1)) + months;
+        let new_year = total_months / 12;
+        let new_month = (total_months % 12) + 1;
+        let new_month = if new_month <= 0 { new_month + 12 } else { new_month };
+        let new_year = if total_months < 0 && new_month > 0 { new_year - 1 } else { new_year };
+
+        // Get last day of the month
+        let last_day = self.days_in_month(new_year, new_month as u32);
+
+        Ok(format!("{:04}-{:02}-{:02}", new_year, new_month, last_day))
+    }
+
+    /// Get the number of days in a given month
+    fn days_in_month(&self, year: i32, month: u32) -> u32 {
+        match month {
+            1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+            4 | 6 | 9 | 11 => 30,
+            2 => if Self::is_leap_year(year) { 29 } else { 28 },
+            _ => 30, // Default fallback
+        }
+    }
+
     /// Convert days since epoch to (year, month, day)
     fn days_to_date(days: i32) -> (i32, i32, i32) {
         // Simplified date calculation (Unix epoch = 1970-01-01)
@@ -2113,10 +2284,13 @@ impl ArrayCalculator {
 
         // Create all regex patterns once outside the loop
         let re_today = Regex::new(r"TODAY\(\)").unwrap();
-        let re_year = Regex::new(r"YEAR\(([^)]+)\)").unwrap();
-        let re_month = Regex::new(r"MONTH\(([^)]+)\)").unwrap();
-        let re_day = Regex::new(r"DAY\(([^)]+)\)").unwrap();
+        let re_year = Regex::new(r"\bYEAR\(([^)]+)\)").unwrap();
+        let re_month = Regex::new(r"\bMONTH\(([^)]+)\)").unwrap();
+        let re_day = Regex::new(r"\bDAY\(([^)]+)\)").unwrap();
         let re_date = Regex::new(r"DATE\(([^,]+),\s*([^,]+),\s*([^)]+)\)").unwrap();
+        let re_datedif = Regex::new(r#"DATEDIF\(([^,]+),\s*([^,]+),\s*"?([YMD])"?\)"#).unwrap();
+        let re_edate = Regex::new(r"EDATE\(([^,]+),\s*([^)]+)\)").unwrap();
+        let re_eomonth = Regex::new(r"EOMONTH\(([^,]+),\s*([^)]+)\)").unwrap();
 
         // Keep processing until no more changes (handles nested functions)
         // Process simpler (single-arg) functions first
@@ -2175,6 +2349,46 @@ impl ArrayCalculator {
                 let date = self.eval_date(year, month, day)?;
 
                 result = result.replace(full, &format!("\"{}\"", date));
+            }
+
+            // DATEDIF(start_date, end_date, unit) - Difference between dates
+            for cap in re_datedif.captures_iter(&result.clone()).collect::<Vec<_>>() {
+                let full = cap.get(0).unwrap().as_str();
+                let start_expr = cap.get(1).unwrap().as_str();
+                let end_expr = cap.get(2).unwrap().as_str();
+                let unit = cap.get(3).unwrap().as_str().to_uppercase();
+
+                let start_date = self.eval_text_expression(start_expr, row_idx, table)?;
+                let end_date = self.eval_text_expression(end_expr, row_idx, table)?;
+                let diff = self.eval_datedif(&start_date, &end_date, &unit)?;
+
+                result = result.replace(full, &diff.to_string());
+            }
+
+            // EDATE(start_date, months) - Add months to date
+            for cap in re_edate.captures_iter(&result.clone()).collect::<Vec<_>>() {
+                let full = cap.get(0).unwrap().as_str();
+                let start_expr = cap.get(1).unwrap().as_str();
+                let months_expr = cap.get(2).unwrap().as_str();
+
+                let start_date = self.eval_text_expression(start_expr, row_idx, table)?;
+                let months = self.eval_expression(months_expr, row_idx, table)? as i32;
+                let new_date = self.eval_edate(&start_date, months)?;
+
+                result = result.replace(full, &format!("\"{}\"", new_date));
+            }
+
+            // EOMONTH(start_date, months) - End of month after adding months
+            for cap in re_eomonth.captures_iter(&result.clone()).collect::<Vec<_>>() {
+                let full = cap.get(0).unwrap().as_str();
+                let start_expr = cap.get(1).unwrap().as_str();
+                let months_expr = cap.get(2).unwrap().as_str();
+
+                let start_date = self.eval_text_expression(start_expr, row_idx, table)?;
+                let months = self.eval_expression(months_expr, row_idx, table)? as i32;
+                let new_date = self.eval_eomonth(&start_date, months)?;
+
+                result = result.replace(full, &format!("\"{}\"", new_date));
             }
         }
 
@@ -2999,7 +3213,8 @@ impl ArrayCalculator {
         let mut result = formula.to_string();
 
         // NPV(rate, cash_flow1, cash_flow2, ...) - Net Present Value
-        let re_npv = Regex::new(r"NPV\(([^)]+)\)").unwrap();
+        // Use \b word boundary to avoid matching XNPV
+        let re_npv = Regex::new(r"\bNPV\(([^)]+)\)").unwrap();
         for caps in re_npv.captures_iter(formula) {
             let full = caps.get(0).unwrap().as_str();
             let args_str = caps.get(1).unwrap().as_str();
@@ -3061,7 +3276,8 @@ impl ArrayCalculator {
         }
 
         // FV(rate, nper, pmt, [pv], [type]) - Future Value
-        let re_fv = Regex::new(r"FV\(([^)]+)\)").unwrap();
+        // Use \b word boundary to avoid matching inside XFVP etc.
+        let re_fv = Regex::new(r"\bFV\(([^)]+)\)").unwrap();
         for caps in re_fv.captures_iter(formula) {
             let full = caps.get(0).unwrap().as_str();
             let args_str = caps.get(1).unwrap().as_str();
@@ -3097,7 +3313,8 @@ impl ArrayCalculator {
         }
 
         // PV(rate, nper, pmt, [fv], [type]) - Present Value
-        let re_pv = Regex::new(r"PV\(([^)]+)\)").unwrap();
+        // Use \b word boundary to avoid matching inside XNPV
+        let re_pv = Regex::new(r"\bPV\(([^)]+)\)").unwrap();
         for caps in re_pv.captures_iter(formula) {
             let full = caps.get(0).unwrap().as_str();
             let args_str = caps.get(1).unwrap().as_str();
@@ -3133,7 +3350,8 @@ impl ArrayCalculator {
         }
 
         // IRR(values, [guess]) - Internal Rate of Return using Newton-Raphson
-        let re_irr = Regex::new(r"IRR\(([^)]+)\)").unwrap();
+        // Use \b word boundary to avoid matching XIRR
+        let re_irr = Regex::new(r"\bIRR\(([^)]+)\)").unwrap();
         for caps in re_irr.captures_iter(formula) {
             let full = caps.get(0).unwrap().as_str();
             let args_str = caps.get(1).unwrap().as_str();
@@ -3208,6 +3426,86 @@ impl ArrayCalculator {
 
             let rate = self.calculate_rate(nper, pmt, pv, fv, rate_type, guess)?;
             result = result.replace(full, &format!("{}", rate));
+        }
+
+        // XNPV(rate, values, dates) - Net Present Value with irregular dates
+        let re_xnpv = Regex::new(r"XNPV\(([^)]+)\)").unwrap();
+        for caps in re_xnpv.captures_iter(formula) {
+            let full = caps.get(0).unwrap().as_str();
+            let args_str = caps.get(1).unwrap().as_str();
+            let args = self.parse_function_args(args_str)?;
+
+            if args.len() < 3 {
+                return Err(ForgeError::Eval(
+                    "XNPV requires 3 arguments: rate, values, dates".to_string()
+                ));
+            }
+
+            let rate = self.eval_expression(&args[0], row_idx, table)?;
+            let values = self.get_values_from_arg(&args[1], row_idx, table)?;
+            let dates = self.get_dates_from_arg(&args[2], row_idx, table)?;
+
+            if values.len() != dates.len() {
+                return Err(ForgeError::Eval(
+                    format!("XNPV: values ({}) and dates ({}) must have same length", values.len(), dates.len())
+                ));
+            }
+
+            let xnpv = self.calculate_xnpv(rate, &values, &dates)?;
+            result = result.replace(full, &format!("{}", xnpv));
+        }
+
+        // XIRR(values, dates, [guess]) - Internal Rate of Return with irregular dates
+        let re_xirr = Regex::new(r"XIRR\(([^)]+)\)").unwrap();
+        for caps in re_xirr.captures_iter(formula) {
+            let full = caps.get(0).unwrap().as_str();
+            let args_str = caps.get(1).unwrap().as_str();
+            let args = self.parse_function_args(args_str)?;
+
+            if args.len() < 2 {
+                return Err(ForgeError::Eval(
+                    "XIRR requires at least 2 arguments: values, dates".to_string()
+                ));
+            }
+
+            let values = self.get_values_from_arg(&args[0], row_idx, table)?;
+            let dates = self.get_dates_from_arg(&args[1], row_idx, table)?;
+            let guess = if args.len() > 2 { self.eval_expression(&args[2], row_idx, table)? } else { 0.1 };
+
+            if values.len() != dates.len() {
+                return Err(ForgeError::Eval(
+                    format!("XIRR: values ({}) and dates ({}) must have same length", values.len(), dates.len())
+                ));
+            }
+
+            let xirr = self.calculate_xirr(&values, &dates, guess)?;
+            result = result.replace(full, &format!("{}", xirr));
+        }
+
+        // CHOOSE(index, value1, value2, ...) - Select value by index
+        let re_choose = Regex::new(r"CHOOSE\(([^)]+)\)").unwrap();
+        for caps in re_choose.captures_iter(formula) {
+            let full = caps.get(0).unwrap().as_str();
+            let args_str = caps.get(1).unwrap().as_str();
+            let args = self.parse_function_args(args_str)?;
+
+            if args.len() < 2 {
+                return Err(ForgeError::Eval(
+                    "CHOOSE requires at least 2 arguments: index and at least one value".to_string()
+                ));
+            }
+
+            let index = self.eval_expression(&args[0], row_idx, table)? as usize;
+
+            if index == 0 || index > args.len() - 1 {
+                return Err(ForgeError::Eval(
+                    format!("CHOOSE: index {} out of range (1 to {})", index, args.len() - 1)
+                ));
+            }
+
+            // index is 1-based in Excel, so args[index] is the correct value
+            let chosen_value = self.eval_expression(&args[index], row_idx, table)?;
+            result = result.replace(full, &format!("{}", chosen_value));
         }
 
         Ok(result)
@@ -3334,6 +3632,211 @@ impl ArrayCalculator {
         }
 
         Err(ForgeError::Eval("RATE: Did not converge".to_string()))
+    }
+
+    /// Get dates from an argument - handles both single values and column references
+    fn get_dates_from_arg(&self, arg: &str, row_idx: usize, table: &Table) -> ForgeResult<Vec<f64>> {
+        let arg = arg.trim();
+
+        // Check if it's a column reference (table.column)
+        if arg.contains('.') {
+            let parts: Vec<&str> = arg.split('.').collect();
+            if parts.len() == 2 {
+                let table_name = parts[0];
+                let col_name = parts[1];
+
+                if let Some(ref_table) = self.model.tables.get(table_name) {
+                    if let Some(col) = ref_table.columns.get(col_name) {
+                        return self.column_to_date_serial_vec(col);
+                    }
+                }
+            }
+        }
+
+        // Check if it's a local column reference
+        if let Some(col) = table.columns.get(arg) {
+            return self.column_to_date_serial_vec(col);
+        }
+
+        // Try to evaluate as a single date string
+        let date_str = self.eval_text_expression(arg, row_idx, table)?;
+        let serial = self.date_string_to_serial(&date_str)?;
+        Ok(vec![serial])
+    }
+
+    /// Convert a Column to a Vec<f64> of Excel serial dates
+    fn column_to_date_serial_vec(&self, col: &Column) -> ForgeResult<Vec<f64>> {
+        match &col.values {
+            ColumnValue::Date(dates) => {
+                let mut serials = Vec::with_capacity(dates.len());
+                for d in dates {
+                    serials.push(self.date_string_to_serial(d)?);
+                }
+                Ok(serials)
+            }
+            ColumnValue::Number(nums) => {
+                // Assume numbers are already serial dates
+                Ok(nums.clone())
+            }
+            ColumnValue::Text(texts) => {
+                // Try to parse as date strings
+                let mut serials = Vec::with_capacity(texts.len());
+                for t in texts {
+                    serials.push(self.date_string_to_serial(t)?);
+                }
+                Ok(serials)
+            }
+            ColumnValue::Boolean(_) => Err(ForgeError::Eval(format!(
+                "Cannot use boolean column '{}' as dates",
+                col.name
+            ))),
+        }
+    }
+
+    /// Convert a date string (YYYY-MM-DD or YYYY-MM) to Excel serial number
+    /// Excel serial date: days since 1900-01-01 (with Excel's leap year bug)
+    fn date_string_to_serial(&self, date_str: &str) -> ForgeResult<f64> {
+        let date_str = date_str.trim().trim_matches('"');
+
+        // Parse YYYY-MM-DD or YYYY-MM format
+        let parts: Vec<&str> = date_str.split('-').collect();
+
+        let (year, month, day) = match parts.len() {
+            3 => {
+                let y = parts[0].parse::<i32>().map_err(|_|
+                    ForgeError::Eval(format!("Invalid year in date: {}", date_str)))?;
+                let m = parts[1].parse::<u32>().map_err(|_|
+                    ForgeError::Eval(format!("Invalid month in date: {}", date_str)))?;
+                let d = parts[2].parse::<u32>().map_err(|_|
+                    ForgeError::Eval(format!("Invalid day in date: {}", date_str)))?;
+                (y, m, d)
+            }
+            2 => {
+                // YYYY-MM format, assume first day of month
+                let y = parts[0].parse::<i32>().map_err(|_|
+                    ForgeError::Eval(format!("Invalid year in date: {}", date_str)))?;
+                let m = parts[1].parse::<u32>().map_err(|_|
+                    ForgeError::Eval(format!("Invalid month in date: {}", date_str)))?;
+                (y, m, 1)
+            }
+            _ => return Err(ForgeError::Eval(format!("Invalid date format: {} (expected YYYY-MM-DD or YYYY-MM)", date_str)))
+        };
+
+        // Calculate Excel serial date
+        // Excel incorrectly treats 1900 as a leap year, so we need to account for that
+        let serial = self.date_to_excel_serial(year, month, day)?;
+        Ok(serial)
+    }
+
+    /// Convert year, month, day to Excel serial date number
+    fn date_to_excel_serial(&self, year: i32, month: u32, day: u32) -> ForgeResult<f64> {
+        // Excel serial date 1 = 1900-01-01
+        // But Excel has a bug: it thinks 1900 was a leap year (Feb 29, 1900 doesn't exist)
+        // So for dates >= March 1, 1900, we add 1 to compensate
+
+        if year < 1900 {
+            return Err(ForgeError::Eval(format!("Date year {} is before 1900", year)));
+        }
+
+        // Calculate days from 1900-01-01
+        let mut total_days = 0i64;
+
+        // Add days for complete years
+        for y in 1900..year {
+            total_days += if Self::is_leap_year(y) { 366 } else { 365 };
+        }
+
+        // Add days for complete months in current year
+        let days_in_months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        for m in 1..month {
+            total_days += days_in_months[(m - 1) as usize] as i64;
+            if m == 2 && Self::is_leap_year(year) {
+                total_days += 1; // Add leap day
+            }
+        }
+
+        // Add days in current month
+        total_days += day as i64;
+
+        // Excel bug: it thinks 1900-02-29 exists, so add 1 for dates after Feb 28, 1900
+        if total_days > 59 {
+            total_days += 1;
+        }
+
+        Ok(total_days as f64)
+    }
+
+    /// Calculate XNPV (Net Present Value with irregular dates)
+    fn calculate_xnpv(&self, rate: f64, values: &[f64], dates: &[f64]) -> ForgeResult<f64> {
+        if values.is_empty() || dates.is_empty() {
+            return Err(ForgeError::Eval("XNPV: values and dates cannot be empty".to_string()));
+        }
+
+        let first_date = dates[0];
+        let mut xnpv = 0.0;
+
+        for (value, &date) in values.iter().zip(dates.iter()) {
+            let years = (date - first_date) / 365.0;
+            xnpv += value / (1.0 + rate).powf(years);
+        }
+
+        Ok(xnpv)
+    }
+
+    /// Calculate XIRR (Internal Rate of Return with irregular dates) using Newton-Raphson
+    fn calculate_xirr(&self, values: &[f64], dates: &[f64], guess: f64) -> ForgeResult<f64> {
+        const MAX_ITERATIONS: usize = 100;
+        const TOLERANCE: f64 = 1e-10;
+
+        if values.is_empty() || dates.is_empty() {
+            return Err(ForgeError::Eval("XIRR: values and dates cannot be empty".to_string()));
+        }
+
+        // Check that there's at least one positive and one negative value
+        let has_positive = values.iter().any(|&v| v > 0.0);
+        let has_negative = values.iter().any(|&v| v < 0.0);
+        if !has_positive || !has_negative {
+            return Err(ForgeError::Eval("XIRR: values must contain at least one positive and one negative value".to_string()));
+        }
+
+        let first_date = dates[0];
+        let mut rate = guess;
+
+        for _ in 0..MAX_ITERATIONS {
+            let mut xnpv = 0.0;
+            let mut d_xnpv = 0.0; // Derivative of XNPV
+
+            for (i, &value) in values.iter().enumerate() {
+                let years = (dates[i] - first_date) / 365.0;
+                let factor = (1.0 + rate).powf(years);
+                xnpv += value / factor;
+                if years != 0.0 {
+                    d_xnpv -= years * value / ((1.0 + rate).powf(years + 1.0));
+                }
+            }
+
+            if d_xnpv.abs() < TOLERANCE {
+                // Try a different guess
+                if rate != 0.0 {
+                    rate = 0.0;
+                    continue;
+                }
+                return Err(ForgeError::Eval("XIRR: Derivative too small".to_string()));
+            }
+
+            let new_rate = rate - xnpv / d_xnpv;
+
+            // Bound the rate to prevent overflow
+            let new_rate = new_rate.clamp(-0.99, 10.0);
+
+            if (new_rate - rate).abs() < TOLERANCE {
+                return Ok(new_rate);
+            }
+
+            rate = new_rate;
+        }
+
+        Err(ForgeError::Eval("XIRR: Did not converge".to_string()))
     }
 }
 
@@ -5323,5 +5826,197 @@ mod tests {
 
         // IRR should be around 0.21 (21%)
         assert!(irr > 0.15 && irr < 0.30, "IRR should be around 0.21, got {}", irr);
+    }
+
+    #[test]
+    fn test_xnpv_function() {
+        use crate::types::Variable;
+        let mut model = ParsedModel::new();
+
+        // Create tables with numeric serial dates (Excel format)
+        // Days since first date: 0, 182, 366
+        let mut cashflows = Table::new("cf".to_string());
+        cashflows.add_column(Column::new(
+            "d".to_string(),
+            ColumnValue::Number(vec![0.0, 182.0, 366.0]),
+        ));
+        cashflows.add_column(Column::new(
+            "v".to_string(),
+            ColumnValue::Number(vec![-10000.0, 3000.0, 8000.0]),
+        ));
+        model.add_table(cashflows);
+
+        // XNPV with 10% rate using numeric dates
+        model.add_scalar(
+            "xnpv_result".to_string(),
+            Variable {
+                path: "xnpv_result".to_string(),
+                value: None,
+                formula: Some("=XNPV(0.10, cf.v, cf.d)".to_string()),
+            },
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let xnpv = result.scalars.get("xnpv_result").unwrap().value.unwrap();
+
+        // XNPV should be positive (investment pays off)
+        assert!(xnpv > 0.0, "XNPV should be positive, got {}", xnpv);
+    }
+
+    #[test]
+    fn test_xirr_function() {
+        use crate::types::Variable;
+        let mut model = ParsedModel::new();
+
+        // Days since first date: 0, 182, 366
+        let mut cashflows = Table::new("cf".to_string());
+        cashflows.add_column(Column::new(
+            "d".to_string(),
+            ColumnValue::Number(vec![0.0, 182.0, 366.0]),
+        ));
+        cashflows.add_column(Column::new(
+            "v".to_string(),
+            ColumnValue::Number(vec![-10000.0, 2750.0, 8500.0]),
+        ));
+        model.add_table(cashflows);
+
+        model.add_scalar(
+            "xirr_result".to_string(),
+            Variable {
+                path: "xirr_result".to_string(),
+                value: None,
+                formula: Some("=XIRR(cf.v, cf.d)".to_string()),
+            },
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let xirr = result.scalars.get("xirr_result").unwrap().value.unwrap();
+
+        // XIRR should be a reasonable rate (positive for this profitable investment)
+        assert!(xirr > 0.0 && xirr < 1.0, "XIRR should be between 0 and 1, got {}", xirr);
+    }
+
+    #[test]
+    fn test_choose_function() {
+        use crate::types::Variable;
+        let mut model = ParsedModel::new();
+
+        // Test CHOOSE with literal index: CHOOSE(2, 0.05, 0.10, 0.02) should return 0.10
+        model.add_scalar(
+            "chosen_rate".to_string(),
+            Variable {
+                path: "chosen_rate".to_string(),
+                value: None,
+                formula: Some("=CHOOSE(2, 0.05, 0.10, 0.02)".to_string()),
+            },
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let rate = result.scalars.get("chosen_rate").unwrap().value.unwrap();
+
+        // CHOOSE(2, ...) should return the second value = 0.10
+        assert!((rate - 0.10).abs() < 0.001, "CHOOSE(2, ...) should return 0.10, got {}", rate);
+    }
+
+    #[test]
+    fn test_datedif_function() {
+        use crate::types::Variable;
+        let mut model = ParsedModel::new();
+
+        // Test DATEDIF with literal dates
+        // From 2024-01-15 to 2025-01-15 = 1 year = 12 months
+        model.add_scalar(
+            "years_diff".to_string(),
+            Variable {
+                path: "years_diff".to_string(),
+                value: None,
+                formula: Some("=DATEDIF(\"2024-01-15\", \"2025-01-15\", \"Y\")".to_string()),
+            },
+        );
+        model.add_scalar(
+            "months_diff".to_string(),
+            Variable {
+                path: "months_diff".to_string(),
+                value: None,
+                formula: Some("=DATEDIF(\"2024-01-15\", \"2025-01-15\", \"M\")".to_string()),
+            },
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+
+        let years = result.scalars.get("years_diff").unwrap().value.unwrap();
+        assert_eq!(years, 1.0, "Should be 1 year, got {}", years);
+
+        let months = result.scalars.get("months_diff").unwrap().value.unwrap();
+        assert_eq!(months, 12.0, "Should be 12 months, got {}", months);
+    }
+
+    #[test]
+    fn test_edate_function() {
+        use crate::types::Variable;
+        let mut model = ParsedModel::new();
+
+        // Test EDATE: Add 3 months to 2024-01-15 -> 2024-04-15
+        // Note: EDATE returns a date string in the formula context
+        let mut table = Table::new("test".to_string());
+        table.add_column(Column::new(
+            "base_date".to_string(),
+            ColumnValue::Date(vec!["2024-01-15".to_string()]),
+        ));
+        table.add_row_formula(
+            "new_date".to_string(),
+            "=EDATE(base_date, 3)".to_string(),
+        );
+        model.add_table(table);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+
+        let table = result.tables.get("test").unwrap();
+        let new_date_col = table.columns.get("new_date").unwrap();
+
+        // The result should contain the new date
+        match &new_date_col.values {
+            ColumnValue::Text(texts) => {
+                assert!(texts[0].contains("2024-04-15"), "Expected April 15, got {}", texts[0]);
+            }
+            _ => panic!("Expected Text array for dates, got {:?}", new_date_col.values),
+        }
+    }
+
+    #[test]
+    fn test_eomonth_function() {
+        use crate::types::Variable;
+        let mut model = ParsedModel::new();
+
+        // Test EOMONTH: End of month 2 months after 2024-01-15 = 2024-03-31
+        let mut table = Table::new("test".to_string());
+        table.add_column(Column::new(
+            "base_date".to_string(),
+            ColumnValue::Date(vec!["2024-01-15".to_string()]),
+        ));
+        table.add_row_formula(
+            "end_date".to_string(),
+            "=EOMONTH(base_date, 2)".to_string(),
+        );
+        model.add_table(table);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+
+        let table = result.tables.get("test").unwrap();
+        let end_date_col = table.columns.get("end_date").unwrap();
+
+        // The result should contain the end of month date
+        match &end_date_col.values {
+            ColumnValue::Text(texts) => {
+                assert!(texts[0].contains("2024-03-31"), "Expected March 31, got {}", texts[0]);
+            }
+            _ => panic!("Expected Text array for dates, got {:?}", end_date_col.values),
+        }
     }
 }

@@ -3,8 +3,8 @@
 # Research-backed priorities based on 2025 financial modeling & data analysis trends
 
 metadata:
-  current_version: "2.0.1"
-  target_version: "2.1.0"
+  current_version: "2.1.0"
+  target_version: "2.2.0"
   last_updated: "2025-11-25"
   maintainer: "RoyalBit Inc."
   notes: "v2.0.1 released. Roadmap refocused on FINANCIAL CLI FIRST - integrations deprioritized."
@@ -736,8 +736,8 @@ technical_debt:
 
   v2_1_0:
     version: "2.1.0"
-    status: planned
-    target_date: "2025-12"
+    status: completed
+    released_date: "2025-11-25"
     description: "Advanced Financial Functions - XNPV/XIRR + Scenario Support"
     priority: CRITICAL
     effort: "1-2 sessions"
