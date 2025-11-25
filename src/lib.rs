@@ -33,6 +33,7 @@ pub mod cli;
 pub mod core;
 pub mod error;
 pub mod excel;
+pub mod lsp;
 pub mod parser;
 pub mod types;
 pub mod writer;

@@ -1,0 +1,11 @@
+[package]
+name = "forge"
+description = "Language support for Forge YAML formula files"
+version = "1.5.0"
+authors = ["RoyalBit Inc. <admin@royalbit.ca>"]
+repository = "https://github.com/royalbit/forge"
+schema_version = 1
+
+[language_servers.forge-lsp]
+name = "Forge Language Server"
+language = "Forge YAML"

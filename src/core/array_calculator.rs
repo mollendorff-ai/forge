@@ -237,6 +237,20 @@ impl ArrayCalculator {
             || upper.contains("XLOOKUP(")
     }
 
+    /// Check if formula contains financial functions that need special handling (v1.6.0)
+    fn has_financial_function(&self, formula: &str) -> bool {
+        let upper = formula.to_uppercase();
+        upper.contains("NPV(")
+            || upper.contains("IRR(")
+            || upper.contains("XNPV(")
+            || upper.contains("XIRR(")
+            || upper.contains("PMT(")
+            || upper.contains("FV(")
+            || upper.contains("PV(")
+            || upper.contains("RATE(")
+            || upper.contains("NPER(")
+    }
+
     /// Evaluate a row-wise formula (element-wise operations)
     /// Example: profit = revenue - expenses
     /// Evaluates: profit[i] = revenue[i] - expenses[i] for all i
@@ -336,6 +350,7 @@ impl ArrayCalculator {
                 || self.has_custom_text_function(&formula_str)
                 || self.has_custom_date_function(&formula_str)
                 || self.has_lookup_function(&formula_str)
+                || self.has_financial_function(&formula_str)
             {
                 self.preprocess_custom_functions(&formula_str, row_idx, table)?
             } else {
@@ -637,10 +652,84 @@ impl ArrayCalculator {
                 let processed = self.preprocess_array_indexing(&formula_str)?;
                 self.evaluate_scalar_with_resolver(&processed, scalar_name)
             }
+        } else if self.has_financial_function(&formula_str) {
+            // Financial functions - evaluate them specially
+            self.evaluate_financial_formula(&formula_str, scalar_name)
         } else {
             // Regular scalar formula - use xlformula_engine
             self.evaluate_scalar_with_resolver(&formula_str, scalar_name)
         }
+    }
+
+    /// Evaluate a formula containing financial functions
+    fn evaluate_financial_formula(&self, formula: &str, scalar_name: &str) -> ForgeResult<f64> {
+        // First resolve all scalar references to their values
+        let resolved = self.resolve_scalar_references(formula, scalar_name)?;
+
+        // Create an empty table for context (not used for scalar evaluation)
+        let empty_table = Table::new("_scalar_context".to_string());
+
+        // Process financial functions
+        let processed = self.replace_financial_functions(&resolved, 0, &empty_table)?;
+
+        // If the result is just a number, parse it directly
+        let trimmed = processed.trim().trim_start_matches('=');
+        if let Ok(value) = trimmed.parse::<f64>() {
+            return Ok(value);
+        }
+
+        // Otherwise evaluate with xlformula_engine
+        self.evaluate_scalar_with_resolver(&processed, scalar_name)
+    }
+
+    /// Resolve scalar variable references in a formula
+    fn resolve_scalar_references(&self, formula: &str, current_scalar: &str) -> ForgeResult<String> {
+        let mut result = formula.to_string();
+
+        // Find all word boundaries and check if they're scalar references
+        let words: Vec<&str> = formula
+            .split(|c: char| !c.is_alphanumeric() && c != '_')
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        for word in words {
+            // Skip function names and numbers
+            if word.chars().next().is_none_or(|c| c.is_numeric()) {
+                continue;
+            }
+
+            // Skip the current scalar (avoid self-reference) and common function names
+            if word == current_scalar {
+                continue;
+            }
+
+            let upper = word.to_uppercase();
+            let is_function = matches!(
+                upper.as_str(),
+                "PMT" | "FV" | "PV" | "NPV" | "IRR" | "NPER" | "RATE"
+                    | "SUM" | "AVERAGE" | "COUNT" | "MAX" | "MIN"
+                    | "IF" | "AND" | "OR" | "NOT" | "TRUE" | "FALSE"
+                    | "ROUND" | "ROUNDUP" | "ROUNDDOWN" | "ABS" | "SQRT" | "POWER" | "MOD"
+            );
+
+            if is_function {
+                continue;
+            }
+
+            // Check if it's a scalar variable
+            if let Some(scalar) = self.model.scalars.get(word) {
+                if let Some(value) = scalar.value {
+                    // Replace the scalar reference with its value
+                    // Use word boundary matching to avoid partial replacements
+                    let pattern = format!(r"\b{}\b", regex::escape(word));
+                    if let Ok(re) = regex::Regex::new(&pattern) {
+                        result = re.replace_all(&result, value.to_string()).to_string();
+                    }
+                }
+            }
+        }
+
+        Ok(result)
     }
 
     /// Preprocess formula to replace array indexing with actual values
@@ -1755,6 +1844,11 @@ impl ArrayCalculator {
         // Phase 5: Lookup functions (v1.2.0)
         if self.has_lookup_function(formula) {
             result = self.replace_lookup_functions(&result, row_idx, table)?;
+        }
+
+        // Phase 6: Financial functions (v1.6.0)
+        if self.has_financial_function(formula) {
+            result = self.replace_financial_functions(&result, row_idx, table)?;
         }
 
         Ok(result)
@@ -2887,6 +2981,359 @@ impl ArrayCalculator {
                 Ok(num != 0.0)
             }
         }
+    }
+
+    // ============================================================================
+    // Financial Functions (v1.6.0)
+    // NPV, IRR, PMT, FV, PV - Essential for DCF and financial modeling
+    // ============================================================================
+
+    /// Replace financial functions with evaluated results
+    fn replace_financial_functions(
+        &self,
+        formula: &str,
+        row_idx: usize,
+        table: &Table,
+    ) -> ForgeResult<String> {
+        use regex::Regex;
+        let mut result = formula.to_string();
+
+        // NPV(rate, cash_flow1, cash_flow2, ...) - Net Present Value
+        let re_npv = Regex::new(r"NPV\(([^)]+)\)").unwrap();
+        for caps in re_npv.captures_iter(formula) {
+            let full = caps.get(0).unwrap().as_str();
+            let args_str = caps.get(1).unwrap().as_str();
+            let args = self.parse_function_args(args_str)?;
+
+            if args.len() < 2 {
+                return Err(ForgeError::Eval(
+                    "NPV requires at least 2 arguments: rate and at least one cash flow".to_string()
+                ));
+            }
+
+            let rate = self.eval_expression(&args[0], row_idx, table)?;
+            let mut npv = 0.0;
+
+            for (i, arg) in args.iter().skip(1).enumerate() {
+                // Check if it's a column reference
+                let values = self.get_values_from_arg(arg, row_idx, table)?;
+                for (j, cf) in values.iter().enumerate() {
+                    let period = (i * values.len() + j + 1) as f64;
+                    npv += cf / (1.0 + rate).powf(period);
+                }
+            }
+
+            result = result.replace(full, &format!("{}", npv));
+        }
+
+        // PMT(rate, nper, pv, [fv], [type]) - Payment for a loan
+        let re_pmt = Regex::new(r"PMT\(([^)]+)\)").unwrap();
+        for caps in re_pmt.captures_iter(formula) {
+            let full = caps.get(0).unwrap().as_str();
+            let args_str = caps.get(1).unwrap().as_str();
+            let args = self.parse_function_args(args_str)?;
+
+            if args.len() < 3 {
+                return Err(ForgeError::Eval(
+                    "PMT requires at least 3 arguments: rate, nper, pv".to_string()
+                ));
+            }
+
+            let rate = self.eval_expression(&args[0], row_idx, table)?;
+            let nper = self.eval_expression(&args[1], row_idx, table)?;
+            let pv = self.eval_expression(&args[2], row_idx, table)?;
+            let fv = if args.len() > 3 { self.eval_expression(&args[3], row_idx, table)? } else { 0.0 };
+            let pmt_type = if args.len() > 4 { self.eval_expression(&args[4], row_idx, table)? as i32 } else { 0 };
+
+            let pmt = if rate == 0.0 {
+                -(pv + fv) / nper
+            } else {
+                let pvif = (1.0 + rate).powf(nper);
+                let pmt = rate * (pv * pvif + fv) / (pvif - 1.0);
+                if pmt_type == 1 {
+                    -pmt / (1.0 + rate)
+                } else {
+                    -pmt
+                }
+            };
+
+            result = result.replace(full, &format!("{}", pmt));
+        }
+
+        // FV(rate, nper, pmt, [pv], [type]) - Future Value
+        let re_fv = Regex::new(r"FV\(([^)]+)\)").unwrap();
+        for caps in re_fv.captures_iter(formula) {
+            let full = caps.get(0).unwrap().as_str();
+            let args_str = caps.get(1).unwrap().as_str();
+            let args = self.parse_function_args(args_str)?;
+
+            if args.len() < 3 {
+                return Err(ForgeError::Eval(
+                    "FV requires at least 3 arguments: rate, nper, pmt".to_string()
+                ));
+            }
+
+            let rate = self.eval_expression(&args[0], row_idx, table)?;
+            let nper = self.eval_expression(&args[1], row_idx, table)?;
+            let pmt = self.eval_expression(&args[2], row_idx, table)?;
+            let pv = if args.len() > 3 { self.eval_expression(&args[3], row_idx, table)? } else { 0.0 };
+            let fv_type = if args.len() > 4 { self.eval_expression(&args[4], row_idx, table)? as i32 } else { 0 };
+
+            let fv = if rate == 0.0 {
+                -(pv + pmt * nper)
+            } else {
+                let pvif = (1.0 + rate).powf(nper);
+                let fvifa = (pvif - 1.0) / rate;
+                let fv_pv = -pv * pvif;
+                let fv_pmt = if fv_type == 1 {
+                    -pmt * fvifa * (1.0 + rate)
+                } else {
+                    -pmt * fvifa
+                };
+                fv_pv + fv_pmt
+            };
+
+            result = result.replace(full, &format!("{}", fv));
+        }
+
+        // PV(rate, nper, pmt, [fv], [type]) - Present Value
+        let re_pv = Regex::new(r"PV\(([^)]+)\)").unwrap();
+        for caps in re_pv.captures_iter(formula) {
+            let full = caps.get(0).unwrap().as_str();
+            let args_str = caps.get(1).unwrap().as_str();
+            let args = self.parse_function_args(args_str)?;
+
+            if args.len() < 3 {
+                return Err(ForgeError::Eval(
+                    "PV requires at least 3 arguments: rate, nper, pmt".to_string()
+                ));
+            }
+
+            let rate = self.eval_expression(&args[0], row_idx, table)?;
+            let nper = self.eval_expression(&args[1], row_idx, table)?;
+            let pmt = self.eval_expression(&args[2], row_idx, table)?;
+            let fv = if args.len() > 3 { self.eval_expression(&args[3], row_idx, table)? } else { 0.0 };
+            let pv_type = if args.len() > 4 { self.eval_expression(&args[4], row_idx, table)? as i32 } else { 0 };
+
+            let pv = if rate == 0.0 {
+                -(fv + pmt * nper)
+            } else {
+                let pvif = (1.0 + rate).powf(nper);
+                let pvifa = (pvif - 1.0) / (rate * pvif);
+                let pv_fv = -fv / pvif;
+                let pv_pmt = if pv_type == 1 {
+                    -pmt * pvifa * (1.0 + rate)
+                } else {
+                    -pmt * pvifa
+                };
+                pv_fv + pv_pmt
+            };
+
+            result = result.replace(full, &format!("{}", pv));
+        }
+
+        // IRR(values, [guess]) - Internal Rate of Return using Newton-Raphson
+        let re_irr = Regex::new(r"IRR\(([^)]+)\)").unwrap();
+        for caps in re_irr.captures_iter(formula) {
+            let full = caps.get(0).unwrap().as_str();
+            let args_str = caps.get(1).unwrap().as_str();
+            let args = self.parse_function_args(args_str)?;
+
+            if args.is_empty() {
+                return Err(ForgeError::Eval(
+                    "IRR requires at least one argument: values array".to_string()
+                ));
+            }
+
+            let values = self.get_values_from_arg(&args[0], row_idx, table)?;
+            let guess = if args.len() > 1 { self.eval_expression(&args[1], row_idx, table)? } else { 0.1 };
+
+            let irr = self.calculate_irr(&values, guess)?;
+            result = result.replace(full, &format!("{}", irr));
+        }
+
+        // NPER(rate, pmt, pv, [fv], [type]) - Number of periods
+        let re_nper = Regex::new(r"NPER\(([^)]+)\)").unwrap();
+        for caps in re_nper.captures_iter(formula) {
+            let full = caps.get(0).unwrap().as_str();
+            let args_str = caps.get(1).unwrap().as_str();
+            let args = self.parse_function_args(args_str)?;
+
+            if args.len() < 3 {
+                return Err(ForgeError::Eval(
+                    "NPER requires at least 3 arguments: rate, pmt, pv".to_string()
+                ));
+            }
+
+            let rate = self.eval_expression(&args[0], row_idx, table)?;
+            let pmt = self.eval_expression(&args[1], row_idx, table)?;
+            let pv = self.eval_expression(&args[2], row_idx, table)?;
+            let fv = if args.len() > 3 { self.eval_expression(&args[3], row_idx, table)? } else { 0.0 };
+            let nper_type = if args.len() > 4 { self.eval_expression(&args[4], row_idx, table)? as i32 } else { 0 };
+
+            let nper = if rate == 0.0 {
+                -(pv + fv) / pmt
+            } else {
+                let pmt_adj = if nper_type == 1 { pmt * (1.0 + rate) } else { pmt };
+                let numerator = pmt_adj - fv * rate;
+                let denominator = pv * rate + pmt_adj;
+                if denominator == 0.0 || numerator / denominator <= 0.0 {
+                    return Err(ForgeError::Eval("NPER: Cannot calculate number of periods".to_string()));
+                }
+                (numerator / denominator).ln() / (1.0 + rate).ln()
+            };
+
+            result = result.replace(full, &format!("{}", nper));
+        }
+
+        // RATE(nper, pmt, pv, [fv], [type], [guess]) - Interest rate using Newton-Raphson
+        let re_rate = Regex::new(r"RATE\(([^)]+)\)").unwrap();
+        for caps in re_rate.captures_iter(formula) {
+            let full = caps.get(0).unwrap().as_str();
+            let args_str = caps.get(1).unwrap().as_str();
+            let args = self.parse_function_args(args_str)?;
+
+            if args.len() < 3 {
+                return Err(ForgeError::Eval(
+                    "RATE requires at least 3 arguments: nper, pmt, pv".to_string()
+                ));
+            }
+
+            let nper = self.eval_expression(&args[0], row_idx, table)?;
+            let pmt = self.eval_expression(&args[1], row_idx, table)?;
+            let pv = self.eval_expression(&args[2], row_idx, table)?;
+            let fv = if args.len() > 3 { self.eval_expression(&args[3], row_idx, table)? } else { 0.0 };
+            let rate_type = if args.len() > 4 { self.eval_expression(&args[4], row_idx, table)? as i32 } else { 0 };
+            let guess = if args.len() > 5 { self.eval_expression(&args[5], row_idx, table)? } else { 0.1 };
+
+            let rate = self.calculate_rate(nper, pmt, pv, fv, rate_type, guess)?;
+            result = result.replace(full, &format!("{}", rate));
+        }
+
+        Ok(result)
+    }
+
+    /// Get values from an argument - handles both single values and column references
+    fn get_values_from_arg(&self, arg: &str, row_idx: usize, table: &Table) -> ForgeResult<Vec<f64>> {
+        let arg = arg.trim();
+
+        // Check if it's a column reference (table.column)
+        if arg.contains('.') {
+            let parts: Vec<&str> = arg.split('.').collect();
+            if parts.len() == 2 {
+                let table_name = parts[0];
+                let col_name = parts[1];
+
+                if let Some(ref_table) = self.model.tables.get(table_name) {
+                    if let Some(col) = ref_table.columns.get(col_name) {
+                        return self.column_to_f64_vec(col);
+                    }
+                }
+            }
+        }
+
+        // Check if it's a local column reference
+        if let Some(col) = table.columns.get(arg) {
+            return self.column_to_f64_vec(col);
+        }
+
+        // Try to evaluate as a single expression
+        let value = self.eval_expression(arg, row_idx, table)?;
+        Ok(vec![value])
+    }
+
+    /// Convert a Column to a Vec<f64> for financial functions
+    fn column_to_f64_vec(&self, col: &Column) -> ForgeResult<Vec<f64>> {
+        match &col.values {
+            ColumnValue::Number(v) => Ok(v.clone()),
+            ColumnValue::Boolean(v) => Ok(v.iter().map(|&b| if b { 1.0 } else { 0.0 }).collect()),
+            ColumnValue::Text(_) => Err(ForgeError::Eval(format!(
+                "Cannot use text column '{}' in financial function",
+                col.name
+            ))),
+            ColumnValue::Date(_) => Err(ForgeError::Eval(format!(
+                "Cannot use date column '{}' in financial function",
+                col.name
+            ))),
+        }
+    }
+
+    /// Calculate IRR using Newton-Raphson method
+    fn calculate_irr(&self, values: &[f64], guess: f64) -> ForgeResult<f64> {
+        const MAX_ITERATIONS: usize = 100;
+        const TOLERANCE: f64 = 1e-10;
+
+        let mut rate = guess;
+
+        for _ in 0..MAX_ITERATIONS {
+            let mut npv = 0.0;
+            let mut d_npv = 0.0;  // Derivative of NPV
+
+            for (i, &cf) in values.iter().enumerate() {
+                let t = i as f64;
+                let factor = (1.0 + rate).powf(t);
+                npv += cf / factor;
+                if i > 0 {
+                    d_npv -= t * cf / ((1.0 + rate).powf(t + 1.0));
+                }
+            }
+
+            if d_npv.abs() < TOLERANCE {
+                return Err(ForgeError::Eval("IRR: Derivative too small".to_string()));
+            }
+
+            let new_rate = rate - npv / d_npv;
+
+            if (new_rate - rate).abs() < TOLERANCE {
+                return Ok(new_rate);
+            }
+
+            rate = new_rate;
+        }
+
+        Err(ForgeError::Eval("IRR: Did not converge".to_string()))
+    }
+
+    /// Calculate RATE using Newton-Raphson method
+    fn calculate_rate(&self, nper: f64, pmt: f64, pv: f64, fv: f64, rate_type: i32, guess: f64) -> ForgeResult<f64> {
+        const MAX_ITERATIONS: usize = 100;
+        const TOLERANCE: f64 = 1e-10;
+
+        let mut rate = guess;
+
+        for _ in 0..MAX_ITERATIONS {
+            // Calculate f(rate) = pv * (1+rate)^n + pmt * (1+rate*type) * ((1+rate)^n - 1) / rate + fv
+            let pvif = (1.0 + rate).powf(nper);
+            let pmt_factor = if rate_type == 1 { 1.0 + rate } else { 1.0 };
+
+            let f = if rate.abs() < TOLERANCE {
+                pv + pmt * nper * pmt_factor + fv
+            } else {
+                pv * pvif + pmt * pmt_factor * (pvif - 1.0) / rate + fv
+            };
+
+            // Calculate f'(rate) - derivative
+            let f_prime = if rate.abs() < TOLERANCE {
+                nper * pv + pmt * nper * (nper - 1.0) / 2.0
+            } else {
+                nper * pv * (1.0 + rate).powf(nper - 1.0)
+                    + pmt * pmt_factor * (nper * (1.0 + rate).powf(nper - 1.0) * rate - (pvif - 1.0)) / (rate * rate)
+            };
+
+            if f_prime.abs() < TOLERANCE {
+                return Err(ForgeError::Eval("RATE: Derivative too small".to_string()));
+            }
+
+            let new_rate = rate - f / f_prime;
+
+            if (new_rate - rate).abs() < TOLERANCE {
+                return Ok(new_rate);
+            }
+
+            rate = new_rate;
+        }
+
+        Err(ForgeError::Eval("RATE: Did not converge".to_string()))
     }
 }
 
@@ -4668,5 +5115,213 @@ mod tests {
             }
             _ => panic!("Expected Text array"),
         }
+    }
+
+    // ============================================================================
+    // Financial Function Tests (v1.6.0)
+    // ============================================================================
+
+    #[test]
+    fn test_pmt_function() {
+        use crate::types::Variable;
+
+        // Test PMT: Monthly payment for $100,000 loan at 6% annual for 30 years
+        // PMT(0.005, 360, 100000) = -599.55 (monthly payment)
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "monthly_rate".to_string(),
+            Variable {
+                path: "monthly_rate".to_string(),
+                value: Some(0.005), // 6% annual / 12 months
+                formula: None,
+            },
+        );
+        model.add_scalar(
+            "periods".to_string(),
+            Variable {
+                path: "periods".to_string(),
+                value: Some(360.0), // 30 years * 12 months
+                formula: None,
+            },
+        );
+        model.add_scalar(
+            "loan_amount".to_string(),
+            Variable {
+                path: "loan_amount".to_string(),
+                value: Some(100000.0),
+                formula: None,
+            },
+        );
+        model.add_scalar(
+            "payment".to_string(),
+            Variable {
+                path: "payment".to_string(),
+                value: None,
+                formula: Some("=PMT(monthly_rate, periods, loan_amount)".to_string()),
+            },
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let payment = result.scalars.get("payment").unwrap().value.unwrap();
+
+        // PMT should be around -599.55
+        assert!((payment - (-599.55)).abs() < 0.1, "PMT should be around -599.55, got {}", payment);
+    }
+
+    #[test]
+    fn test_fv_function() {
+        use crate::types::Variable;
+
+        // Test FV: Future value of $1000/month at 5% annual for 10 years
+        // FV(0.05/12, 120, -1000) = ~155,282
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "future_value".to_string(),
+            Variable {
+                path: "future_value".to_string(),
+                value: None,
+                formula: Some("=FV(0.004166667, 120, -1000)".to_string()),
+            },
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let fv = result.scalars.get("future_value").unwrap().value.unwrap();
+
+        // FV should be around 155,282
+        assert!(fv > 155000.0 && fv < 156000.0, "FV should be around 155,282, got {}", fv);
+    }
+
+    #[test]
+    fn test_pv_function() {
+        use crate::types::Variable;
+
+        // Test PV: Present value of $500/month for 5 years at 8% annual
+        // PV(0.08/12, 60, -500) = ~24,588
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "present_value".to_string(),
+            Variable {
+                path: "present_value".to_string(),
+                value: None,
+                formula: Some("=PV(0.006666667, 60, -500)".to_string()),
+            },
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let pv = result.scalars.get("present_value").unwrap().value.unwrap();
+
+        // PV should be around 24,588
+        assert!(pv > 24000.0 && pv < 25000.0, "PV should be around 24,588, got {}", pv);
+    }
+
+    #[test]
+    fn test_npv_function() {
+        use crate::types::Variable;
+
+        // Test NPV: Net present value of cash flows (Excel-style: all values discounted from period 1)
+        // NPV(0.10, -1000, 300, 400, 500, 600) = ~353.43
+        // Note: Excel's NPV discounts ALL values starting from period 1
+        // For traditional investment NPV where initial investment is at period 0:
+        // Use: =initial_investment + NPV(rate, future_cash_flows)
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "npv_result".to_string(),
+            Variable {
+                path: "npv_result".to_string(),
+                value: None,
+                formula: Some("=NPV(0.10, -1000, 300, 400, 500, 600)".to_string()),
+            },
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let npv = result.scalars.get("npv_result").unwrap().value.unwrap();
+
+        // NPV should be around 353.43 (Excel-style calculation)
+        assert!((npv - 353.43).abs() < 1.0, "NPV should be around 353.43, got {}", npv);
+    }
+
+    #[test]
+    fn test_nper_function() {
+        use crate::types::Variable;
+
+        // Test NPER: How many months to pay off $10,000 at 5% with $200/month
+        // NPER(0.05/12, -200, 10000) = ~55.5 months
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "num_periods".to_string(),
+            Variable {
+                path: "num_periods".to_string(),
+                value: None,
+                formula: Some("=NPER(0.004166667, -200, 10000)".to_string()),
+            },
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let nper = result.scalars.get("num_periods").unwrap().value.unwrap();
+
+        // NPER should be around 55.5
+        assert!(nper > 50.0 && nper < 60.0, "NPER should be around 55.5, got {}", nper);
+    }
+
+    #[test]
+    fn test_rate_function() {
+        use crate::types::Variable;
+
+        // Test RATE: What rate pays off $10,000 in 60 months at $200/month?
+        // RATE(60, -200, 10000) = ~0.00655 (monthly), ~7.9% annual
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "interest_rate".to_string(),
+            Variable {
+                path: "interest_rate".to_string(),
+                value: None,
+                formula: Some("=RATE(60, -200, 10000)".to_string()),
+            },
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let rate = result.scalars.get("interest_rate").unwrap().value.unwrap();
+
+        // Monthly rate should be around 0.00655
+        assert!(rate > 0.005 && rate < 0.01, "RATE should be around 0.00655, got {}", rate);
+    }
+
+    #[test]
+    fn test_irr_function() {
+        use crate::types::Variable;
+
+        // Test IRR: Internal rate of return
+        // IRR(-100, 30, 40, 50, 60) = ~0.21 (21%)
+        let mut model = ParsedModel::new();
+
+        // Create cash flows table
+        let mut cashflows = Table::new("cashflows".to_string());
+        cashflows.add_column(Column::new(
+            "amount".to_string(),
+            ColumnValue::Number(vec![-100.0, 30.0, 40.0, 50.0, 60.0]),
+        ));
+        model.add_table(cashflows);
+
+        model.add_scalar(
+            "irr_result".to_string(),
+            Variable {
+                path: "irr_result".to_string(),
+                value: None,
+                formula: Some("=IRR(cashflows.amount)".to_string()),
+            },
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let irr = result.scalars.get("irr_result").unwrap().value.unwrap();
+
+        // IRR should be around 0.21 (21%)
+        assert!(irr > 0.15 && irr < 0.30, "IRR should be around 0.21, got {}", irr);
     }
 }
