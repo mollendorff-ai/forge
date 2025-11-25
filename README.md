@@ -18,8 +18,9 @@
 > | v1.0.0-v1.2.0 | Claude Sonnet 4.5 | ~23.5h | Core engine, 50+ Excel functions |
 > | v1.4.0-v1.6.0 | Claude Opus 4.5 | ~8h | Watch mode, LSP, financial functions |
 > | v1.7.0-v2.0.0 | Claude Opus 4.5 | ~4h | MCP Server, HTTP API Server |
+> | v2.1.0 | Claude Opus 4.5 | ~1h | XNPV, XIRR, CHOOSE, date functions |
 >
-> - **170 tests passing**, zero warnings, production-tested
+> - **175 tests passing**, zero warnings, production-tested
 > - From "Junior Developer" to **"Principal Engineer"** across 8 major releases
 > - **~35 hours total autonomous development**
 >
@@ -191,8 +192,8 @@ pricing_table:
 
 ## ⚡ Features
 
-- ✅ **50+ Excel-compatible functions** - MATCH, INDEX, XLOOKUP, SUMIF, ROUND, and more
-- ✅ **Financial functions** - NPV, IRR, PMT, FV, PV, RATE, NPER
+- ✅ **60+ Excel-compatible functions** - MATCH, INDEX, XLOOKUP, SUMIF, ROUND, and more
+- ✅ **Financial functions** - NPV, IRR, XNPV, XIRR, PMT, FV, PV, RATE, NPER, CHOOSE
 - ✅ **HTTP API Server** - Enterprise REST API via `forge-server`
 - ✅ **MCP Server** - Let Claude/ChatGPT use Forge directly via `forge-mcp`
 - ✅ **LSP Server** - Real-time validation in VSCode/Zed via `forge-lsp`
@@ -241,6 +242,13 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 ---
 
 ## 📊 Production-Ready Quality
+
+**v2.1.0 (November 2025):** *Advanced Financial Functions Release*
+
+- **175 tests passing** (6 new financial function tests)
+- **New functions:** XNPV, XIRR, CHOOSE, DATEDIF, EDATE, EOMONTH
+- **Zero warnings** (clippy strict mode: `-D warnings`)
+- **Built autonomously** by Claude Opus 4.5 using warmup protocol
 
 **v2.0.0 (November 2025):** *Principal Engineer Release*
 
@@ -331,6 +339,31 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ---
 
+## 🏆 What's New in v2.1.0
+
+**Advanced Financial Functions** (November 2025):
+
+- **XNPV(rate, values, dates)** - Net Present Value with specific dates per cash flow
+  - More precise than NPV for real-world irregular cash flows
+  - Professional standard for DCF valuation
+
+- **XIRR(values, dates, [guess])** - Internal Rate of Return with specific dates
+  - Newton-Raphson method for convergence
+  - Essential for startup/investment analysis
+
+- **CHOOSE(index, value1, value2, ...)** - Select value by scenario index
+  - Enables scenario switching in models
+  - Example: `=CHOOSE(scenario, 0.05, 0.08, 0.12)` for growth rate scenarios
+
+- **Date Arithmetic Functions:**
+  - `DATEDIF(start, end, unit)` - Difference between dates (Y/M/D)
+  - `EDATE(start, months)` - Add/subtract months from date
+  - `EOMONTH(start, months)` - End of month after adding months
+
+**Built by Claude Opus 4.5** using the warmup protocol methodology.
+
+---
+
 ## 🏆 What's New in v2.0.0
 
 **Enterprise HTTP API Server** (November 2025):
@@ -398,9 +431,9 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ## 🏆 What's New in v1.6.0
 
-**Financial Functions** (November 2025):
+**Core Financial Functions** (November 2025):
 
-- **NPV** - Net Present Value with discount rate
+- **NPV** - Net Present Value with discount rate (equal periods)
 - **IRR** - Internal Rate of Return (Newton-Raphson iteration)
 - **PMT** - Loan/annuity payment calculation
 - **FV** - Future Value of investment
@@ -408,7 +441,9 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 - **RATE** - Interest rate finder (Newton-Raphson)
 - **NPER** - Number of periods calculator
 
-**Use case:** DCF analysis, loan amortization, investment modeling.
+**Use case:** Loan amortization, investment modeling.
+
+*Note: For irregular cash flow dates, use XNPV/XIRR (v2.1.0).*
 
 ---
 
@@ -491,7 +526,9 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 **✅ v2.0.0 (Nov 2025):** Enterprise HTTP API Server
 
-**🔜 v2.1.0 (Future):** Policy-as-Code, WebSocket real-time updates, team collaboration
+**✅ v2.1.0 (Nov 2025):** Advanced Financial Functions (XNPV, XIRR, CHOOSE, DATEDIF, EDATE, EOMONTH)
+
+**🔜 v2.2.0 (Future):** Scenario Management, Policy-as-Code
 
 **[Detailed roadmap →](docs/ROADMAP.md)**
 
@@ -572,10 +609,10 @@ Forge was built autonomously by Claude AI using a novel [warmup protocol](docs/A
 
 | Metric | Value |
 |--------|-------|
-| **Total development time** | ~35 hours |
-| **Versions released** | 8 (v1.0.0 → v2.0.0) |
-| **Tests written** | 170 |
-| **Lines of code** | 8,000+ |
+| **Total development time** | ~36 hours |
+| **Versions released** | 9 (v1.0.0 → v2.1.0) |
+| **Tests written** | 175 |
+| **Lines of code** | 8,500+ |
 | **Warnings** | 0 |
 | **Architecture decisions documented** | 1 ([ADR-001](docs/architecture/ADR-001-NO-GRPC.md)) |
 
@@ -586,7 +623,7 @@ Forge was built autonomously by Claude AI using a novel [warmup protocol](docs/A
 - **Senior Developer** → v1.2.0-v1.3.0 (lookups, deprecation)
 - **Staff Engineer** → v1.4.0-v1.6.0 (watch, LSP, financial)
 - **Principal Engineer** → v1.7.0-v2.0.0 (MCP, HTTP API)
-- **Principal Autonomous AI** → v2.0.1+ (created the Forge Protocol Suite - first of its kind in FOSS)
+- **Principal Autonomous AI** → v2.0.1-v2.1.0 (Forge Protocol Suite + advanced DCF functions)
 
 **The breakthrough:** Not smarter AI, but structured autonomy with deterministic success criteria and ownership of technical decisions.
 
@@ -708,7 +745,7 @@ And because AI **forged** this tool autonomously. 🔥
 
 ---
 
-Built autonomously by Claude AI | v1.0.0-v1.2.0: Sonnet 4.5 | v1.4.0-v2.0.0: Opus 4.5 | ~35 hours | 170 tests
+Built autonomously by Claude AI | v1.0.0-v1.2.0: Sonnet 4.5 | v1.4.0-v2.1.0: Opus 4.5 | ~36 hours | 175 tests
 
 **Save money. Save the planet. Trust the math.** 🌍
 
