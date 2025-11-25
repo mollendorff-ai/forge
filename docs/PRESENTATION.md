@@ -338,19 +338,32 @@ But tools alone don't ship code.
 
 # Get Started in 5 Steps
 
-1. Copy `warmup.yaml` + `sprint.yaml` to your project root
+1. **Fork** `warmup.yaml` + `sprint.yaml` from Forge
 
-2. Create a `roadmap.yaml` with your milestones
+2. **Adapt** for YOUR stack (these are Rust-optimized!)
 
-3. Launch: **`claude --dangerously-skip-permissions`**
+3. Create a `roadmap.yaml` with your milestones
 
-4. Say: **`run warmup`** → Review → **`go`**
+4. Launch: **`claude --dangerously-skip-permissions`**
 
-5. Go grab a coffee. Come back to a release.
+5. Say: **`run warmup`** → **`go`** → ☕
 
 **Open source:** github.com/royalbit/forge
 
-*The protocols work for ANY project, not just Forge.*
+---
+
+# Adapt the Protocols!
+
+These protocols are **Rust-optimized** (cargo, clippy, crates.io)
+
+**Adapt for your stack:**
+
+| Stack | Replace cargo with | Replace crates.io with |
+|-------|-------------------|------------------------|
+| Python | pip/poetry/uv | PyPI |
+| Node.js | npm/pnpm | npmjs.com |
+| Go | go build | pkg.go.dev |
+| Docs | markdownlint | N/A |
 
 ---
 
