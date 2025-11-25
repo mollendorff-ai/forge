@@ -1,9 +1,9 @@
 [package]
 name = "royalbit-forge"
-version = "2.5.2"
+version = "2.5.3"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Engineer <noreply@anthropic.com>", "Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
-description = "Green coding: YAML formulas validated locally. Zero tokens, zero emissions. 96K rows/sec, 60+ Excel functions."
+description = "Zero tokens. Zero emissions. $40K-$132K/year saved. Local YAML formula validation, 96K rows/sec."
 repository = "https://github.com/royalbit/forge"
 homepage = "https://github.com/royalbit/forge"
 documentation = "https://github.com/royalbit/forge#readme"

@@ -1,6 +1,6 @@
 # Forge
 
-> Deterministic formula validation. Zero tokens. Zero emissions.
+> Zero tokens. Zero emissions. $40K-$132K/year saved.
 
 [![CI](https://github.com/royalbit/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/royalbit/forge/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
