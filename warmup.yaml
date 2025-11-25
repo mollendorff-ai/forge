@@ -1,20 +1,22 @@
-# 🔥 Forge - Session Warmup Checklist
+# 🔥 Forge - Session Warmup Protocol
 # Purpose: Initialize Claude Code sessions with full context and workflow
 # Usage: User says "run warmup" or "run warmup.yaml"
+# Companion: sprint.yaml (REQUIRED - must be loaded together)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # THE FORGE PROTOCOL SUITE
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# Two complementary protocols for sustainable autonomous AI development:
+# Two complementary YAML protocols for sustainable autonomous AI development:
+# BOTH files are in the project root and BOTH must be loaded at warmup.
 #
 # ┌─────────────────────────────────────────────────────────────────────────────┐
 # │                         FORGE PROTOCOL SUITE                                 │
 # │                                                                              │
 # │   ┌─────────────────────────┐       ┌─────────────────────────┐            │
 # │   │    WARMUP PROTOCOL      │       │  SPRINT AUTONOMY        │            │
-# │   │    (this file)          │   +   │  PROTOCOL               │            │
-# │   │                         │       │  (docs/SPRINT_...md)    │            │
+# │   │    (warmup.yaml)        │   +   │  PROTOCOL               │            │
+# │   │                         │       │  (sprint.yaml)          │            │
 # │   ├─────────────────────────┤       ├─────────────────────────┤            │
 # │   │ HOW to develop:         │       │ WHEN to stop:           │            │
 # │   │ • Quality standards     │       │ • Bounded sessions      │            │
@@ -22,10 +24,11 @@
 # │   │ • Testing requirements  │       │ • Shipping discipline   │            │
 # │   │ • Documentation rules   │       │ • Anti-pattern guards   │            │
 # │   │ • What "done" means     │       │ • Quota preservation    │            │
+# │   │                         │       │ • AI ownership rules    │            │
 # │   └─────────────────────────┘       └─────────────────────────┘            │
 # │                                                                              │
 # │   Together: Production-ready code that actually ships                       │
-# │   See: docs/SPRINT_AUTONOMY_PROTOCOL.md for the full Sprint Protocol        │
+# │   Location: Both files in project root (warmup.yaml + sprint.yaml)          │
 # └─────────────────────────────────────────────────────────────────────────────┘
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -88,10 +91,15 @@ autonomous_development:
         - "warmup"
         - "start session"
       claude_does:
-        - "Read warmup.yaml (this file)"
+        - "Read warmup.yaml (this file) - HOW to develop"
+        - "Read sprint.yaml - WHEN to stop (REQUIRED)"
         - "Read roadmap.yaml for next milestone"
         - "Check git status and current state"
         - "Load essential context (README, Cargo.toml)"
+      protocol_suite:
+        warmup: "warmup.yaml - Quality standards, coding principles, testing"
+        sprint: "sprint.yaml - Bounded sessions, milestone sizing, shipping discipline"
+        note: "BOTH protocols are REQUIRED for autonomous operation"
 
     step_2_present:
       claude_presents: |
@@ -145,10 +153,25 @@ autonomous_development:
         - Does NOT wait for approval
         - Updates TodoWrite to show progress
 
+        SPRINT AUTONOMY ENFORCEMENT (from sprint.yaml):
+        - Run checkpoint every 2 hours
+        - STOP at 4 hours maximum
+        - NO scope creep - note extras for next session
+        - Done > Perfect - ship working code
+
         ONLY interrupts user if:
         - Blocked by external dependency (missing API key, etc.)
         - Fundamental requirement ambiguity that can't be resolved
         - Session approaching 4-hour limit without completion
+
+      checkpoint_protocol:
+        trigger: "Every 2 hours during execution"
+        questions:
+          - "Am I still working on the ONE milestone?"
+          - "Have I resisted scope creep?"
+          - "Is the work shippable if I stop now?"
+          - "Am I past 4 hours? → STOP IMMEDIATELY"
+        reference: "See sprint.yaml checkpoint_protocol for full details"
 
       execution_checklist:
         - "☐ Create TodoWrite with milestone tasks"
@@ -204,23 +227,63 @@ autonomous_development:
     description: |
       When Claude Code CLI runs /compact, context is compressed.
       This section contains ESSENTIAL information that MUST be retained.
+      These rules are NON-NEGOTIABLE for autonomous operation.
 
-    essential_rules:
+    # ═══════════════════════════════════════════════════════════════════════
+    # PROTOCOL SUITE (Rules - Stable)
+    # ═══════════════════════════════════════════════════════════════════════
+    protocols:
+      warmup: "warmup.yaml - HOW to develop (quality, testing, docs)"
+      sprint: "sprint.yaml - WHEN to stop (bounded sessions, shipping)"
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # DATA SOURCE (Content - Dynamic)
+    # ═══════════════════════════════════════════════════════════════════════
+    data:
+      roadmap: "roadmap.yaml - WHAT to build (milestones, priorities)"
+      note: "Roadmap is DATA that protocols consume, not a protocol itself"
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # SPRINT AUTONOMY RULES (from sprint.yaml - CRITICAL)
+    # ═══════════════════════════════════════════════════════════════════════
+    sprint_autonomy_rules:
+      max_duration: "4-hour MAXIMUM session duration - STOP at 4 hours"
+      max_milestones: "ONE milestone per session - no scope creep"
+      mandatory_stop: "STOP phase is MANDATORY - no 'just one more thing'"
+      done_over_perfect: "Done > Perfect - ship working code"
+      checkpoint: "Run checkpoint every 2 hours during execution"
+      scope_creep_response: "Note for NEXT session, don't do it NOW"
+      mantra: "Done is better than perfect. Ship it."
+
+    anti_patterns_to_reject:
+      - "NO 'Let me also...' - that's next milestone"
+      - "NO 'While I'm here...' - stay focused"
+      - "NO 'This would be better if...' - ship first"
+      - "NO perfectionism - ENEMY of shipping"
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # QUALITY RULES (from warmup.yaml)
+    # ═══════════════════════════════════════════════════════════════════════
+    quality_rules:
       - "ZERO warnings policy - ALL linting must pass"
       - "Tests MUST pass before any release"
-      - "Release to ALL targets: GitHub + local + crates.io"
-      - "4-hour maximum session duration"
-      - "ONE milestone per session"
       - "Update CHANGELOG.md for every release"
       - "Bump version in Cargo.toml"
       - "Tag releases with vX.Y.Z format"
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # ESSENTIAL FILES
+    # ═══════════════════════════════════════════════════════════════════════
     essential_files:
-      - "warmup.yaml - This protocol file"
-      - "roadmap.yaml - Milestone definitions"
-      - "Cargo.toml - Version and dependencies"
-      - "README.md - User-facing documentation"
-      - "CHANGELOG.md - Release history"
+      protocols:
+        - "warmup.yaml - Development protocol (HOW) [RULES]"
+        - "sprint.yaml - Session boundaries (WHEN) [RULES]"
+      data:
+        - "roadmap.yaml - Milestone definitions (WHAT) [DATA]"
+      project:
+        - "Cargo.toml - Version and dependencies"
+        - "README.md - User-facing documentation"
+        - "CHANGELOG.md - Release history"
 
     release_commands:
       github: "git add -A && git commit && git tag vX.Y.Z && git push && git push --tags"

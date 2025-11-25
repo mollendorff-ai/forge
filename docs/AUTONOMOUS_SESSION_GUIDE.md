@@ -37,11 +37,14 @@ sequenceDiagram
     participant R as crates.io
 
     U->>C: "run warmup"
-    C->>C: Read warmup.yaml + roadmap.yaml
+    C->>C: Read warmup.yaml (HOW)
+    C->>C: Read sprint.yaml (WHEN)
+    C->>C: Read roadmap.yaml (WHAT)
     C->>U: Present next milestone
     U->>C: "punch it" / "go" / "hit it"
 
     Note over C: 🤖 AUTONOMOUS MODE
+    Note over C: (sprint.yaml enforced)
     C->>C: Implement feature
     C->>C: Write tests
     C->>C: Update docs
@@ -53,7 +56,7 @@ sequenceDiagram
     C->>R: cargo publish
 
     C->>U: ✅ RELEASE COMPLETE: vX.Y.Z
-```text
+```
 
 ---
 
@@ -72,10 +75,11 @@ Say any of these:
 
 Claude will:
 
-1. Read `warmup.yaml` (the protocol)
-2. Read `roadmap.yaml` (find next milestone)
-3. Check git status
-4. Load essential context
+1. Read `warmup.yaml` (HOW to develop)
+2. Read `sprint.yaml` (WHEN to stop)
+3. Read `roadmap.yaml` (find next milestone)
+4. Check git status
+5. Load essential context
 
 ### Step 2: Review the Milestone
 
