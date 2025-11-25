@@ -1,0 +1,143 @@
+name: 'Forge Validate'
+description: 'Validate Forge YAML formulas - catch errors before merge'
+author: 'RoyalBit Inc.'
+
+branding:
+  icon: 'check-circle'
+  color: 'orange'
+
+inputs:
+  files:
+    description: 'Glob pattern for YAML files to validate (e.g., "**/*.yaml" or "models/*.yaml")'
+    required: false
+    default: '**/*.forge.yaml'
+  fail-on-error:
+    description: 'Fail the action if validation errors are found'
+    required: false
+    default: 'true'
+  working-directory:
+    description: 'Working directory for validation'
+    required: false
+    default: '.'
+  rust-version:
+    description: 'Rust toolchain version to use'
+    required: false
+    default: 'stable'
+
+outputs:
+  validated:
+    description: 'Number of files validated'
+    value: ${{ steps.validate.outputs.validated }}
+  errors:
+    description: 'Number of validation errors found'
+    value: ${{ steps.validate.outputs.errors }}
+  status:
+    description: 'Validation status (success/failure)'
+    value: ${{ steps.validate.outputs.status }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ inputs.rust-version }}
+
+    - name: Cache Cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          ~/.cargo/bin
+        key: ${{ runner.os }}-cargo-forge-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-forge-
+
+    - name: Install Forge
+      shell: bash
+      run: |
+        # Check if forge is already installed and up to date
+        if command -v forge &> /dev/null; then
+          echo "Forge already installed: $(forge --version)"
+        else
+          echo "Installing Forge from crates.io..."
+          cargo install royalbit-forge --locked || cargo install royalbit-forge
+          echo "Installed: $(forge --version)"
+        fi
+
+    - name: Validate Forge YAML files
+      id: validate
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "::group::Finding YAML files"
+
+        # Find files matching the pattern
+        FILES=$(find . -type f -name "${{ inputs.files }}" 2>/dev/null | grep -v node_modules | grep -v target || true)
+
+        # If glob pattern, use bash globbing
+        if [[ "${{ inputs.files }}" == *"*"* ]]; then
+          shopt -s globstar nullglob
+          FILES=$(ls -1 ${{ inputs.files }} 2>/dev/null || true)
+        fi
+
+        if [ -z "$FILES" ]; then
+          echo "No files found matching pattern: ${{ inputs.files }}"
+          echo "validated=0" >> $GITHUB_OUTPUT
+          echo "errors=0" >> $GITHUB_OUTPUT
+          echo "status=success" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        echo "Found files:"
+        echo "$FILES"
+        echo "::endgroup::"
+
+        # Validate each file
+        VALIDATED=0
+        ERRORS=0
+        FAILED_FILES=""
+
+        echo "::group::Validating files"
+        for file in $FILES; do
+          if [ -f "$file" ]; then
+            echo ""
+            echo "Validating: $file"
+            if forge validate "$file"; then
+              echo "  Status: PASS"
+              VALIDATED=$((VALIDATED + 1))
+            else
+              echo "  Status: FAIL"
+              ERRORS=$((ERRORS + 1))
+              FAILED_FILES="$FAILED_FILES\n  - $file"
+            fi
+          fi
+        done
+        echo "::endgroup::"
+
+        # Summary
+        echo ""
+        echo "=================================="
+        echo "Forge Validation Summary"
+        echo "=================================="
+        echo "Files validated: $VALIDATED"
+        echo "Errors found: $ERRORS"
+
+        # Set outputs
+        echo "validated=$VALIDATED" >> $GITHUB_OUTPUT
+        echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+
+        if [ $ERRORS -gt 0 ]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo ""
+          echo "::error::Validation failed for $ERRORS file(s):$FAILED_FILES"
+
+          if [ "${{ inputs.fail-on-error }}" == "true" ]; then
+            exit 1
+          fi
+        else
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo ""
+          echo "All validations passed!"
+        fi

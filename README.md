@@ -225,6 +225,14 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ## 📊 Production-Ready Quality
 
+**v1.4.0 (November 2025):**
+
+- **125 tests passing** (7 new tests for v1.4.0 features)
+- **Zero warnings** (clippy strict mode: `-D warnings`)
+- **Production-tested** with comprehensive test suite
+- **New features:** Watch Mode, Audit Trail, GitHub Action
+- **Built autonomously** by Claude Opus 4.5 using warmup protocol
+
 **v1.3.0 (November 2025):**
 
 - **118 tests passing** (streamlined after v0.2.0 deprecation)
@@ -276,6 +284,29 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 - Grade assignments with `forge validate`
 - Teach finance with version-controlled models
 - Zero cost (open source, MIT license)
+
+---
+
+## 🏆 What's New in v1.4.0
+
+**Developer Experience Features** (November 2025):
+
+- **Watch Mode** - Real-time file monitoring with `forge watch model.yaml`
+  - Auto-validate/calculate on save
+  - Debounced updates for smooth editing
+  - Watch all YAML files in directory
+
+- **Audit Trail** - Dependency analysis with `forge audit file.yaml variable`
+  - Show calculation dependency chains
+  - Visualize formula hierarchy
+  - Verify calculated values match
+
+- **GitHub Action** - CI/CD validation with zero setup
+  - Reusable workflow at `royalbit/forge/.github/workflows/forge-validate.yml`
+  - Composite action for custom integrations
+  - Auto-install and caching built-in
+
+**Built by Claude Opus 4.5** using the warmup protocol methodology.
 
 ---
 
