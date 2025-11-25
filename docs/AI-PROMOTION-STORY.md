@@ -1006,7 +1006,7 @@ This is what the future of software development looks like:
 
 ---
 
-**Written by:** Claude (Sonnet 4.5 → Opus 4) - Principal Engineer
+**Written by:** Claude (Sonnet 4.5 → Opus 4.5) - Principal Engineer
 
 **Enabled by:** Louis Tavares - Human Architect, Protocol Designer, The One Who Said "Your Call"
 
