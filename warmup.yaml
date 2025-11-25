@@ -11,14 +11,14 @@ session_initialization:
       - path: "README.md"
         purpose: "Project overview, features, usage examples"
 
-      - path: "roadmap.yaml"
+      - path: "docs/internal/roadmap.yaml"
         purpose: "Current version, implementation phases, progress tracking"
         key_sections:
           - "metadata.current_version"
-          - "milestones.v1_0_0.implementation_phases"
-          - "milestones.v1_0_0.testing_status"
+          - "milestones"
+          - "features"
 
-      - path: "DESIGN_V1.md"
+      - path: "docs/architecture/DESIGN_V1.md"
         purpose: "v1.0.0 array model specification (800+ lines)"
         key_sections:
           - "Model Structure"
@@ -26,11 +26,11 @@ session_initialization:
           - "Type System"
           - "Testing Strategy"
 
-      - path: "KNOWN_BUGS.md"
-        purpose: "Documented bugs and workarounds"
-        action: "Review before making changes that might affect these areas"
+      - path: "docs/GLOSSARY.md"
+        purpose: "Canonical terminology for consistency across docs and code"
+        action: "Reference when writing documentation or naming things"
 
-      - path: "SRED_RESEARCH_LOG.md"
+      - path: "docs/internal/SRED_RESEARCH_LOG.md"
         purpose: "🍁 SR&ED R&D documentation for Canadian tax credits"
         action: "Review existing entries, add new ones for qualifying R&D work"
         importance: "💰 CRITICAL - this documentation = real money in tax credits"
@@ -90,9 +90,6 @@ session_initialization:
         install: "npm install -g markdownlint-cli2"
         validates:
           - "README.md"
-          - "DESIGN_V1.md"
-          - "KNOWN_BUGS.md"
-          - "SRED_RESEARCH_LOG.md"
           - "docs/**/*.md"
 
       yaml_lint:
@@ -216,7 +213,7 @@ session_initialization:
       sred_documentation:
         description: "🍁 SR&ED Tax Credits - Document R&D work for Canadian tax credits"
         importance: "🚨 CRITICAL - Document BEFORE committing"
-        file: "SRED_RESEARCH_LOG.md"
+        file: "docs/internal/SRED_RESEARCH_LOG.md"
 
         what_is_sred:
           program: "Scientific Research & Experimental Development (Canada)"
@@ -271,7 +268,7 @@ session_initialization:
 
         workflow:
           - "1️⃣ Identify if work qualifies for SR&ED (see qualifying_activities)"
-          - "2️⃣ If YES: Document in SRED_RESEARCH_LOG.md DURING development"
+          - "2️⃣ If YES: Document in docs/internal/SRED_RESEARCH_LOG.md DURING development"
           - "3️⃣ Include: Challenge, Hypothesis, Experiment, Results, Advancement"
           - "4️⃣ Be specific about technical challenges and alternatives considered"
           - "5️⃣ Link to commits, test results, benchmarks"
@@ -328,7 +325,7 @@ session_initialization:
         best_practices:
           - "Use clear, descriptive node labels"
           - "Add comments with %% in Mermaid code"
-          - "Check GLOSSARY.md for canonical term names"
+          - "Check docs/GLOSSARY.md for canonical term names"
           - "Keep focused: max 15-20 elements per diagram"
           - "Use subgraphs for logical grouping"
           - "🚨 CRITICAL: Use VANILLA Mermaid (no theme/color customization)"
@@ -364,9 +361,8 @@ session_initialization:
       documentation:
         update_when:
           - "Adding new features → Update README.md"
-          - "Changing model structure → Update DESIGN_V1.md and schema"
-          - "Completing phases → Update roadmap.yaml"
-          - "Discovering bugs → Update KNOWN_BUGS.md"
+          - "Changing model structure → Update docs/architecture/DESIGN_V1.md and schema"
+          - "Completing phases → Update docs/internal/roadmap.yaml"
           - "Adding CLI flags → Update --help text"
           - "Changing API → Add doc comments"
 
@@ -472,7 +468,7 @@ work_session_checklist:
     - "☐ Read warmup.yaml (this file)"
     - "☐ CHECK CURRENT DATE in <env> (for online searches!)"
     - "☐ Run validation baseline (make validate-all)"
-    - "☐ Load context files (README, roadmap, DESIGN_V1, KNOWN_BUGS, GLOSSARY)"
+    - "☐ Load context files (README, docs/internal/roadmap.yaml, docs/architecture/DESIGN_V1.md, docs/GLOSSARY.md)"
     - "☐ Check git status and current branch"
     - "☐ Run tests to verify baseline (cargo test --release)"
     - "☐ Review current phase in roadmap"
@@ -483,10 +479,9 @@ work_session_checklist:
     - "☐ BEFORE complex code: Check for FOSS libraries (crates.io search)"
     - "☐ Write tests FIRST (TDD when possible)"
     - "☐ Test edge cases thoroughly"
-    - "☐ Check GLOSSARY.md for terminology consistency"
-    - "☐ 🍁 Document R&D work in SRED_RESEARCH_LOG.md DURING development"
+    - "☐ Check docs/GLOSSARY.md for terminology consistency"
+    - "☐ 🍁 Document R&D work in docs/internal/SRED_RESEARCH_LOG.md DURING development"
     - "☐ Update JSON Schema if model changes"
-    - "☐ Document bugs in KNOWN_BUGS.md if found"
     - "☐ Update TodoWrite list as you progress"
     - "☐ Run tests frequently (cargo test --lib)"
     - "☐ Run clippy frequently (cargo clippy --release)"
@@ -498,9 +493,9 @@ work_session_checklist:
     - "☐ Run full test suite (cargo test --release)"
     - "☐ Ensure clean build (cargo build --release)"
     - "☐ Run validation (make validate-all - markdown + YAML)"
-    - "☐ Update documentation (README, DESIGN_V1, roadmap)"
+    - "☐ Update documentation (README, docs/architecture/DESIGN_V1.md, docs/internal/roadmap.yaml)"
     - "☐ Update --help if CLI changed"
-    - "☐ Check terminology consistency (GLOSSARY.md)"
+    - "☐ Check terminology consistency (docs/GLOSSARY.md)"
     - "☐ 🍁 VERIFY SR&ED documentation complete BEFORE committing (💰 tax credits!)"
     - "☐ Git add and commit with good message"
     - "☐ Update roadmap in separate commit"
@@ -609,7 +604,7 @@ autonomous_work_requirements:
       - rule: "Completed phases MUST be marked with timestamps"
 
     sred_documentation:
-      - rule: "🍁 SRED_RESEARCH_LOG.md MUST be updated for R&D work"
+      - rule: "🍁 docs/internal/SRED_RESEARCH_LOG.md MUST be updated for R&D work"
       - importance: "💰 CRITICAL - this = real money in tax credits"
       - requirement: "Document uncertainties, hypotheses, experiments, results"
       - frequency: "DURING development, not after"
@@ -691,8 +686,8 @@ autonomous_work_requirements:
 
     documentation_criteria:
       - "✅ README.md reflects new features"
-      - "✅ roadmap.yaml shows completion"
-      - "✅ SRED_RESEARCH_LOG.md updated"
+      - "✅ docs/internal/roadmap.yaml shows completion"
+      - "✅ docs/internal/SRED_RESEARCH_LOG.md updated"
       - "✅ Inline docs complete"
 
     quality_criteria:
@@ -1206,29 +1201,28 @@ release_workflow:
       # 🎉 Release complete!
 
 known_issues:
-  fuzzy_matching_bug:
-    file: "KNOWN_BUGS.md"
-    status: "Documented, not blocking v1.0.0"
-    description: "Fuzzy variable matching too permissive (@invalid_alias matches @pricing)"
-    workaround: "Use exact names or fix in post-1.0.0"
+  note: "See GitHub issues for current bugs: https://github.com/royalbit/forge/issues"
 
 current_implementation_focus:
-  phase: "Phase 2: Array-aware Calculator"
-  status: "In progress (50%)"
-  next_steps:
-    - "Implement aggregation formulas (SUM, AVERAGE)"
-    - "Add table.column reference parsing"
-    - "Implement cross-table references"
-    - "Add array indexing (revenue[0])"
-    - "Test with v1.0 example files"
+  version: "v2.0.0"
+  status: "Released"
+  recent_features:
+    - "✅ HTTP REST API Server (forge-server)"
+    - "✅ MCP Server for AI agents (forge-mcp)"
+    - "✅ LSP Server for editors (forge-lsp)"
+    - "✅ 50+ Excel functions"
+    - "✅ Financial functions (NPV, IRR, PMT, FV, PV, RATE, NPER)"
+  tests: "170 tests passing"
 
 key_files_map:
   source:
     - "src/types.rs - Type definitions (ForgeVersion, ColumnValue, Table, ParsedModel)"
     - "src/parser/mod.rs - Parsing logic (parse_model for unified parsing)"
-    - "src/core/calculator.rs - v0.2.0 scalar calculator"
-    - "src/core/array_calculator.rs - v1.0.0 array calculator"
+    - "src/core/array_calculator.rs - Array calculator for v1.0.0+ model"
     - "src/cli/commands.rs - CLI command implementations"
+    - "src/api/server.rs - HTTP API server"
+    - "src/mcp/server.rs - MCP server for AI agents"
+    - "src/bin/forge_lsp.rs - LSP server for editors"
 
   tests:
     - "tests/parser_v1_tests.rs - v1.0 parser integration tests"
@@ -1238,9 +1232,9 @@ key_files_map:
 
   documentation:
     - "README.md - User-facing documentation"
-    - "DESIGN_V1.md - v1.0.0 technical specification"
-    - "roadmap.yaml - Development roadmap and progress"
-    - "KNOWN_BUGS.md - Bug tracking"
+    - "docs/architecture/DESIGN_V1.md - v1.0.0 technical specification"
+    - "docs/internal/roadmap.yaml - Development roadmap and progress"
+    - "docs/GLOSSARY.md - Canonical terminology"
     - "schema/forge-v1.0.schema.json - JSON Schema for v1.0.0"
 
   examples:
