@@ -1640,7 +1640,7 @@ dependencies = [
 
 [[package]]
 name = "royalbit-forge"
-version = "1.7.0"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
