@@ -1,5 +1,0 @@
-# Test circular dependency across files - File B
-
-value_b:
-  value: null
-  formula: "=10"

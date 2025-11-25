@@ -1,19 +1,19 @@
 # VALID AND UP-TO-DATE - All values match their formulas
+_forge_version: "1.0.0"
+
 platform:
-  take_rate:
-    value: 0.10
-    formula: null
+  metric: ["Take Rate"]
+  value: [0.10]
 
 test:
   gross_margin:
     value: 0.9
-    formula: "=1 - take_rate"
-
+    formula: "=1 - 0.10"
   net_margin:
     value: 0.45
-    formula: "=gross_margin * 0.5"
+    formula: "=0.9 * 0.5"
 
 calculations:
   sum:
     value: 1.35
-    formula: "=gross_margin + net_margin"
+    formula: "=0.9 + 0.45"

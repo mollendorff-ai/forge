@@ -1,20 +1,18 @@
+_forge_version: "1.0.0"
+
 pricing:
-  base_price:
-    value: 100.0
-    formula: null
-  discount_rate:
-    value: 0.1
-    formula: null
-  final_price:
-    value: 90.0
-    formula: =base_price * (1 - discount_rate)
+  item: ["Base Price", "Discount Rate", "Final Price"]
+  value: [100.0, 0.1, 90.0]
+  formula: [null, null, "=value[0] * (1 - value[1])"]
+
 margins:
-  platform_take_rate:
-    value: 0.1
-    formula: null
+  metric: ["Platform Take Rate", "Gross Margin", "Net Margin"]
+  value: [0.1, 0.9, 0.45]
+
+summary:
   gross_margin:
     value: 0.9
-    formula: =1 - platform_take_rate
+    formula: "=1 - 0.1"
   net_margin:
     value: 0.45
-    formula: =gross_margin * 0.5
+    formula: "=0.9 * 0.5"

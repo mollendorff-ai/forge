@@ -1,9 +1,0 @@
-base_price:
-  value: 100.0
-  formula: null
-discount_rate:
-  value: 0.15
-  formula: null
-premium_multiplier:
-  value: 1.5
-  formula: null

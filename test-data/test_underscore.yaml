@@ -1,8 +1,10 @@
+_forge_version: "1.0.0"
+
 ltv:
-  weighted_average:
-    value: 100.0
-    formula: null
+  metric: ["Weighted Average"]
+  value: [100.0]
+
 test:
   result:
     value: 200.0
-    formula: =ltv_weighted_average * 2
+    formula: "=100.0 * 2"

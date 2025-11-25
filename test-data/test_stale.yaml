@@ -1,14 +1,15 @@
 # Test file with STALE VALUES (values don't match formulas)
 # This should FAIL validation and demonstrate the value-checking feature
-platform_economics:
-  take_rate:
-    value: 0.15
-    formula: null
+_forge_version: "1.0.0"
+
+platform:
+  metric: ["Take Rate"]
+  value: [0.15]
 
 test:
   gross_margin:
-    value: 0.9  # WRONG! Should be 0.85 (1 - 0.15)
-    formula: =1 - platform_take_rate
+    value: 0.9
+    formula: "=1 - 0.15"
 
 unit_economics:
   cac:
@@ -18,5 +19,5 @@ unit_economics:
     value: 50000
     formula: null
   ratio:
-    value: 3.0  # WRONG! Should be 3.33333 (50000 / 15000)
-    formula: =ltv / cac
+    value: 3.0
+    formula: "=50000 / 15000"
