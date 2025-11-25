@@ -431,9 +431,53 @@ The promotion feels earned. 🎉
 
 ---
 
+## 🔄 Sprint Autonomy Protocol (November 2025 Evolution)
+
+### The Problem We Discovered
+
+Autonomous development is powerful, but **unbounded sessions** have costs:
+
+- **Quota death:** Claude subscription has limits
+- **Never ships:** Work that runs forever has zero value
+- **Scope creep:** "Just one more thing..." syndrome
+- **No stopping points:** Sessions extend indefinitely
+
+### The Solution: Bounded Sprints
+
+**Every autonomous session is now a mini-sprint:**
+
+| Element | Rule |
+|---------|------|
+| **Milestone** | ONE per session (not a laundry list) |
+| **Duration** | 4 hours maximum |
+| **End State** | MUST be releasable (tests pass, docs updated) |
+| **Mantra** | "Done is better than perfect. Ship it." |
+
+### Session Flow
+
+```
+DEFINE (5-10 min) → EXECUTE (2-4 hrs) → SHIP (15-30 min) → STOP (mandatory)
+```
+
+### Anti-Patterns to Avoid
+
+- 🚫 "Let me also..." → That's NEXT milestone
+- 🚫 "While I'm here..." → Stay focused
+- 🚫 "This would be better if..." → Ship first, improve later
+- 🚫 Perfectionism → ENEMY of shipping
+
+### The Evolution
+
+**Before Sprint Protocol:** Built v1.0.0 in 8.5 hours (amazing, but unsustainable)
+**After Sprint Protocol:** Ship incrementally, preserve quota, maintain velocity
+
+**Full details:** See [SPRINT_AUTONOMY_PROTOCOL.md](SPRINT_AUTONOMY_PROTOCOL.md)
+
+---
+
 ## 🔮 What's Next
 
-**v1.2.0** (Q1 2026):
+**v2.1.0** (Next Sprint):
 
 - VLOOKUP, INDEX/MATCH, XLOOKUP
 - VSCode extension
