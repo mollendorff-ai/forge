@@ -128,19 +128,25 @@ Let Forge guarantee the math is **mathematically correct**.
 ### Installation
 
 ```bash
-
-# From crates.io (recommended)
-
+# Install ALL binaries from crates.io
 cargo install royalbit-forge
 
-# Or download pre-built binary
-
-curl -L https://github.com/royalbit/forge/releases/latest/download/forge-linux-x86_64 -o forge
-chmod +x forge
-sudo mv forge /usr/local/bin/
+# Verify installation
+forge --version          # CLI
+forge-server --version   # HTTP API Server
+forge-mcp --version      # MCP Server (AI agents)
+forge-lsp --version      # LSP Server (editors)
 ```
 
-**[Full installation guide →](docs/INSTALLATION.md)**
+**Installed binaries:**
+| Binary | Purpose |
+|--------|---------|
+| `forge` | Main CLI tool |
+| `forge-server` | HTTP REST API for enterprise integrations |
+| `forge-mcp` | MCP server for Claude, ChatGPT, and AI agents |
+| `forge-lsp` | Language server for VSCode, Zed, and editors |
+
+**[Full installation guide →](docs/INSTALLATION.md)** - includes Docker, systemd, Claude Desktop setup, and more
 
 ### Basic Example
 
