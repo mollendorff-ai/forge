@@ -9,6 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.0] - 2025-11-25
+
+### Sensitivity Analysis Release
+
+New commands for financial modeling what-if analysis.
+
+### Added
+
+- **`forge sensitivity`** - One and two-variable data tables
+  - Vary one input across a range: `--vary price --range 80,120,10`
+  - Two-variable matrix: `--vary price --vary2 quantity`
+  - Customizable ranges with start,end,step format
+
+- **`forge goal-seek`** - Find input value for target output
+  - Bisection solver with automatic bounds
+  - Example: `--target profit --value 100000 --vary price`
+
+- **`forge break-even`** - Find where output crosses zero
+  - Special case of goal-seek with value=0
+  - Example: `--output profit --vary price`
+
+### Changed
+
+- Updated `--help` with performance stats and new commands
+- Slimmed down README (moved history to CHANGELOG)
+
+### Testing
+
+- Test model for sensitivity analysis (`test-data/sensitivity_test.yaml`)
+- Manual testing of all three new commands
+
+---
+
+## [2.4.1] - 2025-11-25
+
+### Documentation Sync
+
+- Added v2.4.0 performance metrics to README
+- Updated Cargo.toml description with 96K rows/sec
+- Updated test count (183) and dev hours (~39h)
+
+---
+
 ## [2.4.0] - 2025-11-25
 
 ### 🚀 Performance & Scale Release

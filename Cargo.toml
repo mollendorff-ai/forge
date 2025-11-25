@@ -1,9 +1,9 @@
 [package]
 name = "royalbit-forge"
-version = "2.5.0"
+version = "2.5.1"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Engineer <noreply@anthropic.com>", "Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
-description = "Bidirectional Excel-YAML bridge with 60+ Excel functions. 96K rows/sec. Sensitivity Analysis, Goal Seek, Variance Analysis, Scenarios. HTTP/MCP/LSP Servers. 183 tests. Stop AI hallucinations, save $40K-$132K/year."
+description = "Excel-YAML bridge. 96K rows/sec. 60+ functions. Sensitivity, goal-seek, scenarios. HTTP/MCP/LSP servers."
 repository = "https://github.com/royalbit/forge"
 homepage = "https://github.com/royalbit/forge"
 documentation = "https://github.com/royalbit/forge#readme"

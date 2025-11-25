@@ -5,42 +5,33 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "forge")]
-#[command(about = "Stop AI hallucinations. Save money. Save the planet. Trust the math.")]
-#[command(long_about = "Forge - Deterministic YAML formula calculator
-Built autonomously by AI in ~38 hours. 179 tests passing.
+#[command(about = "Deterministic YAML formula calculator. 96K rows/sec. 60+ Excel functions.")]
+#[command(long_about = "Forge - Bidirectional Excel-YAML bridge
+183 tests | 96K rows/sec | 60+ Excel functions | Built by Claude AI
 
-STOP AI HALLUCINATIONS:
-  AI validation:  70K tokens, $0.66, 0.25g CO2, 30-60s, ~90% accuracy
-  Forge:          0 tokens,  $0.00, 0.0005g CO2, <200ms, 100% accuracy
-  → 99.6% less carbon, infinitely cheaper, 300x faster, perfectly accurate
+PERFORMANCE:
+  10K rows in 107ms | 100K rows in ~1s | Linear O(n) scaling
 
-SAVE MONEY:
-  Personal: $819/year | Small team: $40K/year | Enterprise: $132K/year
-
-60+ EXCEL FUNCTIONS:
-  Financial: NPV, IRR, XNPV, XIRR, PMT, FV, PV, RATE, NPER
-  Lookup: MATCH, INDEX, XLOOKUP, VLOOKUP
-  Conditional: SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, AVERAGEIFS
-  Date: TODAY, YEAR, MONTH, DAY, DATEDIF, EDATE, EOMONTH
-  + Math, Text, Logic, Aggregation functions
-
-SCENARIO MODELING:
-  scenarios:
-    base: { growth_rate: 0.05 }
-    optimistic: { growth_rate: 0.12 }
-
-  forge calculate model.yaml --scenario=optimistic
-  forge compare model.yaml --scenarios base,optimistic
+COMMANDS:
+  calculate   - Evaluate formulas in YAML files
+  validate    - Check formulas without modifying
+  sensitivity - One/two-variable data tables
+  goal-seek   - Find input value for target output
+  break-even  - Find where output crosses zero
+  variance    - Budget vs actual analysis
+  compare     - Compare scenarios side-by-side
+  export      - YAML to Excel (.xlsx)
+  import      - Excel to YAML
+  watch       - Auto-calculate on file changes
+  audit       - Show formula dependency chain
 
 EXAMPLES:
-  forge validate model.yaml              # Zero tokens, <200ms
-  forge calculate model.yaml             # Update all formulas
-  forge calculate model.yaml -s base     # With scenario
-  forge compare model.yaml -s a,b,c      # Compare scenarios
-  forge variance budget.yaml actual.yaml # Budget vs actual analysis
-  forge export model.yaml out.xlsx       # Export to Excel
+  forge calculate model.yaml                    # Evaluate formulas
+  forge sensitivity m.yaml -v price -r 80,120,10 -o profit
+  forge goal-seek m.yaml --target profit --value 100000 --vary price
+  forge variance budget.yaml actual.yaml       # Budget vs actual
 
-Docs: https://github.com/royalbit/forge | Built by Claude AI")]
+Docs: https://github.com/royalbit/forge")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
