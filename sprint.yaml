@@ -4,6 +4,25 @@
 # Companion to: warmup.yaml (HOW to develop)
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# LAUNCH INSTRUCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+launch:
+  prerequisite: |
+    For TRUE autonomous mode, launch Claude Code with:
+      claude --dangerously-skip-permissions
+
+    Without this flag, Claude interrupts for EVERY file edit and bash command.
+    With this flag + these protocols = Safe Autonomy.
+
+  recommended_aliases:
+    fun: 'alias skynet="claude --dangerously-skip-permissions"'
+    opus: 'alias opus="claude --dangerously-skip-permissions --model opus"'
+    sonnet: 'alias sonnet="claude --dangerously-skip-permissions --model sonnet"'
+
+  trust_equation: "Trust (human) + Protocols (AI guardrails) = Safe Autonomy"
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # CORE PRINCIPLE
 # ═══════════════════════════════════════════════════════════════════════════════
 
