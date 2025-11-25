@@ -23,9 +23,13 @@ fn format_number(n: f64) -> String {
 }
 
 /// Execute the calculate command
-pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()> {
+pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool, scenario: Option<String>) -> ForgeResult<()> {
     println!("{}", "🔥 Forge - Calculating formulas".bold().green());
-    println!("   File: {}\n", file.display());
+    println!("   File: {}", file.display());
+    if let Some(ref s) = scenario {
+        println!("   Scenario: {}", s.bright_yellow().bold());
+    }
+    println!();
 
     if dry_run {
         println!(
@@ -39,14 +43,30 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
         println!("{}", "📖 Parsing YAML file...".cyan());
     }
 
-    let model = parser::parse_model(&file)?;
+    let mut model = parser::parse_model(&file)?;
 
     if verbose {
         println!(
-            "   Found {} tables, {} scalars\n",
+            "   Found {} tables, {} scalars",
             model.tables.len(),
             model.scalars.len()
         );
+        if !model.scenarios.is_empty() {
+            println!(
+                "   Found {} scenarios: {:?}",
+                model.scenarios.len(),
+                model.scenario_names()
+            );
+        }
+        println!();
+    }
+
+    // Apply scenario overrides if specified
+    if let Some(ref scenario_name) = scenario {
+        apply_scenario(&mut model, scenario_name)?;
+        if verbose {
+            println!("{}", format!("📊 Applied scenario: {}", scenario_name).cyan());
+        }
     }
 
     // Calculate using ArrayCalculator
@@ -766,6 +786,129 @@ fn calculate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
     if !result.scalars.is_empty() && verbose {
         println!("   📐 {} scalars calculated", result.scalars.len());
     }
+
+    Ok(())
+}
+
+/// Apply scenario overrides to the model
+fn apply_scenario(model: &mut crate::types::ParsedModel, scenario_name: &str) -> ForgeResult<()> {
+    let scenario = model.scenarios.get(scenario_name).ok_or_else(|| {
+        let available: Vec<_> = model.scenarios.keys().collect();
+        ForgeError::Validation(format!(
+            "Scenario '{}' not found. Available scenarios: {:?}",
+            scenario_name, available
+        ))
+    })?;
+
+    // Clone the overrides to avoid borrow checker issues
+    let overrides = scenario.overrides.clone();
+
+    // Apply overrides to scalars
+    for (var_name, override_value) in &overrides {
+        if let Some(scalar) = model.scalars.get_mut(var_name) {
+            scalar.value = Some(*override_value);
+            // Clear formula since we're using override value
+            scalar.formula = None;
+        } else {
+            // Create new scalar with override value
+            model.scalars.insert(
+                var_name.clone(),
+                crate::types::Variable {
+                    path: var_name.clone(),
+                    value: Some(*override_value),
+                    formula: None,
+                },
+            );
+        }
+    }
+
+    Ok(())
+}
+
+/// Execute the compare command - compare results across scenarios
+pub fn compare(file: PathBuf, scenarios: Vec<String>, verbose: bool) -> ForgeResult<()> {
+    println!("{}", "🔥 Forge - Scenario Comparison".bold().green());
+    println!("   File: {}", file.display());
+    println!(
+        "   Scenarios: {}\n",
+        scenarios.join(", ").bright_yellow().bold()
+    );
+
+    // Parse model
+    let base_model = parser::parse_model(&file)?;
+
+    // Validate scenarios exist
+    for scenario_name in &scenarios {
+        if !base_model.scenarios.contains_key(scenario_name) {
+            let available: Vec<_> = base_model.scenarios.keys().collect();
+            return Err(ForgeError::Validation(format!(
+                "Scenario '{}' not found. Available: {:?}",
+                scenario_name, available
+            )));
+        }
+    }
+
+    if verbose {
+        println!(
+            "   Found {} tables, {} scalars, {} scenarios",
+            base_model.tables.len(),
+            base_model.scalars.len(),
+            base_model.scenarios.len()
+        );
+    }
+
+    // Calculate results for each scenario
+    let mut results: Vec<(String, crate::types::ParsedModel)> = Vec::new();
+
+    for scenario_name in &scenarios {
+        let mut model = base_model.clone();
+        apply_scenario(&mut model, scenario_name)?;
+
+        let calculator = ArrayCalculator::new(model);
+        let calculated = calculator.calculate_all()?;
+        results.push((scenario_name.clone(), calculated));
+    }
+
+    // Collect all scalar names
+    let mut all_scalars: Vec<String> = results
+        .iter()
+        .flat_map(|(_, m)| m.scalars.keys().cloned())
+        .collect();
+    all_scalars.sort();
+    all_scalars.dedup();
+
+    // Print comparison table
+    println!("\n{}", "📊 Scenario Comparison:".bold().cyan());
+    println!("{}", "─".repeat(20 + scenarios.len() * 15));
+
+    // Header row
+    print!("{:<20}", "Variable".bold());
+    for scenario_name in &scenarios {
+        print!("{:>15}", scenario_name.bright_yellow().bold());
+    }
+    println!();
+    println!("{}", "─".repeat(20 + scenarios.len() * 15));
+
+    // Data rows
+    for scalar_name in &all_scalars {
+        print!("{:<20}", scalar_name.bright_blue());
+
+        for (_, result_model) in &results {
+            if let Some(var) = result_model.scalars.get(scalar_name) {
+                if let Some(value) = var.value {
+                    print!("{:>15}", format_number(value).green());
+                } else {
+                    print!("{:>15}", "-".dimmed());
+                }
+            } else {
+                print!("{:>15}", "-".dimmed());
+            }
+        }
+        println!();
+    }
+
+    println!("{}", "─".repeat(20 + scenarios.len() * 15));
+    println!("\n{}", "✅ Comparison complete".bold().green());
 
     Ok(())
 }

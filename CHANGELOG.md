@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.0] - 2025-11-25
+
+### 🎉 Scenario Management Release
+
+Multi-scenario modeling for sensitivity analysis and what-if modeling.
+
+### Added
+
+- **Named Scenarios in YAML**
+  ```yaml
+  scenarios:
+    base:
+      growth_rate: 0.05
+    optimistic:
+      growth_rate: 0.12
+    pessimistic:
+      growth_rate: 0.02
+  ```
+
+- **CLI Scenario Flag**
+  - `forge calculate model.yaml --scenario=optimistic`
+  - Applies variable overrides before calculation
+
+- **Scenario Comparison Command**
+  - `forge compare model.yaml --scenarios base,optimistic,pessimistic`
+  - Side-by-side output table showing results across scenarios
+
+- **MCP Server Scenario Support**
+  - `scenario` parameter added to `forge_calculate` tool
+
+### Testing
+
+- **176 tests passing** (up from 175)
+- New scenario parsing test
+
+---
+
 ## [2.1.1] - 2025-11-25
 
 ### 📚 Documentation Consistency
