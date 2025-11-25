@@ -6218,7 +6218,6 @@ mod tests {
 
     #[test]
     fn test_edate_function() {
-        use crate::types::Variable;
         let mut model = ParsedModel::new();
 
         // Test EDATE: Add 3 months to 2024-01-15 -> 2024-04-15
@@ -6257,7 +6256,6 @@ mod tests {
 
     #[test]
     fn test_eomonth_function() {
-        use crate::types::Variable;
         let mut model = ParsedModel::new();
 
         // Test EOMONTH: End of month 2 months after 2024-01-15 = 2024-03-31
