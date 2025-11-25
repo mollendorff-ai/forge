@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "1.6.0"
+version = "1.7.0"
 edition = "2021"
 authors = ["Claude (Sonnet 4.5) - AI Developer <noreply@anthropic.com>", "Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "Bidirectional Excel-YAML bridge with 50+ Excel functions. Built autonomously by AI in ~27 hours (20-50x velocity). 125 tests, zero warnings, production-tested. Stop AI hallucinations, save $40K-$132K/year."
@@ -23,6 +23,10 @@ path = "src/main.rs"
 [[bin]]
 name = "forge-lsp"
 path = "src/bin/forge_lsp.rs"
+
+[[bin]]
+name = "forge-mcp"
+path = "src/bin/forge_mcp.rs"
 
 [dependencies]
 # YAML parsing
