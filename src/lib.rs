@@ -29,10 +29,13 @@
 //! # Ok::<(), royalbit_forge::error::ForgeError>(())
 //! ```
 
+pub mod api;
 pub mod cli;
 pub mod core;
 pub mod error;
 pub mod excel;
+pub mod lsp;
+pub mod mcp;
 pub mod parser;
 pub mod types;
 pub mod writer;
