@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.1] - 2025-11-25
+
+### 🔧 Excel Function Sync & Schema Update
+
+Sync Excel export/import with all 60+ functions added since v1.0.0.
+
+### Added
+
+- **15 Missing Functions to Excel Translators**
+  - Financial: `NPV`, `IRR`, `PMT`, `FV`, `PV`, `RATE`, `NPER`, `XNPV`, `XIRR`
+  - Date: `DATEDIF`, `EDATE`, `EOMONTH`
+  - Other: `CHOOSE`, `MAXIFS`, `MINIFS`, `POWER`, `CONCAT`
+
+- **Updated JSON Schema** (`schema/forge-v1.0.schema.json` - filename kept for backward compatibility)
+  - Added `scenarios` property for v2.2.0 scenario management
+  - Updated `_forge_version` enum to include 1.0.0-2.2.0
+  - Added `Scenarios` and `ScenarioOverrides` definitions
+  - Updated examples with scenario usage
+
+- **3 New Unit Tests**
+  - Financial functions preserved in Excel export
+  - Date functions preserved in Excel export
+  - Other new functions preserved in Excel export
+
+### Testing
+
+- **179 tests passing** (up from 176)
+
+---
+
 ## [2.2.0] - 2025-11-25
 
 ### 🎉 Scenario Management Release

@@ -204,6 +204,8 @@ impl ReverseFormulaTranslator {
                 | "COUNTIFS"
                 | "AVERAGEIF"
                 | "AVERAGEIFS"
+                | "MAXIFS"
+                | "MINIFS"
                 // Logical functions
                 | "IF"
                 | "AND"
@@ -214,6 +216,7 @@ impl ReverseFormulaTranslator {
                 | "FALSE"
                 | "IFERROR"
                 | "IFNA"
+                | "CHOOSE"
                 // Math functions
                 | "ABS"
                 | "ROUND"
@@ -221,6 +224,7 @@ impl ReverseFormulaTranslator {
                 | "ROUNDDOWN"
                 | "SQRT"
                 | "POW"
+                | "POWER"
                 | "EXP"
                 | "LN"
                 | "LOG"
@@ -232,6 +236,7 @@ impl ReverseFormulaTranslator {
                 | "FLOOR"
                 // Text functions
                 | "CONCATENATE"
+                | "CONCAT"
                 | "LEFT"
                 | "RIGHT"
                 | "MID"
@@ -246,6 +251,19 @@ impl ReverseFormulaTranslator {
                 | "YEAR"
                 | "MONTH"
                 | "DAY"
+                | "DATEDIF"
+                | "EDATE"
+                | "EOMONTH"
+                // Financial functions
+                | "NPV"
+                | "IRR"
+                | "XNPV"
+                | "XIRR"
+                | "PMT"
+                | "FV"
+                | "PV"
+                | "RATE"
+                | "NPER"
                 // Lookup functions
                 | "VLOOKUP"
                 | "HLOOKUP"
