@@ -180,6 +180,7 @@ pricing_table:
 
 - ✅ **50+ Excel-compatible functions** - MATCH, INDEX, XLOOKUP, SUMIF, ROUND, and more
 - ✅ **Financial functions** - NPV, IRR, PMT, FV, PV, RATE, NPER
+- ✅ **HTTP API Server** - Enterprise REST API via `forge-server`
 - ✅ **MCP Server** - Let Claude/ChatGPT use Forge directly via `forge-mcp`
 - ✅ **LSP Server** - Real-time validation in VSCode/Zed via `forge-lsp`
 - ✅ **Bidirectional Excel bridge** - Import/export .xlsx with formulas
@@ -227,6 +228,13 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 ---
 
 ## 📊 Production-Ready Quality
+
+**v2.0.0 (November 2025):**
+
+- **140 tests passing** (API server tests)
+- **Zero warnings** (clippy strict mode: `-D warnings`)
+- **New features:** Enterprise HTTP API Server (`forge-server`)
+- **Built autonomously** by Claude Opus 4.5 using warmup protocol
 
 **v1.7.0 (November 2025):**
 
@@ -305,6 +313,39 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 - Grade assignments with `forge validate`
 - Teach finance with version-controlled models
 - Zero cost (open source, MIT license)
+
+---
+
+## 🏆 What's New in v2.0.0
+
+**Enterprise HTTP API Server** (November 2025):
+
+- **`forge-server` binary** - Production-ready REST API
+  - CORS enabled for cross-origin requests
+  - Graceful shutdown on SIGINT/SIGTERM
+  - JSON response format with request IDs
+  - Tracing and logging built-in
+
+- **REST Endpoints:**
+  - `POST /api/v1/validate` - Validate YAML models
+  - `POST /api/v1/calculate` - Calculate formulas
+  - `POST /api/v1/audit` - Audit variable dependencies
+  - `POST /api/v1/export` - Export to Excel
+  - `POST /api/v1/import` - Import from Excel
+  - `GET /health` - Health check
+  - `GET /version` - Server version
+
+- **Usage:**
+  ```bash
+  forge-server --host 0.0.0.0 --port 8080
+
+  # Example request
+  curl -X POST http://localhost:8080/api/v1/validate \
+    -H "Content-Type: application/json" \
+    -d '{"file_path": "model.yaml"}'
+  ```
+
+**Built by Claude Opus 4.5** using the warmup protocol methodology.
 
 ---
 
@@ -431,7 +472,9 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 **✅ v1.7.0 (Nov 2025):** MCP Server for AI agent integration
 
-**🔜 v2.0.0 (Future):** Enterprise features, API Server, team collaboration
+**✅ v2.0.0 (Nov 2025):** Enterprise HTTP API Server
+
+**🔜 v2.1.0 (Future):** Policy-as-Code, WebSocket real-time updates, team collaboration
 
 **[Detailed roadmap →](docs/ROADMAP.md)**
 
