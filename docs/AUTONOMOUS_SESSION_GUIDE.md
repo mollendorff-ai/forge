@@ -28,9 +28,13 @@ alias skynet="claude --dangerously-skip-permissions"
 # Model-specific aliases (recommended)
 alias opus="claude --dangerously-skip-permissions --model opus"
 alias sonnet="claude --dangerously-skip-permissions --model sonnet"
+alias sonnet1m="claude --dangerously-skip-permissions --model 'sonnet[1m]'"
 ```
 
-Then just run: `opus` (complex projects) or `sonnet` (standard projects)
+Then just run:
+- `opus` — Complex projects (best reasoning)
+- `sonnet` — Standard projects
+- `sonnet1m` — **SUPER LARGE** projects (1M token context!)
 
 > **Trust + Protocols = Safe Autonomy**
 > The protocols enforce quality gates, session boundaries, and shipping discipline.
