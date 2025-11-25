@@ -21,10 +21,11 @@
 > | v2.1.0-v2.2.0 | Claude Opus 4.5 | ~1.5h | XNPV/XIRR, Scenario Management |
 > | v2.3.0 | Claude Opus 4.5 | ~1h | Variance Analysis (Budget vs Actual) |
 > | v2.4.0 | Claude Opus 4.5 | ~1h | Performance & Scale (96K rows/sec) |
+> | v2.5.0 | Claude Opus 4.5 | ~1h | Sensitivity Analysis (Goal Seek, Break-Even) |
 >
 > - **183 tests passing**, zero warnings, production-tested
-> - From "Junior Developer" to **"Principal Autonomous AI"** across 12 major releases
-> - **~39 hours total autonomous development**
+> - From "Junior Developer" to **"Principal Autonomous AI"** across 13 major releases
+> - **~40 hours total autonomous development**
 >
 > *[Read the full promotion story →](docs/AI-PROMOTION-STORY.md)*
 
@@ -344,6 +345,34 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 - Grade assignments with `forge validate`
 - Teach finance with version-controlled models
 - Zero cost (open source, MIT license)
+
+---
+
+## 🏆 What's New in v2.5.0
+
+**Sensitivity Analysis** - Data tables, goal seek, and break-even analysis:
+
+```bash
+# One-variable sensitivity: How does profit change with price?
+forge sensitivity model.yaml --vary inputs.price --range 80,120,10 --output outputs.profit
+
+# Two-variable sensitivity matrix
+forge sensitivity model.yaml --vary price --vary2 quantity \
+    --range 80,120,20 --range2 30,70,20 --output profit
+
+# Goal seek: What price achieves $100K profit?
+forge goal-seek model.yaml --target profit --value 100000 --vary price
+
+# Break-even: At what price does profit = 0?
+forge break-even model.yaml --output profit --vary price
+```
+
+**Features:**
+- One-variable sensitivity tables with customizable ranges
+- Two-variable sensitivity matrices (2D data tables)
+- Goal seek with automatic bounds and bisection solver
+- Break-even analysis (special case of goal seek)
+- Verbose mode for debugging convergence
 
 ---
 

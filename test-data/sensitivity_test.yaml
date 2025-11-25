@@ -1,0 +1,33 @@
+# Test file for sensitivity analysis
+_forge_version: "1.0.0"
+
+inputs:
+  price:
+    value: 100
+    formula: null
+  quantity:
+    value: 50
+    formula: null
+  cost_per_unit:
+    value: 60
+    formula: null
+  fixed_costs:
+    value: 1000
+    formula: null
+
+outputs:
+  revenue:
+    value: null
+    formula: "=inputs.price * inputs.quantity"
+  variable_costs:
+    value: null
+    formula: "=inputs.cost_per_unit * inputs.quantity"
+  gross_profit:
+    value: null
+    formula: "=outputs.revenue - outputs.variable_costs"
+  net_profit:
+    value: null
+    formula: "=outputs.gross_profit - inputs.fixed_costs"
+  margin_pct:
+    value: null
+    formula: "=(outputs.net_profit / outputs.revenue) * 100"

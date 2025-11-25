@@ -2,4 +2,7 @@
 
 pub mod commands;
 
-pub use commands::{audit, calculate, compare, export, import, validate, variance, watch};
+pub use commands::{
+    audit, break_even, calculate, compare, export, goal_seek, import, sensitivity, validate,
+    variance, watch,
+};

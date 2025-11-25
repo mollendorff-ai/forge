@@ -1307,3 +1307,450 @@ fn export_variance_to_yaml(
 
     Ok(())
 }
+
+/// Parse a range string "start,end,step" into a vector of values
+fn parse_range(range: &str) -> ForgeResult<Vec<f64>> {
+    let parts: Vec<&str> = range.split(',').collect();
+    if parts.len() != 3 {
+        return Err(ForgeError::Validation(format!(
+            "Invalid range format '{}'. Expected: start,end,step (e.g., 0.01,0.15,0.02)",
+            range
+        )));
+    }
+
+    let start: f64 = parts[0].trim().parse().map_err(|_| {
+        ForgeError::Validation(format!("Invalid start value: '{}'", parts[0]))
+    })?;
+    let end: f64 = parts[1].trim().parse().map_err(|_| {
+        ForgeError::Validation(format!("Invalid end value: '{}'", parts[1]))
+    })?;
+    let step: f64 = parts[2].trim().parse().map_err(|_| {
+        ForgeError::Validation(format!("Invalid step value: '{}'", parts[2]))
+    })?;
+
+    if step <= 0.0 {
+        return Err(ForgeError::Validation("Step must be positive".to_string()));
+    }
+    if start > end {
+        return Err(ForgeError::Validation(
+            "Start must be less than or equal to end".to_string(),
+        ));
+    }
+
+    let mut values = Vec::new();
+    let mut current = start;
+    while current <= end + step * 0.001 {
+        // Small tolerance for floating point
+        values.push(current);
+        current += step;
+    }
+
+    Ok(values)
+}
+
+/// Calculate model with a specific variable override and return the output value
+fn calculate_with_override(
+    base_model: &crate::types::ParsedModel,
+    var_name: &str,
+    var_value: f64,
+    output_name: &str,
+) -> ForgeResult<f64> {
+    let mut model = base_model.clone();
+
+    // Override the variable
+    if let Some(scalar) = model.scalars.get_mut(var_name) {
+        scalar.value = Some(var_value);
+        scalar.formula = None; // Clear formula since we're using override
+    } else {
+        // Create new scalar
+        model.scalars.insert(
+            var_name.to_string(),
+            crate::types::Variable {
+                path: var_name.to_string(),
+                value: Some(var_value),
+                formula: None,
+            },
+        );
+    }
+
+    // Calculate
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all()?;
+
+    // Get output value
+    if let Some(scalar) = result.scalars.get(output_name) {
+        scalar.value.ok_or_else(|| {
+            ForgeError::Validation(format!("Output variable '{}' has no value", output_name))
+        })
+    } else {
+        Err(ForgeError::Validation(format!(
+            "Output variable '{}' not found in model",
+            output_name
+        )))
+    }
+}
+
+/// Execute the sensitivity command
+pub fn sensitivity(
+    file: PathBuf,
+    vary: String,
+    range: String,
+    vary2: Option<String>,
+    range2: Option<String>,
+    output: String,
+    verbose: bool,
+) -> ForgeResult<()> {
+    println!("{}", "🔥 Forge - Sensitivity Analysis".bold().green());
+    println!("   File: {}", file.display());
+    println!("   Vary: {} ({})", vary.bright_yellow(), range);
+    if let Some(ref v2) = vary2 {
+        println!(
+            "   Vary2: {} ({})",
+            v2.bright_yellow(),
+            range2.as_deref().unwrap_or("?")
+        );
+    }
+    println!("   Output: {}\n", output.bright_blue());
+
+    // Parse model
+    let base_model = parser::parse_model(&file)?;
+
+    // Validate that vary variable exists
+    if !base_model.scalars.contains_key(&vary) {
+        return Err(ForgeError::Validation(format!(
+            "Variable '{}' not found. Available scalars: {:?}",
+            vary,
+            base_model.scalars.keys().collect::<Vec<_>>()
+        )));
+    }
+
+    // Parse range
+    let values1 = parse_range(&range)?;
+
+    if verbose {
+        println!(
+            "   Range 1: {} values from {} to {}",
+            values1.len(),
+            values1.first().unwrap_or(&0.0),
+            values1.last().unwrap_or(&0.0)
+        );
+    }
+
+    // Two-variable analysis
+    if let (Some(ref v2), Some(ref r2)) = (&vary2, &range2) {
+        // Validate second variable
+        if !base_model.scalars.contains_key(v2) {
+            return Err(ForgeError::Validation(format!(
+                "Variable '{}' not found. Available scalars: {:?}",
+                v2,
+                base_model.scalars.keys().collect::<Vec<_>>()
+            )));
+        }
+
+        let values2 = parse_range(r2)?;
+
+        if verbose {
+            println!(
+                "   Range 2: {} values from {} to {}",
+                values2.len(),
+                values2.first().unwrap_or(&0.0),
+                values2.last().unwrap_or(&0.0)
+            );
+        }
+
+        // Calculate matrix
+        println!(
+            "\n{} {} → {}",
+            "📊 Sensitivity Matrix:".bold().cyan(),
+            format!("({}, {})", vary, v2).yellow(),
+            output.bright_blue()
+        );
+
+        // Header row
+        print!("{:>12}", vary.bright_yellow());
+        for val2 in &values2 {
+            print!("{:>12}", format!("{:.4}", val2).dimmed());
+        }
+        println!();
+        println!("{}", "─".repeat(12 + values2.len() * 12));
+
+        // Data rows
+        for val1 in &values1 {
+            print!("{:>12}", format!("{:.4}", val1).bright_yellow());
+
+            for val2 in &values2 {
+                // Override both variables
+                let mut model = base_model.clone();
+
+                if let Some(s) = model.scalars.get_mut(&vary) {
+                    s.value = Some(*val1);
+                    s.formula = None;
+                }
+                if let Some(s) = model.scalars.get_mut(v2) {
+                    s.value = Some(*val2);
+                    s.formula = None;
+                }
+
+                let calculator = ArrayCalculator::new(model);
+                match calculator.calculate_all() {
+                    Ok(result) => {
+                        if let Some(scalar) = result.scalars.get(&output) {
+                            if let Some(v) = scalar.value {
+                                print!("{:>12}", format_number(v).green());
+                            } else {
+                                print!("{:>12}", "-".dimmed());
+                            }
+                        } else {
+                            print!("{:>12}", "?".red());
+                        }
+                    }
+                    Err(_) => {
+                        print!("{:>12}", "ERR".red());
+                    }
+                }
+            }
+            println!();
+        }
+    } else {
+        // One-variable analysis
+        println!(
+            "\n{} {} → {}",
+            "📊 Sensitivity Table:".bold().cyan(),
+            vary.yellow(),
+            output.bright_blue()
+        );
+        println!("{}", "─".repeat(30));
+        println!("{:>12} {:>15}", vary.bold(), output.bold());
+        println!("{}", "─".repeat(30));
+
+        for val in &values1 {
+            match calculate_with_override(&base_model, &vary, *val, &output) {
+                Ok(result) => {
+                    println!(
+                        "{:>12} {:>15}",
+                        format!("{:.4}", val).bright_yellow(),
+                        format_number(result).green()
+                    );
+                }
+                Err(e) => {
+                    println!(
+                        "{:>12} {:>15}",
+                        format!("{:.4}", val).bright_yellow(),
+                        format!("ERR: {}", e).red()
+                    );
+                }
+            }
+        }
+        println!("{}", "─".repeat(30));
+    }
+
+    println!("\n{}", "✅ Sensitivity analysis complete".bold().green());
+    Ok(())
+}
+
+/// Execute the goal-seek command
+#[allow(clippy::too_many_arguments)]
+pub fn goal_seek(
+    file: PathBuf,
+    target: String,
+    value: f64,
+    vary: String,
+    min: Option<f64>,
+    max: Option<f64>,
+    tolerance: f64,
+    verbose: bool,
+) -> ForgeResult<()> {
+    println!("{}", "🔥 Forge - Goal Seek".bold().green());
+    println!("   File: {}", file.display());
+    println!("   Target: {} = {}", target.bright_blue(), value);
+    println!("   Vary: {}", vary.bright_yellow());
+    println!("   Tolerance: {}\n", tolerance);
+
+    // Parse model
+    let base_model = parser::parse_model(&file)?;
+
+    // Validate variables
+    if !base_model.scalars.contains_key(&vary) {
+        return Err(ForgeError::Validation(format!(
+            "Variable '{}' not found. Available scalars: {:?}",
+            vary,
+            base_model.scalars.keys().collect::<Vec<_>>()
+        )));
+    }
+
+    // Get current value of vary to set default bounds
+    let current_value = base_model
+        .scalars
+        .get(&vary)
+        .and_then(|s| s.value)
+        .unwrap_or(1.0);
+
+    // Set bounds (default: 0.01x to 100x current value)
+    let lower = min.unwrap_or_else(|| {
+        if current_value > 0.0 {
+            current_value * 0.01
+        } else if current_value < 0.0 {
+            current_value * 100.0
+        } else {
+            -1000.0
+        }
+    });
+    let upper = max.unwrap_or(if current_value > 0.0 {
+        current_value * 100.0
+    } else if current_value < 0.0 {
+        current_value * 0.01
+    } else {
+        1000.0
+    });
+
+    if verbose {
+        println!("   Current value of {}: {}", vary, current_value);
+        println!("   Search bounds: [{}, {}]", lower, upper);
+    }
+
+    // Bisection method
+    let max_iterations = 100;
+    let mut low = lower;
+    let mut high = upper;
+
+    // Check bounds first
+    let f_low = calculate_with_override(&base_model, &vary, low, &target)? - value;
+    let f_high = calculate_with_override(&base_model, &vary, high, &target)? - value;
+
+    if verbose {
+        println!("   f({}) = {} (target diff: {})", low, f_low + value, f_low);
+        println!(
+            "   f({}) = {} (target diff: {})",
+            high,
+            f_high + value,
+            f_high
+        );
+    }
+
+    // Check if solution exists in range (signs should differ)
+    if f_low * f_high > 0.0 {
+        // Try to find a better range by expanding
+        println!(
+            "{}",
+            "⚠️  No sign change in initial range - expanding search...".yellow()
+        );
+
+        // Try expanding the range
+        let mut found = false;
+        for factor in [10.0, 100.0, 1000.0] {
+            let exp_low = if lower > 0.0 {
+                lower / factor
+            } else {
+                lower * factor
+            };
+            let exp_high = if upper > 0.0 {
+                upper * factor
+            } else {
+                upper / factor
+            };
+
+            let f_exp_low = calculate_with_override(&base_model, &vary, exp_low, &target)? - value;
+            let f_exp_high =
+                calculate_with_override(&base_model, &vary, exp_high, &target)? - value;
+
+            if f_exp_low * f_exp_high <= 0.0 {
+                low = exp_low;
+                high = exp_high;
+                found = true;
+                if verbose {
+                    println!("   Found valid range: [{}, {}]", low, high);
+                }
+                break;
+            }
+        }
+
+        if !found {
+            return Err(ForgeError::Validation(format!(
+                "No solution found in search range. The target value {} may not be achievable by varying '{}'.",
+                value, vary
+            )));
+        }
+    }
+
+    // Bisection iteration
+    let mut mid = (low + high) / 2.0;
+    let mut iteration = 0;
+
+    while (high - low) > tolerance && iteration < max_iterations {
+        mid = (low + high) / 2.0;
+        let f_mid = calculate_with_override(&base_model, &vary, mid, &target)? - value;
+
+        if verbose && iteration % 10 == 0 {
+            println!(
+                "   Iteration {}: {} = {} (diff: {:.6})",
+                iteration,
+                vary,
+                mid,
+                f_mid.abs()
+            );
+        }
+
+        let f_low_check = calculate_with_override(&base_model, &vary, low, &target)? - value;
+
+        if f_mid.abs() < tolerance {
+            break;
+        }
+
+        if f_low_check * f_mid < 0.0 {
+            high = mid;
+        } else {
+            low = mid;
+        }
+
+        iteration += 1;
+    }
+
+    // Final result
+    let final_value = calculate_with_override(&base_model, &vary, mid, &target)?;
+
+    println!("{}", "─".repeat(50));
+    println!(
+        "{}",
+        format!("🎯 Solution found in {} iterations:", iteration)
+            .bold()
+            .green()
+    );
+    println!(
+        "   {} = {} → {} = {}",
+        vary.bright_yellow().bold(),
+        format_number(mid).bold().green(),
+        target.bright_blue(),
+        format_number(final_value).green()
+    );
+
+    let error = (final_value - value).abs();
+    if error < tolerance {
+        println!("   {} Within tolerance", "✅".green());
+    } else {
+        println!(
+            "   {} Error: {} (tolerance: {})",
+            "⚠️".yellow(),
+            error,
+            tolerance
+        );
+    }
+
+    println!("{}", "─".repeat(50));
+    Ok(())
+}
+
+/// Execute the break-even command
+pub fn break_even(
+    file: PathBuf,
+    output: String,
+    vary: String,
+    min: Option<f64>,
+    max: Option<f64>,
+    verbose: bool,
+) -> ForgeResult<()> {
+    println!("{}", "🔥 Forge - Break-Even Analysis".bold().green());
+    println!("   Finding where {} = 0\n", output.bright_blue());
+
+    // Break-even is just goal-seek with value = 0
+    goal_seek(file, output, 0.0, vary, min, max, 0.0001, verbose)
+}
