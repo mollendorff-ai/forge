@@ -1,9 +1,0 @@
-# This file has an invalid formula
-
-base:
-  value: 100
-  formula: null
-
-result:
-  value: null
-  formula: "=UNDEFINED_VARIABLE * 2"  # Invalid - variable doesn't exist

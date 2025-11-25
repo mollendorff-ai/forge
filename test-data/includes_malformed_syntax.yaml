@@ -1,6 +1,0 @@
-# This file has invalid YAML syntax
-base_price:
-  value: 100
-  formula: null
-invalid syntax here [[[
-  this should fail parsing

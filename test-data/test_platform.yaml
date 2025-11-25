@@ -1,8 +1,10 @@
+_forge_version: "1.0.0"
+
 platform_economics:
-  take_rate:
-    value: 0.1
-    formula: null
-test:
+  metric: ["Take Rate", "Gross Margin"]
+  value: [0.10, 0.90]
+
+summary:
   gross_margin:
-    value: 0.9
-    formula: =1 - platform_take_rate
+    value: 0.90
+    formula: "=1 - 0.10"

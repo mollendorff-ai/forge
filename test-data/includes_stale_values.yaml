@@ -1,9 +1,0 @@
-# This file has STALE/OUTDATED calculated values
-
-base:
-  value: 100
-  formula: null
-
-calculated_value:
-  value: 50  # STALE! Should be 200 (100 * 2)
-  formula: "=base * 2"

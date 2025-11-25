@@ -1,62 +1,24 @@
-# Simplified financial model test
+# Financial model test - v1.0.0 format
+_forge_version: "1.0.0"
+
+quarterly_revenue:
+  quarter: ["Q1", "Q2", "Q3", "Q4"]
+  revenue: [100000, 120000, 150000, 180000]
+  expenses: [80000, 90000, 100000, 110000]
+  profit: "=revenue - expenses"
+  margin: "=profit / revenue"
+
 platform_economics:
-  take_rate:
-    value: 0.10
-    formula: null
+  metric: ["Take Rate"]
+  value: [0.10]
 
+summary:
+  total_revenue:
+    value: 550000
+    formula: "=SUM(quarterly_revenue.revenue)"
+  total_profit:
+    value: 170000
+    formula: "=SUM(quarterly_revenue.profit)"
   gross_margin:
-    value: null
-    formula: "=1 - take_rate"
-
-payment_processing:
-  payout_schedule:
-    pending_days:
-      value: 7
-      formula: null
-    finalization_days:
-      value: 7
-      formula: null
-    total_days:
-      value: null
-      formula: "=pending_days + finalization_days"
-
-cac:
-  network_leader:
-    value: null
-    formula: "=(city_manager_annual_cost + marketing_annual_cost + events_annual_cost) / qbs_recruited_per_year"
-    components:
-      city_manager_annual_cost:
-        value: 60000
-        formula: null
-      marketing_annual_cost:
-        value: 40000
-        formula: null
-      events_annual_cost:
-        value: 20000
-        formula: null
-      qbs_recruited_per_year:
-        value: 7
-        formula: null
-
-ltv:
-  weighted_average:
-    value: null
-    formula: "=(macro_ltv * macro_weight) + (micro_ltv * micro_weight)"
-    components:
-      macro_ltv:
-        value: 36000
-        formula: null
-      macro_weight:
-        value: 0.60
-        formula: null
-      micro_ltv:
-        value: 11250
-        formula: null
-      micro_weight:
-        value: 0.30
-        formula: null
-
-unit_economics:
-  cac_ltv_ratio:
-    value: null
-    formula: "=weighted_average / network_leader"
+    value: 0.90
+    formula: "=1 - 0.10"
