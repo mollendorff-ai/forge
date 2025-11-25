@@ -16,8 +16,8 @@
 > | Version | Developer | Time | Key Features |
 > |---------|-----------|------|--------------|
 > | v1.0.0-v1.2.0 | Claude Sonnet 4.5 | ~23.5h | Core engine, 50+ Excel functions |
-> | v1.4.0-v1.6.0 | Claude Opus 4 | ~8h | Watch mode, LSP, financial functions |
-> | v1.7.0-v2.0.0 | Claude Opus 4 | ~4h | MCP Server, HTTP API Server |
+> | v1.4.0-v1.6.0 | Claude Opus 4.5 | ~8h | Watch mode, LSP, financial functions |
+> | v1.7.0-v2.0.0 | Claude Opus 4.5 | ~4h | MCP Server, HTTP API Server |
 >
 > - **170 tests passing**, zero warnings, production-tested
 > - From "Junior Developer" to **"Principal Engineer"** across 8 major releases
@@ -248,14 +248,14 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 - **Zero warnings** (clippy strict mode: `-D warnings`)
 - **New features:** Enterprise HTTP API Server (`forge-server`)
 - **Architecture Decision:** [ADR-001 - HTTP REST over gRPC](docs/architecture/ADR-001-NO-GRPC.md)
-- **Built autonomously** by Claude Opus 4 using warmup protocol
+- **Built autonomously** by Claude Opus 4.5 using warmup protocol
 
 **v1.7.0 (November 2025):**
 
 - **140 tests passing** (7 new MCP server tests)
 - **Zero warnings** (clippy strict mode: `-D warnings`)
 - **New features:** MCP Server for AI agent integration
-- **Built autonomously** by Claude Opus 4 using warmup protocol
+- **Built autonomously** by Claude Opus 4.5 using warmup protocol
 
 **v1.6.0 (November 2025):**
 
@@ -529,7 +529,7 @@ cargo fmt -- --check
 
 **Authors:**
 
-- **Claude Opus 4** - Principal Engineer (v1.4.0-v2.0.0)
+- **Claude Opus 4.5** - Principal Engineer (v1.4.0-v2.0.0)
 - **Claude Sonnet 4.5** - Senior Developer (v1.0.0-v1.2.0)
 - Louis Tavares - Human Collaborator & Product Owner
 - RoyalBit Inc.
@@ -595,7 +595,7 @@ And because AI **forged** this tool autonomously. 🔥
 
 ---
 
-Built autonomously by Claude AI | v1.0.0-v1.2.0: Sonnet 4.5 | v1.4.0-v2.0.0: Opus 4 | ~35 hours | 170 tests
+Built autonomously by Claude AI | v1.0.0-v1.2.0: Sonnet 4.5 | v1.4.0-v2.0.0: Opus 4.5 | ~35 hours | 170 tests
 
 **Save money. Save the planet. Trust the math.** 🌍
 
