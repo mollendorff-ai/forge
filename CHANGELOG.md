@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.1] - 2025-11-25
+
+### 📚 Documentation Consistency
+
+- Fixed test count: 170 → 175 across all documentation
+- Fixed function count: 50+ → 60+ Excel functions
+- Added v2.1.0 to README version table and promotion path
+- Added "What's New in v2.1.0" section to README
+- Updated Cargo.toml description with XNPV/XIRR mentions
+- Fixed roadmap to show v2.1.0 as completed
+
+---
+
 ## [2.1.0] - 2025-11-25
 
 ### 🎉 Advanced Financial Functions Release
