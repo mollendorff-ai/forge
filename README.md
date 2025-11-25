@@ -179,6 +179,9 @@ pricing_table:
 ## ⚡ Features
 
 - ✅ **50+ Excel-compatible functions** - MATCH, INDEX, XLOOKUP, SUMIF, ROUND, and more
+- ✅ **Financial functions** - NPV, IRR, PMT, FV, PV, RATE, NPER
+- ✅ **MCP Server** - Let Claude/ChatGPT use Forge directly via `forge-mcp`
+- ✅ **LSP Server** - Real-time validation in VSCode/Zed via `forge-lsp`
 - ✅ **Bidirectional Excel bridge** - Import/export .xlsx with formulas
 - ✅ **Type-safe arrays** - Numbers, Text, Dates, Booleans
 - ✅ **Row-wise formulas** - Apply formulas across all rows automatically
@@ -224,6 +227,24 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 ---
 
 ## 📊 Production-Ready Quality
+
+**v1.7.0 (November 2025):**
+
+- **139 tests passing** (7 new MCP server tests)
+- **Zero warnings** (clippy strict mode: `-D warnings`)
+- **New features:** MCP Server for AI agent integration
+- **Built autonomously** by Claude Opus 4.5 using warmup protocol
+
+**v1.6.0 (November 2025):**
+
+- **132 tests passing** (7 financial function tests)
+- **New features:** Financial functions (NPV, IRR, PMT, FV, PV, RATE, NPER)
+
+**v1.5.0 (November 2025):**
+
+- **LSP Server** for real-time editor integration
+- **VSCode Extension** published to marketplace
+- **Zed Extension** for Rust-native editor support
 
 **v1.4.0 (November 2025):**
 
@@ -284,6 +305,52 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 - Grade assignments with `forge validate`
 - Teach finance with version-controlled models
 - Zero cost (open source, MIT license)
+
+---
+
+## 🏆 What's New in v1.7.0
+
+**MCP Server - AI Agent Integration** (November 2025):
+
+- **Model Context Protocol Server** - Let Claude, ChatGPT, and other AI agents use Forge
+  - `forge-mcp` binary speaks JSON-RPC over stdin/stdout
+  - Protocol version 2024-11-05 (MCP standard)
+  - 5 tools exposed: validate, calculate, audit, export, import
+
+- **Usage with Claude Desktop:**
+  ```json
+  {
+    "mcpServers": {
+      "forge": {
+        "command": "forge-mcp"
+      }
+    }
+  }
+  ```
+
+- **What AI agents can do:**
+  - Validate YAML models for formula errors
+  - Calculate formulas with dry-run support
+  - Audit dependency chains
+  - Export to Excel / Import from Excel
+
+**Built by Claude Opus 4.5** using the warmup protocol methodology.
+
+---
+
+## 🏆 What's New in v1.6.0
+
+**Financial Functions** (November 2025):
+
+- **NPV** - Net Present Value with discount rate
+- **IRR** - Internal Rate of Return (Newton-Raphson iteration)
+- **PMT** - Loan/annuity payment calculation
+- **FV** - Future Value of investment
+- **PV** - Present Value of future cash flows
+- **RATE** - Interest rate finder (Newton-Raphson)
+- **NPER** - Number of periods calculator
+
+**Use case:** DCF analysis, loan amortization, investment modeling.
 
 ---
 
@@ -356,11 +423,15 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ## 🗺️ Roadmap
 
-**v1.4.0 (Q1 2026):** Financial functions (NPV, IRR, PMT), VSCode extension, GitHub Action
+**✅ v1.4.0 (Nov 2025):** Watch Mode, Audit Trail, GitHub Action
 
-**v1.5.0 (Q2 2026):** Python bindings, Web UI, Watch mode
+**✅ v1.5.0 (Nov 2025):** LSP Server, VSCode Extension, Zed Extension
 
-**v2.0.0+ (Future):** Forge Cloud (SaaS), team collaboration, enterprise features
+**✅ v1.6.0 (Nov 2025):** Financial Functions (NPV, IRR, PMT, FV, PV, RATE, NPER)
+
+**✅ v1.7.0 (Nov 2025):** MCP Server for AI agent integration
+
+**🔜 v2.0.0 (Future):** Enterprise features, API Server, team collaboration
 
 **[Detailed roadmap →](docs/ROADMAP.md)**
 
