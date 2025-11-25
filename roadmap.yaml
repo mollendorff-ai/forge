@@ -3,8 +3,8 @@
 # Research-backed priorities based on 2025 financial modeling & data analysis trends
 
 metadata:
-  current_version: "2.1.0"
-  target_version: "2.2.0"
+  current_version: "2.2.0"
+  target_version: "2.3.0"
   last_updated: "2025-11-25"
   maintainer: "RoyalBit Inc."
   notes: "v2.0.1 released. Roadmap refocused on FINANCIAL CLI FIRST - integrations deprioritized."
@@ -786,8 +786,8 @@ technical_debt:
 
   v2_2_0:
     version: "2.2.0"
-    status: planned
-    target_date: "2026-Q1"
+    status: completed
+    released_date: "2025-11-25"
     description: "Scenario Management - Multi-scenario models with CLI support"
     priority: HIGH
     effort: "1-2 sessions"
