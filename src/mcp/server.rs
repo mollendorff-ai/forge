@@ -80,7 +80,11 @@ pub fn run_mcp_server_sync() {
                         data: None,
                     }),
                 };
-                let _ = writeln!(stdout, "{}", serde_json::to_string(&error_response).unwrap());
+                let _ = writeln!(
+                    stdout,
+                    "{}",
+                    serde_json::to_string(&error_response).unwrap()
+                );
                 let _ = stdout.flush();
                 continue;
             }
@@ -100,40 +104,44 @@ fn handle_request(request: &JsonRpcRequest) -> Option<JsonRpcResponse> {
     let id = request.id.clone().unwrap_or(Value::Null);
 
     match request.method.as_str() {
-        "initialize" => {
-            Some(JsonRpcResponse {
-                jsonrpc: "2.0".to_string(),
-                id,
-                result: Some(json!({
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {
-                        "tools": {
-                            "listChanged": false
-                        }
-                    },
-                    "serverInfo": {
-                        "name": "forge-mcp",
-                        "version": env!("CARGO_PKG_VERSION")
-                    },
-                    "instructions": "Forge MCP Server - YAML formula calculator with Excel-style arrays. Validate financial models, calculate formulas, audit dependencies, import/export Excel. Supports 50+ functions including NPV, IRR, PMT."
-                })),
-                error: None,
-            })
-        }
+        "initialize" => Some(JsonRpcResponse {
+            jsonrpc: "2.0".to_string(),
+            id,
+            result: Some(json!({
+                "protocolVersion": "2024-11-05",
+                "capabilities": {
+                    "tools": {
+                        "listChanged": false
+                    }
+                },
+                "serverInfo": {
+                    "name": "forge-mcp",
+                    "version": env!("CARGO_PKG_VERSION")
+                },
+                "instructions": "Forge MCP Server - YAML formula calculator with Excel-style arrays. Validate financial models, calculate formulas, audit dependencies, import/export Excel. Supports 50+ functions including NPV, IRR, PMT."
+            })),
+            error: None,
+        }),
         "notifications/initialized" => None, // No response for notifications
-        "tools/list" => {
-            Some(JsonRpcResponse {
-                jsonrpc: "2.0".to_string(),
-                id,
-                result: Some(json!({
-                    "tools": get_tools()
-                })),
-                error: None,
-            })
-        }
+        "tools/list" => Some(JsonRpcResponse {
+            jsonrpc: "2.0".to_string(),
+            id,
+            result: Some(json!({
+                "tools": get_tools()
+            })),
+            error: None,
+        }),
         "tools/call" => {
-            let tool_name = request.params.get("name").and_then(|v| v.as_str()).unwrap_or("");
-            let arguments = request.params.get("arguments").cloned().unwrap_or(json!({}));
+            let tool_name = request
+                .params
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let arguments = request
+                .params
+                .get("arguments")
+                .cloned()
+                .unwrap_or(json!({}));
 
             let result = call_tool(tool_name, &arguments);
             Some(JsonRpcResponse {
@@ -143,26 +151,22 @@ fn handle_request(request: &JsonRpcRequest) -> Option<JsonRpcResponse> {
                 error: None,
             })
         }
-        "ping" => {
-            Some(JsonRpcResponse {
-                jsonrpc: "2.0".to_string(),
-                id,
-                result: Some(json!({})),
-                error: None,
-            })
-        }
-        _ => {
-            Some(JsonRpcResponse {
-                jsonrpc: "2.0".to_string(),
-                id,
-                result: None,
-                error: Some(JsonRpcError {
-                    code: -32601,
-                    message: format!("Method not found: {}", request.method),
-                    data: None,
-                }),
-            })
-        }
+        "ping" => Some(JsonRpcResponse {
+            jsonrpc: "2.0".to_string(),
+            id,
+            result: Some(json!({})),
+            error: None,
+        }),
+        _ => Some(JsonRpcResponse {
+            jsonrpc: "2.0".to_string(),
+            id,
+            result: None,
+            error: Some(JsonRpcError {
+                code: -32601,
+                message: format!("Method not found: {}", request.method),
+                data: None,
+            }),
+        }),
     }
 }
 
@@ -268,7 +272,10 @@ fn get_tools() -> Vec<Tool> {
 fn call_tool(name: &str, arguments: &Value) -> Value {
     match name {
         "forge_validate" => {
-            let file_path = arguments.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             let path = Path::new(file_path).to_path_buf();
             match validate(path) {
@@ -289,11 +296,20 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
             }
         }
         "forge_calculate" => {
-            let file_path = arguments.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
-            let dry_run = arguments.get("dry_run").and_then(|v| v.as_bool()).unwrap_or(false);
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let dry_run = arguments
+                .get("dry_run")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
 
             let path = Path::new(file_path).to_path_buf();
-            let scenario = arguments.get("scenario").and_then(|v| v.as_str()).map(String::from);
+            let scenario = arguments
+                .get("scenario")
+                .and_then(|v| v.as_str())
+                .map(String::from);
             match calculate(path, dry_run, false, scenario) {
                 Ok(()) => json!({
                     "content": [{
@@ -316,8 +332,14 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
             }
         }
         "forge_audit" => {
-            let file_path = arguments.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
-            let variable = arguments.get("variable").and_then(|v| v.as_str()).unwrap_or("");
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let variable = arguments
+                .get("variable")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             let path = Path::new(file_path).to_path_buf();
             match audit(path, variable.to_string()) {
@@ -338,8 +360,14 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
             }
         }
         "forge_export" => {
-            let yaml_path = arguments.get("yaml_path").and_then(|v| v.as_str()).unwrap_or("");
-            let excel_path = arguments.get("excel_path").and_then(|v| v.as_str()).unwrap_or("");
+            let yaml_path = arguments
+                .get("yaml_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let excel_path = arguments
+                .get("excel_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             let yaml = Path::new(yaml_path).to_path_buf();
             let excel = Path::new(excel_path).to_path_buf();
@@ -361,8 +389,14 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
             }
         }
         "forge_import" => {
-            let excel_path = arguments.get("excel_path").and_then(|v| v.as_str()).unwrap_or("");
-            let yaml_path = arguments.get("yaml_path").and_then(|v| v.as_str()).unwrap_or("");
+            let excel_path = arguments
+                .get("excel_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let yaml_path = arguments
+                .get("yaml_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             let excel = Path::new(excel_path).to_path_buf();
             let yaml = Path::new(yaml_path).to_path_buf();
@@ -448,10 +482,7 @@ mod tests {
         assert_eq!(tools.len(), 5);
 
         // Check tool names
-        let tool_names: Vec<&str> = tools
-            .iter()
-            .map(|t| t["name"].as_str().unwrap())
-            .collect();
+        let tool_names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert!(tool_names.contains(&"forge_validate"));
         assert!(tool_names.contains(&"forge_calculate"));
         assert!(tool_names.contains(&"forge_audit"));

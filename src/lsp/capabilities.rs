@@ -8,17 +8,15 @@ use tower_lsp::lsp_types::*;
 pub fn get_server_capabilities() -> ServerCapabilities {
     ServerCapabilities {
         // Full document sync - we need the complete document for validation
-        text_document_sync: Some(TextDocumentSyncCapability::Kind(
-            TextDocumentSyncKind::FULL,
-        )),
+        text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
 
         // Completion for variables and functions
         completion_provider: Some(CompletionOptions {
             trigger_characters: Some(vec![
-                ".".to_string(),  // table.column
-                "=".to_string(),  // formula start
-                "@".to_string(),  // cross-file reference
-                "(".to_string(),  // function call
+                ".".to_string(), // table.column
+                "=".to_string(), // formula start
+                "@".to_string(), // cross-file reference
+                "(".to_string(), // function call
             ]),
             resolve_provider: Some(true),
             ..Default::default()
@@ -37,14 +35,12 @@ pub fn get_server_capabilities() -> ServerCapabilities {
         document_symbol_provider: Some(OneOf::Left(true)),
 
         // Real-time diagnostics
-        diagnostic_provider: Some(DiagnosticServerCapabilities::Options(
-            DiagnosticOptions {
-                identifier: Some("forge".to_string()),
-                inter_file_dependencies: true,
-                workspace_diagnostics: false,
-                ..Default::default()
-            },
-        )),
+        diagnostic_provider: Some(DiagnosticServerCapabilities::Options(DiagnosticOptions {
+            identifier: Some("forge".to_string()),
+            inter_file_dependencies: true,
+            workspace_diagnostics: false,
+            ..Default::default()
+        })),
 
         // Signature help for functions
         signature_help_provider: Some(SignatureHelpOptions {
@@ -54,8 +50,8 @@ pub fn get_server_capabilities() -> ServerCapabilities {
         }),
 
         // Semantic tokens for syntax highlighting
-        semantic_tokens_provider: Some(
-            SemanticTokensServerCapabilities::SemanticTokensOptions(SemanticTokensOptions {
+        semantic_tokens_provider: Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
+            SemanticTokensOptions {
                 legend: SemanticTokensLegend {
                     token_types: vec![
                         SemanticTokenType::VARIABLE,
@@ -75,8 +71,8 @@ pub fn get_server_capabilities() -> ServerCapabilities {
                 full: Some(SemanticTokensFullOptions::Bool(true)),
                 range: Some(true),
                 ..Default::default()
-            }),
-        ),
+            },
+        )),
 
         ..Default::default()
     }

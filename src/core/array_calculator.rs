@@ -711,7 +711,11 @@ impl ArrayCalculator {
     }
 
     /// Resolve scalar variable references in a formula
-    fn resolve_scalar_references(&self, formula: &str, current_scalar: &str) -> ForgeResult<String> {
+    fn resolve_scalar_references(
+        &self,
+        formula: &str,
+        current_scalar: &str,
+    ) -> ForgeResult<String> {
         let mut result = formula.to_string();
 
         // Find all word boundaries and check if they're scalar references
@@ -734,13 +738,43 @@ impl ArrayCalculator {
             let upper = word.to_uppercase();
             let is_function = matches!(
                 upper.as_str(),
-                "PMT" | "FV" | "PV" | "NPV" | "IRR" | "NPER" | "RATE"
-                    | "XNPV" | "XIRR" | "CHOOSE"
-                    | "SUM" | "AVERAGE" | "COUNT" | "MAX" | "MIN"
-                    | "IF" | "AND" | "OR" | "NOT" | "TRUE" | "FALSE"
-                    | "ROUND" | "ROUNDUP" | "ROUNDDOWN" | "ABS" | "SQRT" | "POWER" | "MOD"
-                    | "DATEDIF" | "EDATE" | "EOMONTH"
-                    | "DATE" | "YEAR" | "MONTH" | "DAY" | "TODAY" | "NOW"
+                "PMT"
+                    | "FV"
+                    | "PV"
+                    | "NPV"
+                    | "IRR"
+                    | "NPER"
+                    | "RATE"
+                    | "XNPV"
+                    | "XIRR"
+                    | "CHOOSE"
+                    | "SUM"
+                    | "AVERAGE"
+                    | "COUNT"
+                    | "MAX"
+                    | "MIN"
+                    | "IF"
+                    | "AND"
+                    | "OR"
+                    | "NOT"
+                    | "TRUE"
+                    | "FALSE"
+                    | "ROUND"
+                    | "ROUNDUP"
+                    | "ROUNDDOWN"
+                    | "ABS"
+                    | "SQRT"
+                    | "POWER"
+                    | "MOD"
+                    | "DATEDIF"
+                    | "EDATE"
+                    | "EOMONTH"
+                    | "DATE"
+                    | "YEAR"
+                    | "MONTH"
+                    | "DAY"
+                    | "TODAY"
+                    | "NOW"
             );
 
             if is_function {
@@ -1811,33 +1845,49 @@ impl ArrayCalculator {
         // Parse start date
         let start_parts: Vec<&str> = start.split('-').collect();
         let (start_year, start_month, start_day) = if start_parts.len() >= 2 {
-            let y = start_parts[0].parse::<i32>().map_err(|_|
-                ForgeError::Eval(format!("DATEDIF: Invalid start year in '{}'", start)))?;
-            let m = start_parts[1].parse::<i32>().map_err(|_|
-                ForgeError::Eval(format!("DATEDIF: Invalid start month in '{}'", start)))?;
+            let y = start_parts[0].parse::<i32>().map_err(|_| {
+                ForgeError::Eval(format!("DATEDIF: Invalid start year in '{}'", start))
+            })?;
+            let m = start_parts[1].parse::<i32>().map_err(|_| {
+                ForgeError::Eval(format!("DATEDIF: Invalid start month in '{}'", start))
+            })?;
             let d = if start_parts.len() == 3 {
-                start_parts[2].parse::<i32>().map_err(|_|
-                    ForgeError::Eval(format!("DATEDIF: Invalid start day in '{}'", start)))?
-            } else { 1 };
+                start_parts[2].parse::<i32>().map_err(|_| {
+                    ForgeError::Eval(format!("DATEDIF: Invalid start day in '{}'", start))
+                })?
+            } else {
+                1
+            };
             (y, m, d)
         } else {
-            return Err(ForgeError::Eval(format!("DATEDIF: Invalid start date format '{}'", start)));
+            return Err(ForgeError::Eval(format!(
+                "DATEDIF: Invalid start date format '{}'",
+                start
+            )));
         };
 
         // Parse end date
         let end_parts: Vec<&str> = end.split('-').collect();
         let (end_year, end_month, end_day) = if end_parts.len() >= 2 {
-            let y = end_parts[0].parse::<i32>().map_err(|_|
-                ForgeError::Eval(format!("DATEDIF: Invalid end year in '{}'", end)))?;
-            let m = end_parts[1].parse::<i32>().map_err(|_|
-                ForgeError::Eval(format!("DATEDIF: Invalid end month in '{}'", end)))?;
+            let y = end_parts[0]
+                .parse::<i32>()
+                .map_err(|_| ForgeError::Eval(format!("DATEDIF: Invalid end year in '{}'", end)))?;
+            let m = end_parts[1].parse::<i32>().map_err(|_| {
+                ForgeError::Eval(format!("DATEDIF: Invalid end month in '{}'", end))
+            })?;
             let d = if end_parts.len() == 3 {
-                end_parts[2].parse::<i32>().map_err(|_|
-                    ForgeError::Eval(format!("DATEDIF: Invalid end day in '{}'", end)))?
-            } else { 1 };
+                end_parts[2].parse::<i32>().map_err(|_| {
+                    ForgeError::Eval(format!("DATEDIF: Invalid end day in '{}'", end))
+                })?
+            } else {
+                1
+            };
             (y, m, d)
         } else {
-            return Err(ForgeError::Eval(format!("DATEDIF: Invalid end date format '{}'", end)));
+            return Err(ForgeError::Eval(format!(
+                "DATEDIF: Invalid end date format '{}'",
+                end
+            )));
         };
 
         match unit {
@@ -1859,11 +1909,16 @@ impl ArrayCalculator {
             }
             "D" => {
                 // Days between dates
-                let start_serial = self.date_to_excel_serial(start_year, start_month as u32, start_day as u32)?;
-                let end_serial = self.date_to_excel_serial(end_year, end_month as u32, end_day as u32)?;
+                let start_serial =
+                    self.date_to_excel_serial(start_year, start_month as u32, start_day as u32)?;
+                let end_serial =
+                    self.date_to_excel_serial(end_year, end_month as u32, end_day as u32)?;
                 Ok((end_serial - start_serial).max(0.0))
             }
-            _ => Err(ForgeError::Eval(format!("DATEDIF: Invalid unit '{}' (use Y, M, or D)", unit)))
+            _ => Err(ForgeError::Eval(format!(
+                "DATEDIF: Invalid unit '{}' (use Y, M, or D)",
+                unit
+            ))),
         }
     }
 
@@ -1875,25 +1930,41 @@ impl ArrayCalculator {
         // Parse start date
         let parts: Vec<&str> = start.split('-').collect();
         let (year, month, day) = if parts.len() >= 2 {
-            let y = parts[0].parse::<i32>().map_err(|_|
-                ForgeError::Eval(format!("EDATE: Invalid year in '{}'", start)))?;
-            let m = parts[1].parse::<i32>().map_err(|_|
-                ForgeError::Eval(format!("EDATE: Invalid month in '{}'", start)))?;
+            let y = parts[0]
+                .parse::<i32>()
+                .map_err(|_| ForgeError::Eval(format!("EDATE: Invalid year in '{}'", start)))?;
+            let m = parts[1]
+                .parse::<i32>()
+                .map_err(|_| ForgeError::Eval(format!("EDATE: Invalid month in '{}'", start)))?;
             let d = if parts.len() == 3 {
-                parts[2].parse::<i32>().map_err(|_|
-                    ForgeError::Eval(format!("EDATE: Invalid day in '{}'", start)))?
-            } else { 1 };
+                parts[2]
+                    .parse::<i32>()
+                    .map_err(|_| ForgeError::Eval(format!("EDATE: Invalid day in '{}'", start)))?
+            } else {
+                1
+            };
             (y, m, d)
         } else {
-            return Err(ForgeError::Eval(format!("EDATE: Invalid date format '{}'", start)));
+            return Err(ForgeError::Eval(format!(
+                "EDATE: Invalid date format '{}'",
+                start
+            )));
         };
 
         // Add months
         let total_months = (year * 12 + (month - 1)) + months;
         let new_year = total_months / 12;
         let new_month = (total_months % 12) + 1;
-        let new_month = if new_month <= 0 { new_month + 12 } else { new_month };
-        let new_year = if total_months < 0 && new_month > 0 { new_year - 1 } else { new_year };
+        let new_month = if new_month <= 0 {
+            new_month + 12
+        } else {
+            new_month
+        };
+        let new_year = if total_months < 0 && new_month > 0 {
+            new_year - 1
+        } else {
+            new_year
+        };
 
         // Adjust day if it exceeds days in new month
         let days_in_new_month = self.days_in_month(new_year, new_month as u32);
@@ -1910,21 +1981,34 @@ impl ArrayCalculator {
         // Parse start date
         let parts: Vec<&str> = start.split('-').collect();
         let (year, month) = if parts.len() >= 2 {
-            let y = parts[0].parse::<i32>().map_err(|_|
-                ForgeError::Eval(format!("EOMONTH: Invalid year in '{}'", start)))?;
-            let m = parts[1].parse::<i32>().map_err(|_|
-                ForgeError::Eval(format!("EOMONTH: Invalid month in '{}'", start)))?;
+            let y = parts[0]
+                .parse::<i32>()
+                .map_err(|_| ForgeError::Eval(format!("EOMONTH: Invalid year in '{}'", start)))?;
+            let m = parts[1]
+                .parse::<i32>()
+                .map_err(|_| ForgeError::Eval(format!("EOMONTH: Invalid month in '{}'", start)))?;
             (y, m)
         } else {
-            return Err(ForgeError::Eval(format!("EOMONTH: Invalid date format '{}'", start)));
+            return Err(ForgeError::Eval(format!(
+                "EOMONTH: Invalid date format '{}'",
+                start
+            )));
         };
 
         // Add months
         let total_months = (year * 12 + (month - 1)) + months;
         let new_year = total_months / 12;
         let new_month = (total_months % 12) + 1;
-        let new_month = if new_month <= 0 { new_month + 12 } else { new_month };
-        let new_year = if total_months < 0 && new_month > 0 { new_year - 1 } else { new_year };
+        let new_month = if new_month <= 0 {
+            new_month + 12
+        } else {
+            new_month
+        };
+        let new_year = if total_months < 0 && new_month > 0 {
+            new_year - 1
+        } else {
+            new_year
+        };
 
         // Get last day of the month
         let last_day = self.days_in_month(new_year, new_month as u32);
@@ -1937,7 +2021,13 @@ impl ArrayCalculator {
         match month {
             1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
             4 | 6 | 9 | 11 => 30,
-            2 => if Self::is_leap_year(year) { 29 } else { 28 },
+            2 => {
+                if Self::is_leap_year(year) {
+                    29
+                } else {
+                    28
+                }
+            }
             _ => 30, // Default fallback
         }
     }
@@ -2352,7 +2442,10 @@ impl ArrayCalculator {
             }
 
             // DATEDIF(start_date, end_date, unit) - Difference between dates
-            for cap in re_datedif.captures_iter(&result.clone()).collect::<Vec<_>>() {
+            for cap in re_datedif
+                .captures_iter(&result.clone())
+                .collect::<Vec<_>>()
+            {
                 let full = cap.get(0).unwrap().as_str();
                 let start_expr = cap.get(1).unwrap().as_str();
                 let end_expr = cap.get(2).unwrap().as_str();
@@ -2379,7 +2472,10 @@ impl ArrayCalculator {
             }
 
             // EOMONTH(start_date, months) - End of month after adding months
-            for cap in re_eomonth.captures_iter(&result.clone()).collect::<Vec<_>>() {
+            for cap in re_eomonth
+                .captures_iter(&result.clone())
+                .collect::<Vec<_>>()
+            {
                 let full = cap.get(0).unwrap().as_str();
                 let start_expr = cap.get(1).unwrap().as_str();
                 let months_expr = cap.get(2).unwrap().as_str();
@@ -3222,7 +3318,8 @@ impl ArrayCalculator {
 
             if args.len() < 2 {
                 return Err(ForgeError::Eval(
-                    "NPV requires at least 2 arguments: rate and at least one cash flow".to_string()
+                    "NPV requires at least 2 arguments: rate and at least one cash flow"
+                        .to_string(),
                 ));
             }
 
@@ -3250,15 +3347,23 @@ impl ArrayCalculator {
 
             if args.len() < 3 {
                 return Err(ForgeError::Eval(
-                    "PMT requires at least 3 arguments: rate, nper, pv".to_string()
+                    "PMT requires at least 3 arguments: rate, nper, pv".to_string(),
                 ));
             }
 
             let rate = self.eval_expression(&args[0], row_idx, table)?;
             let nper = self.eval_expression(&args[1], row_idx, table)?;
             let pv = self.eval_expression(&args[2], row_idx, table)?;
-            let fv = if args.len() > 3 { self.eval_expression(&args[3], row_idx, table)? } else { 0.0 };
-            let pmt_type = if args.len() > 4 { self.eval_expression(&args[4], row_idx, table)? as i32 } else { 0 };
+            let fv = if args.len() > 3 {
+                self.eval_expression(&args[3], row_idx, table)?
+            } else {
+                0.0
+            };
+            let pmt_type = if args.len() > 4 {
+                self.eval_expression(&args[4], row_idx, table)? as i32
+            } else {
+                0
+            };
 
             let pmt = if rate == 0.0 {
                 -(pv + fv) / nper
@@ -3285,15 +3390,23 @@ impl ArrayCalculator {
 
             if args.len() < 3 {
                 return Err(ForgeError::Eval(
-                    "FV requires at least 3 arguments: rate, nper, pmt".to_string()
+                    "FV requires at least 3 arguments: rate, nper, pmt".to_string(),
                 ));
             }
 
             let rate = self.eval_expression(&args[0], row_idx, table)?;
             let nper = self.eval_expression(&args[1], row_idx, table)?;
             let pmt = self.eval_expression(&args[2], row_idx, table)?;
-            let pv = if args.len() > 3 { self.eval_expression(&args[3], row_idx, table)? } else { 0.0 };
-            let fv_type = if args.len() > 4 { self.eval_expression(&args[4], row_idx, table)? as i32 } else { 0 };
+            let pv = if args.len() > 3 {
+                self.eval_expression(&args[3], row_idx, table)?
+            } else {
+                0.0
+            };
+            let fv_type = if args.len() > 4 {
+                self.eval_expression(&args[4], row_idx, table)? as i32
+            } else {
+                0
+            };
 
             let fv = if rate == 0.0 {
                 -(pv + pmt * nper)
@@ -3322,15 +3435,23 @@ impl ArrayCalculator {
 
             if args.len() < 3 {
                 return Err(ForgeError::Eval(
-                    "PV requires at least 3 arguments: rate, nper, pmt".to_string()
+                    "PV requires at least 3 arguments: rate, nper, pmt".to_string(),
                 ));
             }
 
             let rate = self.eval_expression(&args[0], row_idx, table)?;
             let nper = self.eval_expression(&args[1], row_idx, table)?;
             let pmt = self.eval_expression(&args[2], row_idx, table)?;
-            let fv = if args.len() > 3 { self.eval_expression(&args[3], row_idx, table)? } else { 0.0 };
-            let pv_type = if args.len() > 4 { self.eval_expression(&args[4], row_idx, table)? as i32 } else { 0 };
+            let fv = if args.len() > 3 {
+                self.eval_expression(&args[3], row_idx, table)?
+            } else {
+                0.0
+            };
+            let pv_type = if args.len() > 4 {
+                self.eval_expression(&args[4], row_idx, table)? as i32
+            } else {
+                0
+            };
 
             let pv = if rate == 0.0 {
                 -(fv + pmt * nper)
@@ -3359,12 +3480,16 @@ impl ArrayCalculator {
 
             if args.is_empty() {
                 return Err(ForgeError::Eval(
-                    "IRR requires at least one argument: values array".to_string()
+                    "IRR requires at least one argument: values array".to_string(),
                 ));
             }
 
             let values = self.get_values_from_arg(&args[0], row_idx, table)?;
-            let guess = if args.len() > 1 { self.eval_expression(&args[1], row_idx, table)? } else { 0.1 };
+            let guess = if args.len() > 1 {
+                self.eval_expression(&args[1], row_idx, table)?
+            } else {
+                0.1
+            };
 
             let irr = self.calculate_irr(&values, guess)?;
             result = result.replace(full, &format!("{}", irr));
@@ -3379,24 +3504,38 @@ impl ArrayCalculator {
 
             if args.len() < 3 {
                 return Err(ForgeError::Eval(
-                    "NPER requires at least 3 arguments: rate, pmt, pv".to_string()
+                    "NPER requires at least 3 arguments: rate, pmt, pv".to_string(),
                 ));
             }
 
             let rate = self.eval_expression(&args[0], row_idx, table)?;
             let pmt = self.eval_expression(&args[1], row_idx, table)?;
             let pv = self.eval_expression(&args[2], row_idx, table)?;
-            let fv = if args.len() > 3 { self.eval_expression(&args[3], row_idx, table)? } else { 0.0 };
-            let nper_type = if args.len() > 4 { self.eval_expression(&args[4], row_idx, table)? as i32 } else { 0 };
+            let fv = if args.len() > 3 {
+                self.eval_expression(&args[3], row_idx, table)?
+            } else {
+                0.0
+            };
+            let nper_type = if args.len() > 4 {
+                self.eval_expression(&args[4], row_idx, table)? as i32
+            } else {
+                0
+            };
 
             let nper = if rate == 0.0 {
                 -(pv + fv) / pmt
             } else {
-                let pmt_adj = if nper_type == 1 { pmt * (1.0 + rate) } else { pmt };
+                let pmt_adj = if nper_type == 1 {
+                    pmt * (1.0 + rate)
+                } else {
+                    pmt
+                };
                 let numerator = pmt_adj - fv * rate;
                 let denominator = pv * rate + pmt_adj;
                 if denominator == 0.0 || numerator / denominator <= 0.0 {
-                    return Err(ForgeError::Eval("NPER: Cannot calculate number of periods".to_string()));
+                    return Err(ForgeError::Eval(
+                        "NPER: Cannot calculate number of periods".to_string(),
+                    ));
                 }
                 (numerator / denominator).ln() / (1.0 + rate).ln()
             };
@@ -3413,16 +3552,28 @@ impl ArrayCalculator {
 
             if args.len() < 3 {
                 return Err(ForgeError::Eval(
-                    "RATE requires at least 3 arguments: nper, pmt, pv".to_string()
+                    "RATE requires at least 3 arguments: nper, pmt, pv".to_string(),
                 ));
             }
 
             let nper = self.eval_expression(&args[0], row_idx, table)?;
             let pmt = self.eval_expression(&args[1], row_idx, table)?;
             let pv = self.eval_expression(&args[2], row_idx, table)?;
-            let fv = if args.len() > 3 { self.eval_expression(&args[3], row_idx, table)? } else { 0.0 };
-            let rate_type = if args.len() > 4 { self.eval_expression(&args[4], row_idx, table)? as i32 } else { 0 };
-            let guess = if args.len() > 5 { self.eval_expression(&args[5], row_idx, table)? } else { 0.1 };
+            let fv = if args.len() > 3 {
+                self.eval_expression(&args[3], row_idx, table)?
+            } else {
+                0.0
+            };
+            let rate_type = if args.len() > 4 {
+                self.eval_expression(&args[4], row_idx, table)? as i32
+            } else {
+                0
+            };
+            let guess = if args.len() > 5 {
+                self.eval_expression(&args[5], row_idx, table)?
+            } else {
+                0.1
+            };
 
             let rate = self.calculate_rate(nper, pmt, pv, fv, rate_type, guess)?;
             result = result.replace(full, &format!("{}", rate));
@@ -3437,7 +3588,7 @@ impl ArrayCalculator {
 
             if args.len() < 3 {
                 return Err(ForgeError::Eval(
-                    "XNPV requires 3 arguments: rate, values, dates".to_string()
+                    "XNPV requires 3 arguments: rate, values, dates".to_string(),
                 ));
             }
 
@@ -3446,9 +3597,11 @@ impl ArrayCalculator {
             let dates = self.get_dates_from_arg(&args[2], row_idx, table)?;
 
             if values.len() != dates.len() {
-                return Err(ForgeError::Eval(
-                    format!("XNPV: values ({}) and dates ({}) must have same length", values.len(), dates.len())
-                ));
+                return Err(ForgeError::Eval(format!(
+                    "XNPV: values ({}) and dates ({}) must have same length",
+                    values.len(),
+                    dates.len()
+                )));
             }
 
             let xnpv = self.calculate_xnpv(rate, &values, &dates)?;
@@ -3464,18 +3617,24 @@ impl ArrayCalculator {
 
             if args.len() < 2 {
                 return Err(ForgeError::Eval(
-                    "XIRR requires at least 2 arguments: values, dates".to_string()
+                    "XIRR requires at least 2 arguments: values, dates".to_string(),
                 ));
             }
 
             let values = self.get_values_from_arg(&args[0], row_idx, table)?;
             let dates = self.get_dates_from_arg(&args[1], row_idx, table)?;
-            let guess = if args.len() > 2 { self.eval_expression(&args[2], row_idx, table)? } else { 0.1 };
+            let guess = if args.len() > 2 {
+                self.eval_expression(&args[2], row_idx, table)?
+            } else {
+                0.1
+            };
 
             if values.len() != dates.len() {
-                return Err(ForgeError::Eval(
-                    format!("XIRR: values ({}) and dates ({}) must have same length", values.len(), dates.len())
-                ));
+                return Err(ForgeError::Eval(format!(
+                    "XIRR: values ({}) and dates ({}) must have same length",
+                    values.len(),
+                    dates.len()
+                )));
             }
 
             let xirr = self.calculate_xirr(&values, &dates, guess)?;
@@ -3491,16 +3650,19 @@ impl ArrayCalculator {
 
             if args.len() < 2 {
                 return Err(ForgeError::Eval(
-                    "CHOOSE requires at least 2 arguments: index and at least one value".to_string()
+                    "CHOOSE requires at least 2 arguments: index and at least one value"
+                        .to_string(),
                 ));
             }
 
             let index = self.eval_expression(&args[0], row_idx, table)? as usize;
 
             if index == 0 || index > args.len() - 1 {
-                return Err(ForgeError::Eval(
-                    format!("CHOOSE: index {} out of range (1 to {})", index, args.len() - 1)
-                ));
+                return Err(ForgeError::Eval(format!(
+                    "CHOOSE: index {} out of range (1 to {})",
+                    index,
+                    args.len() - 1
+                )));
             }
 
             // index is 1-based in Excel, so args[index] is the correct value
@@ -3512,7 +3674,12 @@ impl ArrayCalculator {
     }
 
     /// Get values from an argument - handles both single values and column references
-    fn get_values_from_arg(&self, arg: &str, row_idx: usize, table: &Table) -> ForgeResult<Vec<f64>> {
+    fn get_values_from_arg(
+        &self,
+        arg: &str,
+        row_idx: usize,
+        table: &Table,
+    ) -> ForgeResult<Vec<f64>> {
         let arg = arg.trim();
 
         // Check if it's a column reference (table.column)
@@ -3565,7 +3732,7 @@ impl ArrayCalculator {
 
         for _ in 0..MAX_ITERATIONS {
             let mut npv = 0.0;
-            let mut d_npv = 0.0;  // Derivative of NPV
+            let mut d_npv = 0.0; // Derivative of NPV
 
             for (i, &cf) in values.iter().enumerate() {
                 let t = i as f64;
@@ -3593,7 +3760,15 @@ impl ArrayCalculator {
     }
 
     /// Calculate RATE using Newton-Raphson method
-    fn calculate_rate(&self, nper: f64, pmt: f64, pv: f64, fv: f64, rate_type: i32, guess: f64) -> ForgeResult<f64> {
+    fn calculate_rate(
+        &self,
+        nper: f64,
+        pmt: f64,
+        pv: f64,
+        fv: f64,
+        rate_type: i32,
+        guess: f64,
+    ) -> ForgeResult<f64> {
         const MAX_ITERATIONS: usize = 100;
         const TOLERANCE: f64 = 1e-10;
 
@@ -3615,7 +3790,10 @@ impl ArrayCalculator {
                 nper * pv + pmt * nper * (nper - 1.0) / 2.0
             } else {
                 nper * pv * (1.0 + rate).powf(nper - 1.0)
-                    + pmt * pmt_factor * (nper * (1.0 + rate).powf(nper - 1.0) * rate - (pvif - 1.0)) / (rate * rate)
+                    + pmt
+                        * pmt_factor
+                        * (nper * (1.0 + rate).powf(nper - 1.0) * rate - (pvif - 1.0))
+                        / (rate * rate)
             };
 
             if f_prime.abs() < TOLERANCE {
@@ -3635,7 +3813,12 @@ impl ArrayCalculator {
     }
 
     /// Get dates from an argument - handles both single values and column references
-    fn get_dates_from_arg(&self, arg: &str, row_idx: usize, table: &Table) -> ForgeResult<Vec<f64>> {
+    fn get_dates_from_arg(
+        &self,
+        arg: &str,
+        row_idx: usize,
+        table: &Table,
+    ) -> ForgeResult<Vec<f64>> {
         let arg = arg.trim();
 
         // Check if it's a column reference (table.column)
@@ -3703,23 +3886,33 @@ impl ArrayCalculator {
 
         let (year, month, day) = match parts.len() {
             3 => {
-                let y = parts[0].parse::<i32>().map_err(|_|
-                    ForgeError::Eval(format!("Invalid year in date: {}", date_str)))?;
-                let m = parts[1].parse::<u32>().map_err(|_|
-                    ForgeError::Eval(format!("Invalid month in date: {}", date_str)))?;
-                let d = parts[2].parse::<u32>().map_err(|_|
-                    ForgeError::Eval(format!("Invalid day in date: {}", date_str)))?;
+                let y = parts[0]
+                    .parse::<i32>()
+                    .map_err(|_| ForgeError::Eval(format!("Invalid year in date: {}", date_str)))?;
+                let m = parts[1].parse::<u32>().map_err(|_| {
+                    ForgeError::Eval(format!("Invalid month in date: {}", date_str))
+                })?;
+                let d = parts[2]
+                    .parse::<u32>()
+                    .map_err(|_| ForgeError::Eval(format!("Invalid day in date: {}", date_str)))?;
                 (y, m, d)
             }
             2 => {
                 // YYYY-MM format, assume first day of month
-                let y = parts[0].parse::<i32>().map_err(|_|
-                    ForgeError::Eval(format!("Invalid year in date: {}", date_str)))?;
-                let m = parts[1].parse::<u32>().map_err(|_|
-                    ForgeError::Eval(format!("Invalid month in date: {}", date_str)))?;
+                let y = parts[0]
+                    .parse::<i32>()
+                    .map_err(|_| ForgeError::Eval(format!("Invalid year in date: {}", date_str)))?;
+                let m = parts[1].parse::<u32>().map_err(|_| {
+                    ForgeError::Eval(format!("Invalid month in date: {}", date_str))
+                })?;
                 (y, m, 1)
             }
-            _ => return Err(ForgeError::Eval(format!("Invalid date format: {} (expected YYYY-MM-DD or YYYY-MM)", date_str)))
+            _ => {
+                return Err(ForgeError::Eval(format!(
+                    "Invalid date format: {} (expected YYYY-MM-DD or YYYY-MM)",
+                    date_str
+                )))
+            }
         };
 
         // Calculate Excel serial date
@@ -3735,7 +3928,10 @@ impl ArrayCalculator {
         // So for dates >= March 1, 1900, we add 1 to compensate
 
         if year < 1900 {
-            return Err(ForgeError::Eval(format!("Date year {} is before 1900", year)));
+            return Err(ForgeError::Eval(format!(
+                "Date year {} is before 1900",
+                year
+            )));
         }
 
         // Calculate days from 1900-01-01
@@ -3769,7 +3965,9 @@ impl ArrayCalculator {
     /// Calculate XNPV (Net Present Value with irregular dates)
     fn calculate_xnpv(&self, rate: f64, values: &[f64], dates: &[f64]) -> ForgeResult<f64> {
         if values.is_empty() || dates.is_empty() {
-            return Err(ForgeError::Eval("XNPV: values and dates cannot be empty".to_string()));
+            return Err(ForgeError::Eval(
+                "XNPV: values and dates cannot be empty".to_string(),
+            ));
         }
 
         let first_date = dates[0];
@@ -3789,14 +3987,19 @@ impl ArrayCalculator {
         const TOLERANCE: f64 = 1e-10;
 
         if values.is_empty() || dates.is_empty() {
-            return Err(ForgeError::Eval("XIRR: values and dates cannot be empty".to_string()));
+            return Err(ForgeError::Eval(
+                "XIRR: values and dates cannot be empty".to_string(),
+            ));
         }
 
         // Check that there's at least one positive and one negative value
         let has_positive = values.iter().any(|&v| v > 0.0);
         let has_negative = values.iter().any(|&v| v < 0.0);
         if !has_positive || !has_negative {
-            return Err(ForgeError::Eval("XIRR: values must contain at least one positive and one negative value".to_string()));
+            return Err(ForgeError::Eval(
+                "XIRR: values must contain at least one positive and one negative value"
+                    .to_string(),
+            ));
         }
 
         let first_date = dates[0];
@@ -5665,11 +5868,17 @@ mod tests {
         );
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let payment = result.scalars.get("payment").unwrap().value.unwrap();
 
         // PMT should be around -599.55
-        assert!((payment - (-599.55)).abs() < 0.1, "PMT should be around -599.55, got {}", payment);
+        assert!(
+            (payment - (-599.55)).abs() < 0.1,
+            "PMT should be around -599.55, got {}",
+            payment
+        );
     }
 
     #[test]
@@ -5689,11 +5898,17 @@ mod tests {
         );
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let fv = result.scalars.get("future_value").unwrap().value.unwrap();
 
         // FV should be around 155,282
-        assert!(fv > 155000.0 && fv < 156000.0, "FV should be around 155,282, got {}", fv);
+        assert!(
+            fv > 155000.0 && fv < 156000.0,
+            "FV should be around 155,282, got {}",
+            fv
+        );
     }
 
     #[test]
@@ -5713,11 +5928,17 @@ mod tests {
         );
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let pv = result.scalars.get("present_value").unwrap().value.unwrap();
 
         // PV should be around 24,588
-        assert!(pv > 24000.0 && pv < 25000.0, "PV should be around 24,588, got {}", pv);
+        assert!(
+            pv > 24000.0 && pv < 25000.0,
+            "PV should be around 24,588, got {}",
+            pv
+        );
     }
 
     #[test]
@@ -5740,11 +5961,17 @@ mod tests {
         );
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let npv = result.scalars.get("npv_result").unwrap().value.unwrap();
 
         // NPV should be around 353.43 (Excel-style calculation)
-        assert!((npv - 353.43).abs() < 1.0, "NPV should be around 353.43, got {}", npv);
+        assert!(
+            (npv - 353.43).abs() < 1.0,
+            "NPV should be around 353.43, got {}",
+            npv
+        );
     }
 
     #[test]
@@ -5764,11 +5991,17 @@ mod tests {
         );
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let nper = result.scalars.get("num_periods").unwrap().value.unwrap();
 
         // NPER should be around 55.5
-        assert!(nper > 50.0 && nper < 60.0, "NPER should be around 55.5, got {}", nper);
+        assert!(
+            nper > 50.0 && nper < 60.0,
+            "NPER should be around 55.5, got {}",
+            nper
+        );
     }
 
     #[test]
@@ -5788,11 +6021,17 @@ mod tests {
         );
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let rate = result.scalars.get("interest_rate").unwrap().value.unwrap();
 
         // Monthly rate should be around 0.00655
-        assert!(rate > 0.005 && rate < 0.01, "RATE should be around 0.00655, got {}", rate);
+        assert!(
+            rate > 0.005 && rate < 0.01,
+            "RATE should be around 0.00655, got {}",
+            rate
+        );
     }
 
     #[test]
@@ -5821,11 +6060,17 @@ mod tests {
         );
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let irr = result.scalars.get("irr_result").unwrap().value.unwrap();
 
         // IRR should be around 0.21 (21%)
-        assert!(irr > 0.15 && irr < 0.30, "IRR should be around 0.21, got {}", irr);
+        assert!(
+            irr > 0.15 && irr < 0.30,
+            "IRR should be around 0.21, got {}",
+            irr
+        );
     }
 
     #[test]
@@ -5857,7 +6102,9 @@ mod tests {
         );
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let xnpv = result.scalars.get("xnpv_result").unwrap().value.unwrap();
 
         // XNPV should be positive (investment pays off)
@@ -5891,11 +6138,17 @@ mod tests {
         );
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let xirr = result.scalars.get("xirr_result").unwrap().value.unwrap();
 
         // XIRR should be a reasonable rate (positive for this profitable investment)
-        assert!(xirr > 0.0 && xirr < 1.0, "XIRR should be between 0 and 1, got {}", xirr);
+        assert!(
+            xirr > 0.0 && xirr < 1.0,
+            "XIRR should be between 0 and 1, got {}",
+            xirr
+        );
     }
 
     #[test]
@@ -5914,11 +6167,17 @@ mod tests {
         );
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
         let rate = result.scalars.get("chosen_rate").unwrap().value.unwrap();
 
         // CHOOSE(2, ...) should return the second value = 0.10
-        assert!((rate - 0.10).abs() < 0.001, "CHOOSE(2, ...) should return 0.10, got {}", rate);
+        assert!(
+            (rate - 0.10).abs() < 0.001,
+            "CHOOSE(2, ...) should return 0.10, got {}",
+            rate
+        );
     }
 
     #[test]
@@ -5946,7 +6205,9 @@ mod tests {
         );
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
 
         let years = result.scalars.get("years_diff").unwrap().value.unwrap();
         assert_eq!(years, 1.0, "Should be 1 year, got {}", years);
@@ -5967,14 +6228,13 @@ mod tests {
             "base_date".to_string(),
             ColumnValue::Date(vec!["2024-01-15".to_string()]),
         ));
-        table.add_row_formula(
-            "new_date".to_string(),
-            "=EDATE(base_date, 3)".to_string(),
-        );
+        table.add_row_formula("new_date".to_string(), "=EDATE(base_date, 3)".to_string());
         model.add_table(table);
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
 
         let table = result.tables.get("test").unwrap();
         let new_date_col = table.columns.get("new_date").unwrap();
@@ -5982,9 +6242,16 @@ mod tests {
         // The result should contain the new date
         match &new_date_col.values {
             ColumnValue::Text(texts) => {
-                assert!(texts[0].contains("2024-04-15"), "Expected April 15, got {}", texts[0]);
+                assert!(
+                    texts[0].contains("2024-04-15"),
+                    "Expected April 15, got {}",
+                    texts[0]
+                );
             }
-            _ => panic!("Expected Text array for dates, got {:?}", new_date_col.values),
+            _ => panic!(
+                "Expected Text array for dates, got {:?}",
+                new_date_col.values
+            ),
         }
     }
 
@@ -5999,14 +6266,13 @@ mod tests {
             "base_date".to_string(),
             ColumnValue::Date(vec!["2024-01-15".to_string()]),
         ));
-        table.add_row_formula(
-            "end_date".to_string(),
-            "=EOMONTH(base_date, 2)".to_string(),
-        );
+        table.add_row_formula("end_date".to_string(), "=EOMONTH(base_date, 2)".to_string());
         model.add_table(table);
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all().expect("Calculation should succeed");
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
 
         let table = result.tables.get("test").unwrap();
         let end_date_col = table.columns.get("end_date").unwrap();
@@ -6014,9 +6280,16 @@ mod tests {
         // The result should contain the end of month date
         match &end_date_col.values {
             ColumnValue::Text(texts) => {
-                assert!(texts[0].contains("2024-03-31"), "Expected March 31, got {}", texts[0]);
+                assert!(
+                    texts[0].contains("2024-03-31"),
+                    "Expected March 31, got {}",
+                    texts[0]
+                );
             }
-            _ => panic!("Expected Text array for dates, got {:?}", end_date_col.values),
+            _ => panic!(
+                "Expected Text array for dates, got {:?}",
+                end_date_col.values
+            ),
         }
     }
 }

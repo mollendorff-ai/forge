@@ -382,9 +382,7 @@ mod tests {
             .unwrap();
         assert!(result.contains("CHOOSE"));
 
-        let result = translator
-            .translate_row_formula("=POWER(2, 8)", 2)
-            .unwrap();
+        let result = translator.translate_row_formula("=POWER(2, 8)", 2).unwrap();
         assert!(result.contains("POWER"));
 
         // CONCAT with numbers to avoid string parsing issues
