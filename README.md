@@ -225,12 +225,13 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ## 📊 Production-Ready Quality
 
-**v1.2.1 (November 2025):**
+**v1.3.0 (November 2025):**
 
 - **118 tests passing** (streamlined after v0.2.0 deprecation)
 - **Zero warnings** (clippy strict mode: `-D warnings`)
 - **Production-tested** with comprehensive test suite
 - **Simplified codebase** - v1.0.0 array model only
+- **~2,500 lines removed** - cleaner, more maintainable code
 
 **v1.2.0 (November 2025):**
 
@@ -324,9 +325,9 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ## 🗺️ Roadmap
 
-**v1.3.0 (Q1 2026):** Financial functions (NPV, IRR, PMT), VSCode extension, GitHub Action
+**v1.4.0 (Q1 2026):** Financial functions (NPV, IRR, PMT), VSCode extension, GitHub Action
 
-**v1.4.0 (Q2 2026):** Python bindings, Web UI, Watch mode
+**v1.5.0 (Q2 2026):** Python bindings, Web UI, Watch mode
 
 **v2.0.0+ (Future):** Forge Cloud (SaaS), team collaboration, enterprise features
 
