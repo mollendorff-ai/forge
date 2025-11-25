@@ -7,14 +7,93 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planning v1.4.0
+---
 
-Future features under consideration:
+## [2.1.0] - 2025-11-25
 
-- Financial functions (NPV, IRR, PMT, FV, PV)
-- Scenario analysis support
-- Additional text and date functions
-- Performance optimizations
+### 🎉 Advanced Financial Functions Release
+
+Built autonomously via warmup protocol.
+
+### Added
+
+#### Date-Aware DCF Functions (2 functions)
+
+- `XNPV(rate, values, dates)` - Net Present Value with specific dates per cash flow
+  - More precise than NPV for real-world irregular cash flows
+  - Accepts numeric serial dates (Excel format) or date strings
+- `XIRR(values, dates, [guess])` - Internal Rate of Return with specific dates
+  - Newton-Raphson method for convergence
+  - Professional standard for DCF valuation
+
+#### Scenario Foundation (1 function)
+
+- `CHOOSE(index, value1, value2, ...)` - Select value by index
+  - Enables scenario switching in models
+  - 1-based indexing (Excel-compatible)
+  - Example: `=CHOOSE(scenario, 0.05, 0.08, 0.12)` for growth rate scenarios
+
+#### Date Arithmetic Functions (3 functions)
+
+- `DATEDIF(start_date, end_date, unit)` - Difference between dates
+  - Units: "Y" (years), "M" (months), "D" (days)
+  - Essential for contract/subscription period calculations
+- `EDATE(start_date, months)` - Add/subtract months from date
+  - Handles month-end edge cases correctly
+- `EOMONTH(start_date, months)` - End of month after adding months
+  - Returns last day of the target month
+
+### Fixed
+
+- Fixed regex patterns to use word boundaries (`\b`) for:
+  - PV/FV functions (prevented matching inside XNPV)
+  - NPV/IRR functions (prevented matching inside XNPV/XIRR)
+  - MONTH/YEAR/DAY functions (prevented matching inside EOMONTH/EDATE/DATEDIF)
+
+### Testing
+
+- **175 tests passing** (up from 170 in v2.0.1)
+- 6 new unit tests for advanced financial functions
+- ZERO clippy warnings in strict mode
+
+### Development Stats
+
+- **Time:** Autonomous development via warmup protocol
+- **Quality:** Zero warnings, all tests passing
+
+---
+
+## [2.0.1] - 2025-11-25
+
+### 🔧 Documentation & Polish
+
+- Documentation cleanup
+- Minor bug fixes
+
+---
+
+## [2.0.0] - 2025-11-25
+
+### 🎉 Enterprise HTTP API Server - Principal Engineer Release
+
+Major release adding HTTP API server mode.
+
+### Added
+
+- `forge serve` - HTTP API mode for enterprise integration
+- REST endpoints for validate, calculate, export
+- Core financial functions: NPV, IRR, PMT, FV, PV, RATE, NPER
+- 170 tests passing
+
+---
+
+## [1.4.0] - 2025-11-25
+
+### 🎉 Developer Experience Release
+
+- Watch mode: `forge watch` with debounced auto-calculate
+- Audit trail: `forge audit` with dependency tree visualization
+- GitHub Action for CI/CD validation
 
 ---
 
