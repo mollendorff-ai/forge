@@ -127,6 +127,29 @@ pub struct Variable {
 }
 
 //==============================================================================
+// Scenarios (for multi-scenario modeling)
+//==============================================================================
+
+/// A named scenario with variable overrides
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Scenario {
+    /// Variable overrides for this scenario (variable_name -> value)
+    pub overrides: HashMap<String, f64>,
+}
+
+impl Scenario {
+    pub fn new() -> Self {
+        Self {
+            overrides: HashMap::new(),
+        }
+    }
+
+    pub fn add_override(&mut self, name: String, value: f64) {
+        self.overrides.insert(name, value);
+    }
+}
+
+//==============================================================================
 // Parsed Model
 //==============================================================================
 
@@ -141,6 +164,9 @@ pub struct ParsedModel {
 
     /// Aggregation formulas (formulas that reduce columns to scalars)
     pub aggregations: HashMap<String, String>,
+
+    /// Named scenarios with variable overrides
+    pub scenarios: HashMap<String, Scenario>,
 }
 
 impl ParsedModel {
@@ -149,7 +175,17 @@ impl ParsedModel {
             tables: HashMap::new(),
             scalars: HashMap::new(),
             aggregations: HashMap::new(),
+            scenarios: HashMap::new(),
         }
+    }
+
+    pub fn add_scenario(&mut self, name: String, scenario: Scenario) {
+        self.scenarios.insert(name, scenario);
+    }
+
+    /// Get available scenario names
+    pub fn scenario_names(&self) -> Vec<&String> {
+        self.scenarios.keys().collect()
     }
 
     pub fn add_table(&mut self, table: Table) {

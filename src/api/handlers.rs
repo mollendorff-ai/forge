@@ -203,7 +203,7 @@ pub async fn calculate(Json(req): Json<CalculateRequest>) -> impl IntoResponse {
     let path = PathBuf::from(&req.file_path);
     let dry_run = req.dry_run;
 
-    match cli_calculate(path, dry_run, false) {
+    match cli_calculate(path, dry_run, false, None) {
         Ok(()) => Json(ApiResponse::ok(CalculateResponse {
             calculated: true,
             file_path: req.file_path,

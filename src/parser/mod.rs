@@ -1,5 +1,5 @@
 use crate::error::{ForgeError, ForgeResult};
-use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+use crate::types::{Column, ColumnValue, ParsedModel, Scenario, Table, Variable};
 use jsonschema::JSONSchema;
 use serde_yaml::Value;
 
@@ -49,6 +49,14 @@ fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
 
             // Skip special keys
             if key_str == "_forge_version" {
+                continue;
+            }
+
+            // Parse scenarios section
+            if key_str == "scenarios" {
+                if let Value::Mapping(scenarios_map) = value {
+                    parse_scenarios(scenarios_map, &mut model)?;
+                }
                 continue;
             }
 
@@ -198,6 +206,65 @@ fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable> {
             path
         )))
     }
+}
+
+/// Parse scenarios section from YAML
+///
+/// Expected format:
+/// ```yaml
+/// scenarios:
+///   base:
+///     growth_rate: 0.05
+///     churn_rate: 0.02
+///   optimistic:
+///     growth_rate: 0.12
+///     churn_rate: 0.01
+/// ```
+fn parse_scenarios(
+    scenarios_map: &serde_yaml::Mapping,
+    model: &mut ParsedModel,
+) -> ForgeResult<()> {
+    for (scenario_name, scenario_value) in scenarios_map {
+        let name = scenario_name
+            .as_str()
+            .ok_or_else(|| ForgeError::Parse("Scenario name must be a string".to_string()))?;
+
+        if let Value::Mapping(overrides_map) = scenario_value {
+            let mut scenario = Scenario::new();
+
+            for (var_name, var_value) in overrides_map {
+                let var_name_str = var_name
+                    .as_str()
+                    .ok_or_else(|| ForgeError::Parse("Variable name must be a string".to_string()))?;
+
+                let value = match var_value {
+                    Value::Number(n) => n.as_f64().ok_or_else(|| {
+                        ForgeError::Parse(format!(
+                            "Scenario '{}': Variable '{}' must be a number",
+                            name, var_name_str
+                        ))
+                    })?,
+                    _ => {
+                        return Err(ForgeError::Parse(format!(
+                            "Scenario '{}': Variable '{}' must be a number",
+                            name, var_name_str
+                        )));
+                    }
+                };
+
+                scenario.add_override(var_name_str.to_string(), value);
+            }
+
+            model.add_scenario(name.to_string(), scenario);
+        } else {
+            return Err(ForgeError::Parse(format!(
+                "Scenario '{}' must be a mapping of variable overrides",
+                name
+            )));
+        }
+    }
+
+    Ok(())
 }
 
 /// Parse a YAML array into a typed ColumnValue
@@ -646,5 +713,48 @@ summary:
         let empty_col = ColumnValue::Number(vec![]);
         assert_eq!(empty_col.len(), 0);
         assert!(empty_col.is_empty());
+    }
+
+    #[test]
+    fn test_parse_scenarios() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let yaml_content = r#"
+_forge_version: "1.0.0"
+
+growth_rate:
+  value: 0.05
+  formula: null
+
+scenarios:
+  base:
+    growth_rate: 0.05
+  optimistic:
+    growth_rate: 0.12
+  pessimistic:
+    growth_rate: 0.02
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let result = parse_model(temp_file.path()).unwrap();
+
+        // Check scenarios were parsed
+        assert_eq!(result.scenarios.len(), 3);
+        assert!(result.scenarios.contains_key("base"));
+        assert!(result.scenarios.contains_key("optimistic"));
+        assert!(result.scenarios.contains_key("pessimistic"));
+
+        // Check override values
+        let base = result.scenarios.get("base").unwrap();
+        assert_eq!(base.overrides.get("growth_rate"), Some(&0.05));
+
+        let optimistic = result.scenarios.get("optimistic").unwrap();
+        assert_eq!(optimistic.overrides.get("growth_rate"), Some(&0.12));
+
+        let pessimistic = result.scenarios.get("pessimistic").unwrap();
+        assert_eq!(pessimistic.overrides.get("growth_rate"), Some(&0.02));
     }
 }

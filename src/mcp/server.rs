@@ -293,7 +293,8 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
             let dry_run = arguments.get("dry_run").and_then(|v| v.as_bool()).unwrap_or(false);
 
             let path = Path::new(file_path).to_path_buf();
-            match calculate(path, dry_run, false) {
+            let scenario = arguments.get("scenario").and_then(|v| v.as_str()).map(String::from);
+            match calculate(path, dry_run, false, scenario) {
                 Ok(()) => json!({
                     "content": [{
                         "type": "text",

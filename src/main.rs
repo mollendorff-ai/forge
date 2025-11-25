@@ -86,6 +86,10 @@ Use --dry-run to preview changes without modifying files.")]
         /// Show verbose calculation steps
         #[arg(short, long)]
         verbose: bool,
+
+        /// Scenario name to apply (uses variable overrides from 'scenarios' section)
+        #[arg(short, long)]
+        scenario: Option<String>,
     },
 
     /// Show audit trail for a specific variable
@@ -227,6 +231,48 @@ Press Ctrl+C to stop watching.")]
         #[arg(short, long)]
         verbose: bool,
     },
+
+    #[command(long_about = "Compare calculation results across multiple scenarios.
+
+Runs calculations for each specified scenario and displays results side-by-side.
+Useful for sensitivity analysis and what-if modeling.
+
+SCENARIOS IN YAML:
+  Define scenarios in your model file:
+
+  scenarios:
+    base:
+      growth_rate: 0.05
+      churn_rate: 0.02
+    optimistic:
+      growth_rate: 0.12
+      churn_rate: 0.01
+    pessimistic:
+      growth_rate: 0.02
+      churn_rate: 0.05
+
+EXAMPLE:
+  forge compare model.yaml --scenarios base,optimistic,pessimistic
+
+OUTPUT:
+  Scenario Comparison: model.yaml
+  ─────────────────────────────────────────────────
+  Variable          Base      Optimistic  Pessimistic
+  revenue           $1.2M     $1.8M       $0.9M
+  profit            $200K     $450K       -$50K")]
+    /// Compare results across multiple scenarios
+    Compare {
+        /// Path to YAML file
+        file: PathBuf,
+
+        /// Comma-separated list of scenario names to compare
+        #[arg(short, long, value_delimiter = ',')]
+        scenarios: Vec<String>,
+
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 fn main() -> ForgeResult<()> {
@@ -237,7 +283,8 @@ fn main() -> ForgeResult<()> {
             file,
             dry_run,
             verbose,
-        } => cli::calculate(file, dry_run, verbose),
+            scenario,
+        } => cli::calculate(file, dry_run, verbose, scenario),
 
         Commands::Audit { file, variable } => cli::audit(file, variable),
 
@@ -260,5 +307,11 @@ fn main() -> ForgeResult<()> {
             validate,
             verbose,
         } => cli::watch(file, validate, verbose),
+
+        Commands::Compare {
+            file,
+            scenarios,
+            verbose,
+        } => cli::compare(file, scenarios, verbose),
     }
 }
