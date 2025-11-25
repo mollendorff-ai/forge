@@ -7,7 +7,7 @@ use std::path::PathBuf;
 #[command(name = "forge")]
 #[command(about = "Stop AI hallucinations. Save money. Save the planet. Trust the math.")]
 #[command(long_about = "Forge - Deterministic YAML formula calculator
-Built autonomously by AI in ~23.5 hours. 141 tests passing.
+Built autonomously by AI in ~36 hours. 176 tests passing.
 
 STOP AI HALLUCINATIONS:
   AI validation:  70K tokens, $0.66, 0.25g CO2, 30-60s, ~90% accuracy
@@ -17,33 +17,29 @@ STOP AI HALLUCINATIONS:
 SAVE MONEY:
   Personal: $819/year | Small team: $40K/year | Enterprise: $132K/year
 
-50+ EXCEL FUNCTIONS:
-  Lookup: MATCH, INDEX, XLOOKUP, VLOOKUP (use INDEX/MATCH for production)
-  Conditional: SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, AVERAGEIFS, MAXIFS, MINIFS
-  Math: ROUND, ROUNDUP, ROUNDDOWN, SQRT, POWER, MOD, CEILING, FLOOR
-  Text: CONCAT, UPPER, LOWER, TRIM, LEN, MID
-  Date: TODAY, YEAR, MONTH, DAY, DATE
-  Aggregation: SUM, AVERAGE, MAX, MIN, COUNT, PRODUCT
-  Logic: IF, AND, OR, NOT
-  Excel import/export with formula translation
+60+ EXCEL FUNCTIONS:
+  Financial: NPV, IRR, XNPV, XIRR, PMT, FV, PV, RATE, NPER
+  Lookup: MATCH, INDEX, XLOOKUP, VLOOKUP
+  Conditional: SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, AVERAGEIFS
+  Date: TODAY, YEAR, MONTH, DAY, DATEDIF, EDATE, EOMONTH
+  + Math, Text, Logic, Aggregation functions
 
-CROSS-FILE REFERENCES:
-  # main.yaml
-  includes:
-    - file: pricing.yaml
-      as: pricing
+SCENARIO MODELING:
+  scenarios:
+    base: { growth_rate: 0.05 }
+    optimistic: { growth_rate: 0.12 }
 
-  revenue:
-    value: null
-    formula: \"=@pricing.base_price * volume\"
+  forge calculate model.yaml --scenario=optimistic
+  forge compare model.yaml --scenarios base,optimistic
 
 EXAMPLES:
-  forge validate model.yaml          # Zero tokens, <200ms
-  forge calculate financials.yaml    # Update all formulas
-  forge export model.yaml out.xlsx   # Export to Excel
-  forge import data.xlsx model.yaml  # Import from Excel
+  forge validate model.yaml              # Zero tokens, <200ms
+  forge calculate model.yaml             # Update all formulas
+  forge calculate model.yaml -s base     # With scenario
+  forge compare model.yaml -s a,b,c      # Compare scenarios
+  forge export model.yaml out.xlsx       # Export to Excel
 
-Docs: https://github.com/royalbit/forge | Built by Claude Sonnet 4.5")]
+Docs: https://github.com/royalbit/forge | Built by Claude AI")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]

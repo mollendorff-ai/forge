@@ -18,9 +18,9 @@
 > | v1.0.0-v1.2.0 | Claude Sonnet 4.5 | ~23.5h | Core engine, 50+ Excel functions |
 > | v1.4.0-v1.6.0 | Claude Opus 4.5 | ~8h | Watch mode, LSP, financial functions |
 > | v1.7.0-v2.0.0 | Claude Opus 4.5 | ~4h | MCP Server, HTTP API Server |
-> | v2.1.0 | Claude Opus 4.5 | ~1h | XNPV, XIRR, CHOOSE, date functions |
+> | v2.1.0-v2.2.0 | Claude Opus 4.5 | ~1.5h | XNPV/XIRR, Scenario Management |
 >
-> - **175 tests passing**, zero warnings, production-tested
+> - **176 tests passing**, zero warnings, production-tested
 > - From "Junior Developer" to **"Principal Engineer"** across 8 major releases
 > - **~35 hours total autonomous development**
 >
@@ -194,6 +194,7 @@ pricing_table:
 
 - ✅ **60+ Excel-compatible functions** - MATCH, INDEX, XLOOKUP, SUMIF, ROUND, and more
 - ✅ **Financial functions** - NPV, IRR, XNPV, XIRR, PMT, FV, PV, RATE, NPER, CHOOSE
+- ✅ **Scenario modeling** - Named scenarios, --scenario flag, compare command
 - ✅ **HTTP API Server** - Enterprise REST API via `forge-server`
 - ✅ **MCP Server** - Let Claude/ChatGPT use Forge directly via `forge-mcp`
 - ✅ **LSP Server** - Real-time validation in VSCode/Zed via `forge-lsp`
@@ -243,12 +244,17 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ## 📊 Production-Ready Quality
 
+**v2.2.0 (November 2025):** *Scenario Management Release*
+
+- **176 tests passing** (1 new scenario test)
+- **New features:** Named scenarios, --scenario flag, compare command
+- **Zero warnings** (clippy strict mode: `-D warnings`)
+- **Built autonomously** by Claude Opus 4.5 using warmup protocol
+
 **v2.1.0 (November 2025):** *Advanced Financial Functions Release*
 
 - **175 tests passing** (6 new financial function tests)
 - **New functions:** XNPV, XIRR, CHOOSE, DATEDIF, EDATE, EOMONTH
-- **Zero warnings** (clippy strict mode: `-D warnings`)
-- **Built autonomously** by Claude Opus 4.5 using warmup protocol
 
 **v2.0.0 (November 2025):** *Principal Engineer Release*
 
@@ -336,6 +342,45 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 - Grade assignments with `forge validate`
 - Teach finance with version-controlled models
 - Zero cost (open source, MIT license)
+
+---
+
+## 🏆 What's New in v2.2.0
+
+**Scenario Management** (November 2025):
+
+- **Named Scenarios in YAML**
+  ```yaml
+  scenarios:
+    base:
+      growth_rate: 0.05
+      churn_rate: 0.02
+    optimistic:
+      growth_rate: 0.12
+      churn_rate: 0.01
+    pessimistic:
+      growth_rate: 0.02
+      churn_rate: 0.05
+  ```
+
+- **CLI Scenario Flag**
+  ```bash
+  forge calculate model.yaml --scenario=optimistic
+  ```
+
+- **Scenario Comparison**
+  ```bash
+  forge compare model.yaml --scenarios base,optimistic,pessimistic
+  ```
+  Output:
+  ```
+  Variable          Base      Optimistic  Pessimistic
+  ─────────────────────────────────────────────────────
+  revenue           1200000   1800000     900000
+  profit            200000    450000      -50000
+  ```
+
+**Built by Claude Opus 4.5** using the warmup protocol methodology.
 
 ---
 
@@ -528,7 +573,9 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 **✅ v2.1.0 (Nov 2025):** Advanced Financial Functions (XNPV, XIRR, CHOOSE, DATEDIF, EDATE, EOMONTH)
 
-**🔜 v2.2.0 (Future):** Scenario Management, Policy-as-Code
+**✅ v2.2.0 (Nov 2025):** Scenario Management (named scenarios, --scenario flag, compare command)
+
+**🔜 v2.3.0 (Future):** Policy-as-Code, WebSocket real-time updates
 
 **[Detailed roadmap →](docs/ROADMAP.md)**
 
@@ -609,10 +656,10 @@ Forge was built autonomously by Claude AI using a novel [warmup protocol](docs/A
 
 | Metric | Value |
 |--------|-------|
-| **Total development time** | ~36 hours |
-| **Versions released** | 9 (v1.0.0 → v2.1.0) |
-| **Tests written** | 175 |
-| **Lines of code** | 8,500+ |
+| **Total development time** | ~37 hours |
+| **Versions released** | 10 (v1.0.0 → v2.2.0) |
+| **Tests written** | 176 |
+| **Lines of code** | 9,000+ |
 | **Warnings** | 0 |
 | **Architecture decisions documented** | 1 ([ADR-001](docs/architecture/ADR-001-NO-GRPC.md)) |
 
@@ -623,7 +670,7 @@ Forge was built autonomously by Claude AI using a novel [warmup protocol](docs/A
 - **Senior Developer** → v1.2.0-v1.3.0 (lookups, deprecation)
 - **Staff Engineer** → v1.4.0-v1.6.0 (watch, LSP, financial)
 - **Principal Engineer** → v1.7.0-v2.0.0 (MCP, HTTP API)
-- **Principal Autonomous AI** → v2.0.1-v2.1.0 (Forge Protocol Suite + advanced DCF functions)
+- **Principal Autonomous AI** → v2.0.1-v2.2.0 (Forge Protocol Suite + DCF + Scenarios)
 
 **The breakthrough:** Not smarter AI, but structured autonomy with deterministic success criteria and ownership of technical decisions.
 
@@ -745,7 +792,7 @@ And because AI **forged** this tool autonomously. 🔥
 
 ---
 
-Built autonomously by Claude AI | v1.0.0-v1.2.0: Sonnet 4.5 | v1.4.0-v2.1.0: Opus 4.5 | ~36 hours | 175 tests
+Built autonomously by Claude AI | v1.0.0-v1.2.0: Sonnet 4.5 | v1.4.0-v2.2.0: Opus 4.5 | ~37 hours | 176 tests
 
 **Save money. Save the planet. Trust the math.** 🌍
 
