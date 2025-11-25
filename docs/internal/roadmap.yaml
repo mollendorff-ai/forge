@@ -3,11 +3,11 @@
 # Research-backed priorities based on 2025 financial modeling & data analysis trends
 
 metadata:
-  current_version: "1.2.1"
-  target_version: "1.3.0"
-  last_updated: "2025-11-24"
+  current_version: "1.4.0"
+  target_version: "1.5.0"
+  last_updated: "2025-11-25"
   maintainer: "RoyalBit Inc."
-  notes: "v1.2.1 RELEASED! Documentation improvements with comprehensive test coverage audit. 141 tests passing."
+  notes: "v1.4.0 RELEASED! Watch Mode, Audit Trail, GitHub Action. 125 tests passing. Built by Claude Opus 4.5."
 
 # Version milestones
 milestones:
@@ -507,81 +507,437 @@ technical_debt:
 
   v1_3_0:
     version: "1.3.0"
-    status: planned
-    target_date: "2026-Q2"
-    description: "Financial modeling functions + advanced features"
+    status: completed
+    released_date: "2025-11-25"
+    description: "Codebase cleanup - deprecated v0.2.0 scalar model"
+    features:
+      - "✅ Deprecated v0.2.0 scalar model (v1.0.0 arrays only)"
+      - "✅ Removed ~2,500 lines of legacy code"
+      - "✅ Streamlined test suite (112 tests, was 141)"
+      - "✅ Documentation reorganization"
+    quality: "ZERO warnings, cleaner codebase"
+
+  v1_4_0:
+    version: "1.4.0"
+    status: completed
+    released_date: "2025-11-25"
+    description: "GitHub Action + Watch Mode + Audit Trail"
+    completion_summary:
+      features_shipped:
+        - "✅ Watch Mode: forge watch with debounced auto-calculate"
+        - "✅ Audit Trail: forge audit with dependency tree visualization"
+        - "✅ GitHub Action: Composite action + reusable workflow"
+      tests: "125 passing (7 new E2E tests)"
+      quality: "ZERO warnings (clippy -D warnings)"
+      built_by: "Claude Opus 4.5 using warmup protocol"
+    research_basis: "2025-11-25 web research on DX trends"
+
     priority_features:
-      - "Financial functions (NPV, IRR, PMT, FV, PV, XNPV, XIRR)"
-      - "Scenario analysis support"
-      - "Data validation rules"
-      - "Custom function definitions"
+      github_action:
+        priority: critical
+        effort: "1 week"
+        rationale: "GitHub Actions has 4M+ organizations (fastest-growing CI/CD). Enterprise adoption enabler."
+        features:
+          - "Validate formulas in PRs automatically"
+          - "Catch formula errors before merge"
+          - "Generate diff reports (value changes)"
+          - "Fail PR if validation errors"
+        example: |
+          - uses: royalbit/forge-action@v1
+            with:
+              files: "**/*.yaml"
+              fail-on-error: true
+
+      watch_mode:
+        priority: high
+        effort: "2-3 days"
+        rationale: "DX research shows 50% productivity boost from deep work. Watch mode eliminates context switching."
+        features:
+          - "forge watch - auto-recalculate on file save"
+          - "Live validation feedback"
+          - "Terminal UI with status updates"
+
+      audit_trail:
+        priority: high
+        effort: "3-4 days"
+        rationale: "Finance tools require audit trails and data lineage. 2/3 of companies now using AI for finance need verification."
+        features:
+          - "forge audit <variable> - show calculation chain"
+          - "Dependency visualization"
+          - "Source tracing for compliance"
+
+    nice_to_have:
+      - "Homebrew formula (brew install forge)"
+      - "Docker image for CI/CD"
+
+  v1_5_0:
+    version: "1.5.0"
+    status: planned
+    target_date: "2026-Q1"
+    description: "Editor Extensions (VSCode + Zed) - Multi-editor strategy"
+    research_basis: "CORRECTED Nov 2025: VSCode ~51% share (not 73.6%!). Zed is #2 AI IDE with 150K users."
+
+    priority_features:
+      vscode_extension:
+        priority: high
+        effort: "2-3 weeks"
+        rationale: "VSCode has ~51% market share (corrected from outdated 73.6%). Still largest but not dominant."
+        features:
+          - "Syntax highlighting for Forge YAML"
+          - "Inline formula evaluation (hover to see calculated values)"
+          - "Error squiggles for invalid formulas (real-time validation)"
+          - "Autocomplete for variable names and functions"
+          - "Formula validation on save"
+          - "Jump to definition (Ctrl+Click on variable)"
+          - "50+ function signature hints"
+        marketplace_strategy: "Target 10K installs in first quarter"
+
+      zed_extension:
+        priority: high
+        effort: "1-2 weeks"
+        rationale: |
+          Zed is #2 most popular AI IDE (State of AI 2025).
+          150K active devs/month, 9% of Rust devs use it.
+          Used by Anthropic, Linear, Ramp, Shopify.
+          Forge is Rust-native - perfect fit for Zed's Rust community!
+          $32M Sequoia funding (Aug 2025) = growing fast.
+        features:
+          - "Syntax highlighting for Forge YAML"
+          - "Inline formula evaluation"
+          - "Integration with Zed's Agent Server Extensions (ACP)"
+          - "Real-time validation"
+        why_prioritize: "Rust community overlap + fastest-growing AI IDE"
+
+      lsp_foundation:
+        priority: critical
+        rationale: "LSP enables BOTH VSCode and Zed extensions from same codebase. Also vim, emacs, JetBrains."
+        note: "Build LSP server FIRST, then thin wrappers for each editor"
+        efficiency: "One LSP server powers ALL editor extensions"
+
+  v1_6_0:
+    version: "1.6.0"
+    status: planned
+    target_date: "2026-Q1"
+    description: "Financial Functions (NPV, IRR, PMT) - Complete DCF modeling"
+    research_basis: "CFOs need tools that adapt quickly and deliver ROI. DCF functions essential for financial modeling."
+
+    priority_features:
+      financial_functions:
+        priority: high
+        effort: "1-2 weeks"
+        functions:
+          - "NPV(rate, values) - Net Present Value"
+          - "IRR(values, guess) - Internal Rate of Return"
+          - "XNPV(rate, values, dates) - NPV with irregular dates"
+          - "XIRR(values, dates, guess) - IRR with irregular dates"
+          - "PMT(rate, nper, pv) - Loan payment"
+          - "FV(rate, nper, pmt, pv) - Future Value"
+          - "PV(rate, nper, pmt, fv) - Present Value"
+        use_cases:
+          - "DCF valuation models"
+          - "Loan amortization schedules"
+          - "Investment analysis"
+          - "Startup runway calculations"
+
+      multi_scenario:
+        priority: medium
+        rationale: "Multi-scenario analysis is critical for CFOs (2025 research). Custom scenarios enable what-if modeling."
+        features:
+          - "Named scenarios (base, optimistic, pessimistic)"
+          - "Scenario switching via CLI flag"
+          - "Scenario comparison reports"
+
+  v1_7_0:
+    version: "1.7.0"
+    status: planned
+    target_date: "2026-Q1"
+    description: "MCP Server - Forge as AI Agent Tool (DE-FACTO STANDARD!)"
+    research_basis: |
+      MCP is NOW the de-facto standard (Nov 2025).
+      Adopted by OpenAI, Google DeepMind, thousands of community servers.
+      This should be SOONER than v2.0 - moved up from original plan!
+
+    priority_features:
+      mcp_server:
+        priority: CRITICAL
+        effort: "2-3 weeks"
+        rationale: |
+          MCP is NOW the de-facto standard for AI tool connections.
+          OpenAI and Google DeepMind have adopted MCP!
+          Thousands of MCP servers built by community.
+          Enterprise implementations: BCC Research, MathWorks MATLAB.
+          Forge as MCP server = instant integration with ALL AI agents.
+        features:
+          - "Forge as MCP server for Claude Code, Copilot, Cursor"
+          - "AI agents can validate formulas autonomously"
+          - "Natural language formula queries"
+          - "Agent-driven model updates"
+          - "Integration with Zed's Agent Server Extensions (ACP)"
+        security_considerations:
+          - "April 2025: Security researchers flagged prompt injection risks"
+          - "Implement tool permission controls"
+          - "Audit logging for all MCP operations"
+        example: "Claude: 'Validate all formulas in the Q4 forecast' → Forge MCP validates and reports"
+        integrations:
+          - "Claude Code (native)"
+          - "GitHub Copilot agent mode"
+          - "Cursor parallel agents"
+          - "Zed Agent Server Extensions"
+          - "Any MCP-compatible client"
 
   v2_0_0:
     version: "2.0.0"
-    status: idea
-    target_date: "2026-Q3+"
-    description: "Ecosystem expansion + enterprise features"
+    status: planned
+    target_date: "2026-Q2+"
+    description: "Enterprise Features + API Server"
     breaking_changes: true
+    research_basis: "Enterprise needs: audit trails (Harness success), policy-as-code, multi-user collaboration"
+
     priority_features:
-      - "Multi-user collaboration"
-      - "Version control integration"
-      - "API server mode"
-      - "Plugin system"
+
+      api_server_mode:
+        priority: high
+        rationale: "Enterprise teams need API access for integration with existing tools"
+        features:
+          - "forge serve - HTTP API mode"
+          - "REST endpoints for validate, calculate, export"
+          - "WebSocket for real-time updates"
+          - "Authentication and rate limiting"
+
+      policy_as_code:
+        priority: medium
+        rationale: "Policy-as-Code using YAML is 2025 trend. Finance teams need guardrails."
+        features:
+          - "Define validation rules in YAML"
+          - "Enforce organizational policies (e.g., no negative margins)"
+          - "Custom validation functions"
+          - "Compliance reporting"
+
+      collaboration:
+        priority: medium
+        features:
+          - "Multi-user editing support"
+          - "Change tracking and audit log"
+          - "Role-based access control"
+          - "Integration with Teams/Slack"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔬 2025 MARKET RESEARCH (Updated 2025-11-25)
+# ═══════════════════════════════════════════════════════════════════════════════
+research_2025:
+  last_updated: "2025-11-25"
+  methodology: "Web search for 2025 trends in financial modeling, DX, AI coding, YAML/IaC"
+
+  financial_modeling_trends:
+    source: "Multiple 2025 industry reports"
+    key_findings:
+      - "2/3 of companies piloting or using AI for accounting and financial planning"
+      - "CFOs need tools that adapt quickly, scale easily, deliver real ROI"
+      - "Excel struggles with 1M+ rows - dedicated tools needed"
+      - "Multi-scenario analysis is critical for modern CFOs"
+      - "Audit trails and data lineage are essential for compliance"
+      - "Integration with ERPs, CRMs, HRIS is highly valued"
+    competitors:
+      - "Quantrix - multi-dimensional modeling for enterprise"
+      - "Causal - natural language variables, web-based"
+      - "Cube - Excel integration, multi-scenario"
+      - "Datarails - centralizes scattered spreadsheets"
+      - "Planful - continuous planning platform"
+    forge_differentiator: "YAML-native, Git-friendly, deterministic (no AI hallucinations), open source"
+
+  developer_experience_trends:
+    source: "State of AI 2025, Zed/Sequoia, GitHub Docs - Updated Nov 25, 2025"
+    CORRECTED_DATA:
+      note: "Previous data was from Jan 2025 training - OUTDATED!"
+      vscode_actual_share: "~51% (NOT 73.6% as previously stated)"
+      zed_emergence: "Zed is #2 most popular AI IDE (State of AI 2025)"
+    key_findings:
+      - "VSCode: ~51% market share (corrected from outdated 73.6%)"
+      - "Zed: 150K active devs/month, 9% of Rust devs (up from 1%!)"
+      - "Zed: #2 most popular AI IDE overall (State of AI 2025)"
+      - "Zed: $32M Series B from Sequoia (Aug 2025)"
+      - "Zed: Used by Anthropic, Linear, Ramp, Shopify engineering teams"
+      - "GitHub Copilot now includes GPT-5, Claude Sonnet 4.5, Gemini 2.5 Pro"
+      - "Multi-model workflows are the norm (devs use 2-3 tools together)"
+      - "AI-first IDEs are 'booming' - billions in market opportunity"
+    zed_technical:
+      performance: "Opens 100K line repo in 0.8s (VSCode: 6s, Cursor: 4.5s)"
+      built_with: "Rust + GPUI framework"
+      recent_launches:
+        - "Nov 13, 2025: Agent Server Extensions (ACP-compatible)"
+        - "Oct 30, 2025: OpenAI Codex agent integration"
+        - "Oct 16, 2025: Zed for Windows released"
+    implications:
+      - "GitHub Action still critical for enterprise adoption"
+      - "VSCode extension important but NOT 73.6% - more like 51%"
+      - "Zed extension should be considered (Rust-native, #2 AI IDE)"
+      - "Multi-editor strategy needed (VSCode + Zed + JetBrains)"
+      - "Watch mode enables deep work"
+
+  ai_autonomous_coding_trends:
+    source: "Anthropic, GitHub announcements 2025"
+    last_updated: "2025-11-25"
+    breaking_news:
+      claude_opus_4_5:
+        released: "2025-11-24 (YESTERDAY!)"
+        headline: "Claude Opus 4.5 - 'best model in the world for coding, agents, and computer use'"
+        pricing: "$5/M input, $25/M output (was $15/$75 - 67% cheaper!)"
+        context: "200K tokens input, 64K tokens output"
+        benchmarks: "State-of-the-art on SWE-bench Verified, beat all human candidates on performance engineering exam"
+        source: "https://www.anthropic.com/news/claude-opus-4-5"
+      claude_for_excel:
+        status: "NOW GENERALLY AVAILABLE"
+        description: "Claude can understand and edit spreadsheets directly"
+        availability: "Max, Team, Enterprise users"
+        forge_implication: "COMPETITIVE THREAT - but Forge is deterministic, Claude still hallucinates"
+      anthropic_valuation: "$350 billion (Microsoft + Nvidia investments)"
+      market_share: "Anthropic 32% enterprise AI (ahead of OpenAI 25%)"
+      mcp_status:
+        current: "DE-FACTO STANDARD (Nov 2025)"
+        adoption: "Thousands of MCP servers built by community"
+        major_adopters: "OpenAI and Google DeepMind have adopted MCP!"
+        enterprise: "BCC Research, MathWorks MATLAB MCP servers launched"
+        security_note: "April 2025: Security researchers flagged prompt injection risks"
+        source: "https://www.anthropic.com/news/model-context-protocol"
+      github_copilot_models:
+        available_now:
+          - "GPT-5, GPT-5.1-Codex, GPT-5.1-Codex-Mini"
+          - "Claude Sonnet 4, Claude Sonnet 4.5 (GA Oct 13, 2025)"
+          - "Gemini 2.5 Pro"
+        pricing: "$10/month Pro with 300 premium model requests"
+        platforms: "VSCode, Visual Studio, JetBrains, Xcode, Eclipse"
+    key_findings:
+      - "Claude Opus 4.5 is 'best model in the world for coding' (released Nov 24, 2025)"
+      - "Claude Sonnet 4.5 handles 30+ hours autonomous coding"
+      - "Paradigm shift: 'goal setting → AI autonomous planning and execution'"
+      - "GitHub Copilot agent mode makes multi-file autonomous changes"
+      - "MCP (Model Context Protocol) enables agent integration"
+      - "GitHub AgentHQ for custom AI agents"
+      - "Claude for Excel now GA - direct spreadsheet manipulation"
+    implications:
+      - "MCP server would enable Claude Code integration"
+      - "Agent-compatible API mode for autonomous workflows"
+      - "Forge + AI = deterministic validation layer for AI-generated models"
+      - "Claude for Excel is competition BUT still hallucinates - Forge validates"
+
+  yaml_iac_trends:
+    source: "IaC and config management research 2025"
+    key_findings:
+      - "60% of companies report config files cause deployment failures"
+      - "Strong type checking reduces misconfig bugs by 30%"
+      - "Advanced validation tools reduce errors by 50%"
+      - "AI-driven automation to predict/prevent config errors"
+      - "Policy-as-Code using YAML is emerging trend"
+      - "Multi-cloud standardization on YAML format"
+    implications:
+      - "Forge's type-safe arrays align with 2025 trends"
+      - "Real-time validation (VSCode) is high value"
+      - "Policy-as-Code could be v2.0 feature"
 
 # Community and ecosystem
 ecosystem:
-  vscode_extension:
-    status: planned
-    priority: high
-    version: "1.2.0"
-    effort: "2-3 weeks"
-    description: "VSCode extension for Forge YAML files"
-    features:
-      - "Syntax highlighting for Forge YAML"
-      - "Inline formula evaluation (show calculated values)"
-      - "Error squiggles for invalid formulas"
-      - "Autocomplete for variable names"
-      - "Formula validation on save"
-      - "Jump to definition (Ctrl+Click on variable)"
-    value_proposition: "Makes Forge a first-class citizen in developer workflows"
-    community_impact: "High - VSCode is most popular editor (70%+ market share)"
-
   github_action:
     status: planned
-    priority: high
-    version: "1.2.0"
+    priority: critical
+    version: "1.4.0"
     effort: "1 week"
     description: "GitHub Action for CI/CD validation"
+    research_backing: "GitHub Actions has 4M+ organizations - fastest growing CI/CD (2025)"
     features:
       - "Validate formulas in PRs"
       - "Catch formula errors before merge"
-      - "Run tests on YAML changes"
       - "Generate diff reports (value changes)"
+      - "Configurable strictness levels"
     use_cases:
       - "Team collaboration on financial models"
       - "Prevent breaking changes"
-      - "Automated testing"
+      - "Automated testing in CI/CD"
     example_usage: |
       - uses: royalbit/forge-action@v1
         with:
-          validate: true
-          test: true
-    community_impact: "Medium-High - Enterprise adoption enabler"
+          files: "**/*.yaml"
+          fail-on-error: true
+    community_impact: "CRITICAL - Enterprise adoption enabler"
+
+  vscode_extension:
+    status: planned
+    priority: high
+    version: "1.5.0"
+    effort: "2-3 weeks"
+    description: "VSCode extension for Forge YAML files"
+    research_backing: "CORRECTED: VSCode ~51% market share (not 73.6%!). Still largest, but not dominant."
+    features:
+      - "Syntax highlighting for Forge YAML"
+      - "Inline formula evaluation (hover to see calculated values)"
+      - "Error squiggles for invalid formulas (real-time)"
+      - "Autocomplete for variable names and 50+ functions"
+      - "Formula validation on save"
+      - "Jump to definition (Ctrl+Click on variable)"
+      - "Function signature hints"
+    value_proposition: "Makes Forge first-class in developer workflows"
+    community_impact: "HIGH - ~51% of developers use VSCode (corrected from 73.6%)"
+    marketplace_target: "Target 10K installs in first quarter"
+
+  zed_extension:
+    status: planned
+    priority: high
+    version: "1.5.0"
+    effort: "1-2 weeks"
+    description: "Zed extension for Forge YAML files"
+    research_backing: |
+      Zed is #2 most popular AI IDE (State of AI 2025).
+      150K active devs/month, 9% of Rust devs (up from 1%!).
+      $32M Sequoia Series B (Aug 2025).
+      Used by Anthropic, Linear, Ramp, Shopify engineering teams.
+      Forge is Rust-native = PERFECT fit for Zed's Rust community!
+    features:
+      - "Syntax highlighting for Forge YAML"
+      - "Inline formula evaluation"
+      - "Integration with Zed Agent Server Extensions (ACP)"
+      - "Real-time validation"
+    why_prioritize: "Rust community overlap + fastest-growing AI IDE + Anthropic uses Zed!"
+    community_impact: "HIGH - #2 AI IDE, Rust-native audience"
 
   language_server_protocol:
     status: planned
-    priority: medium
-    version: "1.3.0"
-    effort: "3-4 weeks"
-    description: "LSP server for Forge (powers VSCode + other editors)"
+    priority: critical
+    version: "1.5.0"
+    effort: "2-3 weeks (then powers all extensions)"
+    description: "LSP server for Forge - ONE server powers ALL editors"
+    research_backing: "Build LSP first, then thin wrappers. More efficient than separate implementations."
     features:
-      - "Universal editor support (vim, emacs, Sublime, etc.)"
+      - "Universal editor support (VSCode, Zed, vim, emacs, JetBrains)"
       - "Hover documentation"
       - "Go to definition"
       - "Find references"
       - "Rename refactoring"
-    dependencies: ["vscode_extension"]
-    note: "Extract common logic from VSCode extension into LSP server"
+    efficiency: "One LSP server powers VSCode + Zed + all other editors"
+    note: "Build LSP core FIRST, then editor-specific thin wrappers"
+
+  mcp_server:
+    status: planned
+    priority: CRITICAL
+    version: "1.7.0"
+    effort: "2-3 weeks"
+    description: "Model Context Protocol server - DE-FACTO STANDARD for AI agents"
+    research_backing: |
+      MCP is NOW the de-facto standard (Nov 2025).
+      Adopted by OpenAI and Google DeepMind!
+      Thousands of community MCP servers.
+      Enterprise: BCC Research, MathWorks MATLAB servers launched.
+    features:
+      - "Forge as MCP server for Claude Code, Copilot, Cursor, Zed"
+      - "AI agents can validate formulas autonomously"
+      - "Natural language formula queries"
+      - "Agent-driven model updates"
+    use_cases:
+      - "Claude: 'Validate Q4 forecast' → Forge validates"
+      - "Copilot agent mode integration"
+      - "Cursor parallel agents"
+      - "Zed Agent Server Extensions (ACP)"
+      - "Any MCP-compatible client"
+    community_impact: "CRITICAL - MCP is THE standard for AI tool integration"
+    security_note: "April 2025: Prompt injection risks flagged - implement permission controls"
 
   web_ui:
     status: idea

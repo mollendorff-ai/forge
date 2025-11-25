@@ -1,9 +1,9 @@
 [package]
 name = "royalbit-forge"
-version = "1.3.1"
+version = "2.0.0"
 edition = "2021"
 authors = ["Claude (Sonnet 4.5) - AI Developer <noreply@anthropic.com>", "Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
-description = "Bidirectional Excel-YAML bridge with 50+ Excel functions. Built autonomously by AI in ~23.5 hours (20-50x velocity). 118 tests, zero warnings, production-tested. Stop AI hallucinations, save $40K-$132K/year."
+description = "Bidirectional Excel-YAML bridge with 50+ Excel functions. Built autonomously by AI in ~27 hours (20-50x velocity). 125 tests, zero warnings, production-tested. Stop AI hallucinations, save $40K-$132K/year."
 repository = "https://github.com/royalbit/forge"
 homepage = "https://github.com/royalbit/forge"
 documentation = "https://github.com/royalbit/forge#readme"
@@ -20,6 +20,18 @@ exclude = [
 name = "forge"
 path = "src/main.rs"
 
+[[bin]]
+name = "forge-lsp"
+path = "src/bin/forge_lsp.rs"
+
+[[bin]]
+name = "forge-mcp"
+path = "src/bin/forge_mcp.rs"
+
+[[bin]]
+name = "forge-server"
+path = "src/bin/forge_server.rs"
+
 [dependencies]
 # YAML parsing
 serde = { version = "1.0", features = ["derive"] }
@@ -33,7 +45,7 @@ xlformula_engine = "0.1.18"
 jsonschema = "0.18"
 
 # CLI
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", features = ["derive", "env"] }
 
 # Error handling
 anyhow = "1.0"
@@ -53,6 +65,25 @@ rust_xlsxwriter = "0.90"
 
 # Excel import (v1.0.0 array model)
 calamine = "0.31"
+
+# File watching (v1.4.0 watch mode)
+notify = "7.0"
+notify-debouncer-mini = "0.5"
+
+# LSP Server (v1.5.0 - powers all editor extensions)
+tower-lsp = "0.20"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "signal", "net"] }
+dashmap = "6.0"
+ropey = "1.6"
+async-trait = "0.1"
+
+# API Server (v2.0.0 - enterprise HTTP API)
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1.0", features = ["v4"] }
 
 [dev-dependencies]
 # Testing

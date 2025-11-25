@@ -3,8 +3,12 @@ use crate::error::{ForgeError, ForgeResult};
 use crate::excel::{ExcelExporter, ExcelImporter};
 use crate::parser;
 use colored::Colorize;
+use notify::RecursiveMode;
+use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::channel;
+use std::time::Duration;
 
 /// Format a number for display, removing unnecessary decimal places
 fn format_number(n: f64) -> String {
@@ -93,14 +97,244 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
     Ok(())
 }
 
-/// Execute the audit command
+/// Execute the audit command - show calculation dependency chain
 pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()> {
-    println!("🔍 Audit trail for '{variable}' in {file:?}");
+    println!("{}", "🔍 Forge - Audit Trail".bold().green());
+    println!("   File: {}", file.display());
+    println!("   Variable: {}\n", variable.bright_blue().bold());
+
+    // Parse the model
+    let model = parser::parse_model(&file)?;
+
+    // Try to find the variable
+    let (var_type, formula, current_value) = find_variable(&model, &variable)?;
+
+    println!("{}", "📋 Variable Information:".bold().cyan());
+    println!("   Type: {}", var_type.cyan());
+    if let Some(val) = current_value {
+        println!("   Current Value: {}", format_number(val).bold().green());
+    }
+    if let Some(ref f) = formula {
+        println!("   Formula: {}", f.bright_yellow());
+    }
     println!();
 
-    // TODO: Implement audit trail
-    println!("⚠️  Audit trail not yet implemented");
+    // Build and display dependency tree
+    if formula.is_some() {
+        println!("{}", "🌳 Dependency Tree:".bold().cyan());
+        let deps = build_dependency_tree(&model, &variable, &formula, 0)?;
+
+        if deps.is_empty() {
+            println!("   No dependencies (literal value)");
+        } else {
+            for dep in &deps {
+                print_dependency(dep, 1);
+            }
+        }
+        println!();
+    }
+
+    // Calculate and verify
+    println!("{}", "🧮 Calculation Chain:".bold().cyan());
+    let calculator = ArrayCalculator::new(model.clone());
+    match calculator.calculate_all() {
+        Ok(result) => {
+            // Find the calculated value
+            if let Some(scalar) = result.scalars.get(&variable) {
+                if let Some(calc_val) = scalar.value {
+                    println!("   Calculated: {}", format_number(calc_val).bold().green());
+
+                    // Check if it matches current value
+                    if let Some(curr) = current_value {
+                        let diff = (curr - calc_val).abs();
+                        if diff < 0.0001 {
+                            println!("   {} Values match!", "✅".green());
+                        } else {
+                            println!("   {} Value mismatch!", "⚠️".yellow());
+                            println!("      Current:    {}", format_number(curr).red());
+                            println!("      Calculated: {}", format_number(calc_val).green());
+                        }
+                    }
+                }
+            } else {
+                // Check in tables
+                for (table_name, table) in &result.tables {
+                    if let Some(col) = table.columns.get(&variable) {
+                        println!("   Table: {}", table_name.bright_blue());
+                        println!("   Column values: {:?}", col.values);
+                        break;
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            println!("   {} Calculation error: {}", "❌".red(), e);
+        }
+    }
+
+    println!();
+    println!("{}", "✅ Audit complete".bold().green());
     Ok(())
+}
+
+/// Represents a dependency in the audit tree
+struct AuditDependency {
+    name: String,
+    dep_type: String,
+    formula: Option<String>,
+    value: Option<f64>,
+    children: Vec<AuditDependency>,
+}
+
+/// Find a variable in the model and return its type, formula, and current value
+fn find_variable(model: &crate::types::ParsedModel, name: &str) -> ForgeResult<(String, Option<String>, Option<f64>)> {
+    // Check scalars first
+    if let Some(scalar) = model.scalars.get(name) {
+        let formula = scalar.formula.clone();
+        let value = scalar.value;
+        return Ok(("Scalar".to_string(), formula, value));
+    }
+
+    // Check aggregations
+    if let Some(agg_formula) = model.aggregations.get(name) {
+        return Ok(("Aggregation".to_string(), Some(agg_formula.clone()), None));
+    }
+
+    // Check table columns
+    for (table_name, table) in &model.tables {
+        if table.columns.contains_key(name) {
+            let formula = table.row_formulas.get(name).cloned();
+            return Ok((format!("Column in table '{}'", table_name), formula, None));
+        }
+    }
+
+    Err(ForgeError::Validation(format!(
+        "Variable '{}' not found in model. Available:\n  Scalars: {:?}\n  Aggregations: {:?}\n  Tables: {:?}",
+        name,
+        model.scalars.keys().collect::<Vec<_>>(),
+        model.aggregations.keys().collect::<Vec<_>>(),
+        model.tables.keys().collect::<Vec<_>>()
+    )))
+}
+
+/// Build the dependency tree for a variable
+fn build_dependency_tree(
+    model: &crate::types::ParsedModel,
+    _name: &str,
+    formula: &Option<String>,
+    depth: usize,
+) -> ForgeResult<Vec<AuditDependency>> {
+    // Prevent infinite recursion
+    if depth > 20 {
+        return Ok(vec![]);
+    }
+
+    let mut deps = Vec::new();
+
+    if let Some(f) = formula {
+        // Extract references from formula
+        let refs = extract_references_from_formula(f);
+
+        for ref_name in refs {
+            let mut dep = AuditDependency {
+                name: ref_name.clone(),
+                dep_type: "Unknown".to_string(),
+                formula: None,
+                value: None,
+                children: vec![],
+            };
+
+            // Try to find this reference in the model
+            if let Some(scalar) = model.scalars.get(&ref_name) {
+                dep.dep_type = "Scalar".to_string();
+                dep.formula = scalar.formula.clone();
+                dep.value = scalar.value;
+
+                // Recursively get children
+                if scalar.formula.is_some() {
+                    dep.children = build_dependency_tree(model, &ref_name, &scalar.formula, depth + 1)?;
+                }
+            } else if let Some(agg) = model.aggregations.get(&ref_name) {
+                dep.dep_type = "Aggregation".to_string();
+                dep.formula = Some(agg.clone());
+                dep.children = build_dependency_tree(model, &ref_name, &Some(agg.clone()), depth + 1)?;
+            } else {
+                // Check if it's a table column
+                for (table_name, table) in &model.tables {
+                    if table.columns.contains_key(&ref_name) {
+                        dep.dep_type = format!("Column[{}]", table_name);
+                        dep.formula = table.row_formulas.get(&ref_name).cloned();
+                        break;
+                    }
+                }
+            }
+
+            deps.push(dep);
+        }
+    }
+
+    Ok(deps)
+}
+
+/// Extract variable references from a formula
+fn extract_references_from_formula(formula: &str) -> Vec<String> {
+    let formula = formula.trim_start_matches('=');
+    let mut refs = Vec::new();
+
+    // Known function names to exclude
+    let functions = [
+        "SUM", "AVERAGE", "AVG", "MAX", "MIN", "COUNT", "PRODUCT",
+        "SUMIF", "COUNTIF", "AVERAGEIF", "SUMIFS", "COUNTIFS", "AVERAGEIFS",
+        "MAXIFS", "MINIFS", "ROUND", "ROUNDUP", "ROUNDDOWN", "CEILING", "FLOOR",
+        "SQRT", "POWER", "MOD", "ABS", "IF", "AND", "OR", "NOT",
+        "CONCAT", "UPPER", "LOWER", "TRIM", "LEN", "MID",
+        "TODAY", "DATE", "YEAR", "MONTH", "DAY",
+        "MATCH", "INDEX", "XLOOKUP", "VLOOKUP", "IFERROR",
+        "TRUE", "FALSE",
+    ];
+
+    for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_') {
+        if word.is_empty() {
+            continue;
+        }
+        // Skip if starts with number
+        if word.chars().next().unwrap().is_numeric() {
+            continue;
+        }
+        // Skip function names
+        if functions.contains(&word.to_uppercase().as_str()) {
+            continue;
+        }
+        // Skip if already added
+        if !refs.contains(&word.to_string()) {
+            refs.push(word.to_string());
+        }
+    }
+
+    refs
+}
+
+/// Print a dependency with indentation
+fn print_dependency(dep: &AuditDependency, indent: usize) {
+    let prefix = "   ".repeat(indent);
+    let arrow = if indent > 0 { "└─ " } else { "" };
+
+    print!("{}{}{} ", prefix, arrow, dep.name.bright_blue());
+    print!("({})", dep.dep_type.cyan());
+
+    if let Some(val) = dep.value {
+        print!(" = {}", format_number(val).green());
+    }
+
+    if let Some(ref f) = dep.formula {
+        print!(" {}", f.yellow());
+    }
+
+    println!();
+
+    for child in &dep.children {
+        print_dependency(child, indent + 1);
+    }
 }
 
 /// Execute the validate command
@@ -306,6 +540,232 @@ pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
     println!("   ✅ Scalars sheet detected");
     println!("   ✅ Formula translation (Excel → YAML syntax)");
     println!("   ✅ Supports 60+ Excel functions (IFERROR, SUMIF, VLOOKUP, etc.)\n");
+
+    Ok(())
+}
+
+/// Execute the watch command
+pub fn watch(file: PathBuf, validate_only: bool, verbose: bool) -> ForgeResult<()> {
+    println!("{}", "👁️  Forge - Watch Mode".bold().green());
+    println!("   Watching: {}", file.display());
+    println!(
+        "   Mode: {}",
+        if validate_only {
+            "validate only"
+        } else {
+            "calculate"
+        }
+    );
+    println!("   Press {} to stop\n", "Ctrl+C".bold().yellow());
+
+    // Verify file exists
+    if !file.exists() {
+        return Err(ForgeError::Validation(format!(
+            "File not found: {}",
+            file.display()
+        )));
+    }
+
+    // Get canonical path and parent directory
+    let canonical_path = file.canonicalize().map_err(ForgeError::Io)?;
+    let parent_dir = canonical_path
+        .parent()
+        .ok_or_else(|| ForgeError::Validation("Cannot determine parent directory".to_string()))?;
+
+    // Create channel for file system events
+    let (tx, rx) = channel();
+
+    // Create a debouncer to avoid rapid-fire events during file saves
+    let mut debouncer = new_debouncer(Duration::from_millis(200), tx)
+        .map_err(|e| ForgeError::Validation(format!("Failed to create file watcher: {}", e)))?;
+
+    // Watch the parent directory (watches all YAML files in that directory)
+    debouncer
+        .watcher()
+        .watch(parent_dir, RecursiveMode::NonRecursive)
+        .map_err(|e| ForgeError::Validation(format!("Failed to watch directory: {}", e)))?;
+
+    if verbose {
+        println!("   {} {}", "Watching directory:".cyan(), parent_dir.display());
+    }
+
+    // Run initial validation/calculation
+    println!("{}", "🔄 Initial run...".cyan());
+    run_watch_action(&file, validate_only, verbose);
+    println!();
+
+    // Watch loop
+    loop {
+        match rx.recv() {
+            Ok(Ok(events)) => {
+                // Check if any event is for our file (or any .yaml file in directory)
+                let relevant = events.iter().any(|event| {
+                    if event.kind != DebouncedEventKind::Any {
+                        return false;
+                    }
+                    // Check if it's our main file
+                    if let Ok(event_canonical) = event.path.canonicalize() {
+                        if event_canonical == canonical_path {
+                            return true;
+                        }
+                    }
+                    // Check if filename matches our file
+                    if let Some(filename) = event.path.file_name() {
+                        if let Some(our_filename) = canonical_path.file_name() {
+                            if filename == our_filename {
+                                return true;
+                            }
+                        }
+                        // Also trigger on any .yaml file changes in the directory
+                        if let Some(name_str) = filename.to_str() {
+                            if name_str.ends_with(".yaml") || name_str.ends_with(".yml") {
+                                return true;
+                            }
+                        }
+                    }
+                    false
+                });
+
+                if relevant {
+                    // Clear screen for fresh output (optional, can be verbose mode only)
+                    if verbose {
+                        print!("\x1B[2J\x1B[1;1H"); // ANSI clear screen
+                    }
+                    println!(
+                        "\n{} {}",
+                        "🔄 Change detected at".cyan(),
+                        chrono_lite_timestamp().cyan()
+                    );
+                    run_watch_action(&file, validate_only, verbose);
+                    println!();
+                }
+            }
+            Ok(Err(error)) => {
+                eprintln!("{} Watch error: {}", "❌".red(), error);
+            }
+            Err(e) => {
+                eprintln!("{} Channel error: {}", "❌".red(), e);
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Get a simple timestamp without external dependencies
+fn chrono_lite_timestamp() -> String {
+    use std::time::SystemTime;
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default();
+    let secs = now.as_secs();
+    let hours = (secs / 3600) % 24;
+    let minutes = (secs / 60) % 60;
+    let seconds = secs % 60;
+    format!("{:02}:{:02}:{:02} UTC", hours, minutes, seconds)
+}
+
+/// Run the watch action (validate or calculate)
+fn run_watch_action(file: &Path, validate_only: bool, verbose: bool) {
+    if validate_only {
+        match validate_internal(file, verbose) {
+            Ok(_) => println!("{}", "✅ Validation passed".bold().green()),
+            Err(e) => println!("{} {}", "❌ Validation failed:".bold().red(), e),
+        }
+    } else {
+        match calculate_internal(file, verbose) {
+            Ok(_) => println!("{}", "✅ Calculation complete".bold().green()),
+            Err(e) => println!("{} {}", "❌ Calculation failed:".bold().red(), e),
+        }
+    }
+}
+
+/// Internal validation function for watch mode
+fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
+    let model = parser::parse_model(file)?;
+
+    if verbose {
+        println!(
+            "   Found {} tables, {} scalars",
+            model.tables.len(),
+            model.scalars.len()
+        );
+    }
+
+    // Validate tables
+    for (name, table) in &model.tables {
+        table.validate_lengths().map_err(|e| {
+            ForgeError::Validation(format!("Table '{}' validation failed: {}", name, e))
+        })?;
+    }
+
+    // Calculate and compare
+    let calculator = ArrayCalculator::new(model.clone());
+    let calculated = calculator.calculate_all()?;
+
+    // Check for mismatches
+    const TOLERANCE: f64 = 0.0001;
+    let mut mismatches = Vec::new();
+
+    for (var_name, var) in &calculated.scalars {
+        if let Some(calculated_value) = var.value {
+            if let Some(original) = model.scalars.get(var_name) {
+                if let Some(current_value) = original.value {
+                    let diff = (current_value - calculated_value).abs();
+                    if diff > TOLERANCE {
+                        mismatches.push((var_name.clone(), current_value, calculated_value));
+                    }
+                }
+            }
+        }
+    }
+
+    if !mismatches.is_empty() {
+        let msg = mismatches
+            .iter()
+            .map(|(name, current, expected)| {
+                format!("  {} current={} expected={}", name, current, expected)
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        return Err(ForgeError::Validation(format!(
+            "{} value mismatches:\n{}",
+            mismatches.len(),
+            msg
+        )));
+    }
+
+    Ok(())
+}
+
+/// Internal calculation function for watch mode
+fn calculate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
+    let model = parser::parse_model(file)?;
+
+    if verbose {
+        println!(
+            "   Found {} tables, {} scalars",
+            model.tables.len(),
+            model.scalars.len()
+        );
+    }
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all()?;
+
+    // Show summary
+    for (table_name, table) in &result.tables {
+        println!(
+            "   📊 {} ({} columns)",
+            table_name.bright_blue(),
+            table.columns.len()
+        );
+    }
+
+    if !result.scalars.is_empty() && verbose {
+        println!("   📐 {} scalars calculated", result.scalars.len());
+    }
 
     Ok(())
 }

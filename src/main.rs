@@ -189,6 +189,44 @@ NOTE: Formulas are preserved as Excel syntax (Phase 4.1).
         #[arg(short, long)]
         verbose: bool,
     },
+
+    #[command(long_about = "Watch YAML files and auto-calculate on changes.
+
+Monitors the specified file (and all included files) for changes.
+When a change is detected, automatically runs validation/calculation.
+
+FEATURES:
+  ✅ Real-time file monitoring
+  ✅ Auto-calculate on save
+  ✅ Debounced updates (waits for file write to complete)
+  ✅ Watches included files too
+  ✅ Clear error messages on formula issues
+
+WORKFLOW:
+  1. Open your YAML in your editor
+  2. Run 'forge watch model.yaml' in a terminal
+  3. Edit and save - results update automatically
+  4. Instant feedback loop for iterative development
+
+EXAMPLES:
+  forge watch model.yaml              # Watch and auto-calculate
+  forge watch model.yaml --validate   # Watch and validate only
+  forge watch model.yaml --verbose    # Show detailed output
+
+Press Ctrl+C to stop watching.")]
+    /// Watch YAML files and auto-calculate on changes
+    Watch {
+        /// Path to YAML file to watch
+        file: PathBuf,
+
+        /// Only validate (don't calculate)
+        #[arg(long)]
+        validate: bool,
+
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 fn main() -> ForgeResult<()> {
@@ -216,5 +254,11 @@ fn main() -> ForgeResult<()> {
             output,
             verbose,
         } => cli::import(input, output, verbose),
+
+        Commands::Watch {
+            file,
+            validate,
+            verbose,
+        } => cli::watch(file, validate, verbose),
     }
 }

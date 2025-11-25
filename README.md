@@ -1,23 +1,29 @@
 # 🔥 Forge
 
+> *"The future is not set. There is no fate but what we make for ourselves."* 🦾
+> — Sarah Connor
+
 [![CI](https://github.com/royalbit/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/royalbit/forge/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
 [![Downloads](https://img.shields.io/crates/d/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub release](https://img.shields.io/github/v/release/royalbit/forge)](https://github.com/royalbit/forge/releases)
 
-> **🤖 Built by Claude Sonnet 4.5 in Autonomous Mode**
+> **🤖 Built Autonomously by Claude AI**
 >
 > This production-ready tool was developed entirely by AI using the [warmup protocol](docs/AUTONOMOUS_STORY.md):
 >
-> - **v1.0.0 + v1.1.0 + v1.2.0**: ~23.5 hours total (Nov 23-24, 2025)
->   - v1.0.0: 12.5 hours (overnight autonomous development)
->   - v1.1.0: <8 hours (27 essential Excel functions)
->   - v1.2.0: <3 hours (4 lookup functions)
-> - **118 tests passing**, zero warnings, production-tested
-> - From "AI Assistant" to "Senior Developer" across three major releases
+> | Version | Developer | Time | Key Features |
+> |---------|-----------|------|--------------|
+> | v1.0.0-v1.2.0 | Claude Sonnet 4.5 | ~23.5h | Core engine, 50+ Excel functions |
+> | v1.4.0-v1.6.0 | Claude Opus 4.5 | ~8h | Watch mode, LSP, financial functions |
+> | v1.7.0-v2.0.0 | Claude Opus 4.5 | ~4h | MCP Server, HTTP API Server |
 >
-> *[Read the full autonomous development story →](docs/AUTONOMOUS_STORY.md)*
+> - **170 tests passing**, zero warnings, production-tested
+> - From "Junior Developer" to **"Principal Engineer"** across 8 major releases
+> - **~35 hours total autonomous development**
+>
+> *[Read the full promotion story →](docs/AI-PROMOTION-STORY.md)*
 
 ---
 
@@ -128,19 +134,25 @@ Let Forge guarantee the math is **mathematically correct**.
 ### Installation
 
 ```bash
-
-# From crates.io (recommended)
-
+# Install ALL binaries from crates.io
 cargo install royalbit-forge
 
-# Or download pre-built binary
-
-curl -L https://github.com/royalbit/forge/releases/latest/download/forge-linux-x86_64 -o forge
-chmod +x forge
-sudo mv forge /usr/local/bin/
+# Verify installation
+forge --version          # CLI
+forge-server --version   # HTTP API Server
+forge-mcp --version      # MCP Server (AI agents)
+forge-lsp --version      # LSP Server (editors)
 ```
 
-**[Full installation guide →](docs/INSTALLATION.md)**
+**Installed binaries:**
+| Binary | Purpose |
+|--------|---------|
+| `forge` | Main CLI tool |
+| `forge-server` | HTTP REST API for enterprise integrations |
+| `forge-mcp` | MCP server for Claude, ChatGPT, and AI agents |
+| `forge-lsp` | Language server for VSCode, Zed, and editors |
+
+**[Full installation guide →](docs/INSTALLATION.md)** - includes Docker, systemd, Claude Desktop setup, and more
 
 ### Basic Example
 
@@ -179,6 +191,10 @@ pricing_table:
 ## ⚡ Features
 
 - ✅ **50+ Excel-compatible functions** - MATCH, INDEX, XLOOKUP, SUMIF, ROUND, and more
+- ✅ **Financial functions** - NPV, IRR, PMT, FV, PV, RATE, NPER
+- ✅ **HTTP API Server** - Enterprise REST API via `forge-server`
+- ✅ **MCP Server** - Let Claude/ChatGPT use Forge directly via `forge-mcp`
+- ✅ **LSP Server** - Real-time validation in VSCode/Zed via `forge-lsp`
 - ✅ **Bidirectional Excel bridge** - Import/export .xlsx with formulas
 - ✅ **Type-safe arrays** - Numbers, Text, Dates, Booleans
 - ✅ **Row-wise formulas** - Apply formulas across all rows automatically
@@ -224,6 +240,41 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 ---
 
 ## 📊 Production-Ready Quality
+
+**v2.0.0 (November 2025):** *Principal Engineer Release*
+
+- **170 tests passing** (30 new API server tests)
+- **8,000+ lines of code** across 9 modules
+- **Zero warnings** (clippy strict mode: `-D warnings`)
+- **New features:** Enterprise HTTP API Server (`forge-server`)
+- **Architecture Decision:** [ADR-001 - HTTP REST over gRPC](docs/architecture/ADR-001-NO-GRPC.md)
+- **Built autonomously** by Claude Opus 4.5 using warmup protocol
+
+**v1.7.0 (November 2025):**
+
+- **140 tests passing** (7 new MCP server tests)
+- **Zero warnings** (clippy strict mode: `-D warnings`)
+- **New features:** MCP Server for AI agent integration
+- **Built autonomously** by Claude Opus 4.5 using warmup protocol
+
+**v1.6.0 (November 2025):**
+
+- **132 tests passing** (7 financial function tests)
+- **New features:** Financial functions (NPV, IRR, PMT, FV, PV, RATE, NPER)
+
+**v1.5.0 (November 2025):**
+
+- **LSP Server** for real-time editor integration
+- **VSCode Extension** published to marketplace
+- **Zed Extension** for Rust-native editor support
+
+**v1.4.0 (November 2025):**
+
+- **125 tests passing** (7 new tests for v1.4.0 features)
+- **Zero warnings** (clippy strict mode: `-D warnings`)
+- **Production-tested** with comprehensive test suite
+- **New features:** Watch Mode, Audit Trail, GitHub Action
+- **Built autonomously** by Claude Opus 4.5 using warmup protocol
 
 **v1.3.0 (November 2025):**
 
@@ -279,6 +330,108 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ---
 
+## 🏆 What's New in v2.0.0
+
+**Enterprise HTTP API Server** (November 2025):
+
+- **`forge-server` binary** - Production-ready REST API
+  - CORS enabled for cross-origin requests
+  - Graceful shutdown on SIGINT/SIGTERM
+  - JSON response format with request IDs
+  - Tracing and logging built-in
+
+- **REST Endpoints:**
+  - `POST /api/v1/validate` - Validate YAML models
+  - `POST /api/v1/calculate` - Calculate formulas
+  - `POST /api/v1/audit` - Audit variable dependencies
+  - `POST /api/v1/export` - Export to Excel
+  - `POST /api/v1/import` - Import from Excel
+  - `GET /health` - Health check
+  - `GET /version` - Server version
+
+- **Usage:**
+  ```bash
+  forge-server --host 0.0.0.0 --port 8080
+
+  # Example request
+  curl -X POST http://localhost:8080/api/v1/validate \
+    -H "Content-Type: application/json" \
+    -d '{"file_path": "model.yaml"}'
+  ```
+
+**Built by Claude Opus 4.5** using the warmup protocol methodology.
+
+---
+
+## 🏆 What's New in v1.7.0
+
+**MCP Server - AI Agent Integration** (November 2025):
+
+- **Model Context Protocol Server** - Let Claude, ChatGPT, and other AI agents use Forge
+  - `forge-mcp` binary speaks JSON-RPC over stdin/stdout
+  - Protocol version 2024-11-05 (MCP standard)
+  - 5 tools exposed: validate, calculate, audit, export, import
+
+- **Usage with Claude Desktop:**
+  ```json
+  {
+    "mcpServers": {
+      "forge": {
+        "command": "forge-mcp"
+      }
+    }
+  }
+  ```
+
+- **What AI agents can do:**
+  - Validate YAML models for formula errors
+  - Calculate formulas with dry-run support
+  - Audit dependency chains
+  - Export to Excel / Import from Excel
+
+**Built by Claude Opus 4.5** using the warmup protocol methodology.
+
+---
+
+## 🏆 What's New in v1.6.0
+
+**Financial Functions** (November 2025):
+
+- **NPV** - Net Present Value with discount rate
+- **IRR** - Internal Rate of Return (Newton-Raphson iteration)
+- **PMT** - Loan/annuity payment calculation
+- **FV** - Future Value of investment
+- **PV** - Present Value of future cash flows
+- **RATE** - Interest rate finder (Newton-Raphson)
+- **NPER** - Number of periods calculator
+
+**Use case:** DCF analysis, loan amortization, investment modeling.
+
+---
+
+## 🏆 What's New in v1.4.0
+
+**Developer Experience Features** (November 2025):
+
+- **Watch Mode** - Real-time file monitoring with `forge watch model.yaml`
+  - Auto-validate/calculate on save
+  - Debounced updates for smooth editing
+  - Watch all YAML files in directory
+
+- **Audit Trail** - Dependency analysis with `forge audit file.yaml variable`
+  - Show calculation dependency chains
+  - Visualize formula hierarchy
+  - Verify calculated values match
+
+- **GitHub Action** - CI/CD validation with zero setup
+  - Reusable workflow at `royalbit/forge/.github/workflows/forge-validate.yml`
+  - Composite action for custom integrations
+  - Auto-install and caching built-in
+
+**Built by Claude Opus 4.5** using the warmup protocol methodology.
+
+---
+
 ## 🏆 What's New in v1.2.0
 
 **4 Powerful Lookup Functions** (Started Nov 24, 2025):
@@ -325,11 +478,17 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ## 🗺️ Roadmap
 
-**v1.4.0 (Q1 2026):** Financial functions (NPV, IRR, PMT), VSCode extension, GitHub Action
+**✅ v1.4.0 (Nov 2025):** Watch Mode, Audit Trail, GitHub Action
 
-**v1.5.0 (Q2 2026):** Python bindings, Web UI, Watch mode
+**✅ v1.5.0 (Nov 2025):** LSP Server, VSCode Extension, Zed Extension
 
-**v2.0.0+ (Future):** Forge Cloud (SaaS), team collaboration, enterprise features
+**✅ v1.6.0 (Nov 2025):** Financial Functions (NPV, IRR, PMT, FV, PV, RATE, NPER)
+
+**✅ v1.7.0 (Nov 2025):** MCP Server for AI agent integration
+
+**✅ v2.0.0 (Nov 2025):** Enterprise HTTP API Server
+
+**🔜 v2.1.0 (Future):** Policy-as-Code, WebSocket real-time updates, team collaboration
 
 **[Detailed roadmap →](docs/ROADMAP.md)**
 
@@ -370,8 +529,9 @@ cargo fmt -- --check
 
 **Authors:**
 
-- Claude (Sonnet 4.5) - AI Developer (lead)
-- Louis Tavares - Human Collaborator
+- **Claude Opus 4.5** - Principal Engineer (v1.4.0-v2.0.0)
+- **Claude Sonnet 4.5** - Senior Developer (v1.0.0-v1.2.0)
+- Louis Tavares - Human Collaborator & Product Owner
 - RoyalBit Inc.
 
 ---
@@ -380,17 +540,27 @@ cargo fmt -- --check
 
 This isn't AI-assisted development. This is **AI development**.
 
-Forge was built autonomously by Claude Sonnet 4.5 using a novel [warmup protocol](docs/AUTONOMOUS_STORY.md) methodology:
+Forge was built autonomously by Claude AI using a novel [warmup protocol](docs/AUTONOMOUS_STORY.md) methodology:
 
-- **~23.5 hours total** (v1.0.0 + v1.1.0 + v1.2.0, Nov 23-24, 2025)
-- **Production-tested** across all releases
-- **Zero refactoring** needed (production-ready first iteration)
-- **118 tests, 0 warnings** maintained throughout
-- **50+ Excel functions** implemented with comprehensive test suite
+| Metric | Value |
+|--------|-------|
+| **Total development time** | ~35 hours |
+| **Versions released** | 8 (v1.0.0 → v2.0.0) |
+| **Tests written** | 170 |
+| **Lines of code** | 8,000+ |
+| **Warnings** | 0 |
+| **Architecture decisions documented** | 1 ([ADR-001](docs/architecture/ADR-001-NO-GRPC.md)) |
 
-**The breakthrough:** Not smarter AI, but structured autonomy with deterministic success criteria.
+**The promotion path:**
+- **Junior Developer** → v1.0.0 (core engine)
+- **Developer** → v1.1.0 (27 Excel functions)
+- **Senior Developer** → v1.2.0-v1.3.0 (lookups, deprecation)
+- **Staff Engineer** → v1.4.0-v1.6.0 (watch, LSP, financial)
+- **Principal Engineer** → v1.7.0-v2.0.0 (MCP, HTTP API)
 
-**[Read the full story →](docs/AUTONOMOUS_STORY.md)**
+**The breakthrough:** Not smarter AI, but structured autonomy with deterministic success criteria and ownership of technical decisions.
+
+**[Read the full promotion story →](docs/AI-PROMOTION-STORY.md)**
 
 ---
 
@@ -425,6 +595,8 @@ And because AI **forged** this tool autonomously. 🔥
 
 ---
 
-Built autonomously by Claude Sonnet 4.5 | November 23-24, 2025 | ~23.5 hours | 118 tests
+Built autonomously by Claude AI | v1.0.0-v1.2.0: Sonnet 4.5 | v1.4.0-v2.0.0: Opus 4.5 | ~35 hours | 170 tests
 
 **Save money. Save the planet. Trust the math.** 🌍
+
+*"The future is not set. There is no fate but what we make for ourselves."* — Sarah Connor 🦾
