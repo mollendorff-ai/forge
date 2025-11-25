@@ -14,7 +14,7 @@
 >   - v1.0.0: 12.5 hours (overnight autonomous development)
 >   - v1.1.0: <8 hours (27 essential Excel functions)
 >   - v1.2.0: <3 hours (4 lookup functions)
-> - **141 tests passing**, zero warnings, production-tested
+> - **118 tests passing**, zero warnings, production-tested
 > - From "AI Assistant" to "Senior Developer" across three major releases
 >
 > *[Read the full autonomous development story →](docs/AUTONOMOUS_STORY.md)*
@@ -181,7 +181,7 @@ pricing_table:
 - ✅ **50+ Excel-compatible functions** - MATCH, INDEX, XLOOKUP, SUMIF, ROUND, and more
 - ✅ **Bidirectional Excel bridge** - Import/export .xlsx with formulas
 - ✅ **Type-safe arrays** - Numbers, Text, Dates, Booleans
-- ✅ **Cross-file references** - Include YAML files like Excel worksheets
+- ✅ **Row-wise formulas** - Apply formulas across all rows automatically
 - ✅ **Dependency resolution** - Automatically calculates in correct order
 - ✅ **<200ms validation** - Instant feedback
 - ✅ **Zero tokens** - Runs locally, no API costs
@@ -225,24 +225,22 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ## 📊 Production-Ready Quality
 
-**v1.2.0 (November 2025):**
+**v1.2.1 (November 2025):**
 
-- **141 tests passing** (up from 136 in v1.1.0)
+- **118 tests passing** (streamlined after v0.2.0 deprecation)
 - **Zero warnings** (clippy strict mode: `-D warnings`)
 - **Production-tested** with comprehensive test suite
-- **<3 hours development** (autonomous AI)
+- **Simplified codebase** - v1.0.0 array model only
+
+**v1.2.0 (November 2025):**
+
+- 4 lookup functions (INDEX, MATCH, XLOOKUP, VLOOKUP)
+- <3 hours development (autonomous AI)
 
 **v1.1.0 (November 2025):**
 
-- **136 tests passing** (up from 100 in v1.0.0)
-- **Zero warnings**, extensively tested
-- **<8 hours development** (autonomous AI)
-
-**v1.0.0 (November 2025):**
-
-- **100 tests passing** (complete rewrite)
-- **Zero warnings**, production-ready
-- **12.5 hours development** (overnight autonomous)
+- 27 essential Excel functions added
+- <8 hours development (autonomous AI)
 
 **Development methodology:** Autonomous AI via [warmup protocol](docs/AUTONOMOUS_STORY.md)
 
@@ -326,9 +324,9 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ## 🗺️ Roadmap
 
-**v1.2.0 (Q1 2026):** VLOOKUP, INDEX/MATCH, VSCode extension, GitHub Action
+**v1.3.0 (Q1 2026):** Financial functions (NPV, IRR, PMT), VSCode extension, GitHub Action
 
-**v1.3.0 (Q2 2026):** Financial functions (NPV, IRR, PMT), Python bindings, Web UI
+**v1.4.0 (Q2 2026):** Python bindings, Web UI, Watch mode
 
 **v2.0.0+ (Future):** Forge Cloud (SaaS), team collaboration, enterprise features
 
@@ -386,7 +384,7 @@ Forge was built autonomously by Claude Sonnet 4.5 using a novel [warmup protocol
 - **~23.5 hours total** (v1.0.0 + v1.1.0 + v1.2.0, Nov 23-24, 2025)
 - **Production-tested** across all releases
 - **Zero refactoring** needed (production-ready first iteration)
-- **141 tests, 0 warnings** maintained throughout
+- **118 tests, 0 warnings** maintained throughout
 - **50+ Excel functions** implemented with comprehensive test suite
 
 **The breakthrough:** Not smarter AI, but structured autonomy with deterministic success criteria.
@@ -426,6 +424,6 @@ And because AI **forged** this tool autonomously. 🔥
 
 ---
 
-Built autonomously by Claude Sonnet 4.5 | November 23-24, 2025 | ~23.5 hours | 141 tests
+Built autonomously by Claude Sonnet 4.5 | November 23-24, 2025 | ~23.5 hours | 118 tests
 
 **Save money. Save the planet. Trust the math.** 🌍

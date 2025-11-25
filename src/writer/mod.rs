@@ -24,10 +24,7 @@ pub fn update_yaml_file(path: &Path, calculated_values: &HashMap<String, f64>) -
 }
 
 /// Update scalar values in a model file
-pub fn update_scalars(
-    path: &Path,
-    scalars: &HashMap<String, Variable>,
-) -> ForgeResult<()> {
+pub fn update_scalars(path: &Path, scalars: &HashMap<String, Variable>) -> ForgeResult<()> {
     let mut calculated_values = HashMap::new();
     for (name, var) in scalars {
         if let Some(value) = var.value {

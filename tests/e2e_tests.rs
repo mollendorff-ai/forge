@@ -92,7 +92,9 @@ fn e2e_circular_dependency_detected() {
     let combined = format!("{stdout}{stderr}");
 
     assert!(
-        combined.contains("Circular") || combined.contains("cycle") || combined.contains("dependency"),
+        combined.contains("Circular")
+            || combined.contains("cycle")
+            || combined.contains("dependency"),
         "Should detect circular dependency, got: {combined}"
     );
 }
