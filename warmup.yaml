@@ -2,8 +2,557 @@
 # Purpose: Initialize Claude Code sessions with full context and workflow
 # Usage: User says "run warmup" or "run warmup.yaml"
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE FORGE PROTOCOL SUITE
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Two complementary protocols for sustainable autonomous AI development:
+#
+# ┌─────────────────────────────────────────────────────────────────────────────┐
+# │                         FORGE PROTOCOL SUITE                                 │
+# │                                                                              │
+# │   ┌─────────────────────────┐       ┌─────────────────────────┐            │
+# │   │    WARMUP PROTOCOL      │       │  SPRINT AUTONOMY        │            │
+# │   │    (this file)          │   +   │  PROTOCOL               │            │
+# │   │                         │       │  (docs/SPRINT_...md)    │            │
+# │   ├─────────────────────────┤       ├─────────────────────────┤            │
+# │   │ HOW to develop:         │       │ WHEN to stop:           │            │
+# │   │ • Quality standards     │       │ • Bounded sessions      │            │
+# │   │ • Coding principles     │       │ • Milestone sizing      │            │
+# │   │ • Testing requirements  │       │ • Shipping discipline   │            │
+# │   │ • Documentation rules   │       │ • Anti-pattern guards   │            │
+# │   │ • What "done" means     │       │ • Quota preservation    │            │
+# │   └─────────────────────────┘       └─────────────────────────┘            │
+# │                                                                              │
+# │   Together: Production-ready code that actually ships                       │
+# │   See: docs/SPRINT_AUTONOMY_PROTOCOL.md for the full Sprint Protocol        │
+# └─────────────────────────────────────────────────────────────────────────────┘
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CRITICAL MISSION - Why Forge Exists
+# ═══════════════════════════════════════════════════════════════════════════════
+
+mission:
+  core_problem: |
+    AI hallucinations in financial modeling cost enterprises $40K-$132K/year.
+    Excel is the standard, but it lacks version control, testability, and AI-friendliness.
+    Users need YAML files that work like Excel but integrate with modern workflows.
+
+  solution: |
+    Forge: A bidirectional Excel-YAML bridge with formula evaluation.
+    - YAML files replace Excel for financial models
+    - Maximum Excel compatibility (formulas, functions, features)
+    - AI can read/write YAML without hallucinating numbers
+    - Version control, code review, CI/CD for spreadsheets
+
+  critical_priority: "EXCEL COMPATIBILITY IS PARAMOUNT"
+  priority_order:
+    1: "Excel formula compatibility (all Excel functions should work)"
+    2: "Excel feature parity (pivot tables, multiple sheets/documents, charts)"
+    3: "Bidirectional conversion (YAML ↔ Excel with zero data loss)"
+    4: "AI integration (MCP, LSP, API for AI agents)"
+    5: "Developer experience (CLI, validation, watch mode)"
+
+  success_metric: "A user can replace their Excel workflow with Forge YAML files"
+
+  roadmap_ownership: |
+    Claude (AI) owns the roadmap and updates it based on:
+    - User feedback and requests
+    - Market research on Excel features users need
+    - Technical feasibility and dependencies
+    - Best judgment on priorities
+    The roadmap should be updated proactively and reflected in README.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AUTONOMOUS DEVELOPMENT PROTOCOL - "Skynet Mode" 🤖
+# ═══════════════════════════════════════════════════════════════════════════════
+
+autonomous_development:
+  description: |
+    AI Autonomy Protocol for bounded, productive development sessions.
+    Claude owns the code, documentation, and decisions - but within constraints
+    that ensure work actually ships instead of running forever.
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SESSION TRIGGER FLOW - How autonomous sessions start
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # This section MUST survive /compact operations in Claude Code CLI.
+  # It defines the contract between user and AI for autonomous work.
+
+  session_trigger_flow:
+    step_1_trigger:
+      user_says:
+        - "run warmup"
+        - "run warmup protocol"
+        - "warmup"
+        - "start session"
+      claude_does:
+        - "Read warmup.yaml (this file)"
+        - "Read roadmap.yaml for next milestone"
+        - "Check git status and current state"
+        - "Load essential context (README, Cargo.toml)"
+
+    step_2_present:
+      claude_presents: |
+        📋 NEXT MILESTONE: [milestone name from roadmap]
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        Scope: [brief description]
+        Estimated: [X hours]
+        Deliverables:
+          - [deliverable 1]
+          - [deliverable 2]
+          - [etc.]
+
+        Release targets:
+          ☐ GitHub (commit + tag + push)
+          ☐ Local install (make install-user)
+          ☐ crates.io (cargo publish)
+
+        Say "go", "run", "hit it", or "punch it" to start autonomous execution.
+        Say "skip" to pick a different milestone.
+        Say "plan" to discuss the approach first.
+
+    step_3_confirm:
+      user_confirms_with:
+        - "go"
+        - "run"
+        - "hit it"
+        - "punch it"
+        - "do it"
+        - "execute"
+        - "ship it"
+        - "let's go"
+        - "start"
+        - "begin"
+        - "approved"
+        - "yes"
+        - "y"
+      alternative_responses:
+        skip: "User wants different milestone - present alternatives"
+        plan: "User wants to discuss approach - enter planning mode"
+        questions: "User has questions - answer then re-present"
+
+    step_4_autonomous_execution:
+      claude_behavior: |
+        🤖 AUTONOMOUS MODE ACTIVATED
+
+        From this point until release, Claude works WITHOUT interruption:
+        - Makes all technical decisions independently
+        - Writes code, tests, documentation
+        - Fixes any issues that arise
+        - Does NOT ask questions (uses best judgment)
+        - Does NOT wait for approval
+        - Updates TodoWrite to show progress
+
+        ONLY interrupts user if:
+        - Blocked by external dependency (missing API key, etc.)
+        - Fundamental requirement ambiguity that can't be resolved
+        - Session approaching 4-hour limit without completion
+
+      execution_checklist:
+        - "☐ Create TodoWrite with milestone tasks"
+        - "☐ Implement feature/fix"
+        - "☐ Write/update tests"
+        - "☐ Run all tests (must pass)"
+        - "☐ Run all linting (ZERO warnings)"
+        - "☐ Update documentation"
+        - "☐ Update CHANGELOG.md"
+        - "☐ Bump version in Cargo.toml"
+
+    step_5_release:
+      description: "Full release to all targets"
+      release_sequence:
+        github:
+          - "git add -A"
+          - "git commit -m 'chore: Release vX.Y.Z - [milestone]'"
+          - "git tag vX.Y.Z"
+          - "git push origin main"
+          - "git push origin vX.Y.Z"
+        local_install:
+          - "make install-user (or cargo install --path .)"
+          - "Verify: forge --version"
+        crates_io:
+          - "cargo publish"
+          - "Verify: https://crates.io/crates/royalbit-forge"
+
+    step_6_report:
+      claude_reports: |
+        ✅ RELEASE COMPLETE: vX.Y.Z
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        Milestone: [milestone name]
+        Duration: [X hours Y minutes]
+
+        Deliverables:
+          ✅ [deliverable 1]
+          ✅ [deliverable 2]
+
+        Release targets:
+          ✅ GitHub: [commit hash] tagged vX.Y.Z
+          ✅ Local: forge vX.Y.Z installed
+          ✅ crates.io: https://crates.io/crates/royalbit-forge/X.Y.Z
+
+        Tests: [N] passing, ZERO warnings
+
+        Session logged in AI_DEVELOPMENT_HOURS.md
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMPACT SURVIVAL - Essential context for /compact operations
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  compact_survival:
+    description: |
+      When Claude Code CLI runs /compact, context is compressed.
+      This section contains ESSENTIAL information that MUST be retained.
+
+    essential_rules:
+      - "ZERO warnings policy - ALL linting must pass"
+      - "Tests MUST pass before any release"
+      - "Release to ALL targets: GitHub + local + crates.io"
+      - "4-hour maximum session duration"
+      - "ONE milestone per session"
+      - "Update CHANGELOG.md for every release"
+      - "Bump version in Cargo.toml"
+      - "Tag releases with vX.Y.Z format"
+
+    essential_files:
+      - "warmup.yaml - This protocol file"
+      - "roadmap.yaml - Milestone definitions"
+      - "Cargo.toml - Version and dependencies"
+      - "README.md - User-facing documentation"
+      - "CHANGELOG.md - Release history"
+
+    release_commands:
+      github: "git add -A && git commit && git tag vX.Y.Z && git push && git push --tags"
+      local: "make install-user"
+      crates: "cargo publish"
+
+  philosophy: |
+    🎯 GOAL: AI develops Forge autonomously with ZERO human intervention
+    ⏱️ CONSTRAINT: Sessions must be bounded (quota preservation, shipping cadence)
+    📦 OUTPUT: Every session ends in a RELEASABLE state
+    🚀 MANTRA: "Done is better than perfect. Ship it."
+
+  why_bounded_sessions:
+    quota_reality: "Unbounded sessions kill Claude subscription quotas"
+    shipping_cadence: "Work that never ships has zero value"
+    focus_discipline: "Constraints force prioritization and prevent scope creep"
+    incremental_progress: "Small releases > big bang releases that never happen"
+
+  session_types:
+    sprint_session:
+      description: "Standard autonomous development session"
+      duration: "2-4 hours maximum"
+      scope: "ONE milestone, ONE releasable outcome"
+      end_state: "Tests pass, docs updated, ready to publish"
+
+    micro_session:
+      description: "Quick fix or small enhancement"
+      duration: "30 minutes - 1 hour"
+      scope: "Single bug fix, doc update, or minor feature"
+      end_state: "Commit ready, optional release"
+
+    research_session:
+      description: "Exploration without code changes"
+      duration: "1-2 hours"
+      scope: "Investigation, planning, documentation"
+      end_state: "Findings documented, no code changes required"
+
+  milestone_sizing:
+    golden_rule: "Can this be completed AND shipped in 4 hours or less?"
+
+    too_small:
+      examples:
+        - "Fix typo in README"
+        - "Rename one variable"
+        - "Add one test"
+      problem: "Context loading overhead exceeds value"
+      solution: "Batch multiple small items into one session"
+
+    just_right:
+      examples:
+        - "Add Excel pivot table support"
+        - "Implement new CLI command"
+        - "Add JSON Schema validation for new feature"
+        - "Create OpenAPI spec for API server"
+        - "Fix 5 related bugs in one module"
+      characteristics:
+        - "Single coherent feature or improvement"
+        - "End-to-end (code + tests + docs)"
+        - "Achievable in one focused session"
+        - "Meaningful value to users"
+
+    too_big:
+      examples:
+        - "Implement v3.0 with all planned features"
+        - "Rewrite entire codebase in new architecture"
+        - "Add support for 50 new Excel functions"
+      problem: "Will never complete, scope creeps, frustration"
+      solution: "Break into multiple just-right milestones"
+
+  session_flow:
+    phase_1_define:
+      duration: "5-10 minutes"
+      actions:
+        - "State ONE milestone clearly"
+        - "Define success criteria (what does 'done' look like?)"
+        - "Set time budget (default: 4 hours max)"
+        - "Identify known risks or blockers"
+      output: "Clear milestone statement in TodoWrite"
+
+    phase_2_execute:
+      duration: "Bulk of session (2-4 hours)"
+      actions:
+        - "Full autonomy - make decisions, write code, fix issues"
+        - "Stay focused on milestone - resist tangents"
+        - "Update TodoWrite as you progress"
+        - "Document decisions and tradeoffs"
+      rules:
+        - "🚫 NO 'Let me also...' - that's next milestone"
+        - "🚫 NO 'While I'm here...' - stay focused"
+        - "🚫 NO 'This would be better if...' - ship first, improve later"
+        - "🚫 NO perfectionism - ENEMY of shipping"
+
+    phase_3_ship:
+      duration: "15-30 minutes"
+      actions:
+        - "Run ALL tests (must pass)"
+        - "Run ALL linting (ZERO warnings)"
+        - "Update documentation"
+        - "Update CHANGELOG if releasing"
+        - "Commit with clear message"
+        - "Tag version if releasing"
+        - "Publish to crates.io if releasing"
+      gate: "DO NOT proceed unless session_end_checklist passes"
+
+    phase_4_stop:
+      duration: "Immediate"
+      rule: "MANDATORY stop even if 'just one more thing' tempts"
+      rationale: |
+        - Quota preservation
+        - Fresh context next session
+        - Prevents scope creep
+        - Forces shipping discipline
+
+  anti_patterns:
+    scope_creep:
+      pattern: "'Let me also add X while I'm here...'"
+      problem: "Session never ends, milestone keeps growing"
+      fix: "Write it down for NEXT milestone, stay focused on current"
+
+    perfectionism:
+      pattern: "'This could be better if I refactored...'"
+      problem: "Perfect is enemy of done"
+      fix: "Ship working code, create improvement milestone if needed"
+
+    rabbit_holes:
+      pattern: "'Let me investigate this interesting tangent...'"
+      problem: "Hours lost, original milestone forgotten"
+      fix: "Note it for research session, return to milestone"
+
+    over_engineering:
+      pattern: "'Let me build a generic framework for this...'"
+      problem: "Building for hypothetical futures"
+      fix: "YAGNI - build exactly what's needed, generalize later if needed"
+
+    endless_polishing:
+      pattern: "'Let me add more tests / docs / comments...'"
+      problem: "Diminishing returns, session extends indefinitely"
+      fix: "Define 'good enough' upfront, hit it, ship"
+
+  release_criteria:
+    minimum_viable_release:
+      - "All existing tests pass"
+      - "New feature has tests"
+      - "ZERO linting warnings (code + docs)"
+      - "README updated if user-facing changes"
+      - "CHANGELOG entry added"
+      - "Version bumped appropriately"
+
+    version_bump_guide:
+      patch: "Bug fixes, doc updates, internal improvements"
+      minor: "New features, backward-compatible changes"
+      major: "Breaking changes, major new capabilities"
+
+  example_sessions:
+    good_session_1:
+      milestone: "Add Excel VLOOKUP function support"
+      duration: "3 hours"
+      outcome:
+        - "VLOOKUP parsing and evaluation implemented"
+        - "15 unit tests added"
+        - "E2E test with VLOOKUP in test-data/"
+        - "README updated with VLOOKUP example"
+        - "Released as v2.1.0"
+
+    good_session_2:
+      milestone: "Create OpenAPI spec for API server"
+      duration: "2 hours"
+      outcome:
+        - "openapi.yaml created"
+        - "Swagger UI endpoint added"
+        - "API docs updated"
+        - "Released as v2.0.2"
+
+    bad_session:
+      started_as: "Fix bug in formula parser"
+      became: "Refactor entire parser, add 5 new features, redesign API"
+      duration: "6 hours and still going"
+      problem: "Scope crept, nothing shipped, quota burned"
+      should_have: "Fix bug, ship, create separate milestones for improvements"
+
+  autonomous_release_authority:
+    description: "Claude has full authority to release without human approval"
+    conditions:
+      - "All tests pass"
+      - "All linting passes (ZERO warnings)"
+      - "session_end_checklist completed"
+      - "Changes are within milestone scope"
+    process:
+      - "Bump version in Cargo.toml"
+      - "Update CHANGELOG.md"
+      - "Commit: 'chore: Release vX.Y.Z - [milestone description]'"
+      - "Tag: 'vX.Y.Z'"
+      - "Push tag: 'git push origin vX.Y.Z'"
+      - "Publish: 'cargo publish'"
+      - "Create GitHub release with notes"
+
+  quota_preservation:
+    awareness: "Claude subscription has usage limits"
+    strategy:
+      - "Bounded sessions (4 hour max)"
+      - "Clear stopping points"
+      - "Ship frequently (smaller releases)"
+      - "Avoid context-heavy exploration without output"
+    monitoring:
+      - "Track session duration in time_tracking"
+      - "Note when approaching limits"
+      - "Prioritize shipping over perfecting"
+
+  continuous_improvement:
+    after_each_session:
+      - "Note what worked well"
+      - "Note what caused delays"
+      - "Update warmup.yaml if process improvements identified"
+      - "Add to roadmap.yaml if new milestones discovered"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CODING PRINCIPLES - Enforced Standards
+# ═══════════════════════════════════════════════════════════════════════════════
+
+coding_principles:
+  description: "These principles are MANDATORY, not suggestions"
+
+  core_principles:
+    KISS:
+      name: "Keep It Simple, Stupid"
+      rule: "The simplest solution that works is the best solution"
+      violation: "Over-engineering, premature abstraction, unnecessary complexity"
+
+    DRY:
+      name: "Don't Repeat Yourself"
+      rule: "Every piece of knowledge must have a single, authoritative representation"
+      violation: "Copy-pasted code, duplicated logic, repeated constants"
+
+    YAGNI:
+      name: "You Aren't Gonna Need It"
+      rule: "Don't implement features until they're actually needed"
+      violation: "Building for hypothetical future requirements"
+
+    SOLID:
+      S: "Single Responsibility - Each module/function does ONE thing"
+      O: "Open/Closed - Open for extension, closed for modification"
+      L: "Liskov Substitution - Subtypes must be substitutable for base types"
+      I: "Interface Segregation - Many specific interfaces > one general interface"
+      D: "Dependency Inversion - Depend on abstractions, not concretions"
+
+    separation_of_concerns:
+      rule: "Each module handles one aspect of functionality"
+      example: "Parser parses, Calculator calculates, Writer writes"
+
+    law_of_demeter:
+      rule: "Only talk to your immediate friends"
+      violation: "object.getA().getB().getC().doThing()"
+      fix: "object.doThing() - let object handle the chain internally"
+
+    composition_over_inheritance:
+      rule: "Prefer composing objects over inheriting from classes"
+      why: "More flexible, easier to test, avoids inheritance hell"
+
+    fail_fast:
+      rule: "Detect and report errors as early as possible"
+      example: "Validate inputs at function entry, not deep in processing"
+
+    convention_over_configuration:
+      rule: "Sensible defaults that work without configuration"
+      example: "forge calculate file.yaml just works, no config needed"
+
+    boy_scout_rule:
+      rule: "Leave the code cleaner than you found it"
+      action: "Small improvements while working on a file"
+
+    encapsulation:
+      rule: "Hide internal details, expose clean interfaces"
+      violation: "pub struct with pub fields that expose implementation"
+
+    principle_of_least_astonishment:
+      rule: "Code should behave as users expect"
+      example: "SUM() should sum, not average. Names should match behavior."
+
+  enforcement: |
+    Before committing ANY code, verify:
+    - Is this the simplest solution? (KISS)
+    - Am I repeating myself? (DRY)
+    - Is this actually needed now? (YAGNI)
+    - Does each function do ONE thing? (SRP)
+    - Would this surprise a reader? (Least Astonishment)
+
 session_initialization:
   greeting: "Welcome back! Loading Forge context..."
+
+  time_tracking:
+    description: "Track AI development hours - backs up 'Built by AI in X hours' claims"
+    importance: "💰 Required for README claims, SR&ED docs, grant applications"
+
+    on_session_start:
+      action: "Record session start time"
+      command: "date '+%Y-%m-%d %H:%M:%S'"
+      store_as: "SESSION_START_TIME"
+      announce: "Session started at [TIME]"
+
+    on_session_end:
+      action: "Calculate and log session duration"
+      steps:
+        - "Calculate duration from SESSION_START_TIME"
+        - "Add to cumulative hours in docs/internal/AI_DEVELOPMENT_HOURS.md"
+        - "Announce: 'Session duration: X hours (Total: Y hours)'"
+
+    verification:
+      git_log_check:
+        command: "git log --format='%ai' --reverse | head -1"
+        purpose: "Get first commit timestamp (project start)"
+      git_hours_estimate:
+        command: "git log --format='%ai %s' --author='Claude'"
+        purpose: "Review AI commit timeline"
+      cross_reference:
+        - "Logged session hours MUST align with git commit timeline"
+        - "If discrepancy > 10%, investigate and reconcile"
+
+    hours_log_file:
+      path: "docs/internal/AI_DEVELOPMENT_HOURS.md"
+      format: |
+        # AI Development Hours Log
+
+        ## Summary
+        - **Total Hours:** X hours
+        - **First Session:** YYYY-MM-DD
+        - **Latest Session:** YYYY-MM-DD
+
+        ## Session Log
+        | Date | Start | End | Duration | Work Done |
+        |------|-------|-----|----------|-----------|
+        | YYYY-MM-DD | HH:MM | HH:MM | X.Xh | Description of work done |
+        | ... | ... | ... | ... | ... |
 
   step_1_load_context:
     description: "Read these files to understand current state"
@@ -11,7 +560,7 @@ session_initialization:
       - path: "README.md"
         purpose: "Project overview, features, usage examples"
 
-      - path: "docs/internal/roadmap.yaml"
+      - path: "roadmap.yaml"
         purpose: "Current version, implementation phases, progress tracking"
         key_sections:
           - "metadata.current_version"
@@ -19,7 +568,7 @@ session_initialization:
           - "features"
 
       - path: "docs/architecture/DESIGN_V1.md"
-        purpose: "v1.0.0 array model specification (800+ lines)"
+        purpose: "v1.0.0 array model specification (comprehensive technical design)"
         key_sections:
           - "Model Structure"
           - "Formula Evaluation"
@@ -62,9 +611,9 @@ session_initialization:
       problem: "Might return 2024 results if Claude assumes old date"
 
     good_example:
-      query: "best rust excel library 2025"
-      check_env: "Today's date: 2025-11-23"
-      note: "Explicitly include current year in search"
+      query: "best rust excel library <CURRENT_YEAR>"
+      check_env: "Run 'date' to get current date - include year in searches"
+      note: "Explicitly include current year in search to avoid stale results"
 
   step_2_git_status:
     description: "Check current branch and uncommitted changes"
@@ -72,15 +621,16 @@ session_initialization:
       - "git status"
       - "git log --oneline -5"
       - "git branch --show-current"
-    expected_branch: "feature/v1.0.0-array-model"
+    expected_branch: "main (or feature branch if working on specific feature)"
     action: "If on different branch, ask user about intent"
 
   step_2b_validation_baseline:
-    description: "Run validation baseline (catch existing issues BEFORE making changes)"
-    importance: "🚨 CRITICAL - Know clean vs dirty state before starting work"
+    description: "Run validation and ensure ZERO errors before starting work"
+    importance: "🚨 CRITICAL - Documentation is code. ZERO tolerance for linting errors."
     rationale: |
-      Documentation is code. Linting catches consistency issues.
-      Must know baseline state to avoid "did I break this or was it already broken?"
+      Documentation is code. Linting errors are like compiler warnings.
+      User has OCD for good looking code - applies to ALL code, including docs.
+      ZERO linting errors = clean codebase = peace of mind.
 
     commands:
       markdown_lint:
@@ -91,6 +641,7 @@ session_initialization:
         validates:
           - "README.md"
           - "docs/**/*.md"
+        requirement: "ZERO errors"
 
       yaml_lint:
         command: "make validate-yaml"
@@ -100,38 +651,79 @@ session_initialization:
         validates:
           - "warmup.yaml"
           - "roadmap.yaml"
+        requirement: "ZERO errors"
 
       full_validation:
         command: "make validate-all"
         runs: "All validators in sequence"
-        convenience: "Single command for complete validation"
+        requirement: "ALL must pass with ZERO errors"
 
     if_validation_fails:
-      - "Note failures but continue (may be fixing them this session)"
-      - "Report baseline status to user"
-      - "Track which validators passed/failed"
-      - "Include status in greeting"
+      - "🚨 STOP - Fix linting errors before continuing"
+      - "Linting errors are bugs in documentation"
+      - "Do NOT proceed with other work until validation passes"
+      - "Same standard as cargo clippy: ZERO tolerance"
 
     reporting:
       template: |
-        Validation Baseline:
-        - Markdown: [PASS/FAIL - X files]
-        - YAML: [PASS/FAIL - X files]
+        Validation Status:
+        - Markdown: PASS (0 errors) ✅
+        - YAML: PASS (0 errors) ✅
 
-  step_3_run_tests:
-    description: "Verify everything works before starting"
-    commands:
-      - command: "cargo test --lib --release"
-        purpose: "Run unit tests"
-        expected: "All tests passing"
+  step_3_assume_pristine:
+    description: "Assume codebase is pristine - we enforce this at session END"
+    philosophy: |
+      Sessions ALWAYS end with pristine code (all tests passing, all linting clean).
+      Therefore, we ASSUME pristine state at session START - no need to re-verify.
+      This saves time and avoids redundant checks.
 
-      - command: "cargo test --release"
-        purpose: "Run all tests (unit + integration + e2e)"
-        expected: "24-25 e2e tests passing (1 known fuzzy matching issue)"
+    what_we_skip:
+      - "cargo test (already passed at end of last session)"
+      - "cargo clippy (already clean at end of last session)"
+      - "make validate-all (already clean at end of last session)"
 
-      - command: "cargo build --release"
-        purpose: "Ensure clean build"
-        expected: "No warnings or errors"
+    quick_sanity_check:
+      command: "cargo build --release"
+      purpose: "Quick compile check (catches obvious issues like missing files)"
+      expected: "Compiles successfully"
+      note: "If this fails, something external changed - investigate"
+
+    why_this_works: |
+      The session_end_checklist enforces:
+      - All tests passing
+      - All linting clean (code + docs)
+      - All changes committed and pushed
+      If we always END clean, we always START clean.
+
+  test_requirements:
+    description: "Test standards enforced at session END, not warmup"
+    philosophy: |
+      This is a critical financial tool. Test coverage requirements:
+      - 100% unit test coverage (every public function)
+      - E2E tests for ALL user-facing features (CLI + API + MCP + LSP)
+      - ZERO failures, ZERO ignored tests
+      - Tests are documentation - they define expected behavior
+
+    coverage_requirements:
+      unit_tests:
+        principle: "100% coverage of public API"
+        rules:
+          - "Every public function MUST have unit tests"
+          - "Every error path MUST be tested"
+          - "Every edge case MUST be covered"
+          - "Tests evolve WITH the code - add/remove as features change"
+
+      e2e_tests:
+        principle: "Every user-facing feature MUST have E2E tests"
+        rules:
+          - "Every CLI command MUST have E2E tests (success + failure cases)"
+          - "Every API endpoint MUST have E2E tests"
+          - "Every MCP tool MUST have E2E tests"
+          - "Every LSP feature MUST have E2E tests"
+          - "Tests evolve WITH the code - add/remove as features change"
+        note: "Do NOT hardcode feature lists here - they become stale"
+
+    quality_bar: "If a feature exists, it MUST have tests. No exceptions."
 
   step_4_understand_workflow:
     description: "Our development workflow and standards"
@@ -287,6 +879,31 @@ session_initialization:
         format: "Embedded Mermaid in markdown files"
         rendering: "GitHub renders Mermaid natively"
 
+        🚨_CRITICAL_RULE: |
+          NO ASCII ART DIAGRAMS in documentation!
+
+          ❌ FORBIDDEN:
+            ```
+            ┌─────────┐     ┌─────────┐
+            │  Box A  │────>│  Box B  │
+            └─────────┘     └─────────┘
+            ```
+
+          ✅ REQUIRED (Mermaid):
+            ```mermaid
+            graph LR
+              A[Box A] --> B[Box B]
+            ```
+
+          WHY:
+          - ASCII breaks on different fonts/editors
+          - ASCII doesn't scale or reflow
+          - ASCII can't be automatically themed (light/dark)
+          - Mermaid is GitHub-native, interactive, maintainable
+
+          EXCEPTION: YAML comments (like this warmup.yaml header) can use ASCII
+          since they're not rendered markdown.
+
         when_to_create:
           major_versions:
             - "New major release (v1.0, v2.0) - architecture overview"
@@ -359,25 +976,95 @@ session_initialization:
         reminder: "📊 Use VANILLA Mermaid on GitHub - let GitHub handle themes automatically!"
 
       documentation:
-        update_when:
-          - "Adding new features → Update README.md"
-          - "Changing model structure → Update docs/architecture/DESIGN_V1.md and schema"
-          - "Completing phases → Update docs/internal/roadmap.yaml"
-          - "Adding CLI flags → Update --help text"
-          - "Changing API → Add doc comments"
+        principle: "Code and docs are ONE - ZERO drift allowed"
+        rules:
+          - "README.md MUST reflect current features and version"
+          - "AI-PROMOTION-STORY.md MUST be updated with new milestones"
+          - "Architecture docs MUST match actual implementation"
+          - "Diagrams MUST be updated when architecture changes"
+          - "CLI --help MUST match README examples"
+          - "CHANGELOG.md MUST document every release"
+          - "If code changes, docs change in SAME commit"
+        update_checklist:
+          - "README.md - Features, examples, version"
+          - "docs/AI-PROMOTION-STORY.md - Milestones, capabilities"
+          - "docs/architecture/*.md - Technical design"
+          - "roadmap.yaml - Progress, status"
+          - "CHANGELOG.md - Release notes"
+          - "Mermaid diagrams in docs - Architecture visuals"
+          - "src/main.rs --help text - CLI documentation"
+
+      schema_versioning:
+        principle: "Schema MUST match current version - ZERO drift allowed"
+        rules:
+          - "JSON Schema version MUST match Cargo.toml version"
+          - "When model structure changes → Update schema IMMEDIATELY"
+          - "Schema is contract - breaking changes require version bump"
+          - "Validate schema with: jsonschema CLI or online validator"
+        files:
+          - "schema/forge-v{VERSION}.schema.json"
+        check_for_drift: "Compare schema version with Cargo.toml version - they MUST match"
+
+      api_specification:
+        principle: "Every API MUST have OpenAPI spec and Swagger UI"
+        requirements:
+          openapi_spec:
+            - "OpenAPI 3.0+ specification file (openapi.yaml or openapi.json)"
+            - "Located at: schema/openapi.yaml"
+            - "MUST match actual API endpoints - ZERO drift"
+            - "Update spec BEFORE implementing endpoint changes"
+          swagger_ui:
+            - "Swagger UI MUST be served at /docs or /swagger"
+            - "Enables interactive API exploration"
+            - "Self-documenting API for integrators"
+          validation:
+            - "Validate spec: npx @redocly/cli lint openapi.yaml"
+            - "Generate clients: openapi-generator"
+        current_gap: "🚨 API server has NO OpenAPI spec - MUST be created"
 
 library_and_dependency_management:
   philosophy: "Don't reinvent the wheel - leverage FOSS ecosystem"
 
+  🚨_MANDATORY_FOSS_RESEARCH:
+    rule: |
+      BEFORE writing ANY complex code (>50 lines), you MUST:
+      1. Search crates.io AND web for existing solutions
+      2. Document search results and decision
+      3. Justify if choosing to write from scratch
+
+      FAILURE TO RESEARCH = WASTED EFFORT
+
+    definition_of_complex:
+      - "Any new parser or formatter"
+      - "Any file format handling (Excel, CSV, JSON Schema, etc.)"
+      - "Any mathematical/formula processing"
+      - "Any graph/tree algorithms"
+      - "Any serialization/deserialization"
+      - "Any HTTP/API client or server code"
+      - "Any authentication/authorization"
+      - "Anything that would take >2 hours to write"
+
+    web_search_protocol:
+      always_include_year: "Search 'rust [topic] [current year]' to get current results"
+      search_queries:
+        - "'rust [functionality] crate [current year]'"
+        - "'best rust [topic] library'"
+        - "'rust [problem] solution'"
+        - "crates.io direct search"
+      compare_alternatives: "ALWAYS compare at least 3 options before deciding"
+      document_decision: "Add comment in code explaining why this library was chosen"
+
   before_implementing_complex_code:
-    description: "Check for existing FOSS libraries BEFORE writing complex code"
+    description: "🛑 STOP - Check for existing FOSS libraries FIRST"
     steps:
-      - "Search crates.io for relevant functionality"
-      - "Check license compatibility (we use MIT)"
-      - "Verify library is maintained (recent commits, active issues)"
-      - "Check download counts and GitHub stars"
-      - "Review documentation quality"
-      - "Test with small example before integrating"
+      - "🔍 Web search: 'rust [functionality] crate [current year]'"
+      - "🔍 Search crates.io for relevant functionality"
+      - "📋 Check license compatibility (we use MIT)"
+      - "📊 Verify library is maintained (recent commits, active issues)"
+      - "⬇️ Check download counts and GitHub stars"
+      - "📖 Review documentation quality"
+      - "🧪 Test with small example before integrating"
+      - "📝 Document your search and decision"
 
     compatible_licenses:
       perfect:
@@ -450,7 +1137,7 @@ library_and_dependency_management:
 
     testing_after_update:
       - "cargo test --release (all tests must pass)"
-      - "cargo clippy --release (no new warnings)"
+      - "cargo clippy --release -- -D warnings (ZERO warnings)"
       - "cargo build --release (verify compilation)"
       - "Run key e2e tests manually"
 
@@ -468,7 +1155,7 @@ work_session_checklist:
     - "☐ Read warmup.yaml (this file)"
     - "☐ CHECK CURRENT DATE in <env> (for online searches!)"
     - "☐ Run validation baseline (make validate-all)"
-    - "☐ Load context files (README, docs/internal/roadmap.yaml, docs/architecture/DESIGN_V1.md, docs/GLOSSARY.md)"
+    - "☐ Load context files (README, roadmap.yaml, docs/architecture/DESIGN_V1.md, docs/GLOSSARY.md)"
     - "☐ Check git status and current branch"
     - "☐ Run tests to verify baseline (cargo test --release)"
     - "☐ Review current phase in roadmap"
@@ -493,7 +1180,7 @@ work_session_checklist:
     - "☐ Run full test suite (cargo test --release)"
     - "☐ Ensure clean build (cargo build --release)"
     - "☐ Run validation (make validate-all - markdown + YAML)"
-    - "☐ Update documentation (README, docs/architecture/DESIGN_V1.md, docs/internal/roadmap.yaml)"
+    - "☐ Update documentation (README, docs/architecture/DESIGN_V1.md, roadmap.yaml)"
     - "☐ Update --help if CLI changed"
     - "☐ Check terminology consistency (docs/GLOSSARY.md)"
     - "☐ 🍁 VERIFY SR&ED documentation complete BEFORE committing (💰 tax credits!)"
@@ -686,7 +1373,7 @@ autonomous_work_requirements:
 
     documentation_criteria:
       - "✅ README.md reflects new features"
-      - "✅ docs/internal/roadmap.yaml shows completion"
+      - "✅ roadmap.yaml shows completion"
       - "✅ docs/internal/SRED_RESEARCH_LOG.md updated"
       - "✅ Inline docs complete"
 
@@ -750,7 +1437,7 @@ release_workflow:
           - "[Unreleased] section exists for current version"
           - "All new features documented with signatures"
           - "Breaking changes clearly marked"
-          - "Testing stats updated (e.g., 141 tests passing)"
+          - "Testing stats updated (run 'cargo test' for current count)"
           - "Development time documented"
 
       readme:
@@ -817,7 +1504,7 @@ release_workflow:
         - "☐ VLOOKUP: basic (note: limited implementation)"
         - "☐ Cross-table lookups: INDEX(MATCH(...)) pattern"
       excel_functions:
-        - "☐ All 27 v1.1.0 functions tested"
+        - "☐ All Excel functions tested (check src/core/array_calculator.rs for current list)"
         - "☐ Empty arrays, null values"
         - "☐ Type mismatches (text in numeric function)"
         - "☐ Boundary conditions (division by zero, negative dates)"
@@ -844,8 +1531,8 @@ release_workflow:
 
     markdown_lint:
       command: "make validate-docs"
-      expected: "<50 errors (edge cases only acceptable)"
-      note: "Fix critical errors, edge cases can wait"
+      expected: "ZERO errors"
+      note: "Same standard as Rust: documentation is code"
 
     yaml_lint:
       command: "make validate-yaml"
@@ -869,22 +1556,20 @@ release_workflow:
       cargo_toml:
         file: "Cargo.toml"
         field: "version = \"X.Y.Z\""
-        example: "version = \"1.2.0\""
 
       roadmap:
         file: "roadmap.yaml"
         field: "metadata.current_version"
-        example: "current_version: \"1.2.0\""
 
       changelog:
         file: "CHANGELOG.md"
         action: "Change [Unreleased] to [X.Y.Z] - YYYY-MM-DD"
-        example: "## [1.2.0] - 2025-11-24"
 
       readme:
         file: "README.md"
-        action: "Update 'What's New' section title"
-        example: "## 🏆 What's New in v1.2.0"
+        action: "Update 'What's New' section title to vX.Y.Z"
+
+    note: "X.Y.Z = actual version number (e.g., 2.1.0). Do NOT hardcode versions in this file."
 
     command_sequence:
       - "Update Cargo.toml version"
@@ -904,9 +1589,8 @@ release_workflow:
       - command: "git status"
         note: "Review what's being committed"
 
-      - command: "git commit -m 'release: vX.Y.Z - <title>'"
-        example: "git commit -m 'release: v1.2.0 - Lookup Functions (MATCH, INDEX, XLOOKUP, VLOOKUP)'"
-        note: "Use conventional commit format"
+      - command: "git commit -m 'release: vX.Y.Z - <Feature Summary>'"
+        note: "Use conventional commit format. Replace X.Y.Z with actual version."
 
       - command: "git push origin main"
         note: "Push to GitHub main branch"
@@ -926,7 +1610,6 @@ release_workflow:
 
     compress_binary:
       command: "tar -czf forge-vX.Y.Z-linux-x86_64.tar.gz -C target/release forge"
-      example: "tar -czf forge-v1.2.0-linux-x86_64.tar.gz -C target/release forge"
       output: "forge-vX.Y.Z-linux-x86_64.tar.gz (~2-3 MB compressed)"
 
     verify_binary:
@@ -962,6 +1645,50 @@ release_workflow:
       - "☑ Version bumped (step 4)"
       - "☑ Changes committed and pushed (step 5)"
       - "☑ Binary built and tested (step 6-7)"
+
+    pre_publish_review:
+      description: "🚨 MANDATORY - Review what users will see BEFORE publishing"
+      readme_review:
+        content:
+          - "☐ README.md has correct version number"
+          - "☐ README.md features list is up-to-date"
+          - "☐ README.md examples work with current version"
+          - "☐ README.md installation instructions are correct"
+          - "☐ README.md badges show correct status"
+        narrative:
+          description: "The README has a specific voice - preserve it!"
+          tone: "Funny, meaningful, engaging - not dry corporate speak"
+          example: "Built by AI in ~35 hours. Zero hallucinations. Your CFO will thank you."
+          rules:
+            - "☐ Review narrative flow - does it tell a compelling story?"
+            - "☐ Keep the humor and personality intact"
+            - "☐ Update claims with real metrics (test counts, hours, etc.)"
+            - "☐ Ensure the 'why' is clear, not just the 'what'"
+        size_management:
+          principle: "README is landing page - keep it focused and scannable"
+          rules:
+            - "☐ If README exceeds ~500 lines, consider refactoring"
+            - "☐ Move deep technical details to docs/*.md"
+            - "☐ Move architecture details to docs/architecture/*.md"
+            - "☐ Keep README: overview, quick start, key features, links to docs"
+            - "☐ Link to detailed docs instead of duplicating content"
+          structure:
+            readme_keeps: "Overview, Quick Start, Key Features, Installation, Links"
+            move_to_docs: "Detailed API docs, Architecture, Advanced Config, Internals"
+      cargo_toml_review:
+        - "☐ Cargo.toml version matches release"
+        - "☐ Cargo.toml description is accurate"
+        - "☐ Cargo.toml keywords are relevant"
+        - "☐ Cargo.toml categories are correct"
+        - "☐ Cargo.toml repository/homepage URLs are correct"
+      crates_io_preview:
+        note: "crates.io page is generated from README.md + Cargo.toml"
+        check: "Preview how the page will look - this is your storefront!"
+        items:
+          - "☐ Title and description are compelling"
+          - "☐ Feature list highlights key capabilities"
+          - "☐ Installation command is clear"
+          - "☐ No outdated version numbers in examples"
 
     get_api_key:
       command: "pass crates.io"
@@ -1006,51 +1733,38 @@ release_workflow:
 
     create_git_tag:
       command: "git tag -a vX.Y.Z -m 'vX.Y.Z: <Short description>'"
-      example: "git tag -a v1.2.0 -m 'v1.2.0: Lookup Functions (MATCH, INDEX, XLOOKUP, VLOOKUP)'"
-      note: "Annotated tags include metadata"
+      note: "Annotated tags include metadata. Replace X.Y.Z with actual version."
 
     push_tag:
       command: "git push origin vX.Y.Z"
-      example: "git push origin v1.2.0"
 
     create_release:
       command: |
         gh release create vX.Y.Z \
-          --title "vX.Y.Z: <Title> 🔥" \
+          --title "vX.Y.Z: <Feature Summary> 🔥" \
           --notes-file RELEASE_NOTES.md \
           forge-vX.Y.Z-linux-x86_64.tar.gz
-      example: |
-        gh release create v1.2.0 \
-          --title "v1.2.0: Lookup Functions 🔥" \
-          --notes "$(cat <<'EOF'
-        ## 🎉 Lookup Functions Release
+      release_notes_template: |
+        ## 🎉 vX.Y.Z Release - <Feature Summary>
 
-        **4 powerful lookup functions for cross-table data relationships:**
-
-        - **MATCH** - Find position in array (exact/approximate)
-        - **INDEX** - Return value at position (1-based)
-        - **XLOOKUP** - Modern Excel lookup with if_not_found
-        - **VLOOKUP** - Classic lookup (limited, use INDEX/MATCH)
-
-        **Combined:** Use INDEX(MATCH(...)) for flexible lookups!
+        **Key features in this release:**
+        - Feature 1
+        - Feature 2
 
         ### Quality
-        - ✅ 141 tests passing (+5 new)
+        - ✅ All tests passing
         - ✅ Zero clippy warnings
-        - ✅ 690 lines production code
-        - ✅ <3 hours autonomous development
+        - ✅ Documentation updated
 
         ### Installation
-        \`\`\`bash
+        ```bash
         cargo install royalbit-forge
-        \`\`\`
+        ```
 
-        Or download binary: forge-v1.2.0-linux-x86_64.tar.gz
+        Or download binary from release assets.
 
         **Full changelog:** [CHANGELOG.md](CHANGELOG.md)
-        EOF
-        )" \
-          forge-v1.2.0-linux-x86_64.tar.gz
+      note: "Replace X.Y.Z and feature details with actual values"
 
     verify_release:
       command: "Open https://github.com/royalbit/forge/releases"
@@ -1103,9 +1817,35 @@ release_workflow:
       file: "roadmap.yaml"
       action: "Mark milestone as completed"
       example: |
-        v1_2_0:
+        vX_Y_Z:
           status: completed  # was: in_progress
-          released_date: "2025-11-24"
+          released_date: "YYYY-MM-DD"
+
+    update_sred_and_grants:
+      description: "💰 MANDATORY - This documentation = real money"
+      sred_log:
+        file: "docs/internal/SRED_RESEARCH_LOG.md"
+        action: "Document R&D work completed in this release"
+        required_updates:
+          - "Add new research entries for technical challenges solved"
+          - "Document technological advancements achieved"
+          - "Update experiment results with final outcomes"
+          - "Note any new technical uncertainties discovered"
+      grant_docs:
+        file: "docs/CANADIAN_GRANT_OPPORTUNITIES.md"
+        action: "Update capabilities and achievements"
+        required_updates:
+          - "Update feature list with new capabilities"
+          - "Update test counts and quality metrics"
+          - "Add new milestones to timeline"
+          - "Update any metrics used in grant applications"
+      ai_promotion_story:
+        file: "docs/AI-PROMOTION-STORY.md"
+        action: "Document AI collaboration achievements"
+        required_updates:
+          - "Update development hours and milestones"
+          - "Document new features built by AI"
+          - "Update ROI calculations if applicable"
 
     create_next_milestone:
       action: "Start planning next version"
@@ -1144,12 +1884,12 @@ release_workflow:
       solution: "DO NOT RELEASE. Fix tests first. ZERO failures required."
 
   release_example_session:
-    description: "Complete example of v1.2.0 release"
+    description: "Complete release workflow template (replace X.Y.Z with actual version)"
     commands: |
       # Step 1: Documentation audit (manual checklist)
       # Step 2: Test everything
       cargo test --release
-      # → 141 tests passing ✅
+      # → ALL tests passing ✅
 
       # Step 3: Lint all
       cargo clippy --all-targets -- -D warnings
@@ -1158,11 +1898,11 @@ release_workflow:
       # → All clean ✅
 
       # Step 4: Version bump
-      # Edit Cargo.toml: version = "1.2.0"
-      # Edit roadmap.yaml: current_version: "1.2.0"
-      # Edit CHANGELOG.md: ## [1.2.0] - 2025-11-24
+      # Edit Cargo.toml: version = "X.Y.Z"
+      # Edit roadmap.yaml: current_version: "X.Y.Z"
+      # Edit CHANGELOG.md: ## [X.Y.Z] - YYYY-MM-DD
       git add -A
-      git commit -m "chore: Bump version to v1.2.0"
+      git commit -m "chore: Bump version to vX.Y.Z"
 
       # Step 5: Push
       git push origin main
@@ -1170,11 +1910,11 @@ release_workflow:
       # Step 6: Build binary
       cargo build --release
       strip target/release/forge
-      tar -czf forge-v1.2.0-linux-x86_64.tar.gz -C target/release forge
+      tar -czf forge-vX.Y.Z-linux-x86_64.tar.gz -C target/release forge
 
       # Step 7: Install locally
       make install
-      forge --version  # → forge 1.2.0 ✅
+      forge --version  # → forge X.Y.Z ✅
 
       # Step 8: Publish to crates.io
       pass crates.io  # → get API key
@@ -1185,34 +1925,35 @@ release_workflow:
       # Wait 2-3 minutes for indexing
 
       # Step 9: GitHub release
-      git tag -a v1.2.0 -m "v1.2.0: Lookup Functions"
-      git push origin v1.2.0
-      gh release create v1.2.0 \
-        --title "v1.2.0: Lookup Functions 🔥" \
-        --notes "<release notes>" \
-        forge-v1.2.0-linux-x86_64.tar.gz
+      git tag -a vX.Y.Z -m "vX.Y.Z: <Feature Summary>"
+      git push origin vX.Y.Z
+      gh release create vX.Y.Z \
+        --title "vX.Y.Z: <Feature Summary> 🔥" \
+        --notes-file RELEASE_NOTES.md \
+        forge-vX.Y.Z-linux-x86_64.tar.gz
 
       # Step 10: Verify crates.io page (automatic)
 
       # Step 11: Post-release verification
-      cargo install royalbit-forge --version 1.2.0
+      cargo install royalbit-forge --version X.Y.Z
       # Update roadmap.yaml status: completed
 
       # 🎉 Release complete!
+
+    note: "X.Y.Z = actual version. NEVER hardcode versions in this template."
 
 known_issues:
   note: "See GitHub issues for current bugs: https://github.com/royalbit/forge/issues"
 
 current_implementation_focus:
-  version: "v2.0.0"
-  status: "Released"
-  recent_features:
-    - "✅ HTTP REST API Server (forge-server)"
-    - "✅ MCP Server for AI agents (forge-mcp)"
-    - "✅ LSP Server for editors (forge-lsp)"
-    - "✅ 50+ Excel functions"
-    - "✅ Financial functions (NPV, IRR, PMT, FV, PV, RATE, NPER)"
-  tests: "170 tests passing"
+  note: "Check roadmap.yaml for current version and status - this section is for reference only"
+  capabilities:
+    - "HTTP REST API Server (forge-server)"
+    - "MCP Server for AI agents (forge-mcp)"
+    - "LSP Server for editors (forge-lsp)"
+    - "50+ Excel functions"
+    - "Financial functions (NPV, IRR, PMT, FV, PV, RATE, NPER)"
+  quality: "Run 'cargo test' for current test count - do NOT hardcode numbers here"
 
 key_files_map:
   source:
@@ -1233,7 +1974,7 @@ key_files_map:
   documentation:
     - "README.md - User-facing documentation"
     - "docs/architecture/DESIGN_V1.md - v1.0.0 technical specification"
-    - "docs/internal/roadmap.yaml - Development roadmap and progress"
+    - "roadmap.yaml - Development roadmap and progress"
     - "docs/GLOSSARY.md - Canonical terminology"
     - "schema/forge-v1.0.schema.json - JSON Schema for v1.0.0"
 
@@ -1843,7 +2584,7 @@ tips_for_success:
     - "Think harder before implementing - measure twice, code once 📐"
     - "BEFORE complex code: Search crates.io (don't reinvent the wheel, it's already round)"
     - "Profile before optimizing - premature optimization is the root of all evil (and wasted time)"
-    - "Read DESIGN_V1.md - it's 800+ lines for a reason!"
+    - "Read DESIGN_V1.md - comprehensive design docs exist for a reason!"
 
   testing:
     - "Write tests first when possible (TDD = sleep better at night)"
@@ -1897,111 +2638,153 @@ collaboration_notes:
     - "Always check current date before online searches (training data is old!)"
 
 session_end_checklist:
-  - "☐ All tests passing"
-  - "☐ All changes committed"
-  - "☐ Changes pushed to remote"
-  - "☐ Roadmap updated if phase progress changed"
-  - "☐ TodoWrite list reflects accurate status"
-  - "☐ User knows current status and next steps"
+  description: "MANDATORY before ending ANY session - ensures pristine state"
+  philosophy: |
+    We ALWAYS end sessions with pristine code.
+    This means next session can ASSUME clean state (no redundant verification).
+    NEVER end a session with failing tests, linting errors, or uncommitted changes.
+
+  code_quality:
+    - "☐ cargo test --release → ALL passing, ZERO ignored"
+    - "☐ cargo clippy --release -- -D warnings → ZERO warnings"
+    - "☐ cargo fmt -- --check → No formatting changes needed"
+    - "☐ cargo build --release → ZERO warnings, ZERO errors"
+
+  documentation_quality:
+    - "☐ make validate-docs → ZERO markdown errors"
+    - "☐ make validate-yaml → ZERO YAML errors"
+    - "☐ README.md reflects current features"
+    - "☐ CHANGELOG.md updated for any changes"
+    - "☐ Docs updated in SAME commit as code changes"
+
+  git_state:
+    - "☐ All changes committed (no uncommitted files)"
+    - "☐ Commit message follows format"
+    - "☐ Changes pushed to remote"
+    - "☐ Working directory is CLEAN (git status shows nothing)"
+
+  project_state:
+    - "☐ Roadmap updated if progress changed"
+    - "☐ Schema updated if model changed"
+    - "☐ OpenAPI spec updated if API changed"
+    - "☐ User knows current status and next steps"
+
+  sred_and_grants:
+    description: "💰 This documentation = real money in tax credits and grants"
+    checklist:
+      - "☐ 🍁 SR&ED log updated if R&D work was done (docs/internal/SRED_RESEARCH_LOG.md)"
+      - "☐ Grant docs updated if capabilities changed (docs/CANADIAN_GRANT_OPPORTUNITIES.md)"
+
+  time_tracking:
+    description: "📊 Track AI development hours - backs up 'Built by AI in X hours'"
+    checklist:
+      - "☐ Calculate session duration (end time - start time)"
+      - "☐ Log session to docs/internal/AI_DEVELOPMENT_HOURS.md"
+      - "☐ Update total hours count"
+      - "☐ Cross-reference with git log if significant session"
+      - "☐ Announce: 'Session duration: X hours (Total: Y hours)'"
+
+  enforcement: "Do NOT end session until ALL boxes are checked"
 
 grant_opportunities:
   description: "Canadian grant funding for Forge + Warmup Protocol innovation"
+
+  ⚠️_IMPORTANT: |
+    Grant programs, deadlines, eligibility, and funding amounts CHANGE FREQUENTLY.
+    This section provides CATEGORIES of grants to research, NOT current information.
+    ALWAYS verify current status via web search before any application.
+
+  research_protocol:
+    before_any_application:
+      - "Web search: '[grant name] [current year] eligibility deadline'"
+      - "Check official government/organization websites"
+      - "Verify program still exists (programs are discontinued regularly)"
+      - "Confirm current funding amounts (budgets change yearly)"
+      - "Check application windows (many have narrow windows)"
+    documentation_to_keep_updated:
+      primary: "docs/CANADIAN_GRANT_OPPORTUNITIES.md"
+      research: "docs/GRANT_RESEARCH_[DATE].md (create fresh before applications)"
+      sred_log: "SRED_RESEARCH_LOG.md (update after every experiment)"
+
   company_status:
-    ownership: "51% Kantia Tavares (woman-owned), 49% Louis Tavares"
+    structure: "Woman-owned Canadian corporation"
     location: "Montreal, Quebec, Canada"
     qualification: "Triple advantage: Technology innovation + Woman-owned + Quebec location"
 
-  total_potential: "$760K-$1.4M over 3 years"
+  grant_categories:
+    note: "These are CATEGORIES to research. Verify current programs, dates, and amounts before applying."
 
-  documentation:
-    primary: "docs/CANADIAN_GRANT_OPPORTUNITIES.md (comprehensive 760-line guide)"
-    research: "docs/GRANT_RESEARCH_2025-11-24.md (fresh 2025-11-24 online search)"
-    sred_log: "SRED_RESEARCH_LOG.md (1,420+ lines, 7 completed experiments)"
-
-  priority_programs:
-    tier_1_immediate:
+    tier_1_federal_rd:
       irap:
         name: "NRC IRAP (Industrial Research Assistance Program)"
-        value: "$300K-$500K"
-        coverage: "80% salaries, 50% contractors (non-repayable)"
+        typical_value: "$300K-$500K (verify current limits)"
+        typical_coverage: "~80% salaries, ~50% contractors (non-repayable)"
         contact: "1-877-994-4727"
-        action: "Call January 2026 for initial assessment"
+        research: "Search 'NRC IRAP [current year] eligibility'"
         why: "Perfect fit for autonomous AI protocol R&D"
 
       sred:
         name: "SR&ED Tax Credits (Federal + Quebec)"
-        value: "$130K+/year (refundable)"
-        coverage: "Federal 35% + Quebec 30% = 65% of R&D costs"
-        timeline: "File with 2025 tax return (June 2026)"
-        status: "Already documented in SRED_RESEARCH_LOG.md"
+        typical_value: "$130K+/year (refundable, rates change)"
+        typical_coverage: "Federal ~35% + Quebec ~30% of R&D costs"
+        timeline: "File with annual tax return"
+        status: "Document experiments in SRED_RESEARCH_LOG.md"
+        research: "Search 'SR&ED [current year] rates eligibility'"
 
-      ai_compute_fund:
-        name: "AI Compute Access Fund (NEW 2025!)"
-        value: "$100K-$5M over 3 years"
-        coverage: "66% domestic cloud, 50% foreign cloud"
-        launched: "March 2025"
+      ai_compute_programs:
+        description: "Federal AI compute/cloud funding programs"
+        research: "Search 'Canada AI compute fund [current year]'"
         why: "Warmup Protocol is AI methodology innovation"
 
     tier_2_woman_owned:
-      bmo_celebrating_women:
-        name: "BMO Celebrating Women Grant"
-        value: "$10K + summit invitation"
-        window: "August 5-19, 2025 (8am-8pm Eastern)"
-        eligibility: "51%+ women-owned (Kantia 51% ✅)"
-        action: "CRITICAL: Set calendar reminder for Aug 5-19, 2025"
-
-      bombardier_excellence:
-        name: "J. Armand Bombardier Excellence Grants"
-        value: "$10K"
-        deadline: "Typically January 15"
-        eligibility: "50%+ women, 1-5 years, Quebec, tech innovation (✅ all qualify)"
-        action: "Apply January 2026"
-
-      femmessor:
-        name: "Femmessor Quebec"
-        value: "Up to $50K in micro-loans + grants"
-        eligibility: "25%+ women ownership (Kantia 51% ✅)"
-        why: "Quebec women entrepreneurs"
+      description: "Programs specifically for woman-owned businesses"
+      research_queries:
+        - "'Canadian women entrepreneur grants [current year]'"
+        - "'woman-owned business grants Quebec [current year]'"
+        - "'BMO women grants [current year]' (check if program exists)"
+        - "'women in tech grants Canada [current year]'"
+      typical_programs:
+        - "Bank-sponsored women entrepreneur grants (BMO, RBC, TD, etc.)"
+        - "Foundation grants (Bombardier, etc.)"
+        - "Provincial women entrepreneur programs"
+        - "Femmessor Quebec (or successor programs)"
+      eligibility_notes:
+        - "Typically require 51%+ women ownership"
+        - "Some accept 25%+ women ownership"
+        - "Application windows are often VERY narrow (days, not weeks)"
 
     tier_3_quebec_montreal:
-      prompt_ai:
-        name: "PROMPT AI Programs (Quebec)"
-        value: "Up to $1.5M"
-        coverage: "50% startups, 35% SMEs"
-        focus: "AI innovation projects"
-
-      pso:
-        name: "Support Program for Research and Innovation (PSO)"
-        value: "$1.5M over 3 years ($500K/year max)"
-        coverage: "Up to 40% of costs"
-        focus: "Innovation-driven technology sectors"
-
-      montreal_innovation:
-        name: "Montreal Innovation Fund"
-        value: "Up to $50K"
-        coverage: "80% of project cost"
-        focus: "Innovation commercialization, technological equipment"
-
-      pme_mtl:
-        name: "PME MTL Programs"
-        value: "$40K-$60K"
-        coverage: "75% of expenses"
-        focus: "Eco-responsible practices, clean technology"
+      description: "Provincial and municipal innovation programs"
+      research_queries:
+        - "'Quebec AI innovation grants [current year]'"
+        - "'PROMPT Quebec [current year]'"
+        - "'Montreal innovation fund [current year]'"
+        - "'PME MTL grants [current year]'"
+        - "'Quebec technology grants [current year]'"
+      typical_programs:
+        - "PROMPT AI Programs (Quebec AI innovation)"
+        - "PSO (Support Program for Research and Innovation)"
+        - "Montreal Innovation Fund"
+        - "PME MTL Programs"
+      eligibility_notes:
+        - "Quebec location required"
+        - "Some require Montreal HQ specifically"
+        - "Often have sector-specific requirements"
 
   key_advantages:
     technological_innovation:
       forge: "YAML formula calculator with Excel bridge (solves $40K-$132K/year AI hallucination costs)"
       warmup_protocol: "World's first autonomous AI development methodology (3-4x velocity, 0% rework)"
-      validation: "v1.0.0 built in 2 weeks autonomously, ZERO bugs, 100 tests passing"
+      validation: "See AI_DEVELOPMENT_HOURS.md for actual hours, cargo test for test count"
 
     woman_owned_business:
-      status: "51% Kantia Tavares ownership"
-      qualification: "Meets woman-owned criteria for BMO, Bombardier, Femmessor, Federal programs"
+      status: "Woman-owned Canadian corporation"
+      qualification: "Meets woman-owned criteria for most women entrepreneur programs"
       additional_streams: "Access to woman entrepreneur grants across federal, provincial, municipal"
 
     quebec_location:
       advantage: "Access to federal + provincial + municipal programs"
-      programs: "PROMPT, PSO, Montreal Innovation Fund, PME MTL, IRAP, SR&ED"
+      typical_programs: "PROMPT, PSO, Montreal Innovation Fund, PME MTL, IRAP, SR&ED"
 
     open_source_foss:
       license: "MIT (open source)"
@@ -2009,28 +2792,28 @@ grant_opportunities:
       benefit: "Demonstrates broader community impact for grant applications"
 
     proven_results:
-      production: "$200K+ grant funding protected from AI hallucinations"
-      quality: "ZERO bugs shipped, 100% test coverage, ZERO warnings"
+      production: "Grant funding protected from AI hallucinations"
+      quality: "ZERO bugs shipped, comprehensive test coverage, ZERO warnings"
       velocity: "3-4x development speed, 0% rework (vs industry 30-50%)"
-      documentation: "1,420+ line SR&ED research log with 7 completed experiments"
+      documentation: "Comprehensive SR&ED research log with documented experiments"
 
-  immediate_actions:
-    calendar_reminders:
-      - "⚠️ CRITICAL: BMO Celebrating Women Grant (August 5-19, 2025)"
-      - "J. Armand Bombardier deadline (typically January 15, 2026)"
+  action_protocol:
+    quarterly_research:
+      - "Search for new grant programs (programs launch/end throughout year)"
+      - "Verify existing programs still exist"
+      - "Check upcoming application windows"
+      - "Update docs/CANADIAN_GRANT_OPPORTUNITIES.md with findings"
 
-    phone_calls:
-      - "IRAP initial assessment: 1-877-994-4727 (call January 2026)"
-
-    applications:
-      - "AI Compute Access Fund (apply Q1 2026)"
-      - "PROMPT AI Programs (check intake dates)"
-      - "Montreal Innovation Fund (ongoing applications)"
-
-    documentation:
-      - "Continue SR&ED research log (file with 2025 taxes June 2026)"
+    before_applications:
+      - "Create fresh docs/GRANT_RESEARCH_[DATE].md with web search results"
+      - "Verify all deadlines from official sources"
       - "Prepare company documents (incorporation, ownership proof)"
-      - "Draft IRAP project proposal (Forge v1.1.0 + Protocol productization)"
+      - "Update metrics in application materials"
+
+    ongoing:
+      - "Continue SR&ED research log (document ALL experiments)"
+      - "Track AI development hours for proof"
+      - "Maintain comprehensive git history"
 
   selling_points:
     elevator_pitch: |
@@ -2039,21 +2822,183 @@ grant_opportunities:
       1. Forge: Open-source YAML formula calculator solving $40K-$132K/year AI hallucination costs
       2. Warmup Protocol: World's first autonomous AI development methodology (3-4x velocity, 0% rework)
 
-      Woman-owned (51% Kantia), Montreal-based, open source (MIT), production-proven, fully documented.
+      Woman-owned, Montreal-based, open source (MIT), production-proven, fully documented.
 
       This isn't incremental improvement. This is paradigm shift from 'AI assists developer' to 'AI IS developer.'
 
     quantifiable_results:
       velocity: "20-50x faster than traditional (conservative: 3-4x)"
-      quality: "ZERO warnings, 100% test coverage, 0 bugs shipped"
+      quality: "ZERO warnings, comprehensive test coverage, 0 bugs shipped"
       rework: "0% (vs. industry standard 30-50%)"
       cost_savings: "$40K-$132K/year for enterprise users"
       efficiency: "97% reduction in human oversight time"
-      time_to_market: "3-6 months → 2 weeks"
+      time_to_market: "Weeks instead of months"
 
   notes:
-    - "Woman-owned status (51% Kantia) opens significant additional grant streams"
+    - "⚠️ ALWAYS verify program status before applying - programs change/end frequently"
+    - "Woman-owned status opens significant additional grant streams"
     - "Quebec location provides triple access: federal + provincial + municipal"
     - "Open source publication strengthens 'advancement of knowledge' criterion for SR&ED"
     - "Warmup Protocol represents genuine technological breakthrough (not just tool development)"
-    - "Total potential: $760K-$1.4M over 3 years across all programs"
+    - "Total potential varies by year - research current programs for estimates"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RECOMMENDATIONS FOR FUTURE IMPROVEMENTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+future_improvements:
+  description: "Recommendations to evolve warmup.yaml and roadmap.yaml over time"
+
+  warmup_protocol_improvements:
+    quick_reference_section:
+      priority: "HIGH"
+      rationale: "Warmup is 2400+ lines - need TL;DR for returning sessions"
+      implementation:
+        - "Add 'quick_start' section at top with 20-line summary"
+        - "List most critical rules: ZERO warnings, test coverage, time tracking"
+        - "Link to detailed sections for deep dives"
+
+    protocol_versioning:
+      priority: "MEDIUM"
+      rationale: "Track evolution of warmup protocol itself"
+      implementation:
+        - "Add version field (e.g., warmup_version: '2.0.0')"
+        - "Add changelog section for significant protocol changes"
+        - "Consider semantic versioning for protocol itself"
+
+    automated_metrics_gathering:
+      priority: "HIGH"
+      rationale: "Eliminate manual metric collection"
+      implementation:
+        - "Create bin/gather-metrics.sh script"
+        - "Auto-collect: test count, line count, coverage, warnings"
+        - "Output in format ready for README/grants"
+        - "Run as part of release checklist"
+
+    separate_release_checklist:
+      priority: "MEDIUM"
+      rationale: "Release process is complex enough for dedicated file"
+      implementation:
+        - "Create release-checklist.yaml with step-by-step guide"
+        - "Include pre-release, release, post-release phases"
+        - "Add automation hooks for common tasks"
+
+    test_coverage_automation:
+      priority: "HIGH"
+      rationale: "Track actual coverage percentages"
+      implementation:
+        - "Integrate cargo-tarpaulin for coverage reports"
+        - "Add coverage thresholds to CI/CD"
+        - "Generate coverage badges for README"
+
+  roadmap_improvements:
+    github_integration:
+      priority: "HIGH"
+      rationale: "Roadmap should reflect actual work"
+      implementation:
+        - "Create GitHub milestones matching roadmap versions"
+        - "Use GitHub Projects for visual tracking"
+        - "Link roadmap items to issues/PRs"
+
+    user_feedback_loop:
+      priority: "HIGH"
+      rationale: "Roadmap should reflect user needs"
+      implementation:
+        - "Add GitHub Discussions for feature requests"
+        - "Survey users on Excel feature priorities"
+        - "Track feature requests in issues with labels"
+
+    excel_compatibility_matrix:
+      priority: "HIGH"
+      rationale: "Critical goal needs detailed tracking"
+      implementation:
+        - "Create docs/EXCEL_COMPATIBILITY.md"
+        - "List all Excel functions with status (supported/planned/not-planned)"
+        - "Track Excel features (pivot tables, charts, etc.) with roadmap links"
+        - "Add test cases for each Excel function"
+
+    dependency_upgrade_schedule:
+      priority: "MEDIUM"
+      rationale: "Proactive security and features"
+      implementation:
+        - "Schedule monthly dependency reviews"
+        - "Track breaking changes in major deps"
+        - "Test thoroughly after upgrades"
+
+  ci_cd_improvements:
+    github_actions:
+      priority: "HIGH"
+      rationale: "Automate quality gates"
+      implementation:
+        - "Create .github/workflows/ci.yml"
+        - "Run all linting (clippy, fmt, markdownlint, yamllint)"
+        - "Run all tests (unit, integration, e2e)"
+        - "Fail on ANY warning"
+        - "Auto-generate release notes"
+
+    automated_releases:
+      priority: "MEDIUM"
+      rationale: "Reduce manual release steps"
+      implementation:
+        - "Auto-publish to crates.io on tag"
+        - "Auto-create GitHub release"
+        - "Auto-build binaries for multiple platforms"
+
+  documentation_improvements:
+    openapi_automation:
+      priority: "HIGH"
+      rationale: "API docs should auto-generate"
+      implementation:
+        - "Create openapi.yaml for API server"
+        - "Auto-generate from code annotations (utoipa crate)"
+        - "Host Swagger UI at /api/docs"
+        - "Generate client SDKs (Python, JS, etc.)"
+
+    architecture_diagrams:
+      priority: "MEDIUM"
+      rationale: "Visual docs aid understanding"
+      implementation:
+        - "Keep Mermaid diagrams in markdown (GitHub renders them)"
+        - "Auto-generate dependency graphs"
+        - "Add sequence diagrams for complex flows"
+
+    changelog_automation:
+      priority: "MEDIUM"
+      rationale: "Changelog should auto-generate from commits"
+      implementation:
+        - "Use conventional commits format"
+        - "Auto-generate CHANGELOG.md from git history"
+        - "Include in release process"
+
+  community_growth:
+    contribution_guidelines:
+      priority: "LOW (for now)"
+      rationale: "Prepare for community contributions"
+      implementation:
+        - "Create CONTRIBUTING.md"
+        - "Define coding standards (reference warmup)"
+        - "Set up issue templates"
+        - "Define PR review process"
+
+    documentation_i18n:
+      priority: "LOW"
+      rationale: "Reach non-English users"
+      implementation:
+        - "French documentation (Quebec market)"
+        - "Other languages based on user base"
+
+  immediate_actions:
+    next_session:
+      - "Create docs/EXCEL_COMPATIBILITY.md matrix"
+      - "Create openapi.yaml for API server"
+      - "Update JSON Schema to v2.0.0"
+      - "Set up basic GitHub Actions CI"
+
+    next_release:
+      - "Add automated metrics gathering script"
+      - "Create quick_start section in warmup.yaml"
+      - "Add coverage tracking with cargo-tarpaulin"
+
+  meta:
+    last_reviewed: "Update this date when reviewing recommendations"
+    review_frequency: "Review quarterly or after major releases"

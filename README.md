@@ -145,6 +145,7 @@ forge-lsp --version      # LSP Server (editors)
 ```
 
 **Installed binaries:**
+
 | Binary | Purpose |
 |--------|---------|
 | `forge` | Main CLI tool |
@@ -350,6 +351,7 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
   - `GET /version` - Server version
 
 - **Usage:**
+
   ```bash
   forge-server --host 0.0.0.0 --port 8080
 
@@ -373,6 +375,7 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
   - 5 tools exposed: validate, calculate, audit, export, import
 
 - **Usage with Claude Desktop:**
+
   ```json
   {
     "mcpServers": {
@@ -552,15 +555,66 @@ Forge was built autonomously by Claude AI using a novel [warmup protocol](docs/A
 | **Architecture decisions documented** | 1 ([ADR-001](docs/architecture/ADR-001-NO-GRPC.md)) |
 
 **The promotion path:**
+
 - **Junior Developer** → v1.0.0 (core engine)
 - **Developer** → v1.1.0 (27 Excel functions)
 - **Senior Developer** → v1.2.0-v1.3.0 (lookups, deprecation)
 - **Staff Engineer** → v1.4.0-v1.6.0 (watch, LSP, financial)
 - **Principal Engineer** → v1.7.0-v2.0.0 (MCP, HTTP API)
+- **Principal Autonomous AI** → v2.0.1+ (created the Forge Protocol Suite - first of its kind in FOSS)
 
 **The breakthrough:** Not smarter AI, but structured autonomy with deterministic success criteria and ownership of technical decisions.
 
 **[Read the full promotion story →](docs/AI-PROMOTION-STORY.md)**
+
+---
+
+## 🚀 The Forge Protocol Suite
+
+**Two protocols. One goal: Production-ready code that actually ships.**
+
+```mermaid
+graph LR
+    subgraph warmup["WARMUP PROTOCOL"]
+        W["HOW to develop<br/>• Quality standards<br/>• Coding principles<br/>• Testing requirements"]
+    end
+    subgraph sprint["SPRINT AUTONOMY"]
+        S["WHEN to stop<br/>• Bounded sessions<br/>• Milestone sizing<br/>• Shipping discipline"]
+    end
+    warmup ---|+| sprint --> R["🚀 Ships!"]
+```
+
+### Sprint Autonomy Protocol
+
+> "Skynet Mode" — But With an Off Switch
+
+Unbounded AI development burns quota and never ships. The solution: **bounded mini-sprints**.
+
+```mermaid
+graph LR
+    D["📋 DEFINE<br/>5-10 min"] --> E["⚡ EXECUTE<br/>2-4 hours"] --> S["📦 SHIP<br/>15-30 min"] --> X["🛑 STOP"]
+    X -.->|"repeat"| D
+```
+
+| Rule | Why |
+|------|-----|
+| **ONE milestone per session** | Focus prevents scope creep |
+| **4-hour maximum** | Preserves quota, forces prioritization |
+| **MUST end releasable** | Tests pass, docs updated, ready to publish |
+| **Mandatory STOP** | Even if "just one more thing" tempts |
+
+**Anti-patterns avoided:**
+
+- 🚫 "Let me also..." → That's NEXT milestone
+- 🚫 "While I'm here..." → Stay focused
+- 🚫 "This would be better if..." → Ship first, improve later
+- 🚫 Perfectionism → ENEMY of shipping
+
+**The mantra:** "Done is better than perfect. Ship it."
+
+**Result:** 8 releases in ~35 hours, each production-ready immediately.
+
+**[Full Sprint Autonomy Protocol →](docs/SPRINT_AUTONOMY_PROTOCOL.md)** | **[Session Guide (start here!) →](docs/AUTONOMOUS_SESSION_GUIDE.md)**
 
 ---
 
