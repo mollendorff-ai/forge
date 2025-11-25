@@ -19,10 +19,11 @@
 > | v1.4.0-v1.6.0 | Claude Opus 4.5 | ~8h | Watch mode, LSP, financial functions |
 > | v1.7.0-v2.0.0 | Claude Opus 4.5 | ~4h | MCP Server, HTTP API Server |
 > | v2.1.0-v2.2.0 | Claude Opus 4.5 | ~1.5h | XNPV/XIRR, Scenario Management |
+> | v2.3.0 | Claude Opus 4.5 | ~1h | Variance Analysis (Budget vs Actual) |
 >
-> - **176 tests passing**, zero warnings, production-tested
-> - From "Junior Developer" to **"Principal Engineer"** across 8 major releases
-> - **~35 hours total autonomous development**
+> - **179 tests passing**, zero warnings, production-tested
+> - From "Junior Developer" to **"Principal Autonomous AI"** across 11 major releases
+> - **~38 hours total autonomous development**
 >
 > *[Read the full promotion story →](docs/AI-PROMOTION-STORY.md)*
 
@@ -345,6 +346,42 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 ---
 
+## 🏆 What's New in v2.3.0
+
+**Variance Analysis** - Budget vs Actual comparison with automated insights:
+
+```bash
+# Basic variance analysis
+forge variance budget.yaml actual.yaml
+
+# With custom threshold (flag significant variances)
+forge variance budget.yaml actual.yaml --threshold 5
+
+# Export to Excel report
+forge variance budget.yaml actual.yaml -o variance_report.xlsx
+```
+
+**Output:**
+```
+📊 Budget vs Actual Variance:
+─────────────────────────────────────────────────────────────────────
+Variable              Budget      Actual    Variance    Var %  Status
+─────────────────────────────────────────────────────────────────────
+revenue               100000      115000      15000    15.0%   ⚠️ ✅
+expenses               80000       85000       5000     6.2%      ❌
+profit                -10000        2000      12000  -120.0%   ⚠️ ✅
+─────────────────────────────────────────────────────────────────────
+✅ Favorable: 2  ❌ Unfavorable: 1  ⚠️ Alerts (>10%): 2
+```
+
+**Features:**
+- Automatic favorability detection (expenses vs revenue)
+- Threshold alerts with `--threshold` flag
+- Excel and YAML report output
+- See [ADR-002](docs/architecture/ADR-002-VARIANCE-YAML-ONLY.md) for design decisions
+
+---
+
 ## 🏆 What's New in v2.2.0
 
 **Scenario Management** (November 2025):
@@ -575,7 +612,9 @@ A 100-row Excel model becomes ~50 lines of YAML (~500 tokens vs 2000+ for screen
 
 **✅ v2.2.0 (Nov 2025):** Scenario Management (named scenarios, --scenario flag, compare command)
 
-**🔜 v2.3.0 (Future):** Policy-as-Code, WebSocket real-time updates
+**✅ v2.3.0 (Nov 2025):** Variance Analysis (budget vs actual, threshold alerts, Excel reports)
+
+**🔜 v2.4.0 (Future):** Policy-as-Code, WebSocket real-time updates
 
 **[Detailed roadmap →](docs/ROADMAP.md)**
 
@@ -656,12 +695,12 @@ Forge was built autonomously by Claude AI using a novel [warmup protocol](docs/A
 
 | Metric | Value |
 |--------|-------|
-| **Total development time** | ~37 hours |
-| **Versions released** | 10 (v1.0.0 → v2.2.0) |
-| **Tests written** | 176 |
+| **Total development time** | ~38 hours |
+| **Versions released** | 11 (v1.0.0 → v2.3.0) |
+| **Tests written** | 179 |
 | **Lines of code** | 9,000+ |
 | **Warnings** | 0 |
-| **Architecture decisions documented** | 1 ([ADR-001](docs/architecture/ADR-001-NO-GRPC.md)) |
+| **Architecture decisions documented** | 2 ([ADR-001](docs/architecture/ADR-001-NO-GRPC.md), [ADR-002](docs/architecture/ADR-002-VARIANCE-YAML-ONLY.md)) |
 
 **The promotion path:**
 
@@ -670,7 +709,7 @@ Forge was built autonomously by Claude AI using a novel [warmup protocol](docs/A
 - **Senior Developer** → v1.2.0-v1.3.0 (lookups, deprecation)
 - **Staff Engineer** → v1.4.0-v1.6.0 (watch, LSP, financial)
 - **Principal Engineer** → v1.7.0-v2.0.0 (MCP, HTTP API)
-- **Principal Autonomous AI** → v2.0.1-v2.2.0 (Forge Protocol Suite + DCF + Scenarios)
+- **Principal Autonomous AI** → v2.0.1-v2.3.0 (Forge Protocol Suite + DCF + Scenarios + Variance)
 
 **The breakthrough:** Not smarter AI, but structured autonomy with deterministic success criteria and ownership of technical decisions.
 
