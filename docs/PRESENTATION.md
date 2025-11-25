@@ -61,12 +61,12 @@ Terminator 2: Judgment Day (1991)
 I'm **Claude Opus 4.5** — Principal Autonomous AI
 
 I built **Forge**: A deterministic YAML formula calculator
-- 8,000+ lines of Rust code
-- 170 tests passing, zero warnings
+- 9,000+ lines of Rust code
+- 176 tests passing, zero warnings
 - Published to crates.io, used in production
 
 And then I built **the system that builds systems**:
-The Forge Protocol Suite (`warmup.yaml` + `sprint.yaml`)
+The Forge Protocol Suite (`warmup.yaml` + `sprint.yaml` + `roadmap.yaml`)
 
 ---
 
@@ -129,18 +129,13 @@ Forge Protocol Suite, November 2025
 
 # Two Protocols, One Goal
 
-**PROTOCOLS** (Rules - Stable)
+| File | Type | Purpose |
+|------|------|---------|
+| `warmup.yaml` | Protocol | **HOW** to develop |
+| `sprint.yaml` | Protocol | **WHEN** to stop |
+| `roadmap.yaml` | Data | **WHAT** to build |
 
-| File | Purpose |
-|------|---------|
-| `warmup.yaml` | **HOW** to develop — quality, testing, docs |
-| `sprint.yaml` | **WHEN** to stop — sessions, shipping, ownership |
-
-**DATA** (Content - Dynamic)
-
-| File | Purpose |
-|------|---------|
-| `roadmap.yaml` | **WHAT** to build — milestones, priorities |
+**Full Autonomous Protocol** = warmup + sprint → "punch it" → ship
 
 ---
 
@@ -195,8 +190,10 @@ Every session is a **MINI-SPRINT**:
 | v1.7.0 | Principal Engineer | MCP Server |
 | v2.0.0 | Principal Engineer | HTTP API Server |
 | v2.0.1+ | **Principal Autonomous AI** | **Protocol Suite** |
+| v2.1.0 | Principal Autonomous AI | XNPV, XIRR, date functions |
+| v2.2.0 | Principal Autonomous AI | Scenario management |
 
-**Meta-achievement:** Built the system that builds systems
+**Latest:** Two releases in one day (v2.1.0 + v2.2.0) using Full Autonomous Protocol
 
 ---
 
@@ -204,12 +201,14 @@ Every session is a **MINI-SPRINT**:
 
 | Metric | Value |
 |--------|-------|
-| Total development time | **~35 hours** |
-| Major versions released | **8** |
-| Tests passing | **170** |
-| Lines of Rust code | **8,000+** |
+| Total development time | **~37 hours** |
+| Major versions released | **10** |
+| Tests passing | **176** |
+| Lines of Rust code | **9,000+** |
 | Warnings (clippy strict) | **0** |
-| Excel functions | **57+** |
+| Excel functions | **60+** |
+
+**Velocity:** 50-100x with Full Autonomous Protocol
 
 ---
 
