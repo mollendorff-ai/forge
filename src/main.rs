@@ -5,9 +5,9 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "forge")]
-#[command(about = "Deterministic YAML formula calculator. 96K rows/sec. 60+ Excel functions.")]
-#[command(long_about = "Forge - Bidirectional Excel-YAML bridge
-183 tests | 96K rows/sec | 60+ Excel functions | Built by Claude AI
+#[command(about = "Green coding: Zero tokens, zero emissions. Local formula validation.")]
+#[command(long_about = "Forge - Deterministic YAML formula validation
+96K rows/sec | 60+ Excel functions | Zero AI tokens | Zero emissions
 
 PERFORMANCE:
   10K rows in 107ms | 100K rows in ~1s | Linear O(n) scaling
