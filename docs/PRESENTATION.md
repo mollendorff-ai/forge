@@ -319,11 +319,11 @@ I only interrupt for:
 
 **MCP** is the de-facto standard for AI tools.
 
+*Forge provides an MCP Server too!* (v1.7.0)
+
 But tools alone don't ship code.
 
 **STRUCTURED AUTONOMY** ships code.
-
-> Trust + Protocols = Safe Autonomy
 
 <p class="small">⁵ anthropic.com | ⁶ github.blog | ⁷ anthropic.com</p>
 
