@@ -319,6 +319,144 @@ See ADR-002 for design rationale on YAML-only inputs.")]
         #[arg(short, long)]
         verbose: bool,
     },
+
+    #[command(long_about = "Run sensitivity analysis by varying one or two inputs.
+
+Varies the specified input variable(s) across a range and shows how the
+output variable changes. Essential for understanding model behavior and risk.
+
+ONE-VARIABLE ANALYSIS:
+  forge sensitivity model.yaml --vary growth_rate --range 0.01,0.15,0.02 --output npv
+
+  Shows how NPV changes as growth_rate varies from 1% to 15% in 2% steps.
+
+TWO-VARIABLE ANALYSIS:
+  forge sensitivity model.yaml --vary growth_rate --vary2 discount_rate \\
+      --range 0.01,0.15,0.02 --range2 0.05,0.15,0.05 --output npv
+
+  Shows a matrix of NPV values for each combination of inputs.
+
+RANGE FORMAT:
+  start,end,step - e.g., 0.01,0.15,0.02 means 0.01, 0.03, 0.05, ..., 0.15
+
+EXAMPLES:
+  forge sensitivity model.yaml -v growth_rate -r 0.05,0.20,0.05 -o profit
+  forge sensitivity model.yaml -v price -v2 volume -r 10,50,10 -r2 100,500,100 -o revenue")]
+    /// Run sensitivity analysis on model variables
+    Sensitivity {
+        /// Path to YAML file
+        file: PathBuf,
+
+        /// Variable to vary (scalar name)
+        #[arg(short, long)]
+        vary: String,
+
+        /// Range for first variable: start,end,step
+        #[arg(short, long)]
+        range: String,
+
+        /// Second variable to vary (for 2D analysis)
+        #[arg(long)]
+        vary2: Option<String>,
+
+        /// Range for second variable: start,end,step
+        #[arg(long)]
+        range2: Option<String>,
+
+        /// Output variable to observe
+        #[arg(short, long)]
+        output: String,
+
+        /// Show verbose output
+        #[arg(long)]
+        verbose: bool,
+    },
+
+    #[command(long_about = "Find the input value needed to achieve a target output.
+
+Uses numerical methods (bisection) to find what input value produces
+the desired output. Useful for answering 'what price do I need?' questions.
+
+EXAMPLES:
+  forge goal-seek model.yaml --target profit --value 100000 --vary price
+  → Find the price needed to achieve $100,000 profit
+
+  forge goal-seek model.yaml --target npv --value 0 --vary discount_rate
+  → Find the discount rate that makes NPV = 0 (IRR)
+
+OPTIONS:
+  --min, --max: Override automatic bounds for the search
+  --tolerance: Precision of the result (default: 0.0001)")]
+    /// Find input value to achieve target output
+    GoalSeek {
+        /// Path to YAML file
+        file: PathBuf,
+
+        /// Target variable to achieve
+        #[arg(short, long)]
+        target: String,
+
+        /// Desired value for target
+        #[arg(long)]
+        value: f64,
+
+        /// Variable to adjust
+        #[arg(short, long)]
+        vary: String,
+
+        /// Minimum bound for search (optional)
+        #[arg(long)]
+        min: Option<f64>,
+
+        /// Maximum bound for search (optional)
+        #[arg(long)]
+        max: Option<f64>,
+
+        /// Solution tolerance (default: 0.0001)
+        #[arg(long, default_value = "0.0001")]
+        tolerance: f64,
+
+        /// Show verbose output
+        #[arg(long)]
+        verbose: bool,
+    },
+
+    #[command(long_about = "Find the break-even point where output equals zero.
+
+Special case of goal-seek that finds where a variable crosses zero.
+Common for finding break-even units, prices, or margins.
+
+EXAMPLES:
+  forge break-even model.yaml --output profit --vary units
+  → Find units needed to break even (profit = 0)
+
+  forge break-even model.yaml --output net_margin --vary price
+  → Find minimum price for positive margin")]
+    /// Find break-even point (where output = 0)
+    BreakEven {
+        /// Path to YAML file
+        file: PathBuf,
+
+        /// Output variable to find zero crossing
+        #[arg(short, long)]
+        output: String,
+
+        /// Variable to adjust
+        #[arg(short, long)]
+        vary: String,
+
+        /// Minimum bound for search (optional)
+        #[arg(long)]
+        min: Option<f64>,
+
+        /// Maximum bound for search (optional)
+        #[arg(long)]
+        max: Option<f64>,
+
+        /// Show verbose output
+        #[arg(long)]
+        verbose: bool,
+    },
 }
 
 fn main() -> ForgeResult<()> {
@@ -367,5 +505,35 @@ fn main() -> ForgeResult<()> {
             output,
             verbose,
         } => cli::variance(budget, actual, threshold, output, verbose),
+
+        Commands::Sensitivity {
+            file,
+            vary,
+            range,
+            vary2,
+            range2,
+            output,
+            verbose,
+        } => cli::sensitivity(file, vary, range, vary2, range2, output, verbose),
+
+        Commands::GoalSeek {
+            file,
+            target,
+            value,
+            vary,
+            min,
+            max,
+            tolerance,
+            verbose,
+        } => cli::goal_seek(file, target, value, vary, min, max, tolerance, verbose),
+
+        Commands::BreakEven {
+            file,
+            output,
+            vary,
+            min,
+            max,
+            verbose,
+        } => cli::break_even(file, output, vary, min, max, verbose),
     }
 }
