@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.0] - 2025-11-25
+
+### 🎉 Variance Analysis Release
+
+Budget vs Actual comparison with automated variance calculation and reporting.
+
+### Added
+
+- **`forge variance` Command**
+  ```bash
+  forge variance budget.yaml actual.yaml
+  forge variance budget.yaml actual.yaml --threshold 5
+  forge variance budget.yaml actual.yaml -o report.xlsx
+  ```
+
+- **Variance Calculation**
+  - Absolute variance (actual - budget)
+  - Percentage variance ((actual - budget) / budget × 100)
+  - Automatic favorability detection (expenses vs revenue)
+
+- **Threshold Alerts**
+  - `--threshold` flag (default: 10%)
+  - Variables exceeding threshold marked with ⚠️
+  - Summary counts for favorable/unfavorable/alerts
+
+- **Output Formats**
+  - Terminal table (default) with color-coded status
+  - Excel report (`-o report.xlsx`) with formatted columns
+  - YAML report (`-o report.yaml`) with metadata
+
+- **ADR-002: YAML-Only Inputs**
+  - Design decision: variance accepts YAML only, not Excel
+  - Use `forge import` first if you have Excel files
+  - Excel OUTPUT is supported (generated report)
+
+### Testing
+
+- Test data files: `test-data/budget.yaml`, `test-data/actual.yaml`
+- 179 tests passing, zero clippy warnings
+
+---
+
 ## [2.2.1] - 2025-11-25
 
 ### 🔧 Excel Function Sync & Schema Update

@@ -1,0 +1,14 @@
+# Budget for Q4 2025
+assumptions:
+  revenue:
+    value: 100000
+    formula: null
+  expenses:
+    value: 80000
+    formula: null
+  cost_of_goods:
+    value: 30000
+    formula: null
+  profit:
+    value: null
+    formula: "=revenue - expenses - cost_of_goods"

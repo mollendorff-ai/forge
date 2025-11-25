@@ -912,3 +912,329 @@ pub fn compare(file: PathBuf, scenarios: Vec<String>, verbose: bool) -> ForgeRes
 
     Ok(())
 }
+
+/// Variance result for a single variable
+#[derive(Debug, Clone)]
+struct VarianceResult {
+    name: String,
+    budget: f64,
+    actual: f64,
+    variance: f64,
+    variance_pct: f64,
+    is_favorable: bool,
+    exceeds_threshold: bool,
+}
+
+/// Execute the variance command - budget vs actual analysis
+pub fn variance(
+    budget_path: PathBuf,
+    actual_path: PathBuf,
+    threshold: f64,
+    output: Option<PathBuf>,
+    verbose: bool,
+) -> ForgeResult<()> {
+    println!("{}", "🔥 Forge - Variance Analysis".bold().green());
+    println!("   Budget: {}", budget_path.display());
+    println!("   Actual: {}", actual_path.display());
+    println!("   Threshold: {}%\n", threshold);
+
+    // Parse both files
+    if verbose {
+        println!("{}", "📖 Parsing YAML files...".cyan());
+    }
+
+    let budget_model = parser::parse_model(&budget_path)?;
+    let actual_model = parser::parse_model(&actual_path)?;
+
+    // Calculate both models
+    if verbose {
+        println!("{}", "🧮 Calculating formulas...".cyan());
+    }
+
+    let budget_calculator = ArrayCalculator::new(budget_model);
+    let budget_result = budget_calculator.calculate_all()?;
+
+    let actual_calculator = ArrayCalculator::new(actual_model);
+    let actual_result = actual_calculator.calculate_all()?;
+
+    // Collect scalar variances
+    let mut variances: Vec<VarianceResult> = Vec::new();
+
+    // Get all scalar names from both models
+    let mut all_scalars: Vec<String> = budget_result
+        .scalars
+        .keys()
+        .chain(actual_result.scalars.keys())
+        .cloned()
+        .collect();
+    all_scalars.sort();
+    all_scalars.dedup();
+
+    for name in &all_scalars {
+        let budget_val = budget_result
+            .scalars
+            .get(name)
+            .and_then(|v| v.value)
+            .unwrap_or(0.0);
+        let actual_val = actual_result
+            .scalars
+            .get(name)
+            .and_then(|v| v.value)
+            .unwrap_or(0.0);
+
+        let variance_abs = actual_val - budget_val;
+        let variance_pct = if budget_val.abs() > 0.0001 {
+            (variance_abs / budget_val) * 100.0
+        } else {
+            0.0
+        };
+
+        // Determine favorability (heuristic based on name)
+        let is_expense = name.to_lowercase().contains("expense")
+            || name.to_lowercase().contains("cost")
+            || name.to_lowercase().contains("cogs");
+        let is_favorable = if is_expense {
+            actual_val <= budget_val // Lower expenses = favorable
+        } else {
+            actual_val >= budget_val // Higher revenue/profit = favorable
+        };
+
+        let exceeds_threshold = variance_pct.abs() >= threshold;
+
+        variances.push(VarianceResult {
+            name: name.clone(),
+            budget: budget_val,
+            actual: actual_val,
+            variance: variance_abs,
+            variance_pct,
+            is_favorable,
+            exceeds_threshold,
+        });
+    }
+
+    // Handle output
+    if let Some(output_path) = output {
+        let extension = output_path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("");
+
+        match extension {
+            "xlsx" => {
+                export_variance_to_excel(&output_path, &variances, threshold)?;
+                println!(
+                    "{}",
+                    format!("✅ Variance report exported to {}", output_path.display())
+                        .bold()
+                        .green()
+                );
+            }
+            "yaml" | "yml" => {
+                export_variance_to_yaml(&output_path, &variances, threshold)?;
+                println!(
+                    "{}",
+                    format!("✅ Variance report exported to {}", output_path.display())
+                        .bold()
+                        .green()
+                );
+            }
+            _ => {
+                return Err(ForgeError::Export(format!(
+                    "Unsupported output format: {}. Use .xlsx or .yaml",
+                    extension
+                )));
+            }
+        }
+    } else {
+        // Print to terminal
+        print_variance_table(&variances, threshold);
+    }
+
+    // Summary
+    let favorable_count = variances.iter().filter(|v| v.is_favorable).count();
+    let unfavorable_count = variances.len() - favorable_count;
+    let alert_count = variances.iter().filter(|v| v.exceeds_threshold).count();
+
+    println!();
+    println!(
+        "   {} Favorable: {}  {} Unfavorable: {}  {} Alerts (>{:.0}%): {}",
+        "✅".green(),
+        favorable_count.to_string().green(),
+        "❌".red(),
+        unfavorable_count.to_string().red(),
+        "⚠️".yellow(),
+        threshold,
+        alert_count.to_string().yellow()
+    );
+
+    Ok(())
+}
+
+/// Print variance results as a table
+fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
+    println!("\n{}", "📊 Budget vs Actual Variance:".bold().cyan());
+    println!("{}", "─".repeat(85));
+
+    // Header
+    println!(
+        "{:<20} {:>12} {:>12} {:>12} {:>10} {:>8}",
+        "Variable".bold(),
+        "Budget".bold(),
+        "Actual".bold(),
+        "Variance".bold(),
+        "Var %".bold(),
+        "Status".bold()
+    );
+    println!("{}", "─".repeat(85));
+
+    // Data rows
+    for v in variances {
+        let var_str = format_number(v.variance);
+        let pct_str = format!("{:.1}%", v.variance_pct);
+
+        let status = if v.exceeds_threshold && !v.is_favorable {
+            "⚠️ ❌".to_string()
+        } else if v.exceeds_threshold {
+            "⚠️ ✅".to_string()
+        } else if v.is_favorable {
+            "✅".to_string()
+        } else {
+            "❌".to_string()
+        };
+
+        // Color the variance based on favorability
+        let var_colored = if v.is_favorable {
+            var_str.green()
+        } else {
+            var_str.red()
+        };
+        let pct_colored = if v.is_favorable {
+            pct_str.green()
+        } else {
+            pct_str.red()
+        };
+
+        println!(
+            "{:<20} {:>12} {:>12} {:>12} {:>10} {:>8}",
+            v.name.bright_blue(),
+            format_number(v.budget),
+            format_number(v.actual),
+            var_colored,
+            pct_colored,
+            status
+        );
+    }
+
+    println!("{}", "─".repeat(85));
+    println!(
+        "   {} = exceeds {:.0}% threshold",
+        "⚠️".yellow(),
+        threshold
+    );
+}
+
+/// Export variance report to Excel
+fn export_variance_to_excel(
+    output: &Path,
+    variances: &[VarianceResult],
+    threshold: f64,
+) -> ForgeResult<()> {
+    use rust_xlsxwriter::{Format, Workbook};
+
+    let mut workbook = Workbook::new();
+    let worksheet = workbook.add_worksheet();
+
+    // Set column widths
+    worksheet.set_column_width(0, 20).ok();
+    worksheet.set_column_width(1, 12).ok();
+    worksheet.set_column_width(2, 12).ok();
+    worksheet.set_column_width(3, 12).ok();
+    worksheet.set_column_width(4, 10).ok();
+    worksheet.set_column_width(5, 10).ok();
+
+    // Header format
+    let header_format = Format::new().set_bold();
+
+    // Headers
+    worksheet.write_string_with_format(0, 0, "Variable", &header_format).ok();
+    worksheet.write_string_with_format(0, 1, "Budget", &header_format).ok();
+    worksheet.write_string_with_format(0, 2, "Actual", &header_format).ok();
+    worksheet.write_string_with_format(0, 3, "Variance", &header_format).ok();
+    worksheet.write_string_with_format(0, 4, "Var %", &header_format).ok();
+    worksheet.write_string_with_format(0, 5, "Status", &header_format).ok();
+
+    // Data rows
+    for (i, v) in variances.iter().enumerate() {
+        let row = (i + 1) as u32;
+
+        worksheet.write_string(row, 0, &v.name).ok();
+        worksheet.write_number(row, 1, v.budget).ok();
+        worksheet.write_number(row, 2, v.actual).ok();
+        worksheet.write_number(row, 3, v.variance).ok();
+        worksheet.write_number(row, 4, v.variance_pct / 100.0).ok(); // As decimal for %
+
+        let status = if v.exceeds_threshold && !v.is_favorable {
+            "ALERT - Unfavorable"
+        } else if v.exceeds_threshold {
+            "ALERT - Favorable"
+        } else if v.is_favorable {
+            "Favorable"
+        } else {
+            "Unfavorable"
+        };
+        worksheet.write_string(row, 5, status).ok();
+    }
+
+    // Add metadata row
+    let meta_row = (variances.len() + 3) as u32;
+    worksheet.write_string(meta_row, 0, format!("Threshold: {}%", threshold)).ok();
+    worksheet.write_string(meta_row + 1, 0, "Generated by Forge v2.3.0").ok();
+
+    workbook.save(output).map_err(|e| ForgeError::Export(e.to_string()))?;
+
+    Ok(())
+}
+
+/// Export variance report to YAML
+fn export_variance_to_yaml(
+    output: &Path,
+    variances: &[VarianceResult],
+    threshold: f64,
+) -> ForgeResult<()> {
+    use std::io::Write;
+
+    let mut content = String::new();
+    content.push_str("# Forge Variance Analysis Report\n");
+    content.push_str("# Generated by Forge v2.3.0\n");
+    content.push_str(&format!("# Threshold: {}%\n\n", threshold));
+
+    content.push_str("metadata:\n");
+    content.push_str(&format!("  threshold_pct: {}\n", threshold));
+    content.push_str(&format!("  total_items: {}\n", variances.len()));
+    content.push_str(&format!(
+        "  favorable_count: {}\n",
+        variances.iter().filter(|v| v.is_favorable).count()
+    ));
+    content.push_str(&format!(
+        "  alert_count: {}\n\n",
+        variances.iter().filter(|v| v.exceeds_threshold).count()
+    ));
+
+    content.push_str("variances:\n");
+    for v in variances {
+        content.push_str(&format!("  {}:\n", v.name));
+        content.push_str(&format!("    budget: {}\n", v.budget));
+        content.push_str(&format!("    actual: {}\n", v.actual));
+        content.push_str(&format!("    variance: {}\n", v.variance));
+        content.push_str(&format!("    variance_pct: {:.2}\n", v.variance_pct));
+        content.push_str(&format!("    is_favorable: {}\n", v.is_favorable));
+        content.push_str(&format!("    exceeds_threshold: {}\n", v.exceeds_threshold));
+    }
+
+    let mut file = fs::File::create(output)
+        .map_err(|e| ForgeError::Export(format!("Failed to create file: {}", e)))?;
+    file.write_all(content.as_bytes())
+        .map_err(|e| ForgeError::Export(format!("Failed to write file: {}", e)))?;
+
+    Ok(())
+}
