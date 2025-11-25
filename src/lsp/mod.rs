@@ -10,9 +10,9 @@
 //! This single LSP server powers ALL editor extensions:
 //! VSCode, Zed, vim, emacs, JetBrains, etc.
 
-pub mod server;
 pub mod capabilities;
 pub mod document;
+pub mod server;
 
-pub use server::ForgeLsp;
 pub use server::run_lsp_server;
+pub use server::ForgeLsp;

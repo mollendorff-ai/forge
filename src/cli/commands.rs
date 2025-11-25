@@ -23,7 +23,12 @@ fn format_number(n: f64) -> String {
 }
 
 /// Execute the calculate command
-pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool, scenario: Option<String>) -> ForgeResult<()> {
+pub fn calculate(
+    file: PathBuf,
+    dry_run: bool,
+    verbose: bool,
+    scenario: Option<String>,
+) -> ForgeResult<()> {
     println!("{}", "🔥 Forge - Calculating formulas".bold().green());
     println!("   File: {}", file.display());
     if let Some(ref s) = scenario {
@@ -65,7 +70,10 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool, scenario: Option<S
     if let Some(ref scenario_name) = scenario {
         apply_scenario(&mut model, scenario_name)?;
         if verbose {
-            println!("{}", format!("📊 Applied scenario: {}", scenario_name).cyan());
+            println!(
+                "{}",
+                format!("📊 Applied scenario: {}", scenario_name).cyan()
+            );
         }
     }
 
@@ -207,7 +215,10 @@ struct AuditDependency {
 }
 
 /// Find a variable in the model and return its type, formula, and current value
-fn find_variable(model: &crate::types::ParsedModel, name: &str) -> ForgeResult<(String, Option<String>, Option<f64>)> {
+fn find_variable(
+    model: &crate::types::ParsedModel,
+    name: &str,
+) -> ForgeResult<(String, Option<String>, Option<f64>)> {
     // Check scalars first
     if let Some(scalar) = model.scalars.get(name) {
         let formula = scalar.formula.clone();
@@ -272,12 +283,14 @@ fn build_dependency_tree(
 
                 // Recursively get children
                 if scalar.formula.is_some() {
-                    dep.children = build_dependency_tree(model, &ref_name, &scalar.formula, depth + 1)?;
+                    dep.children =
+                        build_dependency_tree(model, &ref_name, &scalar.formula, depth + 1)?;
                 }
             } else if let Some(agg) = model.aggregations.get(&ref_name) {
                 dep.dep_type = "Aggregation".to_string();
                 dep.formula = Some(agg.clone());
-                dep.children = build_dependency_tree(model, &ref_name, &Some(agg.clone()), depth + 1)?;
+                dep.children =
+                    build_dependency_tree(model, &ref_name, &Some(agg.clone()), depth + 1)?;
             } else {
                 // Check if it's a table column
                 for (table_name, table) in &model.tables {
@@ -303,14 +316,52 @@ fn extract_references_from_formula(formula: &str) -> Vec<String> {
 
     // Known function names to exclude
     let functions = [
-        "SUM", "AVERAGE", "AVG", "MAX", "MIN", "COUNT", "PRODUCT",
-        "SUMIF", "COUNTIF", "AVERAGEIF", "SUMIFS", "COUNTIFS", "AVERAGEIFS",
-        "MAXIFS", "MINIFS", "ROUND", "ROUNDUP", "ROUNDDOWN", "CEILING", "FLOOR",
-        "SQRT", "POWER", "MOD", "ABS", "IF", "AND", "OR", "NOT",
-        "CONCAT", "UPPER", "LOWER", "TRIM", "LEN", "MID",
-        "TODAY", "DATE", "YEAR", "MONTH", "DAY",
-        "MATCH", "INDEX", "XLOOKUP", "VLOOKUP", "IFERROR",
-        "TRUE", "FALSE",
+        "SUM",
+        "AVERAGE",
+        "AVG",
+        "MAX",
+        "MIN",
+        "COUNT",
+        "PRODUCT",
+        "SUMIF",
+        "COUNTIF",
+        "AVERAGEIF",
+        "SUMIFS",
+        "COUNTIFS",
+        "AVERAGEIFS",
+        "MAXIFS",
+        "MINIFS",
+        "ROUND",
+        "ROUNDUP",
+        "ROUNDDOWN",
+        "CEILING",
+        "FLOOR",
+        "SQRT",
+        "POWER",
+        "MOD",
+        "ABS",
+        "IF",
+        "AND",
+        "OR",
+        "NOT",
+        "CONCAT",
+        "UPPER",
+        "LOWER",
+        "TRIM",
+        "LEN",
+        "MID",
+        "TODAY",
+        "DATE",
+        "YEAR",
+        "MONTH",
+        "DAY",
+        "MATCH",
+        "INDEX",
+        "XLOOKUP",
+        "VLOOKUP",
+        "IFERROR",
+        "TRUE",
+        "FALSE",
     ];
 
     for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_') {
@@ -606,7 +657,11 @@ pub fn watch(file: PathBuf, validate_only: bool, verbose: bool) -> ForgeResult<(
         .map_err(|e| ForgeError::Validation(format!("Failed to watch directory: {}", e)))?;
 
     if verbose {
-        println!("   {} {}", "Watching directory:".cyan(), parent_dir.display());
+        println!(
+            "   {} {}",
+            "Watching directory:".cyan(),
+            parent_dir.display()
+        );
     }
 
     // Run initial validation/calculation
@@ -1126,11 +1181,7 @@ fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
     }
 
     println!("{}", "─".repeat(85));
-    println!(
-        "   {} = exceeds {:.0}% threshold",
-        "⚠️".yellow(),
-        threshold
-    );
+    println!("   {} = exceeds {:.0}% threshold", "⚠️".yellow(), threshold);
 }
 
 /// Export variance report to Excel
@@ -1156,12 +1207,24 @@ fn export_variance_to_excel(
     let header_format = Format::new().set_bold();
 
     // Headers
-    worksheet.write_string_with_format(0, 0, "Variable", &header_format).ok();
-    worksheet.write_string_with_format(0, 1, "Budget", &header_format).ok();
-    worksheet.write_string_with_format(0, 2, "Actual", &header_format).ok();
-    worksheet.write_string_with_format(0, 3, "Variance", &header_format).ok();
-    worksheet.write_string_with_format(0, 4, "Var %", &header_format).ok();
-    worksheet.write_string_with_format(0, 5, "Status", &header_format).ok();
+    worksheet
+        .write_string_with_format(0, 0, "Variable", &header_format)
+        .ok();
+    worksheet
+        .write_string_with_format(0, 1, "Budget", &header_format)
+        .ok();
+    worksheet
+        .write_string_with_format(0, 2, "Actual", &header_format)
+        .ok();
+    worksheet
+        .write_string_with_format(0, 3, "Variance", &header_format)
+        .ok();
+    worksheet
+        .write_string_with_format(0, 4, "Var %", &header_format)
+        .ok();
+    worksheet
+        .write_string_with_format(0, 5, "Status", &header_format)
+        .ok();
 
     // Data rows
     for (i, v) in variances.iter().enumerate() {
@@ -1187,10 +1250,16 @@ fn export_variance_to_excel(
 
     // Add metadata row
     let meta_row = (variances.len() + 3) as u32;
-    worksheet.write_string(meta_row, 0, format!("Threshold: {}%", threshold)).ok();
-    worksheet.write_string(meta_row + 1, 0, "Generated by Forge v2.3.0").ok();
+    worksheet
+        .write_string(meta_row, 0, format!("Threshold: {}%", threshold))
+        .ok();
+    worksheet
+        .write_string(meta_row + 1, 0, "Generated by Forge v2.3.0")
+        .ok();
 
-    workbook.save(output).map_err(|e| ForgeError::Export(e.to_string()))?;
+    workbook
+        .save(output)
+        .map_err(|e| ForgeError::Export(e.to_string()))?;
 
     Ok(())
 }

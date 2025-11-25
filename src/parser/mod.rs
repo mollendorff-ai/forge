@@ -233,9 +233,9 @@ fn parse_scenarios(
             let mut scenario = Scenario::new();
 
             for (var_name, var_value) in overrides_map {
-                let var_name_str = var_name
-                    .as_str()
-                    .ok_or_else(|| ForgeError::Parse("Variable name must be a string".to_string()))?;
+                let var_name_str = var_name.as_str().ok_or_else(|| {
+                    ForgeError::Parse("Variable name must be a string".to_string())
+                })?;
 
                 let value = match var_value {
                     Value::Number(n) => n.as_f64().ok_or_else(|| {

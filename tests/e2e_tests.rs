@@ -681,7 +681,9 @@ fn e2e_audit_shows_dependency_tree() {
 
     // Should show dependency tree
     assert!(
-        stdout.contains("Dependency") || stdout.contains("Tree") || stdout.contains("total_gross_profit"),
+        stdout.contains("Dependency")
+            || stdout.contains("Tree")
+            || stdout.contains("total_gross_profit"),
         "Should show dependency tree with total_gross_profit, got: {stdout}"
     );
 }
@@ -790,10 +792,7 @@ fn e2e_watch_help_shows_usage() {
         .output()
         .expect("Failed to execute watch --help");
 
-    assert!(
-        output.status.success(),
-        "watch --help should succeed"
-    );
+    assert!(output.status.success(), "watch --help should succeed");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 

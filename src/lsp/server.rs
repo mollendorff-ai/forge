@@ -244,7 +244,8 @@ impl LanguageServer for ForgeLsp {
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri;
         if let Some(change) = params.content_changes.into_iter().next() {
-            self.documents.insert(uri.clone(), Rope::from_str(&change.text));
+            self.documents
+                .insert(uri.clone(), Rope::from_str(&change.text));
 
             // Validate and publish diagnostics
             let diagnostics = self.validate_document(&uri).await;
@@ -399,60 +400,162 @@ fn extract_word_at_position(line: &str, char_pos: usize) -> Option<String> {
 fn get_forge_functions() -> Vec<(&'static str, &'static str, &'static str)> {
     vec![
         // Aggregation
-        ("SUM", "SUM(number1, [number2], ...)", "Adds all numbers in a range"),
-        ("AVERAGE", "AVERAGE(number1, [number2], ...)", "Returns the average of numbers"),
-        ("COUNT", "COUNT(value1, [value2], ...)", "Counts the number of values"),
-        ("MAX", "MAX(number1, [number2], ...)", "Returns the largest number"),
-        ("MIN", "MIN(number1, [number2], ...)", "Returns the smallest number"),
-        ("PRODUCT", "PRODUCT(number1, [number2], ...)", "Multiplies all numbers"),
-
+        (
+            "SUM",
+            "SUM(number1, [number2], ...)",
+            "Adds all numbers in a range",
+        ),
+        (
+            "AVERAGE",
+            "AVERAGE(number1, [number2], ...)",
+            "Returns the average of numbers",
+        ),
+        (
+            "COUNT",
+            "COUNT(value1, [value2], ...)",
+            "Counts the number of values",
+        ),
+        (
+            "MAX",
+            "MAX(number1, [number2], ...)",
+            "Returns the largest number",
+        ),
+        (
+            "MIN",
+            "MIN(number1, [number2], ...)",
+            "Returns the smallest number",
+        ),
+        (
+            "PRODUCT",
+            "PRODUCT(number1, [number2], ...)",
+            "Multiplies all numbers",
+        ),
         // Conditional
-        ("SUMIF", "SUMIF(range, criteria, [sum_range])", "Sums values that meet criteria"),
-        ("COUNTIF", "COUNTIF(range, criteria)", "Counts values that meet criteria"),
-        ("AVERAGEIF", "AVERAGEIF(range, criteria, [average_range])", "Averages values that meet criteria"),
-        ("SUMIFS", "SUMIFS(sum_range, criteria_range1, criteria1, ...)", "Sums values with multiple criteria"),
-        ("COUNTIFS", "COUNTIFS(criteria_range1, criteria1, ...)", "Counts values with multiple criteria"),
-        ("AVERAGEIFS", "AVERAGEIFS(average_range, criteria_range1, criteria1, ...)", "Averages with multiple criteria"),
-        ("MAXIFS", "MAXIFS(max_range, criteria_range1, criteria1, ...)", "Max with criteria"),
-        ("MINIFS", "MINIFS(min_range, criteria_range1, criteria1, ...)", "Min with criteria"),
-
+        (
+            "SUMIF",
+            "SUMIF(range, criteria, [sum_range])",
+            "Sums values that meet criteria",
+        ),
+        (
+            "COUNTIF",
+            "COUNTIF(range, criteria)",
+            "Counts values that meet criteria",
+        ),
+        (
+            "AVERAGEIF",
+            "AVERAGEIF(range, criteria, [average_range])",
+            "Averages values that meet criteria",
+        ),
+        (
+            "SUMIFS",
+            "SUMIFS(sum_range, criteria_range1, criteria1, ...)",
+            "Sums values with multiple criteria",
+        ),
+        (
+            "COUNTIFS",
+            "COUNTIFS(criteria_range1, criteria1, ...)",
+            "Counts values with multiple criteria",
+        ),
+        (
+            "AVERAGEIFS",
+            "AVERAGEIFS(average_range, criteria_range1, criteria1, ...)",
+            "Averages with multiple criteria",
+        ),
+        (
+            "MAXIFS",
+            "MAXIFS(max_range, criteria_range1, criteria1, ...)",
+            "Max with criteria",
+        ),
+        (
+            "MINIFS",
+            "MINIFS(min_range, criteria_range1, criteria1, ...)",
+            "Min with criteria",
+        ),
         // Logical
-        ("IF", "IF(condition, value_if_true, value_if_false)", "Conditional logic"),
-        ("AND", "AND(logical1, [logical2], ...)", "Returns TRUE if all arguments are TRUE"),
-        ("OR", "OR(logical1, [logical2], ...)", "Returns TRUE if any argument is TRUE"),
+        (
+            "IF",
+            "IF(condition, value_if_true, value_if_false)",
+            "Conditional logic",
+        ),
+        (
+            "AND",
+            "AND(logical1, [logical2], ...)",
+            "Returns TRUE if all arguments are TRUE",
+        ),
+        (
+            "OR",
+            "OR(logical1, [logical2], ...)",
+            "Returns TRUE if any argument is TRUE",
+        ),
         ("NOT", "NOT(logical)", "Reverses logical value"),
-        ("IFERROR", "IFERROR(value, value_if_error)", "Returns alternate value on error"),
-
+        (
+            "IFERROR",
+            "IFERROR(value, value_if_error)",
+            "Returns alternate value on error",
+        ),
         // Math
-        ("ROUND", "ROUND(number, num_digits)", "Rounds to specified digits"),
+        (
+            "ROUND",
+            "ROUND(number, num_digits)",
+            "Rounds to specified digits",
+        ),
         ("ROUNDUP", "ROUNDUP(number, num_digits)", "Rounds up"),
         ("ROUNDDOWN", "ROUNDDOWN(number, num_digits)", "Rounds down"),
-        ("CEILING", "CEILING(number, significance)", "Rounds up to significance"),
-        ("FLOOR", "FLOOR(number, significance)", "Rounds down to significance"),
+        (
+            "CEILING",
+            "CEILING(number, significance)",
+            "Rounds up to significance",
+        ),
+        (
+            "FLOOR",
+            "FLOOR(number, significance)",
+            "Rounds down to significance",
+        ),
         ("SQRT", "SQRT(number)", "Square root"),
         ("POWER", "POWER(number, power)", "Raises to power"),
         ("MOD", "MOD(number, divisor)", "Returns remainder"),
         ("ABS", "ABS(number)", "Absolute value"),
-
         // Text
-        ("CONCAT", "CONCAT(text1, [text2], ...)", "Joins text strings"),
+        (
+            "CONCAT",
+            "CONCAT(text1, [text2], ...)",
+            "Joins text strings",
+        ),
         ("UPPER", "UPPER(text)", "Converts to uppercase"),
         ("LOWER", "LOWER(text)", "Converts to lowercase"),
         ("TRIM", "TRIM(text)", "Removes extra spaces"),
         ("LEN", "LEN(text)", "Returns text length"),
-        ("MID", "MID(text, start_num, num_chars)", "Extracts characters from middle"),
-
+        (
+            "MID",
+            "MID(text, start_num, num_chars)",
+            "Extracts characters from middle",
+        ),
         // Date
         ("TODAY", "TODAY()", "Returns current date"),
         ("DATE", "DATE(year, month, day)", "Creates a date"),
         ("YEAR", "YEAR(date)", "Extracts year"),
         ("MONTH", "MONTH(date)", "Extracts month"),
         ("DAY", "DAY(date)", "Extracts day"),
-
         // Lookup
-        ("MATCH", "MATCH(lookup_value, lookup_array, [match_type])", "Returns position of value"),
-        ("INDEX", "INDEX(array, row_num, [column_num])", "Returns value at position"),
-        ("XLOOKUP", "XLOOKUP(lookup_value, lookup_array, return_array, [if_not_found])", "Modern lookup function"),
-        ("VLOOKUP", "VLOOKUP(lookup_value, table_array, col_index_num, [range_lookup])", "Vertical lookup"),
+        (
+            "MATCH",
+            "MATCH(lookup_value, lookup_array, [match_type])",
+            "Returns position of value",
+        ),
+        (
+            "INDEX",
+            "INDEX(array, row_num, [column_num])",
+            "Returns value at position",
+        ),
+        (
+            "XLOOKUP",
+            "XLOOKUP(lookup_value, lookup_array, return_array, [if_not_found])",
+            "Modern lookup function",
+        ),
+        (
+            "VLOOKUP",
+            "VLOOKUP(lookup_value, table_array, col_index_num, [range_lookup])",
+            "Vertical lookup",
+        ),
     ]
 }
