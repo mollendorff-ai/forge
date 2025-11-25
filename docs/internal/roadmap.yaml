@@ -628,7 +628,7 @@ technical_debt:
     target_date: "2026-Q2+"
     description: "AI Agent Integration + Enterprise Features"
     breaking_changes: true
-    research_basis: "2025 paradigm shift: 'goal setting → AI autonomous planning'. Claude handles 30+ hours autonomous coding."
+    research_basis: "Claude Opus 4.5 (Nov 24, 2025) = 'best model for coding, agents'. MCP enables deep integration."
 
     priority_features:
       mcp_server:
@@ -706,17 +706,35 @@ research_2025:
 
   ai_autonomous_coding_trends:
     source: "Anthropic, GitHub announcements 2025"
+    last_updated: "2025-11-25"
+    breaking_news:
+      claude_opus_4_5:
+        released: "2025-11-24 (YESTERDAY!)"
+        headline: "Claude Opus 4.5 - 'best model in the world for coding, agents, and computer use'"
+        pricing: "$5/M input, $25/M output (was $15/$75 - 67% cheaper!)"
+        context: "200K tokens input, 64K tokens output"
+        benchmarks: "State-of-the-art on SWE-bench Verified, beat all human candidates on performance engineering exam"
+        source: "https://www.anthropic.com/news/claude-opus-4-5"
+      claude_for_excel:
+        status: "NOW GENERALLY AVAILABLE"
+        description: "Claude can understand and edit spreadsheets directly"
+        availability: "Max, Team, Enterprise users"
+        forge_implication: "COMPETITIVE THREAT - but Forge is deterministic, Claude still hallucinates"
+      anthropic_valuation: "$350 billion (Microsoft + Nvidia investments)"
+      market_share: "Anthropic 32% enterprise AI (ahead of OpenAI 25%)"
     key_findings:
-      - "Claude Opus 4 is 'world's best coding model'"
+      - "Claude Opus 4.5 is 'best model in the world for coding' (released Nov 24, 2025)"
       - "Claude Sonnet 4.5 handles 30+ hours autonomous coding"
       - "Paradigm shift: 'goal setting → AI autonomous planning and execution'"
       - "GitHub Copilot agent mode makes multi-file autonomous changes"
       - "MCP (Model Context Protocol) enables agent integration"
       - "GitHub AgentHQ for custom AI agents"
+      - "Claude for Excel now GA - direct spreadsheet manipulation"
     implications:
       - "MCP server would enable Claude Code integration"
       - "Agent-compatible API mode for autonomous workflows"
       - "Forge + AI = deterministic validation layer for AI-generated models"
+      - "Claude for Excel is competition BUT still hallucinates - Forge validates"
 
   yaml_iac_trends:
     source: "IaC and config management research 2025"
