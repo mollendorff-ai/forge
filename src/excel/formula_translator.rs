@@ -85,6 +85,8 @@ impl FormulaTranslator {
                 | "COUNTIFS"
                 | "AVERAGEIF"
                 | "AVERAGEIFS"
+                | "MAXIFS"
+                | "MINIFS"
                 // Logical functions
                 | "IF"
                 | "AND"
@@ -95,6 +97,7 @@ impl FormulaTranslator {
                 | "FALSE"
                 | "IFERROR"
                 | "IFNA"
+                | "CHOOSE"
                 // Math functions
                 | "ABS"
                 | "ROUND"
@@ -102,6 +105,7 @@ impl FormulaTranslator {
                 | "ROUNDDOWN"
                 | "SQRT"
                 | "POW"
+                | "POWER"
                 | "EXP"
                 | "LN"
                 | "LOG"
@@ -113,6 +117,7 @@ impl FormulaTranslator {
                 | "FLOOR"
                 // Text functions
                 | "CONCATENATE"
+                | "CONCAT"
                 | "LEFT"
                 | "RIGHT"
                 | "MID"
@@ -127,6 +132,19 @@ impl FormulaTranslator {
                 | "YEAR"
                 | "MONTH"
                 | "DAY"
+                | "DATEDIF"
+                | "EDATE"
+                | "EOMONTH"
+                // Financial functions
+                | "NPV"
+                | "IRR"
+                | "XNPV"
+                | "XIRR"
+                | "PMT"
+                | "FV"
+                | "PV"
+                | "RATE"
+                | "NPER"
                 // Lookup functions
                 | "VLOOKUP"
                 | "HLOOKUP"
@@ -286,5 +304,103 @@ mod tests {
             .translate_row_formula("revenue - cogs", 2)
             .unwrap();
         assert_eq!(result, "=A2 - B2");
+    }
+
+    #[test]
+    fn test_financial_functions_preserved() {
+        let mut column_map = HashMap::new();
+        column_map.insert("cashflow".to_string(), "A".to_string());
+
+        let translator = FormulaTranslator::new(column_map);
+
+        // Test that NPV, IRR, XNPV, XIRR are preserved as functions (use literals for other args)
+        let result = translator
+            .translate_row_formula("=NPV(0.1, cashflow)", 2)
+            .unwrap();
+        assert!(result.contains("NPV"));
+        assert!(result.contains("A2")); // cashflow translated
+
+        // Test XNPV with literals
+        let result = translator
+            .translate_row_formula("=XNPV(0.1, cashflow, 45000)", 2)
+            .unwrap();
+        assert!(result.contains("XNPV"));
+
+        // Test PMT with literals
+        let result = translator
+            .translate_row_formula("=PMT(0.05, 12, 1000)", 2)
+            .unwrap();
+        assert!(result.contains("PMT"));
+
+        // Test IRR, PV, FV, RATE, NPER
+        let result = translator
+            .translate_row_formula("=IRR(cashflow)", 2)
+            .unwrap();
+        assert!(result.contains("IRR"));
+
+        let result = translator
+            .translate_row_formula("=PV(0.1, 10, 100)", 2)
+            .unwrap();
+        assert!(result.contains("PV"));
+
+        let result = translator
+            .translate_row_formula("=FV(0.1, 10, 100)", 2)
+            .unwrap();
+        assert!(result.contains("FV"));
+    }
+
+    #[test]
+    fn test_date_functions_preserved() {
+        let column_map = HashMap::new();
+        let translator = FormulaTranslator::new(column_map);
+
+        // Test DATEDIF, EDATE, EOMONTH are preserved (use numeric literals only)
+        let result = translator
+            .translate_row_formula("=DATEDIF(45000, 45365, 1)", 2)
+            .unwrap();
+        assert!(result.contains("DATEDIF"));
+
+        let result = translator
+            .translate_row_formula("=EDATE(45000, 3)", 2)
+            .unwrap();
+        assert!(result.contains("EDATE"));
+
+        let result = translator
+            .translate_row_formula("=EOMONTH(45000, 1)", 2)
+            .unwrap();
+        assert!(result.contains("EOMONTH"));
+    }
+
+    #[test]
+    fn test_other_new_functions_preserved() {
+        let column_map = HashMap::new();
+        let translator = FormulaTranslator::new(column_map);
+
+        // Test CHOOSE, MAXIFS, MINIFS, POWER, CONCAT (use numeric literals only)
+        let result = translator
+            .translate_row_formula("=CHOOSE(1, 10, 20, 30)", 2)
+            .unwrap();
+        assert!(result.contains("CHOOSE"));
+
+        let result = translator
+            .translate_row_formula("=POWER(2, 8)", 2)
+            .unwrap();
+        assert!(result.contains("POWER"));
+
+        // CONCAT with numbers to avoid string parsing issues
+        let result = translator
+            .translate_row_formula("=CONCAT(1, 2)", 2)
+            .unwrap();
+        assert!(result.contains("CONCAT"));
+
+        let result = translator
+            .translate_row_formula("=MAXIFS(1, 2, 3)", 2)
+            .unwrap();
+        assert!(result.contains("MAXIFS"));
+
+        let result = translator
+            .translate_row_formula("=MINIFS(1, 2, 3)", 2)
+            .unwrap();
+        assert!(result.contains("MINIFS"));
     }
 }
