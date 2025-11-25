@@ -3,11 +3,11 @@
 # Research-backed priorities based on 2025 financial modeling & data analysis trends
 
 metadata:
-  current_version: "1.2.1"
-  target_version: "1.3.0"
-  last_updated: "2025-11-24"
+  current_version: "1.3.1"
+  target_version: "1.4.0"
+  last_updated: "2025-11-25"
   maintainer: "RoyalBit Inc."
-  notes: "v1.2.1 RELEASED! Documentation improvements with comprehensive test coverage audit. 141 tests passing."
+  notes: "v1.3.1 RELEASED! v0.2.0 scalar model deprecated, documentation cleanup. 112 tests passing (streamlined)."
 
 # Version milestones
 milestones:
@@ -507,81 +507,307 @@ technical_debt:
 
   v1_3_0:
     version: "1.3.0"
+    status: completed
+    released_date: "2025-11-25"
+    description: "Codebase cleanup - deprecated v0.2.0 scalar model"
+    features:
+      - "✅ Deprecated v0.2.0 scalar model (v1.0.0 arrays only)"
+      - "✅ Removed ~2,500 lines of legacy code"
+      - "✅ Streamlined test suite (112 tests, was 141)"
+      - "✅ Documentation reorganization"
+    quality: "ZERO warnings, cleaner codebase"
+
+  v1_4_0:
+    version: "1.4.0"
     status: planned
-    target_date: "2026-Q2"
-    description: "Financial modeling functions + advanced features"
+    target_date: "2025-Q4"
+    description: "GitHub Action + Developer Experience (Research-backed priorities)"
+    research_basis: "2025-11-25 web research on DX trends"
+
     priority_features:
-      - "Financial functions (NPV, IRR, PMT, FV, PV, XNPV, XIRR)"
-      - "Scenario analysis support"
-      - "Data validation rules"
-      - "Custom function definitions"
+      github_action:
+        priority: critical
+        effort: "1 week"
+        rationale: "GitHub Actions has 4M+ organizations (fastest-growing CI/CD). Enterprise adoption enabler."
+        features:
+          - "Validate formulas in PRs automatically"
+          - "Catch formula errors before merge"
+          - "Generate diff reports (value changes)"
+          - "Fail PR if validation errors"
+        example: |
+          - uses: royalbit/forge-action@v1
+            with:
+              files: "**/*.yaml"
+              fail-on-error: true
+
+      watch_mode:
+        priority: high
+        effort: "2-3 days"
+        rationale: "DX research shows 50% productivity boost from deep work. Watch mode eliminates context switching."
+        features:
+          - "forge watch - auto-recalculate on file save"
+          - "Live validation feedback"
+          - "Terminal UI with status updates"
+
+      audit_trail:
+        priority: high
+        effort: "3-4 days"
+        rationale: "Finance tools require audit trails and data lineage. 2/3 of companies now using AI for finance need verification."
+        features:
+          - "forge audit <variable> - show calculation chain"
+          - "Dependency visualization"
+          - "Source tracing for compliance"
+
+    nice_to_have:
+      - "Homebrew formula (brew install forge)"
+      - "Docker image for CI/CD"
+
+  v1_5_0:
+    version: "1.5.0"
+    status: planned
+    target_date: "2026-Q1"
+    description: "VSCode Extension (Research-backed: 73.6% market share)"
+    research_basis: "VSCode used by 73.6% of developers (Stack Overflow 2024). 60,000+ extensions in marketplace."
+
+    priority_features:
+      vscode_extension:
+        priority: critical
+        effort: "2-3 weeks"
+        rationale: "VSCode dominates with 73.6% market share. Real-time validation reduces errors by 50% (IaC research)."
+        features:
+          - "Syntax highlighting for Forge YAML"
+          - "Inline formula evaluation (hover to see calculated values)"
+          - "Error squiggles for invalid formulas (real-time validation)"
+          - "Autocomplete for variable names and functions"
+          - "Formula validation on save"
+          - "Jump to definition (Ctrl+Click on variable)"
+          - "50+ function signature hints"
+        marketplace_strategy: "Target 10K installs in first quarter"
+
+      lsp_foundation:
+        priority: medium
+        rationale: "LSP enables support for vim, emacs, Sublime, JetBrains - broader reach"
+        note: "Build LSP server to power VSCode extension, then release standalone"
+
+  v1_6_0:
+    version: "1.6.0"
+    status: planned
+    target_date: "2026-Q1"
+    description: "Financial Functions (NPV, IRR, PMT) - Complete DCF modeling"
+    research_basis: "CFOs need tools that adapt quickly and deliver ROI. DCF functions essential for financial modeling."
+
+    priority_features:
+      financial_functions:
+        priority: high
+        effort: "1-2 weeks"
+        functions:
+          - "NPV(rate, values) - Net Present Value"
+          - "IRR(values, guess) - Internal Rate of Return"
+          - "XNPV(rate, values, dates) - NPV with irregular dates"
+          - "XIRR(values, dates, guess) - IRR with irregular dates"
+          - "PMT(rate, nper, pv) - Loan payment"
+          - "FV(rate, nper, pmt, pv) - Future Value"
+          - "PV(rate, nper, pmt, fv) - Present Value"
+        use_cases:
+          - "DCF valuation models"
+          - "Loan amortization schedules"
+          - "Investment analysis"
+          - "Startup runway calculations"
+
+      multi_scenario:
+        priority: medium
+        rationale: "Multi-scenario analysis is critical for CFOs (2025 research). Custom scenarios enable what-if modeling."
+        features:
+          - "Named scenarios (base, optimistic, pessimistic)"
+          - "Scenario switching via CLI flag"
+          - "Scenario comparison reports"
 
   v2_0_0:
     version: "2.0.0"
-    status: idea
-    target_date: "2026-Q3+"
-    description: "Ecosystem expansion + enterprise features"
+    status: planned
+    target_date: "2026-Q2+"
+    description: "AI Agent Integration + Enterprise Features"
     breaking_changes: true
+    research_basis: "2025 paradigm shift: 'goal setting → AI autonomous planning'. Claude handles 30+ hours autonomous coding."
+
     priority_features:
-      - "Multi-user collaboration"
-      - "Version control integration"
-      - "API server mode"
-      - "Plugin system"
+      mcp_server:
+        priority: critical
+        rationale: "MCP (Model Context Protocol) enables Claude Code integration. Agentic tools are transforming dev workflows."
+        features:
+          - "Forge as MCP server for Claude Code"
+          - "AI agents can validate formulas autonomously"
+          - "Natural language formula queries"
+          - "Agent-driven model updates"
+        example: "Claude: 'Validate all formulas in the Q4 forecast' → Forge MCP validates and reports"
+
+      api_server_mode:
+        priority: high
+        rationale: "Enterprise teams need API access for integration with existing tools"
+        features:
+          - "forge serve - HTTP API mode"
+          - "REST endpoints for validate, calculate, export"
+          - "WebSocket for real-time updates"
+          - "Authentication and rate limiting"
+
+      policy_as_code:
+        priority: medium
+        rationale: "Policy-as-Code using YAML is 2025 trend. Finance teams need guardrails."
+        features:
+          - "Define validation rules in YAML"
+          - "Enforce organizational policies (e.g., no negative margins)"
+          - "Custom validation functions"
+          - "Compliance reporting"
+
+      collaboration:
+        priority: medium
+        features:
+          - "Multi-user editing support"
+          - "Change tracking and audit log"
+          - "Role-based access control"
+          - "Integration with Teams/Slack"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🔬 2025 MARKET RESEARCH (Updated 2025-11-25)
+# ═══════════════════════════════════════════════════════════════════════════════
+research_2025:
+  last_updated: "2025-11-25"
+  methodology: "Web search for 2025 trends in financial modeling, DX, AI coding, YAML/IaC"
+
+  financial_modeling_trends:
+    source: "Multiple 2025 industry reports"
+    key_findings:
+      - "2/3 of companies piloting or using AI for accounting and financial planning"
+      - "CFOs need tools that adapt quickly, scale easily, deliver real ROI"
+      - "Excel struggles with 1M+ rows - dedicated tools needed"
+      - "Multi-scenario analysis is critical for modern CFOs"
+      - "Audit trails and data lineage are essential for compliance"
+      - "Integration with ERPs, CRMs, HRIS is highly valued"
+    competitors:
+      - "Quantrix - multi-dimensional modeling for enterprise"
+      - "Causal - natural language variables, web-based"
+      - "Cube - Excel integration, multi-scenario"
+      - "Datarails - centralizes scattered spreadsheets"
+      - "Planful - continuous planning platform"
+    forge_differentiator: "YAML-native, Git-friendly, deterministic (no AI hallucinations), open source"
+
+  developer_experience_trends:
+    source: "Stack Overflow 2024, DX research 2025"
+    key_findings:
+      - "GitHub Actions: 4M+ organizations, fastest-growing CI/CD"
+      - "VSCode: 73.6% market share (nearest competitor 30%)"
+      - "68% of developers use AI tools for coding tasks"
+      - "50% productivity boost from deep work (minimize context switching)"
+      - "GitHub CLI (gh) widely adopted - command line is standard"
+    implications:
+      - "GitHub Action is critical for enterprise adoption"
+      - "VSCode extension is essential (73.6% reach)"
+      - "Watch mode enables deep work"
+
+  ai_autonomous_coding_trends:
+    source: "Anthropic, GitHub announcements 2025"
+    key_findings:
+      - "Claude Opus 4 is 'world's best coding model'"
+      - "Claude Sonnet 4.5 handles 30+ hours autonomous coding"
+      - "Paradigm shift: 'goal setting → AI autonomous planning and execution'"
+      - "GitHub Copilot agent mode makes multi-file autonomous changes"
+      - "MCP (Model Context Protocol) enables agent integration"
+      - "GitHub AgentHQ for custom AI agents"
+    implications:
+      - "MCP server would enable Claude Code integration"
+      - "Agent-compatible API mode for autonomous workflows"
+      - "Forge + AI = deterministic validation layer for AI-generated models"
+
+  yaml_iac_trends:
+    source: "IaC and config management research 2025"
+    key_findings:
+      - "60% of companies report config files cause deployment failures"
+      - "Strong type checking reduces misconfig bugs by 30%"
+      - "Advanced validation tools reduce errors by 50%"
+      - "AI-driven automation to predict/prevent config errors"
+      - "Policy-as-Code using YAML is emerging trend"
+      - "Multi-cloud standardization on YAML format"
+    implications:
+      - "Forge's type-safe arrays align with 2025 trends"
+      - "Real-time validation (VSCode) is high value"
+      - "Policy-as-Code could be v2.0 feature"
 
 # Community and ecosystem
 ecosystem:
-  vscode_extension:
-    status: planned
-    priority: high
-    version: "1.2.0"
-    effort: "2-3 weeks"
-    description: "VSCode extension for Forge YAML files"
-    features:
-      - "Syntax highlighting for Forge YAML"
-      - "Inline formula evaluation (show calculated values)"
-      - "Error squiggles for invalid formulas"
-      - "Autocomplete for variable names"
-      - "Formula validation on save"
-      - "Jump to definition (Ctrl+Click on variable)"
-    value_proposition: "Makes Forge a first-class citizen in developer workflows"
-    community_impact: "High - VSCode is most popular editor (70%+ market share)"
-
   github_action:
     status: planned
-    priority: high
-    version: "1.2.0"
+    priority: critical
+    version: "1.4.0"
     effort: "1 week"
     description: "GitHub Action for CI/CD validation"
+    research_backing: "GitHub Actions has 4M+ organizations - fastest growing CI/CD (2025)"
     features:
       - "Validate formulas in PRs"
       - "Catch formula errors before merge"
-      - "Run tests on YAML changes"
       - "Generate diff reports (value changes)"
+      - "Configurable strictness levels"
     use_cases:
       - "Team collaboration on financial models"
       - "Prevent breaking changes"
-      - "Automated testing"
+      - "Automated testing in CI/CD"
     example_usage: |
       - uses: royalbit/forge-action@v1
         with:
-          validate: true
-          test: true
-    community_impact: "Medium-High - Enterprise adoption enabler"
+          files: "**/*.yaml"
+          fail-on-error: true
+    community_impact: "CRITICAL - Enterprise adoption enabler"
+
+  vscode_extension:
+    status: planned
+    priority: critical
+    version: "1.5.0"
+    effort: "2-3 weeks"
+    description: "VSCode extension for Forge YAML files"
+    research_backing: "VSCode: 73.6% market share (Stack Overflow 2024). Real-time validation reduces errors 50%."
+    features:
+      - "Syntax highlighting for Forge YAML"
+      - "Inline formula evaluation (hover to see calculated values)"
+      - "Error squiggles for invalid formulas (real-time)"
+      - "Autocomplete for variable names and 50+ functions"
+      - "Formula validation on save"
+      - "Jump to definition (Ctrl+Click on variable)"
+      - "Function signature hints"
+    value_proposition: "Makes Forge first-class in developer workflows"
+    community_impact: "CRITICAL - 73.6% of developers use VSCode"
+    marketplace_target: "10K installs in first quarter"
 
   language_server_protocol:
     status: planned
-    priority: medium
-    version: "1.3.0"
-    effort: "3-4 weeks"
+    priority: high
+    version: "1.5.0"
+    effort: "Built into VSCode extension, standalone later"
     description: "LSP server for Forge (powers VSCode + other editors)"
     features:
-      - "Universal editor support (vim, emacs, Sublime, etc.)"
+      - "Universal editor support (vim, emacs, Sublime, JetBrains)"
       - "Hover documentation"
       - "Go to definition"
       - "Find references"
       - "Rename refactoring"
     dependencies: ["vscode_extension"]
-    note: "Extract common logic from VSCode extension into LSP server"
+    note: "Build LSP core for VSCode extension, release standalone for v1.6.0"
+
+  mcp_server:
+    status: planned
+    priority: high
+    version: "2.0.0"
+    effort: "2-3 weeks"
+    description: "Model Context Protocol server for AI agent integration"
+    research_backing: "MCP enables Claude Code integration. 2025 paradigm shift to autonomous AI agents."
+    features:
+      - "Forge as MCP server for Claude Code"
+      - "AI agents can validate formulas autonomously"
+      - "Natural language formula queries"
+      - "Agent-driven model updates"
+    use_cases:
+      - "Claude: 'Validate Q4 forecast' → Forge validates"
+      - "Copilot agent mode integration"
+      - "Automated financial model auditing"
+    community_impact: "HIGH - Enables AI-native workflows"
 
   web_ui:
     status: idea
