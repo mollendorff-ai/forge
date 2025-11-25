@@ -173,7 +173,10 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
     println!();
     if mismatches.is_empty() {
         println!("{}", "✅ All tables are valid!".bold().green());
-        println!("{}", "✅ All scalar values match their formulas!".bold().green());
+        println!(
+            "{}",
+            "✅ All scalar values match their formulas!".bold().green()
+        );
         Ok(())
     } else {
         println!(
