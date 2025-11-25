@@ -26,6 +26,12 @@
 | [07-TESTING-ARCHITECTURE](07-TESTING-ARCHITECTURE.md) | Test strategy, 170 tests breakdown | ~1,600 | ✅ Complete |
 | [08-API-SERVER-ARCHITECTURE](08-API-SERVER-ARCHITECTURE.md) | HTTP REST API, Axum server, endpoints | ~400 | ✅ Complete |
 
+### Architecture Decision Records (ADRs)
+
+| ADR | Title | Status |
+|-----|-------|--------|
+| [ADR-001](ADR-001-NO-GRPC.md) | HTTP REST Over gRPC | Accepted |
+
 **Total:** ~13,000+ lines of comprehensive architecture documentation
 
 ---
