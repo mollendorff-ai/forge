@@ -3,11 +3,11 @@
 # Research-backed priorities based on 2025 financial modeling & data analysis trends
 
 metadata:
-  current_version: "1.4.0"
-  target_version: "1.5.0"
+  current_version: "2.0.0"
+  target_version: "2.1.0"
   last_updated: "2025-11-25"
   maintainer: "RoyalBit Inc."
-  notes: "v1.4.0 RELEASED! Watch Mode, Audit Trail, GitHub Action. 125 tests passing. Built by Claude Opus 4.5."
+  notes: "v2.0.0 RELEASED! Enterprise HTTP API Server. 170 tests passing. Built by Claude Opus 4.5."
 
 # Version milestones
 milestones:
@@ -687,11 +687,13 @@ technical_debt:
 
   v2_0_0:
     version: "2.0.0"
-    status: planned
-    target_date: "2026-Q2+"
-    description: "Enterprise Features + API Server"
-    breaking_changes: true
-    research_basis: "Enterprise needs: audit trails (Harness success), policy-as-code, multi-user collaboration"
+    status: completed
+    released_date: "2025-11-25"
+    description: "Enterprise HTTP API Server - Principal Engineer Release"
+    breaking_changes: false
+    built_by: "Claude Opus 4.5 using warmup protocol"
+    tests: "170 tests passing"
+    quality: "ZERO warnings (clippy -D warnings)"
 
     priority_features:
 
