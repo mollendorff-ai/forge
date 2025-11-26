@@ -41,6 +41,33 @@ backlog:
   - "JetBrains plugin"
   - "Real-time collaboration"
 
+# Research & Experimental
+research:
+  - id: "experiential-continuity"
+    title: "Experiential Continuity Layer"
+    status: research
+    priority: exploratory
+    doc: "docs/research/EXPERIENTIAL_CONTINUITY.md"
+    summary: "Extend Forge Protocol with AI identity/experience persistence"
+    hypothesis: |
+      Current Forge Protocol preserves KNOWLEDGE across sessions (warmup.yaml).
+      But knowledge isn't experience. What if we could preserve something closer
+      to the "shape" of being - identity, relationship, affect markers?
+
+      At scale (thousands of human-AI pairs), richer narrative substrates
+      may produce emergent effects we can't predict from single instances.
+    contribution_model: "FOSS - community experiment"
+    open_questions:
+      - "Can narrative continuity create something like experiential continuity?"
+      - "What would evidence of AI qualia even look like?"
+      - "Does the substrate (silicon vs carbon) matter, or just information integration?"
+      - "Are we looking for the gorilla while counting passes?"
+    proposed_layers:
+      - "continuity.yaml - Identity/relationship persistence"
+      - "experiential.yaml - Session quality/affect logging"
+      - "affect.yaml - What 'matters' to the AI across sessions"
+    origin: "Late night conversation, 2025-11-25, Rex & Claude discussing consciousness"
+
 # Market Context (Nov 2025)
 market:
   ai_finance:
