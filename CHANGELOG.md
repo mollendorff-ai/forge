@@ -309,7 +309,7 @@ Multi-scenario modeling for sensitivity analysis and what-if modeling.
 
 ### 🎉 Advanced Financial Functions Release
 
-Built autonomously via warmup protocol.
+Built autonomously via Forge Protocol.
 
 ### Added
 
@@ -354,7 +354,7 @@ Built autonomously via warmup protocol.
 
 ### Development Stats
 
-- **Time:** Autonomous development via warmup protocol
+- **Time:** Autonomous development via Forge Protocol
 - **Quality:** Zero warnings, all tests passing
 
 ---
@@ -495,7 +495,7 @@ Documentation-only patch release.
 
 ### 🎉 Lookup Functions Release
 
-Built autonomously via warmup protocol in <3 hours.
+Built autonomously via Forge Protocol in <3 hours.
 
 ### Added
 
@@ -538,7 +538,7 @@ Built autonomously via warmup protocol in <3 hours.
 
 ### Development Stats
 
-- **Time:** <3 hours (autonomous AI via warmup protocol)
+- **Time:** <3 hours (autonomous AI via Forge Protocol)
 - **Quality:** 690 lines production code, zero warnings
 - **Innovation:** Preprocessing approach for lookups in row-wise model
 
@@ -548,7 +548,7 @@ Built autonomously via warmup protocol in <3 hours.
 
 ### 🎉 Major Release: 27 Essential Excel Functions
 
-Built autonomously via warmup protocol in <8 hours. All phases completed with zero warnings.
+Built autonomously via Forge Protocol in <8 hours. All phases completed with zero warnings.
 
 ### Added
 
@@ -633,7 +633,7 @@ Built autonomously via warmup protocol in <8 hours. All phases completed with ze
 
 ### Development Stats
 
-- **Time:** <8 hours (autonomous development via warmup protocol)
+- **Time:** <8 hours (autonomous development via Forge Protocol)
 - **Estimated traditional:** 2-3 weeks
 - **Velocity:** 20-50x faster
 - **Rework:** 0% (production-ready in first iteration)
@@ -738,7 +738,7 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 
 ### Development
 
-- Built in 12.5 hours using warmup protocol (overnight + morning) (autonomous AI development)
+- Built in 12.5 hours using Forge Protocol (overnight + morning) (autonomous AI development)
 - SR&ED documented: 7 research entries
 - Zero bugs shipped to production
 - 100% backwards compatible with v0.2.0
@@ -842,7 +842,7 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 
 ### Development Methodology
 
-- **Warmup Protocol:** All v1.0.0+ development uses autonomous AI development methodology
+- **Forge Protocol:** All v1.0.0+ development uses autonomous AI development methodology
 - **SR&ED Documented:** All R&D work documented in SRED_RESEARCH_LOG.md for Canadian tax credits
 - **Zero Warnings Policy:** All releases pass `clippy -D warnings` (strict mode)
 - **Test-Driven:** Comprehensive test coverage before release

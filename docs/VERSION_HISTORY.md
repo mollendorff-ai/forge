@@ -29,7 +29,7 @@ Archived version details from roadmap.yaml. For current roadmap, see [roadmap.ya
 - **Total development time**: ~40 hours autonomous
 - **Tests**: 183 passing
 - **Warnings**: ZERO (clippy -D warnings)
-- **Built by**: Claude AI using warmup protocol
+- **Built by**: Claude AI using Forge Protocol
 
 ## v1.0.0 - Array Model (2025-11-23)
 

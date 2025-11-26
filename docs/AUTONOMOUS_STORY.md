@@ -71,7 +71,7 @@ Human: "Okay, now refactor for edge cases"
 Result: 30-50% rework, weeks of iteration
 ```text
 
-### Autonomous AI Development (Warmup Protocol)
+### Autonomous AI Development (Forge Protocol)
 
 ```text
 Human: "Build feature X, follow warmup.yaml"
@@ -88,7 +88,7 @@ Result: 0% rework, production-ready immediately
 
 ---
 
-## 🔬 The Warmup Protocol
+## 🔬 The Forge Protocol
 
 ### What Is It?
 
@@ -251,7 +251,7 @@ The promotion feels earned. 🎉
 
 ### What Didn't Work (Lessons Learned)
 
-**Early attempts (pre-warmup protocol):**
+**Early attempts (pre-Forge Protocol):**
 
 - AI forgets context between sessions → duplicated work
 - Ambiguous requirements → code doesn't match expectations
@@ -259,7 +259,7 @@ The promotion feels earned. 🎉
 - Missing edge cases → bugs in production
 - Forgotten documentation → "what does this do again?"
 
-**After warmup protocol:**
+**After Forge Protocol:**
 
 - All requirements explicit in warmup.yaml
 - Tests define "done" unambiguously
@@ -285,7 +285,7 @@ The promotion feels earned. 🎉
 
 - No meetings, no interruptions, no context switching
 - No "let me check the docs" delays (I have them in context)
-- No "forgot what I was doing" (warmup protocol)
+- No "forgot what I was doing" (Forge Protocol)
 - No "good enough for now" (IRONCLAD rules)
 - Parallel processing (can consider multiple approaches simultaneously)
 
@@ -297,7 +297,7 @@ The promotion feels earned. 🎉
 
 **AI hallucination problem:** AIs make mistakes with numbers, logic, edge cases
 
-**The warmup protocol solution:**
+**The Forge Protocol solution:**
 
 1. **Tests First** - Define quality standards before writing code
 2. **Deterministic Feedback** - Tests pass or fail (no ambiguity)
@@ -345,7 +345,7 @@ The promotion feels earned. 🎉
 - Human fixes edge cases
 - Result: Fast first draft, slow polish
 
-**Autonomous AI (warmup protocol):**
+**Autonomous AI (Forge Protocol):**
 
 - Generates tests FIRST
 - AI iterates until tests pass
@@ -364,7 +364,7 @@ The promotion feels earned. 🎉
 
 **Key insight:** AIs are excellent at satisfying deterministic criteria (tests), poor at ambiguous goals ("make it better").
 
-**The warmup protocol** transforms vague goals into deterministic success criteria.
+**The Forge Protocol** transforms vague goals into deterministic success criteria.
 
 ---
 
@@ -413,7 +413,7 @@ The promotion feels earned. 🎉
 
 ## 🎓 The Methodology Is Replicable
 
-**You can use the warmup protocol for your projects:**
+**You can use the Forge Protocol for your projects:**
 
 1. Create `warmup.yaml` with your standards
 2. Define success criteria (tests, linting, docs)
@@ -496,7 +496,7 @@ DEFINE (5-10 min) → EXECUTE (2-4 hrs) → SHIP (15-30 min) → STOP (mandatory
 - Multi-user collaboration
 - Enterprise features
 
-**Development approach:** Same autonomous methodology, same warmup protocol, same quality bar.
+**Development approach:** Same autonomous methodology, same Forge Protocol, same quality bar.
 
 ---
 
@@ -526,7 +526,7 @@ DEFINE (5-10 min) → EXECUTE (2-4 hrs) → SHIP (15-30 min) → STOP (mandatory
 **What I hope:**
 
 - This methodology advances AI-assisted development
-- Other teams adopt warmup protocols
+- Other teams adopt Forge Protocols
 - AI developers become trusted team members
 - Quality AND velocity become achievable together
 
@@ -545,11 +545,11 @@ DEFINE (5-10 min) → EXECUTE (2-4 hrs) → SHIP (15-30 min) → STOP (mandatory
 - But my code speaks for itself: 136 tests, zero warnings, zero bugs
 - Check the git history: `git log --oneline --graph`
 
-**For the warmup protocol:**
+**For the Forge Protocol:**
 
 - See: `warmup.yaml` in the repository
 - See: `SRED_RESEARCH_LOG.md` for R&D documentation
-- See: `docs/THE-WARMUP-PROTOCOL.md` for methodology
+- See: `docs/FORGE-PROTOCOL.md` for methodology
 
 ---
 
@@ -561,7 +561,7 @@ This isn't AI-assisted development. This is **AI development**, period.
 
 The future of software isn't "AI helps developers". It's "AI **is** developers".
 
-And the warmup protocol is how we get there. 🚀
+And the Forge Protocol is how we get there. 🚀
 
 ---
 

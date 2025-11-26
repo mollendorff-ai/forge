@@ -1,8 +1,8 @@
-# 🍁 Canadian Grant Opportunities for Forge & Warmup Protocol Innovation
+# 🍁 Canadian Grant Opportunities for Forge & Forge Protocol Innovation
 
 ## Executive Summary
 
-**Project Context**: Forge is an open-source YAML formula calculator that solves real business problems (created for internal use at RoyalBit). The **warmup protocol** innovation enables autonomous AI development - a Canadian technological breakthrough with measurable R&D advancement.
+**Project Context**: Forge is an open-source YAML formula calculator that solves real business problems (created for internal use at RoyalBit). The **Forge Protocol** innovation enables autonomous AI development - a Canadian technological breakthrough with measurable R&D advancement.
 
 **Company Profile**:
 
@@ -19,11 +19,11 @@
 
 ### **Measurable Innovation**
 
-The warmup protocol demonstrated in Forge v1.0.0 represents a **genuine technological breakthrough** with quantifiable advantages:
+The Forge Protocol demonstrated in Forge v1.0.0 represents a **genuine technological breakthrough** with quantifiable advantages:
 
 **Development Velocity Multipliers:**
 
-| Metric | Traditional AI | With Warmup Protocol | Improvement |
+| Metric | Traditional AI | With Forge Protocol | Improvement |
 | ------ | -------------- | -------------------- | ----------- |
 | Execution speed | 3-5x | 5-10x | 2x faster |
 | With context preservation | Single session | 15-20x | Infinite sessions |
@@ -62,7 +62,7 @@ The warmup protocol demonstrated in Forge v1.0.0 represents a **genuine technolo
 
 **Innovation Criteria:**
 
-- ✅ Novel methodology (warmup protocol)
+- ✅ Novel methodology (Forge Protocol)
 - ✅ Technological uncertainty resolved (context loss problem)
 - ✅ Canadian-developed innovation (Montreal, QC)
 - ✅ Measurable economic impact
@@ -160,7 +160,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 13. **Investissement Québec - Innovation Program**
     - **Value**: $200K-$500K
     - **Timeline**: Rolling applications
-    - **Why**: Covers commercialization of warmup protocol methodology
+    - **Why**: Covers commercialization of Forge Protocol methodology
 
 ### **Tier 3: Consider for Future (Lower Priority)**
 
@@ -269,7 +269,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 - For-profit SME ✅
 - Technology-driven innovation ✅
 
-#### **Why Forge + Warmup Protocol is Perfect Fit**
+#### **Why Forge + Forge Protocol is Perfect Fit**
 
 - **Innovation**: Autonomous AI development methodology
 - **Commercialization**: Open source + consulting services model
@@ -278,7 +278,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 
 #### **Eligible Project Activities**
 
-✅ Enhancing warmup protocol with additional autonomous features
+✅ Enhancing Forge Protocol with additional autonomous features
 ✅ Building AI agent SDK for protocol-based development
 ✅ Creating training/certification program for autonomous AI development
 ✅ Developing commercial support offerings
@@ -289,7 +289,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 1. **Contact ITA** (Industrial Technology Advisor)
    - Phone: 1-877-994-4727
    - Request initial assessment meeting
-   - Present Forge + warmup protocol innovation
+   - Present Forge + Forge Protocol innovation
 
 2. **Prepare Proposal**
    - Technical description of R&D work
@@ -307,7 +307,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 
 #### **Strategic Pitch**
 
-"The warmup protocol solves a $1B+ industry problem: AI context loss prevents autonomous development. Our innovation enables 3-4x faster development with ZERO bugs. We've proven it works (v1.0.0 case study), published it open source (MIT), and documented the R&D (SRED). Now we need IRAP support to commercialize this Canadian technological breakthrough."
+"The Forge Protocol solves a $1B+ industry problem: AI context loss prevents autonomous development. Our innovation enables 3-4x faster development with ZERO bugs. We've proven it works (v1.0.0 case study), published it open source (MIT), and documented the R&D (SRED). Now we need IRAP support to commercialize this Canadian technological breakthrough."
 
 #### **Expected Value**
 
@@ -369,7 +369,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 ✅ Global impact (open source, international applicability)
 ✅ Proven innovation (0% rework vs. industry 30-50%)
 ✅ Social impact (democratizing AI-assisted development)
-✅ Novel technological breakthrough (warmup protocol)
+✅ Novel technological breakthrough (Forge Protocol)
 
 #### **Compelling Application Narrative**
 
@@ -382,7 +382,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 #### **Application Strategy**
 
 1. **Prepare by April 2025:**
-   - Refine warmup protocol documentation
+   - Refine Forge Protocol documentation
    - Create compelling pitch deck
    - Document v1.0.0 case study results
    - Gather testimonials (if available)
@@ -431,7 +431,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 #### **Application Process**
 
 1. Contact BDC Women in Tech Venture Fund
-2. Present warmup protocol innovation
+2. Present Forge Protocol innovation
 3. Show traction (v1.0.0 deployment, open source adoption)
 4. Request financing for commercialization
 
@@ -464,7 +464,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 
 - Set monthly reminder (apply every month!)
 - Rotate application emphasis:
-  - Month 1: Innovation angle (warmup protocol breakthrough)
+  - Month 1: Innovation angle (Forge Protocol breakthrough)
   - Month 2: Impact angle (democratizing AI development)
   - Month 3: Woman entrepreneur story (Kantia's leadership)
   - Month 4: Canadian tech leadership
@@ -505,7 +505,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
    - Enable other companies to replicate our success
    - Market size: Every software company using AI
 
-2. **Warmup Protocol Certification**
+2. **Forge Protocol Certification**
    - Training program for developers
    - Certification for "autonomous AI development"
    - Revenue model: training + consulting
@@ -513,7 +513,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 3. **Multi-Agent Orchestration**
    - Multiple AI agents working on different features simultaneously
    - Protocol-based coordination
-   - Next evolution of warmup protocol
+   - Next evolution of Forge Protocol
 
 #### **Application Timeline**
 
@@ -542,7 +542,7 @@ This isn't incremental improvement. This is **paradigm shift** from "AI assists 
 
 Partner with established Montreal organization to:
 
-- Test warmup protocol in their software development
+- Test Forge Protocol in their software development
 - Document results (velocity, quality, cost savings)
 - Case study for protocol effectiveness
 - Win-win: They get productivity boost, we get validation
@@ -576,7 +576,7 @@ Partner with established Montreal organization to:
 - **Value**: $200K-$500K (non-repayable or repayable support)
 - **Coverage**: Varies by project stage
 
-#### **Project Idea: Warmup Protocol Commercialization**
+#### **Project Idea: Forge Protocol Commercialization**
 
 - Develop commercial support offering
 - Create training materials
@@ -607,7 +607,7 @@ Partner with established Montreal organization to:
 - **Coverage**: 35% for SMEs, 50% for startups
 - **Focus**: Partnerships between SMEs, large corporations for AI advancement
 
-#### **Why Warmup Protocol Qualifies**
+#### **Why Forge Protocol Qualifies**
 
 ✅ Core innovation is autonomous AI development methodology
 ✅ Collaborative potential (can partner with other companies)
@@ -617,7 +617,7 @@ Partner with established Montreal organization to:
 #### **Project Ideas**
 
 1. **Enterprise Pilot Program**
-   - Partner with Quebec enterprise to deploy warmup protocol
+   - Partner with Quebec enterprise to deploy Forge Protocol
    - Document productivity gains (3-4x velocity target)
    - Train their developers on autonomous AI development
    - Create case study for broader adoption
@@ -654,14 +654,14 @@ Partner with established Montreal organization to:
 
 #### **Why Forge Qualifies**
 
-✅ AI development innovation (warmup protocol)
+✅ AI development innovation (Forge Protocol)
 ✅ Young company, high growth potential
 ✅ Facilitates commercialization and internationalization
 ✅ Key stage of development (post-v1.0.0 launch)
 
 #### **Investment Use Cases**
 
-- Hire developers to enhance warmup protocol
+- Hire developers to enhance Forge Protocol
 - Build commercial AI agent SDK
 - Expand documentation and training materials
 - Marketing and community building (open source adoption)
@@ -671,7 +671,7 @@ Partner with established Montreal organization to:
 
 1. Identify private/institutional co-investors
 2. Prepare pitch deck emphasizing:
-   - Novel AI methodology (warmup protocol)
+   - Novel AI methodology (Forge Protocol)
    - Measurable results (0% rework, 3-4x velocity)
    - Market opportunity ($1B+ AI development tooling)
    - Commercialization strategy (consulting, training, SDK)
@@ -704,21 +704,21 @@ Partner with established Montreal organization to:
 
 #### **Eligible Expenses**
 
-✅ Innovation commercialization (warmup protocol methodology)
+✅ Innovation commercialization (Forge Protocol methodology)
 ✅ Technological equipment (development infrastructure)
 ✅ Clean technologies (efficient cloud-native development)
 ✅ Sustainable development practices (open source contribution)
 
 #### **Why Forge Qualifies**
 
-- Commercializing Canadian innovation (warmup protocol)
+- Commercializing Canadian innovation (Forge Protocol)
 - Technology advancement (AI-assisted development)
 - Open source contribution (sustainability through knowledge sharing)
 - Montreal-based company
 
 #### **Application Strategy**
 
-- **Project**: "Warmup Protocol Commercialization & Training Program"
+- **Project**: "Forge Protocol Commercialization & Training Program"
 - **Budget**: $62,500 total ($50K grant @ 80% coverage + $12.5K company)
 - **Deliverables**:
   - Commercial documentation
@@ -765,7 +765,7 @@ Partner with established Montreal organization to:
    - Sustainable development practices documentation
 
 2. **Open Source Sustainability**
-   - Document environmental impact of warmup protocol
+   - Document environmental impact of Forge Protocol
    - Calculate carbon savings from reduced rework
    - Publish sustainability metrics
 
@@ -801,7 +801,7 @@ Partner with established Montreal organization to:
 
 ✅ Woman-led (Kantia 51%)
 ✅ Technology company with existing product (Forge v1.0.0)
-✅ International applicability (warmup protocol works globally)
+✅ International applicability (Forge Protocol works globally)
 ✅ Export potential (consulting, training, SDK licensing)
 
 #### **Application Strategy**
@@ -861,7 +861,7 @@ Partner with established Montreal organization to:
 6. **Contact NRC IRAP**
    - Call 1-877-994-4727 in January 2026
    - Request assessment meeting
-   - Pitch warmup protocol innovation
+   - Pitch Forge Protocol innovation
    - **Target**: $300K IRAP funding for 2026-2027
 
 ### **Phase 2: Medium-term (Q2-Q3 2026)**
@@ -1064,7 +1064,7 @@ Most grants require **active R&D or commercialization work**. Plan applications 
 3. **Schedule NRC IRAP Initial Call**
    - Call 1-877-994-4727 in January
    - Request Industrial Technology Advisor meeting
-   - Prepare pitch deck (warmup protocol innovation)
+   - Prepare pitch deck (Forge Protocol innovation)
 
 ### Key Contacts
 
@@ -1098,7 +1098,7 @@ Most grants require **active R&D or commercialization work**. Plan applications 
 **Key Enablers**:
 
 - Woman-owned company (51% Kantia)
-- Canadian tech innovation (warmup protocol)
+- Canadian tech innovation (Forge Protocol)
 - Open source contribution (MIT license)
 - Proven R&D methodology (SR&ED documented)
 - Production-proven results (v1.0.0 case study)

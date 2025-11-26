@@ -1111,7 +1111,7 @@ Function preprocessing layer that evaluates unsupported functions BEFORE xlformu
 - **Unit Tests:** 86 (was 54) = 59% increase
 - **Warnings:** ZERO (clippy strict mode -D warnings)
 - **Performance:** <200ms for complex models (no regression)
-- **Development Time:** <8 hours (autonomous via warmup protocol)
+- **Development Time:** <8 hours (autonomous via Forge Protocol)
 
 ✅ **Technical Achievements:**
 
@@ -1447,7 +1447,7 @@ This is a **novel methodology with measurable technological advancement** that c
 
 ### 🔬 Hypothesis
 
-A structured "warmup protocol" (YAML-based context document) can enable AI to:
+A structured "Forge Protocol" (YAML-based context document) can enable AI to:
 
 - Maintain perfect context across 30+ sessions
 - Work autonomously for 2+ weeks
@@ -1489,7 +1489,7 @@ A structured "warmup protocol" (YAML-based context document) can enable AI to:
 - Human reviews and corrects
 - Quality maintained through oversight
 
-**Experimental Group** (Autonomous AI with warmup protocol):
+**Experimental Group** (Autonomous AI with Forge Protocol):
 
 - Human provides high-level goal once
 - AI reads warmup.yaml each session
@@ -1639,7 +1639,7 @@ A structured "warmup protocol" (YAML-based context document) can enable AI to:
 ✅ Novel methodology (structured protocol for autonomous AI)
 ✅ Measurable improvement (3-4x velocity, 0% rework vs. industry 30-50%)
 ✅ Broader applicability (works for any software project)
-✅ Published innovation (open source, warmup.yaml + THE-WARMUP-PROTOCOL.md)
+✅ Published innovation (open source, warmup.yaml + FORGE-PROTOCOL.md)
 
 **Economic Benefit**:
 ✅ 97% reduction in human oversight time
@@ -1651,7 +1651,7 @@ A structured "warmup protocol" (YAML-based context document) can enable AI to:
 
 1. **Open Source Release**:
    - Repository: https://github.com/royalbit/forge
-   - Documentation: docs/THE-WARMUP-PROTOCOL.md
+   - Documentation: docs/FORGE-PROTOCOL.md
    - Protocol: warmup.yaml (1,400+ lines)
    - License: MIT (fully open)
 

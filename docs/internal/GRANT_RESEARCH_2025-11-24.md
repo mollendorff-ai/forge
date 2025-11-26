@@ -3,7 +3,7 @@
 **Research Date**: November 24, 2025
 **Researcher**: Claude (Autonomous AI) following warmup.yaml protocol
 **Current Date Verified**: 2025-11-24 (from warmup.yaml)
-**Search Strategy**: Included "2025" in all queries per warmup protocol
+**Search Strategy**: Included "2025" in all queries per Forge Protocol
 
 ---
 
@@ -12,7 +12,7 @@
 Conducted comprehensive online search for Canadian grants applicable to:
 
 1. **Forge FOSS Tool** - YAML formula calculator with Excel bridge
-2. **Warmup Protocol** - Autonomous AI development methodology
+2. **Forge Protocol** - Autonomous AI development methodology
 3. **RoyalBit Inc.** - 51% woman-owned (Kantia Tavares), Montreal, Quebec
 
 **Key Insight**: The combination of **FOSS tool + AI methodology innovation + woman-owned + Quebec location** creates exceptional grant application profile.
@@ -57,11 +57,11 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Why We Qualify**:
 
 - SME status ✅
-- AI methodology innovation (Warmup Protocol) ✅
+- AI methodology innovation (Forge Protocol) ✅
 - Made-in-Canada solution ✅
 - Requires compute for AI research and validation ✅
 
-**Perfect Fit**: Warmup Protocol is AI development methodology innovation - directly aligned with program purpose.
+**Perfect Fit**: Forge Protocol is AI development methodology innovation - directly aligned with program purpose.
 
 **Sources**:
 
@@ -96,7 +96,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 
 **Why We Qualify**:
 
-- Warmup Protocol has global applicability ✅
+- Forge Protocol has global applicability ✅
 - Open source demonstrates broader impact ✅
 - Proven in production (v1.0.0 built autonomously) ✅
 
@@ -113,7 +113,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Coverage**: 50-75% of eligible costs
 **Eligibility**: Video games, mobile apps, Web 2.0+, software with cultural connections
 
-**Application Angle**: Forge could be extended to web application, or Warmup Protocol productized as SaaS platform
+**Application Angle**: Forge could be extended to web application, or Forge Protocol productized as SaaS platform
 
 **Sources**:
 
@@ -137,7 +137,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 
 **Why We Qualify**:
 
-- Warmup Protocol is AI methodology innovation ✅
+- Forge Protocol is AI methodology innovation ✅
 - Demonstrated productivity improvements (3-4x velocity) ✅
 - Quebec-based company ✅
 
@@ -158,7 +158,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Why We Qualify**:
 
 - Documented R&D in SR&ED log ✅
-- Innovation in both Forge tool and Warmup Protocol ✅
+- Innovation in both Forge tool and Forge Protocol ✅
 - Quebec-based research ✅
 
 **Sources**:
@@ -218,7 +218,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 
 - Innovation commercialization ✅
 - Technological equipment ✅
-- Productivity improvements (Warmup Protocol) ✅
+- Productivity improvements (Forge Protocol) ✅
 
 **Sources**:
 
@@ -236,7 +236,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Why We Qualify**:
 
 - Forge reduces computational waste (no AI tokens for validation) ✅
-- Warmup Protocol reduces rework (0% vs. 30-50% = less compute waste) ✅
+- Forge Protocol reduces rework (0% vs. 30-50% = less compute waste) ✅
 - Energy-efficient Rust binary (440KB compressed) ✅
 
 **Sources**:
@@ -397,7 +397,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 **Purpose**: Support institutions driving AI innovations forward
 **Focus**: AI research and development with substantial funds
 
-**Why We Qualify**: Warmup Protocol is AI development methodology innovation
+**Why We Qualify**: Forge Protocol is AI development methodology innovation
 
 **Sources**:
 
@@ -490,7 +490,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 
 **1. Triple Advantage**:
 
-- **Technology Innovation** (Forge + Warmup Protocol)
+- **Technology Innovation** (Forge + Forge Protocol)
 - **Woman-Owned Business** (51% Kantia)
 - **Quebec Location** (federal + provincial + municipal programs)
 
@@ -534,7 +534,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
 
 1. **Call IRAP**: 1-877-994-4727
    - Request initial assessment meeting
-   - Present Forge + Warmup Protocol innovation
+   - Present Forge + Forge Protocol innovation
    - Target: $300K-$500K funding
 
 2. **Prepare SR&ED Documentation**
@@ -598,7 +598,7 @@ Conducted comprehensive online search for Canadian grants applicable to:
    - HTTP API, MCP server, LSP server
    - 183 tests passing, ZERO production bugs
 
-2. **Warmup Protocol**: World's first documented autonomous AI development methodology, enabling 3-4x development velocity with 0% rework (vs. industry 30-50%). Proven with v2.5.3: built in ~40 hours autonomously, ZERO bugs shipped.
+2. **Forge Protocol**: World's first documented autonomous AI development methodology, enabling 3-4x development velocity with 0% rework (vs. industry 30-50%). Proven with v2.5.3: built in ~40 hours autonomously, ZERO bugs shipped.
 
 **Woman-owned** (51% Kantia Tavares), **Montreal-based**, **open source** (MIT license), **production-proven**, and **fully documented** (2,100+ line SR&ED research log with 13 experiments).
 
@@ -650,7 +650,7 @@ This isn't incremental improvement. This is paradigm shift from 'AI assists deve
 **RoyalBit Inc. Grant Potential**: $760K-$1.4M over 3 years
 
 **Why We're Exceptionally Well-Positioned**:
-✅ Technological innovation (Forge + Warmup Protocol = Canadian breakthrough)
+✅ Technological innovation (Forge + Forge Protocol = Canadian breakthrough)
 ✅ Woman-owned business (51% Kantia = additional grant streams)
 ✅ Open source (MIT license = broader community benefit)
 ✅ Proven results (v1.0.0 built autonomously, ZERO bugs)
