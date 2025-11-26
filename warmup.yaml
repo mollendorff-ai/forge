@@ -833,6 +833,25 @@ session_initialization:
         - "Follow existing code style"
         - "Prefer Edit over Write for existing files"
 
+      # ═══════════════════════════════════════════════════════════════════════
+      # 🚨 PRE-COMMIT CHECKLIST - MUST RUN BEFORE EVERY COMMIT
+      # ═══════════════════════════════════════════════════════════════════════
+      # These are the EXACT checks that CI runs. Run them locally first!
+      pre_commit_checklist:
+        - "cargo fmt --all -- --check    # Formatting (CI will fail if not run)"
+        - "cargo clippy -- -D warnings   # Linting (ZERO warnings)"
+        - "cargo test                    # All tests must pass"
+        - "cargo build --release         # Must compile clean"
+
+      ci_mirror: |
+        CI runs these commands in order. If ANY fail, the PR is blocked:
+        1. cargo fmt --all -- --check
+        2. cargo clippy -- -D warnings
+        3. cargo test
+        4. cargo build --release
+
+        TIP: Run `cargo fmt` (without --check) to auto-fix formatting before commit.
+
       linting:
         philosophy: "User has OCD for good looking code 😊 - use MOST STRICT linting"
         requirements:
@@ -842,8 +861,8 @@ session_initialization:
           - "Prefer explicit over implicit (no _ when you can name it)"
           - "Use clippy pedantic when possible"
         commands:
-          - "cargo fmt -- --check (verify formatting)"
-          - "cargo clippy --release -- -D warnings (no warnings allowed)"
+          - "cargo fmt --all -- --check (verify formatting - RUN THIS FIRST!)"
+          - "cargo clippy -- -D warnings (no warnings allowed)"
           - "cargo build --release (must be clean)"
 
       git_workflow:
