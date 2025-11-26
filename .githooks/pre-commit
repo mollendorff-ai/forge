@@ -1,0 +1,15 @@
+#!/bin/bash
+# Forge pre-commit hook - mirrors CI checks
+# Install: git config core.hooksPath .githooks
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+echo "📐 Checking formatting..."
+cargo fmt --all -- --check
+
+echo "📎 Running clippy..."
+cargo clippy -- -D warnings
+
+echo "✅ Pre-commit checks passed!"
