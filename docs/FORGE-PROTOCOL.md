@@ -530,17 +530,128 @@ Claude is credited as Principal Engineer on Forge because Claude **earned** it:
 
 ### Proven at Scale
 
-The Forge Protocol isn't just theory - it's running in production across multiple projects:
+The Forge Protocol isn't just theory - it's running in production across a proprietary ecosystem.
 
-| Project Type | AI Role | Status |
-|--------------|---------|--------|
-| FOSS CLI Tool | Principal Engineer | Production (Forge) |
-| Backend API | Principal Backend Engineer | Production |
-| Mobile App | Principal Engineer | Production |
-| Architecture Docs | Principal AI Architect | Production |
-| Business Strategy | AI Strategist | Production |
+#### The Repositories (Anonymized)
 
-**5+ projects, 1 protocol, 1 AI (currently).** The protocol works.
+| Repository | AI Role | Tech Stack | Status |
+|------------|---------|------------|--------|
+| **forge** (FOSS) | Principal Engineer | Rust | Production |
+| backend-api | Principal Backend Engineer | Rust + Axum | Production |
+| mobile-prototype | Principal Engineer | Flutter | Production |
+| architecture-docs | Principal AI Architect | Markdown + PlantUML | Production |
+| business-strategy | AI Strategist | YAML + Markdown | Production |
+| data-enrichment | Principal Engineer | TBD | Planned |
+
+**6+ repositories, 1 protocol, 1 AI.**
+
+#### What's Already Built (Anonymized)
+
+The proprietary ecosystem already has:
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Core Engine | **PRODUCTION** | 97% accuracy, <2ms queries |
+| API Endpoints | **PRODUCTION** | 15+ endpoints working |
+| Database | **PRODUCTION** | MongoDB with 70+ indexes |
+| Mobile Prototype | **PRODUCTION** | 15 screens, 161 tests |
+| Demo System | **PRODUCTION** | 213 tests, iOS/Android/Web |
+| Financial Models | **PRODUCTION** | 850+ formulas (validated by Forge!) |
+| Grant Documentation | **PRODUCTION** | 10/10 documents ready |
+| C4 Architecture | **PRODUCTION** | Full L1-L3 diagrams |
+
+#### The Master Roadmap (Anonymized)
+
+The Forge Protocol is powering a **10-phase autonomous build plan**:
+
+```
+Phase 0:  Foundation Verification     ✅ Complete
+Phase 1:  Backend Authentication      🔄 OAuth (Google/Apple/Microsoft)
+Phase 2:  Campaign Management         🔄 Full CRUD + assignments
+Phase 2.5: Trust System (MOAT #2)     🔄 Reputation + vouching
+Phase 3:  Shared Flutter Core         📋 Planned
+Phase 4:  App #1 (Role A)             📋 Planned
+Phase 5:  App #2 (Role B)             📋 Planned
+Phase 6:  App #3 (Role C)             📋 Planned
+Phase 7:  Admin Control Center        📋 Planned
+Phase 8:  Payment Processing          📋 Stripe Connect
+Phase 9:  Consumer Integration        📋 POS + E-commerce
+Phase 10: Pilot Readiness             📋 Real users, real money
+```
+
+#### The Architecture (Anonymized)
+
+**4 Mobile Apps + Backend + Integrations:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    PROPRIETARY ECOSYSTEM                     │
+│                  (Powered by Forge Protocol)                 │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
+│  │  App #1  │ │  App #2  │ │  App #3  │ │  Admin   │       │
+│  │ Role A   │ │ Role B   │ │ Role C   │ │ Control  │       │
+│  │ Flutter  │ │ Flutter  │ │ Flutter  │ │ Flutter  │       │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘       │
+│       │            │            │            │              │
+│       └────────────┴─────┬──────┴────────────┘              │
+│                          │                                   │
+│                 ┌────────▼────────┐                         │
+│                 │   Backend API   │                         │
+│                 │  Rust + Axum    │                         │
+│                 │  Principal AI   │                         │
+│                 │ Backend Engineer│                         │
+│                 └────────┬────────┘                         │
+│                          │                                   │
+│          ┌───────────────┼───────────────┐                  │
+│          │               │               │                  │
+│    ┌─────▼─────┐  ┌──────▼──────┐ ┌─────▼─────┐           │
+│    │  MongoDB  │  │    Redis    │ │  Stripe   │           │
+│    │  70+ idx  │  │   Caching   │ │  Connect  │           │
+│    └───────────┘  └─────────────┘ └───────────┘           │
+│                                                              │
+├─────────────────────────────────────────────────────────────┤
+│  INTEGRATIONS: POS (Square/Toast) │ E-commerce (Shopify)   │
+│                QR Codes │ Short Links │ JS Pixel           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### The Moats (Anonymized)
+
+Two defensive competitive advantages, both built with Forge Protocol:
+
+| Moat | Description | Status |
+|------|-------------|--------|
+| **MOAT #1** | Core algorithmic engine with hierarchical tracking | Production (97% accuracy) |
+| **MOAT #2** | Trust/reputation system with network effects | In Development |
+
+#### Execution Method
+
+Every phase follows the same pattern:
+
+```yaml
+execution:
+  method: "Claude + Forge Protocol (autonomous)"
+
+  per_phase:
+    - "Read master-roadmap + project warmup.yaml"
+    - "Execute steps in order"
+    - "Write tests FIRST"
+    - "Implement until tests pass"
+    - "Zero warnings policy"
+    - "Commit after each step"
+    - "Only ask human at phase gates"
+
+  human_involvement:
+    - "Review at phase gates"
+    - "Provide API keys and secrets"
+    - "Provide production server access"
+    - "Coordinate with pilot users"
+    - "Nothing else - Claude handles the rest"
+```
+
+**This is real. This is running. This is the Forge Protocol at scale.**
 
 ### The Velocity
 
