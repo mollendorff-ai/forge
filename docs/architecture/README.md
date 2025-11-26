@@ -1,6 +1,6 @@
 # Forge Architecture Documentation
 
-## Complete technical documentation for Forge v2.0.0 architecture
+## Complete technical documentation for Forge v3.0.0 architecture
 
 **Last Updated:** 2025-11-25
 
@@ -23,7 +23,7 @@
 | [04-DEPENDENCY-RESOLUTION](04-DEPENDENCY-RESOLUTION.md) | Graph algorithms, topological sort | ~1,100 | ✅ Complete |
 | [05-EXCEL-INTEGRATION](05-EXCEL-INTEGRATION.md) | Bidirectional YAML↔Excel conversion | ~2,100 | ✅ Complete |
 | [06-CLI-ARCHITECTURE](06-CLI-ARCHITECTURE.md) | Command structure, argument parsing | ~1,850 | ✅ Complete |
-| [07-TESTING-ARCHITECTURE](07-TESTING-ARCHITECTURE.md) | Test strategy, 170 tests breakdown | ~1,600 | ✅ Complete |
+| [07-TESTING-ARCHITECTURE](07-TESTING-ARCHITECTURE.md) | Test strategy, 183 tests breakdown | ~1,600 | ✅ Complete |
 | [08-API-SERVER-ARCHITECTURE](08-API-SERVER-ARCHITECTURE.md) | HTTP REST API, Axum server, endpoints | ~400 | ✅ Complete |
 
 ### Architecture Decision Records (ADRs)

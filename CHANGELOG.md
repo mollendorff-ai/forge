@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Editor Extensions)
+
+- **Zed Extension** - Native language support for Zed (#2 AI IDE)
+  - Syntax highlighting for Forge YAML with 60+ Excel functions
+  - LSP integration via `forge-lsp` for validation, completion, hover
+  - Rust-native WASM extension (fast, memory-efficient)
+  - Auto-bracket matching and code outline support
+  - `editors/zed/` - ready for Zed Extensions marketplace
+
 ---
 
 ## [3.0.0] - 2025-11-25
