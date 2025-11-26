@@ -89,6 +89,8 @@ uuid = { version = "1.0", features = ["v4"] }
 # Testing
 pretty_assertions = "1.4"
 tempfile = "3.8"
+# Git hooks (auto-installs on cargo test)
+cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
 
 [profile.release]
 # Optimize for size and performance

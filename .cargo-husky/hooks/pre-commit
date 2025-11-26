@@ -1,6 +1,6 @@
 #!/bin/bash
 # Forge pre-commit hook - mirrors CI checks
-# Install: git config core.hooksPath .githooks
+# Auto-installed by cargo-husky on `cargo test`
 
 set -e
 
