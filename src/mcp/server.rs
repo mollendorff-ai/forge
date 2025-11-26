@@ -570,10 +570,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .get("file_path")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let vary = arguments
-                .get("vary")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let vary = arguments.get("vary").and_then(|v| v.as_str()).unwrap_or("");
             let range = arguments
                 .get("range")
                 .and_then(|v| v.as_str())
@@ -630,10 +627,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .get("value")
                 .and_then(|v| v.as_f64())
                 .unwrap_or(0.0);
-            let vary = arguments
-                .get("vary")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let vary = arguments.get("vary").and_then(|v| v.as_str()).unwrap_or("");
             let min = arguments.get("min").and_then(|v| v.as_f64());
             let max = arguments.get("max").and_then(|v| v.as_f64());
             let tolerance = arguments
@@ -677,10 +671,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .get("output")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let vary = arguments
-                .get("vary")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let vary = arguments.get("vary").and_then(|v| v.as_str()).unwrap_or("");
             let min = arguments.get("min").and_then(|v| v.as_f64());
             let max = arguments.get("max").and_then(|v| v.as_f64());
 

@@ -1318,15 +1318,18 @@ fn parse_range(range: &str) -> ForgeResult<Vec<f64>> {
         )));
     }
 
-    let start: f64 = parts[0].trim().parse().map_err(|_| {
-        ForgeError::Validation(format!("Invalid start value: '{}'", parts[0]))
-    })?;
-    let end: f64 = parts[1].trim().parse().map_err(|_| {
-        ForgeError::Validation(format!("Invalid end value: '{}'", parts[1]))
-    })?;
-    let step: f64 = parts[2].trim().parse().map_err(|_| {
-        ForgeError::Validation(format!("Invalid step value: '{}'", parts[2]))
-    })?;
+    let start: f64 = parts[0]
+        .trim()
+        .parse()
+        .map_err(|_| ForgeError::Validation(format!("Invalid start value: '{}'", parts[0])))?;
+    let end: f64 = parts[1]
+        .trim()
+        .parse()
+        .map_err(|_| ForgeError::Validation(format!("Invalid end value: '{}'", parts[1])))?;
+    let step: f64 = parts[2]
+        .trim()
+        .parse()
+        .map_err(|_| ForgeError::Validation(format!("Invalid step value: '{}'", parts[2])))?;
 
     if step <= 0.0 {
         return Err(ForgeError::Validation("Step must be positive".to_string()));
