@@ -2,6 +2,6 @@
 
 This documentation has moved to:
 
-**https://github.com/lctavares/forge-protocol**
+**https://github.com/royalbit/forge-protocol**
 
-See the [AI Promotion Story](https://github.com/lctavares/forge-protocol/blob/main/docs/stories/AI-PROMOTION-STORY.md).
+See the [AI Promotion Story](https://github.com/royalbit/forge-protocol/blob/main/docs/stories/AI-PROMOTION-STORY.md).
