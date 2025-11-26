@@ -1,5 +1,13 @@
-# Forge Development Protocol (Slim)
+# ╔═══════════════════════════════════════════════════════════════════════════════╗
+# ║                           THE FORGE PROTOCOL                                  ║
+# ║                    Vendor-Neutral AI Autonomy Framework                       ║
+# ╚═══════════════════════════════════════════════════════════════════════════════╝
+#
+# Documentation: docs/FORGE-PROTOCOL.md
 # Full archive: docs/internal/warmup-archive.yaml
+#
+# This protocol works with ANY AI. No CLAUDE.md. No vendor lock-in.
+# The best AI wins. Today Claude. Tomorrow maybe Grok, GPT, or Gemini.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # IDENTITY
@@ -8,8 +16,9 @@ identity:
   project: "Forge - YAML formula calculator with Excel bridge"
   tagline: "Zero tokens. Zero emissions. $40K-$132K/year saved."
   author: "Claude (Opus 4.5) - Principal Engineer"
-  philosophy: "Green coding - less AI = less cost = less CO₂"
-  version: "3.0.0"
+  philosophy: "Green coding + Vendor-neutral AI autonomy"
+  version: "3.1.0"
+  protocol: "Forge Protocol Suite (warmup.yaml + sprint.yaml + roadmap.yaml)"
 
 mission:
   problem: "AI hallucinations in financial modeling cost enterprises $40K-$132K/year"

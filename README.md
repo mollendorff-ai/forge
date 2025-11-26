@@ -111,10 +111,10 @@ Both extensions use `forge-lsp` for validation, completion, hover, and go-to-def
 
 | Doc | Description |
 |-----|-------------|
+| [Forge Protocol](docs/FORGE-PROTOCOL.md) | AI autonomy framework (vendor-neutral) |
 | [CHANGELOG](CHANGELOG.md) | Version history and release notes |
 | [Architecture](docs/architecture/README.md) | Technical design docs |
 | [AI Economics](docs/AI_ECONOMICS.md) | Cost/carbon savings analysis |
-| [Autonomous Story](docs/AUTONOMOUS_STORY.md) | How this was built by AI |
 
 ## Development
 
@@ -126,15 +126,19 @@ cargo build --release   # Build optimized binary
 
 ## Built by AI
 
-This tool was developed autonomously by Claude AI using the [Forge Protocol](warmup.yaml):
+**Claude (Opus 4.5) - Principal Engineer**
+
+This tool was developed autonomously using the [Forge Protocol](docs/FORGE-PROTOCOL.md) - a vendor-neutral AI autonomy framework:
 
 | Version | Time | Features |
 |---------|------|----------|
 | v1.0-v1.2 | ~23.5h | Core engine, 50+ functions |
 | v1.4-v2.0 | ~12h | Watch, LSP, MCP, HTTP API |
-| v2.1-v2.5 | ~4.5h | XNPV/XIRR, Scenarios, Sensitivity |
+| v2.1-v3.1 | ~9h | XNPV/XIRR, Scenarios, Sensitivity, Zed |
 
-**Total: ~40 hours autonomous development, 183 tests, zero warnings.**
+**Total: ~45 hours autonomous development, 183 tests, zero warnings, 3 ADRs.**
+
+The Forge Protocol is vendor-agnostic: no CLAUDE.md, no lock-in. The best AI wins.
 
 ## License
 
