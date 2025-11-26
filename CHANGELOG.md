@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.3] - 2025-11-25
+
+### Crates.io Metadata Fix
+
+Fixed homepage (should be forge, not forge-protocol). Protocol now in description.
+
+### Changed
+
+- Homepage restored to forge repo
+- Protocol link embedded in description: "built with the Forge Protocol (github.com/royalbit/forge-protocol)"
+
+---
+
 ## [3.1.2] - 2025-11-25
 
 ### Forge Protocol Standalone Repository
@@ -19,7 +32,6 @@ The protocol that made this project possible now has its own home.
 
 - **Protocol extracted** to [royalbit/forge-protocol](https://github.com/royalbit/forge-protocol)
 - Updated crates.io metadata to reference the Forge Protocol
-- Homepage now points to forge-protocol repo
 - Added "forge-protocol" keyword, replaced "financial"
 - Told the origin story in warmup.yaml and README
 
