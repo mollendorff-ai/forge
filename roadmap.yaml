@@ -24,12 +24,13 @@ current:
 # Next Milestone
 next:
   version: "3.1.0"
-  status: planned
+  status: in_progress
   target: "2025-Q4"
   summary: "Editor Extensions & Python Bindings"
   features:
     - "VSCode extension (forge-lsp wrapper)"
-    - "Zed extension (Rust-native, #2 AI IDE)"
+    - "Zed extension (Rust-native, #2 AI IDE) ✓ code ready"
+    - "Publish Zed extension to zed-industries/extensions"
     - "Python bindings via PyO3 (quants want this)"
     - "Homebrew/Scoop packages"
 

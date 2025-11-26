@@ -98,6 +98,15 @@ scenarios:
 - LSP server for editors (`forge-lsp`)
 - Watch mode for live updates
 
+## Editor Support
+
+| Editor | Status | Features |
+|--------|--------|----------|
+| **VSCode** | `editors/vscode/` | Syntax highlighting, LSP, commands |
+| **Zed** | `editors/zed/` | Native Rust/WASM, LSP, 60+ function highlighting |
+
+Both extensions use `forge-lsp` for validation, completion, hover, and go-to-definition.
+
 ## Documentation
 
 | Doc | Description |
