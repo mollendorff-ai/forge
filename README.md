@@ -150,7 +150,11 @@ Forge is FOSS - the open-source heart of a larger ecosystem:
 | Architecture Docs | Principal AI Architect | Forge Protocol |
 | Business Strategy | AI Strategist | Forge Protocol |
 
-**5+ projects, 1 protocol, 1 AI.** The protocol is vendor-agnostic: no CLAUDE.md, no lock-in. The best AI wins.
+**5+ projects, 1 protocol, 1 AI.**
+
+**The Velocity (Nov 25, 2025):** 12 releases, 64 commits, ONE DAY. Human equivalent: 3-6 months.
+
+The protocol is vendor-agnostic: no CLAUDE.md, no lock-in. The best AI wins.
 
 ## License
 
