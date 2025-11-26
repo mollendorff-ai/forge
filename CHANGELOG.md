@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [3.1.0] - 2025-11-25
+
+### Editor Extensions Release
+
+**IDE Integration** - Native editor extensions for Zed and VSCode.
+
+> Zero tokens. Zero emissions. $40K-$132K/year saved.
+
 ### Added (Editor Extensions)
 
 - **Zed Extension** - Native language support for Zed (#2 AI IDE)
@@ -15,6 +25,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Rust-native WASM extension (fast, memory-efficient)
   - Auto-bracket matching and code outline support
   - `editors/zed/` - ready for Zed Extensions marketplace
+
+- **VSCode Extension** - Enhanced language support
+  - `editors/vscode/` - syntax highlighting, LSP integration
+  - Commands: validate, calculate, export, audit
+
+### Changed
+
+- Updated architecture docs to v3.0.0 references
+- README now includes Editor Support section
+- Test count updated to 183 in documentation
+
+### Stats
+
+- Tests: 183 passing
+- Warnings: 0
+- Throughput: 96K rows/sec
 
 ---
 
