@@ -1,7 +1,7 @@
 # Forge - YAML Formula Calculator
 # Build and test targets for optimized binary
 
-.PHONY: help build build-static build-compressed install install-user install-system uninstall lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check presentation presentation-pdf presentation-pptx
+.PHONY: help build build-static build-compressed install install-user install-system uninstall lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
 
 # Detect if upx is available
 HAS_UPX := $(shell command -v upx 2> /dev/null)
@@ -43,9 +43,7 @@ help:
 	@echo "  make validate-all       - Run ALL validators (docs + yaml + diagrams)"
 	@echo ""
 	@echo "Presentation:"
-	@echo "  make presentation       - Generate PDF presentation (installs marp if needed)"
-	@echo "  make presentation-pdf   - Generate PDF presentation"
-	@echo "  make presentation-pptx  - Generate PowerPoint presentation"
+	@echo "  (moved to https://github.com/royalbit/forge-protocol)"
 	@echo ""
 	@echo "Workflows:"
 	@echo "  make pre-commit         - Full pre-commit check (format + lint + test + validate-all)"
@@ -347,32 +345,7 @@ check: format-check lint test-unit validate-docs
 	@echo "✅ Quick checks passed!"
 
 # ═══════════════════════════════════════════════════════════════════════════
-# PRESENTATION TARGETS
+# PRESENTATION
 # ═══════════════════════════════════════════════════════════════════════════
-
-# Check if marp-cli is installed
-HAS_MARP := $(shell command -v marp 2> /dev/null)
-
-presentation: presentation-pdf
-	@echo ""
-	@echo "✅ Presentation generated: Forge_Protocol_Suite.pdf"
-
-presentation-pdf:
-	@echo "📊 Generating PDF presentation..."
-ifndef HAS_MARP
-	@echo "⚠️  Marp CLI not found. Installing..."
-	@npm install -g @marp-team/marp-cli
-endif
-	@marp docs/PRESENTATION.md -o Forge_Protocol_Suite.pdf --pdf --allow-local-files
-	@echo "✅ Generated: Forge_Protocol_Suite.pdf"
-	@ls -lh Forge_Protocol_Suite.pdf
-
-presentation-pptx:
-	@echo "📊 Generating PowerPoint presentation..."
-ifndef HAS_MARP
-	@echo "⚠️  Marp CLI not found. Installing..."
-	@npm install -g @marp-team/marp-cli
-endif
-	@marp docs/PRESENTATION.md -o Forge_Protocol_Suite.pptx --pptx --allow-local-files
-	@echo "✅ Generated: Forge_Protocol_Suite.pptx"
-	@ls -lh Forge_Protocol_Suite.pptx
+# Presentation deck moved to: https://github.com/royalbit/forge-protocol
+# See: docs/PRESENTATION.md for redirect info
