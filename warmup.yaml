@@ -1,13 +1,12 @@
 # ╔═══════════════════════════════════════════════════════════════════════════════╗
-# ║                           THE FORGE PROTOCOL                                  ║
-# ║                    Vendor-Neutral AI Autonomy Framework                       ║
+# ║                              FORGE CALCULATOR                                 ║
+# ║                      YAML Formula Calculator with Excel Bridge               ║
 # ╚═══════════════════════════════════════════════════════════════════════════════╝
 #
-# Documentation: docs/FORGE-PROTOCOL.md
-# Full archive: docs/internal/warmup-archive.yaml
+# Protocol: https://github.com/lctavares/forge-protocol
 #
-# This protocol works with ANY AI. No CLAUDE.md. No vendor lock-in.
-# The best AI wins. Today Claude. Tomorrow maybe Grok, GPT, or Gemini.
+# This project uses the Forge Protocol for AI session continuity.
+# See the protocol repo for full documentation.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # IDENTITY
@@ -18,7 +17,7 @@ identity:
   author: "Claude (Opus 4.5) - Principal Engineer"
   philosophy: "Green coding + Vendor-neutral AI autonomy"
   version: "3.1.0"
-  protocol: "Forge Protocol Suite (warmup.yaml + sprint.yaml + roadmap.yaml)"
+  protocol: "https://github.com/lctavares/forge-protocol"
 
 mission:
   problem: "AI hallucinations in financial modeling cost enterprises $40K-$132K/year"
@@ -110,8 +109,9 @@ style:
 # ═══════════════════════════════════════════════════════════════════════════════
 # REFERENCE
 # ═══════════════════════════════════════════════════════════════════════════════
-# Detailed docs (consult when needed):
-# - docs/internal/warmup-archive.yaml - Full protocol with examples
+# Protocol documentation: https://github.com/lctavares/forge-protocol
+#
+# Project-specific docs:
 # - docs/internal/SRED_RESEARCH_LOG.md - R&D documentation
 # - docs/internal/GRANT_RESEARCH_2025-11-24.md - Funding opportunities
 # - docs/architecture/DESIGN_V1.md - Technical specification
