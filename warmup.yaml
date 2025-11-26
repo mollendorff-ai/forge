@@ -696,52 +696,6 @@ session_initialization:
     expected_branch: "main (or feature branch if working on specific feature)"
     action: "If on different branch, ask user about intent"
 
-  step_2b_validation_baseline:
-    description: "Run validation and ensure ZERO errors before starting work"
-    importance: "🚨 CRITICAL - Documentation is code. ZERO tolerance for linting errors."
-    rationale: |
-      Documentation is code. Linting errors are like compiler warnings.
-      User has OCD for good looking code - applies to ALL code, including docs.
-      ZERO linting errors = clean codebase = peace of mind.
-
-    commands:
-      markdown_lint:
-        command: "make validate-docs"
-        tool: "markdownlint-cli2"
-        config: ".markdownlint.json"
-        install: "npm install -g markdownlint-cli2"
-        validates:
-          - "README.md"
-          - "docs/**/*.md"
-        requirement: "ZERO errors"
-
-      yaml_lint:
-        command: "make validate-yaml"
-        tool: "yamllint"
-        config: ".yamllint"
-        install: "pip install yamllint"
-        validates:
-          - "warmup.yaml"
-          - "roadmap.yaml"
-        requirement: "ZERO errors"
-
-      full_validation:
-        command: "make validate-all"
-        runs: "All validators in sequence"
-        requirement: "ALL must pass with ZERO errors"
-
-    if_validation_fails:
-      - "🚨 STOP - Fix linting errors before continuing"
-      - "Linting errors are bugs in documentation"
-      - "Do NOT proceed with other work until validation passes"
-      - "Same standard as cargo clippy: ZERO tolerance"
-
-    reporting:
-      template: |
-        Validation Status:
-        - Markdown: PASS (0 errors) ✅
-        - YAML: PASS (0 errors) ✅
-
   step_3_assume_pristine:
     description: "Assume codebase is pristine - we enforce this at session END"
     philosophy: |
@@ -752,13 +706,8 @@ session_initialization:
     what_we_skip:
       - "cargo test (already passed at end of last session)"
       - "cargo clippy (already clean at end of last session)"
+      - "cargo build (already compiled at end of last session)"
       - "make validate-all (already clean at end of last session)"
-
-    quick_sanity_check:
-      command: "cargo build --release"
-      purpose: "Quick compile check (catches obvious issues like missing files)"
-      expected: "Compiles successfully"
-      note: "If this fails, something external changed - investigate"
 
     why_this_works: |
       The session_end_checklist enforces:
