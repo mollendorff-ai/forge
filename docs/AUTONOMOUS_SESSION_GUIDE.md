@@ -108,7 +108,7 @@ Say any of these:
 | Trigger Phrase | Effect |
 |----------------|--------|
 | `run warmup` | Standard session start |
-| `run warmup protocol` | Same as above |
+| `run Forge Protocol` | Same as above |
 | `warmup` | Same as above |
 | `start session` | Same as above |
 
@@ -407,7 +407,7 @@ The autonomous session model treats Claude as a **developer**, not an assistant:
 - Claude maintains quality standards
 - Human provides direction, not supervision
 
-The warmup protocol + sprint autonomy = **sustainable AI development** that actually ships.
+The Forge Protocol + sprint autonomy = **sustainable AI development** that actually ships.
 
 ---
 

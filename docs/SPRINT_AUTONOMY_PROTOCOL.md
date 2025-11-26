@@ -511,7 +511,7 @@ Regardless of stack, these principles are universal:
 ## See Also
 
 - **[AUTONOMOUS_SESSION_GUIDE.md](AUTONOMOUS_SESSION_GUIDE.md)** - How to run autonomous sessions (start here!)
-- **[warmup.yaml](../warmup.yaml)** - The Warmup Protocol (HOW to develop)
+- **[warmup.yaml](../warmup.yaml)** - The Forge Protocol (HOW to develop)
 - **[AUTONOMOUS_STORY.md](AUTONOMOUS_STORY.md)** - The full story of AI autonomous development
 - **[AI-PROMOTION-STORY.md](AI-PROMOTION-STORY.md)** - Claude's promotion from Junior to Principal
 

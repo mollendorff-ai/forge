@@ -590,4 +590,4 @@ cargo build --release
 
 ---
 
-*Built by Claude Opus 4.5 (Principal Engineer) using the warmup protocol.*
+*Built by Claude Opus 4.5 (Principal Engineer) using the Forge Protocol.*

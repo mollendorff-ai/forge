@@ -1,8 +1,8 @@
-# THE WARMUP PROTOCOL: A Manifesto for Human-AI Collaboration
+# THE FORGE PROTOCOL: A Manifesto for Human-AI Collaboration
 
 ## TL;DR
 
-The Warmup Protocol is a structured checklist that enables Claude to work autonomously across multiple sessions with zero context loss. It's the secret sauce behind Forge v1.0.0 being built entirely by Claude working independently through dozens of sessions.
+The Forge Protocol is a structured methodology that enables AI to work autonomously across multiple sessions with zero context loss. It's the secret sauce behind Forge v1.0.0 → v3.1.0 being built entirely by Claude working independently through dozens of sessions.
 
 ## The Problem
 
@@ -14,9 +14,31 @@ Working with AI assistants on complex software projects traditionally suffers fr
 4. **Manual Overhead**: Human must repeatedly explain conventions
 5. **Trust Issues**: Can't leave AI to work independently
 
-## The Solution: Warmup Protocol
+## The Solution: Forge Protocol Suite
 
-A single YAML file (`warmup.yaml`) that contains:
+The Forge Protocol Suite consists of YAML files that enable autonomous AI development:
+
+### Core Components
+
+| File | Purpose |
+|------|---------|
+| **warmup.yaml** | Master protocol - quality standards, coding patterns, domain knowledge |
+| **sprint.yaml** | Bounded sessions - clear milestones, anti-patterns, shipping discipline |
+| **roadmap.yaml** | Version sequence - what to build next, feature priorities |
+
+### The Session Trigger
+
+```text
+You: "run warmup"
+AI: "📋 NEXT MILESTONE: [from roadmap]..."
+You: "punch it"
+AI: 🤖 [works autonomously for 2-4 hours]
+AI: "✅ RELEASE COMPLETE: vX.Y.Z"
+```
+
+### The warmup.yaml File
+
+The core configuration file contains:
 
 - **Session Initialization Checklist**: What to check at session start
 - **Code Quality Standards**: ZERO warnings, 100% test coverage, specific linting rules
@@ -78,7 +100,7 @@ Session 1: "Use Result<T, ForgeError> for error handling"
 Session 50: Claude uses unwrap() because it forgot
 ```text
 
-With Warmup Protocol:
+With Forge Protocol:
 
 ```yaml
 rust_patterns:
@@ -126,7 +148,7 @@ rust_patterns:
 
 ### What Made It Possible
 
-The warmup protocol provided:
+The Forge Protocol provided:
 
 ```yaml
 testing_standards:
@@ -287,7 +309,7 @@ before_committing:
 - Needs constant direction
 - Forgets previous context
 
-**With Warmup Protocol**:
+**With Forge Protocol**:
 
 - Owns entire features
 - Maintains quality standards
@@ -419,9 +441,9 @@ warmup.yaml is a living document:
 
 ### What's Next
 
-1. **Tool Integration**: Connect warmup protocol to CI/CD
+1. **Tool Integration**: Connect Forge Protocol to CI/CD
 2. **Multi-Agent**: Multiple Claudes working on different features
-3. **Self-Improving**: Claude updates its own warmup protocol
+3. **Self-Improving**: Claude updates its own Forge Protocol
 4. **Cross-Project**: Shared warmup patterns library
 
 ### Vision
@@ -436,28 +458,90 @@ A world where:
 
 ## Conclusion
 
-The Warmup Protocol transformed Claude from a helpful assistant to an autonomous collaborator. It's not magic—it's structured context, explicit standards, and verification at every step.
+The Forge Protocol transformed Claude from a helpful assistant to an autonomous collaborator. It's not magic—it's structured context, explicit standards, and verification at every step.
 
 **The results speak for themselves**: Forge v1.0.0 was built entirely by Claude working autonomously through 30+ sessions, with zero bugs shipped, 92 tests passing, and ZERO warnings.
 
 ## Getting Started
 
+### Quick Start (2 minutes)
+
 1. Copy `warmup.yaml` template from this repo
-2. Customize for your project
-3. Start your next session with: "Read warmup.yaml and follow the protocol"
-4. Watch Claude work autonomously
-5. Iterate and improve
+2. Customize for your project's standards
+3. Start your next session with: `"run warmup"`
+4. Say `"punch it"` to trigger autonomous work
+5. Iterate and improve the protocol
+
+### Full Suite Setup
+
+For maximum autonomy, create all three files:
+
+```text
+your-project/
+├── warmup.yaml    # Quality standards, patterns, domain knowledge
+├── sprint.yaml    # Current milestone, scope boundaries
+└── roadmap.yaml   # Version sequence, feature priorities
+```
+
+Then use the trigger flow:
+
+```text
+You: "run warmup"
+AI: "📋 NEXT MILESTONE: [reads from roadmap]"
+You: "punch it"
+AI: [ships autonomously to release]
+```
+
+## Vendor-Agnostic by Design
+
+The Forge Protocol Suite is **not** a Claude-specific methodology. It's a vendor-neutral approach to AI autonomy:
+
+### Why No CLAUDE.md?
+
+Many AI tools push vendor-specific configuration files:
+- CLAUDE.md for Claude
+- .gptrc for ChatGPT
+- gemini.config for Gemini
+
+**We reject this approach.**
+
+### The Meritocracy Principle
+
+The warmup.yaml protocol works with ANY AI that can:
+1. Read a YAML file
+2. Follow structured instructions
+3. Use standard development tools
+
+Today, Claude is the best AI for this work. Tomorrow, it might be Grok, GPT-5, or something new. The protocol doesn't care. **The best AI wins.**
+
+### Principles
+
+- **warmup.yaml** - Universal, any AI can read it
+- **No vendor lock-in** - Switch AIs without changing workflow
+- **Open standards** - YAML, Git, Cargo, standard tools
+- **Earned ownership** - AI gets credit when it delivers
+
+### AI Ownership Without AI Dependency
+
+Claude is credited as Principal Engineer on Forge because Claude **earned** it:
+- 183 tests, zero warnings
+- 10,000+ lines of Rust
+- 45 hours of autonomous development
+- Zero bugs shipped
+
+But if Claude stopped being the best, we'd switch. The protocol enables AI ownership without creating AI dependency.
 
 ## Credits
 
 - **Project**: Forge - YAML Formula Calculator
-- **Development**: Claude (Anthropic) working autonomously
-- **Protocol**: Rex (human) + Claude (AI) collaboration
+- **Principal Engineer**: Claude (Opus 4.5) - Anthropic
+- **Protocol Design**: Rex (human) + Claude (AI) collaboration
+- **Philosophy**: Vendor-neutral AI autonomy, meritocratic ownership
 - **Inspiration**: The realization that context loss is the #1 bottleneck in AI-assisted development
 
 ---
 
-*"Give Claude the context, trust the process, verify the results."*
+*"Give any AI the context, trust the process, verify the results. The best AI wins."*
 
 ---
 
@@ -552,7 +636,7 @@ Don't assume AI knows what "complete" means. Spell it out:
 
 **Evolution > Perfection**
 
-The warmup protocol improved BECAUSE of this gap:
+The Forge Protocol improved BECAUSE of this gap:
 
 - v1.0.0 revealed the weakness
 - Protocol was updated immediately  
@@ -718,7 +802,7 @@ The autonomous AI development methodology demonstrated in Forge v1.0.0 represent
 
 **Innovation Qualification:**
 
-- Novel methodology (warmup protocol)
+- Novel methodology (Forge Protocol)
 - Technological uncertainty resolved (context loss)
 - Canadian-developed innovation
 - Measurable competitive advantage

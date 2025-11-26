@@ -126,7 +126,7 @@ cargo build --release   # Build optimized binary
 
 ## Built by AI
 
-This tool was developed autonomously by Claude AI using the [warmup protocol](warmup.yaml):
+This tool was developed autonomously by Claude AI using the [Forge Protocol](warmup.yaml):
 
 | Version | Time | Features |
 |---------|------|----------|
