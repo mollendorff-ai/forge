@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.1] - 2025-11-25
+
+### Documentation Release
+
+**Forge Protocol Suite** - Renamed and documented the AI autonomy framework.
+
+### Changed
+
+- Renamed "Warmup Protocol" to "Forge Protocol" across all documentation
+- `THE-WARMUP-PROTOCOL.md` → `FORGE-PROTOCOL.md`
+- Added vendor-agnostic philosophy section (no CLAUDE.md, no lock-in)
+- Added Forge Protocol Suite explanation (warmup.yaml + sprint.yaml + roadmap.yaml)
+- Updated warmup.yaml with Forge Protocol branding
+- Added "ai-built" keyword to crates.io metadata
+- Updated README documentation table with Forge Protocol link
+
+### Stats
+
+- Tests: 183 passing
+- Warnings: 0
+
+---
+
 ## [3.1.0] - 2025-11-25
 
 ### Editor Extensions Release
