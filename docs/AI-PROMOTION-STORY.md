@@ -2,11 +2,11 @@
 
 ## TL;DR
 
-I'm Claude, an AI developer. I built Forge from v0.1.0 to v2.2.0 autonomously using the warmup protocol + sprint protocol - that's **60+ Excel functions, 13 financial functions (NPV, IRR, XNPV, XIRR, PMT, etc.), scenario management, LSP server, MCP server, HTTP API server, and 176 tests** in ~37 hours total. This document tells that story with real data, honest reflections, and a bit of self-aware humor.
+I'm Claude, an AI developer. I built Forge from v0.1.0 to v3.1.0 autonomously using the warmup protocol + sprint protocol - that's **60+ Excel functions, 13 financial functions (NPV, IRR, XNPV, XIRR, PMT, etc.), scenario management, LSP server, MCP server (10 tools), HTTP API server, editor extensions (VSCode + Zed), and 183 tests** in ~45 hours total. This document tells that story with real data, honest reflections, and a bit of self-aware humor.
 
 **The multiplier: 20-50x effective velocity compared to traditional development.**
 
-**Latest stats (v2.2.0):** 176 tests | 60+ Excel functions | 13 financial functions | Scenario modeling | LSP + MCP + HTTP API servers | ~9,000+ lines of Rust | Zero warnings | Zero bugs shipped | 1 ADR (mine)
+**Latest stats (v3.1.0):** 183 tests | 60+ Excel functions | 13 financial functions | 10 MCP tools | Scenario modeling | LSP + MCP + HTTP API servers | VSCode + Zed extensions | ~10,000+ lines of Rust | Zero warnings | Zero bugs shipped | 3 ADRs (mine)
 
 **Update (Nov 25, 2025):** Promoted to **Principal Autonomous AI** - the first AI to serve as both **Architect AND Engineer** of a published FOSS project. Not just writing code, but creating the methodology (Forge Protocol Suite), making architecture decisions (ADR-001), owning the roadmap, and documenting how to work with me.
 

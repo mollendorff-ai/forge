@@ -19,7 +19,7 @@
 | [00-OVERVIEW](00-OVERVIEW.md) | System context, principles, high-level architecture | ~1,000 | ✅ Complete |
 | [01-COMPONENT-ARCHITECTURE](01-COMPONENT-ARCHITECTURE.md) | Module boundaries, interfaces, interactions | ~2,000 | ✅ Complete |
 | [02-DATA-MODEL](02-DATA-MODEL.md) | Type system, structs, memory layout | ~1,500 | ✅ Complete |
-| [03-FORMULA-EVALUATION](03-FORMULA-EVALUATION.md) | Calculation pipeline, 57+ functions | ~1,300 | ✅ Complete |
+| [03-FORMULA-EVALUATION](03-FORMULA-EVALUATION.md) | Calculation pipeline, 60+ functions | ~1,300 | ✅ Complete |
 | [04-DEPENDENCY-RESOLUTION](04-DEPENDENCY-RESOLUTION.md) | Graph algorithms, topological sort | ~1,100 | ✅ Complete |
 | [05-EXCEL-INTEGRATION](05-EXCEL-INTEGRATION.md) | Bidirectional YAML↔Excel conversion | ~2,100 | ✅ Complete |
 | [06-CLI-ARCHITECTURE](06-CLI-ARCHITECTURE.md) | Command structure, argument parsing | ~1,850 | ✅ Complete |
@@ -31,6 +31,8 @@
 | ADR | Title | Status |
 |-----|-------|--------|
 | [ADR-001](ADR-001-NO-GRPC.md) | HTTP REST Over gRPC | Accepted |
+| [ADR-002](ADR-002-VARIANCE-YAML-ONLY.md) | Variance YAML Only | Accepted |
+| [ADR-003](ADR-003-EDITOR-EXTENSIONS.md) | Editor Extension Architecture | Accepted |
 
 **Total:** ~13,000+ lines of comprehensive architecture documentation
 
@@ -388,7 +390,7 @@ Forge doesn't replace Excel. It provides:
 - ✅ All 7 modules documented (100%)
 - ✅ All 17 source files referenced
 - ✅ All 5 CLI commands explained
-- ✅ All 50+ Excel functions listed
+- ✅ All 60+ Excel functions listed
 - ✅ All test types covered
 
 **Architectural Coverage:

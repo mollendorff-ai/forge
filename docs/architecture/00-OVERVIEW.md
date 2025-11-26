@@ -65,7 +65,7 @@ graph TB
     business["👤 Business User<br/>Business Logic,<br/>Pricing, Unit Economics"]
 
     %% Forge System
-    forge["🔥 Forge<br/>YAML Formula Calculator<br/><br/>✓ Calculate formulas<br/>✓ Validate models<br/>✓ Export to Excel<br/>✓ Import from Excel<br/>✓ Cross-file references<br/><br/>Zero Hallucinations:<br/>50+ Excel functions<br/>Type-safe arrays"]
+    forge["🔥 Forge<br/>YAML Formula Calculator<br/><br/>✓ Calculate formulas<br/>✓ Validate models<br/>✓ Export to Excel<br/>✓ Import from Excel<br/>✓ Cross-file references<br/><br/>Zero Hallucinations:<br/>60+ Excel functions<br/>Type-safe arrays"]
 
     %% External Systems
     git[("📦 Git Repository<br/>Version Control")]
@@ -157,7 +157,7 @@ graph TB
     %% Core Processing
     subgraph core["Core Processing"]
         parser["parser/mod.rs"]
-        calc["core/array_calculator.rs<br/><br/>Calculator:<br/>• Array operations<br/>• Row-wise formulas<br/>• Aggregation formulas<br/>• 50+ Excel functions"]
+        calc["core/array_calculator.rs<br/><br/>Calculator:<br/>• Array operations<br/>• Row-wise formulas<br/>• Aggregation formulas<br/>• 60+ Excel functions"]
         writer["writer/mod.rs"]
     end
 
