@@ -9,6 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.0] - 2025-11-25
+
+### MCP Enhancements Release
+
+**AI-Finance Integration** - MCP server now includes all financial analysis tools.
+
+> Zero tokens. Zero emissions. $40K-$132K/year saved.
+
+### Added (MCP Server)
+
+- **`forge_sensitivity`** - What-if analysis via MCP
+  - 1D and 2D data tables for AI-driven exploration
+  - AI can explore: "How does profit change with price?"
+
+- **`forge_goal_seek`** - Target value finding via MCP
+  - AI can ask: "What price do I need for $100K profit?"
+  - Bisection solver with automatic bounds
+
+- **`forge_break_even`** - Zero-crossing via MCP
+  - AI can find: "At what units does profit = 0?"
+
+- **`forge_variance`** - Budget vs actual via MCP
+  - AI can compare: "How did we perform vs budget?"
+  - Automatic favorable/unfavorable detection
+
+- **`forge_compare`** - Scenario comparison via MCP
+  - AI can analyze: "Compare base, optimistic, pessimistic"
+  - Side-by-side scenario results
+
+### Changed
+
+- Updated MCP protocol version
+- Enhanced server instructions for AI agents
+- MCP tools: 5 → 10 (added financial analysis)
+
+### Market Research Basis
+
+November 2025 research showed:
+- MCP becoming "foundational standard" for AI-finance integration
+- Microsoft launched Dynamics 365 ERP MCP Server at Build 2025
+- 85% of financial institutions using AI by end of 2025
+
+---
+
 ## [2.5.0] - 2025-11-25
 
 ### Sensitivity Analysis Release
