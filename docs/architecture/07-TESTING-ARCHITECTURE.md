@@ -87,7 +87,7 @@ graph TB
     end
 
     subgraph "Test Categories"
-        Formula["Formula Evaluation<br/>50+ Excel functions"]
+        Formula["Formula Evaluation<br/>60+ Excel functions"]
         Dependency["Dependency Resolution<br/>Topological sort"]
         Parser["YAML Parsing<br/>v0.2.0 + v1.0.0"]
         Excel["Excel Integration<br/>Import/Export + Translation"]

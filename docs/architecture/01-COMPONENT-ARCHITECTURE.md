@@ -1404,7 +1404,7 @@ pub enum ColumnValue {
 - Row-wise formulas
 - Aggregation formulas
 - Excel export/import
-- 50+ Excel functions
+- 60+ Excel functions
 
 ### Version Coexistence Strategy
 

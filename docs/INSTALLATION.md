@@ -1,6 +1,6 @@
 # Forge Installation Guide
 
-Complete guide for installing and configuring all Forge components (v2.0.0).
+Complete guide for installing and configuring all Forge components (v3.1.0).
 
 ---
 
