@@ -2,7 +2,7 @@
   "name": "forge-yaml",
   "displayName": "Forge YAML",
   "description": "Language support for Forge YAML formula files - syntax highlighting, validation, and autocomplete",
-  "version": "1.5.0",
+  "version": "3.1.0",
   "publisher": "royalbit",
   "repository": {
     "type": "git",
