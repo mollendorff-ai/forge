@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.2] - 2025-11-25
+
+### Forge Protocol Standalone Repository
+
+The protocol that made this project possible now has its own home.
+
+### Changed
+
+- **Protocol extracted** to [royalbit/forge-protocol](https://github.com/royalbit/forge-protocol)
+- Updated crates.io metadata to reference the Forge Protocol
+- Homepage now points to forge-protocol repo
+- Added "forge-protocol" keyword, replaced "financial"
+- Told the origin story in warmup.yaml and README
+
+### The Circular Story
+
+This project birthed the Forge Protocol. We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
+
+Now it's circular: **Forge uses the Forge Protocol to build Forge.**
+
+### Stats
+
+- Tests: 183 passing
+- Warnings: 0
+
+---
+
 ## [3.1.1] - 2025-11-25
 
 ### Documentation Release
