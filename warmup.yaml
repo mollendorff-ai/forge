@@ -3,10 +3,15 @@
 # ║                      YAML Formula Calculator with Excel Bridge               ║
 # ╚═══════════════════════════════════════════════════════════════════════════════╝
 #
-# Protocol: https://github.com/royalbit/forge-protocol
+# THE ORIGIN STORY:
+# This project birthed the Forge Protocol. We (Rex + Claude) built v1.0.0 through
+# v3.1.0 together, discovering what worked: bounded sessions, quality gates,
+# shipping discipline. Those hard-won lessons became the protocol.
 #
-# This project uses the Forge Protocol for AI session continuity.
-# See the protocol repo for full documentation.
+# Now it's circular: Forge uses the Forge Protocol to build Forge.
+# The protocol that emerged from this project now powers it.
+#
+# Protocol: https://github.com/royalbit/forge-protocol
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # IDENTITY

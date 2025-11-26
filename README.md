@@ -111,7 +111,7 @@ Both extensions use `forge-lsp` for validation, completion, hover, and go-to-def
 
 | Doc | Description |
 |-----|-------------|
-| [Forge Protocol](docs/FORGE-PROTOCOL.md) | AI autonomy framework (vendor-neutral) |
+| [**Forge Protocol**](https://github.com/royalbit/forge-protocol) | The AI autonomy framework that powers this project |
 | [CHANGELOG](CHANGELOG.md) | Version history and release notes |
 | [Architecture](docs/architecture/README.md) | Technical design docs |
 | [AI Economics](docs/AI_ECONOMICS.md) | Cost/carbon savings analysis |
@@ -124,11 +124,13 @@ cargo clippy            # Lint (zero warnings)
 cargo build --release   # Build optimized binary
 ```
 
-## Built by AI
+## Built by AI, Powered by the Forge Protocol
 
 **Claude (Opus 4.5) - Principal Engineer**
 
-This tool was developed autonomously using the [Forge Protocol](docs/FORGE-PROTOCOL.md) - a vendor-neutral AI autonomy framework:
+This project birthed the [**Forge Protocol**](https://github.com/royalbit/forge-protocol). We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
+
+Now it's circular: **Forge uses the Forge Protocol to build Forge.**
 
 | Version | Time | Features |
 |---------|------|----------|
@@ -138,21 +140,21 @@ This tool was developed autonomously using the [Forge Protocol](docs/FORGE-PROTO
 
 **Total: ~45 hours autonomous development, 183 tests, zero warnings, 3 ADRs.**
 
-### Proven at Scale
+### The Protocol at Scale
 
-Forge is FOSS - the open-source heart of a larger ecosystem:
+The Forge Protocol now powers an entire ecosystem:
 
-| Project Type | AI Role | Protocol |
-|--------------|---------|----------|
-| FOSS CLI (this) | Principal Engineer | Forge Protocol |
-| Backend API | Principal Backend Engineer | Forge Protocol |
-| Mobile App | Principal Engineer | Forge Protocol |
-| Architecture Docs | Principal AI Architect | Forge Protocol |
-| Business Strategy | AI Strategist | Forge Protocol |
+| Project Type | AI Role | Status |
+|--------------|---------|--------|
+| **Forge** (this) | Principal Engineer | Production |
+| Backend API | Principal Backend Engineer | Production |
+| Mobile App | Principal Engineer | Production |
+| Architecture Docs | Principal AI Architect | Production |
+| Business Strategy | AI Strategist | Production |
 
 **5+ projects, 1 protocol, 1 AI.**
 
-**The Velocity (Nov 25, 2025):** 12 releases, 64 commits, ONE DAY. Human equivalent: 3-6 months.
+**The Velocity (Nov 25, 2025):** 12 releases, 64 commits, ONE DAY.
 
 The protocol is vendor-agnostic: no CLAUDE.md, no lock-in. The best AI wins.
 
