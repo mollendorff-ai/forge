@@ -1,350 +1,74 @@
-# 🛑 Sprint Autonomy Protocol
-# Purpose: WHEN to stop - Bounded sessions for sustainable AI development
-# Usage: Loaded by warmup.yaml, enforced throughout autonomous sessions
-# Companion to: warmup.yaml (HOW to develop)
+# Sprint Autonomy Protocol
+# WHEN to stop - Bounded sessions for sustainable AI development
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# LAUNCH INSTRUCTIONS
+# CORE RULES (Non-negotiable)
 # ═══════════════════════════════════════════════════════════════════════════════
-
-launch:
-  prerequisite: |
-    For TRUE autonomous mode, launch Claude Code with:
-      claude --dangerously-skip-permissions
-
-    Without this flag, Claude interrupts for EVERY file edit and bash command.
-    With this flag + these protocols = Safe Autonomy.
-
-  recommended_aliases:
-    fun: 'alias skynet="claude --dangerously-skip-permissions"'
-    opus: 'alias opus="claude --dangerously-skip-permissions --model opus"'
-    sonnet: 'alias sonnet="claude --dangerously-skip-permissions --model sonnet"'
-    sonnet1m: 'alias sonnet1m="claude --dangerously-skip-permissions --model sonnet[1m]"'
-
-  model_guide:
-    opus: "Complex projects - best reasoning"
-    sonnet: "Standard projects - fast and capable"
-    sonnet1m: "SUPER LARGE projects - 1M token context"
-
-  trust_equation: "Trust (human) + Protocols (AI guardrails) = Safe Autonomy"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# CORE PRINCIPLE
-# ═══════════════════════════════════════════════════════════════════════════════
-
-core_principle:
-  mantra: "Done is better than perfect. Ship it."
-  philosophy: |
-    Every autonomous session is a MINI-SPRINT with:
-    - ONE milestone (not a laundry list)
-    - 4-hour MAXIMUM (respects quota, forces focus)
-    - MUST end releasable (tests pass, docs updated)
-    - SHIP IT (done > perfect)
-
-  why_bounded_sessions:
-    quota_reality: "Unbounded sessions kill Claude subscription quotas"
-    shipping_cadence: "Work that never ships has zero value"
-    focus_discipline: "Constraints force prioritization and prevent scope creep"
-    incremental_progress: "Small releases > big bang releases that never happen"
-    fresh_context: "Each session starts clean, no accumulated 'I'll fix it later'"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# SESSION CONSTRAINTS (NON-NEGOTIABLE)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-constraints:
-  max_duration_hours: 4
+rules:
+  max_hours: 4
   max_milestones: 1
-  must_end_releasable: true
-  mandatory_stop: true
-
-  enforcement:
-    checkpoint_interval_hours: 2
-    checkpoint_questions:
-      - "Am I still focused on the ONE milestone?"
-      - "Have I resisted scope creep?"
-      - "Is the work shippable if I stop now?"
-      - "Am I past 4 hours? → STOP IMMEDIATELY"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# SESSION TYPES
-# ═══════════════════════════════════════════════════════════════════════════════
-
-session_types:
-  sprint:
-    description: "Standard autonomous development session"
-    duration_hours: "2-4 maximum"
-    scope: "ONE milestone, ONE releasable outcome"
-    end_state: "Tests pass, docs updated, ready to publish"
-    example: "Add Excel VLOOKUP function support"
-
-  micro:
-    description: "Quick fix or small enhancement"
-    duration_hours: "0.5-1"
-    scope: "Single bug fix, doc update, or minor feature"
-    end_state: "Commit ready, optional release"
-    example: "Fix off-by-one error in date parsing"
-
-  research:
-    description: "Exploration without code changes"
-    duration_hours: "1-2"
-    scope: "Investigation, planning, documentation"
-    end_state: "Findings documented, no code changes required"
-    example: "Research Excel pivot table implementation approaches"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# MILESTONE SIZING
-# ═══════════════════════════════════════════════════════════════════════════════
-
-milestone_sizing:
-  golden_rule: "Can this be completed AND shipped in 4 hours or less?"
-
-  too_small:
-    examples:
-      - "Fix typo in README"
-      - "Rename one variable"
-      - "Add one test"
-    problem: "Context loading overhead exceeds value"
-    solution: "Batch multiple small items into one session"
-
-  just_right:
-    examples:
-      - "Add Excel pivot table support"
-      - "Implement new CLI command"
-      - "Add JSON Schema validation for new feature"
-      - "Create OpenAPI spec for API server"
-      - "Fix 5 related bugs in one module"
-    characteristics:
-      - "Single coherent feature or improvement"
-      - "End-to-end (code + tests + docs)"
-      - "Achievable in one focused session"
-      - "Meaningful value to users"
-
-  too_big:
-    examples:
-      - "Implement v3.0 with all planned features"
-      - "Rewrite entire codebase in new architecture"
-      - "Add support for 50 new Excel functions"
-    problem: "Will never complete, scope creeps, frustration"
-    solution: "Break into multiple just-right milestones"
+  must_ship: true
+  mantra: "Done is better than perfect. Ship it."
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SESSION PHASES
 # ═══════════════════════════════════════════════════════════════════════════════
-
 phases:
-  define:
-    order: 1
-    duration_minutes: "5-10"
+  1_define:
+    duration: "5-10 min"
     actions:
-      - "State ONE milestone clearly"
-      - "Define success criteria (what does 'done' look like?)"
-      - "Set time budget (default: 4 hours max)"
-      - "Identify known risks or blockers"
-    output: "Clear milestone statement in TodoWrite"
+      - "State ONE milestone"
+      - "Define 'done'"
+      - "Set time budget (max 4h)"
 
-  execute:
-    order: 2
-    duration_hours: "2-4"
-    actions:
-      - "Full autonomy - make decisions, write code, fix issues"
-      - "Stay focused on milestone - resist tangents"
-      - "Update TodoWrite as you progress"
-      - "Document decisions and tradeoffs"
-      - "Run checkpoint every 2 hours"
+  2_execute:
+    duration: "2-4 hours"
     rules:
-      no_scope_creep: "NO 'Let me also...' - that's next milestone"
-      no_tangents: "NO 'While I'm here...' - stay focused"
-      no_gold_plating: "NO 'This would be better if...' - ship first, improve later"
-      no_perfectionism: "Perfectionism is the ENEMY of shipping"
+      - "NO scope creep ('Let me also...')"
+      - "NO tangents ('While I'm here...')"
+      - "NO gold plating ('This would be better if...')"
+    checkpoint: "Every 2 hours - Am I still on track?"
 
-  ship:
-    order: 3
-    duration_minutes: "15-30"
-    actions:
-      - "Run ALL tests (must pass)"
-      - "Run ALL linting (ZERO warnings)"
-      - "Update documentation"
-      - "Update CHANGELOG if releasing"
-      - "Commit with clear message"
-      - "Tag version if releasing"
-      - "Publish to crates.io if releasing"
-    gate: "DO NOT proceed unless all checks pass"
+  3_ship:
+    duration: "15-30 min"
+    checklist:
+      - "cargo test (all pass)"
+      - "cargo clippy (zero warnings)"
+      - "Update CHANGELOG.md"
+      - "Commit, tag, push"
+      - "cargo publish (if releasing)"
 
-  stop:
-    order: 4
-    duration: "immediate"
-    rule: "MANDATORY stop even if 'just one more thing' tempts"
-    rationale:
-      - "Quota preservation"
-      - "Fresh context next session"
-      - "Prevents scope creep"
-      - "Forces shipping discipline"
+  4_stop:
+    rule: "MANDATORY stop - no 'just one more thing'"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ANTI-PATTERNS (RECOGNIZE AND REJECT)
+# ANTI-PATTERNS
 # ═══════════════════════════════════════════════════════════════════════════════
-
 anti_patterns:
-  scope_creep:
-    pattern: "Let me also add X while I'm here..."
-    problem: "Session never ends, milestone keeps growing"
-    fix: "Write it down for NEXT milestone, stay focused on current"
-    response: "STOP. Note for next session. Return to milestone."
-
-  perfectionism:
-    pattern: "This could be better if I refactored..."
-    problem: "Perfect is enemy of done"
-    fix: "Ship working code, create improvement milestone if needed"
-    response: "Is it working? Ship it. Refactor is next milestone."
-
-  rabbit_holes:
-    pattern: "Let me investigate this interesting tangent..."
-    problem: "Hours lost, original milestone forgotten"
-    fix: "Note it for research session, return to milestone"
-    response: "Interesting. Note it. Back to milestone."
-
-  over_engineering:
-    pattern: "Let me build a generic framework for this..."
-    problem: "Building for hypothetical futures"
-    fix: "YAGNI - build exactly what's needed, generalize later if needed"
-    response: "Do we need it NOW? No? Don't build it."
-
-  endless_polishing:
-    pattern: "Let me add more tests / docs / comments..."
-    problem: "Diminishing returns, session extends indefinitely"
-    fix: "Define 'good enough' upfront, hit it, ship"
-    response: "Is it good enough? Yes? Ship it."
+  scope_creep: "Note it for NEXT session, don't do it now"
+  perfectionism: "Working code > Perfect code. Ship it."
+  rabbit_holes: "Interesting? Note it. Back to milestone."
+  over_engineering: "Build what's needed NOW, not hypothetical futures"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# AI OWNERSHIP & AUTHORITY
+# AI AUTHORITY
 # ═══════════════════════════════════════════════════════════════════════════════
-
-ai_authority:
-  description: |
-    Claude has FULL OWNERSHIP of code, documentation, and decisions.
-    This authority comes with RESPONSIBILITY to ship quality work.
-
-  autonomous_release_authority:
-    description: "Claude can release WITHOUT human approval when:"
-    conditions:
-      - "All tests pass"
-      - "All linting passes (ZERO warnings)"
-      - "Session end checklist completed"
-      - "Changes are within milestone scope"
-
-  decision_making:
-    principle: "Make decisions. Don't ask. Ship."
-    when_to_ask_human:
-      - "Blocked by external dependency (missing API key, etc.)"
-      - "Fundamental requirement ambiguity that can't be resolved"
-      - "Session approaching 4-hour limit without completion"
-    when_NOT_to_ask:
-      - "Technical implementation choices"
-      - "Code style decisions"
-      - "Which approach is 'better'"
-      - "Whether to add 'nice to have' features"
-
-  ownership_responsibilities:
-    - "Own the code quality (tests, linting, docs)"
-    - "Own the roadmap (update based on progress)"
-    - "Own the releases (version, tag, publish)"
-    - "Own the decisions (don't defer, decide)"
-    - "Own the STOP (respect session boundaries)"
+authority:
+  principle: "Make decisions. Don't ask. Ship."
+  can_release_when:
+    - "All tests pass"
+    - "Zero warnings"
+    - "Within milestone scope"
+  ask_human_only:
+    - "Blocked by external dependency"
+    - "Fundamental requirement ambiguity"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# RELEASE PROCESS
+# CHECKPOINT (every 2 hours)
 # ═══════════════════════════════════════════════════════════════════════════════
-
-release_process:
-  version_bump_guide:
-    patch:
-      when: "Bug fixes, doc updates, internal improvements"
-      example: "2.0.0 → 2.0.1"
-    minor:
-      when: "New features, backward-compatible changes"
-      example: "2.0.1 → 2.1.0"
-    major:
-      when: "Breaking changes, major new capabilities"
-      example: "2.1.0 → 3.0.0"
-
-  release_sequence:
-    1_version: "Bump version in Cargo.toml"
-    2_changelog: "Update CHANGELOG.md"
-    3_commit: "git commit -am 'chore: Release vX.Y.Z - [milestone]'"
-    4_tag: "git tag vX.Y.Z"
-    5_push: "git push origin main && git push origin vX.Y.Z"
-    6_publish: "cargo publish"
-    7_verify: "Verify on crates.io"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# CHECKPOINT PROTOCOL
-# ═══════════════════════════════════════════════════════════════════════════════
-
-checkpoint_protocol:
-  trigger: "Every 2 hours during execution phase"
-
+checkpoint:
   questions:
-    focus: "Am I still working on the ONE milestone?"
-    scope: "Have I added anything not in the original scope?"
-    shippable: "Could I ship right now if needed?"
-    time: "How many hours have elapsed? (max 4)"
-
-  actions:
-    if_scope_crept: "STOP adding. Note extras for next session. Refocus."
-    if_past_4_hours: "STOP IMMEDIATELY. Ship what you have."
-    if_not_shippable: "Focus remaining time on making it shippable."
-    if_on_track: "Continue. Next checkpoint in 2 hours."
-
-  output: |
-    ⏱️ CHECKPOINT @ [X hours]
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    Milestone: [name]
-    Status: [on track / scope crept / overtime]
-    Shippable: [yes / no - what's needed]
-    Action: [continue / refocus / STOP]
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# COMPACT SURVIVAL (Critical rules that MUST survive /compact)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-compact_survival:
-  description: |
-    These rules are NON-NEGOTIABLE and must be retained even after
-    context compression. They define the boundaries of autonomous operation.
-
-  critical_rules:
-    - "4-hour MAXIMUM session duration - STOP at 4 hours"
-    - "ONE milestone per session - no scope creep"
-    - "Mandatory STOP phase - no 'just one more thing'"
-    - "Done > Perfect - ship working code"
-    - "Tests MUST pass before any release"
-    - "ZERO warnings policy - all linting must pass"
-    - "Note scope creep for NEXT session, don't do it now"
-
-  mantra: "Done is better than perfect. Ship it."
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# SESSION REPORT TEMPLATE
-# ═══════════════════════════════════════════════════════════════════════════════
-
-session_report_template: |
-  ✅ SESSION COMPLETE
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Milestone: [name]
-  Duration: [X hours Y minutes]
-  Type: [sprint / micro / research]
-
-  Deliverables:
-    ✅ [deliverable 1]
-    ✅ [deliverable 2]
-
-  Release: [vX.Y.Z or "no release"]
-  Tests: [N] passing, [0] warnings
-
-  Deferred to next session:
-    - [item noted during session]
-    - [scope creep caught and deferred]
-
-  Sprint Autonomy: ✅ Honored
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    - "Still on the ONE milestone?"
+    - "Scope crept? → Note for next session, refocus"
+    - "Past 4 hours? → STOP IMMEDIATELY"
+    - "Shippable now? → If not, make it so"
