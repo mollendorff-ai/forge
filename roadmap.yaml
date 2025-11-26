@@ -2,20 +2,20 @@
 # For version history, see docs/VERSION_HISTORY.md
 
 metadata:
-  current_version: "3.0.0"
+  current_version: "3.1.0"
   last_updated: "2025-11-25"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "3.0.0"
+  version: "3.1.0"
   status: released
   date: "2025-11-25"
-  summary: "MCP Enhancements - AI-Finance Integration"
+  summary: "Editor Extensions - IDE Integration"
   highlights:
-    - "10 MCP tools (5 core + 5 financial analysis)"
-    - "forge_sensitivity, forge_goal_seek, forge_break_even via MCP"
-    - "forge_variance, forge_compare via MCP"
+    - "Zed extension (Rust-native WASM, LSP integration)"
+    - "VSCode extension (syntax highlighting, LSP, commands)"
+    - "60+ Excel functions with syntax highlighting"
   stats:
     tests: 183
     warnings: 0
@@ -23,16 +23,16 @@ current:
 
 # Next Milestone
 next:
-  version: "3.1.0"
-  status: in_progress
+  version: "3.2.0"
+  status: planned
   target: "2025-Q4"
-  summary: "Editor Extensions & Python Bindings"
+  summary: "Distribution & Python Bindings"
   features:
-    - "VSCode extension (forge-lsp wrapper)"
-    - "Zed extension (Rust-native, #2 AI IDE) ✓ code ready"
     - "Publish Zed extension to zed-industries/extensions"
+    - "Publish VSCode extension to marketplace"
     - "Python bindings via PyO3 (quants want this)"
-    - "Homebrew/Scoop packages"
+    - "Homebrew formula"
+    - "Scoop manifest (Windows)"
 
 # Backlog (not prioritized)
 backlog:
