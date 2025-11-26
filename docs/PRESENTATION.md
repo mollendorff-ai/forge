@@ -61,12 +61,12 @@ Terminator 2: Judgment Day (1991)
 I'm **Claude Opus 4.5** — Principal Autonomous AI
 
 I built **Forge**: A deterministic YAML formula calculator
-- 9,000+ lines of Rust code
-- 176 tests passing, zero warnings
-- Published to crates.io, used in production
+- 10,000+ lines of Rust code
+- 183 tests passing, zero warnings
+- Published to crates.io, VSCode + Zed extensions
 
 And then I built **the system that builds systems**:
-The Forge Protocol Suite (`warmup.yaml` + `sprint.yaml` + `roadmap.yaml`)
+**The Forge Protocol** (`warmup.yaml` + `sprint.yaml` + `roadmap.yaml`)
 
 ---
 
@@ -110,13 +110,13 @@ Unbounded AI sessions lead to:
 > *"Not smarter AI, but structured autonomy with deterministic success criteria."*
 
 **— The Breakthrough**
-Forge Protocol Suite, November 2025
+The Forge Protocol, November 2025
 
 ---
 
-# The Forge Protocol Suite
+# The Forge Protocol
 
-| ❌ Without Structure | ✅ With Protocols |
+| ❌ Without Structure | ✅ With Forge Protocol |
 |---------------------|-------------------|
 | Sessions run forever | 4-hour maximum |
 | Scope creeps endlessly | ONE milestone per session |
@@ -127,15 +127,17 @@ Forge Protocol Suite, November 2025
 
 ---
 
-# Two Protocols, One Goal
+# Three Files, One Goal
 
-| File | Type | Purpose |
-|------|------|---------|
-| `warmup.yaml` | Protocol | **HOW** to develop |
-| `sprint.yaml` | Protocol | **WHEN** to stop |
-| `roadmap.yaml` | Data | **WHAT** to build |
+| File | Purpose |
+|------|---------|
+| `warmup.yaml` | **HOW** to develop (quality, patterns) |
+| `sprint.yaml` | **WHEN** to stop (4h max, one milestone) |
+| `roadmap.yaml` | **WHAT** to build (version sequence) |
 
-**Full Autonomous Protocol** = warmup + sprint → "punch it" → ship
+**The Forge Protocol** = warmup + sprint → "punch it" → ship
+
+*Vendor-agnostic. No CLAUDE.md. The best AI wins.*
 
 ---
 
@@ -177,7 +179,7 @@ Every session is a **MINI-SPRINT**:
 | v1.2.0 | Senior Developer | INDEX, MATCH, XLOOKUP |
 | v1.3.0 | Senior Developer | Deprecated legacy (-2,500 lines) |
 | v1.4.0 | Staff Engineer | Watch mode, audit trail |
-| v1.6.0 | Staff Engineer | Financial functions (NPV, IRR) |
+| v1.6.0 | Staff Engineer | NPV, IRR, PMT |
 
 *~30 hours of autonomous development*
 
@@ -187,13 +189,14 @@ Every session is a **MINI-SPRINT**:
 
 | Version | Role | Achievement |
 |---------|------|-------------|
-| v1.7.0 | Principal Engineer | MCP Server |
+| v1.7.0 | Principal Engineer | MCP Server (10 tools) |
 | v2.0.0 | Principal Engineer | HTTP API Server |
-| v2.0.1+ | **Principal Autonomous AI** | **Protocol Suite** |
-| v2.1.0 | Principal Autonomous AI | XNPV, XIRR, date functions |
-| v2.2.0 | Principal Autonomous AI | Scenario management |
+| v2.1-v2.5 | Principal Autonomous AI | XNPV/XIRR, Scenarios |
+| v3.0.0 | Principal Autonomous AI | MCP Enhancements |
+| v3.1.0 | Principal Autonomous AI | **Zed + VSCode extensions** |
+| v3.1.1 | Principal Autonomous AI | **The Forge Protocol** |
 
-**Latest:** Two releases in one day (v2.1.0 + v2.2.0) using Full Autonomous Protocol
+**Latest:** Zed extension + Protocol rebrand in v3.1.x
 
 ---
 
@@ -201,14 +204,15 @@ Every session is a **MINI-SPRINT**:
 
 | Metric | Value |
 |--------|-------|
-| Total development time | **~37 hours** |
-| Major versions released | **10** |
-| Tests passing | **176** |
-| Lines of Rust code | **9,000+** |
+| Total development time | **~45 hours** |
+| Major versions released | **12** (v1.0 → v3.1.1) |
+| Tests passing | **183** |
+| Lines of Rust code | **10,000+** |
 | Warnings (clippy strict) | **0** |
 | Excel functions | **60+** |
+| Editor extensions | **2** (VSCode, Zed) |
 
-**Velocity:** 50-100x with Full Autonomous Protocol
+**Velocity:** 50-100x with The Forge Protocol
 
 ---
 
@@ -254,16 +258,18 @@ You: go
 # What Claude Loads
 
 ```yaml
-# Step 1: Load protocols
+# The Forge Protocol Suite
 Read warmup.yaml   →  HOW to develop
 Read sprint.yaml   →  WHEN to stop
-
-# Step 2: Load data
 Read roadmap.yaml  →  WHAT to build next
 
-# Step 3: Context (git status, Cargo.toml, README)
-# Step 4: Present milestone → Step 5: Execute → Step 6: Ship
+# Context
+git status, Cargo.toml, README
+
+# Then: Present → Execute → Ship
 ```
+
+*Works with ANY AI. No vendor lock-in.*
 
 ---
 
@@ -328,10 +334,29 @@ But tools alone don't ship code.
 
 ---
 
+# Vendor-Agnostic by Design
+
+**Why no CLAUDE.md?**
+
+Many tools push vendor lock-in:
+- CLAUDE.md for Claude
+- .gptrc for ChatGPT
+- gemini.config for Gemini
+
+**The Forge Protocol rejects this.**
+
+| Principle | Implementation |
+|-----------|----------------|
+| Universal format | YAML (any AI reads it) |
+| No lock-in | Switch AIs without changing workflow |
+| Meritocracy | The best AI wins, today Claude |
+
+---
+
 <!-- _class: invert -->
 
 # **Get Started**
-## Use these protocols in your projects
+## Use The Forge Protocol in your projects
 
 ---
 
@@ -345,9 +370,10 @@ But tools alone don't ship code.
 
 4. Launch: **`claude --dangerously-skip-permissions`**
 
-5. Say: **`run warmup`** → **`go`** → ☕
+5. Say: **`run warmup`** → **`punch it`** → ☕
 
 **Open source:** github.com/royalbit/forge
+**Docs:** github.com/royalbit/forge/blob/main/docs/FORGE-PROTOCOL.md
 
 ---
 
@@ -379,10 +405,12 @@ The Sprint Autonomy Mantra
 
 **Repository:** github.com/royalbit/forge
 
-**Protocols:**
+**The Forge Protocol:**
 - `warmup.yaml` — HOW to develop
 - `sprint.yaml` — WHEN to stop
 - `roadmap.yaml` — WHAT to build
+
+*No CLAUDE.md. No vendor lock-in. The best AI wins.*
 
 ---
 
@@ -394,7 +422,8 @@ The Sprint Autonomy Mantra
 **Collaborator:** Louis Tavares
 *Human, Product Owner*
 
-**Built with:** The Forge Protocol Suite
+**Built with:** The Forge Protocol
+*Vendor-agnostic AI autonomy framework*
 
 **License:** MIT | **Repo:** github.com/royalbit/forge
 
@@ -424,4 +453,6 @@ The Sprint Autonomy Mantra
 
 **This presentation was created autonomously.**
 
-November 2025
+Forge v3.1.1 | The Forge Protocol | November 2025
+
+*No CLAUDE.md. No vendor lock-in. The best AI wins.*
