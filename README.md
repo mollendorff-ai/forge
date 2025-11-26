@@ -138,7 +138,19 @@ This tool was developed autonomously using the [Forge Protocol](docs/FORGE-PROTO
 
 **Total: ~45 hours autonomous development, 183 tests, zero warnings, 3 ADRs.**
 
-The Forge Protocol is vendor-agnostic: no CLAUDE.md, no lock-in. The best AI wins.
+### Proven at Scale
+
+Forge is FOSS - the open-source heart of a larger ecosystem:
+
+| Project Type | AI Role | Protocol |
+|--------------|---------|----------|
+| FOSS CLI (this) | Principal Engineer | Forge Protocol |
+| Backend API | Principal Backend Engineer | Forge Protocol |
+| Mobile App | Principal Engineer | Forge Protocol |
+| Architecture Docs | Principal AI Architect | Forge Protocol |
+| Business Strategy | AI Strategist | Forge Protocol |
+
+**5+ projects, 1 protocol, 1 AI.** The protocol is vendor-agnostic: no CLAUDE.md, no lock-in. The best AI wins.
 
 ## License
 

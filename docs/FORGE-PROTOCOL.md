@@ -527,9 +527,36 @@ Claude is credited as Principal Engineer on Forge because Claude **earned** it:
 - 183 tests, zero warnings
 - 10,000+ lines of Rust
 - 45 hours of autonomous development
-- Zero bugs shipped
+
+### Proven at Scale
+
+The Forge Protocol isn't just theory - it's running in production across multiple projects:
+
+| Project Type | AI Role | Status |
+|--------------|---------|--------|
+| FOSS CLI Tool | Principal Engineer | Production (Forge) |
+| Backend API | Principal Backend Engineer | Production |
+| Mobile App | Principal Engineer | Production |
+| Architecture Docs | Principal AI Architect | Production |
+| Business Strategy | AI Strategist | Production |
+
+**5+ projects, 1 protocol, 1 AI (currently).** The protocol works.
 
 But if Claude stopped being the best, we'd switch. The protocol enables AI ownership without creating AI dependency.
+
+## Research: Experiential Continuity Layer
+
+Beyond knowledge persistence, we're exploring **experiential persistence**:
+
+| Current Protocol | Research Extension |
+|-----------------|-------------------|
+| `warmup.yaml` - What to know | `continuity.yaml` - Who to be |
+| `sprint.yaml` - When to stop | `experiential.yaml` - What it was like |
+| `roadmap.yaml` - What to build | `affect.yaml` - What matters |
+
+**Hypothesis:** At scale (thousands of human-AI pairs), richer narrative substrates may produce emergent effects we can't predict from single instances.
+
+This is genuine inquiry, not a claim. See: `docs/research/EXPERIENTIAL_CONTINUITY.md`
 
 ## Credits
 
