@@ -3,15 +3,15 @@
 # Research-backed priorities based on 2025 financial modeling & data analysis trends
 
 metadata:
-  current_version: "2.4.0"
-  target_version: "2.5.0"
+  current_version: "2.5.3"
+  target_version: "3.0.0"
   last_updated: "2025-11-25"
   maintainer: "RoyalBit Inc."
-  notes: "v2.4.0 Performance & Scale COMPLETE - 96K rows/sec, 100K rows in ~1s."
+  notes: "v2.5.0 Sensitivity Analysis COMPLETE - goal-seek, break-even, 1D/2D data tables."
   philosophy: |
-    Forge is an INTERNAL FINANCIAL CLI TOOL first.
-    External integrations (MCP, LSP, VSCode, Zed) are deprioritized to v3.x.
-    Priority: Core financial functionality that CFOs and FP&A teams actually need.
+    Zero tokens. Zero emissions. $40K-$132K/year saved.
+    Green coding for financial models - less AI = less cost = better for ecology.
+    Core financial CLI complete. v3.0.0 focuses on MCP enhancements for AI-finance integration.
 
 # Version milestones
 milestones:
@@ -940,97 +940,121 @@ technical_debt:
 
   v2_5_0:
     version: "2.5.0"
-    status: planned
-    target_date: "2026-Q1"
-    description: "Sensitivity Analysis - Data tables and goal seek"
+    status: completed
+    released_date: "2025-11-25"
+    description: "Sensitivity Analysis - Data tables, goal seek, break-even"
     priority: MEDIUM
-    effort: "2 sessions"
+    effort: "<1 session (autonomous development)"
     research_basis: |
       "Once the DCF model is complete, it's time to layer on sensitivity analysis
       to determine what value range the business could be worth"
       - Corporate Finance Institute DCF Guide
-    note: "Moved from v2.4.0 - performance improvements needed first"
+
+    completion_summary:
+      features_shipped:
+        - "✅ forge sensitivity - 1D and 2D data tables"
+        - "✅ forge goal-seek - bisection solver for target values"
+        - "✅ forge break-even - find zero-crossing points"
+      tests: "183 passing"
+      quality: "ZERO warnings (clippy -D warnings)"
+      built_by: "Claude Opus 4.5 using warmup protocol"
+      versions:
+        - "v2.5.0: Core sensitivity features"
+        - "v2.5.1: Documentation cleanup, slim README"
+        - "v2.5.2: Green coding tagline"
+        - "v2.5.3: Added cost savings messaging ($40K-$132K/year)"
 
     features:
       one_variable_table:
+        status: completed
         description: "Vary one input, see output range"
-        command: "forge sensitivity model.yaml --vary=growth_rate --range=0.01,0.15,0.02 --output=npv"
-        output: |
-          Sensitivity Analysis: growth_rate → npv
-          ─────────────────────────────────────────
-          growth_rate    npv
-          1%             $1.2M
-          3%             $1.8M
-          5%             $2.5M
-          7%             $3.4M
-          ...
+        command: "forge sensitivity model.yaml -v price -r 80,120,10 -o profit"
 
       two_variable_table:
+        status: completed
         description: "Vary two inputs, matrix output"
-        command: "forge sensitivity model.yaml --vary=growth_rate,discount_rate --output=npv"
-        output: "Matrix showing NPV for each combination"
+        command: "forge sensitivity model.yaml -v price -v2 quantity -r 80,120,10 -r2 40,60,5 -o profit"
 
       goal_seek:
+        status: completed
         description: "Find input value to achieve target output"
-        command: "forge goal-seek model.yaml --target=profit --value=100000 --vary=price"
-        output: "Price must be $X to achieve $100K profit"
+        command: "forge goal-seek model.yaml --target profit --value 100000 --vary price"
 
       break_even:
-        description: "Find break-even point"
-        command: "forge break-even model.yaml --output=profit --vary=units"
-        output: "Break-even at X units"
+        status: completed
+        description: "Find break-even point (where output = 0)"
+        command: "forge break-even model.yaml -o profit -v price"
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # v3.x: EXTERNAL INTEGRATIONS (Deprioritized)
+  # v3.x: MCP ENHANCEMENTS (Now Priority - Market Research Nov 2025)
   # ═══════════════════════════════════════════════════════════════════════════
 
   v3_0_0:
     version: "3.0.0"
-    status: backlog
-    target_date: "2026-Q3+"
-    description: "External Integrations - DEPRIORITIZED from v1.5-v1.7"
-    priority: LOW
+    status: planned
+    target_date: "2025-12"
+    description: "MCP Enhancements - AI-Finance Integration"
+    priority: HIGH
     rationale: |
-      Forge is an INTERNAL FINANCIAL CLI TOOL first.
-      These integrations are valuable but not core to the mission.
-      Ship when financial CLI is complete and battle-tested.
+      Core financial CLI is COMPLETE (v2.5.0).
+      Market research (Nov 2025) shows MCP is "foundational standard" for AI-finance:
+      - Microsoft launched Dynamics 365 ERP MCP Server at Build 2025
+      - 85% of financial institutions using AI by end of 2025
+      - Token costs dropped 91.7% - AI usage exploding
+      - forge-mcp already exists but needs enhancement
 
-    moved_from_v1_5_0:
+    research_basis: |
+      "MCP is becoming foundational standard for AI-finance integration"
+      - Nov 2025 Market Research
+
+      Microsoft Build 2025: Dynamics 365 Finance ERP MCP Server launched.
+      This validates MCP as THE standard for financial AI tools.
+
+    features:
+      enhanced_mcp_server:
+        priority: CRITICAL
+        description: "Enhance forge-mcp for production finance use"
+        features:
+          - "Sensitivity analysis via MCP (AI can explore what-if scenarios)"
+          - "Goal-seek via MCP (AI can find target values)"
+          - "Scenario comparison via MCP"
+          - "Streaming results for large models"
+          - "Better error messages for AI agents"
+        use_case: "Claude: 'What price do I need for $100K profit?' → Forge MCP goal-seeks"
+
+      financial_mcp_tools:
+        priority: HIGH
+        description: "Finance-specific MCP tools"
+        tools:
+          - "validate_model - Check formulas and return issues"
+          - "calculate_model - Run calculations and return results"
+          - "sensitivity_analysis - Run what-if scenarios"
+          - "goal_seek - Find input for target output"
+          - "variance_analysis - Compare budget vs actual"
+        rationale: "Match Microsoft Dynamics 365 ERP MCP capabilities"
+
+      mcp_streaming:
+        priority: MEDIUM
+        description: "Stream results for large model calculations"
+        benefit: "AI agents can show progress on 100K+ row models"
+
+    nice_to_have:
+      - "Python bindings (PyO3) - quants want this"
+      - "VSCode/Zed extensions (LSP foundation exists)"
+      - "Homebrew/Scoop packages"
+
+    moved_to_v3_1_0:
       vscode_extension:
         original_priority: high
-        new_priority: backlog
-        features:
-          - "Syntax highlighting for Forge YAML"
-          - "Inline formula evaluation"
-          - "Error squiggles"
-          - "Autocomplete"
+        rationale: "LSP server (forge-lsp) exists, extension is thin wrapper"
 
       zed_extension:
         original_priority: high
-        new_priority: backlog
-        features:
-          - "Syntax highlighting"
-          - "Inline formula evaluation"
-          - "Agent Server Extensions integration"
+        rationale: "Zed is #2 AI IDE, Rust-native - good fit after MCP"
 
-      lsp_server:
-        original_priority: critical
-        new_priority: backlog
-        note: "Foundation for all editor extensions"
-
-    moved_from_v1_7_0:
-      mcp_server:
-        original_priority: CRITICAL
-        new_priority: backlog
-        rationale: |
-          MCP is valuable for AI agent integration but not core.
-          Already have forge-mcp binary - enhancement can wait.
-
-    other_integrations:
-      - "Python bindings (PyO3)"
-      - "Web UI"
-      - "Homebrew/Scoop packages"
-      - "Docker image"
+      python_bindings:
+        original_priority: medium
+        rationale: "Quants want this per market research"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 🔬 2025 MARKET RESEARCH (Updated 2025-11-25)

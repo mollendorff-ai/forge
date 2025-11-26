@@ -9,7 +9,10 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::cli::{audit, calculate, export, import, validate};
+use crate::cli::{
+    audit, break_even, calculate, compare, export, goal_seek, import, sensitivity, validate,
+    variance,
+};
 
 /// JSON-RPC request
 #[derive(Debug, Deserialize)]
@@ -118,7 +121,7 @@ fn handle_request(request: &JsonRpcRequest) -> Option<JsonRpcResponse> {
                     "name": "forge-mcp",
                     "version": env!("CARGO_PKG_VERSION")
                 },
-                "instructions": "Forge MCP Server - YAML formula calculator with Excel-style arrays. Validate financial models, calculate formulas, audit dependencies, import/export Excel. Supports 50+ functions including NPV, IRR, PMT."
+                "instructions": "Forge MCP Server v3.0.0 - AI-Finance integration. Zero tokens. Zero emissions. Validate models, calculate formulas, sensitivity analysis, goal-seek, break-even, variance analysis, scenario comparison. 60+ Excel functions including NPV, IRR, PMT, XNPV, XIRR. 96K rows/sec performance."
             })),
             error: None,
         }),
@@ -263,6 +266,150 @@ fn get_tools() -> Vec<Tool> {
                     }
                 },
                 "required": ["excel_path", "yaml_path"]
+            }),
+        },
+        // v3.0.0 Financial Analysis Tools
+        Tool {
+            name: "forge_sensitivity".to_string(),
+            description: "Run sensitivity analysis by varying one or two input variables and observing output changes. Essential for what-if modeling and risk assessment.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the YAML model file"
+                    },
+                    "vary": {
+                        "type": "string",
+                        "description": "Name of the input variable to vary"
+                    },
+                    "range": {
+                        "type": "string",
+                        "description": "Range for the variable: start,end,step (e.g., '80,120,10')"
+                    },
+                    "output": {
+                        "type": "string",
+                        "description": "Name of the output variable to observe"
+                    },
+                    "vary2": {
+                        "type": "string",
+                        "description": "Optional second variable for 2D analysis"
+                    },
+                    "range2": {
+                        "type": "string",
+                        "description": "Optional range for second variable"
+                    }
+                },
+                "required": ["file_path", "vary", "range", "output"]
+            }),
+        },
+        Tool {
+            name: "forge_goal_seek".to_string(),
+            description: "Find the input value needed to achieve a target output. Uses bisection solver. Example: 'What price do I need for $100K profit?'".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the YAML model file"
+                    },
+                    "target": {
+                        "type": "string",
+                        "description": "Name of the target output variable"
+                    },
+                    "value": {
+                        "type": "number",
+                        "description": "Desired value for the target"
+                    },
+                    "vary": {
+                        "type": "string",
+                        "description": "Name of the input variable to adjust"
+                    },
+                    "min": {
+                        "type": "number",
+                        "description": "Optional minimum bound for search"
+                    },
+                    "max": {
+                        "type": "number",
+                        "description": "Optional maximum bound for search"
+                    },
+                    "tolerance": {
+                        "type": "number",
+                        "description": "Solution tolerance (default: 0.0001)"
+                    }
+                },
+                "required": ["file_path", "target", "value", "vary"]
+            }),
+        },
+        Tool {
+            name: "forge_break_even".to_string(),
+            description: "Find the break-even point where an output equals zero. Example: 'At what units does profit = 0?'".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the YAML model file"
+                    },
+                    "output": {
+                        "type": "string",
+                        "description": "Name of the output variable to find zero crossing"
+                    },
+                    "vary": {
+                        "type": "string",
+                        "description": "Name of the input variable to adjust"
+                    },
+                    "min": {
+                        "type": "number",
+                        "description": "Optional minimum bound for search"
+                    },
+                    "max": {
+                        "type": "number",
+                        "description": "Optional maximum bound for search"
+                    }
+                },
+                "required": ["file_path", "output", "vary"]
+            }),
+        },
+        Tool {
+            name: "forge_variance".to_string(),
+            description: "Compare budget vs actual with variance analysis. Shows absolute and percentage variances with favorable/unfavorable indicators.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "budget_path": {
+                        "type": "string",
+                        "description": "Path to the budget YAML file"
+                    },
+                    "actual_path": {
+                        "type": "string",
+                        "description": "Path to the actual YAML file"
+                    },
+                    "threshold": {
+                        "type": "number",
+                        "description": "Variance threshold percentage for alerts (default: 10)"
+                    }
+                },
+                "required": ["budget_path", "actual_path"]
+            }),
+        },
+        Tool {
+            name: "forge_compare".to_string(),
+            description: "Compare calculation results across multiple scenarios side-by-side. Useful for what-if analysis.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the YAML model file"
+                    },
+                    "scenarios": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "List of scenario names to compare (e.g., ['base', 'optimistic', 'pessimistic'])"
+                    }
+                },
+                "required": ["file_path", "scenarios"]
             }),
         },
     ]
@@ -417,6 +564,210 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 }),
             }
         }
+        // v3.0.0 Financial Analysis Tools
+        "forge_sensitivity" => {
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let vary = arguments
+                .get("vary")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let range = arguments
+                .get("range")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let output = arguments
+                .get("output")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let vary2 = arguments
+                .get("vary2")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let range2 = arguments
+                .get("range2")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+
+            let path = Path::new(file_path).to_path_buf();
+            match sensitivity(
+                path,
+                vary.to_string(),
+                range.to_string(),
+                vary2,
+                range2,
+                output.to_string(),
+                false,
+            ) {
+                Ok(()) => json!({
+                    "content": [{
+                        "type": "text",
+                        "text": format!("Sensitivity analysis completed for {} varying {} over {}", file_path, vary, range)
+                    }],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{
+                        "type": "text",
+                        "text": format!("Sensitivity analysis failed: {}", e)
+                    }],
+                    "isError": true
+                }),
+            }
+        }
+        "forge_goal_seek" => {
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let target = arguments
+                .get("target")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let value = arguments
+                .get("value")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let vary = arguments
+                .get("vary")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let min = arguments.get("min").and_then(|v| v.as_f64());
+            let max = arguments.get("max").and_then(|v| v.as_f64());
+            let tolerance = arguments
+                .get("tolerance")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0001);
+
+            let path = Path::new(file_path).to_path_buf();
+            match goal_seek(
+                path,
+                target.to_string(),
+                value,
+                vary.to_string(),
+                min,
+                max,
+                tolerance,
+                false,
+            ) {
+                Ok(()) => json!({
+                    "content": [{
+                        "type": "text",
+                        "text": format!("Goal seek completed: found {} value to achieve {} = {}", vary, target, value)
+                    }],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{
+                        "type": "text",
+                        "text": format!("Goal seek failed: {}", e)
+                    }],
+                    "isError": true
+                }),
+            }
+        }
+        "forge_break_even" => {
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let output = arguments
+                .get("output")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let vary = arguments
+                .get("vary")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let min = arguments.get("min").and_then(|v| v.as_f64());
+            let max = arguments.get("max").and_then(|v| v.as_f64());
+
+            let path = Path::new(file_path).to_path_buf();
+            match break_even(path, output.to_string(), vary.to_string(), min, max, false) {
+                Ok(()) => json!({
+                    "content": [{
+                        "type": "text",
+                        "text": format!("Break-even analysis completed: found {} value where {} = 0", vary, output)
+                    }],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{
+                        "type": "text",
+                        "text": format!("Break-even analysis failed: {}", e)
+                    }],
+                    "isError": true
+                }),
+            }
+        }
+        "forge_variance" => {
+            let budget_path = arguments
+                .get("budget_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let actual_path = arguments
+                .get("actual_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let threshold = arguments
+                .get("threshold")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(10.0);
+
+            let budget = Path::new(budget_path).to_path_buf();
+            let actual = Path::new(actual_path).to_path_buf();
+            match variance(budget, actual, threshold, None, false) {
+                Ok(()) => json!({
+                    "content": [{
+                        "type": "text",
+                        "text": format!("Variance analysis completed: {} vs {} (threshold: {}%)", budget_path, actual_path, threshold)
+                    }],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{
+                        "type": "text",
+                        "text": format!("Variance analysis failed: {}", e)
+                    }],
+                    "isError": true
+                }),
+            }
+        }
+        "forge_compare" => {
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let scenarios: Vec<String> = arguments
+                .get("scenarios")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            let path = Path::new(file_path).to_path_buf();
+            match compare(path, scenarios.clone(), false) {
+                Ok(()) => json!({
+                    "content": [{
+                        "type": "text",
+                        "text": format!("Scenario comparison completed for {}: {:?}", file_path, scenarios)
+                    }],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{
+                        "type": "text",
+                        "text": format!("Scenario comparison failed: {}", e)
+                    }],
+                    "isError": true
+                }),
+            }
+        }
         _ => json!({
             "content": [{
                 "type": "text",
@@ -479,15 +830,21 @@ mod tests {
 
         let result = response.result.unwrap();
         let tools = result["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 5);
+        assert_eq!(tools.len(), 10); // 5 core + 5 financial analysis tools
 
-        // Check tool names
+        // Check tool names - core tools
         let tool_names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert!(tool_names.contains(&"forge_validate"));
         assert!(tool_names.contains(&"forge_calculate"));
         assert!(tool_names.contains(&"forge_audit"));
         assert!(tool_names.contains(&"forge_export"));
         assert!(tool_names.contains(&"forge_import"));
+        // v3.0.0 financial analysis tools
+        assert!(tool_names.contains(&"forge_sensitivity"));
+        assert!(tool_names.contains(&"forge_goal_seek"));
+        assert!(tool_names.contains(&"forge_break_even"));
+        assert!(tool_names.contains(&"forge_variance"));
+        assert!(tool_names.contains(&"forge_compare"));
     }
 
     #[test]
@@ -546,7 +903,7 @@ mod tests {
     #[test]
     fn test_get_tools_has_correct_schemas() {
         let tools = get_tools();
-        assert_eq!(tools.len(), 5);
+        assert_eq!(tools.len(), 10); // 5 core + 5 financial analysis tools
 
         // Validate forge_validate schema
         let validate_tool = tools.iter().find(|t| t.name == "forge_validate").unwrap();
