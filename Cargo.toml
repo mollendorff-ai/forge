@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "4.0.0-beta"
+version = "4.0.0"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Engineer <noreply@anthropic.com>", "Louis Tavares <louis@royalbit.ca>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "YAML formula calculator built with the Forge Protocol (github.com/royalbit/forge-protocol). 60+ Excel functions, 96K rows/sec."

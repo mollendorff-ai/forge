@@ -1,0 +1,592 @@
+# Forge v4.0 Enterprise Test Model
+# 500+ formulas stress test for stable release validation
+# Simulates a SaaS company financial model
+
+_forge_version: "4.0.0"
+
+# =============================================================================
+# REVENUE MODEL (Monthly breakdown - 24 months)
+# =============================================================================
+
+revenue_monthly:
+  month:
+    value: ["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06",
+            "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12",
+            "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06",
+            "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"]
+    unit: "month"
+
+  # Starting customers and growth
+  customers_start:
+    value: [100, 105, 112, 120, 130, 142, 156, 172, 190, 210, 232, 256,
+            282, 310, 341, 375, 412, 453, 498, 548, 603, 663, 729, 802]
+    unit: "count"
+    notes: "Beginning of month customer count"
+
+  new_customers:
+    value: [10, 12, 14, 17, 20, 24, 28, 33, 39, 46, 54, 64,
+            75, 88, 103, 121, 142, 167, 196, 230, 270, 317, 372, 437]
+    unit: "count"
+    notes: "New customers acquired"
+
+  churned_customers:
+    value: [5, 5, 6, 7, 8, 10, 12, 15, 19, 24, 30, 38,
+            47, 57, 69, 84, 101, 122, 146, 175, 210, 251, 299, 357]
+    unit: "count"
+    notes: "Customers lost to churn"
+
+  # Formulas (24 formulas)
+  customers_end: "=customers_start + new_customers - churned_customers"
+  churn_rate: "=churned_customers / customers_start"
+  growth_rate: "=new_customers / customers_start"
+  net_growth: "=new_customers - churned_customers"
+
+  # Pricing tiers
+  basic_customers:
+    value: [60, 63, 67, 72, 78, 85, 94, 103, 114, 126, 139, 154,
+            169, 186, 205, 225, 247, 272, 299, 329, 362, 398, 437, 481]
+    unit: "count"
+
+  pro_customers:
+    value: [30, 32, 34, 36, 39, 43, 47, 52, 57, 63, 70, 77,
+            85, 93, 102, 112, 124, 136, 149, 164, 181, 199, 219, 241]
+    unit: "count"
+
+  enterprise_customers:
+    value: [10, 10, 11, 12, 13, 14, 15, 17, 19, 21, 23, 25,
+            28, 31, 34, 38, 41, 45, 50, 55, 60, 66, 73, 80]
+    unit: "count"
+
+  # Revenue per tier (24 formulas each = 72 formulas)
+  basic_price:
+    value: [29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29,
+            29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29]
+    unit: "CAD"
+
+  pro_price:
+    value: [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99,
+            99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]
+    unit: "CAD"
+
+  enterprise_price:
+    value: [299, 299, 299, 299, 299, 299, 299, 299, 299, 299, 299, 299,
+            299, 299, 299, 299, 299, 299, 299, 299, 299, 299, 299, 299]
+    unit: "CAD"
+
+  basic_revenue: "=basic_customers * basic_price"
+  pro_revenue: "=pro_customers * pro_price"
+  enterprise_revenue: "=enterprise_customers * enterprise_price"
+  total_mrr: "=basic_revenue + pro_revenue + enterprise_revenue"
+  arr: "=total_mrr * 12"
+
+  # Per-customer metrics
+  arpu: "=total_mrr / customers_end"
+  ltv: "=arpu / churn_rate"
+  cac:
+    value: [150, 145, 140, 135, 130, 125, 120, 115, 110, 105, 100, 95,
+            90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35]
+    unit: "CAD"
+    notes: "Customer acquisition cost"
+
+  ltv_cac_ratio: "=ltv / cac"
+
+# =============================================================================
+# COST MODEL (24 months)
+# =============================================================================
+
+costs_monthly:
+  month:
+    value: ["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06",
+            "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12",
+            "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06",
+            "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"]
+    unit: "month"
+
+  # Headcount
+  engineering:
+    value: [5, 5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 9,
+            10, 10, 11, 11, 12, 12, 13, 14, 15, 16, 17, 18]
+    unit: "count"
+
+  sales:
+    value: [3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 7,
+            7, 8, 8, 9, 9, 10, 10, 11, 12, 13, 14, 15]
+    unit: "count"
+
+  support:
+    value: [2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 5,
+            5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 9, 10]
+    unit: "count"
+
+  marketing:
+    value: [1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+            3, 3, 4, 4, 4, 4, 5, 5, 5, 6, 6, 6]
+    unit: "count"
+
+  operations:
+    value: [2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3,
+            3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5]
+    unit: "count"
+
+  total_headcount: "=engineering + sales + support + marketing + operations"
+
+  # Salaries (average per role)
+  eng_salary:
+    value: [8500, 8500, 8500, 8500, 8500, 8500, 8500, 8500, 8500, 8500, 8500, 8500,
+            8750, 8750, 8750, 8750, 8750, 8750, 8750, 8750, 8750, 8750, 8750, 8750]
+    unit: "CAD"
+
+  sales_salary:
+    value: [6000, 6000, 6000, 6000, 6000, 6000, 6000, 6000, 6000, 6000, 6000, 6000,
+            6200, 6200, 6200, 6200, 6200, 6200, 6200, 6200, 6200, 6200, 6200, 6200]
+    unit: "CAD"
+
+  support_salary:
+    value: [4500, 4500, 4500, 4500, 4500, 4500, 4500, 4500, 4500, 4500, 4500, 4500,
+            4700, 4700, 4700, 4700, 4700, 4700, 4700, 4700, 4700, 4700, 4700, 4700]
+    unit: "CAD"
+
+  marketing_salary:
+    value: [5500, 5500, 5500, 5500, 5500, 5500, 5500, 5500, 5500, 5500, 5500, 5500,
+            5700, 5700, 5700, 5700, 5700, 5700, 5700, 5700, 5700, 5700, 5700, 5700]
+    unit: "CAD"
+
+  ops_salary:
+    value: [5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000,
+            5200, 5200, 5200, 5200, 5200, 5200, 5200, 5200, 5200, 5200, 5200, 5200]
+    unit: "CAD"
+
+  # Payroll costs (60 formulas)
+  eng_cost: "=engineering * eng_salary"
+  sales_cost: "=sales * sales_salary"
+  support_cost: "=support * support_salary"
+  marketing_cost: "=marketing * marketing_salary"
+  ops_cost: "=operations * ops_salary"
+  total_payroll: "=eng_cost + sales_cost + support_cost + marketing_cost + ops_cost"
+  payroll_tax: "=total_payroll * 0.15"
+  benefits: "=total_payroll * 0.12"
+  total_people_cost: "=total_payroll + payroll_tax + benefits"
+
+  # Infrastructure costs
+  aws_cost:
+    value: [2000, 2100, 2200, 2400, 2600, 2900, 3200, 3600, 4000, 4500, 5000, 5600,
+            6300, 7100, 8000, 9000, 10100, 11400, 12800, 14400, 16200, 18200, 20500, 23000]
+    unit: "CAD"
+    notes: "Cloud infrastructure"
+
+  tools_cost:
+    value: [500, 500, 500, 600, 600, 700, 800, 900, 1000, 1100, 1200, 1300,
+            1400, 1500, 1600, 1700, 1800, 1900, 2000, 2200, 2400, 2600, 2800, 3000]
+    unit: "CAD"
+    notes: "SaaS tools and subscriptions"
+
+  office_cost:
+    value: [3000, 3000, 3000, 3000, 3000, 3000, 4000, 4000, 4000, 4000, 5000, 5000,
+            5000, 5000, 6000, 6000, 6000, 6000, 7000, 7000, 7000, 8000, 8000, 8000]
+    unit: "CAD"
+
+  total_opex: "=aws_cost + tools_cost + office_cost"
+
+  # Marketing spend
+  paid_ads:
+    value: [5000, 5500, 6000, 7000, 8000, 9500, 11000, 13000, 15500, 18500, 22000, 26000,
+            31000, 37000, 44000, 52000, 62000, 74000, 88000, 105000, 125000, 149000, 177000, 211000]
+    unit: "CAD"
+
+  content_marketing:
+    value: [1000, 1000, 1200, 1200, 1500, 1500, 1800, 1800, 2200, 2200, 2600, 2600,
+            3100, 3100, 3700, 3700, 4400, 4400, 5200, 5200, 6200, 6200, 7400, 7400]
+    unit: "CAD"
+
+  events:
+    value: [0, 0, 2000, 0, 0, 3000, 0, 0, 4000, 0, 0, 5000,
+            0, 0, 6000, 0, 0, 7000, 0, 0, 8000, 0, 0, 10000]
+    unit: "CAD"
+
+  total_marketing: "=paid_ads + content_marketing + events"
+  total_costs: "=total_people_cost + total_opex + total_marketing"
+
+  # Cost metrics
+  cost_per_employee: "=total_costs / total_headcount"
+  revenue_per_employee: "=revenue_monthly.total_mrr / total_headcount"
+
+# =============================================================================
+# P&L SUMMARY (24 months)
+# =============================================================================
+
+pl_monthly:
+  month:
+    value: ["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06",
+            "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12",
+            "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06",
+            "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"]
+    unit: "month"
+
+  # Cross-table formulas (referencing other tables)
+  revenue:
+    value: [6700, 7059, 7537, 8076, 8748, 9561, 10515, 11619, 12873, 14286, 15867, 17617,
+            19542, 21645, 23932, 26405, 29082, 31971, 35099, 38504, 42191, 46209, 50594, 55379]
+    unit: "CAD"
+    notes: "=revenue_monthly.total_mrr (pre-calculated for cross-table demo)"
+
+  cogs:
+    value: [670, 706, 754, 808, 875, 956, 1052, 1162, 1287, 1429, 1587, 1762,
+            1954, 2165, 2393, 2641, 2908, 3197, 3510, 3850, 4219, 4621, 5059, 5538]
+    unit: "CAD"
+    notes: "10% of revenue"
+
+  gross_profit: "=revenue - cogs"
+  gross_margin: "=gross_profit / revenue"
+
+  operating_expenses:
+    value: [65000, 66500, 70700, 74200, 78600, 84900, 92000, 100300, 109900, 121100, 133400, 147400,
+            163300, 181000, 200900, 223000, 247600, 274900, 305400, 339600, 377700, 420200, 467400, 520000]
+    unit: "CAD"
+    notes: "=costs_monthly.total_costs (pre-calculated)"
+
+  operating_income: "=gross_profit - operating_expenses"
+  operating_margin: "=operating_income / revenue"
+
+  interest_expense:
+    value: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500]
+    unit: "CAD"
+
+  taxes:
+    value: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    unit: "CAD"
+    notes: "No taxes while unprofitable"
+
+  net_income: "=operating_income - interest_expense - taxes"
+  net_margin: "=net_income / revenue"
+
+  # Cumulative metrics
+  cumulative_revenue:
+    value: [6700, 13759, 21296, 29372, 38120, 47681, 58196, 69815, 82688, 96974, 112841, 130458,
+            150000, 171645, 195577, 221982, 251064, 283035, 318134, 356638, 398829, 445038, 495632, 551011]
+    unit: "CAD"
+
+  cumulative_loss:
+    value: [58970, 118229, 181392, 247516, 317368, 392807, 474292, 562673, 659600, 766414, 884041, 1013824,
+            1157678, 1317033, 1494000, 1690595, 1909113, 2152041, 2421835, 2721931, 3055540, 3425931, 3836766, 4292387]
+    unit: "CAD"
+    notes: "Running total of losses"
+
+# =============================================================================
+# CASH FLOW (24 months)
+# =============================================================================
+
+cashflow_monthly:
+  month:
+    value: ["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06",
+            "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12",
+            "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06",
+            "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"]
+    unit: "month"
+
+  operating_cashflow:
+    value: [-55000, -56000, -60000, -63000, -66000, -72000, -78000, -85000, -93000, -103000, -114000, -126000,
+            -140000, -155000, -172000, -191000, -212000, -236000, -262000, -291000, -324000, -361000, -402000, -447000]
+    unit: "CAD"
+
+  capex:
+    value: [-5000, 0, 0, -10000, 0, 0, -15000, 0, 0, -20000, 0, 0,
+            -25000, 0, 0, -30000, 0, 0, -35000, 0, 0, -40000, 0, 0]
+    unit: "CAD"
+
+  financing:
+    value: [0, 0, 0, 0, 0, 500000, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 2000000, 0, 0, 0, 0, 0, 0]
+    unit: "CAD"
+    notes: "Funding rounds"
+
+  net_cashflow: "=operating_cashflow + capex + financing"
+
+  beginning_cash:
+    value: [100000, 40000, -16000, -76000, -149000, -215000, 213000, 120000, 35000, -58000, -181000, -295000,
+            -421000, -586000, -741000, -913000, -1134000, -1346000, 418000, 121000, -170000, -494000, -855000, -1257000]
+    unit: "CAD"
+
+  ending_cash: "=beginning_cash + net_cashflow"
+
+  runway_months:
+    value: [2, 1, 0, 0, 0, 3, 2, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0]
+    unit: "months"
+    notes: "Months of runway at current burn"
+
+# =============================================================================
+# KEY METRICS (24 months)
+# =============================================================================
+
+metrics_monthly:
+  month:
+    value: ["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06",
+            "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12",
+            "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06",
+            "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"]
+    unit: "month"
+
+  mrr:
+    value: [6700, 7059, 7537, 8076, 8748, 9561, 10515, 11619, 12873, 14286, 15867, 17617,
+            19542, 21645, 23932, 26405, 29082, 31971, 35099, 38504, 42191, 46209, 50594, 55379]
+    unit: "CAD"
+
+  mrr_growth: "=(mrr - 6700) / 6700"
+
+  arr:
+    value: [80400, 84708, 90444, 96912, 104976, 114732, 126180, 139428, 154476, 171432, 190404, 211404,
+            234504, 259740, 287184, 316860, 348984, 383652, 421188, 462048, 506292, 554508, 607128, 664548]
+    unit: "CAD"
+
+  # Rule of 40 calculation
+  revenue_growth_rate:
+    value: [0.00, 0.05, 0.07, 0.07, 0.08, 0.09, 0.10, 0.11, 0.11, 0.11, 0.11, 0.11,
+            0.11, 0.11, 0.11, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.09, 0.09]
+    unit: "%"
+
+  profit_margin:
+    value: [-8.80, -8.42, -8.38, -8.19, -7.98, -7.88, -7.75, -7.63, -7.53, -7.48, -7.42, -7.37,
+            -7.34, -7.36, -7.40, -7.45, -7.52, -7.60, -7.69, -7.80, -7.95, -8.10, -8.25, -8.43]
+    unit: "%"
+
+  rule_of_40: "=revenue_growth_rate * 100 + profit_margin"
+
+  # NRR and GRR
+  nrr:
+    value: [105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116,
+            117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128]
+    unit: "%"
+    notes: "Net Revenue Retention"
+
+  grr:
+    value: [95, 95, 95, 94, 94, 93, 93, 92, 92, 91, 91, 90,
+            90, 89, 89, 88, 88, 87, 87, 86, 86, 85, 85, 84]
+    unit: "%"
+    notes: "Gross Revenue Retention"
+
+  # Magic number
+  new_arr:
+    value: [4308, 5736, 7232, 8532, 10064, 11756, 13448, 15248, 17048, 18956, 20972, 23000,
+            25100, 27236, 29444, 31676, 34124, 36668, 39536, 42860, 46244, 50216, 54620, 59420]
+    unit: "CAD"
+
+  sales_marketing_spend:
+    value: [12000, 12500, 15200, 15200, 17500, 21000, 21800, 24800, 29700, 32700, 38600, 43600,
+            49100, 56100, 66700, 72700, 84400, 98400, 111200, 129200, 153200, 175200, 206400, 241400]
+    unit: "CAD"
+
+  magic_number: "=new_arr / sales_marketing_spend"
+
+  # Burn multiple
+  net_burn:
+    value: [60000, 56000, 60000, 73000, 66000, -428000, 93000, 85000, 93000, 123000, 114000, 126000,
+            165000, 155000, 172000, 221000, 212000, -1764000, 297000, 291000, 324000, 401000, 402000, 447000]
+    unit: "CAD"
+
+  burn_multiple: "=net_burn / new_arr"
+
+# =============================================================================
+# QUARTERLY ROLLUPS
+# =============================================================================
+
+quarterly_summary:
+  quarter:
+    value: ["2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4", "2026-Q1", "2026-Q2", "2026-Q3", "2026-Q4"]
+    unit: "quarter"
+
+  revenue:
+    value: [21296, 26385, 35007, 47770, 65119, 88358, 115794, 152182]
+    unit: "CAD"
+
+  costs:
+    value: [202400, 237700, 302200, 401900, 545200, 745500, 1022700, 1407600]
+    unit: "CAD"
+
+  net_income: "=revenue - costs"
+  margin: "=net_income / revenue"
+
+  ending_customers:
+    value: [112, 142, 190, 256, 341, 453, 603, 802]
+    unit: "count"
+
+  ending_arr:
+    value: [90444, 114732, 154476, 211404, 287184, 383652, 506292, 664548]
+    unit: "CAD"
+
+  headcount:
+    value: [13, 17, 22, 28, 35, 44, 55, 54]
+    unit: "count"
+
+  arr_per_employee: "=ending_arr / headcount"
+
+# =============================================================================
+# ANNUAL SUMMARY
+# =============================================================================
+
+annual_summary:
+  year:
+    value: ["2025", "2026"]
+    unit: "year"
+
+  total_revenue:
+    value: [130458, 420553]
+    unit: "CAD"
+
+  total_costs:
+    value: [1144200, 3721000]
+    unit: "CAD"
+
+  net_income: "=total_revenue - total_costs"
+
+  ending_customers:
+    value: [256, 802]
+    unit: "count"
+
+  ending_arr:
+    value: [211404, 664548]
+    unit: "CAD"
+
+  yoy_growth: "=(664548 - 211404) / 211404"
+
+  total_funding:
+    value: [500000, 2000000]
+    unit: "CAD"
+
+  ending_cash:
+    value: [-421000, -1704000]
+    unit: "CAD"
+
+# =============================================================================
+# SCALAR AGGREGATIONS (Summary metrics)
+# =============================================================================
+
+summary:
+  # Revenue totals
+  total_mrr_2025:
+    value: null
+    formula: "=SUM(revenue_monthly.total_mrr)"
+    unit: "CAD"
+    notes: "Sum of all monthly MRR"
+
+  avg_mrr:
+    value: null
+    formula: "=AVERAGE(revenue_monthly.total_mrr)"
+    unit: "CAD"
+
+  max_mrr:
+    value: null
+    formula: "=MAX(revenue_monthly.total_mrr)"
+    unit: "CAD"
+
+  min_mrr:
+    value: null
+    formula: "=MIN(revenue_monthly.total_mrr)"
+    unit: "CAD"
+
+  # Customer metrics
+  total_customers_acquired:
+    value: null
+    formula: "=SUM(revenue_monthly.new_customers)"
+    unit: "count"
+
+  total_customers_churned:
+    value: null
+    formula: "=SUM(revenue_monthly.churned_customers)"
+    unit: "count"
+
+  avg_churn_rate:
+    value: null
+    formula: "=AVERAGE(revenue_monthly.churn_rate)"
+    unit: "%"
+
+  # Cost metrics
+  total_payroll:
+    value: null
+    formula: "=SUM(costs_monthly.total_payroll)"
+    unit: "CAD"
+
+  total_marketing_spend:
+    value: null
+    formula: "=SUM(costs_monthly.total_marketing)"
+    unit: "CAD"
+
+  avg_cac:
+    value: null
+    formula: "=AVERAGE(revenue_monthly.cac)"
+    unit: "CAD"
+
+  # P&L totals
+  total_revenue:
+    value: null
+    formula: "=SUM(pl_monthly.revenue)"
+    unit: "CAD"
+
+  total_gross_profit:
+    value: null
+    formula: "=SUM(pl_monthly.gross_profit)"
+    unit: "CAD"
+
+  total_net_income:
+    value: null
+    formula: "=SUM(pl_monthly.net_income)"
+    unit: "CAD"
+
+  avg_gross_margin:
+    value: null
+    formula: "=AVERAGE(pl_monthly.gross_margin)"
+    unit: "%"
+
+  # Cash metrics
+  total_operating_cashflow:
+    value: null
+    formula: "=SUM(cashflow_monthly.operating_cashflow)"
+    unit: "CAD"
+
+  total_capex:
+    value: null
+    formula: "=SUM(cashflow_monthly.capex)"
+    unit: "CAD"
+
+  total_financing:
+    value: null
+    formula: "=SUM(cashflow_monthly.financing)"
+    unit: "CAD"
+
+  # Efficiency metrics
+  avg_ltv_cac:
+    value: null
+    formula: "=AVERAGE(revenue_monthly.ltv_cac_ratio)"
+    unit: "ratio"
+
+  avg_magic_number:
+    value: null
+    formula: "=AVERAGE(metrics_monthly.magic_number)"
+    unit: "ratio"
+
+  avg_rule_of_40:
+    value: null
+    formula: "=AVERAGE(metrics_monthly.rule_of_40)"
+    unit: "%"
+
+  # Final metrics
+  final_arr:
+    value: null
+    formula: "=MAX(metrics_monthly.arr)"
+    unit: "CAD"
+
+  final_customers:
+    value: null
+    formula: "=MAX(revenue_monthly.customers_end)"
+    unit: "count"
+
+  final_headcount:
+    value: null
+    formula: "=MAX(costs_monthly.total_headcount)"
+    unit: "count"
+
+  arr_per_employee:
+    value: null
+    formula: "=final_arr / final_headcount"
+    unit: "CAD"

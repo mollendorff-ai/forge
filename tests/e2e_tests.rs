@@ -1283,3 +1283,105 @@ financials:
         "Should not show warnings for compatible units, got: {stdout}"
     );
 }
+
+#[test]
+fn e2e_v4_enterprise_model_500_formulas() {
+    // Test that large enterprise model (500+ formula evaluations) calculates correctly
+    let yaml_file = test_data_path("v4_enterprise_500_formulas.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Enterprise model should calculate successfully, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Verify all tables were processed
+    assert!(
+        stdout.contains("revenue_monthly"),
+        "Should have revenue_monthly table"
+    );
+    assert!(
+        stdout.contains("costs_monthly"),
+        "Should have costs_monthly table"
+    );
+    assert!(
+        stdout.contains("pl_monthly"),
+        "Should have pl_monthly table"
+    );
+    assert!(
+        stdout.contains("cashflow_monthly"),
+        "Should have cashflow_monthly table"
+    );
+    assert!(
+        stdout.contains("metrics_monthly"),
+        "Should have metrics_monthly table"
+    );
+    assert!(
+        stdout.contains("quarterly_summary"),
+        "Should have quarterly_summary table"
+    );
+    assert!(
+        stdout.contains("annual_summary"),
+        "Should have annual_summary table"
+    );
+
+    // Verify scalars were calculated
+    assert!(
+        stdout.contains("summary.total_mrr_2025"),
+        "Should calculate total MRR"
+    );
+    assert!(
+        stdout.contains("summary.final_arr"),
+        "Should calculate final ARR"
+    );
+    assert!(
+        stdout.contains("summary.final_customers"),
+        "Should calculate final customers"
+    );
+
+    // Verify 24 rows in monthly tables
+    assert!(
+        stdout.contains("24 rows"),
+        "Monthly tables should have 24 rows"
+    );
+}
+
+#[test]
+fn e2e_v4_enterprise_model_export_to_excel() {
+    // Test that enterprise model exports to Excel correctly
+    let yaml_file = test_data_path("v4_enterprise_500_formulas.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("enterprise.xlsx");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Enterprise model export should succeed, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Verify Excel file was created and has substantial size
+    assert!(excel_file.exists(), "Excel file should be created");
+    let metadata = fs::metadata(&excel_file).unwrap();
+    assert!(
+        metadata.len() > 10000,
+        "Enterprise Excel file should be substantial (>10KB), got {} bytes",
+        metadata.len()
+    );
+}
