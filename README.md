@@ -213,9 +213,9 @@ Solution: Re-read rules from disk, not memory
 - **warmup.yaml**: Full protocol with checkpoint triggers
 - **.claude_checkpoint.yaml**: Session state breadcrumbs on disk
 
-This enables 8-10hr unattended sessions. See [forge-protocol](https://github.com/royalbit/forge-protocol) for full documentation.
+Self-healing enables multiple 4-hour sprints without human intervention. See [forge-protocol](https://github.com/royalbit/forge-protocol) for full documentation.
 
-The protocol is vendor-agnostic: works with any AI that reads CLAUDE.md.
+**SKYNET MODE requires Claude Code.** The protocol files (warmup.yaml) are portable; the autonomous magic isn't.
 
 ## License
 
