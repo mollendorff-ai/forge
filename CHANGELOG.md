@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.1] - 2025-11-27
+
+### Fixed
+
+- Added downloads badge to README
+
+---
+
 ## [4.0.0] - 2025-11-27
 
 ### Rich Metadata Schema - Stable Release
