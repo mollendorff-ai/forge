@@ -2,36 +2,38 @@
 # For version history, see docs/VERSION_HISTORY.md
 
 metadata:
-  current_version: "4.0.0-beta"
-  last_updated: "2025-11-26"
+  current_version: "4.0.0"
+  last_updated: "2025-11-27"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "4.0.0-beta"
+  version: "4.0.0"
   status: released
-  date: "2025-11-26"
-  summary: "Unit Consistency Validation"
+  date: "2025-11-27"
+  summary: "Rich Metadata Schema - Stable"
   highlights:
-    - "Unit consistency validation for formulas"
-    - "Detects incompatible unit operations (CAD + %)"
-    - "Non-blocking warnings during calculate"
-    - "All v4.0-alpha features included"
+    - "Rich metadata: unit, notes, source, validation_status"
+    - "Cross-file references: _includes + @namespace.field"
+    - "Unit consistency validation"
+    - "Enterprise model validated (900+ formula evaluations)"
   stats:
-    tests: 218
+    tests: 220
     warnings: 0
     throughput: "96K rows/sec"
 
 # Next Milestone
 next:
-  version: "4.0.0"
+  version: "5.0.0"
   status: planned
-  target: "2025-12"
-  summary: "Rich Metadata Schema - Stable Release"
+  target: "2026-Q1"
+  summary: "Distribution & Language Bindings"
   features:
-    - "Enterprise model testing (500+ formulas)"
-    - "Documentation complete"
-    - "Publish to crates.io"
+    - "Publish Zed extension to zed-industries/extensions"
+    - "Publish VSCode extension to marketplace"
+    - "Python bindings via PyO3"
+    - "Homebrew formula"
+    - "Scoop manifest (Windows)"
 
 # Stable Release
 v4_stable:

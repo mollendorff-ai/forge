@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.0] - 2025-11-27
+
+### Rich Metadata Schema - Stable Release
+
+Forge v4.0 is the stable release of the Rich Metadata Schema for enterprise financial modeling. This release has been validated with a comprehensive enterprise model containing 900+ formula evaluations.
+
+### Highlights
+
+- **Rich metadata**: unit, notes, source, validation_status, last_updated per field
+- **Cross-file references**: `_includes` directive + `@namespace.field` syntax
+- **Unit consistency validation**: Warns on incompatible unit operations
+- **Excel export with metadata**: Metadata exported as cell comments
+- **Enterprise-validated**: Tested with SaaS financial model (7 tables, 24 months, 24 scalars)
+
+### Enterprise Model Test
+
+The release includes `v4_enterprise_500_formulas.yaml` - a complete SaaS company financial model:
+- 7 interconnected tables (revenue, costs, P&L, cashflow, metrics, quarterly, annual)
+- 24-month projections
+- 43 row formulas × 24 rows = 1,032 row formula evaluations
+- 24 scalar aggregations
+- Full metadata coverage (units, notes, validation status)
+
+### Performance
+
+- 220 tests passing
+- Zero warnings
+- 96K rows/sec throughput maintained
+
+### What's New Since Beta
+
+- Enterprise model validation (v4_enterprise_500_formulas.yaml)
+- 2 new e2e tests for enterprise model calculate + export
+- Comprehensive SaaS metrics: ARR, MRR, LTV/CAC, Rule of 40, Magic Number, Burn Multiple
+
+---
+
 ## [4.0.0-beta] - 2025-11-26
 
 ### Unit Consistency Validation
