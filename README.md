@@ -1,12 +1,14 @@
 # Forge
 
-> Zero tokens. Zero emissions. $40K-$132K/year saved.
+> Zero hallucinations. Zero tokens. Zero emissions.
 
 [![CI](https://github.com/royalbit/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/royalbit/forge/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Green coding for financial models.** YAML uses 33% fewer tokens than Excel. Forge validates locally - no AI needed. Less compute = less CO₂.
+**AI hallucinates numbers. Forge doesn't.**
+
+When you ask AI to calculate financials, it guesses. It approximates. It confidently gives you wrong answers. Forge executes formulas deterministically—same input, same output, every time.
 
 ## Performance
 
@@ -48,6 +50,36 @@ forge compare model.yaml --scenarios base,optimistic,pessimistic
 forge export model.yaml output.xlsx
 forge import input.xlsx output.yaml
 ```
+
+## Why Forge Exists
+
+**AI doesn't calculate. It predicts what calculations would look like.**
+
+This isn't a bug—it's how LLMs work. They generate the most *probable* next token, not the *correct* answer. For text, this often works. For numbers, it's dangerous.
+
+| Ask AI to... | What Actually Happens |
+|--------------|----------------------|
+| Calculate NPV | Generates probable-looking formula (maybe wrong) |
+| Sum a column | Predicts what a sum would look like (may skip rows) |
+| Apply XIRR | Pattern-matches from training data (possibly outdated) |
+| Validate a model | Says "looks correct" (no actual verification occurred) |
+
+**Research shows:** AI hallucination rates range from 1.3% for simple tasks to 29% for specialized professional questions. Financial calculations are specialized.
+
+**The pattern:**
+
+```
+AI inference (probabilistic) → Confident wrong answers
+Local execution (deterministic) → Verifiable correct answers
+```
+
+Forge is part of the [Forge Protocol](https://github.com/royalbit/forge-protocol) philosophy:
+- **Forge Protocol**: Ground AI in file-based truth for project context
+- **Forge Calculator**: Ground calculations in deterministic local execution
+
+**The Forge Protocol doesn't fix AI. It compensates for architectural limitations.**
+
+📖 **[Read the full analysis](https://github.com/royalbit/forge-protocol/blob/main/docs/AI_REALITY.md)** — why AI "hallucinates," vendor limits, research citations.
 
 ## Example Model
 
