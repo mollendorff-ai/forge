@@ -41,6 +41,74 @@
 #   Trust (human) + Protocols (AI guardrails) = Safe Autonomy
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# SELF-HEALING PROTOCOL - Survives Auto-Compact (CRITICAL FOR AUTONOMY)
+# ═══════════════════════════════════════════════════════════════════════════════
+# During long autonomous sessions, auto-compact WILL trigger and rules WILL be
+# lost. This protocol ensures recovery by re-reading rules from disk.
+
+self_healing:
+  description: |
+    CRITICAL: After context compaction, rules are summarized and may be lost.
+    This protocol ensures recovery through periodic re-reading from disk.
+
+  checkpoint_file: ".claude_checkpoint.yaml"
+
+  mandatory_triggers:
+    every_2_hours:
+      actions:
+        - "Write progress to .claude_checkpoint.yaml"
+        - "Re-read this warmup.yaml completely"
+        - "Verify: Am I following the rules? (4hr max, 1 milestone, no scope creep)"
+      why: "Rules may have been lost during auto-compact"
+
+    before_any_commit:
+      actions:
+        - "Re-read quality gates section"
+        - "Verify: cargo test passes"
+        - "Verify: cargo clippy -- -D warnings is clean"
+      why: "Ensure quality gates aren't bypassed after context loss"
+
+    after_task_completion:
+      actions:
+        - "Update .claude_checkpoint.yaml with completed task"
+        - "Check remaining time (4hr max from session start)"
+      why: "Maintain progress breadcrumbs for recovery"
+
+    when_confused_or_uncertain:
+      actions:
+        - "STOP current work"
+        - "Re-read .claude_checkpoint.yaml (session state)"
+        - "Re-read this warmup.yaml (full rules)"
+        - "Resume from last checkpoint"
+      why: "Confusion often indicates context loss from compaction"
+
+  checkpoint_format:
+    example: |
+      # .claude_checkpoint.yaml - Auto-generated, READ AFTER COMPACT
+      timestamp: "2025-11-26T03:00:00Z"
+      session_started: "2025-11-26T01:00:00Z"
+      milestone: "Current milestone name"
+      completed:
+        - "Task 1"
+        - "Task 2"
+      in_progress: "Task 3"
+      next_steps:
+        - "Task 4"
+      rules_reminder:
+        - "4hr max - check session_started above"
+        - "1 milestone only - no scope creep"
+        - "Tests pass + zero warnings before commit"
+      # After reading this, RE-READ warmup.yaml for full protocol
+
+  core_rules_summary:
+    description: "Ultra-short rules that MUST survive summarization"
+    rules:
+      - "4hr MAX session, 1 milestone, NO scope creep"
+      - "Tests pass + ZERO warnings → then commit"
+      - "NO 'let me also', NO 'while I'm here'"
+      - "Done > Perfect. Ship it."
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # CRITICAL MISSION - Why Forge Exists
 # ═══════════════════════════════════════════════════════════════════════════════
 
