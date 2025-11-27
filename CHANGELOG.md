@@ -9,6 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.0-alpha.1] - 2025-11-26
+
+### Rich Metadata Schema - Enterprise Financial Modeling (Alpha)
+
+Forge v4.0 introduces rich metadata support for enterprise financial models. This alpha release includes parser enhancements, Excel comments from metadata, and cross-file references.
+
+### Added
+
+- **Rich metadata fields**: `value`, `formula`, `unit`, `notes`, `source`, `validation_status`, `last_updated`
+- **v4.0 column format**: Columns can now have metadata alongside arrays
+  ```yaml
+  revenue:
+    value: [100, 200, 300]
+    unit: "CAD"
+    notes: "Monthly revenue"
+    validation_status: "PROJECTED"
+  ```
+- **v4.0 scalar format**: Scalars can include metadata for audit trails
+- **Cross-file references**: `_includes` directive for file composition
+  ```yaml
+  _includes:
+    - file: "data_sources.yaml"
+      as: "sources"
+  ```
+- **@namespace.field syntax**: Reference included data in formulas
+- **Circular dependency detection**: Prevents infinite include loops
+- **Excel export with metadata**: Metadata exported as cell comments (Notes)
+- **Updated JSON Schema**: Full v4.0 schema with Include definitions
+
+### Backward Compatible
+
+- All v1.0-v3.x models continue to work unchanged
+- Rich metadata is optional - simple formats still supported
+- Mixed formats allowed in same file (some columns rich, some simple)
+
+### Technical Details
+
+- `Metadata` struct with unit, notes, source, validation_status, last_updated
+- `Include` and `ResolvedInclude` types for cross-file references
+- Parser detects rich vs simple format automatically
+- Formula preprocessor resolves @namespace.field references
+- 210 tests passing, zero warnings
+
+### Roadmap
+
+- **v4.0-beta**: Full metadata support + unit consistency validation
+- **v4.0**: Cross-file validation + comprehensive unit checking
+
+---
+
 ## [3.1.5] - 2025-11-26
 
 ### Excel Export E2E Tests

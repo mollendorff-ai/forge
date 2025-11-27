@@ -1,8 +1,8 @@
 //! Excel exporter implementation
 
 use crate::error::{ForgeError, ForgeResult};
-use crate::types::{ColumnValue, ParsedModel, Table};
-use rust_xlsxwriter::{Formula, Workbook, Worksheet};
+use crate::types::{ColumnValue, Metadata, ParsedModel, Table};
+use rust_xlsxwriter::{Formula, Note, Workbook, Worksheet};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -133,11 +133,21 @@ impl ExcelExporter {
             self.table_row_counts.clone(),
         );
 
-        // Write header row (row 0)
+        // Write header row (row 0) with metadata as notes (v4.0)
         for (col_idx, col_name) in column_names.iter().enumerate() {
             worksheet
                 .write_string(0, col_idx as u16, col_name)
                 .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
+
+            // Add metadata as cell note if column has metadata (v4.0)
+            if let Some(column) = table.columns.get(col_name) {
+                if let Some(note_text) = Self::format_metadata_note(&column.metadata) {
+                    let note = Note::new(note_text).set_author("Forge");
+                    worksheet
+                        .insert_note(0, col_idx as u16, &note)
+                        .map_err(|e| ForgeError::Export(format!("Failed to add note: {}", e)))?;
+                }
+            }
         }
 
         // Get row count from first data column
@@ -294,9 +304,49 @@ impl ExcelExporter {
                         ForgeError::Export(format!("Failed to write scalar value: {}", e))
                     })?;
                 }
+
+                // Add metadata as cell note for scalars (v4.0)
+                if let Some(note_text) = Self::format_metadata_note(&var.metadata) {
+                    let note = Note::new(note_text).set_author("Forge");
+                    worksheet.insert_note(row, 1, &note).map_err(|e| {
+                        ForgeError::Export(format!("Failed to add scalar note: {}", e))
+                    })?;
+                }
             }
         }
 
         Ok(())
+    }
+
+    /// Format metadata fields as a note text for Excel cell comments (v4.0)
+    /// Returns None if metadata is empty
+    fn format_metadata_note(metadata: &Metadata) -> Option<String> {
+        if metadata.is_empty() {
+            return None;
+        }
+
+        let mut parts = Vec::new();
+
+        if let Some(unit) = &metadata.unit {
+            parts.push(format!("Unit: {}", unit));
+        }
+        if let Some(notes) = &metadata.notes {
+            parts.push(format!("Notes: {}", notes));
+        }
+        if let Some(source) = &metadata.source {
+            parts.push(format!("Source: {}", source));
+        }
+        if let Some(status) = &metadata.validation_status {
+            parts.push(format!("Status: {}", status));
+        }
+        if let Some(updated) = &metadata.last_updated {
+            parts.push(format!("Updated: {}", updated));
+        }
+
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join("\n"))
+        }
     }
 }

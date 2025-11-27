@@ -1,15 +1,19 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/royalbit/forge/schema/v2.2.json",
-  "title": "Forge v2.2 Financial Model",
-  "description": "JSON Schema for Forge array-based financial models with Excel compatibility, scenarios, and 60+ functions",
+  "$id": "https://github.com/royalbit/forge/schema/v4.0.json",
+  "title": "Forge v4.0 Financial Model",
+  "description": "JSON Schema for Forge array-based financial models with rich metadata, Excel compatibility, scenarios, and 60+ functions",
   "type": "object",
 
   "properties": {
     "_forge_version": {
       "type": "string",
-      "enum": ["1.0.0", "2.0.0", "2.1.0", "2.2.0"],
+      "enum": ["1.0.0", "2.0.0", "2.1.0", "2.2.0", "3.0.0", "3.1.0", "4.0.0"],
       "description": "Forge model version identifier"
+    },
+    "_includes": {
+      "$ref": "#/definitions/Includes",
+      "description": "Cross-file references (v4.0) - include external YAML files"
     },
     "scenarios": {
       "$ref": "#/definitions/Scenarios",
@@ -36,7 +40,9 @@
           { "$ref": "#/definitions/DateArray" },
           { "$ref": "#/definitions/BooleanArray" },
           { "$ref": "#/definitions/RowFormula" },
-          { "$ref": "#/definitions/AggregationFormula" }
+          { "$ref": "#/definitions/AggregationFormula" },
+          { "$ref": "#/definitions/RichColumn" },
+          { "$ref": "#/definitions/RichFormula" }
         ]
       },
       "examples": [
@@ -48,6 +54,59 @@
           }
         }
       ]
+    },
+
+    "RichColumn": {
+      "title": "Rich Column (v4.0)",
+      "description": "Column with metadata (unit, notes, source, validation_status)",
+      "type": "object",
+      "properties": {
+        "value": {
+          "oneOf": [
+            { "$ref": "#/definitions/NumberArray" },
+            { "$ref": "#/definitions/TextArray" },
+            { "$ref": "#/definitions/DateArray" },
+            { "$ref": "#/definitions/BooleanArray" }
+          ]
+        },
+        "unit": { "type": "string", "description": "Unit of measurement (CAD, USD, %, count, days, ratio)" },
+        "notes": { "type": "string", "description": "Human-readable explanation" },
+        "source": { "type": "string", "description": "Where data came from (file:field or URL)" },
+        "validation_status": {
+          "type": "string",
+          "enum": ["VALIDATED", "PROJECTED", "ESTIMATED"],
+          "description": "Data validation status"
+        },
+        "last_updated": { "type": "string", "description": "ISO date of last update" }
+      },
+      "required": ["value"],
+      "examples": [
+        {
+          "value": [100, 200, 300],
+          "unit": "CAD",
+          "notes": "Monthly revenue",
+          "validation_status": "PROJECTED"
+        }
+      ]
+    },
+
+    "RichFormula": {
+      "title": "Rich Formula (v4.0)",
+      "description": "Formula column with metadata (unit, notes, source) - NO value field (distinguishes from Scalar)",
+      "type": "object",
+      "properties": {
+        "formula": { "$ref": "#/definitions/RowFormula" },
+        "unit": { "type": "string" },
+        "notes": { "type": "string" },
+        "source": { "type": "string" },
+        "validation_status": { "type": "string" }
+      },
+      "required": ["formula"],
+      "not": {
+        "anyOf": [
+          { "required": ["value"] }
+        ]
+      }
     },
 
     "NumberArray": {
@@ -158,7 +217,7 @@
 
     "Scalar": {
       "title": "Scalar Value",
-      "description": "Single value with optional formula (v0.2.0 compatible)",
+      "description": "Single value with optional formula and rich metadata (v4.0 enhanced)",
       "type": "object",
       "properties": {
         "value": {
@@ -180,9 +239,18 @@
               "description": "No formula (manual input value)"
             }
           ]
-        }
+        },
+        "unit": { "type": "string", "description": "Unit of measurement (CAD, USD, %, count, days, ratio)" },
+        "notes": { "type": "string", "description": "Human-readable explanation" },
+        "source": { "type": "string", "description": "Where data came from (file:field or URL)" },
+        "validation_status": {
+          "type": "string",
+          "enum": ["VALIDATED", "PROJECTED", "ESTIMATED"],
+          "description": "Data validation status"
+        },
+        "last_updated": { "type": "string", "description": "ISO date of last update" }
       },
-      "required": ["value", "formula"],
+      "required": ["value"],
       "examples": [
         {
           "value": 0.90,
@@ -191,6 +259,12 @@
         {
           "value": 0.10,
           "formula": null
+        },
+        {
+          "value": 100000,
+          "unit": "CAD",
+          "notes": "Annual revenue target",
+          "validation_status": "PROJECTED"
         }
       ]
     },
@@ -228,6 +302,41 @@
         "type": "number",
         "description": "Override value for a scalar variable"
       }
+    },
+
+    "Includes": {
+      "title": "Cross-File Includes (v4.0)",
+      "description": "Array of file includes for cross-file references",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Include"
+      },
+      "examples": [
+        [
+          { "file": "data_sources.yaml", "as": "sources" },
+          { "file": "pricing.yaml", "as": "pricing" }
+        ]
+      ]
+    },
+
+    "Include": {
+      "title": "Include Directive (v4.0)",
+      "description": "Single file include with namespace alias",
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Path to the YAML file to include (relative to current file)"
+        },
+        "as": {
+          "type": "string",
+          "description": "Namespace alias for @namespace.field references"
+        }
+      },
+      "required": ["file", "as"],
+      "examples": [
+        { "file": "data_sources.yaml", "as": "sources" }
+      ]
     }
   },
 

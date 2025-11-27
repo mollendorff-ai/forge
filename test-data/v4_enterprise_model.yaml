@@ -1,0 +1,73 @@
+# Forge v4.0 Enterprise Model Test
+# Tests rich metadata schema for enterprise financial models
+
+_forge_version: "4.0.0"
+
+# Revenue projections with metadata
+revenue_model:
+  month:
+    value: ["2025-01", "2025-02", "2025-03", "2025-04"]
+    unit: "month"
+
+  units_sold:
+    value: [1000, 1200, 1400, 1600]
+    unit: "count"
+    notes: "20% month-over-month growth projection"
+    validation_status: "PROJECTED"
+
+  unit_price:
+    value: [49.99, 49.99, 49.99, 44.99]
+    unit: "CAD"
+    notes: "Q2 price drop to capture market share"
+    source: "pricing_strategy_2025.yaml"
+
+  revenue: "=units_sold * unit_price"
+
+# Cost structure with validation tracking
+costs:
+  month:
+    value: ["2025-01", "2025-02", "2025-03", "2025-04"]
+
+  cogs:
+    value: [15000, 18000, 21000, 24000]
+    unit: "CAD"
+    notes: "Cost of goods sold (30% of revenue)"
+    validation_status: "VALIDATED"
+    source: "supplier_contracts.yaml"
+
+  marketing:
+    value: [5000, 6000, 7000, 8000]
+    unit: "CAD"
+    notes: "Scaled marketing spend"
+    validation_status: "ESTIMATED"
+
+  total_costs: "=cogs + marketing"
+
+# Summary metrics (scalars with metadata)
+metrics:
+  total_revenue:
+    value: null
+    formula: "=SUM(revenue_model.revenue)"
+    unit: "CAD"
+    notes: "Q1 2025 total revenue"
+
+  total_costs:
+    value: null
+    formula: "=SUM(costs.total_costs)"
+    unit: "CAD"
+
+  gross_profit:
+    value: null
+    formula: "=metrics.total_revenue - metrics.total_costs"
+    unit: "CAD"
+    notes: "Q1 2025 gross profit"
+    validation_status: "PROJECTED"
+
+# Scenario modeling
+scenarios:
+  base:
+    metrics.total_revenue: 200000
+  optimistic:
+    metrics.total_revenue: 250000
+  conservative:
+    metrics.total_revenue: 150000

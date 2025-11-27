@@ -1,0 +1,33 @@
+# Forge v4.0 - Data Sources File
+# This file is included by other models using _includes directive
+
+_forge_version: "4.0.0"
+
+# Pricing data that can be referenced as @sources.pricing.unit_price
+pricing:
+  unit_price:
+    value: 49.99
+    unit: "CAD"
+    notes: "Base unit price"
+    validation_status: "VALIDATED"
+
+  take_rate:
+    value: 0.15
+    unit: "%"
+    notes: "Platform commission rate"
+    validation_status: "VALIDATED"
+
+# Market data
+market:
+  total_addressable:
+    value: 300000000
+    unit: "CAD"
+    notes: "Total addressable market (Montreal nightlife)"
+    source: "https://mtl.org/tourism-stats"
+    validation_status: "VALIDATED"
+
+  capture_rate:
+    value: 0.05
+    unit: "%"
+    notes: "Year 1 market capture rate"
+    validation_status: "PROJECTED"
