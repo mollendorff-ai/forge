@@ -2,22 +2,22 @@
 # For version history, see docs/VERSION_HISTORY.md
 
 metadata:
-  current_version: "3.1.0"
-  last_updated: "2025-11-25"
+  current_version: "3.1.5"
+  last_updated: "2025-11-26"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "3.1.0"
+  version: "3.1.5"
   status: released
-  date: "2025-11-25"
-  summary: "Editor Extensions - IDE Integration"
+  date: "2025-11-26"
+  summary: "Excel Export E2E Tests"
   highlights:
-    - "Zed extension (Rust-native WASM, LSP integration)"
-    - "VSCode extension (syntax highlighting, LSP, commands)"
-    - "60+ Excel functions with syntax highlighting"
+    - "5 new e2e tests that verify Excel formula correctness"
+    - "Tests use calamine to read back exported files"
+    - "Would have caught all v3.1.4 bugs before release"
   stats:
-    tests: 183
+    tests: 188
     warnings: 0
     throughput: "96K rows/sec"
 
@@ -33,6 +33,39 @@ next:
     - "Python bindings via PyO3 (quants want this)"
     - "Homebrew formula"
     - "Scoop manifest (Windows)"
+
+# Major Version: Rich Metadata Schema
+v4:
+  version: "4.0.0"
+  status: designed
+  target: "2026-Q1"
+  summary: "Rich Metadata Schema - Mouvify Integration"
+  doc: "docs/FORGE_V4_DESIGN.md"
+  motivation: |
+    Mouvify's business models have 850+ formulas with rich metadata (unit, notes,
+    source, validation_status) that Forge can't currently parse. v4.0 unifies
+    Forge's calculation engine with Mouvify's enterprise financial modeling format.
+  features:
+    - "Rich metadata fields: value, formula, unit, notes, source, validation_status"
+    - "Cross-file references: @sources.pricing.unit_price syntax"
+    - "_includes directive for file composition"
+    - "Excel export with metadata as comments"
+    - "Unit consistency validation"
+    - "Backward compatible with v1.0-v3.x models"
+  phases:
+    - name: "v4.0-alpha"
+      scope: "Parser recognizes rich format"
+      sessions: 2
+    - name: "v4.0-beta"
+      scope: "Full metadata support + Excel comments"
+      sessions: 2
+    - name: "v4.0"
+      scope: "Cross-file references + validation"
+      sessions: 2
+  success_criteria:
+    - "All 850+ Mouvify formulas validate without errors"
+    - "Excel export includes metadata as comments"
+    - "Backward compatible with all v1.0-v3.x models"
 
 # Backlog (not prioritized)
 backlog:
