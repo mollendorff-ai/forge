@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.4] - 2025-11-26
+
+### Excel Export Bug Fixes
+
+Fixed two bugs in Excel formula export that prevented formulas from calculating properly.
+
+### Fixed
+
+- **Scalar formulas exported as text** - Formulas like `=SUM(table.column)` were written as literal strings instead of actual Excel formulas. Now properly exported as `=SUM('table'!A2:A4)`.
+- **Cross-table references used column names** - References like `table.column` became `table!column2` instead of proper Excel syntax `'table'!A2`. Now uses correct column letters with quoted sheet names.
+- **LibreOffice compatibility** - Sheet names are now quoted (`'sheet_name'!A2`) for better cross-platform support.
+
+### Technical Details
+
+- Added global table column mappings to `ExcelExporter`
+- Implemented `translate_scalar_formula()` in `FormulaTranslator`
+- Updated `translate_table_column_ref()` to use actual column letters
+- Added `new_with_tables()` constructor for full table context
+
+---
+
 ## [3.1.3] - 2025-11-25
 
 ### Crates.io Metadata Fix
