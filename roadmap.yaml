@@ -22,8 +22,42 @@ current:
     warnings: 0
     throughput: "96K rows/sec"
 
-# Next Milestone
+# Next Milestone (TOP PRIORITY)
 next:
+  version: "4.1.0"
+  status: planned
+  priority: TOP
+  summary: "CLAUDE.md Bootloader - Auto-healing Protocol"
+  description: |
+    Leverage CLAUDE.md auto-loading (on init + after /compact) to bootstrap
+    core rules without manual "run warmup" command.
+  design:
+    claude_md:
+      role: "Kernel - auto-loaded, survives compaction"
+      contents:
+        - "Core rules (4hr max, 1 milestone, tests pass, zero warnings)"
+        - "Environment capabilities (sudo, /usr/local/bin, UPX)"
+        - "Script references (bin/release.sh, bin/session-end.sh)"
+        - "Self-healing triggers"
+        - "Quality gates"
+        - "Reference to warmup.yaml for full autonomous context"
+      target_size: "~500-1000 tokens"
+    warmup_yaml:
+      role: "Full protocol - loaded on request for autonomous mode"
+      contents:
+        - "Detailed autonomous development protocol"
+        - "Rust patterns"
+        - "Coding principles"
+        - "Session initialization ceremony"
+      current_size: "~20K tokens"
+  benefits:
+    - "No manual 'run warmup' needed for basic operation"
+    - "Core rules survive /compact automatically"
+    - "Lighter context load for simple tasks"
+    - "Full context still available for autonomous mode"
+
+# Future: Distribution
+v5:
   version: "5.0.0"
   status: planned
   target: "2026-Q1"
