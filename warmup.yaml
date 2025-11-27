@@ -1552,16 +1552,98 @@ key_files_map:
     - "test-data/v1.0/budget_vs_actual.yaml"
 
 advanced_rust_patterns:
-  description: "Reference document for Rust patterns used in Forge"
-  location: "docs/rust-patterns.md"
-  when_to_read: "On-demand when implementing new features or debugging"
-  topics:
-    - "Error handling with thiserror"
-    - "Type-driven design and newtypes"
-    - "Testing patterns (property-based, snapshot, fuzzing)"
-    - "Performance patterns (benchmarking, profiling)"
-    - "Architecture patterns (strategy, builder)"
-    - "Code quality tools"
+  description: "Rust patterns used in Forge - essential for autonomous development"
+
+  error_handling:
+    approach: "thiserror for rich error context"
+    example: |
+      #[derive(Error, Debug)]
+      pub enum ForgeError {
+          #[error("Formula evaluation failed: {0}")]
+          Eval(String),
+          #[error("Column '{column}' in table '{table}': {reason}")]
+          ColumnError { column: String, table: String, reason: String },
+      }
+    best_practices:
+      - "Use Result<T, E> everywhere, avoid panics in library code"
+      - "Custom error types with thiserror for rich context"
+      - "? operator for error propagation"
+      - "Add context with .map_err() when wrapping errors"
+    avoid:
+      - "unwrap() or expect() in library code"
+      - "String errors (not type-safe)"
+      - "Losing error context when propagating"
+
+  type_driven_design:
+    principles:
+      - "Make illegal states unrepresentable"
+      - "Use newtypes for domain concepts (TableName, ColumnName)"
+      - "Prefer enums over booleans for state"
+      - "Use builder pattern for complex construction"
+    newtype_example: |
+      #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+      struct TableName(String);
+      #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+      struct ColumnName(String);
+
+  zero_copy:
+    - "Use &str instead of String when possible"
+    - "Use Cow<str> for conditional ownership"
+    - "Pass large structs by reference"
+    - "Avoid clone() unless necessary"
+
+  testing_patterns:
+    property_based:
+      tool: "proptest"
+      example: |
+        proptest! {
+            #[test]
+            fn test_sum_commutative(a: f64, b: f64) {
+                let sum1 = calculate("=SUM(a, b)");
+                let sum2 = calculate("=SUM(b, a)");
+                assert!((sum1 - sum2).abs() < 1e-10);
+            }
+        }
+    snapshot: "insta - cargo insta review"
+    mutation: "cargo-mutants - cargo mutants"
+    fuzzing: "cargo-fuzz - cargo fuzz run parser_target"
+
+  performance:
+    benchmarking: "criterion - cargo bench"
+    profiling: "perf/flamegraph on Linux, Instruments on Mac"
+    rule: "Profile before optimizing, optimize hot paths only"
+
+  architecture_patterns:
+    strategy: |
+      trait Calculator {
+          fn calculate(&mut self) -> ForgeResult<CalculationResult>;
+      }
+      struct ArrayCalculator { /* v1.0.0 */ }
+      impl Calculator for ArrayCalculator { /* ... */ }
+    builder: |
+      let table = TableBuilder::new("sales")
+          .add_column(revenue_col)
+          .add_formula("profit", "=revenue - expenses")
+          .build()?;
+
+  code_quality_tools:
+    cargo_audit: "Security vulnerabilities"
+    cargo_deny: "License/security policy"
+    cargo_machete: "Unused dependencies"
+    cargo_nextest: "Fast parallel tests"
+    miri: "Undefined behavior detection"
+    cargo_tarpaulin: "Code coverage"
+
+  documentation_style:
+    do:
+      - "Use relatable metaphors and analogies"
+      - "Add examples that tell a story"
+      - "Celebrate what the code does well"
+    dont:
+      - "Humor in error messages (user is frustrated!)"
+      - "Jargon without explanation"
+      - "Just say 'invalid input' - be specific"
+
 tips_for_success:
   critical:
     - "🚨 CHECK CURRENT DATE in <env> before ANY online search!"
