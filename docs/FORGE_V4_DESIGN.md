@@ -1,10 +1,10 @@
 # Forge v4.0 Design: Rich Metadata Schema
 
-> Unifying Forge calculation engine with Mouvify's business model format
+> Enterprise-grade financial modeling with full traceability
 
 ## Motivation
 
-Mouvify's business YAML models have 850+ formulas with rich metadata that Forge can't currently parse. The current Forge v1.0 schema is a subset of what's needed for enterprise financial modeling.
+Enterprise financial models require rich metadata beyond just values and formulas - units, sources, notes, and validation status are essential for audit trails and compliance. The current Forge v1.0 schema is a subset of what's needed for enterprise financial modeling.
 
 **Current Forge v1.0:**
 ```yaml
@@ -12,7 +12,7 @@ revenue: [100, 200, 300]
 profit: "=revenue * 0.3"
 ```
 
-**Mouvify's richer format:**
+**Enterprise format (v4.0):**
 ```yaml
 revenue:
   value: [100, 200, 300]
@@ -143,12 +143,12 @@ revenue:
 ## Migration Path
 
 1. **v3.x users**: No changes required, models work as-is
-2. **Mouvify models**: Run `forge migrate --to-v4` to validate compatibility
+2. **Enterprise models**: Run `forge migrate --to-v4` to validate compatibility
 3. **New models**: Use rich format for better documentation
 
-## Example: Mouvify Model Validation
+## Example: Enterprise Financial Model
 
-After v4.0, this Mouvify model will validate:
+After v4.0, this enterprise model will validate:
 
 ```yaml
 _forge_version: "4.0.0"
@@ -178,7 +178,7 @@ market_sizing:
 
 ## Success Criteria
 
-- [ ] All 850+ Mouvify formulas validate without errors
+- [ ] Complex enterprise models (500+ formulas) validate without errors
 - [ ] Excel export includes metadata as comments
 - [ ] Backward compatible with all v1.0-v3.x models
 - [ ] Cross-file references resolve correctly
