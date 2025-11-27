@@ -1,7 +1,7 @@
 //! Forge MCP Server (v3.0.0)
 //!
 //! Model Context Protocol server for AI-Finance integration.
-//! Enables Claude Code, Cursor, GitHub Copilot, and other AI tools
+//! Enables MCP-compatible AI tools (Claude Code, Cursor, etc.)
 //! to interact with Forge models programmatically.
 //!
 //! ## Features
