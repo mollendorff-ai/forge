@@ -109,6 +109,33 @@ self_healing:
       - "Done > Perfect. Ship it."
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# ENVIRONMENT CAPABILITIES - System access and defaults
+# ═══════════════════════════════════════════════════════════════════════════════
+
+environment:
+  description: |
+    Declared system capabilities. When these are true, Claude should use them
+    without asking permission. These declarations survive context compaction.
+
+  sudo_access: true
+  su_access: true
+
+  defaults:
+    install_path: /usr/local/bin
+    reason: "System-wide binaries go in /usr/local/bin, not user-local paths"
+
+  release_process:
+    - "ALWAYS UPX compress release binaries: upx --best --lzma"
+    - "Expected compression: ~70% size reduction (6.9MB → 2.1MB)"
+    - "GH releases MUST include UPX-compressed binary"
+
+  behavior:
+    - "When installing binaries, use /usr/local/bin (requires sudo)"
+    - "Don't ask 'do you want me to use sudo?' - just use it"
+    - "System configuration is allowed when needed"
+    - "Release binaries MUST be UPX compressed before install/upload"
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # CRITICAL MISSION - Why Forge Exists
 # ═══════════════════════════════════════════════════════════════════════════════
 
