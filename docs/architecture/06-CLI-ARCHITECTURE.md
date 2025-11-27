@@ -202,7 +202,7 @@ graph LR
 ```toml
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
-```text
+```
 
 ### CLI Structure Definition
 
@@ -268,7 +268,7 @@ struct Cli {
     #[command(subcommand)]
     command: Commands,
 }
-```text
+```
 
 **Subcommands Enum:**
 
@@ -328,7 +328,7 @@ enum Commands {
         variable: String,
     },
 }
-```text
+```
 
 ### Help Text Generation
 
@@ -336,7 +336,7 @@ enum Commands {
 
 ```bash
 $ forge --help
-```text
+```
 
 Output:
 
@@ -364,13 +364,13 @@ Commands:
 Options:
   -h, --help     Print help
   -V, --version  Print version
-```text
+```
 
 **Subcommand Help:**
 
 ```bash
 $ forge calculate --help
-```text
+```
 
 Output:
 
@@ -407,7 +407,7 @@ Options:
   -n, --dry-run     Preview changes without writing to file
   -v, --verbose     Show verbose calculation steps
   -h, --help        Print help (see more with '--help')
-```text
+```
 
 ### Argument Validation
 
@@ -420,7 +420,7 @@ $ forge calculate not-a-file.yaml
 
 # If file doesn't exist, error handled by Rust I/O, not clap
 
-```text
+```
 
 **Custom Validation (Future):**
 
@@ -440,7 +440,7 @@ fn validate_yaml_extension(s: &str) -> Result<PathBuf, String> {
         Err("File must have .yaml or .yml extension".to_string())
     }
 }
-```text
+```
 
 ---
 
@@ -478,7 +478,7 @@ fn main() -> ForgeResult<()> {
         } => cli::import(input, output, verbose),
     }
 }
-```text
+```
 
 **Routing Flow:**
 
@@ -535,7 +535,7 @@ pub fn validate(file: PathBuf) -> ForgeResult<()>
 pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()>
-```text
+```
 
 **Common Pattern:**
 
@@ -579,7 +579,7 @@ forge calculate model.yaml --verbose
 # Combined flags
 
 forge calculate model.yaml -nv
-```text
+```
 
 ### Implementation
 
@@ -696,7 +696,7 @@ pub fn calculate(file: PathBuf, dry_run: bool, verbose: bool) -> ForgeResult<()>
         }
     }
 }
-```text
+```
 
 ### Calculate Flow
 
@@ -763,7 +763,7 @@ graph TB
 
 ⚠️  v1.0.0 file writing not yet implemented
    Results calculated successfully but not written back
-```text
+```
 
 **v0.2.0 Model:**
 
@@ -782,7 +782,7 @@ graph TB
 💾 Writing updated values to all files (main + includes)...
 
 ✨ File updated successfully!
-```text
+```
 
 ---
 
@@ -814,7 +814,7 @@ forge validate model.yaml || exit 1
 # Pre-commit hook
 
 forge validate *.yaml
-```text
+```
 
 ### Implementation
 
@@ -903,7 +903,7 @@ pub fn validate(file: PathBuf) -> ForgeResult<()> {
         ))
     }
 }
-```text
+```
 
 ### Validate Flow
 
@@ -955,7 +955,7 @@ graph TB
 
 ✅ All formulas are valid!
 ✅ All values match their formulas!
-```text
+```
 
 **Invalid Model (Stale Values):**
 
@@ -979,7 +979,7 @@ graph TB
       Diff:     0.100000
 
 💡 Run 'forge calculate' to update values
-```text
+```
 
 ---
 
@@ -1007,7 +1007,7 @@ forge export model.yaml output.xlsx
 # Verbose output
 
 forge export model.yaml output.xlsx --verbose
-```text
+```
 
 ### Implementation
 
@@ -1062,7 +1062,7 @@ pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 
     Ok(())
 }
-```text
+```
 
 ### Export Flow
 
@@ -1129,7 +1129,7 @@ graph TB
    ✅ Row formulas → Excel cell formulas (=A2-B2)
    ✅ Cross-table references (=Sheet!Column)
    ✅ Supports 60+ Excel functions (IFERROR, SUMIF, VLOOKUP, etc.)
-```text
+```
 
 ---
 
@@ -1157,7 +1157,7 @@ forge import data.xlsx output.yaml
 # Verbose output
 
 forge import data.xlsx output.yaml --verbose
-```text
+```
 
 ### Implementation
 
@@ -1210,7 +1210,7 @@ pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 
     Ok(())
 }
-```text
+```
 
 ### Import Flow
 
@@ -1281,7 +1281,7 @@ graph TB
    ✅ Scalars sheet detected
    ✅ Formula translation (Excel → YAML syntax)
    ✅ Supports 60+ Excel functions (IFERROR, SUMIF, VLOOKUP, etc.)
-```text
+```
 
 ---
 
@@ -1309,7 +1309,7 @@ forge audit model.yaml profit
 # Future: Export graph
 
 forge audit model.yaml profit --output deps.dot
-```text
+```
 
 ### Implementation
 
@@ -1324,7 +1324,7 @@ pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()> {
     println!("⚠️  Audit trail not yet implemented");
     Ok(())
 }
-```text
+```
 
 **Current Status:** Placeholder - returns `Ok(())` with "not yet implemented" message.
 
@@ -1365,7 +1365,7 @@ pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()> {
 
     Ok(())
 }
-```text
+```
 
 ---
 
@@ -1381,7 +1381,7 @@ All file arguments use `PathBuf` type:
 file: PathBuf,      // Single input file
 input: PathBuf,     // Input file
 output: PathBuf,    // Output file
-```text
+```
 
 **Validation:**
 
@@ -1397,12 +1397,12 @@ error: the following required arguments were not provided:
   <FILE>
 
 Usage: forge calculate <FILE>
-```text
+```
 
 ```bash
 $ forge calculate nonexistent.yaml
 Error: IO error: No such file or directory (os error 2)
-```text
+```
 
 ### Boolean Flags
 
@@ -1413,7 +1413,7 @@ Error: IO error: No such file or directory (os error 2)
 #[arg(short = 'n', long)]
 
 dry_run: bool,
-```text
+```
 
 - Short form: `-n`
 - Long form: `--dry-run`
@@ -1427,7 +1427,7 @@ dry_run: bool,
 #[arg(short, long)]
 
 verbose: bool,
-```text
+```
 
 - Short form: `-v` (derived from field name)
 - Long form: `--verbose`
@@ -1440,7 +1440,7 @@ forge calculate file.yaml -n          # Dry run
 forge calculate file.yaml --verbose    # Verbose
 forge calculate file.yaml -nv          # Both flags
 forge calculate file.yaml -vn          # Order doesn't matter
-```text
+```
 
 ### String Arguments
 
@@ -1448,7 +1448,7 @@ forge calculate file.yaml -vn          # Order doesn't matter
 
 ```rust
 variable: String,
-```text
+```
 
 - Required positional argument
 - No validation (accepts any string)
@@ -1458,7 +1458,7 @@ variable: String,
 ```bash
 forge audit model.yaml profit         # OK
 forge audit model.yaml "gross profit" # OK with spaces
-```text
+```
 
 ### Argument Ordering
 
@@ -1473,13 +1473,13 @@ forge audit model.yaml "gross profit" # OK with spaces
 ```bash
 forge calculate file.yaml --verbose
 forge export in.yaml out.xlsx -v
-```text
+```
 
 **Invalid (positional args after flags):**
 
 ```bash
 forge calculate --verbose file.yaml    # Still works (clap is lenient)
-```text
+```
 
 ---
 
@@ -1500,7 +1500,7 @@ pub enum ForgeError {
     Import(String),       // Excel import errors
     CircularDependency(String), // Dependency cycles
 }
-```text
+```
 
 ### Error Display
 
@@ -1521,7 +1521,7 @@ impl std::fmt::Display for ForgeError {
         }
     }
 }
-```text
+```
 
 **Error Propagation:**
 
@@ -1534,14 +1534,14 @@ fn main() -> ForgeResult<()> {
     // If any command returns Err, main returns Err
     // Rust prints error via Display trait
 }
-```text
+```
 
 **Example Error Output:**
 
 ```bash
 $ forge calculate bad_model.yaml
 Error: Parse error: Column 'profit' has 3 rows, expected 4
-```text
+```
 
 ### Success Messages
 
@@ -1561,7 +1561,7 @@ println!("{}", "⚠️  v1.0.0 file writing not yet implemented".yellow());
 
 // Error (red)
 println!("{}", "❌ Formula validation failed".bold().red());
-```text
+```
 
 **Unicode Emojis:**
 
@@ -1606,20 +1606,20 @@ println!("{}", "❌ Formula validation failed".bold().red());
 ```rust
 println!("{}", "🔥 Forge - Calculating formulas".bold().green());
 println!("   File: {}\n", file.display());
-```text
+```
 
 **Section Headers:**
 
 ```rust
 println!("{}", "✅ Calculation Results:".bold().green());
-```text
+```
 
 **Indented Details:**
 
 ```rust
 println!("   📊 Table: {}", table_name.bright_blue().bold());
 println!("      {} ({} rows)", col_name.cyan(), count);
-```text
+```
 
 **Key-Value Pairs:**
 
@@ -1629,7 +1629,7 @@ println!(
     name.bright_blue(),
     format!("{value}").bold()
 );
-```text
+```
 
 ### Terminal Compatibility
 
@@ -1646,7 +1646,7 @@ The `colored` crate respects `NO_COLOR` environment variable:
 
 ```bash
 NO_COLOR=1 forge calculate model.yaml  # Disables colors
-```text
+```
 
 ---
 
@@ -1671,7 +1671,7 @@ fn main() -> ForgeResult<()> {
 }
 // If Ok(()) returned → exit code 0
 // If Err(e) returned → Rust prints error → exit code 1
-```text
+```
 
 ### CI/CD Integration Patterns
 
@@ -1689,7 +1689,7 @@ fn main() -> ForgeResult<()> {
 forge validate models/*.yaml || exit 1
 
 echo "✅ All models validated"
-```text
+```
 
 **GitHub Actions:**
 
@@ -1712,7 +1712,7 @@ jobs:
           for file in models/*.yaml; do
  forge validate "$file" || exit 1
           done
-```text
+```
 
 **GitLab CI:**
 
@@ -1725,7 +1725,7 @@ validate_models:
   only:
     - merge_requests
 
-```text
+```
 
 ### Dry-Run Mode for CI
 
@@ -1744,7 +1744,7 @@ if [ -s changes.txt ]; then
   cat changes.txt
   exit 1
 fi
-```text
+```
 
 ---
 
@@ -1761,7 +1761,7 @@ Total: 250ms (for medium model)
 ├─ Argument parsing (clap): 5ms
 ├─ Core calculation: 200ms
 └─ Output formatting: 15ms
-```text
+```
 
 **clap Overhead:**
 
@@ -1784,13 +1784,13 @@ Total: 250ms (for medium model)
 Small model (10 vars): <50ms
 Medium model (100 vars): ~200ms
 Large model (1000 vars): ~1s
-```text
+```
 
 **Validate:**
 
 ```text
 Same as calculate (needs to recalculate)
-```text
+```
 
 **Export:**
 
@@ -1798,7 +1798,7 @@ Same as calculate (needs to recalculate)
 Small model (1 table, 10 rows): <100ms
 Medium model (5 tables, 100 rows): ~300ms
 Large model (20 tables, 1000 rows): ~2s
-```text
+```
 
 **Import:**
 
@@ -1806,7 +1806,7 @@ Large model (20 tables, 1000 rows): ~2s
 Small Excel (1 sheet, 10 rows): <50ms
 Medium Excel (5 sheets, 100 rows): ~200ms
 Large Excel (20 sheets, 1000 rows): ~1.5s
-```text
+```
 
 ### Output Performance
 

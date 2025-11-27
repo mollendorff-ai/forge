@@ -105,7 +105,7 @@ For each table in dependency order:
       Resolve column_ref[row_idx] → value
       Evaluate formula with values
       Store result in column[row_idx]
-```text
+```
 
 **Phase 2: Scalars (Aggregations)**
 
@@ -115,7 +115,7 @@ For each scalar in dependency order:
   Get entire column array
   Apply aggregation (SUM, AVERAGE, etc.)
   Store scalar result
-```text
+```
 
 **Code Implementation:**
 
@@ -137,7 +137,7 @@ pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
 
     Ok(self.model)
 }
-```text
+```
 
 ---
 
@@ -171,7 +171,7 @@ match result {
     types::Value::Error(e) => eprintln!("Error: {:?}", e),
     _ => {}
 }
-```text
+```
 
 ### Supported Functions (50+)
 
@@ -255,7 +255,7 @@ match result {
         )));
     }
 }
-```text
+```
 
 ---
 
@@ -275,7 +275,7 @@ pl_2025:
   row_formulas:
     profit: "=revenue - cogs"
     margin: "=profit / revenue"
-```text
+```
 
 **Evaluation:**
 
@@ -288,7 +288,7 @@ Row 3: profit[3] = revenue[3] - cogs[3] = 180000 - 54000 = 126000
 Row 0: margin[0] = profit[0] / revenue[0] = 70000 / 100000 = 0.7
 Row 1: margin[1] = profit[1] / revenue[1] = 84000 / 120000 = 0.7
 ...
-```text
+```
 
 ### Evaluation Algorithm
 
@@ -459,7 +459,7 @@ fn evaluate_rowwise_formula(&mut self, table: &Table, formula: &str)
         )),
     }
 }
-```text
+```
 
 ### Variable Resolution
 
@@ -498,7 +498,7 @@ let resolver = |var_name: String| -> types::Value {
     }
     types::Value::Error(types::Error::Reference)
 };
-```text
+```
 
 ### Cross-Table References
 
@@ -516,14 +516,14 @@ pl_2026:
     revenue: [120000, 144000, 180000, 216000]
   row_formulas:
     growth: "=pl_2026.revenue / pl_2025.revenue - 1"
-```text
+```
 
 **Evaluation:**
 
 ```text
 Row 0: growth[0] = pl_2026.revenue[0] / pl_2025.revenue[0] - 1
                = 120000 / 100000 - 1 = 0.2 (20% growth)
-```text
+```
 
 **Resolution Logic:**
 
@@ -542,7 +542,7 @@ if var_name.contains('.') {
     }
     return types::Value::Error(types::Error::Value);
 }
-```text
+```
 
 ---
 
@@ -579,7 +579,7 @@ high_revenue_count:
 total_high_margin:
   value: null
   formula: "=SUMIF(pl_2025.margin, \">0.7\", pl_2025.revenue)"
-```text
+```
 
 ### Aggregation Types
 
@@ -591,7 +591,7 @@ AVERAGE(column)   → (Σ column[i]) / n
 MAX(column)       → max(column[i])
 MIN(column)       → min(column[i])
 COUNT(column)     → count of non-empty values
-```text
+```
 
 **2. Conditional Aggregations**
 
@@ -604,14 +604,14 @@ COUNTIF(range, criteria)
 
 AVERAGEIF(range, criteria, avg_range)
   → (Σ avg_range[i] where range[i] meets criteria) / count
-```text
+```
 
 **3. Multi-Condition Aggregations**
 
 ```text
 SUMIFS(sum_range, criteria_range1, criteria1, criteria_range2, criteria2, ...)
   → Σ sum_range[i] where all criteria are met
-```text
+```
 
 ### Evaluation Algorithm
 
@@ -767,7 +767,7 @@ fn evaluate_aggregation(&self, formula: &str) -> ForgeResult<f64> {
         ))),
     }
 }
-```text
+```
 
 ### Conditional Aggregations
 
@@ -780,7 +780,7 @@ fn evaluate_aggregation(&self, formula: &str) -> ForgeResult<f64> {
 high_margin_revenue:
   value: null
   formula: "=SUMIF(pl_2025.margin, \">0.7\", pl_2025.revenue)"
-```text
+```
 
 **Evaluation:**
 
@@ -790,7 +790,7 @@ For i in 0..row_count:
     sum += revenue[i]
 
 Result: sum
-```text
+```
 
 **Implementation:**
 
@@ -826,7 +826,7 @@ fn evaluate_sumif(&self, range: &Column, criteria: &str, sum_range: &Column)
 
     Ok(sum)
 }
-```text
+```
 
 ---
 
@@ -856,7 +856,7 @@ CEILING(value)            → custom implementation
 CONCAT(a, b)              → a & b (text concatenation)
 TRIM(text)                → custom preprocessing
 TODAY()                   → "2025-11-24" (current date)
-```text
+```
 
 ### Implementation
 
@@ -884,7 +884,7 @@ fn preprocess_custom_functions(&self, formula: &str, row_idx: usize, table: &Tab
 
     Ok(result)
 }
-```text
+```
 
 **ROUND Preprocessing:**
 
@@ -920,7 +920,7 @@ fn preprocess_round(&self, formula: &str, row_idx: usize, table: &Table)
 
     Ok(result)
 }
-```text
+```
 
 **TODAY Preprocessing:**
 
@@ -931,7 +931,7 @@ fn preprocess_today(&self, formula: &str) -> String {
     let today = Local::now().format("%Y-%m-%d").to_string();
     formula.replace("TODAY()", &format!("\"{}\"", today))
 }
-```text
+```
 
 ---
 
@@ -949,7 +949,7 @@ pl_2025:
     revenue: [100, 120, 150]
   row_formulas:
     profit: "=revenue * 0.2"  # revenue resolves to revenue[row_idx]
-```text
+```
 
 **2. Scalar Formulas (Global Context)**
 
@@ -964,7 +964,7 @@ summary:
   total: "=SUM(pl_2025.revenue)"  # Aggregation
   first: "=pl_2025.revenue[0]"     # Array indexing
   margin: "=total / 100000"        # Scalar reference
-```text
+```
 
 **3. Cross-File References (v0.2.0)**
 
@@ -977,7 +977,7 @@ includes:
     as: pricing
 
 revenue: "=@pricing.base_price * volume"
-```text
+```
 
 ### Resolution Algorithm
 
@@ -1035,7 +1035,7 @@ total: "=a + b + c"
 # Parentheses
 
 net: "=(revenue - cogs - opex) * (1 - tax_rate)"
-```text
+```
 
 ### 2. Logical Expressions
 
@@ -1049,7 +1049,7 @@ valid: "=AND(margin > 0.2, revenue > 50000)"
 # Nested IF
 
 tier: "=IF(revenue > 1000000, \"A\", IF(revenue > 500000, \"B\", \"C\"))"
-```text
+```
 
 ### 3. Text Operations
 
@@ -1063,7 +1063,7 @@ full_name: "=first_name & \" \" & last_name"
 
 initials: "=LEFT(first_name, 1) & LEFT(last_name, 1)"
 upper_name: "=UPPER(full_name)"
-```text
+```
 
 ### 4. Date Calculations
 
@@ -1073,7 +1073,7 @@ upper_name: "=UPPER(full_name)"
 
 current_year: "=YEAR(TODAY())"
 age: "=YEAR(TODAY()) - YEAR(birthdate)"
-```text
+```
 
 ### 5. Aggregations
 
@@ -1089,7 +1089,7 @@ max_sales: "=MAX(sales.monthly_total)"
 
 high_performers: "=COUNTIF(employees.rating, \">4\")"
 bonus_pool: "=SUMIF(employees.rating, \">=4\", employees.salary)"
-```text
+```
 
 ### 6. Array Indexing
 
@@ -1103,7 +1103,7 @@ last_month: "=pl_2025.revenue[3]"
 # Growth calculations
 
 cagr: "=(pl_2025.revenue[3] / pl_2025.revenue[0]) ^ (1/3) - 1"
-```text
+```
 
 ### 7. Cross-Table References
 
@@ -1113,7 +1113,7 @@ pl_2026:
     # Reference another table's column
     growth: "=(revenue / pl_2025.revenue) - 1"
     yoy_change: "=revenue - pl_2025.revenue"
-```text
+```
 
 ---
 
@@ -1126,7 +1126,7 @@ pl_2026:
 ```text
 Per table: O(rows * columns * formula_complexity)
 Total: O(Σ(table.rows * table.calculated_cols))
-```text
+```
 
 **Example:**
 
@@ -1140,7 +1140,7 @@ Total: O(Σ(table.rows * table.calculated_cols))
 ```text
 Per aggregation: O(column_length)
 Total: O(Σ(aggregation.column_length))
-```text
+```
 
 ### Space Complexity
 
@@ -1169,7 +1169,7 @@ let order = toposort(&dependency_graph, None)?;
 for var in order {
     calculate(var);  // All dependencies already calculated
 }
-```text
+```
 
 **2. Lazy Evaluation** (Not yet implemented)
 
@@ -1178,7 +1178,7 @@ for var in order {
 if !requested_columns.contains(col_name) {
     continue;  // Skip calculation
 }
-```text
+```
 
 **3. Parallel Row Evaluation** (Not yet implemented)
 
@@ -1190,7 +1190,7 @@ let results: Vec<f64> = (0..row_count)
     .into_par_iter()  // Parallel iterator
  .map(|row_idx| evaluate_formula(formula, row_idx))
     .collect();
-```text
+```
 
 **4. Formula Caching**
 
@@ -1204,7 +1204,7 @@ let parsed = parse_formula::parse_string_to_formula(formula, None);
 let parsed = formula_cache.get_or_insert(formula, || {
     parse_formula::parse_string_to_formula(formula, None)
 });
-```text
+```
 
 ### Performance Benchmarks
 
@@ -1242,7 +1242,7 @@ profit: "=revenue -"  # Incomplete expression
 
 # Error: Parse error: Unexpected end of formula
 
-```text
+```
 
 **2. Reference Errors**
 
@@ -1251,7 +1251,7 @@ profit: "=revenue - cost"  # 'cost' doesn't exist
 
 # Error: Column 'cost' not found in table
 
-```text
+```
 
 **3. Type Errors**
 
@@ -1260,7 +1260,7 @@ result: "=revenue + quarter"  # Number + Text
 
 # Error: Type mismatch: Cannot add Number and Text
 
-```text
+```
 
 **4. Length Mismatch Errors**
 
@@ -1274,7 +1274,7 @@ pl_2025:
 
 # Error: Column 'costs' has 4 rows, expected 3 rows
 
-```text
+```
 
 **5. Circular Dependency Errors**
 
@@ -1286,7 +1286,7 @@ b:
 
 # Error: Circular dependency detected: a → b → a
 
-```text
+```
 
 ### Error Context
 
@@ -1297,7 +1297,7 @@ ForgeError::Eval(format!(
     "Formula '{}' at row {} in table '{}': Column '{}' not found",
     formula, row_idx, table_name, col_name
 ))
-```text
+```
 
 **Example Error Message:**
 
@@ -1306,7 +1306,7 @@ Error: Evaluation error: Formula '=revenue - cost' at row 2 in table 'pl_2025':
 Column 'cost' not found
 
 Available columns: revenue, cogs, quarter
-```text
+```
 
 ### Error Recovery
 

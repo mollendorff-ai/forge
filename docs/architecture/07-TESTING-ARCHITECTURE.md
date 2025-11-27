@@ -62,7 +62,7 @@ Forge tests focus on:
   /    Unit    \ 86 unit tests
  /--------------\
      (136 total)
-```text
+```
 
 ### Key Principles
 
@@ -304,7 +304,7 @@ mod tests {
         assert_eq!(result, "=pl_2025!revenue2");
     }
 }
-```text
+```
 
 **Example: Importer Unit Tests**
 
@@ -405,7 +405,7 @@ mod tests {
         }
     }
 }
-```text
+```
 
 ### Array Calculator Unit Tests
 
@@ -481,7 +481,7 @@ fn test_simple_table_calculation() {
 
     println!("✓ Simple table calculation succeeded");
 }
-```text
+```
 
 ### Unit Test Naming Convention
 
@@ -536,7 +536,7 @@ fn test_parse_and_calculate_quarterly_pl() {
     let gross_profit = table.columns.get("gross_profit").unwrap();
     assert_eq!(gross_profit.values.len(), 4);
 }
-```text
+```
 
 **Exporter + Translator:**
 
@@ -565,7 +565,7 @@ fn test_export_with_formula_translation() {
     let metadata = fs::metadata(temp_file.path()).unwrap();
     assert!(metadata.len() > 0);
 }
-```text
+```
 
 **Importer + Reverse Translator:**
 
@@ -587,7 +587,7 @@ fn test_import_with_formula_reverse_translation() {
     let formula = table.row_formulas.get("b").unwrap();
     assert_eq!(formula, "=a * 2"); // Excel "=A2*2" → YAML "=a * 2"
 }
-```text
+```
 
 ---
 
@@ -634,7 +634,7 @@ fn test_data_path(filename: &str) -> PathBuf {
     path.push(filename);
     path
 }
-```text
+```
 
 ### E2E Test Categories
 
@@ -665,7 +665,7 @@ fn e2e_malformed_yaml_fails_gracefully() {
         "Should report YAML parsing error, got: {combined}"
     );
 }
-```text
+```
 
 **2. Validation Workflow (10 tests)**
 
@@ -703,7 +703,7 @@ fn e2e_stale_values_detected() {
     // Should suggest fix
     assert!(stdout.contains("Run 'forge calculate' to update values"));
 }
-```text
+```
 
 **3. Calculate Workflow (7 tests)**
 
@@ -739,7 +739,7 @@ fn e2e_calculate_updates_stale_file() {
     let stdout = String::from_utf8_lossy(&output2.stdout);
     assert!(stdout.contains("All formulas are valid"));
 }
-```text
+```
 
 **4. Cross-File References (5 tests)**
 
@@ -762,7 +762,7 @@ fn e2e_includes_basic_flow() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("All formulas are valid"));
 }
-```text
+```
 
 **5. Export/Import (3 tests)**
 
@@ -788,7 +788,7 @@ fn e2e_export_to_excel() {
     let stdout = String::from_utf8_lossy(&result.stdout);
     assert!(stdout.contains("Export Complete"));
 }
-```text
+```
 
 ### E2E Test Output Verification
 
@@ -818,7 +818,7 @@ assert!(stdout.contains("All formulas are valid"));
 // 3. Stderr (if errors expected)
 let stderr = String::from_utf8_lossy(&output.stderr);
 assert!(stderr.is_empty());
-```text
+```
 
 ---
 
@@ -856,7 +856,7 @@ forge/
     ├── excel_export.rs
     ├── excel_import.rs
     └── validation_check.rs
-```text
+```
 
 ### Test Location Guidelines
 
@@ -886,43 +886,43 @@ forge/
 
 ```bash
 cargo test
-```text
+```
 
 **Unit tests only:**
 
 ```bash
 cargo test --lib
-```text
+```
 
 **Integration tests only:**
 
 ```bash
 cargo test --test '*'
-```text
+```
 
 **Specific test:**
 
 ```bash
 cargo test test_simple_table_calculation
-```text
+```
 
 **E2E tests only:**
 
 ```bash
 cargo test --test e2e_tests
-```text
+```
 
 **Verbose output:**
 
 ```bash
 cargo test -- --nocapture
-```text
+```
 
 **Single-threaded (for debugging):**
 
 ```bash
 cargo test -- --test-threads=1
-```text
+```
 
 ---
 
@@ -997,7 +997,7 @@ unit_economics:
   ratio:
     value: 2.0         # WRONG! Should be 1.8
     formula: "=1 + gross_margin"
-```text
+```
 
 ### Managing Test Data
 
@@ -1022,7 +1022,7 @@ done
 for file in test-data/*.yaml; do
   forge calculate "$file"
 done
-```text
+```
 
 ---
 
@@ -1038,25 +1038,25 @@ done
 
 ```text
    YAML → Excel → YAML ≈ Original YAML
-```text
+```
 
 2. **Calculation idempotence:**
 
 ```text
    calculate(calculate(model)) = calculate(model)
-```text
+```
 
 3. **Validation correctness:**
 
 ```text
    validate(calculate(model)) = Success
-```text
+```
 
 4. **Formula commutativity:**
 
 ```text
    "=a + b" produces same result as "=b + a"
-```text
+```
 
 ### Planned Implementation
 
@@ -1086,7 +1086,7 @@ proptest! {
         prop_assert_eq!(yaml_formula, back);
     }
 }
-```text
+```
 
 **Benefits:**
 
@@ -1138,7 +1138,7 @@ cargo tarpaulin --out Html --output-dir coverage/
 # View report
 
 open coverage/index.html
-```text
+```
 
 **Coverage Goals:**
 
@@ -1280,7 +1280,7 @@ jobs:
 
       - name: Check formatting
         run: cargo fmt --all -- --check
-```text
+```
 
 ### Pre-Commit Hook
 
@@ -1331,13 +1331,13 @@ for file in test-data/test_valid*.yaml test-data/includes_main.yaml; do
 done
 
 echo "✅ All pre-commit checks passed!"
-```text
+```
 
 **Installation:**
 
 ```bash
 chmod +x .git/hooks/pre-commit
-```text
+```
 
 ### CI Performance
 
@@ -1390,7 +1390,7 @@ chmod +x .git/hooks/pre-commit
 # Show slow tests (>1s)
 
 cargo test -- --nocapture 2>&1 | grep -E "test .* ok$" | awk '{print $2, $4}' | sort -nk2
-```text
+```
 
 **Optimization Techniques:**
 
@@ -1419,7 +1419,7 @@ fn bench_formula_evaluation(c: &mut Criterion) {
 
 criterion_group!(benches, bench_formula_evaluation);
 criterion_main!(benches);
-```text
+```
 
 **Planned Benchmarks:**
 
@@ -1458,7 +1458,7 @@ criterion_main!(benches);
        assert_eq!(column_index_to_letter(26), "AA");
        // ... 50 more assertions
    }
-```text
+```
 
 2. **Clear test names**
 
@@ -1470,7 +1470,7 @@ criterion_main!(benches);
    // Bad
    #[test]
    fn test_case_3() { ... }
-```text
+```
 
 3. **Self-contained tests**
 
@@ -1489,7 +1489,7 @@ criterion_main!(benches);
    fn test_export() {
        unsafe { GLOBAL_MODEL.as_ref().unwrap() } // ❌
    }
-```text
+```
 
 ### Flaky Test Detection
 
@@ -1519,7 +1519,7 @@ let temp = "/tmp/test.yaml"; // ❌ Race condition
 
 // Fix: Use unique temp files
 let temp = NamedTempFile::new().unwrap(); // ✅
-```text
+```
 
 ### Deprecating Tests
 
@@ -1553,7 +1553,7 @@ fn test_old_implementation() {
 }
 
 // 2. Remove after 1-2 releases
-```text
+```
 
 ---
 

@@ -49,7 +49,7 @@ quarterly_revenue:
   # Formula on entire column (aggregation)
   total_revenue: "=SUM(revenue)"
   avg_profit: "=AVERAGE(profit)"
-```text
+```
 
 **Excel export:**
 
@@ -63,7 +63,7 @@ quarterly_revenue:
 |--------|---------|----------|--------|
 | Total  | 550000  |          |        |
 | Avg    |         |          | 42500  |
-```text
+```
 
 ---
 
@@ -79,7 +79,7 @@ table_name:
   column2: [val4, val5, val6]
   formula_column: "=column1 + column2"  # Row-wise
   summary: "=SUM(column1)"  # Scalar
-```text
+```
 
 **Detection:** Object with array values
 **Excel mapping:** Sheet with columns
@@ -101,7 +101,7 @@ assumptions:
   gross_margin:
     value: 0.90
     formula: "=1 - platform_take_rate"
-```text
+```
 
 **Detection:** Object with `value` and `formula` keys
 **Excel mapping:** Named cells or key-value table
@@ -125,7 +125,7 @@ quarterly_data:
   avg_quarter:
     value: 137.5
     formula: "=AVERAGE(revenue)"
-```text
+```
 
 **Detection:** Mix of arrays and {value, formula} objects
 **Excel mapping:** Table + summary rows below
@@ -138,7 +138,7 @@ quarterly_data:
 
 ```yaml
 profit: "=revenue - expenses"
-```text
+```
 
 **Evaluation:**
 
@@ -159,7 +159,7 @@ profit: "=revenue - expenses"
 ```yaml
 total: "=SUM(revenue)"
 max_revenue: "=MAX(revenue)"
-```text
+```
 
 **Evaluation:**
 
@@ -184,7 +184,7 @@ revenue: [100, 120, 150]
 # In table2 (different table/sheet)
 
 growth: "=table1.revenue[1] / table1.revenue[0] - 1"
-```text
+```
 
 **Requirements:**
 
@@ -229,7 +229,7 @@ mixed: [100, "Q2", true]  # ❌ Type error
 # Valid - explicit conversion
 
 quarter_num: "=NUMBERVALUE(quarter_text)"
-```text
+```
 
 **Enforcement:**
 
@@ -248,7 +248,7 @@ quarterly_revenue:
   period: [Q1, Q2, Q3, Q4]
   revenue: [100, 120, 150, 180]
   profit: "=revenue * 0.2"
-```text
+```
 
 **Excel output:**
 
@@ -262,7 +262,7 @@ Q1     | 100     | 20
 Q2     | 120     | 24
 Q3     | 150     | 30
 Q4     | 180     | 36
-```text
+```
 
 **Formula mapping:**
 
@@ -276,7 +276,7 @@ assumptions:
   tax_rate:
     value: 0.25
     formula: null
-```text
+```
 
 **Excel output:**
 
@@ -286,7 +286,7 @@ Sheet name: `assumptions`
 A         | B
 ----------|-----
 tax_rate  | 0.25
-```text
+```
 
 Named range: `tax_rate` = 0.25
 
@@ -299,7 +299,7 @@ quarterly:
   total:
     value: 550
     formula: "=SUM(revenue)"
-```text
+```
 
 **Excel output:**
 
@@ -313,7 +313,7 @@ Q3     | 150
 Q4     | 180
 -------|-------
 Total  | 550     # =SUM(B2:B5)
-```text
+```
 
 ---
 
@@ -346,7 +346,7 @@ Example:
 ```yaml
 high_revenue_count: "=COUNTIF(revenue, > 150000)"
 high_revenue_total: "=SUMIF(revenue, > 150000)"
-```text
+```
 
 ### Logical (Row-wise)
 
@@ -378,7 +378,7 @@ fn detect_model_version(yaml: &Value) -> ModelVersion {
     // Default to v0.2.0 for backwards compat
     ModelVersion::V0_2
 }
-```text
+```
 
 ### Migration Path
 
@@ -386,19 +386,19 @@ fn detect_model_version(yaml: &Value) -> ModelVersion {
 
 ```bash
 forge upgrade model-v0.2.yaml --output model-v1.0.yaml
-```text
+```
 
 **Automatic upgrade (in-place):**
 
 ```bash
 forge upgrade model.yaml --in-place --backup
-```text
+```
 
 **Preview changes:**
 
 ```bash
 forge upgrade model.yaml --dry-run
-```text
+```
 
 **Output:**
 
@@ -413,7 +413,7 @@ forge upgrade model.yaml --dry-run
 + revenue: [100, 120, 150, 180]
 + annual_total: "=SUM(revenue)"
 
-```text
+```
 
 ### Conversion Rules
 
@@ -487,7 +487,7 @@ forge upgrade model.yaml --dry-run
    summary:
      total_new_mrr: "=SUM(monthly_cohorts.new_mrr)"
      avg_churn_rate: "=AVERAGE(monthly_cohorts.churn_mrr / monthly_cohorts.new_mrr)"
-```text
+```
 
 2. **Multi-Year Budget:**
 
@@ -501,7 +501,7 @@ forge upgrade model.yaml --dry-run
    metrics:
      cagr: "=(budget.revenue[2] / budget.revenue[0]) ^ (1/2) - 1"
      avg_margin: "=AVERAGE(budget.gross_profit / budget.revenue)"
-```text
+```
 
 3. **Quarterly P&L:**
 
@@ -517,7 +517,7 @@ forge upgrade model.yaml --dry-run
      total_revenue: "=SUM(pl_2025.revenue)"
      total_profit: "=SUM(pl_2025.profit)"
      avg_margin: "=total_profit / total_revenue"
-```text
+```
 
 ### Level 4: Round-Trip Tests
 
@@ -567,7 +567,7 @@ forge upgrade model.yaml --dry-run
 # Mixed-type array
 
 revenue: [100, "Q2", 150]  # ❌ ERROR: Array must be homogeneous
-```text
+```
 
 Error:
 
@@ -578,7 +578,7 @@ Error: Parse error in file 'model.yaml' at line 2
   Type mismatch: Array contains both Number (100) and String ("Q2")
 
   Fix: Ensure all array elements are the same type
-```text
+```
 
 ### Formula Errors (Detailed Context)
 
@@ -587,7 +587,7 @@ profit: "=revenue - expenses"
 
 # But: revenue has 4 elements, expenses has 3
 
-```text
+```
 
 Error:
 
@@ -600,13 +600,13 @@ Error: Formula evaluation error in 'profit'
   In file: model.yaml:5
 
   Fix: Ensure all columns in row-wise formula have same length
-```text
+```
 
 ### Validation Errors (Helpful Suggestions)
 
 ```yaml
 total: "=SUM(revenu)"  # Typo
-```text
+```
 
 Error:
 
@@ -617,7 +617,7 @@ Error: Variable not found: 'revenu'
   Did you mean: 'revenue'?
 
   Available columns: revenue, expenses, profit
-```text
+```
 
 ---
 
@@ -656,7 +656,7 @@ For **financial models**, structural validation is non-negotiable:
     "./schema/forge-v1.0.schema.json": ["test-data/v1.0/*.yaml"]
   }
 }
-```text
+```
 
 **In YAML files:**
 
@@ -668,7 +668,7 @@ _forge_version: "1.0.0"
 
 # IDE now provides autocomplete and validation!
 
-```text
+```
 
 ### Validation Rules
 
@@ -686,7 +686,7 @@ _forge_version: "1.0.0"
 revenue: [100, "Q2", 150]  # Mixed types
 total: "SUM(revenue)"       # Missing '='
 tax_rate: { value: 0.25 }  # Missing 'formula' key
-```text
+```
 
 ### Command-Line Validation
 
@@ -703,7 +703,7 @@ forge validate-schema model.yaml
 # Skip validation (not recommended for financial models!)
 
 forge calculate --skip-schema-validation model.yaml
-```text
+```
 
 ---
 

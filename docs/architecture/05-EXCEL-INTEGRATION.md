@@ -129,7 +129,7 @@ graph TB
 ```text
 YAML → Excel → YAML ≈ Original YAML
 Excel → YAML → Excel ≈ Original Excel
-```text
+```
 
 **Known Limitations:**
 
@@ -205,7 +205,7 @@ impl ExcelExporter {
     }
 
     pub fn export(&self, output_path: &Path) -> ForgeResult<()>
-```text
+```
 
 **Main Export Flow:**
 
@@ -231,7 +231,7 @@ pub fn export(&self, output_path: &Path) -> ForgeResult<()> {
 
     Ok(())
 }
-```text
+```
 
 ### Table Export Process
 
@@ -255,7 +255,7 @@ for name in table.row_formulas.keys() {
 }
 
 column_names.sort(); // Alphabetical order for now
-```text
+```
 
 **Column Mapping Creation:**
 
@@ -270,7 +270,7 @@ let column_map: HashMap<String, String> = column_names
         (name.clone(), col_letter)
     })
     .collect();
-```text
+```
 
 **Header Row Writing:**
 
@@ -282,7 +282,7 @@ for (col_idx, col_name) in column_names.iter().enumerate() {
         .write_string(0, col_idx as u16, col_name)
  .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
 }
-```text
+```
 
 **Data vs Formula Cell Handling:**
 
@@ -311,7 +311,7 @@ for row_idx in 0..row_count {
         }
     }
 }
-```text
+```
 
 ### Data Type Export
 
@@ -351,7 +351,7 @@ fn write_cell_value(
     }
     Ok(())
 }
-```text
+```
 
 ### Scalars Export
 
@@ -393,7 +393,7 @@ fn export_scalars(&self, workbook: &mut Workbook) -> ForgeResult<()> {
 
     Ok(())
 }
-```text
+```
 
 **Scalars Layout:**
 
@@ -403,7 +403,7 @@ fn export_scalars(&self, workbook: &mut Workbook) -> ForgeResult<()> {
 | total_revenue | 50000    | =SUM(financials.revenue) |
 | avg_profit    | 1250     | =AVERAGE(financials.profit) |
 | target_margin | 0.25     | null                 |
-```text
+```
 
 ---
 
@@ -487,7 +487,7 @@ impl ExcelImporter {
             path: path.as_ref().to_path_buf(),
         }
     }
-```text
+```
 
 **Main Import Flow:**
 
@@ -513,7 +513,7 @@ pub fn import(&self) -> ForgeResult<ParsedModel> {
 
     Ok(model)
 }
-```text
+```
 
 ### Table Sheet Processing
 
@@ -543,7 +543,7 @@ for col in 0..width {
         column_names.push(format!("col_{}", col));
     }
 }
-```text
+```
 
 **Data Collection:**
 
@@ -569,7 +569,7 @@ for row in 1..height {
         }
     }
 }
-```text
+```
 
 **Formula Detection and Translation:**
 
@@ -619,7 +619,7 @@ for (col_idx, col_name) in column_names.iter().enumerate() {
     let column_value = self.convert_to_column_value(data)?;
     table.add_column(Column::new(col_name.clone(), column_value));
 }
-```text
+```
 
 ### Data Type Detection
 
@@ -672,7 +672,7 @@ fn convert_to_column_value(&self, data: &[Data]) -> ForgeResult<ColumnValue> {
         }
     }
 }
-```text
+```
 
 ### Scalars Import
 
@@ -730,7 +730,7 @@ fn process_scalars_sheet(
 
     Ok(())
 }
-```text
+```
 
 ---
 
@@ -801,7 +801,7 @@ impl FormulaTranslator {
         Self { column_map }
     }
 }
-```text
+```
 
 **Translation Algorithm:**
 
@@ -854,7 +854,7 @@ pub fn translate_row_formula(
 
     Ok(format!("={}", result))
 }
-```text
+```
 
 **Excel Function Detection:**
 
@@ -929,7 +929,7 @@ fn is_excel_function(&self, word: &str) -> bool {
             | "MATCH"
     )
 }
-```text
+```
 
 **Translation Examples:**
 
@@ -1003,7 +1003,7 @@ impl ReverseFormulaTranslator {
         Self { column_map }
     }
 }
-```text
+```
 
 **Translation Algorithm:**
 
@@ -1033,7 +1033,7 @@ fn translate_formula_body(&self, formula: &str) -> ForgeResult<String> {
 
     Ok(result)
 }
-```text
+```
 
 **Phase 1: Sheet References**
 
@@ -1082,7 +1082,7 @@ fn translate_sheet_references(&self, formula: &str) -> ForgeResult<String> {
 
     Ok(result)
 }
-```text
+```
 
 **Phase 2: Range References**
 
@@ -1140,7 +1140,7 @@ fn translate_range_references(&self, formula: &str) -> ForgeResult<String> {
 
     Ok(result)
 }
-```text
+```
 
 **Phase 3: Cell References**
 
@@ -1178,7 +1178,7 @@ fn translate_cell_references(&self, formula: &str) -> ForgeResult<String> {
 
     Ok(result)
 }
-```text
+```
 
 **Translation Examples:**
 
@@ -1213,7 +1213,7 @@ tables:
     row_formulas:
       gross_profit: "=revenue - cogs"
       margin: "=gross_profit / revenue"
-```text
+```
 
 **After Export → Import:**
 
@@ -1229,7 +1229,7 @@ tables:
     row_formulas:
       gross_profit: "=revenue - cogs"  # Preserved!
       margin: "=gross_profit / revenue"  # Preserved!
-```text
+```
 
 **What Gets Lost:**
 
@@ -1266,7 +1266,7 @@ pub fn column_index_to_letter(index: usize) -> String {
 
     result
 }
-```text
+```
 
 **Algorithm Explanation:**
 
@@ -1304,7 +1304,7 @@ fn test_column_index_to_letter() {
     assert_eq!(FormulaTranslator::column_index_to_letter(27), "AB");
     assert_eq!(FormulaTranslator::column_index_to_letter(701), "ZZ");
 }
-```text
+```
 
 ### Sheet Name Sanitization
 
@@ -1329,7 +1329,7 @@ fn sanitize_table_name(&self, sheet_name: &str) -> String {
  .filter(|c| c.is_alphanumeric() || *c == '_')
         .collect()
 }
-```text
+```
 
 **Sanitization Examples:**
 
@@ -1365,7 +1365,7 @@ fn test_sanitize_table_name() {
         "specialchars"
     );
 }
-```text
+```
 
 ### Column Ordering
 
@@ -1402,7 +1402,7 @@ for name in table.row_formulas.keys() {
 }
 
 column_names.sort(); // Alphabetical order for now
-```text
+```
 
 **Alternative Strategies (Future):**
 
@@ -1439,7 +1439,7 @@ ColumnValue::Number(nums) => {
  .map_err(|e| ForgeError::Export(format!("Failed to write number: {}", e)))?;
     }
 }
-```text
+```
 
 - Writes as Excel number (double precision float)
 - Excel displays with default number format
@@ -1456,7 +1456,7 @@ ColumnValue::Text(texts) => {
  .map_err(|e| ForgeError::Export(format!("Failed to write text: {}", e)))?;
     }
 }
-```text
+```
 
 - Writes as Excel string
 - Preserves exact text content
@@ -1473,7 +1473,7 @@ ColumnValue::Date(dates) => {
  .map_err(|e| ForgeError::Export(format!("Failed to write date: {}", e)))?;
     }
 }
-```text
+```
 
 - Currently exports as text string
 - Future: Convert to Excel date format (days since 1900-01-01)
@@ -1490,7 +1490,7 @@ ColumnValue::Boolean(bools) => {
  .map_err(|e| ForgeError::Export(format!("Failed to write boolean: {}", e)))?;
     }
 }
-```text
+```
 
 - Writes as Excel boolean (TRUE/FALSE)
 - Excel displays as TRUE or FALSE
@@ -1522,7 +1522,7 @@ Data::Float(_) | Data::Int(_) => {
         .collect();
     Ok(ColumnValue::Number(numbers))
 }
-```text
+```
 
 **Text Detection:**
 
@@ -1533,7 +1533,7 @@ Data::String(_) => {
  let texts: Vec<String> = data.iter().map(|cell| cell.to_string()).collect();
     Ok(ColumnValue::Text(texts))
 }
-```text
+```
 
 **Boolean Detection:**
 
@@ -1551,7 +1551,7 @@ Data::Bool(_) => {
         .collect();
     Ok(ColumnValue::Boolean(bools))
 }
-```text
+```
 
 **Default to Text:**
 
@@ -1562,7 +1562,7 @@ _ => {
  let texts: Vec<String> = data.iter().map(|cell| cell.to_string()).collect();
     Ok(ColumnValue::Text(texts))
 }
-```text
+```
 
 ### Type Conversion Edge Cases
 
@@ -1611,7 +1611,7 @@ fn test_convert_to_column_value_numbers() {
         _ => panic!("Expected Number column"),
     }
 }
-```text
+```
 
 ---
 
@@ -1626,7 +1626,7 @@ tables:
   empty_table:
     columns: {}
     row_formulas: {}
-```text
+```
 
 **Handling:** Creates worksheet with name only, no data or headers.
 
@@ -1638,7 +1638,7 @@ tables:
     columns: {}
     row_formulas:
       result: "=10 * 20"
-```text
+```
 
 **Problem:** No data columns → can't determine row count → formula not evaluated.
 
@@ -1652,7 +1652,7 @@ tables:
     row_formulas:
       a: "=b + 1"
       b: "=a + 1"
-```text
+```
 
 **Handling:** Detected during dependency resolution, error before export starts.
 
@@ -1661,13 +1661,13 @@ tables:
 ```yaml
 row_formulas:
   profit: "=revenue - costs"  # 'costs' column doesn't exist
-```text
+```
 
 **Error:**
 
 ```text
 Error: Column 'costs' not found in table
-```text
+```
 
 **Very Wide Tables (>16,384 columns):**
 
@@ -1728,7 +1728,7 @@ pub enum ForgeError {
     Export(String),  // Used for Excel export errors
     // ...
 }
-```text
+```
 
 **Common Export Errors:**
 
@@ -1745,7 +1745,7 @@ pub enum ForgeError {
     IO(String),      // File not found, permission denied
     // ...
 }
-```text
+```
 
 **Common Import Errors:**
 
@@ -1791,7 +1791,7 @@ pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
     println!("{}", "✅ Export Complete!".bold().green());
     Ok(())
 }
-```text
+```
 
 ---
 
@@ -1823,7 +1823,7 @@ worksheet.write_boolean(2, 0, true)?;
 
 // Save
 workbook.save("output.xlsx")?;
-```text
+```
 
 **Strengths:**
 
@@ -1877,7 +1877,7 @@ match cell {
     Some(Data::Bool(b)) => println!("Boolean: {}", b),
     _ => {}
 }
-```text
+```
 
 **Strengths:**
 
@@ -1910,7 +1910,7 @@ match cell {
 [dependencies]
 rust_xlsxwriter = "0.90"
 calamine = "0.31"
-```text
+```
 
 ### Why Two Libraries?
 
@@ -1957,7 +1957,7 @@ For typical model (T=5, C=10, R=100, F=5, L=50):
   5 × 100 × 10 × 5 × 50 = 1,250,000 operations
 
 Expected time: <500ms for typical model
-```text
+```
 
 **Memory Usage:**
 
@@ -1998,7 +1998,7 @@ For typical workbook (S=5, C=10, R=100, F=50, L=50):
   5 × 100 × 10 + 50 × 50 = 5,000 + 2,500 = 7,500 operations
 
 Expected time: <300ms for typical workbook
-```text
+```
 
 **Memory Usage:**
 

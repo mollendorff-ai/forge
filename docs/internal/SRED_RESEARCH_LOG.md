@@ -147,7 +147,7 @@ Use topological sorting to determine calculation order, then evaluate formula pe
        }
    }
 
-```json
+```
 
 2. **Topological Sort:**
    - Detects circular dependencies (compile-time guarantee)
@@ -164,7 +164,7 @@ Use topological sorting to determine calculation order, then evaluate formula pe
        };
        result[row_idx] = evaluate_formula(formula, resolver);
    }
-```text
+```
 
 **Challenges Encountered:**
 
@@ -176,7 +176,7 @@ Use topological sorting to determine calculation order, then evaluate formula pe
   ```rust
   let table_names: Vec<String> = self.model.tables.keys().cloned().collect();
   for table_name in table_names { ... }
-```text
+```
 
 **Challenge 3.2: Formula Parser Expects `f32`, We Use `f64`**
 
@@ -187,7 +187,7 @@ Use topological sorting to determine calculation order, then evaluate formula pe
   ```rust
   let value = result as f64;
   let rounded = (value * 1e6).round() / 1e6;
-```text
+```
 
 **Results:**
 
@@ -231,7 +231,7 @@ fn parse_table_column_ref(&self, ref_str: &str) -> ForgeResult<(String, String)>
         Err(ForgeError::Eval(format!("Invalid table.column reference: {}", ref_str)))
     }
 }
-```text
+```
 
 **2. Array Indexing** ✅
 Implemented `evaluate_array_indexing()` for `table.column[index]` pattern:
@@ -248,7 +248,7 @@ fn evaluate_array_indexing(&self, formula: &str) -> ForgeResult<f64> {
     let column = get_column(table_name, col_name)?;
     column.values[index]  // Returns f64
 }
-```text
+```
 
 **3. Aggregation Function Evaluation** ✅
 Implemented `evaluate_aggregation()` supporting SUM, AVERAGE, MAX, MIN:
@@ -270,7 +270,7 @@ fn evaluate_aggregation(&self, formula: &str) -> ForgeResult<f64> {
         "MIN" => Ok(nums.iter().copied().fold(f64::INFINITY, f64::min)),
     }
 }
-```text
+```
 
 **4. Scalar Dependency Resolution** ✅
 Implemented `get_scalar_calculation_order()` using topological sort (petgraph):
@@ -290,7 +290,7 @@ fn get_scalar_calculation_order(&self, scalar_names: &[String]) -> ForgeResult<V
     // Topological sort with circular dependency detection
  toposort(&graph, None).map_err(|_| ForgeError::CircularDependency(...))?
 }
-```text
+```
 
 **Implementation Details:**
 
@@ -346,7 +346,7 @@ total_revenue = SUM(pl.revenue)     # = 2200 ✅
 total_cogs = SUM(pl.cogs)           # = 660 ✅
 gross_profit = total_revenue - total_cogs  # = 1540 ✅
 gross_margin = gross_profit / total_revenue  # = 0.7 ✅
-```text
+```
 
 **Technological Advancement:**
 
@@ -427,7 +427,7 @@ forge validate models/*.yaml              # Detect mismatches
 forge calculate models/*.yaml --dry-run   # Preview fixes
 forge calculate models/*.yaml             # Apply fixes
 git diff models/                          # Review changes
-```text
+```
 
 **Results:**
 
@@ -544,7 +544,7 @@ ROI Calculation:
 - Risk eliminated: $200K+ grant funding protected
 - Value: PRICELESS (startup survival)
 
-```text
+```
 
 **Challenges Encountered:**
 
@@ -735,7 +735,7 @@ This simple approach should handle all v1.0.0 scoping needs without requiring a 
       ForgeVersion::V1_0_0 => { /* Use ArrayCalculator */ }
       ForgeVersion::V0_2_0 => { /* Use old Calculator */ }
   }
-```text
+```
 
 - **Result:** ✅ v1.0.0 files now route to ArrayCalculator
 
@@ -750,7 +750,7 @@ This simple approach should handle all v1.0.0 scoping needs without requiring a 
 
   // AFTER (FIX - uses full path):
   model.add_scalar(full_path.clone(), variable);
-```text
+```
 
 - **Impact:** Nested scalars like `annual_2025.total_revenue` were being stored as just `annual_2025`, causing overwrites
 - **Result:** ✅ All 7 scalars now parsed correctly
@@ -765,7 +765,7 @@ This simple approach should handle all v1.0.0 scoping needs without requiring a 
   // Allows updating model with calculated columns as we go
   fn calculate_table(&mut self, table_name: &str, table: &Table) -> ForgeResult<Table>
   fn evaluate_rowwise_formula(&mut self, table: &Table, formula: &str) -> ForgeResult<ColumnValue>
-```text
+```
 
 - **Result:** ✅ Calculated columns now visible for cross-table references
 
@@ -798,7 +798,7 @@ This simple approach should handle all v1.0.0 scoping needs without requiring a 
 
   // Strategy 3: Could be table.column reference, not a scalar dependency
   // Skip it (no dependency edge needed)
-```text
+```
 
 - **Closure Implementation Challenge:** Resolver closure needed `move` keyword to own `parent_section` string
 - **Result:** ✅ Scalar formulas like `=total_revenue - total_cogs` now resolve correctly
@@ -837,7 +837,7 @@ This simple approach should handle all v1.0.0 scoping needs without requiring a 
       // Topological sort with circular dependency detection
  toposort(&graph, None).map_err(|_| ForgeError::CircularDependency(...))?
   }
-```text
+```
 
 - **Result:** ✅ Tables now calculated in correct dependency order
 
@@ -873,7 +873,7 @@ This simple approach should handle all v1.0.0 scoping needs without requiring a 
       // Default to v0.2.0 for backwards compatibility
       ForgeVersion::V0_2_0
   }
-```text
+```
 
 - **Result:** ✅ v0.2.0 files now correctly detected, all includes tests passing
 
@@ -890,7 +890,7 @@ This simple approach should handle all v1.0.0 scoping needs without requiring a 
 3 array tests   ✅ all passed
 ───────────────────────────────
 75 TOTAL        ✅ 0 FAILED
-```text
+```
 
 ✅ **Complex Real-World Test Passing:**
 
@@ -948,7 +948,7 @@ Most compilers use complex symbol table libraries to handle scoping (hundreds of
       formula: =SUM(pl_2025.cogs)
     gross_profit:
       formula: =total_revenue - total_cogs  # Resolves to annual_2025.total_revenue
-```text
+```
 
 - Reference calculated columns from other tables:
 
@@ -956,7 +956,7 @@ Most compilers use complex symbol table libraries to handle scoping (hundreds of
   final_pl:
     revenue:
       formula: =pl_2025.revenue  # Cross-table reference
-```text
+```
 
 - Mix row-wise, aggregation, and scalar calculations in single model
 - Trust 100% correctness (all tests passing, zero error tolerance)
@@ -1079,7 +1079,7 @@ Function preprocessing layer that evaluates unsupported functions BEFORE xlformu
       let preprocessed = replace_math_functions(preprocessed)?;  // ROUND, SQRT, POWER
       xlformula_engine::evaluate(preprocessed)  // Final evaluation
   }
-```text
+```
 
 - **Technical Innovation:**
   - Iterative preprocessing loop for nested functions
@@ -1264,7 +1264,7 @@ tests/
 Total: 40 comprehensive tests
 Pass Rate: 100%
 Edge Case Coverage: Circular deps, malformed YAML, cross-file errors, stale values
-```text
+```
 
 **Production Deployment:**
 
