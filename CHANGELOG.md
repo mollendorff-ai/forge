@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.0-beta] - 2025-11-26
+
+### Unit Consistency Validation
+
+Forge v4.0-beta adds unit consistency validation that warns when formulas mix incompatible units (e.g., CAD + %). This helps catch common financial modeling errors before they propagate.
+
+### Added
+
+- **UnitValidator module**: Analyzes formulas for unit compatibility
+- **Unit categories**: Currency (CAD, USD, etc.), Percentage, Count, Time, Ratio
+- **Compatibility rules**: Same currency can be added, CAD * % = CAD, etc.
+- **Validation warnings**: Non-blocking warnings displayed during calculate
+- **2 new e2e tests**: Unit mismatch detection and compatible units verification
+
+### Example
+
+```yaml
+financials:
+  revenue:
+    value: [100000, 120000]
+    unit: "CAD"
+  margin:
+    value: [0.30, 0.35]
+    unit: "%"
+  # ⚠️ Warning: Mixing incompatible units: CAD and %
+  bad_sum: "=revenue + margin"
+  # ✓ No warning: CAD * % = CAD
+  profit: "=revenue * margin"
+```
+
+### Technical Details
+
+- `UnitCategory::parse()` classifies unit strings
+- `UnitValidator::validate()` checks all formulas
+- Warnings are non-blocking (calculation proceeds)
+- 218 tests passing, zero warnings
+
+---
+
 ## [4.0.0-alpha.1] - 2025-11-26
 
 ### Rich Metadata Schema - Enterprise Financial Modeling (Alpha)

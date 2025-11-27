@@ -1,0 +1,43 @@
+# Forge v4.0 - Unit Mismatch Test
+# This file intentionally has unit inconsistencies for testing validation
+
+_forge_version: "4.0.0"
+
+# Table with unit metadata
+financials:
+  month:
+    value: ["2025-01", "2025-02", "2025-03"]
+    unit: "month"
+
+  revenue:
+    value: [100000, 120000, 140000]
+    unit: "CAD"
+    notes: "Monthly revenue in Canadian dollars"
+
+  margin:
+    value: [0.30, 0.32, 0.35]
+    unit: "%"
+    notes: "Profit margin percentage"
+
+  # This should warn: adding CAD + % is wrong
+  bad_sum: "=revenue + margin"
+
+  # This is correct: CAD * % = CAD
+  profit: "=revenue * margin"
+
+# Scalars with potential issues
+summary:
+  total_revenue:
+    value: null
+    formula: "=SUM(financials.revenue)"
+    unit: "CAD"
+
+  avg_margin:
+    value: null
+    formula: "=AVERAGE(financials.margin)"
+    unit: "%"
+
+  # This would be a unit mismatch if we tried to add them
+  # bad_total:
+  #   value: null
+  #   formula: "=total_revenue + avg_margin"

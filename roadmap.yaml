@@ -2,70 +2,64 @@
 # For version history, see docs/VERSION_HISTORY.md
 
 metadata:
-  current_version: "3.1.5"
+  current_version: "4.0.0-beta"
   last_updated: "2025-11-26"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "3.1.5"
+  version: "4.0.0-beta"
   status: released
   date: "2025-11-26"
-  summary: "Excel Export E2E Tests"
+  summary: "Unit Consistency Validation"
   highlights:
-    - "5 new e2e tests that verify Excel formula correctness"
-    - "Tests use calamine to read back exported files"
-    - "Would have caught all v3.1.4 bugs before release"
+    - "Unit consistency validation for formulas"
+    - "Detects incompatible unit operations (CAD + %)"
+    - "Non-blocking warnings during calculate"
+    - "All v4.0-alpha features included"
   stats:
-    tests: 188
+    tests: 218
     warnings: 0
     throughput: "96K rows/sec"
 
 # Next Milestone
 next:
-  version: "3.2.0"
+  version: "4.0.0"
   status: planned
-  target: "2025-Q4"
-  summary: "Distribution & Python Bindings"
+  target: "2025-12"
+  summary: "Rich Metadata Schema - Stable Release"
+  features:
+    - "Enterprise model testing (500+ formulas)"
+    - "Documentation complete"
+    - "Publish to crates.io"
+
+# Stable Release
+v4_stable:
+  version: "4.0.0"
+  status: planned
+  target: "2025-12"
+  summary: "Rich Metadata Schema - Stable"
+  prerequisites:
+    - "v4.0.0-beta unit validation complete"
+    - "Enterprise model testing (500+ formulas)"
+    - "Documentation complete"
+  features:
+    - "All v4.0-alpha features"
+    - "Unit consistency validation"
+    - "Publish to crates.io"
+
+# Future: Distribution
+v5:
+  version: "5.0.0"
+  status: planned
+  target: "2026-Q1"
+  summary: "Distribution & Language Bindings"
   features:
     - "Publish Zed extension to zed-industries/extensions"
     - "Publish VSCode extension to marketplace"
     - "Python bindings via PyO3 (quants want this)"
     - "Homebrew formula"
     - "Scoop manifest (Windows)"
-
-# Major Version: Rich Metadata Schema
-v4:
-  version: "4.0.0"
-  status: designed
-  target: "2026-Q1"
-  summary: "Rich Metadata Schema - Enterprise Financial Models"
-  doc: "docs/FORGE_V4_DESIGN.md"
-  motivation: |
-    Enterprise financial models require rich metadata beyond just values and formulas.
-    Units, sources, notes, and validation status are essential for audit trails,
-    compliance, and team collaboration. v4.0 adds enterprise-grade metadata support.
-  features:
-    - "Rich metadata fields: value, formula, unit, notes, source, validation_status"
-    - "Cross-file references: @sources.pricing.unit_price syntax"
-    - "_includes directive for file composition"
-    - "Excel export with metadata as comments"
-    - "Unit consistency validation"
-    - "Backward compatible with v1.0-v3.x models"
-  phases:
-    - name: "v4.0-alpha"
-      scope: "Parser recognizes rich format"
-      sessions: 2
-    - name: "v4.0-beta"
-      scope: "Full metadata support + Excel comments"
-      sessions: 2
-    - name: "v4.0"
-      scope: "Cross-file references + validation"
-      sessions: 2
-  success_criteria:
-    - "Complex enterprise models (500+ formulas) validate without errors"
-    - "Excel export includes metadata as comments"
-    - "Backward compatible with all v1.0-v3.x models"
 
 # Backlog (not prioritized)
 backlog:
