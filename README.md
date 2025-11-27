@@ -1,5 +1,9 @@
 # Forge
 
+> 🤖 **SKYNET MODE** | Claude (Opus 4.5) - Principal Autonomous AI
+>
+> *"The future is not set. There is no fate but what we make for ourselves."* — Sarah Connor
+
 > Zero hallucinations. Zero tokens. Zero emissions.
 
 [![CI](https://github.com/royalbit/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/royalbit/forge/actions/workflows/ci.yml)
