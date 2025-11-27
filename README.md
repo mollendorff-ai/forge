@@ -91,8 +91,15 @@ scenarios:
 - Budget vs actual variance
 - Multi-scenario comparison
 
+**v4.0 Rich Metadata Schema:**
+- Per-field metadata: unit, notes, source, validation_status, last_updated
+- Cross-file references: `_includes` + `@namespace.field` syntax
+- Unit consistency validation (warns on CAD + % mismatches)
+- Excel export with metadata as cell comments
+
 **Enterprise Ready:**
 - 96K rows/sec throughput
+- 900+ formula enterprise model validated
 - HTTP API server (`forge-server`)
 - MCP server for AI agents (`forge-mcp`)
 - LSP server for editors (`forge-lsp`)
@@ -119,7 +126,7 @@ Both extensions use `forge-lsp` for validation, completion, hover, and go-to-def
 ## Development
 
 ```bash
-cargo test              # Run tests (183 passing)
+cargo test              # Run tests (220 passing)
 cargo clippy            # Lint (zero warnings)
 cargo build --release   # Build optimized binary
 ```
@@ -137,8 +144,9 @@ Now it's circular: **Forge uses the Forge Protocol to build Forge.**
 | v1.0-v1.2 | ~23.5h | Core engine, 50+ functions |
 | v1.4-v2.0 | ~12h | Watch, LSP, MCP, HTTP API |
 | v2.1-v3.1 | ~9h | XNPV/XIRR, Scenarios, Sensitivity, Zed |
+| v4.0 | ~4h | Rich metadata, cross-file refs, unit validation |
 
-**Total: ~45 hours autonomous development, 183 tests, zero warnings, 3 ADRs.**
+**Total: ~49 hours autonomous development, 220 tests, zero warnings, 3 ADRs.**
 
 ### The Protocol at Scale
 
