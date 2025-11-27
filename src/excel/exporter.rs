@@ -9,12 +9,63 @@ use std::path::Path;
 /// Excel exporter for v1.0.0 array models
 pub struct ExcelExporter {
     model: ParsedModel,
+    /// Global mapping: table_name -> (column_name -> column_letter)
+    table_column_maps: HashMap<String, HashMap<String, String>>,
+    /// Global mapping: table_name -> row_count
+    table_row_counts: HashMap<String, usize>,
 }
 
 impl ExcelExporter {
     /// Create a new Excel exporter
     pub fn new(model: ParsedModel) -> Self {
-        Self { model }
+        // Build global column mappings for all tables
+        let mut table_column_maps = HashMap::new();
+        let mut table_row_counts = HashMap::new();
+
+        for (table_name, table) in &model.tables {
+            let mut column_names: Vec<String> = Vec::new();
+
+            // Add data columns
+            for name in table.columns.keys() {
+                column_names.push(name.clone());
+            }
+
+            // Add formula columns
+            for name in table.row_formulas.keys() {
+                if !column_names.contains(name) {
+                    column_names.push(name.clone());
+                }
+            }
+
+            column_names.sort(); // Alphabetical order
+
+            // Build column name → letter mapping
+            let column_map: HashMap<String, String> = column_names
+                .iter()
+                .enumerate()
+                .map(|(idx, name)| {
+                    let col_letter = super::FormulaTranslator::column_index_to_letter(idx);
+                    (name.clone(), col_letter)
+                })
+                .collect();
+
+            // Get row count
+            let row_count = table
+                .columns
+                .values()
+                .next()
+                .map(|col| col.len())
+                .unwrap_or(0);
+
+            table_column_maps.insert(table_name.clone(), column_map);
+            table_row_counts.insert(table_name.clone(), row_count);
+        }
+
+        Self {
+            model,
+            table_column_maps,
+            table_row_counts,
+        }
     }
 
     /// Export the model to an Excel .xlsx file
@@ -68,18 +119,19 @@ impl ExcelExporter {
 
         column_names.sort(); // Alphabetical order for now
 
-        // Build column name → Excel column letter mapping
-        let column_map: HashMap<String, String> = column_names
-            .iter()
-            .enumerate()
-            .map(|(idx, name)| {
-                let col_letter = super::FormulaTranslator::column_index_to_letter(idx);
-                (name.clone(), col_letter)
-            })
-            .collect();
+        // Get the column map for this table (already built in new())
+        let column_map = self
+            .table_column_maps
+            .get(table_name)
+            .cloned()
+            .unwrap_or_default();
 
-        // Create formula translator
-        let translator = super::FormulaTranslator::new(column_map);
+        // Create formula translator with global table knowledge
+        let translator = super::FormulaTranslator::new_with_tables(
+            column_map,
+            self.table_column_maps.clone(),
+            self.table_row_counts.clone(),
+        );
 
         // Write header row (row 0)
         for (col_idx, col_name) in column_names.iter().enumerate() {
@@ -175,6 +227,13 @@ impl ExcelExporter {
             ForgeError::Export(format!("Failed to set Scalars worksheet name: {}", e))
         })?;
 
+        // Create formula translator with global table knowledge
+        let translator = super::FormulaTranslator::new_with_tables(
+            HashMap::new(), // No local columns for scalars
+            self.table_column_maps.clone(),
+            self.table_row_counts.clone(),
+        );
+
         // Write header row
         worksheet
             .write_string(0, 0, "Name")
@@ -182,13 +241,17 @@ impl ExcelExporter {
         worksheet
             .write_string(0, 1, "Value")
             .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
-        worksheet
-            .write_string(0, 2, "Formula")
-            .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
 
         // Write scalars (sorted by name for deterministic output)
         let mut scalar_names: Vec<&String> = self.model.scalars.keys().collect();
         scalar_names.sort();
+
+        // Build a map of scalar names to their row numbers for inter-scalar references
+        let scalar_row_map: HashMap<String, u32> = scalar_names
+            .iter()
+            .enumerate()
+            .map(|(idx, name)| ((*name).clone(), (idx + 1) as u32 + 1)) // +1 for header, +1 for Excel 1-indexing
+            .collect();
 
         for (idx, name) in scalar_names.iter().enumerate() {
             let row = (idx + 1) as u32; // +1 for header row
@@ -199,17 +262,36 @@ impl ExcelExporter {
                     ForgeError::Export(format!("Failed to write scalar name: {}", e))
                 })?;
 
-                // Write value (if present)
-                if let Some(value) = var.value {
+                // Write formula or value
+                if let Some(formula) = &var.formula {
+                    // Translate and write as actual Excel formula
+                    match translator.translate_scalar_formula(formula, &scalar_row_map) {
+                        Ok(excel_formula) => {
+                            worksheet
+                                .write_formula(row, 1, Formula::new(&excel_formula))
+                                .map_err(|e| {
+                                    ForgeError::Export(format!(
+                                        "Failed to write scalar formula: {}",
+                                        e
+                                    ))
+                                })?;
+                        }
+                        Err(_) => {
+                            // Fallback: write calculated value if formula translation fails
+                            if let Some(value) = var.value {
+                                worksheet.write_number(row, 1, value).map_err(|e| {
+                                    ForgeError::Export(format!(
+                                        "Failed to write scalar value: {}",
+                                        e
+                                    ))
+                                })?;
+                            }
+                        }
+                    }
+                } else if let Some(value) = var.value {
+                    // No formula, just write the value
                     worksheet.write_number(row, 1, value).map_err(|e| {
                         ForgeError::Export(format!("Failed to write scalar value: {}", e))
-                    })?;
-                }
-
-                // Write formula (if present) - Phase 3.4 will translate these
-                if let Some(formula) = &var.formula {
-                    worksheet.write_string(row, 2, formula).map_err(|e| {
-                        ForgeError::Export(format!("Failed to write scalar formula: {}", e))
                     })?;
                 }
             }
