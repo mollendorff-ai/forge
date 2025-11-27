@@ -8,12 +8,33 @@ use std::collections::HashMap;
 pub struct FormulaTranslator {
     /// Maps column names to Excel column letters (revenue → A, cogs → B, etc.)
     column_map: HashMap<String, String>,
+    /// Global mapping: table_name -> (column_name -> column_letter)
+    table_column_maps: HashMap<String, HashMap<String, String>>,
+    /// Global mapping: table_name -> row_count
+    table_row_counts: HashMap<String, usize>,
 }
 
 impl FormulaTranslator {
-    /// Create a new formula translator with column mappings
+    /// Create a new formula translator with column mappings (legacy, for backwards compat)
     pub fn new(column_map: HashMap<String, String>) -> Self {
-        Self { column_map }
+        Self {
+            column_map,
+            table_column_maps: HashMap::new(),
+            table_row_counts: HashMap::new(),
+        }
+    }
+
+    /// Create a new formula translator with full table knowledge
+    pub fn new_with_tables(
+        column_map: HashMap<String, String>,
+        table_column_maps: HashMap<String, HashMap<String, String>>,
+        table_row_counts: HashMap<String, usize>,
+    ) -> Self {
+        Self {
+            column_map,
+            table_column_maps,
+            table_row_counts,
+        }
     }
 
     /// Translate a row formula to an Excel cell formula for a specific row
@@ -158,7 +179,7 @@ impl FormulaTranslator {
     ///
     /// Example:
     /// - Input: `pl_2025.revenue`, row 2
-    /// - Output: `pl_2025!A2`
+    /// - Output: `pl_2025!A2` (where A is the column letter for revenue)
     fn translate_table_column_ref(&self, ref_str: &str, excel_row: u32) -> ForgeResult<String> {
         let parts: Vec<&str> = ref_str.split('.').collect();
         if parts.len() != 2 {
@@ -171,24 +192,178 @@ impl FormulaTranslator {
         let table_name = parts[0];
         let col_name = parts[1];
 
-        // For cross-table references, we need to look up the column in the target table
-        // For now, assume alphabetical column ordering (matching export_table logic)
-        // TODO: This should be passed in or computed from the target table
-        // For MVP, we'll just use the column name as-is and let Excel handle it
+        // Look up the column letter from the global table mappings
+        if let Some(table_cols) = self.table_column_maps.get(table_name) {
+            if let Some(col_letter) = table_cols.get(col_name) {
+                return Ok(format!("{}!{}{}", table_name, col_letter, excel_row));
+            }
+        }
 
+        // Fallback: use column name directly (won't work in Excel but better than crashing)
         Ok(format!("{}!{}{}", table_name, col_name, excel_row))
     }
 
     /// Translate a scalar formula to an Excel formula
     ///
-    /// Example:
-    /// - Input: `=SUM(pl_2025.revenue)`
-    /// - Output: `=SUM(pl_2025!A:A)`
-    pub fn translate_scalar_formula(&self, _formula: &str) -> ForgeResult<String> {
-        // TODO: Implement in Phase 3.4
-        Err(ForgeError::Export(
-            "Scalar formula translation not yet implemented".to_string(),
-        ))
+    /// Examples:
+    /// - `=SUM(table.column)` → `=SUM(table!A2:A4)`
+    /// - `=table.column[0]` → `=table!A2`
+    /// - `=scalar_name / 100` → `=B3 / 100`
+    pub fn translate_scalar_formula(
+        &self,
+        formula: &str,
+        scalar_row_map: &HashMap<String, u32>,
+    ) -> ForgeResult<String> {
+        // Remove leading = if present
+        let formula_body = formula.strip_prefix('=').unwrap_or(formula);
+
+        let mut result = formula_body.to_string();
+
+        // Pattern for table.column[index] references (must be processed first)
+        let indexed_pattern =
+            Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\[(\d+)\]")
+                .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+
+        // Replace indexed references: table.column[0] → table!A2
+        let indexed_replacements: Vec<(std::ops::Range<usize>, String)> = indexed_pattern
+            .captures_iter(&result.clone())
+            .map(|cap| {
+                let full_match = cap.get(0).unwrap();
+                let table_name = &cap[1];
+                let col_name = &cap[2];
+                let index: usize = cap[3].parse().unwrap_or(0);
+
+                let col_letter = self
+                    .table_column_maps
+                    .get(table_name)
+                    .and_then(|cols| cols.get(col_name))
+                    .cloned()
+                    .unwrap_or_else(|| col_name.to_string());
+
+                // Excel row = index + 2 (1 for header, 1 for 1-indexing)
+                let excel_row = index + 2;
+                let replacement = format!("{}!{}{}", table_name, col_letter, excel_row);
+                (full_match.range(), replacement)
+            })
+            .collect();
+
+        // Apply indexed replacements in reverse order
+        for (range, replacement) in indexed_replacements.into_iter().rev() {
+            result.replace_range(range, &replacement);
+        }
+
+        // Pattern for table.column references inside aggregation functions
+        // SUM(table.column) → SUM(table!A2:A4)
+        let agg_pattern = Regex::new(r"(SUM|AVERAGE|MAX|MIN|COUNT|COUNTA|PRODUCT)\(([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\)")
+            .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+
+        let agg_replacements: Vec<(std::ops::Range<usize>, String)> = agg_pattern
+            .captures_iter(&result.clone())
+            .map(|cap| {
+                let full_match = cap.get(0).unwrap();
+                let func_name = &cap[1];
+                let table_name = &cap[2];
+                let col_name = &cap[3];
+
+                let col_letter = self
+                    .table_column_maps
+                    .get(table_name)
+                    .and_then(|cols| cols.get(col_name))
+                    .cloned()
+                    .unwrap_or_else(|| col_name.to_string());
+
+                let row_count = self.table_row_counts.get(table_name).copied().unwrap_or(1);
+                // Range: row 2 to row (row_count + 1) - header is row 1
+                let end_row = row_count + 1;
+                let replacement = format!(
+                    "{}({}!{}2:{}{})",
+                    func_name, table_name, col_letter, col_letter, end_row
+                );
+                (full_match.range(), replacement)
+            })
+            .collect();
+
+        // Apply aggregation replacements in reverse order
+        for (range, replacement) in agg_replacements.into_iter().rev() {
+            result.replace_range(range, &replacement);
+        }
+
+        // Pattern for simple table.column references (not in aggregations, not indexed)
+        // These become references to row 2 (first data row)
+        let simple_table_pattern =
+            Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)")
+                .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+
+        let simple_replacements: Vec<(std::ops::Range<usize>, String)> = simple_table_pattern
+            .captures_iter(&result.clone())
+            .filter_map(|cap| {
+                let full_match = cap.get(0).unwrap();
+                let table_name = &cap[1];
+                let col_name = &cap[2];
+
+                // Skip if this looks like it's already been processed (contains !)
+                if result[full_match.range()].contains('!') {
+                    return None;
+                }
+
+                // Check if this is actually a table reference
+                if !self.table_column_maps.contains_key(table_name) {
+                    // Could be a scalar like metrics.total_savings
+                    // Check if it's a scalar reference
+                    let scalar_name = format!("{}.{}", table_name, col_name);
+                    if let Some(&row) = scalar_row_map.get(&scalar_name) {
+                        return Some((full_match.range(), format!("B{}", row)));
+                    }
+                    return None;
+                }
+
+                let col_letter = self
+                    .table_column_maps
+                    .get(table_name)
+                    .and_then(|cols| cols.get(col_name))
+                    .cloned()
+                    .unwrap_or_else(|| col_name.to_string());
+
+                // Default to row 2 (first data row)
+                let replacement = format!("{}!{}2", table_name, col_letter);
+                Some((full_match.range(), replacement))
+            })
+            .collect();
+
+        // Apply simple replacements in reverse order
+        for (range, replacement) in simple_replacements.into_iter().rev() {
+            result.replace_range(range, &replacement);
+        }
+
+        // Handle scalar-to-scalar references (e.g., metrics.total_savings → B3)
+        // Pattern for standalone scalar names
+        let scalar_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*)\b")
+            .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+
+        let scalar_replacements: Vec<(std::ops::Range<usize>, String)> = scalar_pattern
+            .captures_iter(&result.clone())
+            .filter_map(|cap| {
+                let full_match = cap.get(0).unwrap();
+                let scalar_name = &cap[1];
+
+                // Skip if already processed (contains ! or is a number)
+                if result[full_match.range()].contains('!') {
+                    return None;
+                }
+
+                if let Some(&row) = scalar_row_map.get(scalar_name) {
+                    return Some((full_match.range(), format!("B{}", row)));
+                }
+                None
+            })
+            .collect();
+
+        // Apply scalar replacements in reverse order
+        for (range, replacement) in scalar_replacements.into_iter().rev() {
+            result.replace_range(range, &replacement);
+        }
+
+        Ok(format!("={}", result))
     }
 
     /// Convert a column name to an Excel column letter
