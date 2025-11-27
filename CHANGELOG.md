@@ -603,7 +603,7 @@ Built autonomously via Forge Protocol.
 
 ## [2.0.0] - 2025-11-25
 
-### 🎉 Enterprise HTTP API Server - Principal Engineer Release
+### 🎉 Enterprise HTTP API Server - Principal Autonomous AI Release
 
 Major release adding HTTP API server mode.
 

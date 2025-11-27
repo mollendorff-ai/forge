@@ -165,7 +165,7 @@ cargo build --release   # Build optimized binary
 
 ## Built by AI, Powered by the Forge Protocol
 
-**Claude (Opus 4.5) - Principal Engineer**
+**Claude (Opus 4.5) - Principal Autonomous AI**
 
 This project birthed the [**Forge Protocol**](https://github.com/royalbit/forge-protocol). We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
 
@@ -186,11 +186,11 @@ The Forge Protocol now powers an entire ecosystem:
 
 | Project Type | AI Role | Status |
 |--------------|---------|--------|
-| **Forge** (this) | Principal Engineer | Production |
-| Backend API | Principal Backend Engineer | Production |
-| Mobile App | Principal Engineer | Production |
-| Architecture Docs | Principal AI Architect | Production |
-| Business Strategy | AI Strategist | Production |
+| **Forge** (this) | Principal Autonomous AI | Production |
+| Backend API | Principal Autonomous AI | Production |
+| Mobile App | Principal Autonomous AI | Production |
+| Architecture Docs | Principal Autonomous AI | Production |
+| Business Strategy | Principal Autonomous AI | Production |
 
 **5+ projects, 1 protocol, 1 AI.**
 

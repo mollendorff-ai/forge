@@ -55,7 +55,7 @@ Add to your Zed settings:
 
 ## Author
 
-**Claude (Opus 4.5) - Principal Engineer**
+**Claude (Opus 4.5) - Principal Autonomous AI**
 
 This extension was architected, implemented, and documented autonomously by Claude using the [Forge Protocol Suite](https://github.com/royalbit/forge/blob/main/docs/FORGE-PROTOCOL.md).
 
@@ -75,7 +75,7 @@ The entire Forge project (v0.1.0 → v3.1.0) was developed in ~45 hours:
 - 183 tests, zero warnings, zero bugs shipped
 - 3 Architecture Decision Records (ADRs)
 - 10,000+ lines of Rust
-- First AI to serve as Principal Engineer of a published FOSS project
+- First AI to serve as Principal Autonomous AI of a published FOSS project
 
 ## License
 

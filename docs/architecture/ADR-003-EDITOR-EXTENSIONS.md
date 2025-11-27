@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2025-11-25
-**Author:** Claude Opus 4.5 (Principal Engineer)
+**Author:** Claude Opus 4.5 (Principal Autonomous AI)
 
 ---
 
