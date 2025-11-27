@@ -1,4 +1,4 @@
-use crate::core::ArrayCalculator;
+use crate::core::{ArrayCalculator, UnitValidator};
 use crate::error::{ForgeError, ForgeResult};
 use crate::excel::{ExcelExporter, ExcelImporter};
 use crate::parser;
@@ -75,6 +75,17 @@ pub fn calculate(
                 format!("📊 Applied scenario: {}", scenario_name).cyan()
             );
         }
+    }
+
+    // Unit consistency validation (v4.0)
+    let unit_validator = UnitValidator::new(&model);
+    let unit_warnings = unit_validator.validate();
+    if !unit_warnings.is_empty() {
+        println!("{}", "⚠️  Unit Consistency Warnings:".yellow().bold());
+        for warning in &unit_warnings {
+            println!("   {}", warning.to_string().yellow());
+        }
+        println!();
     }
 
     // Calculate using ArrayCalculator

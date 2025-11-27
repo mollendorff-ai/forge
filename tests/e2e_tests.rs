@@ -1205,3 +1205,81 @@ metrics:
         "v4 scalar with full metadata should validate, stdout: {stdout}, stderr: {stderr}"
     );
 }
+
+#[test]
+fn e2e_v4_unit_validation_detects_mismatch() {
+    // Test that unit validation catches incompatible units
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("unit_mismatch.yaml");
+
+    let content = r#"
+financials:
+  revenue:
+    value: [100000, 120000]
+    unit: "CAD"
+  margin:
+    value: [0.30, 0.35]
+    unit: "%"
+  # This should trigger a unit warning: CAD + %
+  bad_sum: "=revenue + margin"
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should still succeed (warnings don't block execution)
+    assert!(
+        output.status.success(),
+        "Calculate should succeed even with unit warnings"
+    );
+
+    // Should contain unit warning
+    assert!(
+        stdout.contains("Unit Consistency Warnings") || stdout.contains("incompatible units"),
+        "Should show unit mismatch warning, got: {stdout}"
+    );
+}
+
+#[test]
+fn e2e_v4_unit_validation_no_warning_for_compatible() {
+    // Test that compatible units don't trigger warnings
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("unit_compatible.yaml");
+
+    let content = r#"
+financials:
+  revenue:
+    value: [100000, 120000]
+    unit: "CAD"
+  expenses:
+    value: [80000, 90000]
+    unit: "CAD"
+  # CAD - CAD is fine
+  profit: "=revenue - expenses"
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success(), "Calculate should succeed");
+
+    // Should NOT contain unit warning
+    assert!(
+        !stdout.contains("Unit Consistency Warnings"),
+        "Should not show warnings for compatible units, got: {stdout}"
+    );
+}
