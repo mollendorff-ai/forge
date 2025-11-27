@@ -1,0 +1,31 @@
+# Test cross-table references and scalar formulas for Excel export
+# This test data catches bugs in formula translation
+
+# Table 1: Sales data
+sales:
+  region: ["North", "South", "East"]
+  revenue: [100000, 150000, 120000]
+  cost: [60000, 90000, 72000]
+  profit: "=revenue - cost"
+
+# Table 2: Targets (references sales table)
+targets:
+  region: ["North", "South", "East"]
+  target: [110000, 160000, 130000]
+  actual: "=sales.revenue"
+  variance: "=actual - target"
+
+# Scalars with cross-table aggregations
+metrics:
+  total_revenue:
+    value: null
+    formula: "=SUM(sales.revenue)"
+  total_profit:
+    value: null
+    formula: "=SUM(sales.profit)"
+  avg_variance:
+    value: null
+    formula: "=AVERAGE(targets.variance)"
+  profit_margin:
+    value: null
+    formula: "=metrics.total_profit / metrics.total_revenue"

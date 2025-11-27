@@ -806,3 +806,236 @@ fn e2e_watch_help_shows_usage() {
         "Should show --validate option, got: {stdout}"
     );
 }
+
+// ========== Excel Formula Verification Tests (v3.1.4) ==========
+// These tests verify that Excel export produces correct formulas,
+// not just that it creates a file.
+
+use calamine::{open_workbook, Reader, Xlsx};
+
+/// Helper to read formula from Excel cell
+#[allow(dead_code)]
+fn get_excel_formula(path: &std::path::Path, sheet: &str, row: u32, col: u32) -> Option<String> {
+    let mut workbook: Xlsx<_> = open_workbook(path).ok()?;
+    let range = workbook.worksheet_formula(sheet).ok()?;
+    range.get((row as usize, col as usize)).cloned()
+}
+
+/// Helper to get all formulas from a sheet
+fn get_sheet_formulas(path: &std::path::Path, sheet: &str) -> Vec<(usize, usize, String)> {
+    let mut results = Vec::new();
+    if let Ok(mut workbook) = open_workbook::<Xlsx<_>, _>(path) {
+        if let Ok(range) = workbook.worksheet_formula(sheet) {
+            for (row_idx, row) in range.rows().enumerate() {
+                for (col_idx, cell) in row.iter().enumerate() {
+                    if !cell.is_empty() {
+                        results.push((row_idx, col_idx, cell.clone()));
+                    }
+                }
+            }
+        }
+    }
+    results
+}
+
+#[test]
+fn e2e_export_cross_table_refs_use_column_letters() {
+    // This test would have caught the bug where we exported "table!revenue2"
+    // instead of "table!A2"
+    let yaml_file = test_data_path("export_cross_table.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("cross_table.xlsx");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    assert!(
+        output.status.success(),
+        "Export should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Read the Excel file and verify formula syntax
+    let formulas = get_sheet_formulas(&excel_file, "targets");
+
+    // Should have formulas in the targets sheet
+    assert!(
+        !formulas.is_empty(),
+        "Should have formulas in targets sheet"
+    );
+
+    // Verify formulas use column letters (A, B, C) not column names
+    for (row, col, formula) in &formulas {
+        // Formulas should NOT contain patterns like "sales!revenue" (column name)
+        // They SHOULD contain patterns like "'sales'!A" (column letter)
+        assert!(
+            !formula.contains("!revenue")
+                && !formula.contains("!cost")
+                && !formula.contains("!profit"),
+            "Formula at ({}, {}) should use column letters, not names. Got: {}",
+            row,
+            col,
+            formula
+        );
+
+        // Cross-table refs should have quoted sheet names for LibreOffice compatibility
+        if formula.contains("sales") {
+            assert!(
+                formula.contains("'sales'!"),
+                "Cross-table reference should quote sheet name. Got: {}",
+                formula
+            );
+        }
+    }
+}
+
+#[test]
+fn e2e_export_scalar_formulas_are_actual_formulas() {
+    // This test would have caught the bug where scalar formulas were
+    // exported as text strings instead of actual Excel formulas
+    let yaml_file = test_data_path("export_cross_table.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("scalar_formulas.xlsx");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    assert!(
+        output.status.success(),
+        "Export should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Read the Scalars sheet and verify formulas exist
+    let formulas = get_sheet_formulas(&excel_file, "Scalars");
+
+    // Should have formulas in the Scalars sheet (total_revenue, total_profit, etc.)
+    assert!(
+        !formulas.is_empty(),
+        "Scalars sheet should have actual formulas, not just text values"
+    );
+
+    // Verify at least one SUM formula exists
+    let has_sum = formulas.iter().any(|(_, _, f)| f.contains("SUM"));
+    assert!(
+        has_sum,
+        "Should have SUM formulas in Scalars sheet. Found formulas: {:?}",
+        formulas
+    );
+}
+
+#[test]
+fn e2e_export_aggregation_formulas_have_correct_range() {
+    // Verify that SUM(table.column) translates to SUM('table'!A2:A4) not SUM('table'!A2)
+    let yaml_file = test_data_path("export_cross_table.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("aggregation_formulas.xlsx");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    assert!(output.status.success());
+
+    let formulas = get_sheet_formulas(&excel_file, "Scalars");
+
+    // Find SUM formulas and verify they have ranges (colon notation)
+    for (_, _, formula) in &formulas {
+        if formula.contains("SUM") {
+            assert!(
+                formula.contains(":"),
+                "SUM formula should have a range (A2:A4), not a single cell. Got: {}",
+                formula
+            );
+        }
+    }
+}
+
+#[test]
+fn e2e_export_row_formulas_translate_correctly() {
+    // Verify row formulas like "=revenue - cost" become "=A2-B2"
+    let yaml_file = test_data_path("export_with_formulas.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("row_formulas.xlsx");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    assert!(output.status.success());
+
+    let formulas = get_sheet_formulas(&excel_file, "pl_statement");
+
+    // Should have row formulas
+    assert!(!formulas.is_empty(), "Should have row formulas");
+
+    // Formulas should use cell references like A2, B2, not variable names
+    for (row, col, formula) in &formulas {
+        // Should not contain raw variable names (they should be translated)
+        assert!(
+            !formula.contains("revenue") && !formula.contains("cogs"),
+            "Formula at ({}, {}) should use cell refs, not variable names. Got: {}",
+            row,
+            col,
+            formula
+        );
+    }
+}
+
+#[test]
+fn e2e_export_sheet_names_are_quoted() {
+    // LibreOffice requires quoted sheet names in cross-sheet references
+    let yaml_file = test_data_path("export_cross_table.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("quoted_sheets.xlsx");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    assert!(output.status.success());
+
+    // Check targets sheet for cross-table refs to sales
+    let formulas = get_sheet_formulas(&excel_file, "targets");
+
+    for (_, _, formula) in &formulas {
+        // If it references another sheet, the sheet name should be quoted
+        if formula.contains("!") && !formula.starts_with("=") {
+            // This is a cross-sheet reference
+            assert!(
+                formula.contains("'"),
+                "Cross-sheet reference should have quoted sheet name. Got: {}",
+                formula
+            );
+        }
+    }
+
+    // Also check Scalars sheet
+    let scalar_formulas = get_sheet_formulas(&excel_file, "Scalars");
+    for (_, _, formula) in &scalar_formulas {
+        if formula.contains("sales") || formula.contains("targets") {
+            assert!(
+                formula.contains("'sales'") || formula.contains("'targets'"),
+                "Scalar formula should quote sheet names. Got: {}",
+                formula
+            );
+        }
+    }
+}

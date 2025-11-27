@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.5] - 2025-11-26
+
+### Excel Export E2E Tests
+
+Added comprehensive e2e tests that verify Excel formulas are correct, not just that files are created.
+
+### Added
+
+- **Test data**: `export_cross_table.yaml` with cross-table refs and scalar aggregations
+- **5 new e2e tests**:
+  - `e2e_export_cross_table_refs_use_column_letters` - verifies `'table'!A2` not `table!revenue2`
+  - `e2e_export_scalar_formulas_are_actual_formulas` - catches text-instead-of-formula bug
+  - `e2e_export_aggregation_formulas_have_correct_range` - verifies `SUM('t'!A2:A4)` ranges
+  - `e2e_export_row_formulas_translate_correctly` - verifies cell references
+  - `e2e_export_sheet_names_are_quoted` - catches LibreOffice compatibility issues
+
+### Technical Details
+
+- Uses calamine to read back exported Excel files
+- Verifies formula syntax matches Excel/LibreOffice requirements
+- These tests would have caught all v3.1.4 bugs before release
+
+---
+
 ## [3.1.4] - 2025-11-26
 
 ### Excel Export Bug Fixes
