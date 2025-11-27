@@ -45,7 +45,7 @@ quarterly_pl.xlsx (output)
   └── Sheet: Scalars
       ├── annual_2025.total_revenue: =SUM(pl_2025!A:A)
       └── ...
-```text
+```
 
 ### Mapping Strategy
 
@@ -79,7 +79,7 @@ tables:
       cogs: [300, 360, 450, 540]
     row_formulas:
       gross_profit: =revenue - cogs
-```text
+```
 
 **Excel (pl_2025 sheet):**
 
@@ -90,7 +90,7 @@ tables:
 3  1200     360    =A3-B3       <- Formula!
 4  1500     450    =A4-B4       <- Formula!
 5  1800     540    =A5-B5       <- Formula!
-```text
+```
 
 #### 4. Cross-Table References
 
@@ -102,7 +102,7 @@ Convert `table.column` syntax to Excel sheet references:
 final_pl:
   row_formulas:
     revenue: =pl_2025.revenue
-```text
+```
 
 **Excel (final_pl sheet):**
 
@@ -113,7 +113,7 @@ final_pl:
 3  =pl_2025!A3
 4  =pl_2025!A4
 5  =pl_2025!A5
-```text
+```
 
 #### 5. Scalars → Dedicated Sheet
 
@@ -127,7 +127,7 @@ Create "Scalars" worksheet:
 2  annual_2025.total_revenue       =SUM(pl_2025!A:A)
 3  annual_2025.total_cogs          =SUM(pl_2025!B:B)
 4  annual_2025.gross_profit        =B2-B3
-```text
+```
 
 ## Implementation Plan
 
@@ -177,7 +177,7 @@ YAML:  =revenue - cogs
 Excel: =A2-B2  (for row 2)
        =A3-B3  (for row 3)
        ...
-```text
+```
 
 ### Cross-Table Reference
 
@@ -186,28 +186,28 @@ YAML:  =pl_2025.revenue
 Excel: =pl_2025!A2  (for row 2)
        =pl_2025!A3  (for row 3)
        ...
-```text
+```
 
 ### Mixed Operations
 
 ```yaml
 YAML:  =gross_profit / revenue
 Excel: =C2/A2  (for row 2, assuming gross_profit is column C)
-```text
+```
 
 ### Aggregation (Scalars)
 
 ```yaml
 YAML:  =SUM(pl_2025.revenue)
 Excel: =SUM(pl_2025!A:A)
-```text
+```
 
 ### Array Indexing (Scalars)
 
 ```yaml
 YAML:  =revenue[3] / revenue[0] - 1
 Excel: =A4/A1-1  (0-indexed in YAML → 1-indexed in Excel, +1 for header)
-```text
+```
 
 ## Technical Challenges
 
@@ -308,7 +308,7 @@ impl ExcelExporter {
 let model = parse_model("input.yaml")?;
 let exporter = ExcelExporter::new(model);
 exporter.export("output.xlsx")?;
-```text
+```
 
 ### Internal Modules
 
@@ -330,7 +330,7 @@ impl FormulaTranslator {
         formula: &str,
     ) -> ForgeResult<String> { ... }
 }
-```text
+```
 
 ## Success Criteria
 

@@ -34,7 +34,7 @@ done
 
 git add *.yaml
 git commit -m "Initial import of grant application models"
-```text
+```
 
 **Benefits:**
 
@@ -66,7 +66,7 @@ forge calculate model.yaml
 # Export back to Excel with new scenarios
 
 forge export model.yaml complex_model_v2.xlsx
-```text
+```
 
 **Benefits:**
 
@@ -96,7 +96,7 @@ git merge ...
 # Export final version
 
 forge export financials.yaml financials_final.xlsx
-```text
+```
 
 **Benefits:**
 
@@ -129,7 +129,7 @@ forge import audit_request.xlsx audit.yaml
 # Validate calculations
 
 forge validate audit.yaml  # Proves formulas are correct!
-```text
+```
 
 **Benefits:**
 
@@ -156,7 +156,7 @@ forge import template.xlsx template.yaml
 # Export customized versions to Excel
 
 forge export custom_model.yaml → client_deliverable.xlsx
-```text
+```
 
 **Benefits:**
 
@@ -204,7 +204,7 @@ Output: quarterly_pl.yaml
   annual_2025:
     total_revenue:
       formula: "=SUM(pl_2025.revenue)"
-```text
+```
 
 ### Mapping Strategy
 
@@ -243,7 +243,7 @@ quarter: ["Q1", "Q2"]
 revenue: [1000, 1200]
 cogs: [300, 360]
 gross_profit: "=revenue - cogs"  # Translated!
-```text
+```
 
 #### 3. Excel Formulas → YAML Syntax
 
@@ -336,7 +336,7 @@ YAML:   =revenue - cogs
 
 Excel:  =B2/C2*100
 YAML:   =revenue / cogs * 100
-```text
+```
 
 ### Cross-Sheet References
 
@@ -346,7 +346,7 @@ YAML:   =pl_2025.revenue
 
 Excel:  ='Sheet Name'!A1
 YAML:   =sheet_name.column_name
-```text
+```
 
 ### Array Formulas
 
@@ -359,7 +359,7 @@ YAML:   =SUM(pl_2025.revenue)
 
 Excel:  =AVERAGE(C2:C5)
 YAML:   =AVERAGE(cogs)
-```text
+```
 
 ### Cell Index to Array Index
 
@@ -369,7 +369,7 @@ YAML:   =revenue[3]  (0-indexed)
 
 Excel:  =pl_2025!B5
 YAML:   =pl_2025.revenue[3]
-```text
+```
 
 ## Technical Challenges
 
@@ -424,7 +424,7 @@ impl ExcelImporter {
 let importer = ExcelImporter::new("input.xlsx".into());
 let model = importer.import()?;
 // model is now a ParsedModel ready to export as YAML
-```text
+```
 
 ### Internal Modules
 
@@ -450,7 +450,7 @@ impl ReverseFormulaTranslator {
         excel_formula: &str,
     ) -> ForgeResult<String> { ... }
 }
-```text
+```
 
 ## Success Criteria
 
@@ -496,7 +496,7 @@ forge export imported.yaml roundtrip.xlsx
 
 # - Same data values
 
-```text
+```
 
 **Validation:**
 

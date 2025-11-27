@@ -307,7 +307,7 @@ forge/
 └── schema/                       # JSON Schema for validation
 
 **Total:** ~7,436 lines of Rust code
-```text
+```
 
 ### Module Responsibilities
 
@@ -345,7 +345,7 @@ Formula Evaluation (xlformula_engine)
 Results
     ↓
 Display (stdout)
-```text
+```
 
 ### Export/Import Flow
 
@@ -361,7 +361,7 @@ Importer                        rust_xlsxwriter
 calamine                         .xlsx File
     ↑
 Excel Workbook
-```text
+```
 
 ---
 

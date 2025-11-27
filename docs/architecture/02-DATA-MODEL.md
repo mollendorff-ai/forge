@@ -184,7 +184,7 @@ impl ColumnValue {
         }
     }
 }
-```text
+```
 
 **Memory Layout:**
 
@@ -200,7 +200,7 @@ ColumnValue::Number(Vec<f64>)
 
 Total stack size: 25 bytes (1 + 24)
 Heap size: 8 * len bytes
-```text
+```
 
 **Examples:**
 
@@ -242,7 +242,7 @@ target_met:
   - true
   - true
 
-```text
+```
 
 **Design Decisions:**
 
@@ -291,7 +291,7 @@ impl Column {
         self.values.is_empty()
     }
 }
-```text
+```
 
 **Memory Layout:**
 
@@ -305,7 +305,7 @@ Column
 
 Total stack size: 49 bytes
 Heap size: name.len() + values.heap_size()
-```text
+```
 
 **Invariants:**
 
@@ -332,7 +332,7 @@ let quarters = Column::new(
         "Q4 2025".to_string(),
     ])
 );
-```text
+```
 
 ### 3. Table Struct
 
@@ -386,7 +386,7 @@ impl Table {
         Ok(())
     }
 }
-```text
+```
 
 **Invariants:**
 
@@ -441,7 +441,7 @@ pl_2025:
   row_formulas:
     gross_profit: "=revenue - cogs"
     gross_margin: "=gross_profit / revenue"
-```text
+```
 
 ```rust
 // In Rust code
@@ -462,7 +462,7 @@ table.add_row_formula("gross_margin".to_string(), "=gross_profit / revenue".to_s
 
 // Validate all columns have same length
 table.validate_lengths().expect("Length mismatch");
-```text
+```
 
 ### 4. ParsedModel Struct
 
@@ -515,7 +515,7 @@ impl ParsedModel {
         self.aggregations.insert(name, formula);
     }
 }
-```text
+```
 
 **Version-Specific Fields:**
 
@@ -569,7 +569,7 @@ pub struct Variable {
     /// The alias of the file this variable came from (None for main file)
     pub alias: Option<String>,
 }
-```text
+```
 
 **Fields:**
 
@@ -594,7 +594,7 @@ summary:
   total_revenue:
     value: 550000
     formula: "=SUM(pl_2025.revenue)"
-```text
+```
 
 ```rust
 // In Rust code
@@ -611,7 +611,7 @@ let imported_var = Variable {
     formula: None,
     alias: Some("pricing".to_string()),
 };
-```text
+```
 
 ### 6. ForgeVersion Enum
 
@@ -669,7 +669,7 @@ impl ForgeVersion {
         ForgeVersion::V0_2_0
     }
 }
-```text
+```
 
 **Detection Algorithm:**
 
@@ -727,7 +727,7 @@ volume:
 profit:
   value: null
   formula: "=revenue - @costs.total"
-```text
+```
 
 **Data Flow:**
 
@@ -739,7 +739,7 @@ volume=1000 ────────────────────┘
 revenue=99000 ──┐
                 ├──> profit = 99000 - 5000 = 94000
 costs.yaml (total=5000) ────┘
-```text
+```
 
 ### v1.0.0 Array Model
 
@@ -771,7 +771,7 @@ summary:
   avg_margin:
     value: null
     formula: "=AVERAGE(pl_2025.gross_margin)"
-```text
+```
 
 **Data Structure:**
 
@@ -823,7 +823,7 @@ let numbers = ColumnValue::Number(vec![1.0, 2.0, 3.0]);
 //                                       ^^^  ^^^^^^  ^^^^
 //                                       f64  &str    bool
 // Compiler error: mismatched types
-```text
+```
 
 **2. Ownership and Borrowing**
 
@@ -836,7 +836,7 @@ let calculator = ArrayCalculator::new(model);  // model moved
 
 // Get model back with calculated values
 let calculated_model = calculator.calculate_all()?;  // ownership returned
-```text
+```
 
 **3. Option Types for Null Safety**
 
@@ -851,7 +851,7 @@ match variable.value {
     Some(v) => println!("Value: {}", v),
     None => println!("No value yet"),
 }
-```text
+```
 
 ### Runtime Invariants
 
@@ -871,7 +871,7 @@ pub fn validate_lengths(&self) -> Result<(), String> {
     }
     Ok(())
 }
-```text
+```
 
 **Enforcement:**
 
@@ -888,7 +888,7 @@ let order = toposort(&graph, None).map_err(|_| {
         "Circular dependency detected between tables".to_string()
     )
 })?;
-```text
+```
 
 **Examples:**
 
@@ -901,7 +901,7 @@ let order = toposort(&graph, None).map_err(|_| {
   revenue: 100000
   costs: 30000
   profit: =revenue - costs
-```text
+```
 
 **3. Formula Column References**
 
@@ -920,7 +920,7 @@ if let Some(col) = table.columns.get(col_ref) {
         col_ref
     )));
 }
-```text
+```
 
 **Enforcement:**
 
@@ -944,7 +944,7 @@ revenue:
 
 # Parser error: "Expected Number, found Text"
 
-```text
+```
 
 **xlformula_engine handles conversions:**
 
@@ -953,7 +953,7 @@ revenue:
 =IF(revenue > 100000, "High", "Low")  // Number → Boolean, result is Text
 =TEXT(date, "YYYY-MM")                // Date → Text
 =VALUE("123.45")                      // Text → Number
-```text
+```
 
 **Forge preserves result types:**
 
@@ -963,7 +963,7 @@ let result = calculate("=IF(revenue > 100000, \"High\", \"Low\")", ...)?;
 
 // Store as Text column
 ColumnValue::Text(vec!["High".to_string(), "Low".to_string(), ...])
-```text
+```
 
 ---
 
@@ -1016,7 +1016,7 @@ write_model(&file, &calculated_model)?;  // borrow
 
 // 5. Model still available for other operations
 export_to_excel(&calculated_model, &excel_file)?;
-```text
+```
 
 **Why this pattern?**
 
@@ -1042,7 +1042,7 @@ ParsedModel (stack)
 
 Total stack: ~176 bytes
 Heap: All strings, vectors, hashmaps
-```text
+```
 
 **Table Layout:**
 
@@ -1054,7 +1054,7 @@ Table (stack)
 
 Total stack: ~120 bytes
 Heap: name string + all columns + formulas
-```text
+```
 
 **Column Layout:**
 
@@ -1067,7 +1067,7 @@ Column (stack)
 
 Total stack: ~49 bytes
 Heap: name string + Vec data
-```text
+```
 
 ### Performance Characteristics
 
@@ -1108,21 +1108,21 @@ Where:
        pub name: Rc<str>,  // Shared reference
        pub values: ColumnValue,
    }
-```text
+```
 
 2. **Copy-on-Write** (used in calculator)
 
    ```rust
    // Clone only when needed
    let table = self.model.tables.get(&table_name).unwrap().clone();
-```text
+```
 
 3. **Streaming Serialization** (future optimization)
 
    ```rust
    // Current: Load entire model into memory
    // Future: Stream large tables to disk
-```text
+```
 
 ---
 
@@ -1141,7 +1141,7 @@ pub struct Table {
     pub columns: HashMap<String, Column>,
     pub row_formulas: HashMap<String, String>,
 }
-```text
+```
 
 **YAML Representation:**
 
@@ -1158,7 +1158,7 @@ pl_2025:
       - 45000
   row_formulas:
     profit: "=revenue - cogs"
-```text
+```
 
 **Custom Serialization (future):**
 
@@ -1173,7 +1173,7 @@ impl Serialize for Column {
         self.values.serialize(serializer)
     }
 }
-```text
+```
 
 ### Excel Serialization
 
@@ -1197,7 +1197,7 @@ for row_idx in 0..row_count {
         }
     }
 }
-```text
+```
 
 **Type Mapping:**
 
@@ -1260,7 +1260,7 @@ impl From<serde_yaml::Error> for ForgeError {
         ForgeError::Parse(err.to_string())
     }
 }
-```text
+```
 
 ### Error Hierarchy
 
@@ -1333,7 +1333,7 @@ let order = toposort(&graph, None).map_err(|_| {
         "Circular dependency detected".to_string()
     )
 })?;
-```text
+```
 
 ---
 
