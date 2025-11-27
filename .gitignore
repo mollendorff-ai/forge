@@ -1,2 +1,5 @@
 /target
 *.tar.gz
+
+# Self-Healing Protocol checkpoint (session-specific, not committed)
+.claude_checkpoint.yaml
