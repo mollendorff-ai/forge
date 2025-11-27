@@ -39,12 +39,12 @@ v4:
   version: "4.0.0"
   status: designed
   target: "2026-Q1"
-  summary: "Rich Metadata Schema - Mouvify Integration"
+  summary: "Rich Metadata Schema - Enterprise Financial Models"
   doc: "docs/FORGE_V4_DESIGN.md"
   motivation: |
-    Mouvify's business models have 850+ formulas with rich metadata (unit, notes,
-    source, validation_status) that Forge can't currently parse. v4.0 unifies
-    Forge's calculation engine with Mouvify's enterprise financial modeling format.
+    Enterprise financial models require rich metadata beyond just values and formulas.
+    Units, sources, notes, and validation status are essential for audit trails,
+    compliance, and team collaboration. v4.0 adds enterprise-grade metadata support.
   features:
     - "Rich metadata fields: value, formula, unit, notes, source, validation_status"
     - "Cross-file references: @sources.pricing.unit_price syntax"
@@ -63,7 +63,7 @@ v4:
       scope: "Cross-file references + validation"
       sessions: 2
   success_criteria:
-    - "All 850+ Mouvify formulas validate without errors"
+    - "Complex enterprise models (500+ formulas) validate without errors"
     - "Excel export includes metadata as comments"
     - "Backward compatible with all v1.0-v3.x models"
 
