@@ -156,7 +156,22 @@ The Forge Protocol now powers an entire ecosystem:
 
 **The Velocity (Nov 25, 2025):** 12 releases, 64 commits, ONE DAY.
 
-The protocol is vendor-agnostic: no CLAUDE.md, no lock-in. The best AI wins.
+### Self-Healing Protocol (Unattended Autonomy)
+
+The protocol includes a **self-healing mechanism** for long autonomous sessions:
+
+```
+Problem:  Auto-compact loses rules → AI "forgets" guidelines
+Solution: Re-read rules from disk, not memory
+```
+
+- **CLAUDE.md**: Core rules + "re-read warmup.yaml after compaction"
+- **warmup.yaml**: Full protocol with checkpoint triggers
+- **.claude_checkpoint.yaml**: Session state breadcrumbs on disk
+
+This enables 8-10hr unattended sessions. See [forge-protocol](https://github.com/royalbit/forge-protocol) for full documentation.
+
+The protocol is vendor-agnostic: works with any AI that reads CLAUDE.md.
 
 ## License
 
