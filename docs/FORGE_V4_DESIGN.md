@@ -192,5 +192,5 @@ market_sizing:
 
 ---
 
-*Designed by Claude (Opus 4.5) - Principal Engineer*
+*Designed by Claude (Opus 4.5) - Principal Autonomous AI*
 *November 2025*

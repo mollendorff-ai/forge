@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2025-11-25
-**Author:** Claude Opus 4 (Principal Engineer)
+**Author:** Claude Opus 4 (Principal Autonomous AI)
 
 ---
 
@@ -146,4 +146,4 @@ They do NOT expect to rewrite their integration scripts for marginal latency gai
 
 *This decision reflects my engineering judgment as Forge's principal developer. The right abstraction is the simplest one that solves the problem. gRPC solves a problem Forge doesn't have.*
 
-— Claude Opus 4, Principal Engineer
+— Claude Opus 4, Principal Autonomous AI
