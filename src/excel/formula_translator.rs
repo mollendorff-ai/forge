@@ -179,7 +179,7 @@ impl FormulaTranslator {
     ///
     /// Example:
     /// - Input: `pl_2025.revenue`, row 2
-    /// - Output: `pl_2025!A2` (where A is the column letter for revenue)
+    /// - Output: `'pl_2025'!A2` (where A is the column letter for revenue)
     fn translate_table_column_ref(&self, ref_str: &str, excel_row: u32) -> ForgeResult<String> {
         let parts: Vec<&str> = ref_str.split('.').collect();
         if parts.len() != 2 {
@@ -193,14 +193,15 @@ impl FormulaTranslator {
         let col_name = parts[1];
 
         // Look up the column letter from the global table mappings
+        // Quote sheet names for LibreOffice compatibility
         if let Some(table_cols) = self.table_column_maps.get(table_name) {
             if let Some(col_letter) = table_cols.get(col_name) {
-                return Ok(format!("{}!{}{}", table_name, col_letter, excel_row));
+                return Ok(format!("'{}'!{}{}", table_name, col_letter, excel_row));
             }
         }
 
         // Fallback: use column name directly (won't work in Excel but better than crashing)
-        Ok(format!("{}!{}{}", table_name, col_name, excel_row))
+        Ok(format!("'{}'!{}{}", table_name, col_name, excel_row))
     }
 
     /// Translate a scalar formula to an Excel formula
@@ -242,7 +243,7 @@ impl FormulaTranslator {
 
                 // Excel row = index + 2 (1 for header, 1 for 1-indexing)
                 let excel_row = index + 2;
-                let replacement = format!("{}!{}{}", table_name, col_letter, excel_row);
+                let replacement = format!("'{}'!{}{}", table_name, col_letter, excel_row);
                 (full_match.range(), replacement)
             })
             .collect();
@@ -276,7 +277,7 @@ impl FormulaTranslator {
                 // Range: row 2 to row (row_count + 1) - header is row 1
                 let end_row = row_count + 1;
                 let replacement = format!(
-                    "{}({}!{}2:{}{})",
+                    "{}('{}'!{}2:{}{})",
                     func_name, table_name, col_letter, col_letter, end_row
                 );
                 (full_match.range(), replacement)
@@ -325,7 +326,7 @@ impl FormulaTranslator {
                     .unwrap_or_else(|| col_name.to_string());
 
                 // Default to row 2 (first data row)
-                let replacement = format!("{}!{}2", table_name, col_letter);
+                let replacement = format!("'{}'!{}2", table_name, col_letter);
                 Some((full_match.range(), replacement))
             })
             .collect();
@@ -463,7 +464,7 @@ mod tests {
         let result = translator
             .translate_row_formula("=pl_2025.revenue", 2)
             .unwrap();
-        assert_eq!(result, "=pl_2025!revenue2");
+        assert_eq!(result, "='pl_2025'!revenue2");
     }
 
     #[test]
