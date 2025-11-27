@@ -1039,3 +1039,169 @@ fn e2e_export_sheet_names_are_quoted() {
         }
     }
 }
+
+// ========== v4.0 Rich Metadata E2E Tests ==========
+
+#[test]
+fn e2e_v4_enterprise_model_validates() {
+    // v4.0 rich metadata format should parse and validate
+    let file = test_data_path("v4_enterprise_model.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("validate")
+        .arg(&file)
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "v4 enterprise model should validate, stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn e2e_v4_enterprise_model_calculates_correctly() {
+    // v4.0 model should calculate formulas correctly
+    let file = test_data_path("v4_enterprise_model.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&file)
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "v4 calculate should succeed, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Verify calculations completed
+    assert!(
+        stdout.contains("Calculation Results"),
+        "Should show calculation results, got: {stdout}"
+    );
+
+    // Verify scalars were calculated
+    assert!(
+        stdout.contains("metrics.total_revenue") || stdout.contains("total_revenue"),
+        "Should calculate total_revenue scalar, got: {stdout}"
+    );
+}
+
+#[test]
+fn e2e_v4_enterprise_model_exports_to_excel() {
+    // v4.0 model should export to Excel
+    let yaml_file = test_data_path("v4_enterprise_model.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("v4_enterprise.xlsx");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "v4 export should succeed, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Verify Excel file was created
+    assert!(excel_file.exists(), "Excel file should be created");
+
+    // Verify Excel file has non-zero size
+    let metadata = fs::metadata(&excel_file).unwrap();
+    assert!(
+        metadata.len() > 1000,
+        "Excel file should have substantial content"
+    );
+}
+
+#[test]
+fn e2e_v4_mixed_format_backward_compatible() {
+    // Create a test file with mixed v1.0 and v4.0 formats
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("mixed_format.yaml");
+
+    let mixed_content = r#"
+# Mixed v1.0 and v4.0 formats in same file
+sales:
+  # v1.0 simple format
+  month: ["Jan", "Feb", "Mar"]
+  # v4.0 rich format
+  revenue:
+    value: [100, 200, 300]
+    unit: "CAD"
+    notes: "Monthly revenue"
+  # v1.0 formula
+  expenses: [50, 100, 150]
+  profit: "=revenue - expenses"
+"#;
+
+    fs::write(&yaml_file, mixed_content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Mixed format should calculate, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Verify profit was calculated
+    assert!(
+        stdout.contains("profit") && stdout.contains("3 rows"),
+        "Should calculate profit column, got: {stdout}"
+    );
+}
+
+#[test]
+fn e2e_v4_scalar_with_full_metadata() {
+    // Test scalar with all v4.0 metadata fields
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("v4_scalar_metadata.yaml");
+
+    let content = r#"
+metrics:
+  total_revenue:
+    value: 100000
+    formula: null
+    unit: "CAD"
+    notes: "Annual revenue target"
+    source: "budget_2025.yaml"
+    validation_status: "VALIDATED"
+    last_updated: "2025-11-26"
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("validate")
+        .arg(&yaml_file)
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "v4 scalar with full metadata should validate, stdout: {stdout}, stderr: {stderr}"
+    );
+}

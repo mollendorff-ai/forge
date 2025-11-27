@@ -868,11 +868,7 @@ fn apply_scenario(model: &mut crate::types::ParsedModel, scenario_name: &str) ->
             // Create new scalar with override value
             model.scalars.insert(
                 var_name.clone(),
-                crate::types::Variable {
-                    path: var_name.clone(),
-                    value: Some(*override_value),
-                    formula: None,
-                },
+                crate::types::Variable::new(var_name.clone(), Some(*override_value), None),
             );
         }
     }
@@ -1368,11 +1364,7 @@ fn calculate_with_override(
         // Create new scalar
         model.scalars.insert(
             var_name.to_string(),
-            crate::types::Variable {
-                path: var_name.to_string(),
-                value: Some(var_value),
-                formula: None,
-            },
+            crate::types::Variable::new(var_name.to_string(), Some(var_value), None),
         );
     }
 

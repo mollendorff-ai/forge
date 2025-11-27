@@ -1,7 +1,11 @@
 use crate::error::{ForgeError, ForgeResult};
-use crate::types::{Column, ColumnValue, ParsedModel, Scenario, Table, Variable};
+use crate::types::{
+    Column, ColumnValue, Include, Metadata, ParsedModel, ResolvedInclude, Scenario, Table, Variable,
+};
 use jsonschema::JSONSchema;
 use serde_yaml::Value;
+use std::collections::HashSet;
+use std::path::Path;
 
 /// Parse a Forge model file (v1.0.0 array format) and return a ParsedModel.
 ///
@@ -27,7 +31,71 @@ pub fn parse_model(path: &std::path::Path) -> ForgeResult<ParsedModel> {
     let content = std::fs::read_to_string(path)?;
     let yaml: Value = serde_yaml::from_str(&content)?;
 
-    parse_v1_model(&yaml)
+    let mut model = parse_v1_model(&yaml)?;
+
+    // Resolve includes if any (v4.0)
+    if !model.includes.is_empty() {
+        resolve_includes(&mut model, path, &mut HashSet::new())?;
+    }
+
+    Ok(model)
+}
+
+/// Resolve all includes in a model, loading and parsing referenced files.
+/// Detects circular dependencies.
+fn resolve_includes(
+    model: &mut ParsedModel,
+    base_path: &Path,
+    visited: &mut HashSet<std::path::PathBuf>,
+) -> ForgeResult<()> {
+    let base_dir = base_path.parent().unwrap_or_else(|| Path::new("."));
+
+    // Check for circular dependency
+    let canonical = base_path
+        .canonicalize()
+        .unwrap_or_else(|_| base_path.to_path_buf());
+    if visited.contains(&canonical) {
+        return Err(ForgeError::Parse(format!(
+            "Circular dependency detected: {} is already included",
+            base_path.display()
+        )));
+    }
+    visited.insert(canonical);
+
+    // Process each include
+    for include in model.includes.clone() {
+        let include_path = base_dir.join(&include.file);
+
+        if !include_path.exists() {
+            return Err(ForgeError::Parse(format!(
+                "Included file not found: {} (referenced as '{}')",
+                include_path.display(),
+                include.file
+            )));
+        }
+
+        // Parse the included file
+        let content = std::fs::read_to_string(&include_path)?;
+        let yaml: Value = serde_yaml::from_str(&content)?;
+        let mut included_model = parse_v1_model(&yaml)?;
+
+        // Recursively resolve includes in the included file
+        if !included_model.includes.is_empty() {
+            resolve_includes(&mut included_model, &include_path, visited)?;
+        }
+
+        // Store resolved include
+        let resolved = ResolvedInclude {
+            include: include.clone(),
+            resolved_path: include_path.canonicalize().unwrap_or(include_path),
+            model: included_model,
+        };
+        model
+            .resolved_includes
+            .insert(include.namespace.clone(), resolved);
+    }
+
+    Ok(())
 }
 
 /// Parse v1.0.0 array model
@@ -49,6 +117,14 @@ fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
 
             // Skip special keys
             if key_str == "_forge_version" {
+                continue;
+            }
+
+            // Parse _includes section (v4.0 cross-file references)
+            if key_str == "_includes" {
+                if let Value::Sequence(includes_seq) = value {
+                    parse_includes(includes_seq, &mut model)?;
+                }
                 continue;
             }
 
@@ -117,13 +193,20 @@ fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
 }
 
 /// Check if a mapping contains nested scalar sections (e.g., summary.total)
+/// Returns false for v4.0 rich table columns (where value is an array)
 fn is_nested_scalar_section(map: &serde_yaml::Mapping) -> bool {
-    // Check if all children are mappings with {value, formula} pattern
+    // Check if children are mappings with {value, formula} pattern where value is a scalar (not array)
     for (_key, value) in map {
         if let Value::Mapping(child_map) = value {
             // Check if this child has value or formula keys
             if child_map.contains_key("value") || child_map.contains_key("formula") {
-                return true;
+                // If value is an array, this is a v4.0 rich table column, not a scalar
+                if let Some(val) = child_map.get("value") {
+                    if matches!(val, Value::Sequence(_)) {
+                        return false; // v4.0 rich table column
+                    }
+                }
+                return true; // Nested scalar section
             }
         }
     }
@@ -153,7 +236,7 @@ fn parse_nested_scalars(
     Ok(())
 }
 
-/// Parse a table from a YAML mapping
+/// Parse a table from a YAML mapping (v4.0 enhanced with metadata)
 fn parse_table(name: &str, map: &serde_yaml::Mapping) -> ForgeResult<Table> {
     let mut table = Table::new(name.to_string());
 
@@ -161,6 +244,11 @@ fn parse_table(name: &str, map: &serde_yaml::Mapping) -> ForgeResult<Table> {
         let col_name = key
             .as_str()
             .ok_or_else(|| ForgeError::Parse("Column name must be a string".to_string()))?;
+
+        // Skip _metadata table-level metadata (v4.0)
+        if col_name == "_metadata" {
+            continue;
+        }
 
         // Check if this is a formula (string starting with =)
         if let Value::String(s) = value {
@@ -171,7 +259,30 @@ fn parse_table(name: &str, map: &serde_yaml::Mapping) -> ForgeResult<Table> {
             }
         }
 
-        // Otherwise, it's a data column (array)
+        // Check for v4.0 rich column format: { value: [...], unit: "...", notes: "..." }
+        if let Value::Mapping(col_map) = value {
+            // Check if it has a 'value' key with an array (v4.0 rich format)
+            if let Some(Value::Sequence(seq)) = col_map.get("value") {
+                let column_value = parse_array_value(col_name, seq)?;
+                let metadata = parse_metadata(col_map);
+                let column = Column::with_metadata(col_name.to_string(), column_value, metadata);
+                table.add_column(column);
+                continue;
+            }
+            // Check if it has a 'formula' key (v4.0 rich formula format)
+            if let Some(formula_val) = col_map.get("formula") {
+                if let Some(formula_str) = formula_val.as_str() {
+                    if formula_str.starts_with('=') {
+                        // This is a row-wise formula with metadata
+                        // TODO: Store formula metadata when we add formula metadata support
+                        table.add_row_formula(col_name.to_string(), formula_str.to_string());
+                        continue;
+                    }
+                }
+            }
+        }
+
+        // Otherwise, it's a simple data column (array) - v1.0 format
         if let Value::Sequence(seq) = value {
             let column_value = parse_array_value(col_name, seq)?;
             let column = Column::new(col_name.to_string(), column_value);
@@ -187,7 +298,7 @@ fn parse_table(name: &str, map: &serde_yaml::Mapping) -> ForgeResult<Table> {
     Ok(table)
 }
 
-/// Parse a scalar variable
+/// Parse a scalar variable (v4.0 enhanced with metadata)
 fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable> {
     if let Value::Mapping(map) = value {
         let val = map.get("value").and_then(|v| v.as_f64());
@@ -195,16 +306,41 @@ fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable> {
             .get("formula")
             .and_then(|f| f.as_str().map(std::string::ToString::to_string));
 
+        // Extract v4.0 metadata fields
+        let metadata = parse_metadata(map);
+
         Ok(Variable {
             path: path.to_string(),
             value: val,
             formula,
+            metadata,
         })
     } else {
         Err(ForgeError::Parse(format!(
             "Expected mapping for scalar variable '{}'",
             path
         )))
+    }
+}
+
+/// Extract metadata fields from a YAML mapping (v4.0)
+fn parse_metadata(map: &serde_yaml::Mapping) -> Metadata {
+    Metadata {
+        unit: map
+            .get("unit")
+            .and_then(|v| v.as_str().map(std::string::ToString::to_string)),
+        notes: map
+            .get("notes")
+            .and_then(|v| v.as_str().map(std::string::ToString::to_string)),
+        source: map
+            .get("source")
+            .and_then(|v| v.as_str().map(std::string::ToString::to_string)),
+        validation_status: map
+            .get("validation_status")
+            .and_then(|v| v.as_str().map(std::string::ToString::to_string)),
+        last_updated: map
+            .get("last_updated")
+            .and_then(|v| v.as_str().map(std::string::ToString::to_string)),
     }
 }
 
@@ -264,6 +400,48 @@ fn parse_scenarios(
         }
     }
 
+    Ok(())
+}
+
+/// Parse _includes section from YAML (v4.0 cross-file references)
+///
+/// Expected format:
+/// ```yaml
+/// _includes:
+///   - file: "data_sources.yaml"
+///     as: "sources"
+///   - file: "pricing.yaml"
+///     as: "pricing"
+/// ```
+fn parse_includes(includes_seq: &[Value], model: &mut ParsedModel) -> ForgeResult<()> {
+    for include_val in includes_seq {
+        if let Value::Mapping(include_map) = include_val {
+            // Extract 'file' field (required)
+            let file = include_map
+                .get("file")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| ForgeError::Parse("Include must have a 'file' field".to_string()))?
+                .to_string();
+
+            // Extract 'as' field (required - the namespace alias)
+            let namespace = include_map
+                .get("as")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    ForgeError::Parse(format!(
+                        "Include '{}' must have an 'as' field for the namespace",
+                        file
+                    ))
+                })?
+                .to_string();
+
+            model.add_include(Include::new(file, namespace));
+        } else {
+            return Err(ForgeError::Parse(
+                "Each include must be a mapping with 'file' and 'as' fields".to_string(),
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -756,5 +934,179 @@ scenarios:
 
         let pessimistic = result.scenarios.get("pessimistic").unwrap();
         assert_eq!(pessimistic.overrides.get("growth_rate"), Some(&0.02));
+    }
+
+    // =========================================================================
+    // v4.0 Rich Metadata Tests
+    // =========================================================================
+
+    #[test]
+    fn test_parse_v4_scalar_with_metadata() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let yaml_content = r#"
+_forge_version: "4.0.0"
+
+price:
+  value: 100
+  formula: null
+  unit: "CAD"
+  notes: "Base price per unit"
+  source: "market_research.yaml"
+  validation_status: "VALIDATED"
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let result = parse_model(temp_file.path()).unwrap();
+
+        assert_eq!(result.scalars.len(), 1);
+        let price = result.scalars.get("price").unwrap();
+        assert_eq!(price.value, Some(100.0));
+        assert!(price.formula.is_none());
+        assert_eq!(price.metadata.unit, Some("CAD".to_string()));
+        assert_eq!(
+            price.metadata.notes,
+            Some("Base price per unit".to_string())
+        );
+        assert_eq!(
+            price.metadata.source,
+            Some("market_research.yaml".to_string())
+        );
+        assert_eq!(
+            price.metadata.validation_status,
+            Some("VALIDATED".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_v4_table_column_with_metadata() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let yaml_content = r#"
+_forge_version: "4.0.0"
+
+sales:
+  month:
+    value: ["Jan", "Feb", "Mar"]
+    unit: "month"
+  revenue:
+    value: [100, 200, 300]
+    unit: "CAD"
+    notes: "Monthly revenue projection"
+    validation_status: "PROJECTED"
+  profit:
+    formula: "=revenue * 0.3"
+    unit: "CAD"
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let result = parse_model(temp_file.path()).unwrap();
+
+        assert_eq!(result.tables.len(), 1);
+        let sales = result.tables.get("sales").unwrap();
+
+        // Check month column metadata
+        let month = sales.columns.get("month").unwrap();
+        assert_eq!(month.metadata.unit, Some("month".to_string()));
+
+        // Check revenue column metadata
+        let revenue = sales.columns.get("revenue").unwrap();
+        assert_eq!(revenue.metadata.unit, Some("CAD".to_string()));
+        assert_eq!(
+            revenue.metadata.notes,
+            Some("Monthly revenue projection".to_string())
+        );
+        assert_eq!(
+            revenue.metadata.validation_status,
+            Some("PROJECTED".to_string())
+        );
+
+        // Check profit formula was parsed
+        assert!(sales.row_formulas.contains_key("profit"));
+        assert_eq!(sales.row_formulas.get("profit").unwrap(), "=revenue * 0.3");
+    }
+
+    #[test]
+    fn test_parse_v4_backward_compatible_with_v1() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        // v1.0 format should still work
+        let yaml_content = r#"
+_forge_version: "1.0.0"
+
+sales:
+  month: ["Jan", "Feb", "Mar"]
+  revenue: [100, 200, 300]
+  profit: "=revenue * 0.3"
+
+summary:
+  total:
+    value: null
+    formula: "=SUM(sales.revenue)"
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let result = parse_model(temp_file.path()).unwrap();
+
+        // Tables should parse as before
+        assert_eq!(result.tables.len(), 1);
+        let sales = result.tables.get("sales").unwrap();
+        assert_eq!(sales.columns.len(), 2); // month, revenue
+        assert_eq!(sales.row_formulas.len(), 1); // profit
+
+        // Scalars should parse as before
+        assert_eq!(result.scalars.len(), 1);
+        let total = result.scalars.get("summary.total").unwrap();
+        assert_eq!(total.formula, Some("=SUM(sales.revenue)".to_string()));
+
+        // Metadata should be empty for v1.0 models
+        assert!(sales.columns.get("revenue").unwrap().metadata.is_empty());
+        assert!(total.metadata.is_empty());
+    }
+
+    #[test]
+    fn test_parse_v4_mixed_formats() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        // Mix of v1.0 simple and v4.0 rich formats
+        let yaml_content = r#"
+sales:
+  month: ["Jan", "Feb", "Mar"]
+  revenue:
+    value: [100, 200, 300]
+    unit: "CAD"
+    notes: "Rich format column"
+  expenses: [50, 100, 150]
+  profit: "=revenue - expenses"
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let result = parse_model(temp_file.path()).unwrap();
+
+        let sales = result.tables.get("sales").unwrap();
+
+        // month and expenses should have no metadata
+        assert!(sales.columns.get("month").unwrap().metadata.is_empty());
+        assert!(sales.columns.get("expenses").unwrap().metadata.is_empty());
+
+        // revenue should have rich metadata
+        let revenue = sales.columns.get("revenue").unwrap();
+        assert_eq!(revenue.metadata.unit, Some("CAD".to_string()));
+        assert_eq!(
+            revenue.metadata.notes,
+            Some("Rich format column".to_string())
+        );
     }
 }

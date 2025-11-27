@@ -220,11 +220,7 @@ impl ExcelImporter {
             };
 
             // Create variable
-            let variable = Variable {
-                path: name.clone(),
-                value,
-                formula,
-            };
+            let variable = Variable::new(name.clone(), value, formula);
             model.add_scalar(name, variable);
         }
 

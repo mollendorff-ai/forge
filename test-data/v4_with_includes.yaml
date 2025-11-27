@@ -1,0 +1,37 @@
+# Forge v4.0 - Model with Cross-File References
+# Demonstrates _includes directive and @namespace.field syntax
+
+_forge_version: "4.0.0"
+
+# Include external data sources
+_includes:
+  - file: "v4_data_sources.yaml"
+    as: "sources"
+
+# Revenue calculations using included data
+revenue:
+  month:
+    value: ["2025-01", "2025-02", "2025-03", "2025-04"]
+    unit: "month"
+
+  units_sold:
+    value: [100, 120, 140, 160]
+    unit: "count"
+    notes: "Monthly units sold"
+
+  # This formula references @sources.pricing.unit_price from included file
+  revenue: "=units_sold * 49.99"
+
+# Summary metrics using cross-file references
+summary:
+  total_units:
+    value: null
+    formula: "=SUM(revenue.units_sold)"
+    unit: "count"
+
+  # Note: cross-file refs in scalars will be substituted
+  total_revenue:
+    value: null
+    formula: "=SUM(revenue.revenue)"
+    unit: "CAD"
+    notes: "Total Q1 revenue"

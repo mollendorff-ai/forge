@@ -1500,8 +1500,43 @@ impl ArrayCalculator {
         }
     }
 
+    /// Preprocess formula to resolve @namespace.field references (v4.0 cross-file refs)
+    fn preprocess_namespace_refs(&self, formula: &str) -> String {
+        let mut result = formula.to_string();
+
+        // Find and replace @namespace.field patterns
+        // Pattern: @word.word(.word)*
+        let mut i = 0;
+        while let Some(at_pos) = result[i..].find('@') {
+            let start = i + at_pos;
+
+            // Extract the full reference (everything until a non-identifier char)
+            let ref_end = result[start + 1..]
+                .find(|c: char| !c.is_alphanumeric() && c != '_' && c != '.')
+                .map(|pos| start + 1 + pos)
+                .unwrap_or(result.len());
+
+            let reference = &result[start..ref_end];
+
+            // Try to resolve the reference
+            if let Some(value) = self.model.resolve_namespace_ref(reference) {
+                // Replace with the actual value
+                result = format!("{}{}{}", &result[..start], value, &result[ref_end..]);
+                i = start + value.to_string().len();
+            } else {
+                // Skip this @ and continue looking
+                i = start + 1;
+            }
+        }
+
+        result
+    }
+
     /// Evaluate scalar formula with variable resolver
     fn evaluate_scalar_with_resolver(&self, formula: &str, scalar_name: &str) -> ForgeResult<f64> {
+        // Preprocess to resolve @namespace.field references (v4.0)
+        let formula = self.preprocess_namespace_refs(formula);
+
         // Extract parent section from scalar_name (e.g., "annual_2025" from "annual_2025.total_revenue")
         let parent_section = scalar_name
             .rfind('.')
@@ -1546,18 +1581,18 @@ impl ArrayCalculator {
             types::Value::Error(types::Error::Value)
         };
 
-        let parsed = parse_formula::parse_string_to_formula(formula, None::<NoCustomFunction>);
+        let parsed = parse_formula::parse_string_to_formula(&formula, None::<NoCustomFunction>);
         let result = calculate::calculate_formula(parsed, Some(&resolver));
 
         match result {
             types::Value::Number(n) => Ok(n as f64),
             types::Value::Error(e) => Err(ForgeError::Eval(format!(
                 "Formula '{}' returned error: {:?}",
-                formula, e
+                &formula, e
             ))),
             other => Err(ForgeError::Eval(format!(
                 "Formula '{}' returned unexpected type: {:?}",
-                formula, other
+                &formula, other
             ))),
         }
     }
@@ -4135,11 +4170,11 @@ mod tests {
         model.add_table(table);
 
         // Add scalar with SUM formula
-        let total_revenue = Variable {
-            path: "total_revenue".to_string(),
-            value: None,
-            formula: Some("=SUM(sales.revenue)".to_string()),
-        };
+        let total_revenue = Variable::new(
+            "total_revenue".to_string(),
+            None,
+            Some("=SUM(sales.revenue)".to_string()),
+        );
         model.add_scalar("total_revenue".to_string(), total_revenue);
 
         let calculator = ArrayCalculator::new(model);
@@ -4164,11 +4199,11 @@ mod tests {
         ));
         model.add_table(table);
 
-        let avg_value = Variable {
-            path: "avg_value".to_string(),
-            value: None,
-            formula: Some("=AVERAGE(metrics.values)".to_string()),
-        };
+        let avg_value = Variable::new(
+            "avg_value".to_string(),
+            None,
+            Some("=AVERAGE(metrics.values)".to_string()),
+        );
         model.add_scalar("avg_value".to_string(), avg_value);
 
         let calculator = ArrayCalculator::new(model);
@@ -4191,18 +4226,18 @@ mod tests {
         ));
         model.add_table(table);
 
-        let q1_revenue = Variable {
-            path: "q1_revenue".to_string(),
-            value: None,
-            formula: Some("=quarterly.revenue[0]".to_string()),
-        };
+        let q1_revenue = Variable::new(
+            "q1_revenue".to_string(),
+            None,
+            Some("=quarterly.revenue[0]".to_string()),
+        );
         model.add_scalar("q1_revenue".to_string(), q1_revenue);
 
-        let q4_revenue = Variable {
-            path: "q4_revenue".to_string(),
-            value: None,
-            formula: Some("=quarterly.revenue[3]".to_string()),
-        };
+        let q4_revenue = Variable::new(
+            "q4_revenue".to_string(),
+            None,
+            Some("=quarterly.revenue[3]".to_string()),
+        );
         model.add_scalar("q4_revenue".to_string(), q4_revenue);
 
         let calculator = ArrayCalculator::new(model);
@@ -4236,35 +4271,35 @@ mod tests {
         model.add_table(table);
 
         // total_revenue depends on table
-        let total_revenue = Variable {
-            path: "total_revenue".to_string(),
-            value: None,
-            formula: Some("=SUM(pl.revenue)".to_string()),
-        };
+        let total_revenue = Variable::new(
+            "total_revenue".to_string(),
+            None,
+            Some("=SUM(pl.revenue)".to_string()),
+        );
         model.add_scalar("total_revenue".to_string(), total_revenue);
 
         // total_cogs depends on table
-        let total_cogs = Variable {
-            path: "total_cogs".to_string(),
-            value: None,
-            formula: Some("=SUM(pl.cogs)".to_string()),
-        };
+        let total_cogs = Variable::new(
+            "total_cogs".to_string(),
+            None,
+            Some("=SUM(pl.cogs)".to_string()),
+        );
         model.add_scalar("total_cogs".to_string(), total_cogs);
 
         // gross_profit depends on total_revenue and total_cogs
-        let gross_profit = Variable {
-            path: "gross_profit".to_string(),
-            value: None,
-            formula: Some("=total_revenue - total_cogs".to_string()),
-        };
+        let gross_profit = Variable::new(
+            "gross_profit".to_string(),
+            None,
+            Some("=total_revenue - total_cogs".to_string()),
+        );
         model.add_scalar("gross_profit".to_string(), gross_profit);
 
         // gross_margin depends on gross_profit and total_revenue
-        let gross_margin = Variable {
-            path: "gross_margin".to_string(),
-            value: None,
-            formula: Some("=gross_profit / total_revenue".to_string()),
-        };
+        let gross_margin = Variable::new(
+            "gross_margin".to_string(),
+            None,
+            Some("=gross_profit / total_revenue".to_string()),
+        );
         model.add_scalar("gross_margin".to_string(), gross_margin);
 
         let calculator = ArrayCalculator::new(model);
@@ -4295,18 +4330,18 @@ mod tests {
         ));
         model.add_table(table);
 
-        let max_value = Variable {
-            path: "max_value".to_string(),
-            value: None,
-            formula: Some("=MAX(data.values)".to_string()),
-        };
+        let max_value = Variable::new(
+            "max_value".to_string(),
+            None,
+            Some("=MAX(data.values)".to_string()),
+        );
         model.add_scalar("max_value".to_string(), max_value);
 
-        let min_value = Variable {
-            path: "min_value".to_string(),
-            value: None,
-            formula: Some("=MIN(data.values)".to_string()),
-        };
+        let min_value = Variable::new(
+            "min_value".to_string(),
+            None,
+            Some("=MIN(data.values)".to_string()),
+        );
         model.add_scalar("min_value".to_string(), min_value);
 
         let calculator = ArrayCalculator::new(model);
@@ -4334,11 +4369,11 @@ mod tests {
         model.add_table(table);
 
         // SUMIF: sum revenue where amount > 100
-        let high_revenue = Variable {
-            path: "high_revenue".to_string(),
-            value: None,
-            formula: Some("=SUMIF(sales.amount, \">100\", sales.revenue)".to_string()),
-        };
+        let high_revenue = Variable::new(
+            "high_revenue".to_string(),
+            None,
+            Some("=SUMIF(sales.amount, \">100\", sales.revenue)".to_string()),
+        );
         model.add_scalar("high_revenue".to_string(), high_revenue);
 
         let calculator = ArrayCalculator::new(model);
@@ -4365,11 +4400,11 @@ mod tests {
         model.add_table(table);
 
         // COUNTIF: count scores >= 85
-        let passing_count = Variable {
-            path: "passing_count".to_string(),
-            value: None,
-            formula: Some("=COUNTIF(data.scores, \">=85\")".to_string()),
-        };
+        let passing_count = Variable::new(
+            "passing_count".to_string(),
+            None,
+            Some("=COUNTIF(data.scores, \">=85\")".to_string()),
+        );
         model.add_scalar("passing_count".to_string(), passing_count);
 
         let calculator = ArrayCalculator::new(model);
@@ -4400,11 +4435,11 @@ mod tests {
         model.add_table(table);
 
         // AVERAGEIF: average salary where years >= 3
-        let avg_senior_salary = Variable {
-            path: "avg_senior_salary".to_string(),
-            value: None,
-            formula: Some("=AVERAGEIF(employees.years, \">=3\", employees.salary)".to_string()),
-        };
+        let avg_senior_salary = Variable::new(
+            "avg_senior_salary".to_string(),
+            None,
+            Some("=AVERAGEIF(employees.years, \">=3\", employees.salary)".to_string()),
+        );
         model.add_scalar("avg_senior_salary".to_string(), avg_senior_salary);
 
         let calculator = ArrayCalculator::new(model);
@@ -4445,11 +4480,11 @@ mod tests {
         model.add_table(table);
 
         // COUNTIF: count Electronics products
-        let electronics_count = Variable {
-            path: "electronics_count".to_string(),
-            value: None,
-            formula: Some("=COUNTIF(products.category, \"Electronics\")".to_string()),
-        };
+        let electronics_count = Variable::new(
+            "electronics_count".to_string(),
+            None,
+            Some("=COUNTIF(products.category, \"Electronics\")".to_string()),
+        );
         model.add_scalar("electronics_count".to_string(), electronics_count);
 
         let calculator = ArrayCalculator::new(model);
@@ -4486,13 +4521,11 @@ mod tests {
         model.add_table(table);
 
         // SUMIF: sum revenue for Electronics
-        let electronics_revenue = Variable {
-            path: "electronics_revenue".to_string(),
-            value: None,
-            formula: Some(
-                "=SUMIF(products.category, \"Electronics\", products.revenue)".to_string(),
-            ),
-        };
+        let electronics_revenue = Variable::new(
+            "electronics_revenue".to_string(),
+            None,
+            Some("=SUMIF(products.category, \"Electronics\", products.revenue)".to_string()),
+        );
         model.add_scalar("electronics_revenue".to_string(), electronics_revenue);
 
         let calculator = ArrayCalculator::new(model);
@@ -4533,14 +4566,14 @@ mod tests {
         model.add_table(table);
 
         // SUMIFS: sum revenue where region="North" AND amount >= 150
-        let north_high_revenue = Variable {
-            path: "north_high_revenue".to_string(),
-            value: None,
-            formula: Some(
+        let north_high_revenue = Variable::new(
+            "north_high_revenue".to_string(),
+            None,
+            Some(
                 "=SUMIFS(sales.revenue, sales.region, \"North\", sales.amount, \">=150\")"
                     .to_string(),
             ),
-        };
+        );
         model.add_scalar("north_high_revenue".to_string(), north_high_revenue);
 
         let calculator = ArrayCalculator::new(model);
@@ -4577,11 +4610,11 @@ mod tests {
         model.add_table(table);
 
         // COUNTIFS: count where category="A" AND value > 20
-        let count_result = Variable {
-            path: "count_result".to_string(),
-            value: None,
-            formula: Some("=COUNTIFS(data.category, \"A\", data.value, \">20\")".to_string()),
-        };
+        let count_result = Variable::new(
+            "count_result".to_string(),
+            None,
+            Some("=COUNTIFS(data.category, \"A\", data.value, \">20\")".to_string()),
+        );
         model.add_scalar("count_result".to_string(), count_result);
 
         let calculator = ArrayCalculator::new(model);
@@ -4619,14 +4652,11 @@ mod tests {
         model.add_table(table);
 
         // AVERAGEIFS: average salary where department="Sales" AND years >= 4
-        let avg_result = Variable {
-            path: "avg_result".to_string(),
-            value: None,
-            formula: Some(
+        let avg_result = Variable::new("avg_result".to_string(), None, Some(
                 "=AVERAGEIFS(employees.salary, employees.department, \"Sales\", employees.years, \">=4\")"
                     .to_string(),
             ),
-        };
+        );
         model.add_scalar("avg_result".to_string(), avg_result);
 
         let calculator = ArrayCalculator::new(model);
@@ -4666,13 +4696,13 @@ mod tests {
         model.add_table(table);
 
         // MAXIFS: max revenue where region="North" AND quarter=2
-        let max_result = Variable {
-            path: "max_result".to_string(),
-            value: None,
-            formula: Some(
+        let max_result = Variable::new(
+            "max_result".to_string(),
+            None,
+            Some(
                 "=MAXIFS(sales.revenue, sales.region, \"North\", sales.quarter, \"2\")".to_string(),
             ),
-        };
+        );
         model.add_scalar("max_result".to_string(), max_result);
 
         let calculator = ArrayCalculator::new(model);
@@ -4712,14 +4742,11 @@ mod tests {
         model.add_table(table);
 
         // MINIFS: min price where product="Widget" AND quantity >= 75
-        let min_result = Variable {
-            path: "min_result".to_string(),
-            value: None,
-            formula: Some(
+        let min_result = Variable::new("min_result".to_string(), None, Some(
                 "=MINIFS(inventory.price, inventory.product, \"Widget\", inventory.quantity, \">=75\")"
                     .to_string(),
             ),
-        };
+        );
         model.add_scalar("min_result".to_string(), min_result);
 
         let calculator = ArrayCalculator::new(model);
@@ -5836,35 +5863,23 @@ mod tests {
         let mut model = ParsedModel::new();
         model.add_scalar(
             "monthly_rate".to_string(),
-            Variable {
-                path: "monthly_rate".to_string(),
-                value: Some(0.005), // 6% annual / 12 months
-                formula: None,
-            },
+            Variable::new("monthly_rate".to_string(), Some(0.005), None), // 6% annual / 12 months
         );
         model.add_scalar(
             "periods".to_string(),
-            Variable {
-                path: "periods".to_string(),
-                value: Some(360.0), // 30 years * 12 months
-                formula: None,
-            },
+            Variable::new("periods".to_string(), Some(360.0), None), // 30 years * 12 months
         );
         model.add_scalar(
             "loan_amount".to_string(),
-            Variable {
-                path: "loan_amount".to_string(),
-                value: Some(100000.0),
-                formula: None,
-            },
+            Variable::new("loan_amount".to_string(), Some(100000.0), None),
         );
         model.add_scalar(
             "payment".to_string(),
-            Variable {
-                path: "payment".to_string(),
-                value: None,
-                formula: Some("=PMT(monthly_rate, periods, loan_amount)".to_string()),
-            },
+            Variable::new(
+                "payment".to_string(),
+                None,
+                Some("=PMT(monthly_rate, periods, loan_amount)".to_string()),
+            ),
         );
 
         let calculator = ArrayCalculator::new(model);
@@ -5890,11 +5905,11 @@ mod tests {
         let mut model = ParsedModel::new();
         model.add_scalar(
             "future_value".to_string(),
-            Variable {
-                path: "future_value".to_string(),
-                value: None,
-                formula: Some("=FV(0.004166667, 120, -1000)".to_string()),
-            },
+            Variable::new(
+                "future_value".to_string(),
+                None,
+                Some("=FV(0.004166667, 120, -1000)".to_string()),
+            ),
         );
 
         let calculator = ArrayCalculator::new(model);
@@ -5920,11 +5935,11 @@ mod tests {
         let mut model = ParsedModel::new();
         model.add_scalar(
             "present_value".to_string(),
-            Variable {
-                path: "present_value".to_string(),
-                value: None,
-                formula: Some("=PV(0.006666667, 60, -500)".to_string()),
-            },
+            Variable::new(
+                "present_value".to_string(),
+                None,
+                Some("=PV(0.006666667, 60, -500)".to_string()),
+            ),
         );
 
         let calculator = ArrayCalculator::new(model);
@@ -5953,11 +5968,11 @@ mod tests {
         let mut model = ParsedModel::new();
         model.add_scalar(
             "npv_result".to_string(),
-            Variable {
-                path: "npv_result".to_string(),
-                value: None,
-                formula: Some("=NPV(0.10, -1000, 300, 400, 500, 600)".to_string()),
-            },
+            Variable::new(
+                "npv_result".to_string(),
+                None,
+                Some("=NPV(0.10, -1000, 300, 400, 500, 600)".to_string()),
+            ),
         );
 
         let calculator = ArrayCalculator::new(model);
@@ -5983,11 +5998,11 @@ mod tests {
         let mut model = ParsedModel::new();
         model.add_scalar(
             "num_periods".to_string(),
-            Variable {
-                path: "num_periods".to_string(),
-                value: None,
-                formula: Some("=NPER(0.004166667, -200, 10000)".to_string()),
-            },
+            Variable::new(
+                "num_periods".to_string(),
+                None,
+                Some("=NPER(0.004166667, -200, 10000)".to_string()),
+            ),
         );
 
         let calculator = ArrayCalculator::new(model);
@@ -6013,11 +6028,11 @@ mod tests {
         let mut model = ParsedModel::new();
         model.add_scalar(
             "interest_rate".to_string(),
-            Variable {
-                path: "interest_rate".to_string(),
-                value: None,
-                formula: Some("=RATE(60, -200, 10000)".to_string()),
-            },
+            Variable::new(
+                "interest_rate".to_string(),
+                None,
+                Some("=RATE(60, -200, 10000)".to_string()),
+            ),
         );
 
         let calculator = ArrayCalculator::new(model);
@@ -6052,11 +6067,11 @@ mod tests {
 
         model.add_scalar(
             "irr_result".to_string(),
-            Variable {
-                path: "irr_result".to_string(),
-                value: None,
-                formula: Some("=IRR(cashflows.amount)".to_string()),
-            },
+            Variable::new(
+                "irr_result".to_string(),
+                None,
+                Some("=IRR(cashflows.amount)".to_string()),
+            ),
         );
 
         let calculator = ArrayCalculator::new(model);
@@ -6094,11 +6109,11 @@ mod tests {
         // XNPV with 10% rate using numeric dates
         model.add_scalar(
             "xnpv_result".to_string(),
-            Variable {
-                path: "xnpv_result".to_string(),
-                value: None,
-                formula: Some("=XNPV(0.10, cf.v, cf.d)".to_string()),
-            },
+            Variable::new(
+                "xnpv_result".to_string(),
+                None,
+                Some("=XNPV(0.10, cf.v, cf.d)".to_string()),
+            ),
         );
 
         let calculator = ArrayCalculator::new(model);
@@ -6130,11 +6145,11 @@ mod tests {
 
         model.add_scalar(
             "xirr_result".to_string(),
-            Variable {
-                path: "xirr_result".to_string(),
-                value: None,
-                formula: Some("=XIRR(cf.v, cf.d)".to_string()),
-            },
+            Variable::new(
+                "xirr_result".to_string(),
+                None,
+                Some("=XIRR(cf.v, cf.d)".to_string()),
+            ),
         );
 
         let calculator = ArrayCalculator::new(model);
@@ -6159,11 +6174,11 @@ mod tests {
         // Test CHOOSE with literal index: CHOOSE(2, 0.05, 0.10, 0.02) should return 0.10
         model.add_scalar(
             "chosen_rate".to_string(),
-            Variable {
-                path: "chosen_rate".to_string(),
-                value: None,
-                formula: Some("=CHOOSE(2, 0.05, 0.10, 0.02)".to_string()),
-            },
+            Variable::new(
+                "chosen_rate".to_string(),
+                None,
+                Some("=CHOOSE(2, 0.05, 0.10, 0.02)".to_string()),
+            ),
         );
 
         let calculator = ArrayCalculator::new(model);
@@ -6189,19 +6204,19 @@ mod tests {
         // From 2024-01-15 to 2025-01-15 = 1 year = 12 months
         model.add_scalar(
             "years_diff".to_string(),
-            Variable {
-                path: "years_diff".to_string(),
-                value: None,
-                formula: Some("=DATEDIF(\"2024-01-15\", \"2025-01-15\", \"Y\")".to_string()),
-            },
+            Variable::new(
+                "years_diff".to_string(),
+                None,
+                Some("=DATEDIF(\"2024-01-15\", \"2025-01-15\", \"Y\")".to_string()),
+            ),
         );
         model.add_scalar(
             "months_diff".to_string(),
-            Variable {
-                path: "months_diff".to_string(),
-                value: None,
-                formula: Some("=DATEDIF(\"2024-01-15\", \"2025-01-15\", \"M\")".to_string()),
-            },
+            Variable::new(
+                "months_diff".to_string(),
+                None,
+                Some("=DATEDIF(\"2024-01-15\", \"2025-01-15\", \"M\")".to_string()),
+            ),
         );
 
         let calculator = ArrayCalculator::new(model);
