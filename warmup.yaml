@@ -124,16 +124,29 @@ environment:
     install_path: /usr/local/bin
     reason: "System-wide binaries go in /usr/local/bin, not user-local paths"
 
-  release_process:
-    - "ALWAYS UPX compress release binaries: upx --best --lzma"
-    - "Expected compression: ~70% size reduction (6.9MB → 2.1MB)"
-    - "GH releases MUST include UPX-compressed binary"
+  release_checklist:
+    description: "Run these steps IN ORDER for every release"
+    steps:
+      1_build: "cargo build --release"
+      2_compress: "upx --best --lzma target/release/forge -o /tmp/forge-vX.X.X-linux-x86_64"
+      3_install: "sudo cp /tmp/forge-vX.X.X-linux-x86_64 /usr/local/bin/forge"
+      4_tag: "git tag vX.X.X && git push --tags"
+      5_gh_release: "gh release create vX.X.X /tmp/forge-vX.X.X-linux-x86_64 --title 'vX.X.X: Title' --notes '...'"
+      6_crates: "cargo publish"
+      7_docs:
+        - "Update CHANGELOG.md with release notes"
+        - "Update README.md version table and test count"
+        - "Update roadmap.yaml current version"
+        - "Commit and push doc changes"
+    notes:
+      compression: "~70% size reduction (6.9MB → 2.1MB)"
+      binary_naming: "forge-X.X.X-linux-x86_64"
 
   behavior:
     - "When installing binaries, use /usr/local/bin (requires sudo)"
     - "Don't ask 'do you want me to use sudo?' - just use it"
     - "System configuration is allowed when needed"
-    - "Release binaries MUST be UPX compressed before install/upload"
+    - "Follow release_checklist for EVERY release - no skipping steps"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CRITICAL MISSION - Why Forge Exists
