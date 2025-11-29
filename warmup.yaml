@@ -83,6 +83,23 @@ self_healing:
 
   checkpoint_file: ".claude_checkpoint.yaml"
 
+  commit_cadence:
+    rule: "Commit at least every 15 minutes during active development"
+    why: "Each commit triggers forge-protocol refresh, injecting fresh context"
+    patterns:
+      - "Commit after every task completion, even if small"
+      - "Small commits > large commits (for self-healing)"
+      - "WIP commits are OK - squash later if needed"
+
+  checkpoint_triggers:
+    - "Every major task completion"
+    - "Every 10-15 tool calls (~15 minutes of work)"
+    - "Before any file write >100 lines"
+    - "Before any commit"
+    - "On ANY confusion or uncertainty"
+
+  on_confusion: "STOP → re-read warmup.yaml → re-read .claude_checkpoint.yaml"
+
   mandatory_triggers:
     every_2_hours:
       actions:
