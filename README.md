@@ -164,7 +164,7 @@ Both extensions use `forge-lsp` for validation, completion, hover, and go-to-def
 ## Development
 
 ```bash
-cargo test              # Run tests (220 passing)
+cargo test              # Run tests (227 passing)
 cargo clippy            # Lint (zero warnings)
 cargo build --release   # Build optimized binary
 ```
@@ -183,8 +183,9 @@ Now it's circular: **Forge uses the Forge Protocol to build Forge.**
 | v1.4-v2.0 | ~12h | Watch, LSP, MCP, HTTP API |
 | v2.1-v3.1 | ~9h | XNPV/XIRR, Scenarios, Sensitivity, Zed |
 | v4.0 | ~4h | Rich metadata, cross-file refs, unit validation |
+| v4.1 | ~2.5h | UNIQUE/COUNTUNIQUE, error context |
 
-**Total: ~49 hours autonomous development, 220 tests, zero warnings, 3 ADRs.**
+**Total: ~51 hours autonomous development, 227 tests, zero warnings, 3 ADRs.**
 
 ### The Protocol at Scale
 
