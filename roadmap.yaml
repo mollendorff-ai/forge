@@ -197,11 +197,14 @@ market:
 
 backlog:
   high_value:
+    - "GitHub Actions CI (.github/workflows/ci.yml)"
+    - "OpenAPI spec + Swagger UI for API server"
     - "INDIRECT function (string-based cell refs) - Hard"
     - "LAMBDA function (custom functions) - Hard"
     - "Forge vs Copilot benchmark suite (marketing)"
     - "MCP v2 compliance (parallel tools, payments)"
   medium_value:
+    - "Excel compatibility matrix doc (docs/EXCEL_COMPATIBILITY.md)"
     - "Web UI dashboard"
     - "Docker image"
     - "JetBrains plugin"
