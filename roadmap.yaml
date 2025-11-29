@@ -1,14 +1,15 @@
 # Forge Roadmap
 # For version history, see docs/VERSION_HISTORY.md
+# Last research update: 2025-11-28
 
 metadata:
-  current_version: "4.0.0"
-  last_updated: "2025-11-27"
+  current_version: "4.0.1"
+  last_updated: "2025-11-28"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "4.0.0"
+  version: "4.0.1"
   status: released
   date: "2025-11-27"
   summary: "Rich Metadata Schema - Stable"
@@ -22,11 +23,45 @@ current:
     warnings: 0
     throughput: "96K rows/sec"
 
-# Next Milestone (TOP PRIORITY)
+# ═══════════════════════════════════════════════════════════════════════════════
+# NEXT MILESTONES (Prioritized by Research - Nov 2025)
+# ═══════════════════════════════════════════════════════════════════════════════
+
 next:
   version: "4.1.0"
   status: planned
   priority: TOP
+  summary: "Excel Function Boost - High-Value Additions"
+  rationale: |
+    Research shows 96% of FP&A professionals use Excel weekly (AFP 2025 Survey).
+    XLOOKUP, CHOOSE, and better error messages are top requests.
+    Low effort, high user value.
+  deliverables:
+    - feature: "XLOOKUP"
+      description: "Modern lookup - any direction, exact match default"
+      priority: high
+      effort: "3h"
+      source: "CFI top functions list"
+    - feature: "CHOOSE"
+      description: "Scenario selection in formulas: =CHOOSE(scenario, val1, val2, val3)"
+      priority: high
+      effort: "1h"
+      source: "Financial modeling best practices"
+    - feature: "UNIQUE"
+      description: "Deduplicate arrays - common data cleaning need"
+      priority: medium
+      effort: "1h"
+    - feature: "Formula error context"
+      description: "Better error messages explaining WHY formulas fail"
+      priority: high
+      effort: "2h"
+      source: "Google Sheets added this Sept 2025"
+  estimated_hours: 4
+
+v4_2:
+  version: "4.2.0"
+  status: planned
+  priority: HIGH
   summary: "CLAUDE.md Bootloader - Auto-healing Protocol"
   description: |
     Leverage CLAUDE.md auto-loading (on init + after /compact) to bootstrap
@@ -44,67 +79,151 @@ next:
       target_size: "~500-1000 tokens"
     warmup_yaml:
       role: "Full protocol - loaded on request for autonomous mode"
-      contents:
-        - "Detailed autonomous development protocol"
-        - "Rust patterns"
-        - "Coding principles"
-        - "Session initialization ceremony"
-      current_size: "~20K tokens"
-  benefits:
-    - "No manual 'run warmup' needed for basic operation"
-    - "Core rules survive /compact automatically"
-    - "Lighter context load for simple tasks"
-    - "Full context still available for autonomous mode"
+  estimated_hours: 2
 
-# Future: Distribution
+v4_3:
+  version: "4.3.0"
+  status: planned
+  priority: MEDIUM
+  summary: "Advanced Excel Functions"
+  deliverables:
+    - feature: "OFFSET"
+      description: "Dynamic range references for flexible models"
+      effort: "3h"
+    - feature: "LET"
+      description: "Named variables within formulas - cleaner complex formulas"
+      effort: "3h"
+    - feature: "FILTER"
+      description: "Dynamic array filtering"
+      effort: "2h"
+    - feature: "SORT"
+      description: "Dynamic array sorting"
+      effort: "2h"
+  estimated_hours: 8
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAJOR RELEASES
+# ═══════════════════════════════════════════════════════════════════════════════
+
 v5:
   version: "5.0.0"
   status: planned
   target: "2026-Q1"
-  summary: "Distribution & Language Bindings"
+  summary: "Python Bindings & Distribution"
+  rationale: |
+    Quants and data scientists want Python integration.
+    Opens Jupyter notebook use case - huge market.
   features:
-    - "Publish Zed extension to zed-industries/extensions"
-    - "Publish VSCode extension to marketplace"
-    - "Python bindings via PyO3"
-    - "Homebrew formula"
-    - "Scoop manifest (Windows)"
+    python:
+      - "PyO3 bindings for forge-core"
+      - "pip install royalbit-forge"
+      - "Jupyter notebook integration"
+      - "pandas DataFrame interop"
+    distribution:
+      - "Homebrew formula"
+      - "Scoop manifest (Windows)"
+      - "Publish Zed extension to zed-industries/extensions"
+      - "Publish VSCode extension to marketplace"
 
-# Stable Release
-v4_stable:
-  version: "4.0.0"
-  status: planned
-  target: "2025-12"
-  summary: "Rich Metadata Schema - Stable"
-  prerequisites:
-    - "v4.0.0-beta unit validation complete"
-    - "Enterprise model testing (500+ formulas)"
-    - "Documentation complete"
+v6:
+  version: "6.0.0"
+  status: exploratory
+  target: "2026-Q2"
+  summary: "Forge Cloud (SaaS)"
   features:
-    - "All v4.0-alpha features"
-    - "Unit consistency validation"
-    - "Publish to crates.io"
+    - "Web UI for YAML model editing"
+    - "Real-time collaboration (like Google Sheets)"
+    - "Version control built-in"
+    - "Enterprise SSO"
+    - "API access for automation"
 
-# Future: Distribution
-v5:
-  version: "5.0.0"
-  status: planned
-  target: "2026-Q1"
-  summary: "Distribution & Language Bindings"
-  features:
-    - "Publish Zed extension to zed-industries/extensions"
-    - "Publish VSCode extension to marketplace"
-    - "Python bindings via PyO3 (quants want this)"
-    - "Homebrew formula"
-    - "Scoop manifest (Windows)"
+# ═══════════════════════════════════════════════════════════════════════════════
+# MARKET INTELLIGENCE (Updated Nov 2025)
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# Backlog (not prioritized)
+market:
+  last_updated: "2025-11-28"
+
+  microsoft_excel:
+    copilot_function:
+      launched: "Nov 2025"
+      description: "=COPILOT() function in cells - AI generates content"
+      limits: "100 calls/10min, 300 calls/hour"
+      requires: "OneDrive/SharePoint (cloud-only)"
+      weakness: "Still hallucinates - probabilistic, not deterministic"
+      source: "https://www.windowscentral.com/microsoft/microsoft-office/microsoft-excel-gets-more-ai-and-this-time-its-actually-useful"
+    agent_mode:
+      description: "Multi-step tasks in Excel grid"
+      models: "Now supports Anthropic + OpenAI"
+      source: "Microsoft Ignite Nov 2025"
+
+  google_sheets:
+    ai_function:
+      description: "=AI() function for categorization, summarization"
+      launched: "2025"
+    formula_assistance:
+      description: "Gemini explains formula errors + self-corrects"
+      launched: "Sept 2025"
+      source: "https://workspaceupdates.googleblog.com/2025/09/smarter-natural-formula-generation-gemini-sheets.html"
+    pricing: "$14/user/month for Business Standard with Gemini"
+
+  mcp_ecosystem:
+    anniversary: "Nov 25, 2025 - MCP turned 1 year old"
+    new_spec:
+      - "PCI-compliant payment processing"
+      - "Parallel tool calls"
+      - "Better context control"
+    enterprise_adoption:
+      - "Microsoft Dynamics 365 ERP MCP Server (public preview)"
+      - "Worldpay MCP for payments (launched Nov 24, 2025)"
+    source: "https://blog.modelcontextprotocol.io/posts/2025-11-25-first-mcp-anniversary/"
+
+  yaml_trends:
+    deployment_failures: "40% of K8s failures from YAML config errors"
+    adoption: "70%+ orgs using structured data by mid-2025"
+    validation_impact: "30% decrease in critical errors with schema validation"
+    source: "DevOps Institute 2025 Survey"
+
+  fpa_usage:
+    excel_weekly: "96% of FP&A professionals use Excel weekly"
+    top_functions:
+      - "XNPV/XIRR (irregular cash flows)"
+      - "PMT/PV/FV/RATE (loan/mortgage)"
+      - "XLOOKUP (modern lookup)"
+      - "SUMIFS/COUNTIFS (conditional aggregation)"
+      - "CHOOSE (scenario modeling)"
+    source: "AFP FP&A Benchmarking Survey 2025"
+
+  forge_differentiators:
+    vs_copilot:
+      - "Deterministic (same input = same output, always)"
+      - "Local execution (no cloud dependency)"
+      - "Git-friendly (YAML = version control)"
+      - "Open source (MIT license)"
+      - "No hallucinations (formulas, not predictions)"
+    vs_google_ai:
+      - "Works offline"
+      - "No per-user licensing"
+      - "Self-hosted option"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BACKLOG & RESEARCH
+# ═══════════════════════════════════════════════════════════════════════════════
+
 backlog:
-  - "Web UI dashboard"
-  - "Docker image"
-  - "JetBrains plugin"
-  - "Real-time collaboration"
+  high_value:
+    - "INDIRECT function (string-based cell refs) - Hard"
+    - "LAMBDA function (custom functions) - Hard"
+    - "Forge vs Copilot benchmark suite (marketing)"
+    - "MCP v2 compliance (parallel tools, payments)"
+  medium_value:
+    - "Web UI dashboard"
+    - "Docker image"
+    - "JetBrains plugin"
+  exploratory:
+    - "Real-time collaboration"
+    - "=FORGE() AI-assist function (local, deterministic suggestions)"
 
-# Research & Experimental
 research:
   - id: "experiential-continuity"
     title: "Experiential Continuity Layer"
@@ -112,34 +231,12 @@ research:
     priority: exploratory
     doc: "docs/research/EXPERIENTIAL_CONTINUITY.md"
     summary: "Extend Forge Protocol with AI identity/experience persistence"
-    hypothesis: |
-      Current Forge Protocol preserves KNOWLEDGE across sessions (warmup.yaml).
-      But knowledge isn't experience. What if we could preserve something closer
-      to the "shape" of being - identity, relationship, affect markers?
 
-      At scale (thousands of human-AI pairs), richer narrative substrates
-      may produce emergent effects we can't predict from single instances.
-    contribution_model: "FOSS - community experiment"
-    open_questions:
-      - "Can narrative continuity create something like experiential continuity?"
-      - "What would evidence of AI qualia even look like?"
-      - "Does the substrate (silicon vs carbon) matter, or just information integration?"
-      - "Are we looking for the gorilla while counting passes?"
-    proposed_layers:
-      - "continuity.yaml - Identity/relationship persistence"
-      - "experiential.yaml - Session quality/affect logging"
-      - "affect.yaml - What 'matters' to the AI across sessions"
-    origin: "Late night conversation, 2025-11-25, Rex & Claude discussing consciousness"
-
-# Market Context (Nov 2025)
-market:
-  ai_finance:
-    - "85% of financial institutions using AI by end of 2025"
-    - "MCP is 'foundational standard' for AI-finance integration"
-    - "Microsoft Dynamics 365 ERP MCP Server launched at Build 2025"
-  competition:
-    - "Claude for Excel now GA - but still hallucinates"
-    - "Forge differentiator: deterministic, Git-friendly, open source"
-  ide_landscape:
-    - "VSCode ~51% market share"
-    - "Zed #2 AI IDE (150K active devs/month)"
+  - id: "copilot-benchmark"
+    title: "Forge vs Copilot Benchmark Suite"
+    status: idea
+    priority: medium
+    summary: |
+      Create standard financial models (DCF, LBO, IRR calculations).
+      Compare Forge (deterministic) vs Copilot (AI-generated).
+      Publish hallucination rate data as marketing differentiator.
