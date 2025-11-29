@@ -1,0 +1,27 @@
+# Test model for UNIQUE and COUNTUNIQUE functions (v4.1.0)
+_forge_version: "1.0.0"
+
+# Sales data with repeated values
+sales:
+  product: ["Apple", "Banana", "Apple", "Orange", "Banana", "Apple"]
+  category: ["Fruit", "Fruit", "Fruit", "Fruit", "Fruit", "Fruit"]
+  quantity: [10, 20, 15, 30, 25, 12]
+  region: ["North", "South", "North", "East", "South", "West"]
+
+# Scalar aggregations using COUNTUNIQUE
+metrics:
+  total_unique_products:
+    value: null
+    formula: "=COUNTUNIQUE(sales.product)"
+
+  total_unique_regions:
+    value: null
+    formula: "=COUNTUNIQUE(sales.region)"
+
+  unique_categories:
+    value: null
+    formula: "=UNIQUE(sales.category)"
+
+  unique_products_plus_regions:
+    value: null
+    formula: "=COUNTUNIQUE(sales.product) + COUNTUNIQUE(sales.region)"

@@ -373,6 +373,8 @@ fn extract_references_from_formula(formula: &str) -> Vec<String> {
         "IFERROR",
         "TRUE",
         "FALSE",
+        "UNIQUE",
+        "COUNTUNIQUE",
     ];
 
     for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_') {

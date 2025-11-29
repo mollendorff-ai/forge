@@ -270,6 +270,9 @@ impl ReverseFormulaTranslator {
                 | "XLOOKUP"
                 | "INDEX"
                 | "MATCH"
+                // Array functions (v4.1.0)
+                | "UNIQUE"
+                | "COUNTUNIQUE"
         )
     }
 

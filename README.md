@@ -118,6 +118,7 @@ scenarios:
 - Financial: NPV, IRR, XNPV, XIRR, PMT, FV, PV, RATE, NPER
 - Lookup: MATCH, INDEX, XLOOKUP, VLOOKUP
 - Conditional: SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS
+- Array: UNIQUE, COUNTUNIQUE (v4.1.0)
 - Date: TODAY, YEAR, MONTH, DAY, DATEDIF, EDATE, EOMONTH
 - Math, Text, Logic, Aggregation functions
 

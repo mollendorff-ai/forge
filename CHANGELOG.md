@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.1.0] - 2025-11-28
+
+### Excel Function Boost
+
+New array functions and improved error handling based on market research (Nov 2025).
+
+### Added
+
+- **UNIQUE function**: Count unique values in a column (returns count in scalar context)
+- **COUNTUNIQUE function**: Count unique values in a column/array
+  - Works with all column types: Number, Text, Boolean, Date
+  - Cross-table support: `=COUNTUNIQUE(sales.product)`
+- **FormulaErrorContext**: Rich error structure with formula, location, and suggestions
+- **LSP autocomplete**: UNIQUE and COUNTUNIQUE in editor completions
+
+### Improved
+
+- Formula error messages now include more context
+- Market intelligence section in roadmap.yaml with competitor analysis
+
+### Research (Incorporated)
+
+- Microsoft Excel =COPILOT() function analysis (Nov 2025)
+- Google Sheets =AI() and formula error explanations (Sept 2025)
+- MCP 1-year anniversary spec updates
+- AFP 2025 FP&A usage statistics (96% use Excel weekly)
+
+---
+
 ## [4.0.1] - 2025-11-27
 
 ### Fixed
