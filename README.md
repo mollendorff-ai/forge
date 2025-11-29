@@ -220,6 +220,34 @@ Self-healing enables multiple 4-hour sprints without human intervention. See [fo
 
 **SKYNET MODE requires Claude Code.** The protocol files (warmup.yaml) are portable; the autonomous magic isn't.
 
+## Contributing (AI-Only Development)
+
+**Pull Requests are disabled.** This is intentional.
+
+### Why No PRs?
+
+This project uses the **AI-Only Development Model** ([ADR-011](https://github.com/royalbit/forge-protocol/blob/main/docs/adr/011-ai-only-development-no-external-prs.md)).
+
+External PRs are an **attack vector for ethics bypass**. The trust model is:
+
+```
+Human Owner → AI (autonomous) → Tests Pass → Direct Commit → Main
+```
+
+PRs require human code review, but that's not the Forge Protocol model. Tests and `ethics.yaml` are the gatekeepers—not human reviewers who can be fooled by obfuscated code.
+
+### How to Contribute
+
+| Method | Description |
+|--------|-------------|
+| **[Issues](https://github.com/royalbit/forge/issues)** | Report bugs, request features |
+| **[Discussions](https://github.com/royalbit/forge/discussions)** | Ask questions, share ideas |
+| **Fork** | Create your own version |
+
+When AI implements your idea from an Issue, you'll be credited in the commit message.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
 ## License
 
 MIT - See [LICENSE](LICENSE)
