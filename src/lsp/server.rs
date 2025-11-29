@@ -557,5 +557,16 @@ fn get_forge_functions() -> Vec<(&'static str, &'static str, &'static str)> {
             "VLOOKUP(lookup_value, table_array, col_index_num, [range_lookup])",
             "Vertical lookup",
         ),
+        // Array functions (v4.1.0)
+        (
+            "UNIQUE",
+            "UNIQUE(array)",
+            "Returns count of unique values in array",
+        ),
+        (
+            "COUNTUNIQUE",
+            "COUNTUNIQUE(array)",
+            "Counts unique values in array",
+        ),
     ]
 }

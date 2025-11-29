@@ -1385,3 +1385,79 @@ fn e2e_v4_enterprise_model_export_to_excel() {
         metadata.len()
     );
 }
+
+// ========== v4.1.0 UNIQUE/COUNTUNIQUE Tests ==========
+
+#[test]
+fn e2e_v4_unique_functions_calculate() {
+    // Test that UNIQUE and COUNTUNIQUE functions calculate correctly
+    let yaml_file = test_data_path("v4_unique_functions.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .output()
+        .expect("Failed to execute calculate");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "UNIQUE functions should calculate, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Verify correct calculations:
+    // - 3 unique products (Apple, Banana, Orange)
+    // - 4 unique regions (North, South, East, West)
+    // - 1 unique category (Fruit)
+    // - 7 = 3 + 4
+    assert!(
+        stdout.contains("total_unique_products = 3"),
+        "Should have 3 unique products, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("total_unique_regions = 4"),
+        "Should have 4 unique regions, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("unique_categories = 1"),
+        "Should have 1 unique category, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("unique_products_plus_regions = 7"),
+        "Should have 7 (3+4) combined, got: {stdout}"
+    );
+}
+
+#[test]
+fn e2e_v4_unique_functions_export() {
+    // Test that UNIQUE functions export to Excel correctly
+    let yaml_file = test_data_path("v4_unique_functions.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("unique_test.xlsx");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "UNIQUE model export should succeed, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Verify Excel file was created
+    assert!(excel_file.exists(), "Excel file should be created");
+    let metadata = fs::metadata(&excel_file).unwrap();
+    assert!(
+        metadata.len() > 1000,
+        "Excel file should have content (>1KB), got {} bytes",
+        metadata.len()
+    );
+}
