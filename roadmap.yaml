@@ -3,23 +3,23 @@
 # Last research update: 2025-11-28
 
 metadata:
-  current_version: "4.0.1"
+  current_version: "4.1.0"
   last_updated: "2025-11-28"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "4.0.1"
+  version: "4.1.0"
   status: released
-  date: "2025-11-27"
-  summary: "Rich Metadata Schema - Stable"
+  date: "2025-11-28"
+  summary: "Excel Function Boost - UNIQUE/COUNTUNIQUE"
   highlights:
-    - "Rich metadata: unit, notes, source, validation_status"
-    - "Cross-file references: _includes + @namespace.field"
-    - "Unit consistency validation"
-    - "Enterprise model validated (900+ formula evaluations)"
+    - "UNIQUE/COUNTUNIQUE: Count unique values in columns"
+    - "Works with all types: Number, Text, Boolean, Date"
+    - "FormulaErrorContext: Rich error structure with suggestions"
+    - "Market research incorporated (Nov 2025)"
   stats:
-    tests: 220
+    tests: 227
     warnings: 0
     throughput: "96K rows/sec"
 
@@ -27,38 +27,23 @@ current:
 # NEXT MILESTONES (Prioritized by Research - Nov 2025)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-next:
+v4_1:
   version: "4.1.0"
-  status: planned
-  priority: TOP
+  status: released
+  date: "2025-11-28"
   summary: "Excel Function Boost - High-Value Additions"
-  rationale: |
-    Research shows 96% of FP&A professionals use Excel weekly (AFP 2025 Survey).
-    XLOOKUP, CHOOSE, and better error messages are top requests.
-    Low effort, high user value.
   deliverables:
-    - feature: "XLOOKUP"
-      description: "Modern lookup - any direction, exact match default"
-      priority: high
-      effort: "3h"
-      source: "CFI top functions list"
-    - feature: "CHOOSE"
-      description: "Scenario selection in formulas: =CHOOSE(scenario, val1, val2, val3)"
-      priority: high
-      effort: "1h"
-      source: "Financial modeling best practices"
-    - feature: "UNIQUE"
-      description: "Deduplicate arrays - common data cleaning need"
-      priority: medium
-      effort: "1h"
-    - feature: "Formula error context"
-      description: "Better error messages explaining WHY formulas fail"
-      priority: high
-      effort: "2h"
-      source: "Google Sheets added this Sept 2025"
-  estimated_hours: 4
+    - feature: "UNIQUE/COUNTUNIQUE"
+      description: "Count unique values in columns (all types)"
+      status: done
+    - feature: "FormulaErrorContext"
+      description: "Rich error structure with suggestions"
+      status: done
+  stats:
+    tests_added: 7
+    total_tests: 227
 
-v4_2:
+next:
   version: "4.2.0"
   status: planned
   priority: HIGH
