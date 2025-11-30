@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed: README header consistency
 
-- **README**: Reordered header - badges first, then ASIMOV MODE tagline
+- **README**: Reordered header - badges first, then RoyalBit Asimov tagline
 - Consistent with RoyalBit Asimov README structure
 
 ---
