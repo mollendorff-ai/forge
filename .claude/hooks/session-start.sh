@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 cat << 'EOF'
-🔥 ASIMOV PROTOCOL ACTIVE
+🔥 ROYALBIT ASIMOV ACTIVE
 
 ══════════════════════════════════════════════════════════════════════════════
 SESSION START - Autonomous Development Protocol Initialized

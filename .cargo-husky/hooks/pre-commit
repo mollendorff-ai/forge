@@ -12,7 +12,7 @@ cargo fmt --all -- --check
 echo "📎 Running clippy..."
 cargo clippy -- -D warnings
 
-# Forge Protocol checks (if installed)
+# RoyalBit Asimov checks (if installed)
 if command -v asimov &> /dev/null; then
     echo "📋 Validating protocol files..."
     asimov validate . || true  # Don't fail on missing files

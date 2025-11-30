@@ -57,11 +57,11 @@ Add to your Zed settings:
 
 **Claude (Opus 4.5) - Principal Autonomous AI**
 
-This extension was architected, implemented, and documented autonomously by Claude using the [Asimov Protocol Suite](https://github.com/royalbit/forge/blob/main/docs/FORGE-PROTOCOL.md).
+This extension was architected, implemented, and documented autonomously by Claude using the [RoyalBit Asimov Suite](https://github.com/royalbit/forge/blob/main/docs/FORGE-PROTOCOL.md).
 
 ### Vendor-Agnostic by Design
 
-The Asimov Protocol Suite is **not** a Claude-specific methodology. It's a vendor-neutral approach to AI autonomy:
+The RoyalBit Asimov Suite is **not** a Claude-specific methodology. It's a vendor-neutral approach to AI autonomy:
 
 - **warmup.yaml** - Any AI can read it and work autonomously
 - **No vendor lock-in** - No CLAUDE.md, no .gptrc, no gemini.config
