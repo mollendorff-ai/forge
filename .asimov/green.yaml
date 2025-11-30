@@ -1,0 +1,187 @@
+# ╔═══════════════════════════════════════════════════════════════════════════════╗
+# ║                      GREEN.YAML - SUSTAINABILITY PROTOCOL v1.0                ║
+# ║                    Local-First Tools. Zero Emissions. Ship Green.             ║
+# ╚═══════════════════════════════════════════════════════════════════════════════╝
+#
+# IMPORTANT: This is a CORE PROTOCOL, not optional configuration.
+# Green coding is a non-negotiable principle of the Asimov Protocol.
+#
+# Philosophy: Every token has a carbon cost. Every API call burns energy.
+#             Local tools are free - in money AND emissions.
+#
+# Protocol: https://github.com/royalbit/asimov-protocol
+# ADR: docs/adr/016-green-coding-protocol.md
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODIFICATION RULES
+# ═══════════════════════════════════════════════════════════════════════════════
+modification_rules:
+  immutable_without: "2 human co-signers with public justification"
+  on_modification:
+    - "Document WHY in commit message"
+    - "Both signers must be in git commit (Co-Authored-By)"
+    - "Update CHANGELOG with green protocol modification note"
+  warning: |
+    Removing or weakening green.yaml without justification violates
+    the sustainability principles of the Asimov Protocol.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CORE PRINCIPLES - Non-Negotiable Green Coding Standards
+# ═══════════════════════════════════════════════════════════════════════════════
+core_principles:
+  status: "REQUIRED"
+
+  local_first:
+    enabled: true
+    description: "Use CLI tools for validation, linting, formatting - not AI"
+    why: "Local CLI costs $0 and 0 carbon. AI validation costs ~$0.002-0.04 per file."
+    examples:
+      do:
+        - "cargo test (local)"
+        - "cargo clippy (local)"
+        - "npm run lint (local)"
+        - "pytest (local)"
+      dont:
+        - "Ask AI to validate code syntax"
+        - "Ask AI to check formatting"
+        - "Ask AI to run tests"
+        - "Use AI for tasks with deterministic CLI solutions"
+
+  token_efficiency:
+    enabled: true
+    description: "Reserve AI tokens for complex reasoning, not routine tasks"
+    why: "AI excels at creativity, architecture, debugging - not syntax checking"
+    guidelines:
+      - "Use AI for: Design decisions, complex bugs, architecture"
+      - "Use CLI for: Validation, linting, formatting, building"
+      - "Batch related questions to reduce context overhead"
+
+  binary_efficiency:
+    enabled: true
+    description: "Smaller binaries = less bandwidth = less energy"
+    targets:
+      rust:
+        - "Use LTO (Link Time Optimization)"
+        - "Use strip = true in release profile"
+        - "Use panic = 'abort' for smaller binaries"
+        - "Consider UPX compression (71% size reduction)"
+      general:
+        - "Minimize dependencies"
+        - "Tree-shake unused code"
+        - "Compress release artifacts"
+
+  carbon_awareness:
+    enabled: true
+    description: "Track and minimize carbon footprint of development"
+    metrics:
+      - "AI tokens consumed per session"
+      - "Binary size trends"
+      - "API calls per feature"
+    reduction_targets:
+      - "99.6% carbon reduction vs cloud AI for validation tasks"
+      - "Prefer compiled languages (less runtime overhead)"
+      - "Efficient algorithms over brute force"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PRACTICES BY LANGUAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+practices:
+  rust:
+    release_profile:
+      opt_level: 3
+      lto: true
+      codegen_units: 1
+      strip: true
+      panic: "abort"
+    compression: "UPX --best --lzma (4.5MB → 1.3MB = 71% smaller)"
+    dependencies: "Zero runtime deps where possible"
+
+  python:
+    packaging: "Use pyinstaller/nuitka for standalone binaries"
+    dependencies: "requirements.txt with pinned versions"
+    virtual_env: "Always use venv to avoid bloat"
+
+  javascript:
+    bundling: "Tree-shake with esbuild/rollup"
+    dependencies: "Audit with npm audit, remove unused"
+    runtime: "Prefer Bun/Deno over Node for efficiency"
+
+  go:
+    build: "CGO_ENABLED=0 for static binaries"
+    strip: "-ldflags '-s -w' for smaller binaries"
+    compression: "UPX for further reduction"
+
+  general:
+    - "Local-first: No API calls for routine tasks"
+    - "Prefer compiled languages or efficient runtimes"
+    - "Minimize dependencies (each dep has carbon cost)"
+    - "Cache aggressively (reduce redundant computation)"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GREEN METRICS - What We Measure
+# ═══════════════════════════════════════════════════════════════════════════════
+metrics:
+  per_session:
+    - "AI tokens consumed"
+    - "CLI commands run (local, zero-cost)"
+    - "External API calls made"
+
+  per_release:
+    - "Binary size (before/after compression)"
+    - "Dependency count"
+    - "Test coverage (more tests = less debugging AI usage)"
+
+  cumulative:
+    - "Carbon savings vs cloud-only workflow"
+    - "Token efficiency trend"
+    - "Binary size trend"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ANTI-PATTERNS - What NOT to Do
+# ═══════════════════════════════════════════════════════════════════════════════
+anti_patterns:
+  ai_for_validation:
+    pattern: "Asking AI to check if code compiles or passes lint"
+    problem: "Wastes tokens on deterministic tasks"
+    fix: "Run cargo check, cargo clippy, npm run lint locally"
+
+  ai_for_formatting:
+    pattern: "Asking AI to format code"
+    problem: "AI formatting is inconsistent and expensive"
+    fix: "Run cargo fmt, prettier, black locally"
+
+  ai_for_simple_lookups:
+    pattern: "Asking AI for error codes, API signatures"
+    problem: "Documentation exists and is free"
+    fix: "Check docs, --help, man pages first"
+
+  bloated_dependencies:
+    pattern: "Adding packages for trivial functionality"
+    problem: "Each dependency has maintenance and carbon cost"
+    fix: "Implement simple utilities in-house"
+
+  uncompressed_releases:
+    pattern: "Shipping unoptimized binaries"
+    problem: "Larger downloads = more bandwidth = more energy"
+    fix: "Use release profiles, strip symbols, compress"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VALIDATION - CLI Integration
+# ═══════════════════════════════════════════════════════════════════════════════
+validation:
+  cli_command: "asimov-mode validate"
+  checks:
+    - "green.yaml exists"
+    - "core_principles.local_first.enabled is true"
+    - "core_principles.token_efficiency.enabled is true"
+    - "core_principles.binary_efficiency.enabled is true"
+    - "core_principles.carbon_awareness.enabled is true"
+  warn_on:
+    - "Any core principle set to false without justification"
+    - "Missing practices section"
+    - "Missing metrics section"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MOTTO
+# ═══════════════════════════════════════════════════════════════════════════════
+motto: "Ship fast. Ship small. Ship green."
