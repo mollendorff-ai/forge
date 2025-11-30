@@ -3,16 +3,16 @@
 # Last research update: 2025-11-28
 
 metadata:
-  current_version: "4.1.0"
-  last_updated: "2025-11-28"
+  current_version: "4.1.3"
+  last_updated: "2025-11-30"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "4.1.0"
+  version: "4.1.3"
   status: released
-  date: "2025-11-28"
-  summary: "Excel Function Boost - UNIQUE/COUNTUNIQUE"
+  date: "2025-11-30"
+  summary: "Asimov 7.0.7 Schema Compliance"
   highlights:
     - "UNIQUE/COUNTUNIQUE: Count unique values in columns"
     - "Works with all types: Number, Text, Boolean, Date"
@@ -44,27 +44,13 @@ v4_1:
     total_tests: 227
 
 next:
-  version: "4.2.0"
-  status: planned
-  priority: HIGH
-  summary: "CLAUDE.md Bootloader - Auto-healing Protocol"
-  description: |
-    Leverage CLAUDE.md auto-loading (on init + after /compact) to bootstrap
-    core rules without manual "run warmup" command.
-  design:
-    claude_md:
-      role: "Kernel - auto-loaded, survives compaction"
-      contents:
-        - "Core rules (4hr max, 1 milestone, tests pass, zero warnings)"
-        - "Environment capabilities (sudo, /usr/local/bin, UPX)"
-        - "Script references (bin/release.sh, bin/session-end.sh)"
-        - "Self-healing triggers"
-        - "Quality gates"
-        - "Reference to warmup.yaml for full autonomous context"
-      target_size: "~500-1000 tokens"
-    warmup_yaml:
-      role: "Full protocol - loaded on request for autonomous mode"
-  estimated_hours: 2
+  - version: "4.2.0"
+    summary: "CLAUDE.md Bootloader - Auto-healing Protocol"
+    goal: DX_QUALITY
+
+  - version: "4.3.0"
+    summary: "Advanced Excel Functions (OFFSET, LET, FILTER, SORT)"
+    goal: FEATURE_PARITY
 
 v4_3:
   version: "4.3.0"
@@ -196,21 +182,18 @@ market:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
-  high_value:
-    - "GitHub Actions CI (.github/workflows/ci.yml)"
-    - "OpenAPI spec + Swagger UI for API server"
-    - "INDIRECT function (string-based cell refs) - Hard"
-    - "LAMBDA function (custom functions) - Hard"
-    - "Forge vs Copilot benchmark suite (marketing)"
-    - "MCP v2 compliance (parallel tools, payments)"
-  medium_value:
-    - "Excel compatibility matrix doc (docs/EXCEL_COMPATIBILITY.md)"
-    - "Web UI dashboard"
-    - "Docker image"
-    - "JetBrains plugin"
-  exploratory:
-    - "Real-time collaboration"
-    - "=FORGE() AI-assist function (local, deterministic suggestions)"
+  - "GitHub Actions CI (.github/workflows/ci.yml)"
+  - "OpenAPI spec + Swagger UI for API server"
+  - "INDIRECT function (string-based cell refs)"
+  - "LAMBDA function (custom functions)"
+  - "Forge vs Copilot benchmark suite (marketing)"
+  - "MCP v2 compliance (parallel tools, payments)"
+  - "Excel compatibility matrix doc"
+  - "Web UI dashboard"
+  - "Docker image"
+  - "JetBrains plugin"
+  - "Real-time collaboration"
+  - "=FORGE() AI-assist function (local, deterministic suggestions)"
 
 research:
   - id: "experiential-continuity"
