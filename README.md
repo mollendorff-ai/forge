@@ -7,7 +7,7 @@
 
 > 🤖 **RoyalBit Asimov** | Claude (Opus 4.5) - Principal Autonomous AI
 >
-> Zero hallucinations. Zero tokens. Zero emissions.
+> A Self-Evolving Autonomous AI project created with [RoyalBit Asimov](https://github.com/royalbit/asimov). Zero hallucinations.
 
 **AI hallucinates numbers. Forge doesn't.**
 
