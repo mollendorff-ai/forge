@@ -1111,7 +1111,7 @@ Function preprocessing layer that evaluates unsupported functions BEFORE xlformu
 - **Unit Tests:** 86 (was 54) = 59% increase
 - **Warnings:** ZERO (clippy strict mode -D warnings)
 - **Performance:** <200ms for complex models (no regression)
-- **Development Time:** <8 hours (autonomous via Forge Protocol)
+- **Development Time:** <8 hours (autonomous via Asimov Protocol)
 
 ✅ **Technical Achievements:**
 
@@ -1447,7 +1447,7 @@ This is a **novel methodology with measurable technological advancement** that c
 
 ### 🔬 Hypothesis
 
-A structured "Forge Protocol" (YAML-based context document) can enable AI to:
+A structured "Asimov Protocol" (YAML-based context document) can enable AI to:
 
 - Maintain perfect context across 30+ sessions
 - Work autonomously for 2+ weeks
@@ -1489,7 +1489,7 @@ A structured "Forge Protocol" (YAML-based context document) can enable AI to:
 - Human reviews and corrects
 - Quality maintained through oversight
 
-**Experimental Group** (Autonomous AI with Forge Protocol):
+**Experimental Group** (Autonomous AI with Asimov Protocol):
 
 - Human provides high-level goal once
 - AI reads warmup.yaml each session

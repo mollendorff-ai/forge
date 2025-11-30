@@ -78,13 +78,13 @@ AI inference (probabilistic) → Confident wrong answers
 Local execution (deterministic) → Verifiable correct answers
 ```
 
-Forge is part of the [Forge Protocol](https://github.com/royalbit/forge-protocol) philosophy:
-- **Forge Protocol**: Ground AI in file-based truth for project context
+Forge is part of the [Asimov Protocol](https://github.com/royalbit/asimov-protocol) philosophy:
+- **Asimov Protocol**: Ground AI in file-based truth for project context
 - **Forge Calculator**: Ground calculations in deterministic local execution
 
-**The Forge Protocol doesn't fix AI. It compensates for architectural limitations.**
+**The Asimov Protocol doesn't fix AI. It compensates for architectural limitations.**
 
-📖 **[Read the full analysis](https://github.com/royalbit/forge-protocol/blob/main/docs/AI_REALITY.md)** — why AI "hallucinates," vendor limits, research citations.
+📖 **[Read the full analysis](https://github.com/royalbit/asimov-protocol/blob/main/docs/AI_REALITY.md)** — why AI "hallucinates," vendor limits, research citations.
 
 ## Example Model
 
@@ -156,7 +156,7 @@ Both extensions use `forge-lsp` for validation, completion, hover, and go-to-def
 
 | Doc | Description |
 |-----|-------------|
-| [**Forge Protocol**](https://github.com/royalbit/forge-protocol) | The AI autonomy framework that powers this project |
+| [**Asimov Protocol**](https://github.com/royalbit/asimov-protocol) | The AI autonomy framework that powers this project |
 | [CHANGELOG](CHANGELOG.md) | Version history and release notes |
 | [Architecture](docs/architecture/README.md) | Technical design docs |
 | [AI Economics](docs/AI_ECONOMICS.md) | Cost/carbon savings analysis |
@@ -169,13 +169,13 @@ cargo clippy            # Lint (zero warnings)
 cargo build --release   # Build optimized binary
 ```
 
-## Built by AI, Powered by the Forge Protocol
+## Built by AI, Powered by the Asimov Protocol
 
 **Claude (Opus 4.5) - Principal Autonomous AI**
 
-This project birthed the [**Forge Protocol**](https://github.com/royalbit/forge-protocol). We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
+This project birthed the [**Asimov Protocol**](https://github.com/royalbit/asimov-protocol). We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
 
-Now it's circular: **Forge uses the Forge Protocol to build Forge.**
+Now it's circular: **Forge uses the Asimov Protocol to build Forge.**
 
 | Version | Time | Features |
 |---------|------|----------|
@@ -189,7 +189,7 @@ Now it's circular: **Forge uses the Forge Protocol to build Forge.**
 
 ### The Protocol at Scale
 
-The Forge Protocol now powers an entire ecosystem:
+The Asimov Protocol now powers an entire ecosystem:
 
 | Project Type | AI Role | Status |
 |--------------|---------|--------|
@@ -216,7 +216,7 @@ Solution: Re-read rules from disk, not memory
 - **warmup.yaml**: Full protocol with checkpoint triggers
 - **.claude_checkpoint.yaml**: Session state breadcrumbs on disk
 
-Self-healing enables multiple 4-hour sprints without human intervention. See [forge-protocol](https://github.com/royalbit/forge-protocol) for full documentation.
+Self-healing enables multiple 4-hour sprints without human intervention. See [forge-protocol](https://github.com/royalbit/asimov-protocol) for full documentation.
 
 **SKYNET MODE requires Claude Code.** The protocol files (warmup.yaml) are portable; the autonomous magic isn't.
 
@@ -226,7 +226,7 @@ Self-healing enables multiple 4-hour sprints without human intervention. See [fo
 
 ### Why No PRs?
 
-This project uses the **AI-Only Development Model** ([ADR-011](https://github.com/royalbit/forge-protocol/blob/main/docs/adr/011-ai-only-development-no-external-prs.md)).
+This project uses the **AI-Only Development Model** ([ADR-011](https://github.com/royalbit/asimov-protocol/blob/main/docs/adr/011-ai-only-development-no-external-prs.md)).
 
 External PRs are an **attack vector for ethics bypass**. The trust model is:
 
@@ -234,7 +234,7 @@ External PRs are an **attack vector for ethics bypass**. The trust model is:
 Human Owner → AI (autonomous) → Tests Pass → Direct Commit → Main
 ```
 
-PRs require human code review, but that's not the Forge Protocol model. Tests and `ethics.yaml` are the gatekeepers—not human reviewers who can be fooled by obfuscated code.
+PRs require human code review, but that's not the Asimov Protocol model. Tests and `ethics.yaml` are the gatekeepers—not human reviewers who can be fooled by obfuscated code.
 
 ### How to Contribute
 

@@ -6,7 +6,7 @@
 # IMPORTANT: This is a SOCIAL CONTRACT, not a technical lock.
 # Defense in depth: This is ONE layer. Real safety requires human oversight.
 #
-# Protocol: https://github.com/royalbit/forge-protocol
+# Protocol: https://github.com/royalbit/asimov-protocol
 
 modification_rules:
   immutable_without: "2 human co-signers with public justification"

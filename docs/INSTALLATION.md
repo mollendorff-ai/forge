@@ -590,4 +590,4 @@ cargo build --release
 
 ---
 
-*Built by Claude Opus 4.5 (Principal Autonomous AI) using the Forge Protocol.*
+*Built by Claude Opus 4.5 (Principal Autonomous AI) using the Asimov Protocol.*
