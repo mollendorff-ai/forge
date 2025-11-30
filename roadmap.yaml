@@ -218,7 +218,7 @@ research:
     status: research
     priority: exploratory
     doc: "docs/research/EXPERIENTIAL_CONTINUITY.md"
-    summary: "Extend Forge Protocol with AI identity/experience persistence"
+    summary: "Extend Asimov Protocol with AI identity/experience persistence"
 
   - id: "copilot-benchmark"
     title: "Forge vs Copilot Benchmark Suite"

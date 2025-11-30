@@ -16,7 +16,7 @@ jobs:
           script: |
             const message = `Thank you for your interest in contributing!
 
-            This project uses the **Forge Protocol AI-Only Development Model** ([ADR-011](https://github.com/royalbit/forge-protocol/blob/main/docs/adr/011-ai-only-development-no-external-prs.md)).
+            This project uses the **Asimov Protocol AI-Only Development Model** ([ADR-011](https://github.com/royalbit/asimov-protocol/blob/main/docs/adr/011-ai-only-development-no-external-prs.md)).
 
             ## Why No PRs?
 

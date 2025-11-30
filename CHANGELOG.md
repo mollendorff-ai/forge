@@ -226,28 +226,28 @@ Fixed homepage (should be forge, not forge-protocol). Protocol now in descriptio
 ### Changed
 
 - Homepage restored to forge repo
-- Protocol link embedded in description: "built with the Forge Protocol (github.com/royalbit/forge-protocol)"
+- Protocol link embedded in description: "built with the Asimov Protocol (github.com/royalbit/asimov-protocol)"
 
 ---
 
 ## [3.1.2] - 2025-11-25
 
-### Forge Protocol Standalone Repository
+### Asimov Protocol Standalone Repository
 
 The protocol that made this project possible now has its own home.
 
 ### Changed
 
-- **Protocol extracted** to [royalbit/forge-protocol](https://github.com/royalbit/forge-protocol)
-- Updated crates.io metadata to reference the Forge Protocol
+- **Protocol extracted** to [royalbit/forge-protocol](https://github.com/royalbit/asimov-protocol)
+- Updated crates.io metadata to reference the Asimov Protocol
 - Added "forge-protocol" keyword, replaced "financial"
 - Told the origin story in warmup.yaml and README
 
 ### The Circular Story
 
-This project birthed the Forge Protocol. We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
+This project birthed the Asimov Protocol. We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
 
-Now it's circular: **Forge uses the Forge Protocol to build Forge.**
+Now it's circular: **Forge uses the Asimov Protocol to build Forge.**
 
 ### Stats
 
@@ -260,17 +260,17 @@ Now it's circular: **Forge uses the Forge Protocol to build Forge.**
 
 ### Documentation Release
 
-**Forge Protocol Suite** - Renamed and documented the AI autonomy framework.
+**Asimov Protocol Suite** - Renamed and documented the AI autonomy framework.
 
 ### Changed
 
-- Renamed "Warmup Protocol" to "Forge Protocol" across all documentation
+- Renamed "Warmup Protocol" to "Asimov Protocol" across all documentation
 - `THE-WARMUP-PROTOCOL.md` → `FORGE-PROTOCOL.md`
 - Added vendor-agnostic philosophy section (no CLAUDE.md, no lock-in)
-- Added Forge Protocol Suite explanation (warmup.yaml + sprint.yaml + roadmap.yaml)
-- Updated warmup.yaml with Forge Protocol branding
+- Added Asimov Protocol Suite explanation (warmup.yaml + sprint.yaml + roadmap.yaml)
+- Updated warmup.yaml with Asimov Protocol branding
 - Added "ai-built" keyword to crates.io metadata
-- Updated README documentation table with Forge Protocol link
+- Updated README documentation table with Asimov Protocol link
 
 ### Stats
 
@@ -579,7 +579,7 @@ Multi-scenario modeling for sensitivity analysis and what-if modeling.
 
 ### 🎉 Advanced Financial Functions Release
 
-Built autonomously via Forge Protocol.
+Built autonomously via Asimov Protocol.
 
 ### Added
 
@@ -624,7 +624,7 @@ Built autonomously via Forge Protocol.
 
 ### Development Stats
 
-- **Time:** Autonomous development via Forge Protocol
+- **Time:** Autonomous development via Asimov Protocol
 - **Quality:** Zero warnings, all tests passing
 
 ---
@@ -765,7 +765,7 @@ Documentation-only patch release.
 
 ### 🎉 Lookup Functions Release
 
-Built autonomously via Forge Protocol in <3 hours.
+Built autonomously via Asimov Protocol in <3 hours.
 
 ### Added
 
@@ -808,7 +808,7 @@ Built autonomously via Forge Protocol in <3 hours.
 
 ### Development Stats
 
-- **Time:** <3 hours (autonomous AI via Forge Protocol)
+- **Time:** <3 hours (autonomous AI via Asimov Protocol)
 - **Quality:** 690 lines production code, zero warnings
 - **Innovation:** Preprocessing approach for lookups in row-wise model
 
@@ -818,7 +818,7 @@ Built autonomously via Forge Protocol in <3 hours.
 
 ### 🎉 Major Release: 27 Essential Excel Functions
 
-Built autonomously via Forge Protocol in <8 hours. All phases completed with zero warnings.
+Built autonomously via Asimov Protocol in <8 hours. All phases completed with zero warnings.
 
 ### Added
 
@@ -903,7 +903,7 @@ Built autonomously via Forge Protocol in <8 hours. All phases completed with zer
 
 ### Development Stats
 
-- **Time:** <8 hours (autonomous development via Forge Protocol)
+- **Time:** <8 hours (autonomous development via Asimov Protocol)
 - **Estimated traditional:** 2-3 weeks
 - **Velocity:** 20-50x faster
 - **Rework:** 0% (production-ready in first iteration)
@@ -1008,7 +1008,7 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 
 ### Development
 
-- Built in 12.5 hours using Forge Protocol (overnight + morning) (autonomous AI development)
+- Built in 12.5 hours using Asimov Protocol (overnight + morning) (autonomous AI development)
 - SR&ED documented: 7 research entries
 - Zero bugs shipped to production
 - 100% backwards compatible with v0.2.0
@@ -1112,7 +1112,7 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 
 ### Development Methodology
 
-- **Forge Protocol:** All v1.0.0+ development uses autonomous AI development methodology
+- **Asimov Protocol:** All v1.0.0+ development uses autonomous AI development methodology
 - **SR&ED Documented:** All R&D work documented in SRED_RESEARCH_LOG.md for Canadian tax credits
 - **Zero Warnings Policy:** All releases pass `clippy -D warnings` (strict mode)
 - **Test-Driven:** Comprehensive test coverage before release
