@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.1.2] - 2025-11-30
+
+### Fixed: README header consistency
+
+- **README**: Reordered header - badges first, then ASIMOV MODE tagline
+- Consistent with Asimov Protocol README structure
+
+---
+
 ## [4.1.1] - 2025-11-30
 
 ### Fixed: Crate metadata for crates.io
