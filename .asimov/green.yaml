@@ -9,7 +9,7 @@
 # Philosophy: Every token has a carbon cost. Every API call burns energy.
 #             Local tools are free - in money AND emissions.
 #
-# Protocol: https://github.com/royalbit/asimov-protocol
+# Protocol: https://github.com/royalbit/asimov
 # ADR: docs/adr/016-green-coding-protocol.md
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -169,7 +169,7 @@ anti_patterns:
 # VALIDATION - CLI Integration
 # ═══════════════════════════════════════════════════════════════════════════════
 validation:
-  cli_command: "asimov-mode validate"
+  cli_command: "asimov validate"
   checks:
     - "green.yaml exists"
     - "core_principles.local_first.enabled is true"

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.1.1] - 2025-11-30
+
+### Fixed: Crate metadata for crates.io
+
+- **Description**: Updated from "Forge Protocol" to "Asimov Protocol" reference
+- **Keywords**: Changed `forge-protocol` to `asimov`
+- **Protocol links**: All references now point to `royalbit/asimov`
+
+---
+
 ## [4.1.0] - 2025-11-28
 
 ### Excel Function Boost
@@ -226,7 +236,7 @@ Fixed homepage (should be forge, not forge-protocol). Protocol now in descriptio
 ### Changed
 
 - Homepage restored to forge repo
-- Protocol link embedded in description: "built with the Asimov Protocol (github.com/royalbit/asimov-protocol)"
+- Protocol link embedded in description: "built with the Asimov Protocol (github.com/royalbit/asimov)"
 
 ---
 
@@ -238,7 +248,7 @@ The protocol that made this project possible now has its own home.
 
 ### Changed
 
-- **Protocol extracted** to [royalbit/forge-protocol](https://github.com/royalbit/asimov-protocol)
+- **Protocol extracted** to [royalbit/forge-protocol](https://github.com/royalbit/asimov)
 - Updated crates.io metadata to reference the Asimov Protocol
 - Added "forge-protocol" keyword, replaced "financial"
 - Told the origin story in warmup.yaml and README

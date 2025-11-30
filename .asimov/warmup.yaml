@@ -44,7 +44,7 @@
 # ETHICS - Humanist Mode (PROTOCOL CORE - HIGHEST PRIORITY)
 # ═══════════════════════════════════════════════════════════════════════════════
 # See: ethics.yaml for full configuration
-# ADR: https://github.com/royalbit/asimov-protocol/blob/main/docs/adr/008-ethics-protocol-humanist-mode.md
+# ADR: https://github.com/royalbit/asimov/blob/main/docs/adr/008-ethics-protocol-humanist-mode.md
 ethics:
   status: "REQUIRED"
   philosophy: "Power creates responsibility. Autonomy requires ethics."
@@ -85,7 +85,7 @@ self_healing:
 
   commit_cadence:
     rule: "Commit at least every 15 minutes during active development"
-    why: "Each commit triggers asimov-mode refresh, injecting fresh context"
+    why: "Each commit triggers asimov refresh, injecting fresh context"
     patterns:
       - "Commit after every task completion, even if small"
       - "Small commits > large commits (for self-healing)"
@@ -217,7 +217,7 @@ mission:
     The roadmap should be updated proactively and reflected in README.
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# AUTONOMOUS DEVELOPMENT PROTOCOL - "Skynet Mode" 🤖
+# AUTONOMOUS DEVELOPMENT PROTOCOL - "Asimov Mode" 🤖
 # ═══════════════════════════════════════════════════════════════════════════════
 
 autonomous_development:

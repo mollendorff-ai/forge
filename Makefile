@@ -43,7 +43,7 @@ help:
 	@echo "  make validate-all       - Run ALL validators (docs + yaml + diagrams)"
 	@echo ""
 	@echo "Presentation:"
-	@echo "  (moved to https://github.com/royalbit/forge-protocol)"
+	@echo "  (moved to https://github.com/royalbit/asimov)"
 	@echo ""
 	@echo "Workflows:"
 	@echo "  make pre-commit         - Full pre-commit check (format + lint + test + validate-all)"
@@ -347,5 +347,5 @@ check: format-check lint test-unit validate-docs
 # ═══════════════════════════════════════════════════════════════════════════
 # PRESENTATION
 # ═══════════════════════════════════════════════════════════════════════════
-# Presentation deck moved to: https://github.com/royalbit/forge-protocol
+# Presentation deck moved to: https://github.com/royalbit/asimov
 # See: docs/PRESENTATION.md for redirect info
