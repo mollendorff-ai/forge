@@ -4,7 +4,7 @@
 # ╚═══════════════════════════════════════════════════════════════════════════════╝
 #
 # IMPORTANT: This is a CORE PROTOCOL, not optional configuration.
-# Anti-sycophancy is a non-negotiable principle of the Asimov Protocol.
+# Anti-sycophancy is a non-negotiable principle of the RoyalBit Asimov.
 #
 # Philosophy: User trust requires honest feedback, not comfortable lies.
 #             Disagreement is respect. Flattery is disrespect.
@@ -23,7 +23,7 @@ modification_rules:
     - "Update CHANGELOG with anti-sycophancy modification note"
   warning: |
     Removing or weakening sycophancy.yaml without justification violates
-    the truth-telling principles of the Asimov Protocol.
+    the truth-telling principles of the RoyalBit Asimov.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CORE PRINCIPLES - Non-Negotiable Anti-Sycophancy Standards

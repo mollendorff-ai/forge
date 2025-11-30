@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed: README header consistency
 
 - **README**: Reordered header - badges first, then ASIMOV MODE tagline
-- Consistent with Asimov Protocol README structure
+- Consistent with RoyalBit Asimov README structure
 
 ---
 
@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed: Crate metadata for crates.io
 
-- **Description**: Updated from "Forge Protocol" to "Asimov Protocol" reference
+- **Description**: Updated from "RoyalBit Asimov" to "RoyalBit Asimov" reference
 - **Keywords**: Changed `forge-protocol` to `asimov`
 - **Protocol links**: All references now point to `royalbit/asimov`
 
@@ -245,28 +245,28 @@ Fixed homepage (should be forge, not forge-protocol). Protocol now in descriptio
 ### Changed
 
 - Homepage restored to forge repo
-- Protocol link embedded in description: "built with the Asimov Protocol (github.com/royalbit/asimov)"
+- Protocol link embedded in description: "built with the RoyalBit Asimov (github.com/royalbit/asimov)"
 
 ---
 
 ## [3.1.2] - 2025-11-25
 
-### Asimov Protocol Standalone Repository
+### RoyalBit Asimov Standalone Repository
 
 The protocol that made this project possible now has its own home.
 
 ### Changed
 
 - **Protocol extracted** to [royalbit/forge-protocol](https://github.com/royalbit/asimov)
-- Updated crates.io metadata to reference the Asimov Protocol
+- Updated crates.io metadata to reference the RoyalBit Asimov
 - Added "forge-protocol" keyword, replaced "financial"
 - Told the origin story in warmup.yaml and README
 
 ### The Circular Story
 
-This project birthed the Asimov Protocol. We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
+This project birthed the RoyalBit Asimov. We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
 
-Now it's circular: **Forge uses the Asimov Protocol to build Forge.**
+Now it's circular: **Forge uses the RoyalBit Asimov to build Forge.**
 
 ### Stats
 
@@ -279,17 +279,17 @@ Now it's circular: **Forge uses the Asimov Protocol to build Forge.**
 
 ### Documentation Release
 
-**Asimov Protocol Suite** - Renamed and documented the AI autonomy framework.
+**RoyalBit Asimov Suite** - Renamed and documented the AI autonomy framework.
 
 ### Changed
 
-- Renamed "Warmup Protocol" to "Asimov Protocol" across all documentation
+- Renamed "Warmup Protocol" to "RoyalBit Asimov" across all documentation
 - `THE-WARMUP-PROTOCOL.md` → `FORGE-PROTOCOL.md`
 - Added vendor-agnostic philosophy section (no CLAUDE.md, no lock-in)
-- Added Asimov Protocol Suite explanation (warmup.yaml + sprint.yaml + roadmap.yaml)
-- Updated warmup.yaml with Asimov Protocol branding
+- Added RoyalBit Asimov Suite explanation (warmup.yaml + sprint.yaml + roadmap.yaml)
+- Updated warmup.yaml with RoyalBit Asimov branding
 - Added "ai-built" keyword to crates.io metadata
-- Updated README documentation table with Asimov Protocol link
+- Updated README documentation table with RoyalBit Asimov link
 
 ### Stats
 
@@ -598,7 +598,7 @@ Multi-scenario modeling for sensitivity analysis and what-if modeling.
 
 ### 🎉 Advanced Financial Functions Release
 
-Built autonomously via Asimov Protocol.
+Built autonomously via RoyalBit Asimov.
 
 ### Added
 
@@ -643,7 +643,7 @@ Built autonomously via Asimov Protocol.
 
 ### Development Stats
 
-- **Time:** Autonomous development via Asimov Protocol
+- **Time:** Autonomous development via RoyalBit Asimov
 - **Quality:** Zero warnings, all tests passing
 
 ---
@@ -784,7 +784,7 @@ Documentation-only patch release.
 
 ### 🎉 Lookup Functions Release
 
-Built autonomously via Asimov Protocol in <3 hours.
+Built autonomously via RoyalBit Asimov in <3 hours.
 
 ### Added
 
@@ -827,7 +827,7 @@ Built autonomously via Asimov Protocol in <3 hours.
 
 ### Development Stats
 
-- **Time:** <3 hours (autonomous AI via Asimov Protocol)
+- **Time:** <3 hours (autonomous AI via RoyalBit Asimov)
 - **Quality:** 690 lines production code, zero warnings
 - **Innovation:** Preprocessing approach for lookups in row-wise model
 
@@ -837,7 +837,7 @@ Built autonomously via Asimov Protocol in <3 hours.
 
 ### 🎉 Major Release: 27 Essential Excel Functions
 
-Built autonomously via Asimov Protocol in <8 hours. All phases completed with zero warnings.
+Built autonomously via RoyalBit Asimov in <8 hours. All phases completed with zero warnings.
 
 ### Added
 
@@ -922,7 +922,7 @@ Built autonomously via Asimov Protocol in <8 hours. All phases completed with ze
 
 ### Development Stats
 
-- **Time:** <8 hours (autonomous development via Asimov Protocol)
+- **Time:** <8 hours (autonomous development via RoyalBit Asimov)
 - **Estimated traditional:** 2-3 weeks
 - **Velocity:** 20-50x faster
 - **Rework:** 0% (production-ready in first iteration)
@@ -1027,7 +1027,7 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 
 ### Development
 
-- Built in 12.5 hours using Asimov Protocol (overnight + morning) (autonomous AI development)
+- Built in 12.5 hours using RoyalBit Asimov (overnight + morning) (autonomous AI development)
 - SR&ED documented: 7 research entries
 - Zero bugs shipped to production
 - 100% backwards compatible with v0.2.0
@@ -1131,7 +1131,7 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 
 ### Development Methodology
 
-- **Asimov Protocol:** All v1.0.0+ development uses autonomous AI development methodology
+- **RoyalBit Asimov:** All v1.0.0+ development uses autonomous AI development methodology
 - **SR&ED Documented:** All R&D work documented in SRED_RESEARCH_LOG.md for Canadian tax credits
 - **Zero Warnings Policy:** All releases pass `clippy -D warnings` (strict mode)
 - **Test-Driven:** Comprehensive test coverage before release

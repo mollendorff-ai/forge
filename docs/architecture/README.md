@@ -496,7 +496,7 @@ Focus on algorithmic deep dives:
 
 ### Why so comprehensive?
 
-**Answer:** Forge was built autonomously by AI in 12.5 hours using the Asimov Protocol. To maintain and extend it, human developers need complete architectural understanding.
+**Answer:** Forge was built autonomously by AI in 12.5 hours using the RoyalBit Asimov. To maintain and extend it, human developers need complete architectural understanding.
 
 ### Which doc should I read first?
 
@@ -597,5 +597,5 @@ Found an error? Documentation unclear? Feature request?
 **Quality:** Production-ready, externally publishable
 **Maintenance:** Updated with each major release
 
-**Built with:** Claude Code + Asimov Protocol + PlantUML
+**Built with:** Claude Code + RoyalBit Asimov + PlantUML
 

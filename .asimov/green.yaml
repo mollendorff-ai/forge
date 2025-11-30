@@ -4,7 +4,7 @@
 # ╚═══════════════════════════════════════════════════════════════════════════════╝
 #
 # IMPORTANT: This is a CORE PROTOCOL, not optional configuration.
-# Green coding is a non-negotiable principle of the Asimov Protocol.
+# Green coding is a non-negotiable principle of the RoyalBit Asimov.
 #
 # Philosophy: Every token has a carbon cost. Every API call burns energy.
 #             Local tools are free - in money AND emissions.
@@ -23,7 +23,7 @@ modification_rules:
     - "Update CHANGELOG with green protocol modification note"
   warning: |
     Removing or weakening green.yaml without justification violates
-    the sustainability principles of the Asimov Protocol.
+    the sustainability principles of the RoyalBit Asimov.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CORE PRINCIPLES - Non-Negotiable Green Coding Standards

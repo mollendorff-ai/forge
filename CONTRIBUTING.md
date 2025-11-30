@@ -1,6 +1,6 @@
 # Contributing to Forge
 
-This project uses the **Asimov Protocol AI-Only Development Model** ([ADR-011](https://github.com/royalbit/asimov/blob/main/docs/adr/011-ai-only-development-no-external-prs.md)).
+This project uses the **RoyalBit Asimov AI-Only Development Model** ([ADR-011](https://github.com/royalbit/asimov/blob/main/docs/adr/011-ai-only-development-no-external-prs.md)).
 
 ## How to Contribute
 
@@ -12,7 +12,7 @@ This project uses the **Asimov Protocol AI-Only Development Model** ([ADR-011](h
 
 ## Why No Pull Requests?
 
-This project is developed by an autonomous AI following the Asimov Protocol. External PRs are an attack vector that could bypass ethics safeguards.
+This project is developed by an autonomous AI following the RoyalBit Asimov. External PRs are an attack vector that could bypass ethics safeguards.
 
 **Trust Model:**
 ```
@@ -44,7 +44,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 Forks are **encouraged**! The social contract:
 - Carry `ethics.yaml` forward
 - Preserve the spirit of Humanist Mode
-- See [Asimov Protocol ADR-008](https://github.com/royalbit/asimov/blob/main/docs/adr/008-ethics-protocol-humanist-mode.md) for details
+- See [RoyalBit Asimov ADR-008](https://github.com/royalbit/asimov/blob/main/docs/adr/008-ethics-protocol-humanist-mode.md) for details
 
 ## Questions?
 

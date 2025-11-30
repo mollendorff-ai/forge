@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 cat << 'EOF'
-🔄 ASIMOV PROTOCOL REFRESH (Pre-Compaction)
+🔄 ROYALBIT ASIMOV REFRESH (Pre-Compaction)
 
 ══════════════════════════════════════════════════════════════════════════════
 CONTEXT REFRESH - Injecting protocol rules before compaction

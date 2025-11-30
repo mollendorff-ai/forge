@@ -4,14 +4,14 @@
 # Companion: sprint.yaml (REQUIRED - must be loaded together)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# THE FORGE PROTOCOL SUITE
+# THE ROYALBIT ASIMOV SUITE
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # Two complementary YAML protocols for sustainable autonomous AI development:
 # BOTH files are in the project root and BOTH must be loaded at warmup.
 #
 # ┌─────────────────────────────────────────────────────────────────────────────┐
-# │                         FORGE PROTOCOL SUITE                                 │
+# │                         ROYALBIT ASIMOV SUITE                                 │
 # │                                                                              │
 # │   ┌─────────────────────────┐       ┌─────────────────────────┐            │
 # │   │    WARMUP PROTOCOL      │       │  SPRINT AUTONOMY        │            │

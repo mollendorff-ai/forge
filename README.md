@@ -76,11 +76,11 @@ AI inference (probabilistic) → Confident wrong answers
 Local execution (deterministic) → Verifiable correct answers
 ```
 
-Forge is part of the [Asimov Protocol](https://github.com/royalbit/asimov) philosophy:
-- **Asimov Protocol**: Ground AI in file-based truth for project context
+Forge is part of the [RoyalBit Asimov](https://github.com/royalbit/asimov) philosophy:
+- **RoyalBit Asimov**: Ground AI in file-based truth for project context
 - **Forge Calculator**: Ground calculations in deterministic local execution
 
-**The Asimov Protocol doesn't fix AI. It compensates for architectural limitations.**
+**The RoyalBit Asimov doesn't fix AI. It compensates for architectural limitations.**
 
 📖 **[Read the full analysis](https://github.com/royalbit/asimov/blob/main/docs/AI_REALITY.md)** — why AI "hallucinates," vendor limits, research citations.
 
@@ -154,7 +154,8 @@ Both extensions use `forge-lsp` for validation, completion, hover, and go-to-def
 
 | Doc | Description |
 |-----|-------------|
-| [**Asimov Protocol**](https://github.com/royalbit/asimov) | The AI autonomy framework that powers this project |
+| [**RoyalBit Asimov**](https://github.com/royalbit/asimov) | The AI autonomy framework that powers this project |
+| [Origin Story](https://github.com/royalbit/asimov/blob/main/docs/ORIGIN_STORY.md) | How Forge birthed RoyalBit Asimov |
 | [CHANGELOG](CHANGELOG.md) | Version history and release notes |
 | [Architecture](docs/architecture/README.md) | Technical design docs |
 | [AI Economics](docs/AI_ECONOMICS.md) | Cost/carbon savings analysis |
@@ -167,13 +168,13 @@ cargo clippy            # Lint (zero warnings)
 cargo build --release   # Build optimized binary
 ```
 
-## Built by AI, Powered by the Asimov Protocol
+## Built by AI, Powered by the RoyalBit Asimov
 
 **Claude (Opus 4.5) - Principal Autonomous AI**
 
-This project birthed the [**Asimov Protocol**](https://github.com/royalbit/asimov). We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
+This project birthed [**RoyalBit Asimov**](https://github.com/royalbit/asimov). We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol. [Read the full origin story](https://github.com/royalbit/asimov/blob/main/docs/ORIGIN_STORY.md).
 
-Now it's circular: **Forge uses the Asimov Protocol to build Forge.**
+Now it's circular: **Forge uses the RoyalBit Asimov to build Forge.**
 
 | Version | Time | Features |
 |---------|------|----------|
@@ -187,7 +188,7 @@ Now it's circular: **Forge uses the Asimov Protocol to build Forge.**
 
 ### The Protocol at Scale
 
-The Asimov Protocol now powers an entire ecosystem:
+The RoyalBit Asimov now powers an entire ecosystem:
 
 | Project Type | AI Role | Status |
 |--------------|---------|--------|
@@ -214,7 +215,7 @@ Solution: Re-read rules from disk, not memory
 - **warmup.yaml**: Full protocol with checkpoint triggers
 - **.claude_checkpoint.yaml**: Session state breadcrumbs on disk
 
-Self-healing enables multiple 4-hour sprints without human intervention. See [Asimov Protocol](https://github.com/royalbit/asimov) for full documentation.
+Self-healing enables multiple 4-hour sprints without human intervention. See [RoyalBit Asimov](https://github.com/royalbit/asimov) for full documentation.
 
 **ASIMOV MODE requires Claude Code.** The protocol files (warmup.yaml) are portable; the autonomous magic isn't.
 
@@ -232,7 +233,7 @@ External PRs are an **attack vector for ethics bypass**. The trust model is:
 Human Owner → AI (autonomous) → Tests Pass → Direct Commit → Main
 ```
 
-PRs require human code review, but that's not the Asimov Protocol model. Tests and `ethics.yaml` are the gatekeepers—not human reviewers who can be fooled by obfuscated code.
+PRs require human code review, but that's not the RoyalBit Asimov model. Tests and `ethics.yaml` are the gatekeepers—not human reviewers who can be fooled by obfuscated code.
 
 ### How to Contribute
 
