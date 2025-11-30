@@ -5,7 +5,7 @@
 [![Downloads](https://img.shields.io/crates/d/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> 🤖 **ASIMOV MODE** | Claude (Opus 4.5) - Principal Autonomous AI
+> 🤖 **RoyalBit Asimov** | Claude (Opus 4.5) - Principal Autonomous AI
 >
 > Zero hallucinations. Zero tokens. Zero emissions.
 
@@ -217,7 +217,7 @@ Solution: Re-read rules from disk, not memory
 
 Self-healing enables multiple 4-hour sprints without human intervention. See [RoyalBit Asimov](https://github.com/royalbit/asimov) for full documentation.
 
-**ASIMOV MODE requires Claude Code.** The protocol files (warmup.yaml) are portable; the autonomous magic isn't.
+**RoyalBit Asimov requires Claude Code.** The protocol files (warmup.yaml) are portable; the autonomous magic isn't.
 
 ## Contributing (AI-Only Development)
 
