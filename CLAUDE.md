@@ -3,20 +3,10 @@
 @warmup.yaml
 @ethics.yaml
 
-ON CONFUSION → re-read warmup.yaml + ethics.yaml + .claude_checkpoint.yaml
-
 Rules: 4hr max, 1 milestone, tests pass, ship it.
 
-## Recovery Commands
+ON SESSION START: Immediately read roadmap.yaml, run `asimov-mode validate`, present next milestone. Do NOT wait for user prompt.
 
 ```bash
-cargo test                    # Must pass
-cargo clippy -- -D warnings   # Zero warnings
+cargo test && cargo clippy -- -D warnings
 ```
-
-## Key Files
-
-- `warmup.yaml` - Full protocol (RE-READ when confused)
-- `ethics.yaml` - Humanist Mode safeguards
-- `roadmap.yaml` - Current milestone
-- `.claude_checkpoint.yaml` - Session state (if exists)
