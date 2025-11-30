@@ -13,12 +13,12 @@ echo "📎 Running clippy..."
 cargo clippy -- -D warnings
 
 # Forge Protocol checks (if installed)
-if command -v forge-protocol &> /dev/null; then
+if command -v asimov &> /dev/null; then
     echo "📋 Validating protocol files..."
-    forge-protocol validate . || true  # Don't fail on missing files
+    asimov validate . || true  # Don't fail on missing files
 
     echo "📝 Linting documentation..."
-    forge-protocol lint-docs docs/ || exit 1
+    asimov lint-docs docs/ || exit 1
 fi
 
 echo "✅ Pre-commit checks passed!"

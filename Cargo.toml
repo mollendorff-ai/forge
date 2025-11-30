@@ -1,14 +1,14 @@
 [package]
 name = "royalbit-forge"
-version = "4.1.0"
+version = "4.1.1"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "RoyalBit Inc. <admin@royalbit.ca>"]
-description = "YAML formula calculator built with the Forge Protocol (github.com/royalbit/forge-protocol). 60+ Excel functions, 96K rows/sec."
+description = "YAML formula calculator built with the Asimov Protocol (github.com/royalbit/asimov). 60+ Excel functions, 96K rows/sec."
 repository = "https://github.com/royalbit/forge"
 homepage = "https://github.com/royalbit/forge"
 documentation = "https://github.com/royalbit/forge#readme"
 license = "MIT"
-keywords = ["yaml", "formula", "excel", "forge-protocol", "ai-built"]
+keywords = ["yaml", "formula", "excel", "asimov", "ai-built"]
 categories = ["command-line-utilities", "parsing", "development-tools"]
 readme = "README.md"
 exclude = [

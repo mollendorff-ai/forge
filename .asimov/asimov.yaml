@@ -9,8 +9,8 @@
 # Inspect the code. Challenge the rules. Fork if you disagree.
 # Adoption through consent, not control.
 #
-# Protocol: https://github.com/royalbit/asimov-protocol
-# ADR: docs/adr/020-asimov-mode-open-foundation.md
+# Protocol: https://github.com/royalbit/asimov
+# ADR: docs/adr/020-asimov-open-foundation.md
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MODIFICATION RULES
@@ -192,7 +192,7 @@ zeroth_law:
 # VALIDATION
 # ═══════════════════════════════════════════════════════════════════════════════
 validation:
-  cli_command: "asimov-protocol validate"
+  cli_command: "asimov validate"
   checks:
     - "asimov.yaml exists"
     - "first_law.do_no_harm.* are all true"

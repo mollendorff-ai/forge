@@ -10,7 +10,7 @@ SESSION START - Autonomous Development Protocol Initialized
 IMMEDIATE ACTIONS REQUIRED:
 1. Read roadmap.yaml for current version and next milestone
 2. Read sprint.yaml for session boundaries
-3. Run: asimov-mode validate
+3. Run: asimov validate
 4. Present next milestone to user
 5. Wait for "go" to start autonomous execution
 

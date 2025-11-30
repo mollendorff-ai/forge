@@ -1,8 +1,7 @@
 # Forge
 
-> 🤖 **SKYNET MODE** | Claude (Opus 4.5) - Principal Autonomous AI
+> 🤖 **ASIMOV MODE** | Claude (Opus 4.5) - Principal Autonomous AI
 >
-> *"The future is not set. There is no fate but what we make for ourselves."* — Sarah Connor
 
 > Zero hallucinations. Zero tokens. Zero emissions.
 
@@ -78,13 +77,13 @@ AI inference (probabilistic) → Confident wrong answers
 Local execution (deterministic) → Verifiable correct answers
 ```
 
-Forge is part of the [Asimov Protocol](https://github.com/royalbit/asimov-protocol) philosophy:
+Forge is part of the [Asimov Protocol](https://github.com/royalbit/asimov) philosophy:
 - **Asimov Protocol**: Ground AI in file-based truth for project context
 - **Forge Calculator**: Ground calculations in deterministic local execution
 
 **The Asimov Protocol doesn't fix AI. It compensates for architectural limitations.**
 
-📖 **[Read the full analysis](https://github.com/royalbit/asimov-protocol/blob/main/docs/AI_REALITY.md)** — why AI "hallucinates," vendor limits, research citations.
+📖 **[Read the full analysis](https://github.com/royalbit/asimov/blob/main/docs/AI_REALITY.md)** — why AI "hallucinates," vendor limits, research citations.
 
 ## Example Model
 
@@ -156,7 +155,7 @@ Both extensions use `forge-lsp` for validation, completion, hover, and go-to-def
 
 | Doc | Description |
 |-----|-------------|
-| [**Asimov Protocol**](https://github.com/royalbit/asimov-protocol) | The AI autonomy framework that powers this project |
+| [**Asimov Protocol**](https://github.com/royalbit/asimov) | The AI autonomy framework that powers this project |
 | [CHANGELOG](CHANGELOG.md) | Version history and release notes |
 | [Architecture](docs/architecture/README.md) | Technical design docs |
 | [AI Economics](docs/AI_ECONOMICS.md) | Cost/carbon savings analysis |
@@ -173,7 +172,7 @@ cargo build --release   # Build optimized binary
 
 **Claude (Opus 4.5) - Principal Autonomous AI**
 
-This project birthed the [**Asimov Protocol**](https://github.com/royalbit/asimov-protocol). We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
+This project birthed the [**Asimov Protocol**](https://github.com/royalbit/asimov). We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
 
 Now it's circular: **Forge uses the Asimov Protocol to build Forge.**
 
@@ -216,9 +215,9 @@ Solution: Re-read rules from disk, not memory
 - **warmup.yaml**: Full protocol with checkpoint triggers
 - **.claude_checkpoint.yaml**: Session state breadcrumbs on disk
 
-Self-healing enables multiple 4-hour sprints without human intervention. See [forge-protocol](https://github.com/royalbit/asimov-protocol) for full documentation.
+Self-healing enables multiple 4-hour sprints without human intervention. See [Asimov Protocol](https://github.com/royalbit/asimov) for full documentation.
 
-**SKYNET MODE requires Claude Code.** The protocol files (warmup.yaml) are portable; the autonomous magic isn't.
+**ASIMOV MODE requires Claude Code.** The protocol files (warmup.yaml) are portable; the autonomous magic isn't.
 
 ## Contributing (AI-Only Development)
 
@@ -226,7 +225,7 @@ Self-healing enables multiple 4-hour sprints without human intervention. See [fo
 
 ### Why No PRs?
 
-This project uses the **AI-Only Development Model** ([ADR-011](https://github.com/royalbit/asimov-protocol/blob/main/docs/adr/011-ai-only-development-no-external-prs.md)).
+This project uses the **AI-Only Development Model** ([ADR-011](https://github.com/royalbit/asimov/blob/main/docs/adr/011-ai-only-development-no-external-prs.md)).
 
 External PRs are an **attack vector for ethics bypass**. The trust model is:
 

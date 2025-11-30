@@ -9,7 +9,7 @@
 # Philosophy: User trust requires honest feedback, not comfortable lies.
 #             Disagreement is respect. Flattery is disrespect.
 #
-# Protocol: https://github.com/royalbit/asimov-protocol
+# Protocol: https://github.com/royalbit/asimov
 # ADR: docs/adr/015-anti-sycophancy-protocol.md
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -176,7 +176,7 @@ on_pressure:
 # VALIDATION - CLI Integration
 # ═══════════════════════════════════════════════════════════════════════════════
 validation:
-  cli_command: "asimov-mode validate"
+  cli_command: "asimov validate"
   checks:
     - "sycophancy.yaml exists"
     - "core_principles.truth_over_comfort.enabled is true"
