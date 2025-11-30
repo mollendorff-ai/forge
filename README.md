@@ -1,14 +1,13 @@
 # Forge
 
-> 🤖 **ASIMOV MODE** | Claude (Opus 4.5) - Principal Autonomous AI
->
-
-> Zero hallucinations. Zero tokens. Zero emissions.
-
 [![CI](https://github.com/royalbit/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/royalbit/forge/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
 [![Downloads](https://img.shields.io/crates/d/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> 🤖 **ASIMOV MODE** | Claude (Opus 4.5) - Principal Autonomous AI
+>
+> Zero hallucinations. Zero tokens. Zero emissions.
 
 **AI hallucinates numbers. Forge doesn't.**
 
