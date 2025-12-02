@@ -3,24 +3,24 @@
 # Last research update: 2025-11-28
 
 metadata:
-  current_version: "4.2.0"
-  last_updated: "2025-12-01"
+  current_version: "4.2.1"
+  last_updated: "2025-12-02"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "4.2.0"
+  version: "4.2.1"
   status: released
-  date: "2025-12-01"
-  summary: "Release Automation - Cross-platform CI/CD"
+  date: "2025-12-02"
+  summary: "Critical Bug Fixes - Field Testing"
   highlights:
-    - "release.yml: Automated cross-platform builds"
-    - "Targets: Linux x86_64, macOS ARM/Intel, Windows"
-    - "UPX compression for smaller binaries"
-    - "Auto GitHub Releases with checksums"
-    - "Auto crates.io publish on tag"
+    - "COUNT function: Count rows in any column type"
+    - "Multi-file validation: forge validate file1.yaml file2.yaml"
+    - "Unreserved 'scenarios' keyword - tables named 'scenarios' work"
+    - "Multi-document YAML support (leading ---)"
+    - "Clear null handling error messages"
   stats:
-    tests: 227
+    tests: 167
     warnings: 0
     throughput: "96K rows/sec"
 
@@ -45,17 +45,18 @@ v4_1:
     total_tests: 227
 
 next:
-  - version: "4.2.1"
-    summary: "Critical Bug Fixes (Field testing)"
+  - version: "4.3.0"
+    summary: "Next planned features (TBD)"
     goal: STABILITY
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CRITICAL BUG FIXES (Found 2025-12-01 - Field testing)
+# CRITICAL BUG FIXES (Found 2025-12-01 - Field testing) - RELEASED 2025-12-02
 # ═══════════════════════════════════════════════════════════════════════════════
 
 v4_2_1:
   version: "4.2.1"
-  status: planned
+  status: released
+  date: "2025-12-02"
   priority: CRITICAL
   summary: "Bug Fixes - Real-world validation issues"
   rationale: |
@@ -64,30 +65,31 @@ v4_2_1:
   deliverables:
     - feature: "COUNT/LEN function"
       description: "Count rows in table columns (e.g., =COUNT(nls.name) for total NLs)"
-      status: todo
+      status: done
       effort: "2h"
       impact: "Currently must hardcode counts - defeats purpose of calculated models"
     - feature: "Multi-file validation"
       description: "forge validate file1.yaml file2.yaml (batch validation)"
-      status: todo
+      status: done
       effort: "1h"
       impact: "Currently errors out with 'unexpected argument'"
     - feature: "Unreserve 'scenarios' keyword"
       description: "Table named 'scenarios' triggers cryptic error"
-      status: todo
+      status: done
       effort: "1h"
       impact: "Common financial modeling term - should not be reserved"
     - feature: "Multi-document YAML support"
       description: "Files with leading '---' should parse correctly"
-      status: todo
+      status: done
       effort: "1h"
       impact: "Standard YAML practice causes parse failure"
     - feature: "Null handling in arrays"
       description: "Allow null in numeric arrays or provide clear error"
-      status: todo
+      status: done
       effort: "1h"
       impact: "[1000, null] fails with confusing 'Expected Number' error"
   estimated_hours: 6
+  actual_hours: 3
   reported_by: "Internal field testing"
 
 v4_2:

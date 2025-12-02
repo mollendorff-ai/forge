@@ -106,11 +106,16 @@ CROSS-FILE REFERENCES:
 
 NOTE: Validation checks ALL files in the chain.
   If any included file has stale values, validation will fail.
-  Run 'calculate' to update all files.")]
+  Run 'calculate' to update all files.
+
+BATCH VALIDATION:
+  forge validate file1.yaml file2.yaml file3.yaml
+  Validates multiple files in sequence, reporting all errors.")]
     /// Validate formulas without calculating
     Validate {
-        /// Path to YAML file (can include other files via 'includes' section)
-        file: PathBuf,
+        /// Path to YAML file(s) to validate
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
     },
 
     #[command(long_about = "Export v1.0.0 array model to Excel .xlsx format.
@@ -463,7 +468,7 @@ fn main() -> ForgeResult<()> {
 
         Commands::Audit { file, variable } => cli::audit(file, variable),
 
-        Commands::Validate { file } => cli::validate(file),
+        Commands::Validate { files } => cli::validate(files),
 
         Commands::Export {
             input,

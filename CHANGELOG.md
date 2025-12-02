@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.2.1] - 2025-12-02
+
+### Critical Bug Fixes - Field Testing
+
+Critical fixes discovered during financial model validation in production use.
+
+### Added
+
+- **COUNT function**: `=COUNT(table.column)` counts rows in any column type (numeric, text, date)
+- **Multi-file validation**: `forge validate file1.yaml file2.yaml file3.yaml` validates multiple files in batch
+
+### Fixed
+
+- **'scenarios' keyword**: Tables named "scenarios" no longer trigger errors - parser now distinguishes between scenario overrides and tables with array columns
+- **Multi-document YAML**: Files with leading `---` document separator now parse correctly
+- **Null handling**: Clear error messages for null values in numeric arrays with suggested fixes
+  - `[1000, null]` now shows: "null values not allowed in numeric arrays. Use 0 or remove the row if the value is missing."
+
+### Tests
+
+- Added 167 library tests (all passing)
+- Zero clippy warnings
+
+---
+
 ## [4.2.0] - 2025-12-01
 
 ### Release Automation - Cross-platform CI/CD

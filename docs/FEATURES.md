@@ -314,7 +314,7 @@ jobs:
 ## CLI Reference
 
 ```bash
-forge validate <file>           # Validate YAML model
+forge validate <files...>       # Validate YAML model(s) - supports multiple files
 forge calculate <file>          # Calculate formulas
 forge calculate <file> --dry-run  # Preview without saving
 forge audit <file> <variable>   # Show dependency chain
@@ -325,6 +325,10 @@ forge-lsp                       # Start LSP server
 forge-mcp                       # Start MCP server
 forge-server                    # Start HTTP API server
 ```
+
+**v4.2.1 Updates:**
+- Multi-file validation: `forge validate file1.yaml file2.yaml`
+- COUNT function works on any column type (not just numeric)
 
 ---
 

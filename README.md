@@ -37,6 +37,7 @@ cargo build --release
 # Core
 forge calculate model.yaml          # Evaluate formulas
 forge validate model.yaml           # Check without modifying
+forge validate a.yaml b.yaml c.yaml # Batch validate multiple files
 forge watch model.yaml              # Auto-calculate on save
 
 # Analysis
