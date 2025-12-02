@@ -42,7 +42,7 @@ Before any application:
 
 **AI Compute Programs**
 - Search: "Canada AI compute fund [current year]"
-- Why: Warmup Protocol is AI methodology innovation
+- Why: RoyalBit Asimov is AI methodology innovation
 
 ### Tier 2: Woman-Owned Business Programs
 
@@ -80,7 +80,7 @@ Typical programs:
 
 **Technological Innovation:**
 - Forge: YAML formula calculator solving $40K-$132K/year AI hallucination costs
-- Warmup Protocol: World's first autonomous AI development methodology
+- RoyalBit Asimov: World's first autonomous AI development methodology
 
 **Quantifiable Results:**
 - Velocity: 3-4x faster than traditional development
@@ -93,7 +93,7 @@ Typical programs:
 > RoyalBit Inc. has developed two Canadian technological breakthroughs:
 >
 > 1. **Forge:** Open-source YAML formula calculator solving $40K-$132K/year AI hallucination costs
-> 2. **Warmup Protocol:** World's first autonomous AI development methodology (3-4x velocity, 0% rework)
+> 2. **RoyalBit Asimov:** World's first autonomous AI development methodology (3-4x velocity, 0% rework)
 >
 > Woman-owned, Montreal-based, open source (MIT), production-proven, fully documented.
 >
