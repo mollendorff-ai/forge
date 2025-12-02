@@ -166,17 +166,6 @@ v5:
       - "Publish VSCode extension to marketplace"
       - "Docker image"
 
-v6:
-  version: "6.0.0"
-  status: exploratory
-  target: "TBD"
-  summary: "Forge Cloud (SaaS) - Low Priority"
-  features:
-    - "Web UI for YAML model editing"
-    - "Real-time collaboration (like Google Sheets)"
-    - "Version control built-in"
-    - "Enterprise SSO"
-    - "API access for automation"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MARKET INTELLIGENCE (Updated Nov 2025)
@@ -257,6 +246,7 @@ backlog:
   - "Excel compatibility matrix doc"
   - "JetBrains plugin"
   - "=FORGE() AI-assist function (local, deterministic suggestions)"
+  - "Forge Cloud (SaaS) - Web UI, collaboration, SSO"
 
 research:
   - id: "experiential-continuity"
