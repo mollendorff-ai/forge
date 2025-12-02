@@ -45,9 +45,50 @@ v4_1:
     total_tests: 227
 
 next:
-  - version: "4.3.0"
-    summary: "Advanced Excel Functions (OFFSET, LET, FILTER, SORT)"
-    goal: FEATURE_PARITY
+  - version: "4.2.1"
+    summary: "Critical Bug Fixes (Field testing)"
+    goal: STABILITY
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CRITICAL BUG FIXES (Found 2025-12-01 - Field testing)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+v4_2_1:
+  version: "4.2.1"
+  status: planned
+  priority: CRITICAL
+  summary: "Bug Fixes - Real-world validation issues"
+  rationale: |
+    Issues discovered during financial model validation.
+    These block practical use of Forge for grant applications.
+  deliverables:
+    - feature: "COUNT/LEN function"
+      description: "Count rows in table columns (e.g., =COUNT(nls.name) for total NLs)"
+      status: todo
+      effort: "2h"
+      impact: "Currently must hardcode counts - defeats purpose of calculated models"
+    - feature: "Multi-file validation"
+      description: "forge validate file1.yaml file2.yaml (batch validation)"
+      status: todo
+      effort: "1h"
+      impact: "Currently errors out with 'unexpected argument'"
+    - feature: "Unreserve 'scenarios' keyword"
+      description: "Table named 'scenarios' triggers cryptic error"
+      status: todo
+      effort: "1h"
+      impact: "Common financial modeling term - should not be reserved"
+    - feature: "Multi-document YAML support"
+      description: "Files with leading '---' should parse correctly"
+      status: todo
+      effort: "1h"
+      impact: "Standard YAML practice causes parse failure"
+    - feature: "Null handling in arrays"
+      description: "Allow null in numeric arrays or provide clear error"
+      status: todo
+      effort: "1h"
+      impact: "[1000, null] fails with confusing 'Expected Number' error"
+  estimated_hours: 6
+  reported_by: "Internal field testing"
 
 v4_2:
   version: "4.2.0"
