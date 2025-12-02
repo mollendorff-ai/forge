@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.2.0] - 2025-12-01
+
+### Release Automation - Cross-platform CI/CD
+
+Automated release workflow for cross-platform binary distribution.
+
+### Added
+
+- **release.yml**: GitHub Actions workflow for automated releases
+  - Triggers on version tags (`v*`)
+  - Cross-platform builds: Linux x86_64, macOS ARM (M1/M2/M3), macOS Intel, Windows
+  - UPX compression for Linux/Windows binaries (~60% size reduction)
+  - Automatic GitHub Release creation with checksums
+  - Auto-publish to crates.io on tag
+
+### Infrastructure
+
+- Parity with RoyalBit Asimov CI/CD pipeline
+- Binary artifacts available via GitHub Releases
+- SHA256 checksums for all release artifacts
+
+---
+
 ## [4.1.3] - 2025-11-30
 
 ### RoyalBit Asimov 7.0.7 Schema Compliance
