@@ -80,24 +80,28 @@ Typical programs:
 
 **Technological Innovation:**
 - Forge: YAML formula calculator solving $40K-$132K/year AI hallucination costs
-- RoyalBit Asimov: World's first autonomous AI development methodology
+- RoyalBit Asimov: Self-Evolving Autonomous AI governance protocol
 
-**Quantifiable Results:**
-- Velocity: 3-4x faster than traditional development
-- Quality: ZERO warnings, comprehensive test coverage
-- Rework: 0% (vs. industry standard 30-50%)
+**Quantifiable Results (Forge):**
 - Cost savings: $40K-$132K/year for enterprise users
+- Deterministic calculations: ZERO hallucinated numbers
+
+**Asimov's Role (Guardian, not enabler):**
+- Ethics guardrails (Three Laws of Robotics)
+- Bounded autonomy (4hr max sessions)
+- Anti-sycophancy (professional objectivity)
+- Green coding (sustainability metrics)
 
 ## Elevator Pitch
 
 > RoyalBit Inc. has developed two Canadian technological breakthroughs:
 >
 > 1. **Forge:** Open-source YAML formula calculator solving $40K-$132K/year AI hallucination costs
-> 2. **RoyalBit Asimov:** World's first autonomous AI development methodology (3-4x velocity, 0% rework)
+> 2. **RoyalBit Asimov:** Self-Evolving Autonomous AI governance protocol (ethics, bounded autonomy, sustainability)
 >
 > Woman-owned, Montreal-based, open source (MIT), production-proven, fully documented.
 >
-> This isn't incremental improvement. This is paradigm shift from "AI assists developer" to "AI IS developer."
+> Asimov is the guardian: ethics guardrails for autonomous AI. The velocity comes from Claude (Anthropic), not us.
 
 ## Action Protocol
 
