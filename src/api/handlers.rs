@@ -167,7 +167,7 @@ pub struct ValidateResponse {
 pub async fn validate(Json(req): Json<ValidateRequest>) -> impl IntoResponse {
     let path = PathBuf::from(&req.file_path);
 
-    match cli_validate(path) {
+    match cli_validate(vec![path]) {
         Ok(()) => Json(ApiResponse::ok(ValidateResponse {
             valid: true,
             file_path: req.file_path,

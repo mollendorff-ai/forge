@@ -425,7 +425,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .unwrap_or("");
 
             let path = Path::new(file_path).to_path_buf();
-            match validate(path) {
+            match validate(vec![path]) {
                 Ok(()) => json!({
                     "content": [{
                         "type": "text",

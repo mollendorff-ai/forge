@@ -921,6 +921,8 @@ impl ArrayCalculator {
             ("MAX", self.extract_function_arg(formula, start + 4)?)
         } else if let Some(start) = upper.find("MIN(") {
             ("MIN", self.extract_function_arg(formula, start + 4)?)
+        } else if let Some(start) = upper.find("COUNT(") {
+            ("COUNT", self.extract_function_arg(formula, start + 6)?)
         } else {
             return Err(ForgeError::Eval("Unknown aggregation function".to_string()));
         };
@@ -943,6 +945,12 @@ impl ArrayCalculator {
         })?;
 
         // Apply aggregation function
+        // COUNT works on any column type - it just counts rows
+        if func_name == "COUNT" {
+            return Ok(column.values.len() as f64);
+        }
+
+        // Other aggregations require numeric columns
         match &column.values {
             ColumnValue::Number(nums) => {
                 let result = match func_name {

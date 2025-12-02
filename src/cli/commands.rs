@@ -421,13 +421,77 @@ fn print_dependency(dep: &AuditDependency, indent: usize) {
     }
 }
 
-/// Execute the validate command
-pub fn validate(file: PathBuf) -> ForgeResult<()> {
-    println!("{}", "✅ Validating model".bold().green());
-    println!("   File: {}\n", file.display());
+/// Execute the validate command for one or more files
+pub fn validate(files: Vec<PathBuf>) -> ForgeResult<()> {
+    let file_count = files.len();
+    let is_batch = file_count > 1;
 
+    if is_batch {
+        println!(
+            "{}",
+            format!("✅ Validating {} files", file_count).bold().green()
+        );
+        println!();
+    }
+
+    let mut all_passed = true;
+    let mut failed_files: Vec<String> = Vec::new();
+
+    for file in &files {
+        if is_batch {
+            println!("{}", format!("─── {} ───", file.display()).cyan());
+        } else {
+            println!("{}", "✅ Validating model".bold().green());
+            println!("   File: {}\n", file.display());
+        }
+
+        match validate_single_file(file) {
+            Ok(()) => {
+                if is_batch {
+                    println!("{}", format!("   ✅ {} - OK", file.display()).green());
+                    println!();
+                }
+            }
+            Err(e) => {
+                if !is_batch {
+                    // Single file mode - propagate original error directly
+                    return Err(e);
+                }
+                all_passed = false;
+                failed_files.push(format!("{}: {}", file.display(), e));
+                println!("{}", format!("   ❌ {} - FAILED", file.display()).red());
+                println!("      {}", e.to_string().red());
+                println!();
+            }
+        }
+    }
+
+    // Summary for batch validation
+    if is_batch {
+        println!("{}", "─".repeat(50));
+        let passed = file_count - failed_files.len();
+        println!(
+            "   {} passed, {} failed out of {} files",
+            passed.to_string().green(),
+            failed_files.len().to_string().red(),
+            file_count
+        );
+    }
+
+    if all_passed {
+        Ok(())
+    } else {
+        Err(ForgeError::Validation(format!(
+            "{} file(s) failed validation",
+            failed_files.len()
+        )))
+    }
+}
+
+/// Validate a single file
+fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
     // Parse YAML file
-    let model = parser::parse_model(&file)?;
+    let model = parser::parse_model(file)?;
 
     if model.tables.is_empty() && model.scalars.is_empty() {
         println!("{}", "⚠️  No tables or scalars found in YAML file".yellow());

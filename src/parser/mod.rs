@@ -29,7 +29,26 @@ use std::path::Path;
 /// ```
 pub fn parse_model(path: &std::path::Path) -> ForgeResult<ParsedModel> {
     let content = std::fs::read_to_string(path)?;
-    let yaml: Value = serde_yaml::from_str(&content)?;
+
+    // Handle multi-document YAML files (leading ---)
+    // Forge supports single-document files, so we take the first document
+    // Strip leading document marker if present
+    let content = content.trim_start();
+    let content = if let Some(remaining) = content.strip_prefix("---") {
+        // Find the end of the first document (next --- or end of file)
+        let remaining = remaining.trim_start();
+        if let Some(next_doc) = remaining.find("\n---") {
+            // Multiple documents - take only the first one
+            &remaining[..next_doc]
+        } else {
+            // Single document with leading ---
+            remaining
+        }
+    } else {
+        content
+    };
+
+    let yaml: Value = serde_yaml::from_str(content)?;
 
     let mut model = parse_v1_model(&yaml)?;
 
@@ -128,12 +147,30 @@ fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                 continue;
             }
 
-            // Parse scenarios section
+            // Parse scenarios section - but only if it looks like scenario overrides
+            // (mapping of scenario_name -> {variable: value}), not a table (mapping of column_name -> array)
             if key_str == "scenarios" {
                 if let Value::Mapping(scenarios_map) = value {
-                    parse_scenarios(scenarios_map, &mut model)?;
+                    // Check if this is actually a scenarios section or a table named "scenarios"
+                    // Scenarios section has nested mappings with numeric values
+                    // Tables have arrays (sequences) as column values
+                    let is_scenarios_section = scenarios_map
+                        .iter()
+                        .all(|(_, v)| matches!(v, Value::Mapping(_)))
+                        && scenarios_map.iter().any(|(_, v)| {
+                            if let Value::Mapping(m) = v {
+                                m.iter().any(|(_, vv)| matches!(vv, Value::Number(_)))
+                            } else {
+                                false
+                            }
+                        });
+
+                    if is_scenarios_section {
+                        parse_scenarios(scenarios_map, &mut model)?;
+                        continue;
+                    }
+                    // Otherwise fall through to parse as table
                 }
-                continue;
             }
 
             // Check if this is a table (mapping with arrays) or scalar (mapping with value/formula)
@@ -472,6 +509,14 @@ fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnValue> 
                             )));
                         }
                     }
+                    Value::Null => {
+                        // Provide clear error for null values in numeric arrays
+                        return Err(ForgeError::Parse(format!(
+                            "Column '{}' row {}: null values not allowed in numeric arrays. \
+                            Use 0 or remove the row if the value is missing.",
+                            col_name, i
+                        )));
+                    }
                     _ => {
                         return Err(ForgeError::Parse(format!(
                             "Column '{}' row {}: Expected Number, found {}",
@@ -564,6 +609,9 @@ fn detect_array_type(val: &Value) -> ForgeResult<&'static str> {
             }
         }
         Value::Bool(_) => Ok("Boolean"),
+        Value::Null => Err(ForgeError::Parse(
+            "Array cannot start with null. First element must be a valid value to determine column type.".to_string()
+        )),
         _ => Err(ForgeError::Parse(format!(
             "Unsupported array element type: {}",
             type_name(val)
@@ -934,6 +982,105 @@ scenarios:
 
         let pessimistic = result.scenarios.get("pessimistic").unwrap();
         assert_eq!(pessimistic.overrides.get("growth_rate"), Some(&0.02));
+    }
+
+    #[test]
+    fn test_multi_document_yaml_with_leading_separator() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        // YAML files with leading --- should parse correctly
+        let yaml_content = r#"---
+_forge_version: "1.0.0"
+
+sales:
+  month: ["Jan", "Feb", "Mar"]
+  revenue: [100, 200, 300]
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let result = parse_model(temp_file.path()).unwrap();
+
+        assert_eq!(result.tables.len(), 1);
+        let sales = result.tables.get("sales").unwrap();
+        assert_eq!(sales.row_count(), 3);
+    }
+
+    #[test]
+    fn test_null_in_numeric_array_error() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        // [1000, null] should fail with a clear error message
+        let yaml_content = r#"
+data:
+  values: [1000, null, 2000]
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let result = parse_model(temp_file.path());
+        assert!(result.is_err());
+
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("null values not allowed"));
+        assert!(err.contains("Use 0 or remove the row"));
+    }
+
+    #[test]
+    fn test_null_first_element_error() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        // Array starting with null should fail with clear error
+        let yaml_content = r#"
+data:
+  values: [null, 1000, 2000]
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let result = parse_model(temp_file.path());
+        assert!(result.is_err());
+
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("cannot start with null"));
+    }
+
+    #[test]
+    fn test_table_named_scenarios() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        // A table named "scenarios" should be parsed as a table, not as scenario overrides
+        let yaml_content = r#"
+_forge_version: "1.0.0"
+
+scenarios:
+  name: ["Base", "Optimistic", "Pessimistic"]
+  probability: [0.3, 0.5, 0.2]
+  revenue: [100000, 150000, 80000]
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let result = parse_model(temp_file.path()).unwrap();
+
+        // Should be parsed as a table, not scenario overrides
+        assert_eq!(result.scenarios.len(), 0);
+        assert_eq!(result.tables.len(), 1);
+
+        let scenarios_table = result.tables.get("scenarios").unwrap();
+        assert_eq!(scenarios_table.columns.len(), 3);
+        assert!(scenarios_table.columns.contains_key("name"));
+        assert!(scenarios_table.columns.contains_key("probability"));
+        assert!(scenarios_table.columns.contains_key("revenue"));
+        assert_eq!(scenarios_table.row_count(), 3);
     }
 
     // =========================================================================
