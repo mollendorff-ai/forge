@@ -144,27 +144,33 @@ v5:
   version: "5.0.0"
   status: planned
   target: "2026-Q1"
-  summary: "Python Bindings & Distribution"
+  summary: "Excel Parity & MCP 2.0"
   rationale: |
-    Quants and data scientists want Python integration.
-    Opens Jupyter notebook use case - huge market.
+    Excel compatibility is the killer feature.
+    MCP ecosystem is growing - stay current.
   features:
-    python:
-      - "PyO3 bindings for forge-core"
-      - "pip install royalbit-forge"
-      - "Jupyter notebook integration"
-      - "pandas DataFrame interop"
+    excel_functions:
+      - "INDIRECT (string-based cell refs)"
+      - "LAMBDA (custom functions)"
+      - "CHOOSE (scenario modeling)"
+      - "SWITCH (cleaner conditionals)"
+      - "Full Excel compatibility matrix"
+    mcp:
+      - "MCP v2 compliance (parallel tools)"
+      - "Enhanced tool descriptions"
+      - "Streaming responses"
     distribution:
       - "Homebrew formula"
       - "Scoop manifest (Windows)"
       - "Publish Zed extension to zed-industries/extensions"
       - "Publish VSCode extension to marketplace"
+      - "Docker image"
 
 v6:
   version: "6.0.0"
   status: exploratory
-  target: "2026-Q2"
-  summary: "Forge Cloud (SaaS)"
+  target: "TBD"
+  summary: "Forge Cloud (SaaS) - Low Priority"
   features:
     - "Web UI for YAML model editing"
     - "Real-time collaboration (like Google Sheets)"
@@ -247,15 +253,9 @@ market:
 
 backlog:
   - "OpenAPI spec + Swagger UI for API server"
-  - "INDIRECT function (string-based cell refs)"
-  - "LAMBDA function (custom functions)"
   - "Forge vs Copilot benchmark suite (marketing)"
-  - "MCP v2 compliance (parallel tools, payments)"
   - "Excel compatibility matrix doc"
-  - "Web UI dashboard"
-  - "Docker image"
   - "JetBrains plugin"
-  - "Real-time collaboration"
   - "=FORGE() AI-assist function (local, deterministic suggestions)"
 
 research:
