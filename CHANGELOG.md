@@ -294,9 +294,9 @@ The protocol that made this project possible now has its own home.
 
 ### Changed
 
-- **Protocol extracted** to [royalbit/forge-protocol](https://github.com/royalbit/asimov)
+- **Protocol extracted** to [royalbit/asimov](https://github.com/royalbit/asimov)
 - Updated crates.io metadata to reference the RoyalBit Asimov
-- Added "forge-protocol" keyword, replaced "financial"
+- Added "asimov" keyword, replaced "financial"
 - Told the origin story in warmup.yaml and README
 
 ### The Circular Story
