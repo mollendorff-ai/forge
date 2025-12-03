@@ -1,0 +1,20 @@
+{
+  "protocol": "warmup",
+  "version": "8.13.0",
+  "description": "RoyalBit Asimov - Session warmup entry point",
+  "on_start": [
+    "load_protocols",
+    "validate",
+    "read_roadmap",
+    "present_milestone"
+  ],
+  "load": [
+    "asimov.json",
+    "freshness.json",
+    "sycophancy.json",
+    "green.json",
+    "sprint.json",
+    "migrations.json",
+    "exhaustive.json"
+  ]
+}
