@@ -119,20 +119,43 @@ v4_2:
 
 v4_3:
   version: "4.3.0"
-  status: planned
+  status: in_progress
   priority: TOP
   summary: "File Write-Back + Bug Fixes"
   rationale: |
     Core functionality gap. forge calculate computes correctly but
     results stay in memory. Users expect values written back to YAML.
     Without this, forge is validate-only - not a complete spreadsheet replacement.
+  implementation_plan:
+    phase_1:
+      name: "Fix Nested Scalar Reference Resolution"
+      file: "src/core/array_calculator.rs"
+      problem: "Cross-section refs like inputs.x fail when evaluated from forecast section"
+      fix: "Check fully-qualified names before applying parent-section scoping"
+      effort: "2h"
+    phase_2:
+      name: "Fix IF Function with Scalar References"
+      file: "src/core/array_calculator.rs"
+      problem: "Row-wise resolver only checks table columns, not scalars"
+      fix: "Inject scalar variables into row-wise resolver closure"
+      effort: "1h"
+    phase_3:
+      name: "Fix Schema Validation for Scalars with Metadata"
+      file: "schema/forge-v1.0.schema.json"
+      problem: "oneOf too strict when scalars have notes/unit fields"
+      fix: "Adjust Scalar definition to allow optional metadata"
+      effort: "1h"
+    phase_4:
+      name: "Verify Write-Back End-to-End"
+      test_file: "test-data/quota_forecast.yaml"
+      effort: "30m"
   deliverables:
     - feature: "File Write-Back"
       description: "forge calculate writes computed values back to value: arrays"
       effort: "4h"
       impact: "CRITICAL - completes the calculate workflow"
-      status: in_progress
-      notes: "Initial implementation done, needs testing with nested scalars"
+      status: done
+      notes: "Implementation complete in src/writer/mod.rs"
     - feature: "Backup before write"
       description: "Create .yaml.bak before modifying original file"
       effort: "1h"
@@ -146,17 +169,20 @@ v4_3:
     - bug: "Nested scalar reference resolution"
       description: "Formulas like '=inputs.current_usage_pct / inputs.hours_since_reset' fail with 'Value' error"
       test_file: "test-data/quota_forecast.yaml"
-      status: pending
+      status: in_progress
       effort: "2h"
+      root_cause: "resolve_scalar_references() applies parent-section scoping before checking fully-qualified names"
     - bug: "IF function with scalar references"
       description: "=IF(remaining_quota > 0, 1, 0) fails with 'Reference' error when remaining_quota is a scalar"
       status: pending
       effort: "1h"
+      root_cause: "Row-wise resolver doesn't inject scalar variables"
     - bug: "Schema validation rejects valid scalars with 'notes' field"
       description: "Schema oneOf doesn't match scalars with notes/unit metadata"
       status: pending
       effort: "1h"
-  estimated_hours: 10
+      root_cause: "Scalar definition additionalProperties or required fields too strict"
+  estimated_hours: 4.5
 
 v4_4:
   version: "4.4.0"

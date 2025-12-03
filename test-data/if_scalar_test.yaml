@@ -1,0 +1,25 @@
+# Test case: IF function with scalar references in row-wise table formulas
+# Bug #2: =IF(remaining_quota > 0, 1, 0) fails with 'Reference' error when remaining_quota is a scalar
+
+_forge_version: "1.0.0"
+
+# Scalar thresholds used in table formulas
+thresholds:
+  min_value:
+    value: 50
+  multiplier:
+    value: 2
+
+# Table with formulas that reference scalars in IF conditions
+# Note: scalar references must be fully qualified (thresholds.min_value)
+data:
+  label: ["Item A", "Item B", "Item C", "Item D", "Item E"]
+  amount: [30, 75, 120, 45, 90]
+  # Should return 1 if amount >= min_value (50), else 0
+  above_min: "=IF(amount >= thresholds.min_value, 1, 0)"
+  # Should return amount * multiplier if amount > min_value
+  adjusted: "=IF(amount > thresholds.min_value, amount * thresholds.multiplier, amount)"
+
+# Expected results:
+# above_min: [0, 1, 1, 0, 1]  (30<50=0, 75>=50=1, 120>=50=1, 45<50=0, 90>=50=1)
+# adjusted: [30, 150, 240, 45, 180]  (30<=50 so 30, 75>50 so 150, etc.)

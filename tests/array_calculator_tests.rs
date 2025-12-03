@@ -253,3 +253,181 @@ fn test_mixed_column_types() {
 
     println!("✓ Mixed column types verified");
 }
+
+// ============================================================================
+// v4.3.0 Bug Fix Tests
+// ============================================================================
+// Tests verifying critical bug fixes for nested scalar references and IF
+// functions with scalar references in table formulas
+
+#[test]
+fn test_nested_scalar_references() {
+    // Bug #1: Nested scalar reference resolution
+    // scalar formulas referencing other scalars using qualified names (section.scalar)
+    let path = Path::new("test-data/quota_forecast.yaml");
+    let model = parse_model(path).expect("Failed to parse quota_forecast.yaml");
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("Nested scalar references should resolve");
+
+    // Verify the burn_rate scalar was calculated correctly
+    // burn_rate = current_usage_pct / hours_since_reset = 26 / 43 ≈ 0.6047
+    let burn_rate = result.scalars.get("forecast.burn_rate").unwrap();
+    assert!(
+        (burn_rate.value.unwrap() - 0.6047).abs() < 0.01,
+        "Expected ~0.6047, got {}",
+        burn_rate.value.unwrap()
+    );
+
+    // Verify projected_total (nested reference chain)
+    // projected_add = burn_rate * hours_until_reset = 0.6047 * 125 ≈ 75.58
+    // projected_total = current_usage_pct + projected_add = 26 + 75.58 ≈ 101.58
+    let projected_total = result.scalars.get("forecast.projected_total").unwrap();
+    assert!(
+        (projected_total.value.unwrap() - 101.58).abs() < 0.1,
+        "Expected ~101.58, got {}",
+        projected_total.value.unwrap()
+    );
+
+    println!("✓ Nested scalar references test passed");
+}
+
+#[test]
+fn test_if_with_scalar_refs_in_table() {
+    // Bug #2: IF function with scalar references in row-wise table formulas
+    // This tests the xlformula_engine workaround for IF conditions
+    let path = Path::new("test-data/if_scalar_test.yaml");
+    let model = parse_model(path).expect("Failed to parse if_scalar_test.yaml");
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("IF with scalar refs should work");
+
+    // Verify the table formula computed correctly
+    // Table is "data", column is "above_min"
+    let table = result.tables.get("data").unwrap();
+    let above_min = table.columns.get("above_min").unwrap();
+
+    match &above_min.values {
+        ColumnValue::Number(nums) => {
+            // amounts are [30, 75, 120, 45, 90], threshold (min_value) is 50
+            // above_min = IF(amount >= thresholds.min_value, 1, 0)
+            assert_eq!(nums.len(), 5);
+            assert_eq!(nums[0], 0.0); // 30 < 50 -> 0
+            assert_eq!(nums[1], 1.0); // 75 >= 50 -> 1
+            assert_eq!(nums[2], 1.0); // 120 >= 50 -> 1
+            assert_eq!(nums[3], 0.0); // 45 < 50 -> 0
+            assert_eq!(nums[4], 1.0); // 90 >= 50 -> 1
+        }
+        _ => panic!("Expected Number array"),
+    }
+
+    // Also test the adjusted column (IF with multiplication using scalars)
+    let adjusted = table.columns.get("adjusted").unwrap();
+    match &adjusted.values {
+        ColumnValue::Number(nums) => {
+            // adjusted = IF(amount > min_value, amount * multiplier, amount)
+            // multiplier = 2, min_value = 50
+            assert_eq!(nums.len(), 5);
+            assert_eq!(nums[0], 30.0); // 30 <= 50 -> 30
+            assert_eq!(nums[1], 150.0); // 75 > 50 -> 75 * 2 = 150
+            assert_eq!(nums[2], 240.0); // 120 > 50 -> 120 * 2 = 240
+            assert_eq!(nums[3], 45.0); // 45 <= 50 -> 45
+            assert_eq!(nums[4], 180.0); // 90 > 50 -> 90 * 2 = 180
+        }
+        _ => panic!("Expected Number array for adjusted"),
+    }
+
+    println!("✓ IF with scalar refs in table test passed");
+}
+
+#[test]
+fn test_if_comparison_operators_in_table() {
+    // Tests IF function with comparison operators (Bug #2 xlformula workaround)
+    let path = Path::new("test-data/if_compare_test.yaml");
+    let model = parse_model(path).expect("Failed to parse if_compare_test.yaml");
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("IF with comparison should work");
+
+    let table = result.tables.get("mytable").unwrap();
+    let test1 = table.columns.get("test1").unwrap();
+
+    match &test1.values {
+        ColumnValue::Number(nums) => {
+            // revenue is [100, 200, 300], test1 = IF(revenue > 150, 10, 20)
+            assert_eq!(nums.len(), 3);
+            assert_eq!(nums[0], 20.0); // 100 <= 150 -> 20
+            assert_eq!(nums[1], 10.0); // 200 > 150 -> 10
+            assert_eq!(nums[2], 10.0); // 300 > 150 -> 10
+        }
+        _ => panic!("Expected Number array"),
+    }
+
+    println!("✓ IF comparison operators test passed");
+}
+
+#[test]
+fn test_if_with_multiplication_in_branches() {
+    // Tests IF function with operators in then/else expressions
+    let path = Path::new("test-data/if_mult3_test.yaml");
+    let model = parse_model(path).expect("Failed to parse if_mult3_test.yaml");
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("IF with multiplication should work");
+
+    let table = result.tables.get("mytable").unwrap();
+    let test1 = table.columns.get("test1").unwrap();
+
+    match &test1.values {
+        ColumnValue::Number(nums) => {
+            // revenue is [100, 200, 300]
+            // test1 = IF((revenue > 150), revenue * 2, 20)
+            assert_eq!(nums.len(), 3);
+            assert_eq!(nums[0], 20.0); // 100 <= 150 -> 20
+            assert_eq!(nums[1], 400.0); // 200 > 150 -> 200 * 2 = 400
+            assert_eq!(nums[2], 600.0); // 300 > 150 -> 300 * 2 = 600
+        }
+        _ => panic!("Expected Number array"),
+    }
+
+    println!("✓ IF with multiplication in branches test passed");
+}
+
+#[test]
+fn test_scalar_with_metadata() {
+    // Bug #3: Schema validation for scalars with metadata (value/notes/unit)
+    let path = Path::new("test-data/scalar_metadata_test.yaml");
+    let model = parse_model(path).expect("Failed to parse scalar_metadata_test.yaml");
+
+    // Verify scalars were parsed correctly with metadata
+    let tax_rate = model.scalars.get("config.tax_rate").unwrap();
+    assert!(
+        (tax_rate.value.unwrap() - 0.25).abs() < 0.0001,
+        "Expected 0.25 for tax_rate"
+    );
+
+    let discount = model.scalars.get("config.discount_rate").unwrap();
+    assert!(
+        (discount.value.unwrap() - 0.10).abs() < 0.0001,
+        "Expected 0.10 for discount_rate"
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("Scalar with metadata should work");
+
+    // Verify scalars are still present after calculation
+    assert!(result.scalars.contains_key("config.tax_rate"));
+    assert!(result.scalars.contains_key("config.discount_rate"));
+
+    println!("✓ Scalar with metadata test passed");
+}

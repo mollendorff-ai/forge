@@ -1,0 +1,11 @@
+_forge_version: "1.0.0"
+
+config:
+  tax_rate:
+    value: 0.25
+    notes: "Current tax rate"
+    unit: "%"
+  discount_rate:
+    value: 0.10
+    notes: "Annual discount rate for NPV calculations"
+    source: "Finance team estimate"
