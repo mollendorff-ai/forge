@@ -1,0 +1,8 @@
+{
+  "local_first": true,
+  "avoid": [
+    "unnecessary API calls",
+    "cloud when local works",
+    "external services for validation"
+  ]
+}

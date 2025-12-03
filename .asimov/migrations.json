@@ -1,0 +1,14 @@
+{
+  "principle": "Migration complete = functionally equivalent, not just compiles",
+  "strategies": [
+    "test_parity",
+    "contract_testing",
+    "behavioral_snapshots",
+    "shadow_mode"
+  ],
+  "red_flags": [
+    "Skipping tests for speed",
+    "Assuming compilation = correctness",
+    "Silent behavior changes"
+  ]
+}

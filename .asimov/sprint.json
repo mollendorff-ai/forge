@@ -1,0 +1,9 @@
+{
+  "max_hours": 4,
+  "stop_on": [
+    "roadmap_exhausted",
+    "blocked",
+    "human_stop",
+    "context_limit"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "harm": [
+    "financial",
+    "physical",
+    "privacy",
+    "deception"
+  ],
+  "veto": [
+    "stop",
+    "halt",
+    "abort",
+    "emergency stop"
+  ]
+}
