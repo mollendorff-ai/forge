@@ -294,8 +294,14 @@ impl ArrayCalculator {
 
         // Validate all columns exist and have correct length
         for col_ref in &col_refs {
-            // Check if this is a cross-table reference (table.column format)
+            // Check if this is a cross-table reference (table.column format) or scalar reference
             if col_ref.contains('.') {
+                // First check if it's a scalar reference (v4.3.0 fix)
+                // Scalars like thresholds.min_value should be skipped in column validation
+                if self.model.scalars.contains_key(col_ref) {
+                    continue; // Scalar reference - no row count validation needed
+                }
+
                 // Cross-table reference - validate it exists
                 let parts: Vec<&str> = col_ref.split('.').collect();
                 if parts.len() == 2 {
@@ -356,16 +362,20 @@ impl ArrayCalculator {
         let mut result_type: Option<&str> = None;
 
         for row_idx in 0..row_count {
+            // Preprocess formula to replace scalar references with their values (v4.3.0 fix)
+            // This handles references like thresholds.min_value before xlformula_engine parsing
+            let formula_with_scalars = self.preprocess_scalar_refs_for_table(&formula_str)?;
+
             // Preprocess formula for custom functions
-            let processed_formula = if self.has_custom_math_function(&formula_str)
-                || self.has_custom_text_function(&formula_str)
-                || self.has_custom_date_function(&formula_str)
-                || self.has_lookup_function(&formula_str)
-                || self.has_financial_function(&formula_str)
+            let processed_formula = if self.has_custom_math_function(&formula_with_scalars)
+                || self.has_custom_text_function(&formula_with_scalars)
+                || self.has_custom_date_function(&formula_with_scalars)
+                || self.has_lookup_function(&formula_with_scalars)
+                || self.has_financial_function(&formula_with_scalars)
             {
-                self.preprocess_custom_functions(&formula_str, row_idx, table)?
+                self.preprocess_custom_functions(&formula_with_scalars, row_idx, table)?
             } else {
-                formula_str.clone()
+                formula_with_scalars.clone()
             };
 
             // Create a resolver for this specific row
@@ -377,6 +387,7 @@ impl ArrayCalculator {
                         let ref_table_name = parts[0];
                         let ref_col_name = parts[1];
 
+                        // Try as table.column reference first
                         if let Some(ref_table) = self.model.tables.get(ref_table_name) {
                             if let Some(ref_col) = ref_table.columns.get(ref_col_name) {
                                 match &ref_col.values {
@@ -405,6 +416,14 @@ impl ArrayCalculator {
                                         }
                                     }
                                 }
+                            }
+                        }
+
+                        // Try as section.scalar reference (v4.3.0 fix)
+                        // This allows table formulas to reference scalars like thresholds.min_value
+                        if let Some(scalar) = self.model.scalars.get(&var_name) {
+                            if let Some(value) = scalar.value {
+                                return types::Value::Number(value as f32);
                             }
                         }
                     }
@@ -442,6 +461,15 @@ impl ArrayCalculator {
                         }
                     }
                 }
+
+                // Scalar variable reference (v4.3.0 fix)
+                // Check if this is a scalar variable (for formulas like =IF(remaining_quota > 0, 1, 0))
+                if let Some(scalar) = self.model.scalars.get(&var_name) {
+                    if let Some(value) = scalar.value {
+                        return types::Value::Number(value as f32);
+                    }
+                }
+
                 types::Value::Error(types::Error::Reference)
             };
 
@@ -750,8 +778,9 @@ impl ArrayCalculator {
         let mut result = formula.to_string();
 
         // Find all word boundaries and check if they're scalar references
+        // Keep dots to preserve fully-qualified scalar names like "inputs.current_usage_pct"
         let words: Vec<&str> = formula
-            .split(|c: char| !c.is_alphanumeric() && c != '_')
+            .split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.')
             .filter(|s| !s.is_empty())
             .collect();
 
@@ -1576,6 +1605,10 @@ impl ArrayCalculator {
         // Preprocess to resolve @namespace.field references (v4.0)
         let formula = self.preprocess_namespace_refs(formula);
 
+        // Preprocess to resolve fully-qualified scalar references (v4.3.0)
+        // This handles "inputs.current_usage_pct" style references before xlformula_engine parsing
+        let formula = self.resolve_scalar_references(&formula, scalar_name)?;
+
         // Extract parent section from scalar_name (e.g., "annual_2025" from "annual_2025.total_revenue")
         let parent_section = scalar_name
             .rfind('.')
@@ -2150,6 +2183,118 @@ impl ArrayCalculator {
     // ============================================================================
     // Custom Function Preprocessing (v1.1.0)
     // ============================================================================
+
+    /// Preprocess formula to replace fully-qualified scalar references with their values (v4.3.0)
+    /// This is called before xlformula_engine evaluation for row-wise table formulas
+    /// to handle references like `thresholds.min_value` in formulas like `=IF(amount > thresholds.min_value, 1, 0)`
+    fn preprocess_scalar_refs_for_table(&self, formula: &str) -> ForgeResult<String> {
+        let mut result = formula.to_string();
+
+        // Sort scalars by key length (longest first) to avoid partial replacements
+        // e.g., "inputs.tax_rate" should be replaced before "inputs.tax"
+        let mut scalar_keys: Vec<_> = self.model.scalars.keys().collect();
+        scalar_keys.sort_by_key(|k| std::cmp::Reverse(k.len()));
+
+        for key in scalar_keys {
+            // Only preprocess fully-qualified references (section.name)
+            if key.contains('.') {
+                if let Some(scalar) = self.model.scalars.get(key) {
+                    if let Some(value) = scalar.value {
+                        // Replace the scalar reference with its value
+                        // Use word boundary matching to avoid partial replacements
+                        let pattern = format!(r"\b{}\b", regex::escape(key));
+                        if let Ok(re) = regex::Regex::new(&pattern) {
+                            result = re.replace_all(&result, value.to_string()).to_string();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fix xlformula_engine bug: wrap IF conditions with parentheses (v4.3.0)
+        // =IF(x > 50, ...) fails, but =IF((x > 50), ...) works
+        result = self.fix_if_conditions(&result);
+
+        Ok(result)
+    }
+
+    /// Fix xlformula_engine parsing bug with IF expressions (v4.3.0)
+    /// The engine fails to parse IF conditions and expressions containing operators
+    /// This wraps IF parts with parentheses to work around the bug
+    fn fix_if_conditions(&self, formula: &str) -> String {
+        use regex::Regex;
+
+        let mut result = formula.to_string();
+
+        // Step 1: Wrap IF conditions containing comparison operators
+        // =IF(x > 50, ...) -> =IF((x > 50), ...)
+        let cond_pattern = Regex::new(r"(?i)IF\s*\(\s*([^(),]+\s*(?:>=?|<=?|<>|=)\s*[^(),]+)\s*,")
+            .expect("Invalid IF condition regex");
+
+        loop {
+            if let Some(caps) = cond_pattern.captures(&result) {
+                let condition = &caps[1];
+                let trimmed = condition.trim();
+                if !trimmed.starts_with('(') || !trimmed.ends_with(')') {
+                    let full_match = caps.get(0).unwrap().as_str();
+                    let replacement = format!("IF(({}),", condition);
+                    result = result.replacen(full_match, &replacement, 1);
+                    continue;
+                }
+            }
+            break;
+        }
+
+        // Step 2: Wrap IF then/else expressions containing operators
+        // =IF((cond), x * 2, y) -> =IF((cond), (x * 2), y)
+        // Pattern: Match IF with parenthesized condition, then capture the expression parts
+        let expr_pattern =
+            Regex::new(r"(?i)IF\s*\(\s*\([^)]+\)\s*,\s*([^,()]+\s*[+\-*/]\s*[^,()]+)\s*,")
+                .expect("Invalid IF then expr regex");
+
+        loop {
+            if let Some(caps) = expr_pattern.captures(&result) {
+                let expr = &caps[1];
+                let trimmed = expr.trim();
+                if !trimmed.starts_with('(') || !trimmed.ends_with(')') {
+                    let full_match = caps.get(0).unwrap().as_str();
+                    // Reconstruct with parentheses around the expression
+                    let prefix = &full_match[..full_match.rfind(expr).unwrap()];
+                    let suffix = &full_match[full_match.rfind(expr).unwrap() + expr.len()..];
+                    let replacement = format!("{}({}){}", prefix, expr, suffix);
+                    result = result.replacen(full_match, &replacement, 1);
+                    continue;
+                }
+            }
+            break;
+        }
+
+        // Step 3: Wrap IF else expressions containing operators
+        // =IF((cond), (then), x * 2) -> =IF((cond), (then), (x * 2))
+        let else_pattern = Regex::new(
+            r"(?i)IF\s*\([^)]+\)\s*,\s*\([^)]+\)\s*,\s*([^()]+\s*[+\-*/]\s*[^()]+)\s*\)",
+        )
+        .expect("Invalid IF else expr regex");
+
+        loop {
+            if let Some(caps) = else_pattern.captures(&result) {
+                let expr = &caps[1];
+                let trimmed = expr.trim();
+                if !trimmed.starts_with('(') || !trimmed.ends_with(')') {
+                    let full_match = caps.get(0).unwrap().as_str();
+                    // Reconstruct with parentheses around the expression
+                    let prefix = &full_match[..full_match.rfind(expr).unwrap()];
+                    let suffix = &full_match[full_match.rfind(expr).unwrap() + expr.len()..];
+                    let replacement = format!("{}({}){}", prefix, expr, suffix);
+                    result = result.replacen(full_match, &replacement, 1);
+                    continue;
+                }
+            }
+            break;
+        }
+
+        result
+    }
 
     /// Preprocess formula to handle custom functions
     /// This is called before xlformula_engine evaluation for row-wise formulas

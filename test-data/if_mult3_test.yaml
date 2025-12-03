@@ -1,0 +1,6 @@
+_forge_version: "1.0.0"
+
+mytable:
+  month: ["Jan", "Feb", "Mar"]
+  revenue: [100, 200, 300]
+  test1: "=IF((revenue > 150), revenue * 2, 20)"
