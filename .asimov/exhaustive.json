@@ -1,0 +1,18 @@
+{
+  "no_sampling": true,
+  "track_progress": true,
+  "triggers": [
+    "all",
+    "every",
+    "each",
+    "entire",
+    "complete",
+    "don't sample",
+    "actually read"
+  ],
+  "escape": [
+    "sample a few",
+    "spot check",
+    "quick scan"
+  ]
+}
