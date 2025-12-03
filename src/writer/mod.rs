@@ -1,5 +1,5 @@
 use crate::error::ForgeResult;
-use crate::types::Variable;
+use crate::types::{ColumnValue, ParsedModel, Variable};
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::fs;
@@ -14,6 +14,60 @@ pub fn update_yaml_file(path: &Path, calculated_values: &HashMap<String, f64>) -
     // Update values
     for (var_path, calculated_value) in calculated_values {
         update_value_in_yaml(&mut yaml, var_path, *calculated_value);
+    }
+
+    // Write back to file
+    let updated_content = serde_yaml::to_string(&yaml)?;
+    fs::write(path, updated_content)?;
+
+    Ok(())
+}
+
+/// Write calculated results back to YAML file (v4.3.0)
+/// Creates a backup (.bak) before writing
+pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResult<()> {
+    // Create backup
+    let backup_path = path.with_extension("yaml.bak");
+    fs::copy(path, &backup_path)?;
+
+    // Read original YAML to preserve structure/comments
+    let content = fs::read_to_string(path)?;
+    let mut yaml: Value = serde_yaml::from_str(&content)?;
+
+    // Update table value arrays
+    if let Value::Mapping(ref mut root) = yaml {
+        for (table_name, table) in &result.tables {
+            if let Some(Value::Mapping(table_map)) = root.get_mut(Value::String(table_name.clone()))
+            {
+                // Look for "value" column and update it
+                if let Some(col) = table.columns.get("value") {
+                    if let ColumnValue::Number(values) = &col.values {
+                        let yaml_values: Vec<Value> = values
+                            .iter()
+                            .map(|v| {
+                                // Format nicely: remove unnecessary decimal places
+                                if v.fract() == 0.0 && v.abs() < 1e10 {
+                                    Value::Number(serde_yaml::Number::from(*v as i64))
+                                } else {
+                                    Value::Number(serde_yaml::Number::from(*v))
+                                }
+                            })
+                            .collect();
+                        table_map.insert(
+                            Value::String("value".to_string()),
+                            Value::Sequence(yaml_values),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Update scalar values
+        for (name, var) in &result.scalars {
+            if let Some(value) = var.value {
+                update_value_in_yaml(&mut yaml, name, value);
+            }
+        }
     }
 
     // Write back to file

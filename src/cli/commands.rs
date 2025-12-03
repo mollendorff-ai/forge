@@ -2,6 +2,7 @@ use crate::core::{ArrayCalculator, UnitValidator};
 use crate::error::{ForgeError, ForgeResult};
 use crate::excel::{ExcelExporter, ExcelImporter};
 use crate::parser;
+use crate::writer;
 use colored::Colorize;
 use notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
@@ -122,14 +123,20 @@ pub fn calculate(
     }
     println!();
 
-    // TODO: Implement v1.0.0 writer
+    // Write results back to file (v4.3.0)
     if dry_run {
         println!("{}", "📋 Dry run complete - no changes written".yellow());
     } else {
-        println!("{}", "⚠️  File writing not yet implemented".yellow());
+        writer::write_calculated_results(&file, &result)?;
         println!(
             "{}",
-            "   Results calculated successfully but not written back".yellow()
+            format!("💾 Results written to {}", file.display())
+                .bold()
+                .green()
+        );
+        println!(
+            "{}",
+            format!("   Backup saved to {}.bak", file.display()).dimmed()
         );
     }
 

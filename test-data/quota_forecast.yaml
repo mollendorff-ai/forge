@@ -1,0 +1,33 @@
+# Claude Max Quota Forecast
+# Test case: Nested scalar references with calculations
+# This file tests: scalar groups, nested references, formula evaluation
+
+_forge_version: "1.0.0"
+
+inputs:
+  current_usage_pct:
+    value: 26
+  hours_since_reset:
+    value: 43
+  hours_until_reset:
+    value: 125
+
+forecast:
+  burn_rate:
+    value: 0
+    formula: "=inputs.current_usage_pct / inputs.hours_since_reset"
+  projected_add:
+    value: 0
+    formula: "=forecast.burn_rate * inputs.hours_until_reset"
+  projected_total:
+    value: 0
+    formula: "=inputs.current_usage_pct + forecast.projected_add"
+  remaining:
+    value: 0
+    formula: "=100 - forecast.projected_total"
+
+# Expected results after calculate:
+# burn_rate: 0.6047 (26/43)
+# projected_add: 75.58 (0.6047 * 125)
+# projected_total: 101.58 (26 + 75.58)
+# remaining: -1.58 (100 - 101.58) → WILL HIT QUOTA

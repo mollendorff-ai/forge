@@ -46,8 +46,9 @@ v4_1:
 
 next:
   - version: "4.3.0"
-    summary: "Next planned features (TBD)"
-    goal: STABILITY
+    summary: "File Write-Back - Calculate and persist results"
+    priority: TOP
+    goal: CORE_FUNCTIONALITY
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CRITICAL BUG FIXES (Found 2025-12-01 - Field testing) - RELEASED 2025-12-02
@@ -118,6 +119,47 @@ v4_2:
 
 v4_3:
   version: "4.3.0"
+  status: planned
+  priority: TOP
+  summary: "File Write-Back + Bug Fixes"
+  rationale: |
+    Core functionality gap. forge calculate computes correctly but
+    results stay in memory. Users expect values written back to YAML.
+    Without this, forge is validate-only - not a complete spreadsheet replacement.
+  deliverables:
+    - feature: "File Write-Back"
+      description: "forge calculate writes computed values back to value: arrays"
+      effort: "4h"
+      impact: "CRITICAL - completes the calculate workflow"
+      status: in_progress
+      notes: "Initial implementation done, needs testing with nested scalars"
+    - feature: "Backup before write"
+      description: "Create .yaml.bak before modifying original file"
+      effort: "1h"
+      status: done
+    - feature: "--dry-run flag"
+      description: "Show what would be written without modifying file"
+      effort: "1h"
+      status: done
+      notes: "Already existed"
+  bugs_found:
+    - bug: "Nested scalar reference resolution"
+      description: "Formulas like '=inputs.current_usage_pct / inputs.hours_since_reset' fail with 'Value' error"
+      test_file: "test-data/quota_forecast.yaml"
+      status: pending
+      effort: "2h"
+    - bug: "IF function with scalar references"
+      description: "=IF(remaining_quota > 0, 1, 0) fails with 'Reference' error when remaining_quota is a scalar"
+      status: pending
+      effort: "1h"
+    - bug: "Schema validation rejects valid scalars with 'notes' field"
+      description: "Schema oneOf doesn't match scalars with notes/unit metadata"
+      status: pending
+      effort: "1h"
+  estimated_hours: 10
+
+v4_4:
+  version: "4.4.0"
   status: planned
   priority: MEDIUM
   summary: "Advanced Excel Functions"
