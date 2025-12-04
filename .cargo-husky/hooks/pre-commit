@@ -18,7 +18,7 @@ if command -v asimov &> /dev/null; then
     asimov refresh
 
     echo "📋 Validating protocol files..."
-    asimov validate || true  # Don't fail on missing files
+    asimov validate 2>/dev/null || true  # Don't fail on missing files
 
     echo "📝 Linting documentation..."
     asimov lint-docs docs/ || exit 1
