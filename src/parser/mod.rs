@@ -30,20 +30,43 @@ use std::path::Path;
 pub fn parse_model(path: &std::path::Path) -> ForgeResult<ParsedModel> {
     let content = std::fs::read_to_string(path)?;
 
-    // Handle multi-document YAML files (leading ---)
-    // Forge supports single-document files, so we take the first document
+    // Check if this is a multi-document YAML file (v4.4.2)
+    // Multi-doc files have at least two document separators (---) on their own lines
+    // We need to skip comments and whitespace when detecting
+    let is_multi_doc = detect_multi_document(&content);
+
+    if is_multi_doc {
+        // Parse all documents and merge (v4.4.2)
+        parse_multi_document_yaml(&content, path)
+    } else {
+        // Single document parsing (original behavior)
+        parse_single_document_yaml(&content, path)
+    }
+}
+
+/// Detect if content is a multi-document YAML file
+/// A multi-document file has at least two document separators (---) on their own lines
+fn detect_multi_document(content: &str) -> bool {
+    let mut separator_count = 0;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        // Document separator is "---" optionally followed by whitespace
+        if trimmed == "---" || trimmed.starts_with("--- ") {
+            separator_count += 1;
+            if separator_count >= 2 {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Parse a single YAML document
+fn parse_single_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedModel> {
     // Strip leading document marker if present
     let content = content.trim_start();
     let content = if let Some(remaining) = content.strip_prefix("---") {
-        // Find the end of the first document (next --- or end of file)
-        let remaining = remaining.trim_start();
-        if let Some(next_doc) = remaining.find("\n---") {
-            // Multiple documents - take only the first one
-            &remaining[..next_doc]
-        } else {
-            // Single document with leading ---
-            remaining
-        }
+        remaining.trim_start()
     } else {
         content
     };
@@ -58,6 +81,124 @@ pub fn parse_model(path: &std::path::Path) -> ForgeResult<ParsedModel> {
     }
 
     Ok(model)
+}
+
+/// Parse a multi-document YAML file (v4.4.2)
+/// Each document is parsed and merged into a single model.
+/// Document names come from _name field or are auto-generated as "doc1", "doc2", etc.
+fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedModel> {
+    let mut merged_model = ParsedModel::new();
+    let mut doc_index = 0;
+
+    // Split by document separator lines (--- on its own line)
+    let docs = split_yaml_documents(content);
+
+    for doc_content in docs {
+        let doc_content = doc_content.trim();
+        if doc_content.is_empty() {
+            continue;
+        }
+
+        // Skip if it's just comments
+        let non_comment_content: String = doc_content
+            .lines()
+            .filter(|line| !line.trim().starts_with('#') && !line.trim().is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        if non_comment_content.is_empty() {
+            continue;
+        }
+
+        doc_index += 1;
+
+        // Parse the document
+        let yaml: Value = match serde_yaml::from_str(doc_content) {
+            Ok(v) => v,
+            Err(e) => {
+                return Err(ForgeError::Parse(format!(
+                    "Failed to parse document {}: {}",
+                    doc_index, e
+                )));
+            }
+        };
+
+        let doc_model = parse_v1_model(&yaml)?;
+
+        // Get document name from _name field or generate one
+        let doc_name = if let Some(Value::String(name)) = yaml.get("_name") {
+            name.clone()
+        } else {
+            format!("doc{}", doc_index)
+        };
+
+        // Merge tables with document prefix
+        for (table_name, table) in doc_model.tables {
+            let prefixed_name = format!("{}.{}", doc_name, table_name);
+            let mut prefixed_table = table;
+            prefixed_table.name = prefixed_name.clone();
+            merged_model.tables.insert(prefixed_name, prefixed_table);
+        }
+
+        // Merge scalars with document prefix
+        for (scalar_name, mut scalar) in doc_model.scalars {
+            let prefixed_name = format!("{}.{}", doc_name, scalar_name);
+            scalar.path = prefixed_name.clone();
+            merged_model.scalars.insert(prefixed_name, scalar);
+        }
+
+        // Merge includes (keep original, they'll be resolved with proper paths)
+        for include in doc_model.includes {
+            merged_model.includes.push(include);
+        }
+
+        // Merge scenarios
+        for (scenario_name, scenario) in doc_model.scenarios {
+            let prefixed_name = format!("{}.{}", doc_name, scenario_name);
+            merged_model.scenarios.insert(prefixed_name, scenario);
+        }
+
+        // Store document metadata
+        merged_model.documents.push(doc_name);
+    }
+
+    // Resolve includes if any (v4.0)
+    if !merged_model.includes.is_empty() {
+        resolve_includes(&mut merged_model, path, &mut HashSet::new())?;
+    }
+
+    Ok(merged_model)
+}
+
+/// Split YAML content into separate documents by "---" separator lines
+fn split_yaml_documents(content: &str) -> Vec<String> {
+    let mut documents = Vec::new();
+    let mut current_doc = String::new();
+    let mut in_document = false;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        // Check if this is a document separator
+        if trimmed == "---" || trimmed.starts_with("--- ") {
+            if in_document && !current_doc.trim().is_empty() {
+                documents.push(std::mem::take(&mut current_doc));
+            }
+            in_document = true;
+            current_doc.clear();
+        } else {
+            // Add line to current document
+            if !current_doc.is_empty() {
+                current_doc.push('\n');
+            }
+            current_doc.push_str(line);
+        }
+    }
+
+    // Don't forget the last document
+    if !current_doc.trim().is_empty() {
+        documents.push(current_doc);
+    }
+
+    documents
 }
 
 /// Resolve all includes in a model, loading and parsing referenced files.
@@ -132,7 +273,7 @@ fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                 .ok_or_else(|| ForgeError::Parse("Table name must be a string".to_string()))?;
 
             // Skip special keys
-            if key_str == "_forge_version" {
+            if key_str == "_forge_version" || key_str == "_name" {
                 continue;
             }
 

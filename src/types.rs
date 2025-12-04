@@ -275,6 +275,11 @@ pub struct ParsedModel {
     /// Resolved includes with loaded models (populated after resolution)
     #[serde(skip)]
     pub resolved_includes: HashMap<String, ResolvedInclude>,
+
+    /// Document names from multi-document YAML files (v4.4.2)
+    /// Empty for single-document files
+    #[serde(default)]
+    pub documents: Vec<String>,
 }
 
 impl ParsedModel {
@@ -286,6 +291,7 @@ impl ParsedModel {
             scenarios: HashMap::new(),
             includes: Vec::new(),
             resolved_includes: HashMap::new(),
+            documents: Vec::new(),
         }
     }
 

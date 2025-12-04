@@ -25,13 +25,23 @@ pub fn update_yaml_file(path: &Path, calculated_values: &HashMap<String, f64>) -
 
 /// Write calculated results back to YAML file (v4.3.0)
 /// Creates a backup (.bak) before writing
-pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResult<()> {
+/// Returns true if write was successful, false if skipped (multi-doc)
+pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResult<bool> {
+    // Read original content to check for multi-document YAML
+    let content = fs::read_to_string(path)?;
+    let content_trimmed = content.trim_start();
+
+    // Check if this is a multi-document YAML file (v4.4.2)
+    // Multi-doc files cannot be written back directly - skip with warning
+    if content_trimmed.starts_with("---") && content_trimmed[3..].contains("\n---") {
+        return Ok(false); // Indicate write was skipped
+    }
+
     // Create backup
     let backup_path = path.with_extension("yaml.bak");
     fs::copy(path, &backup_path)?;
 
     // Read original YAML to preserve structure/comments
-    let content = fs::read_to_string(path)?;
     let mut yaml: Value = serde_yaml::from_str(&content)?;
 
     // Update table value arrays
@@ -74,7 +84,7 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
     let updated_content = serde_yaml::to_string(&yaml)?;
     fs::write(path, updated_content)?;
 
-    Ok(())
+    Ok(true)
 }
 
 /// Update scalar values in a model file

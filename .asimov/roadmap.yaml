@@ -45,9 +45,15 @@ v4_1:
     total_tests: 227
 
 next:
-  - version: "5.0.0"
-    summary: "Full Excel Parity (SWITCH, INDIRECT, LAMBDA) + Enhanced Export"
+  - version: "4.4.1"
+    summary: "Scalar Math Functions Bug Fix"
     priority: HIGH
+  - version: "4.4.2"
+    summary: "Multi-Document/Multi-Include Import/Export Bug Fix"
+    priority: CRITICAL
+  - version: "5.0.0"
+    summary: "Schema v5.0.0 + Full Excel Round-Trip"
+    priority: TOP
     goal: GRANT_INVESTOR_READY
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -193,21 +199,150 @@ v4_4:
     tests_added: 6
     functions_total: 60
 
+v4_4_1:
+  version: "4.4.1"
+  status: next
+  priority: HIGH
+  summary: "Scalar Math Functions Bug Fix"
+  rationale: |
+    Math functions (ROUND, SQRT, MOD, etc.) only work on table columns.
+    They should also work in scalar formulas like =SQRT(16).
+    Found during function audit 2025-12-04.
+  deliverables:
+    - feature: "Math functions in scalar context"
+      description: "ROUND, ROUNDUP, ROUNDDOWN, SQRT, POWER, MOD, CEILING, FLOOR"
+      status: pending
+    - feature: "Update forge functions help"
+      description: "Clarify which functions work in scalar vs table context"
+      status: pending
+  bugs:
+    - bug: "=SQRT(16) fails with Reference error"
+      status: pending
+    - bug: "=ROUND(3.14159, 2) fails with Reference error"
+      status: pending
+    - bug: "=MOD(10, 3) fails with Reference error"
+      status: pending
+  estimated_hours: 2
+
+v4_4_2:
+  version: "4.4.2"
+  status: next
+  priority: CRITICAL
+  summary: "Multi-Document/Multi-Include Import/Export Bug Fix"
+  rationale: |
+    Excel workbooks have multiple sheets. Forge must handle this properly:
+    - Export: Include files + multi-doc YAML → single workbook, multiple sheets
+    - Import: Multiple sheets → multiple YAML files OR one multi-doc YAML
+    Currently broken: only first document parsed, includes not merged on export.
+  bugs:
+    - bug: "Multi-document YAML silently discards all but first document"
+      description: "Files with multiple --- documents only parse first one"
+      status: pending
+    - bug: "Export ignores included files"
+      description: "Only main file exported, includes not merged into workbook"
+      status: pending
+    - bug: "Import creates single file for multi-sheet workbooks"
+      description: "Should create multiple files or multi-document YAML"
+      status: pending
+  deliverables:
+    - feature: "Multi-document YAML parsing"
+      description: "Parse ALL documents in a YAML file, not just first"
+      status: pending
+    - feature: "Export includes to workbook"
+      description: "Merge all included files into single Excel workbook"
+      status: pending
+    - feature: "Import multi-sheet options"
+      description: "--split-files or --multi-doc flag for import behavior"
+      status: pending
+  estimated_hours: 4
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAJOR RELEASES
 # ═══════════════════════════════════════════════════════════════════════════════
 
 v5:
   version: "5.0.0"
-  status: in_progress
-  target: "2026-Q1"
-  summary: "Full Excel Parity for Financial Modeling"
+  status: next
+  priority: TOP
+  summary: "Schema v5.0.0 + Full Excel Round-Trip"
   rationale: |
-    Excel compatibility is the killer feature.
-    Goal: Generate Excel files for grants and investors.
-    Forge is used WITH AI (Claude Code), not in IDEs.
-  features:
-    excel_functions:
+    Excel compatibility is the killer feature. Current issues:
+    - "Scalars" sheet name is confusing (should be Inputs/Outputs)
+    - Multi-doc YAML only parses first document
+    - Export ignores included files
+    - Import doesn't handle multi-sheet properly
+    - No workbook/document naming support
+
+  schema:
+    version: "5.0.0"
+    file: "schema/forge-v5.0.schema.json"
+    inherits_from: "4.0.0"
+    new_fields:
+      - field: "_name"
+        type: "string"
+        required: "Required for multi-doc, optional for single-doc"
+        description: "Document/workbook name - used for sheet naming"
+    breaking_changes:
+      - "Scalars sheet split into 'Inputs' and 'Outputs'"
+      - "_name required for multi-document YAML files"
+    backwards_compatible:
+      - "All v4.0.0 features preserved"
+      - "Rich metadata (unit, notes, source, validation_status)"
+      - "_includes for cross-file references"
+      - "scenarios for what-if modeling"
+
+  sheet_naming_rules:
+    main_file:
+      - "inputs: → 'Inputs' sheet"
+      - "outputs: → 'Outputs' sheet"
+      - "tables: → sheet named after table key"
+    includes:
+      - "namespace.inputs: → '{namespace}.Inputs' sheet"
+      - "namespace.outputs: → '{namespace}.Outputs' sheet"
+      - "namespace.table: → '{namespace}.{table}' sheet"
+    multi_doc:
+      - "_name.inputs: → '{_name}.Inputs' sheet"
+      - "_name.outputs: → '{_name}.Outputs' sheet"
+      - "_name.table: → '{_name}.{table}' sheet"
+
+  deliverables:
+    schema:
+      - feature: "forge-v5.0.schema.json"
+        description: "New JSON schema with _name field and all v4.0.0 features"
+        status: pending
+      - feature: "Schema validation update"
+        description: "Parser validates _name required for multi-doc"
+        status: pending
+      - feature: "_forge_version enum update"
+        description: "Add '5.0.0' to allowed versions"
+        status: pending
+
+    export:
+      - feature: "Split Inputs/Outputs sheets"
+        description: "Replace 'Scalars' with separate 'Inputs' and 'Outputs' sheets"
+        status: pending
+      - feature: "Export includes"
+        description: "Merge all included files into single workbook with namespace prefixes"
+        status: pending
+      - feature: "Export multi-doc"
+        description: "Each document becomes sheets with _name prefix"
+        status: pending
+      - feature: "Workbook naming"
+        description: "Use _name for Excel workbook title/properties"
+        status: pending
+
+    import:
+      - feature: "--split-files flag"
+        description: "Create separate YAML file per Excel sheet"
+        status: pending
+      - feature: "--multi-doc flag"
+        description: "Create single YAML with --- separators per sheet"
+        status: pending
+      - feature: "Detect Inputs/Outputs sheets"
+        description: "Map 'Inputs'/'Outputs' sheets back to inputs:/outputs: sections"
+        status: pending
+
+    functions_done:
       - feature: "SWITCH"
         description: "Multi-value matching - cleaner than nested IFs"
         status: done
@@ -217,12 +352,53 @@ v5:
       - feature: "LAMBDA"
         description: "Anonymous functions - inline calculations"
         status: done
-      - feature: "Full Excel compatibility matrix"
-        status: planned
-    excel_export:
-      - "Enhanced .xlsx generation with preserved formulas"
-      - "Multi-sheet workbook support"
-      - "Formatting and styling options"
+
+  example_yaml: |
+    # Single document (simple case)
+    _forge_version: "5.0.0"
+    _name: "Q4 2025 Forecast"  # Optional for single-doc
+
+    inputs:
+      tax_rate: {value: 0.25}
+      growth_rate: {value: 0.05}
+
+    outputs:
+      total_revenue: {formula: "=SUM(quarterly.revenue)"}
+
+    quarterly:
+      quarter: ["Q1", "Q2", "Q3", "Q4"]
+      revenue: [100000, 120000, 150000, 180000]
+
+    # Multi-document (_name required)
+    ---
+    _forge_version: "5.0.0"
+    _name: "revenue_model"
+    inputs:
+      base_price: {value: 100}
+    quarterly:
+      revenue: [100, 200, 300, 400]
+    ---
+    _forge_version: "5.0.0"
+    _name: "cost_model"
+    inputs:
+      fixed_costs: {value: 50000}
+    monthly:
+      costs: [5000, 5500, 6000]
+
+  example_export: |
+    # Export creates Excel with sheets:
+    # - "Inputs" (from main inputs:)
+    # - "Outputs" (from main outputs:)
+    # - "quarterly" (from main table)
+    # - "rates.Inputs" (from included rates.yaml inputs:)
+    # - "rates.fx_rates" (from included rates.yaml table)
+    # - "revenue_model.Inputs" (from multi-doc document 1)
+    # - "revenue_model.quarterly" (from multi-doc document 1)
+    # - "cost_model.Inputs" (from multi-doc document 2)
+    # - "cost_model.monthly" (from multi-doc document 2)
+
+  estimated_hours: 12
+
   stats:
     tests: 245
     functions_total: 63

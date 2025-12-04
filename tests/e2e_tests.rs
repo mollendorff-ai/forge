@@ -1465,3 +1465,299 @@ fn e2e_v4_unique_functions_export() {
         metadata.len()
     );
 }
+
+// ========== v4.4.2 Multi-Document YAML Tests ==========
+
+#[test]
+fn e2e_multi_document_yaml_validates() {
+    let file = test_data_path("test_multi_document.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("validate")
+        .arg(&file)
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Multi-document YAML should validate, stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn e2e_multi_document_yaml_calculates() {
+    let file = test_data_path("test_multi_document.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Multi-document calculate should succeed, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Should show tables from multiple documents
+    assert!(
+        stdout.contains("sales") || stdout.contains("Sales"),
+        "Should have sales table, got: {stdout}"
+    );
+}
+
+#[test]
+fn e2e_multi_document_yaml_exports_to_excel() {
+    let yaml_file = test_data_path("test_multi_document.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("multi_doc.xlsx");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Multi-doc export should succeed, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Verify Excel file was created
+    assert!(excel_file.exists(), "Excel file should be created");
+    let metadata = fs::metadata(&excel_file).unwrap();
+    assert!(
+        metadata.len() > 1000,
+        "Excel file should have content (>1KB), got {} bytes",
+        metadata.len()
+    );
+}
+
+// ========== v4.4.2 Includes Export Tests ==========
+
+#[test]
+fn e2e_model_with_includes_validates() {
+    let file = test_data_path("v4_with_includes.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("validate")
+        .arg(&file)
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Model with includes should validate, stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn e2e_model_with_includes_exports_to_excel() {
+    let yaml_file = test_data_path("v4_with_includes.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("with_includes.xlsx");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Export with includes should succeed, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Verify Excel file was created
+    assert!(excel_file.exists(), "Excel file should be created");
+
+    // Read workbook to verify included sheets exist
+    let workbook: Xlsx<_> = open_workbook(&excel_file).expect("Failed to open workbook");
+    let sheet_names = workbook.sheet_names().to_vec();
+
+    println!("Sheets in exported workbook: {:?}", sheet_names);
+
+    // Should have sheets for included content with namespace prefix
+    assert!(
+        sheet_names
+            .iter()
+            .any(|s| s.contains("sources") || s.contains("revenue")),
+        "Should have namespaced sheets from includes, got: {:?}",
+        sheet_names
+    );
+}
+
+// ========== v4.4.2 Import Options Tests ==========
+
+#[test]
+fn e2e_import_with_split_files() {
+    // First create Excel with multiple sheets by exporting multi-doc YAML
+    let yaml_file = test_data_path("test_multi_document.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("for_split_import.xlsx");
+
+    let export_output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    assert!(
+        export_output.status.success(),
+        "Export should succeed before split import test"
+    );
+
+    // Now test import with --split-files
+    // For --split-files mode, the output is a DIRECTORY where files will be created
+    let output_dir = temp_dir.path().join("split_output");
+
+    let import_output = Command::new(forge_binary())
+        .arg("import")
+        .arg(&excel_file)
+        .arg(&output_dir) // Pass directory, not file
+        .arg("--split-files")
+        .output()
+        .expect("Failed to execute import with --split-files");
+
+    let stdout = String::from_utf8_lossy(&import_output.stdout);
+    let stderr = String::from_utf8_lossy(&import_output.stderr);
+
+    assert!(
+        import_output.status.success(),
+        "Import with --split-files should succeed, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Should create separate YAML files per sheet
+    let yaml_files: Vec<_> = fs::read_dir(&output_dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.path()
+                .extension()
+                .map(|ext| ext == "yaml")
+                .unwrap_or(false)
+        })
+        .collect();
+
+    assert!(
+        yaml_files.len() >= 2,
+        "Should create multiple YAML files, found {}",
+        yaml_files.len()
+    );
+}
+
+#[test]
+fn e2e_import_with_multi_doc() {
+    // First create Excel with multiple sheets
+    let yaml_file = test_data_path("test_multi_document.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("for_multi_import.xlsx");
+
+    let export_output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    assert!(
+        export_output.status.success(),
+        "Export should succeed before multi-doc import test"
+    );
+
+    // Now test import with --multi-doc
+    let imported_yaml = temp_dir.path().join("multi_doc_imported.yaml");
+
+    let import_output = Command::new(forge_binary())
+        .arg("import")
+        .arg(&excel_file)
+        .arg(&imported_yaml)
+        .arg("--multi-doc")
+        .output()
+        .expect("Failed to execute import with --multi-doc");
+
+    let stdout = String::from_utf8_lossy(&import_output.stdout);
+    let stderr = String::from_utf8_lossy(&import_output.stderr);
+
+    assert!(
+        import_output.status.success(),
+        "Import with --multi-doc should succeed, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Verify YAML file was created
+    assert!(imported_yaml.exists(), "Imported YAML should exist");
+
+    // Verify it's a multi-document YAML (contains ---)
+    let content = fs::read_to_string(&imported_yaml).expect("Failed to read imported YAML");
+    assert!(
+        content.contains("---"),
+        "Should be multi-document YAML with --- separators, got: {}",
+        &content[..content.len().min(500)]
+    );
+}
+
+#[test]
+fn e2e_import_default_single_file() {
+    // Default import should create single file (no flags)
+    let yaml_file = test_data_path("export_basic.yaml");
+    let temp_dir = tempfile::tempdir().unwrap();
+    let excel_file = temp_dir.path().join("for_default_import.xlsx");
+
+    let export_output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_file)
+        .arg(&excel_file)
+        .output()
+        .expect("Failed to execute export");
+
+    assert!(export_output.status.success());
+
+    // Import without flags
+    let imported_yaml = temp_dir.path().join("default_imported.yaml");
+
+    let import_output = Command::new(forge_binary())
+        .arg("import")
+        .arg(&excel_file)
+        .arg(&imported_yaml)
+        .output()
+        .expect("Failed to execute default import");
+
+    let stdout = String::from_utf8_lossy(&import_output.stdout);
+    let stderr = String::from_utf8_lossy(&import_output.stderr);
+
+    assert!(
+        import_output.status.success(),
+        "Default import should succeed, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Should create single YAML file
+    assert!(imported_yaml.exists(), "Should create single YAML file");
+
+    // Should not be multi-doc (no --- at start after potential header)
+    let content = fs::read_to_string(&imported_yaml).expect("Failed to read");
+    let trimmed = content.trim_start();
+    let is_multi_doc = trimmed.starts_with("---") && trimmed[3..].contains("\n---");
+    assert!(
+        !is_multi_doc,
+        "Default import should not create multi-doc YAML"
+    );
+}

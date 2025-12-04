@@ -318,7 +318,7 @@ pub async fn import_excel(Json(req): Json<ImportRequest>) -> impl IntoResponse {
     let excel_path = PathBuf::from(&req.excel_path);
     let yaml_path = PathBuf::from(&req.yaml_path);
 
-    match cli_import(excel_path, yaml_path, false) {
+    match cli_import(excel_path, yaml_path, false, false, false) {
         Ok(()) => Json(ApiResponse::ok(ImportResponse {
             imported: true,
             excel_path: req.excel_path,

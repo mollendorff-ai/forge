@@ -82,6 +82,20 @@ impl ExcelExporter {
             self.export_scalars(&mut workbook)?;
         }
 
+        // Export included files' tables with namespace prefix (v4.4.2)
+        for (namespace, resolved) in &self.model.resolved_includes {
+            // Export tables from included file
+            for (table_name, table) in &resolved.model.tables {
+                let prefixed_name = format!("{}.{}", namespace, table_name);
+                self.export_table(&mut workbook, &prefixed_name, table)?;
+            }
+
+            // Export scalars from included file with namespace prefix
+            if !resolved.model.scalars.is_empty() {
+                self.export_namespaced_scalars(&mut workbook, namespace, &resolved.model)?;
+            }
+        }
+
         // Save workbook to file
         workbook
             .save(output_path)
@@ -306,6 +320,66 @@ impl ExcelExporter {
                 }
 
                 // Add metadata as cell note for scalars (v4.0)
+                if let Some(note_text) = Self::format_metadata_note(&var.metadata) {
+                    let note = Note::new(note_text).set_author("Forge");
+                    worksheet.insert_note(row, 1, &note).map_err(|e| {
+                        ForgeError::Export(format!("Failed to add scalar note: {}", e))
+                    })?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Export scalars from an included file with namespace prefix (v4.4.2)
+    fn export_namespaced_scalars(
+        &self,
+        workbook: &mut Workbook,
+        namespace: &str,
+        included_model: &ParsedModel,
+    ) -> ForgeResult<()> {
+        let sheet_name = format!("{}.Scalars", namespace);
+        let worksheet = workbook.add_worksheet();
+        worksheet.set_name(&sheet_name).map_err(|e| {
+            ForgeError::Export(format!(
+                "Failed to set {} worksheet name: {}",
+                sheet_name, e
+            ))
+        })?;
+
+        // Write header row
+        worksheet
+            .write_string(0, 0, "Name")
+            .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
+        worksheet
+            .write_string(0, 1, "Value")
+            .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
+
+        // Write scalars (sorted by name)
+        let mut scalar_names: Vec<&String> = included_model.scalars.keys().collect();
+        scalar_names.sort();
+
+        for (idx, name) in scalar_names.iter().enumerate() {
+            let row = (idx + 1) as u32;
+
+            if let Some(var) = included_model.scalars.get(*name) {
+                // Write name with namespace prefix
+                let prefixed_name = format!("{}.{}", namespace, name);
+                worksheet
+                    .write_string(row, 0, &prefixed_name)
+                    .map_err(|e| {
+                        ForgeError::Export(format!("Failed to write scalar name: {}", e))
+                    })?;
+
+                // Write value (formulas not translated for included scalars yet)
+                if let Some(value) = var.value {
+                    worksheet.write_number(row, 1, value).map_err(|e| {
+                        ForgeError::Export(format!("Failed to write scalar value: {}", e))
+                    })?;
+                }
+
+                // Add metadata as cell note
                 if let Some(note_text) = Self::format_metadata_note(&var.metadata) {
                     let note = Note::new(note_text).set_author("Forge");
                     worksheet.insert_note(row, 1, &note).map_err(|e| {
