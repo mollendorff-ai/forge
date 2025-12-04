@@ -46,9 +46,13 @@ v4_1:
 
 next:
   - version: "4.4.0"
-    summary: "Advanced Excel Functions (OFFSET, LET, FILTER, SORT)"
-    priority: MEDIUM
+    summary: "forge functions + Dynamic Arrays (CHOOSE, OFFSET, LET, FILTER, SORT)"
+    priority: HIGH
     goal: EXCEL_PARITY
+  - version: "5.0.0"
+    summary: "Full Excel Parity (SWITCH, INDIRECT, LAMBDA) + Enhanced Export"
+    priority: HIGH
+    goal: GRANT_INVESTOR_READY
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CRITICAL BUG FIXES (Found 2025-12-01 - Field testing) - RELEASED 2025-12-02
@@ -166,9 +170,15 @@ v4_3:
 v4_4:
   version: "4.4.0"
   status: planned
-  priority: MEDIUM
-  summary: "Advanced Excel Functions"
+  priority: HIGH
+  summary: "Dynamic Array Functions + Scenario Modeling"
   deliverables:
+    - feature: "forge functions"
+      description: "New command to list all 60+ functions by category (Financial, Lookup, Date, etc.)"
+      effort: "2h"
+    - feature: "CHOOSE"
+      description: "Pick nth item from list - essential for scenario modeling"
+      effort: "1h"
     - feature: "OFFSET"
       description: "Dynamic range references for flexible models"
       effort: "3h"
@@ -181,7 +191,7 @@ v4_4:
     - feature: "SORT"
       description: "Dynamic array sorting"
       effort: "2h"
-  estimated_hours: 8
+  estimated_hours: 13
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAJOR RELEASES
@@ -191,27 +201,21 @@ v5:
   version: "5.0.0"
   status: planned
   target: "2026-Q1"
-  summary: "Excel Parity & MCP 2.0"
+  summary: "Full Excel Parity for Financial Modeling"
   rationale: |
     Excel compatibility is the killer feature.
-    MCP ecosystem is growing - stay current.
+    Goal: Generate Excel files for grants and investors.
+    Forge is used WITH AI (Claude Code), not in IDEs.
   features:
     excel_functions:
       - "INDIRECT (string-based cell refs)"
       - "LAMBDA (custom functions)"
-      - "CHOOSE (scenario modeling)"
       - "SWITCH (cleaner conditionals)"
       - "Full Excel compatibility matrix"
-    mcp:
-      - "MCP v2 compliance (parallel tools)"
-      - "Enhanced tool descriptions"
-      - "Streaming responses"
-    distribution:
-      - "Homebrew formula"
-      - "Scoop manifest (Windows)"
-      - "Publish Zed extension to zed-industries/extensions"
-      - "Publish VSCode extension to marketplace"
-      - "Docker image"
+    excel_export:
+      - "Enhanced .xlsx generation with preserved formulas"
+      - "Multi-sheet workbook support"
+      - "Formatting and styling options"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -291,9 +295,7 @@ backlog:
   - "OpenAPI spec + Swagger UI for API server"
   - "Forge vs Copilot benchmark suite (marketing)"
   - "Excel compatibility matrix doc"
-  - "JetBrains plugin"
   - "=FORGE() AI-assist function (local, deterministic suggestions)"
-  - "Forge Cloud (SaaS) - Web UI, collaboration, SSO"
 
 research:
   - id: "experiential-continuity"
