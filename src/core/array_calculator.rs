@@ -242,6 +242,8 @@ impl ArrayCalculator {
             || upper.contains("CHOOSE(")
             || upper.contains("OFFSET(")
             || upper.contains("LET(")
+            || upper.contains("SWITCH(")
+            || upper.contains("INDIRECT(")
     }
 
     /// Check if formula contains financial functions that need special handling (v1.6.0)
@@ -862,6 +864,43 @@ impl ArrayCalculator {
             .filter(|s| !s.is_empty())
             .collect();
 
+        // Helper to check if a word appears inside a quoted string
+        let is_inside_quotes = |word: &str, formula: &str| -> bool {
+            // Find all occurrences of the word and check if they're inside quotes
+            let mut in_double_quote = false;
+            let mut in_single_quote = false;
+            let mut i = 0;
+            let chars: Vec<char> = formula.chars().collect();
+
+            while i < chars.len() {
+                // Track quote state
+                if chars[i] == '"' && !in_single_quote {
+                    in_double_quote = !in_double_quote;
+                } else if chars[i] == '\'' && !in_double_quote {
+                    in_single_quote = !in_single_quote;
+                }
+
+                // Check if this position starts the word
+                if i + word.len() <= chars.len() {
+                    let slice: String = chars[i..i + word.len()].iter().collect();
+                    if slice == word {
+                        // Check word boundaries
+                        let before_ok =
+                            i == 0 || (!chars[i - 1].is_alphanumeric() && chars[i - 1] != '_');
+                        let after_ok = i + word.len() >= chars.len()
+                            || (!chars[i + word.len()].is_alphanumeric()
+                                && chars[i + word.len()] != '_');
+
+                        if before_ok && after_ok && (in_double_quote || in_single_quote) {
+                            return true;
+                        }
+                    }
+                }
+                i += 1;
+            }
+            false
+        };
+
         for word in words {
             // Skip function names and numbers
             if word.chars().next().is_none_or(|c| c.is_numeric()) {
@@ -870,6 +909,11 @@ impl ArrayCalculator {
 
             // Skip the current scalar (avoid self-reference) and common function names
             if word == current_scalar {
+                continue;
+            }
+
+            // Skip words that appear inside quoted strings (for INDIRECT, etc.)
+            if is_inside_quotes(word, formula) {
                 continue;
             }
 
@@ -2955,6 +2999,10 @@ impl ArrayCalculator {
             Regex::new(r"VLOOKUP\(([^,]+),\s*([^,]+),\s*([^,]+)(?:,\s*([^)]+))?\)").unwrap();
         let re_xlookup = Regex::new(r"XLOOKUP\(([^,]+),\s*([^,]+),\s*([^,]+)(?:,\s*([^,]+))?(?:,\s*([^,]+))?(?:,\s*([^)]+))?\)").unwrap();
         let re_choose = Regex::new(r"CHOOSE\(([^)]+)\)").unwrap();
+        // SWITCH(expression, value1, result1, [value2, result2, ...], [default])
+        let re_switch = Regex::new(r"SWITCH\(([^)]+)\)").unwrap();
+        // INDIRECT(ref_text) - converts text string to reference
+        let re_indirect = Regex::new(r"INDIRECT\(([^)]+)\)").unwrap();
         // OFFSET(array, rows, [height]) - returns subset of array starting from rows with optional height
         let re_offset = Regex::new(r"OFFSET\(([^,]+),\s*([^,)]+)(?:,\s*([^)]+))?\)").unwrap();
 
@@ -3044,6 +3092,27 @@ impl ArrayCalculator {
                 let args_str = cap.get(1).unwrap().as_str();
                 let choose_result = self.eval_choose(args_str, row_idx, table)?;
                 result = result.replace(full, &choose_result);
+            }
+
+            // SWITCH(expression, value1, result1, [value2, result2, ...], [default])
+            // Returns result corresponding to first matching value, or default if no match
+            for cap in re_switch.captures_iter(&result.clone()).collect::<Vec<_>>() {
+                let full = cap.get(0).unwrap().as_str();
+                let args_str = cap.get(1).unwrap().as_str();
+                let switch_result = self.eval_switch(args_str, row_idx, table)?;
+                result = result.replace(full, &switch_result);
+            }
+
+            // INDIRECT(ref_text) - Converts text string to a reference
+            // Useful for dynamic column references: INDIRECT("sales.revenue") or INDIRECT(col_name)
+            for cap in re_indirect
+                .captures_iter(&result.clone())
+                .collect::<Vec<_>>()
+            {
+                let full = cap.get(0).unwrap().as_str();
+                let ref_expr = cap.get(1).unwrap().as_str();
+                let indirect_result = self.eval_indirect(ref_expr, row_idx, table)?;
+                result = result.replace(full, &indirect_result);
             }
 
             // OFFSET(array, rows, [height]) - Returns subset of array
@@ -3370,6 +3439,173 @@ impl ArrayCalculator {
 
         // Return as-is if we can't evaluate it
         Ok(value_expr.trim().to_string())
+    }
+
+    /// Evaluate SWITCH function: SWITCH(expression, value1, result1, [value2, result2, ...], [default])
+    /// Returns the result corresponding to the first value that matches the expression
+    /// If no match and odd number of args after expression, last arg is default
+    fn eval_switch(&self, args_str: &str, row_idx: usize, table: &Table) -> ForgeResult<String> {
+        let args = self.parse_function_args(args_str)?;
+
+        if args.len() < 3 {
+            return Err(ForgeError::Eval(
+                "SWITCH requires at least 3 arguments: expression, value, and result".to_string(),
+            ));
+        }
+
+        // First argument is the expression to match against
+        let expr_to_match = args[0].trim();
+
+        // Try to evaluate expression as number first, then as text
+        let match_value = if let Ok(num) = self.eval_expression(expr_to_match, row_idx, table) {
+            SwitchValue::Number(num)
+        } else if let Ok(text) = self.eval_text_expression(expr_to_match, row_idx, table) {
+            SwitchValue::Text(text)
+        } else {
+            SwitchValue::Text(expr_to_match.to_string())
+        };
+
+        // Remaining args are value-result pairs, possibly with a default at the end
+        let remaining = &args[1..];
+
+        // If odd number of remaining args, last one is default
+        let (pairs, default) = if remaining.len() % 2 == 1 {
+            (
+                &remaining[..remaining.len() - 1],
+                Some(&remaining[remaining.len() - 1]),
+            )
+        } else {
+            (remaining, None)
+        };
+
+        // Check each value-result pair
+        for chunk in pairs.chunks(2) {
+            let value_expr = chunk[0].trim();
+            let result_expr = chunk[1].trim();
+
+            // Evaluate the value to compare
+            let compare_value = if let Ok(num) = self.eval_expression(value_expr, row_idx, table) {
+                SwitchValue::Number(num)
+            } else if let Ok(text) = self.eval_text_expression(value_expr, row_idx, table) {
+                SwitchValue::Text(text)
+            } else {
+                SwitchValue::Text(value_expr.to_string())
+            };
+
+            // Check if values match
+            let matches = match (&match_value, &compare_value) {
+                (SwitchValue::Number(a), SwitchValue::Number(b)) => (a - b).abs() < 1e-10,
+                (SwitchValue::Text(a), SwitchValue::Text(b)) => a == b,
+                _ => false,
+            };
+
+            if matches {
+                // Return the result for this match
+                if let Ok(num) = self.eval_expression(result_expr, row_idx, table) {
+                    return Ok(format!("{}", num));
+                }
+                if let Ok(text) = self.eval_text_expression(result_expr, row_idx, table) {
+                    return Ok(format!("\"{}\"", text));
+                }
+                return Ok(result_expr.to_string());
+            }
+        }
+
+        // No match found - return default if provided
+        if let Some(default_expr) = default {
+            let default_expr = default_expr.trim();
+            if let Ok(num) = self.eval_expression(default_expr, row_idx, table) {
+                return Ok(format!("{}", num));
+            }
+            if let Ok(text) = self.eval_text_expression(default_expr, row_idx, table) {
+                return Ok(format!("\"{}\"", text));
+            }
+            return Ok(default_expr.to_string());
+        }
+
+        Err(ForgeError::Eval(
+            "SWITCH: No matching value found and no default provided".to_string(),
+        ))
+    }
+
+    /// Evaluate INDIRECT function: INDIRECT(ref_text)
+    /// Converts a text string to a reference and returns the value
+    /// - For scalars: INDIRECT("inputs.rate") → value of inputs.rate
+    /// - For columns: INDIRECT("sales.revenue") → column values (for use with SUM, etc.)
+    fn eval_indirect(&self, ref_expr: &str, row_idx: usize, table: &Table) -> ForgeResult<String> {
+        let ref_expr = ref_expr.trim();
+
+        // First, evaluate the expression to get the reference string
+        let ref_string = if ref_expr.starts_with('"') && ref_expr.ends_with('"') {
+            // Literal string: INDIRECT("sales.revenue")
+            ref_expr[1..ref_expr.len() - 1].to_string()
+        } else if ref_expr.starts_with('\'') && ref_expr.ends_with('\'') {
+            // Single-quoted string
+            ref_expr[1..ref_expr.len() - 1].to_string()
+        } else if let Ok(text) = self.eval_text_expression(ref_expr, row_idx, table) {
+            // Expression that evaluates to text: INDIRECT(CONCAT("sales.", col_name))
+            text
+        } else {
+            // Try as-is
+            ref_expr.to_string()
+        };
+
+        // Now resolve the reference string
+        let ref_string = ref_string.trim();
+
+        // Try to resolve as a scalar reference first
+        if let Some(scalar) = self.model.scalars.get(ref_string) {
+            if let Some(value) = scalar.value {
+                return Ok(format!("{}", value));
+            }
+        }
+
+        // Try as table.column reference for aggregation context
+        if ref_string.contains('.') {
+            let parts: Vec<&str> = ref_string.splitn(2, '.').collect();
+            if parts.len() == 2 {
+                let table_name = parts[0];
+                let col_name = parts[1];
+
+                if let Some(table) = self.model.tables.get(table_name) {
+                    if let Some(col) = table.columns.get(col_name) {
+                        match &col.values {
+                            crate::types::ColumnValue::Number(nums) => {
+                                // Return as comma-separated for use with aggregation functions
+                                let result = nums
+                                    .iter()
+                                    .map(|v| format!("{}", v))
+                                    .collect::<Vec<_>>()
+                                    .join(", ");
+                                return Ok(result);
+                            }
+                            crate::types::ColumnValue::Text(texts) => {
+                                let result = texts
+                                    .iter()
+                                    .map(|s| format!("\"{}\"", s))
+                                    .collect::<Vec<_>>()
+                                    .join(", ");
+                                return Ok(result);
+                            }
+                            crate::types::ColumnValue::Date(dates) => {
+                                let result = dates
+                                    .iter()
+                                    .map(|s| format!("\"{}\"", s))
+                                    .collect::<Vec<_>>()
+                                    .join(", ");
+                                return Ok(result);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+
+        Err(ForgeError::Eval(format!(
+            "INDIRECT: Cannot resolve reference '{}'",
+            ref_string
+        )))
     }
 
     /// Evaluate MATCH function: MATCH(lookup_value, lookup_array, [match_type])
@@ -4924,6 +5160,13 @@ enum LookupValue {
     Number(f64),
     Text(String),
     Boolean(bool),
+}
+
+/// Switch value type for SWITCH function comparison
+#[derive(Debug, Clone)]
+enum SwitchValue {
+    Number(f64),
+    Text(String),
 }
 
 #[cfg(test)]
@@ -7131,6 +7374,112 @@ mod tests {
             (tax - 150.0).abs() < 0.001,
             "LET with SUM should return 150, got {}",
             tax
+        );
+    }
+
+    #[test]
+    fn test_switch_function() {
+        use crate::types::Variable;
+        let mut model = ParsedModel::new();
+
+        // Test SWITCH with number matching: SWITCH(2, 1, 0.05, 2, 0.10, 3, 0.15) → 0.10
+        model.add_scalar(
+            "matched".to_string(),
+            Variable::new(
+                "matched".to_string(),
+                None,
+                Some("=SWITCH(2, 1, 0.05, 2, 0.10, 3, 0.15)".to_string()),
+            ),
+        );
+
+        // Test SWITCH with default: SWITCH(4, 1, 100, 2, 200, 50) → 50
+        model.add_scalar(
+            "with_default".to_string(),
+            Variable::new(
+                "with_default".to_string(),
+                None,
+                Some("=SWITCH(4, 1, 100, 2, 200, 50)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+
+        let matched = result.scalars.get("matched").unwrap().value.unwrap();
+        assert!(
+            (matched - 0.10).abs() < 0.001,
+            "SWITCH(2, ...) should return 0.10, got {}",
+            matched
+        );
+
+        let with_default = result.scalars.get("with_default").unwrap().value.unwrap();
+        assert!(
+            (with_default - 50.0).abs() < 0.001,
+            "SWITCH(4, ..., 50) should return default 50, got {}",
+            with_default
+        );
+    }
+
+    #[test]
+    fn test_indirect_function() {
+        use crate::types::{Column, ColumnValue, Table, Variable};
+        let mut model = ParsedModel::new();
+
+        // Create a table with values
+        let mut sales = Table::new("sales".to_string());
+        sales.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0, 400.0, 500.0]),
+        ));
+        model.add_table(sales);
+
+        // Add a scalar for testing
+        model.add_scalar(
+            "inputs.rate".to_string(),
+            Variable::new("inputs.rate".to_string(), Some(0.1), None),
+        );
+
+        // Test INDIRECT with literal column reference
+        model.add_scalar(
+            "sum_indirect".to_string(),
+            Variable::new(
+                "sum_indirect".to_string(),
+                None,
+                Some("=SUM(INDIRECT(\"sales.revenue\"))".to_string()),
+            ),
+        );
+
+        // Test INDIRECT with scalar reference
+        model.add_scalar(
+            "rate_indirect".to_string(),
+            Variable::new(
+                "rate_indirect".to_string(),
+                None,
+                Some("=INDIRECT(\"inputs.rate\") * 100".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+
+        let sum = result.scalars.get("sum_indirect").unwrap().value.unwrap();
+        // SUM(100+200+300+400+500) = 1500
+        assert!(
+            (sum - 1500.0).abs() < 0.001,
+            "INDIRECT column SUM should return 1500, got {}",
+            sum
+        );
+
+        let rate = result.scalars.get("rate_indirect").unwrap().value.unwrap();
+        // 0.1 * 100 = 10
+        assert!(
+            (rate - 10.0).abs() < 0.001,
+            "INDIRECT scalar should return 10, got {}",
+            rate
         );
     }
 

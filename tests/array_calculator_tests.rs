@@ -273,21 +273,21 @@ fn test_nested_scalar_references() {
         .expect("Nested scalar references should resolve");
 
     // Verify the burn_rate scalar was calculated correctly
-    // burn_rate = current_usage_pct / hours_since_reset = 33 / 59 ≈ 0.5593
+    // burn_rate = current_usage_pct / hours_since_reset = 26 / 43 ≈ 0.6047
     let burn_rate = result.scalars.get("forecast.burn_rate").unwrap();
     assert!(
-        (burn_rate.value.unwrap() - 0.5593).abs() < 0.01,
-        "Expected ~0.5593, got {}",
+        (burn_rate.value.unwrap() - 0.6047).abs() < 0.01,
+        "Expected ~0.6047, got {}",
         burn_rate.value.unwrap()
     );
 
     // Verify projected_total (nested reference chain)
-    // projected_add = burn_rate * hours_until_reset = 0.5593 * 109 ≈ 60.97
-    // projected_total = current_usage_pct + projected_add = 33 + 60.97 ≈ 93.97
+    // projected_add = burn_rate * hours_until_reset = 0.6047 * 125 ≈ 75.58
+    // projected_total = current_usage_pct + projected_add = 26 + 75.58 ≈ 101.58
     let projected_total = result.scalars.get("forecast.projected_total").unwrap();
     assert!(
-        (projected_total.value.unwrap() - 93.97).abs() < 0.1,
-        "Expected ~93.97, got {}",
+        (projected_total.value.unwrap() - 101.58).abs() < 0.1,
+        "Expected ~101.58, got {}",
         projected_total.value.unwrap()
     );
 
