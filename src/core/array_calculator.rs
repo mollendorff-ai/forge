@@ -261,7 +261,10 @@ impl ArrayCalculator {
     /// Check if formula contains array functions that need special handling (v4.1.0)
     fn has_array_function(&self, formula: &str) -> bool {
         let upper = formula.to_uppercase();
-        upper.contains("UNIQUE(") || upper.contains("COUNTUNIQUE(")
+        upper.contains("UNIQUE(")
+            || upper.contains("COUNTUNIQUE(")
+            || upper.contains("FILTER(")
+            || upper.contains("SORT(")
     }
 
     /// Evaluate a row-wise formula (element-wise operations)
@@ -678,6 +681,12 @@ impl ArrayCalculator {
             return self.evaluate_lookup_formula(&formula_str, scalar_name);
         }
 
+        // Check if this formula contains array functions (FILTER, SORT) that need preprocessing
+        // These must be resolved before aggregation functions can process them
+        if self.has_array_function(&formula_str) && self.is_aggregation_formula(&formula_str) {
+            return self.evaluate_array_then_aggregation(&formula_str, scalar_name);
+        }
+
         // Check if this formula contains aggregation functions (but not mixed with other operations)
         if self.is_aggregation_formula(&formula_str) && !formula_str.contains('[') {
             self.evaluate_aggregation(&formula_str)
@@ -797,6 +806,38 @@ impl ArrayCalculator {
 
         // Check if the processed formula is now an aggregation formula
         // e.g., =SUM(100, 200, 300) after OFFSET(array, 0, 3) was resolved
+        if self.is_aggregation_formula(&processed) {
+            return self.evaluate_aggregation(&processed);
+        }
+
+        // Otherwise evaluate with xlformula_engine
+        self.evaluate_scalar_with_resolver(&processed, scalar_name)
+    }
+
+    /// Evaluate a formula containing array functions followed by aggregation
+    /// Example: =SUM(FILTER(values, include)) or =SUM(SORT(values))
+    fn evaluate_array_then_aggregation(
+        &self,
+        formula: &str,
+        scalar_name: &str,
+    ) -> ForgeResult<f64> {
+        // First resolve all scalar references to their values
+        let resolved = self.resolve_scalar_references(formula, scalar_name)?;
+
+        // Create an empty table for context (we'll use self.model for cross-table lookups)
+        let empty_table = Table::new("_scalar_context".to_string());
+
+        // Process array functions (FILTER, SORT will be replaced with comma-separated values)
+        let processed = self.replace_array_functions(&resolved, 0, &empty_table)?;
+
+        // If the result is just a number, parse it directly
+        let trimmed = processed.trim().trim_start_matches('=');
+        if let Ok(value) = trimmed.parse::<f64>() {
+            return Ok(value);
+        }
+
+        // Now evaluate the aggregation on the processed formula
+        // e.g., =SUM(100, 200, 300) after SORT was resolved
         if self.is_aggregation_formula(&processed) {
             return self.evaluate_aggregation(&processed);
         }
@@ -4136,7 +4177,111 @@ impl ArrayCalculator {
             result = result.replace(full, &format!("{}", unique_count));
         }
 
+        // FILTER(array, include) - Returns values where include is truthy (non-zero)
+        // Returns comma-separated values for use with aggregations
+        let re_filter = Regex::new(r"FILTER\(([^,]+),\s*([^)]+)\)").unwrap();
+        for cap in re_filter.captures_iter(&result.clone()).collect::<Vec<_>>() {
+            let full = cap.get(0).unwrap().as_str();
+            let array_arg = cap.get(1).unwrap().as_str().trim();
+            let include_arg = cap.get(2).unwrap().as_str().trim();
+
+            let filter_result = self.eval_filter(array_arg, include_arg, row_idx, table)?;
+            result = result.replace(full, &filter_result);
+        }
+
+        // SORT(array, [order]) - Returns sorted values
+        // order: 1 = ascending (default), -1 = descending
+        let re_sort = Regex::new(r"SORT\(([^,)]+)(?:,\s*([^)]+))?\)").unwrap();
+        for cap in re_sort.captures_iter(&result.clone()).collect::<Vec<_>>() {
+            let full = cap.get(0).unwrap().as_str();
+            let array_arg = cap.get(1).unwrap().as_str().trim();
+            let order_arg = cap.get(2).map(|m| m.as_str().trim());
+
+            let sort_result = self.eval_sort(array_arg, order_arg, row_idx, table)?;
+            result = result.replace(full, &sort_result);
+        }
+
         Ok(result)
+    }
+
+    /// Evaluate FILTER function - returns values where include array is truthy
+    fn eval_filter(
+        &self,
+        array_arg: &str,
+        include_arg: &str,
+        row_idx: usize,
+        table: &Table,
+    ) -> ForgeResult<String> {
+        // Get values from the array
+        let values = self.get_values_from_arg(array_arg, row_idx, table)?;
+
+        // Get include criteria (must be same length as values)
+        let include = self.get_values_from_arg(include_arg, row_idx, table)?;
+
+        if values.len() != include.len() {
+            return Err(ForgeError::Eval(format!(
+                "FILTER: array ({} rows) and include ({} rows) must have same length",
+                values.len(),
+                include.len()
+            )));
+        }
+
+        // Filter values where include is truthy (non-zero)
+        let filtered: Vec<f64> = values
+            .iter()
+            .zip(include.iter())
+            .filter(|(_, inc)| **inc != 0.0)
+            .map(|(val, _)| *val)
+            .collect();
+
+        if filtered.is_empty() {
+            return Err(ForgeError::Eval(
+                "FILTER: No values match the criteria".to_string(),
+            ));
+        }
+
+        // Return as comma-separated values
+        Ok(filtered
+            .iter()
+            .map(|v| format!("{}", v))
+            .collect::<Vec<_>>()
+            .join(", "))
+    }
+
+    /// Evaluate SORT function - returns sorted values
+    fn eval_sort(
+        &self,
+        array_arg: &str,
+        order_arg: Option<&str>,
+        row_idx: usize,
+        table: &Table,
+    ) -> ForgeResult<String> {
+        // Get values from the array
+        let mut values = self.get_values_from_arg(array_arg, row_idx, table)?;
+
+        // Determine sort order (1 = asc, -1 = desc)
+        let descending = if let Some(order) = order_arg {
+            let order_val = self.eval_expression(order, row_idx, table)?;
+            order_val < 0.0
+        } else {
+            false // Default: ascending
+        };
+
+        // Sort values
+        values.sort_by(|a, b| {
+            if descending {
+                b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal)
+            } else {
+                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+            }
+        });
+
+        // Return as comma-separated values
+        Ok(values
+            .iter()
+            .map(|v| format!("{}", v))
+            .collect::<Vec<_>>()
+            .join(", "))
     }
 
     /// Evaluate COUNTUNIQUE - count unique values in a column/array

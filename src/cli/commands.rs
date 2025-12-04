@@ -1886,6 +1886,8 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
             functions: vec![
                 ("UNIQUE", "Get unique values - =UNIQUE(array)"),
                 ("COUNTUNIQUE", "Count unique values - =COUNTUNIQUE(array)"),
+                ("FILTER", "Filter by criteria - =FILTER(array, include)"),
+                ("SORT", "Sort values - =SORT(array, [order])"),
             ],
         },
         FunctionCategory {
