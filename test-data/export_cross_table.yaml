@@ -1,3 +1,4 @@
+_forge_version: "1.0.0"
 # Test cross-table references and scalar formulas for Excel export
 # This test data catches bugs in formula translation
 

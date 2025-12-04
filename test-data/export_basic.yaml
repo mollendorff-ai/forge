@@ -1,3 +1,4 @@
+_forge_version: "1.0.0"
 # Basic table for export testing
 financial_summary:
   quarter: ["Q1", "Q2", "Q3", "Q4"]

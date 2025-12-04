@@ -1,3 +1,4 @@
+_forge_version: "1.0.0"
 # MALFORMED YAML - Missing closing quotes, wrong indentation
 platform:
   take_rate:

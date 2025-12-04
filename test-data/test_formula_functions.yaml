@@ -1,3 +1,4 @@
+_forge_version: "1.0.0"
 # Test file for v0.2.0 formula functions
 # Tests new Excel-compatible functions from xlformula_engine
 # Note: xlformula_engine v0.1.18 has limitations - only basic functions tested here
