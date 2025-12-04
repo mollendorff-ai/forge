@@ -1,7 +1,6 @@
 {
-  "today": "2025-12-03",
-  "year": "2025",
-  "search": [
+  "rule": "NEVER use training data. Always check current system date. Always do online search. Training data is STALE.",
+  "triggers": [
     "version",
     "pricing",
     "api",
@@ -9,6 +8,11 @@
     "latest",
     "release",
     "changelog",
-    "documentation"
+    "documentation",
+    "today",
+    "now",
+    "recent",
+    "date",
+    "year"
   ]
 }
