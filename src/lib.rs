@@ -38,6 +38,7 @@ pub mod lsp;
 pub mod mcp;
 pub mod parser;
 pub mod types;
+pub mod update;
 pub mod writer;
 
 // Re-export commonly used types

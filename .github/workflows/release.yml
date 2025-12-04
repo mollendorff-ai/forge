@@ -22,6 +22,13 @@ jobs:
             archive: tar.gz
             upx: true
 
+          # Linux ARM64 (Raspberry Pi, AWS Graviton)
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive: tar.gz
+            upx: false  # Cross-compile, UPX may not work
+            cross: true
+
           # macOS ARM (M1/M2/M3)
           - target: aarch64-apple-darwin
             os: macos-latest
@@ -57,8 +64,16 @@ jobs:
             target
           key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.cross
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
       - name: Build release
         run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.cross && 'aarch64-linux-gnu-gcc' || '' }}
 
       - name: Install UPX (Linux)
         if: matrix.upx && matrix.os == 'ubuntu-latest'
