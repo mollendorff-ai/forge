@@ -1947,6 +1947,7 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
                 ("LET", "Named variables - =LET(name, value, ..., calculation)"),
                 ("SWITCH", "Multi-match - =SWITCH(expr, val1, result1, ..., [default])"),
                 ("INDIRECT", "String to ref - =INDIRECT(\"table.column\")"),
+                ("LAMBDA", "Anonymous func - =LAMBDA(x, x*2)(5)"),
             ],
         },
     ];
