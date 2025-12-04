@@ -18,15 +18,19 @@
       "description": "Cross-file references (v4.0) - include external YAML files"
     },
     "scenarios": {
-      "$ref": "#/definitions/Scenarios",
-      "description": "Named scenarios with variable overrides for what-if modeling"
+      "oneOf": [
+        { "$ref": "#/definitions/Scenarios" },
+        { "$ref": "#/definitions/Table" }
+      ],
+      "description": "Named scenarios with variable overrides OR a table named 'scenarios'"
     }
   },
 
   "additionalProperties": {
     "oneOf": [
       { "$ref": "#/definitions/Table" },
-      { "$ref": "#/definitions/ScalarGroup" }
+      { "$ref": "#/definitions/ScalarGroup" },
+      { "$ref": "#/definitions/Scalar" }
     ]
   },
 
@@ -41,6 +45,7 @@
           { "$ref": "#/definitions/TextArray" },
           { "$ref": "#/definitions/DateArray" },
           { "$ref": "#/definitions/BooleanArray" },
+          { "$ref": "#/definitions/FormulaArray" },
           { "$ref": "#/definitions/RowFormula" },
           { "$ref": "#/definitions/AggregationFormula" },
           { "$ref": "#/definitions/RichColumn" },
@@ -113,10 +118,13 @@
 
     "NumberArray": {
       "title": "Number Array",
-      "description": "Homogeneous array of numbers (maps to Excel column with Number format)",
+      "description": "Homogeneous array of numbers (maps to Excel column with Number format). Null values are caught by parser with helpful error messages.",
       "type": "array",
       "items": {
-        "type": "number"
+        "oneOf": [
+          { "type": "number" },
+          { "type": "null" }
+        ]
       },
       "minItems": 1,
       "examples": [
@@ -166,6 +174,23 @@
       "examples": [
         [true, false, true, false],
         [true, true, false]
+      ]
+    },
+
+    "FormulaArray": {
+      "title": "Formula Array",
+      "description": "Array of formulas and/or null values (per-row formulas)",
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string", "pattern": "^=.+" },
+          { "type": "null" }
+        ]
+      },
+      "minItems": 1,
+      "examples": [
+        [null, null, "=value[0] * (1 - value[1])"],
+        ["=A + B", "=C * D", "=E / F"]
       ]
     },
 

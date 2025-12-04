@@ -1134,6 +1134,7 @@ fn e2e_v4_mixed_format_backward_compatible() {
     let yaml_file = temp_dir.path().join("mixed_format.yaml");
 
     let mixed_content = r#"
+_forge_version: "4.0.0"
 # Mixed v1.0 and v4.0 formats in same file
 sales:
   # v1.0 simple format
@@ -1178,6 +1179,7 @@ fn e2e_v4_scalar_with_full_metadata() {
     let yaml_file = temp_dir.path().join("v4_scalar_metadata.yaml");
 
     let content = r#"
+_forge_version: "4.0.0"
 metrics:
   total_revenue:
     value: 100000
@@ -1213,6 +1215,7 @@ fn e2e_v4_unit_validation_detects_mismatch() {
     let yaml_file = temp_dir.path().join("unit_mismatch.yaml");
 
     let content = r#"
+_forge_version: "4.0.0"
 financials:
   revenue:
     value: [100000, 120000]
@@ -1254,6 +1257,7 @@ fn e2e_v4_unit_validation_no_warning_for_compatible() {
     let yaml_file = temp_dir.path().join("unit_compatible.yaml");
 
     let content = r#"
+_forge_version: "4.0.0"
 financials:
   revenue:
     value: [100000, 120000]

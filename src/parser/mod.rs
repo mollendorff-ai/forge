@@ -119,11 +119,8 @@ fn resolve_includes(
 
 /// Parse v1.0.0 array model
 fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
-    // Optionally validate against JSON Schema if available
-    if let Err(e) = validate_against_schema(yaml) {
-        // Schema validation is optional - warn but continue
-        eprintln!("Warning: Schema validation failed: {}", e);
-    }
+    // Validate against JSON Schema - this is mandatory
+    validate_against_schema(yaml)?;
 
     let mut model = ParsedModel::new();
 
@@ -1015,6 +1012,7 @@ sales:
 
         // [1000, null] should fail with a clear error message
         let yaml_content = r#"
+_forge_version: "1.0.0"
 data:
   values: [1000, null, 2000]
 "#;
@@ -1037,6 +1035,7 @@ data:
 
         // Array starting with null should fail with clear error
         let yaml_content = r#"
+_forge_version: "1.0.0"
 data:
   values: [null, 1000, 2000]
 "#;
@@ -1227,6 +1226,7 @@ summary:
 
         // Mix of v1.0 simple and v4.0 rich formats
         let yaml_content = r#"
+_forge_version: "4.0.0"
 sales:
   month: ["Jan", "Feb", "Mar"]
   revenue:
