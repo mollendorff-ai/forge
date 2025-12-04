@@ -1,15 +1,17 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/royalbit/forge/schema/v4.0.json",
-  "title": "Forge v4.0 Financial Model",
-  "description": "JSON Schema for Forge array-based financial models with rich metadata, Excel compatibility, scenarios, and 60+ functions",
+  "$id": "https://github.com/royalbit/forge/schema/forge-v1.0.json",
+  "title": "Forge Financial Model Schema",
+  "description": "JSON Schema for Forge array-based financial models with rich metadata, Excel compatibility, scenarios, and 60+ functions. Format versions: 1.0.0 (basic arrays), 4.0.0 (rich metadata with unit/notes/source).",
   "type": "object",
+
+  "required": ["_forge_version"],
 
   "properties": {
     "_forge_version": {
       "type": "string",
-      "enum": ["1.0.0", "2.0.0", "2.1.0", "2.2.0", "3.0.0", "3.1.0", "4.0.0"],
-      "description": "Forge model version identifier"
+      "enum": ["1.0.0", "4.0.0"],
+      "description": "Forge model format version: 1.0.0 (basic arrays) or 4.0.0 (rich metadata)"
     },
     "_includes": {
       "$ref": "#/definitions/Includes",
@@ -342,7 +344,7 @@
 
   "examples": [
     {
-      "_forge_version": "2.2.0",
+      "_forge_version": "1.0.0",
       "scenarios": {
         "base": { "growth_rate": 0.05 },
         "optimistic": { "growth_rate": 0.12 },
