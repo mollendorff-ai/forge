@@ -53,6 +53,10 @@ forge compare model.yaml --scenarios base,optimistic,pessimistic
 # Excel
 forge export model.yaml output.xlsx
 forge import input.xlsx output.yaml
+
+# Maintenance
+forge update              # Check and install updates
+forge update --check      # Check only, don't install
 ```
 
 ## Why Forge Exists

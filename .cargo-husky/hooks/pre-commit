@@ -14,8 +14,11 @@ cargo clippy -- -D warnings
 
 # RoyalBit Asimov checks (if installed)
 if command -v asimov &> /dev/null; then
+    # Protocol refresh - injects rules into fresh context (survives compaction)
+    asimov refresh
+
     echo "📋 Validating protocol files..."
-    asimov validate . || true  # Don't fail on missing files
+    asimov validate || true  # Don't fail on missing files
 
     echo "📝 Linting documentation..."
     asimov lint-docs docs/ || exit 1
