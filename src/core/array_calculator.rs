@@ -240,6 +240,7 @@ impl ArrayCalculator {
             || upper.contains("VLOOKUP(")
             || upper.contains("XLOOKUP(")
             || upper.contains("CHOOSE(")
+            || upper.contains("OFFSET(")
     }
 
     /// Check if formula contains financial functions that need special handling (v1.6.0)
@@ -671,6 +672,12 @@ impl ArrayCalculator {
             formula.to_string()
         };
 
+        // Check if this formula contains lookup functions that need preprocessing
+        // This includes OFFSET which must be resolved before aggregation
+        if self.has_lookup_function(&formula_str) {
+            return self.evaluate_lookup_formula(&formula_str, scalar_name);
+        }
+
         // Check if this formula contains aggregation functions (but not mixed with other operations)
         if self.is_aggregation_formula(&formula_str) && !formula_str.contains('[') {
             self.evaluate_aggregation(&formula_str)
@@ -764,6 +771,34 @@ impl ArrayCalculator {
         let trimmed = processed.trim().trim_start_matches('=');
         if let Ok(value) = trimmed.parse::<f64>() {
             return Ok(value);
+        }
+
+        // Otherwise evaluate with xlformula_engine
+        self.evaluate_scalar_with_resolver(&processed, scalar_name)
+    }
+
+    /// Evaluate a formula containing lookup functions (MATCH, INDEX, CHOOSE, OFFSET, etc.)
+    /// These must be resolved before aggregation functions can process them
+    fn evaluate_lookup_formula(&self, formula: &str, scalar_name: &str) -> ForgeResult<f64> {
+        // First resolve all scalar references to their values
+        let resolved = self.resolve_scalar_references(formula, scalar_name)?;
+
+        // Create an empty table for context (we'll use self.model for cross-table lookups)
+        let empty_table = Table::new("_scalar_context".to_string());
+
+        // Process lookup functions (OFFSET, CHOOSE, etc. will be replaced with values)
+        let processed = self.replace_lookup_functions(&resolved, 0, &empty_table)?;
+
+        // If the result is just a number, parse it directly
+        let trimmed = processed.trim().trim_start_matches('=');
+        if let Ok(value) = trimmed.parse::<f64>() {
+            return Ok(value);
+        }
+
+        // Check if the processed formula is now an aggregation formula
+        // e.g., =SUM(100, 200, 300) after OFFSET(array, 0, 3) was resolved
+        if self.is_aggregation_formula(&processed) {
+            return self.evaluate_aggregation(&processed);
         }
 
         // Otherwise evaluate with xlformula_engine
@@ -956,6 +991,37 @@ impl ArrayCalculator {
         } else {
             return Err(ForgeError::Eval("Unknown aggregation function".to_string()));
         };
+
+        // Check if the argument is already a list of comma-separated values
+        // (e.g., from OFFSET resolution: "300, 400, 500")
+        if arg.contains(',') && !arg.contains('.') {
+            // Parse comma-separated numeric values
+            let nums: Result<Vec<f64>, _> =
+                arg.split(',').map(|s| s.trim().parse::<f64>()).collect();
+
+            if let Ok(nums) = nums {
+                let result = match func_name {
+                    "SUM" => nums.iter().sum(),
+                    "AVERAGE" | "AVG" => {
+                        if nums.is_empty() {
+                            0.0
+                        } else {
+                            nums.iter().sum::<f64>() / nums.len() as f64
+                        }
+                    }
+                    "MAX" => nums.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+                    "MIN" => nums.iter().copied().fold(f64::INFINITY, f64::min),
+                    "COUNT" => nums.len() as f64,
+                    _ => {
+                        return Err(ForgeError::Eval(format!(
+                            "Unsupported aggregation function: {}",
+                            func_name
+                        )))
+                    }
+                };
+                return Ok(result);
+            }
+        }
 
         // Parse table.column reference
         let (table_name, col_name) = self.parse_table_column_ref(&arg)?;
@@ -2847,6 +2913,8 @@ impl ArrayCalculator {
             Regex::new(r"VLOOKUP\(([^,]+),\s*([^,]+),\s*([^,]+)(?:,\s*([^)]+))?\)").unwrap();
         let re_xlookup = Regex::new(r"XLOOKUP\(([^,]+),\s*([^,]+),\s*([^,]+)(?:,\s*([^,]+))?(?:,\s*([^,]+))?(?:,\s*([^)]+))?\)").unwrap();
         let re_choose = Regex::new(r"CHOOSE\(([^)]+)\)").unwrap();
+        // OFFSET(array, rows, [height]) - returns subset of array starting from rows with optional height
+        let re_offset = Regex::new(r"OFFSET\(([^,]+),\s*([^,)]+)(?:,\s*([^)]+))?\)").unwrap();
 
         // Keep processing until no more changes (handles nested functions)
         // Process innermost (MATCH) first, then INDEX, then convenience functions
@@ -2935,7 +3003,85 @@ impl ArrayCalculator {
                 let choose_result = self.eval_choose(args_str, row_idx, table)?;
                 result = result.replace(full, &choose_result);
             }
+
+            // OFFSET(array, rows, [height]) - Returns subset of array
+            // Used to get a slice of an array starting from a given offset
+            // Often combined with SUM, AVERAGE, etc.: =SUM(OFFSET(sales.revenue, 2, 5))
+            for cap in re_offset.captures_iter(&result.clone()).collect::<Vec<_>>() {
+                let full = cap.get(0).unwrap().as_str();
+                let array_expr = cap.get(1).unwrap().as_str();
+                let rows_expr = cap.get(2).unwrap().as_str();
+                let height_expr = cap.get(3).map(|m| m.as_str());
+                let offset_result =
+                    self.eval_offset(array_expr, rows_expr, height_expr, row_idx, table)?;
+                result = result.replace(full, &offset_result);
+            }
         }
+
+        Ok(result)
+    }
+
+    /// Evaluate OFFSET function: OFFSET(array, rows, [height])
+    /// Returns a subset of the array as a comma-separated list of values
+    /// - array: column reference like sales.revenue
+    /// - rows: number of rows to skip from the start (0-indexed)
+    /// - height: optional number of rows to include (default: all remaining)
+    fn eval_offset(
+        &self,
+        array_expr: &str,
+        rows_expr: &str,
+        height_expr: Option<&str>,
+        row_idx: usize,
+        table: &Table,
+    ) -> ForgeResult<String> {
+        // Evaluate the rows offset
+        let rows_offset = self.eval_expression(rows_expr, row_idx, table)? as usize;
+
+        // Get the array values
+        let values = self.get_values_from_arg(array_expr.trim(), row_idx, table)?;
+
+        if values.is_empty() {
+            return Err(ForgeError::Eval(format!(
+                "OFFSET: array '{}' is empty or not found",
+                array_expr
+            )));
+        }
+
+        if rows_offset >= values.len() {
+            return Err(ForgeError::Eval(format!(
+                "OFFSET: rows offset {} exceeds array length {}",
+                rows_offset,
+                values.len()
+            )));
+        }
+
+        // Determine the height (number of values to return)
+        let height = if let Some(h_expr) = height_expr {
+            let h = self.eval_expression(h_expr, row_idx, table)? as usize;
+            if h == 0 {
+                return Err(ForgeError::Eval("OFFSET: height cannot be 0".to_string()));
+            }
+            // Cap at remaining values
+            std::cmp::min(h, values.len() - rows_offset)
+        } else {
+            // Default: all remaining values
+            values.len() - rows_offset
+        };
+
+        // Extract the subset
+        let subset: Vec<f64> = values
+            .iter()
+            .skip(rows_offset)
+            .take(height)
+            .copied()
+            .collect();
+
+        // Return as comma-separated values (for use with SUM, AVERAGE, etc.)
+        let result = subset
+            .iter()
+            .map(|v| format!("{}", v))
+            .collect::<Vec<_>>()
+            .join(", ");
 
         Ok(result)
     }

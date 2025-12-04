@@ -17,7 +17,7 @@ PERFORMANCE:
 COMMANDS:
   calculate   - Evaluate formulas in YAML files
   validate    - Check formulas without modifying
-  functions   - List all 54 supported Excel functions
+  functions   - List all 56 supported Excel functions
   sensitivity - One/two-variable data tables
   goal-seek   - Find input value for target output
   break-even  - Find where output crosses zero
@@ -479,12 +479,12 @@ PLATFORMS:
     #[command(
         long_about = "List all supported Excel-compatible functions by category.
 
-Forge supports 54 Excel functions for financial modeling. Use this command
+Forge supports 56 Excel functions for financial modeling. Use this command
 to see all available functions organized by category.
 
 CATEGORIES:
   Financial   - NPV, IRR, XNPV, XIRR, PMT, PV, FV, RATE, NPER (9)
-  Lookup      - MATCH, INDEX, VLOOKUP, XLOOKUP (4)
+  Lookup      - MATCH, INDEX, VLOOKUP, XLOOKUP, CHOOSE, OFFSET (6)
   Conditional - SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, MAXIFS, MINIFS (8)
   Array       - UNIQUE, COUNTUNIQUE (2)
   Aggregation - SUM, AVERAGE, MIN, MAX, COUNT (5)
