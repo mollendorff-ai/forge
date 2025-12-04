@@ -547,7 +547,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
 
             let excel = Path::new(excel_path).to_path_buf();
             let yaml = Path::new(yaml_path).to_path_buf();
-            match import(excel, yaml, false) {
+            match import(excel, yaml, false, false, false) {
                 Ok(()) => json!({
                     "content": [{
                         "type": "text",

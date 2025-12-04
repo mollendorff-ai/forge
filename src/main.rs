@@ -183,12 +183,20 @@ NOTE: Formulas are preserved as Excel syntax (Phase 4.1).
         /// Path to Excel file (.xlsx)
         input: PathBuf,
 
-        /// Output YAML file path
+        /// Output YAML file path (or directory if --split-files)
         output: PathBuf,
 
         /// Show verbose import steps
         #[arg(short, long)]
         verbose: bool,
+
+        /// Create separate YAML file per worksheet (v4.4.2)
+        #[arg(long)]
+        split_files: bool,
+
+        /// Create multi-document YAML with --- separators (v4.4.2)
+        #[arg(long)]
+        multi_doc: bool,
     },
 
     #[command(long_about = "Watch YAML files and auto-calculate on changes.
@@ -530,7 +538,9 @@ fn main() -> ForgeResult<()> {
             input,
             output,
             verbose,
-        } => cli::import(input, output, verbose),
+            split_files,
+            multi_doc,
+        } => cli::import(input, output, verbose, split_files, multi_doc),
 
         Commands::Watch {
             file,

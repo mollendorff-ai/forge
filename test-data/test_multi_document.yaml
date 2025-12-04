@@ -1,0 +1,38 @@
+# Multi-document YAML test file (v4.4.2)
+# Each document becomes a separate sheet in Excel
+---
+_forge_version: "4.0.0"
+_name: "Sales"
+sales:
+  month: ["Jan", "Feb", "Mar"]
+  revenue:
+    value: [1000, 1200, 1500]
+    unit: "CAD"
+  costs:
+    value: [600, 700, 800]
+    unit: "CAD"
+  profit: "=revenue - costs"
+---
+_forge_version: "4.0.0"
+_name: "Expenses"
+expenses:
+  month: ["Jan", "Feb", "Mar"]
+  salary:
+    value: [5000, 5000, 5000]
+    unit: "CAD"
+  rent:
+    value: [2000, 2000, 2000]
+    unit: "CAD"
+  total: "=salary + rent"
+---
+_forge_version: "4.0.0"
+_name: "Summary"
+summary:
+  total_revenue:
+    value: null
+    formula: "=1000+1200+1500"
+    unit: "CAD"
+  total_expenses:
+    value: null
+    formula: "=7000*3"
+    unit: "CAD"

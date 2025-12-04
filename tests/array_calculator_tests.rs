@@ -1,3 +1,6 @@
+// Allow approximate constants - 3.14 is intentional test data for ROUND(), not an approx of PI
+#![allow(clippy::approx_constant)]
+
 use royalbit_forge::core::ArrayCalculator;
 use royalbit_forge::parser::parse_model;
 use royalbit_forge::types::{Column, ColumnValue, ParsedModel, Table};
@@ -505,4 +508,221 @@ fn test_choose_function() {
     );
 
     println!("✓ CHOOSE function test passed");
+}
+
+#[test]
+fn test_scalar_math_functions() {
+    use royalbit_forge::types::Variable;
+
+    // Test v4.4.1: Math functions in scalar context
+    let mut model = ParsedModel::new();
+
+    // SQRT test
+    model.scalars.insert(
+        "outputs.sqrt_test".to_string(),
+        Variable::new(
+            "outputs.sqrt_test".to_string(),
+            None,
+            Some("=SQRT(16)".to_string()),
+        ),
+    );
+
+    // ROUND test
+    model.scalars.insert(
+        "outputs.round_test".to_string(),
+        Variable::new(
+            "outputs.round_test".to_string(),
+            None,
+            Some("=ROUND(3.14159, 2)".to_string()),
+        ),
+    );
+
+    // ROUNDUP test
+    model.scalars.insert(
+        "outputs.roundup_test".to_string(),
+        Variable::new(
+            "outputs.roundup_test".to_string(),
+            None,
+            Some("=ROUNDUP(3.14159, 2)".to_string()),
+        ),
+    );
+
+    // ROUNDDOWN test
+    model.scalars.insert(
+        "outputs.rounddown_test".to_string(),
+        Variable::new(
+            "outputs.rounddown_test".to_string(),
+            None,
+            Some("=ROUNDDOWN(3.14159, 2)".to_string()),
+        ),
+    );
+
+    // MOD test
+    model.scalars.insert(
+        "outputs.mod_test".to_string(),
+        Variable::new(
+            "outputs.mod_test".to_string(),
+            None,
+            Some("=MOD(10, 3)".to_string()),
+        ),
+    );
+
+    // POWER test
+    model.scalars.insert(
+        "outputs.power_test".to_string(),
+        Variable::new(
+            "outputs.power_test".to_string(),
+            None,
+            Some("=POWER(2, 8)".to_string()),
+        ),
+    );
+
+    // CEILING test
+    model.scalars.insert(
+        "outputs.ceiling_test".to_string(),
+        Variable::new(
+            "outputs.ceiling_test".to_string(),
+            None,
+            Some("=CEILING(4.3, 1)".to_string()),
+        ),
+    );
+
+    // FLOOR test
+    model.scalars.insert(
+        "outputs.floor_test".to_string(),
+        Variable::new(
+            "outputs.floor_test".to_string(),
+            None,
+            Some("=FLOOR(4.7, 1)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("Scalar math functions calculation should succeed");
+
+    // Verify results
+    let sqrt_test = result.scalars.get("outputs.sqrt_test").unwrap();
+    assert!(
+        (sqrt_test.value.unwrap() - 4.0).abs() < 0.0001,
+        "SQRT(16) should return 4, got {}",
+        sqrt_test.value.unwrap()
+    );
+
+    let round_test = result.scalars.get("outputs.round_test").unwrap();
+    assert!(
+        (round_test.value.unwrap() - 3.14).abs() < 0.0001,
+        "ROUND(3.14159, 2) should return 3.14, got {}",
+        round_test.value.unwrap()
+    );
+
+    let roundup_test = result.scalars.get("outputs.roundup_test").unwrap();
+    assert!(
+        (roundup_test.value.unwrap() - 3.15).abs() < 0.0001,
+        "ROUNDUP(3.14159, 2) should return 3.15, got {}",
+        roundup_test.value.unwrap()
+    );
+
+    let rounddown_test = result.scalars.get("outputs.rounddown_test").unwrap();
+    assert!(
+        (rounddown_test.value.unwrap() - 3.14).abs() < 0.0001,
+        "ROUNDDOWN(3.14159, 2) should return 3.14, got {}",
+        rounddown_test.value.unwrap()
+    );
+
+    let mod_test = result.scalars.get("outputs.mod_test").unwrap();
+    assert!(
+        (mod_test.value.unwrap() - 1.0).abs() < 0.0001,
+        "MOD(10, 3) should return 1, got {}",
+        mod_test.value.unwrap()
+    );
+
+    let power_test = result.scalars.get("outputs.power_test").unwrap();
+    assert!(
+        (power_test.value.unwrap() - 256.0).abs() < 0.0001,
+        "POWER(2, 8) should return 256, got {}",
+        power_test.value.unwrap()
+    );
+
+    let ceiling_test = result.scalars.get("outputs.ceiling_test").unwrap();
+    assert!(
+        (ceiling_test.value.unwrap() - 5.0).abs() < 0.0001,
+        "CEILING(4.3, 1) should return 5, got {}",
+        ceiling_test.value.unwrap()
+    );
+
+    let floor_test = result.scalars.get("outputs.floor_test").unwrap();
+    assert!(
+        (floor_test.value.unwrap() - 4.0).abs() < 0.0001,
+        "FLOOR(4.7, 1) should return 4, got {}",
+        floor_test.value.unwrap()
+    );
+
+    println!("✓ Scalar math functions (v4.4.1) test passed");
+}
+
+#[test]
+fn test_scalar_math_with_scalar_refs() {
+    use royalbit_forge::types::Variable;
+
+    // Test math functions with scalar references
+    let mut model = ParsedModel::new();
+
+    // Input value
+    model.scalars.insert(
+        "inputs.base_value".to_string(),
+        Variable::new("inputs.base_value".to_string(), Some(16.0), None),
+    );
+
+    model.scalars.insert(
+        "inputs.precision".to_string(),
+        Variable::new("inputs.precision".to_string(), Some(2.0), None),
+    );
+
+    model.scalars.insert(
+        "inputs.raw_value".to_string(),
+        Variable::new("inputs.raw_value".to_string(), Some(3.14159), None),
+    );
+
+    // SQRT with scalar reference
+    model.scalars.insert(
+        "outputs.sqrt_ref".to_string(),
+        Variable::new(
+            "outputs.sqrt_ref".to_string(),
+            None,
+            Some("=SQRT(inputs.base_value)".to_string()),
+        ),
+    );
+
+    // ROUND with scalar references
+    model.scalars.insert(
+        "outputs.round_ref".to_string(),
+        Variable::new(
+            "outputs.round_ref".to_string(),
+            None,
+            Some("=ROUND(inputs.raw_value, inputs.precision)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("Scalar math with refs should succeed");
+
+    let sqrt_ref = result.scalars.get("outputs.sqrt_ref").unwrap();
+    assert!(
+        (sqrt_ref.value.unwrap() - 4.0).abs() < 0.0001,
+        "SQRT(inputs.base_value=16) should return 4, got {}",
+        sqrt_ref.value.unwrap()
+    );
+
+    let round_ref = result.scalars.get("outputs.round_ref").unwrap();
+    assert!(
+        (round_ref.value.unwrap() - 3.14).abs() < 0.0001,
+        "ROUND(inputs.raw_value, inputs.precision) should return 3.14, got {}",
+        round_ref.value.unwrap()
+    );
+
+    println!("✓ Scalar math with scalar references test passed");
 }

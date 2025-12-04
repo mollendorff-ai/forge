@@ -13,6 +13,10 @@
       "enum": ["1.0.0", "4.0.0"],
       "description": "Forge model format version: 1.0.0 (basic arrays) or 4.0.0 (rich metadata)"
     },
+    "_name": {
+      "type": "string",
+      "description": "Document/workbook name (v4.4.2) - used for sheet naming in multi-document YAML"
+    },
     "_includes": {
       "$ref": "#/definitions/Includes",
       "description": "Cross-file references (v4.0) - include external YAML files"

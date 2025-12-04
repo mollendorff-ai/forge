@@ -271,6 +271,19 @@ impl ArrayCalculator {
             || upper.contains("SORT(")
     }
 
+    /// Check if formula contains math functions that need special handling (v4.4.1)
+    fn has_math_function(&self, formula: &str) -> bool {
+        let upper = formula.to_uppercase();
+        upper.contains("ROUND(")
+            || upper.contains("ROUNDUP(")
+            || upper.contains("ROUNDDOWN(")
+            || upper.contains("SQRT(")
+            || upper.contains("POWER(")
+            || upper.contains("MOD(")
+            || upper.contains("CEILING(")
+            || upper.contains("FLOOR(")
+    }
+
     /// Evaluate a row-wise formula (element-wise operations)
     /// Example: profit = revenue - expenses
     /// Evaluates: profit[i] = revenue[i] - expenses[i] for all i
@@ -721,6 +734,9 @@ impl ArrayCalculator {
         } else if self.has_array_function(&formula_str) {
             // Array functions (UNIQUE, COUNTUNIQUE) - evaluate them specially (v4.1.0)
             self.evaluate_array_formula(&formula_str, scalar_name)
+        } else if self.has_math_function(&formula_str) {
+            // Math functions (ROUND, SQRT, etc.) - evaluate them specially (v4.4.1)
+            self.evaluate_math_formula(&formula_str, scalar_name)
         } else {
             // Regular scalar formula - use xlformula_engine
             self.evaluate_scalar_with_resolver(&formula_str, scalar_name)
@@ -779,6 +795,28 @@ impl ArrayCalculator {
 
         // Process array functions
         let processed = self.replace_array_functions(&resolved, 0, &empty_table)?;
+
+        // If the result is just a number, parse it directly
+        let trimmed = processed.trim().trim_start_matches('=');
+        if let Ok(value) = trimmed.parse::<f64>() {
+            return Ok(value);
+        }
+
+        // Otherwise evaluate with xlformula_engine
+        self.evaluate_scalar_with_resolver(&processed, scalar_name)
+    }
+
+    /// Evaluate a formula containing math functions (for scalar context) (v4.4.1)
+    /// Handles: ROUND, ROUNDUP, ROUNDDOWN, SQRT, POWER, MOD, CEILING, FLOOR
+    fn evaluate_math_formula(&self, formula: &str, scalar_name: &str) -> ForgeResult<f64> {
+        // First resolve all scalar references to their values
+        let resolved = self.resolve_scalar_references(formula, scalar_name)?;
+
+        // Create an empty table for context
+        let empty_table = Table::new("_scalar_context".to_string());
+
+        // Process math functions
+        let processed = self.replace_math_functions(&resolved, 0, &empty_table)?;
 
         // If the result is just a number, parse it directly
         let trimmed = processed.trim().trim_start_matches('=');

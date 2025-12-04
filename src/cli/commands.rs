@@ -127,17 +127,29 @@ pub fn calculate(
     if dry_run {
         println!("{}", "📋 Dry run complete - no changes written".yellow());
     } else {
-        writer::write_calculated_results(&file, &result)?;
-        println!(
-            "{}",
-            format!("💾 Results written to {}", file.display())
-                .bold()
-                .green()
-        );
-        println!(
-            "{}",
-            format!("   Backup saved to {}.bak", file.display()).dimmed()
-        );
+        let wrote = writer::write_calculated_results(&file, &result)?;
+        if wrote {
+            println!(
+                "{}",
+                format!("💾 Results written to {}", file.display())
+                    .bold()
+                    .green()
+            );
+            println!(
+                "{}",
+                format!("   Backup saved to {}.bak", file.display()).dimmed()
+            );
+        } else {
+            // Multi-document YAML - write-back not supported (v4.4.2)
+            println!(
+                "{}",
+                "⚠️  Multi-document YAML - write-back not supported yet".yellow()
+            );
+            println!(
+                "{}",
+                "   Results displayed above. Split into separate files to persist.".dimmed()
+            );
+        }
     }
 
     Ok(())
@@ -647,10 +659,22 @@ pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
 }
 
 /// Execute the import command
-pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()> {
+pub fn import(
+    input: PathBuf,
+    output: PathBuf,
+    verbose: bool,
+    split_files: bool,
+    multi_doc: bool,
+) -> ForgeResult<()> {
     println!("{}", "🔥 Forge - Excel Import".bold().green());
     println!("   Input:  {}", input.display());
-    println!("   Output: {}\n", output.display());
+    println!("   Output: {}", output.display());
+    if split_files {
+        println!("   Mode:   Split files (one YAML per sheet)");
+    } else if multi_doc {
+        println!("   Mode:   Multi-document YAML");
+    }
+    println!();
 
     // Import Excel file
     if verbose {
@@ -675,23 +699,103 @@ pub fn import(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
         println!();
     }
 
-    // Write YAML file
+    // Write YAML file(s) based on mode
     if verbose {
-        println!("{}", "💾 Writing YAML file...".cyan());
+        println!("{}", "💾 Writing YAML file(s)...".cyan());
     }
 
-    // Serialize model to YAML
-    let yaml_string = serde_yaml::to_string(&model).map_err(ForgeError::Yaml)?;
+    if split_files {
+        // Create output directory if it doesn't exist
+        fs::create_dir_all(&output).map_err(ForgeError::Io)?;
 
-    fs::write(&output, yaml_string).map_err(ForgeError::Io)?;
+        // Write each table to a separate file
+        for (table_name, table) in &model.tables {
+            let mut table_model = crate::types::ParsedModel::new();
+            table_model.tables.insert(table_name.clone(), table.clone());
 
-    println!("{}", "✅ Import Complete!".bold().green());
-    println!("   YAML file: {}\n", output.display());
+            let file_path = output.join(format!("{}.yaml", table_name));
+            let yaml_string = format!(
+                "_forge_version: \"1.0.0\"\n_name: \"{}\"\n\n{}",
+                table_name,
+                serde_yaml::to_string(&table_model.tables).map_err(ForgeError::Yaml)?
+            );
+            fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
+
+            if verbose {
+                println!("   Created: {}", file_path.display());
+            }
+        }
+
+        // Write scalars to separate file if present
+        if !model.scalars.is_empty() {
+            let file_path = output.join("scalars.yaml");
+            let mut scalar_model = crate::types::ParsedModel::new();
+            scalar_model.scalars = model.scalars.clone();
+
+            let yaml_string = format!(
+                "_forge_version: \"1.0.0\"\n_name: \"scalars\"\n\n{}",
+                serde_yaml::to_string(&scalar_model.scalars).map_err(ForgeError::Yaml)?
+            );
+            fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
+
+            if verbose {
+                println!("   Created: {}", file_path.display());
+            }
+        }
+
+        println!("{}", "✅ Import Complete!".bold().green());
+        println!("   Output directory: {}\n", output.display());
+    } else if multi_doc {
+        // Write as multi-document YAML
+        let mut yaml_output = String::new();
+
+        for (table_name, table) in &model.tables {
+            let mut table_model = crate::types::ParsedModel::new();
+            table_model.tables.insert(table_name.clone(), table.clone());
+
+            yaml_output.push_str("---\n");
+            yaml_output.push_str("_forge_version: \"1.0.0\"\n");
+            yaml_output.push_str(&format!("_name: \"{}\"\n\n", table_name));
+            yaml_output
+                .push_str(&serde_yaml::to_string(&table_model.tables).map_err(ForgeError::Yaml)?);
+            yaml_output.push('\n');
+        }
+
+        // Add scalars as separate document if present
+        if !model.scalars.is_empty() {
+            let mut scalar_model = crate::types::ParsedModel::new();
+            scalar_model.scalars = model.scalars.clone();
+
+            yaml_output.push_str("---\n");
+            yaml_output.push_str("_forge_version: \"1.0.0\"\n");
+            yaml_output.push_str("_name: \"scalars\"\n\n");
+            yaml_output
+                .push_str(&serde_yaml::to_string(&scalar_model.scalars).map_err(ForgeError::Yaml)?);
+        }
+
+        fs::write(&output, yaml_output).map_err(ForgeError::Io)?;
+
+        println!("{}", "✅ Import Complete!".bold().green());
+        println!("   YAML file: {}\n", output.display());
+    } else {
+        // Default: single file with all tables
+        let yaml_string = serde_yaml::to_string(&model).map_err(ForgeError::Yaml)?;
+        fs::write(&output, yaml_string).map_err(ForgeError::Io)?;
+
+        println!("{}", "✅ Import Complete!".bold().green());
+        println!("   YAML file: {}\n", output.display());
+    }
 
     println!("{}", "✅ Phase 4: Excel Import Complete!".bold().green());
     println!("   ✅ Excel worksheets → YAML tables");
     println!("   ✅ Data values imported");
-    println!("   ✅ Multiple worksheets → One YAML file");
+    if split_files {
+        println!("   ✅ Multiple worksheets → Separate YAML files (v4.4.2)");
+    } else if multi_doc {
+        println!("   ✅ Multiple worksheets → Multi-document YAML (v4.4.2)");
+    } else {
+        println!("   ✅ Multiple worksheets → One YAML file");
+    }
     println!("   ✅ Scalars sheet detected");
     println!("   ✅ Formula translation (Excel → YAML syntax)");
     println!("   ✅ Supports 60+ Excel functions (IFERROR, SUMIF, VLOOKUP, etc.)\n");
