@@ -1865,6 +1865,7 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
                 ("VLOOKUP", "Vertical lookup - =VLOOKUP(value, table, col, [approx])"),
                 ("XLOOKUP", "Modern lookup - =XLOOKUP(value, lookup, return, [not_found], [match], [search])"),
                 ("CHOOSE", "Pick nth value - =CHOOSE(index, value1, value2, ...)"),
+                ("OFFSET", "Dynamic range slice - =OFFSET(array, rows, [height])"),
             ],
         },
         FunctionCategory {
