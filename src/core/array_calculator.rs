@@ -241,6 +241,7 @@ impl ArrayCalculator {
             || upper.contains("XLOOKUP(")
             || upper.contains("CHOOSE(")
             || upper.contains("OFFSET(")
+            || upper.contains("LET(")
     }
 
     /// Check if formula contains financial functions that need special handling (v1.6.0)
@@ -3057,9 +3058,207 @@ impl ArrayCalculator {
                     self.eval_offset(array_expr, rows_expr, height_expr, row_idx, table)?;
                 result = result.replace(full, &offset_result);
             }
+
+            // LET(name1, value1, [name2, value2, ...], calculation) - Named variables in formulas
+            // Process LET functions to substitute named variables
+            if result.to_uppercase().contains("LET(") {
+                result = self.eval_let(&result, row_idx, table)?;
+            }
         }
 
         Ok(result)
+    }
+
+    /// Evaluate LET function: LET(name1, value1, [name2, value2, ...], calculation)
+    /// Creates named variables for use in the final calculation expression
+    /// Example: =LET(x, 10, y, 20, x + y) → 30
+    fn eval_let(&self, formula: &str, row_idx: usize, table: &Table) -> ForgeResult<String> {
+        // Find LET( and its matching closing parenthesis
+        let upper = formula.to_uppercase();
+        if let Some(let_start) = upper.find("LET(") {
+            let start_idx = let_start + 4; // Position after "LET("
+
+            // Find the matching closing parenthesis
+            let chars: Vec<char> = formula.chars().collect();
+            let mut depth = 1;
+            let mut end_idx = start_idx;
+
+            for (i, &c) in chars.iter().enumerate().skip(start_idx) {
+                match c {
+                    '(' => depth += 1,
+                    ')' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            end_idx = i;
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            if depth != 0 {
+                return Err(ForgeError::Eval("LET: Unmatched parentheses".to_string()));
+            }
+
+            // Extract the full LET expression and its arguments
+            let full_let = &formula[let_start..=end_idx];
+            let args_str = &formula[start_idx..end_idx];
+
+            // Parse the arguments - this is complex because args can contain nested functions
+            let args = self.parse_let_args(args_str)?;
+
+            if args.len() < 3 {
+                return Err(ForgeError::Eval(
+                    "LET requires at least 3 arguments: name, value, and calculation".to_string(),
+                ));
+            }
+
+            // Must have odd number of args: name1, val1, name2, val2, ..., calculation
+            // So: name-value pairs + 1 calculation = 2n + 1 (odd)
+            if args.len() % 2 == 0 {
+                return Err(ForgeError::Eval(
+                    "LET requires name-value pairs followed by a calculation expression"
+                        .to_string(),
+                ));
+            }
+
+            // Build variable substitution map
+            let mut variables: std::collections::HashMap<String, String> =
+                std::collections::HashMap::new();
+            let num_pairs = (args.len() - 1) / 2;
+
+            for i in 0..num_pairs {
+                let name = args[i * 2].trim().to_string();
+                let value_expr = args[i * 2 + 1].trim();
+
+                // Validate variable name (must be alphanumeric starting with letter)
+                if name.is_empty() || !name.chars().next().unwrap().is_alphabetic() {
+                    return Err(ForgeError::Eval(format!(
+                        "LET: Invalid variable name '{}'",
+                        name
+                    )));
+                }
+
+                // Evaluate the value expression, substituting any previously defined variables
+                let mut resolved_value = value_expr.to_string();
+                for (var_name, var_value) in &variables {
+                    // Replace variable references (whole word only)
+                    resolved_value = self.replace_variable(&resolved_value, var_name, var_value);
+                }
+
+                // Try to evaluate as numeric expression
+                // First try aggregation functions (SUM, AVERAGE, etc.)
+                let evaluated = if self.is_aggregation_formula(&format!("={}", resolved_value)) {
+                    if let Ok(num) = self.evaluate_aggregation(&format!("={}", resolved_value)) {
+                        format!("{}", num)
+                    } else {
+                        resolved_value
+                    }
+                } else if let Ok(num) = self.eval_expression(&resolved_value, row_idx, table) {
+                    format!("{}", num)
+                } else {
+                    // Keep as-is for text or complex expressions
+                    resolved_value
+                };
+
+                variables.insert(name, evaluated);
+            }
+
+            // Get the final calculation expression (last argument)
+            let mut calculation = args.last().unwrap().trim().to_string();
+
+            // Substitute all variables into the calculation
+            for (name, value) in &variables {
+                calculation = self.replace_variable(&calculation, name, value);
+            }
+
+            // Replace the full LET(...) with the evaluated calculation
+            let result = formula.replace(full_let, &calculation);
+            Ok(result)
+        } else {
+            Ok(formula.to_string())
+        }
+    }
+
+    /// Parse LET function arguments, handling nested parentheses
+    fn parse_let_args(&self, args_str: &str) -> ForgeResult<Vec<String>> {
+        let mut args = Vec::new();
+        let mut current = String::new();
+        let mut depth = 0;
+        let mut in_string = false;
+        let mut string_char = '"';
+
+        for c in args_str.chars() {
+            match c {
+                '"' | '\'' if !in_string => {
+                    in_string = true;
+                    string_char = c;
+                    current.push(c);
+                }
+                c if in_string && c == string_char => {
+                    in_string = false;
+                    current.push(c);
+                }
+                '(' if !in_string => {
+                    depth += 1;
+                    current.push(c);
+                }
+                ')' if !in_string => {
+                    depth -= 1;
+                    current.push(c);
+                }
+                ',' if depth == 0 && !in_string => {
+                    args.push(current.trim().to_string());
+                    current = String::new();
+                }
+                _ => {
+                    current.push(c);
+                }
+            }
+        }
+
+        // Don't forget the last argument
+        if !current.trim().is_empty() {
+            args.push(current.trim().to_string());
+        }
+
+        Ok(args)
+    }
+
+    /// Replace a variable name with its value in an expression (whole word only)
+    fn replace_variable(&self, expr: &str, name: &str, value: &str) -> String {
+        // Use word boundary matching to avoid partial replacements
+        // e.g., replacing "x" shouldn't affect "max" or "x1"
+        let mut result = String::new();
+        let chars: Vec<char> = expr.chars().collect();
+        let name_chars: Vec<char> = name.chars().collect();
+        let mut i = 0;
+
+        while i < chars.len() {
+            // Check if this position starts the variable name
+            if i + name_chars.len() <= chars.len() {
+                let slice: String = chars[i..i + name_chars.len()].iter().collect();
+                if slice == name {
+                    // Check word boundaries
+                    let before_ok =
+                        i == 0 || !chars[i - 1].is_alphanumeric() && chars[i - 1] != '_';
+                    let after_ok = i + name_chars.len() >= chars.len()
+                        || !chars[i + name_chars.len()].is_alphanumeric()
+                            && chars[i + name_chars.len()] != '_';
+
+                    if before_ok && after_ok {
+                        result.push_str(value);
+                        i += name_chars.len();
+                        continue;
+                    }
+                }
+            }
+            result.push(chars[i]);
+            i += 1;
+        }
+
+        result
     }
 
     /// Evaluate OFFSET function: OFFSET(array, rows, [height])
@@ -6833,6 +7032,105 @@ mod tests {
             (rate - 0.10).abs() < 0.001,
             "CHOOSE(2, ...) should return 0.10, got {}",
             rate
+        );
+    }
+
+    #[test]
+    fn test_let_function() {
+        use crate::types::Variable;
+        let mut model = ParsedModel::new();
+
+        // Test simple LET: =LET(x, 10, x * 2) → 20
+        model.add_scalar(
+            "simple_let".to_string(),
+            Variable::new(
+                "simple_let".to_string(),
+                None,
+                Some("=LET(x, 10, x * 2)".to_string()),
+            ),
+        );
+
+        // Test multiple variables: =LET(x, 5, y, 3, x + y) → 8
+        model.add_scalar(
+            "multi_var".to_string(),
+            Variable::new(
+                "multi_var".to_string(),
+                None,
+                Some("=LET(x, 5, y, 3, x + y)".to_string()),
+            ),
+        );
+
+        // Test dependent variables: =LET(a, 10, b, a * 2, b + 5) → 25
+        model.add_scalar(
+            "dependent".to_string(),
+            Variable::new(
+                "dependent".to_string(),
+                None,
+                Some("=LET(a, 10, b, a * 2, b + 5)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+
+        let simple = result.scalars.get("simple_let").unwrap().value.unwrap();
+        assert!(
+            (simple - 20.0).abs() < 0.001,
+            "LET(x, 10, x * 2) should return 20, got {}",
+            simple
+        );
+
+        let multi = result.scalars.get("multi_var").unwrap().value.unwrap();
+        assert!(
+            (multi - 8.0).abs() < 0.001,
+            "LET(x, 5, y, 3, x + y) should return 8, got {}",
+            multi
+        );
+
+        let dep = result.scalars.get("dependent").unwrap().value.unwrap();
+        assert!(
+            (dep - 25.0).abs() < 0.001,
+            "LET(a, 10, b, a * 2, b + 5) should return 25, got {}",
+            dep
+        );
+    }
+
+    #[test]
+    fn test_let_with_aggregation() {
+        use crate::types::{Column, ColumnValue, Table, Variable};
+        let mut model = ParsedModel::new();
+
+        // Create a table with values
+        let mut sales = Table::new("sales".to_string());
+        sales.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0, 400.0, 500.0]),
+        ));
+        model.add_table(sales);
+
+        // Test LET with SUM: =LET(total, SUM(sales.revenue), rate, 0.1, total * rate) → 150
+        model.add_scalar(
+            "tax".to_string(),
+            Variable::new(
+                "tax".to_string(),
+                None,
+                Some("=LET(total, SUM(sales.revenue), rate, 0.1, total * rate)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+
+        let tax = result.scalars.get("tax").unwrap().value.unwrap();
+        // SUM(100+200+300+400+500) = 1500, 1500 * 0.1 = 150
+        assert!(
+            (tax - 150.0).abs() < 0.001,
+            "LET with SUM should return 150, got {}",
+            tax
         );
     }
 

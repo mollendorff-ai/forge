@@ -1944,6 +1944,7 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
                 ("IF", "Conditional - =IF(condition, true_value, false_value)"),
                 ("AND", "Logical AND - =AND(condition1, condition2, ...)"),
                 ("OR", "Logical OR - =OR(condition1, condition2, ...)"),
+                ("LET", "Named variables - =LET(name, value, ..., calculation)"),
             ],
         },
     ];

@@ -3,7 +3,7 @@
 # Last research update: 2025-11-28
 
 metadata:
-  current_version: "4.3.0"
+  current_version: "4.4.0"
   last_updated: "2025-12-04"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
@@ -45,10 +45,6 @@ v4_1:
     total_tests: 227
 
 next:
-  - version: "4.4.0"
-    summary: "forge functions + Dynamic Arrays (CHOOSE, OFFSET, LET, FILTER, SORT)"
-    priority: HIGH
-    goal: EXCEL_PARITY
   - version: "5.0.0"
     summary: "Full Excel Parity (SWITCH, INDIRECT, LAMBDA) + Enhanced Export"
     priority: HIGH
@@ -169,29 +165,33 @@ v4_3:
 
 v4_4:
   version: "4.4.0"
-  status: planned
+  status: released
+  date: "2025-12-04"
   priority: HIGH
   summary: "Dynamic Array Functions + Scenario Modeling"
   deliverables:
     - feature: "forge functions"
       description: "New command to list all 60+ functions by category (Financial, Lookup, Date, etc.)"
-      effort: "2h"
+      status: done
     - feature: "CHOOSE"
       description: "Pick nth item from list - essential for scenario modeling"
-      effort: "1h"
+      status: done
     - feature: "OFFSET"
       description: "Dynamic range references for flexible models"
-      effort: "3h"
+      status: done
     - feature: "LET"
       description: "Named variables within formulas - cleaner complex formulas"
-      effort: "3h"
+      status: done
     - feature: "FILTER"
       description: "Dynamic array filtering"
-      effort: "2h"
+      status: done
     - feature: "SORT"
       description: "Dynamic array sorting"
-      effort: "2h"
-  estimated_hours: 13
+      status: done
+  stats:
+    tests: 240
+    tests_added: 6
+    functions_total: 60
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAJOR RELEASES
