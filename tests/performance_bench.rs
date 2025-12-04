@@ -70,10 +70,13 @@ fn generate_large_model(rows: usize) -> String {
     yaml.push_str("  tax_rate:\n");
     yaml.push_str("    value: 0.25\n");
     yaml.push_str("  total_revenue:\n");
+    yaml.push_str("    value: null\n");
     yaml.push_str("    formula: \"=SUM(transactions.revenue)\"\n");
     yaml.push_str("  total_profit:\n");
+    yaml.push_str("    value: null\n");
     yaml.push_str("    formula: \"=SUM(transactions.profit)\"\n");
     yaml.push_str("  avg_margin:\n");
+    yaml.push_str("    value: null\n");
     yaml.push_str("    formula: \"=AVERAGE(transactions.margin)\"\n");
 
     yaml
@@ -108,6 +111,7 @@ fn bench_calculate(rows: usize) -> Result<(std::time::Duration, std::time::Durat
 }
 
 #[test]
+#[ignore] // Run with: cargo test perf_baseline_100_rows -- --ignored --nocapture
 fn perf_baseline_100_rows() {
     let (parse, calc) = bench_calculate(100).expect("Calculation failed");
     let total = parse + calc;
@@ -123,6 +127,7 @@ fn perf_baseline_100_rows() {
 }
 
 #[test]
+#[ignore] // Run with: cargo test perf_baseline_1000_rows -- --ignored --nocapture
 fn perf_baseline_1000_rows() {
     let (parse, calc) = bench_calculate(1000).expect("Calculation failed");
     let total = parse + calc;
@@ -138,6 +143,7 @@ fn perf_baseline_1000_rows() {
 }
 
 #[test]
+#[ignore] // Run with: cargo test perf_baseline_5000_rows -- --ignored --nocapture
 fn perf_baseline_5000_rows() {
     let (parse, calc) = bench_calculate(5000).expect("Calculation failed");
     let total = parse + calc;
@@ -201,6 +207,7 @@ fn perf_baseline_100000_rows() {
 }
 
 #[test]
+#[ignore] // Run with: cargo test perf_report -- --ignored --nocapture
 fn perf_report() {
     println!("\n");
     println!("╔═══════════════════════════════════════════════════════════════════════╗");
