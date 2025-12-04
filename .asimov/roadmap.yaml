@@ -3,24 +3,24 @@
 # Last research update: 2025-11-28
 
 metadata:
-  current_version: "4.2.1"
-  last_updated: "2025-12-02"
+  current_version: "4.3.0"
+  last_updated: "2025-12-04"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "4.2.1"
+  version: "4.3.0"
   status: released
-  date: "2025-12-02"
-  summary: "Critical Bug Fixes - Field Testing"
+  date: "2025-12-04"
+  summary: "File Write-Back + Strict Schema Validation"
   highlights:
-    - "COUNT function: Count rows in any column type"
-    - "Multi-file validation: forge validate file1.yaml file2.yaml"
-    - "Unreserved 'scenarios' keyword - tables named 'scenarios' work"
-    - "Multi-document YAML support (leading ---)"
-    - "Clear null handling error messages"
+    - "File Write-Back: forge calculate writes computed values back to YAML"
+    - "Backup before write (.yaml.bak)"
+    - "Strict schema validation (fails on error, not warns)"
+    - "Schema versioning: _forge_version now required"
+    - "Preventive tests for schema/version drift"
   stats:
-    tests: 167
+    tests: 234
     warnings: 0
     throughput: "96K rows/sec"
 
@@ -45,10 +45,10 @@ v4_1:
     total_tests: 227
 
 next:
-  - version: "4.3.0"
-    summary: "File Write-Back - Calculate and persist results"
-    priority: TOP
-    goal: CORE_FUNCTIONALITY
+  - version: "4.4.0"
+    summary: "Advanced Excel Functions (OFFSET, LET, FILTER, SORT)"
+    priority: MEDIUM
+    goal: EXCEL_PARITY
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CRITICAL BUG FIXES (Found 2025-12-01 - Field testing) - RELEASED 2025-12-02
@@ -119,70 +119,49 @@ v4_2:
 
 v4_3:
   version: "4.3.0"
-  status: in_progress
+  status: released
+  date: "2025-12-04"
   priority: TOP
-  summary: "File Write-Back + Bug Fixes"
+  summary: "File Write-Back + Strict Schema Validation"
   rationale: |
     Core functionality gap. forge calculate computes correctly but
     results stay in memory. Users expect values written back to YAML.
-    Without this, forge is validate-only - not a complete spreadsheet replacement.
-  implementation_plan:
-    phase_1:
-      name: "Fix Nested Scalar Reference Resolution"
-      file: "src/core/array_calculator.rs"
-      problem: "Cross-section refs like inputs.x fail when evaluated from forecast section"
-      fix: "Check fully-qualified names before applying parent-section scoping"
-      effort: "2h"
-    phase_2:
-      name: "Fix IF Function with Scalar References"
-      file: "src/core/array_calculator.rs"
-      problem: "Row-wise resolver only checks table columns, not scalars"
-      fix: "Inject scalar variables into row-wise resolver closure"
-      effort: "1h"
-    phase_3:
-      name: "Fix Schema Validation for Scalars with Metadata"
-      file: "schema/forge-v1.0.schema.json"
-      problem: "oneOf too strict when scalars have notes/unit fields"
-      fix: "Adjust Scalar definition to allow optional metadata"
-      effort: "1h"
-    phase_4:
-      name: "Verify Write-Back End-to-End"
-      test_file: "test-data/quota_forecast.yaml"
-      effort: "30m"
+    Additionally, schema validation was too lax - warned instead of failing.
   deliverables:
     - feature: "File Write-Back"
       description: "forge calculate writes computed values back to value: arrays"
-      effort: "4h"
-      impact: "CRITICAL - completes the calculate workflow"
       status: done
-      notes: "Implementation complete in src/writer/mod.rs"
     - feature: "Backup before write"
       description: "Create .yaml.bak before modifying original file"
-      effort: "1h"
       status: done
     - feature: "--dry-run flag"
       description: "Show what would be written without modifying file"
-      effort: "1h"
       status: done
-      notes: "Already existed"
-  bugs_found:
+    - feature: "Strict schema validation"
+      description: "Schema validation now fails on error instead of warning"
+      status: done
+    - feature: "_forge_version required"
+      description: "All YAML files must have _forge_version field"
+      status: done
+    - feature: "Preventive tests"
+      description: "Tests for schema enum, required version, test file coverage"
+      status: done
+  bugs_fixed:
     - bug: "Nested scalar reference resolution"
-      description: "Formulas like '=inputs.current_usage_pct / inputs.hours_since_reset' fail with 'Value' error"
-      test_file: "test-data/quota_forecast.yaml"
-      status: in_progress
-      effort: "2h"
-      root_cause: "resolve_scalar_references() applies parent-section scoping before checking fully-qualified names"
+      description: "Cross-section refs like inputs.x now work correctly"
+      status: done
     - bug: "IF function with scalar references"
-      description: "=IF(remaining_quota > 0, 1, 0) fails with 'Reference' error when remaining_quota is a scalar"
-      status: pending
-      effort: "1h"
-      root_cause: "Row-wise resolver doesn't inject scalar variables"
-    - bug: "Schema validation rejects valid scalars with 'notes' field"
-      description: "Schema oneOf doesn't match scalars with notes/unit metadata"
-      status: pending
-      effort: "1h"
-      root_cause: "Scalar definition additionalProperties or required fields too strict"
-  estimated_hours: 4.5
+      description: "Scalar refs in IF conditions now resolve properly"
+      status: done
+    - bug: "Schema validation too lax"
+      description: "Files without _forge_version now fail validation"
+      status: done
+    - bug: "Schema enum had invalid versions"
+      description: "Reduced to valid format versions only (1.0.0, 4.0.0)"
+      status: done
+  stats:
+    tests: 234
+    tests_added: 3
 
 v4_4:
   version: "4.4.0"
