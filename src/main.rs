@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
+use colored::Colorize;
 use royalbit_forge::cli;
 use royalbit_forge::error::ForgeResult;
+use royalbit_forge::update::{check_for_update, perform_update};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -24,6 +26,7 @@ COMMANDS:
   import      - Excel to YAML
   watch       - Auto-calculate on file changes
   audit       - Show formula dependency chain
+  update      - Check for updates and self-update
 
 EXAMPLES:
   forge calculate model.yaml                    # Evaluate formulas
@@ -453,6 +456,24 @@ EXAMPLES:
         #[arg(long)]
         verbose: bool,
     },
+
+    #[command(long_about = "Check for updates and optionally self-update the binary.
+
+Downloads the latest release from GitHub and replaces the current binary.
+Checksums are verified before installation.
+
+EXAMPLES:
+  forge update              # Check and install updates
+  forge update --check      # Check only, don't install
+
+PLATFORMS:
+  Linux x86_64, Linux ARM64, macOS Intel, macOS ARM, Windows x64")]
+    /// Check for updates and self-update
+    Update {
+        /// Only check for updates, don't install
+        #[arg(long)]
+        check: bool,
+    },
 }
 
 fn main() -> ForgeResult<()> {
@@ -531,5 +552,84 @@ fn main() -> ForgeResult<()> {
             max,
             verbose,
         } => cli::break_even(file, output, vary, min, max, verbose),
+
+        Commands::Update { check } => {
+            println!("{}", "🔥 Forge - Update".bold().green());
+            println!();
+
+            println!("  Checking for updates...");
+
+            match check_for_update() {
+                Ok(version_info) => {
+                    println!("  Current version: {}", version_info.current.bright_blue());
+                    println!("  Latest version:  {}", version_info.latest.bright_blue());
+                    println!();
+
+                    if version_info.update_available {
+                        println!("  {} New version available!", "UPDATE".bold().yellow());
+
+                        if check {
+                            println!();
+                            println!("  Run {} to install the update.", "forge update".bold());
+                            return Ok(());
+                        }
+
+                        if let Some(download_url) = version_info.download_url {
+                            println!();
+                            match perform_update(
+                                &download_url,
+                                version_info.checksums_url.as_deref(),
+                            ) {
+                                Ok(()) => {
+                                    println!();
+                                    println!(
+                                        "{} Updated to version {}",
+                                        "Success:".bold().green(),
+                                        version_info.latest
+                                    );
+                                    println!();
+                                    println!("  Run {} to verify.", "forge --version".bold());
+                                }
+                                Err(e) => {
+                                    eprintln!();
+                                    eprintln!("{} {}", "Error:".bold().red(), e);
+                                    eprintln!();
+                                    eprintln!("  You can manually update:");
+                                    eprintln!("    curl -L {} | tar xz", download_url);
+                                    eprintln!("    sudo mv forge /usr/local/bin/");
+                                    return Err(royalbit_forge::error::ForgeError::Validation(
+                                        e.to_string(),
+                                    ));
+                                }
+                            }
+                        } else {
+                            eprintln!();
+                            eprintln!(
+                                "{} No binary available for this platform",
+                                "Error:".bold().red()
+                            );
+                            eprintln!("  Visit https://github.com/royalbit/forge/releases/latest");
+                            return Err(royalbit_forge::error::ForgeError::Validation(
+                                "No binary for platform".to_string(),
+                            ));
+                        }
+                    } else {
+                        println!(
+                            "  {} You're running the latest version!",
+                            "OK".bold().green()
+                        );
+                    }
+                    Ok(())
+                }
+                Err(e) => {
+                    eprintln!("{} {}", "Error:".bold().red(), e);
+                    eprintln!();
+                    eprintln!(
+                        "  Check manually: https://github.com/royalbit/forge/releases/latest"
+                    );
+                    Err(royalbit_forge::error::ForgeError::Validation(e))
+                }
+            }
+        }
     }
 }
