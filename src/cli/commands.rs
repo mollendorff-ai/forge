@@ -1945,6 +1945,8 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
                 ("AND", "Logical AND - =AND(condition1, condition2, ...)"),
                 ("OR", "Logical OR - =OR(condition1, condition2, ...)"),
                 ("LET", "Named variables - =LET(name, value, ..., calculation)"),
+                ("SWITCH", "Multi-match - =SWITCH(expr, val1, result1, ..., [default])"),
+                ("INDIRECT", "String to ref - =INDIRECT(\"table.column\")"),
             ],
         },
     ];
