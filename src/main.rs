@@ -17,6 +17,7 @@ PERFORMANCE:
 COMMANDS:
   calculate   - Evaluate formulas in YAML files
   validate    - Check formulas without modifying
+  functions   - List all 54 supported Excel functions
   sensitivity - One/two-variable data tables
   goal-seek   - Find input value for target output
   break-even  - Find where output crosses zero
@@ -474,6 +475,34 @@ PLATFORMS:
         #[arg(long)]
         check: bool,
     },
+
+    #[command(
+        long_about = "List all supported Excel-compatible functions by category.
+
+Forge supports 54 Excel functions for financial modeling. Use this command
+to see all available functions organized by category.
+
+CATEGORIES:
+  Financial   - NPV, IRR, XNPV, XIRR, PMT, PV, FV, RATE, NPER (9)
+  Lookup      - MATCH, INDEX, VLOOKUP, XLOOKUP (4)
+  Conditional - SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, MAXIFS, MINIFS (8)
+  Array       - UNIQUE, COUNTUNIQUE (2)
+  Aggregation - SUM, AVERAGE, MIN, MAX, COUNT (5)
+  Math        - ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER, ABS (9)
+  Text        - CONCAT, TRIM, UPPER, LOWER, LEN, MID (6)
+  Date        - TODAY, DATE, YEAR, MONTH, DAY, DATEDIF, EDATE, EOMONTH (8)
+  Logic       - IF, AND, OR (3)
+
+EXAMPLES:
+  forge functions           # List all functions
+  forge functions --json    # Output as JSON (for tooling)"
+    )]
+    /// List all supported Excel-compatible functions
+    Functions {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 fn main() -> ForgeResult<()> {
@@ -631,5 +660,7 @@ fn main() -> ForgeResult<()> {
                 }
             }
         }
+
+        Commands::Functions { json } => cli::functions(json),
     }
 }

@@ -273,21 +273,21 @@ fn test_nested_scalar_references() {
         .expect("Nested scalar references should resolve");
 
     // Verify the burn_rate scalar was calculated correctly
-    // burn_rate = current_usage_pct / hours_since_reset = 26 / 43 ≈ 0.6047
+    // burn_rate = current_usage_pct / hours_since_reset = 33 / 59 ≈ 0.5593
     let burn_rate = result.scalars.get("forecast.burn_rate").unwrap();
     assert!(
-        (burn_rate.value.unwrap() - 0.6047).abs() < 0.01,
-        "Expected ~0.6047, got {}",
+        (burn_rate.value.unwrap() - 0.5593).abs() < 0.01,
+        "Expected ~0.5593, got {}",
         burn_rate.value.unwrap()
     );
 
     // Verify projected_total (nested reference chain)
-    // projected_add = burn_rate * hours_until_reset = 0.6047 * 125 ≈ 75.58
-    // projected_total = current_usage_pct + projected_add = 26 + 75.58 ≈ 101.58
+    // projected_add = burn_rate * hours_until_reset = 0.5593 * 109 ≈ 60.97
+    // projected_total = current_usage_pct + projected_add = 33 + 60.97 ≈ 93.97
     let projected_total = result.scalars.get("forecast.projected_total").unwrap();
     assert!(
-        (projected_total.value.unwrap() - 101.58).abs() < 0.1,
-        "Expected ~101.58, got {}",
+        (projected_total.value.unwrap() - 93.97).abs() < 0.1,
+        "Expected ~93.97, got {}",
         projected_total.value.unwrap()
     );
 
@@ -430,4 +430,79 @@ fn test_scalar_with_metadata() {
     assert!(result.scalars.contains_key("config.discount_rate"));
 
     println!("✓ Scalar with metadata test passed");
+}
+
+#[test]
+fn test_choose_function() {
+    use royalbit_forge::types::Variable;
+
+    // Test CHOOSE function for scenario modeling
+    let mut model = ParsedModel::new();
+
+    // Add scalar for scenario index
+    model.scalars.insert(
+        "inputs.scenario_index".to_string(),
+        Variable::new("inputs.scenario_index".to_string(), Some(2.0), None),
+    );
+
+    // Add scalar with CHOOSE formula
+    model.scalars.insert(
+        "outputs.scenario_value".to_string(),
+        Variable::new(
+            "outputs.scenario_value".to_string(),
+            None,
+            Some("=CHOOSE(inputs.scenario_index, 100, 200, 300)".to_string()),
+        ),
+    );
+
+    // Add scalar with literal CHOOSE
+    model.scalars.insert(
+        "outputs.literal_choose".to_string(),
+        Variable::new(
+            "outputs.literal_choose".to_string(),
+            None,
+            Some("=CHOOSE(1, 10, 20, 30)".to_string()),
+        ),
+    );
+
+    // Add scalar with expression CHOOSE
+    model.scalars.insert(
+        "outputs.expression_choose".to_string(),
+        Variable::new(
+            "outputs.expression_choose".to_string(),
+            None,
+            Some("=CHOOSE(1+2, 5, 10, 15)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("CHOOSE calculation should succeed");
+
+    // Check scenario_value (index=2 should return 200)
+    let scenario_value = result.scalars.get("outputs.scenario_value").unwrap();
+    assert!(
+        (scenario_value.value.unwrap() - 200.0).abs() < 0.0001,
+        "CHOOSE(2, 100, 200, 300) should return 200, got {}",
+        scenario_value.value.unwrap()
+    );
+
+    // Check literal_choose (index=1 should return 10)
+    let literal_choose = result.scalars.get("outputs.literal_choose").unwrap();
+    assert!(
+        (literal_choose.value.unwrap() - 10.0).abs() < 0.0001,
+        "CHOOSE(1, 10, 20, 30) should return 10, got {}",
+        literal_choose.value.unwrap()
+    );
+
+    // Check expression_choose (index=1+2=3 should return 15)
+    let expression_choose = result.scalars.get("outputs.expression_choose").unwrap();
+    assert!(
+        (expression_choose.value.unwrap() - 15.0).abs() < 0.0001,
+        "CHOOSE(1+2, 5, 10, 15) should return 15, got {}",
+        expression_choose.value.unwrap()
+    );
+
+    println!("✓ CHOOSE function test passed");
 }

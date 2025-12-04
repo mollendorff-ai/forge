@@ -239,6 +239,7 @@ impl ArrayCalculator {
             || upper.contains("INDEX(")
             || upper.contains("VLOOKUP(")
             || upper.contains("XLOOKUP(")
+            || upper.contains("CHOOSE(")
     }
 
     /// Check if formula contains financial functions that need special handling (v1.6.0)
@@ -2839,12 +2840,13 @@ impl ArrayCalculator {
         let mut result = formula.to_string();
         let mut prev_result = String::new();
 
-        // Create regex patterns once
+        // Create regex patterns once (outside the loop to avoid clippy warning)
         let re_match = Regex::new(r"MATCH\(([^,]+),\s*([^,]+)(?:,\s*([^)]+))?\)").unwrap();
         let re_index = Regex::new(r"INDEX\(([^,]+),\s*([^)]+)\)").unwrap();
         let re_vlookup =
             Regex::new(r"VLOOKUP\(([^,]+),\s*([^,]+),\s*([^,]+)(?:,\s*([^)]+))?\)").unwrap();
         let re_xlookup = Regex::new(r"XLOOKUP\(([^,]+),\s*([^,]+),\s*([^,]+)(?:,\s*([^,]+))?(?:,\s*([^,]+))?(?:,\s*([^)]+))?\)").unwrap();
+        let re_choose = Regex::new(r"CHOOSE\(([^)]+)\)").unwrap();
 
         // Keep processing until no more changes (handles nested functions)
         // Process innermost (MATCH) first, then INDEX, then convenience functions
@@ -2925,9 +2927,63 @@ impl ArrayCalculator {
                 )?;
                 result = result.replace(full, &xlookup_result);
             }
+
+            // CHOOSE(index, value1, value2, ...) - Returns the value at position index (1-based)
+            for cap in re_choose.captures_iter(&result.clone()).collect::<Vec<_>>() {
+                let full = cap.get(0).unwrap().as_str();
+                let args_str = cap.get(1).unwrap().as_str();
+                let choose_result = self.eval_choose(args_str, row_idx, table)?;
+                result = result.replace(full, &choose_result);
+            }
         }
 
         Ok(result)
+    }
+
+    /// Evaluate CHOOSE function: CHOOSE(index, value1, value2, ...)
+    /// Returns the value at position index (1-based)
+    fn eval_choose(&self, args_str: &str, row_idx: usize, table: &Table) -> ForgeResult<String> {
+        let args = self.parse_function_args(args_str)?;
+
+        if args.len() < 2 {
+            return Err(ForgeError::Eval(
+                "CHOOSE requires at least 2 arguments: index and at least one value".to_string(),
+            ));
+        }
+
+        // Evaluate the index (first argument)
+        let index = self.eval_expression(&args[0], row_idx, table)? as usize;
+
+        if index < 1 {
+            return Err(ForgeError::Eval(
+                "CHOOSE index must be at least 1".to_string(),
+            ));
+        }
+
+        if index > args.len() - 1 {
+            return Err(ForgeError::Eval(format!(
+                "CHOOSE index {} is out of range (max: {})",
+                index,
+                args.len() - 1
+            )));
+        }
+
+        // Get the value at the index position (1-based, so args[index] is correct)
+        let value_expr = &args[index];
+
+        // Try to evaluate as a number first
+        if let Ok(num_value) = self.eval_expression(value_expr, row_idx, table) {
+            return Ok(format!("{}", num_value));
+        }
+
+        // Try to evaluate as text
+        if let Ok(text_value) = self.eval_text_expression(value_expr, row_idx, table) {
+            // Return quoted string for text values
+            return Ok(format!("\"{}\"", text_value));
+        }
+
+        // Return as-is if we can't evaluate it
+        Ok(value_expr.trim().to_string())
     }
 
     /// Evaluate MATCH function: MATCH(lookup_value, lookup_array, [match_type])
