@@ -199,7 +199,7 @@ v4_4:
 
 v5:
   version: "5.0.0"
-  status: planned
+  status: in_progress
   target: "2026-Q1"
   summary: "Full Excel Parity for Financial Modeling"
   rationale: |
@@ -208,14 +208,24 @@ v5:
     Forge is used WITH AI (Claude Code), not in IDEs.
   features:
     excel_functions:
-      - "INDIRECT (string-based cell refs)"
-      - "LAMBDA (custom functions)"
-      - "SWITCH (cleaner conditionals)"
-      - "Full Excel compatibility matrix"
+      - feature: "SWITCH"
+        description: "Multi-value matching - cleaner than nested IFs"
+        status: done
+      - feature: "INDIRECT"
+        description: "String-based cell/column references"
+        status: done
+      - feature: "LAMBDA"
+        description: "Anonymous functions - inline calculations"
+        status: done
+      - feature: "Full Excel compatibility matrix"
+        status: planned
     excel_export:
       - "Enhanced .xlsx generation with preserved formulas"
       - "Multi-sheet workbook support"
       - "Formatting and styling options"
+  stats:
+    tests: 245
+    functions_total: 63
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

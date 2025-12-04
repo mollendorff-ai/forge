@@ -244,6 +244,7 @@ impl ArrayCalculator {
             || upper.contains("LET(")
             || upper.contains("SWITCH(")
             || upper.contains("INDIRECT(")
+            || upper.contains("LAMBDA(")
     }
 
     /// Check if formula contains financial functions that need special handling (v1.6.0)
@@ -3115,6 +3116,12 @@ impl ArrayCalculator {
                 result = result.replace(full, &indirect_result);
             }
 
+            // LAMBDA(params...)(args...) - Anonymous functions
+            // Process LAMBDA expressions (special handling for curried syntax)
+            if result.to_uppercase().contains("LAMBDA(") {
+                result = self.eval_lambda(&result, row_idx, table)?;
+            }
+
             // OFFSET(array, rows, [height]) - Returns subset of array
             // Used to get a slice of an array starting from a given offset
             // Often combined with SUM, AVERAGE, etc.: =SUM(OFFSET(sales.revenue, 2, 5))
@@ -3606,6 +3613,133 @@ impl ArrayCalculator {
             "INDIRECT: Cannot resolve reference '{}'",
             ref_string
         )))
+    }
+
+    /// Evaluate LAMBDA function: LAMBDA(param1, param2, ..., calculation)(arg1, arg2, ...)
+    /// Creates an anonymous function and immediately invokes it with arguments
+    /// Example: =LAMBDA(x, x * 2)(5) → 10
+    /// Example: =LAMBDA(x, y, x + y)(3, 4) → 7
+    fn eval_lambda(&self, formula: &str, row_idx: usize, table: &Table) -> ForgeResult<String> {
+        let upper = formula.to_uppercase();
+        if let Some(lambda_start) = upper.find("LAMBDA(") {
+            // Find the closing parenthesis of LAMBDA definition
+            let chars: Vec<char> = formula.chars().collect();
+            let def_start = lambda_start + 7; // Position after "LAMBDA("
+
+            // Find the matching closing parenthesis for the definition
+            let mut depth = 1;
+            let mut def_end = def_start;
+
+            for (i, &c) in chars.iter().enumerate().skip(def_start) {
+                match c {
+                    '(' => depth += 1,
+                    ')' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            def_end = i;
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            if depth != 0 {
+                return Err(ForgeError::Eval(
+                    "LAMBDA: Unmatched parentheses in definition".to_string(),
+                ));
+            }
+
+            // Extract the LAMBDA definition (params and calculation)
+            let def_content = &formula[def_start..def_end];
+
+            // Check if there's an invocation after the definition: )(args)
+            let invocation_start = def_end + 1;
+            if invocation_start >= chars.len() || chars[invocation_start] != '(' {
+                return Err(ForgeError::Eval(
+                    "LAMBDA: Missing invocation arguments. Use LAMBDA(params, calc)(args)"
+                        .to_string(),
+                ));
+            }
+
+            // Find the closing parenthesis of invocation
+            let args_start = invocation_start + 1;
+            let mut depth = 1;
+            let mut args_end = args_start;
+
+            for (i, &c) in chars.iter().enumerate().skip(args_start) {
+                match c {
+                    '(' => depth += 1,
+                    ')' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            args_end = i;
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            if depth != 0 {
+                return Err(ForgeError::Eval(
+                    "LAMBDA: Unmatched parentheses in invocation".to_string(),
+                ));
+            }
+
+            // Extract the invocation arguments
+            let args_content = &formula[args_start..args_end];
+
+            // Parse definition: everything before the last comma is params, last item is calculation
+            let def_parts = self.parse_function_args(def_content)?;
+            if def_parts.len() < 2 {
+                return Err(ForgeError::Eval(
+                    "LAMBDA requires at least one parameter and a calculation".to_string(),
+                ));
+            }
+
+            // Last part is the calculation, everything else is parameters
+            let params: Vec<String> = def_parts[..def_parts.len() - 1]
+                .iter()
+                .map(|s| s.trim().to_string())
+                .collect();
+            let calculation = def_parts.last().unwrap().trim();
+
+            // Parse invocation arguments
+            let args = self.parse_function_args(args_content)?;
+            if args.len() != params.len() {
+                return Err(ForgeError::Eval(format!(
+                    "LAMBDA: Expected {} arguments, got {}",
+                    params.len(),
+                    args.len()
+                )));
+            }
+
+            // Evaluate each argument and build substitution map
+            let mut substitutions: std::collections::HashMap<String, String> =
+                std::collections::HashMap::new();
+            for (param, arg) in params.iter().zip(args.iter()) {
+                let evaluated = if let Ok(num) = self.eval_expression(arg.trim(), row_idx, table) {
+                    format!("{}", num)
+                } else {
+                    arg.trim().to_string()
+                };
+                substitutions.insert(param.clone(), evaluated);
+            }
+
+            // Substitute parameters in calculation
+            let mut result_calc = calculation.to_string();
+            for (param, value) in &substitutions {
+                result_calc = self.replace_variable(&result_calc, param, value);
+            }
+
+            // Replace the entire LAMBDA(...)(...) with the substituted calculation
+            let full_lambda = &formula[lambda_start..=args_end];
+            let result = formula.replace(full_lambda, &result_calc);
+            Ok(result)
+        } else {
+            Ok(formula.to_string())
+        }
     }
 
     /// Evaluate MATCH function: MATCH(lookup_value, lookup_array, [match_type])
@@ -7480,6 +7614,69 @@ mod tests {
             (rate - 10.0).abs() < 0.001,
             "INDIRECT scalar should return 10, got {}",
             rate
+        );
+    }
+
+    #[test]
+    fn test_lambda_function() {
+        use crate::types::Variable;
+        let mut model = ParsedModel::new();
+
+        // Test simple lambda: LAMBDA(x, x * 2)(5) → 10
+        model.add_scalar(
+            "double".to_string(),
+            Variable::new(
+                "double".to_string(),
+                None,
+                Some("=LAMBDA(x, x * 2)(5)".to_string()),
+            ),
+        );
+
+        // Test multi-param lambda: LAMBDA(x, y, x + y)(3, 4) → 7
+        model.add_scalar(
+            "add".to_string(),
+            Variable::new(
+                "add".to_string(),
+                None,
+                Some("=LAMBDA(x, y, x + y)(3, 4)".to_string()),
+            ),
+        );
+
+        // Test compound interest: LAMBDA(p, r, n, p * (1 + r) ^ n)(1000, 0.05, 10) → 1628.89
+        model.add_scalar(
+            "compound".to_string(),
+            Variable::new(
+                "compound".to_string(),
+                None,
+                Some("=LAMBDA(p, r, n, p * (1 + r) ^ n)(1000, 0.05, 10)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+
+        let double = result.scalars.get("double").unwrap().value.unwrap();
+        assert!(
+            (double - 10.0).abs() < 0.001,
+            "LAMBDA(x, x*2)(5) should return 10, got {}",
+            double
+        );
+
+        let add = result.scalars.get("add").unwrap().value.unwrap();
+        assert!(
+            (add - 7.0).abs() < 0.001,
+            "LAMBDA(x, y, x+y)(3, 4) should return 7, got {}",
+            add
+        );
+
+        let compound = result.scalars.get("compound").unwrap().value.unwrap();
+        // 1000 * (1.05)^10 = 1628.89
+        assert!(
+            (compound - 1628.89).abs() < 0.1,
+            "LAMBDA compound interest should return ~1628.89, got {}",
+            compound
         );
     }
 
