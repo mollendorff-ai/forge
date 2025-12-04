@@ -83,6 +83,49 @@ source ~/.bashrc
 
 ---
 
+## Updating Forge
+
+### Self-Update (Recommended)
+
+```bash
+# Check for updates
+forge update --check
+
+# Update to latest version
+forge update
+```
+
+The update command:
+- Checks GitHub Releases for new versions
+- Downloads the correct binary for your platform
+- Verifies SHA256 checksum before installation
+- Replaces the binary in-place (creates backup first)
+
+### Supported Platforms
+
+| Platform | Target | Auto-Update |
+|----------|--------|-------------|
+| Linux x86_64 | `x86_64-unknown-linux-gnu` | ✅ |
+| Linux ARM64 | `aarch64-unknown-linux-gnu` | ✅ |
+| macOS Intel | `x86_64-apple-darwin` | ✅ |
+| macOS ARM (M1/M2/M3) | `aarch64-apple-darwin` | ✅ |
+| Windows x64 | `x86_64-pc-windows-msvc` | ✅ |
+
+### Manual Update
+
+If auto-update fails, you can manually update:
+
+```bash
+# Linux/macOS
+curl -L https://github.com/royalbit/forge/releases/latest/download/forge-$(uname -m)-unknown-linux-gnu.tar.gz | tar xz
+sudo mv forge /usr/local/bin/
+
+# Or reinstall via cargo
+cargo install royalbit-forge --force
+```
+
+---
+
 ## HTTP API Server (`forge-server`)
 
 Enterprise-grade REST API for integrations with web apps, CI/CD, and automation.
