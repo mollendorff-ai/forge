@@ -580,4 +580,180 @@ mod tests {
             .unwrap();
         assert!(result.contains("MINIFS"));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Additional coverage tests
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_new_with_tables() {
+        let column_map = HashMap::new();
+        let mut table_column_maps = HashMap::new();
+        let mut sales_cols = HashMap::new();
+        sales_cols.insert("revenue".to_string(), "A".to_string());
+        sales_cols.insert("cost".to_string(), "B".to_string());
+        table_column_maps.insert("sales".to_string(), sales_cols);
+
+        let mut table_row_counts = HashMap::new();
+        table_row_counts.insert("sales".to_string(), 5);
+
+        let translator =
+            FormulaTranslator::new_with_tables(column_map, table_column_maps, table_row_counts);
+
+        // Test cross-table reference with full knowledge
+        let result = translator
+            .translate_row_formula("=sales.revenue", 2)
+            .unwrap();
+        assert!(result.contains("sales"));
+    }
+
+    #[test]
+    fn test_translate_scalar_formula_basic() {
+        let mut table_column_maps = HashMap::new();
+        let mut sales_cols = HashMap::new();
+        sales_cols.insert("amount".to_string(), "A".to_string());
+        table_column_maps.insert("sales".to_string(), sales_cols);
+
+        let mut table_row_counts = HashMap::new();
+        table_row_counts.insert("sales".to_string(), 3);
+
+        let translator =
+            FormulaTranslator::new_with_tables(HashMap::new(), table_column_maps, table_row_counts);
+
+        let scalar_row_map = HashMap::new();
+
+        // Test SUM aggregation
+        let result = translator
+            .translate_scalar_formula("=SUM(sales.amount)", &scalar_row_map)
+            .unwrap();
+        assert!(result.contains("SUM"));
+        assert!(result.contains("sales"));
+    }
+
+    #[test]
+    fn test_translate_scalar_formula_with_index() {
+        let mut table_column_maps = HashMap::new();
+        let mut data_cols = HashMap::new();
+        data_cols.insert("value".to_string(), "C".to_string());
+        table_column_maps.insert("data".to_string(), data_cols);
+
+        let mut table_row_counts = HashMap::new();
+        table_row_counts.insert("data".to_string(), 10);
+
+        let translator =
+            FormulaTranslator::new_with_tables(HashMap::new(), table_column_maps, table_row_counts);
+
+        let scalar_row_map = HashMap::new();
+
+        // Test indexed reference: data.value[0]
+        let result = translator
+            .translate_scalar_formula("=data.value[0]", &scalar_row_map)
+            .unwrap();
+        assert!(result.contains("data"));
+        assert!(result.contains("C2")); // index 0 = row 2
+    }
+
+    #[test]
+    fn test_translate_scalar_formula_with_scalar_ref() {
+        let translator = FormulaTranslator::new(HashMap::new());
+
+        let mut scalar_row_map = HashMap::new();
+        scalar_row_map.insert("metrics.total".to_string(), 5);
+
+        // Test scalar-to-scalar reference
+        let result = translator
+            .translate_scalar_formula("=metrics.total * 2", &scalar_row_map)
+            .unwrap();
+        assert!(result.contains("B5")); // scalar at row 5
+    }
+
+    #[test]
+    fn test_column_not_found_error() {
+        let column_map = HashMap::new(); // Empty
+        let translator = FormulaTranslator::new(column_map);
+
+        // Should error on unknown column
+        let result = translator.translate_row_formula("=unknown_column + 1", 2);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("not found"));
+    }
+
+    #[test]
+    fn test_more_excel_functions_preserved() {
+        let column_map = HashMap::new();
+        let translator = FormulaTranslator::new(column_map);
+
+        // Test more functions
+        let functions = [
+            "ABS", "ROUND", "CEILING", "FLOOR", "MOD", "SQRT", "EXP", "LN", "LOG", "LOG10",
+        ];
+
+        for func in functions {
+            let formula = format!("={}(10)", func);
+            let result = translator.translate_row_formula(&formula, 2).unwrap();
+            assert!(
+                result.to_uppercase().contains(func),
+                "Function {} should be preserved",
+                func
+            );
+        }
+    }
+
+    #[test]
+    fn test_text_functions_preserved() {
+        let column_map = HashMap::new();
+        let translator = FormulaTranslator::new(column_map);
+
+        let functions = ["UPPER", "LOWER", "TRIM", "LEN", "LEFT", "RIGHT", "MID"];
+
+        for func in functions {
+            let formula = format!("={}(1)", func); // Using number to avoid string parsing
+            let result = translator.translate_row_formula(&formula, 2).unwrap();
+            assert!(
+                result.to_uppercase().contains(func),
+                "Function {} should be preserved",
+                func
+            );
+        }
+    }
+
+    #[test]
+    fn test_logical_functions_preserved() {
+        let column_map = HashMap::new();
+        let translator = FormulaTranslator::new(column_map);
+
+        let functions = ["IF", "AND", "OR", "NOT", "TRUE", "FALSE", "IFERROR"];
+
+        for func in functions {
+            let formula = format!("={}(1, 2, 3)", func);
+            let result = translator.translate_row_formula(&formula, 2).unwrap();
+            assert!(
+                result.to_uppercase().contains(func),
+                "Function {} should be preserved",
+                func
+            );
+        }
+    }
+
+    #[test]
+    fn test_column_index_to_letter_extended() {
+        // Test more column letters
+        assert_eq!(FormulaTranslator::column_index_to_letter(702), "AAA");
+        assert_eq!(FormulaTranslator::column_index_to_letter(52), "BA");
+    }
+
+    #[test]
+    fn test_is_excel_function() {
+        let translator = FormulaTranslator::new(HashMap::new());
+
+        // Test various function names
+        assert!(translator.is_excel_function("SUM"));
+        assert!(translator.is_excel_function("sum")); // lowercase
+        assert!(translator.is_excel_function("AVERAGE"));
+        assert!(translator.is_excel_function("NPV"));
+        assert!(translator.is_excel_function("XLOOKUP"));
+        assert!(!translator.is_excel_function("revenue")); // not a function
+        assert!(!translator.is_excel_function("my_column")); // not a function
+    }
 }

@@ -205,34 +205,6 @@ total_profit
 Calculated value: [20000, 30000, 50000]
 ```
 
-### LSP Server
-
-Language Server Protocol for editors:
-
-```bash
-forge-lsp  # Runs LSP over stdin/stdout
-```
-
-**Features:**
-
-- Real-time validation diagnostics
-- Formula error highlighting
-- Hover information
-- Cross-reference detection
-
-### Editor Extensions
-
-**VSCode:**
-
-- Install from marketplace: "Forge YAML"
-- Real-time validation
-- Formula syntax highlighting
-
-**Zed:**
-
-- Install from extensions: "forge"
-- Native LSP integration
-
 ---
 
 ## Excel Integration
@@ -321,7 +293,6 @@ forge audit <file> <variable>   # Show dependency chain
 forge export <yaml> <xlsx>      # Export to Excel
 forge import <xlsx> <yaml>      # Import from Excel
 forge watch <path>              # Watch for changes
-forge-lsp                       # Start LSP server
 forge-mcp                       # Start MCP server
 forge-server                    # Start HTTP API server
 ```

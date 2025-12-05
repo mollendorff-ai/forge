@@ -1,5 +1,7 @@
 #!/bin/bash
+#
 # Forge pre-commit hook - mirrors CI checks
+# Must be as strict as .github/workflows/ci.yml
 # Auto-installed by cargo-husky on `cargo test`
 
 set -e
@@ -9,8 +11,11 @@ echo "🔍 Running pre-commit checks..."
 echo "📐 Checking formatting..."
 cargo fmt --all -- --check
 
-echo "📎 Running clippy..."
-cargo clippy -- -D warnings
+echo "📎 Running clippy (strict)..."
+cargo clippy --all-targets --all-features -- -D warnings
+
+echo "🧪 Running tests..."
+cargo test --all-features
 
 # RoyalBit Asimov checks (if installed)
 if command -v asimov &> /dev/null; then

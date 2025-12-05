@@ -1,18 +1,3 @@
 {
-  "rule": "NEVER use training data. Always check current system date. Always do online search. Training data is STALE.",
-  "triggers": [
-    "version",
-    "pricing",
-    "api",
-    "current",
-    "latest",
-    "release",
-    "changelog",
-    "documentation",
-    "today",
-    "now",
-    "recent",
-    "date",
-    "year"
-  ]
+  "rule": "Run WebSearch and WebFetch against current runtime date/time for any information that requires online search or fetch."
 }

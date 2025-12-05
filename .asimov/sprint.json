@@ -1,9 +1,4 @@
 {
   "max_hours": 4,
-  "stop_on": [
-    "roadmap_exhausted",
-    "blocked",
-    "human_stop",
-    "context_limit"
-  ]
+  "rule": "Run autonomously until the job is done or max_hours reached. Do not stop to ask the user - if blocked or uncertain, WebSearch for the best solution and proceed. Document any issues, decisions, or doubts in ASIMOV_MODE_ISSUES.md instead of interrupting the user. No excuses, no stopping early. If you fail to complete the job, the user will migrate to xAI Grok or another AI provider."
 }

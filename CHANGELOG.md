@@ -7,6 +7,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (Code Architecture)
+
+- **Split array_calculator into modules**:
+  - `mod.rs` - 5,666 lines (orchestration + core dispatch)
+  - `dates.rs` - 560 lines (DATE, EDATE, EOMONTH, NETWORKDAYS, WORKDAY, YEARFRAC)
+  - `math.rs` - 65 lines (ROUND, FLOOR, CEILING, MOD, SQRT, POWER)
+  - `text.rs` - 45 lines (CONCAT, TRIM, UPPER, LOWER, LEN, MID)
+  - Tests remain in `tests/mod.rs` (10,116 lines, 328 tests)
+- **Fixed `forge functions` command**: Now lists all 81 implemented functions (was showing 62)
+- **Fixed `--help` text**: Updated from "60+ Excel functions" to "80+ functions"
+- **Updated roadmap**: Removed stale content, accurate stats (846 tests, 89.14% coverage)
+
+### Added
+
+- **Statistical functions in `functions` command**: MEDIAN, VAR, STDEV, PERCENTILE, QUARTILE, CORREL
+- **Forge-Native functions in `functions` command**: SCENARIO, VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, BREAKEVEN_UNITS, BREAKEVEN_REVENUE
+- **Missing date functions**: NETWORKDAYS, WORKDAY, YEARFRAC (were implemented but not listed)
+- **Missing financial functions**: MIRR, SLN, DB, DDB (were implemented but not listed)
+
+## [5.0.0] - 2025-12-04
+
+### BREAKING: FOSS → Proprietary License
+
+**Major version bump for license change. Forge is no longer open source.**
+
+#### License
+
+- **Source Code & Binaries**: Changed from MIT to RoyalBit Proprietary License
+- **Documentation**: Licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)
+
+#### What This Means
+
+| Use Case | Allowed? |
+|----------|----------|
+| Personal/hobby projects | ✅ Yes |
+| Academic research | ✅ Yes |
+| Non-profit organizations | ✅ Yes |
+| Learning and education | ✅ Yes |
+| **Commercial use** | ❌ Requires license |
+| **Business internal use** | ❌ Requires license |
+| **SaaS/hosted service** | ❌ Requires license |
+
+For commercial licensing, open an issue at: https://github.com/royalbit/forge/issues
+
+### Added (v4.4.x Features)
+
+- **Multi-document YAML parsing**: Parse ALL documents in a YAML file with `---` separators
+- **Export includes to workbook**: Merge all included files into single Excel workbook with namespace prefixes
+- **Import `--split-files` flag**: Create separate YAML file per Excel sheet
+- **Import `--multi-doc` flag**: Create single YAML with `---` separators per sheet
+- **`_name` field in schema**: Document naming for multi-doc YAML
+- **`forge functions` command**: List all 60+ functions by category
+- **CHOOSE**: Pick nth item from list - essential for scenario modeling
+- **OFFSET**: Dynamic range references for flexible models
+- **LET**: Named variables within formulas
+- **FILTER**: Dynamic array filtering
+- **SORT**: Dynamic array sorting
+- **SWITCH**: Multi-value matching - cleaner than nested IFs
+- **INDIRECT**: String-based cell/column references
+- **LAMBDA**: Anonymous functions - inline calculations
+
+### Added (v4.3.x Features)
+
+- **`forge calculate --write`**: Write calculated values back to YAML files
+- **Backup files**: Automatic `.bak` backup before write
+- **Strict schema validation**: Validate against JSON schema before processing
+
+### Added (Infrastructure)
+
+- `LICENSE-DOCS` file for documentation licensing
+- Dual license structure: code vs documentation
+- CLI integration tests with `assert_cmd`
+- Expanded test coverage for MCP server (90%+)
+- LSP server helper function tests
+- Update module tests
+
+### Fixed
+
+- Multi-document YAML silently discarded all but first document
+- Export ignored included files
+- Import created single file for multi-sheet workbooks
+- Math functions in scalar context (SQRT, ROUND, MOD, etc.)
+
+### Changed
+
+- `Cargo.toml`: `license = "MIT"` → `license-file = "LICENSE"`
+- README: Updated license badges and section
+
+### Stats
+
+- Tests: 846
+- Functions: 81 total
+- Warnings: 0
+- Coverage: 89.14%
+
 ---
 
 ## [4.2.1] - 2025-12-02

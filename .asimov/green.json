@@ -1,8 +1,3 @@
 {
-  "local_first": true,
-  "avoid": [
-    "unnecessary API calls",
-    "cloud when local works",
-    "external services for validation"
-  ]
+  "rule": "For code projects, WebSearch current benchmarks to evaluate programming language and framework efficiency. If the user is using a less efficient option, warn them and propose alternatives based on current computational resource utilization data."
 }

@@ -568,4 +568,294 @@ mod tests {
         );
         assert_eq!(bool_col.values.type_name(), "Boolean");
     }
+
+    // =========================================================================
+    // Table Tests
+    // =========================================================================
+
+    #[test]
+    fn test_table_new() {
+        let table = Table::new("sales".to_string());
+        assert_eq!(table.name, "sales");
+        assert!(table.columns.is_empty());
+        assert!(table.row_formulas.is_empty());
+    }
+
+    #[test]
+    fn test_table_add_column() {
+        let mut table = Table::new("sales".to_string());
+        let col = Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0]),
+        );
+        table.add_column(col);
+        assert_eq!(table.columns.len(), 1);
+        assert!(table.columns.contains_key("revenue"));
+    }
+
+    #[test]
+    fn test_table_add_row_formula() {
+        let mut table = Table::new("sales".to_string());
+        table.add_row_formula("profit".to_string(), "=revenue - costs".to_string());
+        assert_eq!(table.row_formulas.len(), 1);
+        assert_eq!(
+            table.row_formulas.get("profit"),
+            Some(&"=revenue - costs".to_string())
+        );
+    }
+
+    #[test]
+    fn test_table_row_count_empty() {
+        let table = Table::new("empty".to_string());
+        assert_eq!(table.row_count(), 0);
+    }
+
+    #[test]
+    fn test_table_row_count_with_data() {
+        let mut table = Table::new("sales".to_string());
+        table.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        assert_eq!(table.row_count(), 3);
+    }
+
+    #[test]
+    fn test_column_is_empty() {
+        let empty_col = Column::new("empty".to_string(), ColumnValue::Number(vec![]));
+        assert!(empty_col.is_empty());
+
+        let non_empty_col = Column::new("nums".to_string(), ColumnValue::Number(vec![1.0]));
+        assert!(!non_empty_col.is_empty());
+    }
+
+    // =========================================================================
+    // Include Tests
+    // =========================================================================
+
+    #[test]
+    fn test_include_new() {
+        let include = Include::new("data.yaml".to_string(), "data".to_string());
+        assert_eq!(include.file, "data.yaml");
+        assert_eq!(include.namespace, "data");
+    }
+
+    // =========================================================================
+    // Scenario Tests
+    // =========================================================================
+
+    #[test]
+    fn test_scenario_new() {
+        let scenario = Scenario::new();
+        assert!(scenario.overrides.is_empty());
+    }
+
+    #[test]
+    fn test_scenario_default() {
+        let scenario = Scenario::default();
+        assert!(scenario.overrides.is_empty());
+    }
+
+    #[test]
+    fn test_scenario_add_override() {
+        let mut scenario = Scenario::new();
+        scenario.add_override("growth_rate".to_string(), 0.15);
+        assert_eq!(scenario.overrides.get("growth_rate"), Some(&0.15));
+    }
+
+    // =========================================================================
+    // ParsedModel Tests
+    // =========================================================================
+
+    #[test]
+    fn test_parsed_model_new() {
+        let model = ParsedModel::new();
+        assert!(model.tables.is_empty());
+        assert!(model.scalars.is_empty());
+        assert!(model.aggregations.is_empty());
+        assert!(model.scenarios.is_empty());
+        assert!(model.includes.is_empty());
+        assert!(model.resolved_includes.is_empty());
+        assert!(model.documents.is_empty());
+    }
+
+    #[test]
+    fn test_parsed_model_default() {
+        let model = ParsedModel::default();
+        assert!(model.tables.is_empty());
+    }
+
+    #[test]
+    fn test_parsed_model_add_table() {
+        let mut model = ParsedModel::new();
+        let table = Table::new("sales".to_string());
+        model.add_table(table);
+        assert!(model.tables.contains_key("sales"));
+    }
+
+    #[test]
+    fn test_parsed_model_add_scalar() {
+        let mut model = ParsedModel::new();
+        let var = Variable::new("profit".to_string(), Some(100.0), None);
+        model.add_scalar("profit".to_string(), var);
+        assert!(model.scalars.contains_key("profit"));
+    }
+
+    #[test]
+    fn test_parsed_model_add_aggregation() {
+        let mut model = ParsedModel::new();
+        model.add_aggregation("total".to_string(), "=SUM(sales.revenue)".to_string());
+        assert_eq!(
+            model.aggregations.get("total"),
+            Some(&"=SUM(sales.revenue)".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parsed_model_add_scenario() {
+        let mut model = ParsedModel::new();
+        let mut scenario = Scenario::new();
+        scenario.add_override("rate".to_string(), 0.10);
+        model.add_scenario("optimistic".to_string(), scenario);
+        assert!(model.scenarios.contains_key("optimistic"));
+    }
+
+    #[test]
+    fn test_parsed_model_scenario_names() {
+        let mut model = ParsedModel::new();
+        model.add_scenario("base".to_string(), Scenario::new());
+        model.add_scenario("optimistic".to_string(), Scenario::new());
+        let names = model.scenario_names();
+        assert_eq!(names.len(), 2);
+    }
+
+    #[test]
+    fn test_parsed_model_add_include() {
+        let mut model = ParsedModel::new();
+        let include = Include::new("external.yaml".to_string(), "ext".to_string());
+        model.add_include(include);
+        assert_eq!(model.includes.len(), 1);
+    }
+
+    #[test]
+    fn test_parsed_model_has_unresolved_includes_empty() {
+        let model = ParsedModel::new();
+        assert!(!model.has_unresolved_includes());
+    }
+
+    #[test]
+    fn test_parsed_model_has_unresolved_includes_true() {
+        let mut model = ParsedModel::new();
+        model.add_include(Include::new("external.yaml".to_string(), "ext".to_string()));
+        assert!(model.has_unresolved_includes());
+    }
+
+    #[test]
+    fn test_parsed_model_has_unresolved_includes_resolved() {
+        let mut model = ParsedModel::new();
+        model.add_include(Include::new("external.yaml".to_string(), "ext".to_string()));
+
+        // Add a resolved include
+        let resolved = ResolvedInclude {
+            include: Include::new("external.yaml".to_string(), "ext".to_string()),
+            resolved_path: std::path::PathBuf::from("/tmp/external.yaml"),
+            model: ParsedModel::new(),
+        };
+        model.resolved_includes.insert("ext".to_string(), resolved);
+
+        assert!(!model.has_unresolved_includes());
+    }
+
+    #[test]
+    fn test_parsed_model_resolve_namespace_ref_invalid_format() {
+        let model = ParsedModel::new();
+
+        // Missing @ prefix
+        assert_eq!(model.resolve_namespace_ref("ext.value"), None);
+
+        // No dot in path
+        assert_eq!(model.resolve_namespace_ref("@ext"), None);
+    }
+
+    #[test]
+    fn test_parsed_model_resolve_namespace_ref_not_found() {
+        let model = ParsedModel::new();
+        assert_eq!(model.resolve_namespace_ref("@ext.value"), None);
+    }
+
+    #[test]
+    fn test_parsed_model_resolve_namespace_ref_found() {
+        let mut model = ParsedModel::new();
+
+        // Create an included model with a scalar
+        let mut included_model = ParsedModel::new();
+        let var = Variable::new("price".to_string(), Some(99.99), None);
+        included_model.add_scalar("price".to_string(), var);
+
+        let resolved = ResolvedInclude {
+            include: Include::new("pricing.yaml".to_string(), "pricing".to_string()),
+            resolved_path: std::path::PathBuf::from("/tmp/pricing.yaml"),
+            model: included_model,
+        };
+        model
+            .resolved_includes
+            .insert("pricing".to_string(), resolved);
+
+        assert_eq!(model.resolve_namespace_ref("@pricing.price"), Some(99.99));
+    }
+
+    #[test]
+    fn test_parsed_model_resolve_namespace_ref_nested_path() {
+        let mut model = ParsedModel::new();
+
+        // Create an included model with a nested scalar path
+        let mut included_model = ParsedModel::new();
+        let var = Variable::new("products.item_price".to_string(), Some(50.0), None);
+        included_model.add_scalar("products.item_price".to_string(), var);
+
+        let resolved = ResolvedInclude {
+            include: Include::new("data.yaml".to_string(), "data".to_string()),
+            resolved_path: std::path::PathBuf::from("/tmp/data.yaml"),
+            model: included_model,
+        };
+        model.resolved_includes.insert("data".to_string(), resolved);
+
+        // Should find via ends_with match
+        assert_eq!(model.resolve_namespace_ref("@data.item_price"), Some(50.0));
+    }
+
+    // =========================================================================
+    // ColumnValue Tests
+    // =========================================================================
+
+    #[test]
+    fn test_column_value_equality() {
+        let a = ColumnValue::Number(vec![1.0, 2.0]);
+        let b = ColumnValue::Number(vec![1.0, 2.0]);
+        let c = ColumnValue::Number(vec![1.0, 3.0]);
+
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn test_column_value_text_equality() {
+        let a = ColumnValue::Text(vec!["a".to_string(), "b".to_string()]);
+        let b = ColumnValue::Text(vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_column_value_date_equality() {
+        let a = ColumnValue::Date(vec!["2025-01".to_string()]);
+        let b = ColumnValue::Date(vec!["2025-01".to_string()]);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_column_value_boolean_equality() {
+        let a = ColumnValue::Boolean(vec![true, false]);
+        let b = ColumnValue::Boolean(vec![true, false]);
+        assert_eq!(a, b);
+    }
 }

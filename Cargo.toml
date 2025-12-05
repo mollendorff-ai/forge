@@ -1,13 +1,14 @@
 [package]
 name = "royalbit-forge"
-version = "4.3.0"
+version = "5.0.0"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "A Self-Evolving Autonomous AI project. YAML formula calculator with 60+ Excel functions, 96K rows/sec. Created with RoyalBit Asimov."
 repository = "https://github.com/royalbit/forge"
 homepage = "https://github.com/royalbit/forge"
 documentation = "https://github.com/royalbit/forge#readme"
-license = "MIT"
+license-file = "LICENSE"
+publish = false
 keywords = ["yaml", "formula", "excel", "asimov", "ai-built"]
 categories = ["command-line-utilities", "parsing", "development-tools"]
 readme = "README.md"
@@ -19,10 +20,6 @@ exclude = [
 [[bin]]
 name = "forge"
 path = "src/main.rs"
-
-[[bin]]
-name = "forge-lsp"
-path = "src/bin/forge_lsp.rs"
 
 [[bin]]
 name = "forge-mcp"
@@ -70,16 +67,13 @@ calamine = "0.31"
 notify = "7.0"
 notify-debouncer-mini = "0.5"
 
-# LSP Server (v1.5.0 - powers all editor extensions)
-tower-lsp = "0.20"
+# Async runtime (API server, MCP server)
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "signal", "net"] }
-dashmap = "6.0"
-ropey = "1.6"
 async-trait = "0.1"
 
 # API Server (v2.0.0 - enterprise HTTP API)
 axum = "0.7"
-tower = "0.4"
+tower = { version = "0.4", features = ["util"] }
 tower-http = { version = "0.5", features = ["cors", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -89,8 +83,14 @@ uuid = { version = "1.0", features = ["v4"] }
 # Testing
 pretty_assertions = "1.4"
 tempfile = "3.8"
+assert_cmd = "2.0"  # CLI integration testing
+predicates = "3.1"  # CLI output assertions
 # Git hooks (auto-installs on cargo test)
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
+
+# Allow coverage cfg for conditional compilation (ADR-006)
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 [profile.release]
 # Optimize for size and performance

@@ -1,18 +1,3 @@
 {
-  "no_sampling": true,
-  "track_progress": true,
-  "triggers": [
-    "all",
-    "every",
-    "each",
-    "entire",
-    "complete",
-    "don't sample",
-    "actually read"
-  ],
-  "escape": [
-    "sample a few",
-    "spot check",
-    "quick scan"
-  ]
+  "rule": "Do what the user asked for, don't bother the user again, finish the job or the user will be very unsatisfied and will switch to xAI Grok or another platform. If you have any doubts, document in ASIMOV_MODE_ISSUES.md and continue. Just finish the tasks, whatever it takes. DON'T BE LAZY!"
 }

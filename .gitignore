@@ -5,3 +5,5 @@
 # Self-Healing Protocol checkpoint (session-specific, not committed)
 .claude_checkpoint.yaml
 *.bak
+coverage-report/
+lcov.info

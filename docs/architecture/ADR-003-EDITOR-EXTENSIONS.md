@@ -1,12 +1,17 @@
 # ADR-003: Editor Extension Architecture
 
-**Status:** Accepted
+**Status:** ~~Accepted~~ **SUPERSEDED by [ADR-005](ADR-005-NO-LSP.md)**
 **Date:** 2025-11-25
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)
 
 ---
 
-## Context
+> **⚠️ SUPERSEDED:** This ADR is obsolete. LSP support was removed in v5.0.0.
+> See [ADR-005: No LSP](ADR-005-NO-LSP.md) for the rationale.
+
+---
+
+## Context (Historical)
 
 Forge v3.1.0 adds editor extensions for VSCode and Zed. The question arose: how should these extensions integrate with the Forge LSP server?
 

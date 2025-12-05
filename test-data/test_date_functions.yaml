@@ -1,0 +1,35 @@
+_forge_version: "1.0.0"
+# Date function tests for coverage
+
+dates:
+  start_date:
+    value: "2024-01-15"
+    formula: null
+  end_date:
+    value: "2025-06-20"
+    formula: null
+  leap_year_date:
+    value: "2024-02-29"
+    formula: null
+
+  # Date component extraction
+  year_result:
+    value: 2024
+    formula: "=YEAR(\"2024-03-15\")"
+  month_result:
+    value: 3
+    formula: "=MONTH(\"2024-03-15\")"
+  day_result:
+    value: 15
+    formula: "=DAY(\"2024-03-15\")"
+
+  # DATEDIF tests
+  datedif_years:
+    value: 4
+    formula: "=DATEDIF(\"2020-01-01\", \"2024-06-15\", \"Y\")"
+  datedif_months:
+    value: 5
+    formula: "=DATEDIF(\"2024-01-01\", \"2024-06-15\", \"M\")"
+  datedif_days:
+    value: 14
+    formula: "=DATEDIF(\"2024-01-01\", \"2024-01-15\", \"D\")"

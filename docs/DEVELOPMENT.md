@@ -40,7 +40,7 @@
 
 1. Web search: `rust [functionality] crate [current year]`
 2. Search crates.io for relevant functionality
-3. Check license compatibility (we use MIT)
+3. Check license compatibility (we use Proprietary, dependencies must be permissive)
 4. Verify library is maintained (recent commits, active issues)
 5. Check download counts and GitHub stars
 6. Review documentation quality
@@ -49,15 +49,16 @@
 
 ### License Compatibility
 
+Forge is proprietary. Dependencies must use permissive licenses that allow commercial use.
+
 | Status | Licenses |
 |--------|----------|
-| **Perfect** | MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause |
-| **Acceptable** | ISC, Unlicense, CC0-1.0 |
-| **Incompatible** | GPL (any), AGPL, LGPL |
+| **Allowed** | MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Unlicense, CC0-1.0 |
+| **Not Allowed** | GPL (any), AGPL, LGPL, CC-BY-NC, any copyleft |
 
 ### Evaluation Checklist
 
-- [ ] License is MIT-compatible
+- [ ] License allows commercial use (MIT, Apache, BSD)
 - [ ] Last commit within 6 months
 - [ ] Has documentation
 - [ ] No critical security issues

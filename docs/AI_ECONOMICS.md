@@ -405,7 +405,7 @@ AI inference consumes:
 
 ### Small Team Example
 
-**Annual cost of Forge:** $0 (open source, MIT license)
+**Annual cost of Forge:** R&D project (not available for commercial use)
 
 **Annual savings:**
 
@@ -484,12 +484,12 @@ Confidence: 100%
 
 ### Cost Comparison
 
-| User Type | Validations/Year | AI Cost | Forge Cost | Savings |
-|-----------|------------------|---------|------------|---------|
-| **Personal** | 1,200 | $792 | $0 | $792 |
-| **Small Team (3)** | 15,000 | $58,600 | $0 | $58,600 |
-| **Hedge Fund (5)** | 62,500 | $447,050 | $0 | $447,050 |
-| **Enterprise (20)** | 250,000 | $1.8M | $0 | $1.8M |
+| User Type | Validations/Year | AI Cost | Forge | Savings |
+|-----------|------------------|---------|-------|---------|
+| **Personal** | 1,200 | $792 | License | Significant |
+| **Small Team (3)** | 15,000 | $58,600 | License | Significant |
+| **Hedge Fund (5)** | 62,500 | $447,050 | License | Significant |
+| **Enterprise (20)** | 250,000 | $1.8M | License | Significant |
 
 ### Carbon Footprint Comparison
 
@@ -508,21 +508,15 @@ Confidence: 100%
 
 ---
 
-## 🚀 Get Started
+## 🚀 Concept
 
-**Install Forge:**
-
-```bash
-cargo install royalbit-forge
-```
-
-**Start saving money and carbon:**
+**Forge approach:**
 
 ```bash
 forge validate your-model.yaml
 ```
 
-**That's it.** You're now part of the green coding revolution.
+Deterministic validation, zero tokens, minimal carbon.
 
 ---
 

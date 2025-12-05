@@ -424,13 +424,14 @@ tax_rate:
 
 **Wrong:** royalbit_forge, RoyalBitForge, royalbit/forge
 
-**Definition:** Crates.io package name for Forge. Required by crates.io naming conventions.
+**Definition:** Cargo package name for Forge.
+
+**Note:** Forge is proprietary R&D software. Not published to crates.io.
 
 **Usage:**
 
-- ✅ "`cargo install royalbit-forge`"
-- ✅ "Published to crates.io as royalbit-forge"
-- ❌ "`cargo install forge`" (namespace collision, not unique)
+- ✅ "Clone from github.com/royalbit/forge"
+- ❌ "`cargo install royalbit-forge`" (not on crates.io)
 
 **GitHub:** github.com/royalbit/forge (slash, not hyphen)
 

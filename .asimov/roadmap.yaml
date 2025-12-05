@@ -1,415 +1,135 @@
 # Forge Roadmap
-# For version history, see docs/VERSION_HISTORY.md
-# Last research update: 2025-11-28
+# For version history, see CHANGELOG.md
+# Last updated: 2025-12-04
 
 metadata:
-  current_version: "4.4.0"
+  current_version: "5.0.0"
   last_updated: "2025-12-04"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "4.3.0"
+  version: "5.0.0"
   status: released
   date: "2025-12-04"
-  summary: "File Write-Back + Strict Schema Validation"
+  summary: "BREAKING: MIT → Proprietary (RoyalBit Inc.)"
   highlights:
-    - "File Write-Back: forge calculate writes computed values back to YAML"
-    - "Backup before write (.yaml.bak)"
-    - "Strict schema validation (fails on error, not warns)"
-    - "Schema versioning: _forge_version now required"
-    - "Preventive tests for schema/version drift"
+    - "LICENSE CHANGE: FOSS (MIT) → Proprietary (RoyalBit Inc.)"
+    - "Free for personal/academic/non-profit use"
+    - "Commercial use requires license"
+    - "81 functions, 14 CLI tools"
   stats:
-    tests: 234
+    tests: 846
     warnings: 0
-    throughput: "96K rows/sec"
+    functions_total: 81
+    coverage: "89.14%"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# NEXT MILESTONES (Prioritized by Research - Nov 2025)
+# NEXT MILESTONE
 # ═══════════════════════════════════════════════════════════════════════════════
-
-v4_1:
-  version: "4.1.0"
-  status: released
-  date: "2025-11-28"
-  summary: "Excel Function Boost - High-Value Additions"
-  deliverables:
-    - feature: "UNIQUE/COUNTUNIQUE"
-      description: "Count unique values in columns (all types)"
-      status: done
-    - feature: "FormulaErrorContext"
-      description: "Rich error structure with suggestions"
-      status: done
-  stats:
-    tests_added: 7
-    total_tests: 227
 
 next:
-  - version: "4.4.1"
-    summary: "Scalar Math Functions Bug Fix"
+  - version: "5.1.0"
+    summary: "100% Test Coverage"
     priority: HIGH
-  - version: "4.4.2"
-    summary: "Multi-Document/Multi-Include Import/Export Bug Fix"
-    priority: CRITICAL
+    status: in_progress
+
+    rationale: |
+      ADR-004 requires 100% test coverage. Current: 89.14%.
+
+      Gap analysis:
+      - cli/commands.rs: 76% - command handlers only tested by integration tests
+      - Integration tests excluded from coverage (ADR-006: cli_integration_tests.rs)
+      - Solution: Add unit tests to commands_tests.rs for command handlers
+
+    deliverables:
+      - task: "Add unit tests for calculate() handler"
+        status: pending
+      - task: "Add unit tests for validate() handler"
+        status: pending
+      - task: "Add unit tests for export() handler"
+        status: pending
+      - task: "Add unit tests for import() handler"
+        status: pending
+      - task: "Add unit tests for audit() handler"
+        status: pending
+      - task: "Add unit tests for compare() handler"
+        status: pending
+      - task: "Add unit tests for variance() handler"
+        status: pending
+      - task: "Add unit tests for sensitivity() handler"
+        status: pending
+      - task: "Add unit tests for goal_seek() handler"
+        status: pending
+      - task: "Add unit tests for break_even() handler"
+        status: pending
+      - task: "Add unit tests for functions() handler"
+        status: pending
+      - task: "Add unit tests for watch() handler"
+        status: pending
+      - task: "Add unit tests for upgrade() handler"
+        status: pending
+
+    success_criteria:
+      - "100% coverage reported by cargo llvm-cov"
+      - "All 846+ tests pass"
+      - "Zero warnings"
+
+    technical_approach: |
+      Test command handlers as library functions (not via binary):
+
+      ```rust
+      // commands_tests.rs
+      #[test]
+      fn test_calculate_success() {
+          let file = create_temp_yaml(VALID_MODEL);
+          let result = calculate(file.path(), None, false, false, false);
+          assert!(result.is_ok());
+      }
+
+      #[test]
+      fn test_calculate_invalid_file() {
+          let result = calculate(Path::new("/nonexistent.yaml"), None, false, false, false);
+          assert!(result.is_err());
+      }
+      ```
+
+      This tests the same code paths as cli_integration_tests.rs but
+      runs during coverage builds (not excluded).
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RELEASED VERSIONS (summary only - see CHANGELOG.md for details)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+released:
   - version: "5.0.0"
-    summary: "Schema v5.0.0 + Full Excel Round-Trip"
-    priority: TOP
-    goal: GRANT_INVESTOR_READY
+    date: "2025-12-04"
+    summary: "BREAKING: MIT → Proprietary"
+  - version: "4.4.2"
+    date: "2025-12-04"
+    summary: "Multi-Document YAML + Includes Export"
+  - version: "4.4.1"
+    date: "2025-12-04"
+    summary: "Scalar Math Functions Bug Fix"
+  - version: "4.4.0"
+    date: "2025-12-04"
+    summary: "Dynamic Array Functions + Scenario Modeling"
+  - version: "4.3.0"
+    date: "2025-12-04"
+    summary: "File Write-Back + Strict Schema Validation"
+  - version: "4.2.1"
+    date: "2025-12-02"
+    summary: "Bug Fixes - Real-world validation issues"
+  - version: "4.2.0"
+    date: "2025-12-01"
+    summary: "Release Automation - Cross-platform CI/CD"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CRITICAL BUG FIXES (Found 2025-12-01 - Field testing) - RELEASED 2025-12-02
-# ═══════════════════════════════════════════════════════════════════════════════
-
-v4_2_1:
-  version: "4.2.1"
-  status: released
-  date: "2025-12-02"
-  priority: CRITICAL
-  summary: "Bug Fixes - Real-world validation issues"
-  rationale: |
-    Issues discovered during financial model validation.
-    These block practical use of Forge for grant applications.
-  deliverables:
-    - feature: "COUNT/LEN function"
-      description: "Count rows in table columns (e.g., =COUNT(nls.name) for total NLs)"
-      status: done
-      effort: "2h"
-      impact: "Currently must hardcode counts - defeats purpose of calculated models"
-    - feature: "Multi-file validation"
-      description: "forge validate file1.yaml file2.yaml (batch validation)"
-      status: done
-      effort: "1h"
-      impact: "Currently errors out with 'unexpected argument'"
-    - feature: "Unreserve 'scenarios' keyword"
-      description: "Table named 'scenarios' triggers cryptic error"
-      status: done
-      effort: "1h"
-      impact: "Common financial modeling term - should not be reserved"
-    - feature: "Multi-document YAML support"
-      description: "Files with leading '---' should parse correctly"
-      status: done
-      effort: "1h"
-      impact: "Standard YAML practice causes parse failure"
-    - feature: "Null handling in arrays"
-      description: "Allow null in numeric arrays or provide clear error"
-      status: done
-      effort: "1h"
-      impact: "[1000, null] fails with confusing 'Expected Number' error"
-  estimated_hours: 6
-  actual_hours: 3
-  reported_by: "Internal field testing"
-
-v4_2:
-  version: "4.2.0"
-  status: released
-  date: "2025-12-01"
-  priority: CRITICAL
-  summary: "Release Automation - Cross-platform CI/CD"
-  rationale: "Parity with asimov CI/CD. Enable automated releases."
-  deliverables:
-    - feature: "release.yml workflow"
-      description: "Cross-platform builds on tag push"
-      status: done
-    - feature: "Multi-target builds"
-      description: "Linux x86_64, macOS ARM/Intel, Windows"
-      status: done
-    - feature: "UPX compression"
-      description: "Compress Linux/Windows binaries"
-      status: done
-    - feature: "GitHub Releases"
-      description: "Auto-create release with checksums"
-      status: done
-    - feature: "crates.io publish"
-      description: "Auto-publish on tag"
-      status: done
-
-v4_3:
-  version: "4.3.0"
-  status: released
-  date: "2025-12-04"
-  priority: TOP
-  summary: "File Write-Back + Strict Schema Validation"
-  rationale: |
-    Core functionality gap. forge calculate computes correctly but
-    results stay in memory. Users expect values written back to YAML.
-    Additionally, schema validation was too lax - warned instead of failing.
-  deliverables:
-    - feature: "File Write-Back"
-      description: "forge calculate writes computed values back to value: arrays"
-      status: done
-    - feature: "Backup before write"
-      description: "Create .yaml.bak before modifying original file"
-      status: done
-    - feature: "--dry-run flag"
-      description: "Show what would be written without modifying file"
-      status: done
-    - feature: "Strict schema validation"
-      description: "Schema validation now fails on error instead of warning"
-      status: done
-    - feature: "_forge_version required"
-      description: "All YAML files must have _forge_version field"
-      status: done
-    - feature: "Preventive tests"
-      description: "Tests for schema enum, required version, test file coverage"
-      status: done
-  bugs_fixed:
-    - bug: "Nested scalar reference resolution"
-      description: "Cross-section refs like inputs.x now work correctly"
-      status: done
-    - bug: "IF function with scalar references"
-      description: "Scalar refs in IF conditions now resolve properly"
-      status: done
-    - bug: "Schema validation too lax"
-      description: "Files without _forge_version now fail validation"
-      status: done
-    - bug: "Schema enum had invalid versions"
-      description: "Reduced to valid format versions only (1.0.0, 4.0.0)"
-      status: done
-  stats:
-    tests: 234
-    tests_added: 3
-
-v4_4:
-  version: "4.4.0"
-  status: released
-  date: "2025-12-04"
-  priority: HIGH
-  summary: "Dynamic Array Functions + Scenario Modeling"
-  deliverables:
-    - feature: "forge functions"
-      description: "New command to list all 60+ functions by category (Financial, Lookup, Date, etc.)"
-      status: done
-    - feature: "CHOOSE"
-      description: "Pick nth item from list - essential for scenario modeling"
-      status: done
-    - feature: "OFFSET"
-      description: "Dynamic range references for flexible models"
-      status: done
-    - feature: "LET"
-      description: "Named variables within formulas - cleaner complex formulas"
-      status: done
-    - feature: "FILTER"
-      description: "Dynamic array filtering"
-      status: done
-    - feature: "SORT"
-      description: "Dynamic array sorting"
-      status: done
-  stats:
-    tests: 240
-    tests_added: 6
-    functions_total: 60
-
-v4_4_1:
-  version: "4.4.1"
-  status: next
-  priority: HIGH
-  summary: "Scalar Math Functions Bug Fix"
-  rationale: |
-    Math functions (ROUND, SQRT, MOD, etc.) only work on table columns.
-    They should also work in scalar formulas like =SQRT(16).
-    Found during function audit 2025-12-04.
-  deliverables:
-    - feature: "Math functions in scalar context"
-      description: "ROUND, ROUNDUP, ROUNDDOWN, SQRT, POWER, MOD, CEILING, FLOOR"
-      status: pending
-    - feature: "Update forge functions help"
-      description: "Clarify which functions work in scalar vs table context"
-      status: pending
-  bugs:
-    - bug: "=SQRT(16) fails with Reference error"
-      status: pending
-    - bug: "=ROUND(3.14159, 2) fails with Reference error"
-      status: pending
-    - bug: "=MOD(10, 3) fails with Reference error"
-      status: pending
-  estimated_hours: 2
-
-v4_4_2:
-  version: "4.4.2"
-  status: next
-  priority: CRITICAL
-  summary: "Multi-Document/Multi-Include Import/Export Bug Fix"
-  rationale: |
-    Excel workbooks have multiple sheets. Forge must handle this properly:
-    - Export: Include files + multi-doc YAML → single workbook, multiple sheets
-    - Import: Multiple sheets → multiple YAML files OR one multi-doc YAML
-    Currently broken: only first document parsed, includes not merged on export.
-  bugs:
-    - bug: "Multi-document YAML silently discards all but first document"
-      description: "Files with multiple --- documents only parse first one"
-      status: pending
-    - bug: "Export ignores included files"
-      description: "Only main file exported, includes not merged into workbook"
-      status: pending
-    - bug: "Import creates single file for multi-sheet workbooks"
-      description: "Should create multiple files or multi-document YAML"
-      status: pending
-  deliverables:
-    - feature: "Multi-document YAML parsing"
-      description: "Parse ALL documents in a YAML file, not just first"
-      status: pending
-    - feature: "Export includes to workbook"
-      description: "Merge all included files into single Excel workbook"
-      status: pending
-    - feature: "Import multi-sheet options"
-      description: "--split-files or --multi-doc flag for import behavior"
-      status: pending
-  estimated_hours: 4
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# MAJOR RELEASES
-# ═══════════════════════════════════════════════════════════════════════════════
-
-v5:
-  version: "5.0.0"
-  status: next
-  priority: TOP
-  summary: "Schema v5.0.0 + Full Excel Round-Trip"
-  rationale: |
-    Excel compatibility is the killer feature. Current issues:
-    - "Scalars" sheet name is confusing (should be Inputs/Outputs)
-    - Multi-doc YAML only parses first document
-    - Export ignores included files
-    - Import doesn't handle multi-sheet properly
-    - No workbook/document naming support
-
-  schema:
-    version: "5.0.0"
-    file: "schema/forge-v5.0.schema.json"
-    inherits_from: "4.0.0"
-    new_fields:
-      - field: "_name"
-        type: "string"
-        required: "Required for multi-doc, optional for single-doc"
-        description: "Document/workbook name - used for sheet naming"
-    breaking_changes:
-      - "Scalars sheet split into 'Inputs' and 'Outputs'"
-      - "_name required for multi-document YAML files"
-    backwards_compatible:
-      - "All v4.0.0 features preserved"
-      - "Rich metadata (unit, notes, source, validation_status)"
-      - "_includes for cross-file references"
-      - "scenarios for what-if modeling"
-
-  sheet_naming_rules:
-    main_file:
-      - "inputs: → 'Inputs' sheet"
-      - "outputs: → 'Outputs' sheet"
-      - "tables: → sheet named after table key"
-    includes:
-      - "namespace.inputs: → '{namespace}.Inputs' sheet"
-      - "namespace.outputs: → '{namespace}.Outputs' sheet"
-      - "namespace.table: → '{namespace}.{table}' sheet"
-    multi_doc:
-      - "_name.inputs: → '{_name}.Inputs' sheet"
-      - "_name.outputs: → '{_name}.Outputs' sheet"
-      - "_name.table: → '{_name}.{table}' sheet"
-
-  deliverables:
-    schema:
-      - feature: "forge-v5.0.schema.json"
-        description: "New JSON schema with _name field and all v4.0.0 features"
-        status: pending
-      - feature: "Schema validation update"
-        description: "Parser validates _name required for multi-doc"
-        status: pending
-      - feature: "_forge_version enum update"
-        description: "Add '5.0.0' to allowed versions"
-        status: pending
-
-    export:
-      - feature: "Split Inputs/Outputs sheets"
-        description: "Replace 'Scalars' with separate 'Inputs' and 'Outputs' sheets"
-        status: pending
-      - feature: "Export includes"
-        description: "Merge all included files into single workbook with namespace prefixes"
-        status: pending
-      - feature: "Export multi-doc"
-        description: "Each document becomes sheets with _name prefix"
-        status: pending
-      - feature: "Workbook naming"
-        description: "Use _name for Excel workbook title/properties"
-        status: pending
-
-    import:
-      - feature: "--split-files flag"
-        description: "Create separate YAML file per Excel sheet"
-        status: pending
-      - feature: "--multi-doc flag"
-        description: "Create single YAML with --- separators per sheet"
-        status: pending
-      - feature: "Detect Inputs/Outputs sheets"
-        description: "Map 'Inputs'/'Outputs' sheets back to inputs:/outputs: sections"
-        status: pending
-
-    functions_done:
-      - feature: "SWITCH"
-        description: "Multi-value matching - cleaner than nested IFs"
-        status: done
-      - feature: "INDIRECT"
-        description: "String-based cell/column references"
-        status: done
-      - feature: "LAMBDA"
-        description: "Anonymous functions - inline calculations"
-        status: done
-
-  example_yaml: |
-    # Single document (simple case)
-    _forge_version: "5.0.0"
-    _name: "Q4 2025 Forecast"  # Optional for single-doc
-
-    inputs:
-      tax_rate: {value: 0.25}
-      growth_rate: {value: 0.05}
-
-    outputs:
-      total_revenue: {formula: "=SUM(quarterly.revenue)"}
-
-    quarterly:
-      quarter: ["Q1", "Q2", "Q3", "Q4"]
-      revenue: [100000, 120000, 150000, 180000]
-
-    # Multi-document (_name required)
-    ---
-    _forge_version: "5.0.0"
-    _name: "revenue_model"
-    inputs:
-      base_price: {value: 100}
-    quarterly:
-      revenue: [100, 200, 300, 400]
-    ---
-    _forge_version: "5.0.0"
-    _name: "cost_model"
-    inputs:
-      fixed_costs: {value: 50000}
-    monthly:
-      costs: [5000, 5500, 6000]
-
-  example_export: |
-    # Export creates Excel with sheets:
-    # - "Inputs" (from main inputs:)
-    # - "Outputs" (from main outputs:)
-    # - "quarterly" (from main table)
-    # - "rates.Inputs" (from included rates.yaml inputs:)
-    # - "rates.fx_rates" (from included rates.yaml table)
-    # - "revenue_model.Inputs" (from multi-doc document 1)
-    # - "revenue_model.quarterly" (from multi-doc document 1)
-    # - "cost_model.Inputs" (from multi-doc document 2)
-    # - "cost_model.monthly" (from multi-doc document 2)
-
-  estimated_hours: 12
-
-  stats:
-    tests: 245
-    functions_total: 63
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# MARKET INTELLIGENCE (Updated Nov 2025)
+# MARKET INTELLIGENCE (Updated Dec 2025)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 market:
-  last_updated: "2025-11-28"
+  last_updated: "2025-12-04"
 
   microsoft_excel:
     copilot_function:
@@ -418,60 +138,14 @@ market:
       limits: "100 calls/10min, 300 calls/hour"
       requires: "OneDrive/SharePoint (cloud-only)"
       weakness: "Still hallucinates - probabilistic, not deterministic"
-      source: "https://www.windowscentral.com/microsoft/microsoft-office/microsoft-excel-gets-more-ai-and-this-time-its-actually-useful"
-    agent_mode:
-      description: "Multi-step tasks in Excel grid"
-      models: "Now supports Anthropic + OpenAI"
-      source: "Microsoft Ignite Nov 2025"
-
-  google_sheets:
-    ai_function:
-      description: "=AI() function for categorization, summarization"
-      launched: "2025"
-    formula_assistance:
-      description: "Gemini explains formula errors + self-corrects"
-      launched: "Sept 2025"
-      source: "https://workspaceupdates.googleblog.com/2025/09/smarter-natural-formula-generation-gemini-sheets.html"
-    pricing: "$14/user/month for Business Standard with Gemini"
-
-  mcp_ecosystem:
-    anniversary: "Nov 25, 2025 - MCP turned 1 year old"
-    new_spec:
-      - "PCI-compliant payment processing"
-      - "Parallel tool calls"
-      - "Better context control"
-    enterprise_adoption:
-      - "Microsoft Dynamics 365 ERP MCP Server (public preview)"
-      - "Worldpay MCP for payments (launched Nov 24, 2025)"
-    source: "https://blog.modelcontextprotocol.io/posts/2025-11-25-first-mcp-anniversary/"
-
-  yaml_trends:
-    deployment_failures: "40% of K8s failures from YAML config errors"
-    adoption: "70%+ orgs using structured data by mid-2025"
-    validation_impact: "30% decrease in critical errors with schema validation"
-    source: "DevOps Institute 2025 Survey"
-
-  fpa_usage:
-    excel_weekly: "96% of FP&A professionals use Excel weekly"
-    top_functions:
-      - "XNPV/XIRR (irregular cash flows)"
-      - "PMT/PV/FV/RATE (loan/mortgage)"
-      - "XLOOKUP (modern lookup)"
-      - "SUMIFS/COUNTIFS (conditional aggregation)"
-      - "CHOOSE (scenario modeling)"
-    source: "AFP FP&A Benchmarking Survey 2025"
 
   forge_differentiators:
     vs_copilot:
       - "Deterministic (same input = same output, always)"
       - "Local execution (no cloud dependency)"
       - "Git-friendly (YAML = version control)"
-      - "Open source (MIT license)"
       - "No hallucinations (formulas, not predictions)"
-    vs_google_ai:
-      - "Works offline"
-      - "No per-user licensing"
-      - "Self-hosted option"
+      - "Forge-native FP&A functions (variance, break-even, scenarios)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG & RESEARCH
@@ -481,21 +155,11 @@ backlog:
   - "OpenAPI spec + Swagger UI for API server"
   - "Forge vs Copilot benchmark suite (marketing)"
   - "Excel compatibility matrix doc"
-  - "=FORGE() AI-assist function (local, deterministic suggestions)"
+  - "Array Calculator: Proper interpreter architecture (AST + function registry) - LOW priority"
+  - "Split array_calculator tests by category (10k lines) - LOW priority"
 
 research:
   - id: "experiential-continuity"
     title: "Experiential Continuity Layer"
     status: research
-    priority: exploratory
     doc: "docs/research/EXPERIENTIAL_CONTINUITY.md"
-    summary: "Extend RoyalBit Asimov with AI identity/experience persistence"
-
-  - id: "copilot-benchmark"
-    title: "Forge vs Copilot Benchmark Suite"
-    status: idea
-    priority: medium
-    summary: |
-      Create standard financial models (DCF, LBO, IRR calculations).
-      Compare Forge (deterministic) vs Copilot (AI-generated).
-      Publish hallucination rate data as marketing differentiator.

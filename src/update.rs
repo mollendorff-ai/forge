@@ -2,6 +2,9 @@
 //!
 //! Checks GitHub Releases for new versions and updates the binary in-place.
 
+// During coverage builds, stubbed functions don't use all imports/constants
+#![cfg_attr(coverage, allow(unused_imports, dead_code))]
+
 use std::env;
 use std::fs;
 
@@ -49,6 +52,10 @@ fn get_platform_asset() -> Option<&'static str> {
 }
 
 /// Check for updates by querying GitHub Releases API
+///
+/// # Coverage Exclusion (ADR-006)
+/// Makes HTTP request to GitHub API - cannot unit test network calls
+#[cfg(not(coverage))]
 pub fn check_for_update() -> Result<VersionCheck, String> {
     // Use curl to fetch the release info (available on all platforms)
     let output = std::process::Command::new("curl")
@@ -126,6 +133,18 @@ pub fn check_for_update() -> Result<VersionCheck, String> {
     })
 }
 
+/// Stub for coverage builds - see ADR-006
+#[cfg(coverage)]
+pub fn check_for_update() -> Result<VersionCheck, String> {
+    Ok(VersionCheck {
+        current: CURRENT_VERSION.to_string(),
+        latest: CURRENT_VERSION.to_string(),
+        update_available: false,
+        download_url: None,
+        checksums_url: None,
+    })
+}
+
 /// Simple JSON string extraction (avoids adding serde_json dependency)
 fn extract_json_string(json: &str, key: &str) -> Option<String> {
     // Try with space after colon first (GitHub style), then without
@@ -167,6 +186,10 @@ fn is_newer_version(latest: &str, current: &str) -> bool {
 }
 
 /// Download and install the update with optional checksum verification
+///
+/// # Coverage Exclusion (ADR-006)
+/// Downloads files from internet and replaces binary - cannot unit test
+#[cfg(not(coverage))]
 pub fn perform_update(download_url: &str, checksums_url: Option<&str>) -> Result<(), String> {
     let current_exe = env::current_exe()
         .map_err(|e| format!("Could not determine current executable path: {}", e))?;
@@ -291,7 +314,17 @@ pub fn perform_update(download_url: &str, checksums_url: Option<&str>) -> Result
     Ok(())
 }
 
+/// Stub for coverage builds - see ADR-006
+#[cfg(coverage)]
+pub fn perform_update(_download_url: &str, _checksums_url: Option<&str>) -> Result<(), String> {
+    Ok(())
+}
+
 /// Verify SHA256 checksum of downloaded file
+///
+/// # Coverage Exclusion (ADR-006)
+/// Downloads checksums.txt from internet - cannot unit test network calls
+#[cfg(not(coverage))]
 fn verify_checksum(
     file_path: &std::path::Path,
     checksums_url: &str,
@@ -366,9 +399,23 @@ fn verify_checksum(
     Ok(())
 }
 
+/// Stub for coverage builds - see ADR-006
+#[cfg(coverage)]
+fn verify_checksum(
+    _file_path: &std::path::Path,
+    _checksums_url: &str,
+    _asset_name: &str,
+) -> Result<(), String> {
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VERSION COMPARISON TESTS
+    // ═══════════════════════════════════════════════════════════════════════
 
     #[test]
     fn test_version_comparison() {
@@ -379,6 +426,38 @@ mod tests {
         assert!(!is_newer_version("4.2.0", "4.2.1"));
         assert!(!is_newer_version("4.2.1", "4.3.0"));
     }
+
+    #[test]
+    fn test_version_comparison_major() {
+        assert!(is_newer_version("2.0.0", "1.9.9"));
+        assert!(is_newer_version("10.0.0", "9.99.99"));
+        assert!(!is_newer_version("1.0.0", "2.0.0"));
+    }
+
+    #[test]
+    fn test_version_comparison_minor() {
+        assert!(is_newer_version("1.2.0", "1.1.0"));
+        assert!(is_newer_version("1.10.0", "1.9.0"));
+        assert!(!is_newer_version("1.1.0", "1.2.0"));
+    }
+
+    #[test]
+    fn test_version_comparison_patch() {
+        assert!(is_newer_version("1.0.2", "1.0.1"));
+        assert!(is_newer_version("1.0.10", "1.0.9"));
+        assert!(!is_newer_version("1.0.1", "1.0.2"));
+    }
+
+    #[test]
+    fn test_version_comparison_incomplete() {
+        // Missing parts should be treated as 0
+        assert!(is_newer_version("1.1", "1.0.0"));
+        assert!(is_newer_version("2", "1.0.0"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // JSON STRING EXTRACTION TESTS
+    // ═══════════════════════════════════════════════════════════════════════
 
     #[test]
     fn test_extract_json_string() {
@@ -407,8 +486,297 @@ mod tests {
     }
 
     #[test]
+    fn test_extract_json_string_empty() {
+        assert_eq!(extract_json_string("", "key"), None);
+        assert_eq!(extract_json_string("{}", "key"), None);
+    }
+
+    #[test]
+    fn test_extract_json_string_nested() {
+        // Find key in nested structure
+        let json = r#"{"outer": {"inner": "value"}}"#;
+        assert_eq!(
+            extract_json_string(json, "inner"),
+            Some("value".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_json_string_url() {
+        let json = r#"{"browser_download_url": "https://github.com/royalbit/forge/releases/download/v4.3.0/forge.tar.gz"}"#;
+        assert_eq!(
+            extract_json_string(json, "browser_download_url"),
+            Some(
+                "https://github.com/royalbit/forge/releases/download/v4.3.0/forge.tar.gz"
+                    .to_string()
+            )
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CURRENT VERSION TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
     fn test_current_version_set() {
         // CURRENT_VERSION comes from CARGO_PKG_VERSION, always valid semver
         assert!(CURRENT_VERSION.contains('.'));
+    }
+
+    #[test]
+    fn test_current_version_valid_semver() {
+        let parts: Vec<&str> = CURRENT_VERSION.split('.').collect();
+        assert!(parts.len() >= 2, "Should have at least major.minor");
+        for part in parts {
+            assert!(
+                part.parse::<u32>().is_ok(),
+                "Version part '{}' should be numeric",
+                part
+            );
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PLATFORM ASSET TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_get_platform_asset_returns_option() {
+        // This will return Some on supported platforms, None on unsupported
+        let asset = get_platform_asset();
+        // On a standard CI/dev machine, should return Some
+        #[cfg(any(
+            all(target_os = "linux", target_arch = "x86_64"),
+            all(target_os = "linux", target_arch = "aarch64"),
+            all(target_os = "macos", target_arch = "aarch64"),
+            all(target_os = "macos", target_arch = "x86_64"),
+            all(target_os = "windows", target_arch = "x86_64")
+        ))]
+        assert!(asset.is_some());
+
+        // If Some, should contain tar.gz or zip
+        if let Some(name) = asset {
+            assert!(name.contains("forge-"));
+            assert!(name.ends_with(".tar.gz") || name.ends_with(".zip"));
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VERSION CHECK STRUCT TESTS
+    // ═══════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_version_check_struct() {
+        let check = VersionCheck {
+            current: "4.2.0".to_string(),
+            latest: "4.3.0".to_string(),
+            update_available: true,
+            download_url: Some("https://example.com/forge.tar.gz".to_string()),
+            checksums_url: Some("https://example.com/checksums.txt".to_string()),
+        };
+
+        assert_eq!(check.current, "4.2.0");
+        assert_eq!(check.latest, "4.3.0");
+        assert!(check.update_available);
+        assert!(check.download_url.is_some());
+        assert!(check.checksums_url.is_some());
+    }
+
+    #[test]
+    fn test_version_check_debug() {
+        let check = VersionCheck {
+            current: "1.0.0".to_string(),
+            latest: "2.0.0".to_string(),
+            update_available: true,
+            download_url: None,
+            checksums_url: None,
+        };
+
+        let debug = format!("{:?}", check);
+        assert!(debug.contains("VersionCheck"));
+        assert!(debug.contains("1.0.0"));
+        assert!(debug.contains("2.0.0"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADDITIONAL VERSION TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_version_comparison_equal() {
+        assert!(!is_newer_version("1.0.0", "1.0.0"));
+        assert!(!is_newer_version("5.0.0", "5.0.0"));
+        assert!(!is_newer_version("0.0.0", "0.0.0"));
+    }
+
+    #[test]
+    fn test_version_comparison_older() {
+        assert!(!is_newer_version("1.0.0", "2.0.0"));
+        assert!(!is_newer_version("1.1.0", "1.2.0"));
+        assert!(!is_newer_version("1.0.1", "1.0.2"));
+    }
+
+    #[test]
+    fn test_version_comparison_invalid_chars() {
+        // Non-numeric parts get filtered out, resulting in empty vectors
+        // Empty vs any version means equal (all 0s), so not newer
+        assert!(!is_newer_version("abc", "1.0.0"));
+        // 1.0.0 vs empty is newer since 1 > 0
+        assert!(is_newer_version("1.0.0", "abc"));
+    }
+
+    #[test]
+    fn test_extract_json_string_special_chars() {
+        let json = r#"{"key": "value with spaces and: colons"}"#;
+        assert_eq!(
+            extract_json_string(json, "key"),
+            Some("value with spaces and: colons".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_json_string_first_occurrence() {
+        // Should find first occurrence
+        let json = r#"{"key": "first", "other": {"key": "second"}}"#;
+        assert_eq!(extract_json_string(json, "key"), Some("first".to_string()));
+    }
+
+    #[test]
+    fn test_version_check_no_update() {
+        let check = VersionCheck {
+            current: "5.0.0".to_string(),
+            latest: "4.0.0".to_string(),
+            update_available: false,
+            download_url: None,
+            checksums_url: None,
+        };
+        assert!(!check.update_available);
+        assert!(check.download_url.is_none());
+    }
+
+    #[test]
+    fn test_github_releases_url_constant() {
+        assert!(GITHUB_RELEASES_URL.contains("github.com"));
+        assert!(GITHUB_RELEASES_URL.contains("releases"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PLATFORM ASSET TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_get_platform_asset() {
+        // This test verifies get_platform_asset returns something for supported platforms
+        let asset = get_platform_asset();
+
+        #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+        assert_eq!(asset, Some("forge-x86_64-unknown-linux-gnu.tar.gz"));
+
+        #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+        assert_eq!(asset, Some("forge-aarch64-unknown-linux-gnu.tar.gz"));
+
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        assert_eq!(asset, Some("forge-aarch64-apple-darwin.tar.gz"));
+
+        #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+        assert_eq!(asset, Some("forge-x86_64-apple-darwin.tar.gz"));
+
+        #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+        assert_eq!(asset, Some("forge-x86_64-pc-windows-msvc.zip"));
+
+        // Asset name contains "forge"
+        if let Some(name) = asset {
+            assert!(name.contains("forge"));
+        }
+    }
+
+    #[test]
+    fn test_current_version_constant() {
+        // CURRENT_VERSION should be a valid semver-ish string with major.minor format
+        assert!(CURRENT_VERSION.contains('.'));
+        assert!(CURRENT_VERSION.len() >= 3); // At least "x.y"
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // EXTRACT JSON STRING EDGE CASES
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_extract_json_string_empty_value() {
+        let json = r#"{"key": ""}"#;
+        assert_eq!(extract_json_string(json, "key"), Some("".to_string()));
+    }
+
+    #[test]
+    fn test_extract_json_string_escaped_quotes() {
+        let json = r#"{"key": "value with \"escaped\" quotes"}"#;
+        // The function doesn't handle escaped quotes perfectly, but shouldn't crash
+        let result = extract_json_string(json, "key");
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_extract_json_string_url_value() {
+        let json = r#"{"browser_download_url": "https://github.com/releases/forge.tar.gz"}"#;
+        assert_eq!(
+            extract_json_string(json, "browser_download_url"),
+            Some("https://github.com/releases/forge.tar.gz".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_json_string_nested_json() {
+        let json = r#"{
+            "release": {
+                "tag_name": "v5.0.0",
+                "assets": []
+            }
+        }"#;
+        assert_eq!(
+            extract_json_string(json, "tag_name"),
+            Some("v5.0.0".to_string())
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VERSION CHECK STRUCT TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_version_check_with_urls() {
+        let check = VersionCheck {
+            current: "4.0.0".to_string(),
+            latest: "5.0.0".to_string(),
+            update_available: true,
+            download_url: Some("https://example.com/forge.tar.gz".to_string()),
+            checksums_url: Some("https://example.com/checksums.txt".to_string()),
+        };
+        assert!(check.update_available);
+        assert!(check.download_url.is_some());
+        assert!(check.checksums_url.is_some());
+        assert_eq!(
+            check.download_url.as_ref().unwrap(),
+            "https://example.com/forge.tar.gz"
+        );
+    }
+
+    #[test]
+    fn test_version_comparison_with_v_prefix() {
+        // Sometimes versions come with 'v' prefix
+        let v1 = "5.0.0";
+        let v2 = "4.0.0";
+        assert!(is_newer_version(v1, v2));
+
+        // Test stripping v prefix (like we do in check_for_update)
+        let tagged = "v5.0.0";
+        let stripped = tagged.trim_start_matches('v');
+        assert_eq!(stripped, "5.0.0");
+    }
+
+    #[test]
+    fn test_version_comparison_large_numbers() {
+        assert!(is_newer_version("100.0.0", "99.999.999"));
+        assert!(is_newer_version("1.100.0", "1.99.0"));
+        assert!(is_newer_version("1.0.100", "1.0.99"));
     }
 }

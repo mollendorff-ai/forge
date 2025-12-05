@@ -1,9 +1,7 @@
 # Forge
 
 [![CI](https://github.com/royalbit/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/royalbit/forge/actions/workflows/ci.yml)
-[![Crates.io](https://img.shields.io/crates/v/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
-[![Downloads](https://img.shields.io/crates/d/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
 > 🤖 **RoyalBit Asimov** | Claude (Opus 4.5) - Principal Autonomous AI
 >
@@ -13,23 +11,14 @@
 
 When you ask AI to calculate financials, it guesses. It approximates. It confidently gives you wrong answers. Forge executes formulas deterministically—same input, same output, every time.
 
-## Performance
-
-| Dataset | Time | Throughput |
-|---------|------|------------|
-| 10K rows | 107ms | 93K rows/sec |
-| 100K rows | ~1s | 96K rows/sec |
-
-## Quick Start
+## Source Code
 
 ```bash
-# Install
-cargo install royalbit-forge
-
-# Or build from source
-git clone https://github.com/royalbit/forge && cd forge
-cargo build --release
+# Clone for viewing (see LICENSE for terms)
+git clone https://github.com/royalbit/forge
 ```
+
+This is an R&D project. See [LICENSE](LICENSE) for terms.
 
 ## Commands
 
@@ -39,6 +28,7 @@ forge calculate model.yaml          # Evaluate formulas
 forge validate model.yaml           # Check without modifying
 forge validate a.yaml b.yaml c.yaml # Batch validate multiple files
 forge watch model.yaml              # Auto-calculate on save
+forge audit model.yaml profit       # Show dependency chain for variable
 
 # Analysis
 forge sensitivity model.yaml -v price -r 80,120,10 -o profit
@@ -54,9 +44,15 @@ forge compare model.yaml --scenarios base,optimistic,pessimistic
 forge export model.yaml output.xlsx
 forge import input.xlsx output.yaml
 
+# Reference
+forge functions           # List all 81 supported functions by category
+forge functions --json    # Output as JSON for tooling
+
 # Maintenance
-forge update              # Check and install updates
-forge update --check      # Check only, don't install
+forge upgrade model.yaml            # Upgrade to latest schema (v5.0.0)
+forge upgrade model.yaml --dry-run  # Preview changes only
+forge update                        # Check and install updates
+forge update --check                # Check only, don't install
 ```
 
 ## Why Forge Exists
@@ -117,20 +113,33 @@ scenarios:
 
 ## Features
 
-**60+ Excel Functions:**
-- Financial: NPV, IRR, XNPV, XIRR, PMT, FV, PV, RATE, NPER
-- Lookup: MATCH, INDEX, XLOOKUP, VLOOKUP
-- Conditional: SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS
-- Array: UNIQUE, COUNTUNIQUE (v4.1.0)
-- Date: TODAY, YEAR, MONTH, DAY, DATEDIF, EDATE, EOMONTH
-- Math, Text, Logic, Aggregation functions
+### 81 Supported Functions
 
-**Analysis Tools:**
-- Sensitivity analysis (1D and 2D data tables)
-- Goal seek with bisection solver
-- Break-even analysis
-- Budget vs actual variance
-- Multi-scenario comparison
+| Category | Functions |
+|----------|-----------|
+| **Financial (13)** | NPV, IRR, MIRR, XNPV, XIRR, PMT, PV, FV, RATE, NPER, SLN, DB, DDB |
+| **Lookup (6)** | MATCH, INDEX, VLOOKUP, XLOOKUP, CHOOSE, OFFSET |
+| **Conditional (8)** | SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, AVERAGEIFS, MAXIFS, MINIFS |
+| **Array (4)** | UNIQUE, COUNTUNIQUE, FILTER, SORT |
+| **Aggregation (5)** | SUM, AVERAGE, MIN, MAX, COUNT |
+| **Math (9)** | ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER, ABS |
+| **Text (6)** | CONCAT, TRIM, UPPER, LOWER, LEN, MID |
+| **Date (11)** | TODAY, DATE, YEAR, MONTH, DAY, DATEDIF, EDATE, EOMONTH, NETWORKDAYS, WORKDAY, YEARFRAC |
+| **Logic (7)** | IF, AND, OR, LET, SWITCH, INDIRECT, LAMBDA |
+| **Statistical (6)** | MEDIAN, VAR, STDEV, PERCENTILE, QUARTILE, CORREL |
+| **Forge-Native (6)** | SCENARIO, VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, BREAKEVEN_UNITS, BREAKEVEN_REVENUE |
+
+Run `forge functions` for full details with syntax examples.
+
+### Analysis Tools
+
+| Tool | Command | Description |
+|------|---------|-------------|
+| **Sensitivity** | `forge sensitivity` | 1D and 2D data tables |
+| **Goal Seek** | `forge goal-seek` | Find input for target output |
+| **Break-Even** | `forge break-even` | Find zero-crossing point |
+| **Variance** | `forge variance` | Budget vs actual analysis |
+| **Compare** | `forge compare` | Multi-scenario side-by-side |
 
 **v4.0 Rich Metadata Schema:**
 - Per-field metadata: unit, notes, source, validation_status, last_updated
@@ -138,22 +147,10 @@ scenarios:
 - Unit consistency validation (warns on CAD + % mismatches)
 - Excel export with metadata as cell comments
 
-**Enterprise Ready:**
-- 96K rows/sec throughput
-- 900+ formula enterprise model validated
+**Integration:**
 - HTTP API server (`forge-server`)
 - MCP server for AI agents (`forge-mcp`)
-- LSP server for editors (`forge-lsp`)
 - Watch mode for live updates
-
-## Editor Support
-
-| Editor | Status | Features |
-|--------|--------|----------|
-| **VSCode** | `editors/vscode/` | Syntax highlighting, LSP, commands |
-| **Zed** | `editors/zed/` | Native Rust/WASM, LSP, 60+ function highlighting |
-
-Both extensions use `forge-lsp` for validation, completion, hover, and go-to-definition.
 
 ## Documentation
 
@@ -168,8 +165,9 @@ Both extensions use `forge-lsp` for validation, completion, hover, and go-to-def
 ## Development
 
 ```bash
-cargo test              # Run tests (227 passing)
+cargo test              # Run tests (846 passing)
 cargo clippy            # Lint (zero warnings)
+make coverage           # Run coverage (80% minimum, 100% target - ADR-004)
 cargo build --release   # Build optimized binary
 ```
 
@@ -184,12 +182,13 @@ Now it's circular: **Forge uses the RoyalBit Asimov to build Forge.**
 | Version | Time | Features |
 |---------|------|----------|
 | v1.0-v1.2 | ~23.5h | Core engine, 50+ functions |
-| v1.4-v2.0 | ~12h | Watch, LSP, MCP, HTTP API |
-| v2.1-v3.1 | ~9h | XNPV/XIRR, Scenarios, Sensitivity, Zed |
+| v1.4-v2.0 | ~12h | Watch, MCP, HTTP API |
+| v2.1-v3.1 | ~9h | XNPV/XIRR, Scenarios, Sensitivity |
 | v4.0 | ~4h | Rich metadata, cross-file refs, unit validation |
-| v4.1 | ~2.5h | UNIQUE/COUNTUNIQUE, error context |
+| v4.1-v4.4 | ~3h | UNIQUE/COUNTUNIQUE, LET/SWITCH/LAMBDA, bug fixes |
+| v5.0 | ~4h | Proprietary license, 81 functions, module refactoring |
 
-**Total: ~51 hours autonomous development, 227 tests, zero warnings, 3 ADRs.**
+**Total: ~55 hours autonomous development, 846 tests, zero warnings, 6 ADRs.**
 
 ### The Protocol at Scale
 
@@ -254,4 +253,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 
-MIT - See [LICENSE](LICENSE)
+**Proprietary** - See [LICENSE](LICENSE)
+
+### What This Means
+
+This is a research and development project.
+
+| Permitted |
+|-----------|
+| View and study source code |
+| Clone for local viewing |
+| Personal, non-commercial educational use |
+
+All other uses are prohibited.

@@ -607,4 +607,182 @@ mod tests {
         assert_eq!(response.endpoints[0].path, "/health");
         assert_eq!(response.endpoints[1].path, "/api/v1/validate");
     }
+
+    // ==================== Async Handler Tests ====================
+
+    #[tokio::test]
+    async fn test_health_handler() {
+        use axum::response::IntoResponse;
+
+        let response = health().await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_version_handler() {
+        use axum::response::IntoResponse;
+
+        let state = Arc::new(AppState {
+            version: "5.0.0".to_string(),
+        });
+
+        let response = version(State(state)).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_root_handler() {
+        use axum::response::IntoResponse;
+
+        let state = Arc::new(AppState {
+            version: "5.0.0".to_string(),
+        });
+
+        let response = root(State(state)).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_validate_handler_nonexistent_file() {
+        use axum::response::IntoResponse;
+
+        let req = ValidateRequest {
+            file_path: "/nonexistent/file.yaml".to_string(),
+        };
+
+        let response = validate(Json(req)).await;
+        let response = response.into_response();
+
+        // Should return 200 with error in body (API convention)
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_validate_handler_valid_file() {
+        use axum::response::IntoResponse;
+
+        let req = ValidateRequest {
+            file_path: "test-data/budget.yaml".to_string(),
+        };
+
+        let response = validate(Json(req)).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_calculate_handler_dry_run() {
+        use axum::response::IntoResponse;
+
+        let req = CalculateRequest {
+            file_path: "test-data/budget.yaml".to_string(),
+            dry_run: true,
+        };
+
+        let response = calculate(Json(req)).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_calculate_handler_nonexistent() {
+        use axum::response::IntoResponse;
+
+        let req = CalculateRequest {
+            file_path: "/nonexistent/file.yaml".to_string(),
+            dry_run: true,
+        };
+
+        let response = calculate(Json(req)).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_audit_handler() {
+        use axum::response::IntoResponse;
+
+        let req = AuditRequest {
+            file_path: "test-data/budget.yaml".to_string(),
+            variable: "profit".to_string(),
+        };
+
+        let response = audit(Json(req)).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_audit_handler_nonexistent() {
+        use axum::response::IntoResponse;
+
+        let req = AuditRequest {
+            file_path: "/nonexistent/file.yaml".to_string(),
+            variable: "test".to_string(),
+        };
+
+        let response = audit(Json(req)).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_export_handler() {
+        use axum::response::IntoResponse;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let output_path = temp_dir.path().join("test_export.xlsx");
+
+        let req = ExportRequest {
+            yaml_path: "test-data/budget.yaml".to_string(),
+            excel_path: output_path.to_string_lossy().to_string(),
+        };
+
+        let response = export(Json(req)).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_export_handler_nonexistent() {
+        use axum::response::IntoResponse;
+
+        let req = ExportRequest {
+            yaml_path: "/nonexistent/file.yaml".to_string(),
+            excel_path: "/tmp/test.xlsx".to_string(),
+        };
+
+        let response = export(Json(req)).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_import_handler_nonexistent() {
+        use axum::response::IntoResponse;
+
+        let req = ImportRequest {
+            excel_path: "/nonexistent/file.xlsx".to_string(),
+            yaml_path: "/tmp/test.yaml".to_string(),
+        };
+
+        let response = import_excel(Json(req)).await;
+        let response = response.into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
 }

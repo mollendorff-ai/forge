@@ -5,6 +5,8 @@
 **SR&ED Program:** Scientific Research & Experimental Development (Canada)
 **Purpose:** Document technical challenges, hypotheses, experiments, and advancements for Canadian tax credit eligibility
 
+> **Note (December 2025):** This is a historical research log. References to "MIT license", "open source", "FOSS", and "crates.io" reflect the license status at the time of writing. Forge is now proprietary software. See [LICENSE](../../LICENSE) for current terms.
+
 ---
 
 ## About SR&ED Eligibility

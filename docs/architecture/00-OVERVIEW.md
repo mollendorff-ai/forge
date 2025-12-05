@@ -1,8 +1,8 @@
 # Forge Architecture Overview
 
-**Document Version:** 2.0.0
-**Forge Version:** v3.0.0
-**Last Updated:** 2025-11-25
+**Document Version:** 3.0.0
+**Forge Version:** v5.0.0
+**Last Updated:** 2025-12-04
 **Status:** Complete
 
 ---

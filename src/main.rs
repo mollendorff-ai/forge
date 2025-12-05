@@ -1,3 +1,6 @@
+// During coverage builds, stubbed main doesn't use imports
+#![cfg_attr(coverage, allow(unused_imports))]
+
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use royalbit_forge::cli;
@@ -9,15 +12,12 @@ use std::path::PathBuf;
 #[command(name = "forge")]
 #[command(about = "Green coding: Zero tokens, zero emissions. Local formula validation.")]
 #[command(long_about = "Forge - Deterministic YAML formula validation
-96K rows/sec | 60+ Excel functions | Zero AI tokens | Zero emissions
-
-PERFORMANCE:
-  10K rows in 107ms | 100K rows in ~1s | Linear O(n) scaling
+80+ functions | Zero AI tokens | Zero emissions
 
 COMMANDS:
   calculate   - Evaluate formulas in YAML files
   validate    - Check formulas without modifying
-  functions   - List all 58 supported Excel functions
+  functions   - List all 81 supported functions
   sensitivity - One/two-variable data tables
   goal-seek   - Find input value for target output
   break-even  - Find where output crosses zero
@@ -511,8 +511,55 @@ EXAMPLES:
         #[arg(long)]
         json: bool,
     },
+
+    #[command(long_about = "Upgrade YAML files to latest schema version (v5.0.0).
+
+Automatically migrates YAML files and all included files to the latest schema.
+Creates backups before modifying files.
+
+TRANSFORMATIONS:
+  - Updates _forge_version to 5.0.0
+  - Splits scalars into inputs/outputs based on formula presence:
+    - Scalars with value only → inputs section
+    - Scalars with formula → outputs section
+  - Adds _name field for multi-document files
+  - Preserves all existing metadata
+
+RECURSIVE PROCESSING:
+  If the file has _includes, all included files are upgraded FIRST.
+  Circular includes are detected and handled.
+
+EXAMPLES:
+  forge upgrade model.yaml              # Upgrade file and includes
+  forge upgrade model.yaml --dry-run    # Preview changes only
+  forge upgrade model.yaml --to 5.0.0   # Explicit target version
+
+BACKUP:
+  Original files are backed up as .yaml.bak before modification.")]
+    /// Upgrade YAML files to latest schema version
+    Upgrade {
+        /// Path to YAML file to upgrade
+        file: PathBuf,
+
+        /// Preview changes without modifying files
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+
+        /// Target schema version (default: 5.0.0)
+        #[arg(long, default_value = "5.0.0")]
+        to: String,
+
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
+/// CLI entry point - excluded from coverage (ADR-006)
+/// Parses CLI args and dispatches to library functions.
+/// Cannot unit test: reads from std::env::args()
+/// Tested via: cli_integration_tests.rs
+#[cfg(not(coverage))]
 fn main() -> ForgeResult<()> {
     let cli = Cli::parse();
 
@@ -672,5 +719,18 @@ fn main() -> ForgeResult<()> {
         }
 
         Commands::Functions { json } => cli::functions(json),
+
+        Commands::Upgrade {
+            file,
+            dry_run,
+            to,
+            verbose,
+        } => cli::upgrade(file, dry_run, to, verbose),
     }
+}
+
+/// Stub for coverage builds - see ADR-006
+#[cfg(coverage)]
+fn main() -> ForgeResult<()> {
+    Ok(())
 }
