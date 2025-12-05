@@ -195,20 +195,20 @@ graph TB
 
 ### Test Growth Over Time
 
-**v0.2.0 (October 2023):**
+**v0.2.0 (November 2025):**
 
 - 15 tests
 - Unit tests only
 - Basic formula evaluation
 
-**v1.0.0 (November 2023):**
+**v1.0.0 (November 2025):**
 
 - 100 tests (+85)
 - E2E tests added
 - Array calculator tests
 - Excel export tests
 
-**v1.2.1 (November 2023):**
+**v1.2.1 (November 2025):**
 
 - 136 tests (+36)
 - 27 new function tests
