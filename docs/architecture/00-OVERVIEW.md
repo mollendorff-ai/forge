@@ -386,7 +386,6 @@ Excel Workbook
 
 ### Developer Documentation
 
-- [SRED_RESEARCH_LOG.md](../../SRED_RESEARCH_LOG.md) - R&D experiments
 - [roadmap.yaml](../../roadmap.yaml) - Future features, milestones
 - [warmup.yaml](../../warmup.yaml) - Development protocol
 - [GLOSSARY.md](../../GLOSSARY.md) - Canonical terminology

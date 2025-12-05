@@ -19,7 +19,7 @@ Import existing Excel files to YAML format, enabling:
 
 ### Use Case 1: Convert Existing Models to Version Control
 
-**Problem:** You have 50+ Excel files for a grant application, no version control
+**Problem:** You have 50+ Excel files for a financial project, no version control
 **Solution:**
 
 ```bash
@@ -33,7 +33,7 @@ done
 # Now track in git!
 
 git add *.yaml
-git commit -m "Initial import of grant application models"
+git commit -m "Initial import of financial models"
 ```
 
 **Benefits:**
