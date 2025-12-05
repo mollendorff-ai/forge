@@ -8,8 +8,7 @@ Forge is a research and development project. Source code is available for viewin
 
 | Permitted |
 |-----------|
-| View and study source code |
-| Clone for local viewing |
+| View, study, and run |
 | Personal, non-commercial educational use |
 
 All other uses are prohibited. See [LICENSE](../LICENSE) for full terms.
