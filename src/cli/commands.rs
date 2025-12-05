@@ -804,6 +804,11 @@ pub fn import(
 }
 
 /// Execute the watch command
+///
+/// # Coverage Exclusion (ADR-006)
+/// Contains infinite loop waiting for file system events - cannot unit test.
+/// Tested via: cli_integration_tests.rs (manual termination after initial run)
+#[cfg(not(coverage))]
 pub fn watch(file: PathBuf, validate_only: bool, verbose: bool) -> ForgeResult<()> {
     println!("{}", "👁️  Forge - Watch Mode".bold().green());
     println!("   Watching: {}", file.display());
@@ -913,6 +918,19 @@ pub fn watch(file: PathBuf, validate_only: bool, verbose: bool) -> ForgeResult<(
         }
     }
 
+    Ok(())
+}
+
+/// Stub for coverage builds - see ADR-006
+#[cfg(coverage)]
+pub fn watch(file: PathBuf, _validate_only: bool, _verbose: bool) -> ForgeResult<()> {
+    // Validate file exists (testable error path)
+    if !file.exists() {
+        return Err(ForgeError::Validation(format!(
+            "File not found: {}",
+            file.display()
+        )));
+    }
     Ok(())
 }
 
