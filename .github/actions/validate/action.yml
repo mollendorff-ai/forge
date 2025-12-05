@@ -54,6 +54,12 @@ runs:
         restore-keys: |
           ${{ runner.os }}-cargo-forge-
 
+    - name: Checkout Forge
+      uses: actions/checkout@v4
+      with:
+        repository: royalbit/forge
+        path: forge-cli
+
     - name: Install Forge
       shell: bash
       run: |
@@ -61,8 +67,8 @@ runs:
         if command -v forge &> /dev/null; then
           echo "Forge already installed: $(forge --version)"
         else
-          echo "Installing Forge from crates.io..."
-          cargo install royalbit-forge --locked || cargo install royalbit-forge
+          echo "Building Forge from source..."
+          cargo install --path forge-cli --locked
           echo "Installed: $(forge --version)"
         fi
 
