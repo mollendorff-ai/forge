@@ -35,7 +35,7 @@ echo -e "${BLUE}Forge Release v${VERSION}: ${TITLE}${NC}"
 echo -e "${BLUE}========================================${NC}"
 
 # Step 1: Pre-flight checks
-echo -e "\n${YELLOW}[1/9] Pre-flight checks...${NC}"
+echo -e "\n${YELLOW}[1/8] Pre-flight checks...${NC}"
 if [[ -n $(git status --porcelain) ]]; then
     echo -e "${RED}Error: Working directory not clean. Commit or stash changes first.${NC}"
     git status --short
@@ -44,36 +44,36 @@ fi
 echo -e "${GREEN}  Working directory clean${NC}"
 
 # Step 2: Run tests
-echo -e "\n${YELLOW}[2/9] Running tests...${NC}"
+echo -e "\n${YELLOW}[2/8] Running tests...${NC}"
 cargo test --release
 echo -e "${GREEN}  All tests passed${NC}"
 
 # Step 3: Clippy
-echo -e "\n${YELLOW}[3/9] Running clippy...${NC}"
+echo -e "\n${YELLOW}[3/8] Running clippy...${NC}"
 cargo clippy --release -- -D warnings
 echo -e "${GREEN}  Zero warnings${NC}"
 
 # Step 4: Build release
-echo -e "\n${YELLOW}[4/9] Building release...${NC}"
+echo -e "\n${YELLOW}[4/8] Building release...${NC}"
 cargo build --release
 echo -e "${GREEN}  Build complete${NC}"
 
 # Step 5: UPX compress
-echo -e "\n${YELLOW}[5/9] UPX compressing...${NC}"
+echo -e "\n${YELLOW}[5/8] UPX compressing...${NC}"
 ORIGINAL_SIZE=$(ls -lh target/release/forge | awk '{print $5}')
 upx --best --lzma target/release/forge -o "/tmp/${BINARY_NAME}" --force
 COMPRESSED_SIZE=$(ls -lh "/tmp/${BINARY_NAME}" | awk '{print $5}')
 echo -e "${GREEN}  Compressed: ${ORIGINAL_SIZE} -> ${COMPRESSED_SIZE}${NC}"
 
 # Step 6: Install to /usr/local/bin
-echo -e "\n${YELLOW}[6/9] Installing to /usr/local/bin...${NC}"
+echo -e "\n${YELLOW}[6/8] Installing to /usr/local/bin...${NC}"
 sudo cp "/tmp/${BINARY_NAME}" /usr/local/bin/forge
 sudo chmod +x /usr/local/bin/forge
 INSTALLED_VERSION=$(forge --version)
 echo -e "${GREEN}  Installed: ${INSTALLED_VERSION}${NC}"
 
 # Step 7: Create git tag
-echo -e "\n${YELLOW}[7/9] Creating git tag...${NC}"
+echo -e "\n${YELLOW}[7/8] Creating git tag...${NC}"
 if git tag -l | grep -q "^v${VERSION}$"; then
     echo -e "${YELLOW}  Tag v${VERSION} already exists, skipping...${NC}"
 else
@@ -83,7 +83,7 @@ else
 fi
 
 # Step 8: Create GitHub release
-echo -e "\n${YELLOW}[8/9] Creating GitHub release...${NC}"
+echo -e "\n${YELLOW}[8/8] Creating GitHub release...${NC}"
 if gh release view "v${VERSION}" &>/dev/null; then
     echo -e "${YELLOW}  Release v${VERSION} already exists, skipping...${NC}"
 else
@@ -101,29 +101,20 @@ See [CHANGELOG.md](CHANGELOG.md) for full details.
 ### Install
 
 \`\`\`bash
-# From crates.io
-cargo install royalbit-forge
-
-# Or download binary
+# Download binary
 curl -L https://github.com/royalbit/forge/releases/download/v${VERSION}/${BINARY_NAME} -o forge
 chmod +x forge
 sudo mv forge /usr/local/bin/
+
+# Or build from source
+git clone https://github.com/royalbit/forge
+cd forge && cargo install --path .
 \`\`\`
 
 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
     echo -e "${GREEN}  GitHub release created${NC}"
-fi
-
-# Step 9: Publish to crates.io
-echo -e "\n${YELLOW}[9/9] Publishing to crates.io...${NC}"
-CURRENT_CRATE_VERSION=$(cargo search royalbit-forge 2>/dev/null | grep "^royalbit-forge" | sed 's/.*= "\([^"]*\)".*/\1/')
-if [[ "$CURRENT_CRATE_VERSION" == "$VERSION" ]]; then
-    echo -e "${YELLOW}  Version ${VERSION} already on crates.io, skipping...${NC}"
-else
-    cargo publish
-    echo -e "${GREEN}  Published to crates.io${NC}"
 fi
 
 echo -e "\n${GREEN}========================================${NC}"
@@ -138,4 +129,3 @@ echo "  [ ] Commit and push doc changes"
 echo ""
 echo "Links:"
 echo "  - GitHub: https://github.com/royalbit/forge/releases/tag/v${VERSION}"
-echo "  - Crates: https://crates.io/crates/royalbit-forge/${VERSION}"

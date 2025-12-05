@@ -1702,16 +1702,12 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - name: Install Forge
-        run: cargo install royalbit-forge
-
-      - name: Validate Models
-        run: |
-          for file in models/*.yaml; do
- forge validate "$file" || exit 1
-          done
+      - name: Validate Forge models
+        uses: royalbit/forge/.github/actions/validate@main
+        with:
+          files: 'models/*.yaml'
 ```
 
 **GitLab CI:**
@@ -1719,12 +1715,13 @@ jobs:
 ```yaml
 validate_models:
   stage: test
+  image: rust:latest
   script:
-    - cargo install royalbit-forge
+    - git clone https://github.com/royalbit/forge /tmp/forge
+    - cargo install --path /tmp/forge
     - forge validate models/*.yaml
   only:
     - merge_requests
-
 ```
 
 ### Dry-Run Mode for CI
