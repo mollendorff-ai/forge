@@ -41,7 +41,6 @@ graph LR
 ### Documentation
 - README needs visual aid - architecture diagram
 - DESIGN_V1 explaining algorithms - flow diagram
-- SRED explaining novel approach - sequence/component diagram
 
 ## Diagram Types
 

@@ -362,41 +362,6 @@ tax_rate:
 
 ---
 
-## SR&ED Terms
-
-### SR&ED
-
-**Correct:** SR&ED (all caps, no spaces)
-
-**Wrong:** SRED, Sr&Ed, SR-ED, R&D
-
-**Definition:** Scientific Research & Experimental Development - Canadian tax credit program for R&D work.
-
-**Usage:**
-
-- ✅ "SR&ED tax credits for qualifying R&D"
-- ✅ "SRED_RESEARCH_LOG.md" (file name uses underscores)
-- ❌ "R&D documentation" (too generic)
-
-**File:** SRED_RESEARCH_LOG.md (underscores in filename, not hyphens)
-
----
-
-### Technical Uncertainty
-
-**Correct:** technical uncertainty (lowercase, two words)
-
-**Wrong:** Technical Uncertainty (unless starting sentence), technological uncertainty
-
-**Definition:** SR&ED term for problems where the solution is not readily available or obvious to a competent professional.
-
-**Usage:**
-
-- ✅ "Resolving technical uncertainties qualifies for SR&ED"
-- ✅ "Array formula evaluation presented technical uncertainty"
-
----
-
 ## Repository Terms
 
 ### forge (repository/project)
@@ -508,38 +473,6 @@ tax_rate:
 - ✅ "Roundtrip tests ensure lossless conversion"
 - ✅ "YAML → Excel → YAML roundtrip"
 - ❌ "Round-trip validation" (hyphen not canonical)
-
----
-
-## Grant Program Acronyms
-
-### IRAP
-
-**Correct:** IRAP (all caps, no periods)
-
-**Wrong:** irap, I.R.A.P., Irap
-
-**Definition:** Industrial Research Assistance Program (NRC Canada)
-
-**Usage:**
-
-- ✅ "Apply for IRAP funding ($300K-$500K)"
-- ❌ "The IRAP program" (redundant - IRAP already means "program")
-
----
-
-### NRC
-
-**Correct:** NRC (all caps, no periods)
-
-**Wrong:** nrc, N.R.C.
-
-**Definition:** National Research Council Canada
-
-**Usage:**
-
-- ✅ "NRC IRAP" (combined)
-- ✅ "Contact NRC for assessment"
 
 ---
 

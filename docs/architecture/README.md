@@ -333,7 +333,6 @@ Then read others as needed based on your work area.
 
 ### Related Developer Documentation
 
-- **[../../SRED_RESEARCH_LOG.md](../../SRED_RESEARCH_LOG.md)** - R&D experiments for SR&ED
 - **[../../roadmap.yaml](../../roadmap.yaml)** - Future features and milestones
 - **[../../warmup.yaml](../../warmup.yaml)** - Development protocol for autonomous AI
 - **[../../GLOSSARY.md](../../GLOSSARY.md)** - Canonical terminology (50+ terms)

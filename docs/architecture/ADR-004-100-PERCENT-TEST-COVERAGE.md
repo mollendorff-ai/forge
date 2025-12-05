@@ -19,19 +19,19 @@ Financial software has **zero tolerance for calculation errors**:
 3. **Depreciation** - Errors in SLN/DDB/DB affect tax calculations and asset reporting
 4. **Statistical analysis** - Incorrect STDEV/VAR can misrepresent risk profiles
 5. **Cash flow projections** - PMT/FV/PV errors cascade through entire models
-6. **Excel export for grants/investors** - Exported spreadsheets MUST be accurate and auditable
+6. **Excel export for investors** - Exported spreadsheets MUST be accurate and auditable
 
 ### Critical Path: Excel Import/Export
 
 **Excel integration is mission-critical.** Users will:
-- Export financial models to Excel for grant applications
+- Export financial models to Excel for stakeholders
 - Share spreadsheets with investors for due diligence
 - Use exported Excel files for real business modeling
 - Import existing Excel models into Forge
 
 A bug in Excel export means:
 - Wrong formulas in investor spreadsheets
-- Incorrect values in grant applications
+- Incorrect values in financial reports
 - Failed audits due to calculation discrepancies
 - Loss of trust from stakeholders
 
@@ -104,7 +104,7 @@ Every financial function MUST have tests for:
    - Auditors expect comprehensive testing for financial software
 
 3. **Investor confidence**
-   - "Grant/Investor Ready" means auditable quality
+   - "Investor Ready" means auditable quality
    - 100% coverage is a clear, measurable metric
 
 4. **Technical debt prevention**
