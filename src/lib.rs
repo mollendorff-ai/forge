@@ -10,6 +10,7 @@
 //! - JSON Schema validation
 //! - Type-safe homogeneous arrays (Number, Text, Date, Boolean)
 //! - Excel import/export
+//! - Multi-document YAML support
 //!
 //! # Example
 //!
