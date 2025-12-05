@@ -6,15 +6,12 @@
 
 ```
 Forge - Deterministic YAML formula validation
-96K rows/sec | 60+ Excel functions | Zero AI tokens | Zero emissions
-
-PERFORMANCE:
-  10K rows in 107ms | 100K rows in ~1s | Linear O(n) scaling
+80+ functions | Zero AI tokens | Zero emissions
 
 COMMANDS:
   calculate   - Evaluate formulas in YAML files
   validate    - Check formulas without modifying
-  functions   - List all 58 supported Excel functions
+  functions   - List all 81 supported functions
   sensitivity - One/two-variable data tables
   goal-seek   - Find input value for target output
   break-even  - Find where output crosses zero
