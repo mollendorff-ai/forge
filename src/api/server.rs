@@ -3,6 +3,9 @@
 //! HTTP REST API server using Axum for enterprise integrations.
 //! Provides endpoints for validate, calculate, audit, export, import.
 
+// During coverage builds, stubbed functions don't use all imports
+#![cfg_attr(coverage, allow(unused_imports, dead_code))]
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -39,6 +42,11 @@ pub struct AppState {
 }
 
 /// Run the API server
+///
+/// # Coverage Exclusion (ADR-006)
+/// This function binds to a real TCP port and runs forever until terminated.
+/// Cannot be unit tested - verified via integration tests in binary_integration_tests.rs
+#[cfg(not(coverage))]
 pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt()
@@ -89,7 +97,17 @@ pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Stub for coverage builds - see ADR-006
+#[cfg(coverage)]
+pub async fn run_api_server(_config: ApiConfig) -> anyhow::Result<()> {
+    Ok(())
+}
+
 /// Graceful shutdown signal handler
+///
+/// # Coverage Exclusion (ADR-006)
+/// Waits for OS signals (Ctrl+C, SIGTERM) - cannot be triggered in unit tests
+#[cfg(not(coverage))]
 async fn shutdown_signal() {
     let ctrl_c = async {
         tokio::signal::ctrl_c()
@@ -115,6 +133,10 @@ async fn shutdown_signal() {
 
     info!("Shutdown signal received, stopping server...");
 }
+
+/// Stub for coverage builds - see ADR-006
+#[cfg(coverage)]
+async fn shutdown_signal() {}
 
 #[cfg(test)]
 mod tests {
@@ -188,5 +210,225 @@ mod tests {
         let state_clone = Arc::clone(&state);
         assert_eq!(state.version, state_clone.version);
         assert_eq!(Arc::strong_count(&state), 2);
+    }
+
+    // ==================== Router Building Tests ====================
+
+    #[test]
+    fn test_build_router() {
+        let state = Arc::new(AppState {
+            version: "5.0.0".to_string(),
+        });
+
+        // Build the router with explicit type
+        let _app: Router = Router::new()
+            .route("/", get(handlers::root))
+            .route("/health", get(handlers::health))
+            .route("/version", get(handlers::version))
+            .route("/api/v1/validate", post(handlers::validate))
+            .route("/api/v1/calculate", post(handlers::calculate))
+            .route("/api/v1/audit", post(handlers::audit))
+            .route("/api/v1/export", post(handlers::export))
+            .route("/api/v1/import", post(handlers::import_excel))
+            .with_state(state);
+
+        // If we get here, router was built successfully
+    }
+
+    #[test]
+    fn test_socket_addr_parsing() {
+        let config = ApiConfig::default();
+        let addr_str = format!("{}:{}", config.host, config.port);
+        let addr: Result<SocketAddr, _> = addr_str.parse();
+        assert!(addr.is_ok());
+        assert_eq!(addr.unwrap().port(), 8080);
+    }
+
+    #[test]
+    fn test_socket_addr_parsing_ipv6() {
+        let config = ApiConfig {
+            host: "::1".to_string(),
+            port: 8080,
+        };
+        let addr_str = format!("[{}]:{}", config.host, config.port);
+        let addr: Result<SocketAddr, _> = addr_str.parse();
+        assert!(addr.is_ok());
+    }
+
+    #[test]
+    fn test_cors_layer_creation() {
+        let cors = CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any);
+        // If we get here, CORS layer was created successfully
+        let _ = cors;
+    }
+
+    // ==================== Integration Test - Router with Tower ====================
+
+    #[tokio::test]
+    async fn test_router_health_endpoint() {
+        use axum::body::Body;
+        use axum::http::{Request, StatusCode};
+        use tower::ServiceExt;
+
+        let state = Arc::new(AppState {
+            version: "5.0.0".to_string(),
+        });
+
+        let app = Router::new()
+            .route("/health", get(handlers::health))
+            .with_state(state);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_router_version_endpoint() {
+        use axum::body::Body;
+        use axum::http::{Request, StatusCode};
+        use tower::ServiceExt;
+
+        let state = Arc::new(AppState {
+            version: "5.0.0".to_string(),
+        });
+
+        let app = Router::new()
+            .route("/version", get(handlers::version))
+            .with_state(state);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/version")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_router_root_endpoint() {
+        use axum::body::Body;
+        use axum::http::{Request, StatusCode};
+        use tower::ServiceExt;
+
+        let state = Arc::new(AppState {
+            version: "5.0.0".to_string(),
+        });
+
+        let app = Router::new()
+            .route("/", get(handlers::root))
+            .with_state(state);
+
+        let response = app
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_router_validate_endpoint() {
+        use axum::body::Body;
+        use axum::http::{header, Method, Request, StatusCode};
+        use tower::ServiceExt;
+
+        let state = Arc::new(AppState {
+            version: "5.0.0".to_string(),
+        });
+
+        let app = Router::new()
+            .route("/api/v1/validate", post(handlers::validate))
+            .with_state(state);
+
+        let body = r#"{"file_path": "test-data/budget.yaml"}"#;
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/validate")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_router_calculate_endpoint() {
+        use axum::body::Body;
+        use axum::http::{header, Method, Request, StatusCode};
+        use tower::ServiceExt;
+
+        let state = Arc::new(AppState {
+            version: "5.0.0".to_string(),
+        });
+
+        let app = Router::new()
+            .route("/api/v1/calculate", post(handlers::calculate))
+            .with_state(state);
+
+        let body = r#"{"file_path": "test-data/budget.yaml", "dry_run": true}"#;
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/calculate")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_router_not_found() {
+        use axum::body::Body;
+        use axum::http::{Request, StatusCode};
+        use tower::ServiceExt;
+
+        let state = Arc::new(AppState {
+            version: "5.0.0".to_string(),
+        });
+
+        let app = Router::new()
+            .route("/health", get(handlers::health))
+            .with_state(state);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/nonexistent")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 }

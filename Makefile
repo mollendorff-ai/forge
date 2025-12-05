@@ -1,7 +1,7 @@
 # Forge - YAML Formula Calculator
 # Build and test targets for optimized binary
 
-.PHONY: help build build-static build-compressed install install-user install-system uninstall lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
+.PHONY: help build build-static build-compressed install install-user install-system uninstall lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
 
 # Detect if upx is available
 HAS_UPX := $(shell command -v upx 2> /dev/null)
@@ -33,14 +33,19 @@ help:
 	@echo "  make test-e2e           - Run E2E tests with actual YAML files"
 	@echo "  make test-validate      - Validate all test-data files"
 	@echo "  make test-calculate     - Calculate all test-data files (dry-run)"
-	@echo "  make test-all           - Run ALL tests (136 total)"
-	@echo "  make test-coverage      - Show test coverage summary"
+	@echo "  make test-all           - Run ALL tests (542+ total)"
 	@echo ""
-	@echo "Documentation Validation:"
+	@echo "Coverage Targets (ADR-004: 100% MANDATORY):"
+	@echo "  make coverage           - Run coverage, FAIL if < 100%"
+	@echo "  make coverage-report    - Generate HTML coverage report"
+	@echo "  make coverage-ci        - CI mode: FAIL if < 100% + lcov output"
+	@echo ""
+	@echo "Documentation:"
+	@echo "  make docs-cli           - Generate CLI reference from --help (auto)"
+	@echo "  make docs-cli-check     - Verify CLI docs are up to date (CI)"
 	@echo "  make validate-docs      - Validate markdown files (markdownlint-cli2)"
 	@echo "  make validate-yaml      - Validate YAML files (yamllint)"
-	@echo "  make validate-diagrams  - Validate PlantUML diagrams (if present)"
-	@echo "  make validate-all       - Run ALL validators (docs + yaml + diagrams)"
+	@echo "  make validate-all       - Run ALL validators (docs + yaml)"
 	@echo ""
 	@echo "Presentation:"
 	@echo "  (moved to https://github.com/royalbit/asimov)"
@@ -63,6 +68,9 @@ pre-build:
 	@echo "2️⃣  Running unit tests..."
 	@cargo test --lib --quiet
 	@echo "✅ Unit tests passed!"
+	@echo ""
+	@echo "3️⃣  Checking CLI docs are up to date..."
+	@$(MAKE) -s docs-cli-check
 	@echo ""
 	@echo "✅ Pre-build checks complete!"
 	@echo ""
@@ -202,44 +210,59 @@ test-all: test test-e2e test-validate test-calculate
 	@echo ""
 	@echo "🎉 All tests passed!"
 
+# Legacy test-coverage target (shows summary only)
 test-coverage:
-	@echo "📊 Test Coverage Summary"
+	@echo "📊 Test Coverage Summary (use 'make coverage' for actual coverage)"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "Unit Tests (3):"
-	@echo "  ✅ calculator::tests::test_simple_calculation"
-	@echo "  ✅ parser::tests::test_parse_simple_formula"
-	@echo "  ✅ writer::tests::test_update_simple_value"
-	@echo ""
-	@echo "Integration Tests (5):"
-	@echo "  ✅ test_validation_passes_with_correct_values"
-	@echo "  ✅ test_validation_fails_with_stale_values"
-	@echo "  ✅ test_calculate_updates_stale_values"
-	@echo "  ✅ test_validation_with_multiple_mismatches"
-	@echo "  ✅ test_dry_run_does_not_modify_file"
-	@echo ""
-	@echo "E2E Tests (11):"
-	@echo "  ✅ e2e_malformed_yaml_fails_gracefully"
-	@echo "  ✅ e2e_invalid_formula_variable_not_found"
-	@echo "  ✅ e2e_circular_dependency_detected"
-	@echo "  ✅ e2e_stale_values_detected"
-	@echo "  ✅ e2e_valid_updated_yaml_passes"
-	@echo "  ✅ e2e_calculate_updates_stale_file"
-	@echo "  ✅ e2e_verbose_output_shows_formulas"
-	@echo "  ✅ e2e_platform_test_file_validates"
-	@echo "  ✅ e2e_financial_test_file_validates"
-	@echo "  ✅ e2e_underscore_test_file_validates"
-	@echo "  ✅ e2e_basic_test_file_validates"
-	@echo ""
+	@echo "See ADR-004: 100% test coverage is MANDATORY"
+	@echo "Run 'make coverage' to verify coverage meets 100% requirement"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "Total: 19 tests covering:"
-	@echo "  • Formula parsing and calculation"
-	@echo "  • Value validation (stale detection)"
-	@echo "  • YAML file updates"
-	@echo "  • Error handling (malformed YAML, invalid formulas)"
-	@echo "  • Circular dependency detection"
-	@echo "  • Dry-run mode"
-	@echo "  • All test-data files"
+	@cargo test 2>&1 | grep -E "running [0-9]+ tests" | awk '{sum += $$2} END {print "Total tests: " sum}'
+
+# ═══════════════════════════════════════════════════════════════════════════
+# COVERAGE TARGETS (ADR-004: 100% REQUIRED)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Coverage: Run tests with coverage, FAIL if < 100%
+# ADR-004: 100% coverage is MANDATORY - NO EXCEPTIONS
+coverage:
+	@echo "📊 Running test coverage (100% REQUIRED - ADR-004)"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@if ! command -v cargo-llvm-cov >/dev/null 2>&1; then \
+		echo "❌ cargo-llvm-cov not found. Installing..."; \
+		cargo install cargo-llvm-cov; \
+	fi
+	@cargo llvm-cov --fail-under-lines 100 --ignore-filename-regex '(tests/|test_)' || \
+		(echo ""; echo "❌ COVERAGE BELOW 100% - BUILD FAILED (ADR-004)"; echo "Run 'make coverage-report' to see uncovered lines"; exit 1)
+	@echo ""
+	@echo "✅ 100% coverage verified!"
+
+# Coverage report: Generate detailed HTML report and open in browser
+coverage-report:
+	@echo "📊 Generating coverage report..."
+	@if ! command -v cargo-llvm-cov >/dev/null 2>&1; then \
+		echo "❌ cargo-llvm-cov not found. Installing..."; \
+		cargo install cargo-llvm-cov; \
+	fi
+	@cargo llvm-cov --html --ignore-filename-regex '(tests/|test_)' --output-dir coverage-report
+	@echo "✅ Coverage report generated: coverage-report/html/index.html"
+	@if command -v xdg-open >/dev/null 2>&1; then \
+		xdg-open coverage-report/html/index.html; \
+	elif command -v open >/dev/null 2>&1; then \
+		open coverage-report/html/index.html; \
+	else \
+		echo "Open coverage-report/html/index.html in your browser"; \
+	fi
+
+# Coverage CI: Strict 100% enforcement for CI/CD pipeline
+# ADR-004: FAIL THE BUILD if < 100% - NO EXCEPTIONS
+coverage-ci:
+	@echo "📊 CI Coverage Check (100% REQUIRED - ADR-004)"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@cargo llvm-cov --fail-under-lines 100 --ignore-filename-regex '(tests/|test_)' --lcov --output-path lcov.info
+	@echo ""
+	@echo "✅ 100% coverage verified!"
+	@echo "📄 lcov.info generated for coverage upload"
 
 clean:
 	@echo "🧹 Cleaning build artifacts..."
@@ -301,6 +324,46 @@ validate-all: validate-docs validate-yaml validate-diagrams
 	@echo "✅ All validation checks completed!"
 
 # ═══════════════════════════════════════════════════════════════════════════
+# DOCUMENTATION GENERATION
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Generate CLI reference documentation from actual --help output
+docs-cli:
+	@echo "📚 Generating CLI documentation from --help..."
+	@mkdir -p docs/cli
+	@echo "# Forge CLI Reference" > docs/cli/README.md
+	@echo "" >> docs/cli/README.md
+	@echo "> Auto-generated from \`forge --help\`. Do not edit manually." >> docs/cli/README.md
+	@echo "" >> docs/cli/README.md
+	@echo "## Main Help" >> docs/cli/README.md
+	@echo "" >> docs/cli/README.md
+	@echo '```' >> docs/cli/README.md
+	@./target/release/forge --help >> docs/cli/README.md
+	@echo '```' >> docs/cli/README.md
+	@echo "" >> docs/cli/README.md
+	@for cmd in calculate validate audit export import watch compare variance sensitivity goal-seek break-even update functions upgrade; do \
+		echo "## $$cmd" >> docs/cli/README.md; \
+		echo "" >> docs/cli/README.md; \
+		echo '```' >> docs/cli/README.md; \
+		./target/release/forge $$cmd --help >> docs/cli/README.md; \
+		echo '```' >> docs/cli/README.md; \
+		echo "" >> docs/cli/README.md; \
+	done
+	@echo "✅ Generated docs/cli/README.md"
+
+# Verify CLI docs are up to date (for CI)
+docs-cli-check:
+	@echo "🔍 Checking CLI documentation is up to date..."
+	@$(MAKE) -s docs-cli
+	@if git diff --quiet docs/cli/README.md; then \
+		echo "✅ CLI documentation is up to date"; \
+	else \
+		echo "❌ CLI documentation is out of date!"; \
+		echo "Run 'make docs-cli' to regenerate"; \
+		exit 1; \
+	fi
+
+# ═══════════════════════════════════════════════════════════════════════════
 # UTILITY TARGETS
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -335,7 +398,8 @@ install-tools:
 # ═══════════════════════════════════════════════════════════════════════════
 
 # Full pre-commit check (what CI would run)
-pre-commit: format-check lint test validate-all
+# ADR-004: 100% coverage is MANDATORY - NO EXCEPTIONS
+pre-commit: format-check lint test coverage docs-cli-check validate-all
 	@echo ""
 	@echo "✅ Pre-commit checks passed! Safe to commit."
 

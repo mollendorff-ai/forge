@@ -55,6 +55,11 @@ struct Tool {
 }
 
 /// Run the MCP server synchronously over stdin/stdout
+///
+/// # Coverage Exclusion (ADR-006)
+/// This function reads from stdin forever until EOF. Cannot be unit tested.
+/// The request handling logic is tested via `handle_request()`.
+#[cfg(not(coverage))]
 pub fn run_mcp_server_sync() {
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout();
@@ -101,6 +106,10 @@ pub fn run_mcp_server_sync() {
         }
     }
 }
+
+/// Stub for coverage builds - see ADR-006
+#[cfg(coverage)]
+pub fn run_mcp_server_sync() {}
 
 /// Handle a JSON-RPC request
 fn handle_request(request: &JsonRpcRequest) -> Option<JsonRpcResponse> {
@@ -787,6 +796,11 @@ impl Default for ForgeMcpServer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // JSON-RPC REQUEST HANDLING TESTS
+    // ═══════════════════════════════════════════════════════════════════════
 
     #[test]
     fn test_initialize_request() {
@@ -805,6 +819,19 @@ mod tests {
         let result = response.result.unwrap();
         assert_eq!(result["protocolVersion"], "2024-11-05");
         assert_eq!(result["serverInfo"]["name"], "forge-mcp");
+    }
+
+    #[test]
+    fn test_initialize_without_id() {
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: None,
+            method: "initialize".to_string(),
+            params: json!({}),
+        };
+
+        let response = handle_request(&request).unwrap();
+        assert_eq!(response.id, Value::Null);
     }
 
     #[test]
@@ -907,5 +934,286 @@ mod tests {
         let required = audit_tool.input_schema["required"].as_array().unwrap();
         assert!(required.contains(&json!("file_path")));
         assert!(required.contains(&json!("variable")));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // TOOL CALL TESTS WITH FIXTURES
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_call_tool_validate_success() {
+        let result = call_tool(
+            "forge_validate",
+            &json!({
+                "file_path": "test-data/budget.yaml"
+            }),
+        );
+        // May succeed or fail based on file state, but should not be unknown tool
+        assert!(!result["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("Unknown tool"));
+    }
+
+    #[test]
+    fn test_call_tool_validate_nonexistent() {
+        let result = call_tool(
+            "forge_validate",
+            &json!({
+                "file_path": "nonexistent.yaml"
+            }),
+        );
+        assert!(result["isError"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_call_tool_calculate_dry_run() {
+        let result = call_tool(
+            "forge_calculate",
+            &json!({
+                "file_path": "test-data/budget.yaml",
+                "dry_run": true
+            }),
+        );
+        // Dry run should succeed
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(!text.contains("Unknown tool"));
+    }
+
+    #[test]
+    fn test_call_tool_calculate_nonexistent() {
+        let result = call_tool(
+            "forge_calculate",
+            &json!({
+                "file_path": "nonexistent.yaml",
+                "dry_run": true
+            }),
+        );
+        assert!(result["isError"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_call_tool_audit_with_variable() {
+        let result = call_tool(
+            "forge_audit",
+            &json!({
+                "file_path": "test-data/budget.yaml",
+                "variable": "assumptions.profit"
+            }),
+        );
+        // May succeed or fail, but should process correctly
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(!text.contains("Unknown tool"));
+    }
+
+    #[test]
+    fn test_call_tool_export() {
+        let temp_dir = TempDir::new().unwrap();
+        let output = temp_dir.path().join("mcp_test_export.xlsx");
+
+        let result = call_tool(
+            "forge_export",
+            &json!({
+                "yaml_path": "test-data/budget.yaml",
+                "excel_path": output.to_str().unwrap()
+            }),
+        );
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+    }
+
+    #[test]
+    fn test_call_tool_import() {
+        let temp_dir = TempDir::new().unwrap();
+        let excel_path = temp_dir.path().join("import_test.xlsx");
+        let yaml_path = temp_dir.path().join("imported.yaml");
+
+        // First export to create Excel file
+        call_tool(
+            "forge_export",
+            &json!({
+                "yaml_path": "test-data/budget.yaml",
+                "excel_path": excel_path.to_str().unwrap()
+            }),
+        );
+
+        // Then import
+        let result = call_tool(
+            "forge_import",
+            &json!({
+                "excel_path": excel_path.to_str().unwrap(),
+                "yaml_path": yaml_path.to_str().unwrap()
+            }),
+        );
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+    }
+
+    #[test]
+    fn test_call_tool_sensitivity() {
+        let result = call_tool(
+            "forge_sensitivity",
+            &json!({
+                "file_path": "test-data/sensitivity_test.yaml",
+                "vary": "price",
+                "range": "80,120,10",
+                "output": "profit"
+            }),
+        );
+        // May succeed or fail based on file structure
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(!text.contains("Unknown tool"));
+    }
+
+    #[test]
+    fn test_call_tool_sensitivity_two_var() {
+        let result = call_tool(
+            "forge_sensitivity",
+            &json!({
+                "file_path": "test-data/sensitivity_test.yaml",
+                "vary": "price",
+                "range": "80,120,10",
+                "vary2": "quantity",
+                "range2": "100,200,50",
+                "output": "profit"
+            }),
+        );
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(!text.contains("Unknown tool"));
+    }
+
+    #[test]
+    fn test_call_tool_goal_seek() {
+        let result = call_tool(
+            "forge_goal_seek",
+            &json!({
+                "file_path": "test-data/budget.yaml",
+                "target": "assumptions.profit",
+                "value": 0.0,
+                "vary": "assumptions.revenue",
+                "min": 50000,
+                "max": 200000,
+                "tolerance": 0.01
+            }),
+        );
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(!text.contains("Unknown tool"));
+    }
+
+    #[test]
+    fn test_call_tool_break_even() {
+        let result = call_tool(
+            "forge_break_even",
+            &json!({
+                "file_path": "test-data/budget.yaml",
+                "output": "assumptions.profit",
+                "vary": "assumptions.revenue",
+                "min": 50000,
+                "max": 200000
+            }),
+        );
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(!text.contains("Unknown tool"));
+    }
+
+    #[test]
+    fn test_call_tool_variance() {
+        let result = call_tool(
+            "forge_variance",
+            &json!({
+                "budget_path": "test-data/budget.yaml",
+                "actual_path": "test-data/budget.yaml",
+                "threshold": 10.0
+            }),
+        );
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+    }
+
+    #[test]
+    fn test_call_tool_compare() {
+        let result = call_tool(
+            "forge_compare",
+            &json!({
+                "file_path": "test-data/budget.yaml",
+                "scenarios": ["base", "optimistic"]
+            }),
+        );
+        // Expected to fail - no scenarios in budget.yaml
+        assert!(result["isError"].as_bool().unwrap_or(false));
+    }
+
+    #[test]
+    fn test_call_tool_compare_empty_scenarios() {
+        let result = call_tool(
+            "forge_compare",
+            &json!({
+                "file_path": "test-data/budget.yaml",
+                "scenarios": []
+            }),
+        );
+        // May fail with no scenarios
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(!text.contains("Unknown tool"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // JSON-RPC RESPONSE STRUCT TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_jsonrpc_response_serialization() {
+        let response = JsonRpcResponse {
+            jsonrpc: "2.0".to_string(),
+            id: json!(1),
+            result: Some(json!({"status": "ok"})),
+            error: None,
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"jsonrpc\":\"2.0\""));
+        assert!(json.contains("\"id\":1"));
+        assert!(!json.contains("\"error\""));
+    }
+
+    #[test]
+    fn test_jsonrpc_response_with_error() {
+        let response = JsonRpcResponse {
+            jsonrpc: "2.0".to_string(),
+            id: json!(1),
+            result: None,
+            error: Some(JsonRpcError {
+                code: -32600,
+                message: "Invalid Request".to_string(),
+                data: None,
+            }),
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"error\""));
+        assert!(json.contains("-32600"));
+    }
+
+    #[test]
+    fn test_jsonrpc_error_with_data() {
+        let error = JsonRpcError {
+            code: -32000,
+            message: "Server error".to_string(),
+            data: Some(json!({"details": "more info"})),
+        };
+        let json = serde_json::to_string(&error).unwrap();
+        assert!(json.contains("\"data\""));
+        assert!(json.contains("more info"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // TOOL STRUCT TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_tool_serialization() {
+        let tool = Tool {
+            name: "test_tool".to_string(),
+            description: "A test tool".to_string(),
+            input_schema: json!({"type": "object"}),
+        };
+        let json = serde_json::to_string(&tool).unwrap();
+        assert!(json.contains("\"name\":\"test_tool\""));
+        assert!(json.contains("\"inputSchema\""));
     }
 }

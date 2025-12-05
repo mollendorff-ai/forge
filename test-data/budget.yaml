@@ -1,15 +1,14 @@
-_forge_version: "1.0.0"
-# Budget for Q4 2025
+_forge_version: 1.0.0
 assumptions:
   revenue:
-    value: 100000
+    value: 100000.0
     formula: null
   expenses:
-    value: 80000
+    value: 80000.0
     formula: null
   cost_of_goods:
-    value: 30000
+    value: 30000.0
     formula: null
   profit:
-    value: null
-    formula: "=revenue - expenses - cost_of_goods"
+    value: -10000.0
+    formula: =revenue - expenses - cost_of_goods

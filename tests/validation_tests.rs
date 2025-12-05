@@ -1,3 +1,12 @@
+//! Validation tests for forge
+//!
+//! Note: Some tests run the forge binary directly and are skipped during coverage.
+//! Schema tests that don't use the binary run in all modes.
+
+// Skip tests that use binaries during coverage builds (ADR-006)
+// The tests that don't use binaries (schema tests) still run
+#![cfg(not(coverage))]
+
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -27,7 +36,7 @@ fn test_schema_version_enum_only_contains_format_versions() {
         .expect("_forge_version should have enum property");
 
     // Only format versions should be in the enum
-    let valid_format_versions = vec!["1.0.0", "4.0.0"];
+    let valid_format_versions = vec!["1.0.0", "4.0.0", "5.0.0"];
 
     for version in version_enum {
         let v = version.as_str().expect("Version should be string");

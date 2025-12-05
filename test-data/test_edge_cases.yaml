@@ -1,0 +1,111 @@
+_forge_version: "5.0.0"
+
+# Edge case tests for comprehensive coverage
+
+inputs:
+  zero_val:
+    value: 0
+  negative_val:
+    value: -50
+  small_val:
+    value: 0.001
+  large_val:
+    value: 999999999
+
+outputs:
+  # Test with zero
+  zero_sqrt:
+    formula: "=SQRT(zero_val)"
+  zero_multiply:
+    formula: "=zero_val * 100"
+
+  # Test with negatives
+  abs_negative:
+    formula: "=ABS(negative_val)"
+  negative_power:
+    formula: "=POWER(negative_val, 2)"
+
+  # Small value operations
+  small_round:
+    formula: "=ROUND(small_val, 5)"
+  small_ceiling:
+    formula: "=CEILING(small_val, 0.0001)"
+
+  # Large value operations
+  large_format:
+    formula: "=large_val / 1000000"
+
+# Empty-like table (single row)
+single_row_table:
+  value: [42]
+  doubled:
+    formula: "=value * 2"
+
+# Multi-type table
+mixed_types:
+  text_col: ["hello", "world", "test"]
+  number_col: [1.5, 2.5, 3.5]
+  date_col: ["2025-01-01", "2025-06-15", "2025-12-31"]
+  computed:
+    formula: "=number_col * 10"
+
+# Nested IF tests
+nested_conditionals:
+  score: [45, 65, 85, 95, 35]
+  grade:
+    formula: "=IF(score >= 90, \"A\", IF(score >= 80, \"B\", IF(score >= 70, \"C\", IF(score >= 60, \"D\", \"F\"))))"
+  pass_fail:
+    formula: "=IF(score >= 60, 1, 0)"
+
+# Statistical functions
+stats_data:
+  values: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+  mean_val:
+    formula: "=AVERAGE(values)"
+  median_val:
+    formula: "=MEDIAN(values)"
+  min_val:
+    formula: "=MIN(values)"
+  max_val:
+    formula: "=MAX(values)"
+  sum_val:
+    formula: "=SUM(values)"
+  count_val:
+    formula: "=COUNT(values)"
+  stdev_val:
+    formula: "=STDEV(values)"
+  var_val:
+    formula: "=VAR(values)"
+
+# Cross-table reference
+reference_source:
+  id: [1, 2, 3]
+  amount: [100, 200, 300]
+
+reference_target:
+  source_id: [1, 2, 3]
+  multiplier: [2, 3, 4]
+  result:
+    formula: "=reference_source.amount * multiplier"
+
+# Text function tests
+text_operations:
+  raw_text: ["  Hello  ", "WORLD", "MixedCase"]
+  trimmed:
+    formula: "=TRIM(raw_text)"
+  upper_text:
+    formula: "=UPPER(raw_text)"
+  lower_text:
+    formula: "=LOWER(raw_text)"
+  text_len:
+    formula: "=LEN(raw_text)"
+
+# Aggregations
+total_amount:
+  formula: "=SUM(reference_source.amount)"
+avg_amount:
+  formula: "=AVERAGE(reference_source.amount)"
+max_amount:
+  formula: "=MAX(reference_source.amount)"
+min_amount:
+  formula: "=MIN(reference_source.amount)"

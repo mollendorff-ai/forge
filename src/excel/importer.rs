@@ -421,4 +421,195 @@ mod tests {
         let result = importer.convert_to_column_value(&data);
         assert!(result.is_err());
     }
+
+    // =========================================================================
+    // Import Integration Tests
+    // =========================================================================
+
+    #[test]
+    fn test_import_nonexistent_file_fails() {
+        let importer = ExcelImporter::new("/nonexistent/file.xlsx");
+        let result = importer.import();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_import_simple_excel_file() {
+        use crate::excel::exporter::ExcelExporter;
+        use tempfile::TempDir;
+
+        // Create a model and export it
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("sales".to_string());
+        table.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.add_table(table);
+
+        let dir = TempDir::new().unwrap();
+        let excel_path = dir.path().join("test.xlsx");
+
+        let exporter = ExcelExporter::new(model);
+        exporter.export(&excel_path).unwrap();
+
+        // Now import it
+        let importer = ExcelImporter::new(&excel_path);
+        let imported = importer.import().unwrap();
+
+        assert!(imported.tables.contains_key("sales"));
+        let table = imported.tables.get("sales").unwrap();
+        assert!(table.columns.contains_key("revenue"));
+    }
+
+    #[test]
+    fn test_import_with_text_column() {
+        use crate::excel::exporter::ExcelExporter;
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("products".to_string());
+        table.add_column(Column::new(
+            "name".to_string(),
+            ColumnValue::Text(vec![
+                "Apple".to_string(),
+                "Banana".to_string(),
+                "Cherry".to_string(),
+            ]),
+        ));
+        model.add_table(table);
+
+        let dir = TempDir::new().unwrap();
+        let excel_path = dir.path().join("test_text.xlsx");
+
+        let exporter = ExcelExporter::new(model);
+        exporter.export(&excel_path).unwrap();
+
+        let importer = ExcelImporter::new(&excel_path);
+        let imported = importer.import().unwrap();
+
+        assert!(imported.tables.contains_key("products"));
+        let table = imported.tables.get("products").unwrap();
+        assert!(table.columns.contains_key("name"));
+    }
+
+    #[test]
+    fn test_import_multiple_tables() {
+        use crate::excel::exporter::ExcelExporter;
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+
+        let mut table1 = Table::new("revenue".to_string());
+        table1.add_column(Column::new(
+            "amount".to_string(),
+            ColumnValue::Number(vec![1000.0, 2000.0]),
+        ));
+        model.add_table(table1);
+
+        let mut table2 = Table::new("costs".to_string());
+        table2.add_column(Column::new(
+            "amount".to_string(),
+            ColumnValue::Number(vec![500.0, 750.0]),
+        ));
+        model.add_table(table2);
+
+        let dir = TempDir::new().unwrap();
+        let excel_path = dir.path().join("multi.xlsx");
+
+        let exporter = ExcelExporter::new(model);
+        exporter.export(&excel_path).unwrap();
+
+        let importer = ExcelImporter::new(&excel_path);
+        let imported = importer.import().unwrap();
+
+        assert!(imported.tables.contains_key("revenue"));
+        assert!(imported.tables.contains_key("costs"));
+    }
+
+    #[test]
+    fn test_import_with_scalars() {
+        use crate::excel::exporter::ExcelExporter;
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "tax_rate".to_string(),
+            Variable::new("tax_rate".to_string(), Some(0.15), None),
+        );
+
+        let dir = TempDir::new().unwrap();
+        let excel_path = dir.path().join("scalars.xlsx");
+
+        let exporter = ExcelExporter::new(model);
+        exporter.export(&excel_path).unwrap();
+
+        let importer = ExcelImporter::new(&excel_path);
+        let imported = importer.import().unwrap();
+
+        // This test verifies the import process completes successfully
+        // The import creates a valid ParsedModel - just verify it exists
+        let _ = &imported; // imported is a valid ParsedModel
+    }
+
+    #[test]
+    fn test_importer_new_stores_path() {
+        let path = std::path::Path::new("/some/path/file.xlsx");
+        let importer = ExcelImporter::new(path);
+        // Just verify it compiles and doesn't panic
+        assert!(!importer.path.to_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_convert_to_column_value_mixed_numeric() {
+        let importer = create_test_importer();
+
+        // Mix of Float and Int should all convert to numbers
+        let data = vec![
+            Data::Float(1.5),
+            Data::Int(2),
+            Data::Float(3.0),
+            Data::Int(4),
+        ];
+
+        let result = importer.convert_to_column_value(&data).unwrap();
+
+        match result {
+            ColumnValue::Number(nums) => {
+                assert_eq!(nums.len(), 4);
+                assert_eq!(nums[0], 1.5);
+                assert_eq!(nums[1], 2.0);
+                assert_eq!(nums[2], 3.0);
+                assert_eq!(nums[3], 4.0);
+            }
+            _ => panic!("Expected Number column"),
+        }
+    }
+
+    #[test]
+    fn test_sanitize_table_name_spaces() {
+        let importer = create_test_importer();
+
+        assert_eq!(importer.sanitize_table_name("My Sheet"), "my_sheet");
+        assert_eq!(
+            importer.sanitize_table_name("Financial Data 2024"),
+            "financial_data_2024"
+        );
+        assert_eq!(
+            importer.sanitize_table_name("   trimmed   "),
+            "___trimmed___"
+        );
+    }
+
+    #[test]
+    fn test_number_to_column_letter_extended() {
+        let importer = create_test_importer();
+
+        // Additional edge cases
+        assert_eq!(importer.number_to_column_letter(703), "AAB");
+        assert_eq!(importer.number_to_column_letter(704), "AAC");
+
+        // Large column numbers
+        assert_eq!(importer.number_to_column_letter(16383), "XFD"); // Max Excel column
+    }
 }

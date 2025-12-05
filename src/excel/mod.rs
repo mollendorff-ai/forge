@@ -12,3 +12,4 @@ mod reverse_formula_translator;
 pub use exporter::ExcelExporter;
 pub use formula_translator::FormulaTranslator;
 pub use importer::ExcelImporter;
+pub use reverse_formula_translator::ReverseFormulaTranslator;

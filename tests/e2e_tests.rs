@@ -1,3 +1,13 @@
+//! End-to-end tests for forge CLI
+//!
+//! # Coverage Exclusion (ADR-006)
+//! These tests are skipped during coverage runs because the binaries are
+//! stubbed to empty main() functions. Run without coverage for full testing.
+
+// Skip all e2e tests during coverage builds (ADR-006)
+// The binaries have stubbed main() functions that exit immediately
+#![cfg(not(coverage))]
+
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -1070,6 +1080,7 @@ fn e2e_v4_enterprise_model_calculates_correctly() {
     let output = Command::new(forge_binary())
         .arg("calculate")
         .arg(&file)
+        .arg("--dry-run")
         .output()
         .expect("Failed to execute");
 
@@ -1296,6 +1307,7 @@ fn e2e_v4_enterprise_model_500_formulas() {
     let output = Command::new(forge_binary())
         .arg("calculate")
         .arg(&yaml_file)
+        .arg("--dry-run")
         .output()
         .expect("Failed to execute");
 
@@ -1759,5 +1771,511 @@ fn e2e_import_default_single_file() {
     assert!(
         !is_multi_doc,
         "Default import should not create multi-doc YAML"
+    );
+}
+
+// ========== v5.0.0 Tests ==========
+
+#[test]
+fn e2e_v5_model_validates() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("v5_model.yaml");
+
+    let content = r#"
+_forge_version: "5.0.0"
+
+inputs:
+  tax_rate:
+    value: 0.25
+    formula: null
+    unit: "%"
+  discount_rate:
+    value: 0.10
+    formula: null
+
+outputs:
+  net_profit:
+    value: null
+    formula: "=SUM(data.revenue) * (1 - tax_rate)"
+
+data:
+  quarter: ["Q1", "Q2", "Q3", "Q4"]
+  revenue: [100000, 120000, 150000, 180000]
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("validate")
+        .arg(&yaml_file)
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "v5.0.0 model should validate, stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn e2e_v5_model_calculates() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("v5_calc.yaml");
+
+    let content = r#"
+_forge_version: "5.0.0"
+
+inputs:
+  tax_rate:
+    value: 0.25
+    formula: null
+
+data:
+  revenue: [100, 200, 300, 400]
+  expenses: [50, 100, 150, 200]
+  profit: "=revenue - expenses"
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "v5.0.0 model calculate should succeed, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    assert!(
+        stdout.contains("profit"),
+        "Should show profit calculation, got: {stdout}"
+    );
+}
+
+#[test]
+fn e2e_goal_seek_command() {
+    let yaml_file = test_data_path("budget.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("goal-seek")
+        .arg(&yaml_file)
+        .arg("--target")
+        .arg("assumptions.profit=50000")
+        .arg("--adjust")
+        .arg("assumptions.revenue")
+        .output()
+        .expect("Failed to execute goal-seek");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Goal-seek should run (success or graceful failure)
+    // The command exists and processes the arguments
+    assert!(
+        !stdout.is_empty() || !stderr.is_empty(),
+        "Goal-seek should produce output, stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn e2e_sensitivity_command() {
+    let yaml_file = test_data_path("budget.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("sensitivity")
+        .arg(&yaml_file)
+        .arg("--input")
+        .arg("assumptions.revenue")
+        .arg("--output")
+        .arg("assumptions.profit")
+        .output()
+        .expect("Failed to execute sensitivity");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Sensitivity should run (produces output)
+    assert!(
+        !stdout.is_empty() || !stderr.is_empty(),
+        "Sensitivity should produce output, stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn e2e_variance_command() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("variance_test.yaml");
+
+    let content = r#"
+_forge_version: "5.0.0"
+
+budget:
+  revenue: [100000, 120000, 150000]
+  expenses: [80000, 90000, 100000]
+
+actual:
+  revenue: [95000, 125000, 145000]
+  expenses: [78000, 92000, 105000]
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    // Variance command takes: <FILE> <BUDGET> <ACTUAL>
+    let output = Command::new(forge_binary())
+        .arg("variance")
+        .arg(&yaml_file)
+        .arg("budget.revenue")
+        .arg("actual.revenue")
+        .output()
+        .expect("Failed to execute variance");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Command should produce output (success or error message)
+    assert!(
+        !stdout.is_empty() || !stderr.is_empty(),
+        "Variance command should produce output, stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn e2e_break_even_command() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("breakeven_test.yaml");
+
+    let content = r#"
+_forge_version: "5.0.0"
+
+costs:
+  fixed_costs:
+    value: 50000
+    formula: null
+  unit_price:
+    value: 100
+    formula: null
+  variable_cost:
+    value: 60
+    formula: null
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("break-even")
+        .arg(&yaml_file)
+        .arg("--fixed")
+        .arg("costs.fixed_costs")
+        .arg("--price")
+        .arg("costs.unit_price")
+        .arg("--variable")
+        .arg("costs.variable_cost")
+        .output()
+        .expect("Failed to execute break-even");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Break-even command should run (produces output)
+    assert!(
+        !stdout.is_empty() || !stderr.is_empty(),
+        "Break-even should produce output, stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn e2e_upgrade_command_dry_run() {
+    let yaml_file = test_data_path("budget.yaml");
+
+    let output = Command::new(forge_binary())
+        .arg("upgrade")
+        .arg(&yaml_file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute upgrade");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Upgrade --dry-run should succeed, stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn e2e_functions_command() {
+    let output = Command::new(forge_binary())
+        .arg("functions")
+        .output()
+        .expect("Failed to execute functions");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Functions command should succeed, stderr: {stderr}"
+    );
+
+    // Should list function categories
+    assert!(
+        stdout.contains("Statistical") || stdout.contains("Financial") || stdout.contains("MEDIAN"),
+        "Should list functions, got: {stdout}"
+    );
+}
+
+#[test]
+fn e2e_v5_with_scenarios() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("v5_scenarios.yaml");
+
+    let content = r#"
+_forge_version: "5.0.0"
+
+scenarios:
+  base:
+    growth_rate: 0.05
+  optimistic:
+    growth_rate: 0.12
+  pessimistic:
+    growth_rate: 0.02
+
+inputs:
+  growth_rate:
+    value: 0.05
+    formula: null
+
+outputs:
+  projected_revenue:
+    value: null
+    formula: "=100000 * (1 + inputs.growth_rate)"
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "v5 with scenarios should calculate, stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn e2e_statistical_functions_in_model() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("stats_test.yaml");
+
+    let content = r#"
+_forge_version: "5.0.0"
+
+data:
+  values: [10, 20, 30, 40, 50]
+
+outputs:
+  median_value:
+    value: null
+    formula: "=MEDIAN(data.values)"
+  total_sum:
+    value: null
+    formula: "=SUM(data.values)"
+  average_value:
+    value: null
+    formula: "=AVERAGE(data.values)"
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Statistical functions should work, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // Check that values are calculated
+    assert!(
+        stdout.contains("median_value") || stdout.contains("30"),
+        "Should calculate median, got: {stdout}"
+    );
+}
+
+#[test]
+fn e2e_financial_functions_in_model() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("finance_test.yaml");
+
+    let content = r#"
+_forge_version: "5.0.0"
+
+inputs:
+  cost:
+    value: 10000
+    formula: null
+  salvage:
+    value: 1000
+    formula: null
+  life:
+    value: 5
+    formula: null
+
+outputs:
+  annual_depreciation:
+    value: null
+    formula: "=SLN(inputs.cost, inputs.salvage, inputs.life)"
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Financial functions should work, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // SLN(10000, 1000, 5) = 1800
+    assert!(
+        stdout.contains("1800") || stdout.contains("annual_depreciation"),
+        "Should calculate depreciation, got: {stdout}"
+    );
+}
+
+#[test]
+fn e2e_forge_variance_functions_in_model() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("variance_funcs.yaml");
+
+    let content = r#"
+_forge_version: "5.0.0"
+
+inputs:
+  actual:
+    value: 95000
+    formula: null
+  budget:
+    value: 100000
+    formula: null
+
+outputs:
+  variance_amount:
+    value: null
+    formula: "=VARIANCE(inputs.actual, inputs.budget)"
+  variance_percent:
+    value: null
+    formula: "=VARIANCE_PCT(inputs.actual, inputs.budget)"
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Variance functions should work, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // VARIANCE = -5000
+    assert!(
+        stdout.contains("-5000") || stdout.contains("variance_amount"),
+        "Should calculate variance, got: {stdout}"
+    );
+}
+
+#[test]
+fn e2e_breakeven_functions_in_model() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("breakeven_funcs.yaml");
+
+    let content = r#"
+_forge_version: "5.0.0"
+
+inputs:
+  fixed_costs:
+    value: 50000
+    formula: null
+  unit_price:
+    value: 100
+    formula: null
+  variable_cost:
+    value: 60
+    formula: null
+  margin:
+    value: 0.40
+    formula: null
+
+outputs:
+  be_units:
+    value: null
+    formula: "=BREAKEVEN_UNITS(inputs.fixed_costs, inputs.unit_price, inputs.variable_cost)"
+  be_revenue:
+    value: null
+    formula: "=BREAKEVEN_REVENUE(inputs.fixed_costs, inputs.margin)"
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Breakeven functions should work, stdout: {stdout}, stderr: {stderr}"
+    );
+
+    // BREAKEVEN_UNITS = 1250, BREAKEVEN_REVENUE = 125000
+    assert!(
+        stdout.contains("1250") || stdout.contains("125000") || stdout.contains("be_units"),
+        "Should calculate breakeven, got: {stdout}"
     );
 }

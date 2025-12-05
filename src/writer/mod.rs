@@ -181,4 +181,252 @@ summary:
         let updated_content = fs::read_to_string(temp_file.path()).unwrap();
         assert!(updated_content.contains("150"));
     }
+
+    #[test]
+    fn test_update_scalars() {
+        let yaml_content = r#"
+revenue:
+  value: 0.0
+  formula: null
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let mut scalars = HashMap::new();
+        let var = Variable::new("revenue".to_string(), Some(1000.0), None);
+        scalars.insert("revenue".to_string(), var);
+
+        update_scalars(temp_file.path(), &scalars).unwrap();
+
+        let updated_content = fs::read_to_string(temp_file.path()).unwrap();
+        assert!(updated_content.contains("1000"));
+    }
+
+    #[test]
+    fn test_update_scalars_with_no_value() {
+        let yaml_content = r#"
+revenue:
+  value: 100.0
+  formula: null
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let mut scalars = HashMap::new();
+        // Variable with no value - should not update
+        let var = Variable::new("revenue".to_string(), None, None);
+        scalars.insert("revenue".to_string(), var);
+
+        update_scalars(temp_file.path(), &scalars).unwrap();
+
+        // Original value should remain
+        let updated_content = fs::read_to_string(temp_file.path()).unwrap();
+        assert!(updated_content.contains("100"));
+    }
+
+    #[test]
+    fn test_write_calculated_results_skips_multidoc() {
+        use crate::types::ParsedModel;
+
+        let yaml_content = "---\nfirst: 1\n---\nsecond: 2\n";
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let model = ParsedModel::new();
+        let result = write_calculated_results(temp_file.path(), &model).unwrap();
+
+        // Should return false indicating write was skipped
+        assert!(!result, "Multi-doc YAML should be skipped");
+    }
+
+    #[test]
+    fn test_write_calculated_results_creates_backup() {
+        use crate::types::ParsedModel;
+
+        let yaml_content = r#"
+_forge_version: "5.0.0"
+test_scalar:
+  value: 100.0
+  formula: null
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+        let path = temp_file.path();
+
+        let model = ParsedModel::new();
+        let result = write_calculated_results(path, &model).unwrap();
+
+        assert!(result, "Single-doc YAML should be written");
+
+        // Check backup was created
+        let backup_path = path.with_extension("yaml.bak");
+        assert!(backup_path.exists(), "Backup file should be created");
+
+        // Clean up backup
+        let _ = fs::remove_file(backup_path);
+    }
+
+    #[test]
+    fn test_write_calculated_results_with_scalars() {
+        use crate::types::ParsedModel;
+
+        let yaml_content = r#"
+profit:
+  value: 0.0
+  formula: "=revenue - costs"
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+        let path = temp_file.path();
+
+        let mut model = ParsedModel::new();
+        let var = Variable::new("profit".to_string(), Some(500.0), None);
+        model.scalars.insert("profit".to_string(), var);
+
+        write_calculated_results(path, &model).unwrap();
+
+        let updated_content = fs::read_to_string(path).unwrap();
+        assert!(updated_content.contains("500"));
+
+        // Clean up backup
+        let _ = fs::remove_file(path.with_extension("yaml.bak"));
+    }
+
+    #[test]
+    fn test_write_calculated_results_with_tables() {
+        use crate::types::{Column, ColumnValue, ParsedModel, Table};
+
+        let yaml_content = r#"
+financials:
+  value: [0, 0, 0]
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+        let path = temp_file.path();
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("financials".to_string());
+        table.add_column(Column::new(
+            "value".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.tables.insert("financials".to_string(), table);
+
+        write_calculated_results(path, &model).unwrap();
+
+        let updated_content = fs::read_to_string(path).unwrap();
+        assert!(updated_content.contains("100"));
+        assert!(updated_content.contains("200"));
+        assert!(updated_content.contains("300"));
+
+        // Clean up backup
+        let _ = fs::remove_file(path.with_extension("yaml.bak"));
+    }
+
+    #[test]
+    fn test_update_value_empty_path() {
+        let mut yaml: Value = serde_yaml::from_str("test: 1").unwrap();
+        // Empty path should not panic
+        update_value_in_yaml(&mut yaml, "", 0.0);
+    }
+
+    #[test]
+    fn test_update_value_nonexistent_path() {
+        let mut yaml: Value = serde_yaml::from_str("test: 1").unwrap();
+        // Non-existent path should not panic
+        update_value_in_yaml(&mut yaml, "nonexistent.path", 99.0);
+    }
+
+    #[test]
+    fn test_update_multiple_values() {
+        let yaml_content = r#"
+revenue:
+  value: 0.0
+costs:
+  value: 0.0
+profit:
+  value: 0.0
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let mut values = HashMap::new();
+        values.insert("revenue".to_string(), 1000.0);
+        values.insert("costs".to_string(), 400.0);
+        values.insert("profit".to_string(), 600.0);
+
+        update_yaml_file(temp_file.path(), &values).unwrap();
+
+        let updated_content = fs::read_to_string(temp_file.path()).unwrap();
+        assert!(updated_content.contains("1000"));
+        assert!(updated_content.contains("400"));
+        assert!(updated_content.contains("600"));
+    }
+
+    #[test]
+    fn test_write_results_fractional_values() {
+        use crate::types::ParsedModel;
+
+        let yaml_content = r#"
+rate:
+  value: 0.0
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+        let path = temp_file.path();
+
+        let mut model = ParsedModel::new();
+        // Test with fractional value
+        let var = Variable::new("rate".to_string(), Some(0.05), None);
+        model.scalars.insert("rate".to_string(), var);
+
+        write_calculated_results(path, &model).unwrap();
+
+        let updated_content = fs::read_to_string(path).unwrap();
+        assert!(updated_content.contains("0.05"));
+
+        // Clean up backup
+        let _ = fs::remove_file(path.with_extension("yaml.bak"));
+    }
+
+    #[test]
+    fn test_write_results_integer_values() {
+        use crate::types::{Column, ColumnValue, ParsedModel, Table};
+
+        let yaml_content = r#"
+counts:
+  value: [0, 0]
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+        let path = temp_file.path();
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("counts".to_string());
+        // Integer values (no decimal)
+        table.add_column(Column::new(
+            "value".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0]),
+        ));
+        model.tables.insert("counts".to_string(), table);
+
+        write_calculated_results(path, &model).unwrap();
+
+        let updated_content = fs::read_to_string(path).unwrap();
+        // Should be formatted as integers
+        assert!(updated_content.contains("10"));
+        assert!(updated_content.contains("20"));
+
+        // Clean up backup
+        let _ = fs::remove_file(path.with_extension("yaml.bak"));
+    }
 }

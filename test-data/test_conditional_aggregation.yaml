@@ -1,0 +1,52 @@
+_forge_version: 1.0.0
+scalars:
+  results:
+    # Single criteria aggregations
+    sumif_result:
+      formula: "=SUMIF(sales.region, \"North\", sales.amount)"
+    countif_result:
+      formula: "=COUNTIF(sales.region, \"North\")"
+    averageif_result:
+      formula: "=AVERAGEIF(sales.region, \"North\", sales.amount)"
+    # Multiple criteria aggregations
+    sumifs_result:
+      formula: "=SUMIFS(sales.amount, sales.region, \"North\", sales.status, \"Active\")"
+    countifs_result:
+      formula: "=COUNTIFS(sales.region, \"North\", sales.status, \"Active\")"
+    averageifs_result:
+      formula: "=AVERAGEIFS(sales.amount, sales.region, \"North\", sales.status, \"Active\")"
+    # Numeric criteria with operators
+    sumif_gt:
+      formula: "=SUMIF(sales.amount, \">1000\", sales.amount)"
+    sumif_lt:
+      formula: "=SUMIF(sales.amount, \"<500\", sales.amount)"
+    sumif_eq:
+      formula: "=SUMIF(sales.amount, \"=1000\", sales.amount)"
+    sumif_ne:
+      formula: "=SUMIF(sales.amount, \"<>500\", sales.amount)"
+    sumif_gte:
+      formula: "=SUMIF(sales.amount, \">=1000\", sales.amount)"
+    sumif_lte:
+      formula: "=SUMIF(sales.amount, \"<=500\", sales.amount)"
+    # Wildcard matching
+    countif_wildcard:
+      formula: "=COUNTIF(sales.region, \"*orth*\")"
+
+tables:
+  sales:
+    rows:
+      - region: "North"
+        amount: 1000
+        status: "Active"
+      - region: "South"
+        amount: 500
+        status: "Active"
+      - region: "North"
+        amount: 1500
+        status: "Inactive"
+      - region: "East"
+        amount: 750
+        status: "Active"
+      - region: "North"
+        amount: 2000
+        status: "Active"
