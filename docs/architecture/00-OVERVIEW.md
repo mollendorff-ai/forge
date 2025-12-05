@@ -400,7 +400,7 @@ Excel Workbook
 
 ## Architecture Evolution
 
-### v1.0.0 (November 2023)
+### v1.0.0 (November 2025)
 
 - **Major rewrite** - Array-based model
 - Column arrays with type safety
@@ -410,7 +410,7 @@ Excel Workbook
 - 100 tests passing
 - 12.5 hours development time (autonomous AI)
 
-### v1.2.1 (November 2023)
+### v1.2.1 (November 2025)
 
 - **27 new Excel functions** (conditional, math, text, date)
 - 136 tests passing
