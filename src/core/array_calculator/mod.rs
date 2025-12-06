@@ -1,6 +1,9 @@
 mod dates;
+pub mod evaluator;
 mod math;
+pub mod parser;
 mod text;
+pub mod tokenizer;
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Column, ColumnValue, ParsedModel, Table};
@@ -126,8 +129,8 @@ impl ArrayCalculator {
                         table_name, col_name
                     )));
                 } else {
-                    // Row-wise: returns an array
-                    let result = self.evaluate_rowwise_formula(&working_table, &formula)?;
+                    // Row-wise: returns an array (v5.2.0 AST evaluator)
+                    let result = self.evaluate_rowwise_formula_ast(&working_table, &formula)?;
                     working_table.add_column(Column::new(col_name.clone(), result));
                 }
             }
@@ -207,6 +210,86 @@ impl ArrayCalculator {
             || upper.contains("PERCENTILE(")
             || upper.contains("QUARTILE(")
             || upper.contains("CORREL(")
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AST-BASED FORMULA EVALUATION (v5.2.0 - Parser Architecture Refactor)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Build an evaluation context from the model state for a given table
+    fn build_eval_context(&self, table: &Table) -> evaluator::EvalContext {
+        use std::collections::HashMap;
+        let mut ctx = evaluator::EvalContext::new();
+
+        // Add all scalars to context
+        for (name, scalar) in &self.model.scalars {
+            if let Some(value) = scalar.value {
+                ctx.scalars.insert(name.clone(), evaluator::Value::Number(value));
+            }
+        }
+
+        // Add current table columns
+        for (col_name, col) in &table.columns {
+            let values: Vec<evaluator::Value> = match &col.values {
+                ColumnValue::Number(nums) => nums.iter().map(|n| evaluator::Value::Number(*n)).collect(),
+                ColumnValue::Text(texts) => texts.iter().map(|s| evaluator::Value::Text(s.clone())).collect(),
+                ColumnValue::Boolean(bools) => bools.iter().map(|b| evaluator::Value::Boolean(*b)).collect(),
+                ColumnValue::Date(dates) => dates.iter().map(|d| evaluator::Value::Text(d.clone())).collect(),
+            };
+            ctx.scalars.insert(col_name.clone(), evaluator::Value::Array(values));
+        }
+
+        // Add all tables to context
+        for (table_name, tbl) in &self.model.tables {
+            let mut table_data: HashMap<String, Vec<evaluator::Value>> = HashMap::new();
+            for (col_name, col) in &tbl.columns {
+                let values: Vec<evaluator::Value> = match &col.values {
+                    ColumnValue::Number(nums) => nums.iter().map(|n| evaluator::Value::Number(*n)).collect(),
+                    ColumnValue::Text(texts) => texts.iter().map(|s| evaluator::Value::Text(s.clone())).collect(),
+                    ColumnValue::Boolean(bools) => bools.iter().map(|b| evaluator::Value::Boolean(*b)).collect(),
+                    ColumnValue::Date(dates) => dates.iter().map(|d| evaluator::Value::Text(d.clone())).collect(),
+                };
+                table_data.insert(col_name.clone(), values);
+            }
+            ctx.tables.insert(table_name.clone(), table_data);
+        }
+
+        ctx.row_count = Some(table.row_count());
+        ctx
+    }
+
+    /// Evaluate a row-wise formula using the AST evaluator
+    fn evaluate_rowwise_formula_ast(&self, table: &Table, formula: &str) -> ForgeResult<ColumnValue> {
+        let formula_str = formula.trim_start_matches('=').trim();
+        let tokens = tokenizer::tokenize(formula_str).map_err(|e| ForgeError::Eval(format!("Tokenize: {}", e.message)))?;
+        let ast = parser::parse(tokens).map_err(|e| ForgeError::Eval(format!("Parse: {}", e.message)))?;
+
+        let base_ctx = self.build_eval_context(table);
+        let row_count = table.row_count();
+        if row_count == 0 {
+            return Err(ForgeError::Eval("Cannot evaluate on empty table".to_string()));
+        }
+
+        let mut results: Vec<f64> = Vec::with_capacity(row_count);
+        for row_idx in 0..row_count {
+            let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
+            let result = evaluator::evaluate(&ast, &row_ctx).map_err(|e| ForgeError::Eval(format!("Row {}: {}", row_idx, e)))?;
+            let value = result.as_number().ok_or_else(|| ForgeError::Eval(format!("Row {} not a number", row_idx)))?;
+            results.push(value);
+        }
+        Ok(ColumnValue::Number(results))
+    }
+
+    /// Evaluate a scalar formula using the AST evaluator
+    fn evaluate_scalar_formula_ast(&self, formula: &str) -> ForgeResult<f64> {
+        let formula_str = formula.trim_start_matches('=').trim();
+        let tokens = tokenizer::tokenize(formula_str).map_err(|e| ForgeError::Eval(format!("Tokenize: {}", e.message)))?;
+        let ast = parser::parse(tokens).map_err(|e| ForgeError::Eval(format!("Parse: {}", e.message)))?;
+
+        let empty_table = Table::new("_scalar_context".to_string());
+        let ctx = self.build_eval_context(&empty_table);
+        let result = evaluator::evaluate(&ast, &ctx).map_err(|e| ForgeError::Eval(format!("Eval: {}", e)))?;
+        result.as_number().ok_or_else(|| ForgeError::Eval("Scalar result not a number".to_string()))
     }
 
     /// Check if formula contains custom math functions that need special handling
@@ -612,7 +695,8 @@ impl ArrayCalculator {
                 .and_then(|v| v.formula.clone());
 
             if let Some(formula) = formula {
-                let value = self.evaluate_scalar_formula(&formula, &scalar_name)?;
+                // v5.2.0 AST evaluator
+                let value = self.evaluate_scalar_formula_ast(&formula)?;
 
                 // Update the scalar with calculated value
                 if let Some(var) = self.model.scalars.get_mut(&scalar_name) {

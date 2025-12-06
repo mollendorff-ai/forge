@@ -338,6 +338,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -1631,6 +1632,7 @@ dependencies = [
  "axum",
  "calamine",
  "cargo-husky",
+ "chrono",
  "clap",
  "colored",
  "jsonschema",
