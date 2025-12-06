@@ -1,23 +1,32 @@
 # Forge Roadmap
 # For version history, see CHANGELOG.md
-# Last updated: 2025-12-04
+# Last updated: 2025-12-06
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+# CODING STANDARDS
+# ═══════════════════════════════════════════════════════════════════════════════
+# - Unit tests: Keep with code (Rust way: #[cfg(test)] mod tests in same file)
+# - Test coverage: 100% mandatory for all functional code
+# - No file > 1,000 lines (split into submodules when exceeded)
+# - Zero warnings policy
+# ═══════════════════════════════════════════════════════════════════════════════
 
 metadata:
-  current_version: "5.0.0"
-  last_updated: "2025-12-04"
+  current_version: "5.2.0"
+  last_updated: "2025-12-06"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "5.0.0"
+  version: "5.2.0"
   status: released
-  date: "2025-12-04"
-  summary: "BREAKING: MIT → Proprietary (RoyalBit Inc.)"
+  date: "2025-12-06"
+  summary: "AST Parser - Clean Architecture"
   highlights:
-    - "LICENSE CHANGE: FOSS (MIT) → Proprietary (RoyalBit Inc.)"
-    - "Free for personal/academic/non-profit use"
-    - "Commercial use requires license"
-    - "81 functions, 14 CLI tools"
+    - "AST parser replaces regex (5,750 → 5,582 lines, modular)"
+    - "Tokenizer → Parser → Evaluator pipeline"
+    - "Chrono for date functions"
+    - "Both array and scalar formulas use AST"
   stats:
     tests: 918
     warnings: 0
@@ -30,86 +39,82 @@ current:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "5.1.0"
-    summary: "100% Test Coverage"
+  - version: "5.3.0"
+    summary: "Code Organization - Split Large Files"
     priority: HIGH
-    status: in_progress
-    progress: "95.1% commands.rs coverage achieved (was 76.34%), 72 tests added"
+    status: pending
 
     rationale: |
-      ADR-004 requires 100% test coverage. Current: ~91% (was 89.14%).
-
-      Progress:
-      - cli/commands.rs: 76.34% → 95.1% (+72 unit tests)
-      - watch() excluded via ADR-006 (infinite loop)
-      - Tests: 846 → 918
-
-      Remaining gap (~5%):
-      - Edge case branches in audit(), variance(), compare() helpers
-      - Some error paths in sensitivity/break_even output formatting
+      Large files hurt human readability and maintainability.
+      evaluator.rs (2,918 lines) has 16 clear sections that can be split.
+      parser/mod.rs (2,059 lines) is clean serde_yaml, split by feature.
+      Tests stay with code per Rust convention (#[cfg(test)] mod tests).
 
     deliverables:
-      - task: "Add unit tests for calculate() handler"
-        status: done
-      - task: "Add unit tests for validate() handler"
-        status: done
-      - task: "Add unit tests for export() handler"
-        status: done
-      - task: "Add unit tests for import() handler"
-        status: done
-      - task: "Add unit tests for audit() handler"
-        status: done
-      - task: "Add unit tests for compare() handler"
-        status: done
-      - task: "Add unit tests for variance() handler"
-        status: done
-      - task: "Add unit tests for sensitivity() handler"
-        status: done
-      - task: "Add unit tests for goal_seek() handler"
-        status: done
-      - task: "Add unit tests for break_even() handler"
-        status: done
-      - task: "Add unit tests for functions() handler"
-        status: done
-      - task: "Add unit tests for watch() handler"
-        status: done
-      - task: "Add unit tests for upgrade() handler"
-        status: done
-      - task: "Cover remaining ~5% edge cases"
+      - task: "Split evaluator.rs into submodules by function category"
         status: pending
+        details: |
+          evaluator/
+          ├── mod.rs          (~300 lines) - Value, EvalContext, evaluate(), dispatch + tests
+          ├── math.rs         (~170 lines) - ABS, ROUND, SQRT, POW, EXP, LN, LOG + tests
+          ├── aggregation.rs  (~90 lines)  - SUM, AVERAGE, COUNT, MIN, MAX, PRODUCT + tests
+          ├── statistical.rs  (~135 lines) - STDEV, VAR, MEDIAN, PERCENTILE, CORREL + tests
+          ├── conditional.rs  (~205 lines) - SUMIF, COUNTIF, AVERAGEIF, SUMIFS + tests
+          ├── array.rs        (~55 lines)  - INDEX, MATCH, CHOOSE + tests
+          ├── logical.rs      (~50 lines)  - IF, AND, OR, NOT, IFS + tests
+          ├── text.rs         (~75 lines)  - CONCAT, LEFT, RIGHT, MID, LEN + tests
+          ├── dates.rs        (~300 lines) - TODAY, DATE, YEAR, EDATE, EOMONTH + tests
+          ├── lookup.rs       (~250 lines) - VLOOKUP, HLOOKUP, XLOOKUP, INDIRECT + tests
+          ├── financial.rs    (~330 lines) - NPV, IRR, PMT, PV, FV, SLN, DB, DDB + tests
+          ├── forge.rs        (~150 lines) - VARIANCE_STATUS, SCENARIO, GROWTH_RATE + tests
+          └── advanced.rs     (~115 lines) - LET, LAMBDA, SWITCH, FILTER, SORT + tests
+
+      - task: "Split parser/mod.rs into submodules (2,059 lines)"
+        status: pending
+        details: |
+          parser/
+          ├── mod.rs        (~200 lines) - entry point, dispatch + tests
+          ├── single.rs     (~150 lines) - single doc parsing + tests
+          ├── multi_doc.rs  (~100 lines) - multi-document YAML + tests
+          ├── includes.rs   (~80 lines)  - file includes resolution + tests
+          ├── tables.rs     (~150 lines) - table/column parsing + tests
+          ├── scalars.rs    (~100 lines) - scalar variable parsing + tests
+          ├── scenarios.rs  (~50 lines)  - scenario parsing + tests
+          └── validation.rs (~30 lines)  - JSON schema validation + tests
+
+      - task: "Split commands.rs by command handler (2,445 lines)"
+        status: pending
+        details: |
+          commands/
+          ├── mod.rs         - dispatch + shared helpers + tests
+          ├── calculate.rs   - calculate() + tests
+          ├── validate.rs    - validate() + tests
+          ├── audit.rs       - audit(), dependency tree + tests
+          ├── export.rs      - export() + tests
+          ├── import.rs      - import() + tests
+          ├── compare.rs     - compare() + tests
+          ├── variance.rs    - variance() + tests
+          ├── sensitivity.rs - sensitivity() + tests
+          ├── goal_seek.rs   - goal_seek() + tests
+          ├── break_even.rs  - break_even() + tests
+          ├── functions.rs   - functions() + tests
+          ├── upgrade.rs     - upgrade() + tests
+          └── watch.rs       - watch() + tests
 
     success_criteria:
-      - "100% coverage reported by cargo llvm-cov"
+      - "No file > 1,000 lines"
+      - "Unit tests in same file as code (Rust convention)"
       - "All 918+ tests pass"
       - "Zero warnings"
-
-    technical_approach: |
-      Test command handlers as library functions (not via binary):
-
-      ```rust
-      // commands_tests.rs
-      #[test]
-      fn test_calculate_success() {
-          let file = create_temp_yaml(VALID_MODEL);
-          let result = calculate(file.path(), None, false, false, false);
-          assert!(result.is_ok());
-      }
-
-      #[test]
-      fn test_calculate_invalid_file() {
-          let result = calculate(Path::new("/nonexistent.yaml"), None, false, false, false);
-          assert!(result.is_err());
-      }
-      ```
-
-      This tests the same code paths as cli_integration_tests.rs but
-      runs during coverage builds (not excluded).
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RELEASED VERSIONS (summary only - see CHANGELOG.md for details)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 released:
+  - version: "5.2.0"
+    date: "2025-12-06"
+    summary: "AST Parser - Clean Architecture"
   - version: "5.0.0"
     date: "2025-12-04"
     summary: "BREAKING: MIT → Proprietary"
@@ -160,12 +165,18 @@ market:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
-  - "v5.1.0 remaining: Cover final ~5% edge cases in commands.rs (audit/variance/compare helpers)"
+  - id: "test-coverage-100"
+    title: "100% Test Coverage (ADR-004)"
+    status: "in_progress (95.1%)"
+    details: |
+      Current: ~91% overall, commands.rs at 95.1%
+      Remaining (~5%):
+      - Edge case branches in audit(), variance(), compare() helpers
+      - Some error paths in sensitivity/break_even output formatting
+      - watch() excluded via ADR-006 (infinite loop)
   - "OpenAPI spec + Swagger UI for API server"
   - "Forge vs Copilot benchmark suite (marketing)"
   - "Excel compatibility matrix doc"
-  - "Array Calculator: Proper interpreter architecture (AST + function registry) - LOW priority"
-  - "Split array_calculator tests by category (10k lines) - LOW priority"
 
 research:
   - id: "experiential-continuity"
