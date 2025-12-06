@@ -112,6 +112,11 @@ impl ArrayCalculator {
     fn calculate_table(&mut self, table_name: &str, table: &Table) -> ForgeResult<Table> {
         let mut working_table = table.clone();
 
+        // Validate all columns have the same length
+        if let Err(e) = working_table.validate_lengths() {
+            return Err(ForgeError::Eval(format!("Table '{}': {}", table_name, e)));
+        }
+
         // Build dependency order for formulas
         let formula_order = self.get_formula_calculation_order(&working_table)?;
 
@@ -317,6 +322,14 @@ impl ArrayCalculator {
             if let Some(value) = scalar.value {
                 ctx.scalars
                     .insert(name.clone(), evaluator::Value::Number(value));
+                // Also add short name (e.g., "price" from "summary.price")
+                // so formulas can reference without prefix
+                if let Some(short_name) = name.split('.').next_back() {
+                    if short_name != name {
+                        ctx.scalars
+                            .insert(short_name.to_string(), evaluator::Value::Number(value));
+                    }
+                }
             }
         }
 
@@ -367,6 +380,15 @@ impl ArrayCalculator {
                 table_data.insert(col_name.clone(), values);
             }
             ctx.tables.insert(table_name.clone(), table_data);
+        }
+
+        // Add scenarios to context
+        for (scenario_name, scenario) in &self.model.scenarios {
+            let mut overrides = HashMap::new();
+            for (var_name, value) in &scenario.overrides {
+                overrides.insert(var_name.clone(), *value);
+            }
+            ctx.scenarios.insert(scenario_name.clone(), overrides);
         }
 
         ctx.row_count = Some(table.row_count());

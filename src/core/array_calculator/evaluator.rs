@@ -7,7 +7,7 @@ use super::parser::{Expr, Reference};
 use std::collections::HashMap;
 
 /// Value type that can be returned from evaluation
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Value {
     /// A numeric value
     Number(f64),
@@ -17,8 +17,27 @@ pub enum Value {
     Boolean(bool),
     /// An array of values (for table columns)
     Array(Vec<Value>),
+    /// A lambda function value (parameter names, body expression)
+    Lambda {
+        params: Vec<String>,
+        body: Box<Expr>,
+    },
     /// Null/empty value
     Null,
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Number(a), Value::Number(b)) => a == b,
+            (Value::Text(a), Value::Text(b)) => a == b,
+            (Value::Boolean(a), Value::Boolean(b)) => a == b,
+            (Value::Array(a), Value::Array(b)) => a == b,
+            (Value::Null, Value::Null) => true,
+            (Value::Lambda { .. }, Value::Lambda { .. }) => false, // Lambdas don't compare
+            _ => false,
+        }
+    }
 }
 
 impl Value {
@@ -28,7 +47,10 @@ impl Value {
             Value::Number(n) => Some(*n),
             Value::Text(s) => s.parse().ok(),
             Value::Boolean(b) => Some(if *b { 1.0 } else { 0.0 }),
-            _ => None,
+            // Arrays in scalar context return their length
+            Value::Array(arr) => Some(arr.len() as f64),
+            Value::Lambda { .. } => None,
+            Value::Null => None,
         }
     }
 
@@ -48,6 +70,9 @@ impl Value {
             Value::Array(arr) => {
                 let strs: Vec<String> = arr.iter().map(|v| v.as_text()).collect();
                 format!("[{}]", strs.join(", "))
+            }
+            Value::Lambda { params, .. } => {
+                format!("LAMBDA({})", params.join(", "))
             }
         }
     }
@@ -84,6 +109,8 @@ pub struct EvalContext {
     pub scalars: HashMap<String, Value>,
     /// Table data (table_name -> column_name -> values)
     pub tables: HashMap<String, HashMap<String, Vec<Value>>>,
+    /// Scenarios (scenario_name -> variable_name -> value)
+    pub scenarios: HashMap<String, HashMap<String, f64>>,
     /// Current row index for row-wise evaluation (None for scalar mode)
     pub current_row: Option<usize>,
     /// Number of rows in current table context
@@ -96,6 +123,7 @@ impl EvalContext {
         Self {
             scalars: HashMap::new(),
             tables: HashMap::new(),
+            scenarios: HashMap::new(),
             current_row: None,
             row_count: None,
         }
@@ -176,6 +204,35 @@ pub fn evaluate(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
 
         Expr::FunctionCall { name, args } => evaluate_function(name, args, ctx),
 
+        Expr::CallResult { callable, args } => {
+            // Evaluate the callable expression
+            let callable_val = evaluate(callable, ctx)?;
+
+            // It must be a Lambda
+            match callable_val {
+                Value::Lambda { params, body } => {
+                    // Create new context with lambda parameters bound to arguments
+                    if args.len() != params.len() {
+                        return Err(EvalError::new(format!(
+                            "Lambda expects {} arguments, got {}",
+                            params.len(),
+                            args.len()
+                        )));
+                    }
+
+                    let mut new_ctx = ctx.clone();
+                    for (param, arg_expr) in params.iter().zip(args.iter()) {
+                        let value = evaluate(arg_expr, ctx)?;
+                        new_ctx.scalars.insert(param.clone(), value);
+                    }
+
+                    // Evaluate the body with the new context
+                    evaluate(&body, &new_ctx)
+                }
+                _ => Err(EvalError::new("Cannot call non-lambda value")),
+            }
+        }
+
         Expr::BinaryOp { op, left, right } => {
             let left_val = evaluate(left, ctx)?;
             let right_val = evaluate(right, ctx)?;
@@ -234,9 +291,20 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
                 .get_column(table, column)
                 .ok_or_else(|| EvalError::new(format!("Unknown column: {}.{}", table, column)))?;
 
-            // In row-wise mode, return single value; otherwise return full array
-            // Note: XLOOKUP etc. handle arrays directly from their column args
+            // In row-wise mode, validate row count matches and return single value
             if let Some(row) = ctx.current_row {
+                // Validate cross-table row count matches current context
+                if let Some(expected_count) = ctx.row_count {
+                    if col.len() != expected_count {
+                        return Err(EvalError::new(format!(
+                            "Row count mismatch: {}.{} has {} rows but expected {}",
+                            table,
+                            column,
+                            col.len(),
+                            expected_count
+                        )));
+                    }
+                }
                 col.get(row)
                     .cloned()
                     .ok_or_else(|| EvalError::new(format!("Row {} out of bounds", row)))
@@ -361,6 +429,16 @@ fn values_equal(left: &Value, right: &Value) -> bool {
         (Value::Text(l), Value::Text(r)) => l.to_lowercase() == r.to_lowercase(),
         (Value::Boolean(l), Value::Boolean(r)) => l == r,
         (Value::Null, Value::Null) => true,
+        (Value::Array(l), Value::Array(r)) => {
+            // Arrays are equal if same length and all elements equal
+            if l.len() != r.len() {
+                return false;
+            }
+            l.iter().zip(r.iter()).all(|(a, b)| values_equal(a, b))
+        }
+        // Single-element array compared with scalar
+        (Value::Array(arr), other) if arr.len() == 1 => values_equal(&arr[0], other),
+        (other, Value::Array(arr)) if arr.len() == 1 => values_equal(other, &arr[0]),
         _ => false,
     }
 }
@@ -560,6 +638,15 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
         "SUM" => {
             let values = collect_numeric_values(args, ctx)?;
             Ok(Value::Number(values.iter().sum()))
+        }
+
+        "PRODUCT" => {
+            let values = collect_numeric_values(args, ctx)?;
+            if values.is_empty() {
+                Ok(Value::Number(0.0))
+            } else {
+                Ok(Value::Number(values.iter().product()))
+            }
         }
 
         "AVERAGE" | "AVG" => {
@@ -1227,6 +1314,7 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
             let array_ctx = EvalContext {
                 scalars: ctx.scalars.clone(),
                 tables: ctx.tables.clone(),
+                scenarios: ctx.scenarios.clone(),
                 current_row: None,
                 row_count: ctx.row_count,
             };
@@ -1262,6 +1350,7 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
             let array_ctx = EvalContext {
                 scalars: ctx.scalars.clone(),
                 tables: ctx.tables.clone(),
+                scenarios: ctx.scenarios.clone(),
                 current_row: None,
                 row_count: ctx.row_count,
             };
@@ -1292,10 +1381,11 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
                 }
                 1 => {
                     // Find largest value <= lookup_value (ascending order)
-                    let mut best_idx: Option<usize> = None;
-                    let mut best_val: Option<f64> = None;
-
+                    // For numeric: find largest number <= lookup
+                    // For text: try exact match first, then alphabetical
                     if let Some(ln) = lookup_num {
+                        let mut best_idx: Option<usize> = None;
+                        let mut best_val: Option<f64> = None;
                         for (i, v) in arr.iter().enumerate() {
                             if let Some(vn) = v.as_number() {
                                 if vn <= ln && (best_val.is_none() || vn > best_val.unwrap()) {
@@ -1304,10 +1394,19 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
                                 }
                             }
                         }
+                        best_idx
+                            .map(|i| Value::Number((i + 1) as f64))
+                            .ok_or_else(|| EvalError::new("MATCH: value not found"))
+                    } else {
+                        // For text, do exact match (case-insensitive)
+                        let lookup_text = lookup_value.as_text().to_lowercase();
+                        for (i, val) in arr.iter().enumerate() {
+                            if val.as_text().to_lowercase() == lookup_text {
+                                return Ok(Value::Number((i + 1) as f64));
+                            }
+                        }
+                        Err(EvalError::new("MATCH: value not found"))
                     }
-                    best_idx
-                        .map(|i| Value::Number((i + 1) as f64))
-                        .ok_or_else(|| EvalError::new("MATCH: value not found"))
                 }
                 -1 => {
                     // Find smallest value >= lookup_value (descending order)
@@ -1475,7 +1574,7 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
             let contribution_margin = price_per_unit - variable_cost_per_unit;
             if contribution_margin <= 0.0 {
                 Err(EvalError::new(
-                    "BREAKEVEN_UNITS: contribution margin must be positive",
+                    "unit_price must be greater than variable_cost",
                 ))
             } else {
                 Ok(Value::Number(fixed_costs / contribution_margin))
@@ -1491,9 +1590,9 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
                 .as_number()
                 .ok_or_else(|| EvalError::new("BREAKEVEN_REVENUE requires numbers"))?;
 
-            if contribution_margin_ratio <= 0.0 {
+            if contribution_margin_ratio <= 0.0 || contribution_margin_ratio > 1.0 {
                 Err(EvalError::new(
-                    "BREAKEVEN_REVENUE: contribution margin ratio must be positive",
+                    "contribution_margin_pct must be between 0 and 1 (exclusive of 0)",
                 ))
             } else {
                 Ok(Value::Number(fixed_costs / contribution_margin_ratio))
@@ -1526,6 +1625,9 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
         }
 
         "VARIANCE_STATUS" => {
+            // VARIANCE_STATUS(actual, budget, [threshold_or_type])
+            // Third arg: number = threshold (e.g., 0.10 = 10%), string "cost" = cost type
+            // Returns: 1 = favorable, -1 = unfavorable, 0 = on budget (within threshold)
             require_args_range(&upper_name, args, 2, 3)?;
             let actual = evaluate(&args[0], ctx)?
                 .as_number()
@@ -1533,35 +1635,72 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
             let budget = evaluate(&args[1], ctx)?
                 .as_number()
                 .ok_or_else(|| EvalError::new("VARIANCE_STATUS requires numbers"))?;
-            // Optional third arg for cost-type (1=cost, 0=revenue, default=revenue)
-            let is_cost = if args.len() > 2 {
-                evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0) != 0.0
-            } else {
-                false
-            };
-            let variance = actual - budget;
-            let tolerance = budget.abs() * 0.01; // 1% tolerance
-            let status = if variance.abs() < tolerance {
-                "on_budget"
-            } else if is_cost {
-                if variance < 0.0 {
-                    "favorable"
-                } else {
-                    "unfavorable"
+
+            // Third arg can be threshold (number) or type ("cost")
+            let (threshold, is_cost) = if args.len() > 2 {
+                let third_val = evaluate(&args[2], ctx)?;
+                match &third_val {
+                    Value::Text(s) => (0.01, s.to_lowercase() == "cost"),
+                    Value::Number(n) => (*n, false),
+                    _ => (0.01, false),
                 }
-            } else if variance > 0.0 {
-                "favorable"
             } else {
-                "unfavorable"
+                (0.01, false) // Default 1% tolerance, revenue type
             };
-            Ok(Value::Text(status.to_string()))
+
+            if budget == 0.0 {
+                return Ok(Value::Number(if actual > 0.0 {
+                    1.0
+                } else if actual < 0.0 {
+                    -1.0
+                } else {
+                    0.0
+                }));
+            }
+
+            let variance_pct = (actual - budget) / budget.abs();
+            // Returns: 1.0 = favorable, -1.0 = unfavorable, 0.0 = on_budget
+            let status = if variance_pct.abs() <= threshold {
+                0.0 // on_budget
+            } else if is_cost {
+                // For costs: under budget = favorable, over budget = unfavorable
+                if variance_pct < 0.0 {
+                    1.0
+                } else {
+                    -1.0
+                }
+            } else {
+                // For revenue: over budget = favorable, under budget = unfavorable
+                if variance_pct > 0.0 {
+                    1.0
+                } else {
+                    -1.0
+                }
+            };
+            Ok(Value::Number(status))
         }
 
         "SCENARIO" => {
             require_args(&upper_name, args, 2)?;
-            // SCENARIO(scenario_name, value)
-            // Just returns the value - scenario selection is handled externally
-            evaluate(&args[1], ctx)
+            // SCENARIO(scenario_name, variable_name) - lookup from scenarios
+            let scenario_name = evaluate(&args[0], ctx)?.as_text();
+            let var_name = evaluate(&args[1], ctx)?.as_text();
+
+            if let Some(scenario) = ctx.scenarios.get(&scenario_name) {
+                if let Some(&value) = scenario.get(&var_name) {
+                    Ok(Value::Number(value))
+                } else {
+                    Err(EvalError::new(format!(
+                        "Variable '{}' not found in scenario '{}'",
+                        var_name, scenario_name
+                    )))
+                }
+            } else {
+                Err(EvalError::new(format!(
+                    "Scenario '{}' not found",
+                    scenario_name
+                )))
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1746,6 +1885,160 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // DEPRECIATION FUNCTIONS
+        // ═══════════════════════════════════════════════════════════════════════
+        "SLN" => {
+            // Straight-line depreciation
+            require_args(&upper_name, args, 3)?;
+            let cost = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("SLN requires cost"))?;
+            let salvage = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("SLN requires salvage"))?;
+            let life = evaluate(&args[2], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("SLN requires life"))?;
+
+            if life == 0.0 {
+                return Err(EvalError::new("SLN: life cannot be zero"));
+            }
+            Ok(Value::Number((cost - salvage) / life))
+        }
+
+        "DB" => {
+            // Fixed declining balance depreciation
+            require_args_range(&upper_name, args, 4, 5)?;
+            let cost = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("DB requires cost"))?;
+            let salvage = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("DB requires salvage"))?;
+            let life = evaluate(&args[2], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("DB requires life"))?;
+            let period = evaluate(&args[3], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("DB requires period"))?;
+            let month = if args.len() > 4 {
+                evaluate(&args[4], ctx)?.as_number().unwrap_or(12.0)
+            } else {
+                12.0
+            };
+
+            if life == 0.0 || cost == 0.0 {
+                return Ok(Value::Number(0.0));
+            }
+
+            // Calculate rate: 1 - (salvage/cost)^(1/life), rounded to 3 decimals
+            let rate = 1.0 - (salvage / cost).powf(1.0 / life);
+            let rate = (rate * 1000.0).round() / 1000.0;
+
+            let mut depreciation = 0.0;
+            let mut remaining = cost;
+
+            for p in 1..=(period as i32) {
+                if p == 1 {
+                    // First period adjusted for months
+                    depreciation = cost * rate * month / 12.0;
+                } else if p == (life as i32 + 1) {
+                    // Last period gets remaining
+                    depreciation = remaining * rate * (12.0 - month) / 12.0;
+                } else {
+                    depreciation = remaining * rate;
+                }
+                remaining -= depreciation;
+            }
+
+            Ok(Value::Number(depreciation))
+        }
+
+        "DDB" => {
+            // Double declining balance depreciation
+            require_args_range(&upper_name, args, 4, 5)?;
+            let cost = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("DDB requires cost"))?;
+            let salvage = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("DDB requires salvage"))?;
+            let life = evaluate(&args[2], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("DDB requires life"))?;
+            let period = evaluate(&args[3], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("DDB requires period"))?;
+            let factor = if args.len() > 4 {
+                evaluate(&args[4], ctx)?.as_number().unwrap_or(2.0)
+            } else {
+                2.0
+            };
+
+            if life == 0.0 {
+                return Err(EvalError::new("DDB: life cannot be zero"));
+            }
+
+            let rate = factor / life;
+            let mut remaining = cost;
+            let mut depreciation = 0.0;
+
+            for _p in 1..=(period as i32) {
+                depreciation = remaining * rate;
+                // Don't depreciate below salvage
+                if remaining - depreciation < salvage {
+                    depreciation = remaining - salvage;
+                }
+                if depreciation < 0.0 {
+                    depreciation = 0.0;
+                }
+                remaining -= depreciation;
+            }
+
+            Ok(Value::Number(depreciation))
+        }
+
+        "MIRR" => {
+            // Modified internal rate of return
+            require_args(&upper_name, args, 3)?;
+            let values = collect_numeric_values(&args[..1], ctx)?;
+            let finance_rate = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("MIRR requires finance rate"))?;
+            let reinvest_rate = evaluate(&args[2], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("MIRR requires reinvest rate"))?;
+
+            if values.is_empty() {
+                return Err(EvalError::new("MIRR requires cash flows"));
+            }
+
+            let n = values.len() as f64;
+
+            // Separate negative and positive cash flows
+            let mut npv_neg = 0.0;
+            let mut npv_pos = 0.0;
+
+            for (i, &cf) in values.iter().enumerate() {
+                if cf < 0.0 {
+                    npv_neg += cf / (1.0 + finance_rate).powi(i as i32);
+                } else {
+                    npv_pos += cf * (1.0 + reinvest_rate).powi((n - 1.0 - i as f64) as i32);
+                }
+            }
+
+            if npv_neg == 0.0 || npv_pos == 0.0 {
+                return Err(EvalError::new(
+                    "MIRR requires both positive and negative cash flows",
+                ));
+            }
+
+            // MIRR formula: (-FV_positive / PV_negative)^(1/n) - 1
+            let mirr = (-npv_pos / npv_neg).powf(1.0 / (n - 1.0)) - 1.0;
+            Ok(Value::Number(mirr))
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // DATE FUNCTIONS (EXTENDED)
         // ═══════════════════════════════════════════════════════════════════════
         "DATEDIF" => {
@@ -1826,14 +2119,46 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
 
             let start_date = parse_date_value(&start)?;
             let end_date = parse_date_value(&end)?;
-            let days = (end_date - start_date).num_days() as f64;
 
             let result = match basis {
-                0 => days / 360.0, // US 30/360
-                1 => days / 365.0, // Actual/actual
-                2 => days / 360.0, // Actual/360
-                3 => days / 365.0, // Actual/365
-                4 => days / 360.0, // European 30/360
+                0 | 4 => {
+                    // US 30/360 and European 30/360
+                    let mut d1 = start_date.day() as i32;
+                    let m1 = start_date.month() as i32;
+                    let y1 = start_date.year() as i32;
+                    let mut d2 = end_date.day() as i32;
+                    let m2 = end_date.month() as i32;
+                    let y2 = end_date.year() as i32;
+
+                    // Adjust day counts per 30/360 convention
+                    if d1 == 31 {
+                        d1 = 30;
+                    }
+                    if d2 == 31 && (d1 >= 30 || basis == 4) {
+                        d2 = 30;
+                    }
+
+                    let days_30_360 = ((y2 - y1) * 360 + (m2 - m1) * 30 + (d2 - d1)) as f64;
+                    days_30_360 / 360.0
+                }
+                1 => {
+                    // Actual/actual
+                    let days = (end_date - start_date).num_days() as f64;
+                    let year = start_date.year();
+                    let is_leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+                    let year_days = if is_leap { 366.0 } else { 365.0 };
+                    days / year_days
+                }
+                2 => {
+                    // Actual/360
+                    let days = (end_date - start_date).num_days() as f64;
+                    days / 360.0
+                }
+                3 => {
+                    // Actual/365
+                    let days = (end_date - start_date).num_days() as f64;
+                    days / 365.0
+                }
                 _ => return Err(EvalError::new(format!("YEARFRAC: unknown basis {}", basis))),
             };
             Ok(Value::Number(result))
@@ -1868,13 +2193,36 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
         }
 
         "LAMBDA" => {
-            // Simplified LAMBDA that doesn't capture - just returns the body evaluated
-            // LAMBDA(param1, param2, ..., body)(args)
-            // For simple cases, just evaluate the last arg as the result
+            // LAMBDA(param1, param2, ..., body) - returns a lambda value
+            // When called: LAMBDA(x, x * 2)(5) → 10
             if args.is_empty() {
-                return Err(EvalError::new("LAMBDA requires a body"));
+                return Err(EvalError::new("LAMBDA requires at least a body"));
             }
-            evaluate(args.last().unwrap(), ctx)
+
+            // All args except the last are parameter names
+            let mut params = Vec::new();
+            for i in 0..args.len() - 1 {
+                // Parameters should be identifiers (references)
+                match &args[i] {
+                    Expr::Reference(Reference::Scalar(name)) => {
+                        params.push(name.clone());
+                    }
+                    _ => {
+                        return Err(EvalError::new(format!(
+                            "LAMBDA parameter {} must be an identifier",
+                            i + 1
+                        )));
+                    }
+                }
+            }
+
+            // Last arg is the body
+            let body = args.last().unwrap().clone();
+
+            Ok(Value::Lambda {
+                params,
+                body: Box::new(body),
+            })
         }
         "EDATE" => {
             use chrono::Months;
@@ -2005,6 +2353,7 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
             let array_ctx = EvalContext {
                 scalars: ctx.scalars.clone(),
                 tables: ctx.tables.clone(),
+                scenarios: ctx.scenarios.clone(),
                 current_row: None, // Disable row extraction
                 row_count: ctx.row_count,
             };
