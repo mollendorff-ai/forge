@@ -195,15 +195,77 @@ impl ArrayCalculator {
                 continue;
             }
             let upper = word.to_uppercase();
-            if ["SUM", "AVERAGE", "AVG", "MAX", "MIN", "COUNT", "IF", "AND", "OR", "NOT",
-                "ROUND", "ROUNDUP", "ROUNDDOWN", "ABS", "SQRT", "POWER", "MOD", "FLOOR",
-                "CEILING", "EXP", "LN", "LOG", "INT", "TODAY", "YEAR", "MONTH", "DAY",
-                "DATE", "EDATE", "EOMONTH", "CONCAT", "UPPER", "LOWER", "TRIM", "LEN",
-                "LEFT", "RIGHT", "MID", "INDEX", "MATCH", "XLOOKUP", "VLOOKUP", "PMT",
-                "FV", "PV", "NPV", "IRR", "IFERROR", "CHOOSE", "SWITCH", "LET", "MEDIAN",
-                "STDEV", "VAR", "COUNTA", "COUNTBLANK", "SUMIF", "COUNTIF", "AVERAGEIF",
-                "SUMIFS", "COUNTIFS", "AVERAGEIFS", "PERCENTILE", "QUARTILE", "CORREL",
-                "TRUE", "FALSE"].contains(&upper.as_str()) {
+            if [
+                "SUM",
+                "AVERAGE",
+                "AVG",
+                "MAX",
+                "MIN",
+                "COUNT",
+                "IF",
+                "AND",
+                "OR",
+                "NOT",
+                "ROUND",
+                "ROUNDUP",
+                "ROUNDDOWN",
+                "ABS",
+                "SQRT",
+                "POWER",
+                "MOD",
+                "FLOOR",
+                "CEILING",
+                "EXP",
+                "LN",
+                "LOG",
+                "INT",
+                "TODAY",
+                "YEAR",
+                "MONTH",
+                "DAY",
+                "DATE",
+                "EDATE",
+                "EOMONTH",
+                "CONCAT",
+                "UPPER",
+                "LOWER",
+                "TRIM",
+                "LEN",
+                "LEFT",
+                "RIGHT",
+                "MID",
+                "INDEX",
+                "MATCH",
+                "XLOOKUP",
+                "VLOOKUP",
+                "PMT",
+                "FV",
+                "PV",
+                "NPV",
+                "IRR",
+                "IFERROR",
+                "CHOOSE",
+                "SWITCH",
+                "LET",
+                "MEDIAN",
+                "STDEV",
+                "VAR",
+                "COUNTA",
+                "COUNTBLANK",
+                "SUMIF",
+                "COUNTIF",
+                "AVERAGEIF",
+                "SUMIFS",
+                "COUNTIFS",
+                "AVERAGEIFS",
+                "PERCENTILE",
+                "QUARTILE",
+                "CORREL",
+                "TRUE",
+                "FALSE",
+            ]
+            .contains(&upper.as_str())
+            {
                 continue;
             }
             refs.push(word.to_string());
@@ -253,19 +315,32 @@ impl ArrayCalculator {
         // Add all scalars to context
         for (name, scalar) in &self.model.scalars {
             if let Some(value) = scalar.value {
-                ctx.scalars.insert(name.clone(), evaluator::Value::Number(value));
+                ctx.scalars
+                    .insert(name.clone(), evaluator::Value::Number(value));
             }
         }
 
         // Add current table columns
         for (col_name, col) in &table.columns {
             let values: Vec<evaluator::Value> = match &col.values {
-                ColumnValue::Number(nums) => nums.iter().map(|n| evaluator::Value::Number(*n)).collect(),
-                ColumnValue::Text(texts) => texts.iter().map(|s| evaluator::Value::Text(s.clone())).collect(),
-                ColumnValue::Boolean(bools) => bools.iter().map(|b| evaluator::Value::Boolean(*b)).collect(),
-                ColumnValue::Date(dates) => dates.iter().map(|d| evaluator::Value::Text(d.clone())).collect(),
+                ColumnValue::Number(nums) => {
+                    nums.iter().map(|n| evaluator::Value::Number(*n)).collect()
+                }
+                ColumnValue::Text(texts) => texts
+                    .iter()
+                    .map(|s| evaluator::Value::Text(s.clone()))
+                    .collect(),
+                ColumnValue::Boolean(bools) => bools
+                    .iter()
+                    .map(|b| evaluator::Value::Boolean(*b))
+                    .collect(),
+                ColumnValue::Date(dates) => dates
+                    .iter()
+                    .map(|d| evaluator::Value::Text(d.clone()))
+                    .collect(),
             };
-            ctx.scalars.insert(col_name.clone(), evaluator::Value::Array(values));
+            ctx.scalars
+                .insert(col_name.clone(), evaluator::Value::Array(values));
         }
 
         // Add all tables to context
@@ -273,10 +348,21 @@ impl ArrayCalculator {
             let mut table_data: HashMap<String, Vec<evaluator::Value>> = HashMap::new();
             for (col_name, col) in &tbl.columns {
                 let values: Vec<evaluator::Value> = match &col.values {
-                    ColumnValue::Number(nums) => nums.iter().map(|n| evaluator::Value::Number(*n)).collect(),
-                    ColumnValue::Text(texts) => texts.iter().map(|s| evaluator::Value::Text(s.clone())).collect(),
-                    ColumnValue::Boolean(bools) => bools.iter().map(|b| evaluator::Value::Boolean(*b)).collect(),
-                    ColumnValue::Date(dates) => dates.iter().map(|d| evaluator::Value::Text(d.clone())).collect(),
+                    ColumnValue::Number(nums) => {
+                        nums.iter().map(|n| evaluator::Value::Number(*n)).collect()
+                    }
+                    ColumnValue::Text(texts) => texts
+                        .iter()
+                        .map(|s| evaluator::Value::Text(s.clone()))
+                        .collect(),
+                    ColumnValue::Boolean(bools) => bools
+                        .iter()
+                        .map(|b| evaluator::Value::Boolean(*b))
+                        .collect(),
+                    ColumnValue::Date(dates) => dates
+                        .iter()
+                        .map(|d| evaluator::Value::Text(d.clone()))
+                        .collect(),
                 };
                 table_data.insert(col_name.clone(), values);
             }
@@ -288,37 +374,90 @@ impl ArrayCalculator {
     }
 
     /// Evaluate a row-wise formula using the AST evaluator
-    fn evaluate_rowwise_formula_ast(&self, table: &Table, formula: &str) -> ForgeResult<ColumnValue> {
+    fn evaluate_rowwise_formula_ast(
+        &self,
+        table: &Table,
+        formula: &str,
+    ) -> ForgeResult<ColumnValue> {
         let formula_str = formula.trim_start_matches('=').trim();
-        let tokens = tokenizer::tokenize(formula_str).map_err(|e| ForgeError::Eval(format!("Tokenize: {}", e.message)))?;
-        let ast = parser::parse(tokens).map_err(|e| ForgeError::Eval(format!("Parse: {}", e.message)))?;
+        let tokens = tokenizer::tokenize(formula_str)
+            .map_err(|e| ForgeError::Eval(format!("Tokenize: {}", e.message)))?;
+        let ast =
+            parser::parse(tokens).map_err(|e| ForgeError::Eval(format!("Parse: {}", e.message)))?;
 
         let base_ctx = self.build_eval_context(table);
         let row_count = table.row_count();
         if row_count == 0 {
-            return Err(ForgeError::Eval("Cannot evaluate on empty table".to_string()));
+            return Err(ForgeError::Eval(
+                "Cannot evaluate on empty table".to_string(),
+            ));
         }
 
-        let mut results: Vec<f64> = Vec::with_capacity(row_count);
-        for row_idx in 0..row_count {
-            let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
-            let result = evaluator::evaluate(&ast, &row_ctx).map_err(|e| ForgeError::Eval(format!("Row {}: {}", row_idx, e)))?;
-            let value = result.as_number().ok_or_else(|| ForgeError::Eval(format!("Row {} not a number", row_idx)))?;
-            results.push(value);
+        // Evaluate first row to determine result type
+        let first_ctx = base_ctx.clone().with_row(0, row_count);
+        let first_result = evaluator::evaluate(&ast, &first_ctx)
+            .map_err(|e| ForgeError::Eval(format!("Row 0: {}", e)))?;
+
+        // Determine column type from first result and evaluate all rows
+        match &first_result {
+            evaluator::Value::Text(_) => {
+                let mut results: Vec<String> = Vec::with_capacity(row_count);
+                results.push(first_result.as_text());
+                for row_idx in 1..row_count {
+                    let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
+                    let result = evaluator::evaluate(&ast, &row_ctx)
+                        .map_err(|e| ForgeError::Eval(format!("Row {}: {}", row_idx, e)))?;
+                    results.push(result.as_text());
+                }
+                Ok(ColumnValue::Text(results))
+            }
+            evaluator::Value::Boolean(_) => {
+                let mut results: Vec<bool> = Vec::with_capacity(row_count);
+                results.push(first_result.as_bool().unwrap_or(false));
+                for row_idx in 1..row_count {
+                    let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
+                    let result = evaluator::evaluate(&ast, &row_ctx)
+                        .map_err(|e| ForgeError::Eval(format!("Row {}: {}", row_idx, e)))?;
+                    results.push(result.as_bool().unwrap_or(false));
+                }
+                Ok(ColumnValue::Boolean(results))
+            }
+            _ => {
+                // Default to numeric
+                let mut results: Vec<f64> = Vec::with_capacity(row_count);
+                let first_num = first_result
+                    .as_number()
+                    .ok_or_else(|| ForgeError::Eval("Row 0 not a number".to_string()))?;
+                results.push(first_num);
+                for row_idx in 1..row_count {
+                    let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
+                    let result = evaluator::evaluate(&ast, &row_ctx)
+                        .map_err(|e| ForgeError::Eval(format!("Row {}: {}", row_idx, e)))?;
+                    let value = result
+                        .as_number()
+                        .ok_or_else(|| ForgeError::Eval(format!("Row {} not a number", row_idx)))?;
+                    results.push(value);
+                }
+                Ok(ColumnValue::Number(results))
+            }
         }
-        Ok(ColumnValue::Number(results))
     }
 
     /// Evaluate a scalar formula using the AST evaluator
     fn evaluate_scalar_formula_ast(&self, formula: &str) -> ForgeResult<f64> {
         let formula_str = formula.trim_start_matches('=').trim();
-        let tokens = tokenizer::tokenize(formula_str).map_err(|e| ForgeError::Eval(format!("Tokenize: {}", e.message)))?;
-        let ast = parser::parse(tokens).map_err(|e| ForgeError::Eval(format!("Parse: {}", e.message)))?;
+        let tokens = tokenizer::tokenize(formula_str)
+            .map_err(|e| ForgeError::Eval(format!("Tokenize: {}", e.message)))?;
+        let ast =
+            parser::parse(tokens).map_err(|e| ForgeError::Eval(format!("Parse: {}", e.message)))?;
 
         let empty_table = Table::new("_scalar_context".to_string());
         let ctx = self.build_eval_context(&empty_table);
-        let result = evaluator::evaluate(&ast, &ctx).map_err(|e| ForgeError::Eval(format!("Eval: {}", e)))?;
-        result.as_number().ok_or_else(|| ForgeError::Eval("Scalar result not a number".to_string()))
+        let result = evaluator::evaluate(&ast, &ctx)
+            .map_err(|e| ForgeError::Eval(format!("Eval: {}", e)))?;
+        result
+            .as_number()
+            .ok_or_else(|| ForgeError::Eval("Scalar result not a number".to_string()))
     }
 
     fn calculate_scalars(&mut self) -> ForgeResult<()> {
@@ -451,7 +590,6 @@ impl ArrayCalculator {
         Ok(deps)
     }
 }
-
 
 #[cfg(test)]
 mod tests;

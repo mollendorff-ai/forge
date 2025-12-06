@@ -3,6 +3,7 @@
 
 use super::ArrayCalculator;
 
+#[allow(dead_code)]
 impl ArrayCalculator {
     /// Evaluate CONCAT/CONCATENATE function: CONCAT(text1, text2, ...)
     pub(super) fn eval_concat(&self, texts: Vec<String>) -> String {
