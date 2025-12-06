@@ -5,6 +5,7 @@ use crate::error::{ForgeError, ForgeResult};
 
 use super::ArrayCalculator;
 
+#[allow(dead_code)]
 impl ArrayCalculator {
     /// Evaluate ROUND function: ROUND(number, digits)
     pub(super) fn eval_round(&self, value: f64, digits: i32) -> f64 {

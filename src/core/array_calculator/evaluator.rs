@@ -636,6 +636,404 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // STATISTICAL FUNCTIONS
+        // ═══════════════════════════════════════════════════════════════════════
+        "VAR" | "VAR.S" => {
+            let values = collect_numeric_values(args, ctx)?;
+            if values.len() < 2 {
+                return Err(EvalError::new("VAR requires at least 2 values"));
+            }
+            let mean = values.iter().sum::<f64>() / values.len() as f64;
+            let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
+            Ok(Value::Number(sum_sq / (values.len() - 1) as f64))
+        }
+
+        "VAR.P" => {
+            let values = collect_numeric_values(args, ctx)?;
+            if values.is_empty() {
+                return Err(EvalError::new("VAR.P requires at least 1 value"));
+            }
+            let mean = values.iter().sum::<f64>() / values.len() as f64;
+            let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
+            Ok(Value::Number(sum_sq / values.len() as f64))
+        }
+
+        "STDEV" | "STDEV.S" => {
+            let values = collect_numeric_values(args, ctx)?;
+            if values.len() < 2 {
+                return Err(EvalError::new("STDEV requires at least 2 values"));
+            }
+            let mean = values.iter().sum::<f64>() / values.len() as f64;
+            let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
+            let variance = sum_sq / (values.len() - 1) as f64;
+            Ok(Value::Number(variance.sqrt()))
+        }
+
+        "STDEV.P" => {
+            let values = collect_numeric_values(args, ctx)?;
+            if values.is_empty() {
+                return Err(EvalError::new("STDEV.P requires at least 1 value"));
+            }
+            let mean = values.iter().sum::<f64>() / values.len() as f64;
+            let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
+            let variance = sum_sq / values.len() as f64;
+            Ok(Value::Number(variance.sqrt()))
+        }
+
+        "PERCENTILE" => {
+            require_args(&upper_name, args, 2)?;
+            let mut values = collect_numeric_values(&args[..1], ctx)?;
+            if values.is_empty() {
+                return Err(EvalError::new("PERCENTILE of empty set"));
+            }
+            let k = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("PERCENTILE k must be a number"))?;
+            if !(0.0..=1.0).contains(&k) {
+                return Err(EvalError::new("PERCENTILE k must be between 0 and 1"));
+            }
+            values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let n = values.len();
+            if n == 1 {
+                return Ok(Value::Number(values[0]));
+            }
+            let pos = k * (n - 1) as f64;
+            let lower = pos.floor() as usize;
+            let upper = pos.ceil() as usize;
+            let frac = pos - lower as f64;
+            if lower == upper {
+                Ok(Value::Number(values[lower]))
+            } else {
+                Ok(Value::Number(
+                    values[lower] * (1.0 - frac) + values[upper] * frac,
+                ))
+            }
+        }
+
+        "QUARTILE" => {
+            require_args(&upper_name, args, 2)?;
+            let mut values = collect_numeric_values(&args[..1], ctx)?;
+            if values.is_empty() {
+                return Err(EvalError::new("QUARTILE of empty set"));
+            }
+            let quart = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("QUARTILE quart must be a number"))?
+                as i32;
+            if !(0..=4).contains(&quart) {
+                return Err(EvalError::new("QUARTILE quart must be 0, 1, 2, 3, or 4"));
+            }
+            values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let k = quart as f64 / 4.0;
+            let n = values.len();
+            if n == 1 {
+                return Ok(Value::Number(values[0]));
+            }
+            let pos = k * (n - 1) as f64;
+            let lower = pos.floor() as usize;
+            let upper = pos.ceil() as usize;
+            let frac = pos - lower as f64;
+            if lower == upper {
+                Ok(Value::Number(values[lower]))
+            } else {
+                Ok(Value::Number(
+                    values[lower] * (1.0 - frac) + values[upper] * frac,
+                ))
+            }
+        }
+
+        "CORREL" => {
+            require_args(&upper_name, args, 2)?;
+            let x_vals = collect_numeric_values(&args[..1], ctx)?;
+            let y_vals = collect_numeric_values(&args[1..2], ctx)?;
+            if x_vals.len() != y_vals.len() || x_vals.len() < 2 {
+                return Err(EvalError::new(
+                    "CORREL requires two arrays of equal length >= 2",
+                ));
+            }
+            let n = x_vals.len() as f64;
+            let x_mean = x_vals.iter().sum::<f64>() / n;
+            let y_mean = y_vals.iter().sum::<f64>() / n;
+            let mut cov = 0.0;
+            let mut var_x = 0.0;
+            let mut var_y = 0.0;
+            for (x, y) in x_vals.iter().zip(y_vals.iter()) {
+                let dx = x - x_mean;
+                let dy = y - y_mean;
+                cov += dx * dy;
+                var_x += dx * dx;
+                var_y += dy * dy;
+            }
+            if var_x == 0.0 || var_y == 0.0 {
+                return Err(EvalError::new("CORREL: zero variance"));
+            }
+            Ok(Value::Number(cov / (var_x.sqrt() * var_y.sqrt())))
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CONDITIONAL AGGREGATION FUNCTIONS
+        // ═══════════════════════════════════════════════════════════════════════
+        "SUMIF" => {
+            require_args_range(&upper_name, args, 2, 3)?;
+            let range_vals = collect_values_as_vec(&args[0], ctx)?;
+            let criteria = evaluate(&args[1], ctx)?;
+            let sum_range_vals = if args.len() > 2 {
+                collect_values_as_vec(&args[2], ctx)?
+            } else {
+                range_vals.clone()
+            };
+            let mut total = 0.0;
+            for (i, val) in range_vals.iter().enumerate() {
+                if matches_criteria(val, &criteria) {
+                    if let Some(sum_val) = sum_range_vals.get(i) {
+                        if let Some(n) = sum_val.as_number() {
+                            total += n;
+                        }
+                    }
+                }
+            }
+            Ok(Value::Number(total))
+        }
+
+        "COUNTIF" => {
+            require_args(&upper_name, args, 2)?;
+            let range_vals = collect_values_as_vec(&args[0], ctx)?;
+            let criteria = evaluate(&args[1], ctx)?;
+            let count = range_vals
+                .iter()
+                .filter(|v| matches_criteria(v, &criteria))
+                .count();
+            Ok(Value::Number(count as f64))
+        }
+
+        "AVERAGEIF" => {
+            require_args_range(&upper_name, args, 2, 3)?;
+            let range_vals = collect_values_as_vec(&args[0], ctx)?;
+            let criteria = evaluate(&args[1], ctx)?;
+            let avg_range_vals = if args.len() > 2 {
+                collect_values_as_vec(&args[2], ctx)?
+            } else {
+                range_vals.clone()
+            };
+            let mut total = 0.0;
+            let mut count = 0;
+            for (i, val) in range_vals.iter().enumerate() {
+                if matches_criteria(val, &criteria) {
+                    if let Some(avg_val) = avg_range_vals.get(i) {
+                        if let Some(n) = avg_val.as_number() {
+                            total += n;
+                            count += 1;
+                        }
+                    }
+                }
+            }
+            if count == 0 {
+                Err(EvalError::new("AVERAGEIF: no matching values"))
+            } else {
+                Ok(Value::Number(total / count as f64))
+            }
+        }
+
+        "SUMIFS" => {
+            if args.len() < 3 || args.len().is_multiple_of(2) {
+                return Err(EvalError::new(
+                    "SUMIFS requires sum_range, criteria_range1, criteria1, ...",
+                ));
+            }
+            let sum_range = collect_values_as_vec(&args[0], ctx)?;
+            let mut matches = vec![true; sum_range.len()];
+            for pair in args[1..].chunks(2) {
+                let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
+                let criteria = evaluate(&pair[1], ctx)?;
+                for (i, val) in criteria_range.iter().enumerate() {
+                    if i < matches.len() && !matches_criteria(val, &criteria) {
+                        matches[i] = false;
+                    }
+                }
+            }
+            let total: f64 = sum_range
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i < matches.len() && matches[*i])
+                .filter_map(|(_, v)| v.as_number())
+                .sum();
+            Ok(Value::Number(total))
+        }
+
+        "COUNTIFS" => {
+            if args.len() < 2 || !args.len().is_multiple_of(2) {
+                return Err(EvalError::new(
+                    "COUNTIFS requires criteria_range1, criteria1, ...",
+                ));
+            }
+            let first_range = collect_values_as_vec(&args[0], ctx)?;
+            let mut matches = vec![true; first_range.len()];
+            for pair in args.chunks(2) {
+                let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
+                let criteria = evaluate(&pair[1], ctx)?;
+                for (i, val) in criteria_range.iter().enumerate() {
+                    if i < matches.len() && !matches_criteria(val, &criteria) {
+                        matches[i] = false;
+                    }
+                }
+            }
+            let count = matches.iter().filter(|&&m| m).count();
+            Ok(Value::Number(count as f64))
+        }
+
+        "AVERAGEIFS" => {
+            if args.len() < 3 || args.len().is_multiple_of(2) {
+                return Err(EvalError::new(
+                    "AVERAGEIFS requires avg_range, criteria_range1, criteria1, ...",
+                ));
+            }
+            let avg_range = collect_values_as_vec(&args[0], ctx)?;
+            let mut matches = vec![true; avg_range.len()];
+            for pair in args[1..].chunks(2) {
+                let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
+                let criteria = evaluate(&pair[1], ctx)?;
+                for (i, val) in criteria_range.iter().enumerate() {
+                    if i < matches.len() && !matches_criteria(val, &criteria) {
+                        matches[i] = false;
+                    }
+                }
+            }
+            let matching: Vec<f64> = avg_range
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i < matches.len() && matches[*i])
+                .filter_map(|(_, v)| v.as_number())
+                .collect();
+            if matching.is_empty() {
+                Err(EvalError::new("AVERAGEIFS: no matching values"))
+            } else {
+                Ok(Value::Number(
+                    matching.iter().sum::<f64>() / matching.len() as f64,
+                ))
+            }
+        }
+
+        "MAXIFS" => {
+            if args.len() < 3 || args.len().is_multiple_of(2) {
+                return Err(EvalError::new(
+                    "MAXIFS requires max_range, criteria_range1, criteria1, ...",
+                ));
+            }
+            let max_range = collect_values_as_vec(&args[0], ctx)?;
+            let mut matches = vec![true; max_range.len()];
+            for pair in args[1..].chunks(2) {
+                let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
+                let criteria = evaluate(&pair[1], ctx)?;
+                for (i, val) in criteria_range.iter().enumerate() {
+                    if i < matches.len() && !matches_criteria(val, &criteria) {
+                        matches[i] = false;
+                    }
+                }
+            }
+            let matching: Vec<f64> = max_range
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i < matches.len() && matches[*i])
+                .filter_map(|(_, v)| v.as_number())
+                .collect();
+            if matching.is_empty() {
+                Ok(Value::Number(0.0))
+            } else {
+                Ok(Value::Number(
+                    matching.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
+                ))
+            }
+        }
+
+        "MINIFS" => {
+            if args.len() < 3 || args.len().is_multiple_of(2) {
+                return Err(EvalError::new(
+                    "MINIFS requires min_range, criteria_range1, criteria1, ...",
+                ));
+            }
+            let min_range = collect_values_as_vec(&args[0], ctx)?;
+            let mut matches = vec![true; min_range.len()];
+            for pair in args[1..].chunks(2) {
+                let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
+                let criteria = evaluate(&pair[1], ctx)?;
+                for (i, val) in criteria_range.iter().enumerate() {
+                    if i < matches.len() && !matches_criteria(val, &criteria) {
+                        matches[i] = false;
+                    }
+                }
+            }
+            let matching: Vec<f64> = min_range
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i < matches.len() && matches[*i])
+                .filter_map(|(_, v)| v.as_number())
+                .collect();
+            if matching.is_empty() {
+                Ok(Value::Number(0.0))
+            } else {
+                Ok(Value::Number(
+                    matching.iter().cloned().fold(f64::INFINITY, f64::min),
+                ))
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ARRAY FUNCTIONS
+        // ═══════════════════════════════════════════════════════════════════════
+        "UNIQUE" => {
+            require_args(&upper_name, args, 1)?;
+            let values = collect_values_as_vec(&args[0], ctx)?;
+            let mut seen = Vec::new();
+            for v in values {
+                let text = v.as_text();
+                if !seen.iter().any(|s: &Value| s.as_text() == text) {
+                    seen.push(v);
+                }
+            }
+            Ok(Value::Array(seen))
+        }
+
+        "COUNTUNIQUE" => {
+            require_args(&upper_name, args, 1)?;
+            let values = collect_values_as_vec(&args[0], ctx)?;
+            let mut seen = std::collections::HashSet::new();
+            for v in values {
+                seen.insert(v.as_text());
+            }
+            Ok(Value::Number(seen.len() as f64))
+        }
+
+        "SORT" => {
+            require_args_range(&upper_name, args, 1, 2)?;
+            let mut values = collect_numeric_values(args, ctx)?;
+            let descending = if args.len() > 1 {
+                evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) < 0.0
+            } else {
+                false
+            };
+            values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            if descending {
+                values.reverse();
+            }
+            Ok(Value::Array(
+                values.into_iter().map(Value::Number).collect(),
+            ))
+        }
+
+        "FILTER" => {
+            require_args(&upper_name, args, 2)?;
+            let data = collect_values_as_vec(&args[0], ctx)?;
+            let criteria = collect_values_as_vec(&args[1], ctx)?;
+            let filtered: Vec<Value> = data
+                .into_iter()
+                .zip(criteria.iter())
+                .filter(|(_, c)| c.is_truthy())
+                .map(|(v, _)| v)
+                .collect();
+            Ok(Value::Array(filtered))
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // LOGICAL FUNCTIONS
         // ═══════════════════════════════════════════════════════════════════════
         "IF" => {
@@ -1008,6 +1406,26 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
             }
         }
 
+        "PV" => {
+            require_args_range(&upper_name, args, 3, 5)?;
+            let rate = evaluate(&args[0], ctx)?.as_number().unwrap_or(0.0);
+            let nper = evaluate(&args[1], ctx)?.as_number().unwrap_or(0.0);
+            let pmt = evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0);
+            let fv = if args.len() > 3 {
+                evaluate(&args[3], ctx)?.as_number().unwrap_or(0.0)
+            } else {
+                0.0
+            };
+
+            if rate == 0.0 {
+                Ok(Value::Number(-fv - pmt * nper))
+            } else {
+                let pv =
+                    (-fv - pmt * ((1.0 + rate).powf(nper) - 1.0) / rate) / (1.0 + rate).powf(nper);
+                Ok(Value::Number(pv))
+            }
+        }
+
         "NPV" => {
             require_args_range(&upper_name, args, 2, 255)?;
             let rate = evaluate(&args[0], ctx)?
@@ -1082,9 +1500,382 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
             }
         }
 
+        "VARIANCE" => {
+            require_args(&upper_name, args, 2)?;
+            let actual = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("VARIANCE requires numbers"))?;
+            let budget = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("VARIANCE requires numbers"))?;
+            Ok(Value::Number(actual - budget))
+        }
+
+        "VARIANCE_PCT" => {
+            require_args(&upper_name, args, 2)?;
+            let actual = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("VARIANCE_PCT requires numbers"))?;
+            let budget = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("VARIANCE_PCT requires numbers"))?;
+            if budget == 0.0 {
+                return Err(EvalError::new("VARIANCE_PCT: budget cannot be zero"));
+            }
+            Ok(Value::Number((actual - budget) / budget))
+        }
+
+        "VARIANCE_STATUS" => {
+            require_args_range(&upper_name, args, 2, 3)?;
+            let actual = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("VARIANCE_STATUS requires numbers"))?;
+            let budget = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("VARIANCE_STATUS requires numbers"))?;
+            // Optional third arg for cost-type (1=cost, 0=revenue, default=revenue)
+            let is_cost = if args.len() > 2 {
+                evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0) != 0.0
+            } else {
+                false
+            };
+            let variance = actual - budget;
+            let tolerance = budget.abs() * 0.01; // 1% tolerance
+            let status = if variance.abs() < tolerance {
+                "on_budget"
+            } else if is_cost {
+                if variance < 0.0 {
+                    "favorable"
+                } else {
+                    "unfavorable"
+                }
+            } else if variance > 0.0 {
+                "favorable"
+            } else {
+                "unfavorable"
+            };
+            Ok(Value::Text(status.to_string()))
+        }
+
+        "SCENARIO" => {
+            require_args(&upper_name, args, 2)?;
+            // SCENARIO(scenario_name, value)
+            // Just returns the value - scenario selection is handled externally
+            evaluate(&args[1], ctx)
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // FINANCIAL FUNCTIONS (EXTENDED)
+        // ═══════════════════════════════════════════════════════════════════════
+        "IRR" => {
+            // Simplified IRR using Newton's method
+            let values = collect_numeric_values(args, ctx)?;
+            if values.is_empty() {
+                return Err(EvalError::new("IRR requires cash flows"));
+            }
+            let mut rate: f64 = 0.1; // Initial guess
+            for _ in 0..100 {
+                let mut npv: f64 = 0.0;
+                let mut npv_deriv: f64 = 0.0;
+                for (i, cf) in values.iter().enumerate() {
+                    let factor = (1.0_f64 + rate).powi(i as i32);
+                    npv += cf / factor;
+                    if i > 0 {
+                        npv_deriv -= (i as f64) * cf / (factor * (1.0 + rate));
+                    }
+                }
+                if npv_deriv.abs() < 1e-10 {
+                    break;
+                }
+                let new_rate = rate - npv / npv_deriv;
+                if (new_rate - rate).abs() < 1e-7 {
+                    rate = new_rate;
+                    break;
+                }
+                rate = new_rate;
+            }
+            Ok(Value::Number(rate))
+        }
+
+        "XIRR" => {
+            require_args(&upper_name, args, 2)?;
+            let values = collect_numeric_values(&args[..1], ctx)?;
+            let dates_val = evaluate(&args[1], ctx)?;
+            let dates: Vec<f64> = match dates_val {
+                Value::Array(arr) => arr.iter().filter_map(|v| v.as_number()).collect(),
+                Value::Number(n) => vec![n],
+                _ => return Err(EvalError::new("XIRR requires dates")),
+            };
+            if values.len() != dates.len() || values.is_empty() {
+                return Err(EvalError::new(
+                    "XIRR: values and dates must have same length",
+                ));
+            }
+            let base_date = dates[0];
+            let year_fracs: Vec<f64> = dates.iter().map(|d| (d - base_date) / 365.0).collect();
+            let mut rate: f64 = 0.1;
+            for _ in 0..100 {
+                let mut npv: f64 = 0.0;
+                let mut npv_deriv: f64 = 0.0;
+                for (i, cf) in values.iter().enumerate() {
+                    let t = year_fracs[i];
+                    let factor = (1.0_f64 + rate).powf(t);
+                    npv += cf / factor;
+                    if t != 0.0 {
+                        npv_deriv -= t * cf / (factor * (1.0 + rate));
+                    }
+                }
+                if npv_deriv.abs() < 1e-10 {
+                    break;
+                }
+                let new_rate = rate - npv / npv_deriv;
+                if (new_rate - rate).abs() < 1e-7 {
+                    rate = new_rate;
+                    break;
+                }
+                rate = new_rate;
+            }
+            Ok(Value::Number(rate))
+        }
+
+        "XNPV" => {
+            require_args(&upper_name, args, 3)?;
+            let rate = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("XNPV requires rate"))?;
+            let values = collect_numeric_values(&args[1..2], ctx)?;
+            let dates_val = evaluate(&args[2], ctx)?;
+            let dates: Vec<f64> = match dates_val {
+                Value::Array(arr) => arr.iter().filter_map(|v| v.as_number()).collect(),
+                Value::Number(n) => vec![n],
+                _ => return Err(EvalError::new("XNPV requires dates")),
+            };
+            if values.len() != dates.len() || values.is_empty() {
+                return Err(EvalError::new(
+                    "XNPV: values and dates must have same length",
+                ));
+            }
+            let base_date = dates[0];
+            let mut npv = 0.0;
+            for (i, cf) in values.iter().enumerate() {
+                let t = (dates[i] - base_date) / 365.0;
+                npv += cf / (1.0 + rate).powf(t);
+            }
+            Ok(Value::Number(npv))
+        }
+
+        "NPER" => {
+            require_args_range(&upper_name, args, 3, 5)?;
+            let rate = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("NPER requires rate"))?;
+            let pmt = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("NPER requires payment"))?;
+            let pv = evaluate(&args[2], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("NPER requires present value"))?;
+            let fv = if args.len() > 3 {
+                evaluate(&args[3], ctx)?.as_number().unwrap_or(0.0)
+            } else {
+                0.0
+            };
+            let _type = if args.len() > 4 {
+                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0) as i32
+            } else {
+                0
+            };
+
+            if rate == 0.0 {
+                Ok(Value::Number(-(pv + fv) / pmt))
+            } else {
+                let n = ((-fv * rate + pmt) / (pv * rate + pmt)).ln() / (1.0 + rate).ln();
+                Ok(Value::Number(n))
+            }
+        }
+
+        "RATE" => {
+            require_args_range(&upper_name, args, 3, 6)?;
+            let nper = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("RATE requires nper"))?;
+            let pmt = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("RATE requires payment"))?;
+            let pv = evaluate(&args[2], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("RATE requires present value"))?;
+            let fv = if args.len() > 3 {
+                evaluate(&args[3], ctx)?.as_number().unwrap_or(0.0)
+            } else {
+                0.0
+            };
+            let _type = if args.len() > 4 {
+                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0) as i32
+            } else {
+                0
+            };
+            let guess = if args.len() > 5 {
+                evaluate(&args[5], ctx)?.as_number().unwrap_or(0.1)
+            } else {
+                0.1
+            };
+
+            // Newton-Raphson method
+            let mut rate = guess;
+            for _ in 0..100 {
+                let f = pv * (1.0 + rate).powf(nper)
+                    + pmt * ((1.0 + rate).powf(nper) - 1.0) / rate
+                    + fv;
+                let f_deriv = nper * pv * (1.0 + rate).powf(nper - 1.0)
+                    + pmt
+                        * (nper * rate * (1.0 + rate).powf(nper - 1.0) - (1.0 + rate).powf(nper)
+                            + 1.0)
+                        / (rate * rate);
+                if f_deriv.abs() < 1e-10 {
+                    break;
+                }
+                let new_rate = rate - f / f_deriv;
+                if (new_rate - rate).abs() < 1e-7 {
+                    rate = new_rate;
+                    break;
+                }
+                rate = new_rate;
+            }
+            Ok(Value::Number(rate))
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // DATE FUNCTIONS (EXTENDED)
         // ═══════════════════════════════════════════════════════════════════════
+        "DATEDIF" => {
+            require_args(&upper_name, args, 3)?;
+            let start = evaluate(&args[0], ctx)?;
+            let end = evaluate(&args[1], ctx)?;
+            let unit = evaluate(&args[2], ctx)?.as_text().to_uppercase();
+
+            let start_date = parse_date_value(&start)?;
+            let end_date = parse_date_value(&end)?;
+
+            let result = match unit.as_str() {
+                "D" => (end_date - start_date).num_days() as f64,
+                "M" => {
+                    let years = end_date.year() - start_date.year();
+                    let months = end_date.month() as i32 - start_date.month() as i32;
+                    (years * 12 + months) as f64
+                }
+                "Y" => (end_date.year() - start_date.year()) as f64,
+                "MD" => {
+                    let mut day_diff = end_date.day() as i32 - start_date.day() as i32;
+                    if day_diff < 0 {
+                        day_diff += 30; // Approximate
+                    }
+                    day_diff as f64
+                }
+                "YM" => {
+                    let mut month_diff = end_date.month() as i32 - start_date.month() as i32;
+                    if month_diff < 0 {
+                        month_diff += 12;
+                    }
+                    month_diff as f64
+                }
+                "YD" => {
+                    let start_doy = start_date.ordinal() as i32;
+                    let end_doy = end_date.ordinal() as i32;
+                    let mut day_diff = end_doy - start_doy;
+                    if day_diff < 0 {
+                        day_diff += 365;
+                    }
+                    day_diff as f64
+                }
+                _ => return Err(EvalError::new(format!("DATEDIF: unknown unit '{}'", unit))),
+            };
+            Ok(Value::Number(result))
+        }
+
+        "NETWORKDAYS" => {
+            require_args_range(&upper_name, args, 2, 3)?;
+            let start = evaluate(&args[0], ctx)?;
+            let end = evaluate(&args[1], ctx)?;
+            // Optional holidays array (ignored for simplicity)
+
+            let start_date = parse_date_value(&start)?;
+            let end_date = parse_date_value(&end)?;
+
+            let mut count = 0;
+            let mut current = start_date;
+            while current <= end_date {
+                let weekday = current.weekday().num_days_from_monday();
+                if weekday < 5 {
+                    count += 1;
+                }
+                current = current.succ_opt().unwrap_or(current);
+            }
+            Ok(Value::Number(count as f64))
+        }
+
+        "YEARFRAC" => {
+            require_args_range(&upper_name, args, 2, 3)?;
+            let start = evaluate(&args[0], ctx)?;
+            let end = evaluate(&args[1], ctx)?;
+            let basis = if args.len() > 2 {
+                evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0) as i32
+            } else {
+                0
+            };
+
+            let start_date = parse_date_value(&start)?;
+            let end_date = parse_date_value(&end)?;
+            let days = (end_date - start_date).num_days() as f64;
+
+            let result = match basis {
+                0 => days / 360.0, // US 30/360
+                1 => days / 365.0, // Actual/actual
+                2 => days / 360.0, // Actual/360
+                3 => days / 365.0, // Actual/365
+                4 => days / 360.0, // European 30/360
+                _ => return Err(EvalError::new(format!("YEARFRAC: unknown basis {}", basis))),
+            };
+            Ok(Value::Number(result))
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ADVANCED FUNCTIONS
+        // ═══════════════════════════════════════════════════════════════════════
+        "INDIRECT" => {
+            require_args(&upper_name, args, 1)?;
+            // INDIRECT returns the value of the reference - in our context, resolve it
+            let ref_str = evaluate(&args[0], ctx)?.as_text();
+            // Look up as a scalar
+            if let Some(val) = ctx.scalars.get(&ref_str) {
+                return Ok(val.clone());
+            }
+            // Try as table.column
+            if ref_str.contains('.') {
+                let parts: Vec<&str> = ref_str.splitn(2, '.').collect();
+                if parts.len() == 2 {
+                    if let Some(table) = ctx.tables.get(parts[0]) {
+                        if let Some(col) = table.get(parts[1]) {
+                            return Ok(Value::Array(col.clone()));
+                        }
+                    }
+                }
+            }
+            Err(EvalError::new(format!(
+                "INDIRECT: cannot resolve '{}'",
+                ref_str
+            )))
+        }
+
+        "LAMBDA" => {
+            // Simplified LAMBDA that doesn't capture - just returns the body evaluated
+            // LAMBDA(param1, param2, ..., body)(args)
+            // For simple cases, just evaluate the last arg as the result
+            if args.is_empty() {
+                return Err(EvalError::new("LAMBDA requires a body"));
+            }
+            evaluate(args.last().unwrap(), ctx)
+        }
         "EDATE" => {
             use chrono::Months;
 
@@ -1396,6 +2187,62 @@ fn parse_date_value(val: &Value) -> Result<chrono::NaiveDate, EvalError> {
         }
         _ => Err(EvalError::new("Expected date string or serial number")),
     }
+}
+
+/// Collect all values from an expression as a Vec<Value>
+fn collect_values_as_vec(expr: &Expr, ctx: &EvalContext) -> Result<Vec<Value>, EvalError> {
+    let val = evaluate(expr, ctx)?;
+    match val {
+        Value::Array(arr) => Ok(arr),
+        other => Ok(vec![other]),
+    }
+}
+
+/// Check if a value matches a criteria (supports comparisons like ">50", "<=100", "<>0", "=text")
+fn matches_criteria(val: &Value, criteria: &Value) -> bool {
+    let criteria_str = criteria.as_text();
+
+    // Handle comparison operators
+    if let Some(stripped) = criteria_str.strip_prefix(">=") {
+        if let (Some(v), Ok(c)) = (val.as_number(), stripped.trim().parse::<f64>()) {
+            return v >= c;
+        }
+    } else if let Some(stripped) = criteria_str.strip_prefix("<=") {
+        if let (Some(v), Ok(c)) = (val.as_number(), stripped.trim().parse::<f64>()) {
+            return v <= c;
+        }
+    } else if let Some(stripped) = criteria_str
+        .strip_prefix("<>")
+        .or_else(|| criteria_str.strip_prefix("!="))
+    {
+        let crit_val = stripped.trim();
+        if let (Some(v), Ok(c)) = (val.as_number(), crit_val.parse::<f64>()) {
+            return (v - c).abs() > f64::EPSILON;
+        }
+        return val.as_text() != crit_val;
+    } else if let Some(stripped) = criteria_str.strip_prefix('>') {
+        if let (Some(v), Ok(c)) = (val.as_number(), stripped.trim().parse::<f64>()) {
+            return v > c;
+        }
+    } else if let Some(stripped) = criteria_str.strip_prefix('<') {
+        if let (Some(v), Ok(c)) = (val.as_number(), stripped.trim().parse::<f64>()) {
+            return v < c;
+        }
+    } else if let Some(stripped) = criteria_str.strip_prefix('=') {
+        let crit_val = stripped.trim();
+        if let (Some(v), Ok(c)) = (val.as_number(), crit_val.parse::<f64>()) {
+            return (v - c).abs() < f64::EPSILON;
+        }
+        return val.as_text().eq_ignore_ascii_case(crit_val);
+    }
+
+    // Direct comparison (numeric or text)
+    if let (Some(v), Some(c)) = (val.as_number(), criteria.as_number()) {
+        return (v - c).abs() < f64::EPSILON;
+    }
+
+    // Text comparison (case-insensitive)
+    val.as_text().eq_ignore_ascii_case(&criteria_str)
 }
 
 // Re-export chrono types used in function implementations

@@ -6,6 +6,7 @@ use crate::types::{Column, ColumnValue};
 
 use super::ArrayCalculator;
 
+#[allow(dead_code)]
 impl ArrayCalculator {
     /// Evaluate TODAY function: TODAY()
     pub(super) fn eval_today(&self) -> String {
