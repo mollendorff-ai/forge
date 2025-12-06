@@ -1437,7 +1437,7 @@ fn test_date_functions_combined() {
     match &next_month.values {
         ColumnValue::Text(texts) => {
             assert_eq!(texts[0], "2025-07-15");
-            assert_eq!(texts[1], "2024-13-31"); // Note: Simplified implementation doesn't handle month overflow
+            assert_eq!(texts[1], "2025-01-31"); // DATE function normalizes month 13 to January next year
         }
         _ => panic!("Expected Text array"),
     }

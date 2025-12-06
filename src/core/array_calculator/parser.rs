@@ -27,6 +27,12 @@ pub enum Expr {
     ArrayIndex { array: Box<Expr>, index: Box<Expr> },
     /// Function call: NAME(arg1, arg2, ...)
     FunctionCall { name: String, args: Vec<Expr> },
+    /// Calling the result of an expression: (expr)(args)
+    /// Used for LAMBDA immediate invocation: LAMBDA(x, x*2)(5)
+    CallResult {
+        callable: Box<Expr>,
+        args: Vec<Expr>,
+    },
     /// Binary operation: left op right
     BinaryOp {
         op: String,
@@ -238,16 +244,7 @@ impl Parser {
 
         loop {
             if self.match_token(&Token::OpenParen) {
-                // Function call - but we need to check if expr is an identifier
-                let name = match &expr {
-                    Expr::Reference(Reference::Scalar(name)) => name.clone(),
-                    _ => {
-                        return Err(ParseError::new(
-                            "Expected function name before '('",
-                            self.position,
-                        ));
-                    }
-                };
+                // Function call or callable result invocation
                 let args = self.arguments()?;
                 if !self.match_token(&Token::CloseParen) {
                     return Err(ParseError::new(
@@ -255,7 +252,31 @@ impl Parser {
                         self.position,
                     ));
                 }
-                expr = Expr::FunctionCall { name, args };
+
+                expr = match &expr {
+                    Expr::Reference(Reference::Scalar(name)) => {
+                        // Normal function call: FN(args)
+                        Expr::FunctionCall {
+                            name: name.clone(),
+                            args,
+                        }
+                    }
+                    Expr::Reference(Reference::TableColumn { table, column }) => {
+                        // Handle function names with dots like VAR.P, STDEV.S
+                        Expr::FunctionCall {
+                            name: format!("{}.{}", table, column),
+                            args,
+                        }
+                    }
+                    _ => {
+                        // Calling the result of an expression: expr(args)
+                        // Used for LAMBDA immediate invocation: LAMBDA(x, x*2)(5)
+                        Expr::CallResult {
+                            callable: Box::new(expr.clone()),
+                            args,
+                        }
+                    }
+                };
             } else if self.match_token(&Token::OpenBracket) {
                 // Array indexing
                 let index = self.expression()?;
