@@ -1259,55 +1259,6 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 
 ---
 
-## [Unreleased - Future Plans]
-
-### v1.4.0 - Planned (Q1 2026)
-
-**Financial Functions:**
-
-- NPV, IRR, PMT, FV, PV - Time value of money
-- XNPV, XIRR - Irregular cash flows
-- Scenario analysis support
-
-**Developer Experience:**
-
-- Watch mode - Auto-recalculate on file changes
-- VSCode extension - Syntax highlighting, inline values
-- GitHub Action - Validate formulas in CI/CD
-
-**Ecosystem:**
-
-- Homebrew / Scoop distribution
-- Docker image
-- Language Server Protocol (LSP) foundation
-
-### v1.5.0 - Planned (Q2 2026)
-
-**Advanced Features:**
-
-- Python bindings (PyO3)
-- Web UI (WASM + Tauri)
-- Multi-user collaboration
-- Real-time sync
-
-### v2.0.0+ - Future
-
-**Forge Cloud (SaaS):**
-
-- Hosted validation service
-- Team collaboration
-- Version history
-- API access
-
-**Enterprise Features:**
-
-- LDAP/SSO integration
-- Audit logging
-- Role-based access control
-- Custom function libraries
-
----
-
 ## Notes
 
 ### Development Methodology
