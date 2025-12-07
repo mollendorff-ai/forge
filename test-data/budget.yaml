@@ -1,4 +1,4 @@
-_forge_version: 1.0.0
+_forge_version: 5.0.0
 assumptions:
   revenue:
     value: 100000.0
