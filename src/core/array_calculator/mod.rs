@@ -1,8 +1,6 @@
 mod dates;
 pub mod evaluator;
-mod math;
 pub mod parser;
-mod text;
 pub mod tokenizer;
 
 use crate::error::{ForgeError, ForgeResult};

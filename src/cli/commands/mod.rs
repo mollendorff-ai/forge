@@ -45,10 +45,18 @@ use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use crate::writer;
 use colored::Colorize;
+#[cfg(any(not(coverage), test))]
+use std::path::Path;
+use std::path::PathBuf;
+
+// Watch-related imports only for non-coverage builds (see ADR-006)
+#[cfg(not(coverage))]
 use notify::RecursiveMode;
+#[cfg(not(coverage))]
 use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
-use std::path::{Path, PathBuf};
+#[cfg(not(coverage))]
 use std::sync::mpsc::channel;
+#[cfg(not(coverage))]
 use std::time::Duration;
 
 /// Format a number for display, removing unnecessary decimal places
@@ -515,6 +523,7 @@ pub fn watch(file: PathBuf, _validate_only: bool, _verbose: bool) -> ForgeResult
 }
 
 /// Get a simple timestamp without external dependencies
+#[cfg(any(not(coverage), test))]
 fn chrono_lite_timestamp() -> String {
     use std::time::SystemTime;
     let now = SystemTime::now()
@@ -528,6 +537,7 @@ fn chrono_lite_timestamp() -> String {
 }
 
 /// Run the watch action (validate or calculate)
+#[cfg(any(not(coverage), test))]
 fn run_watch_action(file: &Path, validate_only: bool, verbose: bool) {
     if validate_only {
         match validate_internal(file, verbose) {
@@ -543,6 +553,7 @@ fn run_watch_action(file: &Path, validate_only: bool, verbose: bool) {
 }
 
 /// Internal validation function for watch mode
+#[cfg(any(not(coverage), test))]
 fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
     let model = parser::parse_model(file)?;
 
@@ -601,6 +612,7 @@ fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
 }
 
 /// Internal calculation function for watch mode
+#[cfg(any(not(coverage), test))]
 fn calculate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
     let model = parser::parse_model(file)?;
 

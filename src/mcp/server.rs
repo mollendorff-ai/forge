@@ -3,18 +3,26 @@
 //! Provides the MCP server that AI agents use to interact with Forge.
 //! Implements the Model Context Protocol over stdin/stdout using JSON-RPC.
 
+// Imports only used by non-coverage builds (see ADR-006)
+#[cfg(not(coverage))]
 use std::io::{BufRead, BufReader, Write};
+#[cfg(any(not(coverage), test))]
 use std::path::Path;
 
+#[cfg(any(not(coverage), test))]
 use serde::{Deserialize, Serialize};
+#[cfg(any(not(coverage), test))]
 use serde_json::{json, Value};
 
+// CLI imports only used by non-coverage builds and tests
+#[cfg(any(not(coverage), test))]
 use crate::cli::{
     audit, break_even, calculate, compare, export, goal_seek, import, sensitivity, validate,
     variance,
 };
 
 /// JSON-RPC request
+#[cfg(any(not(coverage), test))]
 #[derive(Debug, Deserialize)]
 struct JsonRpcRequest {
     #[allow(dead_code)]
@@ -26,6 +34,7 @@ struct JsonRpcRequest {
 }
 
 /// JSON-RPC response
+#[cfg(any(not(coverage), test))]
 #[derive(Debug, Serialize)]
 struct JsonRpcResponse {
     jsonrpc: String,
@@ -37,6 +46,7 @@ struct JsonRpcResponse {
 }
 
 /// JSON-RPC error
+#[cfg(any(not(coverage), test))]
 #[derive(Debug, Serialize)]
 struct JsonRpcError {
     code: i32,
@@ -46,6 +56,7 @@ struct JsonRpcError {
 }
 
 /// MCP Tool definition
+#[cfg(any(not(coverage), test))]
 #[derive(Debug, Serialize)]
 struct Tool {
     name: String,
@@ -112,6 +123,7 @@ pub fn run_mcp_server_sync() {
 pub fn run_mcp_server_sync() {}
 
 /// Handle a JSON-RPC request
+#[cfg(any(not(coverage), test))]
 fn handle_request(request: &JsonRpcRequest) -> Option<JsonRpcResponse> {
     let id = request.id.clone().unwrap_or(Value::Null);
 
@@ -183,6 +195,7 @@ fn handle_request(request: &JsonRpcRequest) -> Option<JsonRpcResponse> {
 }
 
 /// Get all available tools
+#[cfg(any(not(coverage), test))]
 fn get_tools() -> Vec<Tool> {
     vec![
         Tool {
@@ -425,6 +438,7 @@ fn get_tools() -> Vec<Tool> {
 }
 
 /// Call a tool by name
+#[cfg(any(not(coverage), test))]
 fn call_tool(name: &str, arguments: &Value) -> Value {
     match name {
         "forge_validate" => {
