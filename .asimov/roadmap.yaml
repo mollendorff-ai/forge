@@ -12,21 +12,21 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 metadata:
-  current_version: "5.4.0"
+  current_version: "5.5.0"
   last_updated: "2025-12-06"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "5.4.0"
+  version: "5.5.0"
   status: released
   date: "2025-12-06"
-  summary: "Code Organization - Split Large Files"
+  summary: "OS-Aware Build System"
   highlights:
-    - "Split evaluator.rs (2,918 lines) into 13 submodules"
-    - "Split parser/mod.rs (2,059 lines) into mod.rs + tests.rs"
-    - "Split commands.rs (2,655 lines) into 6 submodules"
-    - "All source files now under 1,000 lines"
+    - "Auto-detect OS and architecture (Linux/macOS/Windows, x86_64/ARM64)"
+    - "Platform-specific build targets and binary paths"
+    - "UPX compression only on supported platforms (Linux/Windows)"
+    - "Cross-compilation support via cross-rs (build-all target)"
   stats:
     tests: 1609
     warnings: 0
@@ -39,7 +39,7 @@ current:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "5.5.0"
+  - version: "5.6.0"
     summary: "Test File Organization"
     priority: MEDIUM
     status: pending
@@ -69,6 +69,9 @@ next:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 released:
+  - version: "5.5.0"
+    date: "2025-12-06"
+    summary: "OS-Aware Build System"
   - version: "5.4.0"
     date: "2025-12-06"
     summary: "Code Organization - Split Large Files"

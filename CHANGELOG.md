@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.5.0] - 2025-12-06
+
+### Added
+
+- **OS-aware build system**: Makefile auto-detects platform and architecture
+  - Linux: x86_64-unknown-linux-musl or aarch64-unknown-linux-musl
+  - macOS: Native build (x86_64-apple-darwin or aarch64-apple-darwin)
+  - Windows: x86_64-pc-windows-msvc
+- **`make build-all` target**: Cross-compile for all platforms using cross-rs
+- **Platform info in `make help`**: Shows detected OS, architecture, and target
+
+### Changed
+
+- **`build-static`**: Now builds for current platform instead of hardcoded Linux musl
+- **`build-compressed`**: Skips UPX on macOS (code signing issues)
+- **Install targets**: Use dynamic binary paths based on platform
+
+### Fixed
+
+- **macOS builds**: No longer fails with linker errors when running `make build-static`
+- **Windows builds**: Proper detection of MINGW/MSYS/Windows_NT environments
+
+## [5.4.0] - 2025-12-06
+
 ### Changed (Code Architecture)
 
 - **Split array_calculator into modules**:
