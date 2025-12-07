@@ -55,7 +55,7 @@ costs:
   total_costs: =cogs + marketing
 metrics:
   total_revenue:
-    value: 251948.003906
+    value: 251948.0
     formula: =SUM(revenue_model.revenue)
     unit: CAD
     notes: Q1 2025 total revenue
