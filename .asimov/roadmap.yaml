@@ -47,19 +47,26 @@ next:
     rationale: |
       Pre-commit hook flagged large test files during v5.4.0 commit.
       Organizing test files improves maintainability without changing functionality.
+      Following Rust idiom: unit tests inline with source, e2e tests in tests/.
 
     deliverables:
-      - task: "Split large test files (>1500 lines)"
+      - task: "Inline unit tests with source code (Rust idiom)"
         status: pending
         details: |
-          Files to split:
+          Move unit tests to their respective source files using #[cfg(test)] mod tests:
+          - src/core/array_calculator/tests/mod.rs (11413 lines) → distribute to source files
+
+      - task: "Split large e2e/integration test files (>1500 lines)"
+        status: pending
+        details: |
+          These stay in tests/ but need splitting by feature/domain:
           - tests/array_calculator_tests.rs (3431 lines)
           - tests/e2e_tests.rs (2435 lines)
           - tests/formula_edge_cases_tests.rs (1739 lines)
-          - src/core/array_calculator/tests/mod.rs (11413 lines)
-          - src/cli/commands_tests.rs (2615 lines)
+          - tests/commands_tests.rs (2615 lines)
 
     success_criteria:
+      - "Unit tests inline with source code (#[cfg(test)] mod tests)"
       - "No test file > 1,500 lines"
       - "All tests pass"
       - "Zero warnings"
