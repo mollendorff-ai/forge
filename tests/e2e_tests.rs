@@ -2279,3 +2279,157 @@ outputs:
         "Should calculate breakeven, got: {stdout}"
     );
 }
+
+// ========== Auto-Upgrade Tests (v5.3.0) ==========
+
+#[test]
+fn e2e_auto_upgrade_v1_to_v5() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("v1_model.yaml");
+
+    // Create a v1.0.0 file
+    let content = r#"_forge_version: "1.0.0"
+revenue:
+  value: 1000
+  formula: null
+costs:
+  value: 600
+  formula: null
+profit:
+  value: null
+  formula: "=revenue - costs"
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    // Run calculate (not dry-run) - should auto-upgrade
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .output()
+        .expect("Failed to execute");
+
+    assert!(
+        output.status.success(),
+        "Calculate should succeed with auto-upgrade"
+    );
+
+    // Verify file was upgraded to 5.0.0
+    let updated_content = fs::read_to_string(&yaml_file).unwrap();
+    assert!(
+        updated_content.contains("5.0.0"),
+        "File should be upgraded to v5.0.0, got: {updated_content}"
+    );
+}
+
+#[test]
+fn e2e_auto_upgrade_preserves_calculation() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("calc_upgrade.yaml");
+
+    // Create a v1.0.0 file with formula
+    let content = r#"_forge_version: "1.0.0"
+a:
+  value: 100
+  formula: null
+b:
+  value: 50
+  formula: null
+result:
+  value: null
+  formula: "=a + b"
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .output()
+        .expect("Failed to execute");
+
+    assert!(output.status.success());
+
+    // Verify calculation happened (result should be 150)
+    let updated_content = fs::read_to_string(&yaml_file).unwrap();
+    assert!(
+        updated_content.contains("150"),
+        "Result should be calculated as 150"
+    );
+}
+
+#[test]
+fn e2e_multi_doc_skips_auto_upgrade() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let yaml_file = temp_dir.path().join("multi_doc.yaml");
+
+    // Create a multi-doc v1.0.0 file
+    let content = r#"---
+_forge_version: "1.0.0"
+_name: "doc1"
+x:
+  value: 10
+  formula: null
+---
+_forge_version: "1.0.0"
+_name: "doc2"
+y:
+  value: 20
+  formula: null
+"#;
+
+    fs::write(&yaml_file, content).expect("Failed to write test file");
+
+    let output = Command::new(forge_binary())
+        .arg("calculate")
+        .arg(&yaml_file)
+        .arg("--dry-run")
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Multi-doc should skip auto-upgrade (not supported yet)
+    assert!(
+        !stdout.contains("Auto-upgrading"),
+        "Multi-doc should skip auto-upgrade, got: {stdout}"
+    );
+}
+
+// ========== Update Command Tests (v5.3.0) ==========
+
+#[test]
+fn e2e_update_check_flag() {
+    let output = Command::new(forge_binary())
+        .args(["update", "--check"])
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Should either show version info or network error, not crash
+    assert!(
+        stdout.contains("version") || stdout.contains("Version") || stderr.contains("Error"),
+        "Update --check should show version or error, got stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn e2e_update_shows_current_version() {
+    let output = Command::new(forge_binary())
+        .args(["update", "--check"])
+        .output()
+        .expect("Failed to execute");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // If successful, should show current version
+    if output.status.success() {
+        assert!(
+            stdout.contains("Current version") || stdout.contains("5.3.0"),
+            "Should show current version, got: {stdout}"
+        );
+    }
+    // Network errors are acceptable in tests
+}

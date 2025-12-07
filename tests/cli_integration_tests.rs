@@ -755,3 +755,146 @@ fn test_calculate_actual_file() {
         .assert()
         .success();
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTO-UPGRADE TESTS (v5.3.0)
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_calculate_auto_upgrades_old_schema() {
+    let temp_dir = TempDir::new().unwrap();
+    let temp_file = temp_dir.path().join("old_schema.yaml");
+
+    // Create a v1.0.0 schema file
+    std::fs::write(
+        &temp_file,
+        r#"_forge_version: "1.0.0"
+x:
+  value: 10
+  formula: null
+y:
+  value: null
+  formula: "=x * 2"
+"#,
+    )
+    .unwrap();
+
+    // Calculate should auto-upgrade and succeed
+    let mut cmd = Command::cargo_bin("forge").unwrap();
+    cmd.args(["calculate", temp_file.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Auto-upgrading"));
+
+    // Verify file was upgraded to 5.0.0
+    let content = std::fs::read_to_string(&temp_file).unwrap();
+    assert!(
+        content.contains("5.0.0"),
+        "File should be upgraded to 5.0.0"
+    );
+}
+
+#[test]
+fn test_calculate_auto_upgrades_v4_schema() {
+    let temp_dir = TempDir::new().unwrap();
+    let temp_file = temp_dir.path().join("v4_schema.yaml");
+
+    // Create a v4.0.0 schema file
+    std::fs::write(
+        &temp_file,
+        r#"_forge_version: "4.0.0"
+price:
+  value: 100
+  formula: null
+quantity:
+  value: 5
+  formula: null
+total:
+  value: null
+  formula: "=price * quantity"
+"#,
+    )
+    .unwrap();
+
+    // Calculate should auto-upgrade
+    let mut cmd = Command::cargo_bin("forge").unwrap();
+    cmd.args(["calculate", temp_file.to_str().unwrap()])
+        .assert()
+        .success();
+
+    // Verify file was upgraded
+    let content = std::fs::read_to_string(&temp_file).unwrap();
+    assert!(content.contains("5.0.0"));
+}
+
+#[test]
+fn test_calculate_no_upgrade_for_current_schema() {
+    let temp_dir = TempDir::new().unwrap();
+    let temp_file = temp_dir.path().join("current_schema.yaml");
+
+    // Create a v5.0.0 schema file
+    std::fs::write(
+        &temp_file,
+        r#"_forge_version: "5.0.0"
+inputs:
+  x:
+    value: 10
+outputs:
+  y:
+    value: null
+    formula: "=inputs.x * 2"
+"#,
+    )
+    .unwrap();
+
+    // Calculate should NOT show upgrade message
+    let mut cmd = Command::cargo_bin("forge").unwrap();
+    cmd.args(["calculate", temp_file.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Auto-upgrading").not());
+}
+
+#[test]
+fn test_calculate_dry_run_skips_auto_upgrade() {
+    let temp_dir = TempDir::new().unwrap();
+    let temp_file = temp_dir.path().join("dry_run_upgrade.yaml");
+
+    // Create a v1.0.0 schema file
+    std::fs::write(
+        &temp_file,
+        r#"_forge_version: "1.0.0"
+x:
+  value: 10
+  formula: null
+"#,
+    )
+    .unwrap();
+
+    // Dry run should NOT upgrade
+    let mut cmd = Command::cargo_bin("forge").unwrap();
+    cmd.args(["calculate", temp_file.to_str().unwrap(), "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Auto-upgrading").not());
+
+    // Verify file was NOT modified
+    let content = std::fs::read_to_string(&temp_file).unwrap();
+    assert!(
+        content.contains("1.0.0"),
+        "File should still be v1.0.0 after dry-run"
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UPDATE COMMAND TESTS (v5.3.0)
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_update_check_only_mode() {
+    let mut cmd = Command::cargo_bin("forge").unwrap();
+    cmd.args(["update", "--check"])
+        .assert()
+        // May succeed or fail depending on network, but should not crash
+        .stdout(predicate::str::contains("version").or(predicate::str::is_empty()));
+}
