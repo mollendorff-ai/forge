@@ -666,5 +666,4 @@ pub fn apply_scenario(
 }
 
 #[cfg(test)]
-#[path = "../commands_tests.rs"]
 mod tests;

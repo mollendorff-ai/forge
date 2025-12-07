@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.6.0] - 2025-12-06
+
+### Changed (Test Organization)
+
+- **Split unit tests into category modules** (Rust idiom: tests inline with source)
+  - `src/core/array_calculator/tests/` - 13 category files, all <1500 lines
+  - Tests organized by function type: math, dates, financial, lookup, etc.
+- **Split large integration test files** (tests/ directory):
+  - `array_calculator_tests.rs` (3431→10 files)
+  - `e2e_tests.rs` (2435→8 files)
+  - `formula_edge_cases_tests.rs` (1739→10 files)
+- **Split CLI command tests** into organized submodules:
+  - `src/cli/commands/tests/` - 18 category files by command
+  - Tests organized by: audit, calculate, export, import, variance, etc.
+
+### Fixed
+
+- No test file exceeds 1500 lines (project coding standard)
+- Zero warnings policy maintained
+- All 1609 tests passing
+
 ## [5.5.0] - 2025-12-06
 
 ### Added

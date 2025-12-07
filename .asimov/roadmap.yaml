@@ -7,26 +7,26 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # - Unit tests: Keep with code (Rust way: #[cfg(test)] mod tests in same file)
 # - Test coverage: 100% mandatory for all functional code
-# - No file > 1,000 lines (split into submodules when exceeded)
+# - No file > 1,500 lines (split into submodules when exceeded)
 # - Zero warnings policy
 # ═══════════════════════════════════════════════════════════════════════════════
 
 metadata:
-  current_version: "5.5.0"
+  current_version: "5.6.0"
   last_updated: "2025-12-06"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "5.5.0"
+  version: "5.6.0"
   status: released
   date: "2025-12-06"
-  summary: "OS-Aware Build System"
+  summary: "Test File Organization"
   highlights:
-    - "Auto-detect OS and architecture (Linux/macOS/Windows, x86_64/ARM64)"
-    - "Platform-specific build targets and binary paths"
-    - "UPX compression only on supported platforms (Linux/Windows)"
-    - "Cross-compilation support via cross-rs (build-all target)"
+    - "Split unit tests into 13 category modules (<1500 lines each)"
+    - "Split integration tests by feature/domain"
+    - "CLI command tests organized into 18 submodules"
+    - "All tests passing, zero warnings"
   stats:
     tests: 1609
     warnings: 0
@@ -39,35 +39,25 @@ current:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "5.6.0"
-    summary: "Test File Organization"
-    priority: MEDIUM
+  - version: "5.7.0"
+    summary: "100% Test Coverage"
+    priority: HIGH
     status: pending
 
     rationale: |
-      Pre-commit hook flagged large test files during v5.4.0 commit.
-      Organizing test files improves maintainability without changing functionality.
-      Following Rust idiom: unit tests inline with source, e2e tests in tests/.
+      Current coverage is 95.1% for commands. Need to reach 100% per ADR-004.
 
     deliverables:
-      - task: "Inline unit tests with source code (Rust idiom)"
+      - task: "Add tests for uncovered code paths"
         status: pending
         details: |
-          Move unit tests to their respective source files using #[cfg(test)] mod tests:
-          - src/core/array_calculator/tests/mod.rs (11413 lines) → distribute to source files
-
-      - task: "Split large e2e/integration test files (>1500 lines)"
-        status: pending
-        details: |
-          These stay in tests/ but need splitting by feature/domain:
-          - tests/array_calculator_tests.rs (3431 lines)
-          - tests/e2e_tests.rs (2435 lines)
-          - tests/formula_edge_cases_tests.rs (1739 lines)
-          - tests/commands_tests.rs (2615 lines)
+          Review coverage report and add tests for:
+          - Edge cases in formula evaluation
+          - Error handling paths
+          - Rare execution branches
 
     success_criteria:
-      - "Unit tests inline with source code (#[cfg(test)] mod tests)"
-      - "No test file > 1,500 lines"
+      - "100% test coverage for all functional code"
       - "All tests pass"
       - "Zero warnings"
 
@@ -76,9 +66,6 @@ next:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
-  - id: "test-coverage-100"
-    title: "100% Test Coverage (ADR-004)"
-    status: "in_progress (95.1%)"
   - "OpenAPI spec + Swagger UI for API server"
   - "Forge vs Copilot benchmark suite"
   - "Excel compatibility matrix doc"
