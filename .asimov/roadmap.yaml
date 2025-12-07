@@ -12,49 +12,52 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 metadata:
-  current_version: "5.6.0"
+  current_version: "5.7.0"
   last_updated: "2025-12-06"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "5.6.0"
+  version: "5.7.0"
   status: released
   date: "2025-12-06"
-  summary: "Test File Organization"
+  summary: "Coverage Cleanup & Dead Code Removal"
   highlights:
-    - "Split unit tests into 13 category modules (<1500 lines each)"
-    - "Split integration tests by feature/domain"
-    - "CLI command tests organized into 18 submodules"
-    - "All tests passing, zero warnings"
+    - "Fixed 16 coverage-mode warnings (zero warnings in all modes)"
+    - "Removed dead code files (math.rs, text.rs - 0% coverage)"
+    - "Proper cfg(coverage) and cfg(test) attribute handling"
+    - "All 1,609 tests passing, zero warnings"
   stats:
     tests: 1609
     warnings: 0
     functions_total: 81
-    coverage: "~91%"
-    commands_coverage: "95.1%"
+    coverage: "88.46%"
+    branch_coverage: "80.13%"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT MILESTONE
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "5.7.0"
+  - version: "5.8.0"
     summary: "100% Test Coverage"
     priority: HIGH
     status: pending
 
     rationale: |
-      Current coverage is 95.1% for commands. Need to reach 100% per ADR-004.
+      Current coverage is 88.46% line, 80.13% branch.
+      Need to reach 100% for functional code.
 
     deliverables:
-      - task: "Add tests for uncovered code paths"
+      - task: "Add tests for evaluator modules"
         status: pending
         details: |
-          Review coverage report and add tests for:
-          - Edge cases in formula evaluation
-          - Error handling paths
-          - Rare execution branches
+          Improve coverage for:
+          - evaluator/financial.rs (78.84% → 100%)
+          - evaluator/dates.rs (81.72% → 100%)
+          - evaluator/forge.rs (81.68% → 100%)
+          - evaluator/math.rs (83.05% → 100%)
+          - evaluator/mod.rs (79.24% → 100%)
 
     success_criteria:
       - "100% test coverage for all functional code"

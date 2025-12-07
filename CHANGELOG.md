@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0] - 2025-12-06
+
+### Changed (Coverage Cleanup)
+
+- **Fixed 16 coverage-mode warnings**: All cfg(coverage) attributes now properly handled
+- **Removed dead code files**:
+  - `src/core/array_calculator/math.rs` (0% coverage, superseded by evaluator/math.rs)
+  - `src/core/array_calculator/text.rs` (0% coverage, superseded by evaluator/text.rs)
+- **Improved cfg attribute handling**:
+  - Watch-related imports use `#[cfg(not(coverage))]`
+  - Test helper functions use `#[cfg(any(not(coverage), test))]`
+  - MCP server structs/functions properly gated for coverage mode
+
+### Fixed
+
+- Zero warnings in both regular and coverage build modes
+- All 1,609 tests passing
+- Coverage now at 88.46% line, 80.13% branch (dead code removed)
+
 ## [5.6.0] - 2025-12-06
 
 ### Changed (Test Organization)
