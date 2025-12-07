@@ -309,4 +309,168 @@ mod tests {
             Value::Number(30.0)
         );
     }
+
+    // === EDGE CASES FOR 100% COVERAGE ===
+
+    #[test]
+    fn test_edate_negative_months() {
+        let ctx = EvalContext::new();
+        // Subtract 3 months from April -> January
+        assert_eq!(
+            eval("EDATE(\"2024-04-15\", -3)", &ctx).unwrap(),
+            Value::Text("2024-01-15".to_string())
+        );
+    }
+
+    #[test]
+    fn test_eomonth_negative_months() {
+        let ctx = EvalContext::new();
+        // Go back 2 months from March and get end of month (January)
+        assert_eq!(
+            eval("EOMONTH(\"2024-03-15\", -2)", &ctx).unwrap(),
+            Value::Text("2024-01-31".to_string())
+        );
+    }
+
+    #[test]
+    fn test_eomonth_december() {
+        let ctx = EvalContext::new();
+        // End of December (exercises month == 12 branch)
+        assert_eq!(
+            eval("EOMONTH(\"2024-12-15\", 0)", &ctx).unwrap(),
+            Value::Text("2024-12-31".to_string())
+        );
+    }
+
+    #[test]
+    fn test_datedif_all_units() {
+        let ctx = EvalContext::new();
+        // Test M (months)
+        assert_eq!(
+            eval("DATEDIF(\"2024-01-15\", \"2024-06-20\", \"M\")", &ctx).unwrap(),
+            Value::Number(5.0)
+        );
+        // Test Y (years)
+        assert_eq!(
+            eval("DATEDIF(\"2022-01-01\", \"2024-01-01\", \"Y\")", &ctx).unwrap(),
+            Value::Number(2.0)
+        );
+        // Test MD (day difference ignoring months)
+        assert_eq!(
+            eval("DATEDIF(\"2024-01-10\", \"2024-02-15\", \"MD\")", &ctx).unwrap(),
+            Value::Number(5.0)
+        );
+        // Test YM (month difference ignoring years)
+        assert_eq!(
+            eval("DATEDIF(\"2022-03-01\", \"2024-08-01\", \"YM\")", &ctx).unwrap(),
+            Value::Number(5.0)
+        );
+        // Test YD (day difference ignoring years)
+        assert_eq!(
+            eval("DATEDIF(\"2022-01-01\", \"2024-02-01\", \"YD\")", &ctx).unwrap(),
+            Value::Number(31.0)
+        );
+    }
+
+    #[test]
+    fn test_datedif_negative_day_diff() {
+        let ctx = EvalContext::new();
+        // MD where end day < start day (triggers day_diff += 30)
+        assert_eq!(
+            eval("DATEDIF(\"2024-01-20\", \"2024-02-10\", \"MD\")", &ctx).unwrap(),
+            Value::Number(20.0) // -10 + 30 = 20
+        );
+    }
+
+    #[test]
+    fn test_datedif_negative_month_diff() {
+        let ctx = EvalContext::new();
+        // YM where end month < start month (triggers month_diff += 12)
+        assert_eq!(
+            eval("DATEDIF(\"2022-10-01\", \"2024-03-01\", \"YM\")", &ctx).unwrap(),
+            Value::Number(5.0) // 3 - 10 + 12 = 5
+        );
+    }
+
+    #[test]
+    fn test_datedif_negative_year_day_diff() {
+        let ctx = EvalContext::new();
+        // YD where end ordinal < start ordinal (triggers day_diff += 365)
+        // March 1 ordinal ~60, January 15 ordinal = 15, diff = -45 + 365 = 320
+        assert_eq!(
+            eval("DATEDIF(\"2022-03-01\", \"2024-01-15\", \"YD\")", &ctx).unwrap(),
+            Value::Number(320.0)
+        );
+    }
+
+    #[test]
+    fn test_datedif_unknown_unit() {
+        let ctx = EvalContext::new();
+        let result = eval("DATEDIF(\"2024-01-01\", \"2024-12-31\", \"X\")", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("unknown unit"));
+    }
+
+    #[test]
+    fn test_networkdays() {
+        let ctx = EvalContext::new();
+        // Mon Jan 1 to Fri Jan 5 2024 = 5 workdays
+        assert_eq!(
+            eval("NETWORKDAYS(\"2024-01-01\", \"2024-01-05\")", &ctx).unwrap(),
+            Value::Number(5.0)
+        );
+    }
+
+    #[test]
+    fn test_yearfrac_all_bases() {
+        let ctx = EvalContext::new();
+        // Basis 1 (actual/actual)
+        let result = eval("YEARFRAC(\"2024-01-01\", \"2024-07-01\", 1)", &ctx).unwrap();
+        if let Value::Number(n) = result {
+            assert!((n - 0.497).abs() < 0.01); // ~182/366 for leap year
+        }
+        // Basis 2 (actual/360)
+        let result = eval("YEARFRAC(\"2024-01-01\", \"2024-07-01\", 2)", &ctx).unwrap();
+        if let Value::Number(n) = result {
+            assert!((n - 0.506).abs() < 0.01); // ~182/360
+        }
+        // Basis 3 (actual/365)
+        let result = eval("YEARFRAC(\"2024-01-01\", \"2024-07-01\", 3)", &ctx).unwrap();
+        if let Value::Number(n) = result {
+            assert!((n - 0.499).abs() < 0.01); // ~182/365
+        }
+        // Basis 4 (European 30/360)
+        let result = eval("YEARFRAC(\"2024-01-01\", \"2024-07-01\", 4)", &ctx).unwrap();
+        if let Value::Number(n) = result {
+            assert!((n - 0.5).abs() < 0.01); // 180/360
+        }
+    }
+
+    #[test]
+    fn test_yearfrac_30_360_edge_cases() {
+        let ctx = EvalContext::new();
+        // Test with day = 31 (exercises d1 = 30 and d2 = 30 branches)
+        let result = eval("YEARFRAC(\"2024-01-31\", \"2024-03-31\", 0)", &ctx).unwrap();
+        if let Value::Number(n) = result {
+            assert!((n - 0.167).abs() < 0.01); // 60/360
+        }
+    }
+
+    #[test]
+    fn test_yearfrac_unknown_basis() {
+        let ctx = EvalContext::new();
+        let result = eval("YEARFRAC(\"2024-01-01\", \"2024-07-01\", 5)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("unknown basis"));
+    }
+
+    #[test]
+    fn test_date_month_overflow() {
+        let ctx = EvalContext::new();
+        // Month 14 = February of next year
+        assert_eq!(
+            eval("DATE(2024, 14, 15)", &ctx).unwrap(),
+            Value::Text("2025-02-15".to_string())
+        );
+    }
 }
