@@ -8,8 +8,11 @@
 use std::env;
 use std::fs;
 
-/// GitHub API URL for latest release
-const GITHUB_RELEASES_URL: &str = "https://api.github.com/repos/royalbit/forge/releases/latest";
+/// GitHub releases page URL (redirects to latest - no API rate limits)
+const GITHUB_RELEASES_URL: &str = "https://github.com/royalbit/forge/releases/latest";
+
+/// GitHub releases download base URL
+const GITHUB_DOWNLOAD_BASE: &str = "https://github.com/royalbit/forge/releases/download";
 
 /// Current version from Cargo.toml
 pub const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -51,75 +54,57 @@ fn get_platform_asset() -> Option<&'static str> {
     return None;
 }
 
-/// Check for updates by querying GitHub Releases API
-///
-/// # Coverage Exclusion (ADR-006)
-/// Makes HTTP request to GitHub API - cannot unit test network calls
-#[cfg(not(coverage))]
-pub fn check_for_update() -> Result<VersionCheck, String> {
-    // Use curl to fetch the release info (available on all platforms)
+/// Get latest version by following GitHub releases redirect (no API rate limits)
+fn get_latest_version_from_redirect() -> Result<String, String> {
     let output = std::process::Command::new("curl")
         .args([
-            "-s",
-            "-H",
-            "Accept: application/vnd.github.v3+json",
-            "-H",
-            "User-Agent: forge-cli",
+            "-sI",
+            "-o",
+            "/dev/null",
+            "-w",
+            "%{redirect_url}",
             GITHUB_RELEASES_URL,
         ])
         .output()
-        .map_err(|e| format!("Failed to fetch release info: {}", e))?;
+        .map_err(|e| format!("Failed to fetch: {}", e))?;
 
     if !output.status.success() {
-        return Err("Failed to fetch release info from GitHub".to_string());
+        return Err("Failed to fetch from URL".to_string());
     }
 
-    let body = String::from_utf8_lossy(&output.stdout);
+    let redirect_url = String::from_utf8_lossy(&output.stdout).to_string();
 
-    // Parse version from JSON (simple extraction without serde_json dependency)
-    let latest_version = extract_json_string(&body, "tag_name")
-        .ok_or("Could not parse version from GitHub response")?
-        .trim_start_matches('v')
-        .to_string();
+    // Extract version from URL like: https://github.com/royalbit/forge/releases/tag/v5.3.0
+    redirect_url
+        .rsplit('/')
+        .next()
+        .map(|v| v.trim_start_matches('v').to_string())
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| "Could not parse version from redirect URL".to_string())
+}
 
+/// Check for updates by following GitHub releases redirect (no API, no rate limits)
+///
+/// # Coverage Exclusion (ADR-006)
+/// Makes HTTP request to GitHub - cannot unit test network calls
+#[cfg(not(coverage))]
+pub fn check_for_update() -> Result<VersionCheck, String> {
+    let latest_version = get_latest_version_from_redirect()?;
     let update_available = is_newer_version(&latest_version, CURRENT_VERSION);
 
-    // Find download URL for current platform
+    // Build download URLs directly (no API needed)
     let download_url = if update_available {
-        get_platform_asset().and_then(|asset_name| {
-            // Find the browser_download_url for our asset
-            // Try both with and without space after colon (GitHub uses space)
-            let search_with_space = format!("\"name\": \"{}\"", asset_name);
-            let search_no_space = format!("\"name\":\"{}\"", asset_name);
-            let pos = body
-                .find(&search_with_space)
-                .or_else(|| body.find(&search_no_space));
-            if let Some(pos) = pos {
-                // Look for browser_download_url near this position
-                let chunk = &body[pos.saturating_sub(500)..body.len().min(pos + 500)];
-                extract_json_string(chunk, "browser_download_url")
-                    .filter(|url| url.contains(asset_name))
-            } else {
-                None
-            }
-        })
+        get_platform_asset()
+            .map(|asset| format!("{}/v{}/{}", GITHUB_DOWNLOAD_BASE, latest_version, asset))
     } else {
         None
     };
 
-    // Find checksums.txt URL
     let checksums_url = if update_available {
-        // Try both with and without space after colon
-        let pos = body
-            .find("\"name\": \"checksums.txt\"")
-            .or_else(|| body.find("\"name\":\"checksums.txt\""));
-        if let Some(pos) = pos {
-            let chunk = &body[pos.saturating_sub(500)..body.len().min(pos + 500)];
-            extract_json_string(chunk, "browser_download_url")
-                .filter(|url| url.contains("checksums.txt"))
-        } else {
-            None
-        }
+        Some(format!(
+            "{}/v{}/checksums.txt",
+            GITHUB_DOWNLOAD_BASE, latest_version
+        ))
     } else {
         None
     };
@@ -146,6 +131,8 @@ pub fn check_for_update() -> Result<VersionCheck, String> {
 }
 
 /// Simple JSON string extraction (avoids adding serde_json dependency)
+/// Note: Only used in tests now that we use redirect-based version check
+#[cfg(test)]
 fn extract_json_string(json: &str, key: &str) -> Option<String> {
     // Try with space after colon first (GitHub style), then without
     let search_with_space = format!("\"{}\": \"", key);
