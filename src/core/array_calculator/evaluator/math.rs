@@ -216,4 +216,97 @@ mod tests {
         assert_eq!(eval("ROUNDDOWN(-3.9)", &ctx).unwrap(), Value::Number(-3.0));
         assert_eq!(eval("INT(3.9)", &ctx).unwrap(), Value::Number(3.0));
     }
+
+    // === EDGE CASES FOR 100% COVERAGE ===
+
+    #[test]
+    fn test_sqrt_negative() {
+        let ctx = EvalContext::new();
+        let result = eval("SQRT(-4)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("negative"));
+    }
+
+    #[test]
+    fn test_floor_zero_significance() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("FLOOR(3.5, 0)", &ctx).unwrap(), Value::Number(0.0));
+    }
+
+    #[test]
+    fn test_ceiling_zero_significance() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("CEILING(3.5, 0)", &ctx).unwrap(), Value::Number(0.0));
+    }
+
+    #[test]
+    fn test_mod_division_by_zero() {
+        let ctx = EvalContext::new();
+        let result = eval("MOD(10, 0)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("zero"));
+    }
+
+    #[test]
+    fn test_ln_non_positive() {
+        let ctx = EvalContext::new();
+        let result = eval("LN(0)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("non-positive"));
+
+        let result = eval("LN(-1)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_log_non_positive() {
+        let ctx = EvalContext::new();
+        let result = eval("LOG10(0)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("non-positive"));
+    }
+
+    #[test]
+    fn test_round_default_decimals() {
+        let ctx = EvalContext::new();
+        // No decimals arg = 0 decimals
+        assert_eq!(eval("ROUND(3.567)", &ctx).unwrap(), Value::Number(4.0));
+    }
+
+    #[test]
+    fn test_roundup_with_decimals() {
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("ROUNDUP(3.141, 2)", &ctx).unwrap(),
+            Value::Number(3.15)
+        );
+    }
+
+    #[test]
+    fn test_rounddown_with_decimals() {
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("ROUNDDOWN(3.789, 2)", &ctx).unwrap(),
+            Value::Number(3.78)
+        );
+    }
+
+    #[test]
+    fn test_floor_with_significance() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("FLOOR(17, 5)", &ctx).unwrap(), Value::Number(15.0));
+    }
+
+    #[test]
+    fn test_ceiling_with_significance() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("CEILING(13, 5)", &ctx).unwrap(), Value::Number(15.0));
+    }
+
+    #[test]
+    fn test_log_alias() {
+        let ctx = EvalContext::new();
+        // LOG and LOG10 should be equivalent
+        assert_eq!(eval("LOG(100)", &ctx).unwrap(), Value::Number(2.0));
+    }
 }

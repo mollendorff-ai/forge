@@ -464,4 +464,144 @@ mod tests {
         let npv = eval("NPV(0.10, 100, 100, 100)", &ctx).unwrap();
         assert!(matches!(npv, Value::Number(n) if (n - 248.69).abs() < 0.01));
     }
+
+    // === EDGE CASES FOR 100% COVERAGE ===
+
+    #[test]
+    fn test_sln_zero_life() {
+        let ctx = EvalContext::new();
+        let result = eval("SLN(10000, 1000, 0)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("zero"));
+    }
+
+    #[test]
+    fn test_db_zero_life() {
+        let ctx = EvalContext::new();
+        // DB with life = 0 returns 0
+        assert_eq!(
+            eval("DB(10000, 1000, 0, 1)", &ctx).unwrap(),
+            Value::Number(0.0)
+        );
+    }
+
+    #[test]
+    fn test_db_zero_cost() {
+        let ctx = EvalContext::new();
+        // DB with cost = 0 returns 0
+        assert_eq!(eval("DB(0, 0, 5, 1)", &ctx).unwrap(), Value::Number(0.0));
+    }
+
+    #[test]
+    fn test_db_with_month() {
+        let ctx = EvalContext::new();
+        // DB with custom month parameter
+        let result = eval("DB(10000, 1000, 5, 1, 6)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n > 0.0));
+    }
+
+    #[test]
+    fn test_db_last_period() {
+        let ctx = EvalContext::new();
+        // DB last period (life + 1)
+        let result = eval("DB(10000, 1000, 5, 6, 6)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n >= 0.0));
+    }
+
+    #[test]
+    fn test_ddb_zero_life() {
+        let ctx = EvalContext::new();
+        let result = eval("DDB(10000, 1000, 0, 1)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("zero"));
+    }
+
+    #[test]
+    fn test_ddb_with_factor() {
+        let ctx = EvalContext::new();
+        // DDB with custom factor
+        let result = eval("DDB(10000, 1000, 5, 1, 1.5)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n > 0.0));
+    }
+
+    #[test]
+    fn test_ddb_below_salvage() {
+        let ctx = EvalContext::new();
+        // DDB where depreciation would go below salvage
+        // High salvage relative to cost
+        let result = eval("DDB(10000, 9000, 5, 5)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n >= 0.0));
+    }
+
+    #[test]
+    fn test_mirr_positive_flows_only() {
+        let ctx = EvalContext::new();
+        // MIRR requires both positive and negative flows
+        let result = eval("MIRR({100, 200, 300}, 0.10, 0.12)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_nper_zero_rate() {
+        let ctx = EvalContext::new();
+        // NPER with rate = 0
+        let result = eval("NPER(0, -100, 1000)", &ctx).unwrap();
+        assert_eq!(result, Value::Number(10.0)); // 1000 / 100 = 10
+    }
+
+    #[test]
+    fn test_nper_with_fv() {
+        let ctx = EvalContext::new();
+        // NPER with future value
+        let result = eval("NPER(0.05, -100, 1000, 500)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n > 0.0));
+    }
+
+    #[test]
+    fn test_rate_function() {
+        let ctx = EvalContext::new();
+        // RATE: 12 periods, -100 payment, 1000 PV
+        let result = eval("RATE(12, -100, 1000)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n.abs() < 0.1));
+    }
+
+    #[test]
+    fn test_rate_with_fv() {
+        let ctx = EvalContext::new();
+        // RATE with future value
+        let result = eval("RATE(12, -100, 1000, 100)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(_)));
+    }
+
+    #[test]
+    fn test_rate_with_guess() {
+        let ctx = EvalContext::new();
+        // RATE with guess (6th param, skip 5th for pmt_type)
+        let result = eval("RATE(12, -100, 1000, 0, 0, 0.05)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(_)));
+    }
+
+    #[test]
+    fn test_fv_function() {
+        let ctx = EvalContext::new();
+        // FV: 5% rate, 12 periods, -100 payment
+        let result = eval("FV(0.05, 12, -100)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n > 0.0));
+    }
+
+    #[test]
+    fn test_fv_with_pv() {
+        let ctx = EvalContext::new();
+        // FV with present value
+        let result = eval("FV(0.05, 12, -100, -1000)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(_)));
+    }
+
+    #[test]
+    fn test_pv_function() {
+        let ctx = EvalContext::new();
+        // PV: 5% rate, 12 periods, -100 payment
+        let result = eval("PV(0.05, 12, -100)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n > 0.0));
+    }
 }

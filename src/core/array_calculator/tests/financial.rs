@@ -911,3 +911,127 @@ fn test_irr_basic_calculation() {
     let calculator = ArrayCalculator::new(model);
     let _ = calculator.calculate_all();
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EDGE CASE TESTS FOR 100% COVERAGE (ADR-006)
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_pmt_zero_rate() {
+    // PMT with rate=0: simple division of principal over periods
+    let mut model = ParsedModel::new();
+    model.add_scalar(
+        "payment".to_string(),
+        Variable::new(
+            "payment".to_string(),
+            None,
+            Some("=PMT(0, 12, 1200)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should succeed");
+    let payment = result.scalars.get("payment").unwrap().value.unwrap();
+    assert!(
+        (payment - (-100.0)).abs() < 0.01,
+        "PMT(0,12,1200) should be -100, got {}",
+        payment
+    );
+}
+
+#[test]
+fn test_pmt_type_beginning_of_period() {
+    // PMT with type=1 (payment at beginning of period)
+    let mut model = ParsedModel::new();
+    model.add_scalar(
+        "payment_end".to_string(),
+        Variable::new(
+            "payment_end".to_string(),
+            None,
+            Some("=PMT(0.01, 12, 1000, 0, 0)".to_string()),
+        ),
+    );
+    model.add_scalar(
+        "payment_begin".to_string(),
+        Variable::new(
+            "payment_begin".to_string(),
+            None,
+            Some("=PMT(0.01, 12, 1000, 0, 1)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should succeed");
+    let end_pmt = result.scalars.get("payment_end").unwrap().value.unwrap();
+    let begin_pmt = result.scalars.get("payment_begin").unwrap().value.unwrap();
+    assert!(
+        begin_pmt.abs() < end_pmt.abs(),
+        "Beginning payment {} should be less than end {}",
+        begin_pmt,
+        end_pmt
+    );
+}
+
+#[test]
+fn test_fv_zero_rate() {
+    // FV with rate=0: simple sum of payments
+    let mut model = ParsedModel::new();
+    model.add_scalar(
+        "future_value".to_string(),
+        Variable::new(
+            "future_value".to_string(),
+            None,
+            Some("=FV(0, 12, -100, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should succeed");
+    let fv = result.scalars.get("future_value").unwrap().value.unwrap();
+    assert!(
+        (fv - 1200.0).abs() < 0.01,
+        "FV(0,12,-100,0) should be 1200, got {}",
+        fv
+    );
+}
+
+#[test]
+fn test_pv_zero_rate() {
+    // PV with rate=0: simple sum of payments
+    let mut model = ParsedModel::new();
+    model.add_scalar(
+        "present_value".to_string(),
+        Variable::new(
+            "present_value".to_string(),
+            None,
+            Some("=PV(0, 12, -100)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should succeed");
+    let pv = result.scalars.get("present_value").unwrap().value.unwrap();
+    assert!(
+        (pv - 1200.0).abs() < 0.01,
+        "PV(0,12,-100) should be 1200, got {}",
+        pv
+    );
+}
+
+#[test]
+fn test_pv_with_future_value() {
+    // PV with optional fv argument
+    let mut model = ParsedModel::new();
+    model.add_scalar(
+        "pv_with_fv".to_string(),
+        Variable::new(
+            "pv_with_fv".to_string(),
+            None,
+            Some("=PV(0.01, 12, -100, 500)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should succeed");
+    let pv = result.scalars.get("pv_with_fv").unwrap().value.unwrap();
+    assert!(
+        pv > 500.0 && pv < 2000.0,
+        "PV with fv should be reasonable, got {}",
+        pv
+    );
+}

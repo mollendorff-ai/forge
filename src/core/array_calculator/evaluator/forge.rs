@@ -215,4 +215,136 @@ mod tests {
             Value::Number(0.15)
         );
     }
+
+    // === EDGE CASES FOR 100% COVERAGE ===
+
+    #[test]
+    fn test_breakeven_units_zero_margin() {
+        let ctx = EvalContext::new();
+        // Price equals variable cost = 0 margin (error)
+        let result = eval("BREAKEVEN_UNITS(10000, 50, 50)", &ctx);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("unit_price must be greater"));
+    }
+
+    #[test]
+    fn test_breakeven_units_negative_margin() {
+        let ctx = EvalContext::new();
+        // Variable cost > price = negative margin (error)
+        let result = eval("BREAKEVEN_UNITS(10000, 30, 50)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_breakeven_revenue_invalid_ratio() {
+        let ctx = EvalContext::new();
+        // Contribution margin ratio > 1 (error)
+        let result = eval("BREAKEVEN_REVENUE(10000, 1.5)", &ctx);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("contribution_margin_pct"));
+    }
+
+    #[test]
+    fn test_breakeven_revenue_zero_ratio() {
+        let ctx = EvalContext::new();
+        // Contribution margin ratio = 0 (error)
+        let result = eval("BREAKEVEN_REVENUE(10000, 0)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_variance_pct_zero_budget() {
+        let ctx = EvalContext::new();
+        let result = eval("VARIANCE_PCT(100, 0)", &ctx);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("budget cannot be zero"));
+    }
+
+    #[test]
+    fn test_variance_status_zero_budget_negative() {
+        let ctx = EvalContext::new();
+        // Budget = 0, actual < 0 = unfavorable (-1)
+        assert_eq!(
+            eval("VARIANCE_STATUS(-50, 0)", &ctx).unwrap(),
+            Value::Number(-1.0)
+        );
+    }
+
+    #[test]
+    fn test_variance_status_zero_budget_zero() {
+        let ctx = EvalContext::new();
+        // Budget = 0, actual = 0 = on budget (0)
+        assert_eq!(
+            eval("VARIANCE_STATUS(0, 0)", &ctx).unwrap(),
+            Value::Number(0.0)
+        );
+    }
+
+    #[test]
+    fn test_variance_status_cost_type_favorable() {
+        let ctx = EvalContext::new();
+        // Cost type: under budget (variance_pct < 0) = favorable (1)
+        assert_eq!(
+            eval("VARIANCE_STATUS(80, 100, \"cost\")", &ctx).unwrap(),
+            Value::Number(1.0)
+        );
+    }
+
+    #[test]
+    fn test_variance_status_cost_type_unfavorable() {
+        let ctx = EvalContext::new();
+        // Cost type: over budget (variance_pct > 0) = unfavorable (-1)
+        assert_eq!(
+            eval("VARIANCE_STATUS(120, 100, \"cost\")", &ctx).unwrap(),
+            Value::Number(-1.0)
+        );
+    }
+
+    #[test]
+    fn test_variance_status_unfavorable_revenue() {
+        let ctx = EvalContext::new();
+        // Revenue type: under budget = unfavorable (-1)
+        assert_eq!(
+            eval("VARIANCE_STATUS(80, 100)", &ctx).unwrap(),
+            Value::Number(-1.0)
+        );
+    }
+
+    #[test]
+    fn test_variance_status_with_numeric_threshold() {
+        let ctx = EvalContext::new();
+        // 5% variance with 10% threshold = on budget (0)
+        assert_eq!(
+            eval("VARIANCE_STATUS(105, 100, 0.10)", &ctx).unwrap(),
+            Value::Number(0.0)
+        );
+    }
+
+    #[test]
+    fn test_scenario_missing_variable() {
+        let mut ctx = EvalContext::new();
+        let scenario = HashMap::new();
+        ctx.scenarios.insert("empty".to_string(), scenario);
+
+        let result = eval("SCENARIO(\"empty\", \"missing_var\")", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[test]
+    fn test_scenario_missing_scenario() {
+        let ctx = EvalContext::new();
+        let result = eval("SCENARIO(\"nonexistent\", \"var\")", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
 }

@@ -1,6 +1,6 @@
 # Forge Roadmap
 # For version history, see CHANGELOG.md
-# Last updated: 2025-12-06
+# Last updated: 2025-12-07
 #
 # ═══════════════════════════════════════════════════════════════════════════════
 # CODING STANDARDS
@@ -9,60 +9,265 @@
 # - Test coverage: 100% mandatory for all functional code
 # - No file > 1,500 lines (split into submodules when exceeded)
 # - Zero warnings policy
+# - ADR-006: Use #[cfg(not(coverage))] for untestable code paths
 # ═══════════════════════════════════════════════════════════════════════════════
 
 metadata:
-  current_version: "5.7.0"
-  last_updated: "2025-12-06"
+  current_version: "5.8.0"
+  last_updated: "2025-12-07"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "5.7.0"
-  status: released
-  date: "2025-12-06"
-  summary: "Coverage Cleanup & Dead Code Removal"
+  version: "5.8.0"
+  status: in_progress
+  date: "2025-12-07"
+  summary: "100% Test Coverage - Phase 1"
   highlights:
-    - "Fixed 16 coverage-mode warnings (zero warnings in all modes)"
-    - "Removed dead code files (math.rs, text.rs - 0% coverage)"
-    - "Proper cfg(coverage) and cfg(test) attribute handling"
-    - "All 1,609 tests passing, zero warnings"
+    - "Added edge case tests for evaluator modules"
+    - "Coverage improved: 88.46% → 89.23%"
+    - "Tests increased: 1,609 → 1,730"
   stats:
-    tests: 1609
+    tests: 1730
     warnings: 0
     functions_total: 81
-    coverage: "88.46%"
-    branch_coverage: "80.13%"
+    coverage: "89.23%"
+    branch_coverage: "81.34%"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# NEXT MILESTONE
+# 100% COVERAGE ROADMAP - STRATEGIC BREAKDOWN
+# ═══════════════════════════════════════════════════════════════════════════════
+# Goal: 89.23% → 100% (1,353 missed lines to cover or exclude via ADR-006)
+#
+# Strategy:
+# 1. Remove dead code (immediate win)
+# 2. Quick wins: files with <15 missed lines
+# 3. Medium: files with 15-50 missed lines
+# 4. Complex: files with 50+ missed lines (may need cfg(not(coverage)))
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "5.8.0"
-    summary: "100% Test Coverage"
+  # ─────────────────────────────────────────────────────────────────────────────
+  # MILESTONE 1: Dead Code Removal + Quick Wins (~150 lines)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - version: "5.9.0"
+    summary: "100% Coverage - Dead Code & Quick Wins"
     priority: HIGH
     status: pending
-
-    rationale: |
-      Current coverage is 88.46% line, 80.13% branch.
-      Need to reach 100% for functional code.
+    estimated_effort: "1 session"
 
     deliverables:
-      - task: "Add tests for evaluator modules"
+      # DEAD CODE REMOVAL (immediate +444 lines covered)
+      - task: "Remove dead code: core/array_calculator/dates.rs"
         status: pending
-        details: |
-          Improve coverage for:
-          - evaluator/financial.rs (78.84% → 100%)
-          - evaluator/dates.rs (81.72% → 100%)
-          - evaluator/forge.rs (81.68% → 100%)
-          - evaluator/math.rs (83.05% → 100%)
-          - evaluator/mod.rs (79.24% → 100%)
+        current: "0.00%"
+        missed_lines: 444
+        details: "Legacy dates.rs is dead code (replaced by evaluator/dates.rs). Delete entirely."
+
+      # QUICK WINS - Files with <15 missed lines
+      - task: "types.rs"
+        status: pending
+        current: "99.80%"
+        missed_lines: 1
+
+      - task: "error.rs"
+        status: pending
+        current: "98.92%"
+        missed_lines: 2
+
+      - task: "evaluator/logical.rs"
+        status: pending
+        current: "96.72%"
+        missed_lines: 2
+
+      - task: "evaluator/text.rs"
+        status: pending
+        current: "97.65%"
+        missed_lines: 2
+
+      - task: "evaluator/array.rs"
+        status: pending
+        current: "96.04%"
+        missed_lines: 4
+
+      - task: "api/server.rs"
+        status: pending
+        current: "97.29%"
+        missed_lines: 6
+
+      - task: "writer/mod.rs"
+        status: pending
+        current: "97.39%"
+        missed_lines: 7
+
+      - task: "parser/tests.rs"
+        status: pending
+        current: "99.14%"
+        missed_lines: 7
+
+      - task: "tokenizer.rs"
+        status: pending
+        current: "97.63%"
+        missed_lines: 8
+
+      - task: "evaluator/aggregation.rs"
+        status: pending
+        current: "93.28%"
+        missed_lines: 8
+
+      - task: "evaluator/advanced.rs"
+        status: pending
+        current: "86.90%"
+        missed_lines: 11
+
+      - task: "evaluator/statistical.rs"
+        status: pending
+        current: "93.85%"
+        missed_lines: 11
+
+      - task: "cli/commands/audit.rs"
+        status: pending
+        current: "93.81%"
+        missed_lines: 13
+
+      - task: "api/handlers.rs"
+        status: pending
+        current: "97.32%"
+        missed_lines: 13
+
+      - task: "evaluator/forge.rs"
+        status: pending
+        current: "94.37%"
+        missed_lines: 13
+
+    success_criteria:
+      - "Dead code removed"
+      - "All quick win files at 100%"
+      - "Zero warnings"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # MILESTONE 2: Medium Effort Files (~200 lines)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - version: "5.10.0"
+    summary: "100% Coverage - Medium Files (15-50 missed lines)"
+    priority: HIGH
+    status: pending
+    estimated_effort: "1-2 sessions"
+
+    deliverables:
+      - task: "evaluator/math.rs"
+        status: pending
+        current: "93.48%"
+        missed_lines: 15
+
+      - task: "core/array_calculator/mod.rs"
+        status: pending
+        current: "96.31%"
+        missed_lines: 17
+
+      - task: "evaluator/dates.rs"
+        status: pending
+        current: "94.02%"
+        missed_lines: 18
+
+      - task: "excel/reverse_formula_translator.rs"
+        status: pending
+        current: "91.78%"
+        missed_lines: 18
+
+      - task: "evaluator/conditional.rs"
+        status: pending
+        current: "90.67%"
+        missed_lines: 21
+
+      - task: "parser.rs"
+        status: pending
+        current: "95.35%"
+        missed_lines: 22
+
+      - task: "cli/commands/mod.rs"
+        status: pending
+        current: "92.51%"
+        missed_lines: 28
+
+      - task: "cli/commands/upgrade.rs"
+        status: pending
+        current: "90.34%"
+        missed_lines: 28
+
+      - task: "evaluator/lookup.rs"
+        status: pending
+        current: "86.31%"
+        missed_lines: 33
+
+      - task: "evaluator/financial.rs"
+        status: pending
+        current: "92.54%"
+        missed_lines: 34
+
+      - task: "excel/formula_translator.rs"
+        status: pending
+        current: "91.88%"
+        missed_lines: 42
+
+      - task: "excel/importer.rs"
+        status: pending
+        current: "88.53%"
+        missed_lines: 43
+
+      - task: "update.rs"
+        status: pending
+        current: "83.45%"
+        missed_lines: 49
+
+    success_criteria:
+      - "All medium files at 100% or excluded via ADR-006"
+      - "Zero warnings"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # MILESTONE 3: Complex Files (~430 lines) - May Need cfg(not(coverage))
+  # ─────────────────────────────────────────────────────────────────────────────
+  - version: "5.11.0"
+    summary: "100% Coverage - Complex Files (50+ missed lines)"
+    priority: HIGH
+    status: pending
+    estimated_effort: "2-3 sessions"
+    notes: "These files may have untestable paths (OS-specific, server startup, etc.) - use ADR-006 pattern"
+
+    deliverables:
+      - task: "mcp/server.rs"
+        status: pending
+        current: "93.37%"
+        missed_lines: 62
+        notes: "Server startup/shutdown may need cfg(not(coverage))"
+
+      - task: "cli/commands/analysis.rs"
+        status: pending
+        current: "89.11%"
+        missed_lines: 70
+
+      - task: "parser/mod.rs"
+        status: pending
+        current: "87.13%"
+        missed_lines: 70
+
+      - task: "evaluator/mod.rs"
+        status: pending
+        current: "82.07%"
+        missed_lines: 104
+        notes: "Core evaluator - may have error paths hard to trigger"
+
+      - task: "excel/exporter.rs"
+        status: pending
+        current: "83.71%"
+        missed_lines: 124
+        notes: "Excel export edge cases - may need cfg(not(coverage)) for some"
 
     success_criteria:
       - "100% test coverage for all functional code"
-      - "All tests pass"
+      - "Untestable code properly excluded via #[cfg(not(coverage))]"
       - "Zero warnings"
+      - "All tests pass"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG

@@ -775,4 +775,72 @@ mod tests {
             Value::Number(120.0)
         );
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VALUE ENUM EDGE CASES (ADR-006 coverage)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_value_array_equality() {
+        let arr1 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
+        let arr2 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
+        let arr3 = Value::Array(vec![Value::Number(1.0)]);
+        assert_eq!(arr1, arr2);
+        assert_ne!(arr1, arr3);
+    }
+
+    #[test]
+    fn test_value_null_equality() {
+        assert_eq!(Value::Null, Value::Null);
+        assert_ne!(Value::Null, Value::Number(0.0));
+    }
+
+    #[test]
+    fn test_value_lambda_never_equal() {
+        use crate::core::array_calculator::parser::Expr;
+        let lambda1 = Value::Lambda {
+            params: vec!["x".to_string()],
+            body: Box::new(Expr::Number(1.0)),
+        };
+        let lambda2 = Value::Lambda {
+            params: vec!["x".to_string()],
+            body: Box::new(Expr::Number(1.0)),
+        };
+        // Lambdas never compare equal
+        assert_ne!(lambda1, lambda2);
+    }
+
+    #[test]
+    fn test_value_array_as_number() {
+        // Array as_number returns length
+        let arr = Value::Array(vec![
+            Value::Number(1.0),
+            Value::Number(2.0),
+            Value::Number(3.0),
+        ]);
+        assert_eq!(arr.as_number(), Some(3.0));
+    }
+
+    #[test]
+    fn test_value_lambda_as_number() {
+        use crate::core::array_calculator::parser::Expr;
+        let lambda = Value::Lambda {
+            params: vec![],
+            body: Box::new(Expr::Number(42.0)),
+        };
+        assert_eq!(lambda.as_number(), None);
+    }
+
+    #[test]
+    fn test_value_null_as_number() {
+        assert_eq!(Value::Null.as_number(), None);
+    }
+
+    #[test]
+    fn test_value_mixed_type_inequality() {
+        // Different types should not be equal
+        assert_ne!(Value::Number(1.0), Value::Text("1".to_string()));
+        assert_ne!(Value::Boolean(true), Value::Number(1.0));
+        assert_ne!(Value::Array(vec![]), Value::Null);
+    }
 }
