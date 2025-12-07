@@ -12,23 +12,23 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 metadata:
-  current_version: "5.3.0"
+  current_version: "5.4.0"
   last_updated: "2025-12-06"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "5.3.0"
+  version: "5.4.0"
   status: released
   date: "2025-12-06"
-  summary: "Auto-Upgrade Schema + Self-Update CLI"
+  summary: "Code Organization - Split Large Files"
   highlights:
-    - "Auto-upgrade old schema versions on calculate (v1.0.0 → v5.0.0)"
-    - "Self-update CLI from GitHub releases (redirect method, no rate limits)"
-    - "7 inline tests for auto-upgrade feature"
-    - "Improved update module with SHA256 checksum verification"
+    - "Split evaluator.rs (2,918 lines) into 13 submodules"
+    - "Split parser/mod.rs (2,059 lines) into mod.rs + tests.rs"
+    - "Split commands.rs (2,655 lines) into 6 submodules"
+    - "All source files now under 1,000 lines"
   stats:
-    tests: 972
+    tests: 1609
     warnings: 0
     functions_total: 81
     coverage: "~91%"
@@ -39,72 +39,29 @@ current:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "5.4.0"
-    summary: "Code Organization - Split Large Files"
-    priority: HIGH
+  - version: "5.5.0"
+    summary: "Test File Organization"
+    priority: MEDIUM
     status: pending
 
     rationale: |
-      Large files hurt human readability and maintainability.
-      evaluator.rs (2,918 lines) has 16 clear sections that can be split.
-      parser/mod.rs (2,059 lines) is clean serde_yaml, split by feature.
-      Tests stay with code per Rust convention (#[cfg(test)] mod tests).
+      Pre-commit hook flagged large test files during v5.4.0 commit.
+      Organizing test files improves maintainability without changing functionality.
 
     deliverables:
-      - task: "Split evaluator.rs into submodules by function category"
+      - task: "Split large test files (>1500 lines)"
         status: pending
         details: |
-          evaluator/
-          ├── mod.rs          (~300 lines) - Value, EvalContext, evaluate(), dispatch + tests
-          ├── math.rs         (~170 lines) - ABS, ROUND, SQRT, POW, EXP, LN, LOG + tests
-          ├── aggregation.rs  (~90 lines)  - SUM, AVERAGE, COUNT, MIN, MAX, PRODUCT + tests
-          ├── statistical.rs  (~135 lines) - STDEV, VAR, MEDIAN, PERCENTILE, CORREL + tests
-          ├── conditional.rs  (~205 lines) - SUMIF, COUNTIF, AVERAGEIF, SUMIFS + tests
-          ├── array.rs        (~55 lines)  - INDEX, MATCH, CHOOSE + tests
-          ├── logical.rs      (~50 lines)  - IF, AND, OR, NOT, IFS + tests
-          ├── text.rs         (~75 lines)  - CONCAT, LEFT, RIGHT, MID, LEN + tests
-          ├── dates.rs        (~300 lines) - TODAY, DATE, YEAR, EDATE, EOMONTH + tests
-          ├── lookup.rs       (~250 lines) - VLOOKUP, HLOOKUP, XLOOKUP, INDIRECT + tests
-          ├── financial.rs    (~330 lines) - NPV, IRR, PMT, PV, FV, SLN, DB, DDB + tests
-          ├── forge.rs        (~150 lines) - VARIANCE_STATUS, SCENARIO, GROWTH_RATE + tests
-          └── advanced.rs     (~115 lines) - LET, LAMBDA, SWITCH, FILTER, SORT + tests
-
-      - task: "Split parser/mod.rs into submodules (2,059 lines)"
-        status: pending
-        details: |
-          parser/
-          ├── mod.rs        (~200 lines) - entry point, dispatch + tests
-          ├── single.rs     (~150 lines) - single doc parsing + tests
-          ├── multi_doc.rs  (~100 lines) - multi-document YAML + tests
-          ├── includes.rs   (~80 lines)  - file includes resolution + tests
-          ├── tables.rs     (~150 lines) - table/column parsing + tests
-          ├── scalars.rs    (~100 lines) - scalar variable parsing + tests
-          ├── scenarios.rs  (~50 lines)  - scenario parsing + tests
-          └── validation.rs (~30 lines)  - JSON schema validation + tests
-
-      - task: "Split commands.rs by command handler (2,445 lines)"
-        status: pending
-        details: |
-          commands/
-          ├── mod.rs         - dispatch + shared helpers + tests
-          ├── calculate.rs   - calculate() + tests
-          ├── validate.rs    - validate() + tests
-          ├── audit.rs       - audit(), dependency tree + tests
-          ├── export.rs      - export() + tests
-          ├── import.rs      - import() + tests
-          ├── compare.rs     - compare() + tests
-          ├── variance.rs    - variance() + tests
-          ├── sensitivity.rs - sensitivity() + tests
-          ├── goal_seek.rs   - goal_seek() + tests
-          ├── break_even.rs  - break_even() + tests
-          ├── functions.rs   - functions() + tests
-          ├── upgrade.rs     - upgrade() + tests
-          └── watch.rs       - watch() + tests
+          Files to split:
+          - tests/array_calculator_tests.rs (3431 lines)
+          - tests/e2e_tests.rs (2435 lines)
+          - tests/formula_edge_cases_tests.rs (1739 lines)
+          - src/core/array_calculator/tests/mod.rs (11413 lines)
+          - src/cli/commands_tests.rs (2615 lines)
 
     success_criteria:
-      - "No file > 1,000 lines"
-      - "Unit tests in same file as code (Rust convention)"
-      - "All 918+ tests pass"
+      - "No test file > 1,500 lines"
+      - "All tests pass"
       - "Zero warnings"
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -112,6 +69,9 @@ next:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 released:
+  - version: "5.4.0"
+    date: "2025-12-06"
+    summary: "Code Organization - Split Large Files"
   - version: "5.3.0"
     date: "2025-12-06"
     summary: "Auto-Upgrade Schema + Self-Update CLI"
