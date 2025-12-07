@@ -65,87 +65,17 @@ next:
       - "Zero warnings"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# RELEASED VERSIONS (summary only - see CHANGELOG.md for details)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-released:
-  - version: "5.5.0"
-    date: "2025-12-06"
-    summary: "OS-Aware Build System"
-  - version: "5.4.0"
-    date: "2025-12-06"
-    summary: "Code Organization - Split Large Files"
-  - version: "5.3.0"
-    date: "2025-12-06"
-    summary: "Auto-Upgrade Schema + Self-Update CLI"
-  - version: "5.2.0"
-    date: "2025-12-06"
-    summary: "AST Parser - Clean Architecture"
-  - version: "5.0.0"
-    date: "2025-12-04"
-    summary: "BREAKING: MIT → Proprietary"
-  - version: "4.4.2"
-    date: "2025-12-04"
-    summary: "Multi-Document YAML + Includes Export"
-  - version: "4.4.1"
-    date: "2025-12-04"
-    summary: "Scalar Math Functions Bug Fix"
-  - version: "4.4.0"
-    date: "2025-12-04"
-    summary: "Dynamic Array Functions + Scenario Modeling"
-  - version: "4.3.0"
-    date: "2025-12-04"
-    summary: "File Write-Back + Strict Schema Validation"
-  - version: "4.2.1"
-    date: "2025-12-02"
-    summary: "Bug Fixes - Real-world validation issues"
-  - version: "4.2.0"
-    date: "2025-12-01"
-    summary: "Release Automation - Cross-platform CI/CD"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# MARKET INTELLIGENCE (Updated Dec 2025)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-market:
-  last_updated: "2025-12-04"
-
-  microsoft_excel:
-    copilot_function:
-      launched: "Nov 2025"
-      description: "=COPILOT() function in cells - AI generates content"
-      limits: "100 calls/10min, 300 calls/hour"
-      requires: "OneDrive/SharePoint (cloud-only)"
-      weakness: "Still hallucinates - probabilistic, not deterministic"
-
-  forge_differentiators:
-    vs_copilot:
-      - "Deterministic (same input = same output, always)"
-      - "Local execution (no cloud dependency)"
-      - "Git-friendly (YAML = version control)"
-      - "No hallucinations (formulas, not predictions)"
-      - "Forge-native FP&A functions (variance, break-even, scenarios)"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# BACKLOG & RESEARCH
+# BACKLOG
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
   - id: "test-coverage-100"
     title: "100% Test Coverage (ADR-004)"
     status: "in_progress (95.1%)"
-    details: |
-      Current: ~91% overall, commands.rs at 95.1%
-      Remaining (~5%):
-      - Edge case branches in audit(), variance(), compare() helpers
-      - Some error paths in sensitivity/break_even output formatting
-      - watch() excluded via ADR-006 (infinite loop)
   - "OpenAPI spec + Swagger UI for API server"
-  - "Forge vs Copilot benchmark suite (marketing)"
+  - "Forge vs Copilot benchmark suite"
   - "Excel compatibility matrix doc"
 
-research:
-  - id: "experiential-continuity"
-    title: "Experiential Continuity Layer"
-    status: research
-    doc: "docs/research/EXPERIENTIAL_CONTINUITY.md"
+# ═══════════════════════════════════════════════════════════════════════════════
+# For version history, see CHANGELOG.md
+# ═══════════════════════════════════════════════════════════════════════════════
