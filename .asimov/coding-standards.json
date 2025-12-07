@@ -1,0 +1,15 @@
+{
+  "philosophy": "Human-readable, beautiful, well-formatted code",
+  "rfc2119": {
+    "MUST": "We follow (obviously)",
+    "SHOULD": "We follow (best practice = we do it)",
+    "MAY": "We don't care (no opinion needed, zero bikeshedding)"
+  },
+  "principles": [
+    "Code is for humans first, machines second",
+    "Tests are documentation",
+    "No warnings, no exceptions",
+    "Done > Perfect, but not sloppy"
+  ],
+  "rule": "See project.yaml coding_standards section for project-specific rules"
+}

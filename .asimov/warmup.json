@@ -3,6 +3,7 @@
   "description": "RoyalBit Asimov - Session warmup entry point",
   "on_start": [
     "load_protocols",
+    "load_project",
     "validate",
     "read_roadmap",
     "present_milestone"
@@ -13,7 +14,7 @@
     "sycophancy.json",
     "green.json",
     "sprint.json",
-    "migrations.json",
-    "exhaustive.json"
+    "exhaustive.json",
+    "coding-standards.json"
   ]
 }

@@ -40,6 +40,58 @@ current:
 
 next:
   - version: "5.3.0"
+    summary: "Auto-Upgrade Schema + Self-Update CLI"
+    priority: CRITICAL
+    status: pending
+
+    rationale: |
+      Two critical features for single-user workflow:
+      1. Auto-upgrade schema on calculate (no manual forge upgrade needed)
+      2. Self-update CLI from GitHub releases (like asimov update)
+
+    deliverables:
+      # Feature 1: Auto-Upgrade Schema on Calculate
+      - task: "Auto-detect old schema version on calculate"
+        status: pending
+        details: |
+          When forge calculate runs on a model with _forge_version < 5.0.0:
+          1. Detect version mismatch
+          2. Auto-upgrade to 5.0.0 format
+          3. Continue with calculation
+          4. Save upgraded file (with backup)
+      - task: "Migrate scalars to inputs/outputs sections"
+        status: pending
+        details: |
+          - value-only scalars → inputs section
+          - formula scalars → outputs section
+      - task: "Add inline tests for auto-upgrade"
+        status: pending
+
+      # Feature 2: Self-Update from GitHub (like asimov)
+      - task: "Add update.rs module (port from asimov)"
+        status: pending
+        details: |
+          Core functions from asimov/cli/src/update.rs:
+          - check_for_update() - follows GitHub redirect, no API rate limits
+          - get_platform_asset() - returns correct binary for OS/arch
+          - perform_update() - download, verify checksum, replace binary
+          - is_newer_version() - semver comparison
+      - task: "Add 'forge update' CLI command"
+        status: pending
+        details: |
+          forge update              # Check and install updates
+          forge update --check      # Check only, don't install
+          forge update --force      # Force reinstall current version
+      - task: "Add inline tests for update module"
+        status: pending
+
+    success_criteria:
+      - "forge calculate old_model.yaml auto-upgrades to 5.0.0"
+      - "forge update downloads and installs from GitHub releases"
+      - "All tests pass"
+      - "Zero warnings"
+
+  - version: "5.4.0"
     summary: "Code Organization - Split Large Files"
     priority: HIGH
     status: pending
