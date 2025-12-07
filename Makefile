@@ -1,18 +1,82 @@
 # Forge - YAML Formula Calculator
 # Build and test targets for optimized binary
 
-.PHONY: help build build-static build-compressed install install-user install-system uninstall lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
+.PHONY: help build build-static build-compressed build-all install install-user install-system uninstall lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
 
-# Detect if upx is available
+# ═══════════════════════════════════════════════════════════════════════════════
+# OS AND ARCHITECTURE DETECTION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+UNAME_S := $(shell uname -s 2>/dev/null || echo Windows)
+UNAME_M := $(shell uname -m 2>/dev/null || echo x86_64)
+
+# Normalize architecture names
+ifeq ($(UNAME_M),arm64)
+    ARCH := aarch64
+else ifeq ($(UNAME_M),aarch64)
+    ARCH := aarch64
+else
+    ARCH := x86_64
+endif
+
+# Set platform-specific variables
+ifeq ($(UNAME_S),Linux)
+    PLATFORM := linux
+    BUILD_TARGET := $(ARCH)-unknown-linux-musl
+    STATIC_BINARY := target/$(BUILD_TARGET)/release/forge
+    TARGET_FLAG := --target $(BUILD_TARGET)
+    UPX_SUPPORTED := true
+else ifeq ($(UNAME_S),Darwin)
+    PLATFORM := macos
+    BUILD_TARGET := $(ARCH)-apple-darwin
+    STATIC_BINARY := target/release/forge
+    TARGET_FLAG :=
+    # UPX not supported on macOS - breaks code signing
+    UPX_SUPPORTED := false
+else ifneq (,$(findstring MINGW,$(UNAME_S)))
+    PLATFORM := windows
+    BUILD_TARGET := x86_64-pc-windows-msvc
+    STATIC_BINARY := target/release/forge.exe
+    TARGET_FLAG :=
+    UPX_SUPPORTED := true
+else ifneq (,$(findstring MSYS,$(UNAME_S)))
+    PLATFORM := windows
+    BUILD_TARGET := x86_64-pc-windows-msvc
+    STATIC_BINARY := target/release/forge.exe
+    TARGET_FLAG :=
+    UPX_SUPPORTED := true
+else ifeq ($(OS),Windows_NT)
+    PLATFORM := windows
+    BUILD_TARGET := x86_64-pc-windows-msvc
+    STATIC_BINARY := target/release/forge.exe
+    TARGET_FLAG :=
+    UPX_SUPPORTED := true
+else
+    PLATFORM := unknown
+    BUILD_TARGET :=
+    STATIC_BINARY := target/release/forge
+    TARGET_FLAG :=
+    UPX_SUPPORTED := false
+endif
+
+# Detect if tools are available
 HAS_UPX := $(shell command -v upx 2> /dev/null)
+HAS_CROSS := $(shell command -v cross 2> /dev/null)
+
+# Cross-compilation targets (for build-all)
+CROSS_TARGETS := x86_64-unknown-linux-musl aarch64-unknown-linux-musl x86_64-pc-windows-gnu
 
 help:
 	@echo "🔥 Forge - Available Commands"
 	@echo ""
+	@echo "Platform: $(PLATFORM) ($(ARCH))"
+	@echo "Target:   $(BUILD_TARGET)"
+	@echo ""
 	@echo "Build Targets:"
 	@echo "  make build              - Standard release build (with pre/post checks)"
-	@echo "  make build-static       - Static release build (musl, 1.2MB)"
-	@echo "  make build-compressed   - Static + UPX compressed (440KB)"
+	@echo "  make build-static       - Static release build for current platform"
+	@echo "  make build-compressed   - Static + UPX compressed (Linux/Windows only)"
+	@echo "  make build-all          - Cross-compile for all platforms (requires cross-rs)"
 	@echo ""
 	@echo "Install Targets:"
 	@echo "  make install            - Install to /usr/local/bin (system-wide, requires sudo)"
@@ -93,47 +157,100 @@ build: pre-build
 	@$(MAKE) -s post-build
 
 build-static:
-	@echo "🔨 Building static release binary (musl)..."
-	@cargo build --release --target x86_64-unknown-linux-musl
-	@echo "✅ Binary: target/x86_64-unknown-linux-musl/release/forge"
-	@ls -lh target/x86_64-unknown-linux-musl/release/forge
+	@echo "🔨 Building static release binary..."
+	@echo "   Platform: $(PLATFORM) ($(ARCH))"
+	@echo "   Target:   $(BUILD_TARGET)"
+ifeq ($(PLATFORM),linux)
+	@cargo build --release $(TARGET_FLAG)
+else ifeq ($(PLATFORM),macos)
+	@cargo build --release
+else ifeq ($(PLATFORM),windows)
+	@cargo build --release
+else
+	@echo "❌ Unknown platform: $(UNAME_S)"
+	@exit 1
+endif
+	@echo "✅ Binary: $(STATIC_BINARY)"
+	@ls -lh $(STATIC_BINARY)
 
 build-compressed: build-static
 	@echo ""
+ifeq ($(UPX_SUPPORTED),true)
 ifdef HAS_UPX
 	@echo "📦 BEFORE compression:"
-	@ls -lh target/x86_64-unknown-linux-musl/release/forge | tail -1
-	@BEFORE=$$(stat -c%s target/x86_64-unknown-linux-musl/release/forge 2>/dev/null || stat -f%z target/x86_64-unknown-linux-musl/release/forge); \
+	@ls -lh $(STATIC_BINARY) | tail -1
+	@BEFORE=$$(stat -c%s $(STATIC_BINARY) 2>/dev/null || stat -f%z $(STATIC_BINARY)); \
 	echo ""; \
 	echo "🗜️  Compressing with UPX --best --lzma..."; \
-	upx --best --lzma target/x86_64-unknown-linux-musl/release/forge; \
+	upx --best --lzma $(STATIC_BINARY); \
 	echo ""; \
 	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
-	echo "✨ WOW! AFTER compression:"; \
+	echo "✨ AFTER compression:"; \
 	echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
-	ls -lh target/x86_64-unknown-linux-musl/release/forge | tail -1; \
-	AFTER=$$(stat -c%s target/x86_64-unknown-linux-musl/release/forge 2>/dev/null || stat -f%z target/x86_64-unknown-linux-musl/release/forge); \
+	ls -lh $(STATIC_BINARY) | tail -1; \
+	AFTER=$$(stat -c%s $(STATIC_BINARY) 2>/dev/null || stat -f%z $(STATIC_BINARY)); \
 	SAVED=$$(($$BEFORE - $$AFTER)); \
 	PERCENT=$$(awk "BEGIN {printf \"%.1f\", ($$SAVED / $$BEFORE) * 100}"); \
 	echo ""; \
 	echo "🎉 Saved: $$SAVED bytes ($$PERCENT% smaller!)"; \
 	echo "📊 From $$(numfmt --to=iec-i --suffix=B $$BEFORE 2>/dev/null || echo $$BEFORE bytes) → $$(numfmt --to=iec-i --suffix=B $$AFTER 2>/dev/null || echo $$AFTER bytes)"
 else
-	@echo "⚠️  UPX not found - install with: sudo apt install upx-ucl"
+	@echo "⚠️  UPX not found - install with: sudo apt install upx-ucl (Linux) or choco install upx (Windows)"
 	@echo "📦 Static binary built (not compressed):"
-	@ls -lh target/x86_64-unknown-linux-musl/release/forge
+	@ls -lh $(STATIC_BINARY)
 endif
+else
+	@echo "ℹ️  UPX compression not supported on $(PLATFORM) (breaks code signing)"
+	@echo "📦 Static binary built:"
+	@ls -lh $(STATIC_BINARY)
+endif
+
+# Cross-compile for all platforms (requires cross-rs: cargo install cross)
+build-all:
+	@echo "🌍 Cross-compiling for all platforms..."
+	@echo ""
+ifndef HAS_CROSS
+	@echo "❌ cross-rs not found. Install with: cargo install cross"
+	@echo "   Also requires Docker to be running."
+	@exit 1
+endif
+	@mkdir -p dist
+	@for target in $(CROSS_TARGETS); do \
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+		echo "🔨 Building for $$target..."; \
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+		cross build --release --target $$target || exit 1; \
+		if echo "$$target" | grep -q "windows"; then \
+			cp target/$$target/release/forge.exe dist/forge-$$target.exe; \
+			ls -lh dist/forge-$$target.exe; \
+		else \
+			cp target/$$target/release/forge dist/forge-$$target; \
+			ls -lh dist/forge-$$target; \
+		fi; \
+		echo ""; \
+	done
+	@echo "✅ All builds complete! Binaries in dist/"
+	@ls -lh dist/
 
 install-system: clean build-compressed
 	@echo "📦 Installing forge to /usr/local/bin (system-wide)..."
-	@sudo install -m 755 target/x86_64-unknown-linux-musl/release/forge /usr/local/bin/forge
+ifeq ($(PLATFORM),windows)
+	@echo "❌ Use install-user on Windows or copy manually"
+	@exit 1
+else
+	@sudo install -m 755 $(STATIC_BINARY) /usr/local/bin/forge
 	@echo "✅ Installed to /usr/local/bin/forge"
 	@echo "🔍 Verify with: forge --version"
+endif
 
 install-user: clean build-compressed
 	@echo "📦 Installing forge to ~/.local/bin (user-only)..."
 	@mkdir -p ~/.local/bin
-	@install -m 755 target/x86_64-unknown-linux-musl/release/forge ~/.local/bin/forge
+ifeq ($(PLATFORM),windows)
+	@copy $(STATIC_BINARY) %USERPROFILE%\.local\bin\forge.exe
+else
+	@install -m 755 $(STATIC_BINARY) ~/.local/bin/forge
+endif
 	@echo "✅ Installed to ~/.local/bin/forge"
 	@echo "💡 Make sure ~/.local/bin is in your PATH"
 	@echo "🔍 Verify with: forge --version"
