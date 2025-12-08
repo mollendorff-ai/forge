@@ -80,6 +80,13 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 
+[features]
+default = []
+# LibreOffice E2E validation tests - validates Forge calculations against battle-proven spreadsheet engine
+# Run with: cargo test --features e2e-libreoffice
+# Requires: LibreOffice installed (libreoffice --version)
+e2e-libreoffice = []
+
 [dev-dependencies]
 # Testing
 pretty_assertions = "1.4"

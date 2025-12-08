@@ -47,10 +47,129 @@ current:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  # ─────────────────────────────────────────────────────────────────────────────
-  # MILESTONE 1: Dead Code Removal + Quick Wins (~150 lines)
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # HIGHLY-CRITICAL: LibreOffice E2E Validation
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # We don't know if Forge hallucinated formulas. LibreOffice is battle-proven
+  # (decades of use, millions of users). Validate OUR work against something REAL.
+  # Fully automated. Zero manual work. CI-integrated.
+  #
+  # 9 PHASES - Each phase = commit + push after success
+  # Target: 1-2 hours (ref: Nov 25 2025 = 21 commits in one day)
+  # ═══════════════════════════════════════════════════════════════════════════════
+
   - version: "5.9.0"
+    summary: "LibreOffice E2E Validation - Complete"
+    priority: CRITICAL
+    status: pending
+    estimated_effort: "1-2 hours"
+    notes: "Battle-proven validation. Zero manual work. Fully automated. All 62 functions."
+
+    deliverables:
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 1: Infrastructure (commit after success)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Add e2e-libreoffice feature flag to Cargo.toml"
+        status: pending
+        phase: 1
+
+      - task: "Create tests/e2e/libreoffice/ directory structure"
+        status: pending
+        phase: 1
+
+      - task: "LibreOffice detection utility (skip gracefully if missing)"
+        status: pending
+        phase: 1
+
+      - task: "Basic headless validation test"
+        status: pending
+        phase: 1
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 2: Export Harness + Basic Functions (commit after success)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "E2E test harness: Forge export → LibreOffice recalc → compare"
+        status: pending
+        phase: 2
+
+      - task: "Validate SUM, AVERAGE, COUNT, MIN, MAX"
+        status: pending
+        phase: 2
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 3: Math & Statistical (commit after success)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate math functions (ABS, ROUND, SQRT, POWER, etc.)"
+        status: pending
+        phase: 3
+
+      - task: "Validate statistical functions (STDEV, VAR, MEDIAN, etc.)"
+        status: pending
+        phase: 3
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 4: Financial (commit after success)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate financial functions (PMT, FV, PV, NPV, IRR, RATE)"
+        status: pending
+        phase: 4
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 5: Dates (commit after success)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate date functions (DATE, YEAR, MONTH, DAY, TODAY, etc.)"
+        status: pending
+        phase: 5
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 6: Text & Logical (commit after success)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate text functions (CONCAT, LEFT, RIGHT, MID, LEN, etc.)"
+        status: pending
+        phase: 6
+
+      - task: "Validate logical functions (IF, AND, OR, NOT, TRUE, FALSE)"
+        status: pending
+        phase: 6
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 7: Lookup (commit after success)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate lookup functions (VLOOKUP, HLOOKUP, INDEX, MATCH)"
+        status: pending
+        phase: 7
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 8: Import Validation (commit after success)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "LibreOffice creates XLSX → Forge imports → compare results"
+        status: pending
+        phase: 8
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 9: CI Integration (commit after success)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "GitHub Actions workflow for E2E tests"
+        status: pending
+        phase: 9
+
+      - task: "Documentation: E2E testing guide"
+        status: pending
+        phase: 9
+
+    success_criteria:
+      - "All 62 Excel functions validated against LibreOffice"
+      - "Round-trip validation complete (Forge ↔ LibreOffice)"
+      - "CI runs E2E tests on every PR"
+      - "Discrepancies documented (if any)"
+      - "Zero warnings"
+      - "All tests pass"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 100% COVERAGE MILESTONES (after E2E validation)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.10.0"
     summary: "100% Coverage - Dead Code & Quick Wins"
     priority: HIGH
     status: pending
@@ -145,10 +264,7 @@ next:
       - "All quick win files at 100%"
       - "Zero warnings"
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # MILESTONE 2: Medium Effort Files (~200 lines)
-  # ─────────────────────────────────────────────────────────────────────────────
-  - version: "5.10.0"
+  - version: "5.11.0"
     summary: "100% Coverage - Medium Files (15-50 missed lines)"
     priority: HIGH
     status: pending
@@ -224,10 +340,7 @@ next:
       - "All medium files at 100% or excluded via ADR-006"
       - "Zero warnings"
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # MILESTONE 3: Complex Files (~430 lines) - May Need cfg(not(coverage))
-  # ─────────────────────────────────────────────────────────────────────────────
-  - version: "5.11.0"
+  - version: "5.12.0"
     summary: "100% Coverage - Complex Files (50+ missed lines)"
     priority: HIGH
     status: pending
