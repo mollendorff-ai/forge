@@ -394,7 +394,9 @@ This means: If Gnumeric (battle-proven, millions of users) agrees with Forge, th
 |----------|-------------|
 | [CHANGELOG](CHANGELOG.md) | Version history |
 | [Competitive Analysis](docs/COMPETITIVE_ANALYSIS.md) | Market positioning, pricing comparison |
+| [Hosting Architecture](docs/HOSTING_ARCHITECTURE.md) | Infrastructure and deployment |
 | [Architecture](docs/architecture/) | Technical design |
+| [ADR-011: Source Closure](docs/architecture/ADR-011-SOURCE-CODE-CLOSURE.md) | Business decision record |
 | [AI Economics](docs/AI_ECONOMICS.md) | Cost savings analysis |
 | [JSON Schema](schema/) | Model validation schema |
 
