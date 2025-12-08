@@ -66,6 +66,10 @@ next:
       Git history preserved: 330+ commits = ASIMOV velocity proof (2.75x Linus)
 
     deliverables:
+      # ═══════════════════════════════════════════════════════════════════════════
+      # PHASE 1: GITOLITE MIGRATION (DONE)
+      # ═══════════════════════════════════════════════════════════════════════════
+
       - task: "Add royalbit/forge to gitolite.conf"
         status: done
         notes: "Pushed to gitolite-admin, repo initialized"
@@ -76,6 +80,7 @@ next:
           git remote rename origin github
           git remote add origin git@crypto1.ca:royalbit/forge.git
           git push -u origin main
+          GitHub repo set to PRIVATE
 
       - task: "Create hosting architecture doc"
         status: done
@@ -85,48 +90,127 @@ next:
         status: done
         notes: "docs/architecture/ADR-011-SOURCE-CODE-CLOSURE.md"
 
-      - task: "Add /forge/ directory to royalbit.ca"
+      - task: "Create /forge/ landing page on royalbit.ca"
+        status: done
+        notes: |
+          - html/forge/index.html created
+          - R&D narrative maintained
+          - GitHub Issues for contact (NO EMAIL = NO SPAM)
+          - Stats: 28k LOC, 1,709 tests, 89% coverage, 147 functions
+
+      # ═══════════════════════════════════════════════════════════════════════════
+      # PHASE 2: FRESH GITHUB REPO (NEXT)
+      # ═══════════════════════════════════════════════════════════════════════════
+
+      - task: "Create FRESH royalbit/forge repo on GitHub"
+        status: pending
+        priority: NEXT
+        notes: |
+          NOT forge-demo, keep the original name for SEO/discoverability!
+
+          DELETE current private repo, create FRESH with:
+          - NO git history (no source code traces)
+          - NO source code
+          - FRESH start
+
+          This becomes the PUBLIC face of Forge.
+
+      - task: "Add E2E validation suite to GitHub repo"
         status: pending
         notes: |
-          Binary downloads:
+          Contents:
+          - tests/e2e/ directory with Gnumeric/LibreOffice validation
+          - Example YAML models (showcase capabilities)
+          - Validation scripts that download binary from royalbit.ca
+          - CI workflow that runs E2E tests
+
+          PROVES: Forge formulas match Excel/Gnumeric/LibreOffice
+          NO SOURCE CODE - just tests + examples
+
+      - task: "Create README for GitHub repo (enterprise pitch)"
+        status: pending
+        notes: |
+          - Problem statement (AI hallucinates, Excel is binary)
+          - Solution (YAML + formula evaluation)
+          - Stats (28k LOC, 1,709 tests, 147 functions)
+          - E2E validation proof
+          - Download link → royalbit.ca/forge/
+          - Contact → GitHub Issues (partnerships, licensing)
+
+          R&D NARRATIVE - avoid CGI conflict of interest
+
+      - task: "Add ultra-restrictive LICENSE"
+        status: pending
+        notes: |
+          Evaluation-only license:
+          - View and test ONLY
+          - No commercial use
+          - No modification
+          - No redistribution
+          - Contact for licensing
+
+      - task: "Configure GitHub Issues for contact"
+        status: pending
+        notes: |
+          Issue templates:
+          - Partnership Inquiry
+          - Licensing Inquiry
+          - Bug Report (E2E tests only)
+          - Feature Request
+
+          NO EMAIL = NO SPAM. All inquiries through GitHub.
+
+      # ═══════════════════════════════════════════════════════════════════════════
+      # PHASE 3: BINARY DISTRIBUTION
+      # ═══════════════════════════════════════════════════════════════════════════
+
+      - task: "Build release binaries"
+        status: pending
+        notes: |
+          Cross-compile for:
+          - Linux x86_64
+          - macOS arm64 (Apple Silicon)
+          - macOS x86_64 (Intel)
+          - Windows x86_64
+
+          Strip symbols, optimize for size
+
+      - task: "Add binaries to royalbit.ca/forge/"
+        status: pending
+        notes: |
+          Files:
           - forge-linux-x86_64
           - forge-macos-arm64
+          - forge-macos-x86_64
           - forge-windows.exe
           - checksums.sha256
+          - install.sh (curl | sh installer)
 
-      - task: "Create royalbit/forge-demo on GitHub"
+          Deploy via kveldulf Docker Swarm
+
+      # ═══════════════════════════════════════════════════════════════════════════
+      # PHASE 4: ESCAPE VELOCITY
+      # ═══════════════════════════════════════════════════════════════════════════
+
+      - task: "Enterprise licensing structure"
         status: pending
         notes: |
-          Contents (NO SOURCE CODE):
-          - E2E test suite (Gnumeric validation)
-          - Example YAML models
-          - README with enterprise pitch
-          - Links to royalbit.ca/forge for downloads
-          - Ultra-restrictive evaluation license
-
-      - task: "Make GitHub royalbit/forge private or delete"
-        status: pending
-        notes: "After forge-demo is live, close the source repo"
-
-      - task: "Update LICENSE for closed source"
-        status: pending
-        notes: "All Rights Reserved for source, Eval-only for demo"
-
-      - task: "Prepare enterprise licensing structure"
-        status: pending
-        notes: |
-          Suggested tiers based on competitive analysis:
+          Tiers based on competitive analysis:
           - Startup: $3K-$12K/yr (vs Causal $3K)
           - Mid-market: $24K-$60K/yr (vs Datarails $24K-$60K)
           - Enterprise: $50K-$150K/yr (vs Anaplan $50K-$200K)
 
+          GOAL: Escape velocity from CGI.
+          20+ years of underpaid labour ends HERE.
+
     success_criteria:
-      - "Source code on gitolite (origin)"
-      - "Git history fully preserved (330+ commits)"
+      - "Source code on gitolite ONLY (no GitHub traces)"
+      - "Git history preserved locally (330+ commits = ASIMOV proof)"
+      - "FRESH GitHub repo (E2E tests, no source)"
+      - "GitHub Issues for contact (no spam)"
       - "Binaries on royalbit.ca/forge/"
-      - "forge-demo on GitHub (E2E + examples)"
-      - "GitHub source repo private/deleted"
-      - "Enterprise pitch materials ready"
+      - "E2E tests prove formula accuracy"
+      - "Enterprise clients can evaluate and reach out"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # CRITICAL: Documentation Polish - Make It Irresistible
