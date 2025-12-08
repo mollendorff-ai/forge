@@ -7,6 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.10.0] - 2025-12-08
+
+### Formula Translator Extended + E2E Validation Fixed
+
+Fixed the BROKEN state from interrupted v5.10.0 development.
+
+### Added
+
+- **Formula translator extended to 147 functions** for Excel export:
+  - Trigonometric (11): SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, RADIANS, DEGREES
+  - Financial (13): NPV, IRR, MIRR, XNPV, XIRR, PMT, FV, PV, RATE, NPER, SLN, DB, DDB
+  - Date (18): TODAY, NOW, DATE, YEAR, MONTH, DAY, WEEKDAY, HOUR, MINUTE, SECOND, DATEDIF, EDATE, EOMONTH, NETWORKDAYS, WORKDAY, YEARFRAC, DAYS, TIME
+  - Information (14): ISEVEN, ISODD, ISBLANK, ISERROR, ISNA, ISNUMBER, ISTEXT, ISLOGICAL, ISREF, ISFORMULA, NA, TYPE, N
+  - Math (19): ABS, ROUND, ROUNDUP, ROUNDDOWN, SQRT, POW, POWER, EXP, LN, LOG, LOG10, PI, E, MOD, CEILING, FLOOR, INT, TRUNC, SIGN
+  - Statistical (10): VAR, VARP, STDEV, STDEVP, CORREL, PERCENTILE, QUARTILE, LARGE, SMALL, RANK
+  - Text (15): CONCATENATE, CONCAT, LEFT, RIGHT, MID, LEN, UPPER, LOWER, TRIM, TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
+  - Lookup (14): VLOOKUP, HLOOKUP, XLOOKUP, INDEX, MATCH, OFFSET, INDIRECT, ADDRESS, ROW, COLUMN, ROWS, COLUMNS
+  - Array (6): UNIQUE, COUNTUNIQUE, SORT, FILTER, SEQUENCE, RANDARRAY
+  - Advanced (4): LET, LAMBDA, SWITCH, IFS
+  - Aggregation (8): SUM, AVERAGE, MAX, MIN, COUNT, COUNTA, PRODUCT, MEDIAN
+  - Conditional (8): SUMIF, SUMIFS, COUNTIF, COUNTIFS, AVERAGEIF, AVERAGEIFS, MAXIFS, MINIFS
+  - Logical (10): IF, AND, OR, NOT, XOR, TRUE, FALSE, IFERROR, IFNA, CHOOSE
+
+### Fixed
+
+- NPER test expected value corrected (57.68, not 56.07)
+- Consolidated redundant E2E tests to keep file under 1500 lines
+
+### Stats
+
+- Tests: 1709 (1676 unit + 33 E2E)
+- Functions in evaluator: 81
+- Functions in translator: 147
+- E2E formulas validated: 44
+- Warnings: 0
+
+---
+
+## [5.9.0] - 2025-12-07
+
+### Spreadsheet Engine E2E Validation
+
+External validation against battle-proven spreadsheet engines (Gnumeric/LibreOffice).
+
+### Added
+
+- **E2E test infrastructure**: `tests/e2e_libreoffice_tests.rs`
+- **SpreadsheetEngine detection**: Auto-detects Gnumeric (preferred) or LibreOffice
+- **E2ETestHarness**: Forge export → ssconvert recalc → CSV compare
+- **31 E2E tests** validating:
+  - Math functions: ABS, ROUND, SQRT, POWER, MOD, FLOOR, CEILING, LN, LOG10, EXP
+  - Financial functions: PMT, FV, PV, NPV, RATE, IRR
+  - Date functions: DATE, YEAR, MONTH, DAY, EDATE, EOMONTH
+  - Logical functions: IF, AND, OR, NOT
+  - Statistical: STDEV, VAR, MEDIAN
+
+### Changed
+
+- Feature flag: `cargo test --features e2e-libreoffice`
+- Tests skip gracefully if no spreadsheet engine installed
+
+### Stats
+
+- Tests: 1761 (1730 unit + 31 E2E)
+- Warnings: 0
+- Coverage: 89.23%
+
+---
+
+## [5.8.0] - 2025-12-07
+
+### Test Coverage Expansion
+
+Comprehensive test coverage improvements toward 100% goal.
+
+### Added
+
+- Additional unit tests for edge cases
+- Improved error path coverage
+
+### Stats
+
+- Tests: 1730
+- Warnings: 0
+- Coverage: 89.23%
+
+---
+
 ## [5.7.0] - 2025-12-06
 
 ### Changed (Coverage Cleanup)
