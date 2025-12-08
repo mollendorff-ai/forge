@@ -83,7 +83,7 @@ fn test_npv_against_gnumeric() {
 | Conditional | IF, SUMIF, COUNTIF, AVERAGEIF |
 | Date | DATE, YEAR, MONTH, DAY, DATEDIF |
 | Statistical | MEDIAN, STDEV, VAR |
-| **Total** | **44 formulas** |
+| **Total** | **60 formulas** |
 
 ## Rationale
 

@@ -42,7 +42,7 @@
 | [ADR-009](ADR-009-YAML-FOR-AI-EFFICIENCY.md) | YAML for AI Token Efficiency | Accepted |
 | [ADR-010](ADR-010-GIT-NATIVE-FINANCIAL-MODELING.md) | Git-Native Financial Modeling | Accepted |
 
-**Total:** ~14,000+ lines of comprehensive architecture documentation
+**Total:** Comprehensive architecture documentation (growing with each release)
 
 ---
 
