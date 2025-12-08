@@ -5,7 +5,7 @@
 [![Functions](https://img.shields.io/badge/functions-81-blue)](https://github.com/royalbit/forge)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
-**Financial modeling for the AI era. Git-native. Excel-compatible. FP&A-native.**
+**Financial modeling for the AI era. Git-native. Excel import/export. FP&A functions Excel forgot.**
 
 > Excel burns tokens. YAML doesn't.
 > AI is trained on millions of YAML files. Not spreadsheets.
