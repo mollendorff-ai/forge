@@ -1,6 +1,6 @@
 # Forge Roadmap
 # For version history, see CHANGELOG.md
-# Last updated: 2025-12-08 (v5.12.0 source closure complete)
+# Last updated: 2025-12-08
 #
 # ═══════════════════════════════════════════════════════════════════════════════
 # CODING STANDARDS
@@ -17,23 +17,16 @@ metadata:
   last_updated: "2025-12-08"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
-# Current Release
 current:
   version: "5.12.0"
   status: released
   date: "2025-12-08"
   summary: "Source Closure Complete - Gitolite + GitHub Demo"
-  highlights:
-    - "Phase 1: Source migrated to gitolite (git@crypto1.ca:royalbit/forge)"
-    - "Phase 2: Fresh GitHub demo repo (no source, no history)"
-    - "R&D narrative throughout (CGI-safe)"
-    - "royalbit.ca/forge/ landing page live"
   stats:
     tests: 1709
     warnings: 0
     functions_evaluator: 81
     functions_translator: 147
-    e2e_formulas_validated: 60
     coverage: "89.23%"
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -43,197 +36,82 @@ current:
 next:
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # CRITICAL: Demo Binary Strategy - Build a limited version for public
+  # 5.13.0: Function Parity (81 → 147) - DO THIS FIRST
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "5.13.0"
-    summary: "Demo Binary Strategy - Limited Public Release"
+    summary: "Complete Function Parity - ALL 147 Functions Working"
     priority: CRITICAL
     status: pending
-    estimated_effort: "2-3 sessions (planning + implementation)"
-    notes: |
-      We cannot release the full Forge binary publicly.
-      Need to create a DEMO version with limited capabilities.
-
-      FULL VERSION (private):          DEMO VERSION (public):
-      ─────────────────────────────    ─────────────────────────────
-      147 functions                    ~40 basic functions
-      v1.0.0, v4.0.0, v5.0.0 schemas   v1.0.0 schema ONLY
-      Rich metadata (unit, notes)      Basic scalars/tables only
-      Cross-file includes              No includes
-      VARIANCE, BREAKEVEN, SCENARIO    No FP&A functions
-      LET, LAMBDA, SWITCH              No advanced logic
-      API server                       CLI only (no server)
-
-      KEY QUESTION: How to build demo from full source?
-      - Compile-time feature flags?
-      - Separate crate/binary?
-      - Runtime license check?
-
-    deliverables:
-      - task: "Design demo binary architecture"
-        status: pending
-        notes: |
-          OPTIONS TO EVALUATE:
-
-          ┌─────────────────────────────────────────────────────────────────────┐
-          │ OPTION A: Feature Flags                                             │
-          ├─────────────────────────────────────────────────────────────────────┤
-          │ How: #[cfg(feature = "demo")] vs #[cfg(feature = "full")]           │
-          │ Build: cargo build --features demo                                  │
-          │ Pros: Single codebase, compile-time exclusion, no runtime overhead  │
-          │ Cons: Code complexity, conditional compilation everywhere           │
-          └─────────────────────────────────────────────────────────────────────┘
-
-          ┌─────────────────────────────────────────────────────────────────────┐
-          │ OPTION B: Separate Binary Target                                    │
-          ├─────────────────────────────────────────────────────────────────────┤
-          │ How: [[bin]] forge-demo in Cargo.toml, different main.rs            │
-          │ Build: cargo build --bin forge-demo                                 │
-          │ Pros: Clean separation, easy to reason about                        │
-          │ Cons: Code duplication, two binaries to maintain                    │
-          └─────────────────────────────────────────────────────────────────────┘
-
-          ┌─────────────────────────────────────────────────────────────────────┐
-          │ OPTION C: Runtime License Check                                     │
-          ├─────────────────────────────────────────────────────────────────────┤
-          │ How: Single binary, checks for license file to unlock features      │
-          │ Build: One binary for all                                           │
-          │ Pros: Simple distribution, upgrade path for customers               │
-          │ Cons: Enterprise code IN the binary (reversible), larger binary     │
-          └─────────────────────────────────────────────────────────────────────┘
-
-          ┌─────────────────────────────────────────────────────────────────────┐
-          │ OPTION D: Build Script Strips Code                                  │
-          ├─────────────────────────────────────────────────────────────────────┤
-          │ How: build.rs or pre-build script removes enterprise code           │
-          │ Build: Custom build pipeline                                        │
-          │ Pros: Clean demo binary, no enterprise code present                 │
-          │ Cons: Complex build process, fragile, hard to maintain              │
-          └─────────────────────────────────────────────────────────────────────┘
-
-          RECOMMENDATION: TBD (need to evaluate trade-offs together)
-
-      - task: "Define exact function list for demo (~40)"
-        status: pending
-        notes: |
-          Must include enough to be useful:
-          - Math: SUM, AVERAGE, MAX, MIN, ABS, ROUND, SQRT, POWER
-          - Financial: PMT, NPV, IRR, PV, FV, NPER, RATE
-          - Logical: IF, AND, OR, NOT, IFERROR
-          - Date: DATE, YEAR, MONTH, DAY, EDATE, EOMONTH, TODAY
-          - Text: CONCAT, LEFT, RIGHT, LEN, UPPER, LOWER, TRIM
-          - Aggregation: COUNT, COUNTA, MEDIAN, PRODUCT
-
-          Must EXCLUDE (enterprise only):
-          - VARIANCE, VARIANCE_PCT, VARIANCE_STATUS
-          - BREAKEVEN_UNITS, BREAKEVEN_REVENUE
-          - SCENARIO
-          - LET, LAMBDA, SWITCH, IFS
-          - UNIQUE, FILTER, SORT
-          - SUMIF, COUNTIF, AVERAGEIF (conditional)
-          - Cross-file includes
-          - v4.0.0/v5.0.0 schema features
-
-      - task: "Implement demo build system"
-        status: pending
-
-      - task: "Cross-compile demo binaries"
-        status: pending
-        notes: |
-          - Linux x86_64
-          - macOS arm64 (Apple Silicon)
-          - macOS x86_64 (Intel)
-          - Windows x86_64
-
-      - task: "Host demo binaries on royalbit.ca/forge/"
-        status: pending
-
-      - task: "Update GitHub demo repo with download links"
-        status: pending
-
-    success_criteria:
-      - "Demo binary compiles separately from full version"
-      - "Demo supports ~40 functions, v1.0.0 schema only"
-      - "Full version features are NOT in demo binary"
-      - "Binaries available for Linux, macOS, Windows"
-      - "E2E tests pass with demo binary"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # NORMAL: Documentation Polish
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  - version: "5.14.0"
-    summary: "Documentation Polish - Professional Quality"
-    priority: NORMAL
-    status: pending
-    estimated_effort: "1-2 sessions"
-    notes: |
-      Review and polish all documentation.
-      Target: Professional, enterprise-ready presentation.
-
-    deliverables:
-      - task: "Review all .md files in repo"
-        status: pending
-      - task: "Update stats to current values"
-        status: pending
-      - task: "Ensure R&D narrative consistency"
-        status: pending
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # NORMAL: Complete Function Parity (81 -> 147)
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  - version: "5.15.0"
-    summary: "Complete Function Parity - ALL 147 Functions Working"
-    priority: NORMAL
-    status: pending
-    estimated_effort: "2-3 sessions"
     notes: |
       GAP: 147 functions in translator, only 81 in evaluator.
       66 functions export to Excel but can't be calculated by Forge.
 
+      WHY FIRST: Makes Demo Binary (Option A) simpler later.
+      All functions exist → just add feature flags to gate enterprise ones.
+
     deliverables:
+      - task: "Audit missing functions (diff translator vs evaluator)"
+        status: pending
       - task: "Implement missing 66 functions in evaluator"
+        status: pending
+      - task: "Unit tests for each new function"
         status: pending
       - task: "E2E validate all 147 functions"
         status: pending
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # NORMAL: 100% Code Coverage
+  # 5.14.0: Demo Binary (Option A: Feature Flags)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.14.0"
+    summary: "Demo Binary - Feature Flags (Option A)"
+    priority: CRITICAL
+    status: pending
+    notes: |
+      DECISION: Option A - Feature Flags
+
+      cargo build              → demo (~40 functions, v1.0.0 only)
+      cargo build --features full → enterprise (147 functions, all schemas)
+
+      Gate with #[cfg(feature = "full")]:
+      - Enterprise functions (VARIANCE, BREAKEVEN, SCENARIO, LET, LAMBDA, etc.)
+      - v4.0.0/v5.0.0 schema support
+      - API server
+
+    deliverables:
+      - task: "Add 'full' feature to Cargo.toml"
+        status: pending
+      - task: "Gate enterprise functions"
+        status: pending
+      - task: "Cross-compile demo binaries"
+        status: pending
+      - task: "Host on royalbit.ca/forge/"
+        status: pending
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 5.15.0: Documentation Polish
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.15.0"
+    summary: "Documentation Polish"
+    priority: NORMAL
+    status: pending
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 5.16.0: 100% Coverage
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "5.16.0"
-    summary: "100% Coverage - Dead Code Removal + Full Coverage"
+    summary: "100% Coverage - Dead Code Removal"
     priority: NORMAL
     status: pending
-    estimated_effort: "2-3 sessions"
-
-    deliverables:
-      - task: "Remove dead code"
-        status: pending
-      - task: "Cover all reachable code paths"
-        status: pending
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
-  # Moved from Phase 4 - not ready yet (CGI conflict, need escape velocity first)
-  - "Enterprise licensing structure (when ready to leave CGI)"
-  - "Pricing tiers: Startup $3K-$12K, Mid-market $24K-$60K, Enterprise $50K-$150K"
-
-  # Technical debt
-  - "Git history cleanup - MIT license removal options"
-  - "GitHub Actions workflow for E2E tests"
-  - "OpenAPI spec + Swagger UI for API server"
-
-  # Future features
-  - "Forge vs Copilot benchmark suite"
-  - "Excel compatibility matrix documentation"
+  - "Enterprise licensing (when ready to leave CGI)"
+  - "Git history cleanup - MIT license removal"
   - "MCP server integration"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# For version history, see CHANGELOG.md
-# ═══════════════════════════════════════════════════════════════════════════════
