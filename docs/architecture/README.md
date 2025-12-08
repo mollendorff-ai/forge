@@ -33,9 +33,14 @@
 | [ADR-001](ADR-001-NO-GRPC.md) | HTTP REST Over gRPC | Accepted |
 | [ADR-002](ADR-002-VARIANCE-YAML-ONLY.md) | Variance YAML Only | Accepted |
 | [ADR-003](ADR-003-EDITOR-EXTENSIONS.md) | Editor Extension Architecture | Superseded |
-| [ADR-004](ADR-004-100-PERCENT-TEST-COVERAGE.md) | 100% Test Coverage Requirement | Accepted |
+| [ADR-004a](ADR-004-100-PERCENT-TEST-COVERAGE.md) | 100% Test Coverage Requirement | Accepted |
+| [ADR-004b](ADR-004-XLFORMULA-EQUIVALENCE.md) | xlformula_engine Equivalence Testing | Accepted |
 | [ADR-005](ADR-005-NO-LSP.md) | No Language Server Protocol | Accepted |
 | [ADR-006](ADR-006-COVERAGE-EXCLUSIONS.md) | Coverage Exclusions | Accepted |
+| [ADR-007](ADR-007-E2E-GNUMERIC-VALIDATION.md) | E2E Validation via Gnumeric | Accepted |
+| [ADR-008](ADR-008-FPA-NATIVE-FUNCTIONS.md) | FP&A-Native Functions | Accepted |
+| [ADR-009](ADR-009-YAML-FOR-AI-EFFICIENCY.md) | YAML for AI Token Efficiency | Accepted |
+| [ADR-010](ADR-010-GIT-NATIVE-FINANCIAL-MODELING.md) | Git-Native Financial Modeling | Accepted |
 
 **Total:** ~14,000+ lines of comprehensive architecture documentation
 
