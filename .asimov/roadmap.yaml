@@ -174,14 +174,17 @@ next:
   # ═══════════════════════════════════════════════════════════════════════════════
   # v5.9.0 validated ~27 functions. This milestone completes the remaining 65.
   # This test suite is a MOAT - nobody else has external validation like this!
+  #
+  # ONE VERSION - 14 PHASES - Commit + Push after each phase
+  # Reference: v5.9.0 built in ~1 hour today (31 tests, full infrastructure)
   # ═══════════════════════════════════════════════════════════════════════════════
 
   - version: "5.10.0"
-    summary: "Complete E2E Validation - ALL 92 Functions"
+    summary: "Complete E2E Validation - ALL 92 Functions + Documentation Moat"
     priority: CRITICAL
     status: pending
-    estimated_effort: "2-3 hours"
-    notes: "Complete the moat. Validate EVERY function against battle-proven Gnumeric."
+    estimated_effort: "2-3 hours (single session)"
+    notes: "ONE version. 14 phases. Commit+push after each. Complete the moat!"
 
     deliverables:
       # ─────────────────────────────────────────────────────────────────────────
