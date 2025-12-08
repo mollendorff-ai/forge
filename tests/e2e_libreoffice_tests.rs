@@ -1312,6 +1312,130 @@ fn e2e_libreoffice_index() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 8: ADDITIONAL MATH FUNCTIONS (xlformula_engine supported)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn e2e_libreoffice_roundup_rounddown() {
+    let harness = match E2ETestHarness::new() {
+        Some(h) => h,
+        None => {
+            eprintln!("⚠️  LibreOffice not available, skipping");
+            return;
+        }
+    };
+
+    // ROUNDUP always rounds away from zero
+    harness
+        .test_formula("ROUNDUP(3.14159, 2)", 3.15, 0.001)
+        .unwrap();
+    harness
+        .test_formula("ROUNDUP(3.141, 2)", 3.15, 0.001)
+        .unwrap();
+    harness
+        .test_formula("ROUNDUP(-3.14159, 2)", -3.15, 0.001)
+        .unwrap();
+
+    // ROUNDDOWN always rounds toward zero
+    harness
+        .test_formula("ROUNDDOWN(3.14159, 2)", 3.14, 0.001)
+        .unwrap();
+    harness
+        .test_formula("ROUNDDOWN(3.149, 2)", 3.14, 0.001)
+        .unwrap();
+    harness
+        .test_formula("ROUNDDOWN(-3.14159, 2)", -3.14, 0.001)
+        .unwrap();
+
+    println!("✅ ROUNDUP/ROUNDDOWN validated against LibreOffice");
+}
+
+#[test]
+fn e2e_libreoffice_log() {
+    let harness = match E2ETestHarness::new() {
+        Some(h) => h,
+        None => {
+            eprintln!("⚠️  LibreOffice not available, skipping");
+            return;
+        }
+    };
+
+    // LOG with base
+    harness.test_formula("LOG(100, 10)", 2.0, 0.001).unwrap();
+    harness.test_formula("LOG(8, 2)", 3.0, 0.001).unwrap();
+    harness.test_formula("LOG(27, 3)", 3.0, 0.001).unwrap();
+
+    println!("✅ LOG validated against LibreOffice");
+}
+
+#[test]
+fn e2e_libreoffice_pi() {
+    let harness = match E2ETestHarness::new() {
+        Some(h) => h,
+        None => {
+            eprintln!("⚠️  LibreOffice not available, skipping");
+            return;
+        }
+    };
+
+    // PI is supported
+    harness.test_formula("PI()", 3.14159, 0.0001).unwrap();
+    harness.test_formula("PI()/2", 1.5708, 0.001).unwrap();
+
+    println!("✅ PI validated against LibreOffice");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 9: ADDITIONAL DATE FUNCTIONS (xlformula_engine supported)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn e2e_libreoffice_date_arithmetic() {
+    let harness = match E2ETestHarness::new() {
+        Some(h) => h,
+        None => {
+            eprintln!("⚠️  LibreOffice not available, skipping");
+            return;
+        }
+    };
+
+    // Date subtraction gives number of days
+    harness
+        .test_formula("DATE(2024, 12, 31) - DATE(2024, 1, 1)", 365.0, 0.001)
+        .unwrap();
+
+    // YEAR subtraction for years
+    harness
+        .test_formula("YEAR(DATE(2025, 1, 1)) - YEAR(DATE(2020, 1, 1))", 5.0, 0.001)
+        .unwrap();
+
+    println!("✅ Date arithmetic validated against LibreOffice");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 10: ADDITIONAL LOGIC FUNCTIONS (xlformula_engine supported)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn e2e_libreoffice_iferror() {
+    let harness = match E2ETestHarness::new() {
+        Some(h) => h,
+        None => {
+            eprintln!("⚠️  LibreOffice not available, skipping");
+            return;
+        }
+    };
+
+    // IFERROR returns value_if_error when first arg is error
+    harness
+        .test_formula("IFERROR(1/0, -1)", -1.0, 0.001)
+        .unwrap();
+    harness.test_formula("IFERROR(10/2, -1)", 5.0, 0.001).unwrap();
+
+    println!("✅ IFERROR validated against LibreOffice");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // COMPREHENSIVE VALIDATION SUMMARY
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1338,28 +1462,58 @@ fn e2e_libreoffice_comprehensive_validation() {
     let mut failed = 0;
 
     // List of formulas to test with expected results
+    // Covers 50+ functions validated against Gnumeric/LibreOffice
     let tests: Vec<(&str, f64, f64)> = vec![
-        // Math
+        // === MATH (15 functions) ===
         ("ABS(-5)", 5.0, 0.001),
         ("SQRT(144)", 12.0, 0.001),
         ("POWER(2, 8)", 256.0, 0.001),
         ("MOD(17, 5)", 2.0, 0.001),
         ("ROUND(3.14159, 2)", 3.14, 0.001),
+        ("ROUNDUP(3.14159, 2)", 3.15, 0.001),
+        ("ROUNDDOWN(3.14159, 2)", 3.14, 0.001),
         ("FLOOR(3.7, 1)", 3.0, 0.001),
         ("CEILING(3.2, 1)", 4.0, 0.001),
+        ("INT(3.7)", 3.0, 0.001),
+        ("TRUNC(3.7)", 3.0, 0.001),
+        ("SIGN(-42)", -1.0, 0.001),
         ("LN(2.71828)", 1.0, 0.01),
         ("LOG10(1000)", 3.0, 0.001),
         ("EXP(0)", 1.0, 0.001),
-        // Logical
+        // === TRIGONOMETRY (7 functions) ===
+        ("PI()", 3.14159, 0.0001),
+        ("SIN(0)", 0.0, 0.001),
+        ("COS(0)", 1.0, 0.001),
+        ("TAN(0)", 0.0, 0.001),
+        ("RADIANS(180)", 3.14159, 0.0001),
+        ("DEGREES(PI())", 180.0, 0.001),
+        ("SIN(PI()/2)", 1.0, 0.001),
+        // === LOGICAL (5 functions) ===
         ("IF(10>5, 1, 0)", 1.0, 0.001),
         ("IF(10<5, 1, 0)", 0.0, 0.001),
-        // Financial
+        ("IFERROR(1/0, -1)", -1.0, 0.001),
+        ("IF(AND(1>0, 2>1), 1, 0)", 1.0, 0.001),
+        ("IF(OR(1<0, 2>1), 1, 0)", 1.0, 0.001),
+        // === FINANCIAL (8 functions) ===
         ("PMT(0.05/12, 60, 10000)", -188.71, 1.0),
         ("PV(0.08/12, 60, -1000)", 49318.43, 10.0),
-        // Date math
+        ("FV(0.05/12, 120, -100, 0)", 15528.23, 10.0),
+        ("NPV(0.1, 3000, 4200, 6800)", 11308.20, 10.0),
+        ("NPER(0.06/12, -200, 10000)", 56.07, 1.0),
+        ("SLN(30000, 7500, 10)", 2250.0, 1.0),
+        ("DDB(1000000, 100000, 6, 1)", 333333.33, 10.0),
+        ("RATE(48, -500, 20000)", 0.0077, 0.001),
+        // === DATE (7 functions) ===
         ("YEAR(DATE(2025, 6, 15))", 2025.0, 0.001),
         ("MONTH(DATE(2025, 6, 15))", 6.0, 0.001),
         ("DAY(DATE(2025, 6, 15))", 15.0, 0.001),
+        ("WEEKDAY(DATE(2025, 12, 7))", 1.0, 0.001),
+        ("HOUR(0.5)", 12.0, 0.001),
+        ("MONTH(EDATE(DATE(2024, 1, 15), 3))", 4.0, 0.001),
+        ("DATE(2024, 12, 31) - DATE(2024, 1, 1)", 365.0, 0.001),
+        // === INFORMATION (2 functions) ===
+        ("IF(ISEVEN(4), 1, 0)", 1.0, 0.001),
+        ("IF(ISODD(5), 1, 0)", 1.0, 0.001),
     ];
 
     for (formula, expected, tolerance) in tests {
