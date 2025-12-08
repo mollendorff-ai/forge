@@ -64,16 +64,18 @@ Forge + AI:   Read YAML → Minimal tokens → Clear semantics → Verify with F
 
 ### Built at AI Speed
 
-This codebase: **1 person + AI. 15 days. 1,709 tests.**
+This codebase: **1 person + AI. 15 days. 1,709 tests. 329 commits.**
 
-| What | Forge | Typical Project |
-|------|-------|-----------------|
-| Time to build | 15 days | 6+ months |
-| Tests | 1,709 | Maybe 100 |
-| Coverage | 89% | "Later" |
-| Warnings | 0 | Ignored |
+| What | Forge | Typical Project | Linus Torvalds |
+|------|-------|-----------------|----------------|
+| Commits/day | 22 | 1-2 | ~8 |
+| Tests | 1,709 | Maybe 100 | - |
+| Coverage | 89% | "Later" | - |
+| Warnings | 0 | Ignored | - |
 
-That's the point: **AI + token-efficient formats = 10x output.**
+**2.75x Linus Torvalds' commit velocity.** That's the power of AI + token-efficient formats.
+
+See: [Development Velocity Analysis](docs/COMPETITIVE_ANALYSIS.md#development-velocity)
 
 Your analysts get the same multiplier. But only if they stop feeding Excel to AI.
 
@@ -391,6 +393,7 @@ This means: If Gnumeric (battle-proven, millions of users) agrees with Forge, th
 | Document | Description |
 |----------|-------------|
 | [CHANGELOG](CHANGELOG.md) | Version history |
+| [Competitive Analysis](docs/COMPETITIVE_ANALYSIS.md) | Market positioning, pricing comparison |
 | [Architecture](docs/architecture/) | Technical design |
 | [AI Economics](docs/AI_ECONOMICS.md) | Cost savings analysis |
 | [JSON Schema](schema/) | Model validation schema |

@@ -1,6 +1,6 @@
 # Forge Roadmap
 # For version history, see CHANGELOG.md
-# Last updated: 2025-12-08
+# Last updated: 2025-12-08 (v5.12.0 source closure added)
 #
 # ═══════════════════════════════════════════════════════════════════════════════
 # CODING STANDARDS
@@ -43,10 +43,67 @@ current:
 next:
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # CRITICAL: Documentation Polish - Make It Irresistible
+  # HIGHLY-CRITICAL: Close the Source - Make Repository Private
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "5.12.0"
+    summary: "Close Source - Private Repository (Preserve Git History)"
+    priority: HIGHLY-CRITICAL
+    status: pending
+    estimated_effort: "1 session"
+    notes: |
+      Forge is a $100K-$300K/year tool based on competitive analysis.
+      No direct competitor exists. Time to close the source.
+
+      CRITICAL: Preserve git history - it proves ASIMOV velocity works.
+      329 commits in 15 days = 2.75x Linus Torvalds' rate.
+      This IS the marketing for AI-assisted development.
+
+    deliverables:
+      - task: "Make GitHub repository private"
+        status: pending
+        notes: "Settings → General → Danger Zone → Change visibility"
+
+      - task: "Update LICENSE file for closed source"
+        status: pending
+        notes: "All Rights Reserved, no public access"
+
+      - task: "Update README for private repo context"
+        status: pending
+        notes: "Remove installation instructions, focus on enterprise pitch"
+
+      - task: "Create DEMO.md with screenshots/GIFs"
+        status: pending
+        notes: "Show capabilities without giving away source"
+
+      - task: "Prepare enterprise licensing structure"
+        status: pending
+        notes: |
+          Suggested tiers based on competitive analysis:
+          - Startup: $3K-$12K/yr (vs Causal $3K)
+          - Mid-market: $24K-$60K/yr (vs Datarails $24K-$60K)
+          - Enterprise: $50K-$150K/yr (vs Anaplan $50K-$200K)
+
+      - task: "Document git history as ASIMOV proof"
+        status: pending
+        notes: |
+          Git history IS marketing:
+          - 329 commits / 15 days = 22 commits/day
+          - 2.75x Linus Torvalds velocity
+          - 1,709 tests, 89% coverage
+          - Proof that AI-assisted development works
+
+    success_criteria:
+      - "Repository is private"
+      - "Git history fully preserved"
+      - "Enterprise pitch materials ready"
+      - "Licensing structure documented"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CRITICAL: Documentation Polish - Make It Irresistible
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.13.0"
     summary: "Documentation Polish - Enterprise-Grade, Irresistible"
     priority: CRITICAL
     status: pending
@@ -95,7 +152,7 @@ next:
   # CRITICAL: Git History Cleanup - Remove Former MIT License
   # ─────────────────────────────────────────────────────────────────────────────
 
-  - version: "5.13.0"
+  - version: "5.14.0"
     summary: "Git History Analysis - MIT License Removal Options"
     priority: CRITICAL
     status: pending
@@ -150,7 +207,7 @@ next:
   # NORMAL: Complete Function Parity (81 -> 147)
   # ─────────────────────────────────────────────────────────────────────────────
 
-  - version: "5.14.0"
+  - version: "5.15.0"
     summary: "Complete Function Parity - ALL 147 Functions Working"
     priority: NORMAL
     status: pending
@@ -185,7 +242,7 @@ next:
   # 100% CODE COVERAGE MILESTONES
   # ─────────────────────────────────────────────────────────────────────────────
 
-  - version: "5.15.0"
+  - version: "5.16.0"
     summary: "100% Coverage - Dead Code & Quick Wins"
     priority: NORMAL
     status: pending
@@ -200,7 +257,7 @@ next:
         status: pending
         notes: "types.rs, error.rs, logical.rs, text.rs, array.rs, server.rs, etc."
 
-  - version: "5.16.0"
+  - version: "5.17.0"
     summary: "100% Coverage - Medium & Complex Files"
     priority: NORMAL
     status: pending
