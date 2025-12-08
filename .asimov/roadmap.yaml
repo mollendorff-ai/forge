@@ -43,38 +43,74 @@ current:
 next:
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # HIGHLY-CRITICAL: Close the Source - Make Repository Private
+  # HIGHLY-CRITICAL: Close the Source - Self-Hosted Git + Public Demo
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "5.12.0"
-    summary: "Close Source - Private Repository (Preserve Git History)"
+    summary: "Close Source - Gitolite Migration + GitHub Demo Repo"
     priority: HIGHLY-CRITICAL
-    status: pending
+    status: in_progress
     estimated_effort: "1 session"
     notes: |
       Forge is a $100K-$300K/year tool based on competitive analysis.
-      No direct competitor exists. Time to close the source.
+      No direct competitor exists. Source code must be protected.
 
-      CRITICAL: Preserve git history - it proves ASIMOV velocity works.
-      329 commits in 15 days = 2.75x Linus Torvalds' rate.
-      This IS the marketing for AI-assisted development.
+      ARCHITECTURE DECISION (ADR-011):
+      - Source code → gitolite (git@crypto1.ca:royalbit/forge)
+      - Binary downloads → royalbit.ca/forge/
+      - Public demo → GitHub forge-demo (E2E tests + examples only)
+
+      GitHub ToS research revealed murky AI training policies for free tier.
+      Self-hosted gitolite = ZERO AI training risk, FULL control.
+
+      Git history preserved: 330+ commits = ASIMOV velocity proof (2.75x Linus)
 
     deliverables:
-      - task: "Make GitHub repository private"
-        status: pending
-        notes: "Settings → General → Danger Zone → Change visibility"
+      - task: "Add royalbit/forge to gitolite.conf"
+        status: done
+        notes: "Pushed to gitolite-admin, repo initialized"
 
-      - task: "Update LICENSE file for closed source"
-        status: pending
-        notes: "All Rights Reserved, no public access"
+      - task: "Migrate origin to gitolite"
+        status: done
+        notes: |
+          git remote rename origin github
+          git remote add origin git@crypto1.ca:royalbit/forge.git
+          git push -u origin main
 
-      - task: "Update README for private repo context"
-        status: pending
-        notes: "Remove installation instructions, focus on enterprise pitch"
+      - task: "Create hosting architecture doc"
+        status: done
+        notes: "docs/HOSTING_ARCHITECTURE.md"
 
-      - task: "Create DEMO.md with screenshots/GIFs"
+      - task: "Create ADR-011 for source closure decision"
+        status: done
+        notes: "docs/architecture/ADR-011-SOURCE-CODE-CLOSURE.md"
+
+      - task: "Add /forge/ directory to royalbit.ca"
         status: pending
-        notes: "Show capabilities without giving away source"
+        notes: |
+          Binary downloads:
+          - forge-linux-x86_64
+          - forge-macos-arm64
+          - forge-windows.exe
+          - checksums.sha256
+
+      - task: "Create royalbit/forge-demo on GitHub"
+        status: pending
+        notes: |
+          Contents (NO SOURCE CODE):
+          - E2E test suite (Gnumeric validation)
+          - Example YAML models
+          - README with enterprise pitch
+          - Links to royalbit.ca/forge for downloads
+          - Ultra-restrictive evaluation license
+
+      - task: "Make GitHub royalbit/forge private or delete"
+        status: pending
+        notes: "After forge-demo is live, close the source repo"
+
+      - task: "Update LICENSE for closed source"
+        status: pending
+        notes: "All Rights Reserved for source, Eval-only for demo"
 
       - task: "Prepare enterprise licensing structure"
         status: pending
@@ -84,20 +120,13 @@ next:
           - Mid-market: $24K-$60K/yr (vs Datarails $24K-$60K)
           - Enterprise: $50K-$150K/yr (vs Anaplan $50K-$200K)
 
-      - task: "Document git history as ASIMOV proof"
-        status: pending
-        notes: |
-          Git history IS marketing:
-          - 329 commits / 15 days = 22 commits/day
-          - 2.75x Linus Torvalds velocity
-          - 1,709 tests, 89% coverage
-          - Proof that AI-assisted development works
-
     success_criteria:
-      - "Repository is private"
-      - "Git history fully preserved"
+      - "Source code on gitolite (origin)"
+      - "Git history fully preserved (330+ commits)"
+      - "Binaries on royalbit.ca/forge/"
+      - "forge-demo on GitHub (E2E + examples)"
+      - "GitHub source repo private/deleted"
       - "Enterprise pitch materials ready"
-      - "Licensing structure documented"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # CRITICAL: Documentation Polish - Make It Irresistible

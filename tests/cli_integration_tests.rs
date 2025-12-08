@@ -893,8 +893,22 @@ x:
 #[test]
 fn test_update_check_only_mode() {
     let mut cmd = Command::cargo_bin("forge").unwrap();
-    cmd.args(["update", "--check"])
-        .assert()
-        // May succeed or fail depending on network, but should not crash
-        .stdout(predicate::str::contains("version").or(predicate::str::is_empty()));
+    let output = cmd.args(["update", "--check"]).output().unwrap();
+
+    // May succeed (contains version), fail network (contains error), or be in progress
+    // All are valid outcomes - we just verify the command doesn't crash
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Command should produce some output (either success or error message)
+    assert!(
+        stdout.contains("version")
+            || stdout.contains("Checking")
+            || stdout.contains("Update")
+            || stderr.contains("Error")
+            || stderr.contains("error"),
+        "Expected version info, checking message, or error; got stdout: {}, stderr: {}",
+        stdout,
+        stderr
+    );
 }
