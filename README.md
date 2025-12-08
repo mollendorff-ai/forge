@@ -102,7 +102,7 @@ forge export model.yaml output.xlsx
 ## Example: 5-Year DCF Model
 
 ```yaml
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ASSUMPTIONS - What-if inputs (override via scenarios)
@@ -162,7 +162,7 @@ forge export model.yaml valuation.xlsx        # CFO gets Excel with live formula
 Forge includes 6 functions designed specifically for FP&A workflows:
 
 ```yaml
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # BUDGET vs ACTUAL ANALYSIS - Forge-native variance functions
