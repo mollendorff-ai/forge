@@ -5,29 +5,28 @@
 ## Main Help
 
 ```
-Forge - Deterministic YAML formula validation
-80+ functions | Zero AI tokens | Zero emissions
+Forge - Deterministic YAML Financial Calculator
+81 functions | 1709 tests | E2E validated against Gnumeric
 
 COMMANDS:
-  calculate   - Evaluate formulas in YAML files
-  validate    - Check formulas without modifying
+  calculate   - Execute formulas, update values
+  validate    - Check model integrity
+  audit       - Trace formula dependencies (SOX compliance)
   functions   - List all 81 supported functions
   sensitivity - One/two-variable data tables
-  goal-seek   - Find input value for target output
-  break-even  - Find where output crosses zero
+  goal-seek   - Find input for target output
+  break-even  - Find zero-crossing point
   variance    - Budget vs actual analysis
-  compare     - Compare scenarios side-by-side
-  export      - YAML to Excel (.xlsx)
-  import      - Excel to YAML
-  watch       - Auto-calculate on file changes
-  audit       - Show formula dependency chain
-  update      - Check for updates and self-update
+  compare     - Multi-scenario comparison
+  export      - YAML -> Excel (.xlsx) with formulas
+  import      - Excel -> YAML
+  watch       - Auto-calculate on save
 
 EXAMPLES:
-  forge calculate model.yaml                    # Evaluate formulas
-  forge sensitivity m.yaml -v price -r 80,120,10 -o profit
-  forge goal-seek m.yaml --target profit --value 100000 --vary price
+  forge calculate model.yaml                    # Execute formulas
+  forge audit model.yaml profit                 # Dependency trace
   forge variance budget.yaml actual.yaml       # Budget vs actual
+  forge export model.yaml output.xlsx          # Excel with formulas
 
 Docs: https://github.com/royalbit/forge
 
