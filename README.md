@@ -5,7 +5,7 @@
 [![Functions](https://img.shields.io/badge/functions-81-blue)](https://github.com/royalbit/forge)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
-**Financial modeling for the AI era. Git-native. Excel-compatible.**
+**Financial modeling for the AI era. Git-native. Excel-compatible. FP&A-native.**
 
 > Excel burns tokens. YAML doesn't.
 > AI is trained on millions of YAML files. Not spreadsheets.
@@ -65,10 +65,32 @@ Your analysts get the same multiplier. But only if they stop feeding Excel to AI
 |---------|----------------|
 | **YAML-based models** | Git-native, diff-friendly, PR-reviewable |
 | **81 Excel functions** | NPV, IRR, XIRR, PMT, VLOOKUP - all the finance essentials |
+| **6 FP&A-native functions** | VARIANCE, BREAKEVEN - what Excel should have had |
 | **Deterministic execution** | Same input = same output, every time |
 | **Excel export** | Your CFO still gets `.xlsx` with working formulas |
 | **Audit command** | Instant dependency trace for any variable |
 | **E2E validated** | Formulas verified against Gnumeric/LibreOffice |
+
+### FP&A Functions Excel Doesn't Have
+
+Every analyst builds these manually. Forge has them built-in:
+
+| Forge Function | What It Does | Excel Equivalent |
+|----------------|--------------|------------------|
+| `VARIANCE(actual, budget)` | Budget variance | `=actual - budget` (manual) |
+| `VARIANCE_PCT(actual, budget)` | Variance as % | `=(actual - budget) / budget` (manual) |
+| `VARIANCE_STATUS(actual, budget)` | BEAT / MISS / ON_TARGET | Nested IF statements |
+| `BREAKEVEN_UNITS(fixed, price, var_cost)` | Units to break even | Manual formula |
+| `BREAKEVEN_REVENUE(fixed, margin_pct)` | Revenue to break even | Manual formula |
+| `SCENARIO(name, variable)` | Get scenario value | No equivalent |
+
+```yaml
+# What takes 3 nested IFs in Excel:
+status: "=VARIANCE_STATUS(actual.revenue, budget.revenue)"  # Returns: BEAT, MISS, or ON_TARGET
+
+# What takes a manual formula in Excel:
+units_needed: "=BREAKEVEN_UNITS(500000, 150, 60)"  # Returns: 5,556 units
+```
 
 ## Who Uses Forge
 
@@ -200,15 +222,6 @@ breakeven:
   revenue_required: "=BREAKEVEN_REVENUE(unit_economics.fixed_costs, unit_economics.contribution_margin_pct)"
   # Result: $833,333 (500000 / 0.60)
 ```
-
-| Function | Purpose | Excel Equivalent |
-|----------|---------|------------------|
-| `VARIANCE(actual, budget)` | Raw variance | Manual subtraction |
-| `VARIANCE_PCT(actual, budget)` | % variance | Manual division |
-| `VARIANCE_STATUS(actual, budget, [type])` | BEAT/MISS/ON_TARGET | Nested IF statements |
-| `BREAKEVEN_UNITS(fixed, price, var_cost)` | Units to break even | Manual formula |
-| `BREAKEVEN_REVENUE(fixed, margin_pct)` | Revenue to break even | Manual formula |
-| `SCENARIO(name, variable)` | Get scenario value | No equivalent |
 
 ## Commands
 
