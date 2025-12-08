@@ -99,42 +99,116 @@ forge calculate model.yaml --scenario optimistic
 forge export model.yaml output.xlsx
 ```
 
-## Example Model
+## Example: 5-Year DCF Model
 
 ```yaml
 _forge_version: "1.0.0"
 
-# Inputs - the assumptions
+# ══════════════════════════════════════════════════════════════════════════════
+# ASSUMPTIONS - What-if inputs (override via scenarios)
+# ══════════════════════════════════════════════════════════════════════════════
 assumptions:
-  price: 100
-  units_sold: [1000, 1200, 1500, 1800, 2000]
-  cost_per_unit: 60
+  revenue_y1: 1000000
+  growth_rate: 0.15
+  gross_margin: 0.65
+  opex_pct: 0.30
   tax_rate: 0.25
+  discount_rate: 0.10
 
-# Projections - calculated from assumptions
+# ══════════════════════════════════════════════════════════════════════════════
+# PROJECTIONS - 5-year P&L (row-wise formulas applied to each period)
+# ══════════════════════════════════════════════════════════════════════════════
 projections:
-  revenue: "=assumptions.price * assumptions.units_sold"
-  cogs: "=assumptions.cost_per_unit * assumptions.units_sold"
-  gross_profit: "=projections.revenue - projections.cogs"
-  tax: "=projections.gross_profit * assumptions.tax_rate"
-  net_income: "=projections.gross_profit - projections.tax"
+  year: [1, 2, 3, 4, 5]
+  revenue: "=assumptions.revenue_y1 * (1 + assumptions.growth_rate) ^ (year - 1)"
+  gross_profit: "=revenue * assumptions.gross_margin"
+  opex: "=revenue * assumptions.opex_pct"
+  ebit: "=gross_profit - opex"
+  tax: "=MAX(0, ebit * assumptions.tax_rate)"
+  net_income: "=ebit - tax"
 
-# Aggregations - summary metrics
-summary:
+# ══════════════════════════════════════════════════════════════════════════════
+# VALUATION - Summary metrics and DCF
+# ══════════════════════════════════════════════════════════════════════════════
+valuation:
   total_revenue: "=SUM(projections.revenue)"
   avg_margin: "=AVERAGE(projections.gross_profit / projections.revenue)"
-  npv_income: "=NPV(0.10, projections.net_income)"
+  npv_cash_flows: "=NPV(assumptions.discount_rate, projections.net_income)"
+  irr: "=IRR(projections.net_income)"
 
-# Scenarios for sensitivity
+# ══════════════════════════════════════════════════════════════════════════════
+# SCENARIOS - Override assumptions for sensitivity analysis
+# ══════════════════════════════════════════════════════════════════════════════
 scenarios:
   base:
-    price: 100
-  optimistic:
-    price: 120
-    units_sold: [1200, 1500, 1800, 2200, 2500]
-  pessimistic:
-    price: 85
+    growth_rate: 0.15
+  bull:
+    growth_rate: 0.25
+    gross_margin: 0.70
+  bear:
+    growth_rate: 0.05
+    gross_margin: 0.55
 ```
+
+Run it:
+```bash
+forge calculate model.yaml --scenario bull    # What-if: aggressive growth
+forge sensitivity model.yaml -v growth_rate -r 0.05,0.30,0.05 -o npv_cash_flows
+forge export model.yaml valuation.xlsx        # CFO gets Excel with live formulas
+```
+
+## Example: Forge-Native Functions (Not in Excel)
+
+Forge includes 6 functions designed specifically for FP&A workflows:
+
+```yaml
+_forge_version: "1.0.0"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BUDGET vs ACTUAL ANALYSIS - Forge-native variance functions
+# ══════════════════════════════════════════════════════════════════════════════
+budget:
+  revenue: [100000, 120000, 150000]
+  expenses: [80000, 90000, 100000]
+
+actual:
+  revenue: [95000, 125000, 145000]
+  expenses: [85000, 88000, 105000]
+
+# VARIANCE - No Excel equivalent
+variance_analysis:
+  revenue_var: "=VARIANCE(actual.revenue, budget.revenue)"           # -5000, 5000, -5000
+  revenue_var_pct: "=VARIANCE_PCT(actual.revenue, budget.revenue)"   # -5%, 4.2%, -3.3%
+  revenue_status: "=VARIANCE_STATUS(actual.revenue, budget.revenue)" # MISS, BEAT, MISS
+
+  # For costs, "under budget" is favorable
+  expense_status: "=VARIANCE_STATUS(actual.expenses, budget.expenses, \"cost\")"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BREAK-EVEN ANALYSIS - Instant unit economics
+# ══════════════════════════════════════════════════════════════════════════════
+unit_economics:
+  fixed_costs: 500000
+  unit_price: 150
+  variable_cost: 60
+  contribution_margin_pct: 0.60
+
+breakeven:
+  units_required: "=BREAKEVEN_UNITS(unit_economics.fixed_costs, unit_economics.unit_price, unit_economics.variable_cost)"
+  # Result: 5,556 units (500000 / (150 - 60))
+
+  revenue_required: "=BREAKEVEN_REVENUE(unit_economics.fixed_costs, unit_economics.contribution_margin_pct)"
+  # Result: $833,333 (500000 / 0.60)
+```
+
+| Function | Purpose | Excel Equivalent |
+|----------|---------|------------------|
+| `VARIANCE(actual, budget)` | Raw variance | Manual subtraction |
+| `VARIANCE_PCT(actual, budget)` | % variance | Manual division |
+| `VARIANCE_STATUS(actual, budget, [type])` | BEAT/MISS/ON_TARGET | Nested IF statements |
+| `BREAKEVEN_UNITS(fixed, price, var_cost)` | Units to break even | Manual formula |
+| `BREAKEVEN_REVENUE(fixed, margin_pct)` | Revenue to break even | Manual formula |
+| `SCENARIO(name, variable)` | Get scenario value | No equivalent |
 
 ## Commands
 
