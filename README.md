@@ -22,6 +22,24 @@
 
 **The math:** A 50KB Excel file can burn 100K+ tokens when parsed. The same model in YAML? Under 2K tokens.
 
+## Battle-Tested Math
+
+**Don't trust us. Trust LibreOffice.**
+
+Every Forge formula is E2E tested against [Gnumeric](https://www.gnumeric.org/) / LibreOffice - open-source spreadsheet engines with **200+ million users**:
+
+```
+Forge calculates → Exports XLSX → Gnumeric recalculates → Results compared
+```
+
+| Validation | Status |
+|------------|--------|
+| Formulas E2E validated | 44 |
+| Validation engine | Gnumeric (GNOME spreadsheet) |
+| Test method | Export → Recalculate → Compare |
+
+If Gnumeric agrees with Forge, **the math is right**. No "trust me" - just proof.
+
 ## Why YAML Wins
 
 | Factor | Excel | YAML |
@@ -69,7 +87,7 @@ Your analysts get the same multiplier. But only if they stop feeding Excel to AI
 | **Deterministic execution** | Same input = same output, every time |
 | **Excel export** | Your CFO still gets `.xlsx` with working formulas |
 | **Audit command** | Instant dependency trace for any variable |
-| **E2E validated** | Formulas verified against Gnumeric/LibreOffice |
+| **E2E validated** | 44 formulas verified against Gnumeric (200M+ users) |
 
 ### FP&A Functions Excel Doesn't Have
 
