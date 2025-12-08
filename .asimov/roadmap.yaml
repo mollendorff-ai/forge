@@ -1,6 +1,6 @@
 # Forge Roadmap
 # For version history, see CHANGELOG.md
-# Last updated: 2025-12-08 (v5.12.0 source closure added)
+# Last updated: 2025-12-08 (v5.12.0 source closure complete)
 #
 # ═══════════════════════════════════════════════════════════════════════════════
 # CODING STANDARDS
@@ -13,21 +13,21 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 metadata:
-  current_version: "5.11.0"
+  current_version: "5.12.0"
   last_updated: "2025-12-08"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "5.11.0"
+  version: "5.12.0"
   status: released
   date: "2025-12-08"
-  summary: "Business-Oriented README + R&D License Clarity"
+  summary: "Source Closure Complete - Gitolite + GitHub Demo"
   highlights:
-    - "README rewritten for enterprise audience (Big 4, fintech, FP&A)"
-    - "Pain points, ROI, audit trail - speaks finance, not code"
-    - "License: 'You can see what's possible. You can't have it. Yet.'"
-    - "--help updated with precise stats"
+    - "Phase 1: Source migrated to gitolite (git@crypto1.ca:royalbit/forge)"
+    - "Phase 2: Fresh GitHub demo repo (no source, no history)"
+    - "R&D narrative throughout (CGI-safe)"
+    - "royalbit.ca/forge/ landing page live"
   stats:
     tests: 1709
     warnings: 0
@@ -43,397 +43,108 @@ current:
 next:
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # HIGHLY-CRITICAL: Close the Source - Self-Hosted Git + Public Demo
+  # CRITICAL: Demo Binary Strategy - Build a limited version for public
   # ─────────────────────────────────────────────────────────────────────────────
 
-  - version: "5.12.0"
-    summary: "Close Source - Gitolite Migration + GitHub Demo Repo"
-    priority: HIGHLY-CRITICAL
-    status: in_progress
-    estimated_effort: "1 session"
+  - version: "5.13.0"
+    summary: "Demo Binary Strategy - Limited Public Release"
+    priority: CRITICAL
+    status: pending
+    estimated_effort: "2-3 sessions (planning + implementation)"
     notes: |
-      Forge is a $100K-$300K/year tool based on competitive analysis.
-      No direct competitor exists. Source code must be protected.
+      We cannot release the full Forge binary publicly.
+      Need to create a DEMO version with limited capabilities.
 
-      ARCHITECTURE DECISION (ADR-011):
-      - Source code → gitolite (git@crypto1.ca:royalbit/forge)
-      - Binary downloads → royalbit.ca/forge/
-      - Public demo → GitHub forge-demo (E2E tests + examples only)
+      FULL VERSION (private):          DEMO VERSION (public):
+      ─────────────────────────────    ─────────────────────────────
+      147 functions                    ~40 basic functions
+      v1.0.0, v4.0.0, v5.0.0 schemas   v1.0.0 schema ONLY
+      Rich metadata (unit, notes)      Basic scalars/tables only
+      Cross-file includes              No includes
+      VARIANCE, BREAKEVEN, SCENARIO    No FP&A functions
+      LET, LAMBDA, SWITCH              No advanced logic
+      API server                       CLI only (no server)
 
-      GitHub ToS research revealed murky AI training policies for free tier.
-      Self-hosted gitolite = ZERO AI training risk, FULL control.
-
-      Git history preserved: 330+ commits = ASIMOV velocity proof (2.75x Linus)
+      KEY QUESTION: How to build demo from full source?
+      - Compile-time feature flags?
+      - Separate crate/binary?
+      - Runtime license check?
 
     deliverables:
-      # ═══════════════════════════════════════════════════════════════════════════
-      # PHASE 1: GITOLITE MIGRATION (DONE)
-      # ═══════════════════════════════════════════════════════════════════════════
-
-      - task: "Add royalbit/forge to gitolite.conf"
-        status: done
-        notes: "Pushed to gitolite-admin, repo initialized"
-
-      - task: "Migrate origin to gitolite"
-        status: done
-        notes: |
-          git remote rename origin github
-          git remote add origin git@crypto1.ca:royalbit/forge.git
-          git push -u origin main
-          GitHub repo set to PRIVATE
-
-      - task: "Create hosting architecture doc"
-        status: done
-        notes: "docs/HOSTING_ARCHITECTURE.md"
-
-      - task: "Create ADR-011 for source closure decision"
-        status: done
-        notes: "docs/architecture/ADR-011-SOURCE-CODE-CLOSURE.md"
-
-      - task: "Create /forge/ landing page on royalbit.ca"
-        status: done
-        notes: |
-          - html/forge/index.html created
-          - R&D narrative maintained
-          - GitHub Issues for contact (NO EMAIL = NO SPAM)
-          - Stats: 28k LOC, 1,709 tests, 89% coverage, 147 functions
-
-      # ═══════════════════════════════════════════════════════════════════════════
-      # PHASE 2: FRESH GITHUB REPO - THE HOOK 🎣
-      # ═══════════════════════════════════════════════════════════════════════════
-      #
-      # STRATEGY: Give them a TASTE, not the full meal
-      #
-      # DEMO (v1.0.0):              ENTERPRISE (v5.0.0):
-      # ─────────────────────────   ─────────────────────────
-      # ~40 basic functions         147 full function parity
-      # Basic arrays/tables         Rich metadata (unit, notes)
-      # Simple scenarios            Cross-file includes
-      # YAML → Excel export         VARIANCE, BREAKEVEN, SCENARIO
-      #                             LET, LAMBDA, SWITCH
-      #                             UNIQUE, FILTER, SORT
-      #
-      # The demo is the BAIT. Enterprise features are the HOOK.
-      # ═══════════════════════════════════════════════════════════════════════════
-
-      - task: "Delete private GitHub repo, create FRESH royalbit/forge"
-        status: pending
-        priority: NEXT
-        notes: |
-          1. Delete current PRIVATE royalbit/forge repo
-          2. Create NEW PUBLIC repo (same name for SEO)
-          3. NO git history (no source code traces)
-          4. This becomes the PUBLIC face of Forge
-
-      - task: "Create README.md (enterprise pitch)"
+      - task: "Design demo binary architecture"
         status: pending
         notes: |
-          Structure:
-          ─────────────────────────────────────────────────────────
-          # Forge
+          Options to evaluate:
+          A) Feature flags: #[cfg(feature = "demo")] vs #[cfg(feature = "full")]
+          B) Separate binary: forge-demo vs forge (different Cargo.toml targets)
+          C) Runtime check: Single binary, license file unlocks features
+          D) Code stripping: Build script removes enterprise code before compile
 
-          **AI hallucinates numbers. Forge doesn't.**
-
-          YAML-based financial modeling with Excel formula evaluation.
-          Git-native. AI-friendly. Token-efficient.
-
-          ## The Problem
-          - LLMs hallucinate numbers
-          - Excel files are binary (can't feed to AI)
-          - FP&A platforms cost $50K-$200K/year
-
-          ## The Solution
-          [YAML example → Excel output]
-
-          ## Download
-          [Link to royalbit.ca/forge/]
-
-          ## Validation
-          E2E tests prove Forge matches Gnumeric/LibreOffice.
-          Run: ./tests/run_e2e.sh
-
-          ## Stats
-          28K lines of Rust | 1,709 tests | 89% coverage
-
-          ## Enterprise
-          Need VARIANCE analysis? Cross-file includes? 147 functions?
-          → Open an issue for licensing.
-
-          ## Contact
-          Open an issue. We respond to all inquiries.
-
-          ---
-          R&D project by RoyalBit Inc. | Montreal, Quebec
-          ─────────────────────────────────────────────────────────
-
-          KEY: R&D narrative (avoid CGI conflict of interest)
-
-      - task: "Create examples/ directory (v1.0.0 ONLY)"
+      - task: "Define exact function list for demo (~40)"
         status: pending
         notes: |
-          examples/
-          ├── quarterly_pl.yaml       # Classic P&L statement
-          ├── saas_metrics.yaml       # SaaS unit economics (CAC, LTV, churn)
-          ├── budget_vs_actual.yaml   # Budget comparison
-          └── cashflow.yaml           # 12-month cash flow projection
+          Must include enough to be useful:
+          - Math: SUM, AVERAGE, MAX, MIN, ABS, ROUND, SQRT, POWER
+          - Financial: PMT, NPV, IRR, PV, FV, NPER, RATE
+          - Logical: IF, AND, OR, NOT, IFERROR
+          - Date: DATE, YEAR, MONTH, DAY, EDATE, EOMONTH, TODAY
+          - Text: CONCAT, LEFT, RIGHT, LEN, UPPER, LOWER, TRIM
+          - Aggregation: COUNT, COUNTA, MEDIAN, PRODUCT
 
-          RULES:
-          - v1.0.0 schema ONLY (_forge_version: "1.0.0")
-          - Basic functions ONLY (SUM, AVERAGE, IF, PMT, etc.)
-          - NO rich metadata (no unit, notes, source)
-          - NO cross-file includes
-          - NO enterprise functions (VARIANCE, BREAKEVEN)
-
-          Each example should be impressive but leave them wanting MORE.
-
-      - task: "Create tests/ directory (E2E validation)"
-        status: pending
-        notes: |
-          tests/
-          ├── README.md               # How to run validation
-          ├── run_e2e.sh              # Downloads binary, runs tests
-          ├── e2e_math.yaml           # ABS, ROUND, SQRT, MOD, etc.
-          ├── e2e_financial.yaml      # PMT, NPV, IRR, PV, FV
-          ├── e2e_dates.yaml          # DATE, YEAR, MONTH, DAY
-          ├── e2e_logical.yaml        # IF, AND, OR, NOT
-          └── expected/               # Gnumeric-validated outputs
-
-          run_e2e.sh:
-          1. Download forge binary from royalbit.ca/forge/
-          2. Run forge calculate on each e2e_*.yaml
-          3. Export to Excel
-          4. Compare with expected/ outputs
-          5. Report pass/fail
-
-          This PROVES the tech works without showing source code.
-
-      - task: "Create LICENSE (ultra-restrictive)"
-        status: pending
-        notes: |
-          EVALUATION LICENSE
-
-          Copyright (c) 2025 RoyalBit Inc. All rights reserved.
-
-          This software is provided for EVALUATION PURPOSES ONLY.
-
-          YOU MAY:
-          - Download and run the binary
-          - Use for personal evaluation
-          - Run the included tests
-
-          YOU MAY NOT:
-          - Use in production
-          - Use for commercial purposes
-          - Modify or reverse engineer
-          - Redistribute in any form
-          - Remove or alter this license
-
-          For commercial licensing, open an issue on GitHub.
-
-          THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY.
-
-      - task: "Create .github/ISSUE_TEMPLATE/"
-        status: pending
-        notes: |
-          ISSUE_TEMPLATE/
-          ├── partnership.md      # "Partnership Inquiry" template
-          ├── licensing.md        # "Licensing Inquiry" template
-          ├── bug_report.md       # "Bug Report" (E2E tests only)
-          └── feature_request.md  # "Feature Request"
-
-          Each template captures:
-          - Company name (optional)
-          - Use case
-          - Current tooling (Excel, Anaplan, etc.)
-          - Timeline
-
-          NO EMAIL = NO SPAM. GitHub Issues = qualified leads.
-
-      - task: "Create .github/workflows/e2e.yml"
-        status: pending
-        notes: |
-          CI workflow:
-          1. Checkout repo
-          2. Download forge binary from royalbit.ca/forge/
-          3. Install Gnumeric (apt-get)
-          4. Run tests/run_e2e.sh
-          5. Report pass/fail
-
-          This runs on every PR/push to prove tests work.
-          Badge in README: "E2E: Passing"
-
-      - task: "Create docs/ directory"
-        status: pending
-        notes: |
-          docs/
-          ├── SCHEMA_v1.md        # v1.0.0 schema documentation
-          ├── FUNCTIONS.md        # List of ~40 demo functions
-          ├── ENTERPRISE.md       # What enterprise license unlocks
-          └── SECURITY.md         # Local-first, no telemetry
-
-          ENTERPRISE.md is the upsell:
-          - v4.0.0/v5.0.0 schema features
-          - 147 functions (vs ~40 in demo)
-          - VARIANCE, BREAKEVEN, SCENARIO
+          Must EXCLUDE (enterprise only):
+          - VARIANCE, VARIANCE_PCT, VARIANCE_STATUS
+          - BREAKEVEN_UNITS, BREAKEVEN_REVENUE
+          - SCENARIO
+          - LET, LAMBDA, SWITCH, IFS
+          - UNIQUE, FILTER, SORT
+          - SUMIF, COUNTIF, AVERAGEIF (conditional)
           - Cross-file includes
-          - Rich metadata
-          - Support, training, SLA
+          - v4.0.0/v5.0.0 schema features
 
-      # ═══════════════════════════════════════════════════════════════════════════
-      # PHASE 3: BINARY DISTRIBUTION
-      # ═══════════════════════════════════════════════════════════════════════════
+      - task: "Implement demo build system"
+        status: pending
 
-      - task: "Build release binaries"
+      - task: "Cross-compile demo binaries"
         status: pending
         notes: |
-          Cross-compile for:
           - Linux x86_64
           - macOS arm64 (Apple Silicon)
           - macOS x86_64 (Intel)
           - Windows x86_64
 
-          Strip symbols, optimize for size
-
-      - task: "Add binaries to royalbit.ca/forge/"
+      - task: "Host demo binaries on royalbit.ca/forge/"
         status: pending
-        notes: |
-          Files:
-          - forge-linux-x86_64
-          - forge-macos-arm64
-          - forge-macos-x86_64
-          - forge-windows.exe
-          - checksums.sha256
-          - install.sh (curl | sh installer)
 
-          Deploy via kveldulf Docker Swarm
-
-      # ═══════════════════════════════════════════════════════════════════════════
-      # PHASE 4: ESCAPE VELOCITY
-      # ═══════════════════════════════════════════════════════════════════════════
-
-      - task: "Enterprise licensing structure"
+      - task: "Update GitHub demo repo with download links"
         status: pending
-        notes: |
-          Tiers based on competitive analysis:
-          - Startup: $3K-$12K/yr (vs Causal $3K)
-          - Mid-market: $24K-$60K/yr (vs Datarails $24K-$60K)
-          - Enterprise: $50K-$150K/yr (vs Anaplan $50K-$200K)
-
-          GOAL: Escape velocity from CGI.
-          20+ years of underpaid labour ends HERE.
 
     success_criteria:
-      - "Source code on gitolite ONLY (no GitHub traces)"
-      - "Git history preserved locally (330+ commits = ASIMOV proof)"
-      - "FRESH GitHub repo (E2E tests, no source)"
-      - "GitHub Issues for contact (no spam)"
-      - "Binaries on royalbit.ca/forge/"
-      - "E2E tests prove formula accuracy"
-      - "Enterprise clients can evaluate and reach out"
+      - "Demo binary compiles separately from full version"
+      - "Demo supports ~40 functions, v1.0.0 schema only"
+      - "Full version features are NOT in demo binary"
+      - "Binaries available for Linux, macOS, Windows"
+      - "E2E tests pass with demo binary"
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # CRITICAL: Documentation Polish - Make It Irresistible
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  - version: "5.13.0"
-    summary: "Documentation Polish - Enterprise-Grade, Irresistible"
-    priority: CRITICAL
-    status: pending
-    estimated_effort: "1-2 sessions"
-    notes: |
-      Review and polish EVERY piece of documentation.
-      Target: Enterprise buyers at top consulting/fintech/finance firms.
-      Goal: Make them WANT this product.
-
-    deliverables:
-      - task: "Review ALL .md files in repo root"
-        status: pending
-        notes: "README, CHANGELOG, CONTRIBUTING - professional tone, precise stats"
-
-      - task: "Review ALL docs/*.md files"
-        status: pending
-        notes: "Architecture docs, design docs, API docs - no outdated info"
-
-      - task: "Review ALL ADRs (Architecture Decision Records)"
-        status: pending
-        notes: "Complete, professional, well-reasoned decisions"
-
-      - task: "Review ALL specs and schemas"
-        status: pending
-        notes: "JSON schema, YAML format spec, function reference"
-
-      - task: "Review .asimov/ protocol files"
-        status: pending
-        notes: "roadmap.yaml, project.yaml - consistent, clean"
-
-      - task: "Add SECURITY.md"
-        status: pending
-        notes: "Local-first, no telemetry, no cloud - enterprise compliance"
-
-      - task: "Remove any developer-centric language"
-        status: pending
-        notes: "Replace with business value language"
-
-    success_criteria:
-      - "Every .md file reads professionally"
-      - "No outdated stats, no approximations"
-      - "Clear R&D status, clear value proposition"
-      - "Enterprise buyers see quality and want it"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # CRITICAL: Git History Cleanup - Remove Former MIT License
+  # NORMAL: Documentation Polish
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "5.14.0"
-    summary: "Git History Analysis - MIT License Removal Options"
-    priority: CRITICAL
+    summary: "Documentation Polish - Professional Quality"
+    priority: NORMAL
     status: pending
-    estimated_effort: "1 session (analysis) + decision"
+    estimated_effort: "1-2 sessions"
     notes: |
-      The repo previously had MIT license. Need to analyze options
-      for cleaning this from git history to ensure proprietary status.
-      This is a LEGAL/BUSINESS decision, not just technical.
+      Review and polish all documentation.
+      Target: Professional, enterprise-ready presentation.
 
     deliverables:
-      - task: "Analyze git history for MIT license artifacts"
+      - task: "Review all .md files in repo"
         status: pending
-        notes: "Find all commits with MIT license, assess exposure"
-
-      - task: "Document Option A: git filter-branch / BFG Repo Cleaner"
+      - task: "Update stats to current values"
         status: pending
-        notes: |
-          Pros: Complete removal from history
-          Cons: Rewrites all commit SHAs, breaks forks/clones
-
-      - task: "Document Option B: Fresh repo with squashed history"
+      - task: "Ensure R&D narrative consistency"
         status: pending
-        notes: |
-          Pros: Clean slate, simple
-          Cons: Loses detailed commit history
-
-      - task: "Document Option C: Keep history, add legal notice"
-        status: pending
-        notes: |
-          Pros: Preserves history, simplest
-          Cons: MIT commits still visible (but superseded by new license)
-
-      - task: "Document Option D: Archive current repo, new repo"
-        status: pending
-        notes: |
-          Pros: Clean separation
-          Cons: Loses GitHub stars/issues/links
-
-      - task: "Legal implications summary"
-        status: pending
-        notes: "What does MIT in history mean legally? Consult if needed."
-
-      - task: "Recommendation with pros/cons"
-        status: pending
-
-    success_criteria:
-      - "All options clearly documented"
-      - "Legal implications understood"
-      - "Clear recommendation for owner decision"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # NORMAL: Complete Function Parity (81 -> 147)
@@ -449,74 +160,45 @@ next:
       66 functions export to Excel but can't be calculated by Forge.
 
     deliverables:
-      - task: "Audit: List all 66 missing functions"
+      - task: "Implement missing 66 functions in evaluator"
         status: pending
-
-      - task: "Implement Trigonometric functions"
+      - task: "E2E validate all 147 functions"
         status: pending
-        notes: "SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, RADIANS, DEGREES"
-
-      - task: "Implement Information functions"
-        status: pending
-        notes: "ISEVEN, ISODD, ISBLANK, ISERROR, ISNA, ISNUMBER, ISTEXT, etc."
-
-      - task: "Implement remaining Text, Date, Lookup, Array, Stats functions"
-        status: pending
-
-      - task: "E2E validate ALL 147 functions"
-        status: pending
-
-    success_criteria:
-      - "Evaluator = Translator = 147 functions"
-      - "All functions E2E validated"
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 100% CODE COVERAGE MILESTONES
+  # NORMAL: 100% Code Coverage
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "5.16.0"
-    summary: "100% Coverage - Dead Code & Quick Wins"
-    priority: NORMAL
-    status: pending
-    estimated_effort: "1 session"
-
-    deliverables:
-      - task: "Remove dead code: core/array_calculator/dates.rs"
-        status: pending
-        notes: "Legacy dates.rs is dead code (replaced by evaluator/dates.rs)"
-
-      - task: "Quick wins: 15 files with <15 missed lines each"
-        status: pending
-        notes: "types.rs, error.rs, logical.rs, text.rs, array.rs, server.rs, etc."
-
-  - version: "5.17.0"
-    summary: "100% Coverage - Medium & Complex Files"
+    summary: "100% Coverage - Dead Code Removal + Full Coverage"
     priority: NORMAL
     status: pending
     estimated_effort: "2-3 sessions"
-    notes: "May need cfg(not(coverage)) for OS-specific/server paths"
 
     deliverables:
-      - task: "Cover 13 medium files (15-50 missed lines)"
+      - task: "Remove dead code"
         status: pending
-
-      - task: "Cover 5 complex files (50+ missed lines)"
+      - task: "Cover all reachable code paths"
         status: pending
-
-    success_criteria:
-      - "100% test coverage for all functional code"
-      - "Untestable code properly excluded via #[cfg(not(coverage))]"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
-  - "Complete E2E validation for remaining functions (81 total)"
-  - "GitHub Actions workflow for E2E tests (requires gnumeric in CI)"
+  # Moved from Phase 4 - not ready yet (CGI conflict, need escape velocity first)
+  - "Enterprise licensing structure (when ready to leave CGI)"
+  - "Pricing tiers: Startup $3K-$12K, Mid-market $24K-$60K, Enterprise $50K-$150K"
+
+  # Technical debt
+  - "Git history cleanup - MIT license removal options"
+  - "GitHub Actions workflow for E2E tests"
   - "OpenAPI spec + Swagger UI for API server"
+
+  # Future features
   - "Forge vs Copilot benchmark suite"
   - "Excel compatibility matrix documentation"
+  - "MCP server integration"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # For version history, see CHANGELOG.md
