@@ -13,21 +13,21 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 metadata:
-  current_version: "5.10.0"
+  current_version: "5.11.0"
   last_updated: "2025-12-08"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 # Current Release
 current:
-  version: "5.10.0"
+  version: "5.11.0"
   status: released
   date: "2025-12-08"
-  summary: "Formula Translator Extended + E2E Validation Fixed"
+  summary: "Business-Oriented README + R&D License Clarity"
   highlights:
-    - "Formula translator supports 147 Excel functions"
-    - "33 E2E tests validating 44 formulas against Gnumeric"
-    - "81 functions in Forge evaluator"
-    - "Fixed BROKEN state from interrupted session"
+    - "README rewritten for enterprise audience (Big 4, fintech, FP&A)"
+    - "Pain points, ROI, audit trail - speaks finance, not code"
+    - "License: 'You can see what's possible. You can't have it. Yet.'"
+    - "--help updated with precise stats"
   stats:
     tests: 1709
     warnings: 0
@@ -41,37 +41,6 @@ current:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "5.11.0"
-    summary: "Documentation Overhaul - Business-Oriented README + Precise Stats"
-    priority: HIGH
-    status: pending
-    estimated_effort: "1-2 hours"
-    notes: "Make Forge attractive to Big 4, fintech, FP&A teams"
-
-    deliverables:
-      - task: "README.md complete rewrite - business-oriented"
-        status: pending
-        notes: |
-          Target: McKinsey, BCG, Bain, Deloitte, PwC, EY, KPMG
-          Target: Stripe, Square, Plaid, Affirm, Klarna
-          Target: Goldman Sachs, JPMorgan, BlackRock, Citadel
-          Pain points: Excel version hell, formula errors, audit nightmares
-
-      - task: "Update --help text with precise stats"
-        status: pending
-        notes: "147 functions (all working end-to-end)"
-
-      - task: "Update forge functions command - list ALL functions by category"
-        status: pending
-        notes: "Precise categorization, no approximations"
-
-      - task: "Create ENTERPRISE.md for compliance/API docs"
-        status: pending
-
-    success_criteria:
-      - "README speaks to finance professionals, not developers"
-      - "All stats are precise (147 functions, 1709 tests)"
-      - "Clear ROI case for enterprise adoption"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # CRITICAL: Complete Function Parity (Evaluator = Translator = 147)
