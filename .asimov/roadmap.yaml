@@ -99,66 +99,185 @@ next:
           - Stats: 28k LOC, 1,709 tests, 89% coverage, 147 functions
 
       # ═══════════════════════════════════════════════════════════════════════════
-      # PHASE 2: FRESH GITHUB REPO (NEXT)
+      # PHASE 2: FRESH GITHUB REPO - THE HOOK 🎣
+      # ═══════════════════════════════════════════════════════════════════════════
+      #
+      # STRATEGY: Give them a TASTE, not the full meal
+      #
+      # DEMO (v1.0.0):              ENTERPRISE (v5.0.0):
+      # ─────────────────────────   ─────────────────────────
+      # ~40 basic functions         147 full function parity
+      # Basic arrays/tables         Rich metadata (unit, notes)
+      # Simple scenarios            Cross-file includes
+      # YAML → Excel export         VARIANCE, BREAKEVEN, SCENARIO
+      #                             LET, LAMBDA, SWITCH
+      #                             UNIQUE, FILTER, SORT
+      #
+      # The demo is the BAIT. Enterprise features are the HOOK.
       # ═══════════════════════════════════════════════════════════════════════════
 
-      - task: "Create FRESH royalbit/forge repo on GitHub"
+      - task: "Delete private GitHub repo, create FRESH royalbit/forge"
         status: pending
         priority: NEXT
         notes: |
-          NOT forge-demo, keep the original name for SEO/discoverability!
+          1. Delete current PRIVATE royalbit/forge repo
+          2. Create NEW PUBLIC repo (same name for SEO)
+          3. NO git history (no source code traces)
+          4. This becomes the PUBLIC face of Forge
 
-          DELETE current private repo, create FRESH with:
-          - NO git history (no source code traces)
-          - NO source code
-          - FRESH start
-
-          This becomes the PUBLIC face of Forge.
-
-      - task: "Add E2E validation suite to GitHub repo"
+      - task: "Create README.md (enterprise pitch)"
         status: pending
         notes: |
-          Contents:
-          - tests/e2e/ directory with Gnumeric/LibreOffice validation
-          - Example YAML models (showcase capabilities)
-          - Validation scripts that download binary from royalbit.ca
-          - CI workflow that runs E2E tests
+          Structure:
+          ─────────────────────────────────────────────────────────
+          # Forge
 
-          PROVES: Forge formulas match Excel/Gnumeric/LibreOffice
-          NO SOURCE CODE - just tests + examples
+          **AI hallucinates numbers. Forge doesn't.**
 
-      - task: "Create README for GitHub repo (enterprise pitch)"
+          YAML-based financial modeling with Excel formula evaluation.
+          Git-native. AI-friendly. Token-efficient.
+
+          ## The Problem
+          - LLMs hallucinate numbers
+          - Excel files are binary (can't feed to AI)
+          - FP&A platforms cost $50K-$200K/year
+
+          ## The Solution
+          [YAML example → Excel output]
+
+          ## Download
+          [Link to royalbit.ca/forge/]
+
+          ## Validation
+          E2E tests prove Forge matches Gnumeric/LibreOffice.
+          Run: ./tests/run_e2e.sh
+
+          ## Stats
+          28K lines of Rust | 1,709 tests | 89% coverage
+
+          ## Enterprise
+          Need VARIANCE analysis? Cross-file includes? 147 functions?
+          → Open an issue for licensing.
+
+          ## Contact
+          Open an issue. We respond to all inquiries.
+
+          ---
+          R&D project by RoyalBit Inc. | Montreal, Quebec
+          ─────────────────────────────────────────────────────────
+
+          KEY: R&D narrative (avoid CGI conflict of interest)
+
+      - task: "Create examples/ directory (v1.0.0 ONLY)"
         status: pending
         notes: |
-          - Problem statement (AI hallucinates, Excel is binary)
-          - Solution (YAML + formula evaluation)
-          - Stats (28k LOC, 1,709 tests, 147 functions)
-          - E2E validation proof
-          - Download link → royalbit.ca/forge/
-          - Contact → GitHub Issues (partnerships, licensing)
+          examples/
+          ├── quarterly_pl.yaml       # Classic P&L statement
+          ├── saas_metrics.yaml       # SaaS unit economics (CAC, LTV, churn)
+          ├── budget_vs_actual.yaml   # Budget comparison
+          └── cashflow.yaml           # 12-month cash flow projection
 
-          R&D NARRATIVE - avoid CGI conflict of interest
+          RULES:
+          - v1.0.0 schema ONLY (_forge_version: "1.0.0")
+          - Basic functions ONLY (SUM, AVERAGE, IF, PMT, etc.)
+          - NO rich metadata (no unit, notes, source)
+          - NO cross-file includes
+          - NO enterprise functions (VARIANCE, BREAKEVEN)
 
-      - task: "Add ultra-restrictive LICENSE"
+          Each example should be impressive but leave them wanting MORE.
+
+      - task: "Create tests/ directory (E2E validation)"
         status: pending
         notes: |
-          Evaluation-only license:
-          - View and test ONLY
-          - No commercial use
-          - No modification
-          - No redistribution
-          - Contact for licensing
+          tests/
+          ├── README.md               # How to run validation
+          ├── run_e2e.sh              # Downloads binary, runs tests
+          ├── e2e_math.yaml           # ABS, ROUND, SQRT, MOD, etc.
+          ├── e2e_financial.yaml      # PMT, NPV, IRR, PV, FV
+          ├── e2e_dates.yaml          # DATE, YEAR, MONTH, DAY
+          ├── e2e_logical.yaml        # IF, AND, OR, NOT
+          └── expected/               # Gnumeric-validated outputs
 
-      - task: "Configure GitHub Issues for contact"
+          run_e2e.sh:
+          1. Download forge binary from royalbit.ca/forge/
+          2. Run forge calculate on each e2e_*.yaml
+          3. Export to Excel
+          4. Compare with expected/ outputs
+          5. Report pass/fail
+
+          This PROVES the tech works without showing source code.
+
+      - task: "Create LICENSE (ultra-restrictive)"
         status: pending
         notes: |
-          Issue templates:
-          - Partnership Inquiry
-          - Licensing Inquiry
-          - Bug Report (E2E tests only)
-          - Feature Request
+          EVALUATION LICENSE
 
-          NO EMAIL = NO SPAM. All inquiries through GitHub.
+          Copyright (c) 2025 RoyalBit Inc. All rights reserved.
+
+          This software is provided for EVALUATION PURPOSES ONLY.
+
+          YOU MAY:
+          - Download and run the binary
+          - Use for personal evaluation
+          - Run the included tests
+
+          YOU MAY NOT:
+          - Use in production
+          - Use for commercial purposes
+          - Modify or reverse engineer
+          - Redistribute in any form
+          - Remove or alter this license
+
+          For commercial licensing, open an issue on GitHub.
+
+          THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY.
+
+      - task: "Create .github/ISSUE_TEMPLATE/"
+        status: pending
+        notes: |
+          ISSUE_TEMPLATE/
+          ├── partnership.md      # "Partnership Inquiry" template
+          ├── licensing.md        # "Licensing Inquiry" template
+          ├── bug_report.md       # "Bug Report" (E2E tests only)
+          └── feature_request.md  # "Feature Request"
+
+          Each template captures:
+          - Company name (optional)
+          - Use case
+          - Current tooling (Excel, Anaplan, etc.)
+          - Timeline
+
+          NO EMAIL = NO SPAM. GitHub Issues = qualified leads.
+
+      - task: "Create .github/workflows/e2e.yml"
+        status: pending
+        notes: |
+          CI workflow:
+          1. Checkout repo
+          2. Download forge binary from royalbit.ca/forge/
+          3. Install Gnumeric (apt-get)
+          4. Run tests/run_e2e.sh
+          5. Report pass/fail
+
+          This runs on every PR/push to prove tests work.
+          Badge in README: "E2E: Passing"
+
+      - task: "Create docs/ directory"
+        status: pending
+        notes: |
+          docs/
+          ├── SCHEMA_v1.md        # v1.0.0 schema documentation
+          ├── FUNCTIONS.md        # List of ~40 demo functions
+          ├── ENTERPRISE.md       # What enterprise license unlocks
+          └── SECURITY.md         # Local-first, no telemetry
+
+          ENTERPRISE.md is the upsell:
+          - v4.0.0/v5.0.0 schema features
+          - 147 functions (vs ~40 in demo)
+          - VARIANCE, BREAKEVEN, SCENARIO
+          - Cross-file includes
+          - Rich metadata
+          - Support, training, SLA
 
       # ═══════════════════════════════════════════════════════════════════════════
       # PHASE 3: BINARY DISTRIBUTION
