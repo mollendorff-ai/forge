@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.12.0] - 2025-12-08
+
+### Source Closure Complete
+
+Forge source code is now protected. Public demo repo established.
+
+### Phase 1: Gitolite Migration (DONE)
+
+- Migrated source code to self-hosted gitolite (git@crypto1.ca:royalbit/forge)
+- GitHub repo set to private, then deleted
+- Created docs/HOSTING_ARCHITECTURE.md
+- Created ADR-011-SOURCE-CODE-CLOSURE.md
+- Created royalbit.ca/forge/ landing page (R&D narrative)
+
+### Phase 2: Fresh GitHub Demo Repo (DONE)
+
+- Created fresh public github.com/royalbit/forge (no git history)
+- README.md with R&D narrative (no sales language)
+- R&D Preview License (evaluation only)
+- 4 example models (v1.0.0 schema only)
+- E2E validation tests
+- Issue templates (inquiry, bug, feature - no licensing)
+- docs/: ROADMAP, FUNCTIONS, SCHEMA_v1, SECURITY
+
+### Infrastructure
+
+- Source: gitolite (private)
+- Demo: github.com/royalbit/forge (public, no source code)
+- Website: royalbit.ca/forge/
+
+---
+
+## [5.11.0] - 2025-12-08
+
+### Business-Oriented README + R&D License Clarity
+
+- README rewritten for enterprise audience
+- License clarified as R&D preview
+
+---
+
 ## [5.10.0] - 2025-12-08
 
 ### Formula Translator Extended + E2E Validation Fixed
