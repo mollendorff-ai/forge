@@ -74,11 +74,45 @@ next:
       - task: "Design demo binary architecture"
         status: pending
         notes: |
-          Options to evaluate:
-          A) Feature flags: #[cfg(feature = "demo")] vs #[cfg(feature = "full")]
-          B) Separate binary: forge-demo vs forge (different Cargo.toml targets)
-          C) Runtime check: Single binary, license file unlocks features
-          D) Code stripping: Build script removes enterprise code before compile
+          OPTIONS TO EVALUATE:
+
+          ┌─────────────────────────────────────────────────────────────────────┐
+          │ OPTION A: Feature Flags                                             │
+          ├─────────────────────────────────────────────────────────────────────┤
+          │ How: #[cfg(feature = "demo")] vs #[cfg(feature = "full")]           │
+          │ Build: cargo build --features demo                                  │
+          │ Pros: Single codebase, compile-time exclusion, no runtime overhead  │
+          │ Cons: Code complexity, conditional compilation everywhere           │
+          └─────────────────────────────────────────────────────────────────────┘
+
+          ┌─────────────────────────────────────────────────────────────────────┐
+          │ OPTION B: Separate Binary Target                                    │
+          ├─────────────────────────────────────────────────────────────────────┤
+          │ How: [[bin]] forge-demo in Cargo.toml, different main.rs            │
+          │ Build: cargo build --bin forge-demo                                 │
+          │ Pros: Clean separation, easy to reason about                        │
+          │ Cons: Code duplication, two binaries to maintain                    │
+          └─────────────────────────────────────────────────────────────────────┘
+
+          ┌─────────────────────────────────────────────────────────────────────┐
+          │ OPTION C: Runtime License Check                                     │
+          ├─────────────────────────────────────────────────────────────────────┤
+          │ How: Single binary, checks for license file to unlock features      │
+          │ Build: One binary for all                                           │
+          │ Pros: Simple distribution, upgrade path for customers               │
+          │ Cons: Enterprise code IN the binary (reversible), larger binary     │
+          └─────────────────────────────────────────────────────────────────────┘
+
+          ┌─────────────────────────────────────────────────────────────────────┐
+          │ OPTION D: Build Script Strips Code                                  │
+          ├─────────────────────────────────────────────────────────────────────┤
+          │ How: build.rs or pre-build script removes enterprise code           │
+          │ Build: Custom build pipeline                                        │
+          │ Pros: Clean demo binary, no enterprise code present                 │
+          │ Cons: Complex build process, fragile, hard to maintain              │
+          └─────────────────────────────────────────────────────────────────────┘
+
+          RECOMMENDATION: TBD (need to evaluate trade-offs together)
 
       - task: "Define exact function list for demo (~40)"
         status: pending
