@@ -169,11 +169,232 @@ next:
       - "Zero warnings ✅"
       - "All tests pass ✅"
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # 100% COVERAGE MILESTONES (after E2E validation)
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # HIGHLY-CRITICAL: Complete E2E Validation (ALL 92 Functions)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # v5.9.0 validated ~27 functions. This milestone completes the remaining 65.
+  # This test suite is a MOAT - nobody else has external validation like this!
+  # ═══════════════════════════════════════════════════════════════════════════════
 
   - version: "5.10.0"
+    summary: "Complete E2E Validation - ALL 92 Functions"
+    priority: CRITICAL
+    status: pending
+    estimated_effort: "2-3 hours"
+    notes: "Complete the moat. Validate EVERY function against battle-proven Gnumeric."
+
+    deliverables:
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 1: Enhanced Harness (multi-row tables, string handling)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Enhance E2ETestHarness to support multi-row table data"
+        status: pending
+        phase: 1
+        notes: "Required for aggregation functions with arrays"
+
+      - task: "Add string formula support with proper YAML escaping"
+        status: pending
+        phase: 1
+        notes: "Required for text functions"
+
+      - task: "Add range reference support for conditional functions"
+        status: pending
+        phase: 1
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 2: Aggregation Functions (6 remaining)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate MIN, MAX with array data"
+        status: pending
+        phase: 2
+
+      - task: "Validate COUNT, COUNTA with array data"
+        status: pending
+        phase: 2
+
+      - task: "Validate MEDIAN, PRODUCT with array data"
+        status: pending
+        phase: 2
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 3: Conditional Functions (8 functions)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate SUMIF, COUNTIF, AVERAGEIF"
+        status: pending
+        phase: 3
+
+      - task: "Validate SUMIFS, COUNTIFS, AVERAGEIFS"
+        status: pending
+        phase: 3
+
+      - task: "Validate MAXIFS, MINIFS"
+        status: pending
+        phase: 3
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 4: Text Functions (9 functions)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate CONCAT, CONCATENATE"
+        status: pending
+        phase: 4
+
+      - task: "Validate UPPER, LOWER, TRIM"
+        status: pending
+        phase: 4
+
+      - task: "Validate LEN, LEFT, RIGHT, MID"
+        status: pending
+        phase: 4
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 5: Financial Functions (8 remaining)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate IRR, XIRR with array cash flows"
+        status: pending
+        phase: 5
+
+      - task: "Validate XNPV, NPER"
+        status: pending
+        phase: 5
+
+      - task: "Validate depreciation: SLN, DB, DDB"
+        status: pending
+        phase: 5
+
+      - task: "Validate MIRR"
+        status: pending
+        phase: 5
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 6: Lookup Functions (5 functions)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate INDEX, MATCH with table data"
+        status: pending
+        phase: 6
+
+      - task: "Validate CHOOSE, INDIRECT"
+        status: pending
+        phase: 6
+
+      - task: "Validate XLOOKUP"
+        status: pending
+        phase: 6
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 7: Statistical Functions (3 functions)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate PERCENTILE, QUARTILE"
+        status: pending
+        phase: 7
+
+      - task: "Validate CORREL"
+        status: pending
+        phase: 7
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 8: Date Functions (4 remaining)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate TODAY (dynamic date)"
+        status: pending
+        phase: 8
+
+      - task: "Validate DATEDIF, NETWORKDAYS"
+        status: pending
+        phase: 8
+
+      - task: "Validate YEARFRAC"
+        status: pending
+        phase: 8
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 9: Math Functions (4 remaining)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate ROUNDUP, ROUNDDOWN"
+        status: pending
+        phase: 9
+
+      - task: "Validate INT, LOG"
+        status: pending
+        phase: 9
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 10: Advanced Functions (3 functions)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate LAMBDA, LET"
+        status: pending
+        phase: 10
+
+      - task: "Validate SWITCH"
+        status: pending
+        phase: 10
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 11: Array Functions (4 functions)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate UNIQUE, COUNTUNIQUE"
+        status: pending
+        phase: 11
+
+      - task: "Validate SORT, FILTER"
+        status: pending
+        phase: 11
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 12: Forge-Specific Functions (6 functions)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate BREAKEVEN_UNITS, BREAKEVEN_REVENUE"
+        status: pending
+        phase: 12
+        notes: "Forge-specific - compare against manual calculation"
+
+      - task: "Validate VARIANCE, VARIANCE_PCT, VARIANCE_STATUS"
+        status: pending
+        phase: 12
+
+      - task: "Validate SCENARIO"
+        status: pending
+        phase: 12
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 13: Logical Functions (1 remaining)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Validate IFERROR"
+        status: pending
+        phase: 13
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # PHASE 14: Documentation Update (THE MOAT!)
+      # ─────────────────────────────────────────────────────────────────────────
+      - task: "Update README.md - E2E validation as competitive moat"
+        status: pending
+        phase: 14
+        notes: "THIS IS A MOAT - document it prominently!"
+
+      - task: "Create ADR: E2E External Validation Strategy"
+        status: pending
+        phase: 14
+
+      - task: "Update SPECS with E2E validation coverage matrix"
+        status: pending
+        phase: 14
+
+      - task: "Add E2E badge to README (92/92 functions validated)"
+        status: pending
+        phase: 14
+
+    success_criteria:
+      - "ALL 92 functions validated against Gnumeric/LibreOffice"
+      - "E2E coverage matrix showing 100% function validation"
+      - "README prominently features E2E validation moat"
+      - "ADR documenting external validation strategy"
+      - "Zero warnings"
+      - "All tests pass"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 100% CODE COVERAGE MILESTONES (after complete E2E validation)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.11.0"
     summary: "100% Coverage - Dead Code & Quick Wins"
     priority: HIGH
     status: pending
@@ -268,7 +489,7 @@ next:
       - "All quick win files at 100%"
       - "Zero warnings"
 
-  - version: "5.11.0"
+  - version: "5.12.0"
     summary: "100% Coverage - Medium Files (15-50 missed lines)"
     priority: HIGH
     status: pending
@@ -344,7 +565,7 @@ next:
       - "All medium files at 100% or excluded via ADR-006"
       - "Zero warnings"
 
-  - version: "5.12.0"
+  - version: "5.13.0"
     summary: "100% Coverage - Complex Files (50+ missed lines)"
     priority: HIGH
     status: pending
