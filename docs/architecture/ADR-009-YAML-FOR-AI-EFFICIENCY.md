@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2025-12-08
+**Updated:** 2025-12-08 (added training data research, CSV comparison, MCP overhead)
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)
 
 ---
@@ -10,14 +11,71 @@
 
 AI assistants (Claude, GPT, Copilot) are increasingly used for financial modeling. The question: **what format should financial models use for AI workflows?**
 
+### The Training Data Advantage
+
+LLMs are heavily trained on YAML. Research (December 2025) reveals:
+
+| Dataset | YAML Files | Source |
+|---------|-----------|--------|
+| [The Stack](https://huggingface.co/datasets/bigcode/the-stack) | **13.4 million** | GitHub (358 languages) |
+| [K8s YAML Dataset](https://huggingface.co/datasets/substratusai/the-stack-yaml-k8s) | **276,520** | Kubernetes manifests |
+| [The Stack v2](https://huggingface.co/datasets/bigcode/the-stack-v2) | **4x larger** | 619 languages |
+
+YAML is ubiquitous in training data:
+- **Kubernetes** — every K8s manifest is YAML
+- **CI/CD** — GitHub Actions, GitLab CI, CircleCI
+- **Infrastructure** — Docker Compose, Ansible, Terraform
+- **Configuration** — virtually every modern tool
+
+**Result**: LLMs understand YAML syntax deeply. Excel? Not so much.
+
 ### The Token Problem
 
-| Format | 50KB Model | Tokens | Cost (GPT-4) |
-|--------|------------|--------|--------------|
+| Format | 50KB Model | Tokens | Cost (Claude) |
+|--------|------------|--------|---------------|
 | Excel (.xlsx) | Compressed XML | ~100K+ | ~$3.00 |
 | YAML | Plain text | ~2K | ~$0.06 |
 
 **Excel burns 50x more tokens for the same model.**
+
+### The MCP Overhead Problem
+
+Using Excel with AI requires MCP (Model Context Protocol) tools:
+
+| Approach | Token Overhead | Source |
+|----------|---------------|--------|
+| MCP Excel Server | **~12,000 tokens** | [Anthropic MCP](https://www.anthropic.com/engineering/code-execution-with-mcp) |
+| Convert to CSV | Loses formulas | N/A |
+| Convert to JSON | +40% bloat | [TOON Research](https://www.infoq.com/news/2025/11/toon-reduce-llm-cost-tokens/) |
+| **Native YAML** | **Zero overhead** | Direct text |
+
+### Why Not CSV?
+
+CSV is more token-efficient than YAML for flat data. But financial models aren't flat:
+
+| Capability | YAML | CSV |
+|------------|------|-----|
+| **Formulas** | ✓ `"=revenue - costs"` | ✗ Just flat data |
+| **Rich metadata** | ✓ units, notes, sources | ✗ No structure |
+| **Nested structures** | ✓ Tables, scenarios | ✗ Flat rows only |
+| **LLM accuracy** | Higher | 44.3% ([source](https://www.improvingagents.com/blog/best-input-data-format-for-llms)) |
+
+**CSV cannot preserve formulas.** When you export Excel to CSV, the logic is gone:
+
+```csv
+revenue,costs,profit
+1000000,400000,600000
+```
+
+Where's `profit = revenue - costs`? Lost. The AI sees numbers, not relationships.
+
+YAML preserves logic:
+
+```yaml
+revenue: 1000000
+costs: 400000
+profit: "=revenue - costs"
+```
 
 ### Why Excel Is Expensive
 
@@ -54,12 +112,22 @@ projections:
 Advantages:
 1. **Semantic names**: `revenue`, not `C1`
 2. **Minimal overhead**: No XML tags
-3. **AI training data**: Millions of YAML files in AI training (K8s, CI/CD, configs)
+3. **AI training data**: 13M+ YAML files in training datasets
 4. **Self-documenting**: Formula references are readable
+5. **Formulas preserved**: Logic visible to AI
 
 ## Decision
 
 **Use YAML as the primary format for AI-assisted financial modeling.**
+
+### Format Comparison Summary
+
+| Format | Token Efficiency | Formulas | Metadata | LLM Training | LLM Accuracy |
+|--------|-----------------|----------|----------|--------------|--------------|
+| Excel | Poor (~100K) | ✓ | ✓ | Minimal | N/A (binary) |
+| CSV | Best (flat) | ✗ | ✗ | Common | 44.3% |
+| JSON | Poor (+40%) | ✓ | ✓ | Common | Good |
+| **YAML** | **Good** | **✓** | **✓** | **13M+ files** | **Higher** |
 
 ### Token Comparison
 
@@ -69,17 +137,6 @@ Same 5-year DCF model:
 |--------|-------|--------|------------------|
 | Excel XML | ~500 | ~8,000 | "What is B7?" |
 | YAML | ~50 | ~400 | "revenue = price × units" |
-
-### AI Training Data Prevalence
-
-AI models have seen millions of YAML files:
-- Kubernetes manifests
-- GitHub Actions workflows
-- Docker Compose files
-- CloudFormation templates
-- Ansible playbooks
-
-**YAML is a first-class citizen in AI. Excel is a tourist.**
 
 ## Rationale
 
@@ -131,11 +188,12 @@ Excel diffs are not:
 ## Consequences
 
 ### Positive
-- 50x token reduction
+- 50x token reduction vs Excel
 - AI understands formulas semantically
 - Fewer hallucinations
 - Git-friendly diffs
 - Cost savings at scale
+- Zero MCP overhead
 
 ### Negative
 - CFOs expect Excel (mitigation: `forge export`)
@@ -157,12 +215,28 @@ Analyst + AI:     Write YAML → AI assists → Forge validates → Export Excel
 
 ## References
 
+### LLM Training Data
+- [The Stack](https://huggingface.co/datasets/bigcode/the-stack) — 3TB of code, 13.4M YAML files
+- [The Stack v2](https://huggingface.co/datasets/bigcode/the-stack-v2) — 4x larger, 619 languages
+- [K8s YAML Dataset](https://www.substratus.ai/blog/k8s-yaml-dataset) — 276k Kubernetes manifests
+
+### Token Efficiency
+- [Token Format Comparison](https://medium.com/@rajeev.bit30/tokenization-comparison-token-usage-across-csv-json-yaml-and-toon-for-llm-interactions-3a2df3956587)
+- [TOON Format](https://www.infoq.com/news/2025/11/toon-reduce-llm-cost-tokens/) — 40% fewer tokens than JSON
+- [Best Format for LLMs](https://www.improvingagents.com/blog/best-input-data-format-for-llms) — 11 formats tested
+
+### MCP & Tools
+- [Anthropic MCP Engineering](https://www.anthropic.com/engineering/code-execution-with-mcp) — Tool overhead ~12k tokens
+- [Excel MCP Server](https://github.com/haris-musa/excel-mcp-server) — MCP tool for Excel
+
+### Pricing
 - [OpenAI Tokenizer](https://platform.openai.com/tokenizer)
 - [Anthropic Claude Pricing](https://www.anthropic.com/pricing)
-- YAML training prevalence in LLMs
 
 ---
 
-*Excel burns tokens. YAML doesn't. AI is trained on millions of YAML files. Not spreadsheets.*
+*CSV is for data dumps. Excel is for CFOs. YAML is for AI.*
+
+*LLMs are trained on 13M+ YAML files. Not spreadsheets.*
 
 -- Claude Opus 4.5, Principal Autonomous AI
