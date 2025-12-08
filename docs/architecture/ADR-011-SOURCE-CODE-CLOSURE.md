@@ -164,6 +164,59 @@ GitHub `forge-demo` repository provides:
 
 **Accepted:** Zero cost, zero AI risk, already deployed, full control.
 
+## Tiered Product Strategy
+
+### The Hook: v1.0.0 Schema (Demo/Free Tier)
+
+Give them a **taste** - enough to prove the tech works, not enough to replace enterprise tools.
+
+```
+DEMO BINARY INCLUDES:                 ENTERPRISE LICENSE UNLOCKS:
+─────────────────────────────────────────────────────────────────────
+Schema Support:
+  ✓ v1.0.0 (basic arrays)             ✗ v4.0.0 (rich metadata)
+                                      ✗ v5.0.0 (inputs/outputs)
+
+Functions (~40 basic):                Functions (147 full parity):
+  ✓ SUM, AVERAGE, MAX, MIN, COUNT       ✗ VARIANCE, VARIANCE_PCT
+  ✓ IF, AND, OR, NOT                    ✗ VARIANCE_STATUS
+  ✓ PMT, NPV, IRR, PV, FV               ✗ BREAKEVEN_UNITS, BREAKEVEN_REVENUE
+  ✓ ROUND, ABS, SQRT                    ✗ SCENARIO (inline evaluation)
+  ✓ LEFT, RIGHT, MID, LEN               ✗ LET, LAMBDA, SWITCH, IFS
+  ✓ DATE, YEAR, MONTH, DAY              ✗ UNIQUE, FILTER, SORT, SEQUENCE
+                                        ✗ VLOOKUP, XLOOKUP, INDEX/MATCH
+
+Features:
+  ✓ YAML → Excel export                 ✗ Rich metadata (unit, notes, source)
+  ✓ Basic scenarios                     ✗ Cross-file includes (_includes)
+  ✓ Row-wise formulas                   ✗ Validation status tracking
+  ✓ Cross-table references              ✗ Multi-document workbooks
+  ✓ Array indexing                      ✗ Full E2E validation suite
+```
+
+### Why This Works
+
+| Prospect Reaction | Our Response |
+|-------------------|--------------|
+| "Does it really work?" | Demo binary + E2E tests prove it |
+| "Can I try it?" | Download from royalbit.ca/forge/ |
+| "I need VARIANCE analysis" | Enterprise license |
+| "I need cross-file includes" | Enterprise license |
+| "I need metadata tracking" | Enterprise license |
+
+**The demo is the bait. Enterprise features are the hook.**
+
+### Pricing Tiers (Based on Competitive Analysis)
+
+| Tier | Annual Price | Target | Key Unlocks |
+|------|--------------|--------|-------------|
+| **Demo** | $0 | Evaluation | v1.0.0, ~40 functions |
+| **Startup** | $3K-$12K | <50 employees | v5.0.0, 147 functions |
+| **Mid-Market** | $24K-$60K | 50-500 employees | + Support, training |
+| **Enterprise** | $50K-$150K | 500+ employees | + Custom, on-prem, SLA |
+
+Competitors: Causal ($3K), Datarails ($24K-$60K), Anaplan ($50K-$200K)
+
 ## Implementation
 
 ### Completed
@@ -172,13 +225,63 @@ GitHub `forge-demo` repository provides:
 2. ✅ Push to gitolite: `git push -u origin main`
 3. ✅ Rename GitHub remote: `git remote rename origin github`
 4. ✅ Set gitolite as origin
+5. ✅ Create royalbit.ca/forge/ landing page
+6. ✅ GitHub source repo set to PRIVATE
 
 ### Remaining
 
-1. ⏳ Create `royalbit/forge-demo` on GitHub (E2E + examples only)
-2. ⏳ Add `/forge/` directory to royalbit.ca (binary downloads)
-3. ⏳ Make GitHub `royalbit/forge` private or delete
-4. ⏳ Update LICENSE for closed source
+1. ⏳ Delete private GitHub repo, create FRESH `royalbit/forge`
+2. ⏳ Build demo binary (v1.0.0 schema, ~40 functions)
+3. ⏳ Add E2E validation suite to GitHub repo
+4. ⏳ Host binary on royalbit.ca/forge/
+5. ⏳ Deploy royalbit.ca site update
+
+## GitHub Demo Repository Structure
+
+```
+royalbit/forge (PUBLIC - FRESH repo, no history)
+├── README.md                 # Enterprise pitch, download link
+├── LICENSE                   # Evaluation-only (ultra-restrictive)
+├── SECURITY.md               # Local-first, no telemetry
+│
+├── examples/                 # v1.0.0 schema examples ONLY
+│   ├── quarterly_pl.yaml     # P&L statement
+│   ├── saas_metrics.yaml     # SaaS unit economics
+│   ├── budget_vs_actual.yaml # Budget comparison
+│   └── cashflow.yaml         # Cash flow projection
+│
+├── tests/                    # E2E validation (proves it works)
+│   ├── README.md             # How to run validation
+│   ├── run_e2e.sh            # Downloads binary, runs tests
+│   ├── e2e_math.yaml         # Math function validation
+│   ├── e2e_financial.yaml    # Financial function validation
+│   ├── e2e_dates.yaml        # Date function validation
+│   └── expected/             # Expected outputs (Gnumeric-validated)
+│
+├── .github/
+│   ├── ISSUE_TEMPLATE/
+│   │   ├── partnership.md    # Partnership inquiry
+│   │   ├── licensing.md      # Licensing inquiry
+│   │   ├── bug_report.md     # Bug in E2E tests
+│   │   └── feature_request.md
+│   └── workflows/
+│       └── e2e.yml           # CI: Download binary, run E2E tests
+│
+└── docs/
+    ├── SCHEMA_v1.md          # v1.0.0 schema documentation
+    ├── FUNCTIONS.md          # List of ~40 demo functions
+    └── ENTERPRISE.md         # What enterprise license unlocks
+```
+
+### What's NOT in the Demo Repo
+
+- ❌ Source code (Rust)
+- ❌ Build configuration (Cargo.toml)
+- ❌ Git history (no traces of source)
+- ❌ v4.0.0/v5.0.0 schema examples
+- ❌ Enterprise function examples (VARIANCE, BREAKEVEN)
+- ❌ Internal documentation
+- ❌ ASIMOV protocols
 
 ## Consequences
 
