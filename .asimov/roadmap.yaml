@@ -59,9 +59,9 @@ next:
 
       - task: "Update --help text with precise stats"
         status: pending
-        notes: "81 functions in evaluator, 147 in translator"
+        notes: "147 functions (all working end-to-end)"
 
-      - task: "Update forge functions command - list ALL 81 by category"
+      - task: "Update forge functions command - list ALL functions by category"
         status: pending
         notes: "Precise categorization, no approximations"
 
@@ -70,14 +70,114 @@ next:
 
     success_criteria:
       - "README speaks to finance professionals, not developers"
-      - "All stats are precise (81, 147, 1709 - not 80+, 100+)"
+      - "All stats are precise (147 functions, 1709 tests)"
       - "Clear ROI case for enterprise adoption"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CRITICAL: Complete Function Parity (Evaluator = Translator = 147)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.12.0"
+    summary: "Complete Function Parity - ALL 147 Functions Working"
+    priority: CRITICAL
+    status: pending
+    estimated_effort: "2-3 sessions"
+    notes: |
+      GAP: 147 functions in translator, only 81 in evaluator.
+      66 functions export to Excel but can't be calculated by Forge!
+      This is UNACCEPTABLE for a precision financial tool.
+
+    deliverables:
+      - task: "Audit: List all 66 missing functions"
+        status: pending
+        notes: "Compare translator list vs evaluator list"
+
+      - task: "Implement missing Trigonometric functions in evaluator"
+        status: pending
+        notes: "SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, RADIANS, DEGREES"
+
+      - task: "Implement missing Information functions in evaluator"
+        status: pending
+        notes: "ISEVEN, ISODD, ISBLANK, ISERROR, ISNA, ISNUMBER, ISTEXT, ISLOGICAL, ISREF, ISFORMULA, NA, TYPE, N"
+
+      - task: "Implement missing Text functions in evaluator"
+        status: pending
+        notes: "TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE"
+
+      - task: "Implement missing Date functions in evaluator"
+        status: pending
+        notes: "WEEKDAY, HOUR, MINUTE, SECOND, DAYS, TIME"
+
+      - task: "Implement missing Lookup functions in evaluator"
+        status: pending
+        notes: "OFFSET, INDIRECT, ADDRESS, ROW, COLUMN, ROWS, COLUMNS"
+
+      - task: "Implement missing Array functions in evaluator"
+        status: pending
+        notes: "SEQUENCE, RANDARRAY"
+
+      - task: "Implement missing Statistical functions in evaluator"
+        status: pending
+        notes: "VARP, STDEVP, LARGE, SMALL, RANK"
+
+      - task: "E2E validate ALL 147 functions against Gnumeric"
+        status: pending
+
+    success_criteria:
+      - "Evaluator supports ALL 147 functions"
+      - "forge functions lists ALL 147"
+      - "E2E tests validate ALL 147"
+      - "Zero gap between translator and evaluator"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Documentation Polish - Enterprise Ready
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.13.0"
+    summary: "Documentation Polish - ALL .md files, ADRs, SPECS Enterprise-Ready"
+    priority: HIGH
+    status: pending
+    estimated_effort: "1-2 sessions"
+    notes: "Review and polish ALL documentation for enterprise buyers"
+
+    deliverables:
+      - task: "Review and update ALL .md files in repo root"
+        status: pending
+        notes: "README, CHANGELOG, CONTRIBUTING, LICENSE headers"
+
+      - task: "Review and update ALL docs/*.md files"
+        status: pending
+        notes: "Architecture docs, design docs, API docs"
+
+      - task: "Review and update ALL ADRs (Architecture Decision Records)"
+        status: pending
+        notes: "Ensure ADRs are complete, professional, well-reasoned"
+
+      - task: "Review and update SPECS"
+        status: pending
+        notes: "JSON schema, YAML format spec, function reference"
+
+      - task: "Review and update .asimov/ protocol files"
+        status: pending
+        notes: "roadmap.yaml, project.yaml - consistent formatting"
+
+      - task: "Add SECURITY.md for enterprise compliance"
+        status: pending
+
+      - task: "Add SUPPORT.md for enterprise customers"
+        status: pending
+
+    success_criteria:
+      - "All documentation reads professionally"
+      - "No outdated stats or claims"
+      - "Clear enterprise value proposition throughout"
+      - "Ready for Big 4 / Fortune 500 review"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # 100% CODE COVERAGE MILESTONES
   # ─────────────────────────────────────────────────────────────────────────────
 
-  - version: "5.12.0"
+  - version: "5.14.0"
     summary: "100% Coverage - Dead Code & Quick Wins"
     priority: HIGH
     status: pending
@@ -86,40 +186,25 @@ next:
     deliverables:
       - task: "Remove dead code: core/array_calculator/dates.rs"
         status: pending
-        current: "0.00%"
-        missed_lines: 444
         notes: "Legacy dates.rs is dead code (replaced by evaluator/dates.rs)"
 
       - task: "Quick wins: 15 files with <15 missed lines each"
         status: pending
         notes: "types.rs, error.rs, logical.rs, text.rs, array.rs, server.rs, etc."
 
-    success_criteria:
-      - "Dead code removed"
-      - "All quick win files at 100%"
-
-  - version: "5.13.0"
-    summary: "100% Coverage - Medium Files (15-50 missed lines)"
-    priority: HIGH
-    status: pending
-    estimated_effort: "1-2 sessions"
-
-    deliverables:
-      - task: "Cover 13 medium files"
-        status: pending
-        notes: "math.rs, dates.rs, formula_translator.rs, importer.rs, etc."
-
-  - version: "5.14.0"
-    summary: "100% Coverage - Complex Files (50+ missed lines)"
+  - version: "5.15.0"
+    summary: "100% Coverage - Medium & Complex Files"
     priority: HIGH
     status: pending
     estimated_effort: "2-3 sessions"
     notes: "May need cfg(not(coverage)) for OS-specific/server paths"
 
     deliverables:
-      - task: "Cover 5 complex files"
+      - task: "Cover 13 medium files (15-50 missed lines)"
         status: pending
-        notes: "mcp/server.rs, analysis.rs, parser/mod.rs, evaluator/mod.rs, exporter.rs"
+
+      - task: "Cover 5 complex files (50+ missed lines)"
+        status: pending
 
     success_criteria:
       - "100% test coverage for all functional code"
