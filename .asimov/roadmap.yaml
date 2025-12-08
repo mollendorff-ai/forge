@@ -37,118 +37,157 @@ current:
     coverage: "89.23%"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# NEXT MILESTONE: Documentation Overhaul
+# NEXT MILESTONES
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # CRITICAL: Complete Function Parity (Evaluator = Translator = 147)
+  # CRITICAL: Documentation Polish - Make It Irresistible
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "5.12.0"
-    summary: "Complete Function Parity - ALL 147 Functions Working"
+    summary: "Documentation Polish - Enterprise-Grade, Irresistible"
     priority: CRITICAL
+    status: pending
+    estimated_effort: "1-2 sessions"
+    notes: |
+      Review and polish EVERY piece of documentation.
+      Target: Enterprise buyers at top consulting/fintech/finance firms.
+      Goal: Make them WANT this product.
+
+    deliverables:
+      - task: "Review ALL .md files in repo root"
+        status: pending
+        notes: "README, CHANGELOG, CONTRIBUTING - professional tone, precise stats"
+
+      - task: "Review ALL docs/*.md files"
+        status: pending
+        notes: "Architecture docs, design docs, API docs - no outdated info"
+
+      - task: "Review ALL ADRs (Architecture Decision Records)"
+        status: pending
+        notes: "Complete, professional, well-reasoned decisions"
+
+      - task: "Review ALL specs and schemas"
+        status: pending
+        notes: "JSON schema, YAML format spec, function reference"
+
+      - task: "Review .asimov/ protocol files"
+        status: pending
+        notes: "roadmap.yaml, project.yaml - consistent, clean"
+
+      - task: "Add SECURITY.md"
+        status: pending
+        notes: "Local-first, no telemetry, no cloud - enterprise compliance"
+
+      - task: "Remove any developer-centric language"
+        status: pending
+        notes: "Replace with business value language"
+
+    success_criteria:
+      - "Every .md file reads professionally"
+      - "No outdated stats, no approximations"
+      - "Clear R&D status, clear value proposition"
+      - "Enterprise buyers see quality and want it"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CRITICAL: Git History Cleanup - Remove Former MIT License
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.13.0"
+    summary: "Git History Analysis - MIT License Removal Options"
+    priority: CRITICAL
+    status: pending
+    estimated_effort: "1 session (analysis) + decision"
+    notes: |
+      The repo previously had MIT license. Need to analyze options
+      for cleaning this from git history to ensure proprietary status.
+      This is a LEGAL/BUSINESS decision, not just technical.
+
+    deliverables:
+      - task: "Analyze git history for MIT license artifacts"
+        status: pending
+        notes: "Find all commits with MIT license, assess exposure"
+
+      - task: "Document Option A: git filter-branch / BFG Repo Cleaner"
+        status: pending
+        notes: |
+          Pros: Complete removal from history
+          Cons: Rewrites all commit SHAs, breaks forks/clones
+
+      - task: "Document Option B: Fresh repo with squashed history"
+        status: pending
+        notes: |
+          Pros: Clean slate, simple
+          Cons: Loses detailed commit history
+
+      - task: "Document Option C: Keep history, add legal notice"
+        status: pending
+        notes: |
+          Pros: Preserves history, simplest
+          Cons: MIT commits still visible (but superseded by new license)
+
+      - task: "Document Option D: Archive current repo, new repo"
+        status: pending
+        notes: |
+          Pros: Clean separation
+          Cons: Loses GitHub stars/issues/links
+
+      - task: "Legal implications summary"
+        status: pending
+        notes: "What does MIT in history mean legally? Consult if needed."
+
+      - task: "Recommendation with pros/cons"
+        status: pending
+
+    success_criteria:
+      - "All options clearly documented"
+      - "Legal implications understood"
+      - "Clear recommendation for owner decision"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # NORMAL: Complete Function Parity (81 -> 147)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.14.0"
+    summary: "Complete Function Parity - ALL 147 Functions Working"
+    priority: NORMAL
     status: pending
     estimated_effort: "2-3 sessions"
     notes: |
       GAP: 147 functions in translator, only 81 in evaluator.
-      66 functions export to Excel but can't be calculated by Forge!
-      This is UNACCEPTABLE for a precision financial tool.
+      66 functions export to Excel but can't be calculated by Forge.
 
     deliverables:
       - task: "Audit: List all 66 missing functions"
         status: pending
-        notes: "Compare translator list vs evaluator list"
 
-      - task: "Implement missing Trigonometric functions in evaluator"
+      - task: "Implement Trigonometric functions"
         status: pending
         notes: "SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, RADIANS, DEGREES"
 
-      - task: "Implement missing Information functions in evaluator"
+      - task: "Implement Information functions"
         status: pending
-        notes: "ISEVEN, ISODD, ISBLANK, ISERROR, ISNA, ISNUMBER, ISTEXT, ISLOGICAL, ISREF, ISFORMULA, NA, TYPE, N"
+        notes: "ISEVEN, ISODD, ISBLANK, ISERROR, ISNA, ISNUMBER, ISTEXT, etc."
 
-      - task: "Implement missing Text functions in evaluator"
+      - task: "Implement remaining Text, Date, Lookup, Array, Stats functions"
         status: pending
-        notes: "TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE"
 
-      - task: "Implement missing Date functions in evaluator"
-        status: pending
-        notes: "WEEKDAY, HOUR, MINUTE, SECOND, DAYS, TIME"
-
-      - task: "Implement missing Lookup functions in evaluator"
-        status: pending
-        notes: "OFFSET, INDIRECT, ADDRESS, ROW, COLUMN, ROWS, COLUMNS"
-
-      - task: "Implement missing Array functions in evaluator"
-        status: pending
-        notes: "SEQUENCE, RANDARRAY"
-
-      - task: "Implement missing Statistical functions in evaluator"
-        status: pending
-        notes: "VARP, STDEVP, LARGE, SMALL, RANK"
-
-      - task: "E2E validate ALL 147 functions against Gnumeric"
+      - task: "E2E validate ALL 147 functions"
         status: pending
 
     success_criteria:
-      - "Evaluator supports ALL 147 functions"
-      - "forge functions lists ALL 147"
-      - "E2E tests validate ALL 147"
-      - "Zero gap between translator and evaluator"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Documentation Polish - Enterprise Ready
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  - version: "5.13.0"
-    summary: "Documentation Polish - ALL .md files, ADRs, SPECS Enterprise-Ready"
-    priority: HIGH
-    status: pending
-    estimated_effort: "1-2 sessions"
-    notes: "Review and polish ALL documentation for enterprise buyers"
-
-    deliverables:
-      - task: "Review and update ALL .md files in repo root"
-        status: pending
-        notes: "README, CHANGELOG, CONTRIBUTING, LICENSE headers"
-
-      - task: "Review and update ALL docs/*.md files"
-        status: pending
-        notes: "Architecture docs, design docs, API docs"
-
-      - task: "Review and update ALL ADRs (Architecture Decision Records)"
-        status: pending
-        notes: "Ensure ADRs are complete, professional, well-reasoned"
-
-      - task: "Review and update SPECS"
-        status: pending
-        notes: "JSON schema, YAML format spec, function reference"
-
-      - task: "Review and update .asimov/ protocol files"
-        status: pending
-        notes: "roadmap.yaml, project.yaml - consistent formatting"
-
-      - task: "Add SECURITY.md for enterprise compliance"
-        status: pending
-
-      - task: "Add SUPPORT.md for enterprise customers"
-        status: pending
-
-    success_criteria:
-      - "All documentation reads professionally"
-      - "No outdated stats or claims"
-      - "Clear enterprise value proposition throughout"
-      - "Ready for Big 4 / Fortune 500 review"
+      - "Evaluator = Translator = 147 functions"
+      - "All functions E2E validated"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # 100% CODE COVERAGE MILESTONES
   # ─────────────────────────────────────────────────────────────────────────────
 
-  - version: "5.14.0"
+  - version: "5.15.0"
     summary: "100% Coverage - Dead Code & Quick Wins"
-    priority: HIGH
+    priority: NORMAL
     status: pending
     estimated_effort: "1 session"
 
@@ -161,9 +200,9 @@ next:
         status: pending
         notes: "types.rs, error.rs, logical.rs, text.rs, array.rs, server.rs, etc."
 
-  - version: "5.15.0"
+  - version: "5.16.0"
     summary: "100% Coverage - Medium & Complex Files"
-    priority: HIGH
+    priority: NORMAL
     status: pending
     estimated_effort: "2-3 sessions"
     notes: "May need cfg(not(coverage)) for OS-specific/server paths"
