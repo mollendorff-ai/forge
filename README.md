@@ -5,20 +5,59 @@
 [![Functions](https://img.shields.io/badge/functions-81-blue)](https://github.com/royalbit/forge)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
-**Git-native financial modeling. Zero hallucinations. Excel-compatible.**
+**Financial modeling for the AI era. Git-native. Excel-compatible.**
 
-> "Excel has 88% of finance. 88% of spreadsheets have errors."
-> Formula errors cost Fortune 500s $10B/year. Forge fixes this.
+> Excel burns tokens. YAML doesn't.
+> AI is trained on millions of YAML files. Not spreadsheets.
 
 ## The Problem
 
-| Excel Pain Point | Business Impact |
-|------------------|-----------------|
-| `Final_v3_REAL_final.xlsx` | Version control nightmare |
-| Binary files can't diff | No code review possible |
-| Formula errors compound silently | $10B/year in Fortune 500 losses |
-| AI tools hallucinate numbers | Confident wrong answers |
-| Audit trails are manual | SOX compliance burden |
+| Excel + AI | The Cost |
+|------------|----------|
+| `.xlsx` is compressed XML | Massive token consumption |
+| Cell references like `B7:G42` | AI has to guess what that means |
+| No semantic structure | Context wasted on formatting |
+| Can't diff, can't PR | No version control |
+| AI hallucinates numbers | And Excel can't catch it |
+
+**The math:** A 50KB Excel file can burn 100K+ tokens when parsed. The same model in YAML? Under 2K tokens.
+
+## Why YAML Wins
+
+| Factor | Excel | YAML |
+|--------|-------|------|
+| Token efficiency | ~100K tokens | ~2K tokens |
+| AI training data | Rare | Ubiquitous (K8s, CI/CD, configs) |
+| Semantic clarity | `=B7*C3` | `revenue: "=price * units"` |
+| Diff-friendly | No | Yes |
+| Code review | Impossible | Native |
+
+**AI models have seen millions of YAML files.** Kubernetes configs. GitHub Actions. Docker Compose. CloudFormation. Ansible playbooks.
+
+YAML is a first-class citizen in AI. Excel is a tourist.
+
+### The Workflow Difference
+
+```
+Excel + AI:    Parse XML → Burn tokens → Guess cell refs → Hope it's right
+
+Forge + AI:   Read YAML → Minimal tokens → Clear semantics → Verify with Forge
+```
+
+### Built at AI Speed
+
+This codebase: **1 person + AI. 15 days. 1,709 tests.**
+
+| What | Forge | Typical Project |
+|------|-------|-----------------|
+| Time to build | 15 days | 6+ months |
+| Tests | 1,709 | Maybe 100 |
+| Coverage | 89% | "Later" |
+| Warnings | 0 | Ignored |
+
+That's the point: **AI + token-efficient formats = 10x output.**
+
+Your analysts get the same multiplier. But only if they stop feeding Excel to AI.
 
 ## The Forge Solution
 
