@@ -1,6 +1,6 @@
 # Forge Roadmap
 # For version history, see CHANGELOG.md
-# Last updated: 2025-12-07
+# Last updated: 2025-12-08
 #
 # ═══════════════════════════════════════════════════════════════════════════════
 # CODING STANDARDS
@@ -24,603 +24,117 @@ current:
   date: "2025-12-08"
   summary: "Formula Translator Extended + E2E Validation Fixed"
   highlights:
-    - "Formula translator supports 100+ Excel functions"
+    - "Formula translator supports 147 Excel functions"
     - "33 E2E tests validating 44 formulas against Gnumeric"
-    - "Trigonometric, Financial, Date, Info functions added to translator"
-    - "Fixed BROKEN state from v5.10.0 Phase 1"
+    - "81 functions in Forge evaluator"
+    - "Fixed BROKEN state from interrupted session"
   stats:
-    tests: 1709  # 1676 + 33 E2E tests
+    tests: 1709
     warnings: 0
-    functions_total: 81
-    functions_in_translator: 100+
+    functions_evaluator: 81
+    functions_translator: 147
+    e2e_formulas_validated: 44
     coverage: "89.23%"
-    branch_coverage: "81.34%"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 100% COVERAGE ROADMAP - STRATEGIC BREAKDOWN
-# ═══════════════════════════════════════════════════════════════════════════════
-# Goal: 89.23% → 100% (1,353 missed lines to cover or exclude via ADR-006)
-#
-# Strategy:
-# 1. Remove dead code (immediate win)
-# 2. Quick wins: files with <15 missed lines
-# 3. Medium: files with 15-50 missed lines
-# 4. Complex: files with 50+ missed lines (may need cfg(not(coverage)))
+# NEXT MILESTONE: Documentation Overhaul
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # HIGHLY-CRITICAL: LibreOffice E2E Validation
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # We don't know if Forge hallucinated formulas. LibreOffice is battle-proven
-  # (decades of use, millions of users). Validate OUR work against something REAL.
-  # Fully automated. Zero manual work. CI-integrated.
-  #
-  # 9 PHASES - Each phase = commit + push after success
-  # Target: 1-2 hours (ref: Nov 25 2025 = 21 commits in one day)
-  # ═══════════════════════════════════════════════════════════════════════════════
-
-  - version: "5.9.0"
-    summary: "LibreOffice E2E Validation - Complete"
-    priority: CRITICAL
-    status: completed
-    estimated_effort: "1-2 hours"
-    notes: "Battle-proven validation. Zero manual work. Fully automated. 31 tests passing."
-
-    deliverables:
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 1: Infrastructure ✅
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Add e2e-libreoffice feature flag to Cargo.toml"
-        status: completed
-        phase: 1
-
-      - task: "Create tests/e2e_libreoffice_tests.rs"
-        status: completed
-        phase: 1
-
-      - task: "SpreadsheetEngine detection (Gnumeric/LibreOffice)"
-        status: completed
-        phase: 1
-
-      - task: "Basic headless validation test"
-        status: completed
-        phase: 1
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 2: Export Harness + Basic Functions ✅
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "E2ETestHarness: Forge export → ssconvert recalc → compare"
-        status: completed
-        phase: 2
-
-      - task: "Validate SUM, AVERAGE (via arithmetic equivalents)"
-        status: completed
-        phase: 2
-        notes: "COUNT, MIN, MAX skipped - require array column references"
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 3: Math & Statistical ✅
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate math functions (ABS, ROUND, SQRT, POWER, MOD, FLOOR, CEILING, LN, LOG10, EXP)"
-        status: completed
-        phase: 3
-
-      - task: "Statistical functions - skipped (require column references)"
-        status: completed
-        phase: 3
-        notes: "STDEV, VAR, MEDIAN skipped - Forge export expects column refs"
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 4: Financial ✅
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate financial functions (PMT, FV, PV, NPV, RATE)"
-        status: completed
-        phase: 4
-        notes: "IRR skipped - requires array reference"
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 5: Dates ✅
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate date functions (DATE, YEAR, MONTH, DAY, EDATE, EOMONTH)"
-        status: completed
-        phase: 5
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 6: Text & Logical ✅
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Text functions - skipped (YAML escaping issues)"
-        status: completed
-        phase: 6
-        notes: "LEN etc skipped - require special YAML handling for string formulas"
-
-      - task: "Validate logical functions (IF, AND, OR, NOT)"
-        status: completed
-        phase: 6
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 7: Lookup ✅
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Lookup functions - skipped (require array references)"
-        status: completed
-        phase: 7
-        notes: "INDEX skipped - require array reference. VLOOKUP, HLOOKUP, MATCH need table structure"
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 8-9: Future enhancements (pending)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "LibreOffice creates XLSX → Forge imports → compare results"
-        status: pending
-        phase: 8
-        notes: "Future: reverse validation direction"
-
-      - task: "GitHub Actions workflow for E2E tests"
-        status: pending
-        phase: 9
-        notes: "Future: needs gnumeric in CI"
-
-      - task: "Documentation: E2E testing guide"
-        status: pending
-        phase: 9
-
-    success_criteria:
-      - "31 E2E tests validating formulas against Gnumeric ✅"
-      - "Math, Financial, Date, Logical functions validated ✅"
-      - "Functions requiring array refs documented as skipped ✅"
-      - "Zero warnings ✅"
-      - "All tests pass ✅"
-
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # HIGHLY-CRITICAL: Complete E2E Validation (ALL 92 Functions)
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # v5.9.0 validated ~27 functions. This milestone completes the remaining 65.
-  # This test suite is a MOAT - nobody else has external validation like this!
-  #
-  # ONE VERSION - 14 PHASES - Commit + Push after each phase
-  # Reference: v5.9.0 built in ~1 hour today (31 tests, full infrastructure)
-  # ═══════════════════════════════════════════════════════════════════════════════
-
-  - version: "5.10.0"
-    summary: "Formula Translator Extended + E2E Validation Fixed"
-    priority: CRITICAL
-    status: completed
-    date: "2025-12-08"
-    estimated_effort: "2-3 hours (single session)"
-    notes: "Fixed BROKEN state. Formula translator now supports 100+ functions."
-
-    deliverables:
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 1: Enhanced Harness + Formula Translator (COMPLETED)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Enhance E2ETestHarness to support multi-row table data"
-        status: completed
-        phase: 1
-        notes: "Harness now supports array formulas"
-
-      - task: "Extend formula translator to 100+ functions"
-        status: completed
-        phase: 1
-        notes: "Added trig, financial, date, info, statistical, advanced functions"
-
-      - task: "Fix NPER test expected value"
-        status: completed
-        phase: 1
-        notes: "Corrected from 56.07 to 57.68"
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 2: Aggregation Functions (6 remaining)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate MIN, MAX with array data"
-        status: pending
-        phase: 2
-
-      - task: "Validate COUNT, COUNTA with array data"
-        status: pending
-        phase: 2
-
-      - task: "Validate MEDIAN, PRODUCT with array data"
-        status: pending
-        phase: 2
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 3: Conditional Functions (8 functions)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate SUMIF, COUNTIF, AVERAGEIF"
-        status: pending
-        phase: 3
-
-      - task: "Validate SUMIFS, COUNTIFS, AVERAGEIFS"
-        status: pending
-        phase: 3
-
-      - task: "Validate MAXIFS, MINIFS"
-        status: pending
-        phase: 3
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 4: Text Functions (9 functions)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate CONCAT, CONCATENATE"
-        status: pending
-        phase: 4
-
-      - task: "Validate UPPER, LOWER, TRIM"
-        status: pending
-        phase: 4
-
-      - task: "Validate LEN, LEFT, RIGHT, MID"
-        status: pending
-        phase: 4
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 5: Financial Functions (8 remaining)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate IRR, XIRR with array cash flows"
-        status: pending
-        phase: 5
-
-      - task: "Validate XNPV, NPER"
-        status: pending
-        phase: 5
-
-      - task: "Validate depreciation: SLN, DB, DDB"
-        status: pending
-        phase: 5
-
-      - task: "Validate MIRR"
-        status: pending
-        phase: 5
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 6: Lookup Functions (5 functions)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate INDEX, MATCH with table data"
-        status: pending
-        phase: 6
-
-      - task: "Validate CHOOSE, INDIRECT"
-        status: pending
-        phase: 6
-
-      - task: "Validate XLOOKUP"
-        status: pending
-        phase: 6
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 7: Statistical Functions (3 functions)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate PERCENTILE, QUARTILE"
-        status: pending
-        phase: 7
-
-      - task: "Validate CORREL"
-        status: pending
-        phase: 7
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 8: Date Functions (4 remaining)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate TODAY (dynamic date)"
-        status: pending
-        phase: 8
-
-      - task: "Validate DATEDIF, NETWORKDAYS"
-        status: pending
-        phase: 8
-
-      - task: "Validate YEARFRAC"
-        status: pending
-        phase: 8
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 9: Math Functions (4 remaining)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate ROUNDUP, ROUNDDOWN"
-        status: pending
-        phase: 9
-
-      - task: "Validate INT, LOG"
-        status: pending
-        phase: 9
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 10: Advanced Functions (3 functions)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate LAMBDA, LET"
-        status: pending
-        phase: 10
-
-      - task: "Validate SWITCH"
-        status: pending
-        phase: 10
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 11: Array Functions (4 functions)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate UNIQUE, COUNTUNIQUE"
-        status: pending
-        phase: 11
-
-      - task: "Validate SORT, FILTER"
-        status: pending
-        phase: 11
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 12: Forge-Specific Functions (6 functions)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate BREAKEVEN_UNITS, BREAKEVEN_REVENUE"
-        status: pending
-        phase: 12
-        notes: "Forge-specific - compare against manual calculation"
-
-      - task: "Validate VARIANCE, VARIANCE_PCT, VARIANCE_STATUS"
-        status: pending
-        phase: 12
-
-      - task: "Validate SCENARIO"
-        status: pending
-        phase: 12
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 13: Logical Functions (1 remaining)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Validate IFERROR"
-        status: pending
-        phase: 13
-
-      # ─────────────────────────────────────────────────────────────────────────
-      # PHASE 14: Documentation Update (THE MOAT!)
-      # ─────────────────────────────────────────────────────────────────────────
-      - task: "Update README.md - E2E validation as competitive moat"
-        status: pending
-        phase: 14
-        notes: "THIS IS A MOAT - document it prominently!"
-
-      - task: "Create ADR: E2E External Validation Strategy"
-        status: pending
-        phase: 14
-
-      - task: "Update SPECS with E2E validation coverage matrix"
-        status: pending
-        phase: 14
-
-      - task: "Add E2E badge to README (92/92 functions validated)"
-        status: pending
-        phase: 14
-
-    success_criteria:
-      - "ALL 92 functions validated against Gnumeric/LibreOffice"
-      - "E2E coverage matrix showing 100% function validation"
-      - "README prominently features E2E validation moat"
-      - "ADR documenting external validation strategy"
-      - "Zero warnings"
-      - "All tests pass"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # 100% CODE COVERAGE MILESTONES (after complete E2E validation)
-  # ─────────────────────────────────────────────────────────────────────────────
-
   - version: "5.11.0"
+    summary: "Documentation Overhaul - Business-Oriented README + Precise Stats"
+    priority: HIGH
+    status: pending
+    estimated_effort: "1-2 hours"
+    notes: "Make Forge attractive to Big 4, fintech, FP&A teams"
+
+    deliverables:
+      - task: "README.md complete rewrite - business-oriented"
+        status: pending
+        notes: |
+          Target: McKinsey, BCG, Bain, Deloitte, PwC, EY, KPMG
+          Target: Stripe, Square, Plaid, Affirm, Klarna
+          Target: Goldman Sachs, JPMorgan, BlackRock, Citadel
+          Pain points: Excel version hell, formula errors, audit nightmares
+
+      - task: "Update --help text with precise stats"
+        status: pending
+        notes: "81 functions in evaluator, 147 in translator"
+
+      - task: "Update forge functions command - list ALL 81 by category"
+        status: pending
+        notes: "Precise categorization, no approximations"
+
+      - task: "Create ENTERPRISE.md for compliance/API docs"
+        status: pending
+
+    success_criteria:
+      - "README speaks to finance professionals, not developers"
+      - "All stats are precise (81, 147, 1709 - not 80+, 100+)"
+      - "Clear ROI case for enterprise adoption"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 100% CODE COVERAGE MILESTONES
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.12.0"
     summary: "100% Coverage - Dead Code & Quick Wins"
     priority: HIGH
     status: pending
     estimated_effort: "1 session"
 
     deliverables:
-      # DEAD CODE REMOVAL (immediate +444 lines covered)
       - task: "Remove dead code: core/array_calculator/dates.rs"
         status: pending
         current: "0.00%"
         missed_lines: 444
-        details: "Legacy dates.rs is dead code (replaced by evaluator/dates.rs). Delete entirely."
+        notes: "Legacy dates.rs is dead code (replaced by evaluator/dates.rs)"
 
-      # QUICK WINS - Files with <15 missed lines
-      - task: "types.rs"
+      - task: "Quick wins: 15 files with <15 missed lines each"
         status: pending
-        current: "99.80%"
-        missed_lines: 1
-
-      - task: "error.rs"
-        status: pending
-        current: "98.92%"
-        missed_lines: 2
-
-      - task: "evaluator/logical.rs"
-        status: pending
-        current: "96.72%"
-        missed_lines: 2
-
-      - task: "evaluator/text.rs"
-        status: pending
-        current: "97.65%"
-        missed_lines: 2
-
-      - task: "evaluator/array.rs"
-        status: pending
-        current: "96.04%"
-        missed_lines: 4
-
-      - task: "api/server.rs"
-        status: pending
-        current: "97.29%"
-        missed_lines: 6
-
-      - task: "writer/mod.rs"
-        status: pending
-        current: "97.39%"
-        missed_lines: 7
-
-      - task: "parser/tests.rs"
-        status: pending
-        current: "99.14%"
-        missed_lines: 7
-
-      - task: "tokenizer.rs"
-        status: pending
-        current: "97.63%"
-        missed_lines: 8
-
-      - task: "evaluator/aggregation.rs"
-        status: pending
-        current: "93.28%"
-        missed_lines: 8
-
-      - task: "evaluator/advanced.rs"
-        status: pending
-        current: "86.90%"
-        missed_lines: 11
-
-      - task: "evaluator/statistical.rs"
-        status: pending
-        current: "93.85%"
-        missed_lines: 11
-
-      - task: "cli/commands/audit.rs"
-        status: pending
-        current: "93.81%"
-        missed_lines: 13
-
-      - task: "api/handlers.rs"
-        status: pending
-        current: "97.32%"
-        missed_lines: 13
-
-      - task: "evaluator/forge.rs"
-        status: pending
-        current: "94.37%"
-        missed_lines: 13
+        notes: "types.rs, error.rs, logical.rs, text.rs, array.rs, server.rs, etc."
 
     success_criteria:
       - "Dead code removed"
       - "All quick win files at 100%"
-      - "Zero warnings"
 
-  - version: "5.12.0"
+  - version: "5.13.0"
     summary: "100% Coverage - Medium Files (15-50 missed lines)"
     priority: HIGH
     status: pending
     estimated_effort: "1-2 sessions"
 
     deliverables:
-      - task: "evaluator/math.rs"
+      - task: "Cover 13 medium files"
         status: pending
-        current: "93.48%"
-        missed_lines: 15
+        notes: "math.rs, dates.rs, formula_translator.rs, importer.rs, etc."
 
-      - task: "core/array_calculator/mod.rs"
-        status: pending
-        current: "96.31%"
-        missed_lines: 17
-
-      - task: "evaluator/dates.rs"
-        status: pending
-        current: "94.02%"
-        missed_lines: 18
-
-      - task: "excel/reverse_formula_translator.rs"
-        status: pending
-        current: "91.78%"
-        missed_lines: 18
-
-      - task: "evaluator/conditional.rs"
-        status: pending
-        current: "90.67%"
-        missed_lines: 21
-
-      - task: "parser.rs"
-        status: pending
-        current: "95.35%"
-        missed_lines: 22
-
-      - task: "cli/commands/mod.rs"
-        status: pending
-        current: "92.51%"
-        missed_lines: 28
-
-      - task: "cli/commands/upgrade.rs"
-        status: pending
-        current: "90.34%"
-        missed_lines: 28
-
-      - task: "evaluator/lookup.rs"
-        status: pending
-        current: "86.31%"
-        missed_lines: 33
-
-      - task: "evaluator/financial.rs"
-        status: pending
-        current: "92.54%"
-        missed_lines: 34
-
-      - task: "excel/formula_translator.rs"
-        status: pending
-        current: "91.88%"
-        missed_lines: 42
-
-      - task: "excel/importer.rs"
-        status: pending
-        current: "88.53%"
-        missed_lines: 43
-
-      - task: "update.rs"
-        status: pending
-        current: "83.45%"
-        missed_lines: 49
-
-    success_criteria:
-      - "All medium files at 100% or excluded via ADR-006"
-      - "Zero warnings"
-
-  - version: "5.13.0"
+  - version: "5.14.0"
     summary: "100% Coverage - Complex Files (50+ missed lines)"
     priority: HIGH
     status: pending
     estimated_effort: "2-3 sessions"
-    notes: "These files may have untestable paths (OS-specific, server startup, etc.) - use ADR-006 pattern"
+    notes: "May need cfg(not(coverage)) for OS-specific/server paths"
 
     deliverables:
-      - task: "mcp/server.rs"
+      - task: "Cover 5 complex files"
         status: pending
-        current: "93.37%"
-        missed_lines: 62
-        notes: "Server startup/shutdown may need cfg(not(coverage))"
-
-      - task: "cli/commands/analysis.rs"
-        status: pending
-        current: "89.11%"
-        missed_lines: 70
-
-      - task: "parser/mod.rs"
-        status: pending
-        current: "87.13%"
-        missed_lines: 70
-
-      - task: "evaluator/mod.rs"
-        status: pending
-        current: "82.07%"
-        missed_lines: 104
-        notes: "Core evaluator - may have error paths hard to trigger"
-
-      - task: "excel/exporter.rs"
-        status: pending
-        current: "83.71%"
-        missed_lines: 124
-        notes: "Excel export edge cases - may need cfg(not(coverage)) for some"
+        notes: "mcp/server.rs, analysis.rs, parser/mod.rs, evaluator/mod.rs, exporter.rs"
 
     success_criteria:
       - "100% test coverage for all functional code"
       - "Untestable code properly excluded via #[cfg(not(coverage))]"
-      - "Zero warnings"
-      - "All tests pass"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
+  - "Complete E2E validation for remaining functions (81 total)"
+  - "GitHub Actions workflow for E2E tests (requires gnumeric in CI)"
   - "OpenAPI spec + Swagger UI for API server"
   - "Forge vs Copilot benchmark suite"
-  - "Excel compatibility matrix doc"
+  - "Excel compatibility matrix documentation"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # For version history, see CHANGELOG.md
