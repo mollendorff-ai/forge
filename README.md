@@ -34,7 +34,7 @@ Forge calculates → Exports XLSX → Gnumeric recalculates → Results compared
 
 | Validation | Status |
 |------------|--------|
-| Formulas E2E validated | 44 |
+| Formulas E2E validated | 60 |
 | Validation engine | Gnumeric (GNOME spreadsheet) |
 | Test method | Export → Recalculate → Compare |
 
@@ -87,7 +87,7 @@ Your analysts get the same multiplier. But only if they stop feeding Excel to AI
 | **Deterministic execution** | Same input = same output, every time |
 | **Excel export** | Your CFO still gets `.xlsx` with working formulas |
 | **Audit command** | Instant dependency trace for any variable |
-| **E2E validated** | 44 formulas verified against Gnumeric (200M+ users) |
+| **E2E validated** | 60 formulas verified against Gnumeric (200M+ users) |
 
 ### FP&A Functions Excel Doesn't Have
 

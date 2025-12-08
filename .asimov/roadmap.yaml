@@ -33,7 +33,7 @@ current:
     warnings: 0
     functions_evaluator: 81
     functions_translator: 147
-    e2e_formulas_validated: 44
+    e2e_formulas_validated: 60
     coverage: "89.23%"
 
 # ═══════════════════════════════════════════════════════════════════════════════
