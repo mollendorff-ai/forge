@@ -143,7 +143,7 @@ forge export model.yaml output.xlsx
 Forge uses Rust feature flags to create demo and enterprise builds:
 
 ```bash
-# Demo build (36 functions, no API server)
+# Demo build (47 scalar functions, no API server)
 cargo build --release
 
 # Enterprise build (159 functions, API server, all features)
@@ -152,8 +152,8 @@ cargo build --release --features full
 
 | Build | Functions | API Server | Use Case |
 |-------|-----------|------------|----------|
-| Demo | 36 | No | Evaluation, basic models |
-| Enterprise | 159 | Yes | Production, full FP&A |
+| Demo | 47 (scalar only) | No | Evaluation, basic v1.0.0 models |
+| Enterprise | 159 (scalar + array) | Yes | Production, full FP&A with tables |
 
 ## Example: 5-Year DCF Model
 

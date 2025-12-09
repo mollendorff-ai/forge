@@ -6,8 +6,10 @@
 //! - Description
 //! - Syntax
 //! - Demo availability (demo: true = included in demo build)
+//! - Scalar compatibility (scalar: true = works with v1.0.0 schema, no tables needed)
 //!
 //! See ADR-013 for the design rationale.
+//! See ADR-014 for scalar/array classification.
 
 /// Function category for grouping
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -62,6 +64,10 @@ pub struct FunctionDef {
     pub syntax: &'static str,
     /// Available in demo build (false = enterprise only)
     pub demo: bool,
+    /// Scalar compatible (true = works with v1.0.0 schema without tables/arrays)
+    /// scalar=true: single value in, single value out (e.g., ABS, SQRT, IF)
+    /// scalar=false: requires table/array context (e.g., UNIQUE, FILTER, SUMIF)
+    pub scalar: bool,
 }
 
 /// All supported functions - THE SINGLE SOURCE OF TRUTH
@@ -79,6 +85,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Absolute value",
         syntax: "=ABS(value)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "SQRT",
@@ -86,6 +93,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Square root",
         syntax: "=SQRT(value)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "ROUND",
@@ -93,6 +101,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Round to decimals",
         syntax: "=ROUND(value, decimals)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "ROUNDUP",
@@ -100,6 +109,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Round up away from zero",
         syntax: "=ROUNDUP(value, decimals)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "ROUNDDOWN",
@@ -107,6 +117,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Round down toward zero",
         syntax: "=ROUNDDOWN(value, decimals)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "FLOOR",
@@ -114,6 +125,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Round down to multiple",
         syntax: "=FLOOR(value, significance)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "CEILING",
@@ -121,6 +133,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Round up to multiple",
         syntax: "=CEILING(value, significance)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "MOD",
@@ -128,6 +141,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Remainder after division",
         syntax: "=MOD(number, divisor)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "POWER",
@@ -135,6 +149,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Number raised to power",
         syntax: "=POWER(base, exponent)",
         demo: true,
+        scalar: true,
     },
     // Demo math (extended)
     FunctionDef {
@@ -143,6 +158,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "e raised to power",
         syntax: "=EXP(value)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "LN",
@@ -150,6 +166,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Natural logarithm",
         syntax: "=LN(value)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "LOG10",
@@ -157,6 +174,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Base-10 logarithm",
         syntax: "=LOG10(value)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "INT",
@@ -164,6 +182,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Integer part",
         syntax: "=INT(value)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "SIGN",
@@ -171,6 +190,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Sign of number (-1, 0, 1)",
         syntax: "=SIGN(value)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "TRUNC",
@@ -178,6 +198,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Truncate to decimals",
         syntax: "=TRUNC(value, decimals)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "POW",
@@ -185,6 +206,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Alias for POWER",
         syntax: "=POW(base, exp)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "PI",
@@ -192,6 +214,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Pi constant",
         syntax: "=PI()",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "E",
@@ -199,6 +222,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Euler's number",
         syntax: "=E()",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "DEGREES",
@@ -206,6 +230,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Radians to degrees",
         syntax: "=DEGREES(radians)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "RADIANS",
@@ -213,6 +238,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Degrees to radians",
         syntax: "=RADIANS(degrees)",
         demo: false,
+        scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
     // AGGREGATION (5 demo + 8 enterprise = 13 total)
@@ -223,6 +249,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Sum of values",
         syntax: "=SUM(value1, value2, ...)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "AVERAGE",
@@ -230,6 +257,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Mean of values",
         syntax: "=AVERAGE(value1, value2, ...)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "AVG",
@@ -237,6 +265,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Alias for AVERAGE",
         syntax: "=AVG(value1, value2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "MIN",
@@ -244,6 +273,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Minimum value",
         syntax: "=MIN(value1, value2, ...)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "MAX",
@@ -251,6 +281,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Maximum value",
         syntax: "=MAX(value1, value2, ...)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "COUNT",
@@ -258,6 +289,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Count of numbers",
         syntax: "=COUNT(value1, value2, ...)",
         demo: true,
+        scalar: true,
     },
     // Enterprise aggregation
     FunctionDef {
@@ -266,6 +298,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Count non-empty",
         syntax: "=COUNTA(value1, value2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "COUNTUNIQUE",
@@ -273,6 +306,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Count unique values",
         syntax: "=COUNTUNIQUE(value1, value2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "PRODUCT",
@@ -280,6 +314,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Product of values",
         syntax: "=PRODUCT(value1, value2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "LARGE",
@@ -287,6 +322,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Nth largest value",
         syntax: "=LARGE(array, n)",
         demo: false,
+        scalar: false, // Requires array context
     },
     FunctionDef {
         name: "SMALL",
@@ -294,6 +330,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Nth smallest value",
         syntax: "=SMALL(array, n)",
         demo: false,
+        scalar: false, // Requires array context
     },
     FunctionDef {
         name: "MAXIFS",
@@ -301,6 +338,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Max with conditions",
         syntax: "=MAXIFS(max_range, criteria_range, criteria)",
         demo: false,
+        scalar: false, // Requires range/array context
     },
     FunctionDef {
         name: "MINIFS",
@@ -308,6 +346,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Min with conditions",
         syntax: "=MINIFS(min_range, criteria_range, criteria)",
         demo: false,
+        scalar: false, // Requires range/array context
     },
     FunctionDef {
         name: "RANK.EQ",
@@ -315,6 +354,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Rank of value",
         syntax: "=RANK.EQ(value, array, order)",
         demo: false,
+        scalar: false, // Requires array context
     },
     // ══════════════════════════════════════════════════════════════════════════
     // LOGICAL (5 demo + 4 enterprise = 9 total)
@@ -325,6 +365,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Conditional value",
         syntax: "=IF(condition, true_value, false_value)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "AND",
@@ -332,6 +373,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "All conditions true",
         syntax: "=AND(condition1, condition2, ...)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "OR",
@@ -339,6 +381,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Any condition true",
         syntax: "=OR(condition1, condition2, ...)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "NOT",
@@ -346,6 +389,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Negate condition",
         syntax: "=NOT(condition)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "IFERROR",
@@ -353,6 +397,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Handle errors",
         syntax: "=IFERROR(value, error_value)",
         demo: true,
+        scalar: true,
     },
     // Enterprise logical
     FunctionDef {
@@ -361,6 +406,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Exclusive or",
         syntax: "=XOR(condition1, condition2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "IFNA",
@@ -368,6 +414,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Handle #N/A errors",
         syntax: "=IFNA(value, na_value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "TRUE",
@@ -375,6 +422,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Boolean TRUE",
         syntax: "=TRUE()",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "FALSE",
@@ -382,6 +430,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Boolean FALSE",
         syntax: "=FALSE()",
         demo: false,
+        scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
     // TEXT (8 demo + 7 enterprise = 15 total)
@@ -392,6 +441,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Join strings",
         syntax: "=CONCAT(text1, text2, ...)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "CONCATENATE",
@@ -399,6 +449,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Alias for CONCAT",
         syntax: "=CONCATENATE(text1, text2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "LEFT",
@@ -406,6 +457,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Left characters",
         syntax: "=LEFT(text, num_chars)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "RIGHT",
@@ -413,6 +465,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Right characters",
         syntax: "=RIGHT(text, num_chars)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "MID",
@@ -420,6 +473,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Middle characters",
         syntax: "=MID(text, start, num_chars)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "LEN",
@@ -427,6 +481,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Text length",
         syntax: "=LEN(text)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "UPPER",
@@ -434,6 +489,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Uppercase text",
         syntax: "=UPPER(text)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "LOWER",
@@ -441,6 +497,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Lowercase text",
         syntax: "=LOWER(text)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "TRIM",
@@ -448,6 +505,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Remove extra spaces",
         syntax: "=TRIM(text)",
         demo: true,
+        scalar: true,
     },
     // Enterprise text
     FunctionDef {
@@ -456,6 +514,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Format number as text",
         syntax: "=TEXT(value, format)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "VALUE",
@@ -463,6 +522,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Convert text to number",
         syntax: "=VALUE(text)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "FIND",
@@ -470,6 +530,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Find text position",
         syntax: "=FIND(find_text, within_text, start)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "SEARCH",
@@ -477,6 +538,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Find text (case insensitive)",
         syntax: "=SEARCH(find_text, within_text, start)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "REPLACE",
@@ -484,6 +546,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Replace characters",
         syntax: "=REPLACE(text, start, num_chars, new_text)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "SUBSTITUTE",
@@ -491,6 +554,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Substitute text",
         syntax: "=SUBSTITUTE(text, old_text, new_text, instance)",
         demo: false,
+        scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
     // DATE (6 demo + 15 enterprise = 21 total)
@@ -501,6 +565,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Current date",
         syntax: "=TODAY()",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "DATE",
@@ -508,6 +573,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Create date",
         syntax: "=DATE(year, month, day)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "YEAR",
@@ -515,6 +581,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Extract year",
         syntax: "=YEAR(date)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "MONTH",
@@ -522,6 +589,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Extract month",
         syntax: "=MONTH(date)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "DAY",
@@ -529,6 +597,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Extract day",
         syntax: "=DAY(date)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "DATEDIF",
@@ -536,6 +605,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Date difference",
         syntax: "=DATEDIF(start, end, unit)",
         demo: true,
+        scalar: true,
     },
     // Enterprise date
     FunctionDef {
@@ -544,6 +614,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Current date and time",
         syntax: "=NOW()",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "TIME",
@@ -551,6 +622,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Create time",
         syntax: "=TIME(hour, minute, second)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "HOUR",
@@ -558,6 +630,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Extract hour",
         syntax: "=HOUR(time)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "MINUTE",
@@ -565,6 +638,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Extract minute",
         syntax: "=MINUTE(time)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "SECOND",
@@ -572,6 +646,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Extract second",
         syntax: "=SECOND(time)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "WEEKDAY",
@@ -579,6 +654,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Day of week",
         syntax: "=WEEKDAY(date, type)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "DAYS",
@@ -586,6 +662,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Days between dates",
         syntax: "=DAYS(end_date, start_date)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "EDATE",
@@ -593,6 +670,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Add months to date",
         syntax: "=EDATE(date, months)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "EOMONTH",
@@ -600,6 +678,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "End of month",
         syntax: "=EOMONTH(date, months)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "NETWORKDAYS",
@@ -607,6 +686,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Working days between",
         syntax: "=NETWORKDAYS(start, end, holidays)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "WORKDAY",
@@ -614,6 +694,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Add working days",
         syntax: "=WORKDAY(start, days, holidays)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "YEARFRAC",
@@ -621,6 +702,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Year fraction",
         syntax: "=YEARFRAC(start, end, basis)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "Y",
@@ -628,6 +710,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Years between (shorthand)",
         syntax: "=Y(start, end)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "M",
@@ -635,6 +718,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Months between (shorthand)",
         syntax: "=M(start, end)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "D",
@@ -642,23 +726,26 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Days between (shorthand)",
         syntax: "=D(start, end)",
         demo: false,
+        scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
-    // LOOKUP (3 demo + 9 enterprise = 12 total)
+    // LOOKUP (1 demo + 11 enterprise = 12 total)
     // ══════════════════════════════════════════════════════════════════════════
     FunctionDef {
         name: "INDEX",
         category: Category::Lookup,
         description: "Value by position",
         syntax: "=INDEX(array, row, col)",
-        demo: true,
+        demo: false, // Requires array context (v5.0.0)
+        scalar: false,
     },
     FunctionDef {
         name: "MATCH",
         category: Category::Lookup,
         description: "Find position",
         syntax: "=MATCH(lookup_value, array, type)",
-        demo: true,
+        demo: false, // Requires array context (v5.0.0)
+        scalar: false,
     },
     FunctionDef {
         name: "CHOOSE",
@@ -666,6 +753,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Pick by index",
         syntax: "=CHOOSE(index, value1, value2, ...)",
         demo: true,
+        scalar: true,
     },
     // Enterprise lookup
     FunctionDef {
@@ -674,6 +762,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Vertical lookup",
         syntax: "=VLOOKUP(lookup, table, col, exact)",
         demo: false,
+        scalar: false, // Requires table context
     },
     FunctionDef {
         name: "HLOOKUP",
@@ -681,6 +770,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Horizontal lookup",
         syntax: "=HLOOKUP(lookup, table, row, exact)",
         demo: false,
+        scalar: false, // Requires table context
     },
     FunctionDef {
         name: "XLOOKUP",
@@ -688,6 +778,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Extended lookup",
         syntax: "=XLOOKUP(lookup, lookup_array, return_array, not_found)",
         demo: false,
+        scalar: false, // Requires array context
     },
     FunctionDef {
         name: "OFFSET",
@@ -695,6 +786,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Reference offset",
         syntax: "=OFFSET(ref, rows, cols, height, width)",
         demo: false,
+        scalar: false, // Requires reference context
     },
     FunctionDef {
         name: "INDIRECT",
@@ -702,6 +794,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Reference from text",
         syntax: "=INDIRECT(ref_text)",
         demo: false,
+        scalar: false, // Requires reference context
     },
     FunctionDef {
         name: "ADDRESS",
@@ -709,6 +802,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Cell address text",
         syntax: "=ADDRESS(row, col, abs_type)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "ROW",
@@ -716,6 +810,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Row number",
         syntax: "=ROW(reference)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "COLUMN",
@@ -723,6 +818,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Column number",
         syntax: "=COLUMN(reference)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "ROWS",
@@ -730,6 +826,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Number of rows",
         syntax: "=ROWS(array)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "COLUMNS",
@@ -737,6 +834,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Number of columns",
         syntax: "=COLUMNS(array)",
         demo: false,
+        scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
     // FINANCIAL (0 demo + 20 enterprise = 20 total)
@@ -747,6 +845,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Loan payment",
         syntax: "=PMT(rate, nper, pv, fv, type)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "PV",
@@ -754,6 +853,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Present value",
         syntax: "=PV(rate, nper, pmt, fv, type)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "FV",
@@ -761,6 +861,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Future value",
         syntax: "=FV(rate, nper, pmt, pv, type)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "NPV",
@@ -768,6 +869,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Net present value",
         syntax: "=NPV(rate, value1, value2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "IRR",
@@ -775,6 +877,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Internal rate of return",
         syntax: "=IRR(values, guess)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "MIRR",
@@ -782,6 +885,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Modified IRR",
         syntax: "=MIRR(values, finance_rate, reinvest_rate)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "XNPV",
@@ -789,6 +893,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "NPV with dates",
         syntax: "=XNPV(rate, values, dates)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "XIRR",
@@ -796,6 +901,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "IRR with dates",
         syntax: "=XIRR(values, dates, guess)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "NPER",
@@ -803,6 +909,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Number of periods",
         syntax: "=NPER(rate, pmt, pv, fv, type)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "RATE",
@@ -810,6 +917,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Interest rate",
         syntax: "=RATE(nper, pmt, pv, fv, type, guess)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "DB",
@@ -817,6 +925,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Declining balance depreciation",
         syntax: "=DB(cost, salvage, life, period, month)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "DDB",
@@ -824,6 +933,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Double declining balance",
         syntax: "=DDB(cost, salvage, life, period, factor)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "SLN",
@@ -831,6 +941,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Straight-line depreciation",
         syntax: "=SLN(cost, salvage, life)",
         demo: false,
+        scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
     // STATISTICAL (0 demo + 11 enterprise = 11 total)
@@ -841,6 +952,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Median value",
         syntax: "=MEDIAN(value1, value2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "VAR.S",
@@ -848,6 +960,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Sample variance",
         syntax: "=VAR.S(value1, value2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "VARP",
@@ -855,6 +968,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Population variance",
         syntax: "=VARP(value1, value2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "STDEV.S",
@@ -862,6 +976,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Sample std deviation",
         syntax: "=STDEV.S(value1, value2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "STDEVP",
@@ -869,6 +984,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Population std deviation",
         syntax: "=STDEVP(value1, value2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "PERCENTILE",
@@ -876,6 +992,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Percentile value",
         syntax: "=PERCENTILE(array, k)",
         demo: false,
+        scalar: false, // Requires array context
     },
     FunctionDef {
         name: "QUARTILE",
@@ -883,6 +1000,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Quartile value",
         syntax: "=QUARTILE(array, quart)",
         demo: false,
+        scalar: false, // Requires array context
     },
     FunctionDef {
         name: "CORREL",
@@ -890,6 +1008,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Correlation coefficient",
         syntax: "=CORREL(array1, array2)",
         demo: false,
+        scalar: false, // Requires array context
     },
     // ══════════════════════════════════════════════════════════════════════════
     // TRIGONOMETRIC (6 demo + 5 enterprise = 11 total)
@@ -900,6 +1019,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Sine",
         syntax: "=SIN(angle)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "COS",
@@ -907,6 +1027,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Cosine",
         syntax: "=COS(angle)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "TAN",
@@ -914,6 +1035,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Tangent",
         syntax: "=TAN(angle)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "ASIN",
@@ -921,6 +1043,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Arcsine",
         syntax: "=ASIN(value)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "ACOS",
@@ -928,6 +1051,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Arccosine",
         syntax: "=ACOS(value)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "ATAN",
@@ -935,6 +1059,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Arctangent",
         syntax: "=ATAN(value)",
         demo: true,
+        scalar: true,
     },
     FunctionDef {
         name: "SINH",
@@ -942,6 +1067,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Hyperbolic sine",
         syntax: "=SINH(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "COSH",
@@ -949,6 +1075,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Hyperbolic cosine",
         syntax: "=COSH(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "TANH",
@@ -956,6 +1083,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Hyperbolic tangent",
         syntax: "=TANH(value)",
         demo: false,
+        scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
     // INFORMATION (0 demo + 13 enterprise = 13 total)
@@ -966,6 +1094,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Is cell empty",
         syntax: "=ISBLANK(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "ISERROR",
@@ -973,6 +1102,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Is error value",
         syntax: "=ISERROR(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "ISNA",
@@ -980,6 +1110,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Is #N/A error",
         syntax: "=ISNA(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "ISNUMBER",
@@ -987,6 +1118,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Is numeric",
         syntax: "=ISNUMBER(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "ISTEXT",
@@ -994,6 +1126,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Is text",
         syntax: "=ISTEXT(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "ISLOGICAL",
@@ -1001,6 +1134,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Is boolean",
         syntax: "=ISLOGICAL(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "ISEVEN",
@@ -1008,6 +1142,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Is even number",
         syntax: "=ISEVEN(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "ISODD",
@@ -1015,6 +1150,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Is odd number",
         syntax: "=ISODD(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "ISREF",
@@ -1022,6 +1158,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Is reference",
         syntax: "=ISREF(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "ISFORMULA",
@@ -1029,6 +1166,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Is formula",
         syntax: "=ISFORMULA(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "NA",
@@ -1036,6 +1174,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Return #N/A",
         syntax: "=NA()",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "TYPE",
@@ -1043,6 +1182,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Type of value",
         syntax: "=TYPE(value)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "N",
@@ -1050,6 +1190,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Convert to number",
         syntax: "=N(value)",
         demo: false,
+        scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
     // CONDITIONAL (0 demo + 7 enterprise = 7 total)
@@ -1060,6 +1201,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Multiple conditions",
         syntax: "=IFS(cond1, val1, cond2, val2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "SWITCH",
@@ -1067,6 +1209,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Switch case",
         syntax: "=SWITCH(expr, case1, val1, case2, val2, ...)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "SUMIF",
@@ -1074,6 +1217,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Sum with condition",
         syntax: "=SUMIF(range, criteria, sum_range)",
         demo: false,
+        scalar: false, // Requires range context
     },
     FunctionDef {
         name: "SUMIFS",
@@ -1081,6 +1225,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Sum with conditions",
         syntax: "=SUMIFS(sum_range, range1, crit1, ...)",
         demo: false,
+        scalar: false, // Requires range context
     },
     FunctionDef {
         name: "COUNTIF",
@@ -1088,6 +1233,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Count with condition",
         syntax: "=COUNTIF(range, criteria)",
         demo: false,
+        scalar: false, // Requires range context
     },
     FunctionDef {
         name: "COUNTIFS",
@@ -1095,6 +1241,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Count with conditions",
         syntax: "=COUNTIFS(range1, crit1, range2, crit2, ...)",
         demo: false,
+        scalar: false, // Requires range context
     },
     FunctionDef {
         name: "AVERAGEIF",
@@ -1102,6 +1249,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Average with condition",
         syntax: "=AVERAGEIF(range, criteria, avg_range)",
         demo: false,
+        scalar: false, // Requires range context
     },
     FunctionDef {
         name: "AVERAGEIFS",
@@ -1109,6 +1257,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Average with conditions",
         syntax: "=AVERAGEIFS(avg_range, range1, crit1, ...)",
         demo: false,
+        scalar: false, // Requires range context
     },
     // ══════════════════════════════════════════════════════════════════════════
     // ARRAY (0 demo + 5 enterprise = 5 total)
@@ -1119,6 +1268,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Unique values",
         syntax: "=UNIQUE(array)",
         demo: false,
+        scalar: false, // Returns array
     },
     FunctionDef {
         name: "FILTER",
@@ -1126,6 +1276,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Filter array",
         syntax: "=FILTER(array, include, if_empty)",
         demo: false,
+        scalar: false, // Returns array
     },
     FunctionDef {
         name: "SORT",
@@ -1133,6 +1284,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Sort array",
         syntax: "=SORT(array, sort_index, order)",
         demo: false,
+        scalar: false, // Returns array
     },
     FunctionDef {
         name: "SEQUENCE",
@@ -1140,6 +1292,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Generate sequence",
         syntax: "=SEQUENCE(rows, cols, start, step)",
         demo: false,
+        scalar: false, // Returns array
     },
     FunctionDef {
         name: "RANDARRAY",
@@ -1147,6 +1300,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Random array",
         syntax: "=RANDARRAY(rows, cols, min, max)",
         demo: false,
+        scalar: false, // Returns array
     },
     // ══════════════════════════════════════════════════════════════════════════
     // ADVANCED (0 demo + 3 enterprise = 3 total)
@@ -1157,6 +1311,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Define variables",
         syntax: "=LET(name1, val1, name2, val2, ..., calc)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "LAMBDA",
@@ -1164,6 +1319,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Anonymous function",
         syntax: "=LAMBDA(param1, param2, ..., expression)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "SCENARIO",
@@ -1171,6 +1327,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Scenario lookup",
         syntax: "=SCENARIO(name)",
         demo: false,
+        scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
     // FORGE NATIVE (0 demo + 7 enterprise = 7 total)
@@ -1181,6 +1338,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Actual vs budget variance",
         syntax: "=VARIANCE(actual, budget)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "VARIANCE_PCT",
@@ -1188,6 +1346,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Variance percentage",
         syntax: "=VARIANCE_PCT(actual, budget)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "VARIANCE_STATUS",
@@ -1195,6 +1354,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Variance status",
         syntax: "=VARIANCE_STATUS(actual, budget)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "BREAKEVEN_UNITS",
@@ -1202,6 +1362,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Break-even units",
         syntax: "=BREAKEVEN_UNITS(fixed, price, variable)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "BREAKEVEN_REVENUE",
@@ -1209,6 +1370,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Break-even revenue",
         syntax: "=BREAKEVEN_REVENUE(fixed, margin_pct)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "YD",
@@ -1216,6 +1378,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Years and days since",
         syntax: "=YD(start, end)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "YM",
@@ -1223,6 +1386,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Years and months since",
         syntax: "=YM(start, end)",
         demo: false,
+        scalar: true,
     },
     FunctionDef {
         name: "MD",
@@ -1230,6 +1394,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Months and days since",
         syntax: "=MD(start, end)",
         demo: false,
+        scalar: true,
     },
 ];
 
@@ -1275,14 +1440,35 @@ pub fn find_function(name: &str) -> Option<&'static FunctionDef> {
     FUNCTIONS.iter().find(|f| f.name == name)
 }
 
+/// Count scalar functions (v1.0.0 compatible)
+pub fn count_scalar() -> usize {
+    FUNCTIONS.iter().filter(|f| f.scalar).count()
+}
+
+/// Count array-only functions (v5.0.0 only)
+pub fn count_array_only() -> usize {
+    FUNCTIONS.iter().filter(|f| !f.scalar).count()
+}
+
+/// Get scalar functions only
+pub fn scalar_functions() -> impl Iterator<Item = &'static FunctionDef> {
+    FUNCTIONS.iter().filter(|f| f.scalar)
+}
+
+/// Get array-only functions
+pub fn array_only_functions() -> impl Iterator<Item = &'static FunctionDef> {
+    FUNCTIONS.iter().filter(|f| !f.scalar)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_demo_count() {
-        // 49 demo functions (16 Math, 5 Aggregation, 5 Logical, 8 Text, 6 Date, 3 Lookup, 6 Trig)
-        assert_eq!(count_demo(), 49, "Demo should have 49 functions");
+        // 47 demo functions (16 Math, 5 Aggregation, 5 Logical, 8 Text, 6 Date, 1 Lookup, 6 Trig)
+        // INDEX and MATCH removed (require array context, not v1.0.0 compatible)
+        assert_eq!(count_demo(), 47, "Demo should have 47 functions");
     }
 
     #[test]
@@ -1333,5 +1519,52 @@ mod tests {
         assert!(is_demo_function("IF"));
         assert!(!is_demo_function("NPV"));
         assert!(!is_demo_function("IRR"));
+    }
+
+    #[test]
+    fn test_scalar_count() {
+        // Scalar functions work without array context (v1.0.0 compatible)
+        let scalar = count_scalar();
+        let array_only = count_array_only();
+        assert_eq!(
+            scalar + array_only,
+            159,
+            "Scalar + array-only should equal total"
+        );
+        // 24 array-only functions:
+        // Array (5): UNIQUE, FILTER, SORT, SEQUENCE, RANDARRAY
+        // Conditional (6): SUMIF, SUMIFS, COUNTIF, COUNTIFS, AVERAGEIF, AVERAGEIFS
+        // Aggregation (5): MAXIFS, MINIFS, RANK.EQ, LARGE, SMALL
+        // Statistical (3): PERCENTILE, QUARTILE, CORREL
+        // Lookup (5): INDEX, MATCH, VLOOKUP, HLOOKUP, XLOOKUP, OFFSET, INDIRECT
+        assert!(
+            array_only >= 20,
+            "Should have at least 20 array-only functions"
+        );
+    }
+
+    #[test]
+    fn test_demo_functions_are_scalar() {
+        // CRITICAL: All demo functions must be scalar (v1.0.0 compatible)
+        // Demo is for sales/evaluation - must work without tables/arrays
+        let non_scalar_demo: Vec<_> = demo_functions()
+            .filter(|f| !f.scalar)
+            .map(|f| f.name)
+            .collect();
+        assert!(
+            non_scalar_demo.is_empty(),
+            "Demo functions must be scalar (v1.0.0 compatible), but found: {:?}",
+            non_scalar_demo
+        );
+    }
+
+    #[test]
+    fn test_array_only_functions() {
+        // Verify key array-only functions are correctly marked
+        let array_funcs = ["UNIQUE", "FILTER", "SORT", "SUMIF", "VLOOKUP"];
+        for name in array_funcs {
+            let f = find_function(name).unwrap_or_else(|| panic!("{} should exist", name));
+            assert!(!f.scalar, "{} should be scalar=false", name);
+        }
     }
 }
