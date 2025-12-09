@@ -205,3 +205,26 @@ fn test_extract_references_case_insensitive_functions() {
     assert!(refs.contains(&"again".to_string()));
     assert!(!refs.iter().any(|r| r.to_uppercase() == "SUM"));
 }
+
+#[test]
+fn test_extract_references_ignores_string_literals() {
+    // String literals should not be parsed as variable references (v5.19.1 fix)
+    // This was a bug where =LEN("Hello") would treat "Hello" as a column reference
+    let refs = extract_references_from_formula("=LEN(\"Hello World\")");
+    assert!(
+        refs.is_empty(),
+        "String literals should not be extracted as refs"
+    );
+
+    let refs = extract_references_from_formula("=CONCAT(\"prefix_\", name)");
+    assert!(refs.contains(&"name".to_string()));
+    assert!(!refs.contains(&"prefix".to_string()));
+    assert!(!refs.iter().any(|r| r.contains("prefix")));
+
+    // Single quotes should also be handled
+    let refs = extract_references_from_formula("=LEN('Hello')");
+    assert!(
+        refs.is_empty(),
+        "Single-quoted strings should not be extracted"
+    );
+}

@@ -6,6 +6,29 @@ pub mod tokenizer;
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Column, ColumnValue, ParsedModel, Table};
 
+/// Strip string literals from a formula before extracting references.
+/// This prevents content inside quotes from being parsed as column references.
+/// e.g., =LEN("Hello") should not treat "Hello" as a column reference.
+fn strip_string_literals(formula: &str) -> String {
+    let mut result = String::with_capacity(formula.len());
+    let mut in_string = false;
+    let mut quote_char = '"';
+
+    for c in formula.chars() {
+        if !in_string && (c == '"' || c == '\'') {
+            in_string = true;
+            quote_char = c;
+        } else if in_string && c == quote_char {
+            in_string = false;
+        } else if !in_string {
+            result.push(c);
+        }
+        // Characters inside strings are skipped
+    }
+
+    result
+}
+
 /// Array-aware calculator for v1.0.0 models
 /// Handles both row-wise (element-wise) and aggregation formulas
 pub struct ArrayCalculator {
@@ -188,7 +211,10 @@ impl ArrayCalculator {
     /// Extract column references from a formula
     fn extract_column_references(&self, formula: &str) -> ForgeResult<Vec<String>> {
         let mut refs = Vec::new();
-        for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
+        // Strip string literals to avoid parsing their contents as column references
+        // e.g., =LEN("Hello") should not treat "Hello" as a column reference
+        let formula_stripped = strip_string_literals(formula);
+        for word in formula_stripped.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
             let word = word.trim();
             if word.is_empty() {
                 continue;

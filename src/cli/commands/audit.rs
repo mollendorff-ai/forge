@@ -8,6 +8,28 @@ use std::path::PathBuf;
 
 use super::format_number;
 
+/// Strip string literals from a formula before extracting references.
+/// This prevents content inside quotes from being parsed as variable references.
+/// e.g., =LEN("Hello") should not treat "Hello" as a variable reference.
+fn strip_string_literals(formula: &str) -> String {
+    let mut result = String::with_capacity(formula.len());
+    let mut in_string = false;
+    let mut quote_char = '"';
+
+    for c in formula.chars() {
+        if !in_string && (c == '"' || c == '\'') {
+            in_string = true;
+            quote_char = c;
+        } else if in_string && c == quote_char {
+            in_string = false;
+        } else if !in_string {
+            result.push(c);
+        }
+    }
+
+    result
+}
+
 /// Represents a dependency in the audit tree
 pub struct AuditDependency {
     pub name: String,
@@ -195,6 +217,9 @@ pub fn build_dependency_tree(
 /// Extract variable references from a formula
 pub fn extract_references_from_formula(formula: &str) -> Vec<String> {
     let formula = formula.trim_start_matches('=');
+    // Strip string literals to avoid parsing their contents as variable references
+    // e.g., =LEN("Hello") should not treat "Hello" as a variable reference
+    let formula_stripped = strip_string_literals(formula);
     let mut refs = Vec::new();
 
     // Known function names to exclude
@@ -249,7 +274,7 @@ pub fn extract_references_from_formula(formula: &str) -> Vec<String> {
         "COUNTUNIQUE",
     ];
 
-    for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_') {
+    for word in formula_stripped.split(|c: char| !c.is_alphanumeric() && c != '_') {
         if word.is_empty() {
             continue;
         }

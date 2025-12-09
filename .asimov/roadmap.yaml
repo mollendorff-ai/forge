@@ -31,29 +31,29 @@ completed:
       - "3 verbose architecture docs (>500 lines)"
     note: "All docs now professional, no emojis, suitable for enterprise due diligence"
 
+  - version: "5.19.0"
+    date: "2025-12-09"
+    summary: "Demo Function Expansion - 49 functions (add 7 math + 6 trig)"
+    added_functions:
+      math: ["EXP", "LN", "LOG10", "INT", "SIGN", "TRUNC", "PI"]
+      trig: ["SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"]
+    stats:
+      functions_demo: 49
+      functions_enterprise: 159
+
+  - version: "5.19.1"
+    date: "2025-12-09"
+    summary: "v1.0.0 Schema Bug Fix - String literals with letters"
+    fix:
+      issue: "String literals with letters parsed as column refs"
+      example: "=LEN(\"Hello\") → 'Column Hello not found'"
+      solution: "strip_string_literals() helper in 3 reference extraction functions"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "5.19.0"
-    summary: "Demo Function Expansion - 49 functions (add 7 math + 6 trig)"
-    priority: CRITICAL
-    status: in_progress
-    added_functions:
-      math: ["EXP", "LN", "LOG10", "INT", "SIGN", "TRUNC", "PI"]
-      trig: ["SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"]
-    note: "All v1.0.0 compatible (single value in, single value out)"
-
-  - version: "5.19.1"
-    summary: "v1.0.0 Schema Bug Fix - String literals with letters"
-    priority: CRITICAL
-    status: pending
-    bug:
-      issue: "String literals with letters parsed as column refs"
-      example: "=LEN(\"Hello\") → 'Column Hello not found'"
-      fix: "Parser bug - need to handle quoted strings correctly"
-
   - version: "5.20.0"
     summary: "100% Coverage - Dead Code Removal"
     priority: NORMAL
