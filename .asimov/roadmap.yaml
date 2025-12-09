@@ -302,19 +302,75 @@ next:
         status: pending
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 5.17.0: Documentation Polish
+  # 5.17.0: Function Registry - Single Source of Truth
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "5.17.0"
+    summary: "Function Registry - Single Source of Truth"
+    priority: NORMAL
+    status: pending
+    adr: "ADR-013-FUNCTION-REGISTRY.md"
+    notes: |
+      ┌─────────────────────────────────────────────────────────────────────────┐
+      │ PROBLEM                                                                 │
+      ├─────────────────────────────────────────────────────────────────────────┤
+      │ Function definitions scattered across:                                  │
+      │ - evaluator/*.rs (implementation)                                       │
+      │ - cli/commands/functions.rs (hardcoded list)                            │
+      │ - README.md, FUNCTIONS.md (docs)                                        │
+      │                                                                         │
+      │ Result: Counts drift, docs outdated, missing functions in output        │
+      │                                                                         │
+      ├─────────────────────────────────────────────────────────────────────────┤
+      │ SOLUTION                                                                │
+      ├─────────────────────────────────────────────────────────────────────────┤
+      │ Single source of truth: src/functions/registry.rs                       │
+      │                                                                         │
+      │ - FunctionDef struct with name, category, description, syntax, demo     │
+      │ - Static FUNCTIONS array with all 158 functions                         │
+      │ - `forge functions` reads from registry                                 │
+      │ - Build script generates FUNCTIONS.md                                   │
+      │ - Evaluator validates against registry                                  │
+      │ - Count is always FUNCTIONS.len()                                       │
+      │                                                                         │
+      └─────────────────────────────────────────────────────────────────────────┘
+
+    deliverables:
+      - task: "Write ADR-013-FUNCTION-REGISTRY.md"
+        status: pending
+
+      - task: "Create src/functions/registry.rs with FunctionDef struct"
+        status: pending
+
+      - task: "Define all 158 functions in registry"
+        status: pending
+
+      - task: "Refactor cli/commands/functions.rs to use registry"
+        status: pending
+
+      - task: "Add build script to generate FUNCTIONS.md"
+        status: pending
+
+      - task: "Update forge-gh docs from generated output"
+        status: pending
+
+      - task: "Add CI check: registry count matches evaluator"
+        status: pending
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 5.18.0: Documentation Polish
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.18.0"
     summary: "Documentation Polish"
     priority: NORMAL
     status: pending
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 5.18.0: 100% Coverage
+  # 5.19.0: 100% Coverage
   # ─────────────────────────────────────────────────────────────────────────────
 
-  - version: "5.18.0"
+  - version: "5.19.0"
     summary: "100% Coverage - Dead Code Removal"
     priority: NORMAL
     status: pending
