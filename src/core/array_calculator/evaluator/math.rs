@@ -169,6 +169,56 @@ pub fn try_evaluate(
             Value::Number(val.floor())
         }
 
+        "POW" => {
+            // Alias for POWER
+            require_args(name, args, 2)?;
+            let base = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("POW requires numbers"))?;
+            let exp = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("POW requires numbers"))?;
+            Value::Number(base.powf(exp))
+        }
+
+        "SIGN" => {
+            require_args(name, args, 1)?;
+            let val = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("SIGN requires a number"))?;
+            Value::Number(if val > 0.0 {
+                1.0
+            } else if val < 0.0 {
+                -1.0
+            } else {
+                0.0
+            })
+        }
+
+        "TRUNC" => {
+            require_args_range(name, args, 1, 2)?;
+            let val = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("TRUNC requires a number"))?;
+            let decimals = if args.len() > 1 {
+                evaluate(&args[1], ctx)?.as_number().unwrap_or(0.0) as i32
+            } else {
+                0
+            };
+            let multiplier = 10_f64.powi(decimals);
+            Value::Number(val.signum() * (val.abs() * multiplier).floor() / multiplier)
+        }
+
+        "PI" => {
+            require_args(name, args, 0)?;
+            Value::Number(std::f64::consts::PI)
+        }
+
+        "E" => {
+            require_args(name, args, 0)?;
+            Value::Number(std::f64::consts::E)
+        }
+
         _ => return Ok(None),
     };
 
@@ -308,5 +358,42 @@ mod tests {
         let ctx = EvalContext::new();
         // LOG and LOG10 should be equivalent
         assert_eq!(eval("LOG(100)", &ctx).unwrap(), Value::Number(2.0));
+    }
+
+    #[test]
+    fn test_pow() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("POW(2, 3)", &ctx).unwrap(), Value::Number(8.0));
+        assert_eq!(eval("POW(3, 2)", &ctx).unwrap(), Value::Number(9.0));
+    }
+
+    #[test]
+    fn test_sign() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("SIGN(5)", &ctx).unwrap(), Value::Number(1.0));
+        assert_eq!(eval("SIGN(-5)", &ctx).unwrap(), Value::Number(-1.0));
+        assert_eq!(eval("SIGN(0)", &ctx).unwrap(), Value::Number(0.0));
+    }
+
+    #[test]
+    fn test_trunc() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("TRUNC(3.9)", &ctx).unwrap(), Value::Number(3.0));
+        assert_eq!(eval("TRUNC(-3.9)", &ctx).unwrap(), Value::Number(-3.0));
+        assert_eq!(eval("TRUNC(3.567, 2)", &ctx).unwrap(), Value::Number(3.56));
+    }
+
+    #[test]
+    fn test_pi() {
+        let ctx = EvalContext::new();
+        let result = eval("PI()", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - std::f64::consts::PI).abs() < 0.0001));
+    }
+
+    #[test]
+    fn test_e() {
+        let ctx = EvalContext::new();
+        let result = eval("E()", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - std::f64::consts::E).abs() < 0.0001));
     }
 }

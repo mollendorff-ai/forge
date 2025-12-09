@@ -1,10 +1,10 @@
-//! Date functions: TODAY, YEAR, MONTH, DAY, DATE, EDATE, EOMONTH, DATEDIF, etc.
+//! Date functions: TODAY, NOW, YEAR, MONTH, DAY, WEEKDAY, HOUR, MINUTE, SECOND, DATE, EDATE, EOMONTH, DATEDIF, DAYS, TIME, WORKDAY, etc.
 
 use super::{
     evaluate, parse_date_value, require_args, require_args_range, EvalContext, EvalError, Expr,
     Value,
 };
-use chrono::Datelike;
+use chrono::{Datelike, Timelike};
 
 /// Try to evaluate a date function. Returns None if function not recognized.
 pub fn try_evaluate(
@@ -17,6 +17,12 @@ pub fn try_evaluate(
             use chrono::Local;
             let today = Local::now().date_naive();
             Value::Text(today.format("%Y-%m-%d").to_string())
+        }
+
+        "NOW" => {
+            use chrono::Local;
+            let now = Local::now();
+            Value::Text(now.format("%Y-%m-%d %H:%M:%S").to_string())
         }
 
         "YEAR" => {
@@ -38,6 +44,155 @@ pub fn try_evaluate(
             let val = evaluate(&args[0], ctx)?;
             let date = parse_date_value(&val)?;
             Value::Number(date.day() as f64)
+        }
+
+        "WEEKDAY" => {
+            require_args_range(name, args, 1, 2)?;
+            let val = evaluate(&args[0], ctx)?;
+            let return_type = if args.len() > 1 {
+                evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) as i32
+            } else {
+                1
+            };
+
+            let date = parse_date_value(&val)?;
+            // Monday = 0 in chrono
+            let day = date.weekday().num_days_from_sunday();
+
+            // Excel WEEKDAY return types:
+            // 1 (default): Sunday=1, Saturday=7
+            // 2: Monday=1, Sunday=7
+            // 3: Monday=0, Sunday=6
+            let result = match return_type {
+                1 => (day + 1) as f64,
+                2 => ((day + 6) % 7 + 1) as f64,
+                3 => ((day + 6) % 7) as f64,
+                _ => (day + 1) as f64,
+            };
+            Value::Number(result)
+        }
+
+        "HOUR" => {
+            require_args(name, args, 1)?;
+            let val = evaluate(&args[0], ctx)?;
+            // Parse time from various formats
+            let time_str = val.as_text();
+            if let Some(time_part) = time_str.split(' ').nth(1) {
+                // DateTime format "YYYY-MM-DD HH:MM:SS"
+                if let Ok(parsed) = chrono::NaiveTime::parse_from_str(time_part, "%H:%M:%S") {
+                    return Ok(Some(Value::Number(parsed.hour() as f64)));
+                }
+            }
+            // Try as time only "HH:MM:SS"
+            if let Ok(parsed) = chrono::NaiveTime::parse_from_str(&time_str, "%H:%M:%S") {
+                return Ok(Some(Value::Number(parsed.hour() as f64)));
+            }
+            // Try as fraction of day (Excel serial time)
+            if let Some(n) = val.as_number() {
+                let frac = n.fract();
+                let total_seconds = (frac * 86400.0).round() as i64;
+                return Ok(Some(Value::Number((total_seconds / 3600) as f64)));
+            }
+            return Err(EvalError::new("HOUR: Could not parse time"));
+        }
+
+        "MINUTE" => {
+            require_args(name, args, 1)?;
+            let val = evaluate(&args[0], ctx)?;
+            let time_str = val.as_text();
+            if let Some(time_part) = time_str.split(' ').nth(1) {
+                if let Ok(parsed) = chrono::NaiveTime::parse_from_str(time_part, "%H:%M:%S") {
+                    return Ok(Some(Value::Number(parsed.minute() as f64)));
+                }
+            }
+            if let Ok(parsed) = chrono::NaiveTime::parse_from_str(&time_str, "%H:%M:%S") {
+                return Ok(Some(Value::Number(parsed.minute() as f64)));
+            }
+            if let Some(n) = val.as_number() {
+                let frac = n.fract();
+                let total_seconds = (frac * 86400.0).round() as i64;
+                return Ok(Some(Value::Number(((total_seconds / 60) % 60) as f64)));
+            }
+            return Err(EvalError::new("MINUTE: Could not parse time"));
+        }
+
+        "SECOND" => {
+            require_args(name, args, 1)?;
+            let val = evaluate(&args[0], ctx)?;
+            let time_str = val.as_text();
+            if let Some(time_part) = time_str.split(' ').nth(1) {
+                if let Ok(parsed) = chrono::NaiveTime::parse_from_str(time_part, "%H:%M:%S") {
+                    return Ok(Some(Value::Number(parsed.second() as f64)));
+                }
+            }
+            if let Ok(parsed) = chrono::NaiveTime::parse_from_str(&time_str, "%H:%M:%S") {
+                return Ok(Some(Value::Number(parsed.second() as f64)));
+            }
+            if let Some(n) = val.as_number() {
+                let frac = n.fract();
+                let total_seconds = (frac * 86400.0).round() as i64;
+                return Ok(Some(Value::Number((total_seconds % 60) as f64)));
+            }
+            return Err(EvalError::new("SECOND: Could not parse time"));
+        }
+
+        "TIME" => {
+            require_args(name, args, 3)?;
+            let hour = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("TIME: hour must be a number"))?
+                as i32;
+            let minute = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("TIME: minute must be a number"))?
+                as i32;
+            let second = evaluate(&args[2], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("TIME: second must be a number"))?
+                as i32;
+
+            // Return as fraction of day (Excel time serial)
+            let total_seconds = hour * 3600 + minute * 60 + second;
+            Value::Number(total_seconds as f64 / 86400.0)
+        }
+
+        "DAYS" => {
+            require_args(name, args, 2)?;
+            let end = evaluate(&args[0], ctx)?;
+            let start = evaluate(&args[1], ctx)?;
+
+            let end_date = parse_date_value(&end)?;
+            let start_date = parse_date_value(&start)?;
+
+            Value::Number((end_date - start_date).num_days() as f64)
+        }
+
+        "WORKDAY" => {
+            require_args_range(name, args, 2, 3)?;
+            let start = evaluate(&args[0], ctx)?;
+            let days = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("WORKDAY: days must be a number"))?
+                as i32;
+
+            let mut current = parse_date_value(&start)?;
+            let direction = if days >= 0 { 1 } else { -1 };
+            let mut remaining = days.abs();
+
+            while remaining > 0 {
+                current = if direction > 0 {
+                    current.succ_opt().unwrap_or(current)
+                } else {
+                    current.pred_opt().unwrap_or(current)
+                };
+                let weekday = current.weekday().num_days_from_monday();
+                if weekday < 5 {
+                    // Monday-Friday
+                    remaining -= 1;
+                }
+            }
+
+            Value::Text(current.format("%Y-%m-%d").to_string())
         }
 
         "DATE" => {
@@ -472,5 +627,95 @@ mod tests {
             eval("DATE(2024, 14, 15)", &ctx).unwrap(),
             Value::Text("2025-02-15".to_string())
         );
+    }
+
+    #[test]
+    fn test_weekday() {
+        let ctx = EvalContext::new();
+        // 2024-01-01 was a Monday
+        // Type 1 (default): Sunday=1, Monday=2
+        assert_eq!(
+            eval("WEEKDAY(\"2024-01-01\")", &ctx).unwrap(),
+            Value::Number(2.0)
+        );
+        // Type 2: Monday=1
+        assert_eq!(
+            eval("WEEKDAY(\"2024-01-01\", 2)", &ctx).unwrap(),
+            Value::Number(1.0)
+        );
+        // Type 3: Monday=0
+        assert_eq!(
+            eval("WEEKDAY(\"2024-01-01\", 3)", &ctx).unwrap(),
+            Value::Number(0.0)
+        );
+    }
+
+    #[test]
+    fn test_hour_minute_second() {
+        let ctx = EvalContext::new();
+        // Test with time string
+        assert_eq!(
+            eval("HOUR(\"14:30:45\")", &ctx).unwrap(),
+            Value::Number(14.0)
+        );
+        assert_eq!(
+            eval("MINUTE(\"14:30:45\")", &ctx).unwrap(),
+            Value::Number(30.0)
+        );
+        assert_eq!(
+            eval("SECOND(\"14:30:45\")", &ctx).unwrap(),
+            Value::Number(45.0)
+        );
+    }
+
+    #[test]
+    fn test_time() {
+        let ctx = EvalContext::new();
+        // TIME(12, 0, 0) = 0.5 (noon is half a day)
+        let result = eval("TIME(12, 0, 0)", &ctx).unwrap();
+        if let Value::Number(n) = result {
+            assert!((n - 0.5).abs() < 0.0001);
+        } else {
+            panic!("Expected number");
+        }
+    }
+
+    #[test]
+    fn test_days() {
+        let ctx = EvalContext::new();
+        // DAYS(end, start) returns end - start
+        assert_eq!(
+            eval("DAYS(\"2024-01-31\", \"2024-01-01\")", &ctx).unwrap(),
+            Value::Number(30.0)
+        );
+    }
+
+    #[test]
+    fn test_workday() {
+        let ctx = EvalContext::new();
+        // 2024-01-01 (Mon) + 5 workdays = 2024-01-08 (Mon)
+        assert_eq!(
+            eval("WORKDAY(\"2024-01-01\", 5)", &ctx).unwrap(),
+            Value::Text("2024-01-08".to_string())
+        );
+    }
+
+    #[test]
+    fn test_workday_negative() {
+        let ctx = EvalContext::new();
+        // 2024-01-08 (Mon) - 5 workdays = 2024-01-01 (Mon)
+        assert_eq!(
+            eval("WORKDAY(\"2024-01-08\", -5)", &ctx).unwrap(),
+            Value::Text("2024-01-01".to_string())
+        );
+    }
+
+    #[test]
+    fn test_hour_from_serial() {
+        let ctx = EvalContext::new();
+        // 0.5 = noon = 12:00
+        assert_eq!(eval("HOUR(0.5)", &ctx).unwrap(), Value::Number(12.0));
+        // 0.75 = 6pm = 18:00
+        assert_eq!(eval("HOUR(0.75)", &ctx).unwrap(), Value::Number(18.0));
     }
 }

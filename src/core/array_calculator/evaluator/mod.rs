@@ -12,11 +12,13 @@ mod conditional;
 mod dates;
 mod financial;
 mod forge;
+mod info;
 mod logical;
 mod lookup;
 mod math;
 mod statistical;
 mod text;
+mod trig;
 
 use super::parser::{Expr, Reference};
 use std::collections::HashMap;
@@ -479,6 +481,9 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
     if let Some(result) = math::try_evaluate(&upper_name, args, ctx)? {
         return Ok(result);
     }
+    if let Some(result) = trig::try_evaluate(&upper_name, args, ctx)? {
+        return Ok(result);
+    }
     if let Some(result) = aggregation::try_evaluate(&upper_name, args, ctx)? {
         return Ok(result);
     }
@@ -504,6 +509,9 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
         return Ok(result);
     }
     if let Some(result) = financial::try_evaluate(&upper_name, args, ctx)? {
+        return Ok(result);
+    }
+    if let Some(result) = info::try_evaluate(&upper_name, args, ctx)? {
         return Ok(result);
     }
     if let Some(result) = forge::try_evaluate(&upper_name, args, ctx)? {
