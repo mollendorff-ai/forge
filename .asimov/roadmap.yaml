@@ -54,7 +54,115 @@ completed:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "5.20.0"
+  - version: "6.0.0"
+    summary: "Comprehensive Function Testing & Validation"
+    priority: CRITICAL
+    status: pending
+    note: "MAJOR version - ensure ALL 159 functions are properly tested and validated"
+
+    phases:
+      phase_1_audit:
+        name: "Function Audit & Categorization"
+        tasks:
+          - "Extract ALL 159 functions from registry"
+          - "Classify each as SCALAR (v1.0.0) vs ARRAY (v5.0.0 only)"
+          - "Verify demo functions are all scalar-compatible"
+          - "Identify any scalar functions incorrectly marked enterprise"
+        docs:
+          - "Create ADR-014: Function Scalar/Array Classification"
+          - "Update README.md function counts and categories"
+          - "Update docs/FUNCTIONS.md with scalar/array markers"
+        output: "Function audit report with scalar/array classification"
+        commit: "docs(v6.0.0-phase1): Function audit and classification"
+
+      phase_2_unit_tests:
+        name: "Unit Test Coverage"
+        tasks:
+          - "Generate per-function test coverage report"
+          - "Ensure 5+ unit tests per function (basic, zero, negative, large, error)"
+          - "Add missing tests for functions with < 3 tests"
+        docs:
+          - "Update docs/TESTING.md with per-function coverage"
+          - "Create ADR-015: Unit Test Standards (5+ tests per function)"
+        output: "100% function unit test coverage"
+        commit: "test(v6.0.0-phase2): Unit test coverage expansion"
+
+      phase_3_e2e_gnumeric:
+        name: "E2E Gnumeric/LibreOffice Validation"
+        current_coverage: "33 tests (~52 formulas, 33% of 159)"
+        target_coverage: "ALL 159 functions"
+        tasks:
+          - "Create E2E YAML test files for all function categories"
+          - "Test numeric edge cases: zero, negative, large, small, infinity"
+          - "Test string edge cases: empty, quoted literals, special chars"
+          - "Test date edge cases: invalid, leap years, negative days"
+          - "Test type coercion: bool to number, text to number"
+          - "Test error propagation: DIV/0, IFERROR, ISNA"
+        test_files:
+          - "tests/e2e/math_comprehensive.yaml"
+          - "tests/e2e/trig_comprehensive.yaml"
+          - "tests/e2e/aggregation_comprehensive.yaml"
+          - "tests/e2e/logical_comprehensive.yaml"
+          - "tests/e2e/text_comprehensive.yaml"
+          - "tests/e2e/date_comprehensive.yaml"
+          - "tests/e2e/lookup_comprehensive.yaml"
+          - "tests/e2e/financial_comprehensive.yaml"
+          - "tests/e2e/statistical_comprehensive.yaml"
+          - "tests/e2e/information_comprehensive.yaml"
+          - "tests/e2e/conditional_comprehensive.yaml"
+          - "tests/e2e/array_comprehensive.yaml"
+          - "tests/e2e/advanced_comprehensive.yaml"
+          - "tests/e2e/forge_native_comprehensive.yaml"
+          - "tests/e2e/edge_cases.yaml"
+        docs:
+          - "Update ADR-007: E2E Gnumeric Validation (add coverage stats)"
+          - "Update README.md E2E validation section"
+          - "Create docs/E2E-TEST-COVERAGE.md with per-function matrix"
+        commit: "test(v6.0.0-phase3): E2E Gnumeric validation - 100% coverage"
+
+      phase_4_roundtrip:
+        name: "Import/Export Roundtrip Tests"
+        tasks:
+          - "Test YAML -> Excel -> YAML roundtrip"
+          - "Verify formula translation (Forge -> A1 notation)"
+          - "Verify date format preservation"
+          - "Verify special character handling"
+        docs:
+          - "Update docs/IMPORT-EXPORT.md with roundtrip guarantees"
+          - "Create ADR-016: Import/Export Roundtrip Specification"
+        commit: "test(v6.0.0-phase4): Import/export roundtrip validation"
+
+      phase_5_fix_bugs:
+        name: "Fix Discovered Bugs"
+        priority: CRITICAL
+        note: "Any bugs found during testing must be fixed before release"
+        docs:
+          - "Document each bug fix in CHANGELOG.md"
+          - "Update relevant ADRs if architectural changes needed"
+        commit: "fix(v6.0.0-phase5): Bug fixes from comprehensive testing"
+
+      phase_6_release:
+        name: "Release v6.0.0"
+        tasks:
+          - "Update Cargo.toml version to 6.0.0"
+          - "Update CHANGELOG.md with full release notes"
+          - "Final README.md review and update"
+          - "Tag release"
+        docs:
+          - "Update README.md badges and stats"
+          - "Final docs/ review for accuracy"
+        commit: "release: v6.0.0 - Comprehensive Function Testing & Validation"
+
+    success_criteria:
+      - "100% function E2E coverage (all 159 functions)"
+      - "Zero Gnumeric/LibreOffice mismatches"
+      - "At least 3 edge cases per function"
+      - "No v1.0.0 schema bugs (scalar functions work without tables)"
+      - "Import/export roundtrip passes for all test files"
+
+    estimated_hours: 28
+
+  - version: "6.1.0"
     summary: "100% Coverage - Dead Code Removal"
     priority: NORMAL
     status: pending
