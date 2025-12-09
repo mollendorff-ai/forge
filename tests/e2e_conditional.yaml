@@ -1,0 +1,78 @@
+# E2E Conditional Function Validation
+# Validated against Gnumeric/LibreOffice Calc
+# Note: SUMIF/COUNTIF/AVERAGEIF require array context (v5.0.0)
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # IF - basic conditional
+  test_if_true:
+    value: null
+    formula: "=IF(10>5, 100, 0)"           # Expected: 100
+  test_if_false:
+    value: null
+    formula: "=IF(5>10, 100, 0)"           # Expected: 0
+  test_if_nested:
+    value: null
+    formula: "=IF(10>5, IF(3>2, 99, 88), 0)" # Expected: 99
+
+  # IFS - multiple conditions
+  test_ifs_first:
+    value: null
+    formula: "=IFS(1>0, 10, 2>1, 20, 3>2, 30)" # Expected: 10 (first true)
+  test_ifs_second:
+    value: null
+    formula: "=IFS(0>1, 10, 2>1, 20, 3>2, 30)" # Expected: 20 (second true)
+
+  # SWITCH
+  test_switch_match:
+    value: null
+    formula: "=SWITCH(2, 1, 100, 2, 200, 3, 300)" # Expected: 200
+  test_switch_default:
+    value: null
+    formula: "=SWITCH(9, 1, 100, 2, 200, 999)"    # Expected: 999 (default)
+
+  # AND
+  test_and_all_true:
+    value: null
+    formula: "=IF(AND(1>0, 2>1, 3>2), 1, 0)"     # Expected: 1
+  test_and_one_false:
+    value: null
+    formula: "=IF(AND(1>0, 0>1, 3>2), 1, 0)"     # Expected: 0
+
+  # OR
+  test_or_all_false:
+    value: null
+    formula: "=IF(OR(0>1, 0>2, 0>3), 1, 0)"      # Expected: 0
+  test_or_one_true:
+    value: null
+    formula: "=IF(OR(0>1, 1>0, 0>3), 1, 0)"      # Expected: 1
+
+  # NOT
+  test_not_true:
+    value: null
+    formula: "=IF(NOT(1>0), 1, 0)"               # Expected: 0
+  test_not_false:
+    value: null
+    formula: "=IF(NOT(0>1), 1, 0)"               # Expected: 1
+
+  # XOR
+  test_xor_one_true:
+    value: null
+    formula: "=IF(XOR(1>0, 0>1), 1, 0)"          # Expected: 1
+  test_xor_both_true:
+    value: null
+    formula: "=IF(XOR(1>0, 2>1), 1, 0)"          # Expected: 0
+
+  # IFERROR
+  test_iferror_no_error:
+    value: null
+    formula: "=IFERROR(10/2, -1)"                # Expected: 5
+  test_iferror_with_error:
+    value: null
+    formula: "=IFERROR(10/0, -1)"                # Expected: -1
+
+  # IFNA
+  test_ifna_no_na:
+    value: null
+    formula: "=IFNA(42, -1)"                     # Expected: 42

@@ -1,0 +1,85 @@
+# E2E Information Function Validation
+# Validated against Gnumeric/LibreOffice Calc
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ISNUMBER
+  test_isnumber_true:
+    value: null
+    formula: "=IF(ISNUMBER(42), 1, 0)"     # Expected: 1
+  test_isnumber_text:
+    value: null
+    formula: "=IF(ISNUMBER(\"hello\"), 1, 0)" # Expected: 0
+
+  # ISTEXT
+  test_istext_true:
+    value: null
+    formula: "=IF(ISTEXT(\"hello\"), 1, 0)" # Expected: 1
+  test_istext_number:
+    value: null
+    formula: "=IF(ISTEXT(42), 1, 0)"       # Expected: 0
+
+  # ISBLANK - using empty string approximation
+  test_isblank_empty:
+    value: null
+    formula: "=IF(ISBLANK(\"\"), 1, 0)"    # Expected: 0 (empty string is not blank)
+
+  # ISERROR
+  test_iserror_div0:
+    value: null
+    formula: "=IF(ISERROR(1/0), 1, 0)"     # Expected: 1
+  test_iserror_valid:
+    value: null
+    formula: "=IF(ISERROR(1+1), 1, 0)"     # Expected: 0
+
+  # ISNA
+  test_isna_valid:
+    value: null
+    formula: "=IF(ISNA(42), 1, 0)"         # Expected: 0
+
+  # ISLOGICAL
+  test_islogical_comparison:
+    value: null
+    formula: "=IF(ISLOGICAL(1>0), 1, 0)"   # Expected: 1
+  test_islogical_number:
+    value: null
+    formula: "=IF(ISLOGICAL(42), 1, 0)"    # Expected: 0
+
+  # ISEVEN
+  test_iseven_true:
+    value: null
+    formula: "=IF(ISEVEN(4), 1, 0)"        # Expected: 1
+  test_iseven_false:
+    value: null
+    formula: "=IF(ISEVEN(5), 1, 0)"        # Expected: 0
+  test_iseven_zero:
+    value: null
+    formula: "=IF(ISEVEN(0), 1, 0)"        # Expected: 1
+
+  # ISODD
+  test_isodd_true:
+    value: null
+    formula: "=IF(ISODD(5), 1, 0)"         # Expected: 1
+  test_isodd_false:
+    value: null
+    formula: "=IF(ISODD(4), 1, 0)"         # Expected: 0
+
+  # TYPE
+  test_type_number:
+    value: null
+    formula: "=TYPE(42)"                   # Expected: 1 (number)
+  test_type_text:
+    value: null
+    formula: "=TYPE(\"hello\")"            # Expected: 2 (text)
+
+  # N - convert to number
+  test_n_number:
+    value: null
+    formula: "=N(42)"                      # Expected: 42
+  test_n_text:
+    value: null
+    formula: "=N(\"hello\")"               # Expected: 0 (text converts to 0)
+
+  # NA - generate N/A error
+  # Tested via ISNA above

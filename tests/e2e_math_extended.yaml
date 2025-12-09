@@ -1,0 +1,117 @@
+# E2E Math Function Validation (Extended)
+# Functions added in v5.19.0 demo expansion
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # INT - integer part
+  test_int_positive:
+    value: null
+    formula: "=INT(5.9)"                   # Expected: 5
+  test_int_negative:
+    value: null
+    formula: "=INT(-5.9)"                  # Expected: -6 (rounds toward negative infinity)
+  test_int_zero:
+    value: null
+    formula: "=INT(0.5)"                   # Expected: 0
+
+  # SIGN - sign of number
+  test_sign_positive:
+    value: null
+    formula: "=SIGN(42)"                   # Expected: 1
+  test_sign_negative:
+    value: null
+    formula: "=SIGN(-42)"                  # Expected: -1
+  test_sign_zero:
+    value: null
+    formula: "=SIGN(0)"                    # Expected: 0
+
+  # TRUNC - truncate to integer
+  test_trunc_positive:
+    value: null
+    formula: "=TRUNC(5.9)"                 # Expected: 5
+  test_trunc_negative:
+    value: null
+    formula: "=TRUNC(-5.9)"                # Expected: -5 (different from INT)
+  test_trunc_decimal:
+    value: null
+    formula: "=TRUNC(5.678, 2)"            # Expected: 5.67
+
+  # GCD - greatest common divisor
+  test_gcd_basic:
+    value: null
+    formula: "=GCD(12, 18)"                # Expected: 6
+  test_gcd_triple:
+    value: null
+    formula: "=GCD(24, 36, 48)"            # Expected: 12
+  test_gcd_coprime:
+    value: null
+    formula: "=GCD(7, 11)"                 # Expected: 1
+
+  # LCM - least common multiple
+  test_lcm_basic:
+    value: null
+    formula: "=LCM(4, 6)"                  # Expected: 12
+  test_lcm_triple:
+    value: null
+    formula: "=LCM(3, 4, 5)"               # Expected: 60
+
+  # FACT - factorial
+  test_fact_zero:
+    value: null
+    formula: "=FACT(0)"                    # Expected: 1
+  test_fact_five:
+    value: null
+    formula: "=FACT(5)"                    # Expected: 120
+  test_fact_ten:
+    value: null
+    formula: "=FACT(10)"                   # Expected: 3628800
+
+  # COMBIN - combinations
+  test_combin_basic:
+    value: null
+    formula: "=COMBIN(5, 2)"               # Expected: 10
+  test_combin_lotto:
+    value: null
+    formula: "=COMBIN(49, 6)"              # Expected: 13983816
+
+  # PERMUT - permutations
+  test_permut_basic:
+    value: null
+    formula: "=PERMUT(5, 2)"               # Expected: 20
+  test_permut_full:
+    value: null
+    formula: "=PERMUT(4, 4)"               # Expected: 24
+
+  # RAND - random number (0-1)
+  # Can't test exact value, but test it returns in range
+  test_rand_range:
+    value: null
+    formula: "=IF(AND(RAND()>=0, RAND()<=1), 1, 0)" # Expected: 1
+
+  # RANDBETWEEN
+  test_randbetween_range:
+    value: null
+    formula: "=IF(AND(RANDBETWEEN(1, 10)>=1, RANDBETWEEN(1, 10)<=10), 1, 0)" # Expected: 1
+
+  # EVEN - round up to nearest even
+  test_even_odd_input:
+    value: null
+    formula: "=EVEN(3)"                    # Expected: 4
+  test_even_even_input:
+    value: null
+    formula: "=EVEN(4)"                    # Expected: 4
+  test_even_negative:
+    value: null
+    formula: "=EVEN(-3)"                   # Expected: -4
+
+  # ODD - round up to nearest odd
+  test_odd_even_input:
+    value: null
+    formula: "=ODD(4)"                     # Expected: 5
+  test_odd_odd_input:
+    value: null
+    formula: "=ODD(3)"                     # Expected: 3
+  test_odd_negative:
+    value: null
+    formula: "=ODD(-4)"                    # Expected: -5

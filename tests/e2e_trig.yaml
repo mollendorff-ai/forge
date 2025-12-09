@@ -1,0 +1,111 @@
+# E2E Trigonometric Function Validation
+# Validated against Gnumeric/LibreOffice Calc
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # SIN
+  test_sin_zero:
+    value: null
+    formula: "=SIN(0)"                     # Expected: 0
+  test_sin_pi_half:
+    value: null
+    formula: "=SIN(PI()/2)"                # Expected: 1
+  test_sin_pi:
+    value: null
+    formula: "=SIN(PI())"                  # Expected: ~0
+
+  # COS
+  test_cos_zero:
+    value: null
+    formula: "=COS(0)"                     # Expected: 1
+  test_cos_pi_half:
+    value: null
+    formula: "=COS(PI()/2)"                # Expected: ~0
+  test_cos_pi:
+    value: null
+    formula: "=COS(PI())"                  # Expected: -1
+
+  # TAN
+  test_tan_zero:
+    value: null
+    formula: "=TAN(0)"                     # Expected: 0
+  test_tan_pi_quarter:
+    value: null
+    formula: "=TAN(PI()/4)"                # Expected: ~1
+
+  # ASIN (inverse sine)
+  test_asin_zero:
+    value: null
+    formula: "=ASIN(0)"                    # Expected: 0
+  test_asin_one:
+    value: null
+    formula: "=ASIN(1)"                    # Expected: ~1.5708 (PI/2)
+  test_asin_half:
+    value: null
+    formula: "=ASIN(0.5)"                  # Expected: ~0.5236 (PI/6)
+
+  # ACOS (inverse cosine)
+  test_acos_one:
+    value: null
+    formula: "=ACOS(1)"                    # Expected: 0
+  test_acos_zero:
+    value: null
+    formula: "=ACOS(0)"                    # Expected: ~1.5708 (PI/2)
+  test_acos_half:
+    value: null
+    formula: "=ACOS(0.5)"                  # Expected: ~1.0472 (PI/3)
+
+  # ATAN (inverse tangent)
+  test_atan_zero:
+    value: null
+    formula: "=ATAN(0)"                    # Expected: 0
+  test_atan_one:
+    value: null
+    formula: "=ATAN(1)"                    # Expected: ~0.7854 (PI/4)
+
+  # PI constant
+  test_pi:
+    value: null
+    formula: "=PI()"                       # Expected: ~3.14159
+
+  # EXP
+  test_exp_zero:
+    value: null
+    formula: "=EXP(0)"                     # Expected: 1
+  test_exp_one:
+    value: null
+    formula: "=EXP(1)"                     # Expected: ~2.71828
+  test_exp_two:
+    value: null
+    formula: "=EXP(2)"                     # Expected: ~7.38906
+
+  # LN (natural log)
+  test_ln_one:
+    value: null
+    formula: "=LN(1)"                      # Expected: 0
+  test_ln_e:
+    value: null
+    formula: "=LN(EXP(1))"                 # Expected: 1
+  test_ln_ten:
+    value: null
+    formula: "=LN(10)"                     # Expected: ~2.30259
+
+  # LOG10 (base 10 log)
+  test_log10_one:
+    value: null
+    formula: "=LOG10(1)"                   # Expected: 0
+  test_log10_ten:
+    value: null
+    formula: "=LOG10(10)"                  # Expected: 1
+  test_log10_hundred:
+    value: null
+    formula: "=LOG10(100)"                 # Expected: 2
+
+  # LOG (any base)
+  test_log_base2:
+    value: null
+    formula: "=LOG(8, 2)"                  # Expected: 3
+  test_log_base10:
+    value: null
+    formula: "=LOG(1000, 10)"              # Expected: 3
