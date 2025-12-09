@@ -225,9 +225,9 @@ coverage:
 
 | Module | Coverage | Notes |
 |--------|----------|-------|
-| error.rs | 100% ✅ | Complete |
-| lsp/capabilities.rs | 100% ✅ | Complete |
-| lsp/document.rs | 100% ✅ | Complete |
+| error.rs | 100% | Complete |
+| lsp/capabilities.rs | 100% | Complete |
+| lsp/document.rs | 100% | Complete |
 | excel/reverse_formula_translator.rs | 94% | Near complete |
 | parser/mod.rs | 86% | Good coverage |
 | types.rs | 87% | Good coverage |

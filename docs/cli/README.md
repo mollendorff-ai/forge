@@ -164,10 +164,10 @@ Converts YAML column arrays to Excel worksheets with full formula support.
 Each table becomes a separate worksheet. Formulas are translated to Excel syntax.
 
 SUPPORTED FEATURES (Phase 3.1 - Basic Export):
-  ✅ Table columns → Excel columns (A, B, C, ...)
-  ✅ Data values (Number, Text, Date, Boolean)
-  ✅ Multiple tables → Multiple worksheets
-  ✅ Scalars → Dedicated "Scalars" worksheet
+  Table columns → Excel columns (A, B, C, ...)
+  Data values (Number, Text, Date, Boolean)
+  Multiple tables → Multiple worksheets
+  Scalars → Dedicated "Scalars" worksheet
 
 COMING SOON (Phase 3.2+):
   ⏳ Row formulas → Excel cell formulas (=A2-B2)
@@ -205,10 +205,10 @@ Converts Excel worksheets to YAML tables with formula preservation.
 Each worksheet becomes a table in the output YAML file.
 
 SUPPORTED FEATURES (Phase 4.1 - Basic Import):
-  ✅ Excel worksheets → YAML tables
-  ✅ Data values (Number, Text, Boolean)
-  ✅ Multiple worksheets → One YAML file (one-to-one)
-  ✅ "Scalars" sheet → Scalar section
+  Excel worksheets → YAML tables
+  Data values (Number, Text, Boolean)
+  Multiple worksheets → One YAML file (one-to-one)
+  "Scalars" sheet → Scalar section
   ⏳ Formula translation (coming in Phase 4.3)
 
 WORKFLOW:
@@ -255,11 +255,11 @@ Monitors the specified file (and all included files) for changes.
 When a change is detected, automatically runs validation/calculation.
 
 FEATURES:
-  ✅ Real-time file monitoring
-  ✅ Auto-calculate on save
-  ✅ Debounced updates (waits for file write to complete)
-  ✅ Watches included files too
-  ✅ Clear error messages on formula issues
+  Real-time file monitoring
+  Auto-calculate on save
+  Debounced updates (waits for file write to complete)
+  Watches included files too
+  Clear error messages on formula issues
 
 WORKFLOW:
   1. Open your YAML in your editor

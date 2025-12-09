@@ -56,23 +56,23 @@ This 1:1 mapping ensures:
 
 **Export (YAML → Excel):**
 
-- ✅ Multiple tables → Multiple worksheets
-- ✅ Column arrays → Excel columns with headers
-- ✅ Row-wise formulas → Excel cell formulas (=A2-B2)
-- ✅ Cross-table references → Sheet references (=Sheet1!A2)
-- ✅ Aggregation formulas → Summary rows
-- ✅ 60+ Excel functions preserved
-- ✅ Data types: Number, Text, Date, Boolean
+- Multiple tables → Multiple worksheets
+- Column arrays → Excel columns with headers
+- Row-wise formulas → Excel cell formulas (=A2-B2)
+- Cross-table references → Sheet references (=Sheet1!A2)
+- Aggregation formulas → Summary rows
+- 60+ Excel functions preserved
+- Data types: Number, Text, Date, Boolean
 
 **Import (Excel → YAML):**
 
-- ✅ Multiple worksheets → Single YAML with tables
-- ✅ Excel columns → Column arrays
-- ✅ Excel formulas → YAML formula syntax
-- ✅ Sheet references → table.column syntax
-- ✅ Automatic column type detection
-- ✅ Formula preservation from formula cells
-- ✅ "Scalars" worksheet special handling
+- Multiple worksheets → Single YAML with tables
+- Excel columns → Column arrays
+- Excel formulas → YAML formula syntax
+- Sheet references → table.column syntax
+- Automatic column type detection
+- Formula preservation from formula cells
+- "Scalars" worksheet special handling
 
 ---
 
@@ -88,7 +88,7 @@ graph TB
         Model1["ParsedModel<br/>v1.0.0"]
         Exporter["ExcelExporter<br/>export()"]
         FormulaT["FormulaTranslator<br/>translate_row_formula()"]
-        ExcelFile1["📊 Excel File<br/>model.xlsx"]
+        ExcelFile1["Excel File<br/>model.xlsx"]
 
         YAMLFile1 --> Parser1
         Parser1 --> Model1
@@ -98,7 +98,7 @@ graph TB
     end
 
     subgraph "Import Direction: Excel → YAML"
-        ExcelFile2["📊 Excel File<br/>model.xlsx"]
+        ExcelFile2["Excel File<br/>model.xlsx"]
         Importer["ExcelImporter<br/>import()"]
         ReverseT["ReverseFormulaTranslator<br/>translate()"]
         Model2["ParsedModel<br/>v1.0.0"]
@@ -170,7 +170,7 @@ graph TB
     end
 
     SaveWorkbook["workbook.save(output_path)"]
-    Done["✅ Excel file created"]
+    Done["Excel file created"]
 
     Start --> CreateWorkbook
     CreateWorkbook --> CreateWorksheet
@@ -1768,12 +1768,12 @@ pub enum ForgeError {
 ```rust
 // From: cli/commands.rs:280-328
 pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()> {
-    println!("{}", "🔥 Forge - Excel Export".bold().green());
+    println!("{}", "Forge - Excel Export".bold().green());
     println!("   Input:  {}", input.display());
     println!("   Output: {}\n", output.display());
 
     if verbose {
-        println!("{}", "📖 Parsing YAML file...".cyan());
+        println!("{}", "Parsing YAML file...".cyan());
     }
 
     let model = parser::parse_model(&input)?;
@@ -1788,7 +1788,7 @@ pub fn export(input: PathBuf, output: PathBuf, verbose: bool) -> ForgeResult<()>
     let exporter = ExcelExporter::new(model);
     exporter.export(&output)?;
 
-    println!("{}", "✅ Export Complete!".bold().green());
+    println!("{}", "Export Complete!".bold().green());
     Ok(())
 }
 ```
@@ -1827,17 +1827,17 @@ workbook.save("output.xlsx")?;
 
 **Strengths:**
 
-- ✅ Pure Rust (no C dependencies)
-- ✅ Full Excel 2007+ format support
-- ✅ Formula support
-- ✅ Fast (writes directly to .xlsx zip format)
-- ✅ Type-safe API
+- Pure Rust (no C dependencies)
+- Full Excel 2007+ format support
+- Formula support
+- Fast (writes directly to .xlsx zip format)
+- Type-safe API
 
 **Limitations:**
 
-- ❌ No reading support (write-only)
-- ❌ No chart creation (future feature)
-- ❌ No conditional formatting (future feature)
+- No reading support (write-only)
+- No chart creation (future feature)
+- No conditional formatting (future feature)
 
 **Forge Usage:**
 
@@ -1881,18 +1881,18 @@ match cell {
 
 **Strengths:**
 
-- ✅ Pure Rust (no C dependencies)
-- ✅ Supports .xlsx, .xls, .xlsb, .ods
-- ✅ Fast (lazy loading)
-- ✅ Formula reading via `worksheet_formula()`
-- ✅ Type-safe cell access
+- Pure Rust (no C dependencies)
+- Supports .xlsx, .xls, .xlsb, .ods
+- Fast (lazy loading)
+- Formula reading via `worksheet_formula()`
+- Type-safe cell access
 
 **Limitations:**
 
-- ❌ Read-only (no write support)
-- ❌ No formatting information (colors, fonts)
-- ❌ No chart reading
-- ❌ Strips leading `=` from formulas
+- Read-only (no write support)
+- No formatting information (colors, fonts)
+- No chart reading
+- Strips leading `=` from formulas
 
 **Forge Usage:**
 

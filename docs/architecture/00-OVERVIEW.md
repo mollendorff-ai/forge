@@ -65,11 +65,11 @@ graph TB
     business["👤 Business User<br/>Business Logic,<br/>Pricing, Unit Economics"]
 
     %% Forge System
-    forge["🔥 Forge<br/>YAML Formula Calculator<br/><br/>✓ Calculate formulas<br/>✓ Validate models<br/>✓ Export to Excel<br/>✓ Import from Excel<br/>✓ Cross-file references<br/><br/>Zero Hallucinations:<br/>60+ Excel functions<br/>Type-safe arrays"]
+    forge["Forge<br/>YAML Formula Calculator<br/><br/>✓ Calculate formulas<br/>✓ Validate models<br/>✓ Export to Excel<br/>✓ Import from Excel<br/>✓ Cross-file references<br/><br/>Zero Hallucinations:<br/>60+ Excel functions<br/>Type-safe arrays"]
 
     %% External Systems
     git[("📦 Git Repository<br/>Version Control")]
-    excel[("📊 Excel Files<br/>.xlsx")]
+    excel[("Excel Files<br/>.xlsx")]
     yaml[("📄 YAML Files")]
     cicd[("⚙️ CI/CD Pipeline<br/>Automated Validation")]
 
@@ -462,24 +462,24 @@ Financial calculations must be **unambiguous**:
 
 ### Technical
 
-- ✅ **183 tests passing** (100% pass rate)
-- ✅ **ZERO warnings** (cargo clippy pedantic)
-- ✅ **96K rows/sec** throughput
-- ✅ **0 known bugs** in production
+- **183 tests passing** (100% pass rate)
+- **ZERO warnings** (cargo clippy pedantic)
+- **96K rows/sec** throughput
+- **0 known bugs** in production
 
 ### Business
 
-- ✅ **$40K-$132K/year savings** vs AI validation
-- ✅ **99.6% CO₂ reduction** vs AI
-- ✅ **640x faster** than AI validation
-- ✅ **100% accuracy** (deterministic calculations)
+- **$40K-$132K/year savings** vs AI validation
+- **99.6% CO₂ reduction** vs AI
+- **640x faster** than AI validation
+- **100% accuracy** (deterministic calculations)
 
 ### Development
 
-- ✅ **20-50x velocity** vs manual coding (RoyalBit Asimov)
-- ✅ **12.5 hours** for v1.0.0 (autonomous AI)
-- ✅ **<8 hours** for v1.2.1 (27 functions)
-- ✅ **Zero rework** (correct first time)
+- **20-50x velocity** vs manual coding (RoyalBit Asimov)
+- **12.5 hours** for v1.0.0 (autonomous AI)
+- **<8 hours** for v1.2.1 (27 functions)
+- **Zero rework** (correct first time)
 
 ---
 

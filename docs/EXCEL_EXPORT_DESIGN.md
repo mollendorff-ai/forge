@@ -334,7 +334,7 @@ impl FormulaTranslator {
 
 ## Success Criteria
 
-✅ **Phase 3 Complete When:**
+**Phase 3 Complete When:**
 
 1. quarterly_pl.yaml exports to .xlsx ✅
 2. Excel file opens in Excel/LibreOffice ✅

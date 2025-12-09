@@ -6,7 +6,7 @@
 
 ---
 
-> **⚠️ SUPERSEDED:** This ADR is obsolete. LSP support was removed in v5.0.0.
+> **SUPERSEDED:** This ADR is obsolete. LSP support was removed in v5.0.0.
 > See [ADR-005: No LSP](ADR-005-NO-LSP.md) for the rationale.
 
 ---

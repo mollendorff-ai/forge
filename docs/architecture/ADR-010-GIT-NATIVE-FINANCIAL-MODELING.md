@@ -18,12 +18,12 @@ Financial models are critical business assets. Yet most organizations:
 
 | Capability | Git + Code | Excel + SharePoint |
 |------------|------------|-------------------|
-| Branching | ✅ Native | ❌ Copy files |
-| Merge conflicts | ✅ Line-level | ❌ "File in use" |
-| Pull requests | ✅ Review before merge | ❌ Hope for the best |
-| Blame/history | ✅ Per-line | ❌ Per-file at best |
-| Diff | ✅ Readable | ❌ Binary gibberish |
-| Rollback | ✅ `git revert` | ❌ Restore from backup |
+| Branching | Native | Copy files |
+| Merge conflicts | Line-level | "File in use" |
+| Pull requests | Review before merge | Hope for the best |
+| Blame/history | Per-line | Per-file at best |
+| Diff | Readable | Binary gibberish |
+| Rollback | `git revert` | Restore from backup |
 
 ### Why Excel Can't Git
 
