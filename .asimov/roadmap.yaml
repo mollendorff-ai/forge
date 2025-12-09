@@ -47,21 +47,41 @@ next:
       DECISION: Option A - Feature Flags
 
       cargo build              → demo (~40 functions, v1.0.0 only)
-      cargo build --features full → enterprise (147 functions, all schemas)
+      cargo build --features full → enterprise (149 functions, all schemas)
 
       Gate with #[cfg(feature = "full")]:
       - Enterprise functions (VARIANCE, BREAKEVEN, SCENARIO, LET, LAMBDA, etc.)
       - v4.0.0/v5.0.0 schema support
       - API server
 
+      Demo keeps (~40 functions):
+      - Math: SUM, AVERAGE, MIN, MAX, COUNT, ROUND, ABS, SQRT, POWER, MOD
+      - Financial: PMT, PV, FV, NPV, IRR, NPER, RATE
+      - Logical: IF, AND, OR, NOT, IFERROR
+      - Text: CONCAT, LEFT, RIGHT, MID, LEN, UPPER, LOWER, TRIM
+      - Date: TODAY, DATE, YEAR, MONTH, DAY, DATEDIF
+      - Lookup: INDEX, MATCH, CHOOSE
+
     deliverables:
+      - task: "Write ADR-012-FEATURE-FLAGS.md"
+        status: pending
       - task: "Add 'full' feature to Cargo.toml"
         status: pending
-      - task: "Gate enterprise functions"
+      - task: "Gate enterprise functions with #[cfg(feature = \"full\")]"
         status: pending
-      - task: "Cross-compile demo binaries"
+      - task: "Gate v4/v5 schema support"
         status: pending
-      - task: "Host on royalbit.ca/forge/"
+      - task: "Gate API server"
+        status: pending
+      - task: "Update source README.md with build instructions"
+        status: pending
+      - task: "Update forge-gh docs/FUNCTIONS.md (demo function list)"
+        status: pending
+      - task: "Cross-compile demo binaries (linux, macos, windows)"
+        status: pending
+      - task: "Host binaries on royalbit.ca/forge/"
+        status: pending
+      - task: "Test demo binary has only ~40 functions"
         status: pending
 
   # ─────────────────────────────────────────────────────────────────────────────
