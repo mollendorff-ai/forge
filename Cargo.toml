@@ -28,6 +28,7 @@ path = "src/bin/forge_mcp.rs"
 [[bin]]
 name = "forge-server"
 path = "src/bin/forge_server.rs"
+required-features = ["full"]  # Enterprise only - API server
 
 [dependencies]
 # YAML parsing
@@ -83,6 +84,14 @@ rand = "0.9.2"
 
 [features]
 default = []
+
+# Full enterprise build - includes all 149 functions, API server, v4/v5 schemas
+# Demo build (default): ~40 functions, v1.0.0 schema only, no API server
+# Build commands:
+#   cargo build --release              # Demo binary
+#   cargo build --release --features full  # Enterprise binary
+full = []
+
 # LibreOffice E2E validation tests - validates Forge calculations against battle-proven spreadsheet engine
 # Run with: cargo test --features e2e-libreoffice
 # Requires: LibreOffice installed (libreoffice --version)
@@ -97,9 +106,9 @@ predicates = "3.1"  # CLI output assertions
 # Git hooks (auto-installs on cargo test)
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
 
-# Allow coverage cfg for conditional compilation (ADR-006)
+# Allow coverage and feature cfgs for conditional compilation (ADR-006, ADR-012)
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)', 'cfg(feature, values("full"))'] }
 
 [profile.release]
 # Optimize for size and performance

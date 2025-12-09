@@ -5,19 +5,28 @@
 //!
 //! Function implementations are organized into submodules by category.
 
-mod advanced;
+// Demo modules (always included)
 mod aggregation;
-mod array;
-mod conditional;
 mod dates;
 mod financial;
-mod forge;
-mod info;
 mod logical;
 mod lookup;
 mod math;
 mod statistical;
 mod text;
+
+// Enterprise-only modules (gated behind "full" feature)
+#[cfg(feature = "full")]
+mod advanced;
+#[cfg(feature = "full")]
+mod array;
+#[cfg(feature = "full")]
+mod conditional;
+#[cfg(feature = "full")]
+mod forge;
+#[cfg(feature = "full")]
+mod info;
+#[cfg(feature = "full")]
 mod trig;
 
 use super::parser::{Expr, Reference};
@@ -477,23 +486,13 @@ fn evaluate_unary_op(op: &str, operand: &Value) -> Result<Value, EvalError> {
 fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     let upper_name = name.to_uppercase();
 
-    // Try each category in order
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DEMO FUNCTIONS (always available)
+    // ═══════════════════════════════════════════════════════════════════════════
     if let Some(result) = math::try_evaluate(&upper_name, args, ctx)? {
         return Ok(result);
     }
-    if let Some(result) = trig::try_evaluate(&upper_name, args, ctx)? {
-        return Ok(result);
-    }
     if let Some(result) = aggregation::try_evaluate(&upper_name, args, ctx)? {
-        return Ok(result);
-    }
-    if let Some(result) = statistical::try_evaluate(&upper_name, args, ctx)? {
-        return Ok(result);
-    }
-    if let Some(result) = conditional::try_evaluate(&upper_name, args, ctx)? {
-        return Ok(result);
-    }
-    if let Some(result) = array::try_evaluate(&upper_name, args, ctx)? {
         return Ok(result);
     }
     if let Some(result) = logical::try_evaluate(&upper_name, args, ctx)? {
@@ -511,14 +510,33 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
     if let Some(result) = financial::try_evaluate(&upper_name, args, ctx)? {
         return Ok(result);
     }
-    if let Some(result) = info::try_evaluate(&upper_name, args, ctx)? {
+    if let Some(result) = statistical::try_evaluate(&upper_name, args, ctx)? {
         return Ok(result);
     }
-    if let Some(result) = forge::try_evaluate(&upper_name, args, ctx)? {
-        return Ok(result);
-    }
-    if let Some(result) = advanced::try_evaluate(&upper_name, args, ctx)? {
-        return Ok(result);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ENTERPRISE FUNCTIONS (only in full build)
+    // ═══════════════════════════════════════════════════════════════════════════
+    #[cfg(feature = "full")]
+    {
+        if let Some(result) = trig::try_evaluate(&upper_name, args, ctx)? {
+            return Ok(result);
+        }
+        if let Some(result) = conditional::try_evaluate(&upper_name, args, ctx)? {
+            return Ok(result);
+        }
+        if let Some(result) = array::try_evaluate(&upper_name, args, ctx)? {
+            return Ok(result);
+        }
+        if let Some(result) = info::try_evaluate(&upper_name, args, ctx)? {
+            return Ok(result);
+        }
+        if let Some(result) = forge::try_evaluate(&upper_name, args, ctx)? {
+            return Ok(result);
+        }
+        if let Some(result) = advanced::try_evaluate(&upper_name, args, ctx)? {
+            return Ok(result);
+        }
     }
 
     Err(EvalError::new(format!("Unknown function: {}", name)))
@@ -588,6 +606,8 @@ pub(crate) fn collect_numeric_values(
 }
 
 /// Collect all values from an expression as a Vec<Value>
+/// (Enterprise only - used by array functions)
+#[cfg(feature = "full")]
 pub(crate) fn collect_values_as_vec(
     expr: &Expr,
     ctx: &EvalContext,
@@ -600,6 +620,8 @@ pub(crate) fn collect_values_as_vec(
 }
 
 /// Check if a value matches a criteria (supports comparisons like ">50", "<=100", "<>0", "=text")
+/// (Enterprise only - used by conditional functions)
+#[cfg(feature = "full")]
 pub(crate) fn matches_criteria(val: &Value, criteria: &Value) -> bool {
     let criteria_str = criteria.as_text();
 

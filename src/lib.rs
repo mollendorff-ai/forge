@@ -30,7 +30,7 @@
 //! # Ok::<(), royalbit_forge::error::ForgeError>(())
 //! ```
 
-pub mod api;
+// Demo modules (always included)
 pub mod cli;
 pub mod core;
 pub mod error;
@@ -40,6 +40,10 @@ pub mod parser;
 pub mod types;
 pub mod update;
 pub mod writer;
+
+// Enterprise-only modules (gated behind "full" feature)
+#[cfg(feature = "full")]
+pub mod api;
 
 // Re-export commonly used types
 pub use error::{ForgeError, ForgeResult};
