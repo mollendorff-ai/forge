@@ -1,0 +1,199 @@
+# E2E Date Function Complete Coverage
+# v6.2.0 - All 21 date functions with comprehensive tests
+# Validated against Gnumeric/LibreOffice Calc
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DATE - Construct date from year, month, day
+  # ═══════════════════════════════════════════════════════════════════════════
+  date_basic:
+    value: null
+    formula: "=YEAR(DATE(2024, 6, 15))"     # Expected: 2024
+  date_month:
+    value: null
+    formula: "=MONTH(DATE(2024, 6, 15))"    # Expected: 6
+  date_day:
+    value: null
+    formula: "=DAY(DATE(2024, 6, 15))"      # Expected: 15
+  date_jan_first:
+    value: null
+    formula: "=YEAR(DATE(2025, 1, 1))"      # Expected: 2025
+  date_dec_last:
+    value: null
+    formula: "=DAY(DATE(2024, 12, 31))"     # Expected: 31
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # YEAR / MONTH / DAY - Extract date components
+  # ═══════════════════════════════════════════════════════════════════════════
+  year_extract:
+    value: null
+    formula: "=YEAR(DATE(2025, 3, 20))"     # Expected: 2025
+  month_extract:
+    value: null
+    formula: "=MONTH(DATE(2025, 3, 20))"    # Expected: 3
+  day_extract:
+    value: null
+    formula: "=DAY(DATE(2025, 3, 20))"      # Expected: 20
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DATEDIF - Date difference calculations
+  # ═══════════════════════════════════════════════════════════════════════════
+  datedif_days:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 12, 31), \"D\")"  # Expected: 365
+  datedif_months:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 15), DATE(2024, 6, 15), \"M\")"  # Expected: 5
+  datedif_years:
+    value: null
+    formula: "=DATEDIF(DATE(2020, 1, 1), DATE(2024, 1, 1), \"Y\")"    # Expected: 4
+  datedif_md:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 10), DATE(2024, 3, 25), \"MD\")" # Expected: 15
+  datedif_ym:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 3, 1), DATE(2024, 8, 1), \"YM\")"   # Expected: 5
+  datedif_yd:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 3, 1), \"YD\")"   # Expected: 60 (leap year)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DAYS - Simple day difference
+  # ═══════════════════════════════════════════════════════════════════════════
+  days_basic:
+    value: null
+    formula: "=DAYS(DATE(2024, 1, 31), DATE(2024, 1, 1))"  # Expected: 30
+  days_month:
+    value: null
+    formula: "=DAYS(DATE(2024, 3, 1), DATE(2024, 2, 1))"   # Expected: 29 (leap year)
+  days_year:
+    value: null
+    formula: "=DAYS(DATE(2025, 1, 1), DATE(2024, 1, 1))"   # Expected: 366 (2024 leap)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # EDATE - Add/subtract months
+  # ═══════════════════════════════════════════════════════════════════════════
+  edate_add_3:
+    value: null
+    formula: "=MONTH(EDATE(DATE(2024, 1, 15), 3))"    # Expected: 4
+  edate_add_6:
+    value: null
+    formula: "=MONTH(EDATE(DATE(2024, 3, 15), 6))"    # Expected: 9
+  edate_sub_3:
+    value: null
+    formula: "=MONTH(EDATE(DATE(2024, 4, 15), -3))"   # Expected: 1
+  edate_year_wrap:
+    value: null
+    formula: "=YEAR(EDATE(DATE(2024, 11, 15), 3))"    # Expected: 2025
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # EOMONTH - End of month
+  # ═══════════════════════════════════════════════════════════════════════════
+  eomonth_jan:
+    value: null
+    formula: "=DAY(EOMONTH(DATE(2024, 1, 15), 0))"    # Expected: 31
+  eomonth_feb_leap:
+    value: null
+    formula: "=DAY(EOMONTH(DATE(2024, 2, 15), 0))"    # Expected: 29 (2024 leap)
+  eomonth_feb_normal:
+    value: null
+    formula: "=DAY(EOMONTH(DATE(2023, 2, 15), 0))"    # Expected: 28
+  eomonth_dec:
+    value: null
+    formula: "=DAY(EOMONTH(DATE(2024, 12, 15), 0))"   # Expected: 31
+  eomonth_next_month:
+    value: null
+    formula: "=MONTH(EOMONTH(DATE(2024, 1, 15), 1))"  # Expected: 2
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WEEKDAY - Day of week
+  # ═══════════════════════════════════════════════════════════════════════════
+  weekday_monday:
+    value: null
+    formula: "=WEEKDAY(DATE(2024, 1, 1))"     # 2024-01-01 was Monday, Expected: 2
+  weekday_sunday:
+    value: null
+    formula: "=WEEKDAY(DATE(2024, 1, 7))"     # Expected: 1 (Sunday)
+  weekday_type2:
+    value: null
+    formula: "=WEEKDAY(DATE(2024, 1, 1), 2)"  # Monday=1, Expected: 1
+  weekday_type3:
+    value: null
+    formula: "=WEEKDAY(DATE(2024, 1, 1), 3)"  # Monday=0, Expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # HOUR / MINUTE / SECOND - Time components
+  # ═══════════════════════════════════════════════════════════════════════════
+  hour_noon:
+    value: null
+    formula: "=HOUR(0.5)"         # Expected: 12
+  hour_6pm:
+    value: null
+    formula: "=HOUR(0.75)"        # Expected: 18
+  minute_30:
+    value: null
+    formula: "=MINUTE(0.5208333)" # Expected: 30 (12:30)
+  second_0:
+    value: null
+    formula: "=SECOND(0.5)"       # Expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TIME - Construct time value
+  # ═══════════════════════════════════════════════════════════════════════════
+  time_noon:
+    value: null
+    formula: "=TIME(12, 0, 0)"    # Expected: 0.5
+  time_6pm:
+    value: null
+    formula: "=TIME(18, 0, 0)"    # Expected: 0.75
+  time_midnight:
+    value: null
+    formula: "=TIME(0, 0, 0)"     # Expected: 0
+  time_with_minutes:
+    value: null
+    formula: "=TIME(6, 30, 0)"    # Expected: 0.270833...
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WORKDAY - Add workdays
+  # ═══════════════════════════════════════════════════════════════════════════
+  workday_add_5:
+    value: null
+    formula: "=WEEKDAY(WORKDAY(DATE(2024, 1, 1), 5))"  # Mon+5 workdays = Mon
+  workday_sub_5:
+    value: null
+    formula: "=DAY(WORKDAY(DATE(2024, 1, 8), -5))"     # Expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NETWORKDAYS - Count workdays
+  # ═══════════════════════════════════════════════════════════════════════════
+  networkdays_week:
+    value: null
+    formula: "=NETWORKDAYS(DATE(2024, 1, 1), DATE(2024, 1, 5))"  # Mon-Fri = 5
+  networkdays_two_weeks:
+    value: null
+    formula: "=NETWORKDAYS(DATE(2024, 1, 1), DATE(2024, 1, 12))" # ~10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # YEARFRAC - Fraction of year
+  # ═══════════════════════════════════════════════════════════════════════════
+  yearfrac_half:
+    value: null
+    formula: "=YEARFRAC(DATE(2024, 1, 1), DATE(2024, 7, 1), 0)"  # ~0.5
+  yearfrac_quarter:
+    value: null
+    formula: "=YEARFRAC(DATE(2024, 1, 1), DATE(2024, 4, 1), 0)"  # ~0.25
+  yearfrac_full:
+    value: null
+    formula: "=YEARFRAC(DATE(2024, 1, 1), DATE(2025, 1, 1), 0)"  # ~1.0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Combined Date Operations
+  # ═══════════════════════════════════════════════════════════════════════════
+  combined_age:
+    value: null
+    formula: "=DATEDIF(DATE(1990, 5, 15), DATE(2024, 5, 15), \"Y\")"  # 34 years
+  combined_months_until:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 6, 1), DATE(2025, 1, 1), \"M\")"    # 7 months

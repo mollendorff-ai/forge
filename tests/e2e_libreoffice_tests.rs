@@ -1559,7 +1559,10 @@ finance_tests:
         }
     }
 
-    assert!(found_sln, "SLN(30000,7500,10)=2250 not found in roundtrip CSV");
+    assert!(
+        found_sln,
+        "SLN(30000,7500,10)=2250 not found in roundtrip CSV"
+    );
     println!("✅ Financial functions roundtrip test passed");
 }
 
@@ -1700,7 +1703,10 @@ logic_tests:
     }
 
     assert!(found_100, "IF(10>5,100,0)=100 not found in roundtrip CSV");
-    assert!(found_minus1, "IFERROR(1/0,-1)=-1 not found in roundtrip CSV");
+    assert!(
+        found_minus1,
+        "IFERROR(1/0,-1)=-1 not found in roundtrip CSV"
+    );
 
     println!("✅ Conditional functions roundtrip test passed");
 }

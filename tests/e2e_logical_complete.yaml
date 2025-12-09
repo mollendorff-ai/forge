@@ -1,0 +1,144 @@
+# E2E Logical Function Complete Coverage
+# v6.9.0 - All 9 logical functions with comprehensive tests
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # IF - Conditional
+  # ═══════════════════════════════════════════════════════════════════════════
+  if_true:
+    value: null
+    formula: "=IF(TRUE(), 1, 0)"           # Expected: 1
+  if_false:
+    value: null
+    formula: "=IF(FALSE(), 1, 0)"          # Expected: 0
+  if_numeric_true:
+    value: null
+    formula: "=IF(5>3, 10, 20)"            # Expected: 10
+  if_numeric_false:
+    value: null
+    formula: "=IF(5<3, 10, 20)"            # Expected: 20
+  if_equals:
+    value: null
+    formula: "=IF(5=5, 100, 0)"            # Expected: 100
+  if_nested:
+    value: null
+    formula: "=IF(5>10, 1, IF(5>3, 2, 3))" # Expected: 2
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AND - All conditions true
+  # ═══════════════════════════════════════════════════════════════════════════
+  and_true:
+    value: null
+    formula: "=IF(AND(TRUE(), TRUE()), 1, 0)"  # Expected: 1
+  and_false:
+    value: null
+    formula: "=IF(AND(TRUE(), FALSE()), 1, 0)" # Expected: 0
+  and_all_false:
+    value: null
+    formula: "=IF(AND(FALSE(), FALSE()), 1, 0)" # Expected: 0
+  and_numeric:
+    value: null
+    formula: "=IF(AND(5>3, 10>5), 1, 0)"   # Expected: 1
+  and_three:
+    value: null
+    formula: "=IF(AND(TRUE(), TRUE(), TRUE()), 1, 0)"  # Expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OR - Any condition true
+  # ═══════════════════════════════════════════════════════════════════════════
+  or_true:
+    value: null
+    formula: "=IF(OR(TRUE(), FALSE()), 1, 0)"  # Expected: 1
+  or_false:
+    value: null
+    formula: "=IF(OR(FALSE(), FALSE()), 1, 0)" # Expected: 0
+  or_all_true:
+    value: null
+    formula: "=IF(OR(TRUE(), TRUE()), 1, 0)"   # Expected: 1
+  or_numeric:
+    value: null
+    formula: "=IF(OR(5<3, 10>5), 1, 0)"    # Expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NOT - Negation
+  # ═══════════════════════════════════════════════════════════════════════════
+  not_true:
+    value: null
+    formula: "=IF(NOT(TRUE()), 1, 0)"      # Expected: 0
+  not_false:
+    value: null
+    formula: "=IF(NOT(FALSE()), 1, 0)"     # Expected: 1
+  not_comparison:
+    value: null
+    formula: "=IF(NOT(5<3), 1, 0)"         # Expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # XOR - Exclusive or
+  # ═══════════════════════════════════════════════════════════════════════════
+  xor_one_true:
+    value: null
+    formula: "=IF(XOR(TRUE(), FALSE()), 1, 0)" # Expected: 1
+  xor_both_true:
+    value: null
+    formula: "=IF(XOR(TRUE(), TRUE()), 1, 0)"  # Expected: 0
+  xor_both_false:
+    value: null
+    formula: "=IF(XOR(FALSE(), FALSE()), 1, 0)" # Expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TRUE / FALSE - Boolean constants
+  # ═══════════════════════════════════════════════════════════════════════════
+  true_func:
+    value: null
+    formula: "=IF(TRUE(), 1, 0)"           # Expected: 1
+  false_func:
+    value: null
+    formula: "=IF(FALSE(), 1, 0)"          # Expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # IFS - Multiple conditions
+  # ═══════════════════════════════════════════════════════════════════════════
+  ifs_first:
+    value: null
+    formula: "=IFS(TRUE(), 10, FALSE(), 20)"   # Expected: 10
+  ifs_second:
+    value: null
+    formula: "=IFS(FALSE(), 10, TRUE(), 20)"   # Expected: 20
+  ifs_numeric:
+    value: null
+    formula: "=IFS(5<3, 1, 5>3, 2, TRUE(), 3)" # Expected: 2
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SWITCH - Value matching
+  # ═══════════════════════════════════════════════════════════════════════════
+  switch_match:
+    value: null
+    formula: "=SWITCH(2, 1, 10, 2, 20, 3, 30)" # Expected: 20
+  switch_default:
+    value: null
+    formula: "=SWITCH(9, 1, 10, 2, 20, 99)"    # Expected: 99 (default)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # IFERROR - Error handling
+  # ═══════════════════════════════════════════════════════════════════════════
+  iferror_no_error:
+    value: null
+    formula: "=IFERROR(5+5, 0)"            # Expected: 10
+  iferror_with_error:
+    value: null
+    formula: "=IFERROR(1/0, -1)"           # Expected: -1
+  iferror_sqrt_neg:
+    value: null
+    formula: "=IFERROR(SQRT(-1), 0)"       # Expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Combined logical operations
+  # ═══════════════════════════════════════════════════════════════════════════
+  combined_and_or:
+    value: null
+    formula: "=IF(AND(OR(TRUE(), FALSE()), NOT(FALSE())), 1, 0)"  # Expected: 1
+  combined_nested:
+    value: null
+    formula: "=IF(OR(AND(TRUE(), TRUE()), AND(FALSE(), FALSE())), 1, 0)"  # Expected: 1

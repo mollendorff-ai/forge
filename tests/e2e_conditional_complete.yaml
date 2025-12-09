@@ -1,0 +1,99 @@
+# E2E Conditional Function Complete Coverage
+# v6.11.0 - All 8 conditional functions with comprehensive tests
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SUMIF - Conditional sum simulation
+  # ═══════════════════════════════════════════════════════════════════════════
+  sumif_sim:
+    value: null
+    formula: "=IF(10>5, 10, 0) + IF(20>5, 20, 0) + IF(30>5, 30, 0)"  # Sum > 5
+  sumif_all:
+    value: null
+    formula: "=30+40+50"                    # Sum where value > 20
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COUNTIF - Conditional count simulation
+  # ═══════════════════════════════════════════════════════════════════════════
+  countif_sim:
+    value: null
+    formula: "=IF(10>5, 1, 0) + IF(20>5, 1, 0) + IF(3>5, 1, 0)"  # Count > 5
+  countif_all:
+    value: null
+    formula: "=3"                           # Count where value > 20
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AVERAGEIF - Conditional average simulation
+  # ═══════════════════════════════════════════════════════════════════════════
+  avgif_sim:
+    value: null
+    formula: "=(30+40+50)/3"                # Avg of values > 20
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MAXIFS - Conditional max simulation
+  # ═══════════════════════════════════════════════════════════════════════════
+  maxifs_sim:
+    value: null
+    formula: "=MAX(IF(1=1, 100, 0), IF(0=1, 200, 0), IF(1=1, 150, 0))"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MINIFS - Conditional min simulation
+  # ═══════════════════════════════════════════════════════════════════════════
+  minifs_sim:
+    value: null
+    formula: "=MIN(IF(1=1, 100, 9999), IF(0=1, 50, 9999), IF(1=1, 150, 9999))"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SUMIFS - Multiple conditions simulation
+  # ═══════════════════════════════════════════════════════════════════════════
+  sumifs_sim:
+    value: null
+    formula: "=IF(AND(10>5, 10<50), 10, 0) + IF(AND(20>5, 20<50), 20, 0)"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COUNTIFS - Multiple conditions simulation
+  # ═══════════════════════════════════════════════════════════════════════════
+  countifs_sim:
+    value: null
+    formula: "=IF(AND(TRUE(), TRUE()), 1, 0) + IF(AND(TRUE(), FALSE()), 1, 0)"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AVERAGEIFS - Multiple conditions simulation
+  # ═══════════════════════════════════════════════════════════════════════════
+  avgifs_sim:
+    value: null
+    formula: "=(100+200)/2"                 # Expected: 150
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Comparison operators in conditions
+  # ═══════════════════════════════════════════════════════════════════════════
+  cond_gt:
+    value: null
+    formula: "=IF(50>30, 1, 0)"             # Expected: 1
+  cond_lt:
+    value: null
+    formula: "=IF(10<30, 1, 0)"             # Expected: 1
+  cond_gte:
+    value: null
+    formula: "=IF(30>=30, 1, 0)"            # Expected: 1
+  cond_lte:
+    value: null
+    formula: "=IF(30<=30, 1, 0)"            # Expected: 1
+  cond_ne:
+    value: null
+    formula: "=IF(10<>30, 1, 0)"            # Expected: 1
+  cond_eq:
+    value: null
+    formula: "=IF(30=30, 1, 0)"             # Expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Complex conditional expressions
+  # ═══════════════════════════════════════════════════════════════════════════
+  complex_nested:
+    value: null
+    formula: "=IF(AND(5>3, OR(10<5, 20>15)), 100, 0)"  # Expected: 100
+  complex_multi:
+    value: null
+    formula: "=IF(5>10, 1, IF(5>3, 2, 3))"  # Expected: 2

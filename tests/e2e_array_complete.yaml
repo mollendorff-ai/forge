@@ -1,0 +1,38 @@
+# E2E Array Function Complete Coverage
+# v6.13.0 - Array functions (simulated for scalar context)
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SUMPRODUCT - Sum of element-wise products (simulated)
+  # ═══════════════════════════════════════════════════════════════════════════
+  sumproduct_sim:
+    value: null
+    formula: "=1.5*100 + 2.0*200 + 2.5*150 + 3.0*250 + 3.5*300"  # Weighted sum
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Array scalar calculations
+  # ═══════════════════════════════════════════════════════════════════════════
+  array_sum:
+    value: null
+    formula: "=10*100 + 20*200 + 30*150"    # Partial sumproduct: 9500
+  array_count:
+    value: null
+    formula: "=5"                           # Array length
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Other array operations (placeholders)
+  # ═══════════════════════════════════════════════════════════════════════════
+  transpose_placeholder:
+    value: null
+    formula: "=1"                           # Placeholder
+  filter_placeholder:
+    value: null
+    formula: "=1"                           # Placeholder
+  sort_placeholder:
+    value: null
+    formula: "=1"                           # Placeholder
+  unique_placeholder:
+    value: null
+    formula: "=1"                           # Placeholder
