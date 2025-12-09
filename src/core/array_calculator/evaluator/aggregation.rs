@@ -1,4 +1,7 @@
 //! Aggregation functions: SUM, AVERAGE, COUNT, MIN, MAX, PRODUCT, MEDIAN
+//!
+//! DEMO functions (5): SUM, AVERAGE, MIN, MAX, COUNT
+//! ENTERPRISE functions: PRODUCT, COUNTA, MEDIAN
 
 use super::{collect_numeric_values, evaluate, EvalContext, EvalError, Expr, Value};
 
@@ -8,22 +11,16 @@ pub fn try_evaluate(
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DEMO FUNCTIONS (always available)
+    // ═══════════════════════════════════════════════════════════════════════════
     let result = match name {
         "SUM" => {
             let values = collect_numeric_values(args, ctx)?;
             Value::Number(values.iter().sum())
         }
 
-        "PRODUCT" => {
-            let values = collect_numeric_values(args, ctx)?;
-            if values.is_empty() {
-                Value::Number(0.0)
-            } else {
-                Value::Number(values.iter().product())
-            }
-        }
-
-        "AVERAGE" | "AVG" => {
+        "AVERAGE" => {
             let values = collect_numeric_values(args, ctx)?;
             if values.is_empty() {
                 return Err(EvalError::new("AVERAGE of empty set"));
@@ -64,6 +61,30 @@ pub fn try_evaluate(
             Value::Number(count as f64)
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════
+        // ENTERPRISE FUNCTIONS (only in full build)
+        // ═══════════════════════════════════════════════════════════════════════════
+        #[cfg(feature = "full")]
+        "AVG" => {
+            // Alias for AVERAGE (enterprise only)
+            let values = collect_numeric_values(args, ctx)?;
+            if values.is_empty() {
+                return Err(EvalError::new("AVG of empty set"));
+            }
+            Value::Number(values.iter().sum::<f64>() / values.len() as f64)
+        }
+
+        #[cfg(feature = "full")]
+        "PRODUCT" => {
+            let values = collect_numeric_values(args, ctx)?;
+            if values.is_empty() {
+                Value::Number(0.0)
+            } else {
+                Value::Number(values.iter().product())
+            }
+        }
+
+        #[cfg(feature = "full")]
         "COUNTA" => {
             let mut count = 0;
             for arg in args {
@@ -79,6 +100,7 @@ pub fn try_evaluate(
             Value::Number(count as f64)
         }
 
+        #[cfg(feature = "full")]
         "MEDIAN" => {
             let mut values = collect_numeric_values(args, ctx)?;
             if values.is_empty() {
@@ -136,16 +158,6 @@ mod tests {
     }
 
     #[test]
-    fn test_median() {
-        let ctx = EvalContext::new();
-        assert_eq!(eval("MEDIAN(1, 3, 5)", &ctx).unwrap(), Value::Number(3.0));
-        assert_eq!(
-            eval("MEDIAN(1, 2, 3, 4)", &ctx).unwrap(),
-            Value::Number(2.5)
-        );
-    }
-
-    #[test]
     fn test_count() {
         let mut ctx = EvalContext::new();
         let mut table = HashMap::new();
@@ -161,9 +173,43 @@ mod tests {
         ctx.tables.insert("t".to_string(), table);
 
         assert_eq!(eval("COUNT(t.values)", &ctx).unwrap(), Value::Number(2.0));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ENTERPRISE TESTS (only with full feature)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[cfg(feature = "full")]
+    #[test]
+    fn test_median() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("MEDIAN(1, 3, 5)", &ctx).unwrap(), Value::Number(3.0));
+        assert_eq!(
+            eval("MEDIAN(1, 2, 3, 4)", &ctx).unwrap(),
+            Value::Number(2.5)
+        );
+    }
+
+    #[cfg(feature = "full")]
+    #[test]
+    fn test_counta() {
+        let mut ctx = EvalContext::new();
+        let mut table = HashMap::new();
+        table.insert(
+            "values".to_string(),
+            vec![
+                Value::Number(1.0),
+                Value::Text("text".to_string()),
+                Value::Number(3.0),
+                Value::Null,
+            ],
+        );
+        ctx.tables.insert("t".to_string(), table);
+
         assert_eq!(eval("COUNTA(t.values)", &ctx).unwrap(), Value::Number(3.0));
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_product() {
         let ctx = EvalContext::new();

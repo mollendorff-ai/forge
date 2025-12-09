@@ -1,4 +1,7 @@
 //! Text functions: CONCAT, UPPER, LOWER, TRIM, LEN, LEFT, RIGHT, MID, TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
+//!
+//! DEMO functions (8): CONCAT, LEFT, RIGHT, MID, LEN, UPPER, LOWER, TRIM
+//! ENTERPRISE functions: CONCATENATE, TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
 
 use super::{evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value};
 
@@ -8,8 +11,11 @@ pub fn try_evaluate(
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DEMO FUNCTIONS (always available)
+    // ═══════════════════════════════════════════════════════════════════════════
     let result = match name {
-        "CONCAT" | "CONCATENATE" => {
+        "CONCAT" => {
             let mut result = String::new();
             for arg in args {
                 let val = evaluate(arg, ctx)?;
@@ -80,6 +86,21 @@ pub fn try_evaluate(
             Value::Text(chars[start_idx..end_idx].iter().collect())
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════
+        // ENTERPRISE FUNCTIONS (only in full build)
+        // ═══════════════════════════════════════════════════════════════════════════
+        #[cfg(feature = "full")]
+        "CONCATENATE" => {
+            // Excel's CONCATENATE (alias for CONCAT, enterprise only)
+            let mut result = String::new();
+            for arg in args {
+                let val = evaluate(arg, ctx)?;
+                result.push_str(&val.as_text());
+            }
+            Value::Text(result)
+        }
+
+        #[cfg(feature = "full")]
         "TEXT" => {
             require_args(name, args, 2)?;
             let val = evaluate(&args[0], ctx)?;
@@ -90,6 +111,7 @@ pub fn try_evaluate(
             Value::Text(formatted)
         }
 
+        #[cfg(feature = "full")]
         "VALUE" => {
             require_args(name, args, 1)?;
             let text = evaluate(&args[0], ctx)?.as_text();
@@ -104,6 +126,7 @@ pub fn try_evaluate(
             Value::Number(num)
         }
 
+        #[cfg(feature = "full")]
         "FIND" => {
             require_args_range(name, args, 2, 3)?;
             let find_text = evaluate(&args[0], ctx)?.as_text();
@@ -126,6 +149,7 @@ pub fn try_evaluate(
             }
         }
 
+        #[cfg(feature = "full")]
         "SEARCH" => {
             require_args_range(name, args, 2, 3)?;
             let find_text = evaluate(&args[0], ctx)?.as_text().to_lowercase();
@@ -149,6 +173,7 @@ pub fn try_evaluate(
             }
         }
 
+        #[cfg(feature = "full")]
         "REPLACE" => {
             require_args(name, args, 4)?;
             let old_text = evaluate(&args[0], ctx)?.as_text();
@@ -167,6 +192,7 @@ pub fn try_evaluate(
             Value::Text(format!("{}{}{}", prefix, new_text, suffix))
         }
 
+        #[cfg(feature = "full")]
         "SUBSTITUTE" => {
             require_args_range(name, args, 3, 4)?;
             let text = evaluate(&args[0], ctx)?.as_text();
@@ -208,6 +234,7 @@ pub fn try_evaluate(
 }
 
 /// Format a number according to a format string (simplified implementation)
+#[cfg(feature = "full")]
 fn format_number(num: f64, format: &str) -> String {
     let format_upper = format.to_uppercase();
 
@@ -310,6 +337,11 @@ mod tests {
         );
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ENTERPRISE TESTS (only with full feature)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[cfg(feature = "full")]
     #[test]
     fn test_text() {
         let ctx = EvalContext::new();
@@ -330,6 +362,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_value() {
         let ctx = EvalContext::new();
@@ -344,12 +377,14 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_value_error() {
         let ctx = EvalContext::new();
         assert!(eval("VALUE(\"abc\")", &ctx).is_err());
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_find() {
         let ctx = EvalContext::new();
@@ -365,12 +400,14 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_find_not_found() {
         let ctx = EvalContext::new();
         assert!(eval("FIND(\"x\", \"hello\")", &ctx).is_err());
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_search() {
         let ctx = EvalContext::new();
@@ -385,6 +422,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_replace() {
         let ctx = EvalContext::new();
@@ -399,6 +437,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_substitute() {
         let ctx = EvalContext::new();
@@ -418,6 +457,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_format_number_helper() {
         // Test the helper function directly

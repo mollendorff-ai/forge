@@ -576,6 +576,7 @@ fn test_invalid_column_reference() {
     assert!(result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_single_value_aggregations() {
     use crate::types::Variable;

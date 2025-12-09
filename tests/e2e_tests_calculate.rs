@@ -95,6 +95,7 @@ fn e2e_v4_enterprise_model_calculates_correctly() {
     );
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn e2e_v4_unique_functions_calculate() {
     // Test that UNIQUE and COUNTUNIQUE functions calculate correctly

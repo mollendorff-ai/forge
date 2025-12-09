@@ -168,6 +168,7 @@ fn test_index_match_combined() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_xlookup_exact_match() {
     let mut model = ParsedModel::new();
@@ -217,6 +218,7 @@ fn test_xlookup_exact_match() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_xlookup_with_if_not_found() {
     let mut model = ParsedModel::new();
@@ -296,6 +298,7 @@ fn test_choose_function() {
     );
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_indirect_function() {
     use crate::types::{Column, ColumnValue, Table, Variable};
@@ -575,6 +578,7 @@ fn test_cross_table_row_count_mismatch_error() {
     assert!(result.unwrap_err().to_string().contains("rows"));
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_offset_function() {
     use crate::types::Variable;
@@ -847,6 +851,7 @@ fn test_index_zero_row_num() {
     assert!(result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_vlookup_exact_match() {
     let mut model = ParsedModel::new();
@@ -888,6 +893,7 @@ fn test_vlookup_exact_match() {
     assert!(result.is_ok() || result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_vlookup_col_index_out_of_range() {
     let mut model = ParsedModel::new();
@@ -921,6 +927,7 @@ fn test_vlookup_col_index_out_of_range() {
     assert!(result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_vlookup_col_index_zero() {
     let mut model = ParsedModel::new();
@@ -950,6 +957,7 @@ fn test_vlookup_col_index_zero() {
     assert!(result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_xlookup_employee_salary() {
     let mut model = ParsedModel::new();
@@ -989,6 +997,7 @@ fn test_xlookup_employee_salary() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_xlookup_default_value() {
     let mut model = ParsedModel::new();
@@ -1028,6 +1037,7 @@ fn test_xlookup_default_value() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_xlookup_next_larger() {
     let mut model = ParsedModel::new();
@@ -1071,6 +1081,7 @@ fn test_xlookup_next_larger() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_xlookup_next_smaller() {
     let mut model = ParsedModel::new();
@@ -1106,6 +1117,7 @@ fn test_xlookup_next_smaller() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_xlookup_invalid_match_mode() {
     let mut model = ParsedModel::new();
@@ -1135,6 +1147,7 @@ fn test_xlookup_invalid_match_mode() {
     assert!(result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_xlookup_array_length_mismatch() {
     let mut model = ParsedModel::new();
@@ -1225,6 +1238,7 @@ fn test_match_no_value_found_descending() {
     assert!(result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_vlookup_with_text_search_value() {
     let mut model = ParsedModel::new();
@@ -1261,6 +1275,7 @@ fn test_vlookup_with_text_search_value() {
     assert!(result.is_ok() || result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_indirect_function_v2() {
     let mut model = ParsedModel::new();
@@ -1337,6 +1352,7 @@ fn test_choose_index_out_of_range() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_indirect_table_column() {
     let mut model = ParsedModel::new();
@@ -1381,6 +1397,7 @@ fn test_array_index_out_of_bounds() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_offset_basic_usage() {
     let mut model = ParsedModel::new();
@@ -1403,6 +1420,7 @@ fn test_offset_basic_usage() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_vlookup_exact_mode() {
     let mut model = ParsedModel::new();
@@ -1459,6 +1477,7 @@ fn test_index_match_combination() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_xlookup_not_found_fallback() {
     let mut model = ParsedModel::new();

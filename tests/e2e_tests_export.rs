@@ -444,6 +444,7 @@ fn e2e_v4_enterprise_model_export_to_excel() {
     );
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn e2e_v4_unique_functions_export() {
     // Test that UNIQUE functions export to Excel correctly

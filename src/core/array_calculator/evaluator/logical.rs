@@ -1,4 +1,7 @@
 //! Logical functions: IF, AND, OR, NOT, XOR, TRUE, FALSE, IFERROR, IFNA, IFS
+//!
+//! DEMO functions (5): IF, AND, OR, NOT, IFERROR
+//! ENTERPRISE functions: IFNA, XOR, TRUE, FALSE, IFS
 
 use super::{evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value};
 
@@ -8,6 +11,9 @@ pub fn try_evaluate(
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DEMO FUNCTIONS (always available)
+    // ═══════════════════════════════════════════════════════════════════════════
     let result = match name {
         "IF" => {
             require_args_range(name, args, 2, 3)?;
@@ -55,6 +61,10 @@ pub fn try_evaluate(
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════
+        // ENTERPRISE FUNCTIONS (only in full build)
+        // ═══════════════════════════════════════════════════════════════════════════
+        #[cfg(feature = "full")]
         "IFNA" => {
             require_args(name, args, 2)?;
             let val = evaluate(&args[0], ctx)?;
@@ -67,6 +77,7 @@ pub fn try_evaluate(
             }
         }
 
+        #[cfg(feature = "full")]
         "XOR" => {
             // XOR returns TRUE if an odd number of arguments are TRUE
             let mut true_count = 0;
@@ -79,16 +90,19 @@ pub fn try_evaluate(
             Value::Boolean(true_count % 2 == 1)
         }
 
+        #[cfg(feature = "full")]
         "TRUE" => {
             require_args(name, args, 0)?;
             Value::Boolean(true)
         }
 
+        #[cfg(feature = "full")]
         "FALSE" => {
             require_args(name, args, 0)?;
             Value::Boolean(false)
         }
 
+        #[cfg(feature = "full")]
         "IFS" => {
             // IFS(condition1, value1, condition2, value2, ...)
             // Returns the value corresponding to the first TRUE condition
@@ -150,6 +164,11 @@ mod tests {
         assert_eq!(eval("IFERROR(10/2, 0)", &ctx).unwrap(), Value::Number(5.0));
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ENTERPRISE TESTS (only with full feature)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[cfg(feature = "full")]
     #[test]
     fn test_xor() {
         let ctx = EvalContext::new();
@@ -160,6 +179,7 @@ mod tests {
         assert_eq!(eval("XOR(0, 0, 0)", &ctx).unwrap(), Value::Boolean(false)); // 0 true
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_true_false() {
         let ctx = EvalContext::new();
@@ -167,6 +187,7 @@ mod tests {
         assert_eq!(eval("FALSE()", &ctx).unwrap(), Value::Boolean(false));
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_ifs() {
         let ctx = EvalContext::new();
@@ -186,6 +207,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_ifs_no_match() {
         let ctx = EvalContext::new();
@@ -194,6 +216,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_ifs_invalid_args() {
         let ctx = EvalContext::new();
@@ -202,6 +225,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_ifna() {
         let mut ctx = EvalContext::new();

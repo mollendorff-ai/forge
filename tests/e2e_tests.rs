@@ -347,6 +347,8 @@ costs:
     );
 }
 
+// Demo build: verify basic functions output
+#[cfg(not(feature = "full"))]
 #[test]
 fn e2e_functions_command() {
     let output = Command::new(forge_binary())
@@ -362,7 +364,31 @@ fn e2e_functions_command() {
         "Functions command should succeed, stderr: {stderr}"
     );
 
-    // Should list function categories
+    // Demo should list core functions (Math, Aggregation, etc.)
+    assert!(
+        stdout.contains("Math") || stdout.contains("SUM") || stdout.contains("IF"),
+        "Should list demo functions, got: {stdout}"
+    );
+}
+
+// Enterprise build: verify full functions output
+#[cfg(feature = "full")]
+#[test]
+fn e2e_functions_command() {
+    let output = Command::new(forge_binary())
+        .arg("functions")
+        .output()
+        .expect("Failed to execute functions");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Functions command should succeed, stderr: {stderr}"
+    );
+
+    // Enterprise should list financial/statistical categories
     assert!(
         stdout.contains("Statistical") || stdout.contains("Financial") || stdout.contains("MEDIAN"),
         "Should list functions, got: {stdout}"
@@ -414,6 +440,8 @@ outputs:
     );
 }
 
+// Statistical functions are enterprise-only
+#[cfg(feature = "full")]
 #[test]
 fn e2e_statistical_functions_in_model() {
     let temp_dir = tempfile::tempdir().unwrap();
@@ -461,6 +489,8 @@ outputs:
     );
 }
 
+// Financial functions are enterprise-only
+#[cfg(feature = "full")]
 #[test]
 fn e2e_financial_functions_in_model() {
     let temp_dir = tempfile::tempdir().unwrap();
@@ -510,6 +540,7 @@ outputs:
     );
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn e2e_forge_variance_functions_in_model() {
     let temp_dir = tempfile::tempdir().unwrap();
@@ -559,6 +590,7 @@ outputs:
     );
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn e2e_breakeven_functions_in_model() {
     let temp_dir = tempfile::tempdir().unwrap();

@@ -1,3 +1,5 @@
+// Statistical functions are enterprise-only
+#![cfg(feature = "full")]
 // Allow approximate constants - 3.14 is intentional test data for ROUND(), not an approx of PI
 #![allow(clippy::approx_constant)]
 
