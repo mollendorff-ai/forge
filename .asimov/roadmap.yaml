@@ -87,6 +87,7 @@ next:
 
       phase_2_unit_tests:
         name: "Unit Test Coverage"
+        status: COMPLETED
         tasks:
           - "Generate per-function test coverage report"
           - "Ensure 5+ unit tests per function (basic, zero, negative, large, error)"
@@ -96,6 +97,12 @@ next:
           - "Create ADR-015: Unit Test Standards (5+ tests per function)"
         output: "100% function unit test coverage"
         commit: "test(v6.0.0-phase2): Unit test coverage expansion"
+        result:
+          new_tests_added: 28
+          text_function_tests: 15
+          logical_function_tests: 13
+          total_tests: 751
+          functions_covered: "UPPER, LOWER, LEN, MID, RIGHT, SUBSTITUTE, AND, OR, NOT"
 
       phase_3_e2e_gnumeric:
         name: "E2E Gnumeric/LibreOffice Validation"
