@@ -18,17 +18,17 @@ metadata:
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 current:
-  version: "5.15.0"
+  version: "5.16.0"
   status: complete
-  date: "2025-12-08"
-  summary: "Function-Level Gating + Binary Split"
+  date: "2025-12-09"
+  summary: "GitHub Fresh Start + Public Release"
   stats:
     tests: 1753
     warnings: 0
     functions_demo: 36
     functions_enterprise: 134
     coverage: "~90%"
-  note: "Binary split complete. forge-demo (36 functions) published to royalbit.ca/forge/"
+  note: "Public GitHub release complete. All 5 platforms on GitHub Releases."
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT MILESTONES
@@ -178,7 +178,7 @@ next:
   - version: "5.16.0"
     summary: "GitHub Fresh Start + Public Release + E2E Validation"
     priority: HIGHLY-CRITICAL
-    status: in_progress
+    status: complete
     notes: |
       ┌─────────────────────────────────────────────────────────────────────────┐
       │ COMPLETE RELEASE STRATEGY                                               │
