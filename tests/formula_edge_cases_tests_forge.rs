@@ -1,7 +1,8 @@
 //! Formula edge case tests for 100% coverage
 //! Tests date, math, text, lookup, array, conditional aggregation, and FORGE functions
 //! Uses programmatic model creation for reliability
-
+//! Enterprise-only: Contains VARIANCE, BREAKEVEN, SCENARIO tests
+#![cfg(feature = "full")]
 #![allow(clippy::approx_constant)] // Test values intentionally use approximate PI/E
 
 use royalbit_forge::core::ArrayCalculator;

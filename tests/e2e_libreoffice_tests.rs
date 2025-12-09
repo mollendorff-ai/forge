@@ -1,3 +1,5 @@
+// Enterprise-only: LibreOffice E2E tests for enterprise functions
+#![cfg(all(feature = "full", feature = "e2e-libreoffice"))]
 // Allow approximate constants - we're testing Excel formula results, not Rust math
 #![allow(clippy::approx_constant)]
 
