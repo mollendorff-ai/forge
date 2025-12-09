@@ -46,6 +46,21 @@ completed:
 # Each version = one function category with FULL test coverage
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# ┌─────────────────────────────────────────────────────────────────────────────┐
+# │ FP&A ACCURACY MANDATE                                                       │
+# │                                                                             │
+# │ This is a FINANCIAL PLANNING & ANALYSIS tool.                              │
+# │ ACCURACY IS MANDATORY - NOT OPTIONAL.                                       │
+# │                                                                             │
+# │ Requirements for EVERY function:                                            │
+# │   1. 100% functional coverage - EVERY code path tested                     │
+# │   2. 100% E2E validation against Gnumeric/LibreOffice                      │
+# │   3. ALL edge cases: zero, negative, overflow, error, boundary             │
+# │   4. Financial calculations MUST match Excel exactly                        │
+# │                                                                             │
+# │ NO EXCEPTIONS. NO SHORTCUTS. NO "GOOD ENOUGH".                             │
+# └─────────────────────────────────────────────────────────────────────────────┘
+
 next:
   # ─────────────────────────────────────────────────────────────────────────────
   # MATH FUNCTIONS (20 functions) - Largest category
@@ -89,8 +104,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function (basic, zero, negative, large, error)"
-        - "Total: 100+ unit tests for Math category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_math_complete.yaml - all 20 functions"
         - "tests/e2e_math_edge_cases.yaml - edge cases"
@@ -149,8 +164,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 105+ unit tests for Date category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_date_complete.yaml - all 21 functions"
         - "tests/e2e_date_edge_cases.yaml - leap years, boundaries"
@@ -201,8 +216,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 75+ unit tests for Text category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_text_complete.yaml - all 15 functions"
         - "tests/e2e_text_edge_cases.yaml - unicode, empty, errors"
@@ -252,8 +267,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 70+ unit tests for Aggregation category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_aggregation_complete.yaml - all 14 functions"
         - "tests/e2e_aggregation_edge_cases.yaml"
@@ -302,8 +317,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 65+ unit tests for Lookup category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_lookup_complete.yaml - all 13 functions"
         - "tests/e2e_lookup_edge_cases.yaml"
@@ -351,8 +366,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 65+ unit tests for Information category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_information_complete.yaml - all 13 functions"
         - "tests/e2e_information_edge_cases.yaml"
@@ -401,8 +416,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 65+ unit tests for Financial category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_financial_complete.yaml - all 13 functions"
         - "tests/e2e_financial_edge_cases.yaml"
@@ -445,8 +460,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 45+ unit tests for Trigonometric category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_trig_complete.yaml - all 9 functions"
         - "tests/e2e_trig_edge_cases.yaml"
@@ -490,8 +505,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 45+ unit tests for Logical category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_logical_complete.yaml - all 9 functions"
         - "tests/e2e_logical_edge_cases.yaml"
@@ -534,8 +549,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 40+ unit tests for Statistical category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_statistical_complete.yaml - all 8 functions"
         - "tests/e2e_statistical_edge_cases.yaml"
@@ -578,8 +593,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 40+ unit tests for Conditional category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_conditional_complete.yaml - all 8 functions"
         - "tests/e2e_conditional_edge_cases.yaml"
@@ -623,8 +638,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 40+ unit tests for ForgeNative category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_forge_native_complete.yaml - all 8 functions"
         - "tests/e2e_forge_native_edge_cases.yaml"
@@ -666,8 +681,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 25+ unit tests for Array category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_array_complete.yaml - all 5 functions (v5.0.0 schema)"
         - "tests/e2e_array_edge_cases.yaml"
@@ -703,8 +718,8 @@ next:
 
     tests_required:
       unit_tests:
-        - "5+ tests per function"
-        - "Total: 15+ unit tests for Advanced category"
+        - "100% functional coverage - EVERY code path tested"
+        - "100% coverage - all code paths, all edge cases"
       e2e_yaml:
         - "tests/e2e_advanced_complete.yaml - all 3 functions"
         - "tests/e2e_advanced_edge_cases.yaml"
@@ -801,10 +816,10 @@ summary:
     - "Final: 100% coverage (v7.0.0)"
 
   tests_per_category:
-    minimum_unit_tests: 5
-    e2e_yaml_files: 2
-    gnumeric_validation: required
-    edge_cases: documented
+    unit_tests: "100% functional coverage - EVERY code path"
+    e2e_gnumeric: "100% - EVERY function validated against Gnumeric/LibreOffice"
+    edge_cases: "ALL edge cases - zero, negative, overflow, error, boundary"
+    accuracy: "MANDATORY - FP&A tool, financial calculations must be exact"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG
