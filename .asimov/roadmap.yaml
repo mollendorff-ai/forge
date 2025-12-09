@@ -65,6 +65,8 @@ next:
     deliverables:
       - task: "Write ADR-012-FEATURE-FLAGS.md"
         status: pending
+      - task: "Commit and push ADR"
+        status: pending
       - task: "Add 'full' feature to Cargo.toml"
         status: pending
       - task: "Gate enterprise functions with #[cfg(feature = \"full\")]"
@@ -73,15 +75,25 @@ next:
         status: pending
       - task: "Gate API server"
         status: pending
+      - task: "Test: cargo build (demo) and cargo build --features full (enterprise)"
+        status: pending
+      - task: "Commit and push feature flags implementation"
+        status: pending
       - task: "Update source README.md with build instructions"
         status: pending
+      - task: "Commit and push README"
+        status: pending
       - task: "Update forge-gh docs/FUNCTIONS.md (demo function list)"
+        status: pending
+      - task: "Commit and push forge-gh"
         status: pending
       - task: "Cross-compile demo binaries (linux, macos, windows)"
         status: pending
       - task: "Host binaries on royalbit.ca/forge/"
         status: pending
       - task: "Test demo binary has only ~40 functions"
+        status: pending
+      - task: "Final commit: release v5.14.0"
         status: pending
 
   # ─────────────────────────────────────────────────────────────────────────────
