@@ -1,9 +1,11 @@
 // Allow approximate constants - 3.14 is intentional test data for ROUND(), not an approx of PI
 #![allow(clippy::approx_constant)]
+#![allow(unused_imports)]
 
 use royalbit_forge::core::ArrayCalculator;
 use royalbit_forge::types::ParsedModel;
 
+#[cfg(feature = "full")]
 #[test]
 fn test_networkdays_function() {
     use royalbit_forge::types::Variable;
@@ -36,6 +38,7 @@ fn test_networkdays_function() {
     println!("✓ NETWORKDAYS function test passed");
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_workday_function() {
     use royalbit_forge::types::Variable;
@@ -68,6 +71,7 @@ fn test_workday_function() {
     println!("✓ WORKDAY (via NETWORKDAYS) function test passed");
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_yearfrac_function() {
     use royalbit_forge::types::Variable;
@@ -100,6 +104,7 @@ fn test_yearfrac_function() {
     println!("✓ YEARFRAC function test passed");
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_networkdays_same_day() {
     use royalbit_forge::types::Variable;
@@ -122,6 +127,7 @@ fn test_networkdays_same_day() {
     println!("✓ NETWORKDAYS same day edge case passed");
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_networkdays_weekend_span() {
     use royalbit_forge::types::Variable;
@@ -145,6 +151,7 @@ fn test_networkdays_weekend_span() {
     println!("✓ NETWORKDAYS weekend span edge case passed");
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_yearfrac_full_year() {
     use royalbit_forge::types::Variable;
@@ -167,6 +174,7 @@ fn test_yearfrac_full_year() {
     println!("✓ YEARFRAC full year edge case passed");
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_yearfrac_leap_year() {
     use royalbit_forge::types::Variable;

@@ -4,6 +4,7 @@
 use royalbit_forge::core::ArrayCalculator;
 use royalbit_forge::types::{Column, ColumnValue, ParsedModel, Table};
 
+#[cfg(feature = "full")]
 #[test]
 fn test_sln_depreciation() {
     use royalbit_forge::types::Variable;
@@ -36,6 +37,7 @@ fn test_sln_depreciation() {
     println!("✓ SLN depreciation test passed");
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_sln_zero_salvage() {
     use royalbit_forge::types::Variable;

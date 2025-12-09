@@ -1,6 +1,9 @@
 //! MCP server integration tests
 //! ADR-004: 100% coverage required
 
+// MCP is enterprise-only
+#![cfg(feature = "full")]
+
 use royalbit_forge::mcp::server::ForgeMcpServer;
 use std::path::PathBuf;
 use tempfile::TempDir;

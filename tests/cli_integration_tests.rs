@@ -413,6 +413,7 @@ fn test_calculate_missing_file() {
 // EXTENDED COMMAND TESTS (v5.0 coverage)
 // ═══════════════════════════════════════════════════════════════════════════
 
+#[cfg(feature = "full")]
 #[test]
 fn test_functions_list() {
     let mut cmd = Command::cargo_bin("forge").unwrap();
@@ -421,6 +422,17 @@ fn test_functions_list() {
         .success()
         .stdout(predicate::str::contains("Financial"))
         .stdout(predicate::str::contains("NPV"));
+}
+
+#[cfg(not(feature = "full"))]
+#[test]
+fn test_functions_list() {
+    let mut cmd = Command::cargo_bin("forge").unwrap();
+    cmd.args(["functions"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Math"))
+        .stdout(predicate::str::contains("SUM"));
 }
 
 #[test]

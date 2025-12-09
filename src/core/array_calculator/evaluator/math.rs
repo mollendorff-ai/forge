@@ -1,4 +1,7 @@
 //! Math functions: ABS, ROUND, SQRT, POW, EXP, LN, LOG, etc.
+//!
+//! DEMO functions (9): ROUND, ROUNDUP, ROUNDDOWN, ABS, SQRT, POWER, MOD, CEILING, FLOOR
+//! ENTERPRISE functions: EXP, LN, LOG, LOG10, INT, POW, SIGN, TRUNC, PI, E
 
 use super::{evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value};
 
@@ -8,6 +11,9 @@ pub fn try_evaluate(
     args: &[Expr],
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DEMO FUNCTIONS (always available)
+    // ═══════════════════════════════════════════════════════════════════════════
     let result = match name {
         "ABS" => {
             require_args(name, args, 1)?;
@@ -131,6 +137,10 @@ pub fn try_evaluate(
             Value::Number(base.powf(exp))
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════
+        // ENTERPRISE FUNCTIONS (only in full build)
+        // ═══════════════════════════════════════════════════════════════════════════
+        #[cfg(feature = "full")]
         "EXP" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -139,6 +149,7 @@ pub fn try_evaluate(
             Value::Number(val.exp())
         }
 
+        #[cfg(feature = "full")]
         "LN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -150,6 +161,7 @@ pub fn try_evaluate(
             Value::Number(val.ln())
         }
 
+        #[cfg(feature = "full")]
         "LOG" | "LOG10" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -161,6 +173,7 @@ pub fn try_evaluate(
             Value::Number(val.log10())
         }
 
+        #[cfg(feature = "full")]
         "INT" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -169,6 +182,7 @@ pub fn try_evaluate(
             Value::Number(val.floor())
         }
 
+        #[cfg(feature = "full")]
         "POW" => {
             // Alias for POWER
             require_args(name, args, 2)?;
@@ -181,6 +195,7 @@ pub fn try_evaluate(
             Value::Number(base.powf(exp))
         }
 
+        #[cfg(feature = "full")]
         "SIGN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -195,6 +210,7 @@ pub fn try_evaluate(
             })
         }
 
+        #[cfg(feature = "full")]
         "TRUNC" => {
             require_args_range(name, args, 1, 2)?;
             let val = evaluate(&args[0], ctx)?
@@ -209,11 +225,13 @@ pub fn try_evaluate(
             Value::Number(val.signum() * (val.abs() * multiplier).floor() / multiplier)
         }
 
+        #[cfg(feature = "full")]
         "PI" => {
             require_args(name, args, 0)?;
             Value::Number(std::f64::consts::PI)
         }
 
+        #[cfg(feature = "full")]
         "E" => {
             require_args(name, args, 0)?;
             Value::Number(std::f64::consts::E)
@@ -230,6 +248,10 @@ mod tests {
     use super::super::tests::eval;
     use super::*;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DEMO TESTS (always run)
+    // ═══════════════════════════════════════════════════════════════════════════
+
     #[test]
     fn test_math_functions() {
         let ctx = EvalContext::new();
@@ -243,31 +265,13 @@ mod tests {
     }
 
     #[test]
-    fn test_exp_ln_log() {
-        let ctx = EvalContext::new();
-        // e^1 ≈ 2.718...
-        let exp_result = eval("EXP(1)", &ctx).unwrap();
-        assert!(matches!(exp_result, Value::Number(n) if (n - std::f64::consts::E).abs() < 0.0001));
-
-        // ln(e) = 1
-        let ln_result = eval("LN(2.718281828)", &ctx).unwrap();
-        assert!(matches!(ln_result, Value::Number(n) if (n - 1.0).abs() < 0.0001));
-
-        // log10(100) = 2
-        assert_eq!(eval("LOG10(100)", &ctx).unwrap(), Value::Number(2.0));
-    }
-
-    #[test]
     fn test_round_variants() {
         let ctx = EvalContext::new();
         assert_eq!(eval("ROUNDUP(3.2)", &ctx).unwrap(), Value::Number(4.0));
         assert_eq!(eval("ROUNDUP(-3.2)", &ctx).unwrap(), Value::Number(-4.0));
         assert_eq!(eval("ROUNDDOWN(3.9)", &ctx).unwrap(), Value::Number(3.0));
         assert_eq!(eval("ROUNDDOWN(-3.9)", &ctx).unwrap(), Value::Number(-3.0));
-        assert_eq!(eval("INT(3.9)", &ctx).unwrap(), Value::Number(3.0));
     }
-
-    // === EDGE CASES FOR 100% COVERAGE ===
 
     #[test]
     fn test_sqrt_negative() {
@@ -298,28 +302,8 @@ mod tests {
     }
 
     #[test]
-    fn test_ln_non_positive() {
-        let ctx = EvalContext::new();
-        let result = eval("LN(0)", &ctx);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("non-positive"));
-
-        let result = eval("LN(-1)", &ctx);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_log_non_positive() {
-        let ctx = EvalContext::new();
-        let result = eval("LOG10(0)", &ctx);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("non-positive"));
-    }
-
-    #[test]
     fn test_round_default_decimals() {
         let ctx = EvalContext::new();
-        // No decimals arg = 0 decimals
         assert_eq!(eval("ROUND(3.567)", &ctx).unwrap(), Value::Number(4.0));
     }
 
@@ -353,13 +337,62 @@ mod tests {
         assert_eq!(eval("CEILING(13, 5)", &ctx).unwrap(), Value::Number(15.0));
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ENTERPRISE TESTS (only with full feature)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[cfg(feature = "full")]
+    #[test]
+    fn test_exp_ln_log() {
+        let ctx = EvalContext::new();
+        // e^1 ≈ 2.718...
+        let exp_result = eval("EXP(1)", &ctx).unwrap();
+        assert!(matches!(exp_result, Value::Number(n) if (n - std::f64::consts::E).abs() < 0.0001));
+
+        // ln(e) = 1
+        let ln_result = eval("LN(2.718281828)", &ctx).unwrap();
+        assert!(matches!(ln_result, Value::Number(n) if (n - 1.0).abs() < 0.0001));
+
+        // log10(100) = 2
+        assert_eq!(eval("LOG10(100)", &ctx).unwrap(), Value::Number(2.0));
+    }
+
+    #[cfg(feature = "full")]
+    #[test]
+    fn test_int() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("INT(3.9)", &ctx).unwrap(), Value::Number(3.0));
+    }
+
+    #[cfg(feature = "full")]
+    #[test]
+    fn test_ln_non_positive() {
+        let ctx = EvalContext::new();
+        let result = eval("LN(0)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("non-positive"));
+
+        let result = eval("LN(-1)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "full")]
+    #[test]
+    fn test_log_non_positive() {
+        let ctx = EvalContext::new();
+        let result = eval("LOG10(0)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("non-positive"));
+    }
+
+    #[cfg(feature = "full")]
     #[test]
     fn test_log_alias() {
         let ctx = EvalContext::new();
-        // LOG and LOG10 should be equivalent
         assert_eq!(eval("LOG(100)", &ctx).unwrap(), Value::Number(2.0));
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_pow() {
         let ctx = EvalContext::new();
@@ -367,6 +400,7 @@ mod tests {
         assert_eq!(eval("POW(3, 2)", &ctx).unwrap(), Value::Number(9.0));
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_sign() {
         let ctx = EvalContext::new();
@@ -375,6 +409,7 @@ mod tests {
         assert_eq!(eval("SIGN(0)", &ctx).unwrap(), Value::Number(0.0));
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_trunc() {
         let ctx = EvalContext::new();
@@ -383,6 +418,7 @@ mod tests {
         assert_eq!(eval("TRUNC(3.567, 2)", &ctx).unwrap(), Value::Number(3.56));
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_pi() {
         let ctx = EvalContext::new();
@@ -390,6 +426,7 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if (n - std::f64::consts::PI).abs() < 0.0001));
     }
 
+    #[cfg(feature = "full")]
     #[test]
     fn test_e() {
         let ctx = EvalContext::new();

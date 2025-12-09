@@ -1,7 +1,8 @@
 # ADR-012: Feature Flags for Demo/Enterprise Binary Split
 
-**Status:** Accepted
+**Status:** Implemented (v5.15.0)
 **Date:** 2025-12-08
+**Updated:** 2025-12-08 (Function-level gating + API/MCP gating complete)
 **Author:** Rex (CEO) + Claude Opus 4.5 (Principal Autonomous AI)
 **Type:** Architecture Decision Record (ADR)
 
@@ -9,139 +10,149 @@
 
 ## Context
 
-Forge v5.13.0 achieved full function parity with 149 evaluator functions. The next step is creating a demo binary that potential customers can evaluate without access to the full enterprise feature set.
+Forge v5.14.0 achieved full function parity. The next step is creating a demo binary that potential customers can evaluate without access to the full enterprise feature set.
 
 ### Business Requirements
 
-1. **Demo Binary**: Free download, limited functionality (~40 functions)
-2. **Enterprise Binary**: Licensed customers get full functionality (149 functions)
+1. **Demo Binary**: Free download, THE HOOK for big financial consultants
+2. **Enterprise Binary**: Licensed customers get full functionality
 3. **Single Codebase**: Maintain one codebase, not two forks
-4. **Clear Separation**: Demo should be genuinely useful but missing "enterprise magic"
-
-### Options Considered
-
-| Option | Approach | Pros | Cons |
-|--------|----------|------|------|
-| A | Rust feature flags | Single codebase, compile-time, zero runtime overhead | Requires careful annotation |
-| B | Runtime license check | Single binary | Runtime overhead, can be cracked |
-| C | Separate codebases | Complete control | Maintenance nightmare, divergence |
-| D | Plugin architecture | Flexible | Over-engineered for this use case |
+4. **Clear Separation**: Demo has NO financial functions - that's the enterprise value prop
 
 ## Decision
 
-**Option A: Rust Feature Flags**
+**Rust Feature Flags with Function-Level Gating**
 
 ```toml
 # Cargo.toml
 [features]
 default = []   # Demo build (minimal)
 full = []      # Enterprise build (everything)
+
+[[bin]]
+name = "forge-mcp"
+required-features = ["full"]  # Enterprise only
+
+[[bin]]
+name = "forge-server"
+required-features = ["full"]  # Enterprise only
 ```
 
 ### Build Commands
 
 ```bash
-# Demo binary (~40 functions, v1.0.0 schema only)
+# Demo binary (36 functions, single CLI)
 cargo build --release
 
-# Enterprise binary (149 functions, all schemas, API server)
+# Enterprise binary (134 functions + API + MCP)
 cargo build --release --features full
 ```
 
-### Gating Strategy
+## Implementation Summary
 
-#### 1. Enterprise Functions (Gated)
+### Demo Build (36 Functions)
+
+| Category | Count | Functions |
+|----------|-------|-----------|
+| **Math** | 9 | ABS, SQRT, ROUND, ROUNDUP, ROUNDDOWN, FLOOR, CEILING, POWER, MOD |
+| **Aggregation** | 5 | SUM, AVERAGE, MIN, MAX, COUNT |
+| **Logical** | 5 | IF, AND, OR, NOT, IFERROR |
+| **Text** | 8 | CONCAT, UPPER, LOWER, TRIM, LEN, LEFT, RIGHT, MID |
+| **Date** | 6 | TODAY, DATE, YEAR, MONTH, DAY, DATEDIF |
+| **Lookup** | 3 | INDEX, MATCH, CHOOSE |
+
+**Demo includes:**
+- `forge` CLI binary only
+- Core formula evaluation
+- Excel import/export
+- YAML validation
+
+**Demo excludes:**
+- ALL financial functions (NPV, IRR, PMT, etc.)
+- ALL statistical functions (MEDIAN, STDEV, VAR, etc.)
+- API server (forge-server)
+- MCP server (forge-mcp)
+- Forge-native functions (VARIANCE_PCT, BREAKEVEN, etc.)
+
+### Enterprise Build (134 Functions + API + MCP)
+
+| Category | Count | Notes |
+|----------|-------|-------|
+| **Financial** | 13 | NPV, IRR, MIRR, XNPV, XIRR, PMT, PV, FV, NPER, RATE, DB, DDB, SLN |
+| **Statistical** | 16 | MEDIAN, STDEV, VAR, PERCENTILE, QUARTILE, CORREL, etc. |
+| **Math** | 19 | Full suite including EXP, LN, LOG, RAND, PRODUCT, etc. |
+| **Aggregation** | 9 | Full suite including COUNTA, MEDIAN, COUNTBLANK, etc. |
+| **Logical** | 10 | Full suite including IFS, SWITCH, XOR |
+| **Text** | 15 | Full suite including SUBSTITUTE, FIND, TEXT, VALUE |
+| **Date** | 18 | Full suite including NETWORKDAYS, WORKDAY, YEARFRAC |
+| **Lookup** | 13 | Full suite including VLOOKUP, XLOOKUP, INDIRECT, OFFSET |
+| **Conditional** | 8 | SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, etc. |
+| **Array** | 4 | UNIQUE, SORT, FILTER, SEQUENCE |
+| **Advanced** | 3 | LET, LAMBDA, SWITCH |
+| **Forge-Native** | 6 | VARIANCE_PCT, BREAKEVEN_UNITS, BREAKEVEN_REVENUE, SCENARIO, etc. |
+
+**Enterprise includes:**
+- `forge` CLI binary
+- `forge-mcp` - MCP server for AI integration
+- `forge-server` - REST API server
+- All 134 functions
+- Full financial modeling power
+
+### Gating Pattern
 
 ```rust
-#[cfg(feature = "full")]
-"VARIANCE" | "VARIANCE_PCT" | "VARIANCE_STATUS" => { ... }
-
-#[cfg(feature = "full")]
-"BREAKEVEN" | "BREAKEVEN_UNITS" | "BREAKEVEN_REVENUE" => { ... }
-
-#[cfg(feature = "full")]
-"LET" | "LAMBDA" | "SWITCH" => { ... }
-
-#[cfg(feature = "full")]
-"VAR" | "STDEV" | "CORREL" | "PERCENTILE" | "QUARTILE" => { ... }
-```
-
-#### 2. Schema Versions (Gated)
-
-```rust
-#[cfg(feature = "full")]
-mod schema_v4;
-
-#[cfg(feature = "full")]
-mod schema_v5;
-```
-
-#### 3. API Server (Gated)
-
-```rust
+// lib.rs - Module-level gating
 #[cfg(feature = "full")]
 pub mod api;
+#[cfg(feature = "full")]
+pub mod mcp;
+
+// evaluator/mod.rs - Function-level gating
+#[cfg(feature = "full")]
+{
+    if let Some(result) = financial::try_evaluate(&name, args, ctx)? {
+        return Ok(result);
+    }
+    // ... other enterprise modules
+}
+
+// Individual function gating
+#[cfg(feature = "full")]
+"NPV" | "IRR" | "MIRR" => { ... }
 ```
-
-### Demo Functions (~40)
-
-The demo includes enough to be genuinely useful:
-
-| Category | Functions |
-|----------|-----------|
-| **Math** | SUM, AVERAGE, MIN, MAX, COUNT, COUNTA, ROUND, ABS, SQRT, POWER, MOD, EXP, LN |
-| **Financial** | PMT, PV, FV, NPV, IRR, NPER, RATE |
-| **Logical** | IF, AND, OR, NOT, IFERROR |
-| **Text** | CONCAT, LEFT, RIGHT, MID, LEN, UPPER, LOWER, TRIM |
-| **Date** | TODAY, DATE, YEAR, MONTH, DAY, DATEDIF, EDATE, EOMONTH |
-| **Lookup** | INDEX, MATCH, CHOOSE |
-
-### Enterprise-Only Functions (~109)
-
-| Category | Functions |
-|----------|-----------|
-| **Forge-Specific** | VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, BREAKEVEN, BREAKEVEN_UNITS, BREAKEVEN_REVENUE, SCENARIO |
-| **Advanced** | LET, LAMBDA, SWITCH |
-| **Statistical** | VAR, VARP, STDEV, STDEVP, CORREL, PERCENTILE, QUARTILE, LARGE, SMALL, RANK |
-| **Financial (Adv)** | MIRR, DB, DDB, SLN, XNPV, XIRR |
-| **Array** | UNIQUE, SORT, FILTER, SEQUENCE, RANDARRAY |
-| **Lookup (Adv)** | VLOOKUP, HLOOKUP, OFFSET, ADDRESS |
-| **Trig** | SIN, COS, TAN, ASIN, ACOS, ATAN, etc. |
-| **Info** | ISBLANK, ISERROR, ISNUMBER, ISTEXT, TYPE, etc. |
-| **Conditional** | SUMIF, COUNTIF, AVERAGEIF |
 
 ## Consequences
 
 ### Positive
 
-1. **Zero Runtime Overhead**: Feature flags are compile-time, no performance impact
+1. **Zero Runtime Overhead**: Compile-time gating, no performance impact
 2. **Single Codebase**: No fork divergence, one CI/CD pipeline
-3. **Clear Value Proposition**: Demo is useful, enterprise is powerful
+3. **Clear Value Proposition**: Demo hooks them, enterprise closes the deal
 4. **Rust Idiomatic**: Standard Cargo feature pattern
 
 ### Negative
 
-1. **Annotation Burden**: Must mark every enterprise function with `#[cfg(feature = "full")]`
-2. **Test Complexity**: Need to test both demo and full builds
-3. **Documentation Split**: Must maintain two function lists
+1. **Annotation Burden**: Must mark enterprise code with `#[cfg(feature = "full")]`
+2. **Test Complexity**: CI must test both builds
 
 ### Mitigations
 
-1. **Annotation**: Group enterprise functions in dedicated modules where possible
-2. **Testing**: CI runs `cargo test` AND `cargo test --features full`
-3. **Documentation**: Auto-generate function lists from code annotations
+1. **Module Grouping**: Enterprise functions in dedicated modules (financial.rs, statistical.rs)
+2. **Test Gating**: Tests use same `#[cfg(feature = "full")]` pattern
 
-## Implementation
+## Verification
 
-1. Add `full` feature to `Cargo.toml`
-2. Annotate enterprise functions in evaluator modules
-3. Gate `api` module behind `full` feature
-4. Gate v4/v5 schema support behind `full` feature
-5. Update README with build instructions
-6. Cross-compile demo binaries for distribution
+```bash
+# Demo: 36 functions, 1 binary
+cargo build && ./target/debug/forge functions | grep -E "^  [A-Z]" | wc -l
+# Output: 36
+
+# Enterprise: 134 functions, 3 binaries
+cargo build --features full && ls target/debug/forge*
+# Output: forge, forge-mcp, forge-server
+```
 
 ## References
 
 - [Rust Features Documentation](https://doc.rust-lang.org/cargo/reference/features.html)
-- [Conditional Compilation](https://doc.rust-lang.org/reference/conditional-compilation.html)
 - ADR-011: Source Code Closure (business context)

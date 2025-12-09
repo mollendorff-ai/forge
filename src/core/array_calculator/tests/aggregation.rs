@@ -98,6 +98,11 @@ fn test_aggregation_max_min() {
     assert_eq!(result.scalars.get("min_value").unwrap().value, Some(8.0));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ENTERPRISE TESTS (only with full feature)
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[cfg(feature = "full")]
 #[test]
 fn test_median_function() {
     use crate::types::Variable;
@@ -129,6 +134,7 @@ fn test_median_function() {
     assert_eq!(median, 30.0);
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_median_even_count() {
     use crate::types::Variable;
@@ -240,6 +246,7 @@ fn test_count_function() {
     assert!((cnt - 5.0).abs() < 0.01);
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_median_odd_count() {
     let mut model = ParsedModel::new();
@@ -270,6 +277,7 @@ fn test_median_odd_count() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_median_even_array_count() {
     let mut model = ParsedModel::new();
@@ -300,6 +308,7 @@ fn test_median_even_array_count() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_avg_aggregation_function() {
     let mut model = ParsedModel::new();
@@ -378,6 +387,7 @@ fn test_min_aggregation_function() {
     assert!(result.is_ok());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_median_aggregation_scalar() {
     let mut model = ParsedModel::new();
@@ -404,6 +414,7 @@ fn test_median_aggregation_scalar() {
     assert!(result.is_ok());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_empty_array_median() {
     let mut model = ParsedModel::new();
@@ -487,6 +498,7 @@ fn test_count_function_v2() {
     assert!(result.is_ok());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_counta_function() {
     let mut model = ParsedModel::new();
@@ -513,6 +525,7 @@ fn test_counta_function() {
     assert!(result.is_ok() || result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_product_function() {
     let mut model = ParsedModel::new();
@@ -565,6 +578,7 @@ fn test_sumproduct_basic() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_counta_with_empty_strings() {
     let mut model = ParsedModel::new();

@@ -13,21 +13,22 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 metadata:
-  current_version: "5.14.0"
+  current_version: "5.15.0"
   last_updated: "2025-12-08"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 current:
-  version: "5.14.0"
-  status: released
+  version: "5.15.0"
+  status: in_progress
   date: "2025-12-08"
-  summary: "Feature Flags - Demo/Enterprise Binary Split"
+  summary: "Function-Level Gating + Binary Split"
   stats:
     tests: 1753
     warnings: 0
-    functions_demo: 80
-    functions_enterprise: 149
+    functions_demo: 36
+    functions_enterprise: 134
     coverage: "~90%"
+  note: "Function-level gating complete. Binary split in progress."
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT MILESTONES
@@ -36,80 +37,151 @@ current:
 next:
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 5.14.0: Demo Binary (Option A: Feature Flags)
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  - version: "5.14.0"
-    summary: "Demo Binary - Feature Flags (Option A)"
-    priority: CRITICAL
-    status: released
-    notes: |
-      DECISION: Option A - Feature Flags
-
-      cargo build              → demo (~40 functions, v1.0.0 only)
-      cargo build --features full → enterprise (149 functions, all schemas)
-
-      Gate with #[cfg(feature = "full")]:
-      - Enterprise functions (VARIANCE, BREAKEVEN, SCENARIO, LET, LAMBDA, etc.)
-      - v4.0.0/v5.0.0 schema support
-      - API server
-
-      Demo keeps (~40 functions):
-      - Math: SUM, AVERAGE, MIN, MAX, COUNT, ROUND, ABS, SQRT, POWER, MOD
-      - Financial: PMT, PV, FV, NPV, IRR, NPER, RATE
-      - Logical: IF, AND, OR, NOT, IFERROR
-      - Text: CONCAT, LEFT, RIGHT, MID, LEN, UPPER, LOWER, TRIM
-      - Date: TODAY, DATE, YEAR, MONTH, DAY, DATEDIF
-      - Lookup: INDEX, MATCH, CHOOSE
-
-    deliverables:
-      - task: "Write ADR-012-FEATURE-FLAGS.md"
-        status: pending
-      - task: "Commit and push ADR"
-        status: pending
-      - task: "Add 'full' feature to Cargo.toml"
-        status: pending
-      - task: "Gate enterprise functions with #[cfg(feature = \"full\")]"
-        status: pending
-      - task: "Gate v4/v5 schema support"
-        status: pending
-      - task: "Gate API server"
-        status: pending
-      - task: "Test: cargo build (demo) and cargo build --features full (enterprise)"
-        status: pending
-      - task: "Commit and push feature flags implementation"
-        status: pending
-      - task: "Update source README.md with build instructions"
-        status: pending
-      - task: "Commit and push README"
-        status: pending
-      - task: "Update forge-gh docs/FUNCTIONS.md (demo function list)"
-        status: pending
-      - task: "Commit and push forge-gh"
-        status: pending
-      - task: "Cross-compile demo binaries (linux, macos, windows)"
-        status: pending
-      - task: "Host binaries on royalbit.ca/forge/"
-        status: pending
-      - task: "Test demo binary has only ~40 functions"
-        status: pending
-      - task: "Final commit: release v5.14.0"
-        status: pending
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # 5.15.0: Documentation Polish
+  # 5.15.0: Binary Split + forge-gh E2E Tests
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "5.15.0"
+    summary: "Binary Split - forge-demo vs forge"
+    priority: HIGHLY-CRITICAL
+    status: in_progress
+    notes: |
+      ┌─────────────────────────────────────────────────────────────────────────┐
+      │ BINARY SPLIT STRATEGY                                                   │
+      ├─────────────────────────────────────────────────────────────────────────┤
+      │                                                                         │
+      │  forge-demo (THE HOOK)              forge (ENTERPRISE)                  │
+      │  ────────────────────────           ────────────────────────            │
+      │  - 36 core functions                - 134 functions                     │
+      │  - NO financial (NPV, PMT, IRR)     - All financial functions           │
+      │  - NO statistical (MEDIAN, VAR)     - All statistical functions         │
+      │  - NO API server                    - forge-server (REST API)           │
+      │  - NO MCP server                    - forge-mcp (AI integration)        │
+      │  - v1.0.0 schema only               - v1-v5 schemas                     │
+      │                                                                         │
+      │  Published to:                      Distribution:                       │
+      │  royalbit.ca/forge/                 Licensed customers only             │
+      │                                                                         │
+      └─────────────────────────────────────────────────────────────────────────┘
+
+      ┌─────────────────────────────────────────────────────────────────────────┐
+      │ DEMO FUNCTIONS (36 total)                                               │
+      ├─────────────┬───────┬───────────────────────────────────────────────────┤
+      │ Category    │ Count │ Functions                                         │
+      ├─────────────┼───────┼───────────────────────────────────────────────────┤
+      │ Math        │ 9     │ ABS, SQRT, ROUND, ROUNDUP, ROUNDDOWN, FLOOR,      │
+      │             │       │ CEILING, MOD, POWER                               │
+      │ Aggregation │ 5     │ SUM, AVERAGE, MIN, MAX, COUNT                     │
+      │ Logical     │ 5     │ IF, AND, OR, NOT, IFERROR                         │
+      │ Text        │ 8     │ CONCAT, LEFT, RIGHT, MID, LEN, UPPER, LOWER, TRIM │
+      │ Date        │ 6     │ TODAY, DATE, YEAR, MONTH, DAY, DATEDIF            │
+      │ Lookup      │ 3     │ INDEX, MATCH, CHOOSE                              │
+      └─────────────┴───────┴───────────────────────────────────────────────────┘
+
+    deliverables:
+      # ── PHASE 1: Binary Split (forge) ───────────────────────────────────────
+      - task: "Rename default binary from 'forge' to 'forge-demo'"
+        status: pending
+        details: |
+          Cargo.toml changes:
+          [[bin]]
+          name = "forge-demo"
+          path = "src/main.rs"
+
+          [[bin]]
+          name = "forge"
+          path = "src/main.rs"
+          required-features = ["full"]  # Enterprise only
+
+      - task: "Update Makefile - build-demo and build-enterprise targets"
+        status: pending
+        details: |
+          make build-demo        # builds forge-demo (default)
+          make build-enterprise  # builds forge, forge-server, forge-mcp
+          make build-all         # cross-compile both for all platforms
+
+      - task: "Test binary split - verify forge-demo has 36 functions"
+        status: pending
+
+      - task: "Test binary split - verify forge has 134 functions"
+        status: pending
+
+      # ── PHASE 2: forge-gh E2E Tests ─────────────────────────────────────────
+      - task: "Remove e2e_financial.yaml from forge-gh (enterprise functions)"
+        status: pending
+
+      - task: "Update e2e_math.yaml - ensure only demo functions"
+        status: pending
+
+      - task: "Update e2e_dates.yaml - remove EDATE, EOMONTH, etc. (enterprise)"
+        status: pending
+
+      - task: "Update e2e_logical.yaml - ensure only demo functions"
+        status: pending
+
+      - task: "Create e2e_text.yaml - test CONCAT, UPPER, LOWER, etc."
+        status: pending
+
+      - task: "Create e2e_lookup.yaml - test INDEX, MATCH, CHOOSE"
+        status: pending
+
+      - task: "Update run_e2e.sh - download forge-demo from royalbit.ca"
+        status: pending
+        details: |
+          Changes:
+          - Download URL: royalbit.ca/forge/forge-demo-$PLATFORM
+          - Verify 36 functions work
+          - Clear error messages for enterprise function attempts
+
+      - task: "Run forge-gh E2E tests - verify all pass with forge-demo"
+        status: pending
+
+      # ── PHASE 3: Documentation Updates ──────────────────────────────────────
+      - task: "Update forge-gh README.md - correct function counts (36 demo)"
+        status: pending
+
+      - task: "Update forge-gh docs/FUNCTIONS.md - list exactly 36 demo functions"
+        status: pending
+
+      - task: "Update ADR-012 - document binary split"
+        status: pending
+
+      # ── PHASE 4: Website Deployment ─────────────────────────────────────────
+      - task: "Build forge-demo for linux-x86_64, linux-arm64, macos-x86_64, macos-arm64, windows"
+        status: pending
+
+      - task: "Upload binaries to royalbit.ca/forge/"
+        status: pending
+
+      - task: "Update royalbit.ca/forge/index.html - download links"
+        status: pending
+
+      # ── PHASE 5: Release ────────────────────────────────────────────────────
+      - task: "Commit forge source changes"
+        status: pending
+
+      - task: "Commit forge-gh updates"
+        status: pending
+
+      - task: "Push royalbit.ca changes"
+        status: pending
+
+      - task: "Tag release v5.15.0"
+        status: pending
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 5.16.0: Documentation Polish
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.16.0"
     summary: "Documentation Polish"
     priority: NORMAL
     status: pending
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 5.16.0: 100% Coverage
+  # 5.17.0: 100% Coverage
   # ─────────────────────────────────────────────────────────────────────────────
 
-  - version: "5.16.0"
+  - version: "5.17.0"
     summary: "100% Coverage - Dead Code Removal"
     priority: NORMAL
     status: pending
@@ -121,4 +193,4 @@ next:
 backlog:
   - "Enterprise licensing (when ready to leave CGI)"
   - "Git history cleanup - MIT license removal"
-  - "MCP server integration"
+  - "MCP server documentation"

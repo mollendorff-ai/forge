@@ -35,7 +35,6 @@ pub mod cli;
 pub mod core;
 pub mod error;
 pub mod excel;
-pub mod mcp;
 pub mod parser;
 pub mod types;
 pub mod update;
@@ -44,6 +43,8 @@ pub mod writer;
 // Enterprise-only modules (gated behind "full" feature)
 #[cfg(feature = "full")]
 pub mod api;
+#[cfg(feature = "full")]
+pub mod mcp;
 
 // Re-export commonly used types
 pub use error::{ForgeError, ForgeResult};

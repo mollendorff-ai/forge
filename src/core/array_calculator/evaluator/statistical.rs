@@ -1,11 +1,30 @@
 //! Statistical functions: VAR, VARP, STDEV, STDEVP, PERCENTILE, QUARTILE, CORREL, LARGE, SMALL, RANK
+//!
+//! ALL statistical functions are ENTERPRISE-ONLY.
+//! Demo build has no statistical functions.
 
-use super::{
-    collect_numeric_values, evaluate, require_args, require_args_range, EvalContext, EvalError,
-    Expr, Value,
-};
+use super::{EvalContext, EvalError, Expr, Value};
+
+// Enterprise-only imports
+#[cfg(feature = "full")]
+use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 
 /// Try to evaluate a statistical function. Returns None if function not recognized.
+///
+/// DEMO: All statistical functions return None (not recognized) - enterprise only!
+#[cfg(not(feature = "full"))]
+pub fn try_evaluate(
+    _name: &str,
+    _args: &[Expr],
+    _ctx: &EvalContext,
+) -> Result<Option<Value>, EvalError> {
+    Ok(None) // No statistical functions in demo
+}
+
+/// Try to evaluate a statistical function. Returns None if function not recognized.
+///
+/// ENTERPRISE: Full statistical function support.
+#[cfg(feature = "full")]
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -223,7 +242,8 @@ pub fn try_evaluate(
     Ok(Some(result))
 }
 
-#[cfg(test)]
+// Enterprise-only tests
+#[cfg(all(test, feature = "full"))]
 mod tests {
     use super::super::tests::eval;
     use super::*;

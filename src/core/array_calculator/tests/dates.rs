@@ -212,6 +212,7 @@ fn test_datedif_function() {
     assert_eq!(months, 12.0, "Should be 12 months, got {}", months);
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_edate_function() {
     let mut model = ParsedModel::new();
@@ -250,6 +251,7 @@ fn test_edate_function() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_eomonth_function() {
     let mut model = ParsedModel::new();
@@ -287,6 +289,7 @@ fn test_eomonth_function() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_networkdays_function() {
     use crate::types::Variable;
@@ -312,6 +315,7 @@ fn test_networkdays_function() {
     assert!((workdays - 10.0).abs() < 1.0);
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_yearfrac_function() {
     use crate::types::Variable;
@@ -335,6 +339,7 @@ fn test_yearfrac_function() {
     assert!(fraction > 0.4 && fraction < 0.6);
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_yearfrac_basis_1() {
     use crate::types::Variable;
@@ -358,6 +363,7 @@ fn test_yearfrac_basis_1() {
     assert!(fraction > 0.9 && fraction < 1.1);
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_eomonth_negative_months_table() {
     let mut model = ParsedModel::new();
@@ -455,6 +461,7 @@ fn test_date_construction() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_edate_add_months() {
     let mut model = ParsedModel::new();
@@ -667,6 +674,7 @@ fn test_datedif_invalid_unit() {
     assert!(result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_edate_positive_months() {
     let mut model = ParsedModel::new();
@@ -694,6 +702,7 @@ fn test_edate_positive_months() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_edate_negative_months() {
     let mut model = ParsedModel::new();
@@ -721,6 +730,7 @@ fn test_edate_negative_months() {
     }
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_eomonth_same_month() {
     let mut model = ParsedModel::new();
@@ -857,6 +867,7 @@ fn test_lookup_with_date_column() {
     assert!(result.is_ok() || result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_workday_function() {
     let mut model = ParsedModel::new();
@@ -878,6 +889,7 @@ fn test_workday_function() {
     assert!(result.is_ok() || result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_networkdays_literal_dates() {
     let mut model = ParsedModel::new();
@@ -922,6 +934,7 @@ fn test_date_column_in_rowwise_formula() {
     assert!(result.is_ok() || result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_yearfrac_function_v2() {
     let mut model = ParsedModel::new();
@@ -978,6 +991,7 @@ fn test_day_function_coverage() {
     assert!(result.is_ok() || result.is_err());
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_eomonth_with_offset() {
     let mut model = ParsedModel::new();
@@ -1076,6 +1090,7 @@ fn test_datedif_ym_unit() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_yearfrac_basis_0() {
     let mut model = ParsedModel::new();
@@ -1092,6 +1107,7 @@ fn test_yearfrac_basis_0() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_yearfrac_actual_basis() {
     let mut model = ParsedModel::new();
@@ -1108,6 +1124,7 @@ fn test_yearfrac_actual_basis() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_yearfrac_basis_2() {
     let mut model = ParsedModel::new();
@@ -1124,6 +1141,7 @@ fn test_yearfrac_basis_2() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_yearfrac_basis_3() {
     let mut model = ParsedModel::new();
@@ -1140,6 +1158,7 @@ fn test_yearfrac_basis_3() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_yearfrac_basis_4() {
     let mut model = ParsedModel::new();
@@ -1156,6 +1175,7 @@ fn test_yearfrac_basis_4() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_workday_positive() {
     let mut model = ParsedModel::new();
@@ -1172,6 +1192,7 @@ fn test_workday_positive() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_workday_negative() {
     let mut model = ParsedModel::new();
@@ -1188,6 +1209,7 @@ fn test_workday_negative() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_edate_forward_quarter() {
     let mut model = ParsedModel::new();
@@ -1204,6 +1226,7 @@ fn test_edate_forward_quarter() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_edate_subtract_months() {
     let mut model = ParsedModel::new();
@@ -1220,6 +1243,7 @@ fn test_edate_subtract_months() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_eomonth_positive() {
     let mut model = ParsedModel::new();
@@ -1236,6 +1260,7 @@ fn test_eomonth_positive() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_eomonth_negative() {
     let mut model = ParsedModel::new();
@@ -1252,6 +1277,7 @@ fn test_eomonth_negative() {
     let _ = calculator.calculate_all();
 }
 
+#[cfg(feature = "full")]
 #[test]
 fn test_networkdays_basic() {
     let mut model = ParsedModel::new();
