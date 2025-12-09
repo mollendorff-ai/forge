@@ -5,6 +5,28 @@
 use crate::types::ParsedModel;
 use std::collections::HashMap;
 
+/// Strip string literals from a formula before extracting references.
+/// This prevents content inside quotes from being parsed as variable references.
+/// e.g., =LEN("Hello") should not treat "Hello" as a variable reference.
+fn strip_string_literals(formula: &str) -> String {
+    let mut result = String::with_capacity(formula.len());
+    let mut in_string = false;
+    let mut quote_char = '"';
+
+    for c in formula.chars() {
+        if !in_string && (c == '"' || c == '\'') {
+            in_string = true;
+            quote_char = c;
+        } else if in_string && c == quote_char {
+            in_string = false;
+        } else if !in_string {
+            result.push(c);
+        }
+    }
+
+    result
+}
+
 /// Unit categories for compatibility checking
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UnitCategory {
@@ -163,8 +185,10 @@ impl<'a> UnitValidator<'a> {
         }
 
         // Get units for each reference
-        let ref_units: Vec<(&str, Option<&UnitCategory>)> =
-            refs.iter().map(|r| (*r, self.unit_map.get(*r))).collect();
+        let ref_units: Vec<(&str, Option<&UnitCategory>)> = refs
+            .iter()
+            .map(|r| (r.as_str(), self.unit_map.get(r.as_str())))
+            .collect();
 
         // Check for percentage + currency first (more specific warning)
         let has_percentage = ref_units
@@ -232,12 +256,15 @@ impl<'a> UnitValidator<'a> {
     }
 
     /// Extract variable references from a formula
-    fn extract_references<'b>(&self, formula: &'b str) -> Vec<&'b str> {
+    fn extract_references(&self, formula: &str) -> Vec<String> {
         let formula = formula.trim_start_matches('=');
+        // Strip string literals to avoid parsing their contents as variable references
+        // e.g., =LEN("Hello") should not treat "Hello" as a variable reference
+        let formula_stripped = strip_string_literals(formula);
         let mut refs = Vec::new();
 
         // Simple tokenization - split by operators and extract identifiers
-        for token in formula.split(|c: char| {
+        for token in formula_stripped.split(|c: char| {
             c == '+'
                 || c == '-'
                 || c == '*'
@@ -252,7 +279,7 @@ impl<'a> UnitValidator<'a> {
                 && !token.chars().next().unwrap().is_ascii_digit()
                 && !is_function_name(token)
             {
-                refs.push(token);
+                refs.push(token.to_string());
             }
         }
 
@@ -264,13 +291,13 @@ impl<'a> UnitValidator<'a> {
         let refs = self.extract_references(formula);
 
         // Get the first reference with a known unit
-        for r in refs {
-            if let Some(unit) = self.unit_map.get(r) {
+        for r in &refs {
+            if let Some(unit) = self.unit_map.get(r.as_str()) {
                 // For multiplication with percentage, result is the other unit
                 if formula.contains('*') && matches!(unit, UnitCategory::Percentage) {
                     // Find the non-percentage unit
-                    for r2 in self.extract_references(formula) {
-                        if let Some(u2) = self.unit_map.get(r2) {
+                    for r2 in &refs {
+                        if let Some(u2) = self.unit_map.get(r2.as_str()) {
                             if !matches!(u2, UnitCategory::Percentage) {
                                 return Some(u2.clone());
                             }
@@ -401,9 +428,9 @@ mod tests {
             unit_map: HashMap::new(),
         };
         let refs = validator.extract_references("=SUM(revenue) + total_costs");
-        assert!(refs.contains(&"revenue"));
-        assert!(refs.contains(&"total_costs"));
-        assert!(!refs.contains(&"SUM"));
+        assert!(refs.contains(&"revenue".to_string()));
+        assert!(refs.contains(&"total_costs".to_string()));
+        assert!(!refs.contains(&"SUM".to_string()));
     }
 
     // =========================================================================
