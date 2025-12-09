@@ -13,20 +13,20 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 metadata:
-  current_version: "5.13.0"
+  current_version: "5.14.0"
   last_updated: "2025-12-08"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 current:
-  version: "5.13.0"
+  version: "5.14.0"
   status: released
   date: "2025-12-08"
-  summary: "Function Parity Complete - 149 Evaluator Functions"
+  summary: "Feature Flags - Demo/Enterprise Binary Split"
   stats:
     tests: 1753
     warnings: 0
-    functions_evaluator: 149
-    functions_translator: 147
+    functions_demo: 80
+    functions_enterprise: 149
     coverage: "~90%"
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -42,7 +42,7 @@ next:
   - version: "5.14.0"
     summary: "Demo Binary - Feature Flags (Option A)"
     priority: CRITICAL
-    status: pending
+    status: released
     notes: |
       DECISION: Option A - Feature Flags
 
