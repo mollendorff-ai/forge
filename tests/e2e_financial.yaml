@@ -1,0 +1,70 @@
+# E2E Financial Function Validation
+# Validated against Gnumeric/LibreOffice Calc
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # NPV - Net Present Value
+  test_npv_basic:
+    value: null
+    formula: "=NPV(0.1, 100, 100, 100)"    # Expected: ~248.69
+  test_npv_varied:
+    value: null
+    formula: "=NPV(0.08, 1000, 2000, 3000)" # Expected: ~5022.10
+
+  # IRR - Internal Rate of Return
+  test_irr_basic:
+    value: null
+    formula: "=IRR(-1000, 300, 300, 300, 300, 300)" # Expected: ~0.152 (15.2%)
+
+  # PMT - Payment
+  test_pmt_monthly:
+    value: null
+    formula: "=PMT(0.05/12, 360, 200000)"  # Expected: ~-1073.64
+  test_pmt_annual:
+    value: null
+    formula: "=PMT(0.06, 10, 50000)"       # Expected: ~-6793.40
+
+  # PV - Present Value
+  test_pv_basic:
+    value: null
+    formula: "=PV(0.08, 5, -1000)"         # Expected: ~3992.71
+  test_pv_with_fv:
+    value: null
+    formula: "=PV(0.1, 10, -100, -1000)"   # Expected: ~999.27
+
+  # FV - Future Value
+  test_fv_basic:
+    value: null
+    formula: "=FV(0.06, 10, -100)"         # Expected: ~1318.08
+  test_fv_with_pv:
+    value: null
+    formula: "=FV(0.08, 5, -200, -1000)"   # Expected: ~2653.30
+
+  # RATE - Interest Rate
+  test_rate_basic:
+    value: null
+    formula: "=RATE(360, -1000, 200000)"   # Expected: ~0.0037 (0.37% monthly)
+
+  # NPER - Number of Periods
+  test_nper_basic:
+    value: null
+    formula: "=NPER(0.06, -1000, 10000)"   # Expected: ~12.75
+
+  # SLN - Straight Line Depreciation
+  test_sln_basic:
+    value: null
+    formula: "=SLN(10000, 1000, 5)"        # Expected: 1800
+
+  # DB - Declining Balance
+  test_db_year1:
+    value: null
+    formula: "=DB(10000, 1000, 5, 1)"      # Expected: ~3690
+
+  # DDB - Double Declining Balance
+  test_ddb_year1:
+    value: null
+    formula: "=DDB(10000, 1000, 5, 1)"     # Expected: 4000
+  test_ddb_year2:
+    value: null
+    formula: "=DDB(10000, 1000, 5, 2)"     # Expected: 2400
