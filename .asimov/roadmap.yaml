@@ -37,18 +37,22 @@ completed:
 
 next:
   - version: "5.18.1"
-    summary: "v1.0.0 Schema Bugs (found by forge-e2e)"
+    summary: "v1.0.0 Schema Limitations (found by forge-e2e)"
     priority: CRITICAL
     status: pending
-    bugs:
+    note: "Some features may NEVER be v1.0.0 compatible - v5.0.0 (enterprise) only"
+    limitations:
       - issue: "String literals with letters parsed as column refs"
         example: "=LEN(\"Hello\") → 'Column Hello not found'"
         workaround: "=LEN(\"12345\") works (numbers only)"
+        resolution: "Fix in v1.0.0 OR v5.0.0 only"
       - issue: "Aggregation functions fail schema validation (oneOf conflict)"
         example: "=SUM(10, 20, 30) → schema oneOf error"
         affects: "SUM, AVERAGE, MIN, MAX, COUNT with multiple literal args"
+        resolution: "Likely v5.0.0 only (needs table refs)"
       - issue: "INDEX/MATCH need table reference support"
         example: "=INDEX(range, 1) - can't express range in single-cell formula"
+        resolution: "v5.0.0 only (requires table context)"
 
   - version: "5.19.0"
     summary: "100% Coverage - Dead Code Removal"
