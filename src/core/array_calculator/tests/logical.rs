@@ -312,3 +312,238 @@ fn test_rowwise_if_formula() {
     let result = calculator.calculate_all();
     assert!(result.is_ok());
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Additional tests for logical functions with low coverage (v6.0.0 Phase 2)
+// Note: Use numeric 1/0 for true/false, or comparisons like 1>0 for TRUE
+// ══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_and_all_true() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // Use comparisons that evaluate to true: 1>0, 2>0, 3>0
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(AND(1>0, 2>0, 3>0), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_and_one_false() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // 1>0 is true, 0>1 is false, 2>0 is true
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(AND(1>0, 0>1, 2>0), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(0.0));
+}
+
+#[test]
+fn test_and_with_numbers() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // Non-zero numbers are truthy
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(AND(1, 2, 3), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_or_all_false() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // All comparisons evaluate to false
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(OR(0>1, 0>2, 0>3), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(0.0));
+}
+
+#[test]
+fn test_or_one_true() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // Middle comparison is true
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(OR(0>1, 1>0, 0>2), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_or_with_zero() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // Zero is falsy
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(OR(0, 0, 0), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(0.0));
+}
+
+#[test]
+fn test_not_true() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // NOT(1>0) = NOT(true) = false
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(NOT(1>0), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(0.0));
+}
+
+#[test]
+fn test_not_false() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // NOT(0>1) = NOT(false) = true
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(NOT(0>1), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_not_with_number() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // NOT(1) should be FALSE (0)
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(NOT(1), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(0.0));
+}
+
+#[test]
+fn test_true_via_comparison() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // 1>0 evaluates to true
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(1>0, 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_false_via_comparison() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // 0>1 evaluates to false
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(0>1, 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(0.0));
+}
+
+#[test]
+fn test_complex_logical_expression() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // Complex: AND(OR(true, false), NOT(false))
+    // = AND(OR(1>0, 0>1), NOT(0>1))
+    // = AND(true, true) = true
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(AND(OR(1>0, 0>1), NOT(0>1)), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
