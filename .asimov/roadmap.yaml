@@ -172,19 +172,149 @@ next:
         status: pending
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 5.16.0: Documentation Polish
+  # 5.16.0: GitHub Fresh Start + Public Release + E2E Validation
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "5.16.0"
+    summary: "GitHub Fresh Start + Public Release + E2E Validation"
+    priority: HIGHLY-CRITICAL
+    status: in_progress
+    notes: |
+      ┌─────────────────────────────────────────────────────────────────────────┐
+      │ COMPLETE RELEASE STRATEGY                                               │
+      ├─────────────────────────────────────────────────────────────────────────┤
+      │                                                                         │
+      │  PHASE 1: GitHub Fresh Start                                            │
+      │  ─────────────────────────────                                          │
+      │  1. Delete royalbit/forge on GitHub                                     │
+      │  2. Recreate as PUBLIC repo with same metadata                          │
+      │  3. Fresh git init in forge-gh (clean history)                          │
+      │  4. Single clean commit with v5.15.0 state                              │
+      │  5. Push to GitHub                                                      │
+      │                                                                         │
+      │  PHASE 2: Build All Platforms                                           │
+      │  ─────────────────────────────                                          │
+      │  - forge-demo-macos-arm64                                               │
+      │  - forge-demo-macos-x86_64                                              │
+      │  - forge-demo-linux-x86_64                                              │
+      │  - forge-demo-linux-arm64                                               │
+      │  - forge-demo-windows.exe                                               │
+      │                                                                         │
+      │  PHASE 3: E2E Validation (Black-Box Testing)                            │
+      │  ─────────────────────────────────────────────                          │
+      │  - Test macos-arm64 binary locally before release                       │
+      │  - Run all E2E tests against built binary                               │
+      │  - Fix any E2E test failures                                            │
+      │                                                                         │
+      │  PHASE 4: GitHub Release                                                │
+      │  ────────────────────────                                               │
+      │  - Create GitHub Release v5.15.0                                        │
+      │  - Upload all binaries to release                                       │
+      │                                                                         │
+      │  PHASE 5: Website Cleanup                                               │
+      │  ─────────────────────────                                              │
+      │  - DELETE binaries from royalbit.ca/forge/                              │
+      │  - Update index.html to link to GitHub releases                         │
+      │  - Simpler website, downloads from GitHub                               │
+      │                                                                         │
+      └─────────────────────────────────────────────────────────────────────────┘
+
+    deliverables:
+      # ── PHASE 1: GitHub Fresh Start ────────────────────────────────────────
+      - task: "Delete royalbit/forge repo on GitHub"
+        status: pending
+        details: "gh repo delete royalbit/forge --yes (needs delete_repo scope)"
+
+      - task: "Create new PUBLIC royalbit/forge repo"
+        status: pending
+        details: |
+          gh repo create royalbit/forge --public \
+            --description "AI hallucinates numbers. Forge doesn't. YAML-based financial modeling with Excel formula evaluation."
+
+      - task: "Remove .git from forge-gh (clean slate)"
+        status: pending
+
+      - task: "Git init with fresh history"
+        status: pending
+
+      - task: "Single commit: 'Initial release v5.15.0'"
+        status: pending
+
+      - task: "Push to GitHub (origin main)"
+        status: pending
+
+      # ── PHASE 2: Build All Platforms ───────────────────────────────────────
+      - task: "Build forge-demo-macos-arm64"
+        status: pending
+        details: "cargo build --release --bin forge-demo --target aarch64-apple-darwin"
+
+      - task: "Build forge-demo-macos-x86_64"
+        status: pending
+        details: "cargo build --release --bin forge-demo --target x86_64-apple-darwin"
+
+      - task: "Build forge-demo-linux-x86_64"
+        status: pending
+        details: "cargo build --release --bin forge-demo --target x86_64-unknown-linux-musl"
+
+      - task: "Build forge-demo-linux-arm64"
+        status: pending
+        details: "cargo build --release --bin forge-demo --target aarch64-unknown-linux-musl"
+
+      - task: "Build forge-demo-windows.exe"
+        status: pending
+        details: "cargo build --release --bin forge-demo --target x86_64-pc-windows-gnu"
+
+      # ── PHASE 3: E2E Validation ────────────────────────────────────────────
+      - task: "Black-box test macos-arm64 binary"
+        status: pending
+        details: |
+          Copy built binary to forge-gh/tests/
+          Run: ./tests/run_e2e.sh
+          All 5 E2E tests must pass
+
+      - task: "Fix any E2E test failures"
+        status: pending
+        details: "Update E2E test YAML files if needed based on black-box results"
+
+      # ── PHASE 4: GitHub Release ────────────────────────────────────────────
+      - task: "Create GitHub Release v5.15.0"
+        status: pending
+        details: |
+          gh release create v5.15.0 --title "v5.15.0 - Demo Release" \
+            --notes "36 Excel-compatible functions for financial modeling"
+
+      - task: "Upload all 5 binaries to release"
+        status: pending
+        details: "gh release upload v5.15.0 forge-demo-*"
+
+      # ── PHASE 5: Website Cleanup ───────────────────────────────────────────
+      - task: "Delete binaries from royalbit.ca/forge/"
+        status: pending
+        details: "rm html/forge/forge-demo-*"
+
+      - task: "Update royalbit.ca/forge/index.html - link to GitHub releases"
+        status: pending
+        details: |
+          Change download buttons to point to:
+          https://github.com/royalbit/forge/releases/latest
+
+      - task: "Commit and push royalbit.ca changes"
+        status: pending
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 5.17.0: Documentation Polish
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "5.17.0"
     summary: "Documentation Polish"
     priority: NORMAL
     status: pending
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 5.17.0: 100% Coverage
+  # 5.18.0: 100% Coverage
   # ─────────────────────────────────────────────────────────────────────────────
 
-  - version: "5.17.0"
+  - version: "5.18.0"
     summary: "100% Coverage - Dead Code Removal"
     priority: NORMAL
     status: pending
