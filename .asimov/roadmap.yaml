@@ -19,7 +19,7 @@ metadata:
 
 current:
   version: "5.15.0"
-  status: in_progress
+  status: complete
   date: "2025-12-08"
   summary: "Function-Level Gating + Binary Split"
   stats:
@@ -28,7 +28,7 @@ current:
     functions_demo: 36
     functions_enterprise: 134
     coverage: "~90%"
-  note: "Function-level gating complete. Binary split in progress."
+  note: "Binary split complete. forge-demo (36 functions) published to royalbit.ca/forge/"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT MILESTONES
@@ -43,7 +43,7 @@ next:
   - version: "5.15.0"
     summary: "Binary Split - forge-demo vs forge"
     priority: HIGHLY-CRITICAL
-    status: in_progress
+    status: complete
     notes: |
       ┌─────────────────────────────────────────────────────────────────────────┐
       │ BINARY SPLIT STRATEGY                                                   │
