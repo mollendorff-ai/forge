@@ -13,52 +13,27 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 metadata:
-  current_version: "5.12.0"
+  current_version: "5.13.0"
   last_updated: "2025-12-08"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 current:
-  version: "5.12.0"
+  version: "5.13.0"
   status: released
   date: "2025-12-08"
-  summary: "Source Closure Complete - Gitolite + GitHub Demo"
+  summary: "Function Parity Complete - 149 Evaluator Functions"
   stats:
-    tests: 1709
+    tests: 1753
     warnings: 0
-    functions_evaluator: 81
+    functions_evaluator: 149
     functions_translator: 147
-    coverage: "89.23%"
+    coverage: "~90%"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT MILESTONES
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # 5.13.0: Function Parity (81 → 147) - DO THIS FIRST
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  - version: "5.13.0"
-    summary: "Complete Function Parity - ALL 147 Functions Working"
-    priority: CRITICAL
-    status: pending
-    notes: |
-      GAP: 147 functions in translator, only 81 in evaluator.
-      66 functions export to Excel but can't be calculated by Forge.
-
-      WHY FIRST: Makes Demo Binary (Option A) simpler later.
-      All functions exist → just add feature flags to gate enterprise ones.
-
-    deliverables:
-      - task: "Audit missing functions (diff translator vs evaluator)"
-        status: pending
-      - task: "Implement missing 66 functions in evaluator"
-        status: pending
-      - task: "Unit tests for each new function"
-        status: pending
-      - task: "E2E validate all 147 functions"
-        status: pending
 
   # ─────────────────────────────────────────────────────────────────────────────
   # 5.14.0: Demo Binary (Option A: Feature Flags)

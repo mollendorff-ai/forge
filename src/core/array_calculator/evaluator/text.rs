@@ -1,4 +1,4 @@
-//! Text functions: CONCAT, UPPER, LOWER, TRIM, LEN, LEFT, RIGHT, MID
+//! Text functions: CONCAT, UPPER, LOWER, TRIM, LEN, LEFT, RIGHT, MID, TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
 
 use super::{evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value};
 
@@ -80,10 +80,190 @@ pub fn try_evaluate(
             Value::Text(chars[start_idx..end_idx].iter().collect())
         }
 
+        "TEXT" => {
+            require_args(name, args, 2)?;
+            let val = evaluate(&args[0], ctx)?;
+            let format = evaluate(&args[1], ctx)?.as_text();
+            // Simplified TEXT implementation - basic number formatting
+            let num = val.as_number().unwrap_or(0.0);
+            let formatted = format_number(num, &format);
+            Value::Text(formatted)
+        }
+
+        "VALUE" => {
+            require_args(name, args, 1)?;
+            let text = evaluate(&args[0], ctx)?.as_text();
+            // Parse the text as a number
+            let num = text
+                .trim()
+                .replace(',', "") // Remove thousand separators
+                .parse::<f64>()
+                .map_err(|_| {
+                    EvalError::new(format!("VALUE: Cannot convert '{}' to number", text))
+                })?;
+            Value::Number(num)
+        }
+
+        "FIND" => {
+            require_args_range(name, args, 2, 3)?;
+            let find_text = evaluate(&args[0], ctx)?.as_text();
+            let within_text = evaluate(&args[1], ctx)?.as_text();
+            let start_num = if args.len() > 2 {
+                evaluate(&args[2], ctx)?.as_number().unwrap_or(1.0) as usize
+            } else {
+                1
+            };
+
+            // FIND is case-sensitive and 1-indexed
+            let start_idx = start_num.saturating_sub(1);
+            if start_idx >= within_text.len() {
+                return Err(EvalError::new("FIND: start_num out of range"));
+            }
+
+            match within_text[start_idx..].find(&find_text) {
+                Some(pos) => Value::Number((pos + start_num) as f64),
+                None => return Err(EvalError::new("FIND: text not found")),
+            }
+        }
+
+        "SEARCH" => {
+            require_args_range(name, args, 2, 3)?;
+            let find_text = evaluate(&args[0], ctx)?.as_text().to_lowercase();
+            let within_text = evaluate(&args[1], ctx)?.as_text();
+            let start_num = if args.len() > 2 {
+                evaluate(&args[2], ctx)?.as_number().unwrap_or(1.0) as usize
+            } else {
+                1
+            };
+
+            // SEARCH is case-insensitive and 1-indexed
+            let start_idx = start_num.saturating_sub(1);
+            if start_idx >= within_text.len() {
+                return Err(EvalError::new("SEARCH: start_num out of range"));
+            }
+
+            let search_in = within_text[start_idx..].to_lowercase();
+            match search_in.find(&find_text) {
+                Some(pos) => Value::Number((pos + start_num) as f64),
+                None => return Err(EvalError::new("SEARCH: text not found")),
+            }
+        }
+
+        "REPLACE" => {
+            require_args(name, args, 4)?;
+            let old_text = evaluate(&args[0], ctx)?.as_text();
+            let start_num = evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) as usize;
+            let num_chars = evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0) as usize;
+            let new_text = evaluate(&args[3], ctx)?.as_text();
+
+            // REPLACE is position-based (1-indexed)
+            let chars: Vec<char> = old_text.chars().collect();
+            let start_idx = start_num.saturating_sub(1);
+            let end_idx = (start_idx + num_chars).min(chars.len());
+
+            let prefix: String = chars[..start_idx].iter().collect();
+            let suffix: String = chars[end_idx..].iter().collect();
+
+            Value::Text(format!("{}{}{}", prefix, new_text, suffix))
+        }
+
+        "SUBSTITUTE" => {
+            require_args_range(name, args, 3, 4)?;
+            let text = evaluate(&args[0], ctx)?.as_text();
+            let old_text = evaluate(&args[1], ctx)?.as_text();
+            let new_text = evaluate(&args[2], ctx)?.as_text();
+
+            if args.len() > 3 {
+                // Replace only the nth occurrence
+                let instance = evaluate(&args[3], ctx)?.as_number().unwrap_or(1.0) as usize;
+                let mut result = text.clone();
+                let mut count = 0;
+                let mut pos = 0;
+
+                while let Some(found) = result[pos..].find(&old_text) {
+                    count += 1;
+                    if count == instance {
+                        let abs_pos = pos + found;
+                        result = format!(
+                            "{}{}{}",
+                            &result[..abs_pos],
+                            new_text,
+                            &result[abs_pos + old_text.len()..]
+                        );
+                        break;
+                    }
+                    pos += found + old_text.len();
+                }
+                Value::Text(result)
+            } else {
+                // Replace all occurrences
+                Value::Text(text.replace(&old_text, &new_text))
+            }
+        }
+
         _ => return Ok(None),
     };
 
     Ok(Some(result))
+}
+
+/// Format a number according to a format string (simplified implementation)
+fn format_number(num: f64, format: &str) -> String {
+    let format_upper = format.to_uppercase();
+
+    // Handle percentage formats
+    if format.contains('%') {
+        let decimal_places = format.matches('0').count().saturating_sub(1);
+        return format!("{:.prec$}%", num * 100.0, prec = decimal_places);
+    }
+
+    // Handle currency formats
+    if format.starts_with('$') || format.starts_with("[$") {
+        let decimal_places = format
+            .rfind('.')
+            .map(|i| format[i + 1..].chars().take_while(|c| *c == '0').count())
+            .unwrap_or(2);
+        return format!("${:.prec$}", num, prec = decimal_places);
+    }
+
+    // Handle fixed decimal formats like "0.00"
+    if let Some(dot_pos) = format.find('.') {
+        let decimal_places = format[dot_pos + 1..].len();
+        return format!("{:.prec$}", num, prec = decimal_places);
+    }
+
+    // Handle scientific notation
+    if format_upper.contains('E') {
+        return format!("{:E}", num);
+    }
+
+    // Handle comma thousands separator
+    if format.contains(',') {
+        let int_part = num.trunc() as i64;
+        let frac_part = num.fract();
+        let formatted_int = int_part
+            .to_string()
+            .as_bytes()
+            .rchunks(3)
+            .rev()
+            .map(std::str::from_utf8)
+            .collect::<Result<Vec<&str>, _>>()
+            .unwrap_or_default()
+            .join(",");
+
+        if frac_part == 0.0 {
+            return formatted_int;
+        } else {
+            return format!("{}{:.2}", formatted_int, frac_part);
+        }
+    }
+
+    // Default: just convert to string
+    if num.fract() == 0.0 {
+        format!("{}", num as i64)
+    } else {
+        format!("{}", num)
+    }
 }
 
 #[cfg(test)]
@@ -128,5 +308,122 @@ mod tests {
             eval("TRIM(\"  hello  \")", &ctx).unwrap(),
             Value::Text("hello".to_string())
         );
+    }
+
+    #[test]
+    fn test_text() {
+        let ctx = EvalContext::new();
+        // Percentage format
+        assert_eq!(
+            eval("TEXT(0.25, \"0%\")", &ctx).unwrap(),
+            Value::Text("25%".to_string())
+        );
+        // Currency format
+        assert_eq!(
+            eval("TEXT(1234.5, \"$0.00\")", &ctx).unwrap(),
+            Value::Text("$1234.50".to_string())
+        );
+        // Fixed decimal
+        assert_eq!(
+            eval("TEXT(3.14159, \"0.00\")", &ctx).unwrap(),
+            Value::Text("3.14".to_string())
+        );
+    }
+
+    #[test]
+    fn test_value() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("VALUE(\"123\")", &ctx).unwrap(), Value::Number(123.0));
+        assert_eq!(
+            eval("VALUE(\"  45.67  \")", &ctx).unwrap(),
+            Value::Number(45.67)
+        );
+        assert_eq!(
+            eval("VALUE(\"1,234\")", &ctx).unwrap(),
+            Value::Number(1234.0)
+        );
+    }
+
+    #[test]
+    fn test_value_error() {
+        let ctx = EvalContext::new();
+        assert!(eval("VALUE(\"abc\")", &ctx).is_err());
+    }
+
+    #[test]
+    fn test_find() {
+        let ctx = EvalContext::new();
+        // Basic find
+        assert_eq!(
+            eval("FIND(\"l\", \"hello\")", &ctx).unwrap(),
+            Value::Number(3.0)
+        );
+        // With start position
+        assert_eq!(
+            eval("FIND(\"l\", \"hello\", 4)", &ctx).unwrap(),
+            Value::Number(4.0)
+        );
+    }
+
+    #[test]
+    fn test_find_not_found() {
+        let ctx = EvalContext::new();
+        assert!(eval("FIND(\"x\", \"hello\")", &ctx).is_err());
+    }
+
+    #[test]
+    fn test_search() {
+        let ctx = EvalContext::new();
+        // Case insensitive
+        assert_eq!(
+            eval("SEARCH(\"L\", \"hello\")", &ctx).unwrap(),
+            Value::Number(3.0)
+        );
+        assert_eq!(
+            eval("SEARCH(\"HELLO\", \"hello world\")", &ctx).unwrap(),
+            Value::Number(1.0)
+        );
+    }
+
+    #[test]
+    fn test_replace() {
+        let ctx = EvalContext::new();
+        // REPLACE(old_text, start, num_chars, new_text)
+        assert_eq!(
+            eval("REPLACE(\"hello\", 1, 2, \"XX\")", &ctx).unwrap(),
+            Value::Text("XXllo".to_string())
+        );
+        assert_eq!(
+            eval("REPLACE(\"hello\", 3, 2, \"XXX\")", &ctx).unwrap(),
+            Value::Text("heXXXo".to_string())
+        );
+    }
+
+    #[test]
+    fn test_substitute() {
+        let ctx = EvalContext::new();
+        // Replace all occurrences
+        assert_eq!(
+            eval("SUBSTITUTE(\"hello\", \"l\", \"X\")", &ctx).unwrap(),
+            Value::Text("heXXo".to_string())
+        );
+        // Replace specific occurrence
+        assert_eq!(
+            eval("SUBSTITUTE(\"hello\", \"l\", \"X\", 1)", &ctx).unwrap(),
+            Value::Text("heXlo".to_string())
+        );
+        assert_eq!(
+            eval("SUBSTITUTE(\"hello\", \"l\", \"X\", 2)", &ctx).unwrap(),
+            Value::Text("helXo".to_string())
+        );
+    }
+
+    #[test]
+    fn test_format_number_helper() {
+        // Test the helper function directly
+        assert_eq!(format_number(0.25, "0%"), "25%");
+        assert_eq!(format_number(1234.0, "$0.00"), "$1234.00");
+        assert_eq!(format_number(1.2345, "0.000"), "1.234");
+        assert_eq!(format_number(1000000.0, "#,##0"), "1,000,000");
     }
 }

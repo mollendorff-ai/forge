@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.13.0] - 2025-12-08
+
+### Function Parity Complete (81 → 149)
+
+Evaluator now supports MORE functions than translator exports. Full calculation parity achieved.
+
+### New Functions Added
+
+**Math (5):** PI, E, POW, SIGN, TRUNC
+
+**Trigonometric (11):** SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, RADIANS, DEGREES
+
+**Logical (5):** XOR, TRUE, FALSE, IFS, IFNA
+
+**Information (13):** ISBLANK, ISERROR, ISNA, ISNUMBER, ISTEXT, ISLOGICAL, ISEVEN, ISODD, ISREF, ISFORMULA, NA, TYPE, N
+
+**Text (6):** TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
+
+**Date/Time (8):** NOW, WEEKDAY, HOUR, MINUTE, SECOND, WORKDAY, DAYS, TIME
+
+**Lookup (9):** VLOOKUP, HLOOKUP, OFFSET, ADDRESS, ROW, COLUMN, ROWS, COLUMNS (+ col_to_letter helper)
+
+**Array (2):** SEQUENCE, RANDARRAY
+
+**Statistical (5):** VARP, STDEVP (aliases), LARGE, SMALL, RANK
+
+### Technical
+
+- New evaluator modules: `trig.rs`, `info.rs`
+- 1753 tests passing, zero warnings
+- Zero test failures, zero compiler warnings
+
+---
+
 ## [5.12.0] - 2025-12-08
 
 ### Source Closure Complete
