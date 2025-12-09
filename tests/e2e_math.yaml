@@ -1,0 +1,97 @@
+# E2E Math Function Validation (Demo Functions Only)
+# Validated against Gnumeric and LibreOffice Calc
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ABS
+  test_abs_positive:
+    value: null
+    formula: "=ABS(42)"           # Expected: 42
+  test_abs_negative:
+    value: null
+    formula: "=ABS(-42)"          # Expected: 42
+  test_abs_zero:
+    value: null
+    formula: "=ABS(0)"            # Expected: 0
+
+  # ROUND
+  test_round_up:
+    value: null
+    formula: "=ROUND(2.567, 2)"   # Expected: 2.57
+  test_round_down:
+    value: null
+    formula: "=ROUND(2.564, 2)"   # Expected: 2.56
+  test_round_neg:
+    value: null
+    formula: "=ROUND(2.5, 0)"     # Expected: 3
+
+  # SQRT
+  test_sqrt_perfect:
+    value: null
+    formula: "=SQRT(144)"         # Expected: 12
+  test_sqrt_decimal:
+    value: null
+    formula: "=SQRT(2)"           # Expected: 1.41421356...
+
+  # POWER
+  test_power_int:
+    value: null
+    formula: "=POWER(2, 10)"      # Expected: 1024
+  test_power_frac:
+    value: null
+    formula: "=POWER(27, 1/3)"    # Expected: 3
+
+  # MOD
+  test_mod_basic:
+    value: null
+    formula: "=MOD(10, 3)"        # Expected: 1
+
+  # MIN / MAX
+  test_min:
+    value: null
+    formula: "=MIN(5, 3, 8, 1, 9)"   # Expected: 1
+  test_max:
+    value: null
+    formula: "=MAX(5, 3, 8, 1, 9)"   # Expected: 9
+
+  # SUM / AVERAGE / COUNT
+  test_sum:
+    value: null
+    formula: "=SUM(10, 20, 30, 40)"     # Expected: 100
+  test_average:
+    value: null
+    formula: "=AVERAGE(10, 20, 30, 40)" # Expected: 25
+  test_count:
+    value: null
+    formula: "=COUNT(10, 20, 30, 40, 50)"   # Expected: 5
+
+  # CEILING / FLOOR
+  test_ceiling:
+    value: null
+    formula: "=CEILING(2.3, 1)"   # Expected: 3
+  test_floor:
+    value: null
+    formula: "=FLOOR(2.7, 1)"     # Expected: 2
+
+  # ROUNDUP
+  test_roundup_pos:
+    value: null
+    formula: "=ROUNDUP(2.321, 2)"  # Expected: 2.33
+  test_roundup_neg:
+    value: null
+    formula: "=ROUNDUP(-2.321, 2)" # Expected: -2.33
+  test_roundup_zero:
+    value: null
+    formula: "=ROUNDUP(2.5, 0)"    # Expected: 3
+
+  # ROUNDDOWN
+  test_rounddown_pos:
+    value: null
+    formula: "=ROUNDDOWN(2.789, 2)"  # Expected: 2.78
+  test_rounddown_neg:
+    value: null
+    formula: "=ROUNDDOWN(-2.789, 2)" # Expected: -2.78
+  test_rounddown_zero:
+    value: null
+    formula: "=ROUNDDOWN(2.9, 0)"    # Expected: 2
