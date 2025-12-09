@@ -7,6 +7,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.17.0] - 2025-12-09
+
+### Function Registry (ADR-013) + E2E Test Coverage
+
+Single source of truth for all function metadata: name, category, demo/enterprise flag.
+
+### Added
+
+- **Function Registry** (`src/functions/registry.rs`) - Centralized function metadata
+  - `FunctionInfo` struct with name, category, is_demo fields
+  - `FUNCTION_REGISTRY` static array - all 159 functions defined once
+  - Helper functions: `demo_functions()`, `enterprise_functions()`, `functions_by_category()`
+  - Categories: Aggregation, Conditional, Math, Trig, Text, Date, Financial, Lookup, Logical, Statistical, Array, Info, Advanced, Forge
+- **E2E validation tests** for COUNT and DATEDIF against LibreOffice/Gnumeric
+- **ADR-013** documenting function registry architecture
+
+### Changed
+
+- `forge functions` command now uses registry (was hardcoded list)
+- Demo function count: 36 (verified via registry)
+- Enterprise function count: 159 (verified via registry)
+
+### Stats
+
+- Tests: 1747
+- Functions (demo): 36
+- Functions (enterprise): 159
+- Warnings: 0
+
+### Infrastructure
+
+- GitHub repo renamed: `royalbit/forge` → `royalbit/forge-demo`
+
+---
+
+## [5.16.0] - 2025-12-08
+
+### GitHub Fresh Start - PUBLIC Repo + GitHub Releases
+
+New public demo repository with GitHub Releases for binary distribution.
+
+### Added
+
+- **Public GitHub repo**: `github.com/royalbit/forge-demo`
+- **GitHub Releases** for forge-demo binaries
+- **Website update**: royalbit.ca/forge/ with download links
+
+### Changed
+
+- Demo binaries now distributed via GitHub Releases (not crates.io)
+- Website download links point to GitHub Releases
+
+### Infrastructure
+
+- Source: gitolite (private, enterprise)
+- Demo: github.com/royalbit/forge-demo (public)
+- Binaries: GitHub Releases
+
+---
+
+## [5.15.0] - 2025-12-08
+
+### Binary Split - forge-demo vs forge (Enterprise)
+
+Completed function-level gating for demo/enterprise binary separation.
+
+### Added
+
+- **forge-demo binary** (36 functions) - Public demo build
+- **forge binary** (159 functions) - Enterprise build with `--features full`
+- **Function-level `#[cfg(feature = "full")]`** gating for enterprise functions
+
+### Build Commands
+
+```bash
+cargo build --release              # forge-demo (36 functions)
+cargo build --release --features full  # forge (159 functions)
+```
+
+### Demo Functions (36)
+
+- Aggregation: SUM, AVERAGE, MAX, MIN, COUNT, COUNTA, PRODUCT, MEDIAN
+- Math: ABS, ROUND, ROUNDUP, ROUNDDOWN, SQRT, MOD, CEILING, FLOOR, INT
+- Text: CONCATENATE, CONCAT, LEFT, RIGHT, MID, LEN, UPPER, LOWER, TRIM
+- Date: TODAY, DATE, YEAR, MONTH, DAY
+- Logical: IF, AND, OR, NOT, IFERROR
+- Financial: PMT, FV, PV
+
+### Stats
+
+- Demo binary: ~2.5MB stripped
+- Enterprise binary: ~3.2MB stripped
+- Zero code duplication (single codebase, feature flags)
+
+---
+
 ## [5.14.0] - 2025-12-08
 
 ### Feature Flags - Demo/Enterprise Binary Split
