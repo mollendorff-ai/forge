@@ -74,8 +74,6 @@ This codebase: **1 person + AI. 15 days. 1,709 tests. 329 commits.**
 
 **2.75x Linus Torvalds' commit velocity.** That's the power of AI + token-efficient formats.
 
-See: [Development Velocity Analysis](docs/COMPETITIVE_ANALYSIS.md#development-velocity)
-
 Your analysts get the same multiplier. But only if they stop feeding Excel to AI.
 
 ## The Forge Solution
@@ -409,11 +407,9 @@ This means: If Gnumeric (battle-proven, millions of users) agrees with Forge, th
 | Document | Description |
 |----------|-------------|
 | [CHANGELOG](CHANGELOG.md) | Version history |
-| [Competitive Analysis](docs/COMPETITIVE_ANALYSIS.md) | Market positioning, pricing comparison |
-| [Hosting Architecture](docs/HOSTING_ARCHITECTURE.md) | Infrastructure and deployment |
-| [Architecture](docs/architecture/) | Technical design |
-| [ADR-011: Source Closure](docs/architecture/ADR-011-SOURCE-CODE-CLOSURE.md) | Business decision record |
-| [AI Economics](docs/AI_ECONOMICS.md) | Cost savings analysis |
+| [Architecture](docs/architecture/) | Technical design and ADRs |
+| [Examples](docs/EXAMPLES.md) | YAML model examples |
+| [Features](docs/FEATURES.md) | Feature reference |
 | [JSON Schema](schema/) | Model validation schema |
 
 ## Development

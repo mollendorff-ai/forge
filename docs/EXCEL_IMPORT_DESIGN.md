@@ -454,7 +454,7 @@ impl ReverseFormulaTranslator {
 
 ## Success Criteria
 
-✅ **Phase 4 Complete When:**
+**Phase 4 Complete When:**
 
 1. Import simple Excel file → YAML ✅
 2. Import file with formulas → YAML with correct formula syntax ✅

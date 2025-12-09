@@ -1,4 +1,4 @@
-# 📖 Forge Examples
+# Forge Examples
 
 Real-world usage examples and patterns.
 
@@ -29,7 +29,7 @@ pricing_table:
   product: ["Widget A", "Widget B", "Widget C"]
   base_price: [100, 150, 200]
   discount_rate: [0.10, 0.15, 0.20]
-  final_price: [90.0, 127.5, 160.0]  # ✅ Calculated!
+  final_price: [90.0, 127.5, 160.0]  # Calculated!
 ```
 
 ## Financial Models

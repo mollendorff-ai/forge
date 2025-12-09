@@ -679,8 +679,8 @@ graph TB
     Parse["Parse YAML structure"]
     CheckTables{"Has 'tables' key?"}
     ValidateSchema{"Valid v1.0.0 schema?"}
-    V1["✅ ForgeVersion::V1_0_0"]
-    V0["✅ ForgeVersion::V0_2_0<br/>Backwards compatible"]
+    V1["ForgeVersion::V1_0_0"]
+    V0["ForgeVersion::V0_2_0<br/>Backwards compatible"]
 
     Start --> Parse
     Parse --> CheckTables

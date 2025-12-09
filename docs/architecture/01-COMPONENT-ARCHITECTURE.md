@@ -210,7 +210,7 @@ pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()>
 
 ```mermaid
 graph TB
-    Start["🚀 forge calculate file.yaml"]
+    Start["forge calculate file.yaml"]
     ParseYAML["Parse YAML<br/>parser::parse_model()"]
     DetectVersion["Detect Version<br/>V0_2_0 or V1_0_0"]
 
@@ -223,7 +223,7 @@ graph TB
     CheckDryRun{"Dry Run?"}
     UpdateFiles["writer::update_all_yaml_files()<br/>Write results"]
     DisplayResults["Display results to user"]
-    Done["✅ Done"]
+    Done["Done"]
 
     Start --> ParseYAML
     ParseYAML --> DetectVersion
@@ -288,8 +288,8 @@ graph TB
     Start["Parse YAML File"]
     CheckTables{"Has 'tables' key?"}
     CheckV1Schema{"Valid v1.0.0 schema?"}
-    V1["✅ Version: V1_0_0"]
-    V0["✅ Version: V0_2_0<br/>Backwards Compatible"]
+    V1["Version: V1_0_0"]
+    V0["Version: V0_2_0<br/>Backwards Compatible"]
 
     Start --> CheckTables
     CheckTables -->|Yes| CheckV1Schema
@@ -746,7 +746,7 @@ graph TB
 
     Serialize["Serialize to YAML<br/>serde_yaml::to_string()"]
     WriteFile["Write updated file<br/>Overwrite original"]
-    Done["✅ Done"]
+    Done["Done"]
 
     Start --> ReadOriginal
     ReadOriginal --> ParseStructure
@@ -825,7 +825,7 @@ sequenceDiagram
         Exporter->>Exporter: Write worksheet
     end
     Exporter-->>Cmd: Success
-    Cmd->>User: ✅ Exported to output.xlsx
+    Cmd->>User: Exported to output.xlsx
 ```
 
 ### Version Detection - Component Interaction
