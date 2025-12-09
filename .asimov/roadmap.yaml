@@ -44,8 +44,8 @@ next:
     limitations:
       - issue: "String literals with letters parsed as column refs"
         example: "=LEN(\"Hello\") → 'Column Hello not found'"
-        workaround: "=LEN(\"12345\") works (numbers only)"
-        resolution: "Fix in v1.0.0 OR v5.0.0 only"
+        workaround: "=LEN(\"12345\") works (numbers/spaces only)"
+        resolution: "Fix in v1.0.0 (parser bug, not schema limitation)"
       - issue: "Aggregation functions fail schema validation (oneOf conflict)"
         example: "=SUM(10, 20, 30) → schema oneOf error"
         affects: "SUM, AVERAGE, MIN, MAX, COUNT with multiple literal args"
