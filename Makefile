@@ -23,38 +23,38 @@ endif
 ifeq ($(UNAME_S),Linux)
     PLATFORM := linux
     BUILD_TARGET := $(ARCH)-unknown-linux-musl
-    STATIC_BINARY := target/$(BUILD_TARGET)/release/forge
+    STATIC_BINARY := target/$(BUILD_TARGET)/release/forge-demo
     TARGET_FLAG := --target $(BUILD_TARGET)
     UPX_SUPPORTED := true
 else ifeq ($(UNAME_S),Darwin)
     PLATFORM := macos
     BUILD_TARGET := $(ARCH)-apple-darwin
-    STATIC_BINARY := target/release/forge
+    STATIC_BINARY := target/release/forge-demo
     TARGET_FLAG :=
     # UPX not supported on macOS - breaks code signing
     UPX_SUPPORTED := false
 else ifneq (,$(findstring MINGW,$(UNAME_S)))
     PLATFORM := windows
     BUILD_TARGET := x86_64-pc-windows-msvc
-    STATIC_BINARY := target/release/forge.exe
+    STATIC_BINARY := target/release/forge-demo.exe
     TARGET_FLAG :=
     UPX_SUPPORTED := true
 else ifneq (,$(findstring MSYS,$(UNAME_S)))
     PLATFORM := windows
     BUILD_TARGET := x86_64-pc-windows-msvc
-    STATIC_BINARY := target/release/forge.exe
+    STATIC_BINARY := target/release/forge-demo.exe
     TARGET_FLAG :=
     UPX_SUPPORTED := true
 else ifeq ($(OS),Windows_NT)
     PLATFORM := windows
     BUILD_TARGET := x86_64-pc-windows-msvc
-    STATIC_BINARY := target/release/forge.exe
+    STATIC_BINARY := target/release/forge-demo.exe
     TARGET_FLAG :=
     UPX_SUPPORTED := true
 else
     PLATFORM := unknown
     BUILD_TARGET :=
-    STATIC_BINARY := target/release/forge
+    STATIC_BINARY := target/release/forge-demo
     TARGET_FLAG :=
     UPX_SUPPORTED := false
 endif
@@ -74,6 +74,8 @@ help:
 	@echo ""
 	@echo "Build Targets:"
 	@echo "  make build              - Standard release build (with pre/post checks)"
+	@echo "  make build-demo         - Build forge-demo only (36 functions)"
+	@echo "  make build-enterprise   - Build forge + forge-server + forge-mcp (134 functions)"
 	@echo "  make build-static       - Static release build for current platform"
 	@echo "  make build-compressed   - Static + UPX compressed (Linux/Windows only)"
 	@echo "  make build-all          - Cross-compile for all platforms (requires cross-rs)"
@@ -152,9 +154,29 @@ post-build:
 build: pre-build
 	@echo "🔨 Building release binary..."
 	@cargo build --release
-	@echo "✅ Binary: target/release/forge"
-	@ls -lh target/release/forge
+	@echo "✅ Binary: target/release/forge-demo"
+	@ls -lh target/release/forge-demo
 	@$(MAKE) -s post-build
+
+# Build demo binary only (36 functions, no servers)
+build-demo:
+	@echo "🔨 Building forge-demo (36 functions)..."
+	@cargo build --release --bin forge-demo
+	@echo "✅ Binary: target/release/forge-demo"
+	@ls -lh target/release/forge-demo
+	@echo ""
+	@echo "📊 Function count:"
+	@./target/release/forge-demo functions 2>/dev/null | wc -l | xargs -I{} echo "   {} functions available"
+
+# Build enterprise binaries (134 functions + servers)
+build-enterprise:
+	@echo "🔨 Building enterprise binaries (134 functions)..."
+	@cargo build --release --features full
+	@echo "✅ Binaries:"
+	@ls -lh target/release/forge target/release/forge-server target/release/forge-mcp 2>/dev/null || true
+	@echo ""
+	@echo "📊 Function count:"
+	@./target/release/forge functions 2>/dev/null | wc -l | xargs -I{} echo "   {} functions available"
 
 build-static:
 	@echo "🔨 Building static release binary..."
@@ -205,9 +227,9 @@ else
 	@ls -lh $(STATIC_BINARY)
 endif
 
-# Cross-compile for all platforms (requires cross-rs: cargo install cross)
+# Cross-compile forge-demo for all platforms (requires cross-rs: cargo install cross)
 build-all:
-	@echo "🌍 Cross-compiling for all platforms..."
+	@echo "🌍 Cross-compiling forge-demo for all platforms..."
 	@echo ""
 ifndef HAS_CROSS
 	@echo "❌ cross-rs not found. Install with: cargo install cross"
@@ -217,15 +239,15 @@ endif
 	@mkdir -p dist
 	@for target in $(CROSS_TARGETS); do \
 		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
-		echo "🔨 Building for $$target..."; \
+		echo "🔨 Building forge-demo for $$target..."; \
 		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
-		cross build --release --target $$target || exit 1; \
+		cross build --release --bin forge-demo --target $$target || exit 1; \
 		if echo "$$target" | grep -q "windows"; then \
-			cp target/$$target/release/forge.exe dist/forge-$$target.exe; \
-			ls -lh dist/forge-$$target.exe; \
+			cp target/$$target/release/forge-demo.exe dist/forge-demo-$$target.exe; \
+			ls -lh dist/forge-demo-$$target.exe; \
 		else \
-			cp target/$$target/release/forge dist/forge-$$target; \
-			ls -lh dist/forge-$$target; \
+			cp target/$$target/release/forge-demo dist/forge-demo-$$target; \
+			ls -lh dist/forge-demo-$$target; \
 		fi; \
 		echo ""; \
 	done
@@ -233,34 +255,34 @@ endif
 	@ls -lh dist/
 
 install-system: clean build-compressed
-	@echo "📦 Installing forge to /usr/local/bin (system-wide)..."
+	@echo "📦 Installing forge-demo to /usr/local/bin (system-wide)..."
 ifeq ($(PLATFORM),windows)
 	@echo "❌ Use install-user on Windows or copy manually"
 	@exit 1
 else
-	@sudo install -m 755 $(STATIC_BINARY) /usr/local/bin/forge
-	@echo "✅ Installed to /usr/local/bin/forge"
-	@echo "🔍 Verify with: forge --version"
+	@sudo install -m 755 $(STATIC_BINARY) /usr/local/bin/forge-demo
+	@echo "✅ Installed to /usr/local/bin/forge-demo"
+	@echo "🔍 Verify with: forge-demo --version"
 endif
 
 install-user: clean build-compressed
-	@echo "📦 Installing forge to ~/.local/bin (user-only)..."
+	@echo "📦 Installing forge-demo to ~/.local/bin (user-only)..."
 	@mkdir -p ~/.local/bin
 ifeq ($(PLATFORM),windows)
-	@copy $(STATIC_BINARY) %USERPROFILE%\.local\bin\forge.exe
+	@copy $(STATIC_BINARY) %USERPROFILE%\.local\bin\forge-demo.exe
 else
-	@install -m 755 $(STATIC_BINARY) ~/.local/bin/forge
+	@install -m 755 $(STATIC_BINARY) ~/.local/bin/forge-demo
 endif
-	@echo "✅ Installed to ~/.local/bin/forge"
+	@echo "✅ Installed to ~/.local/bin/forge-demo"
 	@echo "💡 Make sure ~/.local/bin is in your PATH"
-	@echo "🔍 Verify with: forge --version"
+	@echo "🔍 Verify with: forge-demo --version"
 
 install: install-system
 
 uninstall:
-	@echo "🗑️  Uninstalling forge..."
-	@sudo rm -f /usr/local/bin/forge 2>/dev/null || true
-	@rm -f ~/.local/bin/forge 2>/dev/null || true
+	@echo "🗑️  Uninstalling forge-demo..."
+	@sudo rm -f /usr/local/bin/forge-demo 2>/dev/null || true
+	@rm -f ~/.local/bin/forge-demo 2>/dev/null || true
 	@echo "✅ Uninstalled from both /usr/local/bin and ~/.local/bin"
 
 lint:
@@ -450,19 +472,19 @@ docs-cli:
 	@mkdir -p docs/cli
 	@echo "# Forge CLI Reference" > docs/cli/README.md
 	@echo "" >> docs/cli/README.md
-	@echo "> Auto-generated from \`forge --help\`. Do not edit manually." >> docs/cli/README.md
+	@echo "> Auto-generated from \`forge-demo --help\`. Do not edit manually." >> docs/cli/README.md
 	@echo "" >> docs/cli/README.md
 	@echo "## Main Help" >> docs/cli/README.md
 	@echo "" >> docs/cli/README.md
 	@echo '```' >> docs/cli/README.md
-	@./target/release/forge --help >> docs/cli/README.md
+	@./target/release/forge-demo --help >> docs/cli/README.md
 	@echo '```' >> docs/cli/README.md
 	@echo "" >> docs/cli/README.md
 	@for cmd in calculate validate audit export import watch compare variance sensitivity goal-seek break-even update functions upgrade; do \
 		echo "## $$cmd" >> docs/cli/README.md; \
 		echo "" >> docs/cli/README.md; \
 		echo '```' >> docs/cli/README.md; \
-		./target/release/forge $$cmd --help >> docs/cli/README.md; \
+		./target/release/forge-demo $$cmd --help >> docs/cli/README.md; \
 		echo '```' >> docs/cli/README.md; \
 		echo "" >> docs/cli/README.md; \
 	done

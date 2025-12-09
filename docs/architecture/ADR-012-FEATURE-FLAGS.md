@@ -2,7 +2,7 @@
 
 **Status:** Implemented (v5.15.0)
 **Date:** 2025-12-08
-**Updated:** 2025-12-08 (Function-level gating + API/MCP gating complete)
+**Updated:** 2025-12-08 (Binary split complete: forge-demo vs forge)
 **Author:** Rex (CEO) + Claude Opus 4.5 (Principal Autonomous AI)
 **Type:** Architecture Decision Record (ADR)
 
@@ -21,7 +21,7 @@ Forge v5.14.0 achieved full function parity. The next step is creating a demo bi
 
 ## Decision
 
-**Rust Feature Flags with Function-Level Gating**
+**Rust Feature Flags with Function-Level Gating and Binary Split**
 
 ```toml
 # Cargo.toml
@@ -29,24 +29,46 @@ Forge v5.14.0 achieved full function parity. The next step is creating a demo bi
 default = []   # Demo build (minimal)
 full = []      # Enterprise build (everything)
 
+# Demo binary (36 functions)
+[[bin]]
+name = "forge-demo"
+path = "src/main.rs"
+
+# Enterprise binary (134 functions)
+[[bin]]
+name = "forge"
+path = "src/main.rs"
+required-features = ["full"]
+
+# Enterprise MCP server
 [[bin]]
 name = "forge-mcp"
-required-features = ["full"]  # Enterprise only
+required-features = ["full"]
 
+# Enterprise API server
 [[bin]]
 name = "forge-server"
-required-features = ["full"]  # Enterprise only
+required-features = ["full"]
 ```
 
 ### Build Commands
 
 ```bash
-# Demo binary (36 functions, single CLI)
-cargo build --release
+# Demo binary only (36 functions)
+cargo build --release --bin forge-demo
+# or use Makefile:
+make build-demo
 
-# Enterprise binary (134 functions + API + MCP)
+# Enterprise binaries (134 functions + API + MCP)
 cargo build --release --features full
+# or use Makefile:
+make build-enterprise
 ```
+
+### Distribution
+
+- **Demo**: Published to [royalbit.ca/forge](https://royalbit.ca/forge) for download
+- **Enterprise**: Licensed distribution only
 
 ## Implementation Summary
 

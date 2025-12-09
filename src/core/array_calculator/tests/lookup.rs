@@ -9,8 +9,6 @@ use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 #[test]
 fn test_match_exact() {
     let mut model = ParsedModel::new();
-
-    // Create products table
     let mut products = Table::new("products".to_string());
     products.add_column(Column::new(
         "product_id".to_string(),
@@ -26,8 +24,6 @@ fn test_match_exact() {
         ]),
     ));
     model.add_table(products);
-
-    // Create sales table with MATCH formulas
     let mut sales = Table::new("sales".to_string());
     sales.add_column(Column::new(
         "lookup_id".to_string(),
@@ -59,8 +55,6 @@ fn test_match_exact() {
 #[test]
 fn test_index_basic() {
     let mut model = ParsedModel::new();
-
-    // Create products table
     let mut products = Table::new("products".to_string());
     products.add_column(Column::new(
         "product_name".to_string(),
