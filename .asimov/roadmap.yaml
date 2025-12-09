@@ -77,6 +77,9 @@ next:
       │ Lookup      │ 3     │ INDEX, MATCH, CHOOSE                              │
       └─────────────┴───────┴───────────────────────────────────────────────────┘
 
+      forge-gh is in ../  (it's a gh repo)
+      the royalbit website with the forge page is in ~/src/sites/royalbit.ca (a git repo in gitolite)
+
     deliverables:
       # ── PHASE 1: Binary Split (forge) ───────────────────────────────────────
       - task: "Rename default binary from 'forge' to 'forge-demo'"
