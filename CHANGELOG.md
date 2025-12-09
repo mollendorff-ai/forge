@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.18.0] - 2025-12-09
+
+### Documentation Polish - Enterprise Due Diligence Ready
+
+All documentation cleaned up and professionalized for enterprise due diligence review.
+
+### Removed
+
+- **Internal/Sensitive Docs**
+  - `docs/FOR_KANTIA.md` - Personal letter with ownership details
+  - `docs/AI_ECONOMICS.md` - Internal marketing material
+  - `docs/COMPETITIVE_ANALYSIS.md` - Internal pricing strategy
+  - `docs/DEVELOPMENT.md` - Internal dev guidelines
+  - `docs/HOSTING_ARCHITECTURE.md` - Internal infrastructure docs
+  - `docs/architecture/ADR-011-SOURCE-CODE-CLOSURE.md` - Business strategy
+  - `docs/GLOSSARY.md`, `MERMAID_GUIDE.md`, `RUST_PATTERNS.md` - Internal style guides
+
+- **Verbose Architecture Docs** (replaced with ADRs)
+  - `docs/architecture/06-CLI-ARCHITECTURE.md` (1850 lines)
+  - `docs/architecture/07-TESTING-ARCHITECTURE.md` (1622 lines)
+  - `docs/architecture/DESIGN_V1.md` (879 lines)
+
+### Changed
+
+- Removed emojis from all remaining documentation
+- Updated README to remove broken links
+- Simplified `docs/architecture/README.md`
+- Total reduction: ~7,800 lines of internal docs removed
+
+---
+
 ## [5.17.0] - 2025-12-09
 
 ### Function Registry (ADR-013) + E2E Test Coverage

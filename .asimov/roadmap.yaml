@@ -23,41 +23,19 @@ completed:
       functions_enterprise: 159
     note: "Repo renamed: royalbit/forge → royalbit/forge-demo"
 
+  - version: "5.18.0"
+    date: "2025-12-09"
+    summary: "Documentation Polish - Enterprise Due Diligence Ready"
+    removed:
+      - "12 internal/sensitive docs"
+      - "3 verbose architecture docs (>500 lines)"
+    note: "All docs now professional, no emojis, suitable for enterprise due diligence"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "5.18.0"
-    summary: "Documentation Polish - Enterprise Due Diligence Ready"
-    priority: HIGH
-    status: pending
-    notes: |
-      Goal: All docs professional and polished for enterprise due diligence.
-      Remove internal/sensitive docs, trim verbose files, ensure consistency.
-
-    deliverables:
-      - task: "Remove internal/sensitive docs"
-        files:
-          - "docs/FOR_KANTIA.md (personal letter, ownership %)"
-          - "docs/AI_ECONOMICS.md (marketing, emojis)"
-          - "docs/COMPETITIVE_ANALYSIS.md (pricing strategy)"
-          - "docs/DEVELOPMENT.md (internal dev guidelines)"
-          - "docs/HOSTING_ARCHITECTURE.md (internal infra)"
-          - "docs/architecture/ADR-011-SOURCE-CODE-CLOSURE.md (business strategy)"
-
-      - task: "Trim verbose architecture docs (>500 lines)"
-        files:
-          - "docs/architecture/06-CLI-ARCHITECTURE.md (1850 lines)"
-          - "docs/architecture/07-TESTING-ARCHITECTURE.md (1622 lines)"
-          - "docs/architecture/DESIGN_V1.md (879 lines)"
-
-      - task: "Review and polish GLOSSARY.md (16KB - trim or remove)"
-
-      - task: "Ensure all remaining docs are professional (no emojis, no casual tone)"
-
-      - task: "Verify README links don't point to removed docs"
-
   - version: "5.19.0"
     summary: "100% Coverage - Dead Code Removal"
     priority: NORMAL
