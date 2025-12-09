@@ -13,22 +13,22 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 metadata:
-  current_version: "5.15.0"
-  last_updated: "2025-12-08"
+  current_version: "5.17.0"
+  last_updated: "2025-12-09"
   philosophy: "Zero tokens. Zero emissions. $40K-$132K/year saved."
 
 current:
-  version: "5.16.0"
+  version: "5.17.0"
   status: complete
   date: "2025-12-09"
-  summary: "GitHub Fresh Start + Public Release"
+  summary: "Function Registry + 100% E2E Validation"
   stats:
-    tests: 1753
+    tests: 1747
     warnings: 0
     functions_demo: 36
-    functions_enterprise: 134
+    functions_enterprise: 159
     coverage: "~90%"
-  note: "Public GitHub release complete. All 5 platforms on GitHub Releases."
+  note: "Function registry created (ADR-013), E2E tests complete for all 36 demo functions"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT MILESTONES
@@ -302,43 +302,64 @@ next:
         status: pending
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # 5.17.0: Function Registry - Single Source of Truth
+  # 5.17.0: Function Registry + 100% E2E Validation
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "5.17.0"
-    summary: "Function Registry - Single Source of Truth"
-    priority: NORMAL
-    status: pending
+    summary: "Function Registry + 100% E2E Validation"
+    priority: CRITICAL
+    status: complete
     adr: "ADR-013-FUNCTION-REGISTRY.md"
     notes: |
       ┌─────────────────────────────────────────────────────────────────────────┐
-      │ PROBLEM                                                                 │
+      │ TWO PROBLEMS TO FIX                                                     │
       ├─────────────────────────────────────────────────────────────────────────┤
-      │ Function definitions scattered across:                                  │
-      │ - evaluator/*.rs (implementation)                                       │
-      │ - cli/commands/functions.rs (hardcoded list)                            │
-      │ - README.md, FUNCTIONS.md (docs)                                        │
       │                                                                         │
-      │ Result: Counts drift, docs outdated, missing functions in output        │
+      │ 1. FUNCTION REGISTRY (counts drift, docs outdated)                      │
+      │    - Single source of truth: src/functions/registry.rs                  │
+      │    - Auto-generate docs from registry                                   │
       │                                                                         │
-      ├─────────────────────────────────────────────────────────────────────────┤
-      │ SOLUTION                                                                │
-      ├─────────────────────────────────────────────────────────────────────────┤
-      │ Single source of truth: src/functions/registry.rs                       │
+      │ 2. E2E VALIDATION (only 18/36 demo functions tested)                    │
+      │    - Install Gnumeric/LibreOffice via brew                              │
+      │    - Add E2E tests for ALL 36 demo functions                            │
+      │    - Validate against spreadsheet apps                                  │
+      │    - E2E must pass for forge-demo AND forge (enterprise)                │
       │                                                                         │
-      │ - FunctionDef struct with name, category, description, syntax, demo     │
-      │ - Static FUNCTIONS array with all 158 functions                         │
-      │ - `forge functions` reads from registry                                 │
-      │ - Build script generates FUNCTIONS.md                                   │
-      │ - Evaluator validates against registry                                  │
-      │ - Count is always FUNCTIONS.len()                                       │
+      │ Missing E2E tests:                                                      │
+      │ - ROUNDUP, ROUNDDOWN, COUNT, AND, OR, NOT                               │
+      │ - CONCAT, LEFT, RIGHT, MID, UPPER, LOWER, TRIM                          │
+      │ - TODAY, DATE, DATEDIF, INDEX, MATCH                                    │
       │                                                                         │
       └─────────────────────────────────────────────────────────────────────────┘
 
     deliverables:
-      - task: "Write ADR-013-FUNCTION-REGISTRY.md"
+      # ── PHASE 1: E2E Test Infrastructure ───────────────────────────────────
+      - task: "Install Gnumeric/LibreOffice via brew"
         status: pending
 
+      - task: "Create E2E validation script against spreadsheets"
+        status: pending
+
+      # ── PHASE 2: Complete E2E Tests (36 demo functions) ────────────────────
+      - task: "Add E2E tests for missing Math: ROUNDUP, ROUNDDOWN"
+        status: pending
+
+      - task: "Add E2E tests for missing Aggregation: COUNT"
+        status: pending
+
+      - task: "Add E2E tests for missing Logical: AND, OR, NOT"
+        status: pending
+
+      - task: "Add E2E tests for missing Text: CONCAT, LEFT, RIGHT, MID, UPPER, LOWER, TRIM"
+        status: pending
+
+      - task: "Add E2E tests for missing Date: TODAY, DATE, DATEDIF"
+        status: pending
+
+      - task: "Add E2E tests for missing Lookup: INDEX, MATCH"
+        status: pending
+
+      # ── PHASE 3: Function Registry ─────────────────────────────────────────
       - task: "Create src/functions/registry.rs with FunctionDef struct"
         status: pending
 
@@ -348,13 +369,20 @@ next:
       - task: "Refactor cli/commands/functions.rs to use registry"
         status: pending
 
-      - task: "Add build script to generate FUNCTIONS.md"
+      # ── PHASE 4: Validation & Release ──────────────────────────────────────
+      - task: "Run E2E tests for forge-demo (36 functions)"
         status: pending
 
-      - task: "Update forge-gh docs from generated output"
+      - task: "Run E2E tests for forge (158 functions)"
         status: pending
 
-      - task: "Add CI check: registry count matches evaluator"
+      - task: "Update forge-gh README and docs"
+        status: pending
+
+      - task: "Update royalbit.ca website stats"
+        status: pending
+
+      - task: "Release v5.17.0"
         status: pending
 
   # ─────────────────────────────────────────────────────────────────────────────

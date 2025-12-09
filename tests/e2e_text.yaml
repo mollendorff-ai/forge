@@ -1,0 +1,48 @@
+# E2E Text Function Validation (Demo Functions Only)
+# Tests text functions using LEN() to get numeric results
+# Validated against Gnumeric and LibreOffice Calc
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # CONCAT - test length of concatenated string
+  test_concat_len:
+    value: null
+    formula: '=LEN(CONCAT("Hello", " ", "World"))'   # Expected: 11 ("Hello World")
+
+  # UPPER / LOWER - test length (should be same)
+  test_upper_len:
+    value: null
+    formula: '=LEN(UPPER("hello world"))'           # Expected: 11
+  test_lower_len:
+    value: null
+    formula: '=LEN(LOWER("HELLO WORLD"))'           # Expected: 11
+
+  # TRIM - test length after trimming
+  test_trim_len:
+    value: null
+    formula: '=LEN(TRIM("  hello   world  "))'      # Expected: 11 (trimmed to "hello world")
+
+  # LEN - direct tests
+  test_len:
+    value: null
+    formula: '=LEN("Hello")'                        # Expected: 5
+  test_len_spaces:
+    value: null
+    formula: '=LEN("Hello World")'                  # Expected: 11
+
+  # LEFT / RIGHT - test length
+  test_left_len:
+    value: null
+    formula: '=LEN(LEFT("Hello World", 5))'         # Expected: 5 ("Hello")
+  test_right_len:
+    value: null
+    formula: '=LEN(RIGHT("Hello World", 5))'        # Expected: 5 ("World")
+
+  # MID - test length
+  test_mid_len:
+    value: null
+    formula: '=LEN(MID("Hello World", 7, 5))'       # Expected: 5 ("World")
+  test_mid_short_len:
+    value: null
+    formula: '=LEN(MID("Hello", 2, 3))'             # Expected: 3 ("ell")
