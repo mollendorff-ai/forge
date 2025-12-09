@@ -1420,3 +1420,365 @@ fn e2e_libreoffice_comprehensive_validation() {
         "Some formulas failed validation against LibreOffice"
     );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 4: ROUNDTRIP TESTS (v6.0.0)
+// YAML → XLSX → Gnumeric recalculate → CSV → Verify values
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn e2e_roundtrip_math_functions() {
+    let harness = match E2ETestHarness::new() {
+        Some(h) => h,
+        None => {
+            eprintln!("⚠️  Spreadsheet engine not available, skipping roundtrip test");
+            return;
+        }
+    };
+
+    // Test math functions survive roundtrip: YAML → XLSX → Gnumeric → CSV
+    let yaml_content = r#"_forge_version: "1.0.0"
+math_tests:
+  idx: [1, 2, 3, 4, 5]
+  test_abs: "=ABS(-42)"
+  test_sqrt: "=SQRT(144)"
+  test_power: "=POWER(2, 10)"
+  test_mod: "=MOD(17, 5)"
+  test_round: "=ROUND(3.14159, 2)"
+"#;
+
+    let yaml_path = harness.temp_dir.path().join("roundtrip_math.yaml");
+    let xlsx_path = harness.temp_dir.path().join("roundtrip_math.xlsx");
+
+    fs::write(&yaml_path, yaml_content).expect("Failed to write YAML");
+
+    // Export using Forge
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_path)
+        .arg(&xlsx_path)
+        .output()
+        .expect("Failed to run forge export");
+
+    assert!(
+        output.status.success(),
+        "Forge export failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // Convert to CSV using Gnumeric (recalculates formulas)
+    let csv_path = harness
+        .engine
+        .xlsx_to_csv(&xlsx_path, harness.temp_dir.path())
+        .expect("Failed to convert to CSV");
+
+    let csv_data = parse_csv(&csv_path);
+
+    // Verify expected values exist in CSV
+    let mut found_42 = false;
+    let mut found_12 = false;
+    let mut found_1024 = false;
+
+    for row in &csv_data {
+        for cell in row {
+            if let Some(value) = parse_number(cell) {
+                if approx_eq(value, 42.0, 0.001) {
+                    found_42 = true;
+                }
+                if approx_eq(value, 12.0, 0.001) {
+                    found_12 = true;
+                }
+                if approx_eq(value, 1024.0, 0.001) {
+                    found_1024 = true;
+                }
+            }
+        }
+    }
+
+    assert!(found_42, "ABS(-42)=42 not found in roundtrip CSV");
+    assert!(found_12, "SQRT(144)=12 not found in roundtrip CSV");
+    assert!(found_1024, "POWER(2,10)=1024 not found in roundtrip CSV");
+
+    println!("✅ Math functions roundtrip test passed");
+}
+
+#[test]
+fn e2e_roundtrip_financial_functions() {
+    let harness = match E2ETestHarness::new() {
+        Some(h) => h,
+        None => {
+            eprintln!("⚠️  Spreadsheet engine not available, skipping roundtrip test");
+            return;
+        }
+    };
+
+    // Test financial functions survive roundtrip
+    let yaml_content = r#"_forge_version: "1.0.0"
+finance_tests:
+  idx: [1]
+  test_pmt: "=PMT(0.05/12, 60, 10000)"
+  test_fv: "=FV(0.05/12, 120, -100, 0)"
+  test_npv: "=NPV(0.1, 3000, 4200, 6800)"
+  test_sln: "=SLN(30000, 7500, 10)"
+"#;
+
+    let yaml_path = harness.temp_dir.path().join("roundtrip_finance.yaml");
+    let xlsx_path = harness.temp_dir.path().join("roundtrip_finance.xlsx");
+
+    fs::write(&yaml_path, yaml_content).expect("Failed to write YAML");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_path)
+        .arg(&xlsx_path)
+        .output()
+        .expect("Failed to run forge export");
+
+    assert!(
+        output.status.success(),
+        "Forge export failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let csv_path = harness
+        .engine
+        .xlsx_to_csv(&xlsx_path, harness.temp_dir.path())
+        .expect("Failed to convert to CSV");
+
+    let csv_data = parse_csv(&csv_path);
+
+    // Verify SLN result: SLN(30000, 7500, 10) = 2250
+    let mut found_sln = false;
+    for row in &csv_data {
+        for cell in row {
+            if let Some(value) = parse_number(cell) {
+                if approx_eq(value, 2250.0, 1.0) {
+                    found_sln = true;
+                }
+            }
+        }
+    }
+
+    assert!(found_sln, "SLN(30000,7500,10)=2250 not found in roundtrip CSV");
+    println!("✅ Financial functions roundtrip test passed");
+}
+
+#[test]
+fn e2e_roundtrip_table_formulas() {
+    let harness = match E2ETestHarness::new() {
+        Some(h) => h,
+        None => {
+            eprintln!("⚠️  Spreadsheet engine not available, skipping roundtrip test");
+            return;
+        }
+    };
+
+    // Test table with row formulas survive roundtrip
+    let yaml_content = r#"_forge_version: "1.0.0"
+sales:
+  month: ["Jan", "Feb", "Mar"]
+  revenue: [10000, 12000, 15000]
+  costs: [6000, 7000, 8000]
+  profit: "=revenue - costs"
+  margin: "=(revenue - costs) / revenue"
+"#;
+
+    let yaml_path = harness.temp_dir.path().join("roundtrip_table.yaml");
+    let xlsx_path = harness.temp_dir.path().join("roundtrip_table.xlsx");
+
+    fs::write(&yaml_path, yaml_content).expect("Failed to write YAML");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_path)
+        .arg(&xlsx_path)
+        .output()
+        .expect("Failed to run forge export");
+
+    assert!(
+        output.status.success(),
+        "Forge export failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let csv_path = harness
+        .engine
+        .xlsx_to_csv(&xlsx_path, harness.temp_dir.path())
+        .expect("Failed to convert to CSV");
+
+    let csv_data = parse_csv(&csv_path);
+
+    // Verify profit values: 4000, 5000, 7000
+    let mut found_4000 = false;
+    let mut found_5000 = false;
+    let mut found_7000 = false;
+
+    for row in &csv_data {
+        for cell in row {
+            if let Some(value) = parse_number(cell) {
+                if approx_eq(value, 4000.0, 1.0) {
+                    found_4000 = true;
+                }
+                if approx_eq(value, 5000.0, 1.0) {
+                    found_5000 = true;
+                }
+                if approx_eq(value, 7000.0, 1.0) {
+                    found_7000 = true;
+                }
+            }
+        }
+    }
+
+    assert!(found_4000, "Profit 4000 not found in roundtrip CSV");
+    assert!(found_5000, "Profit 5000 not found in roundtrip CSV");
+    assert!(found_7000, "Profit 7000 not found in roundtrip CSV");
+
+    println!("✅ Table formulas roundtrip test passed");
+}
+
+#[test]
+fn e2e_roundtrip_conditional_functions() {
+    let harness = match E2ETestHarness::new() {
+        Some(h) => h,
+        None => {
+            eprintln!("⚠️  Spreadsheet engine not available, skipping roundtrip test");
+            return;
+        }
+    };
+
+    // Test conditional functions survive roundtrip
+    let yaml_content = r#"_forge_version: "1.0.0"
+logic_tests:
+  idx: [1]
+  test_if_true: "=IF(10>5, 100, 0)"
+  test_if_false: "=IF(5>10, 100, 0)"
+  test_and: "=IF(AND(1>0, 2>1), 1, 0)"
+  test_or: "=IF(OR(1<0, 2>1), 1, 0)"
+  test_iferror: "=IFERROR(1/0, -1)"
+"#;
+
+    let yaml_path = harness.temp_dir.path().join("roundtrip_logic.yaml");
+    let xlsx_path = harness.temp_dir.path().join("roundtrip_logic.xlsx");
+
+    fs::write(&yaml_path, yaml_content).expect("Failed to write YAML");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_path)
+        .arg(&xlsx_path)
+        .output()
+        .expect("Failed to run forge export");
+
+    assert!(
+        output.status.success(),
+        "Forge export failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let csv_path = harness
+        .engine
+        .xlsx_to_csv(&xlsx_path, harness.temp_dir.path())
+        .expect("Failed to convert to CSV");
+
+    let csv_data = parse_csv(&csv_path);
+
+    // Verify IF(10>5, 100, 0) = 100
+    let mut found_100 = false;
+    let mut found_minus1 = false;
+
+    for row in &csv_data {
+        for cell in row {
+            if let Some(value) = parse_number(cell) {
+                if approx_eq(value, 100.0, 0.001) {
+                    found_100 = true;
+                }
+                if approx_eq(value, -1.0, 0.001) {
+                    found_minus1 = true;
+                }
+            }
+        }
+    }
+
+    assert!(found_100, "IF(10>5,100,0)=100 not found in roundtrip CSV");
+    assert!(found_minus1, "IFERROR(1/0,-1)=-1 not found in roundtrip CSV");
+
+    println!("✅ Conditional functions roundtrip test passed");
+}
+
+#[test]
+fn e2e_roundtrip_date_functions() {
+    let harness = match E2ETestHarness::new() {
+        Some(h) => h,
+        None => {
+            eprintln!("⚠️  Spreadsheet engine not available, skipping roundtrip test");
+            return;
+        }
+    };
+
+    // Test date functions survive roundtrip
+    let yaml_content = r#"_forge_version: "1.0.0"
+date_tests:
+  idx: [1]
+  test_year: "=YEAR(DATE(2025, 6, 15))"
+  test_month: "=MONTH(DATE(2025, 6, 15))"
+  test_day: "=DAY(DATE(2025, 6, 15))"
+  test_days_diff: "=DATE(2025, 12, 31) - DATE(2025, 1, 1)"
+"#;
+
+    let yaml_path = harness.temp_dir.path().join("roundtrip_date.yaml");
+    let xlsx_path = harness.temp_dir.path().join("roundtrip_date.xlsx");
+
+    fs::write(&yaml_path, yaml_content).expect("Failed to write YAML");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_path)
+        .arg(&xlsx_path)
+        .output()
+        .expect("Failed to run forge export");
+
+    assert!(
+        output.status.success(),
+        "Forge export failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let csv_path = harness
+        .engine
+        .xlsx_to_csv(&xlsx_path, harness.temp_dir.path())
+        .expect("Failed to convert to CSV");
+
+    let csv_data = parse_csv(&csv_path);
+
+    // Verify YEAR=2025, MONTH=6, DAY=15, diff=364
+    let mut found_2025 = false;
+    let mut found_6 = false;
+    let mut found_15 = false;
+    let mut found_364 = false;
+
+    for row in &csv_data {
+        for cell in row {
+            if let Some(value) = parse_number(cell) {
+                if approx_eq(value, 2025.0, 0.001) {
+                    found_2025 = true;
+                }
+                if approx_eq(value, 6.0, 0.001) {
+                    found_6 = true;
+                }
+                if approx_eq(value, 15.0, 0.001) {
+                    found_15 = true;
+                }
+                if approx_eq(value, 364.0, 1.0) {
+                    found_364 = true;
+                }
+            }
+        }
+    }
+
+    assert!(found_2025, "YEAR=2025 not found in roundtrip CSV");
+    assert!(found_6, "MONTH=6 not found in roundtrip CSV");
+    assert!(found_15, "DAY=15 not found in roundtrip CSV");
+    assert!(found_364, "Days diff=364 not found in roundtrip CSV");
+
+    println!("✅ Date functions roundtrip test passed");
+}
