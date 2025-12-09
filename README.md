@@ -1,7 +1,7 @@
 # Forge
 
 [![Tests](https://img.shields.io/badge/tests-1753_passing-brightgreen)](https://github.com/royalbit/forge)
-[![Functions](https://img.shields.io/badge/functions-149-blue)](https://github.com/royalbit/forge)
+[![Functions](https://img.shields.io/badge/functions-159-blue)](https://github.com/royalbit/forge)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
 **Financial modeling for the AI era. Git-native. Excel import/export. FP&A functions Excel forgot.**
@@ -81,8 +81,8 @@ Your analysts get the same multiplier. But only if they stop feeding Excel to AI
 | Feature | Business Value |
 |---------|----------------|
 | **YAML-based models** | Git-native, diff-friendly, PR-reviewable |
-| **149 Excel functions** | NPV, IRR, XIRR, PMT, VLOOKUP, SUMIF - all the finance essentials |
-| **6 FP&A-native functions** | VARIANCE, BREAKEVEN - what Excel should have had |
+| **153 Excel functions** | NPV, IRR, XIRR, PMT, VLOOKUP, SUMIF - all the finance essentials |
+| **6 FP&A functions (not in Excel)** | VARIANCE, BREAKEVEN - what Excel should have had |
 | **Deterministic execution** | Same input = same output, every time |
 | **Excel export** | Your CFO still gets `.xlsx` with working formulas |
 | **Audit command** | Instant dependency trace for any variable |
@@ -143,17 +143,17 @@ forge export model.yaml output.xlsx
 Forge uses Rust feature flags to create demo and enterprise builds:
 
 ```bash
-# Demo build (~80 functions, no API server)
+# Demo build (36 functions, no API server)
 cargo build --release
 
-# Enterprise build (149 functions, API server, all features)
+# Enterprise build (159 functions, API server, all features)
 cargo build --release --features full
 ```
 
 | Build | Functions | API Server | Use Case |
 |-------|-----------|------------|----------|
-| Demo | ~80 | No | Evaluation, basic models |
-| Enterprise | 149 | Yes | Production, full FP&A |
+| Demo | 36 | No | Evaluation, basic models |
+| Enterprise | 159 | Yes | Production, full FP&A |
 
 ## Example: 5-Year DCF Model
 
@@ -280,10 +280,10 @@ forge export model.yaml output.xlsx    # YAML -> Excel with formulas
 forge import input.xlsx output.yaml    # Excel -> YAML
 
 # Reference
-forge functions                        # List all 81 functions
+forge functions                        # List all 159 functions
 ```
 
-## 81 Supported Functions
+## 159 Functions (153 Excel + 6 FP&A)
 
 | Category | Count | Functions |
 |----------|-------|-----------|
@@ -295,7 +295,7 @@ forge functions                        # List all 81 functions
 | **Lookup** | 6 | MATCH, INDEX, VLOOKUP, XLOOKUP, CHOOSE, OFFSET |
 | **Statistical** | 6 | MEDIAN, VAR, STDEV, PERCENTILE, QUARTILE, CORREL |
 | **Text** | 6 | CONCAT, TRIM, UPPER, LOWER, LEN, MID |
-| **Forge-Native** | 6 | SCENARIO, VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, BREAKEVEN_UNITS, BREAKEVEN_REVENUE |
+| **Forge-Native (not in Excel)** | 6 | SCENARIO, VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, BREAKEVEN_UNITS, BREAKEVEN_REVENUE |
 | **Aggregation** | 5 | SUM, AVERAGE, MIN, MAX, COUNT |
 | **Array** | 4 | UNIQUE, COUNTUNIQUE, FILTER, SORT |
 
@@ -365,7 +365,7 @@ Integrate with Claude Desktop and other AI tools via Model Context Protocol.
 | Metric | Value |
 |--------|-------|
 | **Tests** | 1709 passing |
-| **Functions** | 81 in evaluator |
+| **Functions** | 159 (153 Excel + 6 FP&A) |
 | **E2E Validated** | 44 formulas against Gnumeric |
 | **Warnings** | 0 |
 | **Coverage** | 89.23% |
