@@ -49,164 +49,37 @@ completed:
       example: "=LEN(\"Hello\") → 'Column Hello not found'"
       solution: "strip_string_literals() helper in 3 reference extraction functions"
 
+  - version: "6.0.0"
+    date: "2025-12-09"
+    summary: "Comprehensive Function Testing & Validation"
+    stats:
+      unit_tests: 1175
+      e2e_tests: 38
+      functions_demo: 47
+      functions_enterprise: 159
+      scalar_functions: 135
+      array_only_functions: 24
+    phases_completed:
+      - "Phase 1: Function audit and scalar classification"
+      - "Phase 2: Unit test coverage expansion"
+      - "Phase 3: E2E Gnumeric validation suite"
+      - "Phase 4: Import/export roundtrip tests"
+      - "Phase 5: No bugs discovered"
+      - "Phase 6: Release"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "6.0.0"
-    summary: "Comprehensive Function Testing & Validation"
-    priority: CRITICAL
-    status: pending
-    note: "MAJOR version - ensure ALL 159 functions are properly tested and validated"
-
-    phases:
-      phase_1_audit:
-        name: "Function Audit & Categorization"
-        status: COMPLETED
-        tasks:
-          - "Extract ALL 159 functions from registry"
-          - "Add 'scalar: bool' flag to FunctionDef struct in registry.rs"
-          - "Classify each function: scalar=true (v1.0.0 compatible) vs scalar=false (v5.0.0 array only)"
-          - "Verify ALL demo functions are scalar=true (demo must work with v1.0.0)"
-          - "Scalar-compatible functions work WITHOUT tables/arrays"
-          - "Array-only functions (UNIQUE, FILTER, SORT, SEQUENCE, RANDARRAY) marked scalar=false"
-        docs:
-          - "Create ADR-014: Function Scalar/Array Classification"
-          - "Update README.md function counts and categories"
-          - "Update docs/FUNCTIONS.md with scalar/array markers"
-        output: "Function registry with scalar flag for all 159 functions"
-        commit: "docs(v6.0.0-phase1): Function audit and classification"
-        result:
-          scalar_functions: 135
-          array_only_functions: 24
-          demo_functions: 47
-          demo_changes: "INDEX, MATCH removed (require array context)"
-          new_tests: 4
-          adr: "ADR-014-FUNCTION-SCALAR-CLASSIFICATION.md"
-
-      phase_2_unit_tests:
-        name: "Unit Test Coverage"
-        status: COMPLETED
-        tasks:
-          - "Generate per-function test coverage report"
-          - "Ensure 5+ unit tests per function (basic, zero, negative, large, error)"
-          - "Add missing tests for functions with < 3 tests"
-        docs:
-          - "Update docs/TESTING.md with per-function coverage"
-          - "Create ADR-015: Unit Test Standards (5+ tests per function)"
-        output: "100% function unit test coverage"
-        commit: "test(v6.0.0-phase2): Unit test coverage expansion"
-        result:
-          new_tests_added: 28
-          text_function_tests: 15
-          logical_function_tests: 13
-          total_tests: 751
-          functions_covered: "UPPER, LOWER, LEN, MID, RIGHT, SUBSTITUTE, AND, OR, NOT"
-
-      phase_3_e2e_gnumeric:
-        name: "E2E Gnumeric/LibreOffice Validation"
-        status: COMPLETED
-        current_coverage: "38 tests, 12 YAML files, ~100 function test cases"
-        target_coverage: "ALL 159 functions"
-        prerequisites:
-          - "Install gnumeric via brew if not available: brew install gnumeric"
-          - "Fallback: brew install --cask libreoffice"
-        builds_to_test:
-          - "Demo build (49 functions) - validates sales/demo release"
-          - "Enterprise build (159 functions) - validates full product"
-          - "BOTH must pass - demo is a sales tool"
-        tasks:
-          - "Create E2E YAML test files for all function categories"
-          - "Scalar functions: test with v1.0.0 schema (no tables)"
-          - "Array functions: test with v5.0.0 schema (with tables)"
-          - "Test numeric edge cases: zero, negative, large, small, infinity"
-          - "Test string edge cases: empty, quoted literals, special chars"
-          - "Test date edge cases: invalid, leap years, negative days"
-          - "Test type coercion: bool to number, text to number"
-          - "Test error propagation: DIV/0, IFERROR, ISNA"
-        forge_native_validation:
-          functions: ["VARIANCE", "VARIANCE_PCT", "VARIANCE_STATUS", "BREAKEVEN_UNITS", "BREAKEVEN_REVENUE", "SCENARIO"]
-          note: "Excel/Gnumeric don't have these - validate against manual calculations"
-          action: "Document as 'Forge-only, manual validation' + add backlog for FOSS tool"
-        test_files:
-          - "tests/e2e/math_comprehensive.yaml"
-          - "tests/e2e/trig_comprehensive.yaml"
-          - "tests/e2e/aggregation_comprehensive.yaml"
-          - "tests/e2e/logical_comprehensive.yaml"
-          - "tests/e2e/text_comprehensive.yaml"
-          - "tests/e2e/date_comprehensive.yaml"
-          - "tests/e2e/lookup_comprehensive.yaml"
-          - "tests/e2e/financial_comprehensive.yaml"
-          - "tests/e2e/statistical_comprehensive.yaml"
-          - "tests/e2e/information_comprehensive.yaml"
-          - "tests/e2e/conditional_comprehensive.yaml"
-          - "tests/e2e/array_comprehensive.yaml (v5.0.0 schema)"
-          - "tests/e2e/advanced_comprehensive.yaml (v5.0.0 schema)"
-          - "tests/e2e/forge_native_comprehensive.yaml (manual validation)"
-          - "tests/e2e/edge_cases.yaml"
-        docs:
-          - "Update ADR-007: E2E Gnumeric Validation (add coverage stats)"
-          - "Update README.md E2E validation section"
-          - "Create docs/E2E-TEST-COVERAGE.md with per-function matrix"
-        commit: "test(v6.0.0-phase3): E2E Gnumeric validation - 100% coverage"
-
-      phase_4_roundtrip:
-        name: "Import/Export Roundtrip Tests"
-        status: COMPLETED
-        result:
-          new_tests: 5
-          categories: ["math", "financial", "table_formulas", "conditional", "date"]
-          validation: "YAML → XLSX → Gnumeric recalc → CSV → value comparison"
-        tasks:
-          - "Test YAML -> Excel -> YAML roundtrip"
-          - "Verify formula translation (Forge -> A1 notation)"
-          - "Verify date format preservation"
-          - "Verify special character handling"
-        docs:
-          - "Update docs/IMPORT-EXPORT.md with roundtrip guarantees"
-          - "Create ADR-016: Import/Export Roundtrip Specification"
-        commit: "test(v6.0.0-phase4): Import/export roundtrip validation"
-
-      phase_5_fix_bugs:
-        name: "Fix Discovered Bugs"
-        status: COMPLETED
-        priority: CRITICAL
-        note: "No bugs discovered - all tests pass"
-        result:
-          bugs_found: 0
-          total_tests: "1175+ unit + 38 E2E"
-          clippy_warnings: 0
-        docs:
-          - "Document each bug fix in CHANGELOG.md"
-          - "Update relevant ADRs if architectural changes needed"
-        commit: "N/A - no bugs found"
-
-      phase_6_release:
-        name: "Release v6.0.0"
-        tasks:
-          - "Update Cargo.toml version to 6.0.0"
-          - "Update CHANGELOG.md with full release notes"
-          - "Final README.md review and update"
-          - "Tag release"
-        docs:
-          - "Update README.md badges and stats"
-          - "Final docs/ review for accuracy"
-        commit: "release: v6.0.0 - Comprehensive Function Testing & Validation"
-
-    success_criteria:
-      - "100% function E2E coverage (all 159 functions)"
-      - "Zero Gnumeric/LibreOffice mismatches"
-      - "At least 3 edge cases per function"
-      - "No v1.0.0 schema bugs (scalar functions work without tables)"
-      - "Import/export roundtrip passes for all test files"
-
-    estimated_hours: 28
-
   - version: "6.1.0"
     summary: "100% Coverage - Dead Code Removal"
     priority: NORMAL
     status: pending
+    tasks:
+      - "Generate code coverage report"
+      - "Remove dead/unused code"
+      - "Achieve 100% line coverage on critical paths"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG
