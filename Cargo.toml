@@ -17,19 +17,30 @@ exclude = [
     ".git*",
 ]
 
+# Demo binary (36 functions, no servers, v1.0.0 schema only)
+# Build: cargo build --release
+[[bin]]
+name = "forge-demo"
+path = "src/main.rs"
+
+# Enterprise binary (134 functions, all features)
+# Build: cargo build --release --features full
 [[bin]]
 name = "forge"
 path = "src/main.rs"
+required-features = ["full"]
 
+# Enterprise MCP server (AI integration)
 [[bin]]
 name = "forge-mcp"
 path = "src/bin/forge_mcp.rs"
-required-features = ["full"]  # Enterprise only - MCP server
+required-features = ["full"]
 
+# Enterprise API server (REST API)
 [[bin]]
 name = "forge-server"
 path = "src/bin/forge_server.rs"
-required-features = ["full"]  # Enterprise only - API server
+required-features = ["full"]
 
 [dependencies]
 # YAML parsing
