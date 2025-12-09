@@ -63,6 +63,7 @@ next:
     phases:
       phase_1_audit:
         name: "Function Audit & Categorization"
+        status: COMPLETED
         tasks:
           - "Extract ALL 159 functions from registry"
           - "Add 'scalar: bool' flag to FunctionDef struct in registry.rs"
@@ -76,6 +77,13 @@ next:
           - "Update docs/FUNCTIONS.md with scalar/array markers"
         output: "Function registry with scalar flag for all 159 functions"
         commit: "docs(v6.0.0-phase1): Function audit and classification"
+        result:
+          scalar_functions: 135
+          array_only_functions: 24
+          demo_functions: 47
+          demo_changes: "INDEX, MATCH removed (require array context)"
+          new_tests: 4
+          adr: "ADR-014-FUNCTION-SCALAR-CLASSIFICATION.md"
 
       phase_2_unit_tests:
         name: "Unit Test Coverage"
