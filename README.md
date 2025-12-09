@@ -1,8 +1,7 @@
 # Forge
 
-[![CI](https://github.com/royalbit/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/royalbit/forge/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-1709_passing-brightgreen)](https://github.com/royalbit/forge)
-[![Functions](https://img.shields.io/badge/functions-81-blue)](https://github.com/royalbit/forge)
+[![Tests](https://img.shields.io/badge/tests-1753_passing-brightgreen)](https://github.com/royalbit/forge)
+[![Functions](https://img.shields.io/badge/functions-149-blue)](https://github.com/royalbit/forge)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
 **Financial modeling for the AI era. Git-native. Excel import/export. FP&A functions Excel forgot.**
@@ -84,7 +83,7 @@ Your analysts get the same multiplier. But only if they stop feeding Excel to AI
 | Feature | Business Value |
 |---------|----------------|
 | **YAML-based models** | Git-native, diff-friendly, PR-reviewable |
-| **81 Excel functions** | NPV, IRR, XIRR, PMT, VLOOKUP - all the finance essentials |
+| **149 Excel functions** | NPV, IRR, XIRR, PMT, VLOOKUP, SUMIF - all the finance essentials |
 | **6 FP&A-native functions** | VARIANCE, BREAKEVEN - what Excel should have had |
 | **Deterministic execution** | Same input = same output, every time |
 | **Excel export** | Your CFO still gets `.xlsx` with working formulas |
@@ -140,6 +139,23 @@ forge calculate model.yaml --scenario optimistic
 # Export to Excel (formulas intact)
 forge export model.yaml output.xlsx
 ```
+
+## Build from Source
+
+Forge uses Rust feature flags to create demo and enterprise builds:
+
+```bash
+# Demo build (~80 functions, no API server)
+cargo build --release
+
+# Enterprise build (149 functions, API server, all features)
+cargo build --release --features full
+```
+
+| Build | Functions | API Server | Use Case |
+|-------|-----------|------------|----------|
+| Demo | ~80 | No | Evaluation, basic models |
+| Enterprise | 149 | Yes | Production, full FP&A |
 
 ## Example: 5-Year DCF Model
 
