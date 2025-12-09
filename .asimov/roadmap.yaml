@@ -36,25 +36,25 @@ completed:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "5.18.1"
-    summary: "v1.0.0 Schema Limitations (found by forge-e2e)"
+  - version: "5.19.0"
+    summary: "Demo Function Expansion - 49 functions (add 7 math + 6 trig)"
+    priority: CRITICAL
+    status: in_progress
+    added_functions:
+      math: ["EXP", "LN", "LOG10", "INT", "SIGN", "TRUNC", "PI"]
+      trig: ["SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"]
+    note: "All v1.0.0 compatible (single value in, single value out)"
+
+  - version: "5.19.1"
+    summary: "v1.0.0 Schema Bug Fix - String literals with letters"
     priority: CRITICAL
     status: pending
-    note: "Some features may NEVER be v1.0.0 compatible - v5.0.0 (enterprise) only"
-    limitations:
-      - issue: "String literals with letters parsed as column refs"
-        example: "=LEN(\"Hello\") → 'Column Hello not found'"
-        workaround: "=LEN(\"12345\") works (numbers/spaces only)"
-        resolution: "Fix in v1.0.0 (parser bug, not schema limitation)"
-      - issue: "Aggregation functions fail schema validation (oneOf conflict)"
-        example: "=SUM(10, 20, 30) → schema oneOf error"
-        affects: "SUM, AVERAGE, MIN, MAX, COUNT with multiple literal args"
-        resolution: "Likely v5.0.0 only (needs table refs)"
-      - issue: "INDEX/MATCH need table reference support"
-        example: "=INDEX(range, 1) - can't express range in single-cell formula"
-        resolution: "v5.0.0 only (requires table context)"
+    bug:
+      issue: "String literals with letters parsed as column refs"
+      example: "=LEN(\"Hello\") → 'Column Hello not found'"
+      fix: "Parser bug - need to handle quoted strings correctly"
 
-  - version: "5.19.0"
+  - version: "5.20.0"
     summary: "100% Coverage - Dead Code Removal"
     priority: NORMAL
     status: pending

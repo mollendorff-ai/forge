@@ -67,11 +67,11 @@ pub struct FunctionDef {
 /// All supported functions - THE SINGLE SOURCE OF TRUTH
 ///
 /// Total: 159 functions (includes aliases)
-/// Demo: 36 functions
-/// Enterprise-only: 123 functions
+/// Demo: 49 functions (36 + 7 math + 6 trig)
+/// Enterprise-only: 110 functions
 pub static FUNCTIONS: &[FunctionDef] = &[
     // ══════════════════════════════════════════════════════════════════════════
-    // MATH (9 demo + 10 enterprise = 19 total)
+    // MATH (16 demo + 3 enterprise = 19 total)
     // ══════════════════════════════════════════════════════════════════════════
     FunctionDef {
         name: "ABS",
@@ -136,48 +136,48 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         syntax: "=POWER(base, exponent)",
         demo: true,
     },
-    // Enterprise math
+    // Demo math (extended)
     FunctionDef {
         name: "EXP",
         category: Category::Math,
         description: "e raised to power",
         syntax: "=EXP(value)",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "LN",
         category: Category::Math,
         description: "Natural logarithm",
         syntax: "=LN(value)",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "LOG10",
         category: Category::Math,
         description: "Base-10 logarithm",
         syntax: "=LOG10(value)",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "INT",
         category: Category::Math,
         description: "Integer part",
         syntax: "=INT(value)",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "SIGN",
         category: Category::Math,
         description: "Sign of number (-1, 0, 1)",
         syntax: "=SIGN(value)",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "TRUNC",
         category: Category::Math,
         description: "Truncate to decimals",
         syntax: "=TRUNC(value, decimals)",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "POW",
@@ -191,7 +191,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         category: Category::Math,
         description: "Pi constant",
         syntax: "=PI()",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "E",
@@ -892,49 +892,49 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         demo: false,
     },
     // ══════════════════════════════════════════════════════════════════════════
-    // TRIGONOMETRIC (0 demo + 11 enterprise = 11 total)
+    // TRIGONOMETRIC (6 demo + 5 enterprise = 11 total)
     // ══════════════════════════════════════════════════════════════════════════
     FunctionDef {
         name: "SIN",
         category: Category::Trigonometric,
         description: "Sine",
         syntax: "=SIN(angle)",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "COS",
         category: Category::Trigonometric,
         description: "Cosine",
         syntax: "=COS(angle)",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "TAN",
         category: Category::Trigonometric,
         description: "Tangent",
         syntax: "=TAN(angle)",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "ASIN",
         category: Category::Trigonometric,
         description: "Arcsine",
         syntax: "=ASIN(value)",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "ACOS",
         category: Category::Trigonometric,
         description: "Arccosine",
         syntax: "=ACOS(value)",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "ATAN",
         category: Category::Trigonometric,
         description: "Arctangent",
         syntax: "=ATAN(value)",
-        demo: false,
+        demo: true,
     },
     FunctionDef {
         name: "SINH",
@@ -1281,8 +1281,8 @@ mod tests {
 
     #[test]
     fn test_demo_count() {
-        // 36 demo functions (9 Math, 5 Aggregation, 5 Logical, 8 Text, 6 Date, 3 Lookup)
-        assert_eq!(count_demo(), 36, "Demo should have 36 functions");
+        // 49 demo functions (16 Math, 5 Aggregation, 5 Logical, 8 Text, 6 Date, 3 Lookup, 6 Trig)
+        assert_eq!(count_demo(), 49, "Demo should have 49 functions");
     }
 
     #[test]
@@ -1304,8 +1304,16 @@ mod tests {
 
     #[test]
     fn test_math_demo_count() {
+        // 16 Math demo: 9 original + 7 new (EXP, LN, LOG10, INT, SIGN, TRUNC, PI)
         let count = demo_by_category(Category::Math).count();
-        assert_eq!(count, 9, "Math should have 9 demo functions");
+        assert_eq!(count, 16, "Math should have 16 demo functions");
+    }
+
+    #[test]
+    fn test_trig_demo_count() {
+        // 6 Trig demo: SIN, COS, TAN, ASIN, ACOS, ATAN
+        let count = demo_by_category(Category::Trigonometric).count();
+        assert_eq!(count, 6, "Trig should have 6 demo functions");
     }
 
     #[test]
