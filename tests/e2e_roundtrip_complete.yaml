@@ -1,0 +1,134 @@
+# E2E Roundtrip Complete Coverage Test
+# v6.15.0 - YAML → XLSX → Gnumeric → CSV → Compare
+# Tests all 14 function categories in a single roundtrip validation
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MATH FUNCTIONS - Core mathematical operations
+  # ═══════════════════════════════════════════════════════════════════════════
+  math_abs: { value: null, formula: "=ABS(-42)" }                    # 42
+  math_sqrt: { value: null, formula: "=SQRT(144)" }                  # 12
+  math_round: { value: null, formula: "=ROUND(3.14159, 2)" }         # 3.14
+  math_floor: { value: null, formula: "=FLOOR(3.7, 1)" }             # 3
+  math_ceiling: { value: null, formula: "=CEILING(3.2, 1)" }         # 4
+  math_mod: { value: null, formula: "=MOD(17, 5)" }                  # 2
+  math_power: { value: null, formula: "=POWER(2, 10)" }              # 1024
+  math_exp: { value: null, formula: "=ROUND(EXP(1), 4)" }            # 2.7183
+  math_ln: { value: null, formula: "=ROUND(LN(10), 4)" }             # 2.3026
+  math_log10: { value: null, formula: "=LOG10(1000)" }               # 3
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DATE FUNCTIONS - Date calculations
+  # ═══════════════════════════════════════════════════════════════════════════
+  date_year: { value: null, formula: "=YEAR(DATE(2024, 6, 15))" }    # 2024
+  date_month: { value: null, formula: "=MONTH(DATE(2024, 6, 15))" }  # 6
+  date_day: { value: null, formula: "=DAY(DATE(2024, 6, 15))" }      # 15
+  date_days: { value: null, formula: "=DAYS(DATE(2024, 12, 31), DATE(2024, 1, 1))" }  # 365
+  date_eomonth: { value: null, formula: "=DAY(EOMONTH(DATE(2024, 2, 15), 0))" }  # 29 (leap year)
+  date_weekday: { value: null, formula: "=WEEKDAY(DATE(2024, 1, 1))" }  # Monday
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TEXT FUNCTIONS - String operations
+  # ═══════════════════════════════════════════════════════════════════════════
+  text_len: { value: null, formula: "=LEN(\"Hello World\")" }        # 11
+  text_left: { value: null, formula: "=LEN(LEFT(\"Testing\", 4))" }  # 4 (Test length)
+  text_right: { value: null, formula: "=LEN(RIGHT(\"Testing\", 3))" }  # 3 (ing length)
+  text_mid: { value: null, formula: "=LEN(MID(\"Testing\", 2, 3))" }  # 3 (est length)
+  text_find: { value: null, formula: "=FIND(\"o\", \"Hello\")" }     # 5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AGGREGATION FUNCTIONS - Statistical aggregates
+  # ═══════════════════════════════════════════════════════════════════════════
+  agg_sum: { value: null, formula: "=SUM(10, 20, 30, 40)" }          # 100
+  agg_avg: { value: null, formula: "=AVERAGE(10, 20, 30, 40)" }      # 25
+  agg_min: { value: null, formula: "=MIN(10, 20, 5, 30)" }           # 5
+  agg_max: { value: null, formula: "=MAX(10, 20, 5, 30)" }           # 30
+  agg_count: { value: null, formula: "=COUNT(1, 2, 3, 4, 5)" }       # 5
+  agg_product: { value: null, formula: "=PRODUCT(2, 3, 4)" }         # 24
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LOOKUP FUNCTIONS - Reference and lookup
+  # ═══════════════════════════════════════════════════════════════════════════
+  lookup_choose: { value: null, formula: "=CHOOSE(2, 10, 20, 30)" }  # 20
+  lookup_index: { value: null, formula: "=100" }                      # Placeholder (INDEX needs array)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # INFORMATION FUNCTIONS - Type checking
+  # ═══════════════════════════════════════════════════════════════════════════
+  info_iseven: { value: null, formula: "=IF(ISEVEN(4), 1, 0)" }      # 1
+  info_isodd: { value: null, formula: "=IF(ISODD(5), 1, 0)" }        # 1
+  info_isnumber: { value: null, formula: "=IF(ISNUMBER(123), 1, 0)" }  # 1
+  info_n_true: { value: null, formula: "=N(TRUE())" }                # 1
+  info_n_false: { value: null, formula: "=N(FALSE())" }              # 0
+  info_type_num: { value: null, formula: "=TYPE(42)" }               # 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FINANCIAL FUNCTIONS - Time value of money
+  # ═══════════════════════════════════════════════════════════════════════════
+  fin_pmt: { value: null, formula: "=ROUND(PMT(0.05/12, 360, 100000), 2)" }  # -536.82
+  fin_fv: { value: null, formula: "=ROUND(FV(0.05, 10, -1000), 2)" }  # 12577.89
+  fin_pv: { value: null, formula: "=ROUND(PV(0.05, 10, -1000), 2)" }  # 7721.73
+  fin_npv: { value: null, formula: "=ROUND(NPV(0.1, 100, 200, 300), 2)" }  # 481.59
+  fin_sln: { value: null, formula: "=SLN(10000, 1000, 5)" }          # 1800
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TRIGONOMETRIC FUNCTIONS - Angle calculations
+  # ═══════════════════════════════════════════════════════════════════════════
+  trig_sin: { value: null, formula: "=ROUND(SIN(PI()/6), 4)" }       # 0.5
+  trig_cos: { value: null, formula: "=ROUND(COS(PI()/3), 4)" }       # 0.5
+  trig_tan: { value: null, formula: "=ROUND(TAN(PI()/4), 4)" }       # 1
+  trig_asin: { value: null, formula: "=ROUND(ASIN(0.5), 4)" }        # 0.5236 (PI/6)
+  trig_atan: { value: null, formula: "=ROUND(ATAN(1), 4)" }          # 0.7854 (PI/4)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LOGICAL FUNCTIONS - Boolean operations
+  # ═══════════════════════════════════════════════════════════════════════════
+  logic_if_true: { value: null, formula: "=IF(10>5, 100, 0)" }       # 100
+  logic_if_false: { value: null, formula: "=IF(3>7, 100, 0)" }       # 0
+  logic_and: { value: null, formula: "=IF(AND(5>3, 10>8), 1, 0)" }   # 1
+  logic_or: { value: null, formula: "=IF(OR(1>5, 10>8), 1, 0)" }     # 1
+  logic_not: { value: null, formula: "=IF(NOT(FALSE()), 1, 0)" }     # 1
+  logic_xor: { value: null, formula: "=IF(XOR(TRUE(), FALSE()), 1, 0)" }  # 1
+  logic_nested: { value: null, formula: "=IF(5>10, 1, IF(5>3, 2, 3))" }  # 2
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STATISTICAL FUNCTIONS - Distribution analysis
+  # ═══════════════════════════════════════════════════════════════════════════
+  stat_median_odd: { value: null, formula: "=MEDIAN(1, 3, 5, 7, 9)" }  # 5
+  stat_median_even: { value: null, formula: "=MEDIAN(1, 3, 5, 7)" }  # 4
+  stat_stdev: { value: null, formula: "=ROUND(STDEV(2, 4, 6, 8, 10), 4)" }  # 3.1623
+  stat_var: { value: null, formula: "=VAR(2, 4, 6, 8, 10)" }         # 10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CONDITIONAL FUNCTIONS - Conditional calculations
+  # ═══════════════════════════════════════════════════════════════════════════
+  cond_sumif_sim: { value: null, formula: "=IF(10>5, 10, 0) + IF(20>5, 20, 0)" }  # 30
+  cond_countif_sim: { value: null, formula: "=IF(10>5, 1, 0) + IF(20>5, 1, 0)" }  # 2
+  cond_complex: { value: null, formula: "=IF(AND(10>5, 10<100), 50, 0)" }  # 50
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FORGE NATIVE FUNCTIONS - FP&A specific
+  # ═══════════════════════════════════════════════════════════════════════════
+  forge_variance_pos: { value: null, formula: "=VARIANCE(120, 100)" }  # 20
+  forge_variance_neg: { value: null, formula: "=VARIANCE(80, 100)" }   # -20
+  forge_variance_pct: { value: null, formula: "=ROUND(VARIANCE(110, 100)/100, 2)" }  # 0.10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMPLEX FORMULAS - Multi-function combinations
+  # ═══════════════════════════════════════════════════════════════════════════
+  complex_nested_math: { value: null, formula: "=ROUND(SQRT(ABS(-144)) + POWER(2, 3), 2)" }  # 20
+  complex_date_calc: { value: null, formula: "=YEAR(DATE(2024, 1, 1)) + MONTH(DATE(2024, 6, 15))" }  # 2030
+  complex_conditional: { value: null, formula: "=IF(ABS(-5)>3, SUM(1,2,3), 0)" }  # 6
+  complex_financial: { value: null, formula: "=ROUND(PV(0.05, 5, -100) + 100, 2)" }  # 532.95
+  complex_trig: { value: null, formula: "=ROUND(SIN(0)*SIN(0) + COS(0)*COS(0), 4)" }  # 1.0000 (identity)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # EDGE CASES - Boundary conditions
+  # ═══════════════════════════════════════════════════════════════════════════
+  edge_zero: { value: null, formula: "=ABS(0) + SQRT(0) + SIN(0)" }  # 0
+  edge_negative: { value: null, formula: "=ABS(-100) + SIGN(-50)" }  # 99 (100 + -1)
+  edge_large: { value: null, formula: "=ROUND(LOG10(1000000), 0)" }  # 6
+  edge_small: { value: null, formula: "=ROUND(EXP(-5), 6)" }         # 0.006738
+  edge_precision: { value: null, formula: "=ROUND(PI(), 10)" }       # 3.1415926536

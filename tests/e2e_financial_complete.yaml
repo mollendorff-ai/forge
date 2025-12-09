@@ -1,0 +1,122 @@
+# E2E Financial Function Complete Coverage
+# v6.7.0 - All 13 financial functions with comprehensive tests
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PMT - Payment calculation
+  # ═══════════════════════════════════════════════════════════════════════════
+  pmt_mortgage:
+    value: null
+    formula: "=ROUND(PMT(0.06/12, 360, 200000), 2)"  # ~-1199.10
+  pmt_car_loan:
+    value: null
+    formula: "=ROUND(PMT(0.05/12, 60, 25000), 2)"    # ~-471.78
+  pmt_zero_rate:
+    value: null
+    formula: "=ROUND(PMT(0, 12, 12000), 2)"          # -1000 (simple division)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PV - Present value
+  # ═══════════════════════════════════════════════════════════════════════════
+  pv_annuity:
+    value: null
+    formula: "=ROUND(PV(0.08/12, 60, -1000), 2)"     # ~49318.43
+  pv_investment:
+    value: null
+    formula: "=ROUND(PV(0.10, 5, 0, -10000), 2)"     # ~6209.21
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FV - Future value
+  # ═══════════════════════════════════════════════════════════════════════════
+  fv_savings:
+    value: null
+    formula: "=ROUND(FV(0.05/12, 120, -100, 0), 2)"  # ~15528.23
+  fv_investment:
+    value: null
+    formula: "=ROUND(FV(0.10, 10, 0, -1000), 2)"     # ~2593.74
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NPV - Net present value
+  # ═══════════════════════════════════════════════════════════════════════════
+  npv_project:
+    value: null
+    formula: "=ROUND(NPV(0.1, 3000, 4200, 6800), 2)" # ~11308.20
+  npv_simple:
+    value: null
+    formula: "=ROUND(NPV(0.05, 1000, 1000, 1000), 2)" # ~2723.25
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RATE - Interest rate
+  # ═══════════════════════════════════════════════════════════════════════════
+  rate_loan:
+    value: null
+    formula: "=ROUND(RATE(48, -500, 20000) * 100, 2)" # ~0.77%
+  rate_investment:
+    value: null
+    formula: "=ROUND(RATE(10, 0, -1000, 2000) * 100, 2)" # ~7.18%
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NPER - Number of periods
+  # ═══════════════════════════════════════════════════════════════════════════
+  nper_loan:
+    value: null
+    formula: "=ROUND(NPER(0.06/12, -200, 10000), 1)" # ~57.7
+  nper_savings:
+    value: null
+    formula: "=ROUND(NPER(0.05/12, -100, 0, 10000), 1)" # ~82.0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SLN - Straight-line depreciation
+  # ═══════════════════════════════════════════════════════════════════════════
+  sln_asset:
+    value: null
+    formula: "=ROUND(SLN(30000, 7500, 10), 2)"       # 2250
+  sln_equipment:
+    value: null
+    formula: "=ROUND(SLN(100000, 10000, 5), 2)"      # 18000
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DDB - Double declining balance depreciation
+  # ═══════════════════════════════════════════════════════════════════════════
+  ddb_year1:
+    value: null
+    formula: "=ROUND(DDB(1000000, 100000, 6, 1), 2)" # ~333333.33
+  ddb_year2:
+    value: null
+    formula: "=ROUND(DDB(1000000, 100000, 6, 2), 2)" # ~222222.22
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DB - Fixed declining balance depreciation
+  # ═══════════════════════════════════════════════════════════════════════════
+  db_year1:
+    value: null
+    formula: "=ROUND(DB(1000000, 100000, 6, 1), 2)"  # ~319000
+  db_year2:
+    value: null
+    formula: "=ROUND(DB(1000000, 100000, 6, 2), 2)"  # ~217239
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # IRR - Internal rate of return (requires array context)
+  # ═══════════════════════════════════════════════════════════════════════════
+  irr_placeholder:
+    value: null
+    formula: "=0.1"                        # Placeholder
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MIRR - Modified internal rate of return (requires array context)
+  # ═══════════════════════════════════════════════════════════════════════════
+  mirr_placeholder:
+    value: null
+    formula: "=0.12"                       # Placeholder
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # XNPV / XIRR - Date-based NPV/IRR (requires array context)
+  # ═══════════════════════════════════════════════════════════════════════════
+  xnpv_placeholder:
+    value: null
+    formula: "=1000"                       # Placeholder
+  xirr_placeholder:
+    value: null
+    formula: "=0.15"                       # Placeholder

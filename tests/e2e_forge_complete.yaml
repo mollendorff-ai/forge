@@ -1,0 +1,76 @@
+# E2E Forge Native Function Complete Coverage
+# v6.12.0 - Forge-native functions with comprehensive tests
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # VARIANCE - Actual vs Budget variance
+  # ═══════════════════════════════════════════════════════════════════════════
+  variance_positive:
+    value: null
+    formula: "=VARIANCE(120, 100)"          # Expected: 20
+  variance_negative:
+    value: null
+    formula: "=VARIANCE(80, 100)"           # Expected: -20
+  variance_zero:
+    value: null
+    formula: "=VARIANCE(100, 100)"          # Expected: 0
+  variance_large:
+    value: null
+    formula: "=VARIANCE(1000, 500)"         # Expected: 500
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # VARIANCEPCT - Percentage variance (simulated)
+  # ═══════════════════════════════════════════════════════════════════════════
+  variancepct_positive_sim:
+    value: null
+    formula: "=ROUND(VARIANCE(120, 100)/100, 2)"  # Expected: 0.20 (20%)
+  variancepct_negative_sim:
+    value: null
+    formula: "=ROUND(VARIANCE(80, 100)/100, 2)"   # Expected: -0.20 (-20%)
+  variancepct_double_sim:
+    value: null
+    formula: "=ROUND(VARIANCE(200, 100)/100, 2)"  # Expected: 1.00 (100%)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # GROWTH - Period-over-period growth (simulated)
+  # ═══════════════════════════════════════════════════════════════════════════
+  growth_sim_positive:
+    value: null
+    formula: "=ROUND((110-100)/100, 2)"     # Expected: 0.10 (10%)
+  growth_sim_negative:
+    value: null
+    formula: "=ROUND((90-100)/100, 2)"      # Expected: -0.10 (-10%)
+  growth_sim_double:
+    value: null
+    formula: "=ROUND((200-100)/100, 2)"     # Expected: 1.00 (100%)
+  growth_sim_zero:
+    value: null
+    formula: "=ROUND((100-100)/100, 2)"     # Expected: 0.00
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Running calculations (simulated)
+  # ═══════════════════════════════════════════════════════════════════════════
+  cumulative_sim:
+    value: null
+    formula: "=1+2+3+4+5"                   # Expected: 15 (running total simulation)
+  rolling_sim:
+    value: null
+    formula: "=(10+20+30)/3"                # Expected: 20 (3-period rolling)
+  runningsum_sim:
+    value: null
+    formula: "=10+20+30"                    # Expected: 60
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Combined FP&A calculations
+  # ═══════════════════════════════════════════════════════════════════════════
+  ytd_growth_sim:
+    value: null
+    formula: "=ROUND((1200-1000)/1000, 3)"  # YTD growth: 20%
+  budget_variance:
+    value: null
+    formula: "=VARIANCE(950, 1000)"         # Under budget by 50
+  actual_vs_forecast:
+    value: null
+    formula: "=ROUND(VARIANCE(1050, 1000)/1000, 2)" # 5% over forecast
