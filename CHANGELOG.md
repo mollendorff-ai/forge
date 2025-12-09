@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.14.0] - 2025-12-08
+
+### Feature Flags - Demo/Enterprise Binary Split
+
+Implemented Rust feature flags to create separate demo and enterprise builds (ADR-012).
+
+### Build Commands
+
+```bash
+cargo build --release              # Demo (~80 functions)
+cargo build --release --features full  # Enterprise (149 functions + API)
+```
+
+### Demo Build (~80 functions)
+- Modules: aggregation, dates, financial, logical, lookup, math, statistical, text
+- No API server
+- Basic Excel compatibility
+
+### Enterprise Build (149 functions)
+- All demo functions
+- Advanced modules: advanced, array, conditional, forge, info, trig
+- API server (forge-server binary)
+- Full FP&A toolkit
+
+### Technical
+- `#[cfg(feature = "full")]` gates enterprise modules
+- forge-server binary requires `full` feature
+- Zero warnings in both demo and full builds
+
+---
+
 ## [5.13.0] - 2025-12-08
 
 ### Function Parity Complete (81 → 149)
