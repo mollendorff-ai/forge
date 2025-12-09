@@ -65,14 +65,16 @@ next:
         name: "Function Audit & Categorization"
         tasks:
           - "Extract ALL 159 functions from registry"
-          - "Classify each as SCALAR (v1.0.0) vs ARRAY (v5.0.0 only)"
-          - "Verify demo functions are all scalar-compatible"
-          - "Identify any scalar functions incorrectly marked enterprise"
+          - "Add 'scalar: bool' flag to FunctionDef struct in registry.rs"
+          - "Classify each function: scalar=true (v1.0.0 compatible) vs scalar=false (v5.0.0 array only)"
+          - "Verify ALL demo functions are scalar=true (demo must work with v1.0.0)"
+          - "Scalar-compatible functions work WITHOUT tables/arrays"
+          - "Array-only functions (UNIQUE, FILTER, SORT, SEQUENCE, RANDARRAY) marked scalar=false"
         docs:
           - "Create ADR-014: Function Scalar/Array Classification"
           - "Update README.md function counts and categories"
           - "Update docs/FUNCTIONS.md with scalar/array markers"
-        output: "Function audit report with scalar/array classification"
+        output: "Function registry with scalar flag for all 159 functions"
         commit: "docs(v6.0.0-phase1): Function audit and classification"
 
       phase_2_unit_tests:
@@ -91,13 +93,26 @@ next:
         name: "E2E Gnumeric/LibreOffice Validation"
         current_coverage: "33 tests (~52 formulas, 33% of 159)"
         target_coverage: "ALL 159 functions"
+        prerequisites:
+          - "Install gnumeric via brew if not available: brew install gnumeric"
+          - "Fallback: brew install --cask libreoffice"
+        builds_to_test:
+          - "Demo build (49 functions) - validates sales/demo release"
+          - "Enterprise build (159 functions) - validates full product"
+          - "BOTH must pass - demo is a sales tool"
         tasks:
           - "Create E2E YAML test files for all function categories"
+          - "Scalar functions: test with v1.0.0 schema (no tables)"
+          - "Array functions: test with v5.0.0 schema (with tables)"
           - "Test numeric edge cases: zero, negative, large, small, infinity"
           - "Test string edge cases: empty, quoted literals, special chars"
           - "Test date edge cases: invalid, leap years, negative days"
           - "Test type coercion: bool to number, text to number"
           - "Test error propagation: DIV/0, IFERROR, ISNA"
+        forge_native_validation:
+          functions: ["VARIANCE", "VARIANCE_PCT", "VARIANCE_STATUS", "BREAKEVEN_UNITS", "BREAKEVEN_REVENUE", "SCENARIO"]
+          note: "Excel/Gnumeric don't have these - validate against manual calculations"
+          action: "Document as 'Forge-only, manual validation' + add backlog for FOSS tool"
         test_files:
           - "tests/e2e/math_comprehensive.yaml"
           - "tests/e2e/trig_comprehensive.yaml"
@@ -110,9 +125,9 @@ next:
           - "tests/e2e/statistical_comprehensive.yaml"
           - "tests/e2e/information_comprehensive.yaml"
           - "tests/e2e/conditional_comprehensive.yaml"
-          - "tests/e2e/array_comprehensive.yaml"
-          - "tests/e2e/advanced_comprehensive.yaml"
-          - "tests/e2e/forge_native_comprehensive.yaml"
+          - "tests/e2e/array_comprehensive.yaml (v5.0.0 schema)"
+          - "tests/e2e/advanced_comprehensive.yaml (v5.0.0 schema)"
+          - "tests/e2e/forge_native_comprehensive.yaml (manual validation)"
           - "tests/e2e/edge_cases.yaml"
         docs:
           - "Update ADR-007: E2E Gnumeric Validation (add coverage stats)"
@@ -172,6 +187,7 @@ next:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
+  - "Find external FOSS tool to validate Forge-native functions (VARIANCE, BREAKEVEN, etc.)"
   - "Enterprise licensing (when ready to leave CGI)"
   - "Git history cleanup - MIT license removal"
   - "MCP server documentation"
