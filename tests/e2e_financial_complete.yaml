@@ -3,6 +3,46 @@
 
 _forge_version: "1.0.0"
 
+# ═══════════════════════════════════════════════════════════════════════════
+# TABLE DATA - Cash flows and dates for array-based financial functions
+# ═══════════════════════════════════════════════════════════════════════════
+
+# IRR Test Data - Investment with returns
+irr_cash_flows:
+  values: [-100000, 20000, 24000, 28800, 35200]
+
+# IRR Project Data - Smaller project with higher returns
+irr_project_flows:
+  values: [-50000, 12000, 15000, 18000, 21000, 24000]
+
+# MIRR Test Data - Investment with returns
+mirr_cash_flows:
+  values: [-100000, 20000, 24000, 28800, 35200, 43000]
+
+# MIRR Conservative Data
+mirr_conservative_flows:
+  values: [-50000, 12000, 15000, 18000, 21000]
+
+# XNPV Test Data - Values and corresponding dates (Excel serial format)
+xnpv_basic_data:
+  values: [-40000, 10000, 12000, 15000]
+  dates: [45292, 45365, 45523, 45626]  # 2024-01-01, 2024-03-15, 2024-08-20, 2024-12-31
+
+# XNPV Project Data
+xnpv_project_data:
+  values: [-100000, 25000, 30000, 35000, 40000]
+  dates: [45292, 45400, 45550, 45700, 45850]  # Irregular intervals
+
+# XIRR Basic Data
+xirr_basic_data:
+  values: [-10000, 3000, 4000, 5500]
+  dates: [45292, 45397, 45535, 45640]  # 2024-01-01, 2024-04-15, 2024-09-01, 2024-12-15
+
+# XIRR Investment Data
+xirr_investment_data:
+  values: [-10000, 2800, 3200, 3800, 4200]
+  dates: [45292, 45382, 45475, 45565, 45840]  # 18-month period with irregular timing
+
 assumptions:
   # ═══════════════════════════════════════════════════════════════════════════
   # PMT - Payment calculation
@@ -100,23 +140,59 @@ assumptions:
   # ═══════════════════════════════════════════════════════════════════════════
   # IRR - Internal rate of return (requires array context)
   # ═══════════════════════════════════════════════════════════════════════════
-  irr_placeholder:
+  # IRR calculates the internal rate of return for a series of cash flows
+  # Syntax: IRR(values, [guess])
+  # Cash flows: [-100000, 20000, 24000, 28800, 35200]
+
+  irr_basic:
     value: null
-    formula: "=0.1"                        # Placeholder
+    formula: "=ROUND(IRR(irr_cash_flows.values) * 100, 2)"  # REAL IRR call!
+
+  irr_project:
+    value: null
+    formula: "=ROUND(IRR(irr_project_flows.values, 0.1) * 100, 2)"  # REAL IRR with guess!
 
   # ═══════════════════════════════════════════════════════════════════════════
   # MIRR - Modified internal rate of return (requires array context)
   # ═══════════════════════════════════════════════════════════════════════════
-  mirr_placeholder:
+  # MIRR calculates modified IRR with different rates for financing and reinvestment
+  # Syntax: MIRR(values, finance_rate, reinvest_rate)
+  # Cash flows: [-100000, 20000, 24000, 28800, 35200, 43000]
+
+  mirr_basic:
     value: null
-    formula: "=0.12"                       # Placeholder
+    formula: "=ROUND(MIRR(mirr_cash_flows.values, 0.10, 0.12) * 100, 2)"  # REAL MIRR call!
+
+  mirr_conservative:
+    value: null
+    formula: "=ROUND(MIRR(mirr_conservative_flows.values, 0.08, 0.08) * 100, 2)"  # REAL MIRR call!
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # XNPV / XIRR - Date-based NPV/IRR (requires array context)
+  # XNPV - Net present value with specific dates (requires array context)
   # ═══════════════════════════════════════════════════════════════════════════
-  xnpv_placeholder:
+  # XNPV calculates NPV using actual payment dates instead of periodic intervals
+  # Syntax: XNPV(rate, values, dates)
+  # More accurate than NPV when cash flows occur at irregular intervals
+
+  xnpv_basic:
     value: null
-    formula: "=1000"                       # Placeholder
-  xirr_placeholder:
+    formula: "=ROUND(XNPV(0.09, xnpv_basic_data.values, xnpv_basic_data.dates), 2)"  # REAL XNPV call!
+
+  xnpv_project:
     value: null
-    formula: "=0.15"                       # Placeholder
+    formula: "=ROUND(XNPV(0.12, xnpv_project_data.values, xnpv_project_data.dates), 2)"  # REAL XNPV call!
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # XIRR - Internal rate of return with specific dates (requires array context)
+  # ═══════════════════════════════════════════════════════════════════════════
+  # XIRR calculates IRR using actual payment dates instead of periodic intervals
+  # Syntax: XIRR(values, dates, [guess])
+  # Essential for investments with irregular cash flow timing
+
+  xirr_basic:
+    value: null
+    formula: "=ROUND(XIRR(xirr_basic_data.values, xirr_basic_data.dates) * 100, 2)"  # REAL XIRR call!
+
+  xirr_investment:
+    value: null
+    formula: "=ROUND(XIRR(xirr_investment_data.values, xirr_investment_data.dates) * 100, 2)"  # REAL XIRR call!

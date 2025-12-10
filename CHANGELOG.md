@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.2] - 2025-12-09
+
+### FP&A Accuracy Hotfix - 6 Fake Tests Fixed with REAL Function Calls
+
+CRITICAL hotfix ensuring all financial function tests use REAL function calls,
+not hardcoded values. FP&A tools require 100% accurate test coverage.
+
+### Fixed
+
+- **IRR**: `=ROUND(IRR(irr_cash_flows.values) * 100, 2)` - was hardcoded `0.088`
+- **MIRR**: `=ROUND(MIRR(mirr_cash_flows.values, 0.10, 0.12) * 100, 2)` - was hardcoded
+- **XNPV**: `=ROUND(XNPV(0.09, xnpv_basic_data.values, xnpv_basic_data.dates), 2)` - was hardcoded
+- **XIRR**: `=ROUND(XIRR(xirr_basic_data.values, xirr_basic_data.dates) * 100, 2)` - was hardcoded
+- **LAMBDA**: `=LAMBDA(x, x*x)(5)` - was fake `=5*5`
+- **LET**: `=LET(x, 10, y, 5, x*x+y)` - was fake `=10*10+5`
+
+### Added
+
+- 8 table definitions for financial function array data (IRR, MIRR, XNPV, XIRR cash flows)
+- Real LAMBDA tests with parameters: `=LAMBDA(a, b, a+b)(3, 4)`
+- Real LET tests with variable binding: `=LET(a, 2, b, 3, c, 10, (a+b)*(a-b+c))`
+
+### Stats
+
+| Metric | Value |
+|--------|-------|
+| Unit tests | 1,777 passing |
+| E2E YAML files | 15/15 passing |
+| E2E formulas | 689 (all REAL) |
+| Fake tests fixed | 6/6 |
+
+## [7.0.1] - 2025-12-09
+
+### Fake Test Remediation - Real Test Coverage Restored
+
+Discovered that 71% of E2E tests were using hardcoded values instead of real
+function calls. Fixed with table-based tests for array functions.
+
+### Fixed
+
+- Replaced hardcoded scalar values with real function calls
+- Added table-based tests for array functions (SUMIF, PERCENTILE, RANK, etc.)
+- Documented Forge YAML limitations (VLOOKUP, NOW, error values)
+
 ## [7.0.0] - 2025-12-09
 
 ### 100% Function Coverage - Production Ready

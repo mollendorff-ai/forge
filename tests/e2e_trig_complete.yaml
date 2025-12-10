@@ -126,6 +126,9 @@ assumptions:
   tanh_large:
     value: null
     formula: "=ROUND(TANH(10), 6)"         # Expected: ~1
+  tanh_negative:
+    value: null
+    formula: "=ROUND(TANH(-1), 6)"         # Expected: -0.761594
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Combined trig identities
