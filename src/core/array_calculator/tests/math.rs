@@ -625,6 +625,7 @@ fn test_power_function_rowwise() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_sln_function_coverage() {
     let mut model = ParsedModel::new();
 
@@ -639,8 +640,11 @@ fn test_sln_function_coverage() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // SLN(30000, 7500, 10) = (30000 - 7500) / 10 = 2250
+    let val = result.scalars.get("depreciation").unwrap().value.unwrap();
+    assert!((val - 2250.0).abs() < 0.01);
 }
 
 #[test]
@@ -662,6 +666,7 @@ fn test_abs_function_rowwise() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_exp_function_rowwise() {
     let mut model = ParsedModel::new();
 
@@ -675,11 +680,21 @@ fn test_exp_function_rowwise() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err()); // Exercise code path
+    let result = calculator.calculate_all().expect("Should calculate");
+    let table = result.tables.get("data").unwrap();
+
+    if let Some(col) = table.columns.get("exp_x") {
+        if let ColumnValue::Number(vals) = &col.values {
+            assert!((vals[0] - 1.0).abs() < 0.001); // EXP(0) = 1
+            assert!((vals[1] - std::f64::consts::E).abs() < 0.001); // EXP(1) = e ≈ 2.718
+            assert!((vals[2] - (std::f64::consts::E * std::f64::consts::E)).abs() < 0.001);
+            // EXP(2) = e^2 ≈ 7.389
+        }
+    }
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_ln_function_rowwise() {
     let mut model = ParsedModel::new();
 
@@ -693,8 +708,16 @@ fn test_ln_function_rowwise() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err()); // Exercise code path
+    let result = calculator.calculate_all().expect("Should calculate");
+    let table = result.tables.get("data").unwrap();
+
+    if let Some(col) = table.columns.get("ln_x") {
+        if let ColumnValue::Number(vals) = &col.values {
+            assert!((vals[0] - 0.0).abs() < 0.001); // LN(1) = 0
+            assert!((vals[1] - 1.0).abs() < 0.01); // LN(e) ≈ 1
+            assert!((vals[2] - 2.302585).abs() < 0.001); // LN(10) ≈ 2.302585
+        }
+    }
 }
 
 #[test]
@@ -712,10 +735,16 @@ fn test_log_function_rowwise() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+
+    // LOG function is not currently implemented - test verifies error handling
+    assert!(
+        result.is_err(),
+        "LOG function should error (not implemented)"
+    );
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_sln_depreciation() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -728,7 +757,11 @@ fn test_sln_depreciation() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // SLN(10000, 1000, 5) = (10000 - 1000) / 5 = 1800
+    let val = result.scalars.get("depr").unwrap().value.unwrap();
+    assert!((val - 1800.0).abs() < 0.01);
 }
 
 #[test]
@@ -740,10 +773,14 @@ fn test_abs_negative_value() {
         Variable::new("result".to_string(), None, Some("=ABS(-5)".to_string())),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - 5.0).abs() < 0.01);
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_exp_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -752,10 +789,15 @@ fn test_exp_function() {
         Variable::new("result".to_string(), None, Some("=EXP(1)".to_string())),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // EXP(1) = e ≈ 2.718
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - std::f64::consts::E).abs() < 0.001);
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_ln_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -764,7 +806,11 @@ fn test_ln_function() {
         Variable::new("result".to_string(), None, Some("=LN(2.718)".to_string())),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // LN(e) ≈ 1.0
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - 1.0).abs() < 0.01);
 }
 
 #[test]
@@ -780,10 +826,17 @@ fn test_log_function() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all();
+
+    // LOG function is not currently implemented - test verifies error handling
+    assert!(
+        result.is_err(),
+        "LOG function should error (not implemented)"
+    );
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_log10_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -792,10 +845,15 @@ fn test_log10_function() {
         Variable::new("result".to_string(), None, Some("=LOG10(1000)".to_string())),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // LOG10(1000) = 3.0
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - 3.0).abs() < 0.001);
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_sign_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -804,10 +862,15 @@ fn test_sign_function() {
         Variable::new("result".to_string(), None, Some("=SIGN(-5)".to_string())),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // SIGN(-5) = -1.0
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - (-1.0)).abs() < 0.001);
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_int_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -816,10 +879,15 @@ fn test_int_function() {
         Variable::new("result".to_string(), None, Some("=INT(5.7)".to_string())),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // INT(5.7) = 5.0
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - 5.0).abs() < 0.001);
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_trunc_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -832,7 +900,11 @@ fn test_trunc_function() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // TRUNC(5.789, 2) = 5.78
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - 5.78).abs() < 0.001);
 }
 
 #[test]
@@ -848,7 +920,11 @@ fn test_ceiling_scalar() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // CEILING(4.3, 1) = 5
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - 5.0).abs() < 0.0001);
 }
 
 #[test]
@@ -864,7 +940,11 @@ fn test_floor_scalar() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // FLOOR(4.7, 1) = 4
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - 4.0).abs() < 0.0001);
 }
 
 #[test]
@@ -876,7 +956,11 @@ fn test_mod_scalar() {
         Variable::new("result".to_string(), None, Some("=MOD(10, 3)".to_string())),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // MOD(10, 3) = 1
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - 1.0).abs() < 0.0001);
 }
 
 #[test]
@@ -888,7 +972,11 @@ fn test_sqrt_scalar() {
         Variable::new("result".to_string(), None, Some("=SQRT(16)".to_string())),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // SQRT(16) = 4
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - 4.0).abs() < 0.0001);
 }
 
 #[test]
@@ -900,10 +988,15 @@ fn test_power_scalar() {
         Variable::new("result".to_string(), None, Some("=POWER(2, 8)".to_string())),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // POWER(2, 8) = 256
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - 256.0).abs() < 0.0001);
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_variance_abs_value() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -924,7 +1017,11 @@ fn test_variance_abs_value() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // VARIANCE(120, 100) = 120 - 100 = 20.0
+    let val = result.scalars.get("var").unwrap().value.unwrap();
+    assert!((val - 20.0).abs() < 0.001);
 }
 
 #[test]

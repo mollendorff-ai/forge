@@ -127,8 +127,12 @@ fn test_if_with_cross_table_reference() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    // Exercises cross-table reference in conditional
-    assert!(result.is_ok() || result.is_err());
+
+    // This should fail: aggregations (SUM) in row formulas are not supported
+    assert!(
+        result.is_err(),
+        "Aggregation in row formula should error (invalid usage)"
+    );
 }
 
 #[test]
@@ -214,8 +218,18 @@ fn test_nested_if_function() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err()); // Exercise code path
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Verify nested IF works: IF(score >= 80, 1, IF(score >= 60, 2, 3))
+    let table = result.tables.get("data").unwrap();
+    let grade_col = table.columns.get("grade").unwrap();
+    if let ColumnValue::Number(vals) = &grade_col.values {
+        assert_eq!(vals[0], 3.0); // 45 < 60 = 3
+        assert_eq!(vals[1], 2.0); // 65 >= 60 and < 80 = 2
+        assert_eq!(vals[2], 1.0); // 85 >= 80 = 1
+    } else {
+        panic!("Expected Number column");
+    }
 }
 
 #[test]
@@ -236,8 +250,18 @@ fn test_and_or_functions() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Verify AND logic
+    let table = result.tables.get("data").unwrap();
+    let and_col = table.columns.get("and_result").unwrap();
+    if let ColumnValue::Number(vals) = &and_col.values {
+        assert_eq!(vals[0], 1.0); // true AND true = 1
+        assert_eq!(vals[1], 0.0); // true AND false = 0
+        assert_eq!(vals[2], 0.0); // false AND false = 0
+    } else {
+        panic!("Expected Number column");
+    }
 }
 
 #[test]
@@ -254,8 +278,17 @@ fn test_not_function() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Verify NOT logic
+    let table = result.tables.get("data").unwrap();
+    let inverted_col = table.columns.get("inverted").unwrap();
+    if let ColumnValue::Number(vals) = &inverted_col.values {
+        assert_eq!(vals[0], 0.0); // NOT(true) = 0
+        assert_eq!(vals[1], 1.0); // NOT(false) = 1
+    } else {
+        panic!("Expected Number column");
+    }
 }
 
 #[test]
@@ -278,8 +311,17 @@ fn test_iferror_function() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Verify IFERROR: normal division and error handling
+    let table = result.tables.get("data").unwrap();
+    let safe_div_col = table.columns.get("safe_div").unwrap();
+    if let ColumnValue::Number(vals) = &safe_div_col.values {
+        assert_eq!(vals[0], 5.0); // 10/2 = 5
+        assert_eq!(vals[1], 0.0); // 20/0 errors, returns 0
+    } else {
+        panic!("Expected Number column");
+    }
 }
 
 #[test]
@@ -295,7 +337,11 @@ fn test_iferror_no_error() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // IFERROR(10/2, -1) = 5 (no error)
+    let val = result.scalars.get("result").unwrap().value.unwrap();
+    assert!((val - 5.0).abs() < 0.01);
 }
 
 #[test]

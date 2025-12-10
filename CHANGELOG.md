@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.1.1] - 2025-12-10
+
+### XLSX Roundtrip 100% - Formula Translator Fix + Test Modules
+
+Complete fix for all roundtrip test failures. Formula translator now handles
+all table.column reference patterns correctly.
+
+### Fixed
+
+- **formula_translator.rs**: General pattern for table.column refs in ANY function
+- Split `tests/e2e_libreoffice_tests.rs` (3400+ lines) into modular `tests/roundtrip/` directory
+- All 8 previously failing roundtrip tests now pass
+
+### Stats
+
+| Metric | Value |
+|--------|-------|
+| Roundtrip tests | 57 passing, 0 failing |
+| Unit tests | 1,208 passing |
+| E2E YAML formulas | 1,231 (99.92% real) |
+
+## [7.1.0] - 2025-12-10
+
+### 100% Real Test Coverage - 7-Agent Parallel Execution
+
+Massive parallel test coverage expansion using 7 specialized agents working
+simultaneously across all function categories.
+
+### Added
+
+- **Agent 1 (Math/Trig)**: 70+ math tests, 41+ trig tests, new trig.rs file
+- **Agent 2 (Financial)**: 7 NEW functions (PPMT, IPMT, EFFECT, NOMINAL, PRICEDISC, YIELDDISC, ACCRINT) + 129 tests
+- **Agent 3 (Date/Text)**: 14 new tests, all 36 functions tested
+- **Agent 4 (Aggregation/Statistical)**: 9 new tests
+- **Agent 5 (Lookup/Info)**: 43 new tests, 179 total tests
+- **Agent 6 (Conditional/Logical)**: 29 new tests, fixed 46 fake tests
+- **Agent 7 (Array/Advanced/Forge)**: Fixed all fake tests, real formulas validated
+
+### Stats
+
+| Metric | Value |
+|--------|-------|
+| Unit tests | 1,320 passing |
+| Files changed | 29 |
+| Lines added | 4,278 |
+| Lines removed | 996 |
+
 ## [7.0.2] - 2025-12-09
 
 ### FP&A Accuracy Hotfix - 6 Fake Tests Fixed with REAL Function Calls

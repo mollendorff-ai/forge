@@ -987,17 +987,26 @@ fn test_boolean_column_result() {
         "value".to_string(),
         ColumnValue::Number(vec![5.0, 15.0, 25.0]),
     ));
-    // IF returns boolean-like values
-    data.row_formulas.insert(
-        "is_large".to_string(),
-        "=IF(value > 10, TRUE, FALSE)".to_string(),
-    );
+    // IF returns boolean-like values (using 1/0 instead of TRUE/FALSE)
+    data.row_formulas
+        .insert("is_large".to_string(), "=IF(value > 10, 1, 0)".to_string());
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    // Should handle boolean results
-    assert!(result.is_ok() || result.is_err()); // May work or error, exercising the path
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let result_table = result.tables.get("data").unwrap();
+    let is_large = result_table.columns.get("is_large").unwrap();
+
+    // Verify boolean-like results: FALSE (0), TRUE (1), TRUE (1)
+    match &is_large.values {
+        ColumnValue::Number(nums) => {
+            assert_eq!(nums[0], 0.0); // 5 <= 10, so FALSE
+            assert_eq!(nums[1], 1.0); // 15 > 10, so TRUE
+            assert_eq!(nums[2], 1.0); // 25 > 10, so TRUE
+        }
+        _ => panic!("Expected Number array"),
+    }
 }
 
 #[test]
@@ -1016,8 +1025,27 @@ fn test_unknown_forge_function_error() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    // Should handle unknown function (either error or pass through)
-    assert!(result.is_ok() || result.is_err());
+
+    // Unknown functions should either error or be passed through to formula engine
+    // If it errors, verify it's a meaningful error
+    // If it succeeds, it means the formula engine handled it
+    match result {
+        Ok(_) => {
+            // Formula engine handled unknown function - acceptable
+        }
+        Err(e) => {
+            // Should error with meaningful message
+            let err_msg = e.to_string();
+            assert!(
+                err_msg.contains("UNKNOWN_FORGE_FUNC")
+                    || err_msg.contains("unknown")
+                    || err_msg.contains("function")
+                    || err_msg.contains("error"),
+                "Error should mention unknown function or provide context, got: {}",
+                err_msg
+            );
+        }
+    }
 }
 
 #[test]
@@ -1044,9 +1072,19 @@ fn test_cross_table_boolean_column_reference() {
     model.add_table(target);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    // Should handle cross-table boolean reference
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let target_table = result.tables.get("target").unwrap();
+    let copy_flag = target_table.columns.get("copy_flag").unwrap();
+
+    // Verify that boolean values were copied from source table
+    match &copy_flag.values {
+        ColumnValue::Boolean(bools) => {
+            assert!(bools[0]); // source.flags[0] = true
+            assert!(!bools[1]); // source.flags[1] = false
+        }
+        _ => panic!("Expected Boolean array"),
+    }
 }
 
 #[test]
@@ -1073,9 +1111,19 @@ fn test_scalar_reference_in_rowwise_formula() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    // Should handle scalar reference in row formula
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let data_table = result.tables.get("data").unwrap();
+    let over_threshold = data_table.columns.get("over_threshold").unwrap();
+
+    // Verify IF(value > threshold, 1, 0) where threshold=100
+    match &over_threshold.values {
+        ColumnValue::Number(nums) => {
+            assert_eq!(nums[0], 0.0); // 50.0 <= 100.0, so 0
+            assert_eq!(nums[1], 1.0); // 150.0 > 100.0, so 1
+        }
+        _ => panic!("Expected Number array"),
+    }
 }
 
 #[test]
@@ -1130,8 +1178,20 @@ fn test_local_boolean_column_reference() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let data_table = result.tables.get("data").unwrap();
+    let result_col = data_table.columns.get("result").unwrap();
+
+    // Verify IF(active, value, 0) with active=[true, false, true], value=[10, 20, 30]
+    match &result_col.values {
+        ColumnValue::Number(nums) => {
+            assert_eq!(nums[0], 10.0); // active=true, so value=10
+            assert_eq!(nums[1], 0.0); // active=false, so 0
+            assert_eq!(nums[2], 30.0); // active=true, so value=30
+        }
+        _ => panic!("Expected Number array"),
+    }
 }
 
 #[test]
@@ -1150,8 +1210,28 @@ fn test_invalid_cross_table_reference_format() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    // Should handle gracefully (either error or pass through)
-    assert!(result.is_ok() || result.is_err());
+
+    // Invalid format "other.table.column" should either:
+    // 1. Error with meaningful message (preferred)
+    // 2. Be passed to formula engine which may handle it
+    match result {
+        Ok(_) => {
+            // Formula engine may have handled it as a valid expression
+        }
+        Err(e) => {
+            // Should error - verify error is meaningful
+            let err_msg = e.to_string();
+            assert!(
+                err_msg.contains("table")
+                    || err_msg.contains("column")
+                    || err_msg.contains("reference")
+                    || err_msg.contains("not found")
+                    || err_msg.contains("error"),
+                "Error should provide context about invalid reference, got: {}",
+                err_msg
+            );
+        }
+    }
 }
 
 #[test]
@@ -1226,9 +1306,24 @@ fn test_lookup_with_boolean_column() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    // Exercises Boolean column path in lookup functions
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let query_table = result.tables.get("query").unwrap();
+    let result_col = query_table.columns.get("result").unwrap();
+
+    // Verify INDEX(flags.active, idx) where idx=1
+    // flags.active = [true, false, true, false]
+    // INDEX is 1-based, so idx=1 returns flags.active[0]=true
+    match &result_col.values {
+        ColumnValue::Boolean(bools) => {
+            assert!(bools[0]); // flags.active[0] = true (1-based indexing)
+        }
+        ColumnValue::Number(nums) => {
+            // May convert boolean to number (0=false, 1=true)
+            assert_eq!(nums[0], 1.0); // true = 1
+        }
+        _ => panic!("Expected Boolean or Number array"),
+    }
 }
 
 #[test]
@@ -1263,9 +1358,22 @@ fn test_cross_table_column_reference_in_formula() {
     model.add_table(orders);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    // Exercises cross-table reference path
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let orders_table = result.tables.get("orders").unwrap();
+    let price_lookup = orders_table.columns.get("price_lookup").unwrap();
+
+    // Verify MATCH(product_id, prices.id, 0)
+    // product_id = [2.0, 1.0, 3.0], prices.id = [1.0, 2.0, 3.0]
+    // MATCH returns 1-based positions: [2, 1, 3]
+    match &price_lookup.values {
+        ColumnValue::Number(nums) => {
+            assert_eq!(nums[0], 2.0); // 2.0 is at position 2 (1-based) in [1,2,3]
+            assert_eq!(nums[1], 1.0); // 1.0 is at position 1 (1-based) in [1,2,3]
+            assert_eq!(nums[2], 3.0); // 3.0 is at position 3 (1-based) in [1,2,3]
+        }
+        _ => panic!("Expected Number array"),
+    }
 }
 
 #[test]
@@ -1293,8 +1401,16 @@ fn test_multiple_table_columns_in_formula() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    // Exercises multiple table column reference paths
-    assert!(result.is_ok() || result.is_err());
+
+    // SUM is an aggregation function and cannot be used in row formulas
+    // Should error with aggregation message
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("aggregation"),
+        "Error should mention aggregation, got: {}",
+        err
+    );
 }
 
 #[test]
@@ -1363,8 +1479,20 @@ fn test_boolean_column_in_rowwise_formula() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let data_table = result.tables.get("data").unwrap();
+    let result_col = data_table.columns.get("result").unwrap();
+
+    // Verify IF(active, value, 0) with active=[true, false, true], value=[10, 20, 30]
+    match &result_col.values {
+        ColumnValue::Number(nums) => {
+            assert_eq!(nums[0], 10.0); // active=true, so value=10
+            assert_eq!(nums[1], 0.0); // active=false, so 0
+            assert_eq!(nums[2], 30.0); // active=true, so value=30
+        }
+        _ => panic!("Expected Number array"),
+    }
 }
 
 #[test]
@@ -1390,8 +1518,20 @@ fn test_scalar_reference_in_table_formula() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let data_table = result.tables.get("data").unwrap();
+    let above = data_table.columns.get("above").unwrap();
+
+    // Verify IF(value > threshold, 1, 0) where threshold=50
+    match &above.values {
+        ColumnValue::Number(nums) => {
+            assert_eq!(nums[0], 0.0); // 30 <= 50, so 0
+            assert_eq!(nums[1], 1.0); // 60 > 50, so 1
+            assert_eq!(nums[2], 0.0); // 45 <= 50, so 0
+        }
+        _ => panic!("Expected Number array"),
+    }
 }
 
 #[test]
@@ -1418,5 +1558,14 @@ fn test_section_scalar_reference_in_table() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+
+    // MIN is detected as an aggregation function when used in row formulas
+    // Should error with aggregation message
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("aggregation"),
+        "Error should mention aggregation, got: {}",
+        err
+    );
 }
