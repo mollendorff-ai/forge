@@ -298,9 +298,22 @@ fn test_lambda_with_multiple_args() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    // Lambda may or may not support multiple args fully
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // LAMBDA(x, y, x * y)(a, b) should multiply a * b row-wise
+    let col = result
+        .tables
+        .get("data")
+        .unwrap()
+        .columns
+        .get("product")
+        .unwrap();
+    if let ColumnValue::Number(values) = &col.values {
+        assert_eq!(values[0], 6.0, "2 * 3 = 6"); // 2 * 3
+        assert_eq!(values[1], 12.0, "3 * 4 = 12"); // 3 * 4
+    } else {
+        panic!("Expected number column");
+    }
 }
 
 #[test]
@@ -318,8 +331,11 @@ fn test_let_function_v2() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // LET(x, 10, y, 20, x + y) should return 30
+    let let_val = result.scalars.get("let_result").unwrap().value.unwrap();
+    assert_eq!(let_val, 30.0, "LET(x, 10, y, 20, x + y) should return 30");
 }
 
 #[test]
@@ -337,8 +353,11 @@ fn test_lambda_function_v2() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // LAMBDA(x, x * 2)(5) should return 10
+    let lambda_val = result.scalars.get("lambda_result").unwrap().value.unwrap();
+    assert_eq!(lambda_val, 10.0, "LAMBDA(x, x * 2)(5) should return 10");
 }
 
 #[test]

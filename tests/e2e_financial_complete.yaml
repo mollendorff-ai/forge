@@ -1,5 +1,7 @@
 # E2E Financial Function Complete Coverage
-# v6.7.0 - All 13 financial functions with comprehensive tests
+# v7.1.0 - All 20 financial functions with 41 comprehensive test cases
+# PMT, PV, FV, NPV, IRR, MIRR, XNPV, XIRR, NPER, RATE, DB, DDB, SLN,
+# PPMT, IPMT, EFFECT, NOMINAL, PRICEDISC, YIELDDISC, ACCRINT
 
 _forge_version: "1.0.0"
 
@@ -196,3 +198,73 @@ assumptions:
   xirr_investment:
     value: null
     formula: "=ROUND(XIRR(xirr_investment_data.values, xirr_investment_data.dates) * 100, 2)"  # REAL XIRR call!
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PPMT - Principal payment for a period
+  # ═══════════════════════════════════════════════════════════════════════════
+  ppmt_period_1:
+    value: null
+    formula: "=ROUND(PPMT(0.06/12, 1, 360, 200000), 2)"  # ~-199.10 (principal in month 1)
+  ppmt_period_60:
+    value: null
+    formula: "=ROUND(PPMT(0.06/12, 60, 360, 200000), 2)"  # ~-267.22 (higher principal later)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # IPMT - Interest payment for a period
+  # ═══════════════════════════════════════════════════════════════════════════
+  ipmt_period_1:
+    value: null
+    formula: "=ROUND(IPMT(0.06/12, 1, 360, 200000), 2)"  # ~-1000 (interest payment in month 1)
+  ipmt_period_60:
+    value: null
+    formula: "=ROUND(IPMT(0.06/12, 60, 360, 200000), 2)"  # Lower interest payment later
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # EFFECT - Effective annual interest rate
+  # ═══════════════════════════════════════════════════════════════════════════
+  effect_monthly:
+    value: null
+    formula: "=ROUND(EFFECT(0.06, 12) * 100, 2)"  # ~6.17% (6% compounded monthly)
+  effect_quarterly:
+    value: null
+    formula: "=ROUND(EFFECT(0.08, 4) * 100, 2)"   # ~8.24% (8% compounded quarterly)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NOMINAL - Nominal annual interest rate
+  # ═══════════════════════════════════════════════════════════════════════════
+  nominal_monthly:
+    value: null
+    formula: "=ROUND(NOMINAL(0.0617, 12) * 100, 2)"  # ~6.00% (inverse of EFFECT)
+  nominal_quarterly:
+    value: null
+    formula: "=ROUND(NOMINAL(0.0824, 4) * 100, 2)"   # ~8.00% (inverse of EFFECT)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PRICEDISC - Price of a discounted security
+  # ═══════════════════════════════════════════════════════════════════════════
+  pricedisc_tbill:
+    value: null
+    formula: "=ROUND(PRICEDISC(0, 180, 0.05, 100), 2)"  # ~97.50 ($100 face, 5% discount, 180 days)
+  pricedisc_360:
+    value: null
+    formula: "=ROUND(PRICEDISC(0, 360, 0.06, 100), 2)"  # ~94.00 ($100 face, 6% discount, 360 days)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # YIELDDISC - Annual yield of a discounted security
+  # ═══════════════════════════════════════════════════════════════════════════
+  yielddisc_tbill:
+    value: null
+    formula: "=ROUND(YIELDDISC(0, 180, 97.50, 100) * 100, 2)"  # ~5.13% yield
+  yielddisc_360:
+    value: null
+    formula: "=ROUND(YIELDDISC(0, 360, 94.00, 100) * 100, 2)"  # ~6.38% yield
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ACCRINT - Accrued interest for periodic interest security
+  # ═══════════════════════════════════════════════════════════════════════════
+  accrint_annual:
+    value: null
+    formula: "=ROUND(ACCRINT(0, 365, 180, 0.06, 1000, 1), 2)"  # ~30 (half year of 6% on $1000)
+  accrint_semiannual:
+    value: null
+    formula: "=ROUND(ACCRINT(0, 180, 90, 0.08, 10000, 2), 2)"  # ~200 (quarter year of 8% on $10000)

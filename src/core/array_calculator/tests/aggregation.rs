@@ -627,3 +627,327 @@ fn test_countblank_function() {
     let calculator = ArrayCalculator::new(model);
     let _ = calculator.calculate_all();
 }
+
+#[cfg(feature = "full")]
+#[test]
+fn test_countunique_function() {
+    let mut model = ParsedModel::new();
+
+    let mut data = Table::new("data".to_string());
+    data.add_column(Column::new(
+        "values".to_string(),
+        ColumnValue::Number(vec![10.0, 20.0, 10.0, 30.0, 20.0, 40.0]),
+    ));
+    model.add_table(data);
+
+    model.add_scalar(
+        "unique_count".to_string(),
+        Variable::new(
+            "unique_count".to_string(),
+            None,
+            Some("=COUNTUNIQUE(data.values)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Values: [10, 20, 10, 30, 20, 40] - unique count = 4 (10, 20, 30, 40)
+    let count = result.scalars.get("unique_count").unwrap().value.unwrap();
+    assert_eq!(count, 4.0);
+}
+
+#[cfg(feature = "full")]
+#[test]
+fn test_large_function() {
+    let mut model = ParsedModel::new();
+
+    let mut data = Table::new("data".to_string());
+    data.add_column(Column::new(
+        "values".to_string(),
+        ColumnValue::Number(vec![10.0, 50.0, 30.0, 70.0, 20.0, 90.0, 40.0]),
+    ));
+    model.add_table(data);
+
+    // Test LARGE for 1st, 2nd, and 3rd largest
+    model.add_scalar(
+        "largest".to_string(),
+        Variable::new(
+            "largest".to_string(),
+            None,
+            Some("=LARGE(data.values, 1)".to_string()),
+        ),
+    );
+    model.add_scalar(
+        "second_largest".to_string(),
+        Variable::new(
+            "second_largest".to_string(),
+            None,
+            Some("=LARGE(data.values, 2)".to_string()),
+        ),
+    );
+    model.add_scalar(
+        "third_largest".to_string(),
+        Variable::new(
+            "third_largest".to_string(),
+            None,
+            Some("=LARGE(data.values, 3)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Sorted descending: [90, 70, 50, 40, 30, 20, 10]
+    assert_eq!(result.scalars.get("largest").unwrap().value.unwrap(), 90.0);
+    assert_eq!(
+        result.scalars.get("second_largest").unwrap().value.unwrap(),
+        70.0
+    );
+    assert_eq!(
+        result.scalars.get("third_largest").unwrap().value.unwrap(),
+        50.0
+    );
+}
+
+#[cfg(feature = "full")]
+#[test]
+fn test_small_function() {
+    let mut model = ParsedModel::new();
+
+    let mut data = Table::new("data".to_string());
+    data.add_column(Column::new(
+        "values".to_string(),
+        ColumnValue::Number(vec![10.0, 50.0, 30.0, 70.0, 20.0, 90.0, 40.0]),
+    ));
+    model.add_table(data);
+
+    // Test SMALL for 1st, 2nd, and 3rd smallest
+    model.add_scalar(
+        "smallest".to_string(),
+        Variable::new(
+            "smallest".to_string(),
+            None,
+            Some("=SMALL(data.values, 1)".to_string()),
+        ),
+    );
+    model.add_scalar(
+        "second_smallest".to_string(),
+        Variable::new(
+            "second_smallest".to_string(),
+            None,
+            Some("=SMALL(data.values, 2)".to_string()),
+        ),
+    );
+    model.add_scalar(
+        "third_smallest".to_string(),
+        Variable::new(
+            "third_smallest".to_string(),
+            None,
+            Some("=SMALL(data.values, 3)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Sorted ascending: [10, 20, 30, 40, 50, 70, 90]
+    assert_eq!(result.scalars.get("smallest").unwrap().value.unwrap(), 10.0);
+    assert_eq!(
+        result
+            .scalars
+            .get("second_smallest")
+            .unwrap()
+            .value
+            .unwrap(),
+        20.0
+    );
+    assert_eq!(
+        result.scalars.get("third_smallest").unwrap().value.unwrap(),
+        30.0
+    );
+}
+
+#[cfg(feature = "full")]
+#[test]
+fn test_rank_eq_function() {
+    let mut model = ParsedModel::new();
+
+    let mut data = Table::new("data".to_string());
+    data.add_column(Column::new(
+        "scores".to_string(),
+        ColumnValue::Number(vec![85.0, 90.0, 78.0, 92.0, 88.0]),
+    ));
+    model.add_table(data);
+
+    // Test RANK.EQ with descending order (default)
+    model.add_scalar(
+        "rank_92_desc".to_string(),
+        Variable::new(
+            "rank_92_desc".to_string(),
+            None,
+            Some("=RANK.EQ(92, data.scores)".to_string()),
+        ),
+    );
+    model.add_scalar(
+        "rank_90_desc".to_string(),
+        Variable::new(
+            "rank_90_desc".to_string(),
+            None,
+            Some("=RANK.EQ(90, data.scores, 0)".to_string()),
+        ),
+    );
+
+    // Test RANK with ascending order
+    model.add_scalar(
+        "rank_78_asc".to_string(),
+        Variable::new(
+            "rank_78_asc".to_string(),
+            None,
+            Some("=RANK(78, data.scores, 1)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Descending: [92, 90, 88, 85, 78] - ranks: 1, 2, 3, 4, 5
+    assert_eq!(
+        result.scalars.get("rank_92_desc").unwrap().value.unwrap(),
+        1.0
+    );
+    assert_eq!(
+        result.scalars.get("rank_90_desc").unwrap().value.unwrap(),
+        2.0
+    );
+
+    // Ascending: [78, 85, 88, 90, 92] - 78 is rank 1
+    assert_eq!(
+        result.scalars.get("rank_78_asc").unwrap().value.unwrap(),
+        1.0
+    );
+}
+
+#[cfg(feature = "full")]
+#[test]
+fn test_maxifs_function() {
+    let mut model = ParsedModel::new();
+
+    let mut data = Table::new("sales".to_string());
+    data.add_column(Column::new(
+        "amount".to_string(),
+        ColumnValue::Number(vec![100.0, 200.0, 150.0, 300.0, 250.0]),
+    ));
+    data.add_column(Column::new(
+        "region".to_string(),
+        ColumnValue::Text(vec![
+            "East".to_string(),
+            "West".to_string(),
+            "East".to_string(),
+            "West".to_string(),
+            "East".to_string(),
+        ]),
+    ));
+    data.add_column(Column::new(
+        "quarter".to_string(),
+        ColumnValue::Number(vec![1.0, 1.0, 2.0, 2.0, 2.0]),
+    ));
+    model.add_table(data);
+
+    // Max amount where region=East
+    model.add_scalar(
+        "max_east".to_string(),
+        Variable::new(
+            "max_east".to_string(),
+            None,
+            Some("=MAXIFS(sales.amount, sales.region, \"East\")".to_string()),
+        ),
+    );
+
+    // Max amount where region=East AND quarter=2
+    model.add_scalar(
+        "max_east_q2".to_string(),
+        Variable::new(
+            "max_east_q2".to_string(),
+            None,
+            Some("=MAXIFS(sales.amount, sales.region, \"East\", sales.quarter, 2)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // East amounts: [100, 150, 250] - max = 250
+    assert_eq!(
+        result.scalars.get("max_east").unwrap().value.unwrap(),
+        250.0
+    );
+
+    // East + Q2 amounts: [150, 250] - max = 250
+    assert_eq!(
+        result.scalars.get("max_east_q2").unwrap().value.unwrap(),
+        250.0
+    );
+}
+
+#[cfg(feature = "full")]
+#[test]
+fn test_minifs_function() {
+    let mut model = ParsedModel::new();
+
+    let mut data = Table::new("sales".to_string());
+    data.add_column(Column::new(
+        "amount".to_string(),
+        ColumnValue::Number(vec![100.0, 200.0, 150.0, 300.0, 250.0]),
+    ));
+    data.add_column(Column::new(
+        "region".to_string(),
+        ColumnValue::Text(vec![
+            "East".to_string(),
+            "West".to_string(),
+            "East".to_string(),
+            "West".to_string(),
+            "East".to_string(),
+        ]),
+    ));
+    data.add_column(Column::new(
+        "quarter".to_string(),
+        ColumnValue::Number(vec![1.0, 1.0, 2.0, 2.0, 2.0]),
+    ));
+    model.add_table(data);
+
+    // Min amount where region=West
+    model.add_scalar(
+        "min_west".to_string(),
+        Variable::new(
+            "min_west".to_string(),
+            None,
+            Some("=MINIFS(sales.amount, sales.region, \"West\")".to_string()),
+        ),
+    );
+
+    // Min amount where region=East AND quarter=2
+    model.add_scalar(
+        "min_east_q2".to_string(),
+        Variable::new(
+            "min_east_q2".to_string(),
+            None,
+            Some("=MINIFS(sales.amount, sales.region, \"East\", sales.quarter, 2)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // West amounts: [200, 300] - min = 200
+    assert_eq!(
+        result.scalars.get("min_west").unwrap().value.unwrap(),
+        200.0
+    );
+
+    // East + Q2 amounts: [150, 250] - min = 150
+    assert_eq!(
+        result.scalars.get("min_east_q2").unwrap().value.unwrap(),
+        150.0
+    );
+}

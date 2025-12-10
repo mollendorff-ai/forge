@@ -1,95 +1,56 @@
-# E2E Text Function Complete Coverage
-# v6.3.0 - All 15 text functions with comprehensive tests
-
-_forge_version: "1.0.0"
-
+_forge_version: 5.0.0
 assumptions:
-  # ═══════════════════════════════════════════════════════════════════════════
-  # LEN - String length
-  # ═══════════════════════════════════════════════════════════════════════════
   len_basic:
-    value: null
-    formula: "=LEN(\"Hello\")"         # Expected: 5
+    value: 5.0
+    formula: =LEN("Hello")
   len_with_spaces:
-    value: null
-    formula: "=LEN(\"Hello World\")"   # Expected: 11
+    value: 11.0
+    formula: =LEN("Hello World")
   len_empty:
-    value: null
-    formula: "=LEN(\"\")"              # Expected: 0
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # LEFT / RIGHT / MID - Substring extraction
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 0.0
+    formula: =LEN("")
   left_basic:
-    value: null
-    formula: "=LEN(LEFT(\"Hello World\", 5))"  # Expected: 5
+    value: 5.0
+    formula: =LEN(LEFT("Hello World", 5))
   right_basic:
-    value: null
-    formula: "=LEN(RIGHT(\"Hello World\", 5))" # Expected: 5
+    value: 5.0
+    formula: =LEN(RIGHT("Hello World", 5))
   mid_basic:
-    value: null
-    formula: "=LEN(MID(\"Hello World\", 7, 5))" # Expected: 5
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # UPPER / LOWER - Case conversion
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 5.0
+    formula: =LEN(MID("Hello World", 7, 5))
   upper_check:
-    value: null
-    formula: "=LEN(UPPER(\"hello\"))"  # Expected: 5
+    value: 5.0
+    formula: =LEN(UPPER("hello"))
   lower_check:
-    value: null
-    formula: "=LEN(LOWER(\"HELLO\"))"  # Expected: 5
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # TRIM - Remove extra spaces
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 5.0
+    formula: =LEN(LOWER("HELLO"))
   trim_basic:
-    value: null
-    formula: "=LEN(TRIM(\"  Hello  \"))"  # Expected: 5
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # CONCAT / CONCATENATE - String joining
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 5.0
+    formula: =LEN(TRIM("  Hello  "))
   concat_basic:
-    value: null
-    formula: "=LEN(CONCAT(\"Hello\", \" \", \"World\"))"  # Expected: 11
+    value: 11.0
+    formula: =LEN(CONCAT("Hello", " ", "World"))
   concatenate_basic:
-    value: null
-    formula: "=LEN(CONCATENATE(\"A\", \"B\", \"C\"))"     # Expected: 3
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # FIND / SEARCH - Position finding
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 3.0
+    formula: =LEN(CONCATENATE("A", "B", "C"))
   find_basic:
-    value: null
-    formula: "=FIND(\"o\", \"Hello\")"      # Expected: 5
+    value: 5.0
+    formula: =FIND("o", "Hello")
   search_basic:
-    value: null
-    formula: "=SEARCH(\"o\", \"Hello\")"    # Expected: 5
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # REPLACE / SUBSTITUTE - String replacement
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 5.0
+    formula: =SEARCH("o", "Hello")
   replace_basic:
-    value: null
-    formula: "=LEN(REPLACE(\"Hello\", 2, 2, \"XX\"))"  # Expected: 5
+    value: 5.0
+    formula: =LEN(REPLACE("Hello", 2, 2, "XX"))
   substitute_basic:
-    value: null
-    formula: "=LEN(SUBSTITUTE(\"aaa\", \"a\", \"b\"))" # Expected: 3
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # VALUE - Text to number conversion
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 3.0
+    formula: =LEN(SUBSTITUTE("aaa", "a", "b"))
   value_integer:
-    value: null
-    formula: "=VALUE(\"123\")"            # Expected: 123
+    value: 123.0
+    formula: =VALUE("123")
   value_decimal:
-    value: null
-    formula: "=VALUE(\"123.45\")"         # Expected: 123.45
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # TEXT - Number to formatted text
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 123.45
+    formula: =VALUE("123.45")
   text_number:
-    value: null
-    formula: "=LEN(TEXT(1234.5, \"0.00\"))"  # Expected: 7 (1234.50)
+    value: 7.0
+    formula: =LEN(TEXT(1234.5, "0.00"))

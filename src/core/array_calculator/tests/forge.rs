@@ -555,8 +555,11 @@ fn test_variance_function_v2() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // VARIANCE(100, 80) = 100 - 80 = 20
+    let var_val = result.scalars.get("var_result").unwrap().value.unwrap();
+    assert_eq!(var_val, 20.0, "VARIANCE(100, 80) should return 20");
 }
 
 #[test]
@@ -574,8 +577,14 @@ fn test_variance_pct_function_v2() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // VARIANCE_PCT(100, 80) = (100 - 80) / 80 = 0.25
+    let var_pct_val = result.scalars.get("var_pct").unwrap().value.unwrap();
+    assert_eq!(
+        var_pct_val, 0.25,
+        "VARIANCE_PCT(100, 80) should return 0.25"
+    );
 }
 
 #[test]
@@ -593,8 +602,16 @@ fn test_variance_status_function() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // VARIANCE_STATUS(100, 80, 0.1)
+    // Variance % = (100-80)/80 = 0.25 = 25%, threshold = 10%
+    // 25% > 10%, so status = 1 (favorable)
+    let status_val = result.scalars.get("status").unwrap().value.unwrap();
+    assert_eq!(
+        status_val, 1.0,
+        "VARIANCE_STATUS(100, 80, 0.1) should return 1"
+    );
 }
 
 #[test]
@@ -612,27 +629,45 @@ fn test_breakeven_units_function_v2() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // BREAKEVEN_UNITS(10000, 50, 30) = 10000 / (50 - 30) = 500
+    let be_val = result.scalars.get("breakeven").unwrap().value.unwrap();
+    assert_eq!(
+        be_val, 500.0,
+        "BREAKEVEN_UNITS(10000, 50, 30) should return 500"
+    );
 }
 
 #[test]
 fn test_scenario_function_v2() {
+    use crate::types::{Scenario, Variable};
     let mut model = ParsedModel::new();
 
-    use crate::types::Variable;
+    // Define a base scenario
+    let mut scenario = Scenario::new();
+    scenario.add_override("growth_rate".to_string(), 0.05);
+    model.scenarios.insert("base".to_string(), scenario);
+
+    // Use SCENARIO function to retrieve value
     model.add_scalar(
         "scenario_val".to_string(),
         Variable::new(
             "scenario_val".to_string(),
             None,
-            Some("=SCENARIO(\"base\", 100, \"optimistic\", 150, \"pessimistic\", 50)".to_string()),
+            Some("=SCENARIO(\"base\", \"growth_rate\")".to_string()),
         ),
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // SCENARIO("base", "growth_rate") should return 0.05
+    let scenario_val = result.scalars.get("scenario_val").unwrap().value.unwrap();
+    assert_eq!(
+        scenario_val, 0.05,
+        "SCENARIO(\"base\", \"growth_rate\") should return 0.05"
+    );
 }
 
 #[test]

@@ -705,3 +705,107 @@ fn test_varp_population() {
     let calculator = ArrayCalculator::new(model);
     let _ = calculator.calculate_all();
 }
+
+#[test]
+fn test_var_s_explicit() {
+    let mut model = ParsedModel::new();
+
+    let mut data = Table::new("data".to_string());
+    data.add_column(Column::new(
+        "values".to_string(),
+        ColumnValue::Number(vec![2.0, 4.0, 6.0, 8.0, 10.0]),
+    ));
+    model.add_table(data);
+
+    use crate::types::Variable;
+    model.add_scalar(
+        "var_s".to_string(),
+        Variable::new(
+            "var_s".to_string(),
+            None,
+            Some("=VAR.S(data.values)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Sample variance of [2, 4, 6, 8, 10]: mean=6, deviations=[-4,-2,0,2,4], sum_sq=40, var=40/4=10
+    let var_s = result.scalars.get("var_s").unwrap().value.unwrap();
+    assert!((var_s - 10.0).abs() < 0.01);
+}
+
+#[test]
+fn test_stdev_s_explicit() {
+    let mut model = ParsedModel::new();
+
+    let mut data = Table::new("data".to_string());
+    data.add_column(Column::new(
+        "values".to_string(),
+        ColumnValue::Number(vec![2.0, 4.0, 6.0, 8.0, 10.0]),
+    ));
+    model.add_table(data);
+
+    use crate::types::Variable;
+    model.add_scalar(
+        "stdev_s".to_string(),
+        Variable::new(
+            "stdev_s".to_string(),
+            None,
+            Some("=STDEV.S(data.values)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Sample stdev of [2, 4, 6, 8, 10]: sqrt(10) = 3.162...
+    let stdev_s = result.scalars.get("stdev_s").unwrap().value.unwrap();
+    assert!((stdev_s - 3.162).abs() < 0.01);
+}
+
+#[test]
+fn test_var_s_comprehensive() {
+    let mut model = ParsedModel::new();
+
+    let mut data = Table::new("data".to_string());
+    data.add_column(Column::new(
+        "quarterly_revenue".to_string(),
+        ColumnValue::Number(vec![100.0, 120.0, 110.0, 130.0, 115.0, 125.0]),
+    ));
+    model.add_table(data);
+
+    use crate::types::Variable;
+    model.add_scalar(
+        "revenue_variance".to_string(),
+        Variable::new(
+            "revenue_variance".to_string(),
+            None,
+            Some("=VAR.S(data.quarterly_revenue)".to_string()),
+        ),
+    );
+    model.add_scalar(
+        "revenue_stdev".to_string(),
+        Variable::new(
+            "revenue_stdev".to_string(),
+            None,
+            Some("=STDEV.S(data.quarterly_revenue)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Verify variance is calculated
+    let var = result
+        .scalars
+        .get("revenue_variance")
+        .unwrap()
+        .value
+        .unwrap();
+    assert!(var > 0.0);
+
+    // Verify stdev is square root of variance
+    let stdev = result.scalars.get("revenue_stdev").unwrap().value.unwrap();
+    assert!((stdev * stdev - var).abs() < 0.01);
+}

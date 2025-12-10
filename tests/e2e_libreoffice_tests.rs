@@ -2814,6 +2814,81 @@ inventory_data:
     println!("✅ MAXIFS/MINIFS roundtrip test passed");
 }
 
+#[test]
+fn e2e_roundtrip_ifs_switch() {
+    let harness = match E2ETestHarness::new() {
+        Some(h) => h,
+        None => {
+            eprintln!("⚠️  Spreadsheet engine not available, skipping roundtrip test");
+            return;
+        }
+    };
+
+    // Test IFS and SWITCH - conditional branching functions
+    let yaml_content = r#"_forge_version: "1.0.0"
+test_data:
+  value: [10, 20, 30, 40, 50]
+  category: [1, 2, 3, 2, 1]
+  # IFS: Multi-condition branching (if sum>150 return 1, if sum>100 return 2, else 3)
+  test_ifs: "=IFS(SUM(test_data.value)>150, 1, SUM(test_data.value)>100, 2, 1>0, 3)"
+  # SWITCH: Value matching (switch on category count, return corresponding value)
+  test_switch: "=SWITCH(COUNTIF(test_data.category, 1), 1, 10, 2, 20, 3, 30, 99)"
+"#;
+
+    let yaml_path = harness.temp_dir.path().join("roundtrip_ifs_switch.yaml");
+    let xlsx_path = harness.temp_dir.path().join("roundtrip_ifs_switch.xlsx");
+
+    fs::write(&yaml_path, yaml_content).expect("Failed to write YAML");
+
+    let output = Command::new(forge_binary())
+        .arg("export")
+        .arg(&yaml_path)
+        .arg(&xlsx_path)
+        .output()
+        .expect("Failed to run forge export");
+
+    assert!(
+        output.status.success(),
+        "Forge export failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let csv_path = harness
+        .engine
+        .xlsx_to_csv(&xlsx_path, harness.temp_dir.path())
+        .expect("Failed to convert to CSV");
+
+    let csv_data = parse_csv(&csv_path);
+
+    // Verify IFS=2 (sum is 150, which is >100 but not >150), SWITCH=20 (category 1 count is 2)
+    let mut found_ifs = false;
+    let mut found_switch = false;
+
+    for row in &csv_data {
+        for cell in row {
+            if let Some(value) = parse_number(cell) {
+                if approx_eq(value, 2.0, 0.001) && !found_ifs {
+                    found_ifs = true;
+                }
+                if approx_eq(value, 20.0, 0.001) && !found_switch {
+                    found_switch = true;
+                }
+            }
+        }
+    }
+
+    assert!(
+        found_ifs,
+        "IFS(SUM>150,1,SUM>100,2,TRUE,3)=2 not found in CSV"
+    );
+    assert!(
+        found_switch,
+        "SWITCH(COUNTIF(category,1),1,10,2,20,3,30,99)=20 not found in CSV"
+    );
+
+    println!("✅ IFS/SWITCH roundtrip test passed");
+}
+
 // =============================================================================
 // PHASE: LOOKUP FUNCTIONS - CRITICAL FOR FP&A
 // =============================================================================

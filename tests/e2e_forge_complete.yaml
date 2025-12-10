@@ -209,25 +209,43 @@ assumptions:
     formula: "=SCENARIO(\"aggressive\", \"discount_rate\")" # Expected: 0.06 (6% low discount)
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # YD - Years and days between dates (simulated - days component only)
-  # Simulates: Days remaining after subtracting full years
+  # YD - Years and days between dates (DATEDIF with "YD" unit)
+  # Returns the number of days between dates, ignoring years
   # ═══════════════════════════════════════════════════════════════════════════
   yd_basic:
     value: null
-    formula: "=MOD(800, 365)"                    # Expected: 70 (days component after 2 years)
+    formula: "=DATEDIF(\"2022-01-01\", \"2024-02-01\", \"YD\")"  # Expected: 31 (Feb 1 - Jan 1, ignoring years)
+  yd_leap_year:
+    value: null
+    formula: "=DATEDIF(\"2023-03-01\", \"2024-01-15\", \"YD\")"  # Expected: 320 (days ignoring years)
+  yd_same_year:
+    value: null
+    formula: "=DATEDIF(\"2024-01-15\", \"2024-06-20\", \"YD\")"  # Expected: 157 (days in same year)
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # YM - Years and months between dates (simulated - months component only)
-  # Simulates: Months remaining after subtracting full years
+  # YM - Years and months between dates (DATEDIF with "YM" unit)
+  # Returns the number of months between dates, ignoring years
   # ═══════════════════════════════════════════════════════════════════════════
   ym_basic:
     value: null
-    formula: "=MOD(26, 12)"                      # Expected: 2 (months component after 2 years)
+    formula: "=DATEDIF(\"2022-03-01\", \"2024-08-01\", \"YM\")"  # Expected: 5 (Aug - Mar = 5 months, ignoring years)
+  ym_within_year:
+    value: null
+    formula: "=DATEDIF(\"2024-01-15\", \"2024-06-20\", \"YM\")"  # Expected: 5 (months within same year)
+  ym_negative_wrap:
+    value: null
+    formula: "=DATEDIF(\"2022-10-01\", \"2024-03-01\", \"YM\")"  # Expected: 5 (3 - 10 + 12 = 5)
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # MD - Months and days between dates (simulated - days component only)
-  # Simulates: Days remaining after subtracting full months
+  # MD - Months and days between dates (DATEDIF with "MD" unit)
+  # Returns the number of days between dates, ignoring months and years
   # ═══════════════════════════════════════════════════════════════════════════
   md_basic:
     value: null
-    formula: "=MOD(45, 30)"                      # Expected: 15 (days component after full months)
+    formula: "=DATEDIF(\"2024-01-10\", \"2024-02-15\", \"MD\")"  # Expected: 5 (15 - 10 = 5 days)
+  md_negative_wrap:
+    value: null
+    formula: "=DATEDIF(\"2024-01-20\", \"2024-02-10\", \"MD\")"  # Expected: 20 (10 - 20 + 30 = 20)
+  md_same_day:
+    value: null
+    formula: "=DATEDIF(\"2024-01-15\", \"2024-03-15\", \"MD\")"  # Expected: 0 (same day of month)

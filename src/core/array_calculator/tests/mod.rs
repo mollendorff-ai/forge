@@ -14,6 +14,7 @@ mod logical;
 mod lookup;
 mod math;
 mod text;
+mod trig;
 
 // Enterprise-only test modules
 #[cfg(feature = "full")]

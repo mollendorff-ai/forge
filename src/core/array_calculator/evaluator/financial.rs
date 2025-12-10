@@ -1,4 +1,5 @@
-//! Financial functions: PMT, FV, PV, NPV, IRR, NPER, RATE, SLN, DB, DDB, MIRR, XIRR, XNPV
+//! Financial functions: PMT, FV, PV, NPV, IRR, NPER, RATE, SLN, DB, DDB, MIRR, XIRR, XNPV,
+//! PPMT, IPMT, EFFECT, NOMINAL, PRICEDISC, YIELDDISC, ACCRINT
 //!
 //! ALL financial functions are ENTERPRISE-ONLY.
 //! Demo build has no financial functions - that's the sales hook.
@@ -439,6 +440,286 @@ pub fn try_evaluate(
             Value::Number(mirr)
         }
 
+        "PPMT" => {
+            // Principal payment for a given period
+            // PPMT(rate, per, nper, pv, [fv], [type])
+            require_args_range(name, args, 4, 6)?;
+            let rate = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("PPMT requires rate"))?;
+            let per = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("PPMT requires period"))?;
+            let nper = evaluate(&args[2], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("PPMT requires nper"))?;
+            let pv = evaluate(&args[3], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("PPMT requires present value"))?;
+            let fv = if args.len() > 4 {
+                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0)
+            } else {
+                0.0
+            };
+            let pmt_type = if args.len() > 5 {
+                evaluate(&args[5], ctx)?.as_number().unwrap_or(0.0) as i32
+            } else {
+                0
+            };
+
+            if rate == 0.0 {
+                Value::Number(-(pv + fv) / nper)
+            } else {
+                // Calculate total payment (PMT)
+                let payment = if pmt_type == 1 {
+                    (-pv * rate * (1.0 + rate).powf(nper) - fv * rate)
+                        / ((1.0 + rate).powf(nper) - 1.0)
+                        / (1.0 + rate)
+                } else {
+                    (-pv * rate * (1.0 + rate).powf(nper) - fv * rate)
+                        / ((1.0 + rate).powf(nper) - 1.0)
+                };
+
+                // Calculate balance at start of period
+                // Use FV formula: FV = PV * (1+r)^n + PMT * ((1+r)^n - 1) / r
+                // Rearranged to get remaining balance after (per-1) payments
+                let periods_elapsed = per - 1.0;
+                let balance = if periods_elapsed > 0.0 {
+                    pv * (1.0 + rate).powf(periods_elapsed)
+                        + payment * ((1.0 + rate).powf(periods_elapsed) - 1.0) / rate
+                } else {
+                    pv
+                };
+
+                // Interest for this period (as negative payment)
+                let interest = -(balance * rate);
+
+                // Principal payment = total payment - interest payment
+                // Since both are negative (payments out), subtracting gives the principal portion
+                Value::Number(payment - interest)
+            }
+        }
+
+        "IPMT" => {
+            // Interest payment for a given period
+            // IPMT(rate, per, nper, pv, [fv], [type])
+            require_args_range(name, args, 4, 6)?;
+            let rate = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("IPMT requires rate"))?;
+            let per = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("IPMT requires period"))?;
+            let nper = evaluate(&args[2], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("IPMT requires nper"))?;
+            let pv = evaluate(&args[3], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("IPMT requires present value"))?;
+            let fv = if args.len() > 4 {
+                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0)
+            } else {
+                0.0
+            };
+            let pmt_type = if args.len() > 5 {
+                evaluate(&args[5], ctx)?.as_number().unwrap_or(0.0) as i32
+            } else {
+                0
+            };
+
+            if rate == 0.0 {
+                Value::Number(0.0)
+            } else {
+                // Calculate total payment (PMT)
+                let payment = if pmt_type == 1 {
+                    (-pv * rate * (1.0 + rate).powf(nper) - fv * rate)
+                        / ((1.0 + rate).powf(nper) - 1.0)
+                        / (1.0 + rate)
+                } else {
+                    (-pv * rate * (1.0 + rate).powf(nper) - fv * rate)
+                        / ((1.0 + rate).powf(nper) - 1.0)
+                };
+
+                // Calculate balance at start of period
+                let periods_elapsed = per - 1.0;
+                let balance = if periods_elapsed > 0.0 {
+                    pv * (1.0 + rate).powf(periods_elapsed)
+                        + payment * ((1.0 + rate).powf(periods_elapsed) - 1.0) / rate
+                } else {
+                    pv
+                };
+
+                // Interest payment = -(balance * rate) - negative because it's a payment
+                Value::Number(-(balance * rate))
+            }
+        }
+
+        "EFFECT" => {
+            // Effective annual interest rate
+            // EFFECT(nominal_rate, npery)
+            require_args(name, args, 2)?;
+            let nominal_rate = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("EFFECT requires nominal rate"))?;
+            let npery = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("EFFECT requires periods per year"))?;
+
+            if npery < 1.0 {
+                return Err(EvalError::new("EFFECT: periods per year must be >= 1"));
+            }
+            if nominal_rate <= 0.0 {
+                return Err(EvalError::new("EFFECT: nominal rate must be positive"));
+            }
+
+            let effect = (1.0 + nominal_rate / npery).powf(npery) - 1.0;
+            Value::Number(effect)
+        }
+
+        "NOMINAL" => {
+            // Nominal annual interest rate
+            // NOMINAL(effect_rate, npery)
+            require_args(name, args, 2)?;
+            let effect_rate = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("NOMINAL requires effective rate"))?;
+            let npery = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("NOMINAL requires periods per year"))?;
+
+            if npery < 1.0 {
+                return Err(EvalError::new("NOMINAL: periods per year must be >= 1"));
+            }
+            if effect_rate <= 0.0 {
+                return Err(EvalError::new("NOMINAL: effective rate must be positive"));
+            }
+
+            let nominal = ((1.0 + effect_rate).powf(1.0 / npery) - 1.0) * npery;
+            Value::Number(nominal)
+        }
+
+        "PRICEDISC" => {
+            // Price of a discounted security per $100 face value
+            // PRICEDISC(settlement, maturity, discount, redemption, [basis])
+            require_args_range(name, args, 4, 5)?;
+            let settlement = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("PRICEDISC requires settlement date"))?;
+            let maturity = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("PRICEDISC requires maturity date"))?;
+            let discount = evaluate(&args[2], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("PRICEDISC requires discount rate"))?;
+            let redemption = evaluate(&args[3], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("PRICEDISC requires redemption value"))?;
+            let _basis = if args.len() > 4 {
+                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0)
+            } else {
+                0.0
+            };
+
+            if settlement >= maturity {
+                return Err(EvalError::new(
+                    "PRICEDISC: settlement must be before maturity",
+                ));
+            }
+
+            // Simplified calculation: assumes 360-day year (basis 0)
+            let days = maturity - settlement;
+            let frac = days / 360.0;
+            let price = redemption - (discount * redemption * frac);
+            Value::Number(price)
+        }
+
+        "YIELDDISC" => {
+            // Annual yield of a discounted security
+            // YIELDDISC(settlement, maturity, price, redemption, [basis])
+            require_args_range(name, args, 4, 5)?;
+            let settlement = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("YIELDDISC requires settlement date"))?;
+            let maturity = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("YIELDDISC requires maturity date"))?;
+            let price = evaluate(&args[2], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("YIELDDISC requires price"))?;
+            let redemption = evaluate(&args[3], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("YIELDDISC requires redemption value"))?;
+            let _basis = if args.len() > 4 {
+                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0)
+            } else {
+                0.0
+            };
+
+            if settlement >= maturity {
+                return Err(EvalError::new(
+                    "YIELDDISC: settlement must be before maturity",
+                ));
+            }
+            if price <= 0.0 {
+                return Err(EvalError::new("YIELDDISC: price must be positive"));
+            }
+
+            // Simplified calculation: assumes 360-day year (basis 0)
+            let days = maturity - settlement;
+            let frac = days / 360.0;
+            let yld = ((redemption - price) / price) * (1.0 / frac);
+            Value::Number(yld)
+        }
+
+        "ACCRINT" => {
+            // Accrued interest for a security that pays periodic interest
+            // ACCRINT(issue, first_interest, settlement, rate, par, frequency, [basis])
+            require_args_range(name, args, 6, 7)?;
+            let issue = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("ACCRINT requires issue date"))?;
+            let _first_interest = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("ACCRINT requires first interest date"))?;
+            let settlement = evaluate(&args[2], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("ACCRINT requires settlement date"))?;
+            let rate = evaluate(&args[3], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("ACCRINT requires rate"))?;
+            let par = evaluate(&args[4], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("ACCRINT requires par value"))?;
+            let frequency = evaluate(&args[5], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("ACCRINT requires frequency"))?;
+            let _basis = if args.len() > 6 {
+                evaluate(&args[6], ctx)?.as_number().unwrap_or(0.0)
+            } else {
+                0.0
+            };
+
+            if issue >= settlement {
+                return Err(EvalError::new(
+                    "ACCRINT: issue date must be before settlement",
+                ));
+            }
+            if rate < 0.0 {
+                return Err(EvalError::new("ACCRINT: rate must be non-negative"));
+            }
+            if par <= 0.0 {
+                return Err(EvalError::new("ACCRINT: par value must be positive"));
+            }
+            if frequency != 1.0 && frequency != 2.0 && frequency != 4.0 {
+                return Err(EvalError::new("ACCRINT: frequency must be 1, 2, or 4"));
+            }
+
+            // Simplified calculation: assumes 360-day year (basis 0)
+            let days = settlement - issue;
+            let accrued = par * rate * (days / 360.0);
+            Value::Number(accrued)
+        }
+
         _ => return Ok(None),
     };
 
@@ -623,5 +904,159 @@ mod tests {
         // PV: 5% rate, 12 periods, -100 payment
         let result = eval("PV(0.05, 12, -100)", &ctx).unwrap();
         assert!(matches!(result, Value::Number(n) if n > 0.0));
+    }
+
+    #[test]
+    fn test_ppmt() {
+        let ctx = EvalContext::new();
+        // PPMT: Principal payment for period 1 of 60-month loan at 5% for $10,000
+        let result = eval("PPMT(0.05/12, 1, 60, 10000)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n < 0.0));
+    }
+
+    #[test]
+    fn test_ppmt_zero_rate() {
+        let ctx = EvalContext::new();
+        // PPMT with rate=0: simple division
+        let result = eval("PPMT(0, 1, 12, 1200)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if (n + 100.0).abs() < 0.01));
+    }
+
+    #[test]
+    fn test_ipmt() {
+        let ctx = EvalContext::new();
+        // IPMT: Interest payment for period 1 of 60-month loan at 5% for $10,000
+        let result = eval("IPMT(0.05/12, 1, 60, 10000)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n < 0.0));
+    }
+
+    #[test]
+    fn test_ipmt_zero_rate() {
+        let ctx = EvalContext::new();
+        // IPMT with rate=0: no interest
+        let result = eval("IPMT(0, 1, 12, 1200)", &ctx).unwrap();
+        assert_eq!(result, Value::Number(0.0));
+    }
+
+    #[test]
+    fn test_effect() {
+        let ctx = EvalContext::new();
+        // EFFECT: 6% nominal rate compounded monthly
+        let result = eval("EFFECT(0.06, 12)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n > 0.06 && n < 0.07));
+    }
+
+    #[test]
+    fn test_effect_error_negative_rate() {
+        let ctx = EvalContext::new();
+        let result = eval("EFFECT(-0.05, 12)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_effect_error_invalid_periods() {
+        let ctx = EvalContext::new();
+        let result = eval("EFFECT(0.05, 0)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_nominal() {
+        let ctx = EvalContext::new();
+        // NOMINAL: 6.17% effective rate compounded monthly
+        let result = eval("NOMINAL(0.0617, 12)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n > 0.05 && n < 0.07));
+    }
+
+    #[test]
+    fn test_nominal_error_negative_rate() {
+        let ctx = EvalContext::new();
+        let result = eval("NOMINAL(-0.05, 12)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_nominal_error_invalid_periods() {
+        let ctx = EvalContext::new();
+        let result = eval("NOMINAL(0.05, 0)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pricedisc() {
+        let ctx = EvalContext::new();
+        // PRICEDISC: $100 face value, 5% discount, 180 days
+        // Settlement=0, Maturity=180, Discount=0.05, Redemption=100
+        let result = eval("PRICEDISC(0, 180, 0.05, 100)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n > 95.0 && n < 100.0));
+    }
+
+    #[test]
+    fn test_pricedisc_error_invalid_dates() {
+        let ctx = EvalContext::new();
+        // Settlement after maturity
+        let result = eval("PRICEDISC(180, 0, 0.05, 100)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_yielddisc() {
+        let ctx = EvalContext::new();
+        // YIELDDISC: $97.50 price for $100 redemption, 180 days
+        let result = eval("YIELDDISC(0, 180, 97.50, 100)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n > 0.0));
+    }
+
+    #[test]
+    fn test_yielddisc_error_invalid_dates() {
+        let ctx = EvalContext::new();
+        let result = eval("YIELDDISC(180, 0, 97.50, 100)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_yielddisc_error_invalid_price() {
+        let ctx = EvalContext::new();
+        let result = eval("YIELDDISC(0, 180, 0, 100)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_accrint() {
+        let ctx = EvalContext::new();
+        // ACCRINT: $1000 par, 6% rate, 180 days, annual payment
+        // Issue=0, FirstInterest=365, Settlement=180, Rate=0.06, Par=1000, Frequency=1
+        let result = eval("ACCRINT(0, 365, 180, 0.06, 1000, 1)", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if n > 0.0));
+    }
+
+    #[test]
+    fn test_accrint_error_invalid_dates() {
+        let ctx = EvalContext::new();
+        // Issue after settlement
+        let result = eval("ACCRINT(180, 365, 0, 0.06, 1000, 1)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_accrint_error_negative_rate() {
+        let ctx = EvalContext::new();
+        let result = eval("ACCRINT(0, 365, 180, -0.06, 1000, 1)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_accrint_error_invalid_par() {
+        let ctx = EvalContext::new();
+        let result = eval("ACCRINT(0, 365, 180, 0.06, 0, 1)", &ctx);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_accrint_error_invalid_frequency() {
+        let ctx = EvalContext::new();
+        // Frequency must be 1, 2, or 4
+        let result = eval("ACCRINT(0, 365, 180, 0.06, 1000, 3)", &ctx);
+        assert!(result.is_err());
     }
 }

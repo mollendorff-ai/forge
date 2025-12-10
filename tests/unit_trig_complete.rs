@@ -2,6 +2,8 @@
 use royalbit_forge::core::ArrayCalculator;
 #[cfg(feature = "full")]
 use royalbit_forge::types::{ParsedModel, Variable};
+#[cfg(feature = "full")]
+use std::f64::consts::PI;
 
 #[cfg(feature = "full")]
 fn eval_scalar(formula: &str) -> f64 {

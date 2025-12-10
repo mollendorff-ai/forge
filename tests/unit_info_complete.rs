@@ -484,7 +484,7 @@ fn test_n_number() {
 #[test]
 fn test_n_decimal() {
     // N(decimal) = decimal
-    assert_eq!(eval_scalar("N(3.14)"), 3.14);
+    assert_eq!(eval_scalar("N(3.15)"), 3.15);
 }
 
 #[test]
@@ -619,4 +619,128 @@ fn test_edge_empty_vs_na() {
     // Empty string is different from NA
     assert_eq!(eval_scalar("IF(ISNA(\"\"), 1, 0)"), 0.0);
     assert_eq!(eval_scalar("IF(ISBLANK(\"\"), 1, 0)"), 0.0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ISEVEN FUNCTION TESTS - FP&A ACCURACY MANDATE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_iseven_positive_even() {
+    // Even numbers return TRUE
+    assert_eq!(eval_scalar("IF(ISEVEN(4), 1, 0)"), 1.0);
+    assert_eq!(eval_scalar("IF(ISEVEN(2), 1, 0)"), 1.0);
+    assert_eq!(eval_scalar("IF(ISEVEN(100), 1, 0)"), 1.0);
+}
+
+#[test]
+fn test_iseven_positive_odd() {
+    // Odd numbers return FALSE
+    assert_eq!(eval_scalar("IF(ISEVEN(3), 1, 0)"), 0.0);
+    assert_eq!(eval_scalar("IF(ISEVEN(5), 1, 0)"), 0.0);
+    assert_eq!(eval_scalar("IF(ISEVEN(99), 1, 0)"), 0.0);
+}
+
+#[test]
+fn test_iseven_zero() {
+    // Zero is even
+    assert_eq!(eval_scalar("IF(ISEVEN(0), 1, 0)"), 1.0);
+}
+
+#[test]
+fn test_iseven_negative_even() {
+    // Negative even numbers return TRUE
+    assert_eq!(eval_scalar("IF(ISEVEN(-2), 1, 0)"), 1.0);
+    assert_eq!(eval_scalar("IF(ISEVEN(-4), 1, 0)"), 1.0);
+    assert_eq!(eval_scalar("IF(ISEVEN(-100), 1, 0)"), 1.0);
+}
+
+#[test]
+fn test_iseven_negative_odd() {
+    // Negative odd numbers return FALSE
+    assert_eq!(eval_scalar("IF(ISEVEN(-3), 1, 0)"), 0.0);
+    assert_eq!(eval_scalar("IF(ISEVEN(-5), 1, 0)"), 0.0);
+    assert_eq!(eval_scalar("IF(ISEVEN(-99), 1, 0)"), 0.0);
+}
+
+#[test]
+fn test_iseven_decimal_rounds() {
+    // Decimals are truncated before testing
+    assert_eq!(eval_scalar("IF(ISEVEN(4.7), 1, 0)"), 1.0); // 4 is even
+    assert_eq!(eval_scalar("IF(ISEVEN(3.9), 1, 0)"), 0.0); // 3 is odd
+}
+
+#[test]
+fn test_iseven_in_calculation() {
+    // ISEVEN used in calculation
+    assert_eq!(eval_scalar("IF(ISEVEN(2*3), 1, 0)"), 1.0); // 6 is even
+    assert_eq!(eval_scalar("IF(ISEVEN(2*3+1), 1, 0)"), 0.0); // 7 is odd
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ISODD FUNCTION TESTS - FP&A ACCURACY MANDATE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_isodd_positive_odd() {
+    // Odd numbers return TRUE
+    assert_eq!(eval_scalar("IF(ISODD(3), 1, 0)"), 1.0);
+    assert_eq!(eval_scalar("IF(ISODD(5), 1, 0)"), 1.0);
+    assert_eq!(eval_scalar("IF(ISODD(99), 1, 0)"), 1.0);
+}
+
+#[test]
+fn test_isodd_positive_even() {
+    // Even numbers return FALSE
+    assert_eq!(eval_scalar("IF(ISODD(2), 1, 0)"), 0.0);
+    assert_eq!(eval_scalar("IF(ISODD(4), 1, 0)"), 0.0);
+    assert_eq!(eval_scalar("IF(ISODD(100), 1, 0)"), 0.0);
+}
+
+#[test]
+fn test_isodd_zero() {
+    // Zero is not odd
+    assert_eq!(eval_scalar("IF(ISODD(0), 1, 0)"), 0.0);
+}
+
+#[test]
+fn test_isodd_negative_odd() {
+    // Negative odd numbers return TRUE
+    assert_eq!(eval_scalar("IF(ISODD(-3), 1, 0)"), 1.0);
+    assert_eq!(eval_scalar("IF(ISODD(-5), 1, 0)"), 1.0);
+    assert_eq!(eval_scalar("IF(ISODD(-99), 1, 0)"), 1.0);
+}
+
+#[test]
+fn test_isodd_negative_even() {
+    // Negative even numbers return FALSE
+    assert_eq!(eval_scalar("IF(ISODD(-2), 1, 0)"), 0.0);
+    assert_eq!(eval_scalar("IF(ISODD(-4), 1, 0)"), 0.0);
+    assert_eq!(eval_scalar("IF(ISODD(-100), 1, 0)"), 0.0);
+}
+
+#[test]
+fn test_isodd_decimal_rounds() {
+    // Decimals are truncated before testing
+    assert_eq!(eval_scalar("IF(ISODD(3.7), 1, 0)"), 1.0); // 3 is odd
+    assert_eq!(eval_scalar("IF(ISODD(4.9), 1, 0)"), 0.0); // 4 is even
+}
+
+#[test]
+fn test_isodd_in_calculation() {
+    // ISODD used in calculation
+    assert_eq!(eval_scalar("IF(ISODD(2*3), 1, 0)"), 0.0); // 6 is not odd
+    assert_eq!(eval_scalar("IF(ISODD(2*3+1), 1, 0)"), 1.0); // 7 is odd
+}
+
+#[test]
+fn test_isodd_one() {
+    // 1 is odd
+    assert_eq!(eval_scalar("IF(ISODD(1), 1, 0)"), 1.0);
+}
+
+#[test]
+fn test_iseven_two() {
+    // 2 is even
+    assert_eq!(eval_scalar("IF(ISEVEN(2), 1, 0)"), 1.0);
 }
