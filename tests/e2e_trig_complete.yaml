@@ -1,5 +1,6 @@
 # E2E Trigonometric Function Complete Coverage
-# v6.8.0 - All 9 trigonometric functions with comprehensive tests
+# v7.0.3 - All 11 trigonometric functions with comprehensive tests
+# Includes: SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, RADIANS, DEGREES
 
 _forge_version: "1.0.0"
 
@@ -131,6 +132,50 @@ assumptions:
     formula: "=ROUND(TANH(-1), 6)"         # Expected: -0.761594
 
   # ═══════════════════════════════════════════════════════════════════════════
+  # RADIANS - Degrees to radians conversion
+  # ═══════════════════════════════════════════════════════════════════════════
+  radians_zero:
+    value: null
+    formula: "=RADIANS(0)"                    # Expected: 0
+  radians_45:
+    value: null
+    formula: "=ROUND(RADIANS(45), 6)"         # Expected: PI/4 ≈ 0.785398
+  radians_90:
+    value: null
+    formula: "=ROUND(RADIANS(90), 6)"         # Expected: PI/2 ≈ 1.570796
+  radians_180:
+    value: null
+    formula: "=ROUND(RADIANS(180), 6)"        # Expected: PI ≈ 3.141593
+  radians_360:
+    value: null
+    formula: "=ROUND(RADIANS(360), 6)"        # Expected: 2*PI ≈ 6.283185
+  radians_negative:
+    value: null
+    formula: "=ROUND(RADIANS(-90), 6)"        # Expected: -PI/2 ≈ -1.570796
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DEGREES - Radians to degrees conversion
+  # ═══════════════════════════════════════════════════════════════════════════
+  degrees_zero:
+    value: null
+    formula: "=DEGREES(0)"                    # Expected: 0
+  degrees_pi_4:
+    value: null
+    formula: "=ROUND(DEGREES(0.785398163), 2)"  # Expected: 45
+  degrees_pi_2:
+    value: null
+    formula: "=ROUND(DEGREES(1.570796327), 2)"  # Expected: 90
+  degrees_pi:
+    value: null
+    formula: "=ROUND(DEGREES(3.141592654), 2)"  # Expected: 180
+  degrees_2pi:
+    value: null
+    formula: "=ROUND(DEGREES(6.283185307), 2)"  # Expected: 360
+  degrees_negative:
+    value: null
+    formula: "=ROUND(DEGREES(-1.570796327), 2)" # Expected: -90
+
+  # ═══════════════════════════════════════════════════════════════════════════
   # Combined trig identities
   # ═══════════════════════════════════════════════════════════════════════════
   identity_sin_cos:
@@ -139,3 +184,9 @@ assumptions:
   identity_tan:
     value: null
     formula: "=ROUND(TAN(0.5) - SIN(0.5)/COS(0.5), 6)"  # Expected: 0
+  identity_radians_degrees:
+    value: null
+    formula: "=DEGREES(RADIANS(123.456))"     # Expected: 123.456 (roundtrip)
+  identity_degrees_radians:
+    value: null
+    formula: "=RADIANS(DEGREES(2.5))"         # Expected: 2.5 (roundtrip)

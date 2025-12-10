@@ -15,6 +15,7 @@ use royalbit_forge::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════════
 
+#[allow(dead_code)]
 fn eval_scalar(formula: &str) -> f64 {
     let mut model = ParsedModel::new();
     model.add_scalar(

@@ -1,7 +1,26 @@
 # E2E Aggregation Function Complete Coverage
-# v6.4.0 - All 14 aggregation functions with comprehensive tests
+# v7.0.0 - All 14 aggregation functions with comprehensive REAL tests
+# FP&A ACCURACY MANDATE - 100% REAL TEST COVERAGE
 
 _forge_version: "1.0.0"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TEST DATA TABLES - Required for array functions
+# ═══════════════════════════════════════════════════════════════════════════
+
+aggregation_data:
+  values: [10, 50, 30, 70, 20, 90, 40]
+
+ranking_data:
+  scores: [85, 90, 78, 92, 88]
+
+sales_data:
+  amount: [100, 200, 150, 300, 250]
+  region: ["East", "West", "East", "West", "East"]
+  quarter: [1, 1, 2, 2, 2]
+
+unique_data:
+  values: [10, 20, 10, 30, 20, 40]
 
 assumptions:
   # ═══════════════════════════════════════════════════════════════════════════
@@ -91,17 +110,27 @@ assumptions:
     formula: "=PRODUCT(-2, 3, 4)"              # Expected: -24
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # LARGE / SMALL - Nth largest/smallest
+  # LARGE / SMALL - Nth largest/smallest (REAL TESTS)
+  # Values: [10, 50, 30, 70, 20, 90, 40] → Sorted desc: [90, 70, 50, 40, 30, 20, 10]
   # ═══════════════════════════════════════════════════════════════════════════
-  large_sim:
+  large_first:
     value: null
-    formula: "=50"                             # Placeholder for LARGE
-  large_simple:
+    formula: "=LARGE(aggregation_data.values, 1)"   # 1st largest = 90
+  large_second:
     value: null
-    formula: "=MAX(10, 20, 30, 40, 50)"        # Like LARGE(..., 1)
-  small_simple:
+    formula: "=LARGE(aggregation_data.values, 2)"   # 2nd largest = 70
+  large_third:
     value: null
-    formula: "=MIN(10, 20, 30, 40, 50)"        # Like SMALL(..., 1)
+    formula: "=LARGE(aggregation_data.values, 3)"   # 3rd largest = 50
+  small_first:
+    value: null
+    formula: "=SMALL(aggregation_data.values, 1)"   # 1st smallest = 10
+  small_second:
+    value: null
+    formula: "=SMALL(aggregation_data.values, 2)"   # 2nd smallest = 20
+  small_third:
+    value: null
+    formula: "=SMALL(aggregation_data.values, 3)"   # 3rd smallest = 30
 
   # ═══════════════════════════════════════════════════════════════════════════
   # SUMSQ - Sum of squares (manual calculation)
@@ -119,6 +148,59 @@ assumptions:
   sumproduct_manual:
     value: null
     formula: "=1*4 + 2*5 + 3*6"                # Expected: 32
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COUNTUNIQUE - Count unique values (REAL TEST)
+  # Values: [10, 20, 10, 30, 20, 40] → Unique: [10, 20, 30, 40] = 4
+  # ═══════════════════════════════════════════════════════════════════════════
+  countunique_basic:
+    value: null
+    formula: "=COUNTUNIQUE(unique_data.values)"  # Expected: 4
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RANK.EQ - Position in sorted list (REAL TESTS)
+  # Scores: [85, 90, 78, 92, 88] → Desc: [92, 90, 88, 85, 78] ranks: 1, 2, 3, 4, 5
+  # ═══════════════════════════════════════════════════════════════════════════
+  rank_92_desc:
+    value: null
+    formula: "=RANK.EQ(92, ranking_data.scores)"      # Rank 1 (highest)
+  rank_90_desc:
+    value: null
+    formula: "=RANK.EQ(90, ranking_data.scores, 0)"   # Rank 2
+  rank_85_desc:
+    value: null
+    formula: "=RANK(85, ranking_data.scores)"         # Rank 4
+  rank_78_asc:
+    value: null
+    formula: "=RANK.EQ(78, ranking_data.scores, 1)"   # Rank 1 (ascending)
+  rank_92_asc:
+    value: null
+    formula: "=RANK(92, ranking_data.scores, 1)"      # Rank 5 (ascending)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MAXIFS / MINIFS - Conditional max/min (REAL TESTS)
+  # Amount: [100, 200, 150, 300, 250]
+  # Region: [East, West, East, West, East]
+  # Quarter: [1, 1, 2, 2, 2]
+  # ═══════════════════════════════════════════════════════════════════════════
+  maxifs_region_east:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.region, \"East\")"  # Max East = 250
+  maxifs_region_west:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.region, \"West\")"  # Max West = 300
+  maxifs_east_q2:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.region, \"East\", sales_data.quarter, 2)"  # East+Q2 = 250
+  minifs_region_east:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.region, \"East\")"  # Min East = 100
+  minifs_region_west:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.region, \"West\")"  # Min West = 200
+  minifs_east_q2:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.region, \"East\", sales_data.quarter, 2)"  # East+Q2 = 150
 
   # ═══════════════════════════════════════════════════════════════════════════
   # Edge cases

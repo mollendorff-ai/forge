@@ -238,8 +238,7 @@ fn test_correl_moderate_positive() {
 fn test_correl_unequal_length_error() {
     // Arrays of different lengths should error
     // This is harder to test with the table structure, so we skip for now
-    // The implementation checks for equal length
-    assert!(true, "Unequal length check verified in implementation");
+    // The implementation checks for equal length - tested in unit tests
 }
 
 #[test]
@@ -406,7 +405,7 @@ fn test_now_contains_year() {
     // Test by checking if the first 4 characters are numeric and >= 2020
     let result = eval_scalar("VALUE(LEFT(NOW(), 4))");
     assert!(
-        result >= 2020.0 && result <= 2100.0,
+        (2020.0..=2100.0).contains(&result),
         "NOW() should contain a valid year"
     );
 }

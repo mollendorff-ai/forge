@@ -861,3 +861,128 @@ fn test_substitute_no_match() {
     let calculator = ArrayCalculator::new(model);
     let _ = calculator.calculate_all();
 }
+
+#[test]
+fn test_concatenate_function() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=LEN(CONCATENATE(\"Hello\", \" \", \"World\"))".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    // CONCATENATE should work like CONCAT, result length should be 11
+    let len = result.scalars.get("result").unwrap().value.unwrap();
+    assert_eq!(len, 11.0);
+}
+
+#[test]
+fn test_search_function() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // SEARCH is case-insensitive
+    model.add_scalar(
+        "pos".to_string(),
+        Variable::new(
+            "pos".to_string(),
+            None,
+            Some("=SEARCH(\"LO\", \"hello\")".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let pos = result.scalars.get("pos").unwrap().value.unwrap();
+    // "LO" found at position 4 in "hello"
+    assert_eq!(pos, 4.0);
+}
+
+#[test]
+fn test_replace_function() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // REPLACE(text, start, num_chars, new_text)
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=LEN(REPLACE(\"Hello World\", 7, 5, \"Universe\"))".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    // Should replace "World" with "Universe" = "Hello Universe" = 14 chars
+    let len = result.scalars.get("result").unwrap().value.unwrap();
+    assert_eq!(len, 14.0);
+}
+
+#[test]
+fn test_concatenate_multiple() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=LEN(CONCATENATE(\"A\", \"B\", \"C\", \"D\"))".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let len = result.scalars.get("result").unwrap().value.unwrap();
+    assert_eq!(len, 4.0);
+}
+
+#[test]
+fn test_search_case_insensitive() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    model.add_scalar(
+        "pos1".to_string(),
+        Variable::new(
+            "pos1".to_string(),
+            None,
+            Some("=SEARCH(\"WORLD\", \"Hello World\")".to_string()),
+        ),
+    );
+    model.add_scalar(
+        "pos2".to_string(),
+        Variable::new(
+            "pos2".to_string(),
+            None,
+            Some("=SEARCH(\"world\", \"Hello World\")".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let p1 = result.scalars.get("pos1").unwrap().value.unwrap();
+    let p2 = result.scalars.get("pos2").unwrap().value.unwrap();
+    // Both should find "World" at position 7
+    assert_eq!(p1, 7.0);
+    assert_eq!(p2, 7.0);
+}
+
+#[test]
+fn test_replace_beginning() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=LEN(REPLACE(\"Hello\", 1, 2, \"Ya\"))".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    // Should replace "He" with "Ya" -> "Yallo" = 5 chars
+    let len = result.scalars.get("result").unwrap().value.unwrap();
+    assert_eq!(len, 5.0);
+}

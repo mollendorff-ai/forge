@@ -547,3 +547,321 @@ fn test_complex_logical_expression() {
     let var = result.scalars.get("result").unwrap();
     assert_eq!(var.value, Some(1.0));
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Additional logical function tests for complete coverage
+// XOR, IFNA, TRUE, FALSE
+// ══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_xor_one_true() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // XOR with 1 true value should return true
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(XOR(1>0, 0>1, 0>1), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_xor_two_true() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // XOR with 2 true values (even) should return false
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(XOR(1>0, 2>1, 0>1), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(0.0));
+}
+
+#[test]
+fn test_xor_three_true() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // XOR with 3 true values (odd) should return true
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(XOR(1>0, 2>1, 3>2), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_xor_all_false() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // XOR with 0 true values should return false
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(XOR(0>1, 0>2, 0>3), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(0.0));
+}
+
+#[test]
+fn test_xor_with_numbers() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // XOR with numeric values (non-zero is truthy)
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(XOR(1, 0, 0), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_true_function() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // TRUE() should return boolean true (1 in numeric context)
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(TRUE(), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_false_function() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // FALSE() should return boolean false (0 in numeric context)
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(FALSE(), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(0.0));
+}
+
+#[test]
+fn test_true_in_and() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // TRUE() combined with AND
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(AND(TRUE(), 1>0), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_false_in_or() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // FALSE() combined with OR
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(OR(FALSE(), 1>0), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_not_with_true() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // NOT(TRUE()) should return false
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(NOT(TRUE()), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(0.0));
+}
+
+#[test]
+fn test_not_with_false() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // NOT(FALSE()) should return true
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(NOT(FALSE()), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_ifna_with_value() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // IFNA with normal value should return the value
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IFNA(10+5, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(15.0));
+}
+
+#[test]
+fn test_ifna_with_text() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // IFNA with text value should return the text
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=LEN(IFNA(\"test\", \"error\"))".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(4.0));
+}
+
+#[test]
+fn test_ifna_with_table_reference() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+
+    let mut table = Table::new("data".to_string());
+    table.add_column(Column::new(
+        "value".to_string(),
+        ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+    ));
+    model.add_table(table);
+
+    // IFNA with table aggregation should return the value
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IFNA(SUM(data.value), 0)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(60.0));
+}
+
+#[test]
+fn test_combined_xor_and_not() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // Complex: NOT(XOR(true, true)) = NOT(false) = true
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(NOT(XOR(TRUE(), TRUE())), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0));
+}
+
+#[test]
+fn test_true_false_in_arithmetic() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // TRUE() and FALSE() in arithmetic context (TRUE=1, FALSE=0)
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IF(TRUE(), 1, 0) + IF(FALSE(), 1, 0)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let var = result.scalars.get("result").unwrap();
+    assert_eq!(var.value, Some(1.0)); // 1 + 0 = 1
+}

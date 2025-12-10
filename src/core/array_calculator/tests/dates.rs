@@ -1341,3 +1341,179 @@ fn test_day_from_date() {
     let calculator = ArrayCalculator::new(model);
     let _ = calculator.calculate_all();
 }
+
+#[test]
+fn test_now_function() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    model.add_scalar(
+        "now_len".to_string(),
+        Variable::new("now_len".to_string(), None, Some("=LEN(NOW())".to_string())),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    // NOW() returns "YYYY-MM-DD HH:MM:SS" format = 19 characters
+    let val = result.scalars.get("now_len").unwrap().value.unwrap();
+    assert_eq!(val, 19.0);
+}
+
+#[test]
+fn test_time_function() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    model.add_scalar(
+        "noon".to_string(),
+        Variable::new(
+            "noon".to_string(),
+            None,
+            Some("=TIME(12, 0, 0)".to_string()),
+        ),
+    );
+    model.add_scalar(
+        "time_with_minutes".to_string(),
+        Variable::new(
+            "time_with_minutes".to_string(),
+            None,
+            Some("=TIME(6, 30, 45)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    // TIME(12,0,0) = 0.5 (noon)
+    let noon_val = result.scalars.get("noon").unwrap().value.unwrap();
+    assert!((noon_val - 0.5).abs() < 0.001);
+}
+
+#[test]
+fn test_hour_function() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    model.add_scalar(
+        "hour_noon".to_string(),
+        Variable::new(
+            "hour_noon".to_string(),
+            None,
+            Some("=HOUR(0.5)".to_string()),
+        ),
+    );
+    model.add_scalar(
+        "hour_6pm".to_string(),
+        Variable::new(
+            "hour_6pm".to_string(),
+            None,
+            Some("=HOUR(0.75)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let noon = result.scalars.get("hour_noon").unwrap().value.unwrap();
+    let pm6 = result.scalars.get("hour_6pm").unwrap().value.unwrap();
+    assert_eq!(noon, 12.0);
+    assert_eq!(pm6, 18.0);
+}
+
+#[test]
+fn test_minute_function() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // 0.5208333 = 12:30:00
+    model.add_scalar(
+        "minute_val".to_string(),
+        Variable::new(
+            "minute_val".to_string(),
+            None,
+            Some("=MINUTE(0.5208333)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let minutes = result.scalars.get("minute_val").unwrap().value.unwrap();
+    assert!((minutes - 30.0).abs() < 1.0);
+}
+
+#[test]
+fn test_second_function() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // 0.5 = 12:00:00 (zero seconds)
+    model.add_scalar(
+        "second_val".to_string(),
+        Variable::new(
+            "second_val".to_string(),
+            None,
+            Some("=SECOND(0.5)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let seconds = result.scalars.get("second_val").unwrap().value.unwrap();
+    assert_eq!(seconds, 0.0);
+}
+
+#[test]
+fn test_weekday_function() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // 2024-01-01 was a Monday
+    model.add_scalar(
+        "weekday_monday".to_string(),
+        Variable::new(
+            "weekday_monday".to_string(),
+            None,
+            Some("=WEEKDAY(DATE(2024, 1, 1))".to_string()),
+        ),
+    );
+    // Type 2: Monday=1
+    model.add_scalar(
+        "weekday_type2".to_string(),
+        Variable::new(
+            "weekday_type2".to_string(),
+            None,
+            Some("=WEEKDAY(DATE(2024, 1, 1), 2)".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let wd1 = result.scalars.get("weekday_monday").unwrap().value.unwrap();
+    let wd2 = result.scalars.get("weekday_type2").unwrap().value.unwrap();
+    assert_eq!(wd1, 2.0); // Monday = 2 in default (Sunday=1)
+    assert_eq!(wd2, 1.0); // Monday = 1 in type 2
+}
+
+#[test]
+fn test_days_function() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    // DAYS(end, start)
+    model.add_scalar(
+        "days_diff".to_string(),
+        Variable::new(
+            "days_diff".to_string(),
+            None,
+            Some("=DAYS(DATE(2024, 1, 31), DATE(2024, 1, 1))".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let days = result.scalars.get("days_diff").unwrap().value.unwrap();
+    assert_eq!(days, 30.0);
+}
+
+#[test]
+fn test_datedif_yd_unit() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+    model.add_scalar(
+        "diff".to_string(),
+        Variable::new(
+            "diff".to_string(),
+            None,
+            Some("=DATEDIF(DATE(2024,1,1), DATE(2024,3,1), \"YD\")".to_string()),
+        ),
+    );
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    // YD = days difference ignoring years (Jan 1 to Mar 1 = 60 days in leap year)
+    let diff = result.scalars.get("diff").unwrap().value.unwrap();
+    assert!((diff - 60.0).abs() < 1.0);
+}

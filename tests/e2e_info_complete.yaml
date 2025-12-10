@@ -118,3 +118,16 @@ assumptions:
     value: null
     formula: "=IF(ISFORMULA(\"test\"), 1, 0)"  # Expected: 0 (text value)
   # Note: Testing ISFORMULA(A1) requires checking if cell A1 contains a formula, which is context-dependent
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NA - Return #N/A error value
+  # ═══════════════════════════════════════════════════════════════════════════
+  na_detected_by_isna:
+    value: null
+    formula: "=IF(ISNA(NA()), 1, 0)"       # Expected: 1 (NA() is detected by ISNA)
+  na_type_is_error:
+    value: null
+    formula: "=TYPE(NA())"                 # Expected: 16 (error type)
+  na_not_a_number:
+    value: null
+    formula: "=IF(ISNUMBER(NA()), 1, 0)"   # Expected: 0 (NA is not a number)

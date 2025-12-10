@@ -1116,3 +1116,274 @@ fn test_averageifs_text_criteria() {
     let calculator = ArrayCalculator::new(model);
     let _ = calculator.calculate_all();
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// IFS and SWITCH tests - Conditional functions with multiple branches
+// ══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_ifs_first_condition_true() {
+    use crate::types::Variable;
+
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IFS(10>5, 100, 5>10, 200, 1>0, 300)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // First condition (10>5) is true, should return 100
+    assert_eq!(result.scalars.get("result").unwrap().value, Some(100.0));
+}
+
+#[test]
+fn test_ifs_second_condition_true() {
+    use crate::types::Variable;
+
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IFS(5>10, 100, 10>5, 200, 1>0, 300)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Second condition (10>5) is true, should return 200
+    assert_eq!(result.scalars.get("result").unwrap().value, Some(200.0));
+}
+
+#[test]
+fn test_ifs_with_table_data() {
+    use crate::types::Variable;
+
+    let mut model = ParsedModel::new();
+
+    let mut table = Table::new("thresholds".to_string());
+    table.add_column(Column::new(
+        "low".to_string(),
+        ColumnValue::Number(vec![10.0]),
+    ));
+    table.add_column(Column::new(
+        "high".to_string(),
+        ColumnValue::Number(vec![100.0]),
+    ));
+    model.add_table(table);
+
+    model.add_scalar(
+        "grade".to_string(),
+        Variable::new(
+            "grade".to_string(),
+            None,
+            Some(
+                "=IFS(85>=SUM(thresholds.high), 1, 85>=SUM(thresholds.low), 2, 1>0, 3)".to_string(),
+            ),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // 85 >= 10 is true (second condition), should return 2
+    assert_eq!(result.scalars.get("grade").unwrap().value, Some(2.0));
+}
+
+#[test]
+fn test_ifs_no_match_error() {
+    use crate::types::Variable;
+
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IFS(5>10, 100, 3>10, 200)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all();
+
+    // No condition matches, should error
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_ifs_with_final_true() {
+    use crate::types::Variable;
+
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=IFS(5>10, 100, 3>10, 200, 1>0, 999)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Final condition (1>0, always true) acts as default, should return 999
+    assert_eq!(result.scalars.get("result").unwrap().value, Some(999.0));
+}
+
+#[test]
+fn test_switch_match_first() {
+    use crate::types::Variable;
+
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=SWITCH(1, 1, 10, 2, 20, 3, 30)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Matches first value (1), should return 10
+    assert_eq!(result.scalars.get("result").unwrap().value, Some(10.0));
+}
+
+#[test]
+fn test_switch_match_middle() {
+    use crate::types::Variable;
+
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=SWITCH(2, 1, 10, 2, 20, 3, 30)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Matches second value (2), should return 20
+    assert_eq!(result.scalars.get("result").unwrap().value, Some(20.0));
+}
+
+#[test]
+fn test_switch_with_default() {
+    use crate::types::Variable;
+
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=SWITCH(5, 1, 10, 2, 20, 3, 30, 999)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // No match, should return default (999)
+    assert_eq!(result.scalars.get("result").unwrap().value, Some(999.0));
+}
+
+#[test]
+fn test_switch_no_match_no_default() {
+    use crate::types::Variable;
+
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=SWITCH(5, 1, 10, 2, 20, 3, 30)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all();
+
+    // No match and no default, should error
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_switch_with_numeric_result() {
+    use crate::types::Variable;
+
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "day".to_string(),
+        Variable::new("day".to_string(), Some(2.0), None),
+    );
+
+    model.add_scalar(
+        "day_code".to_string(),
+        Variable::new(
+            "day_code".to_string(),
+            None,
+            Some("=SWITCH(day, 1, 100, 2, 200, 3, 300, 999)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // day=2, should return 200
+    assert_eq!(result.scalars.get("day_code").unwrap().value, Some(200.0));
+}
+
+#[test]
+fn test_switch_with_table_lookup() {
+    use crate::types::Variable;
+
+    let mut model = ParsedModel::new();
+
+    let mut table = Table::new("codes".to_string());
+    table.add_column(Column::new(
+        "status".to_string(),
+        ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+    ));
+    model.add_table(table);
+
+    model.add_scalar(
+        "priority".to_string(),
+        Variable::new(
+            "priority".to_string(),
+            None,
+            Some("=SWITCH(SUM(codes.status), 3, 1, 6, 2, 3)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // SUM(codes.status) = 6, should return 2
+    assert_eq!(result.scalars.get("priority").unwrap().value, Some(2.0));
+}

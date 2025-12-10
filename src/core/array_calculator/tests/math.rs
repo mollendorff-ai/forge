@@ -926,3 +926,225 @@ fn test_variance_abs_value() {
     let calculator = ArrayCalculator::new(model);
     let _ = calculator.calculate_all();
 }
+
+#[test]
+#[cfg(feature = "full")]
+fn test_pi_constant() {
+    use crate::types::Variable;
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "pi_value".to_string(),
+        Variable::new("pi_value".to_string(), None, Some("=PI()".to_string())),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let pi_val = result.scalars.get("pi_value").unwrap().value.unwrap();
+    assert!((pi_val - std::f64::consts::PI).abs() < 0.000001);
+}
+
+#[test]
+#[cfg(feature = "full")]
+fn test_pi_in_formula() {
+    use crate::types::Variable;
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "circle_area".to_string(),
+        Variable::new(
+            "circle_area".to_string(),
+            None,
+            Some("=PI() * POWER(5, 2)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let area = result.scalars.get("circle_area").unwrap().value.unwrap();
+    assert!((area - (std::f64::consts::PI * 25.0)).abs() < 0.0001);
+}
+
+#[test]
+#[cfg(feature = "full")]
+fn test_pi_array() {
+    let mut model = ParsedModel::new();
+    let mut table = Table::new("data".to_string());
+
+    table.add_column(Column::new(
+        "radius".to_string(),
+        ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+    ));
+    table.add_row_formula(
+        "circumference".to_string(),
+        "=2 * PI() * radius".to_string(),
+    );
+
+    model.add_table(table);
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let result_table = result.tables.get("data").unwrap();
+
+    let circumference = result_table.columns.get("circumference").unwrap();
+    match &circumference.values {
+        ColumnValue::Number(nums) => {
+            assert!((nums[0] - 2.0 * std::f64::consts::PI).abs() < 0.0001);
+            assert!((nums[1] - 4.0 * std::f64::consts::PI).abs() < 0.0001);
+            assert!((nums[2] - 6.0 * std::f64::consts::PI).abs() < 0.0001);
+        }
+        _ => panic!("Expected Number array"),
+    }
+}
+
+#[test]
+#[cfg(feature = "full")]
+fn test_e_constant() {
+    use crate::types::Variable;
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "e_value".to_string(),
+        Variable::new("e_value".to_string(), None, Some("=E()".to_string())),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let e_val = result.scalars.get("e_value").unwrap().value.unwrap();
+    assert!((e_val - std::f64::consts::E).abs() < 0.000001);
+}
+
+#[test]
+#[cfg(feature = "full")]
+fn test_e_in_formula() {
+    use crate::types::Variable;
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "e_squared".to_string(),
+        Variable::new(
+            "e_squared".to_string(),
+            None,
+            Some("=POWER(E(), 2)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let e_sq = result.scalars.get("e_squared").unwrap().value.unwrap();
+    assert!((e_sq - (std::f64::consts::E * std::f64::consts::E)).abs() < 0.0001);
+}
+
+#[test]
+#[cfg(feature = "full")]
+fn test_e_array() {
+    let mut model = ParsedModel::new();
+    let mut table = Table::new("data".to_string());
+
+    table.add_column(Column::new(
+        "multiplier".to_string(),
+        ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+    ));
+    table.add_row_formula("e_multiple".to_string(), "=E() * multiplier".to_string());
+
+    model.add_table(table);
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let result_table = result.tables.get("data").unwrap();
+
+    let e_multiple = result_table.columns.get("e_multiple").unwrap();
+    match &e_multiple.values {
+        ColumnValue::Number(nums) => {
+            assert!((nums[0] - std::f64::consts::E).abs() < 0.0001);
+            assert!((nums[1] - 2.0 * std::f64::consts::E).abs() < 0.0001);
+            assert!((nums[2] - 3.0 * std::f64::consts::E).abs() < 0.0001);
+        }
+        _ => panic!("Expected Number array"),
+    }
+}
+
+#[test]
+#[cfg(feature = "full")]
+fn test_pow_function_scalar() {
+    use crate::types::Variable;
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new("result".to_string(), None, Some("=POW(2, 8)".to_string())),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    assert!((result.scalars.get("result").unwrap().value.unwrap() - 256.0).abs() < 0.0001);
+}
+
+#[test]
+#[cfg(feature = "full")]
+fn test_pow_function_array() {
+    let mut model = ParsedModel::new();
+    let mut table = Table::new("data".to_string());
+
+    table.add_column(Column::new(
+        "base".to_string(),
+        ColumnValue::Number(vec![2.0, 3.0, 5.0]),
+    ));
+    table.add_row_formula("cubed".to_string(), "=POW(base, 3)".to_string());
+
+    model.add_table(table);
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+    let result_table = result.tables.get("data").unwrap();
+
+    let cubed = result_table.columns.get("cubed").unwrap();
+    match &cubed.values {
+        ColumnValue::Number(nums) => {
+            assert_eq!(nums[0], 8.0);
+            assert_eq!(nums[1], 27.0);
+            assert_eq!(nums[2], 125.0);
+        }
+        _ => panic!("Expected Number array"),
+    }
+}
+
+#[test]
+#[cfg(feature = "full")]
+fn test_pow_negative_exponent() {
+    use crate::types::Variable;
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new("result".to_string(), None, Some("=POW(2, -2)".to_string())),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    assert!((result.scalars.get("result").unwrap().value.unwrap() - 0.25).abs() < 0.0001);
+}
+
+#[test]
+#[cfg(feature = "full")]
+fn test_pow_fractional_exponent() {
+    use crate::types::Variable;
+    let mut model = ParsedModel::new();
+
+    model.add_scalar(
+        "result".to_string(),
+        Variable::new(
+            "result".to_string(),
+            None,
+            Some("=POW(16, 0.5)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    assert!((result.scalars.get("result").unwrap().value.unwrap() - 4.0).abs() < 0.0001);
+}

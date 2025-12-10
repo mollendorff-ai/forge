@@ -51,6 +51,12 @@ assumptions:
   stdev_two_values:
     value: null
     formula: "=ROUND(STDEV(0, 10), 4)"                # Two value stdev
+  stdev_s_table:
+    value: null
+    formula: "=ROUND(STDEV.S(stats_data.values), 4)" # Sample stdev from table
+  stdevp_table:
+    value: null
+    formula: "=ROUND(STDEV.P(stats_data.values), 4)" # Population stdev from table
 
   # ═══════════════════════════════════════════════════════════════════════════
   # VAR / VARP - Variance
@@ -64,6 +70,12 @@ assumptions:
   var_two_values:
     value: null
     formula: "=ROUND(VAR(0, 10), 4)"                  # Two value variance
+  var_s_table:
+    value: null
+    formula: "=ROUND(VAR.S(stats_data.values), 4)"   # Sample variance from table
+  varp_table:
+    value: null
+    formula: "=ROUND(VAR.P(stats_data.values), 4)"   # Population variance from table
 
   # ═══════════════════════════════════════════════════════════════════════════
   # MEDIAN - Middle value

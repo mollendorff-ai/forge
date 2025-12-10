@@ -1,157 +1,107 @@
-# E2E Logical Function Complete Coverage
-# v6.9.0 - All 9 logical functions with comprehensive tests
-
-_forge_version: "1.0.0"
-
+_forge_version: 5.0.0
 assumptions:
-  # ═══════════════════════════════════════════════════════════════════════════
-  # IF - Conditional
-  # ═══════════════════════════════════════════════════════════════════════════
   if_true:
-    value: null
-    formula: "=IF(TRUE(), 1, 0)"           # Expected: 1
+    value: 1.0
+    formula: =IF(TRUE(), 1, 0)
   if_false:
-    value: null
-    formula: "=IF(FALSE(), 1, 0)"          # Expected: 0
+    value: 0.0
+    formula: =IF(FALSE(), 1, 0)
   if_numeric_true:
-    value: null
-    formula: "=IF(5>3, 10, 20)"            # Expected: 10
+    value: 10.0
+    formula: =IF(5>3, 10, 20)
   if_numeric_false:
-    value: null
-    formula: "=IF(5<3, 10, 20)"            # Expected: 20
+    value: 20.0
+    formula: =IF(5<3, 10, 20)
   if_equals:
-    value: null
-    formula: "=IF(5=5, 100, 0)"            # Expected: 100
+    value: 100.0
+    formula: =IF(5=5, 100, 0)
   if_nested:
-    value: null
-    formula: "=IF(5>10, 1, IF(5>3, 2, 3))" # Expected: 2
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # AND - All conditions true
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 2.0
+    formula: =IF(5>10, 1, IF(5>3, 2, 3))
   and_true:
-    value: null
-    formula: "=IF(AND(TRUE(), TRUE()), 1, 0)"  # Expected: 1
+    value: 1.0
+    formula: =IF(AND(TRUE(), TRUE()), 1, 0)
   and_false:
-    value: null
-    formula: "=IF(AND(TRUE(), FALSE()), 1, 0)" # Expected: 0
+    value: 0.0
+    formula: =IF(AND(TRUE(), FALSE()), 1, 0)
   and_all_false:
-    value: null
-    formula: "=IF(AND(FALSE(), FALSE()), 1, 0)" # Expected: 0
+    value: 0.0
+    formula: =IF(AND(FALSE(), FALSE()), 1, 0)
   and_numeric:
-    value: null
-    formula: "=IF(AND(5>3, 10>5), 1, 0)"   # Expected: 1
+    value: 1.0
+    formula: =IF(AND(5>3, 10>5), 1, 0)
   and_three:
-    value: null
-    formula: "=IF(AND(TRUE(), TRUE(), TRUE()), 1, 0)"  # Expected: 1
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # OR - Any condition true
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 1.0
+    formula: =IF(AND(TRUE(), TRUE(), TRUE()), 1, 0)
   or_true:
-    value: null
-    formula: "=IF(OR(TRUE(), FALSE()), 1, 0)"  # Expected: 1
+    value: 1.0
+    formula: =IF(OR(TRUE(), FALSE()), 1, 0)
   or_false:
-    value: null
-    formula: "=IF(OR(FALSE(), FALSE()), 1, 0)" # Expected: 0
+    value: 0.0
+    formula: =IF(OR(FALSE(), FALSE()), 1, 0)
   or_all_true:
-    value: null
-    formula: "=IF(OR(TRUE(), TRUE()), 1, 0)"   # Expected: 1
+    value: 1.0
+    formula: =IF(OR(TRUE(), TRUE()), 1, 0)
   or_numeric:
-    value: null
-    formula: "=IF(OR(5<3, 10>5), 1, 0)"    # Expected: 1
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # NOT - Negation
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 1.0
+    formula: =IF(OR(5<3, 10>5), 1, 0)
   not_true:
-    value: null
-    formula: "=IF(NOT(TRUE()), 1, 0)"      # Expected: 0
+    value: 0.0
+    formula: =IF(NOT(TRUE()), 1, 0)
   not_false:
-    value: null
-    formula: "=IF(NOT(FALSE()), 1, 0)"     # Expected: 1
+    value: 1.0
+    formula: =IF(NOT(FALSE()), 1, 0)
   not_comparison:
-    value: null
-    formula: "=IF(NOT(5<3), 1, 0)"         # Expected: 1
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # XOR - Exclusive or
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 1.0
+    formula: =IF(NOT(5<3), 1, 0)
   xor_one_true:
-    value: null
-    formula: "=IF(XOR(TRUE(), FALSE()), 1, 0)" # Expected: 1
+    value: 1.0
+    formula: =IF(XOR(TRUE(), FALSE()), 1, 0)
   xor_both_true:
-    value: null
-    formula: "=IF(XOR(TRUE(), TRUE()), 1, 0)"  # Expected: 0
+    value: 0.0
+    formula: =IF(XOR(TRUE(), TRUE()), 1, 0)
   xor_both_false:
-    value: null
-    formula: "=IF(XOR(FALSE(), FALSE()), 1, 0)" # Expected: 0
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # TRUE / FALSE - Boolean constants
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 0.0
+    formula: =IF(XOR(FALSE(), FALSE()), 1, 0)
   true_func:
-    value: null
-    formula: "=IF(TRUE(), 1, 0)"           # Expected: 1
+    value: 1.0
+    formula: =IF(TRUE(), 1, 0)
   false_func:
-    value: null
-    formula: "=IF(FALSE(), 1, 0)"          # Expected: 0
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # IFS - Multiple conditions
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 0.0
+    formula: =IF(FALSE(), 1, 0)
   ifs_first:
-    value: null
-    formula: "=IFS(TRUE(), 10, FALSE(), 20)"   # Expected: 10
+    value: 10.0
+    formula: =IFS(TRUE(), 10, FALSE(), 20)
   ifs_second:
-    value: null
-    formula: "=IFS(FALSE(), 10, TRUE(), 20)"   # Expected: 20
+    value: 20.0
+    formula: =IFS(FALSE(), 10, TRUE(), 20)
   ifs_numeric:
-    value: null
-    formula: "=IFS(5<3, 1, 5>3, 2, TRUE(), 3)" # Expected: 2
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # SWITCH - Value matching
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 2.0
+    formula: =IFS(5<3, 1, 5>3, 2, TRUE(), 3)
   switch_match:
-    value: null
-    formula: "=SWITCH(2, 1, 10, 2, 20, 3, 30)" # Expected: 20
+    value: 20.0
+    formula: =SWITCH(2, 1, 10, 2, 20, 3, 30)
   switch_default:
-    value: null
-    formula: "=SWITCH(9, 1, 10, 2, 20, 99)"    # Expected: 99 (default)
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # IFERROR - Error handling
-  # ═══════════════════════════════════════════════════════════════════════════
-  # NOTE: Forge throws on errors (1/0, SQRT(-1)) rather than returning error values
-  # Error handling tests that require error values are in unit tests
+    value: 99.0
+    formula: =SWITCH(9, 1, 10, 2, 20, 99)
   iferror_no_error:
-    value: null
-    formula: "=IFERROR(5+5, 0)"            # Expected: 10 (no error, returns value)
+    value: 10.0
+    formula: =IFERROR(5+5, 0)
   iferror_string_fallback:
-    value: null
-    formula: "=LEN(IFERROR(\"test\", \"fallback\"))"  # Expected: 4 (returns "test")
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # IFNA - Handle #N/A errors specifically
-  # NOTE: NA() and error value support limited in Forge - see unit tests
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 4.0
+    formula: =LEN(IFERROR("test", "fallback"))
   ifna_no_error:
-    value: null
-    formula: "=IFNA(1, 0)"                 # Expected: 1 (no NA, returns value)
+    value: 1.0
+    formula: =IFNA(1, 0)
   ifna_number_calculation:
-    value: null
-    formula: "=IFNA(10+5, 99)"             # Expected: 15 (no NA, returns result)
+    value: 15.0
+    formula: =IFNA(10+5, 99)
   ifna_string:
-    value: null
-    formula: "=LEN(IFNA(\"hello\", \"x\"))"  # Expected: 5 (returns "hello")
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # Combined logical operations
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 5.0
+    formula: =LEN(IFNA("hello", "x"))
   combined_and_or:
-    value: null
-    formula: "=IF(AND(OR(TRUE(), FALSE()), NOT(FALSE())), 1, 0)"  # Expected: 1
+    value: 1.0
+    formula: =IF(AND(OR(TRUE(), FALSE()), NOT(FALSE())), 1, 0)
   combined_nested:
-    value: null
-    formula: "=IF(OR(AND(TRUE(), TRUE()), AND(FALSE(), FALSE())), 1, 0)"  # Expected: 1
+    value: 1.0
+    formula: =IF(OR(AND(TRUE(), TRUE()), AND(FALSE(), FALSE())), 1, 0)

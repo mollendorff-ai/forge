@@ -1035,3 +1035,207 @@ fn test_pv_with_future_value() {
         pv
     );
 }
+
+#[test]
+fn test_ppmt_function() {
+    use crate::types::Variable;
+
+    // Test PPMT: Principal payment for period 1 of a $10,000 loan at 5% annual for 5 years
+    let mut model = ParsedModel::new();
+    model.add_scalar(
+        "principal_pmt".to_string(),
+        Variable::new(
+            "principal_pmt".to_string(),
+            None,
+            Some("=PPMT(0.05/12, 1, 60, 10000)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("Calculation should succeed");
+    let ppmt = result.scalars.get("principal_pmt").unwrap().value.unwrap();
+
+    // PPMT should be negative (payment)
+    assert!(
+        ppmt < 0.0,
+        "PPMT should be negative (payment), got {}",
+        ppmt
+    );
+}
+
+#[test]
+fn test_ipmt_function() {
+    use crate::types::Variable;
+
+    // Test IPMT: Interest payment for period 1 of a $10,000 loan at 5% annual for 5 years
+    let mut model = ParsedModel::new();
+    model.add_scalar(
+        "interest_pmt".to_string(),
+        Variable::new(
+            "interest_pmt".to_string(),
+            None,
+            Some("=IPMT(0.05/12, 1, 60, 10000)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("Calculation should succeed");
+    let ipmt = result.scalars.get("interest_pmt").unwrap().value.unwrap();
+
+    // IPMT should be negative (interest payment)
+    assert!(
+        ipmt < 0.0,
+        "IPMT should be negative (payment), got {}",
+        ipmt
+    );
+}
+
+#[test]
+fn test_effect_function() {
+    use crate::types::Variable;
+
+    // Test EFFECT: 6% nominal rate compounded monthly
+    let mut model = ParsedModel::new();
+    model.add_scalar(
+        "effective_rate".to_string(),
+        Variable::new(
+            "effective_rate".to_string(),
+            None,
+            Some("=EFFECT(0.06, 12)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("Calculation should succeed");
+    let effect = result.scalars.get("effective_rate").unwrap().value.unwrap();
+
+    // Effective rate should be slightly higher than nominal
+    assert!(
+        effect > 0.06 && effect < 0.07,
+        "EFFECT should be around 6.17%, got {}",
+        effect
+    );
+}
+
+#[test]
+fn test_nominal_function() {
+    use crate::types::Variable;
+
+    // Test NOMINAL: 6.17% effective rate compounded monthly
+    let mut model = ParsedModel::new();
+    model.add_scalar(
+        "nominal_rate".to_string(),
+        Variable::new(
+            "nominal_rate".to_string(),
+            None,
+            Some("=NOMINAL(0.0617, 12)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("Calculation should succeed");
+    let nominal = result.scalars.get("nominal_rate").unwrap().value.unwrap();
+
+    // Nominal rate should be around 6%
+    assert!(
+        nominal > 0.05 && nominal < 0.07,
+        "NOMINAL should be around 6%, got {}",
+        nominal
+    );
+}
+
+#[test]
+fn test_pricedisc_function() {
+    use crate::types::Variable;
+
+    // Test PRICEDISC: $100 face value, 5% discount, 180 days
+    let mut model = ParsedModel::new();
+    model.add_scalar(
+        "price".to_string(),
+        Variable::new(
+            "price".to_string(),
+            None,
+            Some("=PRICEDISC(0, 180, 0.05, 100)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("Calculation should succeed");
+    let price = result.scalars.get("price").unwrap().value.unwrap();
+
+    // Price should be less than face value
+    assert!(
+        price > 95.0 && price < 100.0,
+        "PRICEDISC should be around 97.5, got {}",
+        price
+    );
+}
+
+#[test]
+fn test_yielddisc_function() {
+    use crate::types::Variable;
+
+    // Test YIELDDISC: $97.50 price for $100 redemption, 180 days
+    let mut model = ParsedModel::new();
+    model.add_scalar(
+        "yield_val".to_string(),
+        Variable::new(
+            "yield_val".to_string(),
+            None,
+            Some("=YIELDDISC(0, 180, 97.50, 100)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("Calculation should succeed");
+    let yld = result.scalars.get("yield_val").unwrap().value.unwrap();
+
+    // Yield should be positive
+    assert!(yld > 0.0, "YIELDDISC should be positive, got {}", yld);
+}
+
+#[test]
+fn test_accrint_function() {
+    use crate::types::Variable;
+
+    // Test ACCRINT: $1000 par, 6% rate, 180 days, annual payment
+    let mut model = ParsedModel::new();
+    model.add_scalar(
+        "accrued_interest".to_string(),
+        Variable::new(
+            "accrued_interest".to_string(),
+            None,
+            Some("=ACCRINT(0, 365, 180, 0.06, 1000, 1)".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator
+        .calculate_all()
+        .expect("Calculation should succeed");
+    let accrint = result
+        .scalars
+        .get("accrued_interest")
+        .unwrap()
+        .value
+        .unwrap();
+
+    // Accrued interest should be positive and less than annual interest
+    assert!(
+        accrint > 0.0 && accrint < 60.0,
+        "ACCRINT should be around 30, got {}",
+        accrint
+    );
+}

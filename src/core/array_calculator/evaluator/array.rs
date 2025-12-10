@@ -295,4 +295,105 @@ mod tests {
             panic!("Expected array");
         }
     }
+
+    #[test]
+    fn test_filter() {
+        let mut ctx = EvalContext::new();
+        let mut table = HashMap::new();
+
+        // Create data array: [10, 20, 30, 40, 50]
+        table.insert(
+            "values".to_string(),
+            vec![
+                Value::Number(10.0),
+                Value::Number(20.0),
+                Value::Number(30.0),
+                Value::Number(40.0),
+                Value::Number(50.0),
+            ],
+        );
+
+        // Create filter array: [true, false, true, false, true]
+        table.insert(
+            "include".to_string(),
+            vec![
+                Value::Boolean(true),
+                Value::Boolean(false),
+                Value::Boolean(true),
+                Value::Boolean(false),
+                Value::Boolean(true),
+            ],
+        );
+        ctx.tables.insert("t".to_string(), table);
+
+        // FILTER should return [10, 30, 50]
+        let result = eval("FILTER(t.values, t.include)", &ctx).unwrap();
+        if let Value::Array(arr) = result {
+            assert_eq!(arr.len(), 3);
+            assert_eq!(arr[0], Value::Number(10.0));
+            assert_eq!(arr[1], Value::Number(30.0));
+            assert_eq!(arr[2], Value::Number(50.0));
+        } else {
+            panic!("Expected array");
+        }
+    }
+
+    #[test]
+    fn test_filter_all_false() {
+        let mut ctx = EvalContext::new();
+        let mut table = HashMap::new();
+
+        table.insert(
+            "values".to_string(),
+            vec![Value::Number(10.0), Value::Number(20.0)],
+        );
+        table.insert(
+            "include".to_string(),
+            vec![Value::Boolean(false), Value::Boolean(false)],
+        );
+        ctx.tables.insert("t".to_string(), table);
+
+        // FILTER should return empty array
+        let result = eval("FILTER(t.values, t.include)", &ctx).unwrap();
+        if let Value::Array(arr) = result {
+            assert_eq!(arr.len(), 0);
+        } else {
+            panic!("Expected array");
+        }
+    }
+
+    #[test]
+    fn test_filter_all_true() {
+        let mut ctx = EvalContext::new();
+        let mut table = HashMap::new();
+
+        table.insert(
+            "values".to_string(),
+            vec![
+                Value::Number(100.0),
+                Value::Number(200.0),
+                Value::Number(300.0),
+            ],
+        );
+        table.insert(
+            "include".to_string(),
+            vec![
+                Value::Boolean(true),
+                Value::Boolean(true),
+                Value::Boolean(true),
+            ],
+        );
+        ctx.tables.insert("t".to_string(), table);
+
+        // FILTER should return all values
+        let result = eval("FILTER(t.values, t.include)", &ctx).unwrap();
+        if let Value::Array(arr) = result {
+            assert_eq!(arr.len(), 3);
+            assert_eq!(arr[0], Value::Number(100.0));
+            assert_eq!(arr[1], Value::Number(200.0));
+            assert_eq!(arr[2], Value::Number(300.0));
+        } else {
+            panic!("Expected array");
+        }
+    }
 }

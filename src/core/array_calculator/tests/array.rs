@@ -405,8 +405,12 @@ fn test_filter_function_rowwise() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // FILTER(data.value, data.include) returns [10.0, 25.0, 30.0] (exclude 5.0)
+    // SUM([10.0, 25.0, 30.0]) = 65.0
+    let filtered_sum = result.scalars.get("filtered_sum").unwrap().value.unwrap();
+    assert_eq!(filtered_sum, 65.0, "SUM(FILTER(...)) should return 65.0");
 }
 
 #[test]
@@ -421,18 +425,34 @@ fn test_sort_function_coverage() {
     model.add_table(data);
 
     use crate::types::Variable;
+    // MIN of sorted array should give the smallest value
     model.add_scalar(
-        "first_sorted".to_string(),
+        "min_value".to_string(),
         Variable::new(
-            "first_sorted".to_string(),
+            "min_value".to_string(),
             None,
-            Some("=INDEX(SORT(data.values), 1)".to_string()),
+            Some("=MIN(SORT(data.values))".to_string()),
+        ),
+    );
+    // MAX of sorted array should give the largest value
+    model.add_scalar(
+        "max_value".to_string(),
+        Variable::new(
+            "max_value".to_string(),
+            None,
+            Some("=MAX(SORT(data.values))".to_string()),
         ),
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // SORT([30, 10, 20, 40]) = [10, 20, 30, 40]
+    let min_val = result.scalars.get("min_value").unwrap().value.unwrap();
+    assert_eq!(min_val, 10.0, "MIN(SORT(...)) should return 10.0");
+
+    let max_val = result.scalars.get("max_value").unwrap().value.unwrap();
+    assert_eq!(max_val, 40.0, "MAX(SORT(...)) should return 40.0");
 }
 
 #[test]
@@ -502,7 +522,12 @@ fn test_filter_function() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // FILTER(data.values, data.flags) returns [1.0, 3.0, 5.0]
+    // SUM([1.0, 3.0, 5.0]) = 9.0
+    let sum_result = result.scalars.get("sum").unwrap().value.unwrap();
+    assert_eq!(sum_result, 9.0, "SUM(FILTER(...)) should return 9.0");
 }
 
 #[test]
@@ -546,5 +571,196 @@ fn test_sort_and_min() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // SORT([3, 1, 4, 1, 5]) = [1, 1, 3, 4, 5]
+    // MIN([1, 1, 3, 4, 5]) = 1.0
+    let min_val = result.scalars.get("min").unwrap().value.unwrap();
+    assert_eq!(min_val, 1.0, "MIN(SORT(...)) should return 1.0");
+}
+
+#[test]
+fn test_sequence_function_basic() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+
+    // SEQUENCE(5) generates [1, 2, 3, 4, 5]
+    // SUM([1, 2, 3, 4, 5]) = 15
+    model.add_scalar(
+        "seq_sum".to_string(),
+        Variable::new(
+            "seq_sum".to_string(),
+            None,
+            Some("=SUM(SEQUENCE(5))".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let sum_val = result.scalars.get("seq_sum").unwrap().value.unwrap();
+    assert_eq!(sum_val, 15.0, "SUM(SEQUENCE(5)) should return 15.0");
+}
+
+#[test]
+fn test_sequence_function_with_start_step() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+
+    // SEQUENCE(4, 1, 10, 5) generates [10, 15, 20, 25]
+    // SUM([10, 15, 20, 25]) = 70
+    model.add_scalar(
+        "seq_custom".to_string(),
+        Variable::new(
+            "seq_custom".to_string(),
+            None,
+            Some("=SUM(SEQUENCE(4, 1, 10, 5))".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let sum_val = result.scalars.get("seq_custom").unwrap().value.unwrap();
+    assert_eq!(
+        sum_val, 70.0,
+        "SUM(SEQUENCE(4, 1, 10, 5)) should return 70.0"
+    );
+}
+
+#[test]
+fn test_sequence_function_zero_start() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+
+    // SEQUENCE(3, 1, 0, 10) generates [0, 10, 20]
+    // MAX([0, 10, 20]) = 20
+    model.add_scalar(
+        "seq_max".to_string(),
+        Variable::new(
+            "seq_max".to_string(),
+            None,
+            Some("=MAX(SEQUENCE(3, 1, 0, 10))".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let max_val = result.scalars.get("seq_max").unwrap().value.unwrap();
+    assert_eq!(
+        max_val, 20.0,
+        "MAX(SEQUENCE(3, 1, 0, 10)) should return 20.0"
+    );
+}
+
+#[test]
+fn test_randarray_function_basic() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+
+    // RANDARRAY(5) generates 5 random numbers between 0 and 1
+    // COUNT should return 5
+    model.add_scalar(
+        "rand_count".to_string(),
+        Variable::new(
+            "rand_count".to_string(),
+            None,
+            Some("=COUNT(RANDARRAY(5))".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let count_val = result.scalars.get("rand_count").unwrap().value.unwrap();
+    assert_eq!(count_val, 5.0, "COUNT(RANDARRAY(5)) should return 5.0");
+}
+
+#[test]
+fn test_randarray_function_range() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+
+    // RANDARRAY(10, 1, 1, 10, TRUE()) generates 10 whole numbers between 1 and 10
+    // All values should be >= 1 and <= 10
+    // We can't test exact values (random), but we can validate COUNT and bounds via MIN/MAX
+    model.add_scalar(
+        "rand_count".to_string(),
+        Variable::new(
+            "rand_count".to_string(),
+            None,
+            Some("=COUNT(RANDARRAY(10, 1, 1, 10, TRUE()))".to_string()),
+        ),
+    );
+    model.add_scalar(
+        "rand_min".to_string(),
+        Variable::new(
+            "rand_min".to_string(),
+            None,
+            Some("=MIN(RANDARRAY(10, 1, 1, 10, TRUE()))".to_string()),
+        ),
+    );
+    model.add_scalar(
+        "rand_max".to_string(),
+        Variable::new(
+            "rand_max".to_string(),
+            None,
+            Some("=MAX(RANDARRAY(10, 1, 1, 10, TRUE()))".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let count_val = result.scalars.get("rand_count").unwrap().value.unwrap();
+    assert_eq!(
+        count_val, 10.0,
+        "COUNT(RANDARRAY(10, 1, 1, 10, TRUE())) should return 10.0"
+    );
+
+    let min_val = result.scalars.get("rand_min").unwrap().value.unwrap();
+    assert!(
+        (1.0..=10.0).contains(&min_val),
+        "MIN(RANDARRAY(...)) should be between 1.0 and 10.0, got {}",
+        min_val
+    );
+
+    let max_val = result.scalars.get("rand_max").unwrap().value.unwrap();
+    assert!(
+        (1.0..=10.0).contains(&max_val),
+        "MAX(RANDARRAY(...)) should be between 1.0 and 10.0, got {}",
+        max_val
+    );
+}
+
+#[test]
+fn test_randarray_function_larger_count() {
+    let mut model = ParsedModel::new();
+    use crate::types::Variable;
+
+    // RANDARRAY(100) generates 100 random numbers
+    // COUNT should return 100
+    model.add_scalar(
+        "large_rand_count".to_string(),
+        Variable::new(
+            "large_rand_count".to_string(),
+            None,
+            Some("=COUNT(RANDARRAY(100))".to_string()),
+        ),
+    );
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    let count_val = result
+        .scalars
+        .get("large_rand_count")
+        .unwrap()
+        .value
+        .unwrap();
+    assert_eq!(
+        count_val, 100.0,
+        "COUNT(RANDARRAY(100)) should return 100.0"
+    );
 }
