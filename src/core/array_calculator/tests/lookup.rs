@@ -596,8 +596,19 @@ fn test_offset_function() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    // OFFSET may or may not be fully implemented, but we're exercising the path
-    assert!(result.is_ok() || result.is_err());
+    assert!(
+        result.is_ok(),
+        "OFFSET function should calculate successfully"
+    );
+    let model_result = result.unwrap();
+    let val = model_result
+        .scalars
+        .get("offset_sum")
+        .unwrap()
+        .value
+        .unwrap();
+    // OFFSET(data.values, 1, 3) with offset=1, count=3 returns single value at offset 1
+    assert_eq!(val, 20.0);
 }
 
 #[test]
@@ -883,8 +894,27 @@ fn test_vlookup_exact_match() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    // Test exercises VLOOKUP code path (may or may not work with table references)
-    assert!(result.is_ok() || result.is_err());
+    // VLOOKUP with table references may not be fully implemented
+    if let Err(err) = result {
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("VLOOKUP")
+                || err_msg.contains("table")
+                || err_msg.contains("Unknown variable")
+                || err_msg.contains("products"),
+            "VLOOKUP should error with meaningful message, got: {}",
+            err_msg
+        );
+    } else {
+        // If it succeeds, verify the correct price is returned
+        let model_result = result.unwrap();
+        let table = model_result.tables.get("data").unwrap();
+        if let Some(col) = table.columns.get("found_price") {
+            if let ColumnValue::Number(vals) = &col.values {
+                assert_eq!(vals[0], 0.75); // Price for product ID 102 (Banana)
+            }
+        }
+    }
 }
 
 #[cfg(feature = "full")]
@@ -1265,8 +1295,27 @@ fn test_vlookup_with_text_search_value() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    // Exercises text VLOOKUP path
-    assert!(result.is_ok() || result.is_err());
+    // VLOOKUP with table references may not be fully implemented
+    if let Err(err) = result {
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("VLOOKUP")
+                || err_msg.contains("table")
+                || err_msg.contains("Unknown variable")
+                || err_msg.contains("products"),
+            "VLOOKUP should error with meaningful message, got: {}",
+            err_msg
+        );
+    } else {
+        // If it succeeds, verify the correct price is returned
+        let model_result = result.unwrap();
+        let table = model_result.tables.get("query").unwrap();
+        if let Some(col) = table.columns.get("found_price") {
+            if let ColumnValue::Number(vals) = &col.values {
+                assert_eq!(vals[0], 0.75); // Price for "Banana"
+            }
+        }
+    }
 }
 
 #[cfg(feature = "full")]
@@ -1293,7 +1342,19 @@ fn test_indirect_function_v2() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    assert!(
+        result.is_ok(),
+        "INDIRECT function should calculate successfully"
+    );
+    let model_result = result.unwrap();
+    let val = model_result
+        .scalars
+        .get("indirect_val")
+        .unwrap()
+        .value
+        .unwrap();
+    // SUM(data.values) = 10 + 20 + 30 = 60
+    assert_eq!(val, 60.0);
 }
 
 #[test]
@@ -1311,7 +1372,19 @@ fn test_choose_function_v2() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    assert!(
+        result.is_ok(),
+        "CHOOSE function should calculate successfully"
+    );
+    let model_result = result.unwrap();
+    let table = model_result.tables.get("data").unwrap();
+    if let Some(col) = table.columns.get("chosen") {
+        if let ColumnValue::Number(vals) = &col.values {
+            assert_eq!(vals[0], 10.0); // CHOOSE(1, 10, 20, 30) = 10
+            assert_eq!(vals[1], 20.0); // CHOOSE(2, 10, 20, 30) = 20
+            assert_eq!(vals[2], 30.0); // CHOOSE(3, 10, 20, 30) = 30
+        }
+    }
 }
 
 #[test]
@@ -1327,7 +1400,12 @@ fn test_choose_valid_index() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all();
+    assert!(result.is_ok(), "CHOOSE with valid index should succeed");
+    let model_result = result.unwrap();
+    let val = model_result.scalars.get("result").unwrap().value.unwrap();
+    // CHOOSE(2, 100, 200, 300) should return 200
+    assert_eq!(val, 200.0);
 }
 
 #[test]
@@ -1343,7 +1421,12 @@ fn test_choose_index_out_of_range() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all();
+    // CHOOSE with out-of-range index should error
+    assert!(
+        result.is_err(),
+        "CHOOSE with index 10 out of range [1-3] should error"
+    );
 }
 
 #[cfg(feature = "full")]
@@ -1366,7 +1449,15 @@ fn test_indirect_table_column() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all();
+    assert!(
+        result.is_ok(),
+        "INDIRECT table column should calculate successfully"
+    );
+    let model_result = result.unwrap();
+    let val = model_result.scalars.get("total").unwrap().value.unwrap();
+    // SUM(sales.revenue) = 100 + 200 + 300 = 600
+    assert_eq!(val, 600.0);
 }
 
 #[test]
@@ -1388,7 +1479,12 @@ fn test_array_index_out_of_bounds() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all();
+    // Array index out of bounds should error
+    assert!(
+        result.is_err(),
+        "Array index [100] out of bounds [0-2] should error"
+    );
 }
 
 #[cfg(feature = "full")]
@@ -1411,7 +1507,21 @@ fn test_offset_basic_usage() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all();
+    // OFFSET may not be fully implemented for scalar expressions
+    if let Err(err) = result {
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("OFFSET") || err_msg.contains("not"),
+            "OFFSET should error with meaningful message if not implemented, got: {}",
+            err_msg
+        );
+    } else {
+        // If it works, verify it returns a value
+        let model_result = result.unwrap();
+        let val = model_result.scalars.get("result").unwrap().value;
+        assert!(val.is_some(), "OFFSET should return a value");
+    }
 }
 
 #[cfg(feature = "full")]
@@ -1438,7 +1548,25 @@ fn test_vlookup_exact_mode() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all();
+    // VLOOKUP with table references may not be fully implemented
+    if let Err(err) = result {
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("VLOOKUP")
+                || err_msg.contains("table")
+                || err_msg.contains("Unknown variable")
+                || err_msg.contains("products"),
+            "VLOOKUP should error with meaningful message, got: {}",
+            err_msg
+        );
+    } else {
+        // If it succeeds, verify the correct price is returned
+        let model_result = result.unwrap();
+        let val = model_result.scalars.get("result").unwrap().value.unwrap();
+        // VLOOKUP(2, products, 2, FALSE) should return price for id=2, which is 20.0
+        assert_eq!(val, 20.0);
+    }
 }
 
 #[test]
@@ -1468,7 +1596,15 @@ fn test_index_match_combination() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all();
+    assert!(
+        result.is_ok(),
+        "INDEX/MATCH combination should calculate successfully"
+    );
+    let model_result = result.unwrap();
+    let val = model_result.scalars.get("score").unwrap().value.unwrap();
+    // INDEX(data.scores, MATCH("Bob", data.names, 0)) should return Bob's score = 92.0
+    assert_eq!(val, 92.0);
 }
 
 #[cfg(feature = "full")]
@@ -1495,7 +1631,15 @@ fn test_xlookup_not_found_fallback() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all();
+    assert!(
+        result.is_ok(),
+        "XLOOKUP not found fallback should calculate successfully"
+    );
+    let model_result = result.unwrap();
+    let val = model_result.scalars.get("result").unwrap().value.unwrap();
+    // XLOOKUP("D4", items.code, items.value, -1) should return fallback value -1
+    assert_eq!(val, -1.0);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1920,8 +2064,14 @@ fn test_offset_positive_offset() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    // OFFSET should work or error gracefully
-    assert!(result.is_ok() || result.is_err());
+    assert!(
+        result.is_ok(),
+        "OFFSET with positive offset should calculate successfully"
+    );
+    let model_result = result.unwrap();
+    let val = model_result.scalars.get("offset_val").unwrap().value;
+    // OFFSET returns an array or value - check it's not None
+    assert!(val.is_some(), "OFFSET should return a value");
 }
 
 #[cfg(feature = "full")]
@@ -1949,8 +2099,19 @@ fn test_offset_with_sum() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    // OFFSET should work or error gracefully
-    assert!(result.is_ok() || result.is_err());
+    assert!(
+        result.is_ok(),
+        "OFFSET with SUM should calculate successfully"
+    );
+    let model_result = result.unwrap();
+    let val = model_result
+        .scalars
+        .get("offset_sum")
+        .unwrap()
+        .value
+        .unwrap();
+    // SUM(OFFSET(data.values, 1, 2)) returns single value at offset 1
+    assert_eq!(val, 20.0);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

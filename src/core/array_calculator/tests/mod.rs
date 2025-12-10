@@ -10,10 +10,12 @@
 mod aggregation;
 mod core;
 mod dates;
+mod errors;
 mod logical;
 mod lookup;
 mod math;
 mod text;
+mod text_edge_cases;
 mod trig;
 
 // Enterprise-only test modules

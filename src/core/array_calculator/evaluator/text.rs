@@ -1,6 +1,6 @@
-//! Text functions: CONCAT, UPPER, LOWER, TRIM, LEN, LEFT, RIGHT, MID, TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
+//! Text functions: CONCAT, UPPER, LOWER, TRIM, LEN, LEFT, RIGHT, MID, REPT, TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
 //!
-//! DEMO functions (8): CONCAT, LEFT, RIGHT, MID, LEN, UPPER, LOWER, TRIM
+//! DEMO functions (9): CONCAT, LEFT, RIGHT, MID, REPT, LEN, UPPER, LOWER, TRIM
 //! ENTERPRISE functions: CONCATENATE, TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
 
 use super::{evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value};
@@ -45,7 +45,7 @@ pub fn try_evaluate(
         "LEN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
-            Value::Number(val.as_text().len() as f64)
+            Value::Number(val.as_text().chars().count() as f64)
         }
 
         "LEFT" => {
@@ -82,8 +82,21 @@ pub fn try_evaluate(
             let chars: Vec<char> = text.chars().collect();
             // Excel MID is 1-indexed
             let start_idx = start.saturating_sub(1);
+
+            // If start is beyond string length, return empty string
+            if start_idx >= chars.len() {
+                return Ok(Some(Value::Text(String::new())));
+            }
+
             let end_idx = (start_idx + length).min(chars.len());
             Value::Text(chars[start_idx..end_idx].iter().collect())
+        }
+
+        "REPT" => {
+            require_args(name, args, 2)?;
+            let text = evaluate(&args[0], ctx)?.as_text();
+            let times = evaluate(&args[1], ctx)?.as_number().unwrap_or(0.0) as usize;
+            Value::Text(text.repeat(times))
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -198,6 +211,11 @@ pub fn try_evaluate(
             let text = evaluate(&args[0], ctx)?.as_text();
             let old_text = evaluate(&args[1], ctx)?.as_text();
             let new_text = evaluate(&args[2], ctx)?.as_text();
+
+            // If old_text is empty, return original text unchanged (Excel behavior)
+            if old_text.is_empty() {
+                return Ok(Some(Value::Text(text)));
+            }
 
             if args.len() > 3 {
                 // Replace only the nth occurrence

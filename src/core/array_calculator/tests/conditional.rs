@@ -734,9 +734,16 @@ fn test_sumif_scalar() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    // Test exercises SUMIF code path (may or may not be supported)
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // SUMIF(sales.amount, ">100") should sum 200 + 300 = 500
+    let total = result
+        .scalars
+        .get("total_above_100")
+        .unwrap()
+        .value
+        .unwrap();
+    assert!((total - 500.0).abs() < 0.01);
 }
 
 #[test]
@@ -796,9 +803,11 @@ fn test_averageif_low_scores() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    // Test exercises AVERAGEIF code path (may or may not be supported)
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // AVERAGEIF(scores.score, "<60") should average 50 + 30 = 40
+    let avg = result.scalars.get("avg_low").unwrap().value.unwrap();
+    assert!((avg - 40.0).abs() < 0.01);
 }
 
 #[test]
@@ -951,8 +960,11 @@ fn test_sumif_with_range() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // SUMIF(sales.region, "East", sales.amount) should sum East rows = 100 + 150 = 250
+    let total = result.scalars.get("east_total").unwrap().value.unwrap();
+    assert!((total - 250.0).abs() < 0.01);
 }
 
 #[test]
@@ -986,8 +998,11 @@ fn test_countifs_function_v2() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // COUNTIFS(orders.region, "East", orders.amount, ">75") should count 2 (100, 150)
+    let count = result.scalars.get("count").unwrap().value.unwrap();
+    assert!((count - 2.0).abs() < 0.01);
 }
 
 #[test]
@@ -1016,8 +1031,11 @@ fn test_averageifs_function_v2() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // AVERAGEIFS(data.value, data.category, "A") should average 10 + 30 = 20
+    let avg = result.scalars.get("avg_a").unwrap().value.unwrap();
+    assert!((avg - 20.0).abs() < 0.01);
 }
 
 #[test]
@@ -1052,7 +1070,11 @@ fn test_sumifs_multi_criteria() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // SUMIFS(sales.amount, sales.region, "East", sales.qty, ">10") = 150 (row 2)
+    let total = result.scalars.get("total").unwrap().value.unwrap();
+    assert!((total - 150.0).abs() < 0.01);
 }
 
 #[test]
@@ -1083,7 +1105,11 @@ fn test_countifs_multi_criteria() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // COUNTIFS(sales.region, "East", sales.amount, ">100") = 1 (row 2: 150)
+    let count = result.scalars.get("count").unwrap().value.unwrap();
+    assert!((count - 1.0).abs() < 0.01);
 }
 
 #[test]
@@ -1114,7 +1140,11 @@ fn test_averageifs_text_criteria() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // AVERAGEIFS(data.values, data.category, "A") should average 10 + 30 = 20
+    let avg = result.scalars.get("avg").unwrap().value.unwrap();
+    assert!((avg - 20.0).abs() < 0.01);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

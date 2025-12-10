@@ -331,8 +331,11 @@ fn test_avg_aggregation_function() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // Values: [10, 20, 30, 40] - average = 25.0
+    let avg = result.scalars.get("avg_val").unwrap().value.unwrap();
+    assert_eq!(avg, 25.0);
 }
 
 #[test]
@@ -438,8 +441,23 @@ fn test_empty_array_median() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    // Empty array median should return 0 or handle gracefully
-    assert!(result.is_ok() || result.is_err());
+
+    // Empty array median: verify behavior is consistent
+    // Either it errors (mathematically undefined) OR returns 0
+    match result {
+        Ok(model) => {
+            let median = model.scalars.get("med").unwrap().value;
+            // If it succeeds, median of empty array should be 0 or None
+            assert!(
+                median.is_none() || median == Some(0.0),
+                "Empty array median should be None or 0, got {:?}",
+                median
+            );
+        }
+        Err(_) => {
+            // Error is acceptable for empty array median (undefined)
+        }
+    }
 }
 
 #[test]
@@ -469,7 +487,19 @@ fn test_sumproduct_function() {
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+
+    // SUMPRODUCT is not implemented in base version
+    // Verify it returns an error for unknown function
+    assert!(
+        result.is_err(),
+        "SUMPRODUCT should return error (not implemented)"
+    );
+    let err = result.unwrap_err();
+    assert!(
+        err.to_string().contains("SUMPRODUCT") || err.to_string().contains("Unknown function"),
+        "Error should mention SUMPRODUCT or Unknown function, got: {}",
+        err
+    );
 }
 
 #[test]
@@ -521,8 +551,11 @@ fn test_counta_function() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // COUNTA: ["A", "B", "C"] - count of non-empty values = 3
+    let count = result.scalars.get("cnt").unwrap().value.unwrap();
+    assert_eq!(count, 3.0);
 }
 
 #[cfg(feature = "full")]
@@ -548,8 +581,11 @@ fn test_product_function() {
     );
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    assert!(result.is_ok() || result.is_err());
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // PRODUCT: 2 * 3 * 4 = 24
+    let product = result.scalars.get("prod").unwrap().value.unwrap();
+    assert_eq!(product, 24.0);
 }
 
 #[test]
@@ -575,7 +611,20 @@ fn test_sumproduct_basic() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all();
+
+    // SUMPRODUCT is not implemented in base version
+    // Verify it returns an error for unknown function
+    assert!(
+        result.is_err(),
+        "SUMPRODUCT should return error (not implemented)"
+    );
+    let err = result.unwrap_err();
+    assert!(
+        err.to_string().contains("SUMPRODUCT") || err.to_string().contains("Unknown function"),
+        "Error should mention SUMPRODUCT or Unknown function, got: {}",
+        err
+    );
 }
 
 #[cfg(feature = "full")]
@@ -598,7 +647,12 @@ fn test_counta_with_empty_strings() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all().expect("Should calculate");
+
+    // COUNTA: ["a", "", "b"] - counts all values (including empty strings)
+    // Standard Excel behavior: COUNTA counts all non-blank cells, treating "" as having data
+    let count = result.scalars.get("count").unwrap().value.unwrap();
+    assert_eq!(count, 3.0);
 }
 
 #[test]
@@ -625,7 +679,20 @@ fn test_countblank_function() {
         ),
     );
     let calculator = ArrayCalculator::new(model);
-    let _ = calculator.calculate_all();
+    let result = calculator.calculate_all();
+
+    // COUNTBLANK is not implemented
+    // Verify it returns an error for unknown function
+    assert!(
+        result.is_err(),
+        "COUNTBLANK should return error (not implemented)"
+    );
+    let err = result.unwrap_err();
+    assert!(
+        err.to_string().contains("COUNTBLANK") || err.to_string().contains("Unknown function"),
+        "Error should mention COUNTBLANK or Unknown function, got: {}",
+        err
+    );
 }
 
 #[cfg(feature = "full")]
