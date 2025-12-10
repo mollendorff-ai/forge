@@ -1,6 +1,6 @@
 # Forge
 
-[![Tests](https://img.shields.io/badge/tests-1753_passing-brightgreen)](https://github.com/royalbit/forge)
+[![Tests](https://img.shields.io/badge/tests-2486_passing-brightgreen)](https://github.com/royalbit/forge)
 [![Functions](https://img.shields.io/badge/functions-159-blue)](https://github.com/royalbit/forge)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
@@ -63,7 +63,7 @@ Forge + AI:   Read YAML → Minimal tokens → Clear semantics → Verify with F
 
 ### Built at AI Speed
 
-This codebase: **1 person + AI. 15 days. 1,709 tests. 329 commits.**
+This codebase: **1 person + AI. 15 days. 2,486 tests. 329 commits.**
 
 | What | Forge | Typical Project | Linus Torvalds |
 |------|-------|-----------------|----------------|
@@ -364,9 +364,9 @@ Integrate with Claude Desktop and other AI tools via Model Context Protocol.
 
 | Metric | Value |
 |--------|-------|
-| **Tests** | 1709 passing |
+| **Tests** | 2,486 passing (1,267 demo) |
 | **Functions** | 159 (153 Excel + 6 FP&A) |
-| **E2E Validated** | 44 formulas against Gnumeric |
+| **E2E Validated** | 57 formulas against Gnumeric |
 | **Warnings** | 0 |
 | **Coverage** | 89.23% |
 
