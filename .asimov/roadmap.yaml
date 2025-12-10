@@ -436,6 +436,55 @@ summary:
     accuracy: "MANDATORY - FP&A tool, financial calculations must be exact"
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# PRIORITY - v7.1.1 - XLSX ROUNDTRIP 100% (8 failing tests)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+priority:
+  version: "7.1.1"
+  priority: HIGH
+  status: pending
+  summary: "XLSX Export Fix - 100% Roundtrip Coverage (8 failing tests)"
+
+  context:
+    - "v7.1.0 achieved 100% unit test coverage (1320 tests)"
+    - "8 roundtrip tests fail due to XLSX formula export issues"
+    - "These are NOT calculation bugs - formulas compute correctly"
+    - "Issue is how array/multi-criteria formulas export to XLSX format"
+
+  failing_tests:
+    - test: "e2e_roundtrip_averageifs"
+      issue: "XLSX formula reference for multi-criteria average"
+    - test: "e2e_roundtrip_correl"
+      issue: "Array reference export for correlation"
+    - test: "e2e_roundtrip_ifs_switch"
+      issue: "IFS/SWITCH conditional formula export"
+    - test: "e2e_roundtrip_index_match_combo"
+      issue: "INDEX(MATCH()) combination export"
+    - test: "e2e_roundtrip_percentile"
+      issue: "PERCENTILE array function export"
+    - test: "e2e_roundtrip_quartile"
+      issue: "QUARTILE array function export"
+    - test: "e2e_roundtrip_rank"
+      issue: "RANK array reference export"
+    - test: "e2e_roundtrip_sumifs_countifs"
+      issue: "SUMIFS/COUNTIFS multi-criteria export"
+
+  deliverables:
+    - "Fix XLSX formula export for all 8 failing functions"
+    - "All 63 roundtrip tests passing (currently 49/63)"
+    - "100% Gnumeric/LibreOffice compatibility"
+
+  success_criteria:
+    - "cargo test --test e2e_libreoffice_tests = 63 passed, 0 failed"
+    - "All formulas compute identical results in Forge AND LibreOffice"
+    - "Pre-commit hook passes without --no-verify"
+
+  files_to_investigate:
+    - "src/excel/exporter.rs - formula translation"
+    - "src/excel/formula_translator.rs - array formula handling"
+    - "tests/e2e_libreoffice_tests.rs - test definitions"
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG
 # ═══════════════════════════════════════════════════════════════════════════════
 
