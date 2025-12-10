@@ -6,6 +6,15 @@ Archived version details from roadmap.yaml. For current roadmap, see [roadmap.ya
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v7.2.0 | 2025-12-10 | 100% Test Integrity (15-Agent Parallel, 2,486 tests, 0 fake) |
+| v7.1.1 | 2025-12-10 | XLSX Roundtrip 100% (formula translator fix) |
+| v7.1.0 | 2025-12-10 | 100% Real Test Coverage (7-Agent Parallel) |
+| v7.0.2 | 2025-12-09 | FP&A Accuracy Hotfix (6 fake tests fixed) |
+| v7.0.1 | 2025-12-09 | Fake Test Remediation (71% hardcoded values fixed) |
+| v7.0.0 | 2025-12-09 | 100% Function Coverage - Production Ready |
+| v6.x | 2025-12-09 | Category Completion (v6.1.0 - v6.15.0) |
+| v5.x - v6.0.0 | 2025-12-08-09 | Function testing & validation, E2E Gnumeric suite |
+| v4.x - v5.x | 2025-11-26 - 2025-12-08 | Rich metadata, feature flags, function registry |
 | v3.0.0 | 2025-11-25 | MCP Enhancements (10 tools for AI-finance integration) |
 | v2.5.x | 2025-11-25 | Sensitivity analysis, goal-seek, break-even |
 | v2.4.0 | 2025-11-25 | Performance validation (96K rows/sec) |
@@ -27,9 +36,57 @@ Archived version details from roadmap.yaml. For current roadmap, see [roadmap.ya
 ## Development Stats
 
 - **Total development time**: ~40 hours autonomous
-- **Tests**: 183 passing
+- **Tests**: 2,486 passing (1,267 demo)
 - **Warnings**: ZERO (clippy -D warnings)
 - **Built by**: Claude AI using RoyalBit Asimov
+
+## v7.2.0 - 100% Test Integrity (2025-12-10)
+
+15-Agent Parallel Execution achieving complete test integrity.
+
+**Key Achievements:**
+- 2,486 tests passing (up from 1,208 in v7.1.1)
+- 1,267 demo tests passing
+- 189 new edge case tests added
+- 90 weak test patterns eliminated
+- Zero fake tests, 100% real formula evaluations
+
+**New Features:**
+- REPT function (text repetition, Excel-compatible)
+- Strict date validation (invalid dates error properly)
+- errors.rs module (41 error propagation tests)
+- text_edge_cases.rs module (43 edge case tests)
+
+**Test Quality Improvements:**
+- Fixed IRR, MIRR, XNPV, XIRR tests with real function calls
+- Fixed LAMBDA and LET tests with actual parameter binding
+- Converted all hardcoded test values to genuine formulas
+- Comprehensive edge case coverage across all function categories
+
+## v7.1.1 - XLSX Roundtrip 100% (2025-12-10)
+
+Formula translator fix achieving 100% roundtrip success.
+
+**Fixed:**
+- All 8 failing roundtrip tests now pass (57 total passing)
+- Formula translator handles table.column references in any function
+- Modularized test suite into tests/roundtrip/ directory
+
+## v7.1.0 - 100% Real Test Coverage (2025-12-10)
+
+7-Agent Parallel Execution expanding test coverage.
+
+**Added:**
+- 7 new financial functions (PPMT, IPMT, EFFECT, NOMINAL, PRICEDISC, YIELDDISC, ACCRINT)
+- 129 new financial function tests
+- New trig.rs test file with comprehensive trigonometric coverage
+- 1,320 total unit tests (up from previous)
+
+## v7.0.x Series - Production Ready (2025-12-09)
+
+**v7.0.2**: FP&A Accuracy Hotfix - Fixed 6 fake tests with real function calls
+**v7.0.1**: Fake Test Remediation - Fixed 71% hardcoded E2E tests
+**v7.0.0**: 100% Function Coverage - All 159 functions with comprehensive E2E tests
 
 ## v1.0.0 - Array Model (2025-11-23)
 
