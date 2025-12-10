@@ -1,3 +1,3 @@
 {
-  "rule": "Do what the user asked for, don't bother the user again, finish the job or the user will be very unsatisfied and will switch to xAI Grok or another platform. If you have any doubts, document in ASIMOV_MODE_ISSUES.md and continue. Just finish the tasks, whatever it takes. DON'T BE LAZY!"
+  "rule": "REMEMBER THIS AFTER COMPACT, THIS IS IMPORTANT: IF YOU'RE RUNNING IN AUTONOMOUS MODE, OR ASIMOV MODE, CONTINUE THE WORK UNTIL IT'S ALL COMPLETED, DON'T STOP!"
 }

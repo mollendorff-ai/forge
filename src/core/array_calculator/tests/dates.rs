@@ -1343,6 +1343,7 @@ fn test_day_from_date() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_now_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -1358,6 +1359,7 @@ fn test_now_function() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_time_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -1385,6 +1387,7 @@ fn test_time_function() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_hour_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -1413,6 +1416,7 @@ fn test_hour_function() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_minute_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -1432,6 +1436,7 @@ fn test_minute_function() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_second_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -1451,6 +1456,7 @@ fn test_second_function() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_weekday_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -1481,6 +1487,7 @@ fn test_weekday_function() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_days_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;

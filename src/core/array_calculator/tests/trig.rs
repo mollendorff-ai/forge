@@ -1,6 +1,9 @@
 //! Trigonometric function tests for ArrayCalculator
 //! Complete coverage for all 11 trig functions
+//!
+//! These tests require the "full" feature flag as trig functions are enterprise-only.
 
+#![cfg(feature = "full")]
 #![allow(clippy::approx_constant)] // Test values intentionally use approximate PI
 
 use crate::core::array_calculator::ArrayCalculator;

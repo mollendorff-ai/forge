@@ -155,16 +155,22 @@ completed:
       fake_tests_fixed: 6
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CURRENT - v7.1.0 - 100% REAL TEST COVERAGE (ALL 159 FUNCTIONS)
+# CURRENT - v7.1.1 - XLSX ROUNDTRIP 100% (COMPLETED)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "7.1.0"
-  priority: HIGH
-  status: done
-  summary: "100% Real Test Coverage - All 159 Functions with E2E + Gnumeric Roundtrip"
+  version: "7.1.1"
+  priority: CRITICAL
+  status: completed
+  summary: "XLSX Roundtrip 100% - Formula Translator Fix + Test Modules"
   started: "2025-12-10"
   completed: "2025-12-10"
+
+  deliverables:
+    - "Fixed formula_translator.rs - general pattern for table.column refs"
+    - "Split e2e_libreoffice_tests.rs into tests/roundtrip/ modules"
+    - "57 roundtrip tests passing, 0 failing"
+    - "1323 unit tests passing"
 
   context:
     - "v7.0.2 fixed 6 fake tests (IRR, MIRR, XNPV, XIRR, LAMBDA, LET)"
@@ -245,47 +251,24 @@ current:
     files_changed: 29
     lines_added: 4278
     lines_removed: 996
-    roundtrip_status: "49 passed, 8 failed (XLSX export compatibility issues)"
-    roundtrip_gaps:
-      - "AVERAGEIFS - XLSX formula reference issue"
-      - "CORREL - array reference export"
-      - "IFS/SWITCH - conditional export"
-      - "INDEX/MATCH combo - reference export"
-      - "PERCENTILE/QUARTILE - array functions"
-      - "RANK - array reference export"
-      - "SUMIFS/COUNTIFS - multi-criteria export"
-    note: "Roundtrip failures are XLSX export issues, not calculation accuracy issues. Core engine is 100% accurate."
+    roundtrip_status: "49 passed, 8 failed - TO BE FIXED IN v7.1.1"
+    note: "Unit tests complete. Roundtrip failures require XLSX export fix (v7.1.1 CRITICAL)."
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# NEXT - v7.2.0 - INCLUDE FEATURE HARDENING
+# NEXT - FUTURE MILESTONES
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  version: "7.2.0"
-  priority: NORMAL
-  status: pending
-  summary: "INCLUDE Feature - Complete E2E Testing & Roundtrip Validation"
-
-  gaps_identified:
-    - "No Gnumeric/LibreOffice roundtrip test for includes"
-    - "Cross-file formula evaluation (@namespace.field) needs verification"
-    - "Multi-level recursion (A→B→C) not explicitly tested"
-    - "Only relative paths supported"
-
-  deliverables:
-    - "E2E test: YAML → XLSX → Gnumeric → CSV roundtrip with includes"
-    - "E2E test: 3+ level recursive includes (main→level1→level2→level3)"
-    - "E2E test: @namespace.field formula evaluation"
-    - "E2E test: Circular dependency detection"
-    - "Documentation: INCLUDE feature limitations"
-
-  current_status:
-    parsing: "✅ Implemented"
-    recursive_resolution: "✅ Implemented"
-    circular_detection: "✅ Implemented"
-    xlsx_export: "✅ Supported"
-    formula_cross_refs: "⚠️ Partial - needs verification"
-    gnumeric_roundtrip: "❌ Not tested"
+  - version: "7.2.0"
+    priority: NORMAL
+    status: pending
+    summary: "INCLUDE Feature - Complete E2E Testing & Roundtrip Validation"
+    deliverables:
+      - "E2E test: YAML → XLSX → Gnumeric → CSV roundtrip with includes"
+      - "E2E test: 3+ level recursive includes (main→level1→level2→level3)"
+      - "E2E test: @namespace.field formula evaluation"
+      - "E2E test: Circular dependency detection"
+      - "Documentation: INCLUDE feature limitations"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HISTORICAL - v7.0.1 FAKE TEST REMEDIATION (Reference)
@@ -436,53 +419,87 @@ summary:
     accuracy: "MANDATORY - FP&A tool, financial calculations must be exact"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PRIORITY - v7.1.1 - XLSX ROUNDTRIP 100% (8 failing tests)
+# CRITICAL - v7.1.1 - FIX ALL FAILING TESTS + CODE RESTRUCTURE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-priority:
+critical:
   version: "7.1.1"
-  priority: HIGH
+  priority: CRITICAL
   status: pending
-  summary: "XLSX Export Fix - 100% Roundtrip Coverage (8 failing tests)"
+  summary: "FIX 8 Failing Roundtrip Tests + Split Long Files into Modules"
 
-  context:
-    - "v7.1.0 achieved 100% unit test coverage (1320 tests)"
-    - "8 roundtrip tests fail due to XLSX formula export issues"
-    - "These are NOT calculation bugs - formulas compute correctly"
-    - "Issue is how array/multi-criteria formulas export to XLSX format"
+  mandate: |
+    NO IGNORING TESTS. NO --no-verify. ALL TESTS MUST PASS.
+    Pre-commit hook must pass legitimately.
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PART 1: FIX 8 FAILING ROUNDTRIP TESTS
+  # ─────────────────────────────────────────────────────────────────────────────
 
   failing_tests:
-    - test: "e2e_roundtrip_averageifs"
-      issue: "XLSX formula reference for multi-criteria average"
-    - test: "e2e_roundtrip_correl"
-      issue: "Array reference export for correlation"
-    - test: "e2e_roundtrip_ifs_switch"
-      issue: "IFS/SWITCH conditional formula export"
-    - test: "e2e_roundtrip_index_match_combo"
-      issue: "INDEX(MATCH()) combination export"
-    - test: "e2e_roundtrip_percentile"
-      issue: "PERCENTILE array function export"
-    - test: "e2e_roundtrip_quartile"
-      issue: "QUARTILE array function export"
-    - test: "e2e_roundtrip_rank"
-      issue: "RANK array reference export"
     - test: "e2e_roundtrip_sumifs_countifs"
-      issue: "SUMIFS/COUNTIFS multi-criteria export"
+      line: 2597
+      issue: "SUMIFS/COUNTIFS multi-criteria formula not exported correctly to XLSX"
+    - test: "e2e_roundtrip_averageifs"
+      line: 2676
+      issue: "AVERAGEIFS multi-criteria formula not exported correctly"
+    - test: "e2e_roundtrip_ifs_switch"
+      line: 2818
+      issue: "IFS/SWITCH conditional formulas not exported correctly"
+    - test: "e2e_roundtrip_index_match_combo"
+      line: 3031
+      issue: "INDEX(MATCH()) nested formula not exported correctly"
+    - test: "e2e_roundtrip_percentile"
+      line: 3115
+      issue: "PERCENTILE array reference not exported correctly"
+    - test: "e2e_roundtrip_quartile"
+      line: 3190
+      issue: "QUARTILE array reference not exported correctly"
+    - test: "e2e_roundtrip_rank"
+      line: 3265
+      issue: "RANK array reference not exported correctly"
+    - test: "e2e_roundtrip_correl"
+      line: 3340
+      issue: "CORREL dual-array reference not exported correctly"
 
-  deliverables:
-    - "Fix XLSX formula export for all 8 failing functions"
-    - "All 63 roundtrip tests passing (currently 49/63)"
-    - "100% Gnumeric/LibreOffice compatibility"
+  root_cause: |
+    The XLSX formula translator (src/excel/formula_translator.rs) doesn't
+    properly translate Forge table references (e.g., table.column) to
+    Excel range references for these complex multi-argument functions.
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PART 2: SPLIT LONG FILES INTO MODULES
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  file_restructure:
+    principle: |
+      - Unit tests INLINE with code (Rust way)
+      - E2E tests separate (tests/ directory)
+      - Roundtrip tests separate (tests/ directory)
+      - Split long files into modules for maintainability
+
+    candidates:
+      - file: "tests/e2e_libreoffice_tests.rs"
+        lines: "3400+"
+        action: "Split into modules by category (math, financial, lookup, etc.)"
+      - file: "src/core/array_calculator/evaluator/financial.rs"
+        lines: "Large after 7 new functions"
+        action: "Review if split needed"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SUCCESS CRITERIA
+  # ─────────────────────────────────────────────────────────────────────────────
 
   success_criteria:
+    - "cargo test --features full = ALL PASS"
     - "cargo test --test e2e_libreoffice_tests = 63 passed, 0 failed"
-    - "All formulas compute identical results in Forge AND LibreOffice"
-    - "Pre-commit hook passes without --no-verify"
+    - "git commit (pre-commit hook passes WITHOUT --no-verify)"
+    - "No files over 2000 lines (split into modules)"
 
-  files_to_investigate:
-    - "src/excel/exporter.rs - formula translation"
-    - "src/excel/formula_translator.rs - array formula handling"
-    - "tests/e2e_libreoffice_tests.rs - test definitions"
+  files_to_fix:
+    - "src/excel/formula_translator.rs - main fix location"
+    - "src/excel/exporter.rs - may need updates"
+    - "tests/e2e_libreoffice_tests.rs - split into modules"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG

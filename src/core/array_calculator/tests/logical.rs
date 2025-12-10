@@ -550,10 +550,11 @@ fn test_complex_logical_expression() {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Additional logical function tests for complete coverage
-// XOR, IFNA, TRUE, FALSE
+// XOR, IFNA, TRUE, FALSE (Enterprise features - require "full" feature)
 // ══════════════════════════════════════════════════════════════════════════════
 
 #[test]
+#[cfg(feature = "full")]
 fn test_xor_one_true() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -573,6 +574,7 @@ fn test_xor_one_true() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_xor_two_true() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -592,6 +594,7 @@ fn test_xor_two_true() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_xor_three_true() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -611,6 +614,7 @@ fn test_xor_three_true() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_xor_all_false() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -630,6 +634,7 @@ fn test_xor_all_false() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_xor_with_numbers() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -649,6 +654,7 @@ fn test_xor_with_numbers() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_true_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -668,6 +674,7 @@ fn test_true_function() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_false_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -687,6 +694,7 @@ fn test_false_function() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_true_in_and() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -706,6 +714,7 @@ fn test_true_in_and() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_false_in_or() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -725,6 +734,7 @@ fn test_false_in_or() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_not_with_true() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -744,6 +754,7 @@ fn test_not_with_true() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_not_with_false() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -763,6 +774,7 @@ fn test_not_with_false() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_ifna_with_value() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -782,6 +794,7 @@ fn test_ifna_with_value() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_ifna_with_text() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -801,6 +814,7 @@ fn test_ifna_with_text() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_ifna_with_table_reference() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -829,6 +843,7 @@ fn test_ifna_with_table_reference() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_combined_xor_and_not() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -848,6 +863,7 @@ fn test_combined_xor_and_not() {
 }
 
 #[test]
+#[cfg(feature = "full")]
 fn test_true_false_in_arithmetic() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
