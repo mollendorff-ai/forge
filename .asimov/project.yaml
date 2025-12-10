@@ -15,14 +15,16 @@ identity:
 external_projects:
   forge-demo:
     path: "../forge-demo"
-    description: "Public demo repository (36 functions)"
+    description: "E2E validation tool for forge-demo binary"
     github: "https://github.com/royalbit/forge-demo"
     type: "git"
+    binary: "forge-e2e"  # The E2E test runner, NOT forge-demo itself
+    distribution: "github"  # Cross-platform builds → GitHub Releases (royalbit/forge-demo)
     contents:
       - "README.md - Public documentation"
-      - "docs/FUNCTIONS.md - Demo function reference"
-      - "tests/ - E2E test files and runner"
-      - "tests/forge-demo - Demo binary for testing"
+      - "docs/FUNCTIONS.md - Demo function reference (47 functions)"
+      - "tests/e2e/ - E2E test YAML files"
+      - "run-demo.sh - Downloads forge-demo + forge-e2e, runs tests"
 
   royalbit-website:
     path: "~/src/sites/royalbit.ca"
@@ -45,24 +47,39 @@ quality:
   build_enterprise: "cargo build --release --features full"
 
 binaries:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PUBLIC - GitHub Releases (royalbit/forge)
+  # ─────────────────────────────────────────────────────────────────────────────
   demo:
     name: "forge-demo"
     features: []
-    functions: 36
-    public: true
+    functions: 47
+    distribution: "github"  # Cross-platform builds → GitHub Releases
+    github_repo: "royalbit/forge-demo"
+    platforms: ["macos-arm64", "macos-x86_64", "linux-x86_64", "linux-arm64", "windows"]
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PROPRIETARY - Local only (~/bin), NEVER push to GitHub
+  # ─────────────────────────────────────────────────────────────────────────────
   enterprise:
     name: "forge"
     features: ["full"]
     functions: 159
-    public: false
+    distribution: "local"  # Build for current machine only → ~/bin
+    install_path: "~/bin"
+    note: "Proprietary. Self-hosted. NEVER push to GitHub."
   server:
     name: "forge-server"
     features: ["full"]
     description: "REST API server"
+    distribution: "local"
+    install_path: "~/bin"
   mcp:
     name: "forge-mcp"
     features: ["full"]
     description: "AI/MCP server for Claude, GPT"
+    distribution: "local"
+    install_path: "~/bin"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # KEY FILES
@@ -112,13 +129,48 @@ release:
     codegen-units = 1
     strip = true
     panic = "abort"
-  platforms:
-    - "aarch64-apple-darwin (macOS ARM64)"
-    - "x86_64-apple-darwin (macOS Intel)"
-    - "x86_64-unknown-linux-musl (Linux x86_64)"
-    - "aarch64-unknown-linux-musl (Linux ARM64)"
-    - "x86_64-pc-windows-gnu (Windows)"
   cross_compile: "cargo-zigbuild"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DISTRIBUTION RULES (CRITICAL - READ BEFORE RELEASING)
+  # ─────────────────────────────────────────────────────────────────────────────
+  #
+  # ONLY ONE PUBLIC REPO: royalbit/forge-demo
+  # (royalbit/forge no longer exists - redirects to forge-demo)
+  #
   distribution:
-    demo: "GitHub Releases (royalbit/forge-demo)"
-    enterprise: "Licensed customers only"
+    # PUBLIC: Both binaries → GitHub Releases (royalbit/forge-demo)
+    forge-demo:
+      target: "github"
+      repo: "royalbit/forge-demo"
+      source: "this"  # Built from this repo (forge)
+      platforms:
+        - "aarch64-apple-darwin (macOS ARM64)"
+        - "x86_64-apple-darwin (macOS Intel)"
+        - "x86_64-unknown-linux-musl (Linux x86_64)"
+        - "aarch64-unknown-linux-musl (Linux ARM64)"
+        - "x86_64-pc-windows-gnu (Windows)"
+      asset_names:
+        - "forge-demo-macos-arm64"
+        - "forge-demo-macos-x86_64"
+        - "forge-demo-linux-x86_64"
+        - "forge-demo-linux-arm64"
+        - "forge-demo-windows.exe"
+
+    forge-e2e:
+      target: "github"
+      repo: "royalbit/forge-demo"
+      source: "../forge-demo"  # Built from forge-demo repo
+
+    # PROPRIETARY: Local only → ~/bin (NEVER GitHub)
+    forge:
+      target: "local"
+      install_path: "~/bin"
+      platforms: ["current"]  # Only build for current machine
+      note: "PROPRIETARY. NEVER push to GitHub. Self-hosted infrastructure only."
+    forge-server:
+      target: "local"
+      install_path: "~/bin"
+    forge-mcp:
+      target: "local"
+      install_path: "~/bin"
