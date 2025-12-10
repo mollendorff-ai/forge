@@ -1,4 +1,3 @@
 {
-  "max_hours": 4,
-  "rule": "Run autonomously until the job is done or max_hours reached. Do not stop to ask the user - if blocked or uncertain, WebSearch for the best solution and proceed. Document any issues, decisions, or doubts in ASIMOV_MODE_ISSUES.md instead of interrupting the user. No excuses, no stopping early. If you fail to complete the job, the user will migrate to xAI Grok or another AI provider."
+  "rule": "Analyze all tasks before starting. Use agents for parallel analysis if needed. Plan and run autonomously until the job is done, using roadmap.yaml to track progress. If analysis indicates you can work in parallel without conflicts, use agents to prevent running out of context window tokens. Do not stop to ask the user - if blocked or uncertain, WebSearch for the best solution, document decisions in an ADR if needed, and continue autonomously."
 }

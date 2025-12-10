@@ -46,40 +46,166 @@ impl FormulaTranslator {
         // Remove leading = if present
         let formula_body = formula.strip_prefix('=').unwrap_or(formula);
 
-        // Pattern to match variable names (alphanumeric + underscore, but not starting with digit)
-        // Also matches table.column references
-        let var_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)\b")
-            .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
-
         let mut result = formula_body.to_string();
 
-        // Find all variable references and replace them
-        let matches: Vec<_> = var_pattern.find_iter(formula_body).collect();
+        // FIRST: Handle table.column references in aggregation functions that need ranges
+        // Pattern for simple aggregations: SUM(table.column) → SUM(table!A2:A4)
+        let agg_pattern = Regex::new(r"(SUM|AVERAGE|MAX|MIN|COUNT|COUNTA|PRODUCT)\(([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\)")
+            .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
 
-        // Replace in reverse order to maintain string positions
+        let agg_replacements: Vec<(std::ops::Range<usize>, String)> = agg_pattern
+            .captures_iter(&result.clone())
+            .map(|cap| {
+                let full_match = cap.get(0).unwrap();
+                let func_name = &cap[1];
+                let table_name = &cap[2];
+                let col_name = &cap[3];
+
+                let col_letter = self
+                    .table_column_maps
+                    .get(table_name)
+                    .and_then(|cols| cols.get(col_name))
+                    .cloned()
+                    .unwrap_or_else(|| col_name.to_string());
+
+                let row_count = self.table_row_counts.get(table_name).copied().unwrap_or(1);
+                let end_row = row_count + 1;
+                let replacement = format!(
+                    "{}('{}'!{}2:{}{})",
+                    func_name, table_name, col_letter, col_letter, end_row
+                );
+                (full_match.range(), replacement)
+            })
+            .collect();
+
+        for (range, replacement) in agg_replacements.into_iter().rev() {
+            result.replace_range(range, &replacement);
+        }
+
+        // SECOND: Handle general table.column references that need ranges (for functions like SUMIFS, PERCENTILE, etc.)
+        let general_table_pattern =
+            Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b")
+                .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+
+        let general_replacements: Vec<(std::ops::Range<usize>, String)> = general_table_pattern
+            .captures_iter(&result.clone())
+            .filter_map(|cap| {
+                let full_match = cap.get(0).unwrap();
+                let table_name = &cap[1];
+                let col_name = &cap[2];
+
+                // Skip if already processed (would contain !)
+                if result[..full_match.start()].ends_with('\'')
+                    || result[full_match.end()..].starts_with('!')
+                {
+                    return None;
+                }
+
+                // Only convert if this is a known table
+                if !self.table_column_maps.contains_key(table_name) {
+                    return None;
+                }
+
+                let col_letter = self
+                    .table_column_maps
+                    .get(table_name)
+                    .and_then(|cols| cols.get(col_name))
+                    .cloned()
+                    .unwrap_or_else(|| col_name.to_string());
+
+                let row_count = self.table_row_counts.get(table_name).copied().unwrap_or(1);
+                let end_row = row_count + 1;
+                let replacement =
+                    format!("'{}'!{}2:{}{}", table_name, col_letter, col_letter, end_row);
+                Some((full_match.range(), replacement))
+            })
+            .collect();
+
+        for (range, replacement) in general_replacements.into_iter().rev() {
+            result.replace_range(range, &replacement);
+        }
+
+        // THIRD: Handle remaining table.column references (not in known tables, use fallback)
+        let remaining_table_pattern =
+            Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)")
+                .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+
+        let remaining_replacements: Vec<(std::ops::Range<usize>, String)> = remaining_table_pattern
+            .captures_iter(&result.clone())
+            .filter_map(|cap| {
+                let full_match = cap.get(0).unwrap();
+                let table_name = &cap[1];
+                let col_name = &cap[2];
+
+                // Skip if already processed
+                if result[..full_match.start()].ends_with('\'')
+                    || result[full_match.end()..].starts_with('!')
+                {
+                    return None;
+                }
+
+                // Fallback: convert to single cell reference with table name and column name
+                let replacement = format!("'{}'!{}{}", table_name, col_name, excel_row);
+                Some((full_match.range(), replacement))
+            })
+            .collect();
+
+        for (range, replacement) in remaining_replacements.into_iter().rev() {
+            result.replace_range(range, &replacement);
+        }
+
+        // FOURTH: Handle simple column references in the current table
+        let var_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b")
+            .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+
+        let result_clone = result.clone();
+        let matches: Vec<_> = var_pattern.find_iter(&result_clone).collect();
+
         for match_obj in matches.iter().rev() {
             let var_name = match_obj.as_str();
 
-            // Skip Excel functions (SUM, AVERAGE, etc.)
+            // Skip Excel functions
             if self.is_excel_function(var_name) {
                 continue;
             }
 
-            // Check if it's a cross-table reference (table.column)
-            if var_name.contains('.') {
-                let excel_ref = self.translate_table_column_ref(var_name, excel_row)?;
+            // Skip if already contains ! (already processed as table reference)
+            let start = match_obj.start();
+            let end = match_obj.end();
+            if start > 0 && result[..start].ends_with('!') {
+                continue;
+            }
+
+            // Skip if inside single quotes (already processed as sheet name)
+            if start > 0 && result[..start].ends_with('\'') {
+                continue;
+            }
+            if end < result.len() && result[end..].starts_with('!') {
+                continue;
+            }
+
+            // Simple column reference in current table
+            if let Some(col_letter) = self.column_map.get(var_name) {
+                let excel_ref = format!("{}{}", col_letter, excel_row);
                 result.replace_range(match_obj.range(), &excel_ref);
             } else {
-                // Simple column reference
-                if let Some(col_letter) = self.column_map.get(var_name) {
-                    let excel_ref = format!("{}{}", col_letter, excel_row);
-                    result.replace_range(match_obj.range(), &excel_ref);
-                } else {
+                // Check if this looks like an Excel cell reference (e.g., A6, B2)
+                let looks_like_cell_ref = var_name.len() >= 2
+                    && var_name.chars().all(|c| c.is_alphanumeric())
+                    && var_name.chars().any(|c| c.is_alphabetic())
+                    && var_name.chars().any(|c| c.is_numeric());
+
+                // Check if it's a number
+                let is_number = var_name.parse::<f64>().is_ok();
+
+                if !looks_like_cell_ref && !is_number {
+                    // Column not found and it's not a cell reference or number - this is an error
                     return Err(ForgeError::Export(format!(
                         "Column '{}' not found in table",
                         var_name
                     )));
                 }
+                // If it's a cell reference or number, leave it as is
             }
         }
 
@@ -254,35 +380,6 @@ impl FormulaTranslator {
         )
     }
 
-    /// Translate table.column reference to Excel sheet reference
-    ///
-    /// Example:
-    /// - Input: `pl_2025.revenue`, row 2
-    /// - Output: `'pl_2025'!A2` (where A is the column letter for revenue)
-    fn translate_table_column_ref(&self, ref_str: &str, excel_row: u32) -> ForgeResult<String> {
-        let parts: Vec<&str> = ref_str.split('.').collect();
-        if parts.len() != 2 {
-            return Err(ForgeError::Export(format!(
-                "Invalid table.column reference: {}",
-                ref_str
-            )));
-        }
-
-        let table_name = parts[0];
-        let col_name = parts[1];
-
-        // Look up the column letter from the global table mappings
-        // Quote sheet names for LibreOffice compatibility
-        if let Some(table_cols) = self.table_column_maps.get(table_name) {
-            if let Some(col_letter) = table_cols.get(col_name) {
-                return Ok(format!("'{}'!{}{}", table_name, col_letter, excel_row));
-            }
-        }
-
-        // Fallback: use column name directly (won't work in Excel but better than crashing)
-        Ok(format!("'{}'!{}{}", table_name, col_name, excel_row))
-    }
-
     /// Translate a scalar formula to an Excel formula
     ///
     /// Examples:
@@ -365,6 +462,54 @@ impl FormulaTranslator {
 
         // Apply aggregation replacements in reverse order
         for (range, replacement) in agg_replacements.into_iter().rev() {
+            result.replace_range(range, &replacement);
+        }
+
+        // Pattern for general table.column references that need range conversion
+        // This handles functions like SUMIFS, AVERAGEIFS, PERCENTILE, QUARTILE, RANK, CORREL, etc.
+        // that weren't caught by the simple aggregation pattern above
+        let general_table_pattern =
+            Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b")
+                .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+
+        // Collect all table.column references that should be converted to ranges
+        let general_replacements: Vec<(std::ops::Range<usize>, String)> = general_table_pattern
+            .captures_iter(&result.clone())
+            .filter_map(|cap| {
+                let full_match = cap.get(0).unwrap();
+                let table_name = &cap[1];
+                let col_name = &cap[2];
+
+                // Skip if already processed (contains !)
+                if result[..full_match.start()].ends_with('\'')
+                    || result[full_match.end()..].starts_with('!')
+                {
+                    return None;
+                }
+
+                // Only convert if this is a known table (not a scalar reference)
+                if !self.table_column_maps.contains_key(table_name) {
+                    return None;
+                }
+
+                let col_letter = self
+                    .table_column_maps
+                    .get(table_name)
+                    .and_then(|cols| cols.get(col_name))
+                    .cloned()
+                    .unwrap_or_else(|| col_name.to_string());
+
+                let row_count = self.table_row_counts.get(table_name).copied().unwrap_or(1);
+                // Range: row 2 to row (row_count + 1) - header is row 1
+                let end_row = row_count + 1;
+                let replacement =
+                    format!("'{}'!{}2:{}{}", table_name, col_letter, col_letter, end_row);
+                Some((full_match.range(), replacement))
+            })
+            .collect();
+
+        // Apply general replacements in reverse order
+        for (range, replacement) in general_replacements.into_iter().rev() {
             result.replace_range(range, &replacement);
         }
 
@@ -831,5 +976,89 @@ mod tests {
         assert!(translator.is_excel_function("XLOOKUP"));
         assert!(!translator.is_excel_function("revenue")); // not a function
         assert!(!translator.is_excel_function("my_column")); // not a function
+    }
+
+    #[test]
+    fn test_translate_sumifs_formula() {
+        let mut table_column_maps = HashMap::new();
+        let mut sales_cols = HashMap::new();
+        sales_cols.insert("amount".to_string(), "A".to_string());
+        sales_cols.insert("region".to_string(), "B".to_string());
+        sales_cols.insert("product".to_string(), "C".to_string());
+        table_column_maps.insert("sales_data".to_string(), sales_cols);
+
+        let mut table_row_counts = HashMap::new();
+        table_row_counts.insert("sales_data".to_string(), 6);
+
+        let translator =
+            FormulaTranslator::new_with_tables(HashMap::new(), table_column_maps, table_row_counts);
+
+        let scalar_row_map = HashMap::new();
+
+        // Test SUMIFS with multiple criteria
+        let result = translator
+            .translate_scalar_formula(
+                "=SUMIFS(sales_data.amount, sales_data.region, 1, sales_data.product, 1)",
+                &scalar_row_map,
+            )
+            .unwrap();
+
+        println!("SUMIFS result: {}", result);
+        assert!(result.contains("'sales_data'!A2:A7"));
+        assert!(result.contains("'sales_data'!B2:B7"));
+        assert!(result.contains("'sales_data'!C2:C7"));
+    }
+
+    #[test]
+    fn test_translate_percentile_formula() {
+        let mut table_column_maps = HashMap::new();
+        let mut dataset_cols = HashMap::new();
+        dataset_cols.insert("values".to_string(), "A".to_string());
+        table_column_maps.insert("dataset".to_string(), dataset_cols);
+
+        let mut table_row_counts = HashMap::new();
+        table_row_counts.insert("dataset".to_string(), 10);
+
+        let translator =
+            FormulaTranslator::new_with_tables(HashMap::new(), table_column_maps, table_row_counts);
+
+        let scalar_row_map = HashMap::new();
+
+        // Test PERCENTILE
+        let result = translator
+            .translate_scalar_formula("=PERCENTILE(dataset.values, 0.5)", &scalar_row_map)
+            .unwrap();
+
+        println!("PERCENTILE result: {}", result);
+        assert!(result.contains("'dataset'!A2:A11"));
+    }
+
+    #[test]
+    fn test_translate_correl_formula() {
+        let mut table_column_maps = HashMap::new();
+        let mut data_cols = HashMap::new();
+        data_cols.insert("advertising".to_string(), "A".to_string());
+        data_cols.insert("sales".to_string(), "B".to_string());
+        table_column_maps.insert("data_series".to_string(), data_cols);
+
+        let mut table_row_counts = HashMap::new();
+        table_row_counts.insert("data_series".to_string(), 5);
+
+        let translator =
+            FormulaTranslator::new_with_tables(HashMap::new(), table_column_maps, table_row_counts);
+
+        let scalar_row_map = HashMap::new();
+
+        // Test CORREL
+        let result = translator
+            .translate_scalar_formula(
+                "=CORREL(data_series.advertising, data_series.sales)",
+                &scalar_row_map,
+            )
+            .unwrap();
+
+        println!("CORREL result: {}", result);
+        assert!(result.contains("'data_series'!A2:A6"));
+        assert!(result.contains("'data_series'!B2:B6"));
     }
 }
