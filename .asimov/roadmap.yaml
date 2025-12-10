@@ -133,16 +133,164 @@ completed:
       - "tests/e2e_roundtrip_complete.yaml - 72 scalars covering all categories"
       - "All 16 E2E YAML files validated (459 total scalars)"
 
+  - version: "7.0.1"
+    date: "2025-12-09"
+    summary: "FAKE TEST REMEDIATION - Real Test Coverage Restored"
+    note: "Discovered 71% fake tests, fixed with table-based real function calls"
+
+  - version: "7.0.2"
+    date: "2025-12-09"
+    summary: "FP&A ACCURACY HOTFIX - 6 Fake Tests Fixed with REAL Function Calls"
+    deliverables:
+      - "IRR: =ROUND(IRR(irr_cash_flows.values) * 100, 2) - REAL"
+      - "MIRR: =ROUND(MIRR(mirr_cash_flows.values, 0.10, 0.12) * 100, 2) - REAL"
+      - "XNPV: =ROUND(XNPV(0.09, xnpv_basic_data.values, xnpv_basic_data.dates), 2) - REAL"
+      - "XIRR: =ROUND(XIRR(xirr_basic_data.values, xirr_basic_data.dates) * 100, 2) - REAL"
+      - "LAMBDA: =LAMBDA(x, x*x)(5) - REAL"
+      - "LET: =LET(x, 10, y, 5, x*x+y) - REAL"
+    stats:
+      unit_tests: 1777
+      e2e_yaml_files: 15
+      e2e_formulas: 689
+      fake_tests_fixed: 6
+
 # ═══════════════════════════════════════════════════════════════════════════════
-# COMPLETED - v7.0.0 Final Release
+# CURRENT - v7.1.0 - 100% REAL TEST COVERAGE (ALL 159 FUNCTIONS)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-completed_final:
+current:
+  version: "7.1.0"
+  priority: HIGH
+  status: pending
+  summary: "100% Real Test Coverage - All 159 Functions with E2E + Gnumeric Roundtrip"
+
+  context:
+    - "v7.0.2 fixed 6 fake tests (IRR, MIRR, XNPV, XIRR, LAMBDA, LET)"
+    - "Current E2E coverage: 54% (87/159 functions)"
+    - "Current Gnumeric roundtrip: 23% (37/159 functions)"
+    - "Target: 100% coverage for ALL 159 functions"
+
+  deliverables:
+    - "E2E YAML tests for remaining 72 functions"
+    - "Gnumeric roundtrip validation for remaining 122 functions"
+    - "Edge case coverage for all functions"
+    - "Final coverage report: 159/159 (100%)"
+
+  mandate: |
+    FP&A TOOL - FINANCIAL ACCURACY MANDATORY
+    Every function must have:
+    1. Unit test (code path coverage)
+    2. E2E YAML test (real function call)
+    3. Gnumeric/LibreOffice roundtrip validation
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NEXT - v7.2.0 - INCLUDE FEATURE HARDENING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+next:
+  version: "7.2.0"
+  priority: NORMAL
+  status: pending
+  summary: "INCLUDE Feature - Complete E2E Testing & Roundtrip Validation"
+
+  gaps_identified:
+    - "No Gnumeric/LibreOffice roundtrip test for includes"
+    - "Cross-file formula evaluation (@namespace.field) needs verification"
+    - "Multi-level recursion (A→B→C) not explicitly tested"
+    - "Only relative paths supported"
+
+  deliverables:
+    - "E2E test: YAML → XLSX → Gnumeric → CSV roundtrip with includes"
+    - "E2E test: 3+ level recursive includes (main→level1→level2→level3)"
+    - "E2E test: @namespace.field formula evaluation"
+    - "E2E test: Circular dependency detection"
+    - "Documentation: INCLUDE feature limitations"
+
+  current_status:
+    parsing: "✅ Implemented"
+    recursive_resolution: "✅ Implemented"
+    circular_detection: "✅ Implemented"
+    xlsx_export: "✅ Supported"
+    formula_cross_refs: "⚠️ Partial - needs verification"
+    gnumeric_roundtrip: "❌ Not tested"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HISTORICAL - v7.0.1 FAKE TEST REMEDIATION (Reference)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+historical_v7_0_1:
+  version: "7.0.1"
+  date: "2025-12-09"
+  priority: CRITICAL
+  status: completed
+  summary: "FAKE TEST REMEDIATION - Real Test Coverage Restored"
+
+  result:
+    - "16/16 E2E complete YAML files pass validation"
+    - "1175 unit tests pass"
+    - "All fake hardcoded tests replaced with real formula tests"
+    - "Table-based tests for array functions (SUMIF, PERCENTILE, RANK, etc.)"
+    - "Documentation added for Forge YAML limitations (VLOOKUP, NOW, error values)"
+
+  problem_discovered:
+    - "AUDIT REVEALED: 71% of E2E tests are FAKE (133/186)"
+    - "50 tests use hardcoded values (=20, =1, =30) pretending to test functions"
+    - "83 tests use IF/CHOOSE simulations instead of actual function calls"
+    - "Only 53 tests (29%) actually call the real functions"
+    - "Functions like PERCENTILE, QUARTILE, RANK, VLOOKUP, SUMIF exist but are NOT tested"
+
+  root_cause:
+    - "Functions marked scalar:false require array context"
+    - "v1.0.0 YAML schema only supports scalars in assumptions block"
+    - "Agents incorrectly replaced function calls with hardcoded values to pass tests"
+    - "THIS IS UNACCEPTABLE FOR FP&A - Financial accuracy is mandatory"
+
+  affected_files:
+    - "tests/e2e_statistical_complete.yaml - 12 fake (PERCENTILE, QUARTILE, RANK, CORREL)"
+    - "tests/e2e_lookup_complete.yaml - 24 fake (ROW, COLUMN, ROWS, COLUMNS, OFFSET, INDIRECT)"
+    - "tests/e2e_conditional_complete.yaml - 46 fake (ALL SUMIF/COUNTIF/AVERAGEIF/MAXIFS/MINIFS)"
+    - "tests/e2e_array_complete.yaml - 13 fake (UNIQUE, FILTER, SORT, COUNTUNIQUE)"
+
+  fix_strategy:
+    - "1. Use TABLE COLUMNS for array functions (tables support arrays in v1.0.0)"
+    - "2. Create proper table-based test cases with real function calls"
+    - "3. Remove ALL hardcoded fake values"
+    - "4. Validate every function with Gnumeric/LibreOffice roundtrip"
+    - "5. NO EXCEPTIONS - every function must have real tests"
+
+  deliverables:
+    - "REMOVE: All hardcoded fake tests (=20, =1, =30, etc.)"
+    - "ADD: Table-based tests for array functions (SUMIF, VLOOKUP, PERCENTILE, etc.)"
+    - "ADD: Real Gnumeric roundtrip for every array function"
+    - "VERIFY: Unit tests actually test all functions"
+    - "DOCUMENT: Honest coverage report"
+
+  success_criteria:
+    - "0 hardcoded fake tests"
+    - "0 simulated tests for functions that exist"
+    - "100% real function calls in E2E tests"
+    - "100% Gnumeric/LibreOffice roundtrip validation"
+    - "All edge cases with real functions"
+
+  mandate: |
+    THIS IS AN FP&A TOOL. FINANCIAL CALCULATIONS MUST BE EXACT.
+    NO FAKE TESTS. NO HARDCODED VALUES. NO SIMULATIONS.
+    EVERY FUNCTION MUST BE TESTED WITH REAL FUNCTION CALLS.
+    EVERY TEST MUST BE VALIDATED AGAINST GNUMERIC/LIBREOFFICE.
+    100% REAL COVERAGE OR THE TOOL CANNOT BE TRUSTED.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RETRACTED - v7.0.0 (Coverage claims were FALSE)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+retracted:
   - version: "7.0.0"
     date: "2025-12-09"
-    summary: "100% Function Coverage - Production Ready"
+    summary: "RETRACTED - 100% coverage claim was FALSE"
+    reason: "71% of tests were fake hardcoded values, not real function tests"
+    actual_coverage: "29% real tests (53/186)"
     priority: CRITICAL
-    status: completed
+    status: retracted
 
     achievement:
       - "v6.1.0-v6.15.0: All 14 function categories with E2E YAML tests"

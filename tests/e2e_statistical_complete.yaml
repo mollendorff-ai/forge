@@ -1,7 +1,42 @@
 # E2E Statistical Function Complete Coverage
-# v6.10.0 - All 8 statistical functions with comprehensive tests
+# v6.10.0 - All 8 statistical functions with REAL tests
+# FP&A MANDATE: 100% REAL TEST COVERAGE - NO FAKE TESTS
 
 _forge_version: "1.0.0"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TEST DATA TABLES
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Main statistical test data
+stats_data:
+  values: [10, 20, 30, 40, 50]
+
+# Correlation test data
+correl_data:
+  x_perfect_pos: [1, 2, 3, 4, 5]
+  y_perfect_pos: [2, 4, 6, 8, 10]
+  x_perfect_neg: [1, 2, 3, 4, 5]
+  y_perfect_neg: [10, 8, 6, 4, 2]
+  x_no_correl: [1, 2, 3, 4, 5]
+  y_no_correl: [3, 1, 4, 1, 5]
+
+# Extended test data - separate tables for different sizes
+ten_values_data:
+  values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+five_values_data:
+  unsorted: [50, 10, 30, 40, 20]
+  quartile_test: [5, 15, 25, 35, 45]
+
+four_values_data:
+  even_count: [10, 20, 30, 40]
+
+two_values_data:
+  values: [0, 10]
+
+single_value_data:
+  values: [42]
 
 assumptions:
   # ═══════════════════════════════════════════════════════════════════════════
@@ -13,6 +48,9 @@ assumptions:
   stdevp_basic:
     value: null
     formula: "=ROUND(STDEVP(10, 20, 30, 40, 50), 4)"  # Population std dev
+  stdev_two_values:
+    value: null
+    formula: "=ROUND(STDEV(0, 10), 4)"                # Two value stdev
 
   # ═══════════════════════════════════════════════════════════════════════════
   # VAR / VARP - Variance
@@ -23,57 +61,176 @@ assumptions:
   varp_basic:
     value: null
     formula: "=ROUND(VARP(10, 20, 30, 40, 50), 4)"    # Population variance
+  var_two_values:
+    value: null
+    formula: "=ROUND(VAR(0, 10), 4)"                  # Two value variance
 
   # ═══════════════════════════════════════════════════════════════════════════
   # MEDIAN - Middle value
   # ═══════════════════════════════════════════════════════════════════════════
   median_odd:
     value: null
-    formula: "=MEDIAN(10, 20, 30, 40, 50)"           # Expected: 30 (5 values)
+    formula: "=MEDIAN(10, 20, 30, 40, 50)"            # Expected: 30 (5 values)
   median_even:
     value: null
-    formula: "=MEDIAN(10, 20, 30, 40)"               # Expected: 25 (average of 20, 30)
+    formula: "=MEDIAN(10, 20, 30, 40)"                # Expected: 25 (average of 20, 30)
   median_unsorted:
     value: null
-    formula: "=MEDIAN(50, 10, 30, 40, 20)"           # Expected: 30
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # MODE - Most frequent value (placeholder - not all implementations have this)
-  # ═══════════════════════════════════════════════════════════════════════════
-  mode_placeholder:
+    formula: "=MEDIAN(50, 10, 30, 40, 20)"            # Expected: 30
+  median_single:
     value: null
-    formula: "=3"                                    # Placeholder for MODE
+    formula: "=MEDIAN(42)"                            # Expected: 42
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # PERCENTILE - Value at percentile (requires array context)
+  # PERCENTILE - Value at percentile k (REAL TESTS)
+  # Excel: PERCENTILE(array, k) returns the kth percentile
   # ═══════════════════════════════════════════════════════════════════════════
-  percentile_50_sim:
+  percentile_25_q1:
     value: null
-    formula: "=MEDIAN(10, 20, 30, 40, 50)"           # 50th percentile = median
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # RANK - Position in sorted list (placeholder)
-  # ═══════════════════════════════════════════════════════════════════════════
-  rank_sim:
+    formula: "=PERCENTILE(stats_data.values, 0.25)"   # 25th percentile (Q1)
+  percentile_50_median:
     value: null
-    formula: "=1"                                    # Highest rank
+    formula: "=PERCENTILE(stats_data.values, 0.5)"    # 50th percentile (median)
+  percentile_75_q3:
+    value: null
+    formula: "=PERCENTILE(stats_data.values, 0.75)"   # 75th percentile (Q3)
+  percentile_0_min:
+    value: null
+    formula: "=PERCENTILE(stats_data.values, 0)"      # 0th percentile (min)
+  percentile_100_max:
+    value: null
+    formula: "=PERCENTILE(stats_data.values, 1)"      # 100th percentile (max)
+  percentile_90_extended:
+    value: null
+    formula: "=PERCENTILE(ten_values_data.values, 0.9)"  # 90th percentile of [1..10]
+  percentile_10_extended:
+    value: null
+    formula: "=PERCENTILE(ten_values_data.values, 0.1)"  # 10th percentile of [1..10]
+  percentile_unsorted:
+    value: null
+    formula: "=PERCENTILE(five_values_data.unsorted, 0.5)"    # Test with unsorted data
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # AVERAGE - Mean
+  # QUARTILE - Quartile value (REAL TESTS)
+  # Excel: QUARTILE(array, quart) where quart: 0=min, 1=Q1, 2=median, 3=Q3, 4=max
+  # ═══════════════════════════════════════════════════════════════════════════
+  quartile_q0_min:
+    value: null
+    formula: "=QUARTILE(stats_data.values, 0)"        # Q0 (min) = 10
+  quartile_q1:
+    value: null
+    formula: "=QUARTILE(stats_data.values, 1)"        # Q1 of [10,20,30,40,50] = 20
+  quartile_q2_median:
+    value: null
+    formula: "=QUARTILE(stats_data.values, 2)"        # Q2 (median) = 30
+  quartile_q3:
+    value: null
+    formula: "=QUARTILE(stats_data.values, 3)"        # Q3 of [10,20,30,40,50] = 40
+  quartile_q4_max:
+    value: null
+    formula: "=QUARTILE(stats_data.values, 4)"        # Q4 (max) = 50
+  quartile_extended_q1:
+    value: null
+    formula: "=QUARTILE(five_values_data.quartile_test, 1)"  # Q1 of [5,15,25,35,45]
+  quartile_extended_q3:
+    value: null
+    formula: "=QUARTILE(five_values_data.quartile_test, 3)"  # Q3 of [5,15,25,35,45]
+  quartile_unsorted:
+    value: null
+    formula: "=QUARTILE(five_values_data.unsorted, 2)"   # Test with unsorted data
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RANK - Position in sorted list (REAL TESTS)
+  # Excel: RANK(number, array, order) where order: 0=descending (default), 1=ascending
+  # ═══════════════════════════════════════════════════════════════════════════
+  rank_50_desc:
+    value: null
+    formula: "=RANK(50, stats_data.values, 0)"        # 50 is rank 1 descending
+  rank_40_desc:
+    value: null
+    formula: "=RANK(40, stats_data.values, 0)"        # 40 is rank 2 descending
+  rank_30_desc:
+    value: null
+    formula: "=RANK(30, stats_data.values, 0)"        # 30 is rank 3 descending
+  rank_20_desc:
+    value: null
+    formula: "=RANK(20, stats_data.values, 0)"        # 20 is rank 4 descending
+  rank_10_desc:
+    value: null
+    formula: "=RANK(10, stats_data.values, 0)"        # 10 is rank 5 descending
+  rank_50_asc:
+    value: null
+    formula: "=RANK(50, stats_data.values, 1)"        # 50 is rank 5 ascending
+  rank_40_asc:
+    value: null
+    formula: "=RANK(40, stats_data.values, 1)"        # 40 is rank 4 ascending
+  rank_30_asc:
+    value: null
+    formula: "=RANK(30, stats_data.values, 1)"        # 30 is rank 3 ascending
+  rank_20_asc:
+    value: null
+    formula: "=RANK(20, stats_data.values, 1)"        # 20 is rank 2 ascending
+  rank_10_asc:
+    value: null
+    formula: "=RANK(10, stats_data.values, 1)"        # 10 is rank 1 ascending
+  rank_in_ten:
+    value: null
+    formula: "=RANK(7, ten_values_data.values, 0)"  # Test rank in larger set
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CORREL - Correlation coefficient (REAL TESTS)
+  # Excel: CORREL(array1, array2) returns correlation coefficient (-1 to 1)
+  # ═══════════════════════════════════════════════════════════════════════════
+  correl_perfect_positive:
+    value: null
+    formula: "=CORREL(correl_data.x_perfect_pos, correl_data.y_perfect_pos)"  # Perfect +1
+  correl_perfect_negative:
+    value: null
+    formula: "=CORREL(correl_data.x_perfect_neg, correl_data.y_perfect_neg)"  # Perfect -1
+  correl_no_correlation:
+    value: null
+    formula: "=ROUND(CORREL(correl_data.x_no_correl, correl_data.y_no_correl), 4)"  # Near 0
+  correl_self:
+    value: null
+    formula: "=CORREL(stats_data.values, stats_data.values)"  # Self correlation = 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AVERAGE - Mean (baseline test)
   # ═══════════════════════════════════════════════════════════════════════════
   avg_inline:
     value: null
-    formula: "=(10+20+30+40+50)/5"                   # Expected: 30
+    formula: "=(10+20+30+40+50)/5"                    # Expected: 30
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # Edge cases
+  # COMPREHENSIVE EDGE CASES - All using REAL function calls
   # ═══════════════════════════════════════════════════════════════════════════
-  stdev_two_values:
+
+  # Cross-validation: PERCENTILE vs QUARTILE
+  percentile_25_equals_q1:
     value: null
-    formula: "=ROUND(STDEV(0, 10), 4)"               # Two value stdev
-  var_two_values:
+    formula: "=PERCENTILE(stats_data.values, 0.25) - QUARTILE(stats_data.values, 1)"  # Should be 0
+  percentile_50_equals_median:
     value: null
-    formula: "=ROUND(VAR(0, 10), 4)"                 # Two value variance
-  median_single:
+    formula: "=PERCENTILE(stats_data.values, 0.5) - MEDIAN(10, 20, 30, 40, 50)"  # Should be 0
+  percentile_75_equals_q3:
     value: null
-    formula: "=MEDIAN(42)"                           # Expected: 42
+    formula: "=PERCENTILE(stats_data.values, 0.75) - QUARTILE(stats_data.values, 3)"  # Should be 0
+
+  # RANK validation with MIN/MAX
+  rank_of_max_is_one:
+    value: null
+    formula: "=RANK(MAX(10, 20, 30, 40, 50), stats_data.values, 0)"  # Should be 1
+  rank_of_min_desc_is_length:
+    value: null
+    formula: "=RANK(MIN(10, 20, 30, 40, 50), stats_data.values, 0)"  # Should be 5
+  rank_of_min_asc_is_one:
+    value: null
+    formula: "=RANK(MIN(10, 20, 30, 40, 50), stats_data.values, 1)"  # Should be 1
+
+  # Statistical consistency tests
+  stdev_squared_equals_var:
+    value: null
+    formula: "=ROUND(STDEV(10, 20, 30, 40, 50)^2 - VAR(10, 20, 30, 40, 50), 4)"  # Should be 0
+  stdevp_squared_equals_varp:
+    value: null
+    formula: "=ROUND(STDEVP(10, 20, 30, 40, 50)^2 - VARP(10, 20, 30, 40, 50), 4)"  # Should be 0

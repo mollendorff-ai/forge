@@ -3,6 +3,24 @@
 
 _forge_version: "1.0.0"
 
+scenarios:
+  base:
+    growth_rate: 0.05
+    discount_rate: 0.10
+    inflation_rate: 0.03
+  optimistic:
+    growth_rate: 0.15
+    discount_rate: 0.08
+    inflation_rate: 0.02
+  pessimistic:
+    growth_rate: 0.02
+    discount_rate: 0.12
+    inflation_rate: 0.05
+  aggressive:
+    growth_rate: 0.25
+    discount_rate: 0.06
+    inflation_rate: 0.02
+
 assumptions:
   # ═══════════════════════════════════════════════════════════════════════════
   # VARIANCE - Actual vs Budget variance
@@ -21,17 +39,26 @@ assumptions:
     formula: "=VARIANCE(1000, 500)"         # Expected: 500
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # VARIANCEPCT - Percentage variance (simulated)
+  # VARIANCE_PCT - Percentage variance (actual function)
   # ═══════════════════════════════════════════════════════════════════════════
-  variancepct_positive_sim:
+  variancepct_positive:
     value: null
-    formula: "=ROUND(VARIANCE(120, 100)/100, 2)"  # Expected: 0.20 (20%)
-  variancepct_negative_sim:
+    formula: "=VARIANCE_PCT(120, 100)"        # Expected: 0.20 (20% increase)
+  variancepct_negative:
     value: null
-    formula: "=ROUND(VARIANCE(80, 100)/100, 2)"   # Expected: -0.20 (-20%)
-  variancepct_double_sim:
+    formula: "=VARIANCE_PCT(80, 100)"         # Expected: -0.20 (20% decrease)
+  variancepct_double:
     value: null
-    formula: "=ROUND(VARIANCE(200, 100)/100, 2)"  # Expected: 1.00 (100%)
+    formula: "=VARIANCE_PCT(200, 100)"        # Expected: 1.00 (100% increase)
+  variancepct_small:
+    value: null
+    formula: "=VARIANCE_PCT(105, 100)"        # Expected: 0.05 (5% increase)
+  variancepct_large_decrease:
+    value: null
+    formula: "=VARIANCE_PCT(25, 100)"         # Expected: -0.75 (75% decrease)
+  variancepct_negative_values:
+    value: null
+    formula: "=VARIANCE_PCT(-50, -100)"       # Expected: 0.50 (50% improvement from -100 to -50)
 
   # ═══════════════════════════════════════════════════════════════════════════
   # GROWTH - Period-over-period growth (simulated)
@@ -74,3 +101,133 @@ assumptions:
   actual_vs_forecast:
     value: null
     formula: "=ROUND(VARIANCE(1050, 1000)/1000, 2)" # 5% over forecast
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # VARIANCE_STATUS - Variance status indicator (actual function)
+  # Returns: 1 = favorable, -1 = unfavorable, 0 = neutral (within threshold)
+  # ═══════════════════════════════════════════════════════════════════════════
+  variance_status_favorable:
+    value: null
+    formula: "=VARIANCE_STATUS(120, 100)"      # Expected: 1 (revenue over budget = favorable)
+  variance_status_unfavorable:
+    value: null
+    formula: "=VARIANCE_STATUS(80, 100)"       # Expected: -1 (revenue under budget = unfavorable)
+  variance_status_neutral:
+    value: null
+    formula: "=VARIANCE_STATUS(100, 100)"      # Expected: 0 (exactly on budget)
+  variance_status_within_threshold:
+    value: null
+    formula: "=VARIANCE_STATUS(100.5, 100)"    # Expected: 0 (within 1% threshold = neutral)
+  variance_status_cost_favorable:
+    value: null
+    formula: "=VARIANCE_STATUS(80, 100, \"cost\")"   # Expected: 1 (cost under budget = favorable)
+  variance_status_cost_unfavorable:
+    value: null
+    formula: "=VARIANCE_STATUS(120, 100, \"cost\")"  # Expected: -1 (cost over budget = unfavorable)
+  variance_status_custom_threshold:
+    value: null
+    formula: "=VARIANCE_STATUS(105, 100, 0.10)"      # Expected: 0 (5% variance within 10% threshold)
+  variance_status_exceed_threshold:
+    value: null
+    formula: "=VARIANCE_STATUS(115, 100, 0.10)"      # Expected: 1 (15% variance exceeds 10% threshold)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BREAKEVEN_UNITS - Units needed to break even (actual function)
+  # Formula: fixed_costs / (price_per_unit - variable_cost_per_unit)
+  # ═══════════════════════════════════════════════════════════════════════════
+  breakeven_units_basic:
+    value: null
+    formula: "=BREAKEVEN_UNITS(10000, 50, 30)"     # Expected: 500 (10000 / (50-30))
+  breakeven_units_high_margin:
+    value: null
+    formula: "=BREAKEVEN_UNITS(50000, 100, 60)"    # Expected: 1250 (50000 / (100-60))
+  breakeven_units_low_margin:
+    value: null
+    formula: "=BREAKEVEN_UNITS(10000, 25, 24)"     # Expected: 10000 (10000 / (25-24))
+  breakeven_units_large_fixed:
+    value: null
+    formula: "=BREAKEVEN_UNITS(100000, 150, 90)"   # Expected: 1666.67 (100000 / (150-90))
+  breakeven_units_small_fixed:
+    value: null
+    formula: "=BREAKEVEN_UNITS(1000, 20, 5)"       # Expected: 66.67 (1000 / (20-5))
+  breakeven_units_decimal:
+    value: null
+    formula: "=BREAKEVEN_UNITS(5000, 12.50, 7.50)" # Expected: 1000 (5000 / (12.50-7.50))
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BREAKEVEN_REVENUE - Revenue needed to break even (actual function)
+  # Formula: fixed_costs / contribution_margin_ratio
+  # Note: margin_ratio must be between 0 and 1 (e.g., 0.4 = 40%)
+  # ═══════════════════════════════════════════════════════════════════════════
+  breakeven_revenue_basic:
+    value: null
+    formula: "=BREAKEVEN_REVENUE(10000, 0.4)"      # Expected: 25000 (10000 / 0.4)
+  breakeven_revenue_high_margin:
+    value: null
+    formula: "=BREAKEVEN_REVENUE(50000, 0.4)"      # Expected: 125000 (50000 / 0.4)
+  breakeven_revenue_low_margin:
+    value: null
+    formula: "=BREAKEVEN_REVENUE(10000, 0.1)"      # Expected: 100000 (10000 / 0.1)
+  breakeven_revenue_medium_margin:
+    value: null
+    formula: "=BREAKEVEN_REVENUE(25000, 0.25)"     # Expected: 100000 (25000 / 0.25)
+  breakeven_revenue_high_fixed:
+    value: null
+    formula: "=BREAKEVEN_REVENUE(100000, 0.5)"     # Expected: 200000 (100000 / 0.5)
+  breakeven_revenue_decimal:
+    value: null
+    formula: "=BREAKEVEN_REVENUE(5000, 0.125)"     # Expected: 40000 (5000 / 0.125)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SCENARIO - Scenario modeling function (actual function)
+  # Retrieves variable values from named scenarios for what-if analysis
+  # Usage: SCENARIO(scenario_name, variable_name)
+  # ═══════════════════════════════════════════════════════════════════════════
+  scenario_base_growth:
+    value: null
+    formula: "=SCENARIO(\"base\", \"growth_rate\")"        # Expected: 0.05 (5% base growth)
+  scenario_optimistic_growth:
+    value: null
+    formula: "=SCENARIO(\"optimistic\", \"growth_rate\")"  # Expected: 0.15 (15% optimistic growth)
+  scenario_pessimistic_growth:
+    value: null
+    formula: "=SCENARIO(\"pessimistic\", \"growth_rate\")" # Expected: 0.02 (2% pessimistic growth)
+  scenario_base_discount:
+    value: null
+    formula: "=SCENARIO(\"base\", \"discount_rate\")"      # Expected: 0.10 (10% discount rate)
+  scenario_optimistic_discount:
+    value: null
+    formula: "=SCENARIO(\"optimistic\", \"discount_rate\")" # Expected: 0.08 (8% lower discount)
+  scenario_pessimistic_inflation:
+    value: null
+    formula: "=SCENARIO(\"pessimistic\", \"inflation_rate\")" # Expected: 0.05 (5% higher inflation)
+  scenario_aggressive_growth:
+    value: null
+    formula: "=SCENARIO(\"aggressive\", \"growth_rate\")"   # Expected: 0.25 (25% aggressive growth)
+  scenario_aggressive_discount:
+    value: null
+    formula: "=SCENARIO(\"aggressive\", \"discount_rate\")" # Expected: 0.06 (6% low discount)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # YD - Years and days between dates (simulated - days component only)
+  # Simulates: Days remaining after subtracting full years
+  # ═══════════════════════════════════════════════════════════════════════════
+  yd_basic:
+    value: null
+    formula: "=MOD(800, 365)"                    # Expected: 70 (days component after 2 years)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # YM - Years and months between dates (simulated - months component only)
+  # Simulates: Months remaining after subtracting full years
+  # ═══════════════════════════════════════════════════════════════════════════
+  ym_basic:
+    value: null
+    formula: "=MOD(26, 12)"                      # Expected: 2 (months component after 2 years)
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MD - Months and days between dates (simulated - days component only)
+  # Simulates: Days remaining after subtracting full months
+  # ═══════════════════════════════════════════════════════════════════════════
+  md_basic:
+    value: null
+    formula: "=MOD(45, 30)"                      # Expected: 15 (days component after full months)

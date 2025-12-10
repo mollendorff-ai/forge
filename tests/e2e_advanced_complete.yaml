@@ -1,48 +1,44 @@
-# E2E Advanced Function Complete Coverage
-# v6.14.0 - All 3 advanced functions with comprehensive tests
-
-_forge_version: "1.0.0"
-
+_forge_version: 5.0.0
 assumptions:
-  # ═══════════════════════════════════════════════════════════════════════════
-  # LAMBDA - Custom function definition (placeholder)
-  # ═══════════════════════════════════════════════════════════════════════════
   lambda_square:
-    value: null
-    formula: "=5*5"                         # Simulates LAMBDA(x, x*x)(5)
+    value: 25.0
+    formula: =LAMBDA(x, x*x)(5)
   lambda_add:
-    value: null
-    formula: "=3+4"                         # Simulates LAMBDA(a,b,a+b)(3,4)
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # LET - Variable binding (placeholder)
-  # ═══════════════════════════════════════════════════════════════════════════
-  let_example:
-    value: null
-    formula: "=10*10+5"                     # Simulates LET(x,10,x*x+5)
+    value: 7.0
+    formula: =LAMBDA(a, b, a+b)(3, 4)
+  lambda_multiply:
+    value: 42.0
+    formula: =LAMBDA(x, y, x*y)(6, 7)
+  lambda_compound:
+    value: 1628.894626777442
+    formula: =LAMBDA(p, r, n, p*(1+r)^n)(1000, 0.05, 10)
+  let_simple:
+    value: 100.0
+    formula: =LET(x, 10, x*x)
+  let_two_vars:
+    value: 105.0
+    formula: =LET(x, 10, y, 5, x*x+y)
   let_complex:
-    value: null
-    formula: "=(2+3)*(2-3+10)"              # Simulates LET(a,2,b,3,c,10,(a+b)*(a-b+c))
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # REDUCE - Array reduction (placeholder)
-  # ═══════════════════════════════════════════════════════════════════════════
-  reduce_sum:
-    value: null
-    formula: "=1+2+3+4+5"                   # Simulates REDUCE(0, arr, LAMBDA(a,v,a+v))
-  reduce_product:
-    value: null
-    formula: "=1*2*3*4*5"                   # Simulates REDUCE(1, arr, LAMBDA(a,v,a*v))
-
-  # ═══════════════════════════════════════════════════════════════════════════
-  # Complex calculations using basic operations
-  # ═══════════════════════════════════════════════════════════════════════════
+    value: 45.0
+    formula: =LET(a, 2, b, 3, c, 10, (a+b)*(a-b+c))
+  let_dependent:
+    value: 25.0
+    formula: =LET(a, 10, b, a*2, b+5)
+  switch_match:
+    value: 200.0
+    formula: =SWITCH(2, 1, 100, 2, 200, 3, 300)
+  switch_default:
+    value: 999.0
+    formula: =SWITCH(5, 1, 100, 2, 200, 999)
+  switch_rate:
+    value: 0.1
+    formula: =SWITCH(2, 1, 0.05, 2, 0.10, 3, 0.15, 0.03)
   compound_interest:
-    value: null
-    formula: "=1000*POWER(1+0.05, 10)"     # FV calculation
+    value: 1628.894626777442
+    formula: =1000*POWER(1+0.05, 10)
   loan_payment:
-    value: null
-    formula: "=ROUND(PMT(0.06/12, 360, 200000), 2)"  # Mortgage payment
+    value: -1199.1
+    formula: =ROUND(PMT(0.06/12, 360, 200000), 2)
   statistical_calc:
-    value: null
-    formula: "=SQRT(200)"                  # Std dev approximation
+    value: 14.142135623730951
+    formula: =SQRT(200)
