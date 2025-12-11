@@ -637,6 +637,25 @@ next:
       - "[DONE] cargo test --test '*' passes"
       - "[DONE] No regressions confirmed"
 
+  - version: "7.2.8"
+    priority: NORMAL
+    status: pending
+    summary: "Remove Update Command - No Public GitHub Repo for Enterprise"
+    rationale: |
+      The `forge update` command checks github.com/royalbit/forge/releases which is NOT public.
+      - forge (enterprise) is self-hosted, never pushed to GitHub
+      - forge-demo is public but on a different repo (royalbit/forge-demo)
+      - Self-update makes no sense for either binary
+      Decision: Disable entirely (Option B) rather than maintain dead code.
+    deliverables:
+      - "Remove Update command from main.rs (enum variant + match arm)"
+      - "Remove src/update.rs module entirely"
+      - "Remove update imports from main.rs"
+      - "Update --help text (remove update from command list)"
+      - "Update README.md installation section"
+      - "Create ADR-015: Self-Update Removal Decision"
+      - "Delete tests/update_tests.rs"
+
   - version: "7.3.0"
     priority: NORMAL
     status: pending
@@ -665,8 +684,8 @@ backlog:
 summary:
   total_functions: 159
   categories: 14
-  current_version: "7.2.5"
-  next_version: "7.3.0"
+  current_version: "7.2.7"
+  next_version: "7.2.8"
 
   test_status:
     unit_tests: 814
@@ -682,7 +701,9 @@ summary:
     - "v7.2.3: Schema Enforcement - Hardcoded Validation + ADR-014"
     - "v7.2.4: Full Retest - Initial"
     - "v7.2.5: Comprehensive Test Verification - ALL PASSING"
-    - "forge-demo: Cleanup + Repo Recreation (scalar-only)"
+    - "v7.2.6: Registry Cleanup + 160 Functions"
+    - "v7.2.7: Upgrade Command Gated to Enterprise Only"
+    - "forge-demo v7.2.7: GitHub Release (5 platforms, UPX compressed)"
 
   major_upgrades:
     jsonschema: "0.18 → 0.37.4"
