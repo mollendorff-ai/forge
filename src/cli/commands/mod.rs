@@ -36,8 +36,6 @@ pub use audit::{
     AuditDependency,
 };
 #[cfg(test)]
-pub use functions::FunctionCategory;
-#[cfg(test)]
 pub use upgrade::split_scalars_to_inputs_outputs;
 
 use crate::core::{ArrayCalculator, UnitValidator};
@@ -90,20 +88,6 @@ pub fn calculate(
             "{}",
             "📋 DRY RUN MODE - No changes will be written\n".yellow()
         );
-    }
-
-    // Auto-upgrade schema if needed (v5.3.0)
-    if !dry_run {
-        if let Some(old_version) = needs_schema_upgrade(&file)? {
-            println!(
-                "{}",
-                format!("📦 Auto-upgrading schema v{} → v5.0.0...", old_version)
-                    .yellow()
-                    .bold()
-            );
-            auto_upgrade_schema(&file, verbose)?;
-            println!();
-        }
     }
 
     // Parse file

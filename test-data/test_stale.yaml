@@ -1,6 +1,6 @@
 # Test file with STALE VALUES (values don't match formulas)
 # This should FAIL validation and demonstrate the value-checking feature
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 platform:
   metric: ["Take Rate"]

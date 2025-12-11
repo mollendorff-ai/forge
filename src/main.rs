@@ -10,15 +10,15 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "forge")]
-#[command(about = "Git-native financial modeling. 81 functions. Zero hallucinations.")]
+#[command(about = "Git-native financial modeling. 160 functions. Zero hallucinations.")]
 #[command(long_about = "Forge - Deterministic YAML Financial Calculator
-81 functions | 1709 tests | E2E validated against Gnumeric
+160 functions | 1709 tests | E2E validated against Gnumeric
 
 COMMANDS:
   calculate   - Execute formulas, update values
   validate    - Check model integrity
   audit       - Trace formula dependencies (SOX compliance)
-  functions   - List all 81 supported functions
+  functions   - List all 160 supported functions
   sensitivity - One/two-variable data tables
   goal-seek   - Find input for target output
   break-even  - Find zero-crossing point

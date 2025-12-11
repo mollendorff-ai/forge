@@ -18,7 +18,7 @@ fn test_import_basic() {
     let yaml = create_test_yaml(
         &dir,
         "import_source.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 sales:
   product: ["A", "B", "C"]
   revenue: [100, 200, 300]
@@ -43,7 +43,7 @@ fn test_import_verbose() {
     let yaml = create_test_yaml(
         &dir,
         "import_verbose_source.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 data:
   x: [1, 2, 3]
 "#,
@@ -64,7 +64,7 @@ fn test_import_split_files() {
     let yaml = create_test_yaml(
         &dir,
         "import_split_source.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 table1:
   a: [1, 2]
 table2:
@@ -88,7 +88,7 @@ fn test_import_split_files_with_scalars_verbose() {
     let yaml = create_test_yaml(
         &dir,
         "import_mixed.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 sales:
   revenue: [100, 200, 300]
 tax_rate:
@@ -115,7 +115,7 @@ fn test_import_multi_doc_with_scalars() {
     let yaml = create_test_yaml(
         &dir,
         "import_multidoc_mixed.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 data:
   values: [1, 2, 3]
 constant:
@@ -140,7 +140,7 @@ fn test_import_multi_doc() {
     let yaml = create_test_yaml(
         &dir,
         "import_multi_source.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 data:
   values: [1, 2, 3]
 "#,

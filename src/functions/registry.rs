@@ -72,9 +72,9 @@ pub struct FunctionDef {
 
 /// All supported functions - THE SINGLE SOURCE OF TRUTH
 ///
-/// Total: 159 functions (includes aliases)
-/// Demo: 49 functions (36 + 7 math + 6 trig)
-/// Enterprise-only: 110 functions
+/// Total: 160 functions (includes aliases)
+/// Demo: 48 functions (16 math + 5 agg + 5 logical + 9 text + 6 date + 1 lookup + 6 trig)
+/// Enterprise-only: 112 functions
 pub static FUNCTIONS: &[FunctionDef] = &[
     // ══════════════════════════════════════════════════════════════════════════
     // MATH (16 demo + 3 enterprise = 19 total)
@@ -504,6 +504,14 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         category: Category::Text,
         description: "Remove extra spaces",
         syntax: "=TRIM(text)",
+        demo: true,
+        scalar: true,
+    },
+    FunctionDef {
+        name: "REPT",
+        category: Category::Text,
+        description: "Repeat text",
+        syntax: "=REPT(text, times)",
         demo: true,
         scalar: true,
     },
@@ -1466,18 +1474,18 @@ mod tests {
 
     #[test]
     fn test_demo_count() {
-        // 47 demo functions (16 Math, 5 Aggregation, 5 Logical, 8 Text, 6 Date, 1 Lookup, 6 Trig)
+        // 48 demo functions (16 Math, 5 Aggregation, 5 Logical, 9 Text, 6 Date, 1 Lookup, 6 Trig)
         // INDEX and MATCH removed (require array context, not v1.0.0 compatible)
-        assert_eq!(count_demo(), 47, "Demo should have 47 functions");
+        assert_eq!(count_demo(), 48, "Demo should have 48 functions");
     }
 
     #[test]
     fn test_enterprise_count() {
-        // 159 total functions (includes aliases like AVG, CONCATENATE)
+        // 160 total functions (includes aliases like AVG, CONCATENATE)
         assert_eq!(
             count_enterprise(),
-            159,
-            "Enterprise should have 159 functions"
+            160,
+            "Enterprise should have 160 functions"
         );
     }
 
@@ -1528,7 +1536,7 @@ mod tests {
         let array_only = count_array_only();
         assert_eq!(
             scalar + array_only,
-            159,
+            160,
             "Scalar + array-only should equal total"
         );
         // 24 array-only functions:

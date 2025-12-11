@@ -37,7 +37,7 @@ fn test_export_verbose() {
     let yaml = create_test_yaml(
         &dir,
         "export_verbose.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 sales:
   month: [1, 2, 3]
   revenue: [100, 200, 300]

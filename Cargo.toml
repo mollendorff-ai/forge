@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "7.0.0"
+version = "7.2.6"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "A Self-Evolving Autonomous AI project. YAML formula calculator with 60+ Excel functions, 96K rows/sec. Created with RoyalBit Asimov."
@@ -23,7 +23,7 @@ exclude = [
 name = "forge-demo"
 path = "src/main.rs"
 
-# Enterprise binary (134 functions, all features)
+# Enterprise binary (159 functions, all features)
 # Build: cargo build --release --features full
 [[bin]]
 name = "forge"
@@ -52,42 +52,42 @@ serde_json = "1.0"  # JSON handling for schema validation
 xlformula_engine = "0.1.18"
 
 # JSON Schema validation (v1.0.0 array model)
-jsonschema = "0.18"
+jsonschema = "0.37"
 
 # CLI
-clap = { version = "4.5", features = ["derive", "env"] }
+clap = { version = "4.5.53", features = ["derive", "env"] }
 
 # Error handling
 anyhow = "1.0"
 thiserror = "1.0"
 
 # Dependency graph (for formula ordering)
-petgraph = "0.6"
+petgraph = "0.8"
 
 # Regex for array indexing preprocessing
-regex = "1.11"
+regex = "1.12"
 
 # Pretty output
-colored = "2.1"
+colored = "3.0"
 
 # Excel export (v1.0.0 array model)
-rust_xlsxwriter = "0.90"
+rust_xlsxwriter = "0.92"
 
 # Excel import (v1.0.0 array model)
-calamine = "0.31"
+calamine = "0.32"
 
 # File watching (v1.4.0 watch mode)
-notify = "7.0"
-notify-debouncer-mini = "0.5"
+notify = "8.2"
+notify-debouncer-mini = "0.7"
 
 # Async runtime (API server, MCP server)
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "signal", "net"] }
 async-trait = "0.1"
 
 # API Server (v2.0.0 - enterprise HTTP API)
-axum = "0.7"
-tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+axum = "0.8"
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.0", features = ["v4"] }

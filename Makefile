@@ -75,7 +75,7 @@ help:
 	@echo "Build Targets:"
 	@echo "  make build              - Standard release build (with pre/post checks)"
 	@echo "  make build-demo         - Build forge-demo only (36 functions)"
-	@echo "  make build-enterprise   - Build forge + forge-server + forge-mcp (134 functions)"
+	@echo "  make build-enterprise   - Build forge + forge-server + forge-mcp (159 functions)"
 	@echo "  make build-static       - Static release build for current platform"
 	@echo "  make build-compressed   - Static + UPX compressed (Linux/Windows only)"
 	@echo "  make build-all          - Cross-compile for all platforms (requires cross-rs)"
@@ -168,9 +168,9 @@ build-demo:
 	@echo "📊 Function count:"
 	@./target/release/forge-demo functions 2>/dev/null | wc -l | xargs -I{} echo "   {} functions available"
 
-# Build enterprise binaries (134 functions + servers)
+# Build enterprise binaries (159 functions + servers)
 build-enterprise:
-	@echo "🔨 Building enterprise binaries (134 functions)..."
+	@echo "🔨 Building enterprise binaries (159 functions)..."
 	@cargo build --release --features full
 	@echo "✅ Binaries:"
 	@ls -lh target/release/forge target/release/forge-server target/release/forge-mcp 2>/dev/null || true

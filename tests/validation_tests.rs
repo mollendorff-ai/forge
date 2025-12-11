@@ -17,65 +17,68 @@ use tempfile::NamedTempFile;
 // These tests ensure the schema stays in sync with documented format versions
 // ============================================================================
 
-/// Test that schema only contains valid format versions (1.0.0 and 4.0.0)
+/// Test that schema only contains valid format versions (1.0.0 and 5.0.0)
 /// This prevents the bug where software versions were added to format enum
 #[test]
 fn test_schema_version_enum_only_contains_format_versions() {
-    let schema_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    // Test v1.0.0 schema (scalar-only)
+    let schema_path_v1 = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("schema")
-        .join("forge-v1.0.schema.json");
+        .join("forge-v1.0.0.schema.json");
 
-    let schema_content = fs::read_to_string(&schema_path).expect("Failed to read schema file");
+    let schema_content_v1 =
+        fs::read_to_string(&schema_path_v1).expect("Failed to read v1.0.0 schema file");
+    let schema_v1: serde_json::Value =
+        serde_json::from_str(&schema_content_v1).expect("Failed to parse v1.0.0 schema JSON");
 
-    let schema: serde_json::Value =
-        serde_json::from_str(&schema_content).expect("Failed to parse schema JSON");
-
-    // Get the _forge_version enum
-    let version_enum = schema["properties"]["_forge_version"]["enum"]
+    // Get the _forge_version enum for v1.0.0
+    let version_enum_v1 = schema_v1["properties"]["_forge_version"]["enum"]
         .as_array()
-        .expect("_forge_version should have enum property");
+        .expect("v1.0.0 _forge_version should have enum property");
 
-    // Only format versions should be in the enum
-    let valid_format_versions = vec!["1.0.0", "4.0.0", "5.0.0"];
+    // v1.0.0 schema should only allow "1.0.0"
+    assert_eq!(version_enum_v1.len(), 1);
+    assert_eq!(version_enum_v1[0].as_str(), Some("1.0.0"));
 
-    for version in version_enum {
-        let v = version.as_str().expect("Version should be string");
-        assert!(
-            valid_format_versions.contains(&v),
-            "Schema contains invalid format version '{}'. Only {:?} are valid format versions.",
-            v,
-            valid_format_versions
-        );
-    }
+    // Test v5.0.0 schema (arrays/tables)
+    let schema_path_v5 = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("schema")
+        .join("forge-v5.0.0.schema.json");
 
-    // Ensure both format versions are present
-    for valid in &valid_format_versions {
-        assert!(
-            version_enum.iter().any(|v| v.as_str() == Some(*valid)),
-            "Schema missing required format version '{}'",
-            valid
-        );
-    }
+    let schema_content_v5 =
+        fs::read_to_string(&schema_path_v5).expect("Failed to read v5.0.0 schema file");
+    let schema_v5: serde_json::Value =
+        serde_json::from_str(&schema_content_v5).expect("Failed to parse v5.0.0 schema JSON");
+
+    // Get the _forge_version enum for v5.0.0
+    let version_enum_v5 = schema_v5["properties"]["_forge_version"]["enum"]
+        .as_array()
+        .expect("v5.0.0 _forge_version should have enum property");
+
+    // v5.0.0 schema should only allow "5.0.0"
+    assert_eq!(version_enum_v5.len(), 1);
+    assert_eq!(version_enum_v5[0].as_str(), Some("5.0.0"));
 }
 
 /// Test that _forge_version is required in schema
 #[test]
 fn test_schema_requires_forge_version() {
-    let schema_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    // Test v1.0.0 schema
+    let schema_path_v1 = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("schema")
-        .join("forge-v1.0.schema.json");
+        .join("forge-v1.0.0.schema.json");
 
-    let schema_content = fs::read_to_string(&schema_path).expect("Failed to read schema file");
+    let schema_content_v1 =
+        fs::read_to_string(&schema_path_v1).expect("Failed to read v1.0.0 schema file");
+    let schema_v1: serde_json::Value =
+        serde_json::from_str(&schema_content_v1).expect("Failed to parse v1.0.0 schema JSON");
 
-    let schema: serde_json::Value =
-        serde_json::from_str(&schema_content).expect("Failed to parse schema JSON");
-
-    let required = schema["required"]
+    let required_v1 = schema_v1["required"]
         .as_array()
-        .expect("Schema should have required property");
+        .expect("v1.0.0 schema should have required property");
 
     assert!(
-        required
+        required_v1
             .iter()
             .any(|v| v.as_str() == Some("_forge_version")),
         "_forge_version must be in schema's required array"
@@ -158,9 +161,9 @@ fn forge_binary() -> PathBuf {
 
 #[test]
 fn test_validation_passes_with_correct_values() {
-    // v1.0.0 format with tables
+    // v5.0.0 format with tables (v1.0.0 is scalar-only)
     let yaml_content = r#"
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 financials:
   quarter: ["Q1", "Q2", "Q3", "Q4"]
@@ -194,9 +197,9 @@ financials:
 
 #[test]
 fn test_validation_with_scalars() {
-    // v1.0.0 format with scalars
+    // v5.0.0 format with arrays and scalars
     let yaml_content = r#"
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 data:
   values: [10, 20, 30, 40]
@@ -230,9 +233,9 @@ summary:
 
 #[test]
 fn test_validation_fails_with_wrong_scalar() {
-    // v1.0.0 format with wrong scalar value
+    // v5.0.0 format with wrong scalar value
     let yaml_content = r#"
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 data:
   values: [10, 20, 30, 40]
@@ -267,8 +270,9 @@ summary:
 
 #[test]
 fn test_calculate_dry_run() {
+    // v5.0.0 for tables/arrays
     let yaml_content = r#"
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 financials:
   quarter: ["Q1", "Q2"]
@@ -307,9 +311,9 @@ financials:
 
 #[test]
 fn test_validation_with_table_formulas() {
-    // Test that row-wise formulas are calculated correctly
+    // v5.0.0 for row-wise formulas with arrays
     let yaml_content = r#"
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 sales:
   month: ["Jan", "Feb", "Mar"]

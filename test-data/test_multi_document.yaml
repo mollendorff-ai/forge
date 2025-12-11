@@ -1,7 +1,7 @@
 # Multi-document YAML test file (v4.4.2)
 # Each document becomes a separate sheet in Excel
 ---
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 _name: "Sales"
 sales:
   month: ["Jan", "Feb", "Mar"]
@@ -13,7 +13,7 @@ sales:
     unit: "CAD"
   profit: "=revenue - costs"
 ---
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 _name: "Expenses"
 expenses:
   month: ["Jan", "Feb", "Mar"]
@@ -25,7 +25,7 @@ expenses:
     unit: "CAD"
   total: "=salary + rent"
 ---
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 _name: "Summary"
 summary:
   total_revenue:

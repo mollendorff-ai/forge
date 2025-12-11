@@ -1,24 +1,30 @@
 //! Functions tests for CLI commands
 
-#![allow(clippy::approx_constant)] // Test values intentionally use approximate PI
-
-use super::super::*;
+use crate::functions::registry;
 
 // =========================================================================
-// format_number Tests
+// Registry Tests
 // =========================================================================
 
 #[test]
-fn test_function_category_struct() {
-    let cat = FunctionCategory {
-        name: "Financial",
-        functions: vec![
-            ("NPV", "Net Present Value"),
-            ("IRR", "Internal Rate of Return"),
-        ],
-    };
+fn test_registry_counts() {
+    // Registry is the single source of truth
+    assert_eq!(
+        registry::count_enterprise(),
+        160,
+        "Enterprise should have 160 functions"
+    );
+    assert_eq!(registry::count_demo(), 48, "Demo should have 48 functions");
+}
 
-    assert_eq!(cat.name, "Financial");
-    assert_eq!(cat.functions.len(), 2);
-    assert_eq!(cat.functions[0].0, "NPV");
+#[test]
+fn test_registry_demo_functions_are_scalar() {
+    // All demo functions must work with v1.0.0 (scalar-only)
+    for func in registry::demo_functions() {
+        assert!(
+            func.scalar,
+            "Demo function {} must be scalar (v1.0.0 compatible)",
+            func.name
+        );
+    }
 }

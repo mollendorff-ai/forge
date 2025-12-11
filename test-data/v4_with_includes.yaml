@@ -1,7 +1,7 @@
-# Forge v4.0 - Model with Cross-File References
+# Forge v5.0 - Model with Cross-File References
 # Demonstrates _includes directive and @namespace.field syntax
 
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 
 # Include external data sources
 _includes:

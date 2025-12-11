@@ -1,0 +1,419 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/royalbit/forge/schema/forge-v5.0.0.json",
+  "title": "Forge Financial Model Schema v5.0.0 - Arrays & Tables",
+  "description": "JSON Schema for Forge v5.0.0 models (enterprise). Full support for arrays, tables, rich metadata, Excel compatibility, scenarios, and 80+ functions. Includes inputs/outputs separation and Forge-native FP&A functions.",
+  "type": "object",
+
+  "required": ["_forge_version"],
+
+  "properties": {
+    "_forge_version": {
+      "type": "string",
+      "enum": ["5.0.0"],
+      "description": "Forge model format version: 5.0.0 (arrays/tables with inputs/outputs separation)"
+    },
+    "_name": {
+      "type": "string",
+      "description": "Document/workbook name (v4.4.2) - used for sheet naming in multi-document YAML"
+    },
+    "_includes": {
+      "$ref": "#/definitions/Includes",
+      "description": "Cross-file references (v4.0) - include external YAML files"
+    },
+    "scenarios": {
+      "oneOf": [
+        { "$ref": "#/definitions/Scenarios" },
+        { "$ref": "#/definitions/Table" }
+      ],
+      "description": "Named scenarios with variable overrides OR a table named 'scenarios'"
+    },
+    "inputs": {
+      "$ref": "#/definitions/ScalarGroup",
+      "description": "Input scalars without formulas (v5.0.0) - manual input values only"
+    },
+    "outputs": {
+      "$ref": "#/definitions/ScalarGroup",
+      "description": "Output scalars with formulas (v5.0.0) - calculated values from formulas"
+    }
+  },
+
+  "additionalProperties": {
+    "oneOf": [
+      { "$ref": "#/definitions/Table" },
+      { "$ref": "#/definitions/ScalarGroup" },
+      { "$ref": "#/definitions/Scalar" }
+    ]
+  },
+
+  "definitions": {
+    "Table": {
+      "title": "Table (Column Arrays)",
+      "description": "A table with column arrays that maps to an Excel sheet",
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/definitions/NumberArray" },
+          { "$ref": "#/definitions/TextArray" },
+          { "$ref": "#/definitions/DateArray" },
+          { "$ref": "#/definitions/BooleanArray" },
+          { "$ref": "#/definitions/FormulaArray" },
+          { "$ref": "#/definitions/RowFormula" },
+          { "$ref": "#/definitions/AggregationFormula" },
+          { "$ref": "#/definitions/RichColumn" },
+          { "$ref": "#/definitions/RichFormula" }
+        ]
+      },
+      "examples": [
+        {
+          "quarterly_revenue": {
+            "quarter": ["Q1", "Q2", "Q3", "Q4"],
+            "revenue": [100000, 120000, 150000, 180000],
+            "profit": "=revenue * 0.2"
+          }
+        }
+      ]
+    },
+
+    "RichColumn": {
+      "title": "Rich Column (v4.0)",
+      "description": "Column with metadata (unit, notes, source, validation_status)",
+      "type": "object",
+      "properties": {
+        "value": {
+          "oneOf": [
+            { "$ref": "#/definitions/NumberArray" },
+            { "$ref": "#/definitions/TextArray" },
+            { "$ref": "#/definitions/DateArray" },
+            { "$ref": "#/definitions/BooleanArray" }
+          ]
+        },
+        "unit": { "type": "string", "description": "Unit of measurement (CAD, USD, %, count, days, ratio)" },
+        "notes": { "type": "string", "description": "Human-readable explanation" },
+        "source": { "type": "string", "description": "Where data came from (file:field or URL)" },
+        "validation_status": {
+          "type": "string",
+          "enum": ["VALIDATED", "PROJECTED", "ESTIMATED"],
+          "description": "Data validation status"
+        },
+        "last_updated": { "type": "string", "description": "ISO date of last update" }
+      },
+      "required": ["value"],
+      "examples": [
+        {
+          "value": [100, 200, 300],
+          "unit": "CAD",
+          "notes": "Monthly revenue",
+          "validation_status": "PROJECTED"
+        }
+      ]
+    },
+
+    "RichFormula": {
+      "title": "Rich Formula (v4.0)",
+      "description": "Formula column with metadata (unit, notes, source) - NO value field (distinguishes from Scalar)",
+      "type": "object",
+      "properties": {
+        "formula": { "$ref": "#/definitions/RowFormula" },
+        "unit": { "type": "string" },
+        "notes": { "type": "string" },
+        "source": { "type": "string" },
+        "validation_status": { "type": "string" }
+      },
+      "required": ["formula"],
+      "not": {
+        "anyOf": [
+          { "required": ["value"] }
+        ]
+      }
+    },
+
+    "NumberArray": {
+      "title": "Number Array",
+      "description": "Homogeneous array of numbers (maps to Excel column with Number format). Null values are caught by parser with helpful error messages.",
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "number" },
+          { "type": "null" }
+        ]
+      },
+      "minItems": 1,
+      "examples": [
+        [100, 120, 150, 180],
+        [0.10, 0.15, 0.20, 0.25]
+      ]
+    },
+
+    "TextArray": {
+      "title": "Text Array",
+      "description": "Homogeneous array of strings (maps to Excel column with Text format)",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "examples": [
+        ["Q1", "Q2", "Q3", "Q4"],
+        ["Jan", "Feb", "Mar"]
+      ]
+    },
+
+    "DateArray": {
+      "title": "Date Array",
+      "description": "Homogeneous array of ISO date strings (maps to Excel column with Date format)",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "date",
+        "pattern": "^\\d{4}-\\d{2}(-\\d{2})?$"
+      },
+      "minItems": 1,
+      "examples": [
+        ["2025-01", "2025-02", "2025-03"],
+        ["2025-01-01", "2025-02-01", "2025-03-01"]
+      ]
+    },
+
+    "BooleanArray": {
+      "title": "Boolean Array",
+      "description": "Homogeneous array of booleans (maps to Excel TRUE/FALSE)",
+      "type": "array",
+      "items": {
+        "type": "boolean"
+      },
+      "minItems": 1,
+      "examples": [
+        [true, false, true, false],
+        [true, true, false]
+      ]
+    },
+
+    "FormulaArray": {
+      "title": "Formula Array",
+      "description": "Array of formulas and/or null values (per-row formulas)",
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string", "pattern": "^=.+" },
+          { "type": "null" }
+        ]
+      },
+      "minItems": 1,
+      "examples": [
+        [null, null, "=value[0] * (1 - value[1])"],
+        ["=A + B", "=C * D", "=E / F"]
+      ]
+    },
+
+    "RowFormula": {
+      "title": "Row-wise Formula",
+      "description": "Formula applied element-wise to each row (like Excel drag-down)",
+      "type": "string",
+      "pattern": "^=.+",
+      "examples": [
+        "=revenue - expenses",
+        "=price * quantity",
+        "=profit / revenue"
+      ]
+    },
+
+    "AggregationFormula": {
+      "title": "Aggregation Formula",
+      "description": "Formula that aggregates column to single value",
+      "type": "string",
+      "pattern": "^=(SUM|AVERAGE|MAX|MIN|COUNT|PRODUCT|SUMIF|AVERAGEIF|COUNTIF)\\(.+\\)",
+      "examples": [
+        "=SUM(revenue)",
+        "=AVERAGE(profit_margin)",
+        "=MAX(quarterly_revenue)",
+        "=SUMIF(revenue, > 100000)"
+      ]
+    },
+
+    "ScalarGroup": {
+      "title": "Scalar Group",
+      "description": "Group of scalar values (v0.2.0 compatible, maps to named cells)",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Scalar"
+      },
+      "examples": [
+        {
+          "assumptions": {
+            "tax_rate": {
+              "value": 0.25,
+              "formula": null
+            },
+            "discount_rate": {
+              "value": 0.10,
+              "formula": null
+            }
+          }
+        }
+      ]
+    },
+
+    "Scalar": {
+      "title": "Scalar Value",
+      "description": "Single value with optional formula and rich metadata (v4.0 enhanced)",
+      "type": "object",
+      "properties": {
+        "value": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "null" }
+          ],
+          "description": "Current calculated value (null if not yet calculated)"
+        },
+        "formula": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^=.+",
+              "description": "Formula expression starting with ="
+            },
+            {
+              "type": "null",
+              "description": "No formula (manual input value)"
+            }
+          ]
+        },
+        "unit": { "type": "string", "description": "Unit of measurement (CAD, USD, %, count, days, ratio)" },
+        "notes": { "type": "string", "description": "Human-readable explanation" },
+        "source": { "type": "string", "description": "Where data came from (file:field or URL)" },
+        "validation_status": {
+          "type": "string",
+          "enum": ["VALIDATED", "PROJECTED", "ESTIMATED"],
+          "description": "Data validation status"
+        },
+        "last_updated": { "type": "string", "description": "ISO date of last update" }
+      },
+      "required": ["value"],
+      "examples": [
+        {
+          "value": 0.90,
+          "formula": "=1 - platform_take_rate"
+        },
+        {
+          "value": 0.10,
+          "formula": null
+        },
+        {
+          "value": 100000,
+          "unit": "CAD",
+          "notes": "Annual revenue target",
+          "validation_status": "PROJECTED"
+        }
+      ]
+    },
+
+    "Scenarios": {
+      "title": "Scenarios",
+      "description": "Named scenarios with variable overrides for what-if modeling (v2.2.0+)",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/ScenarioOverrides"
+      },
+      "examples": [
+        {
+          "base": {
+            "growth_rate": 0.05,
+            "churn_rate": 0.02
+          },
+          "optimistic": {
+            "growth_rate": 0.12,
+            "churn_rate": 0.01
+          },
+          "pessimistic": {
+            "growth_rate": 0.02,
+            "churn_rate": 0.05
+          }
+        }
+      ]
+    },
+
+    "ScenarioOverrides": {
+      "title": "Scenario Overrides",
+      "description": "Variable overrides for a single scenario",
+      "type": "object",
+      "additionalProperties": {
+        "type": "number",
+        "description": "Override value for a scalar variable"
+      }
+    },
+
+    "Includes": {
+      "title": "Cross-File Includes (v4.0)",
+      "description": "Array of file includes for cross-file references",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Include"
+      },
+      "examples": [
+        [
+          { "file": "data_sources.yaml", "as": "sources" },
+          { "file": "pricing.yaml", "as": "pricing" }
+        ]
+      ]
+    },
+
+    "Include": {
+      "title": "Include Directive (v4.0)",
+      "description": "Single file include with namespace alias",
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Path to the YAML file to include (relative to current file)"
+        },
+        "as": {
+          "type": "string",
+          "description": "Namespace alias for @namespace.field references"
+        }
+      },
+      "required": ["file", "as"],
+      "examples": [
+        { "file": "data_sources.yaml", "as": "sources" }
+      ]
+    }
+  },
+
+  "examples": [
+    {
+      "_forge_version": "5.0.0",
+      "scenarios": {
+        "base": { "growth_rate": 0.05 },
+        "optimistic": { "growth_rate": 0.12 },
+        "pessimistic": { "growth_rate": 0.02 }
+      },
+      "quarterly_revenue": {
+        "quarter": ["Q1", "Q2", "Q3", "Q4"],
+        "revenue": [100000, 120000, 150000, 180000],
+        "expenses": [80000, 90000, 100000, 110000],
+        "profit": "=revenue - expenses",
+        "margin": "=profit / revenue"
+      },
+      "summary": {
+        "total_revenue": {
+          "value": 550000,
+          "formula": "=SUM(quarterly_revenue.revenue)"
+        },
+        "avg_margin": {
+          "value": 0.36,
+          "formula": "=AVERAGE(quarterly_revenue.margin)"
+        }
+      },
+      "assumptions": {
+        "tax_rate": {
+          "value": 0.25,
+          "formula": null
+        },
+        "growth_rate": {
+          "value": 0.05,
+          "formula": null
+        }
+      }
+    }
+  ]
+}

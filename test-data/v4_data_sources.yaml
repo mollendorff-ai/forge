@@ -1,7 +1,7 @@
-# Forge v4.0 - Data Sources File
+# Forge v5.0 - Data Sources File
 # This file is included by other models using _includes directive
 
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 
 # Pricing data that can be referenced as @sources.pricing.unit_price
 pricing:

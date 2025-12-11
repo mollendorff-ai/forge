@@ -380,8 +380,8 @@ fn e2e_export_sheet_names_are_quoted() {
 }
 
 #[test]
-fn e2e_v4_enterprise_model_exports_to_excel() {
-    // v4.0 model should export to Excel
+fn e2e_v4_export_rejected_needs_manual_upgrade() {
+    // v4.0 is no longer supported - must use `forge upgrade` manually
     let yaml_file = test_data_path("v4_enterprise_model.yaml");
     let temp_dir = tempfile::tempdir().unwrap();
     let excel_file = temp_dir.path().join("v4_enterprise.xlsx");
@@ -393,28 +393,23 @@ fn e2e_v4_enterprise_model_exports_to_excel() {
         .output()
         .expect("Failed to execute export");
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
+    // v4.0.0 should be rejected (auto-upgrade killed in v7.2.6)
     assert!(
-        output.status.success(),
-        "v4 export should succeed, stdout: {stdout}, stderr: {stderr}"
+        !output.status.success(),
+        "v4 export should fail (use forge upgrade), stderr: {stderr}"
     );
 
-    // Verify Excel file was created
-    assert!(excel_file.exists(), "Excel file should be created");
-
-    // Verify Excel file has non-zero size
-    let metadata = fs::metadata(&excel_file).unwrap();
     assert!(
-        metadata.len() > 1000,
-        "Excel file should have substantial content"
+        stderr.contains("Unsupported _forge_version"),
+        "Should reject v4.0.0, got: {stderr}"
     );
 }
 
 #[test]
-fn e2e_v4_enterprise_model_export_to_excel() {
-    // Test that enterprise model exports to Excel correctly
+fn e2e_v4_500_formulas_export_rejected() {
+    // v4.0 500 formulas model also rejected
     let yaml_file = test_data_path("v4_enterprise_500_formulas.yaml");
     let temp_dir = tempfile::tempdir().unwrap();
     let excel_file = temp_dir.path().join("enterprise.xlsx");
@@ -426,21 +421,17 @@ fn e2e_v4_enterprise_model_export_to_excel() {
         .output()
         .expect("Failed to execute export");
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
+    // v4.0.0 should be rejected
     assert!(
-        output.status.success(),
-        "Enterprise model export should succeed, stdout: {stdout}, stderr: {stderr}"
+        !output.status.success(),
+        "v4 export should fail (use forge upgrade), stderr: {stderr}"
     );
 
-    // Verify Excel file was created and has substantial size
-    assert!(excel_file.exists(), "Excel file should be created");
-    let metadata = fs::metadata(&excel_file).unwrap();
     assert!(
-        metadata.len() > 10000,
-        "Enterprise Excel file should be substantial (>10KB), got {} bytes",
-        metadata.len()
+        stderr.contains("Unsupported _forge_version"),
+        "Should reject v4.0.0, got: {stderr}"
     );
 }
 

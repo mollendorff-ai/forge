@@ -769,49 +769,46 @@ fn test_calculate_actual_file() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// AUTO-UPGRADE TESTS (v5.3.0)
+// SCHEMA VERSION TESTS (v7.2.6 - auto-upgrade killed, manual upgrade only)
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn test_calculate_auto_upgrades_old_schema() {
+fn test_calculate_v1_schema_works_natively() {
     let temp_dir = TempDir::new().unwrap();
-    let temp_file = temp_dir.path().join("old_schema.yaml");
+    let temp_file = temp_dir.path().join("v1_schema.yaml");
 
-    // Create a v1.0.0 schema file
+    // Create a v1.0.0 schema file (scalar-only)
     std::fs::write(
         &temp_file,
         r#"_forge_version: "1.0.0"
-x:
-  value: 10
-  formula: null
-y:
-  value: null
-  formula: "=x * 2"
+assumptions:
+  x:
+    value: 10
+    formula: null
+  y:
+    value: null
+    formula: "=x * 2"
 "#,
     )
     .unwrap();
 
-    // Calculate should auto-upgrade and succeed
+    // v1.0.0 should work natively (no auto-upgrade)
     let mut cmd = Command::cargo_bin("forge").unwrap();
     cmd.args(["calculate", temp_file.to_str().unwrap()])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("Auto-upgrading"));
+        .success();
 
-    // Verify file was upgraded to 5.0.0
+    // Verify file stays at v1.0.0
     let content = std::fs::read_to_string(&temp_file).unwrap();
-    assert!(
-        content.contains("5.0.0"),
-        "File should be upgraded to 5.0.0"
-    );
+    assert!(content.contains("1.0.0"), "File should remain at v1.0.0");
 }
 
 #[test]
-fn test_calculate_auto_upgrades_v4_schema() {
+fn test_calculate_v4_schema_rejected() {
     let temp_dir = TempDir::new().unwrap();
     let temp_file = temp_dir.path().join("v4_schema.yaml");
 
-    // Create a v4.0.0 schema file
+    // Create a v4.0.0 schema file (unsupported - must use forge upgrade)
     std::fs::write(
         &temp_file,
         r#"_forge_version: "4.0.0"
@@ -828,15 +825,12 @@ total:
     )
     .unwrap();
 
-    // Calculate should auto-upgrade
+    // v4.0.0 should be rejected (must use forge upgrade manually)
     let mut cmd = Command::cargo_bin("forge").unwrap();
     cmd.args(["calculate", temp_file.to_str().unwrap()])
         .assert()
-        .success();
-
-    // Verify file was upgraded
-    let content = std::fs::read_to_string(&temp_file).unwrap();
-    assert!(content.contains("5.0.0"));
+        .failure()
+        .stderr(predicate::str::contains("Unsupported _forge_version"));
 }
 
 #[test]

@@ -1,4 +1,4 @@
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 # Sales data with conditional aggregations demo
 # Demonstrates SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, AVERAGEIFS, MAXIFS, MINIFS

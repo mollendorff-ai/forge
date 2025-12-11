@@ -2,7 +2,7 @@
 
 # v1.0.0 Array Model Example: Budget vs Actual
 # This demonstrates variance analysis
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 # Monthly budget
 budget_2025:

@@ -2,7 +2,6 @@ use crate::error::{ForgeError, ForgeResult};
 use crate::types::{
     Column, ColumnValue, Include, Metadata, ParsedModel, ResolvedInclude, Scenario, Table, Variable,
 };
-use jsonschema::JSONSchema;
 use serde_yaml::Value;
 use std::collections::HashSet;
 use std::path::Path;
@@ -340,28 +339,141 @@ fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
     Ok(model)
 }
 
-/// Validate YAML against the Forge v1.0.0 JSON Schema
+/// Validate YAML against the appropriate Forge JSON Schema based on _forge_version
 fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
-    // Load the JSON Schema from the embedded schema file
-    let schema_str = include_str!("../../schema/forge-v1.0.schema.json");
+    // Extract the _forge_version to determine which schema to use
+    let version = yaml
+        .get("_forge_version")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            ForgeError::Validation(
+                "Missing required field: _forge_version. Must be \"1.0.0\" or \"5.0.0\""
+                    .to_string(),
+            )
+        })?;
+
+    // Load the appropriate schema based on version
+    let schema_str = match version {
+        "1.0.0" => include_str!("../../schema/forge-v1.0.0.schema.json"),
+        "5.0.0" => include_str!("../../schema/forge-v5.0.0.schema.json"),
+        _ => {
+            return Err(ForgeError::Validation(format!(
+                "Unsupported _forge_version: '{}'. Supported versions: 1.0.0 (scalar-only for forge-demo), 5.0.0 (arrays/tables for enterprise)",
+                version
+            )));
+        }
+    };
+
     let schema_value: serde_json::Value = serde_json::from_str(schema_str)
         .map_err(|e| ForgeError::Validation(format!("Failed to parse schema: {}", e)))?;
-
-    // Compile the schema
-    let compiled_schema = JSONSchema::compile(&schema_value)
-        .map_err(|e| ForgeError::Validation(format!("Failed to compile schema: {}", e)))?;
 
     // Convert YAML to JSON for validation
     let json_value: serde_json::Value = serde_json::to_value(yaml)
         .map_err(|e| ForgeError::Validation(format!("Failed to convert YAML to JSON: {}", e)))?;
 
+    // Build the validator
+    let validator = jsonschema::validator_for(&schema_value)
+        .map_err(|e| ForgeError::Validation(format!("Failed to compile schema: {}", e)))?;
+
     // Validate
-    if let Err(errors) = compiled_schema.validate(&json_value) {
-        let error_messages: Vec<String> = errors.map(|e| format!("  - {}", e)).collect();
+    if let Err(_error) = validator.validate(&json_value) {
+        let error_messages: Vec<String> = validator
+            .iter_errors(&json_value)
+            .map(|e| format!("  - {}", e))
+            .collect();
         return Err(ForgeError::Validation(format!(
             "Schema validation failed:\n{}",
             error_messages.join("\n")
         )));
+    }
+
+    // Additional runtime check for v1.0.0: NO tables/arrays allowed
+    if version == "1.0.0" {
+        validate_v1_0_0_no_tables(yaml)?;
+    }
+
+    Ok(())
+}
+
+/// Runtime validation: v1.0.0 models must NOT contain tables (arrays)
+/// This provides a clear error message when users try to use enterprise features in forge-demo
+fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
+    if let Value::Mapping(map) = yaml {
+        for (key, value) in map {
+            let key_str = key.as_str().unwrap_or("");
+
+            // Skip special keys
+            if key_str == "_forge_version" || key_str == "_name" || key_str == "scenarios" {
+                continue;
+            }
+
+            // Check if this is a table (mapping with arrays)
+            if let Value::Mapping(inner_map) = value {
+                // Skip if this is a scalar (has value/formula keys)
+                if inner_map.contains_key("value") || inner_map.contains_key("formula") {
+                    continue;
+                }
+
+                // Check if any child contains arrays (indicates a table)
+                for (col_key, col_value) in inner_map {
+                    let col_key_str = col_key.as_str().unwrap_or("");
+
+                    // Check for direct array values (table columns)
+                    if matches!(col_value, Value::Sequence(_)) {
+                        return Err(ForgeError::Validation(format!(
+                            "v1.0.0 models do not support tables/arrays. Found table '{}' with array column '{}'.\n\
+                            \n\
+                            v1.0.0 is for forge-demo and only supports scalar values.\n\
+                            To use tables/arrays, upgrade to v5.0.0 (enterprise):\n\
+                            \n\
+                            _forge_version: \"5.0.0\"\n\
+                            \n\
+                            Or convert your table to scalars using dot notation:\n\
+                            {}.{}: {{ value: ..., formula: null }}\n\
+                            {}.{}: {{ value: ..., formula: null }}",
+                            key_str,
+                            col_key_str,
+                            key_str,
+                            col_key_str,
+                            key_str,
+                            col_key_str
+                        )));
+                    }
+
+                    // Check for rich column format with array value
+                    if let Value::Mapping(col_map) = col_value {
+                        if let Some(Value::Sequence(_)) = col_map.get("value") {
+                            return Err(ForgeError::Validation(format!(
+                                "v1.0.0 models do not support tables/arrays. Found table '{}' with array column '{}' (rich format).\n\
+                                \n\
+                                v1.0.0 is for forge-demo and only supports scalar values.\n\
+                                To use tables/arrays, upgrade to v5.0.0 (enterprise):\n\
+                                \n\
+                                _forge_version: \"5.0.0\"",
+                                key_str,
+                                col_key_str
+                            )));
+                        }
+                    }
+
+                    // Check for row formulas (string starting with =)
+                    if let Value::String(s) = col_value {
+                        if s.starts_with('=') {
+                            return Err(ForgeError::Validation(format!(
+                                "v1.0.0 models do not support tables/arrays. Found table '{}' with formula column '{}'.\n\
+                                \n\
+                                v1.0.0 is for forge-demo and only supports scalar values.\n\
+                                To use tables/arrays, upgrade to v5.0.0 (enterprise):\n\
+                                \n\
+                                _forge_version: \"5.0.0\"",
+                                key_str,
+                                col_key_str
+                            )));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Ok(())

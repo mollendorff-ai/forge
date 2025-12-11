@@ -1,4 +1,4 @@
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 # Phase 2: Math & Precision Functions Test Suite
 # Tests ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER

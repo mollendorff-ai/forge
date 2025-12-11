@@ -99,7 +99,7 @@ fn test_audit_scalar() {
     let yaml = create_test_yaml(
         &dir,
         "audit.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 summary:
   price:
     value: 100
@@ -123,7 +123,7 @@ fn test_audit_variable_not_found() {
     let yaml = create_test_yaml(
         &dir,
         "audit_notfound.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 summary:
   x:
     value: 10
@@ -141,7 +141,7 @@ fn test_audit_aggregation() {
     let yaml = create_test_yaml(
         &dir,
         "audit_agg.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 sales:
   revenue: [100, 200, 300]
 total_revenue:
@@ -160,7 +160,7 @@ fn test_audit_table_column() {
     let yaml = create_test_yaml(
         &dir,
         "audit_col.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 orders:
   price: [10, 20, 30]
   quantity: [2, 3, 4]
@@ -186,7 +186,7 @@ fn test_audit_value_mismatch() {
     let yaml = create_test_yaml(
         &dir,
         "audit_mismatch.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 summary:
   x:
     value: 10
@@ -208,7 +208,7 @@ fn test_audit_literal_no_deps() {
     let yaml = create_test_yaml(
         &dir,
         "audit_literal.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 constant:
   value: 42
   formula: "=42"
@@ -226,7 +226,7 @@ fn test_audit_aggregation_with_deps() {
     let yaml = create_test_yaml(
         &dir,
         "audit_agg_deps.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 data:
   values: [10, 20, 30]
 subtotal:
@@ -252,7 +252,7 @@ fn test_audit_table_column_audit() {
     let yaml = create_test_yaml(
         &dir,
         "audit_tbl_col.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 items:
   qty: [1, 2, 3]
   price: [10, 20, 30]

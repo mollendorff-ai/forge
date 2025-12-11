@@ -1,5 +1,5 @@
 # Financial model test - v1.0.0 format
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 quarterly_revenue:
   quarter: ["Q1", "Q2", "Q3", "Q4"]
