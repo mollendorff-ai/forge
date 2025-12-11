@@ -138,22 +138,61 @@ forge calculate model.yaml --scenario optimistic
 forge export model.yaml output.xlsx
 ```
 
-## Build from Source
+## Build & Install
 
-Forge uses Rust feature flags to create demo and enterprise builds:
+Forge uses Rust feature flags to create demo and enterprise builds.
+
+### Quick Install (Makefile)
 
 ```bash
-# Demo build (47 scalar functions, no API server)
-cargo build --release
+# Install forge-demo to ~/bin (47 functions)
+make install-demo
 
-# Enterprise build (159 functions, API server, all features)
-cargo build --release --features full
+# Install forge enterprise to ~/bin (160 functions)
+make install-forge
+
+# Install both
+make install-all
 ```
 
-| Build | Functions | API Server | Use Case |
-|-------|-----------|------------|----------|
-| Demo | 47 (scalar only) | No | Evaluation, basic v1.0.0 models |
-| Enterprise | 159 (scalar + array) | Yes | Production, full FP&A with tables |
+### Manual Build
+
+```bash
+# Demo build (47 scalar functions)
+cargo build --release --bin forge-demo
+
+# Enterprise build (160 functions, all features)
+cargo build --release --features full --bin forge
+```
+
+### Cross-Platform Builds
+
+```bash
+# Build forge-demo for all 5 platforms (requires cargo-zigbuild)
+make cross-demo
+
+# Publish to GitHub releases
+make publish-demo VERSION=7.2.9
+```
+
+### Build Matrix
+
+| Build | Binary | Functions | Commands | Use Case |
+|-------|--------|-----------|----------|----------|
+| Demo | `forge-demo` | 47 (scalar) | 7 | Evaluation, v1.0.0 models |
+| Enterprise | `forge` | 160 (scalar + array) | 14 | Production FP&A |
+
+### Enterprise-Only Commands
+
+These commands require the enterprise build (`--features full`):
+
+- `compare` - Multi-scenario comparison
+- `variance` - Budget vs actual analysis
+- `sensitivity` - Data tables
+- `goal-seek` - Find input for target
+- `break-even` - Find zero-crossing
+- `update` - Self-update
+- `upgrade` - Schema migration
 
 ## Example: 5-Year DCF Model
 

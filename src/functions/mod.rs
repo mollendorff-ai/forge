@@ -4,5 +4,7 @@
 //! See ADR-013 for design details.
 
 pub mod registry;
+#[cfg(test)]
+mod registry_tests;
 
 pub use registry::*;
