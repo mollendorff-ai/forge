@@ -169,10 +169,10 @@ cargo build --release --features full --bin forge
 
 ```bash
 # Build forge-demo for all 5 platforms (requires cargo-zigbuild)
-make cross-demo
+make cross-forge-demo
 
-# Publish to GitHub releases
-make publish-demo VERSION=7.2.9
+# Publish to GitHub releases (auto-detects version from Cargo.toml)
+make publish-demo
 ```
 
 ### Build Matrix
