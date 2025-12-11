@@ -15,8 +15,10 @@ mod import;
 mod integration;
 mod parsing;
 mod scenario;
+#[cfg(feature = "full")]
 mod schema;
 mod sensitivity;
+#[cfg(feature = "full")]
 mod upgrade;
 mod utils;
 mod validate;
