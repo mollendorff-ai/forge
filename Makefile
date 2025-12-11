@@ -100,7 +100,7 @@ help:
 	@echo "  make cross-forge        - Build forge (enterprise) for all platforms → dist/"
 	@echo ""
 	@echo "GitHub Release:"
-	@echo "  make publish-demo VERSION=x.y.z - Create GitHub release with all binaries"
+	@echo "  make publish-demo       - Build + publish to GitHub (version from Cargo.toml)"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint               - Run pedantic clippy checks"
@@ -462,11 +462,10 @@ endif
 # GITHUB RELEASE PUBLISHING
 # ═══════════════════════════════════════════════════════════════════════════
 
+# Extract version from Cargo.toml
+VERSION := $(shell grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+
 publish-demo:
-ifndef VERSION
-	@echo "❌ VERSION not set. Usage: make publish-demo VERSION=x.y.z"
-	@exit 1
-endif
 	@echo "🚀 Publishing forge-demo v$(VERSION) to GitHub..."
 	@echo ""
 	@if ! command -v gh >/dev/null 2>&1; then \
@@ -478,8 +477,9 @@ endif
 	@echo ""
 	@echo "2️⃣  Creating GitHub release v$(VERSION)..."
 	@gh release create "v$(VERSION)" \
+		--repo royalbit/forge-demo \
 		--title "forge-demo v$(VERSION)" \
-		--notes "Release of forge-demo v$(VERSION)" \
+		--generate-notes \
 		dist/forge-demo-aarch64-apple-darwin \
 		dist/forge-demo-x86_64-apple-darwin \
 		dist/forge-demo-x86_64-unknown-linux-musl \
@@ -487,7 +487,7 @@ endif
 		dist/forge-demo-x86_64-pc-windows-gnu.exe
 	@echo ""
 	@echo "✅ Release v$(VERSION) published!"
-	@echo "🔗 View at: https://github.com/royalbit/forge/releases/tag/v$(VERSION)"
+	@echo "🔗 View at: https://github.com/royalbit/forge-demo/releases/tag/v$(VERSION)"
 
 lint:
 	@echo "🔍 Running pedantic clippy checks..."
