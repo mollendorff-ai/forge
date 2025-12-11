@@ -511,6 +511,7 @@ EXAMPLES:
         json: bool,
     },
 
+    #[cfg(feature = "full")]
     #[command(long_about = "Upgrade YAML files to latest schema version (v5.0.0).
 
 Automatically migrates YAML files and all included files to the latest schema.
@@ -535,7 +536,7 @@ EXAMPLES:
 
 BACKUP:
   Original files are backed up as .yaml.bak before modification.")]
-    /// Upgrade YAML files to latest schema version
+    /// Upgrade YAML files to latest schema version (enterprise only)
     Upgrade {
         /// Path to YAML file to upgrade
         file: PathBuf,
@@ -719,6 +720,7 @@ fn main() -> ForgeResult<()> {
 
         Commands::Functions { json } => cli::functions(json),
 
+        #[cfg(feature = "full")]
         Commands::Upgrade {
             file,
             dry_run,
