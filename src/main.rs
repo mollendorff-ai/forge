@@ -2,16 +2,48 @@
 #![cfg_attr(coverage, allow(unused_imports))]
 
 use clap::{Parser, Subcommand};
+#[cfg(feature = "full")]
 use colored::Colorize;
 use royalbit_forge::cli;
 use royalbit_forge::error::ForgeResult;
+#[cfg(feature = "full")]
 use royalbit_forge::update::{check_for_update, perform_update};
 use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "forge")]
-#[command(about = "Git-native financial modeling. 160 functions. Zero hallucinations.")]
-#[command(long_about = "Forge - Deterministic YAML Financial Calculator
+#[cfg_attr(
+    not(feature = "full"),
+    command(about = "Git-native financial modeling. Zero hallucinations.")
+)]
+#[cfg_attr(
+    feature = "full",
+    command(about = "Git-native financial modeling. 160 functions. Zero hallucinations.")
+)]
+#[cfg_attr(
+    not(feature = "full"),
+    command(long_about = "Forge Demo - Git-native financial modeling
+47 functions | E2E validated against Gnumeric
+
+COMMANDS:
+  calculate   - Execute formulas, update values
+  validate    - Check model integrity
+  audit       - Trace formula dependencies
+  functions   - List all supported functions
+  export      - YAML -> Excel (.xlsx) with formulas
+  import      - Excel -> YAML
+  watch       - Auto-calculate on save
+
+EXAMPLES:
+  forge calculate model.yaml           # Execute formulas
+  forge audit model.yaml profit        # Dependency trace
+  forge export model.yaml output.xlsx  # Excel with formulas
+
+Docs: https://github.com/royalbit/forge-demo")
+)]
+#[cfg_attr(
+    feature = "full",
+    command(long_about = "Forge Enterprise - Git-native financial modeling
 160 functions | 1709 tests | E2E validated against Gnumeric
 
 COMMANDS:
@@ -27,6 +59,7 @@ COMMANDS:
   export      - YAML -> Excel (.xlsx) with formulas
   import      - Excel -> YAML
   watch       - Auto-calculate on save
+  upgrade     - Upgrade YAML to latest schema
 
 EXAMPLES:
   forge calculate model.yaml                    # Execute formulas
@@ -34,7 +67,8 @@ EXAMPLES:
   forge variance budget.yaml actual.yaml       # Budget vs actual
   forge export model.yaml output.xlsx          # Excel with formulas
 
-Docs: https://github.com/royalbit/forge")]
+Docs: https://royalbit.ca/forge")
+)]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -127,15 +161,10 @@ Converts YAML column arrays to Excel worksheets with full formula support.
 Each table becomes a separate worksheet. Formulas are translated to Excel syntax.
 
 SUPPORTED FEATURES (Phase 3.1 - Basic Export):
-  ✅ Table columns → Excel columns (A, B, C, ...)
-  ✅ Data values (Number, Text, Date, Boolean)
-  ✅ Multiple tables → Multiple worksheets
-  ✅ Scalars → Dedicated \"Scalars\" worksheet
-
-COMING SOON (Phase 3.2+):
-  ⏳ Row formulas → Excel cell formulas (=A2-B2)
-  ⏳ Cross-table references (=Sheet!Column)
-  ⏳ Aggregation formulas (=SUM(Sheet!A:A))
+  Table columns -> Excel columns (A, B, C, ...)
+  Data values (Number, Text, Date, Boolean)
+  Multiple tables -> Multiple worksheets
+  Scalars -> Dedicated \"Scalars\" worksheet
 
 EXAMPLE:
   forge export quarterly_pl.yaml quarterly_pl.xlsx
@@ -160,17 +189,16 @@ Converts Excel worksheets to YAML tables with formula preservation.
 Each worksheet becomes a table in the output YAML file.
 
 SUPPORTED FEATURES (Phase 4.1 - Basic Import):
-  ✅ Excel worksheets → YAML tables
-  ✅ Data values (Number, Text, Boolean)
-  ✅ Multiple worksheets → One YAML file (one-to-one)
-  ✅ \"Scalars\" sheet → Scalar section
-  ⏳ Formula translation (coming in Phase 4.3)
+  Excel worksheets -> YAML tables
+  Data values (Number, Text, Boolean)
+  Multiple worksheets -> One YAML file (one-to-one)
+  \"Scalars\" sheet -> Scalar section
 
 WORKFLOW:
-  1. Import existing Excel → YAML
+  1. Import existing Excel -> YAML
   2. Work with AI + Forge (version control!)
   3. Export back to Excel
-  4. Round-trip: Excel → YAML → Excel
+  4. Round-trip: Excel -> YAML -> Excel
 
 EXAMPLE:
   forge import quarterly_pl.xlsx quarterly_pl.yaml
@@ -204,11 +232,11 @@ Monitors the specified file (and all included files) for changes.
 When a change is detected, automatically runs validation/calculation.
 
 FEATURES:
-  ✅ Real-time file monitoring
-  ✅ Auto-calculate on save
-  ✅ Debounced updates (waits for file write to complete)
-  ✅ Watches included files too
-  ✅ Clear error messages on formula issues
+  Real-time file monitoring
+  Auto-calculate on save
+  Debounced updates (waits for file write to complete)
+  Watches included files too
+  Clear error messages on formula issues
 
 WORKFLOW:
   1. Open your YAML in your editor
@@ -236,6 +264,7 @@ Press Ctrl+C to stop watching.")]
         verbose: bool,
     },
 
+    #[cfg(feature = "full")]
     #[command(long_about = "Compare calculation results across multiple scenarios.
 
 Runs calculations for each specified scenario and displays results side-by-side.
@@ -260,11 +289,10 @@ EXAMPLE:
 
 OUTPUT:
   Scenario Comparison: model.yaml
-  ─────────────────────────────────────────────────
   Variable          Base      Optimistic  Pessimistic
   revenue           $1.2M     $1.8M       $0.9M
   profit            $200K     $450K       -$50K")]
-    /// Compare results across multiple scenarios
+    /// Compare results across multiple scenarios (enterprise only)
     Compare {
         /// Path to YAML file
         file: PathBuf,
@@ -278,6 +306,7 @@ OUTPUT:
         verbose: bool,
     },
 
+    #[cfg(feature = "full")]
     #[command(long_about = "Compare budget vs actual with variance analysis.
 
 Calculates variances between two YAML files (budget and actual).
@@ -288,12 +317,11 @@ INPUTS:
   Variables are matched by name across both files.
 
 VARIANCE TYPES:
-  For revenue/income: actual > budget = favorable (✅)
-  For expenses/costs: actual < budget = favorable (✅)
+  For revenue/income: actual > budget = favorable
+  For expenses/costs: actual < budget = favorable
 
 THRESHOLD:
   Use --threshold to flag significant variances (default: 10%)
-  Variances exceeding threshold are marked with ⚠️
 
 OUTPUT FORMATS:
   Terminal table (default)
@@ -306,7 +334,7 @@ EXAMPLES:
   forge variance budget.yaml actual.yaml -o variance_report.xlsx
 
 See ADR-002 for design rationale on YAML-only inputs.")]
-    /// Compare budget vs actual with variance analysis
+    /// Compare budget vs actual with variance analysis (enterprise only)
     Variance {
         /// Path to budget YAML file
         budget: PathBuf,
@@ -327,6 +355,7 @@ See ADR-002 for design rationale on YAML-only inputs.")]
         verbose: bool,
     },
 
+    #[cfg(feature = "full")]
     #[command(long_about = "Run sensitivity analysis by varying one or two inputs.
 
 Varies the specified input variable(s) across a range and shows how the
@@ -349,7 +378,7 @@ RANGE FORMAT:
 EXAMPLES:
   forge sensitivity model.yaml -v growth_rate -r 0.05,0.20,0.05 -o profit
   forge sensitivity model.yaml -v price -v2 volume -r 10,50,10 -r2 100,500,100 -o revenue")]
-    /// Run sensitivity analysis on model variables
+    /// Run sensitivity analysis on model variables (enterprise only)
     Sensitivity {
         /// Path to YAML file
         file: PathBuf,
@@ -379,6 +408,7 @@ EXAMPLES:
         verbose: bool,
     },
 
+    #[cfg(feature = "full")]
     #[command(long_about = "Find the input value needed to achieve a target output.
 
 Uses numerical methods (bisection) to find what input value produces
@@ -386,15 +416,15 @@ the desired output. Useful for answering 'what price do I need?' questions.
 
 EXAMPLES:
   forge goal-seek model.yaml --target profit --value 100000 --vary price
-  → Find the price needed to achieve $100,000 profit
+  -> Find the price needed to achieve $100,000 profit
 
   forge goal-seek model.yaml --target npv --value 0 --vary discount_rate
-  → Find the discount rate that makes NPV = 0 (IRR)
+  -> Find the discount rate that makes NPV = 0 (IRR)
 
 OPTIONS:
   --min, --max: Override automatic bounds for the search
   --tolerance: Precision of the result (default: 0.0001)")]
-    /// Find input value to achieve target output
+    /// Find input value to achieve target output (enterprise only)
     GoalSeek {
         /// Path to YAML file
         file: PathBuf,
@@ -428,6 +458,7 @@ OPTIONS:
         verbose: bool,
     },
 
+    #[cfg(feature = "full")]
     #[command(long_about = "Find the break-even point where output equals zero.
 
 Special case of goal-seek that finds where a variable crosses zero.
@@ -435,11 +466,11 @@ Common for finding break-even units, prices, or margins.
 
 EXAMPLES:
   forge break-even model.yaml --output profit --vary units
-  → Find units needed to break even (profit = 0)
+  -> Find units needed to break even (profit = 0)
 
   forge break-even model.yaml --output net_margin --vary price
-  → Find minimum price for positive margin")]
-    /// Find break-even point (where output = 0)
+  -> Find minimum price for positive margin")]
+    /// Find break-even point (where output = 0) (enterprise only)
     BreakEven {
         /// Path to YAML file
         file: PathBuf,
@@ -465,6 +496,7 @@ EXAMPLES:
         verbose: bool,
     },
 
+    #[cfg(feature = "full")]
     #[command(long_about = "Check for updates and optionally self-update the binary.
 
 Downloads the latest release from GitHub and replaces the current binary.
@@ -476,7 +508,7 @@ EXAMPLES:
 
 PLATFORMS:
   Linux x86_64, Linux ARM64, macOS Intel, macOS ARM, Windows x64")]
-    /// Check for updates and self-update
+    /// Check for updates and self-update (enterprise only)
     Update {
         /// Only check for updates, don't install
         #[arg(long)]
@@ -520,8 +552,8 @@ Creates backups before modifying files.
 TRANSFORMATIONS:
   - Updates _forge_version to 5.0.0
   - Splits scalars into inputs/outputs based on formula presence:
-    - Scalars with value only → inputs section
-    - Scalars with formula → outputs section
+    - Scalars with value only -> inputs section
+    - Scalars with formula -> outputs section
   - Adds _name field for multi-document files
   - Preserves all existing metadata
 
@@ -595,12 +627,14 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::watch(file, validate, verbose),
 
+        #[cfg(feature = "full")]
         Commands::Compare {
             file,
             scenarios,
             verbose,
         } => cli::compare(file, scenarios, verbose),
 
+        #[cfg(feature = "full")]
         Commands::Variance {
             budget,
             actual,
@@ -609,6 +643,7 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::variance(budget, actual, threshold, output, verbose),
 
+        #[cfg(feature = "full")]
         Commands::Sensitivity {
             file,
             vary,
@@ -619,6 +654,7 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::sensitivity(file, vary, range, vary2, range2, output, verbose),
 
+        #[cfg(feature = "full")]
         Commands::GoalSeek {
             file,
             target,
@@ -630,6 +666,7 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::goal_seek(file, target, value, vary, min, max, tolerance, verbose),
 
+        #[cfg(feature = "full")]
         Commands::BreakEven {
             file,
             output,
@@ -639,8 +676,9 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::break_even(file, output, vary, min, max, verbose),
 
+        #[cfg(feature = "full")]
         Commands::Update { check } => {
-            println!("{}", "🔥 Forge - Update".bold().green());
+            println!("{}", "Forge - Update".bold().green());
             println!();
 
             println!("  Checking for updates...");

@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "7.2.7"
+version = "7.2.9"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "A Self-Evolving Autonomous AI project. YAML formula calculator with 60+ Excel functions, 96K rows/sec. Created with RoyalBit Asimov."
@@ -59,7 +59,7 @@ clap = { version = "4.5.53", features = ["derive", "env"] }
 
 # Error handling
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 
 # Dependency graph (for formula ordering)
 petgraph = "0.8"

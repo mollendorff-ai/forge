@@ -637,7 +637,22 @@ next:
       - "[DONE] cargo test --test '*' passes"
       - "[DONE] No regressions confirmed"
 
-  - version: "7.2.8"
+  - version: "7.2.9"
+    priority: CRITICAL
+    status: completed
+    summary: "Enterprise Command Gating - Demo Binary Cleanup"
+    completed: "2025-12-10"
+    notes: |
+      COMPLETED: All enterprise commands gated behind #[cfg(feature = "full")]
+      Demo now only has 7 commands: calculate, audit, validate, export, import, watch, functions
+      Enterprise has 14 commands (all demo + compare, variance, sensitivity, goal-seek, break-even, update, upgrade)
+    deliverables:
+      - "[DONE] Gate Compare, Variance, Sensitivity, GoalSeek, BreakEven, Update commands"
+      - "[DONE] Conditional about/long_about text for demo vs enterprise"
+      - "[DONE] Build all 5 platforms (Linux x86_64/ARM64, macOS x86_64/ARM64, Windows)"
+      - "[DONE] GitHub release v7.2.9 published"
+
+  - version: "7.2.10"
     priority: NORMAL
     status: pending
     summary: "Remove Update Command - No Public GitHub Repo for Enterprise"
@@ -684,8 +699,8 @@ backlog:
 summary:
   total_functions: 159
   categories: 14
-  current_version: "7.2.7"
-  next_version: "7.2.8"
+  current_version: "7.2.9"
+  next_version: "7.2.10"
 
   test_status:
     unit_tests: 814
@@ -704,6 +719,8 @@ summary:
     - "v7.2.6: Registry Cleanup + 160 Functions"
     - "v7.2.7: Upgrade Command Gated to Enterprise Only"
     - "forge-demo v7.2.7: GitHub Release (5 platforms, UPX compressed)"
+    - "v7.2.9: Enterprise Command Gating (7 commands gated to full feature)"
+    - "forge-demo v7.2.9: GitHub Release (5 platforms)"
 
   major_upgrades:
     jsonschema: "0.18 → 0.37.4"
