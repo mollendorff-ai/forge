@@ -39,15 +39,45 @@ external_projects:
       - "docker, use the ./build and the ./stop and ./start to redeploy"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# BUILD CONFIGURATION
+# BUILD CONFIGURATION - USE MAKEFILE
 # ═══════════════════════════════════════════════════════════════════════════════
+# IMPORTANT: Always use `make` targets instead of raw cargo commands.
+# The Makefile handles cross-compilation, UPX compression, and GitHub releases.
+
+makefile:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # INSTALL TO ~/bin (use these for local development)
+  # ─────────────────────────────────────────────────────────────────────────────
+  install_forge: "make install-forge"        # Build enterprise + install to ~/bin
+  install_demo: "make install-forge-demo"    # Build demo + install to ~/bin
+  install_all: "make install-all"            # Both binaries to ~/bin
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CROSS-PLATFORM BUILDS (5 platforms → dist/)
+  # ─────────────────────────────────────────────────────────────────────────────
+  cross_demo: "make cross-forge-demo"        # All 5 platforms for forge-demo
+  cross_enterprise: "make cross-forge"       # All 5 platforms for forge
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GITHUB RELEASE (auto-detects version from Cargo.toml)
+  # ─────────────────────────────────────────────────────────────────────────────
+  publish: "make publish-demo"               # Build + publish to royalbit/forge-demo
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # QUALITY CHECKS
+  # ─────────────────────────────────────────────────────────────────────────────
+  test: "make test"                          # Run all tests
+  lint: "make lint"                          # Clippy with pedantic lints
+  format: "make format"                      # Format code
+  check: "make check"                        # Quick dev check (format + lint + unit tests)
+  pre_commit: "make pre-commit"              # Full pre-commit check
 
 quality:
-  test: "cargo test --features full"
-  lint: "cargo clippy --features full -- -D warnings"
-  format: "cargo fmt --check"
-  build_demo: "cargo build --release --bin forge-demo"
-  build_enterprise: "cargo build --release --features full"
+  test: "make test"
+  lint: "make lint"
+  format: "make format"
+  build_demo: "make install-forge-demo"
+  build_enterprise: "make install-forge"
 
 binaries:
   # ─────────────────────────────────────────────────────────────────────────────
@@ -125,6 +155,11 @@ patterns:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 release:
+  # Use Makefile for all release operations
+  local_install: "make install-forge"         # Enterprise to ~/bin
+  cross_build: "make cross-forge-demo"        # All 5 platforms
+  publish: "make publish-demo"                # Build + GitHub release
+
   profile: |
     [profile.release]
     opt-level = 3
@@ -132,7 +167,7 @@ release:
     codegen-units = 1
     strip = true
     panic = "abort"
-  cross_compile: "cargo-zigbuild"
+  cross_compile: "cargo-zigbuild (via Makefile)"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # DISTRIBUTION RULES (CRITICAL - READ BEFORE RELEASING)
