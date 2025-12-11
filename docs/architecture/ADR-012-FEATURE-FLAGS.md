@@ -29,12 +29,12 @@ Forge v5.14.0 achieved full function parity. The next step is creating a demo bi
 default = []   # Demo build (minimal)
 full = []      # Enterprise build (everything)
 
-# Demo binary (36 functions)
+# Demo binary (47 functions)
 [[bin]]
 name = "forge-demo"
 path = "src/main.rs"
 
-# Enterprise binary (159 functions)
+# Enterprise binary (160 functions)
 [[bin]]
 name = "forge"
 path = "src/main.rs"
@@ -54,15 +54,23 @@ required-features = ["full"]
 ### Build Commands
 
 ```bash
-# Demo binary only (36 functions)
-cargo build --release --bin forge-demo
-# or use Makefile:
-make build-demo
+# Demo binary only (47 functions) - installs to ~/bin
+make install-forge-demo
 
-# Enterprise binaries (159 functions + API + MCP)
-cargo build --release --features full
-# or use Makefile:
-make build-enterprise
+# Enterprise binary (160 functions) - installs to ~/bin
+make install-forge
+
+# Cross-platform builds (5 platforms → dist/)
+make cross-forge-demo
+
+# Publish to GitHub releases (auto-detects version from Cargo.toml)
+make publish-demo
+```
+
+**Raw cargo commands (if needed):**
+```bash
+cargo build --release --bin forge-demo          # Demo
+cargo build --release --features full --bin forge  # Enterprise
 ```
 
 ### Distribution
