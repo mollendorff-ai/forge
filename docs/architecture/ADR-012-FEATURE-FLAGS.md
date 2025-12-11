@@ -34,7 +34,7 @@ full = []      # Enterprise build (everything)
 name = "forge-demo"
 path = "src/main.rs"
 
-# Enterprise binary (134 functions)
+# Enterprise binary (159 functions)
 [[bin]]
 name = "forge"
 path = "src/main.rs"
@@ -59,7 +59,7 @@ cargo build --release --bin forge-demo
 # or use Makefile:
 make build-demo
 
-# Enterprise binaries (134 functions + API + MCP)
+# Enterprise binaries (159 functions + API + MCP)
 cargo build --release --features full
 # or use Makefile:
 make build-enterprise
@@ -117,7 +117,7 @@ make build-enterprise
 - `forge` CLI binary
 - `forge-mcp` - MCP server for AI integration
 - `forge-server` - REST API server
-- All 134 functions
+- All 159 functions
 - Full financial modeling power
 
 ### Gating Pattern
@@ -169,7 +169,7 @@ pub mod mcp;
 cargo build && ./target/debug/forge functions | grep -E "^  [A-Z]" | wc -l
 # Output: 36
 
-# Enterprise: 134 functions, 3 binaries
+# Enterprise: 159 functions, 3 binaries
 cargo build --features full && ls target/debug/forge*
 # Output: forge, forge-mcp, forge-server
 ```

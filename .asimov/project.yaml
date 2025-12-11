@@ -34,6 +34,9 @@ external_projects:
     contents:
       - "html/forge/ - Forge product page"
       - "html/forge/index.html - Download links to GitHub releases"
+    release:
+      - "git repo, need to update the .env version"
+      - "docker, use the ./build and the ./stop and ./start to redeploy"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BUILD CONFIGURATION

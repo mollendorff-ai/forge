@@ -63,8 +63,8 @@ fn e2e_calculate_dry_run() {
 }
 
 #[test]
-fn e2e_v4_enterprise_model_calculates_correctly() {
-    // v4.0 model should calculate formulas correctly
+fn e2e_v4_schema_rejected_needs_manual_upgrade() {
+    // v4.0 is no longer supported - must use `forge upgrade` manually
     let file = test_data_path("v4_enterprise_model.yaml");
 
     let output = Command::new(forge_binary())
@@ -74,24 +74,18 @@ fn e2e_v4_enterprise_model_calculates_correctly() {
         .output()
         .expect("Failed to execute");
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
+    // v4.0.0 should be rejected (auto-upgrade killed in v7.2.6)
     assert!(
-        output.status.success(),
-        "v4 calculate should succeed, stdout: {stdout}, stderr: {stderr}"
+        !output.status.success(),
+        "v4 calculate should fail (use forge upgrade), stderr: {stderr}"
     );
 
-    // Verify calculations completed
+    // Verify error message mentions unsupported version
     assert!(
-        stdout.contains("Calculation Results"),
-        "Should show calculation results, got: {stdout}"
-    );
-
-    // Verify scalars were calculated
-    assert!(
-        stdout.contains("metrics.total_revenue") || stdout.contains("total_revenue"),
-        "Should calculate total_revenue scalar, got: {stdout}"
+        stderr.contains("Unsupported _forge_version"),
+        "Should reject v4.0.0, got: {stderr}"
     );
 }
 

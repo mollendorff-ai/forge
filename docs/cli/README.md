@@ -6,7 +6,7 @@
 
 ```
 Forge - Deterministic YAML Financial Calculator
-81 functions | 1709 tests | E2E validated against Gnumeric
+159 functions | 1709 tests | E2E validated against Gnumeric
 
 COMMANDS:
   calculate   - Execute formulas, update values

@@ -1,4 +1,4 @@
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 platform_economics:
   metric: ["Take Rate", "Gross Margin"]

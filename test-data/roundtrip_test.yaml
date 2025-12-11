@@ -1,4 +1,4 @@
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 # Simple table for round-trip testing (YAML → Excel → YAML should be identical)
 test_table:
   name: ["Alice", "Bob", "Charlie"]

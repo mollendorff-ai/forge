@@ -1,7 +1,7 @@
 # Test case: IF function with scalar references in row-wise table formulas
 # Bug #2: =IF(remaining_quota > 0, 1, 0) fails with 'Reference' error when remaining_quota is a scalar
 
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 # Scalar thresholds used in table formulas
 thresholds:

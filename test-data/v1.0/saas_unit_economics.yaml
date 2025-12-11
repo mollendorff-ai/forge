@@ -2,7 +2,7 @@
 
 # v1.0.0 Array Model Example: SaaS Unit Economics
 # This demonstrates column arrays for time-series financial data
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 # Monthly cohort performance
 monthly_cohorts:

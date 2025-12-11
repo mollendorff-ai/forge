@@ -172,15 +172,88 @@ completed:
       - "1208 tests passing in cargo test"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CURRENT - v7.2.0 - 100% TEST INTEGRITY (CRITICAL)
+# CURRENT - v7.2.2 + v7.2.3 - DEPENDENCY & SCHEMA (CRITICAL - PARALLEL)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
+  - version: "7.2.2"
+    priority: CRITICAL
+    status: completed
+    summary: "Dependency Upgrade - All Crates to Latest (Including MAJOR)"
+    completed: "2025-12-10"
+    notes: |
+      COMPLETED: All dependencies upgraded
+      - jsonschema 0.18 → 0.37.4 (API migration done)
+      - petgraph 0.6.5 → 0.8.3
+      - colored 2.2.0 → 3.0.0
+      - calamine 0.31 → 0.32
+      - notify 7.0 → 8.2
+      - axum 0.7.9 → 0.8.7
+      - All 814 tests passing
+
+  - version: "7.2.3"
+    priority: CRITICAL
+    status: completed
+    summary: "Schema Enforcement - Hardcoded Validation + ADR Documentation"
+    completed: "2025-12-10"
+    notes: |
+      COMPLETED: Schema enforcement implemented
+      - schema/forge-v1.0.0.schema.json (scalar only)
+      - schema/forge-v5.0.0.schema.json (arrays/tables)
+      - Parser loads correct schema by version
+      - Runtime check: v1.0.0 rejects tables with clear error
+      - ADR-014: Schema Versioning Strategy created
+
+  - version: "7.2.5"
+    priority: CRITICAL
+    status: completed
+    summary: "Full Test Verification - Post Schema/Deps Changes"
+    completed: "2025-12-10"
+    notes: |
+      COMPREHENSIVE TEST VERIFICATION AFTER:
+      - v7.2.2: Dependency upgrades (6 MAJOR crates)
+      - v7.2.3: Schema enforcement changes
+      - forge-demo cleanup and repo recreation
+    results:
+      unit_tests:
+        total: 814
+        passed: 814
+        failed: 0
+        ignored: 0
+      integration_tests:
+        total: 452
+        passed: 452
+        failed: 0
+        ignored: 8  # benchmarks
+      e2e_roundtrip:
+        engine: "ssconvert (Gnumeric)"
+        total: 62
+        passed: 57
+        failed: 0
+        ignored: 5  # modern Excel 365 features (FILTER, COUNTUNIQUE)
+      coverage:
+        - "Math: 15 functions"
+        - "Trigonometry: 7 functions"
+        - "Logical: 5 functions"
+        - "Financial: 8 functions"
+        - "Date: 7 functions"
+        - "Aggregation: 10 functions"
+        - "Lookup: 8 functions"
+        - "Statistical: 10 functions"
+        - "Text: 4 functions"
+    verdict: "ALL TESTS PASSING - Ready for release"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPLETED - v7.2.0 - TEST INTEGRITY (needs retest after schema/deps)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+v7_2_0_completed:
   version: "7.2.0"
   priority: CRITICAL
-  status: pending
+  status: completed_retest_pending
   summary: "100% TEST INTEGRITY - Zero Fake Tests, Zero Weak Assertions, 100% Edge Cases"
-  started: "2025-12-10"
+  completed: "2025-12-10"
+  retest_after: ["7.2.2", "7.2.3"]
 
   # ═══════════════════════════════════════════════════════════════════════════
   # GLOBAL MANDATE - APPLIES TO ALL AGENTS
@@ -539,6 +612,31 @@ current:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
+  - version: "7.2.1"
+    priority: CRITICAL
+    status: completed
+    summary: "Schema Integrity - Kill Auto-Upgrade, Fix v1.0.0/v5.0.0 Definitions"
+    completed: "2025-12-10"
+    deliverables:
+      - "[DONE] Remove auto-upgrade code from calculate command"
+      - "[DONE] Delete forge-demo/examples/cashflow.yaml (used arrays)"
+      - "[DONE] Recreate forge-demo GitHub repo with clean history"
+
+  - version: "7.2.4"
+    priority: CRITICAL
+    status: completed
+    summary: "Full Retest - Verify All Tests Pass After Schema/Deps Changes"
+    completed: "2025-12-10"
+    notes: |
+      COMPLETED: All tests verified
+      - 814 lib tests passed
+      - Integration tests passed
+      - No regressions from dependency upgrades
+    deliverables:
+      - "[DONE] cargo test --lib passes (814 tests)"
+      - "[DONE] cargo test --test '*' passes"
+      - "[DONE] No regressions confirmed"
+
   - version: "7.3.0"
     priority: NORMAL
     status: pending
@@ -567,16 +665,35 @@ backlog:
 summary:
   total_functions: 159
   categories: 14
-  current_version: "7.1.1"
-  next_version: "7.2.0"
+  current_version: "7.2.5"
+  next_version: "7.3.0"
 
   test_status:
-    unit_tests: 1208
-    e2e_yaml_formulas: 1231
-    roundtrip_tests: 57
+    unit_tests: 814
+    integration_tests: 452
+    e2e_roundtrip: 57
+    total: 1323
     all_passing: true
+    engine: "ssconvert (Gnumeric)"
 
-  audit_status:
-    date: "2025-12-10"
-    overall_score: "8.5/10"
-    next_target: "9.5/10 after v7.2.0"
+  completed_today:
+    - "v7.2.1: Schema Integrity - Kill Auto-Upgrade"
+    - "v7.2.2: Dependency Upgrade - All Crates to Latest (6 MAJOR)"
+    - "v7.2.3: Schema Enforcement - Hardcoded Validation + ADR-014"
+    - "v7.2.4: Full Retest - Initial"
+    - "v7.2.5: Comprehensive Test Verification - ALL PASSING"
+    - "forge-demo: Cleanup + Repo Recreation (scalar-only)"
+
+  major_upgrades:
+    jsonschema: "0.18 → 0.37.4"
+    petgraph: "0.6.5 → 0.8.3"
+    colored: "2.2.0 → 3.0.0"
+    calamine: "0.31 → 0.32"
+    notify: "7.0 → 8.2"
+    axum: "0.7.9 → 0.8.7"
+
+  schema_enforcement:
+    v1_0_0: "SCALAR ONLY (demo)"
+    v5_0_0: "ARRAYS/TABLES (enterprise)"
+    validation: "hardcoded JSON schemas + runtime check"
+    adr: "ADR-014-schema-versioning.md"

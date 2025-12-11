@@ -1,4 +1,4 @@
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 # Table with multiple formula types for testing translation
 pl_statement:
   month: ["Jan", "Feb", "Mar"]

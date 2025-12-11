@@ -1,5 +1,5 @@
 # VALID AND UP-TO-DATE - All values match their formulas
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 platform:
   metric: ["Take Rate"]

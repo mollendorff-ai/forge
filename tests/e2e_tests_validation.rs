@@ -221,8 +221,8 @@ fn e2e_v1_budget_vs_actual_validates() {
 }
 
 #[test]
-fn e2e_v4_enterprise_model_validates() {
-    // v4.0 rich metadata format should parse and validate
+fn e2e_v4_validate_rejected_needs_manual_upgrade() {
+    // v4.0 is no longer supported - must use `forge upgrade` manually
     let file = test_data_path("v4_enterprise_model.yaml");
 
     let output = Command::new(forge_binary())
@@ -231,23 +231,28 @@ fn e2e_v4_enterprise_model_validates() {
         .output()
         .expect("Failed to execute");
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
+    // v4.0.0 should be rejected
     assert!(
-        output.status.success(),
-        "v4 enterprise model should validate, stdout: {stdout}, stderr: {stderr}"
+        !output.status.success(),
+        "v4 validate should fail (use forge upgrade), stderr: {stderr}"
+    );
+
+    assert!(
+        stderr.contains("Unsupported _forge_version"),
+        "Should reject v4.0.0, got: {stderr}"
     );
 }
 
 #[test]
-fn e2e_v4_unit_validation_detects_mismatch() {
+fn e2e_v5_unit_validation_detects_mismatch() {
     // Test that unit validation catches incompatible units
     let temp_dir = tempfile::tempdir().unwrap();
     let yaml_file = temp_dir.path().join("unit_mismatch.yaml");
 
     let content = r#"
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 financials:
   revenue:
     value: [100000, 120000]
@@ -283,13 +288,13 @@ financials:
 }
 
 #[test]
-fn e2e_v4_unit_validation_no_warning_for_compatible() {
+fn e2e_v5_unit_validation_no_warning_for_compatible() {
     // Test that compatible units don't trigger warnings
     let temp_dir = tempfile::tempdir().unwrap();
     let yaml_file = temp_dir.path().join("unit_compatible.yaml");
 
     let content = r#"
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 financials:
   revenue:
     value: [100000, 120000]

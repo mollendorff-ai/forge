@@ -56,7 +56,7 @@ fn test_calculate_success() {
     let yaml = create_test_yaml(
         &dir,
         "calc.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 summary:
   price:
     value: 100
@@ -80,7 +80,7 @@ fn test_calculate_with_verbose() {
     let yaml = create_test_yaml(
         &dir,
         "calc_verbose.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 summary:
   x:
     value: 10
@@ -102,7 +102,7 @@ fn test_calculate_with_scenario() {
     let yaml = create_test_yaml(
         &dir,
         "calc_scenario.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 rate:
   value: 0.05
   formula: null
@@ -125,7 +125,7 @@ fn test_calculate_invalid_scenario() {
     let yaml = create_test_yaml(
         &dir,
         "calc_bad_scenario.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 summary:
   x:
     value: 10
@@ -158,7 +158,7 @@ fn test_calculate_with_tables() {
     let yaml = create_test_yaml(
         &dir,
         "calc_tables.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 sales:
   month: [1, 2, 3]
   revenue: [100, 200, 300]
@@ -175,7 +175,7 @@ fn test_calculate_dry_run_no_write() {
     let yaml = create_test_yaml(
         &dir,
         "dry_run.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 summary:
   a:
     value: 5
@@ -200,7 +200,7 @@ fn test_calculate_writes_results() {
     let yaml = create_test_yaml(
         &dir,
         "write_test.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 summary:
   x:
     value: 10
@@ -227,13 +227,13 @@ fn test_calculate_multi_doc() {
     std::fs::write(
         &yaml_path,
         r#"---
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 _name: "doc1"
 x:
   value: 10
   formula: null
 ---
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 _name: "doc2"
 y:
   value: 20
@@ -253,7 +253,7 @@ fn test_calculate_with_unit_warnings() {
     let yaml = create_test_yaml(
         &dir,
         "unit_warn.yaml",
-        r#"_forge_version: "1.0.0"
+        r#"_forge_version: "5.0.0"
 price:
   value: 100
   formula: null

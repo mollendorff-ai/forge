@@ -202,7 +202,7 @@ fn test_table_validate_lengths_error() {
 #[test]
 fn test_parse_v1_model_simple() {
     let yaml_content = r#"
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 sales:
   month: ["Jan", "Feb", "Mar"]
@@ -226,7 +226,7 @@ sales:
 #[test]
 fn test_parse_v1_model_with_scalars() {
     let yaml_content = r#"
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 data:
   values: [1, 2, 3]
@@ -312,7 +312,7 @@ scenarios:
 #[test]
 fn test_multi_document_yaml_with_leading_separator() {
     let yaml_content = r#"---
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 sales:
   month: ["Jan", "Feb", "Mar"]
@@ -332,7 +332,7 @@ sales:
 #[test]
 fn test_null_in_numeric_array_error() {
     let yaml_content = r#"
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 data:
   values: [1000, null, 2000]
 "#;
@@ -351,7 +351,7 @@ data:
 #[test]
 fn test_null_first_element_error() {
     let yaml_content = r#"
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 data:
   values: [null, 1000, 2000]
 "#;
@@ -369,7 +369,7 @@ data:
 #[test]
 fn test_table_named_scenarios() {
     let yaml_content = r#"
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 scenarios:
   name: ["Base", "Optimistic", "Pessimistic"]
@@ -400,7 +400,7 @@ scenarios:
 #[test]
 fn test_parse_v4_scalar_with_metadata() {
     let yaml_content = r#"
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 
 price:
   value: 100
@@ -438,7 +438,7 @@ price:
 #[test]
 fn test_parse_v4_table_column_with_metadata() {
     let yaml_content = r#"
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 
 sales:
   month:
@@ -483,7 +483,7 @@ sales:
 #[test]
 fn test_parse_v4_backward_compatible_with_v1() {
     let yaml_content = r#"
-_forge_version: "1.0.0"
+_forge_version: "5.0.0"
 
 sales:
   month: ["Jan", "Feb", "Mar"]
@@ -517,7 +517,7 @@ summary:
 #[test]
 fn test_parse_v4_mixed_formats() {
     let yaml_content = r#"
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 sales:
   month: ["Jan", "Feb", "Mar"]
   revenue:
@@ -752,7 +752,7 @@ fn test_parse_includes_section() {
     std::fs::write(
         &included_path,
         r#"
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 ext_data:
   values: [10, 20, 30]
 "#,
@@ -760,7 +760,7 @@ ext_data:
     .unwrap();
 
     let main_content = r#"
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 _includes:
   - file: "external.yaml"
     as: "ext"
@@ -781,7 +781,7 @@ main_data:
 #[test]
 fn test_parse_includes_missing_file() {
     let yaml_content = r#"
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 _includes:
   - file: "nonexistent.yaml"
     as: "ext"
@@ -801,7 +801,7 @@ data:
 #[test]
 fn test_parse_includes_missing_as_field() {
     let yaml_content = r#"
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 _includes:
   - file: "external.yaml"
 data:
@@ -818,7 +818,7 @@ data:
 #[test]
 fn test_parse_includes_invalid_format() {
     let yaml_content = r#"
-_forge_version: "4.0.0"
+_forge_version: "5.0.0"
 _includes:
   - "just a string, not a mapping"
 data:
