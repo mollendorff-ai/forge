@@ -1,4 +1,5 @@
 /target
+/dist
 *.tar.gz
 *.pdf
 
