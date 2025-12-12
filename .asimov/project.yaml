@@ -134,7 +134,7 @@ files:
     - "docs/architecture/ - ADRs"
   tests:
     - "tests/ - Integration and E2E tests"
-    - "tests/e2e_libreoffice_tests.rs - External validation against Gnumeric/LibreOffice"
+    - "tests/e2e_gnumeric_tests.rs - External validation against Gnumeric"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CODING PATTERNS

@@ -104,10 +104,10 @@ default = []
 #   cargo build --release --features full  # Enterprise binary
 full = []
 
-# LibreOffice E2E validation tests - validates Forge calculations against battle-proven spreadsheet engine
-# Run with: cargo test --features e2e-libreoffice
-# Requires: LibreOffice installed (libreoffice --version)
-e2e-libreoffice = []
+# Gnumeric E2E validation tests - validates Forge calculations against battle-proven spreadsheet engine
+# Run with: cargo test --features e2e-gnumeric
+# Requires: Gnumeric installed (ssconvert)
+e2e-gnumeric = []
 
 [dev-dependencies]
 # Testing

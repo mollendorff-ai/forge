@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2025-12-08
+**Updated:** 2025-12-12 (LibreOffice deprecated)
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)
 
 ---
@@ -20,15 +21,27 @@ Forge calculates financial formulas. Getting math wrong in finance is catastroph
 
 Unit tests verify code works as written. They don't verify the code is *correct*.
 
-### Why Gnumeric?
+### Why Gnumeric (Not LibreOffice)?
 
 [Gnumeric](https://www.gnumeric.org/) is the GNOME spreadsheet application:
 - Open-source, battle-tested since 2001
-- Part of LibreOffice ecosystem (200M+ downloads)
-- Used by millions for real financial work
+- Academically validated for numerical accuracy (McCullough 2004, 2005)
+- Developers cooperate with the R Project for statistical accuracy
 - Implements Excel-compatible formulas independently
 
-**If Gnumeric calculates the same result as Forge, the math is proven by an engine millions trust.**
+**Why NOT LibreOffice?** LibreOffice uses aggressive "snap-to-zero" that **hides numerical errors**:
+
+> "The lack of an honest subtraction operation makes it hard to even test the accuracy of sheet-level functions. LibreOffice and OpenOffice will claim that a result matches a reference value even when they do not."
+> — [Gnumeric Numerical Issues](http://www.gnumeric.org/numerical-issues.html)
+
+| Behavior | Gnumeric | LibreOffice |
+|----------|----------|-------------|
+| Snap-to-zero | **No** | Yes, on EVERY subtraction |
+| Internal functions (VAR, etc.) | Honest arithmetic | Snap-to-zero internally |
+| Accuracy validation | McCullough papers | Not academically validated |
+| Result: `1.0 - 0.9999999999999999` | `1.11e-16` (correct) | `0.0` (snapped) |
+
+**If Gnumeric calculates the same result as Forge, the math is proven by an engine that does honest arithmetic.**
 
 ## Decision
 
@@ -48,9 +61,9 @@ Unit tests verify code works as written. They don't verify the code is *correct*
 ### Implementation
 
 ```rust
-// tests/e2e_libreoffice_tests.rs
+// tests/e2e_gnumeric_tests.rs
 #[test]
-#[cfg(feature = "e2e-libreoffice")]
+#[cfg(feature = "e2e-gnumeric")]
 fn test_npv_against_gnumeric() {
     // 1. Create Forge model
     let yaml = r#"
@@ -89,9 +102,9 @@ fn test_npv_against_gnumeric() {
 
 ### 1. Third-Party Validation = Trust
 
-"Don't trust us. Trust LibreOffice."
+"Don't trust us. Trust Gnumeric."
 
-When enterprise buyers ask "how do you know your NPV is correct?", the answer isn't "we have unit tests." The answer is: **"Gnumeric calculates the same result, and millions trust Gnumeric."**
+When enterprise buyers ask "how do you know your NPV is correct?", the answer isn't "we have unit tests." The answer is: **"Gnumeric calculates the same result, and Gnumeric is academically validated for numerical accuracy."**
 
 ### 2. Catches Edge Cases We'd Miss
 
@@ -122,24 +135,38 @@ E2E tests are executable proof: "NPV works because here's a test where Gnumeric 
 - CI needs Gnumeric (Linux only currently)
 
 ### Mitigation
-- E2E tests behind feature flag: `cargo test --features e2e-libreoffice`
+- E2E tests behind feature flag: `cargo test --features e2e-gnumeric`
 - Unit tests run always, E2E on release
 
 ## How to Run
 
 ```bash
-# Install Gnumeric (Ubuntu/Debian)
+# Install Gnumeric
+# macOS
+brew install gnumeric
+
+# Ubuntu/Debian
 sudo apt install gnumeric
 
 # Run E2E tests
-cargo test --features e2e-libreoffice
+cargo test --features e2e-gnumeric
 ```
 
 ## References
 
-- [Gnumeric](https://www.gnumeric.org/)
-- [LibreOffice](https://www.libreoffice.org/)
-- `tests/e2e_libreoffice_tests.rs`
+### Technical Documentation
+- [Gnumeric](https://www.gnumeric.org/) — Official Gnumeric website
+- [Gnumeric Numerical Issues](http://www.gnumeric.org/numerical-issues.html) — Technical explanation of snap-to-zero differences
+
+### Academic Research
+- McCullough BD (2004) "Fixing Statistical Errors in Spreadsheet Software: The Cases of Gnumeric and Excel" — Peer-reviewed validation of Gnumeric's numerical accuracy
+- McCullough BD, Wilson B (2005) "On the accuracy of statistical procedures in Microsoft Excel 2003" — Documents systematic errors from snap-to-zero
+
+### General Information
+- [Wikipedia: Gnumeric](https://en.wikipedia.org/wiki/Gnumeric) — Notes Gnumeric's accuracy niche and R Project cooperation
+
+### Implementation
+- `tests/roundtrip/` — E2E roundtrip tests using ssconvert
 
 ---
 

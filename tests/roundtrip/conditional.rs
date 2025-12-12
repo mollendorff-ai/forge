@@ -9,11 +9,11 @@ use std::process::Command;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn e2e_libreoffice_if() {
+fn e2e_gnumeric_if() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -25,15 +25,15 @@ fn e2e_libreoffice_if() {
         .test_formula("IF(1<0, 100, 200)", 200.0, 0.001)
         .unwrap();
 
-    println!("✅ IF validated against LibreOffice");
+    println!("✅ IF validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_and_or_not() {
+fn e2e_gnumeric_and_or_not() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -56,7 +56,7 @@ fn e2e_libreoffice_and_or_not() {
         .test_formula("IF(NOT(1<0), 1, 0)", 1.0, 0.001)
         .unwrap();
 
-    println!("✅ AND/OR/NOT validated against LibreOffice");
+    println!("✅ AND/OR/NOT validated against Gnumeric");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -64,7 +64,7 @@ fn e2e_libreoffice_and_or_not() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Note: VLOOKUP, HLOOKUP, INDEX, MATCH require table structure
-// These tests verify the functions work with LibreOffice's interpretation
+// These tests verify the functions work with Gnumeric's interpretation
 
 #[test]
 fn e2e_roundtrip_conditional_functions() {
@@ -77,7 +77,7 @@ fn e2e_roundtrip_conditional_functions() {
     };
 
     // Test conditional functions survive roundtrip
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 logic_tests:
   idx: [1]
   test_if_true: "=IF(10>5, 100, 0)"
@@ -152,7 +152,7 @@ fn e2e_roundtrip_sumifs_countifs() {
     };
 
     // Test SUMIFS and COUNTIFS with multiple criteria
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 sales_data:
   region: [1, 2, 1, 2, 1, 2]
   product: [1, 1, 2, 2, 1, 2]
@@ -231,7 +231,7 @@ fn e2e_roundtrip_averageifs() {
     };
 
     // Test AVERAGEIFS with multiple criteria
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 performance_data:
   department: [1, 2, 1, 2, 1, 2]
   quarter: [1, 1, 2, 2, 1, 2]
@@ -297,7 +297,7 @@ fn e2e_roundtrip_maxifs_minifs() {
     };
 
     // Test MAXIFS and MINIFS with criteria
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 inventory_data:
   warehouse: [1, 2, 1, 2, 1, 2]
   category: [1, 1, 2, 2, 1, 2]
@@ -373,7 +373,7 @@ fn e2e_roundtrip_ifs_switch() {
     };
 
     // Test IFS and SWITCH - conditional branching functions
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 test_data:
   value: [10, 20, 30, 40, 50]
   category: [1, 2, 3, 2, 1]

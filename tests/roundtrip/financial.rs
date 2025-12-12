@@ -9,11 +9,11 @@ use std::process::Command;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn e2e_libreoffice_pmt() {
+fn e2e_gnumeric_pmt() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -25,15 +25,15 @@ fn e2e_libreoffice_pmt() {
         .test_formula("PMT(0.06/12, 360, 200000)", -1199.10, 1.0)
         .unwrap();
 
-    println!("✅ PMT validated against LibreOffice");
+    println!("✅ PMT validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_fv() {
+fn e2e_gnumeric_fv() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -44,15 +44,15 @@ fn e2e_libreoffice_fv() {
         .test_formula("FV(0.05/12, 120, -100, 0)", 15528.23, 1.0)
         .unwrap();
 
-    println!("✅ FV validated against LibreOffice");
+    println!("✅ FV validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_pv() {
+fn e2e_gnumeric_pv() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -63,11 +63,11 @@ fn e2e_libreoffice_pv() {
         .test_formula("PV(0.08/12, 60, -1000)", 49318.43, 1.0)
         .unwrap();
 
-    println!("✅ PV validated against LibreOffice");
+    println!("✅ PV validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_npv() {
+fn e2e_gnumeric_npv() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -82,11 +82,11 @@ fn e2e_libreoffice_npv() {
         .test_formula("NPV(0.1, 3000, 4200, 6800)", 11308.20, 1.0)
         .unwrap();
 
-    println!("✅ NPV validated against Gnumeric/LibreOffice");
+    println!("✅ NPV validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_irr() {
+fn e2e_gnumeric_irr() {
     let _harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -102,11 +102,11 @@ fn e2e_libreoffice_irr() {
 }
 
 #[test]
-fn e2e_libreoffice_rate() {
+fn e2e_gnumeric_rate() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -117,7 +117,7 @@ fn e2e_libreoffice_rate() {
         .test_formula("RATE(48, -500, 20000)", 0.0077, 0.001)
         .unwrap();
 
-    println!("✅ RATE validated against LibreOffice");
+    println!("✅ RATE validated against Gnumeric");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -135,7 +135,7 @@ fn e2e_roundtrip_financial_functions() {
     };
 
     // Test financial functions survive roundtrip
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 finance_tests:
   idx: [1]
   test_pmt: "=PMT(0.05/12, 60, 10000)"
@@ -200,7 +200,7 @@ fn e2e_roundtrip_financial_extended() {
 
     // Test extended financial functions: IRR, RATE, NPER, DDB
     // Note: IRR requires array reference, so using scalar alternatives
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 financial_extended:
   idx: [1]
   # RATE(nper, pmt, pv) - What rate for $500/month to pay off $20,000 in 4 years?

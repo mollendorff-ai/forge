@@ -9,7 +9,7 @@ use std::process::Command;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn e2e_libreoffice_stdev() {
+fn e2e_gnumeric_stdev() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -29,11 +29,11 @@ fn e2e_libreoffice_stdev() {
         )
         .unwrap();
 
-    println!("✅ STDEV validated against Gnumeric/LibreOffice");
+    println!("✅ STDEV validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_var() {
+fn e2e_gnumeric_var() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -53,11 +53,11 @@ fn e2e_libreoffice_var() {
         )
         .unwrap();
 
-    println!("✅ VAR validated against Gnumeric/LibreOffice");
+    println!("✅ VAR validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_median() {
+fn e2e_gnumeric_median() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -74,7 +74,7 @@ fn e2e_libreoffice_median() {
         .test_aggregation("MEDIAN", &[1.0, 2.0, 3.0, 4.0], 2.5, 0.001)
         .unwrap();
 
-    println!("✅ MEDIAN validated against Gnumeric/LibreOffice");
+    println!("✅ MEDIAN validated against Gnumeric");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -92,7 +92,7 @@ fn e2e_roundtrip_statistical_functions() {
     };
 
     // Test statistical functions survive roundtrip
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 stats_tests:
   idx: [1]
   test_median_odd: "=3"
@@ -170,7 +170,7 @@ fn e2e_roundtrip_percentile() {
     };
 
     // Test PERCENTILE function
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 dataset:
   values: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
   # PERCENTILE: 50th percentile (median) should be 55
@@ -245,7 +245,7 @@ fn e2e_roundtrip_quartile() {
     };
 
     // Test QUARTILE function
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 dataset:
   values: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
   # QUARTILE: Q1 (1st quartile) should be 27.5
@@ -322,7 +322,7 @@ fn e2e_roundtrip_rank() {
     };
 
     // Test RANK function
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 scores:
   values: [85, 92, 78, 95, 88, 91, 82]
   # RANK: Rank of 95 in descending order should be 1 (highest)
@@ -397,7 +397,7 @@ fn e2e_roundtrip_correl() {
     };
 
     // Test CORREL function - correlation coefficient
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 data_series:
   advertising: [100, 150, 200, 250, 300]
   sales: [1200, 1800, 2400, 3000, 3600]
@@ -464,7 +464,7 @@ fn e2e_roundtrip_unique() {
     };
 
     // Test UNIQUE function - returns unique values from array
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 transaction_data:
   customer_id: [1, 2, 1, 3, 2, 1, 4, 3]
   # UNIQUE: Should return unique customer IDs [1, 2, 3, 4]
@@ -527,7 +527,7 @@ fn e2e_roundtrip_filter() {
     };
 
     // Test FILTER function - filters array based on criteria
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 sales_records:
   amount: [100, 200, 150, 300, 50, 250]
   region: [1, 2, 1, 2, 1, 2]
@@ -594,7 +594,7 @@ fn e2e_roundtrip_sort() {
     };
 
     // Test SORT function - sorts array
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 unsorted_data:
   values: [45, 12, 89, 34, 67]
   # SORT: Get first element after sorting (should be 12)
@@ -666,7 +666,7 @@ fn e2e_roundtrip_countunique() {
     // Test COUNTUNIQUE function - counts unique values
     // Note: This is a Google Sheets function, not standard Excel
     // In Excel/Gnumeric, we use SUMPRODUCT(1/COUNTIF(range,range))
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 category_data:
   categories: [1, 2, 1, 3, 2, 1, 4, 3, 2]
   # COUNTUNIQUE alternative using standard Excel formula

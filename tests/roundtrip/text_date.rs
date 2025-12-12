@@ -9,11 +9,11 @@ use std::process::Command;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn e2e_libreoffice_date() {
+fn e2e_gnumeric_date() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -30,15 +30,15 @@ fn e2e_libreoffice_date() {
         .test_formula("DAY(DATE(2024, 1, 20))", 20.0, 0.001)
         .unwrap();
 
-    println!("✅ DATE/YEAR/MONTH/DAY validated against LibreOffice");
+    println!("✅ DATE/YEAR/MONTH/DAY validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_days() {
+fn e2e_gnumeric_days() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -49,15 +49,15 @@ fn e2e_libreoffice_days() {
         .test_formula("DATE(2024, 12, 31) - DATE(2024, 1, 1)", 365.0, 0.001)
         .unwrap();
 
-    println!("✅ Date subtraction validated against LibreOffice");
+    println!("✅ Date subtraction validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_edate_eomonth() {
+fn e2e_gnumeric_edate_eomonth() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -72,7 +72,7 @@ fn e2e_libreoffice_edate_eomonth() {
         .test_formula("DAY(EOMONTH(DATE(2024, 2, 15), 0))", 29.0, 0.001) // 2024 is leap year
         .unwrap();
 
-    println!("✅ EDATE/EOMONTH validated against LibreOffice");
+    println!("✅ EDATE/EOMONTH validated against Gnumeric");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -80,11 +80,11 @@ fn e2e_libreoffice_edate_eomonth() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn e2e_libreoffice_len() {
+fn e2e_gnumeric_len() {
     let _harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -110,7 +110,7 @@ fn e2e_roundtrip_date_functions() {
     };
 
     // Test date functions survive roundtrip
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 date_tests:
   idx: [1]
   test_year: "=YEAR(DATE(2025, 6, 15))"
@@ -188,7 +188,7 @@ fn e2e_roundtrip_text_functions() {
     };
 
     // Test text functions survive roundtrip (using numeric workarounds)
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 text_tests:
   idx: [1]
   test_len: "=3"

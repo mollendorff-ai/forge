@@ -1,6 +1,6 @@
 # E2E Text Function Validation (Demo Functions Only)
 # Tests text functions using LEN() to get numeric results
-# Validated against Gnumeric and LibreOffice Calc
+# Validated against Gnumeric
 
 _forge_version: "1.0.0"
 

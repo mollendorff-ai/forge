@@ -9,7 +9,7 @@ use std::process::Command;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn e2e_libreoffice_sum() {
+fn e2e_gnumeric_sum() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -29,11 +29,11 @@ fn e2e_libreoffice_sum() {
         .test_aggregation("SUM", &[100.0, 200.0, 300.0, 400.0], 1000.0, 0.001)
         .unwrap();
 
-    println!("✅ SUM validated against Gnumeric/LibreOffice");
+    println!("✅ SUM validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_average() {
+fn e2e_gnumeric_average() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -50,11 +50,11 @@ fn e2e_libreoffice_average() {
         .test_aggregation("AVERAGE", &[2.0, 4.0, 6.0], 4.0, 0.001)
         .unwrap();
 
-    println!("✅ AVERAGE validated against Gnumeric/LibreOffice");
+    println!("✅ AVERAGE validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_count() {
+fn e2e_gnumeric_count() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -71,11 +71,11 @@ fn e2e_libreoffice_count() {
         .test_aggregation("COUNT", &[10.0, 20.0, 30.0], 3.0, 0.001)
         .unwrap();
 
-    println!("✅ COUNT validated against Gnumeric/LibreOffice");
+    println!("✅ COUNT validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_min() {
+fn e2e_gnumeric_min() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -92,11 +92,11 @@ fn e2e_libreoffice_min() {
         .test_aggregation("MIN", &[-5.0, 0.0, 5.0], -5.0, 0.001)
         .unwrap();
 
-    println!("✅ MIN validated against Gnumeric/LibreOffice");
+    println!("✅ MIN validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_max() {
+fn e2e_gnumeric_max() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -113,11 +113,11 @@ fn e2e_libreoffice_max() {
         .test_aggregation("MAX", &[-5.0, 0.0, 5.0], 5.0, 0.001)
         .unwrap();
 
-    println!("✅ MAX validated against Gnumeric/LibreOffice");
+    println!("✅ MAX validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_product() {
+fn e2e_gnumeric_product() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -134,11 +134,11 @@ fn e2e_libreoffice_product() {
         .test_aggregation("PRODUCT", &[2.0, 5.0, 10.0], 100.0, 0.001)
         .unwrap();
 
-    println!("✅ PRODUCT validated against Gnumeric/LibreOffice");
+    println!("✅ PRODUCT validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_counta() {
+fn e2e_gnumeric_counta() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -152,7 +152,7 @@ fn e2e_libreoffice_counta() {
         .test_aggregation("COUNTA", &[1.0, 2.0, 3.0, 4.0, 5.0], 5.0, 0.001)
         .unwrap();
 
-    println!("✅ COUNTA validated against Gnumeric/LibreOffice");
+    println!("✅ COUNTA validated against Gnumeric");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -169,7 +169,7 @@ fn e2e_roundtrip_aggregation_functions() {
     };
 
     // Test aggregation functions survive roundtrip: YAML → XLSX → Gnumeric → CSV
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 aggregation_tests:
   idx: [1, 2, 3]
   test_sum: "=1+2+3+4+5"

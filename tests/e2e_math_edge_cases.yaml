@@ -1,6 +1,6 @@
 # E2E Math Function Edge Cases
 # v6.1.0 - Edge cases, boundary conditions, and error scenarios
-# Validated against Gnumeric/LibreOffice Calc
+# Validated against Gnumeric
 
 _forge_version: "1.0.0"
 

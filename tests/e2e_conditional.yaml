@@ -1,5 +1,5 @@
 # E2E Conditional Function Validation
-# Validated against Gnumeric/LibreOffice Calc
+# Validated against Gnumeric
 # Note: SUMIF/COUNTIF/AVERAGEIF require array context (v5.0.0)
 
 _forge_version: "1.0.0"

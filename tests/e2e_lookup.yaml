@@ -1,5 +1,5 @@
 # E2E Lookup Function Validation (Demo Functions Only)
-# Validated against Gnumeric and LibreOffice Calc
+# Validated against Gnumeric
 #
 # Note: INDEX and MATCH functions require table/array data structures.
 # The v1.0.0 schema only supports scalar assumptions. These functions
