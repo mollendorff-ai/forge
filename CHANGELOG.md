@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.2.11] - 2025-12-12
+
+### Deprecate LibreOffice, Prefer Gnumeric for E2E Validation
+
+LibreOffice uses aggressive "snap-to-zero" on every subtraction, hiding numerical
+errors. Gnumeric is academically validated (McCullough 2004, 2005) and provides
+honest arithmetic.
+
+### Changed
+
+- Renamed feature flag: `e2e-libreoffice` → `e2e-gnumeric`
+- Renamed test file: `e2e_libreoffice_tests.rs` → `e2e_gnumeric_tests.rs`
+- Updated all roundtrip test YAML to v5.0.0 schema (tables at root level)
+- Updated ADR-007 with LibreOffice deprecation rationale and academic references
+
+### References
+
+- <http://www.gnumeric.org/numerical-issues.html>
+- McCullough BD (2004) "Fixing Statistical Errors in Spreadsheet Software"
+- McCullough BD, Wilson B (2005) "On the accuracy of statistical procedures in Microsoft Excel 2003"
+
 ## [7.2.0] - 2025-12-10
 
 ### 100% Test Integrity - 15-Agent Parallel Execution
