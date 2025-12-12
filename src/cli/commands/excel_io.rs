@@ -110,7 +110,7 @@ pub fn import(
             let yaml_string = format!(
                 "_forge_version: \"1.0.0\"\n_name: \"{}\"\n\n{}",
                 table_name,
-                serde_yaml::to_string(&table_model.tables).map_err(ForgeError::Yaml)?
+                serde_yaml_ng::to_string(&table_model.tables).map_err(ForgeError::Yaml)?
             );
             fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
 
@@ -127,7 +127,7 @@ pub fn import(
 
             let yaml_string = format!(
                 "_forge_version: \"1.0.0\"\n_name: \"scalars\"\n\n{}",
-                serde_yaml::to_string(&scalar_model.scalars).map_err(ForgeError::Yaml)?
+                serde_yaml_ng::to_string(&scalar_model.scalars).map_err(ForgeError::Yaml)?
             );
             fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
 
@@ -149,8 +149,9 @@ pub fn import(
             yaml_output.push_str("---\n");
             yaml_output.push_str("_forge_version: \"1.0.0\"\n");
             yaml_output.push_str(&format!("_name: \"{}\"\n\n", table_name));
-            yaml_output
-                .push_str(&serde_yaml::to_string(&table_model.tables).map_err(ForgeError::Yaml)?);
+            yaml_output.push_str(
+                &serde_yaml_ng::to_string(&table_model.tables).map_err(ForgeError::Yaml)?,
+            );
             yaml_output.push('\n');
         }
 
@@ -162,8 +163,9 @@ pub fn import(
             yaml_output.push_str("---\n");
             yaml_output.push_str("_forge_version: \"1.0.0\"\n");
             yaml_output.push_str("_name: \"scalars\"\n\n");
-            yaml_output
-                .push_str(&serde_yaml::to_string(&scalar_model.scalars).map_err(ForgeError::Yaml)?);
+            yaml_output.push_str(
+                &serde_yaml_ng::to_string(&scalar_model.scalars).map_err(ForgeError::Yaml)?,
+            );
         }
 
         fs::write(&output, yaml_output).map_err(ForgeError::Io)?;
@@ -172,7 +174,7 @@ pub fn import(
         println!("   YAML file: {}\n", output.display());
     } else {
         // Default: single file with all tables
-        let yaml_string = serde_yaml::to_string(&model).map_err(ForgeError::Yaml)?;
+        let yaml_string = serde_yaml_ng::to_string(&model).map_err(ForgeError::Yaml)?;
         fs::write(&output, yaml_string).map_err(ForgeError::Io)?;
 
         println!("{}", "✅ Import Complete!".bold().green());

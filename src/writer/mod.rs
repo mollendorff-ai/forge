@@ -1,6 +1,6 @@
 use crate::error::ForgeResult;
 use crate::types::{ColumnValue, ParsedModel, Variable};
-use serde_yaml::Value;
+use serde_yaml_ng::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -9,7 +9,7 @@ use std::path::Path;
 pub fn update_yaml_file(path: &Path, calculated_values: &HashMap<String, f64>) -> ForgeResult<()> {
     // Read original YAML
     let content = fs::read_to_string(path)?;
-    let mut yaml: Value = serde_yaml::from_str(&content)?;
+    let mut yaml: Value = serde_yaml_ng::from_str(&content)?;
 
     // Update values
     for (var_path, calculated_value) in calculated_values {
@@ -17,7 +17,7 @@ pub fn update_yaml_file(path: &Path, calculated_values: &HashMap<String, f64>) -
     }
 
     // Write back to file
-    let updated_content = serde_yaml::to_string(&yaml)?;
+    let updated_content = serde_yaml_ng::to_string(&yaml)?;
     fs::write(path, updated_content)?;
 
     Ok(())
@@ -42,7 +42,7 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
     fs::copy(path, &backup_path)?;
 
     // Read original YAML to preserve structure/comments
-    let mut yaml: Value = serde_yaml::from_str(&content)?;
+    let mut yaml: Value = serde_yaml_ng::from_str(&content)?;
 
     // Update table value arrays
     if let Value::Mapping(ref mut root) = yaml {
@@ -57,9 +57,9 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
                             .map(|v| {
                                 // Format nicely: remove unnecessary decimal places
                                 if v.fract() == 0.0 && v.abs() < 1e10 {
-                                    Value::Number(serde_yaml::Number::from(*v as i64))
+                                    Value::Number(serde_yaml_ng::Number::from(*v as i64))
                                 } else {
-                                    Value::Number(serde_yaml::Number::from(*v))
+                                    Value::Number(serde_yaml_ng::Number::from(*v))
                                 }
                             })
                             .collect();
@@ -81,7 +81,7 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
     }
 
     // Write back to file
-    let updated_content = serde_yaml::to_string(&yaml)?;
+    let updated_content = serde_yaml_ng::to_string(&yaml)?;
     fs::write(path, updated_content)?;
 
     Ok(true)
@@ -122,7 +122,7 @@ fn update_value_recursive(yaml: &mut Value, path_parts: &[&str], index: usize, n
                 if inner_map.contains_key(Value::String("value".to_string())) {
                     inner_map.insert(
                         Value::String("value".to_string()),
-                        Value::Number(serde_yaml::Number::from(new_value)),
+                        Value::Number(serde_yaml_ng::Number::from(new_value)),
                     );
                 }
             }
@@ -331,14 +331,14 @@ financials:
 
     #[test]
     fn test_update_value_empty_path() {
-        let mut yaml: Value = serde_yaml::from_str("test: 1").unwrap();
+        let mut yaml: Value = serde_yaml_ng::from_str("test: 1").unwrap();
         // Empty path should not panic
         update_value_in_yaml(&mut yaml, "", 0.0);
     }
 
     #[test]
     fn test_update_value_nonexistent_path() {
-        let mut yaml: Value = serde_yaml::from_str("test: 1").unwrap();
+        let mut yaml: Value = serde_yaml_ng::from_str("test: 1").unwrap();
         // Non-existent path should not panic
         update_value_in_yaml(&mut yaml, "nonexistent.path", 99.0);
     }

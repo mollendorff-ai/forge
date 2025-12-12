@@ -19,7 +19,7 @@ pub fn needs_schema_upgrade(file: &Path) -> ForgeResult<Option<String>> {
         return Ok(None);
     }
 
-    let yaml: serde_yaml::Value = serde_yaml::from_str(&content)
+    let yaml: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
         .map_err(|e| ForgeError::Parse(format!("Failed to parse {}: {}", file.display(), e)))?;
 
     let version = yaml
@@ -124,13 +124,13 @@ pub fn upgrade_file_recursive(
         .map_err(|e| ForgeError::IO(format!("Failed to read {}: {}", file.display(), e)))?;
 
     // Parse as YAML Value to manipulate
-    let mut yaml: serde_yaml::Value = serde_yaml::from_str(&content)
+    let mut yaml: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
         .map_err(|e| ForgeError::Parse(format!("Failed to parse {}: {}", file.display(), e)))?;
 
     let mut changes = 0;
 
     // First, recursively upgrade any included files
-    if let Some(serde_yaml::Value::Sequence(include_list)) = yaml.get("_includes").cloned() {
+    if let Some(serde_yaml_ng::Value::Sequence(include_list)) = yaml.get("_includes").cloned() {
         let parent_dir = file.parent().unwrap_or(Path::new("."));
         for include in include_list {
             if let Some(include_file) = include.get("file").and_then(|f| f.as_str()) {
@@ -186,8 +186,8 @@ pub fn upgrade_file_recursive(
 
     // 1. Update _forge_version
     yaml_map.insert(
-        serde_yaml::Value::String("_forge_version".to_string()),
-        serde_yaml::Value::String(target_version.to_string()),
+        serde_yaml_ng::Value::String("_forge_version".to_string()),
+        serde_yaml_ng::Value::String(target_version.to_string()),
     );
 
     // 2. Split scalars into inputs/outputs if upgrading to 5.0.0
@@ -205,7 +205,7 @@ pub fn upgrade_file_recursive(
         }
 
         // Write upgraded content
-        let upgraded_content = serde_yaml::to_string(&yaml)
+        let upgraded_content = serde_yaml_ng::to_string(&yaml)
             .map_err(|e| ForgeError::IO(format!("Failed to serialize YAML: {}", e)))?;
 
         // Preserve comments by writing a header
@@ -223,24 +223,27 @@ pub fn upgrade_file_recursive(
 
 /// Split scalars section into inputs and outputs based on formula presence
 pub fn split_scalars_to_inputs_outputs(
-    yaml_map: &mut serde_yaml::Mapping,
+    yaml_map: &mut serde_yaml_ng::Mapping,
     verbose: bool,
 ) -> ForgeResult<()> {
     // Check if there's a top-level scalars-like structure (not in a table)
     // In v4.x, scalars are scattered at root level or in sections
     // We need to identify them and split into inputs/outputs
 
-    let mut inputs: serde_yaml::Mapping = serde_yaml::Mapping::new();
-    let mut outputs: serde_yaml::Mapping = serde_yaml::Mapping::new();
-    let mut keys_to_remove: Vec<serde_yaml::Value> = Vec::new();
+    let mut inputs: serde_yaml_ng::Mapping = serde_yaml_ng::Mapping::new();
+    let mut outputs: serde_yaml_ng::Mapping = serde_yaml_ng::Mapping::new();
+    let mut keys_to_remove: Vec<serde_yaml_ng::Value> = Vec::new();
 
     // Preserve existing inputs/outputs if they exist
-    if let Some(existing_inputs) = yaml_map.get(serde_yaml::Value::String("inputs".to_string())) {
+    if let Some(existing_inputs) = yaml_map.get(serde_yaml_ng::Value::String("inputs".to_string()))
+    {
         if let Some(map) = existing_inputs.as_mapping() {
             inputs = map.clone();
         }
     }
-    if let Some(existing_outputs) = yaml_map.get(serde_yaml::Value::String("outputs".to_string())) {
+    if let Some(existing_outputs) =
+        yaml_map.get(serde_yaml_ng::Value::String("outputs".to_string()))
+    {
         if let Some(map) = existing_outputs.as_mapping() {
             outputs = map.clone();
         }
@@ -262,8 +265,8 @@ pub fn split_scalars_to_inputs_outputs(
 
         // Check if this looks like a scalar (has 'value' key)
         if let Some(mapping) = value.as_mapping() {
-            let value_key = serde_yaml::Value::String("value".to_string());
-            let formula_key = serde_yaml::Value::String("formula".to_string());
+            let value_key = serde_yaml_ng::Value::String("value".to_string());
+            let formula_key = serde_yaml_ng::Value::String("formula".to_string());
             if mapping.contains_key(&value_key) {
                 let has_formula = mapping.contains_key(&formula_key)
                     && mapping
@@ -299,14 +302,14 @@ pub fn split_scalars_to_inputs_outputs(
     // Add inputs and outputs sections if they have content
     if !inputs.is_empty() {
         yaml_map.insert(
-            serde_yaml::Value::String("inputs".to_string()),
-            serde_yaml::Value::Mapping(inputs),
+            serde_yaml_ng::Value::String("inputs".to_string()),
+            serde_yaml_ng::Value::Mapping(inputs),
         );
     }
     if !outputs.is_empty() {
         yaml_map.insert(
-            serde_yaml::Value::String("outputs".to_string()),
-            serde_yaml::Value::Mapping(outputs),
+            serde_yaml_ng::Value::String("outputs".to_string()),
+            serde_yaml_ng::Value::Mapping(outputs),
         );
     }
 

@@ -226,15 +226,8 @@ fn test_xirr_function_coverage() {
     let result = calculator.calculate_all();
     // XIRR with Date column type may have length mismatch issues
     // This test exercises the error path
-    if result.is_ok() {
-        let xirr = result
-            .as_ref()
-            .unwrap()
-            .scalars
-            .get("xirr_val")
-            .unwrap()
-            .value
-            .unwrap();
+    if let Ok(ref res) = result {
+        let xirr = res.scalars.get("xirr_val").unwrap().value.unwrap();
         assert!(
             xirr.is_finite(),
             "XIRR should return finite value, got {}",
@@ -278,15 +271,8 @@ fn test_xnpv_with_dates() {
     let result = calculator.calculate_all();
     // XNPV with Text column dates may have length mismatch issues
     // This test exercises both success and error paths
-    if result.is_ok() {
-        let xnpv = result
-            .as_ref()
-            .unwrap()
-            .scalars
-            .get("npv")
-            .unwrap()
-            .value
-            .unwrap();
+    if let Ok(ref res) = result {
+        let xnpv = res.scalars.get("npv").unwrap().value.unwrap();
         assert!(
             xnpv.is_finite(),
             "XNPV should return finite value, got {}",
@@ -330,15 +316,8 @@ fn test_xirr_with_dates() {
     let result = calculator.calculate_all();
     // XIRR with Text column dates may have length mismatch issues
     // This test exercises both success and error paths
-    if result.is_ok() {
-        let xirr = result
-            .as_ref()
-            .unwrap()
-            .scalars
-            .get("irr")
-            .unwrap()
-            .value
-            .unwrap();
+    if let Ok(ref res) = result {
+        let xirr = res.scalars.get("irr").unwrap().value.unwrap();
         assert!(
             xirr.is_finite(),
             "XIRR should return finite value, got {}",

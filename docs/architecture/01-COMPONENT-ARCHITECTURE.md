@@ -735,7 +735,7 @@ pub fn update_all_yaml_files(
 graph TB
     Start["update_all_yaml_files()"]
     ReadOriginal["Read original YAML<br/>Preserve formatting"]
-    ParseStructure["Parse YAML structure<br/>serde_yaml::Value"]
+    ParseStructure["Parse YAML structure<br/>serde_yaml_ng::Value"]
 
     subgraph "Update Loop"
         GetResult["For each result<br/>variable → value"]
@@ -744,7 +744,7 @@ graph TB
         NextResult["Next result"]
     end
 
-    Serialize["Serialize to YAML<br/>serde_yaml::to_string()"]
+    Serialize["Serialize to YAML<br/>serde_yaml_ng::to_string()"]
     WriteFile["Write updated file<br/>Overwrite original"]
     Done["Done"]
 
@@ -760,7 +760,7 @@ graph TB
     WriteFile --> Done
 ```
 
-**Design Decision: Why not use serde_yaml directly?**
+**Design Decision: Why not use serde_yaml_ng directly?**
 
 Serde_yaml doesn't preserve:
 
@@ -839,7 +839,7 @@ sequenceDiagram
 
     Parser->>File: Read file contents
     File-->>Parser: YAML string
-    Parser->>Parser: serde_yaml::from_str()
+    Parser->>Parser: serde_yaml_ng::from_str()
     Parser->>Parser: Check for 'tables' key
     alt Has 'tables'
         Parser->>Schema: validate_against_schema()
@@ -937,7 +937,7 @@ graph TB
 
     subgraph "External Dependencies"
         Clap["clap<br/>CLI parsing"]
-        SerdeYAML["serde_yaml<br/>YAML I/O"]
+        SerdeYAML["serde_yaml_ng<br/>YAML I/O"]
         XLFormula["xlformula_engine<br/>Formula eval"]
         PetGraph["petgraph<br/>Dependency graphs"]
         RustXLSX["rust_xlsxwriter<br/>Excel write"]
@@ -1414,7 +1414,7 @@ pub enum ColumnValue {
 // From parser/mod.rs:39-50
 pub fn parse_model(path: &Path) -> ForgeResult<ParsedModel> {
     let content = std::fs::read_to_string(path)?;
-    let yaml: Value = serde_yaml::from_str(&content)?;
+    let yaml: Value = serde_yaml_ng::from_str(&content)?;
 
     let version = ForgeVersion::detect(&yaml);
 
@@ -1508,16 +1508,16 @@ let order = toposort(&graph, None)?;  // Returns [A, B]
 - Standard library in Rust ecosystem
 - Well-tested and documented
 
-### 3. serde_yaml (v0.9)
+### 3. serde_yaml_ng (v0.9)
 
 **Purpose:** YAML serialization and deserialization
 
 **Interface:**
 
 ```rust
-use serde_yaml::Value;
+use serde_yaml_ng::Value;
 
-let yaml: Value = serde_yaml::from_str(&content)?;
+let yaml: Value = serde_yaml_ng::from_str(&content)?;
 let tables = yaml.get("tables")?;
 ```
 
@@ -1526,7 +1526,7 @@ let tables = yaml.get("tables")?;
 - `parser/mod.rs` - YAML parsing
 - `writer/mod.rs` - YAML serialization
 
-**Design Decision:** Why serde_yaml?
+**Design Decision:** Why serde_yaml_ng?
 
 - De facto standard for YAML in Rust
 - Serde integration (derive macros)
@@ -1631,7 +1631,7 @@ graph TB
     subgraph "External Libraries"
         XLFormula["xlformula_engine v0.1.18<br/>Excel formula evaluation<br/>50+ functions"]
         PetGraph["petgraph v0.6<br/>Dependency graphs<br/>Topological sort"]
-        SerdeYAML["serde_yaml v0.9<br/>YAML serialization<br/>Deserialization"]
+        SerdeYAML["serde_yaml_ng v0.9<br/>YAML serialization<br/>Deserialization"]
         RustXLSX["rust_xlsxwriter v0.90<br/>Excel file creation<br/>Formula writing"]
         Calamine["calamine v0.31<br/>Excel file reading<br/>Formula preservation"]
         Clap["clap v4.5<br/>CLI argument parsing<br/>Derive macros"]

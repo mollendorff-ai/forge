@@ -632,7 +632,7 @@ pub enum ForgeVersion {
 }
 
 impl ForgeVersion {
-    pub fn detect(yaml: &serde_yaml::Value) -> Self {
+    pub fn detect(yaml: &serde_yaml_ng::Value) -> Self {
         // 1. Check for explicit version marker
         if let Some(version_val) = yaml.get("_forge_version") {
             if let Some(version_str) = version_val.as_str() {
@@ -1255,8 +1255,8 @@ impl From<std::io::Error> for ForgeError {
     }
 }
 
-impl From<serde_yaml::Error> for ForgeError {
-    fn from(err: serde_yaml::Error) -> Self {
+impl From<serde_yaml_ng::Error> for ForgeError {
+    fn from(err: serde_yaml_ng::Error) -> Self {
         ForgeError::Parse(err.to_string())
     }
 }
@@ -1272,7 +1272,7 @@ graph TB
 
     subgraph "Error Variants"
         IO["IO(std::io::Error)<br/>File not found, permission denied"]
-        Parse["Parse(serde_yaml::Error)<br/>Invalid YAML syntax"]
+        Parse["Parse(serde_yaml_ng::Error)<br/>Invalid YAML syntax"]
         Validation["Validation(String)<br/>Schema validation failed"]
         Eval["Eval(String)<br/>Formula evaluation error"]
         Circular["CircularDependency(String)<br/>Circular reference detected"]
@@ -1282,7 +1282,7 @@ graph TB
 
     subgraph "External Error Types"
         StdIO["std::io::Error"]
-        SerdeYAML["serde_yaml::Error"]
+        SerdeYAML["serde_yaml_ng::Error"]
         JSONSchema["jsonschema::ValidationError"]
         XLFormula["xlformula_engine::Error"]
     end
@@ -1309,7 +1309,7 @@ graph TB
 let content = std::fs::read_to_string(&path)?;  // ForgeError::IO
 
 // Parse error (automatic conversion)
-let yaml: Value = serde_yaml::from_str(&content)?;  // ForgeError::Parse
+let yaml: Value = serde_yaml_ng::from_str(&content)?;  // ForgeError::Parse
 
 // Validation error (manual)
 if column.len() != row_count {

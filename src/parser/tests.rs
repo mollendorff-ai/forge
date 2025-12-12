@@ -125,7 +125,7 @@ fn test_parse_table_with_arrays() {
     month: ['Jan', 'Feb', 'Mar']
     revenue: [100, 200, 300]
     ";
-    let parsed: Value = serde_yaml::from_str(yaml).unwrap();
+    let parsed: Value = serde_yaml_ng::from_str(yaml).unwrap();
 
     if let Value::Mapping(map) = parsed {
         let table = parse_table("test_table", &map).unwrap();
@@ -147,7 +147,7 @@ fn test_parse_table_with_formula() {
     expenses: [50, 100, 150]
     profit: '=revenue - expenses'
     ";
-    let parsed: Value = serde_yaml::from_str(yaml).unwrap();
+    let parsed: Value = serde_yaml_ng::from_str(yaml).unwrap();
 
     if let Value::Mapping(map) = parsed {
         let table = parse_table("test_table", &map).unwrap();
@@ -916,7 +916,7 @@ fn test_type_name_function() {
     assert_eq!(type_name(&Value::String("test".to_string())), "String");
     assert_eq!(type_name(&Value::Sequence(vec![])), "Array");
     assert_eq!(
-        type_name(&Value::Mapping(serde_yaml::Mapping::new())),
+        type_name(&Value::Mapping(serde_yaml_ng::Mapping::new())),
         "Mapping"
     );
 }
@@ -958,7 +958,7 @@ fn test_text_array_wrong_type() {
 
 #[test]
 fn test_metadata_last_updated() {
-    let mut map = serde_yaml::Mapping::new();
+    let mut map = serde_yaml_ng::Mapping::new();
     map.insert(
         Value::String("last_updated".to_string()),
         Value::String("2025-01-01".to_string()),
@@ -969,8 +969,8 @@ fn test_metadata_last_updated() {
 
 #[test]
 fn test_is_nested_scalar_section_false_for_v4_rich_column() {
-    let mut map = serde_yaml::Mapping::new();
-    let mut child = serde_yaml::Mapping::new();
+    let mut map = serde_yaml_ng::Mapping::new();
+    let mut child = serde_yaml_ng::Mapping::new();
     child.insert(
         Value::String("value".to_string()),
         Value::Sequence(vec![Value::Number(1.into())]),
@@ -981,8 +981,8 @@ fn test_is_nested_scalar_section_false_for_v4_rich_column() {
 
 #[test]
 fn test_is_nested_scalar_section_true_for_scalar() {
-    let mut map = serde_yaml::Mapping::new();
-    let mut child = serde_yaml::Mapping::new();
+    let mut map = serde_yaml_ng::Mapping::new();
+    let mut child = serde_yaml_ng::Mapping::new();
     child.insert(Value::String("value".to_string()), Value::Number(42.into()));
     map.insert(Value::String("total".to_string()), Value::Mapping(child));
     assert!(is_nested_scalar_section(&map));
@@ -1109,7 +1109,7 @@ scenarios:
   year: [2023, 2024, 2025]
   revenue: [1000, 2000, 3000]
 "#;
-    let yaml: Value = serde_yaml::from_str(yaml_str).unwrap();
+    let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
     let result = parse_v1_model(&yaml).unwrap();
     assert!(result.tables.contains_key("scenarios"));
     assert!(result.scenarios.is_empty());
@@ -1117,17 +1117,17 @@ scenarios:
 
 #[test]
 fn test_is_nested_scalar_section_empty_child() {
-    let mut map = serde_yaml::Mapping::new();
+    let mut map = serde_yaml_ng::Mapping::new();
     map.insert(
         Value::String("empty".to_string()),
-        Value::Mapping(serde_yaml::Mapping::new()),
+        Value::Mapping(serde_yaml_ng::Mapping::new()),
     );
     assert!(!is_nested_scalar_section(&map));
 }
 
 #[test]
 fn test_parse_table_column_scalar_not_array() {
-    let mut map = serde_yaml::Mapping::new();
+    let mut map = serde_yaml_ng::Mapping::new();
     map.insert(Value::String("col".to_string()), Value::Number(42.into()));
     let result = parse_table("test", &map);
     assert!(result.is_err());

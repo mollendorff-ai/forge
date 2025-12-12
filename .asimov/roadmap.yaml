@@ -654,6 +654,23 @@ next:
 
   - version: "7.2.10"
     priority: NORMAL
+    status: completed
+    completed: "2025-12-12"
+    summary: "Dependency Migration - serde_yaml (deprecated) → serde_yaml_ng"
+    rationale: |
+      serde_yaml was deprecated by David Tolnay in March 2024.
+      Evaluated alternatives:
+      - serde_yml: Safe Rust backend (libyml), but docs.rs build fails for 0.0.12
+      - serde_yaml_ng: Same unsafe-libyaml backend, 100% API compatible, actively maintained
+      Decision: serde_yaml_ng for zero-risk drop-in replacement.
+    deliverables:
+      - "[DONE] Replace serde_yaml 0.9 with serde_yaml_ng 0.10 in Cargo.toml"
+      - "[DONE] Update all imports (9 files)"
+      - "[DONE] Full test suite passing (1,258 tests)"
+      - "[DONE] Build all 5 platforms"
+
+  - version: "7.2.11"
+    priority: NORMAL
     status: pending
     summary: "Remove Update Command - No Public GitHub Repo for Enterprise"
     rationale: |
@@ -699,28 +716,19 @@ backlog:
 summary:
   total_functions: 159
   categories: 14
-  current_version: "7.2.9"
-  next_version: "7.2.10"
+  current_version: "7.2.10"
+  next_version: "7.2.11"
 
   test_status:
-    unit_tests: 814
-    integration_tests: 452
+    unit_tests: 801
+    integration_tests: 457
     e2e_roundtrip: 57
-    total: 1323
+    total: 1258
     all_passing: true
     engine: "ssconvert (Gnumeric)"
 
   completed_today:
-    - "v7.2.1: Schema Integrity - Kill Auto-Upgrade"
-    - "v7.2.2: Dependency Upgrade - All Crates to Latest (6 MAJOR)"
-    - "v7.2.3: Schema Enforcement - Hardcoded Validation + ADR-014"
-    - "v7.2.4: Full Retest - Initial"
-    - "v7.2.5: Comprehensive Test Verification - ALL PASSING"
-    - "v7.2.6: Registry Cleanup + 160 Functions"
-    - "v7.2.7: Upgrade Command Gated to Enterprise Only"
-    - "forge-demo v7.2.7: GitHub Release (5 platforms, UPX compressed)"
-    - "v7.2.9: Enterprise Command Gating (7 commands gated to full feature)"
-    - "forge-demo v7.2.9: GitHub Release (5 platforms)"
+    - "v7.2.10: Dependency Migration - serde_yaml → serde_yaml_ng"
 
   major_upgrades:
     jsonschema: "0.18 → 0.37.4"
@@ -729,6 +737,7 @@ summary:
     calamine: "0.31 → 0.32"
     notify: "7.0 → 8.2"
     axum: "0.7.9 → 0.8.7"
+    serde_yaml: "0.9.34 (deprecated) → serde_yaml_ng 0.10.0"
 
   schema_enforcement:
     v1_0_0: "SCALAR ONLY (demo)"
