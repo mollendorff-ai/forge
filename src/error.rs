@@ -8,7 +8,7 @@ pub enum ForgeError {
     Io(#[from] std::io::Error),
 
     #[error("YAML parsing error: {0}")]
-    Yaml(#[from] serde_yaml::Error),
+    Yaml(#[from] serde_yaml_ng::Error),
 
     #[error("Parse error: {0}")]
     Parse(String),
@@ -322,7 +322,7 @@ mod tests {
     fn test_forge_error_from_yaml_error() {
         // Create an invalid YAML to trigger a parse error
         let invalid_yaml = ":\n  : invalid";
-        let yaml_result: Result<serde_yaml::Value, _> = serde_yaml::from_str(invalid_yaml);
+        let yaml_result: Result<serde_yaml_ng::Value, _> = serde_yaml_ng::from_str(invalid_yaml);
         assert!(yaml_result.is_err());
 
         let yaml_err = yaml_result.unwrap_err();

@@ -764,7 +764,7 @@ fn test_rate_high_payment() {
     let rate = result.scalars.get("rate").unwrap().value.unwrap();
     // High payment means lower interest rate
     assert!(
-        rate >= 0.0 && rate < 0.05,
+        (0.0..0.05).contains(&rate),
         "RATE with high payment should be low, got {}",
         rate
     );

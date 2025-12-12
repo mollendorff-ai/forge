@@ -2,7 +2,7 @@ use crate::error::{ForgeError, ForgeResult};
 use crate::types::{
     Column, ColumnValue, Include, Metadata, ParsedModel, ResolvedInclude, Scenario, Table, Variable,
 };
-use serde_yaml::Value;
+use serde_yaml_ng::Value;
 use std::collections::HashSet;
 use std::path::Path;
 
@@ -70,7 +70,7 @@ fn parse_single_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedM
         content
     };
 
-    let yaml: Value = serde_yaml::from_str(content)?;
+    let yaml: Value = serde_yaml_ng::from_str(content)?;
 
     let mut model = parse_v1_model(&yaml)?;
 
@@ -111,7 +111,7 @@ fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedMo
         doc_index += 1;
 
         // Parse the document
-        let yaml: Value = match serde_yaml::from_str(doc_content) {
+        let yaml: Value = match serde_yaml_ng::from_str(doc_content) {
             Ok(v) => v,
             Err(e) => {
                 return Err(ForgeError::Parse(format!(
@@ -235,7 +235,7 @@ fn resolve_includes(
 
         // Parse the included file
         let content = std::fs::read_to_string(&include_path)?;
-        let yaml: Value = serde_yaml::from_str(&content)?;
+        let yaml: Value = serde_yaml_ng::from_str(&content)?;
         let mut included_model = parse_v1_model(&yaml)?;
 
         // Recursively resolve includes in the included file
@@ -481,7 +481,7 @@ fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
 
 /// Check if a mapping contains nested scalar sections (e.g., summary.total)
 /// Returns false for v4.0 rich table columns (where value is an array)
-fn is_nested_scalar_section(map: &serde_yaml::Mapping) -> bool {
+fn is_nested_scalar_section(map: &serde_yaml_ng::Mapping) -> bool {
     // Check if children are mappings with {value, formula} pattern where value is a scalar (not array)
     for (_key, value) in map {
         if let Value::Mapping(child_map) = value {
@@ -503,7 +503,7 @@ fn is_nested_scalar_section(map: &serde_yaml::Mapping) -> bool {
 /// Parse nested scalar variables (e.g., summary.total, summary.average)
 fn parse_nested_scalars(
     parent_key: &str,
-    map: &serde_yaml::Mapping,
+    map: &serde_yaml_ng::Mapping,
     model: &mut ParsedModel,
 ) -> ForgeResult<()> {
     for (key, value) in map {
@@ -524,7 +524,7 @@ fn parse_nested_scalars(
 }
 
 /// Parse a table from a YAML mapping (v4.0 enhanced with metadata)
-fn parse_table(name: &str, map: &serde_yaml::Mapping) -> ForgeResult<Table> {
+fn parse_table(name: &str, map: &serde_yaml_ng::Mapping) -> ForgeResult<Table> {
     let mut table = Table::new(name.to_string());
 
     for (key, value) in map {
@@ -611,7 +611,7 @@ fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable> {
 }
 
 /// Extract metadata fields from a YAML mapping (v4.0)
-fn parse_metadata(map: &serde_yaml::Mapping) -> Metadata {
+fn parse_metadata(map: &serde_yaml_ng::Mapping) -> Metadata {
     Metadata {
         unit: map
             .get("unit")
@@ -644,7 +644,7 @@ fn parse_metadata(map: &serde_yaml::Mapping) -> Metadata {
 ///     churn_rate: 0.01
 /// ```
 fn parse_scenarios(
-    scenarios_map: &serde_yaml::Mapping,
+    scenarios_map: &serde_yaml_ng::Mapping,
     model: &mut ParsedModel,
 ) -> ForgeResult<()> {
     for (scenario_name, scenario_value) in scenarios_map {

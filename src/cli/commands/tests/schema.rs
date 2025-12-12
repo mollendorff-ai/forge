@@ -16,14 +16,14 @@ _name: "test"
 inputs:
   existing: {value: 1}
 "#;
-    let mut yaml: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let mut yaml: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml_str).unwrap();
     let yaml_map = yaml.as_mapping_mut().unwrap();
 
     split_scalars_to_inputs_outputs(yaml_map, false).unwrap();
 
     // Special keys should be preserved
-    assert!(yaml_map.contains_key(serde_yaml::Value::String("_forge_version".to_string())));
-    assert!(yaml_map.contains_key(serde_yaml::Value::String("_name".to_string())));
+    assert!(yaml_map.contains_key(serde_yaml_ng::Value::String("_forge_version".to_string())));
+    assert!(yaml_map.contains_key(serde_yaml_ng::Value::String("_name".to_string())));
 }
 
 #[test]
@@ -33,14 +33,14 @@ _forge_version: "4.0.0"
 my_input:
   value: 100
 "#;
-    let mut yaml: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let mut yaml: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml_str).unwrap();
     let yaml_map = yaml.as_mapping_mut().unwrap();
 
     split_scalars_to_inputs_outputs(yaml_map, false).unwrap();
 
     // my_input should move to inputs
-    assert!(!yaml_map.contains_key(serde_yaml::Value::String("my_input".to_string())));
-    let inputs = yaml_map.get(serde_yaml::Value::String("inputs".to_string()));
+    assert!(!yaml_map.contains_key(serde_yaml_ng::Value::String("my_input".to_string())));
+    let inputs = yaml_map.get(serde_yaml_ng::Value::String("inputs".to_string()));
     assert!(inputs.is_some());
 }
 
@@ -52,13 +52,13 @@ my_output:
   value: 200
   formula: "=x * 2"
 "#;
-    let mut yaml: serde_yaml::Value = serde_yaml::from_str(yaml_str).unwrap();
+    let mut yaml: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml_str).unwrap();
     let yaml_map = yaml.as_mapping_mut().unwrap();
 
     split_scalars_to_inputs_outputs(yaml_map, false).unwrap();
 
     // my_output should move to outputs
-    assert!(!yaml_map.contains_key(serde_yaml::Value::String("my_output".to_string())));
-    let outputs = yaml_map.get(serde_yaml::Value::String("outputs".to_string()));
+    assert!(!yaml_map.contains_key(serde_yaml_ng::Value::String("my_output".to_string())));
+    let outputs = yaml_map.get(serde_yaml_ng::Value::String("outputs".to_string()));
     assert!(outputs.is_some());
 }
