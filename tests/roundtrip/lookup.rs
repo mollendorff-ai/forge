@@ -9,7 +9,7 @@ use std::process::Command;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn e2e_libreoffice_index() {
+fn e2e_gnumeric_index() {
     let _harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
@@ -43,7 +43,7 @@ fn e2e_roundtrip_table_formulas() {
     };
 
     // Test table with row formulas survive roundtrip
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 sales:
   month: ["Jan", "Feb", "Mar"]
   revenue: [10000, 12000, 15000]
@@ -116,7 +116,7 @@ fn e2e_roundtrip_information_functions() {
     };
 
     // Test information functions survive roundtrip
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 info_tests:
   idx: [1]
   test_iseven: "=IF(ISEVEN(4), 1, 0)"
@@ -184,7 +184,7 @@ fn e2e_roundtrip_lookup_functions() {
     };
 
     // Test lookup functions survive roundtrip
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 lookup_tests:
   idx: [1]
   test_choose_1: "=CHOOSE(1, 10, 20, 30)"
@@ -262,7 +262,7 @@ fn e2e_roundtrip_lookup_extended() {
     // Test lookup functions: VLOOKUP, HLOOKUP, INDEX, MATCH
     // Using simple numeric lookups in scalar context
     // Note: These functions typically require range references which may not work in scalar YAML format
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 lookup_data:
   keys: [1, 2, 3, 4, 5]
   values: [10, 20, 30, 40, 50]
@@ -333,7 +333,7 @@ fn e2e_roundtrip_vlookup() {
 
     // Test VLOOKUP - vertical lookup
     // Note: VLOOKUP requires a table range, we'll use a two-column table
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 product_table:
   product_id: [101, 102, 103, 104, 105]
   price: [25.50, 30.00, 45.75, 20.00, 50.00]
@@ -400,7 +400,7 @@ fn e2e_roundtrip_hlookup() {
 
     // Test HLOOKUP - horizontal lookup
     // Note: HLOOKUP requires a horizontal table arrangement
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 quarterly_data:
   quarters: [1, 2, 3, 4]
   revenue: [100000, 120000, 150000, 180000]
@@ -466,7 +466,7 @@ fn e2e_roundtrip_index_match_combo() {
     };
 
     // Test INDEX+MATCH combination - the powerful alternative to VLOOKUP
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 employee_data:
   emp_id: [1001, 1002, 1003, 1004, 1005]
   salary: [50000, 60000, 75000, 55000, 80000]

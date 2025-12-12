@@ -9,11 +9,11 @@ use std::process::Command;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn e2e_libreoffice_abs() {
+fn e2e_gnumeric_abs() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -21,15 +21,15 @@ fn e2e_libreoffice_abs() {
     harness.test_formula("ABS(-42)", 42.0, 0.001).unwrap();
     harness.test_formula("ABS(42)", 42.0, 0.001).unwrap();
 
-    println!("✅ ABS validated against LibreOffice");
+    println!("✅ ABS validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_round() {
+fn e2e_gnumeric_round() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -40,15 +40,15 @@ fn e2e_libreoffice_round() {
     harness.test_formula("ROUND(3.5, 0)", 4.0, 0.001).unwrap();
     harness.test_formula("ROUND(2.5, 0)", 2.0, 0.001).ok(); // Banker's rounding may differ
 
-    println!("✅ ROUND validated against LibreOffice");
+    println!("✅ ROUND validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_sqrt() {
+fn e2e_gnumeric_sqrt() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -58,15 +58,15 @@ fn e2e_libreoffice_sqrt() {
         .test_formula("SQRT(2)", 1.41421356, 0.00001)
         .unwrap();
 
-    println!("✅ SQRT validated against LibreOffice");
+    println!("✅ SQRT validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_power() {
+fn e2e_gnumeric_power() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -75,15 +75,15 @@ fn e2e_libreoffice_power() {
     harness.test_formula("POWER(3, 3)", 27.0, 0.001).unwrap();
     harness.test_formula("2^10", 1024.0, 0.001).unwrap();
 
-    println!("✅ POWER validated against LibreOffice");
+    println!("✅ POWER validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_mod() {
+fn e2e_gnumeric_mod() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -91,15 +91,15 @@ fn e2e_libreoffice_mod() {
     harness.test_formula("MOD(10, 3)", 1.0, 0.001).unwrap();
     harness.test_formula("MOD(17, 5)", 2.0, 0.001).unwrap();
 
-    println!("✅ MOD validated against LibreOffice");
+    println!("✅ MOD validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_floor_ceiling() {
+fn e2e_gnumeric_floor_ceiling() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -107,15 +107,15 @@ fn e2e_libreoffice_floor_ceiling() {
     harness.test_formula("FLOOR(3.7, 1)", 3.0, 0.001).unwrap();
     harness.test_formula("CEILING(3.2, 1)", 4.0, 0.001).unwrap();
 
-    println!("✅ FLOOR/CEILING validated against LibreOffice");
+    println!("✅ FLOOR/CEILING validated against Gnumeric");
 }
 
 #[test]
-fn e2e_libreoffice_log_ln_exp() {
+fn e2e_gnumeric_log_ln_exp() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping");
+            eprintln!("⚠️  Gnumeric not available, skipping");
             return;
         }
     };
@@ -124,7 +124,7 @@ fn e2e_libreoffice_log_ln_exp() {
     harness.test_formula("LOG10(100)", 2.0, 0.001).unwrap();
     harness.test_formula("EXP(1)", 2.71828, 0.001).unwrap();
 
-    println!("✅ LOG/LN/EXP validated against LibreOffice");
+    println!("✅ LOG/LN/EXP validated against Gnumeric");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -142,7 +142,7 @@ fn e2e_roundtrip_math_functions() {
     };
 
     // Test math functions survive roundtrip: YAML → XLSX → Gnumeric → CSV
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 math_tests:
   idx: [1, 2, 3, 4, 5]
   test_abs: "=ABS(-42)"
@@ -218,7 +218,7 @@ fn e2e_roundtrip_trig_functions() {
     };
 
     // Test trigonometric functions survive roundtrip
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 trig_tests:
   idx: [1]
   test_sin: "=SIN(0)"
@@ -298,7 +298,7 @@ fn e2e_roundtrip_math_extended() {
     };
 
     // Test extended math functions: ROUNDUP, ROUNDDOWN, INT, TRUNC, SIGN, LN, LOG10, EXP, FLOOR, CEILING
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 math_extended:
   idx: [1]
   test_roundup: "=ROUNDUP(3.14159, 2)"

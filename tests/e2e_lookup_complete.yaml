@@ -357,5 +357,5 @@ assumptions:
 # MANDATE COMPLIANCE: This YAML E2E test suite provides maximum realistic
 # coverage within the constraints of the table-based format. Functions that
 # require traditional spreadsheet cell references (ROW, COLUMN, OFFSET, INDIRECT)
-# should be tested in supplementary Excel/LibreOffice E2E tests.
+# should be tested in supplementary Excel/Gnumeric E2E tests.
 # ═══════════════════════════════════════════════════════════════════════════

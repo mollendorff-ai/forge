@@ -1,4 +1,4 @@
-//! E2E Roundtrip test modules for LibreOffice validation
+//! E2E Roundtrip test modules for Gnumeric validation
 //!
 //! This module contains all E2E tests organized by function category.
 

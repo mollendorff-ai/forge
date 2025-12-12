@@ -1,6 +1,6 @@
 # E2E Math Function Complete Coverage
 # v6.1.0 - All 20 math functions with comprehensive tests
-# Validated against Gnumeric/LibreOffice Calc
+# Validated against Gnumeric
 
 _forge_version: "1.0.0"
 

@@ -53,7 +53,7 @@
    - **Advanced:** LAMBDA, LET (arithmetic simulations, NOT real function calls)
    - **TOTAL: 6 functions with FAKE tests** - UNACCEPTABLE for FP&A tool!
 
-3. **76% (122/159) functions lack roundtrip validation** against LibreOffice/Gnumeric
+3. **76% (122/159) functions lack roundtrip validation** against Gnumeric
 4. **Array functions (5/5) have NO E2E tests** - explicitly stated as out of scope
 
 ---
@@ -157,7 +157,7 @@
 - **Math:** 9/19 (47%)
 - **Financial:** 7/20 (35%)
 
-**IMPACT:** Roundtrip tests validate calculations against LibreOffice/Gnumeric. Missing these means no external validation.
+**IMPACT:** Roundtrip tests validate calculations against Gnumeric. Missing these means no external validation.
 
 ---
 
@@ -340,4 +340,4 @@ While unit test coverage is 100%, the project has:
 - `/Users/rex/src/royalbit/forge/src/functions/registry.rs` - All 159 function definitions
 - `/Users/rex/src/royalbit/forge/src/core/array_calculator/evaluator/*.rs` - Unit test files
 - `/Users/rex/src/royalbit/forge/tests/e2e_*_complete.yaml` - 15 E2E YAML test files (3,247 total lines)
-- `/Users/rex/src/royalbit/forge/tests/e2e_libreoffice_tests.rs` - Roundtrip tests (31 test functions)
+- `/Users/rex/src/royalbit/forge/tests/e2e_gnumeric_tests.rs` - Roundtrip tests (31 test functions)

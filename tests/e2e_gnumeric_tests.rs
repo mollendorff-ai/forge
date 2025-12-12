@@ -1,5 +1,5 @@
-// Enterprise-only: LibreOffice E2E tests for enterprise functions
-#![cfg(all(feature = "full", feature = "e2e-libreoffice"))]
+// Enterprise-only: Gnumeric E2E tests for enterprise functions
+#![cfg(all(feature = "full", feature = "e2e-gnumeric"))]
 // Allow approximate constants - we're testing Excel formula results, not Rust math
 #![allow(clippy::approx_constant)]
 
@@ -19,7 +19,7 @@
 //!
 //! # Running Tests
 //! ```bash
-//! cargo test --features e2e-libreoffice
+//! cargo test --features e2e-gnumeric
 //! ```
 //!
 //! # Requirements
@@ -30,7 +30,7 @@
 //! # Coverage Exclusion (ADR-006)
 //! These tests are skipped during coverage runs.
 
-#![cfg(all(feature = "e2e-libreoffice", not(coverage)))]
+#![cfg(all(feature = "e2e-gnumeric", not(coverage)))]
 
 use std::fs;
 use std::process::Command;
@@ -47,7 +47,7 @@ use roundtrip::harness::{forge_binary, E2ETestHarness};
 
 #[test]
 fn spreadsheet_engine_detection_works() {
-    let engine = require_libreoffice!();
+    let engine = require_gnumeric!();
     println!("✅ {} detected: {}", engine.name(), engine.version());
     // Either gnumeric or LibreOffice is fine
     assert!(
@@ -59,11 +59,11 @@ fn spreadsheet_engine_detection_works() {
 }
 
 #[test]
-fn libreoffice_headless_conversion_works() {
-    let lo = require_libreoffice!();
+fn gnumeric_conversion_works() {
+    let lo = require_gnumeric!();
 
     // Create a simple test XLSX using Forge (simplified format)
-    let yaml_content = r#"_forge_version: "1.0.0"
+    let yaml_content = r#"_forge_version: "5.0.0"
 test_data:
   row: [1]
   test_sum: "=1+2+3"
@@ -89,7 +89,7 @@ test_data:
         String::from_utf8_lossy(&output.stderr)
     );
 
-    // Convert to CSV using LibreOffice
+    // Convert to CSV using Gnumeric
     let csv_path = lo.xlsx_to_csv(&xlsx_path, temp_dir.path()).unwrap();
     assert!(csv_path.exists(), "CSV file should exist");
 
@@ -101,17 +101,17 @@ test_data:
 }
 
 #[test]
-fn e2e_libreoffice_comprehensive_validation() {
+fn e2e_gnumeric_comprehensive_validation() {
     let harness = match E2ETestHarness::new() {
         Some(h) => h,
         None => {
-            eprintln!("⚠️  LibreOffice not available, skipping comprehensive test");
+            eprintln!("⚠️  Gnumeric not available, skipping comprehensive test");
             return;
         }
     };
 
     println!("\n══════════════════════════════════════════════════════════════");
-    println!("  LibreOffice E2E Validation - Comprehensive Test");
+    println!("  Gnumeric E2E Validation - Comprehensive Test");
     println!(
         "  Engine: {} ({})",
         harness.engine.name(),
@@ -196,6 +196,6 @@ fn e2e_libreoffice_comprehensive_validation() {
 
     assert_eq!(
         failed, 0,
-        "Some formulas failed validation against LibreOffice"
+        "Some formulas failed validation against Gnumeric"
     );
 }

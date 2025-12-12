@@ -23,9 +23,9 @@
 
 ## Battle-Tested Math
 
-**Don't trust us. Trust LibreOffice.**
+**Don't trust us. Trust Gnumeric.**
 
-Every Forge formula is E2E tested against [Gnumeric](https://www.gnumeric.org/) / LibreOffice - open-source spreadsheet engines with **200+ million users**:
+Every Forge formula is E2E tested against [Gnumeric](https://www.gnumeric.org/) - open-source spreadsheet engines with **200+ million users**:
 
 ```
 Forge calculates → Exports XLSX → Gnumeric recalculates → Results compared
@@ -456,7 +456,7 @@ This means: If Gnumeric (battle-proven, millions of users) agrees with Forge, th
 ```bash
 cargo test                              # 1709 tests
 cargo clippy -- -D warnings             # Zero warnings policy
-cargo test --features e2e-libreoffice   # E2E validation (requires Gnumeric)
+cargo test --features e2e-gnumeric   # E2E validation (requires Gnumeric)
 ```
 
 ## License

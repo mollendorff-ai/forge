@@ -282,7 +282,7 @@ Excel: =A4/A1-1  (0-indexed in YAML → 1-indexed in Excel, +1 for header)
 ### E2E Test
 
 1. `test_export_quarterly_pl` - Full quarterly_pl.yaml → .xlsx
-   - Verify Excel file opens in LibreOffice/Excel
+   - Verify Excel file opens in Gnumeric/Excel
    - Verify formulas calculate correctly
    - Verify cross-table references work
    - Verify scalars sheet present
@@ -337,7 +337,7 @@ impl FormulaTranslator {
 **Phase 3 Complete When:**
 
 1. quarterly_pl.yaml exports to .xlsx ✅
-2. Excel file opens in Excel/LibreOffice ✅
+2. Excel file opens in Gnumeric/Excel ✅
 3. All formulas calculate correctly ✅
 4. Cross-table references work ✅
 5. Scalars exported to dedicated sheet ✅

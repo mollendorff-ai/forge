@@ -1,9 +1,9 @@
-// Enterprise-only: LibreOffice E2E tests for enterprise functions
-#![cfg(all(feature = "full", feature = "e2e-libreoffice"))]
+// Enterprise-only: Gnumeric E2E tests for enterprise functions
+#![cfg(all(feature = "full", feature = "e2e-gnumeric"))]
 // Allow approximate constants - we're testing Excel formula results, not Rust math
 #![allow(clippy::approx_constant)]
 
-//! Test harness and infrastructure for E2E LibreOffice validation tests
+//! Test harness and infrastructure for E2E Gnumeric validation tests
 
 use std::fs;
 use std::io::{BufRead, BufReader};
@@ -133,7 +133,7 @@ impl SpreadsheetEngine {
 
 /// Skip test if no spreadsheet engine is available
 #[macro_export]
-macro_rules! require_libreoffice {
+macro_rules! require_gnumeric {
     () => {
         match $crate::roundtrip::harness::SpreadsheetEngine::detect() {
             Some(engine) => engine,
@@ -161,7 +161,7 @@ pub fn forge_binary() -> PathBuf {
     path
 }
 
-/// Parse CSV output from LibreOffice
+/// Parse CSV output from spreadsheet engine
 pub fn parse_csv(path: &std::path::Path) -> Vec<Vec<String>> {
     let file = fs::File::open(path).expect("Failed to open CSV");
     let reader = BufReader::new(file);
@@ -169,7 +169,7 @@ pub fn parse_csv(path: &std::path::Path) -> Vec<Vec<String>> {
 
     for line in reader.lines() {
         let line = line.expect("Failed to read line");
-        // Simple CSV parsing (LibreOffice uses comma separator)
+        // Simple CSV parsing (comma separator)
         let cells: Vec<String> = line
             .split(',')
             .map(|s| s.trim_matches('"').to_string())
@@ -219,14 +219,14 @@ impl E2ETestHarness {
     /// Test a formula by:
     /// 1. Creating YAML with the formula
     /// 2. Exporting to XLSX via Forge
-    /// 3. Converting to CSV via LibreOffice (which recalculates)
+    /// 3. Converting to CSV via spreadsheet engine (which recalculates)
     /// 4. Comparing the values
     pub fn test_formula(&self, formula: &str, expected: f64, tolerance: f64) -> Result<(), String> {
-        // Use RowFormula format (scalar string) - matches schema's RowFormula definition
+        // Use v5.0.0 schema for table support (arrays require v5.0.0, not v1.0.0)
         // Note: Formulas like SUM/AVERAGE/etc match both RowFormula AND AggregationFormula,
         // causing oneOf to fail. Use test_aggregation() for those.
         let yaml_content = format!(
-            r#"_forge_version: "1.0.0"
+            r#"_forge_version: "5.0.0"
 test_data:
   row: [1]
   result: "={}"
@@ -254,14 +254,14 @@ test_data:
             ));
         }
 
-        // Convert to CSV using LibreOffice
+        // Convert to CSV using spreadsheet engine
         let csv_path = self.engine.xlsx_to_csv(&xlsx_path, self.temp_dir.path())?;
 
         // Parse CSV and find the result
         let csv_data = parse_csv(&csv_path);
 
         // Find the "result" value - it should be in the Scalars sheet
-        // LibreOffice exports each sheet, we need to find our value
+        // Spreadsheet engine exports each sheet, we need to find our value
         for row in &csv_data {
             for (i, cell) in row.iter().enumerate() {
                 if cell == "result" && i + 1 < row.len() {
@@ -270,7 +270,7 @@ test_data:
                             return Ok(());
                         } else {
                             return Err(format!(
-                                "Formula '{}': LibreOffice got {}, expected {} (tolerance: {})",
+                                "Formula '{}': spreadsheet engine got {}, expected {} (tolerance: {})",
                                 formula, value, expected, tolerance
                             ));
                         }
@@ -305,10 +305,10 @@ test_data:
         expected: f64,
         tolerance: f64,
     ) -> Result<(), String> {
-        // Build array for data column
+        // Build array for data column - use v5.0.0 for array support
         let data_str: Vec<String> = data.iter().map(|n| n.to_string()).collect();
         let yaml_content = format!(
-            r#"_forge_version: "1.0.0"
+            r#"_forge_version: "5.0.0"
 data:
   values: [{}]
   result: "={}"
@@ -337,7 +337,7 @@ data:
             ));
         }
 
-        // Convert to CSV using LibreOffice
+        // Convert to CSV using spreadsheet engine
         let csv_path = self.engine.xlsx_to_csv(&xlsx_path, self.temp_dir.path())?;
 
         // Parse CSV and find the result
@@ -425,9 +425,9 @@ data:
         tolerance: f64,
     ) -> Result<(), String> {
         // For text functions, we use a different approach - create a cell with the text
-        // and reference it, avoiding YAML escaping issues
+        // and reference it, avoiding YAML escaping issues. Use v5.0.0 for array support.
         let yaml_content = format!(
-            r#"_forge_version: "1.0.0"
+            r#"_forge_version: "5.0.0"
 test_data:
   row: [1]
   result: "={}"
@@ -452,8 +452,9 @@ test_data:
         let criteria_str: Vec<String> = criteria_data.iter().map(|n| n.to_string()).collect();
         let values_str: Vec<String> = values_data.iter().map(|n| n.to_string()).collect();
 
+        // Use v5.0.0 for array support
         let yaml_content = format!(
-            r#"_forge_version: "1.0.0"
+            r#"_forge_version: "5.0.0"
 data:
   criteria: [{}]
   values: [{}]
@@ -482,8 +483,9 @@ data:
         let lookup_str: Vec<String> = lookup_col.iter().map(|n| n.to_string()).collect();
         let result_str: Vec<String> = result_col.iter().map(|n| n.to_string()).collect();
 
+        // Use v5.0.0 for array support
         let yaml_content = format!(
-            r#"_forge_version: "1.0.0"
+            r#"_forge_version: "5.0.0"
 lookup_table:
   key: [{}]
   value: [{}]
@@ -511,8 +513,9 @@ lookup_table:
         let arr1_str: Vec<String> = array1.iter().map(|n| n.to_string()).collect();
         let arr2_str: Vec<String> = array2.iter().map(|n| n.to_string()).collect();
 
+        // Use v5.0.0 for array support
         let yaml_content = format!(
-            r#"_forge_version: "1.0.0"
+            r#"_forge_version: "5.0.0"
 data:
   x: [{}]
   y: [{}]

@@ -1,6 +1,6 @@
 # E2E Date Function Validation (Demo Functions Only)
 # Tests date extraction functions which return numbers
-# Validated against Gnumeric and LibreOffice Calc
+# Validated against Gnumeric
 
 _forge_version: "1.0.0"
 
