@@ -35,6 +35,10 @@
     "outputs": {
       "$ref": "#/definitions/ScalarGroup",
       "description": "Output scalars with formulas (v5.0.0) - calculated values from formulas"
+    },
+    "monte_carlo": {
+      "$ref": "#/definitions/MonteCarlo",
+      "description": "Monte Carlo simulation configuration (v8.0.0) - probabilistic analysis"
     }
   },
 
@@ -376,6 +380,40 @@
       "examples": [
         { "file": "data_sources.yaml", "as": "sources" }
       ]
+    },
+
+    "MonteCarlo": {
+      "title": "Monte Carlo Configuration (v8.0.0)",
+      "description": "Configuration for probabilistic simulation",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "iterations": { "type": "integer", "minimum": 100, "default": 10000 },
+        "sampling": { "type": "string", "enum": ["monte_carlo", "latin_hypercube"], "default": "latin_hypercube" },
+        "seed": { "type": "integer" },
+        "outputs": { "type": "array", "items": { "$ref": "#/definitions/MonteCarloOutput" } },
+        "correlations": { "type": "array", "items": { "$ref": "#/definitions/MonteCarloCorrelation" } }
+      }
+    },
+
+    "MonteCarloOutput": {
+      "type": "object",
+      "properties": {
+        "variable": { "type": "string" },
+        "percentiles": { "type": "array", "items": { "type": "integer" } },
+        "threshold": { "type": "string" },
+        "label": { "type": "string" }
+      },
+      "required": ["variable"]
+    },
+
+    "MonteCarloCorrelation": {
+      "type": "object",
+      "properties": {
+        "variables": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 },
+        "coefficient": { "type": "number", "minimum": -1, "maximum": 1 }
+      },
+      "required": ["variables", "coefficient"]
     }
   },
 
