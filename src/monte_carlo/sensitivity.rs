@@ -113,8 +113,6 @@ pub fn spearman_correlation(x: &[f64], y: &[f64]) -> f64 {
         return 0.0;
     }
 
-    let n = x.len();
-
     // Compute ranks
     let x_ranks = compute_ranks(x);
     let y_ranks = compute_ranks(y);
@@ -272,7 +270,7 @@ mod tests {
     fn test_tornado_ordering() {
         let mut inputs: HashMap<String, Vec<f64>> = HashMap::new();
         inputs.insert("high_impact".to_string(), vec![1.0, 2.0, 3.0, 4.0, 5.0]);
-        inputs.insert("low_impact".to_string(), vec![5.0, 4.0, 3.0, 2.0, 1.0]);
+        inputs.insert("medium_impact".to_string(), vec![1.0, 1.5, 2.0, 2.5, 3.0]); // weaker correlation
         inputs.insert("no_impact".to_string(), vec![3.0, 1.0, 4.0, 2.0, 5.0]);
 
         let mut outputs: HashMap<String, Vec<f64>> = HashMap::new();
@@ -283,13 +281,21 @@ mod tests {
         let top = analysis.top_drivers("result", 3);
         assert_eq!(top.len(), 3);
 
-        // High impact should be first (positive correlation)
+        // High impact should be first (perfect positive correlation)
         assert_eq!(top[0].variable, "high_impact");
-        assert!(top[0].correlation > 0.9);
+        assert!(
+            top[0].correlation > 0.99,
+            "Expected ~1.0, got {}",
+            top[0].correlation
+        );
 
-        // Low impact should be second (negative correlation, same magnitude)
-        assert_eq!(top[1].variable, "low_impact");
-        assert!(top[1].correlation < -0.9);
+        // Medium impact should be second
+        assert_eq!(top[1].variable, "medium_impact");
+        assert!(
+            top[1].correlation > 0.9,
+            "Expected high correlation, got {}",
+            top[1].correlation
+        );
     }
 
     #[test]

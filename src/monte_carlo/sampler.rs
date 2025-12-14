@@ -17,9 +17,10 @@ pub enum SamplingMethod {
     LatinHypercube,
 }
 
-impl SamplingMethod {
-    /// Parse from string
-    pub fn from_str(s: &str) -> Result<Self, String> {
+impl std::str::FromStr for SamplingMethod {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "monte_carlo" | "montecarlo" | "mc" => Ok(SamplingMethod::MonteCarlo),
             "latin_hypercube" | "latinhypercube" | "lhs" => Ok(SamplingMethod::LatinHypercube),
@@ -158,6 +159,7 @@ impl SampleStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn test_sampling_method_from_str() {

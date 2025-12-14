@@ -27,7 +27,7 @@ pub fn simulate(
         println!("{}", "📖 Parsing YAML file...".cyan());
     }
 
-    let yaml_content = fs::read_to_string(&file).map_err(|e| ForgeError::Io(e))?;
+    let yaml_content = fs::read_to_string(&file).map_err(ForgeError::Io)?;
 
     // Parse monte_carlo config from YAML
     let mut config = parse_monte_carlo_config(&yaml_content)?;
@@ -44,7 +44,7 @@ pub fn simulate(
     }
 
     // Validate config
-    config.validate().map_err(|e| ForgeError::Validation(e))?;
+    config.validate().map_err(ForgeError::Validation)?;
 
     // Display config
     println!("   {}", "Configuration:".bold());
@@ -70,20 +70,19 @@ pub fn simulate(
     }
 
     // Create engine
-    let mut engine =
-        MonteCarloEngine::new(config.clone()).map_err(|e| ForgeError::Validation(e))?;
+    let mut engine = MonteCarloEngine::new(config.clone()).map_err(ForgeError::Validation)?;
 
     // Parse distributions from model
     engine
         .parse_distributions_from_model(&model)
-        .map_err(|e| ForgeError::Validation(e))?;
+        .map_err(ForgeError::Validation)?;
 
     // Run simulation
     if verbose {
         println!("{}", "🎲 Running simulation...".cyan());
     }
 
-    let result = engine.run().map_err(|e| ForgeError::Eval(e))?;
+    let result = engine.run().map_err(ForgeError::Eval)?;
 
     // Display results
     println!("{}", "📊 Simulation Results:".bold().green());
@@ -140,7 +139,7 @@ pub fn simulate(
 
     // Write output file if specified
     if let Some(output_path) = output_file {
-        let output_str = if output_path.extension().map_or(false, |e| e == "json") {
+        let output_str = if output_path.extension().is_some_and(|e| e == "json") {
             result
                 .to_json()
                 .map_err(|e| ForgeError::Validation(format!("JSON error: {}", e)))?
@@ -148,7 +147,7 @@ pub fn simulate(
             result.to_yaml()
         };
 
-        fs::write(&output_path, output_str).map_err(|e| ForgeError::Io(e))?;
+        fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
 
         println!(
             "{}",

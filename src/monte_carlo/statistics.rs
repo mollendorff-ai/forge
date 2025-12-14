@@ -259,8 +259,8 @@ pub fn parse_threshold(threshold: &str) -> Result<(String, f64), String> {
 
     let operators = [">=", "<=", ">", "<", "="];
     for op in operators {
-        if threshold.starts_with(op) {
-            let value_str = threshold[op.len()..].trim();
+        if let Some(rest) = threshold.strip_prefix(op) {
+            let value_str = rest.trim();
             let value: f64 = value_str
                 .parse()
                 .map_err(|_| format!("Invalid threshold value: {}", value_str))?;
