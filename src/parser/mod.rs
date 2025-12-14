@@ -272,7 +272,7 @@ fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                 .ok_or_else(|| ForgeError::Parse("Table name must be a string".to_string()))?;
 
             // Skip special keys
-            if key_str == "_forge_version" || key_str == "_name" {
+            if key_str == "_forge_version" || key_str == "_name" || key_str == "monte_carlo" {
                 continue;
             }
 
@@ -403,7 +403,11 @@ fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
             let key_str = key.as_str().unwrap_or("");
 
             // Skip special keys
-            if key_str == "_forge_version" || key_str == "_name" || key_str == "scenarios" {
+            if key_str == "_forge_version"
+                || key_str == "_name"
+                || key_str == "scenarios"
+                || key_str == "monte_carlo"
+            {
                 continue;
             }
 
