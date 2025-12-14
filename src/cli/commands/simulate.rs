@@ -139,15 +139,25 @@ pub fn simulate(
 
     // Write output file if specified
     if let Some(output_path) = output_file {
-        let output_str = if output_path.extension().is_some_and(|e| e == "json") {
-            result
-                .to_json()
-                .map_err(|e| ForgeError::Validation(format!("JSON error: {}", e)))?
-        } else {
-            result.to_yaml()
-        };
-
-        fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
+        let ext = output_path.extension().and_then(|e| e.to_str());
+        match ext {
+            Some("xlsx") => {
+                // Excel export
+                crate::monte_carlo::excel_export::export_results(&result, &output_path)
+                    .map_err(ForgeError::Validation)?;
+            }
+            Some("json") => {
+                let output_str = result
+                    .to_json()
+                    .map_err(|e| ForgeError::Validation(format!("JSON error: {}", e)))?;
+                fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
+            }
+            _ => {
+                // Default to YAML
+                let output_str = result.to_yaml();
+                fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
+            }
+        }
 
         println!(
             "{}",

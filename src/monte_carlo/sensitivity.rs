@@ -270,7 +270,8 @@ mod tests {
     fn test_tornado_ordering() {
         let mut inputs: HashMap<String, Vec<f64>> = HashMap::new();
         inputs.insert("high_impact".to_string(), vec![1.0, 2.0, 3.0, 4.0, 5.0]);
-        inputs.insert("medium_impact".to_string(), vec![1.0, 1.5, 2.0, 2.5, 3.0]); // weaker correlation
+        // Non-monotonic to break perfect Spearman rank correlation
+        inputs.insert("medium_impact".to_string(), vec![1.0, 2.5, 2.0, 4.0, 5.0]);
         inputs.insert("no_impact".to_string(), vec![3.0, 1.0, 4.0, 2.0, 5.0]);
 
         let mut outputs: HashMap<String, Vec<f64>> = HashMap::new();
@@ -289,11 +290,11 @@ mod tests {
             top[0].correlation
         );
 
-        // Medium impact should be second
+        // Medium impact should be second (high but not perfect correlation)
         assert_eq!(top[1].variable, "medium_impact");
         assert!(
-            top[1].correlation > 0.9,
-            "Expected high correlation, got {}",
+            top[1].correlation > 0.8 && top[1].correlation < 1.0,
+            "Expected high but imperfect correlation, got {}",
             top[1].correlation
         );
     }
