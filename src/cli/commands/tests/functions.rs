@@ -11,8 +11,8 @@ fn test_registry_counts() {
     // Registry is the single source of truth
     assert_eq!(
         registry::count_enterprise(),
-        160,
-        "Enterprise should have 160 functions"
+        173,
+        "Enterprise should have 173 functions"
     );
     assert_eq!(registry::count_demo(), 48, "Demo should have 48 functions");
 }

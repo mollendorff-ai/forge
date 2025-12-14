@@ -14,11 +14,11 @@ mod tests {
 
     #[test]
     fn test_enterprise_count() {
-        // 160 total functions (includes aliases like AVG, CONCATENATE)
+        // 173 total functions (includes aliases like AVG, CONCATENATE, 6 MC.* functions)
         assert_eq!(
             count_enterprise(),
-            160,
-            "Enterprise should have 160 functions"
+            173,
+            "Enterprise should have 173 functions"
         );
     }
 
@@ -69,7 +69,7 @@ mod tests {
         let array_only = count_array_only();
         assert_eq!(
             scalar + array_only,
-            160,
+            173,
             "Scalar + array-only should equal total"
         );
         // 24 array-only functions:

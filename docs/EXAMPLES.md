@@ -188,6 +188,418 @@ monte_carlo_results:
 - **Yellow flag** if high sensitivity to uncontrollable variables
 - **Red flag** if P50 < minimum_acceptable_return
 
+### Basic Revenue Forecasting
+
+Simple Monte Carlo simulation for quarterly revenue forecasting with uncertainty:
+
+```yaml
+_forge_version: "5.0.0"
+
+monte_carlo:
+  enabled: true
+  iterations: 5000
+  sampling: latin_hypercube
+  seed: 42
+  outputs:
+    - variable: forecast.q4_revenue
+      percentiles: [10, 25, 50, 75, 90]
+      thresholds: [500000, 750000, 1000000]
+
+assumptions:
+  base_revenue:
+    value: null
+    formula: "=MC.Normal(600000, 50000)"  # Mean $600K, std dev $50K
+
+  growth_rate:
+    value: null
+    formula: "=MC.Triangular(0.05, 0.10, 0.20)"  # min 5%, mode 10%, max 20%
+
+  seasonality_factor:
+    value: null
+    formula: "=MC.Uniform(0.95, 1.15)"  # -5% to +15% seasonal variation
+
+forecast:
+  q4_revenue:
+    value: null
+    formula: "=assumptions.base_revenue * (1 + assumptions.growth_rate) * assumptions.seasonality_factor"
+```
+
+**Run:**
+
+```bash
+forge simulate revenue_forecast.yaml --output forecast_results.yaml
+```
+
+**Results interpretation:**
+
+```yaml
+monte_carlo_results:
+  forecast.q4_revenue:
+    percentiles:
+      p10: 573245.12    # Conservative estimate (10th percentile)
+      p25: 614567.89    # Lower bound of likely range
+      p50: 678234.56    # Median forecast
+      p75: 745123.45    # Upper bound of likely range
+      p90: 812456.78    # Optimistic estimate (90th percentile)
+
+    thresholds:
+      "500000": 0.94    # 94% chance of exceeding $500K
+      "750000": 0.32    # 32% chance of exceeding $750K
+      "1000000": 0.04   # 4% chance of exceeding $1M
+```
+
+### Correlated Variables
+
+Real-world variables often move together. Use `MC.Correlated` to model relationships like revenue and margin correlation:
+
+```yaml
+_forge_version: "5.0.0"
+
+monte_carlo:
+  enabled: true
+  iterations: 10000
+  sampling: latin_hypercube
+  seed: 99
+  outputs:
+    - variable: financials.net_income
+      percentiles: [5, 25, 50, 75, 95]
+      thresholds: [0, 50000, 100000]
+      sensitivity: true
+
+    - variable: financials.revenue
+      percentiles: [10, 50, 90]
+
+    - variable: financials.margin
+      percentiles: [10, 50, 90]
+
+# Correlated revenue and margin scenarios
+# When revenue is high, margins tend to be lower (volume discount effect)
+# Negative correlation of -0.6
+correlated_inputs:
+  revenue_margin:
+    value: null
+    formula: "=MC.Correlated([1000000, 0.30], [150000, 0.05], -0.6)"
+    # [revenue_mean, margin_mean], [revenue_std, margin_std], correlation
+
+financials:
+  # Extract correlated values
+  revenue:
+    value: null
+    formula: "=INDEX(correlated_inputs.revenue_margin, 0)"  # First element
+
+  margin:
+    value: null
+    formula: "=INDEX(correlated_inputs.revenue_margin, 1)"  # Second element
+
+  # Additional independent variables
+  fixed_costs:
+    value: null
+    formula: "=MC.Normal(200000, 15000)"
+
+  # Calculated outcomes
+  gross_profit:
+    value: null
+    formula: "=revenue * margin"
+
+  net_income:
+    value: null
+    formula: "=gross_profit - fixed_costs"
+```
+
+**Run:**
+
+```bash
+forge simulate correlated_model.yaml --output corr_results.yaml
+```
+
+**Understanding correlation:**
+
+- **Positive correlation (+0.6 to +1.0)**: Variables move together (e.g., revenue and costs)
+- **Negative correlation (-0.6 to -1.0)**: Variables move opposite (e.g., volume and price)
+- **No correlation (0)**: Variables are independent
+
+**Results show correlated behavior:**
+
+```yaml
+monte_carlo_results:
+  financials.net_income:
+    percentiles:
+      p5: -48234.56     # 5% worst case
+      p25: 67890.12     # Lower quartile
+      p50: 98765.43     # Median
+      p75: 128456.78    # Upper quartile
+      p95: 167234.91    # 5% best case
+
+    thresholds:
+      "0": 0.89         # 89% probability of profit
+      "50000": 0.68     # 68% probability of > $50K profit
+      "100000": 0.41    # 41% probability of > $100K profit
+
+    sensitivity:
+      correlated_inputs.revenue_margin[0]: 0.92   # Revenue is key driver
+      financials.fixed_costs: -0.38               # Costs have negative impact
+      correlated_inputs.revenue_margin[1]: 0.71   # Margin also important
+
+  financials.revenue:
+    percentiles:
+      p10: 823456.78
+      p50: 1001234.56
+      p90: 1178912.34
+
+  financials.margin:
+    percentiles:
+      p10: 0.237        # When revenue is high (p90), margin tends low
+      p50: 0.301        # Median margin
+      p90: 0.364        # When revenue is low (p10), margin tends high
+```
+
+### Multiple Output Tracking
+
+Track multiple metrics simultaneously with different analysis settings:
+
+```yaml
+_forge_version: "5.0.0"
+
+monte_carlo:
+  enabled: true
+  iterations: 10000
+  sampling: latin_hypercube
+  seed: 2025
+  outputs:
+    # Track profitability with detailed percentiles
+    - variable: metrics.ebitda
+      percentiles: [1, 5, 10, 25, 50, 75, 90, 95, 99]
+      thresholds: [0, 100000, 200000, 300000]
+      sensitivity: true
+
+    # Track ROI with key percentiles only
+    - variable: metrics.roi
+      percentiles: [10, 50, 90]
+      thresholds: [0.10, 0.15, 0.20]  # 10%, 15%, 20% return thresholds
+
+    # Track payback period
+    - variable: metrics.payback_years
+      percentiles: [25, 50, 75]
+      thresholds: [2.0, 3.0, 5.0]  # Years to payback
+
+    # Track revenue (no sensitivity needed)
+    - variable: projections.year_1_revenue
+      percentiles: [10, 50, 90]
+
+assumptions:
+  market_size:
+    value: null
+    formula: "=MC.Normal(5000000, 800000)"
+
+  market_share:
+    value: null
+    formula: "=MC.Triangular(0.05, 0.10, 0.18)"  # 5-18% share, mode 10%
+
+  avg_price:
+    value: null
+    formula: "=MC.Normal(25, 3)"
+
+  unit_cost:
+    value: null
+    formula: "=MC.Triangular(12, 15, 18)"
+
+  opex:
+    value: null
+    formula: "=MC.Normal(150000, 20000)"
+
+  initial_investment:
+    value: 500000
+    formula: null
+
+projections:
+  year_1_revenue:
+    value: null
+    formula: "=assumptions.market_size * assumptions.market_share"
+
+  units_sold:
+    value: null
+    formula: "=year_1_revenue / assumptions.avg_price"
+
+  cogs:
+    value: null
+    formula: "=units_sold * assumptions.unit_cost"
+
+  gross_profit:
+    value: null
+    formula: "=year_1_revenue - cogs"
+
+metrics:
+  ebitda:
+    value: null
+    formula: "=projections.gross_profit - assumptions.opex"
+
+  roi:
+    value: null
+    formula: "=ebitda / assumptions.initial_investment"
+
+  payback_years:
+    value: null
+    formula: "=IF(ebitda > 0, assumptions.initial_investment / ebitda, 999)"
+```
+
+**Run:**
+
+```bash
+forge simulate multi_output.yaml --output multi_results.yaml
+```
+
+**Results with multiple outputs:**
+
+```yaml
+monte_carlo_results:
+  metrics.ebitda:
+    percentiles:
+      p1: -87654.32     # Extreme downside
+      p5: -34567.89
+      p10: -12345.67
+      p25: 34567.89
+      p50: 78901.23     # Median EBITDA
+      p75: 123456.78
+      p90: 167890.12
+      p95: 198765.43
+      p99: 245678.90    # Extreme upside
+
+    thresholds:
+      "0": 0.67         # 67% chance of positive EBITDA
+      "100000": 0.38    # 38% chance of > $100K EBITDA
+      "200000": 0.09    # 9% chance of > $200K EBITDA
+      "300000": 0.01    # 1% chance of > $300K EBITDA
+
+    sensitivity:
+      assumptions.market_share: 0.88        # Market share is critical
+      assumptions.market_size: 0.72         # Market size important
+      assumptions.avg_price: 0.45           # Price has moderate impact
+      assumptions.unit_cost: -0.41          # Costs negatively impact
+      assumptions.opex: -0.38               # OpEx negatively impacts
+
+  metrics.roi:
+    percentiles:
+      p10: -0.025       # -2.5% return (10th percentile)
+      p50: 0.158        # 15.8% median return
+      p90: 0.334        # 33.4% return (90th percentile)
+
+    thresholds:
+      "0.10": 0.71      # 71% chance of > 10% ROI
+      "0.15": 0.54      # 54% chance of > 15% ROI
+      "0.20": 0.32      # 32% chance of > 20% ROI
+
+  metrics.payback_years:
+    percentiles:
+      p25: 3.21         # Fast payback (25th percentile)
+      p50: 6.34         # Median payback
+      p75: 14.56        # Slow payback (75th percentile)
+
+    thresholds:
+      "2.0": 0.08       # 8% chance of 2-year payback
+      "3.0": 0.21       # 21% chance of 3-year payback
+      "5.0": 0.45       # 45% chance of 5-year payback
+
+  projections.year_1_revenue:
+    percentiles:
+      p10: 323456.78
+      p50: 578901.23
+      p90: 867234.56
+```
+
+**Multi-output decision making:**
+
+1. **EBITDA Analysis**: 67% chance of profitability, but only 38% chance of hitting $100K target
+2. **ROI Analysis**: 54% chance of exceeding 15% return threshold - acceptable for moderate risk
+3. **Payback Analysis**: 45% chance of 5-year payback - longer than preferred 3-year target
+4. **Key Lever**: Market share (0.88 sensitivity) is the critical success factor
+
+**Recommended actions:**
+
+- Focus resources on market share acquisition (highest sensitivity)
+- Plan for median payback of 6.3 years, not optimistic 3-year case
+- Set internal target at P25-P50 range, not P90 optimistic scenario
+
+### Cost Estimation with Triangular Distribution
+
+When you have min/most-likely/max estimates (common in project planning):
+
+```yaml
+_forge_version: "5.0.0"
+
+monte_carlo:
+  enabled: true
+  iterations: 5000
+  sampling: latin_hypercube
+  outputs:
+    - variable: project.total_cost
+      percentiles: [10, 50, 90, 95, 99]
+      thresholds: [250000, 300000, 350000, 400000]
+
+# Triangular distributions based on expert estimates
+phases:
+  phase: ["Design", "Development", "Testing", "Deployment"]
+
+  # Cost estimates: [minimum, most_likely, maximum]
+  design_cost: "=MC.Triangular(40000, 50000, 75000)"
+  dev_cost: "=MC.Triangular(120000, 150000, 220000)"
+  test_cost: "=MC.Triangular(30000, 40000, 60000)"
+  deploy_cost: "=MC.Triangular(15000, 20000, 35000)"
+
+# Risk factors
+risks:
+  scope_creep:
+    value: null
+    formula: "=MC.Uniform(1.0, 1.25)"  # 0-25% cost overrun
+
+  resource_availability:
+    value: null
+    formula: "=MC.Triangular(1.0, 1.05, 1.30)"  # Usually 5%, up to 30% delay
+
+project:
+  base_cost:
+    value: null
+    formula: "=SUM(phases.design_cost) + SUM(phases.dev_cost) + SUM(phases.test_cost) + SUM(phases.deploy_cost)"
+
+  total_cost:
+    value: null
+    formula: "=base_cost * risks.scope_creep * risks.resource_availability"
+```
+
+**Run:**
+
+```bash
+forge simulate project_cost.yaml --output cost_results.yaml
+```
+
+**Cost estimation results:**
+
+```yaml
+monte_carlo_results:
+  project.total_cost:
+    percentiles:
+      p10: 218765.43    # Optimistic (10% chance lower)
+      p50: 287654.32    # Median estimate - use for planning
+      p90: 389012.45    # Conservative (10% chance higher)
+      p95: 427890.12    # Risk reserve level
+      p99: 512345.67    # Extreme scenario
+
+    thresholds:
+      "250000": 0.72    # 72% chance of staying under $250K
+      "300000": 0.52    # 52% chance of staying under $300K
+      "350000": 0.32    # 32% chance of staying under $350K
+      "400000": 0.21    # 21% chance of staying under $400K
+
+    statistics:
+      mean: 295432.10
+      std_dev: 78901.23
+```
+
+**Budgeting recommendations:**
+
+- **Budget at P75-P90**: Set budget at $350K-$390K for 75-90% confidence
+- **Contingency**: $287K (P50) + $100K (35% buffer) = $387K aligns with P90
+- **Board presentation**: "Project cost $290K ± $100K" (mean ± 1 std dev)
+
 ## Advanced Features
 
 ### Cross-Table References

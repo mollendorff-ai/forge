@@ -83,6 +83,7 @@ Your analysts get the same multiplier. But only if they stop feeding Excel to AI
 | **YAML-based models** | Git-native, diff-friendly, PR-reviewable |
 | **153 Excel functions** | NPV, IRR, XIRR, PMT, VLOOKUP, SUMIF - all the finance essentials |
 | **6 FP&A functions (not in Excel)** | VARIANCE, BREAKEVEN - what Excel should have had |
+| **Monte Carlo simulation** | Probabilistic modeling with uncertainty distributions (Enterprise) |
 | **Deterministic execution** | Same input = same output, every time |
 | **Excel export** | Your CFO still gets `.xlsx` with working formulas |
 | **Audit command** | Instant dependency trace for any variable |
@@ -195,51 +196,27 @@ These commands require the enterprise build (`--features full`):
 - `update` - Self-update
 - `upgrade` - Schema migration
 
-## Monte Carlo Simulation (Enterprise)
+## Monte Carlo Simulation
 
-**Probabilistic analysis for FP&A.** Model uncertainty with distributions instead of single-point estimates.
+**Model uncertainty with probability distributions.** Instead of single-point estimates, use distributions to capture risk and generate percentile outcomes (P10/P50/P90). Runs thousands of scenarios to answer "What's the probability NPV > 0?"
 
 ```yaml
-monte_carlo:
-  enabled: true
-  iterations: 10000
-  sampling: latin_hypercube  # 5x faster convergence
-  seed: 12345               # Reproducible results
-  outputs:
-    - variable: valuation.npv
-      percentiles: [10, 50, 90]
-      threshold: "> 0"
-
 scalars:
   revenue_growth:
     value: 0.15
     formula: "=MC.Normal(0.15, 0.05)"  # Mean 15%, StdDev 5%
 
-  initial_cost:
+  cost_estimate:
     value: 100000
     formula: "=MC.Triangular(80000, 100000, 150000)"  # Min/Mode/Max
 ```
 
-### Distribution Functions
-
-| Function | Use Case | Example |
-|----------|----------|---------|
-| `MC.Normal(mean, stdev)` | Symmetric uncertainty | Revenue growth |
-| `MC.Triangular(min, mode, max)` | Expert estimates | Project costs |
-| `MC.Uniform(min, max)` | Equal probability | Market share |
-| `MC.PERT(min, mode, max)` | Smooth project estimates | Duration |
-| `MC.Lognormal(mean, stdev)` | Non-negative values | Asset prices |
-
-### Run Simulation
-
+Run simulation:
 ```bash
-forge simulate model.yaml --iterations 10000 --output results.json
-
-# Output includes:
-#   - P10/P50/P90 percentiles
-#   - Probability thresholds (e.g., P(NPV > 0) = 78%)
-#   - Sensitivity analysis (which inputs drive variance)
+forge simulate model.yaml --iterations 10000 --output results.xlsx
 ```
+
+**Note:** This is an **Enterprise feature**. See [docs/FEATURES.md](docs/FEATURES.md) for full distribution functions and configuration options.
 
 ## Example: 5-Year DCF Model
 
