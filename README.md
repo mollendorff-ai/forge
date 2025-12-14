@@ -191,8 +191,55 @@ These commands require the enterprise build (`--features full`):
 - `sensitivity` - Data tables
 - `goal-seek` - Find input for target
 - `break-even` - Find zero-crossing
+- `simulate` - Monte Carlo simulation
 - `update` - Self-update
 - `upgrade` - Schema migration
+
+## Monte Carlo Simulation (Enterprise)
+
+**Probabilistic analysis for FP&A.** Model uncertainty with distributions instead of single-point estimates.
+
+```yaml
+monte_carlo:
+  enabled: true
+  iterations: 10000
+  sampling: latin_hypercube  # 5x faster convergence
+  seed: 12345               # Reproducible results
+  outputs:
+    - variable: valuation.npv
+      percentiles: [10, 50, 90]
+      threshold: "> 0"
+
+scalars:
+  revenue_growth:
+    value: 0.15
+    formula: "=MC.Normal(0.15, 0.05)"  # Mean 15%, StdDev 5%
+
+  initial_cost:
+    value: 100000
+    formula: "=MC.Triangular(80000, 100000, 150000)"  # Min/Mode/Max
+```
+
+### Distribution Functions
+
+| Function | Use Case | Example |
+|----------|----------|---------|
+| `MC.Normal(mean, stdev)` | Symmetric uncertainty | Revenue growth |
+| `MC.Triangular(min, mode, max)` | Expert estimates | Project costs |
+| `MC.Uniform(min, max)` | Equal probability | Market share |
+| `MC.PERT(min, mode, max)` | Smooth project estimates | Duration |
+| `MC.Lognormal(mean, stdev)` | Non-negative values | Asset prices |
+
+### Run Simulation
+
+```bash
+forge simulate model.yaml --iterations 10000 --output results.json
+
+# Output includes:
+#   - P10/P50/P90 percentiles
+#   - Probability thresholds (e.g., P(NPV > 0) = 78%)
+#   - Sensitivity analysis (which inputs drive variance)
+```
 
 ## Example: 5-Year DCF Model
 
