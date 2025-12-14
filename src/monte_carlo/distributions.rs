@@ -420,7 +420,7 @@ mod tests {
         assert!((mean - 5.0).abs() < 0.2, "Mean {} not close to 5", mean);
 
         // All samples should be within bounds
-        assert!(samples.iter().all(|&x| x >= 0.0 && x <= 10.0));
+        assert!(samples.iter().all(|&x| (0.0..=10.0).contains(&x)));
     }
 
     #[test]
@@ -435,7 +435,7 @@ mod tests {
         assert!((mean - 15.0).abs() < 0.2, "Mean {} not close to 15", mean);
 
         // All samples should be within bounds
-        assert!(samples.iter().all(|&x| x >= 10.0 && x < 20.0));
+        assert!(samples.iter().all(|&x| (10.0..20.0).contains(&x)));
     }
 
     #[test]
@@ -456,7 +456,7 @@ mod tests {
         );
 
         // All samples should be within bounds
-        assert!(samples.iter().all(|&x| x >= 0.0 && x <= 10.0));
+        assert!(samples.iter().all(|&x| (0.0..=10.0).contains(&x)));
     }
 
     #[test]

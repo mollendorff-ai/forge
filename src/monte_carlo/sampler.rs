@@ -184,7 +184,7 @@ mod tests {
         let samples = sampler.generate_uniform_samples(1000);
 
         assert_eq!(samples.len(), 1000);
-        assert!(samples.iter().all(|&x| x >= 0.0 && x < 1.0));
+        assert!(samples.iter().all(|&x| (0.0..1.0).contains(&x)));
 
         // Mean should be approximately 0.5
         let mean = samples.iter().sum::<f64>() / samples.len() as f64;
@@ -197,7 +197,7 @@ mod tests {
         let samples = sampler.generate_uniform_samples(1000);
 
         assert_eq!(samples.len(), 1000);
-        assert!(samples.iter().all(|&x| x >= 0.0 && x < 1.0));
+        assert!(samples.iter().all(|&x| (0.0..1.0).contains(&x)));
 
         // Mean should be approximately 0.5
         let mean = samples.iter().sum::<f64>() / samples.len() as f64;
@@ -283,7 +283,7 @@ mod tests {
         assert!(samples.iter().all(|dim| dim.len() == 100));
         assert!(samples
             .iter()
-            .all(|dim| dim.iter().all(|&x| x >= 0.0 && x < 1.0)));
+            .all(|dim| dim.iter().all(|&x| (0.0..1.0).contains(&x))));
     }
 
     #[test]

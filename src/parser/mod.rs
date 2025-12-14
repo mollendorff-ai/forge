@@ -402,13 +402,19 @@ fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
         for (key, value) in map {
             let key_str = key.as_str().unwrap_or("");
 
-            // Skip special keys
-            if key_str == "_forge_version"
-                || key_str == "_name"
-                || key_str == "scenarios"
-                || key_str == "monte_carlo"
-            {
+            // Skip special keys (but error on enterprise features in v1.0.0)
+            if key_str == "_forge_version" || key_str == "_name" || key_str == "scenarios" {
                 continue;
+            }
+
+            // Block monte_carlo in v1.0.0 (enterprise feature)
+            if key_str == "monte_carlo" {
+                return Err(ForgeError::Validation(
+                    "monte_carlo requires Forge Enterprise (v5.0.0+). \
+                     This feature is not available in forge-demo. \
+                     Upgrade to _forge_version: \"5.0.0\" to use Monte Carlo simulation."
+                        .to_string(),
+                ));
             }
 
             // Check if this is a table (mapping with arrays)

@@ -30,6 +30,7 @@ pub mod config;
 pub mod correlation;
 pub mod distributions;
 pub mod engine;
+pub mod excel_export;
 pub mod sampler;
 pub mod sensitivity;
 pub mod statistics;

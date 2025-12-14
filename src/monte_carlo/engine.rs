@@ -112,8 +112,10 @@ impl MonteCarloEngine {
             let var = &output_config.variable;
 
             // Get samples for this variable (either from inputs or computed)
+            // Try exact match first, then with "scalars." prefix
             let samples = input_samples
                 .get(var)
+                .or_else(|| input_samples.get(&format!("scalars.{}", var)))
                 .cloned()
                 .unwrap_or_else(|| vec![0.0; n]);
 

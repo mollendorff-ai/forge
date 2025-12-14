@@ -264,13 +264,17 @@ mod tests {
         }
 
         // Compare with original
-        for i in 0..n * n {
+        for (i, (r, c)) in reconstructed
+            .iter()
+            .zip(matrix.coefficients.iter())
+            .enumerate()
+        {
             assert!(
-                (reconstructed[i] - matrix.coefficients[i]).abs() < 1e-10,
+                (r - c).abs() < 1e-10,
                 "Mismatch at index {}: {} vs {}",
                 i,
-                reconstructed[i],
-                matrix.coefficients[i]
+                r,
+                c
             );
         }
     }
