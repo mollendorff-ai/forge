@@ -51,6 +51,7 @@ COMMANDS:
   validate    - Check model integrity
   audit       - Trace formula dependencies (SOX compliance)
   functions   - List all 160 supported functions
+  simulate    - Monte Carlo simulation with distributions
   sensitivity - One/two-variable data tables
   goal-seek   - Find input for target output
   break-even  - Find zero-crossing point
@@ -64,6 +65,7 @@ COMMANDS:
 EXAMPLES:
   forge calculate model.yaml                    # Execute formulas
   forge audit model.yaml profit                 # Dependency trace
+  forge simulate model.yaml --iterations 10000  # Monte Carlo
   forge variance budget.yaml actual.yaml       # Budget vs actual
   forge export model.yaml output.xlsx          # Excel with formulas
 
@@ -497,6 +499,71 @@ EXAMPLES:
     },
 
     #[cfg(feature = "full")]
+    #[command(long_about = "Run Monte Carlo simulation for probabilistic analysis.
+
+Uses probability distributions (MC.Normal, MC.Triangular, etc.) to model
+uncertainty in input variables and calculate output distributions.
+
+DISTRIBUTIONS:
+  MC.Normal(mean, stdev)        - Symmetric uncertainty
+  MC.Triangular(min, mode, max) - Expert estimates (min/likely/max)
+  MC.Uniform(min, max)          - Equal probability in range
+  MC.PERT(min, mode, max)       - Smooth project estimates
+  MC.Lognormal(mean, stdev)     - Non-negative values (prices, revenue)
+
+YAML CONFIGURATION:
+  monte_carlo:
+    enabled: true
+    iterations: 10000
+    sampling: latin_hypercube  # 5x faster than monte_carlo
+    seed: 12345                # For reproducibility
+    outputs:
+      - variable: valuation.npv
+        percentiles: [10, 50, 90]
+        threshold: \"> 0\"
+
+  assumptions:
+    revenue: =MC.Normal(1000000, 150000)
+    costs: =MC.Triangular(400000, 500000, 600000)
+
+OUTPUT:
+  - Statistics: mean, median, std dev, min, max
+  - Percentiles: P5, P10, P25, P50, P75, P90, P95
+  - Probabilities: P(NPV > 0), P(IRR > hurdle)
+  - Histogram data for visualization
+
+EXAMPLES:
+  forge simulate model.yaml                    # Use YAML config
+  forge simulate model.yaml -n 10000           # Override iterations
+  forge simulate model.yaml --seed 42          # Reproducible
+  forge simulate model.yaml -o results.json    # JSON output")]
+    /// Run Monte Carlo simulation (enterprise only)
+    Simulate {
+        /// Path to YAML file with monte_carlo: section
+        file: PathBuf,
+
+        /// Number of iterations (overrides YAML config)
+        #[arg(short = 'n', long)]
+        iterations: Option<usize>,
+
+        /// Random seed for reproducibility
+        #[arg(long)]
+        seed: Option<u64>,
+
+        /// Sampling method: monte_carlo or latin_hypercube
+        #[arg(long)]
+        sampling: Option<String>,
+
+        /// Output file (.json or .yaml)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    #[cfg(feature = "full")]
     #[command(long_about = "Check for updates and optionally self-update the binary.
 
 Downloads the latest release from GitHub and replaces the current binary.
@@ -675,6 +742,16 @@ fn main() -> ForgeResult<()> {
             max,
             verbose,
         } => cli::break_even(file, output, vary, min, max, verbose),
+
+        #[cfg(feature = "full")]
+        Commands::Simulate {
+            file,
+            iterations,
+            seed,
+            sampling,
+            output,
+            verbose,
+        } => cli::simulate(file, iterations, seed, sampling, output, verbose),
 
         #[cfg(feature = "full")]
         Commands::Update { check } => {

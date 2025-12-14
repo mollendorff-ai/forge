@@ -16,6 +16,8 @@ mod audit;
 mod excel_io;
 mod functions;
 #[cfg(feature = "full")]
+mod simulate;
+#[cfg(feature = "full")]
 mod upgrade;
 
 // Re-exports
@@ -23,6 +25,8 @@ pub use analysis::{break_even, compare, goal_seek, sensitivity, variance};
 pub use audit::audit;
 pub use excel_io::{export, import};
 pub use functions::functions;
+#[cfg(feature = "full")]
+pub use simulate::simulate;
 #[cfg(feature = "full")]
 pub use upgrade::{auto_upgrade_schema, needs_schema_upgrade, upgrade};
 

@@ -46,6 +46,8 @@ pub mod writer;
 pub mod api;
 #[cfg(feature = "full")]
 pub mod mcp;
+#[cfg(feature = "full")]
+pub mod monte_carlo;
 
 // Re-export commonly used types
 pub use error::{ForgeError, ForgeResult};

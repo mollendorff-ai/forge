@@ -172,76 +172,19 @@ completed:
       - "1208 tests passing in cargo test"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CURRENT - v7.2.2 + v7.2.3 - DEPENDENCY & SCHEMA (CRITICAL - PARALLEL)
+# CURRENT - v8.0.0 Monte Carlo Simulation
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  - version: "7.2.2"
-    priority: CRITICAL
-    status: completed
-    summary: "Dependency Upgrade - All Crates to Latest (Including MAJOR)"
-    completed: "2025-12-10"
-    notes: |
-      COMPLETED: All dependencies upgraded
-      - jsonschema 0.18 → 0.37.4 (API migration done)
-      - petgraph 0.6.5 → 0.8.3
-      - colored 2.2.0 → 3.0.0
-      - calamine 0.31 → 0.32
-      - notify 7.0 → 8.2
-      - axum 0.7.9 → 0.8.7
-      - All 814 tests passing
-
-  - version: "7.2.3"
-    priority: CRITICAL
-    status: completed
-    summary: "Schema Enforcement - Hardcoded Validation + ADR Documentation"
-    completed: "2025-12-10"
-    notes: |
-      COMPLETED: Schema enforcement implemented
-      - schema/forge-v1.0.0.schema.json (scalar only)
-      - schema/forge-v5.0.0.schema.json (arrays/tables)
-      - Parser loads correct schema by version
-      - Runtime check: v1.0.0 rejects tables with clear error
-      - ADR-014: Schema Versioning Strategy created
-
-  - version: "7.2.5"
-    priority: CRITICAL
-    status: completed
-    summary: "Full Test Verification - Post Schema/Deps Changes"
-    completed: "2025-12-10"
-    notes: |
-      COMPREHENSIVE TEST VERIFICATION AFTER:
-      - v7.2.2: Dependency upgrades (6 MAJOR crates)
-      - v7.2.3: Schema enforcement changes
-      - forge-demo cleanup and repo recreation
-    results:
-      unit_tests:
-        total: 814
-        passed: 814
-        failed: 0
-        ignored: 0
-      integration_tests:
-        total: 452
-        passed: 452
-        failed: 0
-        ignored: 8  # benchmarks
-      e2e_roundtrip:
-        engine: "ssconvert (Gnumeric)"
-        total: 62
-        passed: 57
-        failed: 0
-        ignored: 5  # modern Excel 365 features (FILTER, COUNTUNIQUE)
-      coverage:
-        - "Math: 15 functions"
-        - "Trigonometry: 7 functions"
-        - "Logical: 5 functions"
-        - "Financial: 8 functions"
-        - "Date: 7 functions"
-        - "Aggregation: 10 functions"
-        - "Lookup: 8 functions"
-        - "Statistical: 10 functions"
-        - "Text: 4 functions"
-    verdict: "ALL TESTS PASSING - Ready for release"
+  version: "8.0.0"
+  priority: CRITICAL
+  status: in_progress
+  summary: "Monte Carlo Simulation - Probabilistic FP&A Analysis"
+  notes: |
+    Phase 1 (8.0.0): Core Monte Carlo infrastructure - IN PROGRESS
+    - Core distributions: Normal, Triangular, Uniform, PERT, Lognormal, Discrete
+    - Latin Hypercube sampling
+    - Enterprise-gated CLI command
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPLETED - v7.2.0 - TEST INTEGRITY (needs retest after schema/deps)
@@ -688,6 +631,223 @@ next:
       - "Create ADR-015: Self-Update Removal Decision"
       - "Delete tests/update_tests.rs"
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# MONTE CARLO SIMULATION (CRITICAL - Enterprise Feature)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  - version: "8.0.0"
+    priority: CRITICAL
+    status: pending
+    summary: "Monte Carlo Simulation - Probabilistic FP&A Analysis"
+    rationale: |
+      Monte Carlo simulation enables probabilistic analysis for FP&A:
+      - NPV/IRR uncertainty analysis (most common use case)
+      - Revenue/cost forecasting with distributions
+      - Risk assessment (VaR, CVaR)
+      - Sensitivity analysis via correlation coefficients
+      Traditional DCF gives one answer; Monte Carlo gives probability distribution.
+
+      RESEARCH FINDINGS (3-agent parallel research):
+      1. Crates: rand_distr (MIT/Apache), statrs (MIT), sobol (BSD) - all permissive
+      2. FP&A patterns: Normal, Lognormal, Triangular, PERT, Uniform cover 95% needs
+      3. Excel syntax: @RISK/Crystal Ball use Risk*/CB.* prefixes
+
+      Design: MC.* prefix for functions, YAML-native configuration, Latin Hypercube default
+
+    dependencies:
+      essential:
+        - name: "rand_distr"
+          version: "0.5"
+          license: "MIT OR Apache-2.0"
+          features: "Normal, Lognormal, Triangular, PERT, Uniform distributions"
+        - name: "statrs"
+          version: "0.18"
+          license: "MIT"
+          features: "PDF/CDF calculations, statistical functions"
+      optional:
+        - name: "sobol"
+          version: "0.2"
+          license: "BSD"
+          features: "Quasi-Monte Carlo for high-dimensional variance reduction"
+
+    distributions:
+      tier_1_essential:
+        - "MC.Normal(mean, stdev) - Symmetric variability, returns"
+        - "MC.Triangular(min, mode, max) - Expert estimates, quick modeling"
+        - "MC.Uniform(min, max) - Complete uncertainty with bounds"
+        - "MC.PERT(min, mode, max) - Smooth expert estimates, project durations"
+      tier_2_important:
+        - "MC.Lognormal(mean, stdev) - Stock prices, revenue (non-negative)"
+        - "MC.Discrete({value: prob, ...}) - Scenario probabilities"
+      tier_3_advanced:
+        - "MC.Beta(alpha, beta, min, max) - Flexible bounded"
+        - "MC.Exponential(lambda) - Time-to-event"
+
+    syntax_design:
+      prefix: "MC"
+      rationale: "Short, clear, recognizable to finance professionals"
+      formula_examples:
+        - "revenue: =MC.Normal(1000000, 150000)"
+        - "margin: =MC.Triangular(0.55, 0.65, 0.75)"
+        - "duration: =MC.PERT(6, 9, 15)"
+      yaml_config: |
+        monte_carlo:
+          enabled: true
+          iterations: 10000
+          sampling: latin_hypercube  # Industry default, 5x faster convergence
+          seed: 12345  # Reproducibility
+          outputs:
+            - variable: valuation.npv
+              percentiles: [10, 50, 90]
+              threshold: "> 0"
+
+    outputs:
+      statistics:
+        - "Mean, Median, Std Dev, Min, Max"
+        - "Percentiles: P5, P10, P25, P50, P75, P90, P95"
+        - "Probability thresholds: P(NPV > 0), P(IRR > hurdle)"
+      sensitivity:
+        - "Spearman rank correlation coefficients"
+        - "Tornado diagram data (which inputs drive outputs)"
+      visualization:
+        - "Histogram bin data for charting"
+        - "CDF data for S-curves"
+
+    phases:
+      phase_1_core:
+        version: "8.0.0"
+        summary: "Core Monte Carlo Infrastructure"
+        enterprise_gated: true
+        deliverables:
+          # Dependencies
+          - "Add rand_distr 0.5, statrs 0.18 to Cargo.toml"
+          # Core Implementation
+          - "src/monte_carlo/mod.rs - Module structure (#[cfg(feature = full)])"
+          - "src/monte_carlo/distributions.rs - MC.Normal, MC.Triangular, MC.Uniform, MC.PERT"
+          - "src/monte_carlo/sampler.rs - Monte Carlo + Latin Hypercube sampling"
+          - "src/monte_carlo/engine.rs - Simulation loop with seeding"
+          - "src/monte_carlo/config.rs - MonteCarloConfig struct for YAML parsing"
+          # CLI
+          - "CLI: forge simulate command (enterprise only)"
+          - "Update main.rs --help with simulate command"
+          - "Gate simulate behind #[cfg(feature = full)]"
+          # Tests
+          - "Unit tests: Distribution statistical properties (mean, variance)"
+          - "Unit tests: Seed reproducibility"
+          - "Unit tests: LHS vs pure Monte Carlo convergence"
+          # Documentation
+          - "ADR-016: Monte Carlo Architecture Decision"
+        commit_message: "feat(monte-carlo): Phase 1 - Core infrastructure with distributions"
+        git_operations:
+          - "git add -A"
+          - "git commit"
+          - "git push origin main"
+
+      phase_2_outputs:
+        version: "8.1.0"
+        summary: "Output Statistics & Reporting"
+        enterprise_gated: true
+        deliverables:
+          # Implementation
+          - "src/monte_carlo/statistics.rs - Mean, median, std dev, percentiles"
+          - "src/monte_carlo/results.rs - SimulationResults struct"
+          - "Probability thresholds: P(output > target)"
+          - "Histogram bin data generation"
+          - "JSON/YAML results output format"
+          # CLI
+          - "Update simulate command with --output flag"
+          - "Update --help with output options"
+          # Tests
+          - "Unit tests: Statistics calculations"
+          - "Unit tests: Percentile accuracy"
+          - "E2E tests: Full simulation workflow"
+          # Documentation
+          - "Update docs/FEATURES.md with Monte Carlo section"
+        commit_message: "feat(monte-carlo): Phase 2 - Output statistics and reporting"
+        git_operations:
+          - "git add -A"
+          - "git commit"
+          - "git push origin main"
+
+      phase_3_correlation:
+        version: "8.2.0"
+        summary: "Correlation & Sensitivity Analysis"
+        enterprise_gated: true
+        deliverables:
+          # Implementation
+          - "src/monte_carlo/correlation.rs - Correlation matrix handling"
+          - "Cholesky decomposition for correlated sampling"
+          - "src/monte_carlo/sensitivity.rs - Spearman rank correlations"
+          - "Tornado diagram data output"
+          # YAML Schema
+          - "Update schema with correlations: section"
+          # Tests
+          - "Unit tests: Cholesky decomposition"
+          - "Unit tests: Correlated variable generation"
+          - "Unit tests: Sensitivity coefficient accuracy"
+          # Documentation
+          - "Update docs/EXAMPLES.md with correlation examples"
+        commit_message: "feat(monte-carlo): Phase 3 - Correlation and sensitivity analysis"
+        git_operations:
+          - "git add -A"
+          - "git commit"
+          - "git push origin main"
+
+      phase_4_advanced:
+        version: "8.3.0"
+        summary: "Advanced Features, Excel Export & Final Documentation"
+        enterprise_gated: true
+        deliverables:
+          # Additional Distributions
+          - "MC.Lognormal distribution"
+          - "MC.Discrete distribution"
+          # Excel Export
+          - "Excel export with simulation results sheet"
+          - "Histogram chart in Excel output"
+          - "Summary statistics in Excel output"
+          # Optimization
+          - "Convergence monitoring (auto-stop when stable)"
+          # Tests
+          - "E2E tests: Excel export roundtrip"
+          - "E2E tests: Gnumeric validation of exported formulas"
+          - "Performance tests: 10K iterations < 5 seconds"
+          # Documentation
+          - "Update README.md with Monte Carlo section"
+          - "Update docs/INSTALLATION.md with new dependencies"
+          - "Update docs/VERSION_HISTORY.md"
+          - "Final --help text polish"
+        commit_message: "feat(monte-carlo): Phase 4 - Advanced features, Excel export, docs"
+        git_operations:
+          - "git add -A"
+          - "git commit"
+          - "git push origin main"
+
+    workflow:
+      parallel_agents:
+        - "Agent 1: ADR-016 creation"
+        - "Agent 2: Documentation updates (README, FEATURES, EXAMPLES)"
+        - "Main: Core implementation + tests"
+      commit_per_phase: true
+      push_per_phase: true
+
+    test_requirements:
+      mandate: |
+        ╔═══════════════════════════════════════════════════════════════════════════╗
+        ║            MONTE CARLO TESTING - STATISTICAL ACCURACY REQUIRED            ║
+        ╠═══════════════════════════════════════════════════════════════════════════╣
+        ║  1. Distribution tests: Verify mean/variance match theoretical values     ║
+        ║  2. Seed tests: Same seed → identical results                             ║
+        ║  3. LHS tests: Better convergence than pure Monte Carlo                   ║
+        ║  4. Correlation tests: Achieved correlation ≈ specified correlation       ║
+        ║  5. Edge cases: Empty arrays, single values, extreme parameters           ║
+        ║  6. Performance: 10K iterations in < 5 seconds                            ║
+        ╚═══════════════════════════════════════════════════════════════════════════╝
+      statistical_tests:
+        - "Chi-square goodness-of-fit for distribution shape"
+        - "Two-sample K-S test comparing samples to theoretical"
+        - "Mean within 2% of theoretical (10K+ samples)"
+        - "Variance within 5% of theoretical (10K+ samples)"
+
   - version: "7.3.0"
     priority: NORMAL
     status: pending
@@ -704,6 +864,12 @@ next:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
+  - "Tornado Diagrams (Sensitivity Visualization) - JSON/CSV for charts (HIGH)"
+  - "Scenario Analysis (Discrete Branching) - Base/Bull/Bear cases (HIGH)"
+  - "Bootstrap Resampling - Non-parametric confidence intervals (MEDIUM)"
+  - "Antithetic Variates - 50% variance reduction (LOW)"
+  - "Copulas - Non-linear tail dependencies (LOW)"
+  - "Control Variates - Use analytical baselines (LOW)"
   - "Find external FOSS tool to validate Forge-native functions"
   - "Enterprise licensing (when ready to leave CGI)"
   - "MCP server documentation"
@@ -718,6 +884,7 @@ summary:
   categories: 14
   current_version: "7.2.10"
   next_version: "7.2.11"
+  next_major: "8.0.0 - Monte Carlo Simulation"
 
   test_status:
     unit_tests: 801
@@ -729,6 +896,19 @@ summary:
 
   completed_today:
     - "v7.2.10: Dependency Migration - serde_yaml → serde_yaml_ng"
+
+  upcoming_critical:
+    monte_carlo:
+      version: "8.0.0"
+      summary: "Monte Carlo Simulation - Probabilistic FP&A Analysis"
+      dependencies: "rand_distr (MIT), statrs (MIT), sobol (BSD) - ALL PERMISSIVE"
+      distributions: "Normal, Triangular, Uniform, PERT, Lognormal, Discrete"
+      features:
+        - "NPV/IRR uncertainty analysis"
+        - "Latin Hypercube sampling (5x faster)"
+        - "Correlation matrix support (Cholesky)"
+        - "P10/P50/P90 percentiles"
+        - "Sensitivity analysis (tornado diagrams)"
 
   major_upgrades:
     jsonschema: "0.18 → 0.37.4"

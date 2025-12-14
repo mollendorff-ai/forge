@@ -147,8 +147,11 @@ patterns:
   - "Use clippy lints as errors"
   - "#[cfg(feature = \"full\")] for enterprise-only code"
   - "Unit tests in same file (#[cfg(test)] mod tests)"
-  - "No file > 1,500 lines"
+  - "No file > 1,500 lines (except tests/excel_tests.rs - legacy)"
   - "Zero warnings policy"
+
+file_size_exclusions:
+  - "tests/excel_tests.rs"  # Legacy file, exceeds 1500 lines
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RELEASE CONFIGURATION
