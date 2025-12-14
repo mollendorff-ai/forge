@@ -172,30 +172,45 @@ completed:
       - "1208 tests passing in cargo test"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CURRENT - v8.0.0 Monte Carlo Simulation
+# CURRENT - Next milestone
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "8.1.0"
-  priority: CRITICAL
-  status: completed
-  completed: "2025-12-14"
-  summary: "Monte Carlo Validation & Integration"
+  version: "8.2.0"
+  priority: NORMAL
+  status: pending
+  summary: "Documentation Polish & Performance Benchmarks"
   deliverables:
-    - "[DONE] Demo gating: Error on monte_carlo in v1.0.0 schema"
-    - "[DONE] Output evaluation: Wire run_with_evaluator() to Forge array calculator"
-    - "[DONE] E2E tests: tests/monte_carlo_e2e.rs with 24 comprehensive tests"
-    - "[DONE] Python validator: tests/scripts/validate_mc.py (scipy/numpy)"
-    - "[DONE] Excel export: --output results.xlsx with Summary, Histograms, Samples sheets"
-  notes: |
-    v8.0.0 core infrastructure COMPLETE (2025-12-13):
-    - 6 distributions, LHS sampling, correlation, sensitivity
-    - 58 unit tests passing
-    v8.1.0 validation and integration COMPLETE (2025-12-14):
-    - 24 E2E tests covering all distributions and sampling methods
-    - Python validator for scipy/numpy validation
-    - Demo gating prevents config confusion
-    - Excel export with 4 sheets
+    - "Update docs/FEATURES.md with Monte Carlo section"
+    - "Update docs/EXAMPLES.md with correlation examples"
+    - "Performance benchmarks: 10K iterations target"
+    - "README.md Monte Carlo quick start"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPLETED - v8.0.0/v8.1.0 Monte Carlo Simulation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+v8_monte_carlo_completed:
+  - version: "8.0.0"
+    date: "2025-12-13"
+    summary: "Monte Carlo Simulation - Core Infrastructure"
+    deliverables:
+      - "6 distributions: Normal, Triangular, Uniform, PERT, Lognormal, Discrete"
+      - "Latin Hypercube + Monte Carlo sampling methods"
+      - "Correlation matrix with Cholesky decomposition"
+      - "Sensitivity analysis with Spearman rank correlation"
+      - "Statistics: mean, median, std dev, percentiles, histogram"
+      - "58 unit tests passing"
+
+  - version: "8.1.0"
+    date: "2025-12-14"
+    summary: "Monte Carlo Validation & Integration"
+    deliverables:
+      - "Demo gating: Error on monte_carlo in v1.0.0 schema"
+      - "E2E tests: 24 comprehensive tests in tests/monte_carlo_e2e.rs"
+      - "Python validator: tests/scripts/validate_mc.py (scipy/numpy)"
+      - "Excel export: --output results.xlsx with 4 sheets"
+      - "Split excel_tests.rs for pedantic line limits"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPLETED - v7.2.0 - TEST INTEGRITY (needs retest after schema/deps)
@@ -893,33 +908,34 @@ backlog:
 summary:
   total_functions: 159
   categories: 14
-  current_version: "7.2.10"
-  next_version: "7.2.11"
-  next_major: "8.0.0 - Monte Carlo Simulation"
+  current_version: "8.1.0"
+  next_version: "8.2.0"
 
   test_status:
     unit_tests: 801
     integration_tests: 457
     e2e_roundtrip: 57
-    total: 1258
+    monte_carlo_e2e: 24
+    total: 1538
     all_passing: true
     engine: "ssconvert (Gnumeric)"
 
   completed_today:
-    - "v7.2.10: Dependency Migration - serde_yaml → serde_yaml_ng"
+    - "v8.1.0: Monte Carlo Validation & Integration"
+    - "24 E2E tests, Python validator, Excel export, demo gating"
 
-  upcoming_critical:
-    monte_carlo:
-      version: "8.0.0"
-      summary: "Monte Carlo Simulation - Probabilistic FP&A Analysis"
-      dependencies: "rand_distr (MIT), statrs (MIT), sobol (BSD) - ALL PERMISSIVE"
-      distributions: "Normal, Triangular, Uniform, PERT, Lognormal, Discrete"
-      features:
-        - "NPV/IRR uncertainty analysis"
-        - "Latin Hypercube sampling (5x faster)"
-        - "Correlation matrix support (Cholesky)"
-        - "P10/P50/P90 percentiles"
-        - "Sensitivity analysis (tornado diagrams)"
+  monte_carlo_complete:
+    version: "8.1.0"
+    summary: "Monte Carlo Simulation - COMPLETE"
+    distributions: "Normal, Triangular, Uniform, PERT, Lognormal, Discrete"
+    features:
+      - "NPV/IRR uncertainty analysis"
+      - "Latin Hypercube sampling (5x faster)"
+      - "Correlation matrix support (Cholesky)"
+      - "P10/P50/P90 percentiles"
+      - "Sensitivity analysis (Spearman)"
+      - "Excel export with histograms"
+      - "24 E2E tests + Python validator"
 
   major_upgrades:
     jsonschema: "0.18 → 0.37.4"
