@@ -7,6 +7,7 @@
 //! 4. Compute output statistics
 
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::time::Instant;
 
 use super::config::MonteCarloConfig;
@@ -79,11 +80,7 @@ impl MonteCarloEngine {
             if let Some(formula) = &scalar.formula {
                 let formula = formula.trim();
                 // Check if formula starts with =MC. or MC.
-                let formula_content = if formula.starts_with('=') {
-                    &formula[1..]
-                } else {
-                    formula
-                };
+                let formula_content = formula.strip_prefix('=').unwrap_or(formula);
 
                 if formula_content.starts_with("MC.") {
                     let dist = parse_distribution(formula_content)?;

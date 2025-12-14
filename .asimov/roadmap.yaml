@@ -178,7 +178,7 @@ completed:
 current:
   version: "8.0.0"
   priority: CRITICAL
-  status: completed
+  status: planned
   summary: "Monte Carlo Simulation - Probabilistic FP&A Analysis"
   completed: "2025-12-13"
   notes: |
