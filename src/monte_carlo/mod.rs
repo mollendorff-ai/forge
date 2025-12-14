@@ -27,16 +27,20 @@
 //! See ADR-016 for architecture decisions.
 
 pub mod config;
+pub mod correlation;
 pub mod distributions;
 pub mod engine;
 pub mod sampler;
+pub mod sensitivity;
 pub mod statistics;
 
 // Re-exports
 pub use config::MonteCarloConfig;
+pub use correlation::CorrelationMatrix;
 pub use distributions::{Distribution, DistributionType};
 pub use engine::{MonteCarloEngine, SimulationResult};
 pub use sampler::{Sampler, SamplingMethod};
+pub use sensitivity::SensitivityAnalysis;
 pub use statistics::Statistics;
 
 #[cfg(test)]
