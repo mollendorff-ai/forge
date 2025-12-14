@@ -86,6 +86,108 @@ summary:
     formula: "=AVERAGE(pl_2025_q1.gross_margin)"
 ```
 
+### Monte Carlo Simulation (v8.0.0 - Enterprise)
+
+**NPV Uncertainty Analysis:**
+
+```yaml
+_forge_version: "5.0.0"
+
+# Monte Carlo configuration
+monte_carlo:
+  enabled: true
+  iterations: 10000
+  sampling: latin_hypercube
+  seed: 12345
+  outputs:
+    - variable: valuation.npv
+      percentiles: [10, 50, 90]
+      thresholds: [0, 100000]
+      sensitivity: true
+
+# Probabilistic assumptions
+assumptions:
+  revenue_growth:
+    value: null
+    formula: "=MC.Normal(0.15, 0.05)"  # 15% ± 5% annual growth
+
+  initial_cost:
+    value: null
+    formula: "=MC.Triangular(80000, 100000, 150000)"  # min/mode/max
+
+  discount_rate:
+    value: null
+    formula: "=MC.Uniform(0.08, 0.12)"  # 8-12% WACC range
+
+# Cash flow projections
+cash_flows:
+  year: [0, 1, 2, 3, 4, 5]
+  base_revenue: [0, 100000, 110000, 120000, 130000, 140000]
+
+  # Apply stochastic growth
+  actual_revenue: "=IF(year = 0, 0, base_revenue * (1 + assumptions.revenue_growth))"
+
+  # Initial cost + ongoing costs
+  costs: "=IF(year = 0, assumptions.initial_cost, actual_revenue * 0.6)"
+
+  net_cash_flow: "=actual_revenue - costs"
+
+# Valuation with uncertain inputs
+valuation:
+  npv:
+    value: null
+    formula: "=NPV(assumptions.discount_rate, cash_flows.net_cash_flow)"
+
+  irr:
+    value: null
+    formula: "=IRR(cash_flows.net_cash_flow)"
+```
+
+**Run simulation:**
+
+```bash
+forge monte-carlo npv_analysis.yaml --output results.yaml
+```
+
+**Output interpretation:**
+
+```yaml
+monte_carlo_results:
+  valuation.npv:
+    percentiles:
+      p10: -12450.23    # 10% chance NPV is below this
+      p50: 45678.91     # Median outcome (most likely)
+      p90: 98234.56     # 10% chance NPV exceeds this
+
+    thresholds:
+      "0": 0.73         # 73% probability of positive NPV
+      "100000": 0.12    # 12% probability NPV exceeds $100K
+
+    sensitivity:
+      assumptions.revenue_growth: 0.85    # Highest impact (positive)
+      assumptions.initial_cost: -0.62     # Second highest (negative)
+      assumptions.discount_rate: -0.43    # Third highest (negative)
+
+    statistics:
+      mean: 46123.45
+      std_dev: 32456.78
+      min: -45678.12
+      max: 145678.90
+```
+
+**Key insights:**
+
+1. **Risk Assessment**: 73% probability of positive NPV suggests acceptable risk
+2. **Upside Limited**: Only 12% chance of exceeding $100K target
+3. **Key Driver**: Revenue growth (0.85 correlation) is the primary value driver
+4. **Downside Protection**: P10 of -$12.4K represents worst-case scenario
+
+**Decision framework:**
+
+- **Green light** if P(NPV > 0) > 70% and P10 > -acceptable_loss
+- **Yellow flag** if high sensitivity to uncontrollable variables
+- **Red flag** if P50 < minimum_acceptable_return
+
 ## Advanced Features
 
 ### Cross-Table References

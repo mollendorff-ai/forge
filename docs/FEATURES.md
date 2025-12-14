@@ -138,6 +138,148 @@ curl -X POST http://localhost:8080/api/v1/validate \
 
 ---
 
+## Monte Carlo Simulation (v8.0.0) - Enterprise Only
+
+Probabilistic FP&A analysis with uncertainty quantification.
+
+### Overview
+
+Run thousands of simulations to understand the range of possible outcomes for your financial models. Replace single-point estimates with probability distributions.
+
+**Configuration:**
+
+```yaml
+monte_carlo:
+  enabled: true
+  iterations: 10000          # Number of simulations
+  sampling: latin_hypercube  # or 'random'
+  seed: 12345               # Optional: for reproducibility
+  outputs:
+    - variable: valuation.npv
+      percentiles: [10, 50, 90]
+      thresholds: [0, 100000]
+```
+
+### Probability Distributions
+
+| Distribution | Function | Parameters | Use Case |
+|--------------|----------|------------|----------|
+| Normal | `MC.Normal(mean, std_dev)` | mean, standard deviation | Revenue growth, cost variations |
+| Triangular | `MC.Triangular(min, mode, max)` | minimum, most likely, maximum | Project costs with best/worst/likely |
+| Uniform | `MC.Uniform(min, max)` | minimum, maximum | Equal probability across range |
+| PERT | `MC.PERT(min, mode, max)` | minimum, most likely, maximum | Three-point estimates (β distribution) |
+| Lognormal | `MC.Lognormal(mean, std_dev)` | mean, standard deviation | Stock prices, multiplicative processes |
+
+### Output Metrics
+
+**Percentiles**: Understand outcome distribution
+```yaml
+outputs:
+  - variable: valuation.npv
+    percentiles: [10, 50, 90]  # P10, median, P90
+```
+
+**Probability Thresholds**: Risk quantification
+```yaml
+outputs:
+  - variable: valuation.npv
+    thresholds: [0, 100000]  # P(NPV > 0), P(NPV > 100K)
+```
+
+**Sensitivity Analysis**: Variable importance ranking
+```yaml
+outputs:
+  - variable: valuation.npv
+    sensitivity: true  # Correlation coefficients
+```
+
+### Example Usage
+
+**Command:**
+
+```bash
+forge monte-carlo model.yaml --output results.yaml
+```
+
+**Input Model:**
+
+```yaml
+_forge_version: "5.0.0"
+
+monte_carlo:
+  enabled: true
+  iterations: 10000
+  sampling: latin_hypercube
+  seed: 12345
+  outputs:
+    - variable: valuation.npv
+      percentiles: [10, 50, 90]
+      thresholds: [0, 100000]
+      sensitivity: true
+
+assumptions:
+  revenue_growth: =MC.Normal(0.15, 0.05)
+  initial_cost: =MC.Triangular(80000, 100000, 150000)
+  discount_rate: =MC.Uniform(0.08, 0.12)
+
+cash_flows:
+  year: [0, 1, 2, 3, 4, 5]
+  revenue: [0, 100000, 110000, 120000, 130000, 140000]
+  costs: "=IF(year = 0, assumptions.initial_cost, revenue * 0.6)"
+  net_cf: "=revenue - costs"
+
+valuation:
+  npv: =NPV(assumptions.discount_rate, cash_flows.net_cf)
+```
+
+**Output:**
+
+```yaml
+monte_carlo_results:
+  valuation.npv:
+    percentiles:
+      p10: -12450.23
+      p50: 45678.91
+      p90: 98234.56
+    thresholds:
+      "0": 0.73        # 73% probability NPV > 0
+      "100000": 0.12   # 12% probability NPV > 100K
+    sensitivity:
+      assumptions.revenue_growth: 0.85
+      assumptions.initial_cost: -0.62
+      assumptions.discount_rate: -0.43
+    statistics:
+      mean: 46123.45
+      std_dev: 32456.78
+      min: -45678.12
+      max: 145678.90
+```
+
+### Sampling Methods
+
+**Latin Hypercube Sampling (Recommended)**:
+- More efficient convergence
+- Better coverage of probability space
+- Preferred for <50K iterations
+
+**Random Sampling**:
+- Simple Monte Carlo
+- Requires more iterations
+- Use for >100K iterations
+
+### Performance
+
+| Iterations | Variables | Time | Notes |
+|------------|-----------|------|-------|
+| 1,000 | 20 | <1s | Quick analysis |
+| 10,000 | 20 | <5s | Standard analysis |
+| 100,000 | 20 | <30s | High precision |
+| 1,000,000 | 20 | <5min | Research-grade |
+
+**License**: Monte Carlo simulation requires Forge Enterprise license.
+
+---
+
 ## AI Integration (v1.7.0)
 
 ### MCP Server

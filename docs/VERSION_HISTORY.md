@@ -6,6 +6,7 @@ Archived version details from roadmap.yaml. For current roadmap, see [roadmap.ya
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v8.0.0 | TBD | Monte Carlo Simulation (Enterprise FP&A probabilistic analysis) |
 | v7.2.0 | 2025-12-10 | 100% Test Integrity (15-Agent Parallel, 2,486 tests, 0 fake) |
 | v7.1.1 | 2025-12-10 | XLSX Roundtrip 100% (formula translator fix) |
 | v7.1.0 | 2025-12-10 | 100% Real Test Coverage (7-Agent Parallel) |
@@ -39,6 +40,64 @@ Archived version details from roadmap.yaml. For current roadmap, see [roadmap.ya
 - **Tests**: 2,486 passing (1,267 demo)
 - **Warnings**: ZERO (clippy -D warnings)
 - **Built by**: Claude AI using RoyalBit Asimov
+
+## v8.0.0 - Monte Carlo Simulation (TBD)
+
+Enterprise-grade probabilistic analysis for FP&A models.
+
+**Major Features:**
+
+**Monte Carlo Engine:**
+- Latin Hypercube Sampling (LHS) for efficient convergence
+- Random sampling for high-iteration scenarios
+- Configurable iteration counts (1K - 1M simulations)
+- Deterministic seeding for reproducible results
+
+**Probability Distributions:**
+- `MC.Normal(mean, std_dev)` - Gaussian distribution
+- `MC.Triangular(min, mode, max)` - Three-point estimates
+- `MC.Uniform(min, max)` - Equal probability range
+- `MC.PERT(min, mode, max)` - Beta distribution variant
+- `MC.Lognormal(mean, std_dev)` - Multiplicative processes
+
+**Output Analytics:**
+- Percentile analysis (P10, P50, P90, custom)
+- Probability thresholds (P(X > threshold))
+- Sensitivity analysis (correlation coefficients)
+- Full distribution statistics (mean, std dev, min, max)
+
+**CLI Command:**
+```bash
+forge monte-carlo model.yaml --output results.yaml
+```
+
+**Performance Benchmarks:**
+- 10K iterations, 20 variables: <5s
+- 100K iterations, 20 variables: <30s
+- 1M iterations, 20 variables: <5min
+- Linear scaling with variable count
+
+**Enterprise Integration:**
+- HTTP API endpoint: `POST /api/v1/monte-carlo`
+- MCP tool: `forge_monte_carlo`
+- Batch processing support
+
+**Use Cases:**
+- NPV/IRR uncertainty quantification
+- Revenue/cost forecasting with confidence intervals
+- Risk-adjusted valuations
+- Capital budgeting under uncertainty
+- Portfolio optimization
+
+**License**: Enterprise-only feature
+
+**Breaking Changes:**
+- None (additive feature)
+
+**Migration Guide:**
+- Add `monte_carlo:` section to YAML models
+- Replace scalar assumptions with `MC.*()` distributions
+- Run `forge monte-carlo` instead of `forge calculate`
 
 ## v7.2.0 - 100% Test Integrity (2025-12-10)
 

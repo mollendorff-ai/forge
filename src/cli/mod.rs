@@ -9,3 +9,6 @@ pub use commands::{
 
 #[cfg(feature = "full")]
 pub use commands::upgrade;
+
+#[cfg(feature = "full")]
+pub use commands::simulate;

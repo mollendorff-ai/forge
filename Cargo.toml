@@ -94,6 +94,10 @@ uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 rand = "0.9.2"
 
+# Monte Carlo simulation (enterprise only)
+rand_distr = "0.5"  # Distribution sampling (Normal, Triangular, PERT, etc.)
+statrs = "0.18"     # Statistical functions (PDF, CDF, percentiles)
+
 [features]
 default = []
 
