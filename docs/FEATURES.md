@@ -138,70 +138,162 @@ curl -X POST http://localhost:8080/api/v1/validate \
 
 ---
 
-## Monte Carlo Simulation (v8.0.0) - Enterprise Only
+## Monte Carlo Simulation (v8.0.0) - ENTERPRISE ONLY
 
 Probabilistic FP&A analysis with uncertainty quantification.
 
 ### Overview
 
-Run thousands of simulations to understand the range of possible outcomes for your financial models. Replace single-point estimates with probability distributions.
+Monte Carlo simulation enables risk-aware financial planning by running thousands of simulations to understand the full range of possible outcomes. Instead of single-point forecasts, model uncertainty with probability distributions and quantify risks.
+
+**Why Monte Carlo for FP&A:**
+- Quantify uncertainty in revenue, costs, and cash flows
+- Calculate probability of meeting financial targets
+- Identify key risk drivers through sensitivity analysis
+- Support better decision-making with confidence intervals
+- Replace "best/worst/base case" with full probability distributions
 
 **Configuration:**
 
 ```yaml
 monte_carlo:
   enabled: true
-  iterations: 10000          # Number of simulations
-  sampling: latin_hypercube  # or 'random'
+  iterations: 10000          # Number of simulations (1K-1M)
+  sampling: latin_hypercube  # or 'monte_carlo'
   seed: 12345               # Optional: for reproducibility
   outputs:
     - variable: valuation.npv
       percentiles: [10, 50, 90]
       thresholds: [0, 100000]
+      sensitivity: true
+      histogram: true         # Generate histogram data
 ```
 
 ### Probability Distributions
 
+All six supported distributions for modeling uncertainty:
+
 | Distribution | Function | Parameters | Use Case |
 |--------------|----------|------------|----------|
-| Normal | `MC.Normal(mean, std_dev)` | mean, standard deviation | Revenue growth, cost variations |
-| Triangular | `MC.Triangular(min, mode, max)` | minimum, most likely, maximum | Project costs with best/worst/likely |
+| Normal | `MC.Normal(mean, std_dev)` | mean, standard deviation | Revenue growth rates, cost variations |
+| Triangular | `MC.Triangular(min, mode, max)` | minimum, most likely, maximum | Project costs with best/worst/likely estimates |
 | Uniform | `MC.Uniform(min, max)` | minimum, maximum | Equal probability across range |
-| PERT | `MC.PERT(min, mode, max)` | minimum, most likely, maximum | Three-point estimates (β distribution) |
-| Lognormal | `MC.Lognormal(mean, std_dev)` | mean, standard deviation | Stock prices, multiplicative processes |
+| PERT | `MC.PERT(min, mode, max)` | minimum, most likely, maximum | Three-point estimates (smoother than Triangular) |
+| Lognormal | `MC.Lognormal(mean, std_dev)` | mean, standard deviation | Stock prices, asset values, multiplicative growth |
+| Discrete | `MC.Discrete(values, probabilities)` | values array, probabilities array | Scenarios with specific outcomes |
 
-### Output Metrics
+**Examples:**
 
-**Percentiles**: Understand outcome distribution
+```yaml
+assumptions:
+  # Normal: Continuous symmetric distribution
+  revenue_growth: =MC.Normal(0.15, 0.05)  # 15% mean, 5% std dev
+
+  # Triangular: Three-point estimate
+  project_cost: =MC.Triangular(80000, 100000, 150000)
+
+  # Uniform: All values equally likely
+  discount_rate: =MC.Uniform(0.08, 0.12)
+
+  # PERT: Smoother three-point (beta distribution)
+  contract_value: =MC.PERT(200000, 250000, 400000)
+
+  # Lognormal: Right-skewed, positive values only
+  customer_ltv: =MC.Lognormal(5000, 1500)
+
+  # Discrete: Specific scenarios with probabilities
+  market_outcome: =MC.Discrete([0.05, 0.15, 0.25], [0.2, 0.5, 0.3])
+  # 20% chance of 5%, 50% chance of 15%, 30% chance of 25%
+```
+
+### Output Statistics
+
+Monte Carlo simulations generate comprehensive statistics for each tracked variable:
+
+**Core Statistics:**
+- `mean`: Expected value across all simulations
+- `median`: Middle value (50th percentile)
+- `std_dev`: Standard deviation (volatility measure)
+- `min`: Minimum value observed
+- `max`: Maximum value observed
+
+**Percentiles**: Understand the distribution of outcomes
 ```yaml
 outputs:
   - variable: valuation.npv
-    percentiles: [10, 50, 90]  # P10, median, P90
+    percentiles: [10, 25, 50, 75, 90, 95, 99]  # Custom percentile levels
 ```
 
-**Probability Thresholds**: Risk quantification
+**Probability Thresholds**: Answer "what's the probability of X?"
 ```yaml
 outputs:
   - variable: valuation.npv
-    thresholds: [0, 100000]  # P(NPV > 0), P(NPV > 100K)
+    thresholds: [0, 100000, 500000]
+    # Returns: P(NPV > 0), P(NPV > 100K), P(NPV > 500K)
 ```
 
-**Sensitivity Analysis**: Variable importance ranking
+**Histograms**: Visualize outcome distribution
 ```yaml
 outputs:
   - variable: valuation.npv
-    sensitivity: true  # Correlation coefficients
+    histogram: true
+    bins: 50  # Number of histogram bins (default: 50)
 ```
 
-### Example Usage
+**Sensitivity Analysis**: Identify key drivers
+```yaml
+outputs:
+  - variable: valuation.npv
+    sensitivity: true  # Correlation coefficients for each input
+```
+
+### Correlation
+
+Model relationships between uncertain variables using correlation coefficients:
+
+```yaml
+monte_carlo:
+  enabled: true
+  iterations: 10000
+  sampling: latin_hypercube
+
+  # Define correlated variables
+  correlations:
+    - variables: [assumptions.revenue_growth, assumptions.market_growth]
+      coefficient: 0.85  # Strong positive correlation
+
+    - variables: [assumptions.oil_price, assumptions.energy_cost]
+      coefficient: 0.70  # Moderate positive correlation
+
+    - variables: [assumptions.interest_rate, assumptions.bond_price]
+      coefficient: -0.90  # Strong negative correlation
+
+assumptions:
+  revenue_growth: =MC.Normal(0.15, 0.05)
+  market_growth: =MC.Normal(0.12, 0.04)
+  oil_price: =MC.Lognormal(80, 15)
+  energy_cost: =MC.Normal(50000, 10000)
+  interest_rate: =MC.Uniform(0.03, 0.08)
+  bond_price: =MC.Normal(100, 5)
+```
+
+**Correlation Guidelines:**
+- Coefficient range: -1.0 (perfect negative) to +1.0 (perfect positive)
+- 0.0 = no correlation (independent variables)
+- Use domain knowledge to identify relationships
+- Correlations are preserved using Gaussian copula transformation
+
+### Example: Revenue Simulation
+
+Complete revenue forecasting model with Monte Carlo uncertainty quantification.
 
 **Command:**
 
 ```bash
-forge monte-carlo model.yaml --output results.yaml
+forge monte-carlo revenue_forecast.yaml --output results.yaml
 ```
 
-**Input Model:**
+**Input Model (`revenue_forecast.yaml`):**
 
 ```yaml
 _forge_version: "5.0.0"
@@ -210,50 +302,128 @@ monte_carlo:
   enabled: true
   iterations: 10000
   sampling: latin_hypercube
-  seed: 12345
+  seed: 42
+
+  # Model correlations between market and company performance
+  correlations:
+    - variables: [assumptions.market_growth, assumptions.revenue_growth]
+      coefficient: 0.75  # Revenue correlated with market
+
   outputs:
-    - variable: valuation.npv
+    - variable: forecast.total_revenue
+      percentiles: [10, 25, 50, 75, 90]
+      thresholds: [1000000, 1200000, 1500000]
+      sensitivity: true
+      histogram: true
+
+    - variable: forecast.gross_profit
       percentiles: [10, 50, 90]
-      thresholds: [0, 100000]
       sensitivity: true
 
 assumptions:
-  revenue_growth: =MC.Normal(0.15, 0.05)
-  initial_cost: =MC.Triangular(80000, 100000, 150000)
-  discount_rate: =MC.Uniform(0.08, 0.12)
+  # Market conditions
+  market_growth: =MC.Normal(0.08, 0.03)  # 8% growth, 3% volatility
 
-cash_flows:
-  year: [0, 1, 2, 3, 4, 5]
-  revenue: [0, 100000, 110000, 120000, 130000, 140000]
-  costs: "=IF(year = 0, assumptions.initial_cost, revenue * 0.6)"
-  net_cf: "=revenue - costs"
+  # Revenue drivers (correlated with market)
+  revenue_growth: =MC.Normal(0.12, 0.05)  # 12% growth, 5% volatility
 
-valuation:
-  npv: =NPV(assumptions.discount_rate, cash_flows.net_cf)
+  # Cost structure
+  cogs_margin: =MC.Triangular(0.35, 0.40, 0.45)  # 35-45% COGS
+
+  # Customer metrics
+  churn_rate: =MC.Uniform(0.05, 0.15)  # 5-15% monthly churn
+
+  # One-time events
+  contract_win: =MC.Discrete([0, 250000, 500000], [0.4, 0.4, 0.2])
+  # 40% no win, 40% medium win, 20% large win
+
+baseline:
+  starting_revenue: 800000
+  customers: 1000
+
+forecast:
+  year: [1, 2, 3]
+
+  # Revenue with growth and one-time contracts
+  revenue: "=baseline.starting_revenue * POWER(1 + assumptions.revenue_growth, year) + IF(year = 1, assumptions.contract_win, 0)"
+
+  # Costs vary with revenue
+  cogs: "=revenue * assumptions.cogs_margin"
+
+  # Gross profit
+  gross_profit: "=revenue - cogs"
+
+  # Customer retention
+  retained_customers: "=baseline.customers * POWER(1 - assumptions.churn_rate, year)"
+
+  # Total revenue across forecast period
+  total_revenue: =SUM(revenue)
 ```
 
-**Output:**
+**Output (`results.yaml`):**
 
 ```yaml
 monte_carlo_results:
-  valuation.npv:
-    percentiles:
-      p10: -12450.23
-      p50: 45678.91
-      p90: 98234.56
-    thresholds:
-      "0": 0.73        # 73% probability NPV > 0
-      "100000": 0.12   # 12% probability NPV > 100K
-    sensitivity:
-      assumptions.revenue_growth: 0.85
-      assumptions.initial_cost: -0.62
-      assumptions.discount_rate: -0.43
+  forecast.total_revenue:
     statistics:
-      mean: 46123.45
-      std_dev: 32456.78
-      min: -45678.12
-      max: 145678.90
+      mean: 3245678.90
+      median: 3198234.50
+      std_dev: 487234.12
+      min: 2012345.00
+      max: 5234567.00
+
+    percentiles:
+      p10: 2634567.00  # 10% chance below this
+      p25: 2898234.00
+      p50: 3198234.50  # Median
+      p75: 3567890.00
+      p90: 3989234.00  # 90% chance below this
+
+    thresholds:
+      "1000000": 0.99  # 99% probability > $1M
+      "1200000": 0.95  # 95% probability > $1.2M
+      "1500000": 0.88  # 88% probability > $1.5M
+
+    sensitivity:
+      assumptions.revenue_growth: 0.92      # Highest impact
+      assumptions.contract_win: 0.45        # Moderate impact
+      assumptions.cogs_margin: -0.38        # Negative correlation
+      assumptions.market_growth: 0.67       # Via correlation
+      assumptions.churn_rate: -0.12         # Minor impact
+
+    histogram:
+      bins: 50
+      counts: [12, 45, 89, 156, 234, ...]   # Frequency per bin
+      edges: [2012345, 2076789, 2141234, ...] # Bin boundaries
+
+  forecast.gross_profit:
+    statistics:
+      mean: 1947234.56
+      median: 1923456.78
+      std_dev: 298765.43
+      min: 1123456.00
+      max: 3234567.00
+
+    percentiles:
+      p10: 1567890.00
+      p50: 1923456.78
+      p90: 2398765.00
+
+    sensitivity:
+      assumptions.revenue_growth: 0.89
+      assumptions.cogs_margin: -0.85      # Strong negative impact
+      assumptions.contract_win: 0.43
+      assumptions.market_growth: 0.62
+      assumptions.churn_rate: -0.09
 ```
+
+**Interpretation:**
+
+- **Expected total revenue**: $3.25M with 80% confidence interval [$2.63M, $3.99M]
+- **Risk assessment**: 88% probability of exceeding $1.5M revenue target
+- **Key driver**: Revenue growth rate (correlation: 0.92) is the primary uncertainty
+- **Cost risk**: COGS margin has strong negative correlation (-0.85) with gross profit
+- **Market dependency**: Market growth indirectly affects revenue (0.67) through correlation
 
 ### Sampling Methods
 

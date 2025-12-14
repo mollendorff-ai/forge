@@ -281,3 +281,92 @@ fn perf_extended_report() {
     println!("╚═══════════════════════════════════════════════════════════════════════╝");
     println!();
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MONTE CARLO PERFORMANCE BENCHMARKS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[cfg(feature = "full")]
+mod monte_carlo_bench {
+    use royalbit_forge::monte_carlo::{Distribution, MonteCarloConfig, MonteCarloEngine};
+    use std::time::Instant;
+
+    fn bench_monte_carlo(iterations: usize) -> std::time::Duration {
+        let config = MonteCarloConfig {
+            enabled: true,
+            iterations,
+            sampling: "latin_hypercube".to_string(),
+            seed: Some(42),
+            outputs: vec![royalbit_forge::monte_carlo::config::OutputConfig {
+                variable: "revenue".to_string(),
+                percentiles: vec![10, 50, 90],
+                threshold: Some("> 100000".to_string()),
+                label: None,
+            }],
+            correlations: vec![],
+        };
+
+        let mut engine = MonteCarloEngine::new(config).unwrap();
+        engine.add_distribution("revenue", Distribution::normal(100000.0, 15000.0).unwrap());
+        engine.add_distribution(
+            "costs",
+            Distribution::triangular(50000.0, 60000.0, 80000.0).unwrap(),
+        );
+        engine.add_distribution("margin", Distribution::uniform(0.1, 0.3).unwrap());
+
+        let start = Instant::now();
+        let _result = engine.run().unwrap();
+        start.elapsed()
+    }
+
+    #[test]
+    #[ignore]
+    fn perf_monte_carlo_report() {
+        println!("\n");
+        println!("╔═══════════════════════════════════════════════════════════════════════╗");
+        println!("║              MONTE CARLO PERFORMANCE REPORT                           ║");
+        println!("╠═══════════════════════════════════════════════════════════════════════╣");
+        println!("║  Iterations  │   Time (ms)  │  Iterations/sec                         ║");
+        println!("╠══════════════╪══════════════╪═════════════════════════════════════════╣");
+
+        let sizes = [1000, 5000, 10000, 25000, 50000, 100000];
+        for &size in &sizes {
+            let duration = bench_monte_carlo(size);
+            let ms = duration.as_millis();
+            let per_sec = if ms > 0 {
+                size as u128 * 1000 / ms
+            } else {
+                999999
+            };
+            println!(
+                "║  {:>10}  │  {:>10} ms │  {:>15} iter/s                   ║",
+                size, ms, per_sec
+            );
+        }
+
+        println!("╚═══════════════════════════════════════════════════════════════════════╝");
+        println!();
+    }
+
+    #[test]
+    fn perf_monte_carlo_10k_under_1_second() {
+        // Target: 10,000 iterations should complete in under 1 second
+        let duration = bench_monte_carlo(10000);
+        assert!(
+            duration.as_secs() < 1,
+            "10K iterations took {} ms, should be under 1000 ms",
+            duration.as_millis()
+        );
+    }
+
+    #[test]
+    fn perf_monte_carlo_1k_under_100_ms() {
+        // Target: 1,000 iterations should complete in under 100 ms
+        let duration = bench_monte_carlo(1000);
+        assert!(
+            duration.as_millis() < 100,
+            "1K iterations took {} ms, should be under 100 ms",
+            duration.as_millis()
+        );
+    }
+}

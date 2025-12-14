@@ -177,14 +177,17 @@ completed:
 
 current:
   version: "8.2.0"
-  priority: NORMAL
-  status: pending
-  summary: "Documentation Polish & Performance Benchmarks"
+  priority: CRITICAL
+  status: completed
+  completed: "2025-12-14"
+  summary: "v8 Completion - Registry, Docs, Benchmarks"
   deliverables:
-    - "Update docs/FEATURES.md with Monte Carlo section"
-    - "Update docs/EXAMPLES.md with correlation examples"
-    - "Performance benchmarks: 10K iterations target"
-    - "README.md Monte Carlo quick start"
+    - "[DONE] Add MC.* functions to function registry (6 distributions, 173 total)"
+    - "[DONE] Update docs/FEATURES.md with Monte Carlo section"
+    - "[DONE] Update docs/EXAMPLES.md with correlation examples"
+    - "[DONE] Update README.md with MC quick start"
+    - "[DONE] Performance benchmarks: 10K < 1s, 1K < 100ms"
+    - "[DONE] Full test suite verification (1538 tests pass)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPLETED - v8.0.0/v8.1.0 Monte Carlo Simulation
@@ -906,10 +909,10 @@ backlog:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 summary:
-  total_functions: 159
-  categories: 14
-  current_version: "8.1.0"
-  next_version: "8.2.0"
+  total_functions: 173
+  categories: 15
+  current_version: "8.2.0"
+  next_version: "8.3.0"
 
   test_status:
     unit_tests: 801
