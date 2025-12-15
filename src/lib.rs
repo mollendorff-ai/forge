@@ -45,9 +45,21 @@ pub mod writer;
 #[cfg(feature = "full")]
 pub mod api;
 #[cfg(feature = "full")]
+pub mod bayesian;
+#[cfg(feature = "full")]
+pub mod bootstrap;
+#[cfg(feature = "full")]
+pub mod decision_trees;
+#[cfg(feature = "full")]
 pub mod mcp;
 #[cfg(feature = "full")]
 pub mod monte_carlo;
+#[cfg(feature = "full")]
+pub mod real_options;
+#[cfg(feature = "full")]
+pub mod scenarios;
+#[cfg(feature = "full")]
+pub mod tornado;
 
 // Re-export commonly used types
 pub use error::{ForgeError, ForgeResult};

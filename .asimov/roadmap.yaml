@@ -176,21 +176,17 @@ completed:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "8.3.0"
+  version: "9.1.0"
   priority: HIGH
-  status: wip
-  summary: "Scenario Analysis - Discrete Branching (Base/Bull/Bear)"
-  adr: "ADR-018"
+  status: pending
+  summary: "CLI Commands for Prediction Methods"
   deliverables:
-    - "scenarios: YAML syntax with probability weights"
-    - "Expected value calculation across scenarios"
-    - "Monte Carlo within scenarios (combined uncertainty)"
-    - "Per-scenario and aggregate reporting"
-    - "scenarios command for CLI"
-  testing:
-    unit_tests: "Probability validation, scenario isolation, EV calculation"
-    e2e_tests: "Base/Bull/Bear NPV, Scenario + Monte Carlo combined"
-    roundtrip: "R (stats package) - weighted.mean() validation"
+    - "scenarios command - run scenario analysis from CLI"
+    - "decision-tree command - run decision tree analysis from CLI"
+    - "real-options command - run real options analysis from CLI"
+    - "tornado command - generate tornado diagram data from CLI"
+    - "bootstrap command - run bootstrap resampling from CLI"
+    - "bayesian command - run Bayesian network inference from CLI"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPLETED - v8.2.x Quality Gate Verification
@@ -933,7 +929,7 @@ prediction_roadmap:
   - version: "8.3.0"
     method: "Scenario Analysis"
     priority: HIGH
-    status: wip
+    status: implemented
     adr: "ADR-018"
     summary: "Discrete branching - Base/Bull/Bear with probabilities"
     rationale: "Boards think in scenarios. Every FP&A deck has Base/Bull/Bear. Regulatory stress tests require it."
@@ -961,7 +957,7 @@ prediction_roadmap:
   - version: "8.4.0"
     method: "Decision Trees"
     priority: HIGH
-    status: wip
+    status: implemented
     adr: "ADR-019"
     summary: "Sequential decisions with chance events - find optimal path"
     rationale: "Capital budgeting standard. Go/no-go gates. Staged investments."
@@ -989,7 +985,7 @@ prediction_roadmap:
   - version: "8.5.0"
     method: "Real Options"
     priority: HIGH
-    status: wip
+    status: implemented
     adr: "ADR-020"
     summary: "Value managerial flexibility (defer, expand, abandon)"
     rationale: "NPV misses flexibility value. 'Should we wait?' has quantifiable answer."
@@ -1018,7 +1014,7 @@ prediction_roadmap:
   - version: "8.6.0"
     method: "Tornado Diagrams"
     priority: HIGH
-    status: wip
+    status: implemented
     adr: null
     summary: "Sensitivity visualization - which inputs drive output variance"
     rationale: "Visual communication of sensitivity analysis. Already have Spearman data."
@@ -1043,7 +1039,7 @@ prediction_roadmap:
   - version: "8.7.0"
     method: "Bootstrap Resampling"
     priority: HIGH
-    status: wip
+    status: implemented
     adr: null
     summary: "Non-parametric confidence intervals from historical data"
     rationale: "When you have data but don't know the distribution. Let data speak."
@@ -1070,7 +1066,7 @@ prediction_roadmap:
   - version: "9.0.0"
     method: "Bayesian Networks"
     priority: HIGH
-    status: wip
+    status: implemented
     adr: null
     summary: "Causal dependency modeling with belief updates"
     rationale: "Model how variables cause each other. Update beliefs with evidence."
@@ -1128,21 +1124,36 @@ backlog:
 summary:
   total_functions: 173
   categories: 15
-  current_version: "8.2.0"
-  next_version: "8.3.0"
+  current_version: "9.0.0"
+  next_version: "9.1.0"
 
   test_status:
-    unit_tests: 801
+    unit_tests: 1649
     integration_tests: 457
     e2e_roundtrip: 57
     monte_carlo_e2e: 24
-    total: 1538
+    total: 1800
     all_passing: true
     engine: "ssconvert (Gnumeric)"
 
   completed_today:
-    - "v8.1.0: Monte Carlo Validation & Integration"
-    - "24 E2E tests, Python validator, Excel export, demo gating"
+    - "v8.3.0: Scenario Analysis - Base/Bull/Bear with probability weights"
+    - "v8.4.0: Decision Trees - Backward induction solver"
+    - "v8.5.0: Real Options - Black-Scholes + Binomial Tree"
+    - "v8.6.0: Tornado Diagrams - Sensitivity visualization"
+    - "v8.7.0: Bootstrap Resampling - Non-parametric CI"
+    - "v9.0.0: Bayesian Networks - Variable elimination inference"
+
+  prediction_methods_complete:
+    versions: "v8.3.0 - v9.0.0"
+    summary: "6 FP&A Prediction Methods - COMPLETE"
+    methods:
+      - "Scenario Analysis (Base/Bull/Bear with probabilities)"
+      - "Decision Trees (backward induction, DOT export)"
+      - "Real Options (Black-Scholes, Binomial Tree, Greeks)"
+      - "Tornado Diagrams (sensitivity ranking)"
+      - "Bootstrap Resampling (BCa confidence intervals)"
+      - "Bayesian Networks (belief propagation)"
 
   monte_carlo_complete:
     version: "8.1.0"
