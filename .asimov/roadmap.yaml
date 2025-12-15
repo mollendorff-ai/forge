@@ -914,16 +914,107 @@ next:
       - "Documentation: INCLUDE feature limitations"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# BACKLOG
+# PREDICTION METHODS ROADMAP
+# See docs/FPA-PREDICTION-METHODS.md for usage guide
+# ═══════════════════════════════════════════════════════════════════════════════
+
+prediction_roadmap:
+  # v8.x - Monte Carlo Enhancements
+  - version: "8.3.0"
+    method: "Tornado Diagrams"
+    priority: HIGH
+    status: planned
+    adr: null
+    summary: "Sensitivity visualization - which inputs drive output variance"
+    deliverables:
+      - "tornado command for CLI"
+      - "JSON/CSV output for external charting"
+      - "Integration with Monte Carlo results"
+
+  - version: "8.4.0"
+    method: "Scenario Analysis"
+    priority: HIGH
+    status: planned
+    adr: "ADR-018"
+    summary: "Discrete branching - Base/Bull/Bear with probabilities"
+    deliverables:
+      - "scenarios: YAML syntax with probability weights"
+      - "Expected value calculation across scenarios"
+      - "Monte Carlo within scenarios (combined uncertainty)"
+      - "Per-scenario and aggregate reporting"
+
+  - version: "8.5.0"
+    method: "Bootstrap Resampling"
+    priority: MEDIUM
+    status: planned
+    adr: null
+    summary: "Non-parametric confidence intervals from historical data"
+    deliverables:
+      - "bootstrap: YAML config with historical data source"
+      - "Resampling with replacement"
+      - "Confidence intervals without distribution assumptions"
+
+  # v9.x - Decision Analysis
+  - version: "9.0.0"
+    method: "Decision Trees"
+    priority: HIGH
+    status: planned
+    adr: "ADR-019"
+    summary: "Sequential decisions with chance events - find optimal path"
+    deliverables:
+      - "decision_tree: YAML syntax for nodes and branches"
+      - "Backward induction solver"
+      - "DOT export for Graphviz visualization"
+      - "Monte Carlo at terminal nodes"
+
+  - version: "9.1.0"
+    method: "Real Options"
+    priority: HIGH
+    status: planned
+    adr: "ADR-020"
+    summary: "Value managerial flexibility (defer, expand, abandon)"
+    deliverables:
+      - "real_options: YAML syntax for option definitions"
+      - "Binomial tree valuation"
+      - "Black-Scholes for simple options"
+      - "Compare NPV with vs without options"
+
+  # v10.x - Advanced Methods (Future)
+  - version: "10.x"
+    method: "Bayesian Networks"
+    priority: LOW
+    status: future
+    adr: null
+    summary: "Causal dependency modeling with belief updates"
+    deliverables:
+      - "DAG structure in YAML"
+      - "Conditional probability tables"
+      - "Evidence propagation"
+
+  # Monte Carlo Enhancements (Lower Priority)
+  - version: "future"
+    method: "Antithetic Variates"
+    priority: LOW
+    status: backlog
+    summary: "Variance reduction technique (50% fewer iterations)"
+
+  - version: "future"
+    method: "Copulas"
+    priority: LOW
+    status: backlog
+    summary: "Non-linear tail dependencies for correlated risks"
+
+  - version: "future"
+    method: "Control Variates"
+    priority: LOW
+    status: backlog
+    summary: "Use analytical baselines for variance reduction"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BACKLOG (Non-Prediction)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
-  - "Tornado Diagrams (Sensitivity Visualization) - JSON/CSV for charts (HIGH)"
-  - "Scenario Analysis (Discrete Branching) - Base/Bull/Bear cases (HIGH)"
-  - "Bootstrap Resampling - Non-parametric confidence intervals (MEDIUM)"
-  - "Antithetic Variates - 50% variance reduction (LOW)"
-  - "Copulas - Non-linear tail dependencies (LOW)"
-  - "Control Variates - Use analytical baselines (LOW)"
   - "Find external FOSS tool to validate Forge-native functions"
   - "Enterprise licensing (when ready to leave CGI)"
   - "MCP server documentation"
