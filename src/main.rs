@@ -18,7 +18,7 @@ use std::path::PathBuf;
 )]
 #[cfg_attr(
     feature = "full",
-    command(about = "Git-native financial modeling. 160 functions. Zero hallucinations.")
+    command(about = "Git-native financial modeling. 173 functions. Zero hallucinations.")
 )]
 #[cfg_attr(
     not(feature = "full"),
@@ -44,13 +44,13 @@ Docs: https://github.com/royalbit/forge-demo")
 #[cfg_attr(
     feature = "full",
     command(long_about = "Forge Enterprise - Git-native financial modeling
-160 functions | 1709 tests | E2E validated against Gnumeric
+173 functions | 1709 tests | E2E validated against Gnumeric
 
 COMMANDS:
   calculate   - Execute formulas, update values
   validate    - Check model integrity
   audit       - Trace formula dependencies (SOX compliance)
-  functions   - List all 160 supported functions
+  functions   - List all 173 supported functions
   simulate    - Monte Carlo simulation with distributions
   sensitivity - One/two-variable data tables
   goal-seek   - Find input for target output
@@ -510,6 +510,7 @@ DISTRIBUTIONS:
   MC.Uniform(min, max)          - Equal probability in range
   MC.PERT(min, mode, max)       - Smooth project estimates
   MC.Lognormal(mean, stdev)     - Non-negative values (prices, revenue)
+  MC.Discrete(vals, probs)      - Custom scenarios with probabilities
 
 YAML CONFIGURATION:
   monte_carlo:

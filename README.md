@@ -1,7 +1,7 @@
 # Forge
 
 [![Tests](https://img.shields.io/badge/tests-2486_passing-brightgreen)](https://github.com/royalbit/forge)
-[![Functions](https://img.shields.io/badge/functions-159-blue)](https://github.com/royalbit/forge)
+[![Functions](https://img.shields.io/badge/functions-173-blue)](https://github.com/royalbit/forge)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
 **Financial modeling for the AI era. Git-native. Excel import/export. FP&A functions Excel forgot.**
@@ -81,7 +81,7 @@ Your analysts get the same multiplier. But only if they stop feeding Excel to AI
 | Feature | Business Value |
 |---------|----------------|
 | **YAML-based models** | Git-native, diff-friendly, PR-reviewable |
-| **153 Excel functions** | NPV, IRR, XIRR, PMT, VLOOKUP, SUMIF - all the finance essentials |
+| **167 Excel functions** | NPV, IRR, XIRR, PMT, VLOOKUP, SUMIF - all the finance essentials |
 | **6 FP&A functions (not in Excel)** | VARIANCE, BREAKEVEN - what Excel should have had |
 | **Monte Carlo simulation** | Probabilistic modeling with uncertainty distributions (Enterprise) |
 | **Deterministic execution** | Same input = same output, every time |
@@ -149,7 +149,7 @@ Forge uses Rust feature flags to create demo and enterprise builds.
 # Install forge-demo to ~/bin (47 functions)
 make install-demo
 
-# Install forge enterprise to ~/bin (160 functions)
+# Install forge enterprise to ~/bin (173 functions)
 make install-forge
 
 # Install both
@@ -162,7 +162,7 @@ make install-all
 # Demo build (47 scalar functions)
 cargo build --release --bin forge-demo
 
-# Enterprise build (160 functions, all features)
+# Enterprise build (173 functions, all features)
 cargo build --release --features full --bin forge
 ```
 
@@ -181,7 +181,7 @@ make publish-demo
 | Build | Binary | Functions | Commands | Use Case |
 |-------|--------|-----------|----------|----------|
 | Demo | `forge-demo` | 47 (scalar) | 7 | Evaluation, v1.0.0 models |
-| Enterprise | `forge` | 160 (scalar + array) | 14 | Production FP&A |
+| Enterprise | `forge` | 173 (scalar + array) | 15 | Production FP&A |
 
 ### Enterprise-Only Commands
 
@@ -343,10 +343,10 @@ forge export model.yaml output.xlsx    # YAML -> Excel with formulas
 forge import input.xlsx output.yaml    # Excel -> YAML
 
 # Reference
-forge functions                        # List all 159 functions
+forge functions                        # List all 173 functions
 ```
 
-## 159 Functions (153 Excel + 6 FP&A)
+## 173 Functions (167 Excel + 6 FP&A)
 
 | Category | Count | Functions |
 |----------|-------|-----------|
@@ -428,7 +428,7 @@ Integrate with Claude Desktop and other AI tools via Model Context Protocol.
 | Metric | Value |
 |--------|-------|
 | **Tests** | 2,486 passing (1,267 demo) |
-| **Functions** | 159 (153 Excel + 6 FP&A) |
+| **Functions** | 173 (167 Excel + 6 FP&A) |
 | **E2E Validated** | 57 formulas against Gnumeric |
 | **Warnings** | 0 |
 | **Coverage** | 89.23% |

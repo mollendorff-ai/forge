@@ -100,6 +100,7 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
             Category::Information,
             Category::Advanced,
             Category::ForgeNative,
+            Category::MonteCarlo,
         ];
 
         for category in category_order {
