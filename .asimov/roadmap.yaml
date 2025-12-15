@@ -178,13 +178,19 @@ completed:
 current:
   version: "8.3.0"
   priority: HIGH
-  status: planned
-  summary: "Tornado Diagrams - Sensitivity Visualization"
+  status: wip
+  summary: "Scenario Analysis - Discrete Branching (Base/Bull/Bear)"
+  adr: "ADR-018"
   deliverables:
-    - "Tornado diagram JSON/CSV output from sensitivity analysis"
-    - "tornado command for CLI"
-    - "Integration with existing Monte Carlo results"
-    - "Documentation and examples"
+    - "scenarios: YAML syntax with probability weights"
+    - "Expected value calculation across scenarios"
+    - "Monte Carlo within scenarios (combined uncertainty)"
+    - "Per-scenario and aggregate reporting"
+    - "scenarios command for CLI"
+  testing:
+    unit_tests: "Probability validation, scenario isolation, EV calculation"
+    e2e_tests: "Base/Bull/Bear NPV, Scenario + Monte Carlo combined"
+    roundtrip: "R (stats package) - weighted.mean() validation"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPLETED - v8.2.x Quality Gate Verification
@@ -919,79 +925,174 @@ next:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 prediction_roadmap:
-  # v8.x - Monte Carlo Enhancements
-  - version: "8.3.0"
-    method: "Tornado Diagrams"
-    priority: HIGH
-    status: planned
-    adr: null
-    summary: "Sensitivity visualization - which inputs drive output variance"
-    deliverables:
-      - "tornado command for CLI"
-      - "JSON/CSV output for external charting"
-      - "Integration with Monte Carlo results"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PRIORITY ORDER: Most valuable for FP&A first
+  # All methods: Unit tests + E2E tests + Roundtrip against FOSS validators
+  # ═══════════════════════════════════════════════════════════════════════════
 
-  - version: "8.4.0"
+  - version: "8.3.0"
     method: "Scenario Analysis"
     priority: HIGH
-    status: planned
+    status: wip
     adr: "ADR-018"
     summary: "Discrete branching - Base/Bull/Bear with probabilities"
+    rationale: "Boards think in scenarios. Every FP&A deck has Base/Bull/Bear. Regulatory stress tests require it."
     deliverables:
       - "scenarios: YAML syntax with probability weights"
       - "Expected value calculation across scenarios"
       - "Monte Carlo within scenarios (combined uncertainty)"
       - "Per-scenario and aggregate reporting"
+      - "scenarios command for CLI"
+    testing:
+      unit_tests:
+        - "Probability validation (must sum to 1.0)"
+        - "Scenario isolation (no cross-contamination)"
+        - "Expected value calculation accuracy"
+        - "Monte Carlo integration within scenarios"
+      e2e_tests:
+        - "Base/Bull/Bear NPV analysis"
+        - "Scenario + Monte Carlo combined"
+        - "Multi-output scenario comparison"
+      roundtrip_validation:
+        tool: "R (stats package)"
+        method: "Compare expected values against R weighted.mean()"
+        rationale: "R is the gold standard for statistical computing"
 
-  - version: "8.5.0"
-    method: "Bootstrap Resampling"
-    priority: MEDIUM
-    status: planned
-    adr: null
-    summary: "Non-parametric confidence intervals from historical data"
-    deliverables:
-      - "bootstrap: YAML config with historical data source"
-      - "Resampling with replacement"
-      - "Confidence intervals without distribution assumptions"
-
-  # v9.x - Decision Analysis
-  - version: "9.0.0"
+  - version: "8.4.0"
     method: "Decision Trees"
     priority: HIGH
-    status: planned
+    status: wip
     adr: "ADR-019"
     summary: "Sequential decisions with chance events - find optimal path"
+    rationale: "Capital budgeting standard. Go/no-go gates. Staged investments."
     deliverables:
       - "decision_tree: YAML syntax for nodes and branches"
       - "Backward induction solver"
       - "DOT export for Graphviz visualization"
       - "Monte Carlo at terminal nodes"
+      - "decision-tree command for CLI"
+    testing:
+      unit_tests:
+        - "Tree structure validation (no cycles)"
+        - "Probability branch validation"
+        - "Backward induction correctness"
+        - "Optimal path identification"
+      e2e_tests:
+        - "R&D investment decision (classic example)"
+        - "Multi-stage project with abandonment"
+        - "Decision tree + Monte Carlo terminals"
+      roundtrip_validation:
+        tool: "SciPy + NumPy (Python)"
+        method: "Compare expected values against manual rollback calculation"
+        rationale: "Python scientific stack is industry standard"
 
-  - version: "9.1.0"
+  - version: "8.5.0"
     method: "Real Options"
     priority: HIGH
-    status: planned
+    status: wip
     adr: "ADR-020"
     summary: "Value managerial flexibility (defer, expand, abandon)"
+    rationale: "NPV misses flexibility value. 'Should we wait?' has quantifiable answer."
     deliverables:
       - "real_options: YAML syntax for option definitions"
-      - "Binomial tree valuation"
-      - "Black-Scholes for simple options"
+      - "Binomial tree valuation (Cox-Ross-Rubinstein)"
+      - "Black-Scholes for European options"
       - "Compare NPV with vs without options"
+      - "real-options command for CLI"
+    testing:
+      unit_tests:
+        - "Black-Scholes formula accuracy"
+        - "Binomial tree convergence to Black-Scholes"
+        - "American vs European option handling"
+        - "Put-call parity validation"
+      e2e_tests:
+        - "Defer option (wait to invest)"
+        - "Expand option (Phase 2 if Phase 1 succeeds)"
+        - "Abandon option (salvage value)"
+        - "Compound option (option on option)"
+      roundtrip_validation:
+        tool: "QuantLib (C++/Python)"
+        method: "Compare option values against QuantLib pricing"
+        rationale: "QuantLib is the industry standard for derivatives pricing"
 
-  # v10.x - Advanced Methods (Future)
-  - version: "10.x"
+  - version: "8.6.0"
+    method: "Tornado Diagrams"
+    priority: HIGH
+    status: wip
+    adr: null
+    summary: "Sensitivity visualization - which inputs drive output variance"
+    rationale: "Visual communication of sensitivity analysis. Already have Spearman data."
+    deliverables:
+      - "tornado command for CLI"
+      - "JSON/CSV output for external charting"
+      - "Integration with Monte Carlo sensitivity results"
+      - "Rank inputs by impact magnitude"
+    testing:
+      unit_tests:
+        - "Ranking algorithm correctness"
+        - "Swing calculation (+/- from base)"
+        - "JSON/CSV output format validation"
+      e2e_tests:
+        - "NPV sensitivity to 5+ inputs"
+        - "Correlation with Monte Carlo Spearman results"
+      roundtrip_validation:
+        tool: "R (sensitivity package)"
+        method: "Compare sensitivity rankings against R sensitivity::src()"
+        rationale: "R sensitivity package is academic standard"
+
+  - version: "8.7.0"
+    method: "Bootstrap Resampling"
+    priority: HIGH
+    status: wip
+    adr: null
+    summary: "Non-parametric confidence intervals from historical data"
+    rationale: "When you have data but don't know the distribution. Let data speak."
+    deliverables:
+      - "bootstrap: YAML config with historical data source"
+      - "Resampling with replacement"
+      - "Confidence intervals without distribution assumptions"
+      - "Percentile and BCa methods"
+      - "bootstrap command for CLI"
+    testing:
+      unit_tests:
+        - "Resampling with replacement correctness"
+        - "Confidence interval calculation"
+        - "BCa bias correction accuracy"
+      e2e_tests:
+        - "Historical returns analysis"
+        - "Revenue forecast from past data"
+      roundtrip_validation:
+        tool: "R (boot package)"
+        method: "Compare confidence intervals against R boot::boot.ci()"
+        rationale: "R boot package by Canty & Ripley is the definitive implementation"
+
+  # v9.x - Advanced Methods
+  - version: "9.0.0"
     method: "Bayesian Networks"
-    priority: LOW
-    status: future
+    priority: HIGH
+    status: wip
     adr: null
     summary: "Causal dependency modeling with belief updates"
+    rationale: "Model how variables cause each other. Update beliefs with evidence."
     deliverables:
-      - "DAG structure in YAML"
+      - "bayesian_network: YAML syntax for DAG structure"
       - "Conditional probability tables"
-      - "Evidence propagation"
+      - "Evidence propagation (belief updating)"
+      - "bayesian command for CLI"
+    testing:
+      unit_tests:
+        - "DAG validation (no cycles)"
+        - "CPT normalization"
+        - "Belief propagation correctness"
+      e2e_tests:
+        - "Credit risk model (classic example)"
+        - "Supply chain risk propagation"
+      roundtrip_validation:
+        tool: "pgmpy (Python)"
+        method: "Compare inference results against pgmpy"
+        rationale: "pgmpy is the leading Python probabilistic graphical models library"
 
-  # Monte Carlo Enhancements (Lower Priority)
+  # Future - Variance Reduction (Lower Priority)
   - version: "future"
     method: "Antithetic Variates"
     priority: LOW
