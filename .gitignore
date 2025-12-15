@@ -8,3 +8,4 @@
 *.bak
 coverage-report/
 lcov.info
+tests/validators/.venv/

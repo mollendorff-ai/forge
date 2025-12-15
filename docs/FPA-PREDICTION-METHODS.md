@@ -343,14 +343,45 @@ scenarios:
 
 ---
 
+## Roundtrip Validation
+
+All prediction methods are validated against battle-proven FOSS tools.
+
+### Setup
+
+```bash
+# One-time setup
+./tests/validators/setup.sh
+```
+
+### Validation Tools
+
+| Method | Validator | Tool/Package |
+|--------|-----------|--------------|
+| Monte Carlo | Gnumeric | `ssconvert` (already in use) |
+| Scenario Analysis | R | `weighted.mean()` |
+| Decision Trees | Python | `scipy`, `numpy` |
+| Real Options | QuantLib | `QuantLib` (C++/Python) |
+| Tornado Diagrams | R | `sensitivity` package |
+| Bootstrap | R | `boot` package |
+| Bayesian Networks | Python | `pgmpy` |
+
+### Installed Versions
+
+```bash
+# Check installed versions
+R --version | head -1
+./tests/validators/.venv/bin/python -c "import scipy; print(f'scipy {scipy.__version__}')"
+```
+
 ## Forge Implementation Status
 
-| Method | Status | Version | ADR |
-|--------|--------|---------|-----|
-| Monte Carlo | Complete | v8.0+ | ADR-016, ADR-017 |
-| Tornado Diagrams | Planned | v8.3.0 | - |
-| Scenario Analysis | Planned | v8.4.0 | ADR-018 |
-| Decision Trees | Planned | v9.x | ADR-019 |
-| Real Options | Planned | v9.x | ADR-020 |
-| Bootstrap | Planned | v9.x | - |
-| Bayesian Networks | Future | - | - |
+| Method | Status | Version | ADR | Validator |
+|--------|--------|---------|-----|-----------|
+| Monte Carlo | Complete | v8.0+ | ADR-016, ADR-017 | Gnumeric |
+| Scenario Analysis | WIP | v8.3.0 | ADR-018 | R |
+| Decision Trees | WIP | v8.4.0 | ADR-019 | SciPy |
+| Real Options | WIP | v8.5.0 | ADR-020 | QuantLib |
+| Tornado Diagrams | WIP | v8.6.0 | - | R sensitivity |
+| Bootstrap | WIP | v8.7.0 | - | R boot |
+| Bayesian Networks | WIP | v9.0.0 | - | pgmpy |

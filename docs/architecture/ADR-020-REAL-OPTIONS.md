@@ -242,6 +242,80 @@ Simulate paths with if/then decision rules.
 5. **Output**: Show traditional NPV vs option-adjusted value
 6. **Validation**: Compare simple cases with analytical solutions
 
+## Roundtrip Validation
+
+Real Options results are validated against **QuantLib** (industry-standard derivatives pricing library).
+
+### Validation Tool
+
+```bash
+# Setup (one-time)
+./tests/validators/setup.sh
+brew install quantlib  # C++ library
+
+# Python QuantLib bindings (alternative)
+./tests/validators/.venv/bin/pip install QuantLib-Python
+```
+
+### Black-Scholes Validation
+
+```python
+# ./tests/validators/.venv/bin/python
+import QuantLib as ql
+
+# European call option
+spot = 100
+strike = 100
+rate = 0.05
+volatility = 0.20
+maturity = 1.0  # years
+
+# QuantLib setup
+today = ql.Date.todaysDate()
+ql.Settings.instance().evaluationDate = today
+
+# Option
+payoff = ql.PlainVanillaPayoff(ql.Option.Call, strike)
+exercise = ql.EuropeanExercise(today + ql.Period(int(maturity * 365), ql.Days))
+option = ql.VanillaOption(payoff, exercise)
+
+# Market data
+spot_handle = ql.QuoteHandle(ql.SimpleQuote(spot))
+rate_handle = ql.YieldTermStructureHandle(
+    ql.FlatForward(today, rate, ql.Actual365Fixed()))
+vol_handle = ql.BlackVolTermStructureHandle(
+    ql.BlackConstantVol(today, ql.NullCalendar(), volatility, ql.Actual365Fixed()))
+
+# Black-Scholes process
+process = ql.BlackScholesProcess(spot_handle, rate_handle, vol_handle)
+option.setPricingEngine(ql.AnalyticEuropeanEngine(process))
+
+print(f"Call Option Value: ${option.NPV():.4f}")
+# Expected: ~$10.4506 (Black-Scholes closed-form)
+```
+
+### Rust Crate Alternative
+
+For Rust-native validation, use the **RustQuant** crate (Apache-2.0/MIT):
+
+```rust
+// Cargo.toml: rustquant = "0.3"
+use rustquant::instruments::options::*;
+
+let bs = BlackScholes::new(100.0, 100.0, 0.05, 0.20, 1.0);
+let call_price = bs.call_price();
+// Expected: ~$10.4506
+```
+
+### Test Coverage
+
+| Test | Validation |
+|------|------------|
+| Black-Scholes formula | QuantLib / RustQuant |
+| Binomial tree convergence | QuantLib |
+| American option pricing | QuantLib (binomial) |
+| Put-call parity | Unit test |
+
 ## References
 
 - Dixit, A. & Pindyck, R. (1994). *Investment Under Uncertainty*. Princeton.
@@ -250,3 +324,5 @@ Simulate paths with if/then decision rules.
 - docs/FPA-PREDICTION-METHODS.md - Method comparison guide
 - ADR-016: Monte Carlo Architecture
 - ADR-019: Decision Trees
+- QuantLib: https://www.quantlib.org/
+- RustQuant: https://github.com/avhz/RustQuant
