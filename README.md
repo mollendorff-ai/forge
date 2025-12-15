@@ -218,6 +218,21 @@ forge simulate model.yaml --iterations 10000 --output results.xlsx
 
 **Note:** This is an **Enterprise feature**. See [docs/FEATURES.md](docs/FEATURES.md) for full distribution functions and configuration options.
 
+### Prediction Methods Roadmap
+
+Monte Carlo is just the beginning. Forge is building a complete FP&A prediction toolkit:
+
+| Method | Version | Use Case | Validator |
+|--------|---------|----------|-----------|
+| **Monte Carlo** | v8.0+ | Continuous uncertainty | Gnumeric |
+| Scenario Analysis | v8.3.0 | Base/Bull/Bear cases | R |
+| Decision Trees | v8.4.0 | Sequential decisions | SciPy |
+| Real Options | v8.5.0 | Value flexibility | QuantLib |
+| Tornado Diagrams | v8.6.0 | Sensitivity visualization | R |
+| Bootstrap | v8.7.0 | Historical data analysis | R boot |
+
+See [docs/FPA-PREDICTION-METHODS.md](docs/FPA-PREDICTION-METHODS.md) for detailed guidance on when to use each method.
+
 ## Example: 5-Year DCF Model
 
 ```yaml

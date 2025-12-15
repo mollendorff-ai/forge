@@ -208,9 +208,65 @@ Use TreeAge, PrecisionTree, etc. and import results.
 6. Optional: Monte Carlo at terminal nodes
 7. Export: DOT format for Graphviz visualization
 
+## Roundtrip Validation
+
+Decision Tree results are validated against **SciPy/NumPy** (industry-standard scientific Python).
+
+### Validation Tool
+
+```bash
+# Setup (one-time)
+./tests/validators/setup.sh
+
+# Python validation script
+./tests/validators/.venv/bin/python << 'EOF'
+import numpy as np
+
+# Decision tree structure (R&D Investment example)
+# Node values from backward induction
+
+# Terminal values
+license_value = 5_000_000
+manufacture_value = 8_000_000 - 3_000_000  # net of cost
+failure_value = -2_000_000
+no_invest_value = 0
+
+# Commercialize decision (choose max)
+commercialize_ev = max(license_value, manufacture_value)
+print(f"Commercialize EV: ${commercialize_ev:,.0f}")  # $5,000,000
+
+# Tech outcome (chance node)
+p_success = 0.60
+p_failure = 0.40
+tech_ev = p_success * commercialize_ev + p_failure * failure_value
+print(f"Tech Outcome EV: ${tech_ev:,.0f}")  # $2,200,000
+
+# Invest decision (choose max, subtract investment cost)
+invest_cost = 2_000_000
+invest_ev = tech_ev - invest_cost
+print(f"Invest EV: ${invest_ev:,.0f}")  # $200,000
+
+# Root decision
+root_ev = max(invest_ev, no_invest_value)
+print(f"Optimal Decision: {'Invest' if invest_ev > no_invest_value else 'Dont Invest'}")
+print(f"Root EV: ${root_ev:,.0f}")  # $200,000
+EOF
+```
+
+### Test Coverage
+
+| Test | Validation |
+|------|------------|
+| DAG structure (no cycles) | Unit test |
+| Backward induction | SciPy/NumPy |
+| Optimal path identification | E2E test |
+| MC at terminal nodes | E2E + MC validator |
+
 ## References
 
 - Raiffa, H. (1968). *Decision Analysis*. Addison-Wesley.
 - docs/FPA-PREDICTION-METHODS.md - Method comparison guide
 - ADR-016: Monte Carlo Architecture
 - ADR-018: Scenario Analysis
+- SciPy: https://scipy.org/
+- NumPy: https://numpy.org/

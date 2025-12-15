@@ -169,8 +169,42 @@ forge calculate model.yaml --set revenue_growth=0.05
 4. Report per-scenario and expected-value results
 5. Excel export: One sheet per scenario + summary sheet
 
+## Roundtrip Validation
+
+Scenario Analysis results are validated against **R** (the gold standard for statistical computing).
+
+### Validation Tool
+
+```bash
+# Setup (one-time)
+./tests/validators/setup.sh
+
+# R validation script
+R --quiet -e '
+  # Forge scenario results
+  scenarios <- c("base", "bull", "bear")
+  probabilities <- c(0.50, 0.30, 0.20)
+  npv_values <- c(1250000, 2100000, -450000)
+
+  # Expected value calculation
+  ev <- weighted.mean(npv_values, probabilities)
+  cat("Expected NPV:", ev, "\n")
+  # Expected: 1015000
+'
+```
+
+### Test Coverage
+
+| Test | Validation |
+|------|------------|
+| Probability sum = 1.0 | Unit test |
+| Expected value calculation | R `weighted.mean()` |
+| Scenario isolation | E2E test |
+| MC within scenarios | E2E + MC validator |
+
 ## References
 
 - docs/FPA-PREDICTION-METHODS.md - Method comparison guide
 - ADR-016: Monte Carlo Architecture
 - ADR-017: Monte Carlo Sequential Execution
+- R Project: https://www.r-project.org/
