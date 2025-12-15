@@ -44,7 +44,7 @@ Docs: https://github.com/royalbit/forge-demo")
 #[cfg_attr(
     feature = "full",
     command(long_about = "Forge Enterprise - Git-native financial modeling
-173 functions | 1709 tests | E2E validated against Gnumeric
+173 functions | 2703 tests | E2E validated against Gnumeric
 
 COMMANDS:
   calculate     - Execute formulas, update values

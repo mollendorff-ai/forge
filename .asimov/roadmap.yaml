@@ -178,21 +178,22 @@ completed:
 current:
   version: "9.1.0"
   priority: CRITICAL
-  status: wip
+  status: completed
+  completed: "2025-12-15"
   summary: "CLI Commands for Prediction Methods + Website Update"
   deliverables:
-    # CLI Commands (enterprise-only)
-    - "scenarios command - run scenario analysis from CLI"
-    - "decision-tree command - run decision tree analysis from CLI"
-    - "real-options command - run real options analysis from CLI"
-    - "tornado command - generate tornado diagram data from CLI"
-    - "bootstrap command - run bootstrap resampling from CLI"
-    - "bayesian command - run Bayesian network inference from CLI"
-    # Website Updates
-    - "Update royalbit.ca/forge stats (173 functions, 1664 tests)"
-    - "Add Monte Carlo feature section"
-    - "Add prediction methods feature cards"
-    - "Update --help header with current stats"
+    # CLI Commands (enterprise-only) - ALL DONE
+    - "[DONE] scenarios command - run scenario analysis from CLI"
+    - "[DONE] decision-tree command - run decision tree analysis from CLI"
+    - "[DONE] real-options command - run real options analysis from CLI"
+    - "[DONE] tornado command - generate tornado diagram data from CLI"
+    - "[DONE] bootstrap command - run bootstrap resampling from CLI"
+    - "[DONE] bayesian command - run Bayesian network inference from CLI"
+    # Website Updates - ALL DONE
+    - "[DONE] Update royalbit.ca/forge stats (173 functions, 2703 tests)"
+    - "[DONE] Add Monte Carlo feature section"
+    - "[DONE] Add prediction methods feature cards"
+    - "[DONE] Update --help header with current stats (2703 tests)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPLETED - v8.2.x Quality Gate Verification
@@ -1130,15 +1131,11 @@ backlog:
 summary:
   total_functions: 173
   categories: 15
-  current_version: "9.0.0"
-  next_version: "9.1.0"
+  current_version: "9.1.0"
+  next_version: "9.2.0"
 
   test_status:
-    unit_tests: 1649
-    integration_tests: 457
-    e2e_roundtrip: 57
-    monte_carlo_e2e: 24
-    total: 1800
+    total: 2703
     all_passing: true
     engine: "ssconvert (Gnumeric)"
 
