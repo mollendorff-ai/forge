@@ -280,7 +280,7 @@ All documentation cleaned up and professionalized for enterprise due diligence r
   - `docs/COMPETITIVE_ANALYSIS.md` - Internal pricing strategy
   - `docs/DEVELOPMENT.md` - Internal dev guidelines
   - `docs/HOSTING_ARCHITECTURE.md` - Internal infrastructure docs
-  - `docs/architecture/ADR-011-SOURCE-CODE-CLOSURE.md` - Business strategy
+  - ADR-011-SOURCE-CODE-CLOSURE - Business strategy (internal, not in repo)
   - `docs/GLOSSARY.md`, `MERMAID_GUIDE.md`, `RUST_PATTERNS.md` - Internal style guides
 
 - **Verbose Architecture Docs** (replaced with ADRs)
@@ -469,7 +469,7 @@ Forge source code is now protected. Public demo repo established.
 - Migrated source code to self-hosted gitolite (git@crypto1.ca:royalbit/forge)
 - GitHub repo set to private, then deleted
 - Created docs/HOSTING_ARCHITECTURE.md
-- Created ADR-011-SOURCE-CODE-CLOSURE.md
+- Created ADR-011-SOURCE-CODE-CLOSURE (internal, not in repo)
 - Created royalbit.ca/forge/ landing page (R&D narrative)
 
 ### Phase 2: Fresh GitHub Demo Repo (DONE)

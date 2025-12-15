@@ -176,18 +176,43 @@ completed:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "8.2.0"
-  priority: CRITICAL
-  status: completed
-  completed: "2025-12-14"
-  summary: "v8 Completion - Registry, Docs, Benchmarks"
+  version: "8.3.0"
+  priority: HIGH
+  status: planned
+  summary: "Tornado Diagrams - Sensitivity Visualization"
   deliverables:
-    - "[DONE] Add MC.* functions to function registry (6 distributions, 173 total)"
-    - "[DONE] Update docs/FEATURES.md with Monte Carlo section"
-    - "[DONE] Update docs/EXAMPLES.md with correlation examples"
-    - "[DONE] Update README.md with MC quick start"
-    - "[DONE] Performance benchmarks: 10K < 1s, 1K < 100ms"
-    - "[DONE] Full test suite verification (1538 tests pass)"
+    - "Tornado diagram JSON/CSV output from sensitivity analysis"
+    - "tornado command for CLI"
+    - "Integration with existing Monte Carlo results"
+    - "Documentation and examples"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPLETED - v8.2.x Quality Gate Verification
+# ═══════════════════════════════════════════════════════════════════════════════
+
+v8_2_verification_completed:
+  - version: "8.2.0"
+    date: "2025-12-14"
+    summary: "v8 Completion - Registry, Docs, Benchmarks"
+    deliverables:
+      - "Add MC.* functions to function registry (6 distributions, 173 total)"
+      - "Update docs/FEATURES.md with Monte Carlo section"
+      - "Update docs/EXAMPLES.md with correlation examples"
+      - "Update README.md with MC quick start"
+      - "Performance benchmarks: 10K < 1s, 1K < 100ms"
+      - "Full test suite verification (1538 tests pass)"
+
+  - version: "8.2.1"
+    date: "2025-12-15"
+    summary: "v8 Quality Gate Verification"
+    deliverables:
+      - "Enterprise gating verified (#[cfg(feature = \"full\")] on MC module)"
+      - "Test coverage verified (81 MC tests, 100% passing, 0 ignored)"
+      - "Documentation complete (ADR-016, FEATURES, EXAMPLES, README)"
+      - "CLI --help updated (all 6 MC distributions documented)"
+      - "MonteCarlo category added to functions command output"
+      - "Function counts updated 159->173 across all docs"
+      - "Broken ADR-011 link fixed in CHANGELOG"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPLETED - v8.0.0/v8.1.0 Monte Carlo Simulation
