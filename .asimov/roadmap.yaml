@@ -177,16 +177,22 @@ completed:
 
 current:
   version: "9.1.0"
-  priority: HIGH
-  status: pending
-  summary: "CLI Commands for Prediction Methods"
+  priority: CRITICAL
+  status: wip
+  summary: "CLI Commands for Prediction Methods + Website Update"
   deliverables:
+    # CLI Commands (enterprise-only)
     - "scenarios command - run scenario analysis from CLI"
     - "decision-tree command - run decision tree analysis from CLI"
     - "real-options command - run real options analysis from CLI"
     - "tornado command - generate tornado diagram data from CLI"
     - "bootstrap command - run bootstrap resampling from CLI"
     - "bayesian command - run Bayesian network inference from CLI"
+    # Website Updates
+    - "Update royalbit.ca/forge stats (173 functions, 1664 tests)"
+    - "Add Monte Carlo feature section"
+    - "Add prediction methods feature cards"
+    - "Update --help header with current stats"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPLETED - v8.2.x Quality Gate Verification
