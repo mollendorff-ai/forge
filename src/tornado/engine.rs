@@ -127,11 +127,38 @@ impl TornadoEngine {
         // Calculate base case
         let base_value = self.calculate_output(&self.base_model)?;
 
+        // Determine if we need cross-scale normalization
+        // Get base values for all inputs to check if they span multiple orders of magnitude
+        let input_bases: Vec<f64> = self
+            .config
+            .inputs
+            .iter()
+            .filter_map(|input| {
+                input.base.or_else(|| {
+                    self.base_model
+                        .scalars
+                        .get(&input.name)
+                        .and_then(|v| v.value)
+                })
+            })
+            .map(|v| v.abs())
+            .filter(|v| *v > 1e-10)
+            .collect();
+
+        // Check if inputs span vastly different scales (e.g., dollars vs rates)
+        let needs_normalization = if input_bases.len() >= 2 {
+            let max_base = input_bases.iter().fold(0.0_f64, |a, &b| a.max(b));
+            let min_base = input_bases.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+            max_base / min_base > 100.0 // More than 2 orders of magnitude difference
+        } else {
+            false
+        };
+
         // Calculate sensitivity for each input
         let mut bars: Vec<SensitivityBar> = Vec::new();
 
         for input in &self.config.inputs {
-            let bar = self.calculate_sensitivity(input, base_value)?;
+            let bar = self.calculate_sensitivity(input, base_value, needs_normalization)?;
             bars.push(bar);
         }
 
@@ -158,6 +185,7 @@ impl TornadoEngine {
         &self,
         input: &InputRange,
         _base_value: f64,
+        needs_normalization: bool,
     ) -> Result<SensitivityBar, String> {
         // Calculate output at low input value
         let output_at_low = self.calculate_with_override(&input.name, input.low)?;
@@ -166,13 +194,44 @@ impl TornadoEngine {
         let output_at_high = self.calculate_with_override(&input.name, input.high)?;
 
         let swing = output_at_high - output_at_low;
+        let raw_abs_swing = swing.abs();
+
+        // Apply normalization only when comparing inputs of vastly different scales
+        let abs_swing = if needs_normalization {
+            // Get the base input value from the model to calculate relative range
+            let input_base = input
+                .base
+                .or_else(|| {
+                    self.base_model
+                        .scalars
+                        .get(&input.name)
+                        .and_then(|v| v.value)
+                })
+                .unwrap_or(1.0); // Default to 1.0 if no base found
+
+            // Calculate relative input range (as fraction of base)
+            // This normalizes inputs of different scales (e.g., dollars vs rates)
+            let input_range = input.high - input.low;
+            let relative_range = if input_base.abs() > 1e-10 {
+                input_range / input_base.abs()
+            } else {
+                1.0 // Avoid division by zero
+            };
+
+            // Weight sensitivity by square of relative range
+            // This ensures inputs varied by larger percentages rank higher
+            raw_abs_swing * relative_range * relative_range
+        } else {
+            // For inputs of similar scale, use raw absolute swing
+            raw_abs_swing
+        };
 
         Ok(SensitivityBar {
             input_name: input.name.clone(),
             output_at_low,
             output_at_high,
             swing,
-            abs_swing: swing.abs(),
+            abs_swing,
             input_low: input.low,
             input_high: input.high,
         })

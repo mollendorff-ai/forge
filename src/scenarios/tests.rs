@@ -270,7 +270,7 @@ fn test_r_weighted_mean_equivalence() {
     //   probabilities <- c(0.50, 0.30, 0.20)
     //   npv_values <- c(1250000, 2100000, -450000)
     //   ev <- weighted.mean(npv_values, probabilities)
-    //   # Expected: 1015000
+    //   # Expected: 1165000
 
     let mut config = ScenarioConfig::new();
     config.add_scenario(
@@ -308,8 +308,8 @@ fn test_r_weighted_mean_equivalence() {
         ev
     );
     assert!(
-        (ev - 1_015_000.0).abs() < 0.01,
-        "Expected 1015000, got {}",
+        (ev - 1_165_000.0).abs() < 0.01,
+        "Expected 1165000, got {}",
         ev
     );
 }

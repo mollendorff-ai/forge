@@ -321,10 +321,18 @@ mod binomial_tests {
         // Should have positive value (option to wait has value)
         assert!(defer_value > 0.0, "Defer option should have positive value");
 
-        // Should be less than spot - strike
+        // For a call with S=10M, K=8M, T=2, σ=30%:
+        // Intrinsic value = 2M (minimum for in-the-money American call)
+        // With time value, should be between intrinsic and spot price
         assert!(
-            defer_value < 2_000_000.0,
-            "Defer value should be reasonable"
+            defer_value >= 2_000_000.0,
+            "Defer value should be at least intrinsic value (2M): {}",
+            defer_value
+        );
+        assert!(
+            defer_value < 10_000_000.0,
+            "Defer value should be less than spot price (10M): {}",
+            defer_value
         );
     }
 
@@ -358,7 +366,7 @@ mod binomial_tests {
         // QuantLib binomial tree (CRR) reference values:
         // S=100, K=100, r=5%, σ=20%, T=1, N=100
         // European call ≈ 10.44
-        // American put ≈ 5.63
+        // American put ≈ 6.08 (not 5.63 - that's European put)
 
         let tree = BinomialTree::new(100.0, 100.0, 0.05, 0.20, 1.0, 100);
 
@@ -371,7 +379,7 @@ mod binomial_tests {
 
         let amer_put = tree.put_price(OptionStyle::American);
         assert!(
-            (amer_put - 5.63).abs() < 0.2,
+            (amer_put - 6.08).abs() < 0.2,
             "American put should match QuantLib: {}",
             amer_put
         );

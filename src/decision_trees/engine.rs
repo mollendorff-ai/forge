@@ -123,9 +123,16 @@ impl DecisionTreeEngine {
         let (expected_value, optimal_choice) = match node.node_type {
             NodeType::Decision => {
                 // Decision node: choose maximum value branch
+                // Use alphabetical ordering as tie-breaker for deterministic results
                 let (best_name, best_value) = branch_values
                     .iter()
-                    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                    .max_by(|(name_a, a), (name_b, b)| {
+                        match a.partial_cmp(b).unwrap() {
+                            // When values are equal, prefer earlier alphabetically
+                            std::cmp::Ordering::Equal => name_b.cmp(name_a),
+                            other => other,
+                        }
+                    })
                     .map(|(n, v)| (n.clone(), *v))
                     .ok_or("No branches in decision node")?;
                 (best_value, Some(best_name))

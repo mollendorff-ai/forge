@@ -2,7 +2,7 @@
 
 ## Status
 
-**Planned** - Target v8.4.0
+**Implemented** - v8.3.0
 
 ## Context
 
@@ -21,7 +21,7 @@ These are mutually exclusive outcomes with assigned probabilities, not continuou
 ### YAML Syntax
 
 ```yaml
-_forge_version: "8.4.0"
+_forge_version: "8.3.0"
 
 scenarios:
   base_case:

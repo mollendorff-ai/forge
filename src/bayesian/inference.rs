@@ -40,13 +40,15 @@ impl Factor {
             values = node.prior.clone();
         } else {
             // Child node: build from CPT
-            for (i, val) in values.iter_mut().enumerate().take(total_size) {
-                // Decode indices
-                let state_idx = i % node.states.len();
-                let parent_idx = i / node.states.len();
+            // Get parent cardinality (assuming single parent for now)
+            if let Some(parent_node) = config.nodes.get(&node.parents[0]) {
+                let parent_card = parent_node.states.len();
 
-                // Get parent state (assuming single parent for now)
-                if let Some(parent_node) = config.nodes.get(&node.parents[0]) {
+                for (i, val) in values.iter_mut().enumerate().take(total_size) {
+                    // Decode indices - last variable (parent) changes fastest
+                    let parent_idx = i % parent_card;
+                    let state_idx = i / parent_card;
+
                     if parent_idx < parent_node.states.len() {
                         let parent_state = &parent_node.states[parent_idx];
                         if let Some(probs) = node.cpt.get(parent_state) {
@@ -295,23 +297,32 @@ impl BeliefPropagation {
         result.normalize();
 
         // Extract probabilities for target variable
-        let target_node = self.config.nodes.get(target).unwrap();
-        let mut probs = vec![0.0; target_node.states.len()];
+        // After variable elimination, result should only contain the target variable
+        if result.variables.len() == 1 && result.variables[0] == target {
+            // Simple case: result is already just the target variable
+            let sum: f64 = result.values.iter().sum();
+            if sum > 0.0 {
+                Ok(result.values.iter().map(|v| v / sum).collect())
+            } else {
+                Ok(result.values.clone())
+            }
+        } else {
+            // Complex case: marginalize out any remaining variables except target
+            let mut final_result = result.clone();
+            for var in result.variables.iter() {
+                if var != target {
+                    final_result = final_result.marginalize(var);
+                }
+            }
 
-        for (i, val) in result.values.iter().enumerate() {
-            let state_idx = i % target_node.states.len();
-            probs[state_idx] += *val;
-        }
-
-        // Normalize again
-        let sum: f64 = probs.iter().sum();
-        if sum > 0.0 {
-            for p in &mut probs {
-                *p /= sum;
+            // Extract probabilities
+            let sum: f64 = final_result.values.iter().sum();
+            if sum > 0.0 {
+                Ok(final_result.values.iter().map(|v| v / sum).collect())
+            } else {
+                Ok(final_result.values.clone())
             }
         }
-
-        Ok(probs)
     }
 
     /// Query with evidence (observed values)
@@ -376,23 +387,32 @@ impl BeliefPropagation {
         result.normalize();
 
         // Extract probabilities for target variable
-        let target_node = self.config.nodes.get(target).unwrap();
-        let mut probs = vec![0.0; target_node.states.len()];
+        // After variable elimination, result should only contain the target variable
+        if result.variables.len() == 1 && result.variables[0] == target {
+            // Simple case: result is already just the target variable
+            let sum: f64 = result.values.iter().sum();
+            if sum > 0.0 {
+                Ok(result.values.iter().map(|v| v / sum).collect())
+            } else {
+                Ok(result.values.clone())
+            }
+        } else {
+            // Complex case: marginalize out any remaining variables except target
+            let mut final_result = result.clone();
+            for var in result.variables.iter() {
+                if var != target {
+                    final_result = final_result.marginalize(var);
+                }
+            }
 
-        for (i, val) in result.values.iter().enumerate() {
-            let state_idx = i % target_node.states.len();
-            probs[state_idx] += *val;
-        }
-
-        // Normalize again
-        let sum: f64 = probs.iter().sum();
-        if sum > 0.0 {
-            for p in &mut probs {
-                *p /= sum;
+            // Extract probabilities
+            let sum: f64 = final_result.values.iter().sum();
+            if sum > 0.0 {
+                Ok(final_result.values.iter().map(|v| v / sum).collect())
+            } else {
+                Ok(final_result.values.clone())
             }
         }
-
-        Ok(probs)
     }
 
     /// Apply evidence to a factor

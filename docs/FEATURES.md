@@ -450,6 +450,827 @@ monte_carlo_results:
 
 ---
 
+## Scenario Analysis (v8.3.0) - ENTERPRISE ONLY
+
+Evaluate discrete, mutually exclusive futures with probability-weighted outcomes.
+
+### Overview
+
+Scenario Analysis models strategic decision-making through distinct future states (base/bull/bear cases) with assigned probabilities. Unlike Monte Carlo's continuous distributions, scenarios represent categorical outcomes with clear business narratives.
+
+**Why Scenario Analysis for FP&A:**
+- Board-friendly presentation format with clear storylines
+- Models mutually exclusive strategic futures
+- Combines discrete scenarios with Monte Carlo uncertainty
+- Simpler than full distributions when outcomes are categorical
+- Calculates probability-weighted expected values
+
+**Key Features:**
+- Define 2-10 scenarios with probability weights (must sum to 1.0)
+- Override any scalar variable per scenario
+- Combine with Monte Carlo distributions within scenarios
+- Calculate expected values across all scenarios
+- Full integration with existing Forge models
+
+### Configuration
+
+```yaml
+scenarios:
+  base_case:
+    probability: 0.50
+    description: "Market grows 5%, we maintain share"
+    scalars:
+      revenue_growth: 0.05
+      market_share: 0.20
+
+  bull_case:
+    probability: 0.30
+    description: "Competitor exits, we gain market share"
+    scalars:
+      revenue_growth: 0.15
+      market_share: 0.35
+
+  bear_case:
+    probability: 0.20
+    description: "Recession, market contracts"
+    scalars:
+      revenue_growth: -0.10
+      market_share: 0.15
+```
+
+### Combining Scenarios with Monte Carlo
+
+Model discrete scenario branches with continuous uncertainty within each scenario:
+
+```yaml
+_forge_version: "8.3.0"
+
+# Enable Monte Carlo for continuous uncertainty WITHIN scenarios
+monte_carlo:
+  enabled: true
+  iterations: 10000
+  sampling: latin_hypercube
+
+scenarios:
+  win_contract:
+    probability: 0.60
+    description: "Win the major contract"
+    scalars:
+      # If we win, revenue is uncertain but high
+      contract_value:
+        formula: "=MC.Normal(5000000, 500000)"
+      customer_count:
+        formula: "=MC.Triangular(800, 1000, 1200)"
+
+  lose_contract:
+    probability: 0.40
+    description: "Lose to competitor"
+    scalars:
+      # If we lose, revenue is uncertain but lower
+      contract_value:
+        formula: "=MC.Normal(1000000, 200000)"
+      customer_count:
+        formula: "=MC.Triangular(400, 500, 600)"
+
+forecast:
+  year: [1, 2, 3]
+  revenue: "=contract_value * POWER(1.05, year)"
+  total_revenue: =SUM(revenue)
+```
+
+### CLI Usage
+
+```bash
+# Run scenario analysis
+forge scenarios revenue_model.yaml --output results.yaml
+
+# Compare specific scenarios
+forge scenarios revenue_model.yaml --scenarios base_case,bull_case
+```
+
+### Output Format
+
+```yaml
+scenario_results:
+  scenarios:
+    base_case:
+      probability: 0.50
+      outputs:
+        total_revenue: 3150000
+        net_profit: 787500
+
+    bull_case:
+      probability: 0.30
+      outputs:
+        total_revenue: 4725000
+        net_profit: 1418750
+
+    bear_case:
+      probability: 0.20
+      outputs:
+        total_revenue: 1890000
+        net_profit: 283500
+
+  expected_values:
+    total_revenue: 3292500    # 0.5*3150K + 0.3*4725K + 0.2*1890K
+    net_profit: 904125        # Probability-weighted average
+```
+
+---
+
+## Decision Trees (v8.4.0) - ENTERPRISE ONLY
+
+Sequential decision modeling with backward induction and optimal path finding.
+
+### Overview
+
+Decision Trees model sequential decisions and chance events as a tree structure. The engine uses backward induction to calculate expected values at each node and identifies the optimal decision path.
+
+**Why Decision Trees for FP&A:**
+- Model sequential decisions (decide → learn → decide again)
+- Find optimal decision paths automatically
+- Quantify value of information and flexibility
+- Clear visualization of decision logic
+- Support multi-stage investment decisions
+
+**Key Features:**
+- Three node types: Decision (you control), Chance (uncertainty), Terminal (endpoints)
+- Backward induction algorithm (roll back from leaves)
+- Automatic optimal path identification
+- Branch costs and probabilities
+- DAG validation (no cycles allowed)
+
+### Tree Structure
+
+**Node Types:**
+
+| Type | Description | Branches |
+|------|-------------|----------|
+| Decision | Choice point under your control | Choose branch with highest EV |
+| Chance | Uncertain outcome | Weighted by probabilities (must sum to 1.0) |
+| Terminal | End state with value | No further branches |
+
+### Configuration
+
+```yaml
+_forge_version: "8.4.0"
+
+decision_tree:
+  name: "R&D Investment Decision"
+
+  root:
+    type: decision
+    name: "Invest in R&D?"
+    branches:
+      invest:
+        cost: 2000000        # $2M upfront investment
+        next: tech_outcome
+      dont_invest:
+        value: 0             # Terminal: do nothing
+
+  nodes:
+    tech_outcome:
+      type: chance
+      name: "Technology works?"
+      branches:
+        success:
+          probability: 0.60
+          next: commercialize
+        failure:
+          probability: 0.40
+          value: -2000000    # Lost the $2M investment
+
+    commercialize:
+      type: decision
+      name: "How to commercialize?"
+      branches:
+        license:
+          value: 5000000     # License IP for $5M
+        manufacture:
+          cost: 3000000      # Build factory for $3M
+          value: 8000000     # Then earn $8M
+```
+
+### CLI Usage
+
+```bash
+# Analyze decision tree
+forge decision-tree investment.yaml --output analysis.yaml
+
+# Visualize tree (generates graphviz DOT format)
+forge decision-tree investment.yaml --visualize tree.dot
+```
+
+### Output Format
+
+```yaml
+decision_tree_results:
+  root_expected_value: 200000    # $0.2M - optimal decision value
+
+  decision_policy:
+    root: "invest"               # Optimal: Invest in R&D
+    commercialize: "license"     # If successful, license (not manufacture)
+
+  node_results:
+    commercialize:
+      type: decision
+      expected_value: 5000000    # max($5M license, $8M-$3M manufacture) = $5M
+      optimal_choice: "license"
+
+    tech_outcome:
+      type: chance
+      expected_value: 2200000    # 0.6*$5M + 0.4*(-$2M) = $2.2M
+
+    root:
+      type: decision
+      expected_value: 200000     # max($2.2M - $2M invest, $0 don't) = $0.2M
+      optimal_choice: "invest"
+```
+
+**Interpretation:**
+- Expected value of investing: $0.2M (positive, should proceed)
+- Optimal strategy: Invest $2M, then license if successful
+- Manufacturing is suboptimal due to $3M additional cost
+- Value of R&D program: $200K after accounting for failure risk
+
+---
+
+## Real Options (v8.5.0) - ENTERPRISE ONLY
+
+Value managerial flexibility using financial options theory.
+
+### Overview
+
+Real Options Analysis values the flexibility to make future decisions (defer, expand, contract, abandon, switch). Based on Black-Scholes and binomial tree methods, it quantifies the value of strategic optionality.
+
+**Why Real Options for FP&A:**
+- Traditional NPV assumes you're locked in - Real Options values flexibility
+- Quantifies value of waiting for uncertainty to resolve
+- Models staged investments and reversible decisions
+- Captures upside from expansion options
+- Values downside protection from abandonment rights
+
+**Key Features:**
+- Six option types: Defer, Expand, Contract, Abandon, Switch, Compound
+- Three valuation methods: Black-Scholes, Binomial Tree, Monte Carlo
+- Models volatility and time value explicitly
+- Supports American and European exercise styles
+- Integrates with Monte Carlo uncertainty
+
+### Option Types
+
+| Option | Description | Example | Value Driver |
+|--------|-------------|---------|--------------|
+| Defer | Wait before investing | Wait 2 years for market clarity | Uncertainty resolution |
+| Expand | Scale up if successful | Build Phase 2 after Phase 1 | Upside capture |
+| Contract | Scale down if weak | Reduce capacity in downturn | Downside protection |
+| Abandon | Exit and recover salvage | Sell assets if project fails | Loss limitation |
+| Switch | Change inputs/outputs | Switch fuel types based on prices | Operational flexibility |
+| Compound | Option on option | Pilot project before full rollout | Staged learning |
+
+### Configuration
+
+```yaml
+_forge_version: "8.5.0"
+
+real_options:
+  name: "Factory Investment"
+  method: binomial              # or 'black_scholes', 'monte_carlo'
+  binomial_steps: 100           # Granularity for binomial tree
+  seed: 12345                   # For Monte Carlo reproducibility
+
+  # Underlying asset (the project without flexibility)
+  underlying:
+    current_value: 10000000     # $10M PV of expected cash flows
+    volatility: 0.30            # 30% annual volatility
+    risk_free_rate: 0.05        # 5% risk-free rate
+    time_horizon: 3.0           # 3-year decision window
+    dividend_yield: 0.02        # 2% continuous cash yield
+
+  # Options to value
+  options:
+    - type: defer
+      name: "Wait up to 2 years before building"
+      max_deferral: 2.0         # Can wait up to 2 years
+      exercise_cost: 8000000    # $8M to build if we proceed
+
+    - type: expand
+      name: "Double capacity if demand exceeds forecast"
+      expansion_factor: 2.0     # 2x scale-up
+      exercise_cost: 12000000   # $12M to expand
+
+    - type: abandon
+      name: "Sell assets if project fails"
+      salvage_value: 3000000    # $3M salvage value
+```
+
+### Valuation Methods
+
+**Black-Scholes** (Closed-form, fastest):
+- European options only (exercise at expiration)
+- Continuous distributions
+- Best for: Simple defer/abandon options
+
+**Binomial Tree** (Default, flexible):
+- American options (early exercise allowed)
+- Path-dependent payoffs
+- Best for: Most real options
+
+**Monte Carlo** (Slowest, most flexible):
+- Complex/exotic options
+- Multiple state variables
+- Best for: Compound options, switching
+
+### CLI Usage
+
+```bash
+# Value real options
+forge real-options factory.yaml --output valuation.yaml
+
+# Compare methods
+forge real-options factory.yaml --method black_scholes --compare
+```
+
+### Output Format
+
+```yaml
+real_options_results:
+  underlying_npv: 2000000       # Traditional NPV: $10M value - $8M cost = $2M
+
+  option_values:
+    defer:
+      type: defer
+      value: 1200000            # Worth $1.2M to wait
+      optimal_exercise_time: 1.5  # Wait 1.5 years
+
+    expand:
+      type: expand
+      value: 800000             # Worth $0.8M to have expansion option
+
+    abandon:
+      type: abandon
+      value: 500000             # Worth $0.5M to have exit option
+
+  total_option_value: 2500000   # Combined option value
+  expanded_npv: 4500000         # NPV + option value = $2M + $2.5M
+
+  recommendation: "Proceed with flexible design. Value of flexibility ($2.5M) exceeds 50% of base NPV."
+```
+
+**Interpretation:**
+- Traditional NPV: $2M (marginally attractive)
+- Option to defer adds $1.2M (value of waiting for information)
+- Expansion option adds $0.8M (value of upside capture)
+- Abandonment adds $0.5M (value of downside protection)
+- **Total value with flexibility: $4.5M** (much more attractive)
+
+---
+
+## Tornado Diagrams (v8.6.0) - ENTERPRISE ONLY
+
+One-way sensitivity analysis with visual ranking of input impact.
+
+### Overview
+
+Tornado Diagrams identify which input variables have the biggest impact on output variance. Visualizes sensitivity as horizontal bars sorted by magnitude, creating a "tornado" shape.
+
+**Why Tornado Diagrams for FP&A:**
+- Prioritize which assumptions to refine
+- Executive-friendly visualization of key drivers
+- Validate models (unexpected sensitivities indicate errors)
+- Focus due diligence on high-impact variables
+- Support "what matters most" conversations
+
+**Key Features:**
+- One-way sensitivity (vary one input at a time)
+- Automatic ranking by impact magnitude
+- Low/high range testing for each input
+- Visual output format for presentations
+- Integration with existing Forge models
+
+### Configuration
+
+```yaml
+_forge_version: "8.6.0"
+
+tornado:
+  output: "valuation.npv"       # Variable to analyze
+  steps: 2                      # 2 = low/high only, 3+ for gradients
+
+  inputs:
+    - name: "revenue_growth"
+      low: 0.02                 # Pessimistic: 2% growth
+      high: 0.08                # Optimistic: 8% growth
+      base: 0.05                # Base case: 5% (optional, defaults to midpoint)
+
+    - name: "discount_rate"
+      low: 0.08
+      high: 0.12
+
+    - name: "operating_margin"
+      low: 0.15
+      high: 0.25
+
+    - name: "tax_rate"
+      low: 0.20
+      high: 0.30
+
+    - name: "working_capital_pct"
+      low: 0.10
+      high: 0.15
+```
+
+### CLI Usage
+
+```bash
+# Generate tornado analysis
+forge tornado valuation.yaml --output sensitivity.yaml
+
+# Generate visualization (ASCII art)
+forge tornado valuation.yaml --visualize
+```
+
+### Output Format
+
+```yaml
+tornado_results:
+  output: "valuation.npv"
+  base_value: 1200000           # NPV at base case
+
+  sensitivities:
+    - variable: "revenue_growth"
+      base: 0.05
+      low_value: 750000         # NPV when revenue_growth = 0.02
+      high_value: 1650000       # NPV when revenue_growth = 0.08
+      swing: 450000             # (1650K - 750K) / 2 = impact range
+
+    - variable: "discount_rate"
+      base: 0.10
+      low_value: 1520000        # NPV when rate = 0.08
+      high_value: 880000        # NPV when rate = 0.12
+      swing: 320000
+
+    - variable: "operating_margin"
+      base: 0.20
+      low_value: 1020000
+      high_value: 1380000
+      swing: 180000
+
+    - variable: "tax_rate"
+      base: 0.25
+      low_value: 1275000
+      high_value: 1125000
+      swing: 75000
+
+    - variable: "working_capital_pct"
+      base: 0.125
+      low_value: 1240000
+      high_value: 1160000
+      swing: 40000
+```
+
+### Visualization
+
+```
+NPV Sensitivity Analysis (Base: $1.2M)
+
+Revenue Growth    |████████████████████| ± $450K
+Discount Rate     |██████████████      | ± $320K
+Operating Margin  |██████████          | ± $180K
+Tax Rate          |████                | ± $75K
+Working Capital   |██                  | ± $40K
+```
+
+**Interpretation:**
+- Revenue growth drives 70% of NPV variance
+- Focus forecasting effort on revenue and discount rate
+- Tax rate and working capital have minimal impact
+- Model is most sensitive to top-line assumptions
+
+---
+
+## Bootstrap Resampling (v8.7.0) - ENTERPRISE ONLY
+
+Non-parametric confidence intervals from historical data.
+
+### Overview
+
+Bootstrap Resampling generates confidence intervals by resampling from historical data with replacement. Unlike Monte Carlo (which assumes distributions), Bootstrap is non-parametric - it lets the data speak for itself.
+
+**Why Bootstrap for FP&A:**
+- No distribution assumptions required
+- Works with complex, non-normal data
+- Handles multimodal or fat-tailed distributions
+- Validates parametric model results
+- Robust to outliers and skewness
+
+**Key Features:**
+- Resamples historical data with replacement
+- Computes any statistic (mean, median, percentiles, etc.)
+- Generates confidence intervals
+- Requires minimum 30 observations
+- Reproducible with seed parameter
+
+### Configuration
+
+```yaml
+_forge_version: "8.7.0"
+
+bootstrap:
+  iterations: 10000             # Number of bootstrap samples
+  seed: 12345                   # For reproducibility
+  confidence_levels: [0.90, 0.95, 0.99]
+  statistic: mean               # or 'median', 'std', 'percentile'
+
+  # Historical data to resample from
+  data: [
+    0.05, -0.02, 0.08, 0.03, -0.05,
+    0.12, 0.01, -0.01, 0.06, 0.04,
+    0.09, 0.02, -0.03, 0.07, 0.05,
+    0.11, 0.03, 0.01, 0.08, -0.02,
+    0.06, 0.04, 0.09, 0.02, 0.07,
+    0.05, -0.01, 0.10, 0.03, 0.06
+  ]
+```
+
+### Supported Statistics
+
+| Statistic | Description | Use Case |
+|-----------|-------------|----------|
+| mean | Sample average | Expected value estimation |
+| median | 50th percentile | Robust central tendency |
+| std | Standard deviation | Volatility estimation |
+| var | Variance | Risk quantification |
+| percentile | Custom percentile | Tail risk analysis |
+| min | Minimum value | Worst-case scenarios |
+| max | Maximum value | Best-case scenarios |
+
+### Example: Revenue Growth Bootstrap
+
+```yaml
+_forge_version: "8.7.0"
+
+# Historical quarterly revenue growth rates (last 7.5 years)
+bootstrap:
+  iterations: 10000
+  seed: 42
+  statistic: mean
+  confidence_levels: [0.90, 0.95, 0.99]
+
+  # 30 quarters of historical growth
+  data: [
+    0.05, -0.02, 0.08, 0.03, -0.05,
+    0.12, 0.01, -0.01, 0.06, 0.04,
+    0.09, 0.02, -0.03, 0.07, 0.05,
+    0.11, 0.03, 0.01, 0.08, -0.02,
+    0.06, 0.04, 0.09, 0.02, 0.07,
+    0.05, -0.01, 0.10, 0.03, 0.06
+  ]
+
+# Use bootstrap mean in forecast
+assumptions:
+  avg_growth: =BOOTSTRAP.Mean()  # References bootstrap result
+
+forecast:
+  year: [1, 2, 3]
+  revenue: "=1000000 * POWER(1 + avg_growth, year)"
+```
+
+### CLI Usage
+
+```bash
+# Run bootstrap analysis
+forge bootstrap historical.yaml --output results.yaml
+
+# Compare different statistics
+forge bootstrap historical.yaml --statistic median --compare
+```
+
+### Output Format
+
+```yaml
+bootstrap_results:
+  statistic: mean
+  iterations: 10000
+  sample_size: 30
+
+  point_estimate: 0.0433        # Sample mean of historical data
+
+  bootstrap_distribution:
+    mean: 0.0435                # Mean of bootstrap means
+    std: 0.0087                 # SE of the statistic
+
+  confidence_intervals:
+    ci_90:
+      lower: 0.0293             # 5th percentile
+      upper: 0.0577             # 95th percentile
+    ci_95:
+      lower: 0.0267
+      upper: 0.0603
+    ci_99:
+      lower: 0.0215
+      upper: 0.0655
+
+  percentiles:
+    p1: 0.0201
+    p5: 0.0293
+    p25: 0.0375
+    p50: 0.0435
+    p75: 0.0495
+    p95: 0.0577
+    p99: 0.0669
+```
+
+**Interpretation:**
+- Historical average growth: 4.3% per quarter
+- 95% confidence interval: [2.7%, 6.0%]
+- No distribution assumptions required
+- Bootstrap SE: 0.87% (precision of the mean estimate)
+
+---
+
+## Bayesian Networks (v9.0.0) - ENTERPRISE ONLY
+
+Probabilistic graphical models with variable elimination inference.
+
+### Overview
+
+Bayesian Networks model probabilistic dependencies between variables as a directed acyclic graph (DAG). Each node represents a variable; edges represent causal relationships. The engine performs exact inference using variable elimination.
+
+**Why Bayesian Networks for FP&A:**
+- Model causal relationships between business drivers
+- Update beliefs as evidence arrives
+- Diagnose root causes of outcomes
+- Answer "what if we observe X?" questions
+- Quantify how failures cascade through the system
+
+**Key Features:**
+- Define discrete and continuous nodes
+- Conditional probability tables (CPTs)
+- Parent-child relationships (must be DAG)
+- Variable elimination inference algorithm
+- Evidence propagation and belief updating
+
+### Network Structure
+
+**Node Types:**
+
+| Type | Description | Requires |
+|------|-------------|----------|
+| Discrete | Finite states with probabilities | States, prior or CPT |
+| Continuous | Gaussian distribution | Mean, standard deviation |
+
+**Root nodes** (no parents): Require prior probabilities
+**Child nodes** (have parents): Require conditional probability tables (CPTs)
+
+### Configuration
+
+```yaml
+_forge_version: "9.0.0"
+
+bayesian_network:
+  name: "Credit Risk Model"
+
+  nodes:
+    # Root node: Economic conditions
+    economic_conditions:
+      type: discrete
+      states: ["good", "neutral", "bad"]
+      prior: [0.3, 0.5, 0.2]    # P(good)=0.3, P(neutral)=0.5, P(bad)=0.2
+
+    # Child node: Company revenue depends on economy
+    company_revenue:
+      type: discrete
+      states: ["high", "medium", "low"]
+      parents: ["economic_conditions"]
+
+      # CPT: P(revenue | economic_conditions)
+      cpt:
+        good:     [0.6, 0.3, 0.1]   # If economy good: 60% high revenue
+        neutral:  [0.3, 0.5, 0.2]   # If economy neutral: 50% medium revenue
+        bad:      [0.1, 0.3, 0.6]   # If economy bad: 60% low revenue
+
+    # Root node: Management quality (independent)
+    management_quality:
+      type: discrete
+      states: ["strong", "weak"]
+      prior: [0.7, 0.3]
+
+    # Child node: Default probability depends on revenue and management
+    default_probability:
+      type: discrete
+      states: ["low", "medium", "high"]
+      parents: ["company_revenue", "management_quality"]
+
+      # CPT: P(default | revenue, management)
+      cpt:
+        "high,strong":   [0.85, 0.12, 0.03]  # High revenue + strong mgmt → low default risk
+        "high,weak":     [0.60, 0.30, 0.10]
+        "medium,strong": [0.50, 0.35, 0.15]
+        "medium,weak":   [0.30, 0.40, 0.30]
+        "low,strong":    [0.20, 0.40, 0.40]
+        "low,weak":      [0.10, 0.30, 0.60]  # Low revenue + weak mgmt → high default risk
+```
+
+### Inference Queries
+
+```yaml
+# Query 1: Unconditional probabilities
+query:
+  variable: "default_probability"
+  # Returns: P(default = low/medium/high)
+
+# Query 2: Conditional on evidence
+query:
+  variable: "default_probability"
+  evidence:
+    economic_conditions: "bad"
+  # Returns: P(default | economy is bad)
+
+# Query 3: Multiple evidence
+query:
+  variable: "default_probability"
+  evidence:
+    economic_conditions: "neutral"
+    management_quality: "strong"
+  # Returns: P(default | neutral economy, strong management)
+```
+
+### CLI Usage
+
+```bash
+# Analyze Bayesian network
+forge bayesian credit_risk.yaml --output inference.yaml
+
+# Query with evidence
+forge bayesian credit_risk.yaml --query "default_probability" --evidence "economic_conditions=bad"
+
+# Visualize network structure
+forge bayesian credit_risk.yaml --visualize network.dot
+```
+
+### Output Format
+
+```yaml
+bayesian_inference_results:
+  network: "Credit Risk Model"
+
+  # Unconditional probabilities (no evidence)
+  marginals:
+    economic_conditions:
+      good: 0.30
+      neutral: 0.50
+      bad: 0.20
+
+    company_revenue:
+      high: 0.37      # 0.3*0.6 + 0.5*0.3 + 0.2*0.1
+      medium: 0.38    # Marginalizing over economy
+      low: 0.25
+
+    default_probability:
+      low: 0.532
+      medium: 0.298
+      high: 0.170
+
+  # Given evidence: "economic_conditions = bad"
+  conditional_bad_economy:
+    company_revenue:
+      high: 0.10      # P(high revenue | bad economy) = 0.1
+      medium: 0.30
+      low: 0.60
+
+    default_probability:
+      low: 0.234      # Higher default risk given bad economy
+      medium: 0.346
+      high: 0.420     # 42% chance of high default
+
+  # Given evidence: "economic_conditions = bad, management_quality = weak"
+  conditional_bad_economy_weak_mgmt:
+    default_probability:
+      low: 0.180
+      medium: 0.336
+      high: 0.484     # 48.4% chance of high default - cascading risk!
+```
+
+**Interpretation:**
+- Unconditional default risk: 17% high, 53.2% low
+- Bad economy increases high default risk to 42%
+- Bad economy + weak management → 48.4% high default risk
+- Network captures how risks cascade through causal chain
+- Can diagnose: "Given high default, what's likely cause?"
+
+### Network Topology
+
+```
+[Economic Conditions] → [Company Revenue] → [Default Probability]
+                                          ↗
+         [Management Quality] ───────────
+```
+
+Root nodes influence child nodes through conditional probabilities. Evidence at any node updates beliefs throughout the network.
+
+---
+
 ## AI Integration (v1.7.0)
 
 ### MCP Server
