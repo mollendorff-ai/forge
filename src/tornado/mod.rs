@@ -23,7 +23,7 @@
 //! ```
 //!
 //! Output:
-//! ```
+//! ```text
 //! NPV Sensitivity (Base: $1.2M)
 //!
 //! Revenue Growth    |████████████████████| +/- $450K

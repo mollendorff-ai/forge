@@ -2,7 +2,7 @@
 
 ## Status
 
-**Planned** - Target v9.x
+**Implemented** - v8.4.0
 
 ## Context
 
@@ -21,7 +21,7 @@ Decision Trees model these choice-outcome sequences and find optimal paths.
 ### YAML Syntax
 
 ```yaml
-_forge_version: "9.0.0"
+_forge_version: "8.4.0"
 
 decision_tree:
   name: "R&D Investment Decision"

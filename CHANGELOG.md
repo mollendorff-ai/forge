@@ -7,6 +7,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.0.0] - 2025-12-15
+
+### Bayesian Networks - Causal Probabilistic Modeling
+
+Enterprise-only module for probabilistic graphical models with belief propagation.
+
+### Added
+
+- **Bayesian Networks module** (`src/bayesian/`)
+  - Directed acyclic graphs (DAG) with conditional probability tables
+  - Variable elimination inference (exact inference)
+  - Evidence propagation and belief updating
+  - pgmpy-validated calculations
+- **ADR-023**: Bayesian Networks architecture decision record
+
+### Features
+
+- Discrete nodes with finite states
+- Conditional probability tables (CPTs)
+- Forward and backward reasoning
+- Most likely explanation (MPE)
+- YAML/JSON export of results
+
+## [8.7.0] - 2025-12-15
+
+### Bootstrap Resampling - Non-Parametric Confidence Intervals
+
+Enterprise-only module for statistical inference without distribution assumptions.
+
+### Added
+
+- **Bootstrap module** (`src/bootstrap/`)
+  - Resampling with replacement
+  - Percentile confidence intervals
+  - BCa (bias-corrected accelerated) method
+  - Multiple statistics: mean, median, std, var, percentile
+- **ADR-022**: Bootstrap Resampling architecture decision record
+
+## [8.6.0] - 2025-12-15
+
+### Tornado Diagrams - Sensitivity Visualization
+
+Enterprise-only module for one-at-a-time sensitivity analysis.
+
+### Added
+
+- **Tornado module** (`src/tornado/`)
+  - Input range sensitivity calculation
+  - Ranked impact visualization
+  - JSON/CSV export for charting
+  - R sensitivity package validated
+- **ADR-021**: Tornado Diagrams architecture decision record
+
+## [8.5.0] - 2025-12-15
+
+### Real Options Analysis - Valuing Managerial Flexibility
+
+Enterprise-only module for options-based project valuation.
+
+### Added
+
+- **Real Options module** (`src/real_options/`)
+  - Black-Scholes closed-form pricing
+  - Binomial Tree (Cox-Ross-Rubinstein) for American options
+  - Greeks: delta, gamma, vega, theta, rho
+  - Option types: defer, expand, contract, abandon, switch, compound
+  - QuantLib-validated calculations
+- **ADR-020**: Real Options architecture decision record
+
+## [8.4.0] - 2025-12-15
+
+### Decision Trees - Sequential Decision Modeling
+
+Enterprise-only module for backward induction analysis.
+
+### Added
+
+- **Decision Trees module** (`src/decision_trees/`)
+  - Backward induction solver
+  - Node types: Decision, Chance, Terminal
+  - Optimal path identification
+  - DOT export for Graphviz visualization
+  - SciPy/NumPy validated
+- **ADR-019**: Decision Trees architecture decision record
+
+## [8.3.0] - 2025-12-15
+
+### Scenario Analysis - Discrete Branching
+
+Enterprise-only module for Base/Bull/Bear analysis with probability weights.
+
+### Added
+
+- **Scenarios module** (`src/scenarios/`)
+  - Probability-weighted expected value calculation
+  - Discrete mutually exclusive outcomes
+  - Per-scenario and aggregate reporting
+  - R weighted.mean() validated
+- **ADR-018**: Scenario Analysis architecture decision record
+
+### Stats for v8.3.0-v9.0.0
+
+| Module | Tests | Status |
+|--------|-------|--------|
+| Scenario Analysis | 18 | ✅ |
+| Decision Trees | 15 | ✅ |
+| Real Options | 32 | ✅ |
+| Tornado Diagrams | 19 | ✅ |
+| Bootstrap | 21 | ✅ |
+| Bayesian Networks | 23 | ✅ |
+| **Total New Tests** | **128** | ✅ |
+
 ## [7.2.11] - 2025-12-12
 
 ### Deprecate LibreOffice, Prefer Gnumeric for E2E Validation
