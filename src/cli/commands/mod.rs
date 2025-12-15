@@ -9,12 +9,21 @@
 //! - variance/sensitivity/goal_seek/break_even: Analysis tools
 //! - compare: Scenario comparison
 //! - functions: List supported functions
+//! - simulate: Monte Carlo simulation (enterprise only)
 //! - upgrade: Schema migration (enterprise only)
+//! - scenarios: Scenario analysis (enterprise only)
+//! - decision_tree: Decision tree analysis (enterprise only)
+//! - real_options: Real options valuation (enterprise only)
+//! - tornado: Tornado sensitivity diagrams (enterprise only)
+//! - bootstrap: Bootstrap resampling (enterprise only)
+//! - bayesian: Bayesian network inference (enterprise only)
 
 mod analysis;
 mod audit;
 mod excel_io;
 mod functions;
+#[cfg(feature = "full")]
+mod prediction;
 #[cfg(feature = "full")]
 mod simulate;
 #[cfg(feature = "full")]
@@ -25,6 +34,8 @@ pub use analysis::{break_even, compare, goal_seek, sensitivity, variance};
 pub use audit::audit;
 pub use excel_io::{export, import};
 pub use functions::functions;
+#[cfg(feature = "full")]
+pub use prediction::{bayesian, bootstrap, decision_tree, real_options, scenarios, tornado};
 #[cfg(feature = "full")]
 pub use simulate::simulate;
 #[cfg(feature = "full")]

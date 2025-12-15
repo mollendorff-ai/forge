@@ -47,27 +47,34 @@ Docs: https://github.com/royalbit/forge-demo")
 173 functions | 1709 tests | E2E validated against Gnumeric
 
 COMMANDS:
-  calculate   - Execute formulas, update values
-  validate    - Check model integrity
-  audit       - Trace formula dependencies (SOX compliance)
-  functions   - List all 173 supported functions
-  simulate    - Monte Carlo simulation with distributions
-  sensitivity - One/two-variable data tables
-  goal-seek   - Find input for target output
-  break-even  - Find zero-crossing point
-  variance    - Budget vs actual analysis
-  compare     - Multi-scenario comparison
-  export      - YAML -> Excel (.xlsx) with formulas
-  import      - Excel -> YAML
-  watch       - Auto-calculate on save
-  upgrade     - Upgrade YAML to latest schema
+  calculate     - Execute formulas, update values
+  validate      - Check model integrity
+  audit         - Trace formula dependencies (SOX compliance)
+  functions     - List all 173 supported functions
+  simulate      - Monte Carlo simulation with distributions
+  scenarios     - Probability-weighted scenario analysis
+  decision-tree - Sequential decisions with backward induction
+  real-options  - Value defer/expand/abandon flexibility
+  tornado       - One-at-a-time sensitivity diagrams
+  bootstrap     - Non-parametric confidence intervals
+  bayesian      - Bayesian network inference
+  sensitivity   - One/two-variable data tables
+  goal-seek     - Find input for target output
+  break-even    - Find zero-crossing point
+  variance      - Budget vs actual analysis
+  compare       - Multi-scenario comparison
+  export        - YAML -> Excel (.xlsx) with formulas
+  import        - Excel -> YAML
+  watch         - Auto-calculate on save
+  upgrade       - Upgrade YAML to latest schema
 
 EXAMPLES:
   forge calculate model.yaml                    # Execute formulas
-  forge audit model.yaml profit                 # Dependency trace
   forge simulate model.yaml --iterations 10000  # Monte Carlo
-  forge variance budget.yaml actual.yaml       # Budget vs actual
-  forge export model.yaml output.xlsx          # Excel with formulas
+  forge scenarios model.yaml                    # Scenario analysis
+  forge decision-tree model.yaml                # Decision tree
+  forge tornado model.yaml                      # Sensitivity diagram
+  forge variance budget.yaml actual.yaml        # Budget vs actual
 
 Docs: https://royalbit.ca/forge")
 )]
@@ -565,6 +572,330 @@ EXAMPLES:
     },
 
     #[cfg(feature = "full")]
+    #[command(
+        long_about = "Run probability-weighted scenario analysis (Base/Bull/Bear cases).
+
+Scenarios are discrete outcomes with assigned probabilities. Unlike Monte Carlo
+(continuous distributions), scenarios model mutually exclusive futures.
+
+YAML CONFIGURATION:
+  scenarios:
+    base_case:
+      probability: 0.50
+      description: \"Market grows 5%\"
+      scalars:
+        revenue_growth: 0.05
+    bull_case:
+      probability: 0.30
+      scalars:
+        revenue_growth: 0.15
+    bear_case:
+      probability: 0.20
+      scalars:
+        revenue_growth: -0.10
+
+OUTPUT:
+  - Per-scenario results with all calculated outputs
+  - Expected value (probability-weighted) for each output
+  - Risk profile showing best/worst case outcomes
+
+EXAMPLES:
+  forge scenarios model.yaml                    # Run all scenarios
+  forge scenarios model.yaml --scenario bull    # Run specific scenario
+  forge scenarios model.yaml -o results.yaml    # Export results"
+    )]
+    /// Run scenario analysis with probability weights (enterprise only)
+    Scenarios {
+        /// Path to YAML file with scenarios section
+        file: PathBuf,
+
+        /// Run specific scenario only
+        #[arg(short, long)]
+        scenario: Option<String>,
+
+        /// Output file (.yaml)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    #[cfg(feature = "full")]
+    #[command(long_about = "Analyze decision trees using backward induction.
+
+Decision trees model sequential choices and uncertain outcomes.
+Uses backward induction (rollback) to find optimal decision policy.
+
+NODE TYPES:
+  decision - Choice point (we control), solved by max(child values)
+  chance   - Uncertainty (we don't control), solved by expected value
+  terminal - End state with known value
+
+YAML CONFIGURATION:
+  decision_tree:
+    name: \"R&D Investment\"
+    root:
+      type: decision
+      name: \"Invest?\"
+      branches:
+        invest:
+          cost: 2000000
+          next: tech_outcome
+        dont_invest:
+          value: 0
+    nodes:
+      tech_outcome:
+        type: chance
+        branches:
+          success:
+            probability: 0.60
+            value: 5000000
+          failure:
+            probability: 0.40
+            value: -2000000
+
+OUTPUT:
+  - Optimal path through tree
+  - Expected value at root
+  - Decision policy (what to do at each decision node)
+  - Risk profile (best/worst case)
+
+EXAMPLES:
+  forge decision-tree model.yaml              # Analyze tree
+  forge decision-tree model.yaml --dot        # Export DOT for Graphviz
+  forge decision-tree model.yaml -o out.yaml  # Export results")]
+    /// Analyze decision trees with backward induction (enterprise only)
+    DecisionTree {
+        /// Path to YAML file with decision_tree section
+        file: PathBuf,
+
+        /// Export as DOT graph (for Graphviz visualization)
+        #[arg(long)]
+        dot: bool,
+
+        /// Output file (.yaml or .dot)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    #[cfg(feature = "full")]
+    #[command(
+        long_about = "Value managerial flexibility using real options analysis.
+
+Real options quantify the value of flexibility to defer, expand, contract,
+or abandon projects. Uses Black-Scholes or Binomial Tree pricing.
+
+OPTION TYPES:
+  defer    - Wait before investing (value of learning)
+  expand   - Scale up if successful
+  contract - Scale down if weak
+  abandon  - Exit and recover salvage value
+  switch   - Change inputs/outputs
+
+YAML CONFIGURATION:
+  real_options:
+    name: \"Phased Factory\"
+    method: binomial
+    underlying:
+      current_value: 10000000
+      volatility: 0.30
+      risk_free_rate: 0.05
+      time_horizon: 3
+    options:
+      - type: defer
+        name: \"Wait up to 2 years\"
+        max_deferral: 2
+        exercise_cost: 8000000
+      - type: abandon
+        name: \"Sell assets\"
+        salvage_value: 3000000
+
+OUTPUT:
+  - Value of each option
+  - Total option value
+  - Project value with options
+  - Decision recommendation
+
+EXAMPLES:
+  forge real-options model.yaml               # Value all options
+  forge real-options model.yaml --option defer  # Value specific option
+  forge real-options model.yaml --compare-npv   # Compare with traditional NPV"
+    )]
+    /// Value real options (defer/expand/abandon) (enterprise only)
+    RealOptions {
+        /// Path to YAML file with real_options section
+        file: PathBuf,
+
+        /// Value specific option only
+        #[arg(long)]
+        option: Option<String>,
+
+        /// Compare with traditional NPV
+        #[arg(long)]
+        compare_npv: bool,
+
+        /// Output file (.yaml)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    #[cfg(feature = "full")]
+    #[command(long_about = "Generate tornado diagram for sensitivity analysis.
+
+Tornado diagrams show which inputs have the most impact on outputs.
+Each input is varied one-at-a-time while others stay at base values.
+
+YAML CONFIGURATION:
+  tornado:
+    output: npv
+    inputs:
+      - name: revenue_growth
+        low: 0.02
+        high: 0.08
+      - name: discount_rate
+        low: 0.08
+        high: 0.12
+      - name: operating_margin
+        low: 0.15
+        high: 0.25
+
+OUTPUT:
+  - Bars sorted by impact (largest first)
+  - Base value reference
+  - Low and high values for each input
+
+EXAMPLES:
+  forge tornado model.yaml                  # Generate diagram
+  forge tornado model.yaml --output npv     # Override output variable
+  forge tornado model.yaml -o results.yaml  # Export results")]
+    /// Generate tornado sensitivity diagram (enterprise only)
+    Tornado {
+        /// Path to YAML file with tornado section
+        file: PathBuf,
+
+        /// Override output variable to analyze
+        #[arg(long)]
+        output_var: Option<String>,
+
+        /// Output file (.yaml)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    #[cfg(feature = "full")]
+    #[command(long_about = "Run bootstrap resampling for confidence intervals.
+
+Bootstrap is a non-parametric method that resamples from historical data
+with replacement. No distribution assumptions required.
+
+YAML CONFIGURATION:
+  bootstrap:
+    iterations: 10000
+    confidence_levels: [0.90, 0.95, 0.99]
+    seed: 12345
+    data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12]
+    statistic: mean  # or median, std, var
+
+OUTPUT:
+  - Original statistic value
+  - Bootstrap mean and standard error
+  - Confidence intervals at each level
+  - Bias estimate
+
+EXAMPLES:
+  forge bootstrap model.yaml                    # Run analysis
+  forge bootstrap model.yaml -n 50000           # Override iterations
+  forge bootstrap model.yaml --confidence 0.99  # Set confidence level")]
+    /// Bootstrap resampling for confidence intervals (enterprise only)
+    Bootstrap {
+        /// Path to YAML file with bootstrap section
+        file: PathBuf,
+
+        /// Number of iterations (overrides YAML config)
+        #[arg(short = 'n', long)]
+        iterations: Option<usize>,
+
+        /// Random seed for reproducibility
+        #[arg(long)]
+        seed: Option<u64>,
+
+        /// Confidence levels (e.g., 0.90,0.95,0.99)
+        #[arg(long, value_delimiter = ',')]
+        confidence: Option<Vec<f64>>,
+
+        /// Output file (.yaml)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    #[cfg(feature = "full")]
+    #[command(long_about = "Run Bayesian network inference.
+
+Bayesian networks are probabilistic graphical models for causal reasoning.
+Uses Variable Elimination algorithm for efficient inference.
+
+YAML CONFIGURATION:
+  bayesian_network:
+    name: \"Credit Risk\"
+    nodes:
+      economic_conditions:
+        type: discrete
+        states: [good, neutral, bad]
+        prior: [0.3, 0.5, 0.2]
+      default_probability:
+        type: discrete
+        states: [low, medium, high]
+        parents: [economic_conditions]
+        cpt:
+          good: [0.8, 0.15, 0.05]
+          neutral: [0.4, 0.4, 0.2]
+          bad: [0.1, 0.3, 0.6]
+
+EXAMPLES:
+  forge bayesian model.yaml                           # Query all nodes
+  forge bayesian model.yaml --query default_prob      # Query specific node
+  forge bayesian model.yaml -e economy=bad            # Set evidence")]
+    /// Bayesian network inference (enterprise only)
+    Bayesian {
+        /// Path to YAML file with bayesian_network section
+        file: PathBuf,
+
+        /// Target variable to query
+        #[arg(short, long)]
+        query: Option<String>,
+
+        /// Evidence in format var=state (can repeat)
+        #[arg(short, long, value_delimiter = ',')]
+        evidence: Vec<String>,
+
+        /// Output file (.yaml)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    #[cfg(feature = "full")]
     #[command(long_about = "Check for updates and optionally self-update the binary.
 
 Downloads the latest release from GitHub and replaces the current binary.
@@ -753,6 +1084,58 @@ fn main() -> ForgeResult<()> {
             output,
             verbose,
         } => cli::simulate(file, iterations, seed, sampling, output, verbose),
+
+        #[cfg(feature = "full")]
+        Commands::Scenarios {
+            file,
+            scenario,
+            output,
+            verbose,
+        } => cli::scenarios(file, scenario, output, verbose),
+
+        #[cfg(feature = "full")]
+        Commands::DecisionTree {
+            file,
+            dot,
+            output,
+            verbose,
+        } => cli::decision_tree(file, dot, output, verbose),
+
+        #[cfg(feature = "full")]
+        Commands::RealOptions {
+            file,
+            option,
+            compare_npv,
+            output,
+            verbose,
+        } => cli::real_options(file, option, compare_npv, output, verbose),
+
+        #[cfg(feature = "full")]
+        Commands::Tornado {
+            file,
+            output_var,
+            output,
+            verbose,
+        } => cli::tornado(file, output_var, output, verbose),
+
+        #[cfg(feature = "full")]
+        Commands::Bootstrap {
+            file,
+            iterations,
+            seed,
+            confidence,
+            output,
+            verbose,
+        } => cli::bootstrap(file, iterations, seed, confidence, output, verbose),
+
+        #[cfg(feature = "full")]
+        Commands::Bayesian {
+            file,
+            query,
+            evidence,
+            output,
+            verbose,
+        } => cli::bayesian(file, query, evidence, output, verbose),
 
         #[cfg(feature = "full")]
         Commands::Update { check } => {
