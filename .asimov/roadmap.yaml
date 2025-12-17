@@ -19,10 +19,54 @@ next:
   # v9.8.1 Cleanup - e2e tests deleted from forge, pedantic linting in Cargo.toml
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # CRITICAL: Excel Compatibility Bugs (found by forge-e2e + Gnumeric validation)
+  # CRITICAL: Monte Carlo Dependent Formula Bug (BLOCKING DANEEL PAPER)
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "9.9.1"
+    priority: CRITICAL
+    status: pending
+    summary: "Monte Carlo Dependent Formula Evaluation"
+    source: "daneel-models game-theory-asi-race-mc.yaml"
+    bugs:
+      - id: "FORGE-MC-001"
+        title: "MC simulation doesn't propagate sampled values through dependent formulas"
+        severity: CRITICAL
+        blocking: "DANEEL paper needs probabilistic confidence intervals"
+        current: |
+          forge simulate correctly samples MC.* functions:
+            outputs.p_sampled: mean=0.60 min=0.41 max=0.79
+          But dependent formulas return 0:
+            outputs.result: "=outputs.p_sampled * 100" → returns 0.0 (should be ~60)
+        expected: |
+          Sampled values should propagate through the formula dependency chain.
+          outputs.result should have mean=60.0, not 0.0
+        repro: |
+          cat << 'EOF' > /tmp/test-mc.yaml
+          _forge_version: "5.0.0"
+          monte_carlo:
+            enabled: true
+            iterations: 1000
+            seed: 42
+            outputs:
+              - variable: outputs.result
+                percentiles: [50]
+          outputs:
+            p_sampled:
+              value: null
+              formula: "=MC.Triangular(0.4, 0.6, 0.8)"
+            result:
+              value: null
+              formula: "=outputs.p_sampled * 100"
+          EOF
+          ~/bin/forge simulate /tmp/test-mc.yaml
+        file: "src/cli/commands/simulate.rs or src/monte_carlo/"
+        impact: "All Monte Carlo models with dependent calculations are broken"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CRITICAL: Excel Compatibility Bugs (found by forge-e2e + Gnumeric validation)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "9.9.2"
     priority: CRITICAL
     status: pending
     summary: "Excel Compatibility Fixes"
@@ -132,10 +176,21 @@ backlog:
   - "FPGA acceleration for HFT (post-capitalization) - see ADR-026"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# BUGS - No active issues
+# BUGS - Active issues
 # ═══════════════════════════════════════════════════════════════════════════════
 
-bugs: []
+bugs:
+  - id: "FORGE-MC-001"
+    title: "Monte Carlo dependent formula evaluation broken"
+    severity: CRITICAL
+    status: open
+    blocking: "DANEEL paper probabilistic analysis"
+    description: |
+      forge simulate samples MC.* functions correctly but doesn't propagate
+      sampled values through dependent formulas. All downstream calculations
+      return 0.0 instead of computed values.
+    reporter: "daneel-models/game-theory-asi-race-mc.yaml"
+    date: "2025-12-17"
 
 # BUG-001 through BUG-013 fixed
 # BUG-010 to BUG-013 were already resolved by BUG-003 to BUG-009 fixes (Boolean literals, comparisons)
