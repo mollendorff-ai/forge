@@ -18,6 +18,45 @@ next:
   # v9.8.0 E2E Test Migration - COMPLETED (see CHANGELOG.md)
   # v9.8.1 Cleanup - e2e tests deleted from forge, pedantic linting in Cargo.toml
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CRITICAL: Excel Compatibility Bugs (found by forge-e2e + Gnumeric validation)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "9.9.1"
+    priority: CRITICAL
+    status: pending
+    summary: "Excel Compatibility Fixes"
+    source: "forge-e2e Gnumeric validation"
+    bugs:
+      - id: "FORGE-001"
+        title: "Boolean equality with numbers"
+        severity: HIGH
+        current: "TRUE = 1 returns FALSE, FALSE = 0 returns FALSE"
+        expected: "TRUE = 1 should return TRUE (Excel behavior)"
+        file: "src/eval/comparison.rs or src/eval/operators.rs"
+        test: "=IF(TRUE=1, 'yes', 'no') should return 'yes'"
+
+      - id: "FORGE-002"
+        title: "String comparison case sensitivity"
+        severity: MEDIUM
+        current: "'ABC' = 'abc' returns TRUE (case-insensitive)"
+        expected: "Should return FALSE (Excel = operator is case-sensitive)"
+        file: "src/eval/comparison.rs"
+        test: "=IF('ABC'='abc', 1, 0) should return 0"
+        note: "EXACT() is case-sensitive, but = should also be case-sensitive"
+
+      - id: "FORGE-003"
+        title: "DATEDIF YD mode off-by-one"
+        severity: MEDIUM
+        current: "DATEDIF(DATE(2024,10,1), DATE(2025,3,15), 'YD') returns 164"
+        expected: "Should return 165 (days excluding years)"
+        file: "src/functions/date.rs"
+        test: "Add edge case tests for YD mode spanning year boundary"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Performance Milestones
+  # ─────────────────────────────────────────────────────────────────────────────
+
   - version: "10.0.0"
     priority: NORMAL
     status: pending
