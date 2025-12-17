@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.6.0] - 2025-12-17
+
+### BUG-003 to BUG-009 Fixes - Demo Edge Cases
+
+Fixed multiple demo bugs discovered by forge-demo e2e testing.
+
+### Fixed
+
+- **BUG-003**: TRUE/FALSE boolean literals now recognized in formulas
+- **BUG-004**: Boolean vs Number comparison works (TRUE = 1, FALSE = 0)
+- **BUG-005**: DATE rollover for invalid day params (e.g., Feb 29 in non-leap year → Mar 1)
+- **BUG-006**: Verified ISERROR already implemented (no changes needed)
+- **BUG-007**: EOMONTH function ungated for demo
+- **BUG-008**: & concatenation operator added to tokenizer and evaluator
+- **BUG-009**: DATE() now returns Excel serial number (not text string)
+
+### Added
+
+- `Token::Boolean(bool)` to tokenizer for TRUE/FALSE literals
+- `Expr::Boolean(bool)` to parser AST
+- `&` operator support for string concatenation
+- Day overflow/underflow handling in DATE function
+- Edge case test YAMLs imported from forge-demo
+
+### Changed
+
+- DATE() returns `Value::Number` (Excel serial) instead of `Value::Text`
+- `values_equal()` handles Boolean vs Number comparisons
+- String comparison remains case-insensitive (correct Excel behavior)
+- EOMONTH moved from enterprise-only to demo
+
 ## [9.5.0] - 2025-12-17
 
 ### BUG-002 Fix - DATE Subtraction Now Works

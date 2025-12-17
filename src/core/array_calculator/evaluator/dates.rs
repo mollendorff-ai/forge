@@ -1,7 +1,7 @@
 //! Date functions: TODAY, NOW, YEAR, MONTH, DAY, WEEKDAY, HOUR, MINUTE, SECOND, DATE, EDATE, EOMONTH, DATEDIF, DAYS, TIME, WORKDAY, etc.
 //!
-//! DEMO functions (6): TODAY, DATE, YEAR, MONTH, DAY, DATEDIF
-//! ENTERPRISE functions: NOW, WEEKDAY, HOUR, MINUTE, SECOND, TIME, DAYS, WORKDAY, EDATE, EOMONTH, NETWORKDAYS, YEARFRAC
+//! DEMO functions (7): TODAY, DATE, YEAR, MONTH, DAY, DATEDIF, EOMONTH
+//! ENTERPRISE functions: NOW, WEEKDAY, HOUR, MINUTE, SECOND, TIME, DAYS, WORKDAY, EDATE, NETWORKDAYS, YEARFRAC
 
 use super::{evaluate, parse_date_value, require_args, EvalContext, EvalError, Expr, Value};
 use chrono::Datelike;
@@ -227,21 +227,32 @@ pub fn try_evaluate(
             let day = evaluate(&args[2], ctx)?
                 .as_number()
                 .ok_or_else(|| EvalError::new("DATE: day must be a number"))?
-                as u32;
+                as i32;
 
             // Handle month overflow/underflow (Excel-compatible behavior)
             let total_months = (year * 12 + month - 1) as i32;
             let adj_year = total_months.div_euclid(12);
             let adj_month = (total_months.rem_euclid(12) + 1) as u32;
 
-            use chrono::NaiveDate;
-            let date = NaiveDate::from_ymd_opt(adj_year, adj_month, day).ok_or_else(|| {
-                EvalError::new(format!(
-                    "DATE: invalid date {}-{}-{}",
-                    adj_year, adj_month, day
-                ))
+            use chrono::{Days, NaiveDate};
+            // Start from day 1 of the adjusted month, then add (day - 1) days
+            // This handles day=0 (last day of prev month) and day>max (overflow to next month)
+            let base_date = NaiveDate::from_ymd_opt(adj_year, adj_month, 1).ok_or_else(|| {
+                EvalError::new(format!("DATE: invalid date {}-{}-1", adj_year, adj_month))
             })?;
-            Value::Text(date.format("%Y-%m-%d").to_string())
+            let date = if day >= 1 {
+                base_date
+                    .checked_add_days(Days::new((day - 1) as u64))
+                    .ok_or_else(|| EvalError::new("DATE: day overflow"))?
+            } else {
+                // day <= 0: go back from day 1
+                base_date
+                    .checked_sub_days(Days::new((1 - day) as u64))
+                    .ok_or_else(|| EvalError::new("DATE: day underflow"))?
+            };
+            // Return Excel serial number (days since 1899-12-30)
+            let excel_base = NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
+            Value::Number((date - excel_base).num_days() as f64)
         }
 
         #[cfg(not(feature = "demo"))]
@@ -267,7 +278,6 @@ pub fn try_evaluate(
             Value::Text(result.format("%Y-%m-%d").to_string())
         }
 
-        #[cfg(not(feature = "demo"))]
         "EOMONTH" => {
             use chrono::{Months, NaiveDate};
 
@@ -454,9 +464,11 @@ mod tests {
     #[test]
     fn test_date_construction() {
         let ctx = EvalContext::new();
+        // DATE returns Excel serial number (days since 1899-12-30)
+        // 2024-06-15 = 45458
         assert_eq!(
             eval("DATE(2024, 6, 15)", &ctx).unwrap(),
-            Value::Text("2024-06-15".to_string())
+            Value::Number(45458.0)
         );
     }
 
@@ -684,10 +696,10 @@ mod tests {
     #[test]
     fn test_date_month_overflow() {
         let ctx = EvalContext::new();
-        // Month 14 = February of next year
+        // Month 14 = February of next year (2025-02-15 = serial 45703)
         assert_eq!(
             eval("DATE(2024, 14, 15)", &ctx).unwrap(),
-            Value::Text("2025-02-15".to_string())
+            Value::Number(45703.0)
         );
     }
 

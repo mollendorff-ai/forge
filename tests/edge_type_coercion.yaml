@@ -1,0 +1,34 @@
+_forge_version: 1.0.0
+assumptions:
+  test_boolean_true_plus_one:
+    value: 2.0
+    formula: =TRUE + 1
+    expected: 2
+  test_boolean_false_plus_one:
+    value: 1.0
+    formula: =FALSE + 1
+    expected: 1
+  test_boolean_true_multiply:
+    value: 5.0
+    formula: =TRUE * 5
+    expected: 5
+  test_boolean_false_multiply:
+    value: 0.0
+    formula: =FALSE * 5
+    expected: 0
+  test_if_true_branch:
+    value: 2.0
+    formula: =IF(TRUE, 1, 0) + 1
+    expected: 2
+  test_if_false_branch:
+    value: 1.0
+    formula: =IF(FALSE, 1, 0) + 1
+    expected: 1
+  test_date_subtraction_leap_year:
+    value: 365.0
+    formula: =DATE(2024,12,31) - DATE(2024,1,1)
+    expected: 365
+  test_date_add_days:
+    value: 45468.0
+    formula: =DATE(2024,6,15) + 10
+    expected: 45468

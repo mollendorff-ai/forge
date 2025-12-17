@@ -38,13 +38,14 @@ fn test_date_function() {
     let result_table = result.tables.get("data").unwrap();
 
     let full_date = result_table.columns.get("full_date").unwrap();
+    // DATE now returns Excel serial numbers
     match &full_date.values {
-        ColumnValue::Text(texts) => {
-            assert_eq!(texts[0], "2025-01-15");
-            assert_eq!(texts[1], "2024-06-20");
-            assert_eq!(texts[2], "2023-12-31");
+        ColumnValue::Number(nums) => {
+            assert_eq!(nums[0], 45672.0); // 2025-01-15
+            assert_eq!(nums[1], 45463.0); // 2024-06-20
+            assert_eq!(nums[2], 45291.0); // 2023-12-31
         }
-        _ => panic!("Expected Text array"),
+        _ => panic!("Expected Number array"),
     }
 }
 
@@ -169,12 +170,13 @@ fn test_date_functions_combined() {
     let result_table = result.tables.get("data").unwrap();
 
     let next_month = result_table.columns.get("next_month").unwrap();
+    // DATE now returns Excel serial numbers
     match &next_month.values {
-        ColumnValue::Text(texts) => {
-            assert_eq!(texts[0], "2025-07-15");
-            assert_eq!(texts[1], "2025-01-31"); // DATE function normalizes month 13 to January next year
+        ColumnValue::Number(nums) => {
+            assert_eq!(nums[0], 45853.0); // 2025-07-15
+            assert_eq!(nums[1], 45688.0); // 2025-01-31 (month 13 => Jan next year)
         }
-        _ => panic!("Expected Text array"),
+        _ => panic!("Expected Number array"),
     }
 }
 

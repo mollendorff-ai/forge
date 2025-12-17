@@ -221,6 +221,8 @@ pub fn evaluate(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
 
         Expr::Text(s) => Ok(Value::Text(s.clone())),
 
+        Expr::Boolean(b) => Ok(Value::Boolean(*b)),
+
         Expr::Reference(reference) => evaluate_reference(reference, ctx),
 
         Expr::ArrayIndex { array, index } => {
@@ -417,6 +419,13 @@ fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, Ev
             Ok(Value::Number(l.powf(r)))
         }
 
+        // String concatenation operator
+        "&" => Ok(Value::Text(format!(
+            "{}{}",
+            left.as_text(),
+            right.as_text()
+        ))),
+
         // Comparison operators
         "=" => Ok(Value::Boolean(values_equal(left, right))),
         "<>" => Ok(Value::Boolean(!values_equal(left, right))),
@@ -467,6 +476,11 @@ pub(crate) fn values_equal(left: &Value, right: &Value) -> bool {
         (Value::Number(l), Value::Number(r)) => (l - r).abs() < 1e-10,
         (Value::Text(l), Value::Text(r)) => l.to_lowercase() == r.to_lowercase(),
         (Value::Boolean(l), Value::Boolean(r)) => l == r,
+        // Boolean vs Number: TRUE = 1, FALSE = 0 (Excel-compatible)
+        (Value::Boolean(b), Value::Number(n)) | (Value::Number(n), Value::Boolean(b)) => {
+            let bool_num = if *b { 1.0 } else { 0.0 };
+            (bool_num - n).abs() < 1e-10
+        }
         (Value::Null, Value::Null) => true,
         (Value::Array(l), Value::Array(r)) => {
             // Arrays are equal if same length and all elements equal

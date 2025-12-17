@@ -21,6 +21,8 @@ pub enum Expr {
     Number(f64),
     /// A string literal
     Text(String),
+    /// A boolean literal (TRUE or FALSE)
+    Boolean(bool),
     /// A variable or table.column reference
     Reference(Reference),
     /// Array indexing: expr[index]
@@ -337,6 +339,10 @@ impl Parser {
             Some(Token::Text(s)) => {
                 self.advance();
                 Ok(Expr::Text(s))
+            }
+            Some(Token::Boolean(b)) => {
+                self.advance();
+                Ok(Expr::Boolean(b))
             }
             Some(Token::Identifier(name)) => {
                 self.advance();

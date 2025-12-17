@@ -1,0 +1,65 @@
+# E2E Logical Function Tests
+# Validated against Gnumeric
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # IF
+  test_if_true:
+    value: null
+    formula: "=IF(10>5, 100, 200)"
+    expected: 100
+
+  test_if_false:
+    value: null
+    formula: "=IF(10<5, 100, 200)"
+    expected: 200
+
+  test_if_equal:
+    value: null
+    formula: "=IF(5=5, 1, 0)"
+    expected: 1
+
+  # AND
+  test_and_true:
+    value: null
+    formula: "=IF(AND(1>0, 2>1), 1, 0)"
+    expected: 1
+
+  test_and_false:
+    value: null
+    formula: "=IF(AND(1>0, 2<1), 1, 0)"
+    expected: 0
+
+  # OR
+  test_or_true:
+    value: null
+    formula: "=IF(OR(1<0, 2>1), 1, 0)"
+    expected: 1
+
+  test_or_false:
+    value: null
+    formula: "=IF(OR(1<0, 2<1), 1, 0)"
+    expected: 0
+
+  # NOT
+  test_not_true:
+    value: null
+    formula: "=IF(NOT(1<0), 1, 0)"
+    expected: 1
+
+  test_not_false:
+    value: null
+    formula: "=IF(NOT(1>0), 1, 0)"
+    expected: 0
+
+  # IFERROR
+  test_iferror_no_error:
+    value: null
+    formula: "=IFERROR(10/2, -1)"
+    expected: 5
+
+  test_iferror_with_error:
+    value: null
+    formula: "=IFERROR(1/0, -1)"
+    expected: -1
