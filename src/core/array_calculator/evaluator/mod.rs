@@ -14,6 +14,7 @@ mod lookup;
 mod math;
 mod statistical;
 mod text;
+mod trig;
 
 // Enterprise-only modules (gated behind "full" feature)
 #[cfg(not(feature = "demo"))]
@@ -26,8 +27,6 @@ mod conditional;
 mod forge;
 #[cfg(not(feature = "demo"))]
 mod info;
-#[cfg(not(feature = "demo"))]
-mod trig;
 
 use super::parser::{Expr, Reference};
 use std::collections::HashMap;
@@ -513,15 +512,15 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
     if let Some(result) = statistical::try_evaluate(&upper_name, args, ctx)? {
         return Ok(result);
     }
+    if let Some(result) = trig::try_evaluate(&upper_name, args, ctx)? {
+        return Ok(result);
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ENTERPRISE FUNCTIONS (only in full build)
     // ═══════════════════════════════════════════════════════════════════════════
     #[cfg(not(feature = "demo"))]
     {
-        if let Some(result) = trig::try_evaluate(&upper_name, args, ctx)? {
-            return Ok(result);
-        }
         if let Some(result) = conditional::try_evaluate(&upper_name, args, ctx)? {
             return Ok(result);
         }

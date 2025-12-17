@@ -1,7 +1,7 @@
 //! Math functions: ABS, ROUND, SQRT, POW, EXP, LN, LOG, etc.
 //!
-//! DEMO functions (9): ROUND, ROUNDUP, ROUNDDOWN, ABS, SQRT, POWER, MOD, CEILING, FLOOR
-//! ENTERPRISE functions: EXP, LN, LOG, LOG10, INT, POW, SIGN, TRUNC, PI, E
+//! DEMO functions (16): ROUND, ROUNDUP, ROUNDDOWN, ABS, SQRT, POWER, MOD, CEILING, FLOOR, EXP, LN, LOG10, INT, SIGN, TRUNC, PI
+//! ENTERPRISE functions: POW, E, LOG
 
 use super::{evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value};
 
@@ -137,10 +137,6 @@ pub fn try_evaluate(
             Value::Number(base.powf(exp))
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        // ENTERPRISE FUNCTIONS (only in full build)
-        // ═══════════════════════════════════════════════════════════════════════════
-        #[cfg(not(feature = "demo"))]
         "EXP" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -149,7 +145,6 @@ pub fn try_evaluate(
             Value::Number(val.exp())
         }
 
-        #[cfg(not(feature = "demo"))]
         "LN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -161,19 +156,17 @@ pub fn try_evaluate(
             Value::Number(val.ln())
         }
 
-        #[cfg(not(feature = "demo"))]
-        "LOG" | "LOG10" => {
+        "LOG10" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
                 .as_number()
-                .ok_or_else(|| EvalError::new("LOG requires a number"))?;
+                .ok_or_else(|| EvalError::new("LOG10 requires a number"))?;
             if val <= 0.0 {
-                return Err(EvalError::new("LOG of non-positive number"));
+                return Err(EvalError::new("LOG10 of non-positive number"));
             }
             Value::Number(val.log10())
         }
 
-        #[cfg(not(feature = "demo"))]
         "INT" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -182,20 +175,6 @@ pub fn try_evaluate(
             Value::Number(val.floor())
         }
 
-        #[cfg(not(feature = "demo"))]
-        "POW" => {
-            // Alias for POWER
-            require_args(name, args, 2)?;
-            let base = evaluate(&args[0], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("POW requires numbers"))?;
-            let exp = evaluate(&args[1], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("POW requires numbers"))?;
-            Value::Number(base.powf(exp))
-        }
-
-        #[cfg(not(feature = "demo"))]
         "SIGN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -210,7 +189,6 @@ pub fn try_evaluate(
             })
         }
 
-        #[cfg(not(feature = "demo"))]
         "TRUNC" => {
             require_args_range(name, args, 1, 2)?;
             let val = evaluate(&args[0], ctx)?
@@ -225,10 +203,37 @@ pub fn try_evaluate(
             Value::Number(val.signum() * (val.abs() * multiplier).floor() / multiplier)
         }
 
-        #[cfg(not(feature = "demo"))]
         "PI" => {
             require_args(name, args, 0)?;
             Value::Number(std::f64::consts::PI)
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // ENTERPRISE FUNCTIONS (only in full build)
+        // ═══════════════════════════════════════════════════════════════════════════
+        #[cfg(not(feature = "demo"))]
+        "LOG" => {
+            require_args(name, args, 1)?;
+            let val = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("LOG requires a number"))?;
+            if val <= 0.0 {
+                return Err(EvalError::new("LOG of non-positive number"));
+            }
+            Value::Number(val.log10())
+        }
+
+        #[cfg(not(feature = "demo"))]
+        "POW" => {
+            // Alias for POWER
+            require_args(name, args, 2)?;
+            let base = evaluate(&args[0], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("POW requires numbers"))?;
+            let exp = evaluate(&args[1], ctx)?
+                .as_number()
+                .ok_or_else(|| EvalError::new("POW requires numbers"))?;
+            Value::Number(base.powf(exp))
         }
 
         #[cfg(not(feature = "demo"))]
@@ -337,13 +342,8 @@ mod tests {
         assert_eq!(eval("CEILING(13, 5)", &ctx).unwrap(), Value::Number(15.0));
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ENTERPRISE TESTS (only with full feature)
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    #[cfg(not(feature = "demo"))]
     #[test]
-    fn test_exp_ln_log() {
+    fn test_exp_ln_log10() {
         let ctx = EvalContext::new();
         // e^1 ≈ 2.718...
         let exp_result = eval("EXP(1)", &ctx).unwrap();
@@ -357,14 +357,12 @@ mod tests {
         assert_eq!(eval("LOG10(100)", &ctx).unwrap(), Value::Number(2.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_int() {
         let ctx = EvalContext::new();
         assert_eq!(eval("INT(3.9)", &ctx).unwrap(), Value::Number(3.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ln_non_positive() {
         let ctx = EvalContext::new();
@@ -376,14 +374,40 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
-    fn test_log_non_positive() {
+    fn test_log10_non_positive() {
         let ctx = EvalContext::new();
         let result = eval("LOG10(0)", &ctx);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("non-positive"));
     }
+
+    #[test]
+    fn test_sign() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("SIGN(5)", &ctx).unwrap(), Value::Number(1.0));
+        assert_eq!(eval("SIGN(-5)", &ctx).unwrap(), Value::Number(-1.0));
+        assert_eq!(eval("SIGN(0)", &ctx).unwrap(), Value::Number(0.0));
+    }
+
+    #[test]
+    fn test_trunc() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("TRUNC(3.9)", &ctx).unwrap(), Value::Number(3.0));
+        assert_eq!(eval("TRUNC(-3.9)", &ctx).unwrap(), Value::Number(-3.0));
+        assert_eq!(eval("TRUNC(3.567, 2)", &ctx).unwrap(), Value::Number(3.56));
+    }
+
+    #[test]
+    fn test_pi() {
+        let ctx = EvalContext::new();
+        let result = eval("PI()", &ctx).unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - std::f64::consts::PI).abs() < 0.0001));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ENTERPRISE TESTS (only with full feature)
+    // ═══════════════════════════════════════════════════════════════════════════
 
     #[cfg(not(feature = "demo"))]
     #[test]
@@ -398,32 +422,6 @@ mod tests {
         let ctx = EvalContext::new();
         assert_eq!(eval("POW(2, 3)", &ctx).unwrap(), Value::Number(8.0));
         assert_eq!(eval("POW(3, 2)", &ctx).unwrap(), Value::Number(9.0));
-    }
-
-    #[cfg(not(feature = "demo"))]
-    #[test]
-    fn test_sign() {
-        let ctx = EvalContext::new();
-        assert_eq!(eval("SIGN(5)", &ctx).unwrap(), Value::Number(1.0));
-        assert_eq!(eval("SIGN(-5)", &ctx).unwrap(), Value::Number(-1.0));
-        assert_eq!(eval("SIGN(0)", &ctx).unwrap(), Value::Number(0.0));
-    }
-
-    #[cfg(not(feature = "demo"))]
-    #[test]
-    fn test_trunc() {
-        let ctx = EvalContext::new();
-        assert_eq!(eval("TRUNC(3.9)", &ctx).unwrap(), Value::Number(3.0));
-        assert_eq!(eval("TRUNC(-3.9)", &ctx).unwrap(), Value::Number(-3.0));
-        assert_eq!(eval("TRUNC(3.567, 2)", &ctx).unwrap(), Value::Number(3.56));
-    }
-
-    #[cfg(not(feature = "demo"))]
-    #[test]
-    fn test_pi() {
-        let ctx = EvalContext::new();
-        let result = eval("PI()", &ctx).unwrap();
-        assert!(matches!(result, Value::Number(n) if (n - std::f64::consts::PI).abs() < 0.0001));
     }
 
     #[cfg(not(feature = "demo"))]

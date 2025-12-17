@@ -1,4 +1,7 @@
 //! Trigonometric functions: SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, RADIANS, DEGREES
+//!
+//! DEMO functions (6): SIN, COS, TAN, ASIN, ACOS, ATAN
+//! ENTERPRISE functions: SINH, COSH, TANH, RADIANS, DEGREES
 
 use super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
 
@@ -63,6 +66,10 @@ pub fn try_evaluate(
             Value::Number(val.atan())
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════
+        // ENTERPRISE FUNCTIONS (only in full build)
+        // ═══════════════════════════════════════════════════════════════════════════
+        #[cfg(not(feature = "demo"))]
         "SINH" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -71,6 +78,7 @@ pub fn try_evaluate(
             Value::Number(val.sinh())
         }
 
+        #[cfg(not(feature = "demo"))]
         "COSH" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -79,6 +87,7 @@ pub fn try_evaluate(
             Value::Number(val.cosh())
         }
 
+        #[cfg(not(feature = "demo"))]
         "TANH" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -87,6 +96,7 @@ pub fn try_evaluate(
             Value::Number(val.tanh())
         }
 
+        #[cfg(not(feature = "demo"))]
         "RADIANS" => {
             require_args(name, args, 1)?;
             let degrees = evaluate(&args[0], ctx)?
@@ -95,6 +105,7 @@ pub fn try_evaluate(
             Value::Number(degrees.to_radians())
         }
 
+        #[cfg(not(feature = "demo"))]
         "DEGREES" => {
             require_args(name, args, 1)?;
             let radians = evaluate(&args[0], ctx)?
@@ -178,6 +189,11 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if (n - PI / 4.0).abs() < 0.0001));
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ENTERPRISE TESTS (only with full feature)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sinh() {
         let ctx = EvalContext::new();
@@ -186,6 +202,7 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if (n - 1.1752011936438014).abs() < 0.0001));
     }
 
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_cosh() {
         let ctx = EvalContext::new();
@@ -194,6 +211,7 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if (n - 1.5430806348152437).abs() < 0.0001));
     }
 
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_tanh() {
         let ctx = EvalContext::new();
@@ -202,6 +220,7 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if (n - 0.7615941559557649).abs() < 0.0001));
     }
 
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_radians() {
         let ctx = EvalContext::new();
@@ -211,6 +230,7 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if (n - PI / 2.0).abs() < 0.0001));
     }
 
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_degrees() {
         let ctx = EvalContext::new();
