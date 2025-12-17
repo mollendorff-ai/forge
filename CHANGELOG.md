@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.6.1] - 2025-12-17
+
+### Fixed
+
+- **publish-demo asset naming**: Fixed Makefile to use expected naming convention
+  - Script expected: `forge-demo-9.6.0-darwin-arm64`
+  - Was uploading: `forge-demo-aarch64-apple-darwin`
+  - Now correctly renames binaries before GitHub release upload
+
 ## [9.6.0] - 2025-12-17
 
 ### BUG-003 to BUG-009 Fixes - Demo Edge Cases
