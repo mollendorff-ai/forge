@@ -8,7 +8,7 @@
 current:
   version: "9.9.0"
   status: in_progress
-  summary: "Incremental test migration - forge-demo edge cases to inline unit tests"
+  summary: "Port edge cases from forge-e2e to inline Rust unit tests"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT - Candidate milestones (pick one to start)
@@ -63,10 +63,10 @@ next:
   - version: "9.9.0"
     priority: HIGH
     status: pending
-    summary: "Incremental test migration - forge-demo edge cases to inline unit tests"
+    summary: "Port edge cases from forge-e2e to inline Rust unit tests"
     deliverables:
-      - "Copy remaining edge cases from forge-demo/tests/e2e/*.yaml"
-      - "Add as inline unit tests in appropriate src/ modules"
+      - "Port edge cases from ../forge-e2e/tests/ to inline unit tests"
+      - "Add tests in appropriate src/ modules (Rust way - #[cfg(test)] mod tests)"
       - "Verify all edge cases pass"
       - "Update test count in --help header"
 
@@ -109,5 +109,5 @@ bugs: []
 summary:
   total_functions: 173
   categories: 15
-  unit_tests: 1705
+  unit_tests: 1825
   history: "See CHANGELOG.md"

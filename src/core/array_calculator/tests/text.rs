@@ -1,6 +1,7 @@
 //! Text function tests for ArrayCalculator
 
 #![allow(clippy::approx_constant)] // Test values intentionally use approximate PI/E
+#![allow(clippy::items_after_statements)] // Tests use local imports for clarity
 
 use crate::core::array_calculator::ArrayCalculator;
 #[allow(unused_imports)]
@@ -833,7 +834,6 @@ fn test_right_full_string() {
 #[test]
 fn test_substitute_multiple_occurrences() {
     let mut model = ParsedModel::new();
-    use crate::types::Variable;
     model.add_scalar(
         "result".to_string(),
         Variable::new(
@@ -849,7 +849,6 @@ fn test_substitute_multiple_occurrences() {
 #[test]
 fn test_substitute_no_match() {
     let mut model = ParsedModel::new();
-    use crate::types::Variable;
     model.add_scalar(
         "result".to_string(),
         Variable::new(

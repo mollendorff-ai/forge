@@ -1,5 +1,8 @@
 //! Excel importer implementation - Excel (.xlsx) → YAML
 
+#![allow(clippy::float_cmp)] // Tests use exact float comparison for known values
+#![allow(clippy::similar_names)] // importer/imported naming is clear in context
+
 use crate::error::{ForgeError, ForgeResult};
 use crate::excel::reverse_formula_translator::ReverseFormulaTranslator;
 use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};

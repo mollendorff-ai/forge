@@ -404,6 +404,7 @@ impl ArrayCalculator {
     }
 
     /// Get day of week (0=Monday, 6=Sunday) for a date
+    #[allow(clippy::many_single_char_names)] // Zeller's congruence standard notation
     pub(super) fn weekday(year: i32, month: i32, day: i32) -> i32 {
         let m = if month < 3 { month + 12 } else { month };
         let y = if month < 3 { year - 1 } else { year };
