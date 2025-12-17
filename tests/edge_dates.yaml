@@ -1,0 +1,74 @@
+_forge_version: 1.0.0
+assumptions:
+  test_leap_year_valid_year:
+    value: 2024.0
+    formula: =YEAR(DATE(2024, 2, 29))
+    expected: 2024
+  test_leap_year_valid_month:
+    value: 2.0
+    formula: =MONTH(DATE(2024, 2, 29))
+    expected: 2
+  test_leap_year_valid_day:
+    value: 29.0
+    formula: =DAY(DATE(2024, 2, 29))
+    expected: 29
+  test_non_leap_year_rollover_year:
+    value: 2023.0
+    formula: =YEAR(DATE(2023, 2, 29))
+    expected: 2023
+  test_non_leap_year_rollover_month:
+    value: 3.0
+    formula: =MONTH(DATE(2023, 2, 29))
+    expected: 3
+  test_non_leap_year_rollover_day:
+    value: 1.0
+    formula: =DAY(DATE(2023, 2, 29))
+    expected: 1
+  test_month_zero_year:
+    value: 2023.0
+    formula: =YEAR(DATE(2024, 0, 1))
+    expected: 2023
+  test_month_zero_month:
+    value: 12.0
+    formula: =MONTH(DATE(2024, 0, 1))
+    expected: 12
+  test_month_thirteen_year:
+    value: 2025.0
+    formula: =YEAR(DATE(2024, 13, 1))
+    expected: 2025
+  test_month_thirteen_month:
+    value: 1.0
+    formula: =MONTH(DATE(2024, 13, 1))
+    expected: 1
+  test_day_zero_day:
+    value: 31.0
+    formula: =DAY(DATE(2024, 1, 0))
+    expected: 31
+  test_day_zero_month:
+    value: 12.0
+    formula: =MONTH(DATE(2024, 1, 0))
+    expected: 12
+  test_day_overflow_day:
+    value: 1.0
+    formula: =DAY(DATE(2024, 1, 32))
+    expected: 1
+  test_day_overflow_month:
+    value: 2.0
+    formula: =MONTH(DATE(2024, 1, 32))
+    expected: 2
+  test_date_subtraction_leap_year:
+    value: 365.0
+    formula: =DATE(2024, 12, 31) - DATE(2024, 1, 1)
+    expected: 365
+  test_date_subtraction_non_leap_year:
+    value: 364.0
+    formula: =DATE(2023, 12, 31) - DATE(2023, 1, 1)
+    expected: 364
+  test_today_subtraction:
+    value: 0.0
+    formula: =TODAY() - TODAY()
+    expected: 0
+  test_eomonth_subtraction:
+    value: 30.0
+    formula: =EOMONTH(DATE(2024, 1, 15), 0) - DATE(2024, 1, 1)
+    expected: 30

@@ -485,6 +485,7 @@ fn test_date_leap_year_valid() {
 
 #[test]
 fn test_date_leap_year_invalid() {
+    // Excel behavior: Feb 29 in non-leap year rolls over to March 1
     let mut model = ParsedModel::new();
     let mut data = Table::new("data".to_string());
     data.add_column(Column::new(
@@ -504,19 +505,15 @@ fn test_date_leap_year_invalid() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    // Non-leap year: Feb 29 2023 should error (strict date validation for FP&A accuracy)
-    assert!(
-        result.is_err(),
-        "Feb 29 2023 should error - not a valid date in non-leap year"
-    );
-    if let Err(e) = result {
-        let err_msg = e.to_string();
-        assert!(
-            err_msg.contains("invalid date") || err_msg.contains("2023-2-29"),
-            "Error should mention invalid date, got: {}",
-            err_msg
-        );
+    let result = calculator
+        .calculate_all()
+        .expect("Should succeed with rollover");
+    let table = result.tables.get("data").unwrap();
+    let col = table.columns.get("result").unwrap();
+    // DATE(2023, 2, 29) = March 1, 2023 = serial 44986
+    match &col.values {
+        ColumnValue::Number(nums) => assert_eq!(nums[0], 44986.0),
+        _ => panic!("Expected Number"),
     }
 }
 
@@ -1039,6 +1036,7 @@ fn test_weekday_type_3_zero_indexed() {
 
 #[test]
 fn test_date_with_out_of_range_day() {
+    // Excel behavior: April 31 rolls over to May 1
     let mut model = ParsedModel::new();
     let mut data = Table::new("data".to_string());
     data.add_column(Column::new(
@@ -1058,19 +1056,15 @@ fn test_date_with_out_of_range_day() {
     model.add_table(data);
 
     let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-    // April 31 should error (strict date validation for FP&A accuracy)
-    assert!(
-        result.is_err(),
-        "April 31 should error - April only has 30 days"
-    );
-    if let Err(e) = result {
-        let err_msg = e.to_string();
-        assert!(
-            err_msg.contains("invalid date") || err_msg.contains("2024-4-31"),
-            "Error should mention invalid date, got: {}",
-            err_msg
-        );
+    let result = calculator
+        .calculate_all()
+        .expect("Should succeed with rollover");
+    let table = result.tables.get("data").unwrap();
+    let col = table.columns.get("result").unwrap();
+    // DATE(2024, 4, 31) = May 1, 2024 = serial 45413
+    match &col.values {
+        ColumnValue::Number(nums) => assert_eq!(nums[0], 45413.0),
+        _ => panic!("Expected Number"),
     }
 }
 

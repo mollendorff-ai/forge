@@ -1,0 +1,82 @@
+_forge_version: 1.0.0
+assumptions:
+  test_int_positive_fraction:
+    value: 5.0
+    formula: =INT(5.9)
+    expected: 5
+  test_int_negative_large_fraction:
+    value: -6.0
+    formula: =INT(-5.9)
+    expected: -6
+  test_int_negative_small_fraction:
+    value: -6.0
+    formula: =INT(-5.1)
+    expected: -6
+  test_trunc_positive_fraction:
+    value: 5.0
+    formula: =TRUNC(5.9)
+    expected: 5
+  test_trunc_negative_large_fraction:
+    value: -5.0
+    formula: =TRUNC(-5.9)
+    expected: -5
+  test_trunc_negative_small_fraction:
+    value: -5.0
+    formula: =TRUNC(-5.1)
+    expected: -5
+  test_round_half_even_low:
+    value: 3.0
+    formula: =ROUND(2.5, 0)
+    expected: 3
+  test_round_half_odd_low:
+    value: 4.0
+    formula: =ROUND(3.5, 0)
+    expected: 4
+  test_round_half_negative:
+    value: -3.0
+    formula: =ROUND(-2.5, 0)
+    expected: -3
+  test_round_negative_precision_decimal:
+    value: 1200.0
+    formula: =ROUND(1234.5, -2)
+    expected: 1200
+  test_round_negative_precision_exact:
+    value: 1300.0
+    formula: =ROUND(1250, -2)
+    expected: 1300
+  test_ceiling_positive_fraction:
+    value: 3.0
+    formula: =CEILING(2.1, 1)
+    expected: 3
+  test_ceiling_negative_fraction:
+    value: -2.0
+    formula: =CEILING(-2.1, 1)
+    expected: -2
+  test_floor_positive_fraction:
+    value: 2.0
+    formula: =FLOOR(2.9, 1)
+    expected: 2
+  test_floor_negative_fraction:
+    value: -3.0
+    formula: =FLOOR(-2.9, 1)
+    expected: -3
+  test_sqrt_zero:
+    value: 0.0
+    formula: =SQRT(0)
+    expected: 0
+  test_abs_negative_zero:
+    value: 0.0
+    formula: =ABS(-0)
+    expected: 0
+  test_sign_zero:
+    value: 0.0
+    formula: =SIGN(0)
+    expected: 0
+  test_sign_positive:
+    value: 1.0
+    formula: =SIGN(100)
+    expected: 1
+  test_sign_negative:
+    value: -1.0
+    formula: =SIGN(-100)
+    expected: -1

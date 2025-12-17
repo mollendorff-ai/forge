@@ -176,6 +176,31 @@ completed:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
+  version: "9.6.0"
+  priority: HIGH
+  status: completed
+  completed: "2025-12-17"
+  summary: "BUG-003 to BUG-009 Fixes - Demo Edge Cases"
+  rationale: |
+    Fixed multiple demo bugs discovered by forge-demo e2e testing:
+    - BUG-003: TRUE/FALSE boolean literals not recognized
+    - BUG-004: Boolean vs Number comparison (TRUE = 1) fixed
+    - BUG-005: DATE rollover for invalid day params
+    - BUG-006: ISERROR already implemented (verified)
+    - BUG-007: EOMONTH ungated for demo
+    - BUG-008: & concatenation operator added
+    - BUG-009: DATE returns serial number (not text)
+  deliverables:
+    - "[DONE] Added Token::Boolean to tokenizer"
+    - "[DONE] Added & operator to tokenizer and evaluator"
+    - "[DONE] DATE() returns Excel serial number"
+    - "[DONE] DATE() handles day overflow/underflow"
+    - "[DONE] Ungated EOMONTH for demo"
+    - "[DONE] Boolean vs Number comparison in values_equal()"
+    - "[DONE] Imported edge case YAMLs from forge-demo"
+    - "[DONE] 1643 lib tests pass"
+
+v9_5_0_completed:
   version: "9.5.0"
   priority: MEDIUM
   status: completed
@@ -1244,6 +1269,146 @@ bugs:
     reported_by: "forge-e2e v2.2.1 perf mode"
     reported_date: "2025-12-17"
 
+  - id: "BUG-003"
+    severity: HIGH
+    status: done
+    summary: "TRUE/FALSE boolean literals not recognized"
+    description: |
+      TRUE and FALSE are not recognized as boolean literals in forge calculate.
+
+      SYMPTOM:
+        $ forge-demo calculate "=TRUE + 1"
+        Error: Unknown variable: TRUE
+
+        $ forge-demo calculate "=IF(TRUE, 1, 0)"
+        Error: Unknown variable: TRUE
+
+      EXPECTED:
+        TRUE should equal 1, FALSE should equal 0 (Excel/Gnumeric behavior)
+
+      AFFECTED TESTS (17 total):
+        - All tests using TRUE/FALSE directly: =TRUE + 1, =FALSE * 5
+        - All AND/OR/NOT with TRUE/FALSE: =AND(TRUE, TRUE), =NOT(FALSE)
+        - IF with boolean literals: =IF(TRUE, 1, 0)
+    reported_by: "forge-e2e v2.3.0 edge case discovery"
+    reported_date: "2025-12-17"
+
+  - id: "BUG-004"
+    severity: MEDIUM
+    status: done
+    summary: "Boolean vs Number comparison (TRUE = 1) fixed"
+    description: |
+      VERIFIED: Excel string comparisons ARE case-insensitive by default.
+      Case-insensitive behavior is CORRECT and matches Excel.
+
+      ACTUAL FIX: Boolean vs Number comparison was not working.
+      - TRUE = 1 was returning FALSE, now returns TRUE
+      - FALSE = 0 was returning FALSE, now returns TRUE
+
+      Updated values_equal() to handle Boolean vs Number comparisons.
+    reported_by: "forge-e2e v2.3.0 edge case discovery"
+    reported_date: "2025-12-17"
+
+  - id: "BUG-005"
+    severity: LOW
+    status: done
+    summary: "Invalid DATE parameters should auto-rollover, not error"
+    description: |
+      DATE() with invalid parameters (month 13, day 32, etc.) should auto-rollover
+      to valid dates, not return errors.
+
+      SYMPTOM:
+        $ forge-demo calculate "=DATE(2023, 2, 29)"
+        Error: DATE: invalid date 2023-2-29
+
+        $ forge-demo calculate "=DATE(2024, 1, 32)"
+        Error: DATE: invalid date 2024-1-32
+
+      EXPECTED (Excel/Gnumeric behavior):
+        DATE(2023, 2, 29) → DATE(2023, 3, 1) (auto-rollover)
+        DATE(2024, 1, 32) → DATE(2024, 2, 1) (auto-rollover)
+        DATE(2024, 13, 1) → DATE(2025, 1, 1) (month overflow)
+        DATE(2024, 0, 1)  → DATE(2023, 12, 1) (month underflow)
+
+      AFFECTED TESTS (7 total):
+        - test_non_leap_year_rollover_*
+        - test_day_overflow_*, test_day_zero_*
+        - test_month_zero_*, test_month_thirteen_*
+    reported_by: "forge-e2e v2.3.0 edge case discovery"
+    reported_date: "2025-12-17"
+
+  - id: "BUG-006"
+    severity: MEDIUM
+    status: done
+    summary: "ISERROR function not implemented in demo"
+    description: |
+      ISERROR() function is not available in forge-demo calculate.
+
+      SYMPTOM:
+        $ forge-demo calculate "=IF(ISERROR(1/0), 1, 0)"
+        Error: Unknown function: ISERROR
+
+      EXPECTED:
+        1 (ISERROR should return TRUE for error values)
+
+      NOTE: IFERROR works, but ISERROR does not.
+    reported_by: "forge-e2e v2.3.0 edge case discovery"
+    reported_date: "2025-12-17"
+
+  - id: "BUG-007"
+    severity: MEDIUM
+    status: done
+    summary: "EOMONTH function not implemented in demo"
+    description: |
+      EOMONTH() function is not available in forge-demo calculate.
+
+      SYMPTOM:
+        $ forge-demo calculate "=EOMONTH(DATE(2024,1,15), 0)"
+        Error: Unknown function: EOMONTH
+
+      EXPECTED:
+        DATE(2024, 1, 31) - end of month for January 2024
+    reported_by: "forge-e2e v2.3.0 edge case discovery"
+    reported_date: "2025-12-17"
+
+  - id: "BUG-008"
+    severity: HIGH
+    status: done
+    summary: "& (ampersand) concatenation operator not supported"
+    description: |
+      The & operator for string concatenation is not recognized.
+
+      SYMPTOM:
+        $ forge-demo calculate '="Hello" & " World"'
+        Error: Tokenize: Unexpected character: '&'
+
+      EXPECTED:
+        "Hello World" (string concatenation)
+
+      NOTE: This is fundamental Excel syntax used everywhere.
+            CONCAT() function works as alternative.
+    reported_by: "forge-e2e v2.3.0 edge case discovery"
+    reported_date: "2025-12-17"
+
+  - id: "BUG-009"
+    severity: MEDIUM
+    status: done
+    summary: "DATE + number arithmetic fails"
+    description: |
+      Adding a number to DATE() fails with "Scalar result not a number".
+
+      SYMPTOM:
+        $ forge-demo calculate "=DATE(2024,6,15) + 10"
+        Error: Scalar result not a number
+
+      EXPECTED:
+        45458 (date serial 45448 + 10 = 45458)
+
+      NOTE: Related to BUG-002 (DATE subtraction). DATE arithmetic
+            should work in both directions.
+    reported_by: "forge-e2e v2.3.0 edge case discovery"
+    reported_date: "2025-12-17"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SUMMARY
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1251,8 +1416,8 @@ bugs:
 summary:
   total_functions: 173
   categories: 15
-  current_version: "9.5.0"
-  next_version: "9.6.0"
+  current_version: "9.6.0"
+  next_version: "9.7.0"
 
   test_status:
     total: 2703

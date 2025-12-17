@@ -1,0 +1,86 @@
+# E2E Text Function Tests
+# Validated against Gnumeric
+# Note: Text functions return strings - we wrap with LEN for numeric validation
+# Note: String literals with letters (e.g., "Hello") require enterprise schema
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # LEN
+  test_len_empty:
+    value: null
+    formula: "=LEN(\"\")"
+    expected: 0
+
+  test_len_spaces:
+    value: null
+    formula: "=LEN(\"  \")"
+    expected: 2
+
+  # LEFT (test via LEN wrapper)
+  test_left_two:
+    value: null
+    formula: "=LEN(LEFT(\"12345\", 2))"
+    expected: 2
+
+  # RIGHT (test via LEN wrapper)
+  test_right_three:
+    value: null
+    formula: "=LEN(RIGHT(\"12345\", 3))"
+    expected: 3
+
+  # MID (test via LEN wrapper)
+  test_mid_two:
+    value: null
+    formula: "=LEN(MID(\"12345\", 2, 2))"
+    expected: 2
+
+  # TRIM (test via LEN - removes leading/trailing spaces)
+  test_trim_spaces:
+    value: null
+    formula: "=LEN(TRIM(\"  123  \"))"
+    expected: 3
+
+  # CONCAT (test via LEN - use numbers to avoid column ref parsing)
+  test_concat_len:
+    value: null
+    formula: "=LEN(CONCAT(\"12\", \"34\"))"
+    expected: 4
+
+  # REPT - Repeat string n times (test via LEN wrapper)
+  test_rept_three:
+    value: null
+    formula: "=LEN(REPT(\"12\", 3))"
+    expected: 6
+
+  test_rept_five:
+    value: null
+    formula: "=LEN(REPT(\"1\", 5))"
+    expected: 5
+
+  test_rept_zero:
+    value: null
+    formula: "=LEN(REPT(\"123\", 0))"
+    expected: 0
+
+  # LOWER (test via LEN - case doesn't change length)
+  test_lower_len:
+    value: null
+    formula: "=LEN(LOWER(\"ABC\"))"
+    expected: 3
+
+  test_lower_mixed:
+    value: null
+    formula: "=LEN(LOWER(\"AbCdE\"))"
+    expected: 5
+
+  # UPPER (test via LEN - case doesn't change length)
+  test_upper_len:
+    value: null
+    formula: "=LEN(UPPER(\"abc\"))"
+    expected: 3
+
+  test_upper_mixed:
+    value: null
+    formula: "=LEN(UPPER(\"aBcDe\"))"
+    expected: 5

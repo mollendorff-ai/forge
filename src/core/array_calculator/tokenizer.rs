@@ -13,9 +13,11 @@ pub enum Token {
     Number(f64),
     /// A string literal (e.g., "hello" or 'world')
     Text(String),
+    /// A boolean literal (TRUE or FALSE)
+    Boolean(bool),
     /// An identifier - could be a function name, variable, or table.column reference
     Identifier(String),
-    /// Binary/comparison operators: + - * / ^ = <> >= <= < >
+    /// Binary/comparison operators: + - * / ^ = <> >= <= < > &
     Operator(String),
     /// Opening parenthesis
     OpenParen,
@@ -127,7 +129,7 @@ impl<'a> Tokenizer<'a> {
                     }
 
                     // Operators (need to handle multi-char operators)
-                    '+' | '*' | '/' | '^' => {
+                    '+' | '*' | '/' | '^' | '&' => {
                         let op = self.advance().unwrap().to_string();
                         Token::Operator(op)
                     }
@@ -270,6 +272,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Read an identifier (function name, variable, or table.column reference)
+    /// Also recognizes TRUE/FALSE as boolean literals
     fn read_identifier(&mut self) -> Result<Token, TokenizeError> {
         let mut ident = String::new();
 
@@ -278,6 +281,21 @@ impl<'a> Tokenizer<'a> {
                 ident.push(self.advance().unwrap());
             } else {
                 break;
+            }
+        }
+
+        // Check for boolean literals (case-insensitive)
+        // Only treat as literal if NOT followed by '(' (function call)
+        self.skip_whitespace();
+        let is_function_call = self.peek() == Some('(');
+
+        if !is_function_call {
+            let upper = ident.to_uppercase();
+            if upper == "TRUE" {
+                return Ok(Token::Boolean(true));
+            }
+            if upper == "FALSE" {
+                return Ok(Token::Boolean(false));
             }
         }
 
@@ -591,5 +609,54 @@ mod tests {
         let result = tokenize("@invalid");
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("Unexpected"));
+    }
+
+    #[test]
+    fn test_tokenize_boolean_true() {
+        let tokens = tokenize("TRUE").unwrap();
+        assert_eq!(tokens, vec![Token::Boolean(true)]);
+
+        // Case insensitive
+        let tokens = tokenize("true").unwrap();
+        assert_eq!(tokens, vec![Token::Boolean(true)]);
+
+        let tokens = tokenize("True").unwrap();
+        assert_eq!(tokens, vec![Token::Boolean(true)]);
+    }
+
+    #[test]
+    fn test_tokenize_boolean_false() {
+        let tokens = tokenize("FALSE").unwrap();
+        assert_eq!(tokens, vec![Token::Boolean(false)]);
+
+        // Case insensitive
+        let tokens = tokenize("false").unwrap();
+        assert_eq!(tokens, vec![Token::Boolean(false)]);
+    }
+
+    #[test]
+    fn test_tokenize_boolean_in_expression() {
+        let tokens = tokenize("TRUE + 1").unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Boolean(true),
+                Token::Operator("+".to_string()),
+                Token::Number(1.0),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_tokenize_ampersand_operator() {
+        let tokens = tokenize("\"Hello\" & \" World\"").unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Text("Hello".to_string()),
+                Token::Operator("&".to_string()),
+                Token::Text(" World".to_string()),
+            ]
+        );
     }
 }
