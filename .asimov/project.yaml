@@ -15,16 +15,24 @@ identity:
 external_projects:
   forge-demo:
     path: "../forge-demo"
-    description: "E2E validation tool for forge-demo binary"
+    description: "Public forge-demo binary distribution"
     github: "https://github.com/royalbit/forge-demo"
     type: "git"
-    binary: "forge-e2e"  # The E2E test runner, NOT forge-demo itself
-    distribution: "github"  # Cross-platform builds → GitHub Releases (royalbit/forge-demo)
+    distribution: "github"
     contents:
       - "README.md - Public documentation"
       - "docs/FUNCTIONS.md - Demo function reference (47 functions)"
-      - "tests/e2e/ - E2E test YAML files"
       - "run-demo.sh - Downloads forge-demo + forge-e2e, runs tests"
+
+  forge-e2e:
+    path: "../forge-e2e"
+    description: "E2E test suite for forge binaries"
+    type: "git"
+    binary: "forge-e2e"
+    contents:
+      - "tests/integration/ - Integration test YAMLs"
+      - "tests/e2e/enterprise/ - Enterprise function tests"
+      - "tests/e2e/edge/ - Edge case tests"
 
   royalbit-website:
     path: "~/src/sites/royalbit.ca"
@@ -201,7 +209,7 @@ release:
     forge-e2e:
       target: "github"
       repo: "royalbit/forge-demo"
-      source: "../forge-demo"  # Built from forge-demo repo
+      source: "../forge-e2e"  # Built from forge-e2e repo
 
     # PROPRIETARY: Local only → ~/bin (NEVER GitHub)
     forge:

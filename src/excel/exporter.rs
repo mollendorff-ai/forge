@@ -1012,7 +1012,7 @@ mod tests {
         let mut table = Table::new("large".to_string());
 
         // Create 1000 row table
-        let values: Vec<f64> = (0..1000).map(|i| i as f64).collect();
+        let values: Vec<f64> = (0..1000).map(f64::from).collect();
         table.add_column(Column::new("id".to_string(), ColumnValue::Number(values)));
 
         model.add_table(table);

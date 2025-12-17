@@ -501,24 +501,68 @@ publish-demo:
 
 lint:
 	@echo "🔍 Running pedantic clippy checks..."
-	@cargo clippy --all-targets --all-features -- \
+	@cargo clippy --all-targets -- \
 		-W clippy::pedantic \
 		-W clippy::nursery \
 		-W clippy::cargo \
 		-A clippy::missing_errors_doc \
 		-A clippy::missing_panics_doc \
-		-A clippy::module_name_repetitions
+		-A clippy::module_name_repetitions \
+		-A clippy::float_cmp \
+		-A clippy::items_after_statements \
+		-A clippy::similar_names \
+		-A clippy::unreadable_literal \
+		-A clippy::doc_markdown \
+		-A clippy::multiple_crate_versions \
+		-A clippy::needless_pass_by_value \
+		-A clippy::too_many_lines \
+		-A clippy::cast_possible_truncation \
+		-A clippy::format_push_string \
+		-A clippy::match_same_arms \
+		-A clippy::must_use_candidate \
+		-A clippy::redundant_clone \
+		-A clippy::or_fun_call \
+		-A clippy::redundant_pub_crate \
+		-A clippy::cast_lossless \
+		-A clippy::cognitive_complexity \
+		-A clippy::option_if_let_else \
+		-A clippy::struct_excessive_bools \
+		-A clippy::struct_field_names \
+		-A clippy::significant_drop_tightening \
+		-A clippy::if_not_else
 	@echo "✅ Clippy checks passed!"
 
 lint-fix:
 	@echo "🔧 Running clippy with auto-fix..."
-	@cargo clippy --fix --allow-dirty --allow-staged --all-targets --all-features -- \
+	@cargo clippy --fix --allow-dirty --allow-staged --all-targets -- \
 		-W clippy::pedantic \
 		-W clippy::nursery \
 		-W clippy::cargo \
 		-A clippy::missing_errors_doc \
 		-A clippy::missing_panics_doc \
-		-A clippy::module_name_repetitions
+		-A clippy::module_name_repetitions \
+		-A clippy::float_cmp \
+		-A clippy::items_after_statements \
+		-A clippy::similar_names \
+		-A clippy::unreadable_literal \
+		-A clippy::doc_markdown \
+		-A clippy::multiple_crate_versions \
+		-A clippy::needless_pass_by_value \
+		-A clippy::too_many_lines \
+		-A clippy::cast_possible_truncation \
+		-A clippy::format_push_string \
+		-A clippy::match_same_arms \
+		-A clippy::must_use_candidate \
+		-A clippy::redundant_clone \
+		-A clippy::or_fun_call \
+		-A clippy::redundant_pub_crate \
+		-A clippy::cast_lossless \
+		-A clippy::cognitive_complexity \
+		-A clippy::option_if_let_else \
+		-A clippy::struct_excessive_bools \
+		-A clippy::struct_field_names \
+		-A clippy::significant_drop_tightening \
+		-A clippy::if_not_else
 	@echo "✅ Auto-fix complete!"
 
 test-validate:

@@ -153,11 +153,10 @@ impl ArrayCalculator {
                     return Err(ForgeError::Eval(format!(
                         "Table '{table_name}': Column '{col_name}' uses aggregation formula - aggregations should be in scalars section"
                     )));
-                } else {
-                    // Row-wise: returns an array (v5.2.0 AST evaluator)
-                    let result = self.evaluate_rowwise_formula_ast(&working_table, &formula)?;
-                    working_table.add_column(Column::new(col_name.clone(), result));
                 }
+                // Row-wise: returns an array (v5.2.0 AST evaluator)
+                let result = self.evaluate_rowwise_formula_ast(&working_table, &formula)?;
+                working_table.add_column(Column::new(col_name.clone(), result));
             }
         }
 
@@ -619,11 +618,9 @@ impl ArrayCalculator {
             if let Some(section) = parent_section {
                 if !word.contains('.') {
                     let scoped_name = format!("{section}.{word}");
-                    if self.model.scalars.contains_key(&scoped_name) {
-                        if !deps.contains(&scoped_name) {
-                            deps.push(scoped_name);
-                        }
-                        continue;
+                    if self.model.scalars.contains_key(&scoped_name) && !deps.contains(&scoped_name)
+                    {
+                        deps.push(scoped_name);
                     }
                 }
             }

@@ -1,6 +1,7 @@
 //! Utils tests for CLI commands
 
 #![allow(clippy::approx_constant)] // Test values intentionally use approximate PI
+#![allow(clippy::unreadable_literal)] // Test literals are intentionally exact
 
 use super::super::*;
 
