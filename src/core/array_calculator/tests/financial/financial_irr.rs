@@ -40,8 +40,7 @@ fn test_irr_function() {
     // IRR should be around 0.21 (21%)
     assert!(
         irr > 0.15 && irr < 0.30,
-        "IRR should be around 0.21, got {}",
-        irr
+        "IRR should be around 0.21, got {irr}"
     );
 }
 
@@ -80,7 +79,7 @@ fn test_xnpv_function() {
     let xnpv = result.scalars.get("xnpv_result").unwrap().value.unwrap();
 
     // XNPV should be positive (investment pays off)
-    assert!(xnpv > 0.0, "XNPV should be positive, got {}", xnpv);
+    assert!(xnpv > 0.0, "XNPV should be positive, got {xnpv}");
 }
 
 #[test]
@@ -118,8 +117,7 @@ fn test_xirr_function() {
     // XIRR should be a reasonable rate (positive for this profitable investment)
     assert!(
         xirr > 0.0 && xirr < 1.0,
-        "XIRR should be between 0 and 1, got {}",
-        xirr
+        "XIRR should be between 0 and 1, got {xirr}"
     );
 }
 
@@ -153,8 +151,7 @@ fn test_irr_with_text_column_error() {
     // IRR with Text column should return an error - financial functions require numeric data
     assert!(
         result.is_err(),
-        "IRR with text column should fail but got: {:?}",
-        result
+        "IRR with text column should fail but got: {result:?}"
     );
 }
 
@@ -188,8 +185,7 @@ fn test_irr_function_coverage() {
     // IRR for [-1000, 300, 400, 500] should be around 8.9%
     assert!(
         irr > 0.05 && irr < 0.15,
-        "IRR should be around 0.089, got {}",
-        irr
+        "IRR should be around 0.089, got {irr}"
     );
 }
 
@@ -230,8 +226,7 @@ fn test_xirr_function_coverage() {
         let xirr = res.scalars.get("xirr_val").unwrap().value.unwrap();
         assert!(
             xirr.is_finite(),
-            "XIRR should return finite value, got {}",
-            xirr
+            "XIRR should return finite value, got {xirr}"
         );
     } else {
         // Expected: XIRR may fail with Date columns due to length mismatch
@@ -275,8 +270,7 @@ fn test_xnpv_with_dates() {
         let xnpv = res.scalars.get("npv").unwrap().value.unwrap();
         assert!(
             xnpv.is_finite(),
-            "XNPV should return finite value, got {}",
-            xnpv
+            "XNPV should return finite value, got {xnpv}"
         );
     } else {
         // Expected: XNPV may fail with Text date columns due to length mismatch
@@ -320,8 +314,7 @@ fn test_xirr_with_dates() {
         let xirr = res.scalars.get("irr").unwrap().value.unwrap();
         assert!(
             xirr.is_finite(),
-            "XIRR should return finite value, got {}",
-            xirr
+            "XIRR should return finite value, got {xirr}"
         );
     } else {
         // Expected: XIRR may fail with Text date columns due to length mismatch
@@ -356,8 +349,7 @@ fn test_irr_basic_calculation() {
     // IRR for [-100, 30, 35, 40, 45] should be around 17.1%
     assert!(
         irr > 0.12 && irr < 0.22,
-        "IRR should be around 0.171, got {}",
-        irr
+        "IRR should be around 0.171, got {irr}"
     );
 }
 
@@ -389,8 +381,7 @@ fn test_irr_all_positive_cashflows() {
     // IRR will converge to some value but it's not meaningful
     assert!(
         irr.is_finite(),
-        "IRR with all positive should be finite, got {}",
-        irr
+        "IRR with all positive should be finite, got {irr}"
     );
 }
 
@@ -418,8 +409,7 @@ fn test_irr_very_small_cashflows() {
     // Small cash flows should still calculate correctly
     assert!(
         irr.is_finite(),
-        "IRR with small cash flows should be finite, got {}",
-        irr
+        "IRR with small cash flows should be finite, got {irr}"
     );
 }
 
@@ -447,7 +437,6 @@ fn test_irr_large_returns() {
     // Large returns should result in very high IRR
     assert!(
         irr > 1.0,
-        "IRR with large returns should be > 100%, got {}",
-        irr
+        "IRR with large returns should be > 100%, got {irr}"
     );
 }

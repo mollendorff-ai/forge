@@ -25,8 +25,7 @@ impl std::str::FromStr for SamplingMethod {
             "monte_carlo" | "montecarlo" | "mc" => Ok(SamplingMethod::MonteCarlo),
             "latin_hypercube" | "latinhypercube" | "lhs" => Ok(SamplingMethod::LatinHypercube),
             _ => Err(format!(
-                "Unknown sampling method: {}. Use 'monte_carlo' or 'latin_hypercube'",
-                s
+                "Unknown sampling method: {s}. Use 'monte_carlo' or 'latin_hypercube'"
             )),
         }
     }
@@ -144,8 +143,8 @@ impl SampleStats {
         let n = samples.len() as f64;
         let mean = samples.iter().sum::<f64>() / n;
         let variance = samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n;
-        let min = samples.iter().cloned().fold(f64::INFINITY, f64::min);
-        let max = samples.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
 
         Self {
             mean,
@@ -221,8 +220,7 @@ mod tests {
             / n as f64;
         assert!(
             variance < 0.1,
-            "LHS stratum counts should be uniform, variance: {}",
-            variance
+            "LHS stratum counts should be uniform, variance: {variance}"
         );
     }
 
@@ -254,9 +252,7 @@ mod tests {
         // LHS should have lower variance
         assert!(
             lhs_avg_variance < mc_avg_variance,
-            "LHS ({}) should have lower variance than MC ({})",
-            lhs_avg_variance,
-            mc_avg_variance
+            "LHS ({lhs_avg_variance}) should have lower variance than MC ({mc_avg_variance})"
         );
     }
 

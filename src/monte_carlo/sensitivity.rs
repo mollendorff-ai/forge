@@ -126,7 +126,7 @@ fn compute_ranks(values: &[f64]) -> Vec<f64> {
     let n = values.len();
 
     // Create index-value pairs and sort
-    let mut indexed: Vec<(usize, f64)> = values.iter().cloned().enumerate().collect();
+    let mut indexed: Vec<(usize, f64)> = values.iter().copied().enumerate().collect();
     indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
     let mut ranks = vec![0.0; n];
@@ -191,7 +191,7 @@ mod tests {
         let y = vec![10.0, 20.0, 30.0, 40.0, 50.0];
 
         let rho = spearman_correlation(&x, &y);
-        assert!((rho - 1.0).abs() < 1e-10, "Expected 1.0, got {}", rho);
+        assert!((rho - 1.0).abs() < 1e-10, "Expected 1.0, got {rho}");
     }
 
     #[test]
@@ -200,7 +200,7 @@ mod tests {
         let y = vec![50.0, 40.0, 30.0, 20.0, 10.0];
 
         let rho = spearman_correlation(&x, &y);
-        assert!((rho + 1.0).abs() < 1e-10, "Expected -1.0, got {}", rho);
+        assert!((rho + 1.0).abs() < 1e-10, "Expected -1.0, got {rho}");
     }
 
     #[test]
@@ -211,7 +211,7 @@ mod tests {
 
         let rho = spearman_correlation(&x, &y);
         // This data has Spearman rho = 0.5 (moderate positive correlation)
-        assert!((rho - 0.5).abs() < 0.1, "Expected ~0.5, got {}", rho);
+        assert!((rho - 0.5).abs() < 0.1, "Expected ~0.5, got {rho}");
     }
 
     #[test]
@@ -220,7 +220,7 @@ mod tests {
         let y = vec![10.0, 20.0, 25.0, 40.0, 50.0];
 
         let rho = spearman_correlation(&x, &y);
-        assert!(rho > 0.9, "Expected high positive correlation, got {}", rho);
+        assert!(rho > 0.9, "Expected high positive correlation, got {rho}");
     }
 
     #[test]
@@ -260,9 +260,7 @@ mod tests {
 
         assert!(
             revenue_impact.abs() > costs_impact.abs(),
-            "Revenue impact {} should be greater than costs impact {}",
-            revenue_impact,
-            costs_impact
+            "Revenue impact {revenue_impact} should be greater than costs impact {costs_impact}"
         );
     }
 

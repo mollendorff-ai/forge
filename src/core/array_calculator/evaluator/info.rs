@@ -13,39 +13,39 @@ pub fn try_evaluate(
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             Value::Boolean(matches!(val, Value::Null))
-        }
+        },
 
         "ISERROR" => {
             require_args(name, args, 1)?;
             // Check if evaluation produces an error
             let is_error = evaluate(&args[0], ctx).is_err();
             Value::Boolean(is_error)
-        }
+        },
 
         "ISNA" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             // In Forge, we treat Null as NA
             Value::Boolean(matches!(val, Value::Null))
-        }
+        },
 
         "ISNUMBER" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             Value::Boolean(matches!(val, Value::Number(_)))
-        }
+        },
 
         "ISTEXT" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             Value::Boolean(matches!(val, Value::Text(_)))
-        }
+        },
 
         "ISLOGICAL" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             Value::Boolean(matches!(val, Value::Boolean(_)))
-        }
+        },
 
         "ISEVEN" => {
             require_args(name, args, 1)?;
@@ -54,7 +54,7 @@ pub fn try_evaluate(
                 .ok_or_else(|| EvalError::new("ISEVEN requires a number"))?;
             let int_val = val.trunc() as i64;
             Value::Boolean(int_val % 2 == 0)
-        }
+        },
 
         "ISODD" => {
             require_args(name, args, 1)?;
@@ -63,27 +63,27 @@ pub fn try_evaluate(
                 .ok_or_else(|| EvalError::new("ISODD requires a number"))?;
             let int_val = val.trunc() as i64;
             Value::Boolean(int_val % 2 != 0)
-        }
+        },
 
         "ISREF" => {
             // In Forge, references are resolved before we get here
             // For now, always return FALSE (we don't have unresolved refs)
             require_args(name, args, 1)?;
             Value::Boolean(false)
-        }
+        },
 
         "ISFORMULA" => {
             // In Forge, formulas are always evaluated, so we can't easily detect them
             // This returns FALSE for now (would need metadata support)
             require_args(name, args, 1)?;
             Value::Boolean(false)
-        }
+        },
 
         "NA" => {
             require_args(name, args, 0)?;
             // Return Null to represent #N/A
             Value::Null
-        }
+        },
 
         "TYPE" => {
             require_args(name, args, 1)?;
@@ -99,7 +99,7 @@ pub fn try_evaluate(
                 Value::Lambda { .. } => 16.0, // No direct Excel equivalent
             };
             Value::Number(type_num)
-        }
+        },
 
         "N" => {
             require_args(name, args, 1)?;
@@ -112,7 +112,7 @@ pub fn try_evaluate(
                 _ => 0.0,
             };
             Value::Number(num)
-        }
+        },
 
         _ => return Ok(None),
     };
@@ -183,6 +183,57 @@ mod tests {
         assert_eq!(eval("ISERROR(1/0)", &ctx).unwrap(), Value::Boolean(true));
         // Valid expression is not an error
         assert_eq!(eval("ISERROR(1/2)", &ctx).unwrap(), Value::Boolean(false));
+    }
+
+    #[test]
+    fn test_iserror_edge_cases() {
+        let ctx = EvalContext::new();
+
+        // Edge case 10: ISERROR(1/0) = TRUE
+        assert_eq!(eval("ISERROR(1/0)", &ctx).unwrap(), Value::Boolean(true));
+
+        // Edge case 11: ISERROR(5) = FALSE
+        assert_eq!(eval("ISERROR(5)", &ctx).unwrap(), Value::Boolean(false));
+
+        // Additional edge cases for ISERROR
+        // ISERROR with SQRT of negative = TRUE
+        assert_eq!(
+            eval("ISERROR(SQRT(-1))", &ctx).unwrap(),
+            Value::Boolean(true)
+        );
+
+        // ISERROR with LOG of zero = TRUE
+        assert_eq!(
+            eval("ISERROR(LOG10(0))", &ctx).unwrap(),
+            Value::Boolean(true)
+        );
+
+        // ISERROR with LN of zero = TRUE
+        assert_eq!(eval("ISERROR(LN(0))", &ctx).unwrap(), Value::Boolean(true));
+
+        // ISERROR with MOD by zero = TRUE
+        assert_eq!(
+            eval("ISERROR(MOD(5, 0))", &ctx).unwrap(),
+            Value::Boolean(true)
+        );
+
+        // ISERROR with valid calculation = FALSE
+        assert_eq!(
+            eval("ISERROR(10 * 2)", &ctx).unwrap(),
+            Value::Boolean(false)
+        );
+
+        // ISERROR with valid function call = FALSE
+        assert_eq!(
+            eval("ISERROR(SQRT(16))", &ctx).unwrap(),
+            Value::Boolean(false)
+        );
+
+        // ISERROR with text = FALSE
+        assert_eq!(
+            eval("ISERROR(\"text\")", &ctx).unwrap(),
+            Value::Boolean(false)
+        );
     }
 
     #[test]

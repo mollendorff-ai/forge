@@ -171,15 +171,14 @@ forge calculate model.yaml --set revenue_growth=0.05
 
 ## Roundtrip Validation
 
+> **E2E tests live in [forge-e2e](https://github.com/royalbit/forge-e2e)** - see ADR-027.
+
 Scenario Analysis results are validated against **R** (the gold standard for statistical computing).
 
 ### Validation Tool
 
 ```bash
-# Setup (one-time)
-./tests/validators/setup.sh
-
-# R validation script
+# R validation script (requires: brew install r)
 R --quiet -e '
   # Forge scenario results
   scenarios <- c("base", "bull", "bear")

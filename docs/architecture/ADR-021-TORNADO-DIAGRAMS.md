@@ -233,15 +233,14 @@ impl TornadoEngine {
 
 ## Roundtrip Validation
 
+> **E2E tests live in [forge-e2e](https://github.com/royalbit/forge-e2e)** - see ADR-027.
+
 Tornado Diagram results are validated against **R's sensitivity package** (standard for sensitivity analysis).
 
 ### Validation Tool
 
 ```bash
-# Setup (one-time)
-./tests/validators/setup.sh
-
-# R validation script
+# R validation script (requires: brew install r && R -e 'install.packages("sensitivity")')
 R --quiet -e '
   library(sensitivity)
 

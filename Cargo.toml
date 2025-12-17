@@ -109,10 +109,8 @@ demo = []
 # Backward compatibility alias (deprecated - use default build for enterprise)
 full = []
 
-# Gnumeric E2E validation tests - validates Forge calculations against battle-proven spreadsheet engine
-# Run with: cargo test --features e2e-gnumeric
-# Requires: Gnumeric installed (ssconvert)
-e2e-gnumeric = []
+# E2E tests migrated to forge-e2e repository (see ADR-027)
+# Gnumeric, R, Python validation now in https://github.com/royalbit/forge-e2e
 
 [dev-dependencies]
 # Testing
@@ -126,6 +124,63 @@ cargo-husky = { version = "1", default-features = false, features = ["user-hooks
 # Allow coverage and feature cfgs for conditional compilation (ADR-006, ADR-012)
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)', 'cfg(feature, values("full"))'] }
+
+# Pedantic linting - code is for humans to read (ADR-004)
+[lints.clippy]
+# Enable pedantic lints as warnings (fix them all!)
+pedantic = { level = "warn", priority = -1 }
+
+# Specific lints we enforce (auto-fixable)
+redundant_closure_for_method_calls = "warn"
+manual_string_new = "warn"
+inefficient_to_string = "warn"
+implicit_clone = "warn"
+uninlined_format_args = "warn"
+
+# Allow lints that would require significant refactoring
+needless_pass_by_value = "allow"        # Too many to fix, minimal benefit
+trivially_copy_pass_by_ref = "allow"    # Same
+format_push_string = "allow"            # format! append is readable
+assigning_clones = "allow"              # Clone assignment is fine
+many_single_char_names = "allow"        # Math code uses x, y, z, etc.
+redundant_else = "allow"                # Explicit else is clearer
+needless_continue = "allow"             # Explicit continue is fine
+option_if_let_else = "allow"            # Style preference
+ref_option = "allow"                    # &Option<T> is fine for internal APIs
+unused_self = "allow"                   # Methods with unused self for future use
+return_self_not_must_use = "allow"      # Builder pattern doesn't need #[must_use]
+if_then_some_else_none = "allow"        # bool.then() is less readable
+case_sensitive_file_extension_comparisons = "allow" # We control extensions
+implicit_hasher = "allow"               # HashMap<K,V> is fine, don't need generic hasher
+match_wildcard_for_single_variants = "allow" # Explicit match is clearer
+no_effect_underscore_binding = "allow"  # _ = expr is fine for side effects
+manual_let_else = "allow"               # if let is more readable than let...else
+
+# Allow some pedantic lints that are too noisy or conflict with our style
+must_use_candidate = "allow"           # Too noisy for internal code
+missing_docs_in_private_items = "allow" # We document public APIs only
+module_name_repetitions = "allow"       # e.g., ForgeError in forge::error is fine
+similar_names = "allow"                 # idx/idx2 is fine in loops
+too_many_lines = "allow"                # Some functions are legitimately long
+struct_excessive_bools = "allow"        # Config structs need many bools
+fn_params_excessive_bools = "allow"     # Same for function params
+cast_precision_loss = "allow"           # f64 to f32 is intentional
+cast_possible_truncation = "allow"      # We handle truncation explicitly
+cast_sign_loss = "allow"                # We handle sign explicitly
+cast_possible_wrap = "allow"            # We handle wrap explicitly
+if_not_else = "allow"                   # Style preference
+match_same_arms = "allow"               # Sometimes clearer to be explicit
+single_match_else = "allow"             # Style preference
+struct_field_names = "allow"            # We use clear field names
+wildcard_imports = "allow"              # We use prelude patterns
+float_cmp = "allow"                     # We use epsilon comparisons where needed
+items_after_statements = "allow"        # Test modules at end of impl blocks is fine
+unreadable_literal = "allow"            # Long numbers are readable as-is (test data)
+missing_errors_doc = "allow"            # Internal code doesn't need # Errors
+missing_panics_doc = "allow"            # Internal code doesn't need # Panics
+doc_markdown = "allow"                  # Too strict for doc comments
+unnecessary_wraps = "allow"             # Result returns are fine for consistency
+cast_lossless = "allow"                 # We control our casts explicitly
 
 [profile.release]
 # Optimize for size and performance

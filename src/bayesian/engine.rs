@@ -76,14 +76,13 @@ impl BayesianEngine {
             .config
             .nodes
             .get(target)
-            .ok_or(format!("Variable '{}' not found", target))?;
+            .ok_or(format!("Variable '{target}' not found"))?;
 
         let (max_idx, max_prob) = probs
             .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(i, p)| (i, *p))
-            .unwrap_or((0, 0.0));
+            .map_or((0, 0.0), |(i, p)| (i, *p));
 
         Ok(VariableResult {
             name: target.to_string(),
@@ -107,12 +106,13 @@ impl BayesianEngine {
                 .config
                 .nodes
                 .get(var.as_str())
-                .ok_or(format!("Evidence variable '{}' not found", var))?;
+                .ok_or(format!("Evidence variable '{var}' not found"))?;
 
-            let idx = node.states.iter().position(|s| s == state).ok_or(format!(
-                "State '{}' not found for variable '{}'",
-                state, var
-            ))?;
+            let idx = node
+                .states
+                .iter()
+                .position(|s| s == state)
+                .ok_or(format!("State '{state}' not found for variable '{var}'"))?;
 
             evidence_indices.insert(var.clone(), idx);
         }
@@ -123,14 +123,13 @@ impl BayesianEngine {
             .config
             .nodes
             .get(target)
-            .ok_or(format!("Variable '{}' not found", target))?;
+            .ok_or(format!("Variable '{target}' not found"))?;
 
         let (max_idx, max_prob) = probs
             .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(i, p)| (i, *p))
-            .unwrap_or((0, 0.0));
+            .map_or((0, 0.0), |(i, p)| (i, *p));
 
         Ok(VariableResult {
             name: target.to_string(),
@@ -177,7 +176,7 @@ impl BayesianEngine {
         // Convert evidence to string map
         let evidence_str: HashMap<String, String> = evidence
             .iter()
-            .map(|(k, v)| (k.clone(), v.to_string()))
+            .map(|(k, v)| (k.clone(), (*v).to_string()))
             .collect();
 
         Ok(BayesianResult {

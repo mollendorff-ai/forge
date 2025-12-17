@@ -48,7 +48,10 @@ impl BayesianNode {
     pub fn discrete(states: Vec<&str>) -> Self {
         Self {
             node_type: NodeType::Discrete,
-            states: states.into_iter().map(|s| s.to_string()).collect(),
+            states: states
+                .into_iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
             prior: Vec::new(),
             parents: Vec::new(),
             cpt: HashMap::new(),
@@ -78,7 +81,10 @@ impl BayesianNode {
 
     /// Set parent nodes
     pub fn with_parents(mut self, parents: Vec<&str>) -> Self {
-        self.parents = parents.into_iter().map(|s| s.to_string()).collect();
+        self.parents = parents
+            .into_iter()
+            .map(std::string::ToString::to_string)
+            .collect();
         self
     }
 
@@ -98,15 +104,14 @@ impl BayesianNode {
 
     fn validate_discrete(&self, name: &str) -> Result<(), String> {
         if self.states.is_empty() {
-            return Err(format!("Node '{}': discrete node must have states", name));
+            return Err(format!("Node '{name}': discrete node must have states"));
         }
 
         // If root node, check prior
         if self.parents.is_empty() {
             if self.prior.is_empty() {
                 return Err(format!(
-                    "Node '{}': root node must have prior probabilities",
-                    name
+                    "Node '{name}': root node must have prior probabilities"
                 ));
             }
             if self.prior.len() != self.states.len() {
@@ -120,14 +125,13 @@ impl BayesianNode {
             let sum: f64 = self.prior.iter().sum();
             if (sum - 1.0).abs() > 0.001 {
                 return Err(format!(
-                    "Node '{}': prior probabilities must sum to 1.0, got {}",
-                    name, sum
+                    "Node '{name}': prior probabilities must sum to 1.0, got {sum}"
                 ));
             }
         } else {
             // Child node, check CPT
             if self.cpt.is_empty() {
-                return Err(format!("Node '{}': child node must have CPT", name));
+                return Err(format!("Node '{name}': child node must have CPT"));
             }
             for (key, probs) in &self.cpt {
                 if probs.len() != self.states.len() {
@@ -142,8 +146,7 @@ impl BayesianNode {
                 let sum: f64 = probs.iter().sum();
                 if (sum - 1.0).abs() > 0.001 {
                     return Err(format!(
-                        "Node '{}': CPT entry '{}' must sum to 1.0, got {}",
-                        name, key, sum
+                        "Node '{name}': CPT entry '{key}' must sum to 1.0, got {sum}"
                     ));
                 }
             }
@@ -155,8 +158,7 @@ impl BayesianNode {
     fn validate_continuous(&self, name: &str) -> Result<(), String> {
         if self.std <= 0.0 {
             return Err(format!(
-                "Node '{}': standard deviation must be positive",
-                name
+                "Node '{name}': standard deviation must be positive"
             ));
         }
         Ok(())
@@ -223,8 +225,7 @@ impl BayesianConfig {
             for parent in &node.parents {
                 if !self.nodes.contains_key(parent) {
                     return Err(format!(
-                        "Node '{}' references non-existent parent '{}'",
-                        name, parent
+                        "Node '{name}' references non-existent parent '{parent}'"
                     ));
                 }
             }
@@ -255,7 +256,7 @@ impl BayesianConfig {
         stack: &mut std::collections::HashSet<String>,
     ) -> Result<(), String> {
         if stack.contains(name) {
-            return Err(format!("Cycle detected involving node '{}'", name));
+            return Err(format!("Cycle detected involving node '{name}'"));
         }
         if visited.contains(name) {
             return Ok(());

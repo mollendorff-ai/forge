@@ -61,7 +61,7 @@ pub fn try_evaluate(
                 };
                 Value::Number(pmt)
             }
-        }
+        },
 
         "FV" => {
             require_args_range(name, args, 3, 5)?;
@@ -81,7 +81,7 @@ pub fn try_evaluate(
                     -pv * (1.0 + rate).powf(nper) - pmt * ((1.0 + rate).powf(nper) - 1.0) / rate;
                 Value::Number(fv)
             }
-        }
+        },
 
         "PV" => {
             require_args_range(name, args, 3, 5)?;
@@ -101,7 +101,7 @@ pub fn try_evaluate(
                     (-fv - pmt * ((1.0 + rate).powf(nper) - 1.0) / rate) / (1.0 + rate).powf(nper);
                 Value::Number(pv)
             }
-        }
+        },
 
         "NPV" => {
             require_args_range(name, args, 2, 255)?;
@@ -122,17 +122,17 @@ pub fn try_evaluate(
                                 period += 1;
                             }
                         }
-                    }
+                    },
                     Value::Number(n) => {
                         npv += n / (1.0 + rate).powi(period);
                         period += 1;
-                    }
-                    _ => {}
+                    },
+                    _ => {},
                 }
             }
 
             Value::Number(npv)
-        }
+        },
 
         "IRR" => {
             let values = collect_numeric_values(args, ctx)?;
@@ -161,14 +161,14 @@ pub fn try_evaluate(
                 rate = new_rate;
             }
             Value::Number(rate)
-        }
+        },
 
         "XIRR" => {
             require_args(name, args, 2)?;
             let values = collect_numeric_values(&args[..1], ctx)?;
             let dates_val = evaluate(&args[1], ctx)?;
             let dates: Vec<f64> = match dates_val {
-                Value::Array(arr) => arr.iter().filter_map(|v| v.as_number()).collect(),
+                Value::Array(arr) => arr.iter().filter_map(super::Value::as_number).collect(),
                 Value::Number(n) => vec![n],
                 _ => return Err(EvalError::new("XIRR requires dates")),
             };
@@ -202,7 +202,7 @@ pub fn try_evaluate(
                 rate = new_rate;
             }
             Value::Number(rate)
-        }
+        },
 
         "XNPV" => {
             require_args(name, args, 3)?;
@@ -212,7 +212,7 @@ pub fn try_evaluate(
             let values = collect_numeric_values(&args[1..2], ctx)?;
             let dates_val = evaluate(&args[2], ctx)?;
             let dates: Vec<f64> = match dates_val {
-                Value::Array(arr) => arr.iter().filter_map(|v| v.as_number()).collect(),
+                Value::Array(arr) => arr.iter().filter_map(super::Value::as_number).collect(),
                 Value::Number(n) => vec![n],
                 _ => return Err(EvalError::new("XNPV requires dates")),
             };
@@ -228,7 +228,7 @@ pub fn try_evaluate(
                 npv += cf / (1.0 + rate).powf(t);
             }
             Value::Number(npv)
-        }
+        },
 
         "NPER" => {
             require_args_range(name, args, 3, 5)?;
@@ -253,7 +253,7 @@ pub fn try_evaluate(
                 let n = ((-fv * rate + pmt) / (pv * rate + pmt)).ln() / (1.0 + rate).ln();
                 Value::Number(n)
             }
-        }
+        },
 
         "RATE" => {
             require_args_range(name, args, 3, 6)?;
@@ -298,7 +298,7 @@ pub fn try_evaluate(
                 rate = new_rate;
             }
             Value::Number(rate)
-        }
+        },
 
         "SLN" => {
             require_args(name, args, 3)?;
@@ -316,7 +316,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("SLN: life cannot be zero"));
             }
             Value::Number((cost - salvage) / life)
-        }
+        },
 
         "DB" => {
             require_args_range(name, args, 4, 5)?;
@@ -360,7 +360,7 @@ pub fn try_evaluate(
             }
 
             Value::Number(depreciation)
-        }
+        },
 
         "DDB" => {
             require_args_range(name, args, 4, 5)?;
@@ -402,7 +402,7 @@ pub fn try_evaluate(
             }
 
             Value::Number(depreciation)
-        }
+        },
 
         "MIRR" => {
             require_args(name, args, 3)?;
@@ -438,7 +438,7 @@ pub fn try_evaluate(
 
             let mirr = (-npv_pos / npv_neg).powf(1.0 / (n - 1.0)) - 1.0;
             Value::Number(mirr)
-        }
+        },
 
         "PPMT" => {
             // Principal payment for a given period
@@ -498,7 +498,7 @@ pub fn try_evaluate(
                 // Since both are negative (payments out), subtracting gives the principal portion
                 Value::Number(payment - interest)
             }
-        }
+        },
 
         "IPMT" => {
             // Interest payment for a given period
@@ -552,7 +552,7 @@ pub fn try_evaluate(
                 // Interest payment = -(balance * rate) - negative because it's a payment
                 Value::Number(-(balance * rate))
             }
-        }
+        },
 
         "EFFECT" => {
             // Effective annual interest rate
@@ -574,7 +574,7 @@ pub fn try_evaluate(
 
             let effect = (1.0 + nominal_rate / npery).powf(npery) - 1.0;
             Value::Number(effect)
-        }
+        },
 
         "NOMINAL" => {
             // Nominal annual interest rate
@@ -596,7 +596,7 @@ pub fn try_evaluate(
 
             let nominal = ((1.0 + effect_rate).powf(1.0 / npery) - 1.0) * npery;
             Value::Number(nominal)
-        }
+        },
 
         "PRICEDISC" => {
             // Price of a discounted security per $100 face value
@@ -631,7 +631,7 @@ pub fn try_evaluate(
             let frac = days / 360.0;
             let price = redemption - (discount * redemption * frac);
             Value::Number(price)
-        }
+        },
 
         "YIELDDISC" => {
             // Annual yield of a discounted security
@@ -669,7 +669,7 @@ pub fn try_evaluate(
             let frac = days / 360.0;
             let yld = ((redemption - price) / price) * (1.0 / frac);
             Value::Number(yld)
-        }
+        },
 
         "ACCRINT" => {
             // Accrued interest for a security that pays periodic interest
@@ -718,7 +718,7 @@ pub fn try_evaluate(
             let days = settlement - issue;
             let accrued = par * rate * (days / 360.0);
             Value::Number(accrued)
-        }
+        },
 
         _ => return Ok(None),
     };

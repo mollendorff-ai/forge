@@ -450,13 +450,12 @@ fn test_empty_array_median() {
             // If it succeeds, median of empty array should be 0 or None
             assert!(
                 median.is_none() || median == Some(0.0),
-                "Empty array median should be None or 0, got {:?}",
-                median
+                "Empty array median should be None or 0, got {median:?}"
             );
-        }
+        },
         Err(_) => {
             // Error is acceptable for empty array median (undefined)
-        }
+        },
     }
 }
 
@@ -497,8 +496,7 @@ fn test_sumproduct_function() {
     let err = result.unwrap_err();
     assert!(
         err.to_string().contains("SUMPRODUCT") || err.to_string().contains("Unknown function"),
-        "Error should mention SUMPRODUCT or Unknown function, got: {}",
-        err
+        "Error should mention SUMPRODUCT or Unknown function, got: {err}"
     );
 }
 
@@ -622,8 +620,7 @@ fn test_sumproduct_basic() {
     let err = result.unwrap_err();
     assert!(
         err.to_string().contains("SUMPRODUCT") || err.to_string().contains("Unknown function"),
-        "Error should mention SUMPRODUCT or Unknown function, got: {}",
-        err
+        "Error should mention SUMPRODUCT or Unknown function, got: {err}"
     );
 }
 
@@ -634,7 +631,7 @@ fn test_counta_with_empty_strings() {
     let mut data = Table::new("data".to_string());
     data.add_column(Column::new(
         "values".to_string(),
-        ColumnValue::Text(vec!["a".to_string(), "".to_string(), "b".to_string()]),
+        ColumnValue::Text(vec!["a".to_string(), String::new(), "b".to_string()]),
     ));
     model.add_table(data);
     use crate::types::Variable;
@@ -663,9 +660,9 @@ fn test_countblank_function() {
         "values".to_string(),
         ColumnValue::Text(vec![
             "a".to_string(),
-            "".to_string(),
+            String::new(),
             "b".to_string(),
-            "".to_string(),
+            String::new(),
         ]),
     ));
     model.add_table(data);
@@ -690,8 +687,7 @@ fn test_countblank_function() {
     let err = result.unwrap_err();
     assert!(
         err.to_string().contains("COUNTBLANK") || err.to_string().contains("Unknown function"),
-        "Error should mention COUNTBLANK or Unknown function, got: {}",
-        err
+        "Error should mention COUNTBLANK or Unknown function, got: {err}"
     );
 }
 

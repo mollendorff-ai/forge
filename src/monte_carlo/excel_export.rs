@@ -58,7 +58,7 @@ pub fn export_results(result: &SimulationResult, output_path: &Path) -> Result<(
     // Save workbook
     workbook
         .save(output_path)
-        .map_err(|e| format!("Failed to save Excel file: {}", e))?;
+        .map_err(|e| format!("Failed to save Excel file: {e}"))?;
 
     Ok(())
 }
@@ -237,7 +237,7 @@ fn export_samples(
 
     // Write sample data (limit to 1000 rows to keep file size manageable)
     let max_rows = 1000;
-    let num_samples = samples.values().next().map(|v| v.len()).unwrap_or(0);
+    let num_samples = samples.values().next().map_or(0, std::vec::Vec::len);
     let rows_to_write = num_samples.min(max_rows);
 
     for row_idx in 0..rows_to_write {
@@ -261,10 +261,7 @@ fn export_samples(
         let _ = worksheet.write_string(
             note_row,
             0,
-            format!(
-                "Note: Showing first {} of {} samples",
-                max_rows, num_samples
-            ),
+            format!("Note: Showing first {max_rows} of {num_samples} samples"),
         );
     }
 
@@ -308,8 +305,7 @@ mod tests {
         let export_result = export_results(&result, &output_path);
         assert!(
             export_result.is_ok(),
-            "Excel export failed: {:?}",
-            export_result
+            "Excel export failed: {export_result:?}"
         );
 
         // Verify file exists and has reasonable size

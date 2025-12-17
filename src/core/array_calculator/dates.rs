@@ -21,12 +21,12 @@ impl ArrayCalculator {
         let days_since_epoch = now / 86400;
         let (year, month, day) = Self::days_to_date(days_since_epoch as i32);
 
-        format!("{:04}-{:02}-{:02}", year, month, day)
+        format!("{year:04}-{month:02}-{day:02}")
     }
 
     /// Evaluate DATE function: DATE(year, month, day)
     pub(super) fn eval_date(&self, year: i32, month: i32, day: i32) -> ForgeResult<String> {
-        Ok(format!("{:04}-{:02}-{:02}", year, month, day))
+        Ok(format!("{year:04}-{month:02}-{day:02}"))
     }
 
     /// Evaluate YEAR function: YEAR(date)
@@ -34,13 +34,12 @@ impl ArrayCalculator {
         let parts: Vec<&str> = date.split('-').collect();
         if parts.len() != 3 {
             return Err(ForgeError::Eval(format!(
-                "YEAR: Invalid date format '{}'",
-                date
+                "YEAR: Invalid date format '{date}'"
             )));
         }
         let year = parts[0]
             .parse::<f64>()
-            .map_err(|_| ForgeError::Eval(format!("YEAR: Invalid year in '{}'", date)))?;
+            .map_err(|_| ForgeError::Eval(format!("YEAR: Invalid year in '{date}'")))?;
         Ok(year)
     }
 
@@ -49,13 +48,12 @@ impl ArrayCalculator {
         let parts: Vec<&str> = date.split('-').collect();
         if parts.len() != 3 {
             return Err(ForgeError::Eval(format!(
-                "MONTH: Invalid date format '{}'",
-                date
+                "MONTH: Invalid date format '{date}'"
             )));
         }
         let month = parts[1]
             .parse::<f64>()
-            .map_err(|_| ForgeError::Eval(format!("MONTH: Invalid month in '{}'", date)))?;
+            .map_err(|_| ForgeError::Eval(format!("MONTH: Invalid month in '{date}'")))?;
         Ok(month)
     }
 
@@ -64,13 +62,12 @@ impl ArrayCalculator {
         let parts: Vec<&str> = date.split('-').collect();
         if parts.len() != 3 {
             return Err(ForgeError::Eval(format!(
-                "DAY: Invalid date format '{}'",
-                date
+                "DAY: Invalid date format '{date}'"
             )));
         }
         let day = parts[2]
             .parse::<f64>()
-            .map_err(|_| ForgeError::Eval(format!("DAY: Invalid day in '{}'", date)))?;
+            .map_err(|_| ForgeError::Eval(format!("DAY: Invalid day in '{date}'")))?;
         Ok(day)
     }
 
@@ -89,14 +86,14 @@ impl ArrayCalculator {
         let start_parts: Vec<&str> = start.split('-').collect();
         let (start_year, start_month, start_day) = if start_parts.len() >= 2 {
             let y = start_parts[0].parse::<i32>().map_err(|_| {
-                ForgeError::Eval(format!("DATEDIF: Invalid start year in '{}'", start))
+                ForgeError::Eval(format!("DATEDIF: Invalid start year in '{start}'"))
             })?;
             let m = start_parts[1].parse::<i32>().map_err(|_| {
-                ForgeError::Eval(format!("DATEDIF: Invalid start month in '{}'", start))
+                ForgeError::Eval(format!("DATEDIF: Invalid start month in '{start}'"))
             })?;
             let d = if start_parts.len() == 3 {
                 start_parts[2].parse::<i32>().map_err(|_| {
-                    ForgeError::Eval(format!("DATEDIF: Invalid start day in '{}'", start))
+                    ForgeError::Eval(format!("DATEDIF: Invalid start day in '{start}'"))
                 })?
             } else {
                 1
@@ -104,8 +101,7 @@ impl ArrayCalculator {
             (y, m, d)
         } else {
             return Err(ForgeError::Eval(format!(
-                "DATEDIF: Invalid start date format '{}'",
-                start
+                "DATEDIF: Invalid start date format '{start}'"
             )));
         };
 
@@ -114,22 +110,21 @@ impl ArrayCalculator {
         let (end_year, end_month, end_day) = if end_parts.len() >= 2 {
             let y = end_parts[0]
                 .parse::<i32>()
-                .map_err(|_| ForgeError::Eval(format!("DATEDIF: Invalid end year in '{}'", end)))?;
-            let m = end_parts[1].parse::<i32>().map_err(|_| {
-                ForgeError::Eval(format!("DATEDIF: Invalid end month in '{}'", end))
-            })?;
+                .map_err(|_| ForgeError::Eval(format!("DATEDIF: Invalid end year in '{end}'")))?;
+            let m = end_parts[1]
+                .parse::<i32>()
+                .map_err(|_| ForgeError::Eval(format!("DATEDIF: Invalid end month in '{end}'")))?;
             let d = if end_parts.len() == 3 {
-                end_parts[2].parse::<i32>().map_err(|_| {
-                    ForgeError::Eval(format!("DATEDIF: Invalid end day in '{}'", end))
-                })?
+                end_parts[2]
+                    .parse::<i32>()
+                    .map_err(|_| ForgeError::Eval(format!("DATEDIF: Invalid end day in '{end}'")))?
             } else {
                 1
             };
             (y, m, d)
         } else {
             return Err(ForgeError::Eval(format!(
-                "DATEDIF: Invalid end date format '{}'",
-                end
+                "DATEDIF: Invalid end date format '{end}'"
             )));
         };
 
@@ -140,21 +135,21 @@ impl ArrayCalculator {
                     years -= 1;
                 }
                 Ok(years.max(0) as f64)
-            }
+            },
             "M" => {
                 let mut months = (end_year - start_year) * 12 + (end_month - start_month);
                 if end_day < start_day {
                     months -= 1;
                 }
                 Ok(months.max(0) as f64)
-            }
+            },
             "D" => {
                 let start_serial =
                     self.date_to_excel_serial(start_year, start_month as u32, start_day as u32)?;
                 let end_serial =
                     self.date_to_excel_serial(end_year, end_month as u32, end_day as u32)?;
                 Ok((end_serial - start_serial).max(0.0))
-            }
+            },
             "MD" => {
                 // Days ignoring months and years
                 let mut day_diff = end_day - start_day;
@@ -169,7 +164,7 @@ impl ArrayCalculator {
                     day_diff += self.days_in_month(prev_year, prev_month as u32) as i32;
                 }
                 Ok(day_diff as f64)
-            }
+            },
             "YM" => {
                 // Months ignoring years
                 let mut month_diff = end_month - start_month;
@@ -180,7 +175,7 @@ impl ArrayCalculator {
                     month_diff += 12;
                 }
                 Ok(month_diff as f64)
-            }
+            },
             "YD" => {
                 // Days ignoring years
                 let start_serial = Self::ymd_to_ordinal(2000, start_month, start_day);
@@ -189,10 +184,9 @@ impl ArrayCalculator {
                     end_serial += 365; // approximate
                 }
                 Ok((end_serial - start_serial) as f64)
-            }
+            },
             _ => Err(ForgeError::Eval(format!(
-                "DATEDIF: Invalid unit '{}' (use Y, M, D, MD, YM, or YD)",
-                unit
+                "DATEDIF: Invalid unit '{unit}' (use Y, M, D, MD, YM, or YD)"
             ))),
         }
     }
@@ -205,22 +199,21 @@ impl ArrayCalculator {
         let (year, month, day) = if parts.len() >= 2 {
             let y = parts[0]
                 .parse::<i32>()
-                .map_err(|_| ForgeError::Eval(format!("EDATE: Invalid year in '{}'", start)))?;
+                .map_err(|_| ForgeError::Eval(format!("EDATE: Invalid year in '{start}'")))?;
             let m = parts[1]
                 .parse::<i32>()
-                .map_err(|_| ForgeError::Eval(format!("EDATE: Invalid month in '{}'", start)))?;
+                .map_err(|_| ForgeError::Eval(format!("EDATE: Invalid month in '{start}'")))?;
             let d = if parts.len() == 3 {
                 parts[2]
                     .parse::<i32>()
-                    .map_err(|_| ForgeError::Eval(format!("EDATE: Invalid day in '{}'", start)))?
+                    .map_err(|_| ForgeError::Eval(format!("EDATE: Invalid day in '{start}'")))?
             } else {
                 1
             };
             (y, m, d)
         } else {
             return Err(ForgeError::Eval(format!(
-                "EDATE: Invalid date format '{}'",
-                start
+                "EDATE: Invalid date format '{start}'"
             )));
         };
 
@@ -241,7 +234,7 @@ impl ArrayCalculator {
         let days_in_new_month = self.days_in_month(new_year, new_month as u32);
         let new_day = day.min(days_in_new_month as i32);
 
-        Ok(format!("{:04}-{:02}-{:02}", new_year, new_month, new_day))
+        Ok(format!("{new_year:04}-{new_month:02}-{new_day:02}"))
     }
 
     /// Evaluate EOMONTH function: EOMONTH(start_date, months)
@@ -252,15 +245,14 @@ impl ArrayCalculator {
         let (year, month) = if parts.len() >= 2 {
             let y = parts[0]
                 .parse::<i32>()
-                .map_err(|_| ForgeError::Eval(format!("EOMONTH: Invalid year in '{}'", start)))?;
+                .map_err(|_| ForgeError::Eval(format!("EOMONTH: Invalid year in '{start}'")))?;
             let m = parts[1]
                 .parse::<i32>()
-                .map_err(|_| ForgeError::Eval(format!("EOMONTH: Invalid month in '{}'", start)))?;
+                .map_err(|_| ForgeError::Eval(format!("EOMONTH: Invalid month in '{start}'")))?;
             (y, m)
         } else {
             return Err(ForgeError::Eval(format!(
-                "EOMONTH: Invalid date format '{}'",
-                start
+                "EOMONTH: Invalid date format '{start}'"
             )));
         };
 
@@ -280,7 +272,7 @@ impl ArrayCalculator {
 
         let last_day = self.days_in_month(new_year, new_month as u32);
 
-        Ok(format!("{:04}-{:02}-{:02}", new_year, new_month, last_day))
+        Ok(format!("{new_year:04}-{new_month:02}-{last_day:02}"))
     }
 
     /// Get the number of days in a given month
@@ -294,7 +286,7 @@ impl ArrayCalculator {
                 } else {
                     28
                 }
-            }
+            },
             _ => 30,
         }
     }
@@ -342,17 +334,17 @@ impl ArrayCalculator {
         let s = date_str.trim().trim_matches('"');
         let parts: Vec<&str> = s.split('-').collect();
         if parts.len() != 3 {
-            return Err(ForgeError::Eval(format!("Invalid date format: {}", s)));
+            return Err(ForgeError::Eval(format!("Invalid date format: {s}")));
         }
         let year = parts[0]
             .parse::<i32>()
-            .map_err(|_| ForgeError::Eval(format!("Invalid year in date: {}", s)))?;
+            .map_err(|_| ForgeError::Eval(format!("Invalid year in date: {s}")))?;
         let month = parts[1]
             .parse::<u32>()
-            .map_err(|_| ForgeError::Eval(format!("Invalid month in date: {}", s)))?;
+            .map_err(|_| ForgeError::Eval(format!("Invalid month in date: {s}")))?;
         let day = parts[2]
             .parse::<u32>()
-            .map_err(|_| ForgeError::Eval(format!("Invalid day in date: {}", s)))?;
+            .map_err(|_| ForgeError::Eval(format!("Invalid day in date: {s}")))?;
         Ok((year, month, day))
     }
 
@@ -467,7 +459,7 @@ impl ArrayCalculator {
         }
 
         let (y, m, d) = Self::ordinal_to_ymd(current_days);
-        Ok(format!("{:04}-{:02}-{:02}", y, m, d))
+        Ok(format!("{y:04}-{m:02}-{d:02}"))
     }
 
     /// Calculate fraction of year between two dates
@@ -504,7 +496,7 @@ impl ArrayCalculator {
                     + (end_month - start_month) as f64 * 30.0
                     + (end_day - start_day);
                 Ok(diff / 360.0)
-            }
+            },
             1 => {
                 if start_year == end_year {
                     let days_in_year = if Self::is_leap_year(start_year) {
@@ -519,12 +511,11 @@ impl ArrayCalculator {
                     }) / (end_year - start_year + 1) as f64;
                     Ok(days / avg_days_per_year)
                 }
-            }
+            },
             2 => Ok(days / 360.0),
             3 => Ok(days / 365.0),
             _ => Err(ForgeError::Eval(format!(
-                "YEARFRAC: Invalid basis {}. Must be 0-4",
-                basis
+                "YEARFRAC: Invalid basis {basis}. Must be 0-4"
             ))),
         }
     }
@@ -580,11 +571,11 @@ impl ArrayCalculator {
                     serials.push(self.date_string_to_serial(d)?);
                 }
                 Ok(serials)
-            }
+            },
             ColumnValue::Number(nums) => {
                 // Assume numbers are already serial dates
                 Ok(nums.clone())
-            }
+            },
             ColumnValue::Text(texts) => {
                 // Try to parse as date strings
                 let mut serials = Vec::with_capacity(texts.len());
@@ -592,7 +583,7 @@ impl ArrayCalculator {
                     serials.push(self.date_string_to_serial(t)?);
                 }
                 Ok(serials)
-            }
+            },
             ColumnValue::Boolean(_) => Err(ForgeError::Eval(format!(
                 "Cannot use boolean column '{}' as dates",
                 col.name

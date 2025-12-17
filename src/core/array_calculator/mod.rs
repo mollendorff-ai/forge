@@ -135,7 +135,7 @@ impl ArrayCalculator {
 
         // Validate all columns have the same length
         if let Err(e) = working_table.validate_lengths() {
-            return Err(ForgeError::Eval(format!("Table '{}': {}", table_name, e)));
+            return Err(ForgeError::Eval(format!("Table '{table_name}': {e}")));
         }
 
         // Build dependency order for formulas
@@ -151,8 +151,7 @@ impl ArrayCalculator {
                     // Aggregation: returns a scalar
                     // For now, we'll skip aggregations in tables (they belong in scalars section)
                     return Err(ForgeError::Eval(format!(
-                        "Table '{}': Column '{}' uses aggregation formula - aggregations should be in scalars section",
-                        table_name, col_name
+                        "Table '{table_name}': Column '{col_name}' uses aggregation formula - aggregations should be in scalars section"
                     )));
                 } else {
                     // Row-wise: returns an array (v5.2.0 AST evaluator)
@@ -362,7 +361,7 @@ impl ArrayCalculator {
             let values: Vec<evaluator::Value> = match &col.values {
                 ColumnValue::Number(nums) => {
                     nums.iter().map(|n| evaluator::Value::Number(*n)).collect()
-                }
+                },
                 ColumnValue::Text(texts) => texts
                     .iter()
                     .map(|s| evaluator::Value::Text(s.clone()))
@@ -387,7 +386,7 @@ impl ArrayCalculator {
                 let values: Vec<evaluator::Value> = match &col.values {
                     ColumnValue::Number(nums) => {
                         nums.iter().map(|n| evaluator::Value::Number(*n)).collect()
-                    }
+                    },
                     ColumnValue::Text(texts) => texts
                         .iter()
                         .map(|s| evaluator::Value::Text(s.clone()))
@@ -442,7 +441,7 @@ impl ArrayCalculator {
         // Evaluate first row to determine result type
         let first_ctx = base_ctx.clone().with_row(0, row_count);
         let first_result = evaluator::evaluate(&ast, &first_ctx)
-            .map_err(|e| ForgeError::Eval(format!("Row 0: {}", e)))?;
+            .map_err(|e| ForgeError::Eval(format!("Row 0: {e}")))?;
 
         // Determine column type from first result and evaluate all rows
         match &first_result {
@@ -452,22 +451,22 @@ impl ArrayCalculator {
                 for row_idx in 1..row_count {
                     let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
                     let result = evaluator::evaluate(&ast, &row_ctx)
-                        .map_err(|e| ForgeError::Eval(format!("Row {}: {}", row_idx, e)))?;
+                        .map_err(|e| ForgeError::Eval(format!("Row {row_idx}: {e}")))?;
                     results.push(result.as_text());
                 }
                 Ok(ColumnValue::Text(results))
-            }
+            },
             evaluator::Value::Boolean(_) => {
                 let mut results: Vec<bool> = Vec::with_capacity(row_count);
                 results.push(first_result.as_bool().unwrap_or(false));
                 for row_idx in 1..row_count {
                     let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
                     let result = evaluator::evaluate(&ast, &row_ctx)
-                        .map_err(|e| ForgeError::Eval(format!("Row {}: {}", row_idx, e)))?;
+                        .map_err(|e| ForgeError::Eval(format!("Row {row_idx}: {e}")))?;
                     results.push(result.as_bool().unwrap_or(false));
                 }
                 Ok(ColumnValue::Boolean(results))
-            }
+            },
             _ => {
                 // Default to numeric
                 let mut results: Vec<f64> = Vec::with_capacity(row_count);
@@ -478,14 +477,14 @@ impl ArrayCalculator {
                 for row_idx in 1..row_count {
                     let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
                     let result = evaluator::evaluate(&ast, &row_ctx)
-                        .map_err(|e| ForgeError::Eval(format!("Row {}: {}", row_idx, e)))?;
+                        .map_err(|e| ForgeError::Eval(format!("Row {row_idx}: {e}")))?;
                     let value = result
                         .as_number()
-                        .ok_or_else(|| ForgeError::Eval(format!("Row {} not a number", row_idx)))?;
+                        .ok_or_else(|| ForgeError::Eval(format!("Row {row_idx} not a number")))?;
                     results.push(value);
                 }
                 Ok(ColumnValue::Number(results))
-            }
+            },
         }
     }
 
@@ -499,8 +498,8 @@ impl ArrayCalculator {
 
         let empty_table = Table::new("_scalar_context".to_string());
         let ctx = self.build_eval_context(&empty_table);
-        let result = evaluator::evaluate(&ast, &ctx)
-            .map_err(|e| ForgeError::Eval(format!("Eval: {}", e)))?;
+        let result =
+            evaluator::evaluate(&ast, &ctx).map_err(|e| ForgeError::Eval(format!("Eval: {e}")))?;
         result
             .as_number()
             .ok_or_else(|| ForgeError::Eval("Scalar result not a number".to_string()))
@@ -619,7 +618,7 @@ impl ArrayCalculator {
             // Strategy 2: If we're in a section and word is simple, try prefixing with parent section
             if let Some(section) = parent_section {
                 if !word.contains('.') {
-                    let scoped_name = format!("{}.{}", section, word);
+                    let scoped_name = format!("{section}.{word}");
                     if self.model.scalars.contains_key(&scoped_name) {
                         if !deps.contains(&scoped_name) {
                             deps.push(scoped_name);

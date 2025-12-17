@@ -22,7 +22,7 @@ fn test_parse_number_array() {
     match result {
         ColumnValue::Number(nums) => {
             assert_eq!(nums, vec![1.0, 2.0, 3.0]);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -39,7 +39,7 @@ fn test_parse_text_array() {
     match result {
         ColumnValue::Text(texts) => {
             assert_eq!(texts, vec!["A", "B", "C"]);
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 }
@@ -56,7 +56,7 @@ fn test_parse_date_array() {
     match result {
         ColumnValue::Date(dates) => {
             assert_eq!(dates, vec!["2025-01", "2025-02", "2025-03"]);
-        }
+        },
         _ => panic!("Expected Date array"),
     }
 }
@@ -69,7 +69,7 @@ fn test_parse_boolean_array() {
     match result {
         ColumnValue::Boolean(bools) => {
             assert_eq!(bools, vec![true, false, true]);
-        }
+        },
         _ => panic!("Expected Boolean array"),
     }
 }
@@ -903,7 +903,7 @@ fn test_parse_date_format_yyyy_mm_dd() {
     match result {
         ColumnValue::Date(dates) => {
             assert_eq!(dates, vec!["2025-01-15", "2025-02-20"]);
-        }
+        },
         _ => panic!("Expected Date array"),
     }
 }

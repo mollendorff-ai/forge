@@ -109,13 +109,15 @@ help:
 	@echo "  make format-check       - Check formatting without modifying"
 	@echo ""
 	@echo "Test Targets:"
-	@echo "  make test               - Run all cargo tests (unit + integration + E2E)"
-	@echo "  make test-unit          - Run unit tests only"
+	@echo "  make test               - Run all cargo tests (unit + inline tests)"
+	@echo "  make test-unit          - Run unit tests only (--lib)"
 	@echo "  make test-integration   - Run integration tests only"
-	@echo "  make test-e2e           - Run E2E tests with actual YAML files"
 	@echo "  make test-validate      - Validate all test-data files"
 	@echo "  make test-calculate     - Calculate all test-data files (dry-run)"
-	@echo "  make test-all           - Run ALL tests (542+ total)"
+	@echo "  make test-all           - Run ALL unit tests (2,703 tests)"
+	@echo ""
+	@echo "E2E Tests (separate repository - ADR-027):"
+	@echo "  See: https://github.com/royalbit/forge-e2e"
 	@echo ""
 	@echo "Coverage Targets (ADR-004: 100% MANDATORY):"
 	@echo "  make coverage           - Run coverage, FAIL if < 100%"
@@ -553,11 +555,10 @@ test-integration:
 	@echo "🧪 Running integration tests..."
 	@cargo test --test validation_tests
 
-test-e2e:
-	@echo "🧪 Running E2E tests with actual YAML files..."
-	@cargo test --test e2e_tests
+# E2E tests migrated to forge-e2e (ADR-027)
+# See: https://github.com/royalbit/forge-e2e
 
-test-all: test test-e2e test-validate test-calculate
+test-all: test test-validate test-calculate
 	@echo ""
 	@echo "🎉 All tests passed!"
 

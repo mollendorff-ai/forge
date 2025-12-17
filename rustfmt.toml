@@ -1,0 +1,30 @@
+# RoyalBit Forge - Formatting Configuration (Stable Rust)
+# Philosophy: Code is for humans first, machines second
+# See: ADR-004 (Coding Standards)
+
+edition = "2021"
+
+# Line width - readable on most screens
+max_width = 100
+
+# Imports - clean and organized
+reorder_imports = true
+reorder_modules = true
+
+# Formatting - consistent and clean
+use_small_heuristics = "Default"
+
+# Chains and expressions
+chain_width = 60
+single_line_if_else_max_width = 50
+
+# Match expressions
+match_block_trailing_comma = true
+
+# Function signatures
+fn_params_layout = "Tall"
+
+# Misc
+newline_style = "Unix"
+use_try_shorthand = true
+use_field_init_shorthand = true

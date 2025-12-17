@@ -34,8 +34,7 @@ fn test_offset_basic_usage() {
         let err_msg = err.to_string();
         assert!(
             err_msg.contains("OFFSET") || err_msg.contains("not"),
-            "OFFSET should error with meaningful message if not implemented, got: {}",
-            err_msg
+            "OFFSET should error with meaningful message if not implemented, got: {err_msg}"
         );
     } else {
         // If it works, verify it returns a value
@@ -78,8 +77,7 @@ fn test_vlookup_exact_mode() {
                 || err_msg.contains("table")
                 || err_msg.contains("Unknown variable")
                 || err_msg.contains("products"),
-            "VLOOKUP should error with meaningful message, got: {}",
-            err_msg
+            "VLOOKUP should error with meaningful message, got: {err_msg}"
         );
     } else {
         // If it succeeds, verify the correct price is returned

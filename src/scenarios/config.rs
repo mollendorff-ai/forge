@@ -79,8 +79,7 @@ impl ScenarioConfig {
         const TOLERANCE: f64 = 0.001;
         if (total_prob - 1.0).abs() > TOLERANCE {
             return Err(format!(
-                "Scenario probabilities must sum to 1.0, got {:.4}",
-                total_prob
+                "Scenario probabilities must sum to 1.0, got {total_prob:.4}"
             ));
         }
 
@@ -99,7 +98,10 @@ impl ScenarioConfig {
 
     /// Get scenario names
     pub fn scenario_names(&self) -> Vec<&str> {
-        self.scenarios.keys().map(|s| s.as_str()).collect()
+        self.scenarios
+            .keys()
+            .map(std::string::String::as_str)
+            .collect()
     }
 
     /// Check if a scenario exists

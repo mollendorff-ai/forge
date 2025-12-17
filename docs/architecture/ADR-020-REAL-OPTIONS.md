@@ -244,76 +244,56 @@ Simulate paths with if/then decision rules.
 
 ## Roundtrip Validation
 
-Real Options results are validated against **QuantLib** (industry-standard derivatives pricing library).
+> **E2E tests live in [forge-e2e](https://github.com/royalbit/forge-e2e)** - see ADR-027.
+
+Real Options results are validated using **RustQuant** (Rust-native options pricing).
 
 ### Validation Tool
-
-```bash
-# Setup (one-time)
-./tests/validators/setup.sh
-brew install quantlib  # C++ library
-
-# Python QuantLib bindings (alternative)
-./tests/validators/.venv/bin/pip install QuantLib-Python
-```
-
-### Black-Scholes Validation
-
-```python
-# ./tests/validators/.venv/bin/python
-import QuantLib as ql
-
-# European call option
-spot = 100
-strike = 100
-rate = 0.05
-volatility = 0.20
-maturity = 1.0  # years
-
-# QuantLib setup
-today = ql.Date.todaysDate()
-ql.Settings.instance().evaluationDate = today
-
-# Option
-payoff = ql.PlainVanillaPayoff(ql.Option.Call, strike)
-exercise = ql.EuropeanExercise(today + ql.Period(int(maturity * 365), ql.Days))
-option = ql.VanillaOption(payoff, exercise)
-
-# Market data
-spot_handle = ql.QuoteHandle(ql.SimpleQuote(spot))
-rate_handle = ql.YieldTermStructureHandle(
-    ql.FlatForward(today, rate, ql.Actual365Fixed()))
-vol_handle = ql.BlackVolTermStructureHandle(
-    ql.BlackConstantVol(today, ql.NullCalendar(), volatility, ql.Actual365Fixed()))
-
-# Black-Scholes process
-process = ql.BlackScholesProcess(spot_handle, rate_handle, vol_handle)
-option.setPricingEngine(ql.AnalyticEuropeanEngine(process))
-
-print(f"Call Option Value: ${option.NPV():.4f}")
-# Expected: ~$10.4506 (Black-Scholes closed-form)
-```
-
-### Rust Crate Alternative
-
-For Rust-native validation, use the **RustQuant** crate (Apache-2.0/MIT):
 
 ```rust
 // Cargo.toml: rustquant = "0.3"
 use rustquant::instruments::options::*;
 
-let bs = BlackScholes::new(100.0, 100.0, 0.05, 0.20, 1.0);
+// European call option (Black-Scholes)
+let spot = 100.0;
+let strike = 100.0;
+let rate = 0.05;
+let volatility = 0.20;
+let maturity = 1.0;  // years
+
+let bs = BlackScholes::new(spot, strike, rate, volatility, maturity);
 let call_price = bs.call_price();
-// Expected: ~$10.4506
+// Expected: ~$10.4506 (Black-Scholes closed-form)
+```
+
+### R Alternative
+
+```bash
+# R validation (requires: brew install r)
+R --quiet -e '
+  # Black-Scholes European call
+  spot <- 100
+  strike <- 100
+  rate <- 0.05
+  vol <- 0.20
+  T <- 1.0
+
+  d1 <- (log(spot/strike) + (rate + vol^2/2) * T) / (vol * sqrt(T))
+  d2 <- d1 - vol * sqrt(T)
+
+  call_price <- spot * pnorm(d1) - strike * exp(-rate * T) * pnorm(d2)
+  cat("Call Option Value:", round(call_price, 4), "\n")
+  # Expected: ~10.4506
+'
 ```
 
 ### Test Coverage
 
 | Test | Validation |
 |------|------------|
-| Black-Scholes formula | QuantLib / RustQuant |
-| Binomial tree convergence | QuantLib |
-| American option pricing | QuantLib (binomial) |
+| Black-Scholes formula | RustQuant / R |
+| Binomial tree convergence | Unit test |
+| American option pricing | Unit test (binomial) |
 | Put-call parity | Unit test |
 
 ## References

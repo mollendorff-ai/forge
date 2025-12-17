@@ -60,11 +60,8 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
             println!();
             println!(
                 "{}",
-                format!(
-                    "   {} Excel-compatible functions for financial modeling",
-                    total
-                )
-                .bright_white()
+                format!("   {total} Excel-compatible functions for financial modeling")
+                    .bright_white()
             );
         }
         #[cfg(feature = "demo")]

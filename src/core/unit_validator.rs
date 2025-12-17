@@ -52,7 +52,7 @@ impl UnitCategory {
             // Currency
             "cad" | "usd" | "eur" | "gbp" | "jpy" | "cny" | "$" => {
                 UnitCategory::Currency(unit.to_uppercase())
-            }
+            },
             // Percentage
             "%" | "percent" | "percentage" => UnitCategory::Percentage,
             // Count
@@ -131,7 +131,7 @@ impl<'a> UnitValidator<'a> {
         for (table_name, table) in &model.tables {
             for (col_name, column) in &table.columns {
                 if let Some(unit) = &column.metadata.unit {
-                    let path = format!("{}.{}", table_name, col_name);
+                    let path = format!("{table_name}.{col_name}");
                     unit_map.insert(path, UnitCategory::parse(unit));
                     // Also store short name for same-table references
                     unit_map.insert(col_name.clone(), UnitCategory::parse(unit));
@@ -156,7 +156,7 @@ impl<'a> UnitValidator<'a> {
         // Validate table row formulas
         for (table_name, table) in &self.model.tables {
             for (col_name, formula) in &table.row_formulas {
-                let location = format!("{}.{}", table_name, col_name);
+                let location = format!("{table_name}.{col_name}");
                 if let Some(warning) = self.validate_formula(&location, formula) {
                     warnings.push(warning);
                 }
@@ -543,7 +543,7 @@ mod tests {
             message: "Mixing units".to_string(),
             severity: WarningSeverity::Warning,
         };
-        let display = format!("{}", warning);
+        let display = format!("{warning}");
         assert!(display.contains("Warning"));
         assert!(display.contains("sales.total"));
         assert!(display.contains("Mixing units"));
@@ -558,7 +558,7 @@ mod tests {
             message: "Critical error".to_string(),
             severity: WarningSeverity::Error,
         };
-        let display = format!("{}", warning);
+        let display = format!("{warning}");
         assert!(display.contains("Error"));
         assert!(display.contains("costs"));
     }
@@ -934,8 +934,7 @@ mod tests {
         let unit = validator.infer_unit("=rate * price");
         assert!(
             matches!(unit, Some(UnitCategory::Currency(ref c)) if c == "CAD"),
-            "Percentage * currency should yield currency, got {:?}",
-            unit
+            "Percentage * currency should yield currency, got {unit:?}"
         );
     }
 
@@ -968,8 +967,7 @@ mod tests {
         let unit = validator.infer_unit("=rate * unknown_amount");
         assert!(
             matches!(unit, Some(UnitCategory::Percentage)),
-            "Should fall back to percentage when other reference has no unit, got {:?}",
-            unit
+            "Should fall back to percentage when other reference has no unit, got {unit:?}"
         );
     }
 }

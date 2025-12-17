@@ -108,10 +108,10 @@ pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()> {
                     }
                 }
             }
-        }
+        },
         Err(e) => {
             println!("   {} Calculation error: {}", "❌".red(), e);
-        }
+        },
     }
 
     println!();
@@ -140,7 +140,7 @@ pub fn find_variable(
     for (table_name, table) in &model.tables {
         if table.columns.contains_key(name) {
             let formula = table.row_formulas.get(name).cloned();
-            return Ok((format!("Column in table '{}'", table_name), formula, None));
+            return Ok((format!("Column in table '{table_name}'"), formula, None));
         }
     }
 
@@ -200,7 +200,7 @@ pub fn build_dependency_tree(
                 // Check if it's a table column
                 for (table_name, table) in &model.tables {
                     if table.columns.contains_key(&ref_name) {
-                        dep.dep_type = format!("Column[{}]", table_name);
+                        dep.dep_type = format!("Column[{table_name}]");
                         dep.formula = table.row_formulas.get(&ref_name).cloned();
                         break;
                     }

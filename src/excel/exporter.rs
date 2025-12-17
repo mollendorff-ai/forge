@@ -54,8 +54,7 @@ impl ExcelExporter {
                 .columns
                 .values()
                 .next()
-                .map(|col| col.len())
-                .unwrap_or(0);
+                .map_or(0, super::super::types::Column::len);
 
             table_column_maps.insert(table_name.clone(), column_map);
             table_row_counts.insert(table_name.clone(), row_count);
@@ -86,7 +85,7 @@ impl ExcelExporter {
         for (namespace, resolved) in &self.model.resolved_includes {
             // Export tables from included file
             for (table_name, table) in &resolved.model.tables {
-                let prefixed_name = format!("{}.{}", namespace, table_name);
+                let prefixed_name = format!("{namespace}.{table_name}");
                 self.export_table(&mut workbook, &prefixed_name, table)?;
             }
 
@@ -99,7 +98,7 @@ impl ExcelExporter {
         // Save workbook to file
         workbook
             .save(output_path)
-            .map_err(|e| ForgeError::IO(format!("Failed to save Excel file: {}", e)))?;
+            .map_err(|e| ForgeError::IO(format!("Failed to save Excel file: {e}")))?;
 
         Ok(())
     }
@@ -114,7 +113,7 @@ impl ExcelExporter {
         let worksheet = workbook.add_worksheet();
         worksheet
             .set_name(table_name)
-            .map_err(|e| ForgeError::Export(format!("Failed to set worksheet name: {}", e)))?;
+            .map_err(|e| ForgeError::Export(format!("Failed to set worksheet name: {e}")))?;
 
         // Get column names in a deterministic order (data + formula columns)
         let mut column_names: Vec<String> = Vec::new();
@@ -151,7 +150,7 @@ impl ExcelExporter {
         for (col_idx, col_name) in column_names.iter().enumerate() {
             worksheet
                 .write_string(0, col_idx as u16, col_name)
-                .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
+                .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
 
             // Add metadata as cell note if column has metadata (v4.0)
             if let Some(column) = table.columns.get(col_name) {
@@ -159,7 +158,7 @@ impl ExcelExporter {
                     let note = Note::new(note_text).set_author("Forge");
                     worksheet
                         .insert_note(0, col_idx as u16, &note)
-                        .map_err(|e| ForgeError::Export(format!("Failed to add note: {}", e)))?;
+                        .map_err(|e| ForgeError::Export(format!("Failed to add note: {e}")))?;
                 }
             }
         }
@@ -169,8 +168,7 @@ impl ExcelExporter {
             .columns
             .values()
             .next()
-            .map(|col| col.len())
-            .unwrap_or(0);
+            .map_or(0, super::super::types::Column::len);
 
         // Write data rows (starting at row 1)
         for row_idx in 0..row_count {
@@ -183,9 +181,7 @@ impl ExcelExporter {
                     let excel_formula = translator.translate_row_formula(formula, excel_row)?;
                     worksheet
                         .write_formula(excel_row - 1, col_idx as u16, Formula::new(&excel_formula))
-                        .map_err(|e| {
-                            ForgeError::Export(format!("Failed to write formula: {}", e))
-                        })?;
+                        .map_err(|e| ForgeError::Export(format!("Failed to write formula: {e}")))?;
                 } else if let Some(column) = table.columns.get(col_name) {
                     // Write data value
                     self.write_cell_value(
@@ -214,32 +210,32 @@ impl ExcelExporter {
         match values {
             ColumnValue::Number(nums) => {
                 if let Some(&value) = nums.get(index) {
-                    worksheet.write_number(row, col, value).map_err(|e| {
-                        ForgeError::Export(format!("Failed to write number: {}", e))
-                    })?;
+                    worksheet
+                        .write_number(row, col, value)
+                        .map_err(|e| ForgeError::Export(format!("Failed to write number: {e}")))?;
                 }
-            }
+            },
             ColumnValue::Text(texts) => {
                 if let Some(value) = texts.get(index) {
                     worksheet
                         .write_string(row, col, value)
-                        .map_err(|e| ForgeError::Export(format!("Failed to write text: {}", e)))?;
+                        .map_err(|e| ForgeError::Export(format!("Failed to write text: {e}")))?;
                 }
-            }
+            },
             ColumnValue::Date(dates) => {
                 if let Some(value) = dates.get(index) {
                     worksheet
                         .write_string(row, col, value)
-                        .map_err(|e| ForgeError::Export(format!("Failed to write date: {}", e)))?;
+                        .map_err(|e| ForgeError::Export(format!("Failed to write date: {e}")))?;
                 }
-            }
+            },
             ColumnValue::Boolean(bools) => {
                 if let Some(&value) = bools.get(index) {
-                    worksheet.write_boolean(row, col, value).map_err(|e| {
-                        ForgeError::Export(format!("Failed to write boolean: {}", e))
-                    })?;
+                    worksheet
+                        .write_boolean(row, col, value)
+                        .map_err(|e| ForgeError::Export(format!("Failed to write boolean: {e}")))?;
                 }
-            }
+            },
         }
         Ok(())
     }
@@ -248,7 +244,7 @@ impl ExcelExporter {
     fn export_scalars(&self, workbook: &mut Workbook) -> ForgeResult<()> {
         let worksheet = workbook.add_worksheet();
         worksheet.set_name("Scalars").map_err(|e| {
-            ForgeError::Export(format!("Failed to set Scalars worksheet name: {}", e))
+            ForgeError::Export(format!("Failed to set Scalars worksheet name: {e}"))
         })?;
 
         // Create formula translator with global table knowledge
@@ -261,10 +257,10 @@ impl ExcelExporter {
         // Write header row
         worksheet
             .write_string(0, 0, "Name")
-            .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
+            .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
         worksheet
             .write_string(0, 1, "Value")
-            .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
+            .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
 
         // Write scalars (sorted by name for deterministic output)
         let mut scalar_names: Vec<&String> = self.model.scalars.keys().collect();
@@ -282,9 +278,9 @@ impl ExcelExporter {
 
             if let Some(var) = self.model.scalars.get(*name) {
                 // Write name
-                worksheet.write_string(row, 0, *name).map_err(|e| {
-                    ForgeError::Export(format!("Failed to write scalar name: {}", e))
-                })?;
+                worksheet
+                    .write_string(row, 0, *name)
+                    .map_err(|e| ForgeError::Export(format!("Failed to write scalar name: {e}")))?;
 
                 // Write formula or value
                 if let Some(formula) = &var.formula {
@@ -295,27 +291,23 @@ impl ExcelExporter {
                                 .write_formula(row, 1, Formula::new(&excel_formula))
                                 .map_err(|e| {
                                     ForgeError::Export(format!(
-                                        "Failed to write scalar formula: {}",
-                                        e
+                                        "Failed to write scalar formula: {e}"
                                     ))
                                 })?;
-                        }
+                        },
                         Err(_) => {
                             // Fallback: write calculated value if formula translation fails
                             if let Some(value) = var.value {
                                 worksheet.write_number(row, 1, value).map_err(|e| {
-                                    ForgeError::Export(format!(
-                                        "Failed to write scalar value: {}",
-                                        e
-                                    ))
+                                    ForgeError::Export(format!("Failed to write scalar value: {e}"))
                                 })?;
                             }
-                        }
+                        },
                     }
                 } else if let Some(value) = var.value {
                     // No formula, just write the value
                     worksheet.write_number(row, 1, value).map_err(|e| {
-                        ForgeError::Export(format!("Failed to write scalar value: {}", e))
+                        ForgeError::Export(format!("Failed to write scalar value: {e}"))
                     })?;
                 }
 
@@ -323,7 +315,7 @@ impl ExcelExporter {
                 if let Some(note_text) = Self::format_metadata_note(&var.metadata) {
                     let note = Note::new(note_text).set_author("Forge");
                     worksheet.insert_note(row, 1, &note).map_err(|e| {
-                        ForgeError::Export(format!("Failed to add scalar note: {}", e))
+                        ForgeError::Export(format!("Failed to add scalar note: {e}"))
                     })?;
                 }
             }
@@ -339,22 +331,19 @@ impl ExcelExporter {
         namespace: &str,
         included_model: &ParsedModel,
     ) -> ForgeResult<()> {
-        let sheet_name = format!("{}.Scalars", namespace);
+        let sheet_name = format!("{namespace}.Scalars");
         let worksheet = workbook.add_worksheet();
         worksheet.set_name(&sheet_name).map_err(|e| {
-            ForgeError::Export(format!(
-                "Failed to set {} worksheet name: {}",
-                sheet_name, e
-            ))
+            ForgeError::Export(format!("Failed to set {sheet_name} worksheet name: {e}"))
         })?;
 
         // Write header row
         worksheet
             .write_string(0, 0, "Name")
-            .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
+            .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
         worksheet
             .write_string(0, 1, "Value")
-            .map_err(|e| ForgeError::Export(format!("Failed to write header: {}", e)))?;
+            .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
 
         // Write scalars (sorted by name)
         let mut scalar_names: Vec<&String> = included_model.scalars.keys().collect();
@@ -365,17 +354,15 @@ impl ExcelExporter {
 
             if let Some(var) = included_model.scalars.get(*name) {
                 // Write name with namespace prefix
-                let prefixed_name = format!("{}.{}", namespace, name);
+                let prefixed_name = format!("{namespace}.{name}");
                 worksheet
                     .write_string(row, 0, &prefixed_name)
-                    .map_err(|e| {
-                        ForgeError::Export(format!("Failed to write scalar name: {}", e))
-                    })?;
+                    .map_err(|e| ForgeError::Export(format!("Failed to write scalar name: {e}")))?;
 
                 // Write value (formulas not translated for included scalars yet)
                 if let Some(value) = var.value {
                     worksheet.write_number(row, 1, value).map_err(|e| {
-                        ForgeError::Export(format!("Failed to write scalar value: {}", e))
+                        ForgeError::Export(format!("Failed to write scalar value: {e}"))
                     })?;
                 }
 
@@ -383,7 +370,7 @@ impl ExcelExporter {
                 if let Some(note_text) = Self::format_metadata_note(&var.metadata) {
                     let note = Note::new(note_text).set_author("Forge");
                     worksheet.insert_note(row, 1, &note).map_err(|e| {
-                        ForgeError::Export(format!("Failed to add scalar note: {}", e))
+                        ForgeError::Export(format!("Failed to add scalar note: {e}"))
                     })?;
                 }
             }
@@ -402,19 +389,19 @@ impl ExcelExporter {
         let mut parts = Vec::new();
 
         if let Some(unit) = &metadata.unit {
-            parts.push(format!("Unit: {}", unit));
+            parts.push(format!("Unit: {unit}"));
         }
         if let Some(notes) = &metadata.notes {
-            parts.push(format!("Notes: {}", notes));
+            parts.push(format!("Notes: {notes}"));
         }
         if let Some(source) = &metadata.source {
-            parts.push(format!("Source: {}", source));
+            parts.push(format!("Source: {source}"));
         }
         if let Some(status) = &metadata.validation_status {
-            parts.push(format!("Status: {}", status));
+            parts.push(format!("Status: {status}"));
         }
         if let Some(updated) = &metadata.last_updated {
-            parts.push(format!("Updated: {}", updated));
+            parts.push(format!("Updated: {updated}"));
         }
 
         if parts.is_empty() {

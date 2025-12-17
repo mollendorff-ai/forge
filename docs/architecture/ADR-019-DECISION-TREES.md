@@ -210,47 +210,44 @@ Use TreeAge, PrecisionTree, etc. and import results.
 
 ## Roundtrip Validation
 
-Decision Tree results are validated against **SciPy/NumPy** (industry-standard scientific Python).
+> **E2E tests live in [forge-e2e](https://github.com/royalbit/forge-e2e)** - see ADR-027.
+
+Decision Tree results are validated against **R** (gold standard for statistical computing).
 
 ### Validation Tool
 
 ```bash
-# Setup (one-time)
-./tests/validators/setup.sh
+# R validation script (requires: brew install r)
+R --quiet -e '
+  # Decision tree structure (R&D Investment example)
+  # Node values from backward induction
 
-# Python validation script
-./tests/validators/.venv/bin/python << 'EOF'
-import numpy as np
+  # Terminal values
+  license_value <- 5000000
+  manufacture_value <- 8000000 - 3000000  # net of cost
+  failure_value <- -2000000
+  no_invest_value <- 0
 
-# Decision tree structure (R&D Investment example)
-# Node values from backward induction
+  # Commercialize decision (choose max)
+  commercialize_ev <- max(license_value, manufacture_value)
+  cat("Commercialize EV:", commercialize_ev, "\n")  # 5000000
 
-# Terminal values
-license_value = 5_000_000
-manufacture_value = 8_000_000 - 3_000_000  # net of cost
-failure_value = -2_000_000
-no_invest_value = 0
+  # Tech outcome (chance node)
+  p_success <- 0.60
+  p_failure <- 0.40
+  tech_ev <- p_success * commercialize_ev + p_failure * failure_value
+  cat("Tech Outcome EV:", tech_ev, "\n")  # 2200000
 
-# Commercialize decision (choose max)
-commercialize_ev = max(license_value, manufacture_value)
-print(f"Commercialize EV: ${commercialize_ev:,.0f}")  # $5,000,000
+  # Invest decision (choose max, subtract investment cost)
+  invest_cost <- 2000000
+  invest_ev <- tech_ev - invest_cost
+  cat("Invest EV:", invest_ev, "\n")  # 200000
 
-# Tech outcome (chance node)
-p_success = 0.60
-p_failure = 0.40
-tech_ev = p_success * commercialize_ev + p_failure * failure_value
-print(f"Tech Outcome EV: ${tech_ev:,.0f}")  # $2,200,000
-
-# Invest decision (choose max, subtract investment cost)
-invest_cost = 2_000_000
-invest_ev = tech_ev - invest_cost
-print(f"Invest EV: ${invest_ev:,.0f}")  # $200,000
-
-# Root decision
-root_ev = max(invest_ev, no_invest_value)
-print(f"Optimal Decision: {'Invest' if invest_ev > no_invest_value else 'Dont Invest'}")
-print(f"Root EV: ${root_ev:,.0f}")  # $200,000
-EOF
+  # Root decision
+  root_ev <- max(invest_ev, no_invest_value)
+  cat("Optimal Decision:", ifelse(invest_ev > no_invest_value, "Invest", "Dont Invest"), "\n")
+  cat("Root EV:", root_ev, "\n")  # 200000
+'
 ```
 
 ### Test Coverage
@@ -258,7 +255,7 @@ EOF
 | Test | Validation |
 |------|------------|
 | DAG structure (no cycles) | Unit test |
-| Backward induction | SciPy/NumPy |
+| Backward induction | R |
 | Optimal path identification | E2E test |
 | MC at terminal nodes | E2E + MC validator |
 
@@ -268,5 +265,4 @@ EOF
 - docs/FPA-PREDICTION-METHODS.md - Method comparison guide
 - ADR-016: Monte Carlo Architecture
 - ADR-018: Scenario Analysis
-- SciPy: https://scipy.org/
-- NumPy: https://numpy.org/
+- R Project: https://www.r-project.org/

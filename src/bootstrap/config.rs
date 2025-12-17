@@ -135,10 +135,7 @@ impl BootstrapConfig {
 
         for level in &self.confidence_levels {
             if *level <= 0.0 || *level >= 1.0 {
-                return Err(format!(
-                    "Confidence level {} must be between 0 and 1",
-                    level
-                ));
+                return Err(format!("Confidence level {level} must be between 0 and 1"));
             }
         }
 

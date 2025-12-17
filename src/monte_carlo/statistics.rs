@@ -205,8 +205,8 @@ impl Histogram {
             };
         }
 
-        let min = samples.iter().cloned().fold(f64::INFINITY, f64::min);
-        let max = samples.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
 
         // Handle case where all values are the same
         let (actual_min, actual_max) = if (max - min).abs() < 1e-10 {
@@ -248,7 +248,7 @@ impl Histogram {
         }
         self.bin_edges
             .windows(2)
-            .map(|w| (w[0] + w[1]) / 2.0)
+            .map(|w| f64::midpoint(w[0], w[1]))
             .collect()
     }
 }
@@ -263,14 +263,13 @@ pub fn parse_threshold(threshold: &str) -> Result<(String, f64), String> {
             let value_str = rest.trim();
             let value: f64 = value_str
                 .parse()
-                .map_err(|_| format!("Invalid threshold value: {}", value_str))?;
+                .map_err(|_| format!("Invalid threshold value: {value_str}"))?;
             return Ok((op.to_string(), value));
         }
     }
 
     Err(format!(
-        "Invalid threshold format: {}. Use '> 0', '< 100', etc.",
-        threshold
+        "Invalid threshold format: {threshold}. Use '> 0', '< 100', etc."
     ))
 }
 

@@ -519,8 +519,7 @@ fn test_correl_no_correlation() {
     let corr = result.scalars.get("corr").unwrap().value.unwrap();
     assert!(
         corr.abs() < 0.5,
-        "Correlation should be weak (close to 0), got {}",
-        corr
+        "Correlation should be weak (close to 0), got {corr}"
     );
 }
 

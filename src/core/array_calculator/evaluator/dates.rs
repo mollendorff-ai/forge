@@ -25,35 +25,35 @@ pub fn try_evaluate(
             use chrono::Local;
             let today = Local::now().date_naive();
             Value::Text(today.format("%Y-%m-%d").to_string())
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "NOW" => {
             use chrono::Local;
             let now = Local::now();
             Value::Text(now.format("%Y-%m-%d %H:%M:%S").to_string())
-        }
+        },
 
         "YEAR" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             let date = parse_date_value(&val)?;
             Value::Number(date.year() as f64)
-        }
+        },
 
         "MONTH" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             let date = parse_date_value(&val)?;
             Value::Number(date.month() as f64)
-        }
+        },
 
         "DAY" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             let date = parse_date_value(&val)?;
             Value::Number(date.day() as f64)
-        }
+        },
 
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
@@ -83,7 +83,7 @@ pub fn try_evaluate(
                 _ => (day + 1) as f64,
             };
             Value::Number(result)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "HOUR" => {
@@ -108,7 +108,7 @@ pub fn try_evaluate(
                 return Ok(Some(Value::Number((total_seconds / 3600) as f64)));
             }
             return Err(EvalError::new("HOUR: Could not parse time"));
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "MINUTE" => {
@@ -129,7 +129,7 @@ pub fn try_evaluate(
                 return Ok(Some(Value::Number(((total_seconds / 60) % 60) as f64)));
             }
             return Err(EvalError::new("MINUTE: Could not parse time"));
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "SECOND" => {
@@ -150,7 +150,7 @@ pub fn try_evaluate(
                 return Ok(Some(Value::Number((total_seconds % 60) as f64)));
             }
             return Err(EvalError::new("SECOND: Could not parse time"));
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "TIME" => {
@@ -171,7 +171,7 @@ pub fn try_evaluate(
             // Return as fraction of day (Excel time serial)
             let total_seconds = hour * 3600 + minute * 60 + second;
             Value::Number(total_seconds as f64 / 86400.0)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "DAYS" => {
@@ -183,7 +183,7 @@ pub fn try_evaluate(
             let start_date = parse_date_value(&start)?;
 
             Value::Number((end_date - start_date).num_days() as f64)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "WORKDAY" => {
@@ -212,7 +212,7 @@ pub fn try_evaluate(
             }
 
             Value::Text(current.format("%Y-%m-%d").to_string())
-        }
+        },
 
         "DATE" => {
             require_args(name, args, 3)?;
@@ -238,7 +238,7 @@ pub fn try_evaluate(
             // Start from day 1 of the adjusted month, then add (day - 1) days
             // This handles day=0 (last day of prev month) and day>max (overflow to next month)
             let base_date = NaiveDate::from_ymd_opt(adj_year, adj_month, 1).ok_or_else(|| {
-                EvalError::new(format!("DATE: invalid date {}-{}-1", adj_year, adj_month))
+                EvalError::new(format!("DATE: invalid date {adj_year}-{adj_month}-1"))
             })?;
             let date = if day >= 1 {
                 base_date
@@ -253,7 +253,7 @@ pub fn try_evaluate(
             // Return Excel serial number (days since 1899-12-30)
             let excel_base = NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
             Value::Number((date - excel_base).num_days() as f64)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "EDATE" => {
@@ -276,7 +276,7 @@ pub fn try_evaluate(
             .ok_or_else(|| EvalError::new("EDATE: Invalid date result"))?;
 
             Value::Text(result.format("%Y-%m-%d").to_string())
-        }
+        },
 
         "EOMONTH" => {
             use chrono::{Months, NaiveDate};
@@ -308,7 +308,7 @@ pub fn try_evaluate(
             .ok_or_else(|| EvalError::new("EOMONTH: Invalid date result"))?;
 
             Value::Text(last_day.format("%Y-%m-%d").to_string())
-        }
+        },
 
         "DATEDIF" => {
             require_args(name, args, 3)?;
@@ -325,7 +325,7 @@ pub fn try_evaluate(
                     let years = end_date.year() - start_date.year();
                     let months = end_date.month() as i32 - start_date.month() as i32;
                     (years * 12 + months) as f64
-                }
+                },
                 "Y" => (end_date.year() - start_date.year()) as f64,
                 "MD" => {
                     let mut day_diff = end_date.day() as i32 - start_date.day() as i32;
@@ -333,14 +333,14 @@ pub fn try_evaluate(
                         day_diff += 30;
                     }
                     day_diff as f64
-                }
+                },
                 "YM" => {
                     let mut month_diff = end_date.month() as i32 - start_date.month() as i32;
                     if month_diff < 0 {
                         month_diff += 12;
                     }
                     month_diff as f64
-                }
+                },
                 "YD" => {
                     let start_doy = start_date.ordinal() as i32;
                     let end_doy = end_date.ordinal() as i32;
@@ -349,11 +349,11 @@ pub fn try_evaluate(
                         day_diff += 365;
                     }
                     day_diff as f64
-                }
-                _ => return Err(EvalError::new(format!("DATEDIF: unknown unit '{}'", unit))),
+                },
+                _ => return Err(EvalError::new(format!("DATEDIF: unknown unit '{unit}'"))),
             };
             Value::Number(result)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "NETWORKDAYS" => {
@@ -374,7 +374,7 @@ pub fn try_evaluate(
                 current = current.succ_opt().unwrap_or(current);
             }
             Value::Number(count as f64)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "YEARFRAC" => {
@@ -409,7 +409,7 @@ pub fn try_evaluate(
 
                     let days_30_360 = ((y2 - y1) * 360 + (m2 - m1) * 30 + (d2 - d1)) as f64;
                     days_30_360 / 360.0
-                }
+                },
                 1 => {
                     // Actual/actual
                     let days = (end_date - start_date).num_days() as f64;
@@ -417,21 +417,21 @@ pub fn try_evaluate(
                     let is_leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
                     let year_days = if is_leap { 366.0 } else { 365.0 };
                     days / year_days
-                }
+                },
                 2 => {
                     // Actual/360
                     let days = (end_date - start_date).num_days() as f64;
                     days / 360.0
-                }
+                },
                 3 => {
                     // Actual/365
                     let days = (end_date - start_date).num_days() as f64;
                     days / 365.0
-                }
-                _ => return Err(EvalError::new(format!("YEARFRAC: unknown basis {}", basis))),
+                },
+                _ => return Err(EvalError::new(format!("YEARFRAC: unknown basis {basis}"))),
             };
             Value::Number(result)
-        }
+        },
 
         _ => return Ok(None),
     };
@@ -798,5 +798,126 @@ mod tests {
         assert_eq!(eval("HOUR(0.5)", &ctx).unwrap(), Value::Number(12.0));
         // 0.75 = 6pm = 18:00
         assert_eq!(eval("HOUR(0.75)", &ctx).unwrap(), Value::Number(18.0));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EDGE CASE TESTS (from edge_dates.yaml)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_date_leap_year_feb_29() {
+        let ctx = EvalContext::new();
+        // Leap year: DATE(2024, 2, 29) should be valid
+        // 2024 is a leap year, so Feb 29 exists
+        let result = eval("DATE(2024, 2, 29)", &ctx).unwrap();
+        if let Value::Number(serial) = result {
+            // 2024-02-29 = 45351.0 (Excel serial)
+            assert_eq!(serial, 45351.0);
+        } else {
+            panic!("Expected Number from DATE");
+        }
+    }
+
+    #[test]
+    fn test_date_non_leap_year_feb_29_rollover() {
+        let ctx = EvalContext::new();
+        // Non-leap year: DATE(2023, 2, 29) should roll to March 1
+        // 2023 is not a leap year, so Feb 29 rolls to Mar 1
+        let result = eval("DATE(2023, 2, 29)", &ctx).unwrap();
+        if let Value::Number(serial) = result {
+            // 2023-03-01 = 44986.0 (Excel serial)
+            assert_eq!(serial, 44986.0);
+        } else {
+            panic!("Expected Number from DATE");
+        }
+    }
+
+    #[test]
+    fn test_date_month_zero_previous_year() {
+        let ctx = EvalContext::new();
+        // Month zero: DATE(2024, 0, 1) should go to previous year December
+        let result = eval("DATE(2024, 0, 1)", &ctx).unwrap();
+        if let Value::Number(serial) = result {
+            // 2023-12-01 = 45261.0 (Excel serial)
+            assert_eq!(serial, 45261.0);
+        } else {
+            panic!("Expected Number from DATE");
+        }
+    }
+
+    #[test]
+    fn test_date_month_13_next_year() {
+        let ctx = EvalContext::new();
+        // Month 13: DATE(2024, 13, 1) should go to next year January
+        let result = eval("DATE(2024, 13, 1)", &ctx).unwrap();
+        if let Value::Number(serial) = result {
+            // 2025-01-01 = 45658.0 (Excel serial)
+            assert_eq!(serial, 45658.0);
+        } else {
+            panic!("Expected Number from DATE");
+        }
+    }
+
+    #[test]
+    fn test_date_day_zero_previous_month_last_day() {
+        let ctx = EvalContext::new();
+        // Day zero: DATE(2024, 1, 0) should go to previous month's last day
+        // Which is 2023-12-31
+        let result = eval("DATE(2024, 1, 0)", &ctx).unwrap();
+        if let Value::Number(serial) = result {
+            // 2023-12-31 = 45291.0 (Excel serial)
+            assert_eq!(serial, 45291.0);
+        } else {
+            panic!("Expected Number from DATE");
+        }
+    }
+
+    #[test]
+    fn test_date_day_overflow_next_month() {
+        let ctx = EvalContext::new();
+        // Day overflow: DATE(2024, 1, 32) should roll to February 1
+        let result = eval("DATE(2024, 1, 32)", &ctx).unwrap();
+        if let Value::Number(serial) = result {
+            // 2024-02-01 = 45323.0 (Excel serial)
+            assert_eq!(serial, 45323.0);
+        } else {
+            panic!("Expected Number from DATE");
+        }
+    }
+
+    #[test]
+    fn test_date_subtraction_leap_year() {
+        let ctx = EvalContext::new();
+        // Date subtraction in leap year: DATE(2024,12,31) - DATE(2024,1,1)
+        // Should equal 365 (leap year has 366 days, but difference is 365)
+        let result = eval("DATE(2024, 12, 31) - DATE(2024, 1, 1)", &ctx).unwrap();
+        assert_eq!(result, Value::Number(365.0));
+    }
+
+    #[test]
+    fn test_date_subtraction_non_leap_year() {
+        let ctx = EvalContext::new();
+        // Date subtraction in non-leap year: DATE(2023,12,31) - DATE(2023,1,1)
+        // Should equal 364 (365 days in year, difference is 364)
+        let result = eval("DATE(2023, 12, 31) - DATE(2023, 1, 1)", &ctx).unwrap();
+        assert_eq!(result, Value::Number(364.0));
+    }
+
+    #[test]
+    fn test_today_minus_today_equals_zero() {
+        let ctx = EvalContext::new();
+        // TODAY() - TODAY() should always equal 0
+        let result = eval("TODAY() - TODAY()", &ctx).unwrap();
+        assert_eq!(result, Value::Number(0.0));
+    }
+
+    #[test]
+    fn test_eomonth_subtraction() {
+        let ctx = EvalContext::new();
+        // EOMONTH(DATE(2024,1,15), 0) - DATE(2024,1,1) = 30
+        // EOMONTH(2024-01-15, 0) = 2024-01-31
+        // 2024-01-31 - 2024-01-01 = 30
+        let result = eval("EOMONTH(\"2024-01-15\", 0) - DATE(2024, 1, 1)", &ctx).unwrap();
+        assert_eq!(result, Value::Number(30.0));
     }
 }

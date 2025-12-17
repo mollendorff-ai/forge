@@ -161,7 +161,7 @@ impl RealOptionsEngine {
                 )
                 .with_dividend_yield(u.dividend_yield);
                 bs.call_price()
-            }
+            },
             OptionType::Expand => {
                 let additional_value = (option.expansion_factor - 1.0) * u.current_value;
                 let bs = BlackScholes::new(
@@ -173,7 +173,7 @@ impl RealOptionsEngine {
                 )
                 .with_dividend_yield(u.dividend_yield);
                 bs.call_price()
-            }
+            },
             OptionType::Abandon => {
                 let bs = BlackScholes::new(
                     u.current_value,
@@ -184,7 +184,7 @@ impl RealOptionsEngine {
                 )
                 .with_dividend_yield(u.dividend_yield);
                 bs.put_price()
-            }
+            },
             OptionType::Contract => {
                 let reduction = (1.0 - option.contraction_factor) * u.current_value;
                 let bs = BlackScholes::new(
@@ -196,11 +196,11 @@ impl RealOptionsEngine {
                 )
                 .with_dividend_yield(u.dividend_yield);
                 bs.put_price()
-            }
+            },
             OptionType::Switch | OptionType::Compound => {
                 // Complex options - fallback to binomial
                 self.value_with_binomial(option)
-            }
+            },
         }
     }
 
@@ -223,24 +223,24 @@ impl RealOptionsEngine {
             OptionType::Defer => tree.defer_option_value(option.max_deferral, option.exercise_cost),
             OptionType::Expand => {
                 tree.expand_option_value(option.expansion_factor, option.exercise_cost)
-            }
+            },
             OptionType::Abandon => tree.abandon_option_value(option.salvage_value),
             OptionType::Contract => {
                 tree.contract_option_value(option.contraction_factor, option.exercise_cost.abs())
-            }
+            },
             OptionType::Switch => {
                 // Switch option approximated as max of expand and contract
                 let expand = tree.expand_option_value(1.2, option.exercise_cost);
                 let contract = tree.contract_option_value(0.8, option.exercise_cost.abs());
                 expand.max(contract)
-            }
+            },
             OptionType::Compound => {
                 // Compound option - simplified as defer then expand
                 let defer = tree.defer_option_value(1.0, option.exercise_cost * 0.5);
                 let expand =
                     tree.expand_option_value(option.expansion_factor, option.exercise_cost);
                 defer + expand * 0.5
-            }
+            },
         }
     }
 
@@ -264,20 +264,20 @@ impl RealOptionsEngine {
         match option.option_type {
             OptionType::Defer => {
                 let trigger_value = option.exercise_cost * 1.1; // 10% above exercise cost
-                Some(format!("value > ${:.0}", trigger_value))
-            }
+                Some(format!("value > ${trigger_value:.0}"))
+            },
             OptionType::Expand => {
                 let trigger_value = option.exercise_cost * 2.0; // Good ROI on expansion
-                Some(format!("value > ${:.0}", trigger_value))
-            }
+                Some(format!("value > ${trigger_value:.0}"))
+            },
             OptionType::Abandon => {
                 let trigger_value = option.salvage_value * 1.2;
-                Some(format!("value < ${:.0}", trigger_value))
-            }
+                Some(format!("value < ${trigger_value:.0}"))
+            },
             OptionType::Contract => {
                 let trigger_value = u.current_value * option.contraction_factor;
-                Some(format!("value < ${:.0}", trigger_value))
-            }
+                Some(format!("value < ${trigger_value:.0}"))
+            },
             _ => None,
         }
     }
@@ -309,7 +309,7 @@ impl RealOptionsEngine {
         // Add specific recommendations by option type
         for (name, result) in options {
             if let Some(ref trigger) = result.optimal_trigger {
-                parts.push(format!("{}: exercise when {}", name, trigger));
+                parts.push(format!("{name}: exercise when {trigger}"));
             }
         }
 

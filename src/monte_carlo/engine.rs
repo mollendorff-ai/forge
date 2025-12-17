@@ -115,7 +115,7 @@ impl MonteCarloEngine {
             // Try exact match first, then with "scalars." prefix
             let samples = input_samples
                 .get(var)
-                .or_else(|| input_samples.get(&format!("scalars.{}", var)))
+                .or_else(|| input_samples.get(&format!("scalars.{var}")))
                 .cloned()
                 .unwrap_or_else(|| vec![0.0; n]);
 
@@ -267,12 +267,12 @@ impl SimulationResult {
         ));
         output.push_str(&format!("  sampling: {}\n", self.config.sampling));
         if let Some(seed) = self.config.seed {
-            output.push_str(&format!("  seed: {}\n", seed));
+            output.push_str(&format!("  seed: {seed}\n"));
         }
 
         output.push_str("\n  outputs:\n");
         for (var, result) in &self.outputs {
-            output.push_str(&format!("    {}:\n", var));
+            output.push_str(&format!("    {var}:\n"));
             output.push_str(&format!("      mean: {:.4}\n", result.statistics.mean));
             output.push_str(&format!("      median: {:.4}\n", result.statistics.median));
             output.push_str(&format!(
@@ -284,13 +284,13 @@ impl SimulationResult {
 
             output.push_str("      percentiles:\n");
             for (p, v) in &result.statistics.percentiles {
-                output.push_str(&format!("        p{}: {:.4}\n", p, v));
+                output.push_str(&format!("        p{p}: {v:.4}\n"));
             }
 
             if !result.threshold_probabilities.is_empty() {
                 output.push_str("      thresholds:\n");
                 for (t, prob) in &result.threshold_probabilities {
-                    output.push_str(&format!("        \"{}\": {:.4}\n", t, prob));
+                    output.push_str(&format!("        \"{t}\": {prob:.4}\n"));
                 }
             }
         }
@@ -308,7 +308,7 @@ impl SimulationResult {
                 .statistics
                 .percentiles
                 .iter()
-                .map(|(p, v)| (format!("p{}", p), json!(v)))
+                .map(|(p, v)| (format!("p{p}"), json!(v)))
                 .collect();
 
             let thresholds: serde_json::Map<String, serde_json::Value> = result

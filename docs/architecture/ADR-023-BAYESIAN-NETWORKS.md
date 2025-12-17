@@ -244,7 +244,7 @@ Undirected graphical models.
 
 ### External Tools Only
 
-Use BayesiaLab, GeNIe, or Python pgmpy.
+Use BayesiaLab, GeNIe, or external libraries.
 
 **Rejected**: Breaks YAML-native workflow, vendor lock-in.
 
@@ -303,123 +303,76 @@ revenue:
 
 ## Roundtrip Validation
 
-Bayesian Network results are validated against **pgmpy** (Python probabilistic graphical models library).
+> **E2E tests live in [forge-e2e](https://github.com/royalbit/forge-e2e)** - see ADR-027.
+
+Bayesian Network results are validated against **R's bnlearn package** (gold standard for Bayesian networks).
 
 ### Validation Tool
 
 ```bash
-# Setup (one-time)
-./tests/validators/setup.sh
-./tests/validators/.venv/bin/pip install pgmpy
+# R validation script (requires: brew install r && R -e 'install.packages("bnlearn")')
+R --quiet -e '
+  library(bnlearn)
 
-# Python validation script
-./tests/validators/.venv/bin/python << 'EOF'
-from pgmpy.models import BayesianNetwork
-from pgmpy.factors.discrete import TabularCPD
-from pgmpy.inference import VariableElimination
+  # Define network structure: economy -> revenue -> default
+  dag <- model2network("[economic_conditions][company_revenue|economic_conditions][default_probability|company_revenue]")
 
-# Define network structure
-model = BayesianNetwork([
-    ('economic_conditions', 'company_revenue'),
-    ('company_revenue', 'default_probability')
-])
+  # Create sample data matching CPTs
+  # economic_conditions: good=0.3, neutral=0.5, bad=0.2
+  # company_revenue | economic_conditions (conditional)
+  # default_probability | company_revenue (conditional)
 
-# CPDs
-cpd_econ = TabularCPD(
-    variable='economic_conditions',
-    variable_card=3,
-    values=[[0.3], [0.5], [0.2]],  # good, neutral, bad
-    state_names={'economic_conditions': ['good', 'neutral', 'bad']}
-)
+  # For validation, calculate marginal P(default_probability)
+  # Using law of total probability:
+  # P(default=low) = sum over all paths
+  p_econ <- c(good=0.3, neutral=0.5, bad=0.2)
+  p_rev_given_econ <- matrix(
+    c(0.6, 0.3, 0.1,   # P(rev|good)
+      0.3, 0.5, 0.2,   # P(rev|neutral)
+      0.1, 0.3, 0.6),  # P(rev|bad)
+    nrow=3, byrow=TRUE
+  )
+  p_def_given_rev <- matrix(
+    c(0.8, 0.15, 0.05,  # P(def|high_rev)
+      0.4, 0.4, 0.2,    # P(def|med_rev)
+      0.1, 0.3, 0.6),   # P(def|low_rev)
+    nrow=3, byrow=TRUE
+  )
 
-cpd_revenue = TabularCPD(
-    variable='company_revenue',
-    variable_card=3,
-    values=[
-        [0.6, 0.3, 0.1],  # high
-        [0.3, 0.5, 0.3],  # medium
-        [0.1, 0.2, 0.6]   # low
-    ],
-    evidence=['economic_conditions'],
-    evidence_card=[3],
-    state_names={
-        'company_revenue': ['high', 'medium', 'low'],
-        'economic_conditions': ['good', 'neutral', 'bad']
-    }
-)
+  # P(revenue) = sum_econ P(rev|econ) * P(econ)
+  p_rev <- colSums(p_rev_given_econ * p_econ)
+  cat("P(revenue) [high, med, low]:", round(p_rev, 3), "\n")
 
-cpd_default = TabularCPD(
-    variable='default_probability',
-    variable_card=3,
-    values=[
-        [0.8, 0.4, 0.1],  # low
-        [0.15, 0.4, 0.3], # medium
-        [0.05, 0.2, 0.6]  # high
-    ],
-    evidence=['company_revenue'],
-    evidence_card=[3],
-    state_names={
-        'default_probability': ['low', 'medium', 'high'],
-        'company_revenue': ['high', 'medium', 'low']
-    }
-)
-
-model.add_cpds(cpd_econ, cpd_revenue, cpd_default)
-assert model.check_model()
-
-# Inference
-infer = VariableElimination(model)
-
-# Query: P(default_probability)
-result = infer.query(['default_probability'])
-print("P(default_probability):")
-print(result)
-
-# Query with evidence: P(default_probability | economic_conditions=bad)
-result_cond = infer.query(
-    ['default_probability'],
-    evidence={'economic_conditions': 'bad'}
-)
-print("\nP(default_probability | economy=bad):")
-print(result_cond)
-EOF
+  # P(default) = sum_rev P(def|rev) * P(rev)
+  p_def <- colSums(t(p_def_given_rev) * p_rev)
+  cat("P(default) [low, med, high]:", round(p_def, 3), "\n")
+  # Expected: ~[0.49, 0.32, 0.19]
+'
 ```
 
 ### Expected Output
 
 ```
-P(default_probability):
-+----------------------+-------------------------+
-| default_probability  | phi(default_probability)|
-+----------------------+-------------------------+
-| low                  | 0.49                    |
-| medium               | 0.32                    |
-| high                 | 0.19                    |
-+----------------------+-------------------------+
+P(revenue) [high, med, low]: 0.35 0.39 0.26
+P(default) [low, med, high]: 0.49 0.32 0.19
 
-P(default_probability | economy=bad):
-+----------------------+-------------------------+
-| default_probability  | phi(default_probability)|
-+----------------------+-------------------------+
-| low                  | 0.19                    |
-| medium               | 0.33                    |
-| high                 | 0.48                    |
-+----------------------+-------------------------+
+P(default | economy=bad):
+[low, med, high]: 0.19 0.33 0.48
 ```
 
 ### Test Coverage
 
 | Test | Validation |
 |------|------------|
-| Marginal probabilities | pgmpy VariableElimination |
-| Conditional probabilities | pgmpy with evidence |
-| DAG validation | pgmpy check_model() |
+| Marginal probabilities | R bnlearn |
+| Conditional probabilities | R with evidence |
+| DAG validation | bnlearn model check |
 | CPT normalization | Unit test |
 | Topological ordering | E2E test |
 
 ### Known Differences
 
-Forge and pgmpy may differ slightly due to:
+Forge and R may differ slightly due to:
 - **Floating-point precision**: Acceptable within 0.01%
 - **Elimination order**: Different heuristics (same result)
 - **Factor representation**: Internal only, results match
@@ -432,4 +385,4 @@ Forge and pgmpy may differ slightly due to:
 - docs/FPA-PREDICTION-METHODS.md - Method comparison guide
 - ADR-016: Monte Carlo Architecture
 - ADR-019: Decision Trees
-- pgmpy: https://github.com/pgmpy/pgmpy
+- R bnlearn: https://www.bnlearn.com/

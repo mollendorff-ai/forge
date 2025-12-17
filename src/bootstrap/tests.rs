@@ -41,7 +41,7 @@ fn test_financial_returns_bootstrap() {
     let widths: Vec<f64> = result
         .confidence_intervals
         .iter()
-        .map(|ci| ci.width())
+        .map(super::engine::ConfidenceInterval::width)
         .collect();
     for i in 0..widths.len() - 1 {
         // Higher confidence should mean wider interval

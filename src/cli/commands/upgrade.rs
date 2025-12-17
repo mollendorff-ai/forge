@@ -52,7 +52,7 @@ pub fn upgrade(
     println!("{}", "🔥 Forge - Schema Upgrade".bold().green());
     println!();
     println!("   File:    {}", file.display());
-    println!("   Target:  v{}", target_version);
+    println!("   Target:  v{target_version}");
     if dry_run {
         println!("   Mode:    {} (no files modified)", "DRY RUN".yellow());
     }
@@ -199,20 +199,18 @@ pub fn upgrade_file_recursive(
         // Create backup
         let backup_path = file.with_extension("yaml.bak");
         fs::copy(file, &backup_path)
-            .map_err(|e| ForgeError::IO(format!("Failed to create backup: {}", e)))?;
+            .map_err(|e| ForgeError::IO(format!("Failed to create backup: {e}")))?;
         if verbose {
             println!("      {} Backup: {}", "📋".dimmed(), backup_path.display());
         }
 
         // Write upgraded content
         let upgraded_content = serde_yaml_ng::to_string(&yaml)
-            .map_err(|e| ForgeError::IO(format!("Failed to serialize YAML: {}", e)))?;
+            .map_err(|e| ForgeError::IO(format!("Failed to serialize YAML: {e}")))?;
 
         // Preserve comments by writing a header
-        let final_content = format!(
-            "# Upgraded to Forge v{} by 'forge upgrade'\n{}",
-            target_version, upgraded_content
-        );
+        let final_content =
+            format!("# Upgraded to Forge v{target_version} by 'forge upgrade'\n{upgraded_content}");
 
         fs::write(file, final_content)
             .map_err(|e| ForgeError::IO(format!("Failed to write {}: {}", file.display(), e)))?;
@@ -271,8 +269,7 @@ pub fn split_scalars_to_inputs_outputs(
                 let has_formula = mapping.contains_key(&formula_key)
                     && mapping
                         .get(&formula_key)
-                        .map(|f| !f.is_null() && f.as_str().map(|s| !s.is_empty()).unwrap_or(false))
-                        .unwrap_or(false);
+                        .is_some_and(|f| !f.is_null() && f.as_str().is_some_and(|s| !s.is_empty()));
 
                 if has_formula {
                     outputs.insert(key.clone(), value.clone());
@@ -404,10 +401,10 @@ y:
         let yaml_path = dir.path().join("noversion.yaml");
         std::fs::write(
             &yaml_path,
-            r#"x:
+            r"x:
   value: 10
   formula: null
-"#,
+",
         )
         .unwrap();
 

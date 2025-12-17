@@ -20,13 +20,13 @@ pub fn try_evaluate(
                 match &args[i] {
                     Expr::Reference(Reference::Scalar(name)) => {
                         params.push(name.clone());
-                    }
+                    },
                     _ => {
                         return Err(EvalError::new(format!(
                             "LAMBDA parameter {} must be an identifier",
                             i + 1
                         )));
-                    }
+                    },
                 }
             }
 
@@ -36,7 +36,7 @@ pub fn try_evaluate(
                 params,
                 body: Box::new(body),
             }
-        }
+        },
 
         "LET" => {
             // LET(name1, value1, [name2, value2, ...], calculation)
@@ -63,7 +63,7 @@ pub fn try_evaluate(
             }
 
             evaluate(&args[args.len() - 1], &new_ctx)?
-        }
+        },
 
         "SWITCH" => {
             // SWITCH(expression, value1, result1, [value2, result2], ..., [default])
@@ -88,7 +88,7 @@ pub fn try_evaluate(
             } else {
                 return Err(EvalError::new("SWITCH: No match found"));
             }
-        }
+        },
 
         _ => return Ok(None),
     };

@@ -172,8 +172,7 @@ mod black_scholes_tests {
 
         assert!(
             (call - 10.4506).abs() < 0.01,
-            "Call price should be ~10.4506, got {}",
-            call
+            "Call price should be ~10.4506, got {call}"
         );
     }
 
@@ -185,8 +184,7 @@ mod black_scholes_tests {
 
         assert!(
             (put - 5.5735).abs() < 0.01,
-            "Put price should be ~5.5735, got {}",
-            put
+            "Put price should be ~5.5735, got {put}"
         );
     }
 
@@ -202,9 +200,7 @@ mod black_scholes_tests {
 
         assert!(
             (lhs - rhs).abs() < 0.0001,
-            "Put-call parity violated: {} != {}",
-            lhs,
-            rhs
+            "Put-call parity violated: {lhs} != {rhs}"
         );
     }
 

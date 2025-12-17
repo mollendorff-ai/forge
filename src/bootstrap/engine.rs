@@ -154,30 +154,30 @@ impl BootstrapEngine {
                 sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                 let mid = sorted.len() / 2;
                 if sorted.len().is_multiple_of(2) {
-                    (sorted[mid - 1] + sorted[mid]) / 2.0
+                    f64::midpoint(sorted[mid - 1], sorted[mid])
                 } else {
                     sorted[mid]
                 }
-            }
+            },
             BootstrapStatistic::Std => {
                 let mean = sample.iter().sum::<f64>() / sample.len() as f64;
                 let variance: f64 = sample.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
                     / (sample.len() - 1) as f64;
                 variance.sqrt()
-            }
+            },
             BootstrapStatistic::Var => {
                 let mean = sample.iter().sum::<f64>() / sample.len() as f64;
                 sample.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (sample.len() - 1) as f64
-            }
+            },
             BootstrapStatistic::Percentile => {
                 let mut sorted = sample.to_vec();
                 sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                 let idx = ((self.config.percentile_value / 100.0) * (sorted.len() as f64 - 1.0))
                     .round() as usize;
                 sorted[idx.min(sorted.len() - 1)]
-            }
-            BootstrapStatistic::Min => sample.iter().cloned().fold(f64::INFINITY, f64::min),
-            BootstrapStatistic::Max => sample.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
+            },
+            BootstrapStatistic::Min => sample.iter().copied().fold(f64::INFINITY, f64::min),
+            BootstrapStatistic::Max => sample.iter().copied().fold(f64::NEG_INFINITY, f64::max),
         }
     }
 

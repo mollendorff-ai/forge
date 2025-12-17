@@ -5,13 +5,13 @@ fn main() {
     let mut workbook: Xlsx<_> = open_workbook(path).unwrap();
 
     for sheet_name in ["pl_2025", "opex_2025", "final_pl"] {
-        println!("\n=== Sheet: {} ===", sheet_name);
+        println!("\n=== Sheet: {sheet_name} ===");
 
         if let Ok(data_range) = workbook.worksheet_range(sheet_name) {
             println!("Headers:");
             for col in 0..data_range.get_size().1 {
                 if let Some(cell) = data_range.get((0, col)) {
-                    println!("  Col {}: {}", col, cell);
+                    println!("  Col {col}: {cell}");
                 }
             }
         }
@@ -23,7 +23,7 @@ fn main() {
                     if !formula.is_empty() {
                         if let Ok(data_range) = workbook.worksheet_range(sheet_name) {
                             if let Some(header) = data_range.get((0, col)) {
-                                println!("  Col {} ({}): {}", col, header, formula);
+                                println!("  Col {col} ({header}): {formula}");
                             }
                         }
                     }

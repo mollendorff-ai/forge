@@ -6,9 +6,9 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: null
-  status: idle
-  summary: "No active milestone - awaiting next task"
+  version: "9.9.0"
+  status: in_progress
+  summary: "Incremental test migration - forge-demo edge cases to inline unit tests"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT - Candidate milestones (pick one to start)
@@ -16,6 +16,7 @@ current:
 
 next:
   # v9.8.0 E2E Test Migration - COMPLETED (see CHANGELOG.md)
+  # v9.8.1 Cleanup - e2e tests deleted from forge, pedantic linting in Cargo.toml
 
   - version: "10.0.0"
     priority: NORMAL
@@ -59,6 +60,16 @@ next:
       - "Cache repeated calculations"
       - "Target: 2-10x from algorithmic improvements"
 
+  - version: "9.9.0"
+    priority: HIGH
+    status: pending
+    summary: "Incremental test migration - forge-demo edge cases to inline unit tests"
+    deliverables:
+      - "Copy remaining edge cases from forge-demo/tests/e2e/*.yaml"
+      - "Add as inline unit tests in appropriate src/ modules"
+      - "Verify all edge cases pass"
+      - "Update test count in --help header"
+
   - version: "7.3.0"
     priority: NORMAL
     status: pending
@@ -98,5 +109,5 @@ bugs: []
 summary:
   total_functions: 173
   categories: 15
-  tests: 1643
+  unit_tests: 1705
   history: "See CHANGELOG.md"

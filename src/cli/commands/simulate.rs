@@ -94,8 +94,8 @@ pub fn simulate(
     println!("   {}", "Input Distributions:".bold());
     for (var_name, samples) in &result.input_samples {
         let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
-        let min = samples.iter().cloned().fold(f64::INFINITY, f64::min);
-        let max = samples.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         println!(
             "      {} mean={:.2} min={:.2} max={:.2}",
             var_name.bright_blue(),
@@ -121,7 +121,7 @@ pub fn simulate(
             // Percentiles
             println!("         Percentiles:");
             for (p, v) in &stats.percentiles {
-                println!("            P{}: {:.4}", p, v);
+                println!("            P{p}: {v:.4}");
             }
 
             // Thresholds
@@ -145,18 +145,18 @@ pub fn simulate(
                 // Excel export
                 crate::monte_carlo::excel_export::export_results(&result, &output_path)
                     .map_err(ForgeError::Validation)?;
-            }
+            },
             Some("json") => {
                 let output_str = result
                     .to_json()
-                    .map_err(|e| ForgeError::Validation(format!("JSON error: {}", e)))?;
+                    .map_err(|e| ForgeError::Validation(format!("JSON error: {e}")))?;
                 fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
-            }
+            },
             _ => {
                 // Default to YAML
                 let output_str = result.to_yaml();
                 fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
-            }
+            },
         }
 
         println!(
@@ -176,11 +176,11 @@ pub fn simulate(
 fn parse_monte_carlo_config(yaml_content: &str) -> ForgeResult<MonteCarloConfig> {
     // Try to parse the monte_carlo section from the YAML
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {}", e)))?;
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     if let Some(mc_value) = value.get("monte_carlo") {
         let config: MonteCarloConfig = serde_yaml_ng::from_value(mc_value.clone())
-            .map_err(|e| ForgeError::Validation(format!("monte_carlo config error: {}", e)))?;
+            .map_err(|e| ForgeError::Validation(format!("monte_carlo config error: {e}")))?;
         Ok(config)
     } else {
         // No monte_carlo section - use defaults
@@ -254,7 +254,7 @@ scalars:
     formula: "=MC.Normal(100000, 15000)"
 "#;
         let mut file = NamedTempFile::new().unwrap();
-        writeln!(file, "{}", yaml).unwrap();
+        writeln!(file, "{yaml}").unwrap();
 
         // This test verifies the config parsing and basic flow
         // The actual simulate function requires a valid model

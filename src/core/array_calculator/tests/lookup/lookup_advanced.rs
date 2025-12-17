@@ -170,8 +170,7 @@ fn test_vlookup_exact_match() {
                 || err_msg.contains("table")
                 || err_msg.contains("Unknown variable")
                 || err_msg.contains("products"),
-            "VLOOKUP should error with meaningful message, got: {}",
-            err_msg
+            "VLOOKUP should error with meaningful message, got: {err_msg}"
         );
     } else {
         // If it succeeds, verify the correct price is returned
@@ -571,8 +570,7 @@ fn test_vlookup_with_text_search_value() {
                 || err_msg.contains("table")
                 || err_msg.contains("Unknown variable")
                 || err_msg.contains("products"),
-            "VLOOKUP should error with meaningful message, got: {}",
-            err_msg
+            "VLOOKUP should error with meaningful message, got: {err_msg}"
         );
     } else {
         // If it succeeds, verify the correct price is returned

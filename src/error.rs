@@ -112,7 +112,7 @@ impl FormulaErrorContext {
         );
 
         if let Some(ref suggestion) = self.suggestion {
-            msg.push_str(&format!("\n  Suggestion: {}", suggestion));
+            msg.push_str(&format!("\n  Suggestion: {suggestion}"));
         }
 
         if !self.available_columns.is_empty() && self.available_columns.len() <= 10 {
@@ -245,7 +245,7 @@ mod tests {
     fn test_formula_error_context_format_error_many_columns() {
         // More than 10 columns should not be shown
         let ctx = FormulaErrorContext::new("=SUM(a)", "test.col", "error")
-            .with_available_columns((0..15).map(|i| format!("col{}", i)).collect::<Vec<_>>());
+            .with_available_columns((0..15).map(|i| format!("col{i}")).collect::<Vec<_>>());
         let msg = ctx.format_error();
 
         // Should NOT show columns when there are too many

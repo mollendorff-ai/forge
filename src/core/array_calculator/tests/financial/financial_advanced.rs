@@ -36,8 +36,7 @@ fn test_mirr_function_scalar() {
     // MIRR should return a reasonable modified internal rate of return (typically between -50% and 50%)
     assert!(
         mirr > -0.5 && mirr < 0.5,
-        "MIRR should be reasonable, got {}",
-        mirr
+        "MIRR should be reasonable, got {mirr}"
     );
 }
 
@@ -64,8 +63,7 @@ fn test_ddb_function_coverage() {
     // DDB(30000, 7500, 10, 1) should return first year depreciation around $6,000
     assert!(
         ddb > 5000.0 && ddb < 7000.0,
-        "DDB should be around 6000, got {}",
-        ddb
+        "DDB should be around 6000, got {ddb}"
     );
 }
 
@@ -90,8 +88,7 @@ fn test_db_depreciation_valid() {
     // DB(10000, 1000, 5, 1) should return first year depreciation around $3,690
     assert!(
         depr > 3000.0 && depr < 4500.0,
-        "DB depreciation should be around 3690, got {}",
-        depr
+        "DB depreciation should be around 3690, got {depr}"
     );
 }
 
@@ -116,8 +113,7 @@ fn test_db_negative_life_error() {
     // DB with negative life returns a calculated value (negative depreciation)
     assert!(
         depr.is_finite(),
-        "DB with negative life should return finite value, got {}",
-        depr
+        "DB with negative life should return finite value, got {depr}"
     );
 }
 
@@ -142,8 +138,7 @@ fn test_db_period_exceeds_life() {
     // DB with period > life returns a calculated value (depreciation beyond life)
     assert!(
         depr >= 0.0 && depr.is_finite(),
-        "DB with period > life should return finite value, got {}",
-        depr
+        "DB with period > life should return finite value, got {depr}"
     );
 }
 
@@ -164,8 +159,7 @@ fn test_syd_depreciation() {
     // SYD function is not implemented yet
     assert!(
         result.is_err(),
-        "SYD function should not be implemented yet, but got: {:?}",
-        result
+        "SYD function should not be implemented yet, but got: {result:?}"
     );
 }
 
@@ -186,8 +180,7 @@ fn test_vdb_depreciation() {
     // VDB function is not implemented yet
     assert!(
         result.is_err(),
-        "VDB function should not be implemented yet, but got: {:?}",
-        result
+        "VDB function should not be implemented yet, but got: {result:?}"
     );
 }
 
@@ -212,8 +205,7 @@ fn test_ddb_depreciation() {
     // DDB(10000, 1000, 5, 1) should return first year depreciation around $4,000
     assert!(
         depr > 3500.0 && depr < 4500.0,
-        "DDB depreciation should be around 4000, got {}",
-        depr
+        "DDB depreciation should be around 4000, got {depr}"
     );
 }
 
@@ -244,8 +236,7 @@ fn test_mirr_function() {
     // MIRR for [-1000, 300, 400, 400, 300] with finance=0.1, reinvest=0.12 should be around 13.7%
     assert!(
         mirr > 0.10 && mirr < 0.20,
-        "MIRR should be around 0.137, got {}",
-        mirr
+        "MIRR should be around 0.137, got {mirr}"
     );
 }
 
@@ -271,11 +262,7 @@ fn test_ppmt_function() {
     let ppmt = result.scalars.get("principal_pmt").unwrap().value.unwrap();
 
     // PPMT should be negative (payment)
-    assert!(
-        ppmt < 0.0,
-        "PPMT should be negative (payment), got {}",
-        ppmt
-    );
+    assert!(ppmt < 0.0, "PPMT should be negative (payment), got {ppmt}");
 }
 
 #[test]
@@ -300,11 +287,7 @@ fn test_ipmt_function() {
     let ipmt = result.scalars.get("interest_pmt").unwrap().value.unwrap();
 
     // IPMT should be negative (interest payment)
-    assert!(
-        ipmt < 0.0,
-        "IPMT should be negative (payment), got {}",
-        ipmt
-    );
+    assert!(ipmt < 0.0, "IPMT should be negative (payment), got {ipmt}");
 }
 
 #[test]
@@ -331,8 +314,7 @@ fn test_effect_function() {
     // Effective rate should be slightly higher than nominal
     assert!(
         effect > 0.06 && effect < 0.07,
-        "EFFECT should be around 6.17%, got {}",
-        effect
+        "EFFECT should be around 6.17%, got {effect}"
     );
 }
 
@@ -360,8 +342,7 @@ fn test_nominal_function() {
     // Nominal rate should be around 6%
     assert!(
         nominal > 0.05 && nominal < 0.07,
-        "NOMINAL should be around 6%, got {}",
-        nominal
+        "NOMINAL should be around 6%, got {nominal}"
     );
 }
 
@@ -389,8 +370,7 @@ fn test_pricedisc_function() {
     // Price should be less than face value
     assert!(
         price > 95.0 && price < 100.0,
-        "PRICEDISC should be around 97.5, got {}",
-        price
+        "PRICEDISC should be around 97.5, got {price}"
     );
 }
 
@@ -416,7 +396,7 @@ fn test_yielddisc_function() {
     let yld = result.scalars.get("yield_val").unwrap().value.unwrap();
 
     // Yield should be positive
-    assert!(yld > 0.0, "YIELDDISC should be positive, got {}", yld);
+    assert!(yld > 0.0, "YIELDDISC should be positive, got {yld}");
 }
 
 #[test]
@@ -448,8 +428,7 @@ fn test_accrint_function() {
     // Accrued interest should be positive and less than annual interest
     assert!(
         accrint > 0.0 && accrint < 60.0,
-        "ACCRINT should be around 30, got {}",
-        accrint
+        "ACCRINT should be around 30, got {accrint}"
     );
 }
 
@@ -475,8 +454,7 @@ fn test_db_zero_salvage() {
     // DB with zero salvage should still calculate
     assert!(
         depr > 0.0 && depr.is_finite(),
-        "DB with zero salvage should be positive, got {}",
-        depr
+        "DB with zero salvage should be positive, got {depr}"
     );
 }
 
@@ -498,8 +476,7 @@ fn test_db_first_period() {
     // First period depreciation
     assert!(
         depr > 0.0 && depr < 10000.0,
-        "DB first period should be between 0 and cost, got {}",
-        depr
+        "DB first period should be between 0 and cost, got {depr}"
     );
 }
 
@@ -521,8 +498,7 @@ fn test_db_last_period() {
     // Last period depreciation should be smaller
     assert!(
         depr >= 0.0 && depr.is_finite(),
-        "DB last period should be non-negative, got {}",
-        depr
+        "DB last period should be non-negative, got {depr}"
     );
 }
 
@@ -544,8 +520,7 @@ fn test_ddb_zero_salvage() {
     // DDB with zero salvage: first year = cost * (2/life) = 10000 * 0.4 = 4000
     assert!(
         (depr - 4000.0).abs() < 0.1,
-        "DDB zero salvage first period should be 4000, got {}",
-        depr
+        "DDB zero salvage first period should be 4000, got {depr}"
     );
 }
 
@@ -567,8 +542,7 @@ fn test_ddb_last_period() {
     // Last period should approach salvage value
     assert!(
         depr >= 0.0 && depr.is_finite(),
-        "DDB last period should be non-negative, got {}",
-        depr
+        "DDB last period should be non-negative, got {depr}"
     );
 }
 
@@ -590,8 +564,7 @@ fn test_ddb_period_greater_than_life() {
     // After life is exhausted, depreciation should be 0
     assert!(
         depr >= 0.0 && depr.is_finite(),
-        "DDB period > life should return 0 or minimal value, got {}",
-        depr
+        "DDB period > life should return 0 or minimal value, got {depr}"
     );
 }
 
@@ -622,8 +595,7 @@ fn test_accrint_semiannual_frequency() {
     // Semiannual frequency should calculate correctly
     assert!(
         accrint > 0.0 && accrint < 60.0,
-        "ACCRINT semiannual should be reasonable, got {}",
-        accrint
+        "ACCRINT semiannual should be reasonable, got {accrint}"
     );
 }
 
@@ -650,8 +622,7 @@ fn test_accrint_quarterly_frequency() {
     // Quarterly frequency should calculate correctly
     assert!(
         accrint > 0.0 && accrint < 60.0,
-        "ACCRINT quarterly should be reasonable, got {}",
-        accrint
+        "ACCRINT quarterly should be reasonable, got {accrint}"
     );
 }
 
@@ -697,8 +668,7 @@ fn test_accrint_near_maturity() {
     // Interest = 1000 * 0.06 * (360/360) = 60
     assert!(
         (accrint - 60.0).abs() < 1.0,
-        "ACCRINT near maturity should be around 60, got {}",
-        accrint
+        "ACCRINT near maturity should be around 60, got {accrint}"
     );
 }
 
@@ -730,8 +700,7 @@ fn test_mirr_different_rates() {
     // MIRR should be between finance and reinvestment rates
     assert!(
         mirr > 0.0 && mirr < 0.50,
-        "MIRR should be reasonable, got {}",
-        mirr
+        "MIRR should be reasonable, got {mirr}"
     );
 }
 
@@ -757,7 +726,6 @@ fn test_sln_zero_salvage() {
     // SLN with zero salvage: 10000 / 5 = 2000
     assert!(
         (depr - 2000.0).abs() < 0.01,
-        "SLN zero salvage should be 2000, got {}",
-        depr
+        "SLN zero salvage should be 2000, got {depr}"
     );
 }

@@ -60,11 +60,10 @@ fn test_adr_credit_risk_example() {
     let p_high_default = default.probabilities[2]; // high is index 2
     assert!(
         p_high_default > 0.3,
-        "P(default=high | economy=bad) should be high: {}",
-        p_high_default
+        "P(default=high | economy=bad) should be high: {p_high_default}"
     );
 
-    println!("P(default=high | economy=bad) = {:.3}", p_high_default);
+    println!("P(default=high | economy=bad) = {p_high_default:.3}");
 }
 
 /// Test the chain A -> B -> C
@@ -201,8 +200,7 @@ fn test_pgmpy_equivalence() {
     let p_a = grade.probabilities[0];
     assert!(
         (p_a - 0.185).abs() < 0.02,
-        "P(Grade=A) should be ~0.185, got {}",
-        p_a
+        "P(Grade=A) should be ~0.185, got {p_a}"
     );
 
     println!("P(Grade) = {:?}", grade.probabilities);
@@ -220,9 +218,7 @@ fn test_probability_normalization() {
         let sum: f64 = var_result.probabilities.iter().sum();
         assert!(
             (sum - 1.0).abs() < 0.001,
-            "Variable {} probabilities should sum to 1.0, got {}",
-            name,
-            sum
+            "Variable {name} probabilities should sum to 1.0, got {sum}"
         );
     }
 }
@@ -248,9 +244,7 @@ fn test_evidence_effect() {
     // Good economy should reduce default probability
     assert!(
         p_high_posterior < p_high_prior,
-        "Good economy should reduce default risk: prior={}, posterior={}",
-        p_high_prior,
-        p_high_posterior
+        "Good economy should reduce default risk: prior={p_high_prior}, posterior={p_high_posterior}"
     );
 }
 

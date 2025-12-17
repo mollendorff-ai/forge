@@ -116,7 +116,7 @@ impl MonteCarloConfig {
 
         let valid_sampling = ["monte_carlo", "latin_hypercube"];
         if !valid_sampling.contains(&self.sampling.as_str()) {
-            return Err(format!("sampling must be one of: {:?}", valid_sampling));
+            return Err(format!("sampling must be one of: {valid_sampling:?}"));
         }
 
         for corr in &self.correlations {

@@ -49,7 +49,7 @@ fn test_match_exact() {
             assert_eq!(nums[0], 2.0); // 102 is at position 2 (1-based)
             assert_eq!(nums[1], 4.0); // 104 is at position 4
             assert_eq!(nums[2], 1.0); // 101 is at position 1
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -92,7 +92,7 @@ fn test_index_basic() {
             assert_eq!(texts[0], "Widget A");
             assert_eq!(texts[1], "Widget C");
             assert_eq!(texts[2], "Widget B");
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 }
@@ -149,7 +149,7 @@ fn test_index_match_combined() {
             assert_eq!(texts[0], "Widget B");
             assert_eq!(texts[1], "Widget A");
             assert_eq!(texts[2], "Widget C");
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 
@@ -159,7 +159,7 @@ fn test_index_match_combined() {
             assert_eq!(nums[0], 20.0);
             assert_eq!(nums[1], 10.0);
             assert_eq!(nums[2], 30.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -209,7 +209,7 @@ fn test_xlookup_exact_match() {
             assert_eq!(texts[0], "Widget B");
             assert_eq!(texts[1], "Widget C");
             assert_eq!(texts[2], "Widget A");
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 }
@@ -260,7 +260,7 @@ fn test_xlookup_with_if_not_found() {
             assert_eq!(texts[0], "Widget B");
             assert_eq!(texts[1], "Not Found");
             assert_eq!(texts[2], "Widget A");
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 }
@@ -289,8 +289,7 @@ fn test_choose_function() {
     // CHOOSE(2, ...) should return the second value = 0.10
     assert!(
         (rate - 0.10).abs() < 0.001,
-        "CHOOSE(2, ...) should return 0.10, got {}",
-        rate
+        "CHOOSE(2, ...) should return 0.10, got {rate}"
     );
 }
 
@@ -343,16 +342,14 @@ fn test_indirect_function() {
     // SUM(100+200+300+400+500) = 1500
     assert!(
         (sum - 1500.0).abs() < 0.001,
-        "INDIRECT column SUM should return 1500, got {}",
-        sum
+        "INDIRECT column SUM should return 1500, got {sum}"
     );
 
     let rate = result.scalars.get("rate_indirect").unwrap().value.unwrap();
     // 0.1 * 100 = 10
     assert!(
         (rate - 10.0).abs() < 0.001,
-        "INDIRECT scalar should return 10, got {}",
-        rate
+        "INDIRECT scalar should return 10, got {rate}"
     );
 }
 

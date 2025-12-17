@@ -115,10 +115,9 @@ fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedMo
             Ok(v) => v,
             Err(e) => {
                 return Err(ForgeError::Parse(format!(
-                    "Failed to parse document {}: {}",
-                    doc_index, e
+                    "Failed to parse document {doc_index}: {e}"
                 )));
-            }
+            },
         };
 
         let doc_model = parse_v1_model(&yaml)?;
@@ -127,12 +126,12 @@ fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedMo
         let doc_name = if let Some(Value::String(name)) = yaml.get("_name") {
             name.clone()
         } else {
-            format!("doc{}", doc_index)
+            format!("doc{doc_index}")
         };
 
         // Merge tables with document prefix
         for (table_name, table) in doc_model.tables {
-            let prefixed_name = format!("{}.{}", doc_name, table_name);
+            let prefixed_name = format!("{doc_name}.{table_name}");
             let mut prefixed_table = table;
             prefixed_table.name = prefixed_name.clone();
             merged_model.tables.insert(prefixed_name, prefixed_table);
@@ -140,7 +139,7 @@ fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedMo
 
         // Merge scalars with document prefix
         for (scalar_name, mut scalar) in doc_model.scalars {
-            let prefixed_name = format!("{}.{}", doc_name, scalar_name);
+            let prefixed_name = format!("{doc_name}.{scalar_name}");
             scalar.path = prefixed_name.clone();
             merged_model.scalars.insert(prefixed_name, scalar);
         }
@@ -152,7 +151,7 @@ fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedMo
 
         // Merge scenarios
         for (scenario_name, scenario) in doc_model.scenarios {
-            let prefixed_name = format!("{}.{}", doc_name, scenario_name);
+            let prefixed_name = format!("{doc_name}.{scenario_name}");
             merged_model.scenarios.insert(prefixed_name, scenario);
         }
 
@@ -333,7 +332,7 @@ fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
     for (name, table) in &model.tables {
         table
             .validate_lengths()
-            .map_err(|e| ForgeError::Validation(format!("Table '{}': {}", name, e)))?;
+            .map_err(|e| ForgeError::Validation(format!("Table '{name}': {e}")))?;
     }
 
     Ok(model)
@@ -358,28 +357,27 @@ fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         "5.0.0" => include_str!("../../schema/forge-v5.0.0.schema.json"),
         _ => {
             return Err(ForgeError::Validation(format!(
-                "Unsupported _forge_version: '{}'. Supported versions: 1.0.0 (scalar-only for forge-demo), 5.0.0 (arrays/tables for enterprise)",
-                version
+                "Unsupported _forge_version: '{version}'. Supported versions: 1.0.0 (scalar-only for forge-demo), 5.0.0 (arrays/tables for enterprise)"
             )));
-        }
+        },
     };
 
     let schema_value: serde_json::Value = serde_json::from_str(schema_str)
-        .map_err(|e| ForgeError::Validation(format!("Failed to parse schema: {}", e)))?;
+        .map_err(|e| ForgeError::Validation(format!("Failed to parse schema: {e}")))?;
 
     // Convert YAML to JSON for validation
     let json_value: serde_json::Value = serde_json::to_value(yaml)
-        .map_err(|e| ForgeError::Validation(format!("Failed to convert YAML to JSON: {}", e)))?;
+        .map_err(|e| ForgeError::Validation(format!("Failed to convert YAML to JSON: {e}")))?;
 
     // Build the validator
     let validator = jsonschema::validator_for(&schema_value)
-        .map_err(|e| ForgeError::Validation(format!("Failed to compile schema: {}", e)))?;
+        .map_err(|e| ForgeError::Validation(format!("Failed to compile schema: {e}")))?;
 
     // Validate
     if let Err(_error) = validator.validate(&json_value) {
         let error_messages: Vec<String> = validator
             .iter_errors(&json_value)
-            .map(|e| format!("  - {}", e))
+            .map(|e| format!("  - {e}"))
             .collect();
         return Err(ForgeError::Validation(format!(
             "Schema validation failed:\n{}",
@@ -431,7 +429,7 @@ fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
                     // Check for direct array values (table columns)
                     if matches!(col_value, Value::Sequence(_)) {
                         return Err(ForgeError::Validation(format!(
-                            "v1.0.0 models do not support tables/arrays. Found table '{}' with array column '{}'.\n\
+                            "v1.0.0 models do not support tables/arrays. Found table '{key_str}' with array column '{col_key_str}'.\n\
                             \n\
                             v1.0.0 is for forge-demo and only supports scalar values.\n\
                             To use tables/arrays, upgrade to v5.0.0 (enterprise):\n\
@@ -439,14 +437,8 @@ fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
                             _forge_version: \"5.0.0\"\n\
                             \n\
                             Or convert your table to scalars using dot notation:\n\
-                            {}.{}: {{ value: ..., formula: null }}\n\
-                            {}.{}: {{ value: ..., formula: null }}",
-                            key_str,
-                            col_key_str,
-                            key_str,
-                            col_key_str,
-                            key_str,
-                            col_key_str
+                            {key_str}.{col_key_str}: {{ value: ..., formula: null }}\n\
+                            {key_str}.{col_key_str}: {{ value: ..., formula: null }}"
                         )));
                     }
 
@@ -454,14 +446,12 @@ fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
                     if let Value::Mapping(col_map) = col_value {
                         if let Some(Value::Sequence(_)) = col_map.get("value") {
                             return Err(ForgeError::Validation(format!(
-                                "v1.0.0 models do not support tables/arrays. Found table '{}' with array column '{}' (rich format).\n\
+                                "v1.0.0 models do not support tables/arrays. Found table '{key_str}' with array column '{col_key_str}' (rich format).\n\
                                 \n\
                                 v1.0.0 is for forge-demo and only supports scalar values.\n\
                                 To use tables/arrays, upgrade to v5.0.0 (enterprise):\n\
                                 \n\
-                                _forge_version: \"5.0.0\"",
-                                key_str,
-                                col_key_str
+                                _forge_version: \"5.0.0\""
                             )));
                         }
                     }
@@ -470,14 +460,12 @@ fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
                     if let Value::String(s) = col_value {
                         if s.starts_with('=') {
                             return Err(ForgeError::Validation(format!(
-                                "v1.0.0 models do not support tables/arrays. Found table '{}' with formula column '{}'.\n\
+                                "v1.0.0 models do not support tables/arrays. Found table '{key_str}' with formula column '{col_key_str}'.\n\
                                 \n\
                                 v1.0.0 is for forge-demo and only supports scalar values.\n\
                                 To use tables/arrays, upgrade to v5.0.0 (enterprise):\n\
                                 \n\
-                                _forge_version: \"5.0.0\"",
-                                key_str,
-                                col_key_str
+                                _forge_version: \"5.0.0\""
                             )));
                         }
                     }
@@ -524,7 +512,7 @@ fn parse_nested_scalars(
         if let Value::Mapping(child_map) = value {
             if child_map.contains_key("value") || child_map.contains_key("formula") {
                 // This is a scalar variable
-                let full_path = format!("{}.{}", parent_key, key_str);
+                let full_path = format!("{parent_key}.{key_str}");
                 let variable = parse_scalar_variable(value, &full_path)?;
                 model.add_scalar(full_path.clone(), variable);
             }
@@ -586,8 +574,7 @@ fn parse_table(name: &str, map: &serde_yaml_ng::Mapping) -> ForgeResult<Table> {
             table.add_column(column);
         } else {
             return Err(ForgeError::Parse(format!(
-                "Column '{}' in table '{}' must be an array or formula",
-                col_name, name
+                "Column '{col_name}' in table '{name}' must be an array or formula"
             )));
         }
     }
@@ -598,7 +585,7 @@ fn parse_table(name: &str, map: &serde_yaml_ng::Mapping) -> ForgeResult<Table> {
 /// Parse a scalar variable (v4.0 enhanced with metadata)
 fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable> {
     if let Value::Mapping(map) = value {
-        let val = map.get("value").and_then(|v| v.as_f64());
+        let val = map.get("value").and_then(serde_yaml_ng::Value::as_f64);
         let formula = map
             .get("formula")
             .and_then(|f| f.as_str().map(std::string::ToString::to_string));
@@ -614,8 +601,7 @@ fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable> {
         })
     } else {
         Err(ForgeError::Parse(format!(
-            "Expected mapping for scalar variable '{}'",
-            path
+            "Expected mapping for scalar variable '{path}'"
         )))
     }
 }
@@ -673,16 +659,14 @@ fn parse_scenarios(
                 let value = match var_value {
                     Value::Number(n) => n.as_f64().ok_or_else(|| {
                         ForgeError::Parse(format!(
-                            "Scenario '{}': Variable '{}' must be a number",
-                            name, var_name_str
+                            "Scenario '{name}': Variable '{var_name_str}' must be a number"
                         ))
                     })?,
                     _ => {
                         return Err(ForgeError::Parse(format!(
-                            "Scenario '{}': Variable '{}' must be a number",
-                            name, var_name_str
+                            "Scenario '{name}': Variable '{var_name_str}' must be a number"
                         )));
-                    }
+                    },
                 };
 
                 scenario.add_override(var_name_str.to_string(), value);
@@ -691,8 +675,7 @@ fn parse_scenarios(
             model.add_scenario(name.to_string(), scenario);
         } else {
             return Err(ForgeError::Parse(format!(
-                "Scenario '{}' must be a mapping of variable overrides",
-                name
+                "Scenario '{name}' must be a mapping of variable overrides"
             )));
         }
     }
@@ -726,8 +709,7 @@ fn parse_includes(includes_seq: &[Value], model: &mut ParsedModel) -> ForgeResul
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| {
                     ForgeError::Parse(format!(
-                        "Include '{}' must have an 'as' field for the namespace",
-                        file
+                        "Include '{file}' must have an 'as' field for the namespace"
                     ))
                 })?
                 .to_string();
@@ -746,8 +728,7 @@ fn parse_includes(includes_seq: &[Value], model: &mut ParsedModel) -> ForgeResul
 fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnValue> {
     if seq.is_empty() {
         return Err(ForgeError::Parse(format!(
-            "Column '{}' cannot be empty",
-            col_name
+            "Column '{col_name}' cannot be empty"
         )));
     }
 
@@ -764,19 +745,17 @@ fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnValue> 
                             numbers.push(f);
                         } else {
                             return Err(ForgeError::Parse(format!(
-                                "Column '{}' row {}: Invalid number format",
-                                col_name, i
+                                "Column '{col_name}' row {i}: Invalid number format"
                             )));
                         }
-                    }
+                    },
                     Value::Null => {
                         // Provide clear error for null values in numeric arrays
                         return Err(ForgeError::Parse(format!(
-                            "Column '{}' row {}: null values not allowed in numeric arrays. \
-                            Use 0 or remove the row if the value is missing.",
-                            col_name, i
+                            "Column '{col_name}' row {i}: null values not allowed in numeric arrays. \
+                            Use 0 or remove the row if the value is missing."
                         )));
-                    }
+                    },
                     _ => {
                         return Err(ForgeError::Parse(format!(
                             "Column '{}' row {}: Expected Number, found {}",
@@ -784,11 +763,11 @@ fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnValue> 
                             i,
                             type_name(val)
                         )));
-                    }
+                    },
                 }
             }
             Ok(ColumnValue::Number(numbers))
-        }
+        },
         "Text" => {
             let mut texts = Vec::new();
             for (i, val) in seq.iter().enumerate() {
@@ -801,11 +780,11 @@ fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnValue> 
                             i,
                             type_name(val)
                         )));
-                    }
+                    },
                 }
             }
             Ok(ColumnValue::Text(texts))
-        }
+        },
         "Date" => {
             let mut dates = Vec::new();
             for (i, val) in seq.iter().enumerate() {
@@ -814,12 +793,11 @@ fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnValue> 
                         // Validate date format (YYYY-MM or YYYY-MM-DD)
                         if !is_valid_date_format(s) {
                             return Err(ForgeError::Parse(format!(
-                                "Column '{}' row {}: Invalid date format '{}' (expected YYYY-MM or YYYY-MM-DD)",
-                                col_name, i, s
+                                "Column '{col_name}' row {i}: Invalid date format '{s}' (expected YYYY-MM or YYYY-MM-DD)"
                             )));
                         }
                         dates.push(s.clone());
-                    }
+                    },
                     _ => {
                         return Err(ForgeError::Parse(format!(
                             "Column '{}' row {}: Expected Date, found {}",
@@ -827,11 +805,11 @@ fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnValue> 
                             i,
                             type_name(val)
                         )));
-                    }
+                    },
                 }
             }
             Ok(ColumnValue::Date(dates))
-        }
+        },
         "Boolean" => {
             let mut bools = Vec::new();
             for (i, val) in seq.iter().enumerate() {
@@ -844,14 +822,13 @@ fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnValue> 
                             i,
                             type_name(val)
                         )));
-                    }
+                    },
                 }
             }
             Ok(ColumnValue::Boolean(bools))
-        }
+        },
         _ => Err(ForgeError::Parse(format!(
-            "Column '{}': Unsupported array type '{}'",
-            col_name, array_type
+            "Column '{col_name}': Unsupported array type '{array_type}'"
         ))),
     }
 }

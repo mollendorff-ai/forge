@@ -94,8 +94,7 @@ mod tests {
             .collect();
         assert!(
             non_scalar_demo.is_empty(),
-            "Demo functions must be scalar (v1.0.0 compatible), but found: {:?}",
-            non_scalar_demo
+            "Demo functions must be scalar (v1.0.0 compatible), but found: {non_scalar_demo:?}"
         );
     }
 
@@ -104,8 +103,8 @@ mod tests {
         // Verify key array-only functions are correctly marked
         let array_funcs = ["UNIQUE", "FILTER", "SORT", "SUMIF", "VLOOKUP"];
         for name in array_funcs {
-            let f = find_function(name).unwrap_or_else(|| panic!("{} should exist", name));
-            assert!(!f.scalar, "{} should be scalar=false", name);
+            let f = find_function(name).unwrap_or_else(|| panic!("{name} should exist"));
+            assert!(!f.scalar, "{name} should be scalar=false");
         }
     }
 }

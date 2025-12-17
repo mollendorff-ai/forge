@@ -80,7 +80,7 @@ pub fn format_number(n: f64) -> String {
     // This also handles f32 precision artifacts from xlformula_engine
     let rounded = (n * 1e6).round() / 1e6;
     // Format with up to 6 decimal places, removing trailing zeros
-    format!("{:.6}", rounded)
+    format!("{rounded:.6}")
         .trim_end_matches('0')
         .trim_end_matches('.')
         .to_string()
@@ -134,10 +134,7 @@ pub fn calculate(
     if let Some(ref scenario_name) = scenario {
         apply_scenario(&mut model, scenario_name)?;
         if verbose {
-            println!(
-                "{}",
-                format!("📊 Applied scenario: {}", scenario_name).cyan()
-            );
+            println!("{}", format!("📊 Applied scenario: {scenario_name}").cyan());
         }
     }
 
@@ -226,7 +223,7 @@ pub fn validate(files: Vec<PathBuf>) -> ForgeResult<()> {
     if is_batch {
         println!(
             "{}",
-            format!("✅ Validating {} files", file_count).bold().green()
+            format!("✅ Validating {file_count} files").bold().green()
         );
         println!();
     }
@@ -248,7 +245,7 @@ pub fn validate(files: Vec<PathBuf>) -> ForgeResult<()> {
                     println!("{}", format!("   ✅ {} - OK", file.display()).green());
                     println!();
                 }
-            }
+            },
             Err(e) => {
                 if !is_batch {
                     // Single file mode - propagate original error directly
@@ -259,7 +256,7 @@ pub fn validate(files: Vec<PathBuf>) -> ForgeResult<()> {
                 println!("{}", format!("   ❌ {} - FAILED", file.display()).red());
                 println!("      {}", e.to_string().red());
                 println!();
-            }
+            },
         }
     }
 
@@ -306,13 +303,12 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
         if let Err(e) = table.validate_lengths() {
             println!(
                 "\n{}",
-                format!("❌ Table '{}' validation failed: {}", name, e)
+                format!("❌ Table '{name}' validation failed: {e}")
                     .bold()
                     .red()
             );
             return Err(ForgeError::Validation(format!(
-                "Table '{}' validation failed: {}",
-                name, e
+                "Table '{name}' validation failed: {e}"
             )));
         }
     }
@@ -327,7 +323,7 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
                 format!("❌ Formula validation failed: {e}").bold().red()
             );
             return Err(e);
-        }
+        },
     };
 
     // Compare calculated values vs. current values in file
@@ -369,13 +365,10 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
         for (name, current, expected, diff) in &mismatches {
             println!("   {}", name.bright_blue().bold());
             // Format numbers with reasonable precision (remove trailing zeros)
-            println!(
-                "      Current:  {}",
-                format_number(*current).to_string().red()
-            );
+            println!("      Current:  {}", format_number(*current).clone().red());
             println!(
                 "      Expected: {}",
-                format_number(*expected).to_string().green()
+                format_number(*expected).clone().green()
             );
             println!("      Diff:     {}", format!("{diff:.6}").yellow());
             println!();
@@ -430,13 +423,13 @@ pub fn watch(file: PathBuf, validate_only: bool, verbose: bool) -> ForgeResult<(
 
     // Create a debouncer to avoid rapid-fire events during file saves
     let mut debouncer = new_debouncer(Duration::from_millis(200), tx)
-        .map_err(|e| ForgeError::Validation(format!("Failed to create file watcher: {}", e)))?;
+        .map_err(|e| ForgeError::Validation(format!("Failed to create file watcher: {e}")))?;
 
     // Watch the parent directory (watches all YAML files in that directory)
     debouncer
         .watcher()
         .watch(parent_dir, RecursiveMode::NonRecursive)
-        .map_err(|e| ForgeError::Validation(format!("Failed to watch directory: {}", e)))?;
+        .map_err(|e| ForgeError::Validation(format!("Failed to watch directory: {e}")))?;
 
     if verbose {
         println!(
@@ -496,14 +489,14 @@ pub fn watch(file: PathBuf, validate_only: bool, verbose: bool) -> ForgeResult<(
                     run_watch_action(&file, validate_only, verbose);
                     println!();
                 }
-            }
+            },
             Ok(Err(error)) => {
                 eprintln!("{} Watch error: {}", "❌".red(), error);
-            }
+            },
             Err(e) => {
                 eprintln!("{} Channel error: {}", "❌".red(), e);
                 break;
-            }
+            },
         }
     }
 
@@ -534,7 +527,7 @@ fn chrono_lite_timestamp() -> String {
     let hours = (secs / 3600) % 24;
     let minutes = (secs / 60) % 60;
     let seconds = secs % 60;
-    format!("{:02}:{:02}:{:02} UTC", hours, minutes, seconds)
+    format!("{hours:02}:{minutes:02}:{seconds:02} UTC")
 }
 
 /// Run the watch action (validate or calculate)
@@ -542,12 +535,12 @@ fn chrono_lite_timestamp() -> String {
 fn run_watch_action(file: &Path, validate_only: bool, verbose: bool) {
     if validate_only {
         match validate_internal(file, verbose) {
-            Ok(_) => println!("{}", "✅ Validation passed".bold().green()),
+            Ok(()) => println!("{}", "✅ Validation passed".bold().green()),
             Err(e) => println!("{} {}", "❌ Validation failed:".bold().red(), e),
         }
     } else {
         match calculate_internal(file, verbose) {
-            Ok(_) => println!("{}", "✅ Calculation complete".bold().green()),
+            Ok(()) => println!("{}", "✅ Calculation complete".bold().green()),
             Err(e) => println!("{} {}", "❌ Calculation failed:".bold().red(), e),
         }
     }
@@ -569,7 +562,7 @@ fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
     // Validate tables
     for (name, table) in &model.tables {
         table.validate_lengths().map_err(|e| {
-            ForgeError::Validation(format!("Table '{}' validation failed: {}", name, e))
+            ForgeError::Validation(format!("Table '{name}' validation failed: {e}"))
         })?;
     }
 
@@ -598,7 +591,7 @@ fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
         let msg = mismatches
             .iter()
             .map(|(name, current, expected)| {
-                format!("  {} current={} expected={}", name, current, expected)
+                format!("  {name} current={current} expected={expected}")
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -652,8 +645,7 @@ pub fn apply_scenario(
     let scenario = model.scenarios.get(scenario_name).ok_or_else(|| {
         let available: Vec<_> = model.scenarios.keys().collect();
         ForgeError::Validation(format!(
-            "Scenario '{}' not found. Available scenarios: {:?}",
-            scenario_name, available
+            "Scenario '{scenario_name}' not found. Available scenarios: {available:?}"
         ))
     })?;
 
