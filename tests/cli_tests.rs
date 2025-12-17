@@ -425,7 +425,7 @@ fn test_functions_json_output() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_upgrade_dry_run() {
     let result = commands::upgrade(
         PathBuf::from("test-data/budget.yaml"),
@@ -437,7 +437,7 @@ fn test_upgrade_dry_run() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_upgrade_verbose() {
     let result = commands::upgrade(
         PathBuf::from("test-data/budget.yaml"),
@@ -449,7 +449,7 @@ fn test_upgrade_verbose() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_upgrade_nonexistent_file() {
     let result = commands::upgrade(
         PathBuf::from("nonexistent.yaml"),
@@ -771,7 +771,7 @@ fn test_compare_nonexistent_file() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_upgrade_invalid_version() {
     let result = commands::upgrade(
         PathBuf::from("test-data/budget.yaml"),
@@ -955,7 +955,7 @@ fn test_variance_with_different_models() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_upgrade_actual_write() {
     let temp_dir = TempDir::new().unwrap();
     let test_file = temp_dir.path().join("upgrade_test.yaml");

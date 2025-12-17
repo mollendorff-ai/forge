@@ -5,7 +5,7 @@
 
 use super::{evaluate, require_args_range, values_equal, EvalContext, EvalError, Expr, Value};
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 use super::require_args;
 
 /// Try to evaluate a lookup function. Returns None if function not recognized.
@@ -161,7 +161,7 @@ pub fn try_evaluate(
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
         // ═══════════════════════════════════════════════════════════════════════════
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "INDIRECT" => {
             require_args(name, args, 1)?;
             let ref_str = evaluate(&args[0], ctx)?.as_text();
@@ -184,7 +184,7 @@ pub fn try_evaluate(
             )));
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "XLOOKUP" => {
             require_args_range(name, args, 3, 6)?;
 
@@ -289,7 +289,7 @@ pub fn try_evaluate(
             }
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "VLOOKUP" => {
             require_args_range(name, args, 3, 4)?;
 
@@ -350,7 +350,7 @@ pub fn try_evaluate(
             }
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "HLOOKUP" => {
             require_args_range(name, args, 3, 4)?;
 
@@ -405,7 +405,7 @@ pub fn try_evaluate(
             }
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "OFFSET" => {
             require_args_range(name, args, 3, 5)?;
 
@@ -446,7 +446,7 @@ pub fn try_evaluate(
             }
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "ADDRESS" => {
             require_args_range(name, args, 2, 5)?;
             let row_num = evaluate(&args[0], ctx)?
@@ -495,7 +495,7 @@ pub fn try_evaluate(
             Value::Text(address)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "ROW" => {
             // ROW() returns current row number (1-based)
             // ROW(reference) returns the row number of the reference
@@ -512,14 +512,14 @@ pub fn try_evaluate(
             }
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "COLUMN" => {
             // COLUMN() returns current column number
             // Simplified implementation - always returns 1
             Value::Number(1.0)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "ROWS" => {
             require_args(name, args, 1)?;
             let array_ctx = EvalContext {
@@ -536,7 +536,7 @@ pub fn try_evaluate(
             }
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "COLUMNS" => {
             require_args(name, args, 1)?;
             // For 1D arrays, columns is always 1
@@ -551,7 +551,7 @@ pub fn try_evaluate(
 }
 
 /// Convert column number (1-based) to Excel-style letter(s)
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn col_to_letter(col: usize) -> String {
     let mut result = String::new();
     let mut n = col;
@@ -626,7 +626,7 @@ mod tests {
     // ENTERPRISE TESTS (only with full feature)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_address() {
         let ctx = EvalContext::new();
@@ -647,7 +647,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_row_column() {
         let ctx = EvalContext::new();
@@ -655,7 +655,7 @@ mod tests {
         assert_eq!(eval("COLUMN()", &ctx).unwrap(), Value::Number(1.0));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_rows() {
         let mut ctx = EvalContext::new();
@@ -674,7 +674,7 @@ mod tests {
         assert_eq!(eval("ROWS(t.col)", &ctx).unwrap(), Value::Number(4.0));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_columns() {
         let mut ctx = EvalContext::new();
@@ -685,7 +685,7 @@ mod tests {
         assert_eq!(eval("COLUMNS(t.col)", &ctx).unwrap(), Value::Number(1.0));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_col_to_letter() {
         assert_eq!(col_to_letter(1), "A");
@@ -695,7 +695,7 @@ mod tests {
         assert_eq!(col_to_letter(53), "BA");
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_vlookup() {
         let mut ctx = EvalContext::new();
@@ -717,7 +717,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_offset() {
         let mut ctx = EvalContext::new();

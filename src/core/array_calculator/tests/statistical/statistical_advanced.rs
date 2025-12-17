@@ -74,7 +74,7 @@ fn test_var_single_element_should_error() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_median_single_element() {
     let mut model = ParsedModel::new();
@@ -353,7 +353,7 @@ fn test_quartile_all_quartiles() {
     assert!(q0 <= q1 && q1 <= q2 && q2 <= q3 && q3 <= q4);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_rank_with_ties() {
     let mut model = ParsedModel::new();
@@ -410,7 +410,7 @@ fn test_rank_with_ties() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_rank_ascending_vs_descending() {
     let mut model = ParsedModel::new();
@@ -453,7 +453,7 @@ fn test_rank_ascending_vs_descending() {
     assert_eq!(rank_asc, 3.0, "30 is 3rd smallest (ascending)");
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_rank_value_not_in_array() {
     let mut model = ParsedModel::new();
@@ -618,7 +618,7 @@ fn test_quartile_single_element() {
     assert_eq!(q2, 42.0, "QUARTILE of single element [42] must be 42");
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_large_single_element() {
     let mut model = ParsedModel::new();
@@ -648,7 +648,7 @@ fn test_large_single_element() {
     assert_eq!(largest, 42.0, "LARGE(1) of single element [42] must be 42");
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_small_single_element() {
     let mut model = ParsedModel::new();
@@ -678,7 +678,7 @@ fn test_small_single_element() {
     assert_eq!(smallest, 42.0, "SMALL(1) of single element [42] must be 42");
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_large_k_out_of_bounds() {
     let mut model = ParsedModel::new();
@@ -711,7 +711,7 @@ fn test_large_k_out_of_bounds() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_small_k_out_of_bounds() {
     let mut model = ParsedModel::new();
@@ -741,7 +741,7 @@ fn test_small_k_out_of_bounds() {
     assert!(result.is_err(), "SMALL should error when k=0");
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_large_k_zero_should_error() {
     let mut model = ParsedModel::new();

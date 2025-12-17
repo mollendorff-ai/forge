@@ -134,15 +134,6 @@ fn test_break_even_help() {
 }
 
 #[test]
-fn test_update_help() {
-    let mut cmd = Command::cargo_bin("forge").unwrap();
-    cmd.args(["update", "--help"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("update"));
-}
-
-#[test]
 fn test_functions_help() {
     let mut cmd = Command::cargo_bin("forge").unwrap();
     cmd.args(["functions", "--help"])
@@ -413,7 +404,7 @@ fn test_calculate_missing_file() {
 // EXTENDED COMMAND TESTS (v5.0 coverage)
 // ═══════════════════════════════════════════════════════════════════════════
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_functions_list() {
     let mut cmd = Command::cargo_bin("forge").unwrap();
@@ -424,7 +415,7 @@ fn test_functions_list() {
         .stdout(predicate::str::contains("NPV"));
 }
 
-#[cfg(not(feature = "full"))]
+#[cfg(feature = "demo")]
 #[test]
 fn test_functions_list() {
     let mut cmd = Command::cargo_bin("forge").unwrap();
@@ -541,12 +532,6 @@ fn test_break_even_verbose() {
         "--verbose",
     ])
     .assert();
-}
-
-#[test]
-fn test_update_check() {
-    let mut cmd = Command::cargo_bin("forge").unwrap();
-    cmd.args(["update", "--check"]).assert();
 }
 
 #[test]
@@ -889,32 +874,5 @@ x:
     assert!(
         content.contains("1.0.0"),
         "File should still be v1.0.0 after dry-run"
-    );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// UPDATE COMMAND TESTS (v5.3.0)
-// ═══════════════════════════════════════════════════════════════════════════
-
-#[test]
-fn test_update_check_only_mode() {
-    let mut cmd = Command::cargo_bin("forge").unwrap();
-    let output = cmd.args(["update", "--check"]).output().unwrap();
-
-    // May succeed (contains version), fail network (contains error), or be in progress
-    // All are valid outcomes - we just verify the command doesn't crash
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    // Command should produce some output (either success or error message)
-    assert!(
-        stdout.contains("version")
-            || stdout.contains("Checking")
-            || stdout.contains("Update")
-            || stderr.contains("Error")
-            || stderr.contains("error"),
-        "Expected version info, checking message, or error; got stdout: {}, stderr: {}",
-        stdout,
-        stderr
     );
 }

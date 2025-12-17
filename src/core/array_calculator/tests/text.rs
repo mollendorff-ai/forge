@@ -863,7 +863,7 @@ fn test_substitute_no_match() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_concatenate_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -883,7 +883,7 @@ fn test_concatenate_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_search_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -904,7 +904,7 @@ fn test_search_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_replace_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -925,7 +925,7 @@ fn test_replace_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_concatenate_multiple() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -944,7 +944,7 @@ fn test_concatenate_multiple() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_search_case_insensitive() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -974,7 +974,7 @@ fn test_search_case_insensitive() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_replace_beginning() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;

@@ -8,7 +8,7 @@
 //!
 //! Coverage: 20+ tests with basic functionality, edge cases, and error handling
 
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 
 use royalbit_forge::core::array_calculator::ArrayCalculator;
 use royalbit_forge::types::{Column, ColumnValue, ParsedModel, Table, Variable};

@@ -3,7 +3,7 @@
 //!
 //! These tests require the "full" feature flag as trig functions are enterprise-only.
 
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 #![allow(clippy::approx_constant)] // Test values intentionally use approximate PI
 
 use crate::core::array_calculator::ArrayCalculator;
@@ -350,7 +350,7 @@ fn test_atan_scalar() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_sinh_basic() {
     let mut model = ParsedModel::new();
     let mut table = Table::new("data".to_string());
@@ -379,7 +379,7 @@ fn test_sinh_basic() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_sinh_scalar() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -400,7 +400,7 @@ fn test_sinh_scalar() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_cosh_basic() {
     let mut model = ParsedModel::new();
     let mut table = Table::new("data".to_string());
@@ -429,7 +429,7 @@ fn test_cosh_basic() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_cosh_scalar() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -450,7 +450,7 @@ fn test_cosh_scalar() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_tanh_basic() {
     let mut model = ParsedModel::new();
     let mut table = Table::new("data".to_string());
@@ -482,7 +482,7 @@ fn test_tanh_basic() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_tanh_scalar() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -503,7 +503,7 @@ fn test_tanh_scalar() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_radians_basic() {
     let mut model = ParsedModel::new();
     let mut table = Table::new("data".to_string());
@@ -533,7 +533,7 @@ fn test_radians_basic() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_radians_negative() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -554,7 +554,7 @@ fn test_radians_negative() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_radians_scalar() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -579,7 +579,7 @@ fn test_radians_scalar() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_degrees_basic() {
     let mut model = ParsedModel::new();
     let mut table = Table::new("data".to_string());
@@ -609,7 +609,7 @@ fn test_degrees_basic() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_degrees_negative() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -630,7 +630,7 @@ fn test_degrees_negative() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_degrees_scalar() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -688,7 +688,7 @@ fn test_trig_identity_sin_cos() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_radians_degrees_roundtrip() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -721,7 +721,7 @@ fn test_radians_degrees_roundtrip() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_sinh_cosh_identity() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();

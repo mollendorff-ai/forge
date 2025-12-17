@@ -145,7 +145,7 @@ fn test_invalid_date_format() {
     assert!(result.is_err());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_function() {
     let mut model = ParsedModel::new();
@@ -161,7 +161,7 @@ fn test_edate_function() {
     assert!(result.is_ok() || result.is_err()); // Either is fine - we're testing the formula path
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_eomonth_function() {
     let mut model = ParsedModel::new();
@@ -177,7 +177,7 @@ fn test_eomonth_function() {
     assert!(result.is_ok() || result.is_err()); // Either is fine - we're testing the formula path
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_networkdays_function() {
     let mut model = ParsedModel::new();

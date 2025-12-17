@@ -286,7 +286,7 @@ fn perf_extended_report() {
 // MONTE CARLO PERFORMANCE BENCHMARKS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 mod monte_carlo_bench {
     use royalbit_forge::monte_carlo::{Distribution, MonteCarloConfig, MonteCarloEngine};
     use std::time::Instant;

@@ -102,7 +102,7 @@ fn test_aggregation_max_min() {
 // ENTERPRISE TESTS (only with full feature)
 // ═══════════════════════════════════════════════════════════════════════════
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_median_function() {
     use crate::types::Variable;
@@ -134,7 +134,7 @@ fn test_median_function() {
     assert_eq!(median, 30.0);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_median_even_count() {
     use crate::types::Variable;
@@ -246,7 +246,7 @@ fn test_count_function() {
     assert!((cnt - 5.0).abs() < 0.01);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_median_odd_count() {
     let mut model = ParsedModel::new();
@@ -277,7 +277,7 @@ fn test_median_odd_count() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_median_even_array_count() {
     let mut model = ParsedModel::new();
@@ -308,7 +308,7 @@ fn test_median_even_array_count() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_avg_aggregation_function() {
     let mut model = ParsedModel::new();
@@ -390,7 +390,7 @@ fn test_min_aggregation_function() {
     assert!(result.is_ok());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_median_aggregation_scalar() {
     let mut model = ParsedModel::new();
@@ -417,7 +417,7 @@ fn test_median_aggregation_scalar() {
     assert!(result.is_ok());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_empty_array_median() {
     let mut model = ParsedModel::new();
@@ -528,7 +528,7 @@ fn test_count_function_v2() {
     assert!(result.is_ok());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_counta_function() {
     let mut model = ParsedModel::new();
@@ -558,7 +558,7 @@ fn test_counta_function() {
     assert_eq!(count, 3.0);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_product_function() {
     let mut model = ParsedModel::new();
@@ -627,7 +627,7 @@ fn test_sumproduct_basic() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_counta_with_empty_strings() {
     let mut model = ParsedModel::new();
@@ -695,7 +695,7 @@ fn test_countblank_function() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_countunique_function() {
     let mut model = ParsedModel::new();
@@ -724,7 +724,7 @@ fn test_countunique_function() {
     assert_eq!(count, 4.0);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_large_function() {
     let mut model = ParsedModel::new();
@@ -777,7 +777,7 @@ fn test_large_function() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_small_function() {
     let mut model = ParsedModel::new();
@@ -835,7 +835,7 @@ fn test_small_function() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_rank_eq_function() {
     let mut model = ParsedModel::new();
@@ -895,7 +895,7 @@ fn test_rank_eq_function() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_maxifs_function() {
     let mut model = ParsedModel::new();
@@ -957,7 +957,7 @@ fn test_maxifs_function() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_minifs_function() {
     let mut model = ParsedModel::new();

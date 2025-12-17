@@ -164,7 +164,7 @@ fn test_index_match_combined() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_xlookup_exact_match() {
     let mut model = ParsedModel::new();
@@ -214,7 +214,7 @@ fn test_xlookup_exact_match() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_xlookup_with_if_not_found() {
     let mut model = ParsedModel::new();
@@ -294,7 +294,7 @@ fn test_choose_function() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_indirect_function() {
     use crate::types::{Column, ColumnValue, Table, Variable};
@@ -574,7 +574,7 @@ fn test_cross_table_row_count_mismatch_error() {
     assert!(result.unwrap_err().to_string().contains("rows"));
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_offset_function() {
     use crate::types::Variable;

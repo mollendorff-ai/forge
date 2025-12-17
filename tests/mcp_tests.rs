@@ -2,7 +2,7 @@
 //! ADR-004: 100% coverage required
 
 // MCP is enterprise-only
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 
 use royalbit_forge::mcp::server::ForgeMcpServer;
 use std::path::PathBuf;

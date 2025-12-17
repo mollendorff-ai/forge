@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "9.1.0"
+version = "9.3.0"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "A Self-Evolving Autonomous AI project. YAML formula calculator with 60+ Excel functions, 96K rows/sec. Created with RoyalBit Asimov."
@@ -18,29 +18,27 @@ exclude = [
 ]
 
 # Demo binary (47 scalar functions, no servers, v1.0.0 schema only)
-# Build: cargo build --release
+# Build: cargo build --release --features demo
 [[bin]]
 name = "forge-demo"
 path = "src/main.rs"
+required-features = ["demo"]
 
-# Enterprise binary (159 functions, all features)
-# Build: cargo build --release --features full
+# Enterprise binary (173 functions, all features)
+# Build: cargo build --release
 [[bin]]
 name = "forge"
 path = "src/main.rs"
-required-features = ["full"]
 
 # Enterprise MCP server (AI integration)
 [[bin]]
 name = "forge-mcp"
 path = "src/bin/forge_mcp.rs"
-required-features = ["full"]
 
 # Enterprise API server (REST API)
 [[bin]]
 name = "forge-server"
 path = "src/bin/forge_server.rs"
-required-features = ["full"]
 
 [dependencies]
 # YAML parsing
@@ -101,11 +99,14 @@ statrs = "0.18"     # Statistical functions (PDF, CDF, percentiles)
 [features]
 default = []
 
-# Full enterprise build - includes all 149 functions, API server, v4/v5 schemas
-# Demo build (default): ~40 functions, v1.0.0 schema only, no API server
+# Enterprise build (default) - includes all 173 functions, API server, Monte Carlo, etc.
+# Demo build: ~47 functions, v1.0.0 schema only, no API server
 # Build commands:
-#   cargo build --release              # Demo binary
-#   cargo build --release --features full  # Enterprise binary
+#   cargo build --release                   # Enterprise binary (full)
+#   cargo build --release --features demo   # Demo binary (restricted)
+demo = []
+
+# Backward compatibility alias (deprecated - use default build for enterprise)
 full = []
 
 # Gnumeric E2E validation tests - validates Forge calculations against battle-proven spreadsheet engine

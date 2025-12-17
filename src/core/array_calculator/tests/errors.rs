@@ -494,7 +494,7 @@ fn test_iferror_nested() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_iserror_detects_division_by_zero() {
     let mut model = ParsedModel::new();
     let var = Variable::new(
@@ -514,7 +514,7 @@ fn test_iserror_detects_division_by_zero() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_iserror_returns_false_for_valid_value() {
     let mut model = ParsedModel::new();
     let var = Variable::new(
@@ -534,7 +534,7 @@ fn test_iserror_returns_false_for_valid_value() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_iserror_detects_sqrt_negative() {
     let mut model = ParsedModel::new();
     let var = Variable::new(

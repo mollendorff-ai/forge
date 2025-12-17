@@ -22,11 +22,11 @@ mod analysis;
 mod audit;
 mod excel_io;
 mod functions;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 mod prediction;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 mod simulate;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 mod upgrade;
 
 // Re-exports
@@ -34,11 +34,11 @@ pub use analysis::{break_even, compare, goal_seek, sensitivity, variance};
 pub use audit::audit;
 pub use excel_io::{export, import};
 pub use functions::functions;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub use prediction::{bayesian, bootstrap, decision_tree, real_options, scenarios, tornado};
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub use simulate::simulate;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub use upgrade::{auto_upgrade_schema, needs_schema_upgrade, upgrade};
 
 // Re-exports for tests (internal functions)
@@ -52,7 +52,7 @@ pub use audit::{
     build_dependency_tree, extract_references_from_formula, find_variable, print_dependency,
     AuditDependency,
 };
-#[cfg(all(test, feature = "full"))]
+#[cfg(all(test, not(feature = "demo")))]
 pub use upgrade::split_scalars_to_inputs_outputs;
 
 use crate::core::{ArrayCalculator, UnitValidator};

@@ -1,5 +1,5 @@
 // Enterprise-only: Forge functions (VARIANCE, BREAKEVEN, SCENARIO)
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 // Allow approximate constants - 3.14 is intentional test data for ROUND(), not an approx of PI
 #![allow(clippy::approx_constant)]
 

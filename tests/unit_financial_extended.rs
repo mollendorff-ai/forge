@@ -7,7 +7,7 @@
 //! XIRR: Internal Rate of Return with specific dates - XIRR(values, dates)
 
 // Financial functions are enterprise-only
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 
 use royalbit_forge::core::ArrayCalculator;
 use royalbit_forge::types::{Column, ColumnValue, ParsedModel, Table, Variable};

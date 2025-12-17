@@ -89,7 +89,7 @@ fn e2e_v4_schema_rejected_needs_manual_upgrade() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn e2e_v4_unique_functions_calculate() {
     // Test that UNIQUE and COUNTUNIQUE functions calculate correctly

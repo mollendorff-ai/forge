@@ -6,13 +6,13 @@
 use super::{EvalContext, EvalError, Expr, Value};
 
 // Enterprise-only imports
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 
 /// Try to evaluate a statistical function. Returns None if function not recognized.
 ///
 /// DEMO: All statistical functions return None (not recognized) - enterprise only!
-#[cfg(not(feature = "full"))]
+#[cfg(feature = "demo")]
 pub fn try_evaluate(
     _name: &str,
     _args: &[Expr],
@@ -24,7 +24,7 @@ pub fn try_evaluate(
 /// Try to evaluate a statistical function. Returns None if function not recognized.
 ///
 /// ENTERPRISE: Full statistical function support.
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -243,7 +243,7 @@ pub fn try_evaluate(
 }
 
 // Enterprise-only tests
-#[cfg(all(test, feature = "full"))]
+#[cfg(all(test, not(feature = "demo")))]
 mod tests {
     use super::super::tests::eval;
     use super::*;

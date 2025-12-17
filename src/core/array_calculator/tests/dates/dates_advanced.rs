@@ -8,7 +8,7 @@ use crate::core::array_calculator::ArrayCalculator;
 #[allow(unused_imports)]
 use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_eomonth_same_month() {
     let mut model = ParsedModel::new();
@@ -145,7 +145,7 @@ fn test_lookup_with_date_column() {
     assert!(result.is_ok() || result.is_err());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_workday_function() {
     let mut model = ParsedModel::new();
@@ -167,7 +167,7 @@ fn test_workday_function() {
     assert!(result.is_ok() || result.is_err());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_networkdays_literal_dates() {
     let mut model = ParsedModel::new();
@@ -212,7 +212,7 @@ fn test_date_column_in_rowwise_formula() {
     assert!(result.is_ok() || result.is_err());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_yearfrac_function_v2() {
     let mut model = ParsedModel::new();
@@ -269,7 +269,7 @@ fn test_day_function_coverage() {
     assert!(result.is_ok() || result.is_err());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_eomonth_with_offset() {
     let mut model = ParsedModel::new();

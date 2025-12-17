@@ -2,7 +2,7 @@
 //! Tests date, math, text, lookup, array, conditional aggregation, and FORGE functions
 //! Uses programmatic model creation for reliability
 //! Enterprise-only: Contains COUNTIF, SUMIF, AVERAGEIF tests
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 #![allow(clippy::approx_constant)] // Test values intentionally use approximate PI/E
 
 use royalbit_forge::core::ArrayCalculator;

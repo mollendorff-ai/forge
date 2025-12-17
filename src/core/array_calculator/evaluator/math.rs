@@ -140,7 +140,7 @@ pub fn try_evaluate(
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
         // ═══════════════════════════════════════════════════════════════════════════
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "EXP" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -149,7 +149,7 @@ pub fn try_evaluate(
             Value::Number(val.exp())
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "LN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -161,7 +161,7 @@ pub fn try_evaluate(
             Value::Number(val.ln())
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "LOG" | "LOG10" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -173,7 +173,7 @@ pub fn try_evaluate(
             Value::Number(val.log10())
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "INT" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -182,7 +182,7 @@ pub fn try_evaluate(
             Value::Number(val.floor())
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "POW" => {
             // Alias for POWER
             require_args(name, args, 2)?;
@@ -195,7 +195,7 @@ pub fn try_evaluate(
             Value::Number(base.powf(exp))
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "SIGN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -210,7 +210,7 @@ pub fn try_evaluate(
             })
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "TRUNC" => {
             require_args_range(name, args, 1, 2)?;
             let val = evaluate(&args[0], ctx)?
@@ -225,13 +225,13 @@ pub fn try_evaluate(
             Value::Number(val.signum() * (val.abs() * multiplier).floor() / multiplier)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "PI" => {
             require_args(name, args, 0)?;
             Value::Number(std::f64::consts::PI)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "E" => {
             require_args(name, args, 0)?;
             Value::Number(std::f64::consts::E)
@@ -341,7 +341,7 @@ mod tests {
     // ENTERPRISE TESTS (only with full feature)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_exp_ln_log() {
         let ctx = EvalContext::new();
@@ -357,14 +357,14 @@ mod tests {
         assert_eq!(eval("LOG10(100)", &ctx).unwrap(), Value::Number(2.0));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_int() {
         let ctx = EvalContext::new();
         assert_eq!(eval("INT(3.9)", &ctx).unwrap(), Value::Number(3.0));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ln_non_positive() {
         let ctx = EvalContext::new();
@@ -376,7 +376,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_log_non_positive() {
         let ctx = EvalContext::new();
@@ -385,14 +385,14 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("non-positive"));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_log_alias() {
         let ctx = EvalContext::new();
         assert_eq!(eval("LOG(100)", &ctx).unwrap(), Value::Number(2.0));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_pow() {
         let ctx = EvalContext::new();
@@ -400,7 +400,7 @@ mod tests {
         assert_eq!(eval("POW(3, 2)", &ctx).unwrap(), Value::Number(9.0));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sign() {
         let ctx = EvalContext::new();
@@ -409,7 +409,7 @@ mod tests {
         assert_eq!(eval("SIGN(0)", &ctx).unwrap(), Value::Number(0.0));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_trunc() {
         let ctx = EvalContext::new();
@@ -418,7 +418,7 @@ mod tests {
         assert_eq!(eval("TRUNC(3.567, 2)", &ctx).unwrap(), Value::Number(3.56));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_pi() {
         let ctx = EvalContext::new();
@@ -426,7 +426,7 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if (n - std::f64::consts::PI).abs() < 0.0001));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_e() {
         let ctx = EvalContext::new();

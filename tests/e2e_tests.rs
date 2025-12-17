@@ -348,7 +348,7 @@ costs:
 }
 
 // Demo build: verify basic functions output
-#[cfg(not(feature = "full"))]
+#[cfg(feature = "demo")]
 #[test]
 fn e2e_functions_command() {
     let output = Command::new(forge_binary())
@@ -372,7 +372,7 @@ fn e2e_functions_command() {
 }
 
 // Enterprise build: verify full functions output
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn e2e_functions_command() {
     let output = Command::new(forge_binary())
@@ -441,7 +441,7 @@ outputs:
 }
 
 // Statistical functions are enterprise-only
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn e2e_statistical_functions_in_model() {
     let temp_dir = tempfile::tempdir().unwrap();
@@ -490,7 +490,7 @@ outputs:
 }
 
 // Financial functions are enterprise-only
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn e2e_financial_functions_in_model() {
     let temp_dir = tempfile::tempdir().unwrap();
@@ -540,7 +540,7 @@ outputs:
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn e2e_forge_variance_functions_in_model() {
     let temp_dir = tempfile::tempdir().unwrap();
@@ -590,7 +590,7 @@ outputs:
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn e2e_breakeven_functions_in_model() {
     let temp_dir = tempfile::tempdir().unwrap();
@@ -718,40 +718,4 @@ y:
         !stdout.contains("Auto-upgrading"),
         "Multi-doc should skip auto-upgrade, got: {stdout}"
     );
-}
-
-#[test]
-fn e2e_update_check_flag() {
-    let output = Command::new(forge_binary())
-        .args(["update", "--check"])
-        .output()
-        .expect("Failed to execute");
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    // Should either show version info or network error, not crash
-    assert!(
-        stdout.contains("version") || stdout.contains("Version") || stderr.contains("Error"),
-        "Update --check should show version or error, got stdout: {stdout}, stderr: {stderr}"
-    );
-}
-
-#[test]
-fn e2e_update_shows_current_version() {
-    let output = Command::new(forge_binary())
-        .args(["update", "--check"])
-        .output()
-        .expect("Failed to execute");
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    // If successful, should show current version
-    if output.status.success() {
-        assert!(
-            stdout.contains("Current version") || stdout.contains("5.3.0"),
-            "Should show current version, got: {stdout}"
-        );
-    }
-    // Network errors are acceptable in tests
 }

@@ -7,11 +7,11 @@ pub use commands::{
     validate, variance, watch,
 };
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub use commands::upgrade;
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub use commands::simulate;
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub use commands::{bayesian, bootstrap, decision_tree, real_options, scenarios, tornado};

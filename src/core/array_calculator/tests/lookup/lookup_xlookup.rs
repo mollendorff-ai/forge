@@ -8,7 +8,7 @@ use crate::core::array_calculator::ArrayCalculator;
 #[allow(unused_imports)]
 use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_offset_basic_usage() {
     let mut model = ParsedModel::new();
@@ -45,7 +45,7 @@ fn test_offset_basic_usage() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_vlookup_exact_mode() {
     let mut model = ParsedModel::new();
@@ -128,7 +128,7 @@ fn test_index_match_combination() {
     assert_eq!(val, 92.0);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_xlookup_not_found_fallback() {
     let mut model = ParsedModel::new();
@@ -167,7 +167,7 @@ fn test_xlookup_not_found_fallback() {
 // ROW FUNCTION TESTS - FP&A ACCURACY MANDATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_row_function_basic() {
     // ROW() returns 1 in scalar context (no cell reference)
@@ -183,7 +183,7 @@ fn test_row_function_basic() {
     assert_eq!(val, 1.0); // ROW() without reference returns 1
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_row_function_in_expression() {
     // ROW() can be used in expressions
@@ -203,7 +203,7 @@ fn test_row_function_in_expression() {
 // COLUMN FUNCTION TESTS - FP&A ACCURACY MANDATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_column_function_basic() {
     // COLUMN() returns 1 in scalar context (no cell reference)
@@ -219,7 +219,7 @@ fn test_column_function_basic() {
     assert_eq!(val, 1.0); // COLUMN() without reference returns 1
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_column_function_in_expression() {
     // COLUMN() can be used in expressions
@@ -239,7 +239,7 @@ fn test_column_function_in_expression() {
 // ROWS FUNCTION TESTS - FP&A ACCURACY MANDATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_rows_function_basic() {
     // ROWS(array) returns number of rows in array
@@ -268,7 +268,7 @@ fn test_rows_function_basic() {
     assert_eq!(val, 5.0); // 5 rows in the array
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_rows_function_single_element() {
     // ROWS with single element array
@@ -297,7 +297,7 @@ fn test_rows_function_single_element() {
     assert_eq!(val, 1.0); // 1 row
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_rows_function_in_calculation() {
     // Use ROWS in a calculation
@@ -330,7 +330,7 @@ fn test_rows_function_in_calculation() {
 // COLUMNS FUNCTION TESTS - FP&A ACCURACY MANDATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_columns_function_single_column() {
     // COLUMNS of a single column array
@@ -359,7 +359,7 @@ fn test_columns_function_single_column() {
     assert_eq!(val, 1.0); // Single column array = 1
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_columns_function_table() {
     // COLUMNS of entire table
@@ -398,7 +398,7 @@ fn test_columns_function_table() {
     assert_eq!(val, 1.0); // Single column array = 1 (current implementation)
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_columns_function_in_calculation() {
     // Use COLUMNS in a calculation
@@ -430,7 +430,7 @@ fn test_columns_function_in_calculation() {
 // ADDRESS FUNCTION TESTS - FP&A ACCURACY MANDATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_address_absolute() {
     // ADDRESS with absolute reference (default)
@@ -451,7 +451,7 @@ fn test_address_absolute() {
     assert_eq!(val, 4.0);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_address_b2() {
     // ADDRESS(2, 2) should produce "$B$2"
@@ -472,7 +472,7 @@ fn test_address_b2() {
     assert_eq!(val, 4.0);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_address_relative() {
     // ADDRESS with relative reference style (abs_num = 4)
@@ -493,7 +493,7 @@ fn test_address_relative() {
     assert_eq!(val, 2.0);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_address_large_row() {
     // ADDRESS with larger row number
@@ -514,7 +514,7 @@ fn test_address_large_row() {
     assert_eq!(val, 6.0);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_address_mixed_abs_row() {
     // ADDRESS with mixed absolute (abs_num = 2, row absolute only)
@@ -535,7 +535,7 @@ fn test_address_mixed_abs_row() {
     assert_eq!(val, 3.0);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_address_mixed_abs_col() {
     // ADDRESS with mixed absolute (abs_num = 3, column absolute only)
@@ -560,7 +560,7 @@ fn test_address_mixed_abs_col() {
 // OFFSET FUNCTION COMPREHENSIVE TESTS - FP&A ACCURACY MANDATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_offset_positive_offset() {
     // OFFSET with positive offset
@@ -595,7 +595,7 @@ fn test_offset_positive_offset() {
     assert!(val.is_some(), "OFFSET should return a value");
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_offset_with_sum() {
     // OFFSET used with SUM
@@ -639,7 +639,7 @@ fn test_offset_with_sum() {
 // INDIRECT FUNCTION COMPREHENSIVE TESTS - FP&A ACCURACY MANDATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_indirect_column_reference() {
     // INDIRECT with column reference
@@ -668,7 +668,7 @@ fn test_indirect_column_reference() {
     assert_eq!(val, 600.0); // Sum of 100+200+300
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_indirect_scalar_reference() {
     // INDIRECT with scalar reference
@@ -700,7 +700,7 @@ fn test_indirect_scalar_reference() {
     assert_eq!(val, 15.0); // 0.15 * 100
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_indirect_with_index() {
     // INDIRECT combined with INDEX

@@ -5,7 +5,7 @@
 //!
 //! Tests: Type checking, error handling, edge cases, NULL/NA handling
 
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 
 use royalbit_forge::core::array_calculator::ArrayCalculator;
 use royalbit_forge::types::{ParsedModel, Variable};

@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 /// Execute the functions command - list all supported Excel-compatible functions
 pub fn functions(json_output: bool) -> ForgeResult<()> {
     // Get functions from registry based on build
-    let all_functions: Vec<&FunctionDef> = if cfg!(feature = "full") {
+    let all_functions: Vec<&FunctionDef> = if cfg!(not(feature = "demo")) {
         registry::enterprise_functions().collect()
     } else {
         registry::demo_functions().collect()
@@ -32,7 +32,7 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
         // JSON output for tooling
         let json = serde_json::json!({
             "total": total,
-            "edition": if cfg!(feature = "full") { "enterprise" } else { "demo" },
+            "edition": if cfg!(not(feature = "demo")) { "enterprise" } else { "demo" },
             "categories": by_category.iter().map(|(name, funcs)| {
                 serde_json::json!({
                     "name": name,
@@ -51,7 +51,7 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         // Human-readable output
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         {
             println!(
                 "{}",
@@ -67,7 +67,7 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
                 .bright_white()
             );
         }
-        #[cfg(not(feature = "full"))]
+        #[cfg(feature = "demo")]
         {
             println!("{}", "🔥 Forge Demo - Supported Functions".bold().green());
             println!();
