@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "9.6.1"
+version = "9.7.0"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "A Self-Evolving Autonomous AI project. YAML formula calculator with 60+ Excel functions, 96K rows/sec. Created with RoyalBit Asimov."
