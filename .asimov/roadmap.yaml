@@ -80,39 +80,13 @@ backlog:
   - "FPGA acceleration for HFT (post-capitalization) - see ADR-026"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# BUGS - Active issues (4 from forge-e2e edge case discovery)
+# BUGS - No active issues
 # ═══════════════════════════════════════════════════════════════════════════════
 
-bugs:
-  - id: BUG-010
-    priority: HIGH
-    summary: "Boolean-number comparison fails in IF"
-    details: "=IF(TRUE = 1, 1, 0) and =IF(FALSE = 0, 1, 0) return parse error"
-    test: "edge_comparison.yaml: test_true_eq_one, test_false_eq_zero"
-    discovered: "forge-e2e edge case discovery"
+bugs: []
 
-  - id: BUG-011
-    priority: MEDIUM
-    summary: "String literal comparison in IF fails"
-    details: "=IF(\"ABC\" = \"abc\", 1, 0) returns parse error instead of evaluating"
-    test: "edge_comparison.yaml: test_string_case_sensitive"
-    discovered: "forge-e2e edge case discovery"
-
-  - id: BUG-012
-    priority: LOW
-    summary: "TRIM internal spaces inconsistent across modes"
-    details: "=LEN(TRIM(\"  a  b  \")) returns 4 in perf mode, 3 in batch mode"
-    test: "edge_string_ops.yaml: test_trim_internal_spaces"
-    discovered: "forge-e2e edge case discovery"
-
-  - id: BUG-013
-    priority: MEDIUM
-    summary: "0^0 returns error instead of 1"
-    details: "=0^0 should return 1 (Excel convention), but returns missing result"
-    test: "edge_arithmetic.yaml: test_zero_power_zero"
-    discovered: "forge-e2e edge case discovery"
-
-# BUG-001 through BUG-009 fixed in v9.4.0-v9.6.1
+# BUG-001 through BUG-013 fixed
+# BUG-010 to BUG-013 were already resolved by BUG-003 to BUG-009 fixes (Boolean literals, comparisons)
 # See CHANGELOG.md for details
 
 # ═══════════════════════════════════════════════════════════════════════════════

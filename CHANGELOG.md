@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.7.0] - 2025-12-17
+
+### Verified
+
+- **BUG-010 to BUG-013**: Confirmed already fixed by v9.6.0 changes
+  - BUG-010: Boolean-number comparison in IF (`=IF(TRUE = 1, 1, 0)`) - works
+  - BUG-011: String literal comparison in IF (`=IF("ABC" = "abc", 1, 0)`) - works
+  - BUG-012: TRIM internal spaces consistent (`=LEN(TRIM("  a  b  "))` = 4) - works
+  - BUG-013: `0^0` returns 1 (Excel convention) - works
+
+### Added
+
+- ADR-026: FPGA/HFT Acceleration (deferred post-capitalization)
+- Performance optimization milestones to roadmap (SIMD, Rayon, GPU, Algorithmic)
+
+### Changed
+
+- Cleaned up roadmap: removed completed items, all history in CHANGELOG.md
+- All 13 bugs (BUG-001 through BUG-013) now resolved
+
 ## [9.6.1] - 2025-12-17
 
 ### Fixed
