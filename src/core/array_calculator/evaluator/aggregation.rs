@@ -18,7 +18,7 @@ pub fn try_evaluate(
         "SUM" => {
             let values = collect_numeric_values(args, ctx)?;
             Value::Number(values.iter().sum())
-        }
+        },
 
         "AVERAGE" => {
             let values = collect_numeric_values(args, ctx)?;
@@ -26,7 +26,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("AVERAGE of empty set"));
             }
             Value::Number(values.iter().sum::<f64>() / values.len() as f64)
-        }
+        },
 
         "MIN" => {
             let values = collect_numeric_values(args, ctx)?;
@@ -35,7 +35,7 @@ pub fn try_evaluate(
                 .min_by(|a, b| a.partial_cmp(b).unwrap())
                 .map(Value::Number)
                 .ok_or_else(|| EvalError::new("MIN of empty set"))?
-        }
+        },
 
         "MAX" => {
             let values = collect_numeric_values(args, ctx)?;
@@ -44,7 +44,7 @@ pub fn try_evaluate(
                 .max_by(|a, b| a.partial_cmp(b).unwrap())
                 .map(Value::Number)
                 .ok_or_else(|| EvalError::new("MAX of empty set"))?
-        }
+        },
 
         "COUNT" => {
             let mut count = 0;
@@ -53,13 +53,13 @@ pub fn try_evaluate(
                 match val {
                     Value::Array(arr) => {
                         count += arr.iter().filter(|v| v.as_number().is_some()).count();
-                    }
+                    },
                     Value::Number(_) => count += 1,
-                    _ => {}
+                    _ => {},
                 }
             }
             Value::Number(count as f64)
-        }
+        },
 
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
@@ -72,7 +72,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("AVG of empty set"));
             }
             Value::Number(values.iter().sum::<f64>() / values.len() as f64)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "PRODUCT" => {
@@ -82,7 +82,7 @@ pub fn try_evaluate(
             } else {
                 Value::Number(values.iter().product())
             }
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "COUNTA" => {
@@ -92,13 +92,13 @@ pub fn try_evaluate(
                 match val {
                     Value::Array(arr) => {
                         count += arr.iter().filter(|v| !matches!(v, Value::Null)).count();
-                    }
-                    Value::Null => {}
+                    },
+                    Value::Null => {},
                     _ => count += 1,
                 }
             }
             Value::Number(count as f64)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "MEDIAN" => {
@@ -109,11 +109,11 @@ pub fn try_evaluate(
             values.sort_by(|a, b| a.partial_cmp(b).unwrap());
             let mid = values.len() / 2;
             if values.len() % 2 == 0 {
-                Value::Number((values[mid - 1] + values[mid]) / 2.0)
+                Value::Number(f64::midpoint(values[mid - 1], values[mid]))
             } else {
                 Value::Number(values[mid])
             }
-        }
+        },
 
         _ => return Ok(None),
     };
@@ -173,6 +173,36 @@ mod tests {
         ctx.tables.insert("t".to_string(), table);
 
         assert_eq!(eval("COUNT(t.values)", &ctx).unwrap(), Value::Number(2.0));
+    }
+
+    #[test]
+    fn test_aggregation_edge_cases() {
+        let ctx = EvalContext::new();
+        // SUM(1, 2, 3) = 6
+        assert_eq!(eval("SUM(1, 2, 3)", &ctx).unwrap(), Value::Number(6.0));
+        // AVERAGE(2, 4, 6) = 4
+        assert_eq!(eval("AVERAGE(2, 4, 6)", &ctx).unwrap(), Value::Number(4.0));
+        // MIN(5, 3, 8, 1) = 1
+        assert_eq!(eval("MIN(5, 3, 8, 1)", &ctx).unwrap(), Value::Number(1.0));
+        // MAX(5, 3, 8, 1) = 8
+        assert_eq!(eval("MAX(5, 3, 8, 1)", &ctx).unwrap(), Value::Number(8.0));
+    }
+
+    #[test]
+    fn test_count_edge_cases() {
+        let ctx = EvalContext::new();
+        // COUNT(1, 2, 3, 4, 5) = 5
+        assert_eq!(
+            eval("COUNT(1, 2, 3, 4, 5)", &ctx).unwrap(),
+            Value::Number(5.0)
+        );
+    }
+
+    #[test]
+    fn test_sum_empty() {
+        let ctx = EvalContext::new();
+        // SUM() = 0 (empty)
+        assert_eq!(eval("SUM()", &ctx).unwrap(), Value::Number(0.0));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

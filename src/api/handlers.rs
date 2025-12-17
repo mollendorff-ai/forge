@@ -218,7 +218,7 @@ pub async fn calculate(Json(req): Json<CalculateRequest>) -> impl IntoResponse {
             calculated: false,
             file_path: req.file_path,
             dry_run,
-            message: format!("Error: {}", e),
+            message: format!("Error: {e}"),
         })),
     }
 }
@@ -255,7 +255,7 @@ pub async fn audit(Json(req): Json<AuditRequest>) -> impl IntoResponse {
             audited: false,
             file_path: req.file_path,
             variable,
-            message: format!("Error: {}", e),
+            message: format!("Error: {e}"),
         })),
     }
 }
@@ -292,7 +292,7 @@ pub async fn export(Json(req): Json<ExportRequest>) -> impl IntoResponse {
             exported: false,
             yaml_path: req.yaml_path,
             excel_path: req.excel_path,
-            message: format!("Error: {}", e),
+            message: format!("Error: {e}"),
         })),
     }
 }
@@ -329,7 +329,7 @@ pub async fn import_excel(Json(req): Json<ImportRequest>) -> impl IntoResponse {
             imported: false,
             excel_path: req.excel_path,
             yaml_path: req.yaml_path,
-            message: format!("Error: {}", e),
+            message: format!("Error: {e}"),
         })),
     }
 }

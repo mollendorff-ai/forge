@@ -47,17 +47,16 @@ impl CorrelationMatrix {
             // Validate correlation coefficient
             if *rho < -1.0 || *rho > 1.0 {
                 return Err(format!(
-                    "Correlation between {} and {} must be between -1 and 1, got {}",
-                    var1, var2, rho
+                    "Correlation between {var1} and {var2} must be between -1 and 1, got {rho}"
                 ));
             }
 
             let i = *var_index
                 .get(var1.as_str())
-                .ok_or_else(|| format!("Variable {} not found", var1))?;
+                .ok_or_else(|| format!("Variable {var1} not found"))?;
             let j = *var_index
                 .get(var2.as_str())
-                .ok_or_else(|| format!("Variable {} not found", var2))?;
+                .ok_or_else(|| format!("Variable {var2} not found"))?;
 
             // Symmetric matrix
             coefficients[i * n + j] = *rho;
@@ -116,8 +115,7 @@ impl CorrelationMatrix {
                     let diag = self.coefficients[j * n + j] - sum;
                     if diag <= 0.0 {
                         return Err(format!(
-                            "Correlation matrix is not positive definite (element [{},{}])",
-                            i, j
+                            "Correlation matrix is not positive definite (element [{i},{j}])"
                         ));
                     }
                     l[j * n + j] = diag.sqrt();
@@ -269,13 +267,7 @@ mod tests {
             .zip(matrix.coefficients.iter())
             .enumerate()
         {
-            assert!(
-                (r - c).abs() < 1e-10,
-                "Mismatch at index {}: {} vs {}",
-                i,
-                r,
-                c
-            );
+            assert!((r - c).abs() < 1e-10, "Mismatch at index {i}: {r} vs {c}");
         }
     }
 

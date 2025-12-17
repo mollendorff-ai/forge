@@ -84,7 +84,7 @@ impl Value {
                     return Some(days as f64);
                 }
                 None
-            }
+            },
             Value::Boolean(b) => Some(if *b { 1.0 } else { 0.0 }),
             // Arrays in scalar context return their length
             Value::Array(arr) => Some(arr.len() as f64),
@@ -100,19 +100,19 @@ impl Value {
                 if n.fract() == 0.0 && n.abs() < 1e15 {
                     format!("{}", *n as i64)
                 } else {
-                    format!("{}", n)
+                    format!("{n}")
                 }
-            }
+            },
             Value::Text(s) => s.clone(),
             Value::Boolean(b) => if *b { "TRUE" } else { "FALSE" }.to_string(),
             Value::Null => String::new(),
             Value::Array(arr) => {
-                let strs: Vec<String> = arr.iter().map(|v| v.as_text()).collect();
+                let strs: Vec<String> = arr.iter().map(Value::as_text).collect();
                 format!("[{}]", strs.join(", "))
-            }
+            },
             Value::Lambda { params, .. } => {
                 format!("LAMBDA({})", params.join(", "))
-            }
+            },
         }
     }
 
@@ -130,7 +130,7 @@ impl Value {
                 } else {
                     None
                 }
-            }
+            },
             _ => None,
         }
     }
@@ -238,10 +238,10 @@ pub fn evaluate(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
                 Value::Array(arr) => arr
                     .get(idx)
                     .cloned()
-                    .ok_or_else(|| EvalError::new(format!("Array index {} out of bounds", idx))),
+                    .ok_or_else(|| EvalError::new(format!("Array index {idx} out of bounds"))),
                 _ => Err(EvalError::new("Cannot index non-array value")),
             }
-        }
+        },
 
         Expr::FunctionCall { name, args } => evaluate_function(name, args, ctx),
 
@@ -269,21 +269,21 @@ pub fn evaluate(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
 
                     // Evaluate the body with the new context
                     evaluate(&body, &new_ctx)
-                }
+                },
                 _ => Err(EvalError::new("Cannot call non-lambda value")),
             }
-        }
+        },
 
         Expr::BinaryOp { op, left, right } => {
             let left_val = evaluate(left, ctx)?;
             let right_val = evaluate(right, ctx)?;
             evaluate_binary_op(op, &left_val, &right_val)
-        }
+        },
 
         Expr::UnaryOp { op, operand } => {
             let val = evaluate(operand, ctx)?;
             evaluate_unary_op(op, &val)
-        }
+        },
 
         Expr::Range { start, end } => {
             // Ranges are typically used within functions like INDIRECT
@@ -295,7 +295,7 @@ pub fn evaluate(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
                 start_val.as_text(),
                 end_val.as_text()
             )))
-        }
+        },
     }
 }
 
@@ -306,7 +306,7 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
             let value = ctx
                 .get_scalar(name)
                 .cloned()
-                .ok_or_else(|| EvalError::new(format!("Unknown variable: {}", name)))?;
+                .ok_or_else(|| EvalError::new(format!("Unknown variable: {name}")))?;
 
             // In row-wise mode, if the value is an array, extract current row
             if let Some(row) = ctx.current_row {
@@ -314,15 +314,15 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
                     return arr
                         .get(row)
                         .cloned()
-                        .ok_or_else(|| EvalError::new(format!("Row {} out of bounds", row)));
+                        .ok_or_else(|| EvalError::new(format!("Row {row} out of bounds")));
                 }
             }
             Ok(value)
-        }
+        },
 
         Reference::TableColumn { table, column } => {
             // First try as a section.scalar reference (e.g., thresholds.min_value)
-            let scalar_key = format!("{}.{}", table, column);
+            let scalar_key = format!("{table}.{column}");
             if let Some(value) = ctx.scalars.get(&scalar_key) {
                 return Ok(value.clone());
             }
@@ -330,7 +330,7 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
             // Fall back to table.column lookup
             let col = ctx
                 .get_column(table, column)
-                .ok_or_else(|| EvalError::new(format!("Unknown column: {}.{}", table, column)))?;
+                .ok_or_else(|| EvalError::new(format!("Unknown column: {table}.{column}")))?;
 
             // In row-wise mode, validate row count matches and return single value
             if let Some(row) = ctx.current_row {
@@ -348,11 +348,11 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
                 }
                 col.get(row)
                     .cloned()
-                    .ok_or_else(|| EvalError::new(format!("Row {} out of bounds", row)))
+                    .ok_or_else(|| EvalError::new(format!("Row {row} out of bounds")))
             } else {
                 Ok(Value::Array(col.clone()))
             }
-        }
+        },
     }
 }
 
@@ -377,7 +377,7 @@ fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, Ev
                     .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
                 Ok(Value::Number(l + r))
             }
-        }
+        },
         "-" => {
             let l = left
                 .as_number()
@@ -386,7 +386,7 @@ fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, Ev
                 .as_number()
                 .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
             Ok(Value::Number(l - r))
-        }
+        },
         "*" => {
             let l = left
                 .as_number()
@@ -395,7 +395,7 @@ fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, Ev
                 .as_number()
                 .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
             Ok(Value::Number(l * r))
-        }
+        },
         "/" => {
             let l = left
                 .as_number()
@@ -408,7 +408,7 @@ fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, Ev
             } else {
                 Ok(Value::Number(l / r))
             }
-        }
+        },
         "^" => {
             let l = left
                 .as_number()
@@ -417,7 +417,7 @@ fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, Ev
                 .as_number()
                 .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
             Ok(Value::Number(l.powf(r)))
-        }
+        },
 
         // String concatenation operator
         "&" => Ok(Value::Text(format!(
@@ -437,7 +437,7 @@ fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, Ev
                 .as_number()
                 .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
             Ok(Value::Boolean(l < r))
-        }
+        },
         ">" => {
             let l = left
                 .as_number()
@@ -446,7 +446,7 @@ fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, Ev
                 .as_number()
                 .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
             Ok(Value::Boolean(l > r))
-        }
+        },
         "<=" => {
             let l = left
                 .as_number()
@@ -455,7 +455,7 @@ fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, Ev
                 .as_number()
                 .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
             Ok(Value::Boolean(l <= r))
-        }
+        },
         ">=" => {
             let l = left
                 .as_number()
@@ -464,9 +464,9 @@ fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, Ev
                 .as_number()
                 .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
             Ok(Value::Boolean(l >= r))
-        }
+        },
 
-        _ => Err(EvalError::new(format!("Unknown operator: {}", op))),
+        _ => Err(EvalError::new(format!("Unknown operator: {op}"))),
     }
 }
 
@@ -480,7 +480,7 @@ pub(crate) fn values_equal(left: &Value, right: &Value) -> bool {
         (Value::Boolean(b), Value::Number(n)) | (Value::Number(n), Value::Boolean(b)) => {
             let bool_num = if *b { 1.0 } else { 0.0 };
             (bool_num - n).abs() < 1e-10
-        }
+        },
         (Value::Null, Value::Null) => true,
         (Value::Array(l), Value::Array(r)) => {
             // Arrays are equal if same length and all elements equal
@@ -488,7 +488,7 @@ pub(crate) fn values_equal(left: &Value, right: &Value) -> bool {
                 return false;
             }
             l.iter().zip(r.iter()).all(|(a, b)| values_equal(a, b))
-        }
+        },
         // Single-element array compared with scalar
         (Value::Array(arr), other) if arr.len() == 1 => values_equal(&arr[0], other),
         (other, Value::Array(arr)) if arr.len() == 1 => values_equal(other, &arr[0]),
@@ -504,8 +504,8 @@ fn evaluate_unary_op(op: &str, operand: &Value) -> Result<Value, EvalError> {
                 .as_number()
                 .ok_or_else(|| EvalError::new("Operand must be a number"))?;
             Ok(Value::Number(-n))
-        }
-        _ => Err(EvalError::new(format!("Unknown unary operator: {}", op))),
+        },
+        _ => Err(EvalError::new(format!("Unknown unary operator: {op}"))),
     }
 }
 
@@ -566,7 +566,7 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
         }
     }
 
-    Err(EvalError::new(format!("Unknown function: {}", name)))
+    Err(EvalError::new(format!("Unknown function: {name}")))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -623,9 +623,9 @@ pub(crate) fn collect_numeric_values(
                         values.push(n);
                     }
                 }
-            }
+            },
             Value::Number(n) => values.push(n),
-            _ => {}
+            _ => {},
         }
     }
 
@@ -703,16 +703,16 @@ pub(crate) fn parse_date_value(val: &Value) -> Result<chrono::NaiveDate, EvalErr
         Value::Text(s) => {
             // Try YYYY-MM-DD format
             NaiveDate::parse_from_str(s, "%Y-%m-%d")
-                .map_err(|_| EvalError::new(format!("Invalid date format: '{}'", s)))
-        }
+                .map_err(|_| EvalError::new(format!("Invalid date format: '{s}'")))
+        },
         Value::Number(n) => {
             // Excel serial number (days since 1899-12-30)
             // Note: Excel incorrectly treats 1900 as a leap year, we handle this
             let base = NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
             let days = *n as i64;
             base.checked_add_days(chrono::Days::new(days as u64))
-                .ok_or_else(|| EvalError::new(format!("Invalid Excel date serial: {}", n)))
-        }
+                .ok_or_else(|| EvalError::new(format!("Invalid Excel date serial: {n}")))
+        },
         _ => Err(EvalError::new("Expected date string or serial number")),
     }
 }
@@ -747,6 +747,13 @@ mod tests {
     }
 
     #[test]
+    fn test_eval_power_zero_to_zero() {
+        let ctx = EvalContext::new();
+        // 0^0 = 1 (Excel convention)
+        assert_eq!(eval("0 ^ 0", &ctx).unwrap(), Value::Number(1.0));
+    }
+
+    #[test]
     fn test_eval_precedence() {
         let ctx = EvalContext::new();
         assert_eq!(eval("2 + 3 * 4", &ctx).unwrap(), Value::Number(14.0));
@@ -761,12 +768,92 @@ mod tests {
     }
 
     #[test]
+    fn test_eval_double_negative() {
+        let ctx = EvalContext::new();
+        // --5 = 5
+        assert_eq!(eval("--5", &ctx).unwrap(), Value::Number(5.0));
+    }
+
+    #[test]
+    fn test_eval_triple_negative() {
+        let ctx = EvalContext::new();
+        // ---5 = -5
+        assert_eq!(eval("---5", &ctx).unwrap(), Value::Number(-5.0));
+    }
+
+    #[test]
     fn test_eval_comparison() {
         let ctx = EvalContext::new();
         assert_eq!(eval("5 > 3", &ctx).unwrap(), Value::Boolean(true));
         assert_eq!(eval("5 < 3", &ctx).unwrap(), Value::Boolean(false));
         assert_eq!(eval("5 = 5", &ctx).unwrap(), Value::Boolean(true));
         assert_eq!(eval("5 <> 3", &ctx).unwrap(), Value::Boolean(true));
+    }
+
+    #[test]
+    fn test_eval_boolean_comparison() {
+        let ctx = EvalContext::new();
+        // TRUE > FALSE = true (TRUE is 1, FALSE is 0)
+        assert_eq!(eval("TRUE > FALSE", &ctx).unwrap(), Value::Boolean(true));
+    }
+
+    #[test]
+    fn test_eval_boolean_number_equality() {
+        let ctx = EvalContext::new();
+        // TRUE = 1 = true (Excel-compatible type coercion)
+        assert_eq!(eval("TRUE = 1", &ctx).unwrap(), Value::Boolean(true));
+        // FALSE = 0 = true
+        assert_eq!(eval("FALSE = 0", &ctx).unwrap(), Value::Boolean(true));
+    }
+
+    #[test]
+    fn test_eval_string_equality() {
+        let ctx = EvalContext::new();
+        // "ABC" = "ABC" = true (exact string match)
+        assert_eq!(
+            eval("\"ABC\" = \"ABC\"", &ctx).unwrap(),
+            Value::Boolean(true)
+        );
+        // Note: Forge uses case-insensitive string comparison (differs from Excel)
+        // In Excel: "ABC" = "abc" would be false (case sensitive)
+        // In Forge: "ABC" = "abc" is true (case insensitive)
+        assert_eq!(
+            eval("\"ABC\" = \"abc\"", &ctx).unwrap(),
+            Value::Boolean(true)
+        );
+    }
+
+    #[test]
+    fn test_eval_floating_point_precision() {
+        let ctx = EvalContext::new();
+        // Note: Forge uses epsilon comparison (1e-10) for floating point equality
+        // 0.1 + 0.2 = 0.3 = true (difference is ~5.5e-17, less than epsilon)
+        // In strict floating point: this would be false
+        // Forge's epsilon comparison makes this true to avoid precision issues
+        assert_eq!(eval("0.1 + 0.2 = 0.3", &ctx).unwrap(), Value::Boolean(true));
+        // ROUND also ensures equality
+        assert_eq!(
+            eval("ROUND(0.1 + 0.2, 1) = 0.3", &ctx).unwrap(),
+            Value::Boolean(true)
+        );
+    }
+
+    #[test]
+    fn test_eval_boolean_addition() {
+        let ctx = EvalContext::new();
+        // TRUE + 1 = 2 (TRUE coerces to 1)
+        assert_eq!(eval("TRUE + 1", &ctx).unwrap(), Value::Number(2.0));
+        // FALSE + 1 = 1 (FALSE coerces to 0)
+        assert_eq!(eval("FALSE + 1", &ctx).unwrap(), Value::Number(1.0));
+    }
+
+    #[test]
+    fn test_eval_boolean_multiplication() {
+        let ctx = EvalContext::new();
+        // TRUE * 5 = 5 (TRUE coerces to 1)
+        assert_eq!(eval("TRUE * 5", &ctx).unwrap(), Value::Number(5.0));
+        // FALSE * 5 = 0 (FALSE coerces to 0)
+        assert_eq!(eval("FALSE * 5", &ctx).unwrap(), Value::Number(0.0));
     }
 
     #[test]

@@ -53,11 +53,7 @@ fn test_adr020_full_example() {
 
     // All options should have positive value
     for (name, opt) in &result.options {
-        assert!(
-            opt.value > 0.0,
-            "Option {} should have positive value",
-            name
-        );
+        assert!(opt.value > 0.0, "Option {name} should have positive value");
     }
 
     // Project value with options should be better than traditional NPV
@@ -192,10 +188,7 @@ fn test_bs_binomial_convergence() {
     let diff_pct = ((bs_value - bin_value) / bs_value).abs() * 100.0;
     assert!(
         diff_pct < 5.0,
-        "BS ({}) and Binomial ({}) should converge, diff: {:.1}%",
-        bs_value,
-        bin_value,
-        diff_pct
+        "BS ({bs_value}) and Binomial ({bin_value}) should converge, diff: {diff_pct:.1}%"
     );
 }
 
@@ -219,8 +212,7 @@ fn test_quantlib_reference() {
     // Should be close to QuantLib reference (10.45)
     assert!(
         (call_value - 10.45).abs() < 0.5,
-        "Call value ({}) should match QuantLib reference (10.45)",
-        call_value
+        "Call value ({call_value}) should match QuantLib reference (10.45)"
     );
 }
 

@@ -32,7 +32,7 @@ pub fn try_evaluate(
                 }
             }
             Value::Number(total)
-        }
+        },
 
         "COUNTIF" => {
             require_args(name, args, 2)?;
@@ -43,7 +43,7 @@ pub fn try_evaluate(
                 .filter(|v| matches_criteria(v, &criteria))
                 .count();
             Value::Number(count as f64)
-        }
+        },
 
         "AVERAGEIF" => {
             require_args_range(name, args, 2, 3)?;
@@ -70,7 +70,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("AVERAGEIF: no matching values"));
             }
             Value::Number(total / count as f64)
-        }
+        },
 
         "SUMIFS" => {
             if args.len() < 3 || args.len().is_multiple_of(2) {
@@ -96,7 +96,7 @@ pub fn try_evaluate(
                 .filter_map(|(_, v)| v.as_number())
                 .sum();
             Value::Number(total)
-        }
+        },
 
         "COUNTIFS" => {
             if args.len() < 2 || !args.len().is_multiple_of(2) {
@@ -117,7 +117,7 @@ pub fn try_evaluate(
             }
             let count = matches.iter().filter(|&&m| m).count();
             Value::Number(count as f64)
-        }
+        },
 
         "AVERAGEIFS" => {
             if args.len() < 3 || args.len().is_multiple_of(2) {
@@ -146,7 +146,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("AVERAGEIFS: no matching values"));
             }
             Value::Number(matching.iter().sum::<f64>() / matching.len() as f64)
-        }
+        },
 
         "MAXIFS" => {
             if args.len() < 3 || args.len().is_multiple_of(2) {
@@ -174,9 +174,9 @@ pub fn try_evaluate(
             if matching.is_empty() {
                 Value::Number(0.0)
             } else {
-                Value::Number(matching.iter().cloned().fold(f64::NEG_INFINITY, f64::max))
+                Value::Number(matching.iter().copied().fold(f64::NEG_INFINITY, f64::max))
             }
-        }
+        },
 
         "MINIFS" => {
             if args.len() < 3 || args.len().is_multiple_of(2) {
@@ -204,9 +204,9 @@ pub fn try_evaluate(
             if matching.is_empty() {
                 Value::Number(0.0)
             } else {
-                Value::Number(matching.iter().cloned().fold(f64::INFINITY, f64::min))
+                Value::Number(matching.iter().copied().fold(f64::INFINITY, f64::min))
             }
-        }
+        },
 
         _ => return Ok(None),
     };

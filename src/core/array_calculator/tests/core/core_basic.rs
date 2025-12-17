@@ -37,7 +37,7 @@ fn test_simple_rowwise_formula() {
             assert_eq!(nums[0], 40.0);
             assert_eq!(nums[1], 80.0);
             assert_eq!(nums[2], 120.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -201,7 +201,7 @@ fn test_math_functions_combined() {
             assert!((nums[0] - 3.25).abs() < 0.01);
             assert!((nums[1] - 4.50).abs() < 0.01);
             assert!((nums[2] - 5.56).abs() < 0.01);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }

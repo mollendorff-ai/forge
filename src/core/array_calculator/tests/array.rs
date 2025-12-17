@@ -63,8 +63,7 @@ fn test_countunique_function() {
         .unwrap();
     assert_eq!(
         unique_products, 3.0,
-        "Should have 3 unique products, got {}",
-        unique_products
+        "Should have 3 unique products, got {unique_products}"
     );
 
     let unique_quantities = result
@@ -75,8 +74,7 @@ fn test_countunique_function() {
         .unwrap();
     assert_eq!(
         unique_quantities, 3.0,
-        "Should have 3 unique quantities, got {}",
-        unique_quantities
+        "Should have 3 unique quantities, got {unique_quantities}"
     );
 }
 
@@ -112,8 +110,7 @@ fn test_unique_function_as_count() {
     let unique_flags = result.scalars.get("unique_flags").unwrap().value.unwrap();
     assert_eq!(
         unique_flags, 2.0,
-        "Should have 2 unique boolean values (true, false), got {}",
-        unique_flags
+        "Should have 2 unique boolean values (true, false), got {unique_flags}"
     );
 }
 
@@ -153,8 +150,7 @@ fn test_countunique_with_dates() {
     let unique_dates = result.scalars.get("unique_dates").unwrap().value.unwrap();
     assert_eq!(
         unique_dates, 3.0,
-        "Should have 3 unique dates, got {}",
-        unique_dates
+        "Should have 3 unique dates, got {unique_dates}"
     );
 }
 
@@ -274,9 +270,9 @@ fn test_countunique_empty_text_values() {
     mixed.add_column(Column::new(
         "name".to_string(),
         ColumnValue::Text(vec![
-            "".to_string(),
+            String::new(),
             "Alice".to_string(),
-            "".to_string(),
+            String::new(),
             "Bob".to_string(),
             "Alice".to_string(),
         ]),
@@ -722,15 +718,13 @@ fn test_randarray_function_range() {
     let min_val = result.scalars.get("rand_min").unwrap().value.unwrap();
     assert!(
         (1.0..=10.0).contains(&min_val),
-        "MIN(RANDARRAY(...)) should be between 1.0 and 10.0, got {}",
-        min_val
+        "MIN(RANDARRAY(...)) should be between 1.0 and 10.0, got {min_val}"
     );
 
     let max_val = result.scalars.get("rand_max").unwrap().value.unwrap();
     assert!(
         (1.0..=10.0).contains(&max_val),
-        "MAX(RANDARRAY(...)) should be between 1.0 and 10.0, got {}",
-        max_val
+        "MAX(RANDARRAY(...)) should be between 1.0 and 10.0, got {max_val}"
     );
 }
 

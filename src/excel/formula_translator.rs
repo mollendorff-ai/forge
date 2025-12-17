@@ -51,7 +51,7 @@ impl FormulaTranslator {
         // FIRST: Handle table.column references in aggregation functions that need ranges
         // Pattern for simple aggregations: SUM(table.column) → SUM(table!A2:A4)
         let agg_pattern = Regex::new(r"(SUM|AVERAGE|MAX|MIN|COUNT|COUNTA|PRODUCT)\(([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\)")
-            .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+            .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
         let agg_replacements: Vec<(std::ops::Range<usize>, String)> = agg_pattern
             .captures_iter(&result.clone())
@@ -70,10 +70,8 @@ impl FormulaTranslator {
 
                 let row_count = self.table_row_counts.get(table_name).copied().unwrap_or(1);
                 let end_row = row_count + 1;
-                let replacement = format!(
-                    "{}('{}'!{}2:{}{})",
-                    func_name, table_name, col_letter, col_letter, end_row
-                );
+                let replacement =
+                    format!("{func_name}('{table_name}'!{col_letter}2:{col_letter}{end_row})");
                 (full_match.range(), replacement)
             })
             .collect();
@@ -85,7 +83,7 @@ impl FormulaTranslator {
         // SECOND: Handle general table.column references that need ranges (for functions like SUMIFS, PERCENTILE, etc.)
         let general_table_pattern =
             Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b")
-                .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+                .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
         let general_replacements: Vec<(std::ops::Range<usize>, String)> = general_table_pattern
             .captures_iter(&result.clone())
@@ -115,8 +113,7 @@ impl FormulaTranslator {
 
                 let row_count = self.table_row_counts.get(table_name).copied().unwrap_or(1);
                 let end_row = row_count + 1;
-                let replacement =
-                    format!("'{}'!{}2:{}{}", table_name, col_letter, col_letter, end_row);
+                let replacement = format!("'{table_name}'!{col_letter}2:{col_letter}{end_row}");
                 Some((full_match.range(), replacement))
             })
             .collect();
@@ -128,7 +125,7 @@ impl FormulaTranslator {
         // THIRD: Handle remaining table.column references (not in known tables, use fallback)
         let remaining_table_pattern =
             Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)")
-                .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+                .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
         let remaining_replacements: Vec<(std::ops::Range<usize>, String)> = remaining_table_pattern
             .captures_iter(&result.clone())
@@ -145,7 +142,7 @@ impl FormulaTranslator {
                 }
 
                 // Fallback: convert to single cell reference with table name and column name
-                let replacement = format!("'{}'!{}{}", table_name, col_name, excel_row);
+                let replacement = format!("'{table_name}'!{col_name}{excel_row}");
                 Some((full_match.range(), replacement))
             })
             .collect();
@@ -156,7 +153,7 @@ impl FormulaTranslator {
 
         // FOURTH: Handle simple column references in the current table
         let var_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b")
-            .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+            .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
         let result_clone = result.clone();
         let matches: Vec<_> = var_pattern.find_iter(&result_clone).collect();
@@ -186,14 +183,14 @@ impl FormulaTranslator {
 
             // Simple column reference in current table
             if let Some(col_letter) = self.column_map.get(var_name) {
-                let excel_ref = format!("{}{}", col_letter, excel_row);
+                let excel_ref = format!("{col_letter}{excel_row}");
                 result.replace_range(match_obj.range(), &excel_ref);
             } else {
                 // Check if this looks like an Excel cell reference (e.g., A6, B2)
                 let looks_like_cell_ref = var_name.len() >= 2
-                    && var_name.chars().all(|c| c.is_alphanumeric())
-                    && var_name.chars().any(|c| c.is_alphabetic())
-                    && var_name.chars().any(|c| c.is_numeric());
+                    && var_name.chars().all(char::is_alphanumeric)
+                    && var_name.chars().any(char::is_alphabetic)
+                    && var_name.chars().any(char::is_numeric);
 
                 // Check if it's a number
                 let is_number = var_name.parse::<f64>().is_ok();
@@ -201,15 +198,14 @@ impl FormulaTranslator {
                 if !looks_like_cell_ref && !is_number {
                     // Column not found and it's not a cell reference or number - this is an error
                     return Err(ForgeError::Export(format!(
-                        "Column '{}' not found in table",
-                        var_name
+                        "Column '{var_name}' not found in table"
                     )));
                 }
                 // If it's a cell reference or number, leave it as is
             }
         }
 
-        Ok(format!("={}", result))
+        Ok(format!("={result}"))
     }
 
     /// Check if a word is an Excel function
@@ -399,7 +395,7 @@ impl FormulaTranslator {
         // Pattern for table.column[index] references (must be processed first)
         let indexed_pattern =
             Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\[(\d+)\]")
-                .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+                .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
         // Replace indexed references: table.column[0] → table!A2
         let indexed_replacements: Vec<(std::ops::Range<usize>, String)> = indexed_pattern
@@ -419,7 +415,7 @@ impl FormulaTranslator {
 
                 // Excel row = index + 2 (1 for header, 1 for 1-indexing)
                 let excel_row = index + 2;
-                let replacement = format!("'{}'!{}{}", table_name, col_letter, excel_row);
+                let replacement = format!("'{table_name}'!{col_letter}{excel_row}");
                 (full_match.range(), replacement)
             })
             .collect();
@@ -432,7 +428,7 @@ impl FormulaTranslator {
         // Pattern for table.column references inside aggregation functions
         // SUM(table.column) → SUM(table!A2:A4)
         let agg_pattern = Regex::new(r"(SUM|AVERAGE|MAX|MIN|COUNT|COUNTA|PRODUCT)\(([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\)")
-            .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+            .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
         let agg_replacements: Vec<(std::ops::Range<usize>, String)> = agg_pattern
             .captures_iter(&result.clone())
@@ -452,10 +448,8 @@ impl FormulaTranslator {
                 let row_count = self.table_row_counts.get(table_name).copied().unwrap_or(1);
                 // Range: row 2 to row (row_count + 1) - header is row 1
                 let end_row = row_count + 1;
-                let replacement = format!(
-                    "{}('{}'!{}2:{}{})",
-                    func_name, table_name, col_letter, col_letter, end_row
-                );
+                let replacement =
+                    format!("{func_name}('{table_name}'!{col_letter}2:{col_letter}{end_row})");
                 (full_match.range(), replacement)
             })
             .collect();
@@ -470,7 +464,7 @@ impl FormulaTranslator {
         // that weren't caught by the simple aggregation pattern above
         let general_table_pattern =
             Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b")
-                .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+                .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
         // Collect all table.column references that should be converted to ranges
         let general_replacements: Vec<(std::ops::Range<usize>, String)> = general_table_pattern
@@ -502,8 +496,7 @@ impl FormulaTranslator {
                 let row_count = self.table_row_counts.get(table_name).copied().unwrap_or(1);
                 // Range: row 2 to row (row_count + 1) - header is row 1
                 let end_row = row_count + 1;
-                let replacement =
-                    format!("'{}'!{}2:{}{}", table_name, col_letter, col_letter, end_row);
+                let replacement = format!("'{table_name}'!{col_letter}2:{col_letter}{end_row}");
                 Some((full_match.range(), replacement))
             })
             .collect();
@@ -517,7 +510,7 @@ impl FormulaTranslator {
         // These become references to row 2 (first data row)
         let simple_table_pattern =
             Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)")
-                .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+                .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
         let simple_replacements: Vec<(std::ops::Range<usize>, String)> = simple_table_pattern
             .captures_iter(&result.clone())
@@ -535,9 +528,9 @@ impl FormulaTranslator {
                 if !self.table_column_maps.contains_key(table_name) {
                     // Could be a scalar like metrics.total_savings
                     // Check if it's a scalar reference
-                    let scalar_name = format!("{}.{}", table_name, col_name);
+                    let scalar_name = format!("{table_name}.{col_name}");
                     if let Some(&row) = scalar_row_map.get(&scalar_name) {
-                        return Some((full_match.range(), format!("B{}", row)));
+                        return Some((full_match.range(), format!("B{row}")));
                     }
                     return None;
                 }
@@ -550,7 +543,7 @@ impl FormulaTranslator {
                     .unwrap_or_else(|| col_name.to_string());
 
                 // Default to row 2 (first data row)
-                let replacement = format!("'{}'!{}2", table_name, col_letter);
+                let replacement = format!("'{table_name}'!{col_letter}2");
                 Some((full_match.range(), replacement))
             })
             .collect();
@@ -563,7 +556,7 @@ impl FormulaTranslator {
         // Handle scalar-to-scalar references (e.g., metrics.total_savings → B3)
         // Pattern for standalone scalar names
         let scalar_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*)\b")
-            .map_err(|e| ForgeError::Export(format!("Regex error: {}", e)))?;
+            .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
 
         let scalar_replacements: Vec<(std::ops::Range<usize>, String)> = scalar_pattern
             .captures_iter(&result.clone())
@@ -577,7 +570,7 @@ impl FormulaTranslator {
                 }
 
                 if let Some(&row) = scalar_row_map.get(scalar_name) {
-                    return Some((full_match.range(), format!("B{}", row)));
+                    return Some((full_match.range(), format!("B{row}")));
                 }
                 None
             })
@@ -588,7 +581,7 @@ impl FormulaTranslator {
             result.replace_range(range, &replacement);
         }
 
-        Ok(format!("={}", result))
+        Ok(format!("={result}"))
     }
 
     /// Convert a column name to an Excel column letter
@@ -911,12 +904,11 @@ mod tests {
         ];
 
         for func in functions {
-            let formula = format!("={}(10)", func);
+            let formula = format!("={func}(10)");
             let result = translator.translate_row_formula(&formula, 2).unwrap();
             assert!(
                 result.to_uppercase().contains(func),
-                "Function {} should be preserved",
-                func
+                "Function {func} should be preserved"
             );
         }
     }
@@ -929,12 +921,11 @@ mod tests {
         let functions = ["UPPER", "LOWER", "TRIM", "LEN", "LEFT", "RIGHT", "MID"];
 
         for func in functions {
-            let formula = format!("={}(1)", func); // Using number to avoid string parsing
+            let formula = format!("={func}(1)"); // Using number to avoid string parsing
             let result = translator.translate_row_formula(&formula, 2).unwrap();
             assert!(
                 result.to_uppercase().contains(func),
-                "Function {} should be preserved",
-                func
+                "Function {func} should be preserved"
             );
         }
     }
@@ -947,12 +938,11 @@ mod tests {
         let functions = ["IF", "AND", "OR", "NOT", "TRUE", "FALSE", "IFERROR"];
 
         for func in functions {
-            let formula = format!("={}(1, 2, 3)", func);
+            let formula = format!("={func}(1, 2, 3)");
             let result = translator.translate_row_formula(&formula, 2).unwrap();
             assert!(
                 result.to_uppercase().contains(func),
-                "Function {} should be preserved",
-                func
+                "Function {func} should be preserved"
             );
         }
     }
@@ -1003,7 +993,7 @@ mod tests {
             )
             .unwrap();
 
-        println!("SUMIFS result: {}", result);
+        println!("SUMIFS result: {result}");
         assert!(result.contains("'sales_data'!A2:A7"));
         assert!(result.contains("'sales_data'!B2:B7"));
         assert!(result.contains("'sales_data'!C2:C7"));
@@ -1029,7 +1019,7 @@ mod tests {
             .translate_scalar_formula("=PERCENTILE(dataset.values, 0.5)", &scalar_row_map)
             .unwrap();
 
-        println!("PERCENTILE result: {}", result);
+        println!("PERCENTILE result: {result}");
         assert!(result.contains("'dataset'!A2:A11"));
     }
 
@@ -1057,7 +1047,7 @@ mod tests {
             )
             .unwrap();
 
-        println!("CORREL result: {}", result);
+        println!("CORREL result: {result}");
         assert!(result.contains("'data_series'!A2:A6"));
         assert!(result.contains("'data_series'!B2:B6"));
     }

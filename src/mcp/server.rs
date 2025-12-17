@@ -95,7 +95,7 @@ pub fn run_mcp_server_sync() {
                     result: None,
                     error: Some(JsonRpcError {
                         code: -32700,
-                        message: format!("Parse error: {}", e),
+                        message: format!("Parse error: {e}"),
                         data: None,
                     }),
                 };
@@ -106,7 +106,7 @@ pub fn run_mcp_server_sync() {
                 );
                 let _ = stdout.flush();
                 continue;
-            }
+            },
         };
 
         let response = handle_request(&request);
@@ -174,7 +174,7 @@ fn handle_request(request: &JsonRpcRequest) -> Option<JsonRpcResponse> {
                 result: Some(result),
                 error: None,
             })
-        }
+        },
         "ping" => Some(JsonRpcResponse {
             jsonrpc: "2.0".to_string(),
             id,
@@ -464,7 +464,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                     "isError": true
                 }),
             }
-        }
+        },
         "forge_calculate" => {
             let file_path = arguments
                 .get("file_path")
@@ -472,7 +472,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .unwrap_or("");
             let dry_run = arguments
                 .get("dry_run")
-                .and_then(|v| v.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
 
             let path = Path::new(file_path).to_path_buf();
@@ -485,9 +485,9 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                     "content": [{
                         "type": "text",
                         "text": if dry_run {
-                            format!("Dry run completed for {}", file_path)
+                            format!("Dry run completed for {file_path}")
                         } else {
-                            format!("Calculation completed and file updated: {}", file_path)
+                            format!("Calculation completed and file updated: {file_path}")
                         }
                     }],
                     "isError": false
@@ -500,7 +500,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                     "isError": true
                 }),
             }
-        }
+        },
         "forge_audit" => {
             let file_path = arguments
                 .get("file_path")
@@ -528,7 +528,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                     "isError": true
                 }),
             }
-        }
+        },
         "forge_export" => {
             let yaml_path = arguments
                 .get("yaml_path")
@@ -557,7 +557,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                     "isError": true
                 }),
             }
-        }
+        },
         "forge_import" => {
             let excel_path = arguments
                 .get("excel_path")
@@ -586,7 +586,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                     "isError": true
                 }),
             }
-        }
+        },
         // v3.0.0 Financial Analysis Tools
         "forge_sensitivity" => {
             let file_path = arguments
@@ -636,7 +636,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                     "isError": true
                 }),
             }
-        }
+        },
         "forge_goal_seek" => {
             let file_path = arguments
                 .get("file_path")
@@ -648,14 +648,14 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .unwrap_or("");
             let value = arguments
                 .get("value")
-                .and_then(|v| v.as_f64())
+                .and_then(serde_json::Value::as_f64)
                 .unwrap_or(0.0);
             let vary = arguments.get("vary").and_then(|v| v.as_str()).unwrap_or("");
-            let min = arguments.get("min").and_then(|v| v.as_f64());
-            let max = arguments.get("max").and_then(|v| v.as_f64());
+            let min = arguments.get("min").and_then(serde_json::Value::as_f64);
+            let max = arguments.get("max").and_then(serde_json::Value::as_f64);
             let tolerance = arguments
                 .get("tolerance")
-                .and_then(|v| v.as_f64())
+                .and_then(serde_json::Value::as_f64)
                 .unwrap_or(0.0001);
 
             let path = Path::new(file_path).to_path_buf();
@@ -684,7 +684,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                     "isError": true
                 }),
             }
-        }
+        },
         "forge_break_even" => {
             let file_path = arguments
                 .get("file_path")
@@ -695,8 +695,8 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             let vary = arguments.get("vary").and_then(|v| v.as_str()).unwrap_or("");
-            let min = arguments.get("min").and_then(|v| v.as_f64());
-            let max = arguments.get("max").and_then(|v| v.as_f64());
+            let min = arguments.get("min").and_then(serde_json::Value::as_f64);
+            let max = arguments.get("max").and_then(serde_json::Value::as_f64);
 
             let path = Path::new(file_path).to_path_buf();
             match break_even(path, output.to_string(), vary.to_string(), min, max, false) {
@@ -715,7 +715,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                     "isError": true
                 }),
             }
-        }
+        },
         "forge_variance" => {
             let budget_path = arguments
                 .get("budget_path")
@@ -727,7 +727,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .unwrap_or("");
             let threshold = arguments
                 .get("threshold")
-                .and_then(|v| v.as_f64())
+                .and_then(serde_json::Value::as_f64)
                 .unwrap_or(10.0);
 
             let budget = Path::new(budget_path).to_path_buf();
@@ -748,7 +748,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                     "isError": true
                 }),
             }
-        }
+        },
         "forge_compare" => {
             let file_path = arguments
                 .get("file_path")
@@ -781,7 +781,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                     "isError": true
                 }),
             }
-        }
+        },
         _ => json!({
             "content": [{
                 "type": "text",

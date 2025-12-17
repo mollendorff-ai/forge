@@ -141,7 +141,7 @@ impl TornadoEngine {
                         .and_then(|v| v.value)
                 })
             })
-            .map(|v| v.abs())
+            .map(f64::abs)
             .filter(|v| *v > 1e-10)
             .collect();
 

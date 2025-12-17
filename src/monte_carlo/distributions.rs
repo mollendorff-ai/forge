@@ -43,26 +43,26 @@ impl fmt::Display for DistributionType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             DistributionType::Normal { mean, stdev } => {
-                write!(f, "MC.Normal({}, {})", mean, stdev)
-            }
+                write!(f, "MC.Normal({mean}, {stdev})")
+            },
             DistributionType::Triangular { min, mode, max } => {
-                write!(f, "MC.Triangular({}, {}, {})", min, mode, max)
-            }
+                write!(f, "MC.Triangular({min}, {mode}, {max})")
+            },
             DistributionType::Uniform { min, max } => {
-                write!(f, "MC.Uniform({}, {})", min, max)
-            }
+                write!(f, "MC.Uniform({min}, {max})")
+            },
             DistributionType::PERT { min, mode, max } => {
-                write!(f, "MC.PERT({}, {}, {})", min, mode, max)
-            }
+                write!(f, "MC.PERT({min}, {mode}, {max})")
+            },
             DistributionType::Lognormal { mean, stdev } => {
-                write!(f, "MC.Lognormal({}, {})", mean, stdev)
-            }
+                write!(f, "MC.Lognormal({mean}, {stdev})")
+            },
             DistributionType::Discrete {
                 values,
                 probabilities,
             } => {
-                write!(f, "MC.Discrete({:?}, {:?})", values, probabilities)
-            }
+                write!(f, "MC.Discrete({values:?}, {probabilities:?})")
+            },
         }
     }
 }
@@ -146,8 +146,7 @@ impl Distribution {
         let sum: f64 = probabilities.iter().sum();
         if (sum - 1.0).abs() > 0.001 {
             return Err(format!(
-                "Discrete distribution probabilities must sum to 1.0 (got {})",
-                sum
+                "Discrete distribution probabilities must sum to 1.0 (got {sum})"
             ));
         }
         if probabilities.iter().any(|&p| p < 0.0) {
@@ -167,20 +166,20 @@ impl Distribution {
             DistributionType::Normal { mean, stdev } => {
                 let dist = Normal::new(*mean, *stdev).unwrap();
                 dist.sample(rng)
-            }
+            },
             DistributionType::Triangular { min, mode, max } => {
                 let dist = Triangular::new(*min, *max, *mode).unwrap();
                 dist.sample(rng)
-            }
+            },
             DistributionType::Uniform { min, max } => {
                 let dist = Uniform::new(*min, *max).unwrap();
                 dist.sample(rng)
-            }
+            },
             DistributionType::PERT { min, mode, max } => {
                 // PERT is a scaled Beta distribution
                 // Shape parameters based on PERT formula
                 sample_pert(rng, *min, *mode, *max)
-            }
+            },
             DistributionType::Lognormal { mean, stdev } => sample_lognormal(rng, *mean, *stdev),
             DistributionType::Discrete {
                 values,
@@ -207,7 +206,7 @@ impl Distribution {
                 let mu = (mean * mean / (mean * mean + variance).sqrt()).ln();
                 let sigma_sq = (1.0 + variance / (mean * mean)).ln();
                 (mu + sigma_sq / 2.0).exp()
-            }
+            },
             DistributionType::Discrete {
                 values,
                 probabilities,
@@ -225,17 +224,17 @@ impl Distribution {
             DistributionType::Normal { stdev, .. } => stdev * stdev,
             DistributionType::Triangular { min, mode, max } => {
                 (min * min + mode * mode + max * max - min * mode - min * max - mode * max) / 18.0
-            }
+            },
             DistributionType::Uniform { min, max } => (max - min).powi(2) / 12.0,
             DistributionType::PERT { min, mode, max } => {
                 let mean = (min + 4.0 * mode + max) / 6.0;
                 // PERT variance approximation
                 ((max - min) / 6.0).powi(2) * (1.0 + (mode - mean).abs() / (max - min))
-            }
+            },
             DistributionType::Lognormal { mean, stdev } => {
                 let variance = stdev * stdev;
                 ((variance / (mean * mean)).ln() + 1.0).exp() - 1.0
-            }
+            },
             DistributionType::Discrete {
                 values,
                 probabilities,
@@ -246,7 +245,7 @@ impl Distribution {
                     .zip(probabilities.iter())
                     .map(|(v, p)| p * (v - mean).powi(2))
                     .sum()
-            }
+            },
         }
     }
 }
@@ -319,8 +318,7 @@ pub fn parse_distribution(formula: &str) -> Result<Distribution, String> {
     // Check for MC. prefix
     if !formula.starts_with("MC.") {
         return Err(format!(
-            "Distribution must start with 'MC.' prefix: {}",
-            formula
+            "Distribution must start with 'MC.' prefix: {formula}"
         ));
     }
 
@@ -329,19 +327,19 @@ pub fn parse_distribution(formula: &str) -> Result<Distribution, String> {
     // Parse function name and arguments
     let paren_pos = without_prefix
         .find('(')
-        .ok_or_else(|| format!("Missing opening parenthesis: {}", formula))?;
+        .ok_or_else(|| format!("Missing opening parenthesis: {formula}"))?;
 
     let func_name = &without_prefix[..paren_pos];
     let args_str = without_prefix[paren_pos + 1..]
         .strip_suffix(')')
-        .ok_or_else(|| format!("Missing closing parenthesis: {}", formula))?;
+        .ok_or_else(|| format!("Missing closing parenthesis: {formula}"))?;
 
     // Parse arguments
     let args: Vec<f64> = args_str
         .split(',')
         .map(|s| s.trim().parse::<f64>())
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Invalid argument: {}", e))?;
+        .map_err(|e| format!("Invalid argument: {e}"))?;
 
     match func_name.to_uppercase().as_str() {
         "NORMAL" => {
@@ -349,32 +347,32 @@ pub fn parse_distribution(formula: &str) -> Result<Distribution, String> {
                 return Err("MC.Normal requires 2 arguments: (mean, stdev)".to_string());
             }
             Distribution::normal(args[0], args[1])
-        }
+        },
         "TRIANGULAR" => {
             if args.len() != 3 {
                 return Err("MC.Triangular requires 3 arguments: (min, mode, max)".to_string());
             }
             Distribution::triangular(args[0], args[1], args[2])
-        }
+        },
         "UNIFORM" => {
             if args.len() != 2 {
                 return Err("MC.Uniform requires 2 arguments: (min, max)".to_string());
             }
             Distribution::uniform(args[0], args[1])
-        }
+        },
         "PERT" => {
             if args.len() != 3 {
                 return Err("MC.PERT requires 3 arguments: (min, mode, max)".to_string());
             }
             Distribution::pert(args[0], args[1], args[2])
-        }
+        },
         "LOGNORMAL" => {
             if args.len() != 2 {
                 return Err("MC.Lognormal requires 2 arguments: (mean, stdev)".to_string());
             }
             Distribution::lognormal(args[0], args[1])
-        }
-        _ => Err(format!("Unknown distribution type: {}", func_name)),
+        },
+        _ => Err(format!("Unknown distribution type: {func_name}")),
     }
 }
 
@@ -399,12 +397,11 @@ mod tests {
             samples.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / samples.len() as f64;
 
         // Mean should be within 2% of theoretical
-        assert!((mean - 100.0).abs() < 2.0, "Mean {} not close to 100", mean);
+        assert!((mean - 100.0).abs() < 2.0, "Mean {mean} not close to 100");
         // Variance should be within 10% of theoretical (15^2 = 225)
         assert!(
             (variance - 225.0).abs() < 30.0,
-            "Variance {} not close to 225",
-            variance
+            "Variance {variance} not close to 225"
         );
     }
 
@@ -417,7 +414,7 @@ mod tests {
         let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
 
         // Theoretical mean = (0 + 5 + 10) / 3 = 5
-        assert!((mean - 5.0).abs() < 0.2, "Mean {} not close to 5", mean);
+        assert!((mean - 5.0).abs() < 0.2, "Mean {mean} not close to 5");
 
         // All samples should be within bounds
         assert!(samples.iter().all(|&x| (0.0..=10.0).contains(&x)));
@@ -432,7 +429,7 @@ mod tests {
         let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
 
         // Theoretical mean = (10 + 20) / 2 = 15
-        assert!((mean - 15.0).abs() < 0.2, "Mean {} not close to 15", mean);
+        assert!((mean - 15.0).abs() < 0.2, "Mean {mean} not close to 15");
 
         // All samples should be within bounds
         assert!(samples.iter().all(|&x| (10.0..20.0).contains(&x)));
@@ -450,9 +447,7 @@ mod tests {
         let theoretical = (0.0 + 4.0 * 3.0 + 10.0) / 6.0;
         assert!(
             (mean - theoretical).abs() < 0.3,
-            "Mean {} not close to {}",
-            mean,
-            theoretical
+            "Mean {mean} not close to {theoretical}"
         );
 
         // All samples should be within bounds

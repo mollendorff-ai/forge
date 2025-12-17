@@ -175,8 +175,7 @@ impl DecisionTreeConfig {
 
         // Validate all nodes
         for (name, node) in &self.nodes {
-            node.validate()
-                .map_err(|e| format!("Node '{}': {}", name, e))?;
+            node.validate().map_err(|e| format!("Node '{name}': {e}"))?;
             self.validate_references(node)?;
         }
 
@@ -192,8 +191,7 @@ impl DecisionTreeConfig {
             if let Some(ref next) = branch.next {
                 if !self.nodes.contains_key(next) {
                     return Err(format!(
-                        "Branch '{}' references non-existent node '{}'",
-                        branch_name, next
+                        "Branch '{branch_name}' references non-existent node '{next}'"
                     ));
                 }
             }
@@ -221,7 +219,7 @@ impl DecisionTreeConfig {
         stack: &mut std::collections::HashSet<String>,
     ) -> Result<(), String> {
         if stack.contains(name) {
-            return Err(format!("Cycle detected involving node '{}'", name));
+            return Err(format!("Cycle detected involving node '{name}'"));
         }
         if visited.contains(name) {
             return Ok(());

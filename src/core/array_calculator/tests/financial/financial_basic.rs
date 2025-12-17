@@ -43,8 +43,7 @@ fn test_pmt_function() {
     // PMT should be around -599.55
     assert!(
         (payment - (-599.55)).abs() < 0.1,
-        "PMT should be around -599.55, got {}",
-        payment
+        "PMT should be around -599.55, got {payment}"
     );
 }
 
@@ -73,8 +72,7 @@ fn test_fv_function() {
     // FV should be around 155,282
     assert!(
         fv > 155000.0 && fv < 156000.0,
-        "FV should be around 155,282, got {}",
-        fv
+        "FV should be around 155,282, got {fv}"
     );
 }
 
@@ -103,8 +101,7 @@ fn test_pv_function() {
     // PV should be around 24,588
     assert!(
         pv > 24000.0 && pv < 25000.0,
-        "PV should be around 24,588, got {}",
-        pv
+        "PV should be around 24,588, got {pv}"
     );
 }
 
@@ -136,8 +133,7 @@ fn test_npv_function() {
     // NPV should be around 353.43 (Excel-style calculation)
     assert!(
         (npv - 353.43).abs() < 1.0,
-        "NPV should be around 353.43, got {}",
-        npv
+        "NPV should be around 353.43, got {npv}"
     );
 }
 
@@ -166,8 +162,7 @@ fn test_nper_function() {
     // NPER should be around 55.5
     assert!(
         nper > 50.0 && nper < 60.0,
-        "NPER should be around 55.5, got {}",
-        nper
+        "NPER should be around 55.5, got {nper}"
     );
 }
 
@@ -196,8 +191,7 @@ fn test_rate_function() {
     // Monthly rate should be around 0.00655
     assert!(
         rate > 0.005 && rate < 0.01,
-        "RATE should be around 0.00655, got {}",
-        rate
+        "RATE should be around 0.00655, got {rate}"
     );
 }
 
@@ -354,8 +348,7 @@ fn test_npv_with_boolean_column() {
     // NPV(0.1, [1.0, 0.0, 1.0, 1.0]) with all discounted
     assert!(
         npv > 0.0 && npv < 5.0,
-        "NPV with booleans should be between 0 and 5, got {}",
-        npv
+        "NPV with booleans should be between 0 and 5, got {npv}"
     );
 }
 
@@ -393,8 +386,7 @@ fn test_npv_with_date_column_error() {
     // NPV with Date column converts dates to numeric values (likely 0.0 or based on date parsing)
     assert!(
         npv.is_finite(),
-        "NPV with date column should return finite value, got {}",
-        npv
+        "NPV with date column should return finite value, got {npv}"
     );
 }
 
@@ -421,8 +413,7 @@ fn test_pmt_function_coverage() {
     // PMT(0.08/12, 360, -200000) should return monthly payment around $1,467
     assert!(
         (payment - 1467.0).abs() < 10.0,
-        "PMT should be around 1467, got {}",
-        payment
+        "PMT should be around 1467, got {payment}"
     );
 }
 
@@ -449,8 +440,7 @@ fn test_fv_function_coverage() {
     // FV(0.05, 10, -100, -1000) should return future value around $2,886
     assert!(
         fv > 2500.0 && fv < 3500.0,
-        "FV should be around 2886, got {}",
-        fv
+        "FV should be around 2886, got {fv}"
     );
 }
 
@@ -477,8 +467,7 @@ fn test_pv_function_coverage() {
     // PV(0.08, 20, -500) should return present value around $4,909
     assert!(
         pv > 4500.0 && pv < 5500.0,
-        "PV should be around 4909, got {}",
-        pv
+        "PV should be around 4909, got {pv}"
     );
 }
 
@@ -503,8 +492,7 @@ fn test_rate_basic() {
     // RATE(60, -1000, 50000) should return a positive interest rate around 0.6%
     assert!(
         rate > 0.0 && rate < 0.02,
-        "RATE should be around 0.006, got {}",
-        rate
+        "RATE should be around 0.006, got {rate}"
     );
 }
 
@@ -529,8 +517,7 @@ fn test_pmt_zero_rate() {
     let payment = result.scalars.get("payment").unwrap().value.unwrap();
     assert!(
         (payment - (-100.0)).abs() < 0.01,
-        "PMT(0,12,1200) should be -100, got {}",
-        payment
+        "PMT(0,12,1200) should be -100, got {payment}"
     );
 }
 
@@ -560,9 +547,7 @@ fn test_pmt_type_beginning_of_period() {
     let begin_pmt = result.scalars.get("payment_begin").unwrap().value.unwrap();
     assert!(
         begin_pmt.abs() < end_pmt.abs(),
-        "Beginning payment {} should be less than end {}",
-        begin_pmt,
-        end_pmt
+        "Beginning payment {begin_pmt} should be less than end {end_pmt}"
     );
 }
 
@@ -583,8 +568,7 @@ fn test_fv_zero_rate() {
     let fv = result.scalars.get("future_value").unwrap().value.unwrap();
     assert!(
         (fv - 1200.0).abs() < 0.01,
-        "FV(0,12,-100,0) should be 1200, got {}",
-        fv
+        "FV(0,12,-100,0) should be 1200, got {fv}"
     );
 }
 
@@ -605,8 +589,7 @@ fn test_pv_zero_rate() {
     let pv = result.scalars.get("present_value").unwrap().value.unwrap();
     assert!(
         (pv - 1200.0).abs() < 0.01,
-        "PV(0,12,-100) should be 1200, got {}",
-        pv
+        "PV(0,12,-100) should be 1200, got {pv}"
     );
 }
 
@@ -627,8 +610,7 @@ fn test_pv_with_future_value() {
     let pv = result.scalars.get("pv_with_fv").unwrap().value.unwrap();
     assert!(
         pv > 500.0 && pv < 2000.0,
-        "PV with fv should be reasonable, got {}",
-        pv
+        "PV with fv should be reasonable, got {pv}"
     );
 }
 
@@ -650,8 +632,7 @@ fn test_pmt_negative_present_value() {
     // Negative PV means we're receiving money, payment should be positive (paying back)
     assert!(
         payment > 0.0,
-        "PMT with negative PV should be positive, got {}",
-        payment
+        "PMT with negative PV should be positive, got {payment}"
     );
 }
 
@@ -673,8 +654,7 @@ fn test_fv_negative_payment() {
     // Positive payment (receiving) should result in negative FV (debt)
     assert!(
         fv < 0.0,
-        "FV with positive payment should be negative, got {}",
-        fv
+        "FV with positive payment should be negative, got {fv}"
     );
 }
 
@@ -696,8 +676,7 @@ fn test_pv_negative_payment() {
     // Positive payment should result in negative PV
     assert!(
         pv < 0.0,
-        "PV with positive payment should be negative, got {}",
-        pv
+        "PV with positive payment should be negative, got {pv}"
     );
 }
 
@@ -719,8 +698,7 @@ fn test_nper_negative_payment() {
     // Should calculate number of periods to pay off
     assert!(
         nper > 0.0 && nper < 20.0,
-        "NPER with negative payment should be positive, got {}",
-        nper
+        "NPER with negative payment should be positive, got {nper}"
     );
 }
 
@@ -742,8 +720,7 @@ fn test_nper_with_future_value() {
     // FV affects the number of periods
     assert!(
         nper.is_finite(),
-        "NPER with FV should be finite, got {}",
-        nper
+        "NPER with FV should be finite, got {nper}"
     );
 }
 
@@ -765,8 +742,7 @@ fn test_rate_high_payment() {
     // High payment means lower interest rate
     assert!(
         (0.0..0.05).contains(&rate),
-        "RATE with high payment should be low, got {}",
-        rate
+        "RATE with high payment should be low, got {rate}"
     );
 }
 
@@ -788,8 +764,7 @@ fn test_rate_with_future_value() {
     // Should converge to a rate
     assert!(
         rate.is_finite(),
-        "RATE with FV should be finite, got {}",
-        rate
+        "RATE with FV should be finite, got {rate}"
     );
 }
 
@@ -811,8 +786,7 @@ fn test_fv_with_present_value() {
     // FV should account for both PV and payments
     assert!(
         fv > 2000.0 && fv < 3000.0,
-        "FV with PV and PMT should be reasonable, got {}",
-        fv
+        "FV with PV and PMT should be reasonable, got {fv}"
     );
 }
 
@@ -834,8 +808,7 @@ fn test_fv_type_beginning_of_period() {
     // FV with 5 parameters should calculate correctly
     assert!(
         fv > 0.0 && fv.is_finite(),
-        "FV with type parameter should be positive, got {}",
-        fv
+        "FV with type parameter should be positive, got {fv}"
     );
 }
 
@@ -867,15 +840,13 @@ fn test_npv_all_negative_cashflows() {
     // All negative cash flows should result in negative NPV
     assert!(
         npv < 0.0,
-        "NPV with all negative cash flows should be negative, got {}",
-        npv
+        "NPV with all negative cash flows should be negative, got {npv}"
     );
     // Manual calculation: -1000/1.1 - 500/1.21 - 300/1.331 - 200/1.4641
     // = -909.09 - 413.22 - 225.39 - 136.60 = -1684.30
     assert!(
         (npv - (-1684.30)).abs() < 1.0,
-        "NPV should be around -1684.30, got {}",
-        npv
+        "NPV should be around -1684.30, got {npv}"
     );
 }
 
@@ -897,8 +868,7 @@ fn test_npv_single_cashflow() {
     // Single cash flow: 1000 / 1.1 = 909.09
     assert!(
         (npv - 909.09).abs() < 0.1,
-        "NPV with single cash flow should be 909.09, got {}",
-        npv
+        "NPV with single cash flow should be 909.09, got {npv}"
     );
 }
 
@@ -927,8 +897,7 @@ fn test_npv_very_high_discount_rate() {
     // = 500 + 250 + 125 + 62.5 = 937.5
     assert!(
         (npv - 937.5).abs() < 1.0,
-        "NPV with 100% discount rate should be around 937.5, got {}",
-        npv
+        "NPV with 100% discount rate should be around 937.5, got {npv}"
     );
 }
 
@@ -956,7 +925,6 @@ fn test_npv_zero_discount_rate() {
     // With 0% discount rate, NPV = sum of all cash flows
     assert!(
         (npv - 1000.0).abs() < 0.01,
-        "NPV with 0% rate should be 1000, got {}",
-        npv
+        "NPV with 0% rate should be 1000, got {npv}"
     );
 }

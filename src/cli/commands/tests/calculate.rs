@@ -69,7 +69,7 @@ summary:
 
     let result = calculate(yaml, true, false, None);
     if let Err(e) = &result {
-        eprintln!("calculate error: {:?}", e);
+        eprintln!("calculate error: {e:?}");
     }
     assert!(result.is_ok());
 }

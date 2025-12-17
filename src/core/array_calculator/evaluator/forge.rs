@@ -28,7 +28,7 @@ pub fn try_evaluate(
                 ));
             }
             Value::Number(fixed_costs / contribution_margin)
-        }
+        },
 
         "BREAKEVEN_REVENUE" => {
             require_args(name, args, 2)?;
@@ -45,7 +45,7 @@ pub fn try_evaluate(
                 ));
             }
             Value::Number(fixed_costs / contribution_margin_ratio)
-        }
+        },
 
         "VARIANCE" => {
             require_args(name, args, 2)?;
@@ -56,7 +56,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("VARIANCE requires numbers"))?;
             Value::Number(actual - budget)
-        }
+        },
 
         "VARIANCE_PCT" => {
             require_args(name, args, 2)?;
@@ -70,7 +70,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("VARIANCE_PCT: budget cannot be zero"));
             }
             Value::Number((actual - budget) / budget)
-        }
+        },
 
         "VARIANCE_STATUS" => {
             // VARIANCE_STATUS(actual, budget, [threshold_or_type])
@@ -120,7 +120,7 @@ pub fn try_evaluate(
                 -1.0
             };
             Value::Number(status)
-        }
+        },
 
         "SCENARIO" => {
             require_args(name, args, 2)?;
@@ -132,17 +132,15 @@ pub fn try_evaluate(
                     Value::Number(value)
                 } else {
                     return Err(EvalError::new(format!(
-                        "Variable '{}' not found in scenario '{}'",
-                        var_name, scenario_name
+                        "Variable '{var_name}' not found in scenario '{scenario_name}'"
                     )));
                 }
             } else {
                 return Err(EvalError::new(format!(
-                    "Scenario '{}' not found",
-                    scenario_name
+                    "Scenario '{scenario_name}' not found"
                 )));
             }
-        }
+        },
 
         _ => return Ok(None),
     };

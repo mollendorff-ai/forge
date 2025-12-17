@@ -199,7 +199,7 @@ fn test_boolean_column_result() {
             assert_eq!(nums[0], 0.0); // 5 <= 10, so FALSE
             assert_eq!(nums[1], 1.0); // 15 > 10, so TRUE
             assert_eq!(nums[2], 1.0); // 25 > 10, so TRUE
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -227,7 +227,7 @@ fn test_unknown_forge_function_error() {
     match result {
         Ok(_) => {
             // Formula engine handled unknown function - acceptable
-        }
+        },
         Err(e) => {
             // Should error with meaningful message
             let err_msg = e.to_string();
@@ -236,10 +236,9 @@ fn test_unknown_forge_function_error() {
                     || err_msg.contains("unknown")
                     || err_msg.contains("function")
                     || err_msg.contains("error"),
-                "Error should mention unknown function or provide context, got: {}",
-                err_msg
+                "Error should mention unknown function or provide context, got: {err_msg}"
             );
-        }
+        },
     }
 }
 
@@ -277,7 +276,7 @@ fn test_cross_table_boolean_column_reference() {
         ColumnValue::Boolean(bools) => {
             assert!(bools[0]); // source.flags[0] = true
             assert!(!bools[1]); // source.flags[1] = false
-        }
+        },
         _ => panic!("Expected Boolean array"),
     }
 }
@@ -316,7 +315,7 @@ fn test_scalar_reference_in_rowwise_formula() {
         ColumnValue::Number(nums) => {
             assert_eq!(nums[0], 0.0); // 50.0 <= 100.0, so 0
             assert_eq!(nums[1], 1.0); // 150.0 > 100.0, so 1
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -384,7 +383,7 @@ fn test_local_boolean_column_reference() {
             assert_eq!(nums[0], 10.0); // active=true, so value=10
             assert_eq!(nums[1], 0.0); // active=false, so 0
             assert_eq!(nums[2], 30.0); // active=true, so value=30
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -412,7 +411,7 @@ fn test_invalid_cross_table_reference_format() {
     match result {
         Ok(_) => {
             // Formula engine may have handled it as a valid expression
-        }
+        },
         Err(e) => {
             // Should error - verify error is meaningful
             let err_msg = e.to_string();
@@ -422,10 +421,9 @@ fn test_invalid_cross_table_reference_format() {
                     || err_msg.contains("reference")
                     || err_msg.contains("not found")
                     || err_msg.contains("error"),
-                "Error should provide context about invalid reference, got: {}",
-                err_msg
+                "Error should provide context about invalid reference, got: {err_msg}"
             );
-        }
+        },
     }
 }
 
@@ -512,11 +510,11 @@ fn test_lookup_with_boolean_column() {
     match &result_col.values {
         ColumnValue::Boolean(bools) => {
             assert!(bools[0]); // flags.active[0] = true (1-based indexing)
-        }
+        },
         ColumnValue::Number(nums) => {
             // May convert boolean to number (0=false, 1=true)
             assert_eq!(nums[0], 1.0); // true = 1
-        }
+        },
         _ => panic!("Expected Boolean or Number array"),
     }
 }
@@ -566,7 +564,7 @@ fn test_cross_table_column_reference_in_formula() {
             assert_eq!(nums[0], 2.0); // 2.0 is at position 2 (1-based) in [1,2,3]
             assert_eq!(nums[1], 1.0); // 1.0 is at position 1 (1-based) in [1,2,3]
             assert_eq!(nums[2], 3.0); // 3.0 is at position 3 (1-based) in [1,2,3]
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -603,8 +601,7 @@ fn test_multiple_table_columns_in_formula() {
     let err = result.unwrap_err().to_string();
     assert!(
         err.contains("aggregation"),
-        "Error should mention aggregation, got: {}",
-        err
+        "Error should mention aggregation, got: {err}"
     );
 }
 
@@ -685,7 +682,7 @@ fn test_boolean_column_in_rowwise_formula() {
             assert_eq!(nums[0], 10.0); // active=true, so value=10
             assert_eq!(nums[1], 0.0); // active=false, so 0
             assert_eq!(nums[2], 30.0); // active=true, so value=30
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -724,7 +721,7 @@ fn test_scalar_reference_in_table_formula() {
             assert_eq!(nums[0], 0.0); // 30 <= 50, so 0
             assert_eq!(nums[1], 1.0); // 60 > 50, so 1
             assert_eq!(nums[2], 0.0); // 45 <= 50, so 0
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -760,7 +757,6 @@ fn test_section_scalar_reference_in_table() {
     let err = result.unwrap_err().to_string();
     assert!(
         err.contains("aggregation"),
-        "Error should mention aggregation, got: {}",
-        err
+        "Error should mention aggregation, got: {err}"
     );
 }

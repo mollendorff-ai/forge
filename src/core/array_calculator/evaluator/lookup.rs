@@ -35,8 +35,7 @@ pub fn try_evaluate(
             // INDEX is 1-based, row_num must be >= 1
             if row_num < 1 {
                 return Err(EvalError::new(format!(
-                    "INDEX: row_num {} must be >= 1",
-                    row_num
+                    "INDEX: row_num {row_num} must be >= 1"
                 )));
             }
 
@@ -44,12 +43,12 @@ pub fn try_evaluate(
                 Value::Array(arr) => {
                     let idx = (row_num - 1) as usize;
                     arr.get(idx).cloned().ok_or_else(|| {
-                        EvalError::new(format!("INDEX row {} out of bounds", row_num))
+                        EvalError::new(format!("INDEX row {row_num} out of bounds"))
                     })?
-                }
+                },
                 _ => return Err(EvalError::new("INDEX requires an array")),
             }
-        }
+        },
 
         "MATCH" => {
             require_args_range(name, args, 2, 3)?;
@@ -87,7 +86,7 @@ pub fn try_evaluate(
                         }
                     }
                     return Err(EvalError::new("MATCH: value not found"));
-                }
+                },
                 1 => {
                     // Find largest value <= lookup_value
                     if let Some(ln) = lookup_num {
@@ -113,7 +112,7 @@ pub fn try_evaluate(
                         }
                         return Err(EvalError::new("MATCH: value not found"));
                     }
-                }
+                },
                 -1 => {
                     // Find smallest value >= lookup_value
                     let mut best_idx: Option<usize> = None;
@@ -132,15 +131,14 @@ pub fn try_evaluate(
                     best_idx
                         .map(|i| Value::Number((i + 1) as f64))
                         .ok_or_else(|| EvalError::new("MATCH: value not found"))?
-                }
+                },
                 _ => {
                     return Err(EvalError::new(format!(
-                        "MATCH: invalid match_type {}",
-                        match_type
+                        "MATCH: invalid match_type {match_type}"
                     )))
-                }
+                },
             }
-        }
+        },
 
         "CHOOSE" => {
             require_args_range(name, args, 2, 255)?;
@@ -150,13 +148,10 @@ pub fn try_evaluate(
                 as usize;
 
             if index < 1 || index >= args.len() {
-                return Err(EvalError::new(format!(
-                    "CHOOSE index {} out of range",
-                    index
-                )));
+                return Err(EvalError::new(format!("CHOOSE index {index} out of range")));
             }
             evaluate(&args[index], ctx)?
-        }
+        },
 
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
@@ -179,10 +174,9 @@ pub fn try_evaluate(
                 }
             }
             return Err(EvalError::new(format!(
-                "INDIRECT: cannot resolve '{}'",
-                ref_str
+                "INDIRECT: cannot resolve '{ref_str}'"
             )));
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "XLOOKUP" => {
@@ -250,7 +244,7 @@ pub fn try_evaluate(
                         }
                     }
                     best_idx
-                }
+                },
                 1 => {
                     let mut best_idx: Option<usize> = None;
                     let mut best_val: Option<f64> = None;
@@ -268,13 +262,12 @@ pub fn try_evaluate(
                         }
                     }
                     best_idx
-                }
+                },
                 _ => {
                     return Err(EvalError::new(format!(
-                        "XLOOKUP: invalid match_mode {}",
-                        match_mode
+                        "XLOOKUP: invalid match_mode {match_mode}"
                     )))
-                }
+                },
             };
 
             match idx {
@@ -285,9 +278,9 @@ pub fn try_evaluate(
                     } else {
                         return Err(EvalError::new("XLOOKUP: No match found"));
                     }
-                }
+                },
             }
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "VLOOKUP" => {
@@ -348,7 +341,7 @@ pub fn try_evaluate(
                 Some(i) => lookup_arr.get(i).cloned().unwrap_or(Value::Null),
                 None => return Err(EvalError::new("VLOOKUP: value not found")),
             }
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "HLOOKUP" => {
@@ -403,7 +396,7 @@ pub fn try_evaluate(
                 Some(i) => lookup_arr.get(i).cloned().unwrap_or(Value::Null),
                 None => return Err(EvalError::new("HLOOKUP: value not found")),
             }
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "OFFSET" => {
@@ -434,7 +427,7 @@ pub fn try_evaluate(
                         return Err(EvalError::new("OFFSET: row out of bounds"));
                     }
                     arr.get(rows as usize).cloned().unwrap_or(Value::Null)
-                }
+                },
                 other => {
                     // For scalar, just return the value (offset of 0,0)
                     if rows == 0 && cols == 0 {
@@ -442,9 +435,9 @@ pub fn try_evaluate(
                     } else {
                         return Err(EvalError::new("OFFSET: cannot offset scalar"));
                     }
-                }
+                },
             }
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "ADDRESS" => {
@@ -478,22 +471,22 @@ pub fn try_evaluate(
             // abs_num: 1=absolute, 2=absolute row/relative col, 3=relative row/absolute col, 4=relative
             let address = if a1_style {
                 match abs_num {
-                    1 => format!("${}${}", col_letter, row_num),
-                    2 => format!("{}${}", col_letter, row_num),
-                    3 => format!("${}{}", col_letter, row_num),
-                    4 => format!("{}{}", col_letter, row_num),
-                    _ => format!("${}${}", col_letter, row_num),
+                    1 => format!("${col_letter}${row_num}"),
+                    2 => format!("{col_letter}${row_num}"),
+                    3 => format!("${col_letter}{row_num}"),
+                    4 => format!("{col_letter}{row_num}"),
+                    _ => format!("${col_letter}${row_num}"),
                 }
             } else {
                 // R1C1 style
                 match abs_num {
-                    1 => format!("R{}C{}", row_num, col_num),
-                    4 => format!("R[{}]C[{}]", row_num, col_num),
-                    _ => format!("R{}C{}", row_num, col_num),
+                    1 => format!("R{row_num}C{col_num}"),
+                    4 => format!("R[{row_num}]C[{col_num}]"),
+                    _ => format!("R{row_num}C{col_num}"),
                 }
             };
             Value::Text(address)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "ROW" => {
@@ -510,14 +503,14 @@ pub fn try_evaluate(
                 // For a reference, we'd need to parse it. Simplified: return 1
                 Value::Number(1.0)
             }
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "COLUMN" => {
             // COLUMN() returns current column number
             // Simplified implementation - always returns 1
             Value::Number(1.0)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "ROWS" => {
@@ -534,7 +527,7 @@ pub fn try_evaluate(
                 Value::Array(arr) => Value::Number(arr.len() as f64),
                 _ => Value::Number(1.0),
             }
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "COLUMNS" => {
@@ -542,7 +535,7 @@ pub fn try_evaluate(
             // For 1D arrays, columns is always 1
             // For Forge's model, we treat arrays as single-column
             Value::Number(1.0)
-        }
+        },
 
         _ => return Ok(None),
     };

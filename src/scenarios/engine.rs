@@ -126,7 +126,7 @@ impl ScenarioEngine {
                             Variable::new(var_name.clone(), Some(*v), None),
                         );
                     }
-                }
+                },
                 ScalarOverride::Formula { formula } => {
                     if let Some(scalar) = model.scalars.get_mut(var_name) {
                         scalar.formula = Some(formula.clone());
@@ -137,7 +137,7 @@ impl ScenarioEngine {
                             Variable::new(var_name.clone(), None, Some(formula.clone())),
                         );
                     }
-                }
+                },
             }
         }
 
@@ -218,8 +218,8 @@ impl ScenarioEngine {
                 .collect();
 
             if !values.is_empty() {
-                let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
-                let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                let min = values.iter().copied().fold(f64::INFINITY, f64::min);
+                let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
                 ranges.insert(output_name.clone(), (min, max));
             }
         }
@@ -333,9 +333,7 @@ mod engine_tests {
         let calculated = 0.5 * 1_050_000.0 + 0.3 * 1_150_000.0 + 0.2 * 900_000.0;
         assert!(
             (expected_revenue - calculated).abs() < 0.01,
-            "Expected value mismatch: got {}, expected {}",
-            expected_revenue,
-            calculated
+            "Expected value mismatch: got {expected_revenue}, expected {calculated}"
         );
     }
 
@@ -356,8 +354,7 @@ mod engine_tests {
             .unwrap();
         assert!(
             (*prob_positive - 1.0).abs() < 0.001,
-            "Probability positive should be 1.0, got {}",
-            prob_positive
+            "Probability positive should be 1.0, got {prob_positive}"
         );
     }
 

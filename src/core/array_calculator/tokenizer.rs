@@ -104,35 +104,35 @@ impl<'a> Tokenizer<'a> {
                     '(' => {
                         self.advance();
                         Token::OpenParen
-                    }
+                    },
                     ')' => {
                         self.advance();
                         Token::CloseParen
-                    }
+                    },
                     '[' => {
                         self.advance();
                         Token::OpenBracket
-                    }
+                    },
                     ']' => {
                         self.advance();
                         Token::CloseBracket
-                    }
+                    },
 
                     // Punctuation
                     ',' => {
                         self.advance();
                         Token::Comma
-                    }
+                    },
                     ':' => {
                         self.advance();
                         Token::Colon
-                    }
+                    },
 
                     // Operators (need to handle multi-char operators)
                     '+' | '*' | '/' | '^' | '&' => {
                         let op = self.advance().unwrap().to_string();
                         Token::Operator(op)
-                    }
+                    },
 
                     // Minus could be operator or negative number
                     '-' => self.read_minus_or_negative()?,
@@ -143,7 +143,7 @@ impl<'a> Tokenizer<'a> {
                     '=' => {
                         self.advance();
                         Token::Operator("=".to_string())
-                    }
+                    },
 
                     // Numbers
                     c if c.is_ascii_digit() => self.read_number()?,
@@ -154,13 +154,13 @@ impl<'a> Tokenizer<'a> {
                     // Unknown character
                     c => {
                         return Err(TokenizeError::new(
-                            format!("Unexpected character: '{}'", c),
+                            format!("Unexpected character: '{c}'"),
                             self.position,
                         ));
-                    }
+                    },
                 };
                 Ok(Some(token))
-            }
+            },
         }
     }
 
@@ -199,7 +199,7 @@ impl<'a> Tokenizer<'a> {
             match self.advance() {
                 None => {
                     return Err(TokenizeError::new("Unterminated string literal", start_pos));
-                }
+                },
                 Some(c) if c == quote => {
                     // Check for escaped quote (doubled)
                     if self.peek() == Some(quote) {
@@ -208,10 +208,10 @@ impl<'a> Tokenizer<'a> {
                     } else {
                         break;
                     }
-                }
+                },
                 Some(c) => {
                     value.push(c);
-                }
+                },
             }
         }
 
@@ -268,7 +268,7 @@ impl<'a> Tokenizer<'a> {
         num_str
             .parse::<f64>()
             .map(Token::Number)
-            .map_err(|_| TokenizeError::new(format!("Invalid number: {}", num_str), start_pos))
+            .map_err(|_| TokenizeError::new(format!("Invalid number: {num_str}"), start_pos))
     }
 
     /// Read an identifier (function name, variable, or table.column reference)
@@ -321,11 +321,11 @@ impl<'a> Tokenizer<'a> {
             Some('=') => {
                 self.advance();
                 Ok(Token::Operator("<=".to_string()))
-            }
+            },
             Some('>') => {
                 self.advance();
                 Ok(Token::Operator("<>".to_string()))
-            }
+            },
             _ => Ok(Token::Operator("<".to_string())),
         }
     }
@@ -338,7 +338,7 @@ impl<'a> Tokenizer<'a> {
             Some('=') => {
                 self.advance();
                 Ok(Token::Operator(">=".to_string()))
-            }
+            },
             _ => Ok(Token::Operator(">".to_string())),
         }
     }

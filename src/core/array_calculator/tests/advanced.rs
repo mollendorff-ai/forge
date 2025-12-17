@@ -49,22 +49,19 @@ fn test_let_function() {
     let simple = result.scalars.get("simple_let").unwrap().value.unwrap();
     assert!(
         (simple - 20.0).abs() < 0.001,
-        "LET(x, 10, x * 2) should return 20, got {}",
-        simple
+        "LET(x, 10, x * 2) should return 20, got {simple}"
     );
 
     let multi = result.scalars.get("multi_var").unwrap().value.unwrap();
     assert!(
         (multi - 8.0).abs() < 0.001,
-        "LET(x, 5, y, 3, x + y) should return 8, got {}",
-        multi
+        "LET(x, 5, y, 3, x + y) should return 8, got {multi}"
     );
 
     let dep = result.scalars.get("dependent").unwrap().value.unwrap();
     assert!(
         (dep - 25.0).abs() < 0.001,
-        "LET(a, 10, b, a * 2, b + 5) should return 25, got {}",
-        dep
+        "LET(a, 10, b, a * 2, b + 5) should return 25, got {dep}"
     );
 }
 
@@ -100,8 +97,7 @@ fn test_let_with_aggregation() {
     // SUM(100+200+300+400+500) = 1500, 1500 * 0.1 = 150
     assert!(
         (tax - 150.0).abs() < 0.001,
-        "LET with SUM should return 150, got {}",
-        tax
+        "LET with SUM should return 150, got {tax}"
     );
 }
 
@@ -138,15 +134,13 @@ fn test_switch_function() {
     let matched = result.scalars.get("matched").unwrap().value.unwrap();
     assert!(
         (matched - 0.10).abs() < 0.001,
-        "SWITCH(2, ...) should return 0.10, got {}",
-        matched
+        "SWITCH(2, ...) should return 0.10, got {matched}"
     );
 
     let with_default = result.scalars.get("with_default").unwrap().value.unwrap();
     assert!(
         (with_default - 50.0).abs() < 0.001,
-        "SWITCH(4, ..., 50) should return default 50, got {}",
-        with_default
+        "SWITCH(4, ..., 50) should return default 50, got {with_default}"
     );
 }
 
@@ -193,23 +187,20 @@ fn test_lambda_function() {
     let double = result.scalars.get("double").unwrap().value.unwrap();
     assert!(
         (double - 10.0).abs() < 0.001,
-        "LAMBDA(x, x*2)(5) should return 10, got {}",
-        double
+        "LAMBDA(x, x*2)(5) should return 10, got {double}"
     );
 
     let add = result.scalars.get("add").unwrap().value.unwrap();
     assert!(
         (add - 7.0).abs() < 0.001,
-        "LAMBDA(x, y, x+y)(3, 4) should return 7, got {}",
-        add
+        "LAMBDA(x, y, x+y)(3, 4) should return 7, got {add}"
     );
 
     let compound = result.scalars.get("compound").unwrap().value.unwrap();
     // 1000 * (1.05)^10 = 1628.89
     assert!(
         (compound - 1628.89).abs() < 0.1,
-        "LAMBDA compound interest should return ~1628.89, got {}",
-        compound
+        "LAMBDA compound interest should return ~1628.89, got {compound}"
     );
 }
 

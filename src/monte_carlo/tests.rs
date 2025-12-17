@@ -137,11 +137,11 @@ fn test_lhs_vs_mc_convergence() {
 
     // LHS should have lower or equal error (on average)
     // This test may occasionally fail due to randomness, but should pass most of the time
-    println!("MC error: {}, LHS error: {}", mc_error, lhs_error);
+    println!("MC error: {mc_error}, LHS error: {lhs_error}");
 
     // Both should be within reasonable bounds
-    assert!(mc_error < 0.05, "MC error too high: {}", mc_error);
-    assert!(lhs_error < 0.03, "LHS error too high: {}", lhs_error);
+    assert!(mc_error < 0.05, "MC error too high: {mc_error}");
+    assert!(lhs_error < 0.03, "LHS error too high: {lhs_error}");
 }
 
 /// Test distribution statistical accuracy
@@ -177,8 +177,7 @@ fn test_distribution_accuracy() {
     let normal_mean: f64 = normal_samples.iter().sum::<f64>() / normal_samples.len() as f64;
     assert!(
         (normal_mean - 100.0).abs() < 1.0,
-        "Normal mean {} not close to 100",
-        normal_mean
+        "Normal mean {normal_mean} not close to 100"
     );
 
     // Uniform: mean ≈ 50
@@ -186,8 +185,7 @@ fn test_distribution_accuracy() {
     let uniform_mean: f64 = uniform_samples.iter().sum::<f64>() / uniform_samples.len() as f64;
     assert!(
         (uniform_mean - 50.0).abs() < 1.0,
-        "Uniform mean {} not close to 50",
-        uniform_mean
+        "Uniform mean {uniform_mean} not close to 50"
     );
 
     // Triangular: mean ≈ 50 ((0+50+100)/3)
@@ -195,8 +193,7 @@ fn test_distribution_accuracy() {
     let tri_mean: f64 = tri_samples.iter().sum::<f64>() / tri_samples.len() as f64;
     assert!(
         (tri_mean - 50.0).abs() < 1.0,
-        "Triangular mean {} not close to 50",
-        tri_mean
+        "Triangular mean {tri_mean} not close to 50"
     );
 
     // PERT: mean ≈ 36.67 ((0+4*30+100)/6)
@@ -205,9 +202,7 @@ fn test_distribution_accuracy() {
     let expected_pert_mean = (0.0 + 4.0 * 30.0 + 100.0) / 6.0;
     assert!(
         (pert_mean - expected_pert_mean).abs() < 2.0,
-        "PERT mean {} not close to {}",
-        pert_mean,
-        expected_pert_mean
+        "PERT mean {pert_mean} not close to {expected_pert_mean}"
     );
 }
 
@@ -230,15 +225,15 @@ fn test_percentile_accuracy() {
 
     // P10 ≈ 10
     let p10 = stats.percentile(10).unwrap();
-    assert!((p10 - 10.0).abs() < 2.0, "P10 {} not close to 10", p10);
+    assert!((p10 - 10.0).abs() < 2.0, "P10 {p10} not close to 10");
 
     // P50 ≈ 50
     let p50 = stats.percentile(50).unwrap();
-    assert!((p50 - 50.0).abs() < 2.0, "P50 {} not close to 50", p50);
+    assert!((p50 - 50.0).abs() < 2.0, "P50 {p50} not close to 50");
 
     // P90 ≈ 90
     let p90 = stats.percentile(90).unwrap();
-    assert!((p90 - 90.0).abs() < 2.0, "P90 {} not close to 90", p90);
+    assert!((p90 - 90.0).abs() < 2.0, "P90 {p90} not close to 90");
 }
 
 /// Test performance (10K iterations < 5 seconds)
@@ -271,7 +266,7 @@ fn test_performance() {
         elapsed.as_secs_f64()
     );
 
-    println!("10K iterations with 5 distributions: {:?}", elapsed);
+    println!("10K iterations with 5 distributions: {elapsed:?}");
 }
 
 /// Test YAML output format

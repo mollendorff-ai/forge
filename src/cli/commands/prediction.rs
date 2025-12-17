@@ -38,18 +38,18 @@ pub fn scenarios(
 
     // Parse scenarios config
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {}", e)))?;
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: ScenarioConfig = if let Some(scenarios_value) = value.get("scenarios") {
         let scenarios_map: HashMap<String, serde_yaml_ng::Value> =
             serde_yaml_ng::from_value(scenarios_value.clone())
-                .map_err(|e| ForgeError::Validation(format!("scenarios config error: {}", e)))?;
+                .map_err(|e| ForgeError::Validation(format!("scenarios config error: {e}")))?;
 
         // Convert to ScenarioConfig
         let mut config = ScenarioConfig::default();
         for (name, def) in scenarios_map {
             let scenario_def = serde_yaml_ng::from_value(def)
-                .map_err(|e| ForgeError::Validation(format!("scenario '{}' error: {}", name, e)))?;
+                .map_err(|e| ForgeError::Validation(format!("scenario '{name}' error: {e}")))?;
             config.scenarios.insert(name, scenario_def);
         }
         config
@@ -77,7 +77,7 @@ pub fn scenarios(
     let results = if let Some(ref filter) = scenario_filter {
         // Run single scenario
         if verbose {
-            println!("{}", format!("🎯 Running scenario: {}", filter).cyan());
+            println!("{}", format!("🎯 Running scenario: {filter}").cyan());
         }
         engine.run().map_err(ForgeError::Eval)?
     } else {
@@ -111,7 +111,7 @@ pub fn scenarios(
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = format!("{:#?}", results);
+        let output_str = format!("{results:#?}");
         fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
         println!(
             "{}",
@@ -141,11 +141,11 @@ pub fn decision_tree(
 
     // Parse decision_tree config
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {}", e)))?;
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: DecisionTreeConfig = if let Some(dt_value) = value.get("decision_tree") {
         serde_yaml_ng::from_value(dt_value.clone())
-            .map_err(|e| ForgeError::Validation(format!("decision_tree config error: {}", e)))?
+            .map_err(|e| ForgeError::Validation(format!("decision_tree config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
             "No 'decision_tree' section found in YAML".to_string(),
@@ -213,7 +213,7 @@ pub fn decision_tree(
     }
 
     if let Some(output_path) = output_file {
-        let output_str = format!("{:#?}", result);
+        let output_str = format!("{result:#?}");
         fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
         println!(
             "{}",
@@ -244,11 +244,11 @@ pub fn real_options(
 
     // Parse real_options config
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {}", e)))?;
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: RealOptionsConfig = if let Some(ro_value) = value.get("real_options") {
         serde_yaml_ng::from_value(ro_value.clone())
-            .map_err(|e| ForgeError::Validation(format!("real_options config error: {}", e)))?
+            .map_err(|e| ForgeError::Validation(format!("real_options config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
             "No 'real_options' section found in YAML".to_string(),
@@ -327,7 +327,7 @@ pub fn real_options(
             format!("${:.2}", opt_result.value).bold().green()
         );
         if let Some(ref trigger) = opt_result.optimal_trigger {
-            println!("         Trigger: {}", trigger);
+            println!("         Trigger: {trigger}");
         }
         if let Some(prob) = opt_result.probability_exercise {
             println!("         P(exercise): {:.1}%", prob * 100.0);
@@ -361,7 +361,7 @@ pub fn real_options(
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = format!("{:#?}", result);
+        let output_str = format!("{result:#?}");
         fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
         println!(
             "{}",
@@ -392,11 +392,11 @@ pub fn tornado(
 
     // Parse tornado config
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {}", e)))?;
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let mut config: TornadoConfig = if let Some(tornado_value) = value.get("tornado") {
         serde_yaml_ng::from_value(tornado_value.clone())
-            .map_err(|e| ForgeError::Validation(format!("tornado config error: {}", e)))?
+            .map_err(|e| ForgeError::Validation(format!("tornado config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
             "No 'tornado' section found in YAML".to_string(),
@@ -472,7 +472,7 @@ pub fn tornado(
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = format!("{:#?}", result);
+        let output_str = format!("{result:#?}");
         fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
         println!(
             "{}",
@@ -504,11 +504,11 @@ pub fn bootstrap(
 
     // Parse bootstrap config
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {}", e)))?;
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let mut config: BootstrapConfig = if let Some(bs_value) = value.get("bootstrap") {
         serde_yaml_ng::from_value(bs_value.clone())
-            .map_err(|e| ForgeError::Validation(format!("bootstrap config error: {}", e)))?
+            .map_err(|e| ForgeError::Validation(format!("bootstrap config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
             "No 'bootstrap' section found in YAML".to_string(),
@@ -539,7 +539,7 @@ pub fn bootstrap(
     println!("      Data points: {}", config.data.len());
     println!("      Confidence levels: {:?}", config.confidence_levels);
     if let Some(seed) = config.seed {
-        println!("      Seed: {}", seed);
+        println!("      Seed: {seed}");
     }
     println!();
 
@@ -579,7 +579,7 @@ pub fn bootstrap(
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = format!("{:#?}", result);
+        let output_str = format!("{result:#?}");
         fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
         println!(
             "{}",
@@ -610,11 +610,11 @@ pub fn bayesian(
 
     // Parse bayesian_network config
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {}", e)))?;
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: BayesianConfig = if let Some(bn_value) = value.get("bayesian_network") {
         serde_yaml_ng::from_value(bn_value.clone())
-            .map_err(|e| ForgeError::Validation(format!("bayesian_network config error: {}", e)))?
+            .map_err(|e| ForgeError::Validation(format!("bayesian_network config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
             "No 'bayesian_network' section found in YAML".to_string(),
@@ -690,7 +690,7 @@ pub fn bayesian(
 
             // Write output if specified
             if let Some(output_path) = output_file {
-                let output_str = format!("{:#?}", var_result);
+                let output_str = format!("{var_result:#?}");
                 fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
                 println!(
                     "{}",
@@ -724,7 +724,7 @@ pub fn bayesian(
 
             // Write output if specified
             if let Some(output_path) = output_file {
-                let output_str = format!("{:#?}", var_result);
+                let output_str = format!("{var_result:#?}");
                 fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
                 println!(
                     "{}",
@@ -763,7 +763,7 @@ pub fn bayesian(
 
         // Write output if specified
         if let Some(output_path) = output_file {
-            let output_str = format!("{:#?}", all_results);
+            let output_str = format!("{all_results:#?}");
             fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
             println!(
                 "{}",
@@ -772,7 +772,7 @@ pub fn bayesian(
                     .green()
             );
         }
-    };
+    }
 
     println!("{}", "✅ Bayesian inference complete".bold().green());
     Ok(())
@@ -805,7 +805,7 @@ scalars:
     value: 0.05
 "#;
         let mut file = NamedTempFile::new().unwrap();
-        writeln!(file, "{}", yaml).unwrap();
+        writeln!(file, "{yaml}").unwrap();
 
         // Test config parsing
         let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml).unwrap();

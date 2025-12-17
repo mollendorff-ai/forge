@@ -8,7 +8,7 @@ fn main() {
     println!("=== Parsed Model ===");
     println!("\nTables:");
     for (table_name, table) in &model.tables {
-        println!("\n  Table: {}", table_name);
+        println!("\n  Table: {table_name}");
         println!(
             "    Columns: {:?}",
             table.columns.keys().collect::<Vec<_>>()

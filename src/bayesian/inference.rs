@@ -247,7 +247,7 @@ impl BeliefPropagation {
     /// Query the marginal probability of a variable
     pub fn query(&self, target: &str) -> Result<Vec<f64>, String> {
         if !self.config.nodes.contains_key(target) {
-            return Err(format!("Variable '{}' not found in network", target));
+            return Err(format!("Variable '{target}' not found in network"));
         }
 
         // Variable elimination
@@ -309,7 +309,7 @@ impl BeliefPropagation {
         } else {
             // Complex case: marginalize out any remaining variables except target
             let mut final_result = result.clone();
-            for var in result.variables.iter() {
+            for var in &result.variables {
                 if var != target {
                     final_result = final_result.marginalize(var);
                 }
@@ -332,7 +332,7 @@ impl BeliefPropagation {
         evidence: &HashMap<String, usize>,
     ) -> Result<Vec<f64>, String> {
         if !self.config.nodes.contains_key(target) {
-            return Err(format!("Variable '{}' not found in network", target));
+            return Err(format!("Variable '{target}' not found in network"));
         }
 
         // Apply evidence to factors
@@ -399,7 +399,7 @@ impl BeliefPropagation {
         } else {
             // Complex case: marginalize out any remaining variables except target
             let mut final_result = result.clone();
-            for var in result.variables.iter() {
+            for var in &result.variables {
                 if var != target {
                     final_result = final_result.marginalize(var);
                 }

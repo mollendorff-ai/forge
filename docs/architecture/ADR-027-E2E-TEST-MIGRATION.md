@@ -57,10 +57,9 @@ The separate `forge-demo` e2e test suite caught **BUG-010 through BUG-013** that
 
 - **Integration tests** (`tests/*.rs`) - 59 files, 25,089 LOC
 - **E2E validation** - Tests that compare Forge output to external engines:
-  - Gnumeric (see ADR-007)
-  - R (`RInside` integration)
-  - Python (`numpy`, `pandas` validation)
-  - Excel (via COM automation on Windows)
+  - Gnumeric (see ADR-007) - Primary validation for Excel functions
+  - R - Gold standard for statistical validation (boot, stats, bnlearn)
+  - Excel (via COM automation on Windows CI)
 - **Roundtrip tests** - YAML → XLSX → recalculate → compare
 - **Performance benchmarks** - Large model stress tests
 
@@ -241,9 +240,10 @@ e2e:
 
 ### Validation Engines
 - **Gnumeric**: https://www.gnumeric.org/ (primary validation, see ADR-007)
-- **R Project**: https://www.r-project.org/ (statistical validation)
-- **Python NumPy**: https://numpy.org/ (numerical validation)
+- **R Project**: https://www.r-project.org/ (gold standard for statistical validation)
 - **Excel**: Via COM automation on Windows CI runners
+
+> **Note**: Python (scipy/numpy) was considered but removed - R is the gold standard. See forge-e2e ADR-002.
 
 ---
 

@@ -21,7 +21,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("ABS requires a number"))?;
             Value::Number(val.abs())
-        }
+        },
 
         "SQRT" => {
             require_args(name, args, 1)?;
@@ -32,7 +32,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("SQRT of negative number"));
             }
             Value::Number(val.sqrt())
-        }
+        },
 
         "ROUND" => {
             require_args_range(name, args, 1, 2)?;
@@ -46,7 +46,7 @@ pub fn try_evaluate(
             };
             let multiplier = 10_f64.powi(decimals);
             Value::Number((val * multiplier).round() / multiplier)
-        }
+        },
 
         "ROUNDUP" => {
             require_args_range(name, args, 1, 2)?;
@@ -61,7 +61,7 @@ pub fn try_evaluate(
             let multiplier = 10_f64.powi(decimals);
             let sign = if val >= 0.0 { 1.0 } else { -1.0 };
             Value::Number(sign * (val.abs() * multiplier).ceil() / multiplier)
-        }
+        },
 
         "ROUNDDOWN" => {
             require_args_range(name, args, 1, 2)?;
@@ -76,7 +76,7 @@ pub fn try_evaluate(
             let multiplier = 10_f64.powi(decimals);
             let sign = if val >= 0.0 { 1.0 } else { -1.0 };
             Value::Number(sign * (val.abs() * multiplier).floor() / multiplier)
-        }
+        },
 
         "FLOOR" => {
             require_args_range(name, args, 1, 2)?;
@@ -93,7 +93,7 @@ pub fn try_evaluate(
             } else {
                 Value::Number((val / significance).floor() * significance)
             }
-        }
+        },
 
         "CEILING" => {
             require_args_range(name, args, 1, 2)?;
@@ -110,7 +110,7 @@ pub fn try_evaluate(
             } else {
                 Value::Number((val / significance).ceil() * significance)
             }
-        }
+        },
 
         "MOD" => {
             require_args(name, args, 2)?;
@@ -123,8 +123,9 @@ pub fn try_evaluate(
             if divisor == 0.0 {
                 return Err(EvalError::new("MOD division by zero"));
             }
-            Value::Number(num % divisor)
-        }
+            // Excel uses floored division: MOD(n, d) = n - d * FLOOR(n/d)
+            Value::Number(num - divisor * (num / divisor).floor())
+        },
 
         "POWER" => {
             require_args(name, args, 2)?;
@@ -135,7 +136,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("POWER requires numbers"))?;
             Value::Number(base.powf(exp))
-        }
+        },
 
         "EXP" => {
             require_args(name, args, 1)?;
@@ -143,7 +144,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("EXP requires a number"))?;
             Value::Number(val.exp())
-        }
+        },
 
         "LN" => {
             require_args(name, args, 1)?;
@@ -154,7 +155,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("LN of non-positive number"));
             }
             Value::Number(val.ln())
-        }
+        },
 
         "LOG10" => {
             require_args(name, args, 1)?;
@@ -165,7 +166,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("LOG10 of non-positive number"));
             }
             Value::Number(val.log10())
-        }
+        },
 
         "INT" => {
             require_args(name, args, 1)?;
@@ -173,7 +174,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("INT requires a number"))?;
             Value::Number(val.floor())
-        }
+        },
 
         "SIGN" => {
             require_args(name, args, 1)?;
@@ -187,7 +188,7 @@ pub fn try_evaluate(
             } else {
                 0.0
             })
-        }
+        },
 
         "TRUNC" => {
             require_args_range(name, args, 1, 2)?;
@@ -201,12 +202,12 @@ pub fn try_evaluate(
             };
             let multiplier = 10_f64.powi(decimals);
             Value::Number(val.signum() * (val.abs() * multiplier).floor() / multiplier)
-        }
+        },
 
         "PI" => {
             require_args(name, args, 0)?;
             Value::Number(std::f64::consts::PI)
-        }
+        },
 
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
@@ -221,7 +222,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("LOG of non-positive number"));
             }
             Value::Number(val.log10())
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "POW" => {
@@ -234,13 +235,13 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("POW requires numbers"))?;
             Value::Number(base.powf(exp))
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "E" => {
             require_args(name, args, 0)?;
             Value::Number(std::f64::consts::E)
-        }
+        },
 
         _ => return Ok(None),
     };
@@ -287,6 +288,24 @@ mod tests {
     }
 
     #[test]
+    fn test_sqrt_edge_cases() {
+        let ctx = EvalContext::new();
+        // SQRT(-1) error case (edge case from edge_errors.yaml)
+        let result = eval("SQRT(-1)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("negative"));
+
+        // SQRT of 0 = 0 (valid)
+        assert_eq!(eval("SQRT(0)", &ctx).unwrap(), Value::Number(0.0));
+
+        // SQRT of positive = valid
+        assert_eq!(eval("SQRT(4)", &ctx).unwrap(), Value::Number(2.0));
+
+        // SQRT of fractional positive = valid
+        assert_eq!(eval("SQRT(0.25)", &ctx).unwrap(), Value::Number(0.5));
+    }
+
+    #[test]
     fn test_floor_zero_significance() {
         let ctx = EvalContext::new();
         assert_eq!(eval("FLOOR(3.5, 0)", &ctx).unwrap(), Value::Number(0.0));
@@ -304,6 +323,52 @@ mod tests {
         let result = eval("MOD(10, 0)", &ctx);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("zero"));
+    }
+
+    #[test]
+    fn test_mod_edge_cases() {
+        let ctx = EvalContext::new();
+        // Edge case 12: IFERROR(MOD(5, 0), -1) = -1 (mod by zero caught)
+        // Testing the error case directly
+        let result = eval("MOD(5, 0)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("zero"));
+
+        // MOD with valid divisor = valid
+        assert_eq!(eval("MOD(10, 3)", &ctx).unwrap(), Value::Number(1.0));
+
+        // MOD with negative dividend
+        assert_eq!(eval("MOD(-5, 3)", &ctx).unwrap(), Value::Number(1.0));
+
+        // MOD with negative divisor
+        assert_eq!(eval("MOD(5, -3)", &ctx).unwrap(), Value::Number(-1.0));
+
+        // MOD with both negative
+        assert_eq!(eval("MOD(-5, -3)", &ctx).unwrap(), Value::Number(-2.0));
+
+        // MOD with zero dividend
+        assert_eq!(eval("MOD(0, 5)", &ctx).unwrap(), Value::Number(0.0));
+    }
+
+    #[test]
+    fn test_mod_negative_dividend() {
+        let ctx = EvalContext::new();
+        // MOD(-5, 3) = 1 (Excel uses floored division)
+        assert_eq!(eval("MOD(-5, 3)", &ctx).unwrap(), Value::Number(1.0));
+    }
+
+    #[test]
+    fn test_mod_negative_divisor() {
+        let ctx = EvalContext::new();
+        // MOD(5, -3) = -1 (Excel uses floored division)
+        assert_eq!(eval("MOD(5, -3)", &ctx).unwrap(), Value::Number(-1.0));
+    }
+
+    #[test]
+    fn test_mod_both_negative() {
+        let ctx = EvalContext::new();
+        // MOD(-5, -3) = -2 (Excel uses floored division)
+        assert_eq!(eval("MOD(-5, -3)", &ctx).unwrap(), Value::Number(-2.0));
     }
 
     #[test]
@@ -375,11 +440,56 @@ mod tests {
     }
 
     #[test]
+    fn test_ln_edge_cases() {
+        let ctx = EvalContext::new();
+        // Edge case 8: IFERROR(LN(0), -1) = -1 (ln zero caught)
+        // Testing the error case directly
+        let result = eval("LN(0)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("non-positive"));
+
+        // LN of negative number = error
+        let result = eval("LN(-5)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("non-positive"));
+
+        // LN of positive number = valid
+        assert!(eval("LN(1)", &ctx).is_ok()); // LN(1) = 0
+        assert!(eval("LN(2.718281828)", &ctx).is_ok()); // LN(e) ≈ 1
+
+        // LN of fractional positive = valid
+        assert!(eval("LN(0.5)", &ctx).is_ok());
+    }
+
+    #[test]
     fn test_log10_non_positive() {
         let ctx = EvalContext::new();
         let result = eval("LOG10(0)", &ctx);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("non-positive"));
+    }
+
+    #[test]
+    fn test_log10_edge_cases() {
+        let ctx = EvalContext::new();
+        // Edge case 7: IFERROR(LOG10(0), -1) = -1 (log zero caught)
+        // Testing the error case directly
+        let result = eval("LOG10(0)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("non-positive"));
+
+        // LOG10 of negative number = error
+        let result = eval("LOG10(-5)", &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("non-positive"));
+
+        // LOG10 of positive number = valid
+        assert_eq!(eval("LOG10(1)", &ctx).unwrap(), Value::Number(0.0)); // LOG10(1) = 0
+        assert_eq!(eval("LOG10(10)", &ctx).unwrap(), Value::Number(1.0)); // LOG10(10) = 1
+        assert_eq!(eval("LOG10(100)", &ctx).unwrap(), Value::Number(2.0)); // LOG10(100) = 2
+
+        // LOG10 of fractional positive = valid
+        assert!(eval("LOG10(0.5)", &ctx).is_ok());
     }
 
     #[test]
@@ -403,6 +513,101 @@ mod tests {
         let ctx = EvalContext::new();
         let result = eval("PI()", &ctx).unwrap();
         assert!(matches!(result, Value::Number(n) if (n - std::f64::consts::PI).abs() < 0.0001));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NUMERIC EDGE CASES (from forge-demo edge_numeric.yaml)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_int_edge_cases() {
+        let ctx = EvalContext::new();
+        // INT(5.9) = 5 (floor toward negative infinity)
+        assert_eq!(eval("INT(5.9)", &ctx).unwrap(), Value::Number(5.0));
+        // INT(-5.9) = -6
+        assert_eq!(eval("INT(-5.9)", &ctx).unwrap(), Value::Number(-6.0));
+        // INT(-5.1) = -6
+        assert_eq!(eval("INT(-5.1)", &ctx).unwrap(), Value::Number(-6.0));
+    }
+
+    #[test]
+    fn test_trunc_edge_cases() {
+        let ctx = EvalContext::new();
+        // TRUNC(5.9) = 5 (truncate toward zero)
+        assert_eq!(eval("TRUNC(5.9)", &ctx).unwrap(), Value::Number(5.0));
+        // TRUNC(-5.9) = -5
+        assert_eq!(eval("TRUNC(-5.9)", &ctx).unwrap(), Value::Number(-5.0));
+        // TRUNC(-5.1) = -5
+        assert_eq!(eval("TRUNC(-5.1)", &ctx).unwrap(), Value::Number(-5.0));
+    }
+
+    #[test]
+    fn test_round_edge_cases_half_up() {
+        let ctx = EvalContext::new();
+        // ROUND(2.5, 0) = 3 (round half up)
+        assert_eq!(eval("ROUND(2.5, 0)", &ctx).unwrap(), Value::Number(3.0));
+        // ROUND(3.5, 0) = 4
+        assert_eq!(eval("ROUND(3.5, 0)", &ctx).unwrap(), Value::Number(4.0));
+        // ROUND(-2.5, 0) = -3
+        assert_eq!(eval("ROUND(-2.5, 0)", &ctx).unwrap(), Value::Number(-3.0));
+    }
+
+    #[test]
+    fn test_round_edge_cases_negative_precision() {
+        let ctx = EvalContext::new();
+        // ROUND(1234.5, -2) = 1200 (negative precision)
+        assert_eq!(
+            eval("ROUND(1234.5, -2)", &ctx).unwrap(),
+            Value::Number(1200.0)
+        );
+        // ROUND(1250, -2) = 1300
+        assert_eq!(
+            eval("ROUND(1250, -2)", &ctx).unwrap(),
+            Value::Number(1300.0)
+        );
+    }
+
+    #[test]
+    fn test_ceiling_edge_cases() {
+        let ctx = EvalContext::new();
+        // CEILING(2.1, 1) = 3
+        assert_eq!(eval("CEILING(2.1, 1)", &ctx).unwrap(), Value::Number(3.0));
+        // CEILING(-2.1, 1) = -2
+        assert_eq!(eval("CEILING(-2.1, 1)", &ctx).unwrap(), Value::Number(-2.0));
+    }
+
+    #[test]
+    fn test_floor_edge_cases() {
+        let ctx = EvalContext::new();
+        // FLOOR(2.9, 1) = 2
+        assert_eq!(eval("FLOOR(2.9, 1)", &ctx).unwrap(), Value::Number(2.0));
+        // FLOOR(-2.9, 1) = -3
+        assert_eq!(eval("FLOOR(-2.9, 1)", &ctx).unwrap(), Value::Number(-3.0));
+    }
+
+    #[test]
+    fn test_sqrt_zero_edge_case() {
+        let ctx = EvalContext::new();
+        // SQRT(0) = 0
+        assert_eq!(eval("SQRT(0)", &ctx).unwrap(), Value::Number(0.0));
+    }
+
+    #[test]
+    fn test_abs_negative_zero_edge_case() {
+        let ctx = EvalContext::new();
+        // ABS(-0) = 0
+        assert_eq!(eval("ABS(-0)", &ctx).unwrap(), Value::Number(0.0));
+    }
+
+    #[test]
+    fn test_sign_edge_cases() {
+        let ctx = EvalContext::new();
+        // SIGN(0) = 0
+        assert_eq!(eval("SIGN(0)", &ctx).unwrap(), Value::Number(0.0));
+        // SIGN(100) = 1
+        assert_eq!(eval("SIGN(100)", &ctx).unwrap(), Value::Number(1.0));
+        // SIGN(-100) = -1
+        assert_eq!(eval("SIGN(-100)", &ctx).unwrap(), Value::Number(-1.0));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

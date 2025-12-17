@@ -184,11 +184,11 @@ summary:
 
     #[test]
     fn test_update_scalars() {
-        let yaml_content = r#"
+        let yaml_content = r"
 revenue:
   value: 0.0
   formula: null
-"#;
+";
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(yaml_content.as_bytes()).unwrap();
@@ -205,11 +205,11 @@ revenue:
 
     #[test]
     fn test_update_scalars_with_no_value() {
-        let yaml_content = r#"
+        let yaml_content = r"
 revenue:
   value: 100.0
   formula: null
-"#;
+";
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(yaml_content.as_bytes()).unwrap();
@@ -301,10 +301,10 @@ profit:
     fn test_write_calculated_results_with_tables() {
         use crate::types::{Column, ColumnValue, ParsedModel, Table};
 
-        let yaml_content = r#"
+        let yaml_content = r"
 financials:
   value: [0, 0, 0]
-"#;
+";
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(yaml_content.as_bytes()).unwrap();
@@ -345,14 +345,14 @@ financials:
 
     #[test]
     fn test_update_multiple_values() {
-        let yaml_content = r#"
+        let yaml_content = r"
 revenue:
   value: 0.0
 costs:
   value: 0.0
 profit:
   value: 0.0
-"#;
+";
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(yaml_content.as_bytes()).unwrap();
@@ -374,10 +374,10 @@ profit:
     fn test_write_results_fractional_values() {
         use crate::types::ParsedModel;
 
-        let yaml_content = r#"
+        let yaml_content = r"
 rate:
   value: 0.0
-"#;
+";
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(yaml_content.as_bytes()).unwrap();
@@ -401,10 +401,10 @@ rate:
     fn test_write_results_integer_values() {
         use crate::types::{Column, ColumnValue, ParsedModel, Table};
 
-        let yaml_content = r#"
+        let yaml_content = r"
 counts:
   value: [0, 0]
-"#;
+";
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(yaml_content.as_bytes()).unwrap();

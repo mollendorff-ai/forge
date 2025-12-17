@@ -24,13 +24,13 @@ impl ExcelImporter {
     pub fn import(&self) -> ForgeResult<ParsedModel> {
         // Open Excel workbook
         let mut workbook: Xlsx<_> = open_workbook(&self.path)
-            .map_err(|e| ForgeError::IO(format!("Failed to open Excel file: {}", e)))?;
+            .map_err(|e| ForgeError::IO(format!("Failed to open Excel file: {e}")))?;
 
         // Create model
         let mut model = ParsedModel::new();
 
         // Get all sheet names
-        let sheet_names = workbook.sheet_names().to_vec();
+        let sheet_names = workbook.sheet_names().clone();
 
         // Process each sheet
         for sheet_name in sheet_names {
@@ -90,11 +90,11 @@ impl ExcelImporter {
                     Data::String(s) => s.clone(),
                     Data::Int(i) => i.to_string(),
                     Data::Float(f) => f.to_string(),
-                    _ => format!("col_{}", col),
+                    _ => format!("col_{col}"),
                 };
                 column_names.push(name);
             } else {
-                column_names.push(format!("col_{}", col));
+                column_names.push(format!("col_{col}"));
             }
         }
 
@@ -153,7 +153,7 @@ impl ExcelImporter {
                             let formula_with_equals = if formula.starts_with('=') {
                                 formula.clone()
                             } else {
-                                format!("={}", formula)
+                                format!("={formula}")
                             };
 
                             // Translate Excel formula to YAML syntax
@@ -248,12 +248,13 @@ impl ExcelImporter {
                     })
                     .collect();
                 Ok(ColumnValue::Number(numbers))
-            }
+            },
             Data::String(_) => {
                 // Text column
-                let texts: Vec<String> = data.iter().map(|cell| cell.to_string()).collect();
+                let texts: Vec<String> =
+                    data.iter().map(std::string::ToString::to_string).collect();
                 Ok(ColumnValue::Text(texts))
-            }
+            },
             Data::Bool(_) => {
                 // Boolean column
                 let bools: Vec<bool> = data
@@ -265,12 +266,13 @@ impl ExcelImporter {
                     })
                     .collect();
                 Ok(ColumnValue::Boolean(bools))
-            }
+            },
             _ => {
                 // Default to text
-                let texts: Vec<String> = data.iter().map(|cell| cell.to_string()).collect();
+                let texts: Vec<String> =
+                    data.iter().map(std::string::ToString::to_string).collect();
                 Ok(ColumnValue::Text(texts))
-            }
+            },
         }
     }
 
@@ -279,8 +281,8 @@ impl ExcelImporter {
         sheet_name
             .to_lowercase()
             .replace(' ', "_")
-            .replace("&", "and")
-            .replace("-", "_")
+            .replace('&', "and")
+            .replace('-', "_")
             .chars()
             .filter(|c| c.is_alphanumeric() || *c == '_')
             .collect()
@@ -367,7 +369,7 @@ mod tests {
                 assert_eq!(nums[1], 200.0);
                 assert_eq!(nums[2], 300.0);
                 assert_eq!(nums[3], 0.0); // Empty → 0.0
-            }
+            },
             _ => panic!("Expected Number column"),
         }
     }
@@ -389,7 +391,7 @@ mod tests {
                 assert_eq!(texts[0], "Apple");
                 assert_eq!(texts[1], "Banana");
                 assert_eq!(texts[2], ""); // Empty → empty string
-            }
+            },
             _ => panic!("Expected Text column"),
         }
     }
@@ -407,7 +409,7 @@ mod tests {
                 assert!(bools[0]);
                 assert!(!bools[1]);
                 assert!(!bools[2]); // Empty → false
-            }
+            },
             _ => panic!("Expected Boolean column"),
         }
     }
@@ -581,7 +583,7 @@ mod tests {
                 assert_eq!(nums[1], 2.0);
                 assert_eq!(nums[2], 3.0);
                 assert_eq!(nums[3], 4.0);
-            }
+            },
             _ => panic!("Expected Number column"),
         }
     }

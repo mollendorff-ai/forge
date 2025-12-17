@@ -24,7 +24,7 @@ pub fn try_evaluate(
                 }
             }
             Value::Array(seen)
-        }
+        },
 
         "COUNTUNIQUE" => {
             require_args(name, args, 1)?;
@@ -34,7 +34,7 @@ pub fn try_evaluate(
                 seen.insert(v.as_text());
             }
             Value::Number(seen.len() as f64)
-        }
+        },
 
         "SORT" => {
             require_args_range(name, args, 1, 2)?;
@@ -49,7 +49,7 @@ pub fn try_evaluate(
                 values.reverse();
             }
             Value::Array(values.into_iter().map(Value::Number).collect())
-        }
+        },
 
         "FILTER" => {
             require_args(name, args, 2)?;
@@ -62,7 +62,7 @@ pub fn try_evaluate(
                 .map(|(v, _)| v)
                 .collect();
             Value::Array(filtered)
-        }
+        },
 
         "SEQUENCE" => {
             // SEQUENCE(rows, [columns], [start], [step])
@@ -93,7 +93,7 @@ pub fn try_evaluate(
                 .map(|i| Value::Number(start + (i as f64) * step))
                 .collect();
             Value::Array(values)
-        }
+        },
 
         "RANDARRAY" => {
             // RANDARRAY([rows], [columns], [min], [max], [whole_number])
@@ -140,7 +140,7 @@ pub fn try_evaluate(
                     .collect()
             };
             Value::Array(values)
-        }
+        },
 
         _ => return Ok(None),
     };

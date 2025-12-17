@@ -55,7 +55,7 @@ impl InputRange {
 
     /// Get the base value, defaulting to midpoint if not specified
     pub fn base_value(&self) -> f64 {
-        self.base.unwrap_or((self.low + self.high) / 2.0)
+        self.base.unwrap_or(f64::midpoint(self.low, self.high))
     }
 }
 

@@ -44,7 +44,7 @@ fn test_date_function() {
             assert_eq!(nums[0], 45672.0); // 2025-01-15
             assert_eq!(nums[1], 45463.0); // 2024-06-20
             assert_eq!(nums[2], 45291.0); // 2023-12-31
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -77,7 +77,7 @@ fn test_year_function() {
             assert_eq!(nums[0], 2025.0);
             assert_eq!(nums[1], 2024.0);
             assert_eq!(nums[2], 2023.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -110,7 +110,7 @@ fn test_month_function() {
             assert_eq!(nums[0], 1.0);
             assert_eq!(nums[1], 6.0);
             assert_eq!(nums[2], 12.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -143,7 +143,7 @@ fn test_day_function() {
             assert_eq!(nums[0], 15.0);
             assert_eq!(nums[1], 20.0);
             assert_eq!(nums[2], 31.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -175,7 +175,7 @@ fn test_date_functions_combined() {
         ColumnValue::Number(nums) => {
             assert_eq!(nums[0], 45853.0); // 2025-07-15
             assert_eq!(nums[1], 45688.0); // 2025-01-31 (month 13 => Jan next year)
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -210,10 +210,10 @@ fn test_datedif_function() {
         .expect("Calculation should succeed");
 
     let years = result.scalars.get("years_diff").unwrap().value.unwrap();
-    assert_eq!(years, 1.0, "Should be 1 year, got {}", years);
+    assert_eq!(years, 1.0, "Should be 1 year, got {years}");
 
     let months = result.scalars.get("months_diff").unwrap().value.unwrap();
-    assert_eq!(months, 12.0, "Should be 12 months, got {}", months);
+    assert_eq!(months, 12.0, "Should be 12 months, got {months}");
 }
 
 #[cfg(not(feature = "demo"))]
@@ -247,7 +247,7 @@ fn test_edate_function() {
                 "Expected April 15, got {}",
                 texts[0]
             );
-        }
+        },
         _ => panic!(
             "Expected Text array for dates, got {:?}",
             new_date_col.values
@@ -285,7 +285,7 @@ fn test_eomonth_function() {
                 "Expected March 31, got {}",
                 texts[0]
             );
-        }
+        },
         _ => panic!(
             "Expected Text array for dates, got {:?}",
             end_date_col.values
@@ -422,7 +422,7 @@ fn test_today_function() {
         .get("current")
         .unwrap();
     if let ColumnValue::Text(values) = &col.values {
-        assert!(values[0].contains("-"));
+        assert!(values[0].contains('-'));
         assert!(values[0].len() == 10);
     }
 }

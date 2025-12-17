@@ -41,7 +41,7 @@ fn test_sin_basic() {
             assert!((nums[2] - 0.7071).abs() < 0.001); // sin(π/4) ≈ 0.7071
             assert!((nums[3] - 0.866).abs() < 0.001); // sin(π/3) ≈ 0.866
             assert!((nums[4] - 1.0).abs() < 0.0001); // sin(π/2) = 1
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -68,7 +68,7 @@ fn test_sin_negative_angles() {
             assert!((nums[0] - (-1.0)).abs() < 0.0001); // sin(-π/2) = -1
             assert!((nums[1] - (-0.7071)).abs() < 0.001); // sin(-π/4) ≈ -0.7071
             assert!((nums[2] - 0.0).abs() < 0.0001); // sin(0) = 0
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -121,7 +121,7 @@ fn test_cos_basic() {
             assert!((nums[2] - 0.7071).abs() < 0.001); // cos(π/4) ≈ 0.7071
             assert!((nums[3] - 0.5).abs() < 0.0001); // cos(π/3) = 0.5
             assert!((nums[4] - 0.0).abs() < 0.0001); // cos(π/2) ≈ 0
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -173,7 +173,7 @@ fn test_tan_basic() {
             assert!((nums[1] - 0.577).abs() < 0.001); // tan(π/6) ≈ 0.577
             assert!((nums[2] - 1.0).abs() < 0.0001); // tan(π/4) = 1
             assert!((nums[3] - 1.732).abs() < 0.001); // tan(π/3) ≈ 1.732
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -226,7 +226,7 @@ fn test_asin_basic() {
             assert!((nums[2] - PI / 2.0).abs() < 0.0001); // asin(1) = π/2
             assert!((nums[3] - (-PI / 6.0)).abs() < 0.0001); // asin(-0.5) = -π/6
             assert!((nums[4] - (-PI / 2.0)).abs() < 0.0001); // asin(-1) = -π/2
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -275,7 +275,7 @@ fn test_acos_basic() {
             assert!((nums[2] - PI / 2.0).abs() < 0.0001); // acos(0) = π/2
             assert!((nums[3] - 2.0 * PI / 3.0).abs() < 0.0001); // acos(-0.5) = 2π/3
             assert!((nums[4] - PI).abs() < 0.0001); // acos(-1) = π
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -324,7 +324,7 @@ fn test_atan_basic() {
             assert!((nums[2] - (-PI / 4.0)).abs() < 0.0001); // atan(-1) = -π/4
             assert!((nums[3] - PI / 2.0).abs() < 0.001); // atan(∞) ≈ π/2
             assert!((nums[4] - (-PI / 2.0)).abs() < 0.001); // atan(-∞) ≈ -π/2
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -373,7 +373,7 @@ fn test_sinh_basic() {
             assert!((nums[1] - 1.1752).abs() < 0.001); // sinh(1) ≈ 1.1752
             assert!((nums[2] - (-1.1752)).abs() < 0.001); // sinh(-1) ≈ -1.1752
             assert!((nums[3] - 3.6269).abs() < 0.001); // sinh(2) ≈ 3.6269
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -423,7 +423,7 @@ fn test_cosh_basic() {
             assert!((nums[1] - 1.5431).abs() < 0.001); // cosh(1) ≈ 1.5431
             assert!((nums[2] - 1.5431).abs() < 0.001); // cosh(-1) ≈ 1.5431 (even)
             assert!((nums[3] - 3.7622).abs() < 0.001); // cosh(2) ≈ 3.7622
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -476,7 +476,7 @@ fn test_tanh_basic() {
             assert!((nums[1] - 0.7616).abs() < 0.001); // tanh(1) ≈ 0.7616
             assert!((nums[2] - (-0.7616)).abs() < 0.001); // tanh(-1) ≈ -0.7616
             assert!((nums[3] - 1.0).abs() < 0.0001); // tanh(10) ≈ 1
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -527,7 +527,7 @@ fn test_radians_basic() {
             assert!((nums[2] - PI / 2.0).abs() < 0.0001); // 90° = π/2 rad
             assert!((nums[3] - PI).abs() < 0.0001); // 180° = π rad
             assert!((nums[4] - 2.0 * PI).abs() < 0.0001); // 360° = 2π rad
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -603,7 +603,7 @@ fn test_degrees_basic() {
             assert!((nums[2] - 90.0).abs() < 0.0001); // π/2 rad = 90°
             assert!((nums[3] - 180.0).abs() < 0.0001); // π rad = 180°
             assert!((nums[4] - 360.0).abs() < 0.0001); // 2π rad = 360°
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }

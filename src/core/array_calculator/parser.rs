@@ -240,7 +240,7 @@ impl Parser {
         }
     }
 
-    /// Postfix: primary ( "(" arguments? ")" | "[" expr "]" | ":" expr )*
+    /// Postfix: `primary ( "(" arguments? ")" | "[" expr "]" | ":" expr )*`
     fn postfix(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.primary()?;
 
@@ -262,14 +262,14 @@ impl Parser {
                             name: name.clone(),
                             args,
                         }
-                    }
+                    },
                     Expr::Reference(Reference::TableColumn { table, column }) => {
                         // Handle function names with dots like VAR.P, STDEV.S
                         Expr::FunctionCall {
-                            name: format!("{}.{}", table, column),
+                            name: format!("{table}.{column}"),
                             args,
                         }
-                    }
+                    },
                     _ => {
                         // Calling the result of an expression: expr(args)
                         // Used for LAMBDA immediate invocation: LAMBDA(x, x*2)(5)
@@ -277,7 +277,7 @@ impl Parser {
                             callable: Box::new(expr.clone()),
                             args,
                         }
-                    }
+                    },
                 };
             } else if self.match_token(&Token::OpenBracket) {
                 // Array indexing
@@ -335,19 +335,19 @@ impl Parser {
             Some(Token::Number(n)) => {
                 self.advance();
                 Ok(Expr::Number(n))
-            }
+            },
             Some(Token::Text(s)) => {
                 self.advance();
                 Ok(Expr::Text(s))
-            }
+            },
             Some(Token::Boolean(b)) => {
                 self.advance();
                 Ok(Expr::Boolean(b))
-            }
+            },
             Some(Token::Identifier(name)) => {
                 self.advance();
                 Ok(self.parse_identifier(name))
-            }
+            },
             Some(Token::OpenParen) => {
                 self.advance();
                 let expr = self.expression()?;
@@ -358,9 +358,9 @@ impl Parser {
                     ));
                 }
                 Ok(expr)
-            }
+            },
             Some(token) => Err(ParseError::new(
-                format!("Unexpected token: {:?}", token),
+                format!("Unexpected token: {token:?}"),
                 self.position,
             )),
             None => Err(ParseError::new(

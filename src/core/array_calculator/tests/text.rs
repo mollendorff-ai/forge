@@ -45,7 +45,7 @@ fn test_concat_function() {
             assert_eq!(texts[0], "Hello World");
             assert_eq!(texts[1], "Good Day");
             assert_eq!(texts[2], "Nice Work");
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 }
@@ -78,7 +78,7 @@ fn test_trim_function() {
             assert_eq!(texts[0], "Hello");
             assert_eq!(texts[1], "World");
             assert_eq!(texts[2], "Test");
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 }
@@ -111,7 +111,7 @@ fn test_upper_function() {
             assert_eq!(texts[0], "HELLO");
             assert_eq!(texts[1], "WORLD");
             assert_eq!(texts[2], "TEST");
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 }
@@ -144,7 +144,7 @@ fn test_lower_function() {
             assert_eq!(texts[0], "hello");
             assert_eq!(texts[1], "world");
             assert_eq!(texts[2], "test");
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 }
@@ -177,7 +177,7 @@ fn test_len_function() {
             assert_eq!(nums[0], 5.0);
             assert_eq!(nums[1], 2.0);
             assert_eq!(nums[2], 7.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -211,7 +211,7 @@ fn test_mid_function() {
             assert_eq!(texts[0], "ell");
             assert_eq!(texts[1], "orl");
             assert_eq!(texts[2], "est");
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 
@@ -221,7 +221,7 @@ fn test_mid_function() {
             assert_eq!(texts[0], "he");
             assert_eq!(texts[1], "wo");
             assert_eq!(texts[2], "te");
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 }
@@ -249,7 +249,7 @@ fn test_text_functions_combined() {
         ColumnValue::Text(texts) => {
             assert_eq!(texts[0], "HELLO");
             assert_eq!(texts[1], "WORLD");
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 }
@@ -287,7 +287,7 @@ fn test_mixed_math_and_text_functions() {
             assert_eq!(nums[0], 1.2);
             assert_eq!(nums[1], 5.7);
             assert_eq!(nums[2], 9.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 
@@ -297,7 +297,7 @@ fn test_mixed_math_and_text_functions() {
             assert_eq!(texts[0], "ITEM");
             assert_eq!(texts[1], "DATA");
             assert_eq!(texts[2], "TEST");
-        }
+        },
         _ => panic!("Expected Text array"),
     }
 }

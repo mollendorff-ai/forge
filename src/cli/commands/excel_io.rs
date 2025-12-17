@@ -106,7 +106,7 @@ pub fn import(
             let mut table_model = crate::types::ParsedModel::new();
             table_model.tables.insert(table_name.clone(), table.clone());
 
-            let file_path = output.join(format!("{}.yaml", table_name));
+            let file_path = output.join(format!("{table_name}.yaml"));
             let yaml_string = format!(
                 "_forge_version: \"1.0.0\"\n_name: \"{}\"\n\n{}",
                 table_name,
@@ -148,7 +148,7 @@ pub fn import(
 
             yaml_output.push_str("---\n");
             yaml_output.push_str("_forge_version: \"1.0.0\"\n");
-            yaml_output.push_str(&format!("_name: \"{}\"\n\n", table_name));
+            yaml_output.push_str(&format!("_name: \"{table_name}\"\n\n"));
             yaml_output.push_str(
                 &serde_yaml_ng::to_string(&table_model.tables).map_err(ForgeError::Yaml)?,
             );

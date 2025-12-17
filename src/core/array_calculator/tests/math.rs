@@ -33,7 +33,7 @@ fn test_round_function() {
             assert_eq!(nums[1], 2.8);
             assert_eq!(nums[2], 3.1);
             assert_eq!(nums[3], 4.6);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 
@@ -44,7 +44,7 @@ fn test_round_function() {
             assert_eq!(nums[1], 2.79);
             assert_eq!(nums[2], 3.12);
             assert_eq!(nums[3], 4.56);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 
@@ -55,7 +55,7 @@ fn test_round_function() {
             assert_eq!(nums[1], 3.0);
             assert_eq!(nums[2], 3.0);
             assert_eq!(nums[3], 5.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -84,7 +84,7 @@ fn test_roundup_function() {
             assert_eq!(nums[0], 1.3);
             assert_eq!(nums[1], 2.7);
             assert_eq!(nums[2], 3.5);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -116,7 +116,7 @@ fn test_rounddown_function() {
             assert_eq!(nums[0], 1.7);
             assert_eq!(nums[1], 2.3);
             assert_eq!(nums[2], 3.9);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -147,7 +147,7 @@ fn test_ceiling_function() {
             assert_eq!(nums[1], 3.0);
             assert_eq!(nums[2], 5.0);
             assert_eq!(nums[3], 11.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 
@@ -158,7 +158,7 @@ fn test_ceiling_function() {
             assert_eq!(nums[1], 5.0);
             assert_eq!(nums[2], 5.0);
             assert_eq!(nums[3], 15.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -189,7 +189,7 @@ fn test_floor_function() {
             assert_eq!(nums[1], 2.0);
             assert_eq!(nums[2], 4.0);
             assert_eq!(nums[3], 10.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 
@@ -200,7 +200,7 @@ fn test_floor_function() {
             assert_eq!(nums[1], 0.0);
             assert_eq!(nums[2], 0.0);
             assert_eq!(nums[3], 10.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -231,7 +231,7 @@ fn test_mod_function() {
             assert_eq!(nums[1], 0.0);
             assert_eq!(nums[2], 2.0);
             assert_eq!(nums[3], 1.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 
@@ -242,7 +242,7 @@ fn test_mod_function() {
             assert_eq!(nums[1], 0.0);
             assert_eq!(nums[2], 3.0);
             assert_eq!(nums[3], 2.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -273,7 +273,7 @@ fn test_sqrt_function() {
             assert_eq!(nums[2], 4.0);
             assert_eq!(nums[3], 5.0);
             assert_eq!(nums[4], 10.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -304,7 +304,7 @@ fn test_power_function() {
             assert_eq!(nums[1], 9.0);
             assert_eq!(nums[2], 16.0);
             assert_eq!(nums[3], 25.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 
@@ -315,7 +315,7 @@ fn test_power_function() {
             assert_eq!(nums[1], 27.0);
             assert_eq!(nums[2], 64.0);
             assert_eq!(nums[3], 125.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -1090,7 +1090,7 @@ fn test_pi_array() {
             assert!((nums[0] - 2.0 * std::f64::consts::PI).abs() < 0.0001);
             assert!((nums[1] - 4.0 * std::f64::consts::PI).abs() < 0.0001);
             assert!((nums[2] - 6.0 * std::f64::consts::PI).abs() < 0.0001);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -1158,7 +1158,7 @@ fn test_e_array() {
             assert!((nums[0] - std::f64::consts::E).abs() < 0.0001);
             assert!((nums[1] - 2.0 * std::f64::consts::E).abs() < 0.0001);
             assert!((nums[2] - 3.0 * std::f64::consts::E).abs() < 0.0001);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }
@@ -1203,7 +1203,7 @@ fn test_pow_function_array() {
             assert_eq!(nums[0], 8.0);
             assert_eq!(nums[1], 27.0);
             assert_eq!(nums[2], 125.0);
-        }
+        },
         _ => panic!("Expected Number array"),
     }
 }

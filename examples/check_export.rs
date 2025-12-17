@@ -6,7 +6,7 @@ fn main() {
 
     println!("=== All sheets ===");
     for sheet_name in workbook.sheet_names() {
-        println!("\nSheet: {}", sheet_name);
+        println!("\nSheet: {sheet_name}");
 
         if let Ok(data_range) = workbook.worksheet_range(&sheet_name) {
             println!("  Data range size: {:?}", data_range.get_size());
@@ -21,7 +21,7 @@ fn main() {
                     for col in 0..w {
                         if let Some(cell) = formula_range.get((row, col)) {
                             if !cell.is_empty() {
-                                println!("    [{},{}] = '{}'", row, col, cell);
+                                println!("    [{row},{col}] = '{cell}'");
                             }
                         }
                     }

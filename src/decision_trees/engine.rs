@@ -136,7 +136,7 @@ impl DecisionTreeEngine {
                     .map(|(n, v)| (n.clone(), *v))
                     .ok_or("No branches in decision node")?;
                 (best_value, Some(best_name))
-            }
+            },
             NodeType::Chance => {
                 // Chance node: probability-weighted expected value
                 let ev: f64 = node
@@ -147,11 +147,11 @@ impl DecisionTreeEngine {
                     })
                     .sum();
                 (ev, None)
-            }
+            },
             NodeType::Terminal => {
                 // Terminal nodes shouldn't have branches in typical usage
                 (0.0, None)
-            }
+            },
         };
 
         let result = NodeResult {
@@ -188,7 +188,7 @@ impl DecisionTreeEngine {
             let next_node = self
                 .config
                 .get_node(next)
-                .ok_or(format!("Node '{}' not found", next))?;
+                .ok_or(format!("Node '{next}' not found"))?;
             let next_result = self.evaluate_node(next, next_node, results, all_terminal_values)?;
             next_result.expected_value
         } else {
@@ -245,7 +245,7 @@ impl DecisionTreeEngine {
                         }
                     }
                 }
-            }
+            },
             NodeType::Chance => {
                 path.push(format!("{} → (await outcome)", result.name));
                 // For chance nodes, show all branches lead to
@@ -253,20 +253,20 @@ impl DecisionTreeEngine {
                     for (branch_name, branch) in &node.branches {
                         if let Some(ref next) = branch.next {
                             if let Some(next_result) = results.get(next) {
-                                path.push(format!("  if {} →", branch_name));
+                                path.push(format!("  if {branch_name} →"));
                                 let mut sub_path = Vec::new();
                                 self.trace_optimal_path(next, next_result, results, &mut sub_path);
                                 for p in sub_path {
-                                    path.push(format!("    {}", p));
+                                    path.push(format!("    {p}"));
                                 }
                             }
                         }
                     }
                 }
-            }
+            },
             NodeType::Terminal => {
                 // End of path
-            }
+            },
         }
     }
 

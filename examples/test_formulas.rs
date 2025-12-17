@@ -13,7 +13,7 @@ fn main() {
         for row in 0..5 {
             for col in 0..6 {
                 if let Some(cell) = data_range.get((row, col)) {
-                    println!("  Data[{},{}] = {:?}", row, col, cell);
+                    println!("  Data[{row},{col}] = {cell:?}");
                 }
             }
         }
@@ -26,7 +26,7 @@ fn main() {
             for col in 0..6 {
                 if let Some(cell) = formula_range.get((row, col)) {
                     if !cell.is_empty() {
-                        println!("  Formula[{},{}] = '{}'", row, col, cell);
+                        println!("  Formula[{row},{col}] = '{cell}'");
                     }
                 }
             }

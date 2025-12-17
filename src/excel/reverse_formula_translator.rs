@@ -30,7 +30,7 @@ impl ReverseFormulaTranslator {
         // Handle different formula patterns
         let result = self.translate_formula_body(formula_body)?;
 
-        Ok(format!("={}", result))
+        Ok(format!("={result}"))
     }
 
     /// Translate formula body (without leading =)
@@ -53,7 +53,7 @@ impl ReverseFormulaTranslator {
     fn translate_sheet_references(&self, formula: &str) -> ForgeResult<String> {
         // Pattern: SheetName!A1 or 'Sheet Name'!A1 or Sheet!columnName2 (with row number)
         let sheet_ref_pattern = Regex::new(r"('[^']+'|[\w]+)!([\w]+)\d+")
-            .map_err(|e| ForgeError::Import(format!("Regex error: {}", e)))?;
+            .map_err(|e| ForgeError::Import(format!("Regex error: {e}")))?;
 
         let mut result = formula.to_string();
 
@@ -79,15 +79,14 @@ impl ReverseFormulaTranslator {
                     // It's a column letter - map it
                     self.column_map
                         .get(col_ref)
-                        .map(|s| s.as_str())
-                        .unwrap_or(col_ref)
+                        .map_or(col_ref, std::string::String::as_str)
                 } else {
                     // It's already a column name - use as is
                     col_ref
                 };
 
                 // Replace with table.column
-                let yaml_ref = format!("{}.{}", table_name, col_name);
+                let yaml_ref = format!("{table_name}.{col_name}");
                 result.replace_range(match_obj.range(), &yaml_ref);
             }
         }
@@ -100,7 +99,7 @@ impl ReverseFormulaTranslator {
         // Pattern: A:A (column range) or A1:A10 (cell range with same column)
         // Note: Rust regex doesn't support backreferences, so we match generally and validate in code
         let range_pattern = Regex::new(r"\b([A-Z]+):([A-Z]+)\b|\b([A-Z]+)(\d+):([A-Z]+)(\d+)\b")
-            .map_err(|e| ForgeError::Import(format!("Regex error: {}", e)))?;
+            .map_err(|e| ForgeError::Import(format!("Regex error: {e}")))?;
 
         let mut result = formula.to_string();
 
@@ -140,8 +139,7 @@ impl ReverseFormulaTranslator {
                 let col_name = self
                     .column_map
                     .get(col_letter)
-                    .map(|s| s.as_str())
-                    .unwrap_or(col_letter);
+                    .map_or(col_letter, std::string::String::as_str);
 
                 result.replace_range(match_obj.range(), col_name);
             }
@@ -154,7 +152,7 @@ impl ReverseFormulaTranslator {
     fn translate_cell_references(&self, formula: &str) -> ForgeResult<String> {
         // Pattern: Column letter followed by row number (A1, B2, AA10, etc.)
         let cell_ref_pattern = Regex::new(r"\b([A-Z]+)(\d+)\b")
-            .map_err(|e| ForgeError::Import(format!("Regex error: {}", e)))?;
+            .map_err(|e| ForgeError::Import(format!("Regex error: {e}")))?;
 
         let mut result = formula.to_string();
 
@@ -174,8 +172,7 @@ impl ReverseFormulaTranslator {
                 let col_name = self
                     .column_map
                     .get(col_letter)
-                    .map(|s| s.as_str())
-                    .unwrap_or(col_letter);
+                    .map_or(col_letter, std::string::String::as_str);
 
                 result.replace_range(match_obj.range(), col_name);
             }
@@ -280,8 +277,8 @@ impl ReverseFormulaTranslator {
     fn sanitize_name(&self, name: &str) -> String {
         name.to_lowercase()
             .replace(' ', "_")
-            .replace("&", "and")
-            .replace("-", "_")
+            .replace('&', "and")
+            .replace('-', "_")
             .chars()
             .filter(|c| c.is_alphanumeric() || *c == '_')
             .collect()

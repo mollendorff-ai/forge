@@ -345,33 +345,28 @@ scenarios:
 
 ## Roundtrip Validation
 
-All prediction methods are validated against battle-proven FOSS tools.
-
-### Setup
-
-```bash
-# One-time setup
-./tests/validators/setup.sh
-```
+All prediction methods are validated against battle-proven FOSS tools (Gnumeric + R).
 
 ### Validation Tools
 
 | Method | Validator | Tool/Package |
 |--------|-----------|--------------|
-| Monte Carlo | Gnumeric | `ssconvert` (already in use) |
+| Monte Carlo | Gnumeric | `ssconvert` |
 | Scenario Analysis | R | `weighted.mean()` |
-| Decision Trees | Python | `scipy`, `numpy` |
-| Real Options | QuantLib | `QuantLib` (C++/Python) |
+| Decision Trees | R | base R arithmetic |
+| Real Options | R / RustQuant | Black-Scholes formula |
 | Tornado Diagrams | R | `sensitivity` package |
 | Bootstrap | R | `boot` package |
-| Bayesian Networks | Python | `pgmpy` |
+| Bayesian Networks | R | `bnlearn` package |
+
+> **Note**: Python (scipy/numpy/pgmpy) was removed - R is the gold standard for statistical computing. See forge-e2e ADR-002 for rationale.
 
 ### Installed Versions
 
 ```bash
 # Check installed versions
 R --version | head -1
-./tests/validators/.venv/bin/python -c "import scipy; print(f'scipy {scipy.__version__}')"
+ssconvert --version
 ```
 
 ## Forge Implementation Status
@@ -379,9 +374,9 @@ R --version | head -1
 | Method | Status | Version | ADR | Validator |
 |--------|--------|---------|-----|-----------|
 | Monte Carlo | Complete | v8.0+ | ADR-016, ADR-017 | Gnumeric |
-| Scenario Analysis | WIP | v8.3.0 | ADR-018 | R |
-| Decision Trees | WIP | v8.4.0 | ADR-019 | SciPy |
-| Real Options | WIP | v8.5.0 | ADR-020 | QuantLib |
-| Tornado Diagrams | WIP | v8.6.0 | - | R sensitivity |
-| Bootstrap | WIP | v8.7.0 | - | R boot |
-| Bayesian Networks | WIP | v9.0.0 | - | pgmpy |
+| Scenario Analysis | Complete | v8.3.0 | ADR-018 | R |
+| Decision Trees | Complete | v8.4.0 | ADR-019 | R |
+| Real Options | Complete | v8.5.0 | ADR-020 | R / RustQuant |
+| Tornado Diagrams | Complete | v8.6.0 | ADR-021 | R sensitivity |
+| Bootstrap | Complete | v8.7.0 | ADR-022 | R boot |
+| Bayesian Networks | Complete | v9.0.0 | ADR-023 | R bnlearn |

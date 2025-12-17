@@ -18,7 +18,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("SIN requires a number"))?;
             Value::Number(val.sin())
-        }
+        },
 
         "COS" => {
             require_args(name, args, 1)?;
@@ -26,7 +26,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("COS requires a number"))?;
             Value::Number(val.cos())
-        }
+        },
 
         "TAN" => {
             require_args(name, args, 1)?;
@@ -34,7 +34,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("TAN requires a number"))?;
             Value::Number(val.tan())
-        }
+        },
 
         "ASIN" => {
             require_args(name, args, 1)?;
@@ -45,7 +45,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("ASIN argument must be between -1 and 1"));
             }
             Value::Number(val.asin())
-        }
+        },
 
         "ACOS" => {
             require_args(name, args, 1)?;
@@ -56,7 +56,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("ACOS argument must be between -1 and 1"));
             }
             Value::Number(val.acos())
-        }
+        },
 
         "ATAN" => {
             require_args(name, args, 1)?;
@@ -64,7 +64,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("ATAN requires a number"))?;
             Value::Number(val.atan())
-        }
+        },
 
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
@@ -76,7 +76,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("SINH requires a number"))?;
             Value::Number(val.sinh())
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "COSH" => {
@@ -85,7 +85,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("COSH requires a number"))?;
             Value::Number(val.cosh())
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "TANH" => {
@@ -94,7 +94,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("TANH requires a number"))?;
             Value::Number(val.tanh())
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "RADIANS" => {
@@ -103,7 +103,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("RADIANS requires a number"))?;
             Value::Number(degrees.to_radians())
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "DEGREES" => {
@@ -112,7 +112,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("DEGREES requires a number"))?;
             Value::Number(radians.to_degrees())
-        }
+        },
 
         _ => return Ok(None),
     };

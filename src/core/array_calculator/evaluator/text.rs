@@ -22,31 +22,31 @@ pub fn try_evaluate(
                 result.push_str(&val.as_text());
             }
             Value::Text(result)
-        }
+        },
 
         "UPPER" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             Value::Text(val.as_text().to_uppercase())
-        }
+        },
 
         "LOWER" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             Value::Text(val.as_text().to_lowercase())
-        }
+        },
 
         "TRIM" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             Value::Text(val.as_text().trim().to_string())
-        }
+        },
 
         "LEN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             Value::Number(val.as_text().chars().count() as f64)
-        }
+        },
 
         "LEFT" => {
             require_args_range(name, args, 1, 2)?;
@@ -58,7 +58,7 @@ pub fn try_evaluate(
             };
             let chars: Vec<char> = text.chars().take(n).collect();
             Value::Text(chars.into_iter().collect())
-        }
+        },
 
         "RIGHT" => {
             require_args_range(name, args, 1, 2)?;
@@ -71,7 +71,7 @@ pub fn try_evaluate(
             let chars: Vec<char> = text.chars().collect();
             let start = chars.len().saturating_sub(n);
             Value::Text(chars[start..].iter().collect())
-        }
+        },
 
         "MID" => {
             require_args(name, args, 3)?;
@@ -90,14 +90,14 @@ pub fn try_evaluate(
 
             let end_idx = (start_idx + length).min(chars.len());
             Value::Text(chars[start_idx..end_idx].iter().collect())
-        }
+        },
 
         "REPT" => {
             require_args(name, args, 2)?;
             let text = evaluate(&args[0], ctx)?.as_text();
             let times = evaluate(&args[1], ctx)?.as_number().unwrap_or(0.0) as usize;
             Value::Text(text.repeat(times))
-        }
+        },
 
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
@@ -111,7 +111,7 @@ pub fn try_evaluate(
                 result.push_str(&val.as_text());
             }
             Value::Text(result)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "TEXT" => {
@@ -122,7 +122,7 @@ pub fn try_evaluate(
             let num = val.as_number().unwrap_or(0.0);
             let formatted = format_number(num, &format);
             Value::Text(formatted)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "VALUE" => {
@@ -134,10 +134,10 @@ pub fn try_evaluate(
                 .replace(',', "") // Remove thousand separators
                 .parse::<f64>()
                 .map_err(|_| {
-                    EvalError::new(format!("VALUE: Cannot convert '{}' to number", text))
+                    EvalError::new(format!("VALUE: Cannot convert '{text}' to number"))
                 })?;
             Value::Number(num)
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "FIND" => {
@@ -160,7 +160,7 @@ pub fn try_evaluate(
                 Some(pos) => Value::Number((pos + start_num) as f64),
                 None => return Err(EvalError::new("FIND: text not found")),
             }
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "SEARCH" => {
@@ -184,7 +184,7 @@ pub fn try_evaluate(
                 Some(pos) => Value::Number((pos + start_num) as f64),
                 None => return Err(EvalError::new("SEARCH: text not found")),
             }
-        }
+        },
 
         #[cfg(not(feature = "demo"))]
         "REPLACE" => {
@@ -202,8 +202,8 @@ pub fn try_evaluate(
             let prefix: String = chars[..start_idx].iter().collect();
             let suffix: String = chars[end_idx..].iter().collect();
 
-            Value::Text(format!("{}{}{}", prefix, new_text, suffix))
-        }
+            Value::Text(format!("{prefix}{new_text}{suffix}"))
+        },
 
         #[cfg(not(feature = "demo"))]
         "SUBSTITUTE" => {
@@ -243,7 +243,7 @@ pub fn try_evaluate(
                 // Replace all occurrences
                 Value::Text(text.replace(&old_text, &new_text))
             }
-        }
+        },
 
         _ => return Ok(None),
     };
@@ -264,22 +264,21 @@ fn format_number(num: f64, format: &str) -> String {
 
     // Handle currency formats
     if format.starts_with('$') || format.starts_with("[$") {
-        let decimal_places = format
-            .rfind('.')
-            .map(|i| format[i + 1..].chars().take_while(|c| *c == '0').count())
-            .unwrap_or(2);
-        return format!("${:.prec$}", num, prec = decimal_places);
+        let decimal_places = format.rfind('.').map_or(2, |i| {
+            format[i + 1..].chars().take_while(|c| *c == '0').count()
+        });
+        return format!("${num:.decimal_places$}");
     }
 
     // Handle fixed decimal formats like "0.00"
     if let Some(dot_pos) = format.find('.') {
         let decimal_places = format[dot_pos + 1..].len();
-        return format!("{:.prec$}", num, prec = decimal_places);
+        return format!("{num:.decimal_places$}");
     }
 
     // Handle scientific notation
     if format_upper.contains('E') {
-        return format!("{:E}", num);
+        return format!("{num:E}");
     }
 
     // Handle comma thousands separator
@@ -298,16 +297,15 @@ fn format_number(num: f64, format: &str) -> String {
 
         if frac_part == 0.0 {
             return formatted_int;
-        } else {
-            return format!("{}{:.2}", formatted_int, frac_part);
         }
+        return format!("{formatted_int}{frac_part:.2}");
     }
 
     // Default: just convert to string
     if num.fract() == 0.0 {
         format!("{}", num as i64)
     } else {
-        format!("{}", num)
+        format!("{num}")
     }
 }
 
@@ -483,5 +481,208 @@ mod tests {
         assert_eq!(format_number(1234.0, "$0.00"), "$1234.00");
         assert_eq!(format_number(1.2345, "0.000"), "1.234");
         assert_eq!(format_number(1000000.0, "#,##0"), "1,000,000");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EDGE CASE TESTS FOR STRING OPERATIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_len_concatenated_strings() {
+        // LEN("Hello" & " " & "World") = 11
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("LEN(CONCAT(\"Hello\", \" \", \"World\"))", &ctx).unwrap(),
+            Value::Number(11.0)
+        );
+    }
+
+    #[test]
+    fn test_len_empty_string() {
+        // LEN("") = 0
+        let ctx = EvalContext::new();
+        assert_eq!(eval("LEN(\"\")", &ctx).unwrap(), Value::Number(0.0));
+    }
+
+    #[test]
+    fn test_len_single_space() {
+        // LEN(" ") = 1
+        let ctx = EvalContext::new();
+        assert_eq!(eval("LEN(\" \")", &ctx).unwrap(), Value::Number(1.0));
+    }
+
+    #[test]
+    fn test_left_empty_string_with_count() {
+        // LEFT("", 5) returns empty string, LEN = 0
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("LEN(LEFT(\"\", 5))", &ctx).unwrap(),
+            Value::Number(0.0)
+        );
+    }
+
+    #[test]
+    fn test_right_empty_string_with_count() {
+        // RIGHT("", 5) returns empty string, LEN = 0
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("LEN(RIGHT(\"\", 5))", &ctx).unwrap(),
+            Value::Number(0.0)
+        );
+    }
+
+    #[test]
+    fn test_mid_substring_first_two_chars() {
+        // MID("test", 1, 2) = "te", LEN = 2
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("MID(\"test\", 1, 2)", &ctx).unwrap(),
+            Value::Text("te".to_string())
+        );
+        assert_eq!(
+            eval("LEN(MID(\"test\", 1, 2))", &ctx).unwrap(),
+            Value::Number(2.0)
+        );
+    }
+
+    #[test]
+    fn test_mid_substring_second_two_chars() {
+        // MID("test", 2, 2) = "es", LEN = 2
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("MID(\"test\", 2, 2)", &ctx).unwrap(),
+            Value::Text("es".to_string())
+        );
+        assert_eq!(
+            eval("LEN(MID(\"test\", 2, 2))", &ctx).unwrap(),
+            Value::Number(2.0)
+        );
+    }
+
+    #[test]
+    fn test_trim_with_internal_spaces() {
+        // TRIM("  a  b  ") - removes leading/trailing spaces only
+        // Result is "a  b" with 4 characters (including internal spaces)
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("TRIM(\"  a  b  \")", &ctx).unwrap(),
+            Value::Text("a  b".to_string())
+        );
+        assert_eq!(
+            eval("LEN(TRIM(\"  a  b  \"))", &ctx).unwrap(),
+            Value::Number(4.0)
+        );
+    }
+
+    #[test]
+    fn test_trim_only_spaces() {
+        // TRIM("   ") = "", LEN = 0
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("TRIM(\"   \")", &ctx).unwrap(),
+            Value::Text(String::new())
+        );
+        assert_eq!(
+            eval("LEN(TRIM(\"   \"))", &ctx).unwrap(),
+            Value::Number(0.0)
+        );
+    }
+
+    #[test]
+    fn test_upper_lowercase_abc() {
+        // UPPER("abc") = "ABC", LEN = 3
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("UPPER(\"abc\")", &ctx).unwrap(),
+            Value::Text("ABC".to_string())
+        );
+        assert_eq!(
+            eval("LEN(UPPER(\"abc\"))", &ctx).unwrap(),
+            Value::Number(3.0)
+        );
+    }
+
+    #[test]
+    fn test_lower_uppercase_abc() {
+        // LOWER("ABC") = "abc", LEN = 3
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("LOWER(\"ABC\")", &ctx).unwrap(),
+            Value::Text("abc".to_string())
+        );
+        assert_eq!(
+            eval("LEN(LOWER(\"ABC\"))", &ctx).unwrap(),
+            Value::Number(3.0)
+        );
+    }
+
+    #[test]
+    fn test_concat_two_strings() {
+        // CONCAT("ab", "cd") = "abcd", LEN = 4
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("CONCAT(\"ab\", \"cd\")", &ctx).unwrap(),
+            Value::Text("abcd".to_string())
+        );
+        assert_eq!(
+            eval("LEN(CONCAT(\"ab\", \"cd\"))", &ctx).unwrap(),
+            Value::Number(4.0)
+        );
+    }
+
+    #[test]
+    fn test_rept_single_char_five_times() {
+        // REPT("x", 5) = "xxxxx", LEN = 5
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("REPT(\"x\", 5)", &ctx).unwrap(),
+            Value::Text("xxxxx".to_string())
+        );
+        assert_eq!(
+            eval("LEN(REPT(\"x\", 5))", &ctx).unwrap(),
+            Value::Number(5.0)
+        );
+    }
+
+    #[test]
+    fn test_rept_two_char_three_times() {
+        // REPT("ab", 3) = "ababab", LEN = 6
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("REPT(\"ab\", 3)", &ctx).unwrap(),
+            Value::Text("ababab".to_string())
+        );
+        assert_eq!(
+            eval("LEN(REPT(\"ab\", 3))", &ctx).unwrap(),
+            Value::Number(6.0)
+        );
+    }
+
+    #[test]
+    fn test_left_hello_three_chars() {
+        // LEFT("Hello", 3) = "Hel", LEN = 3
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("LEFT(\"Hello\", 3)", &ctx).unwrap(),
+            Value::Text("Hel".to_string())
+        );
+        assert_eq!(
+            eval("LEN(LEFT(\"Hello\", 3))", &ctx).unwrap(),
+            Value::Number(3.0)
+        );
+    }
+
+    #[test]
+    fn test_right_hello_three_chars() {
+        // RIGHT("Hello", 3) = "llo", LEN = 3
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("RIGHT(\"Hello\", 3)", &ctx).unwrap(),
+            Value::Text("llo".to_string())
+        );
+        assert_eq!(
+            eval("LEN(RIGHT(\"Hello\", 3))", &ctx).unwrap(),
+            Value::Number(3.0)
+        );
     }
 }

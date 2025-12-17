@@ -278,8 +278,7 @@ mod binomial_tests {
 
         assert!(
             (call - 10.4506).abs() < 0.1,
-            "European call should converge to BS: got {}",
-            call
+            "European call should converge to BS: got {call}"
         );
     }
 
@@ -305,12 +304,7 @@ mod binomial_tests {
         let lhs = call - put;
         let rhs = 100.0 - 100.0 * (-0.05_f64).exp();
 
-        assert!(
-            (lhs - rhs).abs() < 0.5,
-            "Put-call parity: {} != {}",
-            lhs,
-            rhs
-        );
+        assert!((lhs - rhs).abs() < 0.5, "Put-call parity: {lhs} != {rhs}");
     }
 
     #[test]
@@ -326,13 +320,11 @@ mod binomial_tests {
         // With time value, should be between intrinsic and spot price
         assert!(
             defer_value >= 2_000_000.0,
-            "Defer value should be at least intrinsic value (2M): {}",
-            defer_value
+            "Defer value should be at least intrinsic value (2M): {defer_value}"
         );
         assert!(
             defer_value < 10_000_000.0,
-            "Defer value should be less than spot price (10M): {}",
-            defer_value
+            "Defer value should be less than spot price (10M): {defer_value}"
         );
     }
 
@@ -373,15 +365,13 @@ mod binomial_tests {
         let euro_call = tree.call_price(OptionStyle::European);
         assert!(
             (euro_call - 10.44).abs() < 0.2,
-            "Euro call should match QuantLib: {}",
-            euro_call
+            "Euro call should match QuantLib: {euro_call}"
         );
 
         let amer_put = tree.put_price(OptionStyle::American);
         assert!(
             (amer_put - 6.08).abs() < 0.2,
-            "American put should match QuantLib: {}",
-            amer_put
+            "American put should match QuantLib: {amer_put}"
         );
     }
 }

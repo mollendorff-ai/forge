@@ -109,7 +109,7 @@ impl Table {
 
     /// Get the number of rows (length of first column, all should be same)
     pub fn row_count(&self) -> usize {
-        self.columns.values().next().map_or(0, |col| col.len())
+        self.columns.values().next().map_or(0, Column::len)
     }
 
     /// Validate all columns have the same length
@@ -330,7 +330,7 @@ impl ParsedModel {
             }
             // Try nested path (e.g., "pricing.unit_price" -> scalars["pricing.unit_price"])
             for (key, var) in &resolved.model.scalars {
-                if key == field_path || key.ends_with(&format!(".{}", field_path)) {
+                if key == field_path || key.ends_with(&format!(".{field_path}")) {
                     return var.value;
                 }
             }

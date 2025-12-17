@@ -39,7 +39,7 @@ pub fn try_evaluate(
             let mean = values.iter().sum::<f64>() / values.len() as f64;
             let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
             Value::Number(sum_sq / (values.len() - 1) as f64)
-        }
+        },
 
         "VAR.P" | "VARP" => {
             let values = collect_numeric_values(args, ctx)?;
@@ -49,7 +49,7 @@ pub fn try_evaluate(
             let mean = values.iter().sum::<f64>() / values.len() as f64;
             let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
             Value::Number(sum_sq / values.len() as f64)
-        }
+        },
 
         "STDEV" | "STDEV.S" => {
             let values = collect_numeric_values(args, ctx)?;
@@ -60,7 +60,7 @@ pub fn try_evaluate(
             let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
             let variance = sum_sq / (values.len() - 1) as f64;
             Value::Number(variance.sqrt())
-        }
+        },
 
         "STDEV.P" | "STDEVP" => {
             let values = collect_numeric_values(args, ctx)?;
@@ -71,7 +71,7 @@ pub fn try_evaluate(
             let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
             let variance = sum_sq / values.len() as f64;
             Value::Number(variance.sqrt())
-        }
+        },
 
         "PERCENTILE" => {
             require_args(name, args, 2)?;
@@ -99,7 +99,7 @@ pub fn try_evaluate(
             } else {
                 Value::Number(values[lower] * (1.0 - frac) + values[upper] * frac)
             }
-        }
+        },
 
         "QUARTILE" => {
             require_args(name, args, 2)?;
@@ -129,7 +129,7 @@ pub fn try_evaluate(
             } else {
                 Value::Number(values[lower] * (1.0 - frac) + values[upper] * frac)
             }
-        }
+        },
 
         "CORREL" => {
             require_args(name, args, 2)?;
@@ -157,7 +157,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("CORREL: zero variance"));
             }
             Value::Number(cov / (var_x.sqrt() * var_y.sqrt()))
-        }
+        },
 
         "LARGE" => {
             require_args(name, args, 2)?;
@@ -179,7 +179,7 @@ pub fn try_evaluate(
             // Sort descending and get k-th largest
             values.sort_by(|a, b| b.partial_cmp(a).unwrap());
             Value::Number(values[k - 1])
-        }
+        },
 
         "SMALL" => {
             require_args(name, args, 2)?;
@@ -201,7 +201,7 @@ pub fn try_evaluate(
             // Sort ascending and get k-th smallest
             values.sort_by(|a, b| a.partial_cmp(b).unwrap());
             Value::Number(values[k - 1])
-        }
+        },
 
         "RANK" | "RANK.EQ" => {
             require_args_range(name, args, 2, 3)?;
@@ -234,7 +234,7 @@ pub fn try_evaluate(
                 Some(pos) => Value::Number((pos + 1) as f64),
                 None => return Err(EvalError::new("RANK: value not found in array")),
             }
-        }
+        },
 
         _ => return Ok(None),
     };
