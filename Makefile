@@ -475,16 +475,24 @@ publish-demo:
 	@echo "1️⃣  Building all platform binaries..."
 	@$(MAKE) cross-forge-demo
 	@echo ""
-	@echo "2️⃣  Creating GitHub release v$(VERSION)..."
+	@echo "2️⃣  Renaming binaries to release format..."
+	@cp dist/forge-demo-aarch64-apple-darwin dist/forge-demo-$(VERSION)-darwin-arm64
+	@cp dist/forge-demo-x86_64-apple-darwin dist/forge-demo-$(VERSION)-darwin-x86_64
+	@cp dist/forge-demo-x86_64-unknown-linux-musl dist/forge-demo-$(VERSION)-linux-x86_64
+	@cp dist/forge-demo-aarch64-unknown-linux-musl dist/forge-demo-$(VERSION)-linux-arm64
+	@cp dist/forge-demo-x86_64-pc-windows-gnu.exe dist/forge-demo-$(VERSION)-windows-x86_64.exe
+	@ls -lh dist/forge-demo-$(VERSION)-*
+	@echo ""
+	@echo "3️⃣  Creating GitHub release v$(VERSION)..."
 	@gh release create "v$(VERSION)" \
 		--repo royalbit/forge-demo \
 		--title "forge-demo v$(VERSION)" \
 		--generate-notes \
-		dist/forge-demo-aarch64-apple-darwin \
-		dist/forge-demo-x86_64-apple-darwin \
-		dist/forge-demo-x86_64-unknown-linux-musl \
-		dist/forge-demo-aarch64-unknown-linux-musl \
-		dist/forge-demo-x86_64-pc-windows-gnu.exe
+		dist/forge-demo-$(VERSION)-darwin-arm64 \
+		dist/forge-demo-$(VERSION)-darwin-x86_64 \
+		dist/forge-demo-$(VERSION)-linux-x86_64 \
+		dist/forge-demo-$(VERSION)-linux-arm64 \
+		dist/forge-demo-$(VERSION)-windows-x86_64.exe
 	@echo ""
 	@echo "✅ Release v$(VERSION) published!"
 	@echo "🔗 View at: https://github.com/royalbit/forge-demo/releases/tag/v$(VERSION)"
