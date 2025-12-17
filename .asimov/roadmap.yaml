@@ -62,20 +62,5 @@ summary:
   total_functions: 173
   categories: 15
   current_version: "9.6.1"
-
-  test_status:
-    total: 2703
-    all_passing: true
-    engine: "ssconvert (Gnumeric)"
-
-  completed_features:
-    - "Monte Carlo Simulation (v8.0.0-v8.2.0)"
-    - "Scenario Analysis (v8.3.0)"
-    - "Decision Trees (v8.4.0)"
-    - "Real Options (v8.5.0)"
-    - "Tornado Diagrams (v8.6.0)"
-    - "Bootstrap Resampling (v8.7.0)"
-    - "Bayesian Networks (v9.0.0)"
-    - "CLI Commands for Prediction Methods (v9.1.0)"
-    - "Feature Gate Inversion (v9.3.0)"
-    - "Demo Bug Fixes BUG-001 to BUG-009 (v9.4.0-v9.6.0)"
+  tests: 1643
+  history: "See CHANGELOG.md"
