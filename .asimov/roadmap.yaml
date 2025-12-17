@@ -15,6 +15,68 @@ current:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
+  - version: "9.8.0"
+    priority: CRITICAL
+    status: pending
+    summary: "E2E Test Migration to forge-e2e"
+    rationale: |
+      Forge at 636K LOC exceeds Claude's effective context window.
+      forge-demo e2e tests caught BUG-010 to BUG-013 that were missed.
+      Migrate all e2e/integration tests to dedicated forge-e2e project.
+      Keep forge lean: only unit tests in src/*/tests/.
+    scope:
+      stay_in_forge:
+        - "Unit tests: src/*/tests/*.rs (50 files, 22,620 LOC)"
+        - "These test individual functions in isolation"
+      migrate_to_forge_e2e:
+        - "Integration tests: tests/*.rs (50 files)"
+        - "Test data: tests/*.yaml (42 files)"
+        - "Roundtrip tests: tests/roundtrip/ (9 files)"
+        - "Edge case tests: formula_edge_cases_tests_*.rs"
+    phases:
+      - phase: 1
+        name: "Inventory & Categorize"
+        tasks:
+          - "Catalog all tests in forge/tests/"
+          - "Map to forge-e2e categories: functions/, edge/, enterprise/"
+          - "Identify dependencies between test files"
+      - phase: 2
+        name: "Migrate Roundtrip Tests"
+        tasks:
+          - "Move tests/roundtrip/ → forge-e2e/tests/e2e/roundtrip/"
+          - "Update harness to use FORGE_BIN env var"
+          - "Verify Gnumeric validation still works"
+      - phase: 3
+        name: "Migrate E2E Tests"
+        tasks:
+          - "Move e2e_tests*.rs → forge-e2e"
+          - "Move yaml test data files"
+          - "Convert to forge-e2e test framework"
+      - phase: 4
+        name: "Migrate Edge Case Tests"
+        tasks:
+          - "Move formula_edge_cases_tests_*.rs"
+          - "Move edge_*.yaml to forge-e2e/tests/e2e/edge/"
+          - "These are the tests that caught BUG-010 to BUG-013"
+      - phase: 5
+        name: "Clean Forge"
+        tasks:
+          - "Remove migrated tests from forge/tests/"
+          - "Update forge Cargo.toml (remove test deps)"
+          - "Verify unit tests still pass"
+      - phase: 6
+        name: "Validate & Document"
+        tasks:
+          - "Run full forge-e2e suite"
+          - "Run forge unit tests"
+          - "Update CI/CD to run both"
+          - "Document test split in README"
+    success_criteria:
+      - "forge/tests/ contains only unit tests"
+      - "All 1643+ tests pass (split between forge and forge-e2e)"
+      - "forge-e2e catches bugs that forge unit tests miss"
+      - "Context window manageable for Claude"
+
   - version: "10.0.0"
     priority: NORMAL
     status: pending
