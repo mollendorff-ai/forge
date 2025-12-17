@@ -1,9 +1,6 @@
 # Forge Roadmap
 # Version: Cargo.toml | History: CHANGELOG.md | Config: project.yaml
 
-# Current version: 9.6.1
-# All completed work is documented in CHANGELOG.md
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # CURRENT - No active milestone
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -61,6 +58,5 @@ bugs: []
 summary:
   total_functions: 173
   categories: 15
-  current_version: "9.6.1"
   tests: 1643
   history: "See CHANGELOG.md"
