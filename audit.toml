@@ -1,9 +1,0 @@
-# RoyalBit Forge - cargo-audit configuration
-# See: https://github.com/rustsec/rustsec/tree/main/cargo-audit
-
-[advisories]
-# Allow RUSTSEC-2024-0436: paste crate is unmaintained
-# This is a transitive dependency of statrs -> simba -> nalgebra
-# The crate is still functional, just no longer receiving updates
-# We will upgrade when statrs updates their dependency chain
-ignore = ["RUSTSEC-2024-0436"]
