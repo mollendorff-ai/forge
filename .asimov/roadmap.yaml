@@ -6,87 +6,16 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "9.8.0"
-  status: completed
-  summary: "E2E Test Migration to forge-e2e - COMPLETE"
+  version: null
+  status: idle
+  summary: "No active milestone - awaiting next task"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT - Candidate milestones (pick one to start)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "9.8.0"
-    priority: CRITICAL
-    status: completed
-    summary: "E2E Test Migration to forge-e2e (Parallel Agents)"
-    rationale: |
-      Forge at 636K LOC exceeds Claude's effective context window.
-      forge-demo e2e tests caught BUG-010 to BUG-013 that were missed.
-      Migrate all e2e/integration tests to dedicated forge-e2e project.
-      Keep forge lean: only unit tests in src/*/tests/.
-    scope:
-      stay_in_forge:
-        - "Unit tests: src/*/tests/*.rs (50 files, 22,620 LOC)"
-        - "These test individual functions in isolation"
-      migrate_to_forge_e2e:
-        - "Integration tests: tests/*.rs (50 files)"
-        - "Test data: tests/*.yaml (42 files)"
-        - "Roundtrip tests: tests/roundtrip/ (9 files)"
-        - "Edge case tests: formula_edge_cases_tests_*.rs"
-
-    # Phase 1: Parallel Documentation & Planning (4 agents)
-    phase_1_parallel_docs:
-      - agent: "inventory"
-        task: "Catalog forge/tests/, map to forge-e2e categories"
-        output: "tests/MIGRATION_INVENTORY.md"
-      - agent: "adr-forge"
-        task: "Create ADR-027: E2E Test Migration Strategy"
-        output: "docs/architecture/ADR-027-E2E-TEST-MIGRATION.md"
-      - agent: "adr-forge-e2e"
-        task: "Create ADRs in forge-e2e: testing philosophy, validation"
-        output: "forge-e2e/docs/ADR-001-TESTING-PHILOSOPHY.md"
-      - agent: "docs-forge-e2e"
-        task: "Document forge-e2e structure, test framework, usage"
-        output: "forge-e2e/README.md, docs/CONTRIBUTING.md"
-
-    # Phase 2: Parallel Migration (4 agents)
-    phase_2_parallel_migrate:
-      - agent: "migrate-roundtrip"
-        task: "Move tests/roundtrip/ → forge-e2e"
-        files: "9 files (harness, aggregation, financial, etc.)"
-      - agent: "migrate-edge"
-        task: "Move edge case tests → forge-e2e/tests/e2e/edge/"
-        files: "formula_edge_cases_tests_*.rs, edge_*.yaml"
-      - agent: "migrate-e2e"
-        task: "Move e2e_tests*.rs → forge-e2e"
-        files: "e2e_tests.rs, e2e_tests_*.rs"
-      - agent: "migrate-yaml"
-        task: "Move test YAML data files"
-        files: "42 yaml files"
-
-    # Phase 3: Sequential Cleanup & Validation
-    phase_3_cleanup:
-      - "Remove migrated tests from forge/tests/"
-      - "Update forge Cargo.toml (remove unused test deps)"
-      - "Run forge unit tests (should still pass)"
-      - "Run forge-e2e full suite"
-      - "Verify test count: forge + forge-e2e >= 1643"
-
-    adrs_to_create:
-      forge:
-        - "ADR-027: E2E Test Migration Strategy"
-      forge_e2e:
-        - "ADR-001: Testing Philosophy (unit vs e2e vs roundtrip)"
-        - "ADR-002: External Validation Engines (Gnumeric, R, Python)"
-        - "ADR-003: Edge Case Discovery Process"
-        - "ADR-004: Statistical Function Validation (R boot package, scipy)"
-
-    success_criteria:
-      - "forge/tests/ contains only unit tests"
-      - "All tests pass (split between forge and forge-e2e)"
-      - "forge-e2e catches bugs that forge unit tests miss"
-      - "ADRs document the split rationale"
-      - "Context window manageable for Claude"
+  # v9.8.0 E2E Test Migration - COMPLETED (see CHANGELOG.md)
 
   - version: "10.0.0"
     priority: NORMAL
