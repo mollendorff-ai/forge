@@ -77,6 +77,7 @@ backlog:
   - "Enterprise licensing (when ready to leave CGI)"
   - "MCP server documentation"
   - "Performance benchmarks per function"
+  - "FPGA acceleration for HFT (post-capitalization) - see ADR-026"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BUGS - Active issues (4 from forge-e2e edge case discovery)
