@@ -67,10 +67,24 @@ impl PartialEq for Value {
 
 impl Value {
     /// Try to convert to f64
+    /// For text, tries numeric parsing first, then date parsing (YYYY-MM-DD → Excel serial)
     pub fn as_number(&self) -> Option<f64> {
         match self {
             Value::Number(n) => Some(*n),
-            Value::Text(s) => s.parse().ok(),
+            Value::Text(s) => {
+                // First try direct numeric parse
+                if let Ok(n) = s.parse::<f64>() {
+                    return Some(n);
+                }
+                // Then try date parsing (YYYY-MM-DD format → Excel serial)
+                if let Ok(date) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+                    // Excel serial: days since 1899-12-30
+                    let base = chrono::NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
+                    let days = (date - base).num_days();
+                    return Some(days as f64);
+                }
+                None
+            }
             Value::Boolean(b) => Some(if *b { 1.0 } else { 0.0 }),
             // Arrays in scalar context return their length
             Value::Array(arr) => Some(arr.len() as f64),
@@ -863,6 +877,23 @@ mod tests {
     #[test]
     fn test_value_null_as_number() {
         assert_eq!(Value::Null.as_number(), None);
+    }
+
+    #[test]
+    fn test_value_date_string_as_number() {
+        // Date string converts to Excel serial number
+        let date = Value::Text("2024-01-01".to_string());
+        // Excel serial: days since 1899-12-30
+        // 2024-01-01 is 45292 days from 1899-12-30
+        assert_eq!(date.as_number(), Some(45292.0));
+
+        // Invalid date string returns None
+        let invalid = Value::Text("not-a-date".to_string());
+        assert_eq!(invalid.as_number(), None);
+
+        // Numeric string still works
+        let num = Value::Text("42.5".to_string());
+        assert_eq!(num.as_number(), Some(42.5));
     }
 
     #[test]

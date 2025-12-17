@@ -176,6 +176,24 @@ completed:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
+  version: "9.5.0"
+  priority: MEDIUM
+  status: completed
+  completed: "2025-12-17"
+  summary: "BUG-002 Fix - DATE Subtraction Now Works"
+  rationale: |
+    Fixed date subtraction returning "Left operand must be a number" error.
+    DATE() returns text like "2024-06-15" but binary operators need numbers.
+    Fixed by adding date string → Excel serial coercion in as_number().
+  deliverables:
+    - "[DONE] Updated Value::as_number() to parse date strings"
+    - "[DONE] Date strings coerce to Excel serial numbers"
+    - "[DONE] Added test_date_subtraction() test"
+    - "[DONE] Added test_value_date_string_as_number() test"
+    - "[DONE] 788 demo lib tests pass"
+    - "[DONE] 1639 enterprise lib tests pass"
+
+v9_4_0_completed:
   version: "9.4.0"
   priority: HIGH
   status: completed
@@ -1197,6 +1215,35 @@ bugs:
     reported_by: "forge-e2e v2.1.0 perf mode"
     reported_date: "2025-12-16"
 
+  - id: "BUG-002"
+    severity: MEDIUM
+    status: fixed
+    fixed_date: "2025-12-17"
+    summary: "forge-demo calculate fails on DATE subtraction"
+    description: |
+      DATE subtraction failed with "Left operand must be a number" error.
+
+      SYMPTOM:
+        $ forge-demo calculate "=DATE(2024,12,31) - DATE(2024,1,1)"
+        Error: Eval error: Left operand must be a number
+
+      ROOT CAUSE:
+        DATE() returns text "2024-06-15" but as_number() didn't parse dates.
+        Binary operators call as_number() which returned None for date strings.
+
+      FIX APPLIED:
+        Updated Value::as_number() to:
+        1. First try numeric parsing
+        2. Then try date parsing (YYYY-MM-DD format)
+        3. Convert dates to Excel serial numbers (days since 1899-12-30)
+
+      VERIFICATION:
+        - 788 demo lib tests pass
+        - 1639 enterprise lib tests pass
+        - DATE subtraction works correctly for all cases
+    reported_by: "forge-e2e v2.2.1 perf mode"
+    reported_date: "2025-12-17"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SUMMARY
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1204,8 +1251,8 @@ bugs:
 summary:
   total_functions: 173
   categories: 15
-  current_version: "9.4.0"
-  next_version: "9.5.0"
+  current_version: "9.5.0"
+  next_version: "9.6.0"
 
   test_status:
     total: 2703
