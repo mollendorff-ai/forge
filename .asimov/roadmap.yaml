@@ -15,6 +15,48 @@ current:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
+  - version: "10.0.0"
+    priority: NORMAL
+    status: pending
+    summary: "Performance - SIMD Vectorization"
+    deliverables:
+      - "Identify hot paths in Monte Carlo, Bootstrap, matrix operations"
+      - "Use packed_simd or std::simd for parallel arithmetic"
+      - "Benchmark before/after with criterion"
+      - "Target: 2-4x speedup on numeric-heavy workloads"
+
+  - version: "10.1.0"
+    priority: NORMAL
+    status: pending
+    summary: "Performance - Multi-threading with Rayon"
+    deliverables:
+      - "Parallelize Monte Carlo iterations across cores"
+      - "Parallelize Bootstrap resampling"
+      - "Parallelize independent table calculations"
+      - "Target: Near-linear scaling with core count"
+
+  - version: "10.2.0"
+    priority: NORMAL
+    status: pending
+    summary: "Performance - GPU Acceleration (CUDA/OpenCL)"
+    deliverables:
+      - "Evaluate rust-cuda or ocl crate"
+      - "Offload Monte Carlo to GPU"
+      - "Offload matrix operations to GPU"
+      - "Optional feature flag (--features gpu)"
+      - "Target: 10-100x for large simulations"
+
+  - version: "10.3.0"
+    priority: NORMAL
+    status: pending
+    summary: "Performance - Algorithmic Optimizations"
+    deliverables:
+      - "Profile all functions with flamegraph"
+      - "Identify O(n²) or worse algorithms"
+      - "Optimize memory allocations (arena allocators)"
+      - "Cache repeated calculations"
+      - "Target: 2-10x from algorithmic improvements"
+
   - version: "7.3.0"
     priority: NORMAL
     status: pending
@@ -25,13 +67,6 @@ next:
       - "E2E test: @namespace.field formula evaluation"
       - "E2E test: Circular dependency detection"
       - "Documentation: INCLUDE feature limitations"
-
-  - version: "10.0.0"
-    priority: LOW
-    status: pending
-    summary: "Next Major Version - TBD"
-    deliverables:
-      - "To be determined based on user feedback"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG - Future ideas (unscheduled)
