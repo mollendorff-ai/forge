@@ -77,8 +77,9 @@ next:
         - "ADR-027: E2E Test Migration Strategy"
       forge_e2e:
         - "ADR-001: Testing Philosophy (unit vs e2e vs roundtrip)"
-        - "ADR-002: Gnumeric Validation Approach"
+        - "ADR-002: External Validation Engines (Gnumeric, R, Python)"
         - "ADR-003: Edge Case Discovery Process"
+        - "ADR-004: Statistical Function Validation (R boot package, scipy)"
 
     success_criteria:
       - "forge/tests/ contains only unit tests"
