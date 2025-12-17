@@ -460,6 +460,32 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_date_subtraction() {
+        // BUG-002: DATE subtraction should work via date string coercion to serial
+        let ctx = EvalContext::new();
+        // Full year (leap year 2024)
+        assert_eq!(
+            eval("DATE(2024, 12, 31) - DATE(2024, 1, 1)", &ctx).unwrap(),
+            Value::Number(365.0)
+        );
+        // 30 days in January
+        assert_eq!(
+            eval("DATE(2024, 1, 31) - DATE(2024, 1, 1)", &ctx).unwrap(),
+            Value::Number(30.0)
+        );
+        // February in leap year (29 days)
+        assert_eq!(
+            eval("DATE(2024, 3, 1) - DATE(2024, 2, 1)", &ctx).unwrap(),
+            Value::Number(29.0)
+        );
+        // February in non-leap year (28 days)
+        assert_eq!(
+            eval("DATE(2023, 3, 1) - DATE(2023, 2, 1)", &ctx).unwrap(),
+            Value::Number(28.0)
+        );
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ENTERPRISE TESTS (only with full feature)
     // ═══════════════════════════════════════════════════════════════════════════

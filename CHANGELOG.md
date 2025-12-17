@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.5.0] - 2025-12-17
+
+### BUG-002 Fix - DATE Subtraction Now Works
+
+Fixed date subtraction returning "Left operand must be a number" error.
+
+### Fixed
+
+- **DATE subtraction**: `=DATE(2024,12,31) - DATE(2024,1,1)` now returns `365`
+- All date arithmetic operations now work correctly
+
+### Changed
+
+- `Value::as_number()`: Now coerces date strings (YYYY-MM-DD) to Excel serial numbers
+- Added tests for date subtraction (leap year, non-leap year scenarios)
+
+### Root Cause
+
+The `as_number()` method didn't recognize date strings. DATE() returns "2024-06-15" (text) but binary operators require numbers. Fixed by adding date string → Excel serial coercion in `as_number()`.
+
 ## [9.4.0] - 2025-12-16
 
 ### BUG-001 Fix - Demo Calculate Engine Missing Functions
