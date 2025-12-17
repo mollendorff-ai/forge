@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.4.0] - 2025-12-16
+
+### BUG-001 Fix - Demo Calculate Engine Missing Functions
+
+Fixed mismatched feature gates that caused `forge-demo calculate` to fail on 39 of 48 listed functions.
+
+### Fixed
+
+- **Trig functions in demo**: SIN, COS, TAN, ASIN, ACOS, ATAN now work in calculate
+- **Math functions in demo**: EXP, LN, LOG10, INT, SIGN, TRUNC, PI now work in calculate
+- All 48 demo functions now evaluate correctly in `forge-demo calculate`
+
+### Changed
+
+- `evaluator/math.rs`: Removed feature gates from demo math functions
+- `evaluator/mod.rs`: Moved trig module to demo (always included)
+- `evaluator/trig.rs`: Gate only enterprise functions (SINH, COSH, TANH, RADIANS, DEGREES)
+- Updated tests to match demo/enterprise split
+
+### Root Cause
+
+Registry listed functions as `demo: true` but evaluator gated them with `#[cfg(not(feature = "demo"))]`, causing a mismatch where functions appeared in `forge-demo functions` but failed in `forge-demo calculate`.
+
 ## [9.3.0] - 2025-12-16
 
 ### Feature Gate Inversion - Enterprise Default

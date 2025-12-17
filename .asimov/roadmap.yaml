@@ -176,6 +176,25 @@ completed:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
+  version: "9.4.0"
+  priority: HIGH
+  status: completed
+  completed: "2025-12-16"
+  summary: "BUG-001 Fix - Demo Calculate Engine Missing Functions"
+  rationale: |
+    Fixed mismatched feature gates that caused forge-demo calculate to fail
+    on 39 of 48 listed functions. Registry said demo: true but evaluator
+    gated them with #[cfg(not(feature = "demo"))].
+  deliverables:
+    - "[DONE] Ungated math.rs: EXP, LN, LOG10, INT, SIGN, TRUNC, PI"
+    - "[DONE] Moved trig module to demo (always included)"
+    - "[DONE] Gated only enterprise trig: SINH, COSH, TANH, RADIANS, DEGREES"
+    - "[DONE] Updated tests for demo/enterprise split"
+    - "[DONE] 786 demo lib tests pass"
+    - "[DONE] 1637 enterprise lib tests pass"
+    - "[DONE] All 48 demo functions work in forge-demo calculate"
+
+v9_3_0_completed:
   version: "9.3.0"
   priority: NORMAL
   status: completed
@@ -1150,40 +1169,31 @@ backlog:
 bugs:
   - id: "BUG-001"
     severity: HIGH
-    status: open
+    status: fixed
+    fixed_date: "2025-12-16"
     summary: "forge-demo calculate missing 39 of 48 functions"
     description: |
-      The demo build's calculate engine does not implement all 48 functions
+      The demo build's calculate engine did not implement all 48 functions
       that are listed in `forge-demo functions`.
 
       SYMPTOM:
         $ forge-demo functions  → Lists COS, SIN, EXP, LN, etc. as supported
         $ forge-demo calculate  → "Unknown function: COS"
 
-      AFFECTED FUNCTIONS (39 of 48):
-        - Trig: COS, SIN, TAN, ACOS, ASIN, ATAN
-        - Math: EXP, LN, LOG10, INT, SIGN, TRUNC, PI
-        - Text: All text functions
-        - Logical: IF, AND, OR, NOT, IFERROR
-        - Date: TODAY, DATE, YEAR, MONTH, DAY
-        - Lookup: CHOOSE
-
-      WORKING FUNCTIONS (~9):
-        - ABS, SQRT, ROUND, ROUNDUP, ROUNDDOWN, FLOOR, CEILING, MOD, POWER
-        - SUM, AVERAGE, MIN, MAX, COUNT
-
       ROOT CAUSE:
-        The calculate command uses a different evaluator than export.
-        Export writes formulas to Excel (Gnumeric evaluates).
-        Calculate tries to evaluate internally but lacks implementations.
+        Evaluator functions were gated with #[cfg(not(feature = "demo"))]
+        but registry listed them as demo: true. Mismatched feature gates.
 
-      IMPACT:
-        - forge-e2e perf mode fails 39/112 tests
-        - Users expect calculate to work for all listed functions
+      FIX APPLIED:
+        Removed feature gates from demo functions in evaluator:
+        - math.rs: Ungated EXP, LN, LOG10, INT, SIGN, TRUNC, PI
+        - evaluator/mod.rs: Moved trig module to demo (always included)
+        - trig.rs: Gate only enterprise functions (SINH, COSH, TANH, RADIANS, DEGREES)
 
-      FIX:
-        Implement all 48 demo functions in the calculate engine, OR
-        Remove unsupported functions from `forge functions` output for demo build.
+      VERIFICATION:
+        - 786 demo lib tests pass
+        - 1637 enterprise lib tests pass
+        - forge-demo calculate now works with all 48 demo functions
     reported_by: "forge-e2e v2.1.0 perf mode"
     reported_date: "2025-12-16"
 
@@ -1194,8 +1204,8 @@ bugs:
 summary:
   total_functions: 173
   categories: 15
-  current_version: "9.3.0"
-  next_version: "9.4.0"
+  current_version: "9.4.0"
+  next_version: "9.5.0"
 
   test_status:
     total: 2703
