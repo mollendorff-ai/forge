@@ -6,7 +6,7 @@
 //!
 //! Tests: Basic operations, edge cases, error conditions, precision
 
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 #![allow(clippy::approx_constant)]
 
 use royalbit_forge::core::array_calculator::ArrayCalculator;

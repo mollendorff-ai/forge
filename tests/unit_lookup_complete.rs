@@ -6,7 +6,7 @@
 //! Tests: Basic functionality, exact/approximate match, not found, out of bounds,
 //! error handling, match modes, edge cases
 
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 
 use royalbit_forge::core::array_calculator::ArrayCalculator;
 use royalbit_forge::types::{Column, ColumnValue, ParsedModel, Table, Variable};

@@ -8,7 +8,7 @@ use crate::core::array_calculator::ArrayCalculator;
 #[allow(unused_imports)]
 use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_yearfrac_basis_0() {
     let mut model = ParsedModel::new();
@@ -25,7 +25,7 @@ fn test_yearfrac_basis_0() {
     let _ = calculator.calculate_all();
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_yearfrac_actual_basis() {
     let mut model = ParsedModel::new();
@@ -42,7 +42,7 @@ fn test_yearfrac_actual_basis() {
     let _ = calculator.calculate_all();
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_yearfrac_basis_2() {
     let mut model = ParsedModel::new();
@@ -59,7 +59,7 @@ fn test_yearfrac_basis_2() {
     let _ = calculator.calculate_all();
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_yearfrac_basis_3() {
     let mut model = ParsedModel::new();
@@ -76,7 +76,7 @@ fn test_yearfrac_basis_3() {
     let _ = calculator.calculate_all();
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_yearfrac_basis_4() {
     let mut model = ParsedModel::new();
@@ -93,7 +93,7 @@ fn test_yearfrac_basis_4() {
     let _ = calculator.calculate_all();
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_workday_positive() {
     let mut model = ParsedModel::new();
@@ -110,7 +110,7 @@ fn test_workday_positive() {
     let _ = calculator.calculate_all();
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_workday_negative() {
     let mut model = ParsedModel::new();
@@ -127,7 +127,7 @@ fn test_workday_negative() {
     let _ = calculator.calculate_all();
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_forward_quarter() {
     let mut model = ParsedModel::new();
@@ -144,7 +144,7 @@ fn test_edate_forward_quarter() {
     let _ = calculator.calculate_all();
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_subtract_months() {
     let mut model = ParsedModel::new();
@@ -161,7 +161,7 @@ fn test_edate_subtract_months() {
     let _ = calculator.calculate_all();
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_eomonth_positive() {
     let mut model = ParsedModel::new();
@@ -178,7 +178,7 @@ fn test_eomonth_positive() {
     let _ = calculator.calculate_all();
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_eomonth_negative() {
     let mut model = ParsedModel::new();
@@ -195,7 +195,7 @@ fn test_eomonth_negative() {
     let _ = calculator.calculate_all();
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_networkdays_basic() {
     let mut model = ParsedModel::new();
@@ -261,7 +261,7 @@ fn test_day_from_date() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_now_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -277,7 +277,7 @@ fn test_now_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_time_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -305,7 +305,7 @@ fn test_time_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_hour_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -334,7 +334,7 @@ fn test_hour_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_minute_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -354,7 +354,7 @@ fn test_minute_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_second_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -374,7 +374,7 @@ fn test_second_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_weekday_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -405,7 +405,7 @@ fn test_weekday_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_days_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -520,7 +520,7 @@ fn test_date_leap_year_invalid() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_from_leap_year_feb_28() {
     let mut model = ParsedModel::new();
@@ -555,7 +555,7 @@ fn test_edate_from_leap_year_feb_28() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_eomonth_february_leap_vs_nonleap() {
     let mut model = ParsedModel::new();
@@ -595,7 +595,7 @@ fn test_eomonth_february_leap_vs_nonleap() {
 
 // 2. MONTH-END TRANSITIONS
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_jan31_to_feb() {
     let mut model = ParsedModel::new();
@@ -623,7 +623,7 @@ fn test_edate_jan31_to_feb() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_may31_to_june() {
     let mut model = ParsedModel::new();
@@ -648,7 +648,7 @@ fn test_edate_may31_to_june() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_eomonth_all_month_lengths() {
     let mut model = ParsedModel::new();
@@ -715,7 +715,7 @@ fn test_eomonth_all_month_lengths() {
 
 // 3. YEAR BOUNDARIES
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_cross_year_boundary_forward() {
     let mut model = ParsedModel::new();
@@ -747,7 +747,7 @@ fn test_edate_cross_year_boundary_forward() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_cross_year_boundary_backward() {
     let mut model = ParsedModel::new();
@@ -781,7 +781,7 @@ fn test_edate_cross_year_boundary_backward() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_eomonth_at_year_end() {
     let mut model = ParsedModel::new();
@@ -872,7 +872,7 @@ fn test_year_month_day_at_boundaries() {
 
 // 4. DAYS FUNCTION EDGE CASES
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_days_same_date() {
     let mut model = ParsedModel::new();
@@ -891,7 +891,7 @@ fn test_days_same_date() {
     assert_eq!(days, 0.0, "DAYS between same date should be 0");
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_days_reverse_order() {
     let mut model = ParsedModel::new();
@@ -911,7 +911,7 @@ fn test_days_reverse_order() {
     assert_eq!(days, -30.0, "DAYS(Jan 1, Jan 31) = -30 (start before end)");
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_days_forward_order() {
     let mut model = ParsedModel::new();
@@ -933,7 +933,7 @@ fn test_days_forward_order() {
 
 // 5. WEEKDAY - ALL DAYS OF THE WEEK
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_weekday_all_seven_days() {
     let mut model = ParsedModel::new();
@@ -972,7 +972,7 @@ fn test_weekday_all_seven_days() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_weekday_type_2_all_days() {
     let mut model = ParsedModel::new();
@@ -1003,7 +1003,7 @@ fn test_weekday_type_2_all_days() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_weekday_type_3_zero_indexed() {
     let mut model = ParsedModel::new();
@@ -1074,7 +1074,7 @@ fn test_date_with_out_of_range_day() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_large_month_offset() {
     let mut model = ParsedModel::new();
@@ -1106,7 +1106,7 @@ fn test_edate_large_month_offset() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_datedif_across_leap_year() {
     use crate::types::Variable;

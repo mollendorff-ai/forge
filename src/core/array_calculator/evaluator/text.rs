@@ -102,7 +102,7 @@ pub fn try_evaluate(
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
         // ═══════════════════════════════════════════════════════════════════════════
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "CONCATENATE" => {
             // Excel's CONCATENATE (alias for CONCAT, enterprise only)
             let mut result = String::new();
@@ -113,7 +113,7 @@ pub fn try_evaluate(
             Value::Text(result)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "TEXT" => {
             require_args(name, args, 2)?;
             let val = evaluate(&args[0], ctx)?;
@@ -124,7 +124,7 @@ pub fn try_evaluate(
             Value::Text(formatted)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "VALUE" => {
             require_args(name, args, 1)?;
             let text = evaluate(&args[0], ctx)?.as_text();
@@ -139,7 +139,7 @@ pub fn try_evaluate(
             Value::Number(num)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "FIND" => {
             require_args_range(name, args, 2, 3)?;
             let find_text = evaluate(&args[0], ctx)?.as_text();
@@ -162,7 +162,7 @@ pub fn try_evaluate(
             }
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "SEARCH" => {
             require_args_range(name, args, 2, 3)?;
             let find_text = evaluate(&args[0], ctx)?.as_text().to_lowercase();
@@ -186,7 +186,7 @@ pub fn try_evaluate(
             }
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "REPLACE" => {
             require_args(name, args, 4)?;
             let old_text = evaluate(&args[0], ctx)?.as_text();
@@ -205,7 +205,7 @@ pub fn try_evaluate(
             Value::Text(format!("{}{}{}", prefix, new_text, suffix))
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "SUBSTITUTE" => {
             require_args_range(name, args, 3, 4)?;
             let text = evaluate(&args[0], ctx)?.as_text();
@@ -252,7 +252,7 @@ pub fn try_evaluate(
 }
 
 /// Format a number according to a format string (simplified implementation)
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn format_number(num: f64, format: &str) -> String {
     let format_upper = format.to_uppercase();
 
@@ -359,7 +359,7 @@ mod tests {
     // ENTERPRISE TESTS (only with full feature)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_text() {
         let ctx = EvalContext::new();
@@ -380,7 +380,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_value() {
         let ctx = EvalContext::new();
@@ -395,14 +395,14 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_value_error() {
         let ctx = EvalContext::new();
         assert!(eval("VALUE(\"abc\")", &ctx).is_err());
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_find() {
         let ctx = EvalContext::new();
@@ -418,14 +418,14 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_find_not_found() {
         let ctx = EvalContext::new();
         assert!(eval("FIND(\"x\", \"hello\")", &ctx).is_err());
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_search() {
         let ctx = EvalContext::new();
@@ -440,7 +440,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_replace() {
         let ctx = EvalContext::new();
@@ -455,7 +455,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_substitute() {
         let ctx = EvalContext::new();
@@ -475,7 +475,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_format_number_helper() {
         // Test the helper function directly

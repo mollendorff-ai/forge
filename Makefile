@@ -184,10 +184,10 @@ build-demo:
 	@echo "📊 Function count:"
 	@./target/release/forge-demo functions 2>/dev/null | wc -l | xargs -I{} echo "   {} functions available"
 
-# Build enterprise binaries (159 functions + servers)
+# Build enterprise binaries (173 functions + servers)
 build-enterprise:
-	@echo "🔨 Building enterprise binaries (159 functions)..."
-	@cargo build --release --features full
+	@echo "🔨 Building enterprise binaries (173 functions)..."
+	@cargo build --release
 	@echo "✅ Binaries:"
 	@ls -lh target/release/forge target/release/forge-server target/release/forge-mcp 2>/dev/null || true
 	@echo ""
@@ -306,8 +306,8 @@ uninstall:
 # ═══════════════════════════════════════════════════════════════════════════
 
 install-forge:
-	@echo "🔨 Building forge (enterprise, --features full)..."
-	@cargo build --release --bin forge --features full
+	@echo "🔨 Building forge (enterprise)..."
+	@cargo build --release --bin forge
 	@echo ""
 	@echo "📦 Installing forge to ~/bin..."
 	@mkdir -p ~/bin
@@ -320,8 +320,8 @@ install-forge:
 	@~/bin/forge functions 2>/dev/null | wc -l | xargs -I{} echo "   {} functions available"
 
 install-forge-demo:
-	@echo "🔨 Building forge-demo..."
-	@cargo build --release --bin forge-demo
+	@echo "🔨 Building forge-demo (--features demo)..."
+	@cargo build --release --bin forge-demo --features demo
 	@echo ""
 	@echo "📦 Installing forge-demo to ~/bin..."
 	@mkdir -p ~/bin
@@ -353,21 +353,21 @@ endif
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🍎 Building forge-demo for macOS ARM64 (native)..."
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo build --release --bin forge-demo --target aarch64-apple-darwin
+	@cargo build --release --bin forge-demo --features demo --target aarch64-apple-darwin
 	@cp target/aarch64-apple-darwin/release/forge-demo dist/forge-demo-aarch64-apple-darwin
 	@ls -lh dist/forge-demo-aarch64-apple-darwin
 	@echo ""
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🍎 Building forge-demo for macOS Intel (native)..."
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo build --release --bin forge-demo --target x86_64-apple-darwin
+	@cargo build --release --bin forge-demo --features demo --target x86_64-apple-darwin
 	@cp target/x86_64-apple-darwin/release/forge-demo dist/forge-demo-x86_64-apple-darwin
 	@ls -lh dist/forge-demo-x86_64-apple-darwin
 	@echo ""
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🐧 Building forge-demo for Linux x86_64 (zigbuild)..."
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo zigbuild --release --bin forge-demo --target x86_64-unknown-linux-musl
+	@cargo zigbuild --release --bin forge-demo --features demo --target x86_64-unknown-linux-musl
 	@cp target/x86_64-unknown-linux-musl/release/forge-demo dist/forge-demo-x86_64-unknown-linux-musl
 	@if command -v upx >/dev/null 2>&1; then \
 		echo "🗜️  Compressing with UPX..."; \
@@ -378,7 +378,7 @@ endif
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🐧 Building forge-demo for Linux ARM64 (zigbuild)..."
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo zigbuild --release --bin forge-demo --target aarch64-unknown-linux-musl
+	@cargo zigbuild --release --bin forge-demo --features demo --target aarch64-unknown-linux-musl
 	@cp target/aarch64-unknown-linux-musl/release/forge-demo dist/forge-demo-aarch64-unknown-linux-musl
 	@if command -v upx >/dev/null 2>&1; then \
 		echo "🗜️  Compressing with UPX..."; \
@@ -389,7 +389,7 @@ endif
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🪟 Building forge-demo for Windows x86_64 (zigbuild)..."
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo zigbuild --release --bin forge-demo --target x86_64-pc-windows-gnu
+	@cargo zigbuild --release --bin forge-demo --features demo --target x86_64-pc-windows-gnu
 	@cp target/x86_64-pc-windows-gnu/release/forge-demo.exe dist/forge-demo-x86_64-pc-windows-gnu.exe
 	@if command -v upx >/dev/null 2>&1; then \
 		echo "🗜️  Compressing with UPX..."; \
@@ -411,21 +411,21 @@ endif
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🍎 Building forge for macOS ARM64 (native)..."
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo build --release --bin forge --features full --target aarch64-apple-darwin
+	@cargo build --release --bin forge --target aarch64-apple-darwin
 	@cp target/aarch64-apple-darwin/release/forge dist/forge-aarch64-apple-darwin
 	@ls -lh dist/forge-aarch64-apple-darwin
 	@echo ""
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🍎 Building forge for macOS Intel (native)..."
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo build --release --bin forge --features full --target x86_64-apple-darwin
+	@cargo build --release --bin forge --target x86_64-apple-darwin
 	@cp target/x86_64-apple-darwin/release/forge dist/forge-x86_64-apple-darwin
 	@ls -lh dist/forge-x86_64-apple-darwin
 	@echo ""
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🐧 Building forge for Linux x86_64 (zigbuild)..."
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo zigbuild --release --bin forge --features full --target x86_64-unknown-linux-musl
+	@cargo zigbuild --release --bin forge --target x86_64-unknown-linux-musl
 	@cp target/x86_64-unknown-linux-musl/release/forge dist/forge-x86_64-unknown-linux-musl
 	@if command -v upx >/dev/null 2>&1; then \
 		echo "🗜️  Compressing with UPX..."; \
@@ -436,7 +436,7 @@ endif
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🐧 Building forge for Linux ARM64 (zigbuild)..."
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo zigbuild --release --bin forge --features full --target aarch64-unknown-linux-musl
+	@cargo zigbuild --release --bin forge --target aarch64-unknown-linux-musl
 	@cp target/aarch64-unknown-linux-musl/release/forge dist/forge-aarch64-unknown-linux-musl
 	@if command -v upx >/dev/null 2>&1; then \
 		echo "🗜️  Compressing with UPX..."; \
@@ -447,7 +447,7 @@ endif
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🪟 Building forge for Windows x86_64 (zigbuild)..."
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo zigbuild --release --bin forge --features full --target x86_64-pc-windows-gnu
+	@cargo zigbuild --release --bin forge --target x86_64-pc-windows-gnu
 	@cp target/x86_64-pc-windows-gnu/release/forge.exe dist/forge-x86_64-pc-windows-gnu.exe
 	@if command -v upx >/dev/null 2>&1; then \
 		echo "🗜️  Compressing with UPX..."; \

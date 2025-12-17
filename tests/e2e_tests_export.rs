@@ -435,7 +435,7 @@ fn e2e_v4_500_formulas_export_rejected() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn e2e_v4_unique_functions_export() {
     // Test that UNIQUE functions export to Excel correctly

@@ -124,7 +124,7 @@ fn test_index_zero_row_num() {
     assert!(result.is_err());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_vlookup_exact_match() {
     let mut model = ParsedModel::new();
@@ -185,7 +185,7 @@ fn test_vlookup_exact_match() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_vlookup_col_index_out_of_range() {
     let mut model = ParsedModel::new();
@@ -219,7 +219,7 @@ fn test_vlookup_col_index_out_of_range() {
     assert!(result.is_err());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_vlookup_col_index_zero() {
     let mut model = ParsedModel::new();
@@ -249,7 +249,7 @@ fn test_vlookup_col_index_zero() {
     assert!(result.is_err());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_xlookup_employee_salary() {
     let mut model = ParsedModel::new();
@@ -289,7 +289,7 @@ fn test_xlookup_employee_salary() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_xlookup_default_value() {
     let mut model = ParsedModel::new();
@@ -329,7 +329,7 @@ fn test_xlookup_default_value() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_xlookup_next_larger() {
     let mut model = ParsedModel::new();
@@ -373,7 +373,7 @@ fn test_xlookup_next_larger() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_xlookup_next_smaller() {
     let mut model = ParsedModel::new();
@@ -409,7 +409,7 @@ fn test_xlookup_next_smaller() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_xlookup_invalid_match_mode() {
     let mut model = ParsedModel::new();
@@ -439,7 +439,7 @@ fn test_xlookup_invalid_match_mode() {
     assert!(result.is_err());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_xlookup_array_length_mismatch() {
     let mut model = ParsedModel::new();
@@ -530,7 +530,7 @@ fn test_match_no_value_found_descending() {
     assert!(result.is_err());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_vlookup_with_text_search_value() {
     let mut model = ParsedModel::new();
@@ -586,7 +586,7 @@ fn test_vlookup_with_text_search_value() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_indirect_function_v2() {
     let mut model = ParsedModel::new();
@@ -697,7 +697,7 @@ fn test_choose_index_out_of_range() {
     );
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_indirect_table_column() {
     let mut model = ParsedModel::new();

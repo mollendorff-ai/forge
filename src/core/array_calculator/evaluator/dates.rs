@@ -6,9 +6,9 @@
 use super::{evaluate, parse_date_value, require_args, EvalContext, EvalError, Expr, Value};
 use chrono::Datelike;
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 use super::require_args_range;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 use chrono::Timelike;
 
 /// Try to evaluate a date function. Returns None if function not recognized.
@@ -27,7 +27,7 @@ pub fn try_evaluate(
             Value::Text(today.format("%Y-%m-%d").to_string())
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "NOW" => {
             use chrono::Local;
             let now = Local::now();
@@ -58,7 +58,7 @@ pub fn try_evaluate(
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
         // ═══════════════════════════════════════════════════════════════════════════
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "WEEKDAY" => {
             require_args_range(name, args, 1, 2)?;
             let val = evaluate(&args[0], ctx)?;
@@ -85,7 +85,7 @@ pub fn try_evaluate(
             Value::Number(result)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "HOUR" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
@@ -110,7 +110,7 @@ pub fn try_evaluate(
             return Err(EvalError::new("HOUR: Could not parse time"));
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "MINUTE" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
@@ -131,7 +131,7 @@ pub fn try_evaluate(
             return Err(EvalError::new("MINUTE: Could not parse time"));
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "SECOND" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
@@ -152,7 +152,7 @@ pub fn try_evaluate(
             return Err(EvalError::new("SECOND: Could not parse time"));
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "TIME" => {
             require_args(name, args, 3)?;
             let hour = evaluate(&args[0], ctx)?
@@ -173,7 +173,7 @@ pub fn try_evaluate(
             Value::Number(total_seconds as f64 / 86400.0)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "DAYS" => {
             require_args(name, args, 2)?;
             let end = evaluate(&args[0], ctx)?;
@@ -185,7 +185,7 @@ pub fn try_evaluate(
             Value::Number((end_date - start_date).num_days() as f64)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "WORKDAY" => {
             require_args_range(name, args, 2, 3)?;
             let start = evaluate(&args[0], ctx)?;
@@ -244,7 +244,7 @@ pub fn try_evaluate(
             Value::Text(date.format("%Y-%m-%d").to_string())
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "EDATE" => {
             use chrono::Months;
 
@@ -267,7 +267,7 @@ pub fn try_evaluate(
             Value::Text(result.format("%Y-%m-%d").to_string())
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "EOMONTH" => {
             use chrono::{Months, NaiveDate};
 
@@ -345,7 +345,7 @@ pub fn try_evaluate(
             Value::Number(result)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "NETWORKDAYS" => {
             require_args_range(name, args, 2, 3)?;
             let start = evaluate(&args[0], ctx)?;
@@ -366,7 +366,7 @@ pub fn try_evaluate(
             Value::Number(count as f64)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "YEARFRAC" => {
             require_args_range(name, args, 2, 3)?;
             let start = evaluate(&args[0], ctx)?;
@@ -464,7 +464,7 @@ mod tests {
     // ENTERPRISE TESTS (only with full feature)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_edate() {
         let ctx = EvalContext::new();
@@ -474,7 +474,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_eomonth() {
         let ctx = EvalContext::new();
@@ -496,7 +496,7 @@ mod tests {
 
     // === EDGE CASES FOR 100% COVERAGE ===
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_edate_negative_months() {
         let ctx = EvalContext::new();
@@ -507,7 +507,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_eomonth_negative_months() {
         let ctx = EvalContext::new();
@@ -518,7 +518,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_eomonth_december() {
         let ctx = EvalContext::new();
@@ -598,7 +598,7 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("unknown unit"));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_networkdays() {
         let ctx = EvalContext::new();
@@ -609,7 +609,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_yearfrac_all_bases() {
         let ctx = EvalContext::new();
@@ -635,7 +635,7 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_yearfrac_30_360_edge_cases() {
         let ctx = EvalContext::new();
@@ -646,7 +646,7 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_yearfrac_unknown_basis() {
         let ctx = EvalContext::new();
@@ -665,7 +665,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_weekday() {
         let ctx = EvalContext::new();
@@ -687,7 +687,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_hour_minute_second() {
         let ctx = EvalContext::new();
@@ -706,7 +706,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_time() {
         let ctx = EvalContext::new();
@@ -719,7 +719,7 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_days() {
         let ctx = EvalContext::new();
@@ -730,7 +730,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_workday() {
         let ctx = EvalContext::new();
@@ -741,7 +741,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_workday_negative() {
         let ctx = EvalContext::new();
@@ -752,7 +752,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_hour_from_serial() {
         let ctx = EvalContext::new();

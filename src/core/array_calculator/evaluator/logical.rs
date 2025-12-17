@@ -64,7 +64,7 @@ pub fn try_evaluate(
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
         // ═══════════════════════════════════════════════════════════════════════════
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "IFNA" => {
             require_args(name, args, 2)?;
             let val = evaluate(&args[0], ctx)?;
@@ -77,7 +77,7 @@ pub fn try_evaluate(
             }
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "XOR" => {
             // XOR returns TRUE if an odd number of arguments are TRUE
             let mut true_count = 0;
@@ -90,19 +90,19 @@ pub fn try_evaluate(
             Value::Boolean(true_count % 2 == 1)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "TRUE" => {
             require_args(name, args, 0)?;
             Value::Boolean(true)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "FALSE" => {
             require_args(name, args, 0)?;
             Value::Boolean(false)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "IFS" => {
             // IFS(condition1, value1, condition2, value2, ...)
             // Returns the value corresponding to the first TRUE condition
@@ -168,7 +168,7 @@ mod tests {
     // ENTERPRISE TESTS (only with full feature)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_xor() {
         let ctx = EvalContext::new();
@@ -179,7 +179,7 @@ mod tests {
         assert_eq!(eval("XOR(0, 0, 0)", &ctx).unwrap(), Value::Boolean(false)); // 0 true
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_true_false() {
         let ctx = EvalContext::new();
@@ -187,7 +187,7 @@ mod tests {
         assert_eq!(eval("FALSE()", &ctx).unwrap(), Value::Boolean(false));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifs() {
         let ctx = EvalContext::new();
@@ -207,7 +207,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifs_no_match() {
         let ctx = EvalContext::new();
@@ -216,7 +216,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifs_invalid_args() {
         let ctx = EvalContext::new();
@@ -225,7 +225,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifna() {
         let mut ctx = EvalContext::new();

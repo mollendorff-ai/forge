@@ -3,7 +3,7 @@
 //! Uses programmatic model creation for reliability
 
 // Statistical functions are enterprise-only
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 #![allow(clippy::approx_constant)] // Test values intentionally use approximate PI/E
 
 use royalbit_forge::core::ArrayCalculator;

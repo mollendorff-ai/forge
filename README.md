@@ -193,7 +193,6 @@ These commands require the enterprise build (`--features full`):
 - `goal-seek` - Find input for target
 - `break-even` - Find zero-crossing
 - `simulate` - Monte Carlo simulation
-- `update` - Self-update
 - `upgrade` - Schema migration
 
 ## Monte Carlo Simulation

@@ -1,7 +1,7 @@
 //! API integration tests
 //! ADR-004: 100% coverage required
 //! Enterprise-only: API server is gated behind "full" feature
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 
 use royalbit_forge::api::handlers::{
     ApiResponse, AuditRequest, AuditResponse, CalculateRequest, CalculateResponse, EndpointInfo,

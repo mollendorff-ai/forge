@@ -9,7 +9,7 @@
 //! - Seed reproducibility
 //! - Statistical properties validation
 
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 
 use royalbit_forge::monte_carlo::{Distribution, MonteCarloConfig, MonteCarloEngine};
 use royalbit_forge::parser;

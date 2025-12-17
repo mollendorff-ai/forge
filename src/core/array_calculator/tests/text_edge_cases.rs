@@ -271,7 +271,7 @@ fn test_mid_zero_length() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_find_character_not_in_string() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -289,7 +289,7 @@ fn test_find_character_not_in_string() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_search_substring_not_found() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -311,7 +311,7 @@ fn test_search_substring_not_found() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_find_case_sensitive() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -329,7 +329,7 @@ fn test_find_case_sensitive() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_search_case_insensitive_verified() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -348,7 +348,7 @@ fn test_search_case_insensitive_verified() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_find_with_start_position() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -367,7 +367,7 @@ fn test_find_with_start_position() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_search_with_start_position() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -459,7 +459,7 @@ fn test_len_special_characters() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_substitute_with_special_chars() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -477,7 +477,7 @@ fn test_substitute_with_special_chars() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_substitute_empty_old_text() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -496,7 +496,7 @@ fn test_substitute_empty_old_text() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_substitute_no_replacement_needed() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -515,7 +515,7 @@ fn test_substitute_no_replacement_needed() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_replace_entire_string() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -673,7 +673,7 @@ fn test_lower_with_numbers() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_value_with_thousand_separators() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -691,7 +691,7 @@ fn test_value_with_thousand_separators() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_value_with_whitespace() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -709,7 +709,7 @@ fn test_value_with_whitespace() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_value_invalid_text() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -731,7 +731,7 @@ fn test_value_invalid_text() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_text_percentage_format() {
     let mut model = ParsedModel::new();
     model.add_scalar(
@@ -749,7 +749,7 @@ fn test_text_percentage_format() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_text_decimal_format() {
     let mut model = ParsedModel::new();
     model.add_scalar(

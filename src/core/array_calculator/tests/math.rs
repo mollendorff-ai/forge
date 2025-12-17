@@ -625,7 +625,7 @@ fn test_power_function_rowwise() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_sln_function_coverage() {
     let mut model = ParsedModel::new();
 
@@ -666,7 +666,7 @@ fn test_abs_function_rowwise() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_exp_function_rowwise() {
     let mut model = ParsedModel::new();
 
@@ -694,7 +694,7 @@ fn test_exp_function_rowwise() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_ln_function_rowwise() {
     let mut model = ParsedModel::new();
 
@@ -744,7 +744,7 @@ fn test_log_function_rowwise() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_sln_depreciation() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -780,7 +780,7 @@ fn test_abs_negative_value() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_exp_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -797,7 +797,7 @@ fn test_exp_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_ln_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -836,7 +836,7 @@ fn test_log_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_log10_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -853,7 +853,7 @@ fn test_log10_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_sign_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -870,7 +870,7 @@ fn test_sign_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_int_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -887,7 +887,7 @@ fn test_int_function() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_trunc_function() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -996,7 +996,7 @@ fn test_power_scalar() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_variance_abs_value() {
     let mut model = ParsedModel::new();
     use crate::types::Variable;
@@ -1025,7 +1025,7 @@ fn test_variance_abs_value() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_pi_constant() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -1043,7 +1043,7 @@ fn test_pi_constant() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_pi_in_formula() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -1065,7 +1065,7 @@ fn test_pi_in_formula() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_pi_array() {
     let mut model = ParsedModel::new();
     let mut table = Table::new("data".to_string());
@@ -1096,7 +1096,7 @@ fn test_pi_array() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_e_constant() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -1114,7 +1114,7 @@ fn test_e_constant() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_e_in_formula() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -1136,7 +1136,7 @@ fn test_e_in_formula() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_e_array() {
     let mut model = ParsedModel::new();
     let mut table = Table::new("data".to_string());
@@ -1164,7 +1164,7 @@ fn test_e_array() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_pow_function_scalar() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -1181,7 +1181,7 @@ fn test_pow_function_scalar() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_pow_function_array() {
     let mut model = ParsedModel::new();
     let mut table = Table::new("data".to_string());
@@ -1209,7 +1209,7 @@ fn test_pow_function_array() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_pow_negative_exponent() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();
@@ -1226,7 +1226,7 @@ fn test_pow_negative_exponent() {
 }
 
 #[test]
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 fn test_pow_fractional_exponent() {
     use crate::types::Variable;
     let mut model = ParsedModel::new();

@@ -44,7 +44,6 @@ Commands:
   sensitivity  Run sensitivity analysis on model variables
   goal-seek    Find input value to achieve target output
   break-even   Find break-even point (where output = 0)
-  update       Check for updates and self-update
   functions    List all supported Excel-compatible functions
   upgrade      Upgrade YAML files to latest schema version
   help         Print this message or the help of the given subcommand(s)
@@ -541,31 +540,6 @@ Options:
 
       --verbose
           Show verbose output
-
-  -h, --help
-          Print help (see a summary with '-h')
-```
-
-## update
-
-```
-Check for updates and optionally self-update the binary.
-
-Downloads the latest release from GitHub and replaces the current binary.
-Checksums are verified before installation.
-
-EXAMPLES:
-  forge update              # Check and install updates
-  forge update --check      # Check only, don't install
-
-PLATFORMS:
-  Linux x86_64, Linux ARM64, macOS Intel, macOS ARM, Windows x64
-
-Usage: forge update [OPTIONS]
-
-Options:
-      --check
-          Only check for updates, don't install
 
   -h, --help
           Print help (see a summary with '-h')

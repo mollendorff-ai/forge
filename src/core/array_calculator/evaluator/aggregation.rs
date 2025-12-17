@@ -64,7 +64,7 @@ pub fn try_evaluate(
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
         // ═══════════════════════════════════════════════════════════════════════════
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "AVG" => {
             // Alias for AVERAGE (enterprise only)
             let values = collect_numeric_values(args, ctx)?;
@@ -74,7 +74,7 @@ pub fn try_evaluate(
             Value::Number(values.iter().sum::<f64>() / values.len() as f64)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "PRODUCT" => {
             let values = collect_numeric_values(args, ctx)?;
             if values.is_empty() {
@@ -84,7 +84,7 @@ pub fn try_evaluate(
             }
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "COUNTA" => {
             let mut count = 0;
             for arg in args {
@@ -100,7 +100,7 @@ pub fn try_evaluate(
             Value::Number(count as f64)
         }
 
-        #[cfg(feature = "full")]
+        #[cfg(not(feature = "demo"))]
         "MEDIAN" => {
             let mut values = collect_numeric_values(args, ctx)?;
             if values.is_empty() {
@@ -179,7 +179,7 @@ mod tests {
     // ENTERPRISE TESTS (only with full feature)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_median() {
         let ctx = EvalContext::new();
@@ -190,7 +190,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_counta() {
         let mut ctx = EvalContext::new();
@@ -209,7 +209,7 @@ mod tests {
         assert_eq!(eval("COUNTA(t.values)", &ctx).unwrap(), Value::Number(3.0));
     }
 
-    #[cfg(feature = "full")]
+    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_product() {
         let ctx = EvalContext::new();

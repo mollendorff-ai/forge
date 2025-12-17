@@ -43,7 +43,7 @@ fn test_average_array() {
     assert_eq!(a.value, Some(30.0));
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_product_inline() {
     // PRODUCT with inline values (xlformula_engine style)

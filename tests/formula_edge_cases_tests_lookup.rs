@@ -23,7 +23,7 @@ fn var_value(path: &str, value: f64) -> Variable {
 // DATE FUNCTION TESTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_xlookup_exact_match() {
     // XLOOKUP is preferred over VLOOKUP - use modern lookup syntax
@@ -120,7 +120,7 @@ fn test_choose_function() {
     assert_eq!(c.value, Some(20.0));
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_xlookup_not_found() {
     let mut model = ParsedModel::new();

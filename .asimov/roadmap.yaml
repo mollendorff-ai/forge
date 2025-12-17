@@ -176,20 +176,58 @@ completed:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
+  version: "9.3.0"
+  priority: NORMAL
+  status: completed
+  completed: "2025-12-16"
+  summary: "Feature Gate Inversion - Enterprise Default"
+  rationale: |
+    Switching from #[cfg(feature = "full")] to #[cfg(not(feature = "demo"))].
+    - Enterprise is the primary product, demo is marketing artifact
+    - cargo test should test everything by default
+    - cargo build should build enterprise by default
+    - New code is enterprise by default (no forgotten gates)
+  deliverables:
+    - "[DONE] Update Cargo.toml - add demo feature"
+    - "[DONE] Flip all #[cfg(feature = \"full\")] → #[cfg(not(feature = \"demo\"))]"
+    - "[DONE] Flip all #[cfg(not(feature = \"full\"))] → #[cfg(feature = \"demo\")]"
+    - "[DONE] Update Makefile - demo builds use --features demo"
+    - "[DONE] Create ADR-025: Feature Gate Inversion"
+    - "[DONE] Run full test suite (~2700 tests passing)"
+
+v9_2_0_completed:
+  version: "9.2.0"
+  priority: NORMAL
+  status: completed
+  completed: "2025-12-16"
+  summary: "Remove Self-Update Command - Dead Code Cleanup"
+  rationale: |
+    The `forge update` command checked github.com/royalbit/forge/releases which doesn't exist.
+    - forge (enterprise) is self-hosted, never pushed to GitHub
+    - forge-demo is public but on different repo (royalbit/forge-demo)
+    - Self-update was ~28KB of dead code that could never work
+  deliverables:
+    - "[DONE] Remove Update command from main.rs (enum variant + match arm)"
+    - "[DONE] Remove src/update.rs module (28KB)"
+    - "[DONE] Remove update imports from lib.rs"
+    - "[DONE] Delete tests/update_tests.rs (4KB)"
+    - "[DONE] Update README.md (remove update from commands list)"
+    - "[DONE] Update docs/cli/README.md (remove update section)"
+    - "[DONE] Create ADR-024: Self-Update Removal Decision"
+
+v9_1_0_completed:
   version: "9.1.0"
   priority: CRITICAL
   status: completed
   completed: "2025-12-15"
   summary: "CLI Commands for Prediction Methods + Website Update"
   deliverables:
-    # CLI Commands (enterprise-only) - ALL DONE
     - "[DONE] scenarios command - run scenario analysis from CLI"
     - "[DONE] decision-tree command - run decision tree analysis from CLI"
     - "[DONE] real-options command - run real options analysis from CLI"
     - "[DONE] tornado command - generate tornado diagram data from CLI"
     - "[DONE] bootstrap command - run bootstrap resampling from CLI"
     - "[DONE] bayesian command - run Bayesian network inference from CLI"
-    # Website Updates - ALL DONE
     - "[DONE] Update royalbit.ca/forge stats (173 functions, 2703 tests)"
     - "[DONE] Add Monte Carlo feature section"
     - "[DONE] Add prediction methods feature cards"
@@ -675,25 +713,6 @@ next:
       - "[DONE] Full test suite passing (1,258 tests)"
       - "[DONE] Build all 5 platforms"
 
-  - version: "7.2.11"
-    priority: NORMAL
-    status: pending
-    summary: "Remove Update Command - No Public GitHub Repo for Enterprise"
-    rationale: |
-      The `forge update` command checks github.com/royalbit/forge/releases which is NOT public.
-      - forge (enterprise) is self-hosted, never pushed to GitHub
-      - forge-demo is public but on a different repo (royalbit/forge-demo)
-      - Self-update makes no sense for either binary
-      Decision: Disable entirely (Option B) rather than maintain dead code.
-    deliverables:
-      - "Remove Update command from main.rs (enum variant + match arm)"
-      - "Remove src/update.rs module entirely"
-      - "Remove update imports from main.rs"
-      - "Update --help text (remove update from command list)"
-      - "Update README.md installation section"
-      - "Create ADR-015: Self-Update Removal Decision"
-      - "Delete tests/update_tests.rs"
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # MONTE CARLO SIMULATION (CRITICAL - Enterprise Feature)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1131,8 +1150,8 @@ backlog:
 summary:
   total_functions: 173
   categories: 15
-  current_version: "9.1.0"
-  next_version: "9.2.0"
+  current_version: "9.3.0"
+  next_version: "9.4.0"
 
   test_status:
     total: 2703

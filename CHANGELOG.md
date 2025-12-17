@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.3.0] - 2025-12-16
+
+### Feature Gate Inversion - Enterprise Default
+
+Changed feature gating from `#[cfg(feature = "full")]` to `#[cfg(not(feature = "demo"))]`.
+
+### Changed
+
+- **Default build is now Enterprise** - `cargo build` produces full-featured binary
+- **Demo requires explicit flag** - `cargo build --features demo` for restricted build
+- **Tests run everything by default** - `cargo test` covers all ~2700 tests
+- Updated ~489 cfg attributes across the codebase
+- Updated Makefile build targets
+- Updated Cargo.toml binary definitions
+
+### Added
+
+- **ADR-025**: Feature Gate Inversion architecture decision record
+- `demo` feature flag in Cargo.toml
+
+### Rationale
+
+Enterprise is the primary product; demo is a marketing artifact. This change:
+- Improves developer experience (no `--features full` needed)
+- Ensures complete test coverage by default
+- Makes new code enterprise-ready automatically
+
+## [9.2.0] - 2025-12-16
+
+### Self-Update Command Removal - Dead Code Cleanup
+
+Removed the non-functional `forge update` command.
+
+### Removed
+
+- `src/update.rs` (28KB) - Update checking and binary replacement logic
+- `tests/update_tests.rs` (4KB) - Unit tests for update module
+- `Update` command from CLI
+- 3 integration tests for update command
+
+### Changed
+
+- Updated README.md - removed update from commands list
+- Updated docs/cli/README.md - removed update section
+
+### Added
+
+- **ADR-024**: Self-Update Removal architecture decision record
+
+### Rationale
+
+The `forge update` command checked `github.com/royalbit/forge/releases` which doesn't exist:
+- Enterprise binary is self-hosted, never on GitHub
+- Demo binary is on different repo (`royalbit/forge-demo`)
+- ~32KB of dead code removed
+
+## [9.1.0] - 2025-12-15
+
+### CLI Commands for Prediction Methods
+
+Added CLI commands for all prediction analysis methods.
+
+### Added
+
+- `scenarios` command - probability-weighted scenario analysis
+- `decision-tree` command - backward induction solver
+- `real-options` command - Black-Scholes and Binomial Tree pricing
+- `tornado` command - sensitivity visualization
+- `bootstrap` command - non-parametric confidence intervals
+- `bayesian` command - Bayesian network inference
+
+### Changed
+
+- Updated --help header with current stats (2703 tests)
+- Updated royalbit.ca/forge with Monte Carlo and prediction methods
+
 ## [9.0.0] - 2025-12-15
 
 ### Bayesian Networks - Causal Probabilistic Modeling

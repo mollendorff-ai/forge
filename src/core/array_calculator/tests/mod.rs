@@ -19,15 +19,15 @@ mod text_edge_cases;
 mod trig;
 
 // Enterprise-only test modules
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 mod advanced;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 mod array;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 mod conditional;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 mod financial;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 mod forge;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 mod statistical;

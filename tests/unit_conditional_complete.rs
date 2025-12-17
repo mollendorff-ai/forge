@@ -1,6 +1,6 @@
 // Comprehensive unit tests for conditional functions with multiple criteria
 // Testing: MAXIFS, MINIFS, SUMIFS, COUNTIFS, AVERAGEIFS
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 
 use royalbit_forge::core::ArrayCalculator;
 use royalbit_forge::types::{Column, ColumnValue, ParsedModel, Table, Variable};

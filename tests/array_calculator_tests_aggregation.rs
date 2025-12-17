@@ -1,5 +1,5 @@
 // Enterprise-only: Contains COUNTIF, SUMIF, AVERAGEIF tests
-#![cfg(feature = "full")]
+#![cfg(not(feature = "demo"))]
 // Allow approximate constants - 3.14 is intentional test data for ROUND(), not an approx of PI
 #![allow(clippy::approx_constant)]
 

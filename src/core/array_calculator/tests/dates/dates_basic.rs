@@ -214,7 +214,7 @@ fn test_datedif_function() {
     assert_eq!(months, 12.0, "Should be 12 months, got {}", months);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_function() {
     let mut model = ParsedModel::new();
@@ -253,7 +253,7 @@ fn test_edate_function() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_eomonth_function() {
     let mut model = ParsedModel::new();
@@ -291,7 +291,7 @@ fn test_eomonth_function() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_networkdays_function() {
     use crate::types::Variable;
@@ -317,7 +317,7 @@ fn test_networkdays_function() {
     assert!((workdays - 10.0).abs() < 1.0);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_yearfrac_function() {
     use crate::types::Variable;
@@ -341,7 +341,7 @@ fn test_yearfrac_function() {
     assert!(fraction > 0.4 && fraction < 0.6);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_yearfrac_basis_1() {
     use crate::types::Variable;
@@ -365,7 +365,7 @@ fn test_yearfrac_basis_1() {
     assert!(fraction > 0.9 && fraction < 1.1);
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_eomonth_negative_months_table() {
     let mut model = ParsedModel::new();
@@ -463,7 +463,7 @@ fn test_date_construction() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_add_months() {
     let mut model = ParsedModel::new();
@@ -676,7 +676,7 @@ fn test_datedif_invalid_unit() {
     assert!(result.is_err());
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_positive_months() {
     let mut model = ParsedModel::new();
@@ -704,7 +704,7 @@ fn test_edate_positive_months() {
     }
 }
 
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 #[test]
 fn test_edate_negative_months() {
     let mut model = ParsedModel::new();

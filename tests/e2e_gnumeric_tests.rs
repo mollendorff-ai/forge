@@ -1,5 +1,5 @@
 // Enterprise-only: Gnumeric E2E tests for enterprise functions
-#![cfg(all(feature = "full", feature = "e2e-gnumeric"))]
+#![cfg(all(not(feature = "demo"), feature = "e2e-gnumeric"))]
 // Allow approximate constants - we're testing Excel formula results, not Rust math
 #![allow(clippy::approx_constant)]
 

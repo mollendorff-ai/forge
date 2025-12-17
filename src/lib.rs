@@ -38,27 +38,26 @@ pub mod excel;
 pub mod functions;
 pub mod parser;
 pub mod types;
-pub mod update;
 pub mod writer;
 
-// Enterprise-only modules (gated behind "full" feature)
-#[cfg(feature = "full")]
+// Enterprise-only modules (excluded from demo builds)
+#[cfg(not(feature = "demo"))]
 pub mod api;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub mod bayesian;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub mod bootstrap;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub mod decision_trees;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub mod mcp;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub mod monte_carlo;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub mod real_options;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub mod scenarios;
-#[cfg(feature = "full")]
+#[cfg(not(feature = "demo"))]
 pub mod tornado;
 
 // Re-export commonly used types
