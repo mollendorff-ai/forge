@@ -1144,6 +1144,50 @@ backlog:
   - "Performance benchmarks per function"
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# BUGS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+bugs:
+  - id: "BUG-001"
+    severity: HIGH
+    status: open
+    summary: "forge-demo calculate missing 39 of 48 functions"
+    description: |
+      The demo build's calculate engine does not implement all 48 functions
+      that are listed in `forge-demo functions`.
+
+      SYMPTOM:
+        $ forge-demo functions  → Lists COS, SIN, EXP, LN, etc. as supported
+        $ forge-demo calculate  → "Unknown function: COS"
+
+      AFFECTED FUNCTIONS (39 of 48):
+        - Trig: COS, SIN, TAN, ACOS, ASIN, ATAN
+        - Math: EXP, LN, LOG10, INT, SIGN, TRUNC, PI
+        - Text: All text functions
+        - Logical: IF, AND, OR, NOT, IFERROR
+        - Date: TODAY, DATE, YEAR, MONTH, DAY
+        - Lookup: CHOOSE
+
+      WORKING FUNCTIONS (~9):
+        - ABS, SQRT, ROUND, ROUNDUP, ROUNDDOWN, FLOOR, CEILING, MOD, POWER
+        - SUM, AVERAGE, MIN, MAX, COUNT
+
+      ROOT CAUSE:
+        The calculate command uses a different evaluator than export.
+        Export writes formulas to Excel (Gnumeric evaluates).
+        Calculate tries to evaluate internally but lacks implementations.
+
+      IMPACT:
+        - forge-e2e perf mode fails 39/112 tests
+        - Users expect calculate to work for all listed functions
+
+      FIX:
+        Implement all 48 demo functions in the calculate engine, OR
+        Remove unsupported functions from `forge functions` output for demo build.
+    reported_by: "forge-e2e v2.1.0 perf mode"
+    reported_date: "2025-12-16"
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # SUMMARY
 # ═══════════════════════════════════════════════════════════════════════════════
 
