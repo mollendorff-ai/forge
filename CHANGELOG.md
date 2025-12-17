@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.8.0] - 2025-12-17
+
+### Added
+
+- **ADR-027**: E2E Test Migration Strategy
+- **MIGRATION_INVENTORY.md**: Complete test file inventory
+
+### Changed
+
+- **E2E Test Migration to forge-e2e**: Completed full migration using 8 parallel agents
+  - Phase 1 (4 agents): Documentation & ADRs
+  - Phase 2 (4 agents): Test file migration
+  - Phase 3: Cleanup & validation
+
+### Migration Summary
+
+| Category | Files | Tests | Destination |
+|----------|-------|-------|-------------|
+| Roundtrip | 10 | 59 | forge-e2e/tests/e2e/roundtrip/ |
+| Edge Cases | 9 | 143 | forge-e2e/tests/e2e/edge/ |
+| E2E CLI | 7 | 70 | forge-e2e/tests/ |
+| YAML Data | 34 | - | forge-e2e/tests/e2e/ |
+
+### forge-e2e ADRs Created
+
+- ADR-001: Testing Philosophy (unit vs e2e vs roundtrip)
+- ADR-002: External Validation Engines (Gnumeric, R, Python)
+- ADR-003: Edge Case Discovery Process
+- ADR-004: Statistical Function Validation
+
+### Result
+
+- forge unit tests: 1,643 passing
+- forge-e2e: 272+ tests migrated
+- Context window now manageable for Claude
+
 ## [9.7.0] - 2025-12-17
 
 ### Verified
