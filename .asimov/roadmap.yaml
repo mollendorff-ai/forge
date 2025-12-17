@@ -6,9 +6,9 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "9.9.0"
-  status: in_progress
-  summary: "Port edge cases from forge-e2e to inline Rust unit tests"
+  version: "9.9.1"
+  status: completed
+  summary: "Monte Carlo Dependent Formula Evaluation Fix (FORGE-MC-001)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT - Candidate milestones (pick one to start)
@@ -183,14 +183,20 @@ bugs:
   - id: "FORGE-MC-001"
     title: "Monte Carlo dependent formula evaluation broken"
     severity: CRITICAL
-    status: open
+    status: fixed
+    fixed_in: "9.9.1"
     blocking: "DANEEL paper probabilistic analysis"
     description: |
       forge simulate samples MC.* functions correctly but doesn't propagate
       sampled values through dependent formulas. All downstream calculations
       return 0.0 instead of computed values.
+    fix: |
+      Changed simulate command to use run_with_evaluator() instead of run().
+      Each iteration now: substitutes sampled values -> runs ArrayCalculator
+      -> extracts computed outputs. Added regression test.
     reporter: "daneel-models/game-theory-asi-race-mc.yaml"
     date: "2025-12-17"
+    fixed_date: "2025-12-17"
 
 # BUG-001 through BUG-013 fixed
 # BUG-010 to BUG-013 were already resolved by BUG-003 to BUG-009 fixes (Boolean literals, comparisons)
@@ -203,5 +209,5 @@ bugs:
 summary:
   total_functions: 173
   categories: 15
-  unit_tests: 1825
+  unit_tests: 1952
   history: "See CHANGELOG.md"

@@ -2,10 +2,12 @@
 //!
 //! Runs probabilistic analysis using MC.* distribution functions.
 
+use crate::core::array_calculator::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
 use crate::monte_carlo::{MonteCarloConfig, MonteCarloEngine};
 use crate::parser;
 use colored::Colorize;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -77,12 +79,55 @@ pub fn simulate(
         .parse_distributions_from_model(&model)
         .map_err(ForgeError::Validation)?;
 
-    // Run simulation
+    // Run simulation with formula evaluation
     if verbose {
         println!("{}", "🎲 Running simulation...".cyan());
     }
 
-    let result = engine.run().map_err(ForgeError::Eval)?;
+    // Get output variable names from config
+    let output_vars: Vec<String> = config.outputs.iter().map(|o| o.variable.clone()).collect();
+
+    // Create evaluator that runs formulas for each iteration
+    let result = engine
+        .run_with_evaluator(|inputs: &HashMap<String, f64>| {
+            // Clone the model and substitute sampled values
+            let mut iter_model = model.clone();
+
+            // Replace MC.* distribution formulas with sampled values
+            for (var_name, &value) in inputs {
+                // Scalars are stored with their full path (e.g., "scalars.p_sampled" or "outputs.p_sampled")
+                if let Some(scalar) = iter_model.scalars.get_mut(var_name) {
+                    // Replace the formula with the sampled value
+                    scalar.value = Some(value);
+                    scalar.formula = None; // Clear formula since we're using sampled value
+                }
+            }
+
+            // Run the calculator to evaluate dependent formulas
+            let calculator = ArrayCalculator::new(iter_model);
+            let calculated = match calculator.calculate_all() {
+                Ok(m) => m,
+                Err(_) => return HashMap::new(),
+            };
+
+            // Extract output values
+            let mut outputs = HashMap::new();
+            for var_name in &output_vars {
+                // Try exact match first, then with common prefixes
+                let value = calculated
+                    .scalars
+                    .get(var_name)
+                    .or_else(|| calculated.scalars.get(&format!("outputs.{var_name}")))
+                    .or_else(|| calculated.scalars.get(&format!("scalars.{var_name}")))
+                    .and_then(|s| s.value)
+                    .unwrap_or(0.0);
+
+                outputs.insert(var_name.clone(), value);
+            }
+
+            outputs
+        })
+        .map_err(ForgeError::Eval)?;
 
     // Display results
     println!("{}", "📊 Simulation Results:".bold().green());
@@ -263,5 +308,95 @@ scalars:
         assert_eq!(config.iterations, 1000);
         assert_eq!(config.outputs[0].variable, "revenue");
         assert_eq!(config.outputs[0].threshold, Some("> 90000".to_string()));
+    }
+
+    /// Regression test for FORGE-MC-001: MC dependent formula evaluation
+    /// Before fix: dependent formulas returned 0.0 instead of calculated values
+    #[test]
+    fn test_mc_dependent_formula_evaluation() {
+        use crate::monte_carlo::MonteCarloEngine;
+        use crate::parser;
+
+        // Create test file with dependent formula
+        let yaml = r#"
+_forge_version: "5.0.0"
+monte_carlo:
+  enabled: true
+  iterations: 100
+  sampling: latin_hypercube
+  seed: 42
+  outputs:
+    - variable: result
+      percentiles: [50]
+scalars:
+  p_sampled:
+    value: null
+    formula: "=MC.Triangular(0.4, 0.6, 0.8)"
+  result:
+    value: null
+    formula: "=scalars.p_sampled * 100"
+"#;
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "{yaml}").unwrap();
+
+        // Parse config and model
+        let config = parse_monte_carlo_config(yaml).unwrap();
+        let model = parser::parse_model(file.path()).unwrap();
+
+        // Create engine and parse distributions
+        let mut engine = MonteCarloEngine::new(config.clone()).unwrap();
+        engine.parse_distributions_from_model(&model).unwrap();
+
+        // Get output variable names
+        let output_vars: Vec<String> = config.outputs.iter().map(|o| o.variable.clone()).collect();
+
+        // Run with formula evaluation (the fix)
+        let result = engine
+            .run_with_evaluator(|inputs: &HashMap<String, f64>| {
+                let mut iter_model = model.clone();
+
+                // Substitute sampled values
+                for (var_name, &value) in inputs {
+                    if let Some(scalar) = iter_model.scalars.get_mut(var_name) {
+                        scalar.value = Some(value);
+                        scalar.formula = None;
+                    }
+                }
+
+                // Run calculator
+                let calculator = crate::core::array_calculator::ArrayCalculator::new(iter_model);
+                let calculated = match calculator.calculate_all() {
+                    Ok(m) => m,
+                    Err(_) => return HashMap::new(),
+                };
+
+                // Extract outputs
+                let mut outputs = HashMap::new();
+                for var_name in &output_vars {
+                    let value = calculated
+                        .scalars
+                        .get(var_name)
+                        .or_else(|| calculated.scalars.get(&format!("scalars.{var_name}")))
+                        .and_then(|s| s.value)
+                        .unwrap_or(0.0);
+                    outputs.insert(var_name.clone(), value);
+                }
+                outputs
+            })
+            .unwrap();
+
+        // FORGE-MC-001 fix: result should be approximately p_sampled * 100 ≈ 60
+        // Before fix: result was 0.0
+        let result_stats = &result.outputs["result"];
+        assert!(
+            result_stats.statistics.mean > 50.0,
+            "Mean should be ~60 (p_sampled * 100), got {}",
+            result_stats.statistics.mean
+        );
+        assert!(
+            result_stats.statistics.mean < 70.0,
+            "Mean should be ~60 (p_sampled * 100), got {}",
+            result_stats.statistics.mean
+        );
     }
 }
