@@ -21,39 +21,61 @@ next:
   # v9.9.2 Excel Export for Scalar Models - COMPLETED (see CHANGELOG.md)
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # CRITICAL: Excel Compatibility Bugs (found by forge-e2e + Gnumeric validation)
+  # CRITICAL: E2E Test Failures - 49 failing in forge-e2e --forge mode
+  # Source: forge-e2e v0.8.0 (ZERO skips, all tests run)
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "9.9.3"
     priority: CRITICAL
     status: pending
-    summary: "Excel Compatibility Fixes"
-    source: "forge-e2e Gnumeric validation"
+    summary: "Fix E2E Test Failures (49 tests failing)"
+    source: "forge-e2e --forge --all"
+    test_command: "cd ../forge-e2e && FORGE_BIN=/path/to/forge ./target/release/forge-e2e --forge --all"
     bugs:
       - id: "FORGE-001"
         title: "Boolean equality with numbers"
-        severity: HIGH
-        current: "TRUE = 1 returns FALSE, FALSE = 0 returns FALSE"
-        expected: "TRUE = 1 should return TRUE (Excel behavior)"
-        file: "src/eval/comparison.rs or src/eval/operators.rs"
-        test: "=IF(TRUE=1, 'yes', 'no') should return 'yes'"
-
-      - id: "FORGE-002"
-        title: "String comparison case sensitivity"
-        severity: MEDIUM
-        current: "'ABC' = 'abc' returns TRUE (case-insensitive)"
-        expected: "Should return FALSE (Excel = operator is case-sensitive)"
+        severity: CRITICAL
+        tests_failing: 2
+        current: "TRUE=1 returns FALSE in IF condition"
+        expected: "TRUE=1 should be TRUE (Excel coerces booleans in comparisons)"
         file: "src/eval/comparison.rs"
-        test: "=IF('ABC'='abc', 1, 0) should return 0"
-        note: "EXACT() is case-sensitive, but = should also be case-sensitive"
+        reproduction: "=IF(TRUE=1,1,0) returns 0, should return 1"
 
       - id: "FORGE-003"
-        title: "DATEDIF YD mode off-by-one"
-        severity: MEDIUM
-        current: "DATEDIF(DATE(2024,10,1), DATE(2025,3,15), 'YD') returns 164"
-        expected: "Should return 165 (days excluding years)"
+        title: "DATEDIF Y and YD calculation errors"
+        severity: CRITICAL
+        tests_failing: 30
+        description: |
+          Y unit: counts partial years as full years
+          YD unit: off-by-one error in day calculation
         file: "src/functions/date.rs"
-        test: "Add edge case tests for YD mode spanning year boundary"
+        reproduction: |
+          DATEDIF(DATE(2024,10,1), DATE(2025,3,15), "Y") → 1 (should be 0)
+          DATEDIF(DATE(2024,10,1), DATE(2025,3,15), "YD") → 164 (should be 165)
+
+      - id: "FORGE-004"
+        title: "COLUMNS(table) returns 1 instead of column count"
+        severity: HIGH
+        tests_failing: 7
+        current: "COLUMNS(products) returns 1"
+        expected: "Should return 4 (number of columns in table)"
+        file: "src/functions/lookup.rs or src/functions/information.rs"
+        reproduction: |
+          Given: products table with columns [id, name, price, category]
+          =COLUMNS(products) → 1 (should be 4)
+
+      - id: "FORGE-005"
+        title: "Table validation rejects valid test data"
+        severity: HIGH
+        tests_failing: 10
+        description: |
+          Schema validation fails on test files with tables that have
+          different column lengths (which should be valid for some tests)
+        files_affected:
+          - "aggregation.yaml - rank_data, unique_data tables"
+          - "array.yaml - sort_data table"
+          - "statistical.yaml - edge_data, percentile_data tables"
+        error: "Table 'X': Column 'Y' has N rows, expected M rows"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Performance Milestones
