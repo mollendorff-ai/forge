@@ -6,9 +6,9 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "9.9.1"
+  version: "9.9.2"
   status: completed
-  summary: "Monte Carlo Dependent Formula Evaluation Fix (FORGE-MC-001)"
+  summary: "Excel Export for v5.0.0 Scalar Models (FORGE-EXPORT-001) - see CHANGELOG.md"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT - Candidate milestones (pick one to start)
@@ -17,56 +17,14 @@ current:
 next:
   # v9.8.0 E2E Test Migration - COMPLETED (see CHANGELOG.md)
   # v9.8.1 Cleanup - e2e tests deleted from forge, pedantic linting in Cargo.toml
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # CRITICAL: Monte Carlo Dependent Formula Bug (BLOCKING DANEEL PAPER)
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  - version: "9.9.1"
-    priority: CRITICAL
-    status: pending
-    summary: "Monte Carlo Dependent Formula Evaluation"
-    source: "daneel-models game-theory-asi-race-mc.yaml"
-    bugs:
-      - id: "FORGE-MC-001"
-        title: "MC simulation doesn't propagate sampled values through dependent formulas"
-        severity: CRITICAL
-        blocking: "DANEEL paper needs probabilistic confidence intervals"
-        current: |
-          forge simulate correctly samples MC.* functions:
-            outputs.p_sampled: mean=0.60 min=0.41 max=0.79
-          But dependent formulas return 0:
-            outputs.result: "=outputs.p_sampled * 100" → returns 0.0 (should be ~60)
-        expected: |
-          Sampled values should propagate through the formula dependency chain.
-          outputs.result should have mean=60.0, not 0.0
-        repro: |
-          cat << 'EOF' > /tmp/test-mc.yaml
-          _forge_version: "5.0.0"
-          monte_carlo:
-            enabled: true
-            iterations: 1000
-            seed: 42
-            outputs:
-              - variable: outputs.result
-                percentiles: [50]
-          outputs:
-            p_sampled:
-              value: null
-              formula: "=MC.Triangular(0.4, 0.6, 0.8)"
-            result:
-              value: null
-              formula: "=outputs.p_sampled * 100"
-          EOF
-          ~/bin/forge simulate /tmp/test-mc.yaml
-        file: "src/cli/commands/simulate.rs or src/monte_carlo/"
-        impact: "All Monte Carlo models with dependent calculations are broken"
+  # v9.9.1 Monte Carlo Fix - COMPLETED (see CHANGELOG.md)
+  # v9.9.2 Excel Export for Scalar Models - COMPLETED (see CHANGELOG.md)
 
   # ─────────────────────────────────────────────────────────────────────────────
   # CRITICAL: Excel Compatibility Bugs (found by forge-e2e + Gnumeric validation)
   # ─────────────────────────────────────────────────────────────────────────────
 
-  - version: "9.9.2"
+  - version: "9.9.3"
     priority: CRITICAL
     status: pending
     summary: "Excel Compatibility Fixes"
@@ -96,43 +54,6 @@ next:
         expected: "Should return 165 (days excluding years)"
         file: "src/functions/date.rs"
         test: "Add edge case tests for YD mode spanning year boundary"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # CRITICAL: Excel Export for Scalar Models (BLOCKING DANEEL PUBLICATION)
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  - version: "9.9.3"
-    priority: CRITICAL
-    status: pending
-    summary: "Excel Export for v5.0.0 Scalar Models"
-    source: "daneel-models game-theory-asi-race-mc.yaml, game-theory-asi-bridge.yaml"
-    bugs:
-      - id: "FORGE-EXPORT-001"
-        title: "forge export only supports array models, not scalar models"
-        severity: CRITICAL
-        blocking: "DANEEL publication needs Excel exports of game theory models"
-        current: |
-          forge export only works with v1.0.0 array models (with 'tables' section).
-          v5.0.0 scalar models (value/formula pairs) are not supported.
-          Error: "Only works with v1.0.0 array models. v0.2.0 scalar models are not supported."
-        expected: |
-          forge export should support v5.0.0 scalar models:
-          - Each top-level group → worksheet (e.g., "scenario_probs", "utilities")
-          - Each scalar → row with name, value, formula columns
-          - Formulas translated to Excel syntax (=A1*B2 etc.)
-          - Monte Carlo distributions → Excel comments or notes
-        repro: |
-          forge export ~/src/royalbit/daneel-models/models/game-theory-asi-race-mc.yaml /tmp/out.xlsx
-          # Error: Only works with v1.0.0 array models
-        file: "src/cli/commands/export.rs"
-        impact: "All DANEEL game theory models cannot be exported to Excel for review"
-        models_affected:
-          - "game-theory-asi-race.yaml"
-          - "game-theory-asi-race-mc.yaml"
-          - "game-theory-asi-bridge.yaml"
-          - "alignment-bayesian-network.yaml"
-          - "asi-decision-tree.yaml"
-          - "asimov-real-options.yaml"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Performance Milestones
@@ -246,5 +167,5 @@ bugs:
 summary:
   total_functions: 173
   categories: 15
-  unit_tests: 1952
+  unit_tests: 1956
   history: "See CHANGELOG.md"

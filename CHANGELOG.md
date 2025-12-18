@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.9.2] - 2025-12-17
+
+### Added
+
+- **FORGE-EXPORT-001**: Excel export for v5.0.0 scalar models (CRITICAL)
+  - Scalar groups now export to separate worksheets (e.g., `utilities`, `scenario_probs`, `analysis`)
+  - Each scalar group becomes its own worksheet with Name/Value columns
+  - Cross-group formula references translated to Excel syntax: `scenario_probs.p_aligned` → `'scenario_probs'!B2`
+  - Monte Carlo formulas (`MC.*`) export as calculated values with original formula in cell comment
+  - Scalars without dots (e.g., `tax_rate`) go to default "Scalars" worksheet
+
+### Changed
+
+- `ExcelExporter::export_scalars()` now creates grouped worksheets instead of single "Scalars" sheet
+- Added `ScalarLocation` struct to track worksheet and row for each scalar
+- Added `translate_grouped_scalar_formula()` for cross-worksheet references
+
+### Impact
+
+- Unblocked DANEEL publication - all game theory models can now export to Excel
+- Models affected: game-theory-asi-race.yaml, game-theory-asi-race-mc.yaml, game-theory-asi-bridge.yaml, alignment-bayesian-network.yaml, asi-decision-tree.yaml, asimov-real-options.yaml
+
+## [9.9.1] - 2025-12-17
+
+### Fixed
+
+- **FORGE-MC-001**: Monte Carlo dependent formula evaluation broken (CRITICAL)
+  - `forge simulate` sampled MC.* functions correctly but didn't propagate values through dependent formulas
+  - All downstream calculations returned 0.0 instead of computed values
+  - Fix: Changed simulate command to use `run_with_evaluator()` instead of `run()`
+  - Each iteration now: substitutes sampled values → runs ArrayCalculator → extracts computed outputs
+  - Added regression test
+
+### Impact
+
+- Unblocked DANEEL paper probabilistic analysis
+- All Monte Carlo models with dependent calculations now work correctly
+
 ## [9.8.0] - 2025-12-17
 
 ### Added
