@@ -98,6 +98,43 @@ next:
         test: "Add edge case tests for YD mode spanning year boundary"
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # CRITICAL: Excel Export for Scalar Models (BLOCKING DANEEL PUBLICATION)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "9.9.3"
+    priority: CRITICAL
+    status: pending
+    summary: "Excel Export for v5.0.0 Scalar Models"
+    source: "daneel-models game-theory-asi-race-mc.yaml, game-theory-asi-bridge.yaml"
+    bugs:
+      - id: "FORGE-EXPORT-001"
+        title: "forge export only supports array models, not scalar models"
+        severity: CRITICAL
+        blocking: "DANEEL publication needs Excel exports of game theory models"
+        current: |
+          forge export only works with v1.0.0 array models (with 'tables' section).
+          v5.0.0 scalar models (value/formula pairs) are not supported.
+          Error: "Only works with v1.0.0 array models. v0.2.0 scalar models are not supported."
+        expected: |
+          forge export should support v5.0.0 scalar models:
+          - Each top-level group → worksheet (e.g., "scenario_probs", "utilities")
+          - Each scalar → row with name, value, formula columns
+          - Formulas translated to Excel syntax (=A1*B2 etc.)
+          - Monte Carlo distributions → Excel comments or notes
+        repro: |
+          forge export ~/src/royalbit/daneel-models/models/game-theory-asi-race-mc.yaml /tmp/out.xlsx
+          # Error: Only works with v1.0.0 array models
+        file: "src/cli/commands/export.rs"
+        impact: "All DANEEL game theory models cannot be exported to Excel for review"
+        models_affected:
+          - "game-theory-asi-race.yaml"
+          - "game-theory-asi-race-mc.yaml"
+          - "game-theory-asi-bridge.yaml"
+          - "alignment-bayesian-network.yaml"
+          - "asi-decision-tree.yaml"
+          - "asimov-real-options.yaml"
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Performance Milestones
   # ─────────────────────────────────────────────────────────────────────────────
 
