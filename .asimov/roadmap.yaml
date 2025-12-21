@@ -123,6 +123,63 @@ next:
       - "Cache repeated calculations"
       - "Target: 2-10x from algorithmic improvements"
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DANEEL Integration - Crystal Analysis for Alignment Monitoring
+  # See ADR-028-CRYSTAL-ANALYSIS.md
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - version: "10.4.0"
+    priority: HIGH
+    status: pending
+    summary: "Crystal Analysis - N-Dimensional Fractal Visualization for DANEEL"
+    adr: "ADR-028-CRYSTAL-ANALYSIS.md"
+    origin: "Grok (SuperGrok) + Rex - Dec 21, 2025"
+    description: |
+      Four Laws as embedded vectors ("Law Crystals") in embedding space.
+      Thoughts clustering near Law Crystals = caring emerging, quantifiable.
+      PCA/UMAP reduce to 3D for TUI visualization.
+    dependencies:
+      - "linfa = 0.7 (PCA, dimensionality reduction)"
+      - "linfa-reduction = 0.7"
+      - "candle-core = 0.3 (local embeddings, no GPU)"
+      - "candle-transformers = 0.3 (all-MiniLM-L6-v2)"
+      - "qdrant-client = 1.0"
+    tasks:
+      - id: "CRYSTAL-1"
+        title: "Add ML/embedding dependencies"
+        status: pending
+        file: "Cargo.toml"
+
+      - id: "CRYSTAL-2"
+        title: "Create src/crystals.rs module"
+        status: pending
+        description: "Law Crystals as fixed embedding vectors, alignment distance"
+        files: ["src/crystals.rs", "src/lib.rs"]
+
+      - id: "CRYSTAL-3"
+        title: "Add /fractal endpoint to API"
+        status: pending
+        description: "Sample Qdrant, PCA reduce, calculate alignment score"
+        file: "src/api/handlers.rs"
+
+      - id: "CRYSTAL-4"
+        title: "Alignment score + Monte Carlo drift"
+        status: pending
+        description: "Variance of distances to centroid, drift risk projection"
+        file: "src/crystals.rs"
+
+      - id: "CRYSTAL-5"
+        title: "CLI command: forge fractal"
+        status: pending
+        description: "CLI interface with --watch mode"
+        file: "src/cli/mod.rs"
+    deliverables:
+      - "POST /fractal endpoint returning alignment score + 3D points"
+      - "forge fractal CLI command with JSON output"
+      - "Law Crystals embedded at boot (all-MiniLM-L6-v2)"
+      - "Monte Carlo drift risk projection"
+      - "Unit tests for alignment calculation"
+
   - version: "9.9.0"
     priority: HIGH
     status: pending
