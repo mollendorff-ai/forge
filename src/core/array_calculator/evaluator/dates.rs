@@ -322,33 +322,94 @@ pub fn try_evaluate(
             let result = match unit.as_str() {
                 "D" => (end_date - start_date).num_days() as f64,
                 "M" => {
+                    // Complete months between dates
                     let years = end_date.year() - start_date.year();
                     let months = end_date.month() as i32 - start_date.month() as i32;
-                    (years * 12 + months) as f64
+                    let mut total_months = years * 12 + months;
+                    // Adjust if end day < start day (incomplete month)
+                    if end_date.day() < start_date.day() {
+                        total_months -= 1;
+                    }
+                    total_months.max(0) as f64
                 },
-                "Y" => (end_date.year() - start_date.year()) as f64,
+                "Y" => {
+                    // Complete years between dates
+                    let mut years = end_date.year() - start_date.year();
+                    // Check if we've reached the anniversary date
+                    if end_date.month() < start_date.month()
+                        || (end_date.month() == start_date.month()
+                            && end_date.day() < start_date.day())
+                    {
+                        years -= 1;
+                    }
+                    years.max(0) as f64
+                },
                 "MD" => {
+                    // Days between dates, ignoring months and years
                     let mut day_diff = end_date.day() as i32 - start_date.day() as i32;
                     if day_diff < 0 {
-                        day_diff += 30;
+                        // Get days in the previous month
+                        let prev_month_date = if end_date.month() == 1 {
+                            chrono::NaiveDate::from_ymd_opt(end_date.year() - 1, 12, 1)
+                        } else {
+                            chrono::NaiveDate::from_ymd_opt(
+                                end_date.year(),
+                                end_date.month() - 1,
+                                1,
+                            )
+                        };
+                        let days_in_prev_month = prev_month_date
+                            .and_then(|d| {
+                                d.checked_add_months(chrono::Months::new(1))
+                                    .and_then(|next| next.pred_opt())
+                            })
+                            .map(|d| d.day() as i32)
+                            .unwrap_or(30);
+                        day_diff += days_in_prev_month;
                     }
                     day_diff as f64
                 },
                 "YM" => {
+                    // Months between dates, ignoring years
                     let mut month_diff = end_date.month() as i32 - start_date.month() as i32;
                     if month_diff < 0 {
                         month_diff += 12;
                     }
+                    // Adjust if end day < start day (incomplete month)
+                    if end_date.day() < start_date.day() && month_diff > 0 {
+                        month_diff -= 1;
+                    }
                     month_diff as f64
                 },
                 "YD" => {
-                    let start_doy = start_date.ordinal() as i32;
-                    let end_doy = end_date.ordinal() as i32;
-                    let mut day_diff = end_doy - start_doy;
-                    if day_diff < 0 {
-                        day_diff += 365;
+                    // Days between dates, ignoring years
+                    // This is the number of days since the last anniversary of start_date
+                    use chrono::NaiveDate;
+
+                    // Find the most recent anniversary of start_date before or on end_date
+                    let anniversary_year = if end_date.month() > start_date.month()
+                        || (end_date.month() == start_date.month()
+                            && end_date.day() >= start_date.day())
+                    {
+                        end_date.year()
+                    } else {
+                        end_date.year() - 1
+                    };
+
+                    // Handle Feb 29 -> Feb 28 for non-leap years
+                    let anniversary = if start_date.month() == 2 && start_date.day() == 29 {
+                        NaiveDate::from_ymd_opt(anniversary_year, 2, 29)
+                            .or_else(|| NaiveDate::from_ymd_opt(anniversary_year, 2, 28))
+                    } else {
+                        NaiveDate::from_ymd_opt(
+                            anniversary_year,
+                            start_date.month(),
+                            start_date.day(),
+                        )
                     }
-                    day_diff as f64
+                    .ok_or_else(|| EvalError::new("DATEDIF: invalid anniversary date"))?;
+
+                    (end_date - anniversary).num_days() as f64
                 },
                 _ => return Err(EvalError::new(format!("DATEDIF: unknown unit '{unit}'"))),
             };
@@ -600,10 +661,11 @@ mod tests {
     #[test]
     fn test_datedif_negative_day_diff() {
         let ctx = EvalContext::new();
-        // MD where end day < start day (triggers day_diff += 30)
+        // MD where end day < start day (uses actual days in previous month)
+        // Jan 20 to Feb 10: -10 + 31 (days in Jan) = 21
         assert_eq!(
             eval("DATEDIF(\"2024-01-20\", \"2024-02-10\", \"MD\")", &ctx).unwrap(),
-            Value::Number(20.0) // -10 + 30 = 20
+            Value::Number(21.0)
         );
     }
 

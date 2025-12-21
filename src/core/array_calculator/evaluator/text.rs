@@ -39,7 +39,10 @@ pub fn try_evaluate(
         "TRIM" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
-            Value::Text(val.as_text().trim().to_string())
+            // Excel TRIM: removes leading/trailing spaces AND collapses multiple internal spaces
+            let text = val.as_text();
+            let trimmed: String = text.split_whitespace().collect::<Vec<&str>>().join(" ");
+            Value::Text(trimmed)
         },
 
         "LEN" => {
@@ -561,16 +564,16 @@ mod tests {
 
     #[test]
     fn test_trim_with_internal_spaces() {
-        // TRIM("  a  b  ") - removes leading/trailing spaces only
-        // Result is "a  b" with 4 characters (including internal spaces)
+        // Excel TRIM: removes leading/trailing AND collapses internal spaces to single
+        // TRIM("  a  b  ") = "a b" with 3 characters
         let ctx = EvalContext::new();
         assert_eq!(
             eval("TRIM(\"  a  b  \")", &ctx).unwrap(),
-            Value::Text("a  b".to_string())
+            Value::Text("a b".to_string())
         );
         assert_eq!(
             eval("LEN(TRIM(\"  a  b  \"))", &ctx).unwrap(),
-            Value::Number(4.0)
+            Value::Number(3.0)
         );
     }
 

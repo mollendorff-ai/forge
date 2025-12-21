@@ -188,6 +188,8 @@ fn test_mid_from_middle() {
 
 #[test]
 fn test_trim_internal_spaces() {
+    // Excel TRIM collapses multiple internal spaces to single space
+    // "  a  b  " -> "a b" (length 3)
     let mut model = ParsedModel::new();
     model.add_scalar(
         "result".to_string(),
@@ -199,7 +201,7 @@ fn test_trim_internal_spaces() {
     );
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all().expect("Should calculate");
-    assert_eq!(result.scalars.get("result").unwrap().value, Some(4.0));
+    assert_eq!(result.scalars.get("result").unwrap().value, Some(3.0));
 }
 
 #[test]

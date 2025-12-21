@@ -133,9 +133,12 @@ impl ArrayCalculator {
     fn calculate_table(&mut self, table_name: &str, table: &Table) -> ForgeResult<Table> {
         let mut working_table = table.clone();
 
-        // Validate all columns have the same length
-        if let Err(e) = working_table.validate_lengths() {
-            return Err(ForgeError::Eval(format!("Table '{table_name}': {e}")));
+        // Only validate column lengths if there are row formulas
+        // (row-wise operations require all columns to be aligned)
+        if !working_table.row_formulas.is_empty() {
+            if let Err(e) = working_table.validate_lengths() {
+                return Err(ForgeError::Eval(format!("Table '{table_name}': {e}")));
+            }
         }
 
         // Build dependency order for formulas

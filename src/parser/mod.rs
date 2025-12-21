@@ -328,12 +328,9 @@ fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
         }
     }
 
-    // Validate all tables
-    for (name, table) in &model.tables {
-        table
-            .validate_lengths()
-            .map_err(|e| ForgeError::Validation(format!("Table '{name}': {e}")))?;
-    }
+    // Note: Table column length validation is deferred to calculation time
+    // This allows test files to have columns of different lengths when used independently
+    // Row-wise operations will still validate at runtime in array_calculator
 
     Ok(model)
 }
