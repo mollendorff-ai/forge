@@ -532,8 +532,14 @@ pub fn try_evaluate(
         #[cfg(not(feature = "demo"))]
         "COLUMNS" => {
             require_args(name, args, 1)?;
-            // For 1D arrays, columns is always 1
-            // For Forge's model, we treat arrays as single-column
+            // Check if the argument is a table reference (bare table name)
+            if let Expr::Reference(super::super::parser::Reference::Scalar(name)) = &args[0] {
+                // Check if this name exists in tables
+                if let Some(table) = ctx.tables.get(name) {
+                    return Ok(Some(Value::Number(table.len() as f64)));
+                }
+            }
+            // For 1D arrays (single column), columns is always 1
             Value::Number(1.0)
         },
 

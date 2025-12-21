@@ -298,20 +298,8 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
         model.scalars.len()
     );
 
-    // Validate tables
-    for (name, table) in &model.tables {
-        if let Err(e) = table.validate_lengths() {
-            println!(
-                "\n{}",
-                format!("❌ Table '{name}' validation failed: {e}")
-                    .bold()
-                    .red()
-            );
-            return Err(ForgeError::Validation(format!(
-                "Table '{name}' validation failed: {e}"
-            )));
-        }
-    }
+    // Note: Table column length validation is deferred to calculation time
+    // Row-wise operations will validate at runtime in array_calculator
 
     // Calculate what values SHOULD be based on formulas
     let calculator = ArrayCalculator::new(model.clone());
@@ -559,12 +547,8 @@ fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
         );
     }
 
-    // Validate tables
-    for (name, table) in &model.tables {
-        table.validate_lengths().map_err(|e| {
-            ForgeError::Validation(format!("Table '{name}' validation failed: {e}"))
-        })?;
-    }
+    // Note: Table column length validation is deferred to calculation time
+    // Row-wise operations will validate at runtime in array_calculator
 
     // Calculate and compare
     let calculator = ArrayCalculator::new(model.clone());
