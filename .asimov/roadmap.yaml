@@ -8,7 +8,7 @@
 current:
   version: "9.9.5"
   status: done
-  summary: "Consolidate tests inline (Rust idiom) - tests/ directories eliminated"
+  summary: "Consolidate tests inline (Rust idiom) - COMPLETE (1,295 unit tests inline)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT - Candidate milestones (pick one to start)
@@ -28,8 +28,8 @@ next:
 
   - version: "9.9.5"
     priority: HIGH
-    status: wip
-    summary: "Consolidate tests inline (Rust idiom) - 50% complete"
+    status: done
+    summary: "Consolidate tests inline (Rust idiom) - COMPLETE"
     description: |
       Move all unit tests from src/**/tests/ directories into their
       corresponding implementation files using #[cfg(test)] mod tests.
@@ -162,8 +162,10 @@ bugs: []
 summary:
   total_functions: 173
   categories: 15
-  unit_tests: 1496
+  unit_tests: 1295
+  e2e_tests: 836
+  total_tests: 2131
   test_coverage: "100% (173/173 functions)"
   gaps: 0
   history: "See CHANGELOG.md"
-  note: "v9.9.5: tests/ directories eliminated - all inline or in forge-e2e (2006→1496)"
+  note: "v9.9.5 DONE: All tests inline (Rust idiom). Unit: 1295 inline, E2E: 836 in forge-e2e"
