@@ -2,7 +2,7 @@
 
 [![Tests](https://img.shields.io/badge/tests-2486_passing-brightgreen)](https://github.com/royalbit/forge)
 [![Functions](https://img.shields.io/badge/functions-173-blue)](https://github.com/royalbit/forge)
-[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
+[![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)
 
 **Financial modeling for the AI era. Git-native. Excel import/export. FP&A functions Excel forgot.**
 
@@ -479,6 +479,23 @@ This means: If Gnumeric (battle-proven, millions of users) agrees with Forge, th
 | **MCP Server** | AI agent integration |
 | **Library** | Rust/WASM embedding |
 
+## Why Forge? The Market Opportunity
+
+**Forge is not another AI framework. It's the calculation layer AI agents need for finance.**
+
+| AI Orchestration Market | Forge's Position |
+|------------------------|------------------|
+| 5,879 competing GitHub repos | **Zero** direct competitors |
+| AutoGPT (181K stars), LangChain (123K stars) | Only AI-native FP&A tool |
+| Open source = zero pricing power | FP&A has no OSS alternatives |
+| Commoditization inevitable | Domain moat + verified math |
+
+**The insight:** Every AI agent doing financial analysis needs token-efficient formats (YAML), verified calculations (Gnumeric/R), and Excel compatibility. Forge provides all three.
+
+> "Don't compete in a race with 5,879 runners. Own the water station."
+
+See [Market Analysis](docs/MARKET_ANALYSIS.md) for the full investment thesis.
+
 ## Documentation
 
 | Document | Description |
@@ -487,6 +504,7 @@ This means: If Gnumeric (battle-proven, millions of users) agrees with Forge, th
 | [Architecture](docs/architecture/) | Technical design and ADRs |
 | [Examples](docs/EXAMPLES.md) | YAML model examples |
 | [Features](docs/FEATURES.md) | Feature reference |
+| [Market Analysis](docs/MARKET_ANALYSIS.md) | Investment thesis and competitive positioning |
 | [JSON Schema](schema/) | Model validation schema |
 
 ## Development
@@ -499,21 +517,53 @@ cargo test --features e2e-gnumeric   # E2E validation (requires Gnumeric)
 
 ## License
 
-**Proprietary R&D** - See [LICENSE](LICENSE)
+**Business Source License 1.1 (BSL)** - See [LICENSE](LICENSE)
 
-This is a **research and development project**. Not available for commercial use.
+Forge is **Source Available** - the code is open for inspection, but commercial production use requires a license.
 
 | Use Case | Status |
 |----------|--------|
-| View & study source code | Permitted |
-| Personal educational use | Permitted |
-| Commercial use | **Prohibited** |
-| Enterprise deployment | **Prohibited** |
-| Distribution/modification | **Prohibited** |
+| View, read, audit source code | **Permitted** |
+| Evaluation and testing | **Permitted** |
+| Educational and research use | **Permitted** |
+| Non-commercial use | **Permitted** |
+| Commercial production use | **License required** |
+| After 4 years | Converts to Apache 2.0 |
 
-**This is not a product. This is R&D.**
+### What This Means
 
-You can see what's possible. You can't have it. Yet.
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Source Available ≠ Open Source                            │
+│                                                             │
+│  • Code is OPEN (you can read it, audit it, learn from it) │
+│  • Use is FREE for evaluation and non-production           │
+│  • Production use in commercial settings requires license  │
+│  • After 4 years, becomes Apache 2.0 (true FOSS)          │
+│                                                             │
+│  Used by: HashiCorp, Sentry, CockroachDB, MariaDB          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Why BSL?
+
+Finance needs **auditable code**. You can verify every calculation. No black boxes.
+
+But building enterprise software requires sustainable revenue. BSL balances transparency with commercial viability.
+
+See [ADR-030](docs/architecture/ADR-030-GTM-LICENSING-STRATEGY.md) for the full rationale.
+
+### Commercial Licensing
+
+For production deployment, enterprise support, or Cloud MCP access:
+
+| Tier | Price | Includes |
+|------|-------|----------|
+| **Pro** | $500-2K/month | Production license, support |
+| **Enterprise** | $5K-20K/month | SSO, audit logs, dedicated support |
+| **Cloud MCP** | Usage-based | Hosted MCP endpoint, auto-scaling |
+
+Contact: [licensing@royalbit.ca](mailto:licensing@royalbit.ca)
 
 ---
 

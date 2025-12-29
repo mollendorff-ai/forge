@@ -6,9 +6,70 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "9.9.5"
-  status: done
-  summary: "Consolidate tests inline (Rust idiom) - COMPLETE (1,295 unit tests inline)"
+  version: "10.0.0-alpha"
+  status: in_progress
+  summary: "BSL License + Open Source Release"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GTM - Go-To-Market Strategy (Dec 29, 2025)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+gtm:
+  decision: "One product, BSL license, full features"
+  rationale: |
+    - Source Available (not FOSS) - code visible, auditable
+    - Commercial production use requires license
+    - Converts to Apache 2.0 after 4 years
+    - forge-demo DEPRECATED (one product, not two)
+    - Shows full moat: MCP, Monte Carlo, FP&A functions
+  adr: "ADR-030-GTM-LICENSING-STRATEGY.md"
+  analysis: "docs/MARKET_ANALYSIS.md"
+
+  milestones:
+    - version: "10.0.0-alpha"
+      priority: CRITICAL
+      status: in_progress
+      summary: "BSL License + GitHub Public Release"
+      tasks:
+        - "Add BSL-1.1 LICENSE file"
+        - "Update README with license terms"
+        - "Add COMMERCIAL_LICENSE.md with pricing tiers"
+        - "Add license headers to all source files"
+        - "Deprecate forge-demo (archive repo)"
+        - "Push to public GitHub"
+      acceptance_criteria:
+        - "LICENSE file is BSL-1.1"
+        - "README explains: free eval, paid production"
+        - "forge-demo README redirects to forge"
+
+    - version: "10.0.0"
+      priority: HIGH
+      status: pending
+      summary: "Commercial Infrastructure"
+      tasks:
+        - "License key generation system"
+        - "Customer portal (Stripe integration)"
+        - "Usage tracking for Cloud MCP"
+        - "Enterprise SSO/SAML support"
+
+    - version: "10.1.0"
+      priority: MEDIUM
+      status: pending
+      summary: "Cloud MCP Launch"
+      tasks:
+        - "Hosted MCP endpoint"
+        - "Usage-based billing"
+        - "Auto-scaling infrastructure"
+        - "Global edge deployment"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPLETED - v9.9.5
+# ═══════════════════════════════════════════════════════════════════════════════
+
+completed:
+  - version: "9.9.5"
+    status: done
+    summary: "Consolidate tests inline (Rust idiom) - COMPLETE (1,295 unit tests inline)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # NEXT - Candidate milestones (pick one to start)
