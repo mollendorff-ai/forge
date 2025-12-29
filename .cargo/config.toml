@@ -1,0 +1,68 @@
+# RoyalBit Forge - Cargo build configuration
+# Static musl builds for cross-platform distribution (no glibc dependency)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Linux musl targets - FULLY STATIC (no glibc, no dynamic linking)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[target.x86_64-unknown-linux-musl]
+# Force static C runtime linking
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-unknown-linux-musl]
+# Force static C runtime linking
+rustflags = ["-C", "target-feature=+crt-static"]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Linux GNU targets (fallback - NOT recommended for distribution)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[target.x86_64-unknown-linux-gnu]
+# Note: GNU targets still require glibc - use musl targets for static builds
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Windows targets - Static MSVC runtime
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[target.x86_64-pc-windows-gnu]
+# Static linking for Windows cross-compilation via zigbuild
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.x86_64-pc-windows-msvc]
+# Static MSVC runtime (native Windows builds)
+rustflags = ["-C", "target-feature=+crt-static"]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# macOS targets - Always static for Rust code
+# ═══════════════════════════════════════════════════════════════════════════════
+# Note: macOS always links system libraries dynamically (libSystem, Security, etc.)
+# This is by design - fully static binaries are not supported on macOS
+
+[target.x86_64-apple-darwin]
+# No special flags needed - Rust code is statically linked by default
+
+[target.aarch64-apple-darwin]
+# No special flags needed - Rust code is statically linked by default
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Build settings
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[build]
+# Default build settings (jobs determined automatically by cargo)
+
+[profile.release]
+# Additional release optimizations (supplements Cargo.toml)
+# Note: Main profile settings are in Cargo.toml
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Registry settings
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[net]
+# Use sparse registry for faster dependency resolution
+git-fetch-with-cli = true

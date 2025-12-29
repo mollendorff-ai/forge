@@ -54,7 +54,11 @@ pub fn eval_log(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 mod tests {
     use super::super::super::tests::eval;
     use super::super::super::{EvalContext, Value};
+
+    // Imports for enterprise integration tests
+    #[cfg(not(feature = "demo"))]
     use crate::core::array_calculator::ArrayCalculator;
+    #[cfg(not(feature = "demo"))]
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
     #[test]
