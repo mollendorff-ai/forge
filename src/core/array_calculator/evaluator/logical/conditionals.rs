@@ -21,9 +21,11 @@ pub fn eval_if(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, Ev
 }
 
 /// Evaluate IFERROR function - returns fallback value on error
+/// In Excel, IFERROR catches ALL errors including #N/A
 pub fn eval_iferror(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args(name, args, 2)?;
     match evaluate(&args[0], ctx) {
+        Ok(Value::Null) => evaluate(&args[1], ctx), // NA is an error
         Ok(val) => Ok(val),
         Err(_) => evaluate(&args[1], ctx),
     }
@@ -98,6 +100,21 @@ mod tests {
         assert_eq!(eval("IFERROR(1/0, 0)", &ctx).unwrap(), Value::Number(0.0));
         // No error returns the original value
         assert_eq!(eval("IFERROR(10/2, 0)", &ctx).unwrap(), Value::Number(5.0));
+    }
+
+    #[test]
+    fn test_iferror_catches_na() {
+        let ctx = EvalContext::new();
+        // IFERROR should catch NA() as an error (Excel-compatible)
+        assert_eq!(
+            eval("IFERROR(NA(), 10)", &ctx).unwrap(),
+            Value::Number(10.0)
+        );
+        // Nested: IFERROR catches NA, returns 10, ISERROR(10) = FALSE
+        assert_eq!(
+            eval("IF(ISERROR(IFERROR(NA(), 10)), 1, 0)", &ctx).unwrap(),
+            Value::Number(0.0)
+        );
     }
 
     #[test]
