@@ -245,8 +245,9 @@ mod tests {
     // INTEGRATION TESTS (from tests/trig.rs)
     // ═══════════════════════════════════════════════════════════════════════════
 
+    #[cfg(not(feature = "demo"))]
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
+    #[cfg(not(feature = "demo"))]
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
     #[cfg(not(feature = "demo"))]

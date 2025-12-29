@@ -24,12 +24,19 @@ next:
   # v9.9.2  - Excel Export for Scalar Models (FORGE-EXPORT-001)
   # v9.9.3  - E2E Test Fixes (FORGE-003, FORGE-004, FORGE-005, FORGE-TRIM)
   # v9.9.4  - 100% Unit Test Coverage (+9 HLOOKUP tests)
+  # v9.9.5  - Consolidate tests inline (Rust idiom)
+  # v9.9.5+ - Static musl builds (no glibc, fully portable Linux binaries)
   # ─────────────────────────────────────────────────────────────────────────────
 
   - version: "9.9.5"
     priority: HIGH
     status: done
-    summary: "Consolidate tests inline (Rust idiom) - COMPLETE"
+    summary: "Consolidate tests inline + Static musl builds - COMPLETE"
+    notes:
+      - "All 1,295 unit tests inline with source (Rust idiom)"
+      - "Added .cargo/config.toml for static linking"
+      - "Linux binaries: x86_64-unknown-linux-musl, aarch64-unknown-linux-musl"
+      - "Verified: 'file' shows 'statically linked' - no glibc dependency"
 
   - version: "9.9.6"
     priority: HIGH
@@ -170,4 +177,4 @@ summary:
   test_coverage: "100% (173/173 functions)"
   gaps: 0
   history: "See CHANGELOG.md"
-  note: "v9.9.5 DONE: All tests inline (Rust idiom). Unit: 1295 inline, E2E: 836 in forge-e2e"
+  note: "v9.9.5 DONE: Tests inline + static musl builds (no glibc). Unit: 1295, E2E: 836"
