@@ -17,8 +17,13 @@ pub fn try_evaluate(
 
         "ISERROR" => {
             require_args(name, args, 1)?;
-            // Check if evaluation produces an error
-            let is_error = evaluate(&args[0], ctx).is_err();
+            // Check if evaluation produces an error OR returns NA (Null)
+            // In Excel, ISERROR returns TRUE for ALL error types including #N/A
+            let is_error = match evaluate(&args[0], ctx) {
+                Err(_) => true,
+                Ok(Value::Null) => true, // NA() returns Null, which is an error
+                Ok(_) => false,
+            };
             Value::Boolean(is_error)
         },
 
@@ -250,6 +255,19 @@ mod tests {
         assert_eq!(eval("ISNA(NA())", &ctx).unwrap(), Value::Boolean(true));
         // Regular number is not NA
         assert_eq!(eval("ISNA(5)", &ctx).unwrap(), Value::Boolean(false));
+    }
+
+    #[test]
+    fn test_iserror_detects_na() {
+        let ctx = EvalContext::new();
+        // ISERROR should detect NA() as an error (Excel-compatible behavior)
+        // In Excel, #N/A is an error type and ISERROR returns TRUE for ALL errors
+        assert_eq!(eval("ISERROR(NA())", &ctx).unwrap(), Value::Boolean(true));
+        // Also test in IF context (common pattern)
+        assert_eq!(
+            eval("IF(ISERROR(NA()), 1, 0)", &ctx).unwrap(),
+            Value::Number(1.0)
+        );
     }
 
     #[test]
