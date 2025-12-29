@@ -71,6 +71,26 @@ next:
 
 backlog:
   # ─────────────────────────────────────────────────────────────────────────────
+  # Code Quality - URGENT (added Dec 29, 2025)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - version: "9.9.7"
+    priority: HIGH
+    summary: "Pedantic Linting - NO EXCEPTIONS"
+    description: |
+      Enable full pedantic clippy linting with ZERO allows/exceptions.
+      Fix ALL warnings in the codebase - do not suppress them.
+    tasks:
+      - "Update Cargo.toml: pedantic = deny, nursery = deny, cargo = deny"
+      - "Fix all clippy warnings (500+ across codebase)"
+      - "Update pre-commit hook to enforce -D warnings"
+      - "Remove all #[allow(...)] attributes from code"
+      - "Update rustfmt.toml for strict formatting"
+    acceptance_criteria:
+      - "cargo clippy --all-targets -- -D warnings passes with zero output"
+      - "No #[allow(clippy::...)] in codebase (grep returns empty)"
+      - "Pre-commit hook enforces pedantic linting"
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Performance Milestones (moved from next - Dec 28, 2025)
   # ─────────────────────────────────────────────────────────────────────────────
   - version: "10.0.0"
