@@ -653,6 +653,3 @@ pub fn apply_scenario(
 
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;

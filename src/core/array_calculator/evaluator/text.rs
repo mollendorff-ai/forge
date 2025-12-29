@@ -317,6 +317,11 @@ mod tests {
     use super::super::tests::eval;
     use super::*;
 
+    // Imports for ArrayCalculator-based tests (moved from separate test files)
+    use crate::core::array_calculator::ArrayCalculator;
+    #[allow(unused_imports)]
+    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+
     #[test]
     fn test_text_functions() {
         let ctx = EvalContext::new();
@@ -687,5 +692,2025 @@ mod tests {
             eval("LEN(RIGHT(\"Hello\", 3))", &ctx).unwrap(),
             Value::Number(3.0)
         );
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // Tests moved from tests/text.rs
+    // ══════════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_concat_function_arraycalc() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+
+        table.add_column(Column::new(
+            "first".to_string(),
+            ColumnValue::Text(vec![
+                "Hello".to_string(),
+                "Good".to_string(),
+                "Nice".to_string(),
+            ]),
+        ));
+        table.add_column(Column::new(
+            "second".to_string(),
+            ColumnValue::Text(vec![
+                "World".to_string(),
+                "Day".to_string(),
+                "Work".to_string(),
+            ]),
+        ));
+        table.add_row_formula(
+            "combined".to_string(),
+            "=CONCAT(first, \" \", second)".to_string(),
+        );
+
+        model.add_table(table);
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("data").unwrap();
+
+        let combined = result_table.columns.get("combined").unwrap();
+        match &combined.values {
+            ColumnValue::Text(texts) => {
+                assert_eq!(texts[0], "Hello World");
+                assert_eq!(texts[1], "Good Day");
+                assert_eq!(texts[2], "Nice Work");
+            },
+            _ => panic!("Expected Text array"),
+        }
+    }
+
+    #[test]
+    fn test_trim_function_arraycalc() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+
+        table.add_column(Column::new(
+            "text".to_string(),
+            ColumnValue::Text(vec![
+                "  Hello  ".to_string(),
+                " World ".to_string(),
+                "  Test".to_string(),
+            ]),
+        ));
+        table.add_row_formula("trimmed".to_string(), "=TRIM(text)".to_string());
+
+        model.add_table(table);
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("data").unwrap();
+
+        let trimmed = result_table.columns.get("trimmed").unwrap();
+        match &trimmed.values {
+            ColumnValue::Text(texts) => {
+                assert_eq!(texts[0], "Hello");
+                assert_eq!(texts[1], "World");
+                assert_eq!(texts[2], "Test");
+            },
+            _ => panic!("Expected Text array"),
+        }
+    }
+
+    #[test]
+    fn test_upper_function_arraycalc() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+
+        table.add_column(Column::new(
+            "text".to_string(),
+            ColumnValue::Text(vec![
+                "hello".to_string(),
+                "world".to_string(),
+                "Test".to_string(),
+            ]),
+        ));
+        table.add_row_formula("upper".to_string(), "=UPPER(text)".to_string());
+
+        model.add_table(table);
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("data").unwrap();
+
+        let upper = result_table.columns.get("upper").unwrap();
+        match &upper.values {
+            ColumnValue::Text(texts) => {
+                assert_eq!(texts[0], "HELLO");
+                assert_eq!(texts[1], "WORLD");
+                assert_eq!(texts[2], "TEST");
+            },
+            _ => panic!("Expected Text array"),
+        }
+    }
+
+    #[test]
+    fn test_lower_function_arraycalc() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+
+        table.add_column(Column::new(
+            "text".to_string(),
+            ColumnValue::Text(vec![
+                "HELLO".to_string(),
+                "WORLD".to_string(),
+                "Test".to_string(),
+            ]),
+        ));
+        table.add_row_formula("lower".to_string(), "=LOWER(text)".to_string());
+
+        model.add_table(table);
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("data").unwrap();
+
+        let lower = result_table.columns.get("lower").unwrap();
+        match &lower.values {
+            ColumnValue::Text(texts) => {
+                assert_eq!(texts[0], "hello");
+                assert_eq!(texts[1], "world");
+                assert_eq!(texts[2], "test");
+            },
+            _ => panic!("Expected Text array"),
+        }
+    }
+
+    #[test]
+    fn test_len_function_arraycalc() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+
+        table.add_column(Column::new(
+            "text".to_string(),
+            ColumnValue::Text(vec![
+                "hello".to_string(),
+                "hi".to_string(),
+                "testing".to_string(),
+            ]),
+        ));
+        table.add_row_formula("length".to_string(), "=LEN(text)".to_string());
+
+        model.add_table(table);
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("data").unwrap();
+
+        let length = result_table.columns.get("length").unwrap();
+        match &length.values {
+            ColumnValue::Number(nums) => {
+                assert_eq!(nums[0], 5.0);
+                assert_eq!(nums[1], 2.0);
+                assert_eq!(nums[2], 7.0);
+            },
+            _ => panic!("Expected Number array"),
+        }
+    }
+
+    #[test]
+    fn test_mid_function_arraycalc() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+
+        table.add_column(Column::new(
+            "text".to_string(),
+            ColumnValue::Text(vec![
+                "hello".to_string(),
+                "world".to_string(),
+                "testing".to_string(),
+            ]),
+        ));
+        table.add_row_formula("mid_2_3".to_string(), "=MID(text, 2, 3)".to_string());
+        table.add_row_formula("mid_1_2".to_string(), "=MID(text, 1, 2)".to_string());
+
+        model.add_table(table);
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("data").unwrap();
+
+        let mid_2_3 = result_table.columns.get("mid_2_3").unwrap();
+        match &mid_2_3.values {
+            ColumnValue::Text(texts) => {
+                assert_eq!(texts[0], "ell");
+                assert_eq!(texts[1], "orl");
+                assert_eq!(texts[2], "est");
+            },
+            _ => panic!("Expected Text array"),
+        }
+
+        let mid_1_2 = result_table.columns.get("mid_1_2").unwrap();
+        match &mid_1_2.values {
+            ColumnValue::Text(texts) => {
+                assert_eq!(texts[0], "he");
+                assert_eq!(texts[1], "wo");
+                assert_eq!(texts[2], "te");
+            },
+            _ => panic!("Expected Text array"),
+        }
+    }
+
+    #[test]
+    fn test_text_functions_combined() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+
+        table.add_column(Column::new(
+            "text".to_string(),
+            ColumnValue::Text(vec!["  hello  ".to_string(), "  WORLD  ".to_string()]),
+        ));
+        table.add_row_formula("processed".to_string(), "=UPPER(TRIM(text))".to_string());
+
+        model.add_table(table);
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("data").unwrap();
+
+        let processed = result_table.columns.get("processed").unwrap();
+        match &processed.values {
+            ColumnValue::Text(texts) => {
+                assert_eq!(texts[0], "HELLO");
+                assert_eq!(texts[1], "WORLD");
+            },
+            _ => panic!("Expected Text array"),
+        }
+    }
+
+    #[test]
+    fn test_mixed_math_and_text_functions() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![1.234, 5.678, 9.012]),
+        ));
+        table.add_column(Column::new(
+            "labels".to_string(),
+            ColumnValue::Text(vec![
+                "item".to_string(),
+                "data".to_string(),
+                "test".to_string(),
+            ]),
+        ));
+        table.add_row_formula("rounded".to_string(), "=ROUND(values, 1)".to_string());
+        table.add_row_formula("upper_labels".to_string(), "=UPPER(labels)".to_string());
+
+        model.add_table(table);
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("data").unwrap();
+
+        let rounded = result_table.columns.get("rounded").unwrap();
+        match &rounded.values {
+            ColumnValue::Number(nums) => {
+                assert_eq!(nums[0], 1.2);
+                assert_eq!(nums[1], 5.7);
+                assert_eq!(nums[2], 9.0);
+            },
+            _ => panic!("Expected Number array"),
+        }
+
+        let upper_labels = result_table.columns.get("upper_labels").unwrap();
+        match &upper_labels.values {
+            ColumnValue::Text(texts) => {
+                assert_eq!(texts[0], "ITEM");
+                assert_eq!(texts[1], "DATA");
+                assert_eq!(texts[2], "TEST");
+            },
+            _ => panic!("Expected Text array"),
+        }
+    }
+
+    #[test]
+    fn test_trim_function_whitespace() {
+        let mut model = ParsedModel::new();
+
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "text".to_string(),
+            ColumnValue::Text(vec!["  hello  ".to_string(), " world ".to_string()]),
+        ));
+        table.add_row_formula("trimmed".to_string(), "=TRIM(text)".to_string());
+        model.add_table(table);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+
+        let table = result.tables.get("data").unwrap();
+        let trimmed = table.columns.get("trimmed").unwrap();
+        if let ColumnValue::Text(values) = &trimmed.values {
+            assert_eq!(values[0], "hello");
+            assert_eq!(values[1], "world");
+        }
+    }
+
+    #[test]
+    fn test_text_column_result() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "name".to_string(),
+            ColumnValue::Text(vec!["alice".to_string(), "bob".to_string()]),
+        ));
+        data.row_formulas
+            .insert("upper_name".to_string(), "=UPPER(name)".to_string());
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+
+        let col = result
+            .tables
+            .get("data")
+            .unwrap()
+            .columns
+            .get("upper_name")
+            .unwrap();
+        if let ColumnValue::Text(values) = &col.values {
+            assert_eq!(values[0], "ALICE");
+            assert_eq!(values[1], "BOB");
+        }
+    }
+
+    #[test]
+    fn test_cross_table_text_column_reference() {
+        let mut model = ParsedModel::new();
+
+        // Source table with text column
+        let mut source = Table::new("source".to_string());
+        source.add_column(Column::new(
+            "names".to_string(),
+            ColumnValue::Text(vec!["Alice".to_string(), "Bob".to_string()]),
+        ));
+        model.add_table(source);
+
+        // Target table referencing source's text column
+        let mut target = Table::new("target".to_string());
+        target.add_column(Column::new(
+            "id".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0]),
+        ));
+        target
+            .row_formulas
+            .insert("copy_name".to_string(), "=source.names".to_string());
+        model.add_table(target);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        // Should handle cross-table text reference
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_index_text_column() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("items".to_string());
+        lookup_table.add_column(Column::new(
+            "name".to_string(),
+            ColumnValue::Text(vec![
+                "First".to_string(),
+                "Second".to_string(),
+                "Third".to_string(),
+            ]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "idx".to_string(),
+            ColumnValue::Number(vec![2.0]),
+        ));
+        data.row_formulas
+            .insert("result".to_string(), "=INDEX(items.name, idx)".to_string());
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        // INDEX function returns text, which may be handled differently
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_text_column_in_rowwise_formula() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "name".to_string(),
+            ColumnValue::Text(vec!["Alice".to_string(), "Bob".to_string()]),
+        ));
+        data.add_column(Column::new(
+            "score".to_string(),
+            ColumnValue::Number(vec![100.0, 90.0]),
+        ));
+        // Use UPPER function on text column
+        data.row_formulas
+            .insert("upper_name".to_string(), "=UPPER(name)".to_string());
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_text_join_function() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "first".to_string(),
+            ColumnValue::Text(vec!["Hello".to_string()]),
+        ));
+        data.add_column(Column::new(
+            "second".to_string(),
+            ColumnValue::Text(vec!["World".to_string()]),
+        ));
+        data.row_formulas.insert(
+            "joined".to_string(),
+            "=CONCAT(first, \" \", second)".to_string(),
+        );
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_left_right_functions() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "text".to_string(),
+            ColumnValue::Text(vec!["Hello World".to_string()]),
+        ));
+        data.row_formulas
+            .insert("left_part".to_string(), "=LEFT(text, 5)".to_string());
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn test_left_function_scalar() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEFT(\"Hello\", 3)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_right_function_scalar() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=RIGHT(\"Hello\", 3)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_rept_function_scalar() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=REPT(\"ab\", 3)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_find_function_scalar() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "pos".to_string(),
+            Variable::new(
+                "pos".to_string(),
+                None,
+                Some("=FIND(\"lo\", \"hello\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_substitute_function_scalar() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=SUBSTITUTE(\"hello\", \"l\", \"L\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_text_function_scalar() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=TEXT(1234.5, \"0.00\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_value_function_scalar() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=VALUE(\"123.45\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_concat_text_columns() {
+        let mut model = ParsedModel::new();
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "first".to_string(),
+            ColumnValue::Text(vec!["John".to_string(), "Jane".to_string()]),
+        ));
+        data.add_column(Column::new(
+            "last".to_string(),
+            ColumnValue::Text(vec!["Doe".to_string(), "Smith".to_string()]),
+        ));
+        model.add_table(data);
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_len_scalar() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "length".to_string(),
+            Variable::new(
+                "length".to_string(),
+                None,
+                Some("=LEN(\"Hello World\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_mid_scalar() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=MID(\"Hello World\", 7, 5)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    // Additional tests for functions with low coverage (v6.0.0 Phase 2)
+
+    #[test]
+    fn test_upper_empty_string_arraycalc() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new("result".to_string(), None, Some("=UPPER(\"\")".to_string())),
+        );
+        let calculator = ArrayCalculator::new(model);
+        // Just verify calculation succeeds
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_upper_numbers_unchanged() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=UPPER(\"abc123xyz\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_upper_special_chars() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=UPPER(\"hello-world_test\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_lower_empty_string_arraycalc() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new("result".to_string(), None, Some("=LOWER(\"\")".to_string())),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_lower_numbers_unchanged() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LOWER(\"ABC123XYZ\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_lower_mixed_case() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LOWER(\"HeLLo WoRLd\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_len_empty_string_arraycalc() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new("result".to_string(), None, Some("=LEN(\"\")".to_string())),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    #[test]
+    fn test_len_with_spaces() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(\"  hello  \")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(9.0)); // includes spaces
+    }
+
+    #[test]
+    fn test_mid_boundary_cases() {
+        let mut model = ParsedModel::new();
+        // Start at position 1 (first char)
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=MID(\"Hello\", 1, 1)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_mid_beyond_string_length() {
+        let mut model = ParsedModel::new();
+        // Request more chars than available
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=MID(\"Hi\", 1, 10)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_right_boundary_cases() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=RIGHT(\"Hello\", 1)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_right_full_string() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=RIGHT(\"Hi\", 10)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_substitute_multiple_occurrences() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=SUBSTITUTE(\"aaa\", \"a\", \"b\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    fn test_substitute_no_match() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=SUBSTITUTE(\"hello\", \"x\", \"y\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let _ = calculator.calculate_all();
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_concatenate_function() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(CONCATENATE(\"Hello\", \" \", \"World\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        // CONCATENATE should work like CONCAT, result length should be 11
+        let len = result.scalars.get("result").unwrap().value.unwrap();
+        assert_eq!(len, 11.0);
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_search_function_arraycalc() {
+        let mut model = ParsedModel::new();
+        // SEARCH is case-insensitive
+        model.add_scalar(
+            "pos".to_string(),
+            Variable::new(
+                "pos".to_string(),
+                None,
+                Some("=SEARCH(\"LO\", \"hello\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let pos = result.scalars.get("pos").unwrap().value.unwrap();
+        // "LO" found at position 4 in "hello"
+        assert_eq!(pos, 4.0);
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_replace_function_arraycalc() {
+        let mut model = ParsedModel::new();
+        // REPLACE(text, start, num_chars, new_text)
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(REPLACE(\"Hello World\", 7, 5, \"Universe\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        // Should replace "World" with "Universe" = "Hello Universe" = 14 chars
+        let len = result.scalars.get("result").unwrap().value.unwrap();
+        assert_eq!(len, 14.0);
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_concatenate_multiple() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(CONCATENATE(\"A\", \"B\", \"C\", \"D\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let len = result.scalars.get("result").unwrap().value.unwrap();
+        assert_eq!(len, 4.0);
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_search_case_insensitive_arraycalc() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "pos1".to_string(),
+            Variable::new(
+                "pos1".to_string(),
+                None,
+                Some("=SEARCH(\"WORLD\", \"Hello World\")".to_string()),
+            ),
+        );
+        model.add_scalar(
+            "pos2".to_string(),
+            Variable::new(
+                "pos2".to_string(),
+                None,
+                Some("=SEARCH(\"world\", \"Hello World\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let p1 = result.scalars.get("pos1").unwrap().value.unwrap();
+        let p2 = result.scalars.get("pos2").unwrap().value.unwrap();
+        // Both should find "World" at position 7
+        assert_eq!(p1, 7.0);
+        assert_eq!(p2, 7.0);
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_replace_beginning() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(REPLACE(\"Hello\", 1, 2, \"Ya\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        // Should replace "He" with "Ya" -> "Yallo" = 5 chars
+        let len = result.scalars.get("result").unwrap().value.unwrap();
+        assert_eq!(len, 5.0);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // Tests moved from tests/text_edge_cases.rs
+    // ══════════════════════════════════════════════════════════════════════════════
+
+    // EMPTY STRING TESTS
+
+    #[test]
+    fn test_left_empty_string_edge() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(LEFT(\"\", 5))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    #[test]
+    fn test_right_empty_string_edge() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(RIGHT(\"\", 5))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    #[test]
+    fn test_mid_empty_string_edge() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(MID(\"\", 1, 5))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    #[test]
+    fn test_upper_empty_string_verified() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(UPPER(\"\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    #[test]
+    fn test_lower_empty_string_verified() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(LOWER(\"\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    #[test]
+    fn test_trim_empty_string_edge() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(TRIM(\"\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    #[test]
+    fn test_concat_empty_strings() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(CONCAT(\"\", \"\", \"\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    // OUT OF BOUNDS TESTS
+
+    #[test]
+    fn test_left_count_larger_than_string() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(LEFT(\"abc\", 100))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // Should return entire string when count exceeds length
+        assert_eq!(var.value, Some(3.0));
+    }
+
+    #[test]
+    fn test_right_count_larger_than_string() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(RIGHT(\"abc\", 100))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // Should return entire string when count exceeds length
+        assert_eq!(var.value, Some(3.0));
+    }
+
+    #[test]
+    fn test_mid_start_beyond_string_length() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(MID(\"abc\", 10, 5))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // Should return empty string when start is beyond length
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    #[test]
+    fn test_mid_length_exceeds_remaining() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(MID(\"hello\", 3, 100))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // Should return "llo" (from position 3 to end) = 3 chars
+        assert_eq!(var.value, Some(3.0));
+    }
+
+    #[test]
+    fn test_left_zero_count() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(LEFT(\"hello\", 0))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // LEFT with 0 count should return empty string
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    #[test]
+    fn test_right_zero_count() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(RIGHT(\"hello\", 0))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // RIGHT with 0 count should return empty string
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    #[test]
+    fn test_mid_zero_length() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(MID(\"hello\", 2, 0))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // MID with 0 length should return empty string
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    // NOT FOUND TESTS (ENTERPRISE ONLY)
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_find_character_not_in_string() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "pos".to_string(),
+            Variable::new(
+                "pos".to_string(),
+                None,
+                Some("=FIND(\"x\", \"abc\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        // Should return error when character not found
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_search_substring_not_found() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "pos".to_string(),
+            Variable::new(
+                "pos".to_string(),
+                None,
+                Some("=SEARCH(\"xyz\", \"abc\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        // Should return error when substring not found
+        assert!(result.is_err());
+    }
+
+    // CASE SENSITIVITY TESTS (ENTERPRISE ONLY)
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_find_case_sensitive() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "pos".to_string(),
+            Variable::new(
+                "pos".to_string(),
+                None,
+                Some("=FIND(\"H\", \"hello\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        // FIND is case-sensitive, so "H" should not be found in "hello"
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_search_case_insensitive_verified() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "pos".to_string(),
+            Variable::new(
+                "pos".to_string(),
+                None,
+                Some("=SEARCH(\"HELLO\", \"hello world\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("pos").unwrap();
+        // SEARCH is case-insensitive, should find at position 1
+        assert_eq!(var.value, Some(1.0));
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_find_with_start_position() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "pos".to_string(),
+            Variable::new(
+                "pos".to_string(),
+                None,
+                Some("=FIND(\"o\", \"hello world\", 6)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("pos").unwrap();
+        // Should find the second "o" at position 8
+        assert_eq!(var.value, Some(8.0));
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_search_with_start_position() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "pos".to_string(),
+            Variable::new(
+                "pos".to_string(),
+                None,
+                Some("=SEARCH(\"L\", \"hello world\", 4)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("pos").unwrap();
+        // Should find "l" at position 4 (case insensitive)
+        assert_eq!(var.value, Some(4.0));
+    }
+
+    // SPECIAL CHARACTERS TESTS
+
+    #[test]
+    fn test_trim_multiple_spaces() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(TRIM(\"     hello     \"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(5.0));
+    }
+
+    #[test]
+    fn test_trim_tabs_and_newlines() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(TRIM(\"\t\nhello\t\n\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(5.0));
+    }
+
+    #[test]
+    fn test_trim_only_spaces_edge() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(TRIM(\"     \"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // All spaces should be trimmed, leaving empty string
+        assert_eq!(var.value, Some(0.0));
+    }
+
+    #[test]
+    fn test_len_special_characters() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(\"!@#$%^&*()\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(10.0));
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_substitute_with_special_chars() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(SUBSTITUTE(\"a-b-c\", \"-\", \"_\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(5.0));
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_substitute_empty_old_text() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(SUBSTITUTE(\"hello\", \"\", \"x\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // Substituting empty string should return original
+        assert_eq!(var.value, Some(5.0));
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_substitute_no_replacement_needed() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(SUBSTITUTE(\"abc\", \"xyz\", \"123\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // No match, should return original string
+        assert_eq!(var.value, Some(3.0));
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_replace_entire_string() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(REPLACE(\"hello\", 1, 5, \"world\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // Replace all characters
+        assert_eq!(var.value, Some(5.0));
+    }
+
+    // UNICODE TESTS
+
+    #[test]
+    fn test_len_unicode_characters() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(\"hello\u{4e16}\u{754c}\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // "hello" = 5 chars + 2 unicode chars = 7 total
+        assert_eq!(var.value, Some(7.0));
+    }
+
+    #[test]
+    fn test_left_with_unicode() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(LEFT(\"hello\u{4e16}\u{754c}\", 6))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(6.0));
+    }
+
+    #[test]
+    fn test_right_with_unicode() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(RIGHT(\"hello\u{4e16}\u{754c}\", 3))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(3.0));
+    }
+
+    #[test]
+    fn test_mid_with_unicode() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(MID(\"hello\u{4e16}\u{754c}\", 5, 3))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // Starting at position 5 ("o"), take 3 chars
+        assert_eq!(var.value, Some(3.0));
+    }
+
+    // MIXED TYPES TESTS
+
+    #[test]
+    fn test_concat_mixed_types() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "num".to_string(),
+            Variable::new("num".to_string(), Some(42.0), None),
+        );
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(CONCAT(\"The answer is \", num))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(16.0));
+    }
+
+    #[test]
+    fn test_upper_with_numbers_edge() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(UPPER(\"test123\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // Numbers should remain unchanged
+        assert_eq!(var.value, Some(7.0));
+    }
+
+    #[test]
+    fn test_lower_with_numbers_edge() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(LOWER(\"TEST123\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        // Numbers should remain unchanged
+        assert_eq!(var.value, Some(7.0));
+    }
+
+    // VALUE FUNCTION TESTS (ENTERPRISE ONLY)
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_value_with_thousand_separators() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=VALUE(\"1,234,567\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(1234567.0));
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_value_with_whitespace() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=VALUE(\"   100.5   \")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(100.5));
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_value_invalid_text() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=VALUE(\"not a number\")".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        // Should return error for invalid number text
+        assert!(result.is_err());
+    }
+
+    // TEXT FUNCTION TESTS (ENTERPRISE ONLY)
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_text_percentage_format() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(TEXT(0.5, \"0%\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(3.0)); // "50%"
+    }
+
+    #[test]
+    #[cfg(not(feature = "demo"))]
+    fn test_text_decimal_format() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(TEXT(123.456, \"0.00\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(6.0)); // "123.46"
+    }
+
+    // REPT FUNCTION TESTS
+
+    #[test]
+    fn test_rept_multiple_times() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(REPT(\"ab\", 5))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(10.0)); // "ab" * 5 = "ababababab" = 10 chars
+    }
+
+    #[test]
+    fn test_rept_zero_times() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(REPT(\"hello\", 0))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(0.0)); // Empty string
+    }
+
+    #[test]
+    fn test_rept_once() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(REPT(\"test\", 1))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let var = result.scalars.get("result").unwrap();
+        assert_eq!(var.value, Some(4.0)); // "test" = 4 chars
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // Tests moved from tests/string_edge_cases.rs
+    // ══════════════════════════════════════════════════════════════════════════════
+
+    // CONCATENATION
+
+    #[test]
+    fn test_concat_with_spaces_string() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(CONCAT(\"Hello\", \" \", \"World\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(11.0));
+    }
+
+    #[test]
+    fn test_concat_function_string() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(CONCAT(\"ab\", \"cd\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(4.0));
+    }
+
+    // EMPTY STRING HANDLING
+
+    #[test]
+    fn test_empty_string() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new("result".to_string(), None, Some("=LEN(\"\")".to_string())),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(0.0));
+    }
+
+    #[test]
+    fn test_single_space() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new("result".to_string(), None, Some("=LEN(\" \")".to_string())),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(1.0));
+    }
+
+    // LEFT/RIGHT EDGE CASES
+
+    #[test]
+    fn test_left_empty_string_string() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(LEFT(\"\", 5))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(0.0));
+    }
+
+    #[test]
+    fn test_right_empty_string_string() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(RIGHT(\"\", 5))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(0.0));
+    }
+
+    #[test]
+    fn test_left_partial() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(LEFT(\"Hello\", 3))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(3.0));
+    }
+
+    #[test]
+    fn test_right_partial() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(RIGHT(\"Hello\", 3))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(3.0));
+    }
+
+    // MID EDGE CASES
+
+    #[test]
+    fn test_mid_from_start() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(MID(\"test\", 1, 2))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(2.0));
+    }
+
+    #[test]
+    fn test_mid_from_middle() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(MID(\"test\", 2, 2))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(2.0));
+    }
+
+    // TRIM BEHAVIOR
+
+    #[test]
+    fn test_trim_internal_spaces() {
+        // Excel TRIM collapses multiple internal spaces to single space
+        // "  a  b  " -> "a b" (length 3)
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(TRIM(\"  a  b  \"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(3.0));
+    }
+
+    #[test]
+    fn test_trim_only_spaces_string() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(TRIM(\"   \"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(0.0));
+    }
+
+    // UPPER/LOWER
+
+    #[test]
+    fn test_upper_length() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(UPPER(\"abc\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(3.0));
+    }
+
+    #[test]
+    fn test_lower_length() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(LOWER(\"ABC\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(3.0));
+    }
+
+    // REPT FUNCTION
+
+    #[test]
+    fn test_rept_single_char() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(REPT(\"x\", 5))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(5.0));
+    }
+
+    #[test]
+    fn test_rept_multi_char() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=LEN(REPT(\"ab\", 3))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(6.0));
     }
 }

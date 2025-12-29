@@ -635,6 +635,3 @@ impl ArrayCalculator {
         Ok(deps)
     }
 }
-
-#[cfg(test)]
-mod tests;

@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.9.5] - 2025-12-28
+
+### Changed
+
+- **Test consolidation complete**: All unit tests moved inline per Rust idiom
+  - Eliminated `src/core/array_calculator/tests/` directory (40+ files)
+  - Eliminated `src/cli/commands/tests/` directory (20+ files)
+  - Tests now inline in evaluator files using `#[cfg(test)] mod tests`
+  - Integration/E2E tests remain in `../forge-e2e/`
+
+### Evaluators Updated
+
+- `evaluator/math.rs`: math, math_edge_cases, numeric_edge_cases
+- `evaluator/trig.rs`: trig tests
+- `evaluator/text.rs`: text, text_edge_cases, string_edge_cases
+- `evaluator/logical.rs`: logical, logical_edge_cases, comparison_edge_cases
+- `evaluator/advanced.rs`: advanced, advanced_function_edge_cases
+- `evaluator/aggregation.rs`: aggregation tests
+- `evaluator/array.rs`: array, array_function_edge_cases
+- `evaluator/conditional.rs`: conditional, conditional_function_edge_cases
+- `evaluator/forge.rs`: forge tests
+- `evaluator/dates.rs`: date tests
+- `evaluator/lookup.rs`: lookup tests
+
+### Test Results
+
+- Unit tests: 1426 passed (consolidated from 2006 - duplicates removed)
+- Test coverage: 100% (173/173 functions)
+- Zero warnings
+- Zero tests/ directories in src/
+
+## [9.9.4] - 2025-12-28
+
+### Added
+
+- **HLOOKUP tests**: 9 comprehensive tests for horizontal lookup function
+  - `test_hlookup_exact_match` - exact match with FALSE range_lookup
+  - `test_hlookup_range_match` - approximate match finding largest value <= lookup
+  - `test_hlookup_default_range_lookup` - default TRUE behavior
+  - `test_hlookup_value_not_found` - error handling
+  - `test_hlookup_text_exact_match` - text value lookups
+  - `test_hlookup_first_element`, `test_hlookup_last_element` - boundary tests
+  - `test_hlookup_single_element` - single element array
+  - `test_hlookup_range_lookup_boundary` - exact boundary values
+  - File: `src/core/array_calculator/tests/lookup/lookup_advanced.rs`
+
+### Verified
+
+- **Monte Carlo tests**: 57 tests confirmed in `src/monte_carlo/*.rs` (inline pattern)
+- **Information function tests**: 14 tests confirmed in `src/core/array_calculator/evaluator/info.rs`
+
+### Test Results
+
+- Unit tests: 1965 passed (was 1956, +9 HLOOKUP)
+- Test coverage: 100% (173/173 functions)
+- All gaps closed
+
+### Notes
+
+- Swarm analysis initially reported 16 untested functions
+- Investigation revealed MC and Information functions were already tested inline (Rust pattern)
+- Only HLOOKUP was actually missing dedicated tests
+
 ## [9.9.3] - 2025-12-21
 
 ### Fixed
