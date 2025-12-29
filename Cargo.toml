@@ -50,7 +50,7 @@ serde_json = "1.0"  # JSON handling for schema validation
 xlformula_engine = "0.1.18"
 
 # JSON Schema validation (v1.0.0 array model)
-jsonschema = "0.37"
+jsonschema = "0.38"
 
 # CLI
 clap = { version = "4.5.53", features = ["derive", "env"] }

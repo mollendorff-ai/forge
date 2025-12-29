@@ -569,6 +569,12 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
+    // Additional imports for ArrayCalculator-based tests
+    #[allow(unused_imports)]
+    use crate::core::array_calculator::ArrayCalculator;
+    #[allow(unused_imports)]
+    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+
     #[test]
     fn test_index_function() {
         let mut ctx = EvalContext::new();
@@ -735,5 +741,2080 @@ mod tests {
             eval("OFFSET(t.col, 1, 0)", &ctx).unwrap(),
             Value::Number(20.0)
         );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // Tests from lookup_basic.rs
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_match_exact() {
+        let mut model = ParsedModel::new();
+        let mut products = Table::new("products".to_string());
+        products.add_column(Column::new(
+            "product_id".to_string(),
+            ColumnValue::Number(vec![101.0, 102.0, 103.0, 104.0]),
+        ));
+        products.add_column(Column::new(
+            "product_name".to_string(),
+            ColumnValue::Text(vec![
+                "Widget A".to_string(),
+                "Widget B".to_string(),
+                "Widget C".to_string(),
+                "Widget D".to_string(),
+            ]),
+        ));
+        model.add_table(products);
+        let mut sales = Table::new("sales".to_string());
+        sales.add_column(Column::new(
+            "lookup_id".to_string(),
+            ColumnValue::Number(vec![102.0, 104.0, 101.0]),
+        ));
+        sales.add_row_formula(
+            "position".to_string(),
+            "=MATCH(lookup_id, products.product_id, 0)".to_string(),
+        );
+        model.add_table(sales);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("sales").unwrap();
+
+        let position = result_table.columns.get("position").unwrap();
+        match &position.values {
+            ColumnValue::Number(nums) => {
+                assert_eq!(nums[0], 2.0);
+                assert_eq!(nums[1], 4.0);
+                assert_eq!(nums[2], 1.0);
+            },
+            _ => panic!("Expected Number array"),
+        }
+    }
+
+    #[test]
+    fn test_index_basic() {
+        let mut model = ParsedModel::new();
+        let mut products = Table::new("products".to_string());
+        products.add_column(Column::new(
+            "product_name".to_string(),
+            ColumnValue::Text(vec![
+                "Widget A".to_string(),
+                "Widget B".to_string(),
+                "Widget C".to_string(),
+            ]),
+        ));
+        model.add_table(products);
+
+        let mut test = Table::new("test".to_string());
+        test.add_column(Column::new(
+            "index".to_string(),
+            ColumnValue::Number(vec![1.0, 3.0, 2.0]),
+        ));
+        test.add_row_formula(
+            "name".to_string(),
+            "=INDEX(products.product_name, index)".to_string(),
+        );
+        model.add_table(test);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("test").unwrap();
+
+        let name = result_table.columns.get("name").unwrap();
+        match &name.values {
+            ColumnValue::Text(texts) => {
+                assert_eq!(texts[0], "Widget A");
+                assert_eq!(texts[1], "Widget C");
+                assert_eq!(texts[2], "Widget B");
+            },
+            _ => panic!("Expected Text array"),
+        }
+    }
+
+    #[test]
+    fn test_index_match_combined() {
+        let mut model = ParsedModel::new();
+
+        let mut products = Table::new("products".to_string());
+        products.add_column(Column::new(
+            "product_id".to_string(),
+            ColumnValue::Number(vec![101.0, 102.0, 103.0]),
+        ));
+        products.add_column(Column::new(
+            "product_name".to_string(),
+            ColumnValue::Text(vec![
+                "Widget A".to_string(),
+                "Widget B".to_string(),
+                "Widget C".to_string(),
+            ]),
+        ));
+        products.add_column(Column::new(
+            "price".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(products);
+
+        let mut sales = Table::new("sales".to_string());
+        sales.add_column(Column::new(
+            "product_id".to_string(),
+            ColumnValue::Number(vec![102.0, 101.0, 103.0]),
+        ));
+        sales.add_row_formula(
+            "product_name".to_string(),
+            "=INDEX(products.product_name, MATCH(product_id, products.product_id, 0))".to_string(),
+        );
+        sales.add_row_formula(
+            "price".to_string(),
+            "=INDEX(products.price, MATCH(product_id, products.product_id, 0))".to_string(),
+        );
+        model.add_table(sales);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("sales").unwrap();
+
+        let product_name = result_table.columns.get("product_name").unwrap();
+        match &product_name.values {
+            ColumnValue::Text(texts) => {
+                assert_eq!(texts[0], "Widget B");
+                assert_eq!(texts[1], "Widget A");
+                assert_eq!(texts[2], "Widget C");
+            },
+            _ => panic!("Expected Text array"),
+        }
+
+        let price = result_table.columns.get("price").unwrap();
+        match &price.values {
+            ColumnValue::Number(nums) => {
+                assert_eq!(nums[0], 20.0);
+                assert_eq!(nums[1], 10.0);
+                assert_eq!(nums[2], 30.0);
+            },
+            _ => panic!("Expected Number array"),
+        }
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_xlookup_exact_match() {
+        let mut model = ParsedModel::new();
+
+        let mut products = Table::new("products".to_string());
+        products.add_column(Column::new(
+            "product_id".to_string(),
+            ColumnValue::Number(vec![101.0, 102.0, 103.0]),
+        ));
+        products.add_column(Column::new(
+            "product_name".to_string(),
+            ColumnValue::Text(vec![
+                "Widget A".to_string(),
+                "Widget B".to_string(),
+                "Widget C".to_string(),
+            ]),
+        ));
+        model.add_table(products);
+
+        let mut sales = Table::new("sales".to_string());
+        sales.add_column(Column::new(
+            "product_id".to_string(),
+            ColumnValue::Number(vec![102.0, 103.0, 101.0]),
+        ));
+        sales.add_row_formula(
+            "product_name".to_string(),
+            "=XLOOKUP(product_id, products.product_id, products.product_name)".to_string(),
+        );
+        model.add_table(sales);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("sales").unwrap();
+
+        let product_name = result_table.columns.get("product_name").unwrap();
+        match &product_name.values {
+            ColumnValue::Text(texts) => {
+                assert_eq!(texts[0], "Widget B");
+                assert_eq!(texts[1], "Widget C");
+                assert_eq!(texts[2], "Widget A");
+            },
+            _ => panic!("Expected Text array"),
+        }
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_xlookup_with_if_not_found() {
+        let mut model = ParsedModel::new();
+
+        let mut products = Table::new("products".to_string());
+        products.add_column(Column::new(
+            "product_id".to_string(),
+            ColumnValue::Number(vec![101.0, 102.0, 103.0]),
+        ));
+        products.add_column(Column::new(
+            "product_name".to_string(),
+            ColumnValue::Text(vec![
+                "Widget A".to_string(),
+                "Widget B".to_string(),
+                "Widget C".to_string(),
+            ]),
+        ));
+        model.add_table(products);
+
+        let mut sales = Table::new("sales".to_string());
+        sales.add_column(Column::new(
+            "product_id".to_string(),
+            ColumnValue::Number(vec![102.0, 999.0, 101.0]),
+        ));
+        sales.add_row_formula(
+            "product_name".to_string(),
+            "=XLOOKUP(product_id, products.product_id, products.product_name, \"Not Found\")"
+                .to_string(),
+        );
+        model.add_table(sales);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let result_table = result.tables.get("sales").unwrap();
+
+        let product_name = result_table.columns.get("product_name").unwrap();
+        match &product_name.values {
+            ColumnValue::Text(texts) => {
+                assert_eq!(texts[0], "Widget B");
+                assert_eq!(texts[1], "Not Found");
+                assert_eq!(texts[2], "Widget A");
+            },
+            _ => panic!("Expected Text array"),
+        }
+    }
+
+    #[test]
+    fn test_choose_function() {
+        let mut model = ParsedModel::new();
+
+        model.add_scalar(
+            "chosen_rate".to_string(),
+            Variable::new(
+                "chosen_rate".to_string(),
+                None,
+                Some("=CHOOSE(2, 0.05, 0.10, 0.02)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+        let rate = result.scalars.get("chosen_rate").unwrap().value.unwrap();
+
+        assert!(
+            (rate - 0.10).abs() < 0.001,
+            "CHOOSE(2, ...) should return 0.10, got {rate}"
+        );
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_indirect_function() {
+        let mut model = ParsedModel::new();
+
+        let mut sales = Table::new("sales".to_string());
+        sales.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0, 400.0, 500.0]),
+        ));
+        model.add_table(sales);
+
+        model.add_scalar(
+            "inputs.rate".to_string(),
+            Variable::new("inputs.rate".to_string(), Some(0.1), None),
+        );
+
+        model.add_scalar(
+            "sum_indirect".to_string(),
+            Variable::new(
+                "sum_indirect".to_string(),
+                None,
+                Some("=SUM(INDIRECT(\"sales.revenue\"))".to_string()),
+            ),
+        );
+
+        model.add_scalar(
+            "rate_indirect".to_string(),
+            Variable::new(
+                "rate_indirect".to_string(),
+                None,
+                Some("=INDIRECT(\"inputs.rate\") * 100".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator
+            .calculate_all()
+            .expect("Calculation should succeed");
+
+        let sum = result.scalars.get("sum_indirect").unwrap().value.unwrap();
+        assert!(
+            (sum - 1500.0).abs() < 0.001,
+            "INDIRECT column SUM should return 1500, got {sum}"
+        );
+
+        let rate = result.scalars.get("rate_indirect").unwrap().value.unwrap();
+        assert!(
+            (rate - 10.0).abs() < 0.001,
+            "INDIRECT scalar should return 10, got {rate}"
+        );
+    }
+
+    #[test]
+    fn test_index_function_basic() {
+        let mut model = ParsedModel::new();
+
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0, 40.0, 50.0]),
+        ));
+        model.add_table(table);
+
+        model.add_scalar(
+            "third".to_string(),
+            Variable::new(
+                "third".to_string(),
+                None,
+                Some("=INDEX(data.values, 3)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+
+        let val = result.scalars.get("third").unwrap().value.unwrap();
+        assert!((val - 30.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_match_function_basic() {
+        let mut model = ParsedModel::new();
+
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0, 40.0, 50.0]),
+        ));
+        model.add_table(table);
+
+        model.add_scalar(
+            "pos".to_string(),
+            Variable::new(
+                "pos".to_string(),
+                None,
+                Some("=MATCH(30, data.values, 0)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+
+        let val = result.scalars.get("pos").unwrap().value.unwrap();
+        assert!((val - 3.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_array_index_access() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "first".to_string(),
+            Variable::new(
+                "first".to_string(),
+                None,
+                Some("=data.values[0]".to_string()),
+            ),
+        );
+        model.add_scalar(
+            "last".to_string(),
+            Variable::new(
+                "last".to_string(),
+                None,
+                Some("=data.values[2]".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+
+        assert!((result.scalars.get("first").unwrap().value.unwrap() - 10.0).abs() < 0.01);
+        assert!((result.scalars.get("last").unwrap().value.unwrap() - 30.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_match_text_exact() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "names".to_string(),
+            ColumnValue::Text(vec![
+                "Apple".to_string(),
+                "Banana".to_string(),
+                "Cherry".to_string(),
+            ]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "pos".to_string(),
+            Variable::new(
+                "pos".to_string(),
+                None,
+                Some("=MATCH(\"Banana\", data.names, 0)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+
+        let pos = result.scalars.get("pos").unwrap().value.unwrap();
+        assert!((pos - 2.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_index_single_column() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "second".to_string(),
+            Variable::new(
+                "second".to_string(),
+                None,
+                Some("=INDEX(data.values, 2)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+
+        let second = result.scalars.get("second").unwrap().value.unwrap();
+        assert!((second - 200.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_choose_rowwise() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "index".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        data.row_formulas.insert(
+            "result".to_string(),
+            "=CHOOSE(index, 100, 200, 300)".to_string(),
+        );
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+
+        let col = result
+            .tables
+            .get("data")
+            .unwrap()
+            .columns
+            .get("result")
+            .unwrap();
+        if let ColumnValue::Number(values) = &col.values {
+            assert_eq!(values[0], 100.0);
+            assert_eq!(values[1], 200.0);
+            assert_eq!(values[2], 300.0);
+        }
+    }
+
+    #[test]
+    fn test_cross_table_row_count_mismatch_error() {
+        let mut model = ParsedModel::new();
+
+        let mut table1 = Table::new("table1".to_string());
+        table1.add_column(Column::new(
+            "a".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        model.add_table(table1);
+
+        let mut table2 = Table::new("table2".to_string());
+        table2.add_column(Column::new(
+            "x".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0]),
+        ));
+        table2
+            .row_formulas
+            .insert("result".to_string(), "=table1.a + x".to_string());
+        model.add_table(table2);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("rows"));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_offset_function_basic() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0, 40.0, 50.0]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "offset_sum".to_string(),
+            Variable::new(
+                "offset_sum".to_string(),
+                None,
+                Some("=SUM(OFFSET(data.values, 1, 3))".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(
+            result.is_ok(),
+            "OFFSET function should calculate successfully"
+        );
+        let model_result = result.unwrap();
+        let val = model_result
+            .scalars
+            .get("offset_sum")
+            .unwrap()
+            .value
+            .unwrap();
+        assert_eq!(val, 20.0);
+    }
+
+    #[test]
+    fn test_column_row_count_mismatch_local() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "a".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        data.columns.insert(
+            "b".to_string(),
+            Column::new("b".to_string(), ColumnValue::Number(vec![10.0, 20.0])),
+        );
+        data.row_formulas
+            .insert("result".to_string(), "=a + b".to_string());
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_match_exact_match_found() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("products".to_string());
+        lookup_table.add_column(Column::new(
+            "name".to_string(),
+            ColumnValue::Text(vec![
+                "Apple".to_string(),
+                "Banana".to_string(),
+                "Cherry".to_string(),
+            ]),
+        ));
+        lookup_table.add_column(Column::new(
+            "price".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "search".to_string(),
+            ColumnValue::Text(vec!["Banana".to_string()]),
+        ));
+        data.row_formulas.insert(
+            "position".to_string(),
+            "=MATCH(search, products.name, 0)".to_string(),
+        );
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_ok());
+        let model = result.unwrap();
+        let table = model.tables.get("data").unwrap();
+        if let Some(col) = table.columns.get("position") {
+            if let ColumnValue::Number(vals) = &col.values {
+                assert_eq!(vals[0], 2.0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_match_exact_match_not_found() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("products".to_string());
+        lookup_table.add_column(Column::new(
+            "name".to_string(),
+            ColumnValue::Text(vec!["Apple".to_string(), "Banana".to_string()]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "search".to_string(),
+            ColumnValue::Text(vec!["Orange".to_string()]),
+        ));
+        data.row_formulas.insert(
+            "position".to_string(),
+            "=MATCH(search, products.name, 0)".to_string(),
+        );
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_match_less_than_or_equal_ascending() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("ranges".to_string());
+        lookup_table.add_column(Column::new(
+            "threshold".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0, 40.0]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "value".to_string(),
+            ColumnValue::Number(vec![25.0]),
+        ));
+        data.row_formulas.insert(
+            "position".to_string(),
+            "=MATCH(value, ranges.threshold, 1)".to_string(),
+        );
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_ok());
+        let model = result.unwrap();
+        let table = model.tables.get("data").unwrap();
+        if let Some(col) = table.columns.get("position") {
+            if let ColumnValue::Number(vals) = &col.values {
+                assert_eq!(vals[0], 2.0);
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // Tests from lookup_advanced.rs
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_match_greater_than_or_equal_descending() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("ranges".to_string());
+        lookup_table.add_column(Column::new(
+            "threshold".to_string(),
+            ColumnValue::Number(vec![40.0, 30.0, 20.0, 10.0]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "value".to_string(),
+            ColumnValue::Number(vec![25.0]),
+        ));
+        data.row_formulas.insert(
+            "position".to_string(),
+            "=MATCH(value, ranges.threshold, -1)".to_string(),
+        );
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_ok());
+        let model = result.unwrap();
+        let table = model.tables.get("data").unwrap();
+        if let Some(col) = table.columns.get("position") {
+            if let ColumnValue::Number(vals) = &col.values {
+                assert_eq!(vals[0], 2.0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_match_invalid_match_type() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("ranges".to_string());
+        lookup_table.add_column(Column::new(
+            "value".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "search".to_string(),
+            ColumnValue::Number(vec![15.0]),
+        ));
+        data.row_formulas.insert(
+            "position".to_string(),
+            "=MATCH(search, ranges.value, 2)".to_string(),
+        );
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_index_bounds_error() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("items".to_string());
+        lookup_table.add_column(Column::new(
+            "value".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "idx".to_string(),
+            ColumnValue::Number(vec![10.0]),
+        ));
+        data.row_formulas
+            .insert("result".to_string(), "=INDEX(items.value, idx)".to_string());
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_index_zero_row_num() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("items".to_string());
+        lookup_table.add_column(Column::new(
+            "value".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "idx".to_string(),
+            ColumnValue::Number(vec![0.0]),
+        ));
+        data.row_formulas
+            .insert("result".to_string(), "=INDEX(items.value, idx)".to_string());
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_err());
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_vlookup_exact_match() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("products".to_string());
+        lookup_table.add_column(Column::new(
+            "id".to_string(),
+            ColumnValue::Number(vec![101.0, 102.0, 103.0]),
+        ));
+        lookup_table.add_column(Column::new(
+            "name".to_string(),
+            ColumnValue::Text(vec![
+                "Apple".to_string(),
+                "Banana".to_string(),
+                "Cherry".to_string(),
+            ]),
+        ));
+        lookup_table.add_column(Column::new(
+            "price".to_string(),
+            ColumnValue::Number(vec![1.50, 0.75, 3.00]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "search_id".to_string(),
+            ColumnValue::Number(vec![102.0]),
+        ));
+        data.row_formulas.insert(
+            "found_price".to_string(),
+            "=VLOOKUP(search_id, products, 3, FALSE)".to_string(),
+        );
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        if let Err(err) = result {
+            let err_msg = err.to_string();
+            assert!(
+                err_msg.contains("VLOOKUP")
+                    || err_msg.contains("table")
+                    || err_msg.contains("Unknown variable")
+                    || err_msg.contains("products"),
+                "VLOOKUP should error with meaningful message, got: {err_msg}"
+            );
+        } else {
+            let model_result = result.unwrap();
+            let table = model_result.tables.get("data").unwrap();
+            if let Some(col) = table.columns.get("found_price") {
+                if let ColumnValue::Number(vals) = &col.values {
+                    assert_eq!(vals[0], 0.75);
+                }
+            }
+        }
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_xlookup_employee_salary() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("employees".to_string());
+        lookup_table.add_column(Column::new(
+            "id".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        lookup_table.add_column(Column::new(
+            "salary".to_string(),
+            ColumnValue::Number(vec![50000.0, 60000.0, 70000.0]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "emp_id".to_string(),
+            ColumnValue::Number(vec![2.0]),
+        ));
+        data.row_formulas.insert(
+            "emp_salary".to_string(),
+            "=XLOOKUP(emp_id, employees.id, employees.salary, 0, 0)".to_string(),
+        );
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_ok());
+        let model = result.unwrap();
+        let table = model.tables.get("data").unwrap();
+        if let Some(col) = table.columns.get("emp_salary") {
+            if let ColumnValue::Number(vals) = &col.values {
+                assert_eq!(vals[0], 60000.0);
+            }
+        }
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_xlookup_default_value() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("employees".to_string());
+        lookup_table.add_column(Column::new(
+            "id".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0]),
+        ));
+        lookup_table.add_column(Column::new(
+            "salary".to_string(),
+            ColumnValue::Number(vec![50000.0, 60000.0]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "emp_id".to_string(),
+            ColumnValue::Number(vec![99.0]),
+        ));
+        data.row_formulas.insert(
+            "emp_salary".to_string(),
+            "=XLOOKUP(emp_id, employees.id, employees.salary, -1, 0)".to_string(),
+        );
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_ok());
+        let model = result.unwrap();
+        let table = model.tables.get("data").unwrap();
+        if let Some(col) = table.columns.get("emp_salary") {
+            if let ColumnValue::Number(vals) = &col.values {
+                assert_eq!(vals[0], -1.0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_match_no_value_found_ascending() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("ranges".to_string());
+        lookup_table.add_column(Column::new(
+            "threshold".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "value".to_string(),
+            ColumnValue::Number(vec![50.0]),
+        ));
+        data.row_formulas.insert(
+            "position".to_string(),
+            "=MATCH(value, ranges.threshold, 1)".to_string(),
+        );
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_match_no_value_found_descending() {
+        let mut model = ParsedModel::new();
+
+        let mut lookup_table = Table::new("ranges".to_string());
+        lookup_table.add_column(Column::new(
+            "threshold".to_string(),
+            ColumnValue::Number(vec![300.0, 200.0, 100.0]),
+        ));
+        model.add_table(lookup_table);
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "value".to_string(),
+            ColumnValue::Number(vec![500.0]),
+        ));
+        data.row_formulas.insert(
+            "position".to_string(),
+            "=MATCH(value, ranges.threshold, -1)".to_string(),
+        );
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_err());
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_indirect_function_v2() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "indirect_val".to_string(),
+            Variable::new(
+                "indirect_val".to_string(),
+                None,
+                Some("=SUM(INDIRECT(\"data.values\"))".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(
+            result.is_ok(),
+            "INDIRECT function should calculate successfully"
+        );
+        let model_result = result.unwrap();
+        let val = model_result
+            .scalars
+            .get("indirect_val")
+            .unwrap()
+            .value
+            .unwrap();
+        assert_eq!(val, 60.0);
+    }
+
+    #[test]
+    fn test_choose_function_v2() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "idx".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        data.row_formulas
+            .insert("chosen".to_string(), "=CHOOSE(idx, 10, 20, 30)".to_string());
+        model.add_table(data);
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(
+            result.is_ok(),
+            "CHOOSE function should calculate successfully"
+        );
+        let model_result = result.unwrap();
+        let table = model_result.tables.get("data").unwrap();
+        if let Some(col) = table.columns.get("chosen") {
+            if let ColumnValue::Number(vals) = &col.values {
+                assert_eq!(vals[0], 10.0);
+                assert_eq!(vals[1], 20.0);
+                assert_eq!(vals[2], 30.0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_choose_valid_index() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=CHOOSE(2, 100, 200, 300)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(result.is_ok(), "CHOOSE with valid index should succeed");
+        let model_result = result.unwrap();
+        let val = model_result.scalars.get("result").unwrap().value.unwrap();
+        assert_eq!(val, 200.0);
+    }
+
+    #[test]
+    fn test_choose_index_out_of_range() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=CHOOSE(10, 100, 200, 300)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(
+            result.is_err(),
+            "CHOOSE with index 10 out of range [1-3] should error"
+        );
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_indirect_table_column() {
+        let mut model = ParsedModel::new();
+        let mut data = Table::new("sales".to_string());
+        data.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.add_table(data);
+        model.add_scalar(
+            "total".to_string(),
+            Variable::new(
+                "total".to_string(),
+                None,
+                Some("=SUM(INDIRECT(\"sales.revenue\"))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(
+            result.is_ok(),
+            "INDIRECT table column should calculate successfully"
+        );
+        let model_result = result.unwrap();
+        let val = model_result.scalars.get("total").unwrap().value.unwrap();
+        assert_eq!(val, 600.0);
+    }
+
+    #[test]
+    fn test_array_index_out_of_bounds() {
+        let mut model = ParsedModel::new();
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        model.add_table(data);
+        model.add_scalar(
+            "val".to_string(),
+            Variable::new(
+                "val".to_string(),
+                None,
+                Some("=data.values[100]".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(
+            result.is_err(),
+            "Array index [100] out of bounds [0-2] should error"
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // Tests from lookup_xlookup.rs
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_index_match_combination() {
+        let mut model = ParsedModel::new();
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "names".to_string(),
+            ColumnValue::Text(vec![
+                "Alice".to_string(),
+                "Bob".to_string(),
+                "Carol".to_string(),
+            ]),
+        ));
+        data.add_column(Column::new(
+            "scores".to_string(),
+            ColumnValue::Number(vec![85.0, 92.0, 78.0]),
+        ));
+        model.add_table(data);
+        model.add_scalar(
+            "score".to_string(),
+            Variable::new(
+                "score".to_string(),
+                None,
+                Some("=INDEX(data.scores, MATCH(\"Bob\", data.names, 0))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(
+            result.is_ok(),
+            "INDEX/MATCH combination should calculate successfully"
+        );
+        let model_result = result.unwrap();
+        let val = model_result.scalars.get("score").unwrap().value.unwrap();
+        assert_eq!(val, 92.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_xlookup_not_found_fallback() {
+        let mut model = ParsedModel::new();
+        let mut data = Table::new("items".to_string());
+        data.add_column(Column::new(
+            "code".to_string(),
+            ColumnValue::Text(vec!["A1".to_string(), "B2".to_string(), "C3".to_string()]),
+        ));
+        data.add_column(Column::new(
+            "value".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.add_table(data);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=XLOOKUP(\"D4\", items.code, items.value, -1)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(
+            result.is_ok(),
+            "XLOOKUP not found fallback should calculate successfully"
+        );
+        let model_result = result.unwrap();
+        let val = model_result.scalars.get("result").unwrap().value.unwrap();
+        assert_eq!(val, -1.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_row_function_basic() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "row_num".to_string(),
+            Variable::new("row_num".to_string(), None, Some("=ROW()".to_string())),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("row_num").unwrap().value.unwrap();
+        assert_eq!(val, 1.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_row_function_in_expression() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "calc".to_string(),
+            Variable::new("calc".to_string(), None, Some("=ROW() * 10".to_string())),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("calc").unwrap().value.unwrap();
+        assert_eq!(val, 10.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_column_function_basic() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "col_num".to_string(),
+            Variable::new("col_num".to_string(), None, Some("=COLUMN()".to_string())),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("col_num").unwrap().value.unwrap();
+        assert_eq!(val, 1.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_column_function_in_expression() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "calc".to_string(),
+            Variable::new("calc".to_string(), None, Some("=COLUMN() + 5".to_string())),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("calc").unwrap().value.unwrap();
+        assert_eq!(val, 6.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_rows_function_basic() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0, 40.0, 50.0]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "row_count".to_string(),
+            Variable::new(
+                "row_count".to_string(),
+                None,
+                Some("=ROWS(data.values)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("row_count").unwrap().value.unwrap();
+        assert_eq!(val, 5.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_rows_function_single_element() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "value".to_string(),
+            ColumnValue::Number(vec![42.0]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "row_count".to_string(),
+            Variable::new(
+                "row_count".to_string(),
+                None,
+                Some("=ROWS(data.value)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("row_count").unwrap().value.unwrap();
+        assert_eq!(val, 1.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_rows_function_in_calculation() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "items".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "calc".to_string(),
+            Variable::new(
+                "calc".to_string(),
+                None,
+                Some("=ROWS(data.items) * 10".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("calc").unwrap().value.unwrap();
+        assert_eq!(val, 30.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_columns_function_single_column() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "col_count".to_string(),
+            Variable::new(
+                "col_count".to_string(),
+                None,
+                Some("=COLUMNS(data.values)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("col_count").unwrap().value.unwrap();
+        assert_eq!(val, 1.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_address_absolute() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "cell_ref".to_string(),
+            Variable::new(
+                "cell_ref".to_string(),
+                None,
+                Some("=LEN(ADDRESS(1, 1))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("cell_ref").unwrap().value.unwrap();
+        assert_eq!(val, 4.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_address_b2() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "cell_ref".to_string(),
+            Variable::new(
+                "cell_ref".to_string(),
+                None,
+                Some("=LEN(ADDRESS(2, 2))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("cell_ref").unwrap().value.unwrap();
+        assert_eq!(val, 4.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_address_relative() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "cell_ref".to_string(),
+            Variable::new(
+                "cell_ref".to_string(),
+                None,
+                Some("=LEN(ADDRESS(1, 1, 4))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("cell_ref").unwrap().value.unwrap();
+        assert_eq!(val, 2.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_offset_positive_offset() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0, 40.0, 50.0]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "offset_val".to_string(),
+            Variable::new(
+                "offset_val".to_string(),
+                None,
+                Some("=OFFSET(data.values, 2, 0)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(
+            result.is_ok(),
+            "OFFSET with positive offset should calculate successfully"
+        );
+        let model_result = result.unwrap();
+        let val = model_result.scalars.get("offset_val").unwrap().value;
+        assert!(val.is_some(), "OFFSET should return a value");
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_offset_with_sum() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0, 40.0]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "offset_sum".to_string(),
+            Variable::new(
+                "offset_sum".to_string(),
+                None,
+                Some("=SUM(OFFSET(data.values, 1, 2))".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all();
+        assert!(
+            result.is_ok(),
+            "OFFSET with SUM should calculate successfully"
+        );
+        let model_result = result.unwrap();
+        let val = model_result
+            .scalars
+            .get("offset_sum")
+            .unwrap()
+            .value
+            .unwrap();
+        assert_eq!(val, 20.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_indirect_column_reference() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("sales".to_string());
+        data.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "total".to_string(),
+            Variable::new(
+                "total".to_string(),
+                None,
+                Some("=SUM(INDIRECT(\"sales.revenue\"))".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("total").unwrap().value.unwrap();
+        assert_eq!(val, 600.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_indirect_scalar_reference() {
+        let mut model = ParsedModel::new();
+
+        model.add_scalar(
+            "base_rate".to_string(),
+            Variable::new("base_rate".to_string(), Some(0.15), None),
+        );
+
+        model.add_scalar(
+            "rate_multiplied".to_string(),
+            Variable::new(
+                "rate_multiplied".to_string(),
+                None,
+                Some("=INDIRECT(\"base_rate\") * 100".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result
+            .scalars
+            .get("rate_multiplied")
+            .unwrap()
+            .value
+            .unwrap();
+        assert_eq!(val, 15.0);
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_indirect_with_index() {
+        let mut model = ParsedModel::new();
+
+        let mut data = Table::new("data".to_string());
+        data.add_column(Column::new(
+            "items".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(data);
+
+        model.add_scalar(
+            "indirect_index".to_string(),
+            Variable::new(
+                "indirect_index".to_string(),
+                None,
+                Some("=INDEX(INDIRECT(\"data.items\"), 2)".to_string()),
+            ),
+        );
+
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        let val = result.scalars.get("indirect_index").unwrap().value.unwrap();
+        assert_eq!(val, 20.0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // Tests from lookup_edge_cases.rs
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_index_first() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0, 40.0, 50.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=INDEX(data.values, 1)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(10.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_index_last() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0, 40.0, 50.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=INDEX(data.values, 5)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(50.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_index_middle() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0, 40.0, 50.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=INDEX(data.values, 3)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(30.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_index_single() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![42.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=INDEX(data.values, 1)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(42.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_match_exact_first() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=MATCH(10, data.values, 0)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(1.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_match_exact_last() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=MATCH(30, data.values, 0)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(3.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_match_exact_middle() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=MATCH(20, data.values, 0)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(2.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_match_approx_less() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=MATCH(25, data.values, 1)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(2.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_match_approx_greater() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![30.0, 20.0, 10.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=MATCH(25, data.values, -1)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(1.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_index_match_basic_edge() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "keys".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=INDEX(data.values, MATCH(2, data.keys, 0))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(200.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_index_match_first_edge() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "keys".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=INDEX(data.values, MATCH(1, data.keys, 0))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(100.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_index_match_last_edge() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "keys".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=INDEX(data.values, MATCH(3, data.keys, 0))".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(300.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_xlookup_exact() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "keys".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=XLOOKUP(2, data.keys, data.values)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(20.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_xlookup_not_found() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "keys".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=XLOOKUP(5, data.keys, data.values, 0)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(0.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_xlookup_first_edge() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "keys".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=XLOOKUP(1, data.keys, data.values)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(10.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_xlookup_last_edge() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("data".to_string());
+        table.add_column(Column::new(
+            "keys".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        table.add_column(Column::new(
+            "values".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        model.add_table(table);
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=XLOOKUP(3, data.keys, data.values)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(30.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_choose_first_edge() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=CHOOSE(1, 10, 20, 30)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(10.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_choose_second_edge() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=CHOOSE(2, 10, 20, 30)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(20.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_choose_last_edge() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=CHOOSE(3, 10, 20, 30)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(30.0));
+    }
+
+    #[cfg(not(feature = "demo"))]
+    #[test]
+    fn test_choose_formula() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new(
+                "result".to_string(),
+                None,
+                Some("=CHOOSE(2, 1+1, 2+2, 3+3)".to_string()),
+            ),
+        );
+        let calculator = ArrayCalculator::new(model);
+        let result = calculator.calculate_all().expect("Should calculate");
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(4.0));
     }
 }
