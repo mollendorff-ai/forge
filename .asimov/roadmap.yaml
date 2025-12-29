@@ -30,31 +30,33 @@ next:
     priority: HIGH
     status: done
     summary: "Consolidate tests inline (Rust idiom) - COMPLETE"
+
+  - version: "9.9.6"
+    priority: HIGH
+    status: pending
+    summary: "100% Coverage Enforcement (ADR-004/ADR-006 compliance)"
     description: |
-      Move all unit tests from src/**/tests/ directories into their
-      corresponding implementation files using #[cfg(test)] mod tests.
-      Delete tests/ directories when done. Rust idiom compliance.
-    progress: |
-      COMPLETED (Dec 28, 2025):
-      All tests/ directories eliminated from src/:
-      - src/core/array_calculator/tests/ - DELETED (tests inline in evaluators)
-      - src/cli/commands/tests/ - DELETED (tests inline or in forge-e2e)
-      Evaluator tests consolidated:
-      - math, trig, text, logical, advanced, aggregation, array
-      - conditional, forge, financial, statistical, lookup
-      Integration tests: ../forge-e2e/
+      Achieve 100% line coverage by:
+      1. Marking untestable code with #[cfg(not(coverage))] (Rust nightly pattern)
+      2. Adding tests for testable code gaps
+      3. Documenting all exclusions in ADR-006
     tasks:
-      - "[DONE] Move evaluator tests inline (math, trig, text, logical, advanced)"
-      - "Move remaining evaluator tests inline (aggregation, array, conditional, forge)"
-      - "Move date, financial, lookup, statistical tests inline"
-      - "Move CLI command tests inline"
-      - "Delete src/core/array_calculator/tests/ directory"
-      - "Delete src/cli/commands/tests/ directory"
-      - "Update mod.rs files to remove test module imports"
+      - "Phase 1: Add #[cfg(not(coverage))] to untestable functions"
+      - "  - api/server.rs: run_api_server, shutdown_signal"
+      - "  - mcp/server.rs: run_mcp_server_sync"
+      - "  - main.rs, bin/*.rs: all main() functions"
+      - "  - cli/commands: prompt_*, open_in_editor, watch_file, serve"
+      - "Phase 2: Add missing tests for testable code"
+      - "  - cli/commands/export.rs: 63% → 100%"
+      - "  - cli/commands/import.rs: 72% → 100%"
+      - "  - api/handlers.rs: 76% → 100%"
+      - "  - parser/mod.rs: 88% → 100%"
+      - "Phase 3: Verify with cargo llvm-cov --cfg coverage --fail-under-lines 100"
     acceptance_criteria:
-      - "All 1965 tests still pass"
-      - "No tests/ directories remain in src/"
-      - "Zero warnings"
+      - "make coverage passes (100% line coverage after exclusions)"
+      - "All exclusions documented in ADR-006"
+      - "Zero regression in existing tests"
+    adr: "ADR-006-COVERAGE-EXCLUSIONS.md"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG - Future ideas (unscheduled)
