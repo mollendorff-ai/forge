@@ -162,8 +162,8 @@ bugs: []
 summary:
   total_functions: 173
   categories: 15
-  unit_tests: 1426
+  unit_tests: 1496
   test_coverage: "100% (173/173 functions)"
   gaps: 0
   history: "See CHANGELOG.md"
-  note: "v9.9.5: tests/ directories eliminated - all inline or in forge-e2e (2006→1426)"
+  note: "v9.9.5: tests/ directories eliminated - all inline or in forge-e2e (2006→1496)"
