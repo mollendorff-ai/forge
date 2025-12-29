@@ -2,6 +2,7 @@
 //!
 //! ENTERPRISE functions: TRUE, FALSE
 
+#[cfg(not(feature = "demo"))]
 use crate::core::array_calculator::evaluator::{require_args, EvalError, Expr, Value};
 
 /// Evaluate TRUE function - returns boolean true
@@ -19,14 +20,14 @@ pub fn eval_false(name: &str, args: &[Expr]) -> Result<Value, EvalError> {
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "demo"))]
 mod tests {
     use super::super::super::tests::eval;
-    use super::*;
+    use crate::core::array_calculator::evaluator::{EvalContext, Value};
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_true_false() {
-        let ctx = crate::core::array_calculator::evaluator::EvalContext::new();
+        let ctx = EvalContext::new();
         assert_eq!(eval("TRUE()", &ctx).unwrap(), Value::Boolean(true));
         assert_eq!(eval("FALSE()", &ctx).unwrap(), Value::Boolean(false));
     }
