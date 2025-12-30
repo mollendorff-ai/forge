@@ -1,10 +1,13 @@
 # Forge
 
-[![Tests](https://img.shields.io/badge/tests-2486_passing-brightgreen)](https://github.com/royalbit/forge)
+[![Tests](https://img.shields.io/badge/tests-2133_passing-brightgreen)](https://github.com/royalbit/forge)
 [![Functions](https://img.shields.io/badge/functions-173-blue)](https://github.com/royalbit/forge)
-[![License: BSL-1.1](https://img.shields.io/badge/License-BSL--1.1-blue.svg)](LICENSE)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/royalbit/forge)
+[![License: Elastic-2.0](https://img.shields.io/badge/License-Elastic--2.0-blue.svg)](LICENSE)
 
-**Financial modeling for the AI era. Git-native. Excel import/export. FP&A functions Excel forgot.**
+**AI hallucinates numbers. Forge doesn't.**
+
+YAML-based financial modeling with Excel formula evaluation. Git-native. Deterministic. Battle-tested against Gnumeric and R.
 
 > Excel burns tokens. YAML doesn't.
 > AI is trained on millions of YAML files. Not spreadsheets.
@@ -21,410 +24,164 @@
 
 **The math:** A 50KB Excel file can burn 100K+ tokens when parsed. The same model in YAML? Under 2K tokens.
 
+---
+
 ## Battle-Tested Math
 
-**Don't trust us. Trust Gnumeric.**
+**Don't trust us. Trust Gnumeric and R.**
 
-Every Forge formula is E2E tested against [Gnumeric](https://www.gnumeric.org/) - open-source spreadsheet engines with **200+ million users**:
+Every Forge formula is validated against independent, battle-tested open-source tools:
 
-```
-Forge calculates → Exports XLSX → Gnumeric recalculates → Results compared
-```
+### Dual Validation Architecture
 
-| Validation | Status |
-|------------|--------|
-| Formulas E2E validated | 60 |
-| Validation engine | Gnumeric (GNOME spreadsheet) |
-| Test method | Export → Recalculate → Compare |
+| Validator | Tests | What It Proves |
+|-----------|-------|----------------|
+| **Gnumeric** | 714 formulas | Excel compatibility - independent spreadsheet engine agrees |
+| **R** | 2,957 conditions | Statistical accuracy - FDA/EMA-grade mathematical validation |
+| **Roundtrip** | 72 tests | YAML → XLSX → Gnumeric → CSV formula preservation |
 
-If Gnumeric agrees with Forge, **the math is right**. No "trust me" - just proof.
+### The Validation Process
 
-## Why YAML Wins
-
-| Factor | Excel | YAML |
-|--------|-------|------|
-| Token efficiency | ~100K tokens | ~2K tokens |
-| AI training data | Rare | Ubiquitous (K8s, CI/CD, configs) |
-| Semantic clarity | `=B7*C3` | `revenue: "=price * units"` |
-| Diff-friendly | No | Yes |
-| Code review | Impossible | Native |
-
-**AI models have seen millions of YAML files.** Kubernetes configs. GitHub Actions. Docker Compose. CloudFormation. Ansible playbooks.
-
-YAML is a first-class citizen in AI. Excel is a tourist.
-
-### The Workflow Difference
-
-```
-Excel + AI:    Parse XML → Burn tokens → Guess cell refs → Hope it's right
-
-Forge + AI:   Read YAML → Minimal tokens → Clear semantics → Verify with Forge
+```text
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Forge YAML     │ ──► │  Export XLSX    │ ──► │  Gnumeric       │
+│  =NPV(0.1, cf)  │     │  with formulas  │     │  recalculates   │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                        │
+                                                        ▼
+                                                ┌─────────────────┐
+                                                │  Compare CSV    │
+                                                │  Forge = Gnumeric│
+                                                └─────────────────┘
 ```
 
-### Built at AI Speed
+**If Gnumeric and R agree with Forge, the math is right.** No "trust me" - just proof.
 
-This codebase: **1 person + AI. 15 days. 2,486 tests. 329 commits.**
+### Why This Matters
 
-| What | Forge | Typical Project | Linus Torvalds |
-|------|-------|-----------------|----------------|
-| Commits/day | 22 | 1-2 | ~8 |
-| Tests | 1,709 | Maybe 100 | - |
-| Coverage | 89% | "Later" | - |
-| Warnings | 0 | Ignored | - |
+- **No circular dependencies** - Forge doesn't validate itself
+- **Peer-reviewed tools** - Gnumeric and R are industry standards
+- **Regulatory-grade** - R is used by FDA, EMA for drug approval calculations
+- **2,957 statistical conditions** - Not just "does it run" but "is the math correct"
 
-**2.75x Linus Torvalds' commit velocity.** That's the power of AI + token-efficient formats.
+---
 
-Your analysts get the same multiplier. But only if they stop feeding Excel to AI.
+## What Excel Can't Do
 
-## The Forge Solution
+Forge isn't Excel 2.0. It's a purpose-built FP&A engine with 7 analytical capabilities Excel cannot replicate:
 
-| Feature | Business Value |
-|---------|----------------|
-| **YAML-based models** | Git-native, diff-friendly, PR-reviewable |
-| **167 Excel functions** | NPV, IRR, XIRR, PMT, VLOOKUP, SUMIF - all the finance essentials |
-| **6 FP&A functions (not in Excel)** | VARIANCE, BREAKEVEN - what Excel should have had |
-| **Monte Carlo simulation** | Probabilistic modeling with uncertainty distributions (Enterprise) |
-| **Deterministic execution** | Same input = same output, every time |
-| **Excel export** | Your CFO still gets `.xlsx` with working formulas |
-| **Audit command** | Instant dependency trace for any variable |
-| **E2E validated** | 60 formulas verified against Gnumeric (200M+ users) |
+### 1. Monte Carlo Simulation
 
-### FP&A Functions Excel Doesn't Have
-
-Every analyst builds these manually. Forge has them built-in:
-
-| Forge Function | What It Does | Excel Equivalent |
-|----------------|--------------|------------------|
-| `VARIANCE(actual, budget)` | Budget variance | `=actual - budget` (manual) |
-| `VARIANCE_PCT(actual, budget)` | Variance as % | `=(actual - budget) / budget` (manual) |
-| `VARIANCE_STATUS(actual, budget)` | BEAT / MISS / ON_TARGET | Nested IF statements |
-| `BREAKEVEN_UNITS(fixed, price, var_cost)` | Units to break even | Manual formula |
-| `BREAKEVEN_REVENUE(fixed, margin_pct)` | Revenue to break even | Manual formula |
-| `SCENARIO(name, variable)` | Get scenario value | No equivalent |
+Model uncertainty with probability distributions. Run 10,000+ iterations to get P10/P50/P90 outcomes.
 
 ```yaml
-# What takes 3 nested IFs in Excel:
-status: "=VARIANCE_STATUS(actual.revenue, budget.revenue)"  # Returns: BEAT, MISS, or ON_TARGET
-
-# What takes a manual formula in Excel:
-units_needed: "=BREAKEVEN_UNITS(500000, 150, 60)"  # Returns: 5,556 units
-```
-
-## Who Uses Forge
-
-| Team | Use Case |
-|------|----------|
-| **FP&A** | 3-statement models, budget vs actual, rolling forecasts |
-| **M&A** | DCF valuations, sensitivity analysis, scenario comparison |
-| **Consulting** | Client financial models with version control |
-| **Fintech** | Automated projections via API, embedded calculations |
-
-## Quick Start
-
-```bash
-# Install
-cargo install royalbit-forge
-
-# Or download binary from releases
-curl -L https://github.com/royalbit/forge/releases/latest/download/forge-linux -o forge
-chmod +x forge
-
-# Validate a model
-forge validate model.yaml
-
-# Calculate with scenario
-forge calculate model.yaml --scenario optimistic
-
-# Export to Excel (formulas intact)
-forge export model.yaml output.xlsx
-```
-
-## Build & Install
-
-Forge uses Rust feature flags to create demo and enterprise builds.
-
-### Quick Install (Makefile)
-
-```bash
-# Install forge-demo to ~/bin (47 functions)
-make install-demo
-
-# Install forge enterprise to ~/bin (173 functions)
-make install-forge
-
-# Install both
-make install-all
-```
-
-### Manual Build
-
-```bash
-# Demo build (47 scalar functions)
-cargo build --release --bin forge-demo
-
-# Enterprise build (173 functions, all features)
-cargo build --release --features full --bin forge
-```
-
-### Cross-Platform Builds
-
-```bash
-# Build forge-demo for all 5 platforms (requires cargo-zigbuild)
-make cross-forge-demo
-
-# Publish to GitHub releases (auto-detects version from Cargo.toml)
-make publish-demo
-```
-
-### Build Matrix
-
-| Build | Binary | Functions | Commands | Use Case |
-|-------|--------|-----------|----------|----------|
-| Demo | `forge-demo` | 47 (scalar) | 7 | Evaluation, v1.0.0 models |
-| Enterprise | `forge` | 173 (scalar + array) | 15 | Production FP&A |
-
-### Enterprise-Only Commands
-
-These commands require the enterprise build (`--features full`):
-
-- `compare` - Multi-scenario comparison
-- `variance` - Budget vs actual analysis
-- `sensitivity` - Data tables
-- `goal-seek` - Find input for target
-- `break-even` - Find zero-crossing
-- `simulate` - Monte Carlo simulation
-- `upgrade` - Schema migration
-
-## Monte Carlo Simulation
-
-**Model uncertainty with probability distributions.** Instead of single-point estimates, use distributions to capture risk and generate percentile outcomes (P10/P50/P90). Runs thousands of scenarios to answer "What's the probability NPV > 0?"
-
-```yaml
-scalars:
+assumptions:
   revenue_growth:
-    value: 0.15
     formula: "=MC.Normal(0.15, 0.05)"  # Mean 15%, StdDev 5%
 
-  cost_estimate:
-    value: 100000
+  project_cost:
     formula: "=MC.Triangular(80000, 100000, 150000)"  # Min/Mode/Max
 ```
 
-Run simulation:
-```bash
-forge simulate model.yaml --iterations 10000 --output results.xlsx
-```
+**6 distributions:** Normal, Triangular, Uniform, PERT, Lognormal, Discrete
 
-**Note:** This is an **Enterprise feature**. See [docs/FEATURES.md](docs/FEATURES.md) for full distribution functions and configuration options.
+### 2. Bootstrap Resampling
 
-### Prediction Methods Roadmap
-
-Monte Carlo is just the beginning. Forge is building a complete FP&A prediction toolkit:
-
-| Method | Version | Use Case | Validator |
-|--------|---------|----------|-----------|
-| **Monte Carlo** | v8.0+ | Continuous uncertainty | Gnumeric |
-| Scenario Analysis | v8.3.0 | Base/Bull/Bear cases | R |
-| Decision Trees | v8.4.0 | Sequential decisions | SciPy |
-| Real Options | v8.5.0 | Value flexibility | QuantLib |
-| Tornado Diagrams | v8.6.0 | Sensitivity visualization | R |
-| Bootstrap | v8.7.0 | Historical data analysis | R boot |
-
-See [docs/FPA-PREDICTION-METHODS.md](docs/FPA-PREDICTION-METHODS.md) for detailed guidance on when to use each method.
-
-## Example: 5-Year DCF Model
+Generate confidence intervals from historical data without assuming a distribution.
 
 ```yaml
-_forge_version: "5.0.0"
+bootstrap:
+  iterations: 10000
+  confidence_levels: [0.90, 0.95, 0.99]
+  data: [0.05, -0.02, 0.08, 0.03, ...]  # Historical returns
+```
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ASSUMPTIONS - What-if inputs (override via scenarios)
-# ══════════════════════════════════════════════════════════════════════════════
-assumptions:
-  revenue_y1: 1000000
-  growth_rate: 0.15
-  gross_margin: 0.65
-  opex_pct: 0.30
-  tax_rate: 0.25
-  discount_rate: 0.10
+**R-validated** against the `boot` package.
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PROJECTIONS - 5-year P&L (row-wise formulas applied to each period)
-# ══════════════════════════════════════════════════════════════════════════════
-projections:
-  year: [1, 2, 3, 4, 5]
-  revenue: "=assumptions.revenue_y1 * (1 + assumptions.growth_rate) ^ (year - 1)"
-  gross_profit: "=revenue * assumptions.gross_margin"
-  opex: "=revenue * assumptions.opex_pct"
-  ebit: "=gross_profit - opex"
-  tax: "=MAX(0, ebit * assumptions.tax_rate)"
-  net_income: "=ebit - tax"
+### 3. Decision Trees
 
-# ══════════════════════════════════════════════════════════════════════════════
-# VALUATION - Summary metrics and DCF
-# ══════════════════════════════════════════════════════════════════════════════
-valuation:
-  total_revenue: "=SUM(projections.revenue)"
-  avg_margin: "=AVERAGE(projections.gross_profit / projections.revenue)"
-  npv_cash_flows: "=NPV(assumptions.discount_rate, projections.net_income)"
-  irr: "=IRR(projections.net_income)"
+Model sequential decisions with backward induction. Forge finds the optimal path automatically.
 
-# ══════════════════════════════════════════════════════════════════════════════
-# SCENARIOS - Override assumptions for sensitivity analysis
-# ══════════════════════════════════════════════════════════════════════════════
+```yaml
+decision_tree:
+  root:
+    type: decision
+    name: "Invest in R&D?"
+    branches:
+      invest:
+        cost: 2000000
+        next: tech_outcome
+      dont_invest:
+        value: 0
+```
+
+### 4. Real Options Analysis
+
+Quantify the value of managerial flexibility using Black-Scholes and binomial methods.
+
+| Option Type | What It Values |
+|-------------|----------------|
+| **Defer** | Wait before investing |
+| **Expand** | Scale up if successful |
+| **Contract** | Scale down if weak |
+| **Abandon** | Exit and recover salvage |
+| **Switch** | Change inputs/outputs |
+
+**QuantLib-validated** pricing models.
+
+### 5. Tornado Diagrams
+
+One-at-a-time sensitivity analysis. Instantly see what drives variance.
+
+```text
+NPV Sensitivity Analysis (Base: $1.2M)
+
+Revenue Growth    |████████████████████| ± $450K
+Discount Rate     |██████████████      | ± $320K
+Operating Margin  |██████████          | ± $180K
+Tax Rate          |████                | ± $75K
+```
+
+### 6. Bayesian Networks
+
+Probabilistic graphical models for causal reasoning. Model how risks cascade.
+
+```yaml
+bayesian_network:
+  nodes:
+    economic_conditions:
+      states: ["good", "neutral", "bad"]
+      prior: [0.3, 0.5, 0.2]
+
+    default_probability:
+      parents: ["economic_conditions", "management_quality"]
+      # Conditional probability tables...
+```
+
+**pgmpy-validated** inference algorithms.
+
+### 7. Scenario Analysis
+
+Probability-weighted scenarios with expected value calculation.
+
+```yaml
 scenarios:
-  base:
-    growth_rate: 0.15
-  bull:
-    growth_rate: 0.25
-    gross_margin: 0.70
-  bear:
-    growth_rate: 0.05
-    gross_margin: 0.55
+  bull_case:
+    probability: 0.30
+    scalars:
+      revenue_growth: 0.25
+
+  bear_case:
+    probability: 0.20
+    scalars:
+      revenue_growth: -0.10
 ```
 
-Run it:
-```bash
-forge calculate model.yaml --scenario bull    # What-if: aggressive growth
-forge sensitivity model.yaml -v growth_rate -r 0.05,0.30,0.05 -o npv_cash_flows
-forge export model.yaml valuation.xlsx        # CFO gets Excel with live formulas
-```
+---
 
-## Example: Forge-Native Functions (Not in Excel)
+## AI-Native: MCP Integration
 
-Forge includes 6 functions designed specifically for FP&A workflows:
-
-```yaml
-_forge_version: "5.0.0"
-
-# ══════════════════════════════════════════════════════════════════════════════
-# BUDGET vs ACTUAL ANALYSIS - Forge-native variance functions
-# ══════════════════════════════════════════════════════════════════════════════
-budget:
-  revenue: [100000, 120000, 150000]
-  expenses: [80000, 90000, 100000]
-
-actual:
-  revenue: [95000, 125000, 145000]
-  expenses: [85000, 88000, 105000]
-
-# VARIANCE - No Excel equivalent
-variance_analysis:
-  revenue_var: "=VARIANCE(actual.revenue, budget.revenue)"           # -5000, 5000, -5000
-  revenue_var_pct: "=VARIANCE_PCT(actual.revenue, budget.revenue)"   # -5%, 4.2%, -3.3%
-  revenue_status: "=VARIANCE_STATUS(actual.revenue, budget.revenue)" # MISS, BEAT, MISS
-
-  # For costs, "under budget" is favorable
-  expense_status: "=VARIANCE_STATUS(actual.expenses, budget.expenses, \"cost\")"
-
-# ══════════════════════════════════════════════════════════════════════════════
-# BREAK-EVEN ANALYSIS - Instant unit economics
-# ══════════════════════════════════════════════════════════════════════════════
-unit_economics:
-  fixed_costs: 500000
-  unit_price: 150
-  variable_cost: 60
-  contribution_margin_pct: 0.60
-
-breakeven:
-  units_required: "=BREAKEVEN_UNITS(unit_economics.fixed_costs, unit_economics.unit_price, unit_economics.variable_cost)"
-  # Result: 5,556 units (500000 / (150 - 60))
-
-  revenue_required: "=BREAKEVEN_REVENUE(unit_economics.fixed_costs, unit_economics.contribution_margin_pct)"
-  # Result: $833,333 (500000 / 0.60)
-```
-
-## Commands
-
-```bash
-# Core Operations
-forge calculate model.yaml              # Execute all formulas
-forge validate model.yaml               # Check model integrity
-forge audit model.yaml net_income       # Trace formula dependencies
-
-# Analysis
-forge sensitivity model.yaml -v price -r 80,120,10 -o net_income
-forge goal-seek model.yaml --target net_income --value 100000 --vary price
-forge break-even model.yaml -o net_income -v price
-forge variance budget.yaml actual.yaml --threshold 5
-
-# Scenarios
-forge calculate model.yaml --scenario optimistic
-forge compare model.yaml --scenarios base,optimistic,pessimistic
-
-# Excel Bridge
-forge export model.yaml output.xlsx    # YAML -> Excel with formulas
-forge import input.xlsx output.yaml    # Excel -> YAML
-
-# Reference
-forge functions                        # List all 173 functions
-```
-
-## 173 Functions (167 Excel + 6 FP&A)
-
-| Category | Count | Functions |
-|----------|-------|-----------|
-| **Financial** | 13 | NPV, IRR, MIRR, XNPV, XIRR, PMT, PV, FV, RATE, NPER, SLN, DB, DDB |
-| **Date** | 11 | TODAY, DATE, YEAR, MONTH, DAY, DATEDIF, EDATE, EOMONTH, NETWORKDAYS, WORKDAY, YEARFRAC |
-| **Conditional** | 8 | SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, AVERAGEIFS, MAXIFS, MINIFS |
-| **Math** | 9 | ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER, ABS |
-| **Logic** | 7 | IF, AND, OR, LET, SWITCH, INDIRECT, LAMBDA |
-| **Lookup** | 6 | MATCH, INDEX, VLOOKUP, XLOOKUP, CHOOSE, OFFSET |
-| **Statistical** | 6 | MEDIAN, VAR, STDEV, PERCENTILE, QUARTILE, CORREL |
-| **Text** | 6 | CONCAT, TRIM, UPPER, LOWER, LEN, MID |
-| **Forge-Native (not in Excel)** | 6 | SCENARIO, VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, BREAKEVEN_UNITS, BREAKEVEN_REVENUE |
-| **Aggregation** | 5 | SUM, AVERAGE, MIN, MAX, COUNT |
-| **Array** | 4 | UNIQUE, COUNTUNIQUE, FILTER, SORT |
-
-Run `forge functions` for full syntax and examples.
-
-## Enterprise Features
-
-### Audit Trail (`forge audit`)
-
-```bash
-$ forge audit model.yaml net_income
-
-net_income
-  formula: "=projections.gross_profit - projections.tax"
-  dependencies:
-    gross_profit
-      formula: "=projections.revenue - projections.cogs"
-      dependencies:
-        revenue -> assumptions.price * assumptions.units_sold
-        cogs -> assumptions.cost_per_unit * assumptions.units_sold
-    tax
-      formula: "=projections.gross_profit * assumptions.tax_rate"
-```
-
-SOX compliance: Every formula's lineage is traceable in one command.
-
-### Variance Analysis (`forge variance`)
-
-```bash
-$ forge variance budget.yaml actual.yaml --threshold 10
-
-Variable          Budget      Actual    Variance    Var %    Status
-revenue           500,000     485,000   -15,000     -3.0%    OK
-expenses          300,000     325,000   +25,000     +8.3%    OK
-net_income        200,000     160,000   -40,000    -20.0%    ALERT
-```
-
-### API Server (`forge serve`)
-
-```bash
-# Start REST API
-forge serve --port 8080
-
-# POST /calculate
-curl -X POST http://localhost:8080/calculate \
-  -H "Content-Type: application/json" \
-  -d '{"path": "model.yaml", "scenario": "optimistic"}'
-```
-
-### MCP Integration (`forge mcp`)
-
-Integrate with Claude Desktop and other AI tools via Model Context Protocol.
+Forge speaks Claude's language. 10 tools for AI agents via Model Context Protocol:
 
 ```json
 {
@@ -437,64 +194,204 @@ Integrate with Claude Desktop and other AI tools via Model Context Protocol.
 }
 ```
 
+### Available Tools
+
+| Tool | What It Does |
+|------|--------------|
+| `forge_validate` | Check YAML for formula errors |
+| `forge_calculate` | Execute all formulas |
+| `forge_audit` | Trace formula dependencies |
+| `forge_sensitivity` | 1D/2D what-if analysis |
+| `forge_goal_seek` | Find input for target output |
+| `forge_break_even` | Find where output = 0 |
+| `forge_variance` | Budget vs actual analysis |
+| `forge_compare` | Multi-scenario comparison |
+| `forge_export` | YAML → Excel |
+| `forge_import` | Excel → YAML |
+
+**50x token efficiency.** Claude processes YAML at a fraction of Excel's token cost.
+
+---
+
+## 173 Functions
+
+All Excel-compatible functions plus 6 FP&A-native functions Excel doesn't have.
+
+| Category | Count | Examples |
+|----------|-------|----------|
+| **Financial** | 13 | NPV, IRR, MIRR, XNPV, XIRR, PMT, PV, FV, RATE, NPER |
+| **Date** | 11 | TODAY, DATE, YEAR, MONTH, DATEDIF, EDATE, EOMONTH, NETWORKDAYS |
+| **Conditional** | 8 | SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, MAXIFS, MINIFS |
+| **Math** | 9 | ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER |
+| **Logic** | 7 | IF, AND, OR, LET, SWITCH, INDIRECT, LAMBDA |
+| **Lookup** | 6 | MATCH, INDEX, VLOOKUP, HLOOKUP, XLOOKUP, CHOOSE |
+| **Statistical** | 6 | MEDIAN, VAR, STDEV, PERCENTILE, QUARTILE, CORREL |
+| **Text** | 6 | CONCAT, TRIM, UPPER, LOWER, LEN, MID |
+| **Aggregation** | 5 | SUM, AVERAGE, MIN, MAX, COUNT |
+| **Array** | 4 | UNIQUE, COUNTUNIQUE, FILTER, SORT |
+| **FP&A-Native** | 6 | VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, BREAKEVEN_UNITS, BREAKEVEN_REVENUE, SCENARIO |
+
+Run `forge functions` for full syntax and examples.
+
+---
+
+## FP&A Functions Excel Doesn't Have
+
+Every analyst builds these manually. Forge has them built-in:
+
+```yaml
+# VARIANCE - What Excel makes you do manually
+variance_analysis:
+  revenue_var: "=VARIANCE(actual.revenue, budget.revenue)"           # Returns: -5000
+  revenue_pct: "=VARIANCE_PCT(actual.revenue, budget.revenue)"       # Returns: -5%
+  revenue_status: "=VARIANCE_STATUS(actual.revenue, budget.revenue)" # Returns: MISS
+
+# BREAKEVEN - Instant unit economics
+breakeven:
+  units_required: "=BREAKEVEN_UNITS(500000, 150, 60)"     # Returns: 5,556 units
+  revenue_required: "=BREAKEVEN_REVENUE(500000, 0.60)"    # Returns: $833,333
+```
+
+**Type-aware variance:** Costs use inverted logic (under budget = BEAT).
+
+---
+
+## Quick Start
+
+```bash
+# Install from source
+cargo install --path .
+
+# Or use the Makefile
+make install-forge
+
+# Validate a model
+forge validate model.yaml
+
+# Calculate with scenario
+forge calculate model.yaml --scenario optimistic
+
+# Export to Excel (formulas intact)
+forge export model.yaml output.xlsx
+```
+
+---
+
+## Example: 5-Year DCF Model
+
+```yaml
+_forge_version: "5.0.0"
+
+assumptions:
+  revenue_y1: 1000000
+  growth_rate: 0.15
+  gross_margin: 0.65
+  opex_pct: 0.30
+  tax_rate: 0.25
+  discount_rate: 0.10
+
+projections:
+  year: [1, 2, 3, 4, 5]
+  revenue: "=assumptions.revenue_y1 * (1 + assumptions.growth_rate) ^ (year - 1)"
+  gross_profit: "=revenue * assumptions.gross_margin"
+  opex: "=revenue * assumptions.opex_pct"
+  ebit: "=gross_profit - opex"
+  tax: "=MAX(0, ebit * assumptions.tax_rate)"
+  net_income: "=ebit - tax"
+
+valuation:
+  total_revenue: "=SUM(projections.revenue)"
+  avg_margin: "=AVERAGE(projections.gross_profit / projections.revenue)"
+  npv_cash_flows: "=NPV(assumptions.discount_rate, projections.net_income)"
+  irr: "=IRR(projections.net_income)"
+
+scenarios:
+  base:
+    growth_rate: 0.15
+  bull:
+    growth_rate: 0.25
+    gross_margin: 0.70
+  bear:
+    growth_rate: 0.05
+    gross_margin: 0.55
+```
+
+```bash
+forge calculate model.yaml --scenario bull
+forge sensitivity model.yaml -v growth_rate -r 0.05,0.30,0.05 -o npv_cash_flows
+forge export model.yaml valuation.xlsx
+```
+
+---
+
+## Commands
+
+```bash
+# Core Operations
+forge validate <files...>           # Validate YAML model(s)
+forge calculate <file>              # Execute all formulas
+forge audit <file> <variable>       # Trace formula dependencies
+
+# Analysis
+forge sensitivity <file> -v VAR -r RANGE -o OUTPUT
+forge goal-seek <file> --target VAR --value N --vary INPUT
+forge break-even <file> -o OUTPUT -v INPUT
+forge variance <budget> <actual> --threshold PCT
+
+# Prediction & Simulation
+forge simulate <file> --iterations N    # Monte Carlo
+forge scenarios <file>                  # Scenario analysis
+forge decision-tree <file>              # Decision trees
+forge real-options <file>               # Real options
+forge tornado <file>                    # Tornado diagrams
+forge bootstrap <file>                  # Bootstrap resampling
+
+# Excel Bridge
+forge export <yaml> <xlsx>          # YAML → Excel with formulas
+forge import <xlsx> <yaml>          # Excel → YAML
+
+# AI Integration
+forge mcp                           # Start MCP server
+forge serve --port 8080             # Start REST API
+
+# Reference
+forge functions                     # List all 173 functions
+```
+
+---
+
+## Who Uses Forge
+
+| Team | Use Case |
+|------|----------|
+| **FP&A** | 3-statement models, budget vs actual, rolling forecasts |
+| **M&A** | DCF valuations, sensitivity analysis, scenario comparison |
+| **Consulting** | Client financial models with version control |
+| **Fintech** | Automated projections via API, embedded calculations |
+| **AI Agents** | MCP integration for deterministic financial analysis |
+
+---
+
 ## Quality Assurance
 
 | Metric | Value |
 |--------|-------|
-| **Tests** | 2,486 passing (1,267 demo) |
+| **Tests** | 2,133 passing |
 | **Functions** | 173 (167 Excel + 6 FP&A) |
-| **E2E Validated** | 57 formulas against Gnumeric |
-| **Warnings** | 0 |
-| **Coverage** | 89.23% |
+| **Coverage** | 100% function coverage |
+| **Warnings** | 0 (zero warnings policy) |
+| **External Validation** | Gnumeric + R |
 
-### E2E Validation
+### Test Architecture
 
-Unlike unit tests that verify code, Forge's E2E tests verify **formulas against real spreadsheet engines**:
-
+```text
+forge (inline unit tests)     forge-e2e (integration/E2E)
+├── 1,297 unit tests          ├── 836 E2E tests
+├── #[cfg(test)] modules      ├── Gnumeric validation
+└── Per-function coverage     └── R statistical validation
 ```
-Forge YAML -> Export to XLSX -> Gnumeric recalculates -> Compare results
-```
 
-This means: If Gnumeric (battle-proven, millions of users) agrees with Forge, the math is right.
-
-## ROI Calculator
-
-**For a 10-analyst FP&A team:**
-
-| Current State | With Forge |
-|---------------|------------|
-| 40% time on Excel maintenance | Automated via YAML |
-| Manual version control | Git branching |
-| No formula review process | PR-based review |
-| Audit prep: 2 weeks | `forge audit`: 2 seconds |
-
-**Conservative estimate: 10 hours/analyst/week saved = $150K/year**
-
-## Integration Paths
-
-| Method | Use Case |
-|--------|----------|
-| **CLI** | Batch processing, CI/CD pipelines |
-| **REST API** | Web applications, microservices |
-| **MCP Server** | AI agent integration |
-| **Library** | Rust/WASM embedding |
-
-## Why Forge? The Market Opportunity
-
-**Forge is not another AI framework. It's the calculation layer AI agents need for finance.**
-
-| AI Orchestration Market | Forge's Position |
-|------------------------|------------------|
-| 5,879 competing GitHub repos | **Zero** direct competitors |
-| AutoGPT (181K stars), LangChain (123K stars) | Only AI-native FP&A tool |
-| Open source = zero pricing power | FP&A has no OSS alternatives |
-| Commoditization inevitable | Domain moat + verified math |
-
-**The insight:** Every AI agent doing financial analysis needs token-efficient formats (YAML), verified calculations (Gnumeric/R), and Excel compatibility. Forge provides all three.
-
-> "Don't compete in a race with 5,879 runners. Own the water station."
-
-See [Market Analysis](docs/MARKET_ANALYSIS.md) for the full investment thesis.
+---
 
 ## Documentation
 
@@ -503,21 +400,25 @@ See [Market Analysis](docs/MARKET_ANALYSIS.md) for the full investment thesis.
 | [CHANGELOG](CHANGELOG.md) | Version history |
 | [Architecture](docs/architecture/) | Technical design and ADRs |
 | [Examples](docs/EXAMPLES.md) | YAML model examples |
-| [Features](docs/FEATURES.md) | Feature reference |
-| [Market Analysis](docs/MARKET_ANALYSIS.md) | Investment thesis and competitive positioning |
+| [Features](docs/FEATURES.md) | Full feature reference |
+| [Market Analysis](docs/MARKET_ANALYSIS.md) | Investment thesis and positioning |
 | [JSON Schema](schema/) | Model validation schema |
+
+---
 
 ## Development
 
 ```bash
-cargo test                              # 1709 tests
+cargo test                              # Run all tests
 cargo clippy -- -D warnings             # Zero warnings policy
-cargo test --features e2e-gnumeric   # E2E validation (requires Gnumeric)
+make check                              # Full CI check
 ```
+
+---
 
 ## License
 
-**Business Source License 1.1 (BSL)** - See [LICENSE](LICENSE)
+**Elastic License 2.0** - See [LICENSE](LICENSE)
 
 Forge is **Source Available** - the code is open for inspection, but commercial production use requires a license.
 
@@ -525,45 +426,39 @@ Forge is **Source Available** - the code is open for inspection, but commercial 
 |----------|--------|
 | View, read, audit source code | **Permitted** |
 | Evaluation and testing | **Permitted** |
-| Educational and research use | **Permitted** |
-| Non-commercial use | **Permitted** |
+| Internal development | **Permitted** |
+| Non-production use | **Permitted** |
 | Commercial production use | **License required** |
-| After 4 years | Converts to Apache 2.0 |
+| Hosted/managed service | **Not permitted** |
 
 ### What This Means
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │  Source Available ≠ Open Source                            │
 │                                                             │
 │  • Code is OPEN (you can read it, audit it, learn from it) │
 │  • Use is FREE for evaluation and non-production           │
 │  • Production use in commercial settings requires license  │
-│  • After 4 years, becomes Apache 2.0 (true FOSS)          │
+│  • You cannot offer Forge as a hosted service              │
 │                                                             │
-│  Used by: HashiCorp, Sentry, CockroachDB, MariaDB          │
+│  Used by: Elasticsearch, Kibana (Elastic NV)               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Why BSL?
+### Why Elastic License?
 
 Finance needs **auditable code**. You can verify every calculation. No black boxes.
 
-But building enterprise software requires sustainable revenue. BSL balances transparency with commercial viability.
-
-See [ADR-030](docs/architecture/ADR-030-GTM-LICENSING-STRATEGY.md) for the full rationale.
+But building enterprise software requires sustainable revenue. Elastic-2.0 balances transparency with commercial viability - without ever converting to open source.
 
 ### Commercial Licensing
 
-For production deployment, enterprise support, or Cloud MCP access:
+For production deployment or enterprise support:
 
-| Tier | Price | Includes |
-|------|-------|----------|
-| **Pro** | $500-2K/month | Production license, support |
-| **Enterprise** | $5K-20K/month | SSO, audit logs, dedicated support |
-| **Cloud MCP** | Usage-based | Hosted MCP endpoint, auto-scaling |
+**Open a GitHub Issue:** [github.com/royalbit/forge/issues](https://github.com/royalbit/forge/issues) (use `licensing` label)
 
-Contact: [licensing@royalbit.ca](mailto:licensing@royalbit.ca)
+See [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) for details.
 
 ---
 

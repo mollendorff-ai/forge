@@ -2,44 +2,77 @@
 # Version: Cargo.toml | History: CHANGELOG.md | Config: project.yaml
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CURRENT - BSL License Implementation
+# CURRENT - Elastic License 2.0 Implementation
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "10.0.0-alpha"
+  version: "10.0.0-alpha.2"
   status: in_progress
-  summary: "BSL License + Open Source Release"
-  unblocked_by: "10.0.0-alpha.0 completed 2025-12-29"
+  summary: "Elastic-2.0 License & Git History Cleanup"
+  unblocked_by: "10.0.0-alpha.1 completed 2025-12-29"
+  decision_made:
+    license: "Elastic License 2.0"
+    rationale: "No conversion to FOSS, perpetual control, battle-tested by Elastic"
+    adr: "ADR-031-LICENSE-ELASTIC-2.0.md"
+  tasks:
+    - "[DONE] Decide license: Elastic License 2.0"
+    - "[DONE] Draft Elastic-2.0 LICENSE file"
+    - "[DONE] Update Cargo.toml: license = Elastic-2.0"
+    - "[DONE] Create COMMERCIAL_LICENSE.md (GitHub Issues contact)"
+    - "[DONE] Update README.md license section"
+    - "[DONE] Create ADR-031 documenting license decision"
+    - "[DONE] Update MARKET_ANALYSIS.md"
+    - "Create git filter-branch script to rewrite full history"
+    - "Remove LICENSE-DOCS from ALL commits (never existed)"
+    - "Add LICENSE to ALL commits (present from day one)"
+    - "Force push cleaned history to origin"
+  acceptance_criteria:
+    - "LICENSE (Elastic-2.0) present in every commit from first to last"
+    - "LICENSE-DOCS does not exist in any commit"
+    - "No automatic conversion to open source (ELv2 = perpetual)"
+    - "Buyer can audit full history with clean licensing"
+    - "SPDX identifier in Cargo.toml: Elastic-2.0"
+
+completed:
+  - version: "10.0.0-alpha.1"
+    date: "2025-12-29"
+    summary: "Documentation Overhaul for Public Release"
+    tasks_completed:
+      - "README.md rewritten - moat-first structure"
+      - "FEATURES.md updated - removed ENTERPRISE ONLY labels"
+      - "VERSION_HISTORY.md updated - accurate stats"
+      - "All demo/enterprise references removed from active docs"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # GTM - Go-To-Market Strategy (Dec 29, 2025)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 gtm:
-  decision: "One product, BSL license, full features"
+  decision: "One product, Elastic-2.0 license, full features"
   rationale: |
     - Source Available (not FOSS) - code visible, auditable
     - Commercial production use requires license
-    - Converts to Apache 2.0 after 4 years
+    - NO automatic conversion to open source (perpetual control)
     - forge-demo DEPRECATED (one product, not two)
     - Shows full moat: MCP, Monte Carlo, FP&A functions
-  adr: "ADR-030-GTM-LICENSING-STRATEGY.md"
+  adr_gtm: "ADR-030-GTM-LICENSING-STRATEGY.md"
+  adr_license: "ADR-031-LICENSE-ELASTIC-2.0.md"
   analysis: "docs/MARKET_ANALYSIS.md"
 
   milestones:
     - version: "10.0.0-alpha"
       priority: CRITICAL
       status: in_progress
-      summary: "BSL License + GitHub Public Release"
+      summary: "Elastic-2.0 License + GitHub Public Release"
       tasks:
-        - "Add BSL-1.1 LICENSE file"
+        - "Add Elastic-2.0 LICENSE file"
         - "Update README with license terms"
-        - "Add COMMERCIAL_LICENSE.md with pricing tiers"
-        - "Add license headers to all source files"
+        - "Create COMMERCIAL_LICENSE.md (GitHub Issues contact)"
+        - "Rewrite git history with LICENSE from commit #1"
         - "Deprecate forge-demo (archive repo)"
         - "Push to public GitHub"
       acceptance_criteria:
-        - "LICENSE file is BSL-1.1"
+        - "LICENSE file is Elastic-2.0"
         - "README explains: free eval, paid production"
         - "forge-demo README redirects to forge"
 

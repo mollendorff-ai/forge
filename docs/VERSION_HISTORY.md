@@ -6,7 +6,7 @@ Archived version details from roadmap.yaml. For current roadmap, see [roadmap.ya
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| v8.0.0 | TBD | Monte Carlo Simulation (Enterprise FP&A probabilistic analysis) |
+| v8.0.0 | 2025-12 | Monte Carlo Simulation (FP&A probabilistic analysis) |
 | v7.2.0 | 2025-12-10 | 100% Test Integrity (15-Agent Parallel, 2,486 tests, 0 fake) |
 | v7.1.1 | 2025-12-10 | XLSX Roundtrip 100% (formula translator fix) |
 | v7.1.0 | 2025-12-10 | 100% Real Test Coverage (7-Agent Parallel) |
@@ -37,13 +37,15 @@ Archived version details from roadmap.yaml. For current roadmap, see [roadmap.ya
 ## Development Stats
 
 - **Total development time**: ~40 hours autonomous
-- **Tests**: 2,486 passing (1,267 demo)
+- **Tests**: 2,133 passing (1,297 unit + 836 E2E)
+- **Functions**: 173 (167 Excel + 6 FP&A)
+- **Coverage**: 100% function coverage
 - **Warnings**: ZERO (clippy -D warnings)
 - **Built by**: Claude AI using RoyalBit Asimov
 
-## v8.0.0 - Monte Carlo Simulation (TBD)
+## v8.0.0 - Monte Carlo Simulation (2025-12)
 
-Enterprise-grade probabilistic analysis for FP&A models.
+Probabilistic FP&A analysis with uncertainty quantification.
 
 **Major Features:**
 
@@ -77,7 +79,7 @@ forge monte-carlo model.yaml --output results.yaml
 - 1M iterations, 20 variables: <5min
 - Linear scaling with variable count
 
-**Enterprise Integration:**
+**Integration:**
 - HTTP API endpoint: `POST /api/v1/monte-carlo`
 - MCP tool: `forge_monte_carlo`
 - Batch processing support
@@ -88,8 +90,6 @@ forge monte-carlo model.yaml --output results.yaml
 - Risk-adjusted valuations
 - Capital budgeting under uncertainty
 - Portfolio optimization
-
-**License**: Enterprise-only feature
 
 **Breaking Changes:**
 - None (additive feature)
@@ -105,7 +105,6 @@ forge monte-carlo model.yaml --output results.yaml
 
 **Key Achievements:**
 - 2,486 tests passing (up from 1,208 in v7.1.1)
-- 1,267 demo tests passing
 - 189 new edge case tests added
 - 90 weak test patterns eliminated
 - Zero fake tests, 100% real formula evaluations
@@ -201,10 +200,10 @@ Language Server Protocol for editor integration.
 ## v1.6.0 & v1.7.0 - HTTP & MCP Servers (2025-11-24)
 
 **Binaries:**
-- `forge-server` - HTTP API for enterprise integration
+- `forge-server` - HTTP API server
 - `forge-mcp` - Model Context Protocol for AI agents
 
-## v2.0.0 - Enterprise HTTP API (2025-11-24)
+## v2.0.0 - HTTP API (2025-11-24)
 
 Production-ready HTTP server with:
 - POST /calculate, /validate, /export, /import
@@ -237,7 +236,7 @@ Budget vs actual comparison with:
 
 ## v2.4.0 - Performance Validation (2025-11-25)
 
-Validated enterprise-scale performance:
+Validated production-scale performance:
 - 96K rows/sec throughput
 - 10K rows in 107ms
 - 100K rows in ~1s

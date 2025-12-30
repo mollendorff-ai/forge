@@ -86,7 +86,7 @@ summary:
     formula: "=AVERAGE(pl_2025_q1.gross_margin)"
 ```
 
-### Monte Carlo Simulation (v8.0.0 - Enterprise)
+### Monte Carlo Simulation (v8.0.0)
 
 **NPV Uncertainty Analysis:**
 
