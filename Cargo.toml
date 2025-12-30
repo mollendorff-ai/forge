@@ -14,6 +14,22 @@ readme = "README.md"
 exclude = [
     "test-data/*",
     ".git*",
+    ".asimov/*",
+    ".cargo/*",
+    ".cargo-husky/*",
+    ".claude/*",
+    ".vscode/*",
+    ".markdownlint*",
+    ".yamllint",
+    "docs/*",
+    "dist/*",
+    "bin/*",
+    "examples/*",
+    "editors/*",
+    "scripts/*",
+    "Makefile",
+    "*.md",
+    "!README.md",
 ]
 
 # Main binary (173 functions, all features)
