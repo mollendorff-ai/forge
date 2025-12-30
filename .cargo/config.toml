@@ -14,15 +14,16 @@ rustflags = ["-C", "target-feature=+crt-static"]
 rustflags = ["-C", "target-feature=+crt-static"]
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Linux GNU targets (fallback - NOT recommended for distribution)
+# Linux GNU targets (for CI/development only - NOT for distribution)
 # ═══════════════════════════════════════════════════════════════════════════════
+# Note: DO NOT use +crt-static on GNU targets - it breaks proc-macro builds.
+# Use musl targets for static release builds.
 
 [target.x86_64-unknown-linux-gnu]
-# Note: GNU targets still require glibc - use musl targets for static builds
-rustflags = ["-C", "target-feature=+crt-static"]
+# Default dynamic linking (required for proc-macros to work)
 
 [target.aarch64-unknown-linux-gnu]
-rustflags = ["-C", "target-feature=+crt-static"]
+# Default dynamic linking (required for proc-macros to work)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Windows targets - Static MSVC runtime
