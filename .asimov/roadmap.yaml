@@ -2,49 +2,6 @@
 # Version: Cargo.toml | History: CHANGELOG.md | Config: project.yaml
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PRIORITY ZERO - Remove Demo/Enterprise Split (BLOCKING BSL)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-priority_zero:
-  version: "10.0.0-alpha.0"
-  status: done
-  completed: "2025-12-29"
-  priority: CRITICAL
-  summary: "Remove demo feature - single enterprise binary"
-  description: |
-    Before BSL release, consolidate to one product with full features.
-    No more forge-demo vs forge split. One binary, all 173 functions.
-  tasks:
-    - "Remove forge-demo binary target from Cargo.toml ✓"
-    - "Remove demo and full features from Cargo.toml ✓"
-    - "Remove all #[cfg(not(feature = \"demo\"))] gates (~330 occurrences) ✓"
-    - "Remove all #[cfg(feature = \"demo\")] stubs ✓"
-    - "Update Makefile - remove demo build targets ✓"
-    - "Verify: cargo build --release produces single forge binary ✓"
-  acceptance_criteria:
-    - "Only one binary: forge (not forge-demo) ✓"
-    - "All 173 functions always available ✓"
-    - "No feature gates in codebase ✓"
-    - "make test passes (1297 tests) ✓"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# HOTFIX - Bug fixes (COMPLETED)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-hotfix:
-  version: "9.9.6-hotfix"
-  status: done
-  priority: CRITICAL
-  summary: "Fix ISERROR NA detection"
-  completed: "2025-12-29"
-  bugs:
-    - id: "FORGE-010"
-      status: "INVALID - arrays load correctly"
-    - id: "FORGE-011"
-      status: "FIXED - ISERROR now detects NA()"
-      fix_location: "src/core/array_calculator/evaluator/info.rs:18-28"
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # CURRENT - BSL License Implementation
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -107,41 +64,22 @@ gtm:
         - "Global edge deployment"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# COMPLETED - v9.9.5
-# ═══════════════════════════════════════════════════════════════════════════════
-
-completed:
-  - version: "9.9.5"
-    status: done
-    summary: "Consolidate tests inline (Rust idiom) - COMPLETE (1,295 unit tests inline)"
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # NEXT - Candidate milestones (pick one to start)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
   # ─────────────────────────────────────────────────────────────────────────────
-  # COMPLETED - See CHANGELOG.md for details
+  # COMPLETED - See CHANGELOG.md for history
   # ─────────────────────────────────────────────────────────────────────────────
-  # v9.8.0  - E2E Test Migration
-  # v9.8.1  - Cleanup (e2e tests deleted, pedantic linting)
-  # v9.9.1  - Monte Carlo Fix (FORGE-MC-001)
-  # v9.9.2  - Excel Export for Scalar Models (FORGE-EXPORT-001)
-  # v9.9.3  - E2E Test Fixes (FORGE-003, FORGE-004, FORGE-005, FORGE-TRIM)
+  # v10.0.0-alpha.0 - Remove demo/enterprise split (2025-12-29)
+  # v9.9.6  - ISERROR NA detection fix (2025-12-29)
+  # v9.9.5  - Consolidate tests inline + Static musl builds
   # v9.9.4  - 100% Unit Test Coverage (+9 HLOOKUP tests)
-  # v9.9.5  - Consolidate tests inline (Rust idiom)
-  # v9.9.5+ - Static musl builds (no glibc, fully portable Linux binaries)
+  # v9.9.3  - E2E Test Fixes (FORGE-003, FORGE-004, FORGE-005, FORGE-TRIM)
+  # v9.9.2  - Excel Export for Scalar Models (FORGE-EXPORT-001)
+  # v9.9.1  - Monte Carlo Fix (FORGE-MC-001)
+  # v9.8.0  - E2E Test Migration
   # ─────────────────────────────────────────────────────────────────────────────
-
-  - version: "9.9.5"
-    priority: HIGH
-    status: done
-    summary: "Consolidate tests inline + Static musl builds - COMPLETE"
-    notes:
-      - "All 1,295 unit tests inline with source (Rust idiom)"
-      - "Added .cargo/config.toml for static linking"
-      - "Linux binaries: x86_64-unknown-linux-musl, aarch64-unknown-linux-musl"
-      - "Verified: 'file' shows 'statically linked' - no glibc dependency"
 
   - version: "9.9.6"
     priority: HIGH
