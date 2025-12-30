@@ -235,7 +235,6 @@ mod tests {
         assert!((result.scalars.get("total").unwrap().value.unwrap() - 150.0).abs() < 0.01);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sumif_greater() {
         let mut model = ParsedModel::new();
@@ -258,7 +257,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(9.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sumif_all_match() {
         let mut model = ParsedModel::new();
@@ -281,7 +279,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(6.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sumifs_two_criteria() {
         let mut model = ParsedModel::new();

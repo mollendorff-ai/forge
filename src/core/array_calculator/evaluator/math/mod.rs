@@ -40,15 +40,10 @@ pub fn try_evaluate(
         "LOG10" => logarithm::eval_log10(args, ctx)?,
 
         // ENTERPRISE FUNCTIONS
-        #[cfg(not(feature = "demo"))]
         "LOG" => logarithm::eval_log(args, ctx)?,
-        #[cfg(not(feature = "demo"))]
         "POW" => basic::eval_pow(args, ctx)?,
-        #[cfg(not(feature = "demo"))]
         "E" => basic::eval_e(args, ctx)?,
-        #[cfg(not(feature = "demo"))]
         "RAND" => random::eval_rand(args, ctx)?,
-        #[cfg(not(feature = "demo"))]
         "RANDBETWEEN" => random::eval_randbetween(args, ctx)?,
 
         _ => return Ok(None),

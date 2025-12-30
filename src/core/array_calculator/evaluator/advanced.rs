@@ -611,7 +611,6 @@ mod edge_case_tests {
 
     // LET Tests
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_let_single() {
         let mut model = ParsedModel::new();
@@ -628,7 +627,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(10.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_let_two_vars() {
         let mut model = ParsedModel::new();
@@ -645,7 +643,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(8.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_let_dependent() {
         let mut model = ParsedModel::new();
@@ -662,7 +659,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(11.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_let_with_sum() {
         let mut model = ParsedModel::new();
@@ -679,7 +675,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(12.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_let_nested() {
         let mut model = ParsedModel::new();
@@ -696,7 +691,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(5.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_let_complex() {
         let mut model = ParsedModel::new();
@@ -715,7 +709,6 @@ mod edge_case_tests {
 
     // SWITCH Tests
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_switch_first() {
         let mut model = ParsedModel::new();
@@ -732,7 +725,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(100.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_switch_last() {
         let mut model = ParsedModel::new();
@@ -749,7 +741,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(200.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_switch_default() {
         let mut model = ParsedModel::new();
@@ -766,7 +757,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(999.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_switch_numeric() {
         let mut model = ParsedModel::new();
@@ -785,7 +775,6 @@ mod edge_case_tests {
 
     // IFS Tests
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifs_first_true() {
         let mut model = ParsedModel::new();
@@ -802,7 +791,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifs_second_true() {
         let mut model = ParsedModel::new();
@@ -819,7 +807,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(2.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifs_with_comparison() {
         let mut model = ParsedModel::new();
@@ -836,7 +823,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(200.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifs_with_and() {
         let mut model = ParsedModel::new();
@@ -853,7 +839,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(100.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifs_with_or() {
         let mut model = ParsedModel::new();

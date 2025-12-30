@@ -8,39 +8,9 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "forge")]
-#[cfg_attr(
-    not(not(feature = "demo")),
-    command(about = "Git-native financial modeling. Zero hallucinations.")
-)]
-#[cfg_attr(
-    not(feature = "demo"),
-    command(about = "Git-native financial modeling. 173 functions. Zero hallucinations.")
-)]
-#[cfg_attr(
-    not(not(feature = "demo")),
-    command(long_about = "Forge Demo - Git-native financial modeling
-47 functions | E2E validated against Gnumeric
-
-COMMANDS:
-  calculate   - Execute formulas, update values
-  validate    - Check model integrity
-  audit       - Trace formula dependencies
-  functions   - List all supported functions
-  export      - YAML -> Excel (.xlsx) with formulas
-  import      - Excel -> YAML
-  watch       - Auto-calculate on save
-
-EXAMPLES:
-  forge calculate model.yaml           # Execute formulas
-  forge audit model.yaml profit        # Dependency trace
-  forge export model.yaml output.xlsx  # Excel with formulas
-
-Docs: https://github.com/royalbit/forge-demo")
-)]
-#[cfg_attr(
-    not(feature = "demo"),
-    command(long_about = "Forge Enterprise - Git-native financial modeling
-173 functions | 1825 unit tests | E2E: forge-e2e repo
+#[command(about = "Git-native financial modeling. 173 functions. Zero hallucinations.")]
+#[command(long_about = "Forge - Git-native financial modeling
+173 functions | 2132 tests | E2E: forge-e2e repo
 
 COMMANDS:
   calculate     - Execute formulas, update values
@@ -72,8 +42,7 @@ EXAMPLES:
   forge tornado model.yaml                      # Sensitivity diagram
   forge variance budget.yaml actual.yaml        # Budget vs actual
 
-Docs: https://royalbit.ca/forge")
-)]
+Docs: https://royalbit.ca/forge")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -269,7 +238,6 @@ Press Ctrl+C to stop watching.")]
         verbose: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(long_about = "Compare calculation results across multiple scenarios.
 
 Runs calculations for each specified scenario and displays results side-by-side.
@@ -311,7 +279,6 @@ OUTPUT:
         verbose: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(long_about = "Compare budget vs actual with variance analysis.
 
 Calculates variances between two YAML files (budget and actual).
@@ -360,7 +327,6 @@ See ADR-002 for design rationale on YAML-only inputs.")]
         verbose: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(long_about = "Run sensitivity analysis by varying one or two inputs.
 
 Varies the specified input variable(s) across a range and shows how the
@@ -413,7 +379,6 @@ EXAMPLES:
         verbose: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(long_about = "Find the input value needed to achieve a target output.
 
 Uses numerical methods (bisection) to find what input value produces
@@ -463,7 +428,6 @@ OPTIONS:
         verbose: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(long_about = "Find the break-even point where output equals zero.
 
 Special case of goal-seek that finds where a variable crosses zero.
@@ -501,7 +465,6 @@ EXAMPLES:
         verbose: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(long_about = "Run Monte Carlo simulation for probabilistic analysis.
 
 Uses probability distributions (MC.Normal, MC.Triangular, etc.) to model
@@ -567,7 +530,6 @@ EXAMPLES:
         verbose: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(
         long_about = "Run probability-weighted scenario analysis (Base/Bull/Bear cases).
 
@@ -618,7 +580,6 @@ EXAMPLES:
         verbose: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(long_about = "Analyze decision trees using backward induction.
 
 Decision trees model sequential choices and uncertain outcomes.
@@ -680,7 +641,6 @@ EXAMPLES:
         verbose: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(
         long_about = "Value managerial flexibility using real options analysis.
 
@@ -745,7 +705,6 @@ EXAMPLES:
         verbose: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(long_about = "Generate tornado diagram for sensitivity analysis.
 
 Tornado diagrams show which inputs have the most impact on outputs.
@@ -792,7 +751,6 @@ EXAMPLES:
         verbose: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(long_about = "Run bootstrap resampling for confidence intervals.
 
 Bootstrap is a non-parametric method that resamples from historical data
@@ -842,7 +800,6 @@ EXAMPLES:
         verbose: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(long_about = "Run Bayesian network inference.
 
 Bayesian networks are probabilistic graphical models for causal reasoning.
@@ -919,7 +876,6 @@ EXAMPLES:
         json: bool,
     },
 
-    #[cfg(not(feature = "demo"))]
     #[command(long_about = "Upgrade YAML files to latest schema version (v5.0.0).
 
 Automatically migrates YAML files and all included files to the latest schema.
@@ -1003,14 +959,12 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::watch(file, validate, verbose),
 
-        #[cfg(not(feature = "demo"))]
         Commands::Compare {
             file,
             scenarios,
             verbose,
         } => cli::compare(file, scenarios, verbose),
 
-        #[cfg(not(feature = "demo"))]
         Commands::Variance {
             budget,
             actual,
@@ -1019,7 +973,6 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::variance(budget, actual, threshold, output, verbose),
 
-        #[cfg(not(feature = "demo"))]
         Commands::Sensitivity {
             file,
             vary,
@@ -1030,7 +983,6 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::sensitivity(file, vary, range, vary2, range2, output, verbose),
 
-        #[cfg(not(feature = "demo"))]
         Commands::GoalSeek {
             file,
             target,
@@ -1042,7 +994,6 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::goal_seek(file, target, value, vary, min, max, tolerance, verbose),
 
-        #[cfg(not(feature = "demo"))]
         Commands::BreakEven {
             file,
             output,
@@ -1052,7 +1003,6 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::break_even(file, output, vary, min, max, verbose),
 
-        #[cfg(not(feature = "demo"))]
         Commands::Simulate {
             file,
             iterations,
@@ -1062,7 +1012,6 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::simulate(file, iterations, seed, sampling, output, verbose),
 
-        #[cfg(not(feature = "demo"))]
         Commands::Scenarios {
             file,
             scenario,
@@ -1070,7 +1019,6 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::scenarios(file, scenario, output, verbose),
 
-        #[cfg(not(feature = "demo"))]
         Commands::DecisionTree {
             file,
             dot,
@@ -1078,7 +1026,6 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::decision_tree(file, dot, output, verbose),
 
-        #[cfg(not(feature = "demo"))]
         Commands::RealOptions {
             file,
             option,
@@ -1087,7 +1034,6 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::real_options(file, option, compare_npv, output, verbose),
 
-        #[cfg(not(feature = "demo"))]
         Commands::Tornado {
             file,
             output_var,
@@ -1095,7 +1041,6 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::tornado(file, output_var, output, verbose),
 
-        #[cfg(not(feature = "demo"))]
         Commands::Bootstrap {
             file,
             iterations,
@@ -1105,7 +1050,6 @@ fn main() -> ForgeResult<()> {
             verbose,
         } => cli::bootstrap(file, iterations, seed, confidence, output, verbose),
 
-        #[cfg(not(feature = "demo"))]
         Commands::Bayesian {
             file,
             query,
@@ -1116,7 +1060,6 @@ fn main() -> ForgeResult<()> {
 
         Commands::Functions { json } => cli::functions(json),
 
-        #[cfg(not(feature = "demo"))]
         Commands::Upgrade {
             file,
             dry_run,

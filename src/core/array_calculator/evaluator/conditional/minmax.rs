@@ -223,7 +223,6 @@ mod tests {
         assert_eq!(result.scalars.get("min_a_price").unwrap().value, Some(10.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_maxifs_basic() {
         let mut model = ParsedModel::new();
@@ -250,7 +249,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(30.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_minifs_basic() {
         let mut model = ParsedModel::new();
@@ -277,7 +275,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(10.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_maxifs_empty_result() {
         let mut model = ParsedModel::new();
@@ -304,7 +301,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(0.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_minifs_empty_result() {
         let mut model = ParsedModel::new();

@@ -15,7 +15,6 @@ pub fn try_evaluate(
             Value::Text(today.format("%Y-%m-%d").to_string())
         },
 
-        #[cfg(not(feature = "demo"))]
         "NOW" => {
             use chrono::Local;
             let now = Local::now();
@@ -80,7 +79,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "demo"))]
     fn test_now_function() {
         let mut model = ParsedModel::new();
         model.add_scalar(

@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "9.9.4"
+version = "10.0.0-alpha.0"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "A Self-Evolving Autonomous AI project. YAML formula calculator with 60+ Excel functions, 96K rows/sec. Created with RoyalBit Asimov."
@@ -17,14 +17,7 @@ exclude = [
     ".git*",
 ]
 
-# Demo binary (47 scalar functions, no servers, v1.0.0 schema only)
-# Build: cargo build --release --features demo
-[[bin]]
-name = "forge-demo"
-path = "src/main.rs"
-required-features = ["demo"]
-
-# Enterprise binary (173 functions, all features)
+# Main binary (173 functions, all features)
 # Build: cargo build --release
 [[bin]]
 name = "forge"
@@ -96,19 +89,6 @@ rand = "0.9.2"
 rand_distr = "0.5"  # Distribution sampling (Normal, Triangular, PERT, etc.)
 statrs = "0.18"     # Statistical functions (PDF, CDF, percentiles)
 
-[features]
-default = []
-
-# Enterprise build (default) - includes all 173 functions, API server, Monte Carlo, etc.
-# Demo build: ~47 functions, v1.0.0 schema only, no API server
-# Build commands:
-#   cargo build --release                   # Enterprise binary (full)
-#   cargo build --release --features demo   # Demo binary (restricted)
-demo = []
-
-# Backward compatibility alias (deprecated - use default build for enterprise)
-full = []
-
 # E2E tests migrated to forge-e2e repository (see ADR-027)
 # Gnumeric, R, Python validation now in https://github.com/royalbit/forge-e2e
 
@@ -121,9 +101,9 @@ predicates = "3.1"  # CLI output assertions
 # Git hooks (auto-installs on cargo test)
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
 
-# Allow coverage and feature cfgs for conditional compilation (ADR-006, ADR-012)
+# Allow coverage cfg for conditional compilation (ADR-006)
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)', 'cfg(feature, values("full"))'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 # Pedantic linting - code is for humans to read (ADR-004)
 # Note: Clippy config is in Makefile (lint target) for proper precedence

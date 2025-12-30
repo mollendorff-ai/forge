@@ -6,9 +6,7 @@
 mod choose;
 mod index;
 mod match_fn;
-#[cfg(not(feature = "demo"))]
 mod reference;
-#[cfg(not(feature = "demo"))]
 mod xlookup;
 
 use super::{EvalContext, EvalError, Expr, Value};
@@ -30,34 +28,24 @@ pub fn try_evaluate(
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
         // ═══════════════════════════════════════════════════════════════════════════
-        #[cfg(not(feature = "demo"))]
         "INDIRECT" => reference::eval_indirect(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "XLOOKUP" => xlookup::eval_xlookup(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "VLOOKUP" => xlookup::eval_vlookup(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "HLOOKUP" => xlookup::eval_hlookup(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "OFFSET" => reference::eval_offset(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "ADDRESS" => reference::eval_address(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "ROW" => reference::eval_row(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "COLUMN" => reference::eval_column(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "ROWS" => reference::eval_rows(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "COLUMNS" => reference::eval_columns(args, ctx)?,
 
         _ => return Ok(None),
@@ -223,7 +211,6 @@ mod tests {
         assert_eq!(val, 92.0);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_index_match_basic_edge() {
         let mut model = ParsedModel::new();
@@ -250,7 +237,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(200.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_index_match_first_edge() {
         let mut model = ParsedModel::new();
@@ -277,7 +263,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(100.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_index_match_last_edge() {
         let mut model = ParsedModel::new();

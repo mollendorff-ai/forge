@@ -17,15 +17,10 @@ mod text;
 mod trig;
 
 // Enterprise-only modules (gated behind "full" feature)
-#[cfg(not(feature = "demo"))]
 mod advanced;
-#[cfg(not(feature = "demo"))]
 mod array;
-#[cfg(not(feature = "demo"))]
 mod conditional;
-#[cfg(not(feature = "demo"))]
 mod forge;
-#[cfg(not(feature = "demo"))]
 mod info;
 
 use super::parser::{Expr, Reference};
@@ -547,7 +542,6 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
     // ═══════════════════════════════════════════════════════════════════════════
     // ENTERPRISE FUNCTIONS (only in full build)
     // ═══════════════════════════════════════════════════════════════════════════
-    #[cfg(not(feature = "demo"))]
     {
         if let Some(result) = conditional::try_evaluate(&upper_name, args, ctx)? {
             return Ok(result);
@@ -634,7 +628,6 @@ pub(crate) fn collect_numeric_values(
 
 /// Collect all values from an expression as a Vec<Value>
 /// (Enterprise only - used by array functions)
-#[cfg(not(feature = "demo"))]
 pub(crate) fn collect_values_as_vec(
     expr: &Expr,
     ctx: &EvalContext,
@@ -648,7 +641,6 @@ pub(crate) fn collect_values_as_vec(
 
 /// Check if a value matches a criteria (supports comparisons like ">50", "<=100", "<>0", "=text")
 /// (Enterprise only - used by conditional functions)
-#[cfg(not(feature = "demo"))]
 pub(crate) fn matches_criteria(val: &Value, criteria: &Value) -> bool {
     let criteria_str = criteria.as_text();
 

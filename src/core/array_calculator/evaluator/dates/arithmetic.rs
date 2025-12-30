@@ -73,7 +73,6 @@ pub fn try_evaluate(
             Value::Number((date - excel_base).num_days() as f64)
         },
 
-        #[cfg(not(feature = "demo"))]
         "EDATE" => {
             use chrono::Months;
 
@@ -128,7 +127,6 @@ pub fn try_evaluate(
             Value::Text(last_day.format("%Y-%m-%d").to_string())
         },
 
-        #[cfg(not(feature = "demo"))]
         "DAYS" => {
             require_args(name, args, 2)?;
             let end = evaluate(&args[0], ctx)?;
@@ -207,7 +205,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_edate() {
         let ctx = EvalContext::new();
@@ -217,7 +214,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_edate_negative_months() {
         let ctx = EvalContext::new();
@@ -246,7 +242,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_days() {
         let ctx = EvalContext::new();

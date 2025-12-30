@@ -240,7 +240,6 @@ mod edge_case_tests {
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sequence_basic() {
         let mut model = ParsedModel::new();
@@ -257,7 +256,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(15.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sequence_count() {
         let mut model = ParsedModel::new();
@@ -274,7 +272,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(10.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sequence_with_start() {
         let mut model = ParsedModel::new();
@@ -291,7 +288,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(60.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sequence_with_step() {
         let mut model = ParsedModel::new();
@@ -308,7 +304,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(25.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_rows_function() {
         let mut model = ParsedModel::new();
@@ -330,7 +325,6 @@ mod edge_case_tests {
         let _ = calculator.calculate_all();
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sequence_function_zero_start() {
         let mut model = ParsedModel::new();
@@ -351,7 +345,6 @@ mod edge_case_tests {
         assert_eq!(max_val, 20.0);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_randarray_function_range() {
         let mut model = ParsedModel::new();
@@ -394,7 +387,6 @@ mod edge_case_tests {
         assert!((1.0..=10.0).contains(&max_val));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_randarray_function_larger_count() {
         let mut model = ParsedModel::new();
@@ -420,7 +412,6 @@ mod edge_case_tests {
         assert_eq!(count_val, 100.0);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sequence_single() {
         let mut model = ParsedModel::new();

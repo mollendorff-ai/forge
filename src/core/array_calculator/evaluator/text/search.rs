@@ -1,10 +1,8 @@
 //! Search functions: FIND, SEARCH (enterprise only)
 
-#[cfg(not(feature = "demo"))]
 use super::super::{evaluate, require_args_range, EvalContext, EvalError, Expr, Value};
 
 /// FIND(find_text, within_text, [start_num]) - Finds text within text (case-sensitive)
-#[cfg(not(feature = "demo"))]
 pub fn eval_find(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("FIND", args, 2, 3)?;
     let find_text = evaluate(&args[0], ctx)?.as_text();
@@ -28,7 +26,6 @@ pub fn eval_find(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 }
 
 /// SEARCH(find_text, within_text, [start_num]) - Finds text within text (case-insensitive)
-#[cfg(not(feature = "demo"))]
 pub fn eval_search(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("SEARCH", args, 2, 3)?;
     let find_text = evaluate(&args[0], ctx)?.as_text().to_lowercase();
@@ -53,7 +50,6 @@ pub fn eval_search(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "demo"))]
 mod tests {
     use crate::core::array_calculator::ArrayCalculator;
     #[allow(unused_imports)]

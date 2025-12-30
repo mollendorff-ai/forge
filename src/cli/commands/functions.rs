@@ -10,12 +10,8 @@ use std::collections::BTreeMap;
 
 /// Execute the functions command - list all supported Excel-compatible functions
 pub fn functions(json_output: bool) -> ForgeResult<()> {
-    // Get functions from registry based on build
-    let all_functions: Vec<&FunctionDef> = if cfg!(not(feature = "demo")) {
-        registry::enterprise_functions().collect()
-    } else {
-        registry::demo_functions().collect()
-    };
+    // Get all functions from registry
+    let all_functions: Vec<&FunctionDef> = registry::enterprise_functions().collect();
 
     let total = all_functions.len();
 
@@ -32,7 +28,7 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
         // JSON output for tooling
         let json = serde_json::json!({
             "total": total,
-            "edition": if cfg!(not(feature = "demo")) { "enterprise" } else { "demo" },
+            "edition": "enterprise",
             "categories": by_category.iter().map(|(name, funcs)| {
                 serde_json::json!({
                     "name": name,
@@ -51,33 +47,15 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         // Human-readable output
-        #[cfg(not(feature = "demo"))]
-        {
-            println!(
-                "{}",
-                "🔥 Forge Enterprise - Supported Functions".bold().green()
-            );
-            println!();
-            println!(
-                "{}",
-                format!("   {total} Excel-compatible functions for financial modeling")
-                    .bright_white()
-            );
-        }
-        #[cfg(feature = "demo")]
-        {
-            println!("{}", "🔥 Forge Demo - Supported Functions".bold().green());
-            println!();
-            println!(
-                "{}",
-                format!(
-                    "   {} core functions (Enterprise: {} functions)",
-                    total,
-                    registry::count_enterprise()
-                )
-                .bright_white()
-            );
-        }
+        println!(
+            "{}",
+            "🔥 Forge Enterprise - Supported Functions".bold().green()
+        );
+        println!();
+        println!(
+            "{}",
+            format!("   {total} Excel-compatible functions for financial modeling").bright_white()
+        );
         println!();
         println!("{}", "═".repeat(70));
 

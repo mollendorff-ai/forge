@@ -166,7 +166,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_choose_first_edge() {
         let mut model = ParsedModel::new();
@@ -183,7 +182,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(10.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_choose_second_edge() {
         let mut model = ParsedModel::new();
@@ -200,7 +198,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(20.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_choose_last_edge() {
         let mut model = ParsedModel::new();
@@ -217,7 +214,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(30.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_choose_formula() {
         let mut model = ParsedModel::new();

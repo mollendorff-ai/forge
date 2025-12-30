@@ -32,19 +32,14 @@ pub fn try_evaluate(
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
         // ═══════════════════════════════════════════════════════════════════════════
-        #[cfg(not(feature = "demo"))]
         "IFNA" => conditionals::eval_ifna(name, args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "XOR" => boolean_ops::eval_xor(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "TRUE" => constants::eval_true(name, args)?,
 
-        #[cfg(not(feature = "demo"))]
         "FALSE" => constants::eval_false(name, args)?,
 
-        #[cfg(not(feature = "demo"))]
         "IFS" => return Ok(Some(conditionals::eval_ifs(args, ctx)?)),
 
         _ => return Ok(None),
@@ -605,7 +600,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_xor_one_true() {
         let mut model = ParsedModel::new();
@@ -623,7 +617,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_xor_two_true() {
         let mut model = ParsedModel::new();
@@ -641,7 +634,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(0.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_xor_three_true() {
         let mut model = ParsedModel::new();
@@ -659,7 +651,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_xor_all_false() {
         let mut model = ParsedModel::new();
@@ -677,7 +668,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(0.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_xor_with_numbers() {
         let mut model = ParsedModel::new();
@@ -695,7 +685,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_true_function() {
         let mut model = ParsedModel::new();
@@ -713,7 +702,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_false_function() {
         let mut model = ParsedModel::new();
@@ -731,7 +719,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(0.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_true_in_and() {
         let mut model = ParsedModel::new();
@@ -749,7 +736,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_false_in_or() {
         let mut model = ParsedModel::new();
@@ -767,7 +753,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_not_with_true() {
         let mut model = ParsedModel::new();
@@ -785,7 +770,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(0.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_not_with_false() {
         let mut model = ParsedModel::new();
@@ -803,7 +787,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifna_with_value() {
         let mut model = ParsedModel::new();
@@ -821,7 +804,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(15.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifna_with_text() {
         let mut model = ParsedModel::new();
@@ -839,7 +821,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(4.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifna_with_table_reference() {
         let mut model = ParsedModel::new();
@@ -866,7 +847,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(60.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_combined_xor_and_not() {
         let mut model = ParsedModel::new();
@@ -884,7 +864,6 @@ mod integration_tests {
         assert_eq!(var.value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_true_false_in_arithmetic() {
         let mut model = ParsedModel::new();

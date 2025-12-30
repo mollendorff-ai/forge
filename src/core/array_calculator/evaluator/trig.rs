@@ -69,7 +69,6 @@ pub fn try_evaluate(
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
         // ═══════════════════════════════════════════════════════════════════════════
-        #[cfg(not(feature = "demo"))]
         "SINH" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -78,7 +77,6 @@ pub fn try_evaluate(
             Value::Number(val.sinh())
         },
 
-        #[cfg(not(feature = "demo"))]
         "COSH" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -87,7 +85,6 @@ pub fn try_evaluate(
             Value::Number(val.cosh())
         },
 
-        #[cfg(not(feature = "demo"))]
         "TANH" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
@@ -96,7 +93,6 @@ pub fn try_evaluate(
             Value::Number(val.tanh())
         },
 
-        #[cfg(not(feature = "demo"))]
         "RADIANS" => {
             require_args(name, args, 1)?;
             let degrees = evaluate(&args[0], ctx)?
@@ -105,7 +101,6 @@ pub fn try_evaluate(
             Value::Number(degrees.to_radians())
         },
 
-        #[cfg(not(feature = "demo"))]
         "DEGREES" => {
             require_args(name, args, 1)?;
             let radians = evaluate(&args[0], ctx)?
@@ -194,7 +189,6 @@ mod tests {
     // ENTERPRISE TESTS (only with full feature)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sinh() {
         let ctx = EvalContext::new();
@@ -203,7 +197,6 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if (n - 1.1752011936438014).abs() < 0.0001));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_cosh() {
         let ctx = EvalContext::new();
@@ -212,7 +205,6 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if (n - 1.5430806348152437).abs() < 0.0001));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_tanh() {
         let ctx = EvalContext::new();
@@ -221,7 +213,6 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if (n - 0.7615941559557649).abs() < 0.0001));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_radians() {
         let ctx = EvalContext::new();
@@ -231,7 +222,6 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if (n - PI / 2.0).abs() < 0.0001));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_degrees() {
         let ctx = EvalContext::new();
@@ -245,12 +235,9 @@ mod tests {
     // INTEGRATION TESTS (from tests/trig.rs)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    #[cfg(not(feature = "demo"))]
     use crate::core::array_calculator::ArrayCalculator;
-    #[cfg(not(feature = "demo"))]
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sin_basic() {
         let mut model = ParsedModel::new();
@@ -282,7 +269,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sin_negative_angles() {
         let mut model = ParsedModel::new();
@@ -310,7 +296,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sin_scalar() {
         let mut model = ParsedModel::new();
@@ -330,7 +315,6 @@ mod tests {
         assert!((result.scalars.get("result").unwrap().value.unwrap() - 1.0).abs() < 0.0001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_cos_basic() {
         let mut model = ParsedModel::new();
@@ -360,7 +344,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_cos_pi() {
         let mut model = ParsedModel::new();
@@ -380,7 +363,6 @@ mod tests {
         assert!((result.scalars.get("result").unwrap().value.unwrap() - (-1.0)).abs() < 0.0001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_tan_basic() {
         let mut model = ParsedModel::new();
@@ -409,7 +391,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_tan_negative() {
         let mut model = ParsedModel::new();
@@ -429,7 +410,6 @@ mod tests {
         assert!((result.scalars.get("result").unwrap().value.unwrap() - (-1.0)).abs() < 0.0001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_asin_basic() {
         let mut model = ParsedModel::new();
@@ -459,7 +439,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_asin_scalar() {
         let mut model = ParsedModel::new();
@@ -475,7 +454,6 @@ mod tests {
         assert!((result.scalars.get("result").unwrap().value.unwrap() - PI / 6.0).abs() < 0.0001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_acos_basic() {
         let mut model = ParsedModel::new();
@@ -505,7 +483,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_acos_scalar() {
         let mut model = ParsedModel::new();
@@ -521,7 +498,6 @@ mod tests {
         assert!((result.scalars.get("result").unwrap().value.unwrap() - PI / 2.0).abs() < 0.0001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_atan_basic() {
         let mut model = ParsedModel::new();
@@ -551,7 +527,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_atan_scalar() {
         let mut model = ParsedModel::new();
@@ -567,7 +542,6 @@ mod tests {
         assert!((result.scalars.get("result").unwrap().value.unwrap() - PI / 4.0).abs() < 0.0001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sinh_basic() {
         let mut model = ParsedModel::new();
@@ -596,7 +570,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sinh_scalar() {
         let mut model = ParsedModel::new();
@@ -612,7 +585,6 @@ mod tests {
         assert!((result.scalars.get("result").unwrap().value.unwrap() - 1.1752).abs() < 0.001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_cosh_basic() {
         let mut model = ParsedModel::new();
@@ -641,7 +613,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_cosh_scalar() {
         let mut model = ParsedModel::new();
@@ -657,7 +628,6 @@ mod tests {
         assert!((result.scalars.get("result").unwrap().value.unwrap() - 1.0).abs() < 0.0001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_tanh_basic() {
         let mut model = ParsedModel::new();
@@ -689,7 +659,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_tanh_scalar() {
         let mut model = ParsedModel::new();
@@ -705,7 +674,6 @@ mod tests {
         assert!((result.scalars.get("result").unwrap().value.unwrap() - 0.7616).abs() < 0.001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_radians_basic() {
         let mut model = ParsedModel::new();
@@ -735,7 +703,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_radians_negative() {
         let mut model = ParsedModel::new();
@@ -757,7 +724,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_radians_scalar() {
         let mut model = ParsedModel::new();
@@ -777,7 +743,6 @@ mod tests {
         assert!((result.scalars.get("result").unwrap().value.unwrap() - PI).abs() < 0.0001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_degrees_basic() {
         let mut model = ParsedModel::new();
@@ -807,7 +772,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_degrees_negative() {
         let mut model = ParsedModel::new();
@@ -827,7 +791,6 @@ mod tests {
         assert!((result.scalars.get("result").unwrap().value.unwrap() - (-90.0)).abs() < 0.0001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_degrees_scalar() {
         let mut model = ParsedModel::new();
@@ -847,7 +810,6 @@ mod tests {
         assert!((result.scalars.get("result").unwrap().value.unwrap() - 180.0).abs() < 0.0001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_trig_identity_sin_cos() {
         let mut model = ParsedModel::new();
@@ -880,7 +842,6 @@ mod tests {
         assert!((result.scalars.get("identity").unwrap().value.unwrap() - 1.0).abs() < 0.0001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_radians_degrees_roundtrip() {
         let mut model = ParsedModel::new();
@@ -912,7 +873,6 @@ mod tests {
         assert!((result.scalars.get("back_to_deg").unwrap().value.unwrap() - 45.0).abs() < 0.0001);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sinh_cosh_identity() {
         let mut model = ParsedModel::new();

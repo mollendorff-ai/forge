@@ -4,19 +4,15 @@
 //! ENTERPRISE functions: NOW, WEEKDAY, HOUR, MINUTE, SECOND, TIME, DAYS, WORKDAY, EDATE, NETWORKDAYS, YEARFRAC
 
 mod arithmetic;
-#[cfg(not(feature = "demo"))]
 mod components;
 mod current;
 mod datedif;
-#[cfg(not(feature = "demo"))]
 mod workdays;
 
 use super::{evaluate, parse_date_value, require_args, EvalContext, EvalError, Expr, Value};
 use chrono::Datelike;
 
-#[cfg(not(feature = "demo"))]
 use super::require_args_range;
-#[cfg(not(feature = "demo"))]
 use chrono::Timelike;
 
 /// Try to evaluate a date function. Returns None if function not recognized.
@@ -41,13 +37,11 @@ pub fn try_evaluate(
     }
 
     // Enterprise-only components (WEEKDAY, HOUR, MINUTE, SECOND)
-    #[cfg(not(feature = "demo"))]
     if let Some(result) = components::try_evaluate(name, args, ctx)? {
         return Ok(Some(result));
     }
 
     // Enterprise-only workday functions (WORKDAY, NETWORKDAYS)
-    #[cfg(not(feature = "demo"))]
     if let Some(result) = workdays::try_evaluate(name, args, ctx)? {
         return Ok(Some(result));
     }

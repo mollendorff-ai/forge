@@ -110,7 +110,6 @@ mod edge_case_tests {
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sort_ascending_first() {
         let mut model = ParsedModel::new();
@@ -133,7 +132,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sort_and_min() {
         let mut model = ParsedModel::new();
@@ -158,7 +156,6 @@ mod edge_case_tests {
         assert_eq!(min_val, 1.0);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sort_ascending_last() {
         let mut model = ParsedModel::new();
@@ -181,7 +178,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(5.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_sort_preserves_count() {
         let mut model = ParsedModel::new();

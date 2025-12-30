@@ -4,7 +4,6 @@ use super::{
     evaluate, parse_date_value, require_args, Datelike, EvalContext, EvalError, Expr, Value,
 };
 
-#[cfg(not(feature = "demo"))]
 use super::require_args_range;
 
 /// Try to evaluate a date difference function.
@@ -119,7 +118,6 @@ pub fn try_evaluate(
             Value::Number(result)
         },
 
-        #[cfg(not(feature = "demo"))]
         "YEARFRAC" => {
             require_args_range(name, args, 2, 3)?;
             let start = evaluate(&args[0], ctx)?;
@@ -176,7 +174,6 @@ pub fn try_evaluate(
             Value::Number(result)
         },
 
-        #[cfg(not(feature = "demo"))]
         "TIME" => {
             require_args(name, args, 3)?;
             let hour = evaluate(&args[0], ctx)?
@@ -279,7 +276,6 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("unknown unit"));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_yearfrac_all_bases() {
         let ctx = EvalContext::new();
@@ -305,7 +301,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_yearfrac_unknown_basis() {
         let ctx = EvalContext::new();
@@ -314,7 +309,6 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("unknown basis"));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_time() {
         let ctx = EvalContext::new();
@@ -377,7 +371,6 @@ mod tests {
         assert!((diff - 60.0).abs() < 1.0);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_time_function_datedif() {
         let mut model = ParsedModel::new();

@@ -21,7 +21,6 @@ pub fn eval_rept(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 }
 
 /// CONCATENATE(text1, [text2], ...) - Excel's CONCATENATE (alias for CONCAT, enterprise only)
-#[cfg(not(feature = "demo"))]
 pub fn eval_concatenate(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     eval_concat(args, ctx)
 }
@@ -316,7 +315,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "demo"))]
     fn test_concatenate_function() {
         let mut model = ParsedModel::new();
         model.add_scalar(
@@ -335,7 +333,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "demo"))]
     fn test_concatenate_multiple() {
         let mut model = ParsedModel::new();
         model.add_scalar(
