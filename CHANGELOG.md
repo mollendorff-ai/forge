@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-alpha.3] - 2025-12-30
+
+### CI/CD, crates.io, and Multi-Arch Releases
+
+This release establishes the full CI/CD pipeline and multi-platform distribution.
+
+### Added
+
+- **GitHub Actions CI** - Automated test, lint, build on every push
+- **GitHub Actions Release** - Multi-arch builds triggered on version tags
+- **crates.io publishing** - `royalbit-forge` published automatically on release
+- **README badges** - CI status, crates.io version, license badge
+- **forge-e2e CI/CD** - Same pipeline for E2E validation tool
+
+### Release Artifacts (5 platforms)
+
+- `forge-x86_64-unknown-linux-musl.tar.gz` - Linux x86_64 (static musl)
+- `forge-aarch64-unknown-linux-musl.tar.gz` - Linux ARM64 (static musl)
+- `forge-x86_64-apple-darwin.tar.gz` - macOS Intel
+- `forge-aarch64-apple-darwin.tar.gz` - macOS ARM (Apple Silicon)
+- `forge-x86_64-pc-windows-msvc.zip` - Windows x86_64
+
+### Fixed
+
+- **proc-macro build failure** - Removed `+crt-static` from GNU targets in `.cargo/config.toml`
+  - CI tests run on GNU/glibc (dynamic linking for proc-macros)
+  - Release builds use musl targets (fully static)
+- **forge-lsp archive error** - Removed non-existent binary from release workflow
+
+### Binary Contents
+
+Each release archive contains:
+- `forge` - Main CLI tool
+- `forge-mcp` - MCP server for Claude Desktop/IDEs
+- `forge-server` - REST API server
+
 ## [10.0.0-alpha.2] - 2025-12-29
 
 ### BREAKING: License Change to Elastic License 2.0

@@ -11,52 +11,19 @@ current:
   status: idle
   summary: "Awaiting next milestone selection"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# COMPLETED - See CHANGELOG.md for full details
+# ─────────────────────────────────────────────────────────────────────────────
 completed:
   - version: "10.0.0-alpha.3"
-    date: "2025-12-29"
-    summary: "CI/CD, crates.io, and Multi-Arch Releases"
-    tasks_completed:
-      - "Added GitHub Actions CI workflow (test, lint, build, auto-release)"
-      - "Added GitHub Actions release workflow (5 platforms)"
-      - "Published to crates.io (royalbit-forge v10.0.0-alpha.0)"
-      - "Added CI and crates.io badges to README"
-      - "Updated royalbit.ca/forge with battle-tested math, MCP, 7 engines"
-      - "Created first release tag v10.0.0-alpha.0"
-    platforms:
-      - "Linux x86_64 (musl static)"
-      - "Linux ARM64 (musl static)"
-      - "macOS Intel"
-      - "macOS ARM (Apple Silicon)"
-      - "Windows x86_64"
-
+    date: "2025-12-30"
+    summary: "CI/CD, crates.io, Multi-Arch Releases"
   - version: "10.0.0-alpha.2"
     date: "2025-12-29"
     summary: "Elastic-2.0 License & Git History Cleanup"
-    tasks_completed:
-      - "Decided license: Elastic License 2.0 (ADR-031)"
-      - "Created Elastic-2.0 LICENSE file"
-      - "Updated Cargo.toml: license = Elastic-2.0"
-      - "Created COMMERCIAL_LICENSE.md (GitHub Issues contact)"
-      - "Updated README.md, FEATURES.md, MARKET_ANALYSIS.md"
-      - "Removed LICENSE-DOCS from git history (filter-repo)"
-      - "Added LICENSE to all 459 commits from day one (filter-branch)"
-      - "Force pushed cleaned history to origin"
-      - "Also updated forge-e2e (30 commits) with Elastic-2.0"
-    acceptance_criteria_met:
-      - "LICENSE (Elastic-2.0) present in every commit from first to last"
-      - "LICENSE-DOCS does not exist in any commit"
-      - "SPDX identifier in Cargo.toml: Elastic-2.0"
-      - "Both forge and forge-e2e repos cleaned and pushed"
-
-
   - version: "10.0.0-alpha.1"
     date: "2025-12-29"
     summary: "Documentation Overhaul for Public Release"
-    tasks_completed:
-      - "README.md rewritten - moat-first structure"
-      - "FEATURES.md updated - removed ENTERPRISE ONLY labels"
-      - "VERSION_HISTORY.md updated - accurate stats"
-      - "All demo/enterprise references removed from active docs"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # GTM - Go-To-Market Strategy (Dec 29, 2025)
@@ -78,17 +45,13 @@ gtm:
     - version: "10.0.0-alpha"
       priority: CRITICAL
       status: completed
-      date: "2025-12-29"
-      summary: "Elastic-2.0 License + GitHub Public Release"
-      tasks_completed:
-        - "Added Elastic-2.0 LICENSE file"
-        - "Updated README with license terms"
-        - "Created COMMERCIAL_LICENSE.md (GitHub Issues contact)"
-        - "Rewrote git history with LICENSE from commit #1"
-        - "Force pushed to origin (forge + forge-e2e)"
-        - "Deprecated forge-demo (README redirects to forge)"
-        - "Archived forge-demo repo on GitHub"
-        - "Pushed to public GitHub (royalbit/forge, royalbit/forge-e2e)"
+      date: "2025-12-30"
+      summary: "Elastic-2.0 License + CI/CD + Public Release"
+      releases:
+        - "v10.0.0-alpha.0: Demo/enterprise split removed"
+        - "v10.0.0-alpha.1: Documentation overhaul"
+        - "v10.0.0-alpha.2: Elastic-2.0 license + git history cleanup"
+        - "v10.0.0-alpha.3: CI/CD + crates.io + multi-arch releases"
 
     - version: "10.0.0"
       priority: HIGH
