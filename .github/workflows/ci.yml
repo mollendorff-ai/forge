@@ -101,7 +101,6 @@ jobs:
         run: |
           test -f target/release/forge && echo "forge binary built"
           test -f target/release/forge-mcp && echo "forge-mcp binary built"
-          test -f target/release/forge-lsp && echo "forge-lsp binary built"
           test -f target/release/forge-server && echo "forge-server binary built"
 
   # Auto-release: if version changed, create tag to trigger release workflow
