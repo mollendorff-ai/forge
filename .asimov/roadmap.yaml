@@ -6,34 +6,32 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "10.0.0-alpha.2"
-  status: in_progress
-  summary: "Elastic-2.0 License & Git History Cleanup"
-  unblocked_by: "10.0.0-alpha.1 completed 2025-12-29"
-  decision_made:
-    license: "Elastic License 2.0"
-    rationale: "No conversion to FOSS, perpetual control, battle-tested by Elastic"
-    adr: "ADR-031-LICENSE-ELASTIC-2.0.md"
-  tasks:
-    - "[DONE] Decide license: Elastic License 2.0"
-    - "[DONE] Draft Elastic-2.0 LICENSE file"
-    - "[DONE] Update Cargo.toml: license = Elastic-2.0"
-    - "[DONE] Create COMMERCIAL_LICENSE.md (GitHub Issues contact)"
-    - "[DONE] Update README.md license section"
-    - "[DONE] Create ADR-031 documenting license decision"
-    - "[DONE] Update MARKET_ANALYSIS.md"
-    - "Create git filter-branch script to rewrite full history"
-    - "Remove LICENSE-DOCS from ALL commits (never existed)"
-    - "Add LICENSE to ALL commits (present from day one)"
-    - "Force push cleaned history to origin"
-  acceptance_criteria:
-    - "LICENSE (Elastic-2.0) present in every commit from first to last"
-    - "LICENSE-DOCS does not exist in any commit"
-    - "No automatic conversion to open source (ELv2 = perpetual)"
-    - "Buyer can audit full history with clean licensing"
-    - "SPDX identifier in Cargo.toml: Elastic-2.0"
+  # No active milestone - ready for next task
+  version: null
+  status: idle
+  summary: "Awaiting next milestone selection"
 
 completed:
+  - version: "10.0.0-alpha.2"
+    date: "2025-12-29"
+    summary: "Elastic-2.0 License & Git History Cleanup"
+    tasks_completed:
+      - "Decided license: Elastic License 2.0 (ADR-031)"
+      - "Created Elastic-2.0 LICENSE file"
+      - "Updated Cargo.toml: license = Elastic-2.0"
+      - "Created COMMERCIAL_LICENSE.md (GitHub Issues contact)"
+      - "Updated README.md, FEATURES.md, MARKET_ANALYSIS.md"
+      - "Removed LICENSE-DOCS from git history (filter-repo)"
+      - "Added LICENSE to all 459 commits from day one (filter-branch)"
+      - "Force pushed cleaned history to origin"
+      - "Also updated forge-e2e (30 commits) with Elastic-2.0"
+    acceptance_criteria_met:
+      - "LICENSE (Elastic-2.0) present in every commit from first to last"
+      - "LICENSE-DOCS does not exist in any commit"
+      - "SPDX identifier in Cargo.toml: Elastic-2.0"
+      - "Both forge and forge-e2e repos cleaned and pushed"
+
+
   - version: "10.0.0-alpha.1"
     date: "2025-12-29"
     summary: "Documentation Overhaul for Public Release"
@@ -62,19 +60,18 @@ gtm:
   milestones:
     - version: "10.0.0-alpha"
       priority: CRITICAL
-      status: in_progress
+      status: completed
+      date: "2025-12-29"
       summary: "Elastic-2.0 License + GitHub Public Release"
-      tasks:
-        - "Add Elastic-2.0 LICENSE file"
-        - "Update README with license terms"
-        - "Create COMMERCIAL_LICENSE.md (GitHub Issues contact)"
-        - "Rewrite git history with LICENSE from commit #1"
+      tasks_completed:
+        - "Added Elastic-2.0 LICENSE file"
+        - "Updated README with license terms"
+        - "Created COMMERCIAL_LICENSE.md (GitHub Issues contact)"
+        - "Rewrote git history with LICENSE from commit #1"
+        - "Force pushed to origin (forge + forge-e2e)"
+      remaining:
         - "Deprecate forge-demo (archive repo)"
-        - "Push to public GitHub"
-      acceptance_criteria:
-        - "LICENSE file is Elastic-2.0"
-        - "README explains: free eval, paid production"
-        - "forge-demo README redirects to forge"
+        - "Push to public GitHub (when ready)"
 
     - version: "10.0.0"
       priority: HIGH

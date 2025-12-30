@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-alpha.2] - 2025-12-29
+
+### BREAKING: License Change to Elastic License 2.0
+
+Forge is now licensed under the Elastic License 2.0 (source-available, not FOSS).
+
+### Added
+
+- **Elastic License 2.0** - LICENSE file with ELv2 terms
+- **COMMERCIAL_LICENSE.md** - Commercial licensing info (GitHub Issues contact)
+- **ADR-031** - Documents license decision over BSL-1.1
+
+### Changed
+
+- **Cargo.toml** - `license = "Elastic-2.0"` (SPDX identifier)
+- **README.md** - Complete rewrite showcasing moat (battle-tested math, MCP, 7 engines)
+- **FEATURES.md** - Removed all "ENTERPRISE ONLY" labels
+- **MARKET_ANALYSIS.md** - Updated for Elastic-2.0 strategy
+- **editors/vscode/README.md** - License reference updated
+- **editors/zed/README.md** - License reference updated
+
+### Removed
+
+- **LICENSE-DOCS** - Deleted from working directory and all git history
+
+### Git History Rewrite
+
+- **forge**: 459 commits rewritten with Elastic-2.0 LICENSE from commit #1
+- **forge-e2e**: 30 commits rewritten with Elastic-2.0 LICENSE from commit #1
+- LICENSE-DOCS removed from all commits (never existed in history)
+- Used `git filter-repo` (deletion) + `git filter-branch` (addition)
+
+## [10.0.0-alpha.1] - 2025-12-29
+
+### Documentation Overhaul for Public Release
+
+- **README.md** - Rewritten with moat-first structure
+- **FEATURES.md** - Removed ENTERPRISE ONLY labels
+- **VERSION_HISTORY.md** - Updated with accurate stats
+- All demo/enterprise references removed from active docs
+
 ## [10.0.0-alpha.0] - 2025-12-29
 
 ### BREAKING: Remove Demo/Enterprise Split
