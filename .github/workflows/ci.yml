@@ -43,6 +43,9 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Clean cargo cache (workaround for proc-macro issue)
+        run: cargo clean
+
       - name: Run tests
         run: cargo test --verbose
 
@@ -68,6 +71,9 @@ jobs:
 
       - name: Check formatting
         run: cargo fmt --all -- --check
+
+      - name: Clean cargo cache (workaround for proc-macro issue)
+        run: cargo clean
 
       - name: Run clippy
         run: cargo clippy --all-targets -- -D warnings
