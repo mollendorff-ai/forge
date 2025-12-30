@@ -41,23 +41,14 @@ pub mod types;
 pub mod writer;
 
 // Enterprise-only modules (excluded from demo builds)
-#[cfg(not(feature = "demo"))]
 pub mod api;
-#[cfg(not(feature = "demo"))]
 pub mod bayesian;
-#[cfg(not(feature = "demo"))]
 pub mod bootstrap;
-#[cfg(not(feature = "demo"))]
 pub mod decision_trees;
-#[cfg(not(feature = "demo"))]
 pub mod mcp;
-#[cfg(not(feature = "demo"))]
 pub mod monte_carlo;
-#[cfg(not(feature = "demo"))]
 pub mod real_options;
-#[cfg(not(feature = "demo"))]
 pub mod scenarios;
-#[cfg(not(feature = "demo"))]
 pub mod tornado;
 
 // Re-export commonly used types

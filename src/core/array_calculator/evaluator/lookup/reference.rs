@@ -9,7 +9,6 @@ use crate::core::array_calculator::evaluator::{
 /// Evaluate INDIRECT function
 /// INDIRECT(ref_text, [a1])
 /// Returns the reference specified by a text string
-#[cfg(not(feature = "demo"))]
 pub fn eval_indirect(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("INDIRECT", args, 1)?;
     let ref_str = evaluate(&args[0], ctx)?.as_text();
@@ -34,7 +33,6 @@ pub fn eval_indirect(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
 /// Evaluate OFFSET function
 /// OFFSET(reference, rows, cols, [height], [width])
 /// Returns a reference offset from a given reference
-#[cfg(not(feature = "demo"))]
 pub fn eval_offset(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("OFFSET", args, 3, 5)?;
 
@@ -76,7 +74,6 @@ pub fn eval_offset(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
 /// Evaluate ADDRESS function
 /// ADDRESS(row_num, column_num, [abs_num], [a1], [sheet_text])
 /// Returns a cell reference as a text string
-#[cfg(not(feature = "demo"))]
 pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("ADDRESS", args, 2, 5)?;
     let row_num = evaluate(&args[0], ctx)?
@@ -127,7 +124,6 @@ pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 /// Evaluate ROW function
 /// ROW([reference])
 /// Returns the row number of a reference
-#[cfg(not(feature = "demo"))]
 pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     // ROW() returns current row number (1-based)
     // ROW(reference) returns the row number of the reference
@@ -147,7 +143,6 @@ pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 /// Evaluate COLUMN function
 /// COLUMN([reference])
 /// Returns the column number of a reference
-#[cfg(not(feature = "demo"))]
 pub fn eval_column(_args: &[Expr], _ctx: &EvalContext) -> Result<Value, EvalError> {
     // COLUMN() returns current column number
     // Simplified implementation - always returns 1
@@ -157,7 +152,6 @@ pub fn eval_column(_args: &[Expr], _ctx: &EvalContext) -> Result<Value, EvalErro
 /// Evaluate ROWS function
 /// ROWS(array)
 /// Returns the number of rows in a reference or array
-#[cfg(not(feature = "demo"))]
 pub fn eval_rows(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("ROWS", args, 1)?;
     let array_ctx = EvalContext {
@@ -177,7 +171,6 @@ pub fn eval_rows(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 /// Evaluate COLUMNS function
 /// COLUMNS(array)
 /// Returns the number of columns in a reference or array
-#[cfg(not(feature = "demo"))]
 pub fn eval_columns(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("COLUMNS", args, 1)?;
     // Check if the argument is a table reference (bare table name)
@@ -194,7 +187,6 @@ pub fn eval_columns(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 }
 
 /// Convert column number (1-based) to Excel-style letter(s)
-#[cfg(not(feature = "demo"))]
 pub fn col_to_letter(col: usize) -> String {
     let mut result = String::new();
     let mut n = col;
@@ -208,7 +200,6 @@ pub fn col_to_letter(col: usize) -> String {
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "demo"))]
 mod tests {
     use super::*;
     use crate::core::array_calculator::evaluator::tests::eval;

@@ -193,7 +193,6 @@ mod tests {
         assert!((result.scalars.get("avg").unwrap().value.unwrap() - 20.0).abs() < 0.01);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_averageif_greater() {
         let mut model = ParsedModel::new();
@@ -216,7 +215,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(4.5));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_averageif_all_match() {
         let mut model = ParsedModel::new();

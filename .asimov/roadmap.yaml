@@ -7,24 +7,25 @@
 
 priority_zero:
   version: "10.0.0-alpha.0"
-  status: pending
+  status: done
+  completed: "2025-12-29"
   priority: CRITICAL
   summary: "Remove demo feature - single enterprise binary"
   description: |
     Before BSL release, consolidate to one product with full features.
     No more forge-demo vs forge split. One binary, all 173 functions.
   tasks:
-    - "Remove forge-demo binary target from Cargo.toml"
-    - "Remove demo and full features from Cargo.toml"
-    - "Remove all #[cfg(not(feature = \"demo\"))] gates (~326 occurrences)"
-    - "Remove all #[cfg(feature = \"demo\")] stubs (3 occurrences)"
-    - "Update Makefile - remove demo build targets"
-    - "Verify: cargo build --release produces single forge binary"
+    - "Remove forge-demo binary target from Cargo.toml ✓"
+    - "Remove demo and full features from Cargo.toml ✓"
+    - "Remove all #[cfg(not(feature = \"demo\"))] gates (~330 occurrences) ✓"
+    - "Remove all #[cfg(feature = \"demo\")] stubs ✓"
+    - "Update Makefile - remove demo build targets ✓"
+    - "Verify: cargo build --release produces single forge binary ✓"
   acceptance_criteria:
-    - "Only one binary: forge (not forge-demo)"
-    - "All 173 functions always available"
-    - "No feature gates in codebase (grep returns empty)"
-    - "make test passes"
+    - "Only one binary: forge (not forge-demo) ✓"
+    - "All 173 functions always available ✓"
+    - "No feature gates in codebase ✓"
+    - "make test passes (1297 tests) ✓"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HOTFIX - Bug fixes (COMPLETED)
@@ -44,14 +45,14 @@ hotfix:
       fix_location: "src/core/array_calculator/evaluator/info.rs:18-28"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CURRENT - Blocked by Priority Zero
+# CURRENT - BSL License Implementation
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
   version: "10.0.0-alpha"
-  status: blocked
-  blocked_by: "10.0.0-alpha.0"
+  status: in_progress
   summary: "BSL License + Open Source Release"
+  unblocked_by: "10.0.0-alpha.0 completed 2025-12-29"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # GTM - Go-To-Market Strategy (Dec 29, 2025)
@@ -303,10 +304,10 @@ bugs:
 summary:
   total_functions: 173
   categories: 15
-  unit_tests: 1296
+  unit_tests: 1297
   e2e_tests: 836
-  total_tests: 2132
+  total_tests: 2133
   test_coverage: "100% (173/173 functions)"
   gaps: 0
   history: "See CHANGELOG.md"
-  note: "v9.9.6 HOTFIX: ISERROR now detects NA(). Unit: 1296, E2E: 836"
+  note: "v10.0.0-alpha.0: Removed demo/enterprise split. Single binary with all 173 functions."

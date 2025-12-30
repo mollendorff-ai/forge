@@ -1,10 +1,8 @@
 //! Convert functions: TEXT, VALUE (enterprise only)
 
-#[cfg(not(feature = "demo"))]
 use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
 
 /// TEXT(value, format_text) - Converts a value to text with specified format
-#[cfg(not(feature = "demo"))]
 pub fn eval_text(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("TEXT", args, 2)?;
     let val = evaluate(&args[0], ctx)?;
@@ -16,7 +14,6 @@ pub fn eval_text(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 }
 
 /// VALUE(text) - Converts text to a number
-#[cfg(not(feature = "demo"))]
 pub fn eval_value(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("VALUE", args, 1)?;
     let text = evaluate(&args[0], ctx)?.as_text();
@@ -30,7 +27,6 @@ pub fn eval_value(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 }
 
 /// Format a number according to a format string (simplified implementation)
-#[cfg(not(feature = "demo"))]
 fn format_number(num: f64, format: &str) -> String {
     let format_upper = format.to_uppercase();
 
@@ -88,7 +84,6 @@ fn format_number(num: f64, format: &str) -> String {
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "demo"))]
 mod tests {
     use super::format_number;
     use crate::core::array_calculator::ArrayCalculator;

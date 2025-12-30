@@ -196,7 +196,6 @@ mod edge_case_tests {
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_unique_all_same() {
         let mut model = ParsedModel::new();
@@ -219,7 +218,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_unique_all_different() {
         let mut model = ParsedModel::new();
@@ -242,7 +240,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(5.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_countunique_all_same() {
         let mut model = ParsedModel::new();
@@ -265,7 +262,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_countunique_all_diff() {
         let mut model = ParsedModel::new();
@@ -288,7 +284,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(5.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_countunique_with_dates() {
         let mut model = ParsedModel::new();
@@ -323,7 +318,6 @@ mod edge_case_tests {
         assert_eq!(unique_dates, 3.0);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_countunique_edge_cases() {
         let mut model = ParsedModel::new();
@@ -420,7 +414,6 @@ mod edge_case_tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_countunique_empty_text_values() {
         let mut model = ParsedModel::new();
@@ -456,7 +449,6 @@ mod edge_case_tests {
         assert_eq!(unique_names, 3.0);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_countunique_in_expression() {
         let mut model = ParsedModel::new();
@@ -496,7 +488,6 @@ mod edge_case_tests {
         assert_eq!(result_val, 30.0);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_countunique_numbers() {
         let mut model = ParsedModel::new();
@@ -524,7 +515,6 @@ mod edge_case_tests {
         assert!((unique - 3.0).abs() < 0.01);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_countunique_numbers_basic() {
         let mut model = ParsedModel::new();
@@ -546,7 +536,6 @@ mod edge_case_tests {
         let _ = calculator.calculate_all();
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_unique_function() {
         let mut model = ParsedModel::new();
@@ -568,7 +557,6 @@ mod edge_case_tests {
         let _ = calculator.calculate_all();
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_unique_some_dups() {
         let mut model = ParsedModel::new();
@@ -591,7 +579,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(3.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_unique_sum() {
         let mut model = ParsedModel::new();
@@ -614,7 +601,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(6.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_countunique_mixed() {
         let mut model = ParsedModel::new();

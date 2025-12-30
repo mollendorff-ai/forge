@@ -1,31 +1,10 @@
 //! Financial functions: PMT, FV, PV, NPV, IRR, NPER, RATE, SLN, DB, DDB, MIRR, XIRR, XNPV,
 //! PPMT, IPMT, EFFECT, NOMINAL, PRICEDISC, YIELDDISC, ACCRINT
-//!
-//! ALL financial functions are ENTERPRISE-ONLY.
-//! Demo build has no financial functions - that's the sales hook.
 
+use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 
-// Enterprise-only imports
-#[cfg(not(feature = "demo"))]
-use super::{collect_numeric_values, evaluate, require_args, require_args_range};
-
 /// Try to evaluate a financial function. Returns None if function not recognized.
-///
-/// DEMO: All financial functions return None (not recognized) - enterprise only!
-#[cfg(feature = "demo")]
-pub fn try_evaluate(
-    _name: &str,
-    _args: &[Expr],
-    _ctx: &EvalContext,
-) -> Result<Option<Value>, EvalError> {
-    Ok(None) // No financial functions in demo
-}
-
-/// Try to evaluate a financial function. Returns None if function not recognized.
-///
-/// ENTERPRISE: Full financial function support.
-#[cfg(not(feature = "demo"))]
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -726,8 +705,7 @@ pub fn try_evaluate(
     Ok(Some(result))
 }
 
-// Enterprise-only tests
-#[cfg(all(test, not(feature = "demo")))]
+#[cfg(test)]
 mod tests {
     use super::super::tests::eval;
     use super::*;

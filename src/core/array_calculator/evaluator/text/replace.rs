@@ -1,12 +1,10 @@
 //! Replace functions: REPLACE, SUBSTITUTE (enterprise only)
 
-#[cfg(not(feature = "demo"))]
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 
 /// REPLACE(old_text, start_num, num_chars, new_text) - Replaces characters within text
-#[cfg(not(feature = "demo"))]
 pub fn eval_replace(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("REPLACE", args, 4)?;
     let old_text = evaluate(&args[0], ctx)?.as_text();
@@ -26,7 +24,6 @@ pub fn eval_replace(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 }
 
 /// SUBSTITUTE(text, old_text, new_text, [instance_num]) - Substitutes text occurrences
-#[cfg(not(feature = "demo"))]
 pub fn eval_substitute(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("SUBSTITUTE", args, 3, 4)?;
     let text = evaluate(&args[0], ctx)?.as_text();
@@ -67,7 +64,6 @@ pub fn eval_substitute(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalEr
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "demo"))]
 mod tests {
     use crate::core::array_calculator::ArrayCalculator;
     #[allow(unused_imports)]

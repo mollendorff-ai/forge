@@ -37,7 +37,6 @@ pub fn eval_log10(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 }
 
 /// Evaluate LOG function - returns base-10 logarithm (Enterprise)
-#[cfg(not(feature = "demo"))]
 pub fn eval_log(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("LOG", args, 1)?;
     let val = evaluate(&args[0], ctx)?
@@ -56,9 +55,7 @@ mod tests {
     use super::super::super::{EvalContext, Value};
 
     // Imports for enterprise integration tests
-    #[cfg(not(feature = "demo"))]
     use crate::core::array_calculator::ArrayCalculator;
-    #[cfg(not(feature = "demo"))]
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
     #[test]
@@ -99,14 +96,12 @@ mod tests {
             .contains("non-positive"));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_log_alias() {
         let ctx = EvalContext::new();
         assert_eq!(eval("LOG(100)", &ctx).unwrap(), Value::Number(2.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_exp_ln_array() {
         let mut model = ParsedModel::new();
@@ -135,7 +130,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_exp_ln_scalars() {
         let mut model = ParsedModel::new();

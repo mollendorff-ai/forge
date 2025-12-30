@@ -448,7 +448,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_match_exact_first() {
         let mut model = ParsedModel::new();
@@ -471,7 +470,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(1.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_match_exact_last() {
         let mut model = ParsedModel::new();
@@ -494,7 +492,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(3.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_match_exact_middle() {
         let mut model = ParsedModel::new();
@@ -517,7 +514,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(2.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_match_approx_less() {
         let mut model = ParsedModel::new();
@@ -540,7 +536,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(2.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_match_approx_greater() {
         let mut model = ParsedModel::new();

@@ -37,7 +37,6 @@ pub fn eval_not(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, E
 }
 
 /// Evaluate XOR function - returns TRUE if an odd number of arguments are TRUE
-#[cfg(not(feature = "demo"))]
 pub fn eval_xor(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     let mut true_count = 0;
     for arg in args {
@@ -105,7 +104,6 @@ mod tests {
         assert_eq!(eval("NOT(5)", &ctx).unwrap(), Value::Boolean(false));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_xor() {
         let ctx = EvalContext::new();

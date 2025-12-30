@@ -32,7 +32,6 @@ pub fn eval_iferror(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Valu
 }
 
 /// Evaluate IFNA function - returns fallback value when result is NA (null)
-#[cfg(not(feature = "demo"))]
 pub fn eval_ifna(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args(name, args, 2)?;
     let val = evaluate(&args[0], ctx)?;
@@ -46,7 +45,6 @@ pub fn eval_ifna(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, 
 }
 
 /// Evaluate IFS function - multiple condition checks
-#[cfg(not(feature = "demo"))]
 pub fn eval_ifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     // IFS(condition1, value1, condition2, value2, ...)
     // Returns the value corresponding to the first TRUE condition
@@ -210,7 +208,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifs() {
         let ctx = EvalContext::new();
@@ -230,7 +227,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifs_no_match() {
         let ctx = EvalContext::new();
@@ -239,7 +235,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifs_invalid_args() {
         let ctx = EvalContext::new();
@@ -248,7 +243,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_ifna() {
         let mut ctx = EvalContext::new();

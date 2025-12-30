@@ -273,7 +273,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_index_first() {
         let mut model = ParsedModel::new();
@@ -296,7 +295,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(10.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_index_last() {
         let mut model = ParsedModel::new();
@@ -319,7 +317,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(50.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_index_middle() {
         let mut model = ParsedModel::new();
@@ -342,7 +339,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(30.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_index_single() {
         let mut model = ParsedModel::new();

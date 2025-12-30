@@ -37,25 +37,18 @@ pub fn try_evaluate(
         // ═══════════════════════════════════════════════════════════════════════════
         // ENTERPRISE FUNCTIONS (only in full build)
         // ═══════════════════════════════════════════════════════════════════════════
-        #[cfg(not(feature = "demo"))]
         "CONCATENATE" => concat::eval_concatenate(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "TEXT" => convert::eval_text(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "VALUE" => convert::eval_value(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "FIND" => search::eval_find(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "SEARCH" => search::eval_search(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "REPLACE" => replace::eval_replace(args, ctx)?,
 
-        #[cfg(not(feature = "demo"))]
         "SUBSTITUTE" => replace::eval_substitute(args, ctx)?,
 
         _ => return Ok(None),
@@ -112,7 +105,6 @@ mod tests {
     // ENTERPRISE TESTS (only with full feature)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_text() {
         let ctx = EvalContext::new();
@@ -133,7 +125,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_value() {
         let ctx = EvalContext::new();
@@ -148,14 +139,12 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_value_error() {
         let ctx = EvalContext::new();
         assert!(eval("VALUE(\"abc\")", &ctx).is_err());
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_find() {
         let ctx = EvalContext::new();
@@ -171,14 +160,12 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_find_not_found() {
         let ctx = EvalContext::new();
         assert!(eval("FIND(\"x\", \"hello\")", &ctx).is_err());
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_search() {
         let ctx = EvalContext::new();
@@ -193,7 +180,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_replace() {
         let ctx = EvalContext::new();
@@ -208,7 +194,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_substitute() {
         let ctx = EvalContext::new();

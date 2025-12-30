@@ -263,7 +263,6 @@ mod tests {
         assert_eq!(result.scalars.get("r2").unwrap().value, Some(1300.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_int_trunc_scalars() {
         let mut model = ParsedModel::new();

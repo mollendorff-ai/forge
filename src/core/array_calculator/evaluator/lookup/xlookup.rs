@@ -8,7 +8,6 @@ use crate::core::array_calculator::evaluator::{
 
 /// Evaluate XLOOKUP function
 /// XLOOKUP(lookup_value, lookup_array, return_array, [if_not_found], [match_mode], [search_mode])
-#[cfg(not(feature = "demo"))]
 pub fn eval_xlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("XLOOKUP", args, 3, 6)?;
 
@@ -114,7 +113,6 @@ pub fn eval_xlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 
 /// Evaluate VLOOKUP function
 /// VLOOKUP(lookup_value, table_array, col_index, [range_lookup])
-#[cfg(not(feature = "demo"))]
 pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("VLOOKUP", args, 3, 4)?;
 
@@ -177,7 +175,6 @@ pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 
 /// Evaluate HLOOKUP function
 /// HLOOKUP(lookup_value, table_array, row_index, [range_lookup])
-#[cfg(not(feature = "demo"))]
 pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("HLOOKUP", args, 3, 4)?;
 
@@ -233,7 +230,6 @@ pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "demo"))]
 mod tests {
     use crate::core::array_calculator::evaluator::tests::eval;
     use crate::core::array_calculator::evaluator::{EvalContext, Value};

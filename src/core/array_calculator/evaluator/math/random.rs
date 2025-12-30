@@ -1,15 +1,12 @@
 //! Random functions: RAND, RANDBETWEEN (Enterprise only)
 
-#[cfg(not(feature = "demo"))]
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 
-#[cfg(not(feature = "demo"))]
 use rand::Rng;
 
 /// Evaluate RAND function - returns a random number between 0 and 1 (Enterprise)
-#[cfg(not(feature = "demo"))]
 pub fn eval_rand(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("RAND", args, 0)?;
     let _ = ctx;
@@ -18,7 +15,6 @@ pub fn eval_rand(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 }
 
 /// Evaluate RANDBETWEEN function - returns a random integer between two values (Enterprise)
-#[cfg(not(feature = "demo"))]
 pub fn eval_randbetween(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("RANDBETWEEN", args, 2, 2)?;
     let bottom = evaluate(&args[0], ctx)?
@@ -45,7 +41,6 @@ pub fn eval_randbetween(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalE
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "demo"))]
 mod tests {
     use super::super::super::tests::eval;
     use super::super::super::{EvalContext, Value};

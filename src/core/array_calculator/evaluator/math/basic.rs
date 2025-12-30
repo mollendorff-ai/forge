@@ -66,7 +66,6 @@ pub fn eval_pi(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     Ok(Value::Number(std::f64::consts::PI))
 }
 
-#[cfg(not(feature = "demo"))]
 pub fn eval_pow(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("POW", args, 2)?;
     let base = evaluate(&args[0], ctx)?
@@ -78,7 +77,6 @@ pub fn eval_pow(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     Ok(Value::Number(base.powf(exp)))
 }
 
-#[cfg(not(feature = "demo"))]
 pub fn eval_e(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("E", args, 0)?;
     let _ = ctx;
@@ -139,7 +137,6 @@ mod tests {
         assert!(matches!(result, Value::Number(n) if (n - std::f64::consts::PI).abs() < 0.0001));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_pow_and_e() {
         let ctx = EvalContext::new();
@@ -274,7 +271,6 @@ mod tests {
         assert_eq!(result.scalars.get("nn").unwrap().value, Some(-2.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_pi_e_integration() {
         let mut model = ParsedModel::new();
@@ -297,7 +293,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_pow_integration() {
         let mut model = ParsedModel::new();

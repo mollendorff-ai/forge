@@ -174,7 +174,6 @@ mod edge_case_tests {
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_filter_greater() {
         let mut model = ParsedModel::new();
@@ -201,7 +200,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(9.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_filter_function() {
         let mut model = ParsedModel::new();
@@ -230,7 +228,6 @@ mod edge_case_tests {
         assert_eq!(sum_result, 9.0);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_filter_less() {
         let mut model = ParsedModel::new();
@@ -257,7 +254,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(3.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_filter_count() {
         let mut model = ParsedModel::new();
@@ -284,7 +280,6 @@ mod edge_case_tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(3.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_filter_first_only() {
         let mut model = ParsedModel::new();

@@ -223,7 +223,6 @@ mod tests {
         assert!((result.scalars.get("active_a").unwrap().value.unwrap() - 2.0).abs() < 0.01);
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_countif_greater() {
         let mut model = ParsedModel::new();
@@ -246,7 +245,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(2.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_countif_all_match() {
         let mut model = ParsedModel::new();
@@ -269,7 +267,6 @@ mod tests {
         assert_eq!(result.scalars.get("result").unwrap().value, Some(3.0));
     }
 
-    #[cfg(not(feature = "demo"))]
     #[test]
     fn test_countif_none_match() {
         let mut model = ParsedModel::new();
