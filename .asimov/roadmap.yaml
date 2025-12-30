@@ -70,8 +70,9 @@ gtm:
         - "Rewrote git history with LICENSE from commit #1"
         - "Force pushed to origin (forge + forge-e2e)"
       remaining:
-        - "Deprecate forge-demo (archive repo)"
+        - "[DONE] Deprecate forge-demo (README redirects to forge)"
         - "Push to public GitHub (when ready)"
+        - "Archive forge-demo repo on GitHub (Settings > Archive)"
 
     - version: "10.0.0"
       priority: HIGH
