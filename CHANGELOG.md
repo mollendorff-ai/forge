@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-alpha.0] - 2025-12-29
+
+### BREAKING: Remove Demo/Enterprise Split
+
+Forge is now a single binary with all 173 functions. The demo/enterprise split has been removed.
+
+### Removed
+
+- **forge-demo binary** - No longer exists
+- **demo/full feature flags** - Cargo.toml features removed
+- **~330 cfg attributes** - All `#[cfg(not(feature = "demo"))]` gates removed
+- **Demo stub functions** - statistical.rs, financial.rs demo stubs removed
+- **Makefile demo targets** - build-demo, cross-forge-demo, publish-demo removed
+
+### Changed
+
+- Single binary: `forge` (6.3MB) with all 173 functions
+- Simplified CLI help - one version, not conditional
+- Updated version to 10.0.0-alpha.0
+- Unblocked BSL license release (10.0.0-alpha)
+
+### Stats
+
+- 1297 tests passing
+- 47 files changed, 84 insertions, 659 deletions
+- Zero feature gates in codebase
+
+## [9.9.6] - 2025-12-29
+
+### Fixed
+
+- **FORGE-011**: ISERROR now detects NA() as error value
+  - Location: `src/core/array_calculator/evaluator/info.rs:18-28`
+  - IFERROR now catches NA values like Excel
+
+### Verified
+
+- **FORGE-010**: INVALID - Could not reproduce, arrays load correctly
+
 ## [9.9.5] - 2025-12-28
 
 ### Changed
