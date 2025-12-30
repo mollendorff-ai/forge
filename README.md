@@ -211,6 +211,11 @@ Forge speaks Claude's language. 10 tools for AI agents via Model Context Protoco
 | `forge_export` | YAML → Excel |
 | `forge_import` | Excel → YAML |
 
+> **Roadmap Note:** MCP currently exposes 10 of 17 CLI features. The 7 analytical engines
+> (Monte Carlo, Bootstrap, Bayesian, Decision Trees, Real Options, Tornado, Scenarios) are
+> CLI-only for now. API server has 5 endpoints. Full MCP/API parity + OpenAPI spec planned
+> for v10.0.0-beta.1 after E2E validation against R and Gnumeric is complete.
+
 **50x token efficiency.** Claude processes YAML at a fraction of Excel's token cost.
 
 ---

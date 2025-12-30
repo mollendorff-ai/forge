@@ -118,6 +118,50 @@ next:
       - "Zero regression in existing tests"
     adr: "ADR-006-COVERAGE-EXCLUSIONS.md"
 
+  - version: "10.0.0-beta.1"
+    priority: HIGH
+    status: pending
+    summary: "MCP/API Feature Parity + OpenAPI"
+    description: |
+      Complete MCP and API server feature coverage. Currently:
+      - CLI: 20 commands (all features)
+      - MCP: 10 tools (missing 7 engines)
+      - API: 5 endpoints (missing 15 features + no OpenAPI spec)
+    tasks:
+      - "Phase 1: Add missing API endpoints"
+      - "  - POST /api/v1/simulate (Monte Carlo)"
+      - "  - POST /api/v1/scenarios"
+      - "  - POST /api/v1/decision-tree"
+      - "  - POST /api/v1/real-options"
+      - "  - POST /api/v1/tornado"
+      - "  - POST /api/v1/bootstrap"
+      - "  - POST /api/v1/bayesian"
+      - "  - POST /api/v1/sensitivity"
+      - "  - POST /api/v1/goal-seek"
+      - "  - POST /api/v1/break-even"
+      - "  - POST /api/v1/variance"
+      - "  - POST /api/v1/compare"
+      - "Phase 2: Add missing MCP tools"
+      - "  - forge_simulate (Monte Carlo)"
+      - "  - forge_scenarios"
+      - "  - forge_decision_tree"
+      - "  - forge_real_options"
+      - "  - forge_tornado"
+      - "  - forge_bootstrap"
+      - "  - forge_bayesian"
+      - "Phase 3: Generate OpenAPI 3.1 spec"
+      - "  - Use utoipa or aide crate for auto-generation"
+      - "  - Serve spec at GET /openapi.json"
+      - "  - Serve Swagger UI at GET /docs (optional)"
+      - "Phase 4: E2E tests in forge-e2e"
+      - "  - Test all API endpoints against expected outputs"
+      - "  - Test all MCP tools via JSON-RPC"
+    acceptance_criteria:
+      - "API: 17 endpoints (all CLI commands except watch/upgrade/functions)"
+      - "MCP: 17 tools (matching API)"
+      - "OpenAPI 3.1 spec generated and served"
+      - "E2E tests pass for all endpoints/tools"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG - Future ideas (unscheduled)
 # ═══════════════════════════════════════════════════════════════════════════════
