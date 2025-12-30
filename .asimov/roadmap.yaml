@@ -71,8 +71,8 @@ gtm:
         - "Force pushed to origin (forge + forge-e2e)"
       remaining:
         - "[DONE] Deprecate forge-demo (README redirects to forge)"
+        - "[DONE] Archive forge-demo repo on GitHub"
         - "Push to public GitHub (when ready)"
-        - "Archive forge-demo repo on GitHub (Settings > Archive)"
 
     - version: "10.0.0"
       priority: HIGH
