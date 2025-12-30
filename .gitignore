@@ -9,3 +9,7 @@
 coverage-report/
 lcov.info
 tests/validators/.venv/
+
+# Build artifacts
+releases/
+dist/
