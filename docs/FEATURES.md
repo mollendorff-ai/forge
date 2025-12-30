@@ -1,6 +1,6 @@
 # Forge Features
 
-Complete reference for all Forge capabilities (v2.0.0).
+Complete reference for all Forge capabilities (v10.0.0).
 
 ---
 
@@ -14,7 +14,7 @@ Complete reference for all Forge capabilities (v2.0.0).
 - **Array indexing**: `revenue[3]`
 - **Nested functions**: `=ROUND(SQRT(revenue), 2)`
 
-### 57+ Excel-Compatible Functions
+### 173 Excel-Compatible Functions
 
 ```mermaid
 graph LR
@@ -92,7 +92,7 @@ graph LR
 
 ---
 
-## Enterprise Features (v2.0.0)
+## API & Server Features
 
 ### HTTP REST API Server
 
@@ -138,7 +138,7 @@ curl -X POST http://localhost:8080/api/v1/validate \
 
 ---
 
-## Monte Carlo Simulation (v8.0.0) - ENTERPRISE ONLY
+## Monte Carlo Simulation (v8.0.0)
 
 Probabilistic FP&A analysis with uncertainty quantification.
 
@@ -446,11 +446,11 @@ monte_carlo_results:
 | 100,000 | 20 | <30s | High precision |
 | 1,000,000 | 20 | <5min | Research-grade |
 
-**License**: Monte Carlo simulation requires Forge Enterprise license.
+**Performance**: Optimized for 10K-100K iterations with Latin Hypercube Sampling.
 
 ---
 
-## Scenario Analysis (v8.3.0) - ENTERPRISE ONLY
+## Scenario Analysis (v8.3.0)
 
 Evaluate discrete, mutually exclusive futures with probability-weighted outcomes.
 
@@ -578,7 +578,7 @@ scenario_results:
 
 ---
 
-## Decision Trees (v8.4.0) - ENTERPRISE ONLY
+## Decision Trees (v8.4.0)
 
 Sequential decision modeling with backward induction and optimal path finding.
 
@@ -695,7 +695,7 @@ decision_tree_results:
 
 ---
 
-## Real Options (v8.5.0) - ENTERPRISE ONLY
+## Real Options (v8.5.0)
 
 Value managerial flexibility using financial options theory.
 
@@ -826,7 +826,7 @@ real_options_results:
 
 ---
 
-## Tornado Diagrams (v8.6.0) - ENTERPRISE ONLY
+## Tornado Diagrams (v8.6.0)
 
 One-way sensitivity analysis with visual ranking of input impact.
 
@@ -949,7 +949,7 @@ Working Capital   |██                  | ± $40K
 
 ---
 
-## Bootstrap Resampling (v8.7.0) - ENTERPRISE ONLY
+## Bootstrap Resampling (v8.7.0)
 
 Non-parametric confidence intervals from historical data.
 
@@ -1089,7 +1089,7 @@ bootstrap_results:
 
 ---
 
-## Bayesian Networks (v9.0.0) - ENTERPRISE ONLY
+## Bayesian Networks (v9.0.0)
 
 Probabilistic graphical models with variable elimination inference.
 

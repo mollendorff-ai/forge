@@ -237,29 +237,39 @@ Based on this analysis, the following GTM strategy was adopted:
 
 | Decision | Choice |
 |----------|--------|
-| **License** | BSL 1.1 (Business Source License) |
+| **License** | Elastic License 2.0 (ELv2) |
 | **Product** | One version - full forge with all 173 functions |
 | **Demo** | DEPRECATED - forge-demo archived |
 | **Revenue Model** | Free evaluation, paid production |
 
-### BSL Explained
+### Elastic License 2.0 Explained
 
 **Source Available ≠ Open Source**
 
 - Code is **OPEN** (visible, auditable, forkable for evaluation)
 - Non-production use is **FREE** (evaluation, education, research)
 - Commercial production use **REQUIRES LICENSE**
-- After 4 years, converts to **Apache 2.0** (true FOSS)
+- Hosted/managed service offerings **PROHIBITED**
+- **No automatic conversion** to open source (perpetual control)
+
+### Why Elastic-2.0 over BSL?
+
+1. **No time-bomb** = No automatic conversion to Apache 2.0
+2. **Perpetual protection** = AWS/GCP cannot fork, ever
+3. **Battle-tested** = Used by Elasticsearch, Kibana ($10B+ company)
+4. **SPDX official** = `Elastic-2.0` identifier for tooling
+5. **Enterprise-recognized** = Lawyers know it from Elastic ecosystem
 
 ### Why This Strategy?
 
 1. **One product** = 1x maintenance (not 2x with separate demo)
 2. **Full features visible** = shows the moat (MCP, Monte Carlo, FP&A)
-3. **BSL protects revenue** = AWS/GCP cannot fork and compete
+3. **ELv2 protects revenue** = AWS/GCP cannot fork and compete
 4. **Source available** = builds trust (critical for finance audits)
-5. **Time-delayed OSS** = goodwill, eventual Apache 2.0
+5. **Perpetual control** = No forced open-sourcing after N years
 
-See [ADR-030](architecture/ADR-030-GTM-LICENSING-STRATEGY.md) for implementation details.
+See [ADR-031](architecture/ADR-031-LICENSE-ELASTIC-2.0.md) for license decision details.
+See [ADR-030](architecture/ADR-030-GTM-LICENSING-STRATEGY.md) for GTM strategy details.
 
 ---
 

@@ -75,8 +75,10 @@ The entire Forge project (v0.1.0 → v3.1.0) was developed in ~45 hours:
 - 183 tests, zero warnings, zero bugs shipped
 - 3 Architecture Decision Records (ADRs)
 - 10,000+ lines of Rust
-- First AI to serve as Principal Autonomous AI of a published FOSS project
+- First AI to serve as Principal Autonomous AI of a published software project
 
 ## License
 
-MIT - RoyalBit Inc.
+Elastic License 2.0 - See [LICENSE](../../LICENSE)
+
+Copyright (c) 2025 RoyalBit Inc.

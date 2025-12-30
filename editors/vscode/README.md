@@ -68,4 +68,6 @@ npm run compile
 
 ## License
 
-MIT - RoyalBit Inc.
+Elastic License 2.0 - See [LICENSE](../../LICENSE)
+
+Copyright (c) 2025 RoyalBit Inc.
