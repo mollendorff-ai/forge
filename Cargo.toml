@@ -27,6 +27,7 @@ exclude = [
     "examples/*",
     "editors/*",
     "scripts/*",
+    "releases/*",
     "Makefile",
     "*.md",
     "!README.md",
