@@ -175,7 +175,7 @@ next:
       - "Phase 1: Rename upgrade → migrate"
       - "  - Rename src/cli/commands/upgrade.rs → migrate.rs"
       - "  - Update CLI parser (clap) command name"
-      - "  - Keep 'upgrade' as hidden alias for backwards compat"
+      - "  - Remove 'upgrade' entirely (no users yet)"
       - "  - Update all docs, help text, README"
       - "Phase 2: Restore update command (from ADR-024)"
       - "  - Fetch https://api.github.com/repos/royalbit/forge/releases/latest"
@@ -190,8 +190,7 @@ next:
       - "  - Note: Now valid because forge is public on GitHub"
 
     acceptance_criteria:
-      - "forge migrate model.yaml works (schema upgrade)"
-      - "forge upgrade model.yaml works (hidden alias)"
+      - "forge migrate model.yaml works (schema migration)"
       - "forge update downloads and installs latest release"
       - "forge update --check shows version info without installing"
       - "All three binaries updated (forge, forge-mcp, forge-server)"
