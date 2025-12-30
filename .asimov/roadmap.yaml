@@ -157,10 +157,44 @@ next:
       - "  - Test all API endpoints against expected outputs"
       - "  - Test all MCP tools via JSON-RPC"
     acceptance_criteria:
-      - "API: 17 endpoints (all CLI commands except watch/upgrade/functions)"
+      - "API: 17 endpoints (all CLI commands except watch/migrate/functions)"
       - "MCP: 17 tools (matching API)"
       - "OpenAPI 3.1 spec generated and served"
       - "E2E tests pass for all endpoints/tools"
+
+  - version: "10.0.0-beta.2"
+    priority: MEDIUM
+    status: pending
+    summary: "CLI Improvements: migrate + update commands"
+    description: |
+      Rename confusing 'upgrade' command and restore self-update functionality.
+      - upgrade → migrate (schema migration v1.0.0 → v5.0.0)
+      - update (new) - Self-update from GitHub releases
+
+    tasks:
+      - "Phase 1: Rename upgrade → migrate"
+      - "  - Rename src/cli/commands/upgrade.rs → migrate.rs"
+      - "  - Update CLI parser (clap) command name"
+      - "  - Keep 'upgrade' as hidden alias for backwards compat"
+      - "  - Update all docs, help text, README"
+      - "Phase 2: Restore update command (from ADR-024)"
+      - "  - Fetch https://api.github.com/repos/royalbit/forge/releases/latest"
+      - "  - Detect platform (linux-musl, darwin, windows)"
+      - "  - Download correct asset (forge-{target}.tar.gz)"
+      - "  - Verify SHA256 from checksums.txt"
+      - "  - Extract and install to ~/bin/ (or current binary path)"
+      - "  - Include forge-mcp and forge-server in update"
+      - "  - forge update --check (check only, don't install)"
+      - "Phase 3: Update ADR-024"
+      - "  - Document restoration of update command"
+      - "  - Note: Now valid because forge is public on GitHub"
+
+    acceptance_criteria:
+      - "forge migrate model.yaml works (schema upgrade)"
+      - "forge upgrade model.yaml works (hidden alias)"
+      - "forge update downloads and installs latest release"
+      - "forge update --check shows version info without installing"
+      - "All three binaries updated (forge, forge-mcp, forge-server)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG - Future ideas (unscheduled)
