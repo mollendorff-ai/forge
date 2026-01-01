@@ -24,9 +24,10 @@
     "scenarios": {
       "oneOf": [
         { "$ref": "#/definitions/Scenarios" },
+        { "$ref": "#/definitions/ScenariosCommand" },
         { "$ref": "#/definitions/Table" }
       ],
-      "description": "Named scenarios with variable overrides OR a table named 'scenarios'"
+      "description": "Named scenarios with variable overrides, command format, or a table"
     },
     "inputs": {
       "$ref": "#/definitions/ScalarGroup",
@@ -39,6 +40,14 @@
     "monte_carlo": {
       "$ref": "#/definitions/MonteCarlo",
       "description": "Monte Carlo simulation configuration (v8.0.0) - probabilistic analysis"
+    },
+    "tornado": {
+      "$ref": "#/definitions/Tornado",
+      "description": "Tornado sensitivity diagram configuration - one-at-a-time sensitivity analysis"
+    },
+    "decision_tree": {
+      "$ref": "#/definitions/DecisionTree",
+      "description": "Decision tree configuration - sequential decisions with backward induction"
     }
   },
 
@@ -414,6 +423,94 @@
         "coefficient": { "type": "number", "minimum": -1, "maximum": 1 }
       },
       "required": ["variables", "coefficient"]
+    },
+
+    "Tornado": {
+      "title": "Tornado Sensitivity Configuration",
+      "description": "Configuration for one-at-a-time sensitivity tornado diagrams",
+      "type": "object",
+      "properties": {
+        "output": { "type": "string", "description": "Output variable to analyze" },
+        "inputs": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/TornadoInput" },
+          "description": "Input variables with low/high ranges"
+        },
+        "steps": { "type": "integer", "minimum": 2, "default": 2 }
+      },
+      "required": ["output", "inputs"]
+    },
+
+    "TornadoInput": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Variable name to vary" },
+        "low": { "type": "number", "description": "Low value for sensitivity" },
+        "high": { "type": "number", "description": "High value for sensitivity" },
+        "base": { "type": "number", "description": "Optional base value (default: midpoint)" }
+      },
+      "required": ["name", "low", "high"]
+    },
+
+    "DecisionTree": {
+      "title": "Decision Tree Configuration",
+      "description": "Configuration for decision tree analysis with backward induction",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the decision tree" },
+        "root": { "$ref": "#/definitions/TreeNode", "description": "Root node of the tree" },
+        "nodes": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/TreeNode" },
+          "description": "Named nodes referenced by 'next' in branches"
+        }
+      },
+      "required": ["name", "root"]
+    },
+
+    "TreeNode": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["decision", "chance"], "description": "Node type" },
+        "name": { "type": "string", "description": "Display name for the node" },
+        "branches": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/TreeBranch" },
+          "description": "Named branches from this node"
+        }
+      },
+      "required": ["type", "branches"]
+    },
+
+    "TreeBranch": {
+      "type": "object",
+      "properties": {
+        "probability": { "type": "number", "minimum": 0, "maximum": 1, "description": "Probability (for chance nodes)" },
+        "cost": { "type": "number", "description": "Cost incurred on this branch" },
+        "value": { "type": "number", "description": "Terminal value (for leaf nodes)" },
+        "next": { "type": "string", "description": "Reference to next node (for non-leaf)" }
+      }
+    },
+
+    "ScenariosCommand": {
+      "title": "Scenarios Command Configuration",
+      "description": "Probability-weighted scenario analysis configuration",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/ScenarioDefinition" }
+    },
+
+    "ScenarioDefinition": {
+      "type": "object",
+      "properties": {
+        "probability": { "type": "number", "minimum": 0, "maximum": 1, "description": "Probability weight (0.0 to 1.0)" },
+        "description": { "type": "string", "description": "Human-readable description" },
+        "scalars": {
+          "type": "object",
+          "additionalProperties": { "type": "number" },
+          "description": "Scalar value overrides for this scenario"
+        }
+      },
+      "required": ["probability"]
     }
   },
 
