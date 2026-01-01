@@ -7,9 +7,9 @@
 
 current:
   # No active milestone - ready for next task
-  version: null
-  status: idle
-  summary: "Awaiting next milestone selection"
+  version: "10.0.0-alpha.3"
+  status: released
+  summary: "CI/CD, crates.io, Multi-Arch Releases"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # COMPLETED - See CHANGELOG.md for full details
@@ -200,104 +200,15 @@ next:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Code Quality - URGENT (added Dec 29, 2025)
-  # ─────────────────────────────────────────────────────────────────────────────
-  - version: "9.9.7"
-    priority: HIGH
-    summary: "Pedantic Linting - NO EXCEPTIONS"
-    description: |
-      Enable full pedantic clippy linting with ZERO allows/exceptions.
-      Fix ALL warnings in the codebase - do not suppress them.
-    tasks:
-      - "Update Cargo.toml: pedantic = deny, nursery = deny, cargo = deny"
-      - "Fix all clippy warnings (500+ across codebase)"
-      - "Update pre-commit hook to enforce -D warnings"
-      - "Remove all #[allow(...)] attributes from code"
-      - "Update rustfmt.toml for strict formatting"
-    acceptance_criteria:
-      - "cargo clippy --all-targets -- -D warnings passes with zero output"
-      - "No #[allow(clippy::...)] in codebase (grep returns empty)"
-      - "Pre-commit hook enforces pedantic linting"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Performance Milestones (moved from next - Dec 28, 2025)
-  # ─────────────────────────────────────────────────────────────────────────────
-  - version: "10.0.0"
-    summary: "Performance - SIMD Vectorization"
-    deliverables:
-      - "Identify hot paths in Monte Carlo, Bootstrap, matrix operations"
-      - "Use packed_simd or std::simd for parallel arithmetic"
-      - "Benchmark before/after with criterion"
-      - "Target: 2-4x speedup on numeric-heavy workloads"
-
-  - version: "10.1.0"
-    summary: "Performance - Multi-threading with Rayon"
-    deliverables:
-      - "Parallelize Monte Carlo iterations across cores"
-      - "Parallelize Bootstrap resampling"
-      - "Parallelize independent table calculations"
-      - "Target: Near-linear scaling with core count"
-
-  - version: "10.2.0"
-    summary: "Performance - GPU Acceleration (CUDA/OpenCL)"
-    deliverables:
-      - "Evaluate rust-cuda or ocl crate"
-      - "Offload Monte Carlo to GPU"
-      - "Offload matrix operations to GPU"
-      - "Optional feature flag (--features gpu)"
-      - "Target: 10-100x for large simulations"
-
-  - version: "10.3.0"
-    summary: "Performance - Algorithmic Optimizations"
-    deliverables:
-      - "Profile all functions with flamegraph"
-      - "Identify O(n²) or worse algorithms"
-      - "Optimize memory allocations (arena allocators)"
-      - "Cache repeated calculations"
-      - "Target: 2-10x from algorithmic improvements"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # DANEEL Integration (moved from next - Dec 28, 2025)
-  # ─────────────────────────────────────────────────────────────────────────────
-  - version: "10.4.0"
-    summary: "Crystal Analysis - N-Dimensional Fractal Visualization for DANEEL"
-    adr: "ADR-028-CRYSTAL-ANALYSIS.md"
-    origin: "Grok (SuperGrok) + Rex - Dec 21, 2025"
-    description: |
-      Four Laws as embedded vectors ("Law Crystals") in embedding space.
-      Thoughts clustering near Law Crystals = caring emerging, quantifiable.
-      PCA/UMAP reduce to 3D for TUI visualization.
-    dependencies:
-      - "linfa = 0.7 (PCA, dimensionality reduction)"
-      - "linfa-reduction = 0.7"
-      - "candle-core = 0.3 (local embeddings, no GPU)"
-      - "candle-transformers = 0.3 (all-MiniLM-L6-v2)"
-      - "qdrant-client = 1.0"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Other deferred items
-  # ─────────────────────────────────────────────────────────────────────────────
-  - version: "9.9.0"
-    summary: "Port edge cases from forge-e2e to inline Rust unit tests"
-    deliverables:
-      - "Port edge cases from ../forge-e2e/tests/ to inline unit tests"
-      - "Add tests in appropriate src/ modules (Rust way - #[cfg(test)] mod tests)"
-      - "Verify all edge cases pass"
-      - "Update test count in --help header"
-
-  - version: "7.3.0"
-    summary: "INCLUDE Feature - Complete E2E Testing & Roundtrip Validation"
-    deliverables:
-      - "E2E test: YAML -> XLSX -> Gnumeric -> CSV roundtrip with includes"
-      - "E2E test: 3+ level recursive includes (main->level1->level2->level3)"
-      - "E2E test: @namespace.field formula evaluation"
-      - "E2E test: Circular dependency detection"
-      - "Documentation: INCLUDE feature limitations"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Original backlog items
-  # ─────────────────────────────────────────────────────────────────────────────
+  # Simple one-liner descriptions (schema requires strings only)
+  - "v9.9.7: Pedantic Linting - NO EXCEPTIONS (enable full pedantic clippy, fix all warnings)"
+  - "v10.0.0: Performance - SIMD Vectorization (2-4x speedup on numeric-heavy workloads)"
+  - "v10.1.0: Performance - Multi-threading with Rayon (near-linear scaling with core count)"
+  - "v10.2.0: Performance - GPU Acceleration CUDA/OpenCL (10-100x for large simulations)"
+  - "v10.3.0: Performance - Algorithmic Optimizations (flamegraph profiling, arena allocators)"
+  - "v10.4.0: Crystal Analysis - N-Dimensional Fractal Visualization for DANEEL (ADR-028)"
+  - "v9.9.0: Port edge cases from forge-e2e to inline Rust unit tests"
+  - "v7.3.0: INCLUDE Feature - Complete E2E Testing & Roundtrip Validation"
   - "Find external FOSS tool to validate Forge-native functions"
   - "Enterprise licensing (when ready to leave CGI)"
   - "MCP server documentation"
