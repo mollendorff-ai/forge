@@ -271,12 +271,13 @@ fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                 .ok_or_else(|| ForgeError::Parse("Table name must be a string".to_string()))?;
 
             // Skip special keys (handled by specific commands)
+            // Note: scenarios is NOT skipped here - it has special handling below
+            // to distinguish scenario overrides from tables named "scenarios"
             if key_str == "_forge_version"
                 || key_str == "_name"
                 || key_str == "monte_carlo"
                 || key_str == "tornado"
                 || key_str == "decision_tree"
-                || key_str == "scenarios"
             {
                 continue;
             }
