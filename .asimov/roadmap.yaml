@@ -310,12 +310,16 @@ backlog:
 
 bugs:
   # ─────────────────────────────────────────────────────────────────────────────
-  # NO ACTIVE BUGS - All bugs resolved (Dec 29, 2025)
+  # NO ACTIVE BUGS - All bugs resolved (Jan 1, 2026)
   # ─────────────────────────────────────────────────────────────────────────────
 
   # ─────────────────────────────────────────────────────────────────────────────
   # FIXED/CLOSED BUGS
   # ─────────────────────────────────────────────────────────────────────────────
+  # - FORGE-012 (fixed 2026-01-01) - Schema missing tornado/decision_tree/scenarios
+  #   - Added Tornado, TornadoInput, DecisionTree, TreeNode, TreeBranch definitions
+  #   - Added ScenariosCommand, ScenarioDefinition for command format
+  #   - Parser now skips these special keys (handled by specific commands)
   # - FORGE-010 (INVALID in 9.9.6) - Could not reproduce, arrays load correctly
   # - FORGE-011 (fixed in 9.9.6) - ISERROR now detects NA() as error
   # - FORGE-MC-001 (fixed in 9.9.1) - Monte Carlo formula propagation

@@ -270,8 +270,14 @@ fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                 .as_str()
                 .ok_or_else(|| ForgeError::Parse("Table name must be a string".to_string()))?;
 
-            // Skip special keys
-            if key_str == "_forge_version" || key_str == "_name" || key_str == "monte_carlo" {
+            // Skip special keys (handled by specific commands)
+            if key_str == "_forge_version"
+                || key_str == "_name"
+                || key_str == "monte_carlo"
+                || key_str == "tornado"
+                || key_str == "decision_tree"
+                || key_str == "scenarios"
+            {
                 continue;
             }
 
