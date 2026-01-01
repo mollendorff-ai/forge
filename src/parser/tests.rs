@@ -1132,3 +1132,170 @@ fn test_parse_table_column_scalar_not_array() {
     let result = parse_table("test", &map);
     assert!(result.is_err());
 }
+
+// =========================================================================
+// FORGE-012: Tornado/DecisionTree/Scenarios Schema & Parser Tests
+// =========================================================================
+
+#[test]
+fn test_parser_skips_tornado_section() {
+    // Tornado section should be skipped by parser (handled by tornado command)
+    let yaml_str = r#"
+_forge_version: "5.0.0"
+
+price:
+  value: 100
+
+quantity:
+  value: 50
+
+profit:
+  formula: "=price * quantity"
+
+tornado:
+  output: profit
+  inputs:
+    - name: price
+      low: 80
+      high: 120
+    - name: quantity
+      low: 40
+      high: 60
+"#;
+    let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+    let result = parse_v1_model(&yaml).unwrap();
+
+    // Tornado should NOT be parsed as a table
+    assert!(!result.tables.contains_key("tornado"));
+    // Scalars should be parsed correctly
+    assert!(result.scalars.contains_key("price"));
+    assert!(result.scalars.contains_key("quantity"));
+    assert!(result.scalars.contains_key("profit"));
+}
+
+#[test]
+fn test_parser_skips_decision_tree_section() {
+    // Decision tree section should be skipped by parser (handled by decision-tree command)
+    let yaml_str = r#"
+_forge_version: "5.0.0"
+
+investment:
+  value: 50000
+
+decision_tree:
+  name: "Investment Decision"
+  root:
+    type: decision
+    name: "Invest?"
+    branches:
+      invest:
+        cost: 50000
+        next: market_outcome
+      dont_invest:
+        value: 0
+  nodes:
+    market_outcome:
+      type: chance
+      name: "Market Outcome"
+      branches:
+        success:
+          probability: 0.6
+          value: 150000
+        failure:
+          probability: 0.4
+          value: 20000
+"#;
+    let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+    let result = parse_v1_model(&yaml).unwrap();
+
+    // Decision tree should NOT be parsed as a table
+    assert!(!result.tables.contains_key("decision_tree"));
+    // Scalars should be parsed correctly
+    assert!(result.scalars.contains_key("investment"));
+}
+
+#[test]
+fn test_schema_validates_tornado_section() {
+    // Verify schema accepts valid tornado configuration
+    let mut file = NamedTempFile::new().unwrap();
+    writeln!(
+        file,
+        r#"_forge_version: "5.0.0"
+
+price:
+  value: 100
+
+tornado:
+  output: price
+  inputs:
+    - name: price
+      low: 80
+      high: 120
+"#
+    )
+    .unwrap();
+
+    // parse_model includes schema validation - should not error
+    let result = parse_model(file.path());
+    assert!(
+        result.is_ok(),
+        "Schema should accept valid tornado section: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_schema_validates_decision_tree_section() {
+    // Verify schema accepts valid decision_tree configuration
+    let mut file = NamedTempFile::new().unwrap();
+    writeln!(
+        file,
+        r#"_forge_version: "5.0.0"
+
+decision_tree:
+  name: "Simple Decision"
+  root:
+    type: decision
+    branches:
+      option_a:
+        value: 100
+      option_b:
+        value: 200
+"#
+    )
+    .unwrap();
+
+    // parse_model includes schema validation - should not error
+    let result = parse_model(file.path());
+    assert!(
+        result.is_ok(),
+        "Schema should accept valid decision_tree section: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_parser_skips_monte_carlo_section() {
+    // Monte Carlo section should be skipped by parser (handled by simulate command)
+    let yaml_str = r#"
+_forge_version: "5.0.0"
+
+revenue:
+  value: 100000
+
+monte_carlo:
+  iterations: 10000
+  variables:
+    revenue:
+      distribution: normal
+      mean: 100000
+      std: 10000
+"#;
+    let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+    let result = parse_v1_model(&yaml).unwrap();
+
+    // Monte Carlo should NOT be parsed as a table
+    assert!(!result.tables.contains_key("monte_carlo"));
+    // Scalars should be parsed correctly
+    assert!(result.scalars.contains_key("revenue"));
+}
