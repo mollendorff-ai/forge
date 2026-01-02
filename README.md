@@ -1,5 +1,7 @@
 # Forge
 
+> 📌 **R&D Prototype** — Interpret claims as hypotheses, not proven facts.
+
 [![CI](https://github.com/royalbit/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/royalbit/forge/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
 [![Tests](https://img.shields.io/badge/tests-2133_passing-brightgreen)](https://github.com/royalbit/forge)
