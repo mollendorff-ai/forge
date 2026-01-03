@@ -26,6 +26,7 @@ mod functions;
 mod prediction;
 mod schema;
 mod simulate;
+mod update;
 mod upgrade;
 
 // Re-exports
@@ -37,6 +38,7 @@ pub use functions::functions;
 pub use prediction::{bayesian, bootstrap, decision_tree, real_options, scenarios, tornado};
 pub use schema::schema;
 pub use simulate::simulate;
+pub use update::update;
 pub use upgrade::{auto_upgrade_schema, needs_schema_upgrade, upgrade};
 
 // Re-exports for tests (internal functions)

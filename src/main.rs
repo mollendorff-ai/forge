@@ -35,6 +35,7 @@ COMMANDS:
   import        - Excel -> YAML
   watch         - Auto-calculate on save
   upgrade       - Upgrade YAML to latest schema
+  update        - Check for updates and self-update
 
 EXAMPLES:
   forge calculate model.yaml                    # Execute formulas
@@ -976,6 +977,38 @@ BACKUP:
         #[arg(short, long)]
         verbose: bool,
     },
+
+    #[command(
+        long_about = "Check for updates and optionally install the latest version.
+
+Downloads and installs the latest Forge release from GitHub.
+Supports all platforms: Linux (x86_64, ARM64), macOS (Intel, Apple Silicon), Windows.
+
+EXAMPLES:
+  forge update              # Check and install update (with confirmation)
+  forge update --check      # Check only, don't install
+  forge update --verbose    # Show detailed progress
+
+INSTALLATION:
+  - Downloads the correct binary for your platform
+  - Backs up the current binary to forge.bak
+  - Installs the new version in place
+  - Preserves permissions
+
+NOTE:
+  Requires curl to be installed (available on all supported platforms).
+  The update replaces the current binary - restart forge to use the new version."
+    )]
+    /// Check for updates and install latest version
+    Update {
+        /// Only check for updates, don't install
+        #[arg(short = 'c', long)]
+        check: bool,
+
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 /// CLI entry point - excluded from coverage (ADR-006)
@@ -1129,6 +1162,8 @@ fn main() -> ForgeResult<()> {
             to,
             verbose,
         } => cli::upgrade(file, dry_run, to, verbose),
+
+        Commands::Update { check, verbose } => cli::update(check, verbose),
     }
 }
 

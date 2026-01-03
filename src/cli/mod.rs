@@ -4,7 +4,7 @@ pub mod commands;
 
 pub use commands::{
     audit, break_even, calculate, compare, examples, export, functions, goal_seek, import, schema,
-    sensitivity, validate, variance, watch,
+    sensitivity, update, validate, variance, watch,
 };
 
 pub use commands::upgrade;
