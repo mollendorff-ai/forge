@@ -24,7 +24,6 @@ exclude = [
     "docs/*",
     "dist/*",
     "bin/*",
-    "examples/*",
     "editors/*",
     "scripts/*",
     "releases/*",
@@ -32,6 +31,7 @@ exclude = [
     "*.md",
     "!README.md",
 ]
+# Note: examples/ is included because src/cli/commands/examples.rs uses include_str!()
 
 # Main binary (173 functions, all features)
 # Build: cargo build --release
