@@ -30,6 +30,44 @@ YAML-based financial modeling with Excel formula evaluation. Git-native. Determi
 
 ---
 
+## AI Integration
+
+Any AI coding agent can use Forge — Claude Code, ChatGPT, Gemini, Cursor, Copilot, Aider, or anything that writes files and runs commands:
+
+```text
+1. AI writes a YAML model
+2. forge calculate model.yaml
+3. Deterministic result
+```
+
+That's it. No SDK. No API key. No protocol. **Files are the universal interface.**
+
+### Example: AI Agent Swarm
+
+```bash
+# You describe the problem to your AI coding assistant
+"Model a SaaS acquisition: $10M, 3-year earnout,
+ 15% growth base case, Monte Carlo on churn risk"
+
+# AI spawns agents, each writes a scenario
+├── valuation.yaml      # DCF with earnout structure
+├── scenarios.yaml      # Bull/base/bear cases
+└── simulation.yaml     # Monte Carlo on churn
+
+# Forge evaluates deterministically
+forge calculate valuation.yaml
+forge scenarios scenarios.yaml
+forge simulate simulation.yaml -n 10000
+
+# Results feed back to AI for synthesis
+```
+
+No hallucinated numbers. Every result traceable to a formula.
+
+MCP server and REST API available for tighter integration (see below).
+
+---
+
 ## Battle-Tested Math
 
 **Don't trust us. Trust Gnumeric and R.**
@@ -183,9 +221,9 @@ scenarios:
 
 ---
 
-## AI-Native: MCP Integration
+## MCP Integration (Optional)
 
-Forge speaks Claude's language. 10 tools for AI agents via Model Context Protocol:
+For Claude Desktop or MCP-compatible hosts, Forge exposes 10 tools via Model Context Protocol:
 
 ```json
 {
@@ -218,7 +256,7 @@ Forge speaks Claude's language. 10 tools for AI agents via Model Context Protoco
 > CLI-only for now. API server has 5 endpoints. Full MCP/API parity + OpenAPI spec planned
 > for v10.0.0-beta.1 after E2E validation against R and Gnumeric is complete.
 
-**50x token efficiency.** Claude processes YAML at a fraction of Excel's token cost.
+**50x token efficiency.** YAML at a fraction of Excel's token cost.
 
 ---
 
@@ -377,7 +415,7 @@ forge functions                     # List all 173 functions
 | **M&A** | DCF valuations, sensitivity analysis, scenario comparison |
 | **Consulting** | Client financial models with version control |
 | **Fintech** | Automated projections via API, embedded calculations |
-| **AI Agents** | MCP integration for deterministic financial analysis |
+| **AI Agents** | Any coding agent (Claude, GPT, Gemini) writes YAML, Forge evaluates |
 
 ---
 
