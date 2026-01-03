@@ -6,14 +6,17 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "10.0.0-alpha.4"
+  version: "10.0.0-alpha.5"
   status: released
-  summary: "CLI Documentation: schema + examples commands"
+  summary: "Self-update command restored (ADR-024)"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # COMPLETED - See CHANGELOG.md for full details
 # ─────────────────────────────────────────────────────────────────────────────
 completed:
+  - version: "10.0.0-alpha.5"
+    date: "2026-01-03"
+    summary: "Self-update command restored (ADR-024)"
   - version: "10.0.0-alpha.4"
     date: "2026-01-02"
     summary: "CLI Documentation: schema + examples commands"

@@ -1,82 +1,77 @@
-# ADR-024: Self-Update Command Removal
+# ADR-024: Self-Update Command
 
 ## Status
 
-**Implemented** - v9.2.0
+**Restored** - v10.0.0-alpha.5
 
-## Context
+## History
 
-The `forge update` command was designed to check for updates and self-update the binary by downloading releases from GitHub. However, this functionality has become dead code:
+- v9.2.0: Removed (see "Removal Context" below)
+- v10.0.0-alpha.5: Restored (forge is now public on GitHub)
 
-1. **Enterprise binary (`forge`)** - Self-hosted, proprietary, NEVER pushed to GitHub
-2. **Demo binary (`forge-demo`)** - Public on `royalbit/forge-demo`, but `forge update` checks `royalbit/forge/releases` which doesn't exist
-3. **No valid target** - Neither binary has a valid GitHub release endpoint for self-update
+## Removal Context (v9.2.0)
 
-The update module was ~28KB of code that could never successfully complete its intended function.
+The `forge update` command was originally removed because:
 
-## Decision
+1. **Enterprise binary (`forge`)** - Was self-hosted, proprietary, NEVER pushed to GitHub
+2. **Demo binary (`forge-demo`)** - Public on `royalbit/forge-demo`, but `forge update` checked `royalbit/forge/releases` which didn't exist
+3. **No valid target** - Neither binary had a valid GitHub release endpoint
 
-**Remove the `forge update` command entirely.**
+## Restoration Context (v10.0.0-alpha.5)
 
-### Options Considered
+With the Elastic-2.0 licensing decision (ADR-030, ADR-031), forge is now public:
+- Repository: `https://github.com/royalbit/forge`
+- Releases published to GitHub with multi-platform binaries
+- Self-update now has a valid target
 
-| Option | Description | Chosen |
-|--------|-------------|--------|
-| A. Fix it | Point demo at correct repo, disable for enterprise | No - complex, still useless for enterprise |
-| B. Remove it | Delete entire update module and command | **Yes** |
-| C. Keep disabled | Gate behind feature flag, document as broken | No - dead code accumulates |
+## Current Implementation
 
-### Rationale
+### Features
 
-- **Zero value**: Command cannot work for either binary distribution
-- **Code hygiene**: ~28KB of unused code removed
-- **Simpler maintenance**: One less command to document and test
-- **Clear installation path**: README directs users to GitHub releases or local build
-
-## Changes
-
-### Removed Files
-- `src/update.rs` (28KB) - Update checking and binary replacement logic
-- `tests/update_tests.rs` (4KB) - Unit tests for update module
-
-### Modified Files
-- `src/main.rs` - Removed `Update` command variant and match arm
-- `src/lib.rs` - Removed `pub mod update;`
-- `tests/cli_integration_tests.rs` - Removed 3 update-related tests
-- `README.md` - Removed `update` from enterprise commands list
-- `docs/cli/README.md` - Removed update command documentation
-
-## Installation Guidance
-
-Users should install via:
-
-### Demo (forge-demo)
 ```bash
-# Download from GitHub releases
-curl -L https://github.com/royalbit/forge-demo/releases/latest/download/forge-demo-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m) -o forge-demo
-chmod +x forge-demo
+forge update              # Check and install update (with confirmation)
+forge update --check      # Check only, don't install
+forge update --verbose    # Show detailed progress
 ```
 
-### Enterprise (forge)
-```bash
-# Build from source (requires access to private repo)
-cargo build --release --features full
-cp target/release/forge ~/bin/
-```
+### Platform Support
+
+| Platform | Asset Pattern |
+|----------|---------------|
+| Linux x86_64 | `forge-linux-x86_64.tar.gz` |
+| Linux ARM64 | `forge-linux-arm64.tar.gz` |
+| macOS Intel | `forge-macos-x86_64.tar.gz` |
+| macOS Apple Silicon | `forge-macos-arm64.tar.gz` |
+| Windows | `forge-windows.exe` |
+
+### Implementation Details
+
+- Uses `curl` for HTTP requests (available on all platforms)
+- Fetches from GitHub API: `api.github.com/repos/royalbit/forge/releases/latest`
+- Semver comparison with pre-release support (e.g., `alpha.5` > `alpha.4`)
+- Backs up existing binary to `.bak` before replacement
+- Preserves Unix permissions (0755)
+
+### Files
+
+- `src/cli/commands/update.rs` - Main implementation (~300 lines)
+- Unit tests for version comparison, platform detection, asset matching
 
 ## Consequences
 
 ### Positive
-- Cleaner codebase (~32KB code removed)
-- Fewer tests to maintain (3 tests removed)
-- No confusion about non-functional command
-- Simpler --help output
+- Users can easily update to latest version
+- No need to manually download from GitHub releases
+- Platform detection is automatic
+- Backup created before update (safe rollback)
 
 ### Negative
-- No self-update mechanism (acceptable - users can re-download or rebuild)
-- Breaking change for any scripts using `forge update` (unlikely - command never worked)
+- Requires `curl` to be installed (standard on all supported platforms)
+- Cannot update if GitHub is unreachable
+- Interactive confirmation required (no `--yes` flag yet)
 
 ## References
 
-- Issue: Dead code in update module
-- Version: v9.2.0
+- ADR-030: GTM Licensing Strategy
+- ADR-031: Elastic-2.0 License
+- Version: v10.0.0-alpha.5
