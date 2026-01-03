@@ -1,6 +1,6 @@
 [package]
 name = "royalbit-forge"
-version = "10.0.0-alpha.3"
+version = "10.0.0-alpha.4"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "RoyalBit Inc. <admin@royalbit.ca>"]
 description = "Battle-tested financial math for AI. 173 Excel-compatible functions validated against Gnumeric & R. MCP integration, Monte Carlo, Decision Trees, Real Options."

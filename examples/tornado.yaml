@@ -1,0 +1,127 @@
+# Tornado Diagram Example
+# ========================
+# Run with: forge tornado examples/tornado.yaml
+#
+# This example performs one-at-a-time sensitivity analysis on project NPV.
+# Each input is varied from its low to high value while others stay at base.
+#
+# The tornado diagram shows which inputs have the most impact on NPV,
+# sorted by magnitude (largest swing at top).
+#
+# Unlike Monte Carlo (probabilistic), tornado is deterministic:
+# - Shows the RANGE of outcomes for each input
+# - Identifies which assumptions to focus on
+# - Easy to communicate to stakeholders
+
+_forge_version: "5.0.0"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tornado Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+tornado:
+  output: valuation.npv
+
+  # Base case values (center of tornado)
+  base_values:
+    revenue_growth: 0.10
+    operating_margin: 0.20
+    discount_rate: 0.10
+    tax_rate: 0.25
+    initial_investment: 1000000
+
+  # Input ranges to test (low to high)
+  inputs:
+    - name: revenue_growth
+      low: 0.05
+      high: 0.20
+      label: "Revenue Growth"
+
+    - name: operating_margin
+      low: 0.15
+      high: 0.30
+      label: "Operating Margin"
+
+    - name: discount_rate
+      low: 0.08
+      high: 0.15
+      label: "Discount Rate"
+
+    - name: tax_rate
+      low: 0.20
+      high: 0.35
+      label: "Tax Rate"
+
+    - name: initial_investment
+      low: 800000
+      high: 1500000
+      label: "Initial Investment"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Model Inputs
+# ─────────────────────────────────────────────────────────────────────────────
+assumptions:
+  revenue_growth:
+    value: 0.10
+    formula: null
+
+  operating_margin:
+    value: 0.20
+    formula: null
+
+  discount_rate:
+    value: 0.10
+    formula: null
+
+  tax_rate:
+    value: 0.25
+    formula: null
+
+  initial_investment:
+    value: 1000000
+    formula: null
+
+  base_revenue:
+    value: 500000
+    formula: null
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Projections (5-Year)
+# ─────────────────────────────────────────────────────────────────────────────
+projections:
+  year: [1, 2, 3, 4, 5]
+  revenue: "=assumptions.base_revenue * (1 + assumptions.revenue_growth) ^ year"
+  operating_profit: "=revenue * assumptions.operating_margin"
+  tax: "=operating_profit * assumptions.tax_rate"
+  net_income: "=operating_profit - tax"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Valuation
+# ─────────────────────────────────────────────────────────────────────────────
+valuation:
+  npv:
+    value: null
+    formula: "=NPV(assumptions.discount_rate, projections.net_income) - assumptions.initial_investment"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Expected Output:
+# ─────────────────────────────────────────────────────────────────────────────
+# Base Case NPV: $250,000
+#
+# Tornado Diagram (sorted by impact):
+#
+#                           Low        Base       High
+# Revenue Growth      |████████████████|████████████████████████|  $150K - $420K
+# Operating Margin    |██████████████|██████████████████████|      $180K - $380K
+# Discount Rate       |████████████████████████|████████████|      $210K - $300K
+# Initial Investment  |████████████████████████|██████████|        $50K - $450K
+# Tax Rate            |██████████████████|██████████████|          $220K - $290K
+#
+# Key Insights:
+# 1. Revenue Growth has the largest impact (+$270K swing)
+# 2. Operating Margin is second (+$200K swing)
+# 3. Tax Rate has minimal impact (+$70K swing)
+#
+# Recommendation:
+# - Focus due diligence on revenue growth assumptions
+# - Lock in operating margin through contracts if possible
+# - Tax rate uncertainty is acceptable

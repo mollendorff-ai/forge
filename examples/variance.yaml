@@ -1,0 +1,178 @@
+# Variance Analysis Example
+# ==========================
+# Run with: forge calculate examples/variance.yaml
+#
+# This example demonstrates FP&A variance analysis functions:
+# - VARIANCE(actual, budget): Simple difference
+# - VARIANCE_PCT(actual, budget): Percentage variance
+# - VARIANCE_STATUS(actual, budget, threshold): Favorable/Unfavorable status
+#
+# These are functions Excel doesn't have built-in.
+# Every FP&A analyst builds these manually. Forge has them native.
+
+_forge_version: "5.0.0"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Budget Data
+# ─────────────────────────────────────────────────────────────────────────────
+budget:
+  revenue:
+    value: 1000000
+    formula: null
+
+  cogs:
+    value: 400000
+    formula: null
+
+  gross_profit:
+    value: null
+    formula: "=revenue - cogs"
+
+  opex:
+    value: 300000
+    formula: null
+
+  operating_income:
+    value: null
+    formula: "=gross_profit - opex"
+
+  margin:
+    value: null
+    formula: "=operating_income / revenue"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Actual Data
+# ─────────────────────────────────────────────────────────────────────────────
+actual:
+  revenue:
+    value: 950000
+    formula: null
+
+  cogs:
+    value: 420000
+    formula: null
+
+  gross_profit:
+    value: null
+    formula: "=revenue - cogs"
+
+  opex:
+    value: 280000
+    formula: null
+
+  operating_income:
+    value: null
+    formula: "=gross_profit - opex"
+
+  margin:
+    value: null
+    formula: "=operating_income / revenue"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Variance Analysis
+# ─────────────────────────────────────────────────────────────────────────────
+# VARIANCE(actual, budget) -> actual - budget
+# VARIANCE_PCT(actual, budget) -> (actual - budget) / budget
+# VARIANCE_STATUS(actual, budget, threshold_or_type)
+#   - Returns: 1 = favorable, 0 = on target, -1 = unfavorable
+#   - For costs, use "cost" type (under budget = favorable)
+#   - For revenue, default behavior (over budget = favorable)
+
+variance:
+  # Revenue variance (positive = beat budget)
+  revenue_var:
+    value: null
+    formula: "=VARIANCE(actual.revenue, budget.revenue)"
+    unit: "$"
+
+  revenue_pct:
+    value: null
+    formula: "=VARIANCE_PCT(actual.revenue, budget.revenue)"
+    unit: "%"
+
+  revenue_status:
+    value: null
+    formula: "=VARIANCE_STATUS(actual.revenue, budget.revenue, 0.05)"
+
+  # COGS variance (using "cost" type - under budget = favorable)
+  cogs_var:
+    value: null
+    formula: "=VARIANCE(actual.cogs, budget.cogs)"
+    unit: "$"
+
+  cogs_pct:
+    value: null
+    formula: "=VARIANCE_PCT(actual.cogs, budget.cogs)"
+    unit: "%"
+
+  # For costs, being OVER budget is unfavorable
+  cogs_status:
+    value: null
+    formula: '=VARIANCE_STATUS(actual.cogs, budget.cogs, "cost")'
+
+  # Gross profit variance
+  gross_profit_var:
+    value: null
+    formula: "=VARIANCE(actual.gross_profit, budget.gross_profit)"
+    unit: "$"
+
+  gross_profit_pct:
+    value: null
+    formula: "=VARIANCE_PCT(actual.gross_profit, budget.gross_profit)"
+    unit: "%"
+
+  # OpEx variance (cost type)
+  opex_var:
+    value: null
+    formula: "=VARIANCE(actual.opex, budget.opex)"
+    unit: "$"
+
+  opex_pct:
+    value: null
+    formula: "=VARIANCE_PCT(actual.opex, budget.opex)"
+    unit: "%"
+
+  opex_status:
+    value: null
+    formula: '=VARIANCE_STATUS(actual.opex, budget.opex, "cost")'
+
+  # Operating income variance
+  operating_income_var:
+    value: null
+    formula: "=VARIANCE(actual.operating_income, budget.operating_income)"
+    unit: "$"
+
+  operating_income_pct:
+    value: null
+    formula: "=VARIANCE_PCT(actual.operating_income, budget.operating_income)"
+    unit: "%"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Expected Output:
+# ─────────────────────────────────────────────────────────────────────────────
+# Budget:
+#   Revenue:           $1,000,000
+#   COGS:              $400,000
+#   Gross Profit:      $600,000
+#   OpEx:              $300,000
+#   Operating Income:  $300,000
+#   Margin:            30%
+#
+# Actual:
+#   Revenue:           $950,000
+#   COGS:              $420,000
+#   Gross Profit:      $530,000
+#   OpEx:              $280,000
+#   Operating Income:  $250,000
+#   Margin:            26.3%
+#
+# Variance Analysis:
+#   Revenue:     -$50,000 (-5.0%)   MISS     <- Below budget
+#   COGS:        +$20,000 (+5.0%)   MISS     <- Over budget (bad for costs)
+#   Gross Profit: -$70,000 (-11.7%) MISS
+#   OpEx:        -$20,000 (-6.7%)   BEAT     <- Under budget (good for costs)
+#   Operating Income: -$50,000 (-16.7%) MISS
+#
+# Key Insight:
+#   Revenue shortfall (-$50K) combined with COGS overrun (+$20K)
+#   partially offset by OpEx savings (-$20K) = Net miss of $50K

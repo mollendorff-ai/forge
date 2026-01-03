@@ -403,6 +403,35 @@ forge serve --port 8080             # Start REST API
 
 # Reference
 forge functions                     # List all 173 functions
+forge schema v5                     # Show JSON schema
+forge examples monte-carlo          # Show example YAML
+```
+
+---
+
+## Documentation Commands
+
+```bash
+# View JSON schemas for model validation
+forge schema                    # List available versions
+forge schema v1                 # Show v1.0.0 schema (scalar-only)
+forge schema v5                 # Show v5.0.0 schema (full features)
+forge schema v5 > schema.json   # Pipe to file for IDE use
+
+# View runnable examples for Forge capabilities
+forge examples                  # List all examples
+forge examples monte-carlo      # Monte Carlo simulation
+forge examples scenarios        # Probability-weighted scenarios
+forge examples decision-tree    # Sequential decision modeling
+forge examples real-options     # Option pricing for flexibility
+forge examples tornado          # Sensitivity analysis
+forge examples bootstrap        # Confidence intervals
+forge examples bayesian         # Probabilistic graphical models
+forge examples variance         # Budget vs actual analysis
+forge examples breakeven        # Break-even calculations
+
+forge examples monte-carlo --run  # Show and execute example
+forge examples --json             # Machine-readable list
 ```
 
 ---

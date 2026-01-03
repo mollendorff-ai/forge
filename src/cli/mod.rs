@@ -3,8 +3,8 @@
 pub mod commands;
 
 pub use commands::{
-    audit, break_even, calculate, compare, export, functions, goal_seek, import, sensitivity,
-    validate, variance, watch,
+    audit, break_even, calculate, compare, examples, export, functions, goal_seek, import, schema,
+    sensitivity, validate, variance, watch,
 };
 
 pub use commands::upgrade;
