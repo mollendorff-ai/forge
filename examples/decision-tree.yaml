@@ -1,0 +1,126 @@
+# Decision Tree Example
+# ======================
+# Run with: forge decision-tree examples/decision-tree.yaml
+#
+# This example models an R&D investment decision:
+#
+#   [Invest in R&D?] ─── invest ($2M) ──► [Tech works?]
+#         │                                    │
+#         │                              success (60%) ──► [Commercialize?]
+#         │                                    │                  │
+#         │                              failure (40%)      scale ($5M) ──► [Market?]
+#         │                                    │                  │              │
+#         │                                    │            pilot ($500K)   success (70%): $15M
+#         │                                    │                  │         failure (30%): $2M
+#         │                                    │                  │
+#         │                                    │            [Market?]
+#         │                                    │                  │
+#         │                                    │            success (50%): $3M
+#         │                                    │            failure (50%): $500K
+#         │                                    │
+#         └── don't invest ──► $0              └──► -$2M (sunk cost)
+#
+# Forge uses backward induction to find:
+# - Optimal decision at each node
+# - Expected value of optimal strategy
+# - Risk profile (best/worst case)
+
+_forge_version: "5.0.0"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Decision Tree Structure
+# ─────────────────────────────────────────────────────────────────────────────
+decision_tree:
+  name: "R&D Investment Decision"
+
+  # Root is always the first decision
+  root:
+    type: decision
+    name: "Invest in R&D?"
+    branches:
+      invest:
+        cost: 2000000
+        next: tech_outcome
+      dont_invest:
+        value: 0
+
+  # Subsequent nodes
+  nodes:
+    # Chance node: Does the technology work?
+    tech_outcome:
+      type: chance
+      name: "Technology development outcome"
+      branches:
+        success:
+          probability: 0.60
+          next: commercialize_decision
+        failure:
+          probability: 0.40
+          value: -2000000  # Sunk R&D cost
+
+    # Decision node: How to commercialize?
+    commercialize_decision:
+      type: decision
+      name: "Commercialization strategy"
+      branches:
+        scale:
+          cost: 5000000
+          next: scale_market_outcome
+        pilot:
+          cost: 500000
+          next: pilot_market_outcome
+
+    # Chance node: Full-scale market reception
+    scale_market_outcome:
+      type: chance
+      name: "Full-scale market reception"
+      branches:
+        success:
+          probability: 0.70
+          value: 15000000  # Revenue minus costs handled above
+        failure:
+          probability: 0.30
+          value: 2000000   # Salvage value
+
+    # Chance node: Pilot market reception
+    pilot_market_outcome:
+      type: chance
+      name: "Pilot market reception"
+      branches:
+        success:
+          probability: 0.50
+          value: 3000000
+        failure:
+          probability: 0.50
+          value: 500000
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Expected Output:
+# ─────────────────────────────────────────────────────────────────────────────
+# Backward Induction Results:
+#
+# Node: scale_market_outcome
+#   EV = 0.70 * $15M + 0.30 * $2M = $11.1M
+#
+# Node: pilot_market_outcome
+#   EV = 0.50 * $3M + 0.50 * $0.5M = $1.75M
+#
+# Node: commercialize_decision
+#   Scale: $11.1M - $5M = $6.1M  <-- OPTIMAL
+#   Pilot: $1.75M - $0.5M = $1.25M
+#
+# Node: tech_outcome
+#   EV = 0.60 * $6.1M + 0.40 * -$2M = $2.86M
+#
+# Node: Invest in R&D? (root)
+#   Invest: $2.86M - $2M = $0.86M  <-- OPTIMAL
+#   Don't: $0
+#
+# Optimal Strategy:
+#   1. Invest in R&D ($2M)
+#   2. If successful, scale to full market ($5M)
+#
+# Risk Profile:
+#   Best case:  $15M - $7M = $8M (invest, tech works, scale, market success)
+#   Worst case: -$2M (invest, tech fails)
+#   Expected:   $0.86M

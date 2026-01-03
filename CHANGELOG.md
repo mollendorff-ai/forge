@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-alpha.4] - 2026-01-02
+
+### CLI Documentation: schema + examples commands
+
+Two new CLI commands for improved discoverability and self-documentation.
+
+### Added
+
+- **`forge schema` command** - Display JSON schemas for model validation
+  - `forge schema --list` - List available versions (v1.0.0, v5.0.0)
+  - `forge schema v1` - Output v1.0.0 schema (scalar-only models)
+  - `forge schema v5` - Output v5.0.0 schema (arrays, tables, enterprise)
+  - Pipeable: `forge schema v5 > schema.json` for IDE integration
+
+- **`forge examples` command** - Show runnable YAML examples
+  - `forge examples` - List all 9 available examples
+  - `forge examples <name>` - Display example YAML with comments
+  - `forge examples <name> --run` - Display and execute example
+  - `forge examples --json` - Machine-readable list for tooling
+
+- **9 Example YAML Files** (`examples/` directory)
+  - `monte-carlo.yaml` - Probabilistic simulation with distributions
+  - `scenarios.yaml` - Probability-weighted scenario analysis
+  - `decision-tree.yaml` - Sequential decisions with backward induction
+  - `real-options.yaml` - Option pricing for managerial flexibility
+  - `tornado.yaml` - One-at-a-time sensitivity analysis
+  - `bootstrap.yaml` - Non-parametric confidence intervals
+  - `bayesian.yaml` - Probabilistic graphical models
+  - `variance.yaml` - Budget vs actual with VARIANCE functions
+  - `breakeven.yaml` - Break-even with BREAKEVEN functions
+
+- **ADR-032** - Documents schema/examples command design decisions
+
+### Technical
+
+- Schemas and examples embedded at compile-time via `include_str!()`
+- Zero network dependency, works offline
+- Examples guaranteed to match binary version
+- 7 new unit tests for schema/examples commands
+
 ## [10.0.0-alpha.3] - 2025-12-30
 
 ### CI/CD, crates.io, and Multi-Arch Releases

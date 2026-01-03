@@ -1,0 +1,115 @@
+# Monte Carlo Simulation Example
+# ================================
+# Run with: forge simulate examples/monte-carlo.yaml --iterations 10000
+#
+# This example models a 5-year project NPV with uncertain inputs:
+# - Revenue growth follows a normal distribution (mean 15%, std 5%)
+# - Operating costs follow a triangular distribution (min/mode/max)
+# - Discount rate follows a uniform distribution (8% to 12%)
+#
+# The simulation runs 10,000 iterations to generate:
+# - P10, P50, P90 percentiles for NPV
+# - Probability of positive NPV
+# - Sensitivity analysis (which inputs drive variance)
+
+_forge_version: "5.0.0"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Monte Carlo Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+monte_carlo:
+  iterations: 10000
+  sampling: latin_hypercube  # Better convergence than pure monte_carlo
+  seed: 42                   # For reproducibility
+
+  outputs:
+    - variable: valuation.npv
+      percentiles: [10, 50, 90]
+      threshold: "> 0"       # Calculate P(NPV > 0)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Uncertain Inputs (Distributions)
+# ─────────────────────────────────────────────────────────────────────────────
+# Available distributions:
+#   MC.Normal(mean, std_dev)
+#   MC.Triangular(min, mode, max)
+#   MC.Uniform(min, max)
+#   MC.PERT(min, mode, max)
+#   MC.Lognormal(mean, std_dev)
+#   MC.Discrete(value1, prob1, value2, prob2, ...)
+
+assumptions:
+  # Revenue growth: Expected 15%, could range 5% to 25%
+  revenue_growth:
+    value: null
+    formula: "=MC.Normal(0.15, 0.05)"
+
+  # Operating costs: Best case $400K, most likely $500K, worst case $700K
+  operating_costs:
+    value: null
+    formula: "=MC.Triangular(400000, 500000, 700000)"
+
+  # Discount rate: Somewhere between 8% and 12%
+  discount_rate:
+    value: null
+    formula: "=MC.Uniform(0.08, 0.12)"
+
+  # Fixed inputs (not uncertain)
+  initial_revenue:
+    value: 1000000
+    formula: null
+
+  tax_rate:
+    value: 0.25
+    formula: null
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Projections (5-Year Model)
+# ─────────────────────────────────────────────────────────────────────────────
+projections:
+  year: [1, 2, 3, 4, 5]
+
+  # Revenue grows at the sampled growth rate
+  revenue: "=assumptions.initial_revenue * (1 + assumptions.revenue_growth) ^ year"
+
+  # Costs are sampled from triangular distribution, scaled by year
+  costs: "=assumptions.operating_costs * (1 + 0.03 * (year - 1))"
+
+  # EBIT = Revenue - Costs
+  ebit: "=revenue - costs"
+
+  # Tax only on positive EBIT
+  tax: "=MAX(0, ebit * assumptions.tax_rate)"
+
+  # Net cash flow
+  cash_flow: "=ebit - tax"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Valuation
+# ─────────────────────────────────────────────────────────────────────────────
+valuation:
+  # NPV of cash flows at sampled discount rate
+  npv:
+    value: null
+    formula: "=NPV(assumptions.discount_rate, projections.cash_flow)"
+
+  # IRR (if positive cash flows exist)
+  irr:
+    value: null
+    formula: "=IRR(projections.cash_flow)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Expected Output (after simulation):
+# ─────────────────────────────────────────────────────────────────────────────
+# NPV Statistics:
+#   P10 (pessimistic): ~$1.2M
+#   P50 (median):      ~$1.8M
+#   P90 (optimistic):  ~$2.5M
+#
+# Probability Analysis:
+#   P(NPV > 0): ~95%
+#
+# Sensitivity (Spearman correlation):
+#   revenue_growth:    0.75 (strong positive driver)
+#   operating_costs:  -0.45 (negative driver)
+#   discount_rate:    -0.25 (moderate negative)

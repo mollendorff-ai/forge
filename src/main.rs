@@ -17,6 +17,8 @@ COMMANDS:
   validate      - Check model integrity
   audit         - Trace formula dependencies (SOX compliance)
   functions     - List all 173 supported functions
+  schema        - Display JSON schema for model validation
+  examples      - Show runnable YAML examples
   simulate      - Monte Carlo simulation with distributions
   scenarios     - Probability-weighted scenario analysis
   decision-tree - Sequential decisions with backward induction
@@ -41,6 +43,8 @@ EXAMPLES:
   forge decision-tree model.yaml                # Decision tree
   forge tornado model.yaml                      # Sensitivity diagram
   forge variance budget.yaml actual.yaml        # Budget vs actual
+  forge schema v5                               # Show JSON schema
+  forge examples monte-carlo                    # Show Monte Carlo example
 
 Docs: https://royalbit.ca/forge")]
 #[command(version)]
@@ -876,6 +880,61 @@ EXAMPLES:
         json: bool,
     },
 
+    #[command(long_about = "Display JSON schema for validating Forge YAML models.
+
+Forge supports two schema versions:
+  v1.0.0 - Scalar-only models (simple key-value pairs)
+  v5.0.0 - Full support for arrays, tables, and enterprise features
+
+EXAMPLES:
+  forge schema              # List available versions
+  forge schema v1           # Show v1.0.0 schema
+  forge schema v5           # Show v5.0.0 schema
+  forge schema v5 > s.json  # Pipe to file for IDE use")]
+    /// Display JSON schema for model validation
+    Schema {
+        /// Schema version to display (v1, v5, 1.0.0, 5.0.0)
+        version: Option<String>,
+
+        /// List available schema versions
+        #[arg(short, long)]
+        list: bool,
+    },
+
+    #[command(
+        long_about = "Display runnable example YAML models for Forge capabilities.
+
+Examples demonstrate Forge-specific features beyond Excel formulas:
+  monte-carlo   - Probabilistic simulation with distributions
+  scenarios     - Probability-weighted scenario analysis
+  decision-tree - Sequential decisions with backward induction
+  real-options  - Option pricing for managerial flexibility
+  tornado       - One-at-a-time sensitivity analysis
+  bootstrap     - Non-parametric confidence intervals
+  bayesian      - Probabilistic graphical models
+  variance      - Budget vs actual analysis
+  breakeven     - Break-even calculations
+
+EXAMPLES:
+  forge examples                    # List all examples
+  forge examples monte-carlo        # Show Monte Carlo example
+  forge examples monte-carlo --run  # Show and execute example
+  forge examples --json             # List as JSON (for tooling)"
+    )]
+    /// Show example YAML models for Forge capabilities
+    Examples {
+        /// Example name (monte-carlo, scenarios, decision-tree, etc.)
+        name: Option<String>,
+
+        /// Execute the example after displaying it
+        #[arg(long)]
+        run: bool,
+
+        /// Output as JSON (for tooling)
+        #[arg(long)]
+        json: bool,
+    },
+
     #[command(long_about = "Upgrade YAML files to latest schema version (v5.0.0).
 
 Automatically migrates YAML files and all included files to the latest schema.
@@ -1059,6 +1118,10 @@ fn main() -> ForgeResult<()> {
         } => cli::bayesian(file, query, evidence, output, verbose),
 
         Commands::Functions { json } => cli::functions(json),
+
+        Commands::Schema { version, list } => cli::schema(version, list),
+
+        Commands::Examples { name, run, json } => cli::examples(name, run, json),
 
         Commands::Upgrade {
             file,

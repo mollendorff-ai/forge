@@ -1,0 +1,126 @@
+# Bayesian Network Example
+# =========================
+# Run with: forge bayesian examples/bayesian.yaml
+#
+# This example models credit default risk using a Bayesian network:
+#
+#   [Economic Conditions] ──► [Company Revenue] ──► [Default Probability]
+#                                    ▲
+#                                    │
+#                          [Management Quality]
+#
+# The network captures:
+# - Economic conditions affect company revenue
+# - Management quality also affects revenue
+# - Revenue determines default probability
+#
+# With evidence (observations), we can update beliefs:
+# - "Given economy is bad, what's the default probability?"
+# - "Given the company defaulted, what was likely the cause?"
+
+_forge_version: "5.0.0"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Bayesian Network Structure
+# ─────────────────────────────────────────────────────────────────────────────
+bayesian_network:
+  name: "Credit Risk Assessment"
+
+  nodes:
+    # Root node: Economic conditions (no parents)
+    economic_conditions:
+      type: discrete
+      states: ["good", "neutral", "bad"]
+      prior: [0.30, 0.50, 0.20]  # P(good)=30%, P(neutral)=50%, P(bad)=20%
+
+    # Root node: Management quality (no parents)
+    management_quality:
+      type: discrete
+      states: ["strong", "average", "weak"]
+      prior: [0.25, 0.50, 0.25]
+
+    # Child node: Company revenue depends on economy and management
+    company_revenue:
+      type: discrete
+      states: ["high", "medium", "low"]
+      parents: ["economic_conditions", "management_quality"]
+      # CPT: P(revenue | economy, management)
+      # Format: [economy][management] -> [P(high), P(medium), P(low)]
+      cpt:
+        good:
+          strong:  [0.80, 0.15, 0.05]
+          average: [0.60, 0.30, 0.10]
+          weak:    [0.40, 0.40, 0.20]
+        neutral:
+          strong:  [0.50, 0.35, 0.15]
+          average: [0.30, 0.45, 0.25]
+          weak:    [0.15, 0.40, 0.45]
+        bad:
+          strong:  [0.25, 0.40, 0.35]
+          average: [0.10, 0.35, 0.55]
+          weak:    [0.05, 0.20, 0.75]
+
+    # Leaf node: Default probability depends on revenue
+    default_probability:
+      type: discrete
+      states: ["low", "medium", "high"]
+      parents: ["company_revenue"]
+      cpt:
+        high:   [0.85, 0.12, 0.03]  # High revenue -> low default
+        medium: [0.40, 0.45, 0.15]
+        low:    [0.10, 0.30, 0.60]  # Low revenue -> high default
+
+  # Queries to run
+  queries:
+    # Prior: What's the default probability without any evidence?
+    - name: "Prior Default Risk"
+      target: default_probability
+      evidence: {}
+
+    # Posterior: Default risk given bad economy
+    - name: "Default Risk | Bad Economy"
+      target: default_probability
+      evidence:
+        economic_conditions: "bad"
+
+    # Posterior: Default risk given bad economy AND weak management
+    - name: "Default Risk | Bad Economy, Weak Management"
+      target: default_probability
+      evidence:
+        economic_conditions: "bad"
+        management_quality: "weak"
+
+    # Diagnostic: If high default risk observed, what caused it?
+    - name: "Economy | High Default Risk"
+      target: economic_conditions
+      evidence:
+        default_probability: "high"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Expected Output:
+# ─────────────────────────────────────────────────────────────────────────────
+# Prior Default Risk (no evidence):
+#   P(default = low):    45.2%
+#   P(default = medium): 32.1%
+#   P(default = high):   22.7%
+#
+# Default Risk | Bad Economy:
+#   P(default = low):    28.5%
+#   P(default = medium): 35.2%
+#   P(default = high):   36.3%   <- Increased from 22.7%
+#
+# Default Risk | Bad Economy, Weak Management:
+#   P(default = low):    15.8%
+#   P(default = medium): 28.5%
+#   P(default = high):   55.7%   <- Much higher with both risk factors
+#
+# Diagnostic Query - Economy | High Default Risk:
+#   P(economy = good):    12.3%
+#   P(economy = neutral): 35.8%
+#   P(economy = bad):     51.9%  <- Bad economy most likely cause
+#
+# Key Insights:
+# 1. Base default rate is ~23% (prior)
+# 2. Bad economy alone increases high default to 36%
+# 3. Bad economy + weak management -> 56% high default risk
+# 4. When we observe high default, bad economy is 52% likely cause

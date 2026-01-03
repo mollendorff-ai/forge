@@ -1,0 +1,115 @@
+# Real Options Analysis Example
+# ==============================
+# Run with: forge real-options examples/real-options.yaml
+#
+# This example values a phased factory investment with flexibility:
+#
+# Traditional NPV: Build factory now for $10M, expect $12M present value
+#   => NPV = $12M - $10M = $2M
+#
+# But management has OPTIONS:
+#   1. DEFER: Wait up to 2 years before deciding
+#   2. EXPAND: Double capacity if demand is high (+$5M for 2x output)
+#   3. ABANDON: Sell assets for $3M salvage if demand collapses
+#
+# Real options analysis shows these flexibilities add value beyond NPV.
+# With 30% volatility, the options are worth ~$1.5M extra.
+
+_forge_version: "5.0.0"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Real Options Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+real_options:
+  name: "Phased Factory Investment"
+  method: binomial  # or black_scholes
+
+  # Underlying asset characteristics
+  underlying:
+    current_value: 12000000     # PV of expected cash flows
+    volatility: 0.30            # Annual std dev of value
+    risk_free_rate: 0.05        # 5% risk-free rate
+    time_horizon: 3             # 3-year analysis period
+    dividend_yield: 0.02        # Cash leakage (opportunity cost)
+    steps: 50                   # Binomial tree steps (more = accurate)
+
+  # Initial investment
+  investment:
+    cost: 10000000              # $10M to build factory
+
+  # Available options
+  options:
+    # Option to wait before committing
+    - type: defer
+      name: "Wait up to 2 years before building"
+      max_deferral: 2           # Can wait 0, 1, or 2 years
+      exercise_cost: 10000000   # Same cost if deferred
+
+    # Option to expand if successful
+    - type: expand
+      name: "Double capacity if demand high"
+      expansion_cost: 5000000   # Additional $5M investment
+      expansion_factor: 2.0     # Doubles output/value
+      available_after: 1        # Can expand after year 1
+
+    # Option to abandon if unsuccessful
+    - type: abandon
+      name: "Sell assets for salvage value"
+      salvage_value: 3000000    # $3M recovery
+      available_after: 1        # Can abandon after year 1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Supporting Assumptions
+# ─────────────────────────────────────────────────────────────────────────────
+assumptions:
+  # For context only - real options uses underlying config
+  base_revenue:
+    value: 4000000
+    formula: null
+
+  operating_margin:
+    value: 0.30
+    formula: null
+
+  growth_rate:
+    value: 0.08
+    formula: null
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Comparison: Traditional vs Real Options
+# ─────────────────────────────────────────────────────────────────────────────
+traditional_analysis:
+  present_value:
+    value: 12000000
+    formula: null
+
+  investment_cost:
+    value: 10000000
+    formula: null
+
+  traditional_npv:
+    value: null
+    formula: "=present_value - investment_cost"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Expected Output:
+# ─────────────────────────────────────────────────────────────────────────────
+# Traditional NPV: $2.0M
+#
+# Option Values (Binomial method):
+#   Defer Option:   $0.8M (value of waiting for better information)
+#   Expand Option:  $0.5M (upside capture if demand exceeds expectations)
+#   Abandon Option: $0.2M (downside protection if demand collapses)
+#
+# Total Option Value: $1.5M
+#
+# Expanded NPV (with options): $2.0M + $1.5M = $3.5M
+#
+# Decision:
+#   The flexibility to defer, expand, or abandon adds 75% to project value.
+#   Proceed with investment, but preserve optionality.
+#
+# Optimal Exercise Strategy:
+#   Year 0: Wait (defer option)
+#   Year 1: If value > $15M, expand. If value < $5M, abandon. Else continue.
+#   Year 2: Build if value > $10M (exercise cost), else abandon option.

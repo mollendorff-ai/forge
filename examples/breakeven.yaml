@@ -1,0 +1,192 @@
+# Break-Even Analysis Example
+# ============================
+# Run with: forge calculate examples/breakeven.yaml
+#
+# This example demonstrates break-even functions:
+# - BREAKEVEN_UNITS(fixed_costs, price, variable_cost): Units to break even
+# - BREAKEVEN_REVENUE(fixed_costs, contribution_margin_ratio): Revenue to break even
+#
+# These are calculations every FP&A analyst does manually.
+# Forge has them as native functions.
+
+_forge_version: "5.0.0"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Product Economics
+# ─────────────────────────────────────────────────────────────────────────────
+product:
+  name:
+    value: "SaaS Subscription"
+    formula: null
+
+  # Pricing
+  price_per_unit:
+    value: 100
+    formula: null
+    unit: "$/month"
+
+  # Variable costs (per unit)
+  hosting_cost:
+    value: 15
+    formula: null
+    unit: "$/month"
+
+  support_cost:
+    value: 10
+    formula: null
+    unit: "$/month"
+
+  payment_processing:
+    value: 3
+    formula: null
+    unit: "$/month"
+
+  total_variable_cost:
+    value: null
+    formula: "=hosting_cost + support_cost + payment_processing"
+    unit: "$/month"
+
+  # Contribution per unit
+  contribution_margin:
+    value: null
+    formula: "=price_per_unit - total_variable_cost"
+    unit: "$/month"
+
+  contribution_margin_ratio:
+    value: null
+    formula: "=contribution_margin / price_per_unit"
+    unit: "%"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fixed Costs (Monthly)
+# ─────────────────────────────────────────────────────────────────────────────
+fixed_costs:
+  salaries:
+    value: 50000
+    formula: null
+
+  office:
+    value: 5000
+    formula: null
+
+  software:
+    value: 3000
+    formula: null
+
+  marketing:
+    value: 10000
+    formula: null
+
+  other:
+    value: 2000
+    formula: null
+
+  total:
+    value: null
+    formula: "=salaries + office + software + marketing + other"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Break-Even Analysis
+# ─────────────────────────────────────────────────────────────────────────────
+breakeven:
+  # BREAKEVEN_UNITS(fixed_costs, price_per_unit, variable_cost_per_unit)
+  # Returns: Number of units needed to cover fixed costs
+  units_required:
+    value: null
+    formula: "=BREAKEVEN_UNITS(fixed_costs.total, product.price_per_unit, product.total_variable_cost)"
+    unit: "subscribers"
+
+  # BREAKEVEN_REVENUE(fixed_costs, contribution_margin_ratio)
+  # Returns: Revenue needed to cover fixed costs
+  revenue_required:
+    value: null
+    formula: "=BREAKEVEN_REVENUE(fixed_costs.total, product.contribution_margin_ratio)"
+    unit: "$"
+
+  # Verification: units * price should equal revenue
+  verification:
+    value: null
+    formula: "=units_required * product.price_per_unit"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Scenario Analysis: What if we change pricing?
+# ─────────────────────────────────────────────────────────────────────────────
+scenarios:
+  # Current pricing
+  current:
+    price: 100
+    variable_cost: 28
+    fixed_costs: 70000
+
+  # Premium pricing (fewer customers needed)
+  premium:
+    price: 150
+    variable_cost: 28
+    fixed_costs: 70000
+
+  # Budget pricing (more customers needed)
+  budget:
+    price: 50
+    variable_cost: 28
+    fixed_costs: 70000
+
+pricing_scenarios:
+  current_breakeven:
+    value: null
+    formula: "=BREAKEVEN_UNITS(70000, 100, 28)"
+
+  premium_breakeven:
+    value: null
+    formula: "=BREAKEVEN_UNITS(70000, 150, 28)"
+
+  budget_breakeven:
+    value: null
+    formula: "=BREAKEVEN_UNITS(70000, 50, 28)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Margin of Safety
+# ─────────────────────────────────────────────────────────────────────────────
+current_operations:
+  actual_subscribers:
+    value: 1200
+    formula: null
+
+  actual_revenue:
+    value: null
+    formula: "=actual_subscribers * product.price_per_unit"
+
+  margin_of_safety_units:
+    value: null
+    formula: "=actual_subscribers - breakeven.units_required"
+
+  margin_of_safety_pct:
+    value: null
+    formula: "=margin_of_safety_units / actual_subscribers"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Expected Output:
+# ─────────────────────────────────────────────────────────────────────────────
+# Product Economics:
+#   Price per unit:      $100/month
+#   Variable cost:       $28/month
+#   Contribution margin: $72/month (72%)
+#
+# Fixed Costs: $70,000/month
+#
+# Break-Even Analysis:
+#   Units required:   972 subscribers  (70000 / 72)
+#   Revenue required: $97,222          (70000 / 0.72)
+#
+# Pricing Scenario Comparison:
+#   Current ($100): 972 subscribers to break even
+#   Premium ($150): 574 subscribers to break even  <- 41% fewer needed
+#   Budget  ($50):  3,182 subscribers to break even <- 227% more needed
+#
+# Current Operations (1,200 subscribers):
+#   Actual revenue:        $120,000
+#   Break-even revenue:    $97,222
+#   Margin of safety:      228 subscribers (19%)
+#
+# Interpretation:
+#   We can lose 19% of subscribers before becoming unprofitable.
+#   Premium pricing would increase margin of safety significantly.

@@ -20,18 +20,22 @@
 
 mod analysis;
 mod audit;
+mod examples;
 mod excel_io;
 mod functions;
 mod prediction;
+mod schema;
 mod simulate;
 mod upgrade;
 
 // Re-exports
 pub use analysis::{break_even, compare, goal_seek, sensitivity, variance};
 pub use audit::audit;
+pub use examples::examples;
 pub use excel_io::{export, import};
 pub use functions::functions;
 pub use prediction::{bayesian, bootstrap, decision_tree, real_options, scenarios, tornado};
+pub use schema::schema;
 pub use simulate::simulate;
 pub use upgrade::{auto_upgrade_schema, needs_schema_upgrade, upgrade};
 

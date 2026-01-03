@@ -1,0 +1,125 @@
+# Scenario Analysis Example
+# ==========================
+# Run with: forge scenarios examples/scenarios.yaml
+#
+# This example models an M&A valuation with three discrete scenarios:
+# - Bull Case (30% probability): Competitor exits, we capture market
+# - Base Case (50% probability): Normal market growth
+# - Bear Case (20% probability): Recession hits
+#
+# Forge calculates:
+# - Individual scenario outcomes
+# - Probability-weighted expected value
+# - Probability of positive outcome
+# - Range (min to max across scenarios)
+
+_forge_version: "5.0.0"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Base Assumptions (used by all scenarios)
+# ─────────────────────────────────────────────────────────────────────────────
+assumptions:
+  acquisition_cost:
+    value: 10000000
+    formula: null
+
+  base_revenue:
+    value: 5000000
+    formula: null
+
+  operating_margin:
+    value: 0.20
+    formula: null
+
+  discount_rate:
+    value: 0.10
+    formula: null
+
+  # These will be overridden by scenarios
+  revenue_growth:
+    value: 0.10
+    formula: null
+
+  market_share:
+    value: 0.15
+    formula: null
+
+  synergy_savings:
+    value: 200000
+    formula: null
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Projections (3-Year Integration)
+# ─────────────────────────────────────────────────────────────────────────────
+projections:
+  year: [1, 2, 3]
+
+  revenue: "=assumptions.base_revenue * (1 + assumptions.revenue_growth) ^ year"
+  operating_profit: "=revenue * assumptions.operating_margin"
+  synergies: "=assumptions.synergy_savings * year"
+  total_profit: "=operating_profit + synergies"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Valuation
+# ─────────────────────────────────────────────────────────────────────────────
+valuation:
+  npv_cash_flows:
+    value: null
+    formula: "=NPV(assumptions.discount_rate, projections.total_profit)"
+
+  net_value:
+    value: null
+    formula: "=npv_cash_flows - assumptions.acquisition_cost"
+
+  irr:
+    value: null
+    formula: "=IRR(projections.total_profit) - 1"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Scenario Definitions
+# ─────────────────────────────────────────────────────────────────────────────
+# Each scenario specifies:
+#   - probability: Weight for expected value calculation
+#   - description: Human-readable explanation
+#   - scalars: Variable overrides for this scenario
+
+scenarios:
+  bull_case:
+    probability: 0.30
+    description: "Competitor exits market, we capture 25% share"
+    scalars:
+      revenue_growth: 0.25
+      market_share: 0.25
+      synergy_savings: 500000
+      operating_margin: 0.25
+
+  base_case:
+    probability: 0.50
+    description: "Market grows normally, integration on track"
+    scalars:
+      revenue_growth: 0.10
+      market_share: 0.15
+      synergy_savings: 200000
+      operating_margin: 0.20
+
+  bear_case:
+    probability: 0.20
+    description: "Recession hits, integration challenges"
+    scalars:
+      revenue_growth: -0.05
+      market_share: 0.10
+      synergy_savings: 50000
+      operating_margin: 0.12
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Expected Output:
+# ─────────────────────────────────────────────────────────────────────────────
+# Scenario Results:
+#   Bull Case:  Net Value = $2.5M, IRR = 28%
+#   Base Case:  Net Value = $0.8M, IRR = 15%
+#   Bear Case:  Net Value = -$1.2M, IRR = -8%
+#
+# Summary:
+#   Expected Value: $0.30 * $2.5M + $0.50 * $0.8M + $0.20 * -$1.2M = $0.91M
+#   Probability Positive: 80% (bull + base)
+#   Range: -$1.2M to $2.5M

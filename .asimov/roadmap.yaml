@@ -6,15 +6,17 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  # No active milestone - ready for next task
-  version: "10.0.0-alpha.3"
+  version: "10.0.0-alpha.4"
   status: released
-  summary: "CI/CD, crates.io, Multi-Arch Releases"
+  summary: "CLI Documentation: schema + examples commands"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # COMPLETED - See CHANGELOG.md for full details
 # ─────────────────────────────────────────────────────────────────────────────
 completed:
+  - version: "10.0.0-alpha.4"
+    date: "2026-01-02"
+    summary: "CLI Documentation: schema + examples commands"
   - version: "10.0.0-alpha.3"
     date: "2025-12-30"
     summary: "CI/CD, crates.io, Multi-Arch Releases"
@@ -90,6 +92,8 @@ next:
   # v9.9.1  - Monte Carlo Fix (FORGE-MC-001)
   # v9.8.0  - E2E Test Migration
   # ─────────────────────────────────────────────────────────────────────────────
+
+  # v10.0.0-alpha.4 - CLI Documentation: schema + examples commands (2026-01-02)
 
   - version: "9.9.6"
     priority: HIGH
