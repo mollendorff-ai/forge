@@ -208,6 +208,59 @@ next:
 
 backlog:
   # Simple one-liner descriptions (schema requires strings only)
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GAME THEORY MODULE - For Kinship Protocol integration
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Motivation: Kinship Protocol needs formal game theory proofs. Forge already
+  # has decision trees, Bayesian networks, and Monte Carlo - game theory is a
+  # natural extension. Enables YAML-native equilibrium analysis.
+  #
+  # Module structure (follows existing patterns):
+  #   src/game_theory/
+  #   ├── mod.rs           # Public exports
+  #   ├── config.rs        # GameTheoryConfig, game definitions
+  #   ├── engine.rs        # Core solver logic
+  #   ├── equilibrium.rs   # Nash, correlated, evolutionary equilibria
+  #   ├── repeated.rs      # Folk theorem, discount factors, cooperation thresholds
+  #   ├── tournament.rs    # Axelrod-style IPD tournaments
+  #   └── tests.rs         # Unit tests (~50-100 tests)
+  #
+  # YAML syntax example:
+  #   game_theory:
+  #     type: repeated_game
+  #     players: [alice, bob]
+  #     stages: 100
+  #     discount_factor: 0.95
+  #     payoff_matrix:
+  #       CC: [3, 3]   # Mutual cooperation
+  #       CD: [0, 5]   # Sucker's payoff
+  #       DC: [5, 0]   # Temptation
+  #       DD: [1, 1]   # Mutual defection
+  #     strategies:
+  #       alice: tit_for_tat
+  #       bob: grim_trigger
+  #     outputs:
+  #       - nash_equilibria
+  #       - cooperation_threshold    # c* where cooperation dominates
+  #       - folk_theorem_check       # Is (C,C) sustainable?
+  #       - evolutionary_stability   # ESS analysis
+  #
+  # CLI commands:
+  #   forge game-theory model.yaml              # Analyze game
+  #   forge game-theory model.yaml --tournament # Run Axelrod tournament
+  #   forge game-theory model.yaml --folk       # Folk theorem verification
+  #
+  # Estimated effort: ~2,000 lines, 1-2 weeks
+  # Dependencies: None new (statrs, rand_distr sufficient)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  - "v11.0.0: Game Theory Module - Nash equilibrium solver, IPD tournaments, Folk theorem verification"
+  - "v11.0.0: Game Theory - Repeated games with discount factors and cooperation thresholds"
+  - "v11.0.0: Game Theory - Evolutionary stability (ESS) and replicator dynamics"
+  - "v11.0.0: Game Theory - Program equilibrium (source code inspection games)"
+  - "v11.0.0: Game Theory - Axelrod tournament engine (TFT, Grim Trigger, Pavlov, etc.)"
+
   - "v9.9.7: Pedantic Linting - NO EXCEPTIONS (enable full pedantic clippy, fix all warnings)"
   - "v10.0.0: Performance - SIMD Vectorization (2-4x speedup on numeric-heavy workloads)"
   - "v10.1.0: Performance - Multi-threading with Rayon (near-linear scaling with core count)"
