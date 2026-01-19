@@ -2,11 +2,11 @@
 
 > 📌 **R&D Prototype** — Interpret claims as hypotheses, not proven facts.
 
-[![CI](https://github.com/royalbit/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/royalbit/forge/actions/workflows/ci.yml)
-[![crates.io](https://img.shields.io/crates/v/royalbit-forge.svg)](https://crates.io/crates/royalbit-forge)
-[![Tests](https://img.shields.io/badge/tests-2133_passing-brightgreen)](https://github.com/royalbit/forge)
-[![Functions](https://img.shields.io/badge/functions-173-blue)](https://github.com/royalbit/forge)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/royalbit/forge)
+[![CI](https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/mollendorff-forge.svg)](https://crates.io/crates/mollendorff-forge)
+[![Tests](https://img.shields.io/badge/tests-2133_passing-brightgreen)](https://github.com/mollendorff-ai/forge)
+[![Functions](https://img.shields.io/badge/functions-173-blue)](https://github.com/mollendorff-ai/forge)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/mollendorff-ai/forge)
 [![License: Elastic-2.0](https://img.shields.io/badge/License-Elastic--2.0-blue.svg)](LICENSE)
 
 **AI hallucinates numbers. Forge doesn't.**
@@ -532,10 +532,10 @@ But building enterprise software requires sustainable revenue. Elastic-2.0 balan
 
 For production deployment or enterprise support:
 
-**Open a GitHub Issue:** [github.com/royalbit/forge/issues](https://github.com/royalbit/forge/issues) (use `licensing` label)
+**Open a GitHub Issue:** [github.com/mollendorff-ai/forge/issues](https://github.com/mollendorff-ai/forge/issues) (use `licensing` label)
 
 See [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) for details.
 
 ---
 
-**Built with [RoyalBit Asimov](https://github.com/royalbit/asimov)** - The AI autonomy framework.
+**Built with [Asimov](https://github.com/mollendorff-ai/asimov)** - The AI autonomy framework.

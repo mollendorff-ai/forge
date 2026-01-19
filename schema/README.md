@@ -31,7 +31,7 @@ Install the **YAML extension** by Red Hat:
 ```json
 {
   "yaml.schemas": {
-    "https://raw.githubusercontent.com/royalbit/forge/main/schema/forge-v1.0.schema.json": [
+    "https://raw.githubusercontent.com/mollendorff-ai/forge/main/schema/forge-v1.0.schema.json": [
       "*.forge.yaml",
       "**/forge-models/**/*.yaml"
     ]
@@ -53,7 +53,7 @@ Install the **YAML extension** by Red Hat:
 1. Settings → Languages & Frameworks → Schemas and DTDs → JSON Schema Mappings
 
 2. Add new mapping:
-   - **Schema URL:** `https://raw.githubusercontent.com/royalbit/forge/main/schema/forge-v1.0.schema.json`
+   - **Schema URL:** `https://raw.githubusercontent.com/mollendorff-ai/forge/main/schema/forge-v1.0.schema.json`
    - **File pattern:** `*.forge.yaml` or `forge-models/**/*.yaml`
 
 ### Local Schema File

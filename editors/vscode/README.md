@@ -13,7 +13,7 @@ Language support for Forge YAML formula files.
 
 ## Requirements
 
-- Install the Forge CLI: `cargo install royalbit-forge`
+- Install the Forge CLI: `cargo install mollendorff-forge`
 - The `forge-lsp` binary must be in your PATH
 
 ## Commands
@@ -70,4 +70,4 @@ npm run compile
 
 Elastic License 2.0 - See [LICENSE](../../LICENSE)
 
-Copyright (c) 2025 RoyalBit Inc.
+Copyright (c) 2025 Möllendorff Group Inc.

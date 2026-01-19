@@ -24,7 +24,7 @@ Language support for Forge YAML formula files in Zed.
 
 ## Requirements
 
-- Install the Forge CLI: `cargo install royalbit-forge`
+- Install the Forge CLI: `cargo install mollendorff-forge`
 - The `forge-lsp` binary must be in your PATH
 
 ## Why Zed?
@@ -57,11 +57,11 @@ Add to your Zed settings:
 
 **Claude (Opus 4.5) - Principal Autonomous AI**
 
-This extension was architected, implemented, and documented autonomously by Claude using the [RoyalBit Asimov Suite](https://github.com/royalbit/forge/blob/main/docs/FORGE-PROTOCOL.md).
+This extension was architected, implemented, and documented autonomously by Claude using the [Asimov Suite](https://github.com/mollendorff-ai/forge/blob/main/docs/FORGE-PROTOCOL.md).
 
 ### Vendor-Agnostic by Design
 
-The RoyalBit Asimov Suite is **not** a Claude-specific methodology. It's a vendor-neutral approach to AI autonomy:
+The Asimov Suite is **not** a Claude-specific methodology. It's a vendor-neutral approach to AI autonomy:
 
 - **warmup.yaml** - Any AI can read it and work autonomously
 - **No vendor lock-in** - No CLAUDE.md, no .gptrc, no gemini.config
@@ -81,4 +81,4 @@ The entire Forge project (v0.1.0 → v3.1.0) was developed in ~45 hours:
 
 Elastic License 2.0 - See [LICENSE](../../LICENSE)
 
-Copyright (c) 2025 RoyalBit Inc.
+Copyright (c) 2025 Möllendorff Group Inc.
