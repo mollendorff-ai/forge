@@ -3,10 +3,10 @@
   "displayName": "Forge YAML",
   "description": "Language support for Forge YAML formula files - syntax highlighting, validation, and autocomplete",
   "version": "3.1.0",
-  "publisher": "royalbit",
+  "publisher": "mollendorff-ai",
   "repository": {
     "type": "git",
-    "url": "https://github.com/royalbit/forge"
+    "url": "https://github.com/mollendorff-ai/forge"
   },
   "license": "MIT",
   "engines": {

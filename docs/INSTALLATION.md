@@ -18,9 +18,9 @@ All other uses are prohibited. See [LICENSE](../LICENSE) for full terms.
 ## Source Code
 
 ```bash
-git clone https://github.com/royalbit/forge
+git clone https://github.com/mollendorff-ai/forge
 ```
 
 ---
 
-*Copyright (c) 2025 RoyalBit Inc. All Rights Reserved.*
+*Copyright (c) 2025 Möllendorff Group Inc. All Rights Reserved.*

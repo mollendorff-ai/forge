@@ -37,8 +37,8 @@ Pricing is determined based on your organization's size and use case.
 **Contact us for licensing:**
 
 Open a GitHub Issue with the `licensing` label:
-- [github.com/royalbit/forge/issues](https://github.com/royalbit/forge/issues)
+- [github.com/mollendorff-ai/forge/issues](https://github.com/mollendorff-ai/forge/issues)
 
 ---
 
-Copyright (c) 2025 RoyalBit Inc. All rights reserved.
+Copyright (c) 2025 Möllendorff Group Inc. All rights reserved.

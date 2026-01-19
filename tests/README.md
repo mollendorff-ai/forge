@@ -13,7 +13,7 @@ As per **ADR-027**, all integration tests have been moved to the `forge-e2e` pac
 All `.rs` and `.yaml` test files previously in this directory have been moved to:
 
 ```
-/Users/rex/src/royalbit/forge-e2e/tests/integration/
+/Users/rex/src/mollendorff/forge-e2e/tests/integration/
 ```
 
 This includes:
