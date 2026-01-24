@@ -82,9 +82,9 @@ help:
 	@echo "  make build-compressed   - Static + UPX compressed (Linux/Windows only)"
 	@echo "  make build-all          - Cross-compile for all platforms (requires cross-rs)"
 	@echo ""
-	@echo "Install Targets (to ~/bin):"
-	@echo "  make install-forge      - Build forge + install to ~/bin"
-	@echo "  make install-all        - Build all binaries + install to ~/bin"
+	@echo "Install Targets (to ~/.cargo/bin):"
+	@echo "  make install-forge      - Build forge + install to ~/.cargo/bin"
+	@echo "  make install-all        - Build all binaries + install to ~/.cargo/bin"
 	@echo ""
 	@echo "System Install Targets:"
 	@echo "  make install            - Install to /usr/local/bin (system-wide, requires sudo)"
@@ -277,27 +277,26 @@ uninstall:
 	@echo "✅ Uninstalled from both /usr/local/bin and ~/.local/bin"
 
 # ═══════════════════════════════════════════════════════════════════════════
-# INSTALL TO ~/bin TARGETS
+# INSTALL TO ~/.cargo/bin TARGETS (default Rust bin directory)
 # ═══════════════════════════════════════════════════════════════════════════
 
 install-forge:
 	@echo "🔨 Building forge..."
 	@cargo build --release --bin forge
 	@echo ""
-	@echo "📦 Installing forge to ~/bin..."
-	@mkdir -p ~/bin
-	@install -m 755 target/release/forge ~/bin/forge
-	@echo "✅ Installed to ~/bin/forge"
-	@echo "💡 Make sure ~/bin is in your PATH"
+	@echo "📦 Installing forge to ~/.cargo/bin..."
+	@mkdir -p ~/.cargo/bin
+	@install -m 755 target/release/forge ~/.cargo/bin/forge
+	@echo "✅ Installed to ~/.cargo/bin/forge"
 	@echo "🔍 Verify with: forge --version"
 	@echo ""
 	@echo "📊 Function count:"
-	@~/bin/forge functions 2>/dev/null | wc -l | xargs -I{} echo "   {} functions available"
+	@~/.cargo/bin/forge functions 2>/dev/null | wc -l | xargs -I{} echo "   {} functions available"
 
 install-all: install-forge
 	@echo ""
-	@echo "✅ forge installed to ~/bin!"
-	@ls -lh ~/bin/forge
+	@echo "✅ forge installed to ~/.cargo/bin!"
+	@ls -lh ~/.cargo/bin/forge
 
 # ═══════════════════════════════════════════════════════════════════════════
 # CROSS-PLATFORM BUILDS (cargo-zigbuild)
