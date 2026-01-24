@@ -1,4 +1,4 @@
-# ADR-004: xlformula_engine Functional Equivalence Testing
+# ADR-011: xlformula_engine Functional Equivalence Testing
 
 **Status:** Accepted
 **Date:** 2025-12-06

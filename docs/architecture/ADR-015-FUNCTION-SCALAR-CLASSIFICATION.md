@@ -1,4 +1,4 @@
-# ADR-014: Function Scalar/Array Classification
+# ADR-015: Function Scalar/Array Classification
 
 ## Status
 

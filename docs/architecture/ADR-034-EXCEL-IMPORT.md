@@ -1,6 +1,6 @@
-# Excel Import Design (Phase 4)
+# ADR-034: Excel Import Design
 
-**Status:** Design Phase
+**Status:** Implemented
 **Target:** Excel .xlsx → YAML v1.0.0 array model
 **Library:** calamine 0.31.0 (MIT licensed, 4M+ downloads)
 

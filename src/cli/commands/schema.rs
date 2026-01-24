@@ -105,14 +105,14 @@ mod tests {
     #[test]
     fn test_schema_version_aliases() {
         // All these should work for v1
-        for alias in &["v1", "v1.0.0", "1", "1.0.0"] {
-            let result = schema(Some(alias.to_string()), false);
+        for alias in ["v1", "v1.0.0", "1", "1.0.0"] {
+            let result = schema(Some(alias.to_owned()), false);
             assert!(result.is_ok(), "Alias '{alias}' should work for v1");
         }
 
         // All these should work for v5
-        for alias in &["v5", "v5.0.0", "5", "5.0.0"] {
-            let result = schema(Some(alias.to_string()), false);
+        for alias in ["v5", "v5.0.0", "5", "5.0.0"] {
+            let result = schema(Some(alias.to_owned()), false);
             assert!(result.is_ok(), "Alias '{alias}' should work for v5");
         }
     }

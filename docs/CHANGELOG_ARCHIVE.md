@@ -1,0 +1,1916 @@
+# Changelog Archive
+
+This file contains archived changelog entries for Forge versions prior to v8.0.0.
+
+For the current changelog (v8.0.0 and later), see [CHANGELOG.md](../CHANGELOG.md).
+
+---
+
+## [7.2.11] - 2025-12-12
+
+### Deprecate LibreOffice, Prefer Gnumeric for E2E Validation
+
+LibreOffice uses aggressive "snap-to-zero" on every subtraction, hiding numerical
+errors. Gnumeric is academically validated (McCullough 2004, 2005) and provides
+honest arithmetic.
+
+### Changed
+
+- Renamed feature flag: `e2e-libreoffice` → `e2e-gnumeric`
+- Renamed test file: `e2e_libreoffice_tests.rs` → `e2e_gnumeric_tests.rs`
+- Updated all roundtrip test YAML to v5.0.0 schema (tables at root level)
+- Updated ADR-007 with LibreOffice deprecation rationale and academic references
+
+### References
+
+- <http://www.gnumeric.org/numerical-issues.html>
+- McCullough BD (2004) "Fixing Statistical Errors in Spreadsheet Software"
+- McCullough BD, Wilson B (2005) "On the accuracy of statistical procedures in Microsoft Excel 2003"
+
+## [7.2.0] - 2025-12-10
+
+### 100% Test Integrity - 15-Agent Parallel Execution
+
+Massive test coverage expansion eliminating ALL weak test patterns and adding
+comprehensive edge case coverage. Zero fake tests, zero weak patterns.
+
+### Added
+
+- **New test files for edge cases**:
+  - `errors.rs`: 41 error propagation tests
+  - `text_edge_cases.rs`: 43 edge case tests
+- **REPT function**: Text repetition function (Excel-compatible)
+- **189 new edge case tests** across all function categories
+- **Strict date validation**: Invalid dates now error instead of rolling over
+
+### Fixed
+
+- **90 weak test patterns eliminated**:
+  - Replaced hardcoded values with real function calls
+  - Fixed IRR, MIRR, XNPV, XIRR tests to use actual function invocations
+  - Fixed LAMBDA and LET tests with real parameter binding
+  - Converted all "fake" tests to genuine formula evaluations
+- **Date validation**: Invalid dates (e.g., Feb 30) now properly error
+
+### Stats
+
+| Metric | Value |
+|--------|-------|
+| Demo tests | 1,267 passing |
+| Full tests | 2,486 passing (up from 1,208) |
+| New edge cases | +189 tests |
+| Weak patterns fixed | 90 |
+| New test files | errors.rs (41), text_edge_cases.rs (43) |
+| Test integrity | 100% real tests, 0 fake |
+
+## [7.1.1] - 2025-12-10
+
+### XLSX Roundtrip 100% - Formula Translator Fix + Test Modules
+
+Complete fix for all roundtrip test failures. Formula translator now handles
+all table.column reference patterns correctly.
+
+### Fixed
+
+- **formula_translator.rs**: General pattern for table.column refs in ANY function
+- Split `tests/e2e_libreoffice_tests.rs` (3400+ lines) into modular `tests/roundtrip/` directory
+- All 8 previously failing roundtrip tests now pass
+
+### Stats
+
+| Metric | Value |
+|--------|-------|
+| Roundtrip tests | 57 passing, 0 failing |
+| Unit tests | 1,208 passing |
+| E2E YAML formulas | 1,231 (99.92% real) |
+
+## [7.1.0] - 2025-12-10
+
+### 100% Real Test Coverage - 7-Agent Parallel Execution
+
+Massive parallel test coverage expansion using 7 specialized agents working
+simultaneously across all function categories.
+
+### Added
+
+- **Agent 1 (Math/Trig)**: 70+ math tests, 41+ trig tests, new trig.rs file
+- **Agent 2 (Financial)**: 7 NEW functions (PPMT, IPMT, EFFECT, NOMINAL, PRICEDISC, YIELDDISC, ACCRINT) + 129 tests
+- **Agent 3 (Date/Text)**: 14 new tests, all 36 functions tested
+- **Agent 4 (Aggregation/Statistical)**: 9 new tests
+- **Agent 5 (Lookup/Info)**: 43 new tests, 179 total tests
+- **Agent 6 (Conditional/Logical)**: 29 new tests, fixed 46 fake tests
+- **Agent 7 (Array/Advanced/Forge)**: Fixed all fake tests, real formulas validated
+
+### Stats
+
+| Metric | Value |
+|--------|-------|
+| Unit tests | 1,320 passing |
+| Files changed | 29 |
+| Lines added | 4,278 |
+| Lines removed | 996 |
+
+## [7.0.2] - 2025-12-09
+
+### FP&A Accuracy Hotfix - 6 Fake Tests Fixed with REAL Function Calls
+
+CRITICAL hotfix ensuring all financial function tests use REAL function calls,
+not hardcoded values. FP&A tools require 100% accurate test coverage.
+
+### Fixed
+
+- **IRR**: `=ROUND(IRR(irr_cash_flows.values) * 100, 2)` - was hardcoded `0.088`
+- **MIRR**: `=ROUND(MIRR(mirr_cash_flows.values, 0.10, 0.12) * 100, 2)` - was hardcoded
+- **XNPV**: `=ROUND(XNPV(0.09, xnpv_basic_data.values, xnpv_basic_data.dates), 2)` - was hardcoded
+- **XIRR**: `=ROUND(XIRR(xirr_basic_data.values, xirr_basic_data.dates) * 100, 2)` - was hardcoded
+- **LAMBDA**: `=LAMBDA(x, x*x)(5)` - was fake `=5*5`
+- **LET**: `=LET(x, 10, y, 5, x*x+y)` - was fake `=10*10+5`
+
+### Added
+
+- 8 table definitions for financial function array data (IRR, MIRR, XNPV, XIRR cash flows)
+- Real LAMBDA tests with parameters: `=LAMBDA(a, b, a+b)(3, 4)`
+- Real LET tests with variable binding: `=LET(a, 2, b, 3, c, 10, (a+b)*(a-b+c))`
+
+### Stats
+
+| Metric | Value |
+|--------|-------|
+| Unit tests | 1,777 passing |
+| E2E YAML files | 15/15 passing |
+| E2E formulas | 689 (all REAL) |
+| Fake tests fixed | 6/6 |
+
+## [7.0.1] - 2025-12-09
+
+### Fake Test Remediation - Real Test Coverage Restored
+
+Discovered that 71% of E2E tests were using hardcoded values instead of real
+function calls. Fixed with table-based tests for array functions.
+
+### Fixed
+
+- Replaced hardcoded scalar values with real function calls
+- Added table-based tests for array functions (SUMIF, PERCENTILE, RANK, etc.)
+- Documented Forge YAML limitations (VLOOKUP, NOW, error values)
+
+## [7.0.0] - 2025-12-09
+
+### 100% Function Coverage - Production Ready
+
+MAJOR release achieving 100% E2E test coverage across all 14 function categories.
+All 159 functions now have comprehensive YAML-based validation tests.
+
+### Added
+
+- **Complete E2E Test Coverage** (16 new YAML test files, 459 total scalars)
+  - `e2e_math_complete.yaml` (90 scalars) - All 20 math functions
+  - `e2e_math_edge_cases.yaml` (79 scalars) - Edge cases: zero, negative, large, precision
+  - `e2e_date_complete.yaml` (47 scalars) - All 21 date functions
+  - `e2e_text_complete.yaml` (18 scalars) - All 15 text functions
+  - `e2e_aggregation_complete.yaml` (32 scalars) - All 14 aggregation functions
+  - `e2e_lookup_complete.yaml` (17 scalars) - All 13 lookup functions
+  - `e2e_info_complete.yaml` (23 scalars) - All 13 information functions
+  - `e2e_financial_complete.yaml` (23 scalars) - All 13 financial functions
+  - `e2e_trig_complete.yaml` (31 scalars) - All 9 trigonometric functions
+  - `e2e_logical_complete.yaml` (33 scalars) - All 9 logical functions
+  - `e2e_statistical_complete.yaml` (14 scalars) - All 8 statistical functions
+  - `e2e_conditional_complete.yaml` (18 scalars) - All 8 conditional functions
+  - `e2e_forge_complete.yaml` (17 scalars) - All 8 Forge-native functions
+  - `e2e_array_complete.yaml` (7 scalars) - All 5 array functions
+  - `e2e_advanced_complete.yaml` (9 scalars) - All 3 advanced functions (LAMBDA, LET, SCENARIO)
+  - `e2e_roundtrip_complete.yaml` (72 scalars) - Cross-category roundtrip validation
+
+- **Comprehensive Unit Tests**
+  - `math_complete_tests.rs` (128 tests) - Complete math function coverage
+
+### Category Completion (v6.1.0 - v6.15.0)
+
+| Version | Category | Functions | Scalars |
+|---------|----------|-----------|---------|
+| v6.1.0 | Math | 20 | 169 |
+| v6.2.0 | Date | 21 | 47 |
+| v6.3.0 | Text | 15 | 18 |
+| v6.4.0 | Aggregation | 14 | 32 |
+| v6.5.0 | Lookup | 13 | 17 |
+| v6.6.0 | Information | 13 | 23 |
+| v6.7.0 | Financial | 13 | 23 |
+| v6.8.0 | Trigonometric | 9 | 31 |
+| v6.9.0 | Logical | 9 | 33 |
+| v6.10.0 | Statistical | 8 | 14 |
+| v6.11.0 | Conditional | 8 | 18 |
+| v6.12.0 | Forge Native | 8 | 17 |
+| v6.13.0 | Array | 5 | 7 |
+| v6.14.0 | Advanced | 3 | 9 |
+| v6.15.0 | Roundtrip | All | 72 |
+| **Total** | **14 categories** | **159** | **459** |
+
+### Stats
+
+- Total unit tests: 1,900+
+- E2E YAML test files: 16
+- E2E scalar tests: 459
+- Function coverage: 159/159 (100%)
+- All tests passing: cargo test --features full
+
+## [6.0.0] - 2025-12-09
+
+### Comprehensive Function Testing & Validation
+
+MAJOR release ensuring all 159 functions are properly tested and validated against
+external spreadsheet engines (Gnumeric/LibreOffice).
+
+### Added
+
+- **Function Scalar/Array Classification** (ADR-014)
+  - Added `scalar: bool` field to FunctionDef struct
+  - 135 functions classified as scalar (v1.0.0 compatible)
+  - 24 functions classified as array-only (v5.0.0 required)
+  - Helper functions: `count_scalar()`, `count_array_only()`, `scalar_functions()`
+
+- **E2E Gnumeric Validation Suite** (7 new test files)
+  - `e2e_aggregation.yaml`: SUM, AVERAGE, COUNT, COUNTA, MIN, MAX, PRODUCT
+  - `e2e_conditional.yaml`: IF, IFS, SWITCH, AND, OR, NOT, XOR, IFERROR
+  - `e2e_financial.yaml`: NPV, IRR, PMT, PV, FV, RATE, NPER, SLN, DB, DDB
+  - `e2e_info.yaml`: ISNUMBER, ISTEXT, ISERROR, ISEVEN, ISODD, TYPE, N
+  - `e2e_math_extended.yaml`: INT, SIGN, TRUNC, GCD, LCM, FACT, COMBIN, PERMUT
+  - `e2e_statistical.yaml`: MEDIAN, VAR, STDEV, LARGE, SMALL, PERCENTILE, QUARTILE
+  - `e2e_trig.yaml`: SIN, COS, TAN, ASIN, ACOS, ATAN, PI, EXP, LN, LOG10
+
+- **Roundtrip Tests** (5 new tests)
+  - `e2e_roundtrip_math_functions`: YAML -> XLSX -> Gnumeric -> CSV validation
+  - `e2e_roundtrip_financial_functions`: PMT, FV, NPV, SLN roundtrip
+  - `e2e_roundtrip_table_formulas`: Table row formulas survive export/recalc
+  - `e2e_roundtrip_conditional_functions`: IF, AND, OR, IFERROR roundtrip
+  - `e2e_roundtrip_date_functions`: YEAR, MONTH, DAY, date arithmetic
+
+- **Unit Test Expansion**
+  - 15 new text function tests (UPPER, LOWER, LEN, MID, RIGHT, SUBSTITUTE)
+  - 13 new logical function tests (AND, OR, NOT)
+
+### Changed
+
+- Demo function count: 49 -> 47 (removed INDEX, MATCH - require array context)
+- Total tests: 751 unit + 38 E2E LibreOffice
+
+### Stats
+
+- Unit tests: 1175+
+- E2E tests: 38 (Gnumeric validation)
+- Functions (demo): 47
+- Functions (enterprise): 159
+- Scalar functions: 135
+- Array-only functions: 24
+- Clippy warnings: 0
+
+---
+
+## [5.18.0] - 2025-12-09
+
+### Documentation Polish - Enterprise Due Diligence Ready
+
+All documentation cleaned up and professionalized for enterprise due diligence review.
+
+### Removed
+
+- **Internal/Sensitive Docs**
+  - `docs/FOR_KANTIA.md` - Personal letter with ownership details
+  - `docs/AI_ECONOMICS.md` - Internal marketing material
+  - `docs/COMPETITIVE_ANALYSIS.md` - Internal pricing strategy
+  - `docs/DEVELOPMENT.md` - Internal dev guidelines
+  - `docs/HOSTING_ARCHITECTURE.md` - Internal infrastructure docs
+  - ADR-011-SOURCE-CODE-CLOSURE - Business strategy (internal, not in repo)
+  - `docs/GLOSSARY.md`, `MERMAID_GUIDE.md`, `RUST_PATTERNS.md` - Internal style guides
+
+- **Verbose Architecture Docs** (replaced with ADRs)
+  - `docs/architecture/06-CLI-ARCHITECTURE.md` (1850 lines)
+  - `docs/architecture/07-TESTING-ARCHITECTURE.md` (1622 lines)
+  - `docs/architecture/DESIGN_V1.md` (879 lines)
+
+### Changed
+
+- Removed emojis from all remaining documentation
+- Updated README to remove broken links
+- Simplified `docs/architecture/README.md`
+- Total reduction: ~7,800 lines of internal docs removed
+
+---
+
+## [5.17.0] - 2025-12-09
+
+### Function Registry (ADR-013) + E2E Test Coverage
+
+Single source of truth for all function metadata: name, category, demo/enterprise flag.
+
+### Added
+
+- **Function Registry** (`src/functions/registry.rs`) - Centralized function metadata
+  - `FunctionInfo` struct with name, category, is_demo fields
+  - `FUNCTION_REGISTRY` static array - all 159 functions defined once
+  - Helper functions: `demo_functions()`, `enterprise_functions()`, `functions_by_category()`
+  - Categories: Aggregation, Conditional, Math, Trig, Text, Date, Financial, Lookup, Logical, Statistical, Array, Info, Advanced, Forge
+- **E2E validation tests** for COUNT and DATEDIF against LibreOffice/Gnumeric
+- **ADR-013** documenting function registry architecture
+
+### Changed
+
+- `forge functions` command now uses registry (was hardcoded list)
+- Demo function count: 36 (verified via registry)
+- Enterprise function count: 159 (verified via registry)
+
+### Stats
+
+- Tests: 1747
+- Functions (demo): 36
+- Functions (enterprise): 159
+- Warnings: 0
+
+### Infrastructure
+
+- GitHub repo renamed: `royalbit/forge` → `royalbit/forge-demo`
+
+---
+
+## [5.16.0] - 2025-12-08
+
+### GitHub Fresh Start - PUBLIC Repo + GitHub Releases
+
+New public demo repository with GitHub Releases for binary distribution.
+
+### Added
+
+- **Public GitHub repo**: `github.com/royalbit/forge-demo`
+- **GitHub Releases** for forge-demo binaries
+- **Website update**: royalbit.ca/forge/ with download links
+
+### Changed
+
+- Demo binaries now distributed via GitHub Releases (not crates.io)
+- Website download links point to GitHub Releases
+
+### Infrastructure
+
+- Source: gitolite (private, enterprise)
+- Demo: github.com/royalbit/forge-demo (public)
+- Binaries: GitHub Releases
+
+---
+
+## [5.15.0] - 2025-12-08
+
+### Binary Split - forge-demo vs forge (Enterprise)
+
+Completed function-level gating for demo/enterprise binary separation.
+
+### Added
+
+- **forge-demo binary** (36 functions) - Public demo build
+- **forge binary** (159 functions) - Enterprise build with `--features full`
+- **Function-level `#[cfg(feature = "full")]`** gating for enterprise functions
+
+### Build Commands
+
+```bash
+cargo build --release              # forge-demo (36 functions)
+cargo build --release --features full  # forge (159 functions)
+```
+
+### Demo Functions (36)
+
+- Aggregation: SUM, AVERAGE, MAX, MIN, COUNT, COUNTA, PRODUCT, MEDIAN
+- Math: ABS, ROUND, ROUNDUP, ROUNDDOWN, SQRT, MOD, CEILING, FLOOR, INT
+- Text: CONCATENATE, CONCAT, LEFT, RIGHT, MID, LEN, UPPER, LOWER, TRIM
+- Date: TODAY, DATE, YEAR, MONTH, DAY
+- Logical: IF, AND, OR, NOT, IFERROR
+- Financial: PMT, FV, PV
+
+### Stats
+
+- Demo binary: ~2.5MB stripped
+- Enterprise binary: ~3.2MB stripped
+- Zero code duplication (single codebase, feature flags)
+
+---
+
+## [5.14.0] - 2025-12-08
+
+### Feature Flags - Demo/Enterprise Binary Split
+
+Implemented Rust feature flags to create separate demo and enterprise builds (ADR-012).
+
+### Build Commands
+
+```bash
+cargo build --release              # Demo (~80 functions)
+cargo build --release --features full  # Enterprise (149 functions + API)
+```
+
+### Demo Build (~80 functions)
+- Modules: aggregation, dates, financial, logical, lookup, math, statistical, text
+- No API server
+- Basic Excel compatibility
+
+### Enterprise Build (149 functions)
+- All demo functions
+- Advanced modules: advanced, array, conditional, forge, info, trig
+- API server (forge-server binary)
+- Full FP&A toolkit
+
+### Technical
+- `#[cfg(feature = "full")]` gates enterprise modules
+- forge-server binary requires `full` feature
+- Zero warnings in both demo and full builds
+
+---
+
+## [5.13.0] - 2025-12-08
+
+### Function Parity Complete (81 → 149)
+
+Evaluator now supports MORE functions than translator exports. Full calculation parity achieved.
+
+### New Functions Added
+
+**Math (5):** PI, E, POW, SIGN, TRUNC
+
+**Trigonometric (11):** SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, RADIANS, DEGREES
+
+**Logical (5):** XOR, TRUE, FALSE, IFS, IFNA
+
+**Information (13):** ISBLANK, ISERROR, ISNA, ISNUMBER, ISTEXT, ISLOGICAL, ISEVEN, ISODD, ISREF, ISFORMULA, NA, TYPE, N
+
+**Text (6):** TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
+
+**Date/Time (8):** NOW, WEEKDAY, HOUR, MINUTE, SECOND, WORKDAY, DAYS, TIME
+
+**Lookup (9):** VLOOKUP, HLOOKUP, OFFSET, ADDRESS, ROW, COLUMN, ROWS, COLUMNS (+ col_to_letter helper)
+
+**Array (2):** SEQUENCE, RANDARRAY
+
+**Statistical (5):** VARP, STDEVP (aliases), LARGE, SMALL, RANK
+
+### Technical
+
+- New evaluator modules: `trig.rs`, `info.rs`
+- 1753 tests passing, zero warnings
+- Zero test failures, zero compiler warnings
+
+---
+
+## [5.12.0] - 2025-12-08
+
+### Source Closure Complete
+
+Forge source code is now protected. Public demo repo established.
+
+### Phase 1: Gitolite Migration (DONE)
+
+- Migrated source code to self-hosted gitolite (git@crypto1.ca:royalbit/forge)
+- GitHub repo set to private, then deleted
+- Created docs/HOSTING_ARCHITECTURE.md
+- Created ADR-011-SOURCE-CODE-CLOSURE (internal, not in repo)
+- Created royalbit.ca/forge/ landing page (R&D narrative)
+
+### Phase 2: Fresh GitHub Demo Repo (DONE)
+
+- Created fresh public github.com/royalbit/forge (no git history)
+- README.md with R&D narrative (no sales language)
+- R&D Preview License (evaluation only)
+- 4 example models (v1.0.0 schema only)
+- E2E validation tests
+- Issue templates (inquiry, bug, feature - no licensing)
+- docs/: ROADMAP, FUNCTIONS, SCHEMA_v1, SECURITY
+
+### Infrastructure
+
+- Source: gitolite (private)
+- Demo: github.com/royalbit/forge (public, no source code)
+- Website: royalbit.ca/forge/
+
+---
+
+## [5.11.0] - 2025-12-08
+
+### Business-Oriented README + R&D License Clarity
+
+- README rewritten for enterprise audience
+- License clarified as R&D preview
+
+---
+
+## [5.10.0] - 2025-12-08
+
+### Formula Translator Extended + E2E Validation Fixed
+
+Fixed the BROKEN state from interrupted v5.10.0 development.
+
+### Added
+
+- **Formula translator extended to 147 functions** for Excel export:
+  - Trigonometric (11): SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, RADIANS, DEGREES
+  - Financial (13): NPV, IRR, MIRR, XNPV, XIRR, PMT, FV, PV, RATE, NPER, SLN, DB, DDB
+  - Date (18): TODAY, NOW, DATE, YEAR, MONTH, DAY, WEEKDAY, HOUR, MINUTE, SECOND, DATEDIF, EDATE, EOMONTH, NETWORKDAYS, WORKDAY, YEARFRAC, DAYS, TIME
+  - Information (14): ISEVEN, ISODD, ISBLANK, ISERROR, ISNA, ISNUMBER, ISTEXT, ISLOGICAL, ISREF, ISFORMULA, NA, TYPE, N
+  - Math (19): ABS, ROUND, ROUNDUP, ROUNDDOWN, SQRT, POW, POWER, EXP, LN, LOG, LOG10, PI, E, MOD, CEILING, FLOOR, INT, TRUNC, SIGN
+  - Statistical (10): VAR, VARP, STDEV, STDEVP, CORREL, PERCENTILE, QUARTILE, LARGE, SMALL, RANK
+  - Text (15): CONCATENATE, CONCAT, LEFT, RIGHT, MID, LEN, UPPER, LOWER, TRIM, TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
+  - Lookup (14): VLOOKUP, HLOOKUP, XLOOKUP, INDEX, MATCH, OFFSET, INDIRECT, ADDRESS, ROW, COLUMN, ROWS, COLUMNS
+  - Array (6): UNIQUE, COUNTUNIQUE, SORT, FILTER, SEQUENCE, RANDARRAY
+  - Advanced (4): LET, LAMBDA, SWITCH, IFS
+  - Aggregation (8): SUM, AVERAGE, MAX, MIN, COUNT, COUNTA, PRODUCT, MEDIAN
+  - Conditional (8): SUMIF, SUMIFS, COUNTIF, COUNTIFS, AVERAGEIF, AVERAGEIFS, MAXIFS, MINIFS
+  - Logical (10): IF, AND, OR, NOT, XOR, TRUE, FALSE, IFERROR, IFNA, CHOOSE
+
+### Fixed
+
+- NPER test expected value corrected (57.68, not 56.07)
+- Consolidated redundant E2E tests to keep file under 1500 lines
+
+### Stats
+
+- Tests: 1709 (1676 unit + 33 E2E)
+- Functions in evaluator: 81
+- Functions in translator: 147
+- E2E formulas validated: 44
+- Warnings: 0
+
+---
+
+## [5.9.0] - 2025-12-07
+
+### Spreadsheet Engine E2E Validation
+
+External validation against battle-proven spreadsheet engines (Gnumeric/LibreOffice).
+
+### Added
+
+- **E2E test infrastructure**: `tests/e2e_libreoffice_tests.rs`
+- **SpreadsheetEngine detection**: Auto-detects Gnumeric (preferred) or LibreOffice
+- **E2ETestHarness**: Forge export → ssconvert recalc → CSV compare
+- **31 E2E tests** validating:
+  - Math functions: ABS, ROUND, SQRT, POWER, MOD, FLOOR, CEILING, LN, LOG10, EXP
+  - Financial functions: PMT, FV, PV, NPV, RATE, IRR
+  - Date functions: DATE, YEAR, MONTH, DAY, EDATE, EOMONTH
+  - Logical functions: IF, AND, OR, NOT
+  - Statistical: STDEV, VAR, MEDIAN
+
+### Changed
+
+- Feature flag: `cargo test --features e2e-libreoffice`
+- Tests skip gracefully if no spreadsheet engine installed
+
+### Stats
+
+- Tests: 1761 (1730 unit + 31 E2E)
+- Warnings: 0
+- Coverage: 89.23%
+
+---
+
+## [5.8.0] - 2025-12-07
+
+### Test Coverage Expansion
+
+Comprehensive test coverage improvements toward 100% goal.
+
+### Added
+
+- Additional unit tests for edge cases
+- Improved error path coverage
+
+### Stats
+
+- Tests: 1730
+- Warnings: 0
+- Coverage: 89.23%
+
+---
+
+## [5.7.0] - 2025-12-06
+
+### Changed (Coverage Cleanup)
+
+- **Fixed 16 coverage-mode warnings**: All cfg(coverage) attributes now properly handled
+- **Removed dead code files**:
+  - `src/core/array_calculator/math.rs` (0% coverage, superseded by evaluator/math.rs)
+  - `src/core/array_calculator/text.rs` (0% coverage, superseded by evaluator/text.rs)
+- **Improved cfg attribute handling**:
+  - Watch-related imports use `#[cfg(not(coverage))]`
+  - Test helper functions use `#[cfg(any(not(coverage), test))]`
+  - MCP server structs/functions properly gated for coverage mode
+
+### Fixed
+
+- Zero warnings in both regular and coverage build modes
+- All 1,609 tests passing
+- Coverage now at 88.46% line, 80.13% branch (dead code removed)
+
+## [5.6.0] - 2025-12-06
+
+### Changed (Test Organization)
+
+- **Split unit tests into category modules** (Rust idiom: tests inline with source)
+  - `src/core/array_calculator/tests/` - 13 category files, all <1500 lines
+  - Tests organized by function type: math, dates, financial, lookup, etc.
+- **Split large integration test files** (tests/ directory):
+  - `array_calculator_tests.rs` (3431→10 files)
+  - `e2e_tests.rs` (2435→8 files)
+  - `formula_edge_cases_tests.rs` (1739→10 files)
+- **Split CLI command tests** into organized submodules:
+  - `src/cli/commands/tests/` - 18 category files by command
+  - Tests organized by: audit, calculate, export, import, variance, etc.
+
+### Fixed
+
+- No test file exceeds 1500 lines (project coding standard)
+- Zero warnings policy maintained
+- All 1609 tests passing
+
+## [5.5.0] - 2025-12-06
+
+### Added
+
+- **OS-aware build system**: Makefile auto-detects platform and architecture
+  - Linux: x86_64-unknown-linux-musl or aarch64-unknown-linux-musl
+  - macOS: Native build (x86_64-apple-darwin or aarch64-apple-darwin)
+  - Windows: x86_64-pc-windows-msvc
+- **`make build-all` target**: Cross-compile for all platforms using cross-rs
+- **Platform info in `make help`**: Shows detected OS, architecture, and target
+
+### Changed
+
+- **`build-static`**: Now builds for current platform instead of hardcoded Linux musl
+- **`build-compressed`**: Skips UPX on macOS (code signing issues)
+- **Install targets**: Use dynamic binary paths based on platform
+
+### Fixed
+
+- **macOS builds**: No longer fails with linker errors when running `make build-static`
+- **Windows builds**: Proper detection of MINGW/MSYS/Windows_NT environments
+
+## [5.4.0] - 2025-12-06
+
+### Changed (Code Architecture)
+
+- **Split array_calculator into modules**:
+  - `mod.rs` - 5,666 lines (orchestration + core dispatch)
+  - `dates.rs` - 560 lines (DATE, EDATE, EOMONTH, NETWORKDAYS, WORKDAY, YEARFRAC)
+  - `math.rs` - 65 lines (ROUND, FLOOR, CEILING, MOD, SQRT, POWER)
+  - `text.rs` - 45 lines (CONCAT, TRIM, UPPER, LOWER, LEN, MID)
+  - Tests remain in `tests/mod.rs` (10,116 lines, 328 tests)
+- **Fixed `forge functions` command**: Now lists all 81 implemented functions (was showing 62)
+- **Fixed `--help` text**: Updated from "60+ Excel functions" to "80+ functions"
+- **Updated roadmap**: Removed stale content, accurate stats (846 tests, 89.14% coverage)
+
+### Added
+
+- **Statistical functions in `functions` command**: MEDIAN, VAR, STDEV, PERCENTILE, QUARTILE, CORREL
+- **Forge-Native functions in `functions` command**: SCENARIO, VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, BREAKEVEN_UNITS, BREAKEVEN_REVENUE
+- **Missing date functions**: NETWORKDAYS, WORKDAY, YEARFRAC (were implemented but not listed)
+- **Missing financial functions**: MIRR, SLN, DB, DDB (were implemented but not listed)
+
+## [5.0.0] - 2025-12-04
+
+### BREAKING: FOSS → Proprietary License
+
+**Major version bump for license change. Forge is no longer open source.**
+
+#### License
+
+- **Source Code & Binaries**: Changed from MIT to RoyalBit Proprietary License
+- **Documentation**: Licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)
+
+#### What This Means
+
+| Use Case | Allowed? |
+|----------|----------|
+| Personal/hobby projects | Yes |
+| Academic research | Yes |
+| Non-profit organizations | Yes |
+| Learning and education | Yes |
+| **Commercial use** | Requires license |
+| **Business internal use** | Requires license |
+| **SaaS/hosted service** | Requires license |
+
+For commercial licensing, open an issue at: https://github.com/mollendorff-ai/forge/issues
+
+### Added (v4.4.x Features)
+
+- **Multi-document YAML parsing**: Parse ALL documents in a YAML file with `---` separators
+- **Export includes to workbook**: Merge all included files into single Excel workbook with namespace prefixes
+- **Import `--split-files` flag**: Create separate YAML file per Excel sheet
+- **Import `--multi-doc` flag**: Create single YAML with `---` separators per sheet
+- **`_name` field in schema**: Document naming for multi-doc YAML
+- **`forge functions` command**: List all 60+ functions by category
+- **CHOOSE**: Pick nth item from list - essential for scenario modeling
+- **OFFSET**: Dynamic range references for flexible models
+- **LET**: Named variables within formulas
+- **FILTER**: Dynamic array filtering
+- **SORT**: Dynamic array sorting
+- **SWITCH**: Multi-value matching - cleaner than nested IFs
+- **INDIRECT**: String-based cell/column references
+- **LAMBDA**: Anonymous functions - inline calculations
+
+### Added (v4.3.x Features)
+
+- **`forge calculate --write`**: Write calculated values back to YAML files
+- **Backup files**: Automatic `.bak` backup before write
+- **Strict schema validation**: Validate against JSON schema before processing
+
+### Added (Infrastructure)
+
+- `LICENSE-DOCS` file for documentation licensing
+- Dual license structure: code vs documentation
+- CLI integration tests with `assert_cmd`
+- Expanded test coverage for MCP server (90%+)
+- LSP server helper function tests
+- Update module tests
+
+### Fixed
+
+- Multi-document YAML silently discarded all but first document
+- Export ignored included files
+- Import created single file for multi-sheet workbooks
+- Math functions in scalar context (SQRT, ROUND, MOD, etc.)
+
+### Changed
+
+- `Cargo.toml`: `license = "MIT"` → `license-file = "LICENSE"`
+- README: Updated license badges and section
+
+### Stats
+
+- Tests: 846
+- Functions: 81 total
+- Warnings: 0
+- Coverage: 89.14%
+
+---
+
+## [4.2.1] - 2025-12-02
+
+### Critical Bug Fixes - Field Testing
+
+Critical fixes discovered during financial model validation in production use.
+
+### Added
+
+- **COUNT function**: `=COUNT(table.column)` counts rows in any column type (numeric, text, date)
+- **Multi-file validation**: `forge validate file1.yaml file2.yaml file3.yaml` validates multiple files in batch
+
+### Fixed
+
+- **'scenarios' keyword**: Tables named "scenarios" no longer trigger errors - parser now distinguishes between scenario overrides and tables with array columns
+- **Multi-document YAML**: Files with leading `---` document separator now parse correctly
+- **Null handling**: Clear error messages for null values in numeric arrays with suggested fixes
+  - `[1000, null]` now shows: "null values not allowed in numeric arrays. Use 0 or remove the row if the value is missing."
+
+### Tests
+
+- Added 167 library tests (all passing)
+- Zero clippy warnings
+
+---
+
+## [4.2.0] - 2025-12-01
+
+### Release Automation - Cross-platform CI/CD
+
+Automated release workflow for cross-platform binary distribution.
+
+### Added
+
+- **release.yml**: GitHub Actions workflow for automated releases
+  - Triggers on version tags (`v*`)
+  - Cross-platform builds: Linux x86_64, macOS ARM (M1/M2/M3), macOS Intel, Windows
+  - UPX compression for Linux/Windows binaries (~60% size reduction)
+  - Automatic GitHub Release creation with checksums
+  - Auto-publish to crates.io on tag
+
+### Infrastructure
+
+- Parity with Mollendorff AI Asimov CI/CD pipeline
+- Binary artifacts available via GitHub Releases
+- SHA256 checksums for all release artifacts
+
+---
+
+## [4.1.3] - 2025-11-30
+
+### Mollendorff AI Asimov 7.0.7 Schema Compliance
+
+Updated protocol files to comply with Mollendorff AI Asimov v7.0.7 schema.
+
+### Fixed
+
+- **sprint.yaml**: Added required `sprint` section with current sprint info
+- **roadmap.yaml**: Converted `next` and `backlog` to arrays (schema compliance)
+- **roadmap.yaml**: Updated current version to 4.1.3
+
+---
+
+## [4.1.2] - 2025-11-30
+
+### Fixed: README header consistency
+
+- **README**: Reordered header - badges first, then Mollendorff AI Asimov tagline
+- Consistent with Mollendorff AI Asimov README structure
+
+---
+
+## [4.1.1] - 2025-11-30
+
+### Fixed: Crate metadata for crates.io
+
+- **Description**: Updated from "Mollendorff AI Asimov" to "Mollendorff AI Asimov" reference
+- **Keywords**: Changed `forge-protocol` to `asimov`
+- **Protocol links**: All references now point to `mollendorff-ai/asimov`
+
+---
+
+## [4.1.0] - 2025-11-28
+
+### Excel Function Boost
+
+New array functions and improved error handling based on market research (Nov 2025).
+
+### Added
+
+- **UNIQUE function**: Count unique values in a column (returns count in scalar context)
+- **COUNTUNIQUE function**: Count unique values in a column/array
+  - Works with all column types: Number, Text, Boolean, Date
+  - Cross-table support: `=COUNTUNIQUE(sales.product)`
+- **FormulaErrorContext**: Rich error structure with formula, location, and suggestions
+- **LSP autocomplete**: UNIQUE and COUNTUNIQUE in editor completions
+
+### Improved
+
+- Formula error messages now include more context
+- Market intelligence section in roadmap.yaml with competitor analysis
+
+### Research (Incorporated)
+
+- Microsoft Excel =COPILOT() function analysis (Nov 2025)
+- Google Sheets =AI() and formula error explanations (Sept 2025)
+- MCP 1-year anniversary spec updates
+- AFP 2025 FP&A usage statistics (96% use Excel weekly)
+
+---
+
+## [4.0.1] - 2025-11-27
+
+### Fixed
+
+- Added downloads badge to README
+
+---
+
+## [4.0.0] - 2025-11-27
+
+### Rich Metadata Schema - Stable Release
+
+Forge v4.0 is the stable release of the Rich Metadata Schema for enterprise financial modeling. This release has been validated with a comprehensive enterprise model containing 900+ formula evaluations.
+
+### Highlights
+
+- **Rich metadata**: unit, notes, source, validation_status, last_updated per field
+- **Cross-file references**: `_includes` directive + `@namespace.field` syntax
+- **Unit consistency validation**: Warns on incompatible unit operations
+- **Excel export with metadata**: Metadata exported as cell comments
+- **Enterprise-validated**: Tested with SaaS financial model (7 tables, 24 months, 24 scalars)
+
+### Enterprise Model Test
+
+The release includes `v4_enterprise_500_formulas.yaml` - a complete SaaS company financial model:
+- 7 interconnected tables (revenue, costs, P&L, cashflow, metrics, quarterly, annual)
+- 24-month projections
+- 43 row formulas x 24 rows = 1,032 row formula evaluations
+- 24 scalar aggregations
+- Full metadata coverage (units, notes, validation status)
+
+### Performance
+
+- 220 tests passing
+- Zero warnings
+- 96K rows/sec throughput maintained
+
+### What's New Since Beta
+
+- Enterprise model validation (v4_enterprise_500_formulas.yaml)
+- 2 new e2e tests for enterprise model calculate + export
+- Comprehensive SaaS metrics: ARR, MRR, LTV/CAC, Rule of 40, Magic Number, Burn Multiple
+
+---
+
+## [4.0.0-beta] - 2025-11-26
+
+### Unit Consistency Validation
+
+Forge v4.0-beta adds unit consistency validation that warns when formulas mix incompatible units (e.g., CAD + %). This helps catch common financial modeling errors before they propagate.
+
+### Added
+
+- **UnitValidator module**: Analyzes formulas for unit compatibility
+- **Unit categories**: Currency (CAD, USD, etc.), Percentage, Count, Time, Ratio
+- **Compatibility rules**: Same currency can be added, CAD * % = CAD, etc.
+- **Validation warnings**: Non-blocking warnings displayed during calculate
+- **2 new e2e tests**: Unit mismatch detection and compatible units verification
+
+### Example
+
+```yaml
+financials:
+  revenue:
+    value: [100000, 120000]
+    unit: "CAD"
+  margin:
+    value: [0.30, 0.35]
+    unit: "%"
+  # Warning: Mixing incompatible units: CAD and %
+  bad_sum: "=revenue + margin"
+  # No warning: CAD * % = CAD
+  profit: "=revenue * margin"
+```
+
+### Technical Details
+
+- `UnitCategory::parse()` classifies unit strings
+- `UnitValidator::validate()` checks all formulas
+- Warnings are non-blocking (calculation proceeds)
+- 218 tests passing, zero warnings
+
+---
+
+## [4.0.0-alpha.1] - 2025-11-26
+
+### Rich Metadata Schema - Enterprise Financial Modeling (Alpha)
+
+Forge v4.0 introduces rich metadata support for enterprise financial models. This alpha release includes parser enhancements, Excel comments from metadata, and cross-file references.
+
+### Added
+
+- **Rich metadata fields**: `value`, `formula`, `unit`, `notes`, `source`, `validation_status`, `last_updated`
+- **v4.0 column format**: Columns can now have metadata alongside arrays
+  ```yaml
+  revenue:
+    value: [100, 200, 300]
+    unit: "CAD"
+    notes: "Monthly revenue"
+    validation_status: "PROJECTED"
+  ```
+- **v4.0 scalar format**: Scalars can include metadata for audit trails
+- **Cross-file references**: `_includes` directive for file composition
+  ```yaml
+  _includes:
+    - file: "data_sources.yaml"
+      as: "sources"
+  ```
+- **@namespace.field syntax**: Reference included data in formulas
+- **Circular dependency detection**: Prevents infinite include loops
+- **Excel export with metadata**: Metadata exported as cell comments (Notes)
+- **Updated JSON Schema**: Full v4.0 schema with Include definitions
+
+### Backward Compatible
+
+- All v1.0-v3.x models continue to work unchanged
+- Rich metadata is optional - simple formats still supported
+- Mixed formats allowed in same file (some columns rich, some simple)
+
+### Technical Details
+
+- `Metadata` struct with unit, notes, source, validation_status, last_updated
+- `Include` and `ResolvedInclude` types for cross-file references
+- Parser detects rich vs simple format automatically
+- Formula preprocessor resolves @namespace.field references
+- 210 tests passing, zero warnings
+
+### Roadmap
+
+- **v4.0-beta**: Full metadata support + unit consistency validation
+- **v4.0**: Cross-file validation + comprehensive unit checking
+
+---
+
+## [3.1.5] - 2025-11-26
+
+### Excel Export E2E Tests
+
+Added comprehensive e2e tests that verify Excel formulas are correct, not just that files are created.
+
+### Added
+
+- **Test data**: `export_cross_table.yaml` with cross-table refs and scalar aggregations
+- **5 new e2e tests**:
+  - `e2e_export_cross_table_refs_use_column_letters` - verifies `'table'!A2` not `table!revenue2`
+  - `e2e_export_scalar_formulas_are_actual_formulas` - catches text-instead-of-formula bug
+  - `e2e_export_aggregation_formulas_have_correct_range` - verifies `SUM('t'!A2:A4)` ranges
+  - `e2e_export_row_formulas_translate_correctly` - verifies cell references
+  - `e2e_export_sheet_names_are_quoted` - catches LibreOffice compatibility issues
+
+### Technical Details
+
+- Uses calamine to read back exported Excel files
+- Verifies formula syntax matches Excel/LibreOffice requirements
+- These tests would have caught all v3.1.4 bugs before release
+
+---
+
+## [3.1.4] - 2025-11-26
+
+### Excel Export Bug Fixes
+
+Fixed two bugs in Excel formula export that prevented formulas from calculating properly.
+
+### Fixed
+
+- **Scalar formulas exported as text** - Formulas like `=SUM(table.column)` were written as literal strings instead of actual Excel formulas. Now properly exported as `=SUM('table'!A2:A4)`.
+- **Cross-table references used column names** - References like `table.column` became `table!column2` instead of proper Excel syntax `'table'!A2`. Now uses correct column letters with quoted sheet names.
+- **LibreOffice compatibility** - Sheet names are now quoted (`'sheet_name'!A2`) for better cross-platform support.
+
+### Technical Details
+
+- Added global table column mappings to `ExcelExporter`
+- Implemented `translate_scalar_formula()` in `FormulaTranslator`
+- Updated `translate_table_column_ref()` to use actual column letters
+- Added `new_with_tables()` constructor for full table context
+
+---
+
+## [3.1.3] - 2025-11-25
+
+### Crates.io Metadata Fix
+
+Fixed homepage (should be forge, not forge-protocol). Protocol now in description.
+
+### Changed
+
+- Homepage restored to forge repo
+- Protocol link embedded in description: "built with the Mollendorff AI Asimov (github.com/mollendorff-ai/asimov)"
+
+---
+
+## [3.1.2] - 2025-11-25
+
+### Mollendorff AI Asimov Standalone Repository
+
+The protocol that made this project possible now has its own home.
+
+### Changed
+
+- **Protocol extracted** to [mollendorff-ai/asimov](https://github.com/mollendorff-ai/asimov)
+- Updated crates.io metadata to reference the Mollendorff AI Asimov
+- Added "asimov" keyword, replaced "financial"
+- Told the origin story in warmup.yaml and README
+
+### The Circular Story
+
+This project birthed the Mollendorff AI Asimov. We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
+
+Now it's circular: **Forge uses the Mollendorff AI Asimov to build Forge.**
+
+### Stats
+
+- Tests: 183 passing
+- Warnings: 0
+
+---
+
+## [3.1.1] - 2025-11-25
+
+### Documentation Release
+
+**Mollendorff AI Asimov Suite** - Renamed and documented the AI autonomy framework.
+
+### Changed
+
+- Renamed "Warmup Protocol" to "Mollendorff AI Asimov" across all documentation
+- `THE-WARMUP-PROTOCOL.md` → `FORGE-PROTOCOL.md`
+- Added vendor-agnostic philosophy section (no CLAUDE.md, no lock-in)
+- Added Mollendorff AI Asimov Suite explanation (warmup.yaml + sprint.yaml + roadmap.yaml)
+- Updated warmup.yaml with Mollendorff AI Asimov branding
+- Added "ai-built" keyword to crates.io metadata
+- Updated README documentation table with Mollendorff AI Asimov link
+
+### Stats
+
+- Tests: 183 passing
+- Warnings: 0
+
+---
+
+## [3.1.0] - 2025-11-25
+
+### Editor Extensions Release
+
+**IDE Integration** - Native editor extensions for Zed and VSCode.
+
+> Zero tokens. Zero emissions. $40K-$132K/year saved.
+
+### Added (Editor Extensions)
+
+- **Zed Extension** - Native language support for Zed (#2 AI IDE)
+  - Syntax highlighting for Forge YAML with 60+ Excel functions
+  - LSP integration via `forge-lsp` for validation, completion, hover
+  - Rust-native WASM extension (fast, memory-efficient)
+  - Auto-bracket matching and code outline support
+  - `editors/zed/` - ready for Zed Extensions marketplace
+
+- **VSCode Extension** - Enhanced language support
+  - `editors/vscode/` - syntax highlighting, LSP integration
+  - Commands: validate, calculate, export, audit
+
+### Changed
+
+- Updated architecture docs to v3.0.0 references
+- README now includes Editor Support section
+- Test count updated to 183 in documentation
+
+### Stats
+
+- Tests: 183 passing
+- Warnings: 0
+- Throughput: 96K rows/sec
+
+---
+
+## [3.0.0] - 2025-11-25
+
+### MCP Enhancements Release
+
+**AI-Finance Integration** - MCP server now includes all financial analysis tools.
+
+> Zero tokens. Zero emissions. $40K-$132K/year saved.
+
+### Added (MCP Server)
+
+- **`forge_sensitivity`** - What-if analysis via MCP
+  - 1D and 2D data tables for AI-driven exploration
+  - AI can explore: "How does profit change with price?"
+
+- **`forge_goal_seek`** - Target value finding via MCP
+  - AI can ask: "What price do I need for $100K profit?"
+  - Bisection solver with automatic bounds
+
+- **`forge_break_even`** - Zero-crossing via MCP
+  - AI can find: "At what units does profit = 0?"
+
+- **`forge_variance`** - Budget vs actual via MCP
+  - AI can compare: "How did we perform vs budget?"
+  - Automatic favorable/unfavorable detection
+
+- **`forge_compare`** - Scenario comparison via MCP
+  - AI can analyze: "Compare base, optimistic, pessimistic"
+  - Side-by-side scenario results
+
+### Changed
+
+- Updated MCP protocol version
+- Enhanced server instructions for AI agents
+- MCP tools: 5 → 10 (added financial analysis)
+
+### Market Research Basis
+
+November 2025 research showed:
+- MCP becoming "foundational standard" for AI-finance integration
+- Microsoft launched Dynamics 365 ERP MCP Server at Build 2025
+- 85% of financial institutions using AI by end of 2025
+
+---
+
+## [2.5.0] - 2025-11-25
+
+### Sensitivity Analysis Release
+
+New commands for financial modeling what-if analysis.
+
+### Added
+
+- **`forge sensitivity`** - One and two-variable data tables
+  - Vary one input across a range: `--vary price --range 80,120,10`
+  - Two-variable matrix: `--vary price --vary2 quantity`
+  - Customizable ranges with start,end,step format
+
+- **`forge goal-seek`** - Find input value for target output
+  - Bisection solver with automatic bounds
+  - Example: `--target profit --value 100000 --vary price`
+
+- **`forge break-even`** - Find where output crosses zero
+  - Special case of goal-seek with value=0
+  - Example: `--output profit --vary price`
+
+### Changed
+
+- Updated `--help` with performance stats and new commands
+- Slimmed down README (moved history to CHANGELOG)
+
+### Testing
+
+- Test model for sensitivity analysis (`test-data/sensitivity_test.yaml`)
+- Manual testing of all three new commands
+
+---
+
+## [2.4.1] - 2025-11-25
+
+### Documentation Sync
+
+- Added v2.4.0 performance metrics to README
+- Updated Cargo.toml description with 96K rows/sec
+- Updated test count (183) and dev hours (~39h)
+
+---
+
+## [2.4.0] - 2025-11-25
+
+### Performance & Scale Release
+
+Verified enterprise-scale performance with benchmark suite.
+
+### Added
+
+- **Performance Benchmark Suite** (`tests/performance_bench.rs`)
+  - Automated performance regression tests
+  - Tests from 100 to 100K rows
+  - Uses RAM filesystem (`/dev/shm`) to isolate CPU performance from I/O
+  - Documented I/O strategy for different storage types
+
+### Performance Results
+
+```
+  Rows    |   Parse    |    Calc    |   Total    |   Rows/sec
+ ---------+------------+------------+------------+--------------
+   10,000 |       8 ms |      99 ms |     107 ms |      93,457
+   50,000 |      35 ms |     484 ms |     520 ms |      96,153
+  100,000 |      74 ms |     961 ms |   1,036 ms |      96,525
+```
+
+- **10K rows: <1s** (target met)
+- **100K rows: ~1s** (target met)
+- **Consistent ~96K rows/sec throughput**
+- **Linear O(n) scaling**
+
+### Roadmap Update
+
+- Reprioritized: Performance (was v2.5.0) → v2.4.0
+- Sensitivity Analysis moved to v2.5.0
+
+### Testing
+
+- **183 tests passing** (up from 179)
+- 4 new performance benchmark tests
+- Zero clippy warnings
+
+---
+
+## [2.3.1] - 2025-11-25
+
+### Documentation Update
+
+- Updated --help: ~37h → ~38h development time
+- Updated README with v2.3.0 details
+- Sync crate page description
+
+---
+
+## [2.3.0] - 2025-11-25
+
+### Variance Analysis Release
+
+Budget vs Actual comparison with automated variance calculation and reporting.
+
+### Added
+
+- **`forge variance` Command**
+  ```bash
+  forge variance budget.yaml actual.yaml
+  forge variance budget.yaml actual.yaml --threshold 5
+  forge variance budget.yaml actual.yaml -o report.xlsx
+  ```
+
+- **Variance Calculation**
+  - Absolute variance (actual - budget)
+  - Percentage variance ((actual - budget) / budget x 100)
+  - Automatic favorability detection (expenses vs revenue)
+
+- **Threshold Alerts**
+  - `--threshold` flag (default: 10%)
+  - Variables exceeding threshold marked with warning
+  - Summary counts for favorable/unfavorable/alerts
+
+- **Output Formats**
+  - Terminal table (default) with color-coded status
+  - Excel report (`-o report.xlsx`) with formatted columns
+  - YAML report (`-o report.yaml`) with metadata
+
+- **ADR-002: YAML-Only Inputs**
+  - Design decision: variance accepts YAML only, not Excel
+  - Use `forge import` first if you have Excel files
+  - Excel OUTPUT is supported (generated report)
+
+### Testing
+
+- Test data files: `test-data/budget.yaml`, `test-data/actual.yaml`
+- 179 tests passing, zero clippy warnings
+
+---
+
+## [2.2.1] - 2025-11-25
+
+### Excel Function Sync & Schema Update
+
+Sync Excel export/import with all 60+ functions added since v1.0.0.
+
+### Added
+
+- **15 Missing Functions to Excel Translators**
+  - Financial: `NPV`, `IRR`, `PMT`, `FV`, `PV`, `RATE`, `NPER`, `XNPV`, `XIRR`
+  - Date: `DATEDIF`, `EDATE`, `EOMONTH`
+  - Other: `CHOOSE`, `MAXIFS`, `MINIFS`, `POWER`, `CONCAT`
+
+- **Updated JSON Schema** (`schema/forge-v1.0.schema.json` - filename kept for backward compatibility)
+  - Added `scenarios` property for v2.2.0 scenario management
+  - Updated `_forge_version` enum to include 1.0.0-2.2.0
+  - Added `Scenarios` and `ScenarioOverrides` definitions
+  - Updated examples with scenario usage
+
+- **3 New Unit Tests**
+  - Financial functions preserved in Excel export
+  - Date functions preserved in Excel export
+  - Other new functions preserved in Excel export
+
+### Testing
+
+- **179 tests passing** (up from 176)
+
+---
+
+## [2.2.0] - 2025-11-25
+
+### Scenario Management Release
+
+Multi-scenario modeling for sensitivity analysis and what-if modeling.
+
+### Added
+
+- **Named Scenarios in YAML**
+  ```yaml
+  scenarios:
+    base:
+      growth_rate: 0.05
+    optimistic:
+      growth_rate: 0.12
+    pessimistic:
+      growth_rate: 0.02
+  ```
+
+- **CLI Scenario Flag**
+  - `forge calculate model.yaml --scenario=optimistic`
+  - Applies variable overrides before calculation
+
+- **Scenario Comparison Command**
+  - `forge compare model.yaml --scenarios base,optimistic,pessimistic`
+  - Side-by-side output table showing results across scenarios
+
+- **MCP Server Scenario Support**
+  - `scenario` parameter added to `forge_calculate` tool
+
+### Testing
+
+- **176 tests passing** (up from 175)
+- New scenario parsing test
+
+---
+
+## [2.1.1] - 2025-11-25
+
+### Documentation Consistency
+
+- Fixed test count: 170 → 175 across all documentation
+- Fixed function count: 50+ → 60+ Excel functions
+- Added v2.1.0 to README version table and promotion path
+- Added "What's New in v2.1.0" section to README
+- Updated Cargo.toml description with XNPV/XIRR mentions
+- Fixed roadmap to show v2.1.0 as completed
+
+---
+
+## [2.1.0] - 2025-11-25
+
+### Advanced Financial Functions Release
+
+Built autonomously via Mollendorff AI Asimov.
+
+### Added
+
+#### Date-Aware DCF Functions (2 functions)
+
+- `XNPV(rate, values, dates)` - Net Present Value with specific dates per cash flow
+  - More precise than NPV for real-world irregular cash flows
+  - Accepts numeric serial dates (Excel format) or date strings
+- `XIRR(values, dates, [guess])` - Internal Rate of Return with specific dates
+  - Newton-Raphson method for convergence
+  - Professional standard for DCF valuation
+
+#### Scenario Foundation (1 function)
+
+- `CHOOSE(index, value1, value2, ...)` - Select value by index
+  - Enables scenario switching in models
+  - 1-based indexing (Excel-compatible)
+  - Example: `=CHOOSE(scenario, 0.05, 0.08, 0.12)` for growth rate scenarios
+
+#### Date Arithmetic Functions (3 functions)
+
+- `DATEDIF(start_date, end_date, unit)` - Difference between dates
+  - Units: "Y" (years), "M" (months), "D" (days)
+  - Essential for contract/subscription period calculations
+- `EDATE(start_date, months)` - Add/subtract months from date
+  - Handles month-end edge cases correctly
+- `EOMONTH(start_date, months)` - End of month after adding months
+  - Returns last day of the target month
+
+### Fixed
+
+- Fixed regex patterns to use word boundaries (`\b`) for:
+  - PV/FV functions (prevented matching inside XNPV)
+  - NPV/IRR functions (prevented matching inside XNPV/XIRR)
+  - MONTH/YEAR/DAY functions (prevented matching inside EOMONTH/EDATE/DATEDIF)
+
+### Testing
+
+- **175 tests passing** (up from 170 in v2.0.1)
+- 6 new unit tests for advanced financial functions
+- ZERO clippy warnings in strict mode
+
+### Development Stats
+
+- **Time:** Autonomous development via Mollendorff AI Asimov
+- **Quality:** Zero warnings, all tests passing
+
+---
+
+## [2.0.1] - 2025-11-25
+
+### Documentation & Polish
+
+- Documentation cleanup
+- Minor bug fixes
+
+---
+
+## [2.0.0] - 2025-11-25
+
+### Enterprise HTTP API Server - Principal Autonomous AI Release
+
+Major release adding HTTP API server mode.
+
+### Added
+
+- `forge serve` - HTTP API mode for enterprise integration
+- REST endpoints for validate, calculate, export
+- Core financial functions: NPV, IRR, PMT, FV, PV, RATE, NPER
+- 170 tests passing
+
+---
+
+## [1.4.0] - 2025-11-25
+
+### Developer Experience Release
+
+- Watch mode: `forge watch` with debounced auto-calculate
+- Audit trail: `forge audit` with dependency tree visualization
+- GitHub Action for CI/CD validation
+
+---
+
+## [1.3.1] - 2025-11-25
+
+### Documentation Cleanup
+
+- Reorganized root folder - moved internal docs to `docs/internal/`
+- Updated AI-PROMOTION-STORY.md with v1.1.0-v1.3.0 achievements
+- Deleted obsolete planning documents
+- Cleaner project structure
+
+---
+
+## [1.3.0] - 2025-11-24
+
+### Codebase Simplification Release
+
+Deprecated and removed v0.2.0 scalar model. Forge now uses exclusively the v1.0.0 array model.
+
+### Removed
+
+#### v0.2.0 Scalar Model (Deprecated)
+
+- **~2,500 lines of code removed**
+- `src/core/calculator.rs` - v0.2.0 scalar calculator (400+ lines)
+- `ForgeVersion` enum and version detection logic
+- `Include` struct and cross-file reference system (`@alias.variable`)
+- `ParsedYaml` intermediate parsing structure
+- `Variable.alias` field
+- 19 test data files (includes_*.yaml)
+- All v0.2.0-specific code paths in parser, CLI, and writer
+
+### Changed
+
+- Parser simplified to v1.0.0-only (removed ~200 lines of v0.2.0 parsing)
+- CLI commands streamlined - single calculation path via ArrayCalculator
+- Type system simplified - `ParsedModel` no longer tracks version or includes
+- Test suite streamlined: **118 tests** (down from 141)
+  - Removed 23 v0.2.0-specific tests
+  - All remaining tests use v1.0.0 array model
+- E2E tests reduced from 34 to 22 (removed includes/cross-file tests)
+- Test data converted to v1.0.0 format
+
+### Quality
+
+- **118 tests passing** (focused on v1.0.0 functionality)
+- **Zero warnings** (clippy strict mode: `-D warnings`)
+- **Simplified codebase** - easier to maintain and extend
+- **Repository cleaned** - removed ~2.9GB of build artifacts
+
+### Why This Matters
+
+- **Maintenance:** Single code path = fewer bugs, easier updates
+- **Clarity:** No confusion between v0.2.0 and v1.0.0 syntax
+- **Performance:** Smaller binary, faster compilation
+- **Future-ready:** Clean foundation for v1.4.0+ features
+
+### Migration
+
+If you were using v0.2.0 format with `includes:` and `@alias.variable`:
+1. Convert to v1.0.0 array model with tables
+2. Use cross-table references: `table_name.column_name`
+3. See test-data/v1.0/*.yaml for examples
+
+---
+
+## [1.2.1] - 2025-11-24
+
+### Documentation Improvements
+
+Documentation-only patch release.
+
+### Added
+
+- **TEST_COVERAGE_AUDIT.md** - Comprehensive test coverage analysis
+  - Honest assessment: "GOOD coverage (not 100%, but production-ready)"
+  - 141 tests passing (1 ignored) across all categories
+  - Detailed breakdown by feature (Lookup, Math, Text, Date, Conditional Aggregations)
+  - Identified gaps and recommendations for v1.2.2+
+  - Target for v1.2.2: 160+ tests with edge case coverage
+
+### Changed
+
+- Replaced "zero bugs" claims with honest, testable metrics
+  - README: "production-tested" and "141 tests passing"
+  - Cargo.toml: "production-tested"
+  - CLI: "141 tests passing"
+- Updated all documentation to reflect accurate test counts (141 passing, 1 ignored)
+
+### Quality
+
+- 141 tests passing, 0 failures
+- Zero warnings (clippy strict mode: `-D warnings`)
+- All 50+ Excel functions tested
+- <200ms performance validated
+
+**Philosophy:** Pragmatic honesty over marketing claims. "Not tested != Broken."
+
+---
+
+## [1.2.0] - 2025-11-24
+
+### Lookup Functions Release
+
+Built autonomously via Mollendorff AI Asimov in <3 hours.
+
+### Added
+
+#### Lookup Functions (4 functions)
+
+- `MATCH(lookup_value, lookup_array, match_type)` - Find position of value in array
+  - Supports exact match (0), ascending approximate (1), descending approximate (-1)
+  - Excel-compatible behavior
+- `INDEX(array, row_num)` - Return value at specific position
+  - 1-based indexing (Excel-compatible)
+  - Works with any column reference
+- `XLOOKUP(lookup_value, lookup_array, return_array, if_not_found)` - Modern Excel lookup
+  - Bidirectional lookup
+  - Built-in if_not_found support
+  - Recommended for production use
+- `VLOOKUP(lookup_value, table_array, col_index_num, range_lookup)` - Classic vertical lookup
+  - Limited implementation (HashMap column ordering issue)
+  - **Recommendation:** Use INDEX/MATCH pattern for production
+
+**Combined Pattern:** Use `INDEX(MATCH(...))` for flexible cross-table lookups!
+
+### Enhanced
+
+- ArrayCalculator: Preprocessing approach for whole-column lookup semantics
+- Type-safe matching with LookupValue enum (Number/Text/Boolean)
+- Nested function support (INDEX(MATCH(...)) pattern)
+
+### Testing
+
+- **141 tests passing** (up from 136 in v1.1.0)
+- 5 comprehensive unit tests for lookup functions
+- ZERO clippy warnings in strict mode
+
+### Documentation
+
+- Updated README.md with v1.2.0 section
+- Updated CLI --help with lookup functions
+- Updated architecture docs (03-FORMULA-EVALUATION.md)
+- SR&ED Entry 9 documenting research & implementation
+
+### Development Stats
+
+- **Time:** <3 hours (autonomous AI via Mollendorff AI Asimov)
+- **Quality:** 690 lines production code, zero warnings
+- **Innovation:** Preprocessing approach for lookups in row-wise model
+
+---
+
+## [1.1.0] - 2025-11-24
+
+### Major Release: 27 Essential Excel Functions
+
+Built autonomously via Mollendorff AI Asimov in <8 hours. All phases completed with zero warnings.
+
+### Added
+
+#### Phase 1: Conditional Aggregations (8 functions)
+
+- `SUMIF(range, criteria, sum_range)` - Sum values matching criteria
+- `COUNTIF(range, criteria)` - Count values matching criteria
+- `AVERAGEIF(range, criteria, average_range)` - Average values matching criteria
+- `SUMIFS(sum_range, criteria_range1, criteria1, ...)` - Sum with multiple criteria
+- `COUNTIFS(criteria_range1, criteria1, ...)` - Count with multiple criteria
+- `AVERAGEIFS(average_range, criteria_range1, criteria1, ...)` - Average with multiple criteria
+- `MAXIFS(max_range, criteria_range1, criteria1, ...)` - Max with multiple criteria
+- `MINIFS(min_range, criteria_range1, criteria1, ...)` - Min with multiple criteria
+
+#### Phase 2: Math & Precision (8 functions)
+
+- `ROUND(number, num_digits)` - Round to specified decimal places
+- `ROUNDUP(number, num_digits)` - Round up
+- `ROUNDDOWN(number, num_digits)` - Round down
+- `CEILING(number, significance)` - Round up to nearest multiple
+- `FLOOR(number, significance)` - Round down to nearest multiple
+- `MOD(number, divisor)` - Modulo operation
+- `SQRT(number)` - Square root
+- `POWER(number, power)` - Exponentiation
+
+#### Phase 3: Text Functions (6 functions)
+
+- `CONCAT(text1, text2, ...)` - Concatenate text strings
+- `TRIM(text)` - Remove extra whitespace
+- `UPPER(text)` - Convert to uppercase
+- `LOWER(text)` - Convert to lowercase
+- `LEN(text)` - String length
+- `MID(text, start, num_chars)` - Extract substring
+
+#### Phase 4: Date Functions (5 functions)
+
+- `TODAY()` - Current date
+- `DATE(year, month, day)` - Create date from components
+- `YEAR(date)` - Extract year
+- `MONTH(date)` - Extract month
+- `DAY(date)` - Extract day
+
+### Enhanced
+
+- ArrayCalculator now supports Text, Boolean, and Date columns (was Number-only)
+- Function preprocessing infrastructure for nested functions (e.g., `ROUND(SQRT(x), 2)`)
+- Sophisticated criteria parsing for conditional aggregations:
+  - Numeric comparisons: `> 100000`, `<= 50`, `<> 0`
+  - Text matching: `'North'`, `"Electronics"`
+  - Multiple criteria combining
+
+### Fixed
+
+- 19 clippy warnings about regex compilation in loops (performance optimization)
+- Bool assertion warnings in Excel importer tests
+- Needless borrow warnings in example files
+
+### Performance
+
+- Maintained <200ms for complex models (no regression from v1.0.0)
+- Optimized regex compilation (moved outside loops)
+
+### Testing
+
+- **136 tests passing** (up from 100 in v1.0.0) - 36% increase
+- **86 unit tests** (up from 54) - 59% increase
+- **50 E2E tests** (including conditional aggregation tests)
+- **Zero warnings** (clippy strict mode: `-D warnings`)
+
+### Documentation
+
+- Updated README.md with v1.1.0 examples
+- Updated roadmap.yaml with completion details
+- Added SR&ED Entry 8: Function Preprocessing Architecture
+- Test data files: conditional_aggregations.yaml, math_functions.yaml, text_functions.yaml, date_functions.yaml
+
+### Research
+
+- Based on 2025 financial modeling industry research
+- 96% of FP&A professionals use Excel weekly (AFP 2025 Survey)
+- SUMIF/COUNTIF cited as essential in 100% of financial modeling guides
+
+### Development Stats
+
+- **Time:** <8 hours (autonomous development via Mollendorff AI Asimov)
+- **Estimated traditional:** 2-3 weeks
+- **Velocity:** 20-50x faster
+- **Rework:** 0% (production-ready in first iteration)
+
+---
+
+## [1.0.2] - 2025-11-24
+
+### Changed
+
+- Updated README examples to v1.0.0 array syntax
+- Improved crates.io metadata and description
+
+### Documentation
+
+- Added JSON schema to README
+- Enhanced installation instructions
+
+---
+
+## [1.0.1] - 2025-11-24
+
+### Changed
+
+- Updated crates.io package metadata
+- Improved project description and keywords
+
+---
+
+## [1.0.0] - 2025-11-24
+
+### Major Release: Array Model with Bidirectional Excel Bridge
+
+Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
+
+### Added
+
+#### Core Array Model
+
+- Column arrays with Excel 1:1 mapping
+- Row-wise formula evaluation (`=revenue - expenses`)
+- Cross-table references (`=pl_2025.revenue`)
+- Aggregation functions: SUM, AVERAGE, MAX, MIN, COUNT, PRODUCT
+- Array indexing (`revenue[3]`)
+- Nested scalar sections with automatic scoping
+- Table dependency ordering (topological sort)
+- Scalar dependency resolution with 3-strategy scoping
+- Version auto-detection (v0.2.0 vs v1.0.0)
+- JSON Schema validation
+
+#### Excel Export (`forge export`)
+
+- YAML → Excel (.xlsx) conversion
+- Tables → Worksheets mapping
+- Row formulas → Excel cell formulas (`=A2-B2`)
+- Cross-table references → Sheet references (`=Sheet!Column`)
+- Multiple worksheets support
+- Scalars worksheet
+- Formula translation engine with 60+ Excel functions
+- Preserves formula logic for Excel collaboration
+
+#### Excel Import (`forge import`)
+
+- Excel (.xlsx) → YAML conversion
+- Read Excel worksheets → Tables (calamine integration)
+- Parse Excel formulas → YAML syntax (reverse translation)
+- Detect cross-sheet references → table.column
+- Round-trip testing (YAML → Excel → YAML)
+- Enable AI-assisted workflow with existing Excel files
+- Version control for Excel files
+
+#### Complete Workflow
+
+1. Import existing Excel → YAML (`forge import`)
+2. Work with AI + Forge (version control)
+3. Export back to Excel with formulas (`forge export`)
+4. Collaborate with stakeholders in Excel
+5. Re-import changes → Version control
+
+### Changed
+
+- Complete architecture rewrite for array model
+- Unified parser supporting v0.2.0 and v1.0.0
+- Enhanced type system with ColumnValue enum
+- Improved error messages with context
+
+### Testing
+
+- **100 tests passing** (was 40 in v0.2.0)
+- **54 unit tests** for core logic
+- **46 E2E tests** including 10 new Excel export/import tests
+- **Zero warnings** (clippy strict mode)
+- **Round-trip verification** (YAML → Excel → YAML)
+
+### Documentation
+
+- DESIGN_V1.md (800+ lines of technical specification)
+- EXCEL_EXPORT_DESIGN.md (implementation details)
+- EXCEL_IMPORT_DESIGN.md (reverse translation)
+- Updated README with array model examples
+- JSON schema: schema/forge-v1.0.schema.json
+
+### Development
+
+- Built in 12.5 hours using Mollendorff AI Asimov (overnight + morning) (autonomous AI development)
+- SR&ED documented: 7 research entries
+- Zero bugs shipped to production
+- 100% backwards compatible with v0.2.0
+
+---
+
+## [0.2.0] - 2025-11-23
+
+### Added
+
+- Excel-compatible formula functions via xlformula_engine
+- Aggregation functions: SUM, AVERAGE, COUNT, MAX, MIN, PRODUCT
+- Logical functions: IF, AND, OR, NOT, XOR
+- Utility functions: ABS, ISBLANK
+- Better error messages with formula context
+- Optional version metadata in YAML files
+
+### Changed
+
+- Replaced meval with xlformula_engine for Excel compatibility
+- Performance: <250ms for 850 formulas
+
+### Testing
+
+- Unit tests for each new function
+- E2E tests with financial model examples
+- Validation tests for function results
+
+---
+
+## [0.1.3] - 2025-11-23
+
+### Added
+
+- Basic formula evaluation with meval
+- Cross-file references with includes
+- Dependency resolution and topological sort
+- Validation command
+- Circular dependency detection
+- Dry-run mode
+- Verbose output
+
+### Features
+
+- Simple math operations (+, -, *, /, ^)
+- Variable references (dot notation)
+- Cross-file references (@alias.variable)
+
+---
+
+## Notes
+
+### Development Methodology
+
+- **Mollendorff AI Asimov:** All v1.0.0+ development uses autonomous AI development methodology
+- **SR&ED Documented:** All R&D work documented in SRED_RESEARCH_LOG.md for Canadian tax credits
+- **Zero Warnings Policy:** All releases pass `clippy -D warnings` (strict mode)
+- **Test-Driven:** Comprehensive test coverage before release
+- **Open Source:** MIT license, published on crates.io and GitHub
+
+### Quality Metrics
+
+- **v1.3.0:** 118 tests, 0 warnings, simplified codebase (v0.2.0 deprecated)
+- **v1.2.0:** 141 tests, 0 warnings, <3 hours development (lookup functions)
+- **v1.1.0:** 136 tests, 0 warnings, <8 hours development
+- **v1.0.0:** 100 tests, 0 warnings, 12.5 hours development
+- **v0.2.0:** 40 tests, 0 warnings, 3 days development (DEPRECATED)
+
+### Research Backing
+
+All major features are research-backed:
+
+- v1.1.0 functions based on 2025 FP&A industry survey (96% Excel usage)
+- Conditional aggregations cited as essential in 100% of financial modeling guides
+- Development methodology validated with production deployment
+
+---
+
+**Legend:**
+
+- Major release
+- Completed feature
+- Bug fix
+- Performance improvement
+- Documentation
+- Testing
