@@ -17,7 +17,7 @@ cargo clippy --all-targets --all-features -- -D warnings
 echo "🧪 Running tests..."
 cargo test --all-features
 
-# RoyalBit Asimov checks (if installed)
+# Möllendorff AI Asimov checks (if installed)
 if command -v asimov &> /dev/null; then
     # Protocol refresh - injects rules into fresh context (survives compaction)
     asimov refresh

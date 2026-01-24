@@ -1,6 +1,6 @@
 ; Forge YAML Syntax Highlighting for Zed
 ; Uses tree-sitter-yaml grammar
-; https://github.com/royalbit/forge
+; https://github.com/mollendorff-ai/forge
 
 ; Comments
 (comment) @comment

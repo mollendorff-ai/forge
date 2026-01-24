@@ -41,7 +41,7 @@ Archived version details from roadmap.yaml. For current roadmap, see [roadmap.ya
 - **Functions**: 173 (167 Excel + 6 FP&A)
 - **Coverage**: 100% function coverage
 - **Warnings**: ZERO (clippy -D warnings)
-- **Built by**: Claude AI using RoyalBit Asimov
+- **Built by**: Claude AI using Möllendorff AI Asimov
 
 ## v8.0.0 - Monte Carlo Simulation (2025-12)
 

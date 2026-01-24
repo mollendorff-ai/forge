@@ -1,4 +1,4 @@
-# RoyalBit Forge - cargo-audit configuration
+# Möllendorff Forge - cargo-audit configuration
 # See: https://github.com/rustsec/rustsec/tree/main/cargo-audit
 
 [advisories]

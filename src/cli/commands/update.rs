@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 /// GitHub repository for releases
-const GITHUB_REPO: &str = "royalbit/forge";
+const GITHUB_REPO: &str = "mollendorff-ai/forge";
 
 /// Current version from Cargo.toml
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");

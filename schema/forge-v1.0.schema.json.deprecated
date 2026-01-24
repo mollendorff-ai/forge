@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/royalbit/forge/schema/forge-v1.0.json",
+  "$id": "https://github.com/mollendorff-ai/forge/schema/forge-v1.0.json",
   "title": "Forge Financial Model Schema",
   "description": "JSON Schema for Forge array-based financial models with rich metadata, Excel compatibility, scenarios, and 80+ functions. Format versions: 1.0.0 (basic arrays), 4.0.0 (rich metadata with unit/notes/source), 5.0.0 (inputs/outputs separation + Forge-native FP&A functions).",
   "type": "object",

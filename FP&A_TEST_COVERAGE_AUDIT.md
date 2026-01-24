@@ -337,7 +337,7 @@ While unit test coverage is 100%, the project has:
 
 ## FILES ANALYZED
 
-- `/Users/rex/src/royalbit/forge/src/functions/registry.rs` - All 159 function definitions
-- `/Users/rex/src/royalbit/forge/src/core/array_calculator/evaluator/*.rs` - Unit test files
-- `/Users/rex/src/royalbit/forge/tests/e2e_*_complete.yaml` - 15 E2E YAML test files (3,247 total lines)
-- `/Users/rex/src/royalbit/forge/tests/e2e_gnumeric_tests.rs` - Roundtrip tests (31 test functions)
+- `/Users/rex/src/mollendorff/forge/src/functions/registry.rs` - All 159 function definitions
+- `/Users/rex/src/mollendorff/forge/src/core/array_calculator/evaluator/*.rs` - Unit test files
+- `/Users/rex/src/mollendorff/forge/tests/e2e_*_complete.yaml` - 15 E2E YAML test files (3,247 total lines)
+- `/Users/rex/src/mollendorff/forge/tests/e2e_gnumeric_tests.rs` - Roundtrip tests (31 test functions)

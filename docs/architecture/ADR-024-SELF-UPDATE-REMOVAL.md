@@ -14,13 +14,13 @@
 The `forge update` command was originally removed because:
 
 1. **Enterprise binary (`forge`)** - Was self-hosted, proprietary, NEVER pushed to GitHub
-2. **Demo binary (`forge-demo`)** - Public on `royalbit/forge-demo`, but `forge update` checked `royalbit/forge/releases` which didn't exist
+2. **Demo binary (`forge-demo`)** - Public on `mollendorff-ai/forge-demo`, but `forge update` checked `mollendorff-ai/forge/releases` which didn't exist
 3. **No valid target** - Neither binary had a valid GitHub release endpoint
 
 ## Restoration Context (v10.0.0-alpha.5)
 
 With the Elastic-2.0 licensing decision (ADR-030, ADR-031), forge is now public:
-- Repository: `https://github.com/royalbit/forge`
+- Repository: `https://github.com/mollendorff-ai/forge`
 - Releases published to GitHub with multi-platform binaries
 - Self-update now has a valid target
 
@@ -47,7 +47,7 @@ forge update --verbose    # Show detailed progress
 ### Implementation Details
 
 - Uses `curl` for HTTP requests (available on all platforms)
-- Fetches from GitHub API: `api.github.com/repos/royalbit/forge/releases/latest`
+- Fetches from GitHub API: `api.github.com/repos/mollendorff-ai/forge/releases/latest`
 - Semver comparison with pre-release support (e.g., `alpha.5` > `alpha.4`)
 - Backs up existing binary to `.bak` before replacement
 - Preserves Unix permissions (0755)

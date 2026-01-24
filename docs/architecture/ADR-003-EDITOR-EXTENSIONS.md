@@ -115,7 +115,7 @@ The VSCode extension:
 
 ```bash
 # forge-lsp must be in PATH
-cargo install royalbit-forge
+cargo install mollendorff-forge
 
 # Extension published to zed-industries/extensions
 # Users install via Zed's extension browser
@@ -125,7 +125,7 @@ cargo install royalbit-forge
 
 ```bash
 # Option 1: From marketplace (future)
-code --install-extension royalbit.forge-yaml
+code --install-extension mollendorff.forge-yaml
 
 # Option 2: From .vsix file
 code --install-extension forge-yaml-3.1.0.vsix

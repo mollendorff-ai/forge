@@ -1,12 +1,12 @@
 [package]
-name = "royalbit-forge"
-version = "10.0.0-alpha.5"
+name = "mollendorff-forge"
+version = "10.0.0-alpha.6"
 edition = "2021"
-authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "RoyalBit Inc. <admin@royalbit.ca>"]
+authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "Möllendorff Group Inc. <admin@mollendorff.ai>"]
 description = "Battle-tested financial math for AI. 173 Excel-compatible functions validated against Gnumeric & R. MCP integration, Monte Carlo, Decision Trees, Real Options."
-repository = "https://github.com/royalbit/forge"
-homepage = "https://royalbit.ca/forge"
-documentation = "https://github.com/royalbit/forge#readme"
+repository = "https://github.com/mollendorff-ai/forge"
+homepage = "https://mollendorff.ai/forge"
+documentation = "https://github.com/mollendorff-ai/forge#readme"
 license = "Elastic-2.0"
 keywords = ["yaml", "formula", "excel", "asimov", "ai-built"]
 categories = ["command-line-utilities", "parsing", "development-tools"]
@@ -106,7 +106,7 @@ rand_distr = "0.5"  # Distribution sampling (Normal, Triangular, PERT, etc.)
 statrs = "0.18"     # Statistical functions (PDF, CDF, percentiles)
 
 # E2E tests migrated to forge-e2e repository (see ADR-027)
-# Gnumeric, R, Python validation now in https://github.com/royalbit/forge-e2e
+# Gnumeric, R, Python validation now in https://github.com/mollendorff-ai/forge-e2e
 
 [dev-dependencies]
 # Testing

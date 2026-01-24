@@ -4,12 +4,12 @@
 //! Provides validate, calculate, audit, export, import endpoints.
 
 use clap::Parser;
-use royalbit_forge::api::{run_api_server, server::ApiConfig};
+use mollendorff_forge::api::{run_api_server, server::ApiConfig};
 
 #[derive(Parser, Debug)]
 #[command(name = "forge-server")]
 #[command(version)]
-#[command(author = "RoyalBit Inc. <admin@royalbit.ca>")]
+#[command(author = "Möllendorff Group Inc. <admin@mollendorff.ai>")]
 #[command(about = "Forge API Server - Enterprise HTTP REST API for YAML formula calculations")]
 #[command(long_about = r#"
 Forge API Server - Enterprise HTTP REST API

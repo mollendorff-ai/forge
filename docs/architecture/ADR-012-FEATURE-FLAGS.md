@@ -75,7 +75,7 @@ cargo build --release --features full --bin forge  # Enterprise
 
 ### Distribution
 
-- **Demo**: Published to [royalbit.ca/forge](https://royalbit.ca/forge) for download
+- **Demo**: Published to [mollendorff.ai/forge](https://mollendorff.ai/forge) for download
 - **Enterprise**: Licensed distribution only
 
 ## Implementation Summary

@@ -1409,7 +1409,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: royalbit/forge/.github/actions/validate@main
+      - uses: mollendorff-ai/forge/.github/actions/validate@main
         with:
           files: "models/*.yaml"
 ```

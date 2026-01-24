@@ -233,7 +233,7 @@ impl TornadoEngine {
 
 ## Roundtrip Validation
 
-> **E2E tests live in [forge-e2e](https://github.com/royalbit/forge-e2e)** - see ADR-027.
+> **E2E tests live in [forge-e2e](https://github.com/mollendorff-ai/forge-e2e)** - see ADR-027.
 
 Tornado Diagram results are validated against **R's sensitivity package** (standard for sensitivity analysis).
 

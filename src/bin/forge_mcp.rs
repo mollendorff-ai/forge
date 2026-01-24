@@ -20,7 +20,7 @@
 // During coverage builds, stubbed main doesn't use imports
 #![cfg_attr(coverage, allow(unused_imports))]
 
-use royalbit_forge::mcp::run_mcp_server_sync;
+use mollendorff_forge::mcp::run_mcp_server_sync;
 
 /// Binary entry point - excluded from coverage (ADR-006)
 /// Thin wrapper that calls library function. Cannot unit test binary main().

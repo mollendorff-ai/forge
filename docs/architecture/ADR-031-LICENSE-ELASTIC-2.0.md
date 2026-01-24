@@ -163,7 +163,7 @@ Official SPDX page: https://spdx.org/licenses/Elastic-2.0
 Commercial licenses available for production use.
 
 **Contact**: Open a GitHub Issue with `licensing` label
-- https://github.com/royalbit/forge/issues
+- https://github.com/mollendorff-ai/forge/issues
 
 ---
 

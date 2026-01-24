@@ -28,7 +28,7 @@ EXAMPLES:
   forge variance budget.yaml actual.yaml       # Budget vs actual
   forge export model.yaml output.xlsx          # Excel with formulas
 
-Docs: https://github.com/royalbit/forge
+Docs: https://github.com/mollendorff-ai/forge
 
 Usage: forge <COMMAND>
 
