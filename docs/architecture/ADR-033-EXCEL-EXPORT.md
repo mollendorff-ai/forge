@@ -1,6 +1,6 @@
-# Excel Export Design (Phase 3)
+# ADR-033: Excel Export Design
 
-**Status:** Design Phase
+**Status:** Implemented
 **Target:** v1.0.0 Array Model → Excel .xlsx export
 **Library:** rust_xlsxwriter 0.90.2
 

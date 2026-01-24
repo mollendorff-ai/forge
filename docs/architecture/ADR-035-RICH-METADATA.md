@@ -1,4 +1,6 @@
-# Forge v4.0 Design: Rich Metadata Schema
+# ADR-035: Rich Metadata Schema
+
+**Status:** Implemented
 
 > Enterprise-grade financial modeling with full traceability
 

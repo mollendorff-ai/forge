@@ -8,6 +8,8 @@
 
 ---
 
+> **Note:** The feature gate pattern was inverted in ADR-025. See ADR-025-FEATURE-GATE-INVERSION.md
+
 ## Context
 
 Forge v5.14.0 achieved full function parity. The next step is creating a demo binary that potential customers can evaluate without access to the full enterprise feature set.

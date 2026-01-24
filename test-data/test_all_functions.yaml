@@ -1,0 +1,503 @@
+_forge_version: "1.0.0"
+
+# =============================================================================
+# COMPREHENSIVE FUNCTION TEST SUITE
+# Merged from: test_formula_functions.yaml, test_math_text_functions.yaml,
+#              test_date_functions.yaml, test_array_functions.yaml,
+#              test_lookup_functions.yaml, test_conditional_aggregation.yaml,
+#              test_advanced_functions.yaml, test_forge_functions.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# BASIC FORMULA FUNCTIONS (from test_formula_functions.yaml)
+# -----------------------------------------------------------------------------
+
+# SUM function tests
+sum_tests:
+  val1:
+    value: 10
+    formula: null
+  val2:
+    value: 20
+    formula: null
+  val3:
+    value: 30
+    formula: null
+
+  total:
+    value: 60
+    formula: "=SUM(val1, val2, val3)"
+
+  # SUM with literals
+  literal_sum:
+    value: 15
+    formula: "=SUM(5, 10)"
+
+# AVERAGE function tests
+average_tests:
+  num1:
+    value: 100
+    formula: null
+  num2:
+    value: 200
+    formula: null
+  num3:
+    value: 300
+    formula: null
+
+  mean:
+    value: 200
+    formula: "=AVERAGE(num1, num2, num3)"
+
+# PRODUCT function tests
+product_tests:
+  factor1:
+    value: 2
+    formula: null
+  factor2:
+    value: 3
+    formula: null
+  factor3:
+    value: 4
+    formula: null
+
+  result:
+    value: 24
+    formula: "=PRODUCT(factor1, factor2, factor3)"
+
+# ABS function tests
+abs_tests:
+  negative:
+    value: -100
+    formula: null
+
+  positive:
+    value: 100
+    formula: "=ABS(negative)"
+
+# IF function tests (simple boolean values)
+if_tests:
+  condition_value:
+    value: 1
+    formula: null
+
+  # Simple IF with literal condition
+  simple_if:
+    value: 10
+    formula: "=IF(condition_value, 10, 20)"
+
+# Combined operations
+combined:
+  q1:
+    value: 100
+    formula: null
+  q2:
+    value: 120
+    formula: null
+  q3:
+    value: 150
+    formula: null
+  q4:
+    value: 180
+    formula: null
+
+  annual:
+    value: 550
+    formula: "=SUM(q1, q2, q3, q4)"
+
+  average:
+    value: 137.5
+    formula: "=AVERAGE(q1, q2, q3, q4)"
+
+  product_of_averages:
+    value: 75625
+    formula: "=PRODUCT(annual, average)"
+
+# -----------------------------------------------------------------------------
+# MATH AND TEXT FUNCTIONS (from test_math_text_functions.yaml)
+# -----------------------------------------------------------------------------
+
+scalars:
+  math:
+    # Rounding functions
+    round_result:
+      formula: "=ROUND(3.14159, 2)"
+    roundup_result:
+      formula: "=ROUNDUP(3.14159, 2)"
+    rounddown_result:
+      formula: "=ROUNDDOWN(3.14159, 2)"
+    ceiling_result:
+      formula: "=CEILING(7.3, 2)"
+    floor_result:
+      formula: "=FLOOR(7.9, 2)"
+    # Math operations
+    mod_result:
+      formula: "=MOD(17, 5)"
+    mod_negative:
+      formula: "=MOD(-17, 5)"
+    sqrt_result:
+      formula: "=SQRT(144)"
+    power_result:
+      formula: "=POWER(2, 10)"
+    abs_result:
+      formula: "=ABS(-42)"
+    # Statistical
+    percentile_result:
+      formula: "=PERCENTILE(data.values, 0.5)"
+    quartile_q1:
+      formula: "=QUARTILE(data.values, 1)"
+    quartile_q2:
+      formula: "=QUARTILE(data.values, 2)"
+    quartile_q3:
+      formula: "=QUARTILE(data.values, 3)"
+    variance_stat:
+      formula: "=VAR(data.values)"
+    stdev_stat:
+      formula: "=STDEV(data.values)"
+    correl_result:
+      formula: "=CORREL(data.values, data.other)"
+
+  text:
+    concat_result:
+      formula: "=CONCAT(\"Hello\", \" \", \"World\")"
+    trim_result:
+      formula: "=TRIM(\"  spaced  \")"
+    upper_result:
+      formula: "=UPPER(\"hello\")"
+    lower_result:
+      formula: "=LOWER(\"HELLO\")"
+    len_result:
+      formula: "=LEN(\"Hello World\")"
+    mid_result:
+      formula: "=MID(\"Hello World\", 7, 5)"
+    mid_edge:
+      formula: "=MID(\"Hi\", 10, 5)"
+
+  # Array function tests (from test_array_functions.yaml)
+  array_tests:
+    # Basic aggregations
+    sum_result:
+      formula: "=SUM(numbers.value)"
+    avg_result:
+      formula: "=AVERAGE(numbers.value)"
+    count_result:
+      formula: "=COUNT(numbers.value)"
+    max_result:
+      formula: "=MAX(numbers.value)"
+    min_result:
+      formula: "=MIN(numbers.value)"
+    median_result:
+      formula: "=MEDIAN(numbers.value)"
+    # Products
+    product_result:
+      formula: "=PRODUCT(numbers.value)"
+    # Array indexing
+    index_first:
+      formula: "=numbers.value[0]"
+    index_last:
+      formula: "=numbers.value[4]"
+    # Cross-table reference
+    cross_table_sum:
+      formula: "=SUM(other.amount)"
+
+  # Lookup function tests (from test_lookup_functions.yaml)
+  lookup_tests:
+    # VLOOKUP tests
+    vlookup_exact:
+      formula: "=VLOOKUP(\"Widget\", products.name, products.price)"
+    vlookup_notfound:
+      formula: "=VLOOKUP(\"Nonexistent\", products.name, products.price)"
+    # INDEX tests
+    index_result:
+      formula: "=INDEX(products.price, 2)"
+    # MATCH tests
+    match_exact:
+      formula: "=MATCH(\"Widget\", products.name)"
+    # CHOOSE test
+    choose_result:
+      formula: "=CHOOSE(2, 10, 20, 30)"
+
+  # Conditional aggregation tests (from test_conditional_aggregation.yaml)
+  results:
+    # Single criteria aggregations
+    sumif_result:
+      formula: "=SUMIF(sales.region, \"North\", sales.amount)"
+    countif_result:
+      formula: "=COUNTIF(sales.region, \"North\")"
+    averageif_result:
+      formula: "=AVERAGEIF(sales.region, \"North\", sales.amount)"
+    # Multiple criteria aggregations
+    sumifs_result:
+      formula: "=SUMIFS(sales.amount, sales.region, \"North\", sales.status, \"Active\")"
+    countifs_result:
+      formula: "=COUNTIFS(sales.region, \"North\", sales.status, \"Active\")"
+    averageifs_result:
+      formula: "=AVERAGEIFS(sales.amount, sales.region, \"North\", sales.status, \"Active\")"
+    # Numeric criteria with operators
+    sumif_gt:
+      formula: "=SUMIF(sales.amount, \">1000\", sales.amount)"
+    sumif_lt:
+      formula: "=SUMIF(sales.amount, \"<500\", sales.amount)"
+    sumif_eq:
+      formula: "=SUMIF(sales.amount, \"=1000\", sales.amount)"
+    sumif_ne:
+      formula: "=SUMIF(sales.amount, \"<>500\", sales.amount)"
+    sumif_gte:
+      formula: "=SUMIF(sales.amount, \">=1000\", sales.amount)"
+    sumif_lte:
+      formula: "=SUMIF(sales.amount, \"<=500\", sales.amount)"
+    # Wildcard matching
+    countif_wildcard:
+      formula: "=COUNTIF(sales.region, \"*orth*\")"
+
+# -----------------------------------------------------------------------------
+# DATE FUNCTIONS (from test_date_functions.yaml)
+# -----------------------------------------------------------------------------
+
+dates:
+  start_date:
+    value: "2024-01-15"
+    formula: null
+  end_date:
+    value: "2025-06-20"
+    formula: null
+  leap_year_date:
+    value: "2024-02-29"
+    formula: null
+
+  # Date component extraction
+  year_result:
+    value: 2024
+    formula: "=YEAR(\"2024-03-15\")"
+  month_result:
+    value: 3
+    formula: "=MONTH(\"2024-03-15\")"
+  day_result:
+    value: 15
+    formula: "=DAY(\"2024-03-15\")"
+
+  # DATEDIF tests
+  datedif_years:
+    value: 4
+    formula: "=DATEDIF(\"2020-01-01\", \"2024-06-15\", \"Y\")"
+  datedif_months:
+    value: 5
+    formula: "=DATEDIF(\"2024-01-01\", \"2024-06-15\", \"M\")"
+  datedif_days:
+    value: 14
+    formula: "=DATEDIF(\"2024-01-01\", \"2024-01-15\", \"D\")"
+
+# -----------------------------------------------------------------------------
+# TABLES (combined from multiple files)
+# -----------------------------------------------------------------------------
+
+tables:
+  # Data table for math/statistical tests
+  data:
+    rows:
+      - values: 10
+        other: 20
+      - values: 20
+        other: 40
+      - values: 30
+        other: 60
+      - values: 40
+        other: 80
+      - values: 50
+        other: 100
+
+  # Numbers table for array function tests
+  numbers:
+    rows:
+      - value: 10
+        label: "A"
+      - value: 20
+        label: "B"
+      - value: 30
+        label: "C"
+      - value: 40
+        label: "D"
+      - value: 50
+        label: "E"
+
+  other:
+    rows:
+      - amount: 100
+      - amount: 200
+      - amount: 300
+
+  # Products table for lookup tests
+  products:
+    rows:
+      - name: "Widget"
+        price: 100
+        category: "A"
+      - name: "Gadget"
+        price: 200
+        category: "B"
+      - name: "Gizmo"
+        price: 150
+        category: "A"
+
+  # Sales table for conditional aggregation tests
+  sales:
+    rows:
+      - region: "North"
+        amount: 1000
+        status: "Active"
+      - region: "South"
+        amount: 500
+        status: "Active"
+      - region: "North"
+        amount: 1500
+        status: "Inactive"
+      - region: "East"
+        amount: 750
+        status: "Active"
+      - region: "North"
+        amount: 2000
+        status: "Active"
+
+# -----------------------------------------------------------------------------
+# ADVANCED FUNCTIONS (from test_advanced_functions.yaml)
+# -----------------------------------------------------------------------------
+
+inputs:
+  rate:
+    value: 0.05
+  periods:
+    value: 12
+  principal:
+    value: 10000
+  advanced_start_date:
+    value: "2025-01-15"
+  months_to_add:
+    value: 3
+
+outputs:
+  # Financial functions
+  pv_result:
+    formula: "=PV(rate / 12, periods, -1000)"
+  fv_result:
+    formula: "=FV(rate / 12, periods, -1000)"
+  pmt_result:
+    formula: "=PMT(rate / 12, periods, principal)"
+
+  # Date functions
+  date_result:
+    formula: "=DATE(2025, 6, 15)"
+  advanced_year_result:
+    formula: "=YEAR(advanced_start_date)"
+  advanced_month_result:
+    formula: "=MONTH(advanced_start_date)"
+  advanced_day_result:
+    formula: "=DAY(advanced_start_date)"
+  edate_result:
+    formula: "=EDATE(advanced_start_date, months_to_add)"
+  eomonth_result:
+    formula: "=EOMONTH(advanced_start_date, 0)"
+
+  # Math functions
+  advanced_round_result:
+    formula: "=ROUND(3.14159, 2)"
+  advanced_roundup_result:
+    formula: "=ROUNDUP(3.14159, 2)"
+  advanced_rounddown_result:
+    formula: "=ROUNDDOWN(3.14159, 2)"
+  advanced_ceiling_result:
+    formula: "=CEILING(3.14159, 0.5)"
+  advanced_floor_result:
+    formula: "=FLOOR(3.14159, 0.5)"
+  advanced_mod_result:
+    formula: "=MOD(17, 5)"
+  advanced_sqrt_result:
+    formula: "=SQRT(16)"
+  advanced_power_result:
+    formula: "=POWER(2, 10)"
+
+# Table with lookup tests
+lookup_data:
+  id: [1, 2, 3, 4, 5]
+  name: ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"]
+  value: [100, 200, 300, 400, 500]
+  category: ["A", "B", "A", "B", "A"]
+
+# Test conditional aggregation
+category_totals:
+  formula: "=SUMIF(lookup_data.category, \"A\", lookup_data.value)"
+
+# Variance functions test
+variance_data:
+  actual: [100, 150, 200]
+  budget: [120, 140, 180]
+  variance:
+    formula: "=VARIANCE(actual, budget)"
+  variance_pct:
+    formula: "=VARIANCE_PCT(actual, budget)"
+
+# CHOOSE and SWITCH tests
+selection_tests:
+  index_val: [1, 2, 3, 1, 2]
+  code: ["X", "Y", "Z", "X", "Y"]
+  # Test formulas using CHOOSE - select from list by index
+  choice_result:
+    formula: "=CHOOSE(index_val, 10, 20, 30)"
+  # Test SWITCH - match value and return result
+  switch_result:
+    formula: "=SWITCH(code, \"X\", 100, \"Y\", 200, \"Z\", 300, 0)"
+
+# LET function tests
+let_tests:
+  base: [10, 20, 30]
+  multiplier: [2, 3, 4]
+  # LET with named variables
+  let_result:
+    formula: "=LET(x, base, y, multiplier, x * y)"
+
+# -----------------------------------------------------------------------------
+# FORGE CUSTOM FUNCTIONS (from test_forge_functions.yaml)
+# -----------------------------------------------------------------------------
+
+metrics:
+  actual:
+    value: 100000
+    formula: null
+  budget:
+    value: 120000
+    formula: null
+
+  # VARIANCE tests
+  variance_result:
+    value: -20000
+    formula: "=VARIANCE(actual, budget)"
+  variance_pct_result:
+    value: -0.1667
+    formula: "=VARIANCE_PCT(actual, budget)"
+  variance_status_under:
+    value: -1
+    formula: "=VARIANCE_STATUS(actual, budget, 0.10)"
+  variance_status_within:
+    value: 0
+    formula: "=VARIANCE_STATUS(115000, budget, 0.10)"
+  variance_status_over:
+    value: 1
+    formula: "=VARIANCE_STATUS(150000, budget, 0.10)"
+
+breakeven:
+  fixed_costs:
+    value: 50000
+    formula: null
+  price:
+    value: 100
+    formula: null
+  variable_cost:
+    value: 60
+    formula: null
+
+  # BREAKEVEN tests
+  breakeven_units:
+    value: 1250
+    formula: "=BREAKEVEN_UNITS(fixed_costs, price, variable_cost)"
+  breakeven_revenue:
+    value: 125000
+    formula: "=BREAKEVEN_REVENUE(fixed_costs, price, variable_cost)"

@@ -1,6 +1,6 @@
 [package]
 name = "mollendorff-forge"
-version = "10.0.0-alpha.6"
+version = "10.0.0-alpha.7"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "Möllendorff Group Inc. <admin@mollendorff.ai>"]
 description = "Battle-tested financial math for AI. 173 Excel-compatible functions validated against Gnumeric & R. MCP integration, Monte Carlo, Decision Trees, Real Options."
@@ -89,7 +89,6 @@ notify-debouncer-mini = "0.7"
 
 # Async runtime (API server, MCP server)
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "signal", "net"] }
-async-trait = "0.1"
 
 # API Server (v2.0.0 - enterprise HTTP API)
 axum = "0.8"

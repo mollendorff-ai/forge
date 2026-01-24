@@ -6,6 +6,8 @@
 
 ---
 
+> **Note:** The license section of this ADR was superseded by ADR-031-LICENSE-ELASTIC-2.0.md
+
 ## Context
 
 Forge needs a go-to-market strategy that balances:

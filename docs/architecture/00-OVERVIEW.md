@@ -28,7 +28,7 @@
 Forge is a **deterministic YAML formula calculator** with **bidirectional Excel integration**. It enables financial modeling, business calculations, and data processing with:
 
 - **Zero hallucinations** - Mathematical calculations, not AI pattern matching
-- **Excel compatibility** - 60+ Excel functions, formula preservation
+- **Excel compatibility** - 173 Excel functions, formula preservation
 - **Type-safe arrays** - Homogeneous column arrays with compile-time safety
 - **Version control** - YAML files tracked in Git, not binary Excel files
 - **Cross-file references** - Modular models with `@alias.variable` syntax
@@ -65,7 +65,7 @@ graph TB
     business["👤 Business User<br/>Business Logic,<br/>Pricing, Unit Economics"]
 
     %% Forge System
-    forge["Forge<br/>YAML Formula Calculator<br/><br/>✓ Calculate formulas<br/>✓ Validate models<br/>✓ Export to Excel<br/>✓ Import from Excel<br/>✓ Cross-file references<br/><br/>Zero Hallucinations:<br/>60+ Excel functions<br/>Type-safe arrays"]
+    forge["Forge<br/>YAML Formula Calculator<br/><br/>✓ Calculate formulas<br/>✓ Validate models<br/>✓ Export to Excel<br/>✓ Import from Excel<br/>✓ Cross-file references<br/><br/>Zero Hallucinations:<br/>173 Excel functions<br/>Type-safe arrays"]
 
     %% External Systems
     git[("📦 Git Repository<br/>Version Control")]
@@ -261,12 +261,12 @@ graph TB
 
 - **850+ formulas tested** - Real-world financial models
 - **Cross-file includes** - Modular models up to 10+ files
-- **60+ Excel functions** - Growing function library
+- **173 Excel functions** - Growing function library
 - **Type-safe arrays** - Any array length supported
 
 ### Reliability
 
-- **183 tests passing** - 134 unit, 29 e2e, 6 integration, 5 validation, 8 perf, 2 doc
+- **2133 tests passing** - 134 unit, 29 e2e, 6 integration, 5 validation, 8 perf, 2 doc
 - **Zero warnings** - cargo clippy pedantic mode
 - **Zero bugs** - No known bugs in production
 
@@ -462,7 +462,7 @@ Financial calculations must be **unambiguous**:
 
 ### Technical
 
-- **183 tests passing** (100% pass rate)
+- **2133 tests passing** (100% pass rate)
 - **ZERO warnings** (cargo clippy pedantic)
 - **96K rows/sec** throughput
 - **0 known bugs** in production

@@ -492,8 +492,9 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::const_is_empty)]
     fn test_current_version() {
-        // Verify we can read the current version
+        // Verify we can read the current version (CARGO_PKG_VERSION is always set)
         assert!(!CURRENT_VERSION.is_empty());
         assert!(CURRENT_VERSION.contains('.'));
     }
