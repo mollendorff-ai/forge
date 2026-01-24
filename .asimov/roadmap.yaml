@@ -6,18 +6,21 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "10.0.0-alpha.8"
-  status: in_progress
-  summary: "Hotfix - Install to ~/.cargo/bin instead of ~/bin"
+  version: "10.0.0-alpha.9"
+  status: done
+  summary: "Cleanup - Remove legacy install targets, standardize on ~/.cargo/bin"
   tasks:
-    - "Change install-forge target from ~/bin to ~/.cargo/bin"
-    - "Update Makefile help text"
-    - "Update roadmap references"
+    - "Remove install-system, install-user, install targets from Makefile"
+    - "Update uninstall to handle ~/.cargo/bin only"
+    - "Update project.yaml install_path references"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # COMPLETED - See CHANGELOG.md for full details
 # ─────────────────────────────────────────────────────────────────────────────
 completed:
+  - version: "10.0.0-alpha.8"
+    date: "2026-01-24"
+    summary: "Hotfix - Install to ~/.cargo/bin instead of ~/bin"
   - version: "10.0.0-alpha.7"
     date: "2026-01-24"
     summary: "Codebase Cleanup - 29 deleted, 14 moved, 14 updated, 11 consolidated"
