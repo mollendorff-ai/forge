@@ -2,113 +2,17 @@
 # Version: Cargo.toml | History: CHANGELOG.md | Config: project.yaml
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CURRENT - Codebase Cleanup & Documentation Consolidation
+# CURRENT - Next release
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "10.0.0-alpha.7"
-  status: released
-  summary: "Codebase Cleanup - Delete orphans, consolidate docs, fix ADRs"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # PHASE 1: DELETE - Remove orphaned/redundant files (29 files)
-  # ─────────────────────────────────────────────────────────────────────────────
-  phase1_delete:
-    documentation:
-      - "docs/INSTALLATION.md - Misnamed, contains only license info"
-      - "docs/VERSION_HISTORY.md - 100% redundant with CHANGELOG.md"
-      - "FP&A_TEST_COVERAGE_AUDIT.md - Outdated Dec 2025 audit, resolved in v7.2.0"
-
-    adrs:
-      - "docs/architecture/ADR-003-EDITOR-EXTENSIONS.md - Explicitly superseded by ADR-005"
-
-    schemas:
-      - "schema/forge-v1.0.schema.json.deprecated - Confusing name, redundant"
-      - ".asimov/protocols.json - 100% duplicate of individual JSON files"
-
-    scripts:
-      - "bin/release.sh - Superseded by .github/workflows/release.yml"
-      - "bin/session-end.sh - Manual developer utility, not needed in repo"
-
-    examples:
-      - "examples/check_columns.rs - Orphaned debug script"
-      - "examples/check_export.rs - Orphaned debug script"
-      - "examples/debug_parse.rs - Orphaned debug script"
-      - "examples/test_formulas.rs - Orphaned debug script"
-
-    test_data:
-      - "test-data/test.yaml - Too simple, covered by budget.yaml"
-      - "test-data/test_underscore.yaml - Too simple"
-      - "test-data/test_platform.yaml - Redundant with budget.yaml"
-      - "test-data/test_financial.yaml - Redundant"
-      - "test-data/test_valid_updated.yaml - Minimal value"
-      - "test-data/scalar_metadata_test.yaml - Too minimal"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # PHASE 2: RENAME/MOVE - Fix organization (14 files)
-  # ─────────────────────────────────────────────────────────────────────────────
-  phase2_reorganize:
-    adr_fixes:
-      - "ADR-004-XLFORMULA-EQUIVALENCE.md → ADR-011-XLFORMULA-EQUIVALENCE.md (fix duplicate number)"
-      - "ADR-024-SELF-UPDATE-REMOVAL.md → ADR-024-SELF-UPDATE.md (fix misleading title)"
-
-    design_to_adr:
-      - "docs/EXCEL_EXPORT_DESIGN.md → docs/architecture/ADR-033-EXCEL-EXPORT.md"
-      - "docs/EXCEL_IMPORT_DESIGN.md → docs/architecture/ADR-034-EXCEL-IMPORT.md"
-      - "docs/FORGE_V4_DESIGN.md → docs/architecture/ADR-035-RICH-METADATA.md"
-
-    test_data_organize:
-      - "Rename test-data/v1.0/ → test-data/examples/ (confusing name - files are v5.0.0)"
-      - "Move v4_*.yaml files (6 files) to test-data/advanced/"
-      - "Move quota_forecast.yaml to examples/"
-
-    config:
-      - "Move references.yaml to .asimov/ or delete"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # PHASE 3: UPDATE - Fix content issues (14 files)
-  # ─────────────────────────────────────────────────────────────────────────────
-  phase3_update:
-    adrs:
-      - "ADR-012-FEATURE-FLAGS.md - Add note: pattern changed by ADR-025"
-      - "ADR-015-FUNCTION-SCALAR-CLASSIFICATION.md - Fix header (says ADR-014)"
-      - "ADR-030-GTM-LICENSING-STRATEGY.md - Note: license section superseded by ADR-031"
-      - "docs/architecture/00-OVERVIEW.md - Update stats (60→173 functions)"
-
-    schemas:
-      - "schema/README.md - Fix broken reference, document both v1.0.0 and v5.0.0"
-
-    config:
-      - ".markdownlint.json - Remove duplicate keys (MD007, MD034, MD049)"
-
-    source:
-      - "Fix 3 clippy warnings in schema.rs and update.rs"
-      - "Remove unused async-trait dependency from Cargo.toml"
-      - "Review core/array_calculator/dates.rs dead code (594 lines)"
-
-    changelog:
-      - "Archive v7.x and earlier to docs/CHANGELOG_ARCHIVE.md (2567→600 lines)"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # PHASE 4: CONSOLIDATE - Merge test files (11 → 2 files)
-  # ─────────────────────────────────────────────────────────────────────────────
-  phase4_consolidate:
-    function_tests:
-      - "Merge into test_all_functions.yaml:"
-      - "  - test_formula_functions.yaml"
-      - "  - test_math_text_functions.yaml"
-      - "  - test_date_functions.yaml"
-      - "  - test_array_functions.yaml"
-      - "  - test_lookup_functions.yaml"
-      - "  - test_conditional_aggregation.yaml"
-      - "  - test_advanced_functions.yaml"
-      - "  - test_forge_functions.yaml"
-
-    if_tests:
-      - "Merge into test_if_function.yaml:"
-      - "  - if_compare_test.yaml"
-      - "  - if_scalar_test.yaml"
-      - "  - if_mult3_test.yaml"
+  version: "10.0.0-alpha.8"
+  status: in_progress
+  summary: "Hotfix - Install to ~/.cargo/bin instead of ~/bin"
+  tasks:
+    - "Change install-forge target from ~/bin to ~/.cargo/bin"
+    - "Update Makefile help text"
+    - "Update roadmap references"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # COMPLETED - See CHANGELOG.md for full details
@@ -295,7 +199,7 @@ next:
       - "  - Detect platform (linux-musl, darwin, windows)"
       - "  - Download correct asset (forge-{target}.tar.gz)"
       - "  - Verify SHA256 from checksums.txt"
-      - "  - Extract and install to ~/bin/ (or current binary path)"
+      - "  - Extract and install to ~/.cargo/bin/ (or current binary path)"
       - "  - Include forge-mcp and forge-server in update"
       - "  - forge update --check (check only, don't install)"
       - "Phase 3: Update ADR-024"

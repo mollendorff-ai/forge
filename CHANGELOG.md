@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-alpha.8] - 2026-01-24
+
+### Changed
+
+- **Install location**: `make install-forge` now installs to `~/.cargo/bin/` instead of `~/bin/`
+  - `~/.cargo/bin` is the default Rust bin directory, automatically in PATH for Rust users
+  - No need to manually add directory to PATH
+
 ## [10.0.0-alpha.7] - 2026-01-24
 
 ### Codebase Cleanup
