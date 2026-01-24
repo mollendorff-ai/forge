@@ -6,7 +6,7 @@
 //! - Hover to see calculated values
 //! - Go to definition
 //!
-//! Requires: forge-lsp in PATH (build from source: github.com/royalbit/forge)
+//! Requires: forge-lsp in PATH (build from source: github.com/mollendorff-ai/forge)
 
 use zed_extension_api::{self as zed, LanguageServerId, Result};
 
@@ -25,7 +25,7 @@ impl zed::Extension for ForgeExtension {
         // Check for forge-lsp in worktree's PATH or system PATH
         let path = worktree
             .which("forge-lsp")
-            .ok_or_else(|| "forge-lsp not found in PATH. Build from source: github.com/royalbit/forge".to_string())?;
+            .ok_or_else(|| "forge-lsp not found in PATH. Build from source: github.com/mollendorff-ai/forge".to_string())?;
 
         Ok(zed::Command {
             command: path,

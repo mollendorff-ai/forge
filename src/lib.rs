@@ -15,8 +15,8 @@
 //! # Example
 //!
 //! ```no_run
-//! use royalbit_forge::parser::parse_model;
-//! use royalbit_forge::core::ArrayCalculator;
+//! use mollendorff_forge::parser::parse_model;
+//! use mollendorff_forge::core::ArrayCalculator;
 //! use std::path::Path;
 //!
 //! let path = Path::new("model.yaml");
@@ -27,7 +27,7 @@
 //!
 //! let calculator = ArrayCalculator::new(model);
 //! let result = calculator.calculate_all()?;
-//! # Ok::<(), royalbit_forge::error::ForgeError>(())
+//! # Ok::<(), mollendorff_forge::error::ForgeError>(())
 //! ```
 
 // Demo modules (always included)

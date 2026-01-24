@@ -5,7 +5,7 @@
 **Updated:** 2025-12-17 (Tests migrated to forge-e2e)
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)
 
-> **E2E tests live in [forge-e2e](https://github.com/royalbit/forge-e2e)** - see ADR-027.
+> **E2E tests live in [forge-e2e](https://github.com/mollendorff-ai/forge-e2e)** - see ADR-027.
 
 ---
 

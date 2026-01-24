@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-alpha.6] - 2026-01-24
+
+### Rebranding: RoyalBit to Möllendorff Group Inc.
+
+Complete organizational rebrand to disassociate from cryptocurrency scammers who hijacked the RoyalBit name.
+
+### Changed
+
+- **Crate renamed**: `royalbit-forge` → `mollendorff-forge`
+- **GitHub repository**: `royalbit/forge` → `mollendorff-ai/forge`
+- **Website**: `royalbit.ca/forge` → `mollendorff.ai/forge`
+- **Author email**: `admin@royalbit.ca` → `admin@mollendorff.ai`
+- **All source files**: Updated `use royalbit_forge` → `use mollendorff_forge`
+- **Schema $id URLs**: Updated to `mollendorff-ai/forge`
+- **Documentation**: All ADRs, README, FEATURES.md updated
+- **Editor extensions**: Zed and VSCode extensions updated
+- **Config files**: .cargo/config.toml, rustfmt.toml, audit.toml
+- **.asimov files**: project.yaml, warmup.json updated
+
+### Why Rebrand?
+
+The "RoyalBit" name (company founded 2006) was hijacked by unrelated cryptocurrency scammers:
+
+- **UK FCA Warning (Oct 2024)**: Official warning about "Royalbit Miners" - unauthorized firm
+- **Fraudulent domains**: royalbit.ltd (trust score 38/100), royalbit.top, royal-bit.club
+- **HYIP Ponzi schemes**: Offering impossible returns (155-580% in days)
+- **Sources**: [FCA Warning](https://www.fca.org.uk/news/warnings/royalbit-miners), [Scam Detector](https://www.scam-detector.com/validator/royalbit-ltd-review/)
+
 ## [10.0.0-alpha.4] - 2026-01-02
 
 ### CLI Documentation: schema + examples commands
@@ -57,7 +85,7 @@ This release establishes the full CI/CD pipeline and multi-platform distribution
 
 - **GitHub Actions CI** - Automated test, lint, build on every push
 - **GitHub Actions Release** - Multi-arch builds triggered on version tags
-- **crates.io publishing** - `royalbit-forge` published automatically on release
+- **crates.io publishing** - `mollendorff-forge` published automatically on release
 - **README badges** - CI status, crates.io version, license badge
 - **forge-e2e CI/CD** - Same pipeline for E2E validation tool
 
@@ -1315,7 +1343,7 @@ Comprehensive test coverage improvements toward 100% goal.
 | **Business internal use** | ❌ Requires license |
 | **SaaS/hosted service** | ❌ Requires license |
 
-For commercial licensing, open an issue at: https://github.com/royalbit/forge/issues
+For commercial licensing, open an issue at: https://github.com/mollendorff-ai/forge/issues
 
 ### Added (v4.4.x Features)
 
@@ -1412,7 +1440,7 @@ Automated release workflow for cross-platform binary distribution.
 
 ### Infrastructure
 
-- Parity with RoyalBit Asimov CI/CD pipeline
+- Parity with Möllendorff AI Asimov CI/CD pipeline
 - Binary artifacts available via GitHub Releases
 - SHA256 checksums for all release artifacts
 
@@ -1420,9 +1448,9 @@ Automated release workflow for cross-platform binary distribution.
 
 ## [4.1.3] - 2025-11-30
 
-### RoyalBit Asimov 7.0.7 Schema Compliance
+### Möllendorff AI Asimov 7.0.7 Schema Compliance
 
-Updated protocol files to comply with RoyalBit Asimov v7.0.7 schema.
+Updated protocol files to comply with Möllendorff AI Asimov v7.0.7 schema.
 
 ### Fixed
 
@@ -1436,8 +1464,8 @@ Updated protocol files to comply with RoyalBit Asimov v7.0.7 schema.
 
 ### Fixed: README header consistency
 
-- **README**: Reordered header - badges first, then RoyalBit Asimov tagline
-- Consistent with RoyalBit Asimov README structure
+- **README**: Reordered header - badges first, then Möllendorff AI Asimov tagline
+- Consistent with Möllendorff AI Asimov README structure
 
 ---
 
@@ -1445,9 +1473,9 @@ Updated protocol files to comply with RoyalBit Asimov v7.0.7 schema.
 
 ### Fixed: Crate metadata for crates.io
 
-- **Description**: Updated from "RoyalBit Asimov" to "RoyalBit Asimov" reference
+- **Description**: Updated from "Möllendorff AI Asimov" to "Möllendorff AI Asimov" reference
 - **Keywords**: Changed `forge-protocol` to `asimov`
-- **Protocol links**: All references now point to `royalbit/asimov`
+- **Protocol links**: All references now point to `mollendorff-ai/asimov`
 
 ---
 
@@ -1668,28 +1696,28 @@ Fixed homepage (should be forge, not forge-protocol). Protocol now in descriptio
 ### Changed
 
 - Homepage restored to forge repo
-- Protocol link embedded in description: "built with the RoyalBit Asimov (github.com/royalbit/asimov)"
+- Protocol link embedded in description: "built with the Möllendorff AI Asimov (github.com/mollendorff-ai/asimov)"
 
 ---
 
 ## [3.1.2] - 2025-11-25
 
-### RoyalBit Asimov Standalone Repository
+### Möllendorff AI Asimov Standalone Repository
 
 The protocol that made this project possible now has its own home.
 
 ### Changed
 
-- **Protocol extracted** to [royalbit/asimov](https://github.com/royalbit/asimov)
-- Updated crates.io metadata to reference the RoyalBit Asimov
+- **Protocol extracted** to [mollendorff-ai/asimov](https://github.com/mollendorff-ai/asimov)
+- Updated crates.io metadata to reference the Möllendorff AI Asimov
 - Added "asimov" keyword, replaced "financial"
 - Told the origin story in warmup.yaml and README
 
 ### The Circular Story
 
-This project birthed the RoyalBit Asimov. We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
+This project birthed the Möllendorff AI Asimov. We (Rex + Claude) built v1.0 through v3.1 together, discovering what worked: bounded sessions, quality gates, shipping discipline. Those hard-won lessons became the protocol.
 
-Now it's circular: **Forge uses the RoyalBit Asimov to build Forge.**
+Now it's circular: **Forge uses the Möllendorff AI Asimov to build Forge.**
 
 ### Stats
 
@@ -1702,17 +1730,17 @@ Now it's circular: **Forge uses the RoyalBit Asimov to build Forge.**
 
 ### Documentation Release
 
-**RoyalBit Asimov Suite** - Renamed and documented the AI autonomy framework.
+**Möllendorff AI Asimov Suite** - Renamed and documented the AI autonomy framework.
 
 ### Changed
 
-- Renamed "Warmup Protocol" to "RoyalBit Asimov" across all documentation
+- Renamed "Warmup Protocol" to "Möllendorff AI Asimov" across all documentation
 - `THE-WARMUP-PROTOCOL.md` → `FORGE-PROTOCOL.md`
 - Added vendor-agnostic philosophy section (no CLAUDE.md, no lock-in)
-- Added RoyalBit Asimov Suite explanation (warmup.yaml + sprint.yaml + roadmap.yaml)
-- Updated warmup.yaml with RoyalBit Asimov branding
+- Added Möllendorff AI Asimov Suite explanation (warmup.yaml + sprint.yaml + roadmap.yaml)
+- Updated warmup.yaml with Möllendorff AI Asimov branding
 - Added "ai-built" keyword to crates.io metadata
-- Updated README documentation table with RoyalBit Asimov link
+- Updated README documentation table with Möllendorff AI Asimov link
 
 ### Stats
 
@@ -2021,7 +2049,7 @@ Multi-scenario modeling for sensitivity analysis and what-if modeling.
 
 ### 🎉 Advanced Financial Functions Release
 
-Built autonomously via RoyalBit Asimov.
+Built autonomously via Möllendorff AI Asimov.
 
 ### Added
 
@@ -2066,7 +2094,7 @@ Built autonomously via RoyalBit Asimov.
 
 ### Development Stats
 
-- **Time:** Autonomous development via RoyalBit Asimov
+- **Time:** Autonomous development via Möllendorff AI Asimov
 - **Quality:** Zero warnings, all tests passing
 
 ---
@@ -2207,7 +2235,7 @@ Documentation-only patch release.
 
 ### 🎉 Lookup Functions Release
 
-Built autonomously via RoyalBit Asimov in <3 hours.
+Built autonomously via Möllendorff AI Asimov in <3 hours.
 
 ### Added
 
@@ -2250,7 +2278,7 @@ Built autonomously via RoyalBit Asimov in <3 hours.
 
 ### Development Stats
 
-- **Time:** <3 hours (autonomous AI via RoyalBit Asimov)
+- **Time:** <3 hours (autonomous AI via Möllendorff AI Asimov)
 - **Quality:** 690 lines production code, zero warnings
 - **Innovation:** Preprocessing approach for lookups in row-wise model
 
@@ -2260,7 +2288,7 @@ Built autonomously via RoyalBit Asimov in <3 hours.
 
 ### 🎉 Major Release: 27 Essential Excel Functions
 
-Built autonomously via RoyalBit Asimov in <8 hours. All phases completed with zero warnings.
+Built autonomously via Möllendorff AI Asimov in <8 hours. All phases completed with zero warnings.
 
 ### Added
 
@@ -2345,7 +2373,7 @@ Built autonomously via RoyalBit Asimov in <8 hours. All phases completed with ze
 
 ### Development Stats
 
-- **Time:** <8 hours (autonomous development via RoyalBit Asimov)
+- **Time:** <8 hours (autonomous development via Möllendorff AI Asimov)
 - **Estimated traditional:** 2-3 weeks
 - **Velocity:** 20-50x faster
 - **Rework:** 0% (production-ready in first iteration)
@@ -2450,7 +2478,7 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 
 ### Development
 
-- Built in 12.5 hours using RoyalBit Asimov (overnight + morning) (autonomous AI development)
+- Built in 12.5 hours using Möllendorff AI Asimov (overnight + morning) (autonomous AI development)
 - SR&ED documented: 7 research entries
 - Zero bugs shipped to production
 - 100% backwards compatible with v0.2.0
@@ -2505,7 +2533,7 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 
 ### Development Methodology
 
-- **RoyalBit Asimov:** All v1.0.0+ development uses autonomous AI development methodology
+- **Möllendorff AI Asimov:** All v1.0.0+ development uses autonomous AI development methodology
 - **SR&ED Documented:** All R&D work documented in SRED_RESEARCH_LOG.md for Canadian tax credits
 - **Zero Warnings Policy:** All releases pass `clippy -D warnings` (strict mode)
 - **Test-Driven:** Comprehensive test coverage before release

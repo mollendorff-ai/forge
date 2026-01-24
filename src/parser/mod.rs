@@ -45,12 +45,12 @@ use crate::types::ParsedModel;
 ///
 /// # Example
 /// ```no_run
-/// use royalbit_forge::parser::parse_model;
+/// use mollendorff_forge::parser::parse_model;
 /// use std::path::Path;
 ///
 /// let model = parse_model(Path::new("model.yaml"))?;
 /// println!("Tables: {}", model.tables.len());
-/// # Ok::<(), royalbit_forge::error::ForgeError>(())
+/// # Ok::<(), mollendorff_forge::error::ForgeError>(())
 /// ```
 pub fn parse_model(path: &std::path::Path) -> ForgeResult<ParsedModel> {
     let content = std::fs::read_to_string(path)?;

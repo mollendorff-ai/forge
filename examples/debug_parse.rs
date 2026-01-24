@@ -1,4 +1,4 @@
-use royalbit_forge::parser;
+use mollendorff_forge::parser;
 use std::path::PathBuf;
 
 fn main() {

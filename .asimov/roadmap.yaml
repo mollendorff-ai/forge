@@ -2,18 +2,21 @@
 # Version: Cargo.toml | History: CHANGELOG.md | Config: project.yaml
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CURRENT - Elastic License 2.0 Implementation
+# CURRENT - Ready for next milestone
 # ═══════════════════════════════════════════════════════════════════════════════
 
 current:
-  version: "10.0.0-alpha.5"
+  version: "10.0.0-alpha.6"
   status: released
-  summary: "Self-update command restored (ADR-024)"
+  summary: "Rebrand RoyalBit to Möllendorff Group Inc."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # COMPLETED - See CHANGELOG.md for full details
 # ─────────────────────────────────────────────────────────────────────────────
 completed:
+  - version: "10.0.0-alpha.6"
+    date: "2026-01-24"
+    summary: "Rebrand RoyalBit to Möllendorff Group Inc."
   - version: "10.0.0-alpha.5"
     date: "2026-01-03"
     summary: "Self-update command restored (ADR-024)"
@@ -185,7 +188,7 @@ next:
       - "  - Remove 'upgrade' entirely (no users yet)"
       - "  - Update all docs, help text, README"
       - "Phase 2: Restore update command (from ADR-024)"
-      - "  - Fetch https://api.github.com/repos/royalbit/forge/releases/latest"
+      - "  - Fetch https://api.github.com/repos/mollendorff-ai/forge/releases/latest"
       - "  - Detect platform (linux-musl, darwin, windows)"
       - "  - Download correct asset (forge-{target}.tar.gz)"
       - "  - Verify SHA256 from checksums.txt"

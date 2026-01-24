@@ -476,7 +476,7 @@ Financial calculations must be **unambiguous**:
 
 ### Development
 
-- **20-50x velocity** vs manual coding (RoyalBit Asimov)
+- **20-50x velocity** vs manual coding (Möllendorff Asimov)
 - **12.5 hours** for v1.0.0 (autonomous AI)
 - **<8 hours** for v1.2.1 (27 functions)
 - **Zero rework** (correct first time)

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/royalbit/forge/schema/forge-v1.0.0.json",
+  "$id": "https://github.com/mollendorff-ai/forge/schema/forge-v1.0.0.json",
   "title": "Forge Financial Model Schema v1.0.0 - Scalar Only",
   "description": "JSON Schema for Forge v1.0.0 models (forge-demo). SCALAR VALUES ONLY - no arrays, no tables. Use v5.0.0 for enterprise features.",
   "type": "object",

@@ -1,5 +1,5 @@
 # Project Context - Forge
-# RoyalBit Asimov Project Configuration
+# Möllendorff AI Asimov Project Configuration
 
 identity:
   name: "forge"
@@ -16,7 +16,7 @@ external_projects:
   forge-demo:
     path: "../forge-demo"
     description: "Public forge-demo binary distribution"
-    github: "https://github.com/royalbit/forge-demo"
+    github: "https://github.com/mollendorff-ai/forge-demo"
     type: "git"
     distribution: "github"
     contents:
@@ -34,9 +34,9 @@ external_projects:
       - "tests/e2e/enterprise/ - Enterprise function tests"
       - "tests/e2e/edge/ - Edge case tests"
 
-  royalbit-website:
-    path: "~/src/sites/royalbit.ca"
-    description: "RoyalBit company website"
+  mollendorff-website:
+    path: "~/src/sites/mollendorff.ai"
+    description: "Möllendorff company website"
     type: "git (gitolite)"
     forge_page: "html/forge/index.html"
     contents:
@@ -69,7 +69,7 @@ makefile:
   # ─────────────────────────────────────────────────────────────────────────────
   # GITHUB RELEASE (auto-detects version from Cargo.toml)
   # ─────────────────────────────────────────────────────────────────────────────
-  publish: "make publish-demo"               # Build + publish to royalbit/forge-demo
+  publish: "make publish-demo"               # Build + publish to mollendorff-ai/forge-demo
 
   # ─────────────────────────────────────────────────────────────────────────────
   # QUALITY CHECKS
@@ -89,14 +89,14 @@ quality:
 
 binaries:
   # ─────────────────────────────────────────────────────────────────────────────
-  # PUBLIC - GitHub Releases (royalbit/forge)
+  # PUBLIC - GitHub Releases (mollendorff-ai/forge)
   # ─────────────────────────────────────────────────────────────────────────────
   demo:
     name: "forge-demo"
     features: []
     functions: 47
     distribution: "github"  # Cross-platform builds → GitHub Releases
-    github_repo: "royalbit/forge-demo"
+    github_repo: "mollendorff-ai/forge-demo"
     platforms: ["macos-arm64", "macos-x86_64", "linux-x86_64", "linux-arm64", "windows"]
 
   # ─────────────────────────────────────────────────────────────────────────────
@@ -184,14 +184,14 @@ release:
   # DISTRIBUTION RULES (CRITICAL - READ BEFORE RELEASING)
   # ─────────────────────────────────────────────────────────────────────────────
   #
-  # ONLY ONE PUBLIC REPO: royalbit/forge-demo
-  # (royalbit/forge no longer exists - redirects to forge-demo)
+  # ONLY ONE PUBLIC REPO: mollendorff-ai/forge-demo
+  # (mollendorff-ai/forge no longer exists - redirects to forge-demo)
   #
   distribution:
-    # PUBLIC: Both binaries → GitHub Releases (royalbit/forge-demo)
+    # PUBLIC: Both binaries → GitHub Releases (mollendorff-ai/forge-demo)
     forge-demo:
       target: "github"
-      repo: "royalbit/forge-demo"
+      repo: "mollendorff-ai/forge-demo"
       source: "this"  # Built from this repo (forge)
       platforms:
         - "aarch64-apple-darwin (macOS ARM64)"
@@ -208,7 +208,7 @@ release:
 
     forge-e2e:
       target: "github"
-      repo: "royalbit/forge-demo"
+      repo: "mollendorff-ai/forge-demo"
       source: "../forge-e2e"  # Built from forge-e2e repo
 
     # PROPRIETARY: Local only → ~/bin (NEVER GitHub)

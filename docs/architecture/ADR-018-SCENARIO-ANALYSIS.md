@@ -171,7 +171,7 @@ forge calculate model.yaml --set revenue_growth=0.05
 
 ## Roundtrip Validation
 
-> **E2E tests live in [forge-e2e](https://github.com/royalbit/forge-e2e)** - see ADR-027.
+> **E2E tests live in [forge-e2e](https://github.com/mollendorff-ai/forge-e2e)** - see ADR-027.
 
 Scenario Analysis results are validated against **R** (the gold standard for statistical computing).
 

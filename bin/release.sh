@@ -102,12 +102,12 @@ See [CHANGELOG.md](CHANGELOG.md) for full details.
 
 \`\`\`bash
 # Download binary
-curl -L https://github.com/royalbit/forge/releases/download/v${VERSION}/${BINARY_NAME} -o forge
+curl -L https://github.com/mollendorff-ai/forge/releases/download/v${VERSION}/${BINARY_NAME} -o forge
 chmod +x forge
 sudo mv forge /usr/local/bin/
 
 # Or build from source
-git clone https://github.com/royalbit/forge
+git clone https://github.com/mollendorff-ai/forge
 cd forge && cargo install --path .
 \`\`\`
 
@@ -128,4 +128,4 @@ echo "  [ ] Update roadmap.yaml current version"
 echo "  [ ] Commit and push doc changes"
 echo ""
 echo "Links:"
-echo "  - GitHub: https://github.com/royalbit/forge/releases/tag/v${VERSION}"
+echo "  - GitHub: https://github.com/mollendorff-ai/forge/releases/tag/v${VERSION}"

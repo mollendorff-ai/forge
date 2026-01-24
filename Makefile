@@ -110,7 +110,7 @@ help:
 	@echo "  make test-all           - Run ALL unit tests (2,703 tests)"
 	@echo ""
 	@echo "E2E Tests (separate repository - ADR-027):"
-	@echo "  See: https://github.com/royalbit/forge-e2e"
+	@echo "  See: https://github.com/mollendorff-ai/forge-e2e"
 	@echo ""
 	@echo "Coverage Targets (ADR-004: 100% MANDATORY):"
 	@echo "  make coverage           - Run coverage, FAIL if < 100%"
@@ -125,7 +125,7 @@ help:
 	@echo "  make validate-all       - Run ALL validators (docs + yaml)"
 	@echo ""
 	@echo "Presentation:"
-	@echo "  (moved to https://github.com/royalbit/asimov)"
+	@echo "  (moved to https://github.com/mollendorff-ai/asimov)"
 	@echo ""
 	@echo "Workflows:"
 	@echo "  make pre-commit         - Full pre-commit check (format + lint + test + validate-all)"
@@ -462,7 +462,7 @@ test-integration:
 	@cargo test --test validation_tests
 
 # E2E tests migrated to forge-e2e (ADR-027)
-# See: https://github.com/royalbit/forge-e2e
+# See: https://github.com/mollendorff-ai/forge-e2e
 
 test-all: test test-validate test-calculate
 	@echo ""
@@ -669,5 +669,5 @@ check: format-check lint test-unit validate-docs
 # ═══════════════════════════════════════════════════════════════════════════
 # PRESENTATION
 # ═══════════════════════════════════════════════════════════════════════════
-# Presentation deck moved to: https://github.com/royalbit/asimov
+# Presentation deck moved to: https://github.com/mollendorff-ai/asimov
 # See: docs/PRESENTATION.md for redirect info

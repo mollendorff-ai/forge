@@ -22,8 +22,8 @@ references:
   status: redirect
   verified: 2026-01-03T00:58:11.981180762+00:00
   notes: https://gnome.pages.gitlab.gnome.org/gnumeric-web//numerical-issues.html
-- url: https://crates.io/crates/royalbit-forge
-  title: https://crates.io/crates/royalbit-forge
+- url: https://crates.io/crates/mollendorff-forge
+  title: https://crates.io/crates/mollendorff-forge
   categories:
   - readme
   cited_in:
@@ -38,8 +38,8 @@ references:
   - CHANGELOG.md
   status: ok
   verified: 2026-01-03T00:58:11.952262004+00:00
-- url: https://github.com/royalbit/asimov
-  title: RoyalBit Asimov
+- url: https://github.com/mollendorff-ai/asimov
+  title: Möllendorff AI Asimov
   categories:
   - readme
   cited_in:
@@ -47,8 +47,8 @@ references:
   - CHANGELOG.md
   status: ok
   verified: 2026-01-03T00:58:13.643549853+00:00
-- url: https://github.com/royalbit/forge
-  title: https://github.com/royalbit/forge
+- url: https://github.com/mollendorff-ai/forge
+  title: https://github.com/mollendorff-ai/forge
   categories:
   - readme
   cited_in:
@@ -56,15 +56,15 @@ references:
   - docs/INSTALLATION.md
   status: ok
   verified: 2026-01-03T00:58:13.726241680+00:00
-- url: https://github.com/royalbit/forge/actions/workflows/ci.yml
-  title: https://github.com/royalbit/forge/actions/workflows/ci.yml
+- url: https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml
+  title: https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml
   categories:
   - readme
   cited_in:
   - README.md
   status: ok
   verified: 2026-01-03T00:58:14.036650580+00:00
-- url: https://github.com/royalbit/forge/actions/workflows/ci.yml/badge.svg
+- url: https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml/badge.svg
   title: '![CI'
   categories:
   - readme
@@ -72,8 +72,8 @@ references:
   - README.md
   status: ok
   verified: 2026-01-03T00:58:12.265377790+00:00
-- url: https://github.com/royalbit/forge/issues
-  title: github.com/royalbit/forge/issues
+- url: https://github.com/mollendorff-ai/forge/issues
+  title: github.com/mollendorff-ai/forge/issues
   categories:
   - readme
   cited_in:
@@ -113,7 +113,7 @@ references:
   - README.md
   status: ok
   verified: 2026-01-03T00:58:14.077407390+00:00
-- url: https://img.shields.io/crates/v/royalbit-forge.svg
+- url: https://img.shields.io/crates/v/mollendorff-forge.svg
   title: '![crates.io'
   categories:
   - readme

@@ -235,8 +235,8 @@ e2e:
 - **ADR-006**: Coverage Exclusions - What not to test (unchanged)
 
 ### External Resources
-- **forge-e2e repository**: https://github.com/royalbit/forge-e2e (to be created)
-- **forge-demo repository**: https://github.com/royalbit/forge-demo (proved need for external validation)
+- **forge-e2e repository**: https://github.com/mollendorff-ai/forge-e2e (to be created)
+- **forge-demo repository**: https://github.com/mollendorff-ai/forge-demo (proved need for external validation)
 
 ### Validation Engines
 - **Gnumeric**: https://www.gnumeric.org/ (primary validation, see ADR-007)

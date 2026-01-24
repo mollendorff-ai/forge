@@ -1,4 +1,4 @@
-# RoyalBit Forge - Cargo build configuration
+# Möllendorff Forge - Cargo build configuration
 # Static musl builds for cross-platform distribution (no glibc dependency)
 
 # ═══════════════════════════════════════════════════════════════════════════════

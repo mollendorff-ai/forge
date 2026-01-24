@@ -244,7 +244,7 @@ Simulate paths with if/then decision rules.
 
 ## Roundtrip Validation
 
-> **E2E tests live in [forge-e2e](https://github.com/royalbit/forge-e2e)** - see ADR-027.
+> **E2E tests live in [forge-e2e](https://github.com/mollendorff-ai/forge-e2e)** - see ADR-027.
 
 Real Options results are validated using **RustQuant** (Rust-native options pricing).
 

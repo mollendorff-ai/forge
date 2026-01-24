@@ -2,8 +2,8 @@
 #![cfg_attr(coverage, allow(unused_imports))]
 
 use clap::{Parser, Subcommand};
-use royalbit_forge::cli;
-use royalbit_forge::error::ForgeResult;
+use mollendorff_forge::cli;
+use mollendorff_forge::error::ForgeResult;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -47,7 +47,7 @@ EXAMPLES:
   forge schema v5                               # Show JSON schema
   forge examples monte-carlo                    # Show Monte Carlo example
 
-Docs: https://royalbit.ca/forge")]
+Docs: https://mollendorff.ai/forge")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
