@@ -107,20 +107,20 @@ binaries:
     features: ["full"]
     functions: 159
     distribution: "local"  # Build for current machine only → ~/bin
-    install_path: "~/bin"
+    install_path: "~/.cargo/bin"
     note: "Proprietary. Self-hosted. NEVER push to GitHub."
   server:
     name: "forge-server"
     features: ["full"]
     description: "REST API server"
     distribution: "local"
-    install_path: "~/bin"
+    install_path: "~/.cargo/bin"
   mcp:
     name: "forge-mcp"
     features: ["full"]
     description: "AI/MCP server for Claude, GPT"
     distribution: "local"
-    install_path: "~/bin"
+    install_path: "~/.cargo/bin"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # KEY FILES
@@ -211,15 +211,15 @@ release:
       repo: "mollendorff-ai/forge-demo"
       source: "../forge-e2e"  # Built from forge-e2e repo
 
-    # PROPRIETARY: Local only → ~/bin (NEVER GitHub)
+    # PROPRIETARY: Local only → ~/.cargo/bin (NEVER GitHub)
     forge:
       target: "local"
-      install_path: "~/bin"
+      install_path: "~/.cargo/bin"
       platforms: ["current"]  # Only build for current machine
       note: "PROPRIETARY. NEVER push to GitHub. Self-hosted infrastructure only."
     forge-server:
       target: "local"
-      install_path: "~/bin"
+      install_path: "~/.cargo/bin"
     forge-mcp:
       target: "local"
-      install_path: "~/bin"
+      install_path: "~/.cargo/bin"

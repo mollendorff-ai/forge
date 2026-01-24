@@ -1,7 +1,7 @@
 # Forge - YAML Formula Calculator
 # Build and test targets for optimized binary
 
-.PHONY: help build build-static build-compressed build-all install install-user install-system uninstall install-forge install-all cross-forge lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
+.PHONY: help build build-static build-compressed build-all uninstall install-forge install-all cross-forge lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # OS AND ARCHITECTURE DETECTION
@@ -85,12 +85,7 @@ help:
 	@echo "Install Targets (to ~/.cargo/bin):"
 	@echo "  make install-forge      - Build forge + install to ~/.cargo/bin"
 	@echo "  make install-all        - Build all binaries + install to ~/.cargo/bin"
-	@echo ""
-	@echo "System Install Targets:"
-	@echo "  make install            - Install to /usr/local/bin (system-wide, requires sudo)"
-	@echo "  make install-user       - Install to ~/.local/bin (user-only, no sudo)"
-	@echo "  make install-system     - Same as install (system-wide)"
-	@echo "  make uninstall          - Uninstall from both locations"
+	@echo "  make uninstall          - Remove forge from ~/.cargo/bin"
 	@echo ""
 	@echo "Cross-Platform Builds (cargo-zigbuild):"
 	@echo "  make cross-forge        - Build forge for all 5 platforms → dist/"
@@ -245,36 +240,12 @@ endif
 	@echo "✅ All builds complete! Binaries in dist/"
 	@ls -lh dist/
 
-install-system: clean build-compressed
-	@echo "📦 Installing forge to /usr/local/bin (system-wide)..."
-ifeq ($(PLATFORM),windows)
-	@echo "❌ Use install-user on Windows or copy manually"
-	@exit 1
-else
-	@sudo install -m 755 $(STATIC_BINARY) /usr/local/bin/forge
-	@echo "✅ Installed to /usr/local/bin/forge"
-	@echo "🔍 Verify with: forge --version"
-endif
-
-install-user: clean build-compressed
-	@echo "📦 Installing forge to ~/.local/bin (user-only)..."
-	@mkdir -p ~/.local/bin
-ifeq ($(PLATFORM),windows)
-	@copy $(STATIC_BINARY) %USERPROFILE%\.local\bin\forge.exe
-else
-	@install -m 755 $(STATIC_BINARY) ~/.local/bin/forge
-endif
-	@echo "✅ Installed to ~/.local/bin/forge"
-	@echo "💡 Make sure ~/.local/bin is in your PATH"
-	@echo "🔍 Verify with: forge --version"
-
-install: install-system
-
 uninstall:
-	@echo "🗑️  Uninstalling forge..."
-	@sudo rm -f /usr/local/bin/forge 2>/dev/null || true
-	@rm -f ~/.local/bin/forge 2>/dev/null || true
-	@echo "✅ Uninstalled from both /usr/local/bin and ~/.local/bin"
+	@echo "🗑️  Uninstalling forge from ~/.cargo/bin..."
+	@rm -f ~/.cargo/bin/forge 2>/dev/null || true
+	@rm -f ~/.cargo/bin/forge-mcp 2>/dev/null || true
+	@rm -f ~/.cargo/bin/forge-server 2>/dev/null || true
+	@echo "✅ Uninstalled forge, forge-mcp, forge-server from ~/.cargo/bin"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # INSTALL TO ~/.cargo/bin TARGETS (default Rust bin directory)
