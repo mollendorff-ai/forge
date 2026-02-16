@@ -274,7 +274,7 @@ All documentation cleaned up and professionalized for enterprise due diligence r
 ### Removed
 
 - **Internal/Sensitive Docs**
-  - `docs/FOR_KANTIA.md` - Personal letter with ownership details
+  - Personal letter with ownership details (removed)
   - `docs/AI_ECONOMICS.md` - Internal marketing material
   - `docs/COMPETITIVE_ANALYSIS.md` - Internal pricing strategy
   - `docs/DEVELOPMENT.md` - Internal dev guidelines
