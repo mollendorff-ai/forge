@@ -15,169 +15,63 @@ current:
     - "Pre-commit hook green again"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# GTM - Go-To-Market Strategy (Dec 29, 2025)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-gtm:
-  decision: "One product, Elastic-2.0 license, full features"
-  rationale: |
-    - Source Available (not FOSS) - code visible, auditable
-    - Commercial production use requires license
-    - NO automatic conversion to open source (perpetual control)
-    - forge-demo DEPRECATED (one product, not two)
-    - Shows full moat: MCP, Monte Carlo, FP&A functions
-  adr_gtm: "ADR-030-GTM-LICENSING-STRATEGY.md"
-  adr_license: "ADR-031-LICENSE-ELASTIC-2.0.md"
-  analysis: "docs/MARKET_ANALYSIS.md"
-
-  milestones:
-    - version: "10.0.0"
-      priority: HIGH
-      status: pending
-      summary: "Commercial Infrastructure"
-      tasks:
-        - "License key generation system"
-        - "Customer portal (Stripe integration)"
-        - "Usage tracking for Cloud MCP"
-        - "Enterprise SSO/SAML support"
-
-    - version: "10.1.0"
-      priority: MEDIUM
-      status: pending
-      summary: "Cloud MCP Launch"
-      tasks:
-        - "Hosted MCP endpoint"
-        - "Usage-based billing"
-        - "Auto-scaling infrastructure"
-        - "Global edge deployment"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# NEXT - Candidate milestones (pick one to start)
+# NEXT - Open source prep (FOSS release)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - version: "9.9.6"
+  - id: "FOSS-001"
+    priority: CRITICAL
+    summary: "Change license from Elastic-2.0 to FOSS (MIT or Apache-2.0)"
+    tasks:
+      - "Replace LICENSE file with chosen FOSS license"
+      - "Update Cargo.toml license field"
+      - "Rewrite README.md license section (remove Source Available language)"
+      - "Delete COMMERCIAL_LICENSE.md"
+      - "Update ADR-031-LICENSE-ELASTIC-2.0.md (or replace with new ADR)"
+      - "Update ADR-030-GTM-LICENSING-STRATEGY.md"
+
+  - id: "FOSS-002"
     priority: HIGH
-    status: pending
-    summary: "100% Coverage Enforcement (ADR-004/ADR-006 compliance)"
-    description: |
-      Achieve 100% line coverage by:
-      1. Marking untestable code with #[cfg(not(coverage))] (Rust nightly pattern)
-      2. Adding tests for testable code gaps
-      3. Documenting all exclusions in ADR-006
+    summary: "Remove commercial/proprietary/enterprise language"
     tasks:
-      - "Phase 1: Add #[cfg(not(coverage))] to untestable functions"
-      - "  - api/server.rs: run_api_server, shutdown_signal"
-      - "  - mcp/server.rs: run_mcp_server_sync"
-      - "  - main.rs, bin/*.rs: all main() functions"
-      - "  - cli/commands: prompt_*, open_in_editor, watch_file, serve"
-      - "Phase 2: Add missing tests for testable code"
-      - "  - cli/commands/export.rs: 63% → 100%"
-      - "  - cli/commands/import.rs: 72% → 100%"
-      - "  - api/handlers.rs: 76% → 100%"
-      - "  - parser/mod.rs: 88% → 100%"
-      - "Phase 3: Verify with cargo llvm-cov --cfg coverage --fail-under-lines 100"
-    acceptance_criteria:
-      - "make coverage passes (100% line coverage after exclusions)"
-      - "All exclusions documented in ADR-006"
-      - "Zero regression in existing tests"
-    adr: "ADR-006-COVERAGE-EXCLUSIONS.md"
+      - "Remove 'license required', 'proprietary', 'NEVER push' from all files"
+      - "Remove enterprise-only comments in src/functions/definitions.rs"
+      - "Remove GTM section from roadmap.yaml"
+      - "Review all ADRs for commercial language"
+      - "Update CONTRIBUTING.md for FOSS contribution model"
 
-  - version: "10.0.0-beta.1"
+  - id: "FOSS-003"
     priority: HIGH
-    status: pending
-    summary: "MCP/API Feature Parity + OpenAPI"
-    description: |
-      Complete MCP and API server feature coverage. Currently:
-      - CLI: 20 commands (all features)
-      - MCP: 10 tools (missing 7 engines)
-      - API: 5 endpoints (missing 15 features + no OpenAPI spec)
+    summary: "Remove hardcoded paths and private references"
     tasks:
-      - "Phase 1: Add missing API endpoints"
-      - "  - POST /api/v1/simulate (Monte Carlo)"
-      - "  - POST /api/v1/scenarios"
-      - "  - POST /api/v1/decision-tree"
-      - "  - POST /api/v1/real-options"
-      - "  - POST /api/v1/tornado"
-      - "  - POST /api/v1/bootstrap"
-      - "  - POST /api/v1/bayesian"
-      - "  - POST /api/v1/sensitivity"
-      - "  - POST /api/v1/goal-seek"
-      - "  - POST /api/v1/break-even"
-      - "  - POST /api/v1/variance"
-      - "  - POST /api/v1/compare"
-      - "Phase 2: Add missing MCP tools"
-      - "  - forge_simulate (Monte Carlo)"
-      - "  - forge_scenarios"
-      - "  - forge_decision_tree"
-      - "  - forge_real_options"
-      - "  - forge_tornado"
-      - "  - forge_bootstrap"
-      - "  - forge_bayesian"
-      - "Phase 3: Generate OpenAPI 3.1 spec"
-      - "  - Use utoipa or aide crate for auto-generation"
-      - "  - Serve spec at GET /openapi.json"
-      - "  - Serve Swagger UI at GET /docs (optional)"
-      - "Phase 4: E2E tests in forge-e2e"
-      - "  - Test all API endpoints against expected outputs"
-      - "  - Test all MCP tools via JSON-RPC"
-    acceptance_criteria:
-      - "API: 17 endpoints (all CLI commands except watch/migrate/functions)"
-      - "MCP: 17 tools (matching API)"
-      - "OpenAPI 3.1 spec generated and served"
-      - "E2E tests pass for all endpoints/tools"
-
-  - version: "10.0.0-beta.2"
-    priority: MEDIUM
-    status: pending
-    summary: "CLI Improvements: migrate + update commands"
-    description: |
-      Rename confusing 'upgrade' command and restore self-update functionality.
-      - upgrade → migrate (schema migration v1.0.0 → v5.0.0)
-      - update (new) - Self-update from GitHub releases
-
-    tasks:
-      - "Phase 1: Rename upgrade → migrate"
-      - "  - Rename src/cli/commands/upgrade.rs → migrate.rs"
-      - "  - Update CLI parser (clap) command name"
-      - "  - Remove 'upgrade' entirely (no users yet)"
-      - "  - Update all docs, help text, README"
-      - "Phase 2: Restore update command (from ADR-024)"
-      - "  - Fetch https://api.github.com/repos/mollendorff-ai/forge/releases/latest"
-      - "  - Detect platform (linux-musl, darwin, windows)"
-      - "  - Download correct asset (forge-{target}.tar.gz)"
-      - "  - Verify SHA256 from checksums.txt"
-      - "  - Extract and install to ~/.cargo/bin/ (or current binary path)"
-      - "  - Include forge-mcp and forge-server in update"
-      - "  - forge update --check (check only, don't install)"
-      - "Phase 3: Update ADR-024"
-      - "  - Document restoration of update command"
-      - "  - Note: Now valid because forge is public on GitHub"
-
-    acceptance_criteria:
-      - "forge migrate model.yaml works (schema migration)"
-      - "forge update downloads and installs latest release"
-      - "forge update --check shows version info without installing"
-      - "All three binaries updated (forge, forge-mcp, forge-server)"
+      - "Fix /Users/rex/... path in tests/README.md line 16"
+      - "Remove crypto1.ca gitolite reference in docs/CHANGELOG_ARCHIVE.md"
+      - "Fix 'Decision Makers: TBD' in ADR-030"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG - Future ideas (unscheduled)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
-  # Game Theory Module - For Kinship Protocol integration
-  # See ADR or design doc for full spec (Nash equilibrium, IPD tournaments,
-  # Folk theorem, ESS, replicator dynamics, program equilibrium)
-  - "v11.0.0: Game Theory Module - Nash equilibrium, IPD tournaments, Folk theorem, ESS"
-  - "v10.0.0: Performance - SIMD Vectorization (2-4x speedup on numeric-heavy workloads)"
-  - "v10.1.0: Performance - Multi-threading with Rayon (near-linear scaling with core count)"
-  - "v10.2.0: Performance - GPU Acceleration CUDA/OpenCL (10-100x for large simulations)"
-  - "v10.3.0: Performance - Algorithmic Optimizations (flamegraph profiling, arena allocators)"
-  - "v10.4.0: Crystal Analysis - N-Dimensional Fractal Visualization for DANEEL (ADR-028)"
+  # Moved from next — resume after FOSS release
+  - "100% Coverage Enforcement (ADR-004/ADR-006 compliance)"
+  - "MCP/API Feature Parity + OpenAPI (17 endpoints, 17 MCP tools)"
+  - "CLI Improvements: rename upgrade → migrate, restore update command"
+
+  # Moved from GTM — revisit post-FOSS if commercial model returns
+  - "Commercial Infrastructure: license keys, Stripe portal, SSO/SAML"
+  - "Cloud MCP Launch: hosted endpoint, usage-based billing, edge deployment"
+
+  # Features
+  - "Game Theory Module - Nash equilibrium, IPD tournaments, Folk theorem, ESS"
+  - "Performance - SIMD Vectorization (2-4x speedup on numeric-heavy workloads)"
+  - "Performance - Multi-threading with Rayon (near-linear scaling with core count)"
+  - "Performance - GPU Acceleration CUDA/OpenCL (10-100x for large simulations)"
+  - "Performance - Algorithmic Optimizations (flamegraph profiling, arena allocators)"
+  - "Crystal Analysis - N-Dimensional Fractal Visualization for DANEEL (ADR-028)"
   - "Port edge cases from forge-e2e to inline Rust unit tests"
   - "INCLUDE Feature - Complete E2E Testing & Roundtrip Validation"
   - "Find external FOSS tool to validate Forge-native functions"
-  - "Enterprise licensing (when ready to leave CGI)"
   - "MCP server documentation"
   - "Performance benchmarks per function"
   - "FPGA acceleration for HFT (post-capitalization) - see ADR-026"
