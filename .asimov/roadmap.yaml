@@ -14,38 +14,6 @@ current:
     - "Ensure `make lint` passes with pedantic mode"
     - "Pre-commit hook green again"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# COMPLETED - See CHANGELOG.md for full details
-# ─────────────────────────────────────────────────────────────────────────────
-completed:
-  - version: "10.0.0-alpha.9"
-    date: "2026-02-16"
-    summary: "Cleanup - Remove legacy install targets, standardize on ~/.cargo/bin"
-  - version: "10.0.0-alpha.8"
-    date: "2026-01-24"
-    summary: "Hotfix - Install to ~/.cargo/bin instead of ~/bin"
-  - version: "10.0.0-alpha.7"
-    date: "2026-01-24"
-    summary: "Codebase Cleanup - 29 deleted, 14 moved, 14 updated, 11 consolidated"
-  - version: "10.0.0-alpha.6"
-    date: "2026-01-24"
-    summary: "Rebrand RoyalBit to Möllendorff Group Inc."
-  - version: "10.0.0-alpha.5"
-    date: "2026-01-03"
-    summary: "Self-update command restored (ADR-024)"
-  - version: "10.0.0-alpha.4"
-    date: "2026-01-02"
-    summary: "CLI Documentation: schema + examples commands"
-  - version: "10.0.0-alpha.3"
-    date: "2025-12-30"
-    summary: "CI/CD, crates.io, Multi-Arch Releases"
-  - version: "10.0.0-alpha.2"
-    date: "2025-12-29"
-    summary: "Elastic-2.0 License & Git History Cleanup"
-  - version: "10.0.0-alpha.1"
-    date: "2025-12-29"
-    summary: "Documentation Overhaul for Public Release"
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # GTM - Go-To-Market Strategy (Dec 29, 2025)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -63,17 +31,6 @@ gtm:
   analysis: "docs/MARKET_ANALYSIS.md"
 
   milestones:
-    - version: "10.0.0-alpha"
-      priority: CRITICAL
-      status: completed
-      date: "2025-12-30"
-      summary: "Elastic-2.0 License + CI/CD + Public Release"
-      releases:
-        - "v10.0.0-alpha.0: Demo/enterprise split removed"
-        - "v10.0.0-alpha.1: Documentation overhaul"
-        - "v10.0.0-alpha.2: Elastic-2.0 license + git history cleanup"
-        - "v10.0.0-alpha.3: CI/CD + crates.io + multi-arch releases"
-
     - version: "10.0.0"
       priority: HIGH
       status: pending
@@ -99,21 +56,6 @@ gtm:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  # ─────────────────────────────────────────────────────────────────────────────
-  # COMPLETED - See CHANGELOG.md for history
-  # ─────────────────────────────────────────────────────────────────────────────
-  # v10.0.0-alpha.0 - Remove demo/enterprise split (2025-12-29)
-  # v9.9.6  - ISERROR NA detection fix (2025-12-29)
-  # v9.9.5  - Consolidate tests inline + Static musl builds
-  # v9.9.4  - 100% Unit Test Coverage (+9 HLOOKUP tests)
-  # v9.9.3  - E2E Test Fixes (FORGE-003, FORGE-004, FORGE-005, FORGE-TRIM)
-  # v9.9.2  - Excel Export for Scalar Models (FORGE-EXPORT-001)
-  # v9.9.1  - Monte Carlo Fix (FORGE-MC-001)
-  # v9.8.0  - E2E Test Migration
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  # v10.0.0-alpha.4 - CLI Documentation: schema + examples commands (2026-01-02)
-
   - version: "9.9.6"
     priority: HIGH
     status: pending
@@ -223,107 +165,19 @@ next:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
-  # Simple one-liner descriptions (schema requires strings only)
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # GAME THEORY MODULE - For Kinship Protocol integration
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Motivation: Kinship Protocol needs formal game theory proofs. Forge already
-  # has decision trees, Bayesian networks, and Monte Carlo - game theory is a
-  # natural extension. Enables YAML-native equilibrium analysis.
-  #
-  # Module structure (follows existing patterns):
-  #   src/game_theory/
-  #   ├── mod.rs           # Public exports
-  #   ├── config.rs        # GameTheoryConfig, game definitions
-  #   ├── engine.rs        # Core solver logic
-  #   ├── equilibrium.rs   # Nash, correlated, evolutionary equilibria
-  #   ├── repeated.rs      # Folk theorem, discount factors, cooperation thresholds
-  #   ├── tournament.rs    # Axelrod-style IPD tournaments
-  #   └── tests.rs         # Unit tests (~50-100 tests)
-  #
-  # YAML syntax example:
-  #   game_theory:
-  #     type: repeated_game
-  #     players: [alice, bob]
-  #     stages: 100
-  #     discount_factor: 0.95
-  #     payoff_matrix:
-  #       CC: [3, 3]   # Mutual cooperation
-  #       CD: [0, 5]   # Sucker's payoff
-  #       DC: [5, 0]   # Temptation
-  #       DD: [1, 1]   # Mutual defection
-  #     strategies:
-  #       alice: tit_for_tat
-  #       bob: grim_trigger
-  #     outputs:
-  #       - nash_equilibria
-  #       - cooperation_threshold    # c* where cooperation dominates
-  #       - folk_theorem_check       # Is (C,C) sustainable?
-  #       - evolutionary_stability   # ESS analysis
-  #
-  # CLI commands:
-  #   forge game-theory model.yaml              # Analyze game
-  #   forge game-theory model.yaml --tournament # Run Axelrod tournament
-  #   forge game-theory model.yaml --folk       # Folk theorem verification
-  #
-  # Estimated effort: ~2,000 lines, 1-2 weeks
-  # Dependencies: None new (statrs, rand_distr sufficient)
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  - "v11.0.0: Game Theory Module - Nash equilibrium solver, IPD tournaments, Folk theorem verification"
-  - "v11.0.0: Game Theory - Repeated games with discount factors and cooperation thresholds"
-  - "v11.0.0: Game Theory - Evolutionary stability (ESS) and replicator dynamics"
-  - "v11.0.0: Game Theory - Program equilibrium (source code inspection games)"
-  - "v11.0.0: Game Theory - Axelrod tournament engine (TFT, Grim Trigger, Pavlov, etc.)"
-
-  - "v9.9.7: Pedantic Linting - NO EXCEPTIONS (enable full pedantic clippy, fix all warnings)"
+  # Game Theory Module - For Kinship Protocol integration
+  # See ADR or design doc for full spec (Nash equilibrium, IPD tournaments,
+  # Folk theorem, ESS, replicator dynamics, program equilibrium)
+  - "v11.0.0: Game Theory Module - Nash equilibrium, IPD tournaments, Folk theorem, ESS"
   - "v10.0.0: Performance - SIMD Vectorization (2-4x speedup on numeric-heavy workloads)"
   - "v10.1.0: Performance - Multi-threading with Rayon (near-linear scaling with core count)"
   - "v10.2.0: Performance - GPU Acceleration CUDA/OpenCL (10-100x for large simulations)"
   - "v10.3.0: Performance - Algorithmic Optimizations (flamegraph profiling, arena allocators)"
   - "v10.4.0: Crystal Analysis - N-Dimensional Fractal Visualization for DANEEL (ADR-028)"
-  - "v9.9.0: Port edge cases from forge-e2e to inline Rust unit tests"
-  - "v7.3.0: INCLUDE Feature - Complete E2E Testing & Roundtrip Validation"
+  - "Port edge cases from forge-e2e to inline Rust unit tests"
+  - "INCLUDE Feature - Complete E2E Testing & Roundtrip Validation"
   - "Find external FOSS tool to validate Forge-native functions"
   - "Enterprise licensing (when ready to leave CGI)"
   - "MCP server documentation"
   - "Performance benchmarks per function"
   - "FPGA acceleration for HFT (post-capitalization) - see ADR-026"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# BUGS - Active issues (none currently)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-bugs:
-  # ─────────────────────────────────────────────────────────────────────────────
-  # NO ACTIVE BUGS - All bugs resolved (Jan 1, 2026)
-  # ─────────────────────────────────────────────────────────────────────────────
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # FIXED/CLOSED BUGS
-  # ─────────────────────────────────────────────────────────────────────────────
-  # - FORGE-012 (fixed 2026-01-01) - Schema missing tornado/decision_tree/scenarios
-  #   - Added Tornado, TornadoInput, DecisionTree, TreeNode, TreeBranch definitions
-  #   - Added ScenariosCommand, ScenarioDefinition for command format
-  #   - Parser now skips these special keys (handled by specific commands)
-  # - FORGE-010 (INVALID in 9.9.6) - Could not reproduce, arrays load correctly
-  # - FORGE-011 (fixed in 9.9.6) - ISERROR now detects NA() as error
-  # - FORGE-MC-001 (fixed in 9.9.1) - Monte Carlo formula propagation
-  # - FORGE-001 through FORGE-005 (fixed in 9.9.3) - E2E test failures
-  # - FORGE-TRIM (fixed in 9.9.3) - TRIM internal spaces
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# SUMMARY
-# ═══════════════════════════════════════════════════════════════════════════════
-
-summary:
-  total_functions: 173
-  categories: 15
-  unit_tests: 1297
-  e2e_tests: 836
-  total_tests: 2133
-  test_coverage: "100% (173/173 functions)"
-  gaps: 0
-  history: "See CHANGELOG.md"
-  note: "v10.0.0-alpha.0: Removed demo/enterprise split. Single binary with all 173 functions."

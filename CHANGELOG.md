@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-alpha.9] - 2026-02-16
+
+### Changed
+
+- **Makefile**: Removed legacy `install-system`, `install-user`, `install` targets
+- **Makefile**: `uninstall` now only handles `~/.cargo/bin`
+- **project.yaml**: Updated `install_path` references to `~/.cargo/bin`
+- Standardized all install paths on `~/.cargo/bin` (single location)
+
 ## [10.0.0-alpha.8] - 2026-01-24
 
 ### Changed
@@ -81,6 +90,14 @@ The "RoyalBit" name (company founded 2006) was hijacked by unrelated cryptocurre
 - **Fraudulent domains**: royalbit.ltd (trust score 38/100), royalbit.top, royal-bit.club
 - **HYIP Ponzi schemes**: Offering impossible returns (155-580% in days)
 - **Sources**: [FCA Warning](https://www.fca.org.uk/news/warnings/royalbit-miners), [Scam Detector](https://www.scam-detector.com/validator/royalbit-ltd-review/)
+
+## [10.0.0-alpha.5] - 2026-01-03
+
+### Changed
+
+- **Self-update command restored** per ADR-024
+  - `forge update` now functional against GitHub releases
+  - Valid now that forge is public on GitHub
 
 ## [10.0.0-alpha.4] - 2026-01-02
 
