@@ -154,7 +154,7 @@ pub struct ApiConfig {
 ### CLI Arguments
 
 ```bash
-forge-server [OPTIONS]
+forge serve [OPTIONS]
 
 Options:
   -H, --host <HOST>  Host address [default: 127.0.0.1] [env: FORGE_HOST]

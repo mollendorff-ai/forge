@@ -358,7 +358,7 @@ Implemented Rust feature flags for conditional compilation.
 
 ### Technical
 - `#[cfg(feature = "full")]` gates advanced modules
-- forge-server binary requires `full` feature
+- API server requires `full` feature
 - Zero warnings in all build configurations
 
 ---

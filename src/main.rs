@@ -2,8 +2,10 @@
 #![cfg_attr(coverage, allow(unused_imports))]
 
 use clap::{Parser, Subcommand};
+use mollendorff_forge::api::{run_api_server, server::ApiConfig};
 use mollendorff_forge::cli;
-use mollendorff_forge::error::ForgeResult;
+use mollendorff_forge::error::{ForgeError, ForgeResult};
+use mollendorff_forge::mcp::run_mcp_server_sync;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -36,6 +38,8 @@ COMMANDS:
   watch         - Auto-calculate on save
   upgrade       - Upgrade YAML to latest schema
   update        - Check for updates and self-update
+  mcp           - Start MCP server for AI integration
+  serve         - Start HTTP REST API server
 
 EXAMPLES:
   forge calculate model.yaml                    # Execute formulas
@@ -270,7 +274,7 @@ OUTPUT:
   Variable          Base      Optimistic  Pessimistic
   revenue           $1.2M     $1.8M       $0.9M
   profit            $200K     $450K       -$50K")]
-    /// Compare results across multiple scenarios (enterprise only)
+    /// Compare results across multiple scenarios
     Compare {
         /// Path to YAML file
         file: PathBuf,
@@ -311,7 +315,7 @@ EXAMPLES:
   forge variance budget.yaml actual.yaml -o variance_report.xlsx
 
 See ADR-002 for design rationale on YAML-only inputs.")]
-    /// Compare budget vs actual with variance analysis (enterprise only)
+    /// Compare budget vs actual with variance analysis
     Variance {
         /// Path to budget YAML file
         budget: PathBuf,
@@ -354,7 +358,7 @@ RANGE FORMAT:
 EXAMPLES:
   forge sensitivity model.yaml -v growth_rate -r 0.05,0.20,0.05 -o profit
   forge sensitivity model.yaml -v price -v2 volume -r 10,50,10 -r2 100,500,100 -o revenue")]
-    /// Run sensitivity analysis on model variables (enterprise only)
+    /// Run sensitivity analysis on model variables
     Sensitivity {
         /// Path to YAML file
         file: PathBuf,
@@ -399,7 +403,7 @@ EXAMPLES:
 OPTIONS:
   --min, --max: Override automatic bounds for the search
   --tolerance: Precision of the result (default: 0.0001)")]
-    /// Find input value to achieve target output (enterprise only)
+    /// Find input value to achieve target output
     GoalSeek {
         /// Path to YAML file
         file: PathBuf,
@@ -444,7 +448,7 @@ EXAMPLES:
 
   forge break-even model.yaml --output net_margin --vary price
   -> Find minimum price for positive margin")]
-    /// Find break-even point (where output = 0) (enterprise only)
+    /// Find break-even point (where output = 0)
     BreakEven {
         /// Path to YAML file
         file: PathBuf,
@@ -509,7 +513,7 @@ EXAMPLES:
   forge simulate model.yaml -n 10000           # Override iterations
   forge simulate model.yaml --seed 42          # Reproducible
   forge simulate model.yaml -o results.json    # JSON output")]
-    /// Run Monte Carlo simulation (enterprise only)
+    /// Run Monte Carlo simulation
     Simulate {
         /// Path to YAML file with monte_carlo: section
         file: PathBuf,
@@ -567,7 +571,7 @@ EXAMPLES:
   forge scenarios model.yaml --scenario bull    # Run specific scenario
   forge scenarios model.yaml -o results.yaml    # Export results"
     )]
-    /// Run scenario analysis with probability weights (enterprise only)
+    /// Run scenario analysis with probability weights
     Scenarios {
         /// Path to YAML file with scenarios section
         file: PathBuf,
@@ -628,7 +632,7 @@ EXAMPLES:
   forge decision-tree model.yaml              # Analyze tree
   forge decision-tree model.yaml --dot        # Export DOT for Graphviz
   forge decision-tree model.yaml -o out.yaml  # Export results")]
-    /// Analyze decision trees with backward induction (enterprise only)
+    /// Analyze decision trees with backward induction
     DecisionTree {
         /// Path to YAML file with decision_tree section
         file: PathBuf,
@@ -688,7 +692,7 @@ EXAMPLES:
   forge real-options model.yaml --option defer  # Value specific option
   forge real-options model.yaml --compare-npv   # Compare with traditional NPV"
     )]
-    /// Value real options (defer/expand/abandon) (enterprise only)
+    /// Value real options (defer/expand/abandon)
     RealOptions {
         /// Path to YAML file with real_options section
         file: PathBuf,
@@ -738,7 +742,7 @@ EXAMPLES:
   forge tornado model.yaml                  # Generate diagram
   forge tornado model.yaml --output npv     # Override output variable
   forge tornado model.yaml -o results.yaml  # Export results")]
-    /// Generate tornado sensitivity diagram (enterprise only)
+    /// Generate tornado sensitivity diagram
     Tornado {
         /// Path to YAML file with tornado section
         file: PathBuf,
@@ -779,7 +783,7 @@ EXAMPLES:
   forge bootstrap model.yaml                    # Run analysis
   forge bootstrap model.yaml -n 50000           # Override iterations
   forge bootstrap model.yaml --confidence 0.99  # Set confidence level")]
-    /// Bootstrap resampling for confidence intervals (enterprise only)
+    /// Bootstrap resampling for confidence intervals
     Bootstrap {
         /// Path to YAML file with bootstrap section
         file: PathBuf,
@@ -831,7 +835,7 @@ EXAMPLES:
   forge bayesian model.yaml                           # Query all nodes
   forge bayesian model.yaml --query default_prob      # Query specific node
   forge bayesian model.yaml -e economy=bad            # Set evidence")]
-    /// Bayesian network inference (enterprise only)
+    /// Bayesian network inference
     Bayesian {
         /// Path to YAML file with bayesian_network section
         file: PathBuf,
@@ -885,7 +889,7 @@ EXAMPLES:
 
 Forge supports two schema versions:
   v1.0.0 - Scalar-only models (simple key-value pairs)
-  v5.0.0 - Full support for arrays, tables, and enterprise features
+  v5.0.0 - Full support for arrays, tables, and advanced features
 
 EXAMPLES:
   forge schema              # List available versions
@@ -960,7 +964,7 @@ EXAMPLES:
 
 BACKUP:
   Original files are backed up as .yaml.bak before modification.")]
-    /// Upgrade YAML files to latest schema version (enterprise only)
+    /// Upgrade YAML files to latest schema version
     Upgrade {
         /// Path to YAML file to upgrade
         file: PathBuf,
@@ -1008,6 +1012,74 @@ NOTE:
         /// Show verbose output
         #[arg(short, long)]
         verbose: bool,
+    },
+
+    #[command(long_about = "Start MCP (Model Context Protocol) server for AI integration.
+
+Runs a JSON-RPC server over stdin/stdout for use with Claude Desktop,
+Claude Code, and other MCP-compatible AI hosts.
+
+CONFIGURATION:
+  Add to your MCP client settings (e.g., Claude Desktop):
+
+  {
+    \"mcpServers\": {
+      \"forge\": {
+        \"command\": \"forge\",
+        \"args\": [\"mcp\"]
+      }
+    }
+  }
+
+AVAILABLE TOOLS (10):
+  forge_validate    - Check YAML for formula errors
+  forge_calculate   - Execute all formulas
+  forge_audit       - Trace variable dependencies
+  forge_export      - Convert YAML to Excel
+  forge_import      - Convert Excel to YAML
+  forge_sensitivity - One/two-variable data tables
+  forge_goal_seek   - Find input for target output
+  forge_break_even  - Find zero-crossing point
+  forge_variance    - Budget vs actual analysis
+  forge_compare     - Multi-scenario comparison
+
+EXAMPLE:
+  forge mcp   # Start MCP server (reads JSON-RPC from stdin)")]
+    /// Start MCP server for AI integration (JSON-RPC over stdio)
+    Mcp,
+
+    #[command(long_about = "Start HTTP REST API server.
+
+Provides RESTful endpoints for all Forge operations:
+  POST /api/v1/validate  - Validate YAML model files
+  POST /api/v1/calculate - Calculate formulas (with dry-run support)
+  POST /api/v1/audit     - Audit variable dependency trees
+  POST /api/v1/export    - Export YAML to Excel (.xlsx)
+  POST /api/v1/import    - Import Excel to YAML
+
+Additional endpoints:
+  GET  /health           - Health check
+  GET  /version          - Server version info
+  GET  /                 - API documentation
+
+Features:
+  CORS enabled for cross-origin requests
+  Graceful shutdown on SIGINT/SIGTERM
+  JSON response format with request IDs
+  Tracing and structured logging
+
+EXAMPLES:
+  forge serve                              # Start on localhost:8080
+  forge serve --host 0.0.0.0 --port 3000   # Custom bind address")]
+    /// Start HTTP REST API server
+    Serve {
+        /// Host address to bind to (use 0.0.0.0 for all interfaces)
+        #[arg(short = 'H', long, default_value = "127.0.0.1", env = "FORGE_HOST")]
+        host: String,
+
+        /// Port to listen on
+        #[arg(short, long, default_value = "8080", env = "FORGE_PORT")]
+        port: u16,
     },
 }
 
@@ -1164,6 +1236,20 @@ fn main() -> ForgeResult<()> {
         } => cli::upgrade(file, dry_run, to, verbose),
 
         Commands::Update { check, verbose } => cli::update(check, verbose),
+
+        Commands::Mcp => {
+            run_mcp_server_sync();
+            Ok(())
+        },
+
+        Commands::Serve { host, port } => {
+            let config = ApiConfig { host, port };
+            let rt = tokio::runtime::Runtime::new()
+                .map_err(|e| ForgeError::Validation(format!("Failed to create runtime: {e}")))?;
+            rt.block_on(run_api_server(config))
+                .map_err(|e| ForgeError::Validation(format!("Server error: {e}")))?;
+            Ok(())
+        },
     }
 }
 

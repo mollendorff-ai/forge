@@ -27,7 +27,8 @@
 //! {
 //!   "mcpServers": {
 //!     "forge": {
-//!       "command": "forge-mcp"
+//!       "command": "forge",
+//!       "args": ["mcp"]
 //!     }
 //!   }
 //! }

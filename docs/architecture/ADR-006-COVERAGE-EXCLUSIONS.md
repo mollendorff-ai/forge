@@ -61,17 +61,12 @@ cargo llvm-cov --cfg coverage
 |----------|--------|----------|
 | `run_mcp_server_sync()` | Reads from stdin forever until EOF | Interactive I/O |
 
-#### 3. `src/bin/forge_mcp.rs`
-| Function | Reason | Category |
-|----------|--------|----------|
-| `main()` | Binary entry point | Entry Point |
+#### 3. `src/main.rs` (`forge mcp` and `forge serve` subcommands)
 
-#### 4. `src/bin/forge_server.rs`
-| Function | Reason | Category |
-|----------|--------|----------|
-| `main()` | Binary entry point, starts API server | Entry Point |
+The MCP server and API server are now subcommands of the single `forge` binary (`forge mcp` and `forge serve`),
+handled in `src/main.rs`. The old `src/bin/forge_mcp.rs` and `src/bin/forge_server.rs` files no longer exist.
 
-#### 5. `src/main.rs`
+#### 4. `src/main.rs`
 | Function | Reason | Category |
 |----------|--------|----------|
 | `main()` | Reads from `std::env::args()` | Entry Point |
@@ -192,8 +187,7 @@ Add `#[cfg(not(coverage))]` to all functions in the exclusion list above:
 # Files requiring exclusion markers:
 src/api/server.rs          # run_api_server, shutdown_signal
 src/mcp/server.rs          # run_mcp_server_sync
-src/main.rs                # main
-src/bin/*.rs               # all main() functions
+src/main.rs                # main (also handles `forge mcp` and `forge serve` subcommands)
 src/cli/commands/mod.rs    # prompt_*, open_in_editor, is_terminal
 src/cli/commands/serve.rs  # run_server
 src/cli/commands/watch.rs  # watch_file

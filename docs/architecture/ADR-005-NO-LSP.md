@@ -114,7 +114,7 @@ tests/lsp_tests.rs
 ```
 src/mcp/mod.rs
 src/mcp/server.rs
-src/bin/forge_mcp.rs
+src/main.rs
 ```
 
 MCP remains as the AI integration layer for deterministic calculations.

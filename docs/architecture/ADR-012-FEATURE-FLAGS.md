@@ -36,21 +36,12 @@ full = []      # Enterprise build (everything)
 name = "forge-demo"
 path = "src/main.rs"
 
-# Enterprise binary (160 functions)
+# Enterprise binary (160 functions) - single binary with subcommands
 [[bin]]
 name = "forge"
 path = "src/main.rs"
 required-features = ["full"]
-
-# Enterprise MCP server
-[[bin]]
-name = "forge-mcp"
-required-features = ["full"]
-
-# Enterprise API server
-[[bin]]
-name = "forge-server"
-required-features = ["full"]
+# `forge mcp` and `forge serve` are subcommands of the forge binary
 ```
 
 ### Build Commands
@@ -102,8 +93,8 @@ cargo build --release --features full --bin forge  # Enterprise
 **Demo excludes:**
 - ALL financial functions (NPV, IRR, PMT, etc.)
 - ALL statistical functions (MEDIAN, STDEV, VAR, etc.)
-- API server (forge-server)
-- MCP server (forge-mcp)
+- API server (`forge serve`)
+- MCP server (`forge mcp`)
 - Forge-native functions (VARIANCE_PCT, BREAKEVEN, etc.)
 
 ### Enterprise Build (134 Functions + API + MCP)
@@ -125,8 +116,8 @@ cargo build --release --features full --bin forge  # Enterprise
 
 **Enterprise includes:**
 - `forge` CLI binary
-- `forge-mcp` - MCP server for AI integration
-- `forge-server` - REST API server
+- `forge mcp` - MCP server for AI integration
+- `forge serve` - REST API server
 - All 159 functions
 - Full financial modeling power
 
@@ -179,9 +170,9 @@ pub mod mcp;
 cargo build && ./target/debug/forge functions | grep -E "^  [A-Z]" | wc -l
 # Output: 36
 
-# Enterprise: 159 functions, 3 binaries
+# Enterprise: 159 functions, 1 binary with subcommands
 cargo build --features full && ls target/debug/forge*
-# Output: forge, forge-mcp, forge-server
+# Output: forge (single binary)
 ```
 
 ## References

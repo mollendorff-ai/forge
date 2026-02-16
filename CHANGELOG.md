@@ -12,6 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **License**: MIT OR Apache-2.0 (standard Rust dual license)
 - **Documentation**: Updated ADRs, README, CONTRIBUTING, editor extensions
 - **Codebase cleanup**: Simplified project.yaml, roadmap, and source comments
+## [10.0.0-alpha.11] - 2026-02-16
+
+### Changed
+
+- **BREAKING**: Consolidated 3 binaries into single `forge` CLI
+  - `forge-mcp` → `forge mcp` subcommand
+  - `forge-server` → `forge serve` subcommand (with `--host`, `--port` args)
+  - Simpler installation, smaller disk footprint
+- Removed `(enterprise only)` from all `--help` text (13 occurrences)
+- Updated MCP config: `"command": "forge", "args": ["mcp"]`
+- Updated CI/CD workflows for single binary (UPX, archives, checks)
+- Updated documentation: FEATURES.md, ADRs (005, 006, 012, 08), CHANGELOG_ARCHIVE
 
 ## [10.0.0-alpha.10] - 2026-02-16
 
@@ -196,8 +208,8 @@ This release establishes the full CI/CD pipeline and multi-platform distribution
 
 Each release archive contains:
 - `forge` - Main CLI tool
-- `forge-mcp` - MCP server for Claude Desktop/IDEs
-- `forge-server` - REST API server
+- `forge mcp` - MCP server for Claude Desktop/IDEs (was `forge-mcp`)
+- `forge serve` - REST API server (was `forge-server`)
 
 ## [10.0.0-alpha.2] - 2025-12-29
 

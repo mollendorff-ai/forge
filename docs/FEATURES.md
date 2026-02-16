@@ -96,10 +96,10 @@ graph LR
 
 ### HTTP REST API Server
 
-Run `forge-server` for production HTTP API:
+Run `forge serve` for production HTTP API:
 
 ```bash
-forge-server --host 0.0.0.0 --port 8080
+forge serve --host 0.0.0.0 --port 8080
 ```
 
 **Endpoints:**
@@ -1278,7 +1278,7 @@ Root nodes influence child nodes through conditional probabilities. Evidence at 
 Model Context Protocol server for AI agents:
 
 ```bash
-forge-mcp  # Runs JSON-RPC over stdin/stdout
+forge mcp  # Runs JSON-RPC over stdin/stdout
 ```
 
 **Claude Desktop Configuration:**
@@ -1287,7 +1287,8 @@ forge-mcp  # Runs JSON-RPC over stdin/stdout
 {
   "mcpServers": {
     "forge": {
-      "command": "forge-mcp"
+      "command": "forge",
+      "args": ["mcp"]
     }
   }
 }
@@ -1426,8 +1427,8 @@ forge audit <file> <variable>   # Show dependency chain
 forge export <yaml> <xlsx>      # Export to Excel
 forge import <xlsx> <yaml>      # Import from Excel
 forge watch <path>              # Watch for changes
-forge-mcp                       # Start MCP server
-forge-server                    # Start HTTP API server
+forge mcp                       # Start MCP server
+forge serve                     # Start HTTP API server
 ```
 
 **v4.2.1 Updates:**

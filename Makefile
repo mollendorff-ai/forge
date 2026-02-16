@@ -243,9 +243,7 @@ endif
 uninstall:
 	@echo "🗑️  Uninstalling forge from ~/.cargo/bin..."
 	@rm -f ~/.cargo/bin/forge 2>/dev/null || true
-	@rm -f ~/.cargo/bin/forge-mcp 2>/dev/null || true
-	@rm -f ~/.cargo/bin/forge-server 2>/dev/null || true
-	@echo "✅ Uninstalled forge, forge-mcp, forge-server from ~/.cargo/bin"
+	@echo "✅ Uninstalled forge from ~/.cargo/bin"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # INSTALL TO ~/.cargo/bin TARGETS (default Rust bin directory)

@@ -139,7 +139,7 @@ fn handle_request(request: &JsonRpcRequest) -> Option<JsonRpcResponse> {
                     }
                 },
                 "serverInfo": {
-                    "name": "forge-mcp",
+                    "name": "forge",
                     "version": env!("CARGO_PKG_VERSION")
                 },
                 "instructions": "Forge MCP Server v3.0.0 - AI-Finance integration. Zero tokens. Zero emissions. Validate models, calculate formulas, sensitivity analysis, goal-seek, break-even, variance analysis, scenario comparison. 60+ Excel functions including NPV, IRR, PMT, XNPV, XIRR. 96K rows/sec performance."
@@ -832,7 +832,7 @@ mod tests {
 
         let result = response.result.unwrap();
         assert_eq!(result["protocolVersion"], "2024-11-05");
-        assert_eq!(result["serverInfo"]["name"], "forge-mcp");
+        assert_eq!(result["serverInfo"]["name"], "forge");
     }
 
     #[test]

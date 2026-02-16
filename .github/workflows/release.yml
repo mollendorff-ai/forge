@@ -132,26 +132,22 @@ jobs:
         run: |
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             upx --best --lzma target/${{ matrix.target }}/release/forge.exe || true
-            upx --best --lzma target/${{ matrix.target }}/release/forge-mcp.exe || true
-            upx --best --lzma target/${{ matrix.target }}/release/forge-server.exe || true
           else
             upx --best --lzma target/${{ matrix.target }}/release/forge || true
-            upx --best --lzma target/${{ matrix.target }}/release/forge-mcp || true
-            upx --best --lzma target/${{ matrix.target }}/release/forge-server || true
           fi
 
       - name: Create archive (Unix)
         if: matrix.archive == 'tar.gz'
         run: |
           cd target/${{ matrix.target }}/release
-          tar -czvf forge-${{ matrix.target }}.tar.gz forge forge-mcp forge-server
+          tar -czvf forge-${{ matrix.target }}.tar.gz forge
 
       - name: Create archive (Windows)
         if: matrix.archive == 'zip'
         shell: pwsh
         run: |
           cd target/${{ matrix.target }}/release
-          Compress-Archive -Path forge.exe,forge-mcp.exe,forge-server.exe -DestinationPath forge-${{ matrix.target }}.zip -Force
+          Compress-Archive -Path forge.exe -DestinationPath forge-${{ matrix.target }}.zip -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
