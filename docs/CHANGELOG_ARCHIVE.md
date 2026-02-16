@@ -465,7 +465,7 @@ Forge source code is now protected. Public demo repo established.
 
 ### Phase 1: Gitolite Migration (DONE)
 
-- Migrated source code to self-hosted gitolite (git@crypto1.ca:royalbit/forge)
+- Migrated source code to self-hosted gitolite
 - GitHub repo set to private, then deleted
 - Created docs/HOSTING_ARCHITECTURE.md
 - Created ADR-011-SOURCE-CODE-CLOSURE (internal, not in repo)

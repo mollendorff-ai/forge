@@ -2,7 +2,7 @@
 
 **Status**: ACCEPTED
 **Date**: 2025-12-29
-**Decision Makers**: TBD
+**Decision Makers**: Möllendorff Group Inc.
 
 ---
 
