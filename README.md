@@ -7,7 +7,7 @@
 [![Tests](https://img.shields.io/badge/tests-2133_passing-brightgreen)](https://github.com/mollendorff-ai/forge)
 [![Functions](https://img.shields.io/badge/functions-173-blue)](https://github.com/mollendorff-ai/forge)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/mollendorff-ai/forge)
-[![License: Elastic-2.0](https://img.shields.io/badge/License-Elastic--2.0-blue.svg)](LICENSE)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
 **AI hallucinates numbers. Forge doesn't.**
 
@@ -494,47 +494,14 @@ make check                              # Full CI check
 
 ## License
 
-**Elastic License 2.0** - See [LICENSE](LICENSE)
+Licensed under either of
 
-Forge is **Source Available** - the code is open for inspection, but commercial production use requires a license.
+- [Apache License, Version 2.0](LICENSE-APACHE)
+- [MIT License](LICENSE-MIT)
 
-| Use Case | Status |
-|----------|--------|
-| View, read, audit source code | **Permitted** |
-| Evaluation and testing | **Permitted** |
-| Internal development | **Permitted** |
-| Non-production use | **Permitted** |
-| Commercial production use | **License required** |
-| Hosted/managed service | **Not permitted** |
+at your option.
 
-### What This Means
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  Source Available ≠ Open Source                            │
-│                                                             │
-│  • Code is OPEN (you can read it, audit it, learn from it) │
-│  • Use is FREE for evaluation and non-production           │
-│  • Production use in commercial settings requires license  │
-│  • You cannot offer Forge as a hosted service              │
-│                                                             │
-│  Used by: Elasticsearch, Kibana (Elastic NV)               │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Why Elastic License?
-
-Finance needs **auditable code**. You can verify every calculation. No black boxes.
-
-But building enterprise software requires sustainable revenue. Elastic-2.0 balances transparency with commercial viability - without ever converting to open source.
-
-### Commercial Licensing
-
-For production deployment or enterprise support:
-
-**Open a GitHub Issue:** [github.com/mollendorff-ai/forge/issues](https://github.com/mollendorff-ai/forge/issues) (use `licensing` label)
-
-See [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) for details.
+This is the standard dual-license used by the Rust ecosystem (rustc, Tokio, Serde, etc.).
 
 ---
 
