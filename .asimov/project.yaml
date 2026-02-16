@@ -18,5 +18,5 @@ conventions:
   - "Unit tests in same file (#[cfg(test)] mod tests)"
   - "Zero warnings policy, clippy pedantic"
   - "No file > 1,500 lines"
-  - "Elastic-2.0 license"
+  - "MIT OR Apache-2.0 license"
   - "make targets over raw cargo commands"

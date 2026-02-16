@@ -1,213 +1,55 @@
-# ADR-031: License Change - BSL to Elastic License 2.0
+# ADR-031: License Change - Elastic-2.0 to MIT OR Apache-2.0
 
-**Status**: ACCEPTED
-**Date**: 2025-12-29
+**Status**: SUPERSEDED
+**Date**: 2025-12-29 (original), 2026-02-16 (updated)
 **Supersedes**: ADR-030 (license section only)
 
 ---
 
 ## Context
 
-ADR-030 selected BSL 1.1 (Business Source License) for Forge. Upon further analysis, a critical issue was identified:
+Forge was originally licensed under Elastic License 2.0 (source-available, not FOSS).
 
-**BSL requires automatic conversion to Apache 2.0 after a set period (typically 4 years).**
-
-This means after 4 years, anyone (including AWS, GCP, competitors) could:
-- Fork Forge
-- Offer it as a competing service
-- Build competing products
-
-For a high-value FP&A tool with significant R&D investment, this time-bomb is unacceptable.
+In February 2026, the decision was made to open-source Forge under the standard
+Rust dual license (MIT OR Apache-2.0) for portfolio visibility and community adoption.
 
 ---
 
-## Decision Drivers
+## Original Decision (December 2025)
 
-### Problems with BSL
+Elastic-2.0 was chosen to protect commercial interests:
+- No automatic conversion to open source
+- Blocks hosted/managed service offerings
+- Enterprise-recognized license
 
-| Issue | Impact |
-|-------|--------|
-| Mandatory conversion date | AWS can fork in 4 years |
-| Apache 2.0 destination | No restrictions after conversion |
-| Perpetual R&D investment | Lost after conversion |
-| ADRs become public blueprints | Competitors can replicate architecture |
+## Updated Decision (February 2026)
 
-### Requirements
+**License: MIT OR Apache-2.0**
 
-1. **No automatic conversion** - Perpetual control
-2. **Block competitors** - Cannot use to build competing products
-3. **Block cloud providers** - Cannot offer as managed service
-4. **Enterprise-recognized** - Lawyers must know it
-5. **Evaluation permitted** - Buyers can audit source
-6. **SPDX identifier** - Tooling compatibility
-
----
-
-## Options Considered
-
-### Option A: BSL 1.1 with Long Change Date (10+ years)
-
-**Rejected** - Still converts eventually. Kicks the can down the road.
-
-### Option B: Elastic License 2.0 (ELv2)
-
-```
-Pros:
-- NO automatic conversion (perpetual control)
-- Blocks managed service offerings
-- Blocks competitors (via derivative work restrictions)
-- Battle-tested by Elastic ($10B+ company)
-- Official SPDX identifier: Elastic-2.0
-- Enterprise lawyers recognize it
-- Drafted by Heather Meeker (top licensing expert)
-
-Cons:
-- Not OSI-approved (intentional - it's source-available)
-- Some FOSS purists object
-```
-
-**Verdict**: SELECTED
-
-### Option C: PolyForm Shield
-
-```
-Pros:
-- Explicit "no competing products" clause
-- No conversion
-- Clean, readable
-
-Cons:
-- Less enterprise recognition
-- Fewer precedents
-- Newer (2020+)
-```
-
-**Verdict**: Close second, but ELv2 has better enterprise recognition.
-
-### Option D: Custom Source-Available License
-
-**Rejected** - Adds legal costs, unfamiliarity slows enterprise deals.
-
----
-
-## Decision
-
-**License: Elastic License 2.0**
-
-### What ELv2 Permits
-
-| Use Case | Permitted |
-|----------|-----------|
-| View, read, audit source code | Yes |
-| Evaluation and testing | Yes |
-| Internal development | Yes |
-| Non-production use | Yes |
-| Modify for private use | Yes |
-
-### What ELv2 Prohibits
-
-| Use Case | Permitted |
-|----------|-----------|
-| Provide as hosted/managed service | No |
-| Redistribute for commercial production | No (license required) |
-| Remove license notices | No |
-| Circumvent license key functionality | No |
-
-### Key Difference from BSL
-
-```
-BSL:     Source Available → Apache 2.0 after N years
-ELv2:    Source Available → Source Available forever
-```
+Reasons for the change:
+1. **Portfolio visibility** — Forge is being open-sourced as a CV/portfolio project
+2. **Rust ecosystem standard** — rustc, Tokio, Serde, Axum all use this dual license
+3. **Maximum adoption** — No friction for users, contributors, or evaluators
+4. **Future flexibility** — Commercial services (SaaS, support) can be built on top of MIT-licensed code
+5. **Patent grant** — Apache-2.0 provides explicit patent protection
 
 ---
 
 ## Implementation
 
-### Files Changed
-
 | File | Change |
 |------|--------|
-| `LICENSE` | Replace proprietary with Elastic-2.0 text |
-| `Cargo.toml` | `license = "Elastic-2.0"` |
-| `README.md` | Update license badge and section |
-| `COMMERCIAL_LICENSE.md` | Create with GitHub Issues contact |
-
-### Git History
-
-Since no external clones exist (first public release), rewrite git history:
-- Add `LICENSE` (Elastic-2.0) to every commit from day one
-- Remove `LICENSE-DOCS` from all commits
-
-This ensures:
-- Clean audit trail for enterprise buyers
-- No license ambiguity in any commit
-- ADRs protected under ELv2 from first commit
-
----
-
-## SPDX Identifier
-
-```toml
-# Cargo.toml
-[package]
-license = "Elastic-2.0"
-```
-
-Official SPDX page: https://spdx.org/licenses/Elastic-2.0
-
----
-
-## Commercial Licensing
-
-Commercial licenses available for production use.
-
-**Contact**: Open a GitHub Issue with `licensing` label
-- https://github.com/mollendorff-ai/forge/issues
-
----
-
-## Comparison with ADR-030
-
-| Aspect | ADR-030 (BSL) | ADR-031 (ELv2) |
-|--------|---------------|----------------|
-| License | BSL 1.1 | Elastic-2.0 |
-| Conversion | Apache 2.0 after 4 years | Never |
-| Cloud protection | During protection period | Perpetual |
-| Competitor protection | During protection period | Perpetual |
-| SPDX ID | BUSL-1.1 | Elastic-2.0 |
-| Used by | HashiCorp, Sentry | Elasticsearch, Kibana |
-
-**ADR-030 remains valid** for:
-- Market analysis
-- Demo strategy decisions
-- Pricing tier structure
-- Go-to-market approach
-
-**ADR-031 supersedes ADR-030** only for:
-- License selection (BSL → ELv2)
+| `LICENSE-MIT` | MIT license text |
+| `LICENSE-APACHE` | Apache 2.0 license text |
+| `Cargo.toml` | `license = "MIT OR Apache-2.0"` |
+| `README.md` | Updated badge and license section |
+| `LICENSE` | Deleted (was Elastic-2.0) |
+| `COMMERCIAL_LICENSE.md` | Deleted |
 
 ---
 
 ## References
 
-- [Elastic License 2.0](https://www.elastic.co/licensing/elastic-license)
-- [SPDX Elastic-2.0](https://spdx.org/licenses/Elastic-2.0)
-- [Elastic's License Change Announcement](https://www.elastic.co/blog/elastic-license-v2)
-- [ADR-030](ADR-030-GTM-LICENSING-STRATEGY.md) - Original GTM strategy
-
----
-
-## Decision Record
-
-**Status**: ACCEPTED (December 29, 2025)
-
-**Decision**: Elastic License 2.0 for all Forge source code and documentation.
-
-**Rationale**:
-1. No conversion time-bomb (perpetual control)
-2. Battle-tested by $10B+ company
-3. Official SPDX identifier for tooling
-4. Enterprise lawyers recognize it
-5. Blocks both cloud providers and competitors
-6. Source remains auditable (trust for finance)
+- [SPDX MIT](https://spdx.org/licenses/MIT.html)
+- [SPDX Apache-2.0](https://spdx.org/licenses/Apache-2.0.html)
+- [Rust API Guidelines - C-PERMISSIVE](https://rust-lang.github.io/api-guidelines/necessities.html#crate-and-its-dependencies-have-a-permissive-license-c-permissive)

@@ -4,11 +4,13 @@
 
 **Implemented** - v9.3.0
 
+> **Note:** This ADR is historical. The demo/enterprise split was removed in v10.0.0-alpha.0. Forge is now a single MIT/Apache-2.0 licensed binary.
+
 ## Context
 
-Forge has two binaries:
-- `forge` (enterprise) - Full functionality, proprietary, self-hosted
-- `forge-demo` (demo) - Limited functionality, public on GitHub
+Forge previously had two binaries:
+- `forge` - Full functionality
+- `forge-demo` - Limited functionality
 
 Previously, enterprise features were gated with `#[cfg(feature = "full")]`:
 

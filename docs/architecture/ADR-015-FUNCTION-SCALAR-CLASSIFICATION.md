@@ -87,7 +87,7 @@ fn test_demo_functions_are_scalar() {
 
 ### Demo Function Changes
 
-INDEX and MATCH removed from demo (now enterprise-only):
+INDEX and MATCH removed from v1.0.0 (require array context):
 - **Before**: 49 demo functions (3 Lookup: INDEX, MATCH, CHOOSE)
 - **After**: 47 demo functions (1 Lookup: CHOOSE)
 

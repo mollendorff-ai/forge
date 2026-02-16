@@ -13,13 +13,13 @@
 
 The `forge update` command was originally removed because:
 
-1. **Enterprise binary (`forge`)** - Was self-hosted, proprietary, NEVER pushed to GitHub
+1. **Enterprise binary (`forge`)** - Was self-hosted, not published to GitHub
 2. **Demo binary (`forge-demo`)** - Public on `mollendorff-ai/forge-demo`, but `forge update` checked `mollendorff-ai/forge/releases` which didn't exist
 3. **No valid target** - Neither binary had a valid GitHub release endpoint
 
 ## Restoration Context (v10.0.0-alpha.5)
 
-With the Elastic-2.0 licensing decision (ADR-030, ADR-031), forge is now public:
+With forge now public on GitHub:
 - Repository: `https://github.com/mollendorff-ai/forge`
 - Releases published to GitHub with multi-platform binaries
 - Self-update now has a valid target
@@ -73,5 +73,5 @@ forge update --verbose    # Show detailed progress
 ## References
 
 - ADR-030: GTM Licensing Strategy
-- ADR-031: Elastic-2.0 License
+- ADR-031: License (MIT OR Apache-2.0)
 - Version: v10.0.0-alpha.5

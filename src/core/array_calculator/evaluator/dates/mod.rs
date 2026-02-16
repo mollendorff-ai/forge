@@ -36,12 +36,12 @@ pub fn try_evaluate(
         return Ok(Some(result));
     }
 
-    // Enterprise-only components (WEEKDAY, HOUR, MINUTE, SECOND)
+    // Date components (WEEKDAY, HOUR, MINUTE, SECOND)
     if let Some(result) = components::try_evaluate(name, args, ctx)? {
         return Ok(Some(result));
     }
 
-    // Enterprise-only workday functions (WORKDAY, NETWORKDAYS)
+    // Workday functions (WORKDAY, NETWORKDAYS)
     if let Some(result) = workdays::try_evaluate(name, args, ctx)? {
         return Ok(Some(result));
     }

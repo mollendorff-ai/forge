@@ -87,7 +87,7 @@ full = ["rand", "rand_distr", "statrs"]
 | `rand_distr` | 0.5 | MIT/Apache-2.0 | Distribution sampling (Normal, Triangular, Uniform) |
 | `statrs` | 0.18 | MIT | Statistical functions (percentiles, mean, stdev) |
 
-**All licenses permissive:** MIT and Apache-2.0 compatible with proprietary Forge.
+**All licenses permissive:** MIT and Apache-2.0 compatible with Forge.
 
 ### 3. Sampling Method: Latin Hypercube
 

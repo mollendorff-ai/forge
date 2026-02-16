@@ -40,7 +40,7 @@ pub mod parser;
 pub mod types;
 pub mod writer;
 
-// Enterprise-only modules (excluded from demo builds)
+// Analysis modules
 pub mod api;
 pub mod bayesian;
 pub mod bootstrap;

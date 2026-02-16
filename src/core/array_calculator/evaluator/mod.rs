@@ -16,7 +16,7 @@ mod statistical;
 mod text;
 mod trig;
 
-// Enterprise-only modules (gated behind "full" feature)
+// Extended evaluator modules
 mod advanced;
 mod array;
 mod conditional;

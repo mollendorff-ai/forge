@@ -6,23 +6,6 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - id: "FOSS-002"
-    priority: HIGH
-    summary: "Remove commercial/proprietary/enterprise language"
-    tasks:
-      - "Remove 'license required', 'proprietary', 'NEVER push' from all files"
-      - "Remove enterprise-only comments in src/functions/definitions.rs"
-      - "Review all ADRs for commercial language (ADR-030, ADR-031, etc.)"
-      - "Update CONTRIBUTING.md for FOSS contribution model"
-
-  - id: "FOSS-003"
-    priority: HIGH
-    summary: "Remove hardcoded paths and private references"
-    tasks:
-      - "Fix /Users/rex/... path in tests/README.md line 16"
-      - "Remove crypto1.ca gitolite reference in docs/CHANGELOG_ARCHIVE.md"
-      - "Fix 'Decision Makers: TBD' in ADR-030"
-
   - id: "FOSS-004"
     priority: MEDIUM
     summary: "Fix 1002 clippy pedantic warnings"

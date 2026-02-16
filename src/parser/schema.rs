@@ -24,7 +24,7 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         "5.0.0" => include_str!("../../schema/forge-v5.0.0.schema.json"),
         _ => {
             return Err(ForgeError::Validation(format!(
-                "Unsupported _forge_version: '{version}'. Supported versions: 1.0.0 (scalar-only for forge-demo), 5.0.0 (arrays/tables for enterprise)"
+                "Unsupported _forge_version: '{version}'. Supported versions: 1.0.0 (scalar-only), 5.0.0 (arrays/tables)"
             )));
         },
     };
@@ -61,7 +61,7 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
 }
 
 /// Runtime validation: v1.0.0 models must NOT contain tables (arrays)
-/// This provides a clear error message when users try to use enterprise features in forge-demo
+/// This provides a clear error message when users try to use v5.0.0 features in a v1.0.0 model
 pub fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
     if let Value::Mapping(map) = yaml {
         for (key, value) in map {
@@ -72,11 +72,10 @@ pub fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
                 continue;
             }
 
-            // Block monte_carlo in v1.0.0 (enterprise feature)
+            // Block monte_carlo in v1.0.0 (requires v5.0.0)
             if key_str == "monte_carlo" {
                 return Err(ForgeError::Validation(
-                    "monte_carlo requires Forge Enterprise (v5.0.0+). \
-                     This feature is not available in forge-demo. \
+                    "monte_carlo requires v5.0.0+. \
                      Upgrade to _forge_version: \"5.0.0\" to use Monte Carlo simulation."
                         .to_string(),
                 ));
@@ -98,7 +97,7 @@ pub fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
                         return Err(ForgeError::Validation(format!(
                             "v1.0.0 models do not support tables/arrays. Found table '{key_str}' with array column '{col_key_str}'.\n\
                             \n\
-                            v1.0.0 is for forge-demo and only supports scalar values.\n\
+                            v1.0.0 only supports scalar values.\n\
                             To use tables/arrays, upgrade to v5.0.0 (enterprise):\n\
                             \n\
                             _forge_version: \"5.0.0\"\n\
@@ -115,7 +114,7 @@ pub fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
                             return Err(ForgeError::Validation(format!(
                                 "v1.0.0 models do not support tables/arrays. Found table '{key_str}' with array column '{col_key_str}' (rich format).\n\
                                 \n\
-                                v1.0.0 is for forge-demo and only supports scalar values.\n\
+                                v1.0.0 only supports scalar values.\n\
                                 To use tables/arrays, upgrade to v5.0.0 (enterprise):\n\
                                 \n\
                                 _forge_version: \"5.0.0\""
@@ -129,7 +128,7 @@ pub fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
                             return Err(ForgeError::Validation(format!(
                                 "v1.0.0 models do not support tables/arrays. Found table '{key_str}' with formula column '{col_key_str}'.\n\
                                 \n\
-                                v1.0.0 is for forge-demo and only supports scalar values.\n\
+                                v1.0.0 only supports scalar values.\n\
                                 To use tables/arrays, upgrade to v5.0.0 (enterprise):\n\
                                 \n\
                                 _forge_version: \"5.0.0\""

@@ -68,6 +68,6 @@ npm run compile
 
 ## License
 
-Elastic License 2.0 - See [LICENSE](../../LICENSE)
+MIT OR Apache-2.0 - See [LICENSE-MIT](../../LICENSE-MIT) or [LICENSE-APACHE](../../LICENSE-APACHE)
 
-Copyright (c) 2025 Möllendorff Group Inc.
+Copyright (c) 2025-2026 Möllendorff Group Inc.

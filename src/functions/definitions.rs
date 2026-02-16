@@ -8,8 +8,6 @@ use super::{Category, FunctionDef};
 /// All supported functions - THE SINGLE SOURCE OF TRUTH
 ///
 /// Total: 173 functions (includes aliases)
-/// Demo: 48 functions (16 math + 5 agg + 5 logical + 9 text + 6 date + 1 lookup + 6 trig)
-/// Enterprise-only: 125 functions (includes 6 Monte Carlo distributions)
 pub static FUNCTIONS: &[FunctionDef] = &[
     // ══════════════════════════════════════════════════════════════════════════
     // MATH (16 demo + 3 enterprise = 19 total)

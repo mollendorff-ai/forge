@@ -6,7 +6,7 @@
 
 ---
 
-> **Note:** The license section of this ADR was superseded by ADR-031-LICENSE-ELASTIC-2.0.md
+> **Note:** The license section of this ADR is historical. Forge is now licensed under MIT OR Apache-2.0. See ADR-031.
 
 ## Context
 
