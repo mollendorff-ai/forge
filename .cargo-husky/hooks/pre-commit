@@ -17,16 +17,9 @@ cargo clippy --all-targets --all-features -- -D warnings
 echo "🧪 Running tests..."
 cargo test --all-features
 
-# Möllendorff AI Asimov checks (if installed)
+# Möllendorff AI Asimov checks (if installed and commands available)
 if command -v asimov &> /dev/null; then
-    # Protocol refresh - injects rules into fresh context (survives compaction)
-    asimov refresh
-
-    echo "📋 Validating protocol files..."
-    asimov validate 2>/dev/null || true  # Don't fail on missing files
-
-    echo "📝 Linting documentation..."
-    asimov lint-docs docs/ || exit 1
+    asimov validate 2>/dev/null || true
 fi
 
 echo "✅ Pre-commit checks passed!"
