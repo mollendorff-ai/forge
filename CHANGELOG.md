@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-alpha.12] - 2026-02-16
+
 ### Open Source Release
 
 - **License**: MIT OR Apache-2.0 (standard Rust dual license)
@@ -25,25 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added underscore separators to numeric literals for readability
 - Used `mul_add()` for fused multiply-add operations
 - Documented all `#[allow(clippy::...)]` exceptions with invariant rationale
-
-## [10.0.0-alpha.12] - 2026-02-16
-
-### Changed
-
-- **FOSS-004**: Fixed all 1566 clippy pedantic/nursery/cargo warnings → zero warnings
-  - Moved lint config from Makefile `-A` flags to `[lints.clippy]` in Cargo.toml
-  - Removed 20 Makefile lint suppressions that masked all warnings
-  - Pre-commit hook now enforces pedantic linting via `make lint`
-  - All `#[allow(clippy::...)]` annotations are in-code with documented justifications
-  - Categories fixed: `cast_lossless`, `missing_errors_doc`, `missing_panics_doc`,
-    `must_use_candidate`, `option_if_let_else`, `manual_let_else`, `match_same_arms`,
-    `items_after_statements`, `needless_pass_by_value`, `unused_self`, `format_push_string`,
-    `unreadable_literal`, `implicit_hasher`, `unnecessary_wraps`, `assigning_clones`,
-    `or_fun_call`, `too_many_lines`, `cognitive_complexity`, `doc_markdown`,
-    `needless_collect`, `branches_sharing_code`, and more
-  - Unfixable: `multiple_crate_versions` (transitive deps, allowed in Cargo.toml),
-    `cast_precision_loss` for `usize as f64` (no `f64::from(usize)` in Rust),
-    `float_cmp` in test modules (financial math validated against Excel/Gnumeric/R)
 
 ## [10.0.0-alpha.11] - 2026-02-16
 
