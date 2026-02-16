@@ -2,42 +2,17 @@
 # Version: Cargo.toml | History: CHANGELOG.md | Config: project.yaml
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CURRENT - Next release
-# ═══════════════════════════════════════════════════════════════════════════════
-
-current:
-  version: "10.0.0-alpha.10"
-  status: pending
-  summary: "Fix 1002 clippy pedantic warnings to enforce zero-warning policy"
-  tasks:
-    - "Fix all clippy::pedantic warnings (1002 errors)"
-    - "Ensure `make lint` passes with pedantic mode"
-    - "Pre-commit hook green again"
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # NEXT - Open source prep (FOSS release)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next:
-  - id: "FOSS-001"
-    priority: CRITICAL
-    summary: "Change license from Elastic-2.0 to FOSS (MIT or Apache-2.0)"
-    tasks:
-      - "Replace LICENSE file with chosen FOSS license"
-      - "Update Cargo.toml license field"
-      - "Rewrite README.md license section (remove Source Available language)"
-      - "Delete COMMERCIAL_LICENSE.md"
-      - "Update ADR-031-LICENSE-ELASTIC-2.0.md (or replace with new ADR)"
-      - "Update ADR-030-GTM-LICENSING-STRATEGY.md"
-
   - id: "FOSS-002"
     priority: HIGH
     summary: "Remove commercial/proprietary/enterprise language"
     tasks:
       - "Remove 'license required', 'proprietary', 'NEVER push' from all files"
       - "Remove enterprise-only comments in src/functions/definitions.rs"
-      - "Remove GTM section from roadmap.yaml"
-      - "Review all ADRs for commercial language"
+      - "Review all ADRs for commercial language (ADR-030, ADR-031, etc.)"
       - "Update CONTRIBUTING.md for FOSS contribution model"
 
   - id: "FOSS-003"
@@ -48,21 +23,22 @@ next:
       - "Remove crypto1.ca gitolite reference in docs/CHANGELOG_ARCHIVE.md"
       - "Fix 'Decision Makers: TBD' in ADR-030"
 
+  - id: "FOSS-004"
+    priority: MEDIUM
+    summary: "Fix 1002 clippy pedantic warnings"
+    tasks:
+      - "Fix all clippy::pedantic warnings (1002 errors)"
+      - "Ensure `make lint` passes with pedantic mode"
+      - "Pre-commit hook green again"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG - Future ideas (unscheduled)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
-  # Moved from next — resume after FOSS release
   - "100% Coverage Enforcement (ADR-004/ADR-006 compliance)"
   - "MCP/API Feature Parity + OpenAPI (17 endpoints, 17 MCP tools)"
   - "CLI Improvements: rename upgrade → migrate, restore update command"
-
-  # Moved from GTM — revisit post-FOSS if commercial model returns
-  - "Commercial Infrastructure: license keys, Stripe portal, SSO/SAML"
-  - "Cloud MCP Launch: hosted endpoint, usage-based billing, edge deployment"
-
-  # Features
   - "Game Theory Module - Nash equilibrium, IPD tournaments, Folk theorem, ESS"
   - "Performance - SIMD Vectorization (2-4x speedup on numeric-heavy workloads)"
   - "Performance - Multi-threading with Rayon (near-linear scaling with core count)"
