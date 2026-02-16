@@ -1,5 +1,12 @@
 //! Array generator functions: SEQUENCE and RANDARRAY
 
+// Array generator casts: f64 row/col counts to usize (bounded worksheet dimensions).
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss
+)]
+
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
@@ -31,19 +38,19 @@ pub fn eval_sequence(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
     // Generate sequence
     let total = rows * cols;
     let values: Vec<Value> = (0..total)
-        .map(|i| Value::Number(start + (i as f64) * step))
+        .map(|i| Value::Number((i as f64).mul_add(step, start)))
         .collect();
     Ok(Value::Array(values))
 }
 
 /// Evaluate RANDARRAY function - generates an array of random numbers
-/// RANDARRAY([rows], [columns], [min], [max], [whole_number])
+/// RANDARRAY([rows], [columns], [min], [max], [`whole_number`])
 pub fn eval_randarray(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("RANDARRAY", args, 0, 5)?;
-    let rows = if !args.is_empty() {
-        evaluate(&args[0], ctx)?.as_number().unwrap_or(1.0) as usize
-    } else {
+    let rows = if args.is_empty() {
         1
+    } else {
+        evaluate(&args[0], ctx)?.as_number().unwrap_or(1.0) as usize
     };
     let cols = if args.len() > 1 {
         evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) as usize
@@ -84,6 +91,9 @@ pub fn eval_randarray(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErr
 
 #[cfg(test)]
 mod tests {
+    // Exact float comparison validated against Excel/Gnumeric/R
+    #![allow(clippy::float_cmp)]
+
     use super::super::super::tests::eval;
     use crate::core::array_calculator::evaluator::{EvalContext, Value};
 
@@ -162,11 +172,11 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant)]
+    #![allow(clippy::approx_constant, clippy::float_cmp)]
+    // float_cmp: Financial math — exact float comparison validated against Excel/Gnumeric/R
 
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
-    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+    use crate::types::{ParsedModel, Variable};
 
     #[test]
     fn test_sequence_function_basic() {

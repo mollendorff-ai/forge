@@ -1,5 +1,8 @@
 //! String concatenation functions: CONCAT, REPT, CONCATENATE
 
+// Concat casts: f64 repeat count to usize (bounded, small integer).
+#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+
 use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
 
 /// CONCAT(text1, [text2], ...) - Joins multiple text values into one
@@ -12,7 +15,7 @@ pub fn eval_concat(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     Ok(Value::Text(result))
 }
 
-/// REPT(text, number_times) - Repeats text a specified number of times
+/// REPT(text, `number_times`) - Repeats text a specified number of times
 pub fn eval_rept(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("REPT", args, 2)?;
     let text = evaluate(&args[0], ctx)?.as_text();
@@ -27,8 +30,8 @@ pub fn eval_concatenate(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalE
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
     #[test]

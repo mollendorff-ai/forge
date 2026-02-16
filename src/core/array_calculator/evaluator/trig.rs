@@ -194,7 +194,7 @@ mod tests {
         let ctx = EvalContext::new();
         assert_eq!(eval("SINH(0)", &ctx).unwrap(), Value::Number(0.0));
         let result = eval("SINH(1)", &ctx).unwrap();
-        assert!(matches!(result, Value::Number(n) if (n - 1.1752011936438014).abs() < 0.0001));
+        assert!(matches!(result, Value::Number(n) if (n - 1.175_201_193_643_801_4).abs() < 0.0001));
     }
 
     #[test]
@@ -202,7 +202,7 @@ mod tests {
         let ctx = EvalContext::new();
         assert_eq!(eval("COSH(0)", &ctx).unwrap(), Value::Number(1.0));
         let result = eval("COSH(1)", &ctx).unwrap();
-        assert!(matches!(result, Value::Number(n) if (n - 1.5430806348152437).abs() < 0.0001));
+        assert!(matches!(result, Value::Number(n) if (n - 1.543_080_634_815_243_7).abs() < 0.0001));
     }
 
     #[test]
@@ -210,7 +210,7 @@ mod tests {
         let ctx = EvalContext::new();
         assert_eq!(eval("TANH(0)", &ctx).unwrap(), Value::Number(0.0));
         let result = eval("TANH(1)", &ctx).unwrap();
-        assert!(matches!(result, Value::Number(n) if (n - 0.7615941559557649).abs() < 0.0001));
+        assert!(matches!(result, Value::Number(n) if (n - 0.761_594_155_955_764_9).abs() < 0.0001));
     }
 
     #[test]
@@ -697,7 +697,7 @@ mod tests {
                 assert!((nums[1] - PI / 4.0).abs() < 0.0001); // 45° = π/4 rad
                 assert!((nums[2] - PI / 2.0).abs() < 0.0001); // 90° = π/2 rad
                 assert!((nums[3] - PI).abs() < 0.0001); // 180° = π rad
-                assert!((nums[4] - 2.0 * PI).abs() < 0.0001); // 360° = 2π rad
+                assert!(2.0f64.mul_add(-PI, nums[4]).abs() < 0.0001); // 360° = 2π rad
             },
             _ => panic!("Expected Number array"),
         }

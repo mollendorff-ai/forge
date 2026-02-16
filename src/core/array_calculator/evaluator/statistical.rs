@@ -4,6 +4,14 @@ use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 
 /// Try to evaluate a statistical function. Returns None if function not recognized.
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::too_many_lines
+)]
+// Spreadsheet arrays are bounded well within f64 mantissa (< 2^52 elements).
+// Index/length casts between f64, usize, and i32 are safe for practical workloads.
+// 10 statistical functions in a single dispatch — splitting would fragment related logic.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -76,7 +84,7 @@ pub fn try_evaluate(
             if lower == upper {
                 Value::Number(values[lower])
             } else {
-                Value::Number(values[lower] * (1.0 - frac) + values[upper] * frac)
+                Value::Number(values[lower].mul_add(1.0 - frac, values[upper] * frac))
             }
         },
 
@@ -94,7 +102,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("QUARTILE quart must be 0, 1, 2, 3, or 4"));
             }
             values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            let k = quart as f64 / 4.0;
+            let k = f64::from(quart) / 4.0;
             let n = values.len();
             if n == 1 {
                 return Ok(Some(Value::Number(values[0])));
@@ -106,7 +114,7 @@ pub fn try_evaluate(
             if lower == upper {
                 Value::Number(values[lower])
             } else {
-                Value::Number(values[lower] * (1.0 - frac) + values[upper] * frac)
+                Value::Number(values[lower].mul_add(1.0 - frac, values[upper] * frac))
             }
         },
 
@@ -198,7 +206,7 @@ pub fn try_evaluate(
             };
 
             // Clone and sort
-            let mut sorted = values.clone();
+            let mut sorted = values;
             if order == 0 {
                 // Descending order (largest = rank 1)
                 sorted.sort_by(|a, b| b.partial_cmp(a).unwrap());

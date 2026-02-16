@@ -9,14 +9,19 @@ use crate::parser;
 use colored::Colorize;
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Execute the simulate command - Monte Carlo simulation
+///
+/// # Errors
+///
+/// Returns an error if the YAML file cannot be parsed, the Monte Carlo
+/// configuration is invalid, or the simulation fails.
 pub fn simulate(
-    file: PathBuf,
+    file: &Path,
     iterations_override: Option<usize>,
     seed_override: Option<u64>,
-    sampling_override: Option<String>,
+    sampling_override: Option<&str>,
     output_file: Option<PathBuf>,
     verbose: bool,
 ) -> ForgeResult<()> {
@@ -29,7 +34,7 @@ pub fn simulate(
         println!("{}", "📖 Parsing YAML file...".cyan());
     }
 
-    let yaml_content = fs::read_to_string(&file).map_err(ForgeError::Io)?;
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
     // Parse monte_carlo config from YAML
     let mut config = parse_monte_carlo_config(&yaml_content)?;
@@ -41,8 +46,8 @@ pub fn simulate(
     if let Some(s) = seed_override {
         config.seed = Some(s);
     }
-    if let Some(ref sampling) = sampling_override {
-        config.sampling = sampling.clone();
+    if let Some(sampling) = sampling_override {
+        config.sampling = sampling.to_string();
     }
 
     // Validate config
@@ -61,7 +66,7 @@ pub fn simulate(
     println!();
 
     // Parse the full model to extract distributions
-    let model = parser::parse_model(&file)?;
+    let model = parser::parse_model(file)?;
 
     if verbose {
         println!(
@@ -105,9 +110,8 @@ pub fn simulate(
 
             // Run the calculator to evaluate dependent formulas
             let calculator = ArrayCalculator::new(iter_model);
-            let calculated = match calculator.calculate_all() {
-                Ok(m) => m,
-                Err(_) => return HashMap::new(),
+            let Ok(calculated) = calculator.calculate_all() else {
+                return HashMap::new();
             };
 
             // Extract output values
@@ -130,6 +134,20 @@ pub fn simulate(
         .map_err(ForgeError::Eval)?;
 
     // Display results
+    print_simulation_results(&result);
+
+    // Write output file if specified
+    if let Some(output_path) = output_file {
+        write_simulation_output(&result, &output_path)?;
+    }
+
+    println!("{}", "✅ Simulation complete".bold().green());
+
+    Ok(())
+}
+
+/// Print simulation results to stdout
+fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
     println!("{}", "📊 Simulation Results:".bold().green());
     println!("   Iterations:     {}", result.iterations_completed);
     println!("   Execution time: {} ms", result.execution_time_ms);
@@ -138,6 +156,7 @@ pub fn simulate(
     // Show input distributions
     println!("   {}", "Input Distributions:".bold());
     for (var_name, samples) in &result.input_samples {
+        #[allow(clippy::cast_precision_loss)] // sample counts are always small enough for f64
         let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
         let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
         let max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
@@ -181,43 +200,41 @@ pub fn simulate(
             println!();
         }
     }
+}
 
-    // Write output file if specified
-    if let Some(output_path) = output_file {
-        let ext = output_path.extension().and_then(|e| e.to_str());
-        match ext {
-            Some("xlsx") => {
-                // Excel export
-                crate::monte_carlo::excel_export::export_results(&result, &output_path)
-                    .map_err(ForgeError::Validation)?;
-            },
-            Some("json") => {
-                let output_str = result
-                    .to_json()
-                    .map_err(|e| ForgeError::Validation(format!("JSON error: {e}")))?;
-                fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
-            },
-            _ => {
-                // Default to YAML
-                let output_str = result.to_yaml();
-                fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
-            },
-        }
-
-        println!(
-            "{}",
-            format!("💾 Results written to {}", output_path.display())
-                .bold()
-                .green()
-        );
+/// Write simulation output to a file (YAML, JSON, or Excel)
+fn write_simulation_output(
+    result: &crate::monte_carlo::SimulationResult,
+    output_path: &Path,
+) -> ForgeResult<()> {
+    let ext = output_path.extension().and_then(|e| e.to_str());
+    match ext {
+        Some("xlsx") => {
+            crate::monte_carlo::excel_export::export_results(result, output_path)
+                .map_err(ForgeError::Validation)?;
+        },
+        Some("json") => {
+            let output_str = result
+                .to_json()
+                .map_err(|e| ForgeError::Validation(format!("JSON error: {e}")))?;
+            fs::write(output_path, output_str).map_err(ForgeError::Io)?;
+        },
+        _ => {
+            let output_str = result.to_yaml();
+            fs::write(output_path, output_str).map_err(ForgeError::Io)?;
+        },
     }
 
-    println!("{}", "✅ Simulation complete".bold().green());
-
+    println!(
+        "{}",
+        format!("💾 Results written to {}", output_path.display())
+            .bold()
+            .green()
+    );
     Ok(())
 }
 
-/// Parse monte_carlo config from YAML content
+/// Parse `monte_carlo` config from YAML content
 fn parse_monte_carlo_config(yaml_content: &str) -> ForgeResult<MonteCarloConfig> {
     // Try to parse the monte_carlo section from the YAML
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml_content)
@@ -365,9 +382,8 @@ scalars:
 
                 // Run calculator
                 let calculator = crate::core::array_calculator::ArrayCalculator::new(iter_model);
-                let calculated = match calculator.calculate_all() {
-                    Ok(m) => m,
-                    Err(_) => return HashMap::new(),
+                let Ok(calculated) = calculator.calculate_all() else {
+                    return HashMap::new();
                 };
 
                 // Extract outputs

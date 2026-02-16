@@ -6,7 +6,11 @@ use crate::error::{ForgeError, ForgeResult};
 use crate::types::ColumnValue;
 use serde_yaml_ng::Value;
 
-/// Parse a YAML array into a typed ColumnValue
+/// Parse a YAML array into a typed `ColumnValue`
+///
+/// # Errors
+///
+/// Returns an error if the array is empty, contains mixed types, or has invalid values.
 pub fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnValue> {
     if seq.is_empty() {
         return Err(ForgeError::Parse(format!(
@@ -116,6 +120,10 @@ pub fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnVal
 }
 
 /// Detect the type of a YAML value
+///
+/// # Errors
+///
+/// Returns an error if the value is null or an unsupported type (e.g., nested mapping).
 pub fn detect_array_type(val: &Value) -> ForgeResult<&'static str> {
     match val {
         Value::Number(_) => Ok("Number"),
@@ -139,6 +147,7 @@ pub fn detect_array_type(val: &Value) -> ForgeResult<&'static str> {
 }
 
 /// Check if a string is a valid date format (YYYY-MM or YYYY-MM-DD)
+#[must_use]
 pub fn is_valid_date_format(s: &str) -> bool {
     // YYYY-MM format
     if s.len() == 7 {
@@ -166,7 +175,8 @@ pub fn is_valid_date_format(s: &str) -> bool {
 }
 
 /// Get the type name of a YAML value for error messages
-pub fn type_name(val: &Value) -> &'static str {
+#[must_use]
+pub const fn type_name(val: &Value) -> &'static str {
     match val {
         Value::Null => "Null",
         Value::Bool(_) => "Boolean",

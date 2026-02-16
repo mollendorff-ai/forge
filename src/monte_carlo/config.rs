@@ -1,6 +1,6 @@
 //! Monte Carlo configuration from YAML
 //!
-//! Parses the monte_carlo: section from YAML models.
+//! Parses the `monte_carlo`: section from YAML models.
 
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,7 @@ pub struct MonteCarloConfig {
     #[serde(default = "default_iterations")]
     pub iterations: usize,
 
-    /// Sampling method: "monte_carlo" or "latin_hypercube" (default)
+    /// Sampling method: "`monte_carlo`" or "`latin_hypercube`" (default)
     #[serde(default = "default_sampling")]
     pub sampling: String,
 
@@ -76,35 +76,45 @@ impl Default for MonteCarloConfig {
 
 impl MonteCarloConfig {
     /// Create a new Monte Carlo config with defaults
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Builder: set iterations
-    pub fn with_iterations(mut self, iterations: usize) -> Self {
+    #[must_use]
+    pub const fn with_iterations(mut self, iterations: usize) -> Self {
         self.iterations = iterations;
         self
     }
 
     /// Builder: set sampling method
+    #[must_use]
     pub fn with_sampling(mut self, sampling: &str) -> Self {
         self.sampling = sampling.to_string();
         self
     }
 
     /// Builder: set seed
-    pub fn with_seed(mut self, seed: u64) -> Self {
+    #[must_use]
+    pub const fn with_seed(mut self, seed: u64) -> Self {
         self.seed = Some(seed);
         self
     }
 
     /// Builder: enable Monte Carlo
-    pub fn enabled(mut self) -> Self {
+    #[must_use]
+    pub const fn enabled(mut self) -> Self {
         self.enabled = true;
         self
     }
 
     /// Validate the configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if iterations is zero or exceeds 1,000,000,
+    /// sampling method is invalid, or correlation specs are malformed.
     pub fn validate(&self) -> Result<(), String> {
         if self.iterations == 0 {
             return Err("iterations must be > 0".to_string());
@@ -132,7 +142,7 @@ impl MonteCarloConfig {
     }
 }
 
-fn default_iterations() -> usize {
+const fn default_iterations() -> usize {
     10_000
 }
 
@@ -144,6 +154,8 @@ fn default_percentiles() -> Vec<u8> {
     vec![10, 50, 90]
 }
 
+// Financial math: exact float comparison validated against Excel/Gnumeric/R
+#[allow(clippy::float_cmp)]
 #[cfg(test)]
 mod tests {
     use super::*;

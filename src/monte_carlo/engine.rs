@@ -55,6 +55,10 @@ pub struct MonteCarloEngine {
 
 impl MonteCarloEngine {
     /// Create a new engine with the given configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration is invalid (see [`MonteCarloConfig::validate`]).
     pub fn new(config: MonteCarloConfig) -> Result<Self, String> {
         config.validate()?;
 
@@ -75,6 +79,10 @@ impl MonteCarloEngine {
     }
 
     /// Parse distributions from a model's scalar formulas
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any `MC.*` formula fails to parse.
     pub fn parse_distributions_from_model(&mut self, model: &ParsedModel) -> Result<(), String> {
         for (name, scalar) in &model.scalars {
             if let Some(formula) = &scalar.formula {
@@ -92,6 +100,10 @@ impl MonteCarloEngine {
     }
 
     /// Run the simulation
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if output variable samples cannot be resolved.
     pub fn run(&mut self) -> Result<SimulationResult, String> {
         let start = Instant::now();
         let n = self.config.iterations;
@@ -146,6 +158,8 @@ impl MonteCarloEngine {
             );
         }
 
+        // cast_possible_truncation: simulation time in ms will never exceed u64::MAX
+        #[allow(clippy::cast_possible_truncation)]
         let execution_time_ms = start.elapsed().as_millis() as u64;
 
         Ok(SimulationResult {
@@ -158,7 +172,16 @@ impl MonteCarloEngine {
     }
 
     /// Run simulation with a custom evaluator function
-    /// The evaluator takes input values for one iteration and returns output values
+    ///
+    /// The evaluator takes input values for one iteration and returns output values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if output variable samples cannot be resolved.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an output variable configured in config is missing from `output_samples`.
     pub fn run_with_evaluator<F>(&mut self, mut evaluator: F) -> Result<SimulationResult, String>
     where
         F: FnMut(&HashMap<String, f64>) -> HashMap<String, f64>,
@@ -232,6 +255,8 @@ impl MonteCarloEngine {
             );
         }
 
+        // cast_possible_truncation: simulation time in ms will never exceed u64::MAX
+        #[allow(clippy::cast_possible_truncation)]
         let execution_time_ms = start.elapsed().as_millis() as u64;
 
         Ok(SimulationResult {
@@ -244,53 +269,51 @@ impl MonteCarloEngine {
     }
 
     /// Get the sampler
-    pub fn sampler(&self) -> &Sampler {
+    #[must_use]
+    pub const fn sampler(&self) -> &Sampler {
         &self.sampler
     }
 
     /// Get mutable sampler
-    pub fn sampler_mut(&mut self) -> &mut Sampler {
+    pub const fn sampler_mut(&mut self) -> &mut Sampler {
         &mut self.sampler
     }
 }
 
 impl SimulationResult {
     /// Format results as YAML string
+    #[must_use]
     pub fn to_yaml(&self) -> String {
+        use std::fmt::Write;
+
         let mut output = String::new();
 
         output.push_str("monte_carlo_results:\n");
-        output.push_str(&format!("  iterations: {}\n", self.iterations_completed));
-        output.push_str(&format!(
-            "  execution_time_ms: {}\n",
-            self.execution_time_ms
-        ));
-        output.push_str(&format!("  sampling: {}\n", self.config.sampling));
+        let _ = writeln!(output, "  iterations: {}", self.iterations_completed);
+        let _ = writeln!(output, "  execution_time_ms: {}", self.execution_time_ms);
+        let _ = writeln!(output, "  sampling: {}", self.config.sampling);
         if let Some(seed) = self.config.seed {
-            output.push_str(&format!("  seed: {seed}\n"));
+            let _ = writeln!(output, "  seed: {seed}");
         }
 
         output.push_str("\n  outputs:\n");
         for (var, result) in &self.outputs {
-            output.push_str(&format!("    {var}:\n"));
-            output.push_str(&format!("      mean: {:.4}\n", result.statistics.mean));
-            output.push_str(&format!("      median: {:.4}\n", result.statistics.median));
-            output.push_str(&format!(
-                "      std_dev: {:.4}\n",
-                result.statistics.std_dev
-            ));
-            output.push_str(&format!("      min: {:.4}\n", result.statistics.min));
-            output.push_str(&format!("      max: {:.4}\n", result.statistics.max));
+            let _ = writeln!(output, "    {var}:");
+            let _ = writeln!(output, "      mean: {:.4}", result.statistics.mean);
+            let _ = writeln!(output, "      median: {:.4}", result.statistics.median);
+            let _ = writeln!(output, "      std_dev: {:.4}", result.statistics.std_dev);
+            let _ = writeln!(output, "      min: {:.4}", result.statistics.min);
+            let _ = writeln!(output, "      max: {:.4}", result.statistics.max);
 
             output.push_str("      percentiles:\n");
             for (p, v) in &result.statistics.percentiles {
-                output.push_str(&format!("        p{p}: {v:.4}\n"));
+                let _ = writeln!(output, "        p{p}: {v:.4}");
             }
 
             if !result.threshold_probabilities.is_empty() {
                 output.push_str("      thresholds:\n");
                 for (t, prob) in &result.threshold_probabilities {
-                    output.push_str(&format!("        \"{t}\": {prob:.4}\n"));
+                    let _ = writeln!(output, "        \"{t}\": {prob:.4}");
                 }
             }
         }
@@ -299,6 +322,10 @@ impl SimulationResult {
     }
 
     /// Format results as JSON string
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if JSON serialization fails.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         use serde_json::{json, to_string_pretty};
 
@@ -378,7 +405,7 @@ mod tests {
         let config = test_config();
         let mut engine = MonteCarloEngine::new(config).unwrap();
 
-        let dist = Distribution::normal(100000.0, 15000.0).unwrap();
+        let dist = Distribution::normal(100_000.0, 15_000.0).unwrap();
         engine.add_distribution("revenue", dist);
 
         assert!(engine.distributions.contains_key("revenue"));
@@ -389,7 +416,7 @@ mod tests {
         let config = test_config();
         let mut engine = MonteCarloEngine::new(config).unwrap();
 
-        let dist = Distribution::normal(100000.0, 15000.0).unwrap();
+        let dist = Distribution::normal(100_000.0, 15_000.0).unwrap();
         engine.add_distribution("revenue", dist);
 
         let result = engine.run().unwrap();
@@ -400,7 +427,7 @@ mod tests {
 
         // Check statistics are reasonable
         let revenue_result = &result.outputs["revenue"];
-        assert!((revenue_result.statistics.mean - 100000.0).abs() < 2000.0);
+        assert!((revenue_result.statistics.mean - 100_000.0).abs() < 2_000.0);
         assert!(revenue_result.statistics.percentiles.contains_key(&50));
     }
 
@@ -449,7 +476,7 @@ mod tests {
         let config = test_config();
         let mut engine = MonteCarloEngine::new(config).unwrap();
 
-        let dist = Distribution::normal(100000.0, 15000.0).unwrap();
+        let dist = Distribution::normal(100_000.0, 15_000.0).unwrap();
         engine.add_distribution("revenue", dist);
 
         let result = engine.run().unwrap();
@@ -466,7 +493,7 @@ mod tests {
         let config = test_config();
         let mut engine = MonteCarloEngine::new(config).unwrap();
 
-        let dist = Distribution::normal(100000.0, 15000.0).unwrap();
+        let dist = Distribution::normal(100_000.0, 15_000.0).unwrap();
         engine.add_distribution("revenue", dist);
 
         let result = engine.run().unwrap();

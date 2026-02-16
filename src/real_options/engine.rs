@@ -57,11 +57,16 @@ pub struct UnderlyingResult {
 
 impl OptionsResult {
     /// Export results to YAML format
+    #[must_use]
     pub fn to_yaml(&self) -> String {
         serde_yaml_ng::to_string(self).unwrap_or_else(|_| "# Error serializing results".to_string())
     }
 
     /// Export results to JSON format
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if JSON serialization fails.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
@@ -76,6 +81,10 @@ pub struct RealOptionsEngine {
 
 impl RealOptionsEngine {
     /// Create a new real options engine
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration is invalid.
     pub fn new(config: RealOptionsConfig) -> Result<Self, String> {
         config.validate()?;
         Ok(Self {
@@ -85,18 +94,23 @@ impl RealOptionsEngine {
     }
 
     /// Set the traditional NPV for comparison
-    pub fn with_traditional_npv(mut self, npv: f64) -> Self {
+    #[must_use]
+    pub const fn with_traditional_npv(mut self, npv: f64) -> Self {
         self.traditional_npv = npv;
         self
     }
 
     /// Analyze all options
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any option valuation fails.
     pub fn analyze(&self) -> Result<OptionsResult, String> {
         let mut option_results = HashMap::new();
         let mut total_value = 0.0;
 
         for option in &self.config.options {
-            let result = self.value_option(option)?;
+            let result = self.value_option(option);
             total_value += result.value;
             option_results.insert(option.name.clone(), result);
         }
@@ -128,7 +142,7 @@ impl RealOptionsEngine {
     }
 
     /// Value a single option
-    fn value_option(&self, option: &OptionDefinition) -> Result<OptionResult, String> {
+    fn value_option(&self, option: &OptionDefinition) -> OptionResult {
         let value = match self.config.method {
             ValuationMethod::BlackScholes => self.value_with_black_scholes(option),
             ValuationMethod::Binomial => self.value_with_binomial(option),
@@ -137,13 +151,13 @@ impl RealOptionsEngine {
 
         let trigger = self.determine_trigger(option);
 
-        Ok(OptionResult {
+        OptionResult {
             name: option.name.clone(),
             option_type: option.option_type,
             value,
             probability_exercise: None, // Would be populated from simulation
             optimal_trigger: trigger,
-        })
+        }
     }
 
     /// Value option using Black-Scholes
@@ -239,7 +253,7 @@ impl RealOptionsEngine {
                 let defer = tree.defer_option_value(1.0, option.exercise_cost * 0.5);
                 let expand =
                     tree.expand_option_value(option.expansion_factor, option.exercise_cost);
-                defer + expand * 0.5
+                expand.mul_add(0.5, defer)
             },
         }
     }
@@ -251,7 +265,7 @@ impl RealOptionsEngine {
         // Falls back to binomial for now with more steps
         let mut config = self.config.clone();
         config.binomial_steps = 200; // More accurate
-        let engine = RealOptionsEngine::new(config).unwrap();
+        let engine = Self::new(config).unwrap();
 
         // Use binomial with more steps as approximation
         engine.value_with_binomial(option)
@@ -317,7 +331,8 @@ impl RealOptionsEngine {
     }
 
     /// Get the configuration
-    pub fn config(&self) -> &RealOptionsConfig {
+    #[must_use]
+    pub const fn config(&self) -> &RealOptionsConfig {
         &self.config
     }
 }

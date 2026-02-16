@@ -2,6 +2,9 @@
 //!
 //! DEMO function - always available
 
+// Choose casts: f64 index to usize (bounded, 1-based choice index).
+#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
@@ -23,6 +26,7 @@ pub fn eval_choose(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::*;
     use crate::core::array_calculator::evaluator::tests::eval;
     use crate::core::array_calculator::ArrayCalculator;

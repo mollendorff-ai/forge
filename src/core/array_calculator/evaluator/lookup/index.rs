@@ -2,12 +2,15 @@
 //!
 //! DEMO function - always available
 
+// Index casts: f64 row/col indices to usize (bounded by array length).
+#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 
 /// Evaluate INDEX function
-/// INDEX(array, row_num, [col_num])
+/// INDEX(array, `row_num`, [`col_num`])
 /// Returns the value at a given position in an array
 pub fn eval_index(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("INDEX", args, 2, 3)?;

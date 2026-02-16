@@ -256,7 +256,7 @@ fn test_empty_config_rejected() {
     assert!(result.unwrap_err().contains("No scenarios"));
 }
 
-/// Roundtrip validation test - matches R's weighted.mean()
+/// Roundtrip validation test - matches R's `weighted.mean()`
 #[test]
 fn test_r_weighted_mean_equivalence() {
     // This test validates against R's weighted.mean() function
@@ -295,7 +295,7 @@ fn test_r_weighted_mean_equivalence() {
 
     // R's weighted.mean result: 1015000
     let ev = results.expected_values.get("npv").unwrap();
-    let r_expected = 0.50 * 1_250_000.0 + 0.30 * 2_100_000.0 + 0.20 * (-450_000.0);
+    let r_expected = 0.20f64.mul_add(-450_000.0, 0.50f64.mul_add(1_250_000.0, 0.30 * 2_100_000.0));
     assert!(
         (ev - r_expected).abs() < 0.01,
         "Expected {r_expected} (R weighted.mean), got {ev}"

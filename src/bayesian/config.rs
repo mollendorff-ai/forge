@@ -61,6 +61,7 @@ impl BayesianNode {
     }
 
     /// Create a new continuous node
+    #[must_use]
     pub fn continuous(mean: f64, std: f64) -> Self {
         Self {
             node_type: NodeType::Continuous,
@@ -74,12 +75,14 @@ impl BayesianNode {
     }
 
     /// Set prior probabilities (for root nodes)
+    #[must_use]
     pub fn with_prior(mut self, prior: Vec<f64>) -> Self {
         self.prior = prior;
         self
     }
 
     /// Set parent nodes
+    #[must_use]
     pub fn with_parents(mut self, parents: Vec<&str>) -> Self {
         self.parents = parents
             .into_iter()
@@ -89,12 +92,18 @@ impl BayesianNode {
     }
 
     /// Add CPT entry
+    #[must_use]
     pub fn with_cpt_entry(mut self, parent_state: &str, probs: Vec<f64>) -> Self {
         self.cpt.insert(parent_state.to_string(), probs);
         self
     }
 
     /// Validate the node
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the node configuration is invalid (e.g., missing
+    /// states, incorrect prior/CPT dimensions, or probabilities not summing to 1).
     pub fn validate(&self, name: &str) -> Result<(), String> {
         match self.node_type {
             NodeType::Discrete => self.validate_discrete(name),
@@ -165,11 +174,13 @@ impl BayesianNode {
     }
 
     /// Check if this is a root node
-    pub fn is_root(&self) -> bool {
+    #[must_use]
+    pub const fn is_root(&self) -> bool {
         self.parents.is_empty()
     }
 
     /// Get probability for a state given parent state
+    #[must_use]
     pub fn get_probability(&self, state_idx: usize, parent_state: Option<&str>) -> f64 {
         if self.is_root() {
             self.prior.get(state_idx).copied().unwrap_or(0.0)
@@ -198,6 +209,7 @@ pub struct BayesianConfig {
 
 impl BayesianConfig {
     /// Create a new configuration
+    #[must_use]
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -206,12 +218,18 @@ impl BayesianConfig {
     }
 
     /// Add a node
+    #[must_use]
     pub fn with_node(mut self, name: &str, node: BayesianNode) -> Self {
         self.nodes.insert(name.to_string(), node);
         self
     }
 
     /// Validate the configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the network is empty, any node is invalid,
+    /// parent references are missing, or the graph contains cycles.
     pub fn validate(&self) -> Result<(), String> {
         if self.nodes.is_empty() {
             return Err("Network must have at least one node".to_string());
@@ -276,10 +294,8 @@ impl BayesianConfig {
     }
 
     /// Get topological order of nodes
+    #[must_use]
     pub fn topological_order(&self) -> Vec<String> {
-        let mut order = Vec::new();
-        let mut visited = std::collections::HashSet::new();
-
         fn visit(
             name: &str,
             config: &BayesianConfig,
@@ -300,6 +316,9 @@ impl BayesianConfig {
             order.push(name.to_string());
         }
 
+        let mut order = Vec::new();
+        let mut visited = std::collections::HashSet::new();
+
         for name in self.nodes.keys() {
             visit(name, self, &mut visited, &mut order);
         }
@@ -308,6 +327,7 @@ impl BayesianConfig {
     }
 
     /// Get root nodes
+    #[must_use]
     pub fn root_nodes(&self) -> Vec<&str> {
         self.nodes
             .iter()

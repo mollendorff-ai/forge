@@ -1,10 +1,13 @@
 //! Replace functions: REPLACE, SUBSTITUTE (enterprise only)
 
+// Text replace casts: f64 start/length indices to usize (bounded by string length).
+#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 
-/// REPLACE(old_text, start_num, num_chars, new_text) - Replaces characters within text
+/// `REPLACE(old_text`, `start_num`, `num_chars`, `new_text`) - Replaces characters within text
 pub fn eval_replace(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("REPLACE", args, 4)?;
     let old_text = evaluate(&args[0], ctx)?.as_text();
@@ -23,7 +26,7 @@ pub fn eval_replace(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     Ok(Value::Text(format!("{prefix}{new_text}{suffix}")))
 }
 
-/// SUBSTITUTE(text, old_text, new_text, [instance_num]) - Substitutes text occurrences
+/// SUBSTITUTE(text, `old_text`, `new_text`, [`instance_num`]) - Substitutes text occurrences
 pub fn eval_substitute(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("SUBSTITUTE", args, 3, 4)?;
     let text = evaluate(&args[0], ctx)?.as_text();
@@ -38,7 +41,7 @@ pub fn eval_substitute(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalEr
     if args.len() > 3 {
         // Replace only the nth occurrence
         let instance = evaluate(&args[3], ctx)?.as_number().unwrap_or(1.0) as usize;
-        let mut result = text.clone();
+        let mut result = text;
         let mut count = 0;
         let mut pos = 0;
 
@@ -65,9 +68,9 @@ pub fn eval_substitute(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalEr
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
-    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+    use crate::types::{ParsedModel, Variable};
 
     #[test]
     fn test_substitute_function_scalar() {

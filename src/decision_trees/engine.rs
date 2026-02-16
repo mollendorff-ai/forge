@@ -51,11 +51,16 @@ pub struct RiskProfile {
 
 impl TreeResult {
     /// Export results to YAML format
+    #[must_use]
     pub fn to_yaml(&self) -> String {
         serde_yaml_ng::to_string(self).unwrap_or_else(|_| "# Error serializing results".to_string())
     }
 
     /// Export results to JSON format
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if JSON serialization fails.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
@@ -68,12 +73,20 @@ pub struct DecisionTreeEngine {
 
 impl DecisionTreeEngine {
     /// Create a new decision tree engine
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration is invalid.
     pub fn new(config: DecisionTreeConfig) -> Result<Self, String> {
         config.validate()?;
         Ok(Self { config })
     }
 
     /// Analyze the decision tree using backward induction
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the tree has no root or a branch references a missing node.
     pub fn analyze(&self) -> Result<TreeResult, String> {
         let mut node_results = HashMap::new();
         let mut all_terminal_values = Vec::new();
@@ -87,10 +100,10 @@ impl DecisionTreeEngine {
         let optimal_path = self.build_optimal_path(&node_results);
 
         // Build decision policy
-        let decision_policy = self.build_decision_policy(&node_results);
+        let decision_policy = Self::build_decision_policy(&node_results);
 
         // Calculate risk profile
-        let risk_profile = self.calculate_risk_profile(&all_terminal_values);
+        let risk_profile = Self::calculate_risk_profile(&all_terminal_values);
 
         Ok(TreeResult {
             name: self.config.name.clone(),
@@ -188,7 +201,7 @@ impl DecisionTreeEngine {
             let next_node = self
                 .config
                 .get_node(next)
-                .ok_or(format!("Node '{next}' not found"))?;
+                .ok_or_else(|| format!("Node '{next}' not found"))?;
             let next_result = self.evaluate_node(next, next_node, results, all_terminal_values)?;
             next_result.expected_value
         } else {
@@ -271,10 +284,7 @@ impl DecisionTreeEngine {
     }
 
     /// Build decision policy
-    fn build_decision_policy(
-        &self,
-        results: &HashMap<String, NodeResult>,
-    ) -> HashMap<String, String> {
+    fn build_decision_policy(results: &HashMap<String, NodeResult>) -> HashMap<String, String> {
         let mut policy = HashMap::new();
 
         for (name, result) in results {
@@ -289,7 +299,7 @@ impl DecisionTreeEngine {
     }
 
     /// Calculate risk profile from terminal values
-    fn calculate_risk_profile(&self, terminal_values: &[(f64, f64)]) -> RiskProfile {
+    fn calculate_risk_profile(terminal_values: &[(f64, f64)]) -> RiskProfile {
         if terminal_values.is_empty() {
             return RiskProfile {
                 best_case: 0.0,
@@ -324,12 +334,15 @@ impl DecisionTreeEngine {
     }
 
     /// Get the configuration
-    pub fn config(&self) -> &DecisionTreeConfig {
+    #[must_use]
+    pub const fn config(&self) -> &DecisionTreeConfig {
         &self.config
     }
 }
 
 #[cfg(test)]
+// Financial math: exact float comparison validated against Excel/Gnumeric/R
+#[allow(clippy::float_cmp)]
 mod engine_tests {
     use super::*;
 

@@ -5,14 +5,16 @@
 # NEXT
 # ═══════════════════════════════════════════════════════════════════════════════
 
-next:
+next: []
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPLETED
+# ═══════════════════════════════════════════════════════════════════════════════
+
+completed:
   - id: "FOSS-004"
-    priority: MEDIUM
-    summary: "Fix 1002 clippy pedantic warnings"
-    tasks:
-      - "Fix all clippy::pedantic warnings (1002 errors)"
-      - "Ensure `make lint` passes with pedantic mode"
-      - "Pre-commit hook green again"
+    summary: "Fix 1566 clippy pedantic/nursery/cargo warnings → zero warnings"
+    version: "10.0.0-alpha.12"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG - Future ideas (unscheduled)

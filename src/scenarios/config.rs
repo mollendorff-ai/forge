@@ -30,18 +30,20 @@ pub enum ScalarOverride {
 
 impl ScalarOverride {
     /// Get the value if this is a fixed value
-    pub fn as_value(&self) -> Option<f64> {
+    #[must_use]
+    pub const fn as_value(&self) -> Option<f64> {
         match self {
-            ScalarOverride::Value(v) => Some(*v),
-            ScalarOverride::Formula { .. } => None,
+            Self::Value(v) => Some(*v),
+            Self::Formula { .. } => None,
         }
     }
 
     /// Get the formula if this is a formula
+    #[must_use]
     pub fn as_formula(&self) -> Option<&str> {
         match self {
-            ScalarOverride::Value(_) => None,
-            ScalarOverride::Formula { formula } => Some(formula),
+            Self::Value(_) => None,
+            Self::Formula { formula } => Some(formula),
         }
     }
 }
@@ -56,6 +58,7 @@ pub struct ScenarioConfig {
 
 impl ScenarioConfig {
     /// Create a new empty configuration
+    #[must_use]
     pub fn new() -> Self {
         Self {
             scenarios: HashMap::new(),
@@ -69,14 +72,20 @@ impl ScenarioConfig {
     }
 
     /// Validate the configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no scenarios are defined, probabilities do not sum
+    /// to 1.0, or any individual probability is out of range.
     pub fn validate(&self) -> Result<(), String> {
+        const TOLERANCE: f64 = 0.001;
+
         if self.scenarios.is_empty() {
             return Err("No scenarios defined".to_string());
         }
 
         // Validate probabilities sum to 1.0 (within tolerance)
         let total_prob: f64 = self.scenarios.values().map(|s| s.probability).sum();
-        const TOLERANCE: f64 = 0.001;
         if (total_prob - 1.0).abs() > TOLERANCE {
             return Err(format!(
                 "Scenario probabilities must sum to 1.0, got {total_prob:.4}"
@@ -105,19 +114,22 @@ impl ScenarioConfig {
     }
 
     /// Check if a scenario exists
+    #[must_use]
     pub fn has_scenario(&self, name: &str) -> bool {
         self.scenarios.contains_key(name)
     }
 
     /// Get a scenario by name
+    #[must_use]
     pub fn get_scenario(&self, name: &str) -> Option<&ScenarioDefinition> {
         self.scenarios.get(name)
     }
 }
 
-/// Builder pattern for ScenarioDefinition
+/// Builder pattern for `ScenarioDefinition`
 impl ScenarioDefinition {
     /// Create a new scenario with given probability
+    #[must_use]
     pub fn new(probability: f64) -> Self {
         Self {
             probability,
@@ -127,12 +139,14 @@ impl ScenarioDefinition {
     }
 
     /// Set the description
+    #[must_use]
     pub fn with_description(mut self, description: &str) -> Self {
         self.description = description.to_string();
         self
     }
 
     /// Add a scalar override with a fixed value
+    #[must_use]
     pub fn with_scalar(mut self, name: &str, value: f64) -> Self {
         self.scalars
             .insert(name.to_string(), ScalarOverride::Value(value));
@@ -140,6 +154,7 @@ impl ScenarioDefinition {
     }
 
     /// Add a scalar override with a formula
+    #[must_use]
     pub fn with_formula(mut self, name: &str, formula: &str) -> Self {
         self.scalars.insert(
             name.to_string(),

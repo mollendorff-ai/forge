@@ -3,6 +3,9 @@
 //! DEMO functions (5): SUM, AVERAGE, MIN, MAX, COUNT
 //! ENTERPRISE functions: PRODUCT, COUNTA, MEDIAN
 
+// Aggregation casts: array lengths (usize) to f64 for AVERAGE/COUNT (bounded by worksheet size).
+#![allow(clippy::cast_precision_loss)]
+
 use super::{collect_numeric_values, evaluate, EvalContext, EvalError, Expr, Value};
 
 /// Try to evaluate an aggregation function. Returns None if function not recognized.
@@ -119,6 +122,7 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::super::tests::eval;
     use super::*;
     use std::collections::HashMap;
@@ -247,9 +251,9 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     #![allow(clippy::approx_constant)]
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
 
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
     #[test]
@@ -786,18 +790,15 @@ mod integration_tests {
 
         // Empty array median: verify behavior is consistent
         // Either it errors (mathematically undefined) OR returns 0
-        match result {
-            Ok(model) => {
-                let median = model.scalars.get("med").unwrap().value;
-                // If it succeeds, median of empty array should be 0 or None
-                assert!(
-                    median.is_none() || median == Some(0.0),
-                    "Empty array median should be None or 0, got {median:?}"
-                );
-            },
-            Err(_) => {
-                // Error is acceptable for empty array median (undefined)
-            },
+        if let Ok(model) = result {
+            let median = model.scalars.get("med").unwrap().value;
+            // If it succeeds, median of empty array should be 0 or None
+            assert!(
+                median.is_none() || median == Some(0.0),
+                "Empty array median should be None or 0, got {median:?}"
+            );
+        } else {
+            // Error is acceptable for empty array median (undefined)
         }
     }
 

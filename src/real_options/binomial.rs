@@ -2,7 +2,7 @@
 //!
 //! Cox-Ross-Rubinstein binomial model for American and European options.
 //! Supports early exercise and path-dependent features.
-//! Validated against QuantLib.
+//! Validated against `QuantLib`.
 
 /// Binomial tree model for option pricing
 pub struct BinomialTree {
@@ -33,7 +33,8 @@ pub enum OptionStyle {
 
 impl BinomialTree {
     /// Create a new binomial tree model
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         spot: f64,
         strike: f64,
         rate: f64,
@@ -53,12 +54,15 @@ impl BinomialTree {
     }
 
     /// Set dividend yield
-    pub fn with_dividend_yield(mut self, yield_rate: f64) -> Self {
+    #[must_use]
+    pub const fn with_dividend_yield(mut self, yield_rate: f64) -> Self {
         self.dividend_yield = yield_rate;
         self
     }
 
     /// Calculate time step
+    // Truncation is mathematically impossible: steps is bounded by practical tree sizes (< 2^52)
+    #[allow(clippy::cast_precision_loss)]
     fn dt(&self) -> f64 {
         self.maturity / self.steps as f64
     }
@@ -88,16 +92,20 @@ impl BinomialTree {
     }
 
     /// Price a call option
+    #[must_use]
     pub fn call_price(&self, style: OptionStyle) -> f64 {
         self.price_option(true, style)
     }
 
     /// Price a put option
+    #[must_use]
     pub fn put_price(&self, style: OptionStyle) -> f64 {
         self.price_option(false, style)
     }
 
     /// General option pricing using backward induction
+    // Truncation is mathematically impossible: step indices are bounded by self.steps (< 2^31)
+    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
     fn price_option(&self, is_call: bool, style: OptionStyle) -> f64 {
         let n = self.steps;
         let u = self.up();
@@ -120,7 +128,7 @@ impl BinomialTree {
         for step in (0..n).rev() {
             for i in 0..=step {
                 // Continuation value
-                let hold = disc * (p * prices[i + 1] + (1.0 - p) * prices[i]);
+                let hold = disc * p.mul_add(prices[i + 1], (1.0 - p) * prices[i]);
 
                 if style == OptionStyle::American {
                     // Early exercise value
@@ -141,10 +149,11 @@ impl BinomialTree {
     }
 
     /// Price a defer option (option to wait)
+    #[must_use]
     pub fn defer_option_value(&self, max_deferral: f64, exercise_cost: f64) -> f64 {
         // The defer option is essentially a call option on the project
         // with the exercise cost as the strike
-        let defer_tree = BinomialTree::new(
+        let defer_tree = Self::new(
             self.spot,
             exercise_cost,
             self.rate,
@@ -158,12 +167,13 @@ impl BinomialTree {
     }
 
     /// Price an expand option
+    #[must_use]
     pub fn expand_option_value(&self, expansion_factor: f64, exercise_cost: f64) -> f64 {
         // The expand option lets you scale up by expansion_factor
         // Value = Call on (expansion_factor - 1) * spot, strike = exercise_cost
         let additional_value = (expansion_factor - 1.0) * self.spot;
 
-        let expand_tree = BinomialTree::new(
+        let expand_tree = Self::new(
             additional_value,
             exercise_cost,
             self.rate,
@@ -177,10 +187,11 @@ impl BinomialTree {
     }
 
     /// Price an abandon option
+    #[must_use]
     pub fn abandon_option_value(&self, salvage_value: f64) -> f64 {
         // The abandon option is a put option on the project
         // with salvage value as the strike
-        let abandon_tree = BinomialTree::new(
+        let abandon_tree = Self::new(
             self.spot,
             salvage_value,
             self.rate,
@@ -194,12 +205,13 @@ impl BinomialTree {
     }
 
     /// Price a contract option
+    #[must_use]
     pub fn contract_option_value(&self, contraction_factor: f64, cost_savings: f64) -> f64 {
         // The contract option lets you scale down by contraction_factor
         // Value = Put on (1 - contraction_factor) * spot, strike = cost_savings
         let reduction = (1.0 - contraction_factor) * self.spot;
 
-        let contract_tree = BinomialTree::new(
+        let contract_tree = Self::new(
             reduction,
             cost_savings,
             self.rate,
@@ -213,6 +225,14 @@ impl BinomialTree {
     }
 
     /// Get early exercise boundary (for American options)
+    // Truncation is mathematically impossible: step indices are bounded by self.steps (< 2^31)
+    // Truncation is mathematically impossible: step indices are bounded by self.steps (< 2^31)
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_possible_wrap,
+        clippy::cast_precision_loss
+    )]
+    #[must_use]
     pub fn early_exercise_boundary(&self, is_call: bool) -> Vec<(f64, f64)> {
         let n = self.steps;
         let dt = self.dt();
@@ -240,7 +260,7 @@ impl BinomialTree {
             let mut exercise_at = None;
 
             for i in 0..=step {
-                let hold = disc * (p * prices[i + 1] + (1.0 - p) * prices[i]);
+                let hold = disc * p.mul_add(prices[i + 1], (1.0 - p) * prices[i]);
                 let spot_t = self.spot * u.powi(i as i32) * d.powi((step - i) as i32);
                 let exercise = if is_call {
                     (spot_t - self.strike).max(0.0)
@@ -302,7 +322,7 @@ mod binomial_tests {
         let put = tree.put_price(OptionStyle::European);
 
         let lhs = call - put;
-        let rhs = 100.0 - 100.0 * (-0.05_f64).exp();
+        let rhs = 100.0f64.mul_add(-(-0.05_f64).exp(), 100.0);
 
         assert!((lhs - rhs).abs() < 0.5, "Put-call parity: {lhs} != {rhs}");
     }
@@ -352,7 +372,7 @@ mod binomial_tests {
         );
     }
 
-    /// Roundtrip validation against QuantLib
+    /// Roundtrip validation against `QuantLib`
     #[test]
     fn test_quantlib_equivalence() {
         // QuantLib binomial tree (CRR) reference values:

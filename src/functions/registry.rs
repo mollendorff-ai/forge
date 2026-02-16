@@ -36,21 +36,21 @@ pub enum Category {
 impl std::fmt::Display for Category {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Category::Math => write!(f, "Math"),
-            Category::Aggregation => write!(f, "Aggregation"),
-            Category::Logical => write!(f, "Logical"),
-            Category::Text => write!(f, "Text"),
-            Category::Date => write!(f, "Date"),
-            Category::Lookup => write!(f, "Lookup"),
-            Category::Financial => write!(f, "Financial"),
-            Category::Statistical => write!(f, "Statistical"),
-            Category::Trigonometric => write!(f, "Trigonometric"),
-            Category::Information => write!(f, "Information"),
-            Category::Conditional => write!(f, "Conditional"),
-            Category::Array => write!(f, "Array"),
-            Category::Advanced => write!(f, "Advanced"),
-            Category::ForgeNative => write!(f, "Forge Native"),
-            Category::MonteCarlo => write!(f, "Monte Carlo"),
+            Self::Math => write!(f, "Math"),
+            Self::Aggregation => write!(f, "Aggregation"),
+            Self::Logical => write!(f, "Logical"),
+            Self::Text => write!(f, "Text"),
+            Self::Date => write!(f, "Date"),
+            Self::Lookup => write!(f, "Lookup"),
+            Self::Financial => write!(f, "Financial"),
+            Self::Statistical => write!(f, "Statistical"),
+            Self::Trigonometric => write!(f, "Trigonometric"),
+            Self::Information => write!(f, "Information"),
+            Self::Conditional => write!(f, "Conditional"),
+            Self::Array => write!(f, "Array"),
+            Self::Advanced => write!(f, "Advanced"),
+            Self::ForgeNative => write!(f, "Forge Native"),
+            Self::MonteCarlo => write!(f, "Monte Carlo"),
         }
     }
 }
@@ -85,11 +85,13 @@ pub fn enterprise_functions() -> impl Iterator<Item = &'static FunctionDef> {
 }
 
 /// Count demo functions
+#[must_use]
 pub fn count_demo() -> usize {
     FUNCTIONS.iter().filter(|f| f.demo).count()
 }
 
 /// Count enterprise functions (total)
+#[must_use]
 pub fn count_enterprise() -> usize {
     FUNCTIONS.len()
 }
@@ -107,21 +109,25 @@ pub fn demo_by_category(category: Category) -> impl Iterator<Item = &'static Fun
 }
 
 /// Check if function is available in demo build
+#[must_use]
 pub fn is_demo_function(name: &str) -> bool {
     FUNCTIONS.iter().any(|f| f.name == name && f.demo)
 }
 
 /// Find function by name
+#[must_use]
 pub fn find_function(name: &str) -> Option<&'static FunctionDef> {
     FUNCTIONS.iter().find(|f| f.name == name)
 }
 
 /// Count scalar functions (v1.0.0 compatible)
+#[must_use]
 pub fn count_scalar() -> usize {
     FUNCTIONS.iter().filter(|f| f.scalar).count()
 }
 
 /// Count array-only functions (v5.0.0 only)
+#[must_use]
 pub fn count_array_only() -> usize {
     FUNCTIONS.iter().filter(|f| !f.scalar).count()
 }

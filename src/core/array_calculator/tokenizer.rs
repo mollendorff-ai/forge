@@ -34,7 +34,7 @@ pub enum Token {
 }
 
 /// Error during tokenization
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TokenizeError {
     pub message: String,
     pub position: usize,
@@ -69,6 +69,7 @@ pub struct Tokenizer<'a> {
 
 impl<'a> Tokenizer<'a> {
     /// Create a new tokenizer for the given formula string
+    #[must_use]
     pub fn new(formula: &'a str) -> Self {
         // Strip leading '=' if present (formulas start with =)
         let formula = formula.strip_prefix('=').unwrap_or(formula);
@@ -79,6 +80,11 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Tokenize the entire formula into a vector of tokens
+    ///
+    /// # Errors
+    ///
+    /// Returns `TokenizeError` for invalid tokens (e.g., unterminated strings,
+    /// invalid number literals).
     pub fn tokenize(mut self) -> Result<Vec<Token>, TokenizeError> {
         let mut tokens = Vec::new();
 
@@ -273,6 +279,8 @@ impl<'a> Tokenizer<'a> {
 
     /// Read an identifier (function name, variable, or table.column reference)
     /// Also recognizes TRUE/FALSE as boolean literals
+    // Returns Result for uniform tokenizer method signature.
+    #[allow(clippy::unnecessary_wraps)]
     fn read_identifier(&mut self) -> Result<Token, TokenizeError> {
         let mut ident = String::new();
 
@@ -303,6 +311,8 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Handle minus sign - could be operator or start of negative number
+    // Returns Result for uniform tokenizer method signature.
+    #[allow(clippy::unnecessary_wraps)]
     fn read_minus_or_negative(&mut self) -> Result<Token, TokenizeError> {
         self.advance(); // consume '-'
 
@@ -314,6 +324,8 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Read operators starting with '<'
+    // Returns Result for uniform tokenizer method signature.
+    #[allow(clippy::unnecessary_wraps)]
     fn read_less_than_operator(&mut self) -> Result<Token, TokenizeError> {
         self.advance(); // consume '<'
 
@@ -331,6 +343,8 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Read operators starting with '>'
+    // Returns Result for uniform tokenizer method signature.
+    #[allow(clippy::unnecessary_wraps)]
     fn read_greater_than_operator(&mut self) -> Result<Token, TokenizeError> {
         self.advance(); // consume '>'
 
@@ -345,6 +359,10 @@ impl<'a> Tokenizer<'a> {
 }
 
 /// Convenience function to tokenize a formula string
+///
+/// # Errors
+///
+/// Returns `TokenizeError` for invalid tokens.
 pub fn tokenize(formula: &str) -> Result<Vec<Token>, TokenizeError> {
     Tokenizer::new(formula).tokenize()
 }

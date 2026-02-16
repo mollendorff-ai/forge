@@ -24,6 +24,7 @@ pub struct VariableResult {
 
 impl VariableResult {
     /// Get probability for a specific state
+    #[must_use]
     pub fn get_probability(&self, state: &str) -> Option<f64> {
         self.states
             .iter()
@@ -45,11 +46,16 @@ pub struct BayesianResult {
 
 impl BayesianResult {
     /// Export results to YAML format
+    #[must_use]
     pub fn to_yaml(&self) -> String {
         serde_yaml_ng::to_string(self).unwrap_or_else(|_| "# Error serializing results".to_string())
     }
 
     /// Export results to JSON format
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if JSON serialization fails.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
@@ -63,12 +69,20 @@ pub struct BayesianEngine {
 
 impl BayesianEngine {
     /// Create a new Bayesian engine
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration is invalid.
     pub fn new(config: BayesianConfig) -> Result<Self, String> {
         let bp = BeliefPropagation::new(config.clone())?;
         Ok(Self { config, bp })
     }
 
     /// Query the marginal probability of a variable
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the target variable is not found in the network.
     pub fn query(&self, target: &str) -> Result<VariableResult, String> {
         let probs = self.bp.query(target)?;
 
@@ -76,7 +90,7 @@ impl BayesianEngine {
             .config
             .nodes
             .get(target)
-            .ok_or(format!("Variable '{target}' not found"))?;
+            .ok_or_else(|| format!("Variable '{target}' not found"))?;
 
         let (max_idx, max_prob) = probs
             .iter()
@@ -94,6 +108,10 @@ impl BayesianEngine {
     }
 
     /// Query with evidence
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the target or evidence variables are not found.
     pub fn query_with_evidence(
         &self,
         target: &str,
@@ -106,13 +124,13 @@ impl BayesianEngine {
                 .config
                 .nodes
                 .get(var.as_str())
-                .ok_or(format!("Evidence variable '{var}' not found"))?;
+                .ok_or_else(|| format!("Evidence variable '{var}' not found"))?;
 
             let idx = node
                 .states
                 .iter()
                 .position(|s| s == state)
-                .ok_or(format!("State '{state}' not found for variable '{var}'"))?;
+                .ok_or_else(|| format!("State '{state}' not found for variable '{var}'"))?;
 
             evidence_indices.insert(var.clone(), idx);
         }
@@ -123,7 +141,7 @@ impl BayesianEngine {
             .config
             .nodes
             .get(target)
-            .ok_or(format!("Variable '{target}' not found"))?;
+            .ok_or_else(|| format!("Variable '{target}' not found"))?;
 
         let (max_idx, max_prob) = probs
             .iter()
@@ -141,6 +159,10 @@ impl BayesianEngine {
     }
 
     /// Query all variables
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying any variable fails.
     pub fn query_all(&self) -> Result<BayesianResult, String> {
         let mut queries = HashMap::new();
 
@@ -157,6 +179,10 @@ impl BayesianEngine {
     }
 
     /// Query all variables with evidence
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying any variable fails or evidence is invalid.
     pub fn query_all_with_evidence(
         &self,
         evidence: &HashMap<String, &str>,
@@ -187,6 +213,10 @@ impl BayesianEngine {
     }
 
     /// Get the most likely explanation (MPE) for all variables
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if querying any variable fails.
     pub fn most_likely_explanation(&self) -> Result<HashMap<String, String>, String> {
         let mut explanation = HashMap::new();
 
@@ -199,7 +229,8 @@ impl BayesianEngine {
     }
 
     /// Get the configuration
-    pub fn config(&self) -> &BayesianConfig {
+    #[must_use]
+    pub const fn config(&self) -> &BayesianConfig {
         &self.config
     }
 }

@@ -6,6 +6,8 @@ use super::{
 };
 
 /// Try to evaluate a time component function.
+#[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+// Time component casts: f64 date serials to i64 (bounded), i64 seconds to f64 (fits in mantissa).
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -30,10 +32,9 @@ pub fn try_evaluate(
             // 2: Monday=1, Sunday=7
             // 3: Monday=0, Sunday=6
             let result = match return_type {
-                1 => (day + 1) as f64,
-                2 => ((day + 6) % 7 + 1) as f64,
-                3 => ((day + 6) % 7) as f64,
-                _ => (day + 1) as f64,
+                2 => f64::from((day + 6) % 7 + 1),
+                3 => f64::from((day + 6) % 7),
+                _ => f64::from(day + 1), // Type 1 (default): Sunday=1
             };
             Value::Number(result)
         },
@@ -46,12 +47,12 @@ pub fn try_evaluate(
             if let Some(time_part) = time_str.split(' ').nth(1) {
                 // DateTime format "YYYY-MM-DD HH:MM:SS"
                 if let Ok(parsed) = chrono::NaiveTime::parse_from_str(time_part, "%H:%M:%S") {
-                    return Ok(Some(Value::Number(parsed.hour() as f64)));
+                    return Ok(Some(Value::Number(f64::from(parsed.hour()))));
                 }
             }
             // Try as time only "HH:MM:SS"
             if let Ok(parsed) = chrono::NaiveTime::parse_from_str(&time_str, "%H:%M:%S") {
-                return Ok(Some(Value::Number(parsed.hour() as f64)));
+                return Ok(Some(Value::Number(f64::from(parsed.hour()))));
             }
             // Try as fraction of day (Excel serial time)
             if let Some(n) = val.as_number() {
@@ -68,11 +69,11 @@ pub fn try_evaluate(
             let time_str = val.as_text();
             if let Some(time_part) = time_str.split(' ').nth(1) {
                 if let Ok(parsed) = chrono::NaiveTime::parse_from_str(time_part, "%H:%M:%S") {
-                    return Ok(Some(Value::Number(parsed.minute() as f64)));
+                    return Ok(Some(Value::Number(f64::from(parsed.minute()))));
                 }
             }
             if let Ok(parsed) = chrono::NaiveTime::parse_from_str(&time_str, "%H:%M:%S") {
-                return Ok(Some(Value::Number(parsed.minute() as f64)));
+                return Ok(Some(Value::Number(f64::from(parsed.minute()))));
             }
             if let Some(n) = val.as_number() {
                 let frac = n.fract();
@@ -88,11 +89,11 @@ pub fn try_evaluate(
             let time_str = val.as_text();
             if let Some(time_part) = time_str.split(' ').nth(1) {
                 if let Ok(parsed) = chrono::NaiveTime::parse_from_str(time_part, "%H:%M:%S") {
-                    return Ok(Some(Value::Number(parsed.second() as f64)));
+                    return Ok(Some(Value::Number(f64::from(parsed.second()))));
                 }
             }
             if let Ok(parsed) = chrono::NaiveTime::parse_from_str(&time_str, "%H:%M:%S") {
-                return Ok(Some(Value::Number(parsed.second() as f64)));
+                return Ok(Some(Value::Number(f64::from(parsed.second()))));
             }
             if let Some(n) = val.as_number() {
                 let frac = n.fract();
@@ -110,11 +111,11 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::super::super::tests::eval;
     use super::super::{EvalContext, Value};
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
-    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+    use crate::types::{ParsedModel, Variable};
 
     #[test]
     fn test_weekday() {

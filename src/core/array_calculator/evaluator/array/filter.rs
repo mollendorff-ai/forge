@@ -129,9 +129,10 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     #![allow(clippy::approx_constant)]
+    // Exact float comparison validated against Excel/Gnumeric/R
+    #![allow(clippy::float_cmp)]
 
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
     #[test]

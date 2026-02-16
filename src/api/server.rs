@@ -43,9 +43,14 @@ pub struct AppState {
 
 /// Run the API server
 ///
+/// # Errors
+///
+/// Returns an error if the server address cannot be parsed, the TCP listener
+/// fails to bind, or the server encounters a fatal runtime error.
+///
 /// # Coverage Exclusion (ADR-006)
 /// This function binds to a real TCP port and runs forever until terminated.
-/// Cannot be unit tested - verified via integration tests in binary_integration_tests.rs
+/// Cannot be unit tested - verified via integration tests in `binary_integration_tests.rs`
 #[cfg(not(coverage))]
 pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
     // Initialize tracing

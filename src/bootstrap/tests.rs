@@ -1,5 +1,8 @@
 //! Bootstrap Integration Tests
 
+// Financial math: exact float comparison validated against Excel/Gnumeric/R
+#![allow(clippy::float_cmp)]
+
 use super::*;
 
 /// Full workflow test with historical returns data
@@ -109,7 +112,7 @@ fn test_variance_bootstrap() {
 /// Test percentile bootstrap
 #[test]
 fn test_percentile_bootstrap() {
-    let data: Vec<f64> = (1..=100).map(|x| x as f64).collect();
+    let data: Vec<f64> = (1..=100).map(f64::from).collect();
 
     let config = BootstrapConfig::new()
         .with_data(data)
@@ -154,7 +157,8 @@ fn test_bias_estimation() {
 fn test_skewed_data() {
     // Right-skewed data (like income distribution)
     let data = vec![
-        20000.0, 25000.0, 30000.0, 32000.0, 35000.0, 40000.0, 45000.0, 50000.0, 80000.0, 150000.0,
+        20_000.0, 25_000.0, 30_000.0, 32_000.0, 35_000.0, 40_000.0, 45_000.0, 50_000.0, 80_000.0,
+        150_000.0,
     ];
 
     let config = BootstrapConfig::new()
@@ -206,7 +210,7 @@ fn test_min_max_bootstrap() {
 /// Test bias-corrected estimate
 #[test]
 fn test_bias_corrected() {
-    let data: Vec<f64> = (1..=50).map(|x| x as f64).collect();
+    let data: Vec<f64> = (1..=50).map(f64::from).collect();
 
     let config = BootstrapConfig::new()
         .with_data(data)

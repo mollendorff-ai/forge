@@ -19,6 +19,7 @@ pub struct Factor {
 
 impl Factor {
     /// Create a factor from a node's CPT
+    #[must_use]
     pub fn from_node(name: &str, node: &BayesianNode, config: &BayesianConfig) -> Self {
         let mut variables = vec![name.to_string()];
         let mut cardinalities = vec![node.states.len()];
@@ -37,7 +38,7 @@ impl Factor {
 
         if node.is_root() {
             // Root node: just prior
-            values = node.prior.clone();
+            values.clone_from(&node.prior);
         } else {
             // Child node: build from CPT
             // Get parent cardinality (assuming single parent for now)
@@ -61,7 +62,7 @@ impl Factor {
             }
         }
 
-        Factor {
+        Self {
             variables,
             cardinalities,
             values,
@@ -69,7 +70,8 @@ impl Factor {
     }
 
     /// Multiply two factors
-    pub fn multiply(&self, other: &Factor) -> Factor {
+    #[must_use]
+    pub fn multiply(&self, other: &Self) -> Self {
         // Find common and unique variables
         let mut new_variables = self.variables.clone();
         let mut new_cardinalities = self.cardinalities.clone();
@@ -91,17 +93,18 @@ impl Factor {
 
         // Compute product
         for (i, val) in new_values.iter_mut().enumerate() {
-            let indices = self.decode_index(i, &new_cardinalities);
+            let indices = Self::decode_index(i, &new_cardinalities);
 
             // Get index into self
-            let self_idx = self.encode_index(&indices[..self.variables.len()], &self.cardinalities);
+            let self_idx =
+                Self::encode_index(&indices[..self.variables.len()], &self.cardinalities);
 
             // Get index into other
             let other_idx_vec: Vec<usize> = other_indices
                 .iter()
                 .filter_map(|&idx| idx.map(|j| indices[j]))
                 .collect();
-            let other_idx = self.encode_index(&other_idx_vec, &other.cardinalities);
+            let other_idx = Self::encode_index(&other_idx_vec, &other.cardinalities);
 
             let self_val = self.values.get(self_idx).copied().unwrap_or(0.0);
             let other_val = other.values.get(other_idx).copied().unwrap_or(0.0);
@@ -109,7 +112,7 @@ impl Factor {
             *val = self_val * other_val;
         }
 
-        Factor {
+        Self {
             variables: new_variables,
             cardinalities: new_cardinalities,
             values: new_values,
@@ -117,10 +120,10 @@ impl Factor {
     }
 
     /// Marginalize (sum out) a variable
-    pub fn marginalize(&self, var: &str) -> Factor {
-        let var_idx = match self.variables.iter().position(|v| v == var) {
-            Some(idx) => idx,
-            None => return self.clone(),
+    #[must_use]
+    pub fn marginalize(&self, var: &str) -> Self {
+        let Some(var_idx) = self.variables.iter().position(|v| v == var) else {
+            return self.clone();
         };
 
         let new_variables: Vec<String> = self
@@ -141,19 +144,18 @@ impl Factor {
 
         if new_variables.is_empty() {
             // Marginalizing the last variable
-            return Factor {
+            return Self {
                 variables: vec![],
                 cardinalities: vec![],
                 values: vec![self.values.iter().sum()],
             };
         }
 
-        let _var_card = self.cardinalities[var_idx];
         let total_size: usize = new_cardinalities.iter().product();
         let mut new_values = vec![0.0; total_size];
 
         for i in 0..self.values.len() {
-            let indices = self.decode_index(i, &self.cardinalities);
+            let indices = Self::decode_index(i, &self.cardinalities);
 
             // Get new index (without marginalized variable)
             let new_idx_vec: Vec<usize> = indices
@@ -166,13 +168,13 @@ impl Factor {
             let new_idx = if new_idx_vec.is_empty() {
                 0
             } else {
-                self.encode_index(&new_idx_vec, &new_cardinalities)
+                Self::encode_index(&new_idx_vec, &new_cardinalities)
             };
 
             new_values[new_idx] += self.values[i];
         }
 
-        Factor {
+        Self {
             variables: new_variables,
             cardinalities: new_cardinalities,
             values: new_values,
@@ -190,7 +192,7 @@ impl Factor {
     }
 
     /// Decode a flat index to multi-dimensional indices
-    fn decode_index(&self, mut idx: usize, cardinalities: &[usize]) -> Vec<usize> {
+    fn decode_index(mut idx: usize, cardinalities: &[usize]) -> Vec<usize> {
         let mut indices = vec![0; cardinalities.len()];
         for i in (0..cardinalities.len()).rev() {
             indices[i] = idx % cardinalities[i];
@@ -200,7 +202,7 @@ impl Factor {
     }
 
     /// Encode multi-dimensional indices to a flat index
-    fn encode_index(&self, indices: &[usize], cardinalities: &[usize]) -> usize {
+    fn encode_index(indices: &[usize], cardinalities: &[usize]) -> usize {
         let mut idx = 0;
         let mut multiplier = 1;
         for i in (0..indices.len()).rev() {
@@ -211,13 +213,14 @@ impl Factor {
     }
 
     /// Get probability for a specific assignment
+    #[must_use]
     pub fn get_probability(&self, assignment: &HashMap<String, usize>) -> f64 {
         let indices: Vec<usize> = self
             .variables
             .iter()
             .map(|v| assignment.get(v).copied().unwrap_or(0))
             .collect();
-        let idx = self.encode_index(&indices, &self.cardinalities);
+        let idx = Self::encode_index(&indices, &self.cardinalities);
         self.values.get(idx).copied().unwrap_or(0.0)
     }
 }
@@ -230,6 +233,10 @@ pub struct BeliefPropagation {
 
 impl BeliefPropagation {
     /// Create a new belief propagation engine
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration is invalid.
     pub fn new(config: BayesianConfig) -> Result<Self, String> {
         config.validate()?;
 
@@ -245,6 +252,10 @@ impl BeliefPropagation {
     }
 
     /// Query the marginal probability of a variable
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the target variable is not found or no factors remain.
     pub fn query(&self, target: &str) -> Result<Vec<f64>, String> {
         if !self.config.nodes.contains_key(target) {
             return Err(format!("Variable '{target}' not found in network"));
@@ -320,12 +331,16 @@ impl BeliefPropagation {
             if sum > 0.0 {
                 Ok(final_result.values.iter().map(|v| v / sum).collect())
             } else {
-                Ok(final_result.values.clone())
+                Ok(final_result.values)
             }
         }
     }
 
     /// Query with evidence (observed values)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the target variable is not found or no factors remain.
     pub fn query_with_evidence(
         &self,
         target: &str,
@@ -339,7 +354,7 @@ impl BeliefPropagation {
         let mut factors: Vec<Factor> = self
             .factors
             .iter()
-            .map(|f| self.apply_evidence(f, evidence))
+            .map(|f| Self::apply_evidence(f, evidence))
             .collect();
 
         // Variable elimination (excluding evidence variables)
@@ -410,17 +425,17 @@ impl BeliefPropagation {
             if sum > 0.0 {
                 Ok(final_result.values.iter().map(|v| v / sum).collect())
             } else {
-                Ok(final_result.values.clone())
+                Ok(final_result.values)
             }
         }
     }
 
     /// Apply evidence to a factor
-    fn apply_evidence(&self, factor: &Factor, evidence: &HashMap<String, usize>) -> Factor {
+    fn apply_evidence(factor: &Factor, evidence: &HashMap<String, usize>) -> Factor {
         let mut new_values = factor.values.clone();
 
         for (i, val) in new_values.iter_mut().enumerate() {
-            let indices = factor.decode_index(i, &factor.cardinalities);
+            let indices = Factor::decode_index(i, &factor.cardinalities);
 
             for (var_idx, var) in factor.variables.iter().enumerate() {
                 if let Some(&ev_val) = evidence.get(var) {
@@ -448,7 +463,8 @@ impl BeliefPropagation {
     }
 
     /// Get the configuration
-    pub fn config(&self) -> &BayesianConfig {
+    #[must_use]
+    pub const fn config(&self) -> &BayesianConfig {
         &self.config
     }
 }
@@ -499,7 +515,7 @@ mod inference_tests {
 
         // P(sprinkler=on) = P(sprinkler=on|rain=no)*P(rain=no) + P(sprinkler=on|rain=yes)*P(rain=yes)
         //                 = 0.4 * 0.8 + 0.01 * 0.2 = 0.32 + 0.002 = 0.322
-        let expected_on = 0.4 * 0.8 + 0.01 * 0.2;
+        let expected_on = 0.4f64.mul_add(0.8, 0.01 * 0.2);
         assert!(
             (sprinkler_probs[1] - expected_on).abs() < 0.01,
             "P(sprinkler=on) should be {}, got {}",

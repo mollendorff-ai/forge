@@ -1,14 +1,29 @@
 //! Date Functions (v1.1.0)
 //! TODAY, DATE, YEAR, MONTH, DAY, DATEDIF, EDATE, EOMONTH, NETWORKDAYS, WORKDAY, YEARFRAC
+//!
+//! Legacy date utility methods used internally. The public date function API
+//! is provided by `evaluator::dates`.
+
+#![allow(dead_code)] // Legacy date utilities kept for potential future use
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Column, ColumnValue};
 
 use super::ArrayCalculator;
 
-#[allow(dead_code)]
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    clippy::unused_self,
+    clippy::unnecessary_wraps
+)]
+// Date serial numbers and day/month/year conversions involve bounded integer casts
+// where values are constrained by calendar rules (months 1-12, days 1-31, years < 9999).
+// Methods take &self for API consistency within the ArrayCalculator impl block.
+// Some methods return Result for API uniformity with failable date operations.
 impl ArrayCalculator {
-    /// Evaluate TODAY function: TODAY()
+    /// Evaluate TODAY function: `TODAY()`
     pub(super) fn eval_today(&self) -> String {
         use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -71,8 +86,10 @@ impl ArrayCalculator {
         Ok(day)
     }
 
-    /// Evaluate DATEDIF function: DATEDIF(start_date, end_date, unit)
+    /// Evaluate DATEDIF function: `DATEDIF(start_date`, `end_date`, unit)
     /// unit: "Y" for years, "M" for months, "D" for days
+    // Multiple unit cases require sequential match arms.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn eval_datedif(
         &self,
         start_date: &str,
@@ -134,14 +151,14 @@ impl ArrayCalculator {
                 if end_month < start_month || (end_month == start_month && end_day < start_day) {
                     years -= 1;
                 }
-                Ok(years.max(0) as f64)
+                Ok(f64::from(years.max(0)))
             },
             "M" => {
                 let mut months = (end_year - start_year) * 12 + (end_month - start_month);
                 if end_day < start_day {
                     months -= 1;
                 }
-                Ok(months.max(0) as f64)
+                Ok(f64::from(months.max(0)))
             },
             "D" => {
                 let start_serial =
@@ -163,7 +180,7 @@ impl ArrayCalculator {
                     };
                     day_diff += self.days_in_month(prev_year, prev_month as u32) as i32;
                 }
-                Ok(day_diff as f64)
+                Ok(f64::from(day_diff))
             },
             "YM" => {
                 // Months ignoring years
@@ -174,7 +191,7 @@ impl ArrayCalculator {
                 if month_diff < 0 {
                     month_diff += 12;
                 }
-                Ok(month_diff as f64)
+                Ok(f64::from(month_diff))
             },
             "YD" => {
                 // Days ignoring years
@@ -183,7 +200,7 @@ impl ArrayCalculator {
                 if end_serial < start_serial {
                     end_serial += 365; // approximate
                 }
-                Ok((end_serial - start_serial) as f64)
+                Ok(f64::from(end_serial - start_serial))
             },
             _ => Err(ForgeError::Eval(format!(
                 "DATEDIF: Invalid unit '{unit}' (use Y, M, D, MD, YM, or YD)"
@@ -191,7 +208,7 @@ impl ArrayCalculator {
         }
     }
 
-    /// Evaluate EDATE function: EDATE(start_date, months)
+    /// Evaluate EDATE function: `EDATE(start_date`, months)
     pub(super) fn eval_edate(&self, start_date: &str, months: i32) -> ForgeResult<String> {
         let start = start_date.trim().trim_matches('"');
 
@@ -237,7 +254,7 @@ impl ArrayCalculator {
         Ok(format!("{new_year:04}-{new_month:02}-{new_day:02}"))
     }
 
-    /// Evaluate EOMONTH function: EOMONTH(start_date, months)
+    /// Evaluate EOMONTH function: `EOMONTH(start_date`, months)
     pub(super) fn eval_eomonth(&self, start_date: &str, months: i32) -> ForgeResult<String> {
         let start = start_date.trim().trim_matches('"');
 
@@ -276,10 +293,9 @@ impl ArrayCalculator {
     }
 
     /// Get the number of days in a given month
-    pub(super) fn days_in_month(&self, year: i32, month: u32) -> u32 {
+    pub(super) const fn days_in_month(&self, year: i32, month: u32) -> u32 {
         match month {
             1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-            4 | 6 | 9 | 11 => 30,
             2 => {
                 if Self::is_leap_year(year) {
                     29
@@ -287,7 +303,7 @@ impl ArrayCalculator {
                     28
                 }
             },
-            _ => 30,
+            _ => 30, // Months 4, 6, 9, 11 and any invalid month
         }
     }
 
@@ -325,7 +341,7 @@ impl ArrayCalculator {
     }
 
     /// Check if a year is a leap year
-    pub(super) fn is_leap_year(year: i32) -> bool {
+    pub(super) const fn is_leap_year(year: i32) -> bool {
         (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
     }
 
@@ -373,7 +389,7 @@ impl ArrayCalculator {
     }
 
     /// Convert ordinal back to (year, month, day)
-    pub(super) fn ordinal_to_ymd(mut days: i32) -> (i32, i32, i32) {
+    pub(super) const fn ordinal_to_ymd(mut days: i32) -> (i32, i32, i32) {
         let base_year = 2000;
         let mut year = base_year;
 
@@ -405,7 +421,7 @@ impl ArrayCalculator {
 
     /// Get day of week (0=Monday, 6=Sunday) for a date
     #[allow(clippy::many_single_char_names)] // Zeller's congruence standard notation
-    pub(super) fn weekday(year: i32, month: i32, day: i32) -> i32 {
+    pub(super) const fn weekday(year: i32, month: i32, day: i32) -> i32 {
         let m = if month < 3 { month + 12 } else { month };
         let y = if month < 3 { year - 1 } else { year };
         let q = day;
@@ -470,32 +486,28 @@ impl ArrayCalculator {
 
         let start_days = Self::ymd_to_ordinal(start_year, start_month as i32, start_day_raw as i32);
         let end_days = Self::ymd_to_ordinal(end_year, end_month as i32, end_day_raw as i32);
-        let days = (end_days - start_days) as f64;
+        let days = f64::from(end_days - start_days);
 
         match basis {
             0 | 4 => {
-                let mut start_day = start_day_raw as f64;
-                let mut end_day = end_day_raw as f64;
+                let mut sd = start_day_raw.min(31);
+                let mut ed = end_day_raw.min(31);
 
+                if sd == 31 {
+                    sd = 30;
+                }
                 if basis == 0 {
-                    if start_day == 31.0 {
-                        start_day = 30.0;
+                    if ed == 31 && sd == 30 {
+                        ed = 30;
                     }
-                    if end_day == 31.0 && start_day == 30.0 {
-                        end_day = 30.0;
-                    }
-                } else {
-                    if start_day == 31.0 {
-                        start_day = 30.0;
-                    }
-                    if end_day == 31.0 {
-                        end_day = 30.0;
-                    }
+                } else if ed == 31 {
+                    ed = 30;
                 }
 
-                let diff = (end_year - start_year) as f64 * 360.0
-                    + (end_month - start_month) as f64 * 30.0
-                    + (end_day - start_day);
+                let diff = f64::from(end_year - start_year)
+                    .mul_add(360.0, f64::from(end_month - start_month) * 30.0)
+                    + f64::from(ed)
+                    - f64::from(sd);
                 Ok(diff / 360.0)
             },
             1 => {
@@ -509,7 +521,7 @@ impl ArrayCalculator {
                 } else {
                     let avg_days_per_year = (start_year..=end_year).fold(0.0, |acc, y| {
                         acc + if Self::is_leap_year(y) { 366.0 } else { 365.0 }
-                    }) / (end_year - start_year + 1) as f64;
+                    }) / f64::from(end_year - start_year + 1);
                     Ok(days / avg_days_per_year)
                 }
             },
@@ -546,7 +558,7 @@ impl ArrayCalculator {
             serial += 1;
         }
 
-        Ok(serial as f64)
+        Ok(f64::from(serial))
     }
 
     /// Convert date string to Excel serial number

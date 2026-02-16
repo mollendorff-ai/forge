@@ -1,10 +1,21 @@
 //! Date arithmetic and extraction functions: YEAR, MONTH, DAY, DATE, EDATE, EOMONTH, DAYS
 
+use chrono::{Days, Months, NaiveDate};
+
 use super::{
     evaluate, parse_date_value, require_args, Datelike, EvalContext, EvalError, Expr, Value,
 };
 
 /// Try to evaluate a date arithmetic function.
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    clippy::too_many_lines
+)]
+// Date arithmetic casts f64 to i32 for year/month/day (bounded by calendar rules: months 1-12,
+// days 1-31). chrono NaiveDate serial numbers fit in i32/i64. Splitting this match would
+// fragment the date function dispatch table.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -15,21 +26,21 @@ pub fn try_evaluate(
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             let date = parse_date_value(&val)?;
-            Value::Number(date.year() as f64)
+            Value::Number(f64::from(date.year()))
         },
 
         "MONTH" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             let date = parse_date_value(&val)?;
-            Value::Number(date.month() as f64)
+            Value::Number(f64::from(date.month()))
         },
 
         "DAY" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?;
             let date = parse_date_value(&val)?;
-            Value::Number(date.day() as f64)
+            Value::Number(f64::from(date.day()))
         },
 
         "DATE" => {
@@ -52,7 +63,6 @@ pub fn try_evaluate(
             let adj_year = total_months.div_euclid(12);
             let adj_month = (total_months.rem_euclid(12) + 1) as u32;
 
-            use chrono::{Days, NaiveDate};
             // Start from day 1 of the adjusted month, then add (day - 1) days
             // This handles day=0 (last day of prev month) and day>max (overflow to next month)
             let base_date = NaiveDate::from_ymd_opt(adj_year, adj_month, 1).ok_or_else(|| {
@@ -74,8 +84,6 @@ pub fn try_evaluate(
         },
 
         "EDATE" => {
-            use chrono::Months;
-
             require_args(name, args, 2)?;
             let start_date = evaluate(&args[0], ctx)?;
             let months = evaluate(&args[1], ctx)?
@@ -96,8 +104,6 @@ pub fn try_evaluate(
         },
 
         "EOMONTH" => {
-            use chrono::{Months, NaiveDate};
-
             require_args(name, args, 2)?;
             let start_date = evaluate(&args[0], ctx)?;
             let months = evaluate(&args[1], ctx)?
@@ -146,11 +152,11 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::super::super::tests::eval;
     use super::super::{EvalContext, Value};
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
-    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+    use crate::types::{Column, ColumnValue, ParsedModel, Table};
 
     #[test]
     fn test_date_parts() {

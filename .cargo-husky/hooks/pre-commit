@@ -11,8 +11,8 @@ echo "🔍 Running pre-commit checks..."
 echo "📐 Checking formatting..."
 cargo fmt --all -- --check
 
-echo "📎 Running clippy (strict)..."
-cargo clippy --all-targets --all-features -- -D warnings
+echo "📎 Running clippy (pedantic)..."
+make lint
 
 echo "🧪 Running tests..."
 cargo test --all-features

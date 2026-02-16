@@ -21,7 +21,8 @@ pub struct ConfidenceInterval {
 
 impl ConfidenceInterval {
     /// Create a new confidence interval
-    pub fn new(level: f64, lower: f64, upper: f64) -> Self {
+    #[must_use]
+    pub const fn new(level: f64, lower: f64, upper: f64) -> Self {
         Self {
             level,
             lower,
@@ -30,6 +31,7 @@ impl ConfidenceInterval {
     }
 
     /// Width of the interval
+    #[must_use]
     pub fn width(&self) -> f64 {
         self.upper - self.lower
     }
@@ -56,16 +58,22 @@ pub struct BootstrapResult {
 
 impl BootstrapResult {
     /// Export results to YAML format
+    #[must_use]
     pub fn to_yaml(&self) -> String {
         serde_yaml_ng::to_string(self).unwrap_or_else(|_| "# Error serializing results".to_string())
     }
 
     /// Export results to JSON format
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if JSON serialization fails.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
 
     /// Get the bias-corrected estimate
+    #[must_use]
     pub fn bias_corrected_estimate(&self) -> f64 {
         self.original_estimate - self.bias
     }
@@ -79,18 +87,25 @@ pub struct BootstrapEngine {
 
 impl BootstrapEngine {
     /// Create a new bootstrap engine
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration is invalid (see [`BootstrapConfig::validate`]).
     pub fn new(config: BootstrapConfig) -> Result<Self, String> {
         config.validate()?;
 
-        let rng = match config.seed {
-            Some(seed) => StdRng::seed_from_u64(seed),
-            None => StdRng::from_rng(&mut rand::rng()),
-        };
+        let rng = config
+            .seed
+            .map_or_else(|| StdRng::from_rng(&mut rand::rng()), StdRng::seed_from_u64);
 
         Ok(Self { config, rng })
     }
 
     /// Run the bootstrap analysis
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the analysis fails.
     pub fn analyze(&mut self) -> Result<BootstrapResult, String> {
         let data = &self.config.data;
         let n = data.len();
@@ -172,6 +187,8 @@ impl BootstrapEngine {
             BootstrapStatistic::Percentile => {
                 let mut sorted = sample.to_vec();
                 sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                // cast_possible_truncation: percentile index is always in [0, sorted.len()-1]
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 let idx = ((self.config.percentile_value / 100.0) * (sorted.len() as f64 - 1.0))
                     .round() as usize;
                 sorted[idx.min(sorted.len() - 1)]
@@ -188,7 +205,10 @@ impl BootstrapEngine {
             .iter()
             .map(|&level| {
                 let alpha = 1.0 - level;
+                // cast_possible_truncation: indices are bounded by [0, distribution.len()]
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 let lower_idx = ((alpha / 2.0) * distribution.len() as f64) as usize;
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 let upper_idx = ((1.0 - alpha / 2.0) * distribution.len() as f64) as usize;
 
                 ConfidenceInterval::new(
@@ -201,7 +221,8 @@ impl BootstrapEngine {
     }
 
     /// Get the configuration
-    pub fn config(&self) -> &BootstrapConfig {
+    #[must_use]
+    pub const fn config(&self) -> &BootstrapConfig {
         &self.config
     }
 }

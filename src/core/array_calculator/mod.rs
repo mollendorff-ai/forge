@@ -36,12 +36,23 @@ pub struct ArrayCalculator {
 }
 
 impl ArrayCalculator {
-    pub fn new(model: ParsedModel) -> Self {
+    #[must_use]
+    pub const fn new(model: ParsedModel) -> Self {
         Self { model }
     }
 
     /// Calculate all formulas in the model
     /// Returns updated model with calculated values
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if formula evaluation fails (circular dependency,
+    /// unknown variable reference, or invalid expression).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the model's table map is in an inconsistent state (should not
+    /// occur with valid `ParsedModel` construction).
     pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
         // Step 1: Calculate all tables (row-wise formulas) in dependency order
         let table_names: Vec<String> = self.model.tables.keys().cloned().collect();
@@ -107,7 +118,9 @@ impl ArrayCalculator {
         Ok(ordered_names)
     }
 
-    /// Extract table names referenced in a formula (e.g., "pl_2025" from "=pl_2025.revenue")
+    /// Extract table names referenced in a formula (e.g., "`pl_2025`" from "=`pl_2025.revenue`")
+    // Returns Result for consistency with other dependency extraction methods.
+    #[allow(clippy::unnecessary_wraps)]
     fn extract_table_dependencies_from_formula(&self, formula: &str) -> ForgeResult<Vec<String>> {
         let mut deps = Vec::new();
 
@@ -130,7 +143,7 @@ impl ArrayCalculator {
     }
 
     /// Calculate all formulas in a table
-    fn calculate_table(&mut self, table_name: &str, table: &Table) -> ForgeResult<Table> {
+    fn calculate_table(&self, table_name: &str, table: &Table) -> ForgeResult<Table> {
         let mut working_table = table.clone();
 
         // Only validate column lengths if there are row formulas
@@ -142,7 +155,7 @@ impl ArrayCalculator {
         }
 
         // Build dependency order for formulas
-        let formula_order = self.get_formula_calculation_order(&working_table)?;
+        let formula_order = Self::get_formula_calculation_order(&working_table)?;
 
         // Calculate formulas in dependency order
         for col_name in formula_order {
@@ -150,7 +163,7 @@ impl ArrayCalculator {
                 let formula = formula.clone();
 
                 // Determine if this is a row-wise or aggregation formula
-                if self.is_aggregation_formula(&formula) {
+                if Self::is_aggregation_formula(&formula) {
                     // Aggregation: returns a scalar
                     // For now, we'll skip aggregations in tables (they belong in scalars section)
                     return Err(ForgeError::Eval(format!(
@@ -167,7 +180,7 @@ impl ArrayCalculator {
     }
 
     /// Get the order in which formulas should be calculated (dependency order)
-    fn get_formula_calculation_order(&self, table: &Table) -> ForgeResult<Vec<String>> {
+    fn get_formula_calculation_order(table: &Table) -> ForgeResult<Vec<String>> {
         use petgraph::algo::toposort;
         use petgraph::graph::DiGraph;
         use std::collections::HashMap;
@@ -183,7 +196,7 @@ impl ArrayCalculator {
 
         // Add edges for dependencies
         for (col_name, formula) in &table.row_formulas {
-            let deps = self.extract_column_references(formula)?;
+            let deps = Self::extract_column_references(formula)?;
             for dep in deps {
                 // Only add dependency if it's another formula column
                 if let Some(&dep_idx) = node_indices.get(&dep) {
@@ -210,7 +223,9 @@ impl ArrayCalculator {
     }
 
     /// Extract column references from a formula
-    fn extract_column_references(&self, formula: &str) -> ForgeResult<Vec<String>> {
+    // Returns Result for consistency with other dependency extraction methods.
+    #[allow(clippy::unnecessary_wraps)]
+    fn extract_column_references(formula: &str) -> ForgeResult<Vec<String>> {
         let mut refs = Vec::new();
         // Strip string literals to avoid parsing their contents as column references
         // e.g., =LEN("Hello") should not treat "Hello" as a column reference
@@ -304,7 +319,7 @@ impl ArrayCalculator {
     }
 
     /// Check if a formula is an aggregation (returns scalar)
-    fn is_aggregation_formula(&self, formula: &str) -> bool {
+    fn is_aggregation_formula(formula: &str) -> bool {
         let upper = formula.to_uppercase();
         upper.contains("SUM(")
             || upper.contains("AVERAGE(")
@@ -590,7 +605,9 @@ impl ArrayCalculator {
     }
 
     /// Extract scalar dependencies from a formula with scoping
-    /// Uses same scoping logic as evaluate_scalar_with_resolver
+    /// Uses same scoping logic as `evaluate_scalar_with_resolver`
+    // Returns Result for consistency with other dependency extraction methods.
+    #[allow(clippy::unnecessary_wraps)]
     fn extract_scalar_dependencies(
         &self,
         formula: &str,

@@ -3,6 +3,8 @@
 use super::{EvalContext, EvalError, Expr, Value};
 
 /// Try to evaluate a current date/time function.
+// Returns Result for uniform try_evaluate dispatch pattern.
+#[allow(clippy::unnecessary_wraps)]
 pub fn try_evaluate(
     name: &str,
     _args: &[Expr],
@@ -29,8 +31,8 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
     #[test]

@@ -5,6 +5,14 @@
 //!
 //! Function implementations are organized into submodules by category.
 
+// Evaluator casts: array lengths and indices between f64, usize, and integer types.
+// Values are bounded by practical worksheet sizes (well within f64 mantissa).
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss
+)]
+
 // Demo modules (always included)
 mod aggregation;
 mod dates;
@@ -49,24 +57,28 @@ pub enum Value {
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Value::Number(a), Value::Number(b)) => a == b,
-            (Value::Text(a), Value::Text(b)) => a == b,
-            (Value::Boolean(a), Value::Boolean(b)) => a == b,
-            (Value::Array(a), Value::Array(b)) => a == b,
-            (Value::Null, Value::Null) => true,
-            (Value::Lambda { .. }, Value::Lambda { .. }) => false, // Lambdas don't compare
-            _ => false,
+            (Self::Number(a), Self::Number(b)) => a == b,
+            (Self::Text(a), Self::Text(b)) => a == b,
+            (Self::Boolean(a), Self::Boolean(b)) => a == b,
+            (Self::Array(a), Self::Array(b)) => a == b,
+            (Self::Null, Self::Null) => true,
+            _ => false, // Lambdas and mismatched types don't compare equal
         }
     }
 }
 
 impl Value {
     /// Try to convert to f64
-    /// For text, tries numeric parsing first, then date parsing (YYYY-MM-DD → Excel serial)
+    /// For text, tries numeric parsing first, then date parsing (YYYY-MM-DD -> Excel serial)
+    ///
+    /// # Panics
+    ///
+    /// Cannot panic in practice: the Excel epoch date (1899-12-30) is always valid.
+    #[must_use]
     pub fn as_number(&self) -> Option<f64> {
         match self {
-            Value::Number(n) => Some(*n),
-            Value::Text(s) => {
+            Self::Number(n) => Some(*n),
+            Self::Text(s) => {
                 // First try direct numeric parse
                 if let Ok(n) = s.parse::<f64>() {
                     return Some(n);
@@ -80,43 +92,43 @@ impl Value {
                 }
                 None
             },
-            Value::Boolean(b) => Some(if *b { 1.0 } else { 0.0 }),
+            Self::Boolean(b) => Some(if *b { 1.0 } else { 0.0 }),
             // Arrays in scalar context return their length
-            Value::Array(arr) => Some(arr.len() as f64),
-            Value::Lambda { .. } => None,
-            Value::Null => None,
+            Self::Array(arr) => Some(arr.len() as f64),
+            Self::Lambda { .. } | Self::Null => None,
         }
     }
 
     /// Try to convert to string
     pub fn as_text(&self) -> String {
         match self {
-            Value::Number(n) => {
+            Self::Number(n) => {
                 if n.fract() == 0.0 && n.abs() < 1e15 {
                     format!("{}", *n as i64)
                 } else {
                     format!("{n}")
                 }
             },
-            Value::Text(s) => s.clone(),
-            Value::Boolean(b) => if *b { "TRUE" } else { "FALSE" }.to_string(),
-            Value::Null => String::new(),
-            Value::Array(arr) => {
-                let strs: Vec<String> = arr.iter().map(Value::as_text).collect();
+            Self::Text(s) => s.clone(),
+            Self::Boolean(b) => if *b { "TRUE" } else { "FALSE" }.to_string(),
+            Self::Null => String::new(),
+            Self::Array(arr) => {
+                let strs: Vec<String> = arr.iter().map(Self::as_text).collect();
                 format!("[{}]", strs.join(", "))
             },
-            Value::Lambda { params, .. } => {
+            Self::Lambda { params, .. } => {
                 format!("LAMBDA({})", params.join(", "))
             },
         }
     }
 
     /// Try to convert to boolean
+    #[must_use]
     pub fn as_bool(&self) -> Option<bool> {
         match self {
-            Value::Boolean(b) => Some(*b),
-            Value::Number(n) => Some(*n != 0.0),
-            Value::Text(s) => {
+            Self::Boolean(b) => Some(*b),
+            Self::Number(n) => Some(*n != 0.0),
+            Self::Text(s) => {
                 let upper = s.to_uppercase();
                 if upper == "TRUE" || upper == "1" {
                     Some(true)
@@ -131,6 +143,7 @@ impl Value {
     }
 
     /// Check if value is truthy
+    #[must_use]
     pub fn is_truthy(&self) -> bool {
         self.as_bool().unwrap_or(false)
     }
@@ -141,9 +154,9 @@ impl Value {
 pub struct EvalContext {
     /// Scalar variables (name -> value)
     pub scalars: HashMap<String, Value>,
-    /// Table data (table_name -> column_name -> values)
+    /// Table data (`table_name` -> `column_name` -> values)
     pub tables: HashMap<String, HashMap<String, Vec<Value>>>,
-    /// Scenarios (scenario_name -> variable_name -> value)
+    /// Scenarios (`scenario_name` -> `variable_name` -> value)
     pub scenarios: HashMap<String, HashMap<String, f64>>,
     /// Current row index for row-wise evaluation (None for scalar mode)
     pub current_row: Option<usize>,
@@ -153,6 +166,7 @@ pub struct EvalContext {
 
 impl EvalContext {
     /// Create a new empty context
+    #[must_use]
     pub fn new() -> Self {
         Self {
             scalars: HashMap::new(),
@@ -164,17 +178,20 @@ impl EvalContext {
     }
 
     /// Get a scalar value by name
+    #[must_use]
     pub fn get_scalar(&self, name: &str) -> Option<&Value> {
         self.scalars.get(name)
     }
 
     /// Get a table column
+    #[must_use]
     pub fn get_column(&self, table: &str, column: &str) -> Option<&Vec<Value>> {
         self.tables.get(table).and_then(|t| t.get(column))
     }
 
     /// Set to row-wise mode with given row index
-    pub fn with_row(mut self, row: usize, count: usize) -> Self {
+    #[must_use]
+    pub const fn with_row(mut self, row: usize, count: usize) -> Self {
         self.current_row = Some(row);
         self.row_count = Some(count);
         self
@@ -188,7 +205,7 @@ impl Default for EvalContext {
 }
 
 /// Error during evaluation
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvalError {
     pub message: String,
 }
@@ -210,6 +227,11 @@ impl std::fmt::Display for EvalError {
 impl std::error::Error for EvalError {}
 
 /// Evaluate an expression in the given context
+///
+/// # Errors
+///
+/// Returns `EvalError` if the expression cannot be evaluated (e.g., unknown
+/// function, type mismatch, or division by zero).
 pub fn evaluate(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
     match expr {
         Expr::Number(n) => Ok(Value::Number(*n)),
@@ -352,6 +374,8 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
 }
 
 /// Evaluate a binary operation
+// Arithmetic + comparison + logical operators require many match arms.
+#[allow(clippy::too_many_lines)]
 fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, EvalError> {
     match op {
         // Arithmetic operators
@@ -569,15 +593,15 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
 
 /// Require exact number of arguments
 pub(crate) fn require_args(func: &str, args: &[Expr], count: usize) -> Result<(), EvalError> {
-    if args.len() != count {
+    if args.len() == count {
+        Ok(())
+    } else {
         Err(EvalError::new(format!(
             "{} requires {} argument(s), got {}",
             func,
             count,
             args.len()
         )))
-    } else {
-        Ok(())
     }
 }
 
@@ -687,7 +711,7 @@ pub(crate) fn matches_criteria(val: &Value, criteria: &Value) -> bool {
     val.as_text().eq_ignore_ascii_case(&criteria_str)
 }
 
-/// Parse a Value into a NaiveDate (supports YYYY-MM-DD strings and Excel serial numbers)
+/// Parse a Value into a `NaiveDate` (supports YYYY-MM-DD strings and Excel serial numbers)
 pub(crate) fn parse_date_value(val: &Value) -> Result<chrono::NaiveDate, EvalError> {
     use chrono::NaiveDate;
 
@@ -715,7 +739,7 @@ mod tests {
     use crate::core::array_calculator::parser::parse;
     use crate::core::array_calculator::tokenizer::tokenize;
 
-    pub(crate) fn eval(formula: &str, ctx: &EvalContext) -> Result<Value, EvalError> {
+    pub fn eval(formula: &str, ctx: &EvalContext) -> Result<Value, EvalError> {
         let tokens = tokenize(formula).map_err(|e| EvalError::new(e.message))?;
         let ast = parse(tokens).map_err(|e| EvalError::new(e.message))?;
         evaluate(&ast, ctx)

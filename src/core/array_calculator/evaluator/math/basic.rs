@@ -32,7 +32,9 @@ pub fn eval_mod(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     if divisor == 0.0 {
         return Err(EvalError::new("MOD division by zero"));
     }
-    Ok(Value::Number(num - divisor * (num / divisor).floor()))
+    Ok(Value::Number(
+        divisor.mul_add(-(num / divisor).floor(), num),
+    ))
 }
 
 pub fn eval_power(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -285,11 +287,11 @@ mod tests {
         let result = ArrayCalculator::new(model).calculate_all().unwrap();
         assert!(
             (result.scalars.get("pi").unwrap().value.unwrap() - std::f64::consts::PI).abs()
-                < 0.000001
+                < 0.000_001
         );
         assert!(
             (result.scalars.get("e").unwrap().value.unwrap() - std::f64::consts::E).abs()
-                < 0.000001
+                < 0.000_001
         );
     }
 

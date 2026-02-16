@@ -38,11 +38,16 @@ pub struct ScenarioResults {
 
 impl ScenarioResults {
     /// Export results to YAML format
+    #[must_use]
     pub fn to_yaml(&self) -> String {
         serde_yaml_ng::to_string(self).unwrap_or_else(|_| "# Error serializing results".to_string())
     }
 
     /// Export results to JSON format
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if JSON serialization fails.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
@@ -57,6 +62,10 @@ pub struct ScenarioEngine {
 
 impl ScenarioEngine {
     /// Create a new scenario engine
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the scenario configuration is invalid.
     pub fn new(config: ScenarioConfig, base_model: ParsedModel) -> Result<Self, String> {
         config.validate()?;
         Ok(Self {
@@ -67,6 +76,7 @@ impl ScenarioEngine {
     }
 
     /// Set which variables to track as outputs
+    #[must_use]
     pub fn with_outputs(mut self, outputs: Vec<String>) -> Self {
         self.output_variables = outputs;
         self
@@ -78,6 +88,10 @@ impl ScenarioEngine {
     }
 
     /// Run all scenarios and calculate results
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any scenario calculation fails.
     pub fn run(&self) -> Result<ScenarioResults, String> {
         let mut scenario_results = Vec::new();
 
@@ -88,7 +102,7 @@ impl ScenarioEngine {
         }
 
         // Calculate expected values (probability-weighted means)
-        let expected_values = self.calculate_expected_values(&scenario_results);
+        let expected_values = Self::calculate_expected_values(&scenario_results);
 
         // Calculate probability of positive outcomes
         let probability_positive = self.calculate_probability_positive(&scenario_results);
@@ -105,6 +119,10 @@ impl ScenarioEngine {
     }
 
     /// Run a single scenario
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the model calculation fails for this scenario.
     pub fn run_scenario(
         &self,
         name: &str,
@@ -171,7 +189,7 @@ impl ScenarioEngine {
     }
 
     /// Calculate probability-weighted expected values
-    fn calculate_expected_values(&self, results: &[ScenarioResult]) -> HashMap<String, f64> {
+    fn calculate_expected_values(results: &[ScenarioResult]) -> HashMap<String, f64> {
         let mut expected = HashMap::new();
 
         // Get all variable names from first scenario
@@ -228,7 +246,8 @@ impl ScenarioEngine {
     }
 
     /// Get the scenario configuration
-    pub fn config(&self) -> &ScenarioConfig {
+    #[must_use]
+    pub const fn config(&self) -> &ScenarioConfig {
         &self.config
     }
 }
@@ -330,7 +349,7 @@ mod engine_tests {
         // Expected revenue = 0.5*1.05M + 0.3*1.15M + 0.2*0.9M
         //                  = 525000 + 345000 + 180000 = 1,050,000
         let expected_revenue = results.expected_values.get("projected_revenue").unwrap();
-        let calculated = 0.5 * 1_050_000.0 + 0.3 * 1_150_000.0 + 0.2 * 900_000.0;
+        let calculated = 0.2f64.mul_add(900_000.0, 0.5f64.mul_add(1_050_000.0, 0.3 * 1_150_000.0));
         assert!(
             (expected_revenue - calculated).abs() < 0.01,
             "Expected value mismatch: got {expected_revenue}, expected {calculated}"

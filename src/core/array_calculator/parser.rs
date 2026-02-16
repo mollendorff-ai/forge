@@ -6,7 +6,7 @@
 use super::tokenizer::Token;
 
 /// A reference to a variable or table column
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Reference {
     /// A scalar variable (e.g., "price")
     Scalar(String),
@@ -48,7 +48,7 @@ pub enum Expr {
 }
 
 /// Error during parsing
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseError {
     pub message: String,
     pub position: usize,
@@ -83,7 +83,8 @@ pub struct Parser {
 
 impl Parser {
     /// Create a new parser for the given tokens
-    pub fn new(tokens: Vec<Token>) -> Self {
+    #[must_use]
+    pub const fn new(tokens: Vec<Token>) -> Self {
         Self {
             tokens,
             position: 0,
@@ -91,6 +92,10 @@ impl Parser {
     }
 
     /// Parse the tokens into an AST
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParseError` if the tokens do not form a valid expression.
     pub fn parse(mut self) -> Result<Expr, ParseError> {
         if self.tokens.is_empty() {
             return Err(ParseError::new("Empty expression", 0));
@@ -108,7 +113,7 @@ impl Parser {
     }
 
     /// Check if we've consumed all tokens
-    fn is_at_end(&self) -> bool {
+    const fn is_at_end(&self) -> bool {
         self.position >= self.tokens.len()
     }
 
@@ -312,7 +317,7 @@ impl Parser {
         let mut args = Vec::new();
 
         // Check for empty argument list
-        if let Some(Token::CloseParen) = self.peek() {
+        if matches!(self.peek(), Some(Token::CloseParen)) {
             return Ok(args);
         }
 
@@ -346,7 +351,7 @@ impl Parser {
             },
             Some(Token::Identifier(name)) => {
                 self.advance();
-                Ok(self.parse_identifier(name))
+                Ok(Self::parse_identifier(name))
             },
             Some(Token::OpenParen) => {
                 self.advance();
@@ -371,7 +376,7 @@ impl Parser {
     }
 
     /// Parse an identifier - could be scalar or table.column
-    fn parse_identifier(&self, name: String) -> Expr {
+    fn parse_identifier(name: String) -> Expr {
         if let Some((table, column)) = name.split_once('.') {
             Expr::Reference(Reference::TableColumn {
                 table: table.to_string(),
@@ -384,6 +389,10 @@ impl Parser {
 }
 
 /// Convenience function to parse tokens into an AST
+///
+/// # Errors
+///
+/// Returns `ParseError` if the tokens do not form a valid expression.
 pub fn parse(tokens: Vec<Token>) -> Result<Expr, ParseError> {
     Parser::new(tokens).parse()
 }

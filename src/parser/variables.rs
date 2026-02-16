@@ -9,6 +9,10 @@ use serde_yaml_ng::Value;
 use super::arrays::parse_array_value;
 
 /// Parse a table from a YAML mapping (v4.0 enhanced with metadata)
+///
+/// # Errors
+///
+/// Returns an error if a column name is not a string, or column data has an invalid type or format.
 pub fn parse_table(name: &str, map: &serde_yaml_ng::Mapping) -> ForgeResult<Table> {
     let mut table = Table::new(name.to_string());
 
@@ -70,6 +74,10 @@ pub fn parse_table(name: &str, map: &serde_yaml_ng::Mapping) -> ForgeResult<Tabl
 }
 
 /// Parse a scalar variable (v4.0 enhanced with metadata)
+///
+/// # Errors
+///
+/// Returns an error if the value is not a mapping.
 pub fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable> {
     if let Value::Mapping(map) = value {
         let val = map.get("value").and_then(serde_yaml_ng::Value::as_f64);
@@ -94,6 +102,7 @@ pub fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable>
 }
 
 /// Extract metadata fields from a YAML mapping (v4.0)
+#[must_use]
 pub fn parse_metadata(map: &serde_yaml_ng::Mapping) -> Metadata {
     Metadata {
         unit: map
@@ -116,6 +125,7 @@ pub fn parse_metadata(map: &serde_yaml_ng::Mapping) -> Metadata {
 
 /// Check if a mapping contains nested scalar sections (e.g., summary.total)
 /// Returns false for v4.0 rich table columns (where value is an array)
+#[must_use]
 pub fn is_nested_scalar_section(map: &serde_yaml_ng::Mapping) -> bool {
     // Check if children are mappings with {value, formula} pattern where value is a scalar (not array)
     for (_key, value) in map {

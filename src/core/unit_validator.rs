@@ -46,38 +46,40 @@ pub enum UnitCategory {
 
 impl UnitCategory {
     /// Parse a unit string into a category
+    #[must_use]
     pub fn parse(unit: &str) -> Self {
         let unit_lower = unit.to_lowercase();
         match unit_lower.as_str() {
             // Currency
             "cad" | "usd" | "eur" | "gbp" | "jpy" | "cny" | "$" => {
-                UnitCategory::Currency(unit.to_uppercase())
+                Self::Currency(unit.to_uppercase())
             },
             // Percentage
-            "%" | "percent" | "percentage" => UnitCategory::Percentage,
+            "%" | "percent" | "percentage" => Self::Percentage,
             // Count
-            "count" | "units" | "items" | "qty" | "quantity" => UnitCategory::Count,
+            "count" | "units" | "items" | "qty" | "quantity" => Self::Count,
             // Time
-            "days" | "day" | "d" => UnitCategory::Time("days".to_string()),
-            "months" | "month" | "mo" => UnitCategory::Time("months".to_string()),
-            "years" | "year" | "yr" => UnitCategory::Time("years".to_string()),
-            "hours" | "hour" | "hr" => UnitCategory::Time("hours".to_string()),
+            "days" | "day" | "d" => Self::Time("days".to_string()),
+            "months" | "month" | "mo" => Self::Time("months".to_string()),
+            "years" | "year" | "yr" => Self::Time("years".to_string()),
+            "hours" | "hour" | "hr" => Self::Time("hours".to_string()),
             // Ratio
-            "ratio" | "factor" | "multiplier" | "x" => UnitCategory::Ratio,
+            "ratio" | "factor" | "multiplier" | "x" => Self::Ratio,
             // Unknown
-            _ => UnitCategory::Unknown,
+            _ => Self::Unknown,
         }
     }
 
     /// Get a display name for the unit category
+    #[must_use]
     pub fn display(&self) -> String {
         match self {
-            UnitCategory::Currency(c) => c.clone(),
-            UnitCategory::Percentage => "%".to_string(),
-            UnitCategory::Count => "count".to_string(),
-            UnitCategory::Time(t) => t.clone(),
-            UnitCategory::Ratio => "ratio".to_string(),
-            UnitCategory::Unknown => "unknown".to_string(),
+            Self::Currency(c) => c.clone(),
+            Self::Percentage => "%".to_string(),
+            Self::Count => "count".to_string(),
+            Self::Time(t) => t.clone(),
+            Self::Ratio => "ratio".to_string(),
+            Self::Unknown => "unknown".to_string(),
         }
     }
 }
@@ -95,7 +97,7 @@ pub struct UnitWarning {
     pub severity: WarningSeverity,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WarningSeverity {
     Warning,
     Error,
@@ -124,6 +126,7 @@ pub struct UnitValidator<'a> {
 
 impl<'a> UnitValidator<'a> {
     /// Create a new unit validator for a model
+    #[must_use]
     pub fn new(model: &'a ParsedModel) -> Self {
         let mut unit_map = HashMap::new();
 
@@ -150,6 +153,7 @@ impl<'a> UnitValidator<'a> {
     }
 
     /// Validate all formulas in the model and return warnings
+    #[must_use]
     pub fn validate(&self) -> Vec<UnitWarning> {
         let mut warnings = Vec::new();
 
@@ -236,26 +240,28 @@ impl<'a> UnitValidator<'a> {
     }
 
     /// Check if two units can be added/subtracted
+    // Takes &self for API consistency; tested extensively via validator.can_add() in tests.
+    #[allow(clippy::unused_self)]
     fn can_add(&self, a: &UnitCategory, b: &UnitCategory) -> bool {
         match (a, b) {
             // Same currency can be added
             (UnitCategory::Currency(c1), UnitCategory::Currency(c2)) => c1 == c2,
             // Same time units can be added
             (UnitCategory::Time(t1), UnitCategory::Time(t2)) => t1 == t2,
-            // Counts can be added
-            (UnitCategory::Count, UnitCategory::Count) => true,
-            // Ratios can be added
-            (UnitCategory::Ratio, UnitCategory::Ratio) => true,
-            // Percentages can be added
-            (UnitCategory::Percentage, UnitCategory::Percentage) => true,
-            // Unknown is permissive
-            (UnitCategory::Unknown, _) | (_, UnitCategory::Unknown) => true,
+            // Same-category scalars and unknown are compatible
+            (UnitCategory::Count, UnitCategory::Count)
+            | (UnitCategory::Ratio, UnitCategory::Ratio)
+            | (UnitCategory::Percentage, UnitCategory::Percentage)
+            | (UnitCategory::Unknown, _)
+            | (_, UnitCategory::Unknown) => true,
             // Everything else is incompatible
             _ => false,
         }
     }
 
     /// Extract variable references from a formula
+    // Takes &self for API consistency; tested via validator.extract_references() in tests.
+    #[allow(clippy::unused_self)]
     fn extract_references(&self, formula: &str) -> Vec<String> {
         let formula = formula.trim_start_matches('=');
         // Strip string literals to avoid parsing their contents as variable references
@@ -287,6 +293,7 @@ impl<'a> UnitValidator<'a> {
     }
 
     /// Infer the resulting unit of a formula (for calculated columns)
+    #[must_use]
     pub fn infer_unit(&self, formula: &str) -> Option<UnitCategory> {
         let refs = self.extract_references(formula);
 

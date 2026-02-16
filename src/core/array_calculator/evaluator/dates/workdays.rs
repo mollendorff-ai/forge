@@ -1,5 +1,8 @@
 //! Workday calculation functions: WORKDAY, NETWORKDAYS (enterprise only)
 
+// Workday casts: f64 day counts to i64 (bounded by calendar range).
+#![allow(clippy::cast_possible_truncation)]
+
 use super::super::{
     evaluate, parse_date_value, require_args_range, EvalContext, EvalError, Expr, Value,
 };
@@ -57,7 +60,7 @@ pub fn try_evaluate(
                 }
                 current = current.succ_opt().unwrap_or(current);
             }
-            Value::Number(count as f64)
+            Value::Number(f64::from(count))
         },
 
         _ => return Ok(None),
@@ -69,8 +72,7 @@ pub fn try_evaluate(
 #[cfg(test)]
 mod tests {
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
-    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+    use crate::types::{ParsedModel, Variable};
 
     #[test]
     fn test_workday_function() {

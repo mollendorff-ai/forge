@@ -2,8 +2,8 @@
 //!
 //! CLI handlers for advanced forecasting methods:
 //! - scenarios: Run scenario analysis (Base/Bull/Bear)
-//! - decision_tree: Analyze decision trees with backward induction
-//! - real_options: Value managerial flexibility (defer/expand/abandon)
+//! - `decision_tree`: Analyze decision trees with backward induction
+//! - `real_options`: Value managerial flexibility (defer/expand/abandon)
 //! - tornado: Generate sensitivity tornado diagrams
 //! - bootstrap: Non-parametric confidence intervals via resampling
 //! - bayesian: Bayesian network inference and queries
@@ -19,12 +19,17 @@ use crate::tornado::{TornadoConfig, TornadoEngine};
 use colored::Colorize;
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Execute the scenarios command - probability-weighted scenario analysis
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no scenarios section exists,
+/// or the scenario engine fails.
 pub fn scenarios(
-    file: PathBuf,
-    scenario_filter: Option<String>,
+    file: &Path,
+    scenario_filter: Option<&str>,
     output_file: Option<PathBuf>,
     verbose: bool,
 ) -> ForgeResult<()> {
@@ -33,8 +38,8 @@ pub fn scenarios(
     println!();
 
     // Parse YAML
-    let yaml_content = fs::read_to_string(&file).map_err(ForgeError::Io)?;
-    let model = parser::parse_model(&file)?;
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let model = parser::parse_model(file)?;
 
     // Parse scenarios config
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
@@ -74,19 +79,14 @@ pub fn scenarios(
     // Create engine and run
     let engine = ScenarioEngine::new(config, model).map_err(ForgeError::Validation)?;
 
-    let results = if let Some(ref filter) = scenario_filter {
-        // Run single scenario
+    if let Some(filter) = scenario_filter {
         if verbose {
             println!("{}", format!("🎯 Running scenario: {filter}").cyan());
         }
-        engine.run().map_err(ForgeError::Eval)?
-    } else {
-        // Run all scenarios
-        if verbose {
-            println!("{}", "🔄 Running all scenarios...".cyan());
-        }
-        engine.run().map_err(ForgeError::Eval)?
-    };
+    } else if verbose {
+        println!("{}", "🔄 Running all scenarios...".cyan());
+    }
+    let results = engine.run().map_err(ForgeError::Eval)?;
 
     // Display results
     println!("{}", "📈 Scenario Results:".bold().green());
@@ -126,8 +126,13 @@ pub fn scenarios(
 }
 
 /// Execute the decision-tree command - backward induction analysis
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no `decision_tree` section exists,
+/// or the analysis fails.
 pub fn decision_tree(
-    file: PathBuf,
+    file: &Path,
     export_dot: bool,
     output_file: Option<PathBuf>,
     verbose: bool,
@@ -137,7 +142,7 @@ pub fn decision_tree(
     println!();
 
     // Parse YAML
-    let yaml_content = fs::read_to_string(&file).map_err(ForgeError::Io)?;
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
     // Parse decision_tree config
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
@@ -228,9 +233,14 @@ pub fn decision_tree(
 }
 
 /// Execute the real-options command - value managerial flexibility
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no `real_options` section exists,
+/// the option filter does not match, or the analysis fails.
 pub fn real_options(
-    file: PathBuf,
-    option_filter: Option<String>,
+    file: &Path,
+    option_filter: Option<&str>,
     compare_npv: bool,
     output_file: Option<PathBuf>,
     verbose: bool,
@@ -240,7 +250,7 @@ pub fn real_options(
     println!();
 
     // Parse YAML
-    let yaml_content = fs::read_to_string(&file).map_err(ForgeError::Io)?;
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
     // Parse real_options config
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
@@ -280,7 +290,7 @@ pub fn real_options(
     println!();
 
     // Create engine and value options
-    let engine = RealOptionsEngine::new(config.clone()).map_err(ForgeError::Validation)?;
+    let engine = RealOptionsEngine::new(config).map_err(ForgeError::Validation)?;
 
     if verbose {
         println!("{}", "🔄 Valuing options...".cyan());
@@ -289,7 +299,7 @@ pub fn real_options(
     let result = engine.analyze().map_err(ForgeError::Eval)?;
 
     // Filter if specific option requested
-    if let Some(ref filter) = option_filter {
+    if let Some(filter) = option_filter {
         if !result.options.contains_key(filter) {
             return Err(ForgeError::Validation(format!(
                 "Option '{}' not found. Available: {:?}",
@@ -300,64 +310,7 @@ pub fn real_options(
     }
 
     // Display results
-    println!("{}", "📊 Real Options Results:".bold().green());
-    println!();
-
-    // Traditional NPV
-    if compare_npv {
-        println!(
-            "   Traditional NPV: {}",
-            format!("${:.2}", result.traditional_npv).yellow()
-        );
-    }
-
-    // Option values
-    println!("   {}", "Option Values:".bold());
-    for (name, opt_result) in &result.options {
-        // If filter specified, only show that option
-        if let Some(ref filter) = option_filter {
-            if name != filter {
-                continue;
-            }
-        }
-        println!(
-            "      {} ({}): {}",
-            opt_result.name.bright_blue(),
-            format!("{:?}", opt_result.option_type).dimmed(),
-            format!("${:.2}", opt_result.value).bold().green()
-        );
-        if let Some(ref trigger) = opt_result.optimal_trigger {
-            println!("         Trigger: {trigger}");
-        }
-        if let Some(prob) = opt_result.probability_exercise {
-            println!("         P(exercise): {:.1}%", prob * 100.0);
-        }
-    }
-    println!();
-
-    // Total option value
-    println!(
-        "   Total Option Value: {}",
-        format!("${:.2}", result.total_option_value).bold().green()
-    );
-
-    // Project value with options
-    println!(
-        "   Project Value (with options): {}",
-        format!("${:.2}", result.project_value_with_options)
-            .bold()
-            .green()
-    );
-
-    // Decision
-    println!();
-    println!(
-        "   {}: {}",
-        "Decision".bold(),
-        result.decision.bright_yellow()
-    );
-    println!("   {}: {}", "Recommendation".bold(), result.recommendation);
-    println!();
+    print_real_options_results(&result, option_filter, compare_npv);
 
     // Write output if specified
     if let Some(output_path) = output_file {
@@ -376,9 +329,14 @@ pub fn real_options(
 }
 
 /// Execute the tornado command - sensitivity tornado diagram
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no tornado section exists,
+/// or the analysis fails.
 pub fn tornado(
-    file: PathBuf,
-    output_var: Option<String>,
+    file: &Path,
+    output_var: Option<&str>,
     output_file: Option<PathBuf>,
     verbose: bool,
 ) -> ForgeResult<()> {
@@ -387,8 +345,8 @@ pub fn tornado(
     println!();
 
     // Parse YAML and model
-    let yaml_content = fs::read_to_string(&file).map_err(ForgeError::Io)?;
-    let model = parser::parse_model(&file)?;
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let model = parser::parse_model(file)?;
 
     // Parse tornado config
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
@@ -404,8 +362,8 @@ pub fn tornado(
     };
 
     // Override output variable if specified
-    if let Some(ref out_var) = output_var {
-        config.output = out_var.clone();
+    if let Some(out_var) = output_var {
+        config.output = out_var.to_string();
     }
 
     // Display config
@@ -448,6 +406,8 @@ pub fn tornado(
         .fold(0.0f64, f64::max);
 
     for bar in &result.bars {
+        // Truncation/sign-loss impossible: value is always in 0.0..=30.0
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let bar_width = if max_impact > 0.0 {
             ((bar.swing.abs() / max_impact) * 30.0) as usize
         } else {
@@ -487,8 +447,13 @@ pub fn tornado(
 }
 
 /// Execute the bootstrap command - resampling confidence intervals
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no bootstrap section exists,
+/// or the analysis fails.
 pub fn bootstrap(
-    file: PathBuf,
+    file: &Path,
     iterations_override: Option<usize>,
     seed_override: Option<u64>,
     confidence_override: Option<Vec<f64>>,
@@ -500,7 +465,7 @@ pub fn bootstrap(
     println!();
 
     // Parse YAML
-    let yaml_content = fs::read_to_string(&file).map_err(ForgeError::Io)?;
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
     // Parse bootstrap config
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
@@ -594,10 +559,15 @@ pub fn bootstrap(
 }
 
 /// Execute the bayesian command - Bayesian network inference
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no `bayesian_network` section exists,
+/// or inference fails.
 pub fn bayesian(
-    file: PathBuf,
-    query_var: Option<String>,
-    evidence: Vec<String>,
+    file: &Path,
+    query_var: Option<&str>,
+    evidence: &[String],
     output_file: Option<PathBuf>,
     verbose: bool,
 ) -> ForgeResult<()> {
@@ -606,7 +576,7 @@ pub fn bayesian(
     println!();
 
     // Parse YAML
-    let yaml_content = fs::read_to_string(&file).map_err(ForgeError::Io)?;
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
     // Parse bayesian_network config
     let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
@@ -643,7 +613,7 @@ pub fn bayesian(
 
     // Parse evidence
     let mut evidence_map: HashMap<String, &str> = HashMap::new();
-    for ev in &evidence {
+    for ev in evidence {
         let parts: Vec<&str> = ev.split('=').collect();
         if parts.len() == 2 {
             evidence_map.insert(parts[0].to_string(), parts[1]);
@@ -666,73 +636,26 @@ pub fn bayesian(
     }
 
     // Run query
-    if let Some(ref target) = query_var {
-        if evidence_map.is_empty() {
-            let var_result = engine.query(target).map_err(ForgeError::Eval)?;
+    if let Some(target) = query_var {
+        let var_result = if evidence_map.is_empty() {
             println!("{}", "📊 Query Result:".bold().green());
-            println!("   {}:", target.bright_blue().bold());
-            for (state, prob) in var_result
-                .states
-                .iter()
-                .zip(var_result.probabilities.iter())
-            {
-                let bar_width = (prob * 30.0) as usize;
-                let bar = "█".repeat(bar_width.max(1));
-                println!("      {:15} |{}| {:.2}%", state, bar.cyan(), prob * 100.0);
-            }
-            println!();
-            println!(
-                "   Most likely: {} ({:.1}%)",
-                var_result.most_likely.bold().green(),
-                var_result.max_probability * 100.0
-            );
-            println!();
-
-            // Write output if specified
-            if let Some(output_path) = output_file {
-                let output_str = format!("{var_result:#?}");
-                fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
-                println!(
-                    "{}",
-                    format!("💾 Results written to {}", output_path.display())
-                        .bold()
-                        .green()
-                );
-            }
+            engine.query(target).map_err(ForgeError::Eval)?
         } else {
-            let var_result = engine
-                .query_with_evidence(target, &evidence_map)
-                .map_err(ForgeError::Eval)?;
             println!("{}", "📊 Query Result (with evidence):".bold().green());
-            println!("   {}:", target.bright_blue().bold());
-            for (state, prob) in var_result
-                .states
-                .iter()
-                .zip(var_result.probabilities.iter())
-            {
-                let bar_width = (prob * 30.0) as usize;
-                let bar = "█".repeat(bar_width.max(1));
-                println!("      {:15} |{}| {:.2}%", state, bar.cyan(), prob * 100.0);
-            }
-            println!();
+            engine
+                .query_with_evidence(target, &evidence_map)
+                .map_err(ForgeError::Eval)?
+        };
+        print_bayesian_var_result(target, &var_result);
+        if let Some(output_path) = output_file {
+            let output_str = format!("{var_result:#?}");
+            fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
             println!(
-                "   Most likely: {} ({:.1}%)",
-                var_result.most_likely.bold().green(),
-                var_result.max_probability * 100.0
+                "{}",
+                format!("💾 Results written to {}", output_path.display())
+                    .bold()
+                    .green()
             );
-            println!();
-
-            // Write output if specified
-            if let Some(output_path) = output_file {
-                let output_str = format!("{var_result:#?}");
-                fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
-                println!(
-                    "{}",
-                    format!("💾 Results written to {}", output_path.display())
-                        .bold()
-                        .green()
-                );
-            }
         }
     } else {
         // Query all nodes
@@ -748,20 +671,9 @@ pub fn bayesian(
         println!();
 
         for (name, var_result) in &all_results.queries {
-            println!("   {}:", name.bright_blue().bold());
-            for (state, prob) in var_result
-                .states
-                .iter()
-                .zip(var_result.probabilities.iter())
-            {
-                let bar_width = (prob * 30.0) as usize;
-                let bar = "█".repeat(bar_width.max(1));
-                println!("      {:15} |{}| {:.2}%", state, bar.cyan(), prob * 100.0);
-            }
-            println!();
+            print_bayesian_var_result(name, var_result);
         }
 
-        // Write output if specified
         if let Some(output_path) = output_file {
             let output_str = format!("{all_results:#?}");
             fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
@@ -776,6 +688,88 @@ pub fn bayesian(
 
     println!("{}", "✅ Bayesian inference complete".bold().green());
     Ok(())
+}
+
+/// Print real options analysis results
+fn print_real_options_results(
+    result: &crate::real_options::OptionsResult,
+    option_filter: Option<&str>,
+    compare_npv: bool,
+) {
+    println!("{}", "📊 Real Options Results:".bold().green());
+    println!();
+
+    if compare_npv {
+        println!(
+            "   Traditional NPV: {}",
+            format!("${:.2}", result.traditional_npv).yellow()
+        );
+    }
+
+    println!("   {}", "Option Values:".bold());
+    for (name, opt_result) in &result.options {
+        if let Some(filter) = option_filter {
+            if name != filter {
+                continue;
+            }
+        }
+        println!(
+            "      {} ({}): {}",
+            opt_result.name.bright_blue(),
+            format!("{:?}", opt_result.option_type).dimmed(),
+            format!("${:.2}", opt_result.value).bold().green()
+        );
+        if let Some(ref trigger) = opt_result.optimal_trigger {
+            println!("         Trigger: {trigger}");
+        }
+        if let Some(prob) = opt_result.probability_exercise {
+            println!("         P(exercise): {:.1}%", prob * 100.0);
+        }
+    }
+    println!();
+
+    println!(
+        "   Total Option Value: {}",
+        format!("${:.2}", result.total_option_value).bold().green()
+    );
+    println!(
+        "   Project Value (with options): {}",
+        format!("${:.2}", result.project_value_with_options)
+            .bold()
+            .green()
+    );
+
+    println!();
+    println!(
+        "   {}: {}",
+        "Decision".bold(),
+        result.decision.bright_yellow()
+    );
+    println!("   {}: {}", "Recommendation".bold(), result.recommendation);
+    println!();
+}
+
+/// Print Bayesian variable result with probability bars
+fn print_bayesian_var_result(name: &str, var_result: &crate::bayesian::VariableResult) {
+    println!("   {}:", name.bright_blue().bold());
+    for (state, prob) in var_result
+        .states
+        .iter()
+        .zip(var_result.probabilities.iter())
+    {
+        // Truncation/sign-loss impossible: prob is in 0.0..=1.0, result in 0.0..=30.0
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let bar_width = (prob * 30.0) as usize;
+        let bar = "█".repeat(bar_width.max(1));
+        println!("      {:15} |{}| {:.2}%", state, bar.cyan(), prob * 100.0);
+    }
+    println!();
+    println!(
+        "   Most likely: {} ({:.1}%)",
+        var_result.most_likely.bold().green(),
+        var_result.max_probability * 100.0
+    );
+    println!();
 }
 
 #[cfg(test)]

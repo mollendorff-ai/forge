@@ -18,6 +18,11 @@ pub struct CorrelationMatrix {
 
 impl CorrelationMatrix {
     /// Create a new correlation matrix from variable pairs
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any correlation coefficient is outside [-1, 1]
+    /// or the resulting matrix is not positive definite.
     pub fn new(correlations: &[(String, String, f64)]) -> Result<Self, String> {
         // Collect unique variables
         let mut variables: Vec<String> = correlations
@@ -63,7 +68,7 @@ impl CorrelationMatrix {
             coefficients[j * n + i] = *rho;
         }
 
-        let mut matrix = CorrelationMatrix {
+        let mut matrix = Self {
             variables,
             coefficients,
             cholesky_factor: None,
@@ -76,6 +81,7 @@ impl CorrelationMatrix {
     }
 
     /// Create identity correlation matrix (no correlations)
+    #[must_use]
     pub fn identity(variables: Vec<String>) -> Self {
         let n = variables.len();
         let mut coefficients = vec![0.0; n * n];
@@ -86,7 +92,7 @@ impl CorrelationMatrix {
         // Identity matrix is its own Cholesky factor
         let cholesky_factor = Some(coefficients.clone());
 
-        CorrelationMatrix {
+        Self {
             variables,
             coefficients,
             cholesky_factor,
@@ -94,7 +100,8 @@ impl CorrelationMatrix {
     }
 
     /// Get the dimension of the matrix
-    pub fn dim(&self) -> usize {
+    #[must_use]
+    pub const fn dim(&self) -> usize {
         self.variables.len()
     }
 
@@ -137,6 +144,11 @@ impl CorrelationMatrix {
     ///
     /// Takes a vector of independent N(0,1) samples and returns correlated samples
     /// using the formula: Y = L * Z where L is the Cholesky factor and Z is independent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the number of samples does not match the matrix dimension
+    /// or the Cholesky factor has not been computed.
     pub fn correlate(&self, independent_samples: &[f64]) -> Result<Vec<f64>, String> {
         let n = self.dim();
         if independent_samples.len() != n {
@@ -164,6 +176,7 @@ impl CorrelationMatrix {
     }
 
     /// Get correlation coefficient between two variables
+    #[must_use]
     pub fn get_correlation(&self, var1: &str, var2: &str) -> Option<f64> {
         let n = self.dim();
         let i = self.variables.iter().position(|v| v == var1)?;
@@ -172,6 +185,7 @@ impl CorrelationMatrix {
     }
 
     /// Get variable index
+    #[must_use]
     pub fn get_index(&self, var: &str) -> Option<usize> {
         self.variables.iter().position(|v| v == var)
     }

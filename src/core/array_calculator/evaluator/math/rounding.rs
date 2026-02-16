@@ -1,5 +1,8 @@
 //! Rounding functions: ROUND, ROUNDUP, ROUNDDOWN, FLOOR, CEILING, TRUNC, INT
 
+// Rounding casts: f64 decimal-place counts to i32 (small bounded integers, typically 0..15).
+#![allow(clippy::cast_possible_truncation)]
+
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };

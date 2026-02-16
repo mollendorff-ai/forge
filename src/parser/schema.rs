@@ -5,7 +5,12 @@
 use crate::error::{ForgeError, ForgeResult};
 use serde_yaml_ng::Value;
 
-/// Validate YAML against the appropriate Forge JSON Schema based on _forge_version
+/// Validate YAML against the appropriate Forge JSON Schema based on _`forge_version`
+///
+/// # Errors
+///
+/// Returns an error if the YAML is missing `_forge_version`, specifies an unsupported
+/// version, or fails schema validation.
 pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
     // Extract the _forge_version to determine which schema to use
     let version = yaml
@@ -62,6 +67,10 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
 
 /// Runtime validation: v1.0.0 models must NOT contain tables (arrays)
 /// This provides a clear error message when users try to use v5.0.0 features in a v1.0.0 model
+///
+/// # Errors
+///
+/// Returns an error if the v1.0.0 model contains tables, arrays, or `monte_carlo` sections.
 pub fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
     if let Value::Mapping(map) = yaml {
         for (key, value) in map {
@@ -252,10 +261,10 @@ monte_carlo:
 
     #[test]
     fn test_missing_forge_version() {
-        let yaml_str = r#"
+        let yaml_str = r"
 price:
   value: 100
-"#;
+";
         let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
         let result = validate_against_schema(&yaml);
         assert!(result.is_err());

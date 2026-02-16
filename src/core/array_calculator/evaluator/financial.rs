@@ -5,6 +5,16 @@ use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 
 /// Try to evaluate a financial function. Returns None if function not recognized.
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_wrap,
+    clippy::too_many_lines
+)]
+// Financial functions cast f64 period counts/rates to i32 — values are small bounded integers.
+// Array lengths cast to f64 for arithmetic are bounded well within f64 mantissa.
+// Splitting this 600-line match would fragment the function dispatch table.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -31,11 +41,11 @@ pub fn try_evaluate(
                 Value::Number(-(pv + fv) / nper)
             } else {
                 let pmt = if pmt_type == 1 {
-                    (-pv * rate * (1.0 + rate).powf(nper) - fv * rate)
+                    (-pv * rate).mul_add((1.0 + rate).powf(nper), -(fv * rate))
                         / ((1.0 + rate).powf(nper) - 1.0)
                         / (1.0 + rate)
                 } else {
-                    (-pv * rate * (1.0 + rate).powf(nper) - fv * rate)
+                    (-pv * rate).mul_add((1.0 + rate).powf(nper), -(fv * rate))
                         / ((1.0 + rate).powf(nper) - 1.0)
                 };
                 Value::Number(pmt)
@@ -56,8 +66,10 @@ pub fn try_evaluate(
             if rate == 0.0 {
                 Value::Number(-pv - pmt * nper)
             } else {
-                let fv =
-                    -pv * (1.0 + rate).powf(nper) - pmt * ((1.0 + rate).powf(nper) - 1.0) / rate;
+                let fv = (-pv).mul_add(
+                    (1.0 + rate).powf(nper),
+                    -(pmt * ((1.0 + rate).powf(nper) - 1.0) / rate),
+                );
                 Value::Number(fv)
             }
         },
@@ -229,7 +241,7 @@ pub fn try_evaluate(
             if rate == 0.0 {
                 Value::Number(-(pv + fv) / pmt)
             } else {
-                let n = ((-fv * rate + pmt) / (pv * rate + pmt)).ln() / (1.0 + rate).ln();
+                let n = ((-fv).mul_add(rate, pmt) / pv.mul_add(rate, pmt)).ln() / rate.ln_1p();
                 Value::Number(n)
             }
         },
@@ -258,14 +270,17 @@ pub fn try_evaluate(
 
             let mut rate = guess;
             for _ in 0..100 {
-                let f = pv * (1.0 + rate).powf(nper)
-                    + pmt * ((1.0 + rate).powf(nper) - 1.0) / rate
-                    + fv;
-                let f_deriv = nper * pv * (1.0 + rate).powf(nper - 1.0)
-                    + pmt
-                        * (nper * rate * (1.0 + rate).powf(nper - 1.0) - (1.0 + rate).powf(nper)
-                            + 1.0)
-                        / (rate * rate);
+                let f = pv.mul_add(
+                    (1.0 + rate).powf(nper),
+                    pmt * ((1.0 + rate).powf(nper) - 1.0) / rate,
+                ) + fv;
+                let f_deriv = (nper * pv).mul_add(
+                    (1.0 + rate).powf(nper - 1.0),
+                    pmt * ((nper * rate)
+                        .mul_add((1.0 + rate).powf(nper - 1.0), -(1.0 + rate).powf(nper))
+                        + 1.0)
+                        / (rate * rate),
+                );
                 if f_deriv.abs() < 1e-10 {
                     break;
                 }
@@ -451,11 +466,11 @@ pub fn try_evaluate(
             } else {
                 // Calculate total payment (PMT)
                 let payment = if pmt_type == 1 {
-                    (-pv * rate * (1.0 + rate).powf(nper) - fv * rate)
+                    (-pv * rate).mul_add((1.0 + rate).powf(nper), -(fv * rate))
                         / ((1.0 + rate).powf(nper) - 1.0)
                         / (1.0 + rate)
                 } else {
-                    (-pv * rate * (1.0 + rate).powf(nper) - fv * rate)
+                    (-pv * rate).mul_add((1.0 + rate).powf(nper), -(fv * rate))
                         / ((1.0 + rate).powf(nper) - 1.0)
                 };
 
@@ -464,8 +479,10 @@ pub fn try_evaluate(
                 // Rearranged to get remaining balance after (per-1) payments
                 let periods_elapsed = per - 1.0;
                 let balance = if periods_elapsed > 0.0 {
-                    pv * (1.0 + rate).powf(periods_elapsed)
-                        + payment * ((1.0 + rate).powf(periods_elapsed) - 1.0) / rate
+                    pv.mul_add(
+                        (1.0 + rate).powf(periods_elapsed),
+                        payment * ((1.0 + rate).powf(periods_elapsed) - 1.0) / rate,
+                    )
                 } else {
                     pv
                 };
@@ -511,19 +528,21 @@ pub fn try_evaluate(
             } else {
                 // Calculate total payment (PMT)
                 let payment = if pmt_type == 1 {
-                    (-pv * rate * (1.0 + rate).powf(nper) - fv * rate)
+                    (-pv * rate).mul_add((1.0 + rate).powf(nper), -(fv * rate))
                         / ((1.0 + rate).powf(nper) - 1.0)
                         / (1.0 + rate)
                 } else {
-                    (-pv * rate * (1.0 + rate).powf(nper) - fv * rate)
+                    (-pv * rate).mul_add((1.0 + rate).powf(nper), -(fv * rate))
                         / ((1.0 + rate).powf(nper) - 1.0)
                 };
 
                 // Calculate balance at start of period
                 let periods_elapsed = per - 1.0;
                 let balance = if periods_elapsed > 0.0 {
-                    pv * (1.0 + rate).powf(periods_elapsed)
-                        + payment * ((1.0 + rate).powf(periods_elapsed) - 1.0) / rate
+                    pv.mul_add(
+                        (1.0 + rate).powf(periods_elapsed),
+                        payment * ((1.0 + rate).powf(periods_elapsed) - 1.0) / rate,
+                    )
                 } else {
                     pv
                 };
@@ -608,7 +627,7 @@ pub fn try_evaluate(
             // Simplified calculation: assumes 360-day year (basis 0)
             let days = maturity - settlement;
             let frac = days / 360.0;
-            let price = redemption - (discount * redemption * frac);
+            let price = (discount * redemption).mul_add(-frac, redemption);
             Value::Number(price)
         },
 
@@ -689,7 +708,8 @@ pub fn try_evaluate(
             if par <= 0.0 {
                 return Err(EvalError::new("ACCRINT: par value must be positive"));
             }
-            if frequency != 1.0 && frequency != 2.0 && frequency != 4.0 {
+            let freq_int = frequency as i32;
+            if freq_int != 1 && freq_int != 2 && freq_int != 4 {
                 return Err(EvalError::new("ACCRINT: frequency must be 1, 2, or 4"));
             }
 

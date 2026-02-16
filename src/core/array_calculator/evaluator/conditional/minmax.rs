@@ -4,8 +4,8 @@
 //! MAXIFS returns the maximum value among cells that meet multiple criteria.
 //!
 //! Syntax:
-//! - MINIFS(min_range, criteria_range1, criteria1, [criteria_range2, criteria2], ...)
-//! - MAXIFS(max_range, criteria_range1, criteria1, [criteria_range2, criteria2], ...)
+//! - `MINIFS(min_range`, `criteria_range1`, criteria1, [`criteria_range2`, criteria2], ...)
+//! - `MAXIFS(max_range`, `criteria_range1`, criteria1, [`criteria_range2`, criteria2], ...)
 
 use super::super::{
     collect_values_as_vec, evaluate, matches_criteria, EvalContext, EvalError, Expr, Value,

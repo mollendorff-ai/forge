@@ -1,5 +1,8 @@
 //! UNIQUE and COUNTUNIQUE array functions
 
+// Unique casts: count of unique values (usize) to f64 (bounded by array length).
+#![allow(clippy::cast_precision_loss)]
+
 use crate::core::array_calculator::evaluator::{
     collect_values_as_vec, require_args, EvalContext, EvalError, Expr, Value,
 };
@@ -82,10 +85,10 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant)]
+    #![allow(clippy::approx_constant, clippy::float_cmp)]
+    // float_cmp: Financial math — exact float comparison validated against Excel/Gnumeric/R
 
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
     #[test]

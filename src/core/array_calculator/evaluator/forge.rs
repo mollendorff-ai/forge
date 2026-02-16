@@ -1,8 +1,10 @@
-//! Forge-specific functions: BREAKEVEN_UNITS, BREAKEVEN_REVENUE, VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, SCENARIO
+//! Forge-specific functions: `BREAKEVEN_UNITS`, `BREAKEVEN_REVENUE`, VARIANCE, `VARIANCE_PCT`, `VARIANCE_STATUS`, SCENARIO
 
 use super::{evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value};
 
 /// Try to evaluate a Forge-specific function. Returns None if function not recognized.
+// Dispatch table for Forge-specific functions; splitting would fragment the logic.
+#[allow(clippy::too_many_lines)]
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -150,6 +152,7 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::super::tests::eval;
     use super::*;
     use std::collections::HashMap;
@@ -354,9 +357,9 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     #![allow(clippy::approx_constant)]
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
 
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
     use crate::types::{Column, ColumnValue, ParsedModel, Scenario, Table, Variable};
 
     #[test]
@@ -365,11 +368,11 @@ mod integration_tests {
 
         model.add_scalar(
             "actual_revenue".to_string(),
-            Variable::new("actual_revenue".to_string(), Some(120000.0), None),
+            Variable::new("actual_revenue".to_string(), Some(120_000.0), None),
         );
         model.add_scalar(
             "budget_revenue".to_string(),
-            Variable::new("budget_revenue".to_string(), Some(100000.0), None),
+            Variable::new("budget_revenue".to_string(), Some(100_000.0), None),
         );
         model.add_scalar(
             "variance_result".to_string(),
@@ -514,7 +517,7 @@ mod integration_tests {
 
         model.add_scalar(
             "fixed_costs".to_string(),
-            Variable::new("fixed_costs".to_string(), Some(100000.0), None),
+            Variable::new("fixed_costs".to_string(), Some(100_000.0), None),
         );
         model.add_scalar(
             "contribution_margin_pct".to_string(),
@@ -533,7 +536,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let be_rev = result.scalars.get("breakeven_rev").unwrap().value.unwrap();
-        assert_eq!(be_rev, 250000.0);
+        assert_eq!(be_rev, 250_000.0);
     }
 
     #[test]
@@ -709,7 +712,7 @@ mod integration_tests {
         let mut model = ParsedModel::new();
         model.add_scalar(
             "fixed_costs".to_string(),
-            Variable::new("fixed_costs".to_string(), Some(100000.0), None),
+            Variable::new("fixed_costs".to_string(), Some(100_000.0), None),
         );
         model.add_scalar(
             "contribution_margin_pct".to_string(),

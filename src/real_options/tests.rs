@@ -1,5 +1,8 @@
 //! Real Options Integration Tests
 
+// Financial math: exact float comparison validated against Excel/Gnumeric/R
+#![allow(clippy::float_cmp)]
+
 use super::*;
 
 /// ADR-020 Example Test
@@ -192,7 +195,7 @@ fn test_bs_binomial_convergence() {
     );
 }
 
-/// QuantLib validation test
+/// `QuantLib` validation test
 #[test]
 fn test_quantlib_reference() {
     // Reference values from QuantLib for standard European call

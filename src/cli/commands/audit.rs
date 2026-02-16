@@ -4,7 +4,7 @@ use crate::core::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use colored::Colorize;
-use std::path::PathBuf;
+use std::path::Path;
 
 use super::format_number;
 
@@ -39,17 +39,22 @@ pub struct AuditDependency {
     pub children: Vec<AuditDependency>,
 }
 
-/// Execute the audit command - show calculation dependency chain
-pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()> {
+/// Execute the audit command - show calculation dependency chain.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, the variable is not found,
+/// or formula calculation fails.
+pub fn audit(file: &Path, variable: &str) -> ForgeResult<()> {
     println!("{}", "🔍 Forge - Audit Trail".bold().green());
     println!("   File: {}", file.display());
     println!("   Variable: {}\n", variable.bright_blue().bold());
 
     // Parse the model
-    let model = parser::parse_model(&file)?;
+    let model = parser::parse_model(file)?;
 
     // Try to find the variable
-    let (var_type, formula, current_value) = find_variable(&model, &variable)?;
+    let (var_type, formula, current_value) = find_variable(&model, variable)?;
 
     println!("{}", "📋 Variable Information:".bold().cyan());
     println!("   Type: {}", var_type.cyan());
@@ -64,7 +69,7 @@ pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()> {
     // Build and display dependency tree
     if formula.is_some() {
         println!("{}", "🌳 Dependency Tree:".bold().cyan());
-        let deps = build_dependency_tree(&model, &variable, &formula, 0)?;
+        let deps = build_dependency_tree(&model, variable, formula.as_ref(), 0)?;
 
         if deps.is_empty() {
             println!("   No dependencies (literal value)");
@@ -78,11 +83,11 @@ pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()> {
 
     // Calculate and verify
     println!("{}", "🧮 Calculation Chain:".bold().cyan());
-    let calculator = ArrayCalculator::new(model.clone());
+    let calculator = ArrayCalculator::new(model);
     match calculator.calculate_all() {
         Ok(result) => {
             // Find the calculated value
-            if let Some(scalar) = result.scalars.get(&variable) {
+            if let Some(scalar) = result.scalars.get(variable) {
                 if let Some(calc_val) = scalar.value {
                     println!("   Calculated: {}", format_number(calc_val).bold().green());
 
@@ -101,7 +106,7 @@ pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()> {
             } else {
                 // Check in tables
                 for (table_name, table) in &result.tables {
-                    if let Some(col) = table.columns.get(&variable) {
+                    if let Some(col) = table.columns.get(variable) {
                         println!("   Table: {}", table_name.bright_blue());
                         println!("   Column values: {:?}", col.values);
                         break;
@@ -119,7 +124,11 @@ pub fn audit(file: PathBuf, variable: String) -> ForgeResult<()> {
     Ok(())
 }
 
-/// Find a variable in the model and return its type, formula, and current value
+/// Find a variable in the model and return its type, formula, and current value.
+///
+/// # Errors
+///
+/// Returns an error if the variable is not found in scalars, aggregations, or table columns.
 pub fn find_variable(
     model: &crate::types::ParsedModel,
     name: &str,
@@ -153,11 +162,15 @@ pub fn find_variable(
     )))
 }
 
-/// Build the dependency tree for a variable
+/// Build the dependency tree for a variable.
+///
+/// # Errors
+///
+/// Returns an error if recursive dependency resolution fails.
 pub fn build_dependency_tree(
     model: &crate::types::ParsedModel,
     _name: &str,
-    formula: &Option<String>,
+    formula: Option<&String>,
     depth: usize,
 ) -> ForgeResult<Vec<AuditDependency>> {
     // Prevent infinite recursion
@@ -183,19 +196,22 @@ pub fn build_dependency_tree(
             // Try to find this reference in the model
             if let Some(scalar) = model.scalars.get(&ref_name) {
                 dep.dep_type = "Scalar".to_string();
-                dep.formula = scalar.formula.clone();
+                dep.formula.clone_from(&scalar.formula);
                 dep.value = scalar.value;
 
                 // Recursively get children
                 if scalar.formula.is_some() {
-                    dep.children =
-                        build_dependency_tree(model, &ref_name, &scalar.formula, depth + 1)?;
+                    dep.children = build_dependency_tree(
+                        model,
+                        &ref_name,
+                        scalar.formula.as_ref(),
+                        depth + 1,
+                    )?;
                 }
             } else if let Some(agg) = model.aggregations.get(&ref_name) {
                 dep.dep_type = "Aggregation".to_string();
                 dep.formula = Some(agg.clone());
-                dep.children =
-                    build_dependency_tree(model, &ref_name, &Some(agg.clone()), depth + 1)?;
+                dep.children = build_dependency_tree(model, &ref_name, Some(agg), depth + 1)?;
             } else {
                 // Check if it's a table column
                 for (table_name, table) in &model.tables {
@@ -214,7 +230,13 @@ pub fn build_dependency_tree(
     Ok(deps)
 }
 
-/// Extract variable references from a formula
+/// Extract variable references from a formula.
+///
+/// # Panics
+///
+/// Panics if a non-empty word has no first character, which cannot happen since
+/// empty words are skipped.
+#[must_use]
 pub fn extract_references_from_formula(formula: &str) -> Vec<String> {
     let formula = formula.trim_start_matches('=');
     // Strip string literals to avoid parsing their contents as variable references

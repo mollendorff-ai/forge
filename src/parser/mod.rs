@@ -32,7 +32,7 @@ pub use variables::{is_nested_scalar_section, parse_metadata, parse_scalar_varia
 use crate::error::ForgeResult;
 use crate::types::ParsedModel;
 
-/// Parse a Forge model file (v1.0.0 array format) and return a ParsedModel.
+/// Parse a Forge model file (v1.0.0 array format) and return a `ParsedModel`.
 ///
 /// This is the main entry point for parsing Forge YAML files.
 ///
@@ -42,6 +42,11 @@ use crate::types::ParsedModel;
 /// # Returns
 /// * `Ok(ParsedModel)` - Successfully parsed model with tables and scalars
 /// * `Err(ForgeError)` - Parse error with detailed context
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read, contains invalid YAML, or fails
+/// schema validation.
 ///
 /// # Example
 /// ```no_run

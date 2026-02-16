@@ -8,7 +8,7 @@ use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 
 /// Sampling method enumeration
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SamplingMethod {
     /// Pure random Monte Carlo sampling
     MonteCarlo,
@@ -21,8 +21,8 @@ impl std::str::FromStr for SamplingMethod {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "monte_carlo" | "montecarlo" | "mc" => Ok(SamplingMethod::MonteCarlo),
-            "latin_hypercube" | "latinhypercube" | "lhs" => Ok(SamplingMethod::LatinHypercube),
+            "monte_carlo" | "montecarlo" | "mc" => Ok(Self::MonteCarlo),
+            "latin_hypercube" | "latinhypercube" | "lhs" => Ok(Self::LatinHypercube),
             _ => Err(format!(
                 "Unknown sampling method: {s}. Use 'monte_carlo' or 'latin_hypercube'"
             )),
@@ -33,8 +33,8 @@ impl std::str::FromStr for SamplingMethod {
 impl std::fmt::Display for SamplingMethod {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SamplingMethod::MonteCarlo => write!(f, "monte_carlo"),
-            SamplingMethod::LatinHypercube => write!(f, "latin_hypercube"),
+            Self::MonteCarlo => write!(f, "monte_carlo"),
+            Self::LatinHypercube => write!(f, "latin_hypercube"),
         }
     }
 }
@@ -47,16 +47,15 @@ pub struct Sampler {
 
 impl Sampler {
     /// Create a new sampler with the given method and optional seed
+    #[must_use]
     pub fn new(method: SamplingMethod, seed: Option<u64>) -> Self {
-        let rng = match seed {
-            Some(s) => StdRng::seed_from_u64(s),
-            None => StdRng::from_rng(&mut rand::rng()),
-        };
+        let rng = seed.map_or_else(|| StdRng::from_rng(&mut rand::rng()), StdRng::seed_from_u64);
         Self { method, rng }
     }
 
     /// Get the sampling method
-    pub fn method(&self) -> SamplingMethod {
+    #[must_use]
+    pub const fn method(&self) -> SamplingMethod {
         self.method
     }
 
@@ -93,7 +92,7 @@ impl Sampler {
             .map(|i| {
                 let lower = i as f64 / n as f64;
                 let upper = (i + 1) as f64 / n as f64;
-                lower + self.rng.random::<f64>() * (upper - lower)
+                self.rng.random::<f64>().mul_add(upper - lower, lower)
             })
             .collect();
 
@@ -113,7 +112,7 @@ impl Sampler {
     }
 
     /// Get mutable reference to RNG for custom sampling
-    pub fn rng_mut(&mut self) -> &mut StdRng {
+    pub const fn rng_mut(&mut self) -> &mut StdRng {
         &mut self.rng
     }
 }
@@ -154,6 +153,10 @@ impl SampleStats {
     }
 }
 
+// Financial math: exact float comparison validated against Excel/Gnumeric/R
+#[allow(clippy::float_cmp)]
+// sampler/samples, sampler1/samples1 — standard statistical terminology
+#[allow(clippy::similar_names)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -205,6 +208,8 @@ mod tests {
         let n = samples.len();
         let mut stratum_counts = vec![0; n];
         for &sample in &samples {
+            // cast_possible_truncation: stratum index is in [0, n) by construction
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let stratum = (sample * n as f64).floor() as usize;
             if stratum < n {
                 stratum_counts[stratum] += 1;
@@ -214,7 +219,7 @@ mod tests {
         // (May not be exactly 1 due to floating point)
         let variance: f64 = stratum_counts
             .iter()
-            .map(|&c| (c as f64 - 1.0).powi(2))
+            .map(|&c| (f64::from(c) - 1.0).powi(2))
             .sum::<f64>()
             / n as f64;
         assert!(

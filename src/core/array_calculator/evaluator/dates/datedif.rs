@@ -7,6 +7,15 @@ use super::{
 use super::require_args_range;
 
 /// Try to evaluate a date difference function.
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::too_many_lines
+)]
+// Date difference casts: u32 month/day from chrono to i32 for arithmetic (values 1-31),
+// i64 serial days to f64 for year fractions (date serials fit in f64 mantissa).
+// Splitting this match would fragment the date function dispatch table.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -33,7 +42,7 @@ pub fn try_evaluate(
                     if end_date.day() < start_date.day() {
                         total_months -= 1;
                     }
-                    total_months.max(0) as f64
+                    f64::from(total_months.max(0))
                 },
                 "Y" => {
                     // Complete years between dates
@@ -45,7 +54,7 @@ pub fn try_evaluate(
                     {
                         years -= 1;
                     }
-                    years.max(0) as f64
+                    f64::from(years.max(0))
                 },
                 "MD" => {
                     // Days between dates, ignoring months and years
@@ -66,11 +75,10 @@ pub fn try_evaluate(
                                 d.checked_add_months(chrono::Months::new(1))
                                     .and_then(|next| next.pred_opt())
                             })
-                            .map(|d| d.day() as i32)
-                            .unwrap_or(30);
+                            .map_or(30, |d| d.day() as i32);
                         day_diff += days_in_prev_month;
                     }
-                    day_diff as f64
+                    f64::from(day_diff)
                 },
                 "YM" => {
                     // Months between dates, ignoring years
@@ -82,7 +90,7 @@ pub fn try_evaluate(
                     if end_date.day() < start_date.day() && month_diff > 0 {
                         month_diff -= 1;
                     }
-                    month_diff as f64
+                    f64::from(month_diff)
                 },
                 "YD" => {
                     // Days between dates, ignoring years
@@ -148,7 +156,7 @@ pub fn try_evaluate(
                         d2 = 30;
                     }
 
-                    let days_30_360 = ((y2 - y1) * 360 + (m2 - m1) * 30 + (d2 - d1)) as f64;
+                    let days_30_360 = f64::from((y2 - y1) * 360 + (m2 - m1) * 30 + (d2 - d1));
                     days_30_360 / 360.0
                 },
                 1 => {
@@ -191,7 +199,7 @@ pub fn try_evaluate(
 
             // Return as fraction of day (Excel time serial)
             let total_seconds = hour * 3600 + minute * 60 + second;
-            Value::Number(total_seconds as f64 / 86400.0)
+            Value::Number(f64::from(total_seconds) / 86400.0)
         },
 
         _ => return Ok(None),
@@ -202,11 +210,11 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::super::super::tests::eval;
     use super::super::{EvalContext, Value};
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
-    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+    use crate::types::{ParsedModel, Variable};
 
     #[test]
     fn test_datedif() {

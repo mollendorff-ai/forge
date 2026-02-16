@@ -515,7 +515,7 @@ EXAMPLES:
   forge simulate model.yaml -o results.json    # JSON output")]
     /// Run Monte Carlo simulation
     Simulate {
-        /// Path to YAML file with monte_carlo: section
+        /// Path to YAML file with `monte_carlo`: section
         file: PathBuf,
 
         /// Number of iterations (overrides YAML config)
@@ -526,7 +526,7 @@ EXAMPLES:
         #[arg(long)]
         seed: Option<u64>,
 
-        /// Sampling method: monte_carlo or latin_hypercube
+        /// Sampling method: `monte_carlo` or `latin_hypercube`
         #[arg(long)]
         sampling: Option<String>,
 
@@ -634,7 +634,7 @@ EXAMPLES:
   forge decision-tree model.yaml -o out.yaml  # Export results")]
     /// Analyze decision trees with backward induction
     DecisionTree {
-        /// Path to YAML file with decision_tree section
+        /// Path to YAML file with `decision_tree` section
         file: PathBuf,
 
         /// Export as DOT graph (for Graphviz visualization)
@@ -694,7 +694,7 @@ EXAMPLES:
     )]
     /// Value real options (defer/expand/abandon)
     RealOptions {
-        /// Path to YAML file with real_options section
+        /// Path to YAML file with `real_options` section
         file: PathBuf,
 
         /// Value specific option only
@@ -837,7 +837,7 @@ EXAMPLES:
   forge bayesian model.yaml -e economy=bad            # Set evidence")]
     /// Bayesian network inference
     Bayesian {
-        /// Path to YAML file with bayesian_network section
+        /// Path to YAML file with `bayesian_network` section
         file: PathBuf,
 
         /// Target variable to query
@@ -1014,7 +1014,8 @@ NOTE:
         verbose: bool,
     },
 
-    #[command(long_about = "Start MCP (Model Context Protocol) server for AI integration.
+    #[command(
+        long_about = "Start MCP (Model Context Protocol) server for AI integration.
 
 Runs a JSON-RPC server over stdin/stdout for use with Claude Desktop,
 Claude Code, and other MCP-compatible AI hosts.
@@ -1044,7 +1045,8 @@ AVAILABLE TOOLS (10):
   forge_compare     - Multi-scenario comparison
 
 EXAMPLE:
-  forge mcp   # Start MCP server (reads JSON-RPC from stdin)")]
+  forge mcp   # Start MCP server (reads JSON-RPC from stdin)"
+    )]
     /// Start MCP server for AI integration (JSON-RPC over stdio)
     Mcp,
 
@@ -1085,9 +1087,10 @@ EXAMPLES:
 
 /// CLI entry point - excluded from coverage (ADR-006)
 /// Parses CLI args and dispatches to library functions.
-/// Cannot unit test: reads from std::env::args()
-/// Tested via: cli_integration_tests.rs
+/// Cannot unit test: reads from `std::env::args()`
+/// Tested via: `cli_integration_tests.rs`
 #[cfg(not(coverage))]
+#[allow(clippy::too_many_lines)] // CLI dispatch function — splitting would fragment command handling
 fn main() -> ForgeResult<()> {
     let cli = Cli::parse();
 
@@ -1097,17 +1100,17 @@ fn main() -> ForgeResult<()> {
             dry_run,
             verbose,
             scenario,
-        } => cli::calculate(file, dry_run, verbose, scenario),
+        } => cli::calculate(&file, dry_run, verbose, scenario.as_deref()),
 
-        Commands::Audit { file, variable } => cli::audit(file, variable),
+        Commands::Audit { file, variable } => cli::audit(&file, &variable),
 
-        Commands::Validate { files } => cli::validate(files),
+        Commands::Validate { files } => cli::validate(&files),
 
         Commands::Export {
             input,
             output,
             verbose,
-        } => cli::export(input, output, verbose),
+        } => cli::export(&input, &output, verbose),
 
         Commands::Import {
             input,
@@ -1115,19 +1118,19 @@ fn main() -> ForgeResult<()> {
             verbose,
             split_files,
             multi_doc,
-        } => cli::import(input, output, verbose, split_files, multi_doc),
+        } => cli::import(&input, &output, verbose, split_files, multi_doc),
 
         Commands::Watch {
             file,
             validate,
             verbose,
-        } => cli::watch(file, validate, verbose),
+        } => cli::watch(&file, validate, verbose),
 
         Commands::Compare {
             file,
             scenarios,
             verbose,
-        } => cli::compare(file, scenarios, verbose),
+        } => cli::compare(&file, &scenarios, verbose),
 
         Commands::Variance {
             budget,
@@ -1135,7 +1138,7 @@ fn main() -> ForgeResult<()> {
             threshold,
             output,
             verbose,
-        } => cli::variance(budget, actual, threshold, output, verbose),
+        } => cli::variance(&budget, &actual, threshold, output.as_deref(), verbose),
 
         Commands::Sensitivity {
             file,
@@ -1145,7 +1148,15 @@ fn main() -> ForgeResult<()> {
             range2,
             output,
             verbose,
-        } => cli::sensitivity(file, vary, range, vary2, range2, output, verbose),
+        } => cli::sensitivity(
+            &file,
+            &vary,
+            &range,
+            vary2.as_deref(),
+            range2.as_deref(),
+            &output,
+            verbose,
+        ),
 
         Commands::GoalSeek {
             file,
@@ -1156,7 +1167,7 @@ fn main() -> ForgeResult<()> {
             max,
             tolerance,
             verbose,
-        } => cli::goal_seek(file, target, value, vary, min, max, tolerance, verbose),
+        } => cli::goal_seek(&file, &target, value, &vary, (min, max), tolerance, verbose),
 
         Commands::BreakEven {
             file,
@@ -1165,7 +1176,7 @@ fn main() -> ForgeResult<()> {
             min,
             max,
             verbose,
-        } => cli::break_even(file, output, vary, min, max, verbose),
+        } => cli::break_even(&file, &output, &vary, min, max, verbose),
 
         Commands::Simulate {
             file,
@@ -1174,21 +1185,28 @@ fn main() -> ForgeResult<()> {
             sampling,
             output,
             verbose,
-        } => cli::simulate(file, iterations, seed, sampling, output, verbose),
+        } => cli::simulate(
+            &file,
+            iterations,
+            seed,
+            sampling.as_deref(),
+            output,
+            verbose,
+        ),
 
         Commands::Scenarios {
             file,
             scenario,
             output,
             verbose,
-        } => cli::scenarios(file, scenario, output, verbose),
+        } => cli::scenarios(&file, scenario.as_deref(), output, verbose),
 
         Commands::DecisionTree {
             file,
             dot,
             output,
             verbose,
-        } => cli::decision_tree(file, dot, output, verbose),
+        } => cli::decision_tree(&file, dot, output, verbose),
 
         Commands::RealOptions {
             file,
@@ -1196,14 +1214,14 @@ fn main() -> ForgeResult<()> {
             compare_npv,
             output,
             verbose,
-        } => cli::real_options(file, option, compare_npv, output, verbose),
+        } => cli::real_options(&file, option.as_deref(), compare_npv, output, verbose),
 
         Commands::Tornado {
             file,
             output_var,
             output,
             verbose,
-        } => cli::tornado(file, output_var, output, verbose),
+        } => cli::tornado(&file, output_var.as_deref(), output, verbose),
 
         Commands::Bootstrap {
             file,
@@ -1212,7 +1230,7 @@ fn main() -> ForgeResult<()> {
             confidence,
             output,
             verbose,
-        } => cli::bootstrap(file, iterations, seed, confidence, output, verbose),
+        } => cli::bootstrap(&file, iterations, seed, confidence, output, verbose),
 
         Commands::Bayesian {
             file,
@@ -1220,11 +1238,11 @@ fn main() -> ForgeResult<()> {
             evidence,
             output,
             verbose,
-        } => cli::bayesian(file, query, evidence, output, verbose),
+        } => cli::bayesian(&file, query.as_deref(), &evidence, output, verbose),
 
         Commands::Functions { json } => cli::functions(json),
 
-        Commands::Schema { version, list } => cli::schema(version, list),
+        Commands::Schema { version, list } => cli::schema(version.as_deref(), list),
 
         Commands::Examples { name, run, json } => cli::examples(name, run, json),
 
@@ -1233,7 +1251,7 @@ fn main() -> ForgeResult<()> {
             dry_run,
             to,
             verbose,
-        } => cli::upgrade(file, dry_run, to, verbose),
+        } => cli::upgrade(&file, dry_run, &to, verbose),
 
         Commands::Update { check, verbose } => cli::update(check, verbose),
 

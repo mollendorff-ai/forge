@@ -27,6 +27,7 @@ pub struct TornadoBar {
 
 impl SensitivityAnalysis {
     /// Compute sensitivity analysis from input and output samples
+    #[must_use]
     pub fn compute(
         input_samples: &HashMap<String, Vec<f64>>,
         output_samples: &HashMap<String, Vec<f64>>,
@@ -66,13 +67,14 @@ impl SensitivityAnalysis {
             tornado_data.insert(output_name.clone(), bars);
         }
 
-        SensitivityAnalysis {
+        Self {
             correlations,
             tornado_data,
         }
     }
 
     /// Get the top N most impactful inputs for a given output
+    #[must_use]
     pub fn top_drivers(&self, output: &str, n: usize) -> Vec<&TornadoBar> {
         self.tornado_data
             .get(output)
@@ -81,11 +83,13 @@ impl SensitivityAnalysis {
     }
 
     /// Get correlation between an input and output
+    #[must_use]
     pub fn get_correlation(&self, input: &str, output: &str) -> Option<f64> {
         self.correlations.get(input)?.get(output).copied()
     }
 
     /// Generate tornado diagram data in a format suitable for charting
+    #[must_use]
     pub fn to_tornado_json(&self, output: &str) -> Option<String> {
         let bars = self.tornado_data.get(output)?;
 
@@ -108,6 +112,7 @@ impl SensitivityAnalysis {
 }
 
 /// Compute Spearman rank correlation coefficient
+#[must_use]
 pub fn spearman_correlation(x: &[f64], y: &[f64]) -> f64 {
     if x.len() != y.len() || x.is_empty() {
         return 0.0;

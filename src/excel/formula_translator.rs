@@ -8,14 +8,15 @@ use std::collections::HashMap;
 pub struct FormulaTranslator {
     /// Maps column names to Excel column letters (revenue → A, cogs → B, etc.)
     column_map: HashMap<String, String>,
-    /// Global mapping: table_name -> (column_name -> column_letter)
+    /// Global mapping: `table_name` -> (`column_name` -> `column_letter`)
     table_column_maps: HashMap<String, HashMap<String, String>>,
-    /// Global mapping: table_name -> row_count
+    /// Global mapping: `table_name` -> `row_count`
     table_row_counts: HashMap<String, usize>,
 }
 
 impl FormulaTranslator {
     /// Create a new formula translator with column mappings (legacy, for backwards compat)
+    #[must_use]
     pub fn new(column_map: HashMap<String, String>) -> Self {
         Self {
             column_map,
@@ -25,7 +26,8 @@ impl FormulaTranslator {
     }
 
     /// Create a new formula translator with full table knowledge
-    pub fn new_with_tables(
+    #[must_use]
+    pub const fn new_with_tables(
         column_map: HashMap<String, String>,
         table_column_maps: HashMap<String, HashMap<String, String>>,
         table_row_counts: HashMap<String, usize>,
@@ -40,8 +42,17 @@ impl FormulaTranslator {
     /// Translate a row formula to an Excel cell formula for a specific row
     ///
     /// Example:
-    /// - Input: `=revenue - cogs`, row_idx 0, excel_row 2
+    /// - Input: `=revenue - cogs`, `row_idx` 0, `excel_row` 2
     /// - Output: `=A2-B2`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a column reference cannot be resolved.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a regex capture group 0 is missing (should never occur).
+    #[allow(clippy::too_many_lines)] // splitting hurts readability: single coherent translation pipeline
     pub fn translate_row_formula(&self, formula: &str, excel_row: u32) -> ForgeResult<String> {
         // Remove leading = if present
         let formula_body = formula.strip_prefix('=').unwrap_or(formula);
@@ -162,7 +173,7 @@ impl FormulaTranslator {
             let var_name = match_obj.as_str();
 
             // Skip Excel functions
-            if self.is_excel_function(var_name) {
+            if Self::is_excel_function(var_name) {
                 continue;
             }
 
@@ -209,7 +220,8 @@ impl FormulaTranslator {
     }
 
     /// Check if a word is an Excel function
-    fn is_excel_function(&self, word: &str) -> bool {
+    #[allow(clippy::too_many_lines)] // comprehensive function list is intentionally exhaustive
+    fn is_excel_function(word: &str) -> bool {
         let upper = word.to_uppercase();
         matches!(
             upper.as_str(),
@@ -382,6 +394,15 @@ impl FormulaTranslator {
     /// - `=SUM(table.column)` → `=SUM(table!A2:A4)`
     /// - `=table.column[0]` → `=table!A2`
     /// - `=scalar_name / 100` → `=B3 / 100`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a regex compilation fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a regex capture group 0 is missing (should never occur).
+    #[allow(clippy::too_many_lines)] // splitting hurts readability: single coherent translation pipeline
     pub fn translate_scalar_formula(
         &self,
         formula: &str,
@@ -591,13 +612,17 @@ impl FormulaTranslator {
     /// - 1 → B
     /// - 25 → Z
     /// - 26 → AA
+    #[must_use]
     pub fn column_index_to_letter(index: usize) -> String {
         let mut result = String::new();
         let mut idx = index;
 
         loop {
             let remainder = idx % 26;
-            result.insert(0, (b'A' + remainder as u8) as char);
+            // Remainder is always 0..25, fits in u8
+            #[allow(clippy::cast_possible_truncation)] // remainder is 0..25, always fits in u8
+            let ch = (b'A' + remainder as u8) as char;
+            result.insert(0, ch);
             if idx < 26 {
                 break;
             }
@@ -956,16 +981,14 @@ mod tests {
 
     #[test]
     fn test_is_excel_function() {
-        let translator = FormulaTranslator::new(HashMap::new());
-
         // Test various function names
-        assert!(translator.is_excel_function("SUM"));
-        assert!(translator.is_excel_function("sum")); // lowercase
-        assert!(translator.is_excel_function("AVERAGE"));
-        assert!(translator.is_excel_function("NPV"));
-        assert!(translator.is_excel_function("XLOOKUP"));
-        assert!(!translator.is_excel_function("revenue")); // not a function
-        assert!(!translator.is_excel_function("my_column")); // not a function
+        assert!(FormulaTranslator::is_excel_function("SUM"));
+        assert!(FormulaTranslator::is_excel_function("sum")); // lowercase
+        assert!(FormulaTranslator::is_excel_function("AVERAGE"));
+        assert!(FormulaTranslator::is_excel_function("NPV"));
+        assert!(FormulaTranslator::is_excel_function("XLOOKUP"));
+        assert!(!FormulaTranslator::is_excel_function("revenue")); // not a function
+        assert!(!FormulaTranslator::is_excel_function("my_column")); // not a function
     }
 
     #[test]

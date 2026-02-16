@@ -42,22 +42,22 @@ pub enum DistributionType {
 impl fmt::Display for DistributionType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DistributionType::Normal { mean, stdev } => {
+            Self::Normal { mean, stdev } => {
                 write!(f, "MC.Normal({mean}, {stdev})")
             },
-            DistributionType::Triangular { min, mode, max } => {
+            Self::Triangular { min, mode, max } => {
                 write!(f, "MC.Triangular({min}, {mode}, {max})")
             },
-            DistributionType::Uniform { min, max } => {
+            Self::Uniform { min, max } => {
                 write!(f, "MC.Uniform({min}, {max})")
             },
-            DistributionType::PERT { min, mode, max } => {
+            Self::PERT { min, mode, max } => {
                 write!(f, "MC.PERT({min}, {mode}, {max})")
             },
-            DistributionType::Lognormal { mean, stdev } => {
+            Self::Lognormal { mean, stdev } => {
                 write!(f, "MC.Lognormal({mean}, {stdev})")
             },
-            DistributionType::Discrete {
+            Self::Discrete {
                 values,
                 probabilities,
             } => {
@@ -74,6 +74,10 @@ pub struct Distribution {
 
 impl Distribution {
     /// Create a Normal distribution
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `stdev` is not positive.
     pub fn normal(mean: f64, stdev: f64) -> Result<Self, String> {
         if stdev <= 0.0 {
             return Err("Normal distribution stdev must be > 0".to_string());
@@ -84,6 +88,10 @@ impl Distribution {
     }
 
     /// Create a Triangular distribution
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `min >= max` or `mode` is outside `[min, max]`.
     pub fn triangular(min: f64, mode: f64, max: f64) -> Result<Self, String> {
         if min >= max {
             return Err("Triangular distribution requires min < max".to_string());
@@ -97,6 +105,10 @@ impl Distribution {
     }
 
     /// Create a Uniform distribution
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `min >= max`.
     pub fn uniform(min: f64, max: f64) -> Result<Self, String> {
         if min >= max {
             return Err("Uniform distribution requires min < max".to_string());
@@ -107,6 +119,10 @@ impl Distribution {
     }
 
     /// Create a PERT distribution (Beta-PERT)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `min >= max` or `mode` is outside `[min, max]`.
     pub fn pert(min: f64, mode: f64, max: f64) -> Result<Self, String> {
         if min >= max {
             return Err("PERT distribution requires min < max".to_string());
@@ -120,6 +136,10 @@ impl Distribution {
     }
 
     /// Create a Lognormal distribution
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `stdev` is not positive or `mean` is not positive.
     pub fn lognormal(mean: f64, stdev: f64) -> Result<Self, String> {
         if stdev <= 0.0 {
             return Err("Lognormal distribution stdev must be > 0".to_string());
@@ -133,6 +153,11 @@ impl Distribution {
     }
 
     /// Create a Discrete distribution
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `values` and `probabilities` have different lengths,
+    /// are empty, probabilities don't sum to 1.0, or any probability is negative.
     pub fn discrete(values: Vec<f64>, probabilities: Vec<f64>) -> Result<Self, String> {
         if values.len() != probabilities.len() {
             return Err(
@@ -161,6 +186,11 @@ impl Distribution {
     }
 
     /// Sample a single value from the distribution
+    ///
+    /// # Panics
+    ///
+    /// Panics if the underlying `rand_distr` distribution cannot be constructed
+    /// (should not happen with validated parameters).
     pub fn sample<R: Rng>(&self, rng: &mut R) -> f64 {
         match &self.dist_type {
             DistributionType::Normal { mean, stdev } => {
@@ -194,6 +224,7 @@ impl Distribution {
     }
 
     /// Get theoretical mean of the distribution
+    #[must_use]
     pub fn theoretical_mean(&self) -> f64 {
         match &self.dist_type {
             DistributionType::Normal { mean, .. } => *mean,
@@ -204,7 +235,7 @@ impl Distribution {
                 // For lognormal, mean of log-space params
                 let variance = stdev * stdev;
                 let mu = (mean * mean / (mean * mean + variance).sqrt()).ln();
-                let sigma_sq = (1.0 + variance / (mean * mean)).ln();
+                let sigma_sq = (variance / (mean * mean)).ln_1p();
                 (mu + sigma_sq / 2.0).exp()
             },
             DistributionType::Discrete {
@@ -219,11 +250,16 @@ impl Distribution {
     }
 
     /// Get theoretical variance of the distribution
+    #[must_use]
     pub fn theoretical_variance(&self) -> f64 {
         match &self.dist_type {
             DistributionType::Normal { stdev, .. } => stdev * stdev,
             DistributionType::Triangular { min, mode, max } => {
-                (min * min + mode * mode + max * max - min * mode - min * max - mode * max) / 18.0
+                // Correct formula: Var = (a^2 + b^2 + c^2 - ab - ac - bc) / 18
+                #[allow(clippy::suspicious_operation_groupings)]
+                let numerator =
+                    min * min + mode * mode + max * max - min * mode - min * max - mode * max;
+                numerator / 18.0
             },
             DistributionType::Uniform { min, max } => (max - min).powi(2) / 12.0,
             DistributionType::PERT { min, mode, max } => {
@@ -233,7 +269,7 @@ impl Distribution {
             },
             DistributionType::Lognormal { mean, stdev } => {
                 let variance = stdev * stdev;
-                ((variance / (mean * mean)).ln() + 1.0).exp() - 1.0
+                ((variance / (mean * mean)).ln() + 1.0).exp_m1()
             },
             DistributionType::Discrete {
                 values,
@@ -287,8 +323,8 @@ fn sample_beta<R: Rng>(rng: &mut R, alpha: f64, beta: f64) -> f64 {
 fn sample_lognormal<R: Rng>(rng: &mut R, mean: f64, stdev: f64) -> f64 {
     // Convert mean/stdev of lognormal to underlying normal parameters
     let variance = stdev * stdev;
-    let mu = (mean * mean / (mean * mean + variance).sqrt()).ln();
-    let sigma = (1.0 + variance / (mean * mean)).ln().sqrt();
+    let mu = (mean * mean / mean.mul_add(mean, variance).sqrt()).ln();
+    let sigma = (variance / (mean * mean)).ln_1p().sqrt();
 
     let normal = Normal::new(mu, sigma).unwrap();
     let z: f64 = normal.sample(rng);
@@ -311,7 +347,12 @@ fn sample_discrete<R: Rng>(rng: &mut R, values: &[f64], probabilities: &[f64]) -
     *values.last().unwrap_or(&0.0)
 }
 
-/// Parse a distribution from formula string (e.g., "MC.Normal(100, 15)")
+/// Parse a distribution from formula string (e.g., "`MC.Normal(100, 15)`")
+///
+/// # Errors
+///
+/// Returns an error if the formula is malformed, uses an unknown distribution type,
+/// has the wrong number of arguments, or has invalid parameter values.
 pub fn parse_distribution(formula: &str) -> Result<Distribution, String> {
     let formula = formula.trim();
 
@@ -376,6 +417,8 @@ pub fn parse_distribution(formula: &str) -> Result<Distribution, String> {
     }
 }
 
+// Financial math: exact float comparison validated against Excel/Gnumeric/R
+#[allow(clippy::float_cmp)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -444,7 +487,7 @@ mod tests {
         let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
 
         // Theoretical mean = (0 + 4*3 + 10) / 6 = 22/6 ≈ 3.67
-        let theoretical = (0.0 + 4.0 * 3.0 + 10.0) / 6.0;
+        let theoretical = (4.0f64.mul_add(3.0, 0.0) + 10.0) / 6.0;
         assert!(
             (mean - theoretical).abs() < 0.3,
             "Mean {mean} not close to {theoretical}"

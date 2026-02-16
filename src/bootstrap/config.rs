@@ -47,7 +47,7 @@ pub struct BootstrapConfig {
     pub percentile_value: f64,
 }
 
-fn default_iterations() -> usize {
+const fn default_iterations() -> usize {
     10000
 }
 
@@ -55,7 +55,7 @@ fn default_confidence_levels() -> Vec<f64> {
     vec![0.90, 0.95, 0.99]
 }
 
-fn default_percentile() -> f64 {
+const fn default_percentile() -> f64 {
     50.0
 }
 
@@ -74,48 +74,61 @@ impl Default for BootstrapConfig {
 
 impl BootstrapConfig {
     /// Create a new configuration
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Set the data
+    #[must_use]
     pub fn with_data(mut self, data: Vec<f64>) -> Self {
         self.data = data;
         self
     }
 
     /// Set the number of iterations
-    pub fn with_iterations(mut self, iterations: usize) -> Self {
+    #[must_use]
+    pub const fn with_iterations(mut self, iterations: usize) -> Self {
         self.iterations = iterations;
         self
     }
 
     /// Set confidence levels
+    #[must_use]
     pub fn with_confidence_levels(mut self, levels: Vec<f64>) -> Self {
         self.confidence_levels = levels;
         self
     }
 
     /// Set the seed
-    pub fn with_seed(mut self, seed: u64) -> Self {
+    #[must_use]
+    pub const fn with_seed(mut self, seed: u64) -> Self {
         self.seed = Some(seed);
         self
     }
 
     /// Set the statistic
-    pub fn with_statistic(mut self, stat: BootstrapStatistic) -> Self {
+    #[must_use]
+    pub const fn with_statistic(mut self, stat: BootstrapStatistic) -> Self {
         self.statistic = stat;
         self
     }
 
     /// Set percentile value
-    pub fn with_percentile(mut self, percentile: f64) -> Self {
+    #[must_use]
+    pub const fn with_percentile(mut self, percentile: f64) -> Self {
         self.statistic = BootstrapStatistic::Percentile;
         self.percentile_value = percentile;
         self
     }
 
     /// Validate configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if data is empty or has fewer than 2 observations,
+    /// iterations is zero, confidence levels are missing or out of range,
+    /// or percentile value is out of range when using `Percentile` statistic.
     pub fn validate(&self) -> Result<(), String> {
         if self.data.is_empty() {
             return Err("Data cannot be empty".to_string());

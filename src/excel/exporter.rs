@@ -18,11 +18,11 @@ pub struct ScalarLocation {
 /// Excel exporter for v1.0.0 array models and v5.0.0 scalar models
 pub struct ExcelExporter {
     model: ParsedModel,
-    /// Global mapping: table_name -> (column_name -> column_letter)
+    /// Global mapping: `table_name` -> (`column_name` -> `column_letter`)
     table_column_maps: HashMap<String, HashMap<String, String>>,
-    /// Global mapping: table_name -> row_count
+    /// Global mapping: `table_name` -> `row_count`
     table_row_counts: HashMap<String, usize>,
-    /// Global mapping: scalar_path -> ScalarLocation (worksheet + row)
+    /// Global mapping: `scalar_path` -> `ScalarLocation` (worksheet + row)
     scalar_locations: HashMap<String, ScalarLocation>,
 }
 
@@ -98,6 +98,7 @@ impl ExcelExporter {
         for (group_name, mut scalar_paths) in groups {
             scalar_paths.sort();
             for (idx, path) in scalar_paths.iter().enumerate() {
+                #[allow(clippy::cast_possible_truncation)] // scalar count is well within u32 range
                 let row = (idx + 2) as u32; // +1 for header, +1 for 1-indexing
                 locations.insert(
                     path.clone(),
@@ -114,19 +115,23 @@ impl ExcelExporter {
 
     /// Split a scalar path into group and name
     /// "utilities.extinction" -> ("utilities", "extinction")
-    /// "tax_rate" -> ("Scalars", "tax_rate")
+    /// "`tax_rate`" -> ("Scalars", "`tax_rate`")
     fn split_scalar_path(path: &str) -> (String, String) {
-        if let Some(dot_pos) = path.find('.') {
-            let group = path[..dot_pos].to_string();
-            let name = path[dot_pos + 1..].to_string();
-            (group, name)
-        } else {
-            // No dot - put in default "Scalars" worksheet
-            ("Scalars".to_string(), path.to_string())
-        }
+        path.find('.').map_or_else(
+            || ("Scalars".to_string(), path.to_string()),
+            |dot_pos| {
+                let group = path[..dot_pos].to_string();
+                let name = path[dot_pos + 1..].to_string();
+                (group, name)
+            },
+        )
     }
 
     /// Export the model to an Excel .xlsx file
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the workbook cannot be saved to the specified path.
     pub fn export(&self, output_path: &Path) -> ForgeResult<()> {
         let mut workbook = Workbook::new();
 
@@ -150,7 +155,7 @@ impl ExcelExporter {
 
             // Export scalars from included file with namespace prefix
             if !resolved.model.scalars.is_empty() {
-                self.export_namespaced_scalars(&mut workbook, namespace, &resolved.model)?;
+                Self::export_namespaced_scalars(&mut workbook, namespace, &resolved.model)?;
             }
         }
 
@@ -163,6 +168,7 @@ impl ExcelExporter {
     }
 
     /// Export a single table to a worksheet
+    #[allow(clippy::cast_possible_truncation)] // column count and row count are within u16/u32 Excel limits
     fn export_table(
         &self,
         workbook: &mut Workbook,
@@ -243,7 +249,7 @@ impl ExcelExporter {
                         .map_err(|e| ForgeError::Export(format!("Failed to write formula: {e}")))?;
                 } else if let Some(column) = table.columns.get(col_name) {
                     // Write data value
-                    self.write_cell_value(
+                    Self::write_cell_value(
                         worksheet,
                         excel_row - 1, // Excel row is 1-indexed, worksheet API is 0-indexed
                         col_idx as u16,
@@ -259,7 +265,6 @@ impl ExcelExporter {
 
     /// Write a single cell value based on column type
     fn write_cell_value(
-        &self,
         worksheet: &mut Worksheet,
         row: u32,
         col: u16,
@@ -301,7 +306,7 @@ impl ExcelExporter {
 
     /// Export scalars to grouped worksheets (one per prefix group)
     /// e.g., "utilities.extinction", "utilities.flourishing" -> worksheet "utilities"
-    ///       "scenario_probs.p_unaligned" -> worksheet "scenario_probs"
+    ///       "`scenario_probs.p_unaligned`" -> worksheet "`scenario_probs`"
     fn export_scalars(&self, workbook: &mut Workbook) -> ForgeResult<()> {
         // Group scalars by prefix
         let mut groups: HashMap<String, Vec<(&String, &crate::types::Variable)>> = HashMap::new();
@@ -349,6 +354,7 @@ impl ExcelExporter {
         sorted_scalars.sort_by(|a, b| a.0.cmp(b.0));
 
         for (idx, (full_path, var)) in sorted_scalars.iter().enumerate() {
+            #[allow(clippy::cast_possible_truncation)] // scalar count is well within u32 range
             let row = (idx + 1) as u32; // +1 for header row
 
             // Get short name (part after the dot, or full path if no dot)
@@ -419,8 +425,8 @@ impl ExcelExporter {
     }
 
     /// Translate a scalar formula using grouped worksheet references
-    /// e.g., "=utilities.extinction * scenario_probs.p_unaligned"
-    ///    -> "='utilities'!B2 * 'scenario_probs'!B3"
+    /// e.g., "=utilities.extinction * `scenario_probs.p_unaligned`"
+    ///    -> "='utilities'!B2 * '`scenario_probs`'!B3"
     fn translate_grouped_scalar_formula(&self, formula: &str) -> ForgeResult<String> {
         use regex::Regex;
 
@@ -447,19 +453,10 @@ impl ExcelExporter {
                 }
 
                 // Look up scalar location
-                if let Some(loc) = self.scalar_locations.get(scalar_path) {
+                self.scalar_locations.get(scalar_path).map(|loc| {
                     let replacement = format!("'{}'!B{}", loc.worksheet, loc.row);
-                    Some((full_match.range(), replacement))
-                } else {
-                    // Check if it's a table reference (not a scalar)
-                    let table_name = &cap[1];
-                    if self.table_column_maps.contains_key(table_name) {
-                        // This is a table.column reference, let existing logic handle it
-                        None
-                    } else {
-                        None
-                    }
-                }
+                    (full_match.range(), replacement)
+                })
             })
             .collect();
 
@@ -473,7 +470,6 @@ impl ExcelExporter {
 
     /// Export scalars from an included file with namespace prefix (v4.4.2)
     fn export_namespaced_scalars(
-        &self,
         workbook: &mut Workbook,
         namespace: &str,
         included_model: &ParsedModel,
@@ -497,6 +493,7 @@ impl ExcelExporter {
         scalar_names.sort();
 
         for (idx, name) in scalar_names.iter().enumerate() {
+            #[allow(clippy::cast_possible_truncation)] // scalar count is well within u32 range
             let row = (idx + 1) as u32;
 
             if let Some(var) = included_model.scalars.get(*name) {
@@ -1373,7 +1370,7 @@ mod tests {
         // Should reference worksheets: ='scenario_probs'!B2 * 'utilities'!B2
         assert!(result.contains("'scenario_probs'!B"));
         assert!(result.contains("'utilities'!B"));
-        assert!(result.starts_with("="));
+        assert!(result.starts_with('='));
     }
 
     #[test]

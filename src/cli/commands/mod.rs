@@ -6,14 +6,14 @@
 //! - watch: Watch files for changes and recalculate
 //! - audit: Show calculation dependency chain
 //! - export/import: Excel file I/O
-//! - variance/sensitivity/goal_seek/break_even: Analysis tools
+//! - `variance/sensitivity/goal_seek/break_even`: Analysis tools
 //! - compare: Scenario comparison
 //! - functions: List supported functions
 //! - simulate: Monte Carlo simulation (enterprise only)
 //! - upgrade: Schema migration (enterprise only)
 //! - scenarios: Scenario analysis (enterprise only)
-//! - decision_tree: Decision tree analysis (enterprise only)
-//! - real_options: Real options valuation (enterprise only)
+//! - `decision_tree`: Decision tree analysis (enterprise only)
+//! - `real_options`: Real options valuation (enterprise only)
 //! - tornado: Tornado sensitivity diagrams (enterprise only)
 //! - bootstrap: Bootstrap resampling (enterprise only)
 //! - bayesian: Bayesian network inference (enterprise only)
@@ -75,6 +75,7 @@ use std::sync::mpsc::channel;
 use std::time::Duration;
 
 /// Format a number for display, removing unnecessary decimal places
+#[must_use]
 pub fn format_number(n: f64) -> String {
     // Round to 6 decimal places for display (sufficient for most financial calculations)
     // This also handles f32 precision artifacts from xlformula_engine
@@ -87,15 +88,20 @@ pub fn format_number(n: f64) -> String {
 }
 
 /// Execute the calculate command
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, calculation fails,
+/// or results cannot be written back to the file.
 pub fn calculate(
-    file: PathBuf,
+    file: &Path,
     dry_run: bool,
     verbose: bool,
-    scenario: Option<String>,
+    scenario: Option<&str>,
 ) -> ForgeResult<()> {
     println!("{}", "🔥 Forge - Calculating formulas".bold().green());
     println!("   File: {}", file.display());
-    if let Some(ref s) = scenario {
+    if let Some(s) = scenario {
         println!("   Scenario: {}", s.bright_yellow().bold());
     }
     println!();
@@ -112,7 +118,7 @@ pub fn calculate(
         println!("{}", "📖 Parsing YAML file...".cyan());
     }
 
-    let mut model = parser::parse_model(&file)?;
+    let mut model = parser::parse_model(file)?;
 
     if verbose {
         println!(
@@ -131,7 +137,7 @@ pub fn calculate(
     }
 
     // Apply scenario overrides if specified
-    if let Some(ref scenario_name) = scenario {
+    if let Some(scenario_name) = scenario {
         apply_scenario(&mut model, scenario_name)?;
         if verbose {
             println!("{}", format!("📊 Applied scenario: {scenario_name}").cyan());
@@ -187,7 +193,7 @@ pub fn calculate(
     if dry_run {
         println!("{}", "📋 Dry run complete - no changes written".yellow());
     } else {
-        let wrote = writer::write_calculated_results(&file, &result)?;
+        let wrote = writer::write_calculated_results(file, &result)?;
         if wrote {
             println!(
                 "{}",
@@ -216,7 +222,11 @@ pub fn calculate(
 }
 
 /// Execute the validate command for one or more files
-pub fn validate(files: Vec<PathBuf>) -> ForgeResult<()> {
+///
+/// # Errors
+///
+/// Returns an error if any file fails validation or cannot be parsed.
+pub fn validate(files: &[PathBuf]) -> ForgeResult<()> {
     let file_count = files.len();
     let is_batch = file_count > 1;
 
@@ -231,7 +241,7 @@ pub fn validate(files: Vec<PathBuf>) -> ForgeResult<()> {
     let mut all_passed = true;
     let mut failed_files: Vec<String> = Vec::new();
 
-    for file in &files {
+    for file in files {
         if is_batch {
             println!("{}", format!("─── {} ───", file.display()).cyan());
         } else {
@@ -284,6 +294,8 @@ pub fn validate(files: Vec<PathBuf>) -> ForgeResult<()> {
 
 /// Validate a single file
 fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
+    const TOLERANCE: f64 = 0.0001; // Floating point comparison tolerance
+
     // Parse YAML file
     let model = parser::parse_model(file)?;
 
@@ -316,7 +328,6 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
 
     // Compare calculated values vs. current values in file
     let mut mismatches = Vec::new();
-    const TOLERANCE: f64 = 0.0001; // Floating point comparison tolerance
 
     for (var_name, var) in &calculated.scalars {
         if let Some(calculated_value) = var.value {
@@ -375,11 +386,16 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
 
 /// Execute the watch command
 ///
+/// # Errors
+///
+/// Returns an error if the file does not exist, the directory cannot be watched,
+/// or file system event handling fails.
+///
 /// # Coverage Exclusion (ADR-006)
 /// Contains infinite loop waiting for file system events - cannot unit test.
-/// Tested via: cli_integration_tests.rs (manual termination after initial run)
+/// Tested via: `cli_integration_tests.rs` (manual termination after initial run)
 #[cfg(not(coverage))]
-pub fn watch(file: PathBuf, validate_only: bool, verbose: bool) -> ForgeResult<()> {
+pub fn watch(file: &Path, validate_only: bool, verbose: bool) -> ForgeResult<()> {
     println!("{}", "👁️  Forge - Watch Mode".bold().green());
     println!("   Watching: {}", file.display());
     println!(
@@ -429,7 +445,7 @@ pub fn watch(file: PathBuf, validate_only: bool, verbose: bool) -> ForgeResult<(
 
     // Run initial validation/calculation
     println!("{}", "🔄 Initial run...".cyan());
-    run_watch_action(&file, validate_only, verbose);
+    run_watch_action(file, validate_only, verbose);
     println!();
 
     // Watch loop
@@ -455,8 +471,8 @@ pub fn watch(file: PathBuf, validate_only: bool, verbose: bool) -> ForgeResult<(
                             }
                         }
                         // Also trigger on any .yaml file changes in the directory
-                        if let Some(name_str) = filename.to_str() {
-                            if name_str.ends_with(".yaml") || name_str.ends_with(".yml") {
+                        if let Some(ext) = event.path.extension().and_then(|e| e.to_str()) {
+                            if ext.eq_ignore_ascii_case("yaml") || ext.eq_ignore_ascii_case("yml") {
                                 return true;
                             }
                         }
@@ -474,7 +490,7 @@ pub fn watch(file: PathBuf, validate_only: bool, verbose: bool) -> ForgeResult<(
                         "🔄 Change detected at".cyan(),
                         chrono_lite_timestamp().cyan()
                     );
-                    run_watch_action(&file, validate_only, verbose);
+                    run_watch_action(file, validate_only, verbose);
                     println!();
                 }
             },
@@ -493,7 +509,7 @@ pub fn watch(file: PathBuf, validate_only: bool, verbose: bool) -> ForgeResult<(
 
 /// Stub for coverage builds - see ADR-006
 #[cfg(coverage)]
-pub fn watch(file: PathBuf, _validate_only: bool, _verbose: bool) -> ForgeResult<()> {
+pub fn watch(file: &Path, _validate_only: bool, _verbose: bool) -> ForgeResult<()> {
     // Validate file exists (testable error path)
     if !file.exists() {
         return Err(ForgeError::Validation(format!(
@@ -537,6 +553,8 @@ fn run_watch_action(file: &Path, validate_only: bool, verbose: bool) {
 /// Internal validation function for watch mode
 #[cfg(any(not(coverage), test))]
 fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
+    const TOLERANCE: f64 = 0.0001;
+
     let model = parser::parse_model(file)?;
 
     if verbose {
@@ -555,7 +573,6 @@ fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
     let calculated = calculator.calculate_all()?;
 
     // Check for mismatches
-    const TOLERANCE: f64 = 0.0001;
     let mut mismatches = Vec::new();
 
     for (var_name, var) in &calculated.scalars {
@@ -622,6 +639,10 @@ fn calculate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
 }
 
 /// Apply scenario overrides to the model
+///
+/// # Errors
+///
+/// Returns an error if the named scenario does not exist in the model.
 pub fn apply_scenario(
     model: &mut crate::types::ParsedModel,
     scenario_name: &str,

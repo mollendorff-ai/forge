@@ -1,6 +1,6 @@
 [package]
 name = "mollendorff-forge"
-version = "10.0.0-alpha.11"
+version = "10.0.0-alpha.12"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "Möllendorff Group Inc. <admin@mollendorff.ai>"]
 description = "Battle-tested financial math for AI. 173 Excel-compatible functions validated against Gnumeric & R. MCP integration, Monte Carlo, Decision Trees, Real Options."
@@ -112,14 +112,16 @@ cargo-husky = { version = "1", default-features = false, features = ["user-hooks
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 # Pedantic linting - code is for humans to read (ADR-004)
-# Note: Clippy config is in Makefile (lint target) for proper precedence
 [lints.clippy]
-# Specific lints we enforce (auto-fixable)
-redundant_closure_for_method_calls = "warn"
-manual_string_new = "warn"
-inefficient_to_string = "warn"
-implicit_clone = "warn"
-uninlined_format_args = "warn"
+# Pedantic + nursery + cargo enforced via `make lint` with -D warnings
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+# Transitive deps pull different versions of the same crate; unfixable without swapping dependencies
+multiple_crate_versions = "allow"
+# Rust has no f64::from(usize) or f64::from(i64) — these casts are unavoidable in numeric code.
+# Precision loss only matters for values > 2^52 (~4.5e15), which never occur in financial math.
+cast_precision_loss = "allow"
 
 [profile.release]
 # Optimize for size and performance

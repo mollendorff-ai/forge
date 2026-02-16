@@ -1,5 +1,8 @@
 //! Decision Trees Integration Tests
 
+// Financial math: exact float comparison validated against Excel/Gnumeric/R
+#![allow(clippy::float_cmp)]
+
 use super::*;
 
 /// ADR-019 Example: R&D Investment Decision

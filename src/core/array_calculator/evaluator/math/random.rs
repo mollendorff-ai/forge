@@ -1,5 +1,8 @@
 //! Random functions: RAND, RANDBETWEEN
 
+// Random casts: f64 bounds to i64 (RANDBETWEEN integer bounds).
+#![allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };

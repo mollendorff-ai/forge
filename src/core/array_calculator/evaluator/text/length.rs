@@ -1,5 +1,12 @@
 //! String length and extraction functions: LEN, LEFT, RIGHT, MID
 
+// Text length casts: char counts and string indices (f64 to usize, bounded by string length).
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss
+)]
+
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
@@ -11,7 +18,7 @@ pub fn eval_len(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     Ok(Value::Number(val.as_text().chars().count() as f64))
 }
 
-/// LEFT(text, [num_chars]) - Returns the leftmost characters from a text string
+/// LEFT(text, [`num_chars`]) - Returns the leftmost characters from a text string
 pub fn eval_left(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("LEFT", args, 1, 2)?;
     let text = evaluate(&args[0], ctx)?.as_text();
@@ -20,11 +27,10 @@ pub fn eval_left(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     } else {
         1
     };
-    let chars: Vec<char> = text.chars().take(n).collect();
-    Ok(Value::Text(chars.into_iter().collect()))
+    Ok(Value::Text(text.chars().take(n).collect()))
 }
 
-/// RIGHT(text, [num_chars]) - Returns the rightmost characters from a text string
+/// RIGHT(text, [`num_chars`]) - Returns the rightmost characters from a text string
 pub fn eval_right(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("RIGHT", args, 1, 2)?;
     let text = evaluate(&args[0], ctx)?.as_text();
@@ -38,7 +44,7 @@ pub fn eval_right(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
     Ok(Value::Text(chars[start..].iter().collect()))
 }
 
-/// MID(text, start_num, num_chars) - Returns characters from the middle of a text string
+/// MID(text, `start_num`, `num_chars`) - Returns characters from the middle of a text string
 pub fn eval_mid(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("MID", args, 3)?;
     let text = evaluate(&args[0], ctx)?.as_text();
@@ -60,8 +66,8 @@ pub fn eval_mid(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
     #[test]

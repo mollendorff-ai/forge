@@ -103,6 +103,8 @@ fn test_chain_network() {
 
 /// Test conditional independence (A _||_ C | B)
 #[test]
+// Standard Bayesian notation: evidence_b/evidence_ab distinguish conditioning sets
+#[allow(clippy::similar_names)]
 fn test_conditional_independence() {
     let config = BayesianConfig::new("CI Test")
         .with_node(

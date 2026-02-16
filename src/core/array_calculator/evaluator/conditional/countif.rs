@@ -5,7 +5,10 @@
 //!
 //! Syntax:
 //! - COUNTIF(range, criteria)
-//! - COUNTIFS(criteria_range1, criteria1, [criteria_range2, criteria2], ...)
+//! - `COUNTIFS(criteria_range1`, criteria1, [`criteria_range2`, criteria2], ...)
+
+// COUNTIF casts: matching count (usize) to f64 for result.
+#![allow(clippy::cast_precision_loss)]
 
 use super::super::{
     collect_values_as_vec, evaluate, matches_criteria, require_args, EvalContext, EvalError, Expr,

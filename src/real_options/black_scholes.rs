@@ -1,7 +1,7 @@
 //! Black-Scholes Option Pricing
 //!
 //! Closed-form solution for European options.
-//! Validated against QuantLib.
+//! Validated against `QuantLib`.
 
 use std::f64::consts::PI;
 
@@ -23,7 +23,8 @@ pub struct BlackScholes {
 
 impl BlackScholes {
     /// Create a new Black-Scholes model
-    pub fn new(spot: f64, strike: f64, rate: f64, volatility: f64, maturity: f64) -> Self {
+    #[must_use]
+    pub const fn new(spot: f64, strike: f64, rate: f64, volatility: f64, maturity: f64) -> Self {
         Self {
             spot,
             strike,
@@ -35,22 +36,24 @@ impl BlackScholes {
     }
 
     /// Set dividend yield
-    pub fn with_dividend_yield(mut self, yield_rate: f64) -> Self {
+    #[must_use]
+    pub const fn with_dividend_yield(mut self, yield_rate: f64) -> Self {
         self.dividend_yield = yield_rate;
         self
     }
 
     /// Calculate d1 parameter
     fn d1(&self) -> f64 {
-        let numerator = (self.spot / self.strike).ln()
-            + (self.rate - self.dividend_yield + 0.5 * self.volatility.powi(2)) * self.maturity;
+        let numerator = 0.5f64
+            .mul_add(self.volatility.powi(2), self.rate - self.dividend_yield)
+            .mul_add(self.maturity, (self.spot / self.strike).ln());
         let denominator = self.volatility * self.maturity.sqrt();
         numerator / denominator
     }
 
     /// Calculate d2 parameter
     fn d2(&self) -> f64 {
-        self.d1() - self.volatility * self.maturity.sqrt()
+        self.volatility.mul_add(-self.maturity.sqrt(), self.d1())
     }
 
     /// Standard normal CDF (cumulative distribution function)
@@ -60,6 +63,7 @@ impl BlackScholes {
     }
 
     /// Calculate European call option price
+    #[must_use]
     pub fn call_price(&self) -> f64 {
         let d1 = self.d1();
         let d2 = self.d2();
@@ -67,11 +71,14 @@ impl BlackScholes {
         let discount_factor = (-self.rate * self.maturity).exp();
         let dividend_factor = (-self.dividend_yield * self.maturity).exp();
 
-        self.spot * dividend_factor * Self::norm_cdf(d1)
-            - self.strike * discount_factor * Self::norm_cdf(d2)
+        (self.spot * dividend_factor).mul_add(
+            Self::norm_cdf(d1),
+            -(self.strike * discount_factor * Self::norm_cdf(d2)),
+        )
     }
 
     /// Calculate European put option price
+    #[must_use]
     pub fn put_price(&self) -> f64 {
         let d1 = self.d1();
         let d2 = self.d2();
@@ -79,17 +86,21 @@ impl BlackScholes {
         let discount_factor = (-self.rate * self.maturity).exp();
         let dividend_factor = (-self.dividend_yield * self.maturity).exp();
 
-        self.strike * discount_factor * Self::norm_cdf(-d2)
-            - self.spot * dividend_factor * Self::norm_cdf(-d1)
+        (self.strike * discount_factor).mul_add(
+            Self::norm_cdf(-d2),
+            -(self.spot * dividend_factor * Self::norm_cdf(-d1)),
+        )
     }
 
     /// Calculate option delta (sensitivity to spot price)
+    #[must_use]
     pub fn delta_call(&self) -> f64 {
         let dividend_factor = (-self.dividend_yield * self.maturity).exp();
         dividend_factor * Self::norm_cdf(self.d1())
     }
 
     /// Calculate option gamma (sensitivity of delta)
+    #[must_use]
     pub fn gamma(&self) -> f64 {
         let dividend_factor = (-self.dividend_yield * self.maturity).exp();
         let d1 = self.d1();
@@ -97,6 +108,7 @@ impl BlackScholes {
     }
 
     /// Calculate option vega (sensitivity to volatility)
+    #[must_use]
     pub fn vega(&self) -> f64 {
         let dividend_factor = (-self.dividend_yield * self.maturity).exp();
         let d1 = self.d1();
@@ -104,6 +116,7 @@ impl BlackScholes {
     }
 
     /// Calculate option theta (time decay) for call
+    #[must_use]
     pub fn theta_call(&self) -> f64 {
         let d1 = self.d1();
         let d2 = self.d2();
@@ -119,6 +132,7 @@ impl BlackScholes {
     }
 
     /// Calculate option rho (sensitivity to interest rate) for call
+    #[must_use]
     pub fn rho_call(&self) -> f64 {
         let d2 = self.d2();
         let discount_factor = (-self.rate * self.maturity).exp();
@@ -134,19 +148,34 @@ impl BlackScholes {
 /// Error function approximation (for normal CDF)
 fn erf(x: f64) -> f64 {
     // Abramowitz and Stegun approximation
-    let t = 1.0 / (1.0 + 0.5 * x.abs());
+    let t = 1.0 / 0.5f64.mul_add(x.abs(), 1.0);
 
-    let tau = t
-        * (-x.powi(2) - 1.26551223
-            + 1.00002368 * t
-            + 0.37409196 * t.powi(2)
-            + 0.09678418 * t.powi(3)
-            - 0.18628806 * t.powi(4)
-            + 0.27886807 * t.powi(5)
-            - 1.13520398 * t.powi(6)
-            + 1.48851587 * t.powi(7)
-            - 0.82215223 * t.powi(8)
-            + 0.17087277 * t.powi(9))
+    let tau = t * 0.170_872_77_f64
+        .mul_add(
+            t.powi(9),
+            0.822_152_23_f64.mul_add(
+                -t.powi(8),
+                1.488_515_87_f64.mul_add(
+                    t.powi(7),
+                    1.135_203_98_f64.mul_add(
+                        -t.powi(6),
+                        0.278_868_07_f64.mul_add(
+                            t.powi(5),
+                            0.186_288_06_f64.mul_add(
+                                -t.powi(4),
+                                0.096_784_18_f64.mul_add(
+                                    t.powi(3),
+                                    0.374_091_96_f64.mul_add(
+                                        t.powi(2),
+                                        1.000_023_68_f64.mul_add(t, -x.powi(2) - 1.265_512_23),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
         .exp();
 
     if x >= 0.0 {
@@ -161,7 +190,7 @@ mod black_scholes_tests {
     use super::*;
 
     /// Test against known Black-Scholes values
-    /// Validated against QuantLib
+    /// Validated against `QuantLib`
     #[test]
     fn test_call_price() {
         // Standard test case:
@@ -196,7 +225,7 @@ mod black_scholes_tests {
         let put = bs.put_price();
 
         let lhs = call - put;
-        let rhs = 100.0 - 100.0 * (-0.05_f64).exp();
+        let rhs = 100.0f64.mul_add(-(-0.05_f64).exp(), 100.0);
 
         assert!(
             (lhs - rhs).abs() < 0.0001,

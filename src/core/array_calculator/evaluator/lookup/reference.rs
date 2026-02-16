@@ -2,12 +2,19 @@
 //!
 //! ENTERPRISE functions - only available in full build
 
+// Spreadsheet reference casts: f64 row/col indices to usize/i64 (bounded by worksheet limits 1..16384).
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss
+)]
+
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 
 /// Evaluate INDIRECT function
-/// INDIRECT(ref_text, [a1])
+/// `INDIRECT(ref_text`, [a1])
 /// Returns the reference specified by a text string
 pub fn eval_indirect(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("INDIRECT", args, 1)?;
@@ -72,7 +79,7 @@ pub fn eval_offset(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
 }
 
 /// Evaluate ADDRESS function
-/// ADDRESS(row_num, column_num, [abs_num], [a1], [sheet_text])
+/// `ADDRESS(row_num`, `column_num`, [`abs_num`], [a1], [`sheet_text`])
 /// Returns a cell reference as a text string
 pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("ADDRESS", args, 2, 5)?;
@@ -104,18 +111,16 @@ pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     // abs_num: 1=absolute, 2=absolute row/relative col, 3=relative row/absolute col, 4=relative
     let address = if a1_style {
         match abs_num {
-            1 => format!("${col_letter}${row_num}"),
             2 => format!("{col_letter}${row_num}"),
             3 => format!("${col_letter}{row_num}"),
             4 => format!("{col_letter}{row_num}"),
-            _ => format!("${col_letter}${row_num}"),
+            _ => format!("${col_letter}${row_num}"), // 1 and default: absolute
         }
     } else {
         // R1C1 style
         match abs_num {
-            1 => format!("R{row_num}C{col_num}"),
             4 => format!("R[{row_num}]C[{col_num}]"),
-            _ => format!("R{row_num}C{col_num}"),
+            _ => format!("R{row_num}C{col_num}"), // 1 and default: absolute
         }
     };
     Ok(Value::Text(address))
@@ -124,7 +129,9 @@ pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 /// Evaluate ROW function
 /// ROW([reference])
 /// Returns the row number of a reference
-pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+// Returns Result for uniform eval_* function signature (callers expect Result).
+#[allow(clippy::unnecessary_wraps)]
+pub const fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     // ROW() returns current row number (1-based)
     // ROW(reference) returns the row number of the reference
     if args.is_empty() {
@@ -143,7 +150,9 @@ pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 /// Evaluate COLUMN function
 /// COLUMN([reference])
 /// Returns the column number of a reference
-pub fn eval_column(_args: &[Expr], _ctx: &EvalContext) -> Result<Value, EvalError> {
+// Returns Result for uniform eval_* function signature (callers expect Result).
+#[allow(clippy::unnecessary_wraps)]
+pub const fn eval_column(_args: &[Expr], _ctx: &EvalContext) -> Result<Value, EvalError> {
     // COLUMN() returns current column number
     // Simplified implementation - always returns 1
     Ok(Value::Number(1.0))
@@ -201,6 +210,7 @@ pub fn col_to_letter(col: usize) -> String {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::*;
     use crate::core::array_calculator::evaluator::tests::eval;
     use crate::core::array_calculator::ArrayCalculator;

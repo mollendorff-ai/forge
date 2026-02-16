@@ -6,9 +6,13 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Check if a YAML file needs schema upgrade (v5.3.0)
-/// Returns Some(current_version) if upgrade needed, None otherwise
-/// Skips multi-doc files (not supported for auto-upgrade yet)
+/// Check if a YAML file needs schema upgrade (v5.3.0).
+/// Returns `Some(current_version)` if upgrade needed, None otherwise.
+/// Skips multi-doc files (not supported for auto-upgrade yet).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read or parsed as YAML.
 pub fn needs_schema_upgrade(file: &Path) -> ForgeResult<Option<String>> {
     let content = fs::read_to_string(file)
         .map_err(|e| ForgeError::IO(format!("Failed to read {}: {}", file.display(), e)))?;
@@ -35,20 +39,24 @@ pub fn needs_schema_upgrade(file: &Path) -> ForgeResult<Option<String>> {
     }
 }
 
-/// Auto-upgrade schema for calculate command (v5.3.0)
+/// Auto-upgrade schema for calculate command (v5.3.0).
+///
+/// # Errors
+///
+/// Returns an error if the file or any included files cannot be read, parsed, or written.
 pub fn auto_upgrade_schema(file: &Path, verbose: bool) -> ForgeResult<()> {
     let mut upgraded_files = HashSet::new();
     upgrade_file_recursive(file, "5.0.0", false, verbose, &mut upgraded_files)?;
     Ok(())
 }
 
-/// Execute the upgrade command - migrate YAML files to latest schema version
-pub fn upgrade(
-    file: PathBuf,
-    dry_run: bool,
-    target_version: String,
-    verbose: bool,
-) -> ForgeResult<()> {
+/// Execute the upgrade command - migrate YAML files to latest schema version.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read, parsed, or written,
+/// or if any included files fail during recursive upgrade.
+pub fn upgrade(file: &Path, dry_run: bool, target_version: &str, verbose: bool) -> ForgeResult<()> {
     println!("{}", "🔥 Forge - Schema Upgrade".bold().green());
     println!();
     println!("   File:    {}", file.display());
@@ -62,13 +70,8 @@ pub fn upgrade(
     let mut upgraded_files: HashSet<PathBuf> = HashSet::new();
 
     // Perform upgrade recursively
-    let changes = upgrade_file_recursive(
-        &file,
-        &target_version,
-        dry_run,
-        verbose,
-        &mut upgraded_files,
-    )?;
+    let changes =
+        upgrade_file_recursive(file, target_version, dry_run, verbose, &mut upgraded_files)?;
 
     // Summary
     println!();
@@ -95,7 +98,11 @@ pub fn upgrade(
     Ok(())
 }
 
-/// Recursively upgrade a file and its includes
+/// Recursively upgrade a file and its includes.
+///
+/// # Errors
+///
+/// Returns an error if any file cannot be read, parsed, or written during upgrade.
 pub fn upgrade_file_recursive(
     file: &Path,
     target_version: &str,
@@ -117,7 +124,7 @@ pub fn upgrade_file_recursive(
         }
         return Ok(0);
     }
-    upgraded_files.insert(canonical.clone());
+    upgraded_files.insert(canonical);
 
     // Read and parse the file
     let content = fs::read_to_string(file)
@@ -131,7 +138,7 @@ pub fn upgrade_file_recursive(
 
     // First, recursively upgrade any included files
     if let Some(serde_yaml_ng::Value::Sequence(include_list)) = yaml.get("_includes").cloned() {
-        let parent_dir = file.parent().unwrap_or(Path::new("."));
+        let parent_dir = file.parent().unwrap_or_else(|| Path::new("."));
         for include in include_list {
             if let Some(include_file) = include.get("file").and_then(|f| f.as_str()) {
                 let include_path = parent_dir.join(include_file);
@@ -192,7 +199,7 @@ pub fn upgrade_file_recursive(
 
     // 2. Split scalars into inputs/outputs if upgrading to 5.0.0
     if target_version == "5.0.0" {
-        split_scalars_to_inputs_outputs(yaml_map, verbose)?;
+        split_scalars_to_inputs_outputs(yaml_map, verbose);
     }
 
     if !dry_run {
@@ -219,11 +226,8 @@ pub fn upgrade_file_recursive(
     Ok(changes + 1)
 }
 
-/// Split scalars section into inputs and outputs based on formula presence
-pub fn split_scalars_to_inputs_outputs(
-    yaml_map: &mut serde_yaml_ng::Mapping,
-    verbose: bool,
-) -> ForgeResult<()> {
+/// Split scalars section into inputs and outputs based on formula presence.
+pub fn split_scalars_to_inputs_outputs(yaml_map: &mut serde_yaml_ng::Mapping, verbose: bool) {
     // Check if there's a top-level scalars-like structure (not in a table)
     // In v4.x, scalars are scattered at root level or in sections
     // We need to identify them and split into inputs/outputs
@@ -309,8 +313,6 @@ pub fn split_scalars_to_inputs_outputs(
             serde_yaml_ng::Value::Mapping(outputs),
         );
     }
-
-    Ok(())
 }
 
 #[cfg(test)]

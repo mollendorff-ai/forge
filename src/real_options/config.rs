@@ -60,16 +60,17 @@ pub struct OptionDefinition {
     pub contraction_factor: f64,
 }
 
-fn default_expansion_factor() -> f64 {
+const fn default_expansion_factor() -> f64 {
     1.5
 }
 
-fn default_contraction_factor() -> f64 {
+const fn default_contraction_factor() -> f64 {
     0.5
 }
 
 impl OptionDefinition {
     /// Create a defer option
+    #[must_use]
     pub fn defer(name: &str, max_deferral: f64, exercise_cost: f64) -> Self {
         Self {
             option_type: OptionType::Defer,
@@ -83,6 +84,7 @@ impl OptionDefinition {
     }
 
     /// Create an expand option
+    #[must_use]
     pub fn expand(name: &str, expansion_factor: f64, exercise_cost: f64) -> Self {
         Self {
             option_type: OptionType::Expand,
@@ -96,6 +98,7 @@ impl OptionDefinition {
     }
 
     /// Create an abandon option
+    #[must_use]
     pub fn abandon(name: &str, salvage_value: f64) -> Self {
         Self {
             option_type: OptionType::Abandon,
@@ -109,6 +112,7 @@ impl OptionDefinition {
     }
 
     /// Create a contract option
+    #[must_use]
     pub fn contract(name: &str, contraction_factor: f64, cost_savings: f64) -> Self {
         Self {
             option_type: OptionType::Contract,
@@ -140,7 +144,8 @@ pub struct UnderlyingConfig {
 
 impl UnderlyingConfig {
     /// Create a new underlying configuration
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         current_value: f64,
         volatility: f64,
         risk_free_rate: f64,
@@ -156,12 +161,18 @@ impl UnderlyingConfig {
     }
 
     /// Add dividend yield
-    pub fn with_dividend_yield(mut self, yield_rate: f64) -> Self {
+    #[must_use]
+    pub const fn with_dividend_yield(mut self, yield_rate: f64) -> Self {
         self.dividend_yield = yield_rate;
         self
     }
 
     /// Validate configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying parameters are out of range (e.g.,
+    /// non-positive value, volatility, or time horizon).
     pub fn validate(&self) -> Result<(), String> {
         if self.current_value <= 0.0 {
             return Err("Current value must be positive".to_string());
@@ -203,16 +214,17 @@ pub struct RealOptionsConfig {
     pub seed: Option<u64>,
 }
 
-fn default_binomial_steps() -> usize {
+const fn default_binomial_steps() -> usize {
     100
 }
 
-fn default_mc_iterations() -> usize {
+const fn default_mc_iterations() -> usize {
     10000
 }
 
 impl RealOptionsConfig {
     /// Create a new configuration
+    #[must_use]
     pub fn new(name: &str, underlying: UnderlyingConfig) -> Self {
         Self {
             name: name.to_string(),
@@ -226,30 +238,39 @@ impl RealOptionsConfig {
     }
 
     /// Set valuation method
-    pub fn with_method(mut self, method: ValuationMethod) -> Self {
+    #[must_use]
+    pub const fn with_method(mut self, method: ValuationMethod) -> Self {
         self.method = method;
         self
     }
 
     /// Add an option
+    #[must_use]
     pub fn with_option(mut self, option: OptionDefinition) -> Self {
         self.options.push(option);
         self
     }
 
     /// Set binomial steps
-    pub fn with_binomial_steps(mut self, steps: usize) -> Self {
+    #[must_use]
+    pub const fn with_binomial_steps(mut self, steps: usize) -> Self {
         self.binomial_steps = steps;
         self
     }
 
     /// Set seed
-    pub fn with_seed(mut self, seed: u64) -> Self {
+    #[must_use]
+    pub const fn with_seed(mut self, seed: u64) -> Self {
         self.seed = Some(seed);
         self
     }
 
     /// Validate configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying is invalid, no options are defined,
+    /// or parameters are zero.
     pub fn validate(&self) -> Result<(), String> {
         self.underlying.validate()?;
 
@@ -270,6 +291,8 @@ impl RealOptionsConfig {
 }
 
 #[cfg(test)]
+// Financial math: exact float comparison validated against Excel/Gnumeric/R
+#[allow(clippy::float_cmp)]
 mod config_tests {
     use super::*;
 

@@ -3,10 +3,18 @@ use crate::types::{ColumnValue, ParsedModel, Variable};
 use serde_yaml_ng::Value;
 use std::collections::HashMap;
 use std::fs;
+use std::hash::BuildHasher;
 use std::path::Path;
 
 /// Update YAML file with calculated values (v1.0.0)
-pub fn update_yaml_file(path: &Path, calculated_values: &HashMap<String, f64>) -> ForgeResult<()> {
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read, parsed, or written back.
+pub fn update_yaml_file<S: BuildHasher>(
+    path: &Path,
+    calculated_values: &HashMap<String, f64, S>,
+) -> ForgeResult<()> {
     // Read original YAML
     let content = fs::read_to_string(path)?;
     let mut yaml: Value = serde_yaml_ng::from_str(&content)?;
@@ -26,6 +34,10 @@ pub fn update_yaml_file(path: &Path, calculated_values: &HashMap<String, f64>) -
 /// Write calculated results back to YAML file (v4.3.0)
 /// Creates a backup (.bak) before writing
 /// Returns true if write was successful, false if skipped (multi-doc)
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read, parsed, backed up, or written back.
 pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResult<bool> {
     // Read original content to check for multi-document YAML
     let content = fs::read_to_string(path)?;
@@ -56,6 +68,8 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
                             .iter()
                             .map(|v| {
                                 // Format nicely: remove unnecessary decimal places
+                                #[allow(clippy::cast_possible_truncation)]
+                                // guarded by v.abs() < 1e10 check
                                 if v.fract() == 0.0 && v.abs() < 1e10 {
                                     Value::Number(serde_yaml_ng::Number::from(*v as i64))
                                 } else {
@@ -88,7 +102,14 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
 }
 
 /// Update scalar values in a model file
-pub fn update_scalars(path: &Path, scalars: &HashMap<String, Variable>) -> ForgeResult<()> {
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read, parsed, or written back.
+pub fn update_scalars<S: BuildHasher>(
+    path: &Path,
+    scalars: &HashMap<String, Variable, S>,
+) -> ForgeResult<()> {
     let mut calculated_values = HashMap::new();
     for (name, var) in scalars {
         if let Some(value) = var.value {

@@ -7,14 +7,18 @@ use colored::Colorize;
 const SCHEMA_V1: &str = include_str!("../../../schema/forge-v1.0.0.schema.json");
 const SCHEMA_V5: &str = include_str!("../../../schema/forge-v5.0.0.schema.json");
 
-/// Display JSON schema for Forge model formats
-pub fn schema(version: Option<String>, list: bool) -> ForgeResult<()> {
+/// Display JSON schema for Forge model formats.
+///
+/// # Errors
+///
+/// Returns an error if an unsupported schema version is requested.
+pub fn schema(version: Option<&str>, list: bool) -> ForgeResult<()> {
     if list || version.is_none() {
         print_schema_list();
         return Ok(());
     }
 
-    let schema = match version.as_deref() {
+    let schema = match version {
         Some("v1" | "v1.0.0" | "1" | "1.0.0") => SCHEMA_V1,
         Some("v5" | "v5.0.0" | "5" | "5.0.0") => SCHEMA_V5,
         Some(v) => {
@@ -92,13 +96,13 @@ mod tests {
 
     #[test]
     fn test_schema_v1_output() {
-        let result = schema(Some("v1".to_string()), false);
+        let result = schema(Some("v1"), false);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_schema_v5_output() {
-        let result = schema(Some("v5".to_string()), false);
+        let result = schema(Some("v5"), false);
         assert!(result.is_ok());
     }
 
@@ -106,13 +110,13 @@ mod tests {
     fn test_schema_version_aliases() {
         // All these should work for v1
         for alias in ["v1", "v1.0.0", "1", "1.0.0"] {
-            let result = schema(Some(alias.to_owned()), false);
+            let result = schema(Some(alias), false);
             assert!(result.is_ok(), "Alias '{alias}' should work for v1");
         }
 
         // All these should work for v5
         for alias in ["v5", "v5.0.0", "5", "5.0.0"] {
-            let result = schema(Some(alias.to_owned()), false);
+            let result = schema(Some(alias), false);
             assert!(result.is_ok(), "Alias '{alias}' should work for v5");
         }
     }

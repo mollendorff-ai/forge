@@ -1,11 +1,12 @@
-//! Analysis commands: variance, sensitivity, goal_seek, break_even, compare
+//! Analysis commands: variance, sensitivity, `goal_seek`, `break_even`, compare
 
 use crate::core::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use colored::Colorize;
+use std::fmt::Write as _;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use super::{apply_scenario, format_number};
 
@@ -22,7 +23,12 @@ pub struct VarianceResult {
 }
 
 /// Execute the compare command - compare results across scenarios
-pub fn compare(file: PathBuf, scenarios: Vec<String>, verbose: bool) -> ForgeResult<()> {
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, a scenario does not exist,
+/// or calculation fails.
+pub fn compare(file: &Path, scenarios: &[String], verbose: bool) -> ForgeResult<()> {
     println!("{}", "🔥 Forge - Scenario Comparison".bold().green());
     println!("   File: {}", file.display());
     println!(
@@ -31,10 +37,10 @@ pub fn compare(file: PathBuf, scenarios: Vec<String>, verbose: bool) -> ForgeRes
     );
 
     // Parse model
-    let base_model = parser::parse_model(&file)?;
+    let base_model = parser::parse_model(file)?;
 
     // Validate scenarios exist
-    for scenario_name in &scenarios {
+    for scenario_name in scenarios {
         if !base_model.scenarios.contains_key(scenario_name) {
             let available: Vec<_> = base_model.scenarios.keys().collect();
             return Err(ForgeError::Validation(format!(
@@ -55,7 +61,7 @@ pub fn compare(file: PathBuf, scenarios: Vec<String>, verbose: bool) -> ForgeRes
     // Calculate results for each scenario
     let mut results: Vec<(String, crate::types::ParsedModel)> = Vec::new();
 
-    for scenario_name in &scenarios {
+    for scenario_name in scenarios {
         let mut model = base_model.clone();
         apply_scenario(&mut model, scenario_name)?;
 
@@ -78,7 +84,7 @@ pub fn compare(file: PathBuf, scenarios: Vec<String>, verbose: bool) -> ForgeRes
 
     // Header row
     print!("{:<20}", "Variable".bold());
-    for scenario_name in &scenarios {
+    for scenario_name in scenarios {
         print!("{:>15}", scenario_name.bright_yellow().bold());
     }
     println!();
@@ -109,11 +115,16 @@ pub fn compare(file: PathBuf, scenarios: Vec<String>, verbose: bool) -> ForgeRes
 }
 
 /// Execute the variance command - budget vs actual analysis
+///
+/// # Errors
+///
+/// Returns an error if the budget or actual files cannot be parsed, calculation fails,
+/// or the output file cannot be written.
 pub fn variance(
-    budget_path: PathBuf,
-    actual_path: PathBuf,
+    budget_path: &Path,
+    actual_path: &Path,
     threshold: f64,
-    output: Option<PathBuf>,
+    output: Option<&Path>,
     verbose: bool,
 ) -> ForgeResult<()> {
     println!("{}", "🔥 Forge - Variance Analysis".bold().green());
@@ -126,8 +137,8 @@ pub fn variance(
         println!("{}", "📖 Parsing YAML files...".cyan());
     }
 
-    let budget_model = parser::parse_model(&budget_path)?;
-    let actual_model = parser::parse_model(&actual_path)?;
+    let budget_model = parser::parse_model(budget_path)?;
+    let actual_model = parser::parse_model(actual_path)?;
 
     // Calculate both models
     if verbose {
@@ -140,10 +151,71 @@ pub fn variance(
     let actual_calculator = ArrayCalculator::new(actual_model);
     let actual_result = actual_calculator.calculate_all()?;
 
-    // Collect scalar variances
-    let mut variances: Vec<VarianceResult> = Vec::new();
+    let variances = collect_variances(&budget_result, &actual_result, threshold);
 
-    // Get all scalar names from both models
+    // Handle output
+    if let Some(output_path) = output {
+        let extension = output_path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("");
+
+        match extension {
+            "xlsx" => {
+                export_variance_to_excel(output_path, &variances, threshold)?;
+                println!(
+                    "{}",
+                    format!("✅ Variance report exported to {}", output_path.display())
+                        .bold()
+                        .green()
+                );
+            },
+            "yaml" | "yml" => {
+                export_variance_to_yaml(output_path, &variances, threshold)?;
+                println!(
+                    "{}",
+                    format!("✅ Variance report exported to {}", output_path.display())
+                        .bold()
+                        .green()
+                );
+            },
+            _ => {
+                return Err(ForgeError::Export(format!(
+                    "Unsupported output format: {extension}. Use .xlsx or .yaml"
+                )));
+            },
+        }
+    } else {
+        // Print to terminal
+        print_variance_table(&variances, threshold);
+    }
+
+    // Summary
+    let favorable_count = variances.iter().filter(|v| v.is_favorable).count();
+    let unfavorable_count = variances.len() - favorable_count;
+    let alert_count = variances.iter().filter(|v| v.exceeds_threshold).count();
+
+    println!();
+    println!(
+        "   {} Favorable: {}  {} Unfavorable: {}  {} Alerts (>{:.0}%): {}",
+        "✅".green(),
+        favorable_count.to_string().green(),
+        "❌".red(),
+        unfavorable_count.to_string().red(),
+        "⚠️".yellow(),
+        threshold,
+        alert_count.to_string().yellow()
+    );
+
+    Ok(())
+}
+
+/// Collect scalar variances between budget and actual calculation results
+fn collect_variances(
+    budget_result: &crate::types::ParsedModel,
+    actual_result: &crate::types::ParsedModel,
+    threshold: f64,
+) -> Vec<VarianceResult> {
     let mut all_scalars: Vec<String> = budget_result
         .scalars
         .keys()
@@ -153,6 +225,7 @@ pub fn variance(
     all_scalars.sort();
     all_scalars.dedup();
 
+    let mut variances = Vec::new();
     for name in &all_scalars {
         let budget_val = budget_result
             .scalars
@@ -194,62 +267,7 @@ pub fn variance(
             exceeds_threshold,
         });
     }
-
-    // Handle output
-    if let Some(output_path) = output {
-        let extension = output_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("");
-
-        match extension {
-            "xlsx" => {
-                export_variance_to_excel(&output_path, &variances, threshold)?;
-                println!(
-                    "{}",
-                    format!("✅ Variance report exported to {}", output_path.display())
-                        .bold()
-                        .green()
-                );
-            },
-            "yaml" | "yml" => {
-                export_variance_to_yaml(&output_path, &variances, threshold)?;
-                println!(
-                    "{}",
-                    format!("✅ Variance report exported to {}", output_path.display())
-                        .bold()
-                        .green()
-                );
-            },
-            _ => {
-                return Err(ForgeError::Export(format!(
-                    "Unsupported output format: {extension}. Use .xlsx or .yaml"
-                )));
-            },
-        }
-    } else {
-        // Print to terminal
-        print_variance_table(&variances, threshold);
-    }
-
-    // Summary
-    let favorable_count = variances.iter().filter(|v| v.is_favorable).count();
-    let unfavorable_count = variances.len() - favorable_count;
-    let alert_count = variances.iter().filter(|v| v.exceeds_threshold).count();
-
-    println!();
-    println!(
-        "   {} Favorable: {}  {} Unfavorable: {}  {} Alerts (>{:.0}%): {}",
-        "✅".green(),
-        favorable_count.to_string().green(),
-        "❌".red(),
-        unfavorable_count.to_string().red(),
-        "⚠️".yellow(),
-        threshold,
-        alert_count.to_string().yellow()
-    );
-
-    Ok(())
+    variances
 }
 
 /// Print variance results as a table
@@ -312,6 +330,10 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
 }
 
 /// Export variance report to Excel
+///
+/// # Errors
+///
+/// Returns an error if the Excel workbook cannot be created or saved.
 pub fn export_variance_to_excel(
     output: &Path,
     variances: &[VarianceResult],
@@ -355,6 +377,8 @@ pub fn export_variance_to_excel(
 
     // Data rows
     for (i, v) in variances.iter().enumerate() {
+        // Truncation impossible: variance reports have far fewer than u32::MAX rows
+        #[allow(clippy::cast_possible_truncation)]
         let row = (i + 1) as u32;
 
         worksheet.write_string(row, 0, &v.name).ok();
@@ -376,6 +400,8 @@ pub fn export_variance_to_excel(
     }
 
     // Add metadata row
+    // Truncation impossible: variance reports have far fewer than u32::MAX rows
+    #[allow(clippy::cast_possible_truncation)]
     let meta_row = (variances.len() + 3) as u32;
     worksheet
         .write_string(meta_row, 0, format!("Threshold: {threshold}%"))
@@ -392,39 +418,45 @@ pub fn export_variance_to_excel(
 }
 
 /// Export variance report to YAML
+///
+/// # Errors
+///
+/// Returns an error if the output file cannot be created or written.
 pub fn export_variance_to_yaml(
     output: &Path,
     variances: &[VarianceResult],
     threshold: f64,
 ) -> ForgeResult<()> {
-    use std::io::Write;
+    use std::io::Write as IoWrite;
 
     let mut content = String::new();
     content.push_str("# Forge Variance Analysis Report\n");
     content.push_str("# Generated by Forge v2.3.0\n");
-    content.push_str(&format!("# Threshold: {threshold}%\n\n"));
+    let _ = writeln!(content, "# Threshold: {threshold}%\n");
 
     content.push_str("metadata:\n");
-    content.push_str(&format!("  threshold_pct: {threshold}\n"));
-    content.push_str(&format!("  total_items: {}\n", variances.len()));
-    content.push_str(&format!(
-        "  favorable_count: {}\n",
+    let _ = writeln!(content, "  threshold_pct: {threshold}");
+    let _ = writeln!(content, "  total_items: {}", variances.len());
+    let _ = writeln!(
+        content,
+        "  favorable_count: {}",
         variances.iter().filter(|v| v.is_favorable).count()
-    ));
-    content.push_str(&format!(
-        "  alert_count: {}\n\n",
+    );
+    let _ = writeln!(
+        content,
+        "  alert_count: {}\n",
         variances.iter().filter(|v| v.exceeds_threshold).count()
-    ));
+    );
 
     content.push_str("variances:\n");
     for v in variances {
-        content.push_str(&format!("  {}:\n", v.name));
-        content.push_str(&format!("    budget: {}\n", v.budget));
-        content.push_str(&format!("    actual: {}\n", v.actual));
-        content.push_str(&format!("    variance: {}\n", v.variance));
-        content.push_str(&format!("    variance_pct: {:.2}\n", v.variance_pct));
-        content.push_str(&format!("    is_favorable: {}\n", v.is_favorable));
-        content.push_str(&format!("    exceeds_threshold: {}\n", v.exceeds_threshold));
+        let _ = writeln!(content, "  {}:", v.name);
+        let _ = writeln!(content, "    budget: {}", v.budget);
+        let _ = writeln!(content, "    actual: {}", v.actual);
+        let _ = writeln!(content, "    variance: {}", v.variance);
+        let _ = writeln!(content, "    variance_pct: {:.2}", v.variance_pct);
+        let _ = writeln!(content, "    is_favorable: {}", v.is_favorable);
+        let _ = writeln!(content, "    exceeds_threshold: {}", v.exceeds_threshold);
     }
 
     let mut file = fs::File::create(output)
@@ -436,6 +468,11 @@ pub fn export_variance_to_yaml(
 }
 
 /// Parse a range string "start,end,step" into a vector of values
+///
+/// # Errors
+///
+/// Returns an error if the range format is invalid, values cannot be parsed,
+/// step is non-positive, or start exceeds end.
 pub fn parse_range(range: &str) -> ForgeResult<Vec<f64>> {
     let parts: Vec<&str> = range.split(',').collect();
     if parts.len() != 3 {
@@ -466,18 +503,23 @@ pub fn parse_range(range: &str) -> ForgeResult<Vec<f64>> {
         ));
     }
 
-    let mut values = Vec::new();
-    let mut current = start;
-    while current <= end + step * 0.001 {
-        // Small tolerance for floating point
-        values.push(current);
-        current += step;
-    }
+    // Use integer step count to avoid while-float comparison
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    // step count is always a small positive number
+    let num_steps = ((end - start) / step + 1.001).floor() as usize;
+    #[allow(clippy::cast_precision_loss)] // step index is always small enough for f64
+    let values: Vec<f64> = (0..num_steps)
+        .map(|i| step.mul_add(i as f64, start))
+        .collect();
 
     Ok(values)
 }
 
 /// Calculate model with a specific variable override and return the output value
+///
+/// # Errors
+///
+/// Returns an error if calculation fails or the output variable is not found.
 pub fn calculate_with_override(
     base_model: &crate::types::ParsedModel,
     var_name: &str,
@@ -503,44 +545,52 @@ pub fn calculate_with_override(
     let result = calculator.calculate_all()?;
 
     // Get output value
-    if let Some(scalar) = result.scalars.get(output_name) {
-        scalar.value.ok_or_else(|| {
-            ForgeError::Validation(format!("Output variable '{output_name}' has no value"))
-        })
-    } else {
-        Err(ForgeError::Validation(format!(
-            "Output variable '{output_name}' not found in model"
-        )))
-    }
+    result.scalars.get(output_name).map_or_else(
+        || {
+            Err(ForgeError::Validation(format!(
+                "Output variable '{output_name}' not found in model"
+            )))
+        },
+        |scalar| {
+            scalar.value.ok_or_else(|| {
+                ForgeError::Validation(format!("Output variable '{output_name}' has no value"))
+            })
+        },
+    )
 }
 
 /// Execute the sensitivity command
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, variables are not found,
+/// ranges are invalid, or calculation fails.
 pub fn sensitivity(
-    file: PathBuf,
-    vary: String,
-    range: String,
-    vary2: Option<String>,
-    range2: Option<String>,
-    output: String,
+    file: &Path,
+    vary: &str,
+    range: &str,
+    vary2: Option<&str>,
+    range2: Option<&str>,
+    output: &str,
     verbose: bool,
 ) -> ForgeResult<()> {
     println!("{}", "🔥 Forge - Sensitivity Analysis".bold().green());
     println!("   File: {}", file.display());
     println!("   Vary: {} ({})", vary.bright_yellow(), range);
-    if let Some(ref v2) = vary2 {
+    if let Some(v2) = vary2 {
         println!(
             "   Vary2: {} ({})",
             v2.bright_yellow(),
-            range2.as_deref().unwrap_or("?")
+            range2.unwrap_or("?")
         );
     }
     println!("   Output: {}\n", output.bright_blue());
 
     // Parse model
-    let base_model = parser::parse_model(&file)?;
+    let base_model = parser::parse_model(file)?;
 
     // Validate that vary variable exists
-    if !base_model.scalars.contains_key(&vary) {
+    if !base_model.scalars.contains_key(vary) {
         return Err(ForgeError::Validation(format!(
             "Variable '{}' not found. Available scalars: {:?}",
             vary,
@@ -549,7 +599,7 @@ pub fn sensitivity(
     }
 
     // Parse range
-    let values1 = parse_range(&range)?;
+    let values1 = parse_range(range)?;
 
     if verbose {
         println!(
@@ -561,80 +611,8 @@ pub fn sensitivity(
     }
 
     // Two-variable analysis
-    if let (Some(ref v2), Some(ref r2)) = (&vary2, &range2) {
-        // Validate second variable
-        if !base_model.scalars.contains_key(v2) {
-            return Err(ForgeError::Validation(format!(
-                "Variable '{}' not found. Available scalars: {:?}",
-                v2,
-                base_model.scalars.keys().collect::<Vec<_>>()
-            )));
-        }
-
-        let values2 = parse_range(r2)?;
-
-        if verbose {
-            println!(
-                "   Range 2: {} values from {} to {}",
-                values2.len(),
-                values2.first().unwrap_or(&0.0),
-                values2.last().unwrap_or(&0.0)
-            );
-        }
-
-        // Calculate matrix
-        println!(
-            "\n{} {} → {}",
-            "📊 Sensitivity Matrix:".bold().cyan(),
-            format!("({vary}, {v2})").yellow(),
-            output.bright_blue()
-        );
-
-        // Header row
-        print!("{:>12}", vary.bright_yellow());
-        for val2 in &values2 {
-            print!("{:>12}", format!("{val2:.4}").dimmed());
-        }
-        println!();
-        println!("{}", "─".repeat(12 + values2.len() * 12));
-
-        // Data rows
-        for val1 in &values1 {
-            print!("{:>12}", format!("{val1:.4}").bright_yellow());
-
-            for val2 in &values2 {
-                // Override both variables
-                let mut model = base_model.clone();
-
-                if let Some(s) = model.scalars.get_mut(&vary) {
-                    s.value = Some(*val1);
-                    s.formula = None;
-                }
-                if let Some(s) = model.scalars.get_mut(v2) {
-                    s.value = Some(*val2);
-                    s.formula = None;
-                }
-
-                let calculator = ArrayCalculator::new(model);
-                match calculator.calculate_all() {
-                    Ok(result) => {
-                        if let Some(scalar) = result.scalars.get(&output) {
-                            if let Some(v) = scalar.value {
-                                print!("{:>12}", format_number(v).green());
-                            } else {
-                                print!("{:>12}", "-".dimmed());
-                            }
-                        } else {
-                            print!("{:>12}", "?".red());
-                        }
-                    },
-                    Err(_) => {
-                        print!("{:>12}", "ERR".red());
-                    },
-                }
-            }
-            println!();
-        }
+    if let (Some(v2), Some(r2)) = (vary2, range2) {
+        run_two_var_sensitivity(&base_model, vary, v2, r2, output, &values1, verbose)?;
     } else {
         // One-variable analysis
         println!(
@@ -648,7 +626,7 @@ pub fn sensitivity(
         println!("{}", "─".repeat(30));
 
         for val in &values1 {
-            match calculate_with_override(&base_model, &vary, *val, &output) {
+            match calculate_with_override(&base_model, vary, *val, output) {
                 Ok(result) => {
                     println!(
                         "{:>12} {:>15}",
@@ -673,17 +651,21 @@ pub fn sensitivity(
 }
 
 /// Execute the goal-seek command
-#[allow(clippy::too_many_arguments)]
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, variables are not found,
+/// or no solution exists in the search range.
 pub fn goal_seek(
-    file: PathBuf,
-    target: String,
+    file: &Path,
+    target: &str,
     value: f64,
-    vary: String,
-    min: Option<f64>,
-    max: Option<f64>,
+    vary: &str,
+    bounds: (Option<f64>, Option<f64>),
     tolerance: f64,
     verbose: bool,
 ) -> ForgeResult<()> {
+    let (min, max) = bounds;
     println!("{}", "🔥 Forge - Goal Seek".bold().green());
     println!("   File: {}", file.display());
     println!("   Target: {} = {}", target.bright_blue(), value);
@@ -691,10 +673,10 @@ pub fn goal_seek(
     println!("   Tolerance: {tolerance}\n");
 
     // Parse model
-    let base_model = parser::parse_model(&file)?;
+    let base_model = parser::parse_model(file)?;
 
     // Validate variables
-    if !base_model.scalars.contains_key(&vary) {
+    if !base_model.scalars.contains_key(vary) {
         return Err(ForgeError::Validation(format!(
             "Variable '{}' not found. Available scalars: {:?}",
             vary,
@@ -705,7 +687,7 @@ pub fn goal_seek(
     // Get current value of vary to set default bounds
     let current_value = base_model
         .scalars
-        .get(&vary)
+        .get(vary)
         .and_then(|s| s.value)
         .unwrap_or(1.0);
 
@@ -738,8 +720,8 @@ pub fn goal_seek(
     let mut high = upper;
 
     // Check bounds first
-    let f_low = calculate_with_override(&base_model, &vary, low, &target)? - value;
-    let f_high = calculate_with_override(&base_model, &vary, high, &target)? - value;
+    let f_low = calculate_with_override(&base_model, vary, low, target)? - value;
+    let f_high = calculate_with_override(&base_model, vary, high, target)? - value;
 
     if verbose {
         println!("   f({}) = {} (target diff: {})", low, f_low + value, f_low);
@@ -753,46 +735,10 @@ pub fn goal_seek(
 
     // Check if solution exists in range (signs should differ)
     if f_low * f_high > 0.0 {
-        // Try to find a better range by expanding
-        println!(
-            "{}",
-            "⚠️  No sign change in initial range - expanding search...".yellow()
-        );
-
-        // Try expanding the range
-        let mut found = false;
-        for factor in [10.0, 100.0, 1000.0] {
-            let exp_low = if lower > 0.0 {
-                lower / factor
-            } else {
-                lower * factor
-            };
-            let exp_high = if upper > 0.0 {
-                upper * factor
-            } else {
-                upper / factor
-            };
-
-            let f_exp_low = calculate_with_override(&base_model, &vary, exp_low, &target)? - value;
-            let f_exp_high =
-                calculate_with_override(&base_model, &vary, exp_high, &target)? - value;
-
-            if f_exp_low * f_exp_high <= 0.0 {
-                low = exp_low;
-                high = exp_high;
-                found = true;
-                if verbose {
-                    println!("   Found valid range: [{low}, {high}]");
-                }
-                break;
-            }
-        }
-
-        if !found {
-            return Err(ForgeError::Validation(format!(
-                "No solution found in search range. The target value {value} may not be achievable by varying '{vary}'."
-            )));
-        }
+        let expanded =
+            expand_search_range(&base_model, vary, target, value, lower, upper, verbose)?;
+        low = expanded.0;
+        high = expanded.1;
     }
 
     // Bisection iteration
@@ -801,7 +747,7 @@ pub fn goal_seek(
 
     while (high - low) > tolerance && iteration < max_iterations {
         mid = f64::midpoint(low, high);
-        let f_mid = calculate_with_override(&base_model, &vary, mid, &target)? - value;
+        let f_mid = calculate_with_override(&base_model, vary, mid, target)? - value;
 
         if verbose && iteration % 10 == 0 {
             println!(
@@ -813,7 +759,7 @@ pub fn goal_seek(
             );
         }
 
-        let f_low_check = calculate_with_override(&base_model, &vary, low, &target)? - value;
+        let f_low_check = calculate_with_override(&base_model, vary, low, target)? - value;
 
         if f_mid.abs() < tolerance {
             break;
@@ -829,8 +775,148 @@ pub fn goal_seek(
     }
 
     // Final result
-    let final_value = calculate_with_override(&base_model, &vary, mid, &target)?;
+    let final_value = calculate_with_override(&base_model, vary, mid, target)?;
+    print_goal_seek_result(vary, target, mid, final_value, value, tolerance, iteration);
+    Ok(())
+}
 
+/// Run two-variable sensitivity analysis matrix
+fn run_two_var_sensitivity(
+    base_model: &crate::types::ParsedModel,
+    vary: &str,
+    v2: &str,
+    r2: &str,
+    output: &str,
+    values1: &[f64],
+    verbose: bool,
+) -> ForgeResult<()> {
+    if !base_model.scalars.contains_key(v2) {
+        return Err(ForgeError::Validation(format!(
+            "Variable '{}' not found. Available scalars: {:?}",
+            v2,
+            base_model.scalars.keys().collect::<Vec<_>>()
+        )));
+    }
+
+    let values2 = parse_range(r2)?;
+
+    if verbose {
+        println!(
+            "   Range 2: {} values from {} to {}",
+            values2.len(),
+            values2.first().unwrap_or(&0.0),
+            values2.last().unwrap_or(&0.0)
+        );
+    }
+
+    // Calculate matrix
+    println!(
+        "\n{} {} → {}",
+        "📊 Sensitivity Matrix:".bold().cyan(),
+        format!("({vary}, {v2})").yellow(),
+        output.bright_blue()
+    );
+
+    // Header row
+    print!("{:>12}", vary.bright_yellow());
+    for val2 in &values2 {
+        print!("{:>12}", format!("{val2:.4}").dimmed());
+    }
+    println!();
+    println!("{}", "─".repeat(12 + values2.len() * 12));
+
+    // Data rows
+    for val1 in values1 {
+        print!("{:>12}", format!("{val1:.4}").bright_yellow());
+
+        for val2 in &values2 {
+            let mut model = base_model.clone();
+
+            if let Some(s) = model.scalars.get_mut(vary) {
+                s.value = Some(*val1);
+                s.formula = None;
+            }
+            if let Some(s) = model.scalars.get_mut(v2) {
+                s.value = Some(*val2);
+                s.formula = None;
+            }
+
+            let calculator = ArrayCalculator::new(model);
+            match calculator.calculate_all() {
+                Ok(result) => {
+                    if let Some(scalar) = result.scalars.get(output) {
+                        if let Some(v) = scalar.value {
+                            print!("{:>12}", format_number(v).green());
+                        } else {
+                            print!("{:>12}", "-".dimmed());
+                        }
+                    } else {
+                        print!("{:>12}", "?".red());
+                    }
+                },
+                Err(_) => {
+                    print!("{:>12}", "ERR".red());
+                },
+            }
+        }
+        println!();
+    }
+    Ok(())
+}
+
+/// Expand the search range when initial bounds have the same sign
+fn expand_search_range(
+    base_model: &crate::types::ParsedModel,
+    vary: &str,
+    target: &str,
+    value: f64,
+    lower: f64,
+    upper: f64,
+    verbose: bool,
+) -> ForgeResult<(f64, f64)> {
+    println!(
+        "{}",
+        "⚠️  No sign change in initial range - expanding search...".yellow()
+    );
+
+    for factor in [10.0, 100.0, 1000.0] {
+        let exp_low = if lower > 0.0 {
+            lower / factor
+        } else {
+            lower * factor
+        };
+        let exp_high = if upper > 0.0 {
+            upper * factor
+        } else {
+            upper / factor
+        };
+
+        let f_exp_low = calculate_with_override(base_model, vary, exp_low, target)? - value;
+        let f_exp_high = calculate_with_override(base_model, vary, exp_high, target)? - value;
+
+        if f_exp_low * f_exp_high <= 0.0 {
+            if verbose {
+                println!("   Found valid range: [{exp_low}, {exp_high}]");
+            }
+            return Ok((exp_low, exp_high));
+        }
+    }
+
+    Err(ForgeError::Validation(format!(
+        "No solution found in search range. The target value {value} may not be achievable by varying '{vary}'."
+    )))
+}
+
+/// Print goal-seek result summary
+fn print_goal_seek_result(
+    vary: &str,
+    target: &str,
+    mid: f64,
+    final_value: f64,
+    value: f64,
+    tolerance: f64,
+    iteration: i32,
+) {
     println!("{}", "─".repeat(50));
     println!(
         "{}",
@@ -857,16 +943,18 @@ pub fn goal_seek(
             tolerance
         );
     }
-
     println!("{}", "─".repeat(50));
-    Ok(())
 }
 
 /// Execute the break-even command
+///
+/// # Errors
+///
+/// Returns an error if goal-seek fails to find a zero-crossing point.
 pub fn break_even(
-    file: PathBuf,
-    output: String,
-    vary: String,
+    file: &Path,
+    output: &str,
+    vary: &str,
     min: Option<f64>,
     max: Option<f64>,
     verbose: bool,
@@ -875,5 +963,5 @@ pub fn break_even(
     println!("   Finding where {} = 0\n", output.bright_blue());
 
     // Break-even is just goal-seek with value = 0
-    goal_seek(file, output, 0.0, vary, min, max, 0.0001, verbose)
+    goal_seek(file, output, 0.0, vary, (min, max), 0.0001, verbose)
 }

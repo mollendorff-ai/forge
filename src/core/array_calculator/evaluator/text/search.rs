@@ -1,8 +1,15 @@
 //! Search functions: FIND, SEARCH (enterprise only)
 
+// Text search casts: char position indices between f64 and usize (bounded by string length).
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss
+)]
+
 use super::super::{evaluate, require_args_range, EvalContext, EvalError, Expr, Value};
 
-/// FIND(find_text, within_text, [start_num]) - Finds text within text (case-sensitive)
+/// `FIND(find_text`, `within_text`, [`start_num`]) - Finds text within text (case-sensitive)
 pub fn eval_find(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("FIND", args, 2, 3)?;
     let find_text = evaluate(&args[0], ctx)?.as_text();
@@ -19,13 +26,13 @@ pub fn eval_find(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
         return Err(EvalError::new("FIND: start_num out of range"));
     }
 
-    match within_text[start_idx..].find(&find_text) {
-        Some(pos) => Ok(Value::Number((pos + start_num) as f64)),
-        None => Err(EvalError::new("FIND: text not found")),
-    }
+    within_text[start_idx..].find(&find_text).map_or_else(
+        || Err(EvalError::new("FIND: text not found")),
+        |pos| Ok(Value::Number((pos + start_num) as f64)),
+    )
 }
 
-/// SEARCH(find_text, within_text, [start_num]) - Finds text within text (case-insensitive)
+/// `SEARCH(find_text`, `within_text`, [`start_num`]) - Finds text within text (case-insensitive)
 pub fn eval_search(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("SEARCH", args, 2, 3)?;
     let find_text = evaluate(&args[0], ctx)?.as_text().to_lowercase();
@@ -43,17 +50,17 @@ pub fn eval_search(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     }
 
     let search_in = within_text[start_idx..].to_lowercase();
-    match search_in.find(&find_text) {
-        Some(pos) => Ok(Value::Number((pos + start_num) as f64)),
-        None => Err(EvalError::new("SEARCH: text not found")),
-    }
+    search_in.find(&find_text).map_or_else(
+        || Err(EvalError::new("SEARCH: text not found")),
+        |pos| Ok(Value::Number((pos + start_num) as f64)),
+    )
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
-    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+    use crate::types::{ParsedModel, Variable};
 
     #[test]
     fn test_find_function_scalar() {

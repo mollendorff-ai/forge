@@ -82,11 +82,22 @@ const EXAMPLES: &[Example] = &[
     },
 ];
 
-/// Display example YAML models for Forge capabilities
+/// Display example YAML models for Forge capabilities.
+///
+/// # Errors
+///
+/// Returns an error if the requested example name is not found,
+/// or if execution of the example fails when `--run` is specified.
+///
+/// # Panics
+///
+/// Panics if `name` is `Some` and `.unwrap()` is called after the `None` check.
+/// This is safe because we only unwrap after verifying `name.is_some()`.
 pub fn examples(name: Option<String>, run: bool, json: bool) -> ForgeResult<()> {
     // JSON output mode for tooling
     if json {
-        return print_examples_json();
+        print_examples_json();
+        return Ok(());
     }
 
     // No name specified - show list
@@ -152,7 +163,7 @@ fn print_examples_list() {
 }
 
 /// Print examples as JSON for tooling
-fn print_examples_json() -> ForgeResult<()> {
+fn print_examples_json() {
     let examples_json: Vec<serde_json::Value> = EXAMPLES
         .iter()
         .map(|e| {
@@ -165,7 +176,6 @@ fn print_examples_json() -> ForgeResult<()> {
         .collect();
 
     println!("{}", serde_json::to_string_pretty(&examples_json).unwrap());
-    Ok(())
 }
 
 /// Run an example by writing to temp file and executing
@@ -195,7 +205,6 @@ fn run_example(example: &Example) -> ForgeResult<()> {
         "tornado" => ("forge", vec!["tornado", temp_file.to_str().unwrap()]),
         "bootstrap" => ("forge", vec!["bootstrap", temp_file.to_str().unwrap()]),
         "bayesian" => ("forge", vec!["bayesian", temp_file.to_str().unwrap()]),
-        "variance" | "breakeven" => ("forge", vec!["calculate", temp_file.to_str().unwrap()]),
         _ => ("forge", vec!["calculate", temp_file.to_str().unwrap()]),
     };
 

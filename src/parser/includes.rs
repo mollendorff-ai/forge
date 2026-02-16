@@ -12,10 +12,15 @@ use super::model::parse_v1_model;
 
 /// Resolve all includes in a model, loading and parsing referenced files.
 /// Detects circular dependencies.
-pub fn resolve_includes(
+///
+/// # Errors
+///
+/// Returns an error if an included file is not found, contains invalid YAML,
+/// or creates a circular dependency.
+pub fn resolve_includes<S: std::hash::BuildHasher>(
     model: &mut ParsedModel,
     base_path: &Path,
-    visited: &mut HashSet<std::path::PathBuf>,
+    visited: &mut HashSet<std::path::PathBuf, S>,
 ) -> ForgeResult<()> {
     let base_dir = base_path.parent().unwrap_or_else(|| Path::new("."));
 
@@ -77,6 +82,11 @@ pub fn resolve_includes(
 ///   - file: "pricing.yaml"
 ///     as: "pricing"
 /// ```
+///
+/// # Errors
+///
+/// Returns an error if an include entry is missing required `file` or `as` fields,
+/// or is not a valid mapping.
 pub fn parse_includes(includes_seq: &[Value], model: &mut ParsedModel) -> ForgeResult<()> {
     for include_val in includes_seq {
         if let Value::Mapping(include_map) = include_val {

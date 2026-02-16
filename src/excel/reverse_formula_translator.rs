@@ -14,15 +14,19 @@ pub struct ReverseFormulaTranslator {
 
 impl ReverseFormulaTranslator {
     /// Create a new reverse formula translator
-    pub fn new(column_map: HashMap<String, String>) -> Self {
+    #[must_use]
+    pub const fn new(column_map: HashMap<String, String>) -> Self {
         Self { column_map }
     }
 
     /// Translate an Excel formula to YAML syntax
     ///
     /// Example:
-    /// - Input: `=B2-C2`, column_map: {A → revenue, B → cogs}
+    /// - Input: `=B2-C2`, `column_map`: {A → revenue, B → cogs}
     /// - Output: `=revenue - cogs`
+    /// # Errors
+    ///
+    /// Returns an error if a regex compilation or translation step fails.
     pub fn translate(&self, excel_formula: &str) -> ForgeResult<String> {
         // Remove leading = if present
         let formula_body = excel_formula.strip_prefix('=').unwrap_or(excel_formula);
@@ -72,7 +76,7 @@ impl ReverseFormulaTranslator {
                 let clean_sheet = sheet_name.trim_matches('\'');
 
                 // Sanitize sheet name (same as export logic)
-                let table_name = self.sanitize_name(clean_sheet);
+                let table_name = Self::sanitize_name(clean_sheet);
 
                 // Check if col_ref is a column letter (A, B, AA) or column name
                 let col_name = if col_ref.chars().all(|c| c.is_ascii_uppercase()) {
@@ -164,7 +168,7 @@ impl ReverseFormulaTranslator {
                 let col_letter = captures.get(1).unwrap().as_str();
 
                 // Skip if it's an Excel function (like IF, AND, OR, MAX, etc.)
-                if self.is_excel_function(col_letter) {
+                if Self::is_excel_function(col_letter) {
                     continue;
                 }
 
@@ -182,7 +186,7 @@ impl ReverseFormulaTranslator {
     }
 
     /// Check if a word is an Excel function (don't translate these!)
-    fn is_excel_function(&self, word: &str) -> bool {
+    fn is_excel_function(word: &str) -> bool {
         let upper = word.to_uppercase();
         matches!(
             upper.as_str(),
@@ -274,7 +278,7 @@ impl ReverseFormulaTranslator {
     }
 
     /// Sanitize table/sheet name to valid YAML key
-    fn sanitize_name(&self, name: &str) -> String {
+    fn sanitize_name(name: &str) -> String {
         name.to_lowercase()
             .replace(' ', "_")
             .replace('&', "and")

@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use thiserror::Error;
 
 pub type ForgeResult<T> = Result<T, ForgeError>;
@@ -52,6 +54,7 @@ pub struct FormulaErrorContext {
 }
 
 impl FormulaErrorContext {
+    #[must_use]
     pub fn new(formula: &str, location: &str, error: &str) -> Self {
         Self {
             formula: formula.to_string(),
@@ -62,17 +65,20 @@ impl FormulaErrorContext {
         }
     }
 
+    #[must_use]
     pub fn with_suggestion(mut self, suggestion: &str) -> Self {
         self.suggestion = Some(suggestion.to_string());
         self
     }
 
+    #[must_use]
     pub fn with_available_columns(mut self, columns: Vec<String>) -> Self {
         self.available_columns = columns;
         self
     }
 
     /// Find similar column names for "did you mean?" suggestions
+    #[must_use]
     pub fn find_similar(&self, target: &str) -> Option<String> {
         let target_lower = target.to_lowercase();
 
@@ -105,6 +111,7 @@ impl FormulaErrorContext {
     }
 
     /// Format the error message with context
+    #[must_use]
     pub fn format_error(&self) -> String {
         let mut msg = format!(
             "Formula error in '{}':\n  Formula: {}\n  Error: {}",
@@ -112,14 +119,15 @@ impl FormulaErrorContext {
         );
 
         if let Some(ref suggestion) = self.suggestion {
-            msg.push_str(&format!("\n  Suggestion: {suggestion}"));
+            let _ = write!(msg, "\n  Suggestion: {suggestion}");
         }
 
         if !self.available_columns.is_empty() && self.available_columns.len() <= 10 {
-            msg.push_str(&format!(
+            let _ = write!(
+                msg,
                 "\n  Available columns: {}",
                 self.available_columns.join(", ")
-            ));
+            );
         }
 
         msg
@@ -127,6 +135,7 @@ impl FormulaErrorContext {
 }
 
 /// Helper to create formula errors with context
+#[must_use]
 pub fn formula_error(
     formula: &str,
     location: &str,

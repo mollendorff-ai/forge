@@ -19,6 +19,7 @@ pub struct InputRange {
 
 impl InputRange {
     /// Create a new input range
+    #[must_use]
     pub fn new(name: &str, low: f64, high: f64) -> Self {
         Self {
             name: name.to_string(),
@@ -29,12 +30,17 @@ impl InputRange {
     }
 
     /// Set the base value
-    pub fn with_base(mut self, base: f64) -> Self {
+    #[must_use]
+    pub const fn with_base(mut self, base: f64) -> Self {
         self.base = Some(base);
         self
     }
 
     /// Validate the range
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if low >= high or base is outside the range.
     pub fn validate(&self) -> Result<(), String> {
         if self.low >= self.high {
             return Err(format!(
@@ -54,8 +60,10 @@ impl InputRange {
     }
 
     /// Get the base value, defaulting to midpoint if not specified
+    #[must_use]
     pub fn base_value(&self) -> f64 {
-        self.base.unwrap_or(f64::midpoint(self.low, self.high))
+        self.base
+            .unwrap_or_else(|| f64::midpoint(self.low, self.high))
     }
 }
 
@@ -72,12 +80,13 @@ pub struct TornadoConfig {
     pub steps: usize,
 }
 
-fn default_steps() -> usize {
+const fn default_steps() -> usize {
     2
 }
 
 impl TornadoConfig {
     /// Create a new configuration
+    #[must_use]
     pub fn new(output: &str) -> Self {
         Self {
             output: output.to_string(),
@@ -87,18 +96,24 @@ impl TornadoConfig {
     }
 
     /// Add an input variable
+    #[must_use]
     pub fn with_input(mut self, input: InputRange) -> Self {
         self.inputs.push(input);
         self
     }
 
     /// Set the number of steps
-    pub fn with_steps(mut self, steps: usize) -> Self {
+    #[must_use]
+    pub const fn with_steps(mut self, steps: usize) -> Self {
         self.steps = steps;
         self
     }
 
     /// Validate the configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no output or inputs are specified, or steps < 2.
     pub fn validate(&self) -> Result<(), String> {
         if self.output.is_empty() {
             return Err("Output variable must be specified".to_string());
@@ -121,6 +136,8 @@ impl TornadoConfig {
 }
 
 #[cfg(test)]
+// Financial math: exact float comparison validated against Excel/Gnumeric/R
+#[allow(clippy::float_cmp)]
 mod config_tests {
     use super::*;
 

@@ -13,6 +13,7 @@ use super::model::parse_v1_model;
 
 /// Detect if content is a multi-document YAML file
 /// A multi-document file has at least two document separators (---) on their own lines
+#[must_use]
 pub fn detect_multi_document(content: &str) -> bool {
     let mut separator_count = 0;
     for line in content.lines() {
@@ -29,14 +30,14 @@ pub fn detect_multi_document(content: &str) -> bool {
 }
 
 /// Parse a single YAML document
+///
+/// # Errors
+///
+/// Returns an error if the YAML content is invalid or fails schema validation.
 pub fn parse_single_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedModel> {
     // Strip leading document marker if present
     let content = content.trim_start();
-    let content = if let Some(remaining) = content.strip_prefix("---") {
-        remaining.trim_start()
-    } else {
-        content
-    };
+    let content = content.strip_prefix("---").map_or(content, str::trim_start);
 
     let yaml: Value = serde_yaml_ng::from_str(content)?;
 
@@ -53,6 +54,11 @@ pub fn parse_single_document_yaml(content: &str, path: &Path) -> ForgeResult<Par
 /// Parse a multi-document YAML file (v4.4.2)
 /// Each document is parsed and merged into a single model.
 /// Document names come from _name field or are auto-generated as "doc1", "doc2", etc.
+///
+/// # Errors
+///
+/// Returns an error if any document in the file contains invalid YAML or fails
+/// schema validation.
 pub fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedModel> {
     let mut merged_model = ParsedModel::new();
     let mut doc_index = 0;
@@ -101,14 +107,14 @@ pub fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<Pars
         for (table_name, table) in doc_model.tables {
             let prefixed_name = format!("{doc_name}.{table_name}");
             let mut prefixed_table = table;
-            prefixed_table.name = prefixed_name.clone();
+            prefixed_table.name.clone_from(&prefixed_name);
             merged_model.tables.insert(prefixed_name, prefixed_table);
         }
 
         // Merge scalars with document prefix
         for (scalar_name, mut scalar) in doc_model.scalars {
             let prefixed_name = format!("{doc_name}.{scalar_name}");
-            scalar.path = prefixed_name.clone();
+            scalar.path.clone_from(&prefixed_name);
             merged_model.scalars.insert(prefixed_name, scalar);
         }
 
@@ -136,6 +142,7 @@ pub fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<Pars
 }
 
 /// Split YAML content into separate documents by "---" separator lines
+#[must_use]
 pub fn split_yaml_documents(content: &str) -> Vec<String> {
     let mut documents = Vec::new();
     let mut current_doc = String::new();

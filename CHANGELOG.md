@@ -13,6 +13,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation**: Updated ADRs, README, CONTRIBUTING, editor extensions
 - **Codebase cleanup**: Simplified project.yaml, roadmap, and source comments
 
+### Code Quality (FOSS-004)
+
+- **Fixed 1566 clippy pedantic/nursery/cargo warnings** across 180+ files — zero warnings remain
+- Moved lint configuration from 20 Makefile `-A` flags to `Cargo.toml` `[lints.clippy]` section
+- Pre-commit hook now enforces pedantic linting via `make lint`
+- Added `# Errors`, `# Panics` doc sections to all public functions
+- Added `#[must_use]` to pure functions throughout the codebase
+- Replaced `push_str(&format!(...))` with `write!`/`writeln!` for string building
+- Replaced `as f64` with `f64::from()` where lossless conversion exists
+- Added underscore separators to numeric literals for readability
+- Used `mul_add()` for fused multiply-add operations
+- Documented all `#[allow(clippy::...)]` exceptions with invariant rationale
+
+## [10.0.0-alpha.12] - 2026-02-16
+
+### Changed
+
+- **FOSS-004**: Fixed all 1566 clippy pedantic/nursery/cargo warnings → zero warnings
+  - Moved lint config from Makefile `-A` flags to `[lints.clippy]` in Cargo.toml
+  - Removed 20 Makefile lint suppressions that masked all warnings
+  - Pre-commit hook now enforces pedantic linting via `make lint`
+  - All `#[allow(clippy::...)]` annotations are in-code with documented justifications
+  - Categories fixed: `cast_lossless`, `missing_errors_doc`, `missing_panics_doc`,
+    `must_use_candidate`, `option_if_let_else`, `manual_let_else`, `match_same_arms`,
+    `items_after_statements`, `needless_pass_by_value`, `unused_self`, `format_push_string`,
+    `unreadable_literal`, `implicit_hasher`, `unnecessary_wraps`, `assigning_clones`,
+    `or_fun_call`, `too_many_lines`, `cognitive_complexity`, `doc_markdown`,
+    `needless_collect`, `branches_sharing_code`, and more
+  - Unfixable: `multiple_crate_versions` (transitive deps, allowed in Cargo.toml),
+    `cast_precision_loss` for `usize as f64` (no `f64::from(usize)` in Rust),
+    `float_cmp` in test modules (financial math validated against Excel/Gnumeric/R)
+
 ## [10.0.0-alpha.11] - 2026-02-16
 
 ### Changed

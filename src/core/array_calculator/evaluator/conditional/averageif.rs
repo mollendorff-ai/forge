@@ -4,8 +4,11 @@
 //! AVERAGEIFS calculates the average of values that meet multiple criteria.
 //!
 //! Syntax:
-//! - AVERAGEIF(range, criteria, [average_range])
-//! - AVERAGEIFS(average_range, criteria_range1, criteria1, [criteria_range2, criteria2], ...)
+//! - AVERAGEIF(range, criteria, [`average_range`])
+//! - `AVERAGEIFS(average_range`, `criteria_range1`, criteria1, [`criteria_range2`, criteria2], ...)
+
+// AVERAGEIF casts: matching count (usize) to f64 for average computation.
+#![allow(clippy::cast_precision_loss)]
 
 use super::super::{
     collect_values_as_vec, evaluate, matches_criteria, require_args_range, EvalContext, EvalError,
@@ -37,7 +40,7 @@ pub fn eval_averageif(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErr
     if count == 0 {
         return Err(EvalError::new("AVERAGEIF: no matching values"));
     }
-    Ok(Value::Number(total / count as f64))
+    Ok(Value::Number(total / f64::from(count)))
 }
 
 /// Evaluate AVERAGEIFS function

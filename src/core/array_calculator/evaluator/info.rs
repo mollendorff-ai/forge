@@ -1,5 +1,8 @@
 //! Information functions: IS*, NA, TYPE, N
 
+// Info function casts: TYPE returns f64 type codes from small bounded integers.
+#![allow(clippy::cast_possible_truncation)]
+
 use super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
 
 /// Try to evaluate an info function. Returns None if function not recognized.
@@ -20,8 +23,7 @@ pub fn try_evaluate(
             // Check if evaluation produces an error OR returns NA (Null)
             // In Excel, ISERROR returns TRUE for ALL error types including #N/A
             let is_error = match evaluate(&args[0], ctx) {
-                Err(_) => true,
-                Ok(Value::Null) => true, // NA() returns Null, which is an error
+                Err(_) | Ok(Value::Null) => true, // NA() returns Null, which is an error
                 Ok(_) => false,
             };
             Value::Boolean(is_error)
@@ -99,9 +101,8 @@ pub fn try_evaluate(
                 Value::Number(_) => 1.0,
                 Value::Text(_) => 2.0,
                 Value::Boolean(_) => 4.0,
-                Value::Null => 16.0, // Treating Null as error
                 Value::Array(_) => 64.0,
-                Value::Lambda { .. } => 16.0, // No direct Excel equivalent
+                Value::Null | Value::Lambda { .. } => 16.0, // Null=error, Lambda=no Excel equivalent
             };
             Value::Number(type_num)
         },
@@ -113,8 +114,7 @@ pub fn try_evaluate(
             let num = match val {
                 Value::Number(n) => n,
                 Value::Boolean(true) => 1.0,
-                Value::Boolean(false) => 0.0,
-                _ => 0.0,
+                _ => 0.0, // FALSE, text, null, arrays all become 0
             };
             Value::Number(num)
         },

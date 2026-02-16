@@ -2,12 +2,15 @@
 //!
 //! DEMO function - always available
 
+// Match casts: f64 match type to i32, array position to f64 (small bounded integers).
+#![allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, values_equal, EvalContext, EvalError, Expr, Value,
 };
 
 /// Evaluate MATCH function
-/// MATCH(lookup_value, lookup_array, [match_type])
+/// `MATCH(lookup_value`, `lookup_array`, [`match_type`])
 /// Returns the relative position of an item in an array
 pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("MATCH", args, 2, 3)?;
@@ -29,9 +32,8 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
         1
     };
 
-    let arr = match lookup_array {
-        Value::Array(a) => a,
-        _ => return Err(EvalError::new("MATCH requires an array")),
+    let Value::Array(arr) = lookup_array else {
+        return Err(EvalError::new("MATCH requires an array"));
     };
 
     let lookup_num = lookup_value.as_number();
@@ -99,6 +101,7 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::*;
     use crate::core::array_calculator::evaluator::tests::eval;
     use crate::core::array_calculator::ArrayCalculator;

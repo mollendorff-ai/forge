@@ -28,6 +28,13 @@ pub struct SensitivityBar {
 
 impl SensitivityBar {
     /// Generate ASCII bar representation
+    // Truncation is mathematically impossible: ratio is 0..=1, bar_width is small
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss
+    )]
+    #[must_use]
     pub fn to_ascii(&self, max_swing: f64, bar_width: usize) -> String {
         let ratio = self.abs_swing / max_swing;
         let filled = (ratio * bar_width as f64) as usize;
@@ -57,23 +64,31 @@ pub struct TornadoResult {
 
 impl TornadoResult {
     /// Export results to YAML format
+    #[must_use]
     pub fn to_yaml(&self) -> String {
         serde_yaml_ng::to_string(self).unwrap_or_else(|_| "# Error serializing results".to_string())
     }
 
     /// Export results to JSON format
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if JSON serialization fails.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)
     }
 
     /// Generate ASCII tornado diagram
     pub fn to_ascii(&self) -> String {
+        use std::fmt::Write;
+
         let mut output = String::new();
 
-        output.push_str(&format!(
+        let _ = write!(
+            output,
             "{} Sensitivity (Base: ${:.0})\n\n",
             self.output, self.base_value
-        ));
+        );
 
         if self.bars.is_empty() {
             output.push_str("No sensitivity data\n");
@@ -95,11 +110,13 @@ impl TornadoResult {
     }
 
     /// Get top N drivers
+    #[must_use]
     pub fn top_drivers(&self, n: usize) -> Vec<&SensitivityBar> {
         self.bars.iter().take(n).collect()
     }
 
     /// Calculate percentage of variance explained by top N drivers
+    #[must_use]
     pub fn variance_explained_by_top(&self, n: usize) -> f64 {
         if self.total_variance == 0.0 {
             return 0.0;
@@ -117,12 +134,20 @@ pub struct TornadoEngine {
 
 impl TornadoEngine {
     /// Create a new tornado engine
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration is invalid.
     pub fn new(config: TornadoConfig, base_model: ParsedModel) -> Result<Self, String> {
         config.validate()?;
         Ok(Self { config, base_model })
     }
 
     /// Run the sensitivity analysis
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the base model or any sensitivity calculation fails.
     pub fn analyze(&self) -> Result<TornadoResult, String> {
         // Calculate base case
         let base_value = self.calculate_output(&self.base_model)?;
@@ -274,7 +299,8 @@ impl TornadoEngine {
     }
 
     /// Get the configuration
-    pub fn config(&self) -> &TornadoConfig {
+    #[must_use]
+    pub const fn config(&self) -> &TornadoConfig {
         &self.config
     }
 }

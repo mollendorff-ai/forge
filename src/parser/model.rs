@@ -11,6 +11,10 @@ use super::schema::validate_against_schema;
 use super::variables::{is_nested_scalar_section, parse_scalar_variable, parse_table};
 
 /// Parse v1.0.0 array model
+///
+/// # Errors
+///
+/// Returns an error if the YAML fails schema validation or contains invalid table/scalar definitions.
 pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
     // Validate against JSON Schema - this is mandatory
     validate_against_schema(yaml)?;
@@ -97,6 +101,10 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
 }
 
 /// Parse nested scalar variables (e.g., summary.total, summary.average)
+///
+/// # Errors
+///
+/// Returns an error if a nested scalar name is not a string or has an invalid format.
 pub fn parse_nested_scalars(
     parent_key: &str,
     map: &serde_yaml_ng::Mapping,
@@ -131,6 +139,11 @@ pub fn parse_nested_scalars(
 ///     growth_rate: 0.12
 ///     churn_rate: 0.01
 /// ```
+///
+/// # Errors
+///
+/// Returns an error if a scenario name or variable is not valid, or if a variable
+/// value is not a number.
 pub fn parse_scenarios(
     scenarios_map: &serde_yaml_ng::Mapping,
     model: &mut ParsedModel,

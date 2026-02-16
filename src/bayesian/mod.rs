@@ -45,7 +45,7 @@ pub mod inference;
 
 // Re-exports
 pub use config::{BayesianConfig, BayesianNode, NodeType as BayesianNodeType};
-pub use engine::{BayesianEngine, BayesianResult};
+pub use engine::{BayesianEngine, BayesianResult, VariableResult};
 pub use inference::BeliefPropagation;
 
 #[cfg(test)]

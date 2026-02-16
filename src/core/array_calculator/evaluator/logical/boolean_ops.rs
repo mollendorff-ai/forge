@@ -67,7 +67,7 @@ mod tests {
         let ctx = EvalContext::new();
         // AND(TRUE, TRUE) = TRUE
         assert_eq!(
-            eval("AND(TRUE(), TRUE())", &ctx).unwrap_or(eval("AND(1, 1)", &ctx).unwrap()),
+            eval("AND(TRUE(), TRUE())", &ctx).unwrap_or_else(|_| eval("AND(1, 1)", &ctx).unwrap()),
             Value::Boolean(true)
         );
         // AND(TRUE, FALSE) = FALSE

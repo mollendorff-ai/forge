@@ -18,7 +18,7 @@ use super::server::AppState;
 
 /// Standard API response wrapper
 #[derive(Serialize)]
-pub struct ApiResponse<T: Serialize> {
+pub struct ApiResponse<T> {
     pub success: bool,
     pub request_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -167,7 +167,7 @@ pub struct ValidateResponse {
 pub async fn validate(Json(req): Json<ValidateRequest>) -> impl IntoResponse {
     let path = PathBuf::from(&req.file_path);
 
-    match cli_validate(vec![path]) {
+    match cli_validate(&[path]) {
         Ok(()) => Json(ApiResponse::ok(ValidateResponse {
             valid: true,
             file_path: req.file_path,
@@ -203,7 +203,7 @@ pub async fn calculate(Json(req): Json<CalculateRequest>) -> impl IntoResponse {
     let path = PathBuf::from(&req.file_path);
     let dry_run = req.dry_run;
 
-    match cli_calculate(path, dry_run, false, None) {
+    match cli_calculate(&path, dry_run, false, None) {
         Ok(()) => Json(ApiResponse::ok(CalculateResponse {
             calculated: true,
             file_path: req.file_path,
@@ -244,7 +244,7 @@ pub async fn audit(Json(req): Json<AuditRequest>) -> impl IntoResponse {
     let path = PathBuf::from(&req.file_path);
     let variable = req.variable.clone();
 
-    match cli_audit(path, variable.clone()) {
+    match cli_audit(&path, &variable) {
         Ok(()) => Json(ApiResponse::ok(AuditResponse {
             audited: true,
             file_path: req.file_path,
@@ -281,7 +281,7 @@ pub async fn export(Json(req): Json<ExportRequest>) -> impl IntoResponse {
     let yaml_path = PathBuf::from(&req.yaml_path);
     let excel_path = PathBuf::from(&req.excel_path);
 
-    match cli_export(yaml_path, excel_path, false) {
+    match cli_export(&yaml_path, &excel_path, false) {
         Ok(()) => Json(ApiResponse::ok(ExportResponse {
             exported: true,
             yaml_path: req.yaml_path,
@@ -318,7 +318,7 @@ pub async fn import_excel(Json(req): Json<ImportRequest>) -> impl IntoResponse {
     let excel_path = PathBuf::from(&req.excel_path);
     let yaml_path = PathBuf::from(&req.yaml_path);
 
-    match cli_import(excel_path, yaml_path, false, false, false) {
+    match cli_import(&excel_path, &yaml_path, false, false, false) {
         Ok(()) => Json(ApiResponse::ok(ImportResponse {
             imported: true,
             excel_path: req.excel_path,

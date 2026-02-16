@@ -148,10 +148,9 @@ fn is_newer_version(latest: &str, current: &str) -> bool {
     // None (stable) > Some (pre-release)
     // alpha.5 > alpha.4
     match (&latest_pre, &current_pre) {
-        (None, Some(_)) => true,     // stable > pre-release
-        (Some(_), None) => false,    // pre-release < stable
-        (None, None) => false,       // same stable version
-        (Some(l), Some(c)) => l > c, // compare pre-release strings
+        (None, Some(_)) => true,         // stable > pre-release
+        (Some(_) | None, None) => false, // pre-release < stable, or same stable version
+        (Some(l), Some(c)) => l > c,     // compare pre-release strings
     }
 }
 
@@ -253,7 +252,7 @@ fn download_and_install(
                 ForgeError::Validation(format!("Binary not found in archive: {binary_name}"))
             })?
     } else {
-        download_path.clone()
+        download_path
     };
 
     // Backup existing binary
@@ -298,7 +297,16 @@ fn get_install_path() -> ForgeResult<PathBuf> {
         .map_err(|e| ForgeError::Validation(format!("Failed to get current executable path: {e}")))
 }
 
-/// Execute the update command
+/// Execute the update command.
+///
+/// # Errors
+///
+/// Returns an error if the GitHub API request fails, the platform is unsupported,
+/// or the download/install process fails.
+///
+/// # Panics
+///
+/// Panics if stdout flushing or stdin reading fails during the confirmation prompt.
 ///
 /// # Coverage Exclusion (ADR-006)
 /// Network operations and file system modifications cannot be unit tested.
@@ -492,10 +500,8 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::const_is_empty)]
     fn test_current_version() {
-        // Verify we can read the current version (CARGO_PKG_VERSION is always set)
-        assert!(!CURRENT_VERSION.is_empty());
+        // Verify the current version has the expected semver format
         assert!(CURRENT_VERSION.contains('.'));
     }
 }

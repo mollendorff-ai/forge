@@ -1,8 +1,11 @@
 //! Convert functions: TEXT, VALUE (enterprise only)
 
+// Text convert casts: f64 to integer types for formatting (bounded by format specifiers).
+#![allow(clippy::cast_possible_truncation)]
+
 use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
 
-/// TEXT(value, format_text) - Converts a value to text with specified format
+/// TEXT(value, `format_text`) - Converts a value to text with specified format
 pub fn eval_text(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("TEXT", args, 2)?;
     let val = evaluate(&args[0], ctx)?;
@@ -87,8 +90,7 @@ fn format_number(num: f64, format: &str) -> String {
 mod tests {
     use super::format_number;
     use crate::core::array_calculator::ArrayCalculator;
-    #[allow(unused_imports)]
-    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+    use crate::types::{ParsedModel, Variable};
 
     #[test]
     fn test_format_number_helper() {
@@ -96,7 +98,7 @@ mod tests {
         assert_eq!(format_number(0.25, "0%"), "25%");
         assert_eq!(format_number(1234.0, "$0.00"), "$1234.00");
         assert_eq!(format_number(1.2345, "0.000"), "1.234");
-        assert_eq!(format_number(1000000.0, "#,##0"), "1,000,000");
+        assert_eq!(format_number(1_000_000.0, "#,##0"), "1,000,000");
     }
 
     #[test]
@@ -145,7 +147,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let var = result.scalars.get("result").unwrap();
-        assert_eq!(var.value, Some(1234567.0));
+        assert_eq!(var.value, Some(1_234_567.0));
     }
 
     #[test]

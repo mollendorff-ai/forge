@@ -8,7 +8,16 @@ use crate::functions::registry::{self, Category, FunctionDef};
 use colored::Colorize;
 use std::collections::BTreeMap;
 
-/// Execute the functions command - list all supported Excel-compatible functions
+/// Execute the functions command - list all supported Excel-compatible functions.
+///
+/// # Errors
+///
+/// Returns an error if function listing fails.
+///
+/// # Panics
+///
+/// Panics if JSON serialization of the function registry fails, which should
+/// never happen with static data.
 pub fn functions(json_output: bool) -> ForgeResult<()> {
     // Get all functions from registry
     let all_functions: Vec<&FunctionDef> = registry::enterprise_functions().collect();

@@ -25,8 +25,8 @@ use crate::cli::{
 #[cfg(any(not(coverage), test))]
 #[derive(Debug, Deserialize)]
 struct JsonRpcRequest {
-    #[allow(dead_code)]
-    jsonrpc: String,
+    #[serde(rename = "jsonrpc")]
+    _jsonrpc: String,
     id: Option<Value>,
     method: String,
     #[serde(default)]
@@ -67,6 +67,11 @@ struct Tool {
 
 /// Run the MCP server synchronously over stdin/stdout
 ///
+/// # Panics
+///
+/// Panics if a JSON-RPC response fails to serialize, which should never
+/// happen with well-formed response structs.
+///
 /// # Coverage Exclusion (ADR-006)
 /// This function reads from stdin forever until EOF. Cannot be unit tested.
 /// The request handling logic is tested via `handle_request()`.
@@ -77,10 +82,7 @@ pub fn run_mcp_server_sync() {
     let reader = BufReader::new(stdin.lock());
 
     for line in reader.lines() {
-        let line = match line {
-            Ok(l) => l,
-            Err(_) => break,
-        };
+        let Ok(line) = line else { break };
 
         if line.trim().is_empty() {
             continue;
@@ -165,7 +167,7 @@ fn handle_request(request: &JsonRpcRequest) -> Option<JsonRpcResponse> {
                 .params
                 .get("arguments")
                 .cloned()
-                .unwrap_or(json!({}));
+                .unwrap_or_else(|| json!({}));
 
             let result = call_tool(tool_name, &arguments);
             Some(JsonRpcResponse {
@@ -196,6 +198,8 @@ fn handle_request(request: &JsonRpcRequest) -> Option<JsonRpcResponse> {
 
 /// Get all available tools
 #[cfg(any(not(coverage), test))]
+// Declarative tool list - splitting would scatter related definitions
+#[allow(clippy::too_many_lines)]
 fn get_tools() -> Vec<Tool> {
     vec![
         Tool {
@@ -439,6 +443,8 @@ fn get_tools() -> Vec<Tool> {
 
 /// Call a tool by name
 #[cfg(any(not(coverage), test))]
+// Each match arm is a self-contained tool dispatch - splitting would hurt readability
+#[allow(clippy::too_many_lines)]
 fn call_tool(name: &str, arguments: &Value) -> Value {
     match name {
         "forge_validate" => {
@@ -448,7 +454,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .unwrap_or("");
 
             let path = Path::new(file_path).to_path_buf();
-            match validate(vec![path]) {
+            match validate(&[path]) {
                 Ok(()) => json!({
                     "content": [{
                         "type": "text",
@@ -476,11 +482,8 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .unwrap_or(false);
 
             let path = Path::new(file_path).to_path_buf();
-            let scenario = arguments
-                .get("scenario")
-                .and_then(|v| v.as_str())
-                .map(String::from);
-            match calculate(path, dry_run, false, scenario) {
+            let scenario = arguments.get("scenario").and_then(|v| v.as_str());
+            match calculate(&path, dry_run, false, scenario) {
                 Ok(()) => json!({
                     "content": [{
                         "type": "text",
@@ -512,7 +515,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .unwrap_or("");
 
             let path = Path::new(file_path).to_path_buf();
-            match audit(path, variable.to_string()) {
+            match audit(&path, variable) {
                 Ok(()) => json!({
                     "content": [{
                         "type": "text",
@@ -541,7 +544,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
 
             let yaml = Path::new(yaml_path).to_path_buf();
             let excel = Path::new(excel_path).to_path_buf();
-            match export(yaml, excel, false) {
+            match export(&yaml, &excel, false) {
                 Ok(()) => json!({
                     "content": [{
                         "type": "text",
@@ -570,7 +573,7 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
 
             let excel = Path::new(excel_path).to_path_buf();
             let yaml = Path::new(yaml_path).to_path_buf();
-            match import(excel, yaml, false, false, false) {
+            match import(&excel, &yaml, false, false, false) {
                 Ok(()) => json!({
                     "content": [{
                         "type": "text",
@@ -611,14 +614,14 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .and_then(|v| v.as_str())
                 .map(String::from);
 
-            let path = Path::new(file_path).to_path_buf();
+            let path = Path::new(file_path);
             match sensitivity(
                 path,
-                vary.to_string(),
-                range.to_string(),
-                vary2,
-                range2,
-                output.to_string(),
+                vary,
+                range,
+                vary2.as_deref(),
+                range2.as_deref(),
+                output,
                 false,
             ) {
                 Ok(()) => json!({
@@ -658,17 +661,8 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .and_then(serde_json::Value::as_f64)
                 .unwrap_or(0.0001);
 
-            let path = Path::new(file_path).to_path_buf();
-            match goal_seek(
-                path,
-                target.to_string(),
-                value,
-                vary.to_string(),
-                min,
-                max,
-                tolerance,
-                false,
-            ) {
+            let path = Path::new(file_path);
+            match goal_seek(path, target, value, vary, (min, max), tolerance, false) {
                 Ok(()) => json!({
                     "content": [{
                         "type": "text",
@@ -698,8 +692,8 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
             let min = arguments.get("min").and_then(serde_json::Value::as_f64);
             let max = arguments.get("max").and_then(serde_json::Value::as_f64);
 
-            let path = Path::new(file_path).to_path_buf();
-            match break_even(path, output.to_string(), vary.to_string(), min, max, false) {
+            let path = Path::new(file_path);
+            match break_even(path, output, vary, min, max, false) {
                 Ok(()) => json!({
                     "content": [{
                         "type": "text",
@@ -730,8 +724,8 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .and_then(serde_json::Value::as_f64)
                 .unwrap_or(10.0);
 
-            let budget = Path::new(budget_path).to_path_buf();
-            let actual = Path::new(actual_path).to_path_buf();
+            let budget = Path::new(budget_path);
+            let actual = Path::new(actual_path);
             match variance(budget, actual, threshold, None, false) {
                 Ok(()) => json!({
                     "content": [{
@@ -764,8 +758,8 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 })
                 .unwrap_or_default();
 
-            let path = Path::new(file_path).to_path_buf();
-            match compare(path, scenarios.clone(), false) {
+            let path = Path::new(file_path);
+            match compare(path, &scenarios, false) {
                 Ok(()) => json!({
                     "content": [{
                         "type": "text",
@@ -796,7 +790,8 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
 pub struct ForgeMcpServer;
 
 impl ForgeMcpServer {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self
     }
 }
@@ -819,7 +814,7 @@ mod tests {
     #[test]
     fn test_initialize_request() {
         let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
+            _jsonrpc: "2.0".to_string(),
             id: Some(json!(1)),
             method: "initialize".to_string(),
             params: json!({}),
@@ -838,7 +833,7 @@ mod tests {
     #[test]
     fn test_initialize_without_id() {
         let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
+            _jsonrpc: "2.0".to_string(),
             id: None,
             method: "initialize".to_string(),
             params: json!({}),
@@ -851,7 +846,7 @@ mod tests {
     #[test]
     fn test_tools_list_request() {
         let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
+            _jsonrpc: "2.0".to_string(),
             id: Some(json!(2)),
             method: "tools/list".to_string(),
             params: json!({}),
@@ -882,7 +877,7 @@ mod tests {
     #[test]
     fn test_ping_request() {
         let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
+            _jsonrpc: "2.0".to_string(),
             id: Some(json!(3)),
             method: "ping".to_string(),
             params: json!({}),
@@ -896,7 +891,7 @@ mod tests {
     #[test]
     fn test_notification_no_response() {
         let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
+            _jsonrpc: "2.0".to_string(),
             id: None,
             method: "notifications/initialized".to_string(),
             params: json!({}),
@@ -909,7 +904,7 @@ mod tests {
     #[test]
     fn test_unknown_method_error() {
         let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
+            _jsonrpc: "2.0".to_string(),
             id: Some(json!(4)),
             method: "unknown/method".to_string(),
             params: json!({}),
@@ -1103,8 +1098,8 @@ mod tests {
                 "target": "assumptions.profit",
                 "value": 0.0,
                 "vary": "assumptions.revenue",
-                "min": 50000,
-                "max": 200000,
+                "min": 50_000,
+                "max": 200_000,
                 "tolerance": 0.01
             }),
         );
@@ -1120,8 +1115,8 @@ mod tests {
                 "file_path": "test-data/budget.yaml",
                 "output": "assumptions.profit",
                 "vary": "assumptions.revenue",
-                "min": 50000,
-                "max": 200000
+                "min": 50_000,
+                "max": 200_000
             }),
         );
         let text = result["content"][0]["text"].as_str().unwrap();

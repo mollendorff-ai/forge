@@ -35,6 +35,11 @@ pub struct Statistics {
 
 impl Statistics {
     /// Calculate statistics from samples
+    ///
+    /// # Panics
+    ///
+    /// Panics if samples contain `NaN` values that break `partial_cmp` ordering.
+    #[must_use]
     pub fn from_samples(samples: &[f64]) -> Self {
         if samples.is_empty() {
             return Self::empty();
@@ -81,7 +86,7 @@ impl Statistics {
         // Standard percentiles
         let mut percentiles = BTreeMap::new();
         for p in [5, 10, 25, 50, 75, 90, 95] {
-            percentiles.insert(p, percentile_sorted(&sorted, p as f64));
+            percentiles.insert(p, percentile_sorted(&sorted, f64::from(p)));
         }
 
         Self {
@@ -99,7 +104,7 @@ impl Statistics {
     }
 
     /// Create empty statistics
-    fn empty() -> Self {
+    const fn empty() -> Self {
         Self {
             count: 0,
             mean: 0.0,
@@ -115,11 +120,13 @@ impl Statistics {
     }
 
     /// Get a specific percentile
+    #[must_use]
     pub fn percentile(&self, p: u8) -> Option<f64> {
         self.percentiles.get(&p).copied()
     }
 
     /// Calculate probability of exceeding a threshold
+    #[must_use]
     pub fn probability_greater_than(&self, samples: &[f64], threshold: f64) -> f64 {
         if samples.is_empty() {
             return 0.0;
@@ -129,6 +136,7 @@ impl Statistics {
     }
 
     /// Calculate probability of being less than a threshold
+    #[must_use]
     pub fn probability_less_than(&self, samples: &[f64], threshold: f64) -> f64 {
         if samples.is_empty() {
             return 0.0;
@@ -138,6 +146,7 @@ impl Statistics {
     }
 
     /// Get specific percentiles by list
+    #[must_use]
     pub fn get_percentiles(&self, percentile_list: &[u8]) -> BTreeMap<u8, f64> {
         percentile_list
             .iter()
@@ -157,18 +166,26 @@ fn percentile_sorted(sorted: &[f64], p: f64) -> f64 {
 
     let n = sorted.len() as f64;
     let rank = p / 100.0 * (n - 1.0);
+    // cast_possible_truncation: rank is bounded by [0, sorted.len()-1]
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let lower = rank.floor() as usize;
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let upper = rank.ceil() as usize;
 
     if lower == upper || upper >= sorted.len() {
         sorted[lower.min(sorted.len() - 1)]
     } else {
         let frac = rank - lower as f64;
-        sorted[lower] * (1.0 - frac) + sorted[upper] * frac
+        sorted[lower].mul_add(1.0 - frac, sorted[upper] * frac)
     }
 }
 
 /// Calculate additional percentiles from samples
+///
+/// # Panics
+///
+/// Panics if samples contain `NaN` values that break `partial_cmp` ordering.
+#[must_use]
 pub fn calculate_percentiles(samples: &[f64], percentile_list: &[u8]) -> BTreeMap<u8, f64> {
     if samples.is_empty() {
         return BTreeMap::new();
@@ -179,14 +196,14 @@ pub fn calculate_percentiles(samples: &[f64], percentile_list: &[u8]) -> BTreeMa
 
     percentile_list
         .iter()
-        .map(|&p| (p, percentile_sorted(&sorted, p as f64)))
+        .map(|&p| (p, percentile_sorted(&sorted, f64::from(p))))
         .collect()
 }
 
 /// Histogram data for visualization
 #[derive(Debug, Clone)]
 pub struct Histogram {
-    /// Bin edges (len = num_bins + 1)
+    /// Bin edges (len = `num_bins` + 1)
     pub bin_edges: Vec<f64>,
     /// Counts per bin
     pub counts: Vec<usize>,
@@ -219,12 +236,14 @@ impl Histogram {
 
         // Create bin edges
         let bin_edges: Vec<f64> = (0..=num_bins)
-            .map(|i| actual_min + i as f64 * bin_width)
+            .map(|i| (i as f64).mul_add(bin_width, actual_min))
             .collect();
 
         // Count samples per bin
         let mut counts = vec![0usize; num_bins];
         for &sample in samples {
+            // cast_possible_truncation: bin index is bounded by [0, num_bins-1]
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let bin = ((sample - actual_min) / bin_width).floor() as usize;
             let bin = bin.min(num_bins - 1); // Handle edge case
             counts[bin] += 1;
@@ -242,6 +261,7 @@ impl Histogram {
     }
 
     /// Get bin centers for plotting
+    #[must_use]
     pub fn bin_centers(&self) -> Vec<f64> {
         if self.bin_edges.len() < 2 {
             return vec![];
@@ -254,6 +274,10 @@ impl Histogram {
 }
 
 /// Parse threshold string (e.g., "> 0", "< 100000", ">= 50")
+///
+/// # Errors
+///
+/// Returns an error if the threshold format is invalid or the value cannot be parsed.
 pub fn parse_threshold(threshold: &str) -> Result<(String, f64), String> {
     let threshold = threshold.trim();
 
@@ -274,6 +298,7 @@ pub fn parse_threshold(threshold: &str) -> Result<(String, f64), String> {
 }
 
 /// Evaluate a threshold against samples
+#[must_use]
 pub fn evaluate_threshold(samples: &[f64], operator: &str, value: f64) -> f64 {
     if samples.is_empty() {
         return 0.0;
@@ -294,13 +319,15 @@ pub fn evaluate_threshold(samples: &[f64], operator: &str, value: f64) -> f64 {
     count as f64 / samples.len() as f64
 }
 
+// Financial math: exact float comparison validated against Excel/Gnumeric/R
+#[allow(clippy::float_cmp)]
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_statistics_basic() {
-        let samples: Vec<f64> = (1..=100).map(|x| x as f64).collect();
+        let samples: Vec<f64> = (1..=100).map(f64::from).collect();
         let stats = Statistics::from_samples(&samples);
 
         assert_eq!(stats.count, 100);
@@ -312,7 +339,7 @@ mod tests {
 
     #[test]
     fn test_percentiles() {
-        let samples: Vec<f64> = (1..=100).map(|x| x as f64).collect();
+        let samples: Vec<f64> = (1..=100).map(f64::from).collect();
         let stats = Statistics::from_samples(&samples);
 
         // P50 should be median (around 50.5)
@@ -328,9 +355,11 @@ mod tests {
         assert!((p90 - 90.0).abs() < 2.0);
     }
 
+    // p_gt_50/p_lt_25 — standard probability notation (P(X>t), P(X<t))
+    #[allow(clippy::similar_names)]
     #[test]
     fn test_probability_threshold() {
-        let samples: Vec<f64> = (1..=100).map(|x| x as f64).collect();
+        let samples: Vec<f64> = (1..=100).map(f64::from).collect();
         let stats = Statistics::from_samples(&samples);
 
         // P(X > 50) should be approximately 0.5
@@ -344,7 +373,7 @@ mod tests {
 
     #[test]
     fn test_histogram() {
-        let samples: Vec<f64> = (0..100).map(|x| x as f64).collect();
+        let samples: Vec<f64> = (0..100).map(f64::from).collect();
         let hist = Histogram::from_samples(&samples, 10);
 
         assert_eq!(hist.counts.len(), 10);
@@ -368,7 +397,7 @@ mod tests {
 
         let (op, val) = parse_threshold("<= 100000").unwrap();
         assert_eq!(op, "<=");
-        assert_eq!(val, 100000.0);
+        assert_eq!(val, 100_000.0);
 
         let (op, val) = parse_threshold(">= -50.5").unwrap();
         assert_eq!(op, ">=");

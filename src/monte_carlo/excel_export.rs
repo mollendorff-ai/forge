@@ -11,6 +11,10 @@ use rust_xlsxwriter::{Format, Workbook};
 use std::path::Path;
 
 /// Export Monte Carlo results to Excel
+///
+/// # Errors
+///
+/// Returns an error if the workbook cannot be created or saved to `output_path`.
 pub fn export_results(result: &SimulationResult, output_path: &Path) -> Result<(), String> {
     let mut workbook = Workbook::new();
 
@@ -98,7 +102,10 @@ fn export_summary(
     ];
 
     for (col, header) in headers.iter().enumerate() {
-        let _ = worksheet.write_string_with_format(start_row, col as u16, *header, header_format);
+        // cast_possible_truncation: headers array has 13 elements, well within u16 range
+        #[allow(clippy::cast_possible_truncation)]
+        let col_u16 = col as u16;
+        let _ = worksheet.write_string_with_format(start_row, col_u16, *header, header_format);
     }
 
     // Data rows
@@ -117,12 +124,10 @@ fn export_summary(
         let percentile_keys = [10, 25, 50, 75, 90, 95, 99];
         for (col_offset, &p) in percentile_keys.iter().enumerate() {
             if let Some(&val) = stats.percentiles.get(&p) {
-                let _ = worksheet.write_number_with_format(
-                    row,
-                    (6 + col_offset) as u16,
-                    val,
-                    number_format,
-                );
+                // cast_possible_truncation: 7 percentile columns starting at 6, well within u16 range
+                #[allow(clippy::cast_possible_truncation)]
+                let col_u16 = (6 + col_offset) as u16;
+                let _ = worksheet.write_number_with_format(row, col_u16, val, number_format);
             }
         }
 
@@ -186,6 +191,8 @@ fn export_histograms(
 
         // Iterate over bin edges (pairs of consecutive edges form bins)
         for i in 0..hist.counts.len() {
+            // cast_possible_truncation: histogram bins capped at 50, well within u32 range
+            #[allow(clippy::cast_possible_truncation)]
             let row = (i + 2) as u32;
             let bin_start = hist.bin_edges.get(i).copied().unwrap_or(0.0);
             let bin_end = hist.bin_edges.get(i + 1).copied().unwrap_or(0.0);
@@ -231,8 +238,11 @@ fn export_samples(
 
     // Write headers
     for (col, var_name) in var_names.iter().enumerate() {
-        let _ = worksheet.write_string_with_format(0, col as u16, *var_name, header_format);
-        let _ = worksheet.set_column_width(col as u16, 15);
+        // cast_possible_truncation: number of variables is small, well within u16 range
+        #[allow(clippy::cast_possible_truncation)]
+        let col_u16 = col as u16;
+        let _ = worksheet.write_string_with_format(0, col_u16, *var_name, header_format);
+        let _ = worksheet.set_column_width(col_u16, 15);
     }
 
     // Write sample data (limit to 1000 rows to keep file size manageable)
@@ -244,12 +254,13 @@ fn export_samples(
         for (col, var_name) in var_names.iter().enumerate() {
             if let Some(sample_vec) = samples.get(*var_name) {
                 if let Some(&val) = sample_vec.get(row_idx) {
-                    let _ = worksheet.write_number_with_format(
-                        (row_idx + 1) as u32,
-                        col as u16,
-                        val,
-                        number_format,
-                    );
+                    // cast_possible_truncation: rows capped at 1000, cols bounded by variable count
+                    #[allow(clippy::cast_possible_truncation)]
+                    let row_u32 = (row_idx + 1) as u32;
+                    #[allow(clippy::cast_possible_truncation)]
+                    let col_u16 = col as u16;
+                    let _ =
+                        worksheet.write_number_with_format(row_u32, col_u16, val, number_format);
                 }
             }
         }
@@ -257,6 +268,8 @@ fn export_samples(
 
     // Add note if truncated
     if num_samples > max_rows {
+        // cast_possible_truncation: rows_to_write capped at 1000, well within u32 range
+        #[allow(clippy::cast_possible_truncation)]
         let note_row = (rows_to_write + 2) as u32;
         let _ = worksheet.write_string(
             note_row,

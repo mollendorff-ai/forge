@@ -4,8 +4,8 @@
 //! SUMIFS sums values that meet multiple criteria across multiple ranges.
 //!
 //! Syntax:
-//! - SUMIF(range, criteria, [sum_range])
-//! - SUMIFS(sum_range, criteria_range1, criteria1, [criteria_range2, criteria2], ...)
+//! - SUMIF(range, criteria, [`sum_range`])
+//! - `SUMIFS(sum_range`, `criteria_range1`, criteria1, [`criteria_range2`, criteria2], ...)
 
 use super::super::{
     collect_values_as_vec, evaluate, matches_criteria, require_args_range, EvalContext, EvalError,

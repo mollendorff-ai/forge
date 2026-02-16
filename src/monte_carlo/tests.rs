@@ -28,19 +28,19 @@ fn test_full_simulation_workflow() {
     // Add distributions for inputs
     engine.add_distribution(
         "revenue",
-        Distribution::normal(1000000.0, 150000.0).unwrap(),
+        Distribution::normal(1_000_000.0, 150_000.0).unwrap(),
     );
     engine.add_distribution(
         "costs",
-        Distribution::triangular(400000.0, 500000.0, 600000.0).unwrap(),
+        Distribution::triangular(400_000.0, 500_000.0, 600_000.0).unwrap(),
     );
     engine.add_distribution("discount_rate", Distribution::uniform(0.08, 0.12).unwrap());
 
     // Run with simple NPV calculation
     let result = engine
         .run_with_evaluator(|inputs| {
-            let revenue = inputs.get("revenue").copied().unwrap_or(1000000.0);
-            let costs = inputs.get("costs").copied().unwrap_or(500000.0);
+            let revenue = inputs.get("revenue").copied().unwrap_or(1_000_000.0);
+            let costs = inputs.get("costs").copied().unwrap_or(500_000.0);
             let discount_rate = inputs.get("discount_rate").copied().unwrap_or(0.10);
 
             // Simple 3-year NPV
@@ -51,7 +51,7 @@ fn test_full_simulation_workflow() {
             let npv = cf1 / (1.0 + discount_rate)
                 + cf2 / (1.0 + discount_rate).powi(2)
                 + cf3 / (1.0 + discount_rate).powi(3)
-                - 1000000.0; // Initial investment
+                - 1_000_000.0; // Initial investment
 
             let mut outputs = std::collections::HashMap::new();
             outputs.insert("npv".to_string(), npv);
@@ -199,7 +199,7 @@ fn test_distribution_accuracy() {
     // PERT: mean ≈ 36.67 ((0+4*30+100)/6)
     let pert_samples = &result.input_samples["pert"];
     let pert_mean: f64 = pert_samples.iter().sum::<f64>() / pert_samples.len() as f64;
-    let expected_pert_mean = (0.0 + 4.0 * 30.0 + 100.0) / 6.0;
+    let expected_pert_mean = (4.0f64.mul_add(30.0, 0.0) + 100.0) / 6.0;
     assert!(
         (pert_mean - expected_pert_mean).abs() < 2.0,
         "PERT mean {pert_mean} not close to {expected_pert_mean}"

@@ -34,7 +34,8 @@ pub struct Branch {
 
 impl Branch {
     /// Create a terminal branch with a value
-    pub fn terminal(value: f64) -> Self {
+    #[must_use]
+    pub const fn terminal(value: f64) -> Self {
         Self {
             cost: 0.0,
             probability: 0.0,
@@ -44,6 +45,7 @@ impl Branch {
     }
 
     /// Create a continuation branch
+    #[must_use]
     pub fn continuation(next: &str) -> Self {
         Self {
             cost: 0.0,
@@ -54,19 +56,22 @@ impl Branch {
     }
 
     /// Add a cost to this branch
-    pub fn with_cost(mut self, cost: f64) -> Self {
+    #[must_use]
+    pub const fn with_cost(mut self, cost: f64) -> Self {
         self.cost = cost;
         self
     }
 
     /// Add a probability to this branch
-    pub fn with_probability(mut self, probability: f64) -> Self {
+    #[must_use]
+    pub const fn with_probability(mut self, probability: f64) -> Self {
         self.probability = probability;
         self
     }
 
     /// Check if this branch is terminal
-    pub fn is_terminal(&self) -> bool {
+    #[must_use]
+    pub const fn is_terminal(&self) -> bool {
         self.value.is_some() && self.next.is_none()
     }
 }
@@ -86,6 +91,7 @@ pub struct Node {
 
 impl Node {
     /// Create a new decision node
+    #[must_use]
     pub fn decision(name: &str) -> Self {
         Self {
             node_type: NodeType::Decision,
@@ -95,6 +101,7 @@ impl Node {
     }
 
     /// Create a new chance node
+    #[must_use]
     pub fn chance(name: &str) -> Self {
         Self {
             node_type: NodeType::Chance,
@@ -104,20 +111,27 @@ impl Node {
     }
 
     /// Add a branch to this node
+    #[must_use]
     pub fn with_branch(mut self, name: &str, branch: Branch) -> Self {
         self.branches.insert(name.to_string(), branch);
         self
     }
 
     /// Validate node structure
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the node has no branches or chance node probabilities
+    /// do not sum to 1.0.
     pub fn validate(&self) -> Result<(), String> {
+        const TOLERANCE: f64 = 0.001;
+
         if self.branches.is_empty() {
             return Err(format!("Node '{}' has no branches", self.name));
         }
 
         if self.node_type == NodeType::Chance {
             let total_prob: f64 = self.branches.values().map(|b| b.probability).sum();
-            const TOLERANCE: f64 = 0.001;
             if (total_prob - 1.0).abs() > TOLERANCE {
                 return Err(format!(
                     "Chance node '{}' probabilities must sum to 1.0, got {:.4}",
@@ -145,6 +159,7 @@ pub struct DecisionTreeConfig {
 
 impl DecisionTreeConfig {
     /// Create a new empty configuration
+    #[must_use]
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -154,18 +169,25 @@ impl DecisionTreeConfig {
     }
 
     /// Set the root node
+    #[must_use]
     pub fn with_root(mut self, root: Node) -> Self {
         self.root = Some(root);
         self
     }
 
     /// Add a named node
+    #[must_use]
     pub fn with_node(mut self, name: &str, node: Node) -> Self {
         self.nodes.insert(name.to_string(), node);
         self
     }
 
     /// Validate the configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the tree has no root, any node is invalid,
+    /// references are broken, or the graph contains cycles.
     pub fn validate(&self) -> Result<(), String> {
         let root = self.root.as_ref().ok_or("No root node defined")?;
         root.validate()?;
@@ -241,6 +263,7 @@ impl DecisionTreeConfig {
     }
 
     /// Get a node by name
+    #[must_use]
     pub fn get_node(&self, name: &str) -> Option<&Node> {
         self.nodes.get(name)
     }

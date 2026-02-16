@@ -2,12 +2,15 @@
 //!
 //! ENTERPRISE functions - only available in full build
 
+// Lookup casts: f64 row/col indices to usize (bounded by array length).
+#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, values_equal, EvalContext, EvalError, Expr, Value,
 };
 
 /// Evaluate XLOOKUP function
-/// XLOOKUP(lookup_value, lookup_array, return_array, [if_not_found], [match_mode], [search_mode])
+/// `XLOOKUP(lookup_value`, `lookup_array`, `return_array`, [`if_not_found`], [`match_mode`], [`search_mode`])
 pub fn eval_xlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("XLOOKUP", args, 3, 6)?;
 
@@ -34,14 +37,12 @@ pub fn eval_xlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         0
     };
 
-    let lookup_values = match lookup_arr {
-        Value::Array(arr) => arr,
-        _ => return Err(EvalError::new("XLOOKUP lookup_array must be an array")),
+    let Value::Array(lookup_values) = lookup_arr else {
+        return Err(EvalError::new("XLOOKUP lookup_array must be an array"));
     };
 
-    let return_values = match return_arr {
-        Value::Array(arr) => arr,
-        _ => return Err(EvalError::new("XLOOKUP return_array must be an array")),
+    let Value::Array(return_values) = return_arr else {
+        return Err(EvalError::new("XLOOKUP return_array must be an array"));
     };
 
     if lookup_values.len() != return_values.len() {
@@ -99,20 +100,14 @@ pub fn eval_xlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         },
     };
 
-    match idx {
-        Some(i) => Ok(return_values.get(i).cloned().unwrap_or(Value::Null)),
-        None => {
-            if let Some(not_found) = if_not_found {
-                Ok(not_found)
-            } else {
-                Err(EvalError::new("XLOOKUP: No match found"))
-            }
-        },
-    }
+    idx.map_or_else(
+        || if_not_found.map_or_else(|| Err(EvalError::new("XLOOKUP: No match found")), Ok),
+        |i| Ok(return_values.get(i).cloned().unwrap_or(Value::Null)),
+    )
 }
 
 /// Evaluate VLOOKUP function
-/// VLOOKUP(lookup_value, table_array, col_index, [range_lookup])
+/// `VLOOKUP(lookup_value`, `table_array`, `col_index`, [`range_lookup`])
 pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("VLOOKUP", args, 3, 4)?;
 
@@ -140,9 +135,8 @@ pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     // For Forge, VLOOKUP works on arrays. Column selection is simulated.
     // Since we don't have 2D arrays in the same way as Excel, we implement
     // a simplified version that works with single-column lookups.
-    let lookup_arr = match table_array {
-        Value::Array(arr) => arr,
-        _ => return Err(EvalError::new("VLOOKUP: table_array must be an array")),
+    let Value::Array(lookup_arr) = table_array else {
+        return Err(EvalError::new("VLOOKUP: table_array must be an array"));
     };
 
     // Simplified: find match in first column (the array itself acts as first column)
@@ -167,14 +161,14 @@ pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         lookup_arr.iter().position(|v| values_equal(v, &lookup_val))
     };
 
-    match idx {
-        Some(i) => Ok(lookup_arr.get(i).cloned().unwrap_or(Value::Null)),
-        None => Err(EvalError::new("VLOOKUP: value not found")),
-    }
+    idx.map_or_else(
+        || Err(EvalError::new("VLOOKUP: value not found")),
+        |i| Ok(lookup_arr.get(i).cloned().unwrap_or(Value::Null)),
+    )
 }
 
 /// Evaluate HLOOKUP function
-/// HLOOKUP(lookup_value, table_array, row_index, [range_lookup])
+/// `HLOOKUP(lookup_value`, `table_array`, `row_index`, [`range_lookup`])
 pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("HLOOKUP", args, 3, 4)?;
 
@@ -200,9 +194,8 @@ pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 
     // HLOOKUP is horizontal - search in first row, return from specified row
     // Simplified implementation similar to VLOOKUP
-    let lookup_arr = match table_array {
-        Value::Array(arr) => arr,
-        _ => return Err(EvalError::new("HLOOKUP: table_array must be an array")),
+    let Value::Array(lookup_arr) = table_array else {
+        return Err(EvalError::new("HLOOKUP: table_array must be an array"));
     };
 
     let idx = if range_lookup {
@@ -223,14 +216,15 @@ pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         lookup_arr.iter().position(|v| values_equal(v, &lookup_val))
     };
 
-    match idx {
-        Some(i) => Ok(lookup_arr.get(i).cloned().unwrap_or(Value::Null)),
-        None => Err(EvalError::new("HLOOKUP: value not found")),
-    }
+    idx.map_or_else(
+        || Err(EvalError::new("HLOOKUP: value not found")),
+        |i| Ok(lookup_arr.get(i).cloned().unwrap_or(Value::Null)),
+    )
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::evaluator::tests::eval;
     use crate::core::array_calculator::evaluator::{EvalContext, Value};
     use crate::core::array_calculator::ArrayCalculator;

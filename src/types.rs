@@ -20,27 +20,29 @@ pub enum ColumnValue {
 
 impl ColumnValue {
     /// Get the length of the array
-    pub fn len(&self) -> usize {
+    #[must_use]
+    pub const fn len(&self) -> usize {
         match self {
-            ColumnValue::Number(v) => v.len(),
-            ColumnValue::Text(v) => v.len(),
-            ColumnValue::Date(v) => v.len(),
-            ColumnValue::Boolean(v) => v.len(),
+            Self::Number(v) => v.len(),
+            Self::Text(v) | Self::Date(v) => v.len(),
+            Self::Boolean(v) => v.len(),
         }
     }
 
     /// Check if array is empty
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Get the type name as a string
-    pub fn type_name(&self) -> &'static str {
+    #[must_use]
+    pub const fn type_name(&self) -> &'static str {
         match self {
-            ColumnValue::Number(_) => "Number",
-            ColumnValue::Text(_) => "Text",
-            ColumnValue::Date(_) => "Date",
-            ColumnValue::Boolean(_) => "Boolean",
+            Self::Number(_) => "Number",
+            Self::Text(_) => "Text",
+            Self::Date(_) => "Date",
+            Self::Boolean(_) => "Boolean",
         }
     }
 }
@@ -50,12 +52,13 @@ impl ColumnValue {
 pub struct Column {
     pub name: String,
     pub values: ColumnValue,
-    /// Rich metadata (v4.0) - unit, notes, source, validation_status
+    /// Rich metadata (v4.0) - unit, notes, source, `validation_status`
     #[serde(default)]
     pub metadata: Metadata,
 }
 
 impl Column {
+    #[must_use]
     pub fn new(name: String, values: ColumnValue) -> Self {
         Self {
             name,
@@ -64,7 +67,8 @@ impl Column {
         }
     }
 
-    pub fn with_metadata(name: String, values: ColumnValue, metadata: Metadata) -> Self {
+    #[must_use]
+    pub const fn with_metadata(name: String, values: ColumnValue, metadata: Metadata) -> Self {
         Self {
             name,
             values,
@@ -72,11 +76,13 @@ impl Column {
         }
     }
 
-    pub fn len(&self) -> usize {
+    #[must_use]
+    pub const fn len(&self) -> usize {
         self.values.len()
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.values.is_empty()
     }
 }
@@ -91,6 +97,7 @@ pub struct Table {
 }
 
 impl Table {
+    #[must_use]
     pub fn new(name: String) -> Self {
         Self {
             name,
@@ -113,6 +120,10 @@ impl Table {
     }
 
     /// Validate all columns have the same length
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any column has a different length than the first column.
     pub fn validate_lengths(&self) -> Result<(), String> {
         let row_count = self.row_count();
         for (name, column) in &self.columns {
@@ -140,7 +151,7 @@ pub struct Metadata {
     pub unit: Option<String>,
     /// Human-readable explanation
     pub notes: Option<String>,
-    /// Source reference (file:field or URL)
+    /// Source reference (<file:field> or URL)
     pub source: Option<String>,
     /// Validation status (VALIDATED, PROJECTED, ESTIMATED)
     pub validation_status: Option<String>,
@@ -149,7 +160,8 @@ pub struct Metadata {
 }
 
 impl Metadata {
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.unit.is_none()
             && self.notes.is_none()
             && self.source.is_none()
@@ -164,13 +176,14 @@ pub struct Variable {
     pub path: String,
     pub value: Option<f64>,
     pub formula: Option<String>,
-    /// Rich metadata (v4.0) - unit, notes, source, validation_status
+    /// Rich metadata (v4.0) - unit, notes, source, `validation_status`
     #[serde(default)]
     pub metadata: Metadata,
 }
 
 impl Variable {
     /// Create a new variable with default (empty) metadata
+    #[must_use]
     pub fn new(path: String, value: Option<f64>, formula: Option<String>) -> Self {
         Self {
             path,
@@ -181,7 +194,8 @@ impl Variable {
     }
 
     /// Create a new variable with metadata (v4.0)
-    pub fn with_metadata(
+    #[must_use]
+    pub const fn with_metadata(
         path: String,
         value: Option<f64>,
         formula: Option<String>,
@@ -210,7 +224,8 @@ pub struct Include {
 }
 
 impl Include {
-    pub fn new(file: String, namespace: String) -> Self {
+    #[must_use]
+    pub const fn new(file: String, namespace: String) -> Self {
         Self { file, namespace }
     }
 }
@@ -233,11 +248,12 @@ pub struct ResolvedInclude {
 /// A named scenario with variable overrides
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Scenario {
-    /// Variable overrides for this scenario (variable_name -> value)
+    /// Variable overrides for this scenario (`variable_name` -> value)
     pub overrides: HashMap<String, f64>,
 }
 
 impl Scenario {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             overrides: HashMap::new(),
@@ -283,6 +299,7 @@ pub struct ParsedModel {
 }
 
 impl ParsedModel {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             tables: HashMap::new(),
@@ -301,12 +318,14 @@ impl ParsedModel {
     }
 
     /// Check if model has unresolved includes
+    #[must_use]
     pub fn has_unresolved_includes(&self) -> bool {
         !self.includes.is_empty() && self.resolved_includes.is_empty()
     }
 
     /// Get a value from a resolved include by namespace reference
-    /// e.g., "@sources.pricing.unit_price" -> lookup in sources namespace
+    /// e.g., "@`sources.pricing.unit_price`" -> lookup in sources namespace
+    #[must_use]
     pub fn resolve_namespace_ref(&self, reference: &str) -> Option<f64> {
         // Parse @namespace.path format
         if !reference.starts_with('@') {
@@ -344,6 +363,7 @@ impl ParsedModel {
     }
 
     /// Get available scenario names
+    #[must_use]
     pub fn scenario_names(&self) -> Vec<&String> {
         self.scenarios.keys().collect()
     }

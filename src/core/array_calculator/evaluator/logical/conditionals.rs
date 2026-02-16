@@ -25,9 +25,8 @@ pub fn eval_if(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, Ev
 pub fn eval_iferror(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args(name, args, 2)?;
     match evaluate(&args[0], ctx) {
-        Ok(Value::Null) => evaluate(&args[1], ctx), // NA is an error
-        Ok(val) => Ok(val),
-        Err(_) => evaluate(&args[1], ctx),
+        Ok(val) if !matches!(val, Value::Null) => Ok(val),
+        _ => evaluate(&args[1], ctx), // Error or NA (Null) => use fallback
     }
 }
 
