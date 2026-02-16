@@ -7,16 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### FOSS Release Prep
+### Open Source Release
 
-- **License**: Elastic-2.0 → MIT OR Apache-2.0 (standard Rust dual license)
-  - Added LICENSE-MIT, LICENSE-APACHE
-  - Removed LICENSE (Elastic-2.0), COMMERCIAL_LICENSE.md
-  - Updated Cargo.toml and README.md
-- **Git history sanitized**: 42 commit messages cleaned (removed personal/business references)
-- **Git history purged**: 13 sensitive files removed from all history (grants, business strategy, internal docs)
-- **project.yaml**: Cleaned to match asimov v2.4.0 schema (180 → 22 lines)
-- **roadmap.yaml**: Removed completed items, refocused on FOSS release prep
+- **License**: MIT OR Apache-2.0 (standard Rust dual license)
+- **Documentation**: Updated ADRs, README, CONTRIBUTING, editor extensions
+- **Codebase cleanup**: Simplified project.yaml, roadmap, and source comments
 
 ## [10.0.0-alpha.9] - 2026-02-16
 
