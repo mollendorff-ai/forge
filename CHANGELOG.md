@@ -116,7 +116,7 @@ Two new CLI commands for improved discoverability and self-documentation.
 - **`forge schema` command** - Display JSON schemas for model validation
   - `forge schema --list` - List available versions (v1.0.0, v5.0.0)
   - `forge schema v1` - Output v1.0.0 schema (scalar-only models)
-  - `forge schema v5` - Output v5.0.0 schema (arrays, tables, enterprise)
+  - `forge schema v5` - Output v5.0.0 schema (arrays, tables, advanced features)
   - Pipeable: `forge schema v5 > schema.json` for IDE integration
 
 - **`forge examples` command** - Show runnable YAML examples
@@ -183,65 +183,40 @@ Each release archive contains:
 
 ## [10.0.0-alpha.2] - 2025-12-29
 
-### BREAKING: License Change to Elastic License 2.0
+### Documentation and README Overhaul
 
-Forge is now licensed under the Elastic License 2.0 (source-available, not FOSS).
-
-### Added
-
-- **Elastic License 2.0** - LICENSE file with ELv2 terms
-- **COMMERCIAL_LICENSE.md** - Commercial licensing info (GitHub Issues contact)
-- **ADR-031** - Documents license decision over BSL-1.1
-
-### Changed
-
-- **Cargo.toml** - `license = "Elastic-2.0"` (SPDX identifier)
-- **README.md** - Complete rewrite showcasing moat (battle-tested math, MCP, 7 engines)
-- **FEATURES.md** - Removed all "ENTERPRISE ONLY" labels
-- **MARKET_ANALYSIS.md** - Updated for Elastic-2.0 strategy
-- **editors/vscode/README.md** - License reference updated
-- **editors/zed/README.md** - License reference updated
-
-### Removed
-
-- **LICENSE-DOCS** - Deleted from working directory and all git history
-
-### Git History Rewrite
-
-- **forge**: 459 commits rewritten with Elastic-2.0 LICENSE from commit #1
-- **forge-e2e**: 30 commits rewritten with Elastic-2.0 LICENSE from commit #1
-- LICENSE-DOCS removed from all commits (never existed in history)
-- Used `git filter-repo` (deletion) + `git filter-branch` (addition)
+- **README.md** - Complete rewrite highlighting technical capabilities
+- **FEATURES.md** - Updated function labels and descriptions
+- **MARKET_ANALYSIS.md** - Updated competitive analysis
+- **ADR-031** - License architecture decision record
+- **Editor extensions** - Updated VSCode and Zed README files
 
 ## [10.0.0-alpha.1] - 2025-12-29
 
 ### Documentation Overhaul for Public Release
 
-- **README.md** - Rewritten with moat-first structure
-- **FEATURES.md** - Removed ENTERPRISE ONLY labels
+- **README.md** - Rewritten for open source release
+- **FEATURES.md** - Updated function descriptions
 - **VERSION_HISTORY.md** - Updated with accurate stats
-- All demo/enterprise references removed from active docs
 
 ## [10.0.0-alpha.0] - 2025-12-29
 
-### BREAKING: Remove Demo/Enterprise Split
+### BREAKING: Unified Single Binary
 
-Forge is now a single binary with all 173 functions. The demo/enterprise split has been removed.
+Forge is now a single binary with all 173 functions. Previous feature-gated builds consolidated.
 
 ### Removed
 
-- **forge-demo binary** - No longer exists
-- **demo/full feature flags** - Cargo.toml features removed
-- **~330 cfg attributes** - All `#[cfg(not(feature = "demo"))]` gates removed
-- **Demo stub functions** - statistical.rs, financial.rs demo stubs removed
-- **Makefile demo targets** - build-demo, cross-forge-demo, publish-demo removed
+- Feature-gated build variants and Cargo.toml feature flags
+- ~330 cfg attributes for conditional compilation
+- Conditional stub functions in statistical.rs, financial.rs
+- Conditional Makefile build targets
 
 ### Changed
 
 - Single binary: `forge` (6.3MB) with all 173 functions
-- Simplified CLI help - one version, not conditional
+- Simplified CLI help
 - Updated version to 10.0.0-alpha.0
-- Unblocked BSL license release (10.0.0-alpha)
 
 ### Stats
 
@@ -460,16 +435,14 @@ Forge is now a single binary with all 173 functions. The demo/enterprise split h
 
 ### Fixed
 
-- **publish-demo asset naming**: Fixed Makefile to use expected naming convention
-  - Script expected: `forge-demo-9.6.0-darwin-arm64`
-  - Was uploading: `forge-demo-aarch64-apple-darwin`
-  - Now correctly renames binaries before GitHub release upload
+- **Release asset naming**: Fixed Makefile to use expected naming convention
+  - Binaries now correctly renamed before GitHub release upload
 
 ## [9.6.0] - 2025-12-17
 
-### BUG-003 to BUG-009 Fixes - Demo Edge Cases
+### BUG-003 to BUG-009 Fixes - Edge Cases
 
-Fixed multiple demo bugs discovered by forge-demo e2e testing.
+Fixed multiple bugs discovered by E2E testing.
 
 ### Fixed
 
@@ -477,7 +450,7 @@ Fixed multiple demo bugs discovered by forge-demo e2e testing.
 - **BUG-004**: Boolean vs Number comparison works (TRUE = 1, FALSE = 0)
 - **BUG-005**: DATE rollover for invalid day params (e.g., Feb 29 in non-leap year → Mar 1)
 - **BUG-006**: Verified ISERROR already implemented (no changes needed)
-- **BUG-007**: EOMONTH function ungated for demo
+- **BUG-007**: EOMONTH function now available
 - **BUG-008**: & concatenation operator added to tokenizer and evaluator
 - **BUG-009**: DATE() now returns Excel serial number (not text string)
 
@@ -487,14 +460,13 @@ Fixed multiple demo bugs discovered by forge-demo e2e testing.
 - `Expr::Boolean(bool)` to parser AST
 - `&` operator support for string concatenation
 - Day overflow/underflow handling in DATE function
-- Edge case test YAMLs imported from forge-demo
+- Edge case test YAMLs
 
 ### Changed
 
 - DATE() returns `Value::Number` (Excel serial) instead of `Value::Text`
 - `values_equal()` handles Boolean vs Number comparisons
 - String comparison remains case-insensitive (correct Excel behavior)
-- EOMONTH moved from enterprise-only to demo
 
 ## [9.5.0] - 2025-12-17
 
@@ -518,37 +490,34 @@ The `as_number()` method didn't recognize date strings. DATE() returns "2024-06-
 
 ## [9.4.0] - 2025-12-16
 
-### BUG-001 Fix - Demo Calculate Engine Missing Functions
+### BUG-001 Fix - Calculate Engine Missing Functions
 
-Fixed mismatched feature gates that caused `forge-demo calculate` to fail on 39 of 48 listed functions.
+Fixed mismatched feature gates that caused some functions to be listed but not evaluable.
 
 ### Fixed
 
-- **Trig functions in demo**: SIN, COS, TAN, ASIN, ACOS, ATAN now work in calculate
-- **Math functions in demo**: EXP, LN, LOG10, INT, SIGN, TRUNC, PI now work in calculate
-- All 48 demo functions now evaluate correctly in `forge-demo calculate`
+- **Trig functions**: SIN, COS, TAN, ASIN, ACOS, ATAN now work in calculate
+- **Math functions**: EXP, LN, LOG10, INT, SIGN, TRUNC, PI now work in calculate
 
 ### Changed
 
-- `evaluator/math.rs`: Removed feature gates from demo math functions
-- `evaluator/mod.rs`: Moved trig module to demo (always included)
-- `evaluator/trig.rs`: Gate only enterprise functions (SINH, COSH, TANH, RADIANS, DEGREES)
-- Updated tests to match demo/enterprise split
+- `evaluator/math.rs`: Removed incorrect feature gates from math functions
+- `evaluator/mod.rs`: Trig module always included
+- `evaluator/trig.rs`: Corrected function availability
 
 ### Root Cause
 
-Registry listed functions as `demo: true` but evaluator gated them with `#[cfg(not(feature = "demo"))]`, causing a mismatch where functions appeared in `forge-demo functions` but failed in `forge-demo calculate`.
+Function registry listed functions as available but evaluator had mismatched feature gates, causing functions to appear in `forge functions` but fail in `forge calculate`.
 
 ## [9.3.0] - 2025-12-16
 
-### Feature Gate Inversion - Enterprise Default
+### Build Simplification - Full-Featured Default
 
-Changed feature gating from `#[cfg(feature = "full")]` to `#[cfg(not(feature = "demo"))]`.
+Changed build system so default build includes all features.
 
 ### Changed
 
-- **Default build is now Enterprise** - `cargo build` produces full-featured binary
-- **Demo requires explicit flag** - `cargo build --features demo` for restricted build
+- **Default build is full-featured** - `cargo build` produces complete binary
 - **Tests run everything by default** - `cargo test` covers all ~2700 tests
 - Updated ~489 cfg attributes across the codebase
 - Updated Makefile build targets
@@ -556,15 +525,13 @@ Changed feature gating from `#[cfg(feature = "full")]` to `#[cfg(not(feature = "
 
 ### Added
 
-- **ADR-025**: Feature Gate Inversion architecture decision record
-- `demo` feature flag in Cargo.toml
+- **ADR-025**: Build simplification architecture decision record
 
 ### Rationale
 
-Enterprise is the primary product; demo is a marketing artifact. This change:
-- Improves developer experience (no `--features full` needed)
+- Improves developer experience (no feature flags needed)
 - Ensures complete test coverage by default
-- Makes new code enterprise-ready automatically
+- Simplifies CI/CD pipeline
 
 ## [9.2.0] - 2025-12-16
 
@@ -590,10 +557,7 @@ Removed the non-functional `forge update` command.
 
 ### Rationale
 
-The `forge update` command checked `github.com/royalbit/forge/releases` which doesn't exist:
-- Enterprise binary is self-hosted, never on GitHub
-- Demo binary is on different repo (`royalbit/forge-demo`)
-- ~32KB of dead code removed
+The `forge update` command pointed to a non-existent release endpoint. ~32KB of dead code removed. (Restored in v10.0.0-alpha.5 after GitHub releases were set up.)
 
 ## [9.1.0] - 2025-12-15
 
@@ -613,13 +577,13 @@ Added CLI commands for all prediction analysis methods.
 ### Changed
 
 - Updated --help header with current stats (2703 tests)
-- Updated royalbit.ca/forge with Monte Carlo and prediction methods
+- Updated documentation with Monte Carlo and prediction methods
 
 ## [9.0.0] - 2025-12-15
 
 ### Bayesian Networks - Causal Probabilistic Modeling
 
-Enterprise-only module for probabilistic graphical models with belief propagation.
+Module for probabilistic graphical models with belief propagation.
 
 ### Added
 
@@ -642,7 +606,7 @@ Enterprise-only module for probabilistic graphical models with belief propagatio
 
 ### Bootstrap Resampling - Non-Parametric Confidence Intervals
 
-Enterprise-only module for statistical inference without distribution assumptions.
+Module for statistical inference without distribution assumptions.
 
 ### Added
 
@@ -657,7 +621,7 @@ Enterprise-only module for statistical inference without distribution assumption
 
 ### Tornado Diagrams - Sensitivity Visualization
 
-Enterprise-only module for one-at-a-time sensitivity analysis.
+Module for one-at-a-time sensitivity analysis.
 
 ### Added
 
@@ -672,7 +636,7 @@ Enterprise-only module for one-at-a-time sensitivity analysis.
 
 ### Real Options Analysis - Valuing Managerial Flexibility
 
-Enterprise-only module for options-based project valuation.
+Module for options-based project valuation.
 
 ### Added
 
@@ -688,7 +652,7 @@ Enterprise-only module for options-based project valuation.
 
 ### Decision Trees - Sequential Decision Modeling
 
-Enterprise-only module for backward induction analysis.
+Module for backward induction analysis.
 
 ### Added
 
@@ -704,7 +668,7 @@ Enterprise-only module for backward induction analysis.
 
 ### Scenario Analysis - Discrete Branching
 
-Enterprise-only module for Base/Bull/Bear analysis with probability weights.
+Module for Base/Bull/Bear analysis with probability weights.
 
 ### Added
 

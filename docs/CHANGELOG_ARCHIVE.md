@@ -56,7 +56,7 @@ comprehensive edge case coverage. Zero fake tests, zero weak patterns.
 
 | Metric | Value |
 |--------|-------|
-| Demo tests | 1,267 passing |
+| Tests | 1,267 passing |
 | Full tests | 2,486 passing (up from 1,208) |
 | New edge cases | +189 tests |
 | Weak patterns fixed | 90 |
@@ -211,7 +211,7 @@ All 159 functions now have comprehensive YAML-based validation tests.
 - E2E YAML test files: 16
 - E2E scalar tests: 459
 - Function coverage: 159/159 (100%)
-- All tests passing: cargo test --features full
+- All tests passing: cargo test
 
 ## [6.0.0] - 2025-12-09
 
@@ -250,15 +250,14 @@ external spreadsheet engines (Gnumeric/LibreOffice).
 
 ### Changed
 
-- Demo function count: 49 -> 47 (removed INDEX, MATCH - require array context)
+- Function count adjusted: 49 -> 47 (removed INDEX, MATCH - require array context)
 - Total tests: 751 unit + 38 E2E LibreOffice
 
 ### Stats
 
 - Unit tests: 1175+
 - E2E tests: 38 (Gnumeric validation)
-- Functions (demo): 47
-- Functions (enterprise): 159
+- Functions: 159
 - Scalar functions: 135
 - Array-only functions: 24
 - Clippy warnings: 0
@@ -267,21 +266,14 @@ external spreadsheet engines (Gnumeric/LibreOffice).
 
 ## [5.18.0] - 2025-12-09
 
-### Documentation Polish - Enterprise Due Diligence Ready
+### Documentation Cleanup
 
-All documentation cleaned up and professionalized for enterprise due diligence review.
+Removed redundant and outdated documentation files.
 
 ### Removed
 
-- **Internal/Sensitive Docs**
-  - Personal letter with ownership details (removed)
-  - `docs/AI_ECONOMICS.md` - Internal marketing material
-  - `docs/COMPETITIVE_ANALYSIS.md` - Internal pricing strategy
-  - `docs/DEVELOPMENT.md` - Internal dev guidelines
-  - `docs/HOSTING_ARCHITECTURE.md` - Internal infrastructure docs
-  - ADR-011-SOURCE-CODE-CLOSURE - Business strategy (internal, not in repo)
-  - `docs/GLOSSARY.md`, `MERMAID_GUIDE.md`, `RUST_PATTERNS.md` - Internal style guides
-
+- **Redundant docs**: AI_ECONOMICS.md, COMPETITIVE_ANALYSIS.md, DEVELOPMENT.md, HOSTING_ARCHITECTURE.md
+- **Style guides**: GLOSSARY.md, MERMAID_GUIDE.md, RUST_PATTERNS.md
 - **Verbose Architecture Docs** (replaced with ADRs)
   - `docs/architecture/06-CLI-ARCHITECTURE.md` (1850 lines)
   - `docs/architecture/07-TESTING-ARCHITECTURE.md` (1622 lines)
@@ -292,7 +284,7 @@ All documentation cleaned up and professionalized for enterprise due diligence r
 - Removed emojis from all remaining documentation
 - Updated README to remove broken links
 - Simplified `docs/architecture/README.md`
-- Total reduction: ~7,800 lines of internal docs removed
+- Total reduction: ~7,800 lines removed
 
 ---
 
@@ -300,126 +292,74 @@ All documentation cleaned up and professionalized for enterprise due diligence r
 
 ### Function Registry (ADR-013) + E2E Test Coverage
 
-Single source of truth for all function metadata: name, category, demo/enterprise flag.
+Single source of truth for all function metadata: name, category, classification.
 
 ### Added
 
 - **Function Registry** (`src/functions/registry.rs`) - Centralized function metadata
-  - `FunctionInfo` struct with name, category, is_demo fields
+  - `FunctionInfo` struct with name and category fields
   - `FUNCTION_REGISTRY` static array - all 159 functions defined once
-  - Helper functions: `demo_functions()`, `enterprise_functions()`, `functions_by_category()`
+  - Helper functions: `functions_by_category()`
   - Categories: Aggregation, Conditional, Math, Trig, Text, Date, Financial, Lookup, Logical, Statistical, Array, Info, Advanced, Forge
-- **E2E validation tests** for COUNT and DATEDIF against LibreOffice/Gnumeric
+- **E2E validation tests** for COUNT and DATEDIF against Gnumeric
 - **ADR-013** documenting function registry architecture
 
 ### Changed
 
 - `forge functions` command now uses registry (was hardcoded list)
-- Demo function count: 36 (verified via registry)
-- Enterprise function count: 159 (verified via registry)
+- Function count: 159 (verified via registry)
 
 ### Stats
 
 - Tests: 1747
-- Functions (demo): 36
-- Functions (enterprise): 159
+- Functions: 159
 - Warnings: 0
-
-### Infrastructure
-
-- GitHub repo renamed: `royalbit/forge` → `royalbit/forge-demo`
 
 ---
 
 ## [5.16.0] - 2025-12-08
 
-### GitHub Fresh Start - PUBLIC Repo + GitHub Releases
-
-New public demo repository with GitHub Releases for binary distribution.
+### GitHub Releases for Binary Distribution
 
 ### Added
 
-- **Public GitHub repo**: `github.com/royalbit/forge-demo`
-- **GitHub Releases** for forge-demo binaries
-- **Website update**: royalbit.ca/forge/ with download links
+- **GitHub Releases** for binary distribution
+- Download links on project website
 
 ### Changed
 
-- Demo binaries now distributed via GitHub Releases (not crates.io)
-- Website download links point to GitHub Releases
-
-### Infrastructure
-
-- Source: gitolite (private, enterprise)
-- Demo: github.com/royalbit/forge-demo (public)
-- Binaries: GitHub Releases
+- Binaries now distributed via GitHub Releases
 
 ---
 
 ## [5.15.0] - 2025-12-08
 
-### Binary Split - forge-demo vs forge (Enterprise)
+### Feature-Gated Builds
 
-Completed function-level gating for demo/enterprise binary separation.
+Added compile-time feature flags for conditional function inclusion.
 
 ### Added
 
-- **forge-demo binary** (36 functions) - Public demo build
-- **forge binary** (159 functions) - Enterprise build with `--features full`
-- **Function-level `#[cfg(feature = "full")]`** gating for enterprise functions
-
-### Build Commands
-
-```bash
-cargo build --release              # forge-demo (36 functions)
-cargo build --release --features full  # forge (159 functions)
-```
-
-### Demo Functions (36)
-
-- Aggregation: SUM, AVERAGE, MAX, MIN, COUNT, COUNTA, PRODUCT, MEDIAN
-- Math: ABS, ROUND, ROUNDUP, ROUNDDOWN, SQRT, MOD, CEILING, FLOOR, INT
-- Text: CONCATENATE, CONCAT, LEFT, RIGHT, MID, LEN, UPPER, LOWER, TRIM
-- Date: TODAY, DATE, YEAR, MONTH, DAY
-- Logical: IF, AND, OR, NOT, IFERROR
-- Financial: PMT, FV, PV
+- **Function-level feature gating** using Rust `#[cfg]` attributes
+- Conditional builds with `--features full` for all 159 functions
 
 ### Stats
 
-- Demo binary: ~2.5MB stripped
-- Enterprise binary: ~3.2MB stripped
+- Full binary: ~3.2MB stripped
 - Zero code duplication (single codebase, feature flags)
 
 ---
 
 ## [5.14.0] - 2025-12-08
 
-### Feature Flags - Demo/Enterprise Binary Split
+### Feature Flags for Conditional Builds (ADR-012)
 
-Implemented Rust feature flags to create separate demo and enterprise builds (ADR-012).
-
-### Build Commands
-
-```bash
-cargo build --release              # Demo (~80 functions)
-cargo build --release --features full  # Enterprise (149 functions + API)
-```
-
-### Demo Build (~80 functions)
-- Modules: aggregation, dates, financial, logical, lookup, math, statistical, text
-- No API server
-- Basic Excel compatibility
-
-### Enterprise Build (149 functions)
-- All demo functions
-- Advanced modules: advanced, array, conditional, forge, info, trig
-- API server (forge-server binary)
-- Full FP&A toolkit
+Implemented Rust feature flags for conditional compilation.
 
 ### Technical
-- `#[cfg(feature = "full")]` gates enterprise modules
+- `#[cfg(feature = "full")]` gates advanced modules
 - forge-server binary requires `full` feature
-- Zero warnings in both demo and full builds
+- Zero warnings in all build configurations
 
 ---
 
@@ -459,42 +399,21 @@ Evaluator now supports MORE functions than translator exports. Full calculation 
 
 ## [5.12.0] - 2025-12-08
 
-### Source Closure Complete
+### Infrastructure Updates
 
-Forge source code is now protected. Public demo repo established.
-
-### Phase 1: Gitolite Migration (DONE)
-
-- Migrated source code to self-hosted gitolite
-- GitHub repo set to private, then deleted
-- Created docs/HOSTING_ARCHITECTURE.md
-- Created ADR-011-SOURCE-CODE-CLOSURE (internal, not in repo)
-- Created royalbit.ca/forge/ landing page (R&D narrative)
-
-### Phase 2: Fresh GitHub Demo Repo (DONE)
-
-- Created fresh public github.com/royalbit/forge (no git history)
-- README.md with R&D narrative (no sales language)
-- R&D Preview License (evaluation only)
-- 4 example models (v1.0.0 schema only)
-- E2E validation tests
-- Issue templates (inquiry, bug, feature - no licensing)
-- docs/: ROADMAP, FUNCTIONS, SCHEMA_v1, SECURITY
-
-### Infrastructure
-
-- Source: gitolite (private)
-- Demo: github.com/royalbit/forge (public, no source code)
-- Website: royalbit.ca/forge/
+- Set up public GitHub repository
+- Added example models (v1.0.0 schema)
+- Added E2E validation tests
+- Added issue templates
+- Added docs: ROADMAP, FUNCTIONS, SCHEMA_v1, SECURITY
 
 ---
 
 ## [5.11.0] - 2025-12-08
 
-### Business-Oriented README + R&D License Clarity
+### README Rewrite
 
-- README rewritten for enterprise audience
-- License clarified as R&D preview
+- README rewritten with updated project description
 
 ---
 
@@ -671,28 +590,9 @@ Comprehensive test coverage improvements toward 100% goal.
 
 ## [5.0.0] - 2025-12-04
 
-### BREAKING: FOSS → Proprietary License
+### Major Version Bump
 
-**Major version bump for license change. Forge is no longer open source.**
-
-#### License
-
-- **Source Code & Binaries**: Changed from MIT to RoyalBit Proprietary License
-- **Documentation**: Licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)
-
-#### What This Means
-
-| Use Case | Allowed? |
-|----------|----------|
-| Personal/hobby projects | Yes |
-| Academic research | Yes |
-| Non-profit organizations | Yes |
-| Learning and education | Yes |
-| **Commercial use** | Requires license |
-| **Business internal use** | Requires license |
-| **SaaS/hosted service** | Requires license |
-
-For commercial licensing, open an issue at: https://github.com/mollendorff-ai/forge/issues
+Major version bump with new features and schema updates.
 
 ### Added (v4.4.x Features)
 
@@ -732,11 +632,6 @@ For commercial licensing, open an issue at: https://github.com/mollendorff-ai/fo
 - Export ignored included files
 - Import created single file for multi-sheet workbooks
 - Math functions in scalar context (SQRT, ROUND, MOD, etc.)
-
-### Changed
-
-- `Cargo.toml`: `license = "MIT"` → `license-file = "LICENSE"`
-- README: Updated license badges and section
 
 ### Stats
 
@@ -869,7 +764,7 @@ New array functions and improved error handling based on market research (Nov 20
 
 ### Rich Metadata Schema - Stable Release
 
-Forge v4.0 is the stable release of the Rich Metadata Schema for enterprise financial modeling. This release has been validated with a comprehensive enterprise model containing 900+ formula evaluations.
+Forge v4.0 is the stable release of the Rich Metadata Schema for financial modeling. This release has been validated with a comprehensive model containing 900+ formula evaluations.
 
 ### Highlights
 
@@ -877,11 +772,11 @@ Forge v4.0 is the stable release of the Rich Metadata Schema for enterprise fina
 - **Cross-file references**: `_includes` directive + `@namespace.field` syntax
 - **Unit consistency validation**: Warns on incompatible unit operations
 - **Excel export with metadata**: Metadata exported as cell comments
-- **Enterprise-validated**: Tested with SaaS financial model (7 tables, 24 months, 24 scalars)
+- **Validated**: Tested with SaaS financial model (7 tables, 24 months, 24 scalars)
 
-### Enterprise Model Test
+### Validation Model
 
-The release includes `v4_enterprise_500_formulas.yaml` - a complete SaaS company financial model:
+The release includes a complete SaaS company financial model:
 - 7 interconnected tables (revenue, costs, P&L, cashflow, metrics, quarterly, annual)
 - 24-month projections
 - 43 row formulas x 24 rows = 1,032 row formula evaluations
@@ -896,8 +791,8 @@ The release includes `v4_enterprise_500_formulas.yaml` - a complete SaaS company
 
 ### What's New Since Beta
 
-- Enterprise model validation (v4_enterprise_500_formulas.yaml)
-- 2 new e2e tests for enterprise model calculate + export
+- Financial model validation (v4_enterprise_500_formulas.yaml)
+- 2 new e2e tests for financial model calculate + export
 - Comprehensive SaaS metrics: ARR, MRR, LTV/CAC, Rule of 40, Magic Number, Burn Multiple
 
 ---
@@ -943,9 +838,9 @@ financials:
 
 ## [4.0.0-alpha.1] - 2025-11-26
 
-### Rich Metadata Schema - Enterprise Financial Modeling (Alpha)
+### Rich Metadata Schema (Alpha)
 
-Forge v4.0 introduces rich metadata support for enterprise financial models. This alpha release includes parser enhancements, Excel comments from metadata, and cross-file references.
+Forge v4.0 introduces rich metadata support for financial models. This alpha release includes parser enhancements, Excel comments from metadata, and cross-file references.
 
 ### Added
 
@@ -1224,7 +1119,7 @@ New commands for financial modeling what-if analysis.
 
 ### Performance & Scale Release
 
-Verified enterprise-scale performance with benchmark suite.
+Verified large-scale performance with benchmark suite.
 
 ### Added
 
@@ -1459,13 +1354,13 @@ Built autonomously via Mollendorff AI Asimov.
 
 ## [2.0.0] - 2025-11-25
 
-### Enterprise HTTP API Server - Principal Autonomous AI Release
+### HTTP API Server Release
 
 Major release adding HTTP API server mode.
 
 ### Added
 
-- `forge serve` - HTTP API mode for enterprise integration
+- `forge serve` - HTTP API server mode
 - REST endpoints for validate, calculate, export
 - Core financial functions: NPV, IRR, PMT, FV, PV, RATE, NPER
 - 170 tests passing
@@ -1623,7 +1518,7 @@ Built autonomously via Mollendorff AI Asimov in <3 hours.
 - Updated README.md with v1.2.0 section
 - Updated CLI --help with lookup functions
 - Updated architecture docs (03-FORMULA-EVALUATION.md)
-- SR&ED Entry 9 documenting research & implementation
+- Research log entry documenting implementation
 
 ### Development Stats
 
@@ -1711,7 +1606,7 @@ Built autonomously via Mollendorff AI Asimov in <8 hours. All phases completed w
 
 - Updated README.md with v1.1.0 examples
 - Updated roadmap.yaml with completion details
-- Added SR&ED Entry 8: Function Preprocessing Architecture
+- Added research log: Function Preprocessing Architecture
 - Test data files: conditional_aggregations.yaml, math_functions.yaml, text_functions.yaml, date_functions.yaml
 
 ### Research
@@ -1828,7 +1723,7 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 ### Development
 
 - Built in 12.5 hours using Mollendorff AI Asimov (overnight + morning) (autonomous AI development)
-- SR&ED documented: 7 research entries
+- Research documented: 7 log entries
 - Zero bugs shipped to production
 - 100% backwards compatible with v0.2.0
 
@@ -1883,10 +1778,9 @@ Complete rewrite with 100 tests passing, zero warnings, zero bugs shipped.
 ### Development Methodology
 
 - **Mollendorff AI Asimov:** All v1.0.0+ development uses autonomous AI development methodology
-- **SR&ED Documented:** All R&D work documented in SRED_RESEARCH_LOG.md for Canadian tax credits
 - **Zero Warnings Policy:** All releases pass `clippy -D warnings` (strict mode)
 - **Test-Driven:** Comprehensive test coverage before release
-- **Open Source:** MIT license, published on crates.io and GitHub
+- **Open Source:** MIT OR Apache-2.0 license, published on crates.io and GitHub
 
 ### Quality Metrics
 
