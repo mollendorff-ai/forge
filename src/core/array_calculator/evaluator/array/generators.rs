@@ -3,7 +3,7 @@
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
-use rand::Rng;
+use rand::RngExt;
 
 /// Evaluate SEQUENCE function - generates a sequence of numbers
 /// SEQUENCE(rows, [columns], [start], [step])

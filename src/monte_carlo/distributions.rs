@@ -7,7 +7,7 @@
 //! - MC.PERT(min, mode, max) - Smooth project estimates
 //! - MC.Lognormal(mean, stdev) - Non-negative values (Phase 4)
 
-use rand::Rng;
+use rand::{Rng, RngExt};
 use rand_distr::{Distribution as RandDistribution, Normal, Triangular, Uniform};
 use std::fmt;
 

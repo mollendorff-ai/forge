@@ -1,12 +1,12 @@
-//! Random functions: RAND, RANDBETWEEN (Enterprise only)
+//! Random functions: RAND, RANDBETWEEN
 
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 
-use rand::Rng;
+use rand::RngExt;
 
-/// Evaluate RAND function - returns a random number between 0 and 1 (Enterprise)
+/// Evaluate RAND function - returns a random number between 0 and 1
 pub fn eval_rand(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("RAND", args, 0)?;
     let _ = ctx;
@@ -14,7 +14,7 @@ pub fn eval_rand(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     Ok(Value::Number(rng.random::<f64>()))
 }
 
-/// Evaluate RANDBETWEEN function - returns a random integer between two values (Enterprise)
+/// Evaluate RANDBETWEEN function - returns a random integer between two values
 pub fn eval_randbetween(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("RANDBETWEEN", args, 2, 2)?;
     let bottom = evaluate(&args[0], ctx)?

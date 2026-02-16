@@ -5,7 +5,7 @@
 
 use super::config::{BootstrapConfig, BootstrapStatistic};
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 /// A confidence interval
@@ -84,7 +84,7 @@ impl BootstrapEngine {
 
         let rng = match config.seed {
             Some(seed) => StdRng::seed_from_u64(seed),
-            None => StdRng::from_os_rng(),
+            None => StdRng::from_rng(&mut rand::rng()),
         };
 
         Ok(Self { config, rng })

@@ -5,8 +5,7 @@
 //! - Latin Hypercube (stratified sampling, 5x faster convergence)
 
 use rand::rngs::StdRng;
-use rand::Rng;
-use rand::SeedableRng;
+use rand::{RngExt, SeedableRng};
 
 /// Sampling method enumeration
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -51,7 +50,7 @@ impl Sampler {
     pub fn new(method: SamplingMethod, seed: Option<u64>) -> Self {
         let rng = match seed {
             Some(s) => StdRng::seed_from_u64(s),
-            None => StdRng::from_os_rng(),
+            None => StdRng::from_rng(&mut rand::rng()),
         };
         Self { method, rng }
     }

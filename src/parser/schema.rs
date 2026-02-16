@@ -67,7 +67,7 @@ pub fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
         for (key, value) in map {
             let key_str = key.as_str().unwrap_or("");
 
-            // Skip special keys (but error on enterprise features in v1.0.0)
+            // Skip special keys
             if key_str == "_forge_version" || key_str == "_name" || key_str == "scenarios" {
                 continue;
             }
@@ -98,7 +98,7 @@ pub fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
                             "v1.0.0 models do not support tables/arrays. Found table '{key_str}' with array column '{col_key_str}'.\n\
                             \n\
                             v1.0.0 only supports scalar values.\n\
-                            To use tables/arrays, upgrade to v5.0.0 (enterprise):\n\
+                            To use tables/arrays, upgrade to v5.0.0:\n\
                             \n\
                             _forge_version: \"5.0.0\"\n\
                             \n\
@@ -115,7 +115,7 @@ pub fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
                                 "v1.0.0 models do not support tables/arrays. Found table '{key_str}' with array column '{col_key_str}' (rich format).\n\
                                 \n\
                                 v1.0.0 only supports scalar values.\n\
-                                To use tables/arrays, upgrade to v5.0.0 (enterprise):\n\
+                                To use tables/arrays, upgrade to v5.0.0:\n\
                                 \n\
                                 _forge_version: \"5.0.0\""
                             )));
@@ -129,7 +129,7 @@ pub fn validate_v1_0_0_no_tables(yaml: &Value) -> ForgeResult<()> {
                                 "v1.0.0 models do not support tables/arrays. Found table '{key_str}' with formula column '{col_key_str}'.\n\
                                 \n\
                                 v1.0.0 only supports scalar values.\n\
-                                To use tables/arrays, upgrade to v5.0.0 (enterprise):\n\
+                                To use tables/arrays, upgrade to v5.0.0:\n\
                                 \n\
                                 _forge_version: \"5.0.0\""
                             )));
