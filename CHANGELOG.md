@@ -13,6 +13,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation**: Updated ADRs, README, CONTRIBUTING, editor extensions
 - **Codebase cleanup**: Simplified project.yaml, roadmap, and source comments
 
+## [10.0.0-alpha.10] - 2026-02-16
+
+### Security
+
+- **bytes** 1.11.0 → 1.11.1: Fix integer overflow in `BytesMut::reserve`
+
+### Dependencies (Breaking)
+
+- **jsonschema** 0.38 → 0.42: Updated `validator_for` API
+- **calamine** 0.32 → 0.33
+- **rand** 0.9 → 0.10: Migrated to `RngExt` trait, updated RNG construction
+- **rand_distr** 0.5 → 0.6
+- **rust_xlsxwriter** 0.92 → 0.93
+
+### Dependencies (Compatible)
+
+- 87 packages updated via `cargo update` (anyhow, clap, chrono, tokio, etc.)
+
 ## [10.0.0-alpha.9] - 2026-02-16
 
 ### Changed
