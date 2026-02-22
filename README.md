@@ -26,7 +26,7 @@ YAML-based financial modeling with Excel formula evaluation. Git-native. Determi
 | Can't diff, can't PR | No version control |
 | AI hallucinates numbers | And Excel can't catch it |
 
-**The math:** A 50KB Excel file can burn 100K+ tokens when parsed. The same model in YAML? Under 2K tokens.
+**The math:** A minimal Excel file tokenizes at 10–15× the cost of the same model in YAML (measured via tiktoken). Corporate spreadsheets with styles and metadata can reach 30–50×.
 
 ---
 
@@ -256,7 +256,7 @@ For Claude Desktop or MCP-compatible hosts, Forge exposes 10 tools via Model Con
 > CLI-only for now. API server has 5 endpoints. Full MCP/API parity + OpenAPI spec planned
 > for v10.0.0-beta.1 after E2E validation against R and Gnumeric is complete.
 
-**50x token efficiency.** YAML at a fraction of Excel's token cost.
+**10–15× measured token efficiency.** YAML at a fraction of Excel's token cost.
 
 ---
 

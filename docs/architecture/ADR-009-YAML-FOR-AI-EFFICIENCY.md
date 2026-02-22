@@ -36,7 +36,7 @@ YAML is ubiquitous in training data:
 | Excel (.xlsx) | Compressed XML | ~100K+ | ~$3.00 |
 | YAML | Plain text | ~2K | ~$0.06 |
 
-**Excel burns 50x more tokens for the same model.**
+**Excel burns 10–15× more tokens for the same model (measured via tiktoken; corporate files with styles and metadata can reach 30–50×).**
 
 ### The MCP Overhead Problem
 
@@ -188,7 +188,7 @@ Excel diffs are not:
 ## Consequences
 
 ### Positive
-- 50x token reduction vs Excel
+- 10–15× token reduction vs Excel (measured via tiktoken)
 - AI understands formulas semantically
 - Fewer hallucinations
 - Git-friendly diffs
