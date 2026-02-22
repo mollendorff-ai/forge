@@ -63,7 +63,7 @@ pub struct AuditDep {
     pub dep_type: String,
     pub formula: Option<String>,
     pub value: Option<f64>,
-    pub children: Vec<AuditDep>,
+    pub children: Vec<Self>,
 }
 
 /// Result of the export command

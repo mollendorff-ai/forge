@@ -44,7 +44,7 @@ pub enum Value {
     /// A boolean value
     Boolean(bool),
     /// An array of values (for table columns)
-    Array(Vec<Value>),
+    Array(Vec<Self>),
     /// A lambda function value (parameter names, body expression)
     Lambda {
         params: Vec<String>,

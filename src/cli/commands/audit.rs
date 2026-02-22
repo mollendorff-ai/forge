@@ -36,7 +36,7 @@ pub struct AuditDependency {
     pub dep_type: String,
     pub formula: Option<String>,
     pub value: Option<f64>,
-    pub children: Vec<AuditDependency>,
+    pub children: Vec<Self>,
 }
 
 /// Convert `AuditDependency` tree to serializable `AuditDep`

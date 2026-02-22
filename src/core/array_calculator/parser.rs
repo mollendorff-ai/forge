@@ -26,25 +26,25 @@ pub enum Expr {
     /// A variable or table.column reference
     Reference(Reference),
     /// Array indexing: expr[index]
-    ArrayIndex { array: Box<Expr>, index: Box<Expr> },
+    ArrayIndex { array: Box<Self>, index: Box<Self> },
     /// Function call: NAME(arg1, arg2, ...)
-    FunctionCall { name: String, args: Vec<Expr> },
+    FunctionCall { name: String, args: Vec<Self> },
     /// Calling the result of an expression: (expr)(args)
     /// Used for LAMBDA immediate invocation: LAMBDA(x, x*2)(5)
     CallResult {
-        callable: Box<Expr>,
-        args: Vec<Expr>,
+        callable: Box<Self>,
+        args: Vec<Self>,
     },
     /// Binary operation: left op right
     BinaryOp {
         op: String,
-        left: Box<Expr>,
-        right: Box<Expr>,
+        left: Box<Self>,
+        right: Box<Self>,
     },
     /// Unary operation: -expr
-    UnaryOp { op: String, operand: Box<Expr> },
+    UnaryOp { op: String, operand: Box<Self> },
     /// Range expression: A1:B10 (for INDIRECT, etc.)
-    Range { start: Box<Expr>, end: Box<Expr> },
+    Range { start: Box<Self>, end: Box<Self> },
 }
 
 /// Error during parsing

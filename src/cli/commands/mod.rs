@@ -74,7 +74,6 @@ use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use crate::writer;
 use colored::Colorize;
-#[cfg(any(not(coverage), test))]
 use std::path::Path;
 use std::path::PathBuf;
 
