@@ -486,7 +486,7 @@ forge examples --json             # Machine-readable list
 
 ```text
 forge (inline unit tests)     forge-e2e (integration/E2E)
-├── 1,297 unit tests          ├── 836 E2E tests
+├── 1,340 unit tests          ├── 836 E2E tests
 ├── #[cfg(test)] modules      ├── Gnumeric validation
 └── Per-function coverage     └── R statistical validation
 ```
