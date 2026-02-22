@@ -237,7 +237,18 @@ jobs:
           # Generate category tables
           jq -r '.categories[] | "## \(.name) (\(.count) functions)\n\n| Function | Description | Syntax |\n|----------|-------------|--------|\n" + ([.functions[] | "| `\(.name)` | \(.description) | `\(.syntax)` |"] | join("\n")) + "\n"' functions.json >> docs/FUNCTIONS.md
 
+          echo "FUNC_COUNT=$TOTAL" >> $GITHUB_ENV
           rm functions.json
+
+      - name: Update functions badge
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: b8e2fa78efcf26a20ff97b483050b05a
+          filename: forge-functions.json
+          label: functions
+          message: "${{ env.FUNC_COUNT }}"
+          color: blue
 
       - name: Commit if changed
         run: |
