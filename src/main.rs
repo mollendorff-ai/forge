@@ -12,7 +12,7 @@ use std::path::PathBuf;
 #[command(name = "forge")]
 #[command(about = "Git-native financial modeling. 173 functions. Zero hallucinations.")]
 #[command(long_about = "Forge - Git-native financial modeling
-173 functions | 1340 tests | E2E: forge-e2e repo
+173 functions | Fully tested | E2E: forge-e2e repo
 
 COMMANDS:
   calculate     - Execute formulas, update values
