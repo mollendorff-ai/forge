@@ -117,7 +117,7 @@ Major cleanup removing orphaned files, consolidating documentation, and fixing o
 
 ## [10.0.0-alpha.6] - 2026-01-24
 
-### Rebranding: RoyalBit to Mollendorff Group Inc.
+### Rebranding: RoyalBit to Mollendorff AI
 
 Complete organizational rebrand to disassociate from cryptocurrency scammers who hijacked the RoyalBit name.
 

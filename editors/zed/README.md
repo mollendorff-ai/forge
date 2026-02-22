@@ -81,4 +81,4 @@ The entire Forge project (v0.1.0 → v3.1.0) was developed in ~45 hours:
 
 MIT OR Apache-2.0 - See [LICENSE-MIT](../../LICENSE-MIT) or [LICENSE-APACHE](../../LICENSE-APACHE)
 
-Copyright (c) 2025-2026 Möllendorff Group Inc.
+Copyright (c) 2025-2026 Möllendorff AI

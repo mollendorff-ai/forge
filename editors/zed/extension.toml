@@ -2,7 +2,7 @@
 name = "forge"
 description = "Language support for Forge YAML formula files - deterministic financial modeling with 60+ Excel functions"
 version = "0.1.0"
-authors = ["Möllendorff Group Inc. <admin@mollendorff.ai>"]
+authors = ["Möllendorff AI <admin@mollendorff.ai>"]
 repository = "https://github.com/mollendorff-ai/forge"
 schema_version = 1
 

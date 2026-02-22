@@ -2,7 +2,7 @@
 name = "mollendorff-forge"
 version = "10.0.0-alpha.12"
 edition = "2021"
-authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "Möllendorff Group Inc. <admin@mollendorff.ai>"]
+authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "Möllendorff AI <admin@mollendorff.ai>"]
 description = "Battle-tested financial math for AI. 173 Excel-compatible functions validated against Gnumeric & R. MCP integration, Monte Carlo, Decision Trees, Real Options."
 repository = "https://github.com/mollendorff-ai/forge"
 homepage = "https://mollendorff.ai/forge"
