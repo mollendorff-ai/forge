@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dynamic badges**: Test count, coverage, and function count auto-updated by CI
 - **Auto-generate FUNCTIONS.md**: CI commits updated reference on every push to main
 
+### Fixed
+- **CI clippy `use_self`**: Replace recursive type names with `Self` in enum/struct definitions
+- **CI coverage build**: Remove `#[cfg(not(coverage))]` from `Path` import so `*_core()` functions compile under `cargo-llvm-cov`
+
 ### Changed
 - **README MCP section**: Updated from 10 to 20 tools, removed outdated "CLI-only" note
 - **README badges**: Static → dynamic gist-based shields.io endpoints
