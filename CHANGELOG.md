@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-beta.3] - 2026-02-22
+
+### Changed
+- **MCP server migrated to rmcp** (Anthropic's official Rust MCP SDK)
+  - Replaced 1,115 lines of hand-rolled JSON-RPC with rmcp derive macros
+  - 20 tool definitions now use `#[tool]` attribute with typed request structs
+  - Automatic JSON schema generation via `schemars` (replaces manual `json!({})` construction)
+  - Server entry point is now async (tokio runtime)
+  - ~722 net lines of code eliminated
+
+### Added
+- `src/mcp/types.rs` -- 20 typed request structs with automatic schema generation
+- ADR-048: rmcp Migration decision record
+
+### Unchanged
+- All 20 MCP tools maintain identical names, parameters, and behavior
+- `*_core()` function layer (ADR-047) is completely unchanged
+- `forge mcp` CLI command works the same way
+- CI MCP smoke test validates 20 tools
+
 ## [10.0.0-beta.2] - 2026-02-22
 
 ### Added

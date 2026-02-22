@@ -7,29 +7,70 @@
 
 next:
   # ── v10.0.0-beta.3 ── rmcp Migration ─────────────────────────────────────
-  - id: MCP-001
-    title: "Migrate from hand-rolled JSON-RPC to rmcp"
+  #
+  # Team: beta3-rmcp (2 agents)
+  #   core-agent:  RMCP-001, RMCP-002, RMCP-003, RMCP-006
+  #   docs-agent:  RMCP-004, RMCP-005
+  #
+  - id: RMCP-001
+    title: "Rewrite server.rs with rmcp #[tool_router] + #[tool_handler]"
+    agent: core
     description: >
-      Replace the hand-rolled JSON-RPC stdin/stdout transport in
-      src/mcp/server.rs with rmcp (Anthropic's official Rust MCP SDK).
-      Eliminates custom protocol parsing, gains spec compliance for free.
-    blocks: [MCP-002, MCP-003]
+      Replace 1,115 lines of hand-rolled JSON-RPC (get_tools, call_tool,
+      handle_request, run_mcp_server_sync) with rmcp derive macros.
+      20 tool methods, each calling *_core() functions. ~350 lines.
 
-  - id: MCP-002
-    title: "Leverage rmcp typed tool definitions via derive macros"
+  - id: RMCP-002
+    title: "Create src/mcp/types.rs — 20 typed request structs"
+    agent: core
     description: >
-      Replace manual get_tools() JSON construction with rmcp's
-      #[tool] derive macros for type-safe tool definitions and
-      automatic input schema generation.
-    depends_on: MCP-001
+      20 request structs with #[derive(Deserialize, JsonSchema)].
+      Doc comments on fields become JSON schema descriptions automatically.
+      Replaces 423 lines of manual json!({}) schema construction.
 
+  - id: RMCP-003
+    title: "Adapt MCP test module (671→~400 lines)"
+    agent: core
+    description: >
+      Delete obsolete JSON-RPC protocol tests (rmcp's responsibility now).
+      Adapt tool dispatch tests to direct method calls on ForgeMcpServer.
+      Add new tests: tool count, get_info(), schema generation smoke.
+    depends_on: [RMCP-001, RMCP-002]
+
+  - id: RMCP-004
+    title: "ADR-048 + docs/MCP.md update"
+    agent: docs
+    description: >
+      Write ADR-048-RMCP-MIGRATION.md documenting the migration rationale.
+      Update docs/MCP.md to mention rmcp, note future transport options.
+
+  - id: RMCP-005
+    title: "Roadmap + CHANGELOG + version bump to beta.3"
+    agent: docs
+    description: >
+      Move RMCP items to completed, promote MCP-003 to next (beta.4).
+      Add beta.3 section to CHANGELOG. Bump Cargo.toml version.
+
+  - id: RMCP-006
+    title: "CI smoke test verification/update"
+    agent: core
+    description: >
+      Verify existing CI MCP smoke test works with rmcp wire format.
+      If rmcp uses Content-Length framing instead of newline-delimited JSON,
+      adapt the CI test parsing accordingly.
+    depends_on: [RMCP-001, RMCP-002, RMCP-003]
+
+# ── v10.0.0-beta.4 ── Transport Abstraction ────────────────────────────────
+
+upcoming:
   - id: MCP-003
     title: "Add transport abstraction (stdio + SSE/WebSocket support)"
     description: >
       Use rmcp's transport layer to support stdio (current), SSE, and
-      WebSocket transports. Enables browser-based and remote MCP clients
-      without custom networking code.
-    depends_on: MCP-001
+      WebSocket transports. Enables browser-based and remote MCP clients.
+      ~50 lines once rmcp is in place. Requires design decisions on
+      ports, auth, TLS, CLI flags (forge mcp --transport sse --port 8081).
+    depends_on: "beta.3 complete"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPLETED

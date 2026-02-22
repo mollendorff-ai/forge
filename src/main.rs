@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use mollendorff_forge::api::{run_api_server, server::ApiConfig};
 use mollendorff_forge::cli;
 use mollendorff_forge::error::{ForgeError, ForgeResult};
-use mollendorff_forge::mcp::run_mcp_server_sync;
+use mollendorff_forge::mcp::ForgeMcpServer;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -1251,8 +1251,20 @@ fn main() -> ForgeResult<()> {
         Commands::Update { check, verbose } => cli::update(check, verbose),
 
         Commands::Mcp => {
-            run_mcp_server_sync();
-            Ok(())
+            let rt = tokio::runtime::Runtime::new()
+                .map_err(|e| ForgeError::Validation(format!("Failed to create runtime: {e}")))?;
+            rt.block_on(async {
+                use rmcp::{transport::io, ServiceExt};
+                let service = ForgeMcpServer::new()
+                    .serve(io::stdio())
+                    .await
+                    .map_err(|e| ForgeError::Validation(format!("MCP server error: {e}")))?;
+                service
+                    .waiting()
+                    .await
+                    .map_err(|e| ForgeError::Validation(format!("MCP server error: {e}")))?;
+                Ok(())
+            })
         },
 
         Commands::Serve { host, port } => {

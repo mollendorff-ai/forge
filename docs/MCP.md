@@ -2,6 +2,8 @@
 
 Forge implements the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) over stdin/stdout using JSON-RPC 2.0. This gives AI agents structured access to all 20 Forge tools.
 
+Forge uses [rmcp](https://github.com/anthropics/rust-mcp-sdk) (Anthropic's official Rust MCP SDK) for protocol handling. Tool definitions use typed request structs with automatic JSON schema generation. Additional transports (SSE, WebSocket) are planned for a future release.
+
 ## Quick Start
 
 ### Claude Desktop

@@ -139,10 +139,16 @@ jobs:
       - name: MCP smoke test
         run: |
           chmod +x ./forge
-          printf '%s\n%s\n' \
-            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1.0"}}}' \
-            '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
-          | timeout 10 ./forge mcp > mcp-output.txt 2>/dev/null || true
+          # rmcp requires notifications/initialized after initialize, and needs
+          # inter-message delays so stdin doesn't close before processing completes
+          (
+            printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1.0"}}}'
+            sleep 0.2
+            printf '%s\n' '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+            sleep 0.1
+            printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+            sleep 0.5
+          ) | timeout 10 ./forge mcp > mcp-output.txt 2>/dev/null || true
 
           echo "=== MCP stdout ==="
           cat mcp-output.txt
