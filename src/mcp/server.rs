@@ -14,12 +14,16 @@ use serde::{Deserialize, Serialize};
 #[cfg(any(not(coverage), test))]
 use serde_json::{json, Value};
 
-// CLI imports only used by non-coverage builds and tests
+// Core function imports (return structured results, no printing)
 #[cfg(any(not(coverage), test))]
 use crate::cli::{
-    audit, break_even, calculate, compare, export, goal_seek, import, sensitivity, validate,
-    variance,
+    audit_core, bayesian_core, bootstrap_core, compare_core, decision_tree_core, examples_core,
+    export_core, functions_core, goal_seek_core, import_core, real_options_core, scenarios_core,
+    schema_core, sensitivity_core, simulate_core, tornado_core, validate_core, variance_core,
 };
+// calculate_core is in cli::commands::mod, accessed via crate::cli
+#[cfg(any(not(coverage), test))]
+use crate::cli::calculate_core;
 
 /// JSON-RPC request
 #[cfg(any(not(coverage), test))]
@@ -144,7 +148,7 @@ fn handle_request(request: &JsonRpcRequest) -> Option<JsonRpcResponse> {
                     "name": "forge",
                     "version": env!("CARGO_PKG_VERSION")
                 },
-                "instructions": "Forge MCP Server v3.0.0 - AI-Finance integration. Zero tokens. Zero emissions. Validate models, calculate formulas, sensitivity analysis, goal-seek, break-even, variance analysis, scenario comparison. 60+ Excel functions including NPV, IRR, PMT, XNPV, XIRR. 96K rows/sec performance."
+                "instructions": "Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 173 Excel-compatible functions. All tools return structured JSON."
             })),
             error: None,
         }),
@@ -438,6 +442,185 @@ fn get_tools() -> Vec<Tool> {
                 "required": ["file_path", "scenarios"]
             }),
         },
+        // v10.0.0-beta.1 Analysis Tools
+        Tool {
+            name: "forge_simulate".to_string(),
+            description: "Run Monte Carlo simulation with probabilistic distributions (MC.Normal, MC.Triangular, MC.Uniform, MC.PERT, MC.Lognormal). Returns statistics, percentiles, and threshold probabilities.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to YAML model with monte_carlo config and MC.* distribution formulas"
+                    },
+                    "iterations": {
+                        "type": "integer",
+                        "description": "Number of simulation iterations (default: from YAML config or 10000)"
+                    },
+                    "seed": {
+                        "type": "integer",
+                        "description": "Random seed for reproducibility"
+                    },
+                    "sampling": {
+                        "type": "string",
+                        "description": "Sampling method: 'random' or 'latin_hypercube' (default: from config)"
+                    }
+                },
+                "required": ["file_path"]
+            }),
+        },
+        Tool {
+            name: "forge_scenarios".to_string(),
+            description: "Run probability-weighted scenario analysis (Base/Bull/Bear). Each scenario overrides scalar values and calculates results.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to YAML model with 'scenarios' section"
+                    },
+                    "scenario_filter": {
+                        "type": "string",
+                        "description": "Optional: run only this named scenario"
+                    }
+                },
+                "required": ["file_path"]
+            }),
+        },
+        Tool {
+            name: "forge_decision_tree".to_string(),
+            description: "Analyze decision trees using backward induction. Returns optimal path, expected value, decision policy, and risk profile.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to YAML model with 'decision_tree' section"
+                    }
+                },
+                "required": ["file_path"]
+            }),
+        },
+        Tool {
+            name: "forge_real_options".to_string(),
+            description: "Value managerial flexibility (defer/expand/abandon) using real options pricing. Returns option values, exercise probabilities, and project value with options.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to YAML model with 'real_options' section"
+                    }
+                },
+                "required": ["file_path"]
+            }),
+        },
+        Tool {
+            name: "forge_tornado".to_string(),
+            description: "Generate tornado sensitivity diagram. Varies each input one-at-a-time to show which inputs have the greatest impact on the output.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to YAML model with 'tornado' section"
+                    },
+                    "output_var": {
+                        "type": "string",
+                        "description": "Optional: override the output variable to analyze"
+                    }
+                },
+                "required": ["file_path"]
+            }),
+        },
+        Tool {
+            name: "forge_bootstrap".to_string(),
+            description: "Non-parametric bootstrap resampling for confidence intervals. Returns original estimate, bootstrap mean, std error, bias, and confidence intervals.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to YAML model with 'bootstrap' section containing data and config"
+                    },
+                    "iterations": {
+                        "type": "integer",
+                        "description": "Override number of bootstrap iterations"
+                    },
+                    "seed": {
+                        "type": "integer",
+                        "description": "Random seed for reproducibility"
+                    },
+                    "confidence_levels": {
+                        "type": "array",
+                        "items": { "type": "number" },
+                        "description": "Override confidence levels (e.g., [0.90, 0.95, 0.99])"
+                    }
+                },
+                "required": ["file_path"]
+            }),
+        },
+        Tool {
+            name: "forge_bayesian".to_string(),
+            description: "Bayesian network inference. Query posterior probabilities with optional evidence. Returns probability distributions for each variable state.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to YAML model with 'bayesian_network' section"
+                    },
+                    "query_var": {
+                        "type": "string",
+                        "description": "Optional: specific variable to query (omit for all nodes)"
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Evidence as 'variable=state' pairs (e.g., ['economy=growth', 'market=bull'])"
+                    }
+                },
+                "required": ["file_path"]
+            }),
+        },
+        // v10.0.0-beta.1 Discovery Tools
+        Tool {
+            name: "forge_schema".to_string(),
+            description: "Get JSON Schema for Forge YAML model formats. Use to understand the structure of valid Forge model files.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "version": {
+                        "type": "string",
+                        "description": "Schema version: 'v1' (scalar-only) or 'v5' (full enterprise with arrays, tables, Monte Carlo). Omit to list available versions."
+                    }
+                },
+                "required": []
+            }),
+        },
+        Tool {
+            name: "forge_functions".to_string(),
+            description: "List all 173 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.).".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "forge_examples".to_string(),
+            description: "Get runnable YAML examples for all Forge capabilities. Use without a name to list available examples, or specify a name to get the full YAML content.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Example name (e.g., 'monte-carlo', 'scenarios', 'decision-tree', 'real-options', 'tornado', 'bootstrap', 'bayesian', 'variance', 'breakeven'). Omit to list all."
+                    }
+                },
+                "required": []
+            }),
+        },
     ]
 }
 
@@ -453,12 +636,12 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
 
-            let path = Path::new(file_path).to_path_buf();
-            match validate(&[path]) {
-                Ok(()) => json!({
+            let path = Path::new(file_path);
+            match validate_core(path) {
+                Ok(result) => json!({
                     "content": [{
                         "type": "text",
-                        "text": format!("Validation successful for {}", file_path)
+                        "text": serde_json::to_string(&result).unwrap_or_default()
                     }],
                     "isError": false
                 }),
@@ -481,17 +664,13 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
 
-            let path = Path::new(file_path).to_path_buf();
+            let path = Path::new(file_path);
             let scenario = arguments.get("scenario").and_then(|v| v.as_str());
-            match calculate(&path, dry_run, false, scenario) {
-                Ok(()) => json!({
+            match calculate_core(path, dry_run, scenario) {
+                Ok(result) => json!({
                     "content": [{
                         "type": "text",
-                        "text": if dry_run {
-                            format!("Dry run completed for {file_path}")
-                        } else {
-                            format!("Calculation completed and file updated: {file_path}")
-                        }
+                        "text": serde_json::to_string(&result).unwrap_or_default()
                     }],
                     "isError": false
                 }),
@@ -514,12 +693,12 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
 
-            let path = Path::new(file_path).to_path_buf();
-            match audit(&path, variable) {
-                Ok(()) => json!({
+            let path = Path::new(file_path);
+            match audit_core(path, variable) {
+                Ok(result) => json!({
                     "content": [{
                         "type": "text",
-                        "text": format!("Audit completed for variable '{}' in {}", variable, file_path)
+                        "text": serde_json::to_string(&result).unwrap_or_default()
                     }],
                     "isError": false
                 }),
@@ -542,13 +721,13 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
 
-            let yaml = Path::new(yaml_path).to_path_buf();
-            let excel = Path::new(excel_path).to_path_buf();
-            match export(&yaml, &excel, false) {
-                Ok(()) => json!({
+            let yaml = Path::new(yaml_path);
+            let excel = Path::new(excel_path);
+            match export_core(yaml, excel) {
+                Ok(result) => json!({
                     "content": [{
                         "type": "text",
-                        "text": format!("Exported {} to {}", yaml_path, excel_path)
+                        "text": serde_json::to_string(&result).unwrap_or_default()
                     }],
                     "isError": false
                 }),
@@ -571,13 +750,13 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
 
-            let excel = Path::new(excel_path).to_path_buf();
-            let yaml = Path::new(yaml_path).to_path_buf();
-            match import(&excel, &yaml, false, false, false) {
-                Ok(()) => json!({
+            let excel = Path::new(excel_path);
+            let yaml = Path::new(yaml_path);
+            match import_core(excel, yaml, false, false) {
+                Ok(result) => json!({
                     "content": [{
                         "type": "text",
-                        "text": format!("Imported {} to {}", excel_path, yaml_path)
+                        "text": serde_json::to_string(&result).unwrap_or_default()
                     }],
                     "isError": false
                 }),
@@ -605,29 +784,15 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .get("output")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let vary2 = arguments
-                .get("vary2")
-                .and_then(|v| v.as_str())
-                .map(String::from);
-            let range2 = arguments
-                .get("range2")
-                .and_then(|v| v.as_str())
-                .map(String::from);
+            let vary2 = arguments.get("vary2").and_then(|v| v.as_str());
+            let range2 = arguments.get("range2").and_then(|v| v.as_str());
 
             let path = Path::new(file_path);
-            match sensitivity(
-                path,
-                vary,
-                range,
-                vary2.as_deref(),
-                range2.as_deref(),
-                output,
-                false,
-            ) {
-                Ok(()) => json!({
+            match sensitivity_core(path, vary, range, vary2, range2, output) {
+                Ok(result) => json!({
                     "content": [{
                         "type": "text",
-                        "text": format!("Sensitivity analysis completed for {} varying {} over {}", file_path, vary, range)
+                        "text": serde_json::to_string(&result).unwrap_or_default()
                     }],
                     "isError": false
                 }),
@@ -662,11 +827,11 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .unwrap_or(0.0001);
 
             let path = Path::new(file_path);
-            match goal_seek(path, target, value, vary, (min, max), tolerance, false) {
-                Ok(()) => json!({
+            match goal_seek_core(path, target, value, vary, (min, max), tolerance) {
+                Ok(result) => json!({
                     "content": [{
                         "type": "text",
-                        "text": format!("Goal seek completed: found {} value to achieve {} = {}", vary, target, value)
+                        "text": serde_json::to_string(&result).unwrap_or_default()
                     }],
                     "isError": false
                 }),
@@ -693,11 +858,11 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
             let max = arguments.get("max").and_then(serde_json::Value::as_f64);
 
             let path = Path::new(file_path);
-            match break_even(path, output, vary, min, max, false) {
-                Ok(()) => json!({
+            match goal_seek_core(path, output, 0.0, vary, (min, max), 0.0001) {
+                Ok(result) => json!({
                     "content": [{
                         "type": "text",
-                        "text": format!("Break-even analysis completed: found {} value where {} = 0", vary, output)
+                        "text": serde_json::to_string(&result).unwrap_or_default()
                     }],
                     "isError": false
                 }),
@@ -726,11 +891,11 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
 
             let budget = Path::new(budget_path);
             let actual = Path::new(actual_path);
-            match variance(budget, actual, threshold, None, false) {
-                Ok(()) => json!({
+            match variance_core(budget, actual, threshold) {
+                Ok(result) => json!({
                     "content": [{
                         "type": "text",
-                        "text": format!("Variance analysis completed: {} vs {} (threshold: {}%)", budget_path, actual_path, threshold)
+                        "text": serde_json::to_string(&result).unwrap_or_default()
                     }],
                     "isError": false
                 }),
@@ -759,11 +924,11 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                 .unwrap_or_default();
 
             let path = Path::new(file_path);
-            match compare(path, &scenarios, false) {
-                Ok(()) => json!({
+            match compare_core(path, &scenarios) {
+                Ok(result) => json!({
                     "content": [{
                         "type": "text",
-                        "text": format!("Scenario comparison completed for {}: {:?}", file_path, scenarios)
+                        "text": serde_json::to_string(&result).unwrap_or_default()
                     }],
                     "isError": false
                 }),
@@ -772,6 +937,207 @@ fn call_tool(name: &str, arguments: &Value) -> Value {
                         "type": "text",
                         "text": format!("Scenario comparison failed: {}", e)
                     }],
+                    "isError": true
+                }),
+            }
+        },
+        // v10.0.0-beta.1 Analysis Tools
+        "forge_simulate" => {
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            // MCP iteration counts are always small, saturating cast is safe
+            #[allow(clippy::cast_possible_truncation)]
+            let iterations = arguments
+                .get("iterations")
+                .and_then(serde_json::Value::as_u64)
+                .map(|n| n as usize);
+            let seed = arguments.get("seed").and_then(serde_json::Value::as_u64);
+            let sampling = arguments.get("sampling").and_then(|v| v.as_str());
+
+            let path = Path::new(file_path);
+            match simulate_core(path, iterations, seed, sampling) {
+                Ok(result) => {
+                    let text = result
+                        .to_json()
+                        .unwrap_or_else(|e| format!("{{\"error\": \"{e}\"}}"));
+                    json!({
+                        "content": [{"type": "text", "text": text}],
+                        "isError": false
+                    })
+                },
+                Err(e) => json!({
+                    "content": [{"type": "text", "text": format!("Simulation failed: {}", e)}],
+                    "isError": true
+                }),
+            }
+        },
+        "forge_scenarios" => {
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let scenario_filter = arguments.get("scenario_filter").and_then(|v| v.as_str());
+
+            let path = Path::new(file_path);
+            match scenarios_core(path, scenario_filter) {
+                Ok(result) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string(&result).unwrap_or_default()}],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{"type": "text", "text": format!("Scenario analysis failed: {}", e)}],
+                    "isError": true
+                }),
+            }
+        },
+        "forge_decision_tree" => {
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            let path = Path::new(file_path);
+            match decision_tree_core(path) {
+                Ok(result) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string(&result).unwrap_or_default()}],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{"type": "text", "text": format!("Decision tree analysis failed: {}", e)}],
+                    "isError": true
+                }),
+            }
+        },
+        "forge_real_options" => {
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            let path = Path::new(file_path);
+            match real_options_core(path) {
+                Ok(result) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string(&result).unwrap_or_default()}],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{"type": "text", "text": format!("Real options analysis failed: {}", e)}],
+                    "isError": true
+                }),
+            }
+        },
+        "forge_tornado" => {
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let output_var = arguments.get("output_var").and_then(|v| v.as_str());
+
+            let path = Path::new(file_path);
+            match tornado_core(path, output_var) {
+                Ok(result) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string(&result).unwrap_or_default()}],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{"type": "text", "text": format!("Tornado analysis failed: {}", e)}],
+                    "isError": true
+                }),
+            }
+        },
+        "forge_bootstrap" => {
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            #[allow(clippy::cast_possible_truncation)]
+            let iterations = arguments
+                .get("iterations")
+                .and_then(serde_json::Value::as_u64)
+                .map(|n| n as usize);
+            let seed = arguments.get("seed").and_then(serde_json::Value::as_u64);
+            let confidence_levels: Option<Vec<f64>> = arguments
+                .get("confidence_levels")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(serde_json::Value::as_f64).collect());
+
+            let path = Path::new(file_path);
+            match bootstrap_core(path, iterations, seed, confidence_levels) {
+                Ok(result) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string(&result).unwrap_or_default()}],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{"type": "text", "text": format!("Bootstrap analysis failed: {}", e)}],
+                    "isError": true
+                }),
+            }
+        },
+        "forge_bayesian" => {
+            let file_path = arguments
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let query_var = arguments.get("query_var").and_then(|v| v.as_str());
+            let evidence: Vec<String> = arguments
+                .get("evidence")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            let path = Path::new(file_path);
+            match bayesian_core(path, query_var, &evidence) {
+                Ok(result) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string(&result).unwrap_or_default()}],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{"type": "text", "text": format!("Bayesian inference failed: {}", e)}],
+                    "isError": true
+                }),
+            }
+        },
+        // v10.0.0-beta.1 Discovery Tools
+        "forge_schema" => {
+            let version = arguments.get("version").and_then(|v| v.as_str());
+
+            match schema_core(version) {
+                Ok(text) => json!({
+                    "content": [{"type": "text", "text": text}],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{"type": "text", "text": format!("Schema error: {}", e)}],
+                    "isError": true
+                }),
+            }
+        },
+        "forge_functions" => match functions_core() {
+            Ok(result) => json!({
+                "content": [{"type": "text", "text": serde_json::to_string(&result).unwrap_or_default()}],
+                "isError": false
+            }),
+            Err(e) => json!({
+                "content": [{"type": "text", "text": format!("Functions list failed: {}", e)}],
+                "isError": true
+            }),
+        },
+        "forge_examples" => {
+            let name = arguments.get("name").and_then(|v| v.as_str());
+
+            match examples_core(name) {
+                Ok(result) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string(&result).unwrap_or_default()}],
+                    "isError": false
+                }),
+                Err(e) => json!({
+                    "content": [{"type": "text", "text": format!("Examples error: {}", e)}],
                     "isError": true
                 }),
             }
@@ -857,7 +1223,7 @@ mod tests {
 
         let result = response.result.unwrap();
         let tools = result["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 10); // 5 core + 5 financial analysis tools
+        assert_eq!(tools.len(), 20); // 5 core + 5 financial + 7 analysis + 3 discovery
 
         // Check tool names - core tools
         let tool_names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
@@ -930,7 +1296,7 @@ mod tests {
     #[test]
     fn test_get_tools_has_correct_schemas() {
         let tools = get_tools();
-        assert_eq!(tools.len(), 10); // 5 core + 5 financial analysis tools
+        assert_eq!(tools.len(), 20); // 5 core + 5 financial + 7 analysis + 3 discovery
 
         // Validate forge_validate schema
         let validate_tool = tools.iter().find(|t| t.name == "forge_validate").unwrap();
@@ -1161,6 +1527,253 @@ mod tests {
         // May fail with no scenarios
         let text = result["content"][0]["text"].as_str().unwrap();
         assert!(!text.contains("Unknown tool"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // v10.0.0-beta.1 ANALYSIS TOOL TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_call_tool_simulate() {
+        let dir = TempDir::new().unwrap();
+        let file = dir.path().join("mc.yaml");
+        std::fs::write(
+            &file,
+            r#"
+_forge_version: "5.0.0"
+monte_carlo:
+  enabled: true
+  iterations: 100
+  seed: 42
+  outputs:
+    - variable: revenue
+      percentiles: [50]
+scalars:
+  revenue:
+    value: 100000
+    formula: "=MC.Normal(100000, 15000)"
+"#,
+        )
+        .unwrap();
+
+        let result = call_tool(
+            "forge_simulate",
+            &json!({"file_path": file.to_str().unwrap()}),
+        );
+        assert!(
+            !result["isError"].as_bool().unwrap_or(true),
+            "simulate error: {}",
+            result["content"][0]["text"]
+        );
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert!(
+            parsed["monte_carlo_results"]["iterations"]
+                .as_u64()
+                .unwrap()
+                > 0
+        );
+    }
+
+    #[test]
+    fn test_call_tool_simulate_nonexistent() {
+        let result = call_tool("forge_simulate", &json!({"file_path": "nonexistent.yaml"}));
+        assert!(result["isError"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_call_tool_scenarios_dispatch() {
+        // Test tool dispatch and argument parsing — no valid scenario fixture
+        let result = call_tool(
+            "forge_scenarios",
+            &json!({"file_path": "test-data/budget.yaml"}),
+        );
+        // budget.yaml has no scenarios section, should return an error (not "Unknown tool")
+        assert!(result["isError"].as_bool().unwrap());
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("scenarios"));
+        assert!(!text.contains("Unknown tool"));
+    }
+
+    #[test]
+    fn test_call_tool_scenarios_nonexistent() {
+        let result = call_tool("forge_scenarios", &json!({"file_path": "nonexistent.yaml"}));
+        assert!(result["isError"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_call_tool_decision_tree() {
+        let result = call_tool(
+            "forge_decision_tree",
+            &json!({"file_path": "examples/decision-tree.yaml"}),
+        );
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert!(parsed["optimal_path"].as_array().is_some());
+    }
+
+    #[test]
+    fn test_call_tool_real_options() {
+        let result = call_tool(
+            "forge_real_options",
+            &json!({"file_path": "examples/real-options.yaml"}),
+        );
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert!(parsed["total_option_value"].as_f64().is_some());
+    }
+
+    #[test]
+    fn test_call_tool_tornado() {
+        let result = call_tool(
+            "forge_tornado",
+            &json!({"file_path": "examples/tornado.yaml"}),
+        );
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert!(parsed["base_value"].as_f64().is_some());
+    }
+
+    #[test]
+    fn test_call_tool_bootstrap() {
+        let result = call_tool(
+            "forge_bootstrap",
+            &json!({"file_path": "examples/bootstrap.yaml", "seed": 42}),
+        );
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert!(parsed["original_estimate"].as_f64().is_some());
+    }
+
+    #[test]
+    fn test_call_tool_bayesian_dispatch() {
+        // Test tool dispatch — budget.yaml has no bayesian_network section
+        let result = call_tool(
+            "forge_bayesian",
+            &json!({"file_path": "test-data/budget.yaml"}),
+        );
+        assert!(result["isError"].as_bool().unwrap());
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("bayesian_network"));
+        assert!(!text.contains("Unknown tool"));
+    }
+
+    #[test]
+    fn test_call_tool_bayesian_with_evidence_dispatch() {
+        let result = call_tool(
+            "forge_bayesian",
+            &json!({
+                "file_path": "test-data/budget.yaml",
+                "evidence": ["economy=growth"]
+            }),
+        );
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(!text.contains("Unknown tool"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // v10.0.0-beta.1 DISCOVERY TOOL TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_call_tool_schema_v5() {
+        let result = call_tool("forge_schema", &json!({"version": "v5"}));
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("$schema"));
+    }
+
+    #[test]
+    fn test_call_tool_schema_v1() {
+        let result = call_tool("forge_schema", &json!({"version": "v1"}));
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+    }
+
+    #[test]
+    fn test_call_tool_schema_list() {
+        let result = call_tool("forge_schema", &json!({}));
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+        let text = result["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("available_versions"));
+    }
+
+    #[test]
+    fn test_call_tool_schema_invalid() {
+        let result = call_tool("forge_schema", &json!({"version": "v99"}));
+        assert!(result["isError"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_call_tool_functions() {
+        let result = call_tool("forge_functions", &json!({}));
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert_eq!(parsed["edition"], "enterprise");
+        assert!(parsed["total"].as_u64().unwrap() >= 170);
+    }
+
+    #[test]
+    fn test_call_tool_examples_list() {
+        let result = call_tool("forge_examples", &json!({}));
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert!(parsed.as_array().is_some_and(|a| a.len() >= 9));
+    }
+
+    #[test]
+    fn test_call_tool_examples_specific() {
+        let result = call_tool("forge_examples", &json!({"name": "monte-carlo"}));
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert_eq!(parsed["name"], "monte-carlo");
+        assert!(parsed["content"]
+            .as_str()
+            .is_some_and(|c| c.contains("monte_carlo")));
+    }
+
+    #[test]
+    fn test_call_tool_examples_unknown() {
+        let result = call_tool("forge_examples", &json!({"name": "nonexistent"}));
+        assert!(result["isError"].as_bool().unwrap());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STRUCTURED RESULT VERIFICATION TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_validate_returns_structured_json() {
+        let result = call_tool(
+            "forge_validate",
+            &json!({"file_path": "test-data/budget.yaml"}),
+        );
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert!(parsed.get("tables_valid").is_some());
+        assert!(parsed.get("scalars_valid").is_some());
+        assert!(parsed.get("table_count").is_some());
+    }
+
+    #[test]
+    fn test_calculate_returns_structured_json() {
+        let result = call_tool(
+            "forge_calculate",
+            &json!({"file_path": "test-data/budget.yaml", "dry_run": true}),
+        );
+        assert!(!result["isError"].as_bool().unwrap_or(true));
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert!(parsed.get("tables").is_some());
+        assert!(parsed.get("scalars").is_some());
+        assert_eq!(parsed["dry_run"], true);
     }
 
     // ═══════════════════════════════════════════════════════════════════════

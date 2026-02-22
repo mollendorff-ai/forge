@@ -1,11 +1,36 @@
 //! Schema command - display JSON schemas for Forge model formats
 
-use crate::error::ForgeResult;
+use crate::error::{ForgeError, ForgeResult};
 use colored::Colorize;
 
 /// Embedded JSON schemas (compile-time)
 const SCHEMA_V1: &str = include_str!("../../../schema/forge-v1.0.0.schema.json");
 const SCHEMA_V5: &str = include_str!("../../../schema/forge-v5.0.0.schema.json");
+
+/// Return a JSON schema as a string (no printing).
+///
+/// # Errors
+///
+/// Returns an error if an unsupported schema version is requested.
+pub fn schema_core(version: Option<&str>) -> ForgeResult<String> {
+    match version {
+        Some("v1" | "v1.0.0" | "1" | "1.0.0") => Ok(SCHEMA_V1.to_string()),
+        Some("v5" | "v5.0.0" | "5" | "5.0.0") => Ok(SCHEMA_V5.to_string()),
+        Some(v) => Err(ForgeError::Validation(format!(
+            "Unknown schema version '{v}'. Use 'v1' or 'v5'."
+        ))),
+        None => {
+            // Return list of available versions as JSON
+            Ok(serde_json::json!({
+                "available_versions": [
+                    {"version": "v1.0.0", "description": "Scalar-only models (simple key-value pairs)"},
+                    {"version": "v5.0.0", "description": "Full enterprise support (arrays, tables, Monte Carlo, etc.)"}
+                ]
+            })
+            .to_string())
+        },
+    }
+}
 
 /// Display JSON schema for Forge model formats.
 ///

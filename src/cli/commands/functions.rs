@@ -8,6 +8,43 @@ use crate::functions::registry::{self, Category, FunctionDef};
 use colored::Colorize;
 use std::collections::BTreeMap;
 
+/// Return function catalog as a JSON value (no printing).
+///
+/// # Errors
+///
+/// This function is infallible but returns `ForgeResult` for API consistency.
+pub fn functions_core() -> ForgeResult<serde_json::Value> {
+    let all_functions: Vec<&FunctionDef> = registry::enterprise_functions().collect();
+    let total = all_functions.len();
+
+    let mut by_category: BTreeMap<String, Vec<&FunctionDef>> = BTreeMap::new();
+    for func in &all_functions {
+        by_category
+            .entry(func.category.to_string())
+            .or_default()
+            .push(func);
+    }
+
+    Ok(serde_json::json!({
+        "total": total,
+        "edition": "enterprise",
+        "categories": by_category.iter().map(|(name, funcs)| {
+            serde_json::json!({
+                "name": name,
+                "count": funcs.len(),
+                "functions": funcs.iter().map(|f| {
+                    serde_json::json!({
+                        "name": f.name,
+                        "description": f.description,
+                        "syntax": f.syntax,
+                        "scalar": f.scalar
+                    })
+                }).collect::<Vec<_>>()
+            })
+        }).collect::<Vec<_>>()
+    }))
+}
+
 /// Execute the functions command - list all supported Excel-compatible functions.
 ///
 /// # Errors

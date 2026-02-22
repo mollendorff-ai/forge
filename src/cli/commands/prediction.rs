@@ -21,6 +21,232 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Run scenario analysis and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no scenarios section exists,
+/// or the scenario engine fails.
+pub fn scenarios_core(
+    file: &Path,
+    scenario_filter: Option<&str>,
+) -> ForgeResult<crate::scenarios::ScenarioResults> {
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let model = parser::parse_model(file)?;
+
+    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
+
+    let config: ScenarioConfig = if let Some(scenarios_value) = value.get("scenarios") {
+        let scenarios_map: HashMap<String, serde_yaml_ng::Value> =
+            serde_yaml_ng::from_value(scenarios_value.clone())
+                .map_err(|e| ForgeError::Validation(format!("scenarios config error: {e}")))?;
+
+        let mut config = ScenarioConfig::default();
+        for (name, def) in scenarios_map {
+            let scenario_def = serde_yaml_ng::from_value(def)
+                .map_err(|e| ForgeError::Validation(format!("scenario '{name}' error: {e}")))?;
+            config.scenarios.insert(name, scenario_def);
+        }
+        config
+    } else {
+        return Err(ForgeError::Validation(
+            "No 'scenarios' section found in YAML".to_string(),
+        ));
+    };
+
+    let engine = ScenarioEngine::new(config, model).map_err(ForgeError::Validation)?;
+    let _ = scenario_filter; // filtering done in display, engine runs all
+    engine.run().map_err(ForgeError::Eval)
+}
+
+/// Analyze a decision tree and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no `decision_tree` section exists,
+/// or the analysis fails.
+pub fn decision_tree_core(file: &Path) -> ForgeResult<crate::decision_trees::TreeResult> {
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+
+    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
+
+    let config: DecisionTreeConfig = if let Some(dt_value) = value.get("decision_tree") {
+        serde_yaml_ng::from_value(dt_value.clone())
+            .map_err(|e| ForgeError::Validation(format!("decision_tree config error: {e}")))?
+    } else {
+        return Err(ForgeError::Validation(
+            "No 'decision_tree' section found in YAML".to_string(),
+        ));
+    };
+
+    let engine = DecisionTreeEngine::new(config).map_err(ForgeError::Validation)?;
+    engine.analyze().map_err(ForgeError::Eval)
+}
+
+/// Value real options and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no `real_options` section exists,
+/// or the analysis fails.
+pub fn real_options_core(file: &Path) -> ForgeResult<crate::real_options::OptionsResult> {
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+
+    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
+
+    let config: RealOptionsConfig = if let Some(ro_value) = value.get("real_options") {
+        serde_yaml_ng::from_value(ro_value.clone())
+            .map_err(|e| ForgeError::Validation(format!("real_options config error: {e}")))?
+    } else {
+        return Err(ForgeError::Validation(
+            "No 'real_options' section found in YAML".to_string(),
+        ));
+    };
+
+    let engine = RealOptionsEngine::new(config).map_err(ForgeError::Validation)?;
+    engine.analyze().map_err(ForgeError::Eval)
+}
+
+/// Generate tornado sensitivity analysis and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no tornado section exists,
+/// or the analysis fails.
+pub fn tornado_core(
+    file: &Path,
+    output_var: Option<&str>,
+) -> ForgeResult<crate::tornado::TornadoResult> {
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let model = parser::parse_model(file)?;
+
+    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
+
+    let mut config: TornadoConfig = if let Some(tornado_value) = value.get("tornado") {
+        serde_yaml_ng::from_value(tornado_value.clone())
+            .map_err(|e| ForgeError::Validation(format!("tornado config error: {e}")))?
+    } else {
+        return Err(ForgeError::Validation(
+            "No 'tornado' section found in YAML".to_string(),
+        ));
+    };
+
+    if let Some(out_var) = output_var {
+        config.output = out_var.to_string();
+    }
+
+    let engine = TornadoEngine::new(config, model).map_err(ForgeError::Validation)?;
+    engine.analyze().map_err(ForgeError::Eval)
+}
+
+/// Run bootstrap resampling and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no bootstrap section exists,
+/// or the analysis fails.
+pub fn bootstrap_core(
+    file: &Path,
+    iterations_override: Option<usize>,
+    seed_override: Option<u64>,
+    confidence_override: Option<Vec<f64>>,
+) -> ForgeResult<crate::bootstrap::BootstrapResult> {
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+
+    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
+
+    let mut config: BootstrapConfig = if let Some(bs_value) = value.get("bootstrap") {
+        serde_yaml_ng::from_value(bs_value.clone())
+            .map_err(|e| ForgeError::Validation(format!("bootstrap config error: {e}")))?
+    } else {
+        return Err(ForgeError::Validation(
+            "No 'bootstrap' section found in YAML".to_string(),
+        ));
+    };
+
+    if let Some(n) = iterations_override {
+        config.iterations = n;
+    }
+    if let Some(s) = seed_override {
+        config.seed = Some(s);
+    }
+    if let Some(levels) = confidence_override {
+        config.confidence_levels = levels;
+    }
+
+    let mut engine = BootstrapEngine::new(config).map_err(ForgeError::Validation)?;
+    engine.analyze().map_err(ForgeError::Eval)
+}
+
+/// Run Bayesian network inference and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, no `bayesian_network` section exists,
+/// or inference fails.
+pub fn bayesian_core(
+    file: &Path,
+    query_var: Option<&str>,
+    evidence: &[String],
+) -> ForgeResult<crate::bayesian::BayesianResult> {
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+
+    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
+
+    let config: BayesianConfig = if let Some(bn_value) = value.get("bayesian_network") {
+        serde_yaml_ng::from_value(bn_value.clone())
+            .map_err(|e| ForgeError::Validation(format!("bayesian_network config error: {e}")))?
+    } else {
+        return Err(ForgeError::Validation(
+            "No 'bayesian_network' section found in YAML".to_string(),
+        ));
+    };
+
+    let mut evidence_map: HashMap<String, &str> = HashMap::new();
+    for ev in evidence {
+        let parts: Vec<&str> = ev.split('=').collect();
+        if parts.len() == 2 {
+            evidence_map.insert(parts[0].to_string(), parts[1]);
+        }
+    }
+
+    let network_name = config.name.clone();
+    let engine = BayesianEngine::new(config).map_err(ForgeError::Validation)?;
+
+    if let Some(target) = query_var {
+        let var_result = if evidence_map.is_empty() {
+            engine.query(target).map_err(ForgeError::Eval)?
+        } else {
+            engine
+                .query_with_evidence(target, &evidence_map)
+                .map_err(ForgeError::Eval)?
+        };
+        Ok(crate::bayesian::BayesianResult {
+            name: network_name,
+            queries: std::iter::once((target.to_string(), var_result)).collect(),
+            evidence: evidence_map
+                .iter()
+                .map(|(k, v)| (k.clone(), (*v).to_string()))
+                .collect(),
+        })
+    } else {
+        let all_results = if evidence_map.is_empty() {
+            engine.query_all().map_err(ForgeError::Eval)?
+        } else {
+            engine
+                .query_all_with_evidence(&evidence_map)
+                .map_err(ForgeError::Eval)?
+        };
+        Ok(all_results)
+    }
+}
+
 /// Execute the scenarios command - probability-weighted scenario analysis
 ///
 /// # Errors

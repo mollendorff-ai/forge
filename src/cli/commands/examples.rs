@@ -82,6 +82,47 @@ const EXAMPLES: &[Example] = &[
     },
 ];
 
+/// Return examples as structured JSON (no printing).
+///
+/// If `name` is `Some`, returns the specific example's content.
+/// If `name` is `None`, returns the list of all available examples.
+///
+/// # Errors
+///
+/// Returns an error if the requested example name is not found.
+pub fn examples_core(name: Option<&str>) -> ForgeResult<serde_json::Value> {
+    if let Some(name) = name {
+        let example = EXAMPLES.iter().find(|e| e.name == name).ok_or_else(|| {
+            ForgeError::Validation(format!(
+                "Unknown example '{name}'. Available: {}",
+                EXAMPLES
+                    .iter()
+                    .map(|e| e.name)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ))
+        })?;
+        Ok(serde_json::json!({
+            "name": example.name,
+            "description": example.description,
+            "command": example.command,
+            "content": example.content
+        }))
+    } else {
+        let list: Vec<serde_json::Value> = EXAMPLES
+            .iter()
+            .map(|e| {
+                serde_json::json!({
+                    "name": e.name,
+                    "description": e.description,
+                    "command": e.command
+                })
+            })
+            .collect();
+        Ok(serde_json::json!(list))
+    }
+}
+
 /// Display example YAML models for Forge capabilities.
 ///
 /// # Errors

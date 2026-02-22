@@ -5,15 +5,79 @@
 # NEXT
 # ═══════════════════════════════════════════════════════════════════════════════
 
-next: []
+next:
+  # ── v10.0.0-beta.3 ── rmcp Migration ─────────────────────────────────────
+  - id: MCP-001
+    title: "Migrate from hand-rolled JSON-RPC to rmcp"
+    description: >
+      Replace the hand-rolled JSON-RPC stdin/stdout transport in
+      src/mcp/server.rs with rmcp (Anthropic's official Rust MCP SDK).
+      Eliminates custom protocol parsing, gains spec compliance for free.
+    blocks: [MCP-002, MCP-003]
+
+  - id: MCP-002
+    title: "Leverage rmcp typed tool definitions via derive macros"
+    description: >
+      Replace manual get_tools() JSON construction with rmcp's
+      #[tool] derive macros for type-safe tool definitions and
+      automatic input schema generation.
+    depends_on: MCP-001
+
+  - id: MCP-003
+    title: "Add transport abstraction (stdio + SSE/WebSocket support)"
+    description: >
+      Use rmcp's transport layer to support stdio (current), SSE, and
+      WebSocket transports. Enables browser-based and remote MCP clients
+      without custom networking code.
+    depends_on: MCP-001
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPLETED
+# ═══════════════════════════════════════════════════════════════════════════════
+
+completed:
+  # ── v10.0.0-beta.2 ── Documentation & CI/CD ────────────────────────────
+  - id: DOC-001
+    title: "Update README MCP section (10→20 tools)"
+  - id: DOC-002
+    title: "MCP integration guide (docs/MCP.md)"
+  - id: DOC-003
+    title: "Auto-generated function reference (docs/FUNCTIONS.md)"
+  - id: CI-001
+    title: "MCP protocol smoke test in CI"
+  - id: CI-002
+    title: "Coverage enforcement in CI"
+  - id: CI-003
+    title: "Dynamic badge infrastructure"
+  - id: CI-004
+    title: "Auto-generate FUNCTIONS.md in CI"
+  - id: DOC-004
+    title: "Update README badges to dynamic"
+  - id: META-001
+    title: "Roadmap + CHANGELOG + version bump"
+
+  # ── v10.0.0-beta.1 ── MCP Overhaul ──────────────────────────────────────
+  - id: BETA-001
+    title: "MCP stdout pollution — fix protocol-breaking bug"
+  - id: BETA-002
+    title: "MCP tools — add 7 missing Forge-native analysis engines"
+  - id: BETA-003
+    title: "MCP discovery tools — self-documenting server"
+  - id: BETA-004
+    title: "MCP rich schemas — YAML format examples in tool descriptions"
+  - id: BETA-005
+    title: "Unit tests for all new MCP tools"
+  - id: BETA-006
+    title: "ADR + CHANGELOG + --help updates"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # BACKLOG - Future ideas (unscheduled)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
+  - "Homebrew formula / cargo-binstall distribution"
   - "100% Coverage Enforcement (ADR-004/ADR-006 compliance)"
-  - "MCP/API Feature Parity + OpenAPI (17 endpoints, 17 MCP tools)"
+  - "API Feature Parity + OpenAPI (17 REST endpoints matching 17 MCP tools)"
   - "CLI Improvements: rename upgrade → migrate, restore update command"
   - "Game Theory Module - Nash equilibrium, IPD tournaments, Folk theorem, ESS"
   - "Performance - SIMD Vectorization (2-4x speedup on numeric-heavy workloads)"
@@ -24,6 +88,5 @@ backlog:
   - "Port edge cases from forge-e2e to inline Rust unit tests"
   - "INCLUDE Feature - Complete E2E Testing & Roundtrip Validation"
   - "Find external FOSS tool to validate Forge-native functions"
-  - "MCP server documentation"
   - "Performance benchmarks per function"
   - "FPGA acceleration for HFT (post-capitalization) - see ADR-026"

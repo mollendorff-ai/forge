@@ -1,0 +1,253 @@
+# Forge Function Reference
+
+> Auto-generated from `forge functions --json`. Do not edit manually.
+
+**173 functions** across 15 categories.
+
+## Advanced (3 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `LET` | Define variables | `=LET(name1, val1, name2, val2, ..., calc)` |
+| `LAMBDA` | Anonymous function | `=LAMBDA(param1, param2, ..., expression)` |
+| `SCENARIO` | Scenario lookup | `=SCENARIO(name)` |
+
+## Aggregation (14 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `SUM` | Sum of values | `=SUM(value1, value2, ...)` |
+| `AVERAGE` | Mean of values | `=AVERAGE(value1, value2, ...)` |
+| `AVG` | Alias for AVERAGE | `=AVG(value1, value2, ...)` |
+| `MIN` | Minimum value | `=MIN(value1, value2, ...)` |
+| `MAX` | Maximum value | `=MAX(value1, value2, ...)` |
+| `COUNT` | Count of numbers | `=COUNT(value1, value2, ...)` |
+| `COUNTA` | Count non-empty | `=COUNTA(value1, value2, ...)` |
+| `COUNTUNIQUE` | Count unique values | `=COUNTUNIQUE(value1, value2, ...)` |
+| `PRODUCT` | Product of values | `=PRODUCT(value1, value2, ...)` |
+| `LARGE` | Nth largest value | `=LARGE(array, n)` |
+| `SMALL` | Nth smallest value | `=SMALL(array, n)` |
+| `MAXIFS` | Max with conditions | `=MAXIFS(max_range, criteria_range, criteria)` |
+| `MINIFS` | Min with conditions | `=MINIFS(min_range, criteria_range, criteria)` |
+| `RANK.EQ` | Rank of value | `=RANK.EQ(value, array, order)` |
+
+## Array (5 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `UNIQUE` | Unique values | `=UNIQUE(array)` |
+| `FILTER` | Filter array | `=FILTER(array, include, if_empty)` |
+| `SORT` | Sort array | `=SORT(array, sort_index, order)` |
+| `SEQUENCE` | Generate sequence | `=SEQUENCE(rows, cols, start, step)` |
+| `RANDARRAY` | Random array | `=RANDARRAY(rows, cols, min, max)` |
+
+## Conditional (8 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `IFS` | Multiple conditions | `=IFS(cond1, val1, cond2, val2, ...)` |
+| `SWITCH` | Switch case | `=SWITCH(expr, case1, val1, case2, val2, ...)` |
+| `SUMIF` | Sum with condition | `=SUMIF(range, criteria, sum_range)` |
+| `SUMIFS` | Sum with conditions | `=SUMIFS(sum_range, range1, crit1, ...)` |
+| `COUNTIF` | Count with condition | `=COUNTIF(range, criteria)` |
+| `COUNTIFS` | Count with conditions | `=COUNTIFS(range1, crit1, range2, crit2, ...)` |
+| `AVERAGEIF` | Average with condition | `=AVERAGEIF(range, criteria, avg_range)` |
+| `AVERAGEIFS` | Average with conditions | `=AVERAGEIFS(avg_range, range1, crit1, ...)` |
+
+## Date (21 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `TODAY` | Current date | `=TODAY()` |
+| `DATE` | Create date | `=DATE(year, month, day)` |
+| `YEAR` | Extract year | `=YEAR(date)` |
+| `MONTH` | Extract month | `=MONTH(date)` |
+| `DAY` | Extract day | `=DAY(date)` |
+| `DATEDIF` | Date difference | `=DATEDIF(start, end, unit)` |
+| `NOW` | Current date and time | `=NOW()` |
+| `TIME` | Create time | `=TIME(hour, minute, second)` |
+| `HOUR` | Extract hour | `=HOUR(time)` |
+| `MINUTE` | Extract minute | `=MINUTE(time)` |
+| `SECOND` | Extract second | `=SECOND(time)` |
+| `WEEKDAY` | Day of week | `=WEEKDAY(date, type)` |
+| `DAYS` | Days between dates | `=DAYS(end_date, start_date)` |
+| `EDATE` | Add months to date | `=EDATE(date, months)` |
+| `EOMONTH` | End of month | `=EOMONTH(date, months)` |
+| `NETWORKDAYS` | Working days between | `=NETWORKDAYS(start, end, holidays)` |
+| `WORKDAY` | Add working days | `=WORKDAY(start, days, holidays)` |
+| `YEARFRAC` | Year fraction | `=YEARFRAC(start, end, basis)` |
+| `Y` | Years between (shorthand) | `=Y(start, end)` |
+| `M` | Months between (shorthand) | `=M(start, end)` |
+| `D` | Days between (shorthand) | `=D(start, end)` |
+
+## Financial (20 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `PMT` | Loan payment | `=PMT(rate, nper, pv, fv, type)` |
+| `PV` | Present value | `=PV(rate, nper, pmt, fv, type)` |
+| `FV` | Future value | `=FV(rate, nper, pmt, pv, type)` |
+| `NPV` | Net present value | `=NPV(rate, value1, value2, ...)` |
+| `IRR` | Internal rate of return | `=IRR(values, guess)` |
+| `MIRR` | Modified IRR | `=MIRR(values, finance_rate, reinvest_rate)` |
+| `XNPV` | NPV with dates | `=XNPV(rate, values, dates)` |
+| `XIRR` | IRR with dates | `=XIRR(values, dates, guess)` |
+| `NPER` | Number of periods | `=NPER(rate, pmt, pv, fv, type)` |
+| `RATE` | Interest rate | `=RATE(nper, pmt, pv, fv, type, guess)` |
+| `DB` | Declining balance depreciation | `=DB(cost, salvage, life, period, month)` |
+| `DDB` | Double declining balance | `=DDB(cost, salvage, life, period, factor)` |
+| `SLN` | Straight-line depreciation | `=SLN(cost, salvage, life)` |
+| `IPMT` | Interest payment | `=IPMT(rate, per, nper, pv, fv, type)` |
+| `PPMT` | Principal payment | `=PPMT(rate, per, nper, pv, fv, type)` |
+| `ACCRINT` | Accrued interest | `=ACCRINT(issue, first, settle, rate, par, freq)` |
+| `EFFECT` | Effective annual rate | `=EFFECT(nominal_rate, npery)` |
+| `NOMINAL` | Nominal annual rate | `=NOMINAL(effect_rate, npery)` |
+| `PRICEDISC` | Price of discounted security | `=PRICEDISC(settle, mature, discount, redemption)` |
+| `YIELDDISC` | Yield of discounted security | `=YIELDDISC(settle, mature, price, redemption)` |
+
+## Forge Native (8 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `VARIANCE` | Actual vs budget variance | `=VARIANCE(actual, budget)` |
+| `VARIANCE_PCT` | Variance percentage | `=VARIANCE_PCT(actual, budget)` |
+| `VARIANCE_STATUS` | Variance status | `=VARIANCE_STATUS(actual, budget)` |
+| `BREAKEVEN_UNITS` | Break-even units | `=BREAKEVEN_UNITS(fixed, price, variable)` |
+| `BREAKEVEN_REVENUE` | Break-even revenue | `=BREAKEVEN_REVENUE(fixed, margin_pct)` |
+| `YD` | Years and days since | `=YD(start, end)` |
+| `YM` | Years and months since | `=YM(start, end)` |
+| `MD` | Months and days since | `=MD(start, end)` |
+
+## Information (13 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `ISBLANK` | Is cell empty | `=ISBLANK(value)` |
+| `ISERROR` | Is error value | `=ISERROR(value)` |
+| `ISNA` | Is #N/A error | `=ISNA(value)` |
+| `ISNUMBER` | Is numeric | `=ISNUMBER(value)` |
+| `ISTEXT` | Is text | `=ISTEXT(value)` |
+| `ISLOGICAL` | Is boolean | `=ISLOGICAL(value)` |
+| `ISEVEN` | Is even number | `=ISEVEN(value)` |
+| `ISODD` | Is odd number | `=ISODD(value)` |
+| `ISREF` | Is reference | `=ISREF(value)` |
+| `ISFORMULA` | Is formula | `=ISFORMULA(value)` |
+| `NA` | Return #N/A | `=NA()` |
+| `TYPE` | Type of value | `=TYPE(value)` |
+| `N` | Convert to number | `=N(value)` |
+
+## Logical (9 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `IF` | Conditional value | `=IF(condition, true_value, false_value)` |
+| `AND` | All conditions true | `=AND(condition1, condition2, ...)` |
+| `OR` | Any condition true | `=OR(condition1, condition2, ...)` |
+| `NOT` | Negate condition | `=NOT(condition)` |
+| `IFERROR` | Handle errors | `=IFERROR(value, error_value)` |
+| `XOR` | Exclusive or | `=XOR(condition1, condition2, ...)` |
+| `IFNA` | Handle #N/A errors | `=IFNA(value, na_value)` |
+| `TRUE` | Boolean TRUE | `=TRUE()` |
+| `FALSE` | Boolean FALSE | `=FALSE()` |
+
+## Lookup (13 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `INDEX` | Value by position | `=INDEX(array, row, col)` |
+| `MATCH` | Find position | `=MATCH(lookup_value, array, type)` |
+| `CHOOSE` | Pick by index | `=CHOOSE(index, value1, value2, ...)` |
+| `VLOOKUP` | Vertical lookup | `=VLOOKUP(lookup, table, col, exact)` |
+| `HLOOKUP` | Horizontal lookup | `=HLOOKUP(lookup, table, row, exact)` |
+| `XLOOKUP` | Extended lookup | `=XLOOKUP(lookup, lookup_array, return_array, not_found)` |
+| `OFFSET` | Reference offset | `=OFFSET(ref, rows, cols, height, width)` |
+| `INDIRECT` | Reference from text | `=INDIRECT(ref_text)` |
+| `ADDRESS` | Cell address text | `=ADDRESS(row, col, abs_type)` |
+| `ROW` | Row number | `=ROW(reference)` |
+| `COLUMN` | Column number | `=COLUMN(reference)` |
+| `ROWS` | Number of rows | `=ROWS(array)` |
+| `COLUMNS` | Number of columns | `=COLUMNS(array)` |
+
+## Math (20 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `ABS` | Absolute value | `=ABS(value)` |
+| `SQRT` | Square root | `=SQRT(value)` |
+| `ROUND` | Round to decimals | `=ROUND(value, decimals)` |
+| `ROUNDUP` | Round up away from zero | `=ROUNDUP(value, decimals)` |
+| `ROUNDDOWN` | Round down toward zero | `=ROUNDDOWN(value, decimals)` |
+| `FLOOR` | Round down to multiple | `=FLOOR(value, significance)` |
+| `CEILING` | Round up to multiple | `=CEILING(value, significance)` |
+| `MOD` | Remainder after division | `=MOD(number, divisor)` |
+| `POWER` | Number raised to power | `=POWER(base, exponent)` |
+| `EXP` | e raised to power | `=EXP(value)` |
+| `LN` | Natural logarithm | `=LN(value)` |
+| `LOG10` | Base-10 logarithm | `=LOG10(value)` |
+| `INT` | Integer part | `=INT(value)` |
+| `SIGN` | Sign of number (-1, 0, 1) | `=SIGN(value)` |
+| `TRUNC` | Truncate to decimals | `=TRUNC(value, decimals)` |
+| `POW` | Alias for POWER | `=POW(base, exp)` |
+| `PI` | Pi constant | `=PI()` |
+| `E` | Euler's number | `=E()` |
+| `DEGREES` | Radians to degrees | `=DEGREES(radians)` |
+| `RADIANS` | Degrees to radians | `=RADIANS(degrees)` |
+
+## Monte Carlo (6 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `MC.Normal` | Normal (Gaussian) distribution | `=MC.Normal(mean, std_dev)` |
+| `MC.Triangular` | Triangular distribution | `=MC.Triangular(min, mode, max)` |
+| `MC.Uniform` | Uniform distribution | `=MC.Uniform(min, max)` |
+| `MC.PERT` | PERT distribution | `=MC.PERT(min, mode, max)` |
+| `MC.Lognormal` | Lognormal distribution | `=MC.Lognormal(mean, std_dev)` |
+| `MC.Discrete` | Discrete distribution | `=MC.Discrete(values, probabilities)` |
+
+## Statistical (8 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `MEDIAN` | Median value | `=MEDIAN(value1, value2, ...)` |
+| `VAR.S` | Sample variance | `=VAR.S(value1, value2, ...)` |
+| `VARP` | Population variance | `=VARP(value1, value2, ...)` |
+| `STDEV.S` | Sample std deviation | `=STDEV.S(value1, value2, ...)` |
+| `STDEVP` | Population std deviation | `=STDEVP(value1, value2, ...)` |
+| `PERCENTILE` | Percentile value | `=PERCENTILE(array, k)` |
+| `QUARTILE` | Quartile value | `=QUARTILE(array, quart)` |
+| `CORREL` | Correlation coefficient | `=CORREL(array1, array2)` |
+
+## Text (16 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `CONCAT` | Join strings | `=CONCAT(text1, text2, ...)` |
+| `CONCATENATE` | Alias for CONCAT | `=CONCATENATE(text1, text2, ...)` |
+| `LEFT` | Left characters | `=LEFT(text, num_chars)` |
+| `RIGHT` | Right characters | `=RIGHT(text, num_chars)` |
+| `MID` | Middle characters | `=MID(text, start, num_chars)` |
+| `LEN` | Text length | `=LEN(text)` |
+| `UPPER` | Uppercase text | `=UPPER(text)` |
+| `LOWER` | Lowercase text | `=LOWER(text)` |
+| `TRIM` | Remove extra spaces | `=TRIM(text)` |
+| `REPT` | Repeat text | `=REPT(text, times)` |
+| `TEXT` | Format number as text | `=TEXT(value, format)` |
+| `VALUE` | Convert text to number | `=VALUE(text)` |
+| `FIND` | Find text position | `=FIND(find_text, within_text, start)` |
+| `SEARCH` | Find text (case insensitive) | `=SEARCH(find_text, within_text, start)` |
+| `REPLACE` | Replace characters | `=REPLACE(text, start, num_chars, new_text)` |
+| `SUBSTITUTE` | Substitute text | `=SUBSTITUTE(text, old_text, new_text, instance)` |
+
+## Trigonometric (9 functions)
+
+| Function | Description | Syntax |
+|----------|-------------|--------|
+| `SIN` | Sine | `=SIN(angle)` |
+| `COS` | Cosine | `=COS(angle)` |
+| `TAN` | Tangent | `=TAN(angle)` |
+| `ASIN` | Arcsine | `=ASIN(value)` |
+| `ACOS` | Arccosine | `=ACOS(value)` |
+| `ATAN` | Arctangent | `=ATAN(value)` |
+| `SINH` | Hyperbolic sine | `=SINH(value)` |
+| `COSH` | Hyperbolic cosine | `=COSH(value)` |
+| `TANH` | Hyperbolic tangent | `=TANH(value)` |

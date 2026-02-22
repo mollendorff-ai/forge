@@ -22,6 +22,62 @@ pub struct VarianceResult {
     pub exceeds_threshold: bool,
 }
 
+/// Compare scenarios and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, a scenario does not exist,
+/// or calculation fails.
+pub fn compare_core(
+    file: &Path,
+    scenarios: &[String],
+) -> ForgeResult<super::results::ComparisonResult> {
+    use std::collections::HashMap;
+
+    let base_model = parser::parse_model(file)?;
+
+    for scenario_name in scenarios {
+        if !base_model.scenarios.contains_key(scenario_name) {
+            let available: Vec<_> = base_model.scenarios.keys().collect();
+            return Err(ForgeError::Validation(format!(
+                "Scenario '{scenario_name}' not found. Available: {available:?}"
+            )));
+        }
+    }
+
+    let mut results: Vec<(String, crate::types::ParsedModel)> = Vec::new();
+    for scenario_name in scenarios {
+        let mut model = base_model.clone();
+        apply_scenario(&mut model, scenario_name)?;
+        let calculator = ArrayCalculator::new(model);
+        let calculated = calculator.calculate_all()?;
+        results.push((scenario_name.clone(), calculated));
+    }
+
+    let mut all_scalars: Vec<String> = results
+        .iter()
+        .flat_map(|(_, m)| m.scalars.keys().cloned())
+        .collect();
+    all_scalars.sort();
+    all_scalars.dedup();
+
+    let mut values: HashMap<String, HashMap<String, Option<f64>>> = HashMap::new();
+    for scalar_name in &all_scalars {
+        let mut scenario_values = HashMap::new();
+        for (scenario_name, result_model) in &results {
+            let val = result_model.scalars.get(scalar_name).and_then(|v| v.value);
+            scenario_values.insert(scenario_name.clone(), val);
+        }
+        values.insert(scalar_name.clone(), scenario_values);
+    }
+
+    Ok(super::results::ComparisonResult {
+        scenarios: scenarios.to_vec(),
+        variables: all_scalars,
+        values,
+    })
+}
+
 /// Execute the compare command - compare results across scenarios
 ///
 /// # Errors
@@ -112,6 +168,53 @@ pub fn compare(file: &Path, scenarios: &[String], verbose: bool) -> ForgeResult<
     println!("\n{}", "✅ Comparison complete".bold().green());
 
     Ok(())
+}
+
+/// Compute variance analysis and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the budget or actual files cannot be parsed or calculation fails.
+pub fn variance_core(
+    budget_path: &Path,
+    actual_path: &Path,
+    threshold: f64,
+) -> ForgeResult<super::results::VarianceAnalysis> {
+    let budget_model = parser::parse_model(budget_path)?;
+    let actual_model = parser::parse_model(actual_path)?;
+
+    let budget_calculator = ArrayCalculator::new(budget_model);
+    let budget_result = budget_calculator.calculate_all()?;
+
+    let actual_calculator = ArrayCalculator::new(actual_model);
+    let actual_result = actual_calculator.calculate_all()?;
+
+    let variances = collect_variances(&budget_result, &actual_result, threshold);
+
+    let favorable_count = variances.iter().filter(|v| v.is_favorable).count();
+    let unfavorable_count = variances.len() - favorable_count;
+    let alert_count = variances.iter().filter(|v| v.exceeds_threshold).count();
+
+    let entries = variances
+        .into_iter()
+        .map(|v| super::results::VarianceEntry {
+            name: v.name,
+            budget: v.budget,
+            actual: v.actual,
+            variance: v.variance,
+            variance_pct: v.variance_pct,
+            is_favorable: v.is_favorable,
+            exceeds_threshold: v.exceeds_threshold,
+        })
+        .collect();
+
+    Ok(super::results::VarianceAnalysis {
+        results: entries,
+        favorable_count,
+        unfavorable_count,
+        alert_count,
+        threshold,
+    })
 }
 
 /// Execute the variance command - budget vs actual analysis
@@ -559,6 +662,95 @@ pub fn calculate_with_override(
     )
 }
 
+/// Run sensitivity analysis and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, variables are not found,
+/// ranges are invalid, or calculation fails.
+pub fn sensitivity_core(
+    file: &Path,
+    vary: &str,
+    range: &str,
+    vary2: Option<&str>,
+    range2: Option<&str>,
+    output: &str,
+) -> ForgeResult<super::results::SensitivityResult> {
+    let base_model = parser::parse_model(file)?;
+
+    if !base_model.scalars.contains_key(vary) {
+        return Err(ForgeError::Validation(format!(
+            "Variable '{}' not found. Available scalars: {:?}",
+            vary,
+            base_model.scalars.keys().collect::<Vec<_>>()
+        )));
+    }
+
+    let values1 = parse_range(range)?;
+
+    let data = if let (Some(v2), Some(r2)) = (vary2, range2) {
+        if !base_model.scalars.contains_key(v2) {
+            return Err(ForgeError::Validation(format!(
+                "Variable '{}' not found. Available scalars: {:?}",
+                v2,
+                base_model.scalars.keys().collect::<Vec<_>>()
+            )));
+        }
+        let values2 = parse_range(r2)?;
+        let mut matrix = Vec::new();
+        for val1 in &values1 {
+            let mut row = Vec::new();
+            for val2 in &values2 {
+                let mut model = base_model.clone();
+                if let Some(s) = model.scalars.get_mut(vary) {
+                    s.value = Some(*val1);
+                    s.formula = None;
+                }
+                if let Some(s) = model.scalars.get_mut(v2) {
+                    s.value = Some(*val2);
+                    s.formula = None;
+                }
+                let calculator = ArrayCalculator::new(model);
+                let cell = match calculator.calculate_all() {
+                    Ok(result) => result.scalars.get(output).and_then(|s| s.value),
+                    Err(_) => None,
+                };
+                row.push(cell);
+            }
+            matrix.push(row);
+        }
+        super::results::SensitivityData::TwoVar {
+            vary2: v2.to_string(),
+            row_values: values1,
+            col_values: values2,
+            matrix,
+        }
+    } else {
+        let mut entries = Vec::new();
+        for val in &values1 {
+            match calculate_with_override(&base_model, vary, *val, output) {
+                Ok(result) => entries.push(super::results::SensitivityEntry {
+                    input: *val,
+                    output: Some(result),
+                    error: None,
+                }),
+                Err(e) => entries.push(super::results::SensitivityEntry {
+                    input: *val,
+                    output: None,
+                    error: Some(e.to_string()),
+                }),
+            }
+        }
+        super::results::SensitivityData::OneVar { entries }
+    };
+
+    Ok(super::results::SensitivityResult {
+        vary: vary.to_string(),
+        output: output.to_string(),
+        data,
+    })
+}
+
 /// Execute the sensitivity command
 ///
 /// # Errors
@@ -648,6 +840,137 @@ pub fn sensitivity(
 
     println!("\n{}", "✅ Sensitivity analysis complete".bold().green());
     Ok(())
+}
+
+/// Run goal-seek and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, variables are not found,
+/// or no solution exists in the search range.
+pub fn goal_seek_core(
+    file: &Path,
+    target: &str,
+    value: f64,
+    vary: &str,
+    bounds: (Option<f64>, Option<f64>),
+    tolerance: f64,
+) -> ForgeResult<super::results::GoalSeekResult> {
+    let (min, max) = bounds;
+    let base_model = parser::parse_model(file)?;
+
+    if !base_model.scalars.contains_key(vary) {
+        return Err(ForgeError::Validation(format!(
+            "Variable '{}' not found. Available scalars: {:?}",
+            vary,
+            base_model.scalars.keys().collect::<Vec<_>>()
+        )));
+    }
+
+    let current_value = base_model
+        .scalars
+        .get(vary)
+        .and_then(|s| s.value)
+        .unwrap_or(1.0);
+
+    let lower = min.unwrap_or_else(|| {
+        if current_value > 0.0 {
+            current_value * 0.01
+        } else if current_value < 0.0 {
+            current_value * 100.0
+        } else {
+            -1000.0
+        }
+    });
+    let upper = max.unwrap_or(if current_value > 0.0 {
+        current_value * 100.0
+    } else if current_value < 0.0 {
+        current_value * 0.01
+    } else {
+        1000.0
+    });
+
+    let mut low = lower;
+    let mut high = upper;
+
+    let f_low = calculate_with_override(&base_model, vary, low, target)? - value;
+    let f_high = calculate_with_override(&base_model, vary, high, target)? - value;
+
+    if f_low * f_high > 0.0 {
+        let expanded = expand_search_range_quiet(&base_model, vary, target, value, lower, upper)?;
+        low = expanded.0;
+        high = expanded.1;
+    }
+
+    let max_iterations = 100;
+    let mut mid = f64::midpoint(low, high);
+    let mut iteration = 0;
+
+    while (high - low) > tolerance && iteration < max_iterations {
+        mid = f64::midpoint(low, high);
+        let f_mid = calculate_with_override(&base_model, vary, mid, target)? - value;
+        let f_low_check = calculate_with_override(&base_model, vary, low, target)? - value;
+
+        if f_mid.abs() < tolerance {
+            break;
+        }
+
+        if f_low_check * f_mid < 0.0 {
+            high = mid;
+        } else {
+            low = mid;
+        }
+
+        iteration += 1;
+    }
+
+    let final_value = calculate_with_override(&base_model, vary, mid, target)?;
+    let error = (final_value - value).abs();
+
+    Ok(super::results::GoalSeekResult {
+        vary: vary.to_string(),
+        target: target.to_string(),
+        target_value: value,
+        solution: mid,
+        achieved: final_value,
+        error,
+        iterations: iteration,
+        converged: error < tolerance,
+    })
+}
+
+/// Expand search range without printing (for core function)
+fn expand_search_range_quiet(
+    base_model: &crate::types::ParsedModel,
+    vary: &str,
+    target: &str,
+    value: f64,
+    lower: f64,
+    upper: f64,
+) -> ForgeResult<(f64, f64)> {
+    for factor in [10.0, 100.0, 1000.0] {
+        let exp_low = if lower > 0.0 {
+            lower / factor
+        } else {
+            lower * factor
+        };
+        let exp_high = if upper > 0.0 {
+            upper * factor
+        } else {
+            upper / factor
+        };
+
+        let f_exp_low = calculate_with_override(base_model, vary, exp_low, target)? - value;
+        let f_exp_high = calculate_with_override(base_model, vary, exp_high, target)? - value;
+
+        if f_exp_low * f_exp_high <= 0.0 {
+            return Ok((exp_low, exp_high));
+        }
+    }
+
+    Err(ForgeError::Validation(format!(
+        "No solution found in search range. The target value {value} may not be achievable by varying '{vary}'."
+    )))
 }
 
 /// Execute the goal-seek command

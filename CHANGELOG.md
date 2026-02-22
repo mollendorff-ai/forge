@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-beta.2] - 2026-02-22
+
+### Added
+- **MCP integration guide** (`docs/MCP.md`): Setup for Claude Desktop/Code, 20-tool reference, workflows
+- **Function reference** (`docs/FUNCTIONS.md`): Auto-generated reference for all 173 functions
+- **MCP smoke test in CI**: Validates JSON-RPC protocol compliance and 20-tool count
+- **Coverage CI job**: `cargo-llvm-cov` with dynamic badge (enforces ADR-004)
+- **Dynamic badges**: Test count, coverage, and function count auto-updated by CI
+- **Auto-generate FUNCTIONS.md**: CI commits updated reference on every push to main
+
+### Changed
+- **README MCP section**: Updated from 10 to 20 tools, removed outdated "CLI-only" note
+- **README badges**: Static → dynamic gist-based shields.io endpoints
+
+## [10.0.0-beta.1] - 2026-02-22
+
+### Fixed
+
+- **MCP stdout pollution**: Extracted `*_core()` functions from all CLI commands to eliminate `println!()` in JSON-RPC transport. MCP server now calls core functions that return structured result types, keeping the stdin/stdout protocol clean. (ADR-047)
+
+### Added
+
+- **7 MCP analysis tools**: `forge_simulate`, `forge_scenarios`, `forge_decision_tree`, `forge_real_options`, `forge_tornado`, `forge_bootstrap`, `forge_bayesian` — all 7 prediction engines now accessible to AI agents via MCP
+- **3 MCP discovery tools**: `forge_schema`, `forge_functions`, `forge_examples` — AI agents can now query available functions, JSON schemas, and runnable examples
+- **ADR-047**: Dual CLI/MCP Output Architecture documenting the core extraction pattern
+
+### Changed
+
+- **MCP tools return structured JSON**: All 20 MCP tools now return typed, serializable result structs instead of formatted text, enabling programmatic use by AI agents
+- **MCP tool count**: 10 tools → 20 tools (10 existing + 7 analysis + 3 discovery)
+
 ## [10.0.0-alpha.12] - 2026-02-16
 
 ### Open Source Release

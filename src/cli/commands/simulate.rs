@@ -11,6 +11,69 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Run Monte Carlo simulation and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the YAML file cannot be parsed, the Monte Carlo
+/// configuration is invalid, or the simulation fails.
+pub fn simulate_core(
+    file: &Path,
+    iterations_override: Option<usize>,
+    seed_override: Option<u64>,
+    sampling_override: Option<&str>,
+) -> ForgeResult<crate::monte_carlo::SimulationResult> {
+    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let mut config = parse_monte_carlo_config(&yaml_content)?;
+
+    if let Some(n) = iterations_override {
+        config.iterations = n;
+    }
+    if let Some(s) = seed_override {
+        config.seed = Some(s);
+    }
+    if let Some(sampling) = sampling_override {
+        config.sampling = sampling.to_string();
+    }
+    config.validate().map_err(ForgeError::Validation)?;
+
+    let model = parser::parse_model(file)?;
+    let mut engine = MonteCarloEngine::new(config.clone()).map_err(ForgeError::Validation)?;
+    engine
+        .parse_distributions_from_model(&model)
+        .map_err(ForgeError::Validation)?;
+
+    let output_vars: Vec<String> = config.outputs.iter().map(|o| o.variable.clone()).collect();
+
+    engine
+        .run_with_evaluator(|inputs: &HashMap<String, f64>| {
+            let mut iter_model = model.clone();
+            for (var_name, &value) in inputs {
+                if let Some(scalar) = iter_model.scalars.get_mut(var_name) {
+                    scalar.value = Some(value);
+                    scalar.formula = None;
+                }
+            }
+            let calculator = crate::core::array_calculator::ArrayCalculator::new(iter_model);
+            let Ok(calculated) = calculator.calculate_all() else {
+                return HashMap::new();
+            };
+            let mut outputs = HashMap::new();
+            for var_name in &output_vars {
+                let value = calculated
+                    .scalars
+                    .get(var_name)
+                    .or_else(|| calculated.scalars.get(&format!("outputs.{var_name}")))
+                    .or_else(|| calculated.scalars.get(&format!("scalars.{var_name}")))
+                    .and_then(|s| s.value)
+                    .unwrap_or(0.0);
+                outputs.insert(var_name.clone(), value);
+            }
+            outputs
+        })
+        .map_err(ForgeError::Eval)
+}
+
 /// Execute the simulate command - Monte Carlo simulation
 ///
 /// # Errors

@@ -1032,17 +1032,12 @@ CONFIGURATION:
     }
   }
 
-AVAILABLE TOOLS (10):
-  forge_validate    - Check YAML for formula errors
-  forge_calculate   - Execute all formulas
-  forge_audit       - Trace variable dependencies
-  forge_export      - Convert YAML to Excel
-  forge_import      - Convert Excel to YAML
-  forge_sensitivity - One/two-variable data tables
-  forge_goal_seek   - Find input for target output
-  forge_break_even  - Find zero-crossing point
-  forge_variance    - Budget vs actual analysis
-  forge_compare     - Multi-scenario comparison
+AVAILABLE TOOLS (20):
+  Core:      forge_validate, forge_calculate, forge_audit, forge_export, forge_import
+  Analysis:  forge_sensitivity, forge_goal_seek, forge_break_even, forge_variance, forge_compare
+  Engines:   forge_simulate, forge_scenarios, forge_decision_tree, forge_real_options,
+             forge_tornado, forge_bootstrap, forge_bayesian
+  Discovery: forge_schema, forge_functions, forge_examples
 
 EXAMPLE:
   forge mcp   # Start MCP server (reads JSON-RPC from stdin)"

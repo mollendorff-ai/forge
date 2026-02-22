@@ -39,6 +39,59 @@ pub struct AuditDependency {
     pub children: Vec<AuditDependency>,
 }
 
+/// Convert `AuditDependency` tree to serializable `AuditDep`
+fn to_audit_dep(dep: &AuditDependency) -> super::results::AuditDep {
+    super::results::AuditDep {
+        name: dep.name.clone(),
+        dep_type: dep.dep_type.clone(),
+        formula: dep.formula.clone(),
+        value: dep.value,
+        children: dep.children.iter().map(to_audit_dep).collect(),
+    }
+}
+
+/// Audit a variable and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, the variable is not found,
+/// or formula calculation fails.
+pub fn audit_core(file: &Path, variable: &str) -> ForgeResult<super::results::AuditResult> {
+    let model = parser::parse_model(file)?;
+    let (var_type, formula, current_value) = find_variable(&model, variable)?;
+
+    let dependencies = if formula.is_some() {
+        let deps = build_dependency_tree(&model, variable, formula.as_ref(), 0)?;
+        deps.iter().map(to_audit_dep).collect()
+    } else {
+        vec![]
+    };
+
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all();
+
+    let (calculated_value, is_valid) = result.as_ref().map_or((None, false), |r| {
+        r.scalars.get(variable).map_or((None, true), |scalar| {
+            let calc_val = scalar.value;
+            let valid = match (current_value, calc_val) {
+                (Some(curr), Some(calc)) => (curr - calc).abs() < 0.0001,
+                _ => true,
+            };
+            (calc_val, valid)
+        })
+    });
+
+    Ok(super::results::AuditResult {
+        variable: variable.to_string(),
+        var_type,
+        current_value,
+        calculated_value,
+        formula,
+        dependencies,
+        is_valid,
+    })
+}
+
 /// Execute the audit command - show calculation dependency chain.
 ///
 /// # Errors

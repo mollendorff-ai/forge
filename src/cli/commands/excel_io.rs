@@ -8,6 +8,96 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 
+/// Export YAML to Excel and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the YAML file cannot be parsed or the Excel export fails.
+pub fn export_core(input: &Path, output: &Path) -> ForgeResult<super::results::ExportResult> {
+    let model = parser::parse_model(input)?;
+    let table_count = model.tables.len();
+    let scalar_count = model.scalars.len();
+
+    let exporter = ExcelExporter::new(model);
+    exporter.export(output)?;
+
+    Ok(super::results::ExportResult {
+        input_path: input.display().to_string(),
+        output_path: output.display().to_string(),
+        table_count,
+        scalar_count,
+    })
+}
+
+/// Import Excel to YAML and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the Excel file cannot be read, imported, or written as YAML.
+pub fn import_core(
+    input: &Path,
+    output: &Path,
+    split_files: bool,
+    multi_doc: bool,
+) -> ForgeResult<super::results::ImportResult> {
+    let importer = ExcelImporter::new(input);
+    let model = importer.import()?;
+    let table_count = model.tables.len();
+    let scalar_count = model.scalars.len();
+
+    let mode = if split_files {
+        "split"
+    } else if multi_doc {
+        "multi-doc"
+    } else {
+        "single"
+    };
+
+    if split_files {
+        write_split_files_quiet(output, model)?;
+    } else if multi_doc {
+        write_multi_doc(output, model)?;
+    } else {
+        let yaml_string = serde_yaml_ng::to_string(&model).map_err(ForgeError::Yaml)?;
+        fs::write(output, yaml_string).map_err(ForgeError::Io)?;
+    }
+
+    Ok(super::results::ImportResult {
+        input_path: input.display().to_string(),
+        output_path: output.display().to_string(),
+        table_count,
+        scalar_count,
+        mode: mode.to_string(),
+    })
+}
+
+/// Write split files without printing (for core function)
+fn write_split_files_quiet(output: &Path, model: crate::types::ParsedModel) -> ForgeResult<()> {
+    fs::create_dir_all(output).map_err(ForgeError::Io)?;
+    for (table_name, table) in &model.tables {
+        let mut table_model = crate::types::ParsedModel::new();
+        table_model.tables.insert(table_name.clone(), table.clone());
+        let file_path = output.join(format!("{table_name}.yaml"));
+        let yaml_string = format!(
+            "_forge_version: \"1.0.0\"\n_name: \"{}\"\n\n{}",
+            table_name,
+            serde_yaml_ng::to_string(&table_model.tables).map_err(ForgeError::Yaml)?
+        );
+        fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
+    }
+    if !model.scalars.is_empty() {
+        let file_path = output.join("scalars.yaml");
+        let mut scalar_model = crate::types::ParsedModel::new();
+        scalar_model.scalars = model.scalars;
+        let yaml_string = format!(
+            "_forge_version: \"1.0.0\"\n_name: \"scalars\"\n\n{}",
+            serde_yaml_ng::to_string(&scalar_model.scalars).map_err(ForgeError::Yaml)?
+        );
+        fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
+    }
+    Ok(())
+}
+
 /// Execute the export command.
 ///
 /// # Errors

@@ -4,9 +4,9 @@
 
 [![CI](https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/mollendorff-forge.svg)](https://crates.io/crates/mollendorff-forge)
-[![Tests](https://img.shields.io/badge/tests-2133_passing-brightgreen)](https://github.com/mollendorff-ai/forge)
-[![Functions](https://img.shields.io/badge/functions-173-blue)](https://github.com/mollendorff-ai/forge)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/mollendorff-ai/forge)
+[![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/lctavares/b8e2fa78efcf26a20ff97b483050b05a/raw/forge-tests.json)](https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml)
+[![Functions](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/lctavares/b8e2fa78efcf26a20ff97b483050b05a/raw/forge-functions.json)](https://github.com/mollendorff-ai/forge)
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/lctavares/b8e2fa78efcf26a20ff97b483050b05a/raw/forge-coverage.json)](https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
 **AI hallucinates numbers. Forge doesn't.**
@@ -223,7 +223,7 @@ scenarios:
 
 ## MCP Integration (Optional)
 
-For Claude Desktop or MCP-compatible hosts, Forge exposes 10 tools via Model Context Protocol:
+For Claude Desktop or MCP-compatible hosts, Forge exposes 20 tools via Model Context Protocol:
 
 ```json
 {
@@ -238,25 +238,49 @@ For Claude Desktop or MCP-compatible hosts, Forge exposes 10 tools via Model Con
 
 ### Available Tools
 
+**Core (5)**
+
 | Tool | What It Does |
 |------|--------------|
 | `forge_validate` | Check YAML for formula errors |
 | `forge_calculate` | Execute all formulas |
 | `forge_audit` | Trace formula dependencies |
+| `forge_export` | YAML → Excel |
+| `forge_import` | Excel → YAML |
+
+**Analysis (5)**
+
+| Tool | What It Does |
+|------|--------------|
 | `forge_sensitivity` | 1D/2D what-if analysis |
 | `forge_goal_seek` | Find input for target output |
 | `forge_break_even` | Find where output = 0 |
 | `forge_variance` | Budget vs actual analysis |
 | `forge_compare` | Multi-scenario comparison |
-| `forge_export` | YAML → Excel |
-| `forge_import` | Excel → YAML |
 
-> **Roadmap Note:** MCP currently exposes 10 of 17 CLI features. The 7 analytical engines
-> (Monte Carlo, Bootstrap, Bayesian, Decision Trees, Real Options, Tornado, Scenarios) are
-> CLI-only for now. API server has 5 endpoints. Full MCP/API parity + OpenAPI spec planned
-> for v10.0.0-beta.1 after E2E validation against R and Gnumeric is complete.
+**Engines (7)**
 
-**10–15× measured token efficiency.** YAML at a fraction of Excel's token cost.
+| Tool | What It Does |
+|------|--------------|
+| `forge_simulate` | Run Monte Carlo simulation with probabilistic distributions |
+| `forge_scenarios` | Run probability-weighted scenario analysis (Base/Bull/Bear) |
+| `forge_decision_tree` | Analyze decision trees using backward induction |
+| `forge_real_options` | Value managerial flexibility using real options pricing |
+| `forge_tornado` | Generate tornado sensitivity diagram |
+| `forge_bootstrap` | Non-parametric bootstrap resampling for confidence intervals |
+| `forge_bayesian` | Bayesian network inference with optional evidence |
+
+**Discovery (3)**
+
+| Tool | What It Does |
+|------|--------------|
+| `forge_schema` | Get JSON Schema for Forge YAML model formats |
+| `forge_functions` | List all 173 supported functions with descriptions |
+| `forge_examples` | Get runnable YAML examples for all capabilities |
+
+See [docs/MCP.md](docs/MCP.md) for the full integration guide.
+
+**10-15x measured token efficiency.** YAML at a fraction of Excel's token cost.
 
 ---
 

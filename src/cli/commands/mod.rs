@@ -24,6 +24,7 @@ mod examples;
 mod excel_io;
 mod functions;
 mod prediction;
+pub mod results;
 mod schema;
 mod simulate;
 mod update;
@@ -40,6 +41,19 @@ pub use schema::schema;
 pub use simulate::simulate;
 pub use update::update;
 pub use upgrade::{auto_upgrade_schema, needs_schema_upgrade, upgrade};
+
+// Core function re-exports (return structured results, no printing)
+pub use analysis::{compare_core, goal_seek_core, sensitivity_core, variance_core};
+pub use audit::audit_core;
+pub use examples::examples_core;
+pub use excel_io::{export_core, import_core};
+pub use functions::functions_core;
+pub use prediction::{
+    bayesian_core, bootstrap_core, decision_tree_core, real_options_core, scenarios_core,
+    tornado_core,
+};
+pub use schema::schema_core;
+pub use simulate::simulate_core;
 
 // Re-exports for tests (internal functions)
 #[cfg(test)]
@@ -85,6 +99,77 @@ pub fn format_number(n: f64) -> String {
         .trim_end_matches('0')
         .trim_end_matches('.')
         .to_string()
+}
+
+/// Calculate formulas and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, calculation fails,
+/// or results cannot be written back to the file.
+pub fn calculate_core(
+    file: &Path,
+    dry_run: bool,
+    scenario: Option<&str>,
+) -> ForgeResult<results::CalculationResult> {
+    let mut model = parser::parse_model(file)?;
+
+    // Apply scenario overrides if specified
+    if let Some(scenario_name) = scenario {
+        apply_scenario(&mut model, scenario_name)?;
+    }
+
+    // Unit consistency validation
+    let unit_validator = UnitValidator::new(&model);
+    let unit_warnings: Vec<String> = unit_validator
+        .validate()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+
+    // Calculate
+    let calculator = ArrayCalculator::new(model);
+    let result = calculator.calculate_all()?;
+
+    // Build table summaries
+    let mut tables = std::collections::HashMap::new();
+    for (table_name, table) in &result.tables {
+        let row_count = table
+            .columns
+            .values()
+            .next()
+            .map_or(0, |col| col.values.len());
+        tables.insert(
+            table_name.clone(),
+            results::TableSummary {
+                name: table_name.clone(),
+                column_count: table.columns.len(),
+                row_count,
+                columns: table.columns.keys().cloned().collect(),
+            },
+        );
+    }
+
+    // Build scalar map
+    let mut scalars = std::collections::HashMap::new();
+    for (name, var) in &result.scalars {
+        scalars.insert(name.clone(), var.value);
+    }
+
+    // Write results if not dry run
+    let file_updated = if dry_run {
+        false
+    } else {
+        writer::write_calculated_results(file, &result)?
+    };
+
+    Ok(results::CalculationResult {
+        tables,
+        scalars,
+        unit_warnings,
+        file_updated,
+        dry_run,
+    })
 }
 
 /// Execute the calculate command
@@ -219,6 +304,50 @@ pub fn calculate(
     }
 
     Ok(())
+}
+
+/// Validate a single file and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed or calculation fails.
+pub fn validate_core(file: &Path) -> ForgeResult<results::ValidationResult> {
+    const TOLERANCE: f64 = 0.0001;
+
+    let model = parser::parse_model(file)?;
+    let table_count = model.tables.len();
+    let scalar_count = model.scalars.len();
+
+    let calculator = ArrayCalculator::new(model.clone());
+    let calculated = calculator.calculate_all()?;
+
+    let mut mismatches = Vec::new();
+    for (var_name, var) in &calculated.scalars {
+        if let Some(calculated_value) = var.value {
+            if let Some(original) = model.scalars.get(var_name) {
+                if let Some(current_value) = original.value {
+                    let diff = (current_value - calculated_value).abs();
+                    if diff > TOLERANCE {
+                        mismatches.push(results::ValidationMismatch {
+                            name: var_name.clone(),
+                            current_value,
+                            expected_value: calculated_value,
+                            diff,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    let scalars_valid = mismatches.is_empty();
+    Ok(results::ValidationResult {
+        tables_valid: true,
+        scalars_valid,
+        table_count,
+        scalar_count,
+        mismatches,
+    })
 }
 
 /// Execute the validate command for one or more files
