@@ -84,7 +84,7 @@ AI Agent (Claude/LangChain/etc)
 | Advantage | Description |
 |-----------|-------------|
 | **MCP Integration** | Native to Claude ecosystem (`forge mcp`) |
-| **50x Token Efficiency** | 2K tokens vs 100K for Excel |
+| **10-15x Token Efficiency (Measured)** | 2K tokens vs 100K for Excel |
 | **Gnumeric/R Validation** | E2E verified math (trust layer) |
 | **173 Functions** | Excel-compatible + 6 FP&A-native |
 | **2,486 Tests** | Engineering discipline |
@@ -167,7 +167,7 @@ Unlike AI orchestration (5,879 repos), there are **no viable open-source FP&A to
 3. **MCP integration** - Native to winning ecosystem (Claude)
 4. **Domain moat** - 173 functions, Gnumeric/R validation, FP&A expertise
 5. **Proven exit multiple** - Anaplan at $10.7B (8.5x LangChain)
-6. **Token economics** - 50x efficiency = structural cost advantage
+6. **Token economics** - 10-15x measured efficiency = structural cost advantage
 7. **Trust layer** - Verified math is non-negotiable in finance
 8. **Timing** - 85% of SMEs on Excel = greenfield opportunity
 
