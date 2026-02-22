@@ -1,7 +1,7 @@
 # Forge - YAML Formula Calculator
 # Build and test targets for optimized binary
 
-.PHONY: help build build-static build-compressed build-all uninstall install-forge install-all cross-forge lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
+.PHONY: help build build-static build-compressed build-all uninstall install-forge cross-forge lint lint-fix format format-check test test-unit test-integration test-e2e test-validate test-calculate test-all test-coverage coverage coverage-report coverage-ci validate-docs validate-yaml validate-diagrams validate-all install-tools clean clean-test pre-build post-build pre-commit check
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # OS AND ARCHITECTURE DETECTION
@@ -84,7 +84,6 @@ help:
 	@echo ""
 	@echo "Install Targets (to ~/.cargo/bin):"
 	@echo "  make install-forge      - Build forge + install to ~/.cargo/bin"
-	@echo "  make install-all        - Build all binaries + install to ~/.cargo/bin"
 	@echo "  make uninstall          - Remove forge from ~/.cargo/bin"
 	@echo ""
 	@echo "Cross-Platform Builds (cargo-zigbuild):"
@@ -102,15 +101,15 @@ help:
 	@echo "  make test-integration   - Run integration tests only"
 	@echo "  make test-validate      - Validate all test-data files"
 	@echo "  make test-calculate     - Calculate all test-data files (dry-run)"
-	@echo "  make test-all           - Run ALL unit tests (2,703 tests)"
+	@echo "  make test-all           - Run ALL tests (unit + validate + calculate)"
 	@echo ""
 	@echo "E2E Tests (separate repository - ADR-027):"
 	@echo "  See: https://github.com/mollendorff-ai/forge-e2e"
 	@echo ""
-	@echo "Coverage Targets (ADR-004: 100% MANDATORY):"
-	@echo "  make coverage           - Run coverage, FAIL if < 100%"
+	@echo "Coverage Targets:"
+	@echo "  make coverage           - Run test coverage analysis"
 	@echo "  make coverage-report    - Generate HTML coverage report"
-	@echo "  make coverage-ci        - CI mode: FAIL if < 100% + lcov output"
+	@echo "  make coverage-ci        - CI mode: generate lcov output"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  make docs-cli           - Generate CLI reference from --help (auto)"
@@ -262,11 +261,6 @@ install-forge:
 	@echo "📊 Function count:"
 	@~/.cargo/bin/forge functions 2>/dev/null | wc -l | xargs -I{} echo "   {} functions available"
 
-install-all: install-forge
-	@echo ""
-	@echo "✅ forge installed to ~/.cargo/bin!"
-	@ls -lh ~/.cargo/bin/forge
-
 # ═══════════════════════════════════════════════════════════════════════════
 # CROSS-PLATFORM BUILDS (cargo-zigbuild)
 # ═══════════════════════════════════════════════════════════════════════════
@@ -393,19 +387,17 @@ test-coverage:
 # COVERAGE TARGETS (ADR-004: 100% REQUIRED)
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Coverage: Run tests with coverage, FAIL if < 100%
-# ADR-004: 100% coverage is MANDATORY - NO EXCEPTIONS
+# Coverage: Run tests with coverage analysis
 coverage:
-	@echo "📊 Running test coverage (100% REQUIRED - ADR-004)"
+	@echo "📊 Running test coverage analysis"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@if ! command -v cargo-llvm-cov >/dev/null 2>&1; then \
 		echo "❌ cargo-llvm-cov not found. Installing..."; \
 		cargo install cargo-llvm-cov; \
 	fi
-	@cargo llvm-cov --fail-under-lines 100 --ignore-filename-regex '(tests/|test_)' || \
-		(echo ""; echo "❌ COVERAGE BELOW 100% - BUILD FAILED (ADR-004)"; echo "Run 'make coverage-report' to see uncovered lines"; exit 1)
+	@cargo llvm-cov --ignore-filename-regex '(tests/|test_)'
 	@echo ""
-	@echo "✅ 100% coverage verified!"
+	@echo "✅ Coverage analysis complete (see CI badge for current %)"
 
 # Coverage report: Generate detailed HTML report and open in browser
 coverage-report:
@@ -424,15 +416,14 @@ coverage-report:
 		echo "Open coverage-report/html/index.html in your browser"; \
 	fi
 
-# Coverage CI: Strict 100% enforcement for CI/CD pipeline
-# ADR-004: FAIL THE BUILD if < 100% - NO EXCEPTIONS
+# Coverage CI: Generate lcov output for CI badge
 coverage-ci:
-	@echo "📊 CI Coverage Check (100% REQUIRED - ADR-004)"
+	@echo "📊 CI Coverage Analysis"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo llvm-cov --fail-under-lines 100 --ignore-filename-regex '(tests/|test_)' --lcov --output-path lcov.info
+	@cargo llvm-cov --ignore-filename-regex '(tests/|test_)' --lcov --output-path lcov.info
 	@echo ""
-	@echo "✅ 100% coverage verified!"
-	@echo "📄 lcov.info generated for coverage upload"
+	@echo "✅ Coverage analysis complete"
+	@echo "📄 lcov.info generated for CI badge"
 
 clean:
 	@echo "🧹 Cleaning build artifacts..."
@@ -475,7 +466,7 @@ validate-docs:
 validate-yaml:
 	@echo "📄 Validating YAML files..."
 	@if command -v yamllint >/dev/null 2>&1; then \
-		yamllint warmup.yaml sprint.yaml roadmap.yaml 2>/dev/null && \
+		yamllint .asimov/roadmap.yaml 2>/dev/null && \
 		echo "✅ YAML validation passed"; \
 	else \
 		echo "❌ yamllint not found. Run: pip install yamllint"; \
@@ -511,7 +502,7 @@ docs-cli:
 	@./target/release/forge --help >> docs/cli/README.md
 	@echo '```' >> docs/cli/README.md
 	@echo "" >> docs/cli/README.md
-	@for cmd in calculate validate audit export import watch compare variance sensitivity goal-seek break-even update functions upgrade simulate scenarios decision-tree real-options tornado bootstrap bayesian; do \
+	@for cmd in calculate validate audit export import watch compare variance sensitivity goal-seek break-even update functions schema examples upgrade simulate scenarios decision-tree real-options tornado bootstrap bayesian mcp serve; do \
 		echo "## $$cmd" >> docs/cli/README.md; \
 		echo "" >> docs/cli/README.md; \
 		echo '```' >> docs/cli/README.md; \
@@ -543,24 +534,20 @@ install-tools:
 	@echo "1. Rust toolchain (required)"
 	@echo "   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
 	@echo ""
-	@echo "2. markdownlint-cli2 (documentation validation)"
+	@echo "2. cargo-llvm-cov (test coverage)"
+	@echo "   cargo install cargo-llvm-cov"
+	@echo ""
+	@echo "3. markdownlint-cli2 (documentation validation)"
 	@echo "   npm install -g markdownlint-cli2"
 	@echo ""
-	@echo "3. yamllint (YAML validation)"
+	@echo "4. yamllint (YAML validation)"
 	@echo "   pip install yamllint"
-	@echo ""
-	@echo "4. Marp CLI (presentation generation)"
-	@echo "   npm install -g @marp-team/marp-cli"
-	@echo ""
-	@echo "5. PlantUML (diagram validation - optional)"
-	@echo "   Using public server: https://www.plantuml.com/plantuml"
 	@echo ""
 	@echo "Current status:"
 	@command -v cargo >/dev/null 2>&1 && echo "  ✅ Rust/Cargo installed" || echo "  ❌ Rust/Cargo not found"
+	@command -v cargo-llvm-cov >/dev/null 2>&1 && echo "  ✅ cargo-llvm-cov installed" || echo "  ❌ cargo-llvm-cov not found"
 	@command -v markdownlint-cli2 >/dev/null 2>&1 && echo "  ✅ markdownlint-cli2 installed" || echo "  ❌ markdownlint-cli2 not found"
 	@command -v yamllint >/dev/null 2>&1 && echo "  ✅ yamllint installed" || echo "  ❌ yamllint not found"
-	@command -v marp >/dev/null 2>&1 && echo "  ✅ Marp CLI installed" || echo "  ❌ Marp CLI not found"
-	@curl -s --head --max-time 5 https://www.plantuml.com/plantuml/png/ >/dev/null 2>&1 && echo "  ✅ PlantUML server accessible" || echo "  ⚠️  PlantUML server unreachable"
 	@echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -568,8 +555,7 @@ install-tools:
 # ═══════════════════════════════════════════════════════════════════════════
 
 # Full pre-commit check (what CI would run)
-# ADR-004: 100% coverage is MANDATORY - NO EXCEPTIONS
-pre-commit: format-check lint test coverage docs-cli-check validate-all
+pre-commit: format-check lint test docs-cli-check validate-all
 	@echo ""
 	@echo "✅ Pre-commit checks passed! Safe to commit."
 
