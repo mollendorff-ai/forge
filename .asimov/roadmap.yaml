@@ -5,15 +5,9 @@
 # NEXT
 # ═══════════════════════════════════════════════════════════════════════════════
 
-next:
-  # ── v10.0.0-beta.4 ── Transport Abstraction ────────────────────────────────
-  - id: MCP-003
-    title: "Add transport abstraction (stdio + SSE/WebSocket support)"
-    description: >
-      Use rmcp's transport layer to support stdio (current), SSE, and
-      WebSocket transports. Enables browser-based and remote MCP clients.
-      ~50 lines once rmcp is in place. Requires design decisions on
-      ports, auth, TLS, CLI flags (forge mcp --transport sse --port 8081).
+next: []
+  # Nothing scheduled — beta.3 (rmcp) is the latest release
+  # Pull from backlog when ready for next sprint
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPLETED
@@ -73,6 +67,7 @@ completed:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 backlog:
+  - "MCP Transport Abstraction — SSE/WebSocket support via rmcp (MCP-003)"
   - "Homebrew formula / cargo-binstall distribution"
   - "100% Coverage Enforcement (ADR-004/ADR-006 compliance)"
   - "API Feature Parity + OpenAPI (17 REST endpoints matching 17 MCP tools)"
