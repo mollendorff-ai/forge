@@ -5,48 +5,77 @@
 ## Main Help
 
 ```
-Forge - Deterministic YAML Financial Calculator
-159 functions | 1709 tests | E2E validated against Gnumeric
+Forge - Git-native financial modeling
+173 functions | Fully tested | E2E: forge-e2e repo
 
 COMMANDS:
-  calculate   - Execute formulas, update values
-  validate    - Check model integrity
-  audit       - Trace formula dependencies (SOX compliance)
-  functions   - List all 81 supported functions
-  sensitivity - One/two-variable data tables
-  goal-seek   - Find input for target output
-  break-even  - Find zero-crossing point
-  variance    - Budget vs actual analysis
-  compare     - Multi-scenario comparison
-  export      - YAML -> Excel (.xlsx) with formulas
-  import      - Excel -> YAML
-  watch       - Auto-calculate on save
+  calculate     - Execute formulas, update values
+  validate      - Check model integrity
+  audit         - Trace formula dependencies (SOX compliance)
+  functions     - List all 173 supported functions
+  schema        - Display JSON schema for model validation
+  examples      - Show runnable YAML examples
+  simulate      - Monte Carlo simulation with distributions
+  scenarios     - Probability-weighted scenario analysis
+  decision-tree - Sequential decisions with backward induction
+  real-options  - Value defer/expand/abandon flexibility
+  tornado       - One-at-a-time sensitivity diagrams
+  bootstrap     - Non-parametric confidence intervals
+  bayesian      - Bayesian network inference
+  sensitivity   - One/two-variable data tables
+  goal-seek     - Find input for target output
+  break-even    - Find zero-crossing point
+  variance      - Budget vs actual analysis
+  compare       - Multi-scenario comparison
+  export        - YAML -> Excel (.xlsx) with formulas
+  import        - Excel -> YAML
+  watch         - Auto-calculate on save
+  upgrade       - Upgrade YAML to latest schema
+  update        - Check for updates and self-update
+  mcp           - Start MCP server for AI integration
+  serve         - Start HTTP REST API server
 
 EXAMPLES:
   forge calculate model.yaml                    # Execute formulas
-  forge audit model.yaml profit                 # Dependency trace
-  forge variance budget.yaml actual.yaml       # Budget vs actual
-  forge export model.yaml output.xlsx          # Excel with formulas
+  forge simulate model.yaml --iterations 10000  # Monte Carlo
+  forge scenarios model.yaml                    # Scenario analysis
+  forge decision-tree model.yaml                # Decision tree
+  forge tornado model.yaml                      # Sensitivity diagram
+  forge variance budget.yaml actual.yaml        # Budget vs actual
+  forge schema v5                               # Show JSON schema
+  forge examples monte-carlo                    # Show Monte Carlo example
 
-Docs: https://github.com/mollendorff-ai/forge
+Docs: https://mollendorff.ai/forge
 
 Usage: forge <COMMAND>
 
 Commands:
-  calculate    Calculate all formulas in a YAML file
-  audit        Show audit trail for a specific variable
-  validate     Validate formulas without calculating
-  export       Export v1.0.0 array model to Excel .xlsx
-  import       Import Excel .xlsx file to YAML v1.0.0
-  watch        Watch YAML files and auto-calculate on changes
-  compare      Compare results across multiple scenarios
-  variance     Compare budget vs actual with variance analysis
-  sensitivity  Run sensitivity analysis on model variables
-  goal-seek    Find input value to achieve target output
-  break-even   Find break-even point (where output = 0)
-  functions    List all supported Excel-compatible functions
-  upgrade      Upgrade YAML files to latest schema version
-  help         Print this message or the help of the given subcommand(s)
+  calculate      Calculate all formulas in a YAML file
+  audit          Show audit trail for a specific variable
+  validate       Validate formulas without calculating
+  export         Export v1.0.0 array model to Excel .xlsx
+  import         Import Excel .xlsx file to YAML v1.0.0
+  watch          Watch YAML files and auto-calculate on changes
+  compare        Compare results across multiple scenarios
+  variance       Compare budget vs actual with variance analysis
+  sensitivity    Run sensitivity analysis on model variables
+  goal-seek      Find input value to achieve target output
+  break-even     Find break-even point (where output = 0)
+  simulate       Run Monte Carlo simulation
+  scenarios      Run scenario analysis with probability weights
+  decision-tree  Analyze decision trees with backward induction
+  real-options   Value real options (defer/expand/abandon)
+  tornado        Generate tornado sensitivity diagram
+  bootstrap      Bootstrap resampling for confidence intervals
+  bayesian       Bayesian network inference
+  functions      List all supported Excel-compatible functions
+  schema         Display JSON schema for model validation
+  examples       Show example YAML models for Forge capabilities
+  upgrade        Upgrade YAML files to latest schema version
+  update         Check for updates and install latest version
+  mcp            Start MCP server for AI integration (JSON-RPC over stdio)
+  serve          Start HTTP REST API server
+  help           Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help
@@ -163,15 +192,10 @@ Converts YAML column arrays to Excel worksheets with full formula support.
 Each table becomes a separate worksheet. Formulas are translated to Excel syntax.
 
 SUPPORTED FEATURES (Phase 3.1 - Basic Export):
-  Table columns → Excel columns (A, B, C, ...)
+  Table columns -> Excel columns (A, B, C, ...)
   Data values (Number, Text, Date, Boolean)
-  Multiple tables → Multiple worksheets
-  Scalars → Dedicated "Scalars" worksheet
-
-COMING SOON (Phase 3.2+):
-  ⏳ Row formulas → Excel cell formulas (=A2-B2)
-  ⏳ Cross-table references (=Sheet!Column)
-  ⏳ Aggregation formulas (=SUM(Sheet!A:A))
+  Multiple tables -> Multiple worksheets
+  Scalars -> Dedicated "Scalars" worksheet
 
 EXAMPLE:
   forge export quarterly_pl.yaml quarterly_pl.xlsx
@@ -204,17 +228,16 @@ Converts Excel worksheets to YAML tables with formula preservation.
 Each worksheet becomes a table in the output YAML file.
 
 SUPPORTED FEATURES (Phase 4.1 - Basic Import):
-  Excel worksheets → YAML tables
+  Excel worksheets -> YAML tables
   Data values (Number, Text, Boolean)
-  Multiple worksheets → One YAML file (one-to-one)
-  "Scalars" sheet → Scalar section
-  ⏳ Formula translation (coming in Phase 4.3)
+  Multiple worksheets -> One YAML file (one-to-one)
+  "Scalars" sheet -> Scalar section
 
 WORKFLOW:
-  1. Import existing Excel → YAML
+  1. Import existing Excel -> YAML
   2. Work with AI + Forge (version control!)
   3. Export back to Excel
-  4. Round-trip: Excel → YAML → Excel
+  4. Round-trip: Excel -> YAML -> Excel
 
 EXAMPLE:
   forge import quarterly_pl.xlsx quarterly_pl.yaml
@@ -317,7 +340,6 @@ EXAMPLE:
 
 OUTPUT:
   Scenario Comparison: model.yaml
-  ─────────────────────────────────────────────────
   Variable          Base      Optimistic  Pessimistic
   revenue           $1.2M     $1.8M       $0.9M
   profit            $200K     $450K       -$50K
@@ -352,12 +374,11 @@ INPUTS:
   Variables are matched by name across both files.
 
 VARIANCE TYPES:
-  For revenue/income: actual > budget = favorable (✅)
-  For expenses/costs: actual < budget = favorable (✅)
+  For revenue/income: actual > budget = favorable
+  For expenses/costs: actual < budget = favorable
 
 THRESHOLD:
   Use --threshold to flag significant variances (default: 10%)
-  Variances exceeding threshold are marked with ⚠️
 
 OUTPUT FORMATS:
   Terminal table (default)
@@ -461,10 +482,10 @@ the desired output. Useful for answering 'what price do I need?' questions.
 
 EXAMPLES:
   forge goal-seek model.yaml --target profit --value 100000 --vary price
-  → Find the price needed to achieve $100,000 profit
+  -> Find the price needed to achieve $100,000 profit
 
   forge goal-seek model.yaml --target npv --value 0 --vary discount_rate
-  → Find the discount rate that makes NPV = 0 (IRR)
+  -> Find the discount rate that makes NPV = 0 (IRR)
 
 OPTIONS:
   --min, --max: Override automatic bounds for the search
@@ -514,10 +535,10 @@ Common for finding break-even units, prices, or margins.
 
 EXAMPLES:
   forge break-even model.yaml --output profit --vary units
-  → Find units needed to break even (profit = 0)
+  -> Find units needed to break even (profit = 0)
 
   forge break-even model.yaml --output net_margin --vary price
-  → Find minimum price for positive margin
+  -> Find minimum price for positive margin
 
 Usage: forge break-even [OPTIONS] --output <OUTPUT> --vary <VARY> <FILE>
 
@@ -539,6 +560,42 @@ Options:
           Maximum bound for search (optional)
 
       --verbose
+          Show verbose output
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## update
+
+```
+Check for updates and optionally install the latest version.
+
+Downloads and installs the latest Forge release from GitHub.
+Supports all platforms: Linux (x86_64, ARM64), macOS (Intel, Apple Silicon), Windows.
+
+EXAMPLES:
+  forge update              # Check and install update (with confirmation)
+  forge update --check      # Check only, don't install
+  forge update --verbose    # Show detailed progress
+
+INSTALLATION:
+  - Downloads the correct binary for your platform
+  - Backs up the current binary to forge.bak
+  - Installs the new version in place
+  - Preserves permissions
+
+NOTE:
+  Requires curl to be installed (available on all supported platforms).
+  The update replaces the current binary - restart forge to use the new version.
+
+Usage: forge update [OPTIONS]
+
+Options:
+  -c, --check
+          Only check for updates, don't install
+
+  -v, --verbose
           Show verbose output
 
   -h, --help
@@ -578,6 +635,74 @@ Options:
           Print help (see a summary with '-h')
 ```
 
+## schema
+
+```
+Display JSON schema for validating Forge YAML models.
+
+Forge supports two schema versions:
+  v1.0.0 - Scalar-only models (simple key-value pairs)
+  v5.0.0 - Full support for arrays, tables, and advanced features
+
+EXAMPLES:
+  forge schema              # List available versions
+  forge schema v1           # Show v1.0.0 schema
+  forge schema v5           # Show v5.0.0 schema
+  forge schema v5 > s.json  # Pipe to file for IDE use
+
+Usage: forge schema [OPTIONS] [VERSION]
+
+Arguments:
+  [VERSION]
+          Schema version to display (v1, v5, 1.0.0, 5.0.0)
+
+Options:
+  -l, --list
+          List available schema versions
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## examples
+
+```
+Display runnable example YAML models for Forge capabilities.
+
+Examples demonstrate Forge-specific features beyond Excel formulas:
+  monte-carlo   - Probabilistic simulation with distributions
+  scenarios     - Probability-weighted scenario analysis
+  decision-tree - Sequential decisions with backward induction
+  real-options  - Option pricing for managerial flexibility
+  tornado       - One-at-a-time sensitivity analysis
+  bootstrap     - Non-parametric confidence intervals
+  bayesian      - Probabilistic graphical models
+  variance      - Budget vs actual analysis
+  breakeven     - Break-even calculations
+
+EXAMPLES:
+  forge examples                    # List all examples
+  forge examples monte-carlo        # Show Monte Carlo example
+  forge examples monte-carlo --run  # Show and execute example
+  forge examples --json             # List as JSON (for tooling)
+
+Usage: forge examples [OPTIONS] [NAME]
+
+Arguments:
+  [NAME]
+          Example name (monte-carlo, scenarios, decision-tree, etc.)
+
+Options:
+      --run
+          Execute the example after displaying it
+
+      --json
+          Output as JSON (for tooling)
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
 ## upgrade
 
 ```
@@ -589,8 +714,8 @@ Creates backups before modifying files.
 TRANSFORMATIONS:
   - Updates _forge_version to 5.0.0
   - Splits scalars into inputs/outputs based on formula presence:
-    - Scalars with value only → inputs section
-    - Scalars with formula → outputs section
+    - Scalars with value only -> inputs section
+    - Scalars with formula -> outputs section
   - Adds _name field for multi-document files
   - Preserves all existing metadata
 
@@ -623,6 +748,504 @@ Options:
 
   -v, --verbose
           Show verbose output
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## simulate
+
+```
+Run Monte Carlo simulation for probabilistic analysis.
+
+Uses probability distributions (MC.Normal, MC.Triangular, etc.) to model
+uncertainty in input variables and calculate output distributions.
+
+DISTRIBUTIONS:
+  MC.Normal(mean, stdev)        - Symmetric uncertainty
+  MC.Triangular(min, mode, max) - Expert estimates (min/likely/max)
+  MC.Uniform(min, max)          - Equal probability in range
+  MC.PERT(min, mode, max)       - Smooth project estimates
+  MC.Lognormal(mean, stdev)     - Non-negative values (prices, revenue)
+  MC.Discrete(vals, probs)      - Custom scenarios with probabilities
+
+YAML CONFIGURATION:
+  monte_carlo:
+    enabled: true
+    iterations: 10000
+    sampling: latin_hypercube  # 5x faster than monte_carlo
+    seed: 12345                # For reproducibility
+    outputs:
+      - variable: valuation.npv
+        percentiles: [10, 50, 90]
+        threshold: "> 0"
+
+  assumptions:
+    revenue: =MC.Normal(1000000, 150000)
+    costs: =MC.Triangular(400000, 500000, 600000)
+
+OUTPUT:
+  - Statistics: mean, median, std dev, min, max
+  - Percentiles: P5, P10, P25, P50, P75, P90, P95
+  - Probabilities: P(NPV > 0), P(IRR > hurdle)
+  - Histogram data for visualization
+
+EXAMPLES:
+  forge simulate model.yaml                    # Use YAML config
+  forge simulate model.yaml -n 10000           # Override iterations
+  forge simulate model.yaml --seed 42          # Reproducible
+  forge simulate model.yaml -o results.json    # JSON output
+
+Usage: forge simulate [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Path to YAML file with `monte_carlo`: section
+
+Options:
+  -n, --iterations <ITERATIONS>
+          Number of iterations (overrides YAML config)
+
+      --seed <SEED>
+          Random seed for reproducibility
+
+      --sampling <SAMPLING>
+          Sampling method: `monte_carlo` or `latin_hypercube`
+
+  -o, --output <OUTPUT>
+          Output file (.json or .yaml)
+
+  -v, --verbose
+          Show verbose output
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## scenarios
+
+```
+Run probability-weighted scenario analysis (Base/Bull/Bear cases).
+
+Scenarios are discrete outcomes with assigned probabilities. Unlike Monte Carlo
+(continuous distributions), scenarios model mutually exclusive futures.
+
+YAML CONFIGURATION:
+  scenarios:
+    base_case:
+      probability: 0.50
+      description: "Market grows 5%"
+      scalars:
+        revenue_growth: 0.05
+    bull_case:
+      probability: 0.30
+      scalars:
+        revenue_growth: 0.15
+    bear_case:
+      probability: 0.20
+      scalars:
+        revenue_growth: -0.10
+
+OUTPUT:
+  - Per-scenario results with all calculated outputs
+  - Expected value (probability-weighted) for each output
+  - Risk profile showing best/worst case outcomes
+
+EXAMPLES:
+  forge scenarios model.yaml                    # Run all scenarios
+  forge scenarios model.yaml --scenario bull    # Run specific scenario
+  forge scenarios model.yaml -o results.yaml    # Export results
+
+Usage: forge scenarios [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Path to YAML file with scenarios section
+
+Options:
+  -s, --scenario <SCENARIO>
+          Run specific scenario only
+
+  -o, --output <OUTPUT>
+          Output file (.yaml)
+
+  -v, --verbose
+          Show verbose output
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## decision-tree
+
+```
+Analyze decision trees using backward induction.
+
+Decision trees model sequential choices and uncertain outcomes.
+Uses backward induction (rollback) to find optimal decision policy.
+
+NODE TYPES:
+  decision - Choice point (we control), solved by max(child values)
+  chance   - Uncertainty (we don't control), solved by expected value
+  terminal - End state with known value
+
+YAML CONFIGURATION:
+  decision_tree:
+    name: "R&D Investment"
+    root:
+      type: decision
+      name: "Invest?"
+      branches:
+        invest:
+          cost: 2000000
+          next: tech_outcome
+        dont_invest:
+          value: 0
+    nodes:
+      tech_outcome:
+        type: chance
+        branches:
+          success:
+            probability: 0.60
+            value: 5000000
+          failure:
+            probability: 0.40
+            value: -2000000
+
+OUTPUT:
+  - Optimal path through tree
+  - Expected value at root
+  - Decision policy (what to do at each decision node)
+  - Risk profile (best/worst case)
+
+EXAMPLES:
+  forge decision-tree model.yaml              # Analyze tree
+  forge decision-tree model.yaml --dot        # Export DOT for Graphviz
+  forge decision-tree model.yaml -o out.yaml  # Export results
+
+Usage: forge decision-tree [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Path to YAML file with `decision_tree` section
+
+Options:
+      --dot
+          Export as DOT graph (for Graphviz visualization)
+
+  -o, --output <OUTPUT>
+          Output file (.yaml or .dot)
+
+  -v, --verbose
+          Show verbose output
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## real-options
+
+```
+Value managerial flexibility using real options analysis.
+
+Real options quantify the value of flexibility to defer, expand, contract,
+or abandon projects. Uses Black-Scholes or Binomial Tree pricing.
+
+OPTION TYPES:
+  defer    - Wait before investing (value of learning)
+  expand   - Scale up if successful
+  contract - Scale down if weak
+  abandon  - Exit and recover salvage value
+  switch   - Change inputs/outputs
+
+YAML CONFIGURATION:
+  real_options:
+    name: "Phased Factory"
+    method: binomial
+    underlying:
+      current_value: 10000000
+      volatility: 0.30
+      risk_free_rate: 0.05
+      time_horizon: 3
+    options:
+      - type: defer
+        name: "Wait up to 2 years"
+        max_deferral: 2
+        exercise_cost: 8000000
+      - type: abandon
+        name: "Sell assets"
+        salvage_value: 3000000
+
+OUTPUT:
+  - Value of each option
+  - Total option value
+  - Project value with options
+  - Decision recommendation
+
+EXAMPLES:
+  forge real-options model.yaml               # Value all options
+  forge real-options model.yaml --option defer  # Value specific option
+  forge real-options model.yaml --compare-npv   # Compare with traditional NPV
+
+Usage: forge real-options [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Path to YAML file with `real_options` section
+
+Options:
+      --option <OPTION>
+          Value specific option only
+
+      --compare-npv
+          Compare with traditional NPV
+
+  -o, --output <OUTPUT>
+          Output file (.yaml)
+
+  -v, --verbose
+          Show verbose output
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## tornado
+
+```
+Generate tornado diagram for sensitivity analysis.
+
+Tornado diagrams show which inputs have the most impact on outputs.
+Each input is varied one-at-a-time while others stay at base values.
+
+YAML CONFIGURATION:
+  tornado:
+    output: npv
+    inputs:
+      - name: revenue_growth
+        low: 0.02
+        high: 0.08
+      - name: discount_rate
+        low: 0.08
+        high: 0.12
+      - name: operating_margin
+        low: 0.15
+        high: 0.25
+
+OUTPUT:
+  - Bars sorted by impact (largest first)
+  - Base value reference
+  - Low and high values for each input
+
+EXAMPLES:
+  forge tornado model.yaml                  # Generate diagram
+  forge tornado model.yaml --output npv     # Override output variable
+  forge tornado model.yaml -o results.yaml  # Export results
+
+Usage: forge tornado [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Path to YAML file with tornado section
+
+Options:
+      --output-var <OUTPUT_VAR>
+          Override output variable to analyze
+
+  -o, --output <OUTPUT>
+          Output file (.yaml)
+
+  -v, --verbose
+          Show verbose output
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## bootstrap
+
+```
+Run bootstrap resampling for confidence intervals.
+
+Bootstrap is a non-parametric method that resamples from historical data
+with replacement. No distribution assumptions required.
+
+YAML CONFIGURATION:
+  bootstrap:
+    iterations: 10000
+    confidence_levels: [0.90, 0.95, 0.99]
+    seed: 12345
+    data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12]
+    statistic: mean  # or median, std, var
+
+OUTPUT:
+  - Original statistic value
+  - Bootstrap mean and standard error
+  - Confidence intervals at each level
+  - Bias estimate
+
+EXAMPLES:
+  forge bootstrap model.yaml                    # Run analysis
+  forge bootstrap model.yaml -n 50000           # Override iterations
+  forge bootstrap model.yaml --confidence 0.99  # Set confidence level
+
+Usage: forge bootstrap [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Path to YAML file with bootstrap section
+
+Options:
+  -n, --iterations <ITERATIONS>
+          Number of iterations (overrides YAML config)
+
+      --seed <SEED>
+          Random seed for reproducibility
+
+      --confidence <CONFIDENCE>
+          Confidence levels (e.g., 0.90,0.95,0.99)
+
+  -o, --output <OUTPUT>
+          Output file (.yaml)
+
+  -v, --verbose
+          Show verbose output
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## bayesian
+
+```
+Run Bayesian network inference.
+
+Bayesian networks are probabilistic graphical models for causal reasoning.
+Uses Variable Elimination algorithm for efficient inference.
+
+YAML CONFIGURATION:
+  bayesian_network:
+    name: "Credit Risk"
+    nodes:
+      economic_conditions:
+        type: discrete
+        states: [good, neutral, bad]
+        prior: [0.3, 0.5, 0.2]
+      default_probability:
+        type: discrete
+        states: [low, medium, high]
+        parents: [economic_conditions]
+        cpt:
+          good: [0.8, 0.15, 0.05]
+          neutral: [0.4, 0.4, 0.2]
+          bad: [0.1, 0.3, 0.6]
+
+EXAMPLES:
+  forge bayesian model.yaml                           # Query all nodes
+  forge bayesian model.yaml --query default_prob      # Query specific node
+  forge bayesian model.yaml -e economy=bad            # Set evidence
+
+Usage: forge bayesian [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Path to YAML file with `bayesian_network` section
+
+Options:
+  -q, --query <QUERY>
+          Target variable to query
+
+  -e, --evidence <EVIDENCE>
+          Evidence in format var=state (can repeat)
+
+  -o, --output <OUTPUT>
+          Output file (.yaml)
+
+  -v, --verbose
+          Show verbose output
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## mcp
+
+```
+Start MCP (Model Context Protocol) server for AI integration.
+
+Runs a JSON-RPC server over stdin/stdout for use with Claude Desktop,
+Claude Code, and other MCP-compatible AI hosts.
+
+CONFIGURATION:
+  Add to your MCP client settings (e.g., Claude Desktop):
+
+  {
+    "mcpServers": {
+      "forge": {
+        "command": "forge",
+        "args": ["mcp"]
+      }
+    }
+  }
+
+AVAILABLE TOOLS (20):
+  Core:      forge_validate, forge_calculate, forge_audit, forge_export, forge_import
+  Analysis:  forge_sensitivity, forge_goal_seek, forge_break_even, forge_variance, forge_compare
+  Engines:   forge_simulate, forge_scenarios, forge_decision_tree, forge_real_options,
+             forge_tornado, forge_bootstrap, forge_bayesian
+  Discovery: forge_schema, forge_functions, forge_examples
+
+EXAMPLE:
+  forge mcp   # Start MCP server (reads JSON-RPC from stdin)
+
+Usage: forge mcp
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## serve
+
+```
+Start HTTP REST API server.
+
+Provides RESTful endpoints for all Forge operations:
+  POST /api/v1/validate  - Validate YAML model files
+  POST /api/v1/calculate - Calculate formulas (with dry-run support)
+  POST /api/v1/audit     - Audit variable dependency trees
+  POST /api/v1/export    - Export YAML to Excel (.xlsx)
+  POST /api/v1/import    - Import Excel to YAML
+
+Additional endpoints:
+  GET  /health           - Health check
+  GET  /version          - Server version info
+  GET  /                 - API documentation
+
+Features:
+  CORS enabled for cross-origin requests
+  Graceful shutdown on SIGINT/SIGTERM
+  JSON response format with request IDs
+  Tracing and structured logging
+
+EXAMPLES:
+  forge serve                              # Start on localhost:8080
+  forge serve --host 0.0.0.0 --port 3000   # Custom bind address
+
+Usage: forge serve [OPTIONS]
+
+Options:
+  -H, --host <HOST>
+          Host address to bind to (use 0.0.0.0 for all interfaces)
+          
+          [env: FORGE_HOST=]
+          [default: 127.0.0.1]
+
+  -p, --port <PORT>
+          Port to listen on
+          
+          [env: FORGE_PORT=]
+          [default: 8080]
 
   -h, --help
           Print help (see a summary with '-h')

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-beta.4] - 2026-03-07
+
+### Fixed
+- **MCP tools work from sandboxed clients**: Tools no longer fail with "No such file or directory" when called from Claude.ai, Cursor, or container-based MCP clients that lack host filesystem access
+
+### Added
+- **Inline content mode**: All 16 file-path MCP tools accept `content` parameter as alternative to `file_path`, passing raw YAML directly without writing to disk
+- **Inline includes**: New `includes` parameter (namespace → YAML map) resolves `_includes` entries without host filesystem access
+- **Calculated content write-back**: `forge_calculate` with `content` + `dry_run: false` returns `calculated_content` field with computed YAML
+- **Variance inline support**: `budget_content`/`actual_content` alternatives to `budget_path`/`actual_path`
+- ADR-049: MCP Inline Content for Sandboxed Clients
+- `tempfile` promoted from dev-dependency to runtime dependency
+
+### Unchanged
+- All 20 MCP tools maintain identical names and behavior for `file_path` callers
+- `*_core()` function layer (ADR-047) is completely unchanged
+- Parser, calculation engine, and CLI are unmodified
+- `forge_import` remains file-based only (Excel I/O)
+
 ## [10.0.0-beta.3] - 2026-02-22
 
 ### Changed

@@ -1,6 +1,6 @@
 [package]
 name = "mollendorff-forge"
-version = "10.0.0-beta.3"
+version = "10.0.0-beta.4"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "Möllendorff AI <admin@mollendorff.ai>"]
 description = "Battle-tested financial math for AI. 173 Excel-compatible functions validated against Gnumeric & R. MCP integration, Monte Carlo, Decision Trees, Real Options."
@@ -93,6 +93,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 rand = "0.10"
+
+# Temp files (inline content for MCP tools)
+tempfile = "3.8"
 
 # Monte Carlo simulation
 rand_distr = "0.6"  # Distribution sampling (Normal, Triangular, PERT, etc.)

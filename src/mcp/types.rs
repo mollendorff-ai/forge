@@ -3,14 +3,20 @@
 //! Each struct corresponds to one of the 20 MCP tools and derives
 //! `JsonSchema` so rmcp can auto-generate input schemas.
 
+use std::collections::HashMap;
+
 use rmcp::schemars::{self, JsonSchema};
 use serde::Deserialize;
 
 /// Parameters for the `forge_validate` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ValidateRequest {
-    /// Path to the YAML model file to validate
-    pub file_path: String,
+    /// Path to the YAML model file (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// Whether to show verbose output
     #[serde(default)]
     pub verbose: bool,
@@ -19,8 +25,12 @@ pub struct ValidateRequest {
 /// Parameters for the `forge_calculate` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct CalculateRequest {
-    /// Path to the YAML model file to calculate
-    pub file_path: String,
+    /// Path to the YAML model file (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// Whether to perform a dry run (don't update file)
     #[serde(default)]
     pub dry_run: bool,
@@ -31,8 +41,12 @@ pub struct CalculateRequest {
 /// Parameters for the `forge_audit` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AuditRequest {
-    /// Path to the YAML model file
-    pub file_path: String,
+    /// Path to the YAML model file (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// Name of the variable to audit
     pub variable: String,
 }
@@ -40,8 +54,12 @@ pub struct AuditRequest {
 /// Parameters for the `forge_export` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ExportRequest {
-    /// Path to the YAML model file
-    pub yaml_path: String,
+    /// Path to the YAML model file (alternative to `content`)
+    pub yaml_path: Option<String>,
+    /// Raw YAML content (alternative to `yaml_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// Path for the output Excel file
     pub excel_path: String,
 }
@@ -58,8 +76,12 @@ pub struct ImportRequest {
 /// Parameters for the `forge_sensitivity` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SensitivityRequest {
-    /// Path to the YAML model file
-    pub file_path: String,
+    /// Path to the YAML model file (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// Name of the input variable to vary
     pub vary: String,
     /// Range for the variable: start,end,step (e.g., '80,120,10')
@@ -75,8 +97,12 @@ pub struct SensitivityRequest {
 /// Parameters for the `forge_goal_seek` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct GoalSeekRequest {
-    /// Path to the YAML model file
-    pub file_path: String,
+    /// Path to the YAML model file (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// Name of the target output variable
     pub target: String,
     /// Desired value for the target
@@ -99,8 +125,12 @@ const fn default_tolerance() -> f64 {
 /// Parameters for the `forge_break_even` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct BreakEvenRequest {
-    /// Path to the YAML model file
-    pub file_path: String,
+    /// Path to the YAML model file (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// Name of the output variable to find zero crossing
     pub output: String,
     /// Name of the input variable to adjust
@@ -114,10 +144,16 @@ pub struct BreakEvenRequest {
 /// Parameters for the `forge_variance` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct VarianceRequest {
-    /// Path to the budget YAML file
-    pub budget_path: String,
-    /// Path to the actual YAML file
-    pub actual_path: String,
+    /// Path to the budget YAML file (alternative to `budget_content`)
+    pub budget_path: Option<String>,
+    /// Raw YAML content for budget model (alternative to `budget_path`)
+    pub budget_content: Option<String>,
+    /// Path to the actual YAML file (alternative to `actual_content`)
+    pub actual_path: Option<String>,
+    /// Raw YAML content for actual model (alternative to `actual_path`)
+    pub actual_content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with content params)
+    pub includes: Option<HashMap<String, String>>,
     /// Variance threshold percentage for alerts (default: 10)
     pub threshold: Option<f64>,
 }
@@ -125,8 +161,12 @@ pub struct VarianceRequest {
 /// Parameters for the `forge_compare` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct CompareRequest {
-    /// Path to the YAML model file
-    pub file_path: String,
+    /// Path to the YAML model file (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// List of scenario names to compare
     pub scenarios: Vec<String>,
 }
@@ -134,8 +174,12 @@ pub struct CompareRequest {
 /// Parameters for the `forge_simulate` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SimulateRequest {
-    /// Path to YAML model with `monte_carlo` config and `MC.*` distribution formulas
-    pub file_path: String,
+    /// Path to YAML model with `monte_carlo` config (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// Number of simulation iterations (default: from YAML config or 10000)
     pub iterations: Option<u64>,
     /// Random seed for reproducibility
@@ -147,8 +191,12 @@ pub struct SimulateRequest {
 /// Parameters for the `forge_scenarios` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ScenariosRequest {
-    /// Path to YAML model with 'scenarios' section
-    pub file_path: String,
+    /// Path to YAML model with 'scenarios' section (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// Optional: run only this named scenario
     pub scenario_filter: Option<String>,
 }
@@ -156,22 +204,34 @@ pub struct ScenariosRequest {
 /// Parameters for the `forge_decision_tree` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct DecisionTreeRequest {
-    /// Path to YAML model with `decision_tree` section
-    pub file_path: String,
+    /// Path to YAML model with `decision_tree` section (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
 }
 
 /// Parameters for the `forge_real_options` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct RealOptionsRequest {
-    /// Path to YAML model with `real_options` section
-    pub file_path: String,
+    /// Path to YAML model with `real_options` section (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
 }
 
 /// Parameters for the `forge_tornado` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct TornadoRequest {
-    /// Path to YAML model with 'tornado' section
-    pub file_path: String,
+    /// Path to YAML model with 'tornado' section (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// Optional: override the output variable to analyze
     pub output_var: Option<String>,
 }
@@ -179,8 +239,12 @@ pub struct TornadoRequest {
 /// Parameters for the `forge_bootstrap` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct BootstrapRequest {
-    /// Path to YAML model with 'bootstrap' section containing data and config
-    pub file_path: String,
+    /// Path to YAML model with 'bootstrap' section (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// Override number of bootstrap iterations
     pub iterations: Option<u64>,
     /// Random seed for reproducibility
@@ -192,8 +256,12 @@ pub struct BootstrapRequest {
 /// Parameters for the `forge_bayesian` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct BayesianRequest {
-    /// Path to YAML model with `bayesian_network` section
-    pub file_path: String,
+    /// Path to YAML model with `bayesian_network` section (alternative to `content`)
+    pub file_path: Option<String>,
+    /// Raw YAML content (alternative to `file_path`)
+    pub content: Option<String>,
+    /// Inline include content as namespace to YAML map (use with `content`)
+    pub includes: Option<HashMap<String, String>>,
     /// Optional: specific variable to query (omit for all nodes)
     pub query_var: Option<String>,
     /// Evidence as variable=state pairs (e.g., "economy=growth", "market=bull")

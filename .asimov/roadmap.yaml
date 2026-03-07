@@ -6,7 +6,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next: []
-  # Nothing scheduled — beta.3 (rmcp) is the latest release
+  # Nothing scheduled — beta.4 (inline content) is the latest release
   # Pull from backlog when ready for next sprint
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -14,6 +14,20 @@ next: []
 # ═══════════════════════════════════════════════════════════════════════════════
 
 completed:
+  # ── v10.0.0-beta.4 ── MCP Inline Content ───────────────────────────────
+  - id: INLINE-001
+    title: "resolve_model_input helper (temp file + inline includes resolution)"
+  - id: INLINE-002
+    title: "Request structs: content + includes params, optional file_path (16 structs)"
+  - id: INLINE-003
+    title: "Tool handlers: use resolve_model_input (16 handlers + special cases)"
+  - id: INLINE-004
+    title: "Tests: update existing (38) + new inline content tests (12)"
+  - id: INLINE-005
+    title: "ADR-049 + docs/MCP.md inline content documentation"
+  - id: INLINE-006
+    title: "Roadmap + CHANGELOG + version bump to beta.4"
+
   # ── v10.0.0-beta.3 ── rmcp Migration ─────────────────────────────────────
   - id: RMCP-001
     title: "Rewrite server.rs with rmcp #[tool_router] + #[tool_handler]"

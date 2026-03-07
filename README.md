@@ -278,6 +278,8 @@ For Claude Desktop or MCP-compatible hosts, Forge exposes 20 tools via Model Con
 | `forge_functions` | List all 173 supported functions with descriptions |
 | `forge_examples` | Get runnable YAML examples for all capabilities |
 
+All tools accept inline YAML via `content` parameter — no host filesystem access required. Works with sandboxed clients (Claude.ai, Cursor, containers).
+
 See [docs/MCP.md](docs/MCP.md) for the full integration guide.
 
 **10-15x measured token efficiency.** YAML at a fraction of Excel's token cost.

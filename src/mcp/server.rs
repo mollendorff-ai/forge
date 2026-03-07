@@ -3,12 +3,14 @@
 //! Provides the MCP server that AI agents use to interact with Forge.
 //! Uses the rmcp SDK for Model Context Protocol over stdin/stdout.
 
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{ServerCapabilities, ServerInfo};
 use rmcp::{tool, tool_handler, tool_router, ServerHandler};
+use tempfile::TempDir;
 
 use crate::cli::calculate_core;
 use crate::cli::{
@@ -23,6 +25,92 @@ use super::types::{
     GoalSeekRequest, ImportRequest, RealOptionsRequest, ScenariosRequest, SchemaRequest,
     SensitivityRequest, SimulateRequest, TornadoRequest, ValidateRequest, VarianceRequest,
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INLINE CONTENT HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Resolve model input from either a file path or inline YAML content.
+///
+/// Returns `(PathBuf, Option<TempDir>)` — the `TempDir` guard must be kept
+/// alive in the caller so the temp files are not cleaned up prematurely.
+fn resolve_model_input(
+    file_path: Option<&str>,
+    content: Option<&str>,
+    includes: Option<&HashMap<String, String>>,
+) -> Result<(PathBuf, Option<TempDir>), String> {
+    match (file_path, content) {
+        (Some(_), Some(_)) => Err("Provide either file_path or content, not both".into()),
+        (None, None) => Err("Either file_path or content is required".into()),
+        (Some(path), None) => Ok((PathBuf::from(path), None)),
+        (None, Some(yaml)) => {
+            let tmp = TempDir::new().map_err(|e| format!("Failed to create temp dir: {e}"))?;
+            resolve_inline_includes(yaml, includes, tmp.path())?;
+            std::fs::write(tmp.path().join("model.yaml"), yaml)
+                .map_err(|e| format!("Failed to write temp model: {e}"))?;
+            Ok((tmp.path().join("model.yaml"), Some(tmp)))
+        },
+    }
+}
+
+/// Write inline include files into the temp directory.
+///
+/// Parses `_includes` entries from the YAML, matches each `as` namespace
+/// to the `includes` map, and writes the content using the `file` field
+/// as the filename (creating subdirectories if needed).
+fn resolve_inline_includes(
+    yaml: &str,
+    includes: Option<&HashMap<String, String>>,
+    dir: &Path,
+) -> Result<(), String> {
+    // Quick check: does the YAML contain _includes?
+    let parsed: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(yaml).map_err(|e| format!("Invalid YAML: {e}"))?;
+
+    let includes_seq = match parsed.get("_includes") {
+        Some(serde_yaml_ng::Value::Sequence(seq)) => seq,
+        Some(_) => return Err("_includes must be a sequence".into()),
+        None => return Ok(()), // No _includes — nothing to resolve
+    };
+
+    let map = includes.ok_or(
+        "Model has _includes but no 'includes' map was provided. \
+         Pass inline content for each included namespace.",
+    )?;
+
+    for entry in includes_seq {
+        let file = entry
+            .get("file")
+            .and_then(serde_yaml_ng::Value::as_str)
+            .ok_or("Each _includes entry must have a 'file' field")?;
+
+        let namespace = entry
+            .get("as")
+            .and_then(serde_yaml_ng::Value::as_str)
+            .ok_or_else(|| format!("Include '{file}' must have an 'as' field"))?;
+
+        let include_content = map.get(namespace).ok_or_else(|| {
+            format!(
+                "No content provided for include namespace '{namespace}'. \
+                 Add it to the 'includes' map."
+            )
+        })?;
+
+        let dest = dir.join(file);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create dir for include '{file}': {e}"))?;
+        }
+        std::fs::write(&dest, include_content)
+            .map_err(|e| format!("Failed to write include '{file}': {e}"))?;
+    }
+
+    Ok(())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SERVER
+// ═══════════════════════════════════════════════════════════════════════════
 
 /// Forge MCP Server
 #[derive(Debug, Clone)]
@@ -62,7 +150,12 @@ impl ForgeMcpServer {
         description = "Validate a Forge YAML model file for formula errors, circular dependencies, and type mismatches."
     )]
     fn validate(&self, Parameters(req): Parameters<ValidateRequest>) -> Result<String, String> {
-        validate_core(Path::new(&req.file_path))
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
+        validate_core(&path)
             .map(|r| to_json(&r))
             .map_err(|e| format!("Validation failed: {e}"))
     }
@@ -72,13 +165,26 @@ impl ForgeMcpServer {
         description = "Calculate all formulas in a Forge YAML model and optionally update the file."
     )]
     fn calculate(&self, Parameters(req): Parameters<CalculateRequest>) -> Result<String, String> {
-        calculate_core(
-            Path::new(&req.file_path),
-            req.dry_run,
-            req.scenario.as_deref(),
-        )
-        .map(|r| to_json(&r))
-        .map_err(|e| format!("Calculation failed: {e}"))
+        let is_inline = req.content.is_some();
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
+        let result = calculate_core(path.as_path(), req.dry_run, req.scenario.as_deref())
+            .map_err(|e| format!("Calculation failed: {e}"))?;
+
+        let mut json_val: serde_json::Value =
+            serde_json::to_value(&result).map_err(|e| format!("Serialization failed: {e}"))?;
+
+        // When using inline content with dry_run=false, read back the calculated file
+        if is_inline && !req.dry_run {
+            if let Ok(calculated) = std::fs::read_to_string(&path) {
+                json_val["calculated_content"] = serde_json::Value::String(calculated);
+            }
+        }
+
+        serde_json::to_string(&json_val).map_err(|e| format!("Serialization failed: {e}"))
     }
 
     #[tool(
@@ -86,7 +192,12 @@ impl ForgeMcpServer {
         description = "Audit a specific variable to see its dependency tree and calculated value."
     )]
     fn audit(&self, Parameters(req): Parameters<AuditRequest>) -> Result<String, String> {
-        audit_core(Path::new(&req.file_path), &req.variable)
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
+        audit_core(&path, &req.variable)
             .map(|r| to_json(&r))
             .map_err(|e| format!("Audit failed: {e}"))
     }
@@ -96,7 +207,12 @@ impl ForgeMcpServer {
         description = "Export a Forge YAML model to an Excel workbook."
     )]
     fn export(&self, Parameters(req): Parameters<ExportRequest>) -> Result<String, String> {
-        export_core(Path::new(&req.yaml_path), Path::new(&req.excel_path))
+        let (path, _tmpdir) = resolve_model_input(
+            req.yaml_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
+        export_core(&path, Path::new(&req.excel_path))
             .map(|r| to_json(&r))
             .map_err(|e| format!("Export failed: {e}"))
     }
@@ -128,8 +244,13 @@ impl ForgeMcpServer {
         &self,
         Parameters(req): Parameters<SensitivityRequest>,
     ) -> Result<String, String> {
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
         sensitivity_core(
-            Path::new(&req.file_path),
+            &path,
             &req.vary,
             &req.range,
             req.vary2.as_deref(),
@@ -145,8 +266,13 @@ impl ForgeMcpServer {
         description = "Find the input value needed to achieve a target output. Uses bisection solver. Example: 'What price do I need for $100K profit?'"
     )]
     fn goal_seek(&self, Parameters(req): Parameters<GoalSeekRequest>) -> Result<String, String> {
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
         goal_seek_core(
-            Path::new(&req.file_path),
+            &path,
             &req.target,
             req.value,
             &req.vary,
@@ -162,8 +288,13 @@ impl ForgeMcpServer {
         description = "Find the break-even point where an output equals zero. Example: 'At what units does profit = 0?'"
     )]
     fn break_even(&self, Parameters(req): Parameters<BreakEvenRequest>) -> Result<String, String> {
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
         goal_seek_core(
-            Path::new(&req.file_path),
+            &path,
             &req.output,
             0.0,
             &req.vary,
@@ -179,14 +310,20 @@ impl ForgeMcpServer {
         description = "Compare budget vs actual with variance analysis. Shows absolute and percentage variances with favorable/unfavorable indicators."
     )]
     fn variance(&self, Parameters(req): Parameters<VarianceRequest>) -> Result<String, String> {
+        let (budget_path, _tmpdir_b) = resolve_model_input(
+            req.budget_path.as_deref(),
+            req.budget_content.as_deref(),
+            req.includes.as_ref(),
+        )?;
+        let (actual_path, _tmpdir_a) = resolve_model_input(
+            req.actual_path.as_deref(),
+            req.actual_content.as_deref(),
+            req.includes.as_ref(),
+        )?;
         let threshold = req.threshold.unwrap_or(10.0);
-        variance_core(
-            Path::new(&req.budget_path),
-            Path::new(&req.actual_path),
-            threshold,
-        )
-        .map(|r| to_json(&r))
-        .map_err(|e| format!("Variance analysis failed: {e}"))
+        variance_core(&budget_path, &actual_path, threshold)
+            .map(|r| to_json(&r))
+            .map_err(|e| format!("Variance analysis failed: {e}"))
     }
 
     #[tool(
@@ -194,7 +331,12 @@ impl ForgeMcpServer {
         description = "Compare calculation results across multiple scenarios side-by-side. Useful for what-if analysis."
     )]
     fn compare(&self, Parameters(req): Parameters<CompareRequest>) -> Result<String, String> {
-        compare_core(Path::new(&req.file_path), &req.scenarios)
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
+        compare_core(&path, &req.scenarios)
             .map(|r| to_json(&r))
             .map_err(|e| format!("Scenario comparison failed: {e}"))
     }
@@ -208,21 +350,21 @@ impl ForgeMcpServer {
         description = "Run Monte Carlo simulation with probabilistic distributions (MC.Normal, MC.Triangular, MC.Uniform, MC.PERT, MC.Lognormal). Returns statistics, percentiles, and threshold probabilities."
     )]
     fn simulate(&self, Parameters(req): Parameters<SimulateRequest>) -> Result<String, String> {
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
         // MCP iteration counts are always small, saturating cast is safe
         #[allow(clippy::cast_possible_truncation)]
         let iterations = req.iterations.map(|n| n as usize);
 
-        simulate_core(
-            Path::new(&req.file_path),
-            iterations,
-            req.seed,
-            req.sampling.as_deref(),
-        )
-        .map_err(|e| format!("Simulation failed: {e}"))
-        .and_then(|r| {
-            r.to_json()
-                .map_err(|e| format!("Serialization failed: {e}"))
-        })
+        simulate_core(&path, iterations, req.seed, req.sampling.as_deref())
+            .map_err(|e| format!("Simulation failed: {e}"))
+            .and_then(|r| {
+                r.to_json()
+                    .map_err(|e| format!("Serialization failed: {e}"))
+            })
     }
 
     #[tool(
@@ -230,7 +372,12 @@ impl ForgeMcpServer {
         description = "Run probability-weighted scenario analysis (Base/Bull/Bear). Each scenario overrides scalar values and calculates results."
     )]
     fn scenarios(&self, Parameters(req): Parameters<ScenariosRequest>) -> Result<String, String> {
-        scenarios_core(Path::new(&req.file_path), req.scenario_filter.as_deref())
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
+        scenarios_core(&path, req.scenario_filter.as_deref())
             .map(|r| to_json(&r))
             .map_err(|e| format!("Scenario analysis failed: {e}"))
     }
@@ -243,7 +390,12 @@ impl ForgeMcpServer {
         &self,
         Parameters(req): Parameters<DecisionTreeRequest>,
     ) -> Result<String, String> {
-        decision_tree_core(Path::new(&req.file_path))
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
+        decision_tree_core(&path)
             .map(|r| to_json(&r))
             .map_err(|e| format!("Decision tree analysis failed: {e}"))
     }
@@ -256,7 +408,12 @@ impl ForgeMcpServer {
         &self,
         Parameters(req): Parameters<RealOptionsRequest>,
     ) -> Result<String, String> {
-        real_options_core(Path::new(&req.file_path))
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
+        real_options_core(&path)
             .map(|r| to_json(&r))
             .map_err(|e| format!("Real options analysis failed: {e}"))
     }
@@ -266,7 +423,12 @@ impl ForgeMcpServer {
         description = "Generate tornado sensitivity diagram. Varies each input one-at-a-time to show which inputs have the greatest impact on the output."
     )]
     fn tornado(&self, Parameters(req): Parameters<TornadoRequest>) -> Result<String, String> {
-        tornado_core(Path::new(&req.file_path), req.output_var.as_deref())
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
+        tornado_core(&path, req.output_var.as_deref())
             .map(|r| to_json(&r))
             .map_err(|e| format!("Tornado analysis failed: {e}"))
     }
@@ -276,17 +438,17 @@ impl ForgeMcpServer {
         description = "Non-parametric bootstrap resampling for confidence intervals. Returns original estimate, bootstrap mean, std error, bias, and confidence intervals."
     )]
     fn bootstrap(&self, Parameters(req): Parameters<BootstrapRequest>) -> Result<String, String> {
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
         #[allow(clippy::cast_possible_truncation)]
         let iterations = req.iterations.map(|n| n as usize);
 
-        bootstrap_core(
-            Path::new(&req.file_path),
-            iterations,
-            req.seed,
-            req.confidence_levels,
-        )
-        .map(|r| to_json(&r))
-        .map_err(|e| format!("Bootstrap analysis failed: {e}"))
+        bootstrap_core(&path, iterations, req.seed, req.confidence_levels)
+            .map(|r| to_json(&r))
+            .map_err(|e| format!("Bootstrap analysis failed: {e}"))
     }
 
     #[tool(
@@ -294,14 +456,15 @@ impl ForgeMcpServer {
         description = "Bayesian network inference. Query posterior probabilities with optional evidence. Returns probability distributions for each variable state."
     )]
     fn bayesian(&self, Parameters(req): Parameters<BayesianRequest>) -> Result<String, String> {
+        let (path, _tmpdir) = resolve_model_input(
+            req.file_path.as_deref(),
+            req.content.as_deref(),
+            req.includes.as_ref(),
+        )?;
         let evidence = req.evidence.unwrap_or_default();
-        bayesian_core(
-            Path::new(&req.file_path),
-            req.query_var.as_deref(),
-            &evidence,
-        )
-        .map(|r| to_json(&r))
-        .map_err(|e| format!("Bayesian inference failed: {e}"))
+        bayesian_core(&path, req.query_var.as_deref(), &evidence)
+            .map(|r| to_json(&r))
+            .map_err(|e| format!("Bayesian inference failed: {e}"))
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -371,6 +534,19 @@ mod tests {
     fn err_text(result: Result<String, String>) -> String {
         result.expect_err("expected Err result")
     }
+
+    /// Minimal valid YAML model for inline content tests
+    const INLINE_YAML: &str = r#"
+_forge_version: "5.0.0"
+scalars:
+  revenue:
+    value: 100000
+  costs:
+    value: 60000
+  profit:
+    value: 0
+    formula: "=revenue - costs"
+"#;
 
     // ═══════════════════════════════════════════════════════════════════════
     // SERVER INFO TESTS
@@ -447,7 +623,9 @@ mod tests {
     fn test_call_validate_success() {
         let server = ForgeMcpServer::new();
         let result = server.validate(Parameters(ValidateRequest {
-            file_path: "test-data/budget.yaml".into(),
+            file_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             verbose: false,
         }));
         assert!(result.is_ok());
@@ -457,7 +635,9 @@ mod tests {
     fn test_call_validate_nonexistent() {
         let server = ForgeMcpServer::new();
         let result = server.validate(Parameters(ValidateRequest {
-            file_path: "nonexistent.yaml".into(),
+            file_path: Some("nonexistent.yaml".into()),
+            content: None,
+            includes: None,
             verbose: false,
         }));
         assert!(result.is_err());
@@ -467,7 +647,9 @@ mod tests {
     fn test_call_calculate_dry_run() {
         let server = ForgeMcpServer::new();
         let result = server.calculate(Parameters(CalculateRequest {
-            file_path: "test-data/budget.yaml".into(),
+            file_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             dry_run: true,
             scenario: None,
         }));
@@ -478,7 +660,9 @@ mod tests {
     fn test_call_calculate_nonexistent() {
         let server = ForgeMcpServer::new();
         let result = server.calculate(Parameters(CalculateRequest {
-            file_path: "nonexistent.yaml".into(),
+            file_path: Some("nonexistent.yaml".into()),
+            content: None,
+            includes: None,
             dry_run: true,
             scenario: None,
         }));
@@ -490,7 +674,9 @@ mod tests {
         let server = ForgeMcpServer::new();
         // audit may succeed or fail, but should not panic
         let _ = server.audit(Parameters(AuditRequest {
-            file_path: "test-data/budget.yaml".into(),
+            file_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             variable: "assumptions.profit".into(),
         }));
     }
@@ -502,7 +688,9 @@ mod tests {
 
         let server = ForgeMcpServer::new();
         let result = server.export(Parameters(ExportRequest {
-            yaml_path: "test-data/budget.yaml".into(),
+            yaml_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             excel_path: output.to_str().unwrap().into(),
         }));
         assert!(result.is_ok());
@@ -518,7 +706,9 @@ mod tests {
 
         // First export to create Excel file
         let _ = server.export(Parameters(ExportRequest {
-            yaml_path: "test-data/budget.yaml".into(),
+            yaml_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             excel_path: excel_path.to_str().unwrap().into(),
         }));
 
@@ -535,7 +725,9 @@ mod tests {
         let server = ForgeMcpServer::new();
         // May succeed or fail depending on test fixture
         let _ = server.sensitivity(Parameters(SensitivityRequest {
-            file_path: "test-data/sensitivity_test.yaml".into(),
+            file_path: Some("test-data/sensitivity_test.yaml".into()),
+            content: None,
+            includes: None,
             vary: "price".into(),
             range: "80,120,10".into(),
             output: "profit".into(),
@@ -548,7 +740,9 @@ mod tests {
     fn test_call_sensitivity_two_var() {
         let server = ForgeMcpServer::new();
         let _ = server.sensitivity(Parameters(SensitivityRequest {
-            file_path: "test-data/sensitivity_test.yaml".into(),
+            file_path: Some("test-data/sensitivity_test.yaml".into()),
+            content: None,
+            includes: None,
             vary: "price".into(),
             range: "80,120,10".into(),
             output: "profit".into(),
@@ -561,7 +755,9 @@ mod tests {
     fn test_call_goal_seek() {
         let server = ForgeMcpServer::new();
         let _ = server.goal_seek(Parameters(GoalSeekRequest {
-            file_path: "test-data/budget.yaml".into(),
+            file_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             target: "assumptions.profit".into(),
             value: 0.0,
             vary: "assumptions.revenue".into(),
@@ -575,7 +771,9 @@ mod tests {
     fn test_call_break_even() {
         let server = ForgeMcpServer::new();
         let _ = server.break_even(Parameters(BreakEvenRequest {
-            file_path: "test-data/budget.yaml".into(),
+            file_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             output: "assumptions.profit".into(),
             vary: "assumptions.revenue".into(),
             min: Some(50_000.0),
@@ -587,8 +785,11 @@ mod tests {
     fn test_call_variance() {
         let server = ForgeMcpServer::new();
         let result = server.variance(Parameters(VarianceRequest {
-            budget_path: "test-data/budget.yaml".into(),
-            actual_path: "test-data/budget.yaml".into(),
+            budget_path: Some("test-data/budget.yaml".into()),
+            budget_content: None,
+            actual_path: Some("test-data/budget.yaml".into()),
+            actual_content: None,
+            includes: None,
             threshold: Some(10.0),
         }));
         assert!(result.is_ok());
@@ -598,7 +799,9 @@ mod tests {
     fn test_call_compare() {
         let server = ForgeMcpServer::new();
         let result = server.compare(Parameters(CompareRequest {
-            file_path: "test-data/budget.yaml".into(),
+            file_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             scenarios: vec!["base".into(), "optimistic".into()],
         }));
         // Expected to fail - no scenarios in budget.yaml
@@ -609,7 +812,9 @@ mod tests {
     fn test_call_compare_empty_scenarios() {
         let server = ForgeMcpServer::new();
         let _ = server.compare(Parameters(CompareRequest {
-            file_path: "test-data/budget.yaml".into(),
+            file_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             scenarios: vec![],
         }));
     }
@@ -643,7 +848,9 @@ scalars:
 
         let server = ForgeMcpServer::new();
         let text = ok_text(server.simulate(Parameters(SimulateRequest {
-            file_path: file.to_str().unwrap().into(),
+            file_path: Some(file.to_str().unwrap().into()),
+            content: None,
+            includes: None,
             iterations: None,
             seed: None,
             sampling: None,
@@ -661,7 +868,9 @@ scalars:
     fn test_call_simulate_nonexistent() {
         let server = ForgeMcpServer::new();
         let result = server.simulate(Parameters(SimulateRequest {
-            file_path: "nonexistent.yaml".into(),
+            file_path: Some("nonexistent.yaml".into()),
+            content: None,
+            includes: None,
             iterations: None,
             seed: None,
             sampling: None,
@@ -673,7 +882,9 @@ scalars:
     fn test_call_scenarios_dispatch() {
         let server = ForgeMcpServer::new();
         let e = err_text(server.scenarios(Parameters(ScenariosRequest {
-            file_path: "test-data/budget.yaml".into(),
+            file_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             scenario_filter: None,
         })));
         assert!(e.contains("scenarios"));
@@ -684,7 +895,9 @@ scalars:
         let server = ForgeMcpServer::new();
         assert!(server
             .scenarios(Parameters(ScenariosRequest {
-                file_path: "nonexistent.yaml".into(),
+                file_path: Some("nonexistent.yaml".into()),
+                content: None,
+                includes: None,
                 scenario_filter: None,
             }))
             .is_err());
@@ -694,7 +907,9 @@ scalars:
     fn test_call_decision_tree() {
         let server = ForgeMcpServer::new();
         let text = ok_text(server.decision_tree(Parameters(DecisionTreeRequest {
-            file_path: "examples/decision-tree.yaml".into(),
+            file_path: Some("examples/decision-tree.yaml".into()),
+            content: None,
+            includes: None,
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert!(parsed["optimal_path"].as_array().is_some());
@@ -704,7 +919,9 @@ scalars:
     fn test_call_real_options() {
         let server = ForgeMcpServer::new();
         let text = ok_text(server.real_options(Parameters(RealOptionsRequest {
-            file_path: "examples/real-options.yaml".into(),
+            file_path: Some("examples/real-options.yaml".into()),
+            content: None,
+            includes: None,
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert!(parsed["total_option_value"].as_f64().is_some());
@@ -714,7 +931,9 @@ scalars:
     fn test_call_tornado() {
         let server = ForgeMcpServer::new();
         let text = ok_text(server.tornado(Parameters(TornadoRequest {
-            file_path: "examples/tornado.yaml".into(),
+            file_path: Some("examples/tornado.yaml".into()),
+            content: None,
+            includes: None,
             output_var: None,
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
@@ -725,7 +944,9 @@ scalars:
     fn test_call_bootstrap() {
         let server = ForgeMcpServer::new();
         let text = ok_text(server.bootstrap(Parameters(BootstrapRequest {
-            file_path: "examples/bootstrap.yaml".into(),
+            file_path: Some("examples/bootstrap.yaml".into()),
+            content: None,
+            includes: None,
             iterations: None,
             seed: Some(42),
             confidence_levels: None,
@@ -738,7 +959,9 @@ scalars:
     fn test_call_bayesian_dispatch() {
         let server = ForgeMcpServer::new();
         let e = err_text(server.bayesian(Parameters(BayesianRequest {
-            file_path: "test-data/budget.yaml".into(),
+            file_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             query_var: None,
             evidence: None,
         })));
@@ -750,7 +973,9 @@ scalars:
         let server = ForgeMcpServer::new();
         // Should fail (no bayesian_network section), but should not panic
         let _ = server.bayesian(Parameters(BayesianRequest {
-            file_path: "test-data/budget.yaml".into(),
+            file_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             query_var: None,
             evidence: Some(vec!["economy=growth".into()]),
         }));
@@ -844,7 +1069,9 @@ scalars:
     fn test_validate_returns_structured_json() {
         let server = ForgeMcpServer::new();
         let text = ok_text(server.validate(Parameters(ValidateRequest {
-            file_path: "test-data/budget.yaml".into(),
+            file_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             verbose: false,
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
@@ -857,7 +1084,9 @@ scalars:
     fn test_calculate_returns_structured_json() {
         let server = ForgeMcpServer::new();
         let text = ok_text(server.calculate(Parameters(CalculateRequest {
-            file_path: "test-data/budget.yaml".into(),
+            file_path: Some("test-data/budget.yaml".into()),
+            content: None,
+            includes: None,
             dry_run: true,
             scenario: None,
         })));
@@ -865,5 +1094,245 @@ scalars:
         assert!(parsed.get("tables").is_some());
         assert!(parsed.get("scalars").is_some());
         assert_eq!(parsed["dry_run"], true);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // INLINE CONTENT TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_resolve_model_input_file_path() {
+        let (path, tmpdir) =
+            resolve_model_input(Some("test-data/budget.yaml"), None, None).unwrap();
+        assert_eq!(path, PathBuf::from("test-data/budget.yaml"));
+        assert!(tmpdir.is_none());
+    }
+
+    #[test]
+    fn test_resolve_model_input_content() {
+        let (path, tmpdir) = resolve_model_input(None, Some(INLINE_YAML), None).unwrap();
+        assert!(tmpdir.is_some());
+        assert!(path.exists());
+        assert!(path.ends_with("model.yaml"));
+    }
+
+    #[test]
+    fn test_resolve_model_input_both_error() {
+        let result = resolve_model_input(Some("file.yaml"), Some("content"), None);
+        assert_eq!(
+            result.unwrap_err(),
+            "Provide either file_path or content, not both"
+        );
+    }
+
+    #[test]
+    fn test_resolve_model_input_neither_error() {
+        let result = resolve_model_input(None, None, None);
+        assert_eq!(
+            result.unwrap_err(),
+            "Either file_path or content is required"
+        );
+    }
+
+    #[test]
+    fn test_inline_validate() {
+        let server = ForgeMcpServer::new();
+        let text = ok_text(server.validate(Parameters(ValidateRequest {
+            file_path: None,
+            content: Some(INLINE_YAML.into()),
+            includes: None,
+            verbose: false,
+        })));
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert!(parsed.get("scalars_valid").is_some());
+    }
+
+    #[test]
+    fn test_inline_calculate_dry_run() {
+        let server = ForgeMcpServer::new();
+        let text = ok_text(server.calculate(Parameters(CalculateRequest {
+            file_path: None,
+            content: Some(INLINE_YAML.into()),
+            includes: None,
+            dry_run: true,
+            scenario: None,
+        })));
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert!(parsed.get("scalars").is_some());
+        assert_eq!(parsed["dry_run"], true);
+        // dry_run should not have calculated_content
+        assert!(parsed.get("calculated_content").is_none());
+    }
+
+    #[test]
+    fn test_inline_calculate_write_back() {
+        let server = ForgeMcpServer::new();
+        let text = ok_text(server.calculate(Parameters(CalculateRequest {
+            file_path: None,
+            content: Some(INLINE_YAML.into()),
+            includes: None,
+            dry_run: false,
+            scenario: None,
+        })));
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        // Non-dry-run with inline content should include calculated_content
+        assert!(parsed.get("calculated_content").is_some());
+        let calculated = parsed["calculated_content"].as_str().unwrap();
+        assert!(calculated.contains("profit"));
+    }
+
+    #[test]
+    fn test_inline_with_includes() {
+        let yaml_with_includes = r#"
+_forge_version: "5.0.0"
+_includes:
+  - file: "pricing.yaml"
+    as: "pricing"
+scalars:
+  total:
+    value: 100
+"#;
+        let pricing_yaml = r#"
+_forge_version: "5.0.0"
+scalars:
+  price:
+    value: 50
+"#;
+        let mut includes = HashMap::new();
+        includes.insert("pricing".into(), pricing_yaml.into());
+
+        let server = ForgeMcpServer::new();
+        let text = ok_text(server.validate(Parameters(ValidateRequest {
+            file_path: None,
+            content: Some(yaml_with_includes.into()),
+            includes: Some(includes),
+            verbose: false,
+        })));
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert!(parsed.get("scalars_valid").is_some());
+    }
+
+    #[test]
+    fn test_inline_includes_missing_namespace() {
+        let yaml_with_includes = r#"
+_forge_version: "5.0.0"
+_includes:
+  - file: "pricing.yaml"
+    as: "pricing"
+scalars:
+  total:
+    value: 100
+"#;
+        // Provide includes map but with wrong namespace
+        let mut includes = HashMap::new();
+        includes.insert("wrong_namespace".into(), "content".into());
+
+        let server = ForgeMcpServer::new();
+        let result = server.validate(Parameters(ValidateRequest {
+            file_path: None,
+            content: Some(yaml_with_includes.into()),
+            includes: Some(includes),
+            verbose: false,
+        }));
+        let err = err_text(result);
+        assert!(err.contains("pricing"));
+    }
+
+    #[test]
+    fn test_inline_includes_no_map() {
+        let yaml_with_includes = r#"
+_forge_version: "5.0.0"
+_includes:
+  - file: "pricing.yaml"
+    as: "pricing"
+scalars:
+  total:
+    value: 100
+"#;
+        let server = ForgeMcpServer::new();
+        let result = server.validate(Parameters(ValidateRequest {
+            file_path: None,
+            content: Some(yaml_with_includes.into()),
+            includes: None,
+            verbose: false,
+        }));
+        let err = err_text(result);
+        assert!(err.contains("includes"));
+    }
+
+    #[test]
+    fn test_inline_includes_nested_dir() {
+        let yaml_with_includes = r#"
+_forge_version: "5.0.0"
+_includes:
+  - file: "data/sub/pricing.yaml"
+    as: "pricing"
+scalars:
+  total:
+    value: 100
+"#;
+        let pricing_yaml = r#"
+_forge_version: "5.0.0"
+scalars:
+  price:
+    value: 25
+"#;
+        let mut includes = HashMap::new();
+        includes.insert("pricing".into(), pricing_yaml.into());
+
+        let server = ForgeMcpServer::new();
+        let text = ok_text(server.validate(Parameters(ValidateRequest {
+            file_path: None,
+            content: Some(yaml_with_includes.into()),
+            includes: Some(includes),
+            verbose: false,
+        })));
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert!(parsed.get("scalars_valid").is_some());
+    }
+
+    #[test]
+    fn test_inline_variance() {
+        let budget = r#"
+_forge_version: "5.0.0"
+scalars:
+  revenue:
+    value: 100000
+  costs:
+    value: 60000
+"#;
+        let actual = r#"
+_forge_version: "5.0.0"
+scalars:
+  revenue:
+    value: 95000
+  costs:
+    value: 65000
+"#;
+        let server = ForgeMcpServer::new();
+        let result = server.variance(Parameters(VarianceRequest {
+            budget_path: None,
+            budget_content: Some(budget.into()),
+            actual_path: None,
+            actual_content: Some(actual.into()),
+            includes: None,
+            threshold: Some(10.0),
+        }));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_inline_export() {
+        let temp_dir = TempDir::new().unwrap();
+        let output = temp_dir.path().join("inline_export.xlsx");
+
+        let server = ForgeMcpServer::new();
+        let result = server.export(Parameters(ExportRequest {
+            yaml_path: None,
+            content: Some(INLINE_YAML.into()),
+            includes: None,
+            excel_path: output.to_str().unwrap().into(),
+        }));
+        assert!(result.is_ok());
     }
 }
