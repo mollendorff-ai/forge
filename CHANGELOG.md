@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `make install` now works as conventional alias for `make install-forge`
+
 ## [10.0.0-beta.4] - 2026-03-07
 
 ### Fixed
