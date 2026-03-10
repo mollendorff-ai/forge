@@ -6,7 +6,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next: []
-  # Nothing scheduled — beta.4 (inline content) is the latest release
+  # Nothing scheduled — beta.5 (scenario bugfix) is the latest release
   # Pull from backlog when ready for next sprint
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -14,6 +14,16 @@ next: []
 # ═══════════════════════════════════════════════════════════════════════════════
 
 completed:
+  # ── v10.0.0-beta.5 ── Scenario Format Bugfix ────────────────────────────
+  - id: BUG-001
+    title: "parse_scenarios: detect structured ScenarioDefinition format (probability + description + scalars)"
+  - id: BUG-002
+    title: "forge_scenarios + forge_compare: accept structured YAML without 'must be a number' errors"
+  - id: BUG-003
+    title: "5 new tests: parser unit tests + MCP end-to-end (EV validation, compare)"
+  - id: BUG-004
+    title: "Roadmap + CHANGELOG + version bump to beta.5"
+
   # ── v10.0.0-beta.4 ── MCP Inline Content ───────────────────────────────
   - id: INLINE-001
     title: "resolve_model_input helper (temp file + inline includes resolution)"

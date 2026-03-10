@@ -904,6 +904,94 @@ scalars:
     }
 
     #[test]
+    fn test_call_scenarios_structured_format() {
+        // Validates that the ScenarioDefinition format (probability + description + scalars)
+        // is accepted by both the model parser and the scenario engine.
+        let content = r#"
+_forge_version: "5.0.0"
+
+price:
+  value: 100
+  formula: null
+units:
+  value: 50
+  formula: null
+revenue:
+  value: null
+  formula: "=price * units"
+
+scenarios:
+  high:
+    probability: 0.5
+    description: "High price scenario"
+    scalars:
+      price: 200
+  low:
+    probability: 0.5
+    description: "Low price scenario"
+    scalars:
+      price: 50
+"#;
+        let server = ForgeMcpServer::new();
+        let text = ok_text(server.scenarios(Parameters(ScenariosRequest {
+            file_path: None,
+            content: Some(content.to_string()),
+            includes: None,
+            scenario_filter: None,
+        })));
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        // Both scenarios should appear
+        assert!(parsed["scenarios"].as_array().is_some());
+        let scenarios = parsed["scenarios"].as_array().unwrap();
+        assert_eq!(scenarios.len(), 2);
+        // Expected value should be probability-weighted: 0.5*10000 + 0.5*2500 = 6250
+        let ev = parsed["expected_values"]["revenue"].as_f64().unwrap();
+        assert!((ev - 6250.0).abs() < 1.0, "Expected ~6250, got {ev}");
+    }
+
+    #[test]
+    fn test_call_compare_structured_format() {
+        // Validates that forge_compare works with the ScenarioDefinition format.
+        let content = r#"
+_forge_version: "5.0.0"
+
+price:
+  value: 100
+  formula: null
+units:
+  value: 50
+  formula: null
+revenue:
+  value: null
+  formula: "=price * units"
+
+scenarios:
+  high:
+    probability: 0.5
+    description: "High price"
+    scalars:
+      price: 200
+  low:
+    probability: 0.5
+    description: "Low price"
+    scalars:
+      price: 50
+"#;
+        let server = ForgeMcpServer::new();
+        let text = ok_text(server.compare(Parameters(CompareRequest {
+            file_path: None,
+            content: Some(content.to_string()),
+            includes: None,
+            scenarios: vec!["high".to_string(), "low".to_string()],
+        })));
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        // Both scenarios should appear in results
+        assert!(parsed["scenarios"].as_array().is_some());
+        let scenarios = parsed["scenarios"].as_array().unwrap();
+        assert_eq!(scenarios.len(), 2);
+    }
+
+    #[test]
     fn test_call_decision_tree() {
         let server = ForgeMcpServer::new();
         let text = ok_text(server.decision_tree(Parameters(DecisionTreeRequest {

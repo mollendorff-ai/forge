@@ -129,21 +129,31 @@ pub fn parse_nested_scalars(
 
 /// Parse scenarios section from YAML
 ///
-/// Expected format:
+/// Supports two formats:
+///
+/// **Flat format** (variable overrides only):
 /// ```yaml
 /// scenarios:
 ///   base:
 ///     growth_rate: 0.05
 ///     churn_rate: 0.02
-///   optimistic:
-///     growth_rate: 0.12
-///     churn_rate: 0.01
+/// ```
+///
+/// **Structured format** (`ScenarioDefinition` with probability, description, scalars):
+/// ```yaml
+/// scenarios:
+///   base:
+///     probability: 0.50
+///     description: "Base case"
+///     scalars:
+///       growth_rate: 0.05
+///       churn_rate: 0.02
 /// ```
 ///
 /// # Errors
 ///
-/// Returns an error if a scenario name or variable is not valid, or if a variable
-/// value is not a number.
+/// Returns an error if a scenario name or variable is not valid, if a variable
+/// value is not a number, or if the `scalars` field is not a mapping.
 pub fn parse_scenarios(
     scenarios_map: &serde_yaml_ng::Mapping,
     model: &mut ParsedModel,
@@ -156,25 +166,64 @@ pub fn parse_scenarios(
         if let Value::Mapping(overrides_map) = scenario_value {
             let mut scenario = Scenario::new();
 
-            for (var_name, var_value) in overrides_map {
-                let var_name_str = var_name.as_str().ok_or_else(|| {
-                    ForgeError::Parse("Variable name must be a string".to_string())
-                })?;
+            // Detect structured format: has reserved keys "probability" or "scalars"
+            let is_structured =
+                overrides_map.contains_key("probability") || overrides_map.contains_key("scalars");
 
-                let value = match var_value {
-                    Value::Number(n) => n.as_f64().ok_or_else(|| {
-                        ForgeError::Parse(format!(
-                            "Scenario '{name}': Variable '{var_name_str}' must be a number"
-                        ))
-                    })?,
-                    _ => {
+            if is_structured {
+                // Structured ScenarioDefinition format: extract overrides from "scalars" only.
+                // "probability" and "description" are intentionally skipped here;
+                // they are consumed by ScenarioEngine via serde deserialization.
+                if let Some(scalars_value) = overrides_map.get("scalars") {
+                    if let Value::Mapping(scalars_map) = scalars_value {
+                        for (var_name, var_value) in scalars_map {
+                            let var_name_str = var_name.as_str().ok_or_else(|| {
+                                ForgeError::Parse("Variable name must be a string".to_string())
+                            })?;
+
+                            let value = match var_value {
+                                Value::Number(n) => n.as_f64().ok_or_else(|| {
+                                    ForgeError::Parse(format!(
+                                        "Scenario '{name}': Variable '{var_name_str}' must be a number"
+                                    ))
+                                })?,
+                                _ => {
+                                    return Err(ForgeError::Parse(format!(
+                                        "Scenario '{name}': Variable '{var_name_str}' must be a number"
+                                    )));
+                                },
+                            };
+
+                            scenario.add_override(var_name_str.to_string(), value);
+                        }
+                    } else {
                         return Err(ForgeError::Parse(format!(
-                            "Scenario '{name}': Variable '{var_name_str}' must be a number"
+                            "Scenario '{name}': 'scalars' must be a mapping of variable overrides"
                         )));
-                    },
-                };
+                    }
+                }
+            } else {
+                // Flat format: each key is a variable name with a numeric override value
+                for (var_name, var_value) in overrides_map {
+                    let var_name_str = var_name.as_str().ok_or_else(|| {
+                        ForgeError::Parse("Variable name must be a string".to_string())
+                    })?;
 
-                scenario.add_override(var_name_str.to_string(), value);
+                    let value = match var_value {
+                        Value::Number(n) => n.as_f64().ok_or_else(|| {
+                            ForgeError::Parse(format!(
+                                "Scenario '{name}': Variable '{var_name_str}' must be a number"
+                            ))
+                        })?,
+                        _ => {
+                            return Err(ForgeError::Parse(format!(
+                                "Scenario '{name}': Variable '{var_name_str}' must be a number"
+                            )));
+                        },
+                    };
+
+                    scenario.add_override(var_name_str.to_string(), value);
+                }
             }
 
             model.add_scenario(name.to_string(), scenario);
@@ -357,6 +406,96 @@ scenarios:
 
         let result = parse_model(temp_file.path());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_scenarios_structured_format() {
+        let yaml_content = r#"
+_forge_version: "5.0.0"
+
+price:
+  value: 100
+  formula: null
+units:
+  value: 50
+  formula: null
+
+scenarios:
+  high:
+    probability: 0.5
+    description: "High price"
+    scalars:
+      price: 200
+      units: 60
+  low:
+    probability: 0.5
+    description: "Low price"
+    scalars:
+      price: 50
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let result = parse_model(temp_file.path()).unwrap();
+
+        assert_eq!(result.scenarios.len(), 2);
+
+        let high = result.scenarios.get("high").unwrap();
+        assert_eq!(high.overrides.get("price"), Some(&200.0));
+        assert_eq!(high.overrides.get("units"), Some(&60.0));
+        // probability/description should NOT appear as overrides
+        assert!(!high.overrides.contains_key("probability"));
+        assert!(!high.overrides.contains_key("description"));
+
+        let low = result.scenarios.get("low").unwrap();
+        assert_eq!(low.overrides.get("price"), Some(&50.0));
+    }
+
+    #[test]
+    fn test_parse_scenarios_structured_no_scalars() {
+        // Structured format with empty/missing scalars section is valid (no overrides)
+        let yaml_content = r#"
+_forge_version: "5.0.0"
+
+rate:
+  value: 0.05
+  formula: null
+
+scenarios:
+  base:
+    probability: 1.0
+    description: "Base only"
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let result = parse_model(temp_file.path()).unwrap();
+
+        assert_eq!(result.scenarios.len(), 1);
+        let base = result.scenarios.get("base").unwrap();
+        assert!(base.overrides.is_empty());
+    }
+
+    #[test]
+    fn test_parse_scenarios_structured_invalid_scalars_type() {
+        let yaml_content = r#"
+_forge_version: "5.0.0"
+
+scenarios:
+  bad:
+    probability: 0.5
+    scalars: "not a mapping"
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(yaml_content.as_bytes()).unwrap();
+
+        let result = parse_model(temp_file.path());
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("scalars"));
     }
 
     #[test]

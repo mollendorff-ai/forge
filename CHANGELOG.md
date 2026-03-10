@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-beta.5] - 2026-03-10
+
 ### Fixed
+- **`forge_scenarios` and `forge_compare` now accept the documented `ScenarioDefinition` format**: Scenario parser detects structured format (`probability` + `description` + `scalars`) and extracts variable overrides from `scalars` only, skipping reserved keys. Previously, `description` (string) and `scalars` (nested object) triggered "must be a number" errors, making it impossible to use the documented format.
 - `make install` now works as conventional alias for `make install-forge`
 
 ## [10.0.0-beta.4] - 2026-03-07
