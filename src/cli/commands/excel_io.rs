@@ -29,6 +29,30 @@ pub fn export_core(input: &Path, output: &Path) -> ForgeResult<super::results::E
     })
 }
 
+/// Export YAML to an in-memory Excel buffer and return base64-encoded content.
+///
+/// # Errors
+///
+/// Returns an error if the YAML file cannot be parsed or the Excel buffer export fails.
+pub fn export_buffer_core(input: &Path) -> ForgeResult<super::results::ExportBufferResult> {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+    let model = parser::parse_model(input)?;
+    let table_count = model.tables.len();
+    let scalar_count = model.scalars.len();
+
+    let exporter = ExcelExporter::new(model);
+    let buffer = exporter.export_to_buffer()?;
+    let base64_content = STANDARD.encode(&buffer);
+
+    Ok(super::results::ExportBufferResult {
+        table_count,
+        scalar_count,
+        excel_base64: base64_content,
+        byte_count: buffer.len(),
+    })
+}
+
 /// Import Excel to YAML and return structured results (no printing).
 ///
 /// # Errors

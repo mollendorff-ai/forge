@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-beta.7] - 2026-03-10
+
+### Added
+- **Inline Excel export for sandboxed clients**: `forge_export` with `excel_path` omitted returns the workbook as a base64-encoded string in `excel_base64`, so Claude.ai, Cursor, and container-based MCP clients can receive Excel files without host filesystem access
+- `ExcelExporter::export_to_buffer()` — in-memory workbook generation via `save_to_buffer()`
+- `base64` v0.22 dependency
+
+### Changed
+- `ExportRequest.excel_path` is now optional (`Option<String>`). Existing callers that provide a path are unaffected.
+
 ## [10.0.0-beta.6] - 2026-03-10
 
 ### Fixed

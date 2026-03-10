@@ -15,8 +15,9 @@ use tempfile::TempDir;
 use crate::cli::calculate_core;
 use crate::cli::{
     audit_core, bayesian_core, bootstrap_core, compare_core, decision_tree_core, examples_core,
-    export_core, functions_core, goal_seek_core, import_core, real_options_core, scenarios_core,
-    schema_core, sensitivity_core, simulate_core, tornado_core, validate_core, variance_core,
+    export_buffer_core, export_core, functions_core, goal_seek_core, import_core,
+    real_options_core, scenarios_core, schema_core, sensitivity_core, simulate_core, tornado_core,
+    validate_core, variance_core,
 };
 
 use super::types::{
@@ -204,7 +205,10 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_export",
-        description = "Export a Forge YAML model to an Excel workbook."
+        description = "Export a Forge YAML model to an Excel workbook. \
+            If `excel_path` is provided, writes the .xlsx file to disk. \
+            If omitted, returns the workbook inline as base64 in the \
+            `excel_base64` response field (for sandboxed clients)."
     )]
     fn export(&self, Parameters(req): Parameters<ExportRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
@@ -212,9 +216,18 @@ impl ForgeMcpServer {
             req.content.as_deref(),
             req.includes.as_ref(),
         )?;
-        export_core(&path, Path::new(&req.excel_path))
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Export failed: {e}"))
+        req.excel_path.as_ref().map_or_else(
+            || {
+                export_buffer_core(&path)
+                    .map(|r| to_json(&r))
+                    .map_err(|e| format!("Export failed: {e}"))
+            },
+            |excel_path| {
+                export_core(&path, Path::new(excel_path))
+                    .map(|r| to_json(&r))
+                    .map_err(|e| format!("Export failed: {e}"))
+            },
+        )
     }
 
     #[tool(
@@ -691,7 +704,7 @@ scalars:
             yaml_path: Some("test-data/budget.yaml".into()),
             content: None,
             includes: None,
-            excel_path: output.to_str().unwrap().into(),
+            excel_path: Some(output.to_str().unwrap().into()),
         }));
         assert!(result.is_ok());
     }
@@ -709,7 +722,7 @@ scalars:
             yaml_path: Some("test-data/budget.yaml".into()),
             content: None,
             includes: None,
-            excel_path: excel_path.to_str().unwrap().into(),
+            excel_path: Some(excel_path.to_str().unwrap().into()),
         }));
 
         // Then import
@@ -1521,8 +1534,32 @@ scalars:
             yaml_path: None,
             content: Some(INLINE_YAML.into()),
             includes: None,
-            excel_path: output.to_str().unwrap().into(),
+            excel_path: Some(output.to_str().unwrap().into()),
         }));
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_inline_export_buffer() {
+        // When excel_path is omitted, should return base64-encoded Excel content
+        let server = ForgeMcpServer::new();
+        let text = ok_text(server.export(Parameters(ExportRequest {
+            yaml_path: None,
+            content: Some(INLINE_YAML.into()),
+            includes: None,
+            excel_path: None,
+        })));
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert!(parsed["excel_base64"].as_str().is_some());
+        assert!(parsed["byte_count"].as_u64().unwrap() > 0);
+        // Verify it's valid base64 that decodes to an xlsx magic number (PK\x03\x04)
+        let b64 = parsed["excel_base64"].as_str().unwrap();
+        let bytes =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64).unwrap();
+        assert_eq!(
+            &bytes[..4],
+            b"PK\x03\x04",
+            "Should be a valid ZIP/XLSX header"
+        );
     }
 }

@@ -75,6 +75,17 @@ pub struct ExportResult {
     pub scalar_count: usize,
 }
 
+/// Result of an in-memory (buffer) export — returned when no `excel_path` is given
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportBufferResult {
+    pub table_count: usize,
+    pub scalar_count: usize,
+    /// Base64-encoded .xlsx file content
+    pub excel_base64: String,
+    /// Size of the raw Excel file in bytes
+    pub byte_count: usize,
+}
+
 /// Result of the import command
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportResult {

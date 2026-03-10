@@ -6,7 +6,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next: []
-  # Nothing scheduled — beta.6 (scenario scoping bugfix) is the latest release
+  # Nothing scheduled — beta.7 (inline export) is the latest release
   # Pull from backlog when ready for next sprint
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -14,6 +14,20 @@ next: []
 # ═══════════════════════════════════════════════════════════════════════════════
 
 completed:
+  # ── v10.0.0-beta.7 ── Inline Export for Sandboxed Clients ─────────────────
+  - id: EXPORT-001
+    title: "ExcelExporter::export_to_buffer() — in-memory workbook via save_to_buffer()"
+  - id: EXPORT-002
+    title: "export_buffer_core() — parse + export + base64-encode in one call"
+  - id: EXPORT-003
+    title: "forge_export: excel_path now optional, omit for base64 inline response"
+  - id: EXPORT-004
+    title: "base64 v0.22 dependency, ExportBufferResult struct"
+  - id: EXPORT-005
+    title: "Test: inline export returns valid base64 with PK ZIP header"
+  - id: EXPORT-006
+    title: "Roadmap + CHANGELOG + version bump to beta.7"
+
   # ── v10.0.0-beta.6 ── Scenario Scoping Bugfix ─────────────────────────────
   - id: SCOPE-001
     title: "resolve_scalar_name: short override keys resolve to grouped scalars (e.g. rate → assumptions.rate)"

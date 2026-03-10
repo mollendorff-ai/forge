@@ -60,8 +60,9 @@ pub struct ExportRequest {
     pub content: Option<String>,
     /// Inline include content as namespace to YAML map (use with `content`)
     pub includes: Option<HashMap<String, String>>,
-    /// Path for the output Excel file
-    pub excel_path: String,
+    /// Path for the output Excel file. If omitted, the Excel workbook is returned
+    /// inline as a base64-encoded string in the `excel_base64` response field.
+    pub excel_path: Option<String>,
 }
 
 /// Parameters for the `forge_import` tool.

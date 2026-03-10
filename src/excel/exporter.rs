@@ -167,6 +167,37 @@ impl ExcelExporter {
         Ok(())
     }
 
+    /// Export the model to an in-memory Excel buffer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the workbook cannot be serialized.
+    pub fn export_to_buffer(&self) -> ForgeResult<Vec<u8>> {
+        let mut workbook = Workbook::new();
+
+        for (table_name, table) in &self.model.tables {
+            self.export_table(&mut workbook, table_name, table)?;
+        }
+
+        if !self.model.scalars.is_empty() {
+            self.export_scalars(&mut workbook)?;
+        }
+
+        for (namespace, resolved) in &self.model.resolved_includes {
+            for (table_name, table) in &resolved.model.tables {
+                let prefixed_name = format!("{namespace}.{table_name}");
+                self.export_table(&mut workbook, &prefixed_name, table)?;
+            }
+            if !resolved.model.scalars.is_empty() {
+                Self::export_namespaced_scalars(&mut workbook, namespace, &resolved.model)?;
+            }
+        }
+
+        workbook
+            .save_to_buffer()
+            .map_err(|e| ForgeError::IO(format!("Failed to create Excel buffer: {e}")))
+    }
+
     /// Export a single table to a worksheet
     #[allow(clippy::cast_possible_truncation)] // column count and row count are within u16/u32 Excel limits
     fn export_table(

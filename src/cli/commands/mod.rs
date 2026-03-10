@@ -46,7 +46,7 @@ pub use upgrade::{auto_upgrade_schema, needs_schema_upgrade, upgrade};
 pub use analysis::{compare_core, goal_seek_core, sensitivity_core, variance_core};
 pub use audit::audit_core;
 pub use examples::examples_core;
-pub use excel_io::{export_core, import_core};
+pub use excel_io::{export_buffer_core, export_core, import_core};
 pub use functions::functions_core;
 pub use prediction::{
     bayesian_core, bootstrap_core, decision_tree_core, real_options_core, scenarios_core,
