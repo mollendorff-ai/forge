@@ -131,28 +131,29 @@ impl ScenarioEngine {
         // Clone the base model
         let mut model = self.base_model.clone();
 
-        // Apply scenario overrides
+        // Apply scenario overrides (resolving grouped names like "rate" → "assumptions.rate")
         for (var_name, override_val) in &scenario.scalars {
+            let resolved = model.resolve_scalar_name(var_name)?;
+
             match override_val {
                 ScalarOverride::Value(v) => {
-                    if let Some(scalar) = model.scalars.get_mut(var_name) {
+                    if let Some(scalar) = model.scalars.get_mut(&resolved) {
                         scalar.value = Some(*v);
                         scalar.formula = None;
                     } else {
-                        model.scalars.insert(
-                            var_name.clone(),
-                            Variable::new(var_name.clone(), Some(*v), None),
-                        );
+                        model
+                            .scalars
+                            .insert(resolved.clone(), Variable::new(resolved, Some(*v), None));
                     }
                 },
                 ScalarOverride::Formula { formula } => {
-                    if let Some(scalar) = model.scalars.get_mut(var_name) {
+                    if let Some(scalar) = model.scalars.get_mut(&resolved) {
                         scalar.formula = Some(formula.clone());
                         scalar.value = None;
                     } else {
                         model.scalars.insert(
-                            var_name.clone(),
-                            Variable::new(var_name.clone(), None, Some(formula.clone())),
+                            resolved.clone(),
+                            Variable::new(resolved, None, Some(formula.clone())),
                         );
                     }
                 },

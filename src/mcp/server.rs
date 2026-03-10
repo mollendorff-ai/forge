@@ -992,6 +992,108 @@ scenarios:
     }
 
     #[test]
+    fn test_call_scenarios_grouped_scalar_override() {
+        // Bug 1: scenario overrides must resolve short names to grouped paths.
+        // "growth_rate" in the scenario should override "assumptions.growth_rate".
+        let content = r#"
+_forge_version: "5.0.0"
+
+assumptions:
+  growth_rate:
+    value: 0.10
+    formula: null
+  revenue:
+    value: 1000000
+    formula: null
+
+profit:
+  value: null
+  formula: "=assumptions.revenue * assumptions.growth_rate"
+
+scenarios:
+  bull:
+    probability: 0.5
+    scalars:
+      growth_rate: 0.25
+  bear:
+    probability: 0.5
+    scalars:
+      growth_rate: 0.02
+"#;
+        let server = ForgeMcpServer::new();
+        let text = ok_text(server.scenarios(Parameters(ScenariosRequest {
+            file_path: None,
+            content: Some(content.to_string()),
+            includes: None,
+            scenario_filter: None,
+        })));
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let scenarios = parsed["scenarios"].as_array().unwrap();
+        // Verify each scenario actually overrode the grouped scalar
+        for s in scenarios {
+            let name = s["name"].as_str().unwrap();
+            let profit = s["scalars"]["profit"].as_f64().unwrap();
+            match name {
+                "bull" => assert!(
+                    (profit - 250_000.0).abs() < 1.0,
+                    "bull profit: expected 250000, got {profit}"
+                ),
+                "bear" => assert!(
+                    (profit - 20_000.0).abs() < 1.0,
+                    "bear profit: expected 20000, got {profit}"
+                ),
+                _ => panic!("unexpected scenario: {name}"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_call_compare_grouped_scalar_override() {
+        // forge_compare with grouped scalars: short name resolves to group.name
+        let content = r#"
+_forge_version: "5.0.0"
+
+assumptions:
+  growth_rate:
+    value: 0.10
+    formula: null
+  revenue:
+    value: 1000000
+    formula: null
+
+profit:
+  value: null
+  formula: "=assumptions.revenue * assumptions.growth_rate"
+
+scenarios:
+  bull:
+    growth_rate: 0.25
+  bear:
+    growth_rate: 0.02
+"#;
+        let server = ForgeMcpServer::new();
+        let text = ok_text(server.compare(Parameters(CompareRequest {
+            file_path: None,
+            content: Some(content.to_string()),
+            includes: None,
+            scenarios: vec!["bull".to_string(), "bear".to_string()],
+        })));
+        let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let values = &parsed["values"];
+        // profit should differ between scenarios (overrides reached the grouped variable)
+        let bull_profit = values["profit"]["bull"].as_f64().unwrap();
+        let bear_profit = values["profit"]["bear"].as_f64().unwrap();
+        assert!(
+            (bull_profit - 250_000.0).abs() < 1.0,
+            "bull profit: expected 250000, got {bull_profit}"
+        );
+        assert!(
+            (bear_profit - 20_000.0).abs() < 1.0,
+            "bear profit: expected 20000, got {bear_profit}"
+        );
+    }
+
+    #[test]
     fn test_call_decision_tree() {
         let server = ForgeMcpServer::new();
         let text = ok_text(server.decision_tree(Parameters(DecisionTreeRequest {

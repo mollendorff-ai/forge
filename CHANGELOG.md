@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-beta.6] - 2026-03-10
+
+### Fixed
+- **Scenario overrides now reach grouped scalars**: Override keys like `growth_rate` automatically resolve to `assumptions.growth_rate` (or any other group) when no top-level scalar matches. Previously, overrides silently created an orphaned top-level variable while the grouped scalar stayed unchanged. Ambiguous names (same suffix in multiple groups) produce a clear error suggesting the full dotted path.
+
 ## [10.0.0-beta.5] - 2026-03-10
 
 ### Fixed

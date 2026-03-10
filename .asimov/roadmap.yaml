@@ -6,7 +6,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next: []
-  # Nothing scheduled — beta.5 (scenario bugfix) is the latest release
+  # Nothing scheduled — beta.6 (scenario scoping bugfix) is the latest release
   # Pull from backlog when ready for next sprint
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -14,6 +14,18 @@ next: []
 # ═══════════════════════════════════════════════════════════════════════════════
 
 completed:
+  # ── v10.0.0-beta.6 ── Scenario Scoping Bugfix ─────────────────────────────
+  - id: SCOPE-001
+    title: "resolve_scalar_name: short override keys resolve to grouped scalars (e.g. rate → assumptions.rate)"
+  - id: SCOPE-002
+    title: "apply_scenario + ScenarioEngine::run_scenario use resolver for both paths"
+  - id: SCOPE-003
+    title: "Ambiguity detection: error when short name matches multiple groups"
+  - id: SCOPE-004
+    title: "7 new tests: resolver unit (5) + MCP e2e scenarios + compare with grouped scalars"
+  - id: SCOPE-005
+    title: "Roadmap + CHANGELOG + version bump to beta.6"
+
   # ── v10.0.0-beta.5 ── Scenario Format Bugfix ────────────────────────────
   - id: BUG-001
     title: "parse_scenarios: detect structured ScenarioDefinition format (probability + description + scalars)"

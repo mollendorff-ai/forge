@@ -785,17 +785,21 @@ pub fn apply_scenario(
     // Clone the overrides to avoid borrow checker issues
     let overrides = scenario.overrides.clone();
 
-    // Apply overrides to scalars
+    // Apply overrides to scalars (resolving grouped names like "rate" → "assumptions.rate")
     for (var_name, override_value) in &overrides {
-        if let Some(scalar) = model.scalars.get_mut(var_name) {
+        let resolved = model
+            .resolve_scalar_name(var_name)
+            .map_err(ForgeError::Validation)?;
+
+        if let Some(scalar) = model.scalars.get_mut(&resolved) {
             scalar.value = Some(*override_value);
             // Clear formula since we're using override value
             scalar.formula = None;
         } else {
             // Create new scalar with override value
             model.scalars.insert(
-                var_name.clone(),
-                crate::types::Variable::new(var_name.clone(), Some(*override_value), None),
+                resolved.clone(),
+                crate::types::Variable::new(resolved, Some(*override_value), None),
             );
         }
     }

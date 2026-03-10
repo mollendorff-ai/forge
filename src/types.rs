@@ -379,6 +379,50 @@ impl ParsedModel {
     pub fn add_aggregation(&mut self, name: String, formula: String) {
         self.aggregations.insert(name, formula);
     }
+
+    /// Resolve a scenario override key to its full dotted scalar path.
+    ///
+    /// If the key matches an existing scalar exactly, returns it as-is.
+    /// For simple (non-dotted) names with no exact match, searches for
+    /// scalars ending with `.name`. Returns the full path if exactly one
+    /// match; errors if ambiguous; returns the key as-is if no match (so a
+    /// new top-level scalar can be created by the caller).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if multiple grouped scalars share the same suffix.
+    pub fn resolve_scalar_name(&self, name: &str) -> Result<String, String> {
+        if self.scalars.contains_key(name) {
+            return Ok(name.to_string());
+        }
+
+        // Only try suffix matching for simple (non-dotted) names
+        if !name.contains('.') {
+            let suffix = format!(".{name}");
+            let matches: Vec<&str> = self
+                .scalars
+                .keys()
+                .filter(|k| k.ends_with(&suffix))
+                .map(String::as_str)
+                .collect();
+
+            match matches.len() {
+                1 => return Ok(matches[0].to_string()),
+                n if n > 1 => {
+                    let mut sorted = matches;
+                    sorted.sort_unstable();
+                    return Err(format!(
+                        "Ambiguous scenario override '{name}': matches {}. Use the full dotted path.",
+                        sorted.join(", ")
+                    ));
+                },
+                _ => {},
+            }
+        }
+
+        // No match — return as-is (caller creates a new top-level scalar)
+        Ok(name.to_string())
+    }
 }
 
 impl Default for ParsedModel {
@@ -877,5 +921,68 @@ mod tests {
         let a = ColumnValue::Boolean(vec![true, false]);
         let b = ColumnValue::Boolean(vec![true, false]);
         assert_eq!(a, b);
+    }
+
+    // =========================================================================
+    // resolve_scalar_name Tests
+    // =========================================================================
+
+    #[test]
+    fn test_resolve_scalar_name_exact_match() {
+        let mut model = ParsedModel::new();
+        model.add_scalar("rate".into(), Variable::new("rate".into(), Some(0.1), None));
+        assert_eq!(model.resolve_scalar_name("rate").unwrap(), "rate");
+    }
+
+    #[test]
+    fn test_resolve_scalar_name_grouped_suffix() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "assumptions.rate".into(),
+            Variable::new("assumptions.rate".into(), Some(0.1), None),
+        );
+        // Short name resolves to the grouped scalar
+        assert_eq!(
+            model.resolve_scalar_name("rate").unwrap(),
+            "assumptions.rate"
+        );
+    }
+
+    #[test]
+    fn test_resolve_scalar_name_ambiguous() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "assumptions.rate".into(),
+            Variable::new("assumptions.rate".into(), Some(0.1), None),
+        );
+        model.add_scalar(
+            "inputs.rate".into(),
+            Variable::new("inputs.rate".into(), Some(0.2), None),
+        );
+        let err = model.resolve_scalar_name("rate").unwrap_err();
+        assert!(err.contains("Ambiguous"), "{err}");
+        assert!(err.contains("assumptions.rate"), "{err}");
+        assert!(err.contains("inputs.rate"), "{err}");
+    }
+
+    #[test]
+    fn test_resolve_scalar_name_dotted_exact() {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "assumptions.rate".into(),
+            Variable::new("assumptions.rate".into(), Some(0.1), None),
+        );
+        // Explicit dotted path resolves exactly
+        assert_eq!(
+            model.resolve_scalar_name("assumptions.rate").unwrap(),
+            "assumptions.rate"
+        );
+    }
+
+    #[test]
+    fn test_resolve_scalar_name_no_match() {
+        let model = ParsedModel::new();
+        // Unknown name passes through (caller creates new scalar)
+        assert_eq!(model.resolve_scalar_name("unknown").unwrap(), "unknown");
     }
 }
