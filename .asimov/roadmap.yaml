@@ -62,6 +62,14 @@ tier2:
     title: "Port edge cases from forge-e2e to inline Rust unit tests"
     why: "Code quality signal for anyone evaluating the repo — do before conference talks"
 
+  - id: T2-ADR-NODB
+    title: "ADR: No database access — Forge is a calculator, not an ETL pipeline"
+    why: "Prevents scope creep — document that data pipelines are external by design"
+
+  - id: T2-ADR-NOVBA
+    title: "ADR: No VBA equivalent — LLM+MCP is the programmability layer"
+    why: "Documents the strategic bet: AI agents replace macros, not reimplementing them"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — MAYBE LATER (month 4+, only if traction justifies it)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -74,6 +82,14 @@ tier3:
   - id: T3-VALIDATE
     title: "Find external FOSS tool to validate Forge-native functions"
     why: "Good for credibility, not urgent"
+
+  - id: T3-SUMPRODUCT
+    title: "Add SUMPRODUCT function (syntactic sugar over SUM(col1*col2))"
+    why: "Heavily used in finance — improves Excel familiarity, but SUM(a*b) workaround exists"
+
+  - id: T3-SCHEMADX
+    title: "Schema DX — forge init templates + better forge_examples output"
+    why: "LLMs trip on scalar value/formula vs bare table strings — self-documenting format reduces errors"
 
   - id: T3-SIMD
     title: "Performance — SIMD vectorization + Rayon multi-threading"
