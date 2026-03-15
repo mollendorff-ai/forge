@@ -1,13 +1,108 @@
 # Forge Roadmap
 # Version: Cargo.toml | History: CHANGELOG.md | Config: project.yaml
+#
+# Prioritized for solo-founder commercialization, 20 hrs/week capacity.
+# Organizing question for every item: does this get Forge into more hands
+# or close a deal in the next 6 months?
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# NEXT
+# TIER 1 — DO NOW (weeks 1-6, directly drives adoption or revenue)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-next: []
-  # Nothing scheduled — beta.8 (deps update) is the latest release
-  # Pull from backlog when ready for next sprint
+tier1:
+  - id: T1-DIST
+    title: "Homebrew formula + cargo-binstall distribution"
+    why: "Removes #1 adoption barrier — nobody installs from source"
+
+  - id: T1-API
+    title: "API feature parity + OpenAPI spec (20 REST endpoints matching 20 MCP tools)"
+    why: "Enterprise buyers need REST not just MCP; required for any vertical product or white-label deal"
+
+  - id: T1-TRANSPORT
+    title: "MCP transport abstraction — SSE/WebSocket support via rmcp (MCP-003)"
+    why: "Needed for cloud/browser contexts and any hosted product"
+
+  - id: T1-DEMOS
+    title: "Demo model library — 3-5 polished showcase YAMLs"
+    why: "Top-of-funnel for every GitHub visitor and LinkedIn post"
+    models:
+      - "SaaS revenue model"
+      - "DCF valuation"
+      - "Budget vs actual"
+      - "Loan amortization"
+      - "Monte Carlo portfolio risk"
+    acceptance: "Each runs in under 60 seconds and produces impressive output"
+
+  - id: T1-DEMOCLI
+    title: "One-command demo experience (e.g. forge demo saas-model)"
+    why: "First impressions matter — download and run a showcase model with clean terminal output"
+
+  - id: T1-IMPORT
+    title: "Excel import polish — import a real-world 3-statement model to clean YAML"
+    why: "Killer demo: paste your Excel model, get AI-readable YAML in 10 seconds"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TIER 2 — DO NEXT (weeks 7-12, builds credibility and quality)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+tier2:
+  - id: T2-CLI
+    title: "CLI improvements: rename upgrade → migrate, restore update command"
+    why: "Low effort high polish — do before any public launch"
+
+  - id: T2-BENCH
+    title: "Performance benchmarks per function"
+    why: "Great content for blog posts and talks — 'Forge computes X in Y ms' is a sales argument"
+
+  - id: T2-INCLUDE
+    title: "INCLUDE feature — complete E2E testing & roundtrip validation"
+    why: "Composable models matter for real enterprise use cases"
+
+  - id: T2-PORT
+    title: "Port edge cases from forge-e2e to inline Rust unit tests"
+    why: "Code quality signal for anyone evaluating the repo — do before conference talks"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TIER 3 — MAYBE LATER (month 4+, only if traction justifies it)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+tier3:
+  - id: T3-COV
+    title: "100% coverage enforcement (ADR-004/ADR-006 compliance)"
+    why: "Do incrementally not as a project — nobody pays for test coverage"
+
+  - id: T3-VALIDATE
+    title: "Find external FOSS tool to validate Forge-native functions"
+    why: "Good for credibility, not urgent"
+
+  - id: T3-SIMD
+    title: "Performance — SIMD vectorization + Rayon multi-threading"
+    why: "Forge is already fast enough for any real-world model — optimize when a customer hits a wall"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TIER 4 — PARKED (revisit post-traction, nothing lost)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+parked:
+  - id: T4-GAME
+    title: "Game Theory Module — Nash equilibrium, IPD tournaments, Folk theorem, ESS"
+    why: "Intellectually fascinating, zero buyers asking for it — build after 10K MRR"
+
+  - id: T4-GPU
+    title: "GPU acceleration CUDA/OpenCL (10-100x for large simulations)"
+    why: "Months of work, no customer needs it — models run in milliseconds on CPU"
+
+  - id: T4-FPGA
+    title: "FPGA acceleration for HFT (ADR-026)"
+    why: "Needs 10M+ and a team of 10 to even start"
+
+  - id: T4-CRYSTAL
+    title: "Crystal Analysis — N-dimensional fractal visualization for DANEEL (ADR-028)"
+    why: "Research project, not a product feature"
+
+  - id: T4-ALGO
+    title: "Algorithmic optimizations — flamegraph profiling, arena allocators"
+    why: "Premature optimization — profile when you have a real performance complaint from a real customer"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # COMPLETED
@@ -121,25 +216,3 @@ completed:
     title: "Unit tests for all new MCP tools"
   - id: BETA-006
     title: "ADR + CHANGELOG + --help updates"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# BACKLOG - Future ideas (unscheduled)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-backlog:
-  - "MCP Transport Abstraction — SSE/WebSocket support via rmcp (MCP-003)"
-  - "Homebrew formula / cargo-binstall distribution"
-  - "100% Coverage Enforcement (ADR-004/ADR-006 compliance)"
-  - "API Feature Parity + OpenAPI (17 REST endpoints matching 17 MCP tools)"
-  - "CLI Improvements: rename upgrade → migrate, restore update command"
-  - "Game Theory Module - Nash equilibrium, IPD tournaments, Folk theorem, ESS"
-  - "Performance - SIMD Vectorization (2-4x speedup on numeric-heavy workloads)"
-  - "Performance - Multi-threading with Rayon (near-linear scaling with core count)"
-  - "Performance - GPU Acceleration CUDA/OpenCL (10-100x for large simulations)"
-  - "Performance - Algorithmic Optimizations (flamegraph profiling, arena allocators)"
-  - "Crystal Analysis - N-Dimensional Fractal Visualization for DANEEL (ADR-028)"
-  - "Port edge cases from forge-e2e to inline Rust unit tests"
-  - "INCLUDE Feature - Complete E2E Testing & Roundtrip Validation"
-  - "Find external FOSS tool to validate Forge-native functions"
-  - "Performance benchmarks per function"
-  - "FPGA acceleration for HFT (post-capitalization) - see ADR-026"
