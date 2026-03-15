@@ -6,7 +6,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 next: []
-  # Nothing scheduled — beta.7 (inline export) is the latest release
+  # Nothing scheduled — beta.8 (deps update) is the latest release
   # Pull from backlog when ready for next sprint
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -14,6 +14,16 @@ next: []
 # ═══════════════════════════════════════════════════════════════════════════════
 
 completed:
+  # ── v10.0.0-beta.8 ── Dependency Updates ──────────────────────────────────
+  - id: DEPS-001
+    title: "Compat updates: anyhow, assert_cmd, chrono, clap 4.6, tempfile, tokio 1.50, tracing-subscriber, uuid"
+  - id: DEPS-002
+    title: "Breaking updates: rmcp 0.16→1.2, rust_xlsxwriter 0.93→0.94, calamine 0.33→0.34, jsonschema 0.42→0.45"
+  - id: DEPS-003
+    title: "ServerInfo/Implementation builders for rmcp 1.x non-exhaustive structs"
+  - id: DEPS-004
+    title: "Roadmap + CHANGELOG + version bump to beta.8"
+
   # ── v10.0.0-beta.7 ── Inline Export for Sandboxed Clients ─────────────────
   - id: EXPORT-001
     title: "ExcelExporter::export_to_buffer() — in-memory workbook via save_to_buffer()"

@@ -516,19 +516,11 @@ impl ForgeMcpServer {
 #[tool_handler]
 impl ServerHandler for ForgeMcpServer {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            instructions: Some("Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 173 Excel-compatible functions. All tools return structured JSON.".into()),
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            server_info: rmcp::model::Implementation {
-                name: "forge".into(),
-                title: None,
-                version: env!("CARGO_PKG_VERSION").into(),
-                description: None,
-                icons: None,
-                website_url: None,
-            },
-            ..Default::default()
-        }
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_instructions("Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 173 Excel-compatible functions. All tools return structured JSON.")
+            .with_server_info(
+                rmcp::model::Implementation::new("forge", env!("CARGO_PKG_VERSION"))
+            )
     }
 }
 

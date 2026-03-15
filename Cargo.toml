@@ -1,6 +1,6 @@
 [package]
 name = "mollendorff-forge"
-version = "10.0.0-beta.7"
+version = "10.0.0-beta.8"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "Möllendorff AI <admin@mollendorff.ai>"]
 description = "Battle-tested financial math for AI. 173 Excel-compatible functions validated against Gnumeric & R. MCP integration, Monte Carlo, Decision Trees, Real Options."
@@ -50,7 +50,7 @@ serde_json = "1.0"  # JSON handling for schema validation
 xlformula_engine = "0.1.18"
 
 # JSON Schema validation (v1.0.0 array model)
-jsonschema = "0.42"
+jsonschema = "0.45"
 
 # CLI
 clap = { version = "4.5.53", features = ["derive", "env"] }
@@ -69,10 +69,10 @@ regex = "1.12"
 colored = "3.0"
 
 # Excel export (v1.0.0 array model)
-rust_xlsxwriter = "0.93"
+rust_xlsxwriter = "0.94"
 
 # Excel import (v1.0.0 array model)
-calamine = "0.33"
+calamine = "0.34"
 
 # File watching (v1.4.0 watch mode)
 notify = "8.2"
@@ -82,7 +82,7 @@ notify-debouncer-mini = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "signal", "net"] }
 
 # MCP server (Model Context Protocol via rmcp SDK)
-rmcp = { version = "0.16", features = ["server", "transport-io"] }
+rmcp = { version = "1.2", features = ["server", "transport-io"] }
 
 # API Server
 axum = "0.8"

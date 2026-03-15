@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-beta.8] - 2026-03-14
+
+### Changed
+- **Dependency updates**: All direct dependencies brought to latest versions
+  - `rmcp` 0.16 → 1.2 (MCP SDK major bump; adapted to non-exhaustive `ServerInfo`/`Implementation` builders)
+  - `rust_xlsxwriter` 0.93 → 0.94, `calamine` 0.33 → 0.34, `jsonschema` 0.42 → 0.45
+  - `clap` 4.5 → 4.6, `tokio` 1.49 → 1.50, `chrono` 0.4.43 → 0.4.44
+  - `tempfile` 3.25 → 3.27, `anyhow` 1.0.101 → 1.0.102, `uuid` 1.21 → 1.22
+  - `tracing-subscriber` 0.3.22 → 0.3.23, `assert_cmd` 2.1 → 2.2
+
 ## [10.0.0-beta.7] - 2026-03-10
 
 ### Added
