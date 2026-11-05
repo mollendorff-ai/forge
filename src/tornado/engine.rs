@@ -140,6 +140,13 @@ impl TornadoEngine {
     /// Returns an error if the configuration is invalid.
     pub fn new(config: TornadoConfig, base_model: ParsedModel) -> Result<Self, String> {
         config.validate()?;
+        let mut config = config;
+        config.output = resolve_scalar_name(&base_model, &config.output)
+            .map_err(|error| format!("Tornado output '{}': {error}", config.output))?;
+        for input in &mut config.inputs {
+            input.name = resolve_scalar_name(&base_model, &input.name)
+                .map_err(|error| format!("Tornado input '{}': {error}", input.name))?;
+        }
         Ok(Self { config, base_model })
     }
 
@@ -302,6 +309,39 @@ impl TornadoEngine {
     #[must_use]
     pub const fn config(&self) -> &TornadoConfig {
         &self.config
+    }
+}
+
+/// Resolve exact scalar IDs first, then allow a unique unqualified leaf name.
+///
+/// Forge v5 stores grouped inputs/outputs as IDs such as `inputs.price` and
+/// `outputs.revenue`. Tornado configs commonly use the leaf names (`price`,
+/// `revenue`). Previously an unmatched leaf was silently inserted as a new
+/// scalar, creating duplicate variables and leaving formulas bound to the
+/// original grouped scalar. Its effect depended on formula name resolution.
+/// Reject ambiguous/missing names rather than inventing variables.
+fn resolve_scalar_name(model: &ParsedModel, name: &str) -> Result<String, String> {
+    if model.scalars.contains_key(name) {
+        return Ok(name.to_string());
+    }
+    if name.contains('.') {
+        return Err("not found; use an existing scalar ID".to_string());
+    }
+
+    let mut matches: Vec<&str> = model
+        .scalars
+        .keys()
+        .map(String::as_str)
+        .filter(|candidate| candidate.rsplit('.').next() == Some(name))
+        .collect();
+    matches.sort_unstable();
+    match matches.as_slice() {
+        [resolved] => Ok((*resolved).to_string()),
+        [] => Err("not found; use an existing scalar ID".to_string()),
+        _ => Err(format!(
+            "ambiguous; use a fully qualified scalar ID (matches: {})",
+            matches.join(", ")
+        )),
     }
 }
 

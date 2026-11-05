@@ -2,6 +2,8 @@
 
 use super::*;
 use crate::types::{ParsedModel, Variable};
+use std::io::Write;
+use tempfile::NamedTempFile;
 
 fn create_npv_model() -> ParsedModel {
     let mut model = ParsedModel::new();
@@ -288,4 +290,112 @@ fn test_with_base_values() {
         (result.base_value - 100.0).abs() < 0.01,
         "Base value should be 100"
     );
+}
+
+#[test]
+fn test_v5_unqualified_tornado_inputs_resolve_to_unique_input_ids() {
+    let yaml = r#"
+_forge_version: "5.0.0"
+inputs:
+  price:
+    value: 100
+    formula: null
+  volume:
+    value: 10
+    formula: null
+outputs:
+  revenue:
+    value: null
+    formula: "=price * volume"
+tornado:
+  output: outputs.revenue
+  inputs:
+    - name: price
+      low: 50
+      high: 150
+    - name: volume
+      low: 5
+      high: 20
+"#;
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(yaml.as_bytes()).unwrap();
+    let model = crate::parser::parse_model(file.path()).unwrap();
+    let config = TornadoConfig::new("revenue")
+        .with_input(InputRange::new("price", 50.0, 150.0))
+        .with_input(InputRange::new("volume", 5.0, 20.0));
+
+    let engine = TornadoEngine::new(config, model).unwrap();
+    assert_eq!(engine.config().output, "outputs.revenue");
+    assert_eq!(engine.config().inputs[0].name, "inputs.price");
+    assert_eq!(engine.config().inputs[1].name, "inputs.volume");
+
+    let result = engine.analyze().unwrap();
+    assert!((result.base_value - 1000.0).abs() < 0.01);
+    let price = result
+        .bars
+        .iter()
+        .find(|bar| bar.input_name == "inputs.price")
+        .unwrap();
+    assert!((price.output_at_low - 500.0).abs() < 0.01);
+    assert!((price.output_at_high - 1500.0).abs() < 0.01);
+    let volume = result
+        .bars
+        .iter()
+        .find(|bar| bar.input_name == "inputs.volume")
+        .unwrap();
+    assert!((volume.output_at_low - 500.0).abs() < 0.01);
+    assert!((volume.output_at_high - 2000.0).abs() < 0.01);
+}
+
+#[test]
+fn test_tornado_rejects_unknown_input_instead_of_inserting_a_new_scalar() {
+    let mut model = ParsedModel::new();
+    model.scalars.insert(
+        "inputs.price".to_string(),
+        Variable::new("inputs.price".to_string(), Some(100.0), None),
+    );
+    model.scalars.insert(
+        "outputs.revenue".to_string(),
+        Variable::new(
+            "outputs.revenue".to_string(),
+            None,
+            Some("=inputs.price * 10".to_string()),
+        ),
+    );
+    let config = TornadoConfig::new("outputs.revenue").with_input(InputRange::new(
+        "missing_price",
+        50.0,
+        150.0,
+    ));
+
+    let error = TornadoEngine::new(config, model).err().unwrap();
+    assert!(error.contains("missing_price"));
+}
+
+#[test]
+fn test_tornado_rejects_ambiguous_unqualified_input_names() {
+    let mut model = ParsedModel::new();
+    model.scalars.insert(
+        "inputs.price".to_string(),
+        Variable::new("inputs.price".to_string(), Some(100.0), None),
+    );
+    model.scalars.insert(
+        "assumptions.price".to_string(),
+        Variable::new("assumptions.price".to_string(), Some(90.0), None),
+    );
+    model.scalars.insert(
+        "outputs.revenue".to_string(),
+        Variable::new(
+            "outputs.revenue".to_string(),
+            None,
+            Some("=inputs.price * 10".to_string()),
+        ),
+    );
+    let config =
+        TornadoConfig::new("outputs.revenue").with_input(InputRange::new("price", 50.0, 150.0));
+
+    let error = TornadoEngine::new(config, model).err().unwrap();
+    assert!(error.contains("ambiguous"));
+    assert!(error.contains("assumptions.price"));
+    assert!(error.contains("inputs.price"));
 }
