@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The math, date and financial validators never ran Forge.** Each test compared a hard-coded number (`forge_result <- 3`) with R, so a pass said nothing about Forge. They now run every formula through `forge calculate` (`validators/r/forge_helper.R`; set `FORGE_BIN`) and exit 2 if Forge cannot be found. 119 tests.
+- The leap-year tests passed whenever R reported an invalid date (`|| r_result == TRUE`). They now check Forge's `DATE` for Feb 29.
+- Two R references were not Excel's: `round()` rounds half to even (Excel rounds half away from zero), and the `NETWORKDAYS` reference excluded the start date. Both now follow Excel.
+- Found by the change: Forge returned 0 for `NETWORKDAYS` with a start after the end (Excel: negative count). Fixed in forge#26; the reverse-range date test needs a Forge build with that fix.
+
+### Fixed
+
 - **A run where tests errored exited 0.** Tests that could not run (a missing R package, a Forge crash, unparseable output) were reported as errors but not counted, so `--all` printed `PASS 0 passed` and exited 0. Errors now count against the run, and a run that passed nothing exits 1.
 - `validators/r/run_all.sh` stopped after the first passing validator: `((PASSED_VALIDATORS++))` returns status 1 when the counter is 0, and `set -e` exited. The counters now use `$((n + 1))`.
 

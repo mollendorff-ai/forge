@@ -29,7 +29,7 @@ This is a child repository of [forge-e2e](https://github.com/mollendorff-ai/forg
 
 `cargo run --release -- --all` executes the Monte Carlo tests only (10 of the 77 specs in `tests/analytics`). The other 67 are reported as skipped. The YAML specs and R validator scripts for the other categories exist, but the Rust runner does not call them yet.
 
-`validators/r/math_validator.R`, `date_validator.R` and `financial_validator.R` compare hard-coded numbers with R's results. They do not run Forge, so a pass says nothing about Forge.
+`validators/r/math_validator.R`, `date_validator.R` and `financial_validator.R` run each formula through `forge calculate` and compare the result with R. They need `FORGE_BIN` set (or `forge` on the PATH) and stop with exit code 2 if Forge cannot be found. Where R and Excel differ, the reference is Excel: `ROUND` rounds half away from zero and `NETWORKDAYS` counts both end dates.
 
 ## Requirements
 
