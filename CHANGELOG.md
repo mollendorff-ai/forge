@@ -7,12 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-beta.11] - 2026-11-05
+
 ### Changed
 - **`forge real-options` result**: `total_option_value` is removed. It added option values that overlap (waiting and expanding depend on the same project), so it double counted. Each option now has a `project_value`, and the result has `best_option` and `project_value_with_options` (the best one). `traditional_npv` is optional and can be set in `real_options`; without it, options held on top of the project have no project value and the decision is `UNDECIDED`. `-o` now writes YAML instead of a Rust debug dump.
 
 ### Added
 - **Dependabot** (`.github/dependabot.yml`): a weekly pull request for minor and patch updates of Cargo dependencies, one per major version bump, and one for GitHub Actions.
-- **Validation workflow** (`.github/workflows/validation.yml`): builds Forge and runs the forge-e2e-gnumeric and forge-e2e-r suites every Monday and on demand. It runs when its own file changes, to test itself.
+- **Validation workflow** (`.github/workflows/validation.yml`): builds Forge and runs the forge-e2e-gnumeric and forge-e2e-r suites every Monday and on demand. It also runs on pull requests that change its own file or `Cargo.toml` (releases and dependency updates), so the result shows on the PR.
 - **Weekly CI** (`.github/workflows/weekly.yml`): `cargo audit` every Monday and on `Cargo.lock` changes, and tests plus strict clippy on the latest stable Rust every Monday.
 
 ### Fixed
