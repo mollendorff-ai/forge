@@ -303,7 +303,9 @@ impl WorkbookRefs {
                     out.push_str(&self.reference(word, ctx, whole_column, &mut has_range)?);
                 },
                 Token::Operator(op) => {
-                    if after_value {
+                    // `^` goes out unspaced: Gnumeric cannot read `2 ^ 10` in an
+                    // imported workbook, while Excel accepts both forms.
+                    if after_value && op != "^" {
                         let _ = write!(out, " {op} ");
                     } else {
                         out.push_str(op);
@@ -438,7 +440,7 @@ mod tests {
         // revenue (A), total_profit (B), year (C).
         assert_eq!(
             row("=assumptions.base_revenue * (1 + assumptions.growth) ^ year").unwrap(),
-            "='assumptions'!$B$2 * (1 + 'assumptions'!$B$3) ^ C3"
+            "='assumptions'!$B$2 * (1 + 'assumptions'!$B$3)^C3"
         );
     }
 
