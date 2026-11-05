@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+  # Run with --ref <tag>. The Auto Release job in ci.yml uses this, because a tag
+  # pushed with GITHUB_TOKEN does not start the push trigger above.
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always

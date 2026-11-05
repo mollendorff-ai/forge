@@ -276,6 +276,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -307,3 +308,10 @@ jobs:
           git tag -a "v${{ steps.cargo_version.outputs.version }}" -m "Release v${{ steps.cargo_version.outputs.version }}"
           git push origin "v${{ steps.cargo_version.outputs.version }}"
           echo "Created and pushed tag v${{ steps.cargo_version.outputs.version }}"
+
+      # Tags pushed with GITHUB_TOKEN do not start other workflows, so start Release explicitly.
+      - name: Start Release workflow
+        if: steps.tag_check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run release.yml --ref "v${{ steps.cargo_version.outputs.version }}"
