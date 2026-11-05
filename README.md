@@ -21,7 +21,7 @@ Forge is a beta (v10.0.0-beta.10) and an R&D prototype, built with AI assistance
 
 Known problems as of 2026-11-05:
 
-- `forge export` handles simple single-table models. Formulas that reference other sections are not translated correctly yet. `forge import` turns each sheet into a table (formulas included) and a `Scalars` sheet into scalars, but it does not rebuild scalar sections such as `assumptions:` from a workbook that `forge export` wrote.
+- `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value and lists it. Table names containing dots (from multi-document files) do not survive `forge import`.
 - Bayesian networks support one parent per node. A node with two parents is rejected.
 - `forge calculate examples/monte-carlo.yaml` fails because its row formulas need values that only exist during a simulation. Use `forge simulate` for that example.
 
@@ -331,7 +331,7 @@ forge validate model.yaml
 # Calculate with scenario
 forge calculate model.yaml --scenario optimistic
 
-# Export a simple model to Excel (see known limitations)
+# Export to Excel with formulas (see known limitations)
 forge export model.yaml output.xlsx
 ```
 

@@ -1,13 +1,80 @@
 //! Excel importer implementation - Excel (.xlsx) → YAML
+//!
+//! Reads the layout `forge export` writes (see `workbook_refs`): a sheet whose
+//! header is `Name`, `Value` holds scalars, any other sheet is a table. Formulas
+//! are translated with every sheet's layout, so references between sheets come
+//! back as `table.column` and `group.scalar`. A formula that cannot be
+//! expressed in Forge is imported as its value, with a warning.
 
+use super::workbook_refs::{column_letter, ReverseRefs, SheetKind};
 use crate::error::{ForgeError, ForgeResult};
-use crate::excel::reverse_formula_translator::ReverseFormulaTranslator;
 use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 use calamine::{open_workbook, Data, Range, Reader, Xlsx};
-use std::collections::HashMap;
 use std::path::Path;
 
-/// Excel importer for converting .xlsx files to v1.0.0 YAML models
+/// One worksheet read from the file.
+struct Sheet {
+    name: String,
+    values: Range<Data>,
+    formulas: Option<Range<String>>,
+}
+
+impl Sheet {
+    /// Cell text by 0-based position relative to the used range of values.
+    fn header(&self, col: usize) -> Option<String> {
+        match self.values.get((0, col))? {
+            Data::String(s) => Some(s.clone()),
+            Data::Int(i) => Some(i.to_string()),
+            Data::Float(f) => Some(f.to_string()),
+            _ => None,
+        }
+    }
+
+    /// `Name` / `Value` (optionally `Formula`) header: a scalar sheet.
+    fn is_scalar_sheet(&self) -> bool {
+        let (_, width) = self.values.get_size();
+        let name = self
+            .header(0)
+            .is_some_and(|h| h.eq_ignore_ascii_case("name"));
+        let value = self
+            .header(1)
+            .is_some_and(|h| h.eq_ignore_ascii_case("value"));
+        let third = width < 3
+            || self
+                .header(2)
+                .is_some_and(|h| h.eq_ignore_ascii_case("formula"));
+        name && value && third
+    }
+
+    /// Formula of the cell at a 0-based position relative to the value range.
+    fn formula(&self, row: usize, col: usize) -> Option<String> {
+        let (start_row, start_col) = self.values.start()?;
+        let r = start_row + u32::try_from(row).ok()?;
+        let c = start_col + u32::try_from(col).ok()?;
+        let f = self.formulas.as_ref()?.get_value((r, c))?;
+        if f.is_empty() {
+            None
+        } else if f.starts_with('=') {
+            Some(f.clone())
+        } else {
+            Some(format!("={f}"))
+        }
+    }
+
+    /// Excel row number (1-based) of a 0-based row in the value range.
+    fn excel_row(&self, row: usize) -> u32 {
+        let start = self.values.start().map_or(0, |(r, _)| r);
+        start + u32::try_from(row).unwrap_or(0) + 1
+    }
+
+    /// Excel column letter of a 0-based column in the value range.
+    fn letter(&self, col: usize) -> String {
+        let start = self.values.start().map_or(0, |(_, c)| c as usize);
+        column_letter(start + col)
+    }
+}
+
+/// Excel importer for converting .xlsx files to Forge models
 pub struct ExcelImporter {
     path: std::path::PathBuf,
 }
@@ -26,200 +93,186 @@ impl ExcelImporter {
     ///
     /// Returns an error if the Excel file cannot be opened or parsed.
     pub fn import(&self) -> ForgeResult<ParsedModel> {
-        // Open Excel workbook
+        self.import_with_warnings().map(|(model, _)| model)
+    }
+
+    /// Import, and return one warning per formula that was imported as values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the Excel file cannot be opened or parsed.
+    pub fn import_with_warnings(&self) -> ForgeResult<(ParsedModel, Vec<String>)> {
         let mut workbook: Xlsx<_> = open_workbook(&self.path)
             .map_err(|e| ForgeError::IO(format!("Failed to open Excel file: {e}")))?;
 
-        // Create model
-        let mut model = ParsedModel::new();
-
-        // Get all sheet names
-        let sheet_names = workbook.sheet_names();
-
-        // Process each sheet
-        for sheet_name in sheet_names {
-            if let Ok(range) = workbook.worksheet_range(&sheet_name) {
-                Self::process_sheet(&sheet_name, &range, &mut workbook, &mut model)?;
-            }
-        }
-
-        Ok(model)
-    }
-
-    /// Process a single worksheet
-    fn process_sheet(
-        sheet_name: &str,
-        range: &Range<Data>,
-        workbook: &mut Xlsx<std::io::BufReader<std::fs::File>>,
-        model: &mut ParsedModel,
-    ) -> ForgeResult<()> {
-        // Check if sheet is empty
-        if range.is_empty() {
-            return Ok(()); // Skip empty sheets
-        }
-
-        // Check if this is a "Scalars" sheet (special handling)
-        if sheet_name.to_lowercase() == "scalars" {
-            Self::process_scalars_sheet(range, model);
-            return Ok(());
-        }
-
-        // Get formula range for this sheet
-        let formula_range = workbook.worksheet_formula(sheet_name).ok();
-
-        // Process as regular table
-        Self::process_table_sheet(sheet_name, range, formula_range.as_ref(), model)
-    }
-
-    /// Process a regular table sheet
-    fn process_table_sheet(
-        sheet_name: &str,
-        range: &Range<Data>,
-        formula_range: Option<&Range<String>>,
-        model: &mut ParsedModel,
-    ) -> ForgeResult<()> {
-        let (height, width) = range.get_size();
-
-        if height < 2 {
-            // Need at least header + 1 data row
-            return Ok(()); // Skip sheets with insufficient data
-        }
-
-        // Read header row (row 0)
-        let mut column_names: Vec<String> = Vec::new();
-        for col in 0..width {
-            if let Some(cell) = range.get((0, col)) {
-                let name = match cell {
-                    Data::String(s) => s.clone(),
-                    Data::Int(i) => i.to_string(),
-                    Data::Float(f) => f.to_string(),
-                    _ => format!("col_{col}"),
-                };
-                column_names.push(name);
-            } else {
-                column_names.push(format!("col_{col}"));
-            }
-        }
-
-        // Read data rows and detect column types
-        let mut columns_data: HashMap<String, Vec<Data>> = HashMap::new();
-        for col_name in &column_names {
-            columns_data.insert(col_name.clone(), Vec::new());
-        }
-
-        // Collect all data (skip header row)
-        for row in 1..height {
-            for (col, col_name) in column_names.iter().enumerate().take(width) {
-                if let Some(cell) = range.get((row, col)) {
-                    columns_data.get_mut(col_name).unwrap().push(cell.clone());
-                } else {
-                    // Empty cell - use default based on column type
-                    columns_data.get_mut(col_name).unwrap().push(Data::Empty);
-                }
-            }
-        }
-
-        // Create table
-        let table_name = Self::sanitize_table_name(sheet_name);
-        let mut table = Table::new(table_name);
-
-        // Build column map for formula translation (A → revenue, B → cogs, etc.)
-        let mut column_map = HashMap::new();
-        for (idx, col_name) in column_names.iter().enumerate() {
-            let excel_col = Self::number_to_column_letter(idx);
-            column_map.insert(excel_col, col_name.clone());
-        }
-
-        // Create reverse formula translator
-        let translator = ReverseFormulaTranslator::new(column_map);
-
-        // The formula range starts at its first non-empty cell, not at A1, so
-        // it must be read by absolute position (first data row, same column).
-        let (start_row, start_col) = range
-            .start()
-            .map_or((0, 0), |(r, c)| (r as usize, c as usize));
-        let formula_at = |col_idx: usize| -> Option<&String> {
-            formula_range.and_then(|formulas| {
-                let row = u32::try_from(start_row + 1).ok()?;
-                let col = u32::try_from(start_col + col_idx).ok()?;
-                formulas.get_value((row, col))
-            })
-        };
-
-        // Convert columns to YAML format
-        for (col_idx, col_name) in column_names.iter().enumerate() {
-            // Check if this column has formulas (check first data row in formula_range)
-            let has_formula =
-                formula_at(col_idx).is_some_and(|formula_cell| !formula_cell.is_empty());
-
-            if has_formula {
-                // This is a calculated column - extract formula from first data row
-                {
-                    if let Some(formula) = formula_at(col_idx) {
-                        if !formula.is_empty() {
-                            // Add leading = if not present (calamine strips it)
-                            let formula_with_equals = if formula.starts_with('=') {
-                                formula.clone()
-                            } else {
-                                format!("={formula}")
-                            };
-
-                            // Translate Excel formula to YAML syntax
-                            let yaml_formula = translator.translate(&formula_with_equals)?;
-                            table.add_row_formula(col_name.clone(), yaml_formula);
-                            // Skip this column - don't add as data
-                            continue;
-                        }
-                    }
-                }
-            }
-
-            // Regular data column - convert to ColumnValue
-            let data = &columns_data[col_name];
-            // Skip if all data is empty (formula columns may show as empty/zero values)
-            if data.iter().all(|cell| matches!(cell, Data::Empty)) {
+        let mut sheets = Vec::new();
+        for name in workbook.sheet_names() {
+            let Ok(values) = workbook.worksheet_range(&name) else {
+                continue;
+            };
+            if values.is_empty() {
                 continue;
             }
-            let column_value = Self::convert_to_column_value(data)?;
-            table.add_column(Column::new(col_name.clone(), column_value));
+            let formulas = workbook.worksheet_formula(&name).ok();
+            sheets.push(Sheet {
+                name,
+                values,
+                formulas,
+            });
+        }
+
+        let refs = Self::layout(&sheets);
+        let mut model = ParsedModel::new();
+        let mut warnings = Vec::new();
+        for sheet in &sheets {
+            if sheet.is_scalar_sheet() {
+                Self::import_scalars(sheet, &refs, &mut model, &mut warnings);
+            } else {
+                Self::import_table(sheet, &refs, &mut model, &mut warnings)?;
+            }
+        }
+        Ok((model, warnings))
+    }
+
+    /// Scalar group for a sheet name; the `Scalars` sheet holds ungrouped ones.
+    fn scalar_group(sheet_name: &str) -> Option<String> {
+        if sheet_name.eq_ignore_ascii_case(super::workbook_refs::UNGROUPED_SHEET) {
+            None
+        } else {
+            Some(Self::sanitize_table_name(sheet_name))
+        }
+    }
+
+    /// Where every column and scalar is, for translating formulas.
+    fn layout(sheets: &[Sheet]) -> ReverseRefs {
+        let mut refs = ReverseRefs::default();
+        for sheet in sheets {
+            let (height, width) = sheet.values.get_size();
+            let kind = if sheet.is_scalar_sheet() {
+                let group = Self::scalar_group(&sheet.name);
+                let rows = (1..height)
+                    .filter_map(|row| {
+                        let name = sheet.values.get((row, 0))?.to_string();
+                        if name.is_empty() {
+                            return None;
+                        }
+                        let path = group
+                            .as_ref()
+                            .map_or_else(|| name.clone(), |g| format!("{g}.{name}"));
+                        Some((sheet.excel_row(row), path))
+                    })
+                    .collect();
+                SheetKind::Scalars { rows }
+            } else {
+                let columns = (0..width)
+                    .map(|col| {
+                        let name = sheet.header(col).unwrap_or_else(|| format!("col_{col}"));
+                        (sheet.letter(col), name)
+                    })
+                    .collect();
+                SheetKind::Table {
+                    name: Self::sanitize_table_name(&sheet.name),
+                    columns,
+                }
+            };
+            refs.sheets.insert(sheet.name.clone(), kind);
+        }
+        refs
+    }
+
+    /// A `Name` / `Value` sheet: one scalar per row.
+    fn import_scalars(
+        sheet: &Sheet,
+        refs: &ReverseRefs,
+        model: &mut ParsedModel,
+        warnings: &mut Vec<String>,
+    ) {
+        let group = Self::scalar_group(&sheet.name);
+        let (height, _) = sheet.values.get_size();
+        for row in 1..height {
+            let Some(name) = sheet.values.get((row, 0)).map(ToString::to_string) else {
+                continue;
+            };
+            if name.is_empty() {
+                continue;
+            }
+            let path = group
+                .as_ref()
+                .map_or_else(|| name.clone(), |g| format!("{g}.{name}"));
+
+            #[allow(clippy::cast_precision_loss)] // Excel integers fit in f64
+            let value = sheet.values.get((row, 1)).and_then(|cell| match cell {
+                Data::Float(f) => Some(*f),
+                Data::Int(i) => Some(*i as f64),
+                Data::Bool(b) => Some(f64::from(u8::from(*b))),
+                _ => None,
+            });
+
+            let formula = sheet.formula(row, 1).map_or_else(
+                // Older workbooks: Forge formula as text in a third column
+                || match sheet.values.get((row, 2)) {
+                    Some(Data::String(f)) if !f.is_empty() => Some(f.clone()),
+                    _ => None,
+                },
+                |excel| match refs.to_forge(&excel, &sheet.name, sheet.excel_row(row)) {
+                    Ok(forge) => Some(forge),
+                    Err(reason) => {
+                        warnings.push(format!("{path}: imported as a value ({reason}): {excel}"));
+                        None
+                    },
+                },
+            );
+
+            model.add_scalar(path.clone(), Variable::new(path, value, formula));
+        }
+    }
+
+    /// Any other sheet: a table, header in the first row.
+    fn import_table(
+        sheet: &Sheet,
+        refs: &ReverseRefs,
+        model: &mut ParsedModel,
+        warnings: &mut Vec<String>,
+    ) -> ForgeResult<()> {
+        let (height, width) = sheet.values.get_size();
+        if height < 2 {
+            return Ok(()); // header only
+        }
+        let table_name = Self::sanitize_table_name(&sheet.name);
+        let mut table = Table::new(table_name.clone());
+
+        for col in 0..width {
+            let col_name = sheet.header(col).unwrap_or_else(|| format!("col_{col}"));
+
+            // A formula in the first data row makes this a calculated column
+            if let Some(excel) = sheet.formula(1, col) {
+                match refs.to_forge(&excel, &sheet.name, sheet.excel_row(1)) {
+                    Ok(forge) => {
+                        table.add_row_formula(col_name, forge);
+                        continue;
+                    },
+                    Err(reason) => warnings.push(format!(
+                        "{table_name}.{col_name}: imported as values ({reason}): {excel}"
+                    )),
+                }
+            }
+
+            let mut data: Vec<Data> = (1..height)
+                .map(|row| sheet.values.get((row, col)).cloned().unwrap_or(Data::Empty))
+                .collect();
+            // Columns may differ in length: a shorter one ends in empty cells
+            while matches!(data.last(), Some(Data::Empty)) {
+                data.pop();
+            }
+            if data.is_empty() {
+                continue;
+            }
+            let column_value = Self::convert_to_column_value(&data)?;
+            table.add_column(Column::new(col_name, column_value));
         }
 
         model.add_table(table);
         Ok(())
-    }
-
-    /// Process the "Scalars" sheet (if present)
-    fn process_scalars_sheet(range: &Range<Data>, model: &mut ParsedModel) {
-        let (height, _width) = range.get_size();
-
-        // Skip header row, process data rows
-        for row in 1..height {
-            // Column 0: Name
-            // Column 1: Value
-            // Column 2: Formula (optional)
-
-            let name = if let Some(cell) = range.get((row, 0)) {
-                cell.to_string()
-            } else {
-                continue; // Skip row without name
-            };
-
-            #[allow(clippy::cast_precision_loss)] // Excel integer values fit within f64 precision
-            let value = range.get((row, 1)).and_then(|cell| match cell {
-                Data::Float(f) => Some(*f),
-                Data::Int(i) => Some(*i as f64),
-                _ => None,
-            });
-
-            let formula = range.get((row, 2)).and_then(|cell| match cell {
-                Data::String(s) if !s.is_empty() => Some(s.clone()),
-                _ => None,
-            });
-
-            // Create variable
-            let variable = Variable::new(name.clone(), value, formula);
-            model.add_scalar(name, variable);
-        }
     }
 
     /// Convert Excel Data array to `ColumnValue`
@@ -279,25 +332,6 @@ impl ExcelImporter {
             .filter(|c| c.is_alphanumeric() || *c == '_')
             .collect()
     }
-
-    /// Convert column index to Excel column letter (0→A, 1→B, 25→Z, 26→AA, etc.)
-    fn number_to_column_letter(n: usize) -> String {
-        let mut result = String::new();
-        let mut num = n;
-
-        loop {
-            let remainder = num % 26;
-            #[allow(clippy::cast_possible_truncation)] // remainder is 0..25, always fits in u8
-            let ch = (b'A' + remainder as u8) as char;
-            result.insert(0, ch);
-            if num < 26 {
-                break;
-            }
-            num = num / 26 - 1;
-        }
-
-        result
-    }
 }
 
 #[cfg(test)]
@@ -305,18 +339,6 @@ impl ExcelImporter {
 #[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_number_to_column_letter() {
-        assert_eq!(ExcelImporter::number_to_column_letter(0), "A");
-        assert_eq!(ExcelImporter::number_to_column_letter(1), "B");
-        assert_eq!(ExcelImporter::number_to_column_letter(25), "Z");
-        assert_eq!(ExcelImporter::number_to_column_letter(26), "AA");
-        assert_eq!(ExcelImporter::number_to_column_letter(27), "AB");
-        assert_eq!(ExcelImporter::number_to_column_letter(51), "AZ");
-        assert_eq!(ExcelImporter::number_to_column_letter(52), "BA");
-        assert_eq!(ExcelImporter::number_to_column_letter(702), "AAA");
-    }
 
     #[test]
     fn test_sanitize_table_name() {
@@ -548,13 +570,6 @@ mod tests {
             ExcelImporter::sanitize_table_name("   trimmed   "),
             "___trimmed___"
         );
-    }
-
-    #[test]
-    fn test_number_to_column_letter_extended() {
-        assert_eq!(ExcelImporter::number_to_column_letter(703), "AAB");
-        assert_eq!(ExcelImporter::number_to_column_letter(704), "AAC");
-        assert_eq!(ExcelImporter::number_to_column_letter(16383), "XFD");
     }
 
     #[test]

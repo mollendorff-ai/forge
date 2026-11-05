@@ -1,130 +1,54 @@
 //! Excel exporter implementation
 
+use super::workbook_refs::{split_scalar_path, Context, WorkbookRefs, UNGROUPED_SHEET};
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{ColumnValue, Metadata, ParsedModel, Table};
 use rust_xlsxwriter::{Formula, Note, Workbook, Worksheet};
 use std::collections::HashMap;
 use std::path::Path;
 
-/// Location of a scalar in the exported Excel workbook
-#[derive(Clone, Debug)]
-pub struct ScalarLocation {
-    /// Worksheet name (e.g., "utilities" or "Scalars" for ungrouped)
-    pub worksheet: String,
-    /// Row number (1-indexed, after header)
-    pub row: u32,
-}
-
 /// Excel exporter for v1.0.0 array models and v5.0.0 scalar models
 pub struct ExcelExporter {
     model: ParsedModel,
-    /// Global mapping: `table_name` -> (`column_name` -> `column_letter`)
-    table_column_maps: HashMap<String, HashMap<String, String>>,
-    /// Global mapping: `table_name` -> `row_count`
-    table_row_counts: HashMap<String, usize>,
-    /// Global mapping: `scalar_path` -> `ScalarLocation` (worksheet + row)
-    scalar_locations: HashMap<String, ScalarLocation>,
+    /// Sheet layout shared by every formula: where each column and scalar lives
+    refs: WorkbookRefs,
 }
 
 impl ExcelExporter {
-    /// Create a new Excel exporter
+    /// Create a new Excel exporter.
+    ///
+    /// Pass a calculated model if you have one: a formula that cannot be written
+    /// as an Excel formula is exported as its calculated value.
+    #[must_use]
     pub fn new(model: ParsedModel) -> Self {
-        // Build global column mappings for all tables
-        let mut table_column_maps = HashMap::new();
-        let mut table_row_counts = HashMap::new();
-
-        for (table_name, table) in &model.tables {
-            let mut column_names: Vec<String> = Vec::new();
-
-            // Add data columns
-            for name in table.columns.keys() {
-                column_names.push(name.clone());
-            }
-
-            // Add formula columns
-            for name in table.row_formulas.keys() {
-                if !column_names.contains(name) {
-                    column_names.push(name.clone());
-                }
-            }
-
-            column_names.sort(); // Alphabetical order
-
-            // Build column name → letter mapping
-            let column_map: HashMap<String, String> = column_names
-                .iter()
-                .enumerate()
-                .map(|(idx, name)| {
-                    let col_letter = super::FormulaTranslator::column_index_to_letter(idx);
-                    (name.clone(), col_letter)
-                })
-                .collect();
-
-            // Get row count
-            let row_count = table
-                .columns
-                .values()
-                .next()
-                .map_or(0, super::super::types::Column::len);
-
-            table_column_maps.insert(table_name.clone(), column_map);
-            table_row_counts.insert(table_name.clone(), row_count);
-        }
-
-        // Build scalar location map for grouped export
-        let scalar_locations = Self::build_scalar_locations(&model);
-
-        Self {
-            model,
-            table_column_maps,
-            table_row_counts,
-            scalar_locations,
-        }
+        let tables = model.tables.iter().map(|(name, table)| {
+            let mut columns: Vec<String> = table.columns.keys().cloned().collect();
+            columns.extend(table.row_formulas.keys().cloned());
+            (name.as_str(), columns, Self::row_count(table))
+        });
+        let refs = WorkbookRefs::new(tables, model.scalars.keys().map(String::as_str));
+        Self { model, refs }
     }
 
-    /// Build scalar location map - groups scalars by prefix for separate worksheets
-    /// e.g., "utilities.extinction" -> worksheet "utilities", row 2
-    fn build_scalar_locations(model: &ParsedModel) -> HashMap<String, ScalarLocation> {
-        let mut locations = HashMap::new();
-
-        // Group scalars by prefix (part before first dot)
-        let mut groups: HashMap<String, Vec<String>> = HashMap::new();
-        for path in model.scalars.keys() {
-            let (group, _name) = Self::split_scalar_path(path);
-            groups.entry(group).or_default().push(path.clone());
-        }
-
-        // Sort scalars within each group and assign row numbers
-        for (group_name, mut scalar_paths) in groups {
-            scalar_paths.sort();
-            for (idx, path) in scalar_paths.iter().enumerate() {
-                #[allow(clippy::cast_possible_truncation)] // scalar count is well within u32 range
-                let row = (idx + 2) as u32; // +1 for header, +1 for 1-indexing
-                locations.insert(
-                    path.clone(),
-                    ScalarLocation {
-                        worksheet: group_name.clone(),
-                        row,
-                    },
-                );
-            }
-        }
-
-        locations
+    /// Number of data rows: the longest column (columns may differ in length).
+    fn row_count(table: &Table) -> usize {
+        table
+            .columns
+            .values()
+            .map(super::super::types::Column::len)
+            .max()
+            .unwrap_or(0)
     }
 
-    /// Split a scalar path into group and name
-    /// "utilities.extinction" -> ("utilities", "extinction")
-    /// "`tax_rate`" -> ("Scalars", "`tax_rate`")
-    fn split_scalar_path(path: &str) -> (String, String) {
-        path.find('.').map_or_else(
-            || ("Scalars".to_string(), path.to_string()),
-            |dot_pos| {
-                let group = path[..dot_pos].to_string();
-                let name = path[dot_pos + 1..].to_string();
-                (group, name)
-            },
-        )
+    /// Forge's calculated value as a cached formula result.
+    fn cached_result(values: &ColumnValue, index: usize) -> Option<String> {
+        match values {
+            ColumnValue::Number(v) => v.get(index).map(ToString::to_string),
+            ColumnValue::Text(v) | ColumnValue::Date(v) => v.get(index).cloned(),
+            ColumnValue::Boolean(v) => v
+                .get(index)
+                .map(|b| if *b { "TRUE" } else { "FALSE" }.to_string()),
+        }
     }
 
     /// Export the model to an Excel .xlsx file
@@ -133,38 +57,21 @@ impl ExcelExporter {
     ///
     /// Returns an error if the workbook cannot be saved to the specified path.
     pub fn export(&self, output_path: &Path) -> ForgeResult<()> {
-        let mut workbook = Workbook::new();
+        self.export_with_warnings(output_path).map(|_| ())
+    }
 
-        // Export each table as a separate worksheet
-        for (table_name, table) in &self.model.tables {
-            self.export_table(&mut workbook, table_name, table)?;
-        }
-
-        // Export scalars to dedicated worksheet (if any)
-        if !self.model.scalars.is_empty() {
-            self.export_scalars(&mut workbook)?;
-        }
-
-        // Export included files' tables with namespace prefix (v4.4.2)
-        for (namespace, resolved) in &self.model.resolved_includes {
-            // Export tables from included file
-            for (table_name, table) in &resolved.model.tables {
-                let prefixed_name = format!("{namespace}.{table_name}");
-                self.export_table(&mut workbook, &prefixed_name, table)?;
-            }
-
-            // Export scalars from included file with namespace prefix
-            if !resolved.model.scalars.is_empty() {
-                Self::export_namespaced_scalars(&mut workbook, namespace, &resolved.model)?;
-            }
-        }
-
-        // Save workbook to file
+    /// Export to a file and return one warning per formula that was written as
+    /// its value because Excel cannot express it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the workbook cannot be saved to the specified path.
+    pub fn export_with_warnings(&self, output_path: &Path) -> ForgeResult<Vec<String>> {
+        let (mut workbook, warnings) = self.build_workbook()?;
         workbook
             .save(output_path)
             .map_err(|e| ForgeError::IO(format!("Failed to save Excel file: {e}")))?;
-
-        Ok(())
+        Ok(warnings)
     }
 
     /// Export the model to an in-memory Excel buffer.
@@ -173,29 +80,41 @@ impl ExcelExporter {
     ///
     /// Returns an error if the workbook cannot be serialized.
     pub fn export_to_buffer(&self) -> ForgeResult<Vec<u8>> {
-        let mut workbook = Workbook::new();
+        let (mut workbook, _warnings) = self.build_workbook()?;
+        workbook
+            .save_to_buffer()
+            .map_err(|e| ForgeError::IO(format!("Failed to create Excel buffer: {e}")))
+    }
 
-        for (table_name, table) in &self.model.tables {
-            self.export_table(&mut workbook, table_name, table)?;
+    fn build_workbook(&self) -> ForgeResult<(Workbook, Vec<String>)> {
+        let mut workbook = Workbook::new();
+        let mut warnings = Vec::new();
+
+        // Tables in name order, so the workbook is the same on every run
+        let mut table_names: Vec<&String> = self.model.tables.keys().collect();
+        table_names.sort();
+        for table_name in table_names {
+            let table = &self.model.tables[table_name];
+            self.export_table(&mut workbook, table_name, table, &mut warnings)?;
         }
 
         if !self.model.scalars.is_empty() {
-            self.export_scalars(&mut workbook)?;
+            self.export_scalars(&mut workbook, &mut warnings)?;
         }
 
+        // Included files' tables with namespace prefix (v4.4.2). Their formulas
+        // are not in this workbook's layout, so they are written as values.
         for (namespace, resolved) in &self.model.resolved_includes {
             for (table_name, table) in &resolved.model.tables {
                 let prefixed_name = format!("{namespace}.{table_name}");
-                self.export_table(&mut workbook, &prefixed_name, table)?;
+                self.export_table(&mut workbook, &prefixed_name, table, &mut warnings)?;
             }
             if !resolved.model.scalars.is_empty() {
                 Self::export_namespaced_scalars(&mut workbook, namespace, &resolved.model)?;
             }
         }
 
-        workbook
-            .save_to_buffer()
-            .map_err(|e| ForgeError::IO(format!("Failed to create Excel buffer: {e}")))
+        Ok((workbook, warnings))
     }
 
     /// Export a single table to a worksheet
@@ -205,6 +124,7 @@ impl ExcelExporter {
         workbook: &mut Workbook,
         table_name: &str,
         table: &Table,
+        warnings: &mut Vec<String>,
     ) -> ForgeResult<()> {
         let worksheet = workbook.add_worksheet();
         worksheet
@@ -228,20 +148,6 @@ impl ExcelExporter {
 
         column_names.sort(); // Alphabetical order for now
 
-        // Get the column map for this table (already built in new())
-        let column_map = self
-            .table_column_maps
-            .get(table_name)
-            .cloned()
-            .unwrap_or_default();
-
-        // Create formula translator with global table knowledge
-        let translator = super::FormulaTranslator::new_with_tables(
-            column_map,
-            self.table_column_maps.clone(),
-            self.table_row_counts.clone(),
-        );
-
         // Write header row (row 0) with metadata as notes (v4.0)
         for (col_idx, col_name) in column_names.iter().enumerate() {
             worksheet
@@ -259,34 +165,67 @@ impl ExcelExporter {
             }
         }
 
-        // Get row count from first data column
-        let row_count = table
-            .columns
-            .values()
-            .next()
-            .map_or(0, super::super::types::Column::len);
+        let row_count = Self::row_count(table);
+
+        // Formula columns that Excel cannot express are written as values.
+        let mut untranslatable: HashMap<&str, String> = HashMap::new();
+        for (name, formula) in &table.row_formulas {
+            let ctx = Context::Row {
+                table: table_name,
+                row: 2,
+            };
+            if let Err(reason) = self.refs.to_excel(formula, ctx) {
+                warnings.push(format!(
+                    "{table_name}.{name}: written as values ({reason}): {formula}"
+                ));
+                untranslatable.insert(name.as_str(), reason);
+            }
+        }
 
         // Write data rows (starting at row 1)
         for row_idx in 0..row_count {
-            let excel_row = (row_idx + 1) as u32 + 1; // +1 for header row, +1 for Excel 1-indexing = row 2 for first data row
+            let excel_row = (row_idx + 1) as u32 + 1; // Excel row of this data row (header is row 1)
 
             for (col_idx, col_name) in column_names.iter().enumerate() {
-                // Check if this is a calculated column (has formula)
-                if let Some(formula) = table.row_formulas.get(col_name) {
-                    // Translate and write formula
-                    let excel_formula = translator.translate_row_formula(formula, excel_row)?;
+                let col = col_idx as u16;
+                let formula = table.row_formulas.get(col_name);
+                if let (Some(formula), None) = (formula, untranslatable.get(col_name.as_str())) {
+                    let ctx = Context::Row {
+                        table: table_name,
+                        row: excel_row,
+                    };
+                    let translated = self
+                        .refs
+                        .to_excel(formula, ctx)
+                        .map_err(|e| ForgeError::Export(format!("{table_name}.{col_name}: {e}")))?;
+                    let mut excel_formula = Formula::new(&translated.formula);
+                    // Cache Forge's result, so viewers that do not recalculate show it
+                    if let Some(result) = table
+                        .columns
+                        .get(col_name)
+                        .and_then(|c| Self::cached_result(&c.values, row_idx))
+                    {
+                        excel_formula = excel_formula.set_result(result);
+                    }
                     worksheet
-                        .write_formula(excel_row - 1, col_idx as u16, Formula::new(&excel_formula))
+                        .write_formula(excel_row - 1, col, excel_formula)
                         .map_err(|e| ForgeError::Export(format!("Failed to write formula: {e}")))?;
                 } else if let Some(column) = table.columns.get(col_name) {
-                    // Write data value
-                    Self::write_cell_value(
-                        worksheet,
-                        excel_row - 1, // Excel row is 1-indexed, worksheet API is 0-indexed
-                        col_idx as u16,
-                        &column.values,
-                        row_idx,
-                    )?;
+                    // Data value, or the calculated value of an untranslatable formula
+                    Self::write_cell_value(worksheet, excel_row - 1, col, &column.values, row_idx)?;
+                }
+                if row_idx == 0 {
+                    if let (Some(formula), Some(reason)) =
+                        (formula, untranslatable.get(col_name.as_str()))
+                    {
+                        let note = Note::new(format!(
+                            "Forge formula: {formula}\nWritten as values: {reason}"
+                        ))
+                        .set_author("Forge");
+                        worksheet
+                            .insert_note(excel_row - 1, col, &note)
+                            .map_err(|e| ForgeError::Export(format!("Failed to add note: {e}")))?;
+                    }
                 }
             }
         }
@@ -336,167 +275,108 @@ impl ExcelExporter {
     }
 
     /// Export scalars to grouped worksheets (one per prefix group)
-    /// e.g., "utilities.extinction", "utilities.flourishing" -> worksheet "utilities"
-    ///       "`scenario_probs.p_unaligned`" -> worksheet "`scenario_probs`"
-    fn export_scalars(&self, workbook: &mut Workbook) -> ForgeResult<()> {
-        // Group scalars by prefix
-        let mut groups: HashMap<String, Vec<(&String, &crate::types::Variable)>> = HashMap::new();
-        for (path, var) in &self.model.scalars {
-            let (group, _name) = Self::split_scalar_path(path);
-            groups.entry(group).or_default().push((path, var));
+    /// e.g., "utilities.extinction", "utilities.flourishing" -> worksheet "utilities";
+    /// scalars without a group go to the "Scalars" worksheet.
+    fn export_scalars(
+        &self,
+        workbook: &mut Workbook,
+        warnings: &mut Vec<String>,
+    ) -> ForgeResult<()> {
+        let mut groups: HashMap<Option<&str>, Vec<&String>> = HashMap::new();
+        for path in self.model.scalars.keys() {
+            groups
+                .entry(split_scalar_path(path).0)
+                .or_default()
+                .push(path);
         }
-
-        // Sort groups by name for deterministic output
-        let mut group_names: Vec<&String> = groups.keys().collect();
-        group_names.sort();
-
-        // Export each group as a separate worksheet
-        for group_name in group_names {
-            if let Some(scalars) = groups.get(group_name) {
-                self.export_scalar_group(workbook, group_name, scalars)?;
-            }
+        let mut group_names: Vec<Option<&str>> = groups.keys().copied().collect();
+        group_names.sort_unstable();
+        for group in group_names {
+            let mut paths = groups[&group].clone();
+            paths.sort();
+            self.export_scalar_group(workbook, group, &paths, warnings)?;
         }
-
         Ok(())
     }
 
-    /// Export a group of scalars to a single worksheet
+    /// Export one group of scalars to a worksheet: `Name` in A, `Value` in B
     fn export_scalar_group(
         &self,
         workbook: &mut Workbook,
-        group_name: &str,
-        scalars: &[(&String, &crate::types::Variable)],
+        group: Option<&str>,
+        paths: &[&String],
+        warnings: &mut Vec<String>,
     ) -> ForgeResult<()> {
+        let sheet = group.unwrap_or(UNGROUPED_SHEET);
         let worksheet = workbook.add_worksheet();
-        worksheet.set_name(group_name).map_err(|e| {
-            ForgeError::Export(format!("Failed to set worksheet name '{group_name}': {e}"))
+        worksheet.set_name(sheet).map_err(|e| {
+            ForgeError::Export(format!("Failed to set worksheet name '{sheet}': {e}"))
         })?;
-
-        // Write header row
-        worksheet
-            .write_string(0, 0, "Name")
-            .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
-        worksheet
-            .write_string(0, 1, "Value")
-            .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
-
-        // Sort scalars within group by name
-        let mut sorted_scalars: Vec<_> = scalars.to_vec();
-        sorted_scalars.sort_by(|a, b| a.0.cmp(b.0));
-
-        for (idx, (full_path, var)) in sorted_scalars.iter().enumerate() {
-            #[allow(clippy::cast_possible_truncation)] // scalar count is well within u32 range
-            let row = (idx + 1) as u32; // +1 for header row
-
-            // Get short name (part after the dot, or full path if no dot)
-            let short_name = Self::split_scalar_path(full_path).1;
-
-            // Write name (short name without prefix)
+        for (col, header) in [(0, "Name"), (1, "Value")] {
             worksheet
-                .write_string(row, 0, &short_name)
+                .write_string(0, col, header)
+                .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
+        }
+
+        for path in paths {
+            let var = &self.model.scalars[*path];
+            let row = self.refs.scalars[path.as_str()].1 - 1; // 0-based worksheet row
+            worksheet
+                .write_string(row, 0, split_scalar_path(path).1)
                 .map_err(|e| ForgeError::Export(format!("Failed to write scalar name: {e}")))?;
 
-            // Write formula or value
-            if let Some(formula) = &var.formula {
-                // Check if formula contains MC.* functions (Monte Carlo - not supported in Excel)
-                if formula.contains("MC.") {
-                    // Write calculated value and add formula as comment
+            let mut notes: Vec<String> = Vec::new();
+            let translated = var
+                .formula
+                .as_ref()
+                .map(|f| (f, self.refs.to_excel(f, Context::Scalar { group })));
+            match translated {
+                Some((_, Ok(t))) => {
+                    let mut formula = Formula::new(&t.formula);
+                    if let Some(value) = var.value {
+                        formula = formula.set_result(value.to_string());
+                    }
+                    let written = if t.has_range {
+                        worksheet.write_dynamic_formula(row, 1, formula)
+                    } else {
+                        worksheet.write_formula(row, 1, formula)
+                    };
+                    written.map_err(|e| {
+                        ForgeError::Export(format!("Failed to write scalar formula: {e}"))
+                    })?;
+                },
+                Some((formula, Err(reason))) => {
+                    warnings.push(format!("{path}: written as a value ({reason}): {formula}"));
+                    notes.push(format!(
+                        "Forge formula: {formula}\nWritten as a value: {reason}"
+                    ));
                     if let Some(value) = var.value {
                         worksheet.write_number(row, 1, value).map_err(|e| {
                             ForgeError::Export(format!("Failed to write scalar value: {e}"))
                         })?;
                     }
-                    // Add original formula as a note since Excel doesn't support MC functions
-                    let note = Note::new(format!("Forge formula: {formula}")).set_author("Forge");
-                    worksheet.insert_note(row, 1, &note).map_err(|e| {
-                        ForgeError::Export(format!("Failed to add formula note: {e}"))
-                    })?;
-                } else {
-                    // Translate and write as actual Excel formula
-                    match self.translate_grouped_scalar_formula(formula) {
-                        Ok(excel_formula) => {
-                            worksheet
-                                .write_formula(row, 1, Formula::new(&excel_formula))
-                                .map_err(|e| {
-                                    ForgeError::Export(format!(
-                                        "Failed to write scalar formula: {e}"
-                                    ))
-                                })?;
-                        },
-                        Err(_) => {
-                            // Fallback: write calculated value if formula translation fails
-                            if let Some(value) = var.value {
-                                worksheet.write_number(row, 1, value).map_err(|e| {
-                                    ForgeError::Export(format!("Failed to write scalar value: {e}"))
-                                })?;
-                            }
-                        },
+                },
+                None => {
+                    if let Some(value) = var.value {
+                        worksheet.write_number(row, 1, value).map_err(|e| {
+                            ForgeError::Export(format!("Failed to write scalar value: {e}"))
+                        })?;
                     }
-                }
-            } else if let Some(value) = var.value {
-                // No formula, just write the value
-                worksheet.write_number(row, 1, value).map_err(|e| {
-                    ForgeError::Export(format!("Failed to write scalar value: {e}"))
-                })?;
+                },
             }
 
-            // Add metadata as cell note for scalars (v4.0)
             if let Some(note_text) = Self::format_metadata_note(&var.metadata) {
-                // Check if we already added a note for MC formula
-                if var.formula.as_ref().is_none_or(|f| !f.contains("MC.")) {
-                    let note = Note::new(note_text).set_author("Forge");
-                    worksheet.insert_note(row, 1, &note).map_err(|e| {
-                        ForgeError::Export(format!("Failed to add scalar note: {e}"))
-                    })?;
-                }
+                notes.push(note_text);
+            }
+            if !notes.is_empty() {
+                let note = Note::new(notes.join("\n\n")).set_author("Forge");
+                worksheet
+                    .insert_note(row, 1, &note)
+                    .map_err(|e| ForgeError::Export(format!("Failed to add scalar note: {e}")))?;
             }
         }
 
         Ok(())
-    }
-
-    /// Translate a scalar formula using grouped worksheet references
-    /// e.g., "=utilities.extinction * `scenario_probs.p_unaligned`"
-    ///    -> "='utilities'!B2 * '`scenario_probs`'!B3"
-    fn translate_grouped_scalar_formula(&self, formula: &str) -> ForgeResult<String> {
-        use regex::Regex;
-
-        // Remove leading = if present
-        let formula_body = formula.strip_prefix('=').unwrap_or(formula);
-        let mut result = formula_body.to_string();
-
-        // Pattern for scalar references: group.name
-        let scalar_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b")
-            .map_err(|e| ForgeError::Export(format!("Regex error: {e}")))?;
-
-        // Collect replacements
-        let replacements: Vec<(std::ops::Range<usize>, String)> = scalar_pattern
-            .captures_iter(&result.clone())
-            .filter_map(|cap| {
-                let full_match = cap.get(0).unwrap();
-                let scalar_path = full_match.as_str();
-
-                // Skip if already processed (contains !)
-                if result[..full_match.start()].ends_with('\'')
-                    || result[full_match.end()..].starts_with('!')
-                {
-                    return None;
-                }
-
-                // Look up scalar location
-                self.scalar_locations.get(scalar_path).map(|loc| {
-                    let replacement = format!("'{}'!B{}", loc.worksheet, loc.row);
-                    (full_match.range(), replacement)
-                })
-            })
-            .collect();
-
-        // Apply replacements in reverse order
-        for (range, replacement) in replacements.into_iter().rev() {
-            result.replace_range(range, &replacement);
-        }
-
-        Ok(format!("={result}"))
     }
 
     /// Export scalars from an included file with namespace prefix (v4.4.2)
@@ -679,8 +559,8 @@ mod tests {
     fn test_exporter_new_empty_model() {
         let model = ParsedModel::new();
         let exporter = ExcelExporter::new(model);
-        assert!(exporter.table_column_maps.is_empty());
-        assert!(exporter.table_row_counts.is_empty());
+        assert!(exporter.refs.columns.is_empty());
+        assert!(exporter.refs.rows.is_empty());
     }
 
     #[test]
@@ -695,8 +575,8 @@ mod tests {
 
         let exporter = ExcelExporter::new(model);
 
-        assert!(exporter.table_column_maps.contains_key("sales"));
-        assert_eq!(exporter.table_row_counts.get("sales"), Some(&3));
+        assert!(exporter.refs.columns.contains_key("sales"));
+        assert_eq!(exporter.refs.rows.get("sales"), Some(&3));
     }
 
     #[test]
@@ -713,7 +593,7 @@ mod tests {
         let exporter = ExcelExporter::new(model);
 
         // Column map should include both data column and formula column
-        let col_map = exporter.table_column_maps.get("calc").unwrap();
+        let col_map = exporter.refs.columns.get("calc").unwrap();
         assert!(col_map.contains_key("amount"));
         assert!(col_map.contains_key("total"));
     }
@@ -738,10 +618,10 @@ mod tests {
 
         let exporter = ExcelExporter::new(model);
 
-        assert!(exporter.table_column_maps.contains_key("sales"));
-        assert!(exporter.table_column_maps.contains_key("costs"));
-        assert_eq!(exporter.table_row_counts.get("sales"), Some(&2));
-        assert_eq!(exporter.table_row_counts.get("costs"), Some(&3));
+        assert!(exporter.refs.columns.contains_key("sales"));
+        assert!(exporter.refs.columns.contains_key("costs"));
+        assert_eq!(exporter.refs.rows.get("sales"), Some(&2));
+        assert_eq!(exporter.refs.rows.get("costs"), Some(&3));
     }
 
     #[test]
@@ -763,7 +643,7 @@ mod tests {
         model.add_table(table);
 
         let exporter = ExcelExporter::new(model);
-        let col_map = exporter.table_column_maps.get("data").unwrap();
+        let col_map = exporter.refs.columns.get("data").unwrap();
 
         // alpha -> A, beta -> B, zebra -> C (alphabetical order)
         assert_eq!(col_map.get("alpha"), Some(&"A".to_string()));
@@ -778,7 +658,7 @@ mod tests {
         model.add_table(table);
 
         let exporter = ExcelExporter::new(model);
-        assert_eq!(exporter.table_row_counts.get("empty"), Some(&0));
+        assert_eq!(exporter.refs.rows.get("empty"), Some(&0));
     }
 
     // =========================================================================
@@ -1311,34 +1191,33 @@ mod tests {
         let exporter = ExcelExporter::new(model);
 
         // Verify scalar locations were built correctly
+        assert!(exporter.refs.scalars.contains_key("utilities.extinction"));
         assert!(exporter
-            .scalar_locations
-            .contains_key("utilities.extinction"));
-        assert!(exporter
-            .scalar_locations
+            .refs
+            .scalars
             .contains_key("scenario_probs.p_unaligned"));
         assert!(exporter
-            .scalar_locations
+            .refs
+            .scalars
             .contains_key("analysis.expected_value"));
 
         // Verify worksheet assignments
-        let util_loc = exporter
-            .scalar_locations
-            .get("utilities.extinction")
-            .unwrap();
-        assert_eq!(util_loc.worksheet, "utilities");
+        let util_loc = exporter.refs.scalars.get("utilities.extinction").unwrap();
+        assert_eq!(util_loc.0, "utilities");
 
         let prob_loc = exporter
-            .scalar_locations
+            .refs
+            .scalars
             .get("scenario_probs.p_unaligned")
             .unwrap();
-        assert_eq!(prob_loc.worksheet, "scenario_probs");
+        assert_eq!(prob_loc.0, "scenario_probs");
 
         let analysis_loc = exporter
-            .scalar_locations
+            .refs
+            .scalars
             .get("analysis.expected_value")
             .unwrap();
-        assert_eq!(analysis_loc.worksheet, "analysis");
+        assert_eq!(analysis_loc.0, "analysis");
 
         // Export and verify file creation
         let dir = TempDir::new().unwrap();
@@ -1368,8 +1247,8 @@ mod tests {
         let exporter = ExcelExporter::new(model);
 
         // Verify they go to "Scalars" worksheet
-        let tax_loc = exporter.scalar_locations.get("tax_rate").unwrap();
-        assert_eq!(tax_loc.worksheet, "Scalars");
+        let tax_loc = exporter.refs.scalars.get("tax_rate").unwrap();
+        assert_eq!(tax_loc.0, "Scalars");
 
         let dir = TempDir::new().unwrap();
         let output_path = dir.path().join("ungrouped_scalars.xlsx");
@@ -1380,9 +1259,8 @@ mod tests {
 
     #[test]
     fn test_translate_grouped_scalar_formula() {
+        use super::super::workbook_refs::Context;
         let mut model = ParsedModel::new();
-
-        // Set up scalars
         model.scalars.insert(
             "utilities.flourishing".to_string(),
             Variable::new("utilities.flourishing".to_string(), Some(100.0), None),
@@ -1391,17 +1269,17 @@ mod tests {
             "scenario_probs.p_aligned".to_string(),
             Variable::new("scenario_probs.p_aligned".to_string(), Some(0.25), None),
         );
-
         let exporter = ExcelExporter::new(model);
-
-        // Test formula translation
-        let formula = "=scenario_probs.p_aligned * utilities.flourishing";
-        let result = exporter.translate_grouped_scalar_formula(formula).unwrap();
-
-        // Should reference worksheets: ='scenario_probs'!B2 * 'utilities'!B2
-        assert!(result.contains("'scenario_probs'!B"));
-        assert!(result.contains("'utilities'!B"));
-        assert!(result.starts_with('='));
+        let t = exporter
+            .refs
+            .to_excel(
+                "=scenario_probs.p_aligned * utilities.flourishing",
+                Context::Scalar {
+                    group: Some("analysis"),
+                },
+            )
+            .unwrap();
+        assert_eq!(t.formula, "='scenario_probs'!$B$2 * 'utilities'!$B$2");
     }
 
     #[test]

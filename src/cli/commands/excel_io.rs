@@ -8,24 +8,35 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 
+/// Parse a model for export and calculate it, so a formula that Excel cannot
+/// express can be written as its value. If calculation fails, the formulas are
+/// still exported and those cells are left empty.
+fn load_for_export(input: &Path) -> ForgeResult<crate::types::ParsedModel> {
+    let model = parser::parse_model(input)?;
+    Ok(crate::core::ArrayCalculator::new(model.clone())
+        .calculate_all()
+        .unwrap_or(model))
+}
+
 /// Export YAML to Excel and return structured results (no printing).
 ///
 /// # Errors
 ///
 /// Returns an error if the YAML file cannot be parsed or the Excel export fails.
 pub fn export_core(input: &Path, output: &Path) -> ForgeResult<super::results::ExportResult> {
-    let model = parser::parse_model(input)?;
+    let model = load_for_export(input)?;
     let table_count = model.tables.len();
     let scalar_count = model.scalars.len();
 
     let exporter = ExcelExporter::new(model);
-    exporter.export(output)?;
+    let warnings = exporter.export_with_warnings(output)?;
 
     Ok(super::results::ExportResult {
         input_path: input.display().to_string(),
         output_path: output.display().to_string(),
         table_count,
         scalar_count,
+        warnings,
     })
 }
 
@@ -37,7 +48,7 @@ pub fn export_core(input: &Path, output: &Path) -> ForgeResult<super::results::E
 pub fn export_buffer_core(input: &Path) -> ForgeResult<super::results::ExportBufferResult> {
     use base64::{engine::general_purpose::STANDARD, Engine as _};
 
-    let model = parser::parse_model(input)?;
+    let model = load_for_export(input)?;
     let table_count = model.tables.len();
     let scalar_count = model.scalars.len();
 
@@ -95,17 +106,18 @@ fn tables_to_value(
     map
 }
 
-/// Scalars as a `scalars:` group of `{value, formula}` entries.
+/// Scalars as the parser reads them: `group: {name: {value, formula}}` for
+/// `group.name`, and `name: {value, formula}` at the top for ungrouped ones.
 fn scalars_to_value(
     scalars: &std::collections::HashMap<String, crate::types::Variable>,
 ) -> serde_yaml_ng::Mapping {
-    use serde_yaml_ng::Value;
+    use serde_yaml_ng::{Mapping, Value};
     let mut names: Vec<&String> = scalars.keys().collect();
     names.sort();
-    let mut group = serde_yaml_ng::Mapping::new();
-    for name in names {
-        let variable = &scalars[name];
-        let mut entry = serde_yaml_ng::Mapping::new();
+    let mut map = Mapping::new();
+    for path in names {
+        let variable = &scalars[path];
+        let mut entry = Mapping::new();
         if let Some(value) = variable.value {
             entry.insert(Value::String("value".into()), Value::Number(value.into()));
         }
@@ -115,11 +127,22 @@ fn scalars_to_value(
                 Value::String(formula.clone()),
             );
         }
-        group.insert(Value::String(name.clone()), Value::Mapping(entry));
-    }
-    let mut map = serde_yaml_ng::Mapping::new();
-    if !group.is_empty() {
-        map.insert(Value::String("scalars".into()), Value::Mapping(group));
+        if entry.is_empty() {
+            entry.insert(Value::String("value".into()), Value::Null);
+        }
+        match path.split_once('.') {
+            Some((group, name)) => {
+                let group_entry = map
+                    .entry(Value::String(group.to_string()))
+                    .or_insert_with(|| Value::Mapping(Mapping::new()));
+                if let Value::Mapping(group_map) = group_entry {
+                    group_map.insert(Value::String(name.to_string()), Value::Mapping(entry));
+                }
+            },
+            None => {
+                map.insert(Value::String(path.clone()), Value::Mapping(entry));
+            },
+        }
     }
     map
 }
@@ -127,7 +150,18 @@ fn scalars_to_value(
 /// The whole imported model as YAML that `forge validate` and `forge calculate` accept.
 fn model_to_yaml(model: &crate::types::ParsedModel) -> ForgeResult<String> {
     let mut map = tables_to_value(&model.tables);
-    map.extend(scalars_to_value(&model.scalars));
+    for (key, value) in scalars_to_value(&model.scalars) {
+        if map.contains_key(&key) {
+            return Err(ForgeError::Import(format!(
+                "'{}' is both a table and a scalar group; rename one sheet",
+                key.as_str().unwrap_or_default()
+            )));
+        }
+        map.insert(key, value);
+    }
+    if map.is_empty() {
+        return Ok("_forge_version: \"5.0.0\"\n".to_string());
+    }
     let body = serde_yaml_ng::to_string(&map).map_err(ForgeError::Yaml)?;
     Ok(format!("_forge_version: \"5.0.0\"\n\n{body}"))
 }
@@ -144,7 +178,7 @@ pub fn import_core(
     multi_doc: bool,
 ) -> ForgeResult<super::results::ImportResult> {
     let importer = ExcelImporter::new(input);
-    let model = importer.import()?;
+    let (model, warnings) = importer.import_with_warnings()?;
     let table_count = model.tables.len();
     let scalar_count = model.scalars.len();
 
@@ -171,6 +205,7 @@ pub fn import_core(
         table_count,
         scalar_count,
         mode: mode.to_string(),
+        warnings,
     })
 }
 
@@ -217,7 +252,7 @@ pub fn export(input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
         println!("{}", "📖 Parsing YAML file...".cyan());
     }
 
-    let model = parser::parse_model(input)?;
+    let model = load_for_export(input)?;
 
     if verbose {
         println!(
@@ -232,18 +267,20 @@ pub fn export(input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
     }
 
     let exporter = ExcelExporter::new(model);
-    exporter.export(output)?;
+    let warnings = exporter.export_with_warnings(output)?;
 
     println!("{}", "✅ Export Complete!".bold().green());
     println!("   Excel file: {}\n", output.display());
-    println!("{}", "✅ Phase 3: Excel Export Complete!".bold().green());
-    println!("   ✅ Table columns → Excel columns");
-    println!("   ✅ Data values exported");
-    println!("   ✅ Multiple worksheets");
-    println!("   ✅ Scalars worksheet");
-    println!("   ✅ Row formulas → Excel cell formulas (=A2-B2)");
-    println!("   ✅ Cross-table references (=Sheet!Column)");
-    println!("   ✅ Supports 60+ Excel functions (IFERROR, SUMIF, VLOOKUP, etc.)\n");
+    if !warnings.is_empty() {
+        println!(
+            "{}",
+            "⚠️  Written as calculated values, because Excel cannot express them:".yellow()
+        );
+        for warning in &warnings {
+            println!("   - {warning}");
+        }
+        println!();
+    }
 
     Ok(())
 }
@@ -275,7 +312,7 @@ pub fn import(
     }
 
     let importer = ExcelImporter::new(input);
-    let model = importer.import()?;
+    let (model, warnings) = importer.import_with_warnings()?;
 
     if verbose {
         println!("   Found {} tables", model.tables.len());
@@ -303,24 +340,17 @@ pub fn import(
         println!("   YAML file: {}\n", output.display());
     }
 
-    print_import_summary(split_files, multi_doc);
-    Ok(())
-}
-
-fn print_import_summary(split_files: bool, multi_doc: bool) {
-    println!("{}", "✅ Phase 4: Excel Import Complete!".bold().green());
-    println!("   ✅ Excel worksheets → YAML tables");
-    println!("   ✅ Data values imported");
-    if split_files {
-        println!("   ✅ Multiple worksheets → Separate YAML files (v4.4.2)");
-    } else if multi_doc {
-        println!("   ✅ Multiple worksheets → Multi-document YAML (v4.4.2)");
-    } else {
-        println!("   ✅ Multiple worksheets → One YAML file");
+    if !warnings.is_empty() {
+        println!(
+            "{}",
+            "⚠️  Imported as values, because Forge cannot express these formulas:".yellow()
+        );
+        for warning in &warnings {
+            println!("   - {warning}");
+        }
+        println!();
     }
-    println!("   ✅ Scalars sheet detected");
-    println!("   ✅ Formula translation (Excel → YAML syntax)");
-    println!("   ✅ Supports 60+ Excel functions (IFERROR, SUMIF, VLOOKUP, etc.)\n");
+    Ok(())
 }
 
 fn write_split_files(
@@ -438,5 +468,110 @@ mod import_output_tests {
         crate::core::ArrayCalculator::new(parsed)
             .calculate_all()
             .unwrap();
+    }
+}
+
+#[cfg(test)]
+mod round_trip_tests {
+    use super::*;
+    use crate::core::ArrayCalculator;
+    use crate::types::{ColumnValue, ParsedModel};
+
+    fn calculate(model: ParsedModel) -> ForgeResult<ParsedModel> {
+        ArrayCalculator::new(model).calculate_all()
+    }
+
+    fn close(a: f64, b: f64) -> bool {
+        (a - b).abs() <= 1e-9 * a.abs().max(b.abs()).max(1.0)
+    }
+
+    /// Export `path`, import the workbook, and compare every calculated number
+    /// with the original. Returns the differences found.
+    fn round_trip(path: &Path) -> Result<Vec<String>, String> {
+        let original = calculate(parser::parse_model(path).map_err(|e| e.to_string())?)
+            .map_err(|e| format!("original does not calculate: {e}"))?;
+        let dir = tempfile::TempDir::new().unwrap();
+        let xlsx = dir.path().join("model.xlsx");
+        let yaml = dir.path().join("model.yaml");
+        ExcelExporter::new(original.clone())
+            .export(&xlsx)
+            .map_err(|e| format!("export: {e}"))?;
+        import_core(&xlsx, &yaml, false, false).map_err(|e| format!("import: {e}"))?;
+        let back = parser::parse_model(&yaml).map_err(|e| format!("imported YAML: {e}"))?;
+        let back = calculate(back).map_err(|e| format!("imported model: {e}"))?;
+
+        let mut diffs = Vec::new();
+        for (path, var) in &original.scalars {
+            if let Some(a) = var.value {
+                let lower = path.to_lowercase();
+                match back.scalars.get(path).or_else(|| back.scalars.get(&lower)) {
+                    Some(v) if v.value.is_some_and(|b| close(a, b)) => {},
+                    Some(v) => diffs.push(format!("{path}: {a} vs {:?}", v.value)),
+                    None => diffs.push(format!("{path}: missing")),
+                }
+            }
+        }
+        for (name, table) in &original.tables {
+            for (col, column) in &table.columns {
+                let ColumnValue::Number(a) = &column.values else {
+                    continue;
+                };
+                let b = back
+                    .tables
+                    .get(&name.to_lowercase())
+                    .and_then(|t| t.columns.get(col));
+                match b.map(|c| &c.values) {
+                    Some(ColumnValue::Number(b))
+                        if a.len() == b.len() && a.iter().zip(b).all(|(x, y)| close(*x, *y)) => {},
+                    other => diffs.push(format!("{name}.{col}: {a:?} vs {other:?}")),
+                }
+            }
+        }
+        Ok(diffs)
+    }
+
+    /// The shipped examples that calculate on their own come back from Excel
+    /// with the same numbers.
+    #[test]
+    fn examples_round_trip_through_excel() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        for example in ["scenarios", "variance", "breakeven", "quota_forecast"] {
+            let file = root.join(format!("examples/{example}.yaml"));
+            let diffs = round_trip(&file).unwrap_or_else(|e| panic!("{example}: {e}"));
+            assert!(diffs.is_empty(), "{example}: {diffs:#?}");
+        }
+    }
+
+    /// `FORGE_ROUNDTRIP_DIR=<dir> cargo test round_trip_corpus -- --ignored --nocapture`
+    /// round-trips every YAML model in a directory and prints a summary.
+    #[test]
+    #[ignore = "needs FORGE_ROUNDTRIP_DIR"]
+    fn round_trip_corpus() {
+        let dir = std::env::var("FORGE_ROUNDTRIP_DIR").expect("set FORGE_ROUNDTRIP_DIR");
+        let mut files: Vec<_> = fs::read_dir(dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|x| x == "yaml"))
+            .collect();
+        files.sort();
+        let (mut same, mut different, mut skipped) = (0, 0, 0);
+        for file in &files {
+            match round_trip(file) {
+                Ok(d) if d.is_empty() => same += 1,
+                Ok(d) => {
+                    different += 1;
+                    println!("DIFF {}: {} values, e.g. {}", file.display(), d.len(), d[0]);
+                },
+                Err(e) => {
+                    skipped += 1;
+                    println!("SKIP {}: {e}", file.display());
+                },
+            }
+        }
+        println!(
+            "models {}: same {same}, different {different}, not round-tripped {skipped}",
+            files.len()
+        );
     }
 }
