@@ -1,7 +1,7 @@
 //! Black-Scholes Option Pricing
 //!
 //! Closed-form solution for European options.
-//! Validated against `QuantLib`.
+//! Unit tests check prices against `QuantLib` reference values.
 
 use std::f64::consts::PI;
 
@@ -190,7 +190,7 @@ mod black_scholes_tests {
     use super::*;
 
     /// Test against known Black-Scholes values
-    /// Validated against `QuantLib`
+    /// Checked against a `QuantLib` reference value
     #[test]
     fn test_call_price() {
         // Standard test case:

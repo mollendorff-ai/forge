@@ -9,12 +9,24 @@
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/lctavares/b8e2fa78efcf26a20ff97b483050b05a/raw/forge-coverage.json)](https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
-**AI hallucinates numbers. Forge doesn't.**
+**Financial models an AI agent can write and a program can calculate.**
 
-YAML-based financial modeling with Excel formula evaluation. Git-native. Deterministic. Battle-tested against Gnumeric and R.
+YAML-based financial modeling with Excel-style formula evaluation. Git-native and deterministic. Beta software: see [Status and known limitations](#status-and-known-limitations).
 
-> Excel burns tokens. YAML doesn't.
-> AI is trained on millions of YAML files. Not spreadsheets.
+> A raw spreadsheet file is mostly XML. A YAML model is small, readable and diffable.
+
+## Status and known limitations
+
+Forge is a beta (v10.0.0-beta.8) and an R&D prototype, built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
+
+Known problems as of 2026-11-04:
+
+- Arithmetic on whole columns inside an aggregate, such as `=SUM(a * b)`, gives wrong results. Compute the product in its own column, then aggregate that column.
+- `IRR` does not report when it fails to converge or when the cash flows have no sign change.
+- A table column formula that starts with `MAX(`, `SUM(` or similar can be rejected by the schema check. Use an `IF(...)` form, or put the result in a scalar.
+- Tornado and sensitivity inputs need fully qualified names such as `assumptions.growth_rate`. Short names can fail or give empty results.
+- `forge export` handles simple single-table models. Formulas that reference other sections are not translated correctly yet, and `forge import` output may not validate.
+- Some files in `examples/` do not pass `forge validate`, and `forge examples <name> --run` fails for monte-carlo, bayesian and breakeven.
 
 ## The Problem
 
@@ -26,7 +38,7 @@ YAML-based financial modeling with Excel formula evaluation. Git-native. Determi
 | Can't diff, can't PR | No version control |
 | AI hallucinates numbers | And Excel can't catch it |
 
-**The math:** A minimal Excel file tokenizes at 10–15× the cost of the same model in YAML (measured via tiktoken). Corporate spreadsheets with styles and metadata can reach 30–50×.
+**Size:** for one 5-year DCF model, the `.xlsx` file was about 7× the size of the YAML in bytes (about 19× counting the XML inside it). Token counts were not measured, and an agent that reads only the cells it needs avoids most of this cost.
 
 ---
 
@@ -62,55 +74,29 @@ forge simulate simulation.yaml -n 10000
 # Results feed back to AI for synthesis
 ```
 
-No hallucinated numbers. Every result traceable to a formula.
+Results come from the formula evaluator, not from a model's own arithmetic, and each one traces to a formula.
 
 MCP server and REST API available for tighter integration (see below).
 
 ---
 
-## Battle-Tested Math
+## Validation status
 
-**Don't trust us. Trust Gnumeric and R.**
+Forge's results are checked in three ways. None of them is complete yet.
 
-Every Forge formula is validated against independent, battle-tested open-source tools:
+| Check | What it covers | Status |
+| --- | --- | --- |
+| Unit tests (this repo) | 1,366 inline unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Run on every push |
+| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,301 formula specs. Each formula is exported to `.xlsx`, recalculated by Gnumeric and compared with an expected value | Run by hand; 1,114 of 1,301 passed on 2026-11-04. It checks the export and Gnumeric, not yet Forge's own evaluator |
+| [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Monte Carlo distributions compared with R | Run by hand; 10 of 77 specs run live and the rest are skipped |
 
-### Dual Validation Architecture
-
-| Validator | Tests | What It Proves |
-|-----------|-------|----------------|
-| **Gnumeric** | 714 formulas | Excel compatibility - independent spreadsheet engine agrees |
-| **R** | 2,957 conditions | Statistical accuracy - FDA/EMA-grade mathematical validation |
-| **Roundtrip** | 72 tests | YAML → XLSX → Gnumeric → CSV formula preservation |
-
-### The Validation Process
-
-```text
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Forge YAML     │ ──► │  Export XLSX    │ ──► │  Gnumeric       │
-│  =NPV(0.1, cf)  │     │  with formulas  │     │  recalculates   │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                                                        │
-                                                        ▼
-                                                ┌─────────────────┐
-                                                │  Compare CSV    │
-                                                │  Forge = Gnumeric│
-                                                └─────────────────┘
-```
-
-**If Gnumeric and R agree with Forge, the math is right.** No "trust me" - just proof.
-
-### Why This Matters
-
-- **No circular dependencies** - Forge doesn't validate itself
-- **Peer-reviewed tools** - Gnumeric and R are industry standards
-- **Regulatory-grade** - R is used by FDA, EMA for drug approval calculations
-- **2,957 statistical conditions** - Not just "does it run" but "is the math correct"
+Next steps: compare `forge calculate` directly with Gnumeric, cover the other analyses against R, and run both suites in CI.
 
 ---
 
 ## What Excel Can't Do
 
-Forge isn't Excel 2.0. It's a purpose-built FP&A engine with 7 analytical capabilities Excel cannot replicate:
+Forge isn't Excel 2.0. It's a purpose-built FP&A engine with 7 analysis types that a plain spreadsheet does not include:
 
 ### 1. Monte Carlo Simulation
 
@@ -138,7 +124,7 @@ bootstrap:
   data: [0.05, -0.02, 0.08, 0.03, ...]  # Historical returns
 ```
 
-**R-validated** against the `boot` package.
+Planned cross-check against R's `boot` package (see forge-e2e-r).
 
 ### 3. Decision Trees
 
@@ -169,7 +155,7 @@ Quantify the value of managerial flexibility using Black-Scholes and binomial me
 | **Abandon** | Exit and recover salvage |
 | **Switch** | Change inputs/outputs |
 
-**QuantLib-validated** pricing models.
+Unit tests check Black-Scholes and binomial prices against QuantLib reference values.
 
 ### 5. Tornado Diagrams
 
@@ -200,7 +186,7 @@ bayesian_network:
       # Conditional probability tables...
 ```
 
-**pgmpy-validated** inference algorithms.
+A unit test checks a small network against a hand calculation of a pgmpy example.
 
 ### 7. Scenario Analysis
 
@@ -282,27 +268,25 @@ All tools accept inline YAML via `content` parameter — no host filesystem acce
 
 See [docs/MCP.md](docs/MCP.md) for the full integration guide.
 
-**10-15x measured token efficiency.** YAML at a fraction of Excel's token cost.
-
 ---
 
 ## 173 Functions
 
-All Excel-compatible functions plus 6 FP&A-native functions Excel doesn't have.
+173 functions: most are Excel-compatible, plus 6 FP&A-native functions Excel doesn't have. Not every Excel function is covered; `forge functions` lists what is.
 
-| Category | Count | Examples |
-|----------|-------|----------|
-| **Financial** | 13 | NPV, IRR, MIRR, XNPV, XIRR, PMT, PV, FV, RATE, NPER |
-| **Date** | 11 | TODAY, DATE, YEAR, MONTH, DATEDIF, EDATE, EOMONTH, NETWORKDAYS |
-| **Conditional** | 8 | SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, MAXIFS, MINIFS |
-| **Math** | 9 | ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER |
-| **Logic** | 7 | IF, AND, OR, LET, SWITCH, INDIRECT, LAMBDA |
-| **Lookup** | 6 | MATCH, INDEX, VLOOKUP, HLOOKUP, XLOOKUP, CHOOSE |
-| **Statistical** | 6 | MEDIAN, VAR, STDEV, PERCENTILE, QUARTILE, CORREL |
-| **Text** | 6 | CONCAT, TRIM, UPPER, LOWER, LEN, MID |
-| **Aggregation** | 5 | SUM, AVERAGE, MIN, MAX, COUNT |
-| **Array** | 4 | UNIQUE, COUNTUNIQUE, FILTER, SORT |
-| **FP&A-Native** | 6 | VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, BREAKEVEN_UNITS, BREAKEVEN_REVENUE, SCENARIO |
+| Category | Examples |
+|----------|----------|
+| **Financial** | NPV, IRR, MIRR, XNPV, XIRR, PMT, PV, FV, RATE, NPER |
+| **Date** | TODAY, DATE, YEAR, MONTH, DATEDIF, EDATE, EOMONTH, NETWORKDAYS |
+| **Conditional** | SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, MAXIFS, MINIFS |
+| **Math** | ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER |
+| **Logic** | IF, AND, OR, LET, SWITCH, INDIRECT, LAMBDA |
+| **Lookup** | MATCH, INDEX, VLOOKUP, HLOOKUP, XLOOKUP, CHOOSE |
+| **Statistical** | MEDIAN, VAR, STDEV, PERCENTILE, QUARTILE, CORREL |
+| **Text** | CONCAT, TRIM, UPPER, LOWER, LEN, MID |
+| **Aggregation** | SUM, AVERAGE, MIN, MAX, COUNT |
+| **Array** | UNIQUE, COUNTUNIQUE, FILTER, SORT |
+| **FP&A-Native** | VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, BREAKEVEN_UNITS, BREAKEVEN_REVENUE, SCENARIO |
 
 Run `forge functions` for full syntax and examples.
 
@@ -317,7 +301,7 @@ Every analyst builds these manually. Forge has them built-in:
 variance_analysis:
   revenue_var: "=VARIANCE(actual.revenue, budget.revenue)"           # Returns: -5000
   revenue_pct: "=VARIANCE_PCT(actual.revenue, budget.revenue)"       # Returns: -5%
-  revenue_status: "=VARIANCE_STATUS(actual.revenue, budget.revenue)" # Returns: MISS
+  revenue_status: "=VARIANCE_STATUS(actual.revenue, budget.revenue)" # Returns a numeric status code
 
 # BREAKEVEN - Instant unit economics
 breakeven:
@@ -332,7 +316,7 @@ breakeven:
 ## Quick Start
 
 ```bash
-# Install from source
+# Install from source (prebuilt binaries are on the Releases page)
 cargo install --path .
 
 # Or use the Makefile
@@ -344,7 +328,7 @@ forge validate model.yaml
 # Calculate with scenario
 forge calculate model.yaml --scenario optimistic
 
-# Export to Excel (formulas intact)
+# Export a simple model to Excel (see known limitations)
 forge export model.yaml output.xlsx
 ```
 
@@ -356,12 +340,12 @@ forge export model.yaml output.xlsx
 _forge_version: "5.0.0"
 
 assumptions:
-  revenue_y1: 1000000
-  growth_rate: 0.15
-  gross_margin: 0.65
-  opex_pct: 0.30
-  tax_rate: 0.25
-  discount_rate: 0.10
+  revenue_y1: {value: 1000000, formula: null}
+  growth_rate: {value: 0.15, formula: null}
+  gross_margin: {value: 0.65, formula: null}
+  opex_pct: {value: 0.30, formula: null}
+  tax_rate: {value: 0.25, formula: null}
+  discount_rate: {value: 0.10, formula: null}
 
 projections:
   year: [1, 2, 3, 4, 5]
@@ -369,14 +353,19 @@ projections:
   gross_profit: "=revenue * assumptions.gross_margin"
   opex: "=revenue * assumptions.opex_pct"
   ebit: "=gross_profit - opex"
-  tax: "=MAX(0, ebit * assumptions.tax_rate)"
+  tax: "=ebit * assumptions.tax_rate"
   net_income: "=ebit - tax"
 
 valuation:
-  total_revenue: "=SUM(projections.revenue)"
-  avg_margin: "=AVERAGE(projections.gross_profit / projections.revenue)"
-  npv_cash_flows: "=NPV(assumptions.discount_rate, projections.net_income)"
-  irr: "=IRR(projections.net_income)"
+  total_revenue:
+    value: null
+    formula: "=SUM(projections.revenue)"
+  avg_gross_margin:
+    value: null
+    formula: "=SUM(projections.gross_profit) / SUM(projections.revenue)"
+  npv_cash_flows:
+    value: null
+    formula: "=NPV(assumptions.discount_rate, projections.net_income)"
 
 scenarios:
   base:
@@ -390,10 +379,12 @@ scenarios:
 ```
 
 ```bash
-forge calculate model.yaml --scenario bull
-forge sensitivity model.yaml -v growth_rate -r 0.05,0.30,0.05 -o npv_cash_flows
-forge export model.yaml valuation.xlsx
+forge calculate model.yaml --dry-run                  # preview results without writing the file
+forge calculate model.yaml --scenario bull --dry-run
+forge sensitivity model.yaml -v assumptions.growth_rate -r 0.05,0.30,0.05 -o valuation.npv_cash_flows
 ```
+
+Without `--dry-run`, `forge calculate` writes the results back into the file and keeps a `.bak` copy.
 
 ---
 
@@ -462,35 +453,36 @@ forge examples --json             # Machine-readable list
 
 ---
 
-## Who Uses Forge
+## Intended use
 
-| Team | Use Case |
-|------|----------|
+Forge is new and there is no adoption data yet. These are the uses it is designed for:
+
+| Team | Intended use |
+| --- | --- |
 | **FP&A** | 3-statement models, budget vs actual, rolling forecasts |
 | **M&A** | DCF valuations, sensitivity analysis, scenario comparison |
 | **Consulting** | Client financial models with version control |
 | **Fintech** | Automated projections via API, embedded calculations |
-| **AI Agents** | Any coding agent (Claude, GPT, Gemini) writes YAML, Forge evaluates |
+| **AI Agents** | A coding agent writes YAML and Forge evaluates it |
 
 ---
 
 ## Quality Assurance
 
 | Metric | Value |
-|--------|-------|
-| **Tests** | 2,133 passing |
-| **Functions** | 173 (167 Excel + 6 FP&A) |
-| **Coverage** | 100% function coverage |
-| **Warnings** | 0 (zero warnings policy) |
-| **External Validation** | Gnumeric + R |
+| --- | --- |
+| **Unit tests** | 1,366 inline unit tests and 2 doctests (counted 2026-11-04) |
+| **Functions** | 173, of which 6 are FP&A-native |
+| **Lints** | clippy pedantic is enabled and CI fails on warnings |
+| **External validation** | Partial; see [Validation status](#validation-status) |
 
 ### Test Architecture
 
 ```text
-forge (inline unit tests)     forge-e2e (integration/E2E)
-├── 1,340 unit tests          ├── 836 E2E tests
-├── #[cfg(test)] modules      ├── Gnumeric validation
-└── Per-function coverage     └── R statistical validation
+forge (this repo)             validation repos
+├── 1,366 unit tests          ├── forge-e2e-gnumeric: 1,301 formula specs
+├── #[cfg(test)] modules      └── forge-e2e-r: 77 specs (10 run live)
+└── 2 doctests
 ```
 
 ---
@@ -512,7 +504,7 @@ forge (inline unit tests)     forge-e2e (integration/E2E)
 
 ```bash
 cargo test                              # Run all tests
-cargo clippy -- -D warnings             # Zero warnings policy
+cargo clippy -- -D warnings             # Lint (pedantic)
 make check                              # Full CI check
 ```
 

@@ -1,7 +1,7 @@
 //! Belief Propagation Inference
 //!
 //! Implements variable elimination for exact inference in Bayesian networks.
-//! Validated against pgmpy.
+//! A unit test checks a small network against a hand calculation of a pgmpy example.
 
 use super::config::{BayesianConfig, BayesianNode, NodeType};
 use std::collections::HashMap;

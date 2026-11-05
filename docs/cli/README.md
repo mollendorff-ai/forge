@@ -6,12 +6,12 @@
 
 ```
 Forge - Git-native financial modeling
-173 functions | Fully tested | E2E: forge-e2e repo
+173 functions | Beta | Validation suites: forge-e2e-gnumeric, forge-e2e-r
 
 COMMANDS:
   calculate     - Execute formulas, update values
   validate      - Check model integrity
-  audit         - Trace formula dependencies (SOX compliance)
+  audit         - Trace formula dependencies
   functions     - List all 173 supported functions
   schema        - Display JSON schema for model validation
   examples      - Show runnable YAML examples

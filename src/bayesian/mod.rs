@@ -4,7 +4,7 @@
 //! - Directed Acyclic Graph (DAG) structure
 //! - Conditional probability tables (CPTs)
 //! - Belief propagation inference
-//! - pgmpy validated calculations
+//! - A unit test checks a small network against a hand calculation of a pgmpy example
 //!
 //! # Example
 //!
