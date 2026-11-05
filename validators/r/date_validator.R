@@ -3,6 +3,9 @@
 # Validates forge's date functions against R's base date functions
 # Tolerance: exact match for date operations (deterministic)
 
+script_dir <- dirname(sub("--file=", "", grep("--file=", commandArgs(FALSE), value = TRUE)[1]))
+source(file.path(script_dir, "forge_helper.R"))
+
 # ANSI color codes for output
 GREEN <- "\033[32m"
 RED <- "\033[31m"
@@ -51,7 +54,7 @@ validate_numeric <- function(test_name, forge_result, r_result, tolerance = 0) {
 # Business day calculation helper functions
 is_weekend <- function(date) {
   weekday <- as.POSIXlt(date)$wday
-  return(weekday == 0 || weekday == 6)  # Sunday = 0, Saturday = 6
+  return(weekday == 0 | weekday == 6)  # Sunday = 0, Saturday = 6
 }
 
 # Add workdays to a date (skip weekends)
@@ -75,23 +78,12 @@ add_workdays <- function(start_date, days) {
 
 # Count workdays between two dates (excluding weekends)
 count_workdays <- function(start_date, end_date) {
+  # Excel NETWORKDAYS: both ends count; a start after the end gives a negative count.
   if (start_date > end_date) {
     return(-count_workdays(end_date, start_date))
   }
-
-  if (start_date == end_date) return(0)
-
-  count <- 0
-  current_date <- start_date
-
-  while (current_date < end_date) {
-    current_date <- current_date + 1
-    if (!is_weekend(current_date)) {
-      count <- count + 1
-    }
-  }
-
-  return(count)
+  days <- seq(start_date, end_date, by = "day")
+  sum(!is_weekend(days))
 }
 
 # Print header
@@ -109,7 +101,7 @@ cat(sprintf("%s--- DATE Construction Tests ---%s\n", BLUE, RESET))
 
 # Test 1: Basic date construction
 total <- total + 1
-forge_result <- as.Date("2024-01-15")
+forge_result <- forge_eval_date("DATE(2024, 1, 15)")
 r_result <- as.Date("2024-01-15")
 if (validate_date("DATE(2024, 1, 15)", forge_result, r_result)) {
   passed <- passed + 1
@@ -119,7 +111,7 @@ if (validate_date("DATE(2024, 1, 15)", forge_result, r_result)) {
 
 # Test 2: End of month
 total <- total + 1
-forge_result <- as.Date("2024-01-31")
+forge_result <- forge_eval_date("DATE(2024, 1, 31)")
 r_result <- as.Date("2024-01-31")
 if (validate_date("DATE(2024, 1, 31)", forge_result, r_result)) {
   passed <- passed + 1
@@ -129,7 +121,7 @@ if (validate_date("DATE(2024, 1, 31)", forge_result, r_result)) {
 
 # Test 3: Leap year - Feb 29
 total <- total + 1
-forge_result <- as.Date("2024-02-29")
+forge_result <- forge_eval_date("DATE(2024, 2, 29)")
 r_result <- as.Date("2024-02-29")
 if (validate_date("DATE(2024, 2, 29) [leap year]", forge_result, r_result)) {
   passed <- passed + 1
@@ -139,7 +131,7 @@ if (validate_date("DATE(2024, 2, 29) [leap year]", forge_result, r_result)) {
 
 # Test 4: Non-leap year Feb (28 days)
 total <- total + 1
-forge_result <- as.Date("2023-02-28")
+forge_result <- forge_eval_date("DATE(2023, 2, 28)")
 r_result <- as.Date("2023-02-28")
 if (validate_date("DATE(2023, 2, 28) [non-leap year]", forge_result, r_result)) {
   passed <- passed + 1
@@ -149,7 +141,7 @@ if (validate_date("DATE(2023, 2, 28) [non-leap year]", forge_result, r_result)) 
 
 # Test 5: December 31
 total <- total + 1
-forge_result <- as.Date("2024-12-31")
+forge_result <- forge_eval_date("DATE(2024, 12, 31)")
 r_result <- as.Date("2024-12-31")
 if (validate_date("DATE(2024, 12, 31)", forge_result, r_result)) {
   passed <- passed + 1
@@ -159,7 +151,7 @@ if (validate_date("DATE(2024, 12, 31)", forge_result, r_result)) {
 
 # Test 6: January 1
 total <- total + 1
-forge_result <- as.Date("2024-01-01")
+forge_result <- forge_eval_date("DATE(2024, 1, 1)")
 r_result <- as.Date("2024-01-01")
 if (validate_date("DATE(2024, 1, 1)", forge_result, r_result)) {
   passed <- passed + 1
@@ -169,7 +161,7 @@ if (validate_date("DATE(2024, 1, 1)", forge_result, r_result)) {
 
 # Test 7: Century year (2000 - leap year)
 total <- total + 1
-forge_result <- as.Date("2000-02-29")
+forge_result <- forge_eval_date("DATE(2000, 2, 29)")
 r_result <- as.Date("2000-02-29")
 if (validate_date("DATE(2000, 2, 29) [century leap year]", forge_result, r_result)) {
   passed <- passed + 1
@@ -180,7 +172,7 @@ if (validate_date("DATE(2000, 2, 29) [century leap year]", forge_result, r_resul
 # Test 8: Century year (1900 - not leap year)
 # Note: 1900 is not a leap year (divisible by 100 but not 400)
 total <- total + 1
-forge_result <- as.Date("1900-02-28")
+forge_result <- forge_eval_date("DATE(1900, 2, 28)")
 r_result <- as.Date("1900-02-28")
 if (validate_date("DATE(1900, 2, 28) [century non-leap]", forge_result, r_result)) {
   passed <- passed + 1
@@ -196,7 +188,7 @@ cat(sprintf("\n%s--- YEAR, MONTH, DAY Extraction Tests ---%s\n", BLUE, RESET))
 # Test 9: Extract year
 total <- total + 1
 test_date <- as.Date("2024-03-15")
-forge_result <- 2024
+forge_result <- forge_eval("YEAR(DATE(2024, 3, 15))")
 r_result <- as.numeric(format(test_date, "%Y"))
 if (validate_numeric("YEAR(2024-03-15)", forge_result, r_result)) {
   passed <- passed + 1
@@ -206,7 +198,7 @@ if (validate_numeric("YEAR(2024-03-15)", forge_result, r_result)) {
 
 # Test 10: Extract month
 total <- total + 1
-forge_result <- 3
+forge_result <- forge_eval("MONTH(DATE(2024, 3, 15))")
 r_result <- as.numeric(format(test_date, "%m"))
 if (validate_numeric("MONTH(2024-03-15)", forge_result, r_result)) {
   passed <- passed + 1
@@ -216,7 +208,7 @@ if (validate_numeric("MONTH(2024-03-15)", forge_result, r_result)) {
 
 # Test 11: Extract day
 total <- total + 1
-forge_result <- 15
+forge_result <- forge_eval("DAY(DATE(2024, 3, 15))")
 r_result <- as.numeric(format(test_date, "%d"))
 if (validate_numeric("DAY(2024-03-15)", forge_result, r_result)) {
   passed <- passed + 1
@@ -227,7 +219,7 @@ if (validate_numeric("DAY(2024-03-15)", forge_result, r_result)) {
 # Test 12: Extract year from leap day
 total <- total + 1
 leap_date <- as.Date("2024-02-29")
-forge_result <- 2024
+forge_result <- forge_eval("YEAR(DATE(2024, 2, 29))")
 r_result <- as.numeric(format(leap_date, "%Y"))
 if (validate_numeric("YEAR(2024-02-29)", forge_result, r_result)) {
   passed <- passed + 1
@@ -238,7 +230,7 @@ if (validate_numeric("YEAR(2024-02-29)", forge_result, r_result)) {
 # Test 13: Extract month from December
 total <- total + 1
 dec_date <- as.Date("2024-12-25")
-forge_result <- 12
+forge_result <- forge_eval("MONTH(DATE(2024, 12, 25))")
 r_result <- as.numeric(format(dec_date, "%m"))
 if (validate_numeric("MONTH(2024-12-25)", forge_result, r_result)) {
   passed <- passed + 1
@@ -249,7 +241,7 @@ if (validate_numeric("MONTH(2024-12-25)", forge_result, r_result)) {
 # Test 14: Extract day from end of month
 total <- total + 1
 eom_date <- as.Date("2024-01-31")
-forge_result <- 31
+forge_result <- forge_eval("DAY(DATE(2024, 1, 31))")
 r_result <- as.numeric(format(eom_date, "%d"))
 if (validate_numeric("DAY(2024-01-31)", forge_result, r_result)) {
   passed <- passed + 1
@@ -265,7 +257,7 @@ cat(sprintf("\n%s--- Date Arithmetic Tests ---%s\n", BLUE, RESET))
 # Test 15: Add days
 total <- total + 1
 start_date <- as.Date("2024-01-15")
-forge_result <- as.Date("2024-01-25")
+forge_result <- forge_eval_date("DATE(2024, 1, 15) + 10")
 r_result <- start_date + 10
 if (validate_date("Add 10 days to 2024-01-15", forge_result, r_result)) {
   passed <- passed + 1
@@ -275,7 +267,7 @@ if (validate_date("Add 10 days to 2024-01-15", forge_result, r_result)) {
 
 # Test 16: Subtract days
 total <- total + 1
-forge_result <- as.Date("2024-01-05")
+forge_result <- forge_eval_date("DATE(2024, 1, 15) - 10")
 r_result <- start_date - 10
 if (validate_date("Subtract 10 days from 2024-01-15", forge_result, r_result)) {
   passed <- passed + 1
@@ -285,7 +277,7 @@ if (validate_date("Subtract 10 days from 2024-01-15", forge_result, r_result)) {
 
 # Test 17: Add days crossing month boundary
 total <- total + 1
-forge_result <- as.Date("2024-02-05")
+forge_result <- forge_eval_date("DATE(2024, 1, 25) + 11")
 r_result <- as.Date("2024-01-25") + 11
 if (validate_date("Add 11 days to 2024-01-25 [cross month]", forge_result, r_result)) {
   passed <- passed + 1
@@ -295,7 +287,7 @@ if (validate_date("Add 11 days to 2024-01-25 [cross month]", forge_result, r_res
 
 # Test 18: Add days crossing year boundary
 total <- total + 1
-forge_result <- as.Date("2025-01-05")
+forge_result <- forge_eval_date("DATE(2024, 12, 25) + 11")
 r_result <- as.Date("2024-12-25") + 11
 if (validate_date("Add 11 days to 2024-12-25 [cross year]", forge_result, r_result)) {
   passed <- passed + 1
@@ -307,7 +299,7 @@ if (validate_date("Add 11 days to 2024-12-25 [cross year]", forge_result, r_resu
 total <- total + 1
 date1 <- as.Date("2024-01-01")
 date2 <- as.Date("2024-12-31")
-forge_result <- 365
+forge_result <- forge_eval("DATE(2024, 12, 31) - DATE(2024, 1, 1)")
 r_result <- as.numeric(difftime(date2, date1, units = "days"))
 if (validate_numeric("Days between 2024-01-01 and 2024-12-31", forge_result, r_result)) {
   passed <- passed + 1
@@ -319,7 +311,7 @@ if (validate_numeric("Days between 2024-01-01 and 2024-12-31", forge_result, r_r
 total <- total + 1
 date1 <- as.Date("2024-02-28")
 date2 <- as.Date("2024-03-01")
-forge_result <- 2
+forge_result <- forge_eval("DATE(2024, 3, 1) - DATE(2024, 2, 28)")
 r_result <- as.numeric(difftime(date2, date1, units = "days"))
 if (validate_numeric("Days between 2024-02-28 and 2024-03-01 [leap]", forge_result, r_result)) {
   passed <- passed + 1
@@ -334,10 +326,10 @@ cat(sprintf("\n%s--- Leap Year Tests ---%s\n", BLUE, RESET))
 
 # Test 21: 2024 is leap year (divisible by 4)
 total <- total + 1
-forge_result <- TRUE
+forge_result <- forge_eval("MONTH(DATE(2024, 2, 29))") == 2  # Feb 29 exists only in a leap year
 # Check if Feb 29, 2024 is valid
 r_result <- !is.na(as.Date("2024-02-29", format = "%Y-%m-%d", optional = FALSE))
-if (forge_result == r_result) {
+if (isTRUE(forge_result == r_result)) {
   cat(sprintf("%s[PASS]%s 2024 is leap year\n", GREEN, RESET))
   passed <- passed + 1
 } else {
@@ -347,13 +339,10 @@ if (forge_result == r_result) {
 
 # Test 22: 2023 is not leap year
 total <- total + 1
-forge_result <- FALSE
+forge_result <- forge_eval("MONTH(DATE(2023, 2, 29))") == 2  # Feb 29 exists only in a leap year
 # Check if Feb 29, 2023 is invalid (should be NA or error)
-r_result <- tryCatch({
-  test_date <- as.Date("2023-02-29", format = "%Y-%m-%d")
-  is.na(test_date)
-}, error = function(e) TRUE)
-if (forge_result == r_result || r_result == TRUE) {
+r_result <- !is.na(as.Date("2023-02-29", format = "%Y-%m-%d"))
+if (isTRUE(forge_result == r_result)) {
   cat(sprintf("%s[PASS]%s 2023 is not leap year\n", GREEN, RESET))
   passed <- passed + 1
 } else {
@@ -363,9 +352,9 @@ if (forge_result == r_result || r_result == TRUE) {
 
 # Test 23: 2000 is leap year (divisible by 400)
 total <- total + 1
-forge_result <- TRUE
+forge_result <- forge_eval("MONTH(DATE(2000, 2, 29))") == 2  # Feb 29 exists only in a leap year
 r_result <- !is.na(as.Date("2000-02-29", format = "%Y-%m-%d", optional = FALSE))
-if (forge_result == r_result) {
+if (isTRUE(forge_result == r_result)) {
   cat(sprintf("%s[PASS]%s 2000 is leap year (divisible by 400)\n", GREEN, RESET))
   passed <- passed + 1
 } else {
@@ -375,12 +364,9 @@ if (forge_result == r_result) {
 
 # Test 24: 1900 is not leap year (divisible by 100 but not 400)
 total <- total + 1
-forge_result <- FALSE
-r_result <- tryCatch({
-  test_date <- as.Date("1900-02-29", format = "%Y-%m-%d")
-  is.na(test_date)
-}, error = function(e) TRUE)
-if (forge_result == r_result || r_result == TRUE) {
+forge_result <- forge_eval("MONTH(DATE(1900, 2, 29))") == 2  # Feb 29 exists only in a leap year
+r_result <- !is.na(as.Date("1900-02-29", format = "%Y-%m-%d"))
+if (isTRUE(forge_result == r_result)) {
   cat(sprintf("%s[PASS]%s 1900 is not leap year (divisible by 100)\n", GREEN, RESET))
   passed <- passed + 1
 } else {
@@ -396,7 +382,7 @@ cat(sprintf("\n%s--- WORKDAY Tests ---%s\n", BLUE, RESET))
 # Test 25: Add 1 workday from Monday
 total <- total + 1
 start <- as.Date("2024-01-15")  # Monday
-forge_result <- as.Date("2024-01-16")  # Tuesday
+forge_result <- forge_eval_date("WORKDAY(DATE(2024, 1, 15), 1)")
 r_result <- add_workdays(start, 1)
 if (validate_date("WORKDAY(2024-01-15, 1) [Mon->Tue]", forge_result, r_result)) {
   passed <- passed + 1
@@ -407,7 +393,7 @@ if (validate_date("WORKDAY(2024-01-15, 1) [Mon->Tue]", forge_result, r_result)) 
 # Test 26: Add 1 workday from Friday (skips weekend)
 total <- total + 1
 start <- as.Date("2024-01-19")  # Friday
-forge_result <- as.Date("2024-01-22")  # Monday
+forge_result <- forge_eval_date("WORKDAY(DATE(2024, 1, 19), 1)")
 r_result <- add_workdays(start, 1)
 if (validate_date("WORKDAY(2024-01-19, 1) [Fri->Mon]", forge_result, r_result)) {
   passed <- passed + 1
@@ -418,7 +404,7 @@ if (validate_date("WORKDAY(2024-01-19, 1) [Fri->Mon]", forge_result, r_result)) 
 # Test 27: Add 5 workdays (one full week)
 total <- total + 1
 start <- as.Date("2024-01-15")  # Monday
-forge_result <- as.Date("2024-01-22")  # Next Monday
+forge_result <- forge_eval_date("WORKDAY(DATE(2024, 1, 15), 5)")
 r_result <- add_workdays(start, 5)
 if (validate_date("WORKDAY(2024-01-15, 5) [one week]", forge_result, r_result)) {
   passed <- passed + 1
@@ -429,7 +415,7 @@ if (validate_date("WORKDAY(2024-01-15, 5) [one week]", forge_result, r_result)) 
 # Test 28: Add 10 workdays (two full weeks)
 total <- total + 1
 start <- as.Date("2024-01-15")  # Monday
-forge_result <- as.Date("2024-01-29")  # Monday two weeks later
+forge_result <- forge_eval_date("WORKDAY(DATE(2024, 1, 15), 10)")
 r_result <- add_workdays(start, 10)
 if (validate_date("WORKDAY(2024-01-15, 10) [two weeks]", forge_result, r_result)) {
   passed <- passed + 1
@@ -440,7 +426,7 @@ if (validate_date("WORKDAY(2024-01-15, 10) [two weeks]", forge_result, r_result)
 # Test 29: Subtract 1 workday from Monday (goes to Friday)
 total <- total + 1
 start <- as.Date("2024-01-15")  # Monday
-forge_result <- as.Date("2024-01-12")  # Previous Friday
+forge_result <- forge_eval_date("WORKDAY(DATE(2024, 1, 15), -1)")
 r_result <- add_workdays(start, -1)
 if (validate_date("WORKDAY(2024-01-15, -1) [Mon->Fri]", forge_result, r_result)) {
   passed <- passed + 1
@@ -451,7 +437,7 @@ if (validate_date("WORKDAY(2024-01-15, -1) [Mon->Fri]", forge_result, r_result))
 # Test 30: Add 0 workdays
 total <- total + 1
 start <- as.Date("2024-01-15")
-forge_result <- as.Date("2024-01-15")
+forge_result <- forge_eval_date("WORKDAY(DATE(2024, 1, 15), 0)")
 r_result <- add_workdays(start, 0)
 if (validate_date("WORKDAY(2024-01-15, 0)", forge_result, r_result)) {
   passed <- passed + 1
@@ -468,7 +454,7 @@ cat(sprintf("\n%s--- NETWORKDAYS Tests ---%s\n", BLUE, RESET))
 total <- total + 1
 start <- as.Date("2024-01-15")  # Monday
 end <- as.Date("2024-01-19")    # Friday
-forge_result <- 4  # Mon to Fri is 4 days (Tue, Wed, Thu, Fri)
+forge_result <- forge_eval("NETWORKDAYS(DATE(2024, 1, 15), DATE(2024, 1, 19))")
 r_result <- count_workdays(start, end)
 if (validate_numeric("NETWORKDAYS(2024-01-15, 2024-01-19)", forge_result, r_result)) {
   passed <- passed + 1
@@ -480,7 +466,7 @@ if (validate_numeric("NETWORKDAYS(2024-01-15, 2024-01-19)", forge_result, r_resu
 total <- total + 1
 start <- as.Date("2024-01-15")  # Monday
 end <- as.Date("2024-01-22")    # Next Monday
-forge_result <- 5  # Mon to Mon is 5 workdays (Tue-Fri next week)
+forge_result <- forge_eval("NETWORKDAYS(DATE(2024, 1, 15), DATE(2024, 1, 22))")
 r_result <- count_workdays(start, end)
 if (validate_numeric("NETWORKDAYS(2024-01-15, 2024-01-22) [cross weekend]", forge_result, r_result)) {
   passed <- passed + 1
@@ -492,7 +478,7 @@ if (validate_numeric("NETWORKDAYS(2024-01-15, 2024-01-22) [cross weekend]", forg
 total <- total + 1
 start <- as.Date("2024-01-15")
 end <- as.Date("2024-01-15")
-forge_result <- 0
+forge_result <- forge_eval("NETWORKDAYS(DATE(2024, 1, 15), DATE(2024, 1, 15))")
 r_result <- count_workdays(start, end)
 if (validate_numeric("NETWORKDAYS(2024-01-15, 2024-01-15) [same day]", forge_result, r_result)) {
   passed <- passed + 1
@@ -504,7 +490,7 @@ if (validate_numeric("NETWORKDAYS(2024-01-15, 2024-01-15) [same day]", forge_res
 total <- total + 1
 start <- as.Date("2024-01-15")  # Monday
 end <- as.Date("2024-01-29")    # Monday two weeks later
-forge_result <- 10  # Two full work weeks
+forge_result <- forge_eval("NETWORKDAYS(DATE(2024, 1, 15), DATE(2024, 1, 29))")
 r_result <- count_workdays(start, end)
 if (validate_numeric("NETWORKDAYS(2024-01-15, 2024-01-29) [two weeks]", forge_result, r_result)) {
   passed <- passed + 1
@@ -516,7 +502,7 @@ if (validate_numeric("NETWORKDAYS(2024-01-15, 2024-01-29) [two weeks]", forge_re
 total <- total + 1
 start <- as.Date("2024-01-19")  # Friday
 end <- as.Date("2024-01-22")    # Monday
-forge_result <- 1  # Only Monday counts
+forge_result <- forge_eval("NETWORKDAYS(DATE(2024, 1, 19), DATE(2024, 1, 22))")
 r_result <- count_workdays(start, end)
 if (validate_numeric("NETWORKDAYS(2024-01-19, 2024-01-22) [Fri->Mon]", forge_result, r_result)) {
   passed <- passed + 1
@@ -528,7 +514,7 @@ if (validate_numeric("NETWORKDAYS(2024-01-19, 2024-01-22) [Fri->Mon]", forge_res
 total <- total + 1
 start <- as.Date("2024-01-22")  # Monday
 end <- as.Date("2024-01-15")    # Previous Monday
-forge_result <- -5  # Negative count
+forge_result <- forge_eval("NETWORKDAYS(DATE(2024, 1, 22), DATE(2024, 1, 15))")
 r_result <- count_workdays(start, end)
 if (validate_numeric("NETWORKDAYS(2024-01-22, 2024-01-15) [reverse]", forge_result, r_result)) {
   passed <- passed + 1
@@ -544,7 +530,7 @@ cat(sprintf("\n%s--- Edge Cases - Month/Year Transitions ---%s\n", BLUE, RESET))
 # Test 37: Workday crossing month boundary
 total <- total + 1
 start <- as.Date("2024-01-31")  # Wednesday, end of January
-forge_result <- as.Date("2024-02-01")  # Thursday
+forge_result <- forge_eval_date("WORKDAY(DATE(2024, 1, 31), 1)")
 r_result <- add_workdays(start, 1)
 if (validate_date("WORKDAY(2024-01-31, 1) [cross month]", forge_result, r_result)) {
   passed <- passed + 1
@@ -555,7 +541,7 @@ if (validate_date("WORKDAY(2024-01-31, 1) [cross month]", forge_result, r_result
 # Test 38: Workday crossing year boundary
 total <- total + 1
 start <- as.Date("2024-12-31")  # Tuesday, end of year
-forge_result <- as.Date("2025-01-01")  # Wednesday
+forge_result <- forge_eval_date("WORKDAY(DATE(2024, 12, 31), 1)")
 r_result <- add_workdays(start, 1)
 if (validate_date("WORKDAY(2024-12-31, 1) [cross year]", forge_result, r_result)) {
   passed <- passed + 1
@@ -567,7 +553,7 @@ if (validate_date("WORKDAY(2024-12-31, 1) [cross year]", forge_result, r_result)
 total <- total + 1
 start <- as.Date("2024-01-29")  # Monday
 end <- as.Date("2024-02-02")    # Friday
-forge_result <- 4  # Mon to Fri crossing month
+forge_result <- forge_eval("NETWORKDAYS(DATE(2024, 1, 29), DATE(2024, 2, 2))")
 r_result <- count_workdays(start, end)
 if (validate_numeric("NETWORKDAYS(2024-01-29, 2024-02-02) [cross month]", forge_result, r_result)) {
   passed <- passed + 1
@@ -579,7 +565,7 @@ if (validate_numeric("NETWORKDAYS(2024-01-29, 2024-02-02) [cross month]", forge_
 total <- total + 1
 start <- as.Date("2024-12-30")  # Monday
 end <- as.Date("2025-01-03")    # Friday
-forge_result <- 4  # Mon to Fri crossing year
+forge_result <- forge_eval("NETWORKDAYS(DATE(2024, 12, 30), DATE(2025, 1, 3))")
 r_result <- count_workdays(start, end)
 if (validate_numeric("NETWORKDAYS(2024-12-30, 2025-01-03) [cross year]", forge_result, r_result)) {
   passed <- passed + 1
