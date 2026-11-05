@@ -241,7 +241,6 @@ impl WorkbookRefs {
                         return Ok(format!("{prefix}{letter}{row}"));
                     }
                 }
-                Err(format!("unknown name '{word}'"))
             },
             Context::Scalar { group } => {
                 let sheet = group.unwrap_or(UNGROUPED_SHEET);
@@ -254,9 +253,9 @@ impl WorkbookRefs {
                         return Ok(self.column_range(&sheet_prefix(table), table, letter));
                     }
                 }
-                Err(format!("unknown name '{word}'"))
             },
         }
+        Err(format!("unknown name '{word}'"))
     }
 
     /// Translate a Forge formula to Excel.

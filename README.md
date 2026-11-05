@@ -79,15 +79,15 @@ MCP server and REST API available for tighter integration (see below).
 
 ## Validation status
 
-Forge's results are checked against other engines. None of the checks is complete, and only the unit tests run on every push. [VALIDATION.md](VALIDATION.md) lists what each check covers, its latest result and the command to run it.
+Forge's results are checked against other engines. None of the checks is complete. The unit tests run on every push; the two external suites run weekly in CI. [VALIDATION.md](VALIDATION.md) lists what each check covers, its latest result and the command to run it.
 
 | Check | What it covers | Latest result (2026-11-05) |
 | --- | --- | --- |
 | Unit tests (this repo) | 1,457 unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
-| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,301 formula cases. A case passes only if `forge calculate` and Gnumeric's recalculation of the exported `.xlsx` both match the expected value | 1,300 pass, 1 skipped; run by hand |
-| [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees) compared with R | 119 function checks pass; 30 of 77 analytics specs compared with R, 10 more with expected values only, 37 skipped; run by hand |
+| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,301 formula cases. A case passes only if `forge calculate` and Gnumeric's recalculation of the exported `.xlsx` both match the expected value | 1,300 pass, 1 skipped; weekly in CI |
+| [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees) compared with R | 119 function checks pass; 30 of 77 analytics specs compared with R, 10 more with expected values only, 37 skipped; weekly in CI |
 
-Next steps: run both suites in CI, and add runners for real options and Bayesian networks.
+Next steps: add runners for real options and Bayesian networks, and run the suites on pull requests.
 
 --- | --- | --- |
 | Unit tests (this repo) | 1,399 inline unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Run on every push |

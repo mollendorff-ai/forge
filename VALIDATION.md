@@ -13,7 +13,7 @@ Forge is a beta and an R&D prototype. These checks reduce the chance of a wrong 
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r), formulas | R, with Excel rules where R differs | 119 math, date and financial checks pass |
 | forge-e2e-r, analytics | R packages `boot`, `stats` and base R | 30 of 77 specs pass; 10 more pass against expected values only; 37 skipped |
 
-Nothing here runs on every push except the unit tests. The two validation suites are run by hand.
+Only the unit tests run on every push. The two validation suites run in the weekly **Validation** workflow (Actions tab, also runnable on demand) and can be run by hand with the commands below.
 
 ## 1. Unit tests
 
@@ -71,7 +71,7 @@ Running without `--expected-only` on a machine without `data.tree` reports the d
 ## Known limits
 
 - The R side of decision trees, real options and Bayesian networks has not been run by the maintainers; the R packages `data.tree`, `derivmkts` and `bnlearn` were not available in the environment used.
-- The Gnumeric and R suites are not in CI.
+- The Gnumeric and R suites run weekly, not on every push.
 - The expected values in a spec were written by the author or by an AI assistant. Where R or Gnumeric disagreed with them, the disagreement was investigated, but a value on which both Forge and its expected value are wrong in the same way would pass.
 - Bayesian networks support one parent per node. Real-options switch and compound valuations are rough approximations.
 - `unsafe-libyaml`, a dependency of the YAML parser, is unmaintained. `cargo audit` reports 0 vulnerabilities and this one warning.
