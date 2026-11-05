@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **`forge real-options` result**: `total_option_value` is removed. It added option values that overlap (waiting and expanding depend on the same project), so it double counted. Each option now has a `project_value`, and the result has `best_option` and `project_value_with_options` (the best one). `traditional_npv` is optional and can be set in `real_options`; without it, options held on top of the project have no project value and the decision is `UNDECIDED`. `-o` now writes YAML instead of a Rust debug dump.
+
 ### Fixed
+- **`forge real-options`**: "Project Value" was the summed option values plus a traditional NPV that the CLI never set (always 0), so it equalled "Total Option Value". A defer option is now counted as the project value on its own (it already includes investing today); other options add to `traditional_npv`. The "Trigger" lines are labelled as rules of thumb, and options print in file order.
 - **`forge tornado`**: bars were ranked by a made-up score (swing × relative range²) when the inputs were on very different scales, but drawn and printed with the real swing, so the order looked random. They are now ranked by the output swing that is shown, ties by name, so the same model always prints the same diagram. The number after the bar was labelled "±" but is the full low-to-high swing; it is now "swing", with the output at the low and high input beside it.
 - **`forge import`**: the YAML it wrote was Forge's internal dump (`!Number` / `!Text` tags, no `_forge_version`), so `forge validate` rejected it. It now writes the same format as the examples, in single-file, `--split-files` and `--multi-doc` modes. Row formulas were also attached to the wrong columns (the formula grid was read as if it started at A1), and a reference to column `E` (`=C2/E2`) was left untranslated because `E` was treated as Euler's constant.
 

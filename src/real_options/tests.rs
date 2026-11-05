@@ -52,31 +52,18 @@ fn test_adr020_full_example() {
 
     // Validate structure
     assert_eq!(result.options.len(), 3);
-    assert_eq!(result.traditional_npv, -500_000.0);
+    assert_eq!(result.traditional_npv, Some(-500_000.0));
 
     // All options should have positive value
     for (name, opt) in &result.options {
         assert!(opt.value > 0.0, "Option {name} should have positive value");
     }
 
-    // Project value with options should be better than traditional NPV
+    // Project value with the best option should beat the traditional NPV
     assert!(
-        result.project_value_with_options > result.traditional_npv,
+        result.project_value_with_options.unwrap() > -500_000.0,
         "Options should add value"
     );
-
-    println!("=== ADR-020 Example Results ===");
-    println!("Traditional NPV: ${:.0}", result.traditional_npv);
-    println!("Options:");
-    for (name, opt) in &result.options {
-        println!("  {}: ${:.0}", name, opt.value);
-    }
-    println!("Total Option Value: ${:.0}", result.total_option_value);
-    println!(
-        "Project Value with Options: ${:.0}",
-        result.project_value_with_options
-    );
-    println!("Decision: {}", result.decision);
 }
 
 /// Test that high volatility increases option value
@@ -94,7 +81,7 @@ fn test_volatility_impact() {
     let high_result = RealOptionsEngine::new(high_vol).unwrap().analyze().unwrap();
 
     assert!(
-        high_result.total_option_value > low_result.total_option_value,
+        high_result.options["Wait"].value > low_result.options["Wait"].value,
         "Higher volatility should increase option value"
     );
 }
@@ -118,7 +105,7 @@ fn test_time_horizon_impact() {
         .unwrap();
 
     assert!(
-        long_result.total_option_value > short_result.total_option_value,
+        long_result.options["Wait"].value > short_result.options["Wait"].value,
         "Longer time should increase option value"
     );
 }
@@ -240,11 +227,32 @@ fn test_multiple_options() {
     // Should have all 4 options
     assert_eq!(result.options.len(), 4);
 
-    // Total should be sum of individual (simplified - no interaction)
+    // Option values overlap, so nothing is added up: the result is the best
+    // single option. Defer already includes investing now; the others sit on
+    // top of the project, so they add to the traditional NPV.
+    let npv = -100_000.0;
+    for opt in result.options.values() {
+        let expected = if opt.option_type == OptionType::Defer {
+            opt.value
+        } else {
+            npv + opt.value
+        };
+        assert!(
+            (opt.project_value.unwrap() - expected).abs() < 1e-6,
+            "{}",
+            opt.name
+        );
+    }
+    let best = result
+        .options
+        .values()
+        .map(|o| o.project_value.unwrap())
+        .fold(f64::NEG_INFINITY, f64::max);
+    assert_eq!(result.project_value_with_options, Some(best));
     let sum: f64 = result.options.values().map(|o| o.value).sum();
     assert!(
-        (sum - result.total_option_value).abs() < 1.0,
-        "Total should equal sum of options"
+        best < sum + npv,
+        "the result must not be the sum of the options"
     );
 }
 
@@ -265,7 +273,7 @@ fn test_decision_recommendation() {
 
     let result = engine.analyze().unwrap();
 
-    if result.project_value_with_options > 0.0 {
+    if result.project_value_with_options.unwrap() > 0.0 {
         assert!(result.decision.contains("ACCEPT"));
     } else {
         assert!(result.decision.contains("REJECT"));
@@ -273,4 +281,63 @@ fn test_decision_recommendation() {
 
     // Should have recommendation text
     assert_ne!(result.recommendation, "");
+}
+
+/// Without a traditional NPV, options held on top of the project cannot be
+/// turned into a project value, so no decision is made up.
+#[test]
+fn test_missing_npv_leaves_decision_open() {
+    let config = RealOptionsConfig::new("No NPV", UnderlyingConfig::new(100.0, 0.30, 0.05, 1.0))
+        .with_option(OptionDefinition::defer("Wait", 1.0, 100.0))
+        .with_option(OptionDefinition::expand("Grow", 1.5, 20.0));
+    let result = RealOptionsEngine::new(config).unwrap().analyze().unwrap();
+
+    assert!(result.traditional_npv.is_none());
+    assert!(result.options["Wait"].project_value.is_some());
+    assert!(result.options["Grow"].project_value.is_none());
+    assert!(
+        result.decision.starts_with("UNDECIDED"),
+        "{}",
+        result.decision
+    );
+}
+
+/// `traditional_npv` in the YAML reaches the engine.
+#[test]
+fn test_traditional_npv_from_config() {
+    let yaml = r"
+name: t
+underlying: {current_value: 100, volatility: 0.3, risk_free_rate: 0.05, time_horizon: 1}
+traditional_npv: -5
+options:
+  - {type: abandon, name: Exit, salvage_value: 90}
+";
+    let config: RealOptionsConfig = serde_yaml_ng::from_str(yaml).unwrap();
+    let result = RealOptionsEngine::new(config).unwrap().analyze().unwrap();
+    assert_eq!(result.traditional_npv, Some(-5.0));
+    let exit = &result.options["Exit"];
+    assert!((exit.project_value.unwrap() - (exit.value - 5.0)).abs() < 1e-9);
+}
+
+/// The shipped example: build now (NPV $2M) and keep the option to expand.
+#[test]
+fn test_example_file_best_option() {
+    use crate::cli::commands::real_options_core;
+    let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/real-options.yaml");
+    let result = real_options_core(&file).unwrap();
+
+    assert_eq!(result.traditional_npv, Some(2_000_000.0));
+    let defer = &result.options["Wait up to 2 years before building"];
+    assert!((defer.project_value.unwrap() - defer.value).abs() < 1e-6);
+    let expand = &result.options["Double capacity if demand high"];
+    assert!((expand.project_value.unwrap() - (2_000_000.0 + expand.value)).abs() < 1e-6);
+    assert_eq!(
+        result.best_option.as_deref(),
+        Some("Double capacity if demand high")
+    );
+    assert!((result.project_value_with_options.unwrap() - 9_118_281.45).abs() < 1.0);
+    assert_eq!(
+        result.decision,
+        "ACCEPT (with Double capacity if demand high)"
+    );
 }

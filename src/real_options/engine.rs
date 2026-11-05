@@ -20,9 +20,15 @@ pub struct OptionResult {
     /// Probability of exercise (from simulation)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub probability_exercise: Option<f64>,
-    /// Optimal trigger condition
+    /// Rule of thumb for when to exercise (not the optimal exercise boundary)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub optimal_trigger: Option<String>,
+    /// Value of the project when it has this option. A defer option already
+    /// includes investing today, so this is the option value itself; any other
+    /// option is held on top of the project, so this is traditional NPV + value.
+    /// `None` when that needs a traditional NPV and none was given.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_value: Option<f64>,
 }
 
 /// Complete options analysis result
@@ -32,14 +38,18 @@ pub struct OptionsResult {
     pub name: String,
     /// Underlying asset parameters
     pub underlying: UnderlyingResult,
-    /// Traditional NPV (without options)
-    pub traditional_npv: f64,
+    /// Traditional NPV (without options), if given
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub traditional_npv: Option<f64>,
     /// Individual option results
     pub options: HashMap<String, OptionResult>,
-    /// Total option value
-    pub total_option_value: f64,
-    /// Project value with options (NPV + option value)
-    pub project_value_with_options: f64,
+    /// Option whose project value is highest. Option values overlap (waiting and
+    /// expanding both depend on the same project), so they are never added up.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub best_option: Option<String>,
+    /// Project value with the best option
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_value_with_options: Option<f64>,
     /// Decision recommendation
     pub decision: String,
     /// Detailed recommendation
@@ -75,8 +85,8 @@ impl OptionsResult {
 /// Real Options Engine
 pub struct RealOptionsEngine {
     config: RealOptionsConfig,
-    /// Traditional NPV (can be set externally)
-    traditional_npv: f64,
+    /// Traditional NPV (from the config, or set externally)
+    traditional_npv: Option<f64>,
 }
 
 impl RealOptionsEngine {
@@ -87,16 +97,17 @@ impl RealOptionsEngine {
     /// Returns an error if the configuration is invalid.
     pub fn new(config: RealOptionsConfig) -> Result<Self, String> {
         config.validate()?;
+        let traditional_npv = config.traditional_npv;
         Ok(Self {
             config,
-            traditional_npv: 0.0,
+            traditional_npv,
         })
     }
 
     /// Set the traditional NPV for comparison
     #[must_use]
     pub const fn with_traditional_npv(mut self, npv: f64) -> Self {
-        self.traditional_npv = npv;
+        self.traditional_npv = Some(npv);
         self
     }
 
@@ -107,22 +118,41 @@ impl RealOptionsEngine {
     /// Returns an error if any option valuation fails.
     pub fn analyze(&self) -> Result<OptionsResult, String> {
         let mut option_results = HashMap::new();
-        let mut total_value = 0.0;
+        let mut best: Option<(String, f64)> = None;
 
         for option in &self.config.options {
             let result = self.value_option(option);
-            total_value += result.value;
+            if let Some(value) = result.project_value {
+                let better = best.as_ref().is_none_or(|(name, v)| {
+                    value
+                        .total_cmp(v)
+                        .then_with(|| name.cmp(&option.name))
+                        .is_gt()
+                });
+                if better {
+                    best = Some((option.name.clone(), value));
+                }
+            }
             option_results.insert(option.name.clone(), result);
         }
 
-        let project_value = self.traditional_npv + total_value;
-        let decision = if project_value > 0.0 {
-            "ACCEPT (with options)".to_string()
-        } else {
-            "REJECT".to_string()
+        // A best option can only be named when every option has a project value.
+        let needs_npv = option_results.values().any(|r| r.project_value.is_none());
+        if needs_npv {
+            best = None;
+        }
+        let decision = match (&best, needs_npv) {
+            (_, true) => "UNDECIDED: set traditional_npv to value expand, abandon, contract, switch or compound options".to_string(),
+            (Some((name, value)), false) if *value > 0.0 => format!("ACCEPT (with {name})"),
+            (Some(_), false) => "REJECT".to_string(),
+            (None, false) => match self.traditional_npv {
+                Some(npv) if npv > 0.0 => "ACCEPT".to_string(),
+                Some(_) => "REJECT".to_string(),
+                None => "UNDECIDED: no options and no traditional_npv".to_string(),
+            },
         };
 
-        let recommendation = self.generate_recommendation(&option_results, total_value);
+        let recommendation = self.generate_recommendation(&option_results, best.as_ref());
 
         Ok(OptionsResult {
             name: self.config.name.clone(),
@@ -134,8 +164,8 @@ impl RealOptionsEngine {
             },
             traditional_npv: self.traditional_npv,
             options: option_results,
-            total_option_value: total_value,
-            project_value_with_options: project_value,
+            best_option: best.as_ref().map(|(name, _)| name.clone()),
+            project_value_with_options: best.map(|(_, value)| value),
             decision,
             recommendation,
         })
@@ -150,6 +180,10 @@ impl RealOptionsEngine {
         };
 
         let trigger = self.determine_trigger(option);
+        let project_value = match option.option_type {
+            OptionType::Defer => Some(value),
+            _ => self.traditional_npv.map(|npv| npv + value),
+        };
 
         OptionResult {
             name: option.name.clone(),
@@ -157,6 +191,7 @@ impl RealOptionsEngine {
             value,
             probability_exercise: None, // Would be populated from simulation
             optimal_trigger: trigger,
+            project_value,
         }
     }
 
@@ -300,30 +335,42 @@ impl RealOptionsEngine {
     fn generate_recommendation(
         &self,
         options: &HashMap<String, OptionResult>,
-        total_value: f64,
+        best: Option<&(String, f64)>,
     ) -> String {
         let mut parts = Vec::new();
 
-        // Find highest value option
-        if let Some((name, result)) = options.iter().max_by(|a, b| {
-            a.1.value
-                .partial_cmp(&b.1.value)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        }) {
-            parts.push(format!(
-                "Highest value option: {} (${:.0})",
-                name, result.value
-            ));
+        if let Some((name, value)) = best {
+            parts.push(format!("Best option: {name}, project value ${value:.0}"));
+            if let Some(npv) = self.traditional_npv {
+                if npv < 0.0 && *value > 0.0 {
+                    parts.push(format!(
+                        "Traditional NPV is negative (${npv:.0}), but with {name} the project is worth ${value:.0}"
+                    ));
+                }
+                if options
+                    .get(name)
+                    .is_some_and(|o| o.option_type == OptionType::Defer)
+                {
+                    let premium = value - npv.max(0.0);
+                    parts.push(format!(
+                        "Keeping the right to wait is worth ${premium:.0} more than deciding now"
+                    ));
+                }
+            }
         }
 
-        if total_value > self.traditional_npv.abs() {
-            parts.push("Option value exceeds negative NPV - consider proceeding".to_string());
+        if options.len() > 1 {
+            parts.push(
+                "Option values overlap, so they are compared, not added together".to_string(),
+            );
         }
 
-        // Add specific recommendations by option type
-        for (name, result) in options {
-            if let Some(ref trigger) = result.optimal_trigger {
-                parts.push(format!("{name}: exercise when {trigger}"));
+        // Rules of thumb by option type, in a fixed order
+        let mut names: Vec<&String> = options.keys().collect();
+        names.sort();
+        for name in names {
+            if let Some(ref trigger) = options[name].optimal_trigger {
+                parts.push(format!("{name}: rule of thumb, exercise when {trigger}"));
             }
         }
 
@@ -378,16 +425,9 @@ mod engine_tests {
             );
         }
 
-        // Total option value should be positive
-        assert!(result.total_option_value > 0.0);
-
-        // With options, might turn negative NPV positive
-        println!("Traditional NPV: ${}", result.traditional_npv);
-        println!("Total Option Value: ${}", result.total_option_value);
-        println!(
-            "Project Value with Options: ${}",
-            result.project_value_with_options
-        );
+        // Every option has a project value, because an NPV was given
+        assert!(result.options.values().all(|o| o.project_value.is_some()));
+        assert!(result.project_value_with_options.is_some());
     }
 
     #[test]
@@ -417,17 +457,11 @@ mod engine_tests {
 
         let result = engine.analyze().unwrap();
 
-        // Total option value should be substantial
-        assert!(
-            result.total_option_value > 1_000_000.0,
-            "Options should add significant value: {}",
-            result.total_option_value
-        );
-
-        // Project should be acceptable with options
-        if result.project_value_with_options > 0.0 {
-            assert_eq!(result.decision, "ACCEPT (with options)");
-        }
+        // The best option turns the -$500K project into a positive one
+        let best = result.best_option.as_deref().unwrap();
+        let value = result.project_value_with_options.unwrap();
+        assert!(value > 1_000_000.0, "best project value: {value}");
+        assert_eq!(result.decision, format!("ACCEPT (with {best})"));
     }
 
     #[test]
@@ -448,23 +482,28 @@ mod engine_tests {
     #[test]
     fn test_yaml_export() {
         let config = create_test_config();
-        let engine = RealOptionsEngine::new(config).unwrap();
+        let engine = RealOptionsEngine::new(config)
+            .unwrap()
+            .with_traditional_npv(-500_000.0);
         let result = engine.analyze().unwrap();
         let yaml = result.to_yaml();
 
-        assert!(yaml.contains("total_option_value"));
+        assert!(yaml.contains("best_option"));
         assert!(yaml.contains("project_value_with_options"));
+        assert!(!yaml.contains("total_option_value"));
         assert!(yaml.contains("decision"));
     }
 
     #[test]
     fn test_json_export() {
         let config = create_test_config();
-        let engine = RealOptionsEngine::new(config).unwrap();
+        let engine = RealOptionsEngine::new(config)
+            .unwrap()
+            .with_traditional_npv(-500_000.0);
         let result = engine.analyze().unwrap();
         let json = result.to_json().unwrap();
 
-        assert!(json.contains("\"total_option_value\""));
+        assert!(json.contains("\"project_value_with_options\""));
         assert!(json.contains("\"options\""));
     }
 }

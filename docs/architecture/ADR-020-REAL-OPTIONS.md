@@ -91,46 +91,31 @@ forge real-options model.yaml
 # Value specific option
 forge real-options model.yaml --option defer
 
-# Sensitivity to volatility
-forge real-options model.yaml --sensitivity volatility
-
 # Compare with/without options
 forge real-options model.yaml --compare-npv
 
-# Export option value surface
-forge real-options model.yaml --export-surface
 ```
 
 ### Output Format
 
 ```yaml
-real_options_results:
-  underlying:
-    current_value: 10000000
-    volatility: 0.30
-
-  traditional_npv: -500000
-
-  options:
-    defer:
-      value: 1200000
-      optimal_trigger: "value > 9500000"
-      expected_wait: 1.3  # years
-
-    expand:
-      value: 800000
-      probability_exercise: 0.45
-
-    abandon:
-      value: 400000
-      probability_exercise: 0.20
-
-  total_option_value: 2400000
-  project_value_with_options: 1900000  # -500K + 2.4M
-
-  decision: "ACCEPT (with options)"
-  recommendation: "Defer investment, exercise when value exceeds $9.5M"
+name: Phased Factory Investment
+traditional_npv: 2000000.0        # optional; needed for options held on top of the project
+options:
+  Wait up to 2 years before building:
+    option_type: defer
+    value: 3245831.71
+    project_value: 3245831.71     # defer already includes investing now
+  Double capacity if demand high:
+    option_type: expand
+    value: 7118281.45
+    project_value: 9118281.45     # traditional_npv + value
+best_option: Double capacity if demand high
+project_value_with_options: 9118281.45
+decision: ACCEPT (with Double capacity if demand high)
 ```
+
+Option values overlap, so they are compared, not summed. An earlier format reported `total_option_value` as their sum; that field was removed after 10.0.0-beta.10 because the sum double counts.
 
 ### Valuation Methods
 
