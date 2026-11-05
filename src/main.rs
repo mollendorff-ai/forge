@@ -34,6 +34,11 @@ struct Cli {
     #[arg(short, long)]
     binary: Option<PathBuf>,
 
+    /// Compare decision trees with the spec's expected values and do not run R.
+    /// For machines where the R package data.tree is not installed.
+    #[arg(long)]
+    expected_only: bool,
+
     /// Path to R validators directory.
     #[arg(long, default_value = "validators/r")]
     validators: PathBuf,
@@ -77,7 +82,7 @@ fn main() -> anyhow::Result<()> {
     println!();
 
     if cli.all {
-        run_all_mode(&tests, &forge_binary, &r_config)?;
+        run_all_mode(&tests, &forge_binary, &r_config, cli.expected_only)?;
     } else {
         println!("Use --all to run all tests");
     }
@@ -115,6 +120,7 @@ fn run_all_mode(
     tests: &[AnalyticsTestSpec],
     forge_binary: &PathBuf,
     r_config: &RConfig,
+    expected_only: bool,
 ) -> anyhow::Result<()> {
     let start = Instant::now();
     let mut results = Vec::new();
@@ -124,6 +130,7 @@ fn run_all_mode(
     let env = forge_e2e_r::analytics::Env {
         forge: forge_binary,
         r: r_config,
+        expected_only,
     };
     for test in tests {
         let result = forge_e2e_r::analytics::run(test, &env)
@@ -175,9 +182,20 @@ fn run_all_mode(
 
     if skipped > 0 {
         println!(
-            "  {} {skipped} of {} tests were skipped, not validated (no runner for their type yet).",
+            "  {} {skipped} of {} tests were skipped, not validated (no runner yet, or Forge lacks the feature).",
             "NOTE".yellow(),
             results.len()
+        );
+    }
+
+    let unchecked_by_r = results
+        .iter()
+        .filter(|r| matches!(r, TestResult::Pass { details, .. } if details.contains("R not run")))
+        .count();
+    if unchecked_by_r > 0 {
+        println!(
+            "  {} {unchecked_by_r} passed tests were compared with the spec's expected values only; R was not run for them.",
+            "NOTE".yellow()
         );
     }
 
