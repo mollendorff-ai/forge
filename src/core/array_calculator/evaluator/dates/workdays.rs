@@ -51,16 +51,23 @@ pub fn try_evaluate(
             let start_date = parse_date_value(&start)?;
             let end_date = parse_date_value(&end)?;
 
+            // Excel: a start date after the end date counts the same days and
+            // returns the result negated.
+            let (first, last, sign) = if start_date <= end_date {
+                (start_date, end_date, 1.0)
+            } else {
+                (end_date, start_date, -1.0)
+            };
             let mut count = 0;
-            let mut current = start_date;
-            while current <= end_date {
+            let mut current = first;
+            while current <= last {
                 let weekday = current.weekday().num_days_from_monday();
                 if weekday < 5 {
                     count += 1;
                 }
                 current = current.succ_opt().unwrap_or(current);
             }
-            Value::Number(f64::from(count))
+            Value::Number(sign * f64::from(count))
         },
 
         _ => return Ok(None),
@@ -102,5 +109,32 @@ mod tests {
         );
         let calculator = ArrayCalculator::new(model);
         let _ = calculator.calculate_all();
+    }
+
+    fn networkdays(formula: &str) -> f64 {
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "result".to_string(),
+            Variable::new("result".to_string(), None, Some(formula.to_string())),
+        );
+        let result = ArrayCalculator::new(model)
+            .calculate_all()
+            .expect("should calculate");
+        result.scalars.get("result").unwrap().value.unwrap()
+    }
+
+    #[test]
+    fn test_networkdays_counts_both_ends() {
+        // Mon 2024-01-15 to Fri 2024-01-19 is five working days
+        assert!((networkdays("=NETWORKDAYS(\"2024-01-15\", \"2024-01-19\")") - 5.0).abs() < 1e-9);
+        // Same working day counts as one
+        assert!((networkdays("=NETWORKDAYS(\"2024-01-15\", \"2024-01-15\")") - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_networkdays_reverse_range_is_negative() {
+        // Excel: start after end returns the negated count
+        assert!((networkdays("=NETWORKDAYS(\"2024-01-22\", \"2024-01-15\")") + 6.0).abs() < 1e-9);
+        assert!((networkdays("=NETWORKDAYS(\"2024-01-19\", \"2024-01-15\")") + 5.0).abs() < 1e-9);
     }
 }
