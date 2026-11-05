@@ -55,7 +55,7 @@ fn test_full_simulation_workflow() {
 
             let mut outputs = std::collections::HashMap::new();
             outputs.insert("npv".to_string(), npv);
-            outputs
+            Ok(outputs)
         })
         .unwrap();
 

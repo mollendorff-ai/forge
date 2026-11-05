@@ -9,7 +9,22 @@
 
 use rand::{Rng, RngExt};
 use rand_distr::{Distribution as RandDistribution, Normal, Triangular, Uniform};
+use statrs::distribution::{Beta, ContinuousCDF, Normal as StandardNormal};
 use std::fmt;
+
+/// Probabilities passed to an inverse CDF are kept this far from 0 and 1, so
+/// a uniform draw of exactly 0 cannot map to an infinite value.
+const P_EPSILON: f64 = 1e-12;
+
+/// Quantile of the standard normal distribution.
+pub(crate) fn standard_normal_quantile(p: f64) -> f64 {
+    StandardNormal::standard().inverse_cdf(p.clamp(P_EPSILON, 1.0 - P_EPSILON))
+}
+
+/// Cumulative probability of the standard normal distribution.
+pub(crate) fn standard_normal_cdf(z: f64) -> f64 {
+    StandardNormal::standard().cdf(z)
+}
 
 /// Distribution type enumeration
 #[derive(Debug, Clone, PartialEq)]
@@ -218,6 +233,49 @@ impl Distribution {
         }
     }
 
+    /// Value at cumulative probability `p`: the inverse CDF, or quantile function.
+    ///
+    /// Mapping uniform draws through this function gives samples with exactly
+    /// this distribution, which lets the engine use stratified (Latin
+    /// hypercube) or correlated uniforms. `p` is clamped to `[1e-12, 1 - 1e-12]`.
+    ///
+    /// # Panics
+    ///
+    /// Cannot panic for a distribution built by the checked constructors: the
+    /// PERT shape parameters are always at least 1.
+    #[must_use]
+    pub fn inverse_cdf(&self, p: f64) -> f64 {
+        let p = p.clamp(P_EPSILON, 1.0 - P_EPSILON);
+        match &self.dist_type {
+            DistributionType::Normal { mean, stdev } => {
+                stdev.mul_add(standard_normal_quantile(p), *mean)
+            },
+            DistributionType::Triangular { min, mode, max } => {
+                triangular_quantile(*min, *mode, *max, p)
+            },
+            DistributionType::Uniform { min, max } => p.mul_add(max - min, *min),
+            DistributionType::PERT { min, mode, max } => {
+                let range = max - min;
+                if range <= 0.0 {
+                    return *mode;
+                }
+                let (alpha, beta) = pert_shape(*min, *mode, *max);
+                let x = Beta::new(alpha, beta)
+                    .expect("PERT shape parameters are at least 1")
+                    .inverse_cdf(p);
+                x.mul_add(range, *min)
+            },
+            DistributionType::Lognormal { mean, stdev } => {
+                let (mu, sigma) = lognormal_params(*mean, *stdev);
+                sigma.mul_add(standard_normal_quantile(p), mu).exp()
+            },
+            DistributionType::Discrete {
+                values,
+                probabilities,
+            } => discrete_quantile(values, probabilities, p),
+        }
+    }
+
     /// Sample multiple values from the distribution
     pub fn sample_n<R: Rng>(&self, rng: &mut R, n: usize) -> Vec<f64> {
         (0..n).map(|_| self.sample(rng)).collect()
@@ -296,14 +354,58 @@ fn sample_pert<R: Rng>(rng: &mut R, min: f64, mode: f64, max: f64) -> f64 {
         return mode;
     }
 
-    let alpha = 1.0 + 4.0 * (mode - min) / range;
-    let beta = 1.0 + 4.0 * (max - mode) / range;
+    let (alpha, beta) = pert_shape(min, mode, max);
 
     // Sample from Beta using rejection method or gamma ratio
     let x = sample_beta(rng, alpha, beta);
 
     // Scale to [min, max]
     x.mul_add(range, min)
+}
+
+/// Beta shape parameters of a PERT distribution with `max > min`
+fn pert_shape(min: f64, mode: f64, max: f64) -> (f64, f64) {
+    let range = max - min;
+    (
+        1.0 + 4.0 * (mode - min) / range,
+        1.0 + 4.0 * (max - mode) / range,
+    )
+}
+
+/// Quantile of the triangular distribution, in closed form
+fn triangular_quantile(min: f64, mode: f64, max: f64, p: f64) -> f64 {
+    let range = max - min;
+    if range <= 0.0 {
+        return mode;
+    }
+    let mode_probability = (mode - min) / range;
+    if p < mode_probability {
+        min + (p * range * (mode - min)).sqrt()
+    } else {
+        max - ((1.0 - p) * range * (max - mode)).sqrt()
+    }
+}
+
+/// Parameters `(mu, sigma)` of the normal distribution underlying a
+/// lognormal distribution with the given mean and standard deviation
+fn lognormal_params(mean: f64, stdev: f64) -> (f64, f64) {
+    let variance = stdev * stdev;
+    let mu = (mean * mean / mean.mul_add(mean, variance).sqrt()).ln();
+    let sigma = (variance / (mean * mean)).ln_1p().sqrt();
+    (mu, sigma)
+}
+
+/// Value of a discrete distribution at cumulative probability `p`
+fn discrete_quantile(values: &[f64], probabilities: &[f64], p: f64) -> f64 {
+    let mut cumulative = 0.0;
+    for (value, prob) in values.iter().zip(probabilities.iter()) {
+        cumulative += prob;
+        if p <= cumulative {
+            return *value;
+        }
+    }
+    // Rounding can leave the total just below 1
+    *values.last().unwrap_or(&0.0)
 }
 
 /// Sample from Beta distribution using gamma ratio method
@@ -322,9 +424,7 @@ fn sample_beta<R: Rng>(rng: &mut R, alpha: f64, beta: f64) -> f64 {
 /// Sample from Lognormal distribution
 fn sample_lognormal<R: Rng>(rng: &mut R, mean: f64, stdev: f64) -> f64 {
     // Convert mean/stdev of lognormal to underlying normal parameters
-    let variance = stdev * stdev;
-    let mu = (mean * mean / mean.mul_add(mean, variance).sqrt()).ln();
-    let sigma = (variance / (mean * mean)).ln_1p().sqrt();
+    let (mu, sigma) = lognormal_params(mean, stdev);
 
     let normal = Normal::new(mu, sigma).unwrap();
     let z: f64 = normal.sample(rng);
@@ -334,17 +434,7 @@ fn sample_lognormal<R: Rng>(rng: &mut R, mean: f64, stdev: f64) -> f64 {
 /// Sample from Discrete distribution
 fn sample_discrete<R: Rng>(rng: &mut R, values: &[f64], probabilities: &[f64]) -> f64 {
     let u: f64 = rng.random();
-    let mut cumulative = 0.0;
-
-    for (value, prob) in values.iter().zip(probabilities.iter()) {
-        cumulative += prob;
-        if u <= cumulative {
-            return *value;
-        }
-    }
-
-    // Fallback to last value (should not reach here with valid probabilities)
-    *values.last().unwrap_or(&0.0)
+    discrete_quantile(values, probabilities, u)
 }
 
 /// Parse a distribution from formula string (e.g., "`MC.Normal(100, 15)`")

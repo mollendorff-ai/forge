@@ -11,7 +11,10 @@ use std::str::FromStr;
 use std::time::Instant;
 
 use super::config::MonteCarloConfig;
-use super::distributions::{parse_distribution, Distribution};
+use super::correlation::CorrelationMatrix;
+use super::distributions::{
+    parse_distribution, standard_normal_cdf, standard_normal_quantile, Distribution,
+};
 use super::sampler::{Sampler, SamplingMethod};
 use super::statistics::{evaluate_threshold, parse_threshold, Histogram, Statistics};
 use crate::types::ParsedModel;
@@ -108,13 +111,7 @@ impl MonteCarloEngine {
         let start = Instant::now();
         let n = self.config.iterations;
 
-        // Generate samples for each distribution
-        let mut input_samples: HashMap<String, Vec<f64>> = HashMap::new();
-
-        for (var_name, dist) in &self.distributions {
-            let samples = dist.sample_n(self.sampler.rng_mut(), n);
-            input_samples.insert(var_name.clone(), samples);
-        }
+        let input_samples = self.sample_inputs(n)?;
 
         // For now, output results are the same as input samples
         // (Full formula evaluation will be added when integrating with calculator)
@@ -129,7 +126,12 @@ impl MonteCarloEngine {
                 .get(var)
                 .or_else(|| input_samples.get(&format!("scalars.{var}")))
                 .cloned()
-                .unwrap_or_else(|| vec![0.0; n]);
+                .ok_or_else(|| {
+                    format!(
+                        "output '{var}' is not an MC.* input; use run_with_evaluator to \
+                         calculate it"
+                    )
+                })?;
 
             // Calculate statistics
             let statistics = Statistics::from_samples(&samples);
@@ -177,24 +179,21 @@ impl MonteCarloEngine {
     ///
     /// # Errors
     ///
-    /// Returns an error if output variable samples cannot be resolved.
+    /// Returns an error if sampling fails, if the evaluator fails for any
+    /// iteration, or if it returns no value for a configured output. A failed
+    /// iteration is never recorded as 0.
     ///
     /// # Panics
     ///
     /// Panics if an output variable configured in config is missing from `output_samples`.
     pub fn run_with_evaluator<F>(&mut self, mut evaluator: F) -> Result<SimulationResult, String>
     where
-        F: FnMut(&HashMap<String, f64>) -> HashMap<String, f64>,
+        F: FnMut(&HashMap<String, f64>) -> Result<HashMap<String, f64>, String>,
     {
         let start = Instant::now();
         let n = self.config.iterations;
 
-        // Generate samples for each distribution
-        let mut input_samples: HashMap<String, Vec<f64>> = HashMap::new();
-        for (var_name, dist) in &self.distributions {
-            let samples = dist.sample_n(self.sampler.rng_mut(), n);
-            input_samples.insert(var_name.clone(), samples);
-        }
+        let input_samples = self.sample_inputs(n)?;
 
         // Initialize output sample storage
         let output_vars: Vec<String> = self
@@ -217,11 +216,14 @@ impl MonteCarloEngine {
             }
 
             // Evaluate
-            let outputs = evaluator(&inputs);
+            let outputs = evaluator(&inputs).map_err(|e| format!("Iteration {}: {e}", i + 1))?;
 
             // Store output values
             for var in &output_vars {
-                let value = outputs.get(var).copied().unwrap_or(0.0);
+                let value = outputs
+                    .get(var)
+                    .copied()
+                    .ok_or_else(|| format!("Iteration {}: no value for output '{var}'", i + 1))?;
                 output_samples.get_mut(var).unwrap().push(value);
             }
         }
@@ -268,6 +270,76 @@ impl MonteCarloEngine {
         })
     }
 
+    /// Draw `n` samples for every distribution.
+    ///
+    /// Variables are handled in name order, so the same seed gives the same
+    /// samples on every run. Uniform draws come from the configured sampling
+    /// method (plain random or Latin hypercube) and are mapped through each
+    /// distribution's inverse CDF. Configured correlations are applied to the
+    /// normal scores of those draws first (a Gaussian copula), which keeps
+    /// every variable's own distribution.
+    fn sample_inputs(&mut self, n: usize) -> Result<HashMap<String, Vec<f64>>, String> {
+        let mut names: Vec<String> = self.distributions.keys().cloned().collect();
+        names.sort();
+
+        let mut uniforms = self.sampler.generate_uniform_samples_nd(n, names.len());
+        if !self.config.correlations.is_empty() {
+            self.apply_correlations(&names, &mut uniforms)?;
+        }
+
+        Ok(names
+            .into_iter()
+            .zip(uniforms)
+            .map(|(name, column)| {
+                let dist = &self.distributions[&name];
+                let samples = column.into_iter().map(|p| dist.inverse_cdf(p)).collect();
+                (name, samples)
+            })
+            .collect())
+    }
+
+    /// Correlate the uniform draws of the variables named in `correlations`.
+    fn apply_correlations(
+        &self,
+        names: &[String],
+        uniforms: &mut [Vec<f64>],
+    ) -> Result<(), String> {
+        let pairs = self
+            .config
+            .correlations
+            .iter()
+            .map(|corr| {
+                let first = &names[resolve_variable(names, &corr.variables[0])?];
+                let second = &names[resolve_variable(names, &corr.variables[1])?];
+                if first == second {
+                    return Err(format!("correlation: '{first}' is paired with itself"));
+                }
+                Ok((first.clone(), second.clone(), corr.coefficient))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let matrix = CorrelationMatrix::new(&pairs)?;
+        let columns: Vec<usize> = matrix
+            .variables
+            .iter()
+            .map(|var| resolve_variable(names, var))
+            .collect::<Result<_, _>>()?;
+
+        let n = uniforms.first().map_or(0, Vec::len);
+        let mut scores = vec![0.0; columns.len()];
+        // Row `i` is spread across several columns, so an index is clearer than iterators
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..n {
+            for (score, &column) in scores.iter_mut().zip(&columns) {
+                *score = standard_normal_quantile(uniforms[column][i]);
+            }
+            let correlated = matrix.correlate(&scores)?;
+            for (value, &column) in correlated.iter().zip(&columns) {
+                uniforms[column][i] = standard_normal_cdf(*value);
+            }
+        }
+        Ok(())
+    }
+
     /// Get the sampler
     #[must_use]
     pub const fn sampler(&self) -> &Sampler {
@@ -277,6 +349,36 @@ impl MonteCarloEngine {
     /// Get mutable sampler
     pub const fn sampler_mut(&mut self) -> &mut Sampler {
         &mut self.sampler
+    }
+}
+
+/// Index of the distribution a correlation refers to: an exact name, or the
+/// only name whose last part matches (`revenue_growth` for
+/// `assumptions.revenue_growth`).
+fn resolve_variable(names: &[String], var: &str) -> Result<usize, String> {
+    if let Some(index) = names.iter().position(|name| name == var) {
+        return Ok(index);
+    }
+    let matches: Vec<usize> = names
+        .iter()
+        .enumerate()
+        .filter(|(_, name)| name.rsplit_once('.').is_some_and(|(_, last)| last == var))
+        .map(|(index, _)| index)
+        .collect();
+    match matches.as_slice() {
+        [index] => Ok(*index),
+        [] => Err(format!(
+            "correlation variable '{var}' has no MC.* distribution. Distributions: {}",
+            names.join(", ")
+        )),
+        _ => Err(format!(
+            "correlation variable '{var}' is ambiguous: {}. Use the full name.",
+            matches
+                .iter()
+                .map(|&index| names[index].as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )),
     }
 }
 
@@ -458,7 +560,7 @@ mod tests {
                 let costs = inputs.get("costs").copied().unwrap_or(0.0);
                 let mut outputs = HashMap::new();
                 outputs.insert("profit".to_string(), revenue - costs);
-                outputs
+                Ok(outputs)
             })
             .unwrap();
 

@@ -11,6 +11,45 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Calculate the model once with the sampled `inputs` and read the outputs.
+///
+/// # Errors
+///
+/// Returns the calculation error, or an error naming an output that has no
+/// calculated value. Callers must not turn either into a 0 sample.
+fn evaluate_iteration(
+    model: &crate::types::ParsedModel,
+    output_vars: &[String],
+    inputs: &HashMap<String, f64>,
+) -> Result<HashMap<String, f64>, String> {
+    let mut iter_model = model.clone();
+    // Replace MC.* distribution formulas with the sampled values
+    for (var_name, &value) in inputs {
+        if let Some(scalar) = iter_model.scalars.get_mut(var_name) {
+            scalar.value = Some(value);
+            scalar.formula = None;
+        }
+    }
+
+    let calculated = ArrayCalculator::new(iter_model)
+        .calculate_all()
+        .map_err(|e| e.to_string())?;
+
+    output_vars
+        .iter()
+        .map(|var_name| {
+            calculated
+                .scalars
+                .get(var_name)
+                .or_else(|| calculated.scalars.get(&format!("outputs.{var_name}")))
+                .or_else(|| calculated.scalars.get(&format!("scalars.{var_name}")))
+                .and_then(|s| s.value)
+                .map(|value| (var_name.clone(), value))
+                .ok_or_else(|| format!("output '{var_name}' has no calculated value"))
+        })
+        .collect()
+}
+
 /// Run Monte Carlo simulation and return structured results (no printing).
 ///
 /// # Errors
@@ -47,29 +86,7 @@ pub fn simulate_core(
 
     engine
         .run_with_evaluator(|inputs: &HashMap<String, f64>| {
-            let mut iter_model = model.clone();
-            for (var_name, &value) in inputs {
-                if let Some(scalar) = iter_model.scalars.get_mut(var_name) {
-                    scalar.value = Some(value);
-                    scalar.formula = None;
-                }
-            }
-            let calculator = crate::core::array_calculator::ArrayCalculator::new(iter_model);
-            let Ok(calculated) = calculator.calculate_all() else {
-                return HashMap::new();
-            };
-            let mut outputs = HashMap::new();
-            for var_name in &output_vars {
-                let value = calculated
-                    .scalars
-                    .get(var_name)
-                    .or_else(|| calculated.scalars.get(&format!("outputs.{var_name}")))
-                    .or_else(|| calculated.scalars.get(&format!("scalars.{var_name}")))
-                    .and_then(|s| s.value)
-                    .unwrap_or(0.0);
-                outputs.insert(var_name.clone(), value);
-            }
-            outputs
+            evaluate_iteration(&model, &output_vars, inputs)
         })
         .map_err(ForgeError::Eval)
 }
@@ -158,41 +175,7 @@ pub fn simulate(
     // Create evaluator that runs formulas for each iteration
     let result = engine
         .run_with_evaluator(|inputs: &HashMap<String, f64>| {
-            // Clone the model and substitute sampled values
-            let mut iter_model = model.clone();
-
-            // Replace MC.* distribution formulas with sampled values
-            for (var_name, &value) in inputs {
-                // Scalars are stored with their full path (e.g., "scalars.p_sampled" or "outputs.p_sampled")
-                if let Some(scalar) = iter_model.scalars.get_mut(var_name) {
-                    // Replace the formula with the sampled value
-                    scalar.value = Some(value);
-                    scalar.formula = None; // Clear formula since we're using sampled value
-                }
-            }
-
-            // Run the calculator to evaluate dependent formulas
-            let calculator = ArrayCalculator::new(iter_model);
-            let Ok(calculated) = calculator.calculate_all() else {
-                return HashMap::new();
-            };
-
-            // Extract output values
-            let mut outputs = HashMap::new();
-            for var_name in &output_vars {
-                // Try exact match first, then with common prefixes
-                let value = calculated
-                    .scalars
-                    .get(var_name)
-                    .or_else(|| calculated.scalars.get(&format!("outputs.{var_name}")))
-                    .or_else(|| calculated.scalars.get(&format!("scalars.{var_name}")))
-                    .and_then(|s| s.value)
-                    .unwrap_or(0.0);
-
-                outputs.insert(var_name.clone(), value);
-            }
-
-            outputs
+            evaluate_iteration(&model, &output_vars, inputs)
         })
         .map_err(ForgeError::Eval)?;
 
@@ -433,34 +416,7 @@ scalars:
         // Run with formula evaluation (the fix)
         let result = engine
             .run_with_evaluator(|inputs: &HashMap<String, f64>| {
-                let mut iter_model = model.clone();
-
-                // Substitute sampled values
-                for (var_name, &value) in inputs {
-                    if let Some(scalar) = iter_model.scalars.get_mut(var_name) {
-                        scalar.value = Some(value);
-                        scalar.formula = None;
-                    }
-                }
-
-                // Run calculator
-                let calculator = crate::core::array_calculator::ArrayCalculator::new(iter_model);
-                let Ok(calculated) = calculator.calculate_all() else {
-                    return HashMap::new();
-                };
-
-                // Extract outputs
-                let mut outputs = HashMap::new();
-                for var_name in &output_vars {
-                    let value = calculated
-                        .scalars
-                        .get(var_name)
-                        .or_else(|| calculated.scalars.get(&format!("scalars.{var_name}")))
-                        .and_then(|s| s.value)
-                        .unwrap_or(0.0);
-                    outputs.insert(var_name.clone(), value);
-                }
-                outputs
+                evaluate_iteration(&model, &output_vars, inputs)
             })
             .unwrap();
 

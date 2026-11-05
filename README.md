@@ -23,7 +23,6 @@ Known problems as of 2026-11-05:
 
 - Configuration keys that Forge does not recognise are ignored without a warning, so a misspelt key can change a result silently. In the real-options example the Expand option shows $12.0M where an independent calculation gives about $7.1M.
 - The decision-tree "probability of a positive value" is a simplified calculation and can be wrong. The example shows 100% where an independent calculation gives 42%.
-- Monte Carlo results differ from run to run even with a fixed `seed`, because variables are sampled in a changing order.
 - `forge export` handles simple single-table models. Formulas that reference other sections are not translated correctly yet, and `forge import` output may not validate.
 - `forge bayesian examples/bayesian.yaml` fails: the example and the config format disagree.
 - `forge calculate examples/monte-carlo.yaml` fails because its row formulas need values that only exist during a simulation. Use `forge simulate` for that example.
