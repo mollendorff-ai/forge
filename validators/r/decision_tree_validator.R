@@ -81,11 +81,14 @@ build_tree <- function(node_spec, parent = NULL) {
 
 # Calculate EMV using rollback/backward induction
 calculate_emv <- function(node) {
-  # Terminal node: return payoff
+  # Terminal node: payoff minus the cost of reaching it. The cost was ignored,
+  # which gave 250000 instead of 130000 for sequential_decisions and 0 instead
+  # of -50000 for negative_payoffs.
   if (node$type == "terminal" || node$isLeaf) {
     payoff <- if (!is.null(node$payoff)) node$payoff else 0
-    node$emv <- payoff
-    return(payoff)
+    cost <- if (!is.null(node$cost)) node$cost else 0
+    node$emv <- payoff - cost
+    return(payoff - cost)
   }
 
   # Get cost at this node (if any)
