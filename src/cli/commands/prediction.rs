@@ -433,6 +433,15 @@ pub fn decision_tree(
         "      P(value > 0): {:.1}%",
         result.risk_profile.probability_positive * 100.0
     );
+    println!("      Outcomes under the optimal policy:");
+    for outcome in &result.risk_profile.outcomes {
+        println!(
+            "         ${:.2} with probability {:.1}%: {}",
+            outcome.value,
+            outcome.probability * 100.0,
+            outcome.path.join(" → ")
+        );
+    }
     println!();
 
     // Export DOT if requested (feature not yet implemented, just note it)

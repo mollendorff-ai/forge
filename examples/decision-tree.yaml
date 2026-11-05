@@ -120,7 +120,12 @@ decision_tree:
 #   1. Invest in R&D ($2M)
 #   2. If successful, scale to full market ($5M)
 #
-# Risk Profile:
-#   Best case:  $15M - $7M = $8M (invest, tech works, scale, market success)
-#   Worst case: -$2M (invest, tech fails)
-#   Expected:   $0.86M
+# Risk Profile (outcomes under the optimal policy):
+#   Best case:  $15M - $5M - $2M = +$8M (tech works, scale, market success; 0.60 x 0.70 = 42%)
+#   Tech fails: -$2M - $2M        = -$4M (40%)
+#   Worst case: $2M - $5M - $2M   = -$5M (tech works, scale, market failure; 0.60 x 0.30 = 18%)
+#   P(value > 0): 42%
+#   Expected:   0.42 x $8M + 0.40 x -$4M + 0.18 x -$5M = $0.86M
+#
+# The failure branch's -$2M is counted on top of the $2M R&D cost. If -$2M is
+# meant to be the total loss when the technology fails, set that value to 0.
