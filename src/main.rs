@@ -121,8 +121,13 @@ fn run_all_mode(
 
     println!("{}", "Running tests...".cyan());
 
+    let env = forge_e2e_r::analytics::Env {
+        forge: forge_binary,
+        r: r_config,
+    };
     for test in tests {
-        let result = run_monte_carlo_test(test, forge_binary, r_config);
+        let result = forge_e2e_r::analytics::run(test, &env)
+            .unwrap_or_else(|| run_monte_carlo_test(test, forge_binary, r_config));
         print_result(&result);
         results.push(result);
     }
