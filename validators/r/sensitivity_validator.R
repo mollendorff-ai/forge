@@ -124,8 +124,8 @@ one_way_sensitivity <- function(base_values, vary_name, range_spec, model_type, 
 
 # Two-way sensitivity: vary two variables in a grid
 two_way_sensitivity <- function(base_values, vary_names, ranges, model_type, coefficients) {
-  var1 <- vary_names[1]
-  var2 <- vary_names[2]
+  var1 <- as.character(vary_names[[1]])
+  var2 <- as.character(vary_names[[2]])
 
   range1 <- ranges[[var1]]
   range2 <- ranges[[var2]]

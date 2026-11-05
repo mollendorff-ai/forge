@@ -4,6 +4,10 @@
 //! the matching R validator, and compares the two. Forge's answer always comes
 //! from the real binary; R's answer comes from the validator script.
 
+// The runners are long straight-line sequences (build model, run, compare); splitting
+// them further would only scatter that sequence.
+#![allow(clippy::too_many_lines, clippy::format_push_string)]
+
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -26,6 +30,8 @@ pub struct Env<'a> {
 pub fn run(spec: &AnalyticsTestSpec, env: &Env) -> Option<TestResult> {
     match spec.r_validator.as_deref() {
         Some("bootstrap_validator.R") => Some(bootstrap(spec, env)),
+        Some("tornado_validator.R") => Some(tornado(spec, env)),
+        Some("sensitivity_validator.R") => Some(sensitivity(spec, env)),
         _ => None,
     }
 }
@@ -281,4 +287,430 @@ fn compare_bootstrap(
     } else {
         fail(spec, problems.join("; "))
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared plumbing for model-based categories
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Runs `forge <command> model.yaml -o out.json` on a model and returns the JSON.
+fn forge_json(env: &Env, command: &str, model: &str) -> Result<Json, String> {
+    let dir = tempfile::tempdir().map_err(|e| format!("Failed to create temp dir: {e}"))?;
+    let model_path = dir.path().join("model.yaml");
+    let out_path = dir.path().join("out.json");
+    fs::write(&model_path, model).map_err(|e| format!("Failed to write model: {e}"))?;
+    run_forge(
+        env.forge,
+        &[
+            command.as_ref(),
+            model_path.as_os_str(),
+            "-o".as_ref(),
+            out_path.as_os_str(),
+        ],
+    )?;
+    let text =
+        fs::read_to_string(&out_path).map_err(|e| format!("Cannot read forge output: {e}"))?;
+    serde_json::from_str(&text).map_err(|e| format!("Cannot parse forge output: {e}"))
+}
+
+/// Runs an R validator and returns its `results` object.
+fn r_results(env: &Env, validator: &str, params: &Json) -> Result<Json, String> {
+    match validate_with_json(validator, params, env.r) {
+        Ok(r) if r.success => Ok(r.results.unwrap_or(Json::Null)),
+        Ok(r) => Err(format!("R returned error: {}", r.error.unwrap_or_default())),
+        Err(e) => Err(format!("R validator failed: {e}")),
+    }
+}
+
+/// Converts a YAML value from a spec to JSON.
+fn to_json(value: &serde_yaml_ng::Value) -> Json {
+    serde_json::to_value(value).unwrap_or(Json::Null)
+}
+
+/// Turns a list of problems into a pass or fail.
+fn verdict(spec: &AnalyticsTestSpec, problems: &[String], ok: &str) -> TestResult {
+    if problems.is_empty() {
+        pass(spec, ok.to_string())
+    } else {
+        fail(spec, problems.join("; "))
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tornado
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn tornado(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
+    let model_kind = spec
+        .raw
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or("linear");
+    let Some(variables) = spec.raw.get("variables").and_then(|v| v.as_sequence()) else {
+        return error(spec, "Spec has no 'variables' list".to_string());
+    };
+    let coefficients = spec.raw.get("coefficients");
+    let has_flat_range = variables
+        .iter()
+        .any(|v| v.get("low").and_then(yaml_f64) == v.get("high").and_then(yaml_f64));
+    if has_flat_range {
+        return skip(spec, "Forge rejects an input whose low equals its high");
+    }
+    let coef = |name: &str| coefficients.and_then(|c| c.get(name)).and_then(yaml_f64);
+
+    let mut assumptions = String::new();
+    let mut inputs = String::new();
+    let mut terms = Vec::new();
+    for v in variables {
+        let (Some(name), Some(low), Some(high), Some(base)) = (
+            v.get("name").and_then(|n| n.as_str()),
+            v.get("low").and_then(yaml_f64),
+            v.get("high").and_then(yaml_f64),
+            v.get("base").and_then(yaml_f64),
+        ) else {
+            return error(spec, "Variable needs name, low, high and base".to_string());
+        };
+        assumptions.push_str(&format!(
+            "  {name}:\n    value: {base}\n    formula: null\n"
+        ));
+        inputs.push_str(&format!(
+            "    - name: {name}\n      low: {low}\n      high: {high}\n"
+        ));
+        if let Some(c) = coef(name) {
+            terms.push(if model_kind == "multiplicative" {
+                format!("(assumptions.{name} ^ ({c}))")
+            } else {
+                format!("(assumptions.{name} * ({c}))")
+            });
+        }
+    }
+    let joiner = if model_kind == "multiplicative" {
+        " * "
+    } else {
+        " + "
+    };
+    let model = format!(
+        "_forge_version: \"5.0.0\"\n\ntornado:\n  output: result.total\n  inputs:\n{inputs}\nassumptions:\n{assumptions}\nresult:\n  total:\n    value: null\n    formula: \"={}\"\n",
+        terms.join(joiner)
+    );
+
+    let forge = match forge_json(env, "tornado", &model) {
+        Ok(j) => j,
+        Err(e) => return error(spec, e),
+    };
+    let r_params = json!({
+        "base_value": spec.raw.get("base_value").map_or(Json::Null, to_json),
+        "variables": variables.iter().map(to_json).collect::<Vec<_>>(),
+        "model": model_kind,
+        "coefficients": coefficients.map_or(Json::Null, to_json),
+    });
+    let r = match r_results(env, "tornado_validator.R", &r_params) {
+        Ok(r) => r,
+        Err(e) => return error(spec, e),
+    };
+
+    let tol = tolerance(spec, "swing", 0.001);
+    let mut problems = Vec::new();
+    let bars = forge
+        .get("bars")
+        .and_then(Json::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let r_vars = r
+        .get("variables")
+        .and_then(Json::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let swing_of = |bars: &[Json], name: &str| {
+        bars.iter()
+            .find(|b| {
+                b.get("input_name")
+                    .and_then(Json::as_str)
+                    .is_some_and(|n| n.rsplit('.').next() == Some(name))
+            })
+            .cloned()
+    };
+    for rv in &r_vars {
+        let Some(name) = rv.get("name").and_then(Json::as_str) else {
+            continue;
+        };
+        let Some(bar) = swing_of(&bars, name) else {
+            problems.push(format!("{name}: missing from forge output"));
+            continue;
+        };
+        for (label, f, rr) in [
+            ("swing", json_f64(&bar, "abs_swing"), json_f64(rv, "swing")),
+            (
+                "output_at_low",
+                json_f64(&bar, "output_at_low"),
+                json_f64(rv, "output_at_low"),
+            ),
+            (
+                "output_at_high",
+                json_f64(&bar, "output_at_high"),
+                json_f64(rv, "output_at_high"),
+            ),
+        ] {
+            match (f, rr) {
+                (Some(f), Some(rr)) => check(&mut problems, &format!("{name} {label}"), f, rr, tol),
+                _ => problems.push(format!("{name} {label}: missing")),
+            }
+        }
+    }
+    // Ranking: wherever R's swings clearly differ, Forge must order them the same way.
+    let position = |name: &str| {
+        bars.iter().position(|b| {
+            b.get("input_name")
+                .and_then(Json::as_str)
+                .is_some_and(|n| n.rsplit('.').next() == Some(name))
+        })
+    };
+    for (i, a) in r_vars.iter().enumerate() {
+        for b in &r_vars[i + 1..] {
+            let (Some(na), Some(nb), Some(sa), Some(sb)) = (
+                a.get("name").and_then(Json::as_str),
+                b.get("name").and_then(Json::as_str),
+                json_f64(a, "swing"),
+                json_f64(b, "swing"),
+            ) else {
+                continue;
+            };
+            if sa > sb.mul_add(1.0 + tol, 1e-12) {
+                if let (Some(pa), Some(pb)) = (position(na), position(nb)) {
+                    if pa > pb {
+                        problems.push(format!("ranking: {na} should rank above {nb}"));
+                    }
+                }
+            }
+        }
+    }
+    verdict(spec, &problems, "Forge tornado matches the R reference")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sensitivity
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Builds a Forge model with one assumption per variable and a single output formula.
+fn linear_or_product_model(spec: &AnalyticsTestSpec) -> Option<String> {
+    let model_kind = spec
+        .raw
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or("linear");
+    let base = spec.raw.get("base_values")?.as_mapping()?;
+    let coefficients = spec.raw.get("coefficients");
+    let mut assumptions = String::new();
+    let mut terms = Vec::new();
+    for (name, value) in base {
+        let name = name.as_str()?;
+        let value = yaml_f64(value)?;
+        assumptions.push_str(&format!(
+            "  {name}:\n    value: {value}\n    formula: null\n"
+        ));
+        if let Some(c) = coefficients.and_then(|c| c.get(name)).and_then(yaml_f64) {
+            terms.push(if model_kind == "multiplicative" {
+                format!("(assumptions.{name} ^ ({c}))")
+            } else {
+                format!("(assumptions.{name} * ({c}))")
+            });
+        }
+    }
+    let joiner = if model_kind == "multiplicative" {
+        " * "
+    } else {
+        " + "
+    };
+    Some(format!(
+        "_forge_version: \"5.0.0\"\n\nassumptions:\n{assumptions}\nresult:\n  total:\n    value: null\n    formula: \"={}\"\n",
+        terms.join(joiner)
+    ))
+}
+
+/// Range "start,end,step" for `steps` evenly spaced points from low to high.
+fn range_arg(spec: &AnalyticsTestSpec, var: &str) -> Result<String, String> {
+    let r = spec
+        .raw
+        .get("range")
+        .and_then(|r| r.get(var))
+        .ok_or_else(|| format!("No range for {var}"))?;
+    let (Some(low), Some(high), Some(steps)) = (
+        r.get("low").and_then(yaml_f64),
+        r.get("high").and_then(yaml_f64),
+        r.get("steps").and_then(yaml_f64),
+    ) else {
+        return Err(format!("Range for {var} needs low, high and steps"));
+    };
+    if steps < 2.0 || (high - low).abs() < f64::EPSILON {
+        return Err("single-point ranges".to_string());
+    }
+    Ok(format!("{low},{high},{}", (high - low) / (steps - 1.0)))
+}
+
+/// Numbers on each data row of Forge's printed table (rows made only of numbers).
+fn numeric_rows(stdout: &str) -> Vec<Vec<f64>> {
+    stdout
+        .lines()
+        .filter_map(|line| {
+            let nums: Vec<f64> = line
+                .split_whitespace()
+                .filter_map(|t| t.parse().ok())
+                .collect();
+            (!nums.is_empty() && nums.len() == line.split_whitespace().count()).then_some(nums)
+        })
+        .collect()
+}
+
+fn sensitivity(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
+    let kind = spec
+        .raw
+        .get("analysis_type")
+        .and_then(|k| k.as_str())
+        .unwrap_or("one_way");
+    if kind == "elasticity" {
+        return skip(spec, "Forge has no elasticity command");
+    }
+    let vary: Vec<String> = spec
+        .raw
+        .get("vary")
+        .and_then(|v| v.as_sequence())
+        .map(|s| {
+            s.iter()
+                .filter_map(|n| n.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    let Some(model) = linear_or_product_model(spec) else {
+        return error(spec, "Spec has no usable base_values".to_string());
+    };
+    let Some(first) = vary.first() else {
+        return error(spec, "Spec has no 'vary' list".to_string());
+    };
+    let range1 = match range_arg(spec, first) {
+        Ok(r) => r,
+        Err(e) if e == "single-point ranges" => {
+            return skip(spec, "Forge needs at least two points in a range");
+        }
+        Err(e) => return error(spec, e),
+    };
+
+    let dir = match tempfile::tempdir() {
+        Ok(d) => d,
+        Err(e) => return error(spec, format!("Failed to create temp dir: {e}")),
+    };
+    let path = dir.path().join("model.yaml");
+    if let Err(e) = fs::write(&path, model) {
+        return error(spec, format!("Failed to write model: {e}"));
+    }
+    let mut cmd = Command::new(env.forge);
+    cmd.arg("sensitivity")
+        .arg(&path)
+        .args([
+            "--vary",
+            &format!("assumptions.{first}"),
+            "--range",
+            &range1,
+        ])
+        .args(["--output", "result.total"]);
+    if kind == "two_way" {
+        let Some(second) = vary.get(1) else {
+            return error(spec, "two_way needs two variables".to_string());
+        };
+        let range2 = match range_arg(spec, second) {
+            Ok(r) => r,
+            Err(e) => return error(spec, e),
+        };
+        cmd.args([
+            "--vary2",
+            &format!("assumptions.{second}"),
+            "--range2",
+            &range2,
+        ]);
+    }
+    let out = match cmd.output() {
+        Ok(o) => o,
+        Err(e) => return error(spec, format!("Failed to run forge: {e}")),
+    };
+    if !out.status.success() {
+        return error(
+            spec,
+            format!(
+                "forge sensitivity failed: {}",
+                String::from_utf8_lossy(&out.stderr)
+            ),
+        );
+    }
+    let rows = numeric_rows(&String::from_utf8_lossy(&out.stdout));
+
+    let r_params = json!({
+        "analysis_type": kind,
+        "base_values": spec.raw.get("base_values").map_or(Json::Null, to_json),
+        "vary": vary,
+        "range": spec.raw.get("range").map_or(Json::Null, to_json),
+        "model": spec.raw.get("model").map_or(Json::Null, to_json),
+        "coefficients": spec.raw.get("coefficients").map_or(Json::Null, to_json),
+    });
+    let r = match r_results(env, "sensitivity_validator.R", &r_params) {
+        Ok(r) => r,
+        Err(e) => return error(spec, e),
+    };
+    let data = r.get("data").cloned().unwrap_or(Json::Null);
+    let tol = tolerance(spec, "output", 0.001);
+    let mut problems = Vec::new();
+
+    if kind == "two_way" {
+        // Forge's first row is the column header (second variable's values).
+        let grid: Vec<Vec<f64>> = data
+            .get("grid")
+            .and_then(Json::as_array)
+            .map(|g| {
+                g.iter()
+                    .map(|row| {
+                        row.as_array()
+                            .map(|r| r.iter().filter_map(Json::as_f64).collect())
+                            .unwrap_or_default()
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        // Rows of the table: [row_value, out, out, ...]
+        let body: Vec<&Vec<f64>> = rows
+            .iter()
+            .filter(|r| r.len() == grid.first().map_or(0, Vec::len) + 1)
+            .collect();
+        if body.len() != grid.len() {
+            problems.push(format!(
+                "grid has {} rows in forge, {} in R",
+                body.len(),
+                grid.len()
+            ));
+        }
+        for (i, (f_row, r_row)) in body.iter().zip(&grid).enumerate() {
+            for (j, (f, rv)) in f_row[1..].iter().zip(r_row).enumerate() {
+                check(&mut problems, &format!("grid[{i}][{j}]"), *f, *rv, tol);
+            }
+        }
+    } else {
+        let r_values: Vec<f64> = data
+            .get("outputs")
+            .and_then(Json::as_array)
+            .map(|a| a.iter().filter_map(Json::as_f64).collect())
+            .unwrap_or_default();
+        let body: Vec<&Vec<f64>> = rows.iter().filter(|r| r.len() == 2).collect();
+        if body.len() != r_values.len() {
+            problems.push(format!(
+                "{} points in forge, {} in R",
+                body.len(),
+                r_values.len()
+            ));
+        }
+        for (i, (f_row, rv)) in body.iter().zip(&r_values).enumerate() {
+            check(&mut problems, &format!("output[{i}]"), f_row[1], *rv, tol);
+        }
+    }
+    verdict(
+        spec,
+        &problems,
+        "Forge sensitivity table matches the R reference",
+    )
 }
