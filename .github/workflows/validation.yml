@@ -4,16 +4,19 @@ name: Validation
 #   forge-e2e-gnumeric  formulas compared with Gnumeric
 #   forge-e2e-r         functions and analytics compared with R
 # They clone the latest main of each suite, so this also notices a change in a
-# suite. Weekly, on demand, and when this file changes (to test the file itself).
+# suite. Weekly, on demand, and on the pull requests described below.
 # Runs on Ubuntu 24.04: with the Gnumeric of 22.04, FLOOR and CEILING of a
 # negative number returned #NUM! and six cases failed.
 on:
   schedule:
     - cron: '41 6 * * 1'   # Mondays 06:41 UTC
   workflow_dispatch:
+  # Also on pull requests that change this file or the version or dependencies
+  # in Cargo.toml (a release or a dependency update), so the result shows on the PR.
   pull_request:
     paths:
       - '.github/workflows/validation.yml'
+      - 'Cargo.toml'
 
 env:
   CARGO_TERM_COLOR: always

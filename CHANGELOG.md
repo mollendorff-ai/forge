@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Dependabot** (`.github/dependabot.yml`): a weekly pull request for minor and patch updates of Cargo dependencies, one per major version bump, and one for GitHub Actions.
-- **Validation workflow** (`.github/workflows/validation.yml`): builds Forge and runs the forge-e2e-gnumeric and forge-e2e-r suites every Monday and on demand. It runs when its own file changes, to test itself.
+- **Validation workflow** (`.github/workflows/validation.yml`): builds Forge and runs the forge-e2e-gnumeric and forge-e2e-r suites every Monday and on demand. It also runs on pull requests that change its own file or `Cargo.toml` (releases and dependency updates), so the result shows on the PR.
 - **Weekly CI** (`.github/workflows/weekly.yml`): `cargo audit` every Monday and on `Cargo.lock` changes, and tests plus strict clippy on the latest stable Rust every Monday.
 
 ### Fixed
