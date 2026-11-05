@@ -98,7 +98,7 @@ rand = "0.10"
 tempfile = "3.8"
 
 # SHA-256 of downloaded release archives (forge update)
-sha2 = "0.10"
+sha2 = "0.11"
 
 # Monte Carlo simulation
 rand_distr = "0.6"  # Distribution sampling (Normal, Triangular, PERT, etc.)
