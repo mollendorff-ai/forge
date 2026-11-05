@@ -4,7 +4,7 @@
 //! Uses the rmcp SDK for Model Context Protocol over stdin/stdout.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
@@ -54,11 +54,54 @@ fn resolve_model_input(
     }
 }
 
+/// Reject include paths that could leave the temp directory.
+///
+/// Inline content is untrusted: it usually comes from whatever an AI agent
+/// has read. Only plain relative paths are allowed, so `file` cannot name an
+/// absolute path, a drive or a `..` component.
+fn check_inline_include_path(file: &str) -> Result<(), String> {
+    let path = Path::new(file);
+    let is_plain_relative = !file.is_empty()
+        && path
+            .components()
+            .all(|c| matches!(c, Component::Normal(_) | Component::CurDir));
+    if is_plain_relative {
+        Ok(())
+    } else {
+        Err(format!(
+            "Include path '{file}' is not allowed with inline content. \
+             Use a relative path without '..'."
+        ))
+    }
+}
+
+/// Check the paths of any `_includes` nested inside inline include content.
+///
+/// Nested includes are not written to the temp directory, but the parser
+/// would still try to read them, so an unchecked path could read files
+/// outside it. Content that does not parse is left for the parser to report.
+fn check_nested_include_paths(include_content: &str) -> Result<(), String> {
+    let Ok(parsed) = serde_yaml_ng::from_str::<serde_yaml_ng::Value>(include_content) else {
+        return Ok(());
+    };
+    if let Some(serde_yaml_ng::Value::Sequence(seq)) = parsed.get("_includes") {
+        for file in seq
+            .iter()
+            .filter_map(|entry| entry.get("file"))
+            .filter_map(serde_yaml_ng::Value::as_str)
+        {
+            check_inline_include_path(file)?;
+        }
+    }
+    Ok(())
+}
+
 /// Write inline include files into the temp directory.
 ///
 /// Parses `_includes` entries from the YAML, matches each `as` namespace
 /// to the `includes` map, and writes the content using the `file` field
-/// as the filename (creating subdirectories if needed).
+/// as the filename (creating subdirectories if needed). Every path must stay
+/// inside the temp directory.
 fn resolve_inline_includes(
     yaml: &str,
     includes: Option<&HashMap<String, String>>,
@@ -96,6 +139,9 @@ fn resolve_inline_includes(
                  Add it to the 'includes' map."
             )
         })?;
+
+        check_inline_include_path(file)?;
+        check_nested_include_paths(include_content)?;
 
         let dest = dir.join(file);
         if let Some(parent) = dest.parent() {
@@ -1484,6 +1530,76 @@ scalars:
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert!(parsed.get("scalars_valid").is_some());
+    }
+
+    fn validate_inline_with_include(file: &str, include_content: &str) -> Result<String, String> {
+        let yaml = format!(
+            "_forge_version: \"5.0.0\"\n_includes:\n  - file: \"{file}\"\n    as: \"ext\"\nscalars:\n  total:\n    value: 100\n"
+        );
+        let mut includes = HashMap::new();
+        includes.insert("ext".to_string(), include_content.to_string());
+        ForgeMcpServer::new().validate(Parameters(ValidateRequest {
+            file_path: None,
+            content: Some(yaml),
+            includes: Some(includes),
+            verbose: false,
+        }))
+    }
+
+    #[test]
+    fn test_inline_include_absolute_path_writes_nothing() {
+        let outside = TempDir::new().unwrap();
+        let target = outside.path().join("written.yaml");
+        let err = err_text(validate_inline_with_include(
+            target.to_str().unwrap(),
+            "planted: true\n",
+        ));
+        assert!(err.contains("not allowed"), "unexpected error: {err}");
+        assert!(!target.exists(), "include escaped to an absolute path");
+    }
+
+    #[test]
+    fn test_inline_include_parent_path_writes_nothing() {
+        let name = format!("forge-escape-{}.yaml", std::process::id());
+        let err = err_text(validate_inline_with_include(
+            &format!("../{name}"),
+            "planted: true\n",
+        ));
+        assert!(err.contains("not allowed"), "unexpected error: {err}");
+        assert!(!std::env::temp_dir().join(&name).exists());
+    }
+
+    #[test]
+    fn test_inline_include_hidden_parent_path_rejected() {
+        let err = err_text(validate_inline_with_include(
+            "data/../../escape.yaml",
+            "planted: true\n",
+        ));
+        assert!(err.contains("not allowed"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn test_inline_nested_include_cannot_read_outside() {
+        let outside = TempDir::new().unwrap();
+        let secret = outside.path().join("secret.yaml");
+        std::fs::write(
+            &secret,
+            "_forge_version: \"5.0.0\"\nscalars:\n  secret:\n    value: 42\n",
+        )
+        .unwrap();
+        let content = format!(
+            "_forge_version: \"5.0.0\"\n_includes:\n  - file: \"{}\"\n    as: \"s\"\n",
+            secret.display()
+        );
+        let err = err_text(validate_inline_with_include("pricing.yaml", &content));
+        assert!(err.contains("not allowed"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn test_inline_include_dot_slash_path_allowed() {
+        let content = "_forge_version: \"5.0.0\"\nscalars:\n  price:\n    value: 25\n";
+        let text = ok_text(validate_inline_with_include("./data/pricing.yaml", content));
+        assert!(text.contains("scalars_valid"));
     }
 
     #[test]
