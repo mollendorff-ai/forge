@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-beta.11] - 2026-11-05
+
 ### Changed
 - **`forge real-options` result**: `total_option_value` is removed. It added option values that overlap (waiting and expanding depend on the same project), so it double counted. Each option now has a `project_value`, and the result has `best_option` and `project_value_with_options` (the best one). `traditional_npv` is optional and can be set in `real_options`; without it, options held on top of the project have no project value and the decision is `UNDECIDED`. `-o` now writes YAML instead of a Rust debug dump.
 
