@@ -93,23 +93,19 @@ valuation:
     value: null
     formula: "=NPV(assumptions.discount_rate, projections.cash_flow)"
 
-  # IRR (if positive cash flows exist)
-  irr:
-    value: null
-    formula: "=IRR(projections.cash_flow)"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Expected Output (after simulation):
 # ─────────────────────────────────────────────────────────────────────────────
-# NPV Statistics:
-#   P10 (pessimistic): ~$1.2M
-#   P50 (median):      ~$1.8M
-#   P90 (optimistic):  ~$2.5M
+# NPV Statistics (checked against an independent simulation of the same model):
+#   P10 (pessimistic): ~$1.96M
+#   P50 (median):      ~$2.70M
+#   P90 (optimistic):  ~$3.54M
 #
 # Probability Analysis:
-#   P(NPV > 0): ~95%
+#   P(NPV > 0): ~100% (there is no up-front investment in this model)
 #
-# Sensitivity (Spearman correlation):
-#   revenue_growth:    0.75 (strong positive driver)
-#   operating_costs:  -0.45 (negative driver)
-#   discount_rate:    -0.25 (moderate negative)
+# Sensitivity (Spearman rank correlation with NPV):
+#   revenue_growth:    0.93 (strong positive driver)
+#   operating_costs:  -0.30 (negative driver)
+#   discount_rate:    -0.15 (moderate negative)

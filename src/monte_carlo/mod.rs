@@ -45,4 +45,6 @@ pub use sensitivity::SensitivityAnalysis;
 pub use statistics::Statistics;
 
 #[cfg(test)]
+mod sampling_tests;
+#[cfg(test)]
 mod tests;
