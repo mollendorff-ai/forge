@@ -1128,149 +1128,77 @@ Bayesian Networks model probabilistic dependencies between variables as a direct
 
 ### Configuration
 
+Each node has at most one parent, and a child's CPT has one row per state of that parent. Forge rejects a node with two parents, or a CPT row that does not match a parent state, instead of giving wrong numbers. The same network is in `examples/bayesian.yaml`.
+
 ```yaml
-_forge_version: "9.0.0"
+_forge_version: "5.0.0"
 
 bayesian_network:
-  name: "Credit Risk Model"
+  name: "Credit Risk Assessment"
 
   nodes:
-    # Root node: Economic conditions
-    economic_conditions:
+    economic_conditions:            # root: has a prior
       type: discrete
       states: ["good", "neutral", "bad"]
-      prior: [0.3, 0.5, 0.2]    # P(good)=0.3, P(neutral)=0.5, P(bad)=0.2
+      prior: [0.30, 0.50, 0.20]
 
-    # Child node: Company revenue depends on economy
-    company_revenue:
+    company_revenue:                # child: one CPT row per economic condition
       type: discrete
       states: ["high", "medium", "low"]
       parents: ["economic_conditions"]
-
-      # CPT: P(revenue | economic_conditions)
       cpt:
-        good:     [0.6, 0.3, 0.1]   # If economy good: 60% high revenue
-        neutral:  [0.3, 0.5, 0.2]   # If economy neutral: 50% medium revenue
-        bad:      [0.1, 0.3, 0.6]   # If economy bad: 60% low revenue
+        good:    [0.60, 0.30, 0.10]
+        neutral: [0.30, 0.50, 0.20]
+        bad:     [0.10, 0.30, 0.60]
 
-    # Root node: Management quality (independent)
-    management_quality:
-      type: discrete
-      states: ["strong", "weak"]
-      prior: [0.7, 0.3]
-
-    # Child node: Default probability depends on revenue and management
     default_probability:
       type: discrete
       states: ["low", "medium", "high"]
-      parents: ["company_revenue", "management_quality"]
-
-      # CPT: P(default | revenue, management)
+      parents: ["company_revenue"]
       cpt:
-        "high,strong":   [0.85, 0.12, 0.03]  # High revenue + strong mgmt → low default risk
-        "high,weak":     [0.60, 0.30, 0.10]
-        "medium,strong": [0.50, 0.35, 0.15]
-        "medium,weak":   [0.30, 0.40, 0.30]
-        "low,strong":    [0.20, 0.40, 0.40]
-        "low,weak":      [0.10, 0.30, 0.60]  # Low revenue + weak mgmt → high default risk
+        high:   [0.85, 0.12, 0.03]
+        medium: [0.40, 0.45, 0.15]
+        low:    [0.10, 0.30, 0.60]
 ```
 
 ### Inference Queries
 
-```yaml
-# Query 1: Unconditional probabilities
-query:
-  variable: "default_probability"
-  # Returns: P(default = low/medium/high)
-
-# Query 2: Conditional on evidence
-query:
-  variable: "default_probability"
-  evidence:
-    economic_conditions: "bad"
-  # Returns: P(default | economy is bad)
-
-# Query 3: Multiple evidence
-query:
-  variable: "default_probability"
-  evidence:
-    economic_conditions: "neutral"
-    management_quality: "strong"
-  # Returns: P(default | neutral economy, strong management)
-```
-
-### CLI Usage
+Queries are command-line options. The file holds only the network.
 
 ```bash
-# Analyze Bayesian network
-forge bayesian credit_risk.yaml --output inference.yaml
+# Probabilities for every node
+forge bayesian examples/bayesian.yaml
 
-# Query with evidence
-forge bayesian credit_risk.yaml --query "default_probability" --evidence "economic_conditions=bad"
+# One node, no evidence
+forge bayesian examples/bayesian.yaml --query default_probability
 
-# Visualize network structure
-forge bayesian credit_risk.yaml --visualize network.dot
+# One node given evidence (repeat -e for more than one)
+forge bayesian examples/bayesian.yaml -q default_probability -e economic_conditions=bad
+
+# Backwards: given a high default risk, how likely is each economy?
+forge bayesian examples/bayesian.yaml -q economic_conditions -e default_probability=high
+
+# Save the results
+forge bayesian examples/bayesian.yaml -o inference.yaml
 ```
 
-### Output Format
+### Results for this network
 
-```yaml
-bayesian_inference_results:
-  network: "Credit Risk Model"
+| Query | Result |
+|-------|--------|
+| `default_probability` | low 48.25%, medium 29.70%, high 22.05% |
+| `default_probability` given `economic_conditions=bad` | low 26.50%, medium 32.70%, high 40.80% |
+| `economic_conditions` given `default_probability=high` | good 16.73%, neutral 46.26%, bad 37.01% |
 
-  # Unconditional probabilities (no evidence)
-  marginals:
-    economic_conditions:
-      good: 0.30
-      neutral: 0.50
-      bad: 0.20
-
-    company_revenue:
-      high: 0.37      # 0.3*0.6 + 0.5*0.3 + 0.2*0.1
-      medium: 0.38    # Marginalizing over economy
-      low: 0.25
-
-    default_probability:
-      low: 0.532
-      medium: 0.298
-      high: 0.170
-
-  # Given evidence: "economic_conditions = bad"
-  conditional_bad_economy:
-    company_revenue:
-      high: 0.10      # P(high revenue | bad economy) = 0.1
-      medium: 0.30
-      low: 0.60
-
-    default_probability:
-      low: 0.234      # Higher default risk given bad economy
-      medium: 0.346
-      high: 0.420     # 42% chance of high default
-
-  # Given evidence: "economic_conditions = bad, management_quality = weak"
-  conditional_bad_economy_weak_mgmt:
-    default_probability:
-      low: 0.180
-      medium: 0.336
-      high: 0.484     # 48.4% chance of high default - cascading risk!
-```
-
-**Interpretation:**
-- Unconditional default risk: 17% high, 53.2% low
-- Bad economy increases high default risk to 42%
-- Bad economy + weak management → 48.4% high default risk
-- Network captures how risks cascade through causal chain
-- Can diagnose: "Given high default, what's likely cause?"
+These match a hand enumeration of the joint distribution. A bad economy is 20% likely beforehand; seeing a high default risk raises it to 37%.
 
 ### Network Topology
 
 ```
 [Economic Conditions] → [Company Revenue] → [Default Probability]
-                                          ↗
-         [Management Quality] ───────────
 ```
 
-Root nodes influence child nodes through conditional probabilities. Evidence at any node updates beliefs throughout the network.
+Evidence at any node updates beliefs throughout the network.
 
 ---
 

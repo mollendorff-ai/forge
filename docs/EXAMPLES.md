@@ -1328,222 +1328,31 @@ Bootstrap resampling is powerful when:
 
 ---
 
-### Bayesian Networks (v9.0.0)
+### Bayesian Networks
 
-Model probabilistic dependencies and update beliefs as evidence arrives. Ideal for risk cascades and root cause analysis.
+`examples/bayesian.yaml` models credit default risk as a chain, where each node has one parent:
 
-**Use case**: Credit risk model showing how economic conditions affect company revenue, which affects default probability.
-
-**Input (credit_risk_bayesian.yaml):**
-
-```yaml
-_forge_version: "5.0.0"
-
-# Bayesian network configuration
-bayesian_network:
-  name: "Credit Risk Assessment"
-
-  nodes:
-    # Root node: economic conditions
-    economic_conditions:
-      type: discrete
-      states: ["good", "neutral", "bad"]
-      prior: [0.30, 0.50, 0.20]  # Historical frequency
-
-    # Industry health depends on economy
-    industry_health:
-      type: discrete
-      states: ["strong", "stable", "weak"]
-      parents: ["economic_conditions"]
-      cpt:
-        # Conditional probabilities: P(industry | economy)
-        good:    [0.60, 0.30, 0.10]  # If economy good
-        neutral: [0.30, 0.50, 0.20]  # If economy neutral
-        bad:     [0.10, 0.30, 0.60]  # If economy bad
-
-    # Company revenue depends on both economy and industry
-    company_revenue:
-      type: discrete
-      states: ["high", "medium", "low"]
-      parents: ["economic_conditions", "industry_health"]
-      cpt:
-        # Format: "parent1_state,parent2_state"
-        good,strong:    [0.70, 0.25, 0.05]
-        good,stable:    [0.50, 0.40, 0.10]
-        good,weak:      [0.30, 0.50, 0.20]
-        neutral,strong: [0.50, 0.40, 0.10]
-        neutral,stable: [0.30, 0.50, 0.20]
-        neutral,weak:   [0.20, 0.40, 0.40]
-        bad,strong:     [0.30, 0.40, 0.30]
-        bad,stable:     [0.20, 0.40, 0.40]
-        bad,weak:       [0.10, 0.30, 0.60]
-
-    # Management quality (independent)
-    management_quality:
-      type: discrete
-      states: ["excellent", "good", "poor"]
-      prior: [0.20, 0.60, 0.20]
-
-    # Debt level (independent for simplicity)
-    debt_level:
-      type: discrete
-      states: ["low", "medium", "high"]
-      prior: [0.30, 0.50, 0.20]
-
-    # Default probability depends on revenue, management, and debt
-    default_probability:
-      type: discrete
-      states: ["low_risk", "medium_risk", "high_risk"]
-      parents: ["company_revenue", "management_quality", "debt_level"]
-      cpt:
-        # High revenue, excellent mgmt, low debt
-        high,excellent,low: [0.95, 0.04, 0.01]
-        high,excellent,medium: [0.85, 0.12, 0.03]
-        high,excellent,high: [0.70, 0.25, 0.05]
-        high,good,low: [0.80, 0.15, 0.05]
-        high,good,medium: [0.70, 0.25, 0.05]
-        high,good,high: [0.50, 0.40, 0.10]
-        high,poor,low: [0.60, 0.30, 0.10]
-        high,poor,medium: [0.40, 0.45, 0.15]
-        high,poor,high: [0.20, 0.50, 0.30]
-
-        # Medium revenue cases
-        medium,excellent,low: [0.80, 0.15, 0.05]
-        medium,excellent,medium: [0.65, 0.30, 0.05]
-        medium,excellent,high: [0.45, 0.45, 0.10]
-        medium,good,low: [0.65, 0.30, 0.05]
-        medium,good,medium: [0.50, 0.40, 0.10]
-        medium,good,high: [0.30, 0.50, 0.20]
-        medium,poor,low: [0.40, 0.45, 0.15]
-        medium,poor,medium: [0.25, 0.50, 0.25]
-        medium,poor,high: [0.10, 0.40, 0.50]
-
-        # Low revenue cases (highest risk)
-        low,excellent,low: [0.50, 0.40, 0.10]
-        low,excellent,medium: [0.35, 0.50, 0.15]
-        low,excellent,high: [0.20, 0.50, 0.30]
-        low,good,low: [0.35, 0.50, 0.15]
-        low,good,medium: [0.20, 0.50, 0.30]
-        low,good,high: [0.10, 0.40, 0.50]
-        low,poor,low: [0.20, 0.45, 0.35]
-        low,poor,medium: [0.10, 0.35, 0.55]
-        low,poor,high: [0.05, 0.20, 0.75]
+```
+[Economic Conditions] → [Company Revenue] → [Default Probability]
 ```
 
-**Run:**
+Run it:
 
 ```bash
-# Query 1: Prior probabilities (no evidence)
-forge bayesian credit_risk_bayesian.yaml --query "default_probability"
-
-# Query 2: Given we observe bad economy
-forge bayesian credit_risk_bayesian.yaml --evidence "economic_conditions=bad" --query "default_probability"
-
-# Query 3: Given bad economy AND low revenue
-forge bayesian credit_risk_bayesian.yaml --evidence "economic_conditions=bad,company_revenue=low" --query "default_probability"
+forge bayesian examples/bayesian.yaml                                    # every node
+forge bayesian examples/bayesian.yaml -q default_probability -e economic_conditions=bad
+forge bayesian examples/bayesian.yaml -q economic_conditions -e default_probability=high
 ```
 
-**Output:**
+| Query | Result |
+|-------|--------|
+| `default_probability`, no evidence | low 48.25%, medium 29.70%, high 22.05% |
+| `default_probability` given `economic_conditions=bad` | low 26.50%, medium 32.70%, high 40.80% |
+| `economic_conditions` given `default_probability=high` | good 16.73%, neutral 46.26%, bad 37.01% |
 
-```yaml
-bayesian_results:
-  network: "Credit Risk Assessment"
+**Key insight**: a bad economy alone raises the chance of a high default risk from 22% to 41%. Run backwards, a high default risk raises the chance the economy is bad from 20% to 37%. The numbers match a hand enumeration of the joint distribution.
 
-  # Query 1: Prior (no evidence)
-  prior_probabilities:
-    default_probability:
-      low_risk: 0.543
-      medium_risk: 0.342
-      high_risk: 0.115
-    interpretation: "Base rate: 11.5% high default risk"
-
-  # Query 2: Evidence - bad economy
-  posterior_given_bad_economy:
-    evidence: {economic_conditions: "bad"}
-
-    updated_beliefs:
-      industry_health:
-        strong: 0.10  # Down from 0.40 (prior)
-        stable: 0.30  # Down from 0.36
-        weak: 0.60    # Up from 0.24 (economy affects industry)
-
-      company_revenue:
-        high: 0.16    # Down from 0.41
-        medium: 0.33  # Roughly stable
-        low: 0.51     # Up from 0.24 (cascading effect)
-
-      default_probability:
-        low_risk: 0.312     # Down from 0.543
-        medium_risk: 0.423  # Up from 0.342
-        high_risk: 0.265    # Up from 0.115 (risk increased 2.3x!)
-
-    interpretation: "Bad economy increases high-risk probability from 11.5% to 26.5%"
-
-  # Query 3: Evidence - bad economy AND low revenue observed
-  posterior_given_bad_economy_and_low_revenue:
-    evidence:
-      economic_conditions: "bad"
-      company_revenue: "low"
-
-    updated_beliefs:
-      default_probability:
-        low_risk: 0.145     # Down from 0.312
-        medium_risk: 0.384  # Down slightly
-        high_risk: 0.471    # Up from 0.265 (risk nearly 5x base rate!)
-
-    interpretation: "Confirming low revenue in bad economy pushes high-risk to 47%"
-
-  # Sensitivity analysis
-  most_influential_factors:
-    - variable: "company_revenue"
-      impact: "Very High"
-      note: "Moving from high to low revenue increases risk 8x"
-
-    - variable: "debt_level"
-      impact: "High"
-      note: "High debt with low revenue is toxic combination"
-
-    - variable: "management_quality"
-      impact: "Medium"
-      note: "Excellent management can partially offset revenue issues"
-
-    - variable: "economic_conditions"
-      impact: "Medium"
-      note: "Indirect effect through revenue; direct monitoring valuable"
-
-# Diagnostic reasoning (reverse inference)
-diagnostic:
-  query: "Given we observe high default risk, what's most likely cause?"
-  evidence: {default_probability: "high_risk"}
-
-  most_likely_causes:
-    company_revenue:
-      low: 0.68     # 68% likely if high risk observed
-      medium: 0.24
-      high: 0.08
-
-    management_quality:
-      poor: 0.45    # 45% likely
-      good: 0.42
-      excellent: 0.13
-
-    debt_level:
-      high: 0.52    # 52% likely
-      medium: 0.38
-      low: 0.10
-
-  interpretation: "High default risk most likely due to low revenue (68%) + high debt (52%)"
-```
-
-**Use case explanation:**
-
-Bayesian networks excel when:
-- Variables have causal relationships (not just correlations)
-- Evidence arrives incrementally (update beliefs as you learn)
-- You need diagnostic reasoning ("What caused this outcome?")
-- Risk cascades through multiple stages
-
-**Key insight**: Bad economy alone increases high-risk from 12% to 27%. Confirming low revenue pushes it to 47%. The network quantifies how risks cascade and compounds.
+A node with more than one parent is not supported yet, and Forge rejects it with an error.
 
 ---
 

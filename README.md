@@ -24,7 +24,7 @@ Known problems as of 2026-11-05:
 - `forge real-options` adds up overlapping option values as "Total Option Value" and does not include the traditional NPV in "Project Value".
 - `forge tornado` prints bars in no fixed order, and the number after "±" is the full low-to-high swing.
 - `forge export` handles simple single-table models. Formulas that reference other sections are not translated correctly yet, and `forge import` output may not validate.
-- `forge bayesian examples/bayesian.yaml` fails: the example and the config format disagree.
+- Bayesian networks support one parent per node. A node with two parents is rejected.
 - `forge calculate examples/monte-carlo.yaml` fails because its row formulas need values that only exist during a simulation. Use `forge simulate` for that example.
 
 ## The Problem
@@ -180,10 +180,16 @@ bayesian_network:
       states: ["good", "neutral", "bad"]
       prior: [0.3, 0.5, 0.2]
 
-    default_probability:
-      parents: ["economic_conditions", "management_quality"]
-      # Conditional probability tables...
+    company_revenue:
+      states: ["high", "medium", "low"]
+      parents: ["economic_conditions"]       # one parent per node
+      cpt:
+        good:    [0.60, 0.30, 0.10]          # one row per parent state
+        neutral: [0.30, 0.50, 0.20]
+        bad:     [0.10, 0.30, 0.60]
 ```
+
+Query it with `forge bayesian examples/bayesian.yaml -q company_revenue -e economic_conditions=bad`.
 
 A unit test checks a small network against a hand calculation of a pgmpy example.
 
