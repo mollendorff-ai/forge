@@ -129,11 +129,11 @@ scenarios:
 ```
 NPV Sensitivity (Base: $1.2M)
 
-Revenue Growth    |████████████████████| +/- $450K
-Discount Rate     |██████████████      | +/- $320K
-Operating Margin  |██████████          | +/- $180K
-Tax Rate          |████                | +/- $75K
-Working Capital   |██                  | +/- $40K
+Revenue Growth    |████████████████████| swing $450K
+Discount Rate     |██████████████      | swing $320K
+Operating Margin  |██████████          | swing $180K
+Tax Rate          |████                | swing $75K
+Working Capital   |██                  | swing $40K
 ```
 
 **Interpretation**: Focus your analysis on Revenue Growth and Discount Rate - they drive 70% of outcome variance.

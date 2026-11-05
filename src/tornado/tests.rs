@@ -399,3 +399,70 @@ fn test_tornado_rejects_ambiguous_unqualified_input_names() {
     assert!(error.contains("assumptions.price"));
     assert!(error.contains("inputs.price"));
 }
+
+#[test]
+fn test_bars_are_ranked_by_the_swing_that_is_shown() {
+    // `cost` moves the output by 1,000,000 but only by 20% of its own value;
+    // `rate` moves it by 180,000 across a 100% change of its value. The bars must
+    // be ordered by the output swing, whatever the scale of the inputs.
+    let mut model = ParsedModel::new();
+    model.scalars.insert(
+        "cost".to_string(),
+        Variable::new("cost".to_string(), Some(1_000_000.0), None),
+    );
+    model.scalars.insert(
+        "rate".to_string(),
+        Variable::new("rate".to_string(), Some(0.2), None),
+    );
+    model.scalars.insert(
+        "y".to_string(),
+        Variable::new(
+            "y".to_string(),
+            None,
+            Some("=5 * cost + 900000 * rate".to_string()),
+        ),
+    );
+
+    let config = TornadoConfig::new("y")
+        .with_input(InputRange::new("rate", 0.1, 0.3))
+        .with_input(InputRange::new("cost", 900_000.0, 1_100_000.0));
+
+    let result = TornadoEngine::new(config, model)
+        .unwrap()
+        .analyze()
+        .unwrap();
+
+    assert_eq!(result.bars[0].input_name, "cost");
+    assert!((result.bars[0].abs_swing - 1_000_000.0).abs() < 1.0);
+    assert_eq!(result.bars[1].input_name, "rate");
+    assert!((result.bars[1].abs_swing - 180_000.0).abs() < 1.0);
+    for pair in result.bars.windows(2) {
+        assert!(pair[0].swing.abs() >= pair[1].swing.abs());
+    }
+}
+
+#[test]
+fn test_equal_swings_come_out_in_name_order() {
+    let mut model = ParsedModel::new();
+    for name in ["b", "a", "c"] {
+        model.scalars.insert(
+            name.to_string(),
+            Variable::new(name.to_string(), Some(1.0), None),
+        );
+    }
+    model.scalars.insert(
+        "y".to_string(),
+        Variable::new("y".to_string(), None, Some("=a + b + c".to_string())),
+    );
+    let config = TornadoConfig::new("y")
+        .with_input(InputRange::new("c", 0.0, 2.0))
+        .with_input(InputRange::new("a", 0.0, 2.0))
+        .with_input(InputRange::new("b", 0.0, 2.0));
+
+    let result = TornadoEngine::new(config, model)
+        .unwrap()
+        .analyze()
+        .unwrap();
+    let names: Vec<&str> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
+    assert_eq!(names, ["a", "b", "c"]);
+}
