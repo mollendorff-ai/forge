@@ -7,7 +7,7 @@
 //! - Abandon option (exit and recover salvage)
 //! - Switch option (change inputs/outputs)
 //! - Black-Scholes and Binomial Tree methods
-//! - Unit tests check prices against QuantLib reference values
+//! - Unit tests check prices against `QuantLib` reference values
 //!
 //! # Example
 //!
