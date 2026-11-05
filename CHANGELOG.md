@@ -15,6 +15,7 @@ against. Found in an independent evaluation on 2026-11-04.
 
 ### Security
 - **MCP inline includes**: with inline `content`, an `_includes` path that was absolute or contained `..` could write the matching `includes` text to any file the server could write, or make the parser read a YAML file outside its temp directory. Only plain relative paths are accepted now. Earlier versions are affected, so update if you expose `forge mcp` to untrusted model content.
+- **REST API (`forge serve`)**: CORS allowed every origin, so any website open in the browser could make a running `forge serve` read or write files, and any `Host` header was accepted (DNS rebinding). Browser requests from other origins are now refused unless listed with `--cors-origin`, a local server rejects foreign `Host` headers, `--token` / `FORGE_API_TOKEN` requires `Authorization: Bearer <token>` on `/api/v1/*`, and listening on a non-loopback address without a token is refused. Update if you run `forge serve`.
 
 ### Fixed
 - **Array arithmetic**: an array in arithmetic, a comparison or a function that expects one number was turned into its length, so `=SUM(a * b)` gave 9 instead of 140. Operators now work element by element. Column lengths that do not match, or a column where one number is expected (`PMT`, `ROUND`, `TEXT` and others), are errors. `IF`, `AND`, `OR`, `XOR` and `NOT` accept arrays. A scalar formula that returns several values is an error.
@@ -31,6 +32,7 @@ against. Found in an independent evaluation on 2026-11-04.
 - `examples/real-options.yaml`, `examples/tornado.yaml`, `examples/bootstrap.yaml`, `examples/monte-carlo.yaml`, `examples/decision-tree.yaml`: expected-output comments now match results checked against independent calculations.
 
 ### Changed
+- `forge serve --host <non-loopback>` now needs a token, and cross-origin browser apps need `--cors-origin`.
 - A model or config with a key Forge does not recognise is now an error. Seeded Monte Carlo results differ from earlier versions, which were not reproducible.
 - README, CLI help and crate description no longer claim validation or compliance that the repository does not show. A "Status and known limitations" section lists open problems.
 - Clippy errors on Rust 1.97 fixed, so the Lint job passes.
