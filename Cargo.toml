@@ -69,10 +69,10 @@ regex = "1.12"
 colored = "3.0"
 
 # Excel export (v1.0.0 array model)
-rust_xlsxwriter = "0.94"
+rust_xlsxwriter = "0.102"
 
 # Excel import (v1.0.0 array model)
-calamine = "0.34"
+calamine = "0.38"
 
 # File watching (v1.4.0 watch mode)
 notify = "8.2"

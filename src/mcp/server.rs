@@ -560,7 +560,7 @@ impl ForgeMcpServer {
 }
 
 #[allow(unknown_lints, clippy::unused_async_trait_impl)]
-#[tool_handler]
+#[tool_handler(router = self.tool_router)]
 impl ServerHandler for ForgeMcpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
