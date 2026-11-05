@@ -9,6 +9,7 @@
     clippy::cast_precision_loss
 )]
 
+use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
@@ -91,7 +92,7 @@ pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         .ok_or_else(|| EvalError::new("ADDRESS: column must be a number"))?
         as i64;
     let abs_num = if args.len() > 2 {
-        evaluate(&args[2], ctx)?.as_number().unwrap_or(1.0) as i32
+        number_or(&args[2], ctx, 1.0)? as i32
     } else {
         1
     };

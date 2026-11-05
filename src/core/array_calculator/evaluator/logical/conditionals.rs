@@ -11,6 +11,11 @@ use crate::core::array_calculator::evaluator::{
 pub fn eval_if(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range(name, args, 2, 3)?;
     let condition = evaluate(&args[0], ctx)?;
+    if let Value::Array(conditions) = &condition {
+        if conditions.len() != 1 {
+            return eval_if_array(conditions, args, ctx);
+        }
+    }
     if condition.is_truthy() {
         evaluate(&args[1], ctx)
     } else if args.len() > 2 {
@@ -18,6 +23,44 @@ pub fn eval_if(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, Ev
     } else {
         Ok(Value::Boolean(false))
     }
+}
+
+/// Evaluate IF with an array condition, choosing a result for each element.
+///
+/// With no else branch a false element becomes Null, which aggregates skip,
+/// so `AVERAGE(IF(a > 1, a))` averages only the matching values.
+fn eval_if_array(
+    conditions: &[Value],
+    args: &[Expr],
+    ctx: &EvalContext,
+) -> Result<Value, EvalError> {
+    let when_true = evaluate(&args[1], ctx)?;
+    let when_false = match args.get(2) {
+        Some(arg) => evaluate(arg, ctx)?,
+        None => Value::Null,
+    };
+    conditions
+        .iter()
+        .enumerate()
+        .map(|(i, condition)| {
+            let branch = if condition.is_truthy() {
+                &when_true
+            } else {
+                &when_false
+            };
+            match branch {
+                Value::Array(items) if items.len() == conditions.len() => Ok(items[i].clone()),
+                Value::Array(items) if items.len() == 1 => Ok(items[0].clone()),
+                Value::Array(items) => Err(EvalError::new(format!(
+                    "IF: condition has {} values but a result has {}",
+                    conditions.len(),
+                    items.len()
+                ))),
+                scalar => Ok(scalar.clone()),
+            }
+        })
+        .collect::<Result<_, _>>()
+        .map(Value::Array)
 }
 
 /// Evaluate IFERROR function - returns fallback value on error
@@ -54,6 +97,9 @@ pub fn eval_ifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     }
     for pair in args.chunks(2) {
         let condition = evaluate(&pair[0], ctx)?;
+        if matches!(&condition, Value::Array(items) if items.len() != 1) {
+            return Err(EvalError::new("IFS: a condition must be a single value"));
+        }
         if condition.is_truthy() {
             return evaluate(&pair[1], ctx);
         }

@@ -7,6 +7,7 @@
     clippy::cast_precision_loss
 )]
 
+use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
@@ -20,17 +21,17 @@ pub fn eval_sequence(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
         .as_number()
         .ok_or_else(|| EvalError::new("SEQUENCE: rows must be a number"))? as usize;
     let cols = if args.len() > 1 {
-        evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) as usize
+        number_or(&args[1], ctx, 1.0)? as usize
     } else {
         1
     };
     let start = if args.len() > 2 {
-        evaluate(&args[2], ctx)?.as_number().unwrap_or(1.0)
+        number_or(&args[2], ctx, 1.0)?
     } else {
         1.0
     };
     let step = if args.len() > 3 {
-        evaluate(&args[3], ctx)?.as_number().unwrap_or(1.0)
+        number_or(&args[3], ctx, 1.0)?
     } else {
         1.0
     };
@@ -50,20 +51,20 @@ pub fn eval_randarray(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErr
     let rows = if args.is_empty() {
         1
     } else {
-        evaluate(&args[0], ctx)?.as_number().unwrap_or(1.0) as usize
+        number_or(&args[0], ctx, 1.0)? as usize
     };
     let cols = if args.len() > 1 {
-        evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) as usize
+        number_or(&args[1], ctx, 1.0)? as usize
     } else {
         1
     };
     let min = if args.len() > 2 {
-        evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0)
+        number_or(&args[2], ctx, 0.0)?
     } else {
         0.0
     };
     let max = if args.len() > 3 {
-        evaluate(&args[3], ctx)?.as_number().unwrap_or(1.0)
+        number_or(&args[3], ctx, 1.0)?
     } else {
         1.0
     };

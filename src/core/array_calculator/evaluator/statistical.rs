@@ -2,6 +2,7 @@
 
 use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
+use crate::core::array_calculator::evaluator::number_or;
 
 /// Try to evaluate a statistical function. Returns None if function not recognized.
 #[allow(
@@ -200,7 +201,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("RANK: array is empty"));
             }
             let order = if args.len() > 2 {
-                evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0) as i32
+                number_or(&args[2], ctx, 0.0)? as i32
             } else {
                 0 // Default: descending (0)
             };

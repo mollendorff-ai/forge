@@ -7,11 +7,18 @@ use crate::core::array_calculator::evaluator::{
     evaluate, require_args, EvalContext, EvalError, Expr, Value,
 };
 
+/// Evaluate an argument and list the values it contributes, one per array element.
+fn logical_values(arg: &Expr, ctx: &EvalContext) -> Result<Vec<Value>, EvalError> {
+    Ok(match evaluate(arg, ctx)? {
+        Value::Array(items) => items,
+        value => vec![value],
+    })
+}
+
 /// Evaluate AND function - returns TRUE if all arguments are truthy
 pub fn eval_and(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     for arg in args {
-        let val = evaluate(arg, ctx)?;
-        if !val.is_truthy() {
+        if !logical_values(arg, ctx)?.iter().all(Value::is_truthy) {
             return Ok(Value::Boolean(false));
         }
     }
@@ -21,8 +28,7 @@ pub fn eval_and(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 /// Evaluate OR function - returns TRUE if any argument is truthy
 pub fn eval_or(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     for arg in args {
-        let val = evaluate(arg, ctx)?;
-        if val.is_truthy() {
+        if logical_values(arg, ctx)?.iter().any(Value::is_truthy) {
             return Ok(Value::Boolean(true));
         }
     }
@@ -33,17 +39,27 @@ pub fn eval_or(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 pub fn eval_not(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args(name, args, 1)?;
     let val = evaluate(&args[0], ctx)?;
+    if let Value::Array(items) = &val {
+        if items.len() != 1 {
+            return Ok(Value::Array(
+                items
+                    .iter()
+                    .map(|item| Value::Boolean(!item.is_truthy()))
+                    .collect(),
+            ));
+        }
+    }
     Ok(Value::Boolean(!val.is_truthy()))
 }
 
 /// Evaluate XOR function - returns TRUE if an odd number of arguments are TRUE
 pub fn eval_xor(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
-    let mut true_count = 0;
+    let mut true_count = 0_usize;
     for arg in args {
-        let val = evaluate(arg, ctx)?;
-        if val.is_truthy() {
-            true_count += 1;
-        }
+        true_count += logical_values(arg, ctx)?
+            .iter()
+            .filter(|value| value.is_truthy())
+            .count();
     }
     Ok(Value::Boolean(true_count % 2 == 1))
 }

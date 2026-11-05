@@ -6,6 +6,7 @@
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
+use crate::core::array_calculator::evaluator::number_or;
 
 pub fn eval_round(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("ROUND", args, 1, 2)?;
@@ -13,7 +14,7 @@ pub fn eval_round(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
         .as_number()
         .ok_or_else(|| EvalError::new("ROUND requires a number"))?;
     let decimals = if args.len() > 1 {
-        evaluate(&args[1], ctx)?.as_number().unwrap_or(0.0) as i32
+        number_or(&args[1], ctx, 0.0)? as i32
     } else {
         0
     };
@@ -27,7 +28,7 @@ pub fn eval_roundup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         .as_number()
         .ok_or_else(|| EvalError::new("ROUNDUP requires a number"))?;
     let decimals = if args.len() > 1 {
-        evaluate(&args[1], ctx)?.as_number().unwrap_or(0.0) as i32
+        number_or(&args[1], ctx, 0.0)? as i32
     } else {
         0
     };
@@ -44,7 +45,7 @@ pub fn eval_rounddown(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErr
         .as_number()
         .ok_or_else(|| EvalError::new("ROUNDDOWN requires a number"))?;
     let decimals = if args.len() > 1 {
-        evaluate(&args[1], ctx)?.as_number().unwrap_or(0.0) as i32
+        number_or(&args[1], ctx, 0.0)? as i32
     } else {
         0
     };
@@ -61,7 +62,7 @@ pub fn eval_floor(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
         .as_number()
         .ok_or_else(|| EvalError::new("FLOOR requires a number"))?;
     let sig = if args.len() > 1 {
-        evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0)
+        number_or(&args[1], ctx, 1.0)?
     } else {
         1.0
     };
@@ -77,7 +78,7 @@ pub fn eval_ceiling(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         .as_number()
         .ok_or_else(|| EvalError::new("CEILING requires a number"))?;
     let sig = if args.len() > 1 {
-        evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0)
+        number_or(&args[1], ctx, 1.0)?
     } else {
         1.0
     };
@@ -101,7 +102,7 @@ pub fn eval_trunc(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
         .as_number()
         .ok_or_else(|| EvalError::new("TRUNC requires a number"))?;
     let decimals = if args.len() > 1 {
-        evaluate(&args[1], ctx)?.as_number().unwrap_or(0.0) as i32
+        number_or(&args[1], ctx, 0.0)? as i32
     } else {
         0
     };

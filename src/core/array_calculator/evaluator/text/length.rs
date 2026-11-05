@@ -10,6 +10,7 @@
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
+use crate::core::array_calculator::evaluator::number_or;
 
 /// LEN(text) - Returns the length of a text string
 pub fn eval_len(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -23,7 +24,7 @@ pub fn eval_left(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("LEFT", args, 1, 2)?;
     let text = evaluate(&args[0], ctx)?.as_text();
     let n = if args.len() > 1 {
-        evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) as usize
+        number_or(&args[1], ctx, 1.0)? as usize
     } else {
         1
     };
@@ -35,7 +36,7 @@ pub fn eval_right(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
     require_args_range("RIGHT", args, 1, 2)?;
     let text = evaluate(&args[0], ctx)?.as_text();
     let n = if args.len() > 1 {
-        evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) as usize
+        number_or(&args[1], ctx, 1.0)? as usize
     } else {
         1
     };
@@ -48,8 +49,8 @@ pub fn eval_right(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 pub fn eval_mid(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("MID", args, 3)?;
     let text = evaluate(&args[0], ctx)?.as_text();
-    let start = evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) as usize;
-    let length = evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0) as usize;
+    let start = number_or(&args[1], ctx, 1.0)? as usize;
+    let length = number_or(&args[2], ctx, 0.0)? as usize;
 
     let chars: Vec<char> = text.chars().collect();
     // Excel MID is 1-indexed

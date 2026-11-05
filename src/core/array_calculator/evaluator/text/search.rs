@@ -8,6 +8,7 @@
 )]
 
 use super::super::{evaluate, require_args_range, EvalContext, EvalError, Expr, Value};
+use crate::core::array_calculator::evaluator::number_or;
 
 /// `FIND(find_text`, `within_text`, [`start_num`]) - Finds text within text (case-sensitive)
 pub fn eval_find(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -15,7 +16,7 @@ pub fn eval_find(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     let find_text = evaluate(&args[0], ctx)?.as_text();
     let within_text = evaluate(&args[1], ctx)?.as_text();
     let start_num = if args.len() > 2 {
-        evaluate(&args[2], ctx)?.as_number().unwrap_or(1.0) as usize
+        number_or(&args[2], ctx, 1.0)? as usize
     } else {
         1
     };
@@ -38,7 +39,7 @@ pub fn eval_search(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     let find_text = evaluate(&args[0], ctx)?.as_text().to_lowercase();
     let within_text = evaluate(&args[1], ctx)?.as_text();
     let start_num = if args.len() > 2 {
-        evaluate(&args[2], ctx)?.as_number().unwrap_or(1.0) as usize
+        number_or(&args[2], ctx, 1.0)? as usize
     } else {
         1
     };

@@ -6,13 +6,14 @@
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
+use crate::core::array_calculator::evaluator::number_or;
 
 /// `REPLACE(old_text`, `start_num`, `num_chars`, `new_text`) - Replaces characters within text
 pub fn eval_replace(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("REPLACE", args, 4)?;
     let old_text = evaluate(&args[0], ctx)?.as_text();
-    let start_num = evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) as usize;
-    let num_chars = evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0) as usize;
+    let start_num = number_or(&args[1], ctx, 1.0)? as usize;
+    let num_chars = number_or(&args[2], ctx, 0.0)? as usize;
     let new_text = evaluate(&args[3], ctx)?.as_text();
 
     // REPLACE is position-based (1-indexed)
@@ -40,7 +41,7 @@ pub fn eval_substitute(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalEr
 
     if args.len() > 3 {
         // Replace only the nth occurrence
-        let instance = evaluate(&args[3], ctx)?.as_number().unwrap_or(1.0) as usize;
+        let instance = number_or(&args[3], ctx, 1.0)? as usize;
         let mut result = text;
         let mut count = 0;
         let mut pos = 0;

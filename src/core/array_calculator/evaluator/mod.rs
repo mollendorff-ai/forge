@@ -93,8 +93,12 @@ impl Value {
                 None
             },
             Self::Boolean(b) => Some(if *b { 1.0 } else { 0.0 }),
-            // Arrays in scalar context return their length
-            Self::Array(arr) => Some(arr.len() as f64),
+            // A one-element array is its element. A longer array has no single
+            // numeric value; callers must aggregate it or report an error.
+            Self::Array(arr) => match arr.as_slice() {
+                [only] => only.as_number(),
+                _ => None,
+            },
             Self::Lambda { .. } | Self::Null => None,
         }
     }
@@ -127,6 +131,7 @@ impl Value {
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             Self::Boolean(b) => Some(*b),
+            Self::Array(arr) if arr.len() == 1 => arr[0].as_bool(),
             Self::Number(n) => Some(*n != 0.0),
             Self::Text(s) => {
                 let upper = s.to_uppercase();
@@ -373,10 +378,53 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
     }
 }
 
-/// Evaluate a binary operation
+/// Evaluate a binary operation, element by element when an operand is an array.
+///
+/// Arrays of equal length pair up by position. A scalar or one-element array
+/// applies to every element. Any other length mismatch is an error.
+fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, EvalError> {
+    match (left, right) {
+        (Value::Array(l), Value::Array(r)) if l.len() == r.len() => l
+            .iter()
+            .zip(r)
+            .map(|(a, b)| evaluate_binary_op(op, a, b))
+            .collect::<Result<_, _>>()
+            .map(Value::Array),
+        (Value::Array(l), Value::Array(r)) if r.len() == 1 => broadcast_left(op, l, &r[0]),
+        (Value::Array(l), Value::Array(r)) if l.len() == 1 => broadcast_right(op, &l[0], r),
+        (Value::Array(l), Value::Array(r)) => Err(EvalError::new(format!(
+            "Array length mismatch for '{op}': {} and {}",
+            l.len(),
+            r.len()
+        ))),
+        (Value::Array(l), scalar) => broadcast_left(op, l, scalar),
+        (scalar, Value::Array(r)) => broadcast_right(op, scalar, r),
+        _ => evaluate_scalar_binary_op(op, left, right),
+    }
+}
+
+/// Apply `op` between each element of `items` and a single right operand.
+fn broadcast_left(op: &str, items: &[Value], right: &Value) -> Result<Value, EvalError> {
+    items
+        .iter()
+        .map(|item| evaluate_binary_op(op, item, right))
+        .collect::<Result<_, _>>()
+        .map(Value::Array)
+}
+
+/// Apply `op` between a single left operand and each element of `items`.
+fn broadcast_right(op: &str, left: &Value, items: &[Value]) -> Result<Value, EvalError> {
+    items
+        .iter()
+        .map(|item| evaluate_binary_op(op, left, item))
+        .collect::<Result<_, _>>()
+        .map(Value::Array)
+}
+
+/// Evaluate a binary operation on two non-array values
 // Arithmetic + comparison + logical operators require many match arms.
 #[allow(clippy::too_many_lines)]
-fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, EvalError> {
+fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, EvalError> {
     match op {
         // Arithmetic operators
         "+" => {
@@ -517,6 +565,13 @@ pub(crate) fn values_equal(left: &Value, right: &Value) -> bool {
 
 /// Evaluate a unary operation
 fn evaluate_unary_op(op: &str, operand: &Value) -> Result<Value, EvalError> {
+    if let Value::Array(items) = operand {
+        return items
+            .iter()
+            .map(|item| evaluate_unary_op(op, item))
+            .collect::<Result<_, _>>()
+            .map(Value::Array);
+    }
     match op {
         "-" => {
             let n = operand
@@ -623,6 +678,25 @@ pub(crate) fn require_args_range(
     } else {
         Ok(())
     }
+}
+
+/// Evaluate a scalar argument as a number, using `default` for a non-numeric value.
+///
+/// # Errors
+///
+/// Returns an error if evaluation fails or the argument is an array of more
+/// than one value, which would otherwise be replaced by `default` unnoticed.
+pub(crate) fn number_or(arg: &Expr, ctx: &EvalContext, default: f64) -> Result<f64, EvalError> {
+    let value = evaluate(arg, ctx)?;
+    if let Value::Array(items) = &value {
+        if items.len() != 1 {
+            return Err(EvalError::new(format!(
+                "Expected a single value, got an array of {}",
+                items.len()
+            )));
+        }
+    }
+    Ok(value.as_number().unwrap_or(default))
 }
 
 /// Collect all numeric values from arguments (handles arrays)
@@ -972,13 +1046,112 @@ mod tests {
 
     #[test]
     fn test_value_array_as_number() {
-        // Array as_number returns length
+        // An array has no single number, so it must not become its length
         let arr = Value::Array(vec![
             Value::Number(1.0),
             Value::Number(2.0),
             Value::Number(3.0),
         ]);
-        assert_eq!(arr.as_number(), Some(3.0));
+        assert_eq!(arr.as_number(), None);
+        assert_eq!(
+            Value::Array(vec![Value::Number(7.0)]).as_number(),
+            Some(7.0)
+        );
+    }
+
+    fn array_ctx() -> EvalContext {
+        let mut ctx = EvalContext::new();
+        let mut table = HashMap::new();
+        let column = |values: &[f64]| values.iter().copied().map(Value::Number).collect();
+        table.insert("a".to_string(), column(&[1.0, 2.0, 3.0]));
+        table.insert("b".to_string(), column(&[10.0, 20.0, 30.0]));
+        table.insert("short".to_string(), column(&[1.0, 2.0]));
+        table.insert("one".to_string(), column(&[5.0]));
+        ctx.tables.insert("p".to_string(), table);
+        ctx
+    }
+
+    #[test]
+    fn test_array_arithmetic_inside_aggregates() {
+        let ctx = array_ctx();
+        for (formula, expected) in [
+            ("SUM(p.a * p.b)", 140.0),
+            ("SUM(p.a + 1)", 9.0),
+            ("SUM(1 + p.a)", 9.0),
+            ("SUM(-p.a)", -6.0),
+            ("SUM(p.b / p.a)", 30.0),
+            ("SUM(p.a ^ 2)", 14.0),
+            ("SUM(p.a * p.one)", 30.0),
+            ("AVERAGE(p.b / p.a)", 10.0),
+            ("MAX(p.a + p.b)", 33.0),
+            ("MIN(p.a * p.b)", 10.0),
+            ("SUM((p.a > 1) * p.b)", 50.0),
+        ] {
+            assert_eq!(
+                eval(formula, &ctx).unwrap(),
+                Value::Number(expected),
+                "{formula}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_array_arithmetic_length_mismatch_is_error() {
+        let err = eval("SUM(p.a * p.short)", &array_ctx()).unwrap_err();
+        assert!(err.message.contains("length mismatch"), "{}", err.message);
+    }
+
+    #[test]
+    fn test_array_division_by_zero_element_is_error() {
+        let err = eval("SUM(p.a / (p.a - 1))", &array_ctx()).unwrap_err();
+        assert!(err.message.contains("zero"), "{}", err.message);
+    }
+
+    #[test]
+    fn test_if_with_array_condition() {
+        let ctx = array_ctx();
+        assert_eq!(
+            eval("SUM(IF(p.a > 1, p.b, 0))", &ctx).unwrap(),
+            Value::Number(50.0)
+        );
+        assert_eq!(
+            eval("SUM(IF(p.a > 1, 1, p.b))", &ctx).unwrap(),
+            Value::Number(12.0)
+        );
+        // No else branch: false elements are skipped, not counted as zero
+        assert_eq!(
+            eval("AVERAGE(IF(p.a > 1, p.b))", &ctx).unwrap(),
+            Value::Number(25.0)
+        );
+    }
+
+    #[test]
+    fn test_logical_functions_with_arrays() {
+        let ctx = array_ctx();
+        assert_eq!(eval("AND(p.a > 0)", &ctx).unwrap(), Value::Boolean(true));
+        assert_eq!(eval("AND(p.a > 1)", &ctx).unwrap(), Value::Boolean(false));
+        assert_eq!(eval("OR(p.a > 2)", &ctx).unwrap(), Value::Boolean(true));
+        assert_eq!(eval("OR(p.a > 3)", &ctx).unwrap(), Value::Boolean(false));
+        assert_eq!(eval("XOR(p.a > 1)", &ctx).unwrap(), Value::Boolean(false));
+        assert_eq!(
+            eval("SUM(NOT(p.a > 1) * p.b)", &ctx).unwrap(),
+            Value::Number(10.0)
+        );
+    }
+
+    #[test]
+    fn test_array_in_scalar_argument_is_error() {
+        let ctx = array_ctx();
+        for formula in ["PMT(p.a, 10, 1000)", "ROUND(1.5, p.a)", "TEXT(p.a, \"0\")"] {
+            let err = eval(formula, &ctx).unwrap_err();
+            assert!(
+                err.message.contains("single value"),
+                "{formula}: {}",
+                err.message
+            );
+        }
+        let err = eval("IFS(p.a > 1, 1, TRUE(), 2)", &ctx).unwrap_err();
+        assert!(err.message.contains("single value"), "{}", err.message);
     }
 
     #[test]

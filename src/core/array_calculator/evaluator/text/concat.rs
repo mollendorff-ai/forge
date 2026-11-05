@@ -4,6 +4,7 @@
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 
 use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
+use crate::core::array_calculator::evaluator::number_or;
 
 /// CONCAT(text1, [text2], ...) - Joins multiple text values into one
 pub fn eval_concat(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -19,7 +20,7 @@ pub fn eval_concat(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
 pub fn eval_rept(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("REPT", args, 2)?;
     let text = evaluate(&args[0], ctx)?.as_text();
-    let times = evaluate(&args[1], ctx)?.as_number().unwrap_or(0.0) as usize;
+    let times = number_or(&args[1], ctx, 0.0)? as usize;
     Ok(Value::Text(text.repeat(times)))
 }
 

@@ -517,6 +517,15 @@ impl ArrayCalculator {
         let ctx = self.build_eval_context(&empty_table);
         let result =
             evaluator::evaluate(&ast, &ctx).map_err(|e| ForgeError::Eval(format!("Eval: {e}")))?;
+        if let evaluator::Value::Array(items) = &result {
+            if items.len() != 1 {
+                return Err(ForgeError::Eval(format!(
+                    "Scalar formula '{formula}' returns {} values. \
+                     Aggregate it with a function such as SUM or INDEX.",
+                    items.len()
+                )));
+            }
+        }
         result
             .as_number()
             .ok_or_else(|| ForgeError::Eval("Scalar result not a number".to_string()))

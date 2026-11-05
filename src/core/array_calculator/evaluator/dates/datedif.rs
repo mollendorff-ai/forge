@@ -3,6 +3,7 @@
 use super::{
     evaluate, parse_date_value, require_args, Datelike, EvalContext, EvalError, Expr, Value,
 };
+use crate::core::array_calculator::evaluator::number_or;
 
 use super::require_args_range;
 
@@ -131,7 +132,7 @@ pub fn try_evaluate(
             let start = evaluate(&args[0], ctx)?;
             let end = evaluate(&args[1], ctx)?;
             let basis = if args.len() > 2 {
-                evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0) as i32
+                number_or(&args[2], ctx, 0.0)? as i32
             } else {
                 0
             };

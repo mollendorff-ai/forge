@@ -3,6 +3,7 @@
 
 use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
+use crate::core::array_calculator::evaluator::number_or;
 
 /// Try to evaluate a financial function. Returns None if function not recognized.
 #[allow(
@@ -23,16 +24,16 @@ pub fn try_evaluate(
     let result = match name {
         "PMT" => {
             require_args_range(name, args, 3, 5)?;
-            let rate = evaluate(&args[0], ctx)?.as_number().unwrap_or(0.0);
-            let nper = evaluate(&args[1], ctx)?.as_number().unwrap_or(0.0);
-            let pv = evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0);
+            let rate = number_or(&args[0], ctx, 0.0)?;
+            let nper = number_or(&args[1], ctx, 0.0)?;
+            let pv = number_or(&args[2], ctx, 0.0)?;
             let fv = if args.len() > 3 {
-                evaluate(&args[3], ctx)?.as_number().unwrap_or(0.0)
+                number_or(&args[3], ctx, 0.0)?
             } else {
                 0.0
             };
             let pmt_type = if args.len() > 4 {
-                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0) as i32
+                number_or(&args[4], ctx, 0.0)? as i32
             } else {
                 0
             };
@@ -54,11 +55,11 @@ pub fn try_evaluate(
 
         "FV" => {
             require_args_range(name, args, 3, 5)?;
-            let rate = evaluate(&args[0], ctx)?.as_number().unwrap_or(0.0);
-            let nper = evaluate(&args[1], ctx)?.as_number().unwrap_or(0.0);
-            let pmt = evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0);
+            let rate = number_or(&args[0], ctx, 0.0)?;
+            let nper = number_or(&args[1], ctx, 0.0)?;
+            let pmt = number_or(&args[2], ctx, 0.0)?;
             let pv = if args.len() > 3 {
-                evaluate(&args[3], ctx)?.as_number().unwrap_or(0.0)
+                number_or(&args[3], ctx, 0.0)?
             } else {
                 0.0
             };
@@ -76,11 +77,11 @@ pub fn try_evaluate(
 
         "PV" => {
             require_args_range(name, args, 3, 5)?;
-            let rate = evaluate(&args[0], ctx)?.as_number().unwrap_or(0.0);
-            let nper = evaluate(&args[1], ctx)?.as_number().unwrap_or(0.0);
-            let pmt = evaluate(&args[2], ctx)?.as_number().unwrap_or(0.0);
+            let rate = number_or(&args[0], ctx, 0.0)?;
+            let nper = number_or(&args[1], ctx, 0.0)?;
+            let pmt = number_or(&args[2], ctx, 0.0)?;
             let fv = if args.len() > 3 {
-                evaluate(&args[3], ctx)?.as_number().unwrap_or(0.0)
+                number_or(&args[3], ctx, 0.0)?
             } else {
                 0.0
             };
@@ -233,7 +234,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("NPER requires present value"))?;
             let fv = if args.len() > 3 {
-                evaluate(&args[3], ctx)?.as_number().unwrap_or(0.0)
+                number_or(&args[3], ctx, 0.0)?
             } else {
                 0.0
             };
@@ -258,12 +259,12 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("RATE requires present value"))?;
             let fv = if args.len() > 3 {
-                evaluate(&args[3], ctx)?.as_number().unwrap_or(0.0)
+                number_or(&args[3], ctx, 0.0)?
             } else {
                 0.0
             };
             let guess = if args.len() > 5 {
-                evaluate(&args[5], ctx)?.as_number().unwrap_or(0.1)
+                number_or(&args[5], ctx, 0.1)?
             } else {
                 0.1
             };
@@ -327,7 +328,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("DB requires period"))?;
             let month = if args.len() > 4 {
-                evaluate(&args[4], ctx)?.as_number().unwrap_or(12.0)
+                number_or(&args[4], ctx, 12.0)?
             } else {
                 12.0
             };
@@ -371,7 +372,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("DDB requires period"))?;
             let factor = if args.len() > 4 {
-                evaluate(&args[4], ctx)?.as_number().unwrap_or(2.0)
+                number_or(&args[4], ctx, 2.0)?
             } else {
                 2.0
             };
@@ -451,12 +452,12 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("PPMT requires present value"))?;
             let fv = if args.len() > 4 {
-                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0)
+                number_or(&args[4], ctx, 0.0)?
             } else {
                 0.0
             };
             let pmt_type = if args.len() > 5 {
-                evaluate(&args[5], ctx)?.as_number().unwrap_or(0.0) as i32
+                number_or(&args[5], ctx, 0.0)? as i32
             } else {
                 0
             };
@@ -513,12 +514,12 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("IPMT requires present value"))?;
             let fv = if args.len() > 4 {
-                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0)
+                number_or(&args[4], ctx, 0.0)?
             } else {
                 0.0
             };
             let pmt_type = if args.len() > 5 {
-                evaluate(&args[5], ctx)?.as_number().unwrap_or(0.0) as i32
+                number_or(&args[5], ctx, 0.0)? as i32
             } else {
                 0
             };
@@ -613,7 +614,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("PRICEDISC requires redemption value"))?;
             let _basis = if args.len() > 4 {
-                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0)
+                number_or(&args[4], ctx, 0.0)?
             } else {
                 0.0
             };
@@ -648,7 +649,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("YIELDDISC requires redemption value"))?;
             let _basis = if args.len() > 4 {
-                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0)
+                number_or(&args[4], ctx, 0.0)?
             } else {
                 0.0
             };
@@ -692,7 +693,7 @@ pub fn try_evaluate(
                 .as_number()
                 .ok_or_else(|| EvalError::new("ACCRINT requires frequency"))?;
             let _basis = if args.len() > 6 {
-                evaluate(&args[6], ctx)?.as_number().unwrap_or(0.0)
+                number_or(&args[6], ctx, 0.0)?
             } else {
                 0.0
             };
