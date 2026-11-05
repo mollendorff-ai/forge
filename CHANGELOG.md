@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Weekly CI** (`.github/workflows/weekly.yml`): `cargo audit` every Monday and on `Cargo.lock` changes, and tests plus strict clippy on the latest stable Rust every Monday.
 
 ### Fixed
+- **`forge examples <name> --run`** looked for a program called `forge` on the PATH and failed with "No such file or directory" when Forge was run from a build folder or by full path. It now runs the same binary.
 - **Arithmetic overflow** returned infinity (`2^1024`, `1E308*10`, `EXP(1000)`, `SUM(1E308, 1E308)` gave `inf`). Like Excel, it is now a `#NUM!` error, for operators and function results alike.
 - **`forge calculate` on a Monte Carlo model** failed with `Unknown column: assumptions.revenue_growth` (on `examples/monte-carlo.yaml`), because it cannot evaluate `MC.*` distributions. It now says which scalars use them and to run `forge simulate`.
 - **Error messages** were printed in Rust debug form (`Error: Validation("...")`). They are now plain text (`Error: Validation error: ...`); the exit code is still 1.
