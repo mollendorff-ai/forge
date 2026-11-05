@@ -22,6 +22,9 @@ use crate::types::{AnalyticsTestSpec, TestResult};
 pub struct Env<'a> {
     pub forge: &'a Path,
     pub r: &'a RConfig,
+    /// Compare Forge with the spec's `r_expected` values and do not run R.
+    /// Only the decision tree runner uses this, for machines without data.tree.
+    pub expected_only: bool,
 }
 
 /// Runs the runner for the spec's validator, or `None` when the spec belongs
@@ -32,6 +35,7 @@ pub fn run(spec: &AnalyticsTestSpec, env: &Env) -> Option<TestResult> {
         Some("bootstrap_validator.R") => Some(bootstrap(spec, env)),
         Some("tornado_validator.R") => Some(tornado(spec, env)),
         Some("sensitivity_validator.R") => Some(sensitivity(spec, env)),
+        Some("decision_tree_validator.R") => Some(decision_tree(spec, env)),
         _ => None,
     }
 }
@@ -713,4 +717,151 @@ fn sensitivity(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
         &problems,
         "Forge sensitivity table matches the R reference",
     )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Decision trees
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Lower-case identifier made from a node name, for use as a Forge branch key.
+fn slug(name: &str) -> String {
+    let mut out = String::new();
+    for c in name.chars() {
+        if c.is_ascii_alphanumeric() {
+            out.push(c.to_ascii_lowercase());
+        } else if !out.ends_with('_') {
+            out.push('_');
+        }
+    }
+    out.trim_matches('_').to_string()
+}
+
+/// Writes the branches of `node` and appends any child nodes to `nodes`.
+fn tree_branches(
+    node: &serde_yaml_ng::Value,
+    chance: bool,
+    indent: &str,
+    nodes: &mut String,
+    path: &str,
+) -> Result<String, String> {
+    let children = node
+        .get("children")
+        .and_then(|c| c.as_sequence())
+        .ok_or("node has no children")?;
+    let mut out = String::new();
+    for child in children {
+        let name = child
+            .get("name")
+            .and_then(|n| n.as_str())
+            .ok_or("child has no name")?;
+        let key = slug(name);
+        out.push_str(&format!("{indent}{key}:\n"));
+        if chance {
+            let p = child
+                .get("probability")
+                .and_then(yaml_f64)
+                .ok_or("chance child needs probability")?;
+            out.push_str(&format!("{indent}  probability: {p}\n"));
+        }
+        if let Some(cost) = child.get("cost").and_then(yaml_f64) {
+            out.push_str(&format!("{indent}  cost: {cost}\n"));
+        }
+        let kind = child
+            .get("type")
+            .and_then(|t| t.as_str())
+            .unwrap_or("terminal");
+        if kind == "terminal" {
+            let payoff = child.get("payoff").and_then(yaml_f64).unwrap_or(0.0);
+            out.push_str(&format!("{indent}  value: {payoff}\n"));
+        } else {
+            let id = format!("{path}_{key}");
+            out.push_str(&format!("{indent}  next: {id}\n"));
+            let inner = tree_branches(child, kind == "chance", "        ", nodes, &id)?;
+            nodes.push_str(&format!(
+                "    {id}:\n      type: {kind}\n      name: \"{}\"\n      branches:\n{inner}",
+                name.replace('"', "'")
+            ));
+        }
+    }
+    Ok(out)
+}
+
+fn decision_tree(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
+    let Some(tree) = spec.raw.get("tree") else {
+        return error(spec, "Spec has no 'tree'".to_string());
+    };
+    let name = tree.get("name").and_then(|n| n.as_str()).unwrap_or("Tree");
+    let root_kind = tree
+        .get("type")
+        .and_then(|t| t.as_str())
+        .unwrap_or("decision");
+    let mut nodes = String::new();
+    let branches = match tree_branches(tree, root_kind == "chance", "        ", &mut nodes, "n") {
+        Ok(b) => b,
+        Err(e) => return error(spec, e),
+    };
+    let model = format!(
+        "_forge_version: \"5.0.0\"\n\ndecision_tree:\n  name: \"{n}\"\n  root:\n    type: {root_kind}\n    name: \"{n}\"\n    branches:\n{branches}  nodes:\n{nodes}",
+        n = name.replace('"', "'")
+    );
+    let forge = match forge_json(env, "decision-tree", &model) {
+        Ok(j) => j,
+        Err(e) => return error(spec, format!("{e}\nmodel:\n{model}")),
+    };
+
+    // Reference values: from R, or from the spec when --expected-only is set.
+    let (ref_emv, ref_choice, source) = if env.expected_only {
+        let e = spec.raw.get("r_expected");
+        (
+            e.and_then(|e| e.get("root_emv")).and_then(yaml_f64),
+            e.and_then(|e| e.get("optimal_decision"))
+                .and_then(|d| d.as_str())
+                .map(String::from),
+            "spec's expected values, R not run",
+        )
+    } else {
+        let r = match r_results(
+            env,
+            "decision_tree_validator.R",
+            &json!({ "tree": to_json(tree) }),
+        ) {
+            Ok(r) => r,
+            Err(e) => return error(spec, e),
+        };
+        (
+            json_f64(&r, "root_emv"),
+            r.get("optimal_decision")
+                .and_then(Json::as_str)
+                .map(String::from),
+            "R",
+        )
+    };
+
+    let mut problems = Vec::new();
+    match (json_f64(&forge, "root_expected_value"), ref_emv) {
+        (Some(f), Some(r)) => check(
+            &mut problems,
+            "root EMV",
+            f,
+            r,
+            tolerance(spec, "emv", 0.001),
+        ),
+        _ => problems.push("root EMV missing".to_string()),
+    }
+    if root_kind == "decision" {
+        if let Some(choice) = ref_choice {
+            let forge_choice = forge
+                .get("node_results")
+                .and_then(|n| n.get("root"))
+                .and_then(|r| r.get("optimal_choice"))
+                .and_then(Json::as_str)
+                .unwrap_or("");
+            if forge_choice != slug(&choice) {
+                problems.push(format!(
+                    "optimal decision: forge={forge_choice}, reference={choice}"
+                ));
+            }
+        }
+    }
+    verdict(spec, &problems, &format!("Forge matches the {source}"))
 }
