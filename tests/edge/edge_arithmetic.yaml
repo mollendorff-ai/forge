@@ -36,6 +36,7 @@ assumptions:
     value: 1.0
     formula: =0^0
     expected: 1
+    gnumeric_skip: "Excel and Gnumeric return #NUM! for 0^0; Forge returns 1"
   test_power_fractional:
     value: 1.41421
     formula: =ROUND(POWER(2, 0.5), 5)

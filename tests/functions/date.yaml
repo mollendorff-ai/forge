@@ -133,36 +133,43 @@ assumptions:
     value: null
     formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 12, 31), \"D\")"
     expected: 365
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_datedif_months:
     value: null
     formula: "=DATEDIF(DATE(2024, 1, 15), DATE(2024, 6, 15), \"M\")"
     expected: 5
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_datedif_years:
     value: null
     formula: "=DATEDIF(DATE(2020, 1, 1), DATE(2024, 1, 1), \"Y\")"
     expected: 4
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_datedif_md:
     value: null
     formula: "=DATEDIF(DATE(2024, 1, 10), DATE(2024, 3, 25), \"MD\")"
     expected: 15
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_datedif_ym:
     value: null
     formula: "=DATEDIF(DATE(2024, 3, 1), DATE(2024, 8, 1), \"YM\")"
     expected: 5
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_datedif_yd:
     value: null
     formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 3, 1), \"YD\")"
     expected: 60
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_datedif_leap_year:
     value: null
     formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2025, 1, 1), \"D\")"
     expected: 366
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   # ══════════════════════════════════════════════════════════════════════════
   # NOW - Current date and time
@@ -488,21 +495,25 @@ assumptions:
     value: null
     formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2025, 1, 1), \"Y\")"
     expected: 1
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_years_four_years:
     value: null
     formula: "=DATEDIF(DATE(2020, 6, 15), DATE(2024, 6, 15), \"Y\")"
     expected: 4
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_years_partial_year:
     value: null
     formula: "=DATEDIF(DATE(2024, 6, 1), DATE(2024, 12, 31), \"Y\")"
     expected: 0
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_years_zero:
     value: null
     formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 6, 1), \"Y\")"
     expected: 0
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   # ══════════════════════════════════════════════════════════════════════════
   # Months between dates (using DATEDIF)
@@ -511,21 +522,25 @@ assumptions:
     value: null
     formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 7, 1), \"M\")"
     expected: 6
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_months_twelve_months:
     value: null
     formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2025, 1, 1), \"M\")"
     expected: 12
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_months_one_month:
     value: null
     formula: "=DATEDIF(DATE(2024, 6, 15), DATE(2024, 7, 15), \"M\")"
     expected: 1
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_months_partial_month:
     value: null
     formula: "=DATEDIF(DATE(2024, 1, 15), DATE(2024, 1, 30), \"M\")"
     expected: 0
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   # ══════════════════════════════════════════════════════════════════════════
   # Days between dates (using DAYS function)

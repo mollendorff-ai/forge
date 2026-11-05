@@ -40,6 +40,9 @@ pub struct Scalar {
     pub expected: Option<f64>,
     /// Skip reason (if set, test is skipped).
     pub skip: Option<String>,
+    /// Reason Gnumeric cannot judge this case (if set, only Forge's own
+    /// `calculate` result is checked).
+    pub gnumeric_skip: Option<String>,
 }
 
 /// A table column (array of values or formula).
@@ -67,6 +70,8 @@ pub struct TestCase {
     pub source_file: Option<std::path::PathBuf>,
     /// Forge version from source file.
     pub forge_version: String,
+    /// Why Gnumeric is not consulted for this case, if it is not.
+    pub gnumeric_skip: Option<String>,
 }
 
 /// A test case that should be skipped.
@@ -148,6 +153,7 @@ pub fn extract_test_cases(spec: &TestSpec, source_file: Option<&std::path::Path>
                         expected,
                         source_file: source_file.map(std::path::Path::to_path_buf),
                         forge_version: spec.forge_version.clone(),
+                        gnumeric_skip: scalar.gnumeric_skip.clone(),
                     });
                 }
             }
@@ -168,10 +174,7 @@ pub fn extract_table_data_yaml(spec: &TestSpec) -> String {
 
     for (section_name, section) in &spec.sections {
         // Skip metadata sections and assumptions (which contain tests)
-        if section_name.starts_with('_')
-            || section_name == "scenarios"
-            || section_name == "assumptions"
-        {
+        if section_name.starts_with('_') || section_name == "assumptions" {
             continue;
         }
 
@@ -283,7 +286,7 @@ assumptions:
         }
 
         let table_yaml = extract_table_data_yaml(&spec);
-        println!("Extracted table YAML:\n{}", table_yaml);
+        println!("Extracted table YAML:\n{table_yaml}");
         assert!(
             table_yaml.contains("agg_data") || table_yaml.is_empty(),
             "Should extract agg_data table or be empty if not parsed as Table"

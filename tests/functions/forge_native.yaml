@@ -124,16 +124,19 @@ assumptions:
     value: null
     formula: "=DATEDIF(DATE(2024,1,1), DATE(2024,6,15), \"YD\")"
     expected: 166  # Jan 1 to Jun 15: 30+29+31+30+31+15 = 166 days
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_yd_cross_year:
     value: null
     formula: "=DATEDIF(DATE(2024,10,1), DATE(2025,3,15), \"YD\")"
     expected: 165
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_yd_full_year:
     value: null
     formula: "=DATEDIF(DATE(2024,3,1), DATE(2025,3,1), \"YD\")"
     expected: 0
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   # YM: Years and Months - Months between dates ignoring years
   # Implementation note: Test via DATEDIF with "YM" unit
@@ -141,16 +144,19 @@ assumptions:
     value: null
     formula: "=DATEDIF(DATE(2024,1,15), DATE(2024,6,15), \"YM\")"
     expected: 5
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_ym_cross_year:
     value: null
     formula: "=DATEDIF(DATE(2024,10,15), DATE(2025,3,15), \"YM\")"
     expected: 5
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_ym_same_month:
     value: null
     formula: "=DATEDIF(DATE(2024,1,1), DATE(2024,1,31), \"YM\")"
     expected: 0
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   # MD: Months and Days - Days between dates ignoring months and years
   # Implementation note: Test via DATEDIF with "MD" unit
@@ -158,13 +164,16 @@ assumptions:
     value: null
     formula: "=DATEDIF(DATE(2024,1,10), DATE(2024,1,25), \"MD\")"
     expected: 15
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_md_cross_month:
     value: null
     formula: "=DATEDIF(DATE(2024,1,25), DATE(2024,2,10), \"MD\")"
     expected: 16
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
 
   test_md_same_day:
     value: null
     formula: "=DATEDIF(DATE(2024,1,15), DATE(2024,6,15), \"MD\")"
     expected: 0
+    gnumeric_skip: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"

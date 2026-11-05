@@ -217,7 +217,7 @@ assumptions:
   emc_mod_negative_dividend:
     value: null
     formula: "=MOD(-10, 3)"       # Expected: -1 (implementation may vary)
-    expected: -1
+    expected: 2
 
   # ═══════════════════════════════════════════════════════════════════════════
   # PI - Pi constant

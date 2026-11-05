@@ -269,16 +269,19 @@ assumptions:
     value: null
     formula: "=IF(ISFORMULA(42), 1, 0)"
     expected: 0
+    gnumeric_skip: "ISFORMULA needs a cell reference; Gnumeric returns #VALUE! for a literal"
 
   test_isformula_text:
     value: null
     formula: "=IF(ISFORMULA(\"test\"), 1, 0)"
     expected: 0
+    gnumeric_skip: "ISFORMULA needs a cell reference; Gnumeric returns #VALUE! for a literal"
 
   test_isformula_calculation:
     value: null
     formula: "=IF(ISFORMULA(5+5), 1, 0)"
     expected: 0
+    gnumeric_skip: "ISFORMULA needs a cell reference; Gnumeric returns #VALUE! for a literal"
 
   # ═══════════════════════════════════════════════════════════════════════════
   # NA - Return #N/A error value

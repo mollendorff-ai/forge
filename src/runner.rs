@@ -180,9 +180,12 @@ impl TestRunner {
         results
     }
 
-    /// Runs all tests in batch mode (single XLSX, faster).
+    /// Runs all tests in batch mode (one workbook per source file, faster).
+    ///
+    /// Cases are grouped by the file they came from so that each batch
+    /// carries that file's table data. Every case is checked twice: Forge's
+    /// own `calculate` result and Gnumeric's recalculation of Forge's export.
     #[must_use]
-    #[allow(clippy::too_many_lines)]
     pub fn run_batch(&self) -> Vec<TestResult> {
         let mut results: Vec<TestResult> = self
             .skip_cases
@@ -193,13 +196,36 @@ impl TestRunner {
             })
             .collect();
 
-        if self.test_cases.is_empty() {
-            return results;
+        let mut groups: Vec<(Option<PathBuf>, Vec<&TestCase>)> = Vec::new();
+        for tc in &self.test_cases {
+            match groups.iter_mut().find(|(src, _)| *src == tc.source_file) {
+                Some((_, cases)) => cases.push(tc),
+                None => groups.push((tc.source_file.clone(), vec![tc])),
+            }
         }
 
-        // Create a single YAML with all test formulas
-        let mut yaml_content = String::from("_forge_version: \"1.0.0\"\nassumptions:\n");
-        for (i, tc) in self.test_cases.iter().enumerate() {
+        for (source, cases) in &groups {
+            results.extend(self.run_group(source.as_deref(), cases));
+        }
+
+        results
+    }
+
+    /// Runs one group of cases that share a source file in a single workbook.
+    fn run_group(&self, source: Option<&Path>, cases: &[&TestCase]) -> Vec<TestResult> {
+        let fail_all = |error: String| -> Vec<TestResult> {
+            cases
+                .iter()
+                .map(|tc| fail(tc, None, Some(error.clone())))
+                .collect()
+        };
+
+        let forge_version = cases.first().map_or("1.0.0", |tc| tc.forge_version.as_str());
+        let mut yaml_content = format!(
+            "_forge_version: \"{forge_version}\"\n{}assumptions:\n",
+            table_data_for(source)
+        );
+        for (i, tc) in cases.iter().enumerate() {
             let escaped_formula = tc.formula.replace('"', "\\\"");
             let _ = write!(
                 yaml_content,
@@ -209,168 +235,136 @@ impl TestRunner {
 
         let temp_dir = match tempfile::tempdir() {
             Ok(d) => d,
-            Err(e) => {
-                for tc in &self.test_cases {
-                    results.push(TestResult::Fail {
-                        name: tc.name.clone(),
-                        formula: tc.formula.clone(),
-                        expected: tc.expected,
-                        actual: None,
-                        error: Some(format!("Failed to create temp dir: {e}")),
-                    });
-                }
-                return results;
-            }
+            Err(e) => return fail_all(format!("Failed to create temp dir: {e}")),
         };
-
         let yaml_path = temp_dir.path().join("batch.yaml");
         let xlsx_path = temp_dir.path().join("batch.xlsx");
-
         if let Err(e) = fs::write(&yaml_path, &yaml_content) {
-            for tc in &self.test_cases {
-                results.push(TestResult::Fail {
-                    name: tc.name.clone(),
-                    formula: tc.formula.clone(),
-                    expected: tc.expected,
-                    actual: None,
-                    error: Some(format!("Failed to write YAML: {e}")),
-                });
-            }
-            return results;
+            return fail_all(format!("Failed to write YAML: {e}"));
         }
 
-        // Run forge export once
-        let output = match Command::new(&self.forge_binary)
-            .arg("export")
-            .arg(&yaml_path)
-            .arg(&xlsx_path)
-            .output()
+        let forge_values = match self.forge_calculate(&yaml_path, "test_", cases.len()) {
+            Ok(v) => v,
+            Err(e) => vec![Err(e); cases.len()],
+        };
+
+        let gnumeric_values = match self.forge_export_and_recalc(&yaml_path, &xlsx_path, temp_dir.path())
         {
-            Ok(o) => o,
-            Err(e) => {
-                for tc in &self.test_cases {
-                    results.push(TestResult::Fail {
-                        name: tc.name.clone(),
-                        formula: tc.formula.clone(),
-                        expected: tc.expected,
-                        actual: None,
-                        error: Some(format!("Failed to run forge: {e}")),
-                    });
-                }
-                return results;
-            }
+            Ok(csv_files) => Self::parse_batch_csv(&csv_files, cases.len()),
+            Err(e) => vec![Err(e); cases.len()],
         };
 
-        if !output.status.success() {
-            let err = String::from_utf8_lossy(&output.stderr);
-            for tc in &self.test_cases {
-                results.push(TestResult::Fail {
-                    name: tc.name.clone(),
-                    formula: tc.formula.clone(),
-                    expected: tc.expected,
-                    actual: None,
-                    error: Some(format!("forge export failed: {err}")),
-                });
-            }
-            return results;
-        }
-
-        // Convert XLSX to CSV using Gnumeric
-        let csv_path = match self.engine.xlsx_to_csv(&xlsx_path, temp_dir.path()) {
-            Ok(p) => p,
-            Err(e) => {
-                for tc in &self.test_cases {
-                    results.push(TestResult::Fail {
-                        name: tc.name.clone(),
-                        formula: tc.formula.clone(),
-                        expected: tc.expected,
-                        actual: None,
-                        error: Some(format!("CSV conversion failed: {e}")),
-                    });
-                }
-                return results;
-            }
-        };
-
-        // Parse CSV and match results
-        let csv_results = Self::parse_batch_csv(&csv_path, self.test_cases.len());
-        for (i, tc) in self.test_cases.iter().enumerate() {
-            match csv_results.get(i) {
-                Some(Ok(actual)) => {
-                    if (*actual - tc.expected).abs() < f64::EPSILON {
-                        results.push(TestResult::Pass {
-                            name: tc.name.clone(),
-                            formula: tc.formula.clone(),
-                            expected: tc.expected,
-                            actual: *actual,
-                        });
-                    } else {
-                        results.push(TestResult::Fail {
-                            name: tc.name.clone(),
-                            formula: tc.formula.clone(),
-                            expected: tc.expected,
-                            actual: Some(*actual),
-                            error: None,
-                        });
-                    }
-                }
-                Some(Err(e)) => {
-                    results.push(TestResult::Fail {
-                        name: tc.name.clone(),
-                        formula: tc.formula.clone(),
-                        expected: tc.expected,
-                        actual: None,
-                        error: Some(e.clone()),
-                    });
-                }
-                None => {
-                    results.push(TestResult::Fail {
-                        name: tc.name.clone(),
-                        formula: tc.formula.clone(),
-                        expected: tc.expected,
-                        actual: None,
-                        error: Some("Missing result in CSV".to_string()),
-                    });
-                }
-            }
-        }
-
-        results
+        cases
+            .iter()
+            .enumerate()
+            .map(|(i, tc)| judge(tc, &forge_values[i], &gnumeric_values[i]))
+            .collect()
     }
 
-    fn parse_batch_csv(csv_path: &Path, count: usize) -> Vec<Result<f64, String>> {
+    /// Runs `forge calculate` on a copy of the spec and reads back the values
+    /// of `{prefix}{i}` (or `test_result` when `count` is 0) from the
+    /// `assumptions` group. This is Forge's own answer, with no Excel involved.
+    fn forge_calculate(
+        &self,
+        yaml_path: &Path,
+        prefix: &str,
+        count: usize,
+    ) -> Result<Vec<Result<f64, String>>, String> {
+        let output = Command::new(&self.forge_binary)
+            .arg("calculate")
+            .arg(yaml_path)
+            .output()
+            .map_err(|e| format!("Failed to run forge calculate: {e}"))?;
+        if !output.status.success() {
+            return Err(format!(
+                "forge calculate failed: {}{}",
+                String::from_utf8_lossy(&output.stderr).trim(),
+                String::from_utf8_lossy(&output.stdout)
+                    .lines()
+                    .filter(|l| l.contains("Error"))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ));
+        }
+
+        let content = fs::read_to_string(yaml_path)
+            .map_err(|e| format!("Failed to read calculated YAML: {e}"))?;
+        let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
+            .map_err(|e| format!("Failed to parse calculated YAML: {e}"))?;
+        let group = doc
+            .get("assumptions")
+            .ok_or("forge calculate output has no assumptions group")?;
+
+        let read = |key: &str| -> Result<f64, String> {
+            group
+                .get(key)
+                .and_then(|entry| entry.get("value"))
+                .and_then(serde_yaml_ng::Value::as_f64)
+                .ok_or_else(|| format!("forge calculate gave no numeric value for {key}"))
+        };
+
+        if count == 0 {
+            Ok(vec![read("test_result")])
+        } else {
+            Ok((0..count).map(|i| read(&format!("{prefix}{i}"))).collect())
+        }
+    }
+
+    /// Runs `forge export`, then has Gnumeric recalculate the workbook.
+    fn forge_export_and_recalc(
+        &self,
+        yaml_path: &Path,
+        xlsx_path: &Path,
+        out_dir: &Path,
+    ) -> Result<Vec<PathBuf>, String> {
+        let output = Command::new(&self.forge_binary)
+            .arg("export")
+            .arg(yaml_path)
+            .arg(xlsx_path)
+            .output()
+            .map_err(|e| format!("Failed to run forge: {e}"))?;
+        if !output.status.success() {
+            return Err(format!(
+                "forge export failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+        self.engine
+            .xlsx_to_csv_all_sheets(xlsx_path, out_dir)
+            .map_err(|e| format!("CSV conversion failed: {e}"))
+    }
+
+    /// Reads `test_<i>` rows out of the CSV sheets Gnumeric produced.
+    fn parse_batch_csv(csv_files: &[PathBuf], count: usize) -> Vec<Result<f64, String>> {
         let mut results: Vec<Result<f64, String>> =
             vec![Err("Missing result in CSV output".to_string()); count];
 
-        let file = match fs::File::open(csv_path) {
-            Ok(f) => f,
-            Err(e) => {
-                for r in &mut results {
-                    *r = Err(format!("Failed to open CSV: {e}"));
+        for csv_path in csv_files {
+            let Ok(file) = fs::File::open(csv_path) else {
+                continue;
+            };
+            for line in BufReader::new(file).lines() {
+                let Ok(line) = line else { continue };
+                let cells: Vec<&str> = line
+                    .split(',')
+                    .map(|s| s.trim_matches('"').trim())
+                    .collect();
+                if cells.len() < 2 {
+                    continue;
                 }
-                return results;
-            }
-        };
-
-        let reader = BufReader::new(file);
-        for line in reader.lines() {
-            let Ok(line) = line else { continue };
-            let cells: Vec<&str> = line
-                .split(',')
-                .map(|s| s.trim_matches('"').trim())
-                .collect();
-
-            if cells.len() >= 2 {
                 let label = cells[0];
-                if let Some(idx_str) = label
+                let Some(idx) = label
                     .strip_prefix("assumptions.test_")
                     .or_else(|| label.strip_prefix("test_"))
-                {
-                    if let Ok(idx) = idx_str.parse::<usize>() {
-                        if idx < count {
-                            if let Ok(value) = cells[1].replace(',', "").parse::<f64>() {
-                                results[idx] = Ok(value);
-                            }
+                    .and_then(|i| i.parse::<usize>().ok())
+                else {
+                    continue;
+                };
+                if idx < count {
+                    match cells[1].parse::<f64>() {
+                        Ok(value) => results[idx] = Ok(value),
+                        Err(_) => {
+                            results[idx] = Err(format!("Gnumeric cell is not a number: {}", cells[1]));
                         }
                     }
                 }
@@ -381,26 +375,13 @@ impl TestRunner {
     }
 
     /// Runs a single test case.
+    ///
+    /// The case passes only when both Forge's own `calculate` result and
+    /// Gnumeric's recalculation of Forge's exported workbook equal the
+    /// expected value.
     #[must_use]
-    #[allow(clippy::too_many_lines)]
     pub fn run_test(&self, test_case: &TestCase) -> TestResult {
         let escaped_formula = test_case.formula.replace('"', "\\\"");
-
-        // Load table data from source file if available
-        let table_data = if let Some(ref source_path) = test_case.source_file {
-            if let Ok(content) = fs::read_to_string(source_path) {
-                if let Ok(spec) = serde_yaml_ng::from_str::<TestSpec>(&content) {
-                    extract_table_data_yaml(&spec)
-                } else {
-                    String::new()
-                }
-            } else {
-                String::new()
-            }
-        } else {
-            String::new()
-        };
-
         let forge_version = &test_case.forge_version;
         let yaml_content = format!(
             r#"_forge_version: "{forge_version}"
@@ -408,142 +389,120 @@ impl TestRunner {
   test_result:
     value: null
     formula: "{escaped_formula}"
-"#
+"#,
+            table_data = table_data_for(test_case.source_file.as_deref()),
         );
 
         let temp_dir = match tempfile::tempdir() {
             Ok(d) => d,
-            Err(e) => {
-                return TestResult::Fail {
-                    name: test_case.name.clone(),
-                    formula: test_case.formula.clone(),
-                    expected: test_case.expected,
-                    actual: None,
-                    error: Some(format!("Failed to create temp dir: {e}")),
-                };
-            }
+            Err(e) => return fail(test_case, None, Some(format!("Failed to create temp dir: {e}"))),
         };
-
         let yaml_path = temp_dir.path().join("test.yaml");
         let xlsx_path = temp_dir.path().join("test.xlsx");
 
         if let Err(e) = fs::write(&yaml_path, &yaml_content) {
-            return TestResult::Fail {
-                name: test_case.name.clone(),
-                formula: test_case.formula.clone(),
-                expected: test_case.expected,
-                actual: None,
-                error: Some(format!("Failed to write YAML: {e}")),
-            };
+            return fail(test_case, None, Some(format!("Failed to write YAML: {e}")));
         }
 
-        // Run forge export
-        let output = match Command::new(&self.forge_binary)
-            .arg("export")
-            .arg(&yaml_path)
-            .arg(&xlsx_path)
-            .output()
-        {
-            Ok(o) => o,
-            Err(e) => {
-                return TestResult::Fail {
-                    name: test_case.name.clone(),
-                    formula: test_case.formula.clone(),
-                    expected: test_case.expected,
-                    actual: None,
-                    error: Some(format!("Failed to run forge: {e}")),
-                };
-            }
-        };
+        // Forge's own answer first: `export` does not run Forge's evaluator
+        // on the formula, `calculate` does.
+        let forge_value = self
+            .forge_calculate(&yaml_path, "", 0)
+            .and_then(|mut v| v.remove(0));
 
-        if !output.status.success() {
-            return TestResult::Fail {
-                name: test_case.name.clone(),
-                formula: test_case.formula.clone(),
-                expected: test_case.expected,
-                actual: None,
-                error: Some(format!(
-                    "forge export failed: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                )),
-            };
-        }
+        let gnumeric_value = self
+            .forge_export_and_recalc(&yaml_path, &xlsx_path, temp_dir.path())
+            .and_then(|files| Self::find_result_in_csvs(&files));
 
-        // Convert XLSX to CSV using Gnumeric (all sheets)
-        let csv_files = match self
-            .engine
-            .xlsx_to_csv_all_sheets(&xlsx_path, temp_dir.path())
-        {
-            Ok(files) => files,
-            Err(e) => {
-                return TestResult::Fail {
-                    name: test_case.name.clone(),
-                    formula: test_case.formula.clone(),
-                    expected: test_case.expected,
-                    actual: None,
-                    error: Some(format!("CSV conversion failed: {e}")),
-                };
-            }
-        };
-
-        // Search all sheets for the result
-        for csv_path in &csv_files {
-            if let Ok(actual) = Self::find_result_in_csv(csv_path, test_case.expected) {
-                if (actual - test_case.expected).abs() < f64::EPSILON {
-                    return TestResult::Pass {
-                        name: test_case.name.clone(),
-                        formula: test_case.formula.clone(),
-                        expected: test_case.expected,
-                        actual,
-                    };
-                }
-                return TestResult::Fail {
-                    name: test_case.name.clone(),
-                    formula: test_case.formula.clone(),
-                    expected: test_case.expected,
-                    actual: Some(actual),
-                    error: None,
-                };
-            }
-        }
-
-        TestResult::Fail {
-            name: test_case.name.clone(),
-            formula: test_case.formula.clone(),
-            expected: test_case.expected,
-            actual: None,
-            error: Some("Could not find result in any CSV sheet".to_string()),
-        }
+        judge(test_case, &forge_value, &gnumeric_value)
     }
 
-    fn find_result_in_csv(csv_path: &Path, expected: f64) -> Result<f64, String> {
-        let file = fs::File::open(csv_path).map_err(|e| format!("Failed to open CSV: {e}"))?;
-        let reader = BufReader::new(file);
-
-        for line in reader.lines() {
-            let line = line.map_err(|e| format!("Failed to read line: {e}"))?;
-            let cells: Vec<&str> = line
-                .split(',')
-                .map(|s| s.trim_matches('"').trim())
-                .collect();
-
-            for (i, cell) in cells.iter().enumerate() {
-                if (*cell == "result" || *cell == "test_result") && i + 1 < cells.len() {
-                    if let Ok(value) = cells[i + 1].replace(',', "").parse::<f64>() {
-                        return Ok(value);
-                    }
-                }
-
-                if let Ok(value) = cell.replace(',', "").parse::<f64>() {
-                    if (value - expected).abs() < 0.0001 {
-                        return Ok(value);
-                    }
+    /// Finds the labelled `test_result` value in the CSV sheets.
+    ///
+    /// Only the cell next to the `test_result` label counts. A cell that
+    /// happens to hold the expected number (a table value, say) is not a result.
+    fn find_result_in_csvs(csv_files: &[PathBuf]) -> Result<f64, String> {
+        for csv_path in csv_files {
+            let file = fs::File::open(csv_path).map_err(|e| format!("Failed to open CSV: {e}"))?;
+            for line in BufReader::new(file).lines() {
+                let line = line.map_err(|e| format!("Failed to read line: {e}"))?;
+                let cells: Vec<&str> = line
+                    .split(',')
+                    .map(|s| s.trim_matches('"').trim())
+                    .collect();
+                if cells.len() >= 2 && (cells[0] == "test_result" || cells[0] == "result") {
+                    return cells[1]
+                        .parse::<f64>()
+                        .map_err(|_| format!("Gnumeric cell is not a number: {}", cells[1]));
                 }
             }
         }
-
-        Err("Could not find result in CSV output".to_string())
+        Err("Could not find a labelled test_result row in any sheet".to_string())
     }
+}
+
+/// Table sections of a spec file, as YAML to prepend to a generated model.
+fn table_data_for(source: Option<&Path>) -> String {
+    source
+        .and_then(|path| fs::read_to_string(path).ok())
+        .and_then(|content| serde_yaml_ng::from_str::<TestSpec>(&content).ok())
+        .map(|spec| extract_table_data_yaml(&spec))
+        .unwrap_or_default()
+}
+
+/// Builds a failing result.
+fn fail(tc: &TestCase, actual: Option<f64>, error: Option<String>) -> TestResult {
+    TestResult::Fail {
+        name: tc.name.clone(),
+        formula: tc.formula.clone(),
+        expected: tc.expected,
+        actual,
+        error,
+    }
+}
+
+/// Whether a computed value equals the expected one.
+fn matches(actual: f64, expected: f64) -> bool {
+    (actual - expected).abs() <= 1e-9_f64.max(expected.abs() * 1e-9)
+}
+
+/// Combines Forge's own result and Gnumeric's into one verdict.
+fn judge(tc: &TestCase, forge: &Result<f64, String>, gnumeric: &Result<f64, String>) -> TestResult {
+    let mut problems = Vec::new();
+    let mut shown = None;
+
+    match forge {
+        Ok(v) if matches(*v, tc.expected) => {}
+        Ok(v) => {
+            shown = Some(*v);
+            problems.push(format!("forge calculate gave {v}, expected {}", tc.expected));
+        }
+        Err(e) => problems.push(e.clone()),
+    }
+    match gnumeric {
+        _ if tc.gnumeric_skip.is_some() => {}
+        Ok(v) if matches(*v, tc.expected) => {}
+        Ok(v) => {
+            shown = shown.or(Some(*v));
+            problems.push(format!(
+                "Gnumeric recalculation of the export gave {v}, expected {}",
+                tc.expected
+            ));
+        }
+        Err(e) => problems.push(e.clone()),
+    }
+
+    if problems.is_empty() {
+        if let Ok(actual) = forge {
+            return TestResult::Pass {
+                name: tc.name.clone(),
+                formula: tc.formula.clone(),
+                expected: tc.expected,
+                actual: *actual,
+            };
+        }
+    }
+    fail(tc, shown, Some(problems.join("; ")))
 }
 
 #[cfg(test)]
