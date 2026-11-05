@@ -1280,9 +1280,13 @@ Calculated value: [20000, 30000, 50000]
 forge export model.yaml output.xlsx
 ```
 
-- YAML tables → Excel worksheets
-- Formulas preserved and translated
-- Cross-table references → Sheet references
+- Each table is a worksheet: one column per data or formula column (alphabetical), header in row 1.
+- Each scalar group (`assumptions:`) is a worksheet with `Name` in column A and `Value` in column B. Scalars without a group go on a `Scalars` sheet.
+- Row formulas become cell formulas row by row. A scalar is an absolute cell (`'assumptions'!$B$3`). In a scalar formula a column is its full range (`'projections'!$D$2:$D$4`). Names resolve the way `forge calculate` resolves them.
+- The model is calculated first, and each formula cell carries Forge's result, so viewers that do not recalculate show the right numbers.
+- A formula Excel cannot express with the same meaning is written as its calculated value, with the Forge formula in a cell note, and listed as a warning. This covers functions Excel lacks or evaluates differently (`MC.*`, `VLOOKUP` in Forge's one-column form, `TODAY`, `COUNTUNIQUE`), array indexing `[ ]`, and `IRR(-cost, flows)` (Excel reads the second argument as a guess).
+
+Checked by recalculating exported workbooks in LibreOffice: every formula cell of the examples and of the forge-e2e-gnumeric models agrees with Forge, apart from cases where LibreOffice itself differs from Excel.
 
 ### Import (`forge import`)
 
@@ -1290,9 +1294,10 @@ forge export model.yaml output.xlsx
 forge import spreadsheet.xlsx output.yaml
 ```
 
-- Excel worksheets → YAML tables
-- Formulas reverse-translated
-- Round-trip verified
+- A sheet whose header is `Name`, `Value` becomes a scalar group; any other sheet becomes a table.
+- References are translated with every sheet's layout, so `'assumptions'!$B$3` comes back as `assumptions.base_revenue` and a column range as `table.column`.
+- A formula Forge cannot express (a reference to another row, a single cell of a table in a scalar formula, named ranges) is imported as its value, with a warning.
+- A model exported with `forge export` and imported again calculates to the same numbers (tested on the examples and the forge-e2e-gnumeric models). The YAML itself is not identical: keys are sorted and formulas are respaced.
 
 ---
 

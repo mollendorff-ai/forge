@@ -73,6 +73,9 @@ pub struct ExportResult {
     pub output_path: String,
     pub table_count: usize,
     pub scalar_count: usize,
+    /// Formulas written as values because Excel cannot express them
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 /// Result of an in-memory (buffer) export — returned when no `excel_path` is given
@@ -94,6 +97,9 @@ pub struct ImportResult {
     pub table_count: usize,
     pub scalar_count: usize,
     pub mode: String,
+    /// Formulas imported as values because Forge cannot express them
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 /// Result of sensitivity analysis

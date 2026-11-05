@@ -1,126 +1,67 @@
-# Scenario Analysis Example
-# ==========================
-# Run with: forge scenarios examples/scenarios.yaml
-#
-# This example models an M&A valuation with three discrete scenarios:
-# - Bull Case (30% probability): Competitor exits, we capture market
-# - Base Case (50% probability): Normal market growth
-# - Bear Case (20% probability): Recession hits
-#
-# Forge calculates:
-# - Individual scenario outcomes
-# - Probability-weighted expected value
-# - Probability of positive outcome
-# - Range (min to max across scenarios)
-
-_forge_version: "5.0.0"
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Base Assumptions (used by all scenarios)
-# ─────────────────────────────────────────────────────────────────────────────
+_forge_version: 5.0.0
 assumptions:
   acquisition_cost:
-    value: 10000000
+    value: 10000000.0
     formula: null
-
   base_revenue:
-    value: 5000000
+    value: 5000000.0
     formula: null
-
   operating_margin:
-    value: 0.20
+    value: 0.2
     formula: null
-
   discount_rate:
-    value: 0.10
+    value: 0.1
     formula: null
-
-  # These will be overridden by scenarios
   revenue_growth:
-    value: 0.10
+    value: 0.1
     formula: null
-
   market_share:
     value: 0.15
     formula: null
-
   synergy_savings:
-    value: 200000
+    value: 200000.0
     formula: null
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Projections (3-Year Integration)
-# ─────────────────────────────────────────────────────────────────────────────
 projections:
-  year: [1, 2, 3]
-
-  revenue: "=assumptions.base_revenue * (1 + assumptions.revenue_growth) ^ year"
-  operating_profit: "=revenue * assumptions.operating_margin"
-  synergies: "=assumptions.synergy_savings * year"
-  total_profit: "=operating_profit + synergies"
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Valuation
-# ─────────────────────────────────────────────────────────────────────────────
+  year:
+  - 1
+  - 2
+  - 3
+  revenue: =assumptions.base_revenue * (1 + assumptions.revenue_growth) ^ year
+  operating_profit: =revenue * assumptions.operating_margin
+  synergies: =assumptions.synergy_savings * year
+  total_profit: =operating_profit + synergies
 valuation:
   npv_cash_flows:
-    value: null
-    formula: "=NPV(assumptions.discount_rate, projections.total_profit)"
-
+    value: 3963185.5747558223
+    formula: =NPV(assumptions.discount_rate, projections.total_profit)
   net_value:
-    value: null
-    formula: "=npv_cash_flows - assumptions.acquisition_cost"
-
-  # Cash flows: the acquisition cost now, then three years of profit
+    value: -6036814.425244178
+    formula: =npv_cash_flows - assumptions.acquisition_cost
   irr:
-    value: null
-    formula: "=IRR(-assumptions.acquisition_cost, projections.total_profit)"
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Scenario Definitions
-# ─────────────────────────────────────────────────────────────────────────────
-# Each scenario specifies:
-#   - probability: Weight for expected value calculation
-#   - description: Human-readable explanation
-#   - scalars: Variable overrides for this scenario
-
+    value: -0.2773900956338679
+    formula: =IRR(-assumptions.acquisition_cost, projections.total_profit)
 scenarios:
   bull_case:
-    probability: 0.30
-    description: "Competitor exits market, we capture 25% share"
+    probability: 0.3
+    description: Competitor exits market, we capture 25% share
     scalars:
       revenue_growth: 0.25
       market_share: 0.25
       synergy_savings: 500000
       operating_margin: 0.25
-
   base_case:
-    probability: 0.50
-    description: "Market grows normally, integration on track"
+    probability: 0.5
+    description: Market grows normally, integration on track
     scalars:
-      revenue_growth: 0.10
+      revenue_growth: 0.1
       market_share: 0.15
       synergy_savings: 200000
-      operating_margin: 0.20
-
+      operating_margin: 0.2
   bear_case:
-    probability: 0.20
-    description: "Recession hits, integration challenges"
+    probability: 0.2
+    description: Recession hits, integration challenges
     scalars:
       revenue_growth: -0.05
-      market_share: 0.10
+      market_share: 0.1
       synergy_savings: 50000
       operating_margin: 0.12
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Expected Output:
-# ─────────────────────────────────────────────────────────────────────────────
-# Three years of profit do not repay a $10M acquisition in any scenario:
-#   Bull Case:  Net Value = -$2.72M, IRR = -4.8%
-#   Base Case:  Net Value = -$6.04M, IRR = -27.7%
-#   Bear Case:  Net Value = -$8.41M, IRR = -51.8%
-#
-# Summary:
-#   Expected Value: 0.30 * -$2.72M + 0.50 * -$6.04M + 0.20 * -$8.41M = -$5.52M
-#   Probability Positive: 0%
-#   Range: -$8.41M to -$2.72M

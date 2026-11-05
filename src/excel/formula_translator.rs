@@ -221,7 +221,7 @@ impl FormulaTranslator {
 
     /// Check if a word is an Excel function
     #[allow(clippy::too_many_lines)] // comprehensive function list is intentionally exhaustive
-    fn is_excel_function(word: &str) -> bool {
+    pub(crate) fn is_excel_function(word: &str) -> bool {
         let upper = word.to_uppercase();
         matches!(
             upper.as_str(),

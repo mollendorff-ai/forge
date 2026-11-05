@@ -635,8 +635,10 @@ forge import model.xlsx model.yaml
 ```bash
 forge export model.yaml temp.xlsx
 forge import temp.xlsx model_roundtrip.yaml
-diff model.yaml model_roundtrip.yaml  # Should be identical!
+forge calculate model_roundtrip.yaml  # Same numbers as model.yaml
 ```
+
+The round-tripped file calculates to the same values, but it is not byte-identical: keys are sorted and formulas respaced. Formulas that Excel or Forge cannot express come back as values, and both commands list them.
 
 ## Common Patterns
 
