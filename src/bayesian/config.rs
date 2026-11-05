@@ -18,6 +18,7 @@ pub enum NodeType {
 
 /// A node in the Bayesian network
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BayesianNode {
     /// Node type
     #[serde(default, rename = "type")]
@@ -198,6 +199,7 @@ impl BayesianNode {
 
 /// Configuration for Bayesian network
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BayesianConfig {
     /// Network name
     #[serde(default)]

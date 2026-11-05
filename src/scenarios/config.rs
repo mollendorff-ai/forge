@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 /// Configuration for a single scenario
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ScenarioDefinition {
     /// Probability of this scenario (0.0 to 1.0)
     pub probability: f64,
@@ -50,6 +51,7 @@ impl ScalarOverride {
 
 /// Configuration for scenario analysis
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ScenarioConfig {
     /// Map of scenario name to definition
     #[serde(default)]

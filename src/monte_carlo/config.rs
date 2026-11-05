@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Monte Carlo simulation configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MonteCarloConfig {
     /// Enable/disable Monte Carlo simulation
     #[serde(default)]
@@ -34,6 +35,7 @@ pub struct MonteCarloConfig {
 
 /// Output variable configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OutputConfig {
     /// Variable name to track (e.g., "valuation.npv")
     pub variable: String,
@@ -53,6 +55,7 @@ pub struct OutputConfig {
 
 /// Correlation specification between variables
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CorrelationConfig {
     /// Variables to correlate (exactly 2)
     pub variables: Vec<String>,
