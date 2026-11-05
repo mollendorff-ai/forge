@@ -99,10 +99,10 @@ forge tornado model.yaml --format csv > tornado.csv
 ```
 npv Sensitivity (Base: $1,500,000)
 
-revenue_growth       |████████████████████| +/- $450,000
-discount_rate        |██████████████      | +/- $320,000
-operating_margin     |██████████          | +/- $180,000
-tax_rate             |████                | +/- $75,000
+revenue_growth       |████████████████████| swing $450,000
+discount_rate        |██████████████      | swing $320,000
+operating_margin     |██████████          | swing $180,000
+tax_rate             |████                | swing $75,000
 ```
 
 #### YAML Output

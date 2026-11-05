@@ -26,9 +26,9 @@
 //! ```text
 //! NPV Sensitivity (Base: $1.2M)
 //!
-//! Revenue Growth    |████████████████████| +/- $450K
-//! Discount Rate     |██████████████      | +/- $320K
-//! Operating Margin  |██████████          | +/- $180K
+//! Revenue Growth    |████████████████████| swing $450K
+//! Discount Rate     |██████████████      | swing $320K
+//! Operating Margin  |██████████          | swing $180K
 //! ```
 
 pub mod config;

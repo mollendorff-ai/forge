@@ -640,6 +640,13 @@ pub fn tornado(
         .map(|b| b.swing.abs())
         .fold(0.0f64, f64::max);
 
+    let name_width = result
+        .bars
+        .iter()
+        .map(|b| b.input_name.chars().count())
+        .max()
+        .unwrap_or(0);
+
     for bar in &result.bars {
         // Truncation/sign-loss impossible: value is always in 0.0..=30.0
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
@@ -650,18 +657,15 @@ pub fn tornado(
         };
         let bar_str = "█".repeat(bar_width.max(1));
 
+        // `swing` is the output at the high input minus the output at the low input.
         println!(
-            "   {:20} |{}| ±{:.2}",
+            "   {:name_width$} |{:30}| swing {:.2}  (output {:.2} at low, {:.2} at high)",
             bar.input_name.bright_blue(),
             bar_str.cyan(),
-            bar.swing.abs()
+            bar.swing.abs(),
+            bar.output_at_low,
+            bar.output_at_high
         );
-        if verbose {
-            println!(
-                "                        Low: {:.2}  High: {:.2}",
-                bar.output_at_low, bar.output_at_high
-            );
-        }
     }
     println!();
 
