@@ -7,18 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [10.0.0-beta.9] - 2026-11-05
+## [10.0.0-beta.10] - 2026-11-05
+
+Version 10.0.0-beta.9 was tagged but never published (the release workflow did not start), so its changes are part of this release.
 
 Fixes for wrong results that came back with no error, one security fix, and
 documentation that now says what the project has and has not been checked
 against. Found in an independent evaluation on 2026-11-04.
 
 ### Security
+- **Dependencies**: all 21 `cargo audit` advisories are cleared (rustls, rustls-webpki, aws-lc-sys, h2, rmcp, quick-xml, zip). The Excel libraries moved to `calamine` 0.38 and `rust_xlsxwriter` 0.102.
 - **MCP inline includes**: with inline `content`, an `_includes` path that was absolute or contained `..` could write the matching `includes` text to any file the server could write, or make the parser read a YAML file outside its temp directory. Only plain relative paths are accepted now. Earlier versions are affected, so update if you expose `forge mcp` to untrusted model content.
 - **REST API (`forge serve`)**: CORS allowed every origin, so any website open in the browser could make a running `forge serve` read or write files, and any `Host` header was accepted (DNS rebinding). Browser requests from other origins are now refused unless listed with `--cors-origin`, a local server rejects foreign `Host` headers, `--token` / `FORGE_API_TOKEN` requires `Authorization: Bearer <token>` on `/api/v1/*`, and listening on a non-loopback address without a token is refused. Update if you run `forge serve`.
 - **`forge update`**: downloads were installed without checking them. The archive's SHA-256 must now match the release's `checksums.txt`, downloads fail on an HTTP error instead of saving the error page, and a private temp directory is used. It also looked for asset names no release has, so it could not find an update on any platform; it now uses the published `forge-<target>` names and handles the Windows `.zip`.
 
 ### Fixed
+- **Releases**: the release workflow now starts after the version tag is created. Tags pushed by CI used to leave it idle, so no binaries or crates.io package were published.
 - **Array arithmetic**: an array in arithmetic, a comparison or a function that expects one number was turned into its length, so `=SUM(a * b)` gave 9 instead of 140. Operators now work element by element. Column lengths that do not match, or a column where one number is expected (`PMT`, `ROUND`, `TEXT` and others), are errors. `IF`, `AND`, `OR`, `XOR` and `NOT` accept arrays. A scalar formula that returns several values is an error.
 - **IRR, XIRR, RATE**: these returned the last guess whether or not it had converged (`=IRR` of all-positive flows gave 5,778,119). They now find a rate or return an error. `IRR(values, guess)` no longer counts the guess as a cash flow, and `RATE` honours its `type` argument.
 - **Schema**: valid models were rejected when a column formula started with `MAX(` or similar, or a column held dates or formulas. Five of the ten examples failed `forge validate`. Row formulas such as `=MAX(0, x)` now run row by row. `real_options`, `bootstrap` and `bayesian_network` sections are accepted.
