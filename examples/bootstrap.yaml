@@ -60,9 +60,7 @@ bootstrap:
 # Portfolio Context
 # ─────────────────────────────────────────────────────────────────────────────
 portfolio:
-  name:
-    value: "Growth Portfolio"
-    formula: null
+  # Growth Portfolio (scalar values must be numbers, so the label is a comment)
 
   initial_value:
     value: 1000000

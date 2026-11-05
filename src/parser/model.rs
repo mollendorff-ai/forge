@@ -36,6 +36,9 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                 || key_str == "monte_carlo"
                 || key_str == "tornado"
                 || key_str == "decision_tree"
+                || key_str == "real_options"
+                || key_str == "bootstrap"
+                || key_str == "bayesian_network"
             {
                 continue;
             }

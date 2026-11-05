@@ -320,32 +320,65 @@ impl ArrayCalculator {
 
     /// Check if a formula is an aggregation (returns scalar)
     fn is_aggregation_formula(formula: &str) -> bool {
-        let upper = formula.to_uppercase();
-        upper.contains("SUM(")
-            || upper.contains("AVERAGE(")
-            || upper.contains("AVG(")
-            || upper.contains("MAX(")
-            || upper.contains("MIN(")
-            || upper.contains("COUNT(")
-            || upper.contains("SUMIF(")
-            || upper.contains("COUNTIF(")
-            || upper.contains("AVERAGEIF(")
-            || upper.contains("SUMIFS(")
-            || upper.contains("COUNTIFS(")
-            || upper.contains("AVERAGEIFS(")
-            || upper.contains("MAXIFS(")
-            || upper.contains("MINIFS(")
-            // Statistical functions (v5.0.0)
-            || upper.contains("MEDIAN(")
-            || upper.contains("VAR(")
-            || upper.contains("VAR.S(")
-            || upper.contains("VAR.P(")
-            || upper.contains("STDEV(")
-            || upper.contains("STDEV.S(")
-            || upper.contains("STDEV.P(")
-            || upper.contains("PERCENTILE(")
-            || upper.contains("QUARTILE(")
-            || upper.contains("CORREL(")
+        let body = formula.trim_start_matches('=').trim();
+        match tokenizer::tokenize(body).map(parser::parse) {
+            Ok(Ok(ast)) => Self::expr_has_aggregation(&ast),
+            // Unparseable formulas fail later with a parse error
+            _ => false,
+        }
+    }
+
+    /// Whether an expression aggregates a whole column.
+    ///
+    /// `SUM`, `AVERAGE`, `MAX`, `MIN`, `COUNT` and `MEDIAN` aggregate only with
+    /// a single argument: with several, a row formula such as `=MAX(0, ebit)`
+    /// works row by row, as it does in Excel. The other functions listed always
+    /// aggregate.
+    fn expr_has_aggregation(expr: &parser::Expr) -> bool {
+        use parser::Expr;
+        const ROW_WISE_WITH_SEVERAL_ARGS: [&str; 7] =
+            ["SUM", "AVERAGE", "AVG", "MAX", "MIN", "COUNT", "MEDIAN"];
+        const ALWAYS_AGGREGATE: [&str; 17] = [
+            "SUMIF",
+            "COUNTIF",
+            "AVERAGEIF",
+            "SUMIFS",
+            "COUNTIFS",
+            "AVERAGEIFS",
+            "MAXIFS",
+            "MINIFS",
+            "VAR",
+            "VAR.S",
+            "VAR.P",
+            "STDEV",
+            "STDEV.S",
+            "STDEV.P",
+            "PERCENTILE",
+            "QUARTILE",
+            "CORREL",
+        ];
+        match expr {
+            Expr::FunctionCall { name, args } => {
+                let upper = name.to_uppercase();
+                let aggregates = ALWAYS_AGGREGATE.contains(&upper.as_str())
+                    || (ROW_WISE_WITH_SEVERAL_ARGS.contains(&upper.as_str()) && args.len() == 1);
+                aggregates || args.iter().any(Self::expr_has_aggregation)
+            },
+            Expr::CallResult { callable, args } => {
+                Self::expr_has_aggregation(callable) || args.iter().any(Self::expr_has_aggregation)
+            },
+            Expr::ArrayIndex { array, index } => {
+                Self::expr_has_aggregation(array) || Self::expr_has_aggregation(index)
+            },
+            Expr::BinaryOp { left, right, .. } => {
+                Self::expr_has_aggregation(left) || Self::expr_has_aggregation(right)
+            },
+            Expr::Range { start, end } => {
+                Self::expr_has_aggregation(start) || Self::expr_has_aggregation(end)
+            },
+            Expr::UnaryOp { operand, .. } => Self::expr_has_aggregation(operand),
+            Expr::Number(_) | Expr::Text(_) | Expr::Boolean(_) | Expr::Reference(_) => false,
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -659,5 +692,51 @@ impl ArrayCalculator {
         }
 
         Ok(deps)
+    }
+}
+
+#[cfg(test)]
+mod aggregation_classifier_tests {
+    use super::ArrayCalculator;
+    use crate::types::{Column, ColumnValue, ParsedModel, Table};
+
+    fn calculate_column(formula: &str) -> Result<ColumnValue, String> {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("t".to_string());
+        table.add_column(Column::new(
+            "x".to_string(),
+            ColumnValue::Number(vec![3.0, -2.0, 5.0]),
+        ));
+        table.add_row_formula("result".to_string(), formula.to_string());
+        model.add_table(table);
+        let calculated = ArrayCalculator::new(model)
+            .calculate_all()
+            .map_err(|e| e.to_string())?;
+        Ok(calculated.tables["t"].columns["result"].values.clone())
+    }
+
+    #[test]
+    fn test_max_with_several_arguments_is_row_wise() {
+        assert_eq!(
+            calculate_column("=MAX(0, x)").unwrap(),
+            ColumnValue::Number(vec![3.0, 0.0, 5.0])
+        );
+        assert_eq!(
+            calculate_column("=MIN(x, 4)").unwrap(),
+            ColumnValue::Number(vec![3.0, -2.0, 4.0])
+        );
+    }
+
+    #[test]
+    fn test_single_argument_aggregate_in_table_is_rejected() {
+        for formula in ["=SUM(x)", "=MAX(x)", "=x / SUM(x)", "=SUMIF(x, \">0\", x)"] {
+            let err = calculate_column(formula).unwrap_err();
+            assert!(err.contains("aggregation"), "{formula}: {err}");
+        }
+    }
+
+    #[test]
+    fn test_function_name_inside_text_is_not_an_aggregate() {
+        assert!(calculate_column("=IF(x > 0, \"SUM(\", \"no\")").is_ok());
     }
 }

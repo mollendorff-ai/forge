@@ -220,6 +220,71 @@ decision_tree:
         );
     }
 
+    fn validate_str(yaml: &str) -> ForgeResult<()> {
+        validate_against_schema(&serde_yaml_ng::from_str(yaml).unwrap())
+    }
+
+    #[test]
+    fn test_schema_accepts_row_formula_starting_with_aggregate_name() {
+        // "=MAX(" matched both RowFormula and AggregationFormula, so `oneOf` rejected it
+        let result = validate_str(
+            r#"
+_forge_version: "5.0.0"
+t:
+  ebit: [100, -50]
+  tax: "=MAX(0, ebit * 0.25)"
+  total: "=SUM(ebit)"
+"#,
+        );
+        assert!(result.is_ok(), "{:?}", result.err());
+    }
+
+    #[test]
+    fn test_schema_accepts_date_and_formula_arrays() {
+        // Date strings and formula strings also match TextArray
+        let result = validate_str(
+            r#"
+_forge_version: "5.0.0"
+t:
+  month: ["2025-01-01", "2025-02-01"]
+  x: [1, 2]
+  doubled: ["=x * 2", "=x * 2"]
+"#,
+        );
+        assert!(result.is_ok(), "{:?}", result.err());
+    }
+
+    #[test]
+    fn test_schema_accepts_command_sections() {
+        let result = validate_str(
+            r#"
+_forge_version: "5.0.0"
+price:
+  value: 100
+real_options:
+  method: binomial
+bootstrap:
+  iterations: 1000
+  data: [1, 2, 3]
+bayesian_network:
+  name: "Example"
+"#,
+        );
+        assert!(result.is_ok(), "{:?}", result.err());
+    }
+
+    #[test]
+    fn test_schema_still_rejects_invalid_column() {
+        let result = validate_str(
+            r#"
+_forge_version: "5.0.0"
+t:
+  x: [1, "two", true]
+"#,
+        );
+        assert!(result.is_err());
+    }
+
     #[test]
     fn test_v1_rejects_tables() {
         let yaml_str = r#"

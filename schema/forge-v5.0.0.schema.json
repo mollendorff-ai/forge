@@ -22,7 +22,7 @@
       "description": "Cross-file references (v4.0) - include external YAML files"
     },
     "scenarios": {
-      "oneOf": [
+      "anyOf": [
         { "$ref": "#/definitions/Scenarios" },
         { "$ref": "#/definitions/ScenariosCommand" },
         { "$ref": "#/definitions/Table" }
@@ -48,11 +48,23 @@
     "decision_tree": {
       "$ref": "#/definitions/DecisionTree",
       "description": "Decision tree configuration - sequential decisions with backward induction"
+    },
+    "real_options": {
+      "type": "object",
+      "description": "Real options configuration. Checked by `forge real-options`, not by this schema"
+    },
+    "bootstrap": {
+      "type": "object",
+      "description": "Bootstrap resampling configuration. Checked by `forge bootstrap`, not by this schema"
+    },
+    "bayesian_network": {
+      "type": "object",
+      "description": "Bayesian network configuration. Checked by `forge bayesian`, not by this schema"
     }
   },
 
   "additionalProperties": {
-    "oneOf": [
+    "anyOf": [
       { "$ref": "#/definitions/Table" },
       { "$ref": "#/definitions/ScalarGroup" },
       { "$ref": "#/definitions/Scalar" }
@@ -65,7 +77,7 @@
       "description": "A table with column arrays that maps to an Excel sheet",
       "type": "object",
       "additionalProperties": {
-        "oneOf": [
+        "anyOf": [
           { "$ref": "#/definitions/NumberArray" },
           { "$ref": "#/definitions/TextArray" },
           { "$ref": "#/definitions/DateArray" },
@@ -94,7 +106,7 @@
       "type": "object",
       "properties": {
         "value": {
-          "oneOf": [
+          "anyOf": [
             { "$ref": "#/definitions/NumberArray" },
             { "$ref": "#/definitions/TextArray" },
             { "$ref": "#/definitions/DateArray" },

@@ -15,9 +15,7 @@ _forge_version: "5.0.0"
 # Product Economics
 # ─────────────────────────────────────────────────────────────────────────────
 product:
-  name:
-    value: "SaaS Subscription"
-    formula: null
+  # SaaS Subscription (scalar values must be numbers, so the label is a comment)
 
   # Pricing
   price_per_unit:
