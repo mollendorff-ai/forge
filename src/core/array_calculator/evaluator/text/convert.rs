@@ -4,14 +4,14 @@
 #![allow(clippy::cast_possible_truncation)]
 
 use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
+use crate::core::array_calculator::evaluator::number_or;
 
 /// TEXT(value, `format_text`) - Converts a value to text with specified format
 pub fn eval_text(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("TEXT", args, 2)?;
-    let val = evaluate(&args[0], ctx)?;
+    let num = number_or(&args[0], ctx, 0.0)?;
     let format = evaluate(&args[1], ctx)?.as_text();
     // Simplified TEXT implementation - basic number formatting
-    let num = val.as_number().unwrap_or(0.0);
     let formatted = format_number(num, &format);
     Ok(Value::Text(formatted))
 }

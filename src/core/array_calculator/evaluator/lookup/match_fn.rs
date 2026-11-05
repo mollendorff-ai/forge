@@ -5,6 +5,7 @@
 // Match casts: f64 match type to i32, array position to f64 (small bounded integers).
 #![allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
 
+use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, values_equal, EvalContext, EvalError, Expr, Value,
 };
@@ -27,7 +28,7 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
     let lookup_array = evaluate(&args[1], &array_ctx)?;
 
     let match_type = if args.len() > 2 {
-        evaluate(&args[2], ctx)?.as_number().unwrap_or(1.0) as i32
+        number_or(&args[2], ctx, 1.0)? as i32
     } else {
         1
     };

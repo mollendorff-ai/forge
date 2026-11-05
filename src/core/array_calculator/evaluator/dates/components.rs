@@ -4,6 +4,7 @@ use super::{
     evaluate, parse_date_value, require_args, require_args_range, Datelike, EvalContext, EvalError,
     Expr, Timelike, Value,
 };
+use crate::core::array_calculator::evaluator::number_or;
 
 /// Try to evaluate a time component function.
 #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
@@ -18,7 +19,7 @@ pub fn try_evaluate(
             require_args_range(name, args, 1, 2)?;
             let val = evaluate(&args[0], ctx)?;
             let return_type = if args.len() > 1 {
-                evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) as i32
+                number_or(&args[1], ctx, 1.0)? as i32
             } else {
                 1
             };

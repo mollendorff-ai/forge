@@ -1,7 +1,8 @@
 //! SORT array function
 
+use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
-    collect_numeric_values, evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
+    collect_numeric_values, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 
 /// Evaluate SORT function - sorts numeric values in ascending or descending order
@@ -9,7 +10,7 @@ pub fn eval_sort(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("SORT", args, 1, 2)?;
     let mut values = collect_numeric_values(args, ctx)?;
     let descending = if args.len() > 1 {
-        evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) < 0.0
+        number_or(&args[1], ctx, 1.0)? < 0.0
     } else {
         false
     };

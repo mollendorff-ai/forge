@@ -5,6 +5,7 @@
 // Index casts: f64 row/col indices to usize (bounded by array length).
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 
+use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
@@ -24,7 +25,7 @@ pub fn eval_index(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
         row_count: ctx.row_count,
     };
     let array = evaluate(&args[0], &array_ctx)?;
-    let row_num = evaluate(&args[1], ctx)?.as_number().unwrap_or(1.0) as i64;
+    let row_num = number_or(&args[1], ctx, 1.0)? as i64;
 
     // INDEX is 1-based, row_num must be >= 1
     if row_num < 1 {

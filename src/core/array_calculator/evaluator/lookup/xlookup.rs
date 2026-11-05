@@ -5,6 +5,7 @@
 // Lookup casts: f64 row/col indices to usize (bounded by array length).
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 
+use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, values_equal, EvalContext, EvalError, Expr, Value,
 };
@@ -32,7 +33,7 @@ pub fn eval_xlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         None
     };
     let match_mode = if args.len() > 4 {
-        evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0) as i32
+        number_or(&args[4], ctx, 0.0)? as i32
     } else {
         0
     };

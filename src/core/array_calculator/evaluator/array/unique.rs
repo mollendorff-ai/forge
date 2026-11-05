@@ -174,7 +174,7 @@ mod integration_tests {
             Variable::new(
                 "unique_flags".to_string(),
                 None,
-                Some("=UNIQUE(flags.active)".to_string()),
+                Some("=COUNTUNIQUE(flags.active)".to_string()),
             ),
         );
 
