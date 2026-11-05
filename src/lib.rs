@@ -3,6 +3,7 @@
 //! Validates statistical and analytics functions by comparing forge output
 //! against R validators at runtime.
 
+pub mod analytics;
 pub mod cli_runner;
 pub mod r_validator;
 pub mod stats;

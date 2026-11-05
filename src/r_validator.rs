@@ -107,6 +107,19 @@ impl Default for RConfig {
 ///
 /// Returns an error if the R script cannot be found, fails to execute, or produces invalid JSON.
 pub fn validate_with_r(validator: &str, params: &RParams, config: &RConfig) -> Result<RResult> {
+    validate_with_json(validator, &serde_json::to_value(params)?, config)
+}
+
+/// Runs an R validator script with arbitrary JSON parameters.
+///
+/// # Errors
+///
+/// Returns an error if the R script cannot be found, fails to execute, or produces invalid JSON.
+pub fn validate_with_json(
+    validator: &str,
+    params: &serde_json::Value,
+    config: &RConfig,
+) -> Result<RResult> {
     let script_path = config.validators_dir.join(validator);
     if !script_path.exists() {
         return Err(anyhow!("R validator not found: {}", script_path.display()));

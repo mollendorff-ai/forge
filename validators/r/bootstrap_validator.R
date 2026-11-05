@@ -92,14 +92,21 @@ run_json_mode <- function(params_json) {
     )
 
     for (conf in confidence_levels) {
-      ci <- tryCatch(
+      # boot.ci prints a message to stdout when every resample is equal,
+      # which would corrupt the JSON output, so its output is discarded.
+      ci <- NULL
+      invisible(capture.output(ci <- tryCatch(
         boot.ci(boot_results, type = ci_type, conf = conf),
         error = function(e) NULL
-      )
+      )))
 
       conf_key <- as.character(conf)
 
-      if (!is.null(ci)) {
+      if (is.null(ci) && ci_type == "perc" && length(unique(boot_results$t)) == 1) {
+        # No variation: the percentile interval is that single value.
+        v <- boot_results$t[1]
+        ci_list[[conf_key]] <- list(lower = v, upper = v)
+      } else if (!is.null(ci)) {
         if (ci_type == "perc") {
           ci_list[[conf_key]] <- list(
             lower = ci$percent[4],
