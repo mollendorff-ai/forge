@@ -71,9 +71,10 @@ valuation:
     value: null
     formula: "=npv_cash_flows - assumptions.acquisition_cost"
 
+  # Cash flows: the acquisition cost now, then three years of profit
   irr:
     value: null
-    formula: "=IRR(projections.total_profit) - 1"
+    formula: "=IRR(-assumptions.acquisition_cost, projections.total_profit)"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Scenario Definitions
@@ -114,12 +115,12 @@ scenarios:
 # ─────────────────────────────────────────────────────────────────────────────
 # Expected Output:
 # ─────────────────────────────────────────────────────────────────────────────
-# Scenario Results:
-#   Bull Case:  Net Value = $2.5M, IRR = 28%
-#   Base Case:  Net Value = $0.8M, IRR = 15%
-#   Bear Case:  Net Value = -$1.2M, IRR = -8%
+# Three years of profit do not repay a $10M acquisition in any scenario:
+#   Bull Case:  Net Value = -$2.72M, IRR = -4.8%
+#   Base Case:  Net Value = -$6.04M, IRR = -27.7%
+#   Bear Case:  Net Value = -$8.41M, IRR = -51.8%
 #
 # Summary:
-#   Expected Value: $0.30 * $2.5M + $0.50 * $0.8M + $0.20 * -$1.2M = $0.91M
-#   Probability Positive: 80% (bull + base)
-#   Range: -$1.2M to $2.5M
+#   Expected Value: 0.30 * -$2.72M + 0.50 * -$6.04M + 0.20 * -$8.41M = -$5.52M
+#   Probability Positive: 0%
+#   Range: -$8.41M to -$2.72M
