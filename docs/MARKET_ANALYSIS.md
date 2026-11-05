@@ -3,6 +3,8 @@
 **Date**: December 2025
 **Analysis**: AI-Native FP&A Infrastructure vs AI Orchestration Markets
 
+> **Note (2026-11-04):** This analysis dates from December 2025 and has not been updated. Its test counts, adoption figures and "no open-source competition" statements are not current: tools such as HyperFormula (which has an MCP server), formulon-mcp and PyProforma now exist. Read it as a historical thesis, not as evidence of demand.
+
 ---
 
 ## Executive Summary
@@ -199,7 +201,7 @@ Every AI agent doing financial analysis needs:
 - Token-efficient data format (YAML)
 - Verified calculations (Gnumeric/R E2E)
 - Excel compatibility (CFO still wants `.xlsx`)
-- Audit trail (SOX compliance)
+- Audit trail
 
 Forge provides all of these.
 

@@ -2,7 +2,7 @@
 //!
 //! Cox-Ross-Rubinstein binomial model for American and European options.
 //! Supports early exercise and path-dependent features.
-//! Validated against `QuantLib`.
+//! Unit tests check prices against `QuantLib` reference values.
 
 /// Binomial tree model for option pricing
 pub struct BinomialTree {
@@ -372,7 +372,7 @@ mod binomial_tests {
         );
     }
 
-    /// Roundtrip validation against `QuantLib`
+    /// Checked against `QuantLib` reference values (loose tolerance)
     #[test]
     fn test_quantlib_equivalence() {
         // QuantLib binomial tree (CRR) reference values:
