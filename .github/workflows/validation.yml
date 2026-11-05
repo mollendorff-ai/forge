@@ -1,0 +1,62 @@
+name: Validation
+
+# Runs the two external validation suites against a fresh build of Forge:
+#   forge-e2e-gnumeric  formulas compared with Gnumeric
+#   forge-e2e-r         functions and analytics compared with R
+# They clone the latest main of each suite, so this also notices a change in a
+# suite. Weekly, on demand, and when this file changes (to test the file itself).
+on:
+  schedule:
+    - cron: '41 6 * * 1'   # Mondays 06:41 UTC
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/validation.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  gnumeric:
+    name: Formulas vs Gnumeric
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Gnumeric
+        run: sudo apt-get update && sudo apt-get install -y gnumeric
+      - name: Build Forge
+        run: cargo build --release
+      - name: Get the suite
+        run: git clone --depth 1 https://github.com/mollendorff-ai/forge-e2e-gnumeric ../forge-e2e-gnumeric
+      - name: Run the suite
+        working-directory: ../forge-e2e-gnumeric
+        env:
+          FORGE_BIN: ${{ github.workspace }}/target/release/forge
+        run: cargo run --release
+
+  r:
+    name: Functions and analytics vs R
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install R and packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y r-base r-cran-jsonlite r-cran-boot r-cran-mvtnorm
+          sudo Rscript -e 'install.packages(c("data.tree", "mc2d"), repos = "https://cloud.r-project.org")'
+      - name: Build Forge
+        run: cargo build --release
+      - name: Get the suite
+        run: git clone --depth 1 https://github.com/mollendorff-ai/forge-e2e-r ../forge-e2e-r
+      - name: Math, date and financial functions
+        working-directory: ../forge-e2e-r
+        env:
+          FORGE_BIN: ${{ github.workspace }}/target/release/forge
+        run: bash validators/r/run_all.sh
+      - name: Analytics specs
+        working-directory: ../forge-e2e-r
+        env:
+          FORGE_BIN: ${{ github.workspace }}/target/release/forge
+        run: cargo run --release -- --all
