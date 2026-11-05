@@ -38,15 +38,28 @@ pub struct TreeResult {
     pub risk_profile: RiskProfile,
 }
 
-/// Risk profile showing outcome distribution
+/// Outcomes of the tree when every decision follows the optimal policy
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskProfile {
-    /// Best possible outcome
+    /// Best outcome under the optimal policy
     pub best_case: f64,
-    /// Worst possible outcome
+    /// Worst outcome under the optimal policy
     pub worst_case: f64,
-    /// Probability of positive outcome
+    /// Probability that the outcome is above zero
     pub probability_positive: f64,
+    /// Every end point reachable under the optimal policy, best first
+    pub outcomes: Vec<Outcome>,
+}
+
+/// One end point of the tree under the optimal policy
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Outcome {
+    /// Branches taken from the root, as `node.branch`
+    pub path: Vec<String>,
+    /// Terminal value minus every cost paid along the path
+    pub value: f64,
+    /// Product of the chance probabilities along the path
+    pub probability: f64,
 }
 
 impl TreeResult {
@@ -89,12 +102,10 @@ impl DecisionTreeEngine {
     /// Returns an error if the tree has no root or a branch references a missing node.
     pub fn analyze(&self) -> Result<TreeResult, String> {
         let mut node_results = HashMap::new();
-        let mut all_terminal_values = Vec::new();
 
         // Start backward induction from root
         let root = self.config.root.as_ref().ok_or("No root node")?;
-        let root_result =
-            self.evaluate_node("root", root, &mut node_results, &mut all_terminal_values)?;
+        let root_result = self.evaluate_node("root", root, &mut node_results)?;
 
         // Build optimal path
         let optimal_path = self.build_optimal_path(&node_results);
@@ -102,8 +113,17 @@ impl DecisionTreeEngine {
         // Build decision policy
         let decision_policy = Self::build_decision_policy(&node_results);
 
-        // Calculate risk profile
-        let risk_profile = Self::calculate_risk_profile(&all_terminal_values);
+        // Follow the optimal policy to every end point
+        let mut outcomes = Vec::new();
+        self.collect_outcomes(
+            "root",
+            root,
+            &node_results,
+            &mut Vec::new(),
+            (1.0, 0.0),
+            &mut outcomes,
+        )?;
+        let risk_profile = Self::calculate_risk_profile(outcomes);
 
         Ok(TreeResult {
             name: self.config.name.clone(),
@@ -121,14 +141,12 @@ impl DecisionTreeEngine {
         name: &str,
         node: &Node,
         results: &mut HashMap<String, NodeResult>,
-        all_terminal_values: &mut Vec<(f64, f64)>, // (value, probability)
     ) -> Result<NodeResult, String> {
         let mut branch_values = HashMap::new();
 
         // Evaluate each branch
         for (branch_name, branch) in &node.branches {
-            let branch_value =
-                self.evaluate_branch(branch, results, all_terminal_values, node.node_type)?;
+            let branch_value = self.evaluate_branch(branch, results)?;
             branch_values.insert(branch_name.clone(), branch_value);
         }
 
@@ -184,17 +202,8 @@ impl DecisionTreeEngine {
         &self,
         branch: &Branch,
         results: &mut HashMap<String, NodeResult>,
-        all_terminal_values: &mut Vec<(f64, f64)>,
-        parent_type: NodeType,
     ) -> Result<f64, String> {
         let base_value = if let Some(value) = branch.value {
-            // Terminal branch - track for risk profile
-            let prob = if parent_type == NodeType::Chance {
-                branch.probability
-            } else {
-                1.0
-            };
-            all_terminal_values.push((value - branch.cost, prob));
             value
         } else if let Some(ref next) = branch.next {
             // Continuation branch - recurse
@@ -202,7 +211,7 @@ impl DecisionTreeEngine {
                 .config
                 .get_node(next)
                 .ok_or_else(|| format!("Node '{next}' not found"))?;
-            let next_result = self.evaluate_node(next, next_node, results, all_terminal_values)?;
+            let next_result = self.evaluate_node(next, next_node, results)?;
             next_result.expected_value
         } else {
             return Err("Branch has neither value nor next node".to_string());
@@ -298,38 +307,81 @@ impl DecisionTreeEngine {
         policy
     }
 
-    /// Calculate risk profile from terminal values
-    fn calculate_risk_profile(terminal_values: &[(f64, f64)]) -> RiskProfile {
-        if terminal_values.is_empty() {
-            return RiskProfile {
-                best_case: 0.0,
-                worst_case: 0.0,
-                probability_positive: 0.0,
-            };
+    /// Collect the end points reachable when every decision follows the policy.
+    ///
+    /// `(probability, paid)` are the probability of reaching `node` and the
+    /// value accumulated on the way there (costs are negative). Decision nodes
+    /// follow only their optimal branch; chance nodes follow every branch with
+    /// a probability above zero, in name order.
+    fn collect_outcomes(
+        &self,
+        name: &str,
+        node: &Node,
+        results: &HashMap<String, NodeResult>,
+        path: &mut Vec<String>,
+        (probability, paid): (f64, f64),
+        outcomes: &mut Vec<Outcome>,
+    ) -> Result<(), String> {
+        let mut branches: Vec<(&String, &Branch, f64)> = match node.node_type {
+            NodeType::Decision => {
+                let choice = results
+                    .get(name)
+                    .and_then(|r| r.optimal_choice.as_ref())
+                    .ok_or_else(|| format!("No optimal choice for decision node '{name}'"))?;
+                let (branch_name, branch) = node
+                    .branches
+                    .get_key_value(choice)
+                    .ok_or_else(|| format!("Node '{name}' has no branch '{choice}'"))?;
+                vec![(branch_name, branch, 1.0)]
+            },
+            NodeType::Chance => node
+                .branches
+                .iter()
+                .filter(|(_, branch)| branch.probability > 0.0)
+                .map(|(branch_name, branch)| (branch_name, branch, branch.probability))
+                .collect(),
+            NodeType::Terminal => Vec::new(),
+        };
+        branches.sort_by(|a, b| a.0.cmp(b.0));
+
+        for (branch_name, branch, branch_probability) in branches {
+            let reach = probability * branch_probability;
+            let value = paid - branch.cost;
+            path.push(format!("{name}.{branch_name}"));
+            if let Some(terminal) = branch.value {
+                outcomes.push(Outcome {
+                    path: path.clone(),
+                    value: value + terminal,
+                    probability: reach,
+                });
+            } else if let Some(ref next) = branch.next {
+                let next_node = self
+                    .config
+                    .get_node(next)
+                    .ok_or_else(|| format!("Node '{next}' not found"))?;
+                self.collect_outcomes(next, next_node, results, path, (reach, value), outcomes)?;
+            }
+            path.pop();
         }
+        Ok(())
+    }
 
-        let best_case = terminal_values
+    /// Summarize the outcomes reachable under the optimal policy
+    fn calculate_risk_profile(mut outcomes: Vec<Outcome>) -> RiskProfile {
+        outcomes.sort_by(|a, b| b.value.total_cmp(&a.value));
+        let best_case = outcomes.first().map_or(0.0, |o| o.value);
+        let worst_case = outcomes.last().map_or(0.0, |o| o.value);
+        let probability_positive = outcomes
             .iter()
-            .map(|(v, _)| *v)
-            .fold(f64::NEG_INFINITY, f64::max);
-
-        let worst_case = terminal_values
-            .iter()
-            .map(|(v, _)| *v)
-            .fold(f64::INFINITY, f64::min);
-
-        // This is simplified - actual calculation would need path probabilities
-        let probability_positive = terminal_values
-            .iter()
-            .filter(|(v, _)| *v > 0.0)
-            .map(|(_, p)| *p)
-            .sum::<f64>()
-            .min(1.0);
+            .filter(|o| o.value > 0.0)
+            .map(|o| o.probability)
+            .sum();
 
         RiskProfile {
             best_case,
             worst_case,
             probability_positive,
+            outcomes,
         }
     }
 

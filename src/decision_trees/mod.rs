@@ -43,7 +43,7 @@ pub mod engine;
 
 // Re-exports
 pub use config::{Branch, DecisionTreeConfig, Node, NodeType};
-pub use engine::{DecisionTreeEngine, NodeResult, TreeResult};
+pub use engine::{DecisionTreeEngine, NodeResult, Outcome, RiskProfile, TreeResult};
 
 #[cfg(test)]
 mod tests;
