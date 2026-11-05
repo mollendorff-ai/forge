@@ -5,10 +5,11 @@
 
 use crate::error::{ForgeError, ForgeResult};
 use colored::Colorize;
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// GitHub repository for releases
@@ -33,20 +34,112 @@ pub struct AssetInfo {
     pub size: u64,
 }
 
-/// Detect the current platform for asset selection
+/// Name prefix of the release archives (`forge-<target>.tar.gz`)
+const ASSET_PREFIX: &str = "forge";
+
+/// Release asset that lists the SHA-256 of every archive
+const CHECKSUMS_ASSET: &str = "checksums.txt";
+
+/// Detect the current platform as the Rust target used in release asset names
 fn detect_platform() -> ForgeResult<&'static str> {
     let os = env::consts::OS;
     let arch = env::consts::ARCH;
 
     match (os, arch) {
-        ("linux", "x86_64") => Ok("linux-x86_64"),
-        ("linux", "aarch64") => Ok("linux-arm64"),
-        ("macos", "x86_64") => Ok("macos-x86_64"),
-        ("macos", "aarch64") => Ok("macos-arm64"),
-        ("windows", "x86_64") => Ok("windows"),
+        ("linux", "x86_64") => Ok("x86_64-unknown-linux-musl"),
+        ("linux", "aarch64") => Ok("aarch64-unknown-linux-musl"),
+        ("macos", "x86_64") => Ok("x86_64-apple-darwin"),
+        ("macos", "aarch64") => Ok("aarch64-apple-darwin"),
+        ("windows", "x86_64") => Ok("x86_64-pc-windows-msvc"),
         _ => Err(ForgeError::Validation(format!(
             "Unsupported platform: {os}-{arch}"
         ))),
+    }
+}
+
+/// Download `url` to `dest`. HTTPS only; an HTTP error status is a failure,
+/// so an error page is never saved as if it were the file.
+fn download(url: &str, dest: &Path) -> ForgeResult<()> {
+    let status = Command::new("curl")
+        .args([
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--location",
+            "--proto",
+            "=https",
+            "--proto-redir",
+            "=https",
+            "--output",
+        ])
+        .arg(dest)
+        .arg(url)
+        .status()
+        .map_err(|e| ForgeError::Validation(format!("Failed to run curl: {e}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(ForgeError::Validation(format!("Download failed: {url}")))
+    }
+}
+
+/// Parse `sha256sum` output into file name -> lowercase hex digest.
+///
+/// Entries may include a directory (`dir/forge-x.tar.gz`); only the file
+/// name is kept.
+fn parse_checksums(text: &str) -> HashMap<String, String> {
+    text.lines()
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let digest = parts.next()?;
+            let path = parts.next()?.trim_start_matches('*');
+            let name = path.rsplit('/').next()?;
+            let is_sha256 = digest.len() == 64 && digest.chars().all(|c| c.is_ascii_hexdigit());
+            is_sha256.then(|| (name.to_string(), digest.to_ascii_lowercase()))
+        })
+        .collect()
+}
+
+/// SHA-256 of a file as lowercase hex
+fn sha256_file(path: &Path) -> ForgeResult<String> {
+    use sha2::{Digest, Sha256};
+    use std::fmt::Write as _;
+
+    let bytes = fs::read(path)
+        .map_err(|e| ForgeError::Validation(format!("Failed to read {}: {e}", path.display())))?;
+    let digest = Sha256::digest(&bytes);
+    Ok(digest
+        .iter()
+        .fold(String::with_capacity(64), |mut hex, byte| {
+            let _ = write!(hex, "{byte:02x}");
+            hex
+        }))
+}
+
+/// Check a downloaded file against the release checksums.
+///
+/// # Errors
+///
+/// Returns an error if the release lists no checksum for `name` or the
+/// digest differs. The caller must not install the file in either case.
+fn verify_checksum(
+    name: &str,
+    path: &Path,
+    checksums: &HashMap<String, String>,
+) -> ForgeResult<()> {
+    let expected = checksums.get(name).ok_or_else(|| {
+        ForgeError::Validation(format!(
+            "The release lists no checksum for {name}; refusing to install it"
+        ))
+    })?;
+    let actual = sha256_file(path)?;
+    if &actual == expected {
+        Ok(())
+    } else {
+        Err(ForgeError::Validation(format!(
+            "Checksum mismatch for {name}: expected {expected}, got {actual}. \
+             The download is corrupt or has been tampered with; nothing was installed."
+        )))
     }
 }
 
@@ -154,106 +247,75 @@ fn is_newer_version(latest: &str, current: &str) -> bool {
     }
 }
 
-/// Find the asset for the current platform
-fn find_platform_asset<'a>(
-    release: &'a ReleaseInfo,
-    platform: &str,
-    binary_name: &str,
-) -> Option<&'a AssetInfo> {
-    // Look for tarball or direct binary
-    let patterns = [
-        format!("{binary_name}-{platform}.tar.gz"),
-        format!("{binary_name}-{platform}.tar.xz"),
-        format!("{binary_name}-{platform}"),
-        format!("{binary_name}-{platform}.exe"),
-    ];
-
-    for pattern in &patterns {
-        if let Some(asset) = release.assets.iter().find(|a| a.name == *pattern) {
-            return Some(asset);
-        }
-    }
-
-    None
+/// Find the archive for the current platform (`forge-<target>.tar.gz` or `.zip`)
+fn find_platform_asset<'a>(release: &'a ReleaseInfo, platform: &str) -> Option<&'a AssetInfo> {
+    ["tar.gz", "zip"].iter().find_map(|extension| {
+        let name = format!("{ASSET_PREFIX}-{platform}.{extension}");
+        release.assets.iter().find(|a| a.name == name)
+    })
 }
 
-/// Download and install a binary
+/// Download an archive, verify its checksum, extract it and install the binary
 fn download_and_install(
+    release: &ReleaseInfo,
     asset: &AssetInfo,
     install_path: &PathBuf,
     verbose: bool,
 ) -> ForgeResult<()> {
-    let temp_dir = env::temp_dir().join("forge-update");
-    fs::create_dir_all(&temp_dir)
+    // A private directory, not a fixed name that another user could create first
+    let temp_dir = tempfile::Builder::new()
+        .prefix("forge-update-")
+        .tempdir()
         .map_err(|e| ForgeError::Validation(format!("Failed to create temp dir: {e}")))?;
 
-    let download_path = temp_dir.join(&asset.name);
+    let checksums_asset = release
+        .assets
+        .iter()
+        .find(|a| a.name == CHECKSUMS_ASSET)
+        .ok_or_else(|| {
+            ForgeError::Validation(format!(
+                "The release has no {CHECKSUMS_ASSET}; refusing to install an unverified binary"
+            ))
+        })?;
+    let checksums_path = temp_dir.path().join(CHECKSUMS_ASSET);
+    download(&checksums_asset.download_url, &checksums_path)?;
+    let checksums = parse_checksums(
+        &fs::read_to_string(&checksums_path)
+            .map_err(|e| ForgeError::Validation(format!("Failed to read checksums: {e}")))?,
+    );
 
+    let download_path = temp_dir.path().join(&asset.name);
     if verbose {
         println!("   Downloading: {}", asset.download_url);
         println!("   Size: {} bytes", asset.size);
     }
+    download(&asset.download_url, &download_path)?;
 
-    // Download the asset
-    let status = Command::new("curl")
-        .args([
-            "-sL",
-            "-o",
-            download_path.to_str().unwrap(),
-            &asset.download_url,
-        ])
+    verify_checksum(&asset.name, &download_path, &checksums)?;
+    println!("   🔒 SHA-256 verified against {CHECKSUMS_ASSET}");
+
+    // Extract (bsdtar, the `tar` on macOS and Windows, also reads zip)
+    let extract_dir = temp_dir.path().join("extracted");
+    fs::create_dir_all(&extract_dir)
+        .map_err(|e| ForgeError::Validation(format!("Failed to create extract dir: {e}")))?;
+    let status = Command::new("tar")
+        .arg("-xf")
+        .arg(&download_path)
+        .arg("-C")
+        .arg(&extract_dir)
         .status()
-        .map_err(|e| ForgeError::Validation(format!("Failed to download: {e}")))?;
-
+        .map_err(|e| ForgeError::Validation(format!("Failed to extract: {e}")))?;
     if !status.success() {
-        return Err(ForgeError::Validation("Download failed".to_string()));
+        return Err(ForgeError::Validation("Extraction failed".to_string()));
     }
 
-    // Extract if tarball, otherwise use directly
-    let binary_path = if asset.name.ends_with(".tar.gz") || asset.name.ends_with(".tar.xz") {
-        // Extract tarball
-        let extract_dir = temp_dir.join("extracted");
-        fs::create_dir_all(&extract_dir)
-            .map_err(|e| ForgeError::Validation(format!("Failed to create extract dir: {e}")))?;
-
-        let tar_flag = if asset.name.ends_with(".tar.xz") {
-            "xJf"
-        } else {
-            "xzf"
-        };
-
-        let status = Command::new("tar")
-            .args([tar_flag, download_path.to_str().unwrap(), "-C"])
-            .arg(&extract_dir)
-            .status()
-            .map_err(|e| ForgeError::Validation(format!("Failed to extract: {e}")))?;
-
-        if !status.success() {
-            return Err(ForgeError::Validation("Extraction failed".to_string()));
-        }
-
-        // Find the binary in extracted files
-        let binary_name = install_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("forge");
-
-        // Check both root and subdirectory
-        let candidates = [
-            extract_dir.join(binary_name),
-            extract_dir.join(format!("{binary_name}/{binary_name}")),
-        ];
-
-        candidates
-            .iter()
-            .find(|p| p.exists())
-            .cloned()
-            .ok_or_else(|| {
-                ForgeError::Validation(format!("Binary not found in archive: {binary_name}"))
-            })?
-    } else {
-        download_path
-    };
+    let archived_binary = format!("{ASSET_PREFIX}{}", env::consts::EXE_SUFFIX);
+    let binary_path = extract_dir.join(&archived_binary);
+    if !binary_path.is_file() {
+        return Err(ForgeError::Validation(format!(
+            "Binary not found in archive: {archived_binary}"
+        )));
+    }
 
     // Backup existing binary
     if install_path.exists() {
@@ -284,9 +346,6 @@ fn download_and_install(
         fs::set_permissions(install_path, perms)
             .map_err(|e| ForgeError::Validation(format!("Failed to set permissions: {e}")))?;
     }
-
-    // Cleanup temp files
-    let _ = fs::remove_dir_all(&temp_dir);
 
     Ok(())
 }
@@ -361,12 +420,8 @@ pub fn update(check_only: bool, verbose: bool) -> ForgeResult<()> {
     }
 
     let install_path = get_install_path()?;
-    let binary_name = install_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("forge");
 
-    let asset = find_platform_asset(&release, platform, binary_name).ok_or_else(|| {
+    let asset = find_platform_asset(&release, platform).ok_or_else(|| {
         ForgeError::Validation(format!(
             "No release asset found for platform: {platform}\nAvailable assets: {}",
             release
@@ -397,7 +452,7 @@ pub fn update(check_only: bool, verbose: bool) -> ForgeResult<()> {
     println!();
     println!("{}", "⬇️  Downloading...".cyan());
 
-    download_and_install(asset, &install_path, verbose)?;
+    download_and_install(&release, asset, &install_path, verbose)?;
 
     println!();
     println!(
@@ -468,35 +523,108 @@ mod tests {
         assert!(!is_newer_version("10.0.0", "10.0.0.1"));
     }
 
+    /// Asset names and checksums.txt lines as published for v10.0.0-beta.8
+    const BETA8_CHECKSUMS: &str = "\
+d02f9496cf002f9a274274a354471567637b508fc1e4a36734b7eed5fc6dc1e0  forge-aarch64-apple-darwin/forge-aarch64-apple-darwin.tar.gz
+4f9e25a7a8d40dad4e356757ea4cf8901724d231335020b457b31b0160d610b7  forge-aarch64-unknown-linux-musl/forge-aarch64-unknown-linux-musl.tar.gz
+a1c6bde499812f6ae236467f1d31db52f5ba66cb30c7bcba262bbb3d8b1a48ec  forge-x86_64-apple-darwin/forge-x86_64-apple-darwin.tar.gz
+3ea6b2fb071bc30c7d5aa6393cbcd5f413629936b96b1d470fec5ee9e3890c14  forge-x86_64-pc-windows-msvc/forge-x86_64-pc-windows-msvc.zip
+c4c3e290f8043329925127b97cc7831094f0f0fcfbf0cc362bd6cb92c5573a54  forge-x86_64-unknown-linux-musl/forge-x86_64-unknown-linux-musl.tar.gz
+";
+
+    fn beta8_release() -> ReleaseInfo {
+        let names = [
+            "checksums.txt",
+            "forge-aarch64-apple-darwin.tar.gz",
+            "forge-aarch64-unknown-linux-musl.tar.gz",
+            "forge-x86_64-apple-darwin.tar.gz",
+            "forge-x86_64-pc-windows-msvc.zip",
+            "forge-x86_64-unknown-linux-musl.tar.gz",
+        ];
+        ReleaseInfo {
+            version: "10.0.0-beta.8".to_string(),
+            published_at: "2026-03-15".to_string(),
+            assets: names
+                .iter()
+                .map(|name| AssetInfo {
+                    name: (*name).to_string(),
+                    download_url: format!("https://example.com/{name}"),
+                    size: 1000,
+                })
+                .collect(),
+        }
+    }
+
     #[test]
-    fn test_find_platform_asset() {
-        let release = ReleaseInfo {
-            version: "10.0.0".to_string(),
-            published_at: "2026-01-02".to_string(),
-            assets: vec![
-                AssetInfo {
-                    name: "forge-linux-x86_64.tar.gz".to_string(),
-                    download_url: "https://example.com/forge-linux-x86_64.tar.gz".to_string(),
-                    size: 1000,
-                },
-                AssetInfo {
-                    name: "forge-macos-arm64.tar.gz".to_string(),
-                    download_url: "https://example.com/forge-macos-arm64.tar.gz".to_string(),
-                    size: 1000,
-                },
-            ],
-        };
+    fn test_find_platform_asset_matches_published_names() {
+        // The old lookup used names like forge-linux-x86_64.tar.gz, which no
+        // release has, so `forge update` could never find an asset
+        let release = beta8_release();
+        for (platform, expected) in [
+            (
+                "x86_64-unknown-linux-musl",
+                "forge-x86_64-unknown-linux-musl.tar.gz",
+            ),
+            (
+                "aarch64-unknown-linux-musl",
+                "forge-aarch64-unknown-linux-musl.tar.gz",
+            ),
+            ("x86_64-apple-darwin", "forge-x86_64-apple-darwin.tar.gz"),
+            ("aarch64-apple-darwin", "forge-aarch64-apple-darwin.tar.gz"),
+            ("x86_64-pc-windows-msvc", "forge-x86_64-pc-windows-msvc.zip"),
+        ] {
+            let asset = find_platform_asset(&release, platform);
+            assert_eq!(asset.map(|a| a.name.as_str()), Some(expected), "{platform}");
+        }
+        assert!(find_platform_asset(&release, "riscv64gc-unknown-linux-gnu").is_none());
+    }
 
-        let asset = find_platform_asset(&release, "linux-x86_64", "forge");
-        assert!(asset.is_some());
-        assert_eq!(asset.unwrap().name, "forge-linux-x86_64.tar.gz");
+    #[test]
+    fn test_detect_platform_has_a_published_asset() {
+        if let Ok(platform) = detect_platform() {
+            assert!(
+                find_platform_asset(&beta8_release(), platform).is_some(),
+                "{platform}"
+            );
+        }
+    }
 
-        let asset = find_platform_asset(&release, "macos-arm64", "forge");
-        assert!(asset.is_some());
-        assert_eq!(asset.unwrap().name, "forge-macos-arm64.tar.gz");
+    #[test]
+    fn test_parse_checksums_keeps_file_names() {
+        let checksums = parse_checksums(BETA8_CHECKSUMS);
+        assert_eq!(checksums.len(), 5);
+        assert_eq!(
+            checksums["forge-x86_64-unknown-linux-musl.tar.gz"],
+            "c4c3e290f8043329925127b97cc7831094f0f0fcfbf0cc362bd6cb92c5573a54"
+        );
+        // Binary-mode marker, upper case and junk lines
+        let other = parse_checksums("ABCDEF0123456789abcdef0123456789ABCDEF0123456789abcdef0123456789 *a.zip\nnot a checksum\n");
+        assert_eq!(
+            other["a.zip"],
+            "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        );
+        assert_eq!(other.len(), 1);
+    }
 
-        let asset = find_platform_asset(&release, "windows", "forge");
-        assert!(asset.is_none());
+    #[test]
+    fn test_verify_checksum() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forge-test.tar.gz");
+        fs::write(&file, b"abc").unwrap();
+        // SHA-256("abc"), a standard test vector
+        let good = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        assert_eq!(sha256_file(&file).unwrap(), good);
+
+        let mut checksums = HashMap::new();
+        checksums.insert("forge-test.tar.gz".to_string(), good.to_string());
+        assert!(verify_checksum("forge-test.tar.gz", &file, &checksums).is_ok());
+
+        fs::write(&file, b"abd").unwrap();
+        let err = verify_checksum("forge-test.tar.gz", &file, &checksums).unwrap_err();
+        assert!(err.to_string().contains("Checksum mismatch"), "{err}");
+
+        let err = verify_checksum("other.tar.gz", &file, &checksums).unwrap_err();
+        assert!(err.to_string().contains("no checksum"), "{err}");
     }
 
     #[test]

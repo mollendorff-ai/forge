@@ -97,6 +97,9 @@ rand = "0.10"
 # Temp files (inline content for MCP tools)
 tempfile = "3.8"
 
+# SHA-256 of downloaded release archives (forge update)
+sha2 = "0.10"
+
 # Monte Carlo simulation
 rand_distr = "0.6"  # Distribution sampling (Normal, Triangular, PERT, etc.)
 statrs = "0.18"     # Statistical functions (PDF, CDF, percentiles)
