@@ -544,12 +544,18 @@ pub fn real_options(
         }
     }
 
-    // Display results
-    print_real_options_results(&result, option_filter, compare_npv);
+    // Display results, options in the order the file lists them
+    let order: Vec<String> = engine
+        .config()
+        .options
+        .iter()
+        .map(|o| o.name.clone())
+        .collect();
+    print_real_options_results(&result, &order, option_filter, compare_npv);
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = format!("{result:#?}");
+        let output_str = result.to_yaml();
         fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
         println!(
             "{}",
@@ -932,34 +938,46 @@ pub fn bayesian(
 /// Print real options analysis results
 fn print_real_options_results(
     result: &crate::real_options::OptionsResult,
+    order: &[String],
     option_filter: Option<&str>,
     compare_npv: bool,
 ) {
     println!("{}", "📊 Real Options Results:".bold().green());
     println!();
 
-    if compare_npv {
-        println!(
+    match result.traditional_npv {
+        Some(npv) => println!(
+            "   Traditional NPV (invest now, no flexibility): {}",
+            format!("${npv:.2}").yellow()
+        ),
+        None if compare_npv => println!(
             "   Traditional NPV: {}",
-            format!("${:.2}", result.traditional_npv).yellow()
-        );
+            "not given (set traditional_npv in real_options)".yellow()
+        ),
+        None => {},
     }
+    println!();
 
-    println!("   {}", "Option Values:".bold());
-    for (name, opt_result) in &result.options {
-        if let Some(filter) = option_filter {
-            if name != filter {
-                continue;
-            }
+    println!("   {}", "Options (each valued on its own):".bold());
+    for name in order {
+        if option_filter.is_some_and(|filter| filter != name) {
+            continue;
         }
+        let Some(opt_result) = result.options.get(name) else {
+            continue;
+        };
         println!(
-            "      {} ({}): {}",
+            "      {} ({}): option value {}",
             opt_result.name.bright_blue(),
             format!("{:?}", opt_result.option_type).dimmed(),
             format!("${:.2}", opt_result.value).bold().green()
         );
+        match opt_result.project_value {
+            Some(pv) => println!("         Project value with this option: ${pv:.2}"),
+            None => println!("         Project value with this option: needs traditional_npv"),
+        }
         if let Some(ref trigger) = opt_result.optimal_trigger {
-            println!("         Trigger: {trigger}");
+            println!("         Rule of thumb: exercise when {trigger}");
         }
         if let Some(prob) = opt_result.probability_exercise {
             println!("         P(exercise): {:.1}%", prob * 100.0);
@@ -967,16 +985,19 @@ fn print_real_options_results(
     }
     println!();
 
-    println!(
-        "   Total Option Value: {}",
-        format!("${:.2}", result.total_option_value).bold().green()
-    );
-    println!(
-        "   Project Value (with options): {}",
-        format!("${:.2}", result.project_value_with_options)
-            .bold()
-            .green()
-    );
+    if let (Some(best), Some(pv)) = (&result.best_option, result.project_value_with_options) {
+        println!(
+            "   Project value with the best option ({}): {}",
+            best.bright_blue(),
+            format!("${pv:.2}").bold().green()
+        );
+    }
+    if result.options.len() > 1 {
+        println!(
+            "   {}",
+            "Option values overlap, so they are compared, not added.".dimmed()
+        );
+    }
 
     println!();
     println!(

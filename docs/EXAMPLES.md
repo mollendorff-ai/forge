@@ -922,97 +922,29 @@ Value managerial flexibility to defer, expand, contract, or abandon projects. Re
 
 **Use case**: Factory investment with option to wait 2 years (defer), scale up if successful (expand), or sell assets if failing (abandon).
 
-**Input (factory_options.yaml):**
-
-```yaml
-_forge_version: "5.0.0"
-
-# Real options configuration
-real_options:
-  name: "Factory Investment with Flexibility"
-  method: binomial  # binomial, black_scholes, or monte_carlo
-
-  # Underlying asset (the project itself)
-  underlying:
-    current_value: 10000000  # Present value of expected cash flows
-    volatility: 0.30  # 30% annual volatility
-    risk_free_rate: 0.05  # 5% risk-free rate
-    time_horizon: 3.0  # 3-year analysis period
-    dividend_yield: 0.0  # No dividends (cash flows retained)
-
-  # Options available
-  options:
-    - type: defer
-      name: "Wait 2 years before investing"
-      max_deferral: 2.0  # Can defer up to 2 years
-      exercise_cost: 8000000  # Investment required
-
-    - type: expand
-      name: "Double capacity if successful"
-      expansion_factor: 2.0  # 2x capacity
-      exercise_cost: 5000000  # Cost to expand
-
-    - type: abandon
-      name: "Sell assets if project fails"
-      salvage_value: 3000000  # Liquidation value
-      exercise_cost: 0
-
-  # Numerical parameters
-  binomial_steps: 100  # More steps = more accurate
-  seed: 42  # For reproducibility
-```
+**Input:** `examples/real-options.yaml` (a $12M project that costs $10M to build, 30% volatility, 3 years, with `traditional_npv: 2000000`).
 
 **Run:**
 
 ```bash
-forge real-options factory_options.yaml --output options_results.yaml
+forge real-options examples/real-options.yaml
+forge real-options examples/real-options.yaml -o options_results.yaml
 ```
 
 **Output:**
 
-```yaml
-options_results:
-  project: "Factory Investment with Flexibility"
+| Option | Option value | Project value with it |
+|--------|--------------|-----------------------|
+| Wait up to 2 years before building (defer) | $3.25M | $3.25M (waiting already includes building now) |
+| Double capacity if demand high (expand) | $7.12M | $9.12M ($2M NPV + $7.12M) |
+| Sell assets for salvage value (abandon) | $0.002M | $2.00M ($2M NPV + $0.002M) |
 
-  # Traditional NPV (no flexibility)
-  traditional_npv:
-    value: 2000000  # $10M value - $8M cost = $2M
-    decision: "PROCEED"
+How the project value is worked out:
 
-  # Option valuations (value of flexibility)
-  option_values:
-    defer:
-      option_value: 1234567.89
-      interpretation: "Worth $1.23M to wait 2 years vs investing now"
-      insight: "Uncertainty may resolve; preserves capital"
-      optimal_exercise: "Wait if value < $9.2M in 2 years"
-
-    expand:
-      option_value: 876543.21
-      interpretation: "Worth $877K to have expansion option"
-      insight: "Captures upside if demand exceeds expectations"
-      optimal_exercise: "Expand if value > $12M after Year 1"
-
-    abandon:
-      option_value: 543210.98
-      interpretation: "Worth $543K to have exit option"
-      insight: "Limits downside by recovering $3M if failing"
-      optimal_exercise: "Abandon if value < $4M"
-
-  # Project value with flexibility
-  enhanced_value:
-    value_with_defer: 3234567.89  # $2M + $1.23M option value
-    value_with_expand: 2876543.21  # $2M + $877K option value
-    value_with_abandon: 2543210.98  # $2M + $543K option value
-    value_with_all: 4654322.08  # Combined option values
-
-  # Strategic insight
-  recommendation:
-    strategy: "INVEST NOW with flexibility"
-    rationale: "Options add $2.65M value above static NPV"
-    key_driver: "Defer option most valuable (uncertainty resolution)"
-    decision_rule: "Monitor project value quarterly; abandon if < $4M, expand if > $12M"
-```
+- **Defer** already includes investing today as one choice, so the project value with it is the option value. Adding the NPV would count it twice.
+- **Expand, abandon, contract, switch, compound** are held on top of a project you build now, so the project value is `traditional_npv` + option value.
+- The options overlap (you cannot both wait and expand a factory you have built), so Forge compares them and reports the best one. It never adds them up.
+- Without `traditional_npv` in `real_options`, Forge still values every option but leaves the decision open.
 
 **Use case explanation:**
 
@@ -1022,7 +954,7 @@ Real options are crucial when:
 - Uncertainty resolves over time (you'll learn more)
 - Investments are staged, reversible, or scalable
 
-**Key insight**: Flexibility adds $2.65M (133% increase) over static NPV. The defer option is most valuable - waiting 2 years to see if uncertainty resolves is worth $1.23M.
+**Key insight**: building now and keeping the right to double capacity is worth $9.12M, against $2M for building with no flexibility. Waiting is worth $3.25M, which is $1.25M more than building now with no options, but less than building with the expansion option.
 
 ---
 

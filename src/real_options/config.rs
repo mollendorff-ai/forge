@@ -215,6 +215,10 @@ pub struct RealOptionsConfig {
     pub monte_carlo_iterations: usize,
     /// Random seed for reproducibility
     pub seed: Option<u64>,
+    /// NPV of investing now without any flexibility. Needed to value options that
+    /// are held on top of the project (expand, abandon, contract, switch, compound).
+    #[serde(default)]
+    pub traditional_npv: Option<f64>,
 }
 
 const fn default_binomial_steps() -> usize {
@@ -237,6 +241,7 @@ impl RealOptionsConfig {
             binomial_steps: 100,
             monte_carlo_iterations: 10000,
             seed: None,
+            traditional_npv: None,
         }
     }
 

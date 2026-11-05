@@ -790,42 +790,33 @@ real_options:
 # Value real options
 forge real-options factory.yaml --output valuation.yaml
 
-# Compare methods
-forge real-options factory.yaml --method black_scholes --compare
+# Show the traditional NPV line even when it is not set
+forge real-options factory.yaml --compare-npv
+
+# One option only
+forge real-options factory.yaml --option "Double capacity if demand high"
 ```
 
-### Output Format
+### Results
 
-```yaml
-real_options_results:
-  underlying_npv: 2000000       # Traditional NPV: $10M value - $8M cost = $2M
+For `examples/real-options.yaml` ($12M project, $10M to build, so `traditional_npv: 2000000`):
 
-  option_values:
-    defer:
-      type: defer
-      value: 1200000            # Worth $1.2M to wait
-      optimal_exercise_time: 1.5  # Wait 1.5 years
+| Option | Option value | Project value with it |
+|--------|--------------|-----------------------|
+| Wait up to 2 years before building (defer) | $3.25M | $3.25M (waiting already includes building now) |
+| Double capacity if demand high (expand) | $7.12M | $9.12M ($2M NPV + $7.12M) |
+| Sell assets for salvage value (abandon) | $0.002M | $2.00M ($2M NPV + $0.002M) |
 
-    expand:
-      type: expand
-      value: 800000             # Worth $0.8M to have expansion option
+Best option: expand, project value $9.12M. Decision: `ACCEPT (with Double capacity if demand high)`. `-o results.yaml` writes the same result as YAML (`traditional_npv`, each option's `value` and `project_value`, `best_option`, `project_value_with_options`, `decision`).
 
-    abandon:
-      type: abandon
-      value: 500000             # Worth $0.5M to have exit option
+How the project value is worked out:
 
-  total_option_value: 2500000   # Combined option value
-  expanded_npv: 4500000         # NPV + option value = $2M + $2.5M
+- **Defer** already includes investing today as one choice, so the project value with it is the option value. Adding the NPV would count it twice.
+- **Expand, abandon, contract, switch, compound** are held on top of a project you build now, so the project value is `traditional_npv` + option value.
+- The options overlap (you cannot both wait and expand a factory you have built), so Forge compares them and reports the best one. It never adds them up.
+- Without `traditional_npv` in `real_options`, Forge still values every option but leaves the decision open.
 
-  recommendation: "Proceed with flexible design. Value of flexibility ($2.5M) exceeds 50% of base NPV."
-```
-
-**Interpretation:**
-- Traditional NPV: $2M (marginally attractive)
-- Option to defer adds $1.2M (value of waiting for information)
-- Expansion option adds $0.8M (value of upside capture)
-- Abandonment adds $0.5M (value of downside protection)
-- **Total value with flexibility: $4.5M** (much more attractive)
+The "exercise when" lines are rules of thumb (for example 10% above the exercise cost), not the optimal exercise boundary from the tree.
 
 ---
 
