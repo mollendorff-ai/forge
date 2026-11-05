@@ -21,6 +21,18 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Serialises an analytics result for `--output`: JSON for a `.json` path,
+/// YAML otherwise. (This used to write a Rust debug dump, which no tool can read.)
+fn serialize_for_file<T: serde::Serialize>(value: &T, path: &Path) -> ForgeResult<String> {
+    if path.extension().and_then(|e| e.to_str()) == Some("json") {
+        serde_json::to_string_pretty(value)
+            .map_err(|e| ForgeError::Validation(format!("JSON error: {e}")))
+    } else {
+        serde_yaml_ng::to_string(value)
+            .map_err(|e| ForgeError::Validation(format!("YAML error: {e}")))
+    }
+}
+
 /// Run scenario analysis and return structured results (no printing).
 ///
 /// # Errors
@@ -337,7 +349,7 @@ pub fn scenarios(
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = format!("{results:#?}");
+        let output_str = serialize_for_file(&results, &output_path)?;
         fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
         println!(
             "{}",
@@ -453,7 +465,7 @@ pub fn decision_tree(
     }
 
     if let Some(output_path) = output_file {
-        let output_str = format!("{result:#?}");
+        let output_str = serialize_for_file(&result, &output_path)?;
         fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
         println!(
             "{}",
@@ -677,7 +689,7 @@ pub fn tornado(
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = format!("{result:#?}");
+        let output_str = serialize_for_file(&result, &output_path)?;
         fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
         println!(
             "{}",
@@ -789,7 +801,7 @@ pub fn bootstrap(
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = format!("{result:#?}");
+        let output_str = serialize_for_file(&result, &output_path)?;
         fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
         println!(
             "{}",
@@ -893,7 +905,7 @@ pub fn bayesian(
         };
         print_bayesian_var_result(target, &var_result);
         if let Some(output_path) = output_file {
-            let output_str = format!("{var_result:#?}");
+            let output_str = serialize_for_file(&var_result, &output_path)?;
             fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
             println!(
                 "{}",
@@ -920,7 +932,7 @@ pub fn bayesian(
         }
 
         if let Some(output_path) = output_file {
-            let output_str = format!("{all_results:#?}");
+            let output_str = serialize_for_file(&all_results, &output_path)?;
             fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
             println!(
                 "{}",
@@ -1102,5 +1114,44 @@ bootstrap:
         let config: BootstrapConfig = serde_yaml_ng::from_value(bs_value.clone()).unwrap();
         assert_eq!(config.iterations, 1000);
         assert_eq!(config.data.len(), 5);
+    }
+
+    /// `--output` must write a file other tools can read (YAML, or JSON for
+    /// a `.json` path), not a Rust debug dump.
+    #[test]
+    fn test_output_files_are_machine_readable() {
+        let dir = tempfile::tempdir().unwrap();
+        let model = dir.path().join("m.yaml");
+        std::fs::write(
+            &model,
+            "_forge_version: \"5.0.0\"\n\nbootstrap:\n  iterations: 200\n  seed: 1\n  confidence_levels: [0.95]\n  data: [1.0, 2.0, 3.0, 4.0, 5.0]\n  statistic: mean\n",
+        )
+        .unwrap();
+
+        let yaml_out = dir.path().join("out.yaml");
+        bootstrap(&model, None, None, None, Some(yaml_out.clone()), false).unwrap();
+        let doc: serde_yaml_ng::Value =
+            serde_yaml_ng::from_str(&std::fs::read_to_string(&yaml_out).unwrap()).unwrap();
+        assert_eq!(doc["original_estimate"].as_f64(), Some(3.0));
+        assert!(doc["confidence_intervals"].is_sequence());
+
+        let json_out = dir.path().join("out.json");
+        bootstrap(&model, None, None, None, Some(json_out.clone()), false).unwrap();
+        let doc: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&json_out).unwrap()).unwrap();
+        assert_eq!(doc["original_estimate"].as_f64(), Some(3.0));
+    }
+
+    #[test]
+    fn test_decision_tree_output_is_yaml() {
+        let dir = tempfile::tempdir().unwrap();
+        let model = dir.path().join("t.yaml");
+        let example = std::fs::read_to_string("examples/decision-tree.yaml").unwrap();
+        std::fs::write(&model, example).unwrap();
+        let out = dir.path().join("out.yaml");
+        decision_tree(&model, false, Some(out.clone()), false).unwrap();
+        let doc: serde_yaml_ng::Value =
+            serde_yaml_ng::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
+        assert!(doc["root_expected_value"].as_f64().is_some());
     }
 }
