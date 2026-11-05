@@ -5,6 +5,117 @@ use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::number_or;
 
+/// Return an error unless the cash flows contain both signs.
+///
+/// Without a negative and a positive flow there is no rate where NPV is zero,
+/// which Excel reports as `#NUM!`.
+fn require_sign_change(name: &str, values: &[f64]) -> Result<(), EvalError> {
+    let has_positive = values.iter().any(|v| *v > 0.0);
+    let has_negative = values.iter().any(|v| *v < 0.0);
+    if has_positive && has_negative {
+        Ok(())
+    } else {
+        Err(EvalError::new(format!(
+            "{name} needs at least one positive and one negative cash flow"
+        )))
+    }
+}
+
+/// Rates checked for a sign change when Newton's method does not converge
+const RATE_GRID: [f64; 22] = [
+    -0.9999, -0.999, -0.99, -0.95, -0.9, -0.75, -0.5, -0.3, -0.2, -0.1, -0.05, -0.01, 0.01, 0.05,
+    0.1, 0.2, 0.3, 0.5, 1.0, 3.0, 10.0, 100.0,
+];
+
+/// Find a rate above -100% where `npv_at(rate)` is zero.
+///
+/// Tries Newton's method from `guess` first. If that does not converge, it
+/// looks for a sign change on a fixed grid of rates and bisects the bracket
+/// closest to `guess`. `scale` (the size of the cash flows) sets the
+/// tolerance. Returns an error rather than an unconverged rate.
+fn solve_rate(
+    name: &str,
+    guess: f64,
+    scale: f64,
+    npv_at: impl Fn(f64) -> f64,
+) -> Result<f64, EvalError> {
+    let tolerance = 1e-9 * scale.max(1.0);
+    let close_enough = |rate: f64| {
+        let npv = npv_at(rate);
+        npv.is_finite() && npv.abs() <= tolerance
+    };
+
+    // Newton's method with a numerical derivative
+    let mut rate = if guess > -1.0 { guess } else { 0.1 };
+    for _ in 0..100 {
+        let npv = npv_at(rate);
+        if !npv.is_finite() {
+            break;
+        }
+        if npv.abs() <= tolerance {
+            return Ok(rate);
+        }
+        let step = 1e-6 * (1.0 + rate.abs());
+        let slope = (npv_at(rate + step) - npv_at(rate - step)) / (2.0 * step);
+        if !slope.is_finite() || slope == 0.0 {
+            break;
+        }
+        let mut next = rate - npv / slope;
+        if next <= -1.0 {
+            // Stay above -100%: move halfway towards it instead
+            next = (rate - 1.0) / 2.0;
+        }
+        if (next - rate).abs() <= 1e-12 * (1.0 + rate.abs()) {
+            rate = next;
+            break;
+        }
+        rate = next;
+    }
+    if close_enough(rate) {
+        return Ok(rate);
+    }
+
+    // Bracketing: find sign changes on a grid and bisect the nearest one
+    let points: Vec<(f64, f64)> = RATE_GRID
+        .iter()
+        .map(|&r| (r, npv_at(r)))
+        .filter(|(_, npv)| npv.is_finite())
+        .collect();
+    let bracket = points
+        .windows(2)
+        .filter(|pair| pair[0].1.signum() != pair[1].1.signum())
+        .map(|pair| (pair[0], pair[1]))
+        .min_by(|a, b| {
+            let distance = |pair: &((f64, f64), (f64, f64))| {
+                let mid = f64::midpoint(pair.0 .0, pair.1 .0);
+                (mid - guess).abs()
+            };
+            distance(a).total_cmp(&distance(b))
+        });
+    if let Some(((mut low, mut low_npv), (mut high, _))) = bracket {
+        for _ in 0..200 {
+            let mid = f64::midpoint(low, high);
+            let mid_npv = npv_at(mid);
+            if !mid_npv.is_finite() {
+                break;
+            }
+            if mid_npv.abs() <= tolerance || (high - low).abs() <= 1e-14 {
+                return Ok(mid);
+            }
+            if mid_npv.signum() == low_npv.signum() {
+                low = mid;
+                low_npv = mid_npv;
+            } else {
+                high = mid;
+            }
+        }
+    }
+
+    Err(EvalError::new(format!(
+        "{name} did not converge: no rate found where NPV is zero"
+    )))
+}
+
 /// Try to evaluate a financial function. Returns None if function not recognized.
 #[allow(
     clippy::cast_possible_truncation,
@@ -127,36 +238,36 @@ pub fn try_evaluate(
         },
 
         "IRR" => {
-            let values = collect_numeric_values(args, ctx)?;
+            // IRR(values, [guess]). Older models pass the flows as separate
+            // arguments, so a second argument is a guess only when the first
+            // is an array of several values.
+            let first = evaluate(&args[0], ctx)?;
+            let has_guess = args.len() == 2 && matches!(&first, Value::Array(a) if a.len() > 1);
+            let (values, guess) = if has_guess {
+                let guess = evaluate(&args[1], ctx)?
+                    .as_number()
+                    .ok_or_else(|| EvalError::new("IRR guess must be a number"))?;
+                (collect_numeric_values(&args[..1], ctx)?, guess)
+            } else {
+                (collect_numeric_values(args, ctx)?, 0.1)
+            };
             if values.is_empty() {
                 return Err(EvalError::new("IRR requires cash flows"));
             }
-            let mut rate: f64 = 0.1;
-            for _ in 0..100 {
-                let mut npv: f64 = 0.0;
-                let mut npv_deriv: f64 = 0.0;
-                for (i, cf) in values.iter().enumerate() {
-                    let factor = (1.0_f64 + rate).powi(i as i32);
-                    npv += cf / factor;
-                    if i > 0 {
-                        npv_deriv -= (i as f64) * cf / (factor * (1.0 + rate));
-                    }
-                }
-                if npv_deriv.abs() < 1e-10 {
-                    break;
-                }
-                let new_rate = rate - npv / npv_deriv;
-                if (new_rate - rate).abs() < 1e-7 {
-                    rate = new_rate;
-                    break;
-                }
-                rate = new_rate;
-            }
+            require_sign_change("IRR", &values)?;
+            let scale: f64 = values.iter().map(|v| v.abs()).sum();
+            let rate = solve_rate("IRR", guess, scale, |rate| {
+                values
+                    .iter()
+                    .enumerate()
+                    .map(|(i, cf)| cf / (1.0 + rate).powi(i as i32))
+                    .sum()
+            })?;
             Value::Number(rate)
         },
 
         "XIRR" => {
-            require_args(name, args, 2)?;
+            require_args_range(name, args, 2, 3)?;
             let values = collect_numeric_values(&args[..1], ctx)?;
             let dates_val = evaluate(&args[1], ctx)?;
             let dates: Vec<f64> = match dates_val {
@@ -169,30 +280,24 @@ pub fn try_evaluate(
                     "XIRR: values and dates must have same length",
                 ));
             }
+            require_sign_change("XIRR", &values)?;
+            let guess = if args.len() > 2 {
+                evaluate(&args[2], ctx)?
+                    .as_number()
+                    .ok_or_else(|| EvalError::new("XIRR guess must be a number"))?
+            } else {
+                0.1
+            };
             let base_date = dates[0];
             let year_fracs: Vec<f64> = dates.iter().map(|d| (d - base_date) / 365.0).collect();
-            let mut rate: f64 = 0.1;
-            for _ in 0..100 {
-                let mut npv: f64 = 0.0;
-                let mut npv_deriv: f64 = 0.0;
-                for (i, cf) in values.iter().enumerate() {
-                    let t = year_fracs[i];
-                    let factor = (1.0_f64 + rate).powf(t);
-                    npv += cf / factor;
-                    if t != 0.0 {
-                        npv_deriv -= t * cf / (factor * (1.0 + rate));
-                    }
-                }
-                if npv_deriv.abs() < 1e-10 {
-                    break;
-                }
-                let new_rate = rate - npv / npv_deriv;
-                if (new_rate - rate).abs() < 1e-7 {
-                    rate = new_rate;
-                    break;
-                }
-                rate = new_rate;
-            }
+            let scale: f64 = values.iter().map(|v| v.abs()).sum();
+            let rate = solve_rate("XIRR", guess, scale, |rate| {
+                values
+                    .iter()
+                    .zip(&year_fracs)
+                    .map(|(cf, t)| cf / (1.0 + rate).powf(*t))
+                    .sum()
+            })?;
             Value::Number(rate)
         },
 
@@ -263,35 +368,25 @@ pub fn try_evaluate(
             } else {
                 0.0
             };
+            let pmt_type = if args.len() > 4 {
+                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0)
+            } else {
+                0.0
+            };
             let guess = if args.len() > 5 {
                 number_or(&args[5], ctx, 0.1)?
             } else {
                 0.1
             };
-
-            let mut rate = guess;
-            for _ in 0..100 {
-                let f = pv.mul_add(
-                    (1.0 + rate).powf(nper),
-                    pmt * ((1.0 + rate).powf(nper) - 1.0) / rate,
-                ) + fv;
-                let f_deriv = (nper * pv).mul_add(
-                    (1.0 + rate).powf(nper - 1.0),
-                    pmt * ((nper * rate)
-                        .mul_add((1.0 + rate).powf(nper - 1.0), -(1.0 + rate).powf(nper))
-                        + 1.0)
-                        / (rate * rate),
-                );
-                if f_deriv.abs() < 1e-10 {
-                    break;
+            let due: f64 = if pmt_type == 0.0 { 0.0 } else { 1.0 };
+            let scale = pmt.abs().mul_add(nper.abs(), pv.abs() + fv.abs());
+            let rate = solve_rate("RATE", guess, scale, |rate| {
+                if rate.abs() < 1e-12 {
+                    return pmt.mul_add(nper, pv) + fv;
                 }
-                let new_rate = rate - f / f_deriv;
-                if (new_rate - rate).abs() < 1e-7 {
-                    rate = new_rate;
-                    break;
-                }
-                rate = new_rate;
-            }
+                let growth = (1.0 + rate).powf(nper);
+                pv.mul_add(growth, pmt * due.mul_add(rate, 1.0) * (growth - 1.0) / rate) + fv
+            })?;
             Value::Number(rate)
         },
 
@@ -730,6 +825,7 @@ pub fn try_evaluate(
 mod tests {
     use super::super::tests::eval;
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_pmt() {
@@ -755,6 +851,90 @@ mod tests {
         // IRR for cash flows: -100, 30, 35, 40, 45
         let irr = eval("IRR(-100, 30, 35, 40, 45)", &ctx).unwrap();
         assert!(matches!(irr, Value::Number(n) if (n - 0.178).abs() < 0.01));
+    }
+
+    fn eval_number(formula: &str, ctx: &EvalContext) -> f64 {
+        match eval(formula, ctx).unwrap() {
+            Value::Number(n) => n,
+            other => panic!("{formula} returned {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_irr_matches_excel() {
+        let ctx = EvalContext::new();
+        // Excel's IRR help example gives 8.7% and -2.1% for these flows; the
+        // exact digits come from an independent bisection
+        let irr = eval_number("IRR(-70000, 12000, 15000, 18000, 21000, 26000)", &ctx);
+        assert!((irr - 0.086_630_948_036_531_6).abs() < 1e-9, "{irr}");
+        let irr = eval_number("IRR(-70000, 12000, 15000, 18000, 21000)", &ctx);
+        assert!((irr + 0.021_244_848_273_411).abs() < 1e-9, "{irr}");
+    }
+
+    #[test]
+    fn test_irr_without_sign_change_is_error() {
+        let ctx = EvalContext::new();
+        for formula in ["IRR(100, 200, 300)", "IRR(-100, -200)", "IRR(0, 0)"] {
+            let err = eval(formula, &ctx).unwrap_err();
+            assert!(
+                err.message.contains("positive and one negative"),
+                "{formula}: {}",
+                err.message
+            );
+        }
+    }
+
+    #[test]
+    fn test_irr_hard_start_still_converges() {
+        let ctx = EvalContext::new();
+        // Newton from 10% overshoots below -100% here; the bracket finds the root
+        let irr = eval_number("IRR(-1000, 1, 1, 1, 1)", &ctx);
+        let npv: f64 = [-1000.0, 1.0, 1.0, 1.0, 1.0]
+            .iter()
+            .enumerate()
+            .map(|(i, cf)| cf / (1.0 + irr).powf(i as f64))
+            .sum();
+        assert!(irr > -1.0 && npv.abs() < 1e-5, "irr {irr}, npv {npv}");
+    }
+
+    #[test]
+    fn test_irr_guess_argument_is_not_a_cash_flow() {
+        let mut ctx = EvalContext::new();
+        let flows = [-100.0, 30.0, 35.0, 40.0, 45.0];
+        let mut table = HashMap::new();
+        table.insert(
+            "cf".to_string(),
+            flows.iter().copied().map(Value::Number).collect(),
+        );
+        ctx.tables.insert("t".to_string(), table);
+        let without = eval_number("IRR(t.cf)", &ctx);
+        let with = eval_number("IRR(t.cf, 0.2)", &ctx);
+        assert!((without - with).abs() < 1e-9, "{without} vs {with}");
+        assert!((without - 0.170_936_863_395).abs() < 1e-9, "{without}");
+    }
+
+    #[test]
+    fn test_xirr_without_sign_change_is_error() {
+        let ctx = EvalContext::new();
+        let err = eval("XIRR(100, 45000)", &ctx).unwrap_err();
+        assert!(
+            err.message.contains("positive and one negative"),
+            "{}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn test_rate_matches_excel_and_reports_no_solution() {
+        let ctx = EvalContext::new();
+        // Excel's RATE help example gives 0.77% a month; exact digits from bisection
+        let rate = eval_number("RATE(48, -200, 8000)", &ctx);
+        assert!((rate - 0.007_701_472_488_23).abs() < 1e-9, "{rate}");
+        // Payments at the start of each period (type 1)
+        let due = eval_number("RATE(48, -200, 8000, 0, 1)", &ctx);
+        assert!((due - 0.008_052_981_923_906).abs() < 1e-9, "{due}");
+        // Receiving money every period with nothing paid: no rate exists
+        assert!(eval("RATE(10, 100, 1000)", &ctx).is_err());
     }
 
     #[test]
