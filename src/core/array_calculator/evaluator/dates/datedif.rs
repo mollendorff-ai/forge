@@ -145,10 +145,10 @@ pub fn try_evaluate(
                     // US 30/360 and European 30/360
                     let mut d1 = start_date.day() as i32;
                     let m1 = start_date.month() as i32;
-                    let y1 = start_date.year() as i32;
+                    let y1 = start_date.year();
                     let mut d2 = end_date.day() as i32;
                     let m2 = end_date.month() as i32;
-                    let y2 = end_date.year() as i32;
+                    let y2 = end_date.year();
 
                     if d1 == 31 {
                         d1 = 30;

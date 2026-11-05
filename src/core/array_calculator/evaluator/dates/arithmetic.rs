@@ -59,7 +59,7 @@ pub fn try_evaluate(
                 as i32;
 
             // Handle month overflow/underflow (Excel-compatible behavior)
-            let total_months = (year * 12 + month - 1) as i32;
+            let total_months = year * 12 + month - 1;
             let adj_year = total_months.div_euclid(12);
             let adj_month = (total_months.rem_euclid(12) + 1) as u32;
 

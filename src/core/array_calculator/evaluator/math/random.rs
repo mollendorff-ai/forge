@@ -68,7 +68,7 @@ mod tests {
             let result = eval("RANDBETWEEN(1, 10)", &ctx).unwrap();
             if let Value::Number(n) = result {
                 assert!((1.0..=10.0).contains(&n));
-                assert!(n.fract() == 0.0);
+                assert!(n.fract().abs() < f64::EPSILON);
             }
         }
     }

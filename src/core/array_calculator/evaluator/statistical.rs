@@ -137,9 +137,9 @@ pub fn try_evaluate(
             for (x, y) in x_vals.iter().zip(y_vals.iter()) {
                 let dx = x - x_mean;
                 let dy = y - y_mean;
-                cov += dx * dy;
-                var_x += dx * dx;
-                var_y += dy * dy;
+                cov = dx.mul_add(dy, cov);
+                var_x = dx.mul_add(dx, var_x);
+                var_y = dy.mul_add(dy, var_y);
             }
             if var_x == 0.0 || var_y == 0.0 {
                 return Err(EvalError::new("CORREL: zero variance"));

@@ -369,7 +369,7 @@ pub fn try_evaluate(
                 0.0
             };
             let pmt_type = if args.len() > 4 {
-                evaluate(&args[4], ctx)?.as_number().unwrap_or(0.0)
+                number_or(&args[4], ctx, 0.0)?
             } else {
                 0.0
             };
@@ -516,7 +516,10 @@ pub fn try_evaluate(
                 if cf < 0.0 {
                     npv_neg += cf / (1.0 + finance_rate).powi(i as i32);
                 } else {
-                    npv_pos += cf * (1.0 + reinvest_rate).powi((n - 1.0 - i as f64) as i32);
+                    npv_pos = cf.mul_add(
+                        (1.0 + reinvest_rate).powi((n - 1.0 - i as f64) as i32),
+                        npv_pos,
+                    );
                 }
             }
 
@@ -935,6 +938,23 @@ mod tests {
         assert!((due - 0.008_052_981_923_906).abs() < 1e-9, "{due}");
         // Receiving money every period with nothing paid: no rate exists
         assert!(eval("RATE(10, 100, 1000)", &ctx).is_err());
+    }
+
+    #[test]
+    fn test_rate_rejects_column_for_type_and_guess() {
+        let mut ctx = EvalContext::new();
+        let mut table = HashMap::new();
+        table.insert(
+            "c".to_string(),
+            vec![Value::Number(0.0), Value::Number(1.0)],
+        );
+        ctx.tables.insert("t".to_string(), table);
+        for formula in [
+            "RATE(48, -200, 8000, 0, t.c)",
+            "RATE(48, -200, 8000, 0, 0, t.c)",
+        ] {
+            assert!(eval(formula, &ctx).is_err(), "{formula}");
+        }
     }
 
     #[test]

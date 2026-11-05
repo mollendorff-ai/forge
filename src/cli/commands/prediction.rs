@@ -297,7 +297,7 @@ pub fn scenarios(
             "      {} (p={:.0}%): {}",
             name.bright_blue(),
             def.probability * 100.0,
-            &def.description
+            def.description
         );
     }
     println!();

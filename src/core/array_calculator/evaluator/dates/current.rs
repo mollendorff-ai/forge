@@ -60,7 +60,7 @@ mod tests {
             .unwrap();
         if let ColumnValue::Text(values) = &col.values {
             assert!(values[0].contains('-'));
-            assert!(values[0].len() == 10);
+            assert_eq!(values[0].len(), 10);
         }
     }
 

@@ -332,13 +332,16 @@ fn test_json_output() {
     // Verify JSON is valid and contains expected fields
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
-    assert!(
+    assert_eq!(
         parsed["monte_carlo_results"]["iterations"]
             .as_u64()
-            .unwrap()
-            == 100
+            .unwrap(),
+        100
     );
-    assert!(parsed["monte_carlo_results"]["sampling"].as_str().unwrap() == "latin_hypercube");
-    assert!(parsed["monte_carlo_results"]["seed"].as_u64().unwrap() == 42);
+    assert_eq!(
+        parsed["monte_carlo_results"]["sampling"].as_str().unwrap(),
+        "latin_hypercube"
+    );
+    assert_eq!(parsed["monte_carlo_results"]["seed"].as_u64().unwrap(), 42);
     assert!(parsed["monte_carlo_results"]["outputs"]["test"]["mean"].is_number());
 }

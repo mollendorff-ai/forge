@@ -19,14 +19,14 @@ YAML-based financial modeling with Excel-style formula evaluation. Git-native an
 
 Forge is a beta (v10.0.0-beta.8) and an R&D prototype, built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
 
-Known problems as of 2026-11-04:
+Known problems as of 2026-11-05:
 
-- Arithmetic on whole columns inside an aggregate, such as `=SUM(a * b)`, gives wrong results. Compute the product in its own column, then aggregate that column.
-- `IRR` does not report when it fails to converge or when the cash flows have no sign change.
-- A table column formula that starts with `MAX(`, `SUM(` or similar can be rejected by the schema check. Use an `IF(...)` form, or put the result in a scalar.
-- Tornado and sensitivity inputs need fully qualified names such as `assumptions.growth_rate`. Short names can fail or give empty results.
+- Configuration keys that Forge does not recognise are ignored without a warning, so a misspelt key can change a result silently. In the real-options example the Expand option shows $12.0M where an independent calculation gives about $7.1M.
+- The decision-tree "probability of a positive value" is a simplified calculation and can be wrong. The example shows 100% where an independent calculation gives 42%.
+- Monte Carlo results differ from run to run even with a fixed `seed`, because variables are sampled in a changing order.
 - `forge export` handles simple single-table models. Formulas that reference other sections are not translated correctly yet, and `forge import` output may not validate.
-- Some files in `examples/` do not pass `forge validate`, and `forge examples <name> --run` fails for monte-carlo, bayesian and breakeven.
+- `forge bayesian examples/bayesian.yaml` fails: the example and the config format disagree.
+- `forge calculate examples/monte-carlo.yaml` fails because its row formulas need values that only exist during a simulation. Use `forge simulate` for that example.
 
 ## The Problem
 
@@ -86,7 +86,7 @@ Forge's results are checked in three ways. None of them is complete yet.
 
 | Check | What it covers | Status |
 | --- | --- | --- |
-| Unit tests (this repo) | 1,366 inline unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Run on every push |
+| Unit tests (this repo) | 1,399 inline unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Run on every push |
 | [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,301 formula specs. Each formula is exported to `.xlsx`, recalculated by Gnumeric and compared with an expected value | Run by hand; 1,114 of 1,301 passed on 2026-11-04. It checks the export and Gnumeric, not yet Forge's own evaluator |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Monte Carlo distributions compared with R | Run by hand; 10 of 77 specs run live and the rest are skipped |
 
@@ -471,7 +471,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 
 | Metric | Value |
 | --- | --- |
-| **Unit tests** | 1,366 inline unit tests and 2 doctests (counted 2026-11-04) |
+| **Unit tests** | 1,399 inline unit tests and 2 doctests (counted 2026-11-05) |
 | **Functions** | 173, of which 6 are FP&A-native |
 | **Lints** | clippy pedantic is enabled and CI fails on warnings |
 | **External validation** | Partial; see [Validation status](#validation-status) |
@@ -480,7 +480,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 
 ```text
 forge (this repo)             validation repos
-├── 1,366 unit tests          ├── forge-e2e-gnumeric: 1,301 formula specs
+├── 1,399 unit tests          ├── forge-e2e-gnumeric: 1,301 formula specs
 ├── #[cfg(test)] modules      └── forge-e2e-r: 77 specs (10 run live)
 └── 2 doctests
 ```
