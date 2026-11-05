@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- `TRUE = 1` and `FALSE = 0` expect 0 (Excel and Gnumeric: a boolean never equals a number); `0^0` is skipped (it is #NUM! in every engine). Forge now agrees (mollendorff-ai/forge fix for both). Gnumeric-only skips drop from 37 to 34.
+
 ### Fixed
 
 - **Forge's own evaluator was never tested.** The runner only had Gnumeric recalculate the exported workbook. Each case now also runs `forge calculate`, and passes only when both agree with the expected value.

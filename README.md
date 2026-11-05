@@ -57,7 +57,7 @@ YAML Test Spec ─────┤                                ├─ both mus
 
 Only the cell labelled `test_result` counts as Gnumeric's answer.
 
-Gnumeric 1.12 cannot judge a few cases (`DATEDIF` read from xlsx, `XLOOKUP`, `ISFORMULA` on a literal). Mark those with `gnumeric_skip: "reason"` next to `expected:`. They are then checked against Forge only, and the summary counts them. Where Forge differs from Excel and Gnumeric (`0^0`, `TRUE = 1`), the expected value is Excel's and the case carries a `gnumeric_skip` reason that names the difference.
+Gnumeric 1.12 cannot judge a few cases (`DATEDIF` read from xlsx, `XLOOKUP`, `ISFORMULA` on a literal). Mark those with `gnumeric_skip: "reason"` next to `expected:`. They are then checked against Forge only, and the summary counts them. Where Excel and Gnumeric differ from each other, the case carries a `gnumeric_skip` reason that names the difference.
 
 ## Architecture
 

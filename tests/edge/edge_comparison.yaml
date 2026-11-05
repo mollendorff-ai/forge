@@ -5,15 +5,13 @@ assumptions:
     formula: =IF(TRUE > FALSE, 1, 0)
     expected: 1
   test_true_eq_one:
-    value: 1.0
-    formula: =IF(TRUE = 1, 1, 0)
-    expected: 1
-    gnumeric_skip: "Excel and Gnumeric compare a boolean with a number as unequal; Forge treats them as equal"
+    value: 0.0
+    formula: =IF(TRUE = 1, 1, 0)    # Excel and Gnumeric: a boolean never equals a number
+    expected: 0
   test_false_eq_zero:
-    value: 1.0
-    formula: =IF(FALSE = 0, 1, 0)
-    expected: 1
-    gnumeric_skip: "Excel and Gnumeric compare a boolean with a number as unequal; Forge treats them as equal"
+    value: 0.0
+    formula: =IF(FALSE = 0, 1, 0)    # Excel and Gnumeric: a boolean never equals a number
+    expected: 0
   test_string_exact_match:
     value: 1.0
     formula: =IF("ABC" = "ABC", 1, 0)
