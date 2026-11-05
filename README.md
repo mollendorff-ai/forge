@@ -27,7 +27,7 @@ This is a child repository of [forge-e2e](https://github.com/mollendorff-ai/forg
 
 ### What actually runs
 
-`cargo run --release -- --all` runs the Monte Carlo specs (10) and the bootstrap specs (13 of 17) against R: 23 of the 77 specs in `tests/analytics`. Four bootstrap specs use BCa or basic intervals, which Forge does not compute, so they are skipped. The other 54 specs (tornado, sensitivity, decision trees, real options, Bayesian, scenarios, variance, breakeven) are reported as skipped; their runners are still to come. Bootstrap needs a Forge build that includes `--output` in JSON (forge PR #27).
+`cargo run --release -- --all` loads the 77 specs in `tests/analytics` and compares Forge with R for 30 of them: Monte Carlo 10 of 12, bootstrap 7 of 12, tornado 7 of 8, sensitivity 6 of 10. The other 47 are reported as skipped, each with its reason: Forge has no BCa or basic bootstrap intervals, no exponential distribution, no elasticity command, and rejects one-point ranges; decision trees, real options and Bayesian networks (35 specs) have no runner yet. Bootstrap, tornado and sensitivity need a Forge build with machine-readable `--output` (forge PR #27). `variance.yaml`, `breakeven.yaml` and `scenarios.yaml` are Forge models with hand-written expected values, not R comparisons, and the runner does not load them.
 
 `validators/r/math_validator.R`, `date_validator.R` and `financial_validator.R` run each formula through `forge calculate` and compare the result with R. They need `FORGE_BIN` set (or `forge` on the PATH) and stop with exit code 2 if Forge cannot be found. Where R and Excel differ, the reference is Excel: `ROUND` rounds half away from zero and `NETWORKDAYS` counts both end dates.
 
