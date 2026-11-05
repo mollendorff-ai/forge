@@ -1059,15 +1059,22 @@ Additional endpoints:
   GET  /version          - Server version info
   GET  /                 - API documentation
 
+Security:
+  The API reads and writes the files that requests name, as your user.
+  By default it listens on 127.0.0.1, rejects requests whose Host header
+  is not this machine, and does not allow browser requests from other
+  websites (no CORS). To listen on another address, set a token; requests
+  to /api/v1/* must then send 'Authorization: Bearer <token>'.
+
 Features:
-  CORS enabled for cross-origin requests
   Graceful shutdown on SIGINT/SIGTERM
   JSON response format with request IDs
   Tracing and structured logging
 
 EXAMPLES:
-  forge serve                              # Start on localhost:8080
-  forge serve --host 0.0.0.0 --port 3000   # Custom bind address")]
+  forge serve                                        # Start on localhost:8080
+  FORGE_API_TOKEN=... forge serve --host 0.0.0.0     # All interfaces, token required
+  forge serve --cors-origin http://localhost:3000    # Allow one web app")]
     /// Start HTTP REST API server
     Serve {
         /// Host address to bind to (use 0.0.0.0 for all interfaces)
@@ -1077,6 +1084,16 @@ EXAMPLES:
         /// Port to listen on
         #[arg(short, long, default_value = "8080", env = "FORGE_PORT")]
         port: u16,
+
+        /// Token required on /api/v1/* (prefer the environment variable, which
+        /// other users cannot see in the process list)
+        #[arg(long, env = "FORGE_API_TOKEN", hide_env_values = true)]
+        token: Option<String>,
+
+        /// Browser origin allowed to call the API, e.g. <http://localhost:3000>
+        /// (repeatable; none by default)
+        #[arg(long = "cors-origin", value_name = "ORIGIN")]
+        cors_origins: Vec<String>,
     },
 }
 
@@ -1267,8 +1284,18 @@ fn main() -> ForgeResult<()> {
             })
         },
 
-        Commands::Serve { host, port } => {
-            let config = ApiConfig { host, port };
+        Commands::Serve {
+            host,
+            port,
+            token,
+            cors_origins,
+        } => {
+            let config = ApiConfig {
+                host,
+                port,
+                token,
+                cors_origins,
+            };
             let rt = tokio::runtime::Runtime::new()
                 .map_err(|e| ForgeError::Validation(format!("Failed to create runtime: {e}")))?;
             rt.block_on(run_api_server(config))

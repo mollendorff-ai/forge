@@ -96,11 +96,14 @@ graph LR
 
 ### HTTP REST API Server
 
-Run `forge serve` for production HTTP API:
+Run `forge serve` for an HTTP API:
 
 ```bash
-forge serve --host 0.0.0.0 --port 8080
+forge serve                                     # localhost only
+FORGE_API_TOKEN=... forge serve --host 0.0.0.0  # other machines, token required
 ```
+
+The API reads and writes the files that requests name, as the user running it. By default it listens on 127.0.0.1, rejects requests whose `Host` header is not this machine, and allows no browser requests from other websites. Listening on another address needs a token; requests to `/api/v1/*` then send `Authorization: Bearer <token>`. Use `--cors-origin <origin>` to let a specific web app call it.
 
 **Endpoints:**
 

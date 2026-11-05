@@ -7,3 +7,6 @@ pub mod handlers;
 pub mod server;
 
 pub use server::run_api_server;
+
+#[cfg(test)]
+mod security_tests;
