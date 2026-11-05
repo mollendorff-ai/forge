@@ -125,7 +125,7 @@ parked:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 completed:
-  # ── v10.0.0-beta.9 ── Silent wrong answers and honest claims ──────────────
+  # ── v10.0.0-beta.10 ── Silent wrong answers and honest claims ──────────────
   - id: FIX-001
     title: "MCP inline _includes: relative paths only (no file write or read outside the temp directory)"
   - id: FIX-002
