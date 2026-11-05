@@ -249,11 +249,46 @@ impl BayesianConfig {
                     ));
                 }
             }
+
+            self.check_cpt_matches_parent(name, node)?;
         }
 
         // Check for cycles
         self.check_cycles()?;
 
+        Ok(())
+    }
+
+    /// Inference handles one parent per node, so more than one would give wrong
+    /// numbers silently. Each CPT row must be named after a state of that parent.
+    fn check_cpt_matches_parent(&self, name: &str, node: &BayesianNode) -> Result<(), String> {
+        if node.node_type != NodeType::Discrete || node.parents.is_empty() {
+            return Ok(());
+        }
+        if node.parents.len() > 1 {
+            return Err(format!(
+                "Node '{name}' has {} parents; only one parent per node is supported",
+                node.parents.len()
+            ));
+        }
+        let parent = &node.parents[0];
+        let Some(parent_node) = self.nodes.get(parent) else {
+            return Ok(());
+        };
+        for state in &parent_node.states {
+            if !node.cpt.contains_key(state) {
+                return Err(format!(
+                    "Node '{name}': CPT has no entry for state '{state}' of parent '{parent}'"
+                ));
+            }
+        }
+        for key in node.cpt.keys() {
+            if !parent_node.states.contains(key) {
+                return Err(format!(
+                    "Node '{name}': CPT entry '{key}' is not a state of parent '{parent}'"
+                ));
+            }
+        }
         Ok(())
     }
 

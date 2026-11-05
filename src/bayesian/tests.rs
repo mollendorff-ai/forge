@@ -265,3 +265,89 @@ fn test_json_with_evidence() {
     assert!(json.contains("\"evidence\""));
     assert!(json.contains("\"bad\""));
 }
+
+fn network_with_two_parents() -> BayesianConfig {
+    BayesianConfig::new("two parents")
+        .with_node(
+            "a",
+            BayesianNode::discrete(vec!["x", "y"]).with_prior(vec![0.5, 0.5]),
+        )
+        .with_node(
+            "b",
+            BayesianNode::discrete(vec!["x", "y"]).with_prior(vec![0.5, 0.5]),
+        )
+        .with_node(
+            "c",
+            BayesianNode::discrete(vec!["lo", "hi"])
+                .with_parents(vec!["a", "b"])
+                .with_cpt_entry("x", vec![0.5, 0.5])
+                .with_cpt_entry("y", vec![0.5, 0.5]),
+        )
+}
+
+#[test]
+fn test_more_than_one_parent_is_an_error() {
+    // Inference supports one parent per node; with two it used to return wrong numbers.
+    let err = network_with_two_parents().validate().unwrap_err();
+    assert!(err.contains("only one parent"), "{err}");
+    assert!(BayesianEngine::new(network_with_two_parents()).is_err());
+}
+
+#[test]
+fn test_cpt_must_have_a_row_for_every_parent_state() {
+    let config = BayesianConfig::new("missing row")
+        .with_node(
+            "a",
+            BayesianNode::discrete(vec!["x", "y"]).with_prior(vec![0.5, 0.5]),
+        )
+        .with_node(
+            "b",
+            BayesianNode::discrete(vec!["lo", "hi"])
+                .with_parents(vec!["a"])
+                .with_cpt_entry("x", vec![0.5, 0.5]),
+        );
+    let err = config.validate().unwrap_err();
+    assert!(err.contains("no entry for state 'y'"), "{err}");
+}
+
+#[test]
+fn test_cpt_row_must_name_a_parent_state() {
+    let config = BayesianConfig::new("typo")
+        .with_node(
+            "a",
+            BayesianNode::discrete(vec!["x", "y"]).with_prior(vec![0.5, 0.5]),
+        )
+        .with_node(
+            "b",
+            BayesianNode::discrete(vec!["lo", "hi"])
+                .with_parents(vec!["a"])
+                .with_cpt_entry("x", vec![0.5, 0.5])
+                .with_cpt_entry("y", vec![0.5, 0.5])
+                .with_cpt_entry("z", vec![0.5, 0.5]),
+        );
+    let err = config.validate().unwrap_err();
+    assert!(err.contains("'z' is not a state"), "{err}");
+}
+
+#[test]
+fn test_example_file_matches_hand_computed_posteriors() {
+    use crate::cli::commands::bayesian_core;
+    use std::path::Path;
+
+    let file = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/bayesian.yaml");
+
+    let prior = bayesian_core(&file, Some("default_probability"), &[]).unwrap();
+    let p = &prior.queries["default_probability"];
+    assert!((p.get_probability("low").unwrap() - 0.4825).abs() < 1e-9);
+    assert!((p.get_probability("high").unwrap() - 0.2205).abs() < 1e-9);
+
+    let evidence = vec!["economic_conditions=bad".to_string()];
+    let bad = bayesian_core(&file, Some("default_probability"), &evidence).unwrap();
+    let b = &bad.queries["default_probability"];
+    assert!((b.get_probability("high").unwrap() - 0.408).abs() < 1e-9);
+
+    let evidence = vec!["default_probability=high".to_string()];
+    let back = bayesian_core(&file, Some("economic_conditions"), &evidence).unwrap();
+    let e = &back.queries["economic_conditions"];
+    assert!((e.get_probability("bad").unwrap() - 0.3701).abs() < 1e-3);
+}
