@@ -86,39 +86,39 @@ run_validator() {
 echo -e "\n${BOLD}Running R Validators...${RESET}\n"
 
 if run_validator "Bootstrap Validator" "$SCRIPT_DIR/bootstrap_validator.R"; then
-    ((PASSED_VALIDATORS++))
+    PASSED_VALIDATORS=$((PASSED_VALIDATORS + 1))
 else
-    ((FAILED_VALIDATORS++))
+    FAILED_VALIDATORS=$((FAILED_VALIDATORS + 1))
 fi
 
 if run_validator "Distribution Validator" "$SCRIPT_DIR/distribution_validator.R"; then
-    ((PASSED_VALIDATORS++))
+    PASSED_VALIDATORS=$((PASSED_VALIDATORS + 1))
 else
-    ((FAILED_VALIDATORS++))
+    FAILED_VALIDATORS=$((FAILED_VALIDATORS + 1))
 fi
 
 if run_validator "Financial Validator" "$SCRIPT_DIR/financial_validator.R"; then
-    ((PASSED_VALIDATORS++))
+    PASSED_VALIDATORS=$((PASSED_VALIDATORS + 1))
 else
-    ((FAILED_VALIDATORS++))
+    FAILED_VALIDATORS=$((FAILED_VALIDATORS + 1))
 fi
 
 if run_validator "Monte Carlo Validator" "$SCRIPT_DIR/monte_carlo_validator.R"; then
-    ((PASSED_VALIDATORS++))
+    PASSED_VALIDATORS=$((PASSED_VALIDATORS + 1))
 else
-    ((FAILED_VALIDATORS++))
+    FAILED_VALIDATORS=$((FAILED_VALIDATORS + 1))
 fi
 
 if run_validator "Math Validator" "$SCRIPT_DIR/math_validator.R"; then
-    ((PASSED_VALIDATORS++))
+    PASSED_VALIDATORS=$((PASSED_VALIDATORS + 1))
 else
-    ((FAILED_VALIDATORS++))
+    FAILED_VALIDATORS=$((FAILED_VALIDATORS + 1))
 fi
 
 if run_validator "Date Validator" "$SCRIPT_DIR/date_validator.R"; then
-    ((PASSED_VALIDATORS++))
+    PASSED_VALIDATORS=$((PASSED_VALIDATORS + 1))
 else
-    ((FAILED_VALIDATORS++))
+    FAILED_VALIDATORS=$((FAILED_VALIDATORS + 1))
 fi
 
 # Count individual test results from validator output

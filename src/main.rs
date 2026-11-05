@@ -135,12 +135,17 @@ fn run_all_mode(
 
     let passed = results.iter().filter(|r| r.is_pass()).count();
     let failed = results.iter().filter(|r| r.is_fail()).count();
+    let errored = results.iter().filter(|r| r.is_error()).count();
     let skipped = results
         .iter()
         .filter(|r| matches!(r, TestResult::Skip { .. }))
         .count();
 
-    if failed == 0 {
+    // An error (missing R package, Forge crash, unparseable output) means the
+    // test did not run, so it counts against the run just like a failure.
+    // A run that passed nothing proves nothing, so it fails too.
+    let bad = failed + errored;
+    if bad == 0 && passed > 0 {
         println!(
             "  {} {} passed, {} skipped in {:.2}s",
             "PASS".green(),
@@ -150,18 +155,30 @@ fn run_all_mode(
         );
     } else {
         println!(
-            "  {} {} passed, {} failed, {} skipped in {:.2}s",
+            "  {} {} passed, {} failed, {} errored, {} skipped in {:.2}s",
             "FAIL".red(),
             passed,
             failed.to_string().red(),
+            errored.to_string().red(),
             skipped,
             elapsed.as_secs_f64()
+        );
+        if passed == 0 && bad == 0 {
+            println!("  No test passed: nothing was validated.");
+        }
+    }
+
+    if skipped > 0 {
+        println!(
+            "  {} {skipped} of {} tests were skipped, not validated (no runner for their type yet).",
+            "NOTE".yellow(),
+            results.len()
         );
     }
 
     println!("{}", "=".repeat(60));
 
-    if failed > 0 {
+    if bad > 0 || passed == 0 {
         std::process::exit(1);
     }
 
