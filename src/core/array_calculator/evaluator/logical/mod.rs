@@ -1252,7 +1252,7 @@ mod comparison_tests {
         );
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
-        assert_eq!(result.scalars.get("result").unwrap().value, Some(1.0));
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(0.0));
     }
 
     #[test]
@@ -1268,7 +1268,7 @@ mod comparison_tests {
         );
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
-        assert_eq!(result.scalars.get("result").unwrap().value, Some(1.0));
+        assert_eq!(result.scalars.get("result").unwrap().value, Some(0.0));
     }
 
     #[test]

@@ -483,7 +483,21 @@ fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Va
             let r = right
                 .as_number()
                 .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
-            Ok(Value::Number(l.powf(r)))
+            // Excel: 0^0 and a negative base with a fractional exponent are
+            // #NUM!, and 0 to a negative power is #DIV/0!.
+            if l == 0.0 && r == 0.0 {
+                return Err(EvalError::new("#NUM!: 0^0 is undefined"));
+            }
+            if l == 0.0 && r < 0.0 {
+                return Err(EvalError::new("#DIV/0!: zero to a negative power"));
+            }
+            let result = l.powf(r);
+            if result.is_nan() {
+                return Err(EvalError::new(
+                    "#NUM!: negative base with a fractional exponent",
+                ));
+            }
+            Ok(Value::Number(result))
         },
 
         // String concatenation operator
@@ -543,11 +557,6 @@ pub(crate) fn values_equal(left: &Value, right: &Value) -> bool {
         (Value::Number(l), Value::Number(r)) => (l - r).abs() < 1e-10,
         (Value::Text(l), Value::Text(r)) => l.to_lowercase() == r.to_lowercase(),
         (Value::Boolean(l), Value::Boolean(r)) => l == r,
-        // Boolean vs Number: TRUE = 1, FALSE = 0 (Excel-compatible)
-        (Value::Boolean(b), Value::Number(n)) | (Value::Number(n), Value::Boolean(b)) => {
-            let bool_num = if *b { 1.0 } else { 0.0 };
-            (bool_num - n).abs() < 1e-10
-        },
         (Value::Null, Value::Null) => true,
         (Value::Array(l), Value::Array(r)) => {
             // Arrays are equal if same length and all elements equal
@@ -559,6 +568,8 @@ pub(crate) fn values_equal(left: &Value, right: &Value) -> bool {
         // Single-element array compared with scalar
         (Value::Array(arr), other) if arr.len() == 1 => values_equal(&arr[0], other),
         (other, Value::Array(arr)) if arr.len() == 1 => values_equal(other, &arr[0]),
+        // Boolean vs Number is never equal: in Excel and Gnumeric `TRUE = 1`
+        // and `FALSE = 0` are FALSE (arithmetic still coerces: TRUE + 1 = 2).
         _ => false,
     }
 }
@@ -839,8 +850,18 @@ mod tests {
     #[test]
     fn test_eval_power_zero_to_zero() {
         let ctx = EvalContext::new();
-        // 0^0 = 1 (Excel convention)
-        assert_eq!(eval("0 ^ 0", &ctx).unwrap(), Value::Number(1.0));
+        // Excel: 0^0 is #NUM!
+        assert!(eval("0 ^ 0", &ctx)
+            .unwrap_err()
+            .to_string()
+            .contains("#NUM!"));
+        // Excel: 0 to a negative power is #DIV/0!
+        assert!(eval("0 ^ -1", &ctx)
+            .unwrap_err()
+            .to_string()
+            .contains("#DIV/0!"));
+        // Excel: negative base, fractional exponent is #NUM!
+        assert!(eval("(0 - 8) ^ 0.5", &ctx).is_err());
     }
 
     #[test]
@@ -890,10 +911,10 @@ mod tests {
     #[test]
     fn test_eval_boolean_number_equality() {
         let ctx = EvalContext::new();
-        // TRUE = 1 = true (Excel-compatible type coercion)
-        assert_eq!(eval("TRUE = 1", &ctx).unwrap(), Value::Boolean(true));
-        // FALSE = 0 = true
-        assert_eq!(eval("FALSE = 0", &ctx).unwrap(), Value::Boolean(true));
+        // Excel and Gnumeric: a boolean never equals a number
+        assert_eq!(eval("TRUE = 1", &ctx).unwrap(), Value::Boolean(false));
+        assert_eq!(eval("FALSE = 0", &ctx).unwrap(), Value::Boolean(false));
+        assert_eq!(eval("TRUE <> 1", &ctx).unwrap(), Value::Boolean(true));
     }
 
     #[test]
