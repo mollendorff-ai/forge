@@ -12,8 +12,8 @@
 #   2. EXPAND: Double capacity if demand is high (+$5M for 2x output)
 #   3. ABANDON: Sell assets for $3M salvage if demand collapses
 #
-# Real options analysis shows these flexibilities add value beyond NPV.
-# With 30% volatility, the options are worth ~$1.5M extra.
+# Real options analysis values each flexibility on its own. They overlap, so
+# Forge compares them instead of adding them up.
 
 _forge_version: "5.0.0"
 
@@ -33,6 +33,10 @@ real_options:
     dividend_yield: 0.02        # Cash leakage (opportunity cost)
 
   binomial_steps: 50            # Binomial tree steps (more = accurate)
+
+  # Build now for $10M, worth $12M: NPV = $2M (worked out in traditional_analysis
+  # below). Needed to value options held on top of the project (expand, abandon).
+  traditional_npv: 2000000
 
   # Available options (each valued as an American option over time_horizon)
   options:
@@ -92,10 +96,14 @@ traditional_analysis:
 # Traditional NPV: $12.0M - $10.0M = $2.0M (see traditional_analysis above)
 #
 # Option values (American options, binomial with 50 steps; checked against an
-# independent Cox-Ross-Rubinstein tree):
-#   Defer Option:   $3,245,832  (call on $12M, strike $10M, up to 2 years)
-#   Expand Option:  $7,118,281  (call on the extra $12M, strike $5M, 3 years)
-#   Abandon Option:     $1,720  (put on $12M, strike $3M salvage, 3 years)
+# independent Cox-Ross-Rubinstein tree), and the project value with each:
+#   Defer:    $3,245,832 -> project $3,245,832 (waiting already includes
+#             building now, so the NPV is not added again)
+#   Expand:   $7,118,281 -> project $9,118,281 ($2M NPV + option)
+#   Abandon:      $1,720 -> project $2,001,720 ($2M NPV + option)
 #
-# The values are not additive: the defer and expand options overlap, so do not
-# read their sum as the value of the project's flexibility.
+# Best: build now and keep the option to expand, $9.12M.
+# Waiting is worth $1.25M more than building with no flexibility ($3.25M - $2M),
+# but less than building with the expansion option.
+#
+# The "exercise when" lines are rules of thumb, not the optimal exercise boundary.

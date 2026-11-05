@@ -1166,7 +1166,8 @@ scenarios:
             includes: None,
         })));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
-        assert!(parsed["total_option_value"].as_f64().is_some());
+        assert!(parsed["project_value_with_options"].as_f64().is_some());
+        assert!(parsed.get("total_option_value").is_none());
     }
 
     #[test]
