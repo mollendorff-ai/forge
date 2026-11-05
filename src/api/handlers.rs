@@ -626,6 +626,8 @@ mod tests {
 
         let state = Arc::new(AppState {
             version: "5.0.0".to_string(),
+            token: None,
+            loopback_only: true,
         });
 
         let response = version(State(state)).await;
@@ -640,6 +642,8 @@ mod tests {
 
         let state = Arc::new(AppState {
             version: "5.0.0".to_string(),
+            token: None,
+            loopback_only: true,
         });
 
         let response = root(State(state)).await;
