@@ -303,7 +303,7 @@ fn sample_pert<R: Rng>(rng: &mut R, min: f64, mode: f64, max: f64) -> f64 {
     let x = sample_beta(rng, alpha, beta);
 
     // Scale to [min, max]
-    min + x * range
+    x.mul_add(range, min)
 }
 
 /// Sample from Beta distribution using gamma ratio method

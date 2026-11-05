@@ -160,7 +160,7 @@ mod tests {
         assert_eq!(ctx.location, "test.col");
         assert_eq!(ctx.error, "undefined reference");
         assert!(ctx.suggestion.is_none());
-        assert!(ctx.available_columns.is_empty());
+        assert_eq!(ctx.available_columns.len(), 0);
     }
 
     #[test]

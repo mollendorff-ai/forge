@@ -108,16 +108,16 @@ impl CorrelationMatrix {
     /// Compute Cholesky decomposition (L where Σ = L * L^T)
     fn compute_cholesky(&mut self) -> Result<(), String> {
         let n = self.dim();
-        let mut l = vec![0.0; n * n];
+        let mut l = vec![0.0_f64; n * n];
 
         for i in 0..n {
             for j in 0..=i {
-                let mut sum = 0.0;
+                let mut sum: f64 = 0.0;
 
                 if i == j {
                     // Diagonal elements
                     for k in 0..j {
-                        sum += l[j * n + k] * l[j * n + k];
+                        sum = l[j * n + k].mul_add(l[j * n + k], sum);
                     }
                     let diag = self.coefficients[j * n + j] - sum;
                     if diag <= 0.0 {
@@ -129,7 +129,7 @@ impl CorrelationMatrix {
                 } else {
                     // Off-diagonal elements
                     for k in 0..j {
-                        sum += l[i * n + k] * l[j * n + k];
+                        sum = l[i * n + k].mul_add(l[j * n + k], sum);
                     }
                     l[i * n + j] = (self.coefficients[i * n + j] - sum) / l[j * n + j];
                 }
@@ -168,7 +168,7 @@ impl CorrelationMatrix {
 
         for i in 0..n {
             for j in 0..=i {
-                correlated[i] += l[i * n + j] * independent_samples[j];
+                correlated[i] = l[i * n + j].mul_add(independent_samples[j], correlated[i]);
             }
         }
 
@@ -270,7 +270,8 @@ mod tests {
         for i in 0..n {
             for j in 0..n {
                 for k in 0..n {
-                    reconstructed[i * n + j] += l[i * n + k] * l[j * n + k];
+                    reconstructed[i * n + j] =
+                        l[i * n + k].mul_add(l[j * n + k], reconstructed[i * n + j]);
                 }
             }
         }

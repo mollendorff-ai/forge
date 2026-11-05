@@ -45,8 +45,8 @@ fn test_full_simulation_workflow() {
 
             // Simple 3-year NPV
             let cf1 = revenue - costs;
-            let cf2 = revenue * 1.05 - costs;
-            let cf3 = revenue * 1.10 - costs;
+            let cf2 = f64::mul_add(revenue, 1.05, -costs);
+            let cf3 = f64::mul_add(revenue, 1.10, -costs);
 
             let npv = cf1 / (1.0 + discount_rate)
                 + cf2 / (1.0 + discount_rate).powi(2)
@@ -82,7 +82,7 @@ fn test_full_simulation_workflow() {
     assert!(*prob > 0.5, "Probability of positive NPV should be > 50%");
 
     // Check histogram exists
-    assert!(!npv_result.histogram.counts.is_empty());
+    assert_ne!(npv_result.histogram.counts.len(), 0);
 }
 
 /// Test Latin Hypercube vs Monte Carlo convergence
@@ -332,13 +332,16 @@ fn test_json_output() {
     // Verify JSON is valid and contains expected fields
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
-    assert!(
+    assert_eq!(
         parsed["monte_carlo_results"]["iterations"]
             .as_u64()
-            .unwrap()
-            == 100
+            .unwrap(),
+        100
     );
-    assert!(parsed["monte_carlo_results"]["sampling"].as_str().unwrap() == "latin_hypercube");
-    assert!(parsed["monte_carlo_results"]["seed"].as_u64().unwrap() == 42);
+    assert_eq!(
+        parsed["monte_carlo_results"]["sampling"].as_str().unwrap(),
+        "latin_hypercube"
+    );
+    assert_eq!(parsed["monte_carlo_results"]["seed"].as_u64().unwrap(), 42);
     assert!(parsed["monte_carlo_results"]["outputs"]["test"]["mean"].is_number());
 }

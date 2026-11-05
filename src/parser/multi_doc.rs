@@ -217,7 +217,7 @@ mod tests {
     fn test_split_yaml_documents_empty() {
         let content = "";
         let docs = split_yaml_documents(content);
-        assert!(docs.is_empty());
+        assert_eq!(docs.len(), 0);
     }
 
     #[test]
