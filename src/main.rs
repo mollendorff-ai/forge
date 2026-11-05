@@ -1102,8 +1102,17 @@ EXAMPLES:
 /// Cannot unit test: reads from `std::env::args()`
 /// Tested via: `cli_integration_tests.rs`
 #[cfg(not(coverage))]
+fn main() {
+    // Print the readable message, not the Debug form a returned Result would give.
+    if let Err(e) = run() {
+        eprintln!("Error: {e}");
+        std::process::exit(1);
+    }
+}
+
+#[cfg(not(coverage))]
 #[allow(clippy::too_many_lines)] // CLI dispatch function — splitting would fragment command handling
-fn main() -> ForgeResult<()> {
+fn run() -> ForgeResult<()> {
     let cli = Cli::parse();
 
     match cli.command {

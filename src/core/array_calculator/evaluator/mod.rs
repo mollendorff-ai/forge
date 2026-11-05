@@ -265,7 +265,12 @@ pub fn evaluate(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
             }
         },
 
-        Expr::FunctionCall { name, args } => evaluate_function(name, args, ctx),
+        Expr::FunctionCall { name, args } => match evaluate_function(name, args, ctx)? {
+            Value::Number(n) if n.is_infinite() => {
+                Err(EvalError::new(format!("#NUM!: {name} result is too large")))
+            },
+            value => Ok(value),
+        },
 
         Expr::CallResult { callable, args } => {
             // Evaluate the callable expression
@@ -424,6 +429,26 @@ fn broadcast_right(op: &str, left: &Value, items: &[Value]) -> Result<Value, Eva
 /// Evaluate a binary operation on two non-array values
 // Arithmetic + comparison + logical operators require many match arms.
 #[allow(clippy::too_many_lines)]
+/// Excel returns #NUM! when arithmetic overflows; an f64 would quietly become inf.
+fn finite(result: f64) -> Result<Value, EvalError> {
+    if result.is_infinite() {
+        Err(EvalError::new("#NUM!: result is too large"))
+    } else {
+        Ok(Value::Number(result))
+    }
+}
+
+/// Both operands as numbers, or an error naming the side that is not one.
+fn numbers(left: &Value, right: &Value) -> Result<(f64, f64), EvalError> {
+    let l = left
+        .as_number()
+        .ok_or_else(|| EvalError::new("Left operand must be a number"))?;
+    let r = right
+        .as_number()
+        .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
+    Ok((l, r))
+}
+
 fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, EvalError> {
     match op {
         // Arithmetic operators
@@ -436,53 +461,28 @@ fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Va
                     right.as_text()
                 )))
             } else {
-                let l = left
-                    .as_number()
-                    .ok_or_else(|| EvalError::new("Left operand must be a number"))?;
-                let r = right
-                    .as_number()
-                    .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
-                Ok(Value::Number(l + r))
+                let (l, r) = numbers(left, right)?;
+                finite(l + r)
             }
         },
         "-" => {
-            let l = left
-                .as_number()
-                .ok_or_else(|| EvalError::new("Left operand must be a number"))?;
-            let r = right
-                .as_number()
-                .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
-            Ok(Value::Number(l - r))
+            let (l, r) = numbers(left, right)?;
+            finite(l - r)
         },
         "*" => {
-            let l = left
-                .as_number()
-                .ok_or_else(|| EvalError::new("Left operand must be a number"))?;
-            let r = right
-                .as_number()
-                .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
-            Ok(Value::Number(l * r))
+            let (l, r) = numbers(left, right)?;
+            finite(l * r)
         },
         "/" => {
-            let l = left
-                .as_number()
-                .ok_or_else(|| EvalError::new("Left operand must be a number"))?;
-            let r = right
-                .as_number()
-                .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
+            let (l, r) = numbers(left, right)?;
             if r == 0.0 {
                 Err(EvalError::new("Division by zero"))
             } else {
-                Ok(Value::Number(l / r))
+                finite(l / r)
             }
         },
         "^" => {
-            let l = left
-                .as_number()
-                .ok_or_else(|| EvalError::new("Left operand must be a number"))?;
-            let r = right
-                .as_number()
-                .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
+            let (l, r) = numbers(left, right)?;
             // Excel: 0^0 and a negative base with a fractional exponent are
             // #NUM!, and 0 to a negative power is #DIV/0!.
             if l == 0.0 && r == 0.0 {
@@ -497,7 +497,7 @@ fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Va
                     "#NUM!: negative base with a fractional exponent",
                 ));
             }
-            Ok(Value::Number(result))
+            finite(result)
         },
 
         // String concatenation operator
@@ -511,39 +511,19 @@ fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Va
         "=" => Ok(Value::Boolean(values_equal(left, right))),
         "<>" => Ok(Value::Boolean(!values_equal(left, right))),
         "<" => {
-            let l = left
-                .as_number()
-                .ok_or_else(|| EvalError::new("Left operand must be a number"))?;
-            let r = right
-                .as_number()
-                .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
+            let (l, r) = numbers(left, right)?;
             Ok(Value::Boolean(l < r))
         },
         ">" => {
-            let l = left
-                .as_number()
-                .ok_or_else(|| EvalError::new("Left operand must be a number"))?;
-            let r = right
-                .as_number()
-                .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
+            let (l, r) = numbers(left, right)?;
             Ok(Value::Boolean(l > r))
         },
         "<=" => {
-            let l = left
-                .as_number()
-                .ok_or_else(|| EvalError::new("Left operand must be a number"))?;
-            let r = right
-                .as_number()
-                .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
+            let (l, r) = numbers(left, right)?;
             Ok(Value::Boolean(l <= r))
         },
         ">=" => {
-            let l = left
-                .as_number()
-                .ok_or_else(|| EvalError::new("Left operand must be a number"))?;
-            let r = right
-                .as_number()
-                .ok_or_else(|| EvalError::new("Right operand must be a number"))?;
+            let (l, r) = numbers(left, right)?;
             Ok(Value::Boolean(l >= r))
         },
 
@@ -862,6 +842,33 @@ mod tests {
             .contains("#DIV/0!"));
         // Excel: negative base, fractional exponent is #NUM!
         assert!(eval("(0 - 8) ^ 0.5", &ctx).is_err());
+    }
+
+    #[test]
+    fn test_eval_overflow_is_num_error() {
+        // Excel: arithmetic that overflows is #NUM!, never infinity
+        let ctx = EvalContext::new();
+        for formula in [
+            "2 ^ 1024",
+            "1E308 * 10",
+            "1E308 + 1E308",
+            "-1E308 - 1E308",
+            "1E308 / 1E-10",
+        ] {
+            let err = eval(formula, &ctx).unwrap_err().to_string();
+            assert!(err.contains("#NUM!"), "{formula}: {err}");
+        }
+        for formula in ["POWER(2, 1024)", "EXP(1000)", "SUM(1E308, 1E308)"] {
+            let err = eval(formula, &ctx).unwrap_err().to_string();
+            assert!(err.contains("#NUM!"), "{formula}: {err}");
+        }
+        assert_eq!(
+            eval("2 ^ 1023", &ctx)
+                .unwrap()
+                .as_number()
+                .map(f64::is_finite),
+            Some(true)
+        );
     }
 
     #[test]
