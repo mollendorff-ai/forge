@@ -171,6 +171,25 @@ pub fn calculate_core(
     })
 }
 
+/// `calculate` is deterministic and cannot evaluate `MC.*` distributions; say so
+/// up front instead of failing later with an unknown-function or unknown-column error.
+fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
+    let mut names: Vec<&str> = model
+        .scalars
+        .iter()
+        .filter(|(_, v)| v.formula.as_deref().is_some_and(|f| f.contains("MC.")))
+        .map(|(name, _)| name.as_str())
+        .collect();
+    if names.is_empty() {
+        return Ok(());
+    }
+    names.sort_unstable();
+    Err(ForgeError::Validation(format!(
+        "{} use MC.* distributions, which calculate cannot evaluate. Run `forge simulate` on this file instead.",
+        names.join(", ")
+    )))
+}
+
 /// Execute the calculate command
 ///
 /// # Errors
@@ -203,6 +222,7 @@ pub fn calculate(
     }
 
     let mut model = parser::parse_model(file)?;
+    reject_distributions(&model)?;
 
     if verbose {
         println!(
@@ -805,4 +825,25 @@ pub fn apply_scenario(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod calculate_tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn calculate_rejects_mc_distributions_with_a_clear_message() {
+        let mut file = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+        write!(
+            file,
+            "_forge_version: \"5.0.0\"\nassumptions:\n  growth:\n    value: null\n    formula: \"=MC.Normal(0.15, 0.05)\"\n  doubled:\n    value: null\n    formula: \"=assumptions.growth * 2\"\n"
+        )
+        .unwrap();
+        let err = calculate(file.path(), true, false, None)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("assumptions.growth"), "{err}");
+        assert!(err.contains("forge simulate"), "{err}");
+    }
 }

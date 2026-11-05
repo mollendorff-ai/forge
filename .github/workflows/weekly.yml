@@ -1,0 +1,51 @@
+name: Weekly
+
+# Catches problems that appear without a code change: a new security advisory
+# for a dependency, or a new stable Rust release that breaks the build.
+on:
+  schedule:
+    - cron: '17 6 * * 1'   # Mondays 06:17 UTC
+  push:
+    branches: [ main ]
+    paths:
+      - 'Cargo.lock'
+      - '.cargo/audit.toml'
+      - '.github/workflows/weekly.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Cargo.lock'
+      - '.cargo/audit.toml'
+      - '.github/workflows/weekly.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  audit:
+    name: cargo audit
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      # Fails on any vulnerability. Ignored advisories are listed, with reasons,
+      # in .cargo/audit.toml; "unmaintained" warnings are reported, not fatal.
+      - name: Audit dependencies
+        run: cargo audit
+
+  test:
+    name: Tests on latest stable
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Run tests
+        run: cargo test --release
+      - name: Clippy
+        run: cargo clippy --release --all-targets -- -D warnings
