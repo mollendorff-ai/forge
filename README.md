@@ -23,7 +23,7 @@ Known problems as of 2026-11-05:
 
 - `forge real-options` adds up overlapping option values as "Total Option Value" and does not include the traditional NPV in "Project Value".
 - `forge tornado` prints bars in no fixed order, and the number after "±" is the full low-to-high swing.
-- `forge export` handles simple single-table models. Formulas that reference other sections are not translated correctly yet, and `forge import` output may not validate.
+- `forge export` handles simple single-table models. Formulas that reference other sections are not translated correctly yet. `forge import` turns each sheet into a table (formulas included) and a `Scalars` sheet into scalars, but it does not rebuild scalar sections such as `assumptions:` from a workbook that `forge export` wrote.
 - `forge bayesian examples/bayesian.yaml` fails: the example and the config format disagree.
 - `forge calculate examples/monte-carlo.yaml` fails because its row formulas need values that only exist during a simulation. Use `forge simulate` for that example.
 
