@@ -238,19 +238,20 @@ fn run_example(example: &Example) -> ForgeResult<()> {
     })?;
 
     // Determine the command to run
-    let (cmd, args) = match example.name {
-        "monte-carlo" => ("forge", vec!["simulate", temp_file.to_str().unwrap()]),
-        "scenarios" => ("forge", vec!["scenarios", temp_file.to_str().unwrap()]),
-        "decision-tree" => ("forge", vec!["decision-tree", temp_file.to_str().unwrap()]),
-        "real-options" => ("forge", vec!["real-options", temp_file.to_str().unwrap()]),
-        "tornado" => ("forge", vec!["tornado", temp_file.to_str().unwrap()]),
-        "bootstrap" => ("forge", vec!["bootstrap", temp_file.to_str().unwrap()]),
-        "bayesian" => ("forge", vec!["bayesian", temp_file.to_str().unwrap()]),
-        _ => ("forge", vec!["calculate", temp_file.to_str().unwrap()]),
+    let args = match example.name {
+        "monte-carlo" => vec!["simulate", temp_file.to_str().unwrap()],
+        "scenarios" => vec!["scenarios", temp_file.to_str().unwrap()],
+        "decision-tree" => vec!["decision-tree", temp_file.to_str().unwrap()],
+        "real-options" => vec!["real-options", temp_file.to_str().unwrap()],
+        "tornado" => vec!["tornado", temp_file.to_str().unwrap()],
+        "bootstrap" => vec!["bootstrap", temp_file.to_str().unwrap()],
+        "bayesian" => vec!["bayesian", temp_file.to_str().unwrap()],
+        _ => vec!["calculate", temp_file.to_str().unwrap()],
     };
 
-    // Execute the command
-    let output = Command::new(cmd).args(&args).output().map_err(|e| {
+    // Run this same binary, so the example works when forge is not on the PATH
+    let exe = std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("forge"));
+    let output = Command::new(exe).args(&args).output().map_err(|e| {
         ForgeError::Io(std::io::Error::other(format!(
             "Failed to execute command: {e}"
         )))
