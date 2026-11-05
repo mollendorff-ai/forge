@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A run where tests errored exited 0.** Tests that could not run (a missing R package, a Forge crash, unparseable output) were reported as errors but not counted, so `--all` printed `PASS 0 passed` and exited 0. Errors now count against the run, and a run that passed nothing exits 1.
+- `validators/r/run_all.sh` stopped after the first passing validator: `((PASSED_VALIDATORS++))` returns status 1 when the counter is 0, and `set -e` exited. The counters now use `$((n + 1))`.
+
+### Changed
+
+- The summary says how many tests were skipped and not validated. The Rust runner only executes Monte Carlo tests; the other types in `tests/analytics` are skipped.
+
 ## [1.0.1] - 2026-01-24
 
 ### Changed

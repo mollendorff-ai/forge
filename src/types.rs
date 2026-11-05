@@ -82,6 +82,13 @@ impl TestResult {
         matches!(self, Self::Fail { .. })
     }
 
+    /// Returns `true` if the test could not be run (missing R package,
+    /// Forge crash, unparseable output). An error is not a pass.
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::Error { .. })
+    }
+
     #[must_use]
     pub fn name(&self) -> &str {
         match self {
@@ -145,5 +152,16 @@ tests:
         let tests = load_analytics_tests(yaml).unwrap();
         assert_eq!(tests.len(), 1);
         assert_eq!(tests[0].distribution, Some("normal".to_string()));
+    }
+
+    #[test]
+    fn error_is_neither_pass_nor_fail_but_is_error() {
+        let error = TestResult::Error {
+            name: "t".to_string(),
+            error: "R package 'boot' is not installed".to_string(),
+        };
+        assert!(error.is_error());
+        assert!(!error.is_pass());
+        assert!(!error.is_fail());
     }
 }
