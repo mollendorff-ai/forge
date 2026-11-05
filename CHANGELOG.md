@@ -15,6 +15,8 @@ against. Found in an independent evaluation on 2026-11-04.
 
 ### Security
 - **MCP inline includes**: with inline `content`, an `_includes` path that was absolute or contained `..` could write the matching `includes` text to any file the server could write, or make the parser read a YAML file outside its temp directory. Only plain relative paths are accepted now. Earlier versions are affected, so update if you expose `forge mcp` to untrusted model content.
+- **REST API (`forge serve`)**: CORS allowed every origin, so any website open in the browser could make a running `forge serve` read or write files, and any `Host` header was accepted (DNS rebinding). Browser requests from other origins are now refused unless listed with `--cors-origin`, a local server rejects foreign `Host` headers, `--token` / `FORGE_API_TOKEN` requires `Authorization: Bearer <token>` on `/api/v1/*`, and listening on a non-loopback address without a token is refused. Update if you run `forge serve`.
+- **`forge update`**: downloads were installed without checking them. The archive's SHA-256 must now match the release's `checksums.txt`, downloads fail on an HTTP error instead of saving the error page, and a private temp directory is used. It also looked for asset names no release has, so it could not find an update on any platform; it now uses the published `forge-<target>` names and handles the Windows `.zip`.
 
 ### Fixed
 - **Array arithmetic**: an array in arithmetic, a comparison or a function that expects one number was turned into its length, so `=SUM(a * b)` gave 9 instead of 140. Operators now work element by element. Column lengths that do not match, or a column where one number is expected (`PMT`, `ROUND`, `TEXT` and others), are errors. `IF`, `AND`, `OR`, `XOR` and `NOT` accept arrays. A scalar formula that returns several values is an error.
@@ -24,8 +26,15 @@ against. Found in an independent evaluation on 2026-11-04.
 - **Tornado**: short input names such as `growth_rate` now resolve to the unique matching scalar instead of producing empty bars. Ambiguous or missing names are errors. Thanks to @rafaeljara-cmyk.
 - `examples/scenarios.yaml`: IRR now includes the acquisition cost, and the expected-output comment matches what the model calculates.
 - `examples/breakeven.yaml`, `examples/bootstrap.yaml`: a text label stored as a scalar value is now a comment.
+- **Monte Carlo `seed`, `sampling` and `correlations`**: a fixed seed gave different results on each run because variables were sampled in hash-map order; `sampling: latin_hypercube` was never used; `correlations` were never applied. Variables are now sampled in name order, uniform draws from the configured method go through each distribution's inverse CDF, and correlations are applied with a Gaussian copula.
+- **Monte Carlo failed iterations**: an iteration whose formulas failed, or an output with no value, was recorded as 0. Both now stop the simulation with an error naming the iteration. `examples/monte-carlo.yaml` had every NPV at 0 for this reason; its IRR line (no up-front investment, so no answer) is removed.
+- **Unknown keys**: analysis configs (`real_options`, `tornado`, `bootstrap`, `monte_carlo`, `decision_tree`, `bayesian_network`, scenario definitions) ignored keys they did not know, and scalars accepted any extra key. A misspelt key now fails with an error that names it. `examples/real-options.yaml` used `expansion_cost`, which was never read, so the Expand option was priced at $12.0M instead of $7.1M.
+- **Decision-tree risk profile**: P(value > 0), best case and worst case used every terminal branch, including ones the optimal policy rejects, with local rather than path probabilities. `examples/decision-tree.yaml` showed 100%, $15M and -$2M instead of 42%, +$8M and -$5M. The risk profile now follows the optimal policy and lists its outcomes (`outcomes` in JSON/YAML output).
+- `examples/real-options.yaml`, `examples/tornado.yaml`, `examples/bootstrap.yaml`, `examples/monte-carlo.yaml`, `examples/decision-tree.yaml`: expected-output comments now match results checked against independent calculations.
 
 ### Changed
+- `forge serve --host <non-loopback>` now needs a token, and cross-origin browser apps need `--cors-origin`.
+- A model or config with a key Forge does not recognise is now an error. Seeded Monte Carlo results differ from earlier versions, which were not reproducible.
 - README, CLI help and crate description no longer claim validation or compliance that the repository does not show. A "Status and known limitations" section lists open problems.
 - Clippy errors on Rust 1.97 fixed, so the Lint job passes.
 
