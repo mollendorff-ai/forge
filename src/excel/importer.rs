@@ -501,7 +501,7 @@ mod tests {
     fn test_importer_new_stores_path() {
         let path = std::path::Path::new("/some/path/file.xlsx");
         let importer = ExcelImporter::new(path);
-        assert!(!importer.path.to_str().unwrap().is_empty());
+        assert_ne!(importer.path.to_str().unwrap(), "");
     }
 
     #[test]

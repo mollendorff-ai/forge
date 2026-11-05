@@ -272,5 +272,5 @@ fn test_decision_recommendation() {
     }
 
     // Should have recommendation text
-    assert!(!result.recommendation.is_empty());
+    assert_ne!(result.recommendation, "");
 }

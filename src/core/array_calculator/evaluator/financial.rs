@@ -176,7 +176,7 @@ pub fn try_evaluate(
             };
 
             if rate == 0.0 {
-                Value::Number(-pv - pmt * nper)
+                Value::Number(f64::mul_add(pmt, -nper, -pv))
             } else {
                 let fv = (-pv).mul_add(
                     (1.0 + rate).powf(nper),
@@ -198,7 +198,7 @@ pub fn try_evaluate(
             };
 
             if rate == 0.0 {
-                Value::Number(-fv - pmt * nper)
+                Value::Number(f64::mul_add(pmt, -nper, -fv))
             } else {
                 let pv =
                     (-fv - pmt * ((1.0 + rate).powf(nper) - 1.0) / rate) / (1.0 + rate).powf(nper);

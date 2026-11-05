@@ -59,7 +59,7 @@ impl BlackScholes {
     /// Standard normal CDF (cumulative distribution function)
     fn norm_cdf(x: f64) -> f64 {
         // Approximation using error function
-        0.5 * (1.0 + erf(x / 2.0_f64.sqrt()))
+        f64::midpoint(1.0, erf(x / 2.0_f64.sqrt()))
     }
 
     /// Calculate European call option price

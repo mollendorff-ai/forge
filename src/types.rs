@@ -739,8 +739,8 @@ mod tests {
         assert!(model.aggregations.is_empty());
         assert!(model.scenarios.is_empty());
         assert!(model.includes.is_empty());
-        assert!(model.resolved_includes.is_empty());
-        assert!(model.documents.is_empty());
+        assert_eq!(model.resolved_includes.len(), 0);
+        assert_eq!(model.documents.len(), 0);
     }
 
     #[test]

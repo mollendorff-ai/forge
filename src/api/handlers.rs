@@ -347,7 +347,7 @@ mod tests {
         assert!(response.success);
         assert_eq!(response.data, Some("test data".to_string()));
         assert!(response.error.is_none());
-        assert!(!response.request_id.is_empty());
+        assert_ne!(response.request_id, "");
         // Verify UUID format (8-4-4-4-12)
         assert_eq!(response.request_id.len(), 36);
     }
@@ -374,7 +374,7 @@ mod tests {
         assert!(!response.success);
         assert!(response.data.is_none());
         assert_eq!(response.error, Some("Something went wrong".to_string()));
-        assert!(!response.request_id.is_empty());
+        assert_ne!(response.request_id, "");
     }
 
     #[test]
@@ -392,8 +392,8 @@ mod tests {
         let response = ValidateResponse::default();
 
         assert!(!response.valid);
-        assert!(response.file_path.is_empty());
-        assert!(response.message.is_empty());
+        assert_eq!(response.file_path, "");
+        assert_eq!(response.message, "");
     }
 
     #[test]
@@ -402,8 +402,8 @@ mod tests {
 
         assert!(!response.calculated);
         assert!(!response.dry_run);
-        assert!(response.file_path.is_empty());
-        assert!(response.message.is_empty());
+        assert_eq!(response.file_path, "");
+        assert_eq!(response.message, "");
     }
 
     #[test]
@@ -411,9 +411,9 @@ mod tests {
         let response = AuditResponse::default();
 
         assert!(!response.audited);
-        assert!(response.file_path.is_empty());
-        assert!(response.variable.is_empty());
-        assert!(response.message.is_empty());
+        assert_eq!(response.file_path, "");
+        assert_eq!(response.variable, "");
+        assert_eq!(response.message, "");
     }
 
     #[test]
@@ -421,9 +421,9 @@ mod tests {
         let response = ExportResponse::default();
 
         assert!(!response.exported);
-        assert!(response.yaml_path.is_empty());
-        assert!(response.excel_path.is_empty());
-        assert!(response.message.is_empty());
+        assert_eq!(response.yaml_path, "");
+        assert_eq!(response.excel_path, "");
+        assert_eq!(response.message, "");
     }
 
     #[test]
@@ -431,9 +431,9 @@ mod tests {
         let response = ImportResponse::default();
 
         assert!(!response.imported);
-        assert!(response.excel_path.is_empty());
-        assert!(response.yaml_path.is_empty());
-        assert!(response.message.is_empty());
+        assert_eq!(response.excel_path, "");
+        assert_eq!(response.yaml_path, "");
+        assert_eq!(response.message, "");
     }
 
     // ==================== Request Deserialization Tests ====================
