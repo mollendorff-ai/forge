@@ -57,7 +57,7 @@ jobs:
 
       - name: Update test count badge
         if: matrix.rust == 'stable' && github.ref == 'refs/heads/main'
-        uses: schneegans/dynamic-badges-action@v1.7.0
+        uses: schneegans/dynamic-badges-action@v1.9.0
         with:
           auth: ${{ secrets.GIST_TOKEN }}
           gistID: b8e2fa78efcf26a20ff97b483050b05a
@@ -195,7 +195,7 @@ jobs:
 
       - name: Update coverage badge
         if: github.ref == 'refs/heads/main'
-        uses: schneegans/dynamic-badges-action@v1.7.0
+        uses: schneegans/dynamic-badges-action@v1.9.0
         with:
           auth: ${{ secrets.GIST_TOKEN }}
           gistID: b8e2fa78efcf26a20ff97b483050b05a
@@ -247,7 +247,7 @@ jobs:
           rm functions.json
 
       - name: Update functions badge
-        uses: schneegans/dynamic-badges-action@v1.7.0
+        uses: schneegans/dynamic-badges-action@v1.9.0
         with:
           auth: ${{ secrets.GIST_TOKEN }}
           gistID: b8e2fa78efcf26a20ff97b483050b05a
