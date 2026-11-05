@@ -11,7 +11,7 @@ All validation comes from trusted third-party sources.
 
 ### Test Coverage
 
-- **1,909+ formula tests** across 40 YAML files
+- **1,301 formula tests** across 40 YAML files
 - **30 function test files** covering math, text, date, financial, lookup, aggregation, statistical, trigonometric, logical, and information functions
 - **10 edge case test files** covering boundary conditions, type coercion, error propagation, and numeric precision
 
@@ -31,26 +31,33 @@ All validation comes from trusted third-party sources.
 
 ```bash
 # Run all tests
-FORGE_BIN=/path/to/forge cargo run --release -- --all
+FORGE_BIN=/path/to/forge cargo run --release --
 
 # Specify test directory
-cargo run --release -- --tests tests/functions --all
+cargo run --release -- --tests tests/functions
 
 # Batch mode (faster, single XLSX)
-cargo run --release -- --all --batch
+cargo run --release -- --batch
 ```
 
 ## How It Works
 
 ```
-YAML Test Spec → forge export → XLSX → ssconvert --recalc → CSV → Compare
+                    ┌─ forge calculate ──────────────┐
+YAML Test Spec ─────┤                                ├─ both must equal expected
+                    └─ forge export → XLSX →         │
+                       ssconvert --recalc → CSV ─────┘
 ```
 
 1. Load YAML test files with formulas and expected values
-2. Create minimal YAML with the test formula
-3. Run `forge export` to generate XLSX
-4. Run `ssconvert --recalc` to recalculate via Gnumeric
-5. Parse CSV output and compare against expected value
+2. Create minimal YAML with the test formula and the file's tables
+3. Run `forge calculate`: Forge's own answer
+4. Run `forge export`, then `ssconvert --recalc`: Gnumeric's answer for Forge's workbook
+5. A case passes only when both equal the expected value (relative tolerance 1e-9)
+
+Only the cell labelled `test_result` counts as Gnumeric's answer.
+
+Gnumeric 1.12 cannot judge a few cases (`DATEDIF` read from xlsx, `XLOOKUP`, `ISFORMULA` on a literal). Mark those with `gnumeric_skip: "reason"` next to `expected:`. They are then checked against Forge only, and the summary counts them. Where Forge differs from Excel and Gnumeric (`0^0`, `TRUE = 1`), the expected value is Excel's and the case carries a `gnumeric_skip` reason that names the difference.
 
 ## Architecture
 

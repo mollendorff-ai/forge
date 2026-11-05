@@ -111,6 +111,15 @@ fn run_all(cli: &Cli, runner: &TestRunner, forge_binary: &Path) {
         .filter(|r| matches!(r, TestResult::Skip { .. }))
         .count();
 
+    let forge_only = runner
+        .test_cases()
+        .iter()
+        .filter(|tc| tc.gnumeric_skip.is_some())
+        .count();
+    if forge_only > 0 {
+        println!("# {forge_only} cases checked against Forge only (Gnumeric cannot judge them)");
+    }
+
     println!(
         "# {passed} passed, {failed} failed, {skipped} skipped in {:.2}s",
         elapsed.as_secs_f64()

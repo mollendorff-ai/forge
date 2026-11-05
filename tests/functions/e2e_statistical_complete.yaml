@@ -27,7 +27,7 @@ ten_values_data:
 
 five_values_data:
   unsorted: [50, 10, 30, 40, 20]
-  esc_quartile_test: [5, 15, 25, 35, 45]
+  quartile_test: [5, 15, 25, 35, 45]
 
 four_values_data:
   even_count: [10, 20, 30, 40]

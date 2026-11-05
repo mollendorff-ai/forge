@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **Forge's own evaluator was never tested.** The runner only had Gnumeric recalculate the exported workbook. Each case now also runs `forge calculate`, and passes only when both agree with the expected value.
+- A cell anywhere in the sheet that happened to equal the expected number counted as a pass (a table value could satisfy a quartile test). Only the cell labelled `test_result` counts now.
+- Batch mode failed every case ("Failed to open CSV"). It now runs one workbook per source file, with that file's tables.
+- `e2e_statistical_complete.yaml`: the data column `esc_quartile_test` should be `quartile_test`, so `forge calculate` could not run the file.
+- Tables named `scenarios` were dropped from generated models, so every scenario case failed in Forge.
+- `MOD(-10, 3)` expected -1; Excel, Gnumeric and Forge all give 2.
+- README listed `--all`, which does not exist, and 1,909 tests; the suite has 1,301.
+
+### Added
+
+- `gnumeric_skip` on a case: Gnumeric 1.12 cannot judge it, so only Forge is checked. 37 cases use it.
+
 ## [1.1.1] - 2026-02-16
 
 ### Changed

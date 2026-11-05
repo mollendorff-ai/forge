@@ -75,7 +75,7 @@ assumptions:
   neg_mod_dividend:
     value: null
     formula: "=MOD(-10, 3)"       # Expected: -1 (varies by implementation)
-    expected: -1
+    expected: 2
   neg_int:
     value: null
     formula: "=INT(-5.9)"         # Expected: -6 (floors toward -inf)
