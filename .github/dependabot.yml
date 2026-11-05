@@ -1,0 +1,19 @@
+# Weekly pull requests for dependency updates. CI runs on each one; merge when green.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # One pull request for all minor and patch updates, so a week's updates
+      # are a single tap to merge. Major versions arrive as separate PRs.
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
