@@ -125,6 +125,24 @@ parked:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 completed:
+  # ── v10.0.0-beta.9 ── Silent wrong answers and honest claims ──────────────
+  - id: FIX-001
+    title: "MCP inline _includes: relative paths only (no file write or read outside the temp directory)"
+  - id: FIX-002
+    title: "Array arithmetic element by element; arrays rejected where one number is expected"
+  - id: FIX-003
+    title: "IRR, XIRR, RATE: converge or return an error; RATE type; IRR guess argument"
+  - id: FIX-004
+    title: "Schema: anyOf for overlapping alternatives; row formulas starting with MAX( run row by row"
+  - id: FIX-005
+    title: "Bare scalar names resolve to the formula's own section; ambiguous names are errors"
+  - id: FIX-006
+    title: "Tornado input names resolve to the unique matching scalar (external contribution)"
+  - id: DOCS-001
+    title: "README, CLI help and crate description limited to claims the repository can show"
+  - id: DEPS-005
+    title: "Roadmap + CHANGELOG + version bump to beta.9"
+
   # ── v10.0.0-beta.8 ── Dependency Updates ──────────────────────────────────
   - id: DEPS-001
     title: "Compat updates: anyhow, assert_cmd, chrono, clap 4.6, tempfile, tokio 1.50, tracing-subscriber, uuid"
