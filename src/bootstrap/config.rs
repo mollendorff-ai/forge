@@ -27,6 +27,7 @@ pub enum BootstrapStatistic {
 
 /// Configuration for bootstrap resampling
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BootstrapConfig {
     /// Number of bootstrap iterations
     #[serde(default = "default_iterations")]

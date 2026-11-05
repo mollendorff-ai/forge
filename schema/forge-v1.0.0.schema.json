@@ -58,6 +58,7 @@
       "title": "Scalar Value",
       "description": "Single value with optional formula and rich metadata",
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "value": {
           "oneOf": [

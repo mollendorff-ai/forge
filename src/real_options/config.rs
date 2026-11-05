@@ -37,6 +37,7 @@ pub enum ValuationMethod {
 
 /// Definition of a single option
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OptionDefinition {
     /// Type of option
     #[serde(rename = "type")]
@@ -128,6 +129,7 @@ impl OptionDefinition {
 
 /// Underlying asset configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct UnderlyingConfig {
     /// Present value of project cash flows
     pub current_value: f64,
@@ -192,6 +194,7 @@ impl UnderlyingConfig {
 
 /// Configuration for real options analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RealOptionsConfig {
     /// Name of the analysis
     #[serde(default)]

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Configuration for an input variable range
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct InputRange {
     /// Variable name
     pub name: String,
@@ -69,6 +70,7 @@ impl InputRange {
 
 /// Configuration for tornado diagram
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TornadoConfig {
     /// Output variable to analyze
     pub output: String,

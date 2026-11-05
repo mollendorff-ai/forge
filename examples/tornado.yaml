@@ -21,40 +21,29 @@ _forge_version: "5.0.0"
 tornado:
   output: valuation.npv
 
-  # Base case values (center of tornado)
-  base_values:
-    revenue_growth: 0.10
-    operating_margin: 0.20
-    discount_rate: 0.10
-    tax_rate: 0.25
-    initial_investment: 1000000
+  # The base case (center of the tornado) is the model's own values below
 
   # Input ranges to test (low to high)
   inputs:
     - name: revenue_growth
       low: 0.05
       high: 0.20
-      label: "Revenue Growth"
 
     - name: operating_margin
       low: 0.15
       high: 0.30
-      label: "Operating Margin"
 
     - name: discount_rate
       low: 0.08
       high: 0.15
-      label: "Discount Rate"
 
     - name: tax_rate
       low: 0.20
       high: 0.35
-      label: "Tax Rate"
 
     - name: initial_investment
       low: 800000
       high: 1500000
-      label: "Initial Investment"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Model Inputs
@@ -105,23 +94,14 @@ valuation:
 # ─────────────────────────────────────────────────────────────────────────────
 # Expected Output:
 # ─────────────────────────────────────────────────────────────────────────────
-# Base Case NPV: $250,000
+# Base Case NPV: -$625,000 (5 years of net income worth $375,000, less the
+# $1,000,000 investment). Checked against an independent calculation.
 #
-# Tornado Diagram (sorted by impact):
+# NPV at each input's low and high value, largest swing first:
+#   Initial Investment   -$425,000 to -$1,125,000   swing $700,000
+#   Operating Margin     -$718,750 to   -$437,500   swing $281,250
+#   Revenue Growth       -$673,141 to   -$509,454   swing $163,687
+#   Tax Rate             -$600,000 to   -$675,000   swing  $75,000
+#   Discount Rate        -$603,645 to   -$671,168   swing  $67,523
 #
-#                           Low        Base       High
-# Revenue Growth      |████████████████|████████████████████████|  $150K - $420K
-# Operating Margin    |██████████████|██████████████████████|      $180K - $380K
-# Discount Rate       |████████████████████████|████████████|      $210K - $300K
-# Initial Investment  |████████████████████████|██████████|        $50K - $450K
-# Tax Rate            |██████████████████|██████████████|          $220K - $290K
-#
-# Key Insights:
-# 1. Revenue Growth has the largest impact (+$270K swing)
-# 2. Operating Margin is second (+$200K swing)
-# 3. Tax Rate has minimal impact (+$70K swing)
-#
-# Recommendation:
-# - Focus due diligence on revenue growth assumptions
-# - Lock in operating margin through contracts if possible
-# - Tax rate uncertainty is acceptable
+# Forge prints each swing after "±". It is the full low-to-high range.

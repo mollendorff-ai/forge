@@ -19,6 +19,7 @@ pub enum NodeType {
 
 /// A branch from a node
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Branch {
     /// Cost incurred when taking this branch (for decision nodes)
     #[serde(default)]
@@ -78,6 +79,7 @@ impl Branch {
 
 /// A node in the decision tree
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Node {
     /// Type of node
     #[serde(rename = "type")]
@@ -146,6 +148,7 @@ impl Node {
 
 /// Configuration for a decision tree
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DecisionTreeConfig {
     /// Name of the decision tree
     #[serde(default)]

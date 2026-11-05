@@ -104,6 +104,7 @@
       "title": "Rich Column (v4.0)",
       "description": "Column with metadata (unit, notes, source, validation_status)",
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "value": {
           "anyOf": [
@@ -138,6 +139,7 @@
       "title": "Rich Formula (v4.0)",
       "description": "Formula column with metadata (unit, notes, source) - NO value field (distinguishes from Scalar)",
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "formula": { "$ref": "#/definitions/RowFormula" },
         "unit": { "type": "string" },
@@ -283,6 +285,7 @@
       "title": "Scalar Value",
       "description": "Single value with optional formula and rich metadata (v4.0 enhanced)",
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "value": {
           "oneOf": [

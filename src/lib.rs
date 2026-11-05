@@ -51,6 +51,9 @@ pub mod real_options;
 pub mod scenarios;
 pub mod tornado;
 
+#[cfg(test)]
+mod config_strictness_tests;
+
 // Re-export commonly used types
 pub use error::{ForgeError, ForgeResult};
 pub use types::{Column, ColumnValue, ParsedModel, Table, Variable};
