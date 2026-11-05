@@ -6,6 +6,16 @@ pub mod tokenizer;
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Column, ColumnValue, ParsedModel, Table};
 
+/// What a name used in a formula refers to
+enum ScalarName {
+    /// Exactly one scalar, by full name
+    Found(String),
+    /// Several scalars in different sections, sorted by full name
+    Ambiguous(Vec<String>),
+    /// No scalar
+    Missing,
+}
+
 /// Strip string literals from a formula before extracting references.
 /// This prevents content inside quotes from being parsed as column references.
 /// e.g., =LEN("Hello") should not treat "Hello" as a column reference.
@@ -352,23 +362,95 @@ impl ArrayCalculator {
     // AST-BASED FORMULA EVALUATION (v5.2.0 - Parser Architecture Refactor)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// Build an evaluation context from the model state for a given table
-    fn build_eval_context(&self, table: &Table) -> evaluator::EvalContext {
-        use std::collections::HashMap;
+    /// Resolve a name used in a formula to a full scalar name.
+    ///
+    /// A bare name such as `revenue` in a formula of section `budget` means
+    /// `budget.revenue` if that exists, then a top-level scalar `revenue`, then
+    /// the only scalar in any section with that last part. Dotted names must
+    /// match exactly. Dependency ordering and evaluation both use this, so they
+    /// agree, and the result never depends on hash map order.
+    fn resolve_scalar_name(&self, word: &str, section: Option<&str>) -> ScalarName {
+        if let Some(section) = section {
+            if !word.contains('.') {
+                let scoped = format!("{section}.{word}");
+                if self.model.scalars.contains_key(&scoped) {
+                    return ScalarName::Found(scoped);
+                }
+            }
+        }
+        if self.model.scalars.contains_key(word) {
+            return ScalarName::Found(word.to_string());
+        }
+        if word.contains('.') {
+            return ScalarName::Missing;
+        }
+        let mut matches: Vec<String> = self
+            .model
+            .scalars
+            .keys()
+            .filter(|name| name.rsplit_once('.').is_some_and(|(_, last)| last == word))
+            .cloned()
+            .collect();
+        matches.sort();
+        match matches.len() {
+            0 => ScalarName::Missing,
+            1 => ScalarName::Found(matches.remove(0)),
+            _ => ScalarName::Ambiguous(matches),
+        }
+    }
+
+    /// Return an error if a bare name in `formula` could mean several scalars.
+    fn check_ambiguous_names(
+        &self,
+        formula: &str,
+        section: Option<&str>,
+        table: &Table,
+    ) -> ForgeResult<()> {
+        let stripped = strip_string_literals(formula);
+        for word in stripped.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
+            if word.is_empty() || word.contains('.') || table.columns.contains_key(word) {
+                continue;
+            }
+            if let ScalarName::Ambiguous(matches) = self.resolve_scalar_name(word, section) {
+                return Err(ForgeError::Eval(format!(
+                    "Name '{word}' in formula '{formula}' is ambiguous: it matches {}. \
+                     Use the full name.",
+                    matches.join(", ")
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// Build an evaluation context from the model state for a given table.
+    ///
+    /// `section` is the section of the scalar being calculated, if any; it
+    /// decides which scalar a bare name refers to.
+    fn build_eval_context(&self, table: &Table, section: Option<&str>) -> evaluator::EvalContext {
+        use std::collections::{BTreeSet, HashMap};
         let mut ctx = evaluator::EvalContext::new();
 
-        // Add all scalars to context
+        // Add all scalars to context under their full names
         for (name, scalar) in &self.model.scalars {
             if let Some(value) = scalar.value {
                 ctx.scalars
                     .insert(name.clone(), evaluator::Value::Number(value));
-                // Also add short name (e.g., "price" from "summary.price")
-                // so formulas can reference without prefix
-                if let Some(short_name) = name.split('.').next_back() {
-                    if short_name != name {
-                        ctx.scalars
-                            .insert(short_name.to_string(), evaluator::Value::Number(value));
-                    }
+            }
+        }
+
+        // Add short names (e.g., "price" for "summary.price") that resolve to
+        // exactly one scalar, so formulas can reference them without prefix
+        let short_names: BTreeSet<&str> = self
+            .model
+            .scalars
+            .keys()
+            .filter_map(|name| name.rsplit_once('.').map(|(_, last)| last))
+            .collect();
+        for short_name in short_names {
+            if let ScalarName::Found(full) = self.resolve_scalar_name(short_name, section) {
+                if let Some(value) = self.model.scalars.get(&full).and_then(|s| s.value) {
+                    ctx.scalars
+                        .insert(short_name.to_string(), evaluator::Value::Number(value));
                 }
             }
         }
@@ -447,7 +529,8 @@ impl ArrayCalculator {
         let ast =
             parser::parse(tokens).map_err(|e| ForgeError::Eval(format!("Parse: {}", e.message)))?;
 
-        let base_ctx = self.build_eval_context(table);
+        self.check_ambiguous_names(formula, None, table)?;
+        let base_ctx = self.build_eval_context(table, None);
         let row_count = table.row_count();
         if row_count == 0 {
             return Err(ForgeError::Eval(
@@ -505,8 +588,8 @@ impl ArrayCalculator {
         }
     }
 
-    /// Evaluate a scalar formula using the AST evaluator
-    fn evaluate_scalar_formula_ast(&self, formula: &str) -> ForgeResult<f64> {
+    /// Evaluate the formula of scalar `scalar_name` using the AST evaluator
+    fn evaluate_scalar_formula_ast(&self, scalar_name: &str, formula: &str) -> ForgeResult<f64> {
         let formula_str = formula.trim_start_matches('=').trim();
         let tokens = tokenizer::tokenize(formula_str)
             .map_err(|e| ForgeError::Eval(format!("Tokenize: {}", e.message)))?;
@@ -514,7 +597,9 @@ impl ArrayCalculator {
             parser::parse(tokens).map_err(|e| ForgeError::Eval(format!("Parse: {}", e.message)))?;
 
         let empty_table = Table::new("_scalar_context".to_string());
-        let ctx = self.build_eval_context(&empty_table);
+        let section = scalar_name.rsplit_once('.').map(|(section, _)| section);
+        self.check_ambiguous_names(formula, section, &empty_table)?;
+        let ctx = self.build_eval_context(&empty_table, section);
         let result =
             evaluator::evaluate(&ast, &ctx).map_err(|e| ForgeError::Eval(format!("Eval: {e}")))?;
         result
@@ -545,7 +630,7 @@ impl ArrayCalculator {
 
             if let Some(formula) = formula {
                 // v5.2.0 AST evaluator
-                let value = self.evaluate_scalar_formula_ast(&formula)?;
+                let value = self.evaluate_scalar_formula_ast(&scalar_name, &formula)?;
 
                 // Update the scalar with calculated value
                 if let Some(var) = self.model.scalars.get_mut(&scalar_name) {
@@ -604,8 +689,8 @@ impl ArrayCalculator {
         Ok(ordered_names)
     }
 
-    /// Extract scalar dependencies from a formula with scoping
-    /// Uses same scoping logic as `evaluate_scalar_with_resolver`
+    /// Extract scalar dependencies from a formula, using the same name
+    /// resolution as evaluation (`resolve_scalar_name`)
     // Returns Result for consistency with other dependency extraction methods.
     #[allow(clippy::unnecessary_wraps)]
     fn extract_scalar_dependencies(
@@ -615,40 +700,122 @@ impl ArrayCalculator {
     ) -> ForgeResult<Vec<String>> {
         let mut deps = Vec::new();
 
-        // Extract parent section from scalar_name (e.g., "annual_2025" from "annual_2025.total_revenue")
-        let parent_section = scalar_name
-            .rfind('.')
-            .map(|dot_pos| &scalar_name[..dot_pos]);
-
-        // Extract all words (variable references) from formula
-        for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
+        let section = scalar_name.rsplit_once('.').map(|(section, _)| section);
+        let stripped = strip_string_literals(formula);
+        for word in stripped.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
             if word.is_empty() {
                 continue;
             }
-
-            // Strategy 1: Try exact match
-            if self.model.scalars.contains_key(word) {
-                if !deps.contains(&word.to_string()) {
-                    deps.push(word.to_string());
-                }
-                continue;
-            }
-
-            // Strategy 2: If we're in a section and word is simple, try prefixing with parent section
-            if let Some(section) = parent_section {
-                if !word.contains('.') {
-                    let scoped_name = format!("{section}.{word}");
-                    if self.model.scalars.contains_key(&scoped_name) && !deps.contains(&scoped_name)
-                    {
-                        deps.push(scoped_name);
-                    }
+            if let ScalarName::Found(full) = self.resolve_scalar_name(word, section) {
+                if !deps.contains(&full) {
+                    deps.push(full);
                 }
             }
-
-            // Strategy 3: Could be a table.column reference, not a scalar dependency
-            // Skip it (no dependency edge needed)
+            // Anything else is a table.column reference, a function name or a
+            // literal, so no dependency edge is needed
         }
 
         Ok(deps)
+    }
+}
+
+#[cfg(test)]
+mod scalar_scope_tests {
+    use super::ArrayCalculator;
+    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+
+    fn model(scalars: &[(&str, Option<f64>, Option<&str>)]) -> ParsedModel {
+        let mut model = ParsedModel::new();
+        for (name, value, formula) in scalars {
+            model.add_scalar(
+                (*name).to_string(),
+                Variable::new((*name).to_string(), *value, formula.map(str::to_string)),
+            );
+        }
+        model
+    }
+
+    fn calculate(scalars: &[(&str, Option<f64>, Option<&str>)]) -> Result<ParsedModel, String> {
+        ArrayCalculator::new(model(scalars))
+            .calculate_all()
+            .map_err(|e| e.to_string())
+    }
+
+    fn value(model: &ParsedModel, name: &str) -> f64 {
+        model.scalars[name].value.unwrap()
+    }
+
+    #[test]
+    fn test_bare_name_uses_own_section_every_time() {
+        // Same shape as examples/variance.yaml: two sections with the same names
+        let scalars = [
+            ("budget.revenue", Some(1000.0), None),
+            ("budget.cogs", Some(400.0), None),
+            ("budget.gross_profit", None, Some("=revenue - cogs")),
+            ("actual.revenue", Some(950.0), None),
+            ("actual.cogs", Some(420.0), None),
+            ("actual.gross_profit", None, Some("=revenue - cogs")),
+        ];
+        // Hash map order changes between runs, so repeat
+        for _ in 0..25 {
+            let result = calculate(&scalars).unwrap();
+            assert!((value(&result, "budget.gross_profit") - 600.0).abs() < 1e-9);
+            assert!((value(&result, "actual.gross_profit") - 530.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn test_ambiguous_bare_name_is_an_error() {
+        let err = calculate(&[
+            ("budget.revenue", Some(1000.0), None),
+            ("actual.revenue", Some(950.0), None),
+            ("summary.total", None, Some("=revenue * 2")),
+        ])
+        .unwrap_err();
+        assert!(err.contains("ambiguous"), "{err}");
+        assert!(err.contains("actual.revenue, budget.revenue"), "{err}");
+    }
+
+    #[test]
+    fn test_unique_bare_name_from_another_section_is_ordered() {
+        for _ in 0..25 {
+            let result = calculate(&[
+                ("inputs.base", Some(10.0), None),
+                ("calc.derived", None, Some("=base + 1")),
+                ("summary.result", None, Some("=derived * 2")),
+            ])
+            .unwrap();
+            assert!((value(&result, "summary.result") - 22.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn test_own_section_beats_top_level_name() {
+        let result = calculate(&[
+            ("rate", Some(0.1), None),
+            ("loan.rate", Some(0.2), None),
+            ("loan.cost", None, Some("=rate * 100")),
+            ("plain", None, Some("=rate * 100")),
+        ])
+        .unwrap();
+        assert!((value(&result, "loan.cost") - 20.0).abs() < 1e-9);
+        assert!((value(&result, "plain") - 10.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_ambiguous_bare_name_in_table_formula_is_an_error() {
+        let mut model = model(&[("a.rate", Some(0.1), None), ("b.rate", Some(0.2), None)]);
+        let mut table = Table::new("t".to_string());
+        table.add_column(Column::new(
+            "x".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0]),
+        ));
+        table.add_row_formula("y".to_string(), "=x * rate".to_string());
+        model.add_table(table);
+        let err = ArrayCalculator::new(model)
+            .calculate_all()
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("ambiguous"), "{err}");
     }
 }
