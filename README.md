@@ -17,7 +17,7 @@ YAML-based financial modeling with Excel-style formula evaluation. Git-native an
 
 ## Status and known limitations
 
-Forge is a beta (v10.0.0-beta.8) and an R&D prototype, built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
+Forge is a beta (v10.0.0-beta.9) and an R&D prototype, built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
 
 Known problems as of 2026-11-05:
 

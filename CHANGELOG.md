@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-beta.9] - 2026-11-05
+
+Fixes for wrong results that came back with no error, one security fix, and
+documentation that now says what the project has and has not been checked
+against. Found in an independent evaluation on 2026-11-04.
+
+### Security
+- **MCP inline includes**: with inline `content`, an `_includes` path that was absolute or contained `..` could write the matching `includes` text to any file the server could write, or make the parser read a YAML file outside its temp directory. Only plain relative paths are accepted now. Earlier versions are affected, so update if you expose `forge mcp` to untrusted model content.
+
+### Fixed
+- **Array arithmetic**: an array in arithmetic, a comparison or a function that expects one number was turned into its length, so `=SUM(a * b)` gave 9 instead of 140. Operators now work element by element. Column lengths that do not match, or a column where one number is expected (`PMT`, `ROUND`, `TEXT` and others), are errors. `IF`, `AND`, `OR`, `XOR` and `NOT` accept arrays. A scalar formula that returns several values is an error.
+- **IRR, XIRR, RATE**: these returned the last guess whether or not it had converged (`=IRR` of all-positive flows gave 5,778,119). They now find a rate or return an error. `IRR(values, guess)` no longer counts the guess as a cash flow, and `RATE` honours its `type` argument.
+- **Schema**: valid models were rejected when a column formula started with `MAX(` or similar, or a column held dates or formulas. Five of the ten examples failed `forge validate`. Row formulas such as `=MAX(0, x)` now run row by row. `real_options`, `bootstrap` and `bayesian_network` sections are accepted.
+- **Bare scalar names**: in `=revenue - cogs` inside `budget`, the name could resolve to a scalar of another section, and the result changed from run to run (`examples/variance.yaml`). Names now resolve to the formula's own section first. A name that matches several sections is an error.
+- **Tornado**: short input names such as `growth_rate` now resolve to the unique matching scalar instead of producing empty bars. Ambiguous or missing names are errors. Thanks to @rafaeljara-cmyk.
+- `examples/scenarios.yaml`: IRR now includes the acquisition cost, and the expected-output comment matches what the model calculates.
+- `examples/breakeven.yaml`, `examples/bootstrap.yaml`: a text label stored as a scalar value is now a comment.
+
+### Changed
+- README, CLI help and crate description no longer claim validation or compliance that the repository does not show. A "Status and known limitations" section lists open problems.
+- Clippy errors on Rust 1.97 fixed, so the Lint job passes.
+
 ## [10.0.0-beta.8] - 2026-03-14
 
 ### Changed
