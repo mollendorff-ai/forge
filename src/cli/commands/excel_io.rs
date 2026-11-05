@@ -53,6 +53,85 @@ pub fn export_buffer_core(input: &Path) -> ForgeResult<super::results::ExportBuf
     })
 }
 
+/// One table in the YAML format the parser reads: data columns as arrays,
+/// row formulas as `=...` strings.
+fn table_to_value(table: &crate::types::Table) -> serde_yaml_ng::Value {
+    use crate::types::ColumnValue;
+    use serde_yaml_ng::Value;
+    let mut map = serde_yaml_ng::Mapping::new();
+    let mut names: Vec<&String> = table.columns.keys().collect();
+    names.sort();
+    for name in names {
+        let items: Vec<Value> = match &table.columns[name].values {
+            ColumnValue::Number(v) => v.iter().map(|n| Value::Number((*n).into())).collect(),
+            ColumnValue::Text(v) | ColumnValue::Date(v) => {
+                v.iter().map(|t| Value::String(t.clone())).collect()
+            },
+            ColumnValue::Boolean(v) => v.iter().map(|b| Value::Bool(*b)).collect(),
+        };
+        map.insert(Value::String(name.clone()), Value::Sequence(items));
+    }
+    let mut formulas: Vec<(&String, &String)> = table.row_formulas.iter().collect();
+    formulas.sort();
+    for (name, formula) in formulas {
+        map.insert(Value::String(name.clone()), Value::String(formula.clone()));
+    }
+    Value::Mapping(map)
+}
+
+/// All tables as `{table_name: table}`.
+fn tables_to_value(
+    tables: &std::collections::HashMap<String, crate::types::Table>,
+) -> serde_yaml_ng::Mapping {
+    let mut names: Vec<&String> = tables.keys().collect();
+    names.sort();
+    let mut map = serde_yaml_ng::Mapping::new();
+    for name in names {
+        map.insert(
+            serde_yaml_ng::Value::String(name.clone()),
+            table_to_value(&tables[name]),
+        );
+    }
+    map
+}
+
+/// Scalars as a `scalars:` group of `{value, formula}` entries.
+fn scalars_to_value(
+    scalars: &std::collections::HashMap<String, crate::types::Variable>,
+) -> serde_yaml_ng::Mapping {
+    use serde_yaml_ng::Value;
+    let mut names: Vec<&String> = scalars.keys().collect();
+    names.sort();
+    let mut group = serde_yaml_ng::Mapping::new();
+    for name in names {
+        let variable = &scalars[name];
+        let mut entry = serde_yaml_ng::Mapping::new();
+        if let Some(value) = variable.value {
+            entry.insert(Value::String("value".into()), Value::Number(value.into()));
+        }
+        if let Some(formula) = &variable.formula {
+            entry.insert(
+                Value::String("formula".into()),
+                Value::String(formula.clone()),
+            );
+        }
+        group.insert(Value::String(name.clone()), Value::Mapping(entry));
+    }
+    let mut map = serde_yaml_ng::Mapping::new();
+    if !group.is_empty() {
+        map.insert(Value::String("scalars".into()), Value::Mapping(group));
+    }
+    map
+}
+
+/// The whole imported model as YAML that `forge validate` and `forge calculate` accept.
+fn model_to_yaml(model: &crate::types::ParsedModel) -> ForgeResult<String> {
+    let mut map = tables_to_value(&model.tables);
+    map.extend(scalars_to_value(&model.scalars));
+    let body = serde_yaml_ng::to_string(&map).map_err(ForgeError::Yaml)?;
+    Ok(format!("_forge_version: \"5.0.0\"\n\n{body}"))
+}
+
 /// Import Excel to YAML and return structured results (no printing).
 ///
 /// # Errors
@@ -82,7 +161,7 @@ pub fn import_core(
     } else if multi_doc {
         write_multi_doc(output, model)?;
     } else {
-        let yaml_string = serde_yaml_ng::to_string(&model).map_err(ForgeError::Yaml)?;
+        let yaml_string = model_to_yaml(&model)?;
         fs::write(output, yaml_string).map_err(ForgeError::Io)?;
     }
 
@@ -105,7 +184,8 @@ fn write_split_files_quiet(output: &Path, model: crate::types::ParsedModel) -> F
         let yaml_string = format!(
             "_forge_version: \"1.0.0\"\n_name: \"{}\"\n\n{}",
             table_name,
-            serde_yaml_ng::to_string(&table_model.tables).map_err(ForgeError::Yaml)?
+            serde_yaml_ng::to_string(&tables_to_value(&table_model.tables))
+                .map_err(ForgeError::Yaml)?
         );
         fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
     }
@@ -115,7 +195,8 @@ fn write_split_files_quiet(output: &Path, model: crate::types::ParsedModel) -> F
         scalar_model.scalars = model.scalars;
         let yaml_string = format!(
             "_forge_version: \"1.0.0\"\n_name: \"scalars\"\n\n{}",
-            serde_yaml_ng::to_string(&scalar_model.scalars).map_err(ForgeError::Yaml)?
+            serde_yaml_ng::to_string(&scalars_to_value(&scalar_model.scalars))
+                .map_err(ForgeError::Yaml)?
         );
         fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
     }
@@ -216,7 +297,7 @@ pub fn import(
     } else if multi_doc {
         write_multi_doc(output, model)?;
     } else {
-        let yaml_string = serde_yaml_ng::to_string(&model).map_err(ForgeError::Yaml)?;
+        let yaml_string = model_to_yaml(&model)?;
         fs::write(output, yaml_string).map_err(ForgeError::Io)?;
         println!("{}", "✅ Import Complete!".bold().green());
         println!("   YAML file: {}\n", output.display());
@@ -255,7 +336,8 @@ fn write_split_files(
         let yaml_string = format!(
             "_forge_version: \"1.0.0\"\n_name: \"{}\"\n\n{}",
             table_name,
-            serde_yaml_ng::to_string(&table_model.tables).map_err(ForgeError::Yaml)?
+            serde_yaml_ng::to_string(&tables_to_value(&table_model.tables))
+                .map_err(ForgeError::Yaml)?
         );
         fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
         if verbose {
@@ -268,7 +350,8 @@ fn write_split_files(
         scalar_model.scalars = model.scalars;
         let yaml_string = format!(
             "_forge_version: \"1.0.0\"\n_name: \"scalars\"\n\n{}",
-            serde_yaml_ng::to_string(&scalar_model.scalars).map_err(ForgeError::Yaml)?
+            serde_yaml_ng::to_string(&scalars_to_value(&scalar_model.scalars))
+                .map_err(ForgeError::Yaml)?
         );
         fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
         if verbose {
@@ -288,8 +371,10 @@ fn write_multi_doc(output: &Path, model: crate::types::ParsedModel) -> ForgeResu
         yaml_output.push_str("---\n");
         yaml_output.push_str("_forge_version: \"1.0.0\"\n");
         let _ = write!(yaml_output, "_name: \"{table_name}\"\n\n");
-        yaml_output
-            .push_str(&serde_yaml_ng::to_string(&table_model.tables).map_err(ForgeError::Yaml)?);
+        yaml_output.push_str(
+            &serde_yaml_ng::to_string(&tables_to_value(&table_model.tables))
+                .map_err(ForgeError::Yaml)?,
+        );
         yaml_output.push('\n');
     }
     if !model.scalars.is_empty() {
@@ -298,11 +383,60 @@ fn write_multi_doc(output: &Path, model: crate::types::ParsedModel) -> ForgeResu
         yaml_output.push_str("---\n");
         yaml_output.push_str("_forge_version: \"1.0.0\"\n");
         yaml_output.push_str("_name: \"scalars\"\n\n");
-        yaml_output
-            .push_str(&serde_yaml_ng::to_string(&scalar_model.scalars).map_err(ForgeError::Yaml)?);
+        yaml_output.push_str(
+            &serde_yaml_ng::to_string(&scalars_to_value(&scalar_model.scalars))
+                .map_err(ForgeError::Yaml)?,
+        );
     }
     fs::write(output, yaml_output).map_err(ForgeError::Io)?;
     println!("{}", "✅ Import Complete!".bold().green());
     println!("   YAML file: {}\n", output.display());
     Ok(())
+}
+
+#[cfg(test)]
+mod import_output_tests {
+    use super::*;
+    use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
+
+    /// What `forge import` writes must load and calculate like a hand-written model.
+    #[test]
+    fn imported_yaml_is_valid_and_calculates() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("sales".to_string());
+        table.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0]),
+        ));
+        table.add_column(Column::new(
+            "region".to_string(),
+            ColumnValue::Text(vec!["N".to_string(), "S".to_string()]),
+        ));
+        table.add_row_formula("double".to_string(), "=revenue * 2".to_string());
+        model.add_table(table);
+        model.add_scalar(
+            "rate".to_string(),
+            Variable::new("rate".to_string(), Some(0.1), None),
+        );
+
+        let yaml = model_to_yaml(&model).unwrap();
+        assert!(yaml.starts_with("_forge_version: \"5.0.0\""));
+        assert!(
+            !yaml.contains("!Number") && !yaml.contains("!Text"),
+            "{yaml}"
+        );
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("imported.yaml");
+        fs::write(&path, yaml).unwrap();
+        let parsed = parser::parse_model(&path).unwrap();
+        assert_eq!(parsed.tables["sales"].columns.len(), 2);
+        assert_eq!(
+            parsed.tables["sales"].row_formulas["double"],
+            "=revenue * 2"
+        );
+        crate::core::ArrayCalculator::new(parsed)
+            .calculate_all()
+            .unwrap();
+    }
 }

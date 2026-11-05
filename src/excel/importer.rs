@@ -133,17 +133,29 @@ impl ExcelImporter {
         // Create reverse formula translator
         let translator = ReverseFormulaTranslator::new(column_map);
 
+        // The formula range starts at its first non-empty cell, not at A1, so
+        // it must be read by absolute position (first data row, same column).
+        let (start_row, start_col) = range
+            .start()
+            .map_or((0, 0), |(r, c)| (r as usize, c as usize));
+        let formula_at = |col_idx: usize| -> Option<&String> {
+            formula_range.and_then(|formulas| {
+                let row = u32::try_from(start_row + 1).ok()?;
+                let col = u32::try_from(start_col + col_idx).ok()?;
+                formulas.get_value((row, col))
+            })
+        };
+
         // Convert columns to YAML format
         for (col_idx, col_name) in column_names.iter().enumerate() {
             // Check if this column has formulas (check first data row in formula_range)
-            let has_formula = formula_range
-                .and_then(|formulas| formulas.get((1, col_idx)))
-                .is_some_and(|formula_cell| !formula_cell.is_empty());
+            let has_formula =
+                formula_at(col_idx).is_some_and(|formula_cell| !formula_cell.is_empty());
 
             if has_formula {
                 // This is a calculated column - extract formula from first data row
-                if let Some(formulas) = formula_range {
-                    if let Some(formula) = formulas.get((1, col_idx)) {
+                {
+                    if let Some(formula) = formula_at(col_idx) {
                         if !formula.is_empty() {
                             // Add leading = if not present (calamine strips it)
                             let formula_with_equals = if formula.starts_with('=') {
@@ -543,5 +555,39 @@ mod tests {
         assert_eq!(ExcelImporter::number_to_column_letter(703), "AAB");
         assert_eq!(ExcelImporter::number_to_column_letter(704), "AAC");
         assert_eq!(ExcelImporter::number_to_column_letter(16383), "XFD");
+    }
+
+    #[test]
+    fn test_import_keeps_row_formulas_on_their_own_columns() {
+        use crate::excel::exporter::ExcelExporter;
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("sales".to_string());
+        table.add_column(Column::new(
+            "revenue".to_string(),
+            ColumnValue::Number(vec![100.0, 200.0, 300.0]),
+        ));
+        table.add_column(Column::new(
+            "cogs".to_string(),
+            ColumnValue::Number(vec![40.0, 90.0, 120.0]),
+        ));
+        table.add_row_formula("profit".to_string(), "=revenue - cogs".to_string());
+        table.add_row_formula("margin".to_string(), "=profit / revenue".to_string());
+        model.add_table(table);
+
+        let dir = TempDir::new().unwrap();
+        let excel_path = dir.path().join("formulas.xlsx");
+        ExcelExporter::new(model).export(&excel_path).unwrap();
+
+        let imported = ExcelImporter::new(&excel_path).import().unwrap();
+        let table = &imported.tables["sales"];
+
+        // Data columns stay data, formula columns stay formulas, with names restored.
+        assert_eq!(table.columns.len(), 2);
+        assert!(table.columns.contains_key("revenue"));
+        assert!(table.columns.contains_key("cogs"));
+        assert_eq!(table.row_formulas["profit"], "=revenue - cogs");
+        assert_eq!(table.row_formulas["margin"], "=profit / revenue");
     }
 }

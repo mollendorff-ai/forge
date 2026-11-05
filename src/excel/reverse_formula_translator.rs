@@ -167,8 +167,10 @@ impl ReverseFormulaTranslator {
             if let Some(captures) = cell_ref_pattern.captures(match_obj.as_str()) {
                 let col_letter = captures.get(1).unwrap().as_str();
 
-                // Skip if it's an Excel function (like IF, AND, OR, MAX, etc.)
-                if Self::is_excel_function(col_letter) {
+                // A function name with digits (LOG10, ATAN2, DAYS360) is followed by
+                // `(`; a cell reference never is. Telling them apart by name wrongly
+                // skipped real columns such as E (Euler's constant) in `E2`.
+                if formula[match_obj.end()..].starts_with('(') {
                     continue;
                 }
 
@@ -184,99 +186,6 @@ impl ReverseFormulaTranslator {
 
         Ok(result)
     }
-
-    /// Check if a word is an Excel function (don't translate these!)
-    fn is_excel_function(word: &str) -> bool {
-        let upper = word.to_uppercase();
-        matches!(
-            upper.as_str(),
-            // Aggregation functions
-            "SUM"
-                | "AVERAGE"
-                | "MAX"
-                | "MIN"
-                | "COUNT"
-                | "COUNTA"
-                | "PRODUCT"
-                // Conditional aggregations
-                | "SUMIF"
-                | "SUMIFS"
-                | "COUNTIF"
-                | "COUNTIFS"
-                | "AVERAGEIF"
-                | "AVERAGEIFS"
-                | "MAXIFS"
-                | "MINIFS"
-                // Logical functions
-                | "IF"
-                | "AND"
-                | "OR"
-                | "NOT"
-                | "XOR"
-                | "TRUE"
-                | "FALSE"
-                | "IFERROR"
-                | "IFNA"
-                | "CHOOSE"
-                // Math functions
-                | "ABS"
-                | "ROUND"
-                | "ROUNDUP"
-                | "ROUNDDOWN"
-                | "SQRT"
-                | "POW"
-                | "POWER"
-                | "EXP"
-                | "LN"
-                | "LOG"
-                | "LOG10"
-                | "PI"
-                | "E"
-                | "MOD"
-                | "CEILING"
-                | "FLOOR"
-                // Text functions
-                | "CONCATENATE"
-                | "CONCAT"
-                | "LEFT"
-                | "RIGHT"
-                | "MID"
-                | "LEN"
-                | "UPPER"
-                | "LOWER"
-                | "TRIM"
-                // Date functions
-                | "TODAY"
-                | "NOW"
-                | "DATE"
-                | "YEAR"
-                | "MONTH"
-                | "DAY"
-                | "DATEDIF"
-                | "EDATE"
-                | "EOMONTH"
-                // Financial functions
-                | "NPV"
-                | "IRR"
-                | "XNPV"
-                | "XIRR"
-                | "PMT"
-                | "FV"
-                | "PV"
-                | "RATE"
-                | "NPER"
-                // Lookup functions
-                | "VLOOKUP"
-                | "HLOOKUP"
-                | "XLOOKUP"
-                | "INDEX"
-                | "MATCH"
-                // Array functions (v4.1.0)
-                | "UNIQUE"
-                | "COUNTUNIQUE"
-        )
-    }
-
     /// Sanitize table/sheet name to valid YAML key
     fn sanitize_name(name: &str) -> String {
         name.to_lowercase()
@@ -334,5 +243,26 @@ mod tests {
         let translator = create_test_translator();
         let result = translator.translate("=IF(A2>0,B2,C2)").unwrap();
         assert_eq!(result, "=IF(revenue>0,cogs,gross_profit)");
+    }
+
+    #[test]
+    fn test_column_named_like_a_constant_is_translated() {
+        // `E` is Euler's constant, but `E2` is still the cell in column E.
+        let mut column_map = HashMap::new();
+        column_map.insert("C".to_string(), "profit".to_string());
+        column_map.insert("E".to_string(), "revenue".to_string());
+        let translator = ReverseFormulaTranslator::new(column_map);
+        assert_eq!(translator.translate("=C2/E2").unwrap(), "=profit/revenue");
+    }
+
+    #[test]
+    fn test_function_with_digits_is_not_a_cell() {
+        let mut column_map = HashMap::new();
+        column_map.insert("A".to_string(), "revenue".to_string());
+        let translator = ReverseFormulaTranslator::new(column_map);
+        assert_eq!(
+            translator.translate("=LOG10(A2)").unwrap(),
+            "=LOG10(revenue)"
+        );
     }
 }

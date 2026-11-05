@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`forge import`**: the YAML it wrote was Forge's internal dump (`!Number` / `!Text` tags, no `_forge_version`), so `forge validate` rejected it. It now writes the same format as the examples, in single-file, `--split-files` and `--multi-doc` modes. Row formulas were also attached to the wrong columns (the formula grid was read as if it started at A1), and a reference to column `E` (`=C2/E2`) was left untranslated because `E` was treated as Euler's constant.
+
 ## [10.0.0-beta.10] - 2026-11-05
 
 Version 10.0.0-beta.9 was tagged but never published (the release workflow did not start), so its changes are part of this release.
