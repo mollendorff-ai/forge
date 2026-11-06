@@ -82,15 +82,15 @@ Forge's results are checked against other engines. None of the checks is complet
 
 | Check | What it covers | Latest result (2026-11-05) |
 | --- | --- | --- |
-| Unit tests (this repo) | 1,457 unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
-| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,301 formula cases. A case passes only if `forge calculate` and Gnumeric's recalculation of the exported `.xlsx` both match the expected value | 1,300 pass, 1 skipped; weekly in CI |
+| Unit tests (this repo) | 1,471 unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
+| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,313 formula cases. A case passes only if `forge calculate` and Gnumeric's recalculation of the exported `.xlsx` both match the expected value | 1,312 pass, 1 skipped; weekly in CI |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 119 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped; weekly in CI |
 
 Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
 
 --- | --- | --- |
 | Unit tests (this repo) | 1,399 inline unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Run on every push |
-| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,301 formula specs. Each formula is exported to `.xlsx`, recalculated by Gnumeric and compared with an expected value | Run by hand; 1,114 of 1,301 passed on 2026-11-04. It checks the export and Gnumeric, not yet Forge's own evaluator |
+| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,313 formula specs. Each formula is exported to `.xlsx`, recalculated by Gnumeric and compared with an expected value | Run by hand; 1,114 of 1,301 passed on 2026-11-04. It checks the export and Gnumeric, not yet Forge's own evaluator |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Monte Carlo distributions compared with R | Run by hand; 10 of 77 specs run live and the rest are skipped |
 
 Next steps: compare `forge calculate` directly with Gnumeric (today the comparison goes through the exported `.xlsx`).
@@ -481,7 +481,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 
 | Metric | Value |
 | --- | --- |
-| **Unit tests** | 1,457 unit tests and 2 doctests (counted 2026-11-05) |
+| **Unit tests** | 1,471 unit tests and 2 doctests (counted 2026-11-06) |
 | **Functions** | 173, of which 6 are FP&A-native |
 | **Lints** | clippy pedantic is enabled and CI fails on warnings |
 | **External validation** | Partial; see [Validation status](#validation-status) |
@@ -490,7 +490,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 
 ```text
 forge (this repo)             validation repos
-├── 1,457 unit tests          ├── forge-e2e-gnumeric: 1,301 formula specs
+├── 1,471 unit tests          ├── forge-e2e-gnumeric: 1,313 formula specs
 ├── #[cfg(test)] modules      └── forge-e2e-r: 119 function checks, 77 analytics specs
 └── 2 doctests
 ```

@@ -116,6 +116,67 @@ fn solve_rate(
     )))
 }
 
+/// Optional numeric argument `index`, or `default` when it is not given.
+fn optional_number(
+    args: &[Expr],
+    index: usize,
+    ctx: &EvalContext,
+    default: f64,
+) -> Result<f64, EvalError> {
+    args.get(index)
+        .map_or(Ok(default), |arg| number_or(arg, ctx, default))
+}
+
+/// Excel's `type` argument: 0 = payments at the end of each period, anything else = at the start.
+fn payment_timing(args: &[Expr], index: usize, ctx: &EvalContext) -> Result<f64, EvalError> {
+    Ok(if optional_number(args, index, ctx, 0.0)? == 0.0 {
+        0.0
+    } else {
+        1.0
+    })
+}
+
+/// Future value of a present value and a level payment (Excel `FV`).
+fn annuity_fv(rate: f64, nper: f64, pmt: f64, pv: f64, due: f64) -> f64 {
+    if rate == 0.0 {
+        return -pmt.mul_add(nper, pv);
+    }
+    let growth = (1.0 + rate).powf(nper);
+    -pv.mul_add(growth, pmt * due.mul_add(rate, 1.0) * (growth - 1.0) / rate)
+}
+
+/// Present value of a future value and a level payment (Excel `PV`).
+fn annuity_pv(rate: f64, nper: f64, pmt: f64, fv: f64, due: f64) -> f64 {
+    if rate == 0.0 {
+        return -pmt.mul_add(nper, fv);
+    }
+    let growth = (1.0 + rate).powf(nper);
+    -(pmt * due.mul_add(rate, 1.0)).mul_add((growth - 1.0) / rate, fv) / growth
+}
+
+/// Level payment that turns `pv` into `fv` over `nper` periods (Excel `PMT`).
+fn annuity_pmt(rate: f64, nper: f64, pv: f64, fv: f64, due: f64) -> f64 {
+    if rate == 0.0 {
+        return -(pv + fv) / nper;
+    }
+    let growth = (1.0 + rate).powf(nper);
+    -pv.mul_add(growth, fv) * rate / ((growth - 1.0) * due.mul_add(rate, 1.0))
+}
+
+/// Interest part of the payment in period `per` (Excel `IPMT`).
+fn annuity_ipmt(rate: f64, per: f64, nper: f64, pv: f64, fv: f64, due: f64) -> f64 {
+    if rate == 0.0 || (due != 0.0 && (per - 1.0).abs() < f64::EPSILON) {
+        return 0.0;
+    }
+    let pmt = annuity_pmt(rate, nper, pv, fv, due);
+    let interest = annuity_fv(rate, per - 1.0, pmt, pv, due) * rate;
+    if due == 0.0 {
+        interest
+    } else {
+        interest / (1.0 + rate)
+    }
+}
+
 /// Try to evaluate a financial function. Returns None if function not recognized.
 #[allow(
     clippy::cast_possible_truncation,
@@ -138,30 +199,9 @@ pub fn try_evaluate(
             let rate = number_or(&args[0], ctx, 0.0)?;
             let nper = number_or(&args[1], ctx, 0.0)?;
             let pv = number_or(&args[2], ctx, 0.0)?;
-            let fv = if args.len() > 3 {
-                number_or(&args[3], ctx, 0.0)?
-            } else {
-                0.0
-            };
-            let pmt_type = if args.len() > 4 {
-                number_or(&args[4], ctx, 0.0)? as i32
-            } else {
-                0
-            };
-
-            if rate == 0.0 {
-                Value::Number(-(pv + fv) / nper)
-            } else {
-                let pmt = if pmt_type == 1 {
-                    (-pv * rate).mul_add((1.0 + rate).powf(nper), -(fv * rate))
-                        / ((1.0 + rate).powf(nper) - 1.0)
-                        / (1.0 + rate)
-                } else {
-                    (-pv * rate).mul_add((1.0 + rate).powf(nper), -(fv * rate))
-                        / ((1.0 + rate).powf(nper) - 1.0)
-                };
-                Value::Number(pmt)
-            }
+            let fv = optional_number(args, 3, ctx, 0.0)?;
+            let due = payment_timing(args, 4, ctx)?;
+            Value::Number(annuity_pmt(rate, nper, pv, fv, due))
         },
 
         "FV" => {
@@ -169,21 +209,9 @@ pub fn try_evaluate(
             let rate = number_or(&args[0], ctx, 0.0)?;
             let nper = number_or(&args[1], ctx, 0.0)?;
             let pmt = number_or(&args[2], ctx, 0.0)?;
-            let pv = if args.len() > 3 {
-                number_or(&args[3], ctx, 0.0)?
-            } else {
-                0.0
-            };
-
-            if rate == 0.0 {
-                Value::Number(f64::mul_add(pmt, -nper, -pv))
-            } else {
-                let fv = (-pv).mul_add(
-                    (1.0 + rate).powf(nper),
-                    -(pmt * ((1.0 + rate).powf(nper) - 1.0) / rate),
-                );
-                Value::Number(fv)
-            }
+            let pv = optional_number(args, 3, ctx, 0.0)?;
+            let due = payment_timing(args, 4, ctx)?;
+            Value::Number(annuity_fv(rate, nper, pmt, pv, due))
         },
 
         "PV" => {
@@ -191,19 +219,9 @@ pub fn try_evaluate(
             let rate = number_or(&args[0], ctx, 0.0)?;
             let nper = number_or(&args[1], ctx, 0.0)?;
             let pmt = number_or(&args[2], ctx, 0.0)?;
-            let fv = if args.len() > 3 {
-                number_or(&args[3], ctx, 0.0)?
-            } else {
-                0.0
-            };
-
-            if rate == 0.0 {
-                Value::Number(f64::mul_add(pmt, -nper, -fv))
-            } else {
-                let pv =
-                    (-fv - pmt * ((1.0 + rate).powf(nper) - 1.0) / rate) / (1.0 + rate).powf(nper);
-                Value::Number(pv)
-            }
+            let fv = optional_number(args, 3, ctx, 0.0)?;
+            let due = payment_timing(args, 4, ctx)?;
+            Value::Number(annuity_pv(rate, nper, pmt, fv, due))
         },
 
         "NPV" => {
@@ -338,17 +356,14 @@ pub fn try_evaluate(
             let pv = evaluate(&args[2], ctx)?
                 .as_number()
                 .ok_or_else(|| EvalError::new("NPER requires present value"))?;
-            let fv = if args.len() > 3 {
-                number_or(&args[3], ctx, 0.0)?
-            } else {
-                0.0
-            };
+            let fv = optional_number(args, 3, ctx, 0.0)?;
+            let due = payment_timing(args, 4, ctx)?;
 
             if rate == 0.0 {
                 Value::Number(-(pv + fv) / pmt)
             } else {
-                let n = ((-fv).mul_add(rate, pmt) / pv.mul_add(rate, pmt)).ln() / rate.ln_1p();
-                Value::Number(n)
+                let z = pmt * due.mul_add(rate, 1.0) / rate;
+                Value::Number(((z - fv) / (z + pv)).ln() / rate.ln_1p())
             }
         },
 
@@ -549,50 +564,10 @@ pub fn try_evaluate(
             let pv = evaluate(&args[3], ctx)?
                 .as_number()
                 .ok_or_else(|| EvalError::new("PPMT requires present value"))?;
-            let fv = if args.len() > 4 {
-                number_or(&args[4], ctx, 0.0)?
-            } else {
-                0.0
-            };
-            let pmt_type = if args.len() > 5 {
-                number_or(&args[5], ctx, 0.0)? as i32
-            } else {
-                0
-            };
-
-            if rate == 0.0 {
-                Value::Number(-(pv + fv) / nper)
-            } else {
-                // Calculate total payment (PMT)
-                let payment = if pmt_type == 1 {
-                    (-pv * rate).mul_add((1.0 + rate).powf(nper), -(fv * rate))
-                        / ((1.0 + rate).powf(nper) - 1.0)
-                        / (1.0 + rate)
-                } else {
-                    (-pv * rate).mul_add((1.0 + rate).powf(nper), -(fv * rate))
-                        / ((1.0 + rate).powf(nper) - 1.0)
-                };
-
-                // Calculate balance at start of period
-                // Use FV formula: FV = PV * (1+r)^n + PMT * ((1+r)^n - 1) / r
-                // Rearranged to get remaining balance after (per-1) payments
-                let periods_elapsed = per - 1.0;
-                let balance = if periods_elapsed > 0.0 {
-                    pv.mul_add(
-                        (1.0 + rate).powf(periods_elapsed),
-                        payment * ((1.0 + rate).powf(periods_elapsed) - 1.0) / rate,
-                    )
-                } else {
-                    pv
-                };
-
-                // Interest for this period (as negative payment)
-                let interest = -(balance * rate);
-
-                // Principal payment = total payment - interest payment
-                // Since both are negative (payments out), subtracting gives the principal portion
-                Value::Number(payment - interest)
-            }
+            let fv = optional_number(args, 4, ctx, 0.0)?;
+            let due = payment_timing(args, 5, ctx)?;
+            let payment = annuity_pmt(rate, nper, pv, fv, due);
+            Value::Number(payment - annuity_ipmt(rate, per, nper, pv, fv, due))
         },
 
         "IPMT" => {
@@ -611,44 +586,9 @@ pub fn try_evaluate(
             let pv = evaluate(&args[3], ctx)?
                 .as_number()
                 .ok_or_else(|| EvalError::new("IPMT requires present value"))?;
-            let fv = if args.len() > 4 {
-                number_or(&args[4], ctx, 0.0)?
-            } else {
-                0.0
-            };
-            let pmt_type = if args.len() > 5 {
-                number_or(&args[5], ctx, 0.0)? as i32
-            } else {
-                0
-            };
-
-            if rate == 0.0 {
-                Value::Number(0.0)
-            } else {
-                // Calculate total payment (PMT)
-                let payment = if pmt_type == 1 {
-                    (-pv * rate).mul_add((1.0 + rate).powf(nper), -(fv * rate))
-                        / ((1.0 + rate).powf(nper) - 1.0)
-                        / (1.0 + rate)
-                } else {
-                    (-pv * rate).mul_add((1.0 + rate).powf(nper), -(fv * rate))
-                        / ((1.0 + rate).powf(nper) - 1.0)
-                };
-
-                // Calculate balance at start of period
-                let periods_elapsed = per - 1.0;
-                let balance = if periods_elapsed > 0.0 {
-                    pv.mul_add(
-                        (1.0 + rate).powf(periods_elapsed),
-                        payment * ((1.0 + rate).powf(periods_elapsed) - 1.0) / rate,
-                    )
-                } else {
-                    pv
-                };
-
-                // Interest payment = -(balance * rate) - negative because it's a payment
-                Value::Number(-(balance * rate))
-            }
+            let fv = optional_number(args, 4, ctx, 0.0)?;
+            let due = payment_timing(args, 5, ctx)?;
+            Value::Number(annuity_ipmt(rate, per, nper, pv, fv, due))
         },
 
         "EFFECT" => {
@@ -1257,5 +1197,52 @@ mod tests {
         // Frequency must be 1, 2, or 4
         let result = eval("ACCRINT(0, 365, 180, 0.06, 1000, 3)", &ctx);
         assert!(result.is_err());
+    }
+
+    /// Payments at the start of each period (Excel `type` = 1). Reference values from
+    /// numpy-financial 1.1.0, which follows Excel's definitions.
+    fn number(formula: &str) -> f64 {
+        match eval(formula, &EvalContext::new()).unwrap() {
+            Value::Number(n) => n,
+            other => panic!("{formula} gave {other:?}"),
+        }
+    }
+
+    fn assert_close(formula: &str, expected: f64) {
+        let got = number(formula);
+        assert!(
+            (got - expected).abs() <= 1e-9 * expected.abs().max(1.0),
+            "{formula}: got {got}, expected {expected}"
+        );
+    }
+
+    #[test]
+    fn test_payment_timing_type_1() {
+        assert_close("FV(0.04/12, 120, -200, -5000, 1)", 37_002.290_893_670_69);
+        assert_close("PV(0.05/12, 60, -500, 1000, 1)", 25_826.545_076_488_12);
+        assert_close("NPER(0.06/12, -400, 15000, 0, 1)", 41.401_543_679_333_26);
+        assert_close("PMT(0.05/12, 60, 25000, 0, 1)", -469.823_244_249_236_2);
+        assert_close("IPMT(0.01, 2, 24, 10000, 0, 1)", -95.339_260_175_914_39);
+        assert_close("IPMT(0.01, 1, 24, 10000, 0, 1)", 0.0);
+        assert_close("PPMT(0.01, 2, 24, 10000, 0, 1)", -370.734_722_232_646_7);
+    }
+
+    #[test]
+    fn test_payment_timing_type_0_is_the_default() {
+        for (with_type, without) in [
+            ("FV(0.05, 12, -100, -1000, 0)", "FV(0.05, 12, -100, -1000)"),
+            ("PV(0.05, 12, -100, 500, 0)", "PV(0.05, 12, -100, 500)"),
+            ("NPER(0.05, -100, 500, 0, 0)", "NPER(0.05, -100, 500)"),
+            ("IPMT(0.01, 3, 24, 10000, 0, 0)", "IPMT(0.01, 3, 24, 10000)"),
+        ] {
+            assert_close(with_type, number(without));
+        }
+    }
+
+    #[test]
+    fn test_nper_without_a_solution_is_num_error() {
+        // A payment of 600 never covers 8% interest on 25,000
+        let error = eval("NPER(0.08, -600, 25000)", &EvalContext::new()).unwrap_err();
+        assert!(error.to_string().contains("#NUM!"), "{error}");
     }
 }
