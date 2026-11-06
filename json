@@ -1,0 +1,51 @@
+BayesianResult {
+    name: "Credit Risk Assessment",
+    queries: {
+        "default_probability": VariableResult {
+            name: "default_probability",
+            states: [
+                "low",
+                "medium",
+                "high",
+            ],
+            probabilities: [
+                0.4825,
+                0.297,
+                0.2205,
+            ],
+            most_likely: "low",
+            max_probability: 0.4825,
+        },
+        "economic_conditions": VariableResult {
+            name: "economic_conditions",
+            states: [
+                "good",
+                "neutral",
+                "bad",
+            ],
+            probabilities: [
+                0.29999999999999993,
+                0.5,
+                0.2,
+            ],
+            most_likely: "neutral",
+            max_probability: 0.5,
+        },
+        "company_revenue": VariableResult {
+            name: "company_revenue",
+            states: [
+                "high",
+                "medium",
+                "low",
+            ],
+            probabilities: [
+                0.35,
+                0.39999999999999997,
+                0.25,
+            ],
+            most_likely: "medium",
+            max_probability: 0.39999999999999997,
+        },
+    },
+    evidence: {},
+}
