@@ -43,17 +43,18 @@ cargo run --release -- --batch
 ## How It Works
 
 ```
-                    ┌─ forge calculate ──────────────┐
-YAML Test Spec ─────┤                                ├─ both must equal expected
-                    └─ forge export → XLSX →         │
-                       ssconvert --recalc → CSV ─────┘
+                    ┌─ forge calculate ──────────────────────────┐
+YAML Test Spec ─────┤                                            ├─ all three must equal expected
+                    ├─ forge export → XLSX → ssconvert --recalc ─┤
+                    └─ forge export → forge import → calculate ──┘
 ```
 
 1. Load YAML test files with formulas and expected values
 2. Create minimal YAML with the test formula and the file's tables
 3. Run `forge calculate`: Forge's own answer
 4. Run `forge export`, then `ssconvert --recalc`: Gnumeric's answer for Forge's workbook
-5. A case passes only when both equal the expected value (relative tolerance 1e-9)
+5. Run `forge import` on the same workbook and `forge calculate` on the result: the answer after a round trip through Excel's file format
+6. A case passes only when all three equal the expected value (relative tolerance 1e-9)
 
 Only the cell labelled `test_result` counts as Gnumeric's answer.
 

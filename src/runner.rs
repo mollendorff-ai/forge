@@ -256,10 +256,25 @@ impl TestRunner {
                 Err(e) => vec![Err(e); cases.len()],
             };
 
+        let roundtrip_values = match self.forge_import_and_calculate(&xlsx_path, temp_dir.path()) {
+            Ok(back) => match self.forge_calculate(&back, "test_", cases.len()) {
+                Ok(v) => v,
+                Err(e) => vec![Err(e); cases.len()],
+            },
+            Err(e) => vec![Err(e); cases.len()],
+        };
+
         cases
             .iter()
             .enumerate()
-            .map(|(i, tc)| judge(tc, &forge_values[i], &gnumeric_values[i]))
+            .map(|(i, tc)| {
+                judge(
+                    tc,
+                    &forge_values[i],
+                    &gnumeric_values[i],
+                    &roundtrip_values[i],
+                )
+            })
             .collect()
     }
 
@@ -334,6 +349,29 @@ impl TestRunner {
         self.engine
             .xlsx_to_csv_all_sheets(xlsx_path, out_dir)
             .map_err(|e| format!("CSV conversion failed: {e}"))
+    }
+
+    /// Runs `forge import` on Forge's own exported workbook, so the result can be
+    /// calculated again: a formula that does not survive export and import shows up here.
+    fn forge_import_and_calculate(
+        &self,
+        xlsx_path: &Path,
+        out_dir: &Path,
+    ) -> Result<PathBuf, String> {
+        let back = out_dir.join("roundtrip.yaml");
+        let output = Command::new(&self.forge_binary)
+            .arg("import")
+            .arg(xlsx_path)
+            .arg(&back)
+            .output()
+            .map_err(|e| format!("Failed to run forge import: {e}"))?;
+        if !output.status.success() {
+            return Err(format!(
+                "forge import failed: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            ));
+        }
+        Ok(back)
     }
 
     /// Reads `test_<i>` rows out of the CSV sheets Gnumeric produced.
@@ -423,7 +461,12 @@ impl TestRunner {
             .forge_export_and_recalc(&yaml_path, &xlsx_path, temp_dir.path())
             .and_then(|files| Self::find_result_in_csvs(&files));
 
-        judge(test_case, &forge_value, &gnumeric_value)
+        let roundtrip_value = self
+            .forge_import_and_calculate(&xlsx_path, temp_dir.path())
+            .and_then(|back| self.forge_calculate(&back, "", 0))
+            .and_then(|mut v| v.remove(0));
+
+        judge(test_case, &forge_value, &gnumeric_value, &roundtrip_value)
     }
 
     /// Finds the labelled `test_result` value in the CSV sheets.
@@ -476,7 +519,12 @@ fn matches(actual: f64, expected: f64) -> bool {
 }
 
 /// Combines Forge's own result and Gnumeric's into one verdict.
-fn judge(tc: &TestCase, forge: &Result<f64, String>, gnumeric: &Result<f64, String>) -> TestResult {
+fn judge(
+    tc: &TestCase,
+    forge: &Result<f64, String>,
+    gnumeric: &Result<f64, String>,
+    roundtrip: &Result<f64, String>,
+) -> TestResult {
     let mut problems = Vec::new();
     let mut shown = None;
 
@@ -502,6 +550,17 @@ fn judge(tc: &TestCase, forge: &Result<f64, String>, gnumeric: &Result<f64, Stri
             ));
         }
         Err(e) => problems.push(e.clone()),
+    }
+    match roundtrip {
+        Ok(v) if matches(*v, tc.expected) => {}
+        Ok(v) => {
+            shown = shown.or(Some(*v));
+            problems.push(format!(
+                "after forge export and forge import, forge calculate gave {v}, expected {}",
+                tc.expected
+            ));
+        }
+        Err(e) => problems.push(format!("export and import: {e}")),
     }
 
     if problems.is_empty() {
