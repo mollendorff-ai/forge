@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.1] - 2026-11-06
+
+First release candidate. [docs/STABILITY.md](docs/STABILITY.md) says what the stable release will promise; it follows after two weeks without a report of a wrong answer.
+
 ### Fixed
 - **`PRICEDISC`, `YIELDDISC` and `ACCRINT` ignored the day-count `basis`** and counted actual days over 360; Excel's default is US 30/360. `ACCRINT` also ignored the coupon schedule. They now follow Excel's definitions for bases 0 to 4, and a basis outside 0 to 4 is #NUM!. Results with the default basis change for most dates.
 - **`YEARFRAC`** now applies the US 30/360 end-of-February rules, Excel's actual/actual rule for spans over a year, and gives the same answer whichever date comes first.

@@ -1,4 +1,4 @@
-//! Forge MCP Server (v10.0.0-beta.3)
+//! Forge MCP Server
 //!
 //! Model Context Protocol server for AI-Finance integration.
 //! Uses the rmcp SDK for typed tool definitions and transport abstraction.

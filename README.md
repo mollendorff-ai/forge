@@ -17,9 +17,9 @@ YAML-based financial modeling with Excel-style formula evaluation. Git-native an
 
 ## Status and known limitations
 
-Forge is a beta (v10.0.0-beta.11) and an R&D prototype, built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
+Forge is a release candidate (v10.0.0-rc.1) and an R&D prototype, built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
 
-Known problems as of 2026-11-05:
+Known problems as of 2026-11-06:
 
 - `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value and lists it. Table names containing dots (from multi-document files) do not survive `forge import`.
 - `forge calculate` cannot evaluate `MC.*` distributions (for example `examples/monte-carlo.yaml`); it says so and points to `forge simulate`.
