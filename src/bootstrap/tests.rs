@@ -283,3 +283,111 @@ fn test_json_export() {
     assert!(json.contains("\"bootstrap_std_error\""));
     assert!(json.contains("\"confidence_intervals\""));
 }
+
+fn run(method: BootstrapMethod, statistic: BootstrapStatistic, data: &[f64]) -> BootstrapResult {
+    let config = BootstrapConfig::new()
+        .with_data(data.to_vec())
+        .with_iterations(100_000)
+        .with_seed(42)
+        .with_confidence_levels(vec![0.95])
+        .with_statistic(statistic)
+        .with_method(method);
+    BootstrapEngine::new(config).unwrap().analyze().unwrap()
+}
+
+const SKEWED: [f64; 10] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 50.0];
+const RETURNS: [f64; 10] = [
+    0.05, -0.02, 0.08, 0.03, -0.05, 0.12, 0.01, -0.01, 0.06, 0.04,
+];
+
+#[test]
+fn test_method_defaults_to_percentile_and_parses_from_yaml() {
+    assert_eq!(BootstrapConfig::new().method, BootstrapMethod::Percentile);
+    let config: BootstrapConfig = yaml_serde::from_str("data: [1, 2, 3]\nmethod: bca\n").unwrap();
+    assert_eq!(config.method, BootstrapMethod::Bca);
+    let config: BootstrapConfig = yaml_serde::from_str("data: [1, 2, 3]\n").unwrap();
+    assert_eq!(config.method, BootstrapMethod::Percentile);
+    assert!(yaml_serde::from_str::<BootstrapConfig>("data: [1, 2, 3]\nmethod: magic\n").is_err());
+}
+
+#[test]
+fn test_basic_interval_reflects_the_percentile_interval() {
+    let percentile = run(
+        BootstrapMethod::Percentile,
+        BootstrapStatistic::Mean,
+        &SKEWED,
+    );
+    let basic = run(BootstrapMethod::Basic, BootstrapStatistic::Mean, &SKEWED);
+    let estimate = percentile.original_estimate;
+    let (p, b) = (
+        &percentile.confidence_intervals[0],
+        &basic.confidence_intervals[0],
+    );
+    assert!((b.lower - 2.0f64.mul_add(estimate, -p.upper)).abs() < 1e-9);
+    assert!((b.upper - 2.0f64.mul_add(estimate, -p.lower)).abs() < 1e-9);
+    assert_eq!(basic.method, BootstrapMethod::Basic);
+}
+
+/// Reference values from scipy.stats.bootstrap (200,000 resamples, other random numbers):
+/// mean of the skewed sample, 95%. Basic: (-0.1, 15.2). `BCa`: (4.4, 26.6). The bootstrap means
+/// of this sample sit on a coarse grid (one value, 50, is far from the rest), so the upper
+/// bound can differ by a grid step depending on how the quantile is read.
+#[test]
+fn test_basic_and_bca_agree_with_scipy_on_skewed_data() {
+    let basic = run(BootstrapMethod::Basic, BootstrapStatistic::Mean, &SKEWED);
+    let ci = &basic.confidence_intervals[0];
+    assert!((ci.lower - -0.1).abs() < 1.0, "basic lower {}", ci.lower);
+    assert!((ci.upper - 15.2).abs() < 1.0, "basic upper {}", ci.upper);
+
+    let bca = run(BootstrapMethod::Bca, BootstrapStatistic::Mean, &SKEWED);
+    let ci = &bca.confidence_intervals[0];
+    assert!((ci.lower - 4.4).abs() < 1.0, "bca lower {}", ci.lower);
+    assert!(ci.upper > 22.0 && ci.upper < 28.0, "bca upper {}", ci.upper);
+    // BCa moves the interval up for right-skewed data, away from the percentile interval
+    let percentile = run(
+        BootstrapMethod::Percentile,
+        BootstrapStatistic::Mean,
+        &SKEWED,
+    );
+    assert!(ci.upper > percentile.confidence_intervals[0].upper);
+}
+
+/// scipy `BCa` for the sample variance of `RETURNS`, 95%: (0.00127, 0.00541)
+#[test]
+fn test_bca_agrees_with_scipy_for_variance() {
+    let bca = run(BootstrapMethod::Bca, BootstrapStatistic::Var, &RETURNS);
+    let ci = &bca.confidence_intervals[0];
+    assert!((ci.lower - 0.00127).abs() < 0.0003, "lower {}", ci.lower);
+    assert!((ci.upper - 0.00541).abs() < 0.0005, "upper {}", ci.upper);
+}
+
+#[test]
+fn test_bca_with_zero_acceleration() {
+    // Leaving out any one value leaves the maximum at 3, so the jackknife has no spread
+    let bca = run(
+        BootstrapMethod::Bca,
+        BootstrapStatistic::Max,
+        &[1.0, 2.0, 3.0, 3.0],
+    );
+    let ci = &bca.confidence_intervals[0];
+    assert!(ci.lower <= ci.upper && ci.upper <= 3.0);
+}
+
+#[test]
+fn test_bca_rejects_a_distribution_on_one_side_of_the_estimate() {
+    let config = BootstrapConfig::new()
+        .with_data(vec![5.0, 5.0, 5.0, 5.0])
+        .with_iterations(1000)
+        .with_seed(1)
+        .with_method(BootstrapMethod::Bca);
+    let error = BootstrapEngine::new(config).unwrap().analyze().unwrap_err();
+    assert!(error.contains("BCa interval undefined"), "{error}");
+}
+
+#[test]
+fn test_bca_adjustment_is_undefined_for_extreme_acceleration() {
+    assert!(engine::bca_adjusted_probability(0.0, 0.0, 0.975).is_ok());
+    assert!(engine::bca_adjusted_probability(1.0, 1.0, 0.975)
+        .unwrap_err()
+        .contains("BCa interval undefined"));
+}

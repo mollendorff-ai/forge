@@ -759,6 +759,7 @@ pub fn bootstrap(
     );
     println!("      Data points: {}", config.data.len());
     println!("      Confidence levels: {:?}", config.confidence_levels);
+    println!("      Interval method: {:?}", config.method);
     if let Some(seed) = config.seed {
         println!("      Seed: {seed}");
     }

@@ -25,6 +25,7 @@ bootstrap:
   iterations: 10000
   confidence_levels: [0.90, 0.95, 0.99]
   seed: 42  # For reproducibility
+  method: percentile  # percentile (default), basic, or bca (bias-corrected and accelerated)
 
   # Historical monthly returns (12 months)
   data:

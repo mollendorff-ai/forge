@@ -26,7 +26,7 @@ pub mod config;
 pub mod engine;
 
 // Re-exports
-pub use config::{BootstrapConfig, BootstrapStatistic};
+pub use config::{BootstrapConfig, BootstrapMethod, BootstrapStatistic};
 pub use engine::{BootstrapEngine, BootstrapResult, ConfidenceInterval};
 
 #[cfg(test)]

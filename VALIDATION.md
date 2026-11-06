@@ -14,7 +14,7 @@ Forge is a beta and an R&D prototype. These checks reduce the chance of a wrong 
 | forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 65 of 77 specs pass against R in the Validation workflow; 12 skipped |
 | Real Excel (by hand, once) | Microsoft Excel opening the `.xlsx` that `forge export` wrote | 3 cells of the README 5-year DCF match (2026-11-06) |
 
-Only the unit tests run on every push. The two validation suites run in the weekly **Validation** workflow (Actions tab, also runnable on demand) and can be run by hand with the commands below.
+The unit tests run on every push. The two validation suites run in the **Validation** workflow, weekly and on every pull request that changes `src/` (Actions tab, also runnable on demand) and can be run by hand with the commands below.
 
 ## 1. Unit tests
 
@@ -73,7 +73,7 @@ Running without `--expected-only` on a machine without `data.tree`, `derivmkts` 
 
 - The Bayesian comparison uses `bnlearn` 4.9.4 (the newest release that installs on R 4.3, which GitHub's Ubuntu 24.04 runner has) and sampling with a fixed seed, so it agrees with Forge within 2 to 5 percentage points, not exactly.
 - When the real options and Bayesian runners were added, 11 expected prices and 2 expected posteriors in the specs turned out to be wrong and were recomputed; Forge matched an independent calculation in every case.
-- The Gnumeric and R suites run weekly, not on every push.
+- The Gnumeric and R suites run weekly and on pull requests that change `src/`, not on every push to a branch.
 - The expected values in a spec were written by the author or by an AI assistant. Where R or Gnumeric disagreed with them, the disagreement was investigated, but a value on which both Forge and its expected value are wrong in the same way would pass.
 - Real-options switch and compound valuations are rough approximations.
 - `cargo audit` reports no vulnerabilities and no warnings.
