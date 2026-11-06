@@ -1,6 +1,6 @@
 # Stability
 
-What Forge promises once it leaves beta, and what it does not. Forge is still a beta (v10.0.0-beta.11); this page is the draft of the promise, so that "stable" means something specific. Nothing here changes how the beta behaves today.
+What Forge promises once it leaves beta, and what it does not. Forge is at a release candidate (v10.0.0-rc.1); this page is the promise the stable release will make, so that "stable" means something specific. The release candidate is meant to behave as described here; where it does not, that is a bug to report.
 
 ## What stable promises
 
@@ -17,11 +17,11 @@ What Forge promises once it leaves beta, and what it does not. Forge is still a 
 - **Everything in the analytics is checked.** 70 of 77 analytics specs are compared with R; the exponential distribution, the elasticity command, one-point ranges and an input with equal low and high are not covered. Real options are compared on price only.
 - **Numbers to the last digit.** Floating-point results can differ from other engines in the last digits; the suites use tolerances (listed in VALIDATION.md).
 - **Financial, legal or tax advice.** Check results that matter independently.
-- **Support.** Forge has one maintainer and no known users yet. Fixes are made as time allows.
+- **Support.** Forge has one maintainer and no known current users (one outside contributor used it for a few weeks in 2026 and paused his project). Fixes are made as time allows.
 - **Security of untrusted models.** Forge is meant for models you wrote or trust.
 
 ## What blocks the first stable release
 
-- At least one person other than the author using a release on a real model and reporting back. One outside contributor used Forge for a few weeks and has since paused; that is evidence of use, not of current use.
+- A release candidate published for at least two weeks with no open report of a wrong answer. A new wrong answer found in that time is fixed, released as a new candidate, and the two weeks start again.
 - The Gnumeric and R suites green on the release commit.
 - No open report of a wrong answer.
