@@ -3,7 +3,7 @@
 //! Handles parsing and validation of scenario definitions from YAML.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Configuration for a single scenario
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,7 +16,7 @@ pub struct ScenarioDefinition {
     pub description: String,
     /// Scalar overrides for this scenario
     #[serde(default)]
-    pub scalars: HashMap<String, ScalarOverride>,
+    pub scalars: BTreeMap<String, ScalarOverride>,
 }
 
 /// A scalar override can be a fixed value or a Monte Carlo distribution
@@ -55,15 +55,15 @@ impl ScalarOverride {
 pub struct ScenarioConfig {
     /// Map of scenario name to definition
     #[serde(default)]
-    pub scenarios: HashMap<String, ScenarioDefinition>,
+    pub scenarios: BTreeMap<String, ScenarioDefinition>,
 }
 
 impl ScenarioConfig {
     /// Create a new empty configuration
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
-            scenarios: HashMap::new(),
+            scenarios: BTreeMap::new(),
         }
     }
 
@@ -132,11 +132,11 @@ impl ScenarioConfig {
 impl ScenarioDefinition {
     /// Create a new scenario with given probability
     #[must_use]
-    pub fn new(probability: f64) -> Self {
+    pub const fn new(probability: f64) -> Self {
         Self {
             probability,
             description: String::new(),
-            scalars: HashMap::new(),
+            scalars: BTreeMap::new(),
         }
     }
 

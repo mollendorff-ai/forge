@@ -5,7 +5,7 @@
 use super::config::BayesianConfig;
 use super::inference::BeliefPropagation;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Query result for a variable
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,9 +39,9 @@ pub struct BayesianResult {
     /// Network name
     pub name: String,
     /// Query results
-    pub queries: HashMap<String, VariableResult>,
+    pub queries: BTreeMap<String, VariableResult>,
     /// Evidence used
-    pub evidence: HashMap<String, String>,
+    pub evidence: BTreeMap<String, String>,
 }
 
 impl BayesianResult {
@@ -164,7 +164,7 @@ impl BayesianEngine {
     ///
     /// Returns an error if querying any variable fails.
     pub fn query_all(&self) -> Result<BayesianResult, String> {
-        let mut queries = HashMap::new();
+        let mut queries = BTreeMap::new();
 
         for name in self.config.nodes.keys() {
             let result = self.query(name)?;
@@ -174,7 +174,7 @@ impl BayesianEngine {
         Ok(BayesianResult {
             name: self.config.name.clone(),
             queries,
-            evidence: HashMap::new(),
+            evidence: BTreeMap::new(),
         })
     }
 
@@ -187,7 +187,7 @@ impl BayesianEngine {
         &self,
         evidence: &HashMap<String, &str>,
     ) -> Result<BayesianResult, String> {
-        let mut queries = HashMap::new();
+        let mut queries = BTreeMap::new();
 
         for name in self.config.nodes.keys() {
             // Skip evidence variables (their probability is deterministic)
@@ -200,7 +200,7 @@ impl BayesianEngine {
         }
 
         // Convert evidence to string map
-        let evidence_str: HashMap<String, String> = evidence
+        let evidence_str: BTreeMap<String, String> = evidence
             .iter()
             .map(|(k, v)| (k.clone(), (*v).to_string()))
             .collect();
@@ -217,8 +217,8 @@ impl BayesianEngine {
     /// # Errors
     ///
     /// Returns an error if querying any variable fails.
-    pub fn most_likely_explanation(&self) -> Result<HashMap<String, String>, String> {
-        let mut explanation = HashMap::new();
+    pub fn most_likely_explanation(&self) -> Result<BTreeMap<String, String>, String> {
+        let mut explanation = BTreeMap::new();
 
         for name in self.config.nodes.keys() {
             let result = self.query(name)?;

@@ -4,7 +4,7 @@
 
 use super::config::{Branch, DecisionTreeConfig, Node, NodeType};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Result for a single node
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,7 +18,7 @@ pub struct NodeResult {
     /// Optimal choice (for decision nodes)
     pub optimal_choice: Option<String>,
     /// Branch values
-    pub branch_values: HashMap<String, f64>,
+    pub branch_values: BTreeMap<String, f64>,
 }
 
 /// Complete tree analysis result
@@ -29,11 +29,11 @@ pub struct TreeResult {
     /// Expected value at root
     pub root_expected_value: f64,
     /// Node results
-    pub node_results: HashMap<String, NodeResult>,
+    pub node_results: BTreeMap<String, NodeResult>,
     /// Optimal decision path
     pub optimal_path: Vec<String>,
     /// Decision policy (what to choose at each decision node)
-    pub decision_policy: HashMap<String, String>,
+    pub decision_policy: BTreeMap<String, String>,
     /// Risk profile
     pub risk_profile: RiskProfile,
 }
@@ -101,7 +101,7 @@ impl DecisionTreeEngine {
     ///
     /// Returns an error if the tree has no root or a branch references a missing node.
     pub fn analyze(&self) -> Result<TreeResult, String> {
-        let mut node_results = HashMap::new();
+        let mut node_results = BTreeMap::new();
 
         // Start backward induction from root
         let root = self.config.root.as_ref().ok_or("No root node")?;
@@ -140,9 +140,9 @@ impl DecisionTreeEngine {
         &self,
         name: &str,
         node: &Node,
-        results: &mut HashMap<String, NodeResult>,
+        results: &mut BTreeMap<String, NodeResult>,
     ) -> Result<NodeResult, String> {
-        let mut branch_values = HashMap::new();
+        let mut branch_values = BTreeMap::new();
 
         // Evaluate each branch
         for (branch_name, branch) in &node.branches {
@@ -201,7 +201,7 @@ impl DecisionTreeEngine {
     fn evaluate_branch(
         &self,
         branch: &Branch,
-        results: &mut HashMap<String, NodeResult>,
+        results: &mut BTreeMap<String, NodeResult>,
     ) -> Result<f64, String> {
         let base_value = if let Some(value) = branch.value {
             value
@@ -222,7 +222,7 @@ impl DecisionTreeEngine {
     }
 
     /// Build the optimal decision path
-    fn build_optimal_path(&self, results: &HashMap<String, NodeResult>) -> Vec<String> {
+    fn build_optimal_path(&self, results: &BTreeMap<String, NodeResult>) -> Vec<String> {
         let mut path = Vec::new();
 
         if let Some(root_result) = results.get("root") {
@@ -236,7 +236,7 @@ impl DecisionTreeEngine {
         &self,
         name: &str,
         result: &NodeResult,
-        results: &HashMap<String, NodeResult>,
+        results: &BTreeMap<String, NodeResult>,
         path: &mut Vec<String>,
     ) {
         match result.node_type {
@@ -293,8 +293,8 @@ impl DecisionTreeEngine {
     }
 
     /// Build decision policy
-    fn build_decision_policy(results: &HashMap<String, NodeResult>) -> HashMap<String, String> {
-        let mut policy = HashMap::new();
+    fn build_decision_policy(results: &BTreeMap<String, NodeResult>) -> BTreeMap<String, String> {
+        let mut policy = BTreeMap::new();
 
         for (name, result) in results {
             if result.node_type == NodeType::Decision {
@@ -317,7 +317,7 @@ impl DecisionTreeEngine {
         &self,
         name: &str,
         node: &Node,
-        results: &HashMap<String, NodeResult>,
+        results: &BTreeMap<String, NodeResult>,
         path: &mut Vec<String>,
         (probability, paid): (f64, f64),
         outcomes: &mut Vec<Outcome>,

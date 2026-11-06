@@ -6,7 +6,7 @@ use super::config::{ScalarOverride, ScenarioConfig, ScenarioDefinition};
 use crate::core::ArrayCalculator;
 use crate::types::{ParsedModel, Variable};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Result for a single scenario
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,9 +18,9 @@ pub struct ScenarioResult {
     /// Description
     pub description: String,
     /// Calculated scalar values
-    pub scalars: HashMap<String, f64>,
+    pub scalars: BTreeMap<String, f64>,
     /// Key output metrics (NPV, IRR, etc.)
-    pub outputs: HashMap<String, f64>,
+    pub outputs: BTreeMap<String, f64>,
 }
 
 /// Results from running all scenarios
@@ -29,11 +29,11 @@ pub struct ScenarioResults {
     /// Individual scenario results
     pub scenarios: Vec<ScenarioResult>,
     /// Expected values across all scenarios (probability-weighted)
-    pub expected_values: HashMap<String, f64>,
+    pub expected_values: BTreeMap<String, f64>,
     /// Probability of positive outcome for key metrics
-    pub probability_positive: HashMap<String, f64>,
+    pub probability_positive: BTreeMap<String, f64>,
     /// Min/max ranges across scenarios
-    pub ranges: HashMap<String, (f64, f64)>,
+    pub ranges: BTreeMap<String, (f64, f64)>,
 }
 
 impl ScenarioResults {
@@ -165,7 +165,7 @@ impl ScenarioEngine {
         let calculated = calculator.calculate_all().map_err(|e| e.to_string())?;
 
         // Extract scalar results
-        let mut scalars = HashMap::new();
+        let mut scalars = BTreeMap::new();
         for (var_name, var) in &calculated.scalars {
             if let Some(value) = var.value {
                 scalars.insert(var_name.clone(), value);
@@ -173,7 +173,7 @@ impl ScenarioEngine {
         }
 
         // Extract output values
-        let mut outputs = HashMap::new();
+        let mut outputs = BTreeMap::new();
         for output_name in &self.output_variables {
             if let Some(value) = scalars.get(output_name) {
                 outputs.insert(output_name.clone(), *value);
@@ -190,8 +190,8 @@ impl ScenarioEngine {
     }
 
     /// Calculate probability-weighted expected values
-    fn calculate_expected_values(results: &[ScenarioResult]) -> HashMap<String, f64> {
-        let mut expected = HashMap::new();
+    fn calculate_expected_values(results: &[ScenarioResult]) -> BTreeMap<String, f64> {
+        let mut expected = BTreeMap::new();
 
         // Get all variable names from first scenario
         if let Some(first) = results.first() {
@@ -208,8 +208,8 @@ impl ScenarioEngine {
     }
 
     /// Calculate probability of positive outcomes for output variables
-    fn calculate_probability_positive(&self, results: &[ScenarioResult]) -> HashMap<String, f64> {
-        let mut prob_positive = HashMap::new();
+    fn calculate_probability_positive(&self, results: &[ScenarioResult]) -> BTreeMap<String, f64> {
+        let mut prob_positive = BTreeMap::new();
 
         for output_name in &self.output_variables {
             let positive_prob: f64 = results
@@ -227,8 +227,8 @@ impl ScenarioEngine {
     }
 
     /// Calculate min/max ranges for output variables
-    fn calculate_ranges(&self, results: &[ScenarioResult]) -> HashMap<String, (f64, f64)> {
-        let mut ranges = HashMap::new();
+    fn calculate_ranges(&self, results: &[ScenarioResult]) -> BTreeMap<String, (f64, f64)> {
+        let mut ranges = BTreeMap::new();
 
         for output_name in &self.output_variables {
             let values: Vec<f64> = results

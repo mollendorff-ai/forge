@@ -131,7 +131,7 @@ pub fn calculate_core(
     let result = calculator.calculate_all()?;
 
     // Build table summaries
-    let mut tables = std::collections::HashMap::new();
+    let mut tables = std::collections::BTreeMap::new();
     for (table_name, table) in &result.tables {
         let row_count = table
             .columns
@@ -144,13 +144,17 @@ pub fn calculate_core(
                 name: table_name.clone(),
                 column_count: table.columns.len(),
                 row_count,
-                columns: table.columns.keys().cloned().collect(),
+                columns: {
+                    let mut columns: Vec<String> = table.columns.keys().cloned().collect();
+                    columns.sort();
+                    columns
+                },
             },
         );
     }
 
     // Build scalar map
-    let mut scalars = std::collections::HashMap::new();
+    let mut scalars = std::collections::BTreeMap::new();
     for (name, var) in &result.scalars {
         scalars.insert(name.clone(), var.value);
     }
@@ -171,7 +175,7 @@ pub fn calculate_core(
     })
 }
 
-/// `calculate` is deterministic and cannot evaluate `MC.*` distributions; say so
+/// `calculate` and `validate` are deterministic and cannot evaluate `MC.*` distributions; say so
 /// up front instead of failing later with an unknown-function or unknown-column error.
 fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
     let mut names: Vec<&str> = model
@@ -185,7 +189,7 @@ fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
     }
     names.sort_unstable();
     Err(ForgeError::Validation(format!(
-        "{} use MC.* distributions, which calculate cannot evaluate. Run `forge simulate` on this file instead.",
+        "{} use MC.* distributions, which calculate and validate cannot evaluate. Run `forge simulate` on this file instead.",
         names.join(", ")
     )))
 }
@@ -196,6 +200,7 @@ fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
 ///
 /// Returns an error if the file cannot be parsed, calculation fails,
 /// or results cannot be written back to the file.
+#[allow(clippy::too_many_lines)]
 pub fn calculate(
     file: &Path,
     dry_run: bool,
@@ -270,10 +275,12 @@ pub fn calculate(
     // Display results
     println!("{}", "✅ Calculation Results:".bold().green());
 
-    // Show table results
-    for (table_name, table) in &result.tables {
+    // Show table results, sorted by name so the output is the same on every run
+    let sorted_tables: std::collections::BTreeMap<_, _> = result.tables.iter().collect();
+    for (table_name, table) in sorted_tables {
         println!("   📊 Table: {}", table_name.bright_blue().bold());
-        for (col_name, column) in &table.columns {
+        let sorted_columns: std::collections::BTreeMap<_, _> = table.columns.iter().collect();
+        for (col_name, column) in sorted_columns {
             println!("      {} ({} rows)", col_name.cyan(), column.values.len());
         }
     }
@@ -281,7 +288,8 @@ pub fn calculate(
     // Show scalar results
     if !result.scalars.is_empty() {
         println!("\n   📐 Scalars:");
-        for (name, var) in &result.scalars {
+        let sorted_scalars: std::collections::BTreeMap<_, _> = result.scalars.iter().collect();
+        for (name, var) in sorted_scalars {
             if let Some(value) = var.value {
                 println!(
                     "      {} = {}",
@@ -334,6 +342,7 @@ pub fn validate_core(file: &Path) -> ForgeResult<results::ValidationResult> {
     const TOLERANCE: f64 = 0.0001;
 
     let model = parser::parse_model(file)?;
+    reject_distributions(&model)?;
     let table_count = model.tables.len();
     let scalar_count = model.scalars.len();
 
@@ -446,6 +455,7 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
 
     // Parse YAML file
     let model = parser::parse_model(file)?;
+    reject_distributions(&model)?;
 
     if model.tables.is_empty() && model.scalars.is_empty() {
         println!("{}", "⚠️  No tables or scalars found in YAML file".yellow());
@@ -704,6 +714,7 @@ fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
     const TOLERANCE: f64 = 0.0001;
 
     let model = parser::parse_model(file)?;
+    reject_distributions(&model)?;
 
     if verbose {
         println!(
@@ -845,5 +856,31 @@ mod calculate_tests {
             .to_string();
         assert!(err.contains("assumptions.growth"), "{err}");
         assert!(err.contains("forge simulate"), "{err}");
+    }
+
+    #[test]
+    fn validate_rejects_mc_distributions_with_a_clear_message() {
+        let mut file = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+        write!(
+            file,
+            "_forge_version: \"5.0.0\"\nassumptions:\n  growth:\n    value: null\n    formula: \"=MC.Normal(0.15, 0.05)\"\n"
+        )
+        .unwrap();
+        let err = validate_core(file.path()).unwrap_err().to_string();
+        assert!(err.contains("assumptions.growth"), "{err}");
+        assert!(err.contains("forge simulate"), "{err}");
+        let err = validate_internal(file.path(), false)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("forge simulate"), "{err}");
+    }
+
+    #[test]
+    fn quota_forecast_example_validates() {
+        validate_core(std::path::Path::new("examples/quota_forecast.yaml"))
+            .unwrap()
+            .scalars_valid
+            .then_some(())
+            .expect("stored values match the formulas");
     }
 }
