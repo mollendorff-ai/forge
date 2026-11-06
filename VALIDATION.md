@@ -11,7 +11,7 @@ Forge is a beta and an R&D prototype. These checks reduce the chance of a wrong 
 | Unit tests (this repo) | Expected values written in the tests | 1,457 unit tests and 2 doctests pass |
 | [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | Gnumeric, a separate spreadsheet engine | 1,300 formula cases pass, 1 skipped |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r), formulas | R, with Excel rules where R differs | 119 math, date and financial checks pass |
-| forge-e2e-r, analytics | R packages `boot`, `stats` and base R | 30 of 77 specs pass; 10 more pass against expected values only; 37 skipped |
+| forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 62 of 77 specs pass against R in the Validation workflow; 15 skipped |
 
 Only the unit tests run on every push. The two validation suites run in the weekly **Validation** workflow (Actions tab, also runnable on demand) and can be run by hand with the commands below.
 
@@ -49,7 +49,7 @@ Needs R with `jsonlite`. Result: 119 checks pass.
 
 ## 4. Analytics against R
 
-Monte Carlo, bootstrap, tornado, sensitivity and decision trees: the runner builds a Forge model from each spec, runs the Forge command and compares the output with the matching R validator.
+Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options and Bayesian networks: the runner builds a Forge model from each spec, runs the Forge command and compares the output with the matching R validator.
 
 ```bash
 cd forge-e2e-r
@@ -62,15 +62,16 @@ cargo run --release -- --all --binary /path/to/forge
 | Bootstrap | 12 | 7 | 5 use BCa or basic intervals; Forge computes percentile intervals only |
 | Tornado | 8 | 7 | 1 has an input whose low equals its high, which Forge rejects |
 | Sensitivity | 10 | 6 | 3 are elasticity (no Forge command); 1 is a single point |
-| Decision trees | 10 | 10 | Passes only against the spec's expected values (`--expected-only`); the R side needs the `data.tree` package and has not been run |
-| Real options | 15 | 0 | No runner yet |
-| Bayesian networks | 10 | 0 | No runner yet |
+| Decision trees | 10 | 10 | |
+| Real options | 15 | 15 | Price only; Forge's command does not print Greeks |
+| Bayesian networks | 10 | 7 | 3 have a node with two parents, which Forge does not support |
 
-Running without `--expected-only` on a machine without `data.tree` reports the decision tree specs as errors, not passes. Bootstrap, tornado and sensitivity need a Forge build with machine-readable `--output` (included from PR #27).
+Running without `--expected-only` on a machine without `data.tree`, `derivmkts` or `bnlearn` reports those specs as errors, not passes (`derivmkts` is optional). `--expected-only` compares decision trees, real options and Bayesian networks with the expected values in the spec and does not run R. Bootstrap, tornado and sensitivity need a Forge build with machine-readable `--output` (included from PR #27).
 
 ## Known limits
 
-- The R side of decision trees, real options and Bayesian networks has not been run by the maintainers; the R packages `data.tree`, `derivmkts` and `bnlearn` were not available in the environment used.
+- The Bayesian comparison uses `bnlearn` 4.9.4 (the newest release that installs on R 4.3, which GitHub's Ubuntu 24.04 runner has) and sampling with a fixed seed, so it agrees with Forge within 2 to 5 percentage points, not exactly.
+- When the real options and Bayesian runners were added, 11 expected prices and 2 expected posteriors in the specs turned out to be wrong and were recomputed; Forge matched an independent calculation in every case.
 - The Gnumeric and R suites run weekly, not on every push.
 - The expected values in a spec were written by the author or by an AI assistant. Where R or Gnumeric disagreed with them, the disagreement was investigated, but a value on which both Forge and its expected value are wrong in the same way would pass.
 - Bayesian networks support one parent per node. Real-options switch and compound valuations are rough approximations.
