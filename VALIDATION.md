@@ -11,7 +11,7 @@ Forge is a beta and an R&D prototype. These checks reduce the chance of a wrong 
 | Unit tests (this repo) | Expected values written in the tests | 1,461 unit tests and 2 doctests pass |
 | [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | Gnumeric, a separate spreadsheet engine | 1,300 formula cases pass, 1 skipped |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r), formulas | R, with Excel rules where R differs | 119 math, date and financial checks pass |
-| forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 65 of 77 specs pass against R in the Validation workflow; 12 skipped |
+| forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 70 of 77 specs pass against R in the Validation workflow; 7 skipped |
 | Real Excel (by hand, once) | Microsoft Excel opening the `.xlsx` that `forge export` wrote | 3 cells of the README 5-year DCF match (2026-11-06) |
 
 The unit tests run on every push. The two validation suites run in the **Validation** workflow, weekly and on every pull request that changes `src/` (Actions tab, also runnable on demand) and can be run by hand with the commands below.
@@ -60,7 +60,7 @@ cargo run --release -- --all --binary /path/to/forge
 | Category | Specs | Pass | Not compared, and why |
 | --- | --- | --- | --- |
 | Monte Carlo | 12 | 10 | 2 use the exponential distribution, which Forge does not have |
-| Bootstrap | 12 | 7 | 5 use BCa or basic intervals; Forge computes percentile intervals only |
+| Bootstrap | 12 | 12 | Percentile, basic and BCa intervals |
 | Tornado | 8 | 7 | 1 has an input whose low equals its high, which Forge rejects |
 | Sensitivity | 10 | 6 | 3 are elasticity (no Forge command); 1 is a single point |
 | Decision trees | 10 | 10 | |
