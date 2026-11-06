@@ -32,8 +32,11 @@ pub struct BayesianNode {
     /// Parent node names
     #[serde(default)]
     pub parents: Vec<String>,
-    /// Conditional probability table (CPT)
-    /// Keys are parent state combinations, values are probabilities for this node's states
+    /// Conditional probability table (CPT).
+    /// One entry per combination of parent states; the values are the
+    /// probabilities of this node's states. With one parent the key is a state
+    /// of that parent (`good`). With several parents it lists one state of each
+    /// parent, in the order of `parents`, separated by commas (`yes, off`).
     #[serde(default)]
     pub cpt: HashMap<String, Vec<f64>>,
     /// For continuous nodes: mean
@@ -180,14 +183,24 @@ impl BayesianNode {
         self.parents.is_empty()
     }
 
+    /// The CPT row for one combination of parent states, given in the order
+    /// of `parents`. Spaces around the commas in a key do not matter.
+    #[must_use]
+    pub fn cpt_row(&self, parent_states: &[&str]) -> Option<&Vec<f64>> {
+        self.cpt
+            .iter()
+            .find(|(key, _)| split_cpt_key(key) == parent_states)
+            .map(|(_, row)| row)
+    }
+
     /// Get probability for a state given parent state
     #[must_use]
     pub fn get_probability(&self, state_idx: usize, parent_state: Option<&str>) -> f64 {
         if self.is_root() {
             self.prior.get(state_idx).copied().unwrap_or(0.0)
         } else if let Some(ps) = parent_state {
-            self.cpt
-                .get(ps)
+            let states: Vec<&str> = split_cpt_key(ps);
+            self.cpt_row(&states)
                 .and_then(|probs| probs.get(state_idx))
                 .copied()
                 .unwrap_or(0.0)
@@ -250,7 +263,7 @@ impl BayesianConfig {
                 }
             }
 
-            self.check_cpt_matches_parent(name, node)?;
+            self.check_cpt_matches_parents(name, node)?;
         }
 
         // Check for cycles
@@ -259,35 +272,77 @@ impl BayesianConfig {
         Ok(())
     }
 
-    /// Inference handles one parent per node, so more than one would give wrong
-    /// numbers silently. Each CPT row must be named after a state of that parent.
-    fn check_cpt_matches_parent(&self, name: &str, node: &BayesianNode) -> Result<(), String> {
+    /// Each CPT row must name a state of every parent, and every combination
+    /// of parent states must have exactly one row; otherwise inference would
+    /// use a probability of 0 for the missing rows without saying so.
+    fn check_cpt_matches_parents(&self, name: &str, node: &BayesianNode) -> Result<(), String> {
         if node.node_type != NodeType::Discrete || node.parents.is_empty() {
             return Ok(());
         }
-        if node.parents.len() > 1 {
-            return Err(format!(
-                "Node '{name}' has {} parents; only one parent per node is supported",
-                node.parents.len()
-            ));
+        let mut parent_states: Vec<&[String]> = Vec::new();
+        for parent in &node.parents {
+            let Some(parent_node) = self.nodes.get(parent) else {
+                return Ok(());
+            };
+            parent_states.push(&parent_node.states);
         }
-        let parent = &node.parents[0];
-        let Some(parent_node) = self.nodes.get(parent) else {
+        if let [parent] = node.parents.as_slice() {
+            let states = parent_states[0];
+            for state in states {
+                if !node.cpt.contains_key(state) {
+                    return Err(format!(
+                        "Node '{name}': CPT has no entry for state '{state}' of parent '{parent}'"
+                    ));
+                }
+            }
+            for key in node.cpt.keys() {
+                if !states.contains(key) {
+                    return Err(format!(
+                        "Node '{name}': CPT entry '{key}' is not a state of parent '{parent}'"
+                    ));
+                }
+            }
             return Ok(());
-        };
-        for state in &parent_node.states {
-            if !node.cpt.contains_key(state) {
+        }
+
+        let parents = node.parents.join(", ");
+        for (parent, states) in node.parents.iter().zip(&parent_states) {
+            if let Some(state) = states.iter().find(|s| s.contains(CPT_KEY_SEPARATOR)) {
                 return Err(format!(
-                    "Node '{name}': CPT has no entry for state '{state}' of parent '{parent}'"
+                    "Node '{name}': state '{state}' of parent '{parent}' contains a comma, which separates parent states in CPT entries"
                 ));
             }
         }
+        let mut seen = std::collections::HashSet::new();
         for key in node.cpt.keys() {
-            if !parent_node.states.contains(key) {
+            let parts = split_cpt_key(key);
+            let valid = parts.len() == node.parents.len()
+                && parts
+                    .iter()
+                    .zip(&parent_states)
+                    .all(|(part, states)| states.iter().any(|s| s == part));
+            if !valid {
                 return Err(format!(
-                    "Node '{name}': CPT entry '{key}' is not a state of parent '{parent}'"
+                    "Node '{name}': CPT entry '{key}' must name one state of each parent ({parents}), in that order, separated by commas"
                 ));
             }
+            if !seen.insert(parts.join(",")) {
+                return Err(format!(
+                    "Node '{name}': CPT has two entries for '{}'",
+                    parts.join(", ")
+                ));
+            }
+        }
+        let combinations: usize = parent_states.iter().map(|s| s.len()).product();
+        if seen.len() < combinations {
+            let missing = combinations_of(&parent_states)
+                .into_iter()
+                .find(|c| !seen.contains(&c.join(",")))
+                .map(|c| c.join(", "))
+                .unwrap_or_default();
+            return Err(format!(
+                "Node '{name}': CPT has no entry for '{missing}' (parents: {parents}); every combination of parent states needs one"
+            ));
         }
         Ok(())
     }
@@ -372,6 +427,33 @@ impl BayesianConfig {
             .map(|(name, _)| name.as_str())
             .collect()
     }
+}
+
+/// Separates parent states in a CPT entry of a node with several parents.
+pub const CPT_KEY_SEPARATOR: char = ',';
+
+/// Splits a CPT entry such as `yes, off` into parent states.
+#[must_use]
+pub fn split_cpt_key(key: &str) -> Vec<&str> {
+    key.split(CPT_KEY_SEPARATOR).map(str::trim).collect()
+}
+
+/// Every combination of parent states, the first parent varying slowest.
+fn combinations_of<'a>(parent_states: &[&'a [String]]) -> Vec<Vec<&'a str>> {
+    let mut out: Vec<Vec<&str>> = vec![Vec::new()];
+    for states in parent_states {
+        out = out
+            .into_iter()
+            .flat_map(|prefix| {
+                states.iter().map(move |s| {
+                    let mut c = prefix.clone();
+                    c.push(s.as_str());
+                    c
+                })
+            })
+            .collect();
+    }
+    out
 }
 
 #[cfg(test)]

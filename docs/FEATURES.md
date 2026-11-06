@@ -1119,7 +1119,7 @@ Bayesian Networks model probabilistic dependencies between variables as a direct
 
 ### Configuration
 
-Each node has at most one parent, and a child's CPT has one row per state of that parent. Forge rejects a node with two parents, or a CPT row that does not match a parent state, instead of giving wrong numbers. The same network is in `examples/bayesian.yaml`.
+A child's CPT has one row per state of its parent. A node can have several parents; then each row is named by one state of each parent, in the order of `parents`, separated by commas (`yes, off`), and every combination of parent states needs a row. Forge rejects a missing, duplicated or misnamed row instead of giving wrong numbers. The same network is in `examples/bayesian.yaml`.
 
 ```yaml
 _forge_version: "5.0.0"

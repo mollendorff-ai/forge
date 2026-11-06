@@ -22,7 +22,6 @@ Forge is a beta (v10.0.0-beta.11) and an R&D prototype, built with AI assistance
 Known problems as of 2026-11-05:
 
 - `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value and lists it. Table names containing dots (from multi-document files) do not survive `forge import`.
-- Bayesian networks support one parent per node. A node with two parents is rejected.
 - `forge calculate` cannot evaluate `MC.*` distributions (for example `examples/monte-carlo.yaml`); it says so and points to `forge simulate`.
 
 ## The Problem
@@ -85,9 +84,9 @@ Forge's results are checked against other engines. None of the checks is complet
 | --- | --- | --- |
 | Unit tests (this repo) | 1,457 unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
 | [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,301 formula cases. A case passes only if `forge calculate` and Gnumeric's recalculation of the exported `.xlsx` both match the expected value | 1,300 pass, 1 skipped; weekly in CI |
-| [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 119 function checks pass; 62 of 77 analytics specs compared with R, 15 skipped; weekly in CI |
+| [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 119 function checks pass; 65 of 77 analytics specs compared with R, 12 skipped; weekly in CI |
 
-Next steps: compare more of the 15 skipped analytics specs (BCa bootstrap, elasticity), and run the suites on every pull request.
+Next steps: compare more of the 12 skipped analytics specs (BCa bootstrap, elasticity), and run the suites on every pull request.
 
 --- | --- | --- |
 | Unit tests (this repo) | 1,399 inline unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Run on every push |
@@ -187,7 +186,7 @@ bayesian_network:
 
     company_revenue:
       states: ["high", "medium", "low"]
-      parents: ["economic_conditions"]       # one parent per node
+      parents: ["economic_conditions"]       # several parents: rows like "good, high"
       cpt:
         good:    [0.60, 0.30, 0.10]          # one row per parent state
         neutral: [0.30, 0.50, 0.20]

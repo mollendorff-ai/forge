@@ -1286,7 +1286,20 @@ forge bayesian examples/bayesian.yaml -q economic_conditions -e default_probabil
 
 **Key insight**: a bad economy alone raises the chance of a high default risk from 22% to 41%. Run backwards, a high default risk raises the chance the economy is bad from 20% to 37%. The numbers match a hand enumeration of the joint distribution.
 
-A node with more than one parent is not supported yet, and Forge rejects it with an error.
+A node can also have several parents. Each CPT row then names one state of each parent, in the order of `parents`:
+
+```yaml
+    grass:
+      states: [dry, wet]
+      parents: [rain, sprinkler]
+      cpt:
+        no, off:  [1.0, 0.0]
+        yes, off: [0.2, 0.8]
+        no, on:   [0.1, 0.9]
+        yes, on:  [0.01, 0.99]
+```
+
+With rain at 20% and the sprinkler on 40% of the time, `forge bayesian model.yaml -q rain -e grass=wet` gives rain 37.82%, as a hand calculation does (0.1752 / 0.4632).
 
 ---
 
