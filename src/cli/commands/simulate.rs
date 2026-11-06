@@ -192,6 +192,13 @@ pub fn simulate(
     Ok(())
 }
 
+/// Entries of a map in name order, so the printed results do not change between runs
+fn sorted_by_name<V>(map: &std::collections::HashMap<String, V>) -> Vec<(&String, &V)> {
+    let mut entries: Vec<_> = map.iter().collect();
+    entries.sort_by(|a, b| a.0.cmp(b.0));
+    entries
+}
+
 /// Print simulation results to stdout
 fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
     println!("{}", "📊 Simulation Results:".bold().green());
@@ -201,7 +208,7 @@ fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
 
     // Show input distributions
     println!("   {}", "Input Distributions:".bold());
-    for (var_name, samples) in &result.input_samples {
+    for (var_name, samples) in sorted_by_name(&result.input_samples) {
         #[allow(clippy::cast_precision_loss)] // sample counts are always small enough for f64
         let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
         let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
@@ -219,7 +226,7 @@ fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
     // Show output results
     if !result.outputs.is_empty() {
         println!("   {}", "Output Statistics:".bold());
-        for (var_name, output) in &result.outputs {
+        for (var_name, output) in sorted_by_name(&result.outputs) {
             let stats = &output.statistics;
             println!("      {}:", var_name.bright_blue().bold());
             println!("         Mean:      {:.4}", stats.mean);
@@ -235,7 +242,7 @@ fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
             }
 
             // Thresholds
-            for (threshold, prob) in &output.threshold_probabilities {
+            for (threshold, prob) in sorted_by_name(&output.threshold_probabilities) {
                 println!(
                     "         P({} {}) = {:.2}%",
                     var_name,

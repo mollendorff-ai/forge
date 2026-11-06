@@ -78,7 +78,7 @@ MCP server and REST API available for tighter integration (see below).
 
 ## Validation status
 
-Forge's results are checked against other engines. None of the checks is complete. The unit tests run on every push; the two external suites run weekly in CI. [VALIDATION.md](VALIDATION.md) lists what each check covers, its latest result and the command to run it.
+Forge's results are checked against other engines. None of the checks is complete. The unit tests run on every push; the two external suites run weekly in CI. [VALIDATION.md](VALIDATION.md) lists what each check covers, its latest result and the command to run it. What a stable release will and will not promise is in [docs/STABILITY.md](docs/STABILITY.md).
 
 | Check | What it covers | Latest result (2026-11-05) |
 | --- | --- | --- |
