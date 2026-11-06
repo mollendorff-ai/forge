@@ -23,7 +23,8 @@ pub struct Env<'a> {
     pub forge: &'a Path,
     pub r: &'a RConfig,
     /// Compare Forge with the spec's `r_expected` values and do not run R.
-    /// Only the decision tree runner uses this, for machines without data.tree.
+    /// The decision tree, real options and Bayesian runners use this, for
+    /// machines without the R packages data.tree, derivmkts and bnlearn.
     pub expected_only: bool,
 }
 
@@ -36,6 +37,8 @@ pub fn run(spec: &AnalyticsTestSpec, env: &Env) -> Option<TestResult> {
         Some("tornado_validator.R") => Some(tornado(spec, env)),
         Some("sensitivity_validator.R") => Some(sensitivity(spec, env)),
         Some("decision_tree_validator.R") => Some(decision_tree(spec, env)),
+        Some("real_options_validator.R") => Some(real_options(spec, env)),
+        Some("bayesian_validator.R") => Some(bayesian(spec, env)),
         _ => None,
     }
 }
@@ -299,22 +302,34 @@ fn compare_bootstrap(
 
 /// Runs `forge <command> model.yaml -o out.json` on a model and returns the JSON.
 fn forge_json(env: &Env, command: &str, model: &str) -> Result<Json, String> {
+    forge_json_with(env, command, model, &[])
+}
+
+/// Like `forge_json`, with extra command-line arguments after the model path.
+/// Some commands write YAML to the output file, so YAML is accepted too.
+fn forge_json_with(
+    env: &Env,
+    command: &str,
+    model: &str,
+    extra: &[String],
+) -> Result<Json, String> {
     let dir = tempfile::tempdir().map_err(|e| format!("Failed to create temp dir: {e}"))?;
     let model_path = dir.path().join("model.yaml");
     let out_path = dir.path().join("out.json");
     fs::write(&model_path, model).map_err(|e| format!("Failed to write model: {e}"))?;
-    run_forge(
-        env.forge,
-        &[
-            command.as_ref(),
-            model_path.as_os_str(),
-            "-o".as_ref(),
-            out_path.as_os_str(),
-        ],
-    )?;
+    let mut args: Vec<&std::ffi::OsStr> = vec![
+        command.as_ref(),
+        model_path.as_os_str(),
+        "-o".as_ref(),
+        out_path.as_os_str(),
+    ];
+    args.extend(extra.iter().map(|a| a.as_ref() as &std::ffi::OsStr));
+    run_forge(env.forge, &args)?;
     let text =
         fs::read_to_string(&out_path).map_err(|e| format!("Cannot read forge output: {e}"))?;
-    serde_json::from_str(&text).map_err(|e| format!("Cannot parse forge output: {e}"))
+    serde_json::from_str(&text)
+        .or_else(|_| serde_yaml_ng::from_str::<Json>(&text))
+        .map_err(|e| format!("Cannot parse forge output: {e}"))
 }
 
 /// Runs an R validator and returns its `results` object.
@@ -861,6 +876,289 @@ fn decision_tree(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
                     "optimal decision: forge={forge_choice}, reference={choice}"
                 ));
             }
+        }
+    }
+    verdict(spec, &problems, &format!("Forge matches the {source}"))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Real options
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Forge values a "defer" option as a call and an "abandon" option as a put,
+/// both American (binomial) or European (Black-Scholes). The spec's plain
+/// call and put are mapped onto those two.
+#[allow(clippy::many_single_char_names)]
+fn real_options(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
+    let num = |key: &str| spec.raw.get(key).and_then(yaml_f64);
+    let text = |key: &str| spec.raw.get(key).and_then(|v| v.as_str());
+    let (Some(s), Some(k)) = (num("S"), num("K")) else {
+        return error(spec, "Spec needs S and K".to_string());
+    };
+    let (r, sigma, t, q) = (
+        num("r").unwrap_or(0.05),
+        num("sigma").unwrap_or(0.3),
+        num("T").unwrap_or(1.0),
+        num("q").unwrap_or(0.0),
+    );
+    let method = text("model").unwrap_or("black_scholes");
+    let kind = text("option_type").unwrap_or("call");
+    let american = spec
+        .raw
+        .get("american")
+        .and_then(serde_yaml_ng::Value::as_bool)
+        .unwrap_or(false);
+    // Steps are a whole number in the spec; this cast cannot lose a real value.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let steps = num("n").unwrap_or(100.0) as usize;
+
+    let option = match (method, kind) {
+        ("black_scholes", "call") => format!(
+            "    - type: defer\n      name: \"option\"\n      max_deferral: {t}\n      exercise_cost: {k}\n"
+        ),
+        ("black_scholes", "put") => format!(
+            "    - type: abandon\n      name: \"option\"\n      salvage_value: {k}\n"
+        ),
+        ("binomial", "call") if american || q == 0.0 => format!(
+            "    - type: defer\n      name: \"option\"\n      max_deferral: {t}\n      exercise_cost: {k}\n"
+        ),
+        ("binomial", "put") if american => format!(
+            "    - type: abandon\n      name: \"option\"\n      salvage_value: {k}\n"
+        ),
+        _ => {
+            return skip(
+                spec,
+                "Forge values these options as American; a European put, or a European call with a dividend yield, cannot be expressed",
+            )
+        },
+    };
+    let steps_line = if method == "binomial" {
+        format!("  binomial_steps: {steps}\n")
+    } else {
+        String::new()
+    };
+    let model = format!(
+        "_forge_version: \"5.0.0\"\n\nreal_options:\n  name: \"{name}\"\n  method: {method}\n  underlying:\n    current_value: {s}\n    volatility: {sigma}\n    risk_free_rate: {r}\n    time_horizon: {t}\n    dividend_yield: {q}\n{steps_line}  options:\n{option}",
+        name = spec.name
+    );
+    let forge = match forge_json(env, "real-options", &model) {
+        Ok(j) => j,
+        Err(e) => return error(spec, format!("{e}\nmodel:\n{model}")),
+    };
+    let Some(forge_value) = forge
+        .get("options")
+        .and_then(|o| o.get("option"))
+        .and_then(|o| json_f64(o, "value"))
+    else {
+        return error(spec, "Forge output has no option value".to_string());
+    };
+
+    let tol = tolerance(spec, "price", 0.001);
+    let mut problems = Vec::new();
+    let source = if env.expected_only {
+        let expected = spec
+            .raw
+            .get("r_expected")
+            .and_then(|e| e.get("price"))
+            .and_then(yaml_f64);
+        let Some(expected) = expected else {
+            return error(spec, "Spec has no expected price".to_string());
+        };
+        check(&mut problems, "price", forge_value, expected, tol);
+        "spec's expected values, R not run"
+    } else {
+        let params = json!({
+            "option_type": kind, "model": method, "S": s, "K": k, "r": r,
+            "sigma": sigma, "T": t, "q": q, "n": steps, "american": true,
+        });
+        let r_out = match r_results(env, "real_options_validator.R", &params) {
+            Ok(r) => r,
+            Err(e) => return error(spec, e),
+        };
+        let Some(r_price) = json_f64(&r_out, "price") else {
+            return error(spec, "R returned no price".to_string());
+        };
+        check(&mut problems, "price", forge_value, r_price, tol);
+        // derivmkts, when installed, prices the same option independently.
+        if let Some(d) = json_f64(&r_out, "price_derivmkts") {
+            check(&mut problems, "price vs derivmkts", forge_value, d, tol);
+        }
+        "R"
+    };
+    verdict(spec, &problems, &format!("Forge matches the {source}"))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bayesian networks
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn string_list(value: Option<&serde_yaml_ng::Value>) -> Vec<String> {
+    value
+        .and_then(|v| v.as_sequence())
+        .map(|s| {
+            s.iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Translates the spec's network into Forge's `bayesian_network` model.
+/// The spec lists a table row by row: one row per state of the node, one
+/// column per parent state. Forge supports one parent per node.
+fn bayesian_model(network: &serde_yaml_ng::Value) -> Result<String, String> {
+    let nodes = string_list(network.get("nodes"));
+    let cpts = network.get("cpts").ok_or("Network has no 'cpts'")?;
+    let mut out = String::from(
+        "_forge_version: \"5.0.0\"\n\nbayesian_network:\n  name: \"network\"\n  nodes:\n",
+    );
+    for node in &nodes {
+        let cpt = cpts
+            .get(node.as_str())
+            .ok_or_else(|| format!("No cpt for {node}"))?;
+        let levels = string_list(cpt.get("levels"));
+        let probs = cpt
+            .get("probs")
+            .and_then(yaml_f64_list)
+            .ok_or_else(|| format!("No probs for {node}"))?;
+        let parents = string_list(cpt.get("parents"));
+        let quoted = |l: &[String]| {
+            l.iter()
+                .map(|x| format!("\"{x}\""))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        out.push_str(&format!(
+            "    \"{node}\":\n      type: discrete\n      states: [{}]\n",
+            quoted(&levels)
+        ));
+        match parents.as_slice() {
+            [] => out.push_str(&format!("      prior: {probs:?}\n")),
+            [parent] => {
+                let parent_levels =
+                    string_list(cpts.get(parent.as_str()).and_then(|p| p.get("levels")));
+                out.push_str(&format!("      parents: [\"{parent}\"]\n      cpt:\n"));
+                for (i, plevel) in parent_levels.iter().enumerate() {
+                    let row: Vec<f64> = (0..levels.len())
+                        .map(|state| probs[state * parent_levels.len() + i])
+                        .collect();
+                    out.push_str(&format!("        \"{plevel}\": {row:?}\n"));
+                }
+            }
+            _ => return Err("multi-parent".to_string()),
+        }
+    }
+    Ok(out)
+}
+
+fn bayesian(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
+    let Some(network) = spec.raw.get("network") else {
+        return error(spec, "Spec has no 'network'".to_string());
+    };
+    let Some(target) = spec
+        .raw
+        .get("query")
+        .and_then(|q| q.get("target"))
+        .and_then(|t| t.as_str())
+    else {
+        return skip(spec, "No query: marginal probabilities are not compared");
+    };
+    let model = match bayesian_model(network) {
+        Ok(m) => m,
+        Err(e) if e == "multi-parent" => {
+            return skip(
+                spec,
+                "Forge supports one parent per node; this network has a node with two",
+            );
+        }
+        Err(e) => return error(spec, e),
+    };
+    let evidence: Vec<(String, String)> = spec
+        .raw
+        .get("query")
+        .and_then(|q| q.get("evidence"))
+        .and_then(|e| e.as_mapping())
+        .map(|m| {
+            m.iter()
+                .filter_map(|(k, v)| Some((k.as_str()?.to_string(), v.as_str()?.to_string())))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut extra = vec!["-q".to_string(), target.to_string()];
+    for (var, state) in &evidence {
+        extra.push("-e".to_string());
+        extra.push(format!("{var}={state}"));
+    }
+    let forge = match forge_json_with(env, "bayesian", &model, &extra) {
+        Ok(j) => j,
+        Err(e) => return error(spec, format!("{e}\nmodel:\n{model}")),
+    };
+    let states = forge.get("states").and_then(Json::as_array);
+    let probs = forge.get("probabilities").and_then(Json::as_array);
+    let (Some(states), Some(probs)) = (states, probs) else {
+        return error(
+            spec,
+            "Forge output has no states and probabilities".to_string(),
+        );
+    };
+
+    // Reference posterior: from R, or from the spec when --expected-only is set.
+    let (reference, source): (Vec<(String, f64)>, &str) = if env.expected_only {
+        let posterior = spec
+            .raw
+            .get("r_expected")
+            .and_then(|e| e.get("posterior"))
+            .and_then(|p| p.as_mapping());
+        let Some(posterior) = posterior else {
+            return error(spec, "Spec has no expected posterior".to_string());
+        };
+        (
+            posterior
+                .iter()
+                .filter_map(|(k, v)| Some((k.as_str()?.to_string(), yaml_f64(v)?)))
+                .collect(),
+            "spec's expected values, R not run",
+        )
+    } else {
+        let evidence_json: serde_json::Map<String, Json> = evidence
+            .iter()
+            .map(|(k, v)| (k.clone(), json!(v)))
+            .collect();
+        let params = json!({
+            "network": to_json(network),
+            "query": { "target": target, "evidence": evidence_json },
+        });
+        let r_out = match r_results(env, "bayesian_validator.R", &params) {
+            Ok(r) => r,
+            Err(e) => return error(spec, e),
+        };
+        let Some(posterior) = r_out.get("posterior").and_then(Json::as_object) else {
+            return error(spec, "R returned no posterior".to_string());
+        };
+        (
+            posterior
+                .iter()
+                .filter_map(|(k, v)| Some((k.clone(), v.as_f64()?)))
+                .collect(),
+            "R",
+        )
+    };
+
+    // R estimates the posterior by sampling, so the tolerance is absolute.
+    let tol = tolerance(spec, "probability", 0.02);
+    let mut problems = Vec::new();
+    for (state, expected) in &reference {
+        let forge_p = states
+            .iter()
+            .position(|s| s.as_str() == Some(state))
+            .and_then(|i| probs.get(i))
+            .and_then(Json::as_f64);
+        match forge_p {
+            Some(p) if (p - expected).abs() <= tol => {},
+            Some(p) => problems.push(format!(
+                "P({target}={state}): forge={p:.4}, reference={expected:.4}, tolerance={tol} (absolute)"
+            )),
+            None => problems.push(format!("state {state} missing from Forge output")),
         }
     }
     verdict(spec, &problems, &format!("Forge matches the {source}"))

@@ -21,8 +21,11 @@
 
 suppressPackageStartupMessages({
   library(jsonlite)
-  library(derivmkts)
 })
+
+# derivmkts is optional: when installed, its prices are reported next to the
+# hand-written Black-Scholes formulas below, so the two can be compared.
+HAVE_DERIVMKTS <- requireNamespace("derivmkts", quietly = TRUE)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Constants
@@ -244,6 +247,12 @@ run_json_mode <- function(params_json) {
       greeks <- calculate_greeks(S, K, r, sigma, T, q, option_type)
 
       results$price <- price
+      if (HAVE_DERIVMKTS) {
+        results$price_derivmkts <- tryCatch(
+          if (option_type == "call") derivmkts::bscall(S, K, sigma, r, T, q)
+          else derivmkts::bsput(S, K, sigma, r, T, q),
+          error = function(e) NULL)
+      }
       results$model <- "black_scholes"
       results$greeks <- greeks
     }
