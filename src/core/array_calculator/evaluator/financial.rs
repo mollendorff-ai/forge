@@ -1221,4 +1221,54 @@ mod tests {
         let error = eval("NPER(0.08, -600, 25000)", &EvalContext::new()).unwrap_err();
         assert!(error.to_string().contains("#NUM!"), "{error}");
     }
+
+    /// Security functions with real dates; values checked in Excel on 2026-11-06
+    #[test]
+    fn test_security_functions_match_excel() {
+        assert_close("PRICEDISC(36341, 39903, 0.05, 100, 0)", 51.25);
+        assert_close(
+            "PRICEDISC(43541, 43708, 0.05, 100, 4)",
+            97.736_111_111_111_11,
+        );
+        assert_close(
+            "PRICEDISC(38777, 49064, 0.05, 100, 1)",
+            -40.824_679_003_021_15,
+        );
+        assert_close(
+            "YIELDDISC(36885, 36950, 95, 100, 1)",
+            0.295_546_558_704_453_5,
+        );
+        assert_close(
+            "ACCRINT(34938, 35115, 39325, 0.06, 1000, 1, 0)",
+            720.666_666_666_666_6,
+        );
+        assert_close(
+            "ACCRINT(44296, 44548, 48337, 0.06, 1000, 2, 1)",
+            663.832_642_767_068_9,
+        );
+        // Dates may also be given as text
+        assert_close("PRICEDISC(\"2024-01-15\", \"2024-07-15\", 0.05, 100)", 97.5);
+    }
+
+    #[test]
+    fn test_security_functions_reject_bad_arguments() {
+        let ctx = EvalContext::new();
+        for formula in [
+            "PRICEDISC(45488, 45306, 0.05, 100)",
+            "PRICEDISC(45306, 45488, 0, 100)",
+            "PRICEDISC(45306, 45488, 0.05, 100, 5)",
+            "YIELDDISC(45488, 45306, 97, 100)",
+            "YIELDDISC(45306, 45488, 0, 100)",
+            "ACCRINT(45488, 45672, 45306, 0.06, 1000, 1)",
+            "ACCRINT(45306, 45672, 45488, 0, 1000, 1)",
+            "ACCRINT(45306, 45672, 45488, 0.06, 1000, 3)",
+            "ACCRINT(\"not a date\", 45672, 45488, 0.06, 1000, 1)",
+        ] {
+            let error = eval(formula, &ctx).unwrap_err();
+            assert!(
+                error.to_string().contains("#NUM!") || error.to_string().contains("date"),
+                "{formula}: {error}"
+            );
+        }
+    }
 }

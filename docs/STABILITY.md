@@ -13,7 +13,7 @@ What Forge promises once it leaves beta, and what it does not. Forge is still a 
 
 ## What stable does not promise
 
-- **Excel itself.** Formulas are compared with Gnumeric and R, and the Excel export is recalculated by Gnumeric, not by Excel. No check in real Excel has been done yet.
+- **Excel itself.** Formulas are compared with Gnumeric and R, and the Excel export is recalculated by Gnumeric, not by Excel. Real Excel was checked by hand once, on 18 financial and date results (see [VALIDATION.md](../VALIDATION.md)); it is not repeated automatically.
 - **Everything in the analytics is checked.** 70 of 77 analytics specs are compared with R; the exponential distribution, the elasticity command, one-point ranges and an input with equal low and high are not covered. Real options are compared on price only.
 - **Numbers to the last digit.** Floating-point results can differ from other engines in the last digits; the suites use tolerances (listed in VALIDATION.md).
 - **Financial, legal or tax advice.** Check results that matter independently.
@@ -22,7 +22,6 @@ What Forge promises once it leaves beta, and what it does not. Forge is still a 
 
 ## What blocks the first stable release
 
-- A written spot check against real Excel for the README example and the main financial functions.
 - At least one person other than the author using a release on a real model and reporting back. One outside contributor used Forge for a few weeks and has since paused; that is evidence of use, not of current use.
 - The Gnumeric and R suites green on the release commit.
 - No open report of a wrong answer.

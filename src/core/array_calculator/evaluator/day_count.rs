@@ -235,3 +235,161 @@ pub fn accrued_interest(
 fn is_month_end(date: NaiveDate) -> bool {
     date.succ_opt().is_some_and(|next| next.day() == 1)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn date(y: i32, m: u32, d: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(y, m, d).unwrap()
+    }
+
+    fn close(a: f64, b: f64) -> bool {
+        (a - b).abs() <= 1e-9 * b.abs().max(1.0)
+    }
+
+    #[test]
+    fn basis_is_read_and_checked() {
+        assert_eq!(Basis::from_number(0.0, "F").unwrap(), Basis::Us30360);
+        assert_eq!(Basis::from_number(1.9, "F").unwrap(), Basis::ActualActual);
+        assert_eq!(Basis::from_number(2.0, "F").unwrap(), Basis::Actual360);
+        assert_eq!(Basis::from_number(3.0, "F").unwrap(), Basis::Actual365);
+        assert_eq!(Basis::from_number(4.0, "F").unwrap(), Basis::European30360);
+        assert!(Basis::from_number(5.0, "F").is_err());
+        assert!(Basis::from_number(-1.0, "F").is_err());
+    }
+
+    /// Values checked in Excel on 2026-11-06
+    #[test]
+    fn year_fraction_matches_excel() {
+        // 2000-03-23 to 2029-02-28, actual/actual over many years
+        assert!(close(
+            year_fraction(date(2000, 3, 23), date(2029, 2, 28), Basis::ActualActual),
+            28.935_024_639_532_76
+        ));
+        // 2002-02-28 to 2018-07-17, US 30/360 starting at the end of February
+        assert!(close(
+            year_fraction(date(2002, 2, 28), date(2018, 7, 17), Basis::Us30360),
+            16.380_555_555_555_56
+        ));
+        // Order does not matter
+        assert!(close(
+            year_fraction(date(2018, 7, 17), date(2002, 2, 28), Basis::Us30360),
+            16.380_555_555_555_56
+        ));
+    }
+
+    #[test]
+    fn thirty_360_rules() {
+        // US: both dates at the end of February count as the 30th
+        assert!(close(
+            days_between(date(2023, 2, 28), date(2024, 2, 29), Basis::Us30360),
+            360.0
+        ));
+        // US: the 31st becomes the 30th only when the start is the 30th or 31st
+        assert!(close(
+            days_between(date(2024, 1, 15), date(2024, 3, 31), Basis::Us30360),
+            76.0
+        ));
+        assert!(close(
+            days_between(date(2024, 1, 30), date(2024, 3, 31), Basis::Us30360),
+            60.0
+        ));
+        // European: every 31st is the 30th
+        assert!(close(
+            days_between(date(2024, 1, 15), date(2024, 3, 31), Basis::European30360),
+            75.0
+        ));
+    }
+
+    #[test]
+    fn actual_actual_within_a_year() {
+        // Same leap year: 366
+        assert!(close(
+            year_fraction(date(2024, 1, 1), date(2024, 7, 1), Basis::ActualActual),
+            182.0 / 366.0
+        ));
+        // Crossing years without a February 29: 365
+        assert!(close(
+            year_fraction(date(2000, 12, 25), date(2001, 2, 28), Basis::ActualActual),
+            65.0 / 365.0
+        ));
+        // Crossing years with a February 29: 366
+        assert!(close(
+            year_fraction(date(2023, 12, 1), date(2024, 3, 1), Basis::ActualActual),
+            91.0 / 366.0
+        ));
+        assert!(close(
+            year_fraction(date(2024, 1, 1), date(2024, 1, 1), Basis::ActualActual),
+            0.0
+        ));
+        assert!(close(
+            year_fraction(date(2023, 1, 1), date(2023, 7, 1), Basis::Actual360),
+            181.0 / 360.0
+        ));
+        assert!(close(
+            year_fraction(date(2023, 1, 1), date(2023, 7, 1), Basis::Actual365),
+            181.0 / 365.0
+        ));
+    }
+
+    #[test]
+    fn year_length_by_basis() {
+        assert!(close(
+            year_length(date(2024, 5, 1), Basis::ActualActual),
+            366.0
+        ));
+        assert!(close(
+            year_length(date(2023, 5, 1), Basis::ActualActual),
+            365.0
+        ));
+        assert!(close(
+            year_length(date(2023, 5, 1), Basis::Actual365),
+            365.0
+        ));
+        assert!(close(year_length(date(2023, 5, 1), Basis::Us30360), 360.0));
+    }
+
+    /// Values checked in Excel on 2026-11-06
+    #[test]
+    fn accrued_interest_matches_excel() {
+        let basis0 = accrued_interest(
+            date(1995, 8, 27),
+            date(1996, 2, 20),
+            date(2007, 8, 31),
+            0.06,
+            1000.0,
+            1,
+            Basis::Us30360,
+        )
+        .unwrap();
+        assert!(close(basis0, 720.666_666_666_666_6), "{basis0}");
+        let basis1 = accrued_interest(
+            date(2021, 4, 10),
+            date(2021, 12, 18),
+            date(2032, 5, 3),
+            0.06,
+            1000.0,
+            2,
+            Basis::ActualActual,
+        )
+        .unwrap();
+        assert!(close(basis1, 663.832_642_767_068_9), "{basis1}");
+    }
+
+    #[test]
+    fn accrued_interest_with_a_month_end_coupon() {
+        // Quarterly coupons on month ends, issue before the first coupon
+        let value = accrued_interest(
+            date(2024, 1, 15),
+            date(2024, 3, 31),
+            date(2024, 2, 29),
+            0.10,
+            5000.0,
+            4,
+            Basis::Us30360,
+        )
+        .unwrap();
+        assert!(close(value, 5000.0 * 0.10 * 44.0 / 360.0), "{value}");
+    }
+}

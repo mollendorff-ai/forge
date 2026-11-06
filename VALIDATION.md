@@ -8,10 +8,11 @@ Forge is a beta and an R&D prototype. These checks reduce the chance of a wrong 
 
 | Check | Compares Forge with | Result |
 | --- | --- | --- |
-| Unit tests (this repo) | Expected values written in the tests | 1,471 unit tests and 2 doctests pass |
-| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | Gnumeric, a separate spreadsheet engine | 1,312 formula cases pass, 1 skipped |
+| Unit tests (this repo) | Expected values written in the tests | 1,480 unit tests and 2 doctests pass |
+| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | Gnumeric, a separate spreadsheet engine | 1,320 formula cases pass, 1 skipped |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r), formulas | R, with Excel rules where R differs | 119 math, date and financial checks pass |
 | forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 70 of 77 specs pass against R in the Validation workflow; 7 skipped |
+| Real Excel (by hand, once) | Microsoft Excel for iPhone, recalculating a workbook written by `forge export` | 18 of 18 financial and date results match (2026-11-06) |
 
 The unit tests run on every push. The two validation suites run in the **Validation** workflow, weekly and on every pull request that changes `src/` (Actions tab, also runnable on demand) and can be run by hand with the commands below.
 
@@ -33,7 +34,7 @@ cd forge-e2e-gnumeric
 FORGE_BIN=/path/to/forge cargo run --release
 ```
 
-Needs `ssconvert` (package `gnumeric`). Result: 1,312 passed, 0 failed, 1 skipped. Of the passed cases, 34 are checked against Forge only, each with a written reason (Gnumeric 1.12 cannot read the formula or has no such function, for example `XLOOKUP`).
+Needs `ssconvert` (package `gnumeric`). Result: 1,320 passed, 0 failed, 1 skipped. Every case is also checked after `forge export` and `forge import`, so a formula that does not survive the round trip fails. Of the passed cases, 40 are checked against Forge only, each with a written reason: Gnumeric 1.12 cannot read the formula or has no such function (for example `XLOOKUP`), or Gnumeric and Excel give different answers. Six of those differences were settled in real Excel (section 5).
 
 ## 3. Math, date and financial functions against R
 
@@ -76,3 +77,11 @@ Running without `--expected-only` on a machine without `data.tree`, `derivmkts` 
 - The expected values in a spec were written by the author or by an AI assistant. Where R or Gnumeric disagreed with them, the disagreement was investigated, but a value on which both Forge and its expected value are wrong in the same way would pass.
 - Real-options switch and compound valuations are rough approximations.
 - `cargo audit` reports no vulnerabilities and no warnings.
+
+## 5. Real Excel, by hand
+
+Done once, on 2026-11-06, with Forge `fix/day-count-and-export` (after v10.0.0-beta.11), in the Excel app for iPhone. The workbook was written by `forge export` with the saved results removed, so a viewer that does not calculate would show empty cells; Excel's XIRR differs from Forge's in the ninth decimal, which shows Excel calculated it. A summary sheet compared each result with Forge's (relative tolerance 1e-7).
+
+All 18 matched: XIRR, XNPV, two RATE cases, IRR with a negative rate, PMT, FV and IPMT with payments at the start of the period (including period 1, where Excel gives 0), NPER, PRICEDISC with bases 0, 1 and 4, YIELDDISC with basis 1, ACCRINT with bases 0 and 1, and YEARFRAC with bases 0 and 1. Six of these are cases where Gnumeric gives a different answer; Excel agreed with Forge on all six, and the Gnumeric suite now records them with that reason.
+
+This covers one workbook and is not repeated automatically. An earlier check of the README example, on 2026-11-06, was made in a file viewer, not in Excel, and does not count.
