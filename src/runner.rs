@@ -99,7 +99,7 @@ impl TestRunner {
                 Self::load_test_cases_recursive(&path, all_cases, all_skips)?;
             } else if path.extension().is_some_and(|e| e == "yaml") {
                 let content = fs::read_to_string(&path)?;
-                match serde_yaml_ng::from_str::<TestSpec>(&content) {
+                match yaml_serde::from_str::<TestSpec>(&content) {
                     Ok(spec) => {
                         let cases = extract_test_cases(&spec, Some(&path));
                         let skips = extract_skip_cases(&spec);
@@ -220,7 +220,9 @@ impl TestRunner {
                 .collect()
         };
 
-        let forge_version = cases.first().map_or("1.0.0", |tc| tc.forge_version.as_str());
+        let forge_version = cases
+            .first()
+            .map_or("1.0.0", |tc| tc.forge_version.as_str());
         let mut yaml_content = format!(
             "_forge_version: \"{forge_version}\"\n{}assumptions:\n",
             table_data_for(source)
@@ -248,11 +250,11 @@ impl TestRunner {
             Err(e) => vec![Err(e); cases.len()],
         };
 
-        let gnumeric_values = match self.forge_export_and_recalc(&yaml_path, &xlsx_path, temp_dir.path())
-        {
-            Ok(csv_files) => Self::parse_batch_csv(&csv_files, cases.len()),
-            Err(e) => vec![Err(e); cases.len()],
-        };
+        let gnumeric_values =
+            match self.forge_export_and_recalc(&yaml_path, &xlsx_path, temp_dir.path()) {
+                Ok(csv_files) => Self::parse_batch_csv(&csv_files, cases.len()),
+                Err(e) => vec![Err(e); cases.len()],
+            };
 
         cases
             .iter()
@@ -289,7 +291,7 @@ impl TestRunner {
 
         let content = fs::read_to_string(yaml_path)
             .map_err(|e| format!("Failed to read calculated YAML: {e}"))?;
-        let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
+        let doc: yaml_serde::Value = yaml_serde::from_str(&content)
             .map_err(|e| format!("Failed to parse calculated YAML: {e}"))?;
         let group = doc
             .get("assumptions")
@@ -299,7 +301,7 @@ impl TestRunner {
             group
                 .get(key)
                 .and_then(|entry| entry.get("value"))
-                .and_then(serde_yaml_ng::Value::as_f64)
+                .and_then(yaml_serde::Value::as_f64)
                 .ok_or_else(|| format!("forge calculate gave no numeric value for {key}"))
         };
 
@@ -364,7 +366,8 @@ impl TestRunner {
                     match cells[1].parse::<f64>() {
                         Ok(value) => results[idx] = Ok(value),
                         Err(_) => {
-                            results[idx] = Err(format!("Gnumeric cell is not a number: {}", cells[1]));
+                            results[idx] =
+                                Err(format!("Gnumeric cell is not a number: {}", cells[1]));
                         }
                     }
                 }
@@ -395,7 +398,13 @@ impl TestRunner {
 
         let temp_dir = match tempfile::tempdir() {
             Ok(d) => d,
-            Err(e) => return fail(test_case, None, Some(format!("Failed to create temp dir: {e}"))),
+            Err(e) => {
+                return fail(
+                    test_case,
+                    None,
+                    Some(format!("Failed to create temp dir: {e}")),
+                )
+            }
         };
         let yaml_path = temp_dir.path().join("test.yaml");
         let xlsx_path = temp_dir.path().join("test.xlsx");
@@ -445,7 +454,7 @@ impl TestRunner {
 fn table_data_for(source: Option<&Path>) -> String {
     source
         .and_then(|path| fs::read_to_string(path).ok())
-        .and_then(|content| serde_yaml_ng::from_str::<TestSpec>(&content).ok())
+        .and_then(|content| yaml_serde::from_str::<TestSpec>(&content).ok())
         .map(|spec| extract_table_data_yaml(&spec))
         .unwrap_or_default()
 }
@@ -475,7 +484,10 @@ fn judge(tc: &TestCase, forge: &Result<f64, String>, gnumeric: &Result<f64, Stri
         Ok(v) if matches(*v, tc.expected) => {}
         Ok(v) => {
             shown = Some(*v);
-            problems.push(format!("forge calculate gave {v}, expected {}", tc.expected));
+            problems.push(format!(
+                "forge calculate gave {v}, expected {}",
+                tc.expected
+            ));
         }
         Err(e) => problems.push(e.clone()),
     }

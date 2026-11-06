@@ -242,7 +242,7 @@ assumptions:
     formula: "=ABS(-42)"
     expected: 42
 "#;
-        let spec: TestSpec = serde_yaml_ng::from_str(yaml).unwrap();
+        let spec: TestSpec = yaml_serde::from_str(yaml).unwrap();
         assert_eq!(spec.forge_version, "1.0.0");
 
         let cases = extract_test_cases(&spec, None);
@@ -275,7 +275,7 @@ assumptions:
     formula: "=SUM(agg_data.values)"
     expected: 160
 "#;
-        let spec: TestSpec = serde_yaml_ng::from_str(yaml).unwrap();
+        let spec: TestSpec = yaml_serde::from_str(yaml).unwrap();
 
         // Check section types
         for (name, section) in &spec.sections {
