@@ -77,10 +77,7 @@ fn run_all(cli: &Cli, runner: &TestRunner, forge_binary: &Path) {
     // TAP header: diagnostic comments then version and plan
     println!("# forge-e2e-gnumeric");
     println!("# Forge: {}", forge_binary.display());
-    println!(
-        "# Engine: {} (ssconvert)",
-        GnumericEngine::name()
-    );
+    println!("# Engine: {} (ssconvert)", GnumericEngine::name());
     println!("# Tests: {}", cli.tests.display());
     println!("# Mode: {mode}");
     println!("TAP version 14");
