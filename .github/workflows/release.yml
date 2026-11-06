@@ -153,7 +153,7 @@ jobs:
           Compress-Archive -Path forge.exe -DestinationPath forge-${{ matrix.target }}.zip -Force
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: forge-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/forge-${{ matrix.target }}.${{ matrix.archive }}
