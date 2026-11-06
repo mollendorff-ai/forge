@@ -1005,7 +1005,7 @@ fn string_list(value: Option<&yaml_serde::Value>) -> Vec<String> {
 
 /// Translates the spec's network into Forge's `bayesian_network` model.
 /// The spec lists a table row by row: one row per state of the node, one
-/// column per parent state. Forge supports one parent per node.
+/// column per combination of parent states (first parent fastest).
 fn bayesian_model(network: &yaml_serde::Value) -> Result<String, String> {
     let nodes = string_list(network.get("nodes"));
     let cpts = network.get("cpts").ok_or("Network has no 'cpts'")?;
@@ -1032,20 +1032,43 @@ fn bayesian_model(network: &yaml_serde::Value) -> Result<String, String> {
             "    \"{node}\":\n      type: discrete\n      states: [{}]\n",
             quoted(&levels)
         ));
-        match parents.as_slice() {
-            [] => out.push_str(&format!("      prior: {probs:?}\n")),
-            [parent] => {
-                let parent_levels =
-                    string_list(cpts.get(parent.as_str()).and_then(|p| p.get("levels")));
-                out.push_str(&format!("      parents: [\"{parent}\"]\n      cpt:\n"));
-                for (i, plevel) in parent_levels.iter().enumerate() {
-                    let row: Vec<f64> = (0..levels.len())
-                        .map(|state| probs[state * parent_levels.len() + i])
-                        .collect();
-                    out.push_str(&format!("        \"{plevel}\": {row:?}\n"));
-                }
-            }
-            _ => return Err("multi-parent".to_string()),
+        if parents.is_empty() {
+            out.push_str(&format!("      prior: {probs:?}\n"));
+            continue;
+        }
+        // One column per combination of parent states, the first parent
+        // varying fastest. Forge names a row by the parent states in the
+        // order of `parents`, separated by commas.
+        let parent_levels: Vec<Vec<String>> = parents
+            .iter()
+            .map(|p| string_list(cpts.get(p.as_str()).and_then(|c| c.get("levels"))))
+            .collect();
+        let combinations: usize = parent_levels.iter().map(Vec::len).product();
+        if probs.len() != combinations * levels.len() {
+            return Err(format!(
+                "{node}: {} probabilities, expected {} states x {combinations} parent combinations",
+                probs.len(),
+                levels.len()
+            ));
+        }
+        out.push_str(&format!(
+            "      parents: [{}]\n      cpt:\n",
+            quoted(&parents)
+        ));
+        for c in 0..combinations {
+            let mut rest = c;
+            let key: Vec<&str> = parent_levels
+                .iter()
+                .map(|l| {
+                    let state = l[rest % l.len()].as_str();
+                    rest /= l.len();
+                    state
+                })
+                .collect();
+            let row: Vec<f64> = (0..levels.len())
+                .map(|state| probs[state * combinations + c])
+                .collect();
+            out.push_str(&format!("        \"{}\": {row:?}\n", key.join(", ")));
         }
     }
     Ok(out)
@@ -1065,12 +1088,6 @@ fn bayesian(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
     };
     let model = match bayesian_model(network) {
         Ok(m) => m,
-        Err(e) if e == "multi-parent" => {
-            return skip(
-                spec,
-                "Forge supports one parent per node; this network has a node with two",
-            );
-        }
         Err(e) => return error(spec, e),
     };
     let evidence: Vec<(String, String)> = spec

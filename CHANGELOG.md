@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The Bayesian runner translates nodes with several parents (Forge supports them from forge #50): `rain_sprinkler_grass`, `explaining_away` and `alarm_network` now run; 10 of 10 Bayesian specs. Their expected posteriors were checked by hand enumeration.
+
+### Added
+
 - Runners for real options (15 specs, price only) and Bayesian networks (7 of 10 specs; Forge supports one parent per node). `--expected-only` covers them too. The Gnumeric and R CI install `derivmkts` and `bnlearn` for them.
 
 ### Fixed (specs and validators)
