@@ -302,6 +302,7 @@ impl FormulaTranslator {
                 | "SEARCH"
                 | "REPLACE"
                 | "SUBSTITUTE"
+                | "REPT"
                 // Date functions
                 | "TODAY"
                 | "NOW"
@@ -335,6 +336,13 @@ impl FormulaTranslator {
                 | "SLN"
                 | "DB"
                 | "DDB"
+                | "IPMT"
+                | "PPMT"
+                | "EFFECT"
+                | "NOMINAL"
+                | "PRICEDISC"
+                | "YIELDDISC"
+                | "ACCRINT"
                 // Information functions
                 | "ISEVEN"
                 | "ISODD"

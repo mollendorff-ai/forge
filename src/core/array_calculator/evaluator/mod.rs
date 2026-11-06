@@ -16,6 +16,7 @@
 // Demo modules (always included)
 mod aggregation;
 mod dates;
+pub(crate) mod day_count;
 mod financial;
 mod logical;
 mod lookup;
