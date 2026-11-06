@@ -52,7 +52,7 @@ jobs:
           sudo apt-get install -y r-base r-cran-jsonlite r-cran-boot r-cran-mvtnorm
           sudo Rscript -e 'install.packages(c("data.tree", "mc2d", "derivmkts"), repos = "https://cloud.r-project.org")'
           # The current bnlearn needs R 4.4; Ubuntu 24.04 has R 4.3, so use an older release.
-          sudo Rscript -e 'for (v in c("5.0.2", "5.0.1", "5.0")) { if (!requireNamespace("bnlearn", quietly = TRUE)) try(install.packages(paste0("https://cloud.r-project.org/src/contrib/Archive/bnlearn/bnlearn_", v, ".tar.gz"), repos = NULL, type = "source")) }; library(bnlearn); cat("bnlearn", as.character(packageVersion("bnlearn")), "\n")'
+          sudo Rscript -e 'for (v in c("4.9.4", "4.9.3", "4.9.2", "4.9.1", "4.9", "4.8.3")) { if (!requireNamespace("bnlearn", quietly = TRUE)) try(install.packages(paste0("https://cloud.r-project.org/src/contrib/Archive/bnlearn/bnlearn_", v, ".tar.gz"), repos = NULL, type = "source")) }; library(bnlearn); cat("bnlearn", as.character(packageVersion("bnlearn")), "\n")'
       - name: Build Forge
         run: cargo build --release
       - name: Get the suite
