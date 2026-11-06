@@ -831,6 +831,9 @@ YAML CONFIGURATION:
           neutral: [0.4, 0.4, 0.2]
           bad: [0.1, 0.3, 0.6]
 
+  A node with several parents (parents: [a, b]) has one CPT row per
+  combination of their states, in that order: \"x, y\": [...]
+
 EXAMPLES:
   forge bayesian model.yaml                           # Query all nodes
   forge bayesian model.yaml --query default_prob      # Query specific node

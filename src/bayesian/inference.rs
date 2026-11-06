@@ -40,24 +40,23 @@ impl Factor {
             // Root node: just prior
             values.clone_from(&node.prior);
         } else {
-            // Child node: build from CPT
-            // Get parent cardinality (assuming single parent for now)
-            if let Some(parent_node) = config.nodes.get(&node.parents[0]) {
-                let parent_card = parent_node.states.len();
-
-                for (i, val) in values.iter_mut().enumerate().take(total_size) {
-                    // Decode indices - last variable (parent) changes fastest
-                    let parent_idx = i % parent_card;
-                    let state_idx = i / parent_card;
-
-                    if parent_idx < parent_node.states.len() {
-                        let parent_state = &parent_node.states[parent_idx];
-                        if let Some(probs) = node.cpt.get(parent_state) {
-                            if state_idx < probs.len() {
-                                *val = probs[state_idx];
-                            }
-                        }
-                    }
+            // Child node: one CPT row per combination of parent states. The
+            // flat index runs over [node, parent 1, parent 2, ...], the last
+            // variable fastest.
+            let parent_nodes: Vec<&BayesianNode> = node
+                .parents
+                .iter()
+                .filter_map(|p| config.nodes.get(p))
+                .collect();
+            for (i, val) in values.iter_mut().enumerate() {
+                let indices = Self::decode_index(i, &cardinalities);
+                let parent_states: Vec<&str> = parent_nodes
+                    .iter()
+                    .zip(&indices[1..])
+                    .map(|(p, &idx)| p.states[idx].as_str())
+                    .collect();
+                if let Some(row) = node.cpt_row(&parent_states) {
+                    *val = row.get(indices[0]).copied().unwrap_or(0.0);
                 }
             }
         }

@@ -266,31 +266,108 @@ fn test_json_with_evidence() {
     assert!(json.contains("\"bad\""));
 }
 
-fn network_with_two_parents() -> BayesianConfig {
+/// Rain and sprinkler both wet the grass (a v-structure).
+fn rain_sprinkler_grass() -> BayesianConfig {
     BayesianConfig::new("two parents")
         .with_node(
-            "a",
-            BayesianNode::discrete(vec!["x", "y"]).with_prior(vec![0.5, 0.5]),
+            "rain",
+            BayesianNode::discrete(vec!["no", "yes"]).with_prior(vec![0.8, 0.2]),
         )
         .with_node(
-            "b",
-            BayesianNode::discrete(vec!["x", "y"]).with_prior(vec![0.5, 0.5]),
+            "sprinkler",
+            BayesianNode::discrete(vec!["off", "on"]).with_prior(vec![0.6, 0.4]),
         )
         .with_node(
-            "c",
-            BayesianNode::discrete(vec!["lo", "hi"])
-                .with_parents(vec!["a", "b"])
-                .with_cpt_entry("x", vec![0.5, 0.5])
-                .with_cpt_entry("y", vec![0.5, 0.5]),
+            "grass",
+            BayesianNode::discrete(vec!["dry", "wet"])
+                .with_parents(vec!["rain", "sprinkler"])
+                .with_cpt_entry("no, off", vec![1.0, 0.0])
+                .with_cpt_entry("yes, off", vec![0.2, 0.8])
+                .with_cpt_entry("no,on", vec![0.1, 0.9])
+                .with_cpt_entry("yes, on", vec![0.01, 0.99]),
         )
 }
 
 #[test]
-fn test_more_than_one_parent_is_an_error() {
-    // Inference supports one parent per node; with two it used to return wrong numbers.
-    let err = network_with_two_parents().validate().unwrap_err();
-    assert!(err.contains("only one parent"), "{err}");
-    assert!(BayesianEngine::new(network_with_two_parents()).is_err());
+fn test_two_parents_match_hand_calculation() {
+    let engine = BayesianEngine::new(rain_sprinkler_grass()).unwrap();
+
+    // P(wet) = 0.8*0.6*0 + 0.2*0.6*0.8 + 0.8*0.4*0.9 + 0.2*0.4*0.99 = 0.4632
+    let grass = engine.query("grass").unwrap();
+    assert!((grass.get_probability("wet").unwrap() - 0.4632).abs() < 1e-12);
+
+    // P(rain | wet) = (0.096 + 0.0792) / 0.4632
+    let mut evidence = HashMap::new();
+    evidence.insert("grass".to_string(), "wet");
+    let rain = engine.query_with_evidence("rain", &evidence).unwrap();
+    assert!((rain.get_probability("yes").unwrap() - 0.1752 / 0.4632).abs() < 1e-12);
+
+    // Explaining away: once the sprinkler is known to be on, rain is less likely.
+    evidence.insert("sprinkler".to_string(), "on");
+    let rain = engine.query_with_evidence("rain", &evidence).unwrap();
+    // P(rain, wet, on) = 0.2 * 0.4 * 0.99, P(no rain, wet, on) = 0.8 * 0.4 * 0.9
+    let expected = 0.198 / (0.198 + 0.72);
+    assert!((rain.get_probability("yes").unwrap() - expected).abs() < 1e-12);
+}
+
+#[test]
+fn test_parent_order_follows_parents_list() {
+    // Same network with the parents listed the other way round: the CPT keys
+    // swap too, and the answers must not change.
+    let config = BayesianConfig::new("swapped")
+        .with_node(
+            "rain",
+            BayesianNode::discrete(vec!["no", "yes"]).with_prior(vec![0.8, 0.2]),
+        )
+        .with_node(
+            "sprinkler",
+            BayesianNode::discrete(vec!["off", "on"]).with_prior(vec![0.6, 0.4]),
+        )
+        .with_node(
+            "grass",
+            BayesianNode::discrete(vec!["dry", "wet"])
+                .with_parents(vec!["sprinkler", "rain"])
+                .with_cpt_entry("off, no", vec![1.0, 0.0])
+                .with_cpt_entry("off, yes", vec![0.2, 0.8])
+                .with_cpt_entry("on, no", vec![0.1, 0.9])
+                .with_cpt_entry("on, yes", vec![0.01, 0.99]),
+        );
+    let engine = BayesianEngine::new(config).unwrap();
+    let mut evidence = HashMap::new();
+    evidence.insert("grass".to_string(), "wet");
+    let rain = engine.query_with_evidence("rain", &evidence).unwrap();
+    assert!((rain.get_probability("yes").unwrap() - 0.1752 / 0.4632).abs() < 1e-12);
+}
+
+#[test]
+fn test_two_parent_cpt_errors() {
+    // A missing combination would silently count as probability 0.
+    let mut config = rain_sprinkler_grass();
+    config.nodes.get_mut("grass").unwrap().cpt.remove("yes, on");
+    let err = config.validate().unwrap_err();
+    assert!(err.contains("no entry for 'yes, on'"), "{err}");
+
+    // States in the wrong order, or a single state, are not a combination.
+    let mut config = rain_sprinkler_grass();
+    let grass = config.nodes.get_mut("grass").unwrap();
+    let row = grass.cpt.remove("yes, on").unwrap();
+    grass.cpt.insert("on, yes".to_string(), row);
+    let err = config.validate().unwrap_err();
+    assert!(
+        err.contains("'on, yes' must name one state of each parent (rain, sprinkler)"),
+        "{err}"
+    );
+
+    // The same combination written twice.
+    let mut config = rain_sprinkler_grass();
+    config
+        .nodes
+        .get_mut("grass")
+        .unwrap()
+        .cpt
+        .insert("yes,on".to_string(), vec![0.5, 0.5]);
+    let err = config.validate().unwrap_err();
+    assert!(err.contains("two entries for 'yes, on'"), "{err}");
 }
 
 #[test]

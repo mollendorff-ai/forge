@@ -11,7 +11,7 @@ Forge is a beta and an R&D prototype. These checks reduce the chance of a wrong 
 | Unit tests (this repo) | Expected values written in the tests | 1,457 unit tests and 2 doctests pass |
 | [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | Gnumeric, a separate spreadsheet engine | 1,300 formula cases pass, 1 skipped |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r), formulas | R, with Excel rules where R differs | 119 math, date and financial checks pass |
-| forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 62 of 77 specs pass against R in the Validation workflow; 15 skipped |
+| forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 65 of 77 specs pass against R in the Validation workflow; 12 skipped |
 
 Only the unit tests run on every push. The two validation suites run in the weekly **Validation** workflow (Actions tab, also runnable on demand) and can be run by hand with the commands below.
 
@@ -64,7 +64,7 @@ cargo run --release -- --all --binary /path/to/forge
 | Sensitivity | 10 | 6 | 3 are elasticity (no Forge command); 1 is a single point |
 | Decision trees | 10 | 10 | |
 | Real options | 15 | 15 | Price only; Forge's command does not print Greeks |
-| Bayesian networks | 10 | 7 | 3 have a node with two parents, which Forge does not support |
+| Bayesian networks | 10 | 10 | |
 
 Running without `--expected-only` on a machine without `data.tree`, `derivmkts` or `bnlearn` reports those specs as errors, not passes (`derivmkts` is optional). `--expected-only` compares decision trees, real options and Bayesian networks with the expected values in the spec and does not run R. Bootstrap, tornado and sensitivity need a Forge build with machine-readable `--output` (included from PR #27).
 
@@ -74,5 +74,5 @@ Running without `--expected-only` on a machine without `data.tree`, `derivmkts` 
 - When the real options and Bayesian runners were added, 11 expected prices and 2 expected posteriors in the specs turned out to be wrong and were recomputed; Forge matched an independent calculation in every case.
 - The Gnumeric and R suites run weekly, not on every push.
 - The expected values in a spec were written by the author or by an AI assistant. Where R or Gnumeric disagreed with them, the disagreement was investigated, but a value on which both Forge and its expected value are wrong in the same way would pass.
-- Bayesian networks support one parent per node. Real-options switch and compound valuations are rough approximations.
+- Real-options switch and compound valuations are rough approximations.
 - `cargo audit` reports no vulnerabilities and no warnings.
