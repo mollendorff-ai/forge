@@ -138,13 +138,6 @@ fn bootstrap(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
         .get("method")
         .and_then(|m| m.as_str())
         .unwrap_or("percentile");
-    if method != "percentile" {
-        return skip(
-            spec,
-            &format!("Forge only computes percentile intervals, not {method}"),
-        );
-    }
-
     let Some(data) = spec.raw.get("data").and_then(yaml_f64_list) else {
         return error(spec, "Spec has no numeric 'data' list".to_string());
     };
@@ -167,12 +160,13 @@ fn bootstrap(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
             .join(", ")
     };
     let model = format!(
-        "_forge_version: \"5.0.0\"\n\nbootstrap:\n  iterations: {}\n  seed: {}\n  confidence_levels: [{}]\n  data: [{}]\n  statistic: {}\n",
+        "_forge_version: \"5.0.0\"\n\nbootstrap:\n  iterations: {}\n  seed: {}\n  confidence_levels: [{}]\n  data: [{}]\n  statistic: {}\n  method: {}\n",
         spec.iterations,
         spec.seed,
         join(&levels),
         join(&data),
-        statistic
+        statistic,
+        method
     );
 
     let dir = match tempfile::tempdir() {
