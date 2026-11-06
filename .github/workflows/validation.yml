@@ -11,12 +11,13 @@ on:
   schedule:
     - cron: '41 6 * * 1'   # Mondays 06:41 UTC
   workflow_dispatch:
-  # Also on pull requests that change this file or the version or dependencies
-  # in Cargo.toml (a release or a dependency update), so the result shows on the PR.
+  # Also on pull requests that change this file, the source code, or the version or
+  # dependencies in Cargo.toml, so the result shows on the PR before it is merged.
   pull_request:
     paths:
       - '.github/workflows/validation.yml'
       - 'Cargo.toml'
+      - 'src/**'
 
 env:
   CARGO_TERM_COLOR: always

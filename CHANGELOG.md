@@ -8,9 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Bootstrap interval methods**: `method: percentile` (default, as before), `basic` (reverse percentile) or `bca` (bias-corrected and accelerated, using a jackknife for the acceleration). The result and `-o` output name the method. BCa stops with a clear error when it is undefined for the data (all resamples on one side of the estimate, or an acceleration too large). Checked against scipy's `bootstrap` in the unit tests and against R `boot` in forge-e2e-r.
 - **docs/STABILITY.md**: what a stable release will and will not promise, and what blocks the first one.
 - **Bayesian networks with several parents per node.** A CPT row names one state of each parent, in the order of `parents`, separated by commas (`yes, off: [0.2, 0.8]`); spaces around the commas do not matter. Every combination of parent states needs exactly one row: a missing, duplicated or misnamed row is an error, never a silent probability of 0. Checked against hand calculations (rain-sprinkler-grass, including explaining away and swapped parent order) and against R `bnlearn` on the 3 multi-parent specs in forge-e2e-r. One-parent models are unchanged.
-- **Validation workflow**: on a pull request it uses the forge-e2e-gnumeric and forge-e2e-r branches with the same name as the Forge branch, when they exist, so a Forge change and its suite change are tested together before either is merged.
+- **Validation workflow**: it now also runs on every pull request that changes `src/`, not only on the weekly schedule. On a pull request it uses the forge-e2e-gnumeric and forge-e2e-r branches with the same name as the Forge branch, when they exist, so a Forge change and its suite change are tested together before either is merged.
 
 ### Changed
 - **Deterministic output order.** `calculate`, `scenarios`, `decision-tree` and `bayesian` now list tables, columns, scenarios and variables in sorted order, so the same input always gives the same output. Scenario weighted sums no longer differ in the last digits between runs.

@@ -25,6 +25,19 @@ pub enum BootstrapStatistic {
     Max,
 }
 
+/// How confidence intervals are built from the bootstrap distribution
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum BootstrapMethod {
+    /// Percentiles of the bootstrap distribution
+    #[default]
+    Percentile,
+    /// Basic (reverse percentile) interval: `2 * estimate - upper percentile`, `2 * estimate - lower percentile`
+    Basic,
+    /// Bias-corrected and accelerated interval
+    Bca,
+}
+
 /// Configuration for bootstrap resampling
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -46,6 +59,9 @@ pub struct BootstrapConfig {
     /// Percentile value (if statistic is Percentile)
     #[serde(default = "default_percentile")]
     pub percentile_value: f64,
+    /// Interval method: `percentile` (default), `basic` or `bca`
+    #[serde(default)]
+    pub method: BootstrapMethod,
 }
 
 const fn default_iterations() -> usize {
@@ -69,6 +85,7 @@ impl Default for BootstrapConfig {
             data: Vec::new(),
             statistic: BootstrapStatistic::Mean,
             percentile_value: 50.0,
+            method: BootstrapMethod::Percentile,
         }
     }
 }
@@ -105,6 +122,13 @@ impl BootstrapConfig {
     #[must_use]
     pub const fn with_seed(mut self, seed: u64) -> Self {
         self.seed = Some(seed);
+        self
+    }
+
+    /// Set the interval method
+    #[must_use]
+    pub const fn with_method(mut self, method: BootstrapMethod) -> Self {
+        self.method = method;
         self
     }
 

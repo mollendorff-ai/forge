@@ -3,10 +3,11 @@
 //! Implements non-parametric bootstrap for confidence intervals.
 //! Validated against R's boot package.
 
-use super::config::{BootstrapConfig, BootstrapStatistic};
+use super::config::{BootstrapConfig, BootstrapMethod, BootstrapStatistic};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use serde::{Deserialize, Serialize};
+use statrs::distribution::{ContinuousCDF, Normal};
 
 /// A confidence interval
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +49,8 @@ pub struct BootstrapResult {
     pub bootstrap_std_error: f64,
     /// Bias (bootstrap mean - original)
     pub bias: f64,
+    /// How the confidence intervals were built
+    pub method: BootstrapMethod,
     /// Confidence intervals
     pub confidence_intervals: Vec<ConfidenceInterval>,
     /// Bootstrap distribution (all resampled statistics)
@@ -77,6 +80,30 @@ impl BootstrapResult {
     pub fn bias_corrected_estimate(&self) -> f64 {
         self.original_estimate - self.bias
     }
+}
+
+/// Value at probability `p` of a sorted distribution (index `floor(p * len)`, kept inside the data)
+fn quantile(sorted: &[f64], p: f64) -> f64 {
+    // cast_possible_truncation: the index is clamped to the data below
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let index = (p.clamp(0.0, 1.0) * sorted.len() as f64) as usize;
+    sorted[index.min(sorted.len() - 1)]
+}
+
+/// Probability that the `BCa` method reads from the bootstrap distribution for nominal probability `p`
+///
+/// Fails when the acceleration makes the adjustment undefined.
+pub(super) fn bca_adjusted_probability(z0: f64, a: f64, p: f64) -> Result<f64, String> {
+    let normal = Normal::new(0.0, 1.0).map_err(|e| e.to_string())?;
+    let z = normal.inverse_cdf(p);
+    let denominator = a.mul_add(-(z0 + z), 1.0);
+    if denominator <= 0.0 {
+        return Err(
+            "BCa interval undefined: the acceleration is too large for this data; use method percentile or basic"
+                .to_string(),
+        );
+    }
+    Ok(normal.cdf(z0 + (z0 + z) / denominator))
 }
 
 /// Bootstrap Resampling Engine
@@ -143,13 +170,15 @@ impl BootstrapEngine {
         let bias = bootstrap_mean - original_estimate;
 
         // Calculate confidence intervals
-        let confidence_intervals = self.calculate_confidence_intervals(&distribution);
+        let confidence_intervals =
+            self.calculate_confidence_intervals(&distribution, original_estimate)?;
 
         Ok(BootstrapResult {
             original_estimate,
             bootstrap_mean,
             bootstrap_std_error,
             bias,
+            method: self.config.method,
             confidence_intervals,
             distribution,
             iterations: self.config.iterations,
@@ -198,26 +227,83 @@ impl BootstrapEngine {
         }
     }
 
-    /// Calculate confidence intervals using percentile method
-    fn calculate_confidence_intervals(&self, distribution: &[f64]) -> Vec<ConfidenceInterval> {
+    /// Calculate confidence intervals with the configured method
+    fn calculate_confidence_intervals(
+        &self,
+        distribution: &[f64],
+        estimate: f64,
+    ) -> Result<Vec<ConfidenceInterval>, String> {
+        let bca = if self.config.method == BootstrapMethod::Bca {
+            Some(self.bca_constants(distribution, estimate)?)
+        } else {
+            None
+        };
         self.config
             .confidence_levels
             .iter()
             .map(|&level| {
                 let alpha = 1.0 - level;
-                // cast_possible_truncation: indices are bounded by [0, distribution.len()]
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                let lower_idx = ((alpha / 2.0) * distribution.len() as f64) as usize;
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                let upper_idx = ((1.0 - alpha / 2.0) * distribution.len() as f64) as usize;
-
-                ConfidenceInterval::new(
-                    level,
-                    distribution[lower_idx.min(distribution.len() - 1)],
-                    distribution[upper_idx.min(distribution.len() - 1)],
-                )
+                let (lower_p, upper_p) = (alpha / 2.0, 1.0 - alpha / 2.0);
+                match self.config.method {
+                    BootstrapMethod::Percentile => Ok(ConfidenceInterval::new(
+                        level,
+                        quantile(distribution, lower_p),
+                        quantile(distribution, upper_p),
+                    )),
+                    BootstrapMethod::Basic => Ok(ConfidenceInterval::new(
+                        level,
+                        2.0f64.mul_add(estimate, -quantile(distribution, upper_p)),
+                        2.0f64.mul_add(estimate, -quantile(distribution, lower_p)),
+                    )),
+                    BootstrapMethod::Bca => {
+                        let (z0, a) = bca.ok_or("BCa constants were not computed")?;
+                        Ok(ConfidenceInterval::new(
+                            level,
+                            quantile(distribution, bca_adjusted_probability(z0, a, lower_p)?),
+                            quantile(distribution, bca_adjusted_probability(z0, a, upper_p)?),
+                        ))
+                    },
+                }
             })
             .collect()
+    }
+
+    /// Bias correction `z0` and acceleration `a` for the `BCa` method
+    ///
+    /// `z0` is the normal quantile of the share of bootstrap values below the estimate;
+    /// `a` comes from the jackknife (leave-one-out) values of the statistic.
+    fn bca_constants(&self, distribution: &[f64], estimate: f64) -> Result<(f64, f64), String> {
+        let below = distribution.partition_point(|&x| x < estimate);
+        if below == 0 || below == distribution.len() {
+            return Err(
+                "BCa interval undefined: every bootstrap value is on the same side of the estimate; use method percentile or basic"
+                    .to_string(),
+            );
+        }
+        let normal = Normal::new(0.0, 1.0).map_err(|e| e.to_string())?;
+        let z0 = normal.inverse_cdf(below as f64 / distribution.len() as f64);
+
+        let data = &self.config.data;
+        let leave_one_out: Vec<f64> = (0..data.len())
+            .map(|i| {
+                let rest: Vec<f64> = data
+                    .iter()
+                    .enumerate()
+                    .filter(|&(j, _)| j != i)
+                    .map(|(_, &x)| x)
+                    .collect();
+                self.compute_statistic(&rest)
+            })
+            .collect();
+        let mean = leave_one_out.iter().sum::<f64>() / leave_one_out.len() as f64;
+        let sum_squares: f64 = leave_one_out.iter().map(|x| (mean - x).powi(2)).sum();
+        let sum_cubes: f64 = leave_one_out.iter().map(|x| (mean - x).powi(3)).sum();
+        let a = if sum_squares > 0.0 {
+            sum_cubes / (6.0 * sum_squares.powf(1.5))
+        } else {
+            0.0
+        };
+        Ok((z0, a))
     }
 
     /// Get the configuration
