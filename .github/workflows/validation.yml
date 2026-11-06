@@ -56,7 +56,7 @@ jobs:
       - name: Build Forge
         run: cargo build --release
       - name: Get the suite
-        run: git clone --depth 1 --branch feat/run-real-options-bayesian https://github.com/mollendorff-ai/forge-e2e-r ../forge-e2e-r
+        run: git clone --depth 1 https://github.com/mollendorff-ai/forge-e2e-r ../forge-e2e-r
       - name: Math, date and financial functions
         working-directory: ../forge-e2e-r
         env:
