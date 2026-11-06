@@ -3,7 +3,7 @@
 use super::{
     evaluate, parse_date_value, require_args, Datelike, EvalContext, EvalError, Expr, Value,
 };
-use crate::core::array_calculator::evaluator::number_or;
+use crate::core::array_calculator::evaluator::{day_count, number_or};
 
 use super::require_args_range;
 
@@ -129,58 +129,15 @@ pub fn try_evaluate(
 
         "YEARFRAC" => {
             require_args_range(name, args, 2, 3)?;
-            let start = evaluate(&args[0], ctx)?;
-            let end = evaluate(&args[1], ctx)?;
+            let start = parse_date_value(&evaluate(&args[0], ctx)?)?;
+            let end = parse_date_value(&evaluate(&args[1], ctx)?)?;
             let basis = if args.len() > 2 {
-                number_or(&args[2], ctx, 0.0)? as i32
+                number_or(&args[2], ctx, 0.0)?
             } else {
-                0
+                0.0
             };
-
-            let start_date = parse_date_value(&start)?;
-            let end_date = parse_date_value(&end)?;
-
-            let result = match basis {
-                0 | 4 => {
-                    // US 30/360 and European 30/360
-                    let mut d1 = start_date.day() as i32;
-                    let m1 = start_date.month() as i32;
-                    let y1 = start_date.year();
-                    let mut d2 = end_date.day() as i32;
-                    let m2 = end_date.month() as i32;
-                    let y2 = end_date.year();
-
-                    if d1 == 31 {
-                        d1 = 30;
-                    }
-                    if d2 == 31 && (d1 >= 30 || basis == 4) {
-                        d2 = 30;
-                    }
-
-                    let days_30_360 = f64::from((y2 - y1) * 360 + (m2 - m1) * 30 + (d2 - d1));
-                    days_30_360 / 360.0
-                },
-                1 => {
-                    // Actual/actual
-                    let days = (end_date - start_date).num_days() as f64;
-                    let year = start_date.year();
-                    let is_leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-                    let year_days = if is_leap { 366.0 } else { 365.0 };
-                    days / year_days
-                },
-                2 => {
-                    // Actual/360
-                    let days = (end_date - start_date).num_days() as f64;
-                    days / 360.0
-                },
-                3 => {
-                    // Actual/365
-                    let days = (end_date - start_date).num_days() as f64;
-                    days / 365.0
-                },
-                _ => return Err(EvalError::new(format!("YEARFRAC: unknown basis {basis}"))),
-            };
-            Value::Number(result)
+            let basis = day_count::Basis::from_number(basis, "YEARFRAC")?;
+            Value::Number(day_count::year_fraction(start, end, basis))
         },
 
         "TIME" => {
@@ -315,7 +272,10 @@ mod tests {
         let ctx = EvalContext::new();
         let result = eval("YEARFRAC(\"2024-01-01\", \"2024-07-01\", 5)", &ctx);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("unknown basis"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("basis must be 0, 1, 2, 3 or 4"));
     }
 
     #[test]

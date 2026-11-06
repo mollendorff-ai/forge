@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **`PRICEDISC`, `YIELDDISC` and `ACCRINT` ignored the day-count `basis`** and counted actual days over 360; Excel's default is US 30/360. `ACCRINT` also ignored the coupon schedule. They now follow Excel's definitions for bases 0 to 4, and a basis outside 0 to 4 is #NUM!. Results with the default basis change for most dates.
+- **`YEARFRAC`** now applies the US 30/360 end-of-February rules, Excel's actual/actual rule for spans over a year, and gives the same answer whichever date comes first.
+- **`forge export`** now writes `IPMT`, `PPMT`, `EFFECT`, `NOMINAL`, `PRICEDISC`, `YIELDDISC`, `ACCRINT` and `REPT` as formulas; before, it wrote their calculated values and listed them as having no Excel equivalent.
+- Checked in Excel for iPhone on 2026-11-06: 18 of 18 results match, including six where Gnumeric 1.12 differs (see VALIDATION.md).
 - **`FV`, `PV`, `NPER`, `IPMT` and `PPMT` ignored payments at the start of the period.** They accepted Excel's `type` argument (1 = payment at the start of each period) and then computed as if it were 0, so `FV(0.04/12, 120, -200, -5000, 1)` gave 36,904.12 instead of 37,002.29. `type` = 0, the default, was right and is unchanged; `PMT` and `RATE` were right. All six now share one implementation, checked against numpy-financial on 456 combinations and against Gnumeric in forge-e2e-gnumeric (12 new cases).
 - **A function with no result now returns #NUM! instead of NaN**, as in Excel (for example `NPER` when the payment never covers the interest).
 

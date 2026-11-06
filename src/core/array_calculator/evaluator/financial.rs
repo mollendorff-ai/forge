@@ -3,7 +3,8 @@
 
 use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
-use crate::core::array_calculator::evaluator::number_or;
+use crate::core::array_calculator::evaluator::day_count::{self, Basis};
+use crate::core::array_calculator::evaluator::{number_or, parse_date_value};
 
 /// Return an error unless the cash flows contain both signs.
 ///
@@ -175,6 +176,21 @@ fn annuity_ipmt(rate: f64, per: f64, nper: f64, pv: f64, fv: f64, due: f64) -> f
     } else {
         interest / (1.0 + rate)
     }
+}
+
+/// A date argument given as an Excel serial number or a date string
+fn date_arg(arg: &Expr, ctx: &EvalContext, what: &str) -> Result<chrono::NaiveDate, EvalError> {
+    parse_date_value(&evaluate(arg, ctx)?)
+        .map_err(|e| EvalError::new(format!("{what}: {}", e.message)))
+}
+
+fn basis_arg(
+    args: &[Expr],
+    index: usize,
+    ctx: &EvalContext,
+    name: &str,
+) -> Result<Basis, EvalError> {
+    Basis::from_number(optional_number(args, index, ctx, 0.0)?, name)
 }
 
 /// Try to evaluate a financial function. Returns None if function not recognized.
@@ -636,126 +652,86 @@ pub fn try_evaluate(
         },
 
         "PRICEDISC" => {
-            // Price of a discounted security per $100 face value
             // PRICEDISC(settlement, maturity, discount, redemption, [basis])
             require_args_range(name, args, 4, 5)?;
-            let settlement = evaluate(&args[0], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("PRICEDISC requires settlement date"))?;
-            let maturity = evaluate(&args[1], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("PRICEDISC requires maturity date"))?;
-            let discount = evaluate(&args[2], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("PRICEDISC requires discount rate"))?;
-            let redemption = evaluate(&args[3], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("PRICEDISC requires redemption value"))?;
-            let _basis = if args.len() > 4 {
-                number_or(&args[4], ctx, 0.0)?
-            } else {
-                0.0
-            };
-
+            let settlement = date_arg(&args[0], ctx, "PRICEDISC settlement")?;
+            let maturity = date_arg(&args[1], ctx, "PRICEDISC maturity")?;
+            let discount = number_or(&args[2], ctx, 0.0)?;
+            let redemption = number_or(&args[3], ctx, 0.0)?;
+            let basis = basis_arg(args, 4, ctx, name)?;
             if settlement >= maturity {
                 return Err(EvalError::new(
-                    "PRICEDISC: settlement must be before maturity",
+                    "#NUM!: PRICEDISC settlement must be before maturity",
                 ));
             }
-
-            // Simplified calculation: assumes 360-day year (basis 0)
-            let days = maturity - settlement;
-            let frac = days / 360.0;
-            let price = (discount * redemption).mul_add(-frac, redemption);
-            Value::Number(price)
+            if discount <= 0.0 || redemption <= 0.0 {
+                return Err(EvalError::new(
+                    "#NUM!: PRICEDISC discount and redemption must be positive",
+                ));
+            }
+            // DSM / B, computed as YEARFRAC does (as LibreOffice does too)
+            let fraction = day_count::year_fraction(settlement, maturity, basis);
+            Value::Number((discount * redemption).mul_add(-fraction, redemption))
         },
 
         "YIELDDISC" => {
-            // Annual yield of a discounted security
             // YIELDDISC(settlement, maturity, price, redemption, [basis])
             require_args_range(name, args, 4, 5)?;
-            let settlement = evaluate(&args[0], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("YIELDDISC requires settlement date"))?;
-            let maturity = evaluate(&args[1], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("YIELDDISC requires maturity date"))?;
-            let price = evaluate(&args[2], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("YIELDDISC requires price"))?;
-            let redemption = evaluate(&args[3], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("YIELDDISC requires redemption value"))?;
-            let _basis = if args.len() > 4 {
-                number_or(&args[4], ctx, 0.0)?
-            } else {
-                0.0
-            };
-
+            let settlement = date_arg(&args[0], ctx, "YIELDDISC settlement")?;
+            let maturity = date_arg(&args[1], ctx, "YIELDDISC maturity")?;
+            let price = number_or(&args[2], ctx, 0.0)?;
+            let redemption = number_or(&args[3], ctx, 0.0)?;
+            let basis = basis_arg(args, 4, ctx, name)?;
             if settlement >= maturity {
                 return Err(EvalError::new(
-                    "YIELDDISC: settlement must be before maturity",
+                    "#NUM!: YIELDDISC settlement must be before maturity",
                 ));
             }
-            if price <= 0.0 {
-                return Err(EvalError::new("YIELDDISC: price must be positive"));
+            if price <= 0.0 || redemption <= 0.0 {
+                return Err(EvalError::new(
+                    "#NUM!: YIELDDISC price and redemption must be positive",
+                ));
             }
-
-            // Simplified calculation: assumes 360-day year (basis 0)
-            let days = maturity - settlement;
-            let frac = days / 360.0;
-            let yld = ((redemption - price) / price) * (1.0 / frac);
-            Value::Number(yld)
+            // DSM / B, computed as YEARFRAC does (as LibreOffice does too)
+            let fraction = day_count::year_fraction(settlement, maturity, basis);
+            Value::Number((redemption - price) / price / fraction)
         },
 
         "ACCRINT" => {
-            // Accrued interest for a security that pays periodic interest
             // ACCRINT(issue, first_interest, settlement, rate, par, frequency, [basis])
             require_args_range(name, args, 6, 7)?;
-            let issue = evaluate(&args[0], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("ACCRINT requires issue date"))?;
-            let _first_interest = evaluate(&args[1], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("ACCRINT requires first interest date"))?;
-            let settlement = evaluate(&args[2], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("ACCRINT requires settlement date"))?;
-            let rate = evaluate(&args[3], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("ACCRINT requires rate"))?;
-            let par = evaluate(&args[4], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("ACCRINT requires par value"))?;
-            let frequency = evaluate(&args[5], ctx)?
-                .as_number()
-                .ok_or_else(|| EvalError::new("ACCRINT requires frequency"))?;
-            let _basis = if args.len() > 6 {
-                number_or(&args[6], ctx, 0.0)?
-            } else {
-                0.0
-            };
-
+            let issue = date_arg(&args[0], ctx, "ACCRINT issue")?;
+            let first_interest = date_arg(&args[1], ctx, "ACCRINT first interest")?;
+            let settlement = date_arg(&args[2], ctx, "ACCRINT settlement")?;
+            let rate = number_or(&args[3], ctx, 0.0)?;
+            let par = number_or(&args[4], ctx, 0.0)?;
+            let frequency = number_or(&args[5], ctx, 0.0)?.trunc();
+            let basis = basis_arg(args, 6, ctx, name)?;
             if issue >= settlement {
                 return Err(EvalError::new(
-                    "ACCRINT: issue date must be before settlement",
+                    "#NUM!: ACCRINT issue date must be before settlement",
                 ));
             }
-            if rate < 0.0 {
-                return Err(EvalError::new("ACCRINT: rate must be non-negative"));
+            if rate <= 0.0 || par <= 0.0 {
+                return Err(EvalError::new(
+                    "#NUM!: ACCRINT rate and par value must be positive",
+                ));
             }
-            if par <= 0.0 {
-                return Err(EvalError::new("ACCRINT: par value must be positive"));
-            }
-            let freq_int = frequency as i32;
-            if freq_int != 1 && freq_int != 2 && freq_int != 4 {
-                return Err(EvalError::new("ACCRINT: frequency must be 1, 2, or 4"));
-            }
-
-            // Simplified calculation: assumes 360-day year (basis 0)
-            let days = settlement - issue;
-            let accrued = par * rate * (days / 360.0);
-            Value::Number(accrued)
+            let frequency = match frequency {
+                1.0 => 1,
+                2.0 => 2,
+                4.0 => 4,
+                _ => return Err(EvalError::new("#NUM!: ACCRINT frequency must be 1, 2 or 4")),
+            };
+            Value::Number(day_count::accrued_interest(
+                issue,
+                first_interest,
+                settlement,
+                rate,
+                par,
+                frequency,
+                basis,
+            )?)
         },
 
         _ => return Ok(None),
@@ -1244,5 +1220,55 @@ mod tests {
         // A payment of 600 never covers 8% interest on 25,000
         let error = eval("NPER(0.08, -600, 25000)", &EvalContext::new()).unwrap_err();
         assert!(error.to_string().contains("#NUM!"), "{error}");
+    }
+
+    /// Security functions with real dates; values checked in Excel on 2026-11-06
+    #[test]
+    fn test_security_functions_match_excel() {
+        assert_close("PRICEDISC(36341, 39903, 0.05, 100, 0)", 51.25);
+        assert_close(
+            "PRICEDISC(43541, 43708, 0.05, 100, 4)",
+            97.736_111_111_111_11,
+        );
+        assert_close(
+            "PRICEDISC(38777, 49064, 0.05, 100, 1)",
+            -40.824_679_003_021_15,
+        );
+        assert_close(
+            "YIELDDISC(36885, 36950, 95, 100, 1)",
+            0.295_546_558_704_453_5,
+        );
+        assert_close(
+            "ACCRINT(34938, 35115, 39325, 0.06, 1000, 1, 0)",
+            720.666_666_666_666_6,
+        );
+        assert_close(
+            "ACCRINT(44296, 44548, 48337, 0.06, 1000, 2, 1)",
+            663.832_642_767_068_9,
+        );
+        // Dates may also be given as text
+        assert_close("PRICEDISC(\"2024-01-15\", \"2024-07-15\", 0.05, 100)", 97.5);
+    }
+
+    #[test]
+    fn test_security_functions_reject_bad_arguments() {
+        let ctx = EvalContext::new();
+        for formula in [
+            "PRICEDISC(45488, 45306, 0.05, 100)",
+            "PRICEDISC(45306, 45488, 0, 100)",
+            "PRICEDISC(45306, 45488, 0.05, 100, 5)",
+            "YIELDDISC(45488, 45306, 97, 100)",
+            "YIELDDISC(45306, 45488, 0, 100)",
+            "ACCRINT(45488, 45672, 45306, 0.06, 1000, 1)",
+            "ACCRINT(45306, 45672, 45488, 0, 1000, 1)",
+            "ACCRINT(45306, 45672, 45488, 0.06, 1000, 3)",
+            "ACCRINT(\"not a date\", 45672, 45488, 0.06, 1000, 1)",
+        ] {
+            let error = eval(formula, &ctx).unwrap_err();
+            assert!(
+                error.to_string().contains("#NUM!") || error.to_string().contains("date"),
+                "{formula}: {error}"
+            );
+        }
     }
 }
