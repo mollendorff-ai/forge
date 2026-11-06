@@ -863,19 +863,9 @@ EXAMPLES:
     #[command(
         long_about = "List all supported Excel-compatible functions by category.
 
-Forge supports 58 Excel functions for financial modeling. Use this command
-to see all available functions organized by category.
-
-CATEGORIES:
-  Financial   - NPV, IRR, XNPV, XIRR, PMT, PV, FV, RATE, NPER (9)
-  Lookup      - MATCH, INDEX, VLOOKUP, XLOOKUP, CHOOSE, OFFSET (6)
-  Conditional - SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, MAXIFS, MINIFS (8)
-  Array       - UNIQUE, COUNTUNIQUE, FILTER, SORT (4)
-  Aggregation - SUM, AVERAGE, MIN, MAX, COUNT (5)
-  Math        - ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER, ABS (9)
-  Text        - CONCAT, TRIM, UPPER, LOWER, LEN, MID (6)
-  Date        - TODAY, DATE, YEAR, MONTH, DAY, DATEDIF, EDATE, EOMONTH (8)
-  Logic       - IF, AND, OR (3)
+Most functions are Excel-compatible; a few are FP&A-native functions Excel
+does not have. The list is generated from the function registry and shows the
+total and the count for each category.
 
 EXAMPLES:
   forge functions           # List all functions

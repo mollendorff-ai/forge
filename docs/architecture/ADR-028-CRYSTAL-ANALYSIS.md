@@ -2,7 +2,7 @@
 
 ## Status
 
-**Accepted** - Pending implementation (v10.4.0+)
+**NOT SCHEDULED** - Proposed direction. Nothing in this ADR is implemented in Forge (no PCA, UMAP or Qdrant code in `src/`), and no release is planned for it. DANEEL work lives in its own repository.
 
 ## Context
 

@@ -303,7 +303,7 @@ revenue:
 
 ## Roundtrip Validation
 
-> **E2E tests live in [forge-e2e](https://github.com/mollendorff-ai/forge-e2e)** - see ADR-027.
+> **E2E tests live in [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) and [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r)** - see ADR-027.
 
 Bayesian Network results are validated against **R's bnlearn package** (gold standard for Bayesian networks).
 

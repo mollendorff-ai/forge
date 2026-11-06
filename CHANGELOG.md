@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Stale text.** `forge functions --help` said Forge supports 58 functions (it has 173) and listed outdated category counts; the help now points to the generated list. The list header said "Forge Enterprise"; there is no such edition. README: removed a leftover validation table with older numbers. ADR-028 is marked not scheduled, since nothing in it is implemented. Links to the private, archived `forge-e2e` repository in seven ADRs now point to forge-e2e-gnumeric and forge-e2e-r.
+
 ## [10.0.0-rc.1] - 2026-11-06
 
 First release candidate. [docs/STABILITY.md](docs/STABILITY.md) says what the stable release will promise; it follows after two weeks without a report of a wrong answer.

@@ -93,10 +93,7 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         // Human-readable output
-        println!(
-            "{}",
-            "🔥 Forge Enterprise - Supported Functions".bold().green()
-        );
+        println!("{}", "🔥 Forge - Supported Functions".bold().green());
         println!();
         println!(
             "{}",
