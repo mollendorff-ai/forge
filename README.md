@@ -9,7 +9,7 @@ R-validated E2E testing for [forge](https://github.com/mollendorff-ai/forge) ana
 All tests validate forge against R, the gold-standard for statistical computing.
 If forge disagrees with R, forge has a bug.
 
-This is a child repository of [forge-e2e](https://github.com/mollendorff-ai/forge-e2e), the documentation hub that coordinates validation of forge against external reference implementations.
+This is one of two validation suites for [Forge](https://github.com/mollendorff-ai/forge); the other is [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric). They replace the earlier forge-e2e repository, which is archived.
 
 ## What It Tests
 
@@ -30,6 +30,14 @@ This is a child repository of [forge-e2e](https://github.com/mollendorff-ai/forg
 `cargo run --release -- --all` loads the 77 specs in `tests/analytics` and compares Forge with R for 70 of them: Monte Carlo 10 of 12, bootstrap 12 of 12, tornado 7 of 8, sensitivity 6 of 10, decision trees 10 of 10, real options 15 of 15, Bayesian networks 10 of 10. The decision tree runner needs the R package `data.tree` and the Bayesian runner needs `bnlearn`; without them those tests error. The real options validator uses `derivmkts` when it is installed, as a second independent price. `--expected-only` compares decision trees, real options and Bayesian networks with the expected values written in the spec instead of running R, and the summary says so. The other 7 specs are skipped, each with its reason: Forge has no exponential distribution, no elasticity command, and rejects one-point ranges. Real options are compared on price only: Forge's command does not print Greeks. Bootstrap, tornado and sensitivity need a Forge build with machine-readable `--output` (forge PR #27). `variance.yaml`, `breakeven.yaml` and `scenarios.yaml` are Forge models with hand-written expected values, not R comparisons, and the runner does not load them.
 
 `validators/r/math_validator.R`, `date_validator.R` and `financial_validator.R` run each formula through `forge calculate` and compare the result with R. They need `FORGE_BIN` set (or `forge` on the PATH) and stop with exit code 2 if Forge cannot be found. Where R and Excel differ, the reference is Excel: `ROUND` rounds half away from zero and `NETWORKDAYS` counts both end dates.
+
+### Which checks call Forge
+
+`validators/r/run_all.sh` runs six validators. Three of them send formulas through `forge calculate` and compare the result with R: math (48 checks), date (40) and financial (31), 119 checks in all. These are the 119 that VALIDATION.md in the Forge repository reports. The other two validators (bootstrap and distribution) check R's own output and do not call Forge, and the script's summary counts them as well, so it prints a larger total (136 when I ran it). The Forge comparison for bootstrap and the distributions is done by the analytics runner (`cargo run --release -- --all`) described above.
+
+### Versioning
+
+This repository has no releases or tags of its own. It is run by Forge's Validation workflow. On a Forge pull request the workflow uses the branch of this repository with the same name as the Forge branch, if there is one; on the weekly schedule, and when there is no such branch, it uses `main`. A change here that goes with a Forge change should use the same branch name.
 
 ## Requirements
 
@@ -211,7 +219,6 @@ cargo fmt
 ## Related Projects
 
 - [forge](https://github.com/mollendorff-ai/forge) - Deterministic YAML financial modeling engine
-- [forge-e2e](https://github.com/mollendorff-ai/forge-e2e) - Documentation hub for E2E validation
 - [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) - Excel formula validation
 
 ## License
