@@ -1,6 +1,6 @@
 # Validation
 
-How Forge's results are checked, what the checks cover, and how to run each one yourself. Numbers are from 2026-11-05 on Forge main after PR #28.
+How Forge's results are checked, what the checks cover, and how to run each one yourself. Numbers are from 2026-11-06 on Forge main.
 
 Forge is a beta and an R&D prototype. These checks reduce the chance of a wrong answer; they do not rule it out. Check results that matter independently.
 
@@ -8,10 +8,11 @@ Forge is a beta and an R&D prototype. These checks reduce the chance of a wrong 
 
 | Check | Compares Forge with | Result |
 | --- | --- | --- |
-| Unit tests (this repo) | Expected values written in the tests | 1,457 unit tests and 2 doctests pass |
+| Unit tests (this repo) | Expected values written in the tests | 1,461 unit tests and 2 doctests pass |
 | [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | Gnumeric, a separate spreadsheet engine | 1,300 formula cases pass, 1 skipped |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r), formulas | R, with Excel rules where R differs | 119 math, date and financial checks pass |
 | forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 65 of 77 specs pass against R in the Validation workflow; 12 skipped |
+| Real Excel (by hand, once) | Microsoft Excel opening the `.xlsx` that `forge export` wrote | 3 cells of the README 5-year DCF match (2026-11-06) |
 
 Only the unit tests run on every push. The two validation suites run in the weekly **Validation** workflow (Actions tab, also runnable on demand) and can be run by hand with the commands below.
 
@@ -76,3 +77,7 @@ Running without `--expected-only` on a machine without `data.tree`, `derivmkts` 
 - The expected values in a spec were written by the author or by an AI assistant. Where R or Gnumeric disagreed with them, the disagreement was investigated, but a value on which both Forge and its expected value are wrong in the same way would pass.
 - Real-options switch and compound valuations are rough approximations.
 - `cargo audit` reports no vulnerabilities and no warnings.
+
+## 5. Real Excel, by hand
+
+One check, done once, by hand, on 2026-11-06 (Forge v10.0.0-beta.11): the 5-year DCF model from the README was exported with `forge export` and opened in Excel on an iPhone. Excel's values for `valuation.total_revenue` (6,742,381.25), `valuation.avg_gross_margin` (0.65) and `valuation.npv_cash_flows` (about 1,306,696.47) matched Forge's, and a separate Python calculation. This covers one model and three results; it does not show that every function or the whole export behaves the same in Excel. It is not repeated automatically.
