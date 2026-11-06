@@ -17,6 +17,11 @@
 _forge_version: "1.0.0"
 _r_validator: "bayesian_validator.R"
 
+# Probability tables are listed row by row: one row per state of the node, one
+# column per combination of parent states (first parent varies fastest). Each
+# column must sum to 1. Expected values were recomputed on 2026-11-05 by hand
+# enumeration; the R validator decides when the runner runs without --expected-only.
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Test Suite: Simple Networks
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -208,8 +213,9 @@ tests:
         Revenue:
           levels: ["high", "medium", "low"]
           parents: ["Economy"]
-          # P(Revenue|Economy) - 9 values (3x3)
-          probs: [0.6, 0.3, 0.1, 0.3, 0.5, 0.2, 0.1, 0.3, 0.6]
+          # P(Revenue|Economy), one row per Revenue state, one column per
+          # Economy state (good, neutral, bad); each column sums to 1
+          probs: [0.6, 0.3, 0.1, 0.3, 0.5, 0.3, 0.1, 0.2, 0.6]
         Default:
           levels: ["low", "medium", "high"]
           parents: ["Revenue"]
@@ -223,9 +229,9 @@ tests:
       # Bad economy increases default risk
       # P(Default=high|Economy=bad) should be elevated
       posterior:
-        "low": 0.24
-        "medium": 0.34
-        "high": 0.42
+        "low": 0.26
+        "medium": 0.315
+        "high": 0.425
     tolerance:
       probability: 0.03
 
@@ -257,9 +263,9 @@ tests:
     r_expected:
       # Both symptoms present -> likely flu
       posterior:
-        "healthy": 0.05  # Low given both symptoms
-        "flu": 0.74      # Most likely
-        "cold": 0.21     # Possible
+        "healthy": 0.020  # Low given both symptoms
+        "flu": 0.619      # Most likely
+        "cold": 0.361     # Possible
     tolerance:
       probability: 0.05
 

@@ -87,7 +87,11 @@ build_network <- function(network_spec) {
       dim_names <- c(list(levels), parent_levels)
       names(dim_names) <- c(node, parents)
 
-      cpt <- array(probs, dim = dims, dimnames = dim_names)
+      # The specs list each table row by row: one row per state of this node,
+      # one column per combination of parent states (first parent varies
+      # fastest). R fills arrays column by column, so lay the rows out first.
+      cpt <- array(matrix(probs, nrow = length(levels), byrow = TRUE),
+                   dim = dims, dimnames = dim_names)
     }
 
     cpt_list[[node]] <- cpt
@@ -193,6 +197,7 @@ marginal_probabilities <- function(fitted, n_samples = 100000) {
 # ─────────────────────────────────────────────────────────────────────────────
 
 run_json_mode <- function(params_json) {
+  set.seed(42)  # the same samples every run
   tryCatch({
     params <- fromJSON(params_json, simplifyVector = FALSE)
 

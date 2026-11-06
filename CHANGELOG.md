@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Runners for real options (15 specs, price only) and Bayesian networks (7 of 10 specs; Forge supports one parent per node). `--expected-only` covers them too. The Gnumeric and R CI install `derivmkts` and `bnlearn` for them.
+
+### Fixed (specs and validators)
+
+- 11 expected prices in `real_options.yaml` and 2 expected posteriors in `bayesian.yaml` were wrong; Forge matched an independent calculation. They are recomputed.
+- `bayesian_validator.R` read probability tables column by column, but the specs list them row by row, so `bnlearn` would have rejected them. It now reads them row by row. The `credit_risk` table was listed the other way round and is corrected. Sampling uses a fixed seed.
+- `real_options_validator.R` no longer fails to start when `derivmkts` is missing.
+
 ### Fixed
 
 - **The math, date and financial validators never ran Forge.** Each test compared a hard-coded number (`forge_result <- 3`) with R, so a pass said nothing about Forge. They now run every formula through `forge calculate` (`validators/r/forge_helper.R`; set `FORGE_BIN`) and exit 2 if Forge cannot be found. 119 tests.
