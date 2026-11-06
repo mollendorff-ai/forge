@@ -269,6 +269,10 @@ pub fn evaluate(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
             Value::Number(n) if n.is_infinite() => {
                 Err(EvalError::new(format!("#NUM!: {name} result is too large")))
             },
+            // Excel never returns NaN; it returns #NUM! when a function has no result
+            Value::Number(n) if n.is_nan() => Err(EvalError::new(format!(
+                "#NUM!: {name} has no result for these arguments"
+            ))),
             value => Ok(value),
         },
 

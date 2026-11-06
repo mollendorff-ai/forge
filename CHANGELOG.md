@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`FV`, `PV`, `NPER`, `IPMT` and `PPMT` ignored payments at the start of the period.** They accepted Excel's `type` argument (1 = payment at the start of each period) and then computed as if it were 0, so `FV(0.04/12, 120, -200, -5000, 1)` gave 36,904.12 instead of 37,002.29. `type` = 0, the default, was right and is unchanged; `PMT` and `RATE` were right. All six now share one implementation, checked against numpy-financial on 456 combinations and against Gnumeric in forge-e2e-gnumeric (12 new cases).
+- **A function with no result now returns #NUM! instead of NaN**, as in Excel (for example `NPER` when the payment never covers the interest).
+
 ### Added
 - **Bootstrap interval methods**: `method: percentile` (default, as before), `basic` (reverse percentile) or `bca` (bias-corrected and accelerated, using a jackknife for the acceleration). The result and `-o` output name the method. BCa stops with a clear error when it is undefined for the data (all resamples on one side of the estimate, or an acceleration too large). Checked against scipy's `bootstrap` in the unit tests and against R `boot` in forge-e2e-r.
 - **docs/STABILITY.md**: what a stable release will and will not promise, and what blocks the first one.
