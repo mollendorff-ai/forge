@@ -86,7 +86,7 @@ Forge's results are checked against other engines. None of the checks is complet
 | [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,301 formula cases. A case passes only if `forge calculate` and Gnumeric's recalculation of the exported `.xlsx` both match the expected value | 1,300 pass, 1 skipped; weekly in CI |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 119 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped; weekly in CI |
 
-Next steps: compare more of the skipped analytics specs (elasticity, exponential distribution, European options).
+Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
 
 --- | --- | --- |
 | Unit tests (this repo) | 1,399 inline unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Run on every push |
