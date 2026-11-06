@@ -82,7 +82,7 @@ notify-debouncer-mini = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "signal", "net"] }
 
 # MCP server (Model Context Protocol via rmcp SDK)
-rmcp = { version = "1.2", features = ["server", "transport-io"] }
+rmcp = { version = "3.8", features = ["server", "transport-io"] }
 
 # API Server
 axum = "0.8"
