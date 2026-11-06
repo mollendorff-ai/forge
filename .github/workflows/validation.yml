@@ -50,11 +50,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y r-base r-cran-jsonlite r-cran-boot r-cran-mvtnorm
-          sudo Rscript -e 'install.packages(c("data.tree", "mc2d"), repos = "https://cloud.r-project.org")'
+          sudo Rscript -e 'install.packages(c("data.tree", "mc2d", "derivmkts"), repos = "https://cloud.r-project.org")'
+          # The current bnlearn needs R 4.4; Ubuntu 24.04 has R 4.3, so use an older release.
+          sudo Rscript -e 'for (v in c("4.9.4", "4.9.3", "4.9.2", "4.9.1", "4.9", "4.8.3")) { if (!requireNamespace("bnlearn", quietly = TRUE)) try(install.packages(paste0("https://cloud.r-project.org/src/contrib/Archive/bnlearn/bnlearn_", v, ".tar.gz"), repos = NULL, type = "source")) }; library(bnlearn); cat("bnlearn", as.character(packageVersion("bnlearn")), "\n")'
       - name: Build Forge
         run: cargo build --release
       - name: Get the suite
-        run: git clone --depth 1 https://github.com/mollendorff-ai/forge-e2e-r ../forge-e2e-r
+        run: git clone --depth 1 --branch feat/run-real-options-bayesian https://github.com/mollendorff-ai/forge-e2e-r ../forge-e2e-r
       - name: Math, date and financial functions
         working-directory: ../forge-e2e-r
         env:
