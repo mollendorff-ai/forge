@@ -43,7 +43,7 @@ path = "src/main.rs"
 [dependencies]
 # YAML parsing
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml_ng = "0.10"
+yaml_serde = "0.10"
 serde_json = "1.0"  # JSON handling for schema validation
 
 # Expression evaluation (Excel-compatible formulas)

@@ -285,7 +285,7 @@ mod tests {
     #[test]
     fn test_all_examples_are_valid_yaml() {
         for example in EXAMPLES {
-            let parsed: Result<serde_yaml_ng::Value, _> = serde_yaml_ng::from_str(example.content);
+            let parsed: Result<yaml_serde::Value, _> = yaml_serde::from_str(example.content);
             assert!(
                 parsed.is_ok(),
                 "Example '{}' should be valid YAML: {:?}",

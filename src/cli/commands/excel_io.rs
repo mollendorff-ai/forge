@@ -66,10 +66,10 @@ pub fn export_buffer_core(input: &Path) -> ForgeResult<super::results::ExportBuf
 
 /// One table in the YAML format the parser reads: data columns as arrays,
 /// row formulas as `=...` strings.
-fn table_to_value(table: &crate::types::Table) -> serde_yaml_ng::Value {
+fn table_to_value(table: &crate::types::Table) -> yaml_serde::Value {
     use crate::types::ColumnValue;
-    use serde_yaml_ng::Value;
-    let mut map = serde_yaml_ng::Mapping::new();
+    use yaml_serde::Value;
+    let mut map = yaml_serde::Mapping::new();
     let mut names: Vec<&String> = table.columns.keys().collect();
     names.sort();
     for name in names {
@@ -93,13 +93,13 @@ fn table_to_value(table: &crate::types::Table) -> serde_yaml_ng::Value {
 /// All tables as `{table_name: table}`.
 fn tables_to_value(
     tables: &std::collections::HashMap<String, crate::types::Table>,
-) -> serde_yaml_ng::Mapping {
+) -> yaml_serde::Mapping {
     let mut names: Vec<&String> = tables.keys().collect();
     names.sort();
-    let mut map = serde_yaml_ng::Mapping::new();
+    let mut map = yaml_serde::Mapping::new();
     for name in names {
         map.insert(
-            serde_yaml_ng::Value::String(name.clone()),
+            yaml_serde::Value::String(name.clone()),
             table_to_value(&tables[name]),
         );
     }
@@ -110,8 +110,8 @@ fn tables_to_value(
 /// `group.name`, and `name: {value, formula}` at the top for ungrouped ones.
 fn scalars_to_value(
     scalars: &std::collections::HashMap<String, crate::types::Variable>,
-) -> serde_yaml_ng::Mapping {
-    use serde_yaml_ng::{Mapping, Value};
+) -> yaml_serde::Mapping {
+    use yaml_serde::{Mapping, Value};
     let mut names: Vec<&String> = scalars.keys().collect();
     names.sort();
     let mut map = Mapping::new();
@@ -162,7 +162,7 @@ fn model_to_yaml(model: &crate::types::ParsedModel) -> ForgeResult<String> {
     if map.is_empty() {
         return Ok("_forge_version: \"5.0.0\"\n".to_string());
     }
-    let body = serde_yaml_ng::to_string(&map).map_err(ForgeError::Yaml)?;
+    let body = yaml_serde::to_string(&map).map_err(ForgeError::Yaml)?;
     Ok(format!("_forge_version: \"5.0.0\"\n\n{body}"))
 }
 
@@ -219,7 +219,7 @@ fn write_split_files_quiet(output: &Path, model: crate::types::ParsedModel) -> F
         let yaml_string = format!(
             "_forge_version: \"1.0.0\"\n_name: \"{}\"\n\n{}",
             table_name,
-            serde_yaml_ng::to_string(&tables_to_value(&table_model.tables))
+            yaml_serde::to_string(&tables_to_value(&table_model.tables))
                 .map_err(ForgeError::Yaml)?
         );
         fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
@@ -230,7 +230,7 @@ fn write_split_files_quiet(output: &Path, model: crate::types::ParsedModel) -> F
         scalar_model.scalars = model.scalars;
         let yaml_string = format!(
             "_forge_version: \"1.0.0\"\n_name: \"scalars\"\n\n{}",
-            serde_yaml_ng::to_string(&scalars_to_value(&scalar_model.scalars))
+            yaml_serde::to_string(&scalars_to_value(&scalar_model.scalars))
                 .map_err(ForgeError::Yaml)?
         );
         fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
@@ -366,7 +366,7 @@ fn write_split_files(
         let yaml_string = format!(
             "_forge_version: \"1.0.0\"\n_name: \"{}\"\n\n{}",
             table_name,
-            serde_yaml_ng::to_string(&tables_to_value(&table_model.tables))
+            yaml_serde::to_string(&tables_to_value(&table_model.tables))
                 .map_err(ForgeError::Yaml)?
         );
         fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
@@ -380,7 +380,7 @@ fn write_split_files(
         scalar_model.scalars = model.scalars;
         let yaml_string = format!(
             "_forge_version: \"1.0.0\"\n_name: \"scalars\"\n\n{}",
-            serde_yaml_ng::to_string(&scalars_to_value(&scalar_model.scalars))
+            yaml_serde::to_string(&scalars_to_value(&scalar_model.scalars))
                 .map_err(ForgeError::Yaml)?
         );
         fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
@@ -402,7 +402,7 @@ fn write_multi_doc(output: &Path, model: crate::types::ParsedModel) -> ForgeResu
         yaml_output.push_str("_forge_version: \"1.0.0\"\n");
         let _ = write!(yaml_output, "_name: \"{table_name}\"\n\n");
         yaml_output.push_str(
-            &serde_yaml_ng::to_string(&tables_to_value(&table_model.tables))
+            &yaml_serde::to_string(&tables_to_value(&table_model.tables))
                 .map_err(ForgeError::Yaml)?,
         );
         yaml_output.push('\n');
@@ -414,7 +414,7 @@ fn write_multi_doc(output: &Path, model: crate::types::ParsedModel) -> ForgeResu
         yaml_output.push_str("_forge_version: \"1.0.0\"\n");
         yaml_output.push_str("_name: \"scalars\"\n\n");
         yaml_output.push_str(
-            &serde_yaml_ng::to_string(&scalars_to_value(&scalar_model.scalars))
+            &yaml_serde::to_string(&scalars_to_value(&scalar_model.scalars))
                 .map_err(ForgeError::Yaml)?,
         );
     }

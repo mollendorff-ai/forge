@@ -4,9 +4,9 @@
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Include, ParsedModel, ResolvedInclude};
-use serde_yaml_ng::Value;
 use std::collections::HashSet;
 use std::path::Path;
+use yaml_serde::Value;
 
 use super::model::parse_v1_model;
 
@@ -50,7 +50,7 @@ pub fn resolve_includes<S: std::hash::BuildHasher>(
 
         // Parse the included file
         let content = std::fs::read_to_string(&include_path)?;
-        let yaml: Value = serde_yaml_ng::from_str(&content)?;
+        let yaml: Value = yaml_serde::from_str(&content)?;
         let mut included_model = parse_v1_model(&yaml)?;
 
         // Recursively resolve includes in the included file
@@ -153,7 +153,7 @@ main_data:
         std::fs::write(&main_path, main_content).unwrap();
 
         let content = std::fs::read_to_string(&main_path).unwrap();
-        let yaml: Value = serde_yaml_ng::from_str(&content).unwrap();
+        let yaml: Value = yaml_serde::from_str(&content).unwrap();
         let mut model = parse_v1_model(&yaml).unwrap();
 
         resolve_includes(&mut model, &main_path, &mut HashSet::new()).unwrap();
@@ -177,7 +177,7 @@ data:
         temp_file.write_all(yaml_content.as_bytes()).unwrap();
 
         let content = std::fs::read_to_string(temp_file.path()).unwrap();
-        let yaml: Value = serde_yaml_ng::from_str(&content).unwrap();
+        let yaml: Value = yaml_serde::from_str(&content).unwrap();
         let mut model = parse_v1_model(&yaml).unwrap();
 
         let result = resolve_includes(&mut model, temp_file.path(), &mut HashSet::new());
@@ -196,7 +196,7 @@ data:
   values: [1, 2, 3]
 "#;
 
-        let yaml: Value = serde_yaml_ng::from_str(yaml_content).unwrap();
+        let yaml: Value = yaml_serde::from_str(yaml_content).unwrap();
 
         // Try to parse the includes section
         if let Some(Value::Sequence(includes_seq)) = yaml.get("_includes") {
@@ -216,7 +216,7 @@ data:
   values: [1, 2, 3]
 "#;
 
-        let yaml: Value = serde_yaml_ng::from_str(yaml_content).unwrap();
+        let yaml: Value = yaml_serde::from_str(yaml_content).unwrap();
 
         // Try to parse the includes section
         if let Some(Value::Sequence(includes_seq)) = yaml.get("_includes") {

@@ -228,7 +228,7 @@ correlations:
   - variables: [revenue, costs]
     coefficient: -0.3
 "#;
-        let config: MonteCarloConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let config: MonteCarloConfig = yaml_serde::from_str(yaml).unwrap();
         assert!(config.enabled);
         assert_eq!(config.iterations, 5000);
         assert_eq!(config.seed, Some(42));

@@ -4,7 +4,7 @@
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{ParsedModel, Scenario};
-use serde_yaml_ng::Value;
+use yaml_serde::Value;
 
 use super::includes::parse_includes;
 use super::schema::validate_against_schema;
@@ -110,7 +110,7 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
 /// Returns an error if a nested scalar name is not a string or has an invalid format.
 pub fn parse_nested_scalars(
     parent_key: &str,
-    map: &serde_yaml_ng::Mapping,
+    map: &yaml_serde::Mapping,
     model: &mut ParsedModel,
 ) -> ForgeResult<()> {
     for (key, value) in map {
@@ -158,7 +158,7 @@ pub fn parse_nested_scalars(
 /// Returns an error if a scenario name or variable is not valid, if a variable
 /// value is not a number, or if the `scalars` field is not a mapping.
 pub fn parse_scenarios(
-    scenarios_map: &serde_yaml_ng::Mapping,
+    scenarios_map: &yaml_serde::Mapping,
     model: &mut ParsedModel,
 ) -> ForgeResult<()> {
     for (scenario_name, scenario_value) in scenarios_map {
@@ -368,7 +368,7 @@ scenarios:
   year: [2023, 2024, 2025]
   revenue: [1000, 2000, 3000]
 "#;
-        let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+        let yaml: Value = yaml_serde::from_str(yaml_str).unwrap();
         let result = parse_v1_model(&yaml).unwrap();
         assert!(result.tables.contains_key("scenarios"));
         assert!(result.scenarios.is_empty());
@@ -525,7 +525,7 @@ tornado:
       low: 40
       high: 60
 "#;
-        let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+        let yaml: Value = yaml_serde::from_str(yaml_str).unwrap();
         let result = parse_v1_model(&yaml).unwrap();
 
         // Tornado should NOT be parsed as a table
@@ -567,7 +567,7 @@ decision_tree:
           probability: 0.4
           value: 20000
 "#;
-        let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+        let yaml: Value = yaml_serde::from_str(yaml_str).unwrap();
         let result = parse_v1_model(&yaml).unwrap();
 
         // Decision tree should NOT be parsed as a table
@@ -592,7 +592,7 @@ monte_carlo:
       mean: 100000
       std: 10000
 "#;
-        let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+        let yaml: Value = yaml_serde::from_str(yaml_str).unwrap();
         let result = parse_v1_model(&yaml).unwrap();
 
         // Monte Carlo should NOT be parsed as a table

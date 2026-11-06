@@ -4,9 +4,9 @@
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::ParsedModel;
-use serde_yaml_ng::Value;
 use std::collections::HashSet;
 use std::path::Path;
+use yaml_serde::Value;
 
 use super::includes::resolve_includes;
 use super::model::parse_v1_model;
@@ -39,7 +39,7 @@ pub fn parse_single_document_yaml(content: &str, path: &Path) -> ForgeResult<Par
     let content = content.trim_start();
     let content = content.strip_prefix("---").map_or(content, str::trim_start);
 
-    let yaml: Value = serde_yaml_ng::from_str(content)?;
+    let yaml: Value = yaml_serde::from_str(content)?;
 
     let mut model = parse_v1_model(&yaml)?;
 
@@ -85,7 +85,7 @@ pub fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<Pars
         doc_index += 1;
 
         // Parse the document
-        let yaml: Value = match serde_yaml_ng::from_str(doc_content) {
+        let yaml: Value = match yaml_serde::from_str(doc_content) {
             Ok(v) => v,
             Err(e) => {
                 return Err(ForgeError::Parse(format!(

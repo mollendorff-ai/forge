@@ -75,4 +75,4 @@ Running without `--expected-only` on a machine without `data.tree`, `derivmkts` 
 - The Gnumeric and R suites run weekly, not on every push.
 - The expected values in a spec were written by the author or by an AI assistant. Where R or Gnumeric disagreed with them, the disagreement was investigated, but a value on which both Forge and its expected value are wrong in the same way would pass.
 - Bayesian networks support one parent per node. Real-options switch and compound valuations are rough approximations.
-- `unsafe-libyaml`, a dependency of the YAML parser, is unmaintained. `cargo audit` reports 0 vulnerabilities and this one warning.
+- `cargo audit` reports no vulnerabilities and no warnings.

@@ -15,7 +15,7 @@ use crate::tornado::TornadoConfig;
 use serde::de::DeserializeOwned;
 
 fn rejects<T: DeserializeOwned>(yaml: &str, key: &str) {
-    let err = serde_yaml_ng::from_str::<T>(yaml)
+    let err = yaml_serde::from_str::<T>(yaml)
         .err()
         .unwrap_or_else(|| panic!("accepted unknown key `{key}`:\n{yaml}"))
         .to_string();
@@ -23,7 +23,7 @@ fn rejects<T: DeserializeOwned>(yaml: &str, key: &str) {
 }
 
 fn accepts<T: DeserializeOwned>(yaml: &str) {
-    if let Err(e) = serde_yaml_ng::from_str::<T>(yaml) {
+    if let Err(e) = yaml_serde::from_str::<T>(yaml) {
         panic!("rejected valid config: {e}\n{yaml}");
     }
 }
@@ -118,7 +118,7 @@ fn test_bayesian_and_scenario_unknown_keys() {
 
 #[test]
 fn test_schema_rejects_unknown_scalar_keys() {
-    let validate = |yaml: &str| validate_against_schema(&serde_yaml_ng::from_str(yaml).unwrap());
+    let validate = |yaml: &str| validate_against_schema(&yaml_serde::from_str(yaml).unwrap());
     // A misspelt `formula` used to pass validation, and the scalar was never calculated
     for yaml in [
         "_forge_version: \"5.0.0\"\ns:\n  b: {value: null, fromula: \"=1 + 1\"}\n",
