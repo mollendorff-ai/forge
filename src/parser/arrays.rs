@@ -4,7 +4,7 @@
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::ColumnValue;
-use serde_yaml_ng::Value;
+use yaml_serde::Value;
 
 /// Parse a YAML array into a typed `ColumnValue`
 ///
@@ -325,7 +325,7 @@ mod tests {
         assert_eq!(type_name(&Value::String("test".to_string())), "String");
         assert_eq!(type_name(&Value::Sequence(vec![])), "Array");
         assert_eq!(
-            type_name(&Value::Mapping(serde_yaml_ng::Mapping::new())),
+            type_name(&Value::Mapping(yaml_serde::Mapping::new())),
             "Mapping"
         );
     }

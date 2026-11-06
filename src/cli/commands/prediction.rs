@@ -28,8 +28,7 @@ fn serialize_for_file<T: serde::Serialize>(value: &T, path: &Path) -> ForgeResul
         serde_json::to_string_pretty(value)
             .map_err(|e| ForgeError::Validation(format!("JSON error: {e}")))
     } else {
-        serde_yaml_ng::to_string(value)
-            .map_err(|e| ForgeError::Validation(format!("YAML error: {e}")))
+        yaml_serde::to_string(value).map_err(|e| ForgeError::Validation(format!("YAML error: {e}")))
     }
 }
 
@@ -46,17 +45,17 @@ pub fn scenarios_core(
     let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
     let model = parser::parse_model(file)?;
 
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: ScenarioConfig = if let Some(scenarios_value) = value.get("scenarios") {
-        let scenarios_map: HashMap<String, serde_yaml_ng::Value> =
-            serde_yaml_ng::from_value(scenarios_value.clone())
+        let scenarios_map: HashMap<String, yaml_serde::Value> =
+            yaml_serde::from_value(scenarios_value.clone())
                 .map_err(|e| ForgeError::Validation(format!("scenarios config error: {e}")))?;
 
         let mut config = ScenarioConfig::default();
         for (name, def) in scenarios_map {
-            let scenario_def = serde_yaml_ng::from_value(def)
+            let scenario_def = yaml_serde::from_value(def)
                 .map_err(|e| ForgeError::Validation(format!("scenario '{name}' error: {e}")))?;
             config.scenarios.insert(name, scenario_def);
         }
@@ -81,11 +80,11 @@ pub fn scenarios_core(
 pub fn decision_tree_core(file: &Path) -> ForgeResult<crate::decision_trees::TreeResult> {
     let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: DecisionTreeConfig = if let Some(dt_value) = value.get("decision_tree") {
-        serde_yaml_ng::from_value(dt_value.clone())
+        yaml_serde::from_value(dt_value.clone())
             .map_err(|e| ForgeError::Validation(format!("decision_tree config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
@@ -106,11 +105,11 @@ pub fn decision_tree_core(file: &Path) -> ForgeResult<crate::decision_trees::Tre
 pub fn real_options_core(file: &Path) -> ForgeResult<crate::real_options::OptionsResult> {
     let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: RealOptionsConfig = if let Some(ro_value) = value.get("real_options") {
-        serde_yaml_ng::from_value(ro_value.clone())
+        yaml_serde::from_value(ro_value.clone())
             .map_err(|e| ForgeError::Validation(format!("real_options config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
@@ -135,11 +134,11 @@ pub fn tornado_core(
     let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
     let model = parser::parse_model(file)?;
 
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let mut config: TornadoConfig = if let Some(tornado_value) = value.get("tornado") {
-        serde_yaml_ng::from_value(tornado_value.clone())
+        yaml_serde::from_value(tornado_value.clone())
             .map_err(|e| ForgeError::Validation(format!("tornado config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
@@ -169,11 +168,11 @@ pub fn bootstrap_core(
 ) -> ForgeResult<crate::bootstrap::BootstrapResult> {
     let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let mut config: BootstrapConfig = if let Some(bs_value) = value.get("bootstrap") {
-        serde_yaml_ng::from_value(bs_value.clone())
+        yaml_serde::from_value(bs_value.clone())
             .map_err(|e| ForgeError::Validation(format!("bootstrap config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
@@ -208,11 +207,11 @@ pub fn bayesian_core(
 ) -> ForgeResult<crate::bayesian::BayesianResult> {
     let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: BayesianConfig = if let Some(bn_value) = value.get("bayesian_network") {
-        serde_yaml_ng::from_value(bn_value.clone())
+        yaml_serde::from_value(bn_value.clone())
             .map_err(|e| ForgeError::Validation(format!("bayesian_network config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
@@ -280,18 +279,18 @@ pub fn scenarios(
     let model = parser::parse_model(file)?;
 
     // Parse scenarios config
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: ScenarioConfig = if let Some(scenarios_value) = value.get("scenarios") {
-        let scenarios_map: HashMap<String, serde_yaml_ng::Value> =
-            serde_yaml_ng::from_value(scenarios_value.clone())
+        let scenarios_map: HashMap<String, yaml_serde::Value> =
+            yaml_serde::from_value(scenarios_value.clone())
                 .map_err(|e| ForgeError::Validation(format!("scenarios config error: {e}")))?;
 
         // Convert to ScenarioConfig
         let mut config = ScenarioConfig::default();
         for (name, def) in scenarios_map {
-            let scenario_def = serde_yaml_ng::from_value(def)
+            let scenario_def = yaml_serde::from_value(def)
                 .map_err(|e| ForgeError::Validation(format!("scenario '{name}' error: {e}")))?;
             config.scenarios.insert(name, scenario_def);
         }
@@ -383,11 +382,11 @@ pub fn decision_tree(
     let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
     // Parse decision_tree config
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: DecisionTreeConfig = if let Some(dt_value) = value.get("decision_tree") {
-        serde_yaml_ng::from_value(dt_value.clone())
+        yaml_serde::from_value(dt_value.clone())
             .map_err(|e| ForgeError::Validation(format!("decision_tree config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
@@ -500,11 +499,11 @@ pub fn real_options(
     let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
     // Parse real_options config
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: RealOptionsConfig = if let Some(ro_value) = value.get("real_options") {
-        serde_yaml_ng::from_value(ro_value.clone())
+        yaml_serde::from_value(ro_value.clone())
             .map_err(|e| ForgeError::Validation(format!("real_options config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
@@ -602,11 +601,11 @@ pub fn tornado(
     let model = parser::parse_model(file)?;
 
     // Parse tornado config
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let mut config: TornadoConfig = if let Some(tornado_value) = value.get("tornado") {
-        serde_yaml_ng::from_value(tornado_value.clone())
+        yaml_serde::from_value(tornado_value.clone())
             .map_err(|e| ForgeError::Validation(format!("tornado config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
@@ -725,11 +724,11 @@ pub fn bootstrap(
     let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
     // Parse bootstrap config
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let mut config: BootstrapConfig = if let Some(bs_value) = value.get("bootstrap") {
-        serde_yaml_ng::from_value(bs_value.clone())
+        yaml_serde::from_value(bs_value.clone())
             .map_err(|e| ForgeError::Validation(format!("bootstrap config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
@@ -836,11 +835,11 @@ pub fn bayesian(
     let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
 
     // Parse bayesian_network config
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(&yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: BayesianConfig = if let Some(bn_value) = value.get("bayesian_network") {
-        serde_yaml_ng::from_value(bn_value.clone())
+        yaml_serde::from_value(bn_value.clone())
             .map_err(|e| ForgeError::Validation(format!("bayesian_network config error: {e}")))?
     } else {
         return Err(ForgeError::Validation(
@@ -1074,7 +1073,7 @@ scalars:
         writeln!(file, "{yaml}").unwrap();
 
         // Test config parsing
-        let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml).unwrap();
+        let value: yaml_serde::Value = yaml_serde::from_str(yaml).unwrap();
         assert!(value.get("scenarios").is_some());
     }
 
@@ -1094,7 +1093,7 @@ decision_tree:
       no:
         value: 0
 "#;
-        let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml).unwrap();
+        let value: yaml_serde::Value = yaml_serde::from_str(yaml).unwrap();
         assert!(value.get("decision_tree").is_some());
     }
 
@@ -1109,9 +1108,9 @@ bootstrap:
   data: [1.0, 2.0, 3.0, 4.0, 5.0]
   statistic: mean
 "#;
-        let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml).unwrap();
+        let value: yaml_serde::Value = yaml_serde::from_str(yaml).unwrap();
         let bs_value = value.get("bootstrap").unwrap();
-        let config: BootstrapConfig = serde_yaml_ng::from_value(bs_value.clone()).unwrap();
+        let config: BootstrapConfig = yaml_serde::from_value(bs_value.clone()).unwrap();
         assert_eq!(config.iterations, 1000);
         assert_eq!(config.data.len(), 5);
     }
@@ -1130,8 +1129,8 @@ bootstrap:
 
         let yaml_out = dir.path().join("out.yaml");
         bootstrap(&model, None, None, None, Some(yaml_out.clone()), false).unwrap();
-        let doc: serde_yaml_ng::Value =
-            serde_yaml_ng::from_str(&std::fs::read_to_string(&yaml_out).unwrap()).unwrap();
+        let doc: yaml_serde::Value =
+            yaml_serde::from_str(&std::fs::read_to_string(&yaml_out).unwrap()).unwrap();
         assert_eq!(doc["original_estimate"].as_f64(), Some(3.0));
         assert!(doc["confidence_intervals"].is_sequence());
 
@@ -1150,8 +1149,8 @@ bootstrap:
         std::fs::write(&model, example).unwrap();
         let out = dir.path().join("out.yaml");
         decision_tree(&model, false, Some(out.clone()), false).unwrap();
-        let doc: serde_yaml_ng::Value =
-            serde_yaml_ng::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
+        let doc: yaml_serde::Value =
+            yaml_serde::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
         assert!(doc["root_expected_value"].as_f64().is_some());
     }
 }

@@ -3,7 +3,7 @@
 //! Validates YAML against embedded JSON schemas (v1.0.0 and v5.0.0).
 
 use crate::error::{ForgeError, ForgeResult};
-use serde_yaml_ng::Value;
+use yaml_serde::Value;
 
 /// Validate YAML against the appropriate Forge JSON Schema based on _`forge_version`
 ///
@@ -180,7 +180,7 @@ tornado:
         .unwrap();
 
         let content = std::fs::read_to_string(file.path()).unwrap();
-        let yaml: Value = serde_yaml_ng::from_str(&content).unwrap();
+        let yaml: Value = yaml_serde::from_str(&content).unwrap();
         let result = validate_against_schema(&yaml);
         assert!(
             result.is_ok(),
@@ -211,7 +211,7 @@ decision_tree:
         .unwrap();
 
         let content = std::fs::read_to_string(file.path()).unwrap();
-        let yaml: Value = serde_yaml_ng::from_str(&content).unwrap();
+        let yaml: Value = yaml_serde::from_str(&content).unwrap();
         let result = validate_against_schema(&yaml);
         assert!(
             result.is_ok(),
@@ -221,7 +221,7 @@ decision_tree:
     }
 
     fn validate_str(yaml: &str) -> ForgeResult<()> {
-        validate_against_schema(&serde_yaml_ng::from_str(yaml).unwrap())
+        validate_against_schema(&yaml_serde::from_str(yaml).unwrap())
     }
 
     #[test]
@@ -292,7 +292,7 @@ _forge_version: "1.0.0"
 data:
   values: [1, 2, 3]
 "#;
-        let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+        let yaml: Value = yaml_serde::from_str(yaml_str).unwrap();
         let result = validate_v1_0_0_no_tables(&yaml);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("v1.0.0"));
@@ -306,7 +306,7 @@ price:
   value: 100
   formula: null
 "#;
-        let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+        let yaml: Value = yaml_serde::from_str(yaml_str).unwrap();
         let result = validate_v1_0_0_no_tables(&yaml);
         assert!(result.is_ok());
     }
@@ -318,7 +318,7 @@ _forge_version: "1.0.0"
 monte_carlo:
   iterations: 1000
 "#;
-        let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+        let yaml: Value = yaml_serde::from_str(yaml_str).unwrap();
         let result = validate_v1_0_0_no_tables(&yaml);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("monte_carlo"));
@@ -330,7 +330,7 @@ monte_carlo:
 price:
   value: 100
 ";
-        let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+        let yaml: Value = yaml_serde::from_str(yaml_str).unwrap();
         let result = validate_against_schema(&yaml);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("_forge_version"));
@@ -343,7 +343,7 @@ _forge_version: "99.0.0"
 price:
   value: 100
 "#;
-        let yaml: Value = serde_yaml_ng::from_str(yaml_str).unwrap();
+        let yaml: Value = yaml_serde::from_str(yaml_str).unwrap();
         let result = validate_against_schema(&yaml);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Unsupported"));

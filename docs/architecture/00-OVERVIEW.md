@@ -178,7 +178,7 @@ graph TB
     subgraph ext["External Libraries"]
         xle[("xlformula_engine")]
         graph[("petgraph")]
-        yaml[("serde_yaml")]
+        yaml[("yaml_serde")]
         xlsx_writer[("rust_xlsxwriter")]
         xlsx_reader[("calamine")]
     end
@@ -227,7 +227,7 @@ graph TB
 | **xlformula_engine** | 0.1.18 | Excel-compatible formula evaluation |
 | **petgraph** | 0.6 | Dependency graph, topological sort |
 | **serde** | 1.0 | Serialization framework |
-| **serde_yaml** | 0.9 | YAML parsing and serialization |
+| **yaml_serde** | 0.10 | YAML parsing and serialization |
 | **rust_xlsxwriter** | 0.90 | Excel .xlsx file creation |
 | **calamine** | 0.31 | Excel .xlsx file reading |
 | **clap** | 4.5 | CLI argument parsing |
@@ -334,7 +334,7 @@ CLI Parser (clap)
     ↓
 Command Handler (calculate)
     ↓
-YAML Parser (serde_yaml)
+YAML Parser (yaml_serde)
     ↓
 Array Calculator
     ↓

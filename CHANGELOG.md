@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **YAML library**: `serde_yaml_ng` is replaced by `yaml_serde`, the YAML organization's maintained fork of `serde_yaml`. The old library depended on `unsafe-libyaml`, which is unmaintained (RUSTSEC-2024-0449, the one `cargo audit` warning); `yaml_serde` uses its maintained fork `libyaml-rs`. No code change was needed. Parsing, re-serialization and error messages were compared with the old library on all 99 YAML files in this repo and the two validation suites, plus 62 edge cases (YAML 1.1 booleans, octal and hex, infinities, anchors, merge keys, tags, duplicate keys, bad syntax): identical.
+- **Dependencies**: `rmcp` 3 (the MCP server's `ServerInfo` is now `ServerConfig`; protocol output unchanged), `statrs` 0.19, `jsonschema` 0.60, `sha2` 0.11, `base64` 0.23.
+
 ## [10.0.0-beta.11] - 2026-11-05
 
 ### Changed

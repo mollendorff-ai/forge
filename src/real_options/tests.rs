@@ -312,7 +312,7 @@ traditional_npv: -5
 options:
   - {type: abandon, name: Exit, salvage_value: 90}
 ";
-    let config: RealOptionsConfig = serde_yaml_ng::from_str(yaml).unwrap();
+    let config: RealOptionsConfig = yaml_serde::from_str(yaml).unwrap();
     let result = RealOptionsEngine::new(config).unwrap().analyze().unwrap();
     assert_eq!(result.traditional_npv, Some(-5.0));
     let exit = &result.options["Exit"];

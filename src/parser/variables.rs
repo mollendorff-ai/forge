@@ -4,7 +4,7 @@
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Column, Metadata, Table, Variable};
-use serde_yaml_ng::Value;
+use yaml_serde::Value;
 
 use super::arrays::parse_array_value;
 
@@ -13,7 +13,7 @@ use super::arrays::parse_array_value;
 /// # Errors
 ///
 /// Returns an error if a column name is not a string, or column data has an invalid type or format.
-pub fn parse_table(name: &str, map: &serde_yaml_ng::Mapping) -> ForgeResult<Table> {
+pub fn parse_table(name: &str, map: &yaml_serde::Mapping) -> ForgeResult<Table> {
     let mut table = Table::new(name.to_string());
 
     for (key, value) in map {
@@ -80,7 +80,7 @@ pub fn parse_table(name: &str, map: &serde_yaml_ng::Mapping) -> ForgeResult<Tabl
 /// Returns an error if the value is not a mapping.
 pub fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable> {
     if let Value::Mapping(map) = value {
-        let val = map.get("value").and_then(serde_yaml_ng::Value::as_f64);
+        let val = map.get("value").and_then(yaml_serde::Value::as_f64);
         let formula = map
             .get("formula")
             .and_then(|f| f.as_str().map(std::string::ToString::to_string));
@@ -103,7 +103,7 @@ pub fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable>
 
 /// Extract metadata fields from a YAML mapping (v4.0)
 #[must_use]
-pub fn parse_metadata(map: &serde_yaml_ng::Mapping) -> Metadata {
+pub fn parse_metadata(map: &yaml_serde::Mapping) -> Metadata {
     Metadata {
         unit: map
             .get("unit")
@@ -126,7 +126,7 @@ pub fn parse_metadata(map: &serde_yaml_ng::Mapping) -> Metadata {
 /// Check if a mapping contains nested scalar sections (e.g., summary.total)
 /// Returns false for v4.0 rich table columns (where value is an array)
 #[must_use]
-pub fn is_nested_scalar_section(map: &serde_yaml_ng::Mapping) -> bool {
+pub fn is_nested_scalar_section(map: &yaml_serde::Mapping) -> bool {
     // Check if children are mappings with {value, formula} pattern where value is a scalar (not array)
     for (_key, value) in map {
         if let Value::Mapping(child_map) = value {
@@ -158,7 +158,7 @@ mod tests {
     month: ['Jan', 'Feb', 'Mar']
     revenue: [100, 200, 300]
     ";
-        let parsed: Value = serde_yaml_ng::from_str(yaml).unwrap();
+        let parsed: Value = yaml_serde::from_str(yaml).unwrap();
 
         if let Value::Mapping(map) = parsed {
             let table = parse_table("test_table", &map).unwrap();
@@ -180,7 +180,7 @@ mod tests {
     expenses: [50, 100, 150]
     profit: '=revenue - expenses'
     ";
-        let parsed: Value = serde_yaml_ng::from_str(yaml).unwrap();
+        let parsed: Value = yaml_serde::from_str(yaml).unwrap();
 
         if let Value::Mapping(map) = parsed {
             let table = parse_table("test_table", &map).unwrap();
@@ -274,7 +274,7 @@ price:
         temp_file.write_all(yaml_content.as_bytes()).unwrap();
 
         let content = std::fs::read_to_string(temp_file.path()).unwrap();
-        let yaml: Value = serde_yaml_ng::from_str(&content).unwrap();
+        let yaml: Value = yaml_serde::from_str(&content).unwrap();
 
         if let Some(price_val) = yaml.get("price") {
             let price = parse_scalar_variable(price_val, "price").unwrap();
@@ -306,7 +306,7 @@ price:
 
     #[test]
     fn test_metadata_last_updated() {
-        let mut map = serde_yaml_ng::Mapping::new();
+        let mut map = yaml_serde::Mapping::new();
         map.insert(
             Value::String("last_updated".to_string()),
             Value::String("2025-01-01".to_string()),
@@ -317,8 +317,8 @@ price:
 
     #[test]
     fn test_is_nested_scalar_section_false_for_v4_rich_column() {
-        let mut map = serde_yaml_ng::Mapping::new();
-        let mut child = serde_yaml_ng::Mapping::new();
+        let mut map = yaml_serde::Mapping::new();
+        let mut child = yaml_serde::Mapping::new();
         child.insert(
             Value::String("value".to_string()),
             Value::Sequence(vec![Value::Number(1.into())]),
@@ -329,8 +329,8 @@ price:
 
     #[test]
     fn test_is_nested_scalar_section_true_for_scalar() {
-        let mut map = serde_yaml_ng::Mapping::new();
-        let mut child = serde_yaml_ng::Mapping::new();
+        let mut map = yaml_serde::Mapping::new();
+        let mut child = yaml_serde::Mapping::new();
         child.insert(Value::String("value".to_string()), Value::Number(42.into()));
         map.insert(Value::String("total".to_string()), Value::Mapping(child));
         assert!(is_nested_scalar_section(&map));
@@ -338,17 +338,17 @@ price:
 
     #[test]
     fn test_is_nested_scalar_section_empty_child() {
-        let mut map = serde_yaml_ng::Mapping::new();
+        let mut map = yaml_serde::Mapping::new();
         map.insert(
             Value::String("empty".to_string()),
-            Value::Mapping(serde_yaml_ng::Mapping::new()),
+            Value::Mapping(yaml_serde::Mapping::new()),
         );
         assert!(!is_nested_scalar_section(&map));
     }
 
     #[test]
     fn test_parse_table_column_scalar_not_array() {
-        let mut map = serde_yaml_ng::Mapping::new();
+        let mut map = yaml_serde::Mapping::new();
         map.insert(Value::String("col".to_string()), Value::Number(42.into()));
         let result = parse_table("test", &map);
         assert!(result.is_err());

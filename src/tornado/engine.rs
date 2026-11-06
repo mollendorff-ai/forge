@@ -66,7 +66,7 @@ impl TornadoResult {
     /// Export results to YAML format
     #[must_use]
     pub fn to_yaml(&self) -> String {
-        serde_yaml_ng::to_string(self).unwrap_or_else(|_| "# Error serializing results".to_string())
+        yaml_serde::to_string(self).unwrap_or_else(|_| "# Error serializing results".to_string())
     }
 
     /// Export results to JSON format

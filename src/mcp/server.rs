@@ -81,14 +81,14 @@ fn check_inline_include_path(file: &str) -> Result<(), String> {
 /// would still try to read them, so an unchecked path could read files
 /// outside it. Content that does not parse is left for the parser to report.
 fn check_nested_include_paths(include_content: &str) -> Result<(), String> {
-    let Ok(parsed) = serde_yaml_ng::from_str::<serde_yaml_ng::Value>(include_content) else {
+    let Ok(parsed) = yaml_serde::from_str::<yaml_serde::Value>(include_content) else {
         return Ok(());
     };
-    if let Some(serde_yaml_ng::Value::Sequence(seq)) = parsed.get("_includes") {
+    if let Some(yaml_serde::Value::Sequence(seq)) = parsed.get("_includes") {
         for file in seq
             .iter()
             .filter_map(|entry| entry.get("file"))
-            .filter_map(serde_yaml_ng::Value::as_str)
+            .filter_map(yaml_serde::Value::as_str)
         {
             check_inline_include_path(file)?;
         }
@@ -108,11 +108,11 @@ fn resolve_inline_includes(
     dir: &Path,
 ) -> Result<(), String> {
     // Quick check: does the YAML contain _includes?
-    let parsed: serde_yaml_ng::Value =
-        serde_yaml_ng::from_str(yaml).map_err(|e| format!("Invalid YAML: {e}"))?;
+    let parsed: yaml_serde::Value =
+        yaml_serde::from_str(yaml).map_err(|e| format!("Invalid YAML: {e}"))?;
 
     let includes_seq = match parsed.get("_includes") {
-        Some(serde_yaml_ng::Value::Sequence(seq)) => seq,
+        Some(yaml_serde::Value::Sequence(seq)) => seq,
         Some(_) => return Err("_includes must be a sequence".into()),
         None => return Ok(()), // No _includes — nothing to resolve
     };
@@ -125,12 +125,12 @@ fn resolve_inline_includes(
     for entry in includes_seq {
         let file = entry
             .get("file")
-            .and_then(serde_yaml_ng::Value::as_str)
+            .and_then(yaml_serde::Value::as_str)
             .ok_or("Each _includes entry must have a 'file' field")?;
 
         let namespace = entry
             .get("as")
-            .and_then(serde_yaml_ng::Value::as_str)
+            .and_then(yaml_serde::Value::as_str)
             .ok_or_else(|| format!("Include '{file}' must have an 'as' field"))?;
 
         let include_content = map.get(namespace).ok_or_else(|| {

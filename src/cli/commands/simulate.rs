@@ -283,11 +283,11 @@ fn write_simulation_output(
 /// Parse `monte_carlo` config from YAML content
 fn parse_monte_carlo_config(yaml_content: &str) -> ForgeResult<MonteCarloConfig> {
     // Try to parse the monte_carlo section from the YAML
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml_content)
+    let value: yaml_serde::Value = yaml_serde::from_str(yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     if let Some(mc_value) = value.get("monte_carlo") {
-        let config: MonteCarloConfig = serde_yaml_ng::from_value(mc_value.clone())
+        let config: MonteCarloConfig = yaml_serde::from_value(mc_value.clone())
             .map_err(|e| ForgeError::Validation(format!("monte_carlo config error: {e}")))?;
         Ok(config)
     } else {
