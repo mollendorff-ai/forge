@@ -4,7 +4,7 @@
 //! Used by both CLI (format & print) and MCP server (serialize to JSON).
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Result of the validate command
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,8 +28,8 @@ pub struct ValidationMismatch {
 /// Result of the calculate command
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalculationResult {
-    pub tables: HashMap<String, TableSummary>,
-    pub scalars: HashMap<String, Option<f64>>,
+    pub tables: BTreeMap<String, TableSummary>,
+    pub scalars: BTreeMap<String, Option<f64>>,
     pub unit_warnings: Vec<String>,
     pub file_updated: bool,
     pub dry_run: bool,

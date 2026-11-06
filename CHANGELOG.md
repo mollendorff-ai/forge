@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Validation workflow**: on a pull request it uses the forge-e2e-gnumeric and forge-e2e-r branches with the same name as the Forge branch, when they exist, so a Forge change and its suite change are tested together before either is merged.
 
 ### Changed
+- **Deterministic output order.** `calculate`, `scenarios`, `decision-tree` and `bayesian` now list tables, columns, scenarios and variables in sorted order, so the same input always gives the same output. Scenario weighted sums no longer differ in the last digits between runs.
+- **`forge validate` on Monte Carlo models** says plainly that validate cannot evaluate distributions and points to `forge simulate`, instead of an unrelated error.
+- **`examples/quota_forecast.yaml`**: forecast values updated to the calculated ones; the example now validates (covered by a test).
 - **YAML library**: `serde_yaml_ng` is replaced by `yaml_serde`, the YAML organization's maintained fork of `serde_yaml`. The old library depended on `unsafe-libyaml`, which is unmaintained (RUSTSEC-2024-0449, the one `cargo audit` warning); `yaml_serde` uses its maintained fork `libyaml-rs`. No code change was needed. Parsing, re-serialization and error messages were compared with the old library on all 99 YAML files in this repo and the two validation suites, plus 62 edge cases (YAML 1.1 booleans, octal and hex, infinities, anchors, merge keys, tags, duplicate keys, bad syntax): identical.
 - **Dependencies**: `rmcp` 3 (the MCP server's `ServerInfo` is now `ServerConfig`; protocol output unchanged), `statrs` 0.19, `jsonschema` 0.60, `sha2` 0.11, `base64` 0.23.
 
