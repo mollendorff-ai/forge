@@ -96,10 +96,13 @@ assumptions:
     expected: 200
 ```
 
+## Versioning
+
+This repository has no releases or tags of its own, and the `1.0.0` in `Cargo.toml` is not a published version. It is run by Forge's Validation workflow. On a Forge pull request the workflow uses the branch of this repository with the same name as the Forge branch, if there is one; on the weekly schedule, and when there is no such branch, it uses `main`. A change here that goes with a Forge change should use the same branch name.
+
 ## Related Projects
 
 - [forge](https://github.com/mollendorff-ai/forge) - Deterministic YAML-based financial modeling engine
-- [forge-e2e](https://github.com/mollendorff-ai/forge-e2e) - E2E test suite documentation hub
 - [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) - Statistical validation against R
 
 ## License
