@@ -33,7 +33,7 @@ pub struct AnalyticsTestSpec {
     /// The whole test entry as written in the YAML file. Category runners
     /// (bootstrap, tornado, ...) read their own fields from here.
     #[serde(skip)]
-    pub raw: serde_yaml_ng::Value,
+    pub raw: yaml_serde::Value,
 }
 
 const fn default_seed() -> u64 {
@@ -122,8 +122,8 @@ pub struct AnalyticsTestFile {
 ///
 /// Returns an error if the YAML content cannot be parsed.
 pub fn load_analytics_tests(content: &str) -> anyhow::Result<Vec<AnalyticsTestSpec>> {
-    let file: AnalyticsTestFile = serde_yaml_ng::from_str(content)?;
-    let document: serde_yaml_ng::Value = serde_yaml_ng::from_str(content)?;
+    let file: AnalyticsTestFile = yaml_serde::from_str(content)?;
+    let document: yaml_serde::Value = yaml_serde::from_str(content)?;
     let mut tests = Vec::new();
 
     for (name, mut spec) in file.tests {
@@ -131,7 +131,7 @@ pub fn load_analytics_tests(content: &str) -> anyhow::Result<Vec<AnalyticsTestSp
             .get("tests")
             .and_then(|t| t.get(name.as_str()))
             .cloned()
-            .unwrap_or(serde_yaml_ng::Value::Null);
+            .unwrap_or(yaml_serde::Value::Null);
         spec.name = name;
         if spec.r_validator.is_none() {
             spec.r_validator.clone_from(&file.r_validator);

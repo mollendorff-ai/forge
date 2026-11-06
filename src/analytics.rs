@@ -76,12 +76,12 @@ fn skip(spec: &AnalyticsTestSpec, reason: &str) -> TestResult {
 }
 
 /// Reads a number from a YAML value.
-fn yaml_f64(value: &serde_yaml_ng::Value) -> Option<f64> {
+fn yaml_f64(value: &yaml_serde::Value) -> Option<f64> {
     value.as_f64()
 }
 
 /// Reads a list of numbers from a YAML value.
-fn yaml_f64_list(value: &serde_yaml_ng::Value) -> Option<Vec<f64>> {
+fn yaml_f64_list(value: &yaml_serde::Value) -> Option<Vec<f64>> {
     value.as_sequence()?.iter().map(yaml_f64).collect()
 }
 
@@ -328,7 +328,7 @@ fn forge_json_with(
     let text =
         fs::read_to_string(&out_path).map_err(|e| format!("Cannot read forge output: {e}"))?;
     serde_json::from_str(&text)
-        .or_else(|_| serde_yaml_ng::from_str::<Json>(&text))
+        .or_else(|_| yaml_serde::from_str::<Json>(&text))
         .map_err(|e| format!("Cannot parse forge output: {e}"))
 }
 
@@ -342,7 +342,7 @@ fn r_results(env: &Env, validator: &str, params: &Json) -> Result<Json, String> 
 }
 
 /// Converts a YAML value from a spec to JSON.
-fn to_json(value: &serde_yaml_ng::Value) -> Json {
+fn to_json(value: &yaml_serde::Value) -> Json {
     serde_json::to_value(value).unwrap_or(Json::Null)
 }
 
@@ -753,7 +753,7 @@ fn slug(name: &str) -> String {
 
 /// Writes the branches of `node` and appends any child nodes to `nodes`.
 fn tree_branches(
-    node: &serde_yaml_ng::Value,
+    node: &yaml_serde::Value,
     chance: bool,
     indent: &str,
     nodes: &mut String,
@@ -906,7 +906,7 @@ fn real_options(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
     let american = spec
         .raw
         .get("american")
-        .and_then(serde_yaml_ng::Value::as_bool)
+        .and_then(yaml_serde::Value::as_bool)
         .unwrap_or(false);
     // Steps are a whole number in the spec; this cast cannot lose a real value.
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
@@ -992,7 +992,7 @@ fn real_options(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
 // Bayesian networks
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn string_list(value: Option<&serde_yaml_ng::Value>) -> Vec<String> {
+fn string_list(value: Option<&yaml_serde::Value>) -> Vec<String> {
     value
         .and_then(|v| v.as_sequence())
         .map(|s| {
@@ -1006,7 +1006,7 @@ fn string_list(value: Option<&serde_yaml_ng::Value>) -> Vec<String> {
 /// Translates the spec's network into Forge's `bayesian_network` model.
 /// The spec lists a table row by row: one row per state of the node, one
 /// column per parent state. Forge supports one parent per node.
-fn bayesian_model(network: &serde_yaml_ng::Value) -> Result<String, String> {
+fn bayesian_model(network: &yaml_serde::Value) -> Result<String, String> {
     let nodes = string_list(network.get("nodes"));
     let cpts = network.get("cpts").ok_or("Network has no 'cpts'")?;
     let mut out = String::from(
