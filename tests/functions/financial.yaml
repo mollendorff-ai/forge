@@ -316,3 +316,65 @@ assumptions:
     value: null
     formula: "=ROUND(ACCRINT(0, 90, 45, 0.10, 5000, 4), 2)"
     expected: 62.50
+
+  # Payments at the start of each period (type = 1). Expected values from
+  # numpy-financial 1.1.0; Forge ignored this argument for FV, PV, NPER, IPMT and PPMT until November 2026.
+  test_fv_type1_savings:
+    value: null
+    formula: "=ROUND(FV(0.04/12, 120, -200, -5000, 1), 2)"
+    expected: 37002.29
+
+  test_fv_type1_no_pv:
+    value: null
+    formula: "=ROUND(FV(0.06, 10, -1000, 0, 1), 2)"
+    expected: 13971.64
+
+  test_pv_type1_lease:
+    value: null
+    formula: "=ROUND(PV(0.05/12, 60, -500, 1000, 1), 2)"
+    expected: 25826.55
+
+  test_pv_type1_annuity:
+    value: null
+    formula: "=ROUND(PV(0.07, 20, -10000, 0, 1), 2)"
+    expected: 113355.95
+
+  test_pmt_type1_car_loan:
+    value: null
+    formula: "=ROUND(PMT(0.05/12, 60, 25000, 0, 1), 2)"
+    expected: -469.82
+
+  test_nper_type1_loan:
+    value: null
+    formula: "=ROUND(NPER(0.06/12, -400, 15000, 0, 1), 4)"
+    expected: 41.4015
+
+  test_nper_type1_savings:
+    value: null
+    formula: "=ROUND(NPER(0.05/12, -300, 0, 50000, 1), 4)"
+    expected: 126.4193
+
+  test_ipmt_type1_period1:
+    value: null
+    formula: "=ROUND(IPMT(0.01, 1, 24, 10000, 0, 1), 2)"
+    expected: 0.00
+
+  test_ipmt_type1_period2:
+    value: null
+    formula: "=ROUND(IPMT(0.01, 2, 24, 10000, 0, 1), 2)"
+    expected: -95.34
+
+  test_ipmt_type1_period12:
+    value: null
+    formula: "=ROUND(IPMT(0.06/12, 12, 360, 200000, 0, 1), 2)"
+    expected: -983.85
+
+  test_ppmt_type1_period2:
+    value: null
+    formula: "=ROUND(PPMT(0.01, 2, 24, 10000, 0, 1), 2)"
+    expected: -370.73
+
+  test_ppmt_type1_period12:
+    value: null
+    formula: "=ROUND(PPMT(0.06/12, 12, 360, 200000, 0, 1), 2)"
+    expected: -209.28
