@@ -1424,6 +1424,39 @@ scenarios:
         assert!(calculated.contains("profit"));
     }
 
+    /// Every inline-content example in `docs/MCP.md` must run against the server,
+    /// so the guide cannot drift from the model format again.
+    #[test]
+    fn test_mcp_doc_inline_examples_run() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/docs/MCP.md");
+        let doc = std::fs::read_to_string(path).expect("docs/MCP.md should exist");
+        let mut ran = 0;
+        for line in doc.lines().filter(|l| l.starts_with("{\"jsonrpc\"")) {
+            let call: serde_json::Value =
+                serde_json::from_str(line).expect("doc example should be valid JSON");
+            let name = call["params"]["name"].as_str().expect("tool name");
+            let args = call["params"]["arguments"].clone();
+            if args.get("content").is_none() {
+                continue; // file_path examples name files that do not exist here
+            }
+            let server = ForgeMcpServer::new();
+            let result = match name {
+                "forge_validate" => server.validate(Parameters(
+                    serde_json::from_value(args).expect("validate arguments"),
+                )),
+                "forge_calculate" => server.calculate(Parameters(
+                    serde_json::from_value(args).expect("calculate arguments"),
+                )),
+                other => panic!("docs/MCP.md has an inline example for {other}; add it here"),
+            };
+            if let Err(e) = result {
+                panic!("docs/MCP.md example for {name} failed: {e}\n{line}");
+            }
+            ran += 1;
+        }
+        assert!(ran >= 3, "expected at least 3 inline examples, ran {ran}");
+    }
+
     #[test]
     fn test_inline_with_includes() {
         let yaml_with_includes = r#"
