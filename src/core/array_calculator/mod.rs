@@ -67,6 +67,33 @@ fn locate_error(err: ForgeError, location: &str, formula: &str) -> ForgeError {
     }
 }
 
+/// The error for a calculation in which cells failed. One failure keeps its
+/// own message; several are listed, followed by the cells that were not
+/// calculated because they use a failed one.
+fn failure_report(failures: &[String], skipped: &[(Cell, Cell)]) -> ForgeError {
+    use std::fmt::Write as _;
+
+    if failures.len() == 1 && skipped.is_empty() {
+        return ForgeError::Eval(failures[0].clone());
+    }
+    let mut msg = if failures.len() == 1 {
+        "1 formula failed:".to_string()
+    } else {
+        format!("{} formulas failed:", failures.len())
+    };
+    for failure in failures {
+        msg.push_str("\n  - ");
+        msg.push_str(failure);
+    }
+    if !skipped.is_empty() {
+        msg.push_str("\n  Not calculated, because they use a failed formula:");
+        for (cell, dep) in skipped {
+            let _ = write!(msg, "\n  - {} (uses {})", cell.label(), dep.label());
+        }
+    }
+    ForgeError::Eval(msg)
+}
+
 /// Say which cells form a dependency cycle, for example
 /// "scalars calc.a, calc.b depend on each other".
 fn describe_cycle(graph: &petgraph::graph::DiGraph<Cell, ()>) -> String {
@@ -165,15 +192,45 @@ impl ArrayCalculator {
 
         // One order for table columns and scalars together, so a column that
         // uses a calculated scalar, and a scalar that sums a calculated
-        // column, both see the current value
-        for node in self.calculation_order()? {
-            match node {
-                Cell::Column { table, column } => self.calculate_column(&table, &column)?,
-                Cell::Scalar(name) => self.calculate_scalar(&name)?,
+        // column, both see the current value.
+        //
+        // A failing cell does not stop the calculation: every cell that does
+        // not use it is still calculated, so all errors are reported at once.
+        // A failed cell gets no value, so nothing can read a number from it,
+        // and the model as a whole still fails.
+        let mut failures: Vec<String> = Vec::new();
+        let mut skipped: Vec<(Cell, Cell)> = Vec::new();
+        let mut failed: std::collections::BTreeSet<Cell> = std::collections::BTreeSet::new();
+        for cell in self.calculation_order()? {
+            let blocked_by = self
+                .cell_dependencies(&cell)?
+                .into_iter()
+                .find(|dep| failed.contains(dep));
+            if let Some(dep) = blocked_by {
+                skipped.push((cell.clone(), dep));
+                failed.insert(cell);
+                continue;
+            }
+            let outcome = match &cell {
+                Cell::Column { table, column } => self.calculate_column(table, column),
+                Cell::Scalar(name) => self.calculate_scalar(name),
+            };
+            if let Err(e) = outcome {
+                failures.push(match e {
+                    ForgeError::Eval(msg) => msg,
+                    other => other.to_string(),
+                });
+                failed.insert(cell);
             }
         }
 
-        Ok(self.model)
+        if failures.is_empty() {
+            return Ok(self.model);
+        }
+        // Each failure starts with its cell's name; list both in name order
+        failures.sort();
+        skipped.sort_by_key(|(cell, _)| cell.label());
+        Err(failure_report(&failures, &skipped))
     }
 
     /// Every formula cell (table column or scalar) in dependency order.
