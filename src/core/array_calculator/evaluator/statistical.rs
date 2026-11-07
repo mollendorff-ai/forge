@@ -73,7 +73,7 @@ pub fn try_evaluate(
             if !(0.0..=1.0).contains(&k) {
                 return Err(EvalError::new("PERCENTILE k must be between 0 and 1"));
             }
-            values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            values.sort_by(f64::total_cmp);
             let n = values.len();
             if n == 1 {
                 return Ok(Some(Value::Number(values[0])));
@@ -102,7 +102,7 @@ pub fn try_evaluate(
             if !(0..=4).contains(&quart) {
                 return Err(EvalError::new("QUARTILE quart must be 0, 1, 2, 3, or 4"));
             }
-            values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            values.sort_by(f64::total_cmp);
             let k = f64::from(quart) / 4.0;
             let n = values.len();
             if n == 1 {
@@ -165,7 +165,7 @@ pub fn try_evaluate(
                 )));
             }
             // Sort descending and get k-th largest
-            values.sort_by(|a, b| b.partial_cmp(a).unwrap());
+            values.sort_by(|a, b| b.total_cmp(a));
             Value::Number(values[k - 1])
         },
 
@@ -187,7 +187,7 @@ pub fn try_evaluate(
                 )));
             }
             // Sort ascending and get k-th smallest
-            values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            values.sort_by(f64::total_cmp);
             Value::Number(values[k - 1])
         },
 
@@ -210,10 +210,10 @@ pub fn try_evaluate(
             let mut sorted = values;
             if order == 0 {
                 // Descending order (largest = rank 1)
-                sorted.sort_by(|a, b| b.partial_cmp(a).unwrap());
+                sorted.sort_by(|a, b| b.total_cmp(a));
             } else {
                 // Ascending order (smallest = rank 1)
-                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                sorted.sort_by(f64::total_cmp);
             }
 
             // Find rank (1-based)

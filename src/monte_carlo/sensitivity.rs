@@ -51,11 +51,7 @@ impl SensitivityAnalysis {
             }
 
             // Sort bars by absolute impact (descending)
-            bars.sort_by(|a, b| {
-                b.impact
-                    .partial_cmp(&a.impact)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
+            bars.sort_by(|a, b| b.impact.total_cmp(&a.impact));
 
             for (input_name, rho) in output_correlations {
                 correlations
@@ -132,7 +128,7 @@ fn compute_ranks(values: &[f64]) -> Vec<f64> {
 
     // Create index-value pairs and sort
     let mut indexed: Vec<(usize, f64)> = values.iter().copied().enumerate().collect();
-    indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+    indexed.sort_by(|a, b| a.1.total_cmp(&b.1));
 
     let mut ranks = vec![0.0; n];
 

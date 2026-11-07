@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ParsedModel::resolve_namespace_ref`, the old include lookup. It read values without calculating them and nothing called it; `@namespace.name` formulas replace it.
 
 ### Fixed
+- **`forge functions | head` panicked.** A closed pipe made `println!` panic with a backtrace. The command-line commands now end quietly when the reader goes away, like other tools. The MCP and API servers are unchanged.
+- **A NaN in the data (`.nan` in YAML) panicked `MEDIAN`, `MIN`, `MAX`, `SMALL`, `LARGE`, `PERCENTILE`, `QUARTILE`, `RANK`, `SORT`, Monte Carlo, bootstrap, Bayesian and decision-tree code.** All sorts and comparisons now use a total order, so the commands give an answer or a clear error instead of a crash.
 - **`forge audit` split dotted names.** `summary.total` showed as two unknowns (`summary`, `total`), so the tree for any grouped scalar or table column was wrong. Dotted names, `table.column` and `@namespace.name` now stay whole and resolve to the right scalar or column.
 - **The inline examples in `docs/MCP.md` did not run.** They used an older model format (`name:`, `tables:`, `columns:`), so the first call a new user copied failed with `Missing required field: _forge_version`. They now use the 5.0.0 format. A unit test (`test_mcp_doc_inline_examples_run`) runs every inline example in the guide against the server, so the guide and the server cannot drift apart again.
 - **`forge export` wrote included files' sheets uncalculated.** A value an included file defines by formula was an empty cell on its sheet (`rates.Scalars`). The included model is now calculated before it is written.

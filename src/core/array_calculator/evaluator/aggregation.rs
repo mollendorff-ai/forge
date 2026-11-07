@@ -35,7 +35,7 @@ pub fn try_evaluate(
             let values = collect_numeric_values(args, ctx)?;
             values
                 .into_iter()
-                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .min_by(f64::total_cmp)
                 .map(Value::Number)
                 .ok_or_else(|| EvalError::new("MIN of empty set"))?
         },
@@ -44,7 +44,7 @@ pub fn try_evaluate(
             let values = collect_numeric_values(args, ctx)?;
             values
                 .into_iter()
-                .max_by(|a, b| a.partial_cmp(b).unwrap())
+                .max_by(f64::total_cmp)
                 .map(Value::Number)
                 .ok_or_else(|| EvalError::new("MAX of empty set"))?
         },
@@ -105,7 +105,7 @@ pub fn try_evaluate(
             if values.is_empty() {
                 return Err(EvalError::new("MEDIAN of empty set"));
             }
-            values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            values.sort_by(f64::total_cmp);
             let mid = values.len() / 2;
             if values.len() % 2 == 0 {
                 Value::Number(f64::midpoint(values[mid - 1], values[mid]))
