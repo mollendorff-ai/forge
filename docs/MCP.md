@@ -399,7 +399,7 @@ Get JSON Schema for Forge YAML model formats.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `version` | string | no | `v1` (scalar-only) or `v5` (full enterprise). Omit to list available versions. |
+| `version` | string | no | `v1` (scalar-only) or `v5` (full). Omit to list available versions. |
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_schema","arguments":{"version":"v5"}}}

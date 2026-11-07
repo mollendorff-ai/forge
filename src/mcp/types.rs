@@ -272,7 +272,7 @@ pub struct BayesianRequest {
 /// Parameters for the `forge_schema` tool.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SchemaRequest {
-    /// Schema version: 'v1' (scalar-only) or 'v5' (full enterprise). Omit to list available versions.
+    /// Schema version: 'v1' (scalar-only) or 'v5' (full). Omit to list available versions.
     pub version: Option<String>,
 }
 

@@ -71,7 +71,7 @@ pub async fn root(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let response = RootResponse {
         name: "Forge API Server".to_string(),
         version: state.version.clone(),
-        description: "Enterprise HTTP API for YAML formula calculations".to_string(),
+        description: "HTTP API for YAML formula calculations".to_string(),
         endpoints: vec![
             EndpointInfo {
                 path: "/health".to_string(),
