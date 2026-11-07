@@ -589,43 +589,26 @@ forecast:
   total_revenue: =SUM(revenue)
 ```
 
+### Naming what a scenario changes
+
+A key under `scalars:` can be a bare name (`growth`, when exactly one group has a `growth`), a full name (`assumptions.growth`), or a value from an included file (`"@costs.prices.flour"`, quoted because YAML keys cannot start with `@`). The included file is then calculated with the new value, so formulas that read it change too. A name that matches nothing is an error that suggests the closest scalar; it used to be ignored, which gave the base numbers under the scenario's name.
+
 ### CLI Usage
 
 ```bash
 # Run scenario analysis
 forge scenarios revenue_model.yaml --output results.yaml
 
-# Compare specific scenarios
-forge scenarios revenue_model.yaml --scenarios base_case,bull_case
+# Show one scenario (the expected values still cover all of them)
+forge scenarios revenue_model.yaml --scenario bull_case
+
+# Calculate the whole model under one scenario
+forge calculate revenue_model.yaml --scenario bull_case --dry-run
 ```
 
-### Output Format
+### Output
 
-```yaml
-scenario_results:
-  scenarios:
-    base_case:
-      probability: 0.50
-      outputs:
-        total_revenue: 3150000
-        net_profit: 787500
-
-    bull_case:
-      probability: 0.30
-      outputs:
-        total_revenue: 4725000
-        net_profit: 1418750
-
-    bear_case:
-      probability: 0.20
-      outputs:
-        total_revenue: 1890000
-        net_profit: 283500
-
-  expected_values:
-    total_revenue: 3292500    # 0.5*3150K + 0.3*4725K + 0.2*1890K
-    net_profit: 904125        # Probability-weighted average
-```
+For each scenario: its probability, its description, every scalar's value (`scalars`) and the calculated ones (`outputs`, the scalars that have a formula). Across scenarios: the probability-weighted `expected_values`, and for each output its `ranges` (lowest and highest) and `probability_positive` (the total probability of the scenarios where it is above zero). The MCP `forge_scenarios` tool returns the same fields as JSON.
 
 ---
 

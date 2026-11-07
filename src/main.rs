@@ -402,7 +402,7 @@ EXAMPLES:
 
 OPTIONS:
   --min, --max: Override automatic bounds for the search
-  --tolerance: Precision of the result (default: 0.0001)")]
+  --tolerance: How close the output must get to the target (default: 0.0001)")]
     /// Find input value to achieve target output
     GoalSeek {
         /// Path to YAML file
@@ -428,7 +428,7 @@ OPTIONS:
         #[arg(long)]
         max: Option<f64>,
 
-        /// Solution tolerance (default: 0.0001)
+        /// How close the output must get to the target (default: 0.0001)
         #[arg(long, default_value = "0.0001")]
         tolerance: f64,
 
