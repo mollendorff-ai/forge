@@ -266,6 +266,17 @@ pub fn build_dependency_tree(
                 dep.formula = Some(agg.clone());
                 dep.children = build_dependency_tree(model, &ref_name, Some(agg), depth + 1)?;
             } else {
+                // `table.column` names one column of one table.
+                if let Some((table_name, column)) = ref_name.split_once('.') {
+                    if let Some(table) = model.tables.get(table_name) {
+                        if table.columns.contains_key(column)
+                            || table.row_formulas.contains_key(column)
+                        {
+                            dep.dep_type = format!("Column[{table_name}]");
+                            dep.formula = table.row_formulas.get(column).cloned();
+                        }
+                    }
+                }
                 // Check if it's a table column
                 for (table_name, table) in &model.tables {
                     if table.columns.contains_key(&ref_name) {
@@ -349,7 +360,11 @@ pub fn extract_references_from_formula(formula: &str) -> Vec<String> {
         "COUNTUNIQUE",
     ];
 
-    for word in formula_stripped.split(|c: char| !c.is_alphanumeric() && c != '_') {
+    // Dots and `@` belong to a name (`summary.total`, `@rates.fx.usd_eur`).
+    for word in
+        formula_stripped.split(|c: char| !c.is_alphanumeric() && !matches!(c, '_' | '.' | '@'))
+    {
+        let word = word.trim_matches('.');
         if word.is_empty() {
             continue;
         }
@@ -390,5 +405,17 @@ pub fn print_dependency(dep: &AuditDependency, indent: usize) {
 
     for child in &dep.children {
         print_dependency(child, indent + 1);
+    }
+}
+
+#[cfg(test)]
+mod name_tests {
+    use super::extract_references_from_formula;
+
+    #[test]
+    fn dotted_names_stay_whole() {
+        let refs =
+            extract_references_from_formula("=summary.total + SUM(sales.tax) * @rates.fx.usd");
+        assert_eq!(refs, ["summary.total", "sales.tax", "@rates.fx.usd"]);
     }
 }
