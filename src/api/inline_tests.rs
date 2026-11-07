@@ -52,10 +52,8 @@ async fn test_audit_inline() {
     .await;
     assert_eq!(out["data"]["audited"], true, "{out}");
     assert_eq!(out["data"]["result"]["calculated_value"], 30.0, "{out}");
-    assert!(!out["data"]["result"]["dependencies"]
-        .as_array()
-        .unwrap()
-        .is_empty());
+    let deps = out["data"]["result"]["dependencies"].as_array().unwrap();
+    assert!(!deps.is_empty(), "{out}");
 }
 
 #[tokio::test]
