@@ -7,14 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`examples/bagel/`: a 12-month plan for a fictional bagel shop**, with an included costs file, four scenarios and a Monte Carlo version. Its headline numbers are asserted in `tests/bagel_example.rs` against a calculation written independently of Forge.
+- **Scenarios can change a value from an included file**: `"@costs.prices.flour": 1.70`. The included file is calculated with the new value.
+
+### Changed
+- **The roadmap (`.asimov/roadmap.yaml`) is rewritten around trust before reach**, with the current state at the top, an acceptance criterion on every item, and the unverified commands named; the README links to it and lists them. `.asimov/project.yaml` now describes the real stack (axum, rmcp, indexmap) and conventions the code follows.
+
 ### Fixed
 - **A scenario override that named no scalar was ignored (wrong answer).** A misspelled key under a scenario's `scalars:` (`price_per_dozn` for `price_per_dozen`) created a new scalar that nothing read, so `forge scenarios`, `forge calculate --scenario` and MCP `forge_scenarios` reported the base numbers under the scenario's name. It is now an error that suggests the closest name. Tornado had the same bug and was fixed earlier; goal seek, break-even and sensitivity already reject unknown names.
 - **Goal seek and break-even said `converged: false` on good answers.** One `tolerance` was used both for the width of the input range and for the error in the output, so a target in the thousands could never be "converged" within 0.0001. `tolerance` is now how close the output must get to the target, and the search continues until it does or the input cannot be split further. The CLI uses the same search as MCP (it had its own copy), and each step calculates the model once instead of twice.
 - **`forge scenarios` showed the wrong things.** `--scenario` / MCP `scenario_filter` was ignored; each scenario listed the first five inputs alphabetically, rounded to two decimals (0.026 became 0.03), and not its results; `outputs`, `probability_positive` and `ranges` were always empty. Each scenario now shows its calculated scalars, and every calculated scalar gets an expected value, a range and a probability of being positive.
 - **MCP `forge_calculate` on a model with `MC.*` distributions said `Unknown function: MC.PERT`.** It now gives the same message as the CLI: those scalars need `forge simulate`.
-
-### Added
-- **Scenarios can change a value from an included file**: `"@costs.prices.flour": 1.70`. The included file is calculated with the new value.
 
 ## [10.0.0-rc.3] - 2026-11-07
 
