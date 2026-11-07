@@ -1271,8 +1271,9 @@ Calculated value: [20000, 30000, 50000]
 forge export model.yaml output.xlsx
 ```
 
-- Each table is a worksheet: one column per data or formula column (alphabetical), header in row 1.
-- Each scalar group (`assumptions:`) is a worksheet with `Name` in column A and `Value` in column B. Scalars without a group go on a `Scalars` sheet.
+- Each table is a worksheet: one column per data or formula column, in the order of the model file, header in row 1.
+- Each scalar group (`assumptions:`) is a worksheet with `Name` in column A and `Value` in column B, one scalar per row in file order. Scalars without a group go on a `Scalars` sheet.
+- Table sheets come first, in file order, then the scalar sheets in the order their groups first appear. `forge import` reads the sheets in workbook order, so a model keeps its column and scalar order through export and import; only the tables move ahead of the scalar groups.
 - Row formulas become cell formulas row by row. A scalar is an absolute cell (`'assumptions'!$B$3`). In a scalar formula a column is its full range (`'projections'!$D$2:$D$4`). Names resolve the way `forge calculate` resolves them.
 - The model is calculated first, and each formula cell carries Forge's result, so viewers that do not recalculate show the right numbers.
 - A formula Excel cannot express with the same meaning is written as its calculated value, with the Forge formula in a cell note, and listed as a warning. This covers functions Excel lacks or evaluates differently (`MC.*`, `VLOOKUP` in Forge's one-column form, `TODAY`, `COUNTUNIQUE`), array indexing `[ ]`, and `IRR(-cost, flows)` (Excel reads the second argument as a guess).

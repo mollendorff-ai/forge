@@ -1524,6 +1524,7 @@ dependencies = [
  "chrono",
  "clap",
  "colored",
+ "indexmap",
  "jsonschema",
  "notify",
  "notify-debouncer-mini",

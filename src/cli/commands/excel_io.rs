@@ -65,14 +65,17 @@ pub fn export_buffer_core(input: &Path) -> ForgeResult<super::results::ExportBuf
 }
 
 /// One table in the YAML format the parser reads: data columns as arrays,
-/// row formulas as `=...` strings.
+/// row formulas as `=...` strings, in the table's column order. A name with
+/// a row formula is written as the formula.
 fn table_to_value(table: &crate::types::Table) -> yaml_serde::Value {
     use crate::types::ColumnValue;
     use yaml_serde::Value;
     let mut map = yaml_serde::Mapping::new();
-    let mut names: Vec<&String> = table.columns.keys().collect();
-    names.sort();
-    for name in names {
+    for name in table.column_names() {
+        if let Some(formula) = table.row_formulas.get(name) {
+            map.insert(Value::String(name.clone()), Value::String(formula.clone()));
+            continue;
+        }
         let items: Vec<Value> = match &table.columns[name].values {
             ColumnValue::Number(v) => v.iter().map(|n| Value::Number((*n).into())).collect(),
             ColumnValue::Text(v) | ColumnValue::Date(v) => {
@@ -82,25 +85,18 @@ fn table_to_value(table: &crate::types::Table) -> yaml_serde::Value {
         };
         map.insert(Value::String(name.clone()), Value::Sequence(items));
     }
-    let mut formulas: Vec<(&String, &String)> = table.row_formulas.iter().collect();
-    formulas.sort();
-    for (name, formula) in formulas {
-        map.insert(Value::String(name.clone()), Value::String(formula.clone()));
-    }
     Value::Mapping(map)
 }
 
-/// All tables as `{table_name: table}`.
+/// All tables as `{table_name: table}`, in model order.
 fn tables_to_value(
-    tables: &std::collections::HashMap<String, crate::types::Table>,
+    tables: &indexmap::IndexMap<String, crate::types::Table>,
 ) -> yaml_serde::Mapping {
-    let mut names: Vec<&String> = tables.keys().collect();
-    names.sort();
     let mut map = yaml_serde::Mapping::new();
-    for name in names {
+    for (name, table) in tables {
         map.insert(
             yaml_serde::Value::String(name.clone()),
-            table_to_value(&tables[name]),
+            table_to_value(table),
         );
     }
     map
@@ -108,15 +104,13 @@ fn tables_to_value(
 
 /// Scalars as the parser reads them: `group: {name: {value, formula}}` for
 /// `group.name`, and `name: {value, formula}` at the top for ungrouped ones.
+/// Groups appear in the order of their first scalar, and scalars in model order.
 fn scalars_to_value(
-    scalars: &std::collections::HashMap<String, crate::types::Variable>,
+    scalars: &indexmap::IndexMap<String, crate::types::Variable>,
 ) -> yaml_serde::Mapping {
     use yaml_serde::{Mapping, Value};
-    let mut names: Vec<&String> = scalars.keys().collect();
-    names.sort();
     let mut map = Mapping::new();
-    for path in names {
-        let variable = &scalars[path];
+    for (path, variable) in scalars {
         let mut entry = Mapping::new();
         if let Some(value) = variable.value {
             entry.insert(Value::String("value".into()), Value::Number(value.into()));
@@ -525,6 +519,60 @@ mod round_trip_tests {
             }
         }
         Ok(diffs)
+    }
+
+    /// Columns and scalars keep the order of the model file through calculate,
+    /// export and import, and the numbers survive. The file order here is
+    /// deliberately not alphabetical, and mixes data and formula columns.
+    #[test]
+    fn model_order_survives_calculate_export_and_import() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let model = dir.path().join("order.yaml");
+        fs::write(
+            &model,
+            r#"_forge_version: "5.0.0"
+t:
+  zeta: [1, 2, 3]
+  alpha: "=zeta * 2"
+  mid: [10, 20, 30]
+  beta: "=alpha + mid"
+g:
+  z_last:
+    value: 5
+  a_first:
+    value: null
+    formula: "=g.z_last * 3"
+"#,
+        )
+        .unwrap();
+
+        let calculated = calculate(parser::parse_model(&model).unwrap()).unwrap();
+        let order = |m: &ParsedModel| -> (Vec<String>, Vec<String>) {
+            let columns = m.tables["t"].column_names().into_iter().cloned().collect();
+            let scalars = m.scalars.keys().cloned().collect();
+            (columns, scalars)
+        };
+        let expected_columns = ["zeta", "alpha", "mid", "beta"].map(String::from).to_vec();
+        let expected_scalars = ["g.z_last", "g.a_first"].map(String::from).to_vec();
+        assert_eq!(
+            order(&calculated),
+            (expected_columns.clone(), expected_scalars.clone())
+        );
+
+        let xlsx = dir.path().join("order.xlsx");
+        let back_yaml = dir.path().join("back.yaml");
+        ExcelExporter::new(calculated).export(&xlsx).unwrap();
+        import_core(&xlsx, &back_yaml, false, false).unwrap();
+        let back = calculate(parser::parse_model(&back_yaml).unwrap()).unwrap();
+        assert_eq!(order(&back), (expected_columns, expected_scalars));
+        assert_eq!(
+            back.tables["t"].columns["beta"].values,
+            ColumnValue::Number(vec![12.0, 24.0, 36.0])
+        );
+        assert_eq!(back.scalars["g.a_first"].value, Some(15.0));
+
+        let diffs = round_trip(&model).unwrap();
+        assert!(diffs.is_empty(), "{diffs:#?}");
     }
 
     /// The shipped examples that calculate on their own come back from Excel
