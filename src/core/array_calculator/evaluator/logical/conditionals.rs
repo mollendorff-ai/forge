@@ -1,7 +1,6 @@
 //! Conditional functions: IF, IFERROR, IFNA, IFS
 //!
-//! DEMO functions: IF, IFERROR
-//! ENTERPRISE functions: IFNA, IFS
+//! Functions: IF, IFERROR, IFNA, IFS
 
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,

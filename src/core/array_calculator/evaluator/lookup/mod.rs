@@ -1,7 +1,6 @@
 //! Lookup functions: INDEX, MATCH, CHOOSE, XLOOKUP, INDIRECT, VLOOKUP, HLOOKUP, OFFSET, ADDRESS, ROW, COLUMN, ROWS, COLUMNS
 //!
-//! DEMO functions (3): INDEX, MATCH, CHOOSE
-//! ENTERPRISE functions: XLOOKUP, INDIRECT, VLOOKUP, HLOOKUP, OFFSET, ADDRESS, ROW, COLUMN, ROWS, COLUMNS
+//! Functions: INDEX, MATCH, CHOOSE, XLOOKUP, INDIRECT, VLOOKUP, HLOOKUP, OFFSET, ADDRESS, ROW, COLUMN, ROWS, COLUMNS
 
 mod choose;
 mod index;
@@ -18,7 +17,6 @@ pub fn try_evaluate(
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
     // ═══════════════════════════════════════════════════════════════════════════
-    // DEMO FUNCTIONS (always available)
     // ═══════════════════════════════════════════════════════════════════════════
     let result = match name {
         "INDEX" => index::eval_index(args, ctx)?,
@@ -26,7 +24,6 @@ pub fn try_evaluate(
         "CHOOSE" => choose::eval_choose(args, ctx)?,
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // ENTERPRISE FUNCTIONS
         // ═══════════════════════════════════════════════════════════════════════════
         "INDIRECT" => reference::eval_indirect(args, ctx)?,
 

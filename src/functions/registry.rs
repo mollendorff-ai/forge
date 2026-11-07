@@ -5,7 +5,6 @@
 //! - Category
 //! - Description
 //! - Syntax
-//! - Demo availability (demo: true = included in demo build)
 //! - Scalar compatibility (scalar: true = works with v1.0.0 schema, no tables needed)
 //!
 //! See ADR-013 for the design rationale.
@@ -66,52 +65,26 @@ pub struct FunctionDef {
     pub description: &'static str,
     /// Usage syntax (e.g., "=SUM(value1, value2, ...)")
     pub syntax: &'static str,
-    /// Available in demo build (false = enterprise only)
-    pub demo: bool,
     /// Scalar compatible (true = works with v1.0.0 schema without tables/arrays)
     /// scalar=true: single value in, single value out (e.g., ABS, SQRT, IF)
     /// scalar=false: requires table/array context (e.g., UNIQUE, FILTER, SUMIF)
     pub scalar: bool,
 }
 
-/// Get demo functions only
-pub fn demo_functions() -> impl Iterator<Item = &'static FunctionDef> {
-    FUNCTIONS.iter().filter(|f| f.demo)
-}
-
-/// Get enterprise functions (all)
-pub fn enterprise_functions() -> impl Iterator<Item = &'static FunctionDef> {
+/// Get all functions
+pub fn all_functions() -> impl Iterator<Item = &'static FunctionDef> {
     FUNCTIONS.iter()
 }
 
-/// Count demo functions
+/// Count all functions
 #[must_use]
-pub fn count_demo() -> usize {
-    FUNCTIONS.iter().filter(|f| f.demo).count()
-}
-
-/// Count enterprise functions (total)
-#[must_use]
-pub fn count_enterprise() -> usize {
+pub fn count_all() -> usize {
     FUNCTIONS.len()
 }
 
 /// Get functions by category
 pub fn by_category(category: Category) -> impl Iterator<Item = &'static FunctionDef> {
     FUNCTIONS.iter().filter(move |f| f.category == category)
-}
-
-/// Get demo functions by category
-pub fn demo_by_category(category: Category) -> impl Iterator<Item = &'static FunctionDef> {
-    FUNCTIONS
-        .iter()
-        .filter(move |f| f.demo && f.category == category)
-}
-
-/// Check if function is available in demo build
-#[must_use]
-pub fn is_demo_function(name: &str) -> bool {
-    FUNCTIONS.iter().any(|f| f.name == name && f.demo)
 }
 
 /// Find function by name

@@ -1,7 +1,6 @@
 //! Logical functions: IF, AND, OR, NOT, XOR, TRUE, FALSE, IFERROR, IFNA, IFS
 //!
-//! DEMO functions (5): IF, AND, OR, NOT, IFERROR
-//! ENTERPRISE functions: IFNA, XOR, TRUE, FALSE, IFS
+//! Functions: IF, AND, OR, NOT, IFERROR, IFNA, XOR, TRUE, FALSE, IFS
 
 mod boolean_ops;
 mod conditionals;
@@ -16,7 +15,6 @@ pub fn try_evaluate(
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
     // ═══════════════════════════════════════════════════════════════════════════
-    // DEMO FUNCTIONS (always available)
     // ═══════════════════════════════════════════════════════════════════════════
     let result = match name {
         "IF" => conditionals::eval_if(name, args, ctx)?,
@@ -30,7 +28,6 @@ pub fn try_evaluate(
         "IFERROR" => conditionals::eval_iferror(name, args, ctx)?,
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // ENTERPRISE FUNCTIONS
         // ═══════════════════════════════════════════════════════════════════════════
         "IFNA" => conditionals::eval_ifna(name, args, ctx)?,
 

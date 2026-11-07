@@ -13,7 +13,6 @@
     clippy::cast_precision_loss
 )]
 
-// Demo modules (always included)
 mod aggregation;
 mod dates;
 pub(crate) mod day_count;
@@ -591,7 +590,6 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
     let upper_name = name.to_uppercase();
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // DEMO FUNCTIONS (always available)
     // ═══════════════════════════════════════════════════════════════════════════
     if let Some(result) = math::try_evaluate(&upper_name, args, ctx)? {
         return Ok(result);
@@ -622,7 +620,6 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // ENTERPRISE FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
     {
         if let Some(result) = conditional::try_evaluate(&upper_name, args, ctx)? {

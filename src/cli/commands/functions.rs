@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 ///
 /// This function is infallible but returns `ForgeResult` for API consistency.
 pub fn functions_core() -> ForgeResult<serde_json::Value> {
-    let all_functions: Vec<&FunctionDef> = registry::enterprise_functions().collect();
+    let all_functions: Vec<&FunctionDef> = registry::all_functions().collect();
     let total = all_functions.len();
 
     let mut by_category: BTreeMap<String, Vec<&FunctionDef>> = BTreeMap::new();
@@ -56,7 +56,7 @@ pub fn functions_core() -> ForgeResult<serde_json::Value> {
 /// never happen with static data.
 pub fn functions(json_output: bool) -> ForgeResult<()> {
     // Get all functions from registry
-    let all_functions: Vec<&FunctionDef> = registry::enterprise_functions().collect();
+    let all_functions: Vec<&FunctionDef> = registry::all_functions().collect();
 
     let total = all_functions.len();
 
