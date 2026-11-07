@@ -88,13 +88,6 @@ Forge's results are checked against other engines. None of the checks is complet
 
 Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
 
---- | --- | --- |
-| Unit tests (this repo) | 1,399 inline unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Run on every push |
-| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,321 formula specs. Each formula is exported to `.xlsx`, recalculated by Gnumeric and compared with an expected value | Run by hand; 1,114 of 1,301 passed on 2026-11-04. It checks the export and Gnumeric, not yet Forge's own evaluator |
-| [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Monte Carlo distributions compared with R | Run by hand; 10 of 77 specs run live and the rest are skipped |
-
-Next steps: compare `forge calculate` directly with Gnumeric (today the comparison goes through the exported `.xlsx`).
-
 ---
 
 ## What Excel Can't Do
