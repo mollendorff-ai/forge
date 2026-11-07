@@ -388,7 +388,7 @@ forge calculate model.yaml --scenario bull --dry-run
 forge sensitivity model.yaml -v assumptions.growth_rate -r 0.05,0.30,0.05 -o valuation.npv_cash_flows
 ```
 
-Without `--dry-run`, `forge calculate` writes the results back into the file and keeps a `.bak` copy.
+`forge calculate` prints every calculated value, including each table column. Without `--dry-run`, it also writes the calculated scalar values back into the file and keeps a `.bak` copy; table columns keep their formulas in the file. The MCP `forge_calculate` tool returns the column values under `tables.<name>.values`.
 
 ---
 

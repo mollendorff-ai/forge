@@ -72,6 +72,7 @@ pub use upgrade::split_scalars_to_inputs_outputs;
 use crate::core::{ArrayCalculator, UnitValidator};
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
+use crate::types::ColumnValue;
 use crate::writer;
 use colored::Colorize;
 use std::path::Path;
@@ -98,6 +99,30 @@ pub fn format_number(n: f64) -> String {
         .trim_end_matches('0')
         .trim_end_matches('.')
         .to_string()
+}
+
+/// A column's values as plain JSON (numbers, strings, booleans), for the MCP
+/// and JSON results. A number that is not finite becomes null.
+fn column_json_values(values: &ColumnValue) -> Vec<serde_json::Value> {
+    match values {
+        ColumnValue::Number(v) => v.iter().map(|n| serde_json::json!(n)).collect(),
+        ColumnValue::Text(v) | ColumnValue::Date(v) => {
+            v.iter().map(|t| serde_json::json!(t)).collect()
+        },
+        ColumnValue::Boolean(v) => v.iter().map(|b| serde_json::json!(b)).collect(),
+    }
+}
+
+/// A column's values for the terminal, all of them and at full precision, like
+/// scalars: `[1, 2, 3]`. Long columns are not cut, because the values are what
+/// a reader (or an agent) needs.
+fn format_column_values(values: &ColumnValue) -> String {
+    let items: Vec<String> = match values {
+        ColumnValue::Number(v) => v.iter().map(ToString::to_string).collect(),
+        ColumnValue::Text(v) | ColumnValue::Date(v) => v.iter().map(|t| format!("{t:?}")).collect(),
+        ColumnValue::Boolean(v) => v.iter().map(|b| b.to_string().to_uppercase()).collect(),
+    };
+    format!("[{}]", items.join(", "))
 }
 
 /// Calculate formulas and return structured results (no printing).
@@ -149,6 +174,11 @@ pub fn calculate_core(
                     columns.sort();
                     columns
                 },
+                values: table
+                    .columns
+                    .iter()
+                    .map(|(name, column)| (name.clone(), column_json_values(&column.values)))
+                    .collect(),
             },
         );
     }
@@ -281,7 +311,11 @@ pub fn calculate(
         println!("   📊 Table: {}", table_name.bright_blue().bold());
         let sorted_columns: std::collections::BTreeMap<_, _> = table.columns.iter().collect();
         for (col_name, column) in sorted_columns {
-            println!("      {} ({} rows)", col_name.cyan(), column.values.len());
+            println!(
+                "      {} = {}",
+                col_name.cyan(),
+                format_column_values(&column.values)
+            );
         }
     }
 
@@ -873,6 +907,73 @@ mod calculate_tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("forge simulate"), "{err}");
+    }
+
+    #[test]
+    fn calculate_core_returns_table_values() {
+        let mut file = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+        write!(
+            file,
+            "_forge_version: \"5.0.0\"\nt:\n  n: [1, 2, 3]\n  sq: \"=n * n\"\n  label: '=IF(n > 1, \"big\", \"small\")'\n  even: \"=MOD(n, 2) = 0\"\n"
+        )
+        .unwrap();
+        let result = calculate_core(file.path(), true, None).unwrap();
+        let values = &result.tables["t"].values;
+        assert_eq!(
+            values["sq"],
+            vec![
+                serde_json::json!(1.0),
+                serde_json::json!(4.0),
+                serde_json::json!(9.0)
+            ]
+        );
+        assert_eq!(
+            values["label"],
+            vec![
+                serde_json::json!("small"),
+                serde_json::json!("big"),
+                serde_json::json!("big")
+            ]
+        );
+        assert_eq!(
+            values["even"],
+            vec![
+                serde_json::json!(false),
+                serde_json::json!(true),
+                serde_json::json!(false)
+            ]
+        );
+        // Input columns are included too
+        assert_eq!(values["n"].len(), 3);
+    }
+
+    #[test]
+    fn table_values_serialize_as_plain_json_arrays() {
+        let mut file = tempfile::NamedTempFile::with_suffix(".yaml").unwrap();
+        write!(
+            file,
+            "_forge_version: \"5.0.0\"\nt:\n  n: [1, 2]\n  d: \"=n * 2\"\n"
+        )
+        .unwrap();
+        let result = calculate_core(file.path(), true, None).unwrap();
+        let json = serde_json::to_value(&result.tables["t"]).unwrap();
+        assert_eq!(json["values"]["d"], serde_json::json!([2.0, 4.0]));
+    }
+
+    #[test]
+    fn format_column_values_prints_every_value() {
+        let long = ColumnValue::Number((1..=60).map(f64::from).collect());
+        let printed = format_column_values(&long);
+        assert!(printed.starts_with("[1, 2, "), "{printed}");
+        assert!(printed.ends_with(", 59, 60]"), "{printed}");
+        assert_eq!(
+            format_column_values(&ColumnValue::Text(vec!["a".into(), "b".into()])),
+            "[\"a\", \"b\"]"
+        );
+        assert_eq!(
+            format_column_values(&ColumnValue::Boolean(vec![true, false])),
+            "[TRUE, FALSE]"
+        );
     }
 
     #[test]
