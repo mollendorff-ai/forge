@@ -1,6 +1,6 @@
 //! Forge API Server module (v2.0.0)
 //!
-//! Provides HTTP REST API for enterprise integration.
+//! Provides an HTTP REST API for integration with other systems.
 //! Run with `forge serve`.
 
 pub mod handlers;

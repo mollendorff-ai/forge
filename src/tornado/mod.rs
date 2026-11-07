@@ -1,4 +1,4 @@
-//! Tornado Diagrams Module (Enterprise Only)
+//! Tornado Diagrams Module
 //!
 //! Sensitivity analysis showing which inputs drive output variance:
 //! - One-at-a-time sensitivity analysis

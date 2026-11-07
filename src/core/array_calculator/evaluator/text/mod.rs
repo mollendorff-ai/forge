@@ -35,7 +35,7 @@ pub fn try_evaluate(
         "REPT" => concat::eval_rept(args, ctx)?,
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // ENTERPRISE FUNCTIONS (only in full build)
+        // ENTERPRISE FUNCTIONS
         // ═══════════════════════════════════════════════════════════════════════════
         "CONCATENATE" => concat::eval_concatenate(args, ctx)?,
 

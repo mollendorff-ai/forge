@@ -24,7 +24,7 @@ pub fn schema_core(version: Option<&str>) -> ForgeResult<String> {
             Ok(serde_json::json!({
                 "available_versions": [
                     {"version": "v1.0.0", "description": "Scalar-only models (simple key-value pairs)"},
-                    {"version": "v5.0.0", "description": "Full enterprise support (arrays, tables, Monte Carlo, etc.)"}
+                    {"version": "v5.0.0", "description": "Full feature set (arrays, tables, Monte Carlo, etc.)"}
                 ]
             })
             .to_string())
@@ -81,7 +81,7 @@ fn print_schema_list() {
     println!("         - Scenarios for what-if analysis");
     println!("         - No arrays or tables");
     println!();
-    println!("  {}  Full enterprise support", "v5.0.0".cyan().bold());
+    println!("  {}  Full feature set", "v5.0.0".cyan().bold());
     println!("         - Arrays and tables with row-wise formulas");
     println!("         - inputs/outputs separation");
     println!("         - Monte Carlo, Decision Trees, Real Options");

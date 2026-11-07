@@ -1,4 +1,4 @@
-//! Workday calculation functions: WORKDAY, NETWORKDAYS (enterprise only)
+//! Workday calculation functions: WORKDAY, NETWORKDAYS
 
 // Workday casts: f64 day counts to i64 (bounded by calendar range).
 #![allow(clippy::cast_possible_truncation)]

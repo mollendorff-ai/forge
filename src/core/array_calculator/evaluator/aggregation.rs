@@ -65,10 +65,10 @@ pub fn try_evaluate(
         },
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // ENTERPRISE FUNCTIONS (only in full build)
+        // ENTERPRISE FUNCTIONS
         // ═══════════════════════════════════════════════════════════════════════════
         "AVG" => {
-            // Alias for AVERAGE (enterprise only)
+            // Alias for AVERAGE
             let values = collect_numeric_values(args, ctx)?;
             if values.is_empty() {
                 return Err(EvalError::new("AVG of empty set"));

@@ -5,7 +5,7 @@
 **Last Updated:** 2025-12-04
 **Status:** Complete
 
-> **Note (2026-11-07):** This overview dates from v5.0.0. The cost, CO₂, token, speed and test-count figures it once carried were never sourced and have been removed; [VALIDATION.md](../../VALIDATION.md) says what is checked and how. The architecture below has not been brought up to date. For example, Forge evaluates formulas with its own evaluator in `src/core/array_calculator`, and no source file uses `xlformula_engine`.
+> **Note (2026-11-07):** This overview dates from v5.0.0. The cost, CO₂, token, speed and test-count figures it once carried were never sourced and have been removed; [VALIDATION.md](../../VALIDATION.md) says what is checked and how. The architecture below has not been brought up to date. For example, Forge evaluates formulas with its own evaluator in `src/core/array_calculator` and no longer depends on `xlformula_engine`; 01-COMPONENT-ARCHITECTURE.md, 02-DATA-MODEL.md, 03-FORMULA-EVALUATION.md and ADR-011 still describe that earlier integration.
 
 ---
 
@@ -108,7 +108,7 @@ graph TB
 
 - **No AI in the calculation path** - No LLMs; the same input always gives the same output
 - **Rust-based** - Type-safe, memory-safe, deterministic
-- **xlformula_engine** - Excel-compatible formula evaluation
+- **Own evaluator** - Excel-compatible formula evaluation (`src/core/array_calculator`)
 - **Reproducible** - Same input → same output, always
 
 ### 2. Excel Compatibility = Excel Data Structures
@@ -175,7 +175,7 @@ graph TB
 
     %% External Libraries
     subgraph ext["External Libraries"]
-        xle[("xlformula_engine")]
+        xle[("Forge evaluator")]
         graph[("petgraph")]
         yaml[("yaml_serde")]
         xlsx_writer[("rust_xlsxwriter")]
@@ -223,7 +223,6 @@ graph TB
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| **xlformula_engine** | 0.1.18 | Excel-compatible formula evaluation |
 | **petgraph** | 0.6 | Dependency graph, topological sort |
 | **serde** | 1.0 | Serialization framework |
 | **yaml_serde** | 0.10 | YAML parsing and serialization |
@@ -331,7 +330,7 @@ Array Calculator
     ↓
 Dependency Resolution (petgraph)
     ↓
-Formula Evaluation (xlformula_engine)
+Formula Evaluation (src/core/array_calculator)
     ↓
 Results
     ↓

@@ -1,4 +1,4 @@
-//! Convert functions: TEXT, VALUE (enterprise only)
+//! Convert functions: TEXT, VALUE
 
 // Text convert casts: f64 to integer types for formatting (bounded by format specifiers).
 #![allow(clippy::cast_possible_truncation)]

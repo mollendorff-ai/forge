@@ -1,4 +1,4 @@
-//! Monte Carlo Simulation Module (Enterprise Only)
+//! Monte Carlo Simulation Module
 //!
 //! Provides probabilistic analysis capabilities for FP&A:
 //! - Distribution sampling (Normal, Triangular, Uniform, PERT, Lognormal)

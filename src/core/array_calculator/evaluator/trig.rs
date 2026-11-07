@@ -67,7 +67,7 @@ pub fn try_evaluate(
         },
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // ENTERPRISE FUNCTIONS (only in full build)
+        // ENTERPRISE FUNCTIONS
         // ═══════════════════════════════════════════════════════════════════════════
         "SINH" => {
             require_args(name, args, 1)?;

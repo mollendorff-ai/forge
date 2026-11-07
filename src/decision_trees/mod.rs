@@ -1,4 +1,4 @@
-//! Decision Trees Module (Enterprise Only)
+//! Decision Trees Module
 //!
 //! Provides sequential decision modeling for FP&A:
 //! - Decision nodes (choices we control)

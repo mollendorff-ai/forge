@@ -1,4 +1,4 @@
-//! Replace functions: REPLACE, SUBSTITUTE (enterprise only)
+//! Replace functions: REPLACE, SUBSTITUTE
 
 // Text replace casts: f64 start/length indices to usize (bounded by string length).
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]

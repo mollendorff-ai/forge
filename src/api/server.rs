@@ -1,6 +1,6 @@
 //! Forge API Server implementation
 //!
-//! HTTP REST API server using Axum for enterprise integrations.
+//! HTTP REST API server using Axum for integrations.
 //! Provides endpoints for validate, calculate, audit, export, import.
 
 // During coverage builds, stubbed functions don't use all imports

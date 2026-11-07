@@ -54,7 +54,7 @@ mod tests {
     use super::super::super::tests::eval;
     use super::super::super::{EvalContext, Value};
 
-    // Imports for enterprise integration tests
+    // Imports for integration tests
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 

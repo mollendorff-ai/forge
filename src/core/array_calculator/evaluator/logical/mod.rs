@@ -30,7 +30,7 @@ pub fn try_evaluate(
         "IFERROR" => conditionals::eval_iferror(name, args, ctx)?,
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // ENTERPRISE FUNCTIONS (only in full build)
+        // ENTERPRISE FUNCTIONS
         // ═══════════════════════════════════════════════════════════════════════════
         "IFNA" => conditionals::eval_ifna(name, args, ctx)?,
 

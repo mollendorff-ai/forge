@@ -9,14 +9,14 @@
 //! - `variance/sensitivity/goal_seek/break_even`: Analysis tools
 //! - compare: Scenario comparison
 //! - functions: List supported functions
-//! - simulate: Monte Carlo simulation (enterprise only)
-//! - upgrade: Schema migration (enterprise only)
-//! - scenarios: Scenario analysis (enterprise only)
-//! - `decision_tree`: Decision tree analysis (enterprise only)
-//! - `real_options`: Real options valuation (enterprise only)
-//! - tornado: Tornado sensitivity diagrams (enterprise only)
-//! - bootstrap: Bootstrap resampling (enterprise only)
-//! - bayesian: Bayesian network inference (enterprise only)
+//! - simulate: Monte Carlo simulation
+//! - upgrade: Schema migration
+//! - scenarios: Scenario analysis
+//! - `decision_tree`: Decision tree analysis
+//! - `real_options`: Real options valuation
+//! - tornado: Tornado sensitivity diagrams
+//! - bootstrap: Bootstrap resampling
+//! - bayesian: Bayesian network inference
 
 mod analysis;
 mod audit;
@@ -92,7 +92,6 @@ use std::time::Duration;
 #[must_use]
 pub fn format_number(n: f64) -> String {
     // Round to 6 decimal places for display (sufficient for most financial calculations)
-    // This also handles f32 precision artifacts from xlformula_engine
     let rounded = (n * 1e6).round() / 1e6;
     // Format with up to 6 decimal places, removing trailing zeros
     format!("{rounded:.6}")
