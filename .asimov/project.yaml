@@ -3,20 +3,28 @@ identity:
   type: rust
 
 description: >
-  YAML-based financial modeling engine with Excel formula evaluation.
-  Git-native. Deterministic. Validated against Gnumeric and R.
+  YAML financial modeling engine with Excel-style formulas, its own
+  evaluator (173 functions), Monte Carlo and scenario analysis, Excel
+  export/import, an MCP server and a REST API. Deterministic. Formulas
+  checked against Gnumeric and analytics against R in the forge-e2e-gnumeric
+  and forge-e2e-r repositories.
 
 stack:
-  - rust
+  - rust (stable; CI lints with the newest stable, so pin nothing)
   - clap (CLI)
-  - actix-web (API server)
-  - tower/jsonrpc (MCP server)
+  - axum + tokio (REST API)
+  - rmcp (MCP server, stdio)
+  - rust_xlsxwriter / calamine (Excel write / read)
   - statrs (statistics)
+  - indexmap (model order is preserved everywhere)
 
 conventions:
-  - "Result<T, E> for errors, no panics, no unwrap() in library code"
-  - "Unit tests in same file (#[cfg(test)] mod tests)"
-  - "Zero warnings policy, clippy pedantic"
+  - "Result<T, E> for errors in library code; a panic is a bug. Sorting and comparing f64 uses total_cmp, never partial_cmp().unwrap()"
+  - "No silent wrong answers: an input that cannot be used (unknown name, NaN, failing include) is an error that names it and suggests the closest name"
+  - "Unit tests in the same file (#[cfg(test)] mod tests); end-to-end checks in the two forge-e2e repositories"
+  - "Every fix for a wrong answer comes with a test that fails on the previous commit"
+  - "Zero warnings; clippy pedantic + nursery + cargo at -D warnings (the pre-commit hook enforces it)"
+  - "CHANGELOG.md has an [Unreleased] section; every PR adds its entry there in plain words that say what a user saw and what changed"
+  - "Docs describe what the code does today; a superseded design doc gets a dated note at the top, not a rewrite"
   - "No file > 1,500 lines"
   - "MIT OR Apache-2.0 license"
-  - "make targets over raw cargo commands"
