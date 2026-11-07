@@ -107,3 +107,55 @@ fn test_column_cycle_lists_qualified_columns() {
         "{err}"
     );
 }
+
+#[test]
+fn test_one_failure_keeps_its_own_message() {
+    let err = error(with_scalars(&[
+        ("calc.x", None, Some("=1 / 0")),
+        ("calc.fine", None, Some("=2 * 3")),
+    ]));
+    assert_eq!(
+        err,
+        "Formula evaluation error: calc.x: Division by zero (formula: =1 / 0)"
+    );
+}
+
+#[test]
+fn test_every_failure_is_reported_in_name_order() {
+    let err = error(with_scalars(&[
+        ("calc.y", None, Some("=FOOBAR(1)")),
+        ("calc.x", None, Some("=1 / 0")),
+        ("calc.fine", None, Some("=2 * 3")),
+    ]));
+    assert!(err.contains("2 formulas failed:"), "{err}");
+    let x = err.find("calc.x: Division by zero").expect(&err);
+    let y = err.find("calc.y: Unknown function: FOOBAR").expect(&err);
+    assert!(x < y, "{err}");
+    assert!(!err.contains("calc.fine"), "{err}");
+}
+
+#[test]
+fn test_cells_that_use_a_failed_cell_are_named_not_calculated() {
+    let mut model = with_scalars(&[
+        ("calc.x", None, Some("=1 / 0")),
+        ("calc.uses_x", Some(42.0), Some("=calc.x + 1")),
+        ("calc.uses_uses_x", None, Some("=calc.uses_x * 2")),
+    ]);
+    let mut table = Table::new("t".to_string());
+    table.add_column(Column::new(
+        "n".to_string(),
+        ColumnValue::Number(vec![1.0, 2.0]),
+    ));
+    table.add_row_formula("m".to_string(), "=n * calc.x".to_string());
+    table.add_row_formula("ok".to_string(), "=n * 2".to_string());
+    model.add_table(table);
+
+    let err = error(model);
+    assert!(err.contains("1 formula failed:"), "{err}");
+    assert!(err.contains("calc.uses_x (uses calc.x)"), "{err}");
+    assert!(err.contains("calc.uses_uses_x (uses calc.uses_x)"), "{err}");
+    assert!(err.contains("t.m (uses calc.x)"), "{err}");
+    // The stored 42 is never reported or used as a result
+    assert!(!err.contains("42"), "{err}");
+    assert!(!err.contains("t.ok"), "{err}");
+}
