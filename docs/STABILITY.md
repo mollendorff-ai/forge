@@ -1,6 +1,6 @@
 # Stability
 
-What Forge promises once it leaves beta, and what it does not. Forge is at a release candidate (v10.0.0-rc.1); this page is the promise the stable release will make, so that "stable" means something specific. The release candidate is meant to behave as described here; where it does not, that is a bug to report.
+What Forge promises once it leaves beta, and what it does not. Forge is at a release candidate (v10.0.0-rc.2); this page is the promise the stable release will make, so that "stable" means something specific. The release candidate is meant to behave as described here; where it does not, that is a bug to report.
 
 ## What stable promises
 

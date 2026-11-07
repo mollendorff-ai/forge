@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.2] - 2026-11-06
+
+Second release candidate. rc.1 could give a wrong answer when a table formula used a calculated scalar (first entry below), so the two weeks before the stable release start again from this candidate.
+
 ### Fixed
 - **A table formula that used a calculated scalar read its stored value, not the calculated one (wrong answer).** Forge calculated every table before any scalar, so in a table formula such as `=x * assumptions.double`, where `assumptions.double` has a formula, it read whatever value was stored in the file (from an import, a hand edit or an earlier run) or failed with "Unknown column" when there was none. With `double` stored as 999 and calculating to 20, `y` came out as `[999, 1998, 2997]` next to `assumptions.double = 20`. Table columns and scalars are now calculated in one dependency order, cell by cell, and a formula's stored value is never read. A column can use a calculated scalar, a scalar can sum a calculated column, and `share = revenue / summary.total` with `total = SUM(t.revenue)` works without a false cycle. A real cycle through a column and a scalar is reported by name (`formulas t.y, s.k depend on each other`). The output of every example and of the README model is unchanged.
 - **One failing formula hid the others.** `forge calculate` stopped at the first error, so a model with three mistakes took three runs to fix. It now calculates every formula that does not use a failed one and reports all failures together, each with its formula, followed by the formulas it could not calculate because they use a failed one (`calc.y (uses calc.x)`). A failed formula gets no value, so nothing can read a number from it; the command still exits 1 and writes nothing, and no values are printed. A single failure keeps the same message as before. The MCP `forge_calculate` tool returns the same list.
