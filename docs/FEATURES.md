@@ -163,6 +163,16 @@ curl -X POST http://localhost:8080/api/v1/validate \
   -d '{"file_path": "model.yaml"}'
 ```
 
+`validate`, `calculate` and `audit` also take the model as text, so a client that is not on the same machine does not need a file there. Send `content` instead of `file_path`, and `includes` (a map from each `_includes` `as` name to that file's text) when the model has includes. The answer carries the numbers in `result`; `calculate` with `content` also returns the model with its values filled in as `calculated_content`.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"content": "_forge_version: \"5.0.0\"\nsales:\n  amount: [100, 200]\n  tax: \"=amount * 0.1\"\n", "dry_run": true}'
+```
+
+Give `file_path` or `content`, not both. Include paths in inline content must be relative and cannot use `..`.
+
 **Response:**
 
 ```json

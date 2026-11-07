@@ -10,3 +10,6 @@ pub use server::run_api_server;
 
 #[cfg(test)]
 mod security_tests;
+
+#[cfg(test)]
+mod inline_tests;
