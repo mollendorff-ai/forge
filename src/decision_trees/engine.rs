@@ -158,7 +158,7 @@ impl DecisionTreeEngine {
                 let (best_name, best_value) = branch_values
                     .iter()
                     .max_by(|(name_a, a), (name_b, b)| {
-                        match a.partial_cmp(b).unwrap() {
+                        match a.total_cmp(b) {
                             // When values are equal, prefer earlier alphabetically
                             std::cmp::Ordering::Equal => name_b.cmp(name_a),
                             other => other,

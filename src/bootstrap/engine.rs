@@ -157,7 +157,7 @@ impl BootstrapEngine {
         }
 
         // Sort for percentile calculation
-        distribution.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        distribution.sort_by(f64::total_cmp);
 
         // Calculate bootstrap statistics
         let bootstrap_mean = distribution.iter().sum::<f64>() / distribution.len() as f64;
@@ -195,7 +195,7 @@ impl BootstrapEngine {
             BootstrapStatistic::Mean => sample.iter().sum::<f64>() / sample.len() as f64,
             BootstrapStatistic::Median => {
                 let mut sorted = sample.to_vec();
-                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                sorted.sort_by(f64::total_cmp);
                 let mid = sorted.len() / 2;
                 if sorted.len().is_multiple_of(2) {
                     f64::midpoint(sorted[mid - 1], sorted[mid])
@@ -215,7 +215,7 @@ impl BootstrapEngine {
             },
             BootstrapStatistic::Percentile => {
                 let mut sorted = sample.to_vec();
-                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                sorted.sort_by(f64::total_cmp);
                 // cast_possible_truncation: percentile index is always in [0, sorted.len()-1]
                 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 let idx = ((self.config.percentile_value / 100.0) * (sorted.len() as f64 - 1.0))

@@ -14,7 +14,7 @@ pub fn eval_sort(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     } else {
         false
     };
-    values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    values.sort_by(f64::total_cmp);
     if descending {
         values.reverse();
     }

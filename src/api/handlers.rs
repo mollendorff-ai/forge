@@ -2,6 +2,7 @@
 //!
 //! Handlers for all REST API endpoints.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -9,10 +10,10 @@ use axum::{extract::State, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::cli::{
-    audit as cli_audit, calculate as cli_calculate, export as cli_export, import as cli_import,
-    validate as cli_validate,
-};
+use crate::cli::commands::results::{AuditResult, CalculationResult, ValidationResult};
+use crate::cli::{audit_core, calculate_core, validate_core};
+use crate::cli::{export as cli_export, import as cli_import};
+use crate::inline_model::resolve_model_input;
 
 use super::server::AppState;
 
@@ -149,10 +150,38 @@ pub async fn version(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     }))
 }
 
+/// Where a request gets its model from: a file on the machine running Forge,
+/// or the YAML itself (with the text of any included files).
+#[derive(Deserialize, Default)]
+pub struct ModelSource {
+    /// Path to a model on the machine running Forge
+    pub file_path: Option<String>,
+    /// The model as YAML text, instead of `file_path`
+    pub content: Option<String>,
+    /// Text for each `_includes` entry of inline content, keyed by its `as` name
+    pub includes: Option<HashMap<String, String>>,
+}
+
+impl ModelSource {
+    fn resolve(&self) -> Result<(PathBuf, Option<tempfile::TempDir>), String> {
+        resolve_model_input(
+            self.file_path.as_deref(),
+            self.content.as_deref(),
+            self.includes.as_ref(),
+        )
+    }
+
+    /// The path to show in the response: empty for inline content.
+    fn label(&self) -> String {
+        self.file_path.clone().unwrap_or_default()
+    }
+}
+
 /// Validate request
 #[derive(Deserialize)]
 pub struct ValidateRequest {
-    pub file_path: String,
+    #[serde(flatten)]
+    pub source: ModelSource,
 }
 
 /// Validate response
@@ -161,32 +190,48 @@ pub struct ValidateResponse {
     pub valid: bool,
     pub file_path: String,
     pub message: String,
+    /// Counts and any value that differs from its formula
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<ValidationResult>,
 }
 
 /// POST /api/v1/validate - Validate a YAML model
 pub async fn validate(Json(req): Json<ValidateRequest>) -> impl IntoResponse {
-    let path = PathBuf::from(&req.file_path);
+    let file_path = req.source.label();
+    let outcome = req
+        .source
+        .resolve()
+        .and_then(|(path, _tmp)| validate_core(&path).map_err(|e| e.to_string()));
 
-    match cli_validate(&[path]) {
-        Ok(()) => Json(ApiResponse::ok(ValidateResponse {
-            valid: true,
-            file_path: req.file_path,
-            message: "Validation successful".to_string(),
-        })),
-        Err(e) => Json(ApiResponse::ok(ValidateResponse {
+    Json(ApiResponse::ok(match outcome {
+        Ok(result) => ValidateResponse {
+            valid: result.tables_valid && result.scalars_valid,
+            file_path,
+            message: if result.tables_valid && result.scalars_valid {
+                "Validation successful".to_string()
+            } else {
+                "Some values differ from their formulas".to_string()
+            },
+            result: Some(result),
+        },
+        Err(e) => ValidateResponse {
             valid: false,
-            file_path: req.file_path,
-            message: e.to_string(),
-        })),
-    }
+            file_path,
+            message: e,
+            result: None,
+        },
+    }))
 }
 
 /// Calculate request
 #[derive(Deserialize)]
 pub struct CalculateRequest {
-    pub file_path: String,
+    #[serde(flatten)]
+    pub source: ModelSource,
     #[serde(default)]
     pub dry_run: bool,
+    /// Scenario to apply
+    pub scenario: Option<String>,
 }
 
 /// Calculate response
@@ -196,37 +241,61 @@ pub struct CalculateResponse {
     pub file_path: String,
     pub dry_run: bool,
     pub message: String,
+    /// The calculated tables and scalars
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<CalculationResult>,
+    /// For inline content: the model with its calculated values
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub calculated_content: Option<String>,
 }
 
 /// POST /api/v1/calculate - Calculate formulas
 pub async fn calculate(Json(req): Json<CalculateRequest>) -> impl IntoResponse {
-    let path = PathBuf::from(&req.file_path);
+    let file_path = req.source.label();
     let dry_run = req.dry_run;
+    let is_inline = req.source.content.is_some();
+    let outcome = req.source.resolve().and_then(|(path, _tmp)| {
+        let result = calculate_core(&path, dry_run, req.scenario.as_deref())
+            .map_err(|e| format!("Error: {e}"))?;
+        let content = if is_inline && !dry_run {
+            std::fs::read_to_string(&path).ok()
+        } else {
+            None
+        };
+        Ok((result, content))
+    });
 
-    match cli_calculate(&path, dry_run, false, None) {
-        Ok(()) => Json(ApiResponse::ok(CalculateResponse {
+    Json(ApiResponse::ok(match outcome {
+        Ok((result, calculated_content)) => CalculateResponse {
             calculated: true,
-            file_path: req.file_path,
+            file_path,
             dry_run,
             message: if dry_run {
                 "Dry run completed".to_string()
+            } else if is_inline {
+                "Calculation completed".to_string()
             } else {
                 "Calculation completed and file updated".to_string()
             },
-        })),
-        Err(e) => Json(ApiResponse::ok(CalculateResponse {
+            result: Some(result),
+            calculated_content,
+        },
+        Err(e) => CalculateResponse {
             calculated: false,
-            file_path: req.file_path,
+            file_path,
             dry_run,
-            message: format!("Error: {e}"),
-        })),
-    }
+            message: e,
+            result: None,
+            calculated_content: None,
+        },
+    }))
 }
 
 /// Audit request
 #[derive(Deserialize)]
 pub struct AuditRequest {
-    pub file_path: String,
+    #[serde(flatten)]
+    pub source: ModelSource,
     pub variable: String,
 }
 
@@ -237,27 +306,36 @@ pub struct AuditResponse {
     pub file_path: String,
     pub variable: String,
     pub message: String,
+    /// The dependency tree and calculated value
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<AuditResult>,
 }
 
 /// POST /api/v1/audit - Audit a variable
 pub async fn audit(Json(req): Json<AuditRequest>) -> impl IntoResponse {
-    let path = PathBuf::from(&req.file_path);
+    let file_path = req.source.label();
     let variable = req.variable.clone();
+    let outcome = req
+        .source
+        .resolve()
+        .and_then(|(path, _tmp)| audit_core(&path, &variable).map_err(|e| format!("Error: {e}")));
 
-    match cli_audit(&path, &variable) {
-        Ok(()) => Json(ApiResponse::ok(AuditResponse {
+    Json(ApiResponse::ok(match outcome {
+        Ok(result) => AuditResponse {
             audited: true,
-            file_path: req.file_path,
+            file_path,
             variable,
             message: "Audit completed".to_string(),
-        })),
-        Err(e) => Json(ApiResponse::ok(AuditResponse {
+            result: Some(result),
+        },
+        Err(e) => AuditResponse {
             audited: false,
-            file_path: req.file_path,
+            file_path,
             variable,
-            message: format!("Error: {e}"),
-        })),
-    }
+            message: e,
+            result: None,
+        },
+    }))
 }
 
 /// Export request
@@ -443,7 +521,7 @@ mod tests {
         let json = r#"{"file_path": "model.yaml"}"#;
         let req: ValidateRequest = serde_json::from_str(json).unwrap();
 
-        assert_eq!(req.file_path, "model.yaml");
+        assert_eq!(req.source.file_path.as_deref(), Some("model.yaml"));
     }
 
     #[test]
@@ -451,7 +529,7 @@ mod tests {
         let json = r#"{"file_path": "model.yaml", "dry_run": true}"#;
         let req: CalculateRequest = serde_json::from_str(json).unwrap();
 
-        assert_eq!(req.file_path, "model.yaml");
+        assert_eq!(req.source.file_path.as_deref(), Some("model.yaml"));
         assert!(req.dry_run);
     }
 
@@ -460,7 +538,7 @@ mod tests {
         let json = r#"{"file_path": "model.yaml"}"#;
         let req: CalculateRequest = serde_json::from_str(json).unwrap();
 
-        assert_eq!(req.file_path, "model.yaml");
+        assert_eq!(req.source.file_path.as_deref(), Some("model.yaml"));
         assert!(!req.dry_run);
     }
 
@@ -469,7 +547,7 @@ mod tests {
         let json = r#"{"file_path": "model.yaml", "variable": "total_revenue"}"#;
         let req: AuditRequest = serde_json::from_str(json).unwrap();
 
-        assert_eq!(req.file_path, "model.yaml");
+        assert_eq!(req.source.file_path.as_deref(), Some("model.yaml"));
         assert_eq!(req.variable, "total_revenue");
     }
 
@@ -523,6 +601,7 @@ mod tests {
             valid: true,
             file_path: "model.yaml".to_string(),
             message: "Validation successful".to_string(),
+            result: None,
         };
         let json = serde_json::to_string(&response).unwrap();
 
@@ -538,6 +617,8 @@ mod tests {
             file_path: "model.yaml".to_string(),
             dry_run: false,
             message: "Calculation completed".to_string(),
+            result: None,
+            calculated_content: None,
         };
         let json = serde_json::to_string(&response).unwrap();
 
@@ -657,7 +738,10 @@ mod tests {
         use axum::response::IntoResponse;
 
         let req = ValidateRequest {
-            file_path: "/nonexistent/file.yaml".to_string(),
+            source: ModelSource {
+                file_path: Some("/nonexistent/file.yaml".to_string()),
+                ..Default::default()
+            },
         };
 
         let response = validate(Json(req)).await;
@@ -672,7 +756,10 @@ mod tests {
         use axum::response::IntoResponse;
 
         let req = ValidateRequest {
-            file_path: "test-data/budget.yaml".to_string(),
+            source: ModelSource {
+                file_path: Some("test-data/budget.yaml".to_string()),
+                ..Default::default()
+            },
         };
 
         let response = validate(Json(req)).await;
@@ -686,8 +773,12 @@ mod tests {
         use axum::response::IntoResponse;
 
         let req = CalculateRequest {
-            file_path: "test-data/budget.yaml".to_string(),
+            source: ModelSource {
+                file_path: Some("test-data/budget.yaml".to_string()),
+                ..Default::default()
+            },
             dry_run: true,
+            scenario: None,
         };
 
         let response = calculate(Json(req)).await;
@@ -701,8 +792,12 @@ mod tests {
         use axum::response::IntoResponse;
 
         let req = CalculateRequest {
-            file_path: "/nonexistent/file.yaml".to_string(),
+            source: ModelSource {
+                file_path: Some("/nonexistent/file.yaml".to_string()),
+                ..Default::default()
+            },
             dry_run: true,
+            scenario: None,
         };
 
         let response = calculate(Json(req)).await;
@@ -716,7 +811,10 @@ mod tests {
         use axum::response::IntoResponse;
 
         let req = AuditRequest {
-            file_path: "test-data/budget.yaml".to_string(),
+            source: ModelSource {
+                file_path: Some("test-data/budget.yaml".to_string()),
+                ..Default::default()
+            },
             variable: "profit".to_string(),
         };
 
@@ -731,7 +829,10 @@ mod tests {
         use axum::response::IntoResponse;
 
         let req = AuditRequest {
-            file_path: "/nonexistent/file.yaml".to_string(),
+            source: ModelSource {
+                file_path: Some("/nonexistent/file.yaml".to_string()),
+                ..Default::default()
+            },
             variable: "test".to_string(),
         };
 
