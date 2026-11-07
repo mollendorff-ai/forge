@@ -73,7 +73,8 @@ pub struct ExportResult {
     pub output_path: String,
     pub table_count: usize,
     pub scalar_count: usize,
-    /// Formulas written as values because Excel cannot express them
+    /// Formulas written as values because Excel cannot express them, and
+    /// parts of the model that are not exported at all (scenarios)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
 }

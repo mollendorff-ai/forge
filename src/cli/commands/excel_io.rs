@@ -272,10 +272,7 @@ pub fn export(input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
     println!("{}", "✅ Export Complete!".bold().green());
     println!("   Excel file: {}\n", output.display());
     if !warnings.is_empty() {
-        println!(
-            "{}",
-            "⚠️  Written as calculated values, because Excel cannot express them:".yellow()
-        );
+        println!("{}", "⚠️  Not exported as Excel formulas:".yellow());
         for warning in &warnings {
             println!("   - {warning}");
         }
