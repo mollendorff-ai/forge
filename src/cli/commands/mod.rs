@@ -169,11 +169,13 @@ pub fn calculate_core(
                 name: table_name.clone(),
                 column_count: table.columns.len(),
                 row_count,
-                columns: {
-                    let mut columns: Vec<String> = table.columns.keys().cloned().collect();
-                    columns.sort();
-                    columns
-                },
+                // Model order; the `values` map below is keyed by name.
+                columns: table
+                    .column_names()
+                    .into_iter()
+                    .filter(|name| table.columns.contains_key(*name))
+                    .cloned()
+                    .collect(),
                 values: table
                     .columns
                     .iter()
@@ -305,12 +307,14 @@ pub fn calculate(
     // Display results
     println!("{}", "✅ Calculation Results:".bold().green());
 
-    // Show table results, sorted by name so the output is the same on every run
-    let sorted_tables: std::collections::BTreeMap<_, _> = result.tables.iter().collect();
-    for (table_name, table) in sorted_tables {
+    // Show table results in model order (the order of the file), which is the
+    // same on every run
+    for (table_name, table) in &result.tables {
         println!("   📊 Table: {}", table_name.bright_blue().bold());
-        let sorted_columns: std::collections::BTreeMap<_, _> = table.columns.iter().collect();
-        for (col_name, column) in sorted_columns {
+        for col_name in table.column_names() {
+            let Some(column) = table.columns.get(col_name) else {
+                continue;
+            };
             println!(
                 "      {} = {}",
                 col_name.cyan(),
@@ -322,8 +326,7 @@ pub fn calculate(
     // Show scalar results
     if !result.scalars.is_empty() {
         println!("\n   📐 Scalars:");
-        let sorted_scalars: std::collections::BTreeMap<_, _> = result.scalars.iter().collect();
-        for (name, var) in sorted_scalars {
+        for (name, var) in &result.scalars {
             if let Some(value) = var.value {
                 println!(
                     "      {} = {}",

@@ -21,9 +21,9 @@ impl ExcelExporter {
     /// as an Excel formula is exported as its calculated value.
     #[must_use]
     pub fn new(model: ParsedModel) -> Self {
+        // Columns in model order: the letters must match what export_table writes.
         let tables = model.tables.iter().map(|(name, table)| {
-            let mut columns: Vec<String> = table.columns.keys().cloned().collect();
-            columns.extend(table.row_formulas.keys().cloned());
+            let columns: Vec<String> = table.column_names().into_iter().cloned().collect();
             (name.as_str(), columns, Self::row_count(table))
         });
         let refs = WorkbookRefs::new(tables, model.scalars.keys().map(String::as_str));
@@ -90,11 +90,8 @@ impl ExcelExporter {
         let mut workbook = Workbook::new();
         let mut warnings = Vec::new();
 
-        // Tables in name order, so the workbook is the same on every run
-        let mut table_names: Vec<&String> = self.model.tables.keys().collect();
-        table_names.sort();
-        for table_name in table_names {
-            let table = &self.model.tables[table_name];
+        // Tables in model order, which is the same on every run
+        for (table_name, table) in &self.model.tables {
             self.export_table(&mut workbook, table_name, table, &mut warnings)?;
         }
 
@@ -104,7 +101,12 @@ impl ExcelExporter {
 
         // Included files' tables with namespace prefix (v4.4.2). Their formulas
         // are not in this workbook's layout, so they are written as values.
-        for (namespace, resolved) in &self.model.resolved_includes {
+        // `resolved_includes` is a HashMap, so sort the namespaces: with two or
+        // more includes the sheet order would otherwise change between runs.
+        let mut namespaces: Vec<&String> = self.model.resolved_includes.keys().collect();
+        namespaces.sort();
+        for namespace in namespaces {
+            let resolved = &self.model.resolved_includes[namespace];
             for (table_name, table) in &resolved.model.tables {
                 let prefixed_name = format!("{namespace}.{table_name}");
                 self.export_table(&mut workbook, &prefixed_name, table, &mut warnings)?;
@@ -142,22 +144,8 @@ impl ExcelExporter {
             .set_name(table_name)
             .map_err(|e| ForgeError::Export(format!("Failed to set worksheet name: {e}")))?;
 
-        // Get column names in a deterministic order (data + formula columns)
-        let mut column_names: Vec<String> = Vec::new();
-
-        // Add data columns
-        for name in table.columns.keys() {
-            column_names.push(name.clone());
-        }
-
-        // Add formula columns
-        for name in table.row_formulas.keys() {
-            if !column_names.contains(name) {
-                column_names.push(name.clone());
-            }
-        }
-
-        column_names.sort(); // Alphabetical order for now
+        // Data and formula columns in model order (the same order as `self.refs`)
+        let column_names: Vec<String> = table.column_names().into_iter().cloned().collect();
 
         // Write header row (row 0) with metadata as notes (v4.0)
         for (col_idx, col_name) in column_names.iter().enumerate() {
@@ -293,19 +281,17 @@ impl ExcelExporter {
         workbook: &mut Workbook,
         warnings: &mut Vec<String>,
     ) -> ForgeResult<()> {
-        let mut groups: HashMap<Option<&str>, Vec<&String>> = HashMap::new();
+        // Groups in the order of their first scalar, scalars in model order
+        // (the same rows as `self.refs`).
+        let mut groups: indexmap::IndexMap<Option<&str>, Vec<&String>> = indexmap::IndexMap::new();
         for path in self.model.scalars.keys() {
             groups
                 .entry(split_scalar_path(path).0)
                 .or_default()
                 .push(path);
         }
-        let mut group_names: Vec<Option<&str>> = groups.keys().copied().collect();
-        group_names.sort_unstable();
-        for group in group_names {
-            let mut paths = groups[&group].clone();
-            paths.sort();
-            self.export_scalar_group(workbook, group, &paths, warnings)?;
+        for (group, paths) in &groups {
+            self.export_scalar_group(workbook, *group, paths, warnings)?;
         }
         Ok(())
     }
@@ -410,9 +396,8 @@ impl ExcelExporter {
             .write_string(0, 1, "Value")
             .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
 
-        // Write scalars (sorted by name)
-        let mut scalar_names: Vec<&String> = included_model.scalars.keys().collect();
-        scalar_names.sort();
+        // Write scalars in the included model's order
+        let scalar_names: Vec<&String> = included_model.scalars.keys().collect();
 
         for (idx, name) in scalar_names.iter().enumerate() {
             #[allow(clippy::cast_possible_truncation)] // scalar count is well within u32 range
@@ -636,7 +621,7 @@ mod tests {
     }
 
     #[test]
-    fn test_exporter_column_maps_sorted_alphabetically() {
+    fn test_exporter_column_maps_keep_model_order() {
         let mut model = ParsedModel::new();
         let mut table = Table::new("data".to_string());
         table.add_column(Column::new(
@@ -656,10 +641,10 @@ mod tests {
         let exporter = ExcelExporter::new(model);
         let col_map = exporter.refs.columns.get("data").unwrap();
 
-        // alpha -> A, beta -> B, zebra -> C (alphabetical order)
-        assert_eq!(col_map.get("alpha"), Some(&"A".to_string()));
-        assert_eq!(col_map.get("beta"), Some(&"B".to_string()));
-        assert_eq!(col_map.get("zebra"), Some(&"C".to_string()));
+        // zebra -> A, alpha -> B, beta -> C (the order the columns were added)
+        assert_eq!(col_map.get("zebra"), Some(&"A".to_string()));
+        assert_eq!(col_map.get("alpha"), Some(&"B".to_string()));
+        assert_eq!(col_map.get("beta"), Some(&"C".to_string()));
     }
 
     #[test]

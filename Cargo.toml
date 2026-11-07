@@ -62,6 +62,9 @@ thiserror = "2.0"
 # Dependency graph (for formula ordering)
 petgraph = "0.8"
 
+# Ordered maps: tables, columns and scalars keep the order of the model file
+indexmap = { version = "2", features = ["serde"] }
+
 # Regex for array indexing preprocessing
 regex = "1.12"
 

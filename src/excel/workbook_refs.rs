@@ -2,9 +2,9 @@
 //!
 //! Export and import share one picture of the workbook:
 //! - a table is a sheet named after it, one column per data or formula column
-//!   (alphabetical), header in row 1, values from row 2;
+//!   (in model order), header in row 1, values from row 2;
 //! - a scalar group `g` (scalars named `g.name`) is a sheet `g` with `Name` in
-//!   column A and `Value` in column B, one scalar per row (alphabetical);
+//!   column A and `Value` in column B, one scalar per row (in model order);
 //! - ungrouped scalars live on a sheet named `Scalars` in the same layout.
 //!
 //! References are resolved the way the calculator resolves them, so a formula
@@ -123,17 +123,22 @@ fn number_text(n: f64) -> String {
 
 impl WorkbookRefs {
     /// Build the layout for a set of tables and scalar paths.
+    ///
+    /// The order given is the order written: a table's columns get letters A,
+    /// B, C... in the order listed (a repeated name keeps its first letter),
+    /// and each scalar sheet gets rows 2, 3, 4... in the order its paths
+    /// appear. The exporter passes model order and writes in the same order.
     #[must_use]
     pub fn new<'a>(
         tables: impl IntoIterator<Item = (&'a str, Vec<String>, usize)>,
         scalar_paths: impl IntoIterator<Item = &'a str>,
     ) -> Self {
         let mut refs = Self::default();
-        for (table, mut columns, row_count) in tables {
-            columns.sort();
-            columns.dedup();
+        for (table, columns, row_count) in tables {
+            let mut seen = std::collections::HashSet::new();
             let map = columns
                 .into_iter()
+                .filter(|name| seen.insert(name.clone()))
                 .enumerate()
                 .map(|(i, name)| (name, column_letter(i)))
                 .collect();
@@ -145,8 +150,7 @@ impl WorkbookRefs {
             let sheet = split_scalar_path(path).0.unwrap_or(UNGROUPED_SHEET);
             groups.entry(sheet.to_string()).or_default().push(path);
         }
-        for (sheet, mut paths) in groups {
-            paths.sort_unstable();
+        for (sheet, paths) in groups {
             for (i, path) in paths.into_iter().enumerate() {
                 #[allow(clippy::cast_possible_truncation)] // far below u32::MAX scalars
                 let row = (i + 2) as u32;
@@ -384,15 +388,17 @@ fn check_irr_arguments(
 mod tests {
     use super::*;
 
+    /// Columns and scalars are listed in the order the layout uses:
+    /// revenue (A), `total_profit` (B), year (C); valuation.net (row 2), npv (row 3).
     fn refs() -> WorkbookRefs {
         WorkbookRefs::new(
             [
                 (
                     "projections",
                     vec![
-                        "year".to_string(),
                         "revenue".to_string(),
                         "total_profit".to_string(),
+                        "year".to_string(),
                     ],
                     3,
                 ),
@@ -401,11 +407,35 @@ mod tests {
             [
                 "assumptions.base_revenue",
                 "assumptions.growth",
-                "valuation.npv",
                 "valuation.net",
+                "valuation.npv",
                 "tax",
             ],
         )
+    }
+
+    #[test]
+    fn layout_keeps_the_order_given() {
+        // Model order, not alphabetical: year (A), revenue (B), year again ignored;
+        // b.second before b.first gives rows 2 and 3.
+        let refs = WorkbookRefs::new(
+            [(
+                "t",
+                vec![
+                    "year".to_string(),
+                    "revenue".to_string(),
+                    "year".to_string(),
+                ],
+                3,
+            )],
+            ["b.second", "b.first"],
+        );
+        let columns = &refs.columns["t"];
+        assert_eq!(columns["year"], "A");
+        assert_eq!(columns["revenue"], "B");
+        assert_eq!(columns.len(), 2);
+        assert_eq!(refs.scalars["b.second"], ("b".to_string(), 2));
+        assert_eq!(refs.scalars["b.first"], ("b".to_string(), 3));
     }
 
     fn row(f: &str) -> Result<String, String> {
@@ -435,7 +465,7 @@ mod tests {
 
     #[test]
     fn row_formula_columns_named_like_functions() {
-        // `year` is a column here, not YEAR(); the columns sort to
+        // `year` is a column here, not YEAR(); the fixture lists
         // revenue (A), total_profit (B), year (C).
         assert_eq!(
             row("=assumptions.base_revenue * (1 + assumptions.growth) ^ year").unwrap(),
@@ -884,14 +914,15 @@ mod reverse_tests {
     fn layout() -> WorkbookRefs {
         WorkbookRefs::new(
             [
+                // In layout order: profit (A), rev (B), year (C); a.base (row 2), a.rate (row 3)
                 (
                     "p",
-                    vec!["year".to_string(), "rev".to_string(), "profit".to_string()],
+                    vec!["profit".to_string(), "rev".to_string(), "year".to_string()],
                     3,
                 ),
                 ("q", vec!["x".to_string()], 3),
             ],
-            ["a.rate", "a.base", "v.npv", "tax"],
+            ["a.base", "a.rate", "v.npv", "tax"],
         )
     }
 

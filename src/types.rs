@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -91,9 +92,15 @@ impl Column {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Table {
     pub name: String,
-    pub columns: HashMap<String, Column>,
+    pub columns: IndexMap<String, Column>,
     /// Row-wise formulas (e.g., "profit: =revenue - expenses")
-    pub row_formulas: HashMap<String, String>,
+    pub row_formulas: IndexMap<String, String>,
+    /// Data columns and row formulas live in two maps, so neither map alone
+    /// knows whether `year` came before `revenue`. This records the order in
+    /// which names were first added (the order of the model file, or of the
+    /// sheet on import). See [`Table::column_names`].
+    #[serde(skip)]
+    column_order: Vec<String>,
 }
 
 impl Table {
@@ -101,17 +108,44 @@ impl Table {
     pub fn new(name: String) -> Self {
         Self {
             name,
-            columns: HashMap::new(),
-            row_formulas: HashMap::new(),
+            columns: IndexMap::new(),
+            row_formulas: IndexMap::new(),
+            column_order: Vec::new(),
         }
     }
 
     pub fn add_column(&mut self, column: Column) {
+        self.note_column(&column.name);
         self.columns.insert(column.name.clone(), column);
     }
 
     pub fn add_row_formula(&mut self, name: String, formula: String) {
+        self.note_column(&name);
         self.row_formulas.insert(name, formula);
+    }
+
+    fn note_column(&mut self, name: &str) {
+        if !self.column_order.iter().any(|n| n == name) {
+            self.column_order.push(name.to_string());
+        }
+    }
+
+    /// Every column name (data columns and row formulas, each once) in model
+    /// order. Names added straight to `columns` or `row_formulas`, without
+    /// `add_column` or `add_row_formula`, come after the recorded ones, in
+    /// the order of those maps.
+    #[must_use]
+    pub fn column_names(&self) -> Vec<&String> {
+        let mut seen = std::collections::HashSet::new();
+        let recorded = self
+            .column_order
+            .iter()
+            .filter(|n| self.columns.contains_key(*n) || self.row_formulas.contains_key(*n));
+        recorded
+            .chain(self.columns.keys())
+            .chain(self.row_formulas.keys())
+            .filter(|name| seen.insert(name.as_str()))
+            .collect()
     }
 
     /// Get the number of rows (length of first column, all should be same)
@@ -273,10 +307,10 @@ impl Scenario {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParsedModel {
     /// Tables with column arrays
-    pub tables: HashMap<String, Table>,
+    pub tables: IndexMap<String, Table>,
 
     /// Scalar variables (for summary values and aggregations)
-    pub scalars: HashMap<String, Variable>,
+    pub scalars: IndexMap<String, Variable>,
 
     /// Aggregation formulas (formulas that reduce columns to scalars)
     pub aggregations: HashMap<String, String>,
@@ -302,8 +336,8 @@ impl ParsedModel {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            tables: HashMap::new(),
-            scalars: HashMap::new(),
+            tables: IndexMap::new(),
+            scalars: IndexMap::new(),
             aggregations: HashMap::new(),
             scenarios: HashMap::new(),
             includes: Vec::new(),
@@ -655,6 +689,26 @@ mod tests {
         table.add_column(col);
         assert_eq!(table.columns.len(), 1);
         assert!(table.columns.contains_key("revenue"));
+    }
+
+    #[test]
+    fn test_table_column_names_keep_model_order() {
+        let mut table = Table::new("t".to_string());
+        let number = |name: &str| Column::new(name.to_string(), ColumnValue::Number(vec![1.0]));
+        table.add_column(number("year"));
+        table.add_row_formula("revenue".to_string(), "=year * 2".to_string());
+        table.add_column(number("cost"));
+        // The calculator stores a formula's result as a column of the same name;
+        // it keeps its place.
+        table.add_column(number("revenue"));
+        // A column inserted directly, bypassing add_column, comes last.
+        table.columns.insert("extra".to_string(), number("extra"));
+        let names: Vec<&str> = table
+            .column_names()
+            .into_iter()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(names, ["year", "revenue", "cost", "extra"]);
     }
 
     #[test]
