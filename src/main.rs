@@ -1108,6 +1108,17 @@ fn main() {
 fn run() -> ForgeResult<()> {
     let cli = Cli::parse();
 
+    // `forge functions | head` must end quietly, like other command-line tools.
+    // The servers keep Rust's default, so a client that disconnects is an
+    // error on that connection, not the end of the process.
+    #[cfg(unix)]
+    if !matches!(cli.command, Commands::Mcp | Commands::Serve { .. }) {
+        // SAFETY: restoring the default action for SIGPIPE before any output.
+        unsafe {
+            libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+        }
+    }
+
     match cli.command {
         Commands::Calculate {
             file,

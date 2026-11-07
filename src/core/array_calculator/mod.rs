@@ -6,6 +6,8 @@ mod error_location_tests;
 pub mod evaluator;
 #[cfg(test)]
 mod include_reference_tests;
+#[cfg(test)]
+mod nan_input_tests;
 pub mod parser;
 #[cfg(test)]
 mod scalar_scope_tests;

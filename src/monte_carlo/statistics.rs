@@ -35,10 +35,6 @@ pub struct Statistics {
 
 impl Statistics {
     /// Calculate statistics from samples
-    ///
-    /// # Panics
-    ///
-    /// Panics if samples contain `NaN` values that break `partial_cmp` ordering.
     #[must_use]
     pub fn from_samples(samples: &[f64]) -> Self {
         if samples.is_empty() {
@@ -50,7 +46,7 @@ impl Statistics {
 
         // Sort for percentiles
         let mut sorted = samples.to_vec();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(f64::total_cmp);
 
         // Basic statistics
         let sum: f64 = samples.iter().sum();
@@ -181,10 +177,6 @@ fn percentile_sorted(sorted: &[f64], p: f64) -> f64 {
 }
 
 /// Calculate additional percentiles from samples
-///
-/// # Panics
-///
-/// Panics if samples contain `NaN` values that break `partial_cmp` ordering.
 #[must_use]
 pub fn calculate_percentiles(samples: &[f64], percentile_list: &[u8]) -> BTreeMap<u8, f64> {
     if samples.is_empty() {
@@ -192,7 +184,7 @@ pub fn calculate_percentiles(samples: &[f64], percentile_list: &[u8]) -> BTreeMa
     }
 
     let mut sorted = samples.to_vec();
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    sorted.sort_by(f64::total_cmp);
 
     percentile_list
         .iter()
@@ -324,6 +316,13 @@ pub fn evaluate_threshold(samples: &[f64], operator: &str, value: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nan_samples_do_not_panic() {
+        let samples = [3.0, f64::NAN, 1.0, 2.0];
+        let _ = Statistics::from_samples(&samples);
+        let _ = calculate_percentiles(&samples, &[50, 90]);
+    }
 
     #[test]
     fn test_statistics_basic() {
