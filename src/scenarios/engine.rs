@@ -4,7 +4,7 @@
 
 use super::config::{ScalarOverride, ScenarioConfig, ScenarioDefinition};
 use crate::core::ArrayCalculator;
-use crate::types::{ParsedModel, Variable};
+use crate::types::ParsedModel;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -131,33 +131,16 @@ impl ScenarioEngine {
         // Clone the base model
         let mut model = self.base_model.clone();
 
-        // Apply scenario overrides (resolving grouped names like "rate" → "assumptions.rate")
+        // Apply scenario overrides (resolving grouped names like "rate" → "assumptions.rate",
+        // and `@namespace.name` to a scalar of an included file)
         for (var_name, override_val) in &scenario.scalars {
-            let resolved = model.resolve_scalar_name(var_name)?;
-
-            match override_val {
-                ScalarOverride::Value(v) => {
-                    if let Some(scalar) = model.scalars.get_mut(&resolved) {
-                        scalar.value = Some(*v);
-                        scalar.formula = None;
-                    } else {
-                        model
-                            .scalars
-                            .insert(resolved.clone(), Variable::new(resolved, Some(*v), None));
-                    }
-                },
-                ScalarOverride::Formula { formula } => {
-                    if let Some(scalar) = model.scalars.get_mut(&resolved) {
-                        scalar.formula = Some(formula.clone());
-                        scalar.value = None;
-                    } else {
-                        model.scalars.insert(
-                            resolved.clone(),
-                            Variable::new(resolved, None, Some(formula.clone())),
-                        );
-                    }
-                },
-            }
+            let (value, formula) = match override_val {
+                ScalarOverride::Value(v) => (Some(*v), None),
+                ScalarOverride::Formula { formula } => (None, Some(formula.clone())),
+            };
+            model
+                .override_scalar(var_name, value, formula)
+                .map_err(|e| format!("Scenario '{name}': {e}"))?;
         }
 
         // Calculate the model
@@ -256,6 +239,7 @@ impl ScenarioEngine {
 #[cfg(test)]
 mod engine_tests {
     use super::*;
+    use crate::types::Variable;
 
     fn create_test_model() -> ParsedModel {
         let mut model = ParsedModel::new();

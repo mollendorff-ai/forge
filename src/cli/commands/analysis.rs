@@ -902,26 +902,32 @@ pub fn goal_seek_core(
         high = expanded.1;
     }
 
-    let max_iterations = 100;
+    // Bisect until the output is within `tolerance` of the target, or the
+    // interval cannot be split any further. `tolerance` is about the output,
+    // so it is also what decides `converged`.
+    let max_iterations = 200;
+    let mut f_low = calculate_with_override(&base_model, vary, low, target)? - value;
     let mut mid = f64::midpoint(low, high);
     let mut iteration = 0;
 
-    while (high - low) > tolerance && iteration < max_iterations {
+    while iteration < max_iterations {
         mid = f64::midpoint(low, high);
+        if mid <= low || mid >= high {
+            break; // no float left between low and high
+        }
         let f_mid = calculate_with_override(&base_model, vary, mid, target)? - value;
-        let f_low_check = calculate_with_override(&base_model, vary, low, target)? - value;
+        iteration += 1;
 
-        if f_mid.abs() < tolerance {
+        if f_mid.abs() <= tolerance {
             break;
         }
 
-        if f_low_check * f_mid < 0.0 {
+        if f_low * f_mid < 0.0 {
             high = mid;
         } else {
             low = mid;
+            f_low = f_mid;
         }
-
-        iteration += 1;
     }
 
     let final_value = calculate_with_override(&base_model, vary, mid, target)?;
@@ -935,7 +941,7 @@ pub fn goal_seek_core(
         achieved: final_value,
         error,
         iterations: iteration,
-        converged: error < tolerance,
+        converged: error <= tolerance,
     })
 }
 
@@ -988,118 +994,28 @@ pub fn goal_seek(
     tolerance: f64,
     verbose: bool,
 ) -> ForgeResult<()> {
-    let (min, max) = bounds;
     println!("{}", "🔥 Forge - Goal Seek".bold().green());
     println!("   File: {}", file.display());
     println!("   Target: {} = {}", target.bright_blue(), value);
     println!("   Vary: {}", vary.bright_yellow());
     println!("   Tolerance: {tolerance}\n");
 
-    // Parse model
-    let base_model = parser::parse_model(file)?;
-
-    // Validate variables
-    if !base_model.scalars.contains_key(vary) {
-        return Err(ForgeError::Validation(format!(
-            "Variable '{}' not found. Available scalars: {:?}",
-            vary,
-            base_model.scalars.keys().collect::<Vec<_>>()
-        )));
-    }
-
-    // Get current value of vary to set default bounds
-    let current_value = base_model
-        .scalars
-        .get(vary)
-        .and_then(|s| s.value)
-        .unwrap_or(1.0);
-
-    // Set bounds (default: 0.01x to 100x current value)
-    let lower = min.unwrap_or_else(|| {
-        if current_value > 0.0 {
-            current_value * 0.01
-        } else if current_value < 0.0 {
-            current_value * 100.0
-        } else {
-            -1000.0
-        }
-    });
-    let upper = max.unwrap_or(if current_value > 0.0 {
-        current_value * 100.0
-    } else if current_value < 0.0 {
-        current_value * 0.01
-    } else {
-        1000.0
-    });
-
+    let result = goal_seek_core(file, target, value, vary, bounds, tolerance)?;
     if verbose {
-        println!("   Current value of {vary}: {current_value}");
-        println!("   Search bounds: [{lower}, {upper}]");
-    }
-
-    // Bisection method
-    let max_iterations = 100;
-    let mut low = lower;
-    let mut high = upper;
-
-    // Check bounds first
-    let f_low = calculate_with_override(&base_model, vary, low, target)? - value;
-    let f_high = calculate_with_override(&base_model, vary, high, target)? - value;
-
-    if verbose {
-        println!("   f({}) = {} (target diff: {})", low, f_low + value, f_low);
         println!(
-            "   f({}) = {} (target diff: {})",
-            high,
-            f_high + value,
-            f_high
+            "   Bisection stopped after {} evaluations, error {}",
+            result.iterations, result.error
         );
     }
-
-    // Check if solution exists in range (signs should differ)
-    if f_low * f_high > 0.0 {
-        let expanded =
-            expand_search_range(&base_model, vary, target, value, lower, upper, verbose)?;
-        low = expanded.0;
-        high = expanded.1;
-    }
-
-    // Bisection iteration
-    let mut mid = f64::midpoint(low, high);
-    let mut iteration = 0;
-
-    while (high - low) > tolerance && iteration < max_iterations {
-        mid = f64::midpoint(low, high);
-        let f_mid = calculate_with_override(&base_model, vary, mid, target)? - value;
-
-        if verbose && iteration % 10 == 0 {
-            println!(
-                "   Iteration {}: {} = {} (diff: {:.6})",
-                iteration,
-                vary,
-                mid,
-                f_mid.abs()
-            );
-        }
-
-        let f_low_check = calculate_with_override(&base_model, vary, low, target)? - value;
-
-        if f_mid.abs() < tolerance {
-            break;
-        }
-
-        if f_low_check * f_mid < 0.0 {
-            high = mid;
-        } else {
-            low = mid;
-        }
-
-        iteration += 1;
-    }
-
-    // Final result
-    let final_value = calculate_with_override(&base_model, vary, mid, target)?;
-    print_goal_seek_result(vary, target, mid, final_value, value, tolerance, iteration);
+    print_goal_seek_result(
+        vary,
+        target,
+        result.solution,
+        result.achieved,
+        value,
+        tolerance,
+        result.iterations,
+    );
     Ok(())
 }
 
@@ -1187,49 +1103,6 @@ fn run_two_var_sensitivity(
     Ok(())
 }
 
-/// Expand the search range when initial bounds have the same sign
-fn expand_search_range(
-    base_model: &crate::types::ParsedModel,
-    vary: &str,
-    target: &str,
-    value: f64,
-    lower: f64,
-    upper: f64,
-    verbose: bool,
-) -> ForgeResult<(f64, f64)> {
-    println!(
-        "{}",
-        "⚠️  No sign change in initial range - expanding search...".yellow()
-    );
-
-    for factor in [10.0, 100.0, 1000.0] {
-        let exp_low = if lower > 0.0 {
-            lower / factor
-        } else {
-            lower * factor
-        };
-        let exp_high = if upper > 0.0 {
-            upper * factor
-        } else {
-            upper / factor
-        };
-
-        let f_exp_low = calculate_with_override(base_model, vary, exp_low, target)? - value;
-        let f_exp_high = calculate_with_override(base_model, vary, exp_high, target)? - value;
-
-        if f_exp_low * f_exp_high <= 0.0 {
-            if verbose {
-                println!("   Found valid range: [{exp_low}, {exp_high}]");
-            }
-            return Ok((exp_low, exp_high));
-        }
-    }
-
-    Err(ForgeError::Validation(format!(
-        "No solution found in search range. The target value {value} may not be achievable by varying '{vary}'."
-    )))
-}
-
 /// Print goal-seek result summary
 fn print_goal_seek_result(
     vary: &str,
@@ -1256,7 +1129,7 @@ fn print_goal_seek_result(
     );
 
     let error = (final_value - value).abs();
-    if error < tolerance {
+    if error <= tolerance {
         println!("   {} Within tolerance", "✅".green());
     } else {
         println!(

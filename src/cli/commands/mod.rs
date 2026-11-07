@@ -29,6 +29,8 @@ mod schema;
 mod simulate;
 mod update;
 mod upgrade;
+#[cfg(test)]
+mod what_if_tests;
 
 // Re-exports
 pub use analysis::{break_even, compare, goal_seek, sensitivity, variance};
@@ -136,6 +138,7 @@ pub fn calculate_core(
     scenario: Option<&str>,
 ) -> ForgeResult<results::CalculationResult> {
     let mut model = parser::parse_model(file)?;
+    reject_distributions(&model)?;
 
     // Apply scenario overrides if specified
     if let Some(scenario_name) = scenario {
@@ -852,23 +855,12 @@ pub fn apply_scenario(
     // Clone the overrides to avoid borrow checker issues
     let overrides = scenario.overrides.clone();
 
-    // Apply overrides to scalars (resolving grouped names like "rate" → "assumptions.rate")
+    // Apply overrides to scalars (resolving grouped names like "rate" → "assumptions.rate",
+    // and `@namespace.name` to a scalar of an included file)
     for (var_name, override_value) in &overrides {
-        let resolved = model
-            .resolve_scalar_name(var_name)
-            .map_err(ForgeError::Validation)?;
-
-        if let Some(scalar) = model.scalars.get_mut(&resolved) {
-            scalar.value = Some(*override_value);
-            // Clear formula since we're using override value
-            scalar.formula = None;
-        } else {
-            // Create new scalar with override value
-            model.scalars.insert(
-                resolved.clone(),
-                crate::types::Variable::new(resolved, Some(*override_value), None),
-            );
-        }
+        model
+            .override_scalar(var_name, Some(*override_value), None)
+            .map_err(|e| ForgeError::Validation(format!("Scenario '{scenario_name}': {e}")))?;
     }
 
     Ok(())

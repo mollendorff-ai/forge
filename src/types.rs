@@ -383,13 +383,15 @@ impl ParsedModel {
     ///
     /// If the key matches an existing scalar exactly, returns it as-is.
     /// For simple (non-dotted) names with no exact match, searches for
-    /// scalars ending with `.name`. Returns the full path if exactly one
-    /// match; errors if ambiguous; returns the key as-is if no match (so a
-    /// new top-level scalar can be created by the caller).
+    /// scalars ending with `.name` and returns the full path if exactly one
+    /// matches.
     ///
     /// # Errors
     ///
-    /// Returns an error if multiple grouped scalars share the same suffix.
+    /// Returns an error if multiple grouped scalars share the same suffix, or
+    /// if no scalar matches. An override that matched nothing used to create
+    /// a new scalar that no formula read, so a misspelled name gave the base
+    /// numbers under the scenario's name.
     pub fn resolve_scalar_name(&self, name: &str) -> Result<String, String> {
         if self.scalars.contains_key(name) {
             return Ok(name.to_string());
@@ -419,9 +421,83 @@ impl ParsedModel {
             }
         }
 
-        // No match — return as-is (caller creates a new top-level scalar)
-        Ok(name.to_string())
+        let hint = self
+            .closest_scalar(name)
+            .map(|c| format!(" Did you mean '{c}'?"))
+            .unwrap_or_default();
+        Err(format!(
+            "Scenario override '{name}' does not name a scalar in the model.{hint}"
+        ))
     }
+
+    /// The scalar whose name is closest to `name`, if one is close enough to
+    /// be a likely typo.
+    fn closest_scalar(&self, name: &str) -> Option<&str> {
+        let last = |s: &str| s.rsplit('.').next().unwrap_or(s).to_string();
+        let wanted = last(name);
+        self.scalars
+            .keys()
+            .map(|k| (edit_distance(&last(k), &wanted), k.as_str()))
+            .filter(|(d, _)| *d <= 2.max(wanted.len() / 4))
+            .min()
+            .map(|(_, k)| k)
+    }
+
+    /// Give a scalar a scenario's value or formula.
+    ///
+    /// `name` is a full dotted path, a bare name that ends exactly one grouped
+    /// scalar, or `@namespace.name` for a scalar of an included file (which is
+    /// then calculated with the new value).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the name matches no scalar, matches several, or
+    /// names an include the model does not have.
+    pub fn override_scalar(
+        &mut self,
+        name: &str,
+        value: Option<f64>,
+        formula: Option<String>,
+    ) -> Result<(), String> {
+        if let Some(rest) = name.strip_prefix('@') {
+            let (namespace, inner) = rest.split_once('.').ok_or_else(|| {
+                format!(
+                    "Scenario override '{name}' needs a name after the include, as in @costs.flour"
+                )
+            })?;
+            let resolved = self.resolved_includes.get_mut(namespace).ok_or_else(|| {
+                format!(
+                    "Scenario override '{name}': the model has no `_includes` entry with `as: {namespace}`"
+                )
+            })?;
+            return resolved
+                .model
+                .override_scalar(inner, value, formula)
+                .map_err(|e| format!("{e} (in the file included as '{namespace}')"));
+        }
+        let resolved = self.resolve_scalar_name(name)?;
+        let scalar = self.scalars.get_mut(&resolved).ok_or_else(|| {
+            format!("Scenario override '{name}' does not name a scalar in the model.")
+        })?;
+        scalar.value = value;
+        scalar.formula = formula;
+        Ok(())
+    }
+}
+
+/// Levenshtein distance, for "did you mean" hints.
+fn edit_distance(a: &str, b: &str) -> usize {
+    let b: Vec<char> = b.chars().collect();
+    let mut prev: Vec<usize> = (0..=b.len()).collect();
+    for (i, ca) in a.chars().enumerate() {
+        let mut cur = vec![i + 1];
+        for (j, cb) in b.iter().enumerate() {
+            let cost = usize::from(ca != *cb);
+            cur.push((prev[j] + cost).min(prev[j + 1] + 1).min(cur[j] + 1));
+        }
+        prev = cur;
+    }
+    prev[b.len()]
 }
 
 impl Default for ParsedModel {
@@ -942,8 +1018,16 @@ mod tests {
 
     #[test]
     fn test_resolve_scalar_name_no_match() {
-        let model = ParsedModel::new();
-        // Unknown name passes through (caller creates new scalar)
-        assert_eq!(model.resolve_scalar_name("unknown").unwrap(), "unknown");
+        // An unknown name is an error: a new scalar nobody reads would make the
+        // scenario report the base numbers.
+        let mut model = ParsedModel::new();
+        model.add_scalar(
+            "inputs.price".to_string(),
+            Variable::new("inputs.price".to_string(), Some(5.0), None),
+        );
+        let err = model.resolve_scalar_name("prise").unwrap_err();
+        assert!(err.contains("Did you mean 'inputs.price'"), "{err}");
+        let err = model.resolve_scalar_name("unrelated_name").unwrap_err();
+        assert!(!err.contains("Did you mean"), "{err}");
     }
 }

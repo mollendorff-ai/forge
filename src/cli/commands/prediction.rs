@@ -66,9 +66,33 @@ pub fn scenarios_core(
         ));
     };
 
-    let engine = ScenarioEngine::new(config, model).map_err(ForgeError::Validation)?;
-    let _ = scenario_filter; // filtering done in display, engine runs all
-    engine.run().map_err(ForgeError::Eval)
+    if let Some(name) = scenario_filter {
+        if !config.scenarios.contains_key(name) {
+            let mut available: Vec<_> = config.scenarios.keys().cloned().collect();
+            available.sort();
+            return Err(ForgeError::Validation(format!(
+                "Scenario '{name}' not found. Available scenarios: {available:?}"
+            )));
+        }
+    }
+
+    // Report every calculated scalar (the ones with a formula) as an output,
+    // so the probability of a positive result and the range are filled in.
+    let outputs: Vec<String> = model
+        .scalars
+        .iter()
+        .filter(|(_, v)| v.formula.is_some())
+        .map(|(name, _)| name.clone())
+        .collect();
+    let engine = ScenarioEngine::new(config, model)
+        .map_err(ForgeError::Validation)?
+        .with_outputs(outputs);
+    let mut results = engine.run().map_err(ForgeError::Eval)?;
+    // The expected values and ranges still cover every scenario.
+    if let Some(name) = scenario_filter {
+        results.scenarios.retain(|s| s.name == name);
+    }
+    Ok(results)
 }
 
 /// Analyze a decision tree and return structured results (no printing).
@@ -274,75 +298,52 @@ pub fn scenarios(
     println!("   File: {}", file.display());
     println!();
 
-    // Parse YAML
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
-    let model = parser::parse_model(file)?;
-
-    // Parse scenarios config
-    let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
-        .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
-
-    let config: ScenarioConfig = if let Some(scenarios_value) = value.get("scenarios") {
-        let scenarios_map: HashMap<String, yaml_serde::Value> =
-            yaml_serde::from_value(scenarios_value.clone())
-                .map_err(|e| ForgeError::Validation(format!("scenarios config error: {e}")))?;
-
-        // Convert to ScenarioConfig
-        let mut config = ScenarioConfig::default();
-        for (name, def) in scenarios_map {
-            let scenario_def = yaml_serde::from_value(def)
-                .map_err(|e| ForgeError::Validation(format!("scenario '{name}' error: {e}")))?;
-            config.scenarios.insert(name, scenario_def);
+    if verbose {
+        match scenario_filter {
+            Some(filter) => println!("{}", format!("🎯 Running scenario: {filter}").cyan()),
+            None => println!("{}", "🔄 Running all scenarios...".cyan()),
         }
-        config
-    } else {
-        return Err(ForgeError::Validation(
-            "No 'scenarios' section found in YAML".to_string(),
-        ));
-    };
-
-    // Display config
-    println!("   {}", "Scenarios:".bold());
-    for (name, def) in &config.scenarios {
-        println!(
-            "      {} (p={:.0}%): {}",
-            name.bright_blue(),
-            def.probability * 100.0,
-            def.description
-        );
     }
-    println!();
+    let results = scenarios_core(file, scenario_filter)?;
 
-    // Create engine and run
-    let engine = ScenarioEngine::new(config, model).map_err(ForgeError::Validation)?;
-
-    if let Some(filter) = scenario_filter {
-        if verbose {
-            println!("{}", format!("🎯 Running scenario: {filter}").cyan());
-        }
-    } else if verbose {
-        println!("{}", "🔄 Running all scenarios...".cyan());
-    }
-    let results = engine.run().map_err(ForgeError::Eval)?;
-
-    // Display results
+    // Display results: what each scenario produced (the calculated scalars)
     println!("{}", "📈 Scenario Results:".bold().green());
     println!();
-
     for result in &results.scenarios {
-        println!("   {}:", result.name.bright_blue().bold());
-        println!("      Probability: {:.1}%", result.probability * 100.0);
-        println!("      Key Scalars:");
-        for (var, value) in result.scalars.iter().take(5) {
-            println!("         {}: {:.2}", var.cyan(), value);
+        println!(
+            "   {} (p={}%): {}",
+            result.name.bright_blue().bold(),
+            super::format_number(result.probability * 100.0),
+            result.description
+        );
+        for (var, value) in &result.outputs {
+            println!("      {}: {}", var.cyan(), super::format_number(*value));
         }
         println!();
     }
 
-    // Expected value
     println!("   {}", "Expected Values (probability-weighted):".bold());
     for (var, ev) in &results.expected_values {
-        println!("      {}: {:.2}", var.bright_blue(), ev);
+        if !results.ranges.contains_key(var) {
+            continue; // an input, not a result
+        }
+        let (low, high) = results.ranges[var];
+        let positive = results
+            .probability_positive
+            .get(var)
+            .copied()
+            .unwrap_or(0.0);
+        println!(
+            "      {}: {}   (range {} to {}, P(>0) = {}%)",
+            var.bright_blue(),
+            super::format_number(*ev),
+            super::format_number(low),
+            super::format_number(high),
+            super::format_number(positive * 100.0)
+        );
+    }
+    if scenario_filter.is_some() {
+        println!("      (expected values cover every scenario)");
     }
     println!();
 

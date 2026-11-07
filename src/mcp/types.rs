@@ -114,7 +114,7 @@ pub struct GoalSeekRequest {
     pub min: Option<f64>,
     /// Optional maximum bound for search
     pub max: Option<f64>,
-    /// Solution tolerance
+    /// How close the output must get to the target value
     #[serde(default = "default_tolerance")]
     pub tolerance: f64,
 }
