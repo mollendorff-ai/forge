@@ -33,7 +33,7 @@ Forge is a **deterministic YAML formula calculator** with **bidirectional Excel 
 - **Excel compatibility** - 173 Excel functions, formula preservation
 - **Type-safe arrays** - Homogeneous column arrays with compile-time safety
 - **Version control** - YAML files tracked in Git, not binary Excel files
-- **Cross-file includes** - `_includes` loads other YAML files and exports them as their own sheet; formulas cannot yet read values from them
+- **Cross-file includes** - `_includes` loads other YAML files; a formula reads their scalars as `@namespace.name` (see FEATURES.md)
 
 ### Problem Statement
 
@@ -64,7 +64,7 @@ graph TB
     business["👤 Business User<br/>Business Logic,<br/>Pricing, Unit Economics"]
 
     %% Forge System
-    forge["Forge<br/>YAML Formula Calculator<br/><br/>✓ Calculate formulas<br/>✓ Validate models<br/>✓ Export to Excel<br/>✓ Import from Excel<br/>✓ Cross-file includes (loaded only)<br/><br/>Deterministic:<br/>173 functions<br/>Type-safe arrays"]
+    forge["Forge<br/>YAML Formula Calculator<br/><br/>✓ Calculate formulas<br/>✓ Validate models<br/>✓ Export to Excel<br/>✓ Import from Excel<br/>✓ Cross-file includes<br/><br/>Deterministic:<br/>173 functions<br/>Type-safe arrays"]
 
     %% External Systems
     git[("📦 Git Repository<br/>Version Control")]

@@ -107,12 +107,18 @@ impl ExcelExporter {
         namespaces.sort();
         for namespace in namespaces {
             let resolved = &self.model.resolved_includes[namespace];
-            for (table_name, table) in &resolved.model.tables {
+            // Calculate the included model, so a value it defines by formula is
+            // written. If it does not calculate, write what the file holds; the
+            // main model's calculation reports that error.
+            let included = crate::core::ArrayCalculator::new(resolved.model.clone())
+                .calculate_all()
+                .unwrap_or_else(|_| resolved.model.clone());
+            for (table_name, table) in &included.tables {
                 let prefixed_name = format!("{namespace}.{table_name}");
                 self.export_table(&mut workbook, &prefixed_name, table, &mut warnings)?;
             }
-            if !resolved.model.scalars.is_empty() {
-                Self::export_namespaced_scalars(&mut workbook, namespace, &resolved.model)?;
+            if !included.scalars.is_empty() {
+                Self::export_namespaced_scalars(&mut workbook, namespace, &included)?;
             }
         }
 

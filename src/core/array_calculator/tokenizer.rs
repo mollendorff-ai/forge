@@ -154,8 +154,9 @@ impl<'a> Tokenizer<'a> {
                     // Numbers
                     c if c.is_ascii_digit() => self.read_number()?,
 
-                    // Identifiers (function names, variable names, table.column)
-                    c if c.is_alphabetic() || c == '_' => self.read_identifier()?,
+                    // Identifiers (function names, variable names, table.column,
+                    // and @namespace.name for a value from an included file)
+                    c if c.is_alphabetic() || c == '_' || c == '@' => self.read_identifier()?,
 
                     // Unknown character
                     c => {
@@ -280,9 +281,21 @@ impl<'a> Tokenizer<'a> {
     /// Read an identifier (function name, variable, or table.column reference)
     /// Also recognizes TRUE/FALSE as boolean literals
     // Returns Result for uniform tokenizer method signature.
-    #[allow(clippy::unnecessary_wraps)]
     fn read_identifier(&mut self) -> Result<Token, TokenizeError> {
         let mut ident = String::new();
+
+        // `@namespace.name`: a value from an included file. The `@` is kept
+        // in the name; the calculator resolves it.
+        if self.peek() == Some('@') {
+            let at = self.position;
+            ident.push(self.advance().unwrap());
+            if !self.peek().is_some_and(|c| c.is_alphabetic() || c == '_') {
+                return Err(TokenizeError::new(
+                    "'@' must be followed by an include name, as in @rates.fx.usd_eur",
+                    at,
+                ));
+            }
+        }
 
         while let Some(c) = self.peek() {
             if c.is_alphanumeric() || c == '_' || c == '.' {
@@ -426,6 +439,21 @@ mod tests {
     fn test_tokenize_table_column_reference() {
         let tokens = tokenize("sales.revenue").unwrap();
         assert_eq!(tokens, vec![Token::Identifier("sales.revenue".to_string())]);
+    }
+
+    #[test]
+    fn test_tokenize_include_reference() {
+        let tokens = tokenize("@rates.fx.usd_eur * 2").unwrap();
+        assert_eq!(
+            tokens[0],
+            Token::Identifier("@rates.fx.usd_eur".to_string())
+        );
+    }
+
+    #[test]
+    fn test_tokenize_bare_at_is_an_error() {
+        let err = tokenize("@ + 1").unwrap_err();
+        assert!(err.to_string().contains("'@' must be followed"), "{err}");
     }
 
     #[test]
@@ -624,7 +652,8 @@ mod tests {
 
     #[test]
     fn test_tokenize_error_unexpected_char() {
-        let result = tokenize("@invalid");
+        // `@` now starts an include reference (`@rates.fx.usd_eur`)
+        let result = tokenize("#invalid");
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("Unexpected"));
     }

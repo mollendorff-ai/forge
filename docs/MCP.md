@@ -51,15 +51,13 @@ The server writes the content to a temporary directory, passes the temp path to 
 
 ### Inline Includes
 
-Forge models can reference external YAML files via `_includes`. In inline mode, pass include content through the `includes` parameter -- a map of namespace names to YAML content strings. The namespace key must match the `as` field in the model's `_includes` entries.
+A model can read scalars from other YAML files: list them in `_includes` and write `@namespace.name` in a formula (`@rates.fx.usd_eur`; see the Values from Other Files section of [FEATURES.md](FEATURES.md)). In inline mode, pass each included file's content through the `includes` parameter -- a map of namespace names to YAML content strings. The namespace key must match the `as` field in the model's `_includes` entries. In this example `sales.amount_eur` calculates to 920.
 
 ```json
-{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_calculate","arguments":{"content":"_forge_version: \"5.0.0\"\n_includes:\n  - file: rates.yaml\n    as: rates\nsales:\n  amount:\n    value: 1000\n","includes":{"rates":"_forge_version: \"5.0.0\"\nfx:\n  usd_eur:\n    value: 0.92\n"},"dry_run":true}}}
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_calculate","arguments":{"content":"_forge_version: \"5.0.0\"\n_includes:\n  - file: rates.yaml\n    as: rates\nsales:\n  amount:\n    value: 1000\n  amount_eur:\n    value: null\n    formula: \"=sales.amount * @rates.fx.usd_eur\"\n","includes":{"rates":"_forge_version: \"5.0.0\"\nfx:\n  usd_eur:\n    value: 0.92\n"},"dry_run":true}}}
 ```
 
 If the model YAML contains `_includes` entries but no `includes` map is provided, the server returns a clear error listing the missing namespaces.
-
-> **Limitation (v10.0.0-rc.2):** included files are loaded and written to the Excel export as their own sheet, but a formula in the main model cannot read a value from them. Both `@rates.fx.usd_eur` and `rates.fx.usd_eur` are rejected by `forge calculate` and `forge_calculate` (the first as a syntax error, the second as an unknown column). Until that is implemented, put every value a formula needs in the main model.
 
 ### Write-Back with Inline Content
 
