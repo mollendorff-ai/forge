@@ -45,6 +45,7 @@ pub mod api;
 pub mod bayesian;
 pub mod bootstrap;
 pub mod decision_trees;
+pub mod inline_model;
 pub mod mcp;
 pub mod monte_carlo;
 pub mod real_options;
