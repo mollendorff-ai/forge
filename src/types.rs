@@ -357,41 +357,6 @@ impl ParsedModel {
         !self.includes.is_empty() && self.resolved_includes.is_empty()
     }
 
-    /// Get a value from a resolved include by namespace reference
-    /// e.g., "@`sources.pricing.unit_price`" -> lookup in sources namespace
-    #[must_use]
-    pub fn resolve_namespace_ref(&self, reference: &str) -> Option<f64> {
-        // Parse @namespace.path format
-        if !reference.starts_with('@') {
-            return None;
-        }
-
-        let ref_path = &reference[1..]; // Remove @
-        let parts: Vec<&str> = ref_path.splitn(2, '.').collect();
-        if parts.len() != 2 {
-            return None;
-        }
-
-        let namespace = parts[0];
-        let field_path = parts[1];
-
-        // Look up in resolved includes
-        if let Some(resolved) = self.resolved_includes.get(namespace) {
-            // Try to find the value in the included model's scalars
-            if let Some(var) = resolved.model.scalars.get(field_path) {
-                return var.value;
-            }
-            // Try nested path (e.g., "pricing.unit_price" -> scalars["pricing.unit_price"])
-            for (key, var) in &resolved.model.scalars {
-                if key == field_path || key.ends_with(&format!(".{field_path}")) {
-                    return var.value;
-                }
-            }
-        }
-
-        None
-    }
-
     pub fn add_scenario(&mut self, name: String, scenario: Scenario) {
         self.scenarios.insert(name, scenario);
     }
@@ -882,64 +847,6 @@ mod tests {
         model.resolved_includes.insert("ext".to_string(), resolved);
 
         assert!(!model.has_unresolved_includes());
-    }
-
-    #[test]
-    fn test_parsed_model_resolve_namespace_ref_invalid_format() {
-        let model = ParsedModel::new();
-
-        // Missing @ prefix
-        assert_eq!(model.resolve_namespace_ref("ext.value"), None);
-
-        // No dot in path
-        assert_eq!(model.resolve_namespace_ref("@ext"), None);
-    }
-
-    #[test]
-    fn test_parsed_model_resolve_namespace_ref_not_found() {
-        let model = ParsedModel::new();
-        assert_eq!(model.resolve_namespace_ref("@ext.value"), None);
-    }
-
-    #[test]
-    fn test_parsed_model_resolve_namespace_ref_found() {
-        let mut model = ParsedModel::new();
-
-        // Create an included model with a scalar
-        let mut included_model = ParsedModel::new();
-        let var = Variable::new("price".to_string(), Some(99.99), None);
-        included_model.add_scalar("price".to_string(), var);
-
-        let resolved = ResolvedInclude {
-            include: Include::new("pricing.yaml".to_string(), "pricing".to_string()),
-            resolved_path: std::path::PathBuf::from("/tmp/pricing.yaml"),
-            model: included_model,
-        };
-        model
-            .resolved_includes
-            .insert("pricing".to_string(), resolved);
-
-        assert_eq!(model.resolve_namespace_ref("@pricing.price"), Some(99.99));
-    }
-
-    #[test]
-    fn test_parsed_model_resolve_namespace_ref_nested_path() {
-        let mut model = ParsedModel::new();
-
-        // Create an included model with a nested scalar path
-        let mut included_model = ParsedModel::new();
-        let var = Variable::new("products.item_price".to_string(), Some(50.0), None);
-        included_model.add_scalar("products.item_price".to_string(), var);
-
-        let resolved = ResolvedInclude {
-            include: Include::new("data.yaml".to_string(), "data".to_string()),
-            resolved_path: std::path::PathBuf::from("/tmp/data.yaml"),
-            model: included_model,
-        };
-        model.resolved_includes.insert("data".to_string(), resolved);
-
-        // Should find via ends_with match
-        assert_eq!(model.resolve_namespace_ref("@data.item_price"), Some(50.0));
     }
 
     // =========================================================================

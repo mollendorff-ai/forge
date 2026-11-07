@@ -1,5 +1,7 @@
 # Formula Evaluation Architecture
 
+> **Superseded (2026-11-07):** Forge no longer uses `xlformula_engine`. Formulas are evaluated by Forge's own evaluator in `src/core/array_calculator/` (tokenizer, parser, evaluator), checked against Gnumeric and R by `forge-e2e-gnumeric` and `forge-e2e-r`. The parts of this page that describe `xlformula_engine` are history.
+
 **Document Version:** 1.0.0
 **Forge Version:** v1.2.1
 **Last Updated:** 2025-11-24
