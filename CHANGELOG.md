@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Stale text.** `forge functions --help` said Forge supports 58 functions (it has 173) and listed outdated category counts; the help now points to the generated list. The list header said "Forge Enterprise"; there is no such edition. README: removed a leftover validation table with older numbers. ADR-028 is marked not scheduled, since nothing in it is implemented. Links to the private, archived `forge-e2e` repository in seven ADRs now point to forge-e2e-gnumeric and forge-e2e-r.
+- **`forge export` dropped `scenarios` without saying so.** Excel has no equivalent, so they are still not written, but the export now lists them as not exported (CLI and MCP `forge_export`), and the README lists it under known limitations. The CLI heading for these warnings is now "Not exported as Excel formulas".
 
 ## [10.0.0-rc.1] - 2026-11-06
 

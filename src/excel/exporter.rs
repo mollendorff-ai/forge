@@ -114,6 +114,17 @@ impl ExcelExporter {
             }
         }
 
+        // Excel has no counterpart for scenarios (named sets of input overrides),
+        // so they are not written. Say so, instead of dropping them silently.
+        if !self.model.scenarios.is_empty() {
+            let mut names: Vec<&str> = self.model.scenarios.keys().map(String::as_str).collect();
+            names.sort_unstable();
+            warnings.push(format!(
+                "scenarios: not exported ({}); Excel has no equivalent, so keep the YAML file as the source of truth",
+                names.join(", ")
+            ));
+        }
+
         Ok((workbook, warnings))
     }
 
@@ -1255,6 +1266,57 @@ mod tests {
 
         let result = exporter.export(&output_path);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_export_warns_when_scenarios_are_not_exported() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        model.scalars.insert(
+            "rate".to_string(),
+            Variable::new("rate".to_string(), Some(0.1), None),
+        );
+        for name in ["bull", "base"] {
+            model.scenarios.insert(
+                name.to_string(),
+                crate::types::Scenario {
+                    overrides: std::collections::HashMap::from([("rate".to_string(), 0.2)]),
+                },
+            );
+        }
+
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("with_scenarios.xlsx");
+        let warnings = ExcelExporter::new(model)
+            .export_with_warnings(&path)
+            .unwrap();
+
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings[0].starts_with("scenarios: not exported (base, bull)"),
+            "{}",
+            warnings[0]
+        );
+    }
+
+    #[test]
+    fn test_export_without_scenarios_has_no_scenario_warning() {
+        use tempfile::TempDir;
+
+        let mut model = ParsedModel::new();
+        model.scalars.insert(
+            "rate".to_string(),
+            Variable::new("rate".to_string(), Some(0.1), None),
+        );
+
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("no_scenarios.xlsx");
+        let warnings = ExcelExporter::new(model)
+            .export_with_warnings(&path)
+            .unwrap();
+
+        assert!(warnings.is_empty(), "{warnings:?}");
     }
 
     #[test]
