@@ -1,4 +1,4 @@
-//! Basic math functions: ABS, SIGN, SQRT, POWER, MOD, PI (DEMO), POW, E (Enterprise)
+//! Basic math functions: ABS, SIGN, SQRT, POWER, MOD, PI, POW, E
 
 use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
 

@@ -1,5 +1,8 @@
 # ADR-013: Function Registry - Single Source of Truth
 
+> **Update (2026-11-07):** The `demo` flag, `demo_functions()`, `count_demo()` and the demo/enterprise split described below were removed; there is no demo build. `enterprise_functions()` is now `all_functions()` and `count_enterprise()` is `count_all()`. The rest of the registry design stands.
+
+
 **Status:** Proposed
 **Date:** 2025-12-09
 **Author:** Rex (CEO) + Claude Opus 4.5 (Principal Autonomous AI)

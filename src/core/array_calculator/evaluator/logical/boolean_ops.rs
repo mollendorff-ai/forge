@@ -1,7 +1,6 @@
 //! Boolean operations: AND, OR, NOT, XOR
 //!
-//! DEMO functions: AND, OR, NOT
-//! ENTERPRISE functions: XOR
+//! Functions: AND, OR, NOT, XOR
 
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args, EvalContext, EvalError, Expr, Value,

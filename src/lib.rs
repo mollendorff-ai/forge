@@ -30,7 +30,6 @@
 //! # Ok::<(), mollendorff_forge::error::ForgeError>(())
 //! ```
 
-// Demo modules (always included)
 pub mod cli;
 pub mod core;
 pub mod error;

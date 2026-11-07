@@ -1,7 +1,6 @@
 //! Math functions: ABS, ROUND, SQRT, POW, EXP, LN, LOG, etc.
 //!
-//! DEMO functions (16): ROUND, ROUNDUP, ROUNDDOWN, ABS, SQRT, POWER, MOD, CEILING, FLOOR, EXP, LN, LOG10, INT, SIGN, TRUNC, PI
-//! ENTERPRISE functions: POW, E, LOG, RAND, RANDBETWEEN
+//! Functions: ROUND, ROUNDUP, ROUNDDOWN, ABS, SQRT, POWER, MOD, CEILING, FLOOR, EXP, LN, LOG10, INT, SIGN, TRUNC, PI, POW, E, LOG, RAND, RANDBETWEEN
 
 mod basic;
 mod logarithm;
@@ -17,7 +16,7 @@ pub fn try_evaluate(
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
     let result = match name {
-        // Basic math functions (DEMO)
+        // Basic math functions
         "ABS" => basic::eval_abs(args, ctx)?,
         "SQRT" => basic::eval_sqrt(args, ctx)?,
         "POWER" => basic::eval_power(args, ctx)?,
@@ -25,7 +24,7 @@ pub fn try_evaluate(
         "SIGN" => basic::eval_sign(args, ctx)?,
         "PI" => basic::eval_pi(args, ctx)?,
 
-        // Rounding functions (DEMO)
+        // Rounding functions
         "ROUND" => rounding::eval_round(args, ctx)?,
         "ROUNDUP" => rounding::eval_roundup(args, ctx)?,
         "ROUNDDOWN" => rounding::eval_rounddown(args, ctx)?,
@@ -34,12 +33,11 @@ pub fn try_evaluate(
         "TRUNC" => rounding::eval_trunc(args, ctx)?,
         "INT" => rounding::eval_int(args, ctx)?,
 
-        // Logarithmic functions (DEMO)
+        // Logarithmic functions
         "EXP" => logarithm::eval_exp(args, ctx)?,
         "LN" => logarithm::eval_ln(args, ctx)?,
         "LOG10" => logarithm::eval_log10(args, ctx)?,
 
-        // ENTERPRISE FUNCTIONS
         "LOG" => logarithm::eval_log(args, ctx)?,
         "POW" => basic::eval_pow(args, ctx)?,
         "E" => basic::eval_e(args, ctx)?,

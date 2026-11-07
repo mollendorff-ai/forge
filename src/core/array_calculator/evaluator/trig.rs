@@ -1,7 +1,6 @@
 //! Trigonometric functions: SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, RADIANS, DEGREES
 //!
-//! DEMO functions (6): SIN, COS, TAN, ASIN, ACOS, ATAN
-//! ENTERPRISE functions: SINH, COSH, TANH, RADIANS, DEGREES
+//! Functions: SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, RADIANS, DEGREES
 
 use super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
 
@@ -67,7 +66,6 @@ pub fn try_evaluate(
         },
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // ENTERPRISE FUNCTIONS
         // ═══════════════════════════════════════════════════════════════════════════
         "SINH" => {
             require_args(name, args, 1)?;

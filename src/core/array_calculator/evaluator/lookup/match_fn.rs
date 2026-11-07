@@ -1,6 +1,4 @@
 //! MATCH function implementation
-//!
-//! DEMO function - always available
 
 // Match casts: f64 match type to i32, array position to f64 (small bounded integers).
 #![allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]

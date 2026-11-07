@@ -1,6 +1,4 @@
 //! INDEX function implementation
-//!
-//! DEMO function - always available
 
 // Index casts: f64 row/col indices to usize (bounded by array length).
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]

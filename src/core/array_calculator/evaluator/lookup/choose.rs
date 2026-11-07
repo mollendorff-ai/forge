@@ -1,6 +1,4 @@
 //! CHOOSE function implementation
-//!
-//! DEMO function - always available
 
 // Choose casts: f64 index to usize (bounded, 1-based choice index).
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]

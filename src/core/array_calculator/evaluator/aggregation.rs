@@ -1,7 +1,6 @@
 //! Aggregation functions: SUM, AVERAGE, COUNT, MIN, MAX, PRODUCT, MEDIAN
 //!
-//! DEMO functions (5): SUM, AVERAGE, MIN, MAX, COUNT
-//! ENTERPRISE functions: PRODUCT, COUNTA, MEDIAN
+//! Functions: SUM, AVERAGE, MIN, MAX, COUNT, PRODUCT, COUNTA, MEDIAN
 
 // Aggregation casts: array lengths (usize) to f64 for AVERAGE/COUNT (bounded by worksheet size).
 #![allow(clippy::cast_precision_loss)]
@@ -15,7 +14,6 @@ pub fn try_evaluate(
     ctx: &EvalContext,
 ) -> Result<Option<Value>, EvalError> {
     // ═══════════════════════════════════════════════════════════════════════════
-    // DEMO FUNCTIONS (always available)
     // ═══════════════════════════════════════════════════════════════════════════
     let result = match name {
         "SUM" => {
@@ -65,7 +63,6 @@ pub fn try_evaluate(
         },
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // ENTERPRISE FUNCTIONS
         // ═══════════════════════════════════════════════════════════════════════════
         "AVG" => {
             // Alias for AVERAGE

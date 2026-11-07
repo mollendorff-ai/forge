@@ -1,6 +1,6 @@
 //! Boolean constant functions: TRUE, FALSE
 //!
-//! ENTERPRISE functions: TRUE, FALSE
+//! Functions: TRUE, FALSE
 
 use crate::core::array_calculator::evaluator::{require_args, EvalError, Expr, Value};
 

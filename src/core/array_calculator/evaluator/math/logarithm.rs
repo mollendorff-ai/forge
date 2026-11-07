@@ -1,5 +1,4 @@
-//! Logarithmic and exponential functions: EXP, LN, LOG10 (DEMO)
-//! Enterprise: LOG
+//! Logarithmic and exponential functions: EXP, LN, LOG10, LOG
 
 use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
 
@@ -36,7 +35,7 @@ pub fn eval_log10(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
     Ok(Value::Number(val.log10()))
 }
 
-/// Evaluate LOG function - returns base-10 logarithm (Enterprise)
+/// Evaluate LOG function - returns base-10 logarithm
 pub fn eval_log(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("LOG", args, 1)?;
     let val = evaluate(&args[0], ctx)?

@@ -1,7 +1,6 @@
 //! Text functions: CONCAT, UPPER, LOWER, TRIM, LEN, LEFT, RIGHT, MID, REPT, TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
 //!
-//! DEMO functions (9): CONCAT, LEFT, RIGHT, MID, REPT, LEN, UPPER, LOWER, TRIM
-//! ENTERPRISE functions: CONCATENATE, TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
+//! Functions: CONCAT, LEFT, RIGHT, MID, REPT, LEN, UPPER, LOWER, TRIM, CONCATENATE, TEXT, VALUE, FIND, SEARCH, REPLACE, SUBSTITUTE
 
 mod case;
 mod concat;
@@ -20,7 +19,6 @@ pub fn try_evaluate(
 ) -> Result<Option<Value>, EvalError> {
     let result = match name {
         // ═══════════════════════════════════════════════════════════════════════════
-        // DEMO FUNCTIONS (always available)
         // ═══════════════════════════════════════════════════════════════════════════
         "UPPER" => case::eval_upper(args, ctx)?,
         "LOWER" => case::eval_lower(args, ctx)?,
@@ -35,7 +33,6 @@ pub fn try_evaluate(
         "REPT" => concat::eval_rept(args, ctx)?,
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // ENTERPRISE FUNCTIONS
         // ═══════════════════════════════════════════════════════════════════════════
         "CONCATENATE" => concat::eval_concatenate(args, ctx)?,
 
