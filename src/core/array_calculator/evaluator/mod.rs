@@ -359,6 +359,13 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
                 return Ok(value.clone());
             }
 
+            if let Some(namespace) = table.strip_prefix('@') {
+                return Err(EvalError::new(format!(
+                    "Unknown included value: {table}.{column} (needs an `_includes` entry \
+                     with `as: {namespace}` whose file has a scalar `{column}`)"
+                )));
+            }
+
             // Fall back to table.column lookup
             let col = ctx
                 .get_column(table, column)

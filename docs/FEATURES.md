@@ -13,6 +13,44 @@ Complete reference for all Forge capabilities (v10.0.0).
 - **Cross-table references**: `=pl_2025.revenue`
 - **Array indexing**: `revenue[3]`
 - **Nested functions**: `=ROUND(SQRT(revenue), 2)`
+- **Values from other files**: `=amount * @rates.fx.usd_eur` (see below)
+
+### Values from Other Files (`_includes`)
+
+A model can read scalars from another YAML file. Name the file and a namespace in `_includes`, then write `@namespace.` before the scalar's name:
+
+```yaml
+# rates.yaml
+_forge_version: "5.0.0"
+fx:
+  usd_eur:
+    value: 0.92
+  eur_usd:
+    value: null
+    formula: "=1 / fx.usd_eur"
+```
+
+```yaml
+# model.yaml
+_forge_version: "5.0.0"
+_includes:
+  - file: rates.yaml
+    as: rates
+sales:
+  amount: [1000, 2000, 3000]
+  amount_eur: "=amount * @rates.fx.usd_eur"   # [920, 1840, 2760]
+summary:
+  back_to_usd:
+    value: null
+    formula: "=SUM(sales.amount_eur) * @rates.fx.eur_usd"   # 6000
+```
+
+- The included file is calculated first, with its own `_includes`, so a value it defines by formula (`fx.eur_usd`) can be used.
+- Paths are relative to the including file. A file that includes itself, directly or through another, is an error.
+- Only scalars can be read. A name that the included file does not have is an error that names the `_includes` entry it needs.
+- A group in the model can have the same name as a namespace; `@` keeps them apart.
+- `forge export` writes a formula that reads an included value as its calculated value and lists it, because the workbook has no link to the other file. The included file's scalars and tables are written to their own sheets (`rates.Scalars`), calculated.
+- With the MCP server and inline `content`, pass the included files in the `includes` map (see [MCP.md](MCP.md)).
 
 ### 173 Excel-Compatible Functions
 

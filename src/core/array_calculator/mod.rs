@@ -4,6 +4,8 @@ mod dates;
 #[cfg(test)]
 mod error_location_tests;
 pub mod evaluator;
+#[cfg(test)]
+mod include_reference_tests;
 pub mod parser;
 #[cfg(test)]
 mod scalar_scope_tests;
@@ -39,13 +41,21 @@ impl Cell {
     }
 }
 
+/// A character that can be part of a name in a formula. `@` starts a value
+/// from an included file (`@rates.fx.usd_eur`); keeping it in the word means
+/// such a name never matches a cell of this model, even when a group here has
+/// the same name as the include.
+fn is_name_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_' || c == '.' || c == '@'
+}
+
 /// The names a formula mentions (`revenue`, `assumptions.rate`), without the
 /// contents of string literals. Function names and numbers are included; they
 /// match no cell, so they add no dependency.
 fn formula_words(formula: &str) -> Vec<String> {
     let stripped = strip_string_literals(formula);
     let mut words: Vec<String> = Vec::new();
-    for word in stripped.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
+    for word in stripped.split(|c: char| !is_name_char(c)) {
         if !word.is_empty() && !words.iter().any(|w| w == word) {
             words.push(word.to_string());
         }
@@ -147,12 +157,49 @@ fn strip_string_literals(formula: &str) -> String {
 /// Handles both row-wise (element-wise) and aggregation formulas
 pub struct ArrayCalculator {
     model: ParsedModel,
+    /// Scalars of included files as `@namespace.path`, calculated before the
+    /// model (see [`ArrayCalculator::included_values`]).
+    included: Vec<(String, f64)>,
 }
 
 impl ArrayCalculator {
     #[must_use]
     pub const fn new(model: ParsedModel) -> Self {
-        Self { model }
+        Self {
+            model,
+            included: Vec::new(),
+        }
+    }
+
+    /// The scalars of every included file, as `@namespace.path` with their
+    /// values. Each included model is calculated first, with its own includes,
+    /// so a value an included file defines by formula is available. Namespaces
+    /// are taken in name order, so an error is the same on every run.
+    fn included_values(&self) -> ForgeResult<Vec<(String, f64)>> {
+        let mut namespaces: Vec<&String> = self.model.resolved_includes.keys().collect();
+        namespaces.sort();
+        let mut values = Vec::new();
+        for namespace in namespaces {
+            let resolved = &self.model.resolved_includes[namespace];
+            let calculated = Self::new(resolved.model.clone())
+                .calculate_all()
+                .map_err(|e| {
+                    let reason = match e {
+                        ForgeError::Eval(msg) => msg,
+                        other => other.to_string(),
+                    };
+                    ForgeError::Eval(format!(
+                        "included file '{}' (as {namespace}): {reason}",
+                        resolved.include.file
+                    ))
+                })?;
+            for (path, var) in &calculated.scalars {
+                if let Some(value) = var.value {
+                    values.push((format!("@{namespace}.{path}"), value));
+                }
+            }
+        }
+        Ok(values)
     }
 
     /// Calculate all formulas in the model
@@ -168,6 +215,8 @@ impl ArrayCalculator {
     /// Panics if the model's table map is in an inconsistent state (should not
     /// occur with valid `ParsedModel` construction).
     pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
+        self.included = self.included_values()?;
+
         // A formula scalar's stored value (from the file, an import or an
         // earlier run) is never read: it is unknown until it is recalculated.
         // Callers that set a value on purpose (scenarios, sensitivity,
@@ -492,7 +541,7 @@ impl ArrayCalculator {
         table: &Table,
     ) -> ForgeResult<()> {
         let stripped = strip_string_literals(formula);
-        for word in stripped.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
+        for word in stripped.split(|c: char| !is_name_char(c)) {
             if word.is_empty() || word.contains('.') || table.columns.contains_key(word) {
                 continue;
             }
@@ -521,6 +570,12 @@ impl ArrayCalculator {
                 ctx.scalars
                     .insert(name.clone(), evaluator::Value::Number(value));
             }
+        }
+
+        // Values from included files, under `@namespace.path`
+        for (name, value) in &self.included {
+            ctx.scalars
+                .insert(name.clone(), evaluator::Value::Number(*value));
         }
 
         // Add short names (e.g., "price" for "summary.price") that resolve to
@@ -716,7 +771,7 @@ impl ArrayCalculator {
 
         let section = scalar_name.rsplit_once('.').map(|(section, _)| section);
         let stripped = strip_string_literals(formula);
-        for word in stripped.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
+        for word in stripped.split(|c: char| !is_name_char(c)) {
             if word.is_empty() {
                 continue;
             }
