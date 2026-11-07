@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.4] - 2026-11-07
+
+Fourth release candidate. rc.3 could report a scenario's results with a misspelled override silently ignored (a wrong answer; first entry under Fixed), so the two weeks before the stable release start again from this candidate. Also in it: goal seek converges properly, `forge scenarios` shows results, the roadmap is rewritten, and the bagel example with externally checked numbers.
+
 ### Added
 - **`examples/bagel/`: a 12-month plan for a fictional bagel shop**, with an included costs file, four scenarios and a Monte Carlo version. Its headline numbers are asserted in `tests/bagel_example.rs` against a calculation written independently of Forge.
 - **Scenarios can change a value from an included file**: `"@costs.prices.flour": 1.70`. The included file is calculated with the new value.

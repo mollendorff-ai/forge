@@ -14,9 +14,9 @@
 # written down. "Polish" and "improve" are not criteria.
 
 state:
-  version: 10.0.0-rc.3 published 2026-11-07; a wrong-answer fix (scenario
-    overrides, PR 76) merged after it, so the next release is rc.4 and the
-    two-week stable clock in docs/STABILITY.md starts from rc.4.
+  version: 10.0.0-rc.4, released 2026-11-07 after the scenario-override
+    wrong answer (PR 76). The two-week stable clock in docs/STABILITY.md
+    runs from this release; a new wrong answer restarts it.
   users: none known. One outside contributor used Forge for a few weeks in
     2026 and paused.
   what_works: calculate, validate, audit, export, import, includes with
@@ -34,11 +34,6 @@ state:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier1:
-  - id: T1-RELEASE
-    title: "Release 10.0.0-rc.4"
-    why: "PR 76 fixed a wrong answer after rc.3; STABILITY.md says that restarts the candidate"
-    acceptance: "Same five files as the rc.3 release commit; CHANGELOG intro says why; Auto Release tags it"
-
   - id: T1-USE
     title: "One real model per analytics command, built through MCP, checked outside Forge"
     why: "Every bug of 2026-11-07 (ignored scenario override, non-converging solver, empty scenario output, panics on NaN and closed pipes) was found this way and missed by 1,500 unit tests"
