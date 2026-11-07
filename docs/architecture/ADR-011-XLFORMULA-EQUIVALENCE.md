@@ -1,6 +1,6 @@
 # ADR-011: xlformula_engine Functional Equivalence Testing
 
-**Status:** Accepted
+**Status:** Superseded - `xlformula_engine` was removed; equivalence is now tested against Gnumeric and R (`forge-e2e-gnumeric`, `forge-e2e-r`)
 **Date:** 2025-12-06
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)
 

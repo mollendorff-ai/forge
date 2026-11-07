@@ -10,7 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Formulas can read values from included files: `@namespace.name`.** `_includes` loaded other files, and the docs, the test data and `ParsedModel::resolve_namespace_ref` all described `@sources.pricing.unit_price`, but the calculator never resolved it: `@` was a syntax error, and without it the name was an unknown column. Now `=amount * @rates.fx.usd_eur` works in row and scalar formulas, with the CLI and with MCP inline `includes`. Each included file is calculated first, with its own includes, so a value it defines by formula is available. A name the file does not have is an error that names the `_includes` entry it needs, and a failing formula in an included file names the file. A group with the same name as a namespace does not create a false cycle. Only scalars can be read. `forge export` writes a formula that reads an included value as its calculated value and lists it. Documented in FEATURES.md (Values from Other Files) and MCP.md.
 
+### Removed
+- `ParsedModel::resolve_namespace_ref`, the old include lookup. It read values without calculating them and nothing called it; `@namespace.name` formulas replace it.
+
 ### Fixed
+- **`forge audit` split dotted names.** `summary.total` showed as two unknowns (`summary`, `total`), so the tree for any grouped scalar or table column was wrong. Dotted names, `table.column` and `@namespace.name` now stay whole and resolve to the right scalar or column.
 - **The inline examples in `docs/MCP.md` did not run.** They used an older model format (`name:`, `tables:`, `columns:`), so the first call a new user copied failed with `Missing required field: _forge_version`. They now use the 5.0.0 format. A unit test (`test_mcp_doc_inline_examples_run`) runs every inline example in the guide against the server, so the guide and the server cannot drift apart again.
 - **`forge export` wrote included files' sheets uncalculated.** A value an included file defines by formula was an empty cell on its sheet (`rates.Scalars`). The included model is now calculated before it is written.
 
