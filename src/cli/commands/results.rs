@@ -42,6 +42,10 @@ pub struct TableSummary {
     pub column_count: usize,
     pub row_count: usize,
     pub columns: Vec<String>,
+    /// Calculated values of every column, in row order: numbers, text, dates
+    /// (as text) or booleans. Keyed by column name, in name order.
+    #[serde(default)]
+    pub values: BTreeMap<String, Vec<serde_json::Value>>,
 }
 
 /// Result of the audit command
