@@ -571,7 +571,8 @@ g:
         );
         assert_eq!(back.scalars["g.a_first"].value, Some(15.0));
 
-        assert!(round_trip(&model).unwrap().is_empty());
+        let diffs = round_trip(&model).unwrap();
+        assert!(diffs.is_empty(), "{diffs:#?}");
     }
 
     /// The shipped examples that calculate on their own come back from Excel
