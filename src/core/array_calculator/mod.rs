@@ -1,4 +1,6 @@
 mod dates;
+#[cfg(test)]
+mod error_location_tests;
 pub mod evaluator;
 pub mod parser;
 #[cfg(test)]
@@ -16,6 +18,42 @@ enum ScalarName {
     Ambiguous(Vec<String>),
     /// No scalar
     Missing,
+}
+
+/// Name the column or scalar whose formula failed, and show the formula, so an
+/// error points at the place to fix (`calc.x: Division by zero`). Only
+/// evaluation errors are rewritten; other errors already say where they are.
+fn locate_error(err: ForgeError, location: &str, formula: &str) -> ForgeError {
+    match err {
+        ForgeError::Eval(msg) => {
+            // Row errors read "row 3: ..."; keep them on the location's line
+            let sep = if msg.starts_with("row ") { " " } else { ": " };
+            ForgeError::Eval(format!("{location}{sep}{msg} (formula: {formula})"))
+        },
+        other => other,
+    }
+}
+
+/// Say which names form a dependency cycle, for example
+/// "scalars calc.a, calc.b depend on each other".
+fn describe_cycle(
+    kind: &str,
+    prefix: &str,
+    graph: &petgraph::graph::DiGraph<String, ()>,
+) -> String {
+    let mut names: Vec<String> = petgraph::algo::tarjan_scc(graph)
+        .into_iter()
+        .filter(|component| component.len() > 1 || graph.contains_edge(component[0], component[0]))
+        .flatten()
+        .filter_map(|idx| graph.node_weight(idx).map(|name| format!("{prefix}{name}")))
+        .collect();
+    names.sort();
+    names.dedup();
+    match names.as_slice() {
+        [] => format!("{kind} depend on each other"),
+        [one] => format!("{one} refers to itself"),
+        _ => format!("{kind} {} depend on each other", names.join(", ")),
+    }
 }
 
 /// Strip string literals from a formula before extracting references.
@@ -116,11 +154,8 @@ impl ArrayCalculator {
         }
 
         // Topological sort
-        let order = toposort(&graph, None).map_err(|_| {
-            ForgeError::CircularDependency(
-                "Circular dependency detected between tables".to_string(),
-            )
-        })?;
+        let order = toposort(&graph, None)
+            .map_err(|_| ForgeError::CircularDependency(describe_cycle("tables", "", &graph)))?;
 
         let ordered_names: Vec<String> = order
             .iter()
@@ -183,7 +218,9 @@ impl ArrayCalculator {
                     )));
                 }
                 // Row-wise: returns an array (v5.2.0 AST evaluator)
-                let result = self.evaluate_rowwise_formula_ast(&working_table, &formula)?;
+                let result = self
+                    .evaluate_rowwise_formula_ast(&working_table, &formula)
+                    .map_err(|e| locate_error(e, &format!("{table_name}.{col_name}"), &formula))?;
                 working_table.add_column(Column::new(col_name.clone(), result));
             }
         }
@@ -221,9 +258,11 @@ impl ArrayCalculator {
 
         // Topological sort
         let order = toposort(&graph, None).map_err(|_| {
-            ForgeError::CircularDependency(
-                "Circular dependency detected in table formulas".to_string(),
-            )
+            ForgeError::CircularDependency(describe_cycle(
+                "columns",
+                &format!("{}.", table.name),
+                &graph,
+            ))
         })?;
 
         let ordered_names: Vec<String> = order
@@ -560,9 +599,9 @@ impl ArrayCalculator {
     ) -> ForgeResult<ColumnValue> {
         let formula_str = formula.trim_start_matches('=').trim();
         let tokens = tokenizer::tokenize(formula_str)
-            .map_err(|e| ForgeError::Eval(format!("Tokenize: {}", e.message)))?;
-        let ast =
-            parser::parse(tokens).map_err(|e| ForgeError::Eval(format!("Parse: {}", e.message)))?;
+            .map_err(|e| ForgeError::Eval(format!("syntax error: {}", e.message)))?;
+        let ast = parser::parse(tokens)
+            .map_err(|e| ForgeError::Eval(format!("syntax error: {}", e.message)))?;
 
         self.check_ambiguous_names(formula, None, table)?;
         let base_ctx = self.build_eval_context(table, None);
@@ -576,7 +615,7 @@ impl ArrayCalculator {
         // Evaluate first row to determine result type
         let first_ctx = base_ctx.clone().with_row(0, row_count);
         let first_result = evaluator::evaluate(&ast, &first_ctx)
-            .map_err(|e| ForgeError::Eval(format!("Row 0: {e}")))?;
+            .map_err(|e| ForgeError::Eval(format!("row 1: {}", e.message)))?;
 
         // Determine column type from first result and evaluate all rows
         match &first_result {
@@ -585,8 +624,9 @@ impl ArrayCalculator {
                 results.push(first_result.as_text());
                 for row_idx in 1..row_count {
                     let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
-                    let result = evaluator::evaluate(&ast, &row_ctx)
-                        .map_err(|e| ForgeError::Eval(format!("Row {row_idx}: {e}")))?;
+                    let result = evaluator::evaluate(&ast, &row_ctx).map_err(|e| {
+                        ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
+                    })?;
                     results.push(result.as_text());
                 }
                 Ok(ColumnValue::Text(results))
@@ -596,8 +636,9 @@ impl ArrayCalculator {
                 results.push(first_result.as_bool().unwrap_or(false));
                 for row_idx in 1..row_count {
                     let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
-                    let result = evaluator::evaluate(&ast, &row_ctx)
-                        .map_err(|e| ForgeError::Eval(format!("Row {row_idx}: {e}")))?;
+                    let result = evaluator::evaluate(&ast, &row_ctx).map_err(|e| {
+                        ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
+                    })?;
                     results.push(result.as_bool().unwrap_or(false));
                 }
                 Ok(ColumnValue::Boolean(results))
@@ -607,15 +648,16 @@ impl ArrayCalculator {
                 let mut results: Vec<f64> = Vec::with_capacity(row_count);
                 let first_num = first_result
                     .as_number()
-                    .ok_or_else(|| ForgeError::Eval("Row 0 not a number".to_string()))?;
+                    .ok_or_else(|| ForgeError::Eval("row 1: result is not a number".to_string()))?;
                 results.push(first_num);
                 for row_idx in 1..row_count {
                     let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
-                    let result = evaluator::evaluate(&ast, &row_ctx)
-                        .map_err(|e| ForgeError::Eval(format!("Row {row_idx}: {e}")))?;
-                    let value = result
-                        .as_number()
-                        .ok_or_else(|| ForgeError::Eval(format!("Row {row_idx} not a number")))?;
+                    let result = evaluator::evaluate(&ast, &row_ctx).map_err(|e| {
+                        ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
+                    })?;
+                    let value = result.as_number().ok_or_else(|| {
+                        ForgeError::Eval(format!("row {}: result is not a number", row_idx + 1))
+                    })?;
                     results.push(value);
                 }
                 Ok(ColumnValue::Number(results))
@@ -627,16 +669,15 @@ impl ArrayCalculator {
     fn evaluate_scalar_formula_ast(&self, scalar_name: &str, formula: &str) -> ForgeResult<f64> {
         let formula_str = formula.trim_start_matches('=').trim();
         let tokens = tokenizer::tokenize(formula_str)
-            .map_err(|e| ForgeError::Eval(format!("Tokenize: {}", e.message)))?;
-        let ast =
-            parser::parse(tokens).map_err(|e| ForgeError::Eval(format!("Parse: {}", e.message)))?;
+            .map_err(|e| ForgeError::Eval(format!("syntax error: {}", e.message)))?;
+        let ast = parser::parse(tokens)
+            .map_err(|e| ForgeError::Eval(format!("syntax error: {}", e.message)))?;
 
         let empty_table = Table::new("_scalar_context".to_string());
         let section = scalar_name.rsplit_once('.').map(|(section, _)| section);
         self.check_ambiguous_names(formula, section, &empty_table)?;
         let ctx = self.build_eval_context(&empty_table, section);
-        let result =
-            evaluator::evaluate(&ast, &ctx).map_err(|e| ForgeError::Eval(format!("Eval: {e}")))?;
+        let result = evaluator::evaluate(&ast, &ctx).map_err(|e| ForgeError::Eval(e.message))?;
         if let evaluator::Value::Array(items) = &result {
             if items.len() != 1 {
                 return Err(ForgeError::Eval(format!(
@@ -648,7 +689,7 @@ impl ArrayCalculator {
         }
         result
             .as_number()
-            .ok_or_else(|| ForgeError::Eval("Scalar result not a number".to_string()))
+            .ok_or_else(|| ForgeError::Eval("result is not a number".to_string()))
     }
 
     fn calculate_scalars(&mut self) -> ForgeResult<()> {
@@ -674,7 +715,9 @@ impl ArrayCalculator {
 
             if let Some(formula) = formula {
                 // v5.2.0 AST evaluator
-                let value = self.evaluate_scalar_formula_ast(&scalar_name, &formula)?;
+                let value = self
+                    .evaluate_scalar_formula_ast(&scalar_name, &formula)
+                    .map_err(|e| locate_error(e, &scalar_name, &formula))?;
 
                 // Update the scalar with calculated value
                 if let Some(var) = self.model.scalars.get_mut(&scalar_name) {
@@ -719,11 +762,8 @@ impl ArrayCalculator {
         }
 
         // Topological sort
-        let order = toposort(&graph, None).map_err(|_| {
-            ForgeError::CircularDependency(
-                "Circular dependency detected in scalar formulas".to_string(),
-            )
-        })?;
+        let order = toposort(&graph, None)
+            .map_err(|_| ForgeError::CircularDependency(describe_cycle("scalars", "", &graph)))?;
 
         let ordered_names: Vec<String> = order
             .iter()

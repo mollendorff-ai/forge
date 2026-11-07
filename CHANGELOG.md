@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Calculation errors name the cell.** An error now says which column or scalar failed and shows its formula: `calc.x: Division by zero (formula: =assumptions.a / 0)` instead of `Eval: Eval error: Division by zero`. Errors in a table name the row, counted from 1 (`projections.ratio row 2: ...`). A circular dependency lists the names in the cycle (`scalars calc.a, calc.b depend on each other`, `calc.a refers to itself`, `columns t.p, t.q depend on each other`) instead of only saying there is one. The error kinds and exit codes are unchanged.
 - **Stale text.** `forge functions --help` said Forge supports 58 functions (it has 173) and listed outdated category counts; the help now points to the generated list. The list header said "Forge Enterprise"; there is no such edition. README: removed a leftover validation table with older numbers. ADR-028 is marked not scheduled, since nothing in it is implemented. Links to the private, archived `forge-e2e` repository in seven ADRs now point to forge-e2e-gnumeric and forge-e2e-r.
 - **`forge export` dropped `scenarios` without saying so.** Excel has no equivalent, so they are still not written, but the export now lists them as not exported (CLI and MCP `forge_export`), and the README lists it under known limitations. The CLI heading for these warnings is now "Not exported as Excel formulas".
 
