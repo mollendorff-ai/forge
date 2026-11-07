@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scenarios can change a value from an included file**: `"@costs.prices.flour": 1.70`. The included file is calculated with the new value.
 
 ### Changed
+- **CI runs for changes under `tests/` and `examples/`.** The path filter listed only `src/`, so a pull request that added or changed an integration test got no checks.
 - **The roadmap (`.asimov/roadmap.yaml`) is rewritten around trust before reach**, with the current state at the top, an acceptance criterion on every item, and the unverified commands named; the README links to it and lists them. `.asimov/project.yaml` now describes the real stack (axum, rmcp, indexmap) and conventions the code follows.
 
 ### Fixed
