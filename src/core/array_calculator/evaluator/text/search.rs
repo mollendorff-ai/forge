@@ -1,4 +1,4 @@
-//! Search functions: FIND, SEARCH (enterprise only)
+//! Search functions: FIND, SEARCH
 
 // Text search casts: char position indices between f64 and usize (bounded by string length).
 #![allow(

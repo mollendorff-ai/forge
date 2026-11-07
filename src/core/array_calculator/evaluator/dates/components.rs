@@ -1,4 +1,4 @@
-//! Time component extraction functions: WEEKDAY, HOUR, MINUTE, SECOND (enterprise only)
+//! Time component extraction functions: WEEKDAY, HOUR, MINUTE, SECOND
 
 use super::{
     evaluate, parse_date_value, require_args, require_args_range, Datelike, EvalContext, EvalError,

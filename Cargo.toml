@@ -46,9 +46,6 @@ serde = { version = "1.0", features = ["derive"] }
 yaml_serde = "0.10"
 serde_json = "1.0"  # JSON handling for schema validation
 
-# Expression evaluation (Excel-compatible formulas)
-xlformula_engine = "0.1.18"
-
 # JSON Schema validation (v1.0.0 array model)
 jsonschema = "0.60"
 

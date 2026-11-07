@@ -1,4 +1,4 @@
-//! Prediction Methods CLI Commands (Enterprise Only)
+//! Prediction Methods CLI Commands
 //!
 //! CLI handlers for advanced forecasting methods:
 //! - scenarios: Run scenario analysis (Base/Bull/Bear)

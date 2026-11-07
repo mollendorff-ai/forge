@@ -1,4 +1,4 @@
-//! Bootstrap Resampling Module (Enterprise Only)
+//! Bootstrap Resampling Module
 //!
 //! Non-parametric uncertainty quantification via resampling:
 //! - Resample from historical data with replacement

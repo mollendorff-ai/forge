@@ -1,4 +1,4 @@
-//! Bayesian Networks Module (Enterprise Only)
+//! Bayesian Networks Module
 //!
 //! Probabilistic graphical models for causal reasoning:
 //! - Directed Acyclic Graph (DAG) structure

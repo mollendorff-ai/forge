@@ -1,4 +1,4 @@
-//! Real Options Analysis Module (Enterprise Only)
+//! Real Options Analysis Module
 //!
 //! Values managerial flexibility using options pricing theory:
 //! - Defer option (wait before investing)

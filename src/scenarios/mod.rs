@@ -1,4 +1,4 @@
-//! Scenario Analysis Module (Enterprise Only)
+//! Scenario Analysis Module
 //!
 //! Provides discrete scenario modeling for FP&A:
 //! - Probability-weighted scenarios (Base/Bull/Bear)

@@ -1,6 +1,6 @@
 //! XLOOKUP, VLOOKUP, HLOOKUP function implementations
 //!
-//! ENTERPRISE functions - only available in full build
+//! ENTERPRISE functions (a registry label; every build has them)
 
 // Lookup casts: f64 row/col indices to usize (bounded by array length).
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]

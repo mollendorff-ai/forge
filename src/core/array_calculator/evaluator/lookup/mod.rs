@@ -26,7 +26,7 @@ pub fn try_evaluate(
         "CHOOSE" => choose::eval_choose(args, ctx)?,
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // ENTERPRISE FUNCTIONS (only in full build)
+        // ENTERPRISE FUNCTIONS
         // ═══════════════════════════════════════════════════════════════════════════
         "INDIRECT" => reference::eval_indirect(args, ctx)?,
 

@@ -178,7 +178,7 @@ impl Table {
 // Scalar Variables (for aggregations and summary values)
 //==============================================================================
 
-/// Rich metadata for enterprise financial models (v4.0)
+/// Rich metadata for financial models (v4.0)
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Metadata {
     /// Unit of measurement (CAD, USD, %, count, days, ratio)

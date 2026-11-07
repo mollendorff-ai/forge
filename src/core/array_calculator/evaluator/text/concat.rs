@@ -24,7 +24,7 @@ pub fn eval_rept(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     Ok(Value::Text(text.repeat(times)))
 }
 
-/// CONCATENATE(text1, [text2], ...) - Excel's CONCATENATE (alias for CONCAT, enterprise only)
+/// CONCATENATE(text1, [text2], ...) - Excel's CONCATENATE (alias for CONCAT)
 pub fn eval_concatenate(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     eval_concat(args, ctx)
 }

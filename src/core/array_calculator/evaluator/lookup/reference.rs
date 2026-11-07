@@ -1,6 +1,6 @@
 //! Reference function implementations: INDIRECT, OFFSET, ADDRESS, ROW, COLUMN, ROWS, COLUMNS
 //!
-//! ENTERPRISE functions - only available in full build
+//! ENTERPRISE functions (a registry label; every build has them)
 
 // Spreadsheet reference casts: f64 row/col indices to usize/i64 (bounded by worksheet limits 1..16384).
 #![allow(

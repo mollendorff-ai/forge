@@ -588,7 +588,7 @@ mod tests {
         let response = RootResponse {
             name: "Forge API Server".to_string(),
             version: "2.0.0".to_string(),
-            description: "Enterprise HTTP API".to_string(),
+            description: "HTTP API".to_string(),
             endpoints: vec![
                 EndpointInfo {
                     path: "/health".to_string(),
