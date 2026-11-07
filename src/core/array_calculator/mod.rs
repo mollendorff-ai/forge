@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod calculation_order_tests;
 mod dates;
 #[cfg(test)]
 mod error_location_tests;
@@ -20,6 +22,37 @@ enum ScalarName {
     Missing,
 }
 
+/// A cell with a formula: a whole table column (row formula) or a scalar.
+/// Ordered by kind, then name, so iteration is deterministic.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum Cell {
+    Column { table: String, column: String },
+    Scalar(String),
+}
+
+impl Cell {
+    fn label(&self) -> String {
+        match self {
+            Self::Column { table, column } => format!("{table}.{column}"),
+            Self::Scalar(name) => name.clone(),
+        }
+    }
+}
+
+/// The names a formula mentions (`revenue`, `assumptions.rate`), without the
+/// contents of string literals. Function names and numbers are included; they
+/// match no cell, so they add no dependency.
+fn formula_words(formula: &str) -> Vec<String> {
+    let stripped = strip_string_literals(formula);
+    let mut words: Vec<String> = Vec::new();
+    for word in stripped.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
+        if !word.is_empty() && !words.iter().any(|w| w == word) {
+            words.push(word.to_string());
+        }
+    }
+    words
+}
+
 /// Name the column or scalar whose formula failed, and show the formula, so an
 /// error points at the place to fix (`calc.x: Division by zero`). Only
 /// evaluation errors are rewritten; other errors already say where they are.
@@ -34,23 +67,27 @@ fn locate_error(err: ForgeError, location: &str, formula: &str) -> ForgeError {
     }
 }
 
-/// Say which names form a dependency cycle, for example
+/// Say which cells form a dependency cycle, for example
 /// "scalars calc.a, calc.b depend on each other".
-fn describe_cycle(
-    kind: &str,
-    prefix: &str,
-    graph: &petgraph::graph::DiGraph<String, ()>,
-) -> String {
-    let mut names: Vec<String> = petgraph::algo::tarjan_scc(graph)
+fn describe_cycle(graph: &petgraph::graph::DiGraph<Cell, ()>) -> String {
+    let mut cells: Vec<&Cell> = petgraph::algo::tarjan_scc(graph)
         .into_iter()
         .filter(|component| component.len() > 1 || graph.contains_edge(component[0], component[0]))
         .flatten()
-        .filter_map(|idx| graph.node_weight(idx).map(|name| format!("{prefix}{name}")))
+        .filter_map(|idx| graph.node_weight(idx))
         .collect();
-    names.sort();
-    names.dedup();
+    cells.sort();
+    cells.dedup();
+    let kind = if cells.iter().all(|c| matches!(c, Cell::Scalar(_))) {
+        "scalars"
+    } else if cells.iter().all(|c| matches!(c, Cell::Column { .. })) {
+        "columns"
+    } else {
+        "formulas"
+    };
+    let names: Vec<String> = cells.iter().map(|c| c.label()).collect();
     match names.as_slice() {
-        [] => format!("{kind} depend on each other"),
+        [] => "formulas depend on each other".to_string(),
         [one] => format!("{one} refers to itself"),
         _ => format!("{kind} {} depend on each other", names.join(", ")),
     }
@@ -104,269 +141,186 @@ impl ArrayCalculator {
     /// Panics if the model's table map is in an inconsistent state (should not
     /// occur with valid `ParsedModel` construction).
     pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
-        // Step 1: Calculate all tables (row-wise formulas) in dependency order
-        let table_names: Vec<String> = self.model.tables.keys().cloned().collect();
-        let calc_order = self.get_table_calculation_order(&table_names)?;
-
-        for table_name in calc_order {
-            let table = self.model.tables.get(&table_name).unwrap().clone();
-            let calculated_table = self.calculate_table(&table_name, &table)?;
-            self.model.tables.insert(table_name, calculated_table);
+        // A formula scalar's stored value (from the file, an import or an
+        // earlier run) is never read: it is unknown until it is recalculated.
+        // Callers that set a value on purpose (scenarios, sensitivity,
+        // simulation) clear the formula when they do.
+        for var in self.model.scalars.values_mut() {
+            if var.formula.is_some() {
+                var.value = None;
+            }
         }
 
-        // Step 2: Calculate scalar aggregations and formulas
-        self.calculate_scalars()?;
+        // Row formulas need aligned columns
+        let mut table_names: Vec<String> = self.model.tables.keys().cloned().collect();
+        table_names.sort();
+        for table_name in &table_names {
+            let table = &self.model.tables[table_name];
+            if !table.row_formulas.is_empty() {
+                if let Err(e) = table.validate_lengths() {
+                    return Err(ForgeError::Eval(format!("Table '{table_name}': {e}")));
+                }
+            }
+        }
+
+        // One order for table columns and scalars together, so a column that
+        // uses a calculated scalar, and a scalar that sums a calculated
+        // column, both see the current value
+        for node in self.calculation_order()? {
+            match node {
+                Cell::Column { table, column } => self.calculate_column(&table, &column)?,
+                Cell::Scalar(name) => self.calculate_scalar(&name)?,
+            }
+        }
 
         Ok(self.model)
     }
 
-    /// Get calculation order for tables (topological sort based on cross-table references)
-    fn get_table_calculation_order(&self, table_names: &[String]) -> ForgeResult<Vec<String>> {
+    /// Every formula cell (table column or scalar) in dependency order.
+    ///
+    /// Nodes are added in name order, so the order, and which error is
+    /// reported first, is the same on every run.
+    fn calculation_order(&self) -> ForgeResult<Vec<Cell>> {
         use petgraph::algo::toposort;
         use petgraph::graph::DiGraph;
-        use std::collections::HashMap;
+        use std::collections::BTreeMap;
 
-        let mut graph = DiGraph::new();
-        let mut node_indices = HashMap::new();
+        let mut graph: DiGraph<Cell, ()> = DiGraph::new();
+        let mut index = BTreeMap::new();
 
-        // Create nodes for all tables
-        for name in table_names {
-            let idx = graph.add_node(name.clone());
-            node_indices.insert(name.clone(), idx);
+        let mut table_names: Vec<&String> = self.model.tables.keys().collect();
+        table_names.sort();
+        for table_name in &table_names {
+            let mut columns: Vec<&String> =
+                self.model.tables[*table_name].row_formulas.keys().collect();
+            columns.sort();
+            for column in columns {
+                let cell = Cell::Column {
+                    table: (*table_name).clone(),
+                    column: column.clone(),
+                };
+                index.insert(cell.clone(), graph.add_node(cell));
+            }
+        }
+        let mut scalar_names: Vec<&String> = self
+            .model
+            .scalars
+            .iter()
+            .filter(|(_, var)| var.formula.is_some())
+            .map(|(name, _)| name)
+            .collect();
+        scalar_names.sort();
+        for name in scalar_names {
+            let cell = Cell::Scalar(name.clone());
+            index.insert(cell.clone(), graph.add_node(cell));
         }
 
-        // Add edges for cross-table dependencies
-        for name in table_names {
-            if let Some(table) = self.model.tables.get(name) {
-                // Check all row formulas for cross-table references
-                for formula in table.row_formulas.values() {
-                    let deps = self.extract_table_dependencies_from_formula(formula)?;
-                    for dep_table in deps {
-                        // Only add edge if dependency is another table
-                        if let Some(&dep_idx) = node_indices.get(&dep_table) {
-                            if let Some(&name_idx) = node_indices.get(name) {
-                                graph.add_edge(dep_idx, name_idx, ());
-                            }
-                        }
-                    }
+        let cells: Vec<Cell> = index.keys().cloned().collect();
+        for cell in &cells {
+            for dep in self.cell_dependencies(cell)? {
+                if let (Some(&from), Some(&to)) = (index.get(&dep), index.get(cell)) {
+                    graph.add_edge(from, to, ());
                 }
             }
         }
 
-        // Topological sort
         let order = toposort(&graph, None)
-            .map_err(|_| ForgeError::CircularDependency(describe_cycle("tables", "", &graph)))?;
-
-        let ordered_names: Vec<String> = order
-            .iter()
-            .filter_map(|idx| graph.node_weight(*idx).cloned())
-            .collect();
-
-        Ok(ordered_names)
+            .map_err(|_| ForgeError::CircularDependency(describe_cycle(&graph)))?;
+        Ok(order
+            .into_iter()
+            .filter_map(|idx| graph.node_weight(idx).cloned())
+            .collect())
     }
 
-    /// Extract table names referenced in a formula (e.g., "`pl_2025`" from "=`pl_2025.revenue`")
-    // Returns Result for consistency with other dependency extraction methods.
-    #[allow(clippy::unnecessary_wraps)]
-    fn extract_table_dependencies_from_formula(&self, formula: &str) -> ForgeResult<Vec<String>> {
+    /// The formula cells that `cell`'s formula reads. Names that are data
+    /// (an input column, a scalar without a formula) need no edge and are
+    /// left out.
+    fn cell_dependencies(&self, cell: &Cell) -> ForgeResult<Vec<Cell>> {
         let mut deps = Vec::new();
-
-        // Look for table.column patterns
-        for word in formula.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
-            if word.contains('.') {
-                // Parse table.column reference
-                let parts: Vec<&str> = word.splitn(2, '.').collect();
-                if parts.len() == 2 {
-                    let table_name = parts[0].to_string();
-                    // Check if this table exists
-                    if self.model.tables.contains_key(&table_name) && !deps.contains(&table_name) {
-                        deps.push(table_name);
+        match cell {
+            Cell::Column { table, column } => {
+                let own = &self.model.tables[table];
+                let formula = &own.row_formulas[column];
+                for word in formula_words(formula) {
+                    if let Some(dep) = self.qualified_column(&word) {
+                        deps.push(dep);
+                    } else if !word.contains('.') && own.row_formulas.contains_key(&word) {
+                        // A bare name is a column of this table first, as in
+                        // evaluation (columns shadow scalar short names)
+                        deps.push(Cell::Column {
+                            table: table.clone(),
+                            column: word.clone(),
+                        });
+                    } else if !word.contains('.') && own.columns.contains_key(&word) {
+                        // An input column
+                    } else if let ScalarName::Found(full) = self.resolve_scalar_name(&word, None) {
+                        deps.push(Cell::Scalar(full));
                     }
                 }
-            }
+            },
+            Cell::Scalar(name) => {
+                let formula = self.model.scalars[name].formula.as_deref().unwrap_or("");
+                for full in self.extract_scalar_dependencies(formula, name)? {
+                    deps.push(Cell::Scalar(full));
+                }
+                for word in formula_words(formula) {
+                    if let Some(dep) = self.qualified_column(&word) {
+                        deps.push(dep);
+                    }
+                }
+            },
         }
-
         Ok(deps)
     }
 
-    /// Calculate all formulas in a table
-    fn calculate_table(&self, table_name: &str, table: &Table) -> ForgeResult<Table> {
-        let mut working_table = table.clone();
-
-        // Only validate column lengths if there are row formulas
-        // (row-wise operations require all columns to be aligned)
-        if !working_table.row_formulas.is_empty() {
-            if let Err(e) = working_table.validate_lengths() {
-                return Err(ForgeError::Eval(format!("Table '{table_name}': {e}")));
-            }
-        }
-
-        // Build dependency order for formulas
-        let formula_order = Self::get_formula_calculation_order(&working_table)?;
-
-        // Calculate formulas in dependency order
-        for col_name in formula_order {
-            if let Some(formula) = working_table.row_formulas.get(&col_name) {
-                let formula = formula.clone();
-
-                // Determine if this is a row-wise or aggregation formula
-                if Self::is_aggregation_formula(&formula) {
-                    // Aggregation: returns a scalar
-                    // For now, we'll skip aggregations in tables (they belong in scalars section)
-                    return Err(ForgeError::Eval(format!(
-                        "Table '{table_name}': Column '{col_name}' uses aggregation formula - aggregations should be in scalars section"
-                    )));
-                }
-                // Row-wise: returns an array (v5.2.0 AST evaluator)
-                let result = self
-                    .evaluate_rowwise_formula_ast(&working_table, &formula)
-                    .map_err(|e| locate_error(e, &format!("{table_name}.{col_name}"), &formula))?;
-                working_table.add_column(Column::new(col_name.clone(), result));
-            }
-        }
-
-        Ok(working_table)
+    /// `table.column` where the column has a row formula
+    fn qualified_column(&self, word: &str) -> Option<Cell> {
+        let (table, column) = word.split_once('.')?;
+        self.model
+            .tables
+            .get(table)
+            .filter(|t| t.row_formulas.contains_key(column))
+            .map(|_| Cell::Column {
+                table: table.to_string(),
+                column: column.to_string(),
+            })
     }
 
-    /// Get the order in which formulas should be calculated (dependency order)
-    fn get_formula_calculation_order(table: &Table) -> ForgeResult<Vec<String>> {
-        use petgraph::algo::toposort;
-        use petgraph::graph::DiGraph;
-        use std::collections::HashMap;
-
-        let mut graph = DiGraph::new();
-        let mut node_indices = HashMap::new();
-
-        // Create nodes for all formula columns
-        for col_name in table.row_formulas.keys() {
-            let idx = graph.add_node(col_name.clone());
-            node_indices.insert(col_name.clone(), idx);
+    /// Calculate one row-formula column and store it in its table
+    fn calculate_column(&mut self, table_name: &str, col_name: &str) -> ForgeResult<()> {
+        let table = self.model.tables[table_name].clone();
+        let formula = table.row_formulas[col_name].clone();
+        if Self::is_aggregation_formula(&formula) {
+            return Err(ForgeError::Eval(format!(
+                "Table '{table_name}': Column '{col_name}' uses aggregation formula - aggregations should be in scalars section"
+            )));
         }
-
-        // Add edges for dependencies
-        for (col_name, formula) in &table.row_formulas {
-            let deps = Self::extract_column_references(formula)?;
-            for dep in deps {
-                // Only add dependency if it's another formula column
-                if let Some(&dep_idx) = node_indices.get(&dep) {
-                    if let Some(&col_idx) = node_indices.get(col_name) {
-                        graph.add_edge(dep_idx, col_idx, ());
-                    }
-                }
-            }
+        let result = self
+            .evaluate_rowwise_formula_ast(&table, &formula)
+            .map_err(|e| locate_error(e, &format!("{table_name}.{col_name}"), &formula))?;
+        if let Some(stored) = self.model.tables.get_mut(table_name) {
+            stored.add_column(Column::new(col_name.to_string(), result));
         }
-
-        // Topological sort
-        let order = toposort(&graph, None).map_err(|_| {
-            ForgeError::CircularDependency(describe_cycle(
-                "columns",
-                &format!("{}.", table.name),
-                &graph,
-            ))
-        })?;
-
-        let ordered_names: Vec<String> = order
-            .iter()
-            .filter_map(|idx| graph.node_weight(*idx).cloned())
-            .collect();
-
-        Ok(ordered_names)
+        Ok(())
     }
 
-    /// Extract column references from a formula
-    // Returns Result for consistency with other dependency extraction methods.
-    #[allow(clippy::unnecessary_wraps)]
-    fn extract_column_references(formula: &str) -> ForgeResult<Vec<String>> {
-        let mut refs = Vec::new();
-        // Strip string literals to avoid parsing their contents as column references
-        // e.g., =LEN("Hello") should not treat "Hello" as a column reference
-        let formula_stripped = strip_string_literals(formula);
-        for word in formula_stripped.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '.') {
-            let word = word.trim();
-            if word.is_empty() {
-                continue;
-            }
-            // Skip numbers and known functions
-            if word.parse::<f64>().is_ok() {
-                continue;
-            }
-            let upper = word.to_uppercase();
-            if [
-                "SUM",
-                "AVERAGE",
-                "AVG",
-                "MAX",
-                "MIN",
-                "COUNT",
-                "IF",
-                "AND",
-                "OR",
-                "NOT",
-                "ROUND",
-                "ROUNDUP",
-                "ROUNDDOWN",
-                "ABS",
-                "SQRT",
-                "POWER",
-                "MOD",
-                "FLOOR",
-                "CEILING",
-                "EXP",
-                "LN",
-                "LOG",
-                "INT",
-                "TODAY",
-                "YEAR",
-                "MONTH",
-                "DAY",
-                "DATE",
-                "EDATE",
-                "EOMONTH",
-                "CONCAT",
-                "UPPER",
-                "LOWER",
-                "TRIM",
-                "LEN",
-                "LEFT",
-                "RIGHT",
-                "MID",
-                "INDEX",
-                "MATCH",
-                "XLOOKUP",
-                "VLOOKUP",
-                "PMT",
-                "FV",
-                "PV",
-                "NPV",
-                "IRR",
-                "IFERROR",
-                "CHOOSE",
-                "SWITCH",
-                "LET",
-                "MEDIAN",
-                "STDEV",
-                "VAR",
-                "COUNTA",
-                "COUNTBLANK",
-                "SUMIF",
-                "COUNTIF",
-                "AVERAGEIF",
-                "SUMIFS",
-                "COUNTIFS",
-                "AVERAGEIFS",
-                "PERCENTILE",
-                "QUARTILE",
-                "CORREL",
-                "TRUE",
-                "FALSE",
-            ]
-            .contains(&upper.as_str())
-            {
-                continue;
-            }
-            refs.push(word.to_string());
+    /// Calculate one scalar formula and store its value
+    fn calculate_scalar(&mut self, scalar_name: &str) -> ForgeResult<()> {
+        let Some(formula) = self
+            .model
+            .scalars
+            .get(scalar_name)
+            .and_then(|v| v.formula.clone())
+        else {
+            return Ok(());
+        };
+        let value = self
+            .evaluate_scalar_formula_ast(scalar_name, &formula)
+            .map_err(|e| locate_error(e, scalar_name, &formula))?;
+        if let Some(var) = self.model.scalars.get_mut(scalar_name) {
+            var.value = Some(value);
         }
-        Ok(refs)
+        Ok(())
     }
 
     /// Check if a formula is an aggregation (returns scalar)
@@ -690,87 +644,6 @@ impl ArrayCalculator {
         result
             .as_number()
             .ok_or_else(|| ForgeError::Eval("result is not a number".to_string()))
-    }
-
-    fn calculate_scalars(&mut self) -> ForgeResult<()> {
-        // Get all scalar variable names that have formulas
-        let scalar_names: Vec<String> = self
-            .model
-            .scalars
-            .iter()
-            .filter(|(_, var)| var.formula.is_some())
-            .map(|(name, _)| name.clone())
-            .collect();
-
-        // Build dependency graph and calculate in order
-        let calc_order = self.get_scalar_calculation_order(&scalar_names)?;
-
-        // Calculate each scalar in dependency order
-        for scalar_name in calc_order {
-            let formula = self
-                .model
-                .scalars
-                .get(&scalar_name)
-                .and_then(|v| v.formula.clone());
-
-            if let Some(formula) = formula {
-                // v5.2.0 AST evaluator
-                let value = self
-                    .evaluate_scalar_formula_ast(&scalar_name, &formula)
-                    .map_err(|e| locate_error(e, &scalar_name, &formula))?;
-
-                // Update the scalar with calculated value
-                if let Some(var) = self.model.scalars.get_mut(&scalar_name) {
-                    var.value = Some(value);
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Get calculation order for scalars (topological sort)
-    fn get_scalar_calculation_order(&self, scalar_names: &[String]) -> ForgeResult<Vec<String>> {
-        use petgraph::algo::toposort;
-        use petgraph::graph::DiGraph;
-        use std::collections::HashMap;
-
-        let mut graph = DiGraph::new();
-        let mut node_indices = HashMap::new();
-
-        // Create nodes for all scalars
-        for name in scalar_names {
-            let idx = graph.add_node(name.clone());
-            node_indices.insert(name.clone(), idx);
-        }
-
-        // Add edges for dependencies
-        for name in scalar_names {
-            if let Some(var) = self.model.scalars.get(name) {
-                if let Some(formula) = &var.formula {
-                    let deps = self.extract_scalar_dependencies(formula, name)?;
-                    for dep in deps {
-                        // Only add dependency if it's another scalar
-                        if let Some(&dep_idx) = node_indices.get(&dep) {
-                            if let Some(&name_idx) = node_indices.get(name) {
-                                graph.add_edge(dep_idx, name_idx, ());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Topological sort
-        let order = toposort(&graph, None)
-            .map_err(|_| ForgeError::CircularDependency(describe_cycle("scalars", "", &graph)))?;
-
-        let ordered_names: Vec<String> = order
-            .iter()
-            .filter_map(|idx| graph.node_weight(*idx).cloned())
-            .collect();
-
-        Ok(ordered_names)
     }
 
     /// Extract scalar dependencies from a formula, using the same name
