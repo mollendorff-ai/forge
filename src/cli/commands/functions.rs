@@ -27,7 +27,6 @@ pub fn functions_core() -> ForgeResult<serde_json::Value> {
 
     Ok(serde_json::json!({
         "total": total,
-        "edition": "enterprise",
         "categories": by_category.iter().map(|(name, funcs)| {
             serde_json::json!({
                 "name": name,
@@ -74,7 +73,6 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
         // JSON output for tooling
         let json = serde_json::json!({
             "total": total,
-            "edition": "enterprise",
             "categories": by_category.iter().map(|(name, funcs)| {
                 serde_json::json!({
                     "name": name,

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The inline examples in `docs/MCP.md` did not run.** They used an older model format (`name:`, `tables:`, `columns:`), so the first call a new user copied failed with `Missing required field: _forge_version`. They now use the 5.0.0 format. A unit test (`test_mcp_doc_inline_examples_run`) runs every inline example in the guide against the server, so the guide and the server cannot drift apart again.
 - **`docs/MCP.md` now says what inline includes can and cannot do.** Included files are loaded and exported as their own sheet, but a formula cannot read a value from them: `@rates.fx.usd_eur` is a syntax error and `rates.fx.usd_eur` is an unknown column. The guide had implied otherwise.
 
+### Changed
+- **`forge functions --json` and the MCP `forge_functions` tool no longer return `"edition": "enterprise"`.** There is no such edition. The field is removed; `total` and `categories` are unchanged. The REST API root and the `forge_schema` tool description no longer say "enterprise" either.
+- **`docs/architecture/00-OVERVIEW.md`: unsourced figures removed.** The cost per year, CO₂ per formula, tokens per formula, "128 minutes for AI", "2133 tests", "640x faster", "zero bugs", "100% accuracy" and development-velocity numbers had no source in the repository. The overview now points to VALIDATION.md for what is measured, and a dated note says the architecture below predates the release candidates.
+
 ## [10.0.0-rc.2] - 2026-11-06
 
 Second release candidate. rc.1 could give a wrong answer when a table formula used a calculated scalar (first entry below), so the two weeks before the stable release start again from this candidate.

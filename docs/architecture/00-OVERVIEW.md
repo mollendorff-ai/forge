@@ -5,6 +5,8 @@
 **Last Updated:** 2025-12-04
 **Status:** Complete
 
+> **Note (2026-11-07):** This overview dates from v5.0.0. The cost, CO₂, token, speed and test-count figures it once carried were never sourced and have been removed; [VALIDATION.md](../../VALIDATION.md) says what is checked and how. The architecture below has not been brought up to date. For example, Forge evaluates formulas with its own evaluator in `src/core/array_calculator`, and no source file uses `xlformula_engine`.
+
 ---
 
 ## Table of Contents
@@ -27,30 +29,27 @@
 
 Forge is a **deterministic YAML formula calculator** with **bidirectional Excel integration**. It enables financial modeling, business calculations, and data processing with:
 
-- **Zero hallucinations** - Mathematical calculations, not AI pattern matching
+- **Deterministic results** - Values come from the formula evaluator, not from a model's own arithmetic
 - **Excel compatibility** - 173 Excel functions, formula preservation
 - **Type-safe arrays** - Homogeneous column arrays with compile-time safety
 - **Version control** - YAML files tracked in Git, not binary Excel files
-- **Cross-file references** - Modular models with `@alias.variable` syntax
+- **Cross-file includes** - `_includes` loads other YAML files and exports them as their own sheet; formulas cannot yet read values from them
 
 ### Problem Statement
 
 Traditional financial modeling suffers from:
 
-1. **AI Hallucinations** - ChatGPT/Claude invent numbers (costs $40K-$132K/year)
+1. **Untraceable numbers** - A figure an AI model computes in prose has no formula behind it to check
 2. **Excel Lock-in** - Binary files, no version control, no code review
-3. **Manual Validation** - Excel validation costs 8-15 seconds/formula (0.3 tokens)
-4. **Carbon Impact** - AI validation emits 66g CO₂/formula (vs 0.001g for Forge)
 
 ### Solution
 
 Forge provides:
 
-- **Deterministic calculation** - Rust-based formula engine (xlformula_engine)
+- **Deterministic calculation** - Rust-based formula engine
 - **YAML-first** - Human-readable, Git-friendly, diff-friendly
 - **Bidirectional** - YAML ↔ Excel conversion with formula preservation
-- **Fast** - <200ms for 850+ formulas (vs 128 minutes for AI)
-- **Eco-friendly** - 99.6% less CO₂ than AI validation
+- **Fast** - The 5-year DCF model in the README calculates in milliseconds
 
 ---
 
@@ -65,7 +64,7 @@ graph TB
     business["👤 Business User<br/>Business Logic,<br/>Pricing, Unit Economics"]
 
     %% Forge System
-    forge["Forge<br/>YAML Formula Calculator<br/><br/>✓ Calculate formulas<br/>✓ Validate models<br/>✓ Export to Excel<br/>✓ Import from Excel<br/>✓ Cross-file references<br/><br/>Zero Hallucinations:<br/>173 Excel functions<br/>Type-safe arrays"]
+    forge["Forge<br/>YAML Formula Calculator<br/><br/>✓ Calculate formulas<br/>✓ Validate models<br/>✓ Export to Excel<br/>✓ Import from Excel<br/>✓ Cross-file includes (loaded only)<br/><br/>Deterministic:<br/>173 functions<br/>Type-safe arrays"]
 
     %% External Systems
     git[("📦 Git Repository<br/>Version Control")]
@@ -107,7 +106,7 @@ graph TB
 
 **Principle:** Mathematical calculations, not AI predictions.
 
-- **No AI** - No LLMs, no pattern matching, no hallucinations
+- **No AI in the calculation path** - No LLMs; the same input always gives the same output
 - **Rust-based** - Type-safe, memory-safe, deterministic
 - **xlformula_engine** - Excel-compatible formula evaluation
 - **Reproducible** - Same input → same output, always
@@ -252,29 +251,21 @@ graph TB
 
 ### Performance
 
-- **<200ms** - 850+ formulas (vs 128 minutes for AI)
+- **Milliseconds** - The README's 5-year DCF model calculates in about 5 ms (measured 2026-11-06)
+- **Monte Carlo** - 100,000 iterations of `examples/monte-carlo.yaml` took 8.9 s on two cores (measured 2026-11-06)
 - **O(V+E)** - Dependency resolution complexity
 - **O(n)** - Array formula evaluation (per row)
-- **Zero allocations** - Efficient memory usage
 
 ### Scalability
 
-- **850+ formulas tested** - Real-world financial models
-- **Cross-file includes** - Modular models up to 10+ files
-- **173 Excel functions** - Growing function library
-- **Type-safe arrays** - Any array length supported
+- **173 functions** - Most are Excel-compatible; `forge functions` lists them
+- **External checks** - Formulas are compared with Gnumeric and analytics with R (see VALIDATION.md)
 
 ### Reliability
 
-- **2133 tests passing** - 134 unit, 29 e2e, 6 integration, 5 validation, 8 perf, 2 doc
-- **Zero warnings** - cargo clippy pedantic mode
-- **Zero bugs** - No known bugs in production
-
-### Environmental Impact
-
-- **0.001g CO₂/formula** - vs 66g for AI validation (99.6% reduction)
-- **0 tokens** - vs 0.3 tokens/formula for AI
-- **<1 second** - vs 8-15 seconds for AI validation
+- **Tests** - Unit tests run on every push; the Gnumeric and R suites run weekly and on pull requests that change `src/`
+- **Lints** - clippy pedantic; CI fails on warnings
+- **Known limitations** - Listed in the README and docs/STABILITY.md
 
 ---
 
@@ -449,37 +440,17 @@ Financial calculations must be **unambiguous**:
 
 ### Performance Matters
 
-**<200ms for 850 formulas** enables:
+Calculation in milliseconds enables:
 
 - Real-time validation in editors
 - Fast CI/CD checks
 - Interactive development
-- Green coding (0.001g CO₂ vs 66g)
 
 ---
 
-## Success Metrics
+## Measured results
 
-### Technical
-
-- **2133 tests passing** (100% pass rate)
-- **ZERO warnings** (cargo clippy pedantic)
-- **96K rows/sec** throughput
-- **0 known bugs** in production
-
-### Business
-
-- **$40K-$132K/year savings** vs AI validation
-- **99.6% CO₂ reduction** vs AI
-- **640x faster** than AI validation
-- **100% accuracy** (deterministic calculations)
-
-### Development
-
-- **20-50x velocity** vs manual coding (Möllendorff Asimov)
-- **12.5 hours** for v1.0.0 (autonomous AI)
-- **<8 hours** for v1.2.1 (27 functions)
-- **Zero rework** (correct first time)
+See [VALIDATION.md](../../VALIDATION.md) for what is checked, the latest results, and how to run each check.
 
 ---
 

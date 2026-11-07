@@ -1269,7 +1269,10 @@ scenarios:
         let server = ForgeMcpServer::new();
         let text = ok_text(server.functions(Parameters(FunctionsRequest {})));
         let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
-        assert_eq!(parsed["edition"], "enterprise");
+        assert!(
+            parsed.get("edition").is_none(),
+            "there is no enterprise edition"
+        );
         assert!(parsed["total"].as_u64().unwrap() >= 170);
     }
 
