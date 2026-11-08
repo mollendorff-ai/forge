@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- The export-and-import check reads a scalar written as a plain number, the model format 5.1.0 short form that `forge import` writes (Forge ADR-051), as well as `{value: ...}`. Before, a formula imported as its value came back as `test_result: -999` and was reported as missing.
+
 - `TRUE = 1` and `FALSE = 0` expect 0 (Excel and Gnumeric: a boolean never equals a number); `0^0` is skipped (it is #NUM! in every engine). Forge now agrees (mollendorff-ai/forge fix for both). Gnumeric-only skips drop from 37 to 34.
 
 ### Fixed

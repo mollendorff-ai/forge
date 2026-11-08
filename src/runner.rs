@@ -312,11 +312,12 @@ impl TestRunner {
             .get("assumptions")
             .ok_or("forge calculate output has no assumptions group")?;
 
+        // A scalar is `{value: ...}` (model format 5.0.0), or a plain number
+        // in the 5.1.0 short form that `forge import` writes (Forge ADR-051).
         let read = |key: &str| -> Result<f64, String> {
             group
                 .get(key)
-                .and_then(|entry| entry.get("value"))
-                .and_then(yaml_serde::Value::as_f64)
+                .and_then(|entry| entry.as_f64().or_else(|| entry.get("value")?.as_f64()))
                 .ok_or_else(|| format!("forge calculate gave no numeric value for {key}"))
         };
 
