@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Included files.** A spec can have `_includes` (files relative to the spec); the runner copies them beside the generated model. `tests/edge/edge_includes.yaml` reads values and a formula from `tests/edge/includes/costs.yaml` as `@costs.name`. It fails with Forge before T1-EXPORT-INCLUDES, which wrote those formulas as values.
+- **Cases Gnumeric did not calculate are reported.** When `forge export` writes a case's formula as its value (a function Excel lacks, say), Gnumeric only reads Forge's number back. Such a case now says so in its TAP line, and the summary counts them: 126 of the 1,324 passing cases today. A spec with `_gnumeric_must_calculate: true` fails them instead; that becomes the default once each one has a formula or a `gnumeric_skip` (Forge roadmap T1-E2E-UNJUDGED).
+
 ### Changed
 
 - The export-and-import check reads a scalar written as a plain number, the model format 5.1.0 short form that `forge import` writes (Forge ADR-051), as well as `{value: ...}`. Before, a formula imported as its value came back as `test_result: -999` and was reported as missing.
