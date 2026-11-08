@@ -1,0 +1,21 @@
+_forge_version: "5.0.0"
+# Bagel Lune: what is it worth to wait before committing to a second shop? (fictional)
+real_options:
+  name: "Second shop timing"
+  method: binomial
+  underlying:
+    current_value: 240000     # PV of the second shop's cash flows if opened today
+    volatility: 0.35          # how much that estimate moves in a year
+    risk_free_rate: 0.04
+    time_horizon: 1           # the Verdun lease offer is open for one year
+    dividend_yield: 0.06      # profit given up each year by waiting
+  binomial_steps: 200
+  traditional_npv: 60000      # 240,000 - 180,000
+  options:
+    - type: defer
+      name: "Wait up to a year"
+      max_deferral: 1
+      exercise_cost: 180000
+    - type: abandon
+      name: "Sell the oven and fit-out if it fails"
+      salvage_value: 110000

@@ -78,3 +78,140 @@ fn break_even_price_and_staffing_for_sixty_thousand() {
     assert!(hours.converged);
     assert!(close(hours.solution, 24.268_7, 1e-3), "{}", hours.solution);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The rest of examples/bagel: one model per analytics command (roadmap T1-USE).
+// Each expected value was computed by Python written independently of Forge;
+// the computation is shown with the test.
+// ─────────────────────────────────────────────────────────────────────────────
+
+use mollendorff_forge::cli::{
+    bayesian_core, bootstrap_core, compare_core, decision_tree_core, real_options_core,
+    variance_core,
+};
+
+/// Plan vs what happened. Rent and staff hours went up, so they are
+/// unfavorable; the NPV got worse, so its percentage is negative even though
+/// the budget NPV is negative; price has no direction, so it is not judged.
+#[test]
+fn variance_judges_costs_as_costs() {
+    let v = variance_core(
+        Path::new(MODEL),
+        Path::new("examples/bagel/actual.yaml"),
+        10.0,
+    )
+    .unwrap();
+    let get = |n: &str| v.results.iter().find(|r| r.name == n).unwrap();
+    assert_eq!(get("assumptions.rent_per_month").is_favorable, Some(false));
+    assert_eq!(get("assumptions.staff_hours_per_day").better, "lower");
+    assert_eq!(
+        get("assumptions.staff_hours_per_day").is_favorable,
+        Some(false)
+    );
+    assert_eq!(get("assumptions.price_per_dozen").is_favorable, None);
+    let npv = get("year.npv_first_year");
+    // -123258.79 vs -95579.52: 27679.27 worse, 28.96% of the size of the budget
+    assert!(
+        close(npv.variance_pct, -28.959_419, 1e-5),
+        "{}",
+        npv.variance_pct
+    );
+    assert_eq!(npv.is_favorable, Some(false));
+    assert!(v.not_compared.is_empty());
+}
+
+/// ```python
+/// open_now = 0.45 * 420_000 + 0.55 * 90_000 - 180_000             # 58,500
+/// busy  = max(0.8 * 400_000 + 0.2 * 85_000 - 190_000, 0)          # 147,000
+/// quiet = max(0.1 * 400_000 + 0.9 * 85_000 - 190_000, 0)          # 0
+/// popup = 0.5 * busy + 0.5 * quiet - 12_000                       # 61,500
+/// ```
+#[test]
+fn decision_tree_prefers_the_popup() {
+    let r = decision_tree_core(Path::new("examples/bagel/second_shop.yaml")).unwrap();
+    assert!(close(r.root_expected_value, 61_500.0, 1e-9));
+    let root = &r.node_results["root"];
+    assert_eq!(root.optimal_choice.as_deref(), Some("popup_first"));
+    assert!(root.tied_with.is_empty());
+    assert!(close(root.branch_values["open_now"], 58_500.0, 1e-9));
+    assert!(close(r.risk_profile.probability_positive, 0.4, 1e-12));
+    assert!(close(r.risk_profile.worst_case, -117_000.0, 1e-9));
+}
+
+/// Cox-Ross-Rubinstein, 200 steps, American, written from the textbook:
+/// S=240000, sigma=0.35, r=0.04, q=0.06, T=1.
+/// Defer (call, K=180000) = 64604.68351396034; abandon (put, K=110000) = 279.7243076076951.
+#[test]
+fn real_options_match_an_independent_binomial_tree() {
+    let r = real_options_core(Path::new("examples/bagel/wait_option.yaml")).unwrap();
+    let defer = r.options["Wait up to a year"].value;
+    let abandon = r.options["Sell the oven and fit-out if it fails"].value;
+    assert!(close(defer, 64_604.683_513_960_34, 1e-6), "{defer}");
+    assert!(close(abandon, 279.724_307_607_695_1, 1e-6), "{abandon}");
+}
+
+/// numpy, 200,000 resamples of the same 30 days: mean 50.7, standard error
+/// 2.0162, 95% interval [46.8, 54.667]. Forge's own resampler (seed 3) must
+/// agree within resampling noise.
+#[test]
+fn bootstrap_agrees_with_numpy() {
+    let r = bootstrap_core(
+        Path::new("examples/bagel/first_month.yaml"),
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert!(close(r.original_estimate, 50.7, 1e-12));
+    assert!(
+        close(r.bootstrap_std_error, 2.0162, 0.03),
+        "{}",
+        r.bootstrap_std_error
+    );
+    let ci95 = r
+        .confidence_intervals
+        .iter()
+        .find(|c| close(c.level, 0.95, 1e-12))
+        .unwrap();
+    assert!(close(ci95.lower, 46.8, 0.15) && close(ci95.upper, 54.667, 0.15));
+}
+
+/// Enumerating the joint distribution of weather x roadwork x sales:
+/// P(roadwork | slow) = 0.4; P(roadwork | slow, rainy) = 0.272727 (rain
+/// explains the slow week, so roadwork becomes less likely).
+#[test]
+fn bayesian_two_parents_explain_away() {
+    let file = Path::new("examples/bagel/slow_week.yaml");
+    let p_yes = |evidence: &[&str]| {
+        let ev: Vec<String> = evidence.iter().map(ToString::to_string).collect();
+        let r = bayesian_core(file, Some("roadwork"), &ev).unwrap();
+        let q = &r.queries["roadwork"];
+        q.probabilities[q.states.iter().position(|s| s == "yes").unwrap()]
+    };
+    assert!(close(p_yes(&["sales=slow"]), 0.4, 1e-9));
+    assert!(close(
+        p_yes(&["sales=slow", "weather=rainy"]),
+        3.0 / 11.0,
+        1e-9
+    ));
+}
+
+/// The same input gives the same output, in the same order (STABILITY.md 4).
+#[test]
+fn compare_and_real_options_output_is_the_same_every_time() {
+    let scenarios = vec!["tourist_summer".to_string(), "base".to_string()];
+    let a = serde_json::to_string(&compare_core(Path::new(MODEL), &scenarios).unwrap()).unwrap();
+    for _ in 0..5 {
+        let b =
+            serde_json::to_string(&compare_core(Path::new(MODEL), &scenarios).unwrap()).unwrap();
+        assert_eq!(a, b);
+    }
+    let file = Path::new("examples/bagel/wait_option.yaml");
+    let a = serde_json::to_string(&real_options_core(file).unwrap()).unwrap();
+    for _ in 0..5 {
+        assert_eq!(
+            a,
+            serde_json::to_string(&real_options_core(file).unwrap()).unwrap()
+        );
+    }
+}

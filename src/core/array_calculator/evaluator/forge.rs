@@ -71,7 +71,9 @@ pub fn try_evaluate(
             if budget == 0.0 {
                 return Err(EvalError::new("VARIANCE_PCT: budget cannot be zero"));
             }
-            Value::Number((actual - budget) / budget)
+            // Divide by the size of the budget, so a worse result is negative
+            // even when the budget is negative (a loss): -120 vs -100 is -20%.
+            Value::Number((actual - budget) / budget.abs())
         },
 
         "VARIANCE_STATUS" => {
@@ -257,6 +259,20 @@ mod tests {
         // Contribution margin ratio = 0 (error)
         let result = eval("BREAKEVEN_REVENUE(10000, 0)", &ctx);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_variance_pct_negative_budget_is_signed_by_outcome() {
+        let ctx = EvalContext::new();
+        // A loss of 120 against a planned loss of 100 is 20% worse, not 20% better
+        assert_eq!(
+            eval("VARIANCE_PCT(-120, -100)", &ctx).unwrap(),
+            Value::Number(-0.2)
+        );
+        assert_eq!(
+            eval("VARIANCE_PCT(-80, -100)", &ctx).unwrap(),
+            Value::Number(0.2)
+        );
     }
 
     #[test]

@@ -24,6 +24,7 @@ assumptions:
     value: 6
     formula: null
   staff_hours_per_day:
+    better: lower   # for forge variance: more hours than planned is unfavorable
     value: 32
     formula: null
   rent_per_month:

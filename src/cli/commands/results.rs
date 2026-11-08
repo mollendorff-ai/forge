@@ -4,7 +4,7 @@
 //! Used by both CLI (format & print) and MCP server (serialize to JSON).
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 /// Result of the validate command
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -156,8 +156,14 @@ pub struct VarianceAnalysis {
     pub results: Vec<VarianceEntry>,
     pub favorable_count: usize,
     pub unfavorable_count: usize,
+    /// Variances whose direction is unknown (no `better:` and no telling name)
+    pub no_direction_count: usize,
+    /// Variances exactly on budget (not counted as favorable)
+    pub on_target_count: usize,
     pub alert_count: usize,
     pub threshold: f64,
+    /// Scalars missing or empty in one of the two models; not compared
+    pub not_compared: Vec<String>,
 }
 
 /// A single variance entry (serializable version of `VarianceResult`)
@@ -167,8 +173,12 @@ pub struct VarianceEntry {
     pub budget: f64,
     pub actual: f64,
     pub variance: f64,
+    /// Variance as a percentage of the size of the budget
     pub variance_pct: f64,
-    pub is_favorable: bool,
+    /// `null` when Forge cannot tell whether higher or lower is better
+    pub is_favorable: Option<bool>,
+    /// "higher", "lower" or "unknown"
+    pub better: String,
     pub exceeds_threshold: bool,
 }
 
@@ -177,5 +187,6 @@ pub struct VarianceEntry {
 pub struct ComparisonResult {
     pub scenarios: Vec<String>,
     pub variables: Vec<String>,
-    pub values: HashMap<String, HashMap<String, Option<f64>>>,
+    /// Variable, then scenario, in model and request order
+    pub values: indexmap::IndexMap<String, indexmap::IndexMap<String, Option<f64>>>,
 }

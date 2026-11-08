@@ -122,7 +122,8 @@
           "enum": ["VALIDATED", "PROJECTED", "ESTIMATED"],
           "description": "Data validation status"
         },
-        "last_updated": { "type": "string", "description": "ISO date of last update" }
+        "last_updated": { "type": "string", "description": "ISO date of last update" },
+        "better": { "type": "string", "enum": ["higher", "lower"], "description": "Which way is good, for variance analysis: higher (revenue, profit) or lower (costs)" }
       },
       "required": ["value"],
       "examples": [
@@ -315,7 +316,8 @@
           "enum": ["VALIDATED", "PROJECTED", "ESTIMATED"],
           "description": "Data validation status"
         },
-        "last_updated": { "type": "string", "description": "ISO date of last update" }
+        "last_updated": { "type": "string", "description": "ISO date of last update" },
+        "better": { "type": "string", "enum": ["higher", "lower"], "description": "Which way is good, for variance analysis: higher (revenue, profit) or lower (costs)" }
       },
       "required": ["value"],
       "examples": [

@@ -1,0 +1,10 @@
+_forge_version: "5.0.0"
+# Bagel Lune: dozens sold on each of the first 30 days (fictional).
+# How sure can we be about the average day?
+bootstrap:
+  iterations: 20000
+  confidence_levels: [0.90, 0.95]
+  seed: 3
+  method: percentile
+  statistic: mean
+  data: [36, 50, 56, 42, 35, 58, 63, 57, 36, 35, 53, 51, 73, 68, 46, 45, 70, 44, 40, 49, 60, 48, 44, 46, 49, 53, 69, 61, 31, 53]
