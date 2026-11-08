@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **`forge import` writes model format 5.1.0** (ADR-051): inputs as plain numbers, formulas as `{formula, value}` with no `value: null` or `formula: null`, and whole numbers as `100` instead of `100.0`. Every calculable example (including the bagel models) still round-trips through Excel to the same numbers.
+
+### Fixed
+- **`forge import --split-files` and `--multi-doc` wrote files that did not validate** for any workbook with a table: they declared `_forge_version: "1.0.0"`, which allows no tables. They now declare 5.1.0. Formulas that refer across the split documents still do not resolve (each document is read under its own name); FEATURES.md says so and the roadmap has it.
+
 ## [10.0.0-rc.6] - 2026-11-08
 
 Sixth release candidate. It adds model format 5.1.0 (ADR-051): inputs as plain numbers, formulas without `value: null`, and results written into the file next to their formulas without touching anything else. In rc.5, `forge calculate` deleted the comments of every file it wrote. No wrong answer was found since rc.5, but the stable release should be the candidate that carries this format, so its two weeks start from here (no earlier than 2026-11-22, the same day as before).

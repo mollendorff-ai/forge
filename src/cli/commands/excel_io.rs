@@ -77,7 +77,7 @@ fn table_to_value(table: &crate::types::Table) -> yaml_serde::Value {
             continue;
         }
         let items: Vec<Value> = match &table.columns[name].values {
-            ColumnValue::Number(v) => v.iter().map(|n| Value::Number((*n).into())).collect(),
+            ColumnValue::Number(v) => v.iter().map(|n| number(*n)).collect(),
             ColumnValue::Text(v) | ColumnValue::Date(v) => {
                 v.iter().map(|t| Value::String(t.clone())).collect()
             },
@@ -102,8 +102,18 @@ fn tables_to_value(
     map
 }
 
-/// Scalars as the parser reads them: `group: {name: {value, formula}}` for
-/// `group.name`, and `name: {value, formula}` at the top for ungrouped ones.
+/// A number as YAML: `16`, not `16.0`, when it is a whole number.
+fn number(n: f64) -> yaml_serde::Value {
+    #[allow(clippy::cast_possible_truncation, clippy::float_cmp)] // whole and in range
+    if n.fract() == 0.0 && n.abs() < 1e15 {
+        return yaml_serde::Value::Number((n as i64).into());
+    }
+    yaml_serde::Value::Number(n.into())
+}
+
+/// Scalars in model format 5.1.0 (ADR-051): an input as a plain number, a
+/// formula as `{formula, value}` with its last result. Grouped as
+/// `group: {name: ...}` for `group.name`, and at the top for ungrouped ones.
 /// Groups appear in the order of their first scalar, and scalars in model order.
 fn scalars_to_value(
     scalars: &indexmap::IndexMap<String, crate::types::Variable>,
@@ -111,30 +121,34 @@ fn scalars_to_value(
     use yaml_serde::{Mapping, Value};
     let mut map = Mapping::new();
     for (path, variable) in scalars {
-        let mut entry = Mapping::new();
-        if let Some(value) = variable.value {
-            entry.insert(Value::String("value".into()), Value::Number(value.into()));
-        }
-        if let Some(formula) = &variable.formula {
-            entry.insert(
-                Value::String("formula".into()),
-                Value::String(formula.clone()),
-            );
-        }
-        if entry.is_empty() {
-            entry.insert(Value::String("value".into()), Value::Null);
-        }
+        let entry = match (&variable.formula, variable.value) {
+            (None, Some(value)) => number(value),
+            (Some(formula), value) => {
+                let mut entry = Mapping::new();
+                entry.insert(Value::from("formula"), Value::from(formula.clone()));
+                if let Some(value) = value {
+                    entry.insert(Value::from("value"), number(value));
+                }
+                Value::Mapping(entry)
+            },
+            // An empty cell: no number and no formula
+            (None, None) => {
+                let mut entry = Mapping::new();
+                entry.insert(Value::from("value"), Value::Null);
+                Value::Mapping(entry)
+            },
+        };
         match path.split_once('.') {
             Some((group, name)) => {
                 let group_entry = map
                     .entry(Value::String(group.to_string()))
                     .or_insert_with(|| Value::Mapping(Mapping::new()));
                 if let Value::Mapping(group_map) = group_entry {
-                    group_map.insert(Value::String(name.to_string()), Value::Mapping(entry));
+                    group_map.insert(Value::String(name.to_string()), entry);
                 }
             },
             None => {
-                map.insert(Value::String(path.clone()), Value::Mapping(entry));
+                map.insert(Value::String(path.clone()), entry);
             },
         }
     }
@@ -154,10 +168,10 @@ fn model_to_yaml(model: &crate::types::ParsedModel) -> ForgeResult<String> {
         map.insert(key, value);
     }
     if map.is_empty() {
-        return Ok("_forge_version: \"5.0.0\"\n".to_string());
+        return Ok("_forge_version: \"5.1.0\"\n".to_string());
     }
     let body = yaml_serde::to_string(&map).map_err(ForgeError::Yaml)?;
-    Ok(format!("_forge_version: \"5.0.0\"\n\n{body}"))
+    Ok(format!("_forge_version: \"5.1.0\"\n\n{body}"))
 }
 
 /// Import Excel to YAML and return structured results (no printing).
@@ -211,7 +225,7 @@ fn write_split_files_quiet(output: &Path, model: crate::types::ParsedModel) -> F
         table_model.tables.insert(table_name.clone(), table.clone());
         let file_path = output.join(format!("{table_name}.yaml"));
         let yaml_string = format!(
-            "_forge_version: \"1.0.0\"\n_name: \"{}\"\n\n{}",
+            "_forge_version: \"5.1.0\"\n_name: \"{}\"\n\n{}",
             table_name,
             yaml_serde::to_string(&tables_to_value(&table_model.tables))
                 .map_err(ForgeError::Yaml)?
@@ -223,7 +237,7 @@ fn write_split_files_quiet(output: &Path, model: crate::types::ParsedModel) -> F
         let mut scalar_model = crate::types::ParsedModel::new();
         scalar_model.scalars = model.scalars;
         let yaml_string = format!(
-            "_forge_version: \"1.0.0\"\n_name: \"scalars\"\n\n{}",
+            "_forge_version: \"5.1.0\"\n_name: \"scalars\"\n\n{}",
             yaml_serde::to_string(&scalars_to_value(&scalar_model.scalars))
                 .map_err(ForgeError::Yaml)?
         );
@@ -355,7 +369,7 @@ fn write_split_files(
         table_model.tables.insert(table_name.clone(), table.clone());
         let file_path = output.join(format!("{table_name}.yaml"));
         let yaml_string = format!(
-            "_forge_version: \"1.0.0\"\n_name: \"{}\"\n\n{}",
+            "_forge_version: \"5.1.0\"\n_name: \"{}\"\n\n{}",
             table_name,
             yaml_serde::to_string(&tables_to_value(&table_model.tables))
                 .map_err(ForgeError::Yaml)?
@@ -370,7 +384,7 @@ fn write_split_files(
         let mut scalar_model = crate::types::ParsedModel::new();
         scalar_model.scalars = model.scalars;
         let yaml_string = format!(
-            "_forge_version: \"1.0.0\"\n_name: \"scalars\"\n\n{}",
+            "_forge_version: \"5.1.0\"\n_name: \"scalars\"\n\n{}",
             yaml_serde::to_string(&scalars_to_value(&scalar_model.scalars))
                 .map_err(ForgeError::Yaml)?
         );
@@ -390,7 +404,7 @@ fn write_multi_doc(output: &Path, model: crate::types::ParsedModel) -> ForgeResu
         let mut table_model = crate::types::ParsedModel::new();
         table_model.tables.insert(table_name.clone(), table.clone());
         yaml_output.push_str("---\n");
-        yaml_output.push_str("_forge_version: \"1.0.0\"\n");
+        yaml_output.push_str("_forge_version: \"5.1.0\"\n");
         let _ = write!(yaml_output, "_name: \"{table_name}\"\n\n");
         yaml_output.push_str(
             &yaml_serde::to_string(&tables_to_value(&table_model.tables))
@@ -402,7 +416,7 @@ fn write_multi_doc(output: &Path, model: crate::types::ParsedModel) -> ForgeResu
         let mut scalar_model = crate::types::ParsedModel::new();
         scalar_model.scalars = model.scalars;
         yaml_output.push_str("---\n");
-        yaml_output.push_str("_forge_version: \"1.0.0\"\n");
+        yaml_output.push_str("_forge_version: \"5.1.0\"\n");
         yaml_output.push_str("_name: \"scalars\"\n\n");
         yaml_output.push_str(
             &yaml_serde::to_string(&scalars_to_value(&scalar_model.scalars))
@@ -441,7 +455,11 @@ mod import_output_tests {
         );
 
         let yaml = model_to_yaml(&model).unwrap();
-        assert!(yaml.starts_with("_forge_version: \"5.0.0\""));
+        assert!(yaml.starts_with("_forge_version: \"5.1.0\""), "{yaml}");
+        // 5.1.0 short form: an input is a plain number, whole numbers stay whole
+        assert!(yaml.contains("rate: 0.1\n"), "{yaml}");
+        assert!(yaml.contains("- 100\n"), "{yaml}");
+        assert!(!yaml.contains("null"), "{yaml}");
         assert!(
             !yaml.contains("!Number") && !yaml.contains("!Text"),
             "{yaml}"
@@ -580,10 +598,42 @@ g:
     #[test]
     fn examples_round_trip_through_excel() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        for example in ["scenarios", "variance", "breakeven", "quota_forecast"] {
+        for example in [
+            "scenarios",
+            "variance",
+            "breakeven",
+            "quota_forecast",
+            "bagel/bagel",
+            "bagel/actual",
+            "bagel/costs",
+        ] {
             let file = root.join(format!("examples/{example}.yaml"));
             let diffs = round_trip(&file).unwrap_or_else(|e| panic!("{example}: {e}"));
             assert!(diffs.is_empty(), "{example}: {diffs:#?}");
+        }
+    }
+
+    /// `forge import` writes model format 5.1.0, without nulls (ADR-051).
+    #[test]
+    fn imported_examples_are_short_form() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        for example in ["variance", "breakeven", "bagel/bagel"] {
+            let model = calculate(
+                parser::parse_model(&root.join(format!("examples/{example}.yaml"))).unwrap(),
+            )
+            .unwrap();
+            let dir = tempfile::TempDir::new().unwrap();
+            let xlsx = dir.path().join("m.xlsx");
+            let yaml = dir.path().join("m.yaml");
+            ExcelExporter::new(model).export(&xlsx).unwrap();
+            import_core(&xlsx, &yaml, false, false).unwrap();
+            let text = fs::read_to_string(&yaml).unwrap();
+            assert!(text.starts_with("_forge_version: \"5.1.0\""), "{example}");
+            assert!(!text.contains("null"), "{example}:\n{text}");
+            assert!(
+                !text.contains(".0\n"),
+                "{example}: whole numbers written as floats\n{text}"
+            );
         }
     }
 
