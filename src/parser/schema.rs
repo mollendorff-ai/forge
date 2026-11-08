@@ -1,6 +1,6 @@
 //! JSON Schema validation for Forge YAML models
 //!
-//! Validates YAML against embedded JSON schemas (v1.0.0 and v5.0.0).
+//! Validates YAML against embedded JSON schemas (v1.0.0, v5.0.0, v5.1.0).
 
 use crate::error::{ForgeError, ForgeResult};
 use yaml_serde::Value;
@@ -18,7 +18,7 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
             ForgeError::Validation(
-                "Missing required field: _forge_version. Must be \"1.0.0\" or \"5.0.0\""
+                "Missing required field: _forge_version (the model format version). Must be \"1.0.0\", \"5.0.0\" or \"5.1.0\""
                     .to_string(),
             )
         })?;
@@ -27,12 +27,15 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
     let schema_str = match version {
         "1.0.0" => include_str!("../../schema/forge-v1.0.0.schema.json"),
         "5.0.0" => include_str!("../../schema/forge-v5.0.0.schema.json"),
+        "5.1.0" => include_str!("../../schema/forge-v5.1.0.schema.json"),
         _ => {
             return Err(ForgeError::Validation(format!(
-                "Unsupported _forge_version: '{version}'. Supported versions: 1.0.0 (scalar-only), 5.0.0 (arrays/tables)"
+                "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`). This is the model format version, not the Forge version"
             )));
         },
     };
+
+    check_short_form(yaml, version)?;
 
     let schema_value: serde_json::Value = serde_json::from_str(schema_str)
         .map_err(|e| ForgeError::Validation(format!("Failed to parse schema: {e}")))?;
@@ -62,6 +65,82 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         validate_v1_0_0_no_tables(yaml)?;
     }
 
+    Ok(())
+}
+
+/// Clear messages for the two likely mistakes with the 5.1.0 short form
+/// (ADR-051), before the schema reports them as an unmatched `anyOf`.
+///
+/// # Errors
+///
+/// Returns an error if a pre-5.1.0 model uses a plain number as a scalar, or
+/// if a group of scalars has a bare formula string.
+fn check_short_form(yaml: &Value, version: &str) -> ForgeResult<()> {
+    const SECTIONS: [&str; 9] = [
+        "_forge_version",
+        "_name",
+        "_includes",
+        "scenarios",
+        "monte_carlo",
+        "tornado",
+        "decision_tree",
+        "real_options",
+        "bootstrap",
+    ];
+    let Value::Mapping(root) = yaml else {
+        return Ok(());
+    };
+    for (key, value) in root {
+        let Some(key) = key.as_str() else { continue };
+        if SECTIONS.contains(&key) || key == "bayesian_network" {
+            continue;
+        }
+        // `price: {value: 100}` is one scalar, not a group with an entry `value`
+        if let Value::Mapping(m) = value {
+            if (m.contains_key("value") || m.contains_key("formula"))
+                && !crate::parser::model::is_table(m)
+            {
+                continue;
+            }
+        }
+        let numbers: Vec<String> = match value {
+            Value::Number(_) => vec![key.to_string()],
+            Value::Mapping(group) if !crate::parser::model::is_table(group) => group
+                .iter()
+                .filter(|(_, v)| matches!(v, Value::Number(_)))
+                .filter_map(|(k, _)| k.as_str().map(|k| format!("{key}.{k}")))
+                .collect(),
+            _ => Vec::new(),
+        };
+        if version != "5.1.0" {
+            if let Some(first) = numbers.first() {
+                return Err(ForgeError::Validation(format!(
+                    "'{first}' is a plain number, which is the short form of model format 5.1.0. \
+                     Set `_forge_version: \"5.1.0\"`, or write it as `{{value: ..., formula: null}}` for {version}"
+                )));
+            }
+        }
+        if let Value::Mapping(group) = value {
+            let is_scalar_group = !crate::parser::model::is_table(group)
+                && group.values().any(|v| {
+                    matches!(v, Value::Number(_))
+                        || matches!(v, Value::Mapping(m) if m.contains_key("value") || m.contains_key("formula"))
+                });
+            if is_scalar_group {
+                for (k, v) in group {
+                    if let (Some(k), Value::String(f)) = (k.as_str(), v) {
+                        if f.starts_with('=') {
+                            return Err(ForgeError::Validation(format!(
+                                "'{key}.{k}' is a formula in a group of scalars; write it as \
+                                 `{k}: {{formula: \"{f}\"}}` so its result has a place in the file \
+                                 (a bare formula string is a column, and belongs in a table)"
+                            )));
+                        }
+                    }
+                }
+            }
+        }
+    }
     Ok(())
 }
 

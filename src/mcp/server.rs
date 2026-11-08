@@ -118,7 +118,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_calculate",
-        description = "Calculate all formulas in a Forge YAML model and optionally update the file."
+        description = "Calculate all formulas in a Forge YAML model. Unless dry_run, writes each formula's result next to it in the file, changing nothing else (comments kept)."
     )]
     fn calculate(&self, Parameters(req): Parameters<CalculateRequest>) -> Result<String, String> {
         let is_inline = req.content.is_some();
@@ -441,7 +441,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_schema",
-        description = "Get JSON Schema for Forge YAML model formats. Use to understand the structure of valid Forge model files."
+        description = "Get JSON Schema for Forge YAML model formats. Write new models as _forge_version \"5.1.0\": inputs as plain numbers (price: 16), formula scalars as {formula: \"=...\"}, tables as lists and row-formula strings."
     )]
     fn schema(&self, Parameters(req): Parameters<SchemaRequest>) -> Result<String, String> {
         schema_core(req.version.as_deref()).map_err(|e| format!("Schema error: {e}"))

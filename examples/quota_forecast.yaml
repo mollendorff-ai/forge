@@ -2,15 +2,12 @@
 # Test case: Nested scalar references with calculations
 # This file tests: scalar groups, nested references, formula evaluation
 
-_forge_version: "1.0.0"
+_forge_version: "5.1.0"
 
 inputs:
-  current_usage_pct:
-    value: 26
-  hours_since_reset:
-    value: 43
-  hours_until_reset:
-    value: 125
+  current_usage_pct: 26
+  hours_since_reset: 43
+  hours_until_reset: 125
 
 forecast:
   burn_rate:

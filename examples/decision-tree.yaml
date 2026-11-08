@@ -25,7 +25,7 @@
 # - Expected value of optimal strategy
 # - Risk profile (best/worst case)
 
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Decision Tree Structure

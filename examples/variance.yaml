@@ -10,62 +10,44 @@
 # These are functions Excel doesn't have built-in.
 # Every FP&A analyst builds these manually. Forge has them native.
 
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Budget Data
 # ─────────────────────────────────────────────────────────────────────────────
 budget:
-  revenue:
-    value: 1000000
-    formula: null
+  revenue: 1000000
 
-  cogs:
-    value: 400000
-    formula: null
+  cogs: 400000
 
   gross_profit:
-    value: null
     formula: "=revenue - cogs"
 
-  opex:
-    value: 300000
-    formula: null
+  opex: 300000
 
   operating_income:
-    value: null
     formula: "=gross_profit - opex"
 
   margin:
-    value: null
     formula: "=operating_income / revenue"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Actual Data
 # ─────────────────────────────────────────────────────────────────────────────
 actual:
-  revenue:
-    value: 950000
-    formula: null
+  revenue: 950000
 
-  cogs:
-    value: 420000
-    formula: null
+  cogs: 420000
 
   gross_profit:
-    value: null
     formula: "=revenue - cogs"
 
-  opex:
-    value: 280000
-    formula: null
+  opex: 280000
 
   operating_income:
-    value: null
     formula: "=gross_profit - opex"
 
   margin:
-    value: null
     formula: "=operating_income / revenue"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -81,69 +63,56 @@ actual:
 variance:
   # Revenue variance (positive = beat budget)
   revenue_var:
-    value: null
     formula: "=VARIANCE(actual.revenue, budget.revenue)"
     unit: "$"
 
   revenue_pct:
-    value: null
     formula: "=VARIANCE_PCT(actual.revenue, budget.revenue)"
     unit: "%"
 
   revenue_status:
-    value: null
     formula: "=VARIANCE_STATUS(actual.revenue, budget.revenue, 0.05)"
 
   # COGS variance (using "cost" type - under budget = favorable)
   cogs_var:
-    value: null
     formula: "=VARIANCE(actual.cogs, budget.cogs)"
     unit: "$"
 
   cogs_pct:
-    value: null
     formula: "=VARIANCE_PCT(actual.cogs, budget.cogs)"
     unit: "%"
 
   # For costs, being OVER budget is unfavorable
   cogs_status:
-    value: null
     formula: '=VARIANCE_STATUS(actual.cogs, budget.cogs, "cost")'
 
   # Gross profit variance
   gross_profit_var:
-    value: null
     formula: "=VARIANCE(actual.gross_profit, budget.gross_profit)"
     unit: "$"
 
   gross_profit_pct:
-    value: null
     formula: "=VARIANCE_PCT(actual.gross_profit, budget.gross_profit)"
     unit: "%"
 
   # OpEx variance (cost type)
   opex_var:
-    value: null
     formula: "=VARIANCE(actual.opex, budget.opex)"
     unit: "$"
 
   opex_pct:
-    value: null
     formula: "=VARIANCE_PCT(actual.opex, budget.opex)"
     unit: "%"
 
   opex_status:
-    value: null
     formula: '=VARIANCE_STATUS(actual.opex, budget.opex, "cost")'
 
   # Operating income variance
   operating_income_var:
-    value: null
     formula: "=VARIANCE(actual.operating_income, budget.operating_income)"
     unit: "$"
 
   operating_income_pct:
-    value: null
     formula: "=VARIANCE_PCT(actual.operating_income, budget.operating_income)"
     unit: "%"
 

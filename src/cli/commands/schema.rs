@@ -6,6 +6,7 @@ use colored::Colorize;
 /// Embedded JSON schemas (compile-time)
 const SCHEMA_V1: &str = include_str!("../../../schema/forge-v1.0.0.schema.json");
 const SCHEMA_V5: &str = include_str!("../../../schema/forge-v5.0.0.schema.json");
+const SCHEMA_V5_1: &str = include_str!("../../../schema/forge-v5.1.0.schema.json");
 
 /// Return a JSON schema as a string (no printing).
 ///
@@ -16,16 +17,19 @@ pub fn schema_core(version: Option<&str>) -> ForgeResult<String> {
     match version {
         Some("v1" | "v1.0.0" | "1" | "1.0.0") => Ok(SCHEMA_V1.to_string()),
         Some("v5" | "v5.0.0" | "5" | "5.0.0") => Ok(SCHEMA_V5.to_string()),
+        Some("v5.1" | "v5.1.0" | "5.1" | "5.1.0") => Ok(SCHEMA_V5_1.to_string()),
         Some(v) => Err(ForgeError::Validation(format!(
-            "Unknown schema version '{v}'. Use 'v1' or 'v5'."
+            "Unknown model format '{v}'. Use 'v1', 'v5' or 'v5.1'."
         ))),
         None => {
             // Return list of available versions as JSON
             Ok(serde_json::json!({
                 "available_versions": [
                     {"version": "v1.0.0", "description": "Scalar-only models (simple key-value pairs)"},
-                    {"version": "v5.0.0", "description": "Full feature set (arrays, tables, Monte Carlo, etc.)"}
-                ]
+                    {"version": "v5.0.0", "description": "Full feature set (arrays, tables, Monte Carlo, etc.)"},
+                    {"version": "v5.1.0", "description": "5.0.0 plus the short form (`price: 16`, `{formula: ...}` without nulls); use this for new models"}
+                ],
+                "note": "These are model format versions (_forge_version), not Forge tool versions"
             })
             .to_string())
         },
@@ -46,9 +50,10 @@ pub fn schema(version: Option<&str>, list: bool) -> ForgeResult<()> {
     let schema = match version {
         Some("v1" | "v1.0.0" | "1" | "1.0.0") => SCHEMA_V1,
         Some("v5" | "v5.0.0" | "5" | "5.0.0") => SCHEMA_V5,
+        Some("v5.1" | "v5.1.0" | "5.1" | "5.1.0") => SCHEMA_V5_1,
         Some(v) => {
             eprintln!(
-                "{}: Unknown schema version '{}'. Use 'v1' or 'v5'.",
+                "{}: Unknown model format '{}'. Use 'v1', 'v5' or 'v5.1'.",
                 "Error".red().bold(),
                 v
             );
@@ -71,7 +76,8 @@ pub fn schema(version: Option<&str>, list: bool) -> ForgeResult<()> {
 
 /// Print list of available schema versions
 fn print_schema_list() {
-    println!("{}", "Available Forge Schema Versions".bold().green());
+    println!("{}", "Forge Model Formats (_forge_version)".bold().green());
+    println!("These are versions of the model file format, not of Forge.");
     println!();
     println!(
         "  {}  Scalar-only models (simple key-value pairs)",
@@ -88,12 +94,25 @@ fn print_schema_list() {
     println!("         - Cross-file includes");
     println!();
     println!(
-        "Usage: {} or {}",
+        "  {}  5.0.0 plus the short form (use for new models)",
+        "v5.1.0".cyan().bold()
+    );
+    println!("         - Inputs as plain numbers: price: 16");
+    println!("         - Formulas without value: null: {{formula: \"=a * b\"}}");
+    println!("         - forge calculate writes each result next to its formula");
+    println!("         - forge upgrade converts a 5.0.0 model, keeping comments");
+    println!();
+    println!(
+        "Usage: {}, {} or {}",
         "forge schema v1".yellow(),
-        "forge schema v5".yellow()
+        "forge schema v5".yellow(),
+        "forge schema v5.1".yellow()
     );
     println!();
-    println!("Pipe to file: {}", "forge schema v5 > schema.json".dimmed());
+    println!(
+        "Pipe to file: {}",
+        "forge schema v5.1 > schema.json".dimmed()
+    );
 }
 
 #[cfg(test)]
@@ -110,6 +129,14 @@ mod tests {
     fn test_schema_v5_is_valid_json() {
         let parsed: Result<serde_json::Value, _> = serde_json::from_str(SCHEMA_V5);
         assert!(parsed.is_ok(), "v5.0.0 schema should be valid JSON");
+    }
+
+    #[test]
+    fn test_schema_v5_1_is_valid_json_and_listed() {
+        let parsed: serde_json::Value = serde_json::from_str(SCHEMA_V5_1).unwrap();
+        assert_eq!(parsed["properties"]["_forge_version"]["enum"][0], "5.1.0");
+        assert!(schema_core(None).unwrap().contains("v5.1.0"));
+        assert_eq!(schema_core(Some("v5.1")).unwrap(), SCHEMA_V5_1);
     }
 
     #[test]

@@ -13,7 +13,7 @@
 # - Identifies which assumptions to focus on
 # - Easy to communicate to stakeholders
 
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Tornado Configuration
@@ -49,29 +49,17 @@ tornado:
 # Model Inputs
 # ─────────────────────────────────────────────────────────────────────────────
 assumptions:
-  revenue_growth:
-    value: 0.10
-    formula: null
+  revenue_growth: 0.10
 
-  operating_margin:
-    value: 0.20
-    formula: null
+  operating_margin: 0.20
 
-  discount_rate:
-    value: 0.10
-    formula: null
+  discount_rate: 0.10
 
-  tax_rate:
-    value: 0.25
-    formula: null
+  tax_rate: 0.25
 
-  initial_investment:
-    value: 1000000
-    formula: null
+  initial_investment: 1000000
 
-  base_revenue:
-    value: 500000
-    formula: null
+  base_revenue: 500000
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Projections (5-Year)
@@ -88,7 +76,6 @@ projections:
 # ─────────────────────────────────────────────────────────────────────────────
 valuation:
   npv:
-    value: null
     formula: "=NPV(assumptions.discount_rate, projections.net_income) - assumptions.initial_investment"
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 # Bagel Lune: what is it worth to wait before committing to a second shop? (fictional)
 real_options:
   name: "Second shop timing"

@@ -49,7 +49,7 @@ pub fn scenarios_core(
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
 
     let config: ScenarioConfig = if let Some(scenarios_value) = value.get("scenarios") {
-        let scenarios_map: HashMap<String, yaml_serde::Value> =
+        let scenarios_map: indexmap::IndexMap<String, yaml_serde::Value> =
             yaml_serde::from_value(scenarios_value.clone())
                 .map_err(|e| ForgeError::Validation(format!("scenarios config error: {e}")))?;
 

@@ -44,7 +44,7 @@ MCP clients running in sandboxed environments (Claude.ai, Cursor, containers) ca
 All 16 file-path tools accept `content` as an alternative to `file_path`. The two are mutually exclusive -- provide one or the other, never both.
 
 ```json
-{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_validate","arguments":{"content":"_forge_version: \"5.0.0\"\nassumptions:\n  price:\n    value: 100\n  cost:\n    value: 60\n  profit:\n    value: null\n    formula: \"=assumptions.price - assumptions.cost\"\n"}}}
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_validate","arguments":{"content":"_forge_version: \"5.1.0\"\nassumptions:\n  price: 100\n  cost: 60\n  profit:\n    formula: \"=assumptions.price - assumptions.cost\"\n"}}}
 ```
 
 The server writes the content to a temporary directory, passes the temp path to the calculation engine, and cleans up automatically when the request completes.
@@ -54,7 +54,7 @@ The server writes the content to a temporary directory, passes the temp path to 
 A model can read scalars from other YAML files: list them in `_includes` and write `@namespace.name` in a formula (`@rates.fx.usd_eur`; see the Values from Other Files section of [FEATURES.md](FEATURES.md)). In inline mode, pass each included file's content through the `includes` parameter -- a map of namespace names to YAML content strings. The namespace key must match the `as` field in the model's `_includes` entries. In this example `sales.amount_eur` calculates to 920.
 
 ```json
-{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_calculate","arguments":{"content":"_forge_version: \"5.0.0\"\n_includes:\n  - file: rates.yaml\n    as: rates\nsales:\n  amount:\n    value: 1000\n  amount_eur:\n    value: null\n    formula: \"=sales.amount * @rates.fx.usd_eur\"\n","includes":{"rates":"_forge_version: \"5.0.0\"\nfx:\n  usd_eur:\n    value: 0.92\n"},"dry_run":true}}}
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_calculate","arguments":{"content":"_forge_version: \"5.1.0\"\n_includes:\n  - file: rates.yaml\n    as: rates\nsales:\n  amount: 1000\n  amount_eur:\n    formula: \"=sales.amount * @rates.fx.usd_eur\"\n","includes":{"rates":"_forge_version: \"5.1.0\"\nfx:\n  usd_eur: 0.92\n"},"dry_run":true}}}
 ```
 
 If the model YAML contains `_includes` entries but no `includes` map is provided, the server returns a clear error listing the missing namespaces.
@@ -64,7 +64,7 @@ If the model YAML contains `_includes` entries but no `includes` map is provided
 When calling `forge_calculate` with `content` and `dry_run: false`, the server cannot update a persistent file (there is none). Instead, the response includes a `calculated_content` field containing the full YAML with computed values filled in. The client can use this content for subsequent calls.
 
 ```json
-{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"forge_calculate","arguments":{"content":"_forge_version: \"5.0.0\"\nassumptions:\n  price:\n    value: 100\n  cost:\n    value: 60\n  profit:\n    value: null\n    formula: \"=assumptions.price - assumptions.cost\"\n","dry_run":false}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"forge_calculate","arguments":{"content":"_forge_version: \"5.1.0\"\nassumptions:\n  price: 100\n  cost: 60\n  profit:\n    formula: \"=assumptions.price - assumptions.cost\"\n","dry_run":false}}}
 ```
 
 The response will contain both the calculation results and a `calculated_content` field with the updated YAML.

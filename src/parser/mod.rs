@@ -13,9 +13,11 @@
 
 mod arrays;
 mod includes;
-mod model;
+pub(crate) mod model;
 mod multi_doc;
 mod schema;
+#[cfg(test)]
+mod short_form_tests;
 mod variables;
 
 // Re-export commonly used functions

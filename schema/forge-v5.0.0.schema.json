@@ -11,7 +11,7 @@
     "_forge_version": {
       "type": "string",
       "enum": ["5.0.0"],
-      "description": "Forge model format version: 5.0.0 (arrays/tables with inputs/outputs separation)"
+      "description": "Model format version (not the Forge tool version): 5.0.0 (arrays/tables with inputs/outputs separation)"
     },
     "_name": {
       "type": "string",

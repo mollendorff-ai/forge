@@ -933,17 +933,20 @@ EXAMPLES:
         json: bool,
     },
 
-    #[command(long_about = "Upgrade YAML files to latest schema version (v5.0.0).
+    #[command(
+        long_about = "Upgrade a model and its includes to the latest model format (5.1.0).
 
-Automatically migrates YAML files and all included files to the latest schema.
+_forge_version is the model format version, not the Forge version.
 Creates backups before modifying files.
 
-TRANSFORMATIONS:
-  - Updates _forge_version to 5.0.0
-  - Splits scalars into inputs/outputs based on formula presence:
-    - Scalars with value only -> inputs section
-    - Scalars with formula -> outputs section
-  - Adds _name field for multi-document files
+TO 5.1.0 (default, ADR-051):
+  - `name: {value: 16, formula: null}` becomes `name: 16`
+  - `value: null` and `formula: null` lines are removed
+  - Edited in place: comments, quotes and layout are kept
+  - Checked: the converted file must read as the same model, or it is not written
+
+TO 5.0.0 (from 1.0.0):
+  - Splits scalars into inputs/outputs based on formula presence
   - Preserves all existing metadata
 
 RECURSIVE PROCESSING:
@@ -953,10 +956,11 @@ RECURSIVE PROCESSING:
 EXAMPLES:
   forge upgrade model.yaml              # Upgrade file and includes
   forge upgrade model.yaml --dry-run    # Preview changes only
-  forge upgrade model.yaml --to 5.0.0   # Explicit target version
+  forge upgrade model.yaml --to 5.0.0   # Older format, long form
 
 BACKUP:
-  Original files are backed up as .yaml.bak before modification.")]
+  Original files are backed up as .yaml.bak before modification."
+    )]
     /// Upgrade YAML files to latest schema version
     Upgrade {
         /// Path to YAML file to upgrade
@@ -966,8 +970,8 @@ BACKUP:
         #[arg(short = 'n', long)]
         dry_run: bool,
 
-        /// Target schema version (default: 5.0.0)
-        #[arg(long, default_value = "5.0.0")]
+        /// Target model format (default: 5.1.0)
+        #[arg(long, default_value = "5.1.0")]
         to: String,
 
         /// Show verbose output

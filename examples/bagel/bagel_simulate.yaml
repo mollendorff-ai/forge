@@ -1,4 +1,4 @@
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 # Bagel Lune, Monte Carlo version: uncertain demand and staffing (bagel.yaml has the plan).
 # Run with forge simulate (calculate cannot evaluate MC.* inputs).
 _includes:
@@ -6,39 +6,19 @@ _includes:
     as: costs
 
 assumptions:
-  price_per_dozen:
-    value: 16
-    formula: null
+  price_per_dozen: 16
   opening_dozens_per_day:
-    value: null
     formula: "=MC.PERT(40, 55, 70)"
-  monthly_growth:
-    value: 0.03
-    formula: null
-  open_days_per_month:
-    value: 30
-    formula: null
-  bagels_per_kg_flour:
-    value: 9
-    formula: null
-  sesame_grams_per_bagel:
-    value: 6
-    formula: null
+  monthly_growth: 0.03
+  open_days_per_month: 30
+  bagels_per_kg_flour: 9
+  sesame_grams_per_bagel: 6
   staff_hours_per_day:
-    value: null
     formula: "=MC.Triangular(28, 32, 38)"
-  rent_per_month:
-    value: 4800
-    formula: null
-  card_fee_rate:
-    value: 0.026
-    formula: null
-  oven_and_fit_out:
-    value: 95000
-    formula: null
-  annual_discount_rate:
-    value: 0.09
-    formula: null
+  rent_per_month: 4800
+  card_fee_rate: 0.026
+  oven_and_fit_out: 95000
+  annual_discount_rate: 0.09
 
 months:
   month: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
@@ -57,28 +37,20 @@ months:
 
 year:
   revenue:
-    value: null
     formula: "=SUM(months.revenue)"
   profit:
-    value: null
     formula: "=SUM(months.profit)"
   margin:
-    value: null
     formula: "=profit / revenue"
   dozens_sold:
-    value: null
     formula: "=SUM(months.dozens)"
   food_cost_share:
-    value: null
     formula: "=(SUM(months.flour) + SUM(months.sesame) + SUM(months.other_ingredients)) / revenue"
   worst_month_profit:
-    value: null
     formula: "=MIN(months.profit)"
   npv_first_year:
-    value: null
     formula: "=NPV(assumptions.annual_discount_rate / 12, months.profit) - assumptions.oven_and_fit_out"
   payback_months:
-    value: null
     formula: "=assumptions.oven_and_fit_out / (profit / 12)"
 
 monte_carlo:

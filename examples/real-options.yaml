@@ -15,7 +15,7 @@
 # Real options analysis values each flexibility on its own. They overlap, so
 # Forge compares them instead of adding them up.
 
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Real Options Configuration
@@ -62,32 +62,21 @@ real_options:
 # ─────────────────────────────────────────────────────────────────────────────
 assumptions:
   # For context only - real options uses underlying config
-  base_revenue:
-    value: 4000000
-    formula: null
+  base_revenue: 4000000
 
-  operating_margin:
-    value: 0.30
-    formula: null
+  operating_margin: 0.30
 
-  growth_rate:
-    value: 0.08
-    formula: null
+  growth_rate: 0.08
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Comparison: Traditional vs Real Options
 # ─────────────────────────────────────────────────────────────────────────────
 traditional_analysis:
-  present_value:
-    value: 12000000
-    formula: null
+  present_value: 12000000
 
-  investment_cost:
-    value: 10000000
-    formula: null
+  investment_cost: 10000000
 
   traditional_npv:
-    value: null
     formula: "=present_value - investment_cost"
 
 # ─────────────────────────────────────────────────────────────────────────────

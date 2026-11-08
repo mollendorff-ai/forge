@@ -16,7 +16,7 @@
 # 3. Calculate statistic (mean, median, etc.) for each resample
 # 4. Use distribution of statistics for confidence intervals
 
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Bootstrap Configuration
@@ -52,18 +52,14 @@ bootstrap:
 portfolio:
   # Growth Portfolio (scalar values must be numbers, so the label is a comment)
 
-  initial_value:
-    value: 1000000
-    formula: null
+  initial_value: 1000000
 
   # Annualized return (simple)
   annual_return:
-    value: null
     formula: "=0.0246 * 12"  # Sample mean (2.46%) * 12
 
   # Projected value after 1 year
   projected_value:
-    value: null
     formula: "=initial_value * (1 + annual_return)"
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -50,15 +50,12 @@ saas_metrics:
 summary:
   # v1.2.1 conditional aggregations
   total_arr:
-    value: null
     formula: "=SUM(saas_metrics.arr)"
   
   high_growth_months:
-    value: null
     formula: "=COUNTIF(saas_metrics.mrr, > 15000)"
   
   avg_ltv_high_growth:
-    value: null
     formula: "=AVERAGEIF(saas_metrics.mrr, > 15000, saas_metrics.ltv)"
 ```
 
@@ -78,11 +75,9 @@ pl_2025_q1:
 
 summary:
   total_revenue:
-    value: null
     formula: "=SUM(pl_2025_q1.revenue)"
   
   avg_gross_margin:
-    value: null
     formula: "=AVERAGE(pl_2025_q1.gross_margin)"
 ```
 
@@ -91,7 +86,7 @@ summary:
 **NPV Uncertainty Analysis:**
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 # Monte Carlo configuration
 monte_carlo:
@@ -108,15 +103,12 @@ monte_carlo:
 # Probabilistic assumptions
 assumptions:
   revenue_growth:
-    value: null
     formula: "=MC.Normal(0.15, 0.05)"  # 15% ± 5% annual growth
 
   initial_cost:
-    value: null
     formula: "=MC.Triangular(80000, 100000, 150000)"  # min/mode/max
 
   discount_rate:
-    value: null
     formula: "=MC.Uniform(0.08, 0.12)"  # 8-12% WACC range
 
 # Cash flow projections
@@ -135,11 +127,9 @@ cash_flows:
 # Valuation with uncertain inputs
 valuation:
   npv:
-    value: null
     formula: "=NPV(assumptions.discount_rate, cash_flows.net_cash_flow)"
 
   irr:
-    value: null
     formula: "=IRR(cash_flows.net_cash_flow)"
 ```
 
@@ -193,7 +183,7 @@ monte_carlo_results:
 Simple Monte Carlo simulation for quarterly revenue forecasting with uncertainty:
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 monte_carlo:
   enabled: true
@@ -207,20 +197,16 @@ monte_carlo:
 
 assumptions:
   base_revenue:
-    value: null
     formula: "=MC.Normal(600000, 50000)"  # Mean $600K, std dev $50K
 
   growth_rate:
-    value: null
     formula: "=MC.Triangular(0.05, 0.10, 0.20)"  # min 5%, mode 10%, max 20%
 
   seasonality_factor:
-    value: null
     formula: "=MC.Uniform(0.95, 1.15)"  # -5% to +15% seasonal variation
 
 forecast:
   q4_revenue:
-    value: null
     formula: "=assumptions.base_revenue * (1 + assumptions.growth_rate) * assumptions.seasonality_factor"
 ```
 
@@ -253,7 +239,7 @@ monte_carlo_results:
 Real-world variables often move together. Use `MC.Correlated` to model relationships like revenue and margin correlation:
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 monte_carlo:
   enabled: true
@@ -277,32 +263,26 @@ monte_carlo:
 # Negative correlation of -0.6
 correlated_inputs:
   revenue_margin:
-    value: null
     formula: "=MC.Correlated([1000000, 0.30], [150000, 0.05], -0.6)"
     # [revenue_mean, margin_mean], [revenue_std, margin_std], correlation
 
 financials:
   # Extract correlated values
   revenue:
-    value: null
     formula: "=INDEX(correlated_inputs.revenue_margin, 0)"  # First element
 
   margin:
-    value: null
     formula: "=INDEX(correlated_inputs.revenue_margin, 1)"  # Second element
 
   # Additional independent variables
   fixed_costs:
-    value: null
     formula: "=MC.Normal(200000, 15000)"
 
   # Calculated outcomes
   gross_profit:
-    value: null
     formula: "=revenue * margin"
 
   net_income:
-    value: null
     formula: "=gross_profit - fixed_costs"
 ```
 
@@ -358,7 +338,7 @@ monte_carlo_results:
 Track multiple metrics simultaneously with different analysis settings:
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 monte_carlo:
   enabled: true
@@ -388,57 +368,43 @@ monte_carlo:
 
 assumptions:
   market_size:
-    value: null
     formula: "=MC.Normal(5000000, 800000)"
 
   market_share:
-    value: null
     formula: "=MC.Triangular(0.05, 0.10, 0.18)"  # 5-18% share, mode 10%
 
   avg_price:
-    value: null
     formula: "=MC.Normal(25, 3)"
 
   unit_cost:
-    value: null
     formula: "=MC.Triangular(12, 15, 18)"
 
   opex:
-    value: null
     formula: "=MC.Normal(150000, 20000)"
 
-  initial_investment:
-    value: 500000
-    formula: null
+  initial_investment: 500000
 
 projections:
   year_1_revenue:
-    value: null
     formula: "=assumptions.market_size * assumptions.market_share"
 
   units_sold:
-    value: null
     formula: "=year_1_revenue / assumptions.avg_price"
 
   cogs:
-    value: null
     formula: "=units_sold * assumptions.unit_cost"
 
   gross_profit:
-    value: null
     formula: "=year_1_revenue - cogs"
 
 metrics:
   ebitda:
-    value: null
     formula: "=projections.gross_profit - assumptions.opex"
 
   roi:
-    value: null
     formula: "=ebitda / assumptions.initial_investment"
 
   payback_years:
-    value: null
     formula: "=IF(ebitda > 0, assumptions.initial_investment / ebitda, 999)"
 ```
 
@@ -524,7 +490,7 @@ monte_carlo_results:
 When you have min/most-likely/max estimates (common in project planning):
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 monte_carlo:
   enabled: true
@@ -548,20 +514,16 @@ phases:
 # Risk factors
 risks:
   scope_creep:
-    value: null
     formula: "=MC.Uniform(1.0, 1.25)"  # 0-25% cost overrun
 
   resource_availability:
-    value: null
     formula: "=MC.Triangular(1.0, 1.05, 1.30)"  # Usually 5%, up to 30% delay
 
 project:
   base_cost:
-    value: null
     formula: "=SUM(phases.design_cost) + SUM(phases.dev_cost) + SUM(phases.test_cost) + SUM(phases.deploy_cost)"
 
   total_cost:
-    value: null
     formula: "=base_cost * risks.scope_creep * risks.resource_availability"
 ```
 
@@ -606,9 +568,7 @@ monte_carlo_results:
 
 ```yaml
 assumptions:
-  tax_rate:
-    value: 0.25
-    formula: null
+  tax_rate: 0.25
 
 revenue:
   product: ["A", "B", "C"]
@@ -662,7 +622,6 @@ sales:
 
 analysis:
   north_tech_revenue:
-    value: null
     formula: "=SUMIFS(sales.revenue, sales.region, 'North', sales.category, 'Tech')"
 ```
 
@@ -687,7 +646,7 @@ Model discrete strategic futures with assigned probabilities - perfect for board
 **Input (scenario_npv.yaml):**
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 # Scenario configuration
 scenarios:
@@ -718,36 +677,28 @@ scenarios:
       avg_price: 22.0
       unit_cost: 16.0
 
-# Fixed assumptions (same across all scenarios)
+# Assumptions (the base case; each scenario overrides some of them)
 assumptions:
-  market_size:
-    value: 5000000
-    formula: null
-
-  initial_investment:
-    value: 500000
-    formula: null
-
-  discount_rate:
-    value: 0.10
-    formula: null
+  market_size: 5000000
+  initial_investment: 500000
+  discount_rate: 0.10
+  revenue_growth: 0.05
+  market_share: 0.10
+  avg_price: 25.0
+  unit_cost: 15.0
 
 # Calculations (applied within each scenario)
 financials:
   year_1_revenue:
-    value: null
-    formula: "=assumptions.market_size * (1 + revenue_growth) * market_share * avg_price"
+    formula: "=assumptions.market_size * (1 + assumptions.revenue_growth) * assumptions.market_share * assumptions.avg_price"
 
   year_1_cogs:
-    value: null
-    formula: "=(year_1_revenue / avg_price) * unit_cost"
+    formula: "=(year_1_revenue / assumptions.avg_price) * assumptions.unit_cost"
 
   year_1_profit:
-    value: null
     formula: "=year_1_revenue - year_1_cogs"
 
   npv:
-    value: null
     formula: "=(year_1_profit / (1 + assumptions.discount_rate)) - assumptions.initial_investment"
 ```
 
@@ -757,33 +708,27 @@ financials:
 forge scenarios scenario_npv.yaml --output scenario_results.yaml
 ```
 
-**Output:**
+**Output** (`forge scenarios scenario_npv.yaml`, trimmed):
 
-```yaml
-scenario_results:
-  base_case:
-    npv: 45678.90
-    year_1_revenue: 656250.00
-    probability: 0.50
-
-  bull_case:
-    npv: 187234.56
-    year_1_revenue: 1449000.00
-    probability: 0.30
-
-  bear_case:
-    npv: -123456.78
-    year_1_revenue: 396000.00
-    probability: 0.20
-
-  expected_value:
-    npv: 51234.57  # Weighted average: 0.5*45679 + 0.3*187235 + 0.2*(-123457)
-    year_1_revenue: 759075.00
-
-  decision:
-    recommendation: "PROCEED"
-    reason: "Positive expected NPV with acceptable downside"
 ```
+   base_case (p=50%): Market grows 5%, we maintain share
+      financials.npv: 4272727.272727
+      financials.year_1_revenue: 13125000
+
+   bear_case (p=20%): Recession, market contracts
+      financials.npv: 1463636.363636
+      financials.year_1_revenue: 7920000
+
+   bull_case (p=30%): Competitor exits, we gain share
+      financials.npv: 12672727.272727
+      financials.year_1_revenue: 28980000
+
+   Expected Values (probability-weighted):
+      financials.npv: 6230909.090909   (range 1463636.363636 to 12672727.272727, P(>0) = 100%)
+      financials.year_1_revenue: 16840500   (range 7920000 to 28980000, P(>0) = 100%)
+```
+
+Check by hand, base case: revenue 5,000,000 × 1.05 × 0.10 × 25 = 13,125,000; COGS 13,125,000 / 25 × 15 = 7,875,000; NPV 5,250,000 / 1.1 − 500,000 = 4,272,727. Expected NPV 0.5 × 4,272,727 + 0.3 × 12,672,727 + 0.2 × 1,463,636 = 6,230,909.
 
 **Use case explanation:**
 
@@ -793,7 +738,7 @@ Scenario analysis is ideal when:
 - Strategic futures are mutually exclusive (only one will occur)
 - Combining with Monte Carlo for continuous uncertainty within scenarios
 
-**Key insight**: Expected NPV is positive ($51K) despite 20% chance of loss, but bull case drives most upside.
+**Key insight**: every case is positive here, so the question is not whether to invest but how much the outcome depends on the bull case: it is 30% of the probability and 61% of the expected NPV.
 
 ---
 
@@ -806,7 +751,7 @@ Model sequential decisions and chance events to find optimal decision paths usin
 **Input (rnd_decision.yaml):**
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 # Decision tree configuration
 decision_tree:
@@ -967,7 +912,7 @@ Visualize which input variables drive the most output variance. Essential for fo
 **Input (npv_sensitivity.yaml):**
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 # Tornado configuration
 tornado:
@@ -1001,25 +946,15 @@ tornado:
 
 # Model (simplified NPV calculation)
 assumptions:
-  revenue_growth:
-    value: 0.05
-    formula: null
+  revenue_growth: 0.05
 
-  discount_rate:
-    value: 0.10
-    formula: null
+  discount_rate: 0.10
 
-  operating_margin:
-    value: 0.20
-    formula: null
+  operating_margin: 0.20
 
-  tax_rate:
-    value: 0.25
-    formula: null
+  tax_rate: 0.25
 
-  working_capital:
-    value: 0.15
-    formula: null
+  working_capital: 0.15
 
 cash_flows:
   year: [0, 1, 2, 3, 4, 5]
@@ -1034,7 +969,6 @@ cash_flows:
 
 valuation:
   npv:
-    value: null
     formula: "=NPV(assumptions.discount_rate, cash_flows.free_cash_flow)"
 ```
 
@@ -1143,7 +1077,7 @@ Non-parametric confidence intervals from historical data. Let the data speak wit
 **Input (returns_bootstrap.yaml):**
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 # Bootstrap configuration
 bootstrap:
@@ -1161,22 +1095,29 @@ bootstrap:
     0.02, 0.05, -0.01, 0.08
   ]
 
+# The same returns as a table, for formulas (bootstrap.data is a setting,
+# not a column, so formulas cannot read it)
+history:
+  monthly_return: [
+    0.05, -0.02, 0.08, 0.03, -0.05, 0.12, 0.01, -0.01,
+    0.06, 0.04, 0.02, -0.03, 0.07, 0.04, -0.02, 0.09,
+    0.00, -0.04, 0.05, 0.03, 0.08, -0.01, 0.06, 0.02,
+    0.04, 0.07, -0.02, 0.05, 0.03, -0.03, 0.06, 0.04,
+    0.02, 0.05, -0.01, 0.08
+  ]
+
 # Reference calculation for comparison
 analysis:
   sample_mean:
-    value: null
-    formula: "=AVERAGE(bootstrap.data)"
+    formula: "=AVERAGE(history.monthly_return)"
 
   sample_std:
-    value: null
-    formula: "=STDEV(bootstrap.data)"
+    formula: "=STDEV(history.monthly_return)"
 
   annualized_return:
-    value: null
     formula: "=sample_mean * 12"
 
   annualized_volatility:
-    value: null
     formula: "=sample_std * SQRT(12)"
 ```
 
@@ -1186,69 +1127,21 @@ analysis:
 forge bootstrap returns_bootstrap.yaml --output bootstrap_results.yaml
 ```
 
-**Output:**
+**Output** (`forge bootstrap returns_bootstrap.yaml`):
 
-```yaml
-bootstrap_results:
-  statistic: "mean"
-  iterations: 10000
-
-  # Original sample statistics
-  original_estimate: 0.0361  # 3.61% average monthly return
-  sample_size: 36
-
-  # Bootstrap distribution of means
-  bootstrap_distribution:
-    mean: 0.0362  # Average of 10,000 bootstrap means
-    std_error: 0.0087  # Standard error of the mean
-    min: 0.0089  # Minimum bootstrap mean
-    max: 0.0634  # Maximum bootstrap mean
-
-  # Confidence intervals
-  confidence_intervals:
-    - level: 0.90
-      lower: 0.0219  # 5th percentile
-      upper: 0.0507  # 95th percentile
-      width: 0.0288
-      interpretation: "90% confident mean return is between 2.19% and 5.07%"
-
-    - level: 0.95
-      lower: 0.0193  # 2.5th percentile
-      upper: 0.0531  # 97.5th percentile
-      width: 0.0338
-      interpretation: "95% confident mean return is between 1.93% and 5.31%"
-
-    - level: 0.99
-      lower: 0.0141  # 0.5th percentile
-      upper: 0.0583  # 99.5th percentile
-      width: 0.0442
-      interpretation: "99% confident mean return is between 1.41% and 5.83%"
-
-  # Annualized metrics (for reference)
-  annualized:
-    point_estimate: 0.4332  # 43.32% annualized
-    ci_95_lower: 0.2316  # 23.16% annualized
-    ci_95_upper: 0.6372  # 63.72% annualized
-
-# Comparison to parametric approach (if we assumed normality)
-parametric_comparison:
-  normal_assumption:
-    mean: 0.0361
-    std_error: 0.0087  # sample_std / sqrt(n)
-    ci_95: [0.0189, 0.0533]  # mean ± 1.96 * SE
-
-  bootstrap_result:
-    ci_95: [0.0193, 0.0531]
-
-  difference: "Negligible - data is approximately normal"
-
-  when_bootstrap_matters: |
-    Bootstrap is superior when:
-    - Distribution is skewed or has fat tails
-    - Small sample size (<30)
-    - Outliers present
-    - Distribution shape unknown
 ```
+   Original statistic: 0.0292
+   Bootstrap mean: 0.0292
+   Bootstrap std error: 0.0068
+   Bias: 0.0000
+
+   Confidence Intervals:
+      90% CI: [0.0181, 0.0403]
+      95% CI: [0.0158, 0.0422]
+      99% CI: [0.0119, 0.0464]
+```
+
+The 36 months average 2.92% a month. With 95% confidence the true average is between 1.58% and 4.22%. For comparison, assuming normality gives 2.92% ± 1.96 × 0.69% = [1.57%, 4.26%], almost the same, because these returns are roughly symmetric; bootstrap matters more for skewed data, fat tails or small samples.
 
 **Use case explanation:**
 
