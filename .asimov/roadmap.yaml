@@ -14,8 +14,8 @@
 # written down. "Polish" and "improve" are not criteria.
 
 state:
-  version: 10.0.0-rc.5, released 2026-11-08 after the variance wrong answer
-    (PR 79). The two-week stable clock in docs/STABILITY.md runs from this
+  version: 10.0.0-rc.6, released 2026-11-08 with model format 5.1.0
+    (ADR-051). The two-week stable clock in docs/STABILITY.md runs from this
     release; a new wrong answer restarts it.
   format: model format 5.1.0 (ADR-051), with inputs as plain numbers, formula
     scalars as a formula mapping, and results written next to formulas in

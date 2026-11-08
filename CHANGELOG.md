@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.6] - 2026-11-08
+
+Sixth release candidate. It adds model format 5.1.0 (ADR-051): inputs as plain numbers, formulas without `value: null`, and results written into the file next to their formulas without touching anything else. In rc.5, `forge calculate` deleted the comments of every file it wrote. No wrong answer was found since rc.5, but the stable release should be the candidate that carries this format, so its two weeks start from here (no earlier than 2026-11-22, the same day as before).
+
 ### Added
 - **Model format 5.1.0: the short form (ADR-051).** An input can be a plain number (`price: 16`) and a formula scalar a mapping with only `formula:`, so a model no longer needs `value: null` or `formula: null` anywhere. The long form stays valid in 5.1.0 and 5.0.0. `forge upgrade` (now defaulting to 5.1.0) converts a 5.0.0 model in place, keeping its comments, and refuses to write if the converted file would not read as the same model. `forge schema v5.1` prints the new schema. All files in `examples/` are converted; every command gives byte-identical results on them before and after (58 outputs compared, plus the Excel export cell by cell). `test-data/` and the validation repositories stay at 5.0.0, so the long form keeps being tested.
 - **ADR-051** records the decision: one file with formulas and their results, like Excel; format 5.1.0 because the change is backward compatible; `_forge_version` keeps its name and is documented as the model format version, independent of the tool version.
