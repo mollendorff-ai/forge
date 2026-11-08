@@ -63,6 +63,10 @@ Technical documentation for Forge's architecture.
 | [ADR-044](ADR-044-SMART-ROUTING.md) | Smart Test Routing | Accepted |
 | [ADR-045](ADR-045-COVERAGE-TRACKING.md) | Function-Level Coverage Tracking | Accepted |
 | [ADR-046](ADR-046-R-VALIDATED-ANALYTICS.md) | R-Validated Analytics E2E Tests | Accepted |
+| [ADR-047](ADR-047-MCP-CORE-EXTRACTION.md) | Dual CLI/MCP Output (Core Extraction) | Accepted |
+| [ADR-048](ADR-048-RMCP-MIGRATION.md) | rmcp Migration | Accepted |
+| [ADR-049](adr-049-mcp-inline-content.md) | MCP Inline Content for Sandboxed Clients | Accepted |
+| [ADR-050](ADR-050-KEEP-ALL-ANALYSIS-ENGINES.md) | Keep All Analysis Engines Supported | Accepted |
 
 ## Architecture Principles
 

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.5] - 2026-11-08
+
+Fifth release candidate. `forge variance` in rc.4 called cost overruns favorable (a wrong answer; first entry under Fixed), so the two weeks before the stable release start again from this candidate. Every analysis command has now been checked once on a real model against an outside calculation (`examples/bagel/`), and all of them stay supported (ADR-050).
+
 ### Fixed
 - **`forge variance` called cost overruns favorable (wrong answer).** Whether a difference was good was guessed from three words in the name (`cost`, `expense`, `cogs`), so rent, wages, fees and hours over budget were reported as favorable. Forge now uses a `better: lower | higher` field on the scalar, then a wider list of words that clearly mean a cost or a result, and otherwise says the direction is unknown (`is_favorable: null`, "No direction") instead of guessing. Values exactly on budget are "On target" and no longer counted as favorable.
 - **`forge variance` percentages had the wrong sign against a negative budget.** A first-year NPV going from -95,580 to -123,259 showed as +29%. The percentage is now of the size of the budget, so it is -29%. `VARIANCE_PCT` in formulas changes the same way (see Changed).
@@ -21,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`VARIANCE_PCT(actual, budget)` divides by the size of the budget**, `(actual - budget) / ABS(budget)`, the usual FP&A convention: `VARIANCE_PCT(-120, -100)` is -20% (a bigger loss), not +20%. Results for a positive budget are unchanged.
 
 ### Added
+- **ADR-050: all analysis engines stay supported** under the STABILITY.md promises; none is marked experimental. The architecture index also lists ADR-047 to ADR-049, which it had missed.
 - **`better: higher | lower`** on a scalar, for `forge variance`. Accepted by both schemas.
 - **`examples/bagel/` covers every analytics command**: `actual.yaml` (variance), `second_shop.yaml` (decision tree), `wait_option.yaml` (real options), `first_month.yaml` (bootstrap), `slow_week.yaml` (a two-parent Bayesian network). `tests/bagel_example.rs` asserts each headline number against an independent calculation shown in the test (roadmap T1-USE).
 
