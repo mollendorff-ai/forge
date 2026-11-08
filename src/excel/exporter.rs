@@ -1,6 +1,8 @@
 //! Excel exporter implementation
 
-use super::workbook_refs::{split_scalar_path, Context, WorkbookRefs, UNGROUPED_SHEET};
+use super::workbook_refs::{
+    include_sheet, split_scalar_path, Context, WorkbookRefs, UNGROUPED_SHEET,
+};
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{ColumnValue, Metadata, ParsedModel, Table};
 use rust_xlsxwriter::{Formula, Note, Workbook, Worksheet};
@@ -12,6 +14,9 @@ pub struct ExcelExporter {
     model: ParsedModel,
     /// Sheet layout shared by every formula: where each column and scalar lives
     refs: WorkbookRefs,
+    /// Included files by namespace, in name order: the calculated model and
+    /// the layout its own formulas are written with
+    includes: Vec<(String, ParsedModel, WorkbookRefs)>,
 }
 
 impl ExcelExporter {
@@ -26,8 +31,35 @@ impl ExcelExporter {
             let columns: Vec<String> = table.column_names().into_iter().cloned().collect();
             (name.as_str(), columns, Self::row_count(table))
         });
-        let refs = WorkbookRefs::new(tables, model.scalars.keys().map(String::as_str));
-        Self { model, refs }
+        let mut refs = WorkbookRefs::new(tables, model.scalars.keys().map(String::as_str));
+
+        // `resolved_includes` is a HashMap, so sort the namespaces: with two or
+        // more includes the sheet order would otherwise change between runs.
+        let mut namespaces: Vec<&String> = model.resolved_includes.keys().collect();
+        namespaces.sort();
+        let includes = namespaces
+            .into_iter()
+            .map(|namespace| {
+                let resolved = &model.resolved_includes[namespace];
+                // Calculate the included model, so a value it defines by formula
+                // is cached. If it does not calculate, write what the file
+                // holds; the main model's calculation reports that error.
+                let included = crate::core::ArrayCalculator::new(resolved.model.clone())
+                    .calculate_all()
+                    .unwrap_or_else(|_| resolved.model.clone());
+                let paths = || included.scalars.keys().map(String::as_str);
+                // `@costs.labour.wage` in the main model is a cell on the
+                // include's sheet, so a value changed there flows through.
+                refs.add_include(namespace, paths());
+                let own = WorkbookRefs::for_include(namespace, paths());
+                (namespace.clone(), included, own)
+            })
+            .collect();
+        Self {
+            model,
+            refs,
+            includes,
+        }
     }
 
     /// Number of data rows: the longest column (columns may differ in length).
@@ -99,26 +131,22 @@ impl ExcelExporter {
             self.export_scalars(&mut workbook, &mut warnings)?;
         }
 
-        // Included files' tables with namespace prefix (v4.4.2). Their formulas
-        // are not in this workbook's layout, so they are written as values.
-        // `resolved_includes` is a HashMap, so sort the namespaces: with two or
-        // more includes the sheet order would otherwise change between runs.
-        let mut namespaces: Vec<&String> = self.model.resolved_includes.keys().collect();
-        namespaces.sort();
-        for namespace in namespaces {
-            let resolved = &self.model.resolved_includes[namespace];
-            // Calculate the included model, so a value it defines by formula is
-            // written. If it does not calculate, write what the file holds; the
-            // main model's calculation reports that error.
-            let included = crate::core::ArrayCalculator::new(resolved.model.clone())
-                .calculate_all()
-                .unwrap_or_else(|_| resolved.model.clone());
+        // Included files: tables with a namespace prefix (their row formulas
+        // are not in this workbook's layout, so they are written as values),
+        // and scalars on a `{namespace}.Scalars` sheet with their formulas.
+        for (namespace, included, own) in &self.includes {
             for (table_name, table) in &included.tables {
                 let prefixed_name = format!("{namespace}.{table_name}");
                 self.export_table(&mut workbook, &prefixed_name, table, &mut warnings)?;
             }
             if !included.scalars.is_empty() {
-                Self::export_namespaced_scalars(&mut workbook, namespace, &included)?;
+                Self::export_namespaced_scalars(
+                    &mut workbook,
+                    namespace,
+                    included,
+                    own,
+                    &mut warnings,
+                )?;
             }
         }
 
@@ -382,54 +410,80 @@ impl ExcelExporter {
         Ok(())
     }
 
-    /// Export scalars from an included file with namespace prefix (v4.4.2)
+    /// Export an included file's scalars to its `{namespace}.Scalars` sheet:
+    /// `{namespace}.{path}` in A, the value or formula in B, in the included
+    /// model's order (the rows `WorkbookRefs::add_include` points at).
     fn export_namespaced_scalars(
         workbook: &mut Workbook,
         namespace: &str,
         included_model: &ParsedModel,
+        own: &WorkbookRefs,
+        warnings: &mut Vec<String>,
     ) -> ForgeResult<()> {
-        let sheet_name = format!("{namespace}.Scalars");
+        let sheet_name = include_sheet(namespace);
         let worksheet = workbook.add_worksheet();
         worksheet.set_name(&sheet_name).map_err(|e| {
             ForgeError::Export(format!("Failed to set {sheet_name} worksheet name: {e}"))
         })?;
+        for (col, header) in [(0, "Name"), (1, "Value")] {
+            worksheet
+                .write_string(0, col, header)
+                .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
+        }
 
-        // Write header row
-        worksheet
-            .write_string(0, 0, "Name")
-            .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
-        worksheet
-            .write_string(0, 1, "Value")
-            .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
+        for (path, var) in &included_model.scalars {
+            let row = own.scalars[path.as_str()].1 - 1; // 0-based worksheet row
+            worksheet
+                .write_string(row, 0, format!("{namespace}.{path}"))
+                .map_err(|e| ForgeError::Export(format!("Failed to write scalar name: {e}")))?;
 
-        // Write scalars in the included model's order
-        let scalar_names: Vec<&String> = included_model.scalars.keys().collect();
+            let mut notes: Vec<String> = Vec::new();
+            // The included file's own formulas resolve inside that file
+            let group = split_scalar_path(path).0;
+            let translated = var
+                .formula
+                .as_ref()
+                .map(|f| (f, own.to_excel(f, Context::Scalar { group })));
+            match translated {
+                Some((_, Ok(t))) => {
+                    let mut formula = Formula::new(&t.formula);
+                    if let Some(value) = var.value {
+                        formula = formula.set_result(value.to_string());
+                    }
+                    let written = if t.has_range {
+                        worksheet.write_dynamic_formula(row, 1, formula)
+                    } else {
+                        worksheet.write_formula(row, 1, formula)
+                    };
+                    written.map_err(|e| {
+                        ForgeError::Export(format!("Failed to write scalar formula: {e}"))
+                    })?;
+                },
+                other => {
+                    if let Some((formula, Err(reason))) = other {
+                        warnings.push(format!(
+                            "@{namespace}.{path}: written as a value ({reason}): {formula}"
+                        ));
+                        notes.push(format!(
+                            "Forge formula: {formula}\nWritten as a value: {reason}"
+                        ));
+                    }
+                    if let Some(value) = var.value {
+                        worksheet.write_number(row, 1, value).map_err(|e| {
+                            ForgeError::Export(format!("Failed to write scalar value: {e}"))
+                        })?;
+                    }
+                },
+            }
 
-        for (idx, name) in scalar_names.iter().enumerate() {
-            #[allow(clippy::cast_possible_truncation)] // scalar count is well within u32 range
-            let row = (idx + 1) as u32;
-
-            if let Some(var) = included_model.scalars.get(*name) {
-                // Write name with namespace prefix
-                let prefixed_name = format!("{namespace}.{name}");
+            if let Some(note_text) = Self::format_metadata_note(&var.metadata) {
+                notes.push(note_text);
+            }
+            if !notes.is_empty() {
+                let note = Note::new(notes.join("\n\n")).set_author("Forge");
                 worksheet
-                    .write_string(row, 0, &prefixed_name)
-                    .map_err(|e| ForgeError::Export(format!("Failed to write scalar name: {e}")))?;
-
-                // Write value (formulas not translated for included scalars yet)
-                if let Some(value) = var.value {
-                    worksheet.write_number(row, 1, value).map_err(|e| {
-                        ForgeError::Export(format!("Failed to write scalar value: {e}"))
-                    })?;
-                }
-
-                // Add metadata as cell note
-                if let Some(note_text) = Self::format_metadata_note(&var.metadata) {
-                    let note = Note::new(note_text).set_author("Forge");
-                    worksheet.insert_note(row, 1, &note).map_err(|e| {
-                        ForgeError::Export(format!("Failed to add scalar note: {e}"))
-                    })?;
-                }
+                    .insert_note(row, 1, &note)
+                    .map_err(|e| ForgeError::Export(format!("Failed to add scalar note: {e}")))?;
             }
         }
 

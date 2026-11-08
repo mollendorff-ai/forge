@@ -24,7 +24,6 @@ Known problems as of 2026-11-07 (what is planned, and in what order, is in the [
 - `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value and lists it.
 - `forge export` does not write `scenarios` (Excel has no equivalent); it lists them as not exported. Keep the YAML file as the source of truth.
 - `forge calculate` cannot evaluate `MC.*` distributions (for example `examples/monte-carlo.yaml`); it says so and points to `forge simulate`.
-- A formula that reads a value from an included file (`@costs.price`) is exported as its calculated number, not as a reference to the include's sheet, so changing that value in Excel changes nothing.
 - Each analytics command has been checked once end to end, on the `examples/bagel` models, against calculations written outside Forge. That is one model each, not broad coverage.
 
 ## The Problem

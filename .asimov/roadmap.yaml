@@ -48,10 +48,10 @@ tier1:
     why: "It found more in one evening than 1,500 unit tests had; make it the rule, not a one-off"
     acceptance: "CONTRIBUTING.md and project.yaml conventions say so; the PR template asks for the example and the outside calculation"
 
-  - id: T1-EXPORT-INCLUDES
-    title: "Excel export: formulas that read included values point at the include's sheet"
-    why: "Today they are written as frozen numbers, so changing the flour price in Excel changes nothing; the include's sheet is already in the workbook"
-    acceptance: "A model with =amount * @costs.price exports a formula referencing 'costs.Scalars'!B2; Gnumeric recalculation of the export matches forge calculate (add the case to forge-e2e-gnumeric); and forge import turns the include's sheet back into an _includes entry and @costs references, instead of a scalar group named costsscalars with dotted keys"
+  - id: T1-E2E-UNJUDGED
+    title: "Say which Gnumeric cases Gnumeric does not calculate"
+    why: "forge export writes 126 of the 1,324 passing forge-e2e-gnumeric cases as values (VARIANCE, BREAKEVEN_*, SCENARIO, LAMBDA, ADDRESS, TODAY, COUNTUNIQUE, and a few names Excel cannot resolve); Gnumeric reads Forge's own number back, so those passes checked nothing against Gnumeric"
+    acceptance: "Each such case either gets an Excel formula that Gnumeric calculates, or a gnumeric_skip that says why; then the harness fails any case written as a value (today it does so only for specs with _gnumeric_must_calculate: true, and reports the rest)"
 
   - id: T1-PROJECT-TRUTH
     title: "Keep .asimov/project.yaml and the architecture docs true"
