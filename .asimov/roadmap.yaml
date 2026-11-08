@@ -58,16 +58,12 @@ tier1:
     why: "The warmup briefed agents on actix-web (the code is axum) and on a no-unwrap convention the code broke in 13 places; a wrong briefing produces confident wrong work"
     acceptance: "project.yaml stack matches Cargo.toml; each convention is either enforced by a lint/test or removed; docs/architecture pages that describe removed designs carry a superseded note at the top (done for xlformula_engine; check the rest)"
 
-  - id: T1-EXAMPLES-OUTPUT
-    title: "EXAMPLES.md shows invented outputs; replace them with real ones"
-    why: "Several output blocks are placeholder digits (45678.91, 245678.90) presented as results, and two examples did not run at all (fixed with ADR-051). A reader, or an LLM, takes them as what Forge prints"
-    acceptance: "Every output block in docs/EXAMPLES.md is produced by running its input block, and a test (like test_mcp_doc_inline_examples_run) runs each input block so they cannot drift"
-
   - id: T1-SCEN-SIM
     title: "Collect the scenario and simulation features the maintainer needs"
     why: "ADR-050 keeps the engines because they are used; the next features should come from that use, not from a list"
     how: "Ask for the models being built and what is awkward in them; write each need as a roadmap item with a worked example before any code"
     acceptance: "Each need is a roadmap item with an example model and the number it should produce, agreed with the maintainer"
+    candidates: "Several thresholds per Monte Carlo output (the old docs promised thresholds: [0, 100000]); simulate reporting which inputs drive an output (the docs promised sensitivity: true; today forge tornado answers that question deterministically)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)

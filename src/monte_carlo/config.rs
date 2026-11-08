@@ -132,6 +132,19 @@ impl MonteCarloConfig {
             return Err(format!("sampling must be one of: {valid_sampling:?}"));
         }
 
+        for output in &self.outputs {
+            if let Some(p) = output.percentiles.iter().find(|p| **p > 100) {
+                return Err(format!(
+                    "output '{}': percentile {p} is not between 0 and 100",
+                    output.variable
+                ));
+            }
+            if let Some(threshold) = &output.threshold {
+                crate::monte_carlo::statistics::parse_threshold(threshold)
+                    .map_err(|e| format!("output '{}': {e}", output.variable))?;
+            }
+        }
+
         for corr in &self.correlations {
             if corr.variables.len() != 2 {
                 return Err("correlation must specify exactly 2 variables".to_string());

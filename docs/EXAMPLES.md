@@ -9,6 +9,8 @@ Real-world usage examples and patterns.
 **Input (pricing.yaml):**
 
 ```yaml
+_forge_version: "5.1.0"
+
 pricing_table:
   product: ["Widget A", "Widget B", "Widget C"]
   base_price: [100, 150, 200]
@@ -24,19 +26,23 @@ forge calculate pricing.yaml
 
 **Output:**
 
-```yaml
-pricing_table:
-  product: ["Widget A", "Widget B", "Widget C"]
-  base_price: [100, 150, 200]
-  discount_rate: [0.10, 0.15, 0.20]
-  final_price: [90.0, 127.5, 160.0]  # Calculated!
 ```
+   📊 Table: pricing_table
+      product = ["Widget A", "Widget B", "Widget C"]
+      base_price = [100, 150, 200]
+      discount_rate = [0.1, 0.15, 0.2]
+      final_price = [90, 127.5, 160]
+```
+
+The results are printed. A table formula stays a formula in the file (`final_price` keeps `=base_price * (1 - discount_rate)`); a scalar formula also gets its result stored next to it (see FEATURES.md, The Model File). `--dry-run` prints without writing anything.
 
 ## Financial Models
 
 ### SaaS Metrics (v1.2.1)
 
 ```yaml
+_forge_version: "5.1.0"
+
 saas_metrics:
   month: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
   mrr: [10000, 12000, 15000, 18000, 22000, 26000]
@@ -53,15 +59,19 @@ summary:
     formula: "=SUM(saas_metrics.arr)"
   
   high_growth_months:
-    formula: "=COUNTIF(saas_metrics.mrr, > 15000)"
+    formula: "=COUNTIF(saas_metrics.mrr, \">15000\")"
   
   avg_ltv_high_growth:
-    formula: "=AVERAGEIF(saas_metrics.mrr, > 15000, saas_metrics.ltv)"
+    formula: "=AVERAGEIF(saas_metrics.mrr, \">15000\", saas_metrics.ltv)"
 ```
+
+`forge calculate` gives `total_arr` 1,236,000 (12 × the six months' MRR, 103,000), `high_growth_months` 3 (April to June are above 15,000) and `avg_ltv_high_growth` 5,800 (the average LTV of those three months). A criterion is a string, as in Excel: `">15000"`.
 
 ### Quarterly P&L
 
 ```yaml
+_forge_version: "5.1.0"
+
 pl_2025_q1:
   month: ["Jan", "Feb", "Mar"]
   revenue: [100000, 120000, 150000]
@@ -81,6 +91,8 @@ summary:
     formula: "=AVERAGE(pl_2025_q1.gross_margin)"
 ```
 
+`forge calculate` gives `total_revenue` 370,000 and `avg_gross_margin` 0.6; `ebitda` is 30,000, 40,000 and 55,000 for the three months.
+
 ### Monte Carlo Simulation (v8.0.0)
 
 **NPV Uncertainty Analysis:**
@@ -97,8 +109,7 @@ monte_carlo:
   outputs:
     - variable: valuation.npv
       percentiles: [10, 50, 90]
-      thresholds: [0, 100000]
-      sensitivity: true
+      threshold: "> 0"
 
 # Probabilistic assumptions
 assumptions:
@@ -136,47 +147,37 @@ valuation:
 **Run simulation:**
 
 ```bash
-forge monte-carlo npv_analysis.yaml --output results.yaml
+forge simulate npv_analysis.yaml
 ```
 
-**Output interpretation:**
+**Output** (`forge simulate npv_analysis.yaml`, trimmed):
 
-```yaml
-monte_carlo_results:
-  valuation.npv:
-    percentiles:
-      p10: -12450.23    # 10% chance NPV is below this
-      p50: 45678.91     # Median outcome (most likely)
-      p90: 98234.56     # 10% chance NPV exceeds this
-
-    thresholds:
-      "0": 0.73         # 73% probability of positive NPV
-      "100000": 0.12    # 12% probability NPV exceeds $100K
-
-    sensitivity:
-      assumptions.revenue_growth: 0.85    # Highest impact (positive)
-      assumptions.initial_cost: -0.62     # Second highest (negative)
-      assumptions.discount_rate: -0.43    # Third highest (negative)
-
-    statistics:
-      mean: 46123.45
-      std_dev: 32456.78
-      min: -45678.12
-      max: 145678.90
 ```
+      valuation.npv:
+         Mean:      87437.4814
+         Median:    88265.5005
+         Std Dev:   17132.3025
+         Min:       34406.0210
+         Max:       146902.3347
+            P10: 64080.8089
+            P50: 88265.5005
+            P90: 109079.7955
+         P(valuation.npv > 0) = 100.00%
+```
+
+Check by hand: at the inputs' averages (growth 15%, initial cost 110,000, rate 10%) the NPV is 87,218; the average of 10,000 runs is 87,437 (close, not equal, because NPV is not linear in the rate). `NPV()` discounts every cash flow, year 0 included, as Excel's does.
 
 **Key insights:**
 
-1. **Risk Assessment**: 73% probability of positive NPV suggests acceptable risk
-2. **Upside Limited**: Only 12% chance of exceeding $100K target
-3. **Key Driver**: Revenue growth (0.85 correlation) is the primary value driver
-4. **Downside Protection**: P10 of -$12.4K represents worst-case scenario
+1. **Risk**: none of the 10,000 runs loses money; even the 10th percentile is about 64,000.
+2. **Spread**: 80% of outcomes fall between about 64,000 and 109,000, so the decision does not hinge on the exact inputs.
+3. **What drives it**: `forge simulate` reports the outcome's spread, not its drivers; run `forge tornado` on the same model with low and high values for each input to see which one matters most.
 
 **Decision framework:**
 
-- **Green light** if P(NPV > 0) > 70% and P10 > -acceptable_loss
-- **Yellow flag** if high sensitivity to uncontrollable variables
-- **Red flag** if P50 < minimum_acceptable_return
+- **Green light** if P(NPV > 0) is high and P10 is above the loss you can accept
+- **Yellow flag** if the result is very sensitive to inputs you cannot control
+- **Red flag** if P50 is below the minimum acceptable return
 
 ### Basic Revenue Forecasting
 
@@ -193,7 +194,7 @@ monte_carlo:
   outputs:
     - variable: forecast.q4_revenue
       percentiles: [10, 25, 50, 75, 90]
-      thresholds: [500000, 750000, 1000000]
+      threshold: "> 750000"
 
 assumptions:
   base_revenue:
@@ -216,23 +217,20 @@ forecast:
 forge simulate revenue_forecast.yaml --output forecast_results.yaml
 ```
 
-**Results interpretation:**
+**Output** (trimmed):
 
-```yaml
-monte_carlo_results:
-  forecast.q4_revenue:
-    percentiles:
-      p10: 573245.12    # Conservative estimate (10th percentile)
-      p25: 614567.89    # Lower bound of likely range
-      p50: 678234.56    # Median forecast
-      p75: 745123.45    # Upper bound of likely range
-      p90: 812456.78    # Optimistic estimate (90th percentile)
-
-    thresholds:
-      "500000": 0.94    # 94% chance of exceeding $500K
-      "750000": 0.32    # 32% chance of exceeding $750K
-      "1000000": 0.04   # 4% chance of exceeding $1M
 ```
+      forecast.q4_revenue:
+         Mean:      703473.4428
+            P10: 610255.8531
+            P25: 651287.8197
+            P50: 701644.4310
+            P75: 751521.9758
+            P90: 799584.7064
+         P(forecast.q4_revenue > 750000) = 25.62%
+```
+
+Check by hand: 600,000 × (1 + 0.1167, the triangular mean) × 1.05 (the uniform mean) = 703,500; the simulated mean is 703,473. One quarter in four beats 750,000; plan on about 650,000 to 750,000 (P25 to P75).
 
 ### Correlated Variables
 
@@ -249,8 +247,7 @@ monte_carlo:
   outputs:
     - variable: financials.net_income
       percentiles: [5, 25, 50, 75, 95]
-      thresholds: [0, 50000, 100000]
-      sensitivity: true
+      threshold: "> 0"
 
     - variable: financials.revenue
       percentiles: [10, 50, 90]
@@ -258,23 +255,19 @@ monte_carlo:
     - variable: financials.margin
       percentiles: [10, 50, 90]
 
-# Correlated revenue and margin scenarios
-# When revenue is high, margins tend to be lower (volume discount effect)
-# Negative correlation of -0.6
-correlated_inputs:
-  revenue_margin:
-    formula: "=MC.Correlated([1000000, 0.30], [150000, 0.05], -0.6)"
-    # [revenue_mean, margin_mean], [revenue_std, margin_std], correlation
+  # Revenue and margin move against each other (volume discounts):
+  # a correlation of -0.6 between the two sampled inputs
+  correlations:
+    - variables: [financials.revenue, financials.margin]
+      coefficient: -0.6
 
 financials:
-  # Extract correlated values
   revenue:
-    formula: "=INDEX(correlated_inputs.revenue_margin, 0)"  # First element
+    formula: "=MC.Normal(1000000, 150000)"
 
   margin:
-    formula: "=INDEX(correlated_inputs.revenue_margin, 1)"  # Second element
+    formula: "=MC.Normal(0.30, 0.05)"
 
-  # Additional independent variables
   fixed_costs:
     formula: "=MC.Normal(200000, 15000)"
 
@@ -294,44 +287,32 @@ forge simulate correlated_model.yaml --output corr_results.yaml
 
 **Understanding correlation:**
 
-- **Positive correlation (+0.6 to +1.0)**: Variables move together (e.g., revenue and costs)
-- **Negative correlation (-0.6 to -1.0)**: Variables move opposite (e.g., volume and price)
-- **No correlation (0)**: Variables are independent
+- **Positive correlation (+0.6 to +1.0)**: the variables move together (revenue and costs)
+- **Negative correlation (-0.6 to -1.0)**: they move in opposite directions (volume and price)
+- **No correlation (0)**: they are independent
 
-**Results show correlated behavior:**
+**Output** (trimmed):
 
-```yaml
-monte_carlo_results:
-  financials.net_income:
-    percentiles:
-      p5: -48234.56     # 5% worst case
-      p25: 67890.12     # Lower quartile
-      p50: 98765.43     # Median
-      p75: 128456.78    # Upper quartile
-      p95: 167234.91    # 5% best case
-
-    thresholds:
-      "0": 0.89         # 89% probability of profit
-      "50000": 0.68     # 68% probability of > $50K profit
-      "100000": 0.41    # 41% probability of > $100K profit
-
-    sensitivity:
-      correlated_inputs.revenue_margin[0]: 0.92   # Revenue is key driver
-      financials.fixed_costs: -0.38               # Costs have negative impact
-      correlated_inputs.revenue_margin[1]: 0.71   # Margin also important
-
-  financials.revenue:
-    percentiles:
-      p10: 823456.78
-      p50: 1001234.56
-      p90: 1178912.34
-
-  financials.margin:
-    percentiles:
-      p10: 0.237        # When revenue is high (p90), margin tends low
-      p50: 0.301        # Median margin
-      p90: 0.364        # When revenue is low (p10), margin tends high
 ```
+      financials.net_income:
+         Mean:      95563.1612
+            P5: 21981.2317
+            P25: 63962.4224
+            P50: 94779.0054
+            P75: 125748.6329
+            P95: 173228.5997
+         P(financials.net_income > 0) = 98.43%
+      financials.revenue:
+            P10: 808766.3382
+            P50: 1000048.2642
+            P90: 1192681.4769
+      financials.margin:
+            P10: 0.2359
+            P50: 0.3000
+            P90: 0.3641
+```
+
+The correlation shows in the mean, not in each input's own percentiles: E[revenue × margin] = 1,000,000 × 0.30 + (−0.6 × 150,000 × 0.05) = 295,500, so the expected net income is 295,500 − 200,000 = 95,500 (the simulation gives 95,563). Without the correlation it would be 100,000: high revenue coming with lower margins costs about 4,500 on average.
 
 ### Multiple Output Tracking
 
@@ -349,18 +330,17 @@ monte_carlo:
     # Track profitability with detailed percentiles
     - variable: metrics.ebitda
       percentiles: [1, 5, 10, 25, 50, 75, 90, 95, 99]
-      thresholds: [0, 100000, 200000, 300000]
-      sensitivity: true
+      threshold: "> 0"
 
     # Track ROI with key percentiles only
     - variable: metrics.roi
       percentiles: [10, 50, 90]
-      thresholds: [0.10, 0.15, 0.20]  # 10%, 15%, 20% return thresholds
+      threshold: "> 0.15"  # chance of a return above 15%
 
     # Track payback period
     - variable: metrics.payback_years
       percentiles: [25, 50, 75]
-      thresholds: [2.0, 3.0, 5.0]  # Years to payback
+      threshold: "< 3"  # chance of paying back within 3 years
 
     # Track revenue (no sensitivity needed)
     - variable: projections.year_1_revenue
@@ -414,76 +394,44 @@ metrics:
 forge simulate multi_output.yaml --output multi_results.yaml
 ```
 
-**Results with multiple outputs:**
+**Output** (trimmed):
 
-```yaml
-monte_carlo_results:
-  metrics.ebitda:
-    percentiles:
-      p1: -87654.32     # Extreme downside
-      p5: -34567.89
-      p10: -12345.67
-      p25: 34567.89
-      p50: 78901.23     # Median EBITDA
-      p75: 123456.78
-      p90: 167890.12
-      p95: 198765.43
-      p99: 245678.90    # Extreme upside
-
-    thresholds:
-      "0": 0.67         # 67% chance of positive EBITDA
-      "100000": 0.38    # 38% chance of > $100K EBITDA
-      "200000": 0.09    # 9% chance of > $200K EBITDA
-      "300000": 0.01    # 1% chance of > $300K EBITDA
-
-    sensitivity:
-      assumptions.market_share: 0.88        # Market share is critical
-      assumptions.market_size: 0.72         # Market size important
-      assumptions.avg_price: 0.45           # Price has moderate impact
-      assumptions.unit_cost: -0.41          # Costs negatively impact
-      assumptions.opex: -0.38               # OpEx negatively impacts
-
-  metrics.roi:
-    percentiles:
-      p10: -0.025       # -2.5% return (10th percentile)
-      p50: 0.158        # 15.8% median return
-      p90: 0.334        # 33.4% return (90th percentile)
-
-    thresholds:
-      "0.10": 0.71      # 71% chance of > 10% ROI
-      "0.15": 0.54      # 54% chance of > 15% ROI
-      "0.20": 0.32      # 32% chance of > 20% ROI
-
-  metrics.payback_years:
-    percentiles:
-      p25: 3.21         # Fast payback (25th percentile)
-      p50: 6.34         # Median payback
-      p75: 14.56        # Slow payback (75th percentile)
-
-    thresholds:
-      "2.0": 0.08       # 8% chance of 2-year payback
-      "3.0": 0.21       # 21% chance of 3-year payback
-      "5.0": 0.45       # 45% chance of 5-year payback
-
-  projections.year_1_revenue:
-    percentiles:
-      p10: 323456.78
-      p50: 578901.23
-      p90: 867234.56
 ```
+      metrics.ebitda:
+         Mean:      64708.0114
+            P1: -100507.2091
+            P5: -58395.8111
+            P25: 4950.9948
+            P50: 56764.3989
+            P75: 116586.8545
+            P95: 213680.4184
+            P99: 289681.6702
+         P(metrics.ebitda > 0) = 77.20%
+      metrics.payback_years:
+         Median:    8.8083
+            P25: 4.2886
+            P75: 100.9898
+         P(metrics.payback_years < 3) = 11.86%
+      metrics.roi:
+            P10: -0.0698
+            P50: 0.1135
+            P90: 0.3518
+         P(metrics.roi > 0.15) = 41.62%
+      projections.year_1_revenue:
+         Mean:      549468.9215
+            P10: 354324.1950
+            P50: 533585.4917
+            P90: 766406.2371
+```
+
+Check by hand: revenue averages 5,000,000 × 0.11 (the triangular mean of the share) = 550,000; the simulation gives 549,469.
 
 **Multi-output decision making:**
 
-1. **EBITDA Analysis**: 67% chance of profitability, but only 38% chance of hitting $100K target
-2. **ROI Analysis**: 54% chance of exceeding 15% return threshold - acceptable for moderate risk
-3. **Payback Analysis**: 45% chance of 5-year payback - longer than preferred 3-year target
-4. **Key Lever**: Market share (0.88 sensitivity) is the critical success factor
-
-**Recommended actions:**
-
-- Focus resources on market share acquisition (highest sensitivity)
-- Plan for median payback of 6.3 years, not optimistic 3-year case
-- Set internal target at P25-P50 range, not P90 optimistic scenario
+1. **EBITDA**: positive in 77% of runs, but the median (about 57,000) is below the mean (about 65,000), so most outcomes are modest and a few are large.
+2. **ROI**: 42% chance of beating 15%; the median return is 11%.
+3. **Payback**: only 12% chance of paying back within 3 years; the median is about 9 years. When EBITDA is zero or negative the model sets payback to 999, which is why the mean payback (248 years) is meaningless here: use the median and the probability.
+4. **Next step**: `forge tornado` shows which input moves EBITDA most.
 
 ### Cost Estimation with Triangular Distribution
 
@@ -496,20 +444,22 @@ monte_carlo:
   enabled: true
   iterations: 5000
   sampling: latin_hypercube
+  seed: 7
   outputs:
     - variable: project.total_cost
       percentiles: [10, 50, 90, 95, 99]
-      thresholds: [250000, 300000, 350000, 400000]
+      threshold: "> 350000"
 
-# Triangular distributions based on expert estimates
+# Triangular distributions based on expert estimates: (minimum, most likely, maximum)
 phases:
-  phase: ["Design", "Development", "Testing", "Deployment"]
-
-  # Cost estimates: [minimum, most_likely, maximum]
-  design_cost: "=MC.Triangular(40000, 50000, 75000)"
-  dev_cost: "=MC.Triangular(120000, 150000, 220000)"
-  test_cost: "=MC.Triangular(30000, 40000, 60000)"
-  deploy_cost: "=MC.Triangular(15000, 20000, 35000)"
+  design_cost:
+    formula: "=MC.Triangular(40000, 50000, 75000)"
+  dev_cost:
+    formula: "=MC.Triangular(120000, 150000, 220000)"
+  test_cost:
+    formula: "=MC.Triangular(30000, 40000, 60000)"
+  deploy_cost:
+    formula: "=MC.Triangular(15000, 20000, 35000)"
 
 # Risk factors
 risks:
@@ -521,7 +471,7 @@ risks:
 
 project:
   base_cost:
-    formula: "=SUM(phases.design_cost) + SUM(phases.dev_cost) + SUM(phases.test_cost) + SUM(phases.deploy_cost)"
+    formula: "=phases.design_cost + phases.dev_cost + phases.test_cost + phases.deploy_cost"
 
   total_cost:
     formula: "=base_cost * risks.scope_creep * risks.resource_availability"
@@ -533,40 +483,34 @@ project:
 forge simulate project_cost.yaml --output cost_results.yaml
 ```
 
-**Cost estimation results:**
+**Output** (`forge simulate project_cost.yaml`, trimmed):
 
-```yaml
-monte_carlo_results:
-  project.total_cost:
-    percentiles:
-      p10: 218765.43    # Optimistic (10% chance lower)
-      p50: 287654.32    # Median estimate - use for planning
-      p90: 389012.45    # Conservative (10% chance higher)
-      p95: 427890.12    # Risk reserve level
-      p99: 512345.67    # Extreme scenario
-
-    thresholds:
-      "250000": 0.72    # 72% chance of staying under $250K
-      "300000": 0.52    # 52% chance of staying under $300K
-      "350000": 0.32    # 32% chance of staying under $350K
-      "400000": 0.21    # 21% chance of staying under $400K
-
-    statistics:
-      mean: 295432.10
-      std_dev: 78901.23
 ```
+      project.total_cost:
+         Mean:      358064.4719
+            P10: 304332.6095
+            P50: 355350.5458
+            P90: 416021.1895
+            P95: 435343.4332
+            P99: 470931.1788
+         P(project.total_cost > 350000) = 55.26%
+```
+
+Check by hand: the phases average 55,000 + 163,333 + 43,333 + 23,333 = 285,000 (each triangular mean is (min + mode + max) / 3), and the two risk factors average 1.125 and 1.117, so the expected cost is 285,000 × 1.125 × 1.117 = 358,031; the simulation gives 358,064.
 
 **Budgeting recommendations:**
 
-- **Budget at P75-P90**: Set budget at $350K-$390K for 75-90% confidence
-- **Contingency**: $287K (P50) + $100K (35% buffer) = $387K aligns with P90
-- **Board presentation**: "Project cost $290K ± $100K" (mean ± 1 std dev)
+- **A 350,000 budget is a coin flip**: 55% of runs exceed it.
+- **Budget at P90 (about 416,000)** for 90% confidence, or hold a contingency of about 60,000 on top of the 355,000 median.
+- **The most likely phase costs add up to only 260,000**: the risk factors and the long right tails are why the expected cost is almost 100,000 more.
 
 ## Advanced Features
 
 ### Cross-Table References
 
 ```yaml
+_forge_version: "5.1.0"
+
 assumptions:
   tax_rate: 0.25
 
@@ -598,13 +542,15 @@ forge import temp.xlsx model_roundtrip.yaml
 forge calculate model_roundtrip.yaml  # Same numbers as model.yaml
 ```
 
-The round-tripped file calculates to the same values, but it is not byte-identical: keys are sorted and formulas respaced. Formulas that Excel or Forge cannot express come back as values, and both commands list them.
+The round-tripped file calculates to the same values and keeps the model's order, but it is not byte-identical: comments are not in the workbook, and formulas are respaced. Formulas that Excel or Forge cannot express come back as values, and both commands list them.
 
 ## Common Patterns
 
 ### Conditional Logic
 
 ```yaml
+_forge_version: "5.1.0"
+
 pricing:
   volume: [10, 50, 100, 500]
   base_price: [100, 95, 90, 85]
@@ -615,6 +561,8 @@ pricing:
 ### Multi-Criteria Filtering (v1.2.1)
 
 ```yaml
+_forge_version: "5.1.0"
+
 sales:
   region: ["North", "South", "North", "West", "East"]
   category: ["Tech", "Tech", "Furniture", "Tech", "Furniture"]
@@ -628,6 +576,8 @@ analysis:
 ### Precision Control (v1.2.1)
 
 ```yaml
+_forge_version: "5.1.0"
+
 calculations:
   raw_values: [123.456, 789.123, 456.789]
   rounded: "=ROUND(raw_values, 2)"
@@ -782,7 +732,7 @@ decision_tree:
 
         failure:
           probability: 0.40
-          value: -2000000  # Terminal: lose R&D investment
+          value: 0  # Terminal: nothing more; the $2M is already on the invest branch
 
     commercialize:
       type: decision
@@ -800,54 +750,32 @@ decision_tree:
 **Run:**
 
 ```bash
-forge decision-tree rnd_decision.yaml --output decision_results.yaml
+forge decision-tree rnd_decision.yaml
 ```
 
-**Output:**
+**Output** (trimmed):
 
-```yaml
-decision_results:
-  tree: "R&D Investment Decision"
-
-  # Optimal path (rollback from leaves)
-  optimal_path:
-    - node: "root"
-      decision: "invest"
-      expected_value: 200000
-      reasoning: "EV of investing ($200K) > not investing ($0)"
-
-    - node: "tech_outcome"
-      outcome: "success (60%) or failure (40%)"
-      expected_value: 2200000  # Before subtracting initial $2M cost
-
-    - node: "commercialize"
-      decision: "manufacture"
-      expected_value: 5000000  # $8M revenue - $3M cost
-      reasoning: "Manufacturing ($5M net) > licensing ($5M)"
-
-  # Expected value calculations
-  rollback:
-    commercialize:
-      license: 5000000
-      manufacture: 5000000  # max(5M, 5M) - choose either
-      optimal: "manufacture"  # Slight edge if revenues differ
-
-    tech_outcome:
-      success_branch: 5000000  # Value of optimal commercialization
-      failure_branch: -2000000
-      expected: 2200000  # 0.6 * 5M + 0.4 * (-2M) = 3M - 0.8M = 2.2M
-
-    root:
-      invest: 200000  # 2.2M - 2M investment = 200K
-      dont_invest: 0
-      optimal: "invest"
-
-  recommendation:
-    decision: "INVEST in R&D"
-    expected_npv: 200000
-    optimal_strategy: "If successful, choose manufacturing over licensing"
-    risk: "40% chance of losing $2M investment"
 ```
+   Optimal Path:
+      → Invest in R&D? → invest
+      → Technology works? → (await outcome)
+      →   if success →
+      →     How to commercialize? → license
+
+   Expected Value: $1000000.00
+
+   Decision Policy:
+      At "commercialize": choose "license"
+         ⚠️ equally good: manufacture (the expected values are the same; the choice is not made by the numbers)
+      At "root": choose "invest"
+
+   Risk Profile:
+      Best case:  $3000000.00
+      Worst case: $-2000000.00
+      P(value > 0): 60.0%
+```
+
+Check by hand: licensing is worth 5,000,000 and manufacturing 8,000,000 − 3,000,000 = 5,000,000, a tie; so success is worth 5,000,000, and investing is worth 0.6 × 5,000,000 + 0.4 × 0 − 2,000,000 = 1,000,000. Best case 5,000,000 − 2,000,000 = 3,000,000; worst case −2,000,000.
 
 **Use case explanation:**
 
@@ -857,7 +785,7 @@ Decision trees excel when:
 - You need to find the optimal strategy before taking action
 - Explaining decision logic to stakeholders
 
-**Key insight**: Even with 40% failure risk, the expected value ($200K) is positive. The tree shows the optimal path: invest, and if successful, manufacture.
+**Key insight**: invest. The expected value is 1,000,000 against 0 for walking away, with a 40% chance of losing the 2,000,000 R&D cost. Licensing and manufacturing tie, and Forge says so instead of picking one silently: the numbers do not decide between them, so the choice comes down to what the tree leaves out, such as the extra 3,000,000 of capital and risk that manufacturing needs.
 
 ---
 
@@ -940,9 +868,9 @@ tornado:
       base: 0.25  # Current rate
 
     - name: "assumptions.working_capital"
-      low: 0.10  # Efficient WC management
-      high: 0.20  # Higher WC needs
-      base: 0.15  # Base assumption
+      low: 0.05  # Efficient WC management
+      high: 0.15  # Higher WC needs
+      base: 0.10  # Base assumption
 
 # Model (simplified NPV calculation)
 assumptions:
@@ -954,7 +882,7 @@ assumptions:
 
   tax_rate: 0.25
 
-  working_capital: 0.15
+  working_capital: 0.10
 
 cash_flows:
   year: [0, 1, 2, 3, 4, 5]
@@ -975,86 +903,21 @@ valuation:
 **Run:**
 
 ```bash
-forge tornado npv_sensitivity.yaml --output tornado_results.yaml
+forge tornado npv_sensitivity.yaml
 ```
 
 **Output:**
 
-```yaml
-tornado_results:
-  output_variable: "valuation.npv"
-  base_value: 1234567.89
-
-  # Sorted by absolute swing (most impactful first)
-  sensitivity_bars:
-    - input: "assumptions.revenue_growth"
-      low_value: 0.02
-      low_output: 784567.12  # NPV with 2% growth
-      high_value: 0.08
-      high_output: 1684567.89  # NPV with 8% growth
-      swing: 450000.38  # Half the range: (1684567 - 784567) / 2
-      abs_swing: 450000.38
-      pct_swing: 36.4%  # Relative to base NPV
-      rank: 1
-
-    - input: "assumptions.discount_rate"
-      low_value: 0.08
-      low_output: 1554567.23
-      high_value: 0.12
-      high_output: 914567.34
-      swing: -320000.06  # Negative: high discount rate lowers NPV
-      abs_swing: 320000.06
-      pct_swing: 25.9%
-      rank: 2
-
-    - input: "assumptions.operating_margin"
-      low_value: 0.15
-      low_output: 1054567.45
-      high_value: 0.25
-      high_output: 1414567.90
-      swing: 180000.23
-      abs_swing: 180000.23
-      pct_swing: 14.6%
-      rank: 3
-
-    - input: "assumptions.tax_rate"
-      low_value: 0.20
-      low_output: 1309567.12
-      high_value: 0.30
-      high_output: 1159567.45
-      swing: -75000.34
-      abs_swing: 75000.34
-      pct_swing: 6.1%
-      rank: 4
-
-    - input: "assumptions.working_capital"
-      low_value: 0.10
-      low_output: 1274567.34
-      high_value: 0.20
-      high_output: 1194567.78
-      swing: -40000.28
-      abs_swing: 40000.28
-      pct_swing: 3.2%
-      rank: 5
-
-# ASCII visualization
-diagram: |
-  NPV Sensitivity Analysis (Base: $1,234,568)
-
-  Revenue Growth    |████████████████████| ± $450K (36%)
-  Discount Rate     |██████████████      | ± $320K (26%)
-  Operating Margin  |██████████          | ± $180K (15%)
-  Tax Rate          |████                | ± $75K (6%)
-  Working Capital   |██                  | ± $40K (3%)
-
-# Key insights
-insights:
-  top_drivers: ["revenue_growth", "discount_rate"]
-  combined_impact: "Top 2 drivers explain 62% of variance"
-  recommendation: "Focus due diligence on market growth assumptions and cost of capital"
-  low_impact: ["working_capital"]
-  low_impact_note: "Working capital has <5% impact - use reasonable estimate"
 ```
+   Base value: 287711.48
+   assumptions.operating_margin |██████████████████████████████| swing 148572.32  (output 213425.32 at low, 361997.64 at high)
+   assumptions.discount_rate    |████████                      | swing 40958.89  (output 309199.00 at low, 268240.11 at high)
+   assumptions.tax_rate         |███████                       | swing 39619.29  (output 307521.12 at low, 267901.83 at high)
+   assumptions.working_capital  |█                             | swing 9433.16  (output 292428.06 at low, 282994.90 at high)
+   assumptions.revenue_growth   |█                             | swing 5659.90  (output 284881.53 at low, 290541.43 at high)
+```
+
+Every bar matches a separate calculation of the same cash flows in Python (base NPV 287,711.48; margin at 15% and 25% gives 213,425.32 and 361,997.64).
 
 **Use case explanation:**
 
@@ -1064,7 +927,7 @@ Tornado diagrams are essential for:
 - Validating models (unexpected sensitivities indicate errors)
 - Deciding where to spend due diligence effort
 
-**Key insight**: Revenue growth and discount rate drive 62% of NPV variance. Focus analysis there; don't waste time refining working capital assumptions.
+**Key insight**: operating margin is 61% of the total swing; get it right before refining anything else. Revenue growth barely matters in this model, because it is a one-off uplift on each year's revenue rather than compounding growth, and part of the gain is eaten by the extra working capital. A tornado diagram can show a structural fact like this that intuition would get wrong.
 
 ---
 
@@ -1151,7 +1014,7 @@ Bootstrap resampling is powerful when:
 - You want to avoid parametric assumptions
 - Validating results from parametric models
 
-**Key insight**: With 95% confidence, expected monthly return is 1.93% to 5.31% (annualized: 23% to 64%). Bootstrap accounts for data shape without assuming normality.
+**Key insight**: with 95% confidence the average monthly return is between 1.58% and 4.22% (about 19% to 51% a year, simply × 12). Bootstrap gets this from the data alone, without assuming a normal distribution.
 
 ---
 

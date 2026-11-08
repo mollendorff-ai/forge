@@ -8,10 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **`docs/EXAMPLES.md` showed invented outputs, and most of its models did not run.** The Monte Carlo, decision-tree, tornado and bootstrap sections printed placeholder numbers (`45678.91`, `245678.90`) as Forge's output and drew conclusions from them ("73% probability of positive NPV"; it is 100%). Every Monte Carlo model used settings that do not exist (`thresholds:` lists, `sensitivity: true`, `MC.Correlated`, distributions in table columns); the SaaS example used `COUNTIF(x, > 15000)` for `">15000"`; the Quick Start claimed `calculate` replaces table formulas with numbers; the decision tree counted the R&D cost twice and called a tie a win; the tornado model made revenue growth cancel out exactly while the text named it the top driver; and one example ran `forge monte-carlo`, which does not exist. All models now run, every output block is what Forge prints, the conclusions follow from it, and each section has a check by hand.
+- **`monte_carlo` ignored `percentiles`**: an output always showed P5 to P95, so a requested P1 or P99 never appeared. The requested ones are now added. A percentile above 100, or a `threshold` Forge cannot read (it was silently skipped), is now an error.
 - **Formulas in multi-document files could not refer to any table or scalar group** (ADR-052). Names were stored as `document.name`, but formulas were left as written, so `=SUM(sales.tax)` and even `=totals.tax * 2` in the same document were unknown. The documents of a file now share one namespace: a formula uses any document's tables and scalars by their usual names. A name defined in two documents is an error naming both, and a formula that starts with a document label says what to write instead.
 - **`forge calculate` did not write results into multi-document files.** It now does, document by document, with the same in-place editing and checks as for one file.
 - **`forge import --split-files` wrote files whose formulas could not work** when one part used another's table or scalars. It now refuses before writing anything and lists the formulas; a self-contained model is still split.
 - **`forge import --split-files` and `--multi-doc` wrote files that did not validate** for any workbook with a table: they declared `_forge_version: "1.0.0"`, which allows no tables. They now declare 5.1.0. Formulas that refer across the split documents still do not resolve (each document is read under its own name); FEATURES.md says so and the roadmap has it.
+
+### Added
+- **`tests/doc_examples.rs`** runs every model in docs/EXAMPLES.md with the command its sections call for, and checks every number in the output block after it against the actual result at the precision shown (16 models, 109 numbers); it also checks the real-options and Bayesian tables against their example files. A planted wrong number fails it.
 
 ### Changed
 - **Result names in multi-document models no longer start with the document's `_name`** (`totals.tax`, not `summary.totals.tax`); `_name` is a label. Dotted table names, which only came from that prefix, no longer arise.
