@@ -1384,7 +1384,9 @@ forge import spreadsheet.xlsx output.yaml
 - A sheet whose header is `Name`, `Value` becomes a scalar group; any other sheet becomes a table.
 - References are translated with every sheet's layout, so `'assumptions'!$B$3` comes back as `assumptions.base_revenue` and a column range as `table.column`.
 - A formula Forge cannot express (a reference to another row, a single cell of a table in a scalar formula, named ranges) is imported as its value, with a warning.
-- A model exported with `forge export` and imported again calculates to the same numbers (tested on the examples and the forge-e2e-gnumeric models). The YAML itself is not identical: keys are sorted and formulas are respaced.
+- The YAML is model format 5.1.0: an input is a plain number (`price: 16`), a formula keeps its last result (`{formula: "=...", value: 600000}`), and whole numbers stay whole.
+- A model exported with `forge export` and imported again calculates to the same numbers (tested on the examples and the forge-e2e-gnumeric models). The YAML keeps the model's order but is not identical: comments are not in the workbook, and formulas are respaced.
+- `--split-files` and `--multi-doc` write each table and the scalars as separate documents. Formulas that reference another document do not resolve, because each document is read under its own name; use the default single file for a model whose parts refer to each other.
 
 ---
 
