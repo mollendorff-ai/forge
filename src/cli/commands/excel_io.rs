@@ -217,8 +217,71 @@ pub fn import_core(
     })
 }
 
+/// `--split-files` writes each table, and the scalars, as files of their own,
+/// which cannot refer to each other. Refuse, before writing anything, when a
+/// formula in one part names a table or scalar group in another (ADR-052).
+fn check_split_is_self_contained(model: &crate::types::ParsedModel) -> ForgeResult<()> {
+    // The part each table or scalar group goes to: a table's own file, or scalars.yaml
+    let mut part_of: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    for name in model.tables.keys() {
+        part_of.insert(name.clone(), format!("{name}.yaml"));
+    }
+    for path in model.scalars.keys() {
+        let group = path.split_once('.').map_or(path.as_str(), |(g, _)| g);
+        part_of
+            .entry(group.to_string())
+            .or_insert_with(|| "scalars.yaml".to_string());
+    }
+    let formulas = model
+        .scalars
+        .iter()
+        .filter_map(|(n, v)| {
+            v.formula
+                .as_deref()
+                .map(|f| (n.clone(), "scalars.yaml".to_string(), f))
+        })
+        .chain(model.tables.iter().flat_map(|(t, table)| {
+            table
+                .row_formulas
+                .iter()
+                .map(move |(c, f)| (format!("{t}.{c}"), format!("{t}.yaml"), f.as_str()))
+        }));
+    let mut crossing = Vec::new();
+    for (owner, own_part, formula) in formulas {
+        for word in formula.split(|c: char| !(c.is_alphanumeric() || matches!(c, '_' | '.'))) {
+            let Some((first, _)) = word.split_once('.') else {
+                continue;
+            };
+            if let Some(part) = part_of.get(first) {
+                if *part != own_part {
+                    crossing.push(format!("{owner} ({own_part}) uses {word} ({part})"));
+                    break;
+                }
+            }
+        }
+    }
+    if crossing.is_empty() {
+        return Ok(());
+    }
+    Err(ForgeError::Import(format!(
+        "--split-files would break {} formula{}, because separate files cannot refer to each \
+         other: {}{}. Nothing was written. Import without --split-files (one file), \
+         or with --multi-doc (one file, one document per sheet)",
+        crossing.len(),
+        if crossing.len() == 1 { "" } else { "s" },
+        crossing
+            .iter()
+            .take(3)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("; "),
+        if crossing.len() > 3 { "; ..." } else { "" }
+    )))
+}
+
 /// Write split files without printing (for core function)
 fn write_split_files_quiet(output: &Path, model: crate::types::ParsedModel) -> ForgeResult<()> {
+    check_split_is_self_contained(&model)?;
     fs::create_dir_all(output).map_err(ForgeError::Io)?;
     for (table_name, table) in &model.tables {
         let mut table_model = crate::types::ParsedModel::new();
@@ -363,6 +426,7 @@ fn write_split_files(
     model: crate::types::ParsedModel,
     verbose: bool,
 ) -> ForgeResult<()> {
+    check_split_is_self_contained(&model)?;
     fs::create_dir_all(output).map_err(ForgeError::Io)?;
     for (table_name, table) in &model.tables {
         let mut table_model = crate::types::ParsedModel::new();
@@ -611,6 +675,44 @@ g:
             let diffs = round_trip(&file).unwrap_or_else(|e| panic!("{example}: {e}"));
             assert!(diffs.is_empty(), "{example}: {diffs:#?}");
         }
+    }
+
+    /// ADR-052: `--multi-doc` gives the same numbers as one file, and
+    /// `--split-files` refuses a model whose parts refer to each other.
+    #[test]
+    fn multi_doc_import_calculates_like_one_file_and_split_refuses() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let model =
+            calculate(parser::parse_model(&root.join("examples/bagel/bagel.yaml")).unwrap())
+                .unwrap();
+        let dir = tempfile::TempDir::new().unwrap();
+        let xlsx = dir.path().join("m.xlsx");
+        ExcelExporter::new(model).export(&xlsx).unwrap();
+
+        let single = dir.path().join("single.yaml");
+        let multi = dir.path().join("multi.yaml");
+        import_core(&xlsx, &single, false, false).unwrap();
+        import_core(&xlsx, &multi, false, true).unwrap();
+        let a = calculate(parser::parse_model(&single).unwrap()).unwrap();
+        let b = calculate(parser::parse_model(&multi).unwrap()).unwrap();
+        assert_eq!(a.scalars.len(), b.scalars.len());
+        for (name, var) in &a.scalars {
+            assert_eq!(var.value, b.scalars[name].value, "{name}");
+        }
+        for (name, table) in &a.tables {
+            assert_eq!(
+                format!("{:?}", table.columns),
+                format!("{:?}", b.tables[name].columns),
+                "{name}"
+            );
+        }
+
+        let split = dir.path().join("split");
+        let err = import_core(&xlsx, &split, true, false)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("--split-files would break"), "{err}");
+        assert!(!split.exists(), "nothing may be written");
     }
 
     /// `forge import` writes model format 5.1.0, without nulls (ADR-051).

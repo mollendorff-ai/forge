@@ -50,6 +50,12 @@ How Forge reads a group under a top-level key: it is a **table** if any entry is
 
 ---
 
+### Several documents in one file
+
+A file can hold several YAML documents separated by `---`, each with its own `_forge_version` and an optional `_name`. They are one model laid out in parts (ADR-052): a formula in one document uses tables and scalars from any other by their usual names (`=SUM(sales.amount)`), and `forge calculate` writes each result into the document that holds its formula. A name defined in two documents is an error; two versions of the same model (a budget and an actual) belong in two files, which `forge variance` compares.
+
+---
+
 ## Core Features
 
 ### Formula Evaluation
@@ -1386,7 +1392,7 @@ forge import spreadsheet.xlsx output.yaml
 - A formula Forge cannot express (a reference to another row, a single cell of a table in a scalar formula, named ranges) is imported as its value, with a warning.
 - The YAML is model format 5.1.0: an input is a plain number (`price: 16`), a formula keeps its last result (`{formula: "=...", value: 600000}`), and whole numbers stay whole.
 - A model exported with `forge export` and imported again calculates to the same numbers (tested on the examples and the forge-e2e-gnumeric models). The YAML keeps the model's order but is not identical: comments are not in the workbook, and formulas are respaced.
-- `--split-files` and `--multi-doc` write each table and the scalars as separate documents. Formulas that reference another document do not resolve, because each document is read under its own name; use the default single file for a model whose parts refer to each other.
+- `--multi-doc` writes one file with a document per sheet; it calculates exactly like the single file (ADR-052). `--split-files` writes a file per sheet, and refuses, writing nothing, when a formula in one part uses another part's table or scalars, since separate files cannot refer to each other's tables.
 
 ---
 

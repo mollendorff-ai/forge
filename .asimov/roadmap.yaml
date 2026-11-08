@@ -51,7 +51,7 @@ tier1:
   - id: T1-EXPORT-INCLUDES
     title: "Excel export: formulas that read included values point at the include's sheet"
     why: "Today they are written as frozen numbers, so changing the flour price in Excel changes nothing; the include's sheet is already in the workbook"
-    acceptance: "A model with =amount * @costs.price exports a formula referencing 'costs.Scalars'!B2; Gnumeric recalculation of the export matches forge calculate (add the case to forge-e2e-gnumeric)"
+    acceptance: "A model with =amount * @costs.price exports a formula referencing 'costs.Scalars'!B2; Gnumeric recalculation of the export matches forge calculate (add the case to forge-e2e-gnumeric); and forge import turns the include's sheet back into an _includes entry and @costs references, instead of a scalar group named costsscalars with dotted keys"
 
   - id: T1-PROJECT-TRUTH
     title: "Keep .asimov/project.yaml and the architecture docs true"
@@ -94,11 +94,6 @@ tier2:
     title: "forge audit reads included values and table formulas fully"
     why: "The tree now keeps dotted names whole, but @namespace values show as Unknown"
     acceptance: "audit on the bagel example shows @costs.* leaves with their values and source file"
-
-  - id: T2-MULTIDOC-REFS
-    title: "Formulas resolve across documents of a multi-document model"
-    why: "forge import --split-files / --multi-doc split a model into documents, and every document is read under its own name, so months.revenue in the scalars document is an unknown column; the default single-file import is unaffected"
-    acceptance: "Importing the bagel export with --multi-doc gives a file that calculates to the same numbers as the single-file import"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done and at least two people use it)

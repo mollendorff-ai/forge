@@ -51,94 +51,129 @@ pub fn parse_single_document_yaml(content: &str, path: &Path) -> ForgeResult<Par
     Ok(model)
 }
 
-/// Parse a multi-document YAML file (v4.4.2)
-/// Each document is parsed and merged into a single model.
-/// Document names come from _name field or are auto-generated as "doc1", "doc2", etc.
+/// Parse a multi-document YAML file (ADR-052).
+///
+/// The documents are one model laid out in parts: their tables, scalars and
+/// scenarios share one namespace, so a formula in one document refers to a
+/// table or scalar in another exactly as it would in a single file
+/// (`=SUM(sales.amount)`). A name defined in two documents is an error that
+/// names both. `_name` labels a document (it is not part of any name);
+/// documents without one are labelled `doc1`, `doc2`, ...
 ///
 /// # Errors
 ///
-/// Returns an error if any document in the file contains invalid YAML or fails
-/// schema validation.
+/// Returns an error if any document is invalid YAML or fails schema
+/// validation, or if two documents define the same table, scalar or scenario.
 pub fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedModel> {
     let mut merged_model = ParsedModel::new();
+    // Which document defined each name, for the collision message
+    let mut defined_in: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     let mut doc_index = 0;
 
-    // Split by document separator lines (--- on its own line)
-    let docs = split_yaml_documents(content);
-
-    for doc_content in docs {
+    for doc_content in split_yaml_documents(content) {
         let doc_content = doc_content.trim();
-        if doc_content.is_empty() {
-            continue;
-        }
-
-        // Skip if it's just comments
-        let non_comment_content: String = doc_content
+        let has_content = doc_content
             .lines()
-            .filter(|line| !line.trim().starts_with('#') && !line.trim().is_empty())
-            .collect::<Vec<_>>()
-            .join("\n");
-        if non_comment_content.is_empty() {
+            .any(|line| !line.trim().starts_with('#') && !line.trim().is_empty());
+        if !has_content {
             continue;
         }
-
         doc_index += 1;
 
-        // Parse the document
-        let yaml: Value = match yaml_serde::from_str(doc_content) {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(ForgeError::Parse(format!(
-                    "Failed to parse document {doc_index}: {e}"
-                )));
-            },
-        };
-
+        let yaml: Value = yaml_serde::from_str(doc_content)
+            .map_err(|e| ForgeError::Parse(format!("Failed to parse document {doc_index}: {e}")))?;
         let doc_model = parse_v1_model(&yaml)?;
-
-        // Get document name from _name field or generate one
         let doc_name = if let Some(Value::String(name)) = yaml.get("_name") {
             name.clone()
         } else {
             format!("doc{doc_index}")
         };
 
-        // Merge tables with document prefix
+        let mut claim = |kind: &str, name: &str| -> ForgeResult<()> {
+            let key = format!("{kind}:{name}");
+            if let Some(first) = defined_in.get(&key) {
+                return Err(ForgeError::Validation(format!(
+                    "{kind} '{name}' is defined in document '{first}' and again in '{doc_name}'. \
+                     The documents of a file share one set of names; rename one, or put the \
+                     two in separate files (and compare them with forge variance)"
+                )));
+            }
+            defined_in.insert(key, doc_name.clone());
+            Ok(())
+        };
+
         for (table_name, table) in doc_model.tables {
-            let prefixed_name = format!("{doc_name}.{table_name}");
-            let mut prefixed_table = table;
-            prefixed_table.name.clone_from(&prefixed_name);
-            merged_model.tables.insert(prefixed_name, prefixed_table);
+            claim("Table", &table_name)?;
+            merged_model.tables.insert(table_name, table);
         }
-
-        // Merge scalars with document prefix
-        for (scalar_name, mut scalar) in doc_model.scalars {
-            let prefixed_name = format!("{doc_name}.{scalar_name}");
-            scalar.path.clone_from(&prefixed_name);
-            merged_model.scalars.insert(prefixed_name, scalar);
+        for (scalar_name, scalar) in doc_model.scalars {
+            claim("Scalar", &scalar_name)?;
+            merged_model.scalars.insert(scalar_name, scalar);
         }
-
-        // Merge includes (keep original, they'll be resolved with proper paths)
-        for include in doc_model.includes {
-            merged_model.includes.push(include);
-        }
-
-        // Merge scenarios
         for (scenario_name, scenario) in doc_model.scenarios {
-            let prefixed_name = format!("{doc_name}.{scenario_name}");
-            merged_model.scenarios.insert(prefixed_name, scenario);
+            claim("Scenario", &scenario_name)?;
+            merged_model.scenarios.insert(scenario_name, scenario);
         }
-
-        // Store document metadata
+        merged_model.includes.extend(doc_model.includes);
         merged_model.documents.push(doc_name);
     }
 
-    // Resolve includes if any (v4.0)
+    // A group of scalars and a table with the same name would read the same
+    // `name.x` two ways
+    for table in merged_model.tables.keys() {
+        let prefix = format!("{table}.");
+        if let Some(scalar) = merged_model.scalars.keys().find(|s| s.starts_with(&prefix)) {
+            return Err(ForgeError::Validation(format!(
+                "'{table}' is both a table and the group of scalar '{scalar}'; rename one"
+            )));
+        }
+    }
+
+    check_document_labels_in_formulas(&merged_model)?;
+
     if !merged_model.includes.is_empty() {
         resolve_includes(&mut merged_model, path, &mut HashSet::new())?;
     }
 
     Ok(merged_model)
+}
+
+/// Before ADR-052 names were stored as `document.name`. A formula written that
+/// way (`=SUM(data.sales.amount)` for document `data`) gets a clear message.
+fn check_document_labels_in_formulas(model: &ParsedModel) -> ForgeResult<()> {
+    let is_group = |name: &str| {
+        model.tables.contains_key(name)
+            || model.scalars.contains_key(name)
+            || model
+                .scalars
+                .keys()
+                .any(|s| s.starts_with(&format!("{name}.")))
+    };
+    let formulas = model
+        .scalars
+        .iter()
+        .filter_map(|(n, v)| v.formula.as_deref().map(|f| (n.clone(), f)))
+        .chain(model.tables.iter().flat_map(|(t, table)| {
+            table
+                .row_formulas
+                .iter()
+                .map(move |(c, f)| (format!("{t}.{c}"), f.as_str()))
+        }));
+    for (owner, formula) in formulas {
+        for word in formula.split(|c: char| !(c.is_alphanumeric() || matches!(c, '_' | '.'))) {
+            let Some((first, rest)) = word.split_once('.') else {
+                continue;
+            };
+            if !rest.is_empty() && model.documents.iter().any(|d| d == first) && !is_group(first) {
+                return Err(ForgeError::Validation(format!(
+                    "{owner}: '{word}' starts with the document label '{first}'. The documents \
+                     of a file share one set of names, so write '{rest}'"
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Split YAML content into separate documents by "---" separator lines
@@ -247,8 +282,8 @@ expenses:
         let content = std::fs::read_to_string(temp_file.path()).unwrap();
         let result = parse_multi_document_yaml(&content, temp_file.path()).unwrap();
 
-        assert!(result.tables.contains_key("revenue.data"));
-        assert!(result.tables.contains_key("costs.expenses"));
+        assert!(result.tables.contains_key("data"));
+        assert!(result.tables.contains_key("expenses"));
         assert_eq!(result.documents.len(), 2);
         assert!(result.documents.contains(&"revenue".to_string()));
         assert!(result.documents.contains(&"costs".to_string()));
@@ -272,8 +307,9 @@ data2:
         let content = std::fs::read_to_string(temp_file.path()).unwrap();
         let result = parse_multi_document_yaml(&content, temp_file.path()).unwrap();
 
-        assert!(result.tables.contains_key("doc1.data1"));
-        assert!(result.tables.contains_key("doc2.data2"));
+        assert!(result.tables.contains_key("data1"));
+        assert!(result.tables.contains_key("data2"));
+        assert_eq!(result.documents, ["doc1", "doc2"]);
     }
 
     #[test]
@@ -297,8 +333,8 @@ values:
         let content = std::fs::read_to_string(temp_file.path()).unwrap();
         let result = parse_multi_document_yaml(&content, temp_file.path()).unwrap();
 
-        assert!(result.scalars.contains_key("config.rate"));
-        assert!(result.tables.contains_key("data.values"));
+        assert!(result.scalars.contains_key("rate"));
+        assert!(result.tables.contains_key("values"));
     }
 
     #[test]
@@ -377,7 +413,7 @@ scenarios:
 ---
 _name: doc2
 _forge_version: "5.0.0"
-budget:
+spending:
   costs: [500, 600]
 scenarios:
   pessimistic:
@@ -389,8 +425,8 @@ scenarios:
 
         let content = std::fs::read_to_string(temp_file.path()).unwrap();
         let result = parse_multi_document_yaml(&content, temp_file.path()).unwrap();
-        assert!(result.scenarios.contains_key("doc1.optimistic"));
-        assert!(result.scenarios.contains_key("doc2.pessimistic"));
+        assert!(result.scenarios.contains_key("optimistic"));
+        assert!(result.scenarios.contains_key("pessimistic"));
     }
 
     #[test]
@@ -413,5 +449,49 @@ sales:
         assert_eq!(result.tables.len(), 1);
         let sales = result.tables.get("sales").unwrap();
         assert_eq!(sales.row_count(), 3);
+    }
+
+    fn parse_str(text: &str) -> ForgeResult<ParsedModel> {
+        let mut f = NamedTempFile::with_suffix(".yaml").unwrap();
+        f.write_all(text.as_bytes()).unwrap();
+        crate::parser::parse_model(f.path())
+    }
+
+    /// ADR-052: one namespace; a formula in one document uses another's names
+    #[test]
+    fn formulas_refer_across_documents() {
+        let model = parse_str(
+            "---\n_forge_version: \"5.1.0\"\n_name: data\nsales:\n  amount: [100, 200]\n  tax: \"=amount * 0.1\"\n---\n_forge_version: \"5.1.0\"\n_name: summary\ntotals:\n  tax:\n    formula: \"=SUM(sales.tax)\"\n  double:\n    formula: \"=totals.tax * 2\"\n",
+        )
+        .unwrap();
+        assert_eq!(model.documents, ["data", "summary"]);
+        let calc = crate::core::ArrayCalculator::new(model)
+            .calculate_all()
+            .unwrap();
+        assert_eq!(calc.scalars["totals.tax"].value, Some(30.0));
+        assert_eq!(calc.scalars["totals.double"].value, Some(60.0));
+    }
+
+    #[test]
+    fn a_name_in_two_documents_is_an_error() {
+        let err = parse_str(
+            "---\n_forge_version: \"5.1.0\"\n_name: budget\nrevenue:\n  total: 100\n---\n_forge_version: \"5.1.0\"\n_name: actual\nrevenue:\n  total: 90\n",
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            err.contains("'revenue.total' is defined in document 'budget' and again in 'actual'"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn a_document_label_in_a_formula_is_explained() {
+        let err = parse_str(
+            "---\n_forge_version: \"5.1.0\"\n_name: data\nsales:\n  amount: [1, 2]\n---\n_forge_version: \"5.1.0\"\n_name: summary\nt:\n  s:\n    formula: \"=SUM(data.sales.amount)\"\n",
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("so write 'sales.amount'"), "{err}");
     }
 }

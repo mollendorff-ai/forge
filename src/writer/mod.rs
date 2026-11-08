@@ -14,8 +14,8 @@ use std::path::Path;
 
 /// Write the results of formula scalars into the model file.
 ///
-/// Returns `None` if the file is a multi-document YAML (not written), or
-/// `Some(n)` with the number of values that changed. The file is rewritten,
+/// Returns the number of values that changed. Multi-document files are
+/// written document by document (ADR-052). The file is rewritten,
 /// and a `.yaml.bak` made, only if at least one value changed.
 ///
 /// # Errors
@@ -23,14 +23,9 @@ use std::path::Path;
 /// Returns an error if the file cannot be read or written, or if the results
 /// cannot be written without changing anything else in the file (then the
 /// file is left as it was).
-pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResult<Option<usize>> {
+pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResult<usize> {
     let content = fs::read_to_string(path)?;
-    let content_trimmed = content.trim_start();
-
-    // Multi-document files are not written back
-    if content_trimmed.starts_with("---") && content_trimmed[3..].contains("\n---") {
-        return Ok(None);
-    }
+    let multi_doc = crate::parser::detect_multi_document(&content);
 
     let values: Vec<(in_place::ScalarPath, f64)> = result
         .scalars
@@ -42,7 +37,12 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
         })
         .collect();
 
-    let edited = in_place::set_values(&content, &values).map_err(|e| {
+    let edited = if multi_doc {
+        in_place::set_values_multi(&content, &values)
+    } else {
+        in_place::set_values(&content, &values)
+    }
+    .map_err(|e| {
         ForgeError::Validation(format!(
             "{}: results not written, the file is unchanged: {e}",
             path.display()
@@ -51,13 +51,13 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
 
     let changed = count_changed(&content, &edited);
     if changed == 0 {
-        return Ok(Some(0));
+        return Ok(0);
     }
 
     let backup_path = path.with_extension("yaml.bak");
     fs::copy(path, &backup_path)?;
     fs::write(path, edited)?;
-    Ok(Some(changed))
+    Ok(changed)
 }
 
 /// The number of lines that differ (each changed or added result is one).
@@ -112,7 +112,7 @@ mod tests {
             ("inputs.price", Some(16.0), None),
             ("out.revenue", Some(1600.0), Some("=inputs.price * 100")),
         ]);
-        assert_eq!(write_calculated_results(f.path(), &model).unwrap(), Some(1));
+        assert_eq!(write_calculated_results(f.path(), &model).unwrap(), 1);
         let after = fs::read_to_string(f.path()).unwrap();
         assert_eq!(
             after,
@@ -127,18 +127,25 @@ mod tests {
         let text = "out:\n  total:\n    formula: \"=1 + 1\"\n    value: 2\n";
         let f = file_with(text);
         let model = model_with(&[("out.total", Some(2.0), Some("=1 + 1"))]);
-        assert_eq!(write_calculated_results(f.path(), &model).unwrap(), Some(0));
+        assert_eq!(write_calculated_results(f.path(), &model).unwrap(), 0);
         assert_eq!(fs::read_to_string(f.path()).unwrap(), text);
         assert!(!f.path().with_extension("yaml.bak").exists());
     }
 
     #[test]
-    fn skips_multidoc() {
-        let f = file_with("---\nfirst: 1\n---\nsecond: 2\n");
+    fn writes_into_the_document_that_has_the_scalar() {
+        let text = "---\n_forge_version: \"5.1.0\"\n_name: a\nx:\n  n: 2\n---\n_forge_version: \"5.1.0\"\n_name: b\n# keep\ny:\n  m:\n    formula: \"=x.n * 3\"\n";
+        let f = file_with(text);
+        let model = model_with(&[
+            ("x.n", Some(2.0), None),
+            ("y.m", Some(6.0), Some("=x.n * 3")),
+        ]);
+        assert_eq!(write_calculated_results(f.path(), &model).unwrap(), 1);
         assert_eq!(
-            write_calculated_results(f.path(), &ParsedModel::new()).unwrap(),
-            None
+            fs::read_to_string(f.path()).unwrap(),
+            format!("{text}    value: 6\n")
         );
+        let _ = fs::remove_file(f.path().with_extension("yaml.bak"));
     }
 
     #[test]
