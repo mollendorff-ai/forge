@@ -6,7 +6,6 @@ use super::binomial::BinomialTree;
 use super::black_scholes::BlackScholes;
 use super::config::{OptionDefinition, OptionType, RealOptionsConfig, ValuationMethod};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Result for a single option
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,7 +41,7 @@ pub struct OptionsResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub traditional_npv: Option<f64>,
     /// Individual option results
-    pub options: HashMap<String, OptionResult>,
+    pub options: std::collections::BTreeMap<String, OptionResult>,
     /// Option whose project value is highest. Option values overlap (waiting and
     /// expanding both depend on the same project), so they are never added up.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -117,7 +116,7 @@ impl RealOptionsEngine {
     ///
     /// Returns an error if any option valuation fails.
     pub fn analyze(&self) -> Result<OptionsResult, String> {
-        let mut option_results = HashMap::new();
+        let mut option_results = std::collections::BTreeMap::new();
         let mut best: Option<(String, f64)> = None;
 
         for option in &self.config.options {
@@ -334,7 +333,7 @@ impl RealOptionsEngine {
     /// Generate recommendation text
     fn generate_recommendation(
         &self,
-        options: &HashMap<String, OptionResult>,
+        options: &std::collections::BTreeMap<String, OptionResult>,
         best: Option<&(String, f64)>,
     ) -> String {
         let mut parts = Vec::new();

@@ -1,0 +1,23 @@
+_forge_version: "5.0.0"
+# Bagel Lune: a slow week. Was it the rain, or the roadwork on the street? (fictional)
+# sales has two parents; each CPT row names one state of each, in order.
+bayesian_network:
+  name: "Why was the week slow?"
+  nodes:
+    weather:
+      type: discrete
+      states: ["rainy", "dry"]
+      prior: [0.3, 0.7]
+    roadwork:
+      type: discrete
+      states: ["yes", "no"]
+      prior: [0.2, 0.8]
+    sales:
+      type: discrete
+      states: ["slow", "normal"]
+      parents: ["weather", "roadwork"]
+      cpt:
+        "rainy, yes": [0.9, 0.1]
+        "rainy, no": [0.6, 0.4]
+        "dry, yes": [0.7, 0.3]
+        "dry, no": [0.15, 0.85]

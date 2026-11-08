@@ -26,6 +26,44 @@ use super::types::{
     SensitivityRequest, SimulateRequest, TornadoRequest, ValidateRequest, VarianceRequest,
 };
 
+/// The bootstrap result without the full list of resampled statistics.
+///
+/// The list has one number per iteration (10,000 by default, about 37,000
+/// tokens), which fills an agent's context for no gain. Nine percentiles of the
+/// same sorted list describe its shape; `forge bootstrap --output` still writes
+/// every value.
+fn compact_bootstrap(result: &crate::bootstrap::BootstrapResult) -> serde_json::Value {
+    let mut value = serde_json::to_value(result).unwrap_or_default();
+    let sorted = &result.distribution;
+    if let Some(map) = value.as_object_mut() {
+        map.remove("distribution");
+        if !sorted.is_empty() {
+            let at = |p: f64| {
+                #[allow(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    clippy::cast_precision_loss
+                )]
+                let i = ((p * (sorted.len() - 1) as f64).round() as usize).min(sorted.len() - 1);
+                sorted[i]
+            };
+            let percentiles: Vec<serde_json::Value> = [1, 5, 10, 25, 50, 75, 90, 95, 99]
+                .iter()
+                .map(|p| serde_json::json!({"percentile": p, "value": at(f64::from(*p) / 100.0)}))
+                .collect();
+            map.insert(
+                "distribution_percentiles".to_string(),
+                serde_json::Value::Array(percentiles),
+            );
+            map.insert(
+                "distribution_size".to_string(),
+                serde_json::json!(sorted.len()),
+            );
+        }
+    }
+    value
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SERVER
 // ═══════════════════════════════════════════════════════════════════════════
@@ -365,7 +403,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_bootstrap",
-        description = "Non-parametric bootstrap resampling for confidence intervals. Returns original estimate, bootstrap mean, std error, bias, and confidence intervals."
+        description = "Non-parametric bootstrap resampling for confidence intervals. Returns original estimate, bootstrap mean, std error, bias, confidence intervals and nine percentiles of the bootstrap distribution (not every resample)."
     )]
     fn bootstrap(&self, Parameters(req): Parameters<BootstrapRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
@@ -376,9 +414,9 @@ impl ForgeMcpServer {
         #[allow(clippy::cast_possible_truncation)]
         let iterations = req.iterations.map(|n| n as usize);
 
-        bootstrap_core(&path, iterations, req.seed, req.confidence_levels)
-            .map(|r| to_json(&r))
-            .map_err(|e| format!("Bootstrap analysis failed: {e}"))
+        let result = bootstrap_core(&path, iterations, req.seed, req.confidence_levels)
+            .map_err(|e| format!("Bootstrap analysis failed: {e}"))?;
+        Ok(to_json(&compact_bootstrap(&result)))
     }
 
     #[tool(

@@ -18,7 +18,11 @@ pub struct VarianceResult {
     pub actual: f64,
     pub variance: f64,
     pub variance_pct: f64,
-    pub is_favorable: bool,
+    /// `None` when Forge cannot tell whether higher or lower is better
+    pub is_favorable: Option<bool>,
+    /// "higher", "lower" or "unknown": which way is good, and so how
+    /// `is_favorable` was decided
+    pub better: &'static str,
     pub exceeds_threshold: bool,
 }
 
@@ -32,8 +36,6 @@ pub fn compare_core(
     file: &Path,
     scenarios: &[String],
 ) -> ForgeResult<super::results::ComparisonResult> {
-    use std::collections::HashMap;
-
     let base_model = parser::parse_model(file)?;
 
     for scenario_name in scenarios {
@@ -54,16 +56,17 @@ pub fn compare_core(
         results.push((scenario_name.clone(), calculated));
     }
 
-    let mut all_scalars: Vec<String> = results
-        .iter()
-        .flat_map(|(_, m)| m.scalars.keys().cloned())
-        .collect();
-    all_scalars.sort();
-    all_scalars.dedup();
+    // Model order, the same on every run
+    let mut all_scalars: Vec<String> = Vec::new();
+    for name in results.iter().flat_map(|(_, m)| m.scalars.keys()) {
+        if !all_scalars.contains(name) {
+            all_scalars.push(name.clone());
+        }
+    }
 
-    let mut values: HashMap<String, HashMap<String, Option<f64>>> = HashMap::new();
+    let mut values = indexmap::IndexMap::new();
     for scalar_name in &all_scalars {
-        let mut scenario_values = HashMap::new();
+        let mut scenario_values = indexmap::IndexMap::new();
         for (scenario_name, result_model) in &results {
             let val = result_model.scalars.get(scalar_name).and_then(|v| v.value);
             scenario_values.insert(scenario_name.clone(), val);
@@ -189,10 +192,13 @@ pub fn variance_core(
     let actual_calculator = ArrayCalculator::new(actual_model);
     let actual_result = actual_calculator.calculate_all()?;
 
-    let variances = collect_variances(&budget_result, &actual_result, threshold);
+    let (variances, not_compared) = collect_variances(&budget_result, &actual_result, threshold);
 
-    let favorable_count = variances.iter().filter(|v| v.is_favorable).count();
-    let unfavorable_count = variances.len() - favorable_count;
+    let changed = || variances.iter().filter(|v| !on_target(v));
+    let favorable_count = changed().filter(|v| v.is_favorable == Some(true)).count();
+    let unfavorable_count = changed().filter(|v| v.is_favorable == Some(false)).count();
+    let no_direction_count = changed().filter(|v| v.is_favorable.is_none()).count();
+    let on_target_count = variances.iter().filter(|v| on_target(v)).count();
     let alert_count = variances.iter().filter(|v| v.exceeds_threshold).count();
 
     let entries = variances
@@ -204,6 +210,7 @@ pub fn variance_core(
             variance: v.variance,
             variance_pct: v.variance_pct,
             is_favorable: v.is_favorable,
+            better: v.better.to_string(),
             exceeds_threshold: v.exceeds_threshold,
         })
         .collect();
@@ -212,8 +219,11 @@ pub fn variance_core(
         results: entries,
         favorable_count,
         unfavorable_count,
+        no_direction_count,
+        on_target_count,
         alert_count,
         threshold,
+        not_compared,
     })
 }
 
@@ -254,7 +264,7 @@ pub fn variance(
     let actual_calculator = ArrayCalculator::new(actual_model);
     let actual_result = actual_calculator.calculate_all()?;
 
-    let variances = collect_variances(&budget_result, &actual_result, threshold);
+    let (variances, not_compared) = collect_variances(&budget_result, &actual_result, threshold);
 
     // Handle output
     if let Some(output_path) = output {
@@ -294,68 +304,135 @@ pub fn variance(
     }
 
     // Summary
-    let favorable_count = variances.iter().filter(|v| v.is_favorable).count();
-    let unfavorable_count = variances.len() - favorable_count;
+    let count = |f: Option<bool>| {
+        variances
+            .iter()
+            .filter(|v| !on_target(v) && v.is_favorable == f)
+            .count()
+    };
     let alert_count = variances.iter().filter(|v| v.exceeds_threshold).count();
 
     println!();
     println!(
-        "   {} Favorable: {}  {} Unfavorable: {}  {} Alerts (>{:.0}%): {}",
+        "   {} Favorable: {}  {} Unfavorable: {}  · No direction: {}  = On target: {}  {} Alerts (>{:.0}%): {}",
         "✅".green(),
-        favorable_count.to_string().green(),
+        count(Some(true)).to_string().green(),
         "❌".red(),
-        unfavorable_count.to_string().red(),
+        count(Some(false)).to_string().red(),
+        count(None),
+        variances.iter().filter(|v| on_target(v)).count(),
         "⚠️".yellow(),
         threshold,
         alert_count.to_string().yellow()
     );
+    if count(None) > 0 {
+        println!(
+            "   For a scalar with no direction, add `better: lower` (costs) or `better: higher` to it."
+        );
+    }
+    if !not_compared.is_empty() {
+        println!(
+            "   Not compared (missing or empty in one model): {}",
+            not_compared.join(", ")
+        );
+    }
 
     Ok(())
 }
 
-/// Collect scalar variances between budget and actual calculation results
+/// Which way is good for a scalar: its `better:` field in either model, or
+/// else a word in its name that clearly means a cost or a result.
+fn better_direction(
+    name: &str,
+    budget: &crate::types::Variable,
+    actual: &crate::types::Variable,
+) -> &'static str {
+    let declared = budget
+        .metadata
+        .better
+        .as_deref()
+        .or(actual.metadata.better.as_deref());
+    match declared {
+        Some("lower") => return "lower",
+        Some("higher") => return "higher",
+        _ => {},
+    }
+    let last = name.rsplit('.').next().unwrap_or(name).to_lowercase();
+    let words: Vec<&str> = last.split('_').collect();
+    let has = |list: &[&str]| words.iter().any(|w| list.contains(w));
+    if has(&[
+        "cost",
+        "costs",
+        "cogs",
+        "expense",
+        "expenses",
+        "opex",
+        "capex",
+        "rent",
+        "wage",
+        "wages",
+        "salary",
+        "salaries",
+        "payroll",
+        "labour",
+        "labor",
+        "fee",
+        "fees",
+        "tax",
+        "taxes",
+        "interest",
+        "depreciation",
+        "spend",
+        "debt",
+    ]) {
+        "lower"
+    } else if has(&[
+        "revenue", "revenues", "sales", "profit", "income", "margin", "ebit", "ebitda", "npv",
+        "irr",
+    ]) {
+        "higher"
+    } else {
+        "unknown"
+    }
+}
+
+/// Collect scalar variances between budget and actual calculation results.
+///
+/// Returns the variances, and the names that are in only one of the models
+/// (those are not compared: treating a missing value as 0 would invent one).
 fn collect_variances(
     budget_result: &crate::types::ParsedModel,
     actual_result: &crate::types::ParsedModel,
     threshold: f64,
-) -> Vec<VarianceResult> {
-    let mut all_scalars: Vec<String> = budget_result
-        .scalars
-        .keys()
-        .chain(actual_result.scalars.keys())
-        .cloned()
-        .collect();
-    all_scalars.sort();
-    all_scalars.dedup();
-
+) -> (Vec<VarianceResult>, Vec<String>) {
     let mut variances = Vec::new();
-    for name in &all_scalars {
-        let budget_val = budget_result
-            .scalars
-            .get(name)
-            .and_then(|v| v.value)
-            .unwrap_or(0.0);
-        let actual_val = actual_result
-            .scalars
-            .get(name)
-            .and_then(|v| v.value)
-            .unwrap_or(0.0);
+    let mut not_compared = Vec::new();
+
+    for (name, budget_scalar) in &budget_result.scalars {
+        let Some(actual_scalar) = actual_result.scalars.get(name) else {
+            not_compared.push(name.clone());
+            continue;
+        };
+        let (Some(budget_val), Some(actual_val)) = (budget_scalar.value, actual_scalar.value)
+        else {
+            not_compared.push(name.clone());
+            continue;
+        };
 
         let variance_abs = actual_val - budget_val;
+        // Divide by the size of the budget, so a worse result is negative
+        // even when the budget itself is negative (a loss, a negative NPV).
         let variance_pct = if budget_val.abs() > 0.0001 {
-            (variance_abs / budget_val) * 100.0
+            (variance_abs / budget_val.abs()) * 100.0
         } else {
             0.0
         };
 
-        // Determine favorability (heuristic based on name)
-        let is_expense = name.to_lowercase().contains("expense")
-            || name.to_lowercase().contains("cost")
-            || name.to_lowercase().contains("cogs");
-        let is_favorable = if is_expense {
-            actual_val <= budget_val // Lower expenses = favorable
-        } else {
-            actual_val >= budget_val // Higher revenue/profit = favorable
+        let better = better_direction(name, budget_scalar, actual_scalar);
+        let is_favorable = match better {
+            "lower" => Some(actual_val <= budget_val),
+            "higher" => Some(actual_val >= budget_val),
+            _ => None,
         };
 
         let exceeds_threshold = variance_pct.abs() >= threshold;
@@ -367,10 +444,36 @@ fn collect_variances(
             variance: variance_abs,
             variance_pct,
             is_favorable,
+            better,
             exceeds_threshold,
         });
     }
-    variances
+    for name in actual_result.scalars.keys() {
+        if !budget_result.scalars.contains_key(name) {
+            not_compared.push(name.clone());
+        }
+    }
+    (variances, not_compared)
+}
+
+#[allow(clippy::float_cmp)] // exactly on budget, not "close"
+fn on_target(v: &VarianceResult) -> bool {
+    v.actual == v.budget
+}
+
+/// The status word for a variance, for the terminal, Excel and YAML reports.
+fn variance_status(v: &VarianceResult) -> &'static str {
+    if on_target(v) {
+        return "On target";
+    }
+    match (v.exceeds_threshold, v.is_favorable) {
+        (true, Some(false)) => "ALERT - Unfavorable",
+        (true, Some(true)) => "ALERT - Favorable",
+        (true, None) => "ALERT - Changed",
+        (false, Some(true)) => "Favorable",
+        (false, Some(false)) => "Unfavorable",
+        (false, None) => "No direction",
+    }
 }
 
 /// Print variance results as a table
@@ -395,26 +498,23 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
         let var_str = format_number(v.variance);
         let pct_str = format!("{:.1}%", v.variance_pct);
 
-        let status = if v.exceeds_threshold && !v.is_favorable {
-            "⚠️ ❌".to_string()
-        } else if v.exceeds_threshold {
-            "⚠️ ✅".to_string()
-        } else if v.is_favorable {
-            "✅".to_string()
+        let mark = match v.is_favorable {
+            _ if on_target(v) => "=",
+            Some(true) => "✅",
+            Some(false) => "❌",
+            None => "·",
+        };
+        let status = if v.exceeds_threshold {
+            format!("⚠️ {mark}")
         } else {
-            "❌".to_string()
+            mark.to_string()
         };
 
         // Color the variance based on favorability
-        let var_colored = if v.is_favorable {
-            var_str.green()
-        } else {
-            var_str.red()
-        };
-        let pct_colored = if v.is_favorable {
-            pct_str.green()
-        } else {
-            pct_str.red()
+        let (var_colored, pct_colored) = match v.is_favorable {
+            Some(true) => (var_str.green(), pct_str.green()),
+            Some(false) => (var_str.red(), pct_str.red()),
+            None => (var_str.normal(), pct_str.normal()),
         };
 
         println!(
@@ -490,16 +590,7 @@ pub fn export_variance_to_excel(
         worksheet.write_number(row, 3, v.variance).ok();
         worksheet.write_number(row, 4, v.variance_pct / 100.0).ok(); // As decimal for %
 
-        let status = if v.exceeds_threshold && !v.is_favorable {
-            "ALERT - Unfavorable"
-        } else if v.exceeds_threshold {
-            "ALERT - Favorable"
-        } else if v.is_favorable {
-            "Favorable"
-        } else {
-            "Unfavorable"
-        };
-        worksheet.write_string(row, 5, status).ok();
+        worksheet.write_string(row, 5, variance_status(v)).ok();
     }
 
     // Add metadata row
@@ -510,7 +601,11 @@ pub fn export_variance_to_excel(
         .write_string(meta_row, 0, format!("Threshold: {threshold}%"))
         .ok();
     worksheet
-        .write_string(meta_row + 1, 0, "Generated by Forge v2.3.0")
+        .write_string(
+            meta_row + 1,
+            0,
+            concat!("Generated by Forge v", env!("CARGO_PKG_VERSION")),
+        )
         .ok();
 
     workbook
@@ -534,7 +629,11 @@ pub fn export_variance_to_yaml(
 
     let mut content = String::new();
     content.push_str("# Forge Variance Analysis Report\n");
-    content.push_str("# Generated by Forge v2.3.0\n");
+    content.push_str(concat!(
+        "# Generated by Forge v",
+        env!("CARGO_PKG_VERSION"),
+        "\n"
+    ));
     let _ = writeln!(content, "# Threshold: {threshold}%\n");
 
     content.push_str("metadata:\n");
@@ -543,7 +642,10 @@ pub fn export_variance_to_yaml(
     let _ = writeln!(
         content,
         "  favorable_count: {}",
-        variances.iter().filter(|v| v.is_favorable).count()
+        variances
+            .iter()
+            .filter(|v| !on_target(v) && v.is_favorable == Some(true))
+            .count()
     );
     let _ = writeln!(
         content,
@@ -558,7 +660,12 @@ pub fn export_variance_to_yaml(
         let _ = writeln!(content, "    actual: {}", v.actual);
         let _ = writeln!(content, "    variance: {}", v.variance);
         let _ = writeln!(content, "    variance_pct: {:.2}", v.variance_pct);
-        let _ = writeln!(content, "    is_favorable: {}", v.is_favorable);
+        let favorable = v
+            .is_favorable
+            .map_or_else(|| "null".to_string(), |f| f.to_string());
+        let _ = writeln!(content, "    is_favorable: {favorable}");
+        let _ = writeln!(content, "    better: {}", v.better);
+        let _ = writeln!(content, "    status: {}", variance_status(v));
         let _ = writeln!(content, "    exceeds_threshold: {}", v.exceeds_threshold);
     }
 

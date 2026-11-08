@@ -1,0 +1,77 @@
+_forge_version: "5.0.0"
+# Bagel Lune: should we open a second shop in Verdun? (fictional)
+# Values are the net present value of the next three years of profit,
+# before the decision's own costs (which are on the branches).
+decision_tree:
+  name: "Second shop"
+  root:
+    type: decision
+    name: "Second shop?"
+    branches:
+      open_now:
+        cost: 180000
+        next: demand_now
+      popup_first:
+        cost: 12000
+        next: popup_result
+      stay_one_shop:
+        value: 0
+  nodes:
+    demand_now:
+      type: chance
+      name: "Verdun demand, opening blind"
+      branches:
+        strong:
+          probability: 0.45
+          value: 420000
+        weak:
+          probability: 0.55
+          value: 90000
+    popup_result:
+      type: chance
+      name: "Three-month pop-up stall"
+      branches:
+        busy:
+          probability: 0.5
+          next: open_after_busy
+        quiet:
+          probability: 0.5
+          next: open_after_quiet
+    open_after_busy:
+      type: decision
+      name: "Open after a busy pop-up?"
+      branches:
+        open:
+          cost: 190000
+          next: demand_after_busy
+        walk_away:
+          value: 0
+    open_after_quiet:
+      type: decision
+      name: "Open after a quiet pop-up?"
+      branches:
+        open:
+          cost: 190000
+          next: demand_after_quiet
+        walk_away:
+          value: 0
+    demand_after_busy:
+      type: chance
+      name: "Demand, after a busy pop-up"
+      branches:
+        strong:
+          probability: 0.8
+          value: 400000
+        weak:
+          probability: 0.2
+          value: 85000
+    demand_after_quiet:
+      type: chance
+      name: "Demand, after a quiet pop-up"
+      branches:
+        strong:
+          probability: 0.1
+          value: 400000
+        weak:
+          probability: 0.9
+          value: 85000

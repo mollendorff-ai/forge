@@ -19,6 +19,11 @@ pub struct NodeResult {
     pub optimal_choice: Option<String>,
     /// Branch values
     pub branch_values: BTreeMap<String, f64>,
+    /// Other branches of a decision node worth exactly as much as the
+    /// optimal one. `optimal_choice` picks the first by name; these are
+    /// equally good, so the choice between them is not made by the numbers.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tied_with: Vec<String>,
 }
 
 /// Complete tree analysis result
@@ -185,12 +190,25 @@ impl DecisionTreeEngine {
             },
         };
 
+        let tied_with: Vec<String> = match (&optimal_choice, node.node_type) {
+            (Some(best), NodeType::Decision) => branch_values
+                .iter()
+                .filter(|(name, value)| {
+                    *name != best
+                        && (**value - expected_value).abs() <= 1e-9 * expected_value.abs().max(1.0)
+                })
+                .map(|(name, _)| name.clone())
+                .collect(),
+            _ => Vec::new(),
+        };
+
         let result = NodeResult {
             name: node.name.clone(),
             node_type: node.node_type,
             expected_value,
             optimal_choice,
             branch_values,
+            tied_with,
         };
 
         results.insert(name.to_string(), result.clone());

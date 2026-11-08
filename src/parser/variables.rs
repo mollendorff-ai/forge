@@ -120,6 +120,9 @@ pub fn parse_metadata(map: &yaml_serde::Mapping) -> Metadata {
         last_updated: map
             .get("last_updated")
             .and_then(|v| v.as_str().map(std::string::ToString::to_string)),
+        better: map
+            .get("better")
+            .and_then(|v| v.as_str().map(std::string::ToString::to_string)),
     }
 }
 

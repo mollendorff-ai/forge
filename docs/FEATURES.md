@@ -610,6 +610,27 @@ forge calculate revenue_model.yaml --scenario bull_case --dry-run
 
 For each scenario: its probability, its description, every scalar's value (`scalars`) and the calculated ones (`outputs`, the scalars that have a formula). Across scenarios: the probability-weighted `expected_values`, and for each output its `ranges` (lowest and highest) and `probability_positive` (the total probability of the scenarios where it is above zero). The MCP `forge_scenarios` tool returns the same fields as JSON.
 
+## Budget vs Actual (`forge variance`)
+
+`forge variance budget.yaml actual.yaml` calculates both models and compares every scalar they share: the actual, the budget, the difference, and the difference as a percentage of the size of the budget (so a result that got worse is negative even when the budget is negative, such as a planned loss).
+
+Whether a difference is good depends on the scalar. Forge decides it in this order:
+
+1. A `better:` field on the scalar, in either file: `better: lower` for costs, hours, churn; `better: higher` for revenue, profit, customers.
+2. A word in the scalar's last name segment that clearly means a cost (`cost`, `cogs`, `expense`, `opex`, `rent`, `wage`, `salary`, `payroll`, `labour`, `fee`, `tax`, `interest`, `depreciation`, `spend`, `debt`) or a result (`revenue`, `sales`, `profit`, `income`, `margin`, `ebit`, `ebitda`, `npv`, `irr`).
+3. Otherwise the direction is unknown: the variance is reported with `is_favorable: null` and status "No direction", never guessed.
+
+```yaml
+assumptions:
+  staff_hours_per_day:
+    value: 34
+    better: lower
+```
+
+A value exactly on budget is "On target" and is not counted as favorable. A scalar that is missing, or empty, in one of the two files is listed under `not_compared` rather than compared with 0. `--threshold` (default 10) marks variances whose percentage is at least that large. `-o report.xlsx` or `-o report.yaml` writes the table. The MCP `forge_variance` tool returns the same fields, with `better` on each entry.
+
+`examples/bagel/bagel.yaml` (the plan) and `examples/bagel/actual.yaml` (what happened) are a worked pair.
+
 ---
 
 ## Decision Trees (v8.4.0)

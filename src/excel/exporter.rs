@@ -542,6 +542,7 @@ mod tests {
             source: Some("finance.yaml".to_string()),
             validation_status: Some("PROJECTED".to_string()),
             last_updated: Some("2025-11-26".to_string()),
+            better: None,
         };
         let note = ExcelExporter::format_metadata_note(&metadata).unwrap();
         assert!(note.contains("Unit: CAD"));
@@ -880,6 +881,7 @@ mod tests {
             source: Some("finance.yaml".to_string()),
             validation_status: Some("VALIDATED".to_string()),
             last_updated: Some("2024-01-01".to_string()),
+            better: None,
         };
 
         table.add_column(Column::with_metadata(
@@ -1131,6 +1133,7 @@ mod tests {
             source: Some("test.yaml".to_string()),
             validation_status: Some("PENDING".to_string()),
             last_updated: Some("2025-12-04".to_string()),
+            better: None,
         };
 
         table.add_column(Column::with_metadata(

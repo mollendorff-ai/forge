@@ -1,0 +1,83 @@
+_forge_version: "5.0.0"
+# Bagel Lune, what actually happened in the first 12 months (fictional).
+# Compare with the plan: forge variance examples/bagel/bagel.yaml examples/bagel/actual.yaml
+_includes:
+  - file: costs.yaml
+    as: costs
+
+assumptions:
+  price_per_dozen:
+    value: 16.5
+    formula: null
+  opening_dozens_per_day:
+    value: 51
+    formula: null
+  monthly_growth:
+    value: 0.03
+    formula: null
+  open_days_per_month:
+    value: 30
+    formula: null
+  bagels_per_kg_flour:
+    value: 9
+    formula: null
+  sesame_grams_per_bagel:
+    value: 6
+    formula: null
+  staff_hours_per_day:
+    better: lower   # for forge variance: more hours than planned is unfavorable
+    value: 34
+    formula: null
+  rent_per_month:
+    value: 4950
+    formula: null
+  card_fee_rate:
+    value: 0.026
+    formula: null
+  oven_and_fit_out:
+    value: 95000
+    formula: null
+  annual_discount_rate:
+    value: 0.09
+    formula: null
+
+months:
+  month: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  # Nov opening; summer tourists and December holidays lift sales
+  season: [0.85, 1.25, 0.80, 0.80, 0.90, 0.95, 1.05, 1.15, 1.25, 1.25, 1.05, 1.00]
+  dozens: "=assumptions.opening_dozens_per_day * (1 + assumptions.monthly_growth) ^ (month - 1) * season * assumptions.open_days_per_month"
+  revenue: "=dozens * assumptions.price_per_dozen"
+  flour: "=dozens * 12 / assumptions.bagels_per_kg_flour * @costs.ingredients.flour_per_kg"
+  sesame: "=dozens * 12 * assumptions.sesame_grams_per_bagel / 1000 * @costs.ingredients.sesame_per_kg"
+  other_ingredients: "=dozens * @costs.ingredients.honey_water_per_dozen"
+  labour: "=assumptions.staff_hours_per_day * assumptions.open_days_per_month * @costs.labour.loaded_wage"
+  fixed: "=assumptions.rent_per_month + @costs.fixed.maple_wood_per_month"
+  card_fees: "=revenue * assumptions.card_fee_rate"
+  costs: "=flour + sesame + other_ingredients + labour + fixed + card_fees"
+  profit: "=revenue - costs"
+
+year:
+  revenue:
+    value: null
+    formula: "=SUM(months.revenue)"
+  profit:
+    value: null
+    formula: "=SUM(months.profit)"
+  margin:
+    value: null
+    formula: "=profit / revenue"
+  dozens_sold:
+    value: null
+    formula: "=SUM(months.dozens)"
+  food_cost_share:
+    value: null
+    formula: "=(SUM(months.flour) + SUM(months.sesame) + SUM(months.other_ingredients)) / revenue"
+  worst_month_profit:
+    value: null
+    formula: "=MIN(months.profit)"
+  npv_first_year:
+    value: null
+    formula: "=NPV(assumptions.annual_discount_rate / 12, months.profit) - assumptions.oven_and_fit_out"
+  payback_months:
+    value: null
+    formula: "=assumptions.oven_and_fit_out / (profit / 12)"

@@ -25,26 +25,27 @@ state:
     content. Verified on one 12-month model with an included costs file;
     totals matched an independent calculation and the Excel export
     recalculated with 0 mismatches.
-  unverified: decision-tree, real-options, bootstrap, bayesian, variance,
-    compare, watch, upgrade. They pass their unit tests and the R suite
-    where it covers them, but no one has built a real model with them.
+  verified_on_a_real_model: every analytics command, on the examples/bagel
+    models, with headline numbers asserted in tests/bagel_example.rs against
+    independent calculations (T1-USE, 2026-11-07). The numbers were right in
+    all of them; the bugs were in what surrounded them (variance flags,
+    output order, a 74,000-token bootstrap reply, unreported ties).
+  unverified: watch and upgrade (file tooling, not analytics).
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 1 — TRUST (next release or two)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier1:
-  - id: T1-USE
-    title: "One real model per analytics command, built through MCP, checked outside Forge"
-    why: "Every bug of 2026-11-07 (ignored scenario override, non-converging solver, empty scenario output, panics on NaN and closed pipes) was found this way and missed by 1,500 unit tests"
-    how: "For each of decision-tree, real-options, bootstrap, bayesian, variance, compare: write a small model a user would plausibly have, run it through the MCP tool with inline content, recompute the headline number in Python or R by hand, and keep the model under examples/ as a test fixture"
-    acceptance: "Each command has an examples/ model whose headline result is asserted in a test against a value computed outside Forge, with the computation shown in the test. A command that cannot pass is marked experimental (T1-SCOPE) rather than patched around"
-
   - id: T1-SCOPE
-    title: "ADR: supported core vs experimental analytics"
-    why: "One maintainer cannot keep ten analysis engines correct; the unit of trust must be smaller than the whole binary"
-    how: "Core = calculate, validate, audit, export, import, includes, scenarios, simulate, goal-seek, break-even, sensitivity, tornado, MCP, API. Everything else is experimental until T1-USE passes for it. Nothing is deleted"
-    acceptance: "ADR merged; --help, README and MCP tool descriptions say 'experimental' on those commands; STABILITY.md promises apply to core only and say so"
+    title: "ADR: which analysis engines Forge keeps maintaining"
+    why: "T1-USE found every engine's numbers right, so this is no longer about trust; it is about what one maintainer can keep right as the code changes. Each engine costs review time on every change to the calculator"
+    how: "Owner decision. Options: keep all ten as supported; or mark the ones no user has asked for (bayesian, real-options, decision-tree, bootstrap) as experimental, outside the STABILITY.md promises, without removing them"
+    acceptance: "ADR merged stating the choice and why; if any engine is experimental, --help, README and its MCP tool description say so and STABILITY.md says the promises do not cover it"
+  - id: T1-USE-AGAIN
+    title: "Every new or changed command gets an examples/ model with externally checked numbers"
+    why: "It found more in one evening than 1,500 unit tests had; make it the rule, not a one-off"
+    acceptance: "CONTRIBUTING.md and project.yaml conventions say so; the PR template asks for the example and the outside calculation"
 
   - id: T1-SYNTAX
     title: "Short scalar syntax: `price: 16` and `profit: \"=revenue - costs\"`"

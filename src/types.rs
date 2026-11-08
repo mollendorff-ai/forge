@@ -191,6 +191,8 @@ pub struct Metadata {
     pub validation_status: Option<String>,
     /// Last updated timestamp
     pub last_updated: Option<String>,
+    /// Which way is good, for variance analysis: "higher" or "lower"
+    pub better: Option<String>,
 }
 
 impl Metadata {
@@ -201,6 +203,7 @@ impl Metadata {
             && self.source.is_none()
             && self.validation_status.is_none()
             && self.last_updated.is_none()
+            && self.better.is_none()
     }
 }
 
@@ -578,6 +581,7 @@ mod tests {
             source: Some("market_research.yaml".to_string()),
             validation_status: Some("PROJECTED".to_string()),
             last_updated: Some("2025-11-26".to_string()),
+            better: None,
         };
         assert!(!metadata.is_empty());
         assert_eq!(metadata.unit, Some("CAD".to_string()));

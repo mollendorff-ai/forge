@@ -434,6 +434,17 @@ pub fn decision_tree(
     println!("   {}", "Decision Policy:".bold());
     for (node, choice) in &result.decision_policy {
         println!("      At \"{}\": choose \"{}\"", node.bright_blue(), choice);
+        if let Some(tied) = result
+            .node_results
+            .get(node)
+            .filter(|n| !n.tied_with.is_empty())
+        {
+            println!(
+                "         {} equally good: {} (the expected values are the same; the choice is not made by the numbers)",
+                "⚠️".yellow(),
+                tied.tied_with.join(", ")
+            );
+        }
     }
 
     // Risk profile

@@ -6,8 +6,11 @@
 #
 #   [Economic Conditions] ──► [Company Revenue] ──► [Default Probability]
 #
-# Each node has one parent: Forge supports one parent per node, and each
-# conditional probability table (CPT) has one row per state of that parent.
+# Here each node has one parent, so each conditional probability table (CPT)
+# has one row per state of that parent. A node can also have several parents:
+# list them in `parents`, and key each CPT row by one state of each parent, in
+# that order, separated by commas: `"rainy, yes": [0.9, 0.1]`. See
+# examples/bagel/slow_week.yaml for a two-parent network.
 #
 # Queries are command-line options, not part of the file:
 #   forge bayesian examples/bayesian.yaml                                  # every node

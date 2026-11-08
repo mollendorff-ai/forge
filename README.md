@@ -25,7 +25,7 @@ Known problems as of 2026-11-07 (what is planned, and in what order, is in the [
 - `forge export` does not write `scenarios` (Excel has no equivalent); it lists them as not exported. Keep the YAML file as the source of truth.
 - `forge calculate` cannot evaluate `MC.*` distributions (for example `examples/monte-carlo.yaml`); it says so and points to `forge simulate`.
 - A formula that reads a value from an included file (`@costs.price`) is exported as its calculated number, not as a reference to the include's sheet, so changing that value in Excel changes nothing.
-- `decision-tree`, `real-options`, `bootstrap`, `bayesian`, `variance` and `compare` pass their tests but have not yet been exercised on a real model end to end; treat their results with extra care until the roadmap's T1-USE is done.
+- Each analytics command has been checked once end to end, on the `examples/bagel` models, against calculations written outside Forge. That is one model each, not broad coverage.
 
 ## The Problem
 

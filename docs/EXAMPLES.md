@@ -1264,7 +1264,7 @@ Bootstrap resampling is powerful when:
 
 ### Bayesian Networks
 
-`examples/bayesian.yaml` models credit default risk as a chain, where each node has one parent:
+`examples/bayesian.yaml` models credit default risk as a chain, where each node has one parent (a node can have several; `examples/bagel/slow_week.yaml` has one with two):
 
 ```
 [Economic Conditions] → [Company Revenue] → [Default Probability]
