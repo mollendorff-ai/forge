@@ -117,7 +117,7 @@ fn variance_judges_costs_as_costs() {
         npv.variance_pct
     );
     assert_eq!(npv.is_favorable, Some(false));
-    assert!(v.not_compared.is_empty());
+    assert!(v.not_compared.is_empty(), "{:?}", v.not_compared);
 }
 
 /// ```python
@@ -132,7 +132,7 @@ fn decision_tree_prefers_the_popup() {
     assert!(close(r.root_expected_value, 61_500.0, 1e-9));
     let root = &r.node_results["root"];
     assert_eq!(root.optimal_choice.as_deref(), Some("popup_first"));
-    assert!(root.tied_with.is_empty());
+    assert!(root.tied_with.is_empty(), "{:?}", root.tied_with);
     assert!(close(root.branch_values["open_now"], 58_500.0, 1e-9));
     assert!(close(r.risk_profile.probability_positive, 0.4, 1e-12));
     assert!(close(r.risk_profile.worst_case, -117_000.0, 1e-9));
