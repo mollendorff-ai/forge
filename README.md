@@ -435,7 +435,7 @@ forge examples monte-carlo          # Show example YAML
 # View JSON schemas for model validation
 forge schema                    # List available versions
 forge schema v1                 # Show v1.0.0 schema (scalar-only)
-forge schema v5                 # Show v5.0.0 schema (full features)
+forge schema v5.1               # Show the 5.1.0 model format schema (use for new models)
 forge schema v5 > schema.json   # Pipe to file for IDE use
 
 # View runnable examples for Forge capabilities

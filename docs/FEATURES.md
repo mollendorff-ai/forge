@@ -211,7 +211,7 @@ curl -X POST http://localhost:8080/api/v1/validate \
 ```bash
 curl -X POST http://localhost:8080/api/v1/calculate \
   -H "Content-Type: application/json" \
-  -d '{"content": "_forge_version: \"5.0.0\"\nsales:\n  amount: [100, 200]\n  tax: \"=amount * 0.1\"\n", "dry_run": true}'
+  -d '{"content": "_forge_version: \"5.1.0\"\nsales:\n  amount: [100, 200]\n  tax: \"=amount * 0.1\"\n", "dry_run": true}'
 ```
 
 Give `file_path` or `content`, not both. Include paths in inline content must be relative and cannot use `..`.
@@ -390,7 +390,7 @@ forge monte-carlo revenue_forecast.yaml --output results.yaml
 **Input Model (`revenue_forecast.yaml`):**
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 monte_carlo:
   enabled: true
@@ -1217,7 +1217,7 @@ Bayesian Networks model probabilistic dependencies between variables as a direct
 A child's CPT has one row per state of its parent. A node can have several parents; then each row is named by one state of each parent, in the order of `parents`, separated by commas (`yes, off`), and every combination of parent states needs a row. Forge rejects a missing, duplicated or misnamed row instead of giving wrong numbers. The same network is in `examples/bayesian.yaml`.
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 bayesian_network:
   name: "Credit Risk Assessment"

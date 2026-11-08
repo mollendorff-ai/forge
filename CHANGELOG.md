@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`forge upgrade` deleted comments** in the same way; converting to 5.1.0 now keeps them.
 - **A group was read as a table or as scalars depending on the order of its keys.** A table whose first entry was a column with metadata (`y: {formula: ..., unit: ...}`) could be read as a group of scalars, dropping its data columns. Any list now makes it a table.
 - **Decision-tree paths and the order of scenario errors changed between runs** (hash maps), against STABILITY.md's "same input, same output". They now follow the file.
+- **Two examples in docs/EXAMPLES.md did not run** (a scenario model used names only its scenarios defined; a bootstrap model's formulas read the bootstrap settings), and their output blocks were invented numbers that drew the wrong conclusion. Both now run, and show real output with a hand check. Other invented output blocks remain and are on the roadmap (T1-EXAMPLES-OUTPUT).
 - Clear errors for the likely mistakes: a plain number in a 5.0.0 file says to use 5.1.0; a bare formula string in a group of scalars says to write `{formula: ...}`; an unknown `_forge_version` says it is the model format, not the Forge version.
 
 ### Removed

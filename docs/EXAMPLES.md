@@ -677,21 +677,23 @@ scenarios:
       avg_price: 22.0
       unit_cost: 16.0
 
-# Fixed assumptions (same across all scenarios)
+# Assumptions (the base case; each scenario overrides some of them)
 assumptions:
   market_size: 5000000
-
   initial_investment: 500000
-
   discount_rate: 0.10
+  revenue_growth: 0.05
+  market_share: 0.10
+  avg_price: 25.0
+  unit_cost: 15.0
 
 # Calculations (applied within each scenario)
 financials:
   year_1_revenue:
-    formula: "=assumptions.market_size * (1 + revenue_growth) * market_share * avg_price"
+    formula: "=assumptions.market_size * (1 + assumptions.revenue_growth) * assumptions.market_share * assumptions.avg_price"
 
   year_1_cogs:
-    formula: "=(year_1_revenue / avg_price) * unit_cost"
+    formula: "=(year_1_revenue / assumptions.avg_price) * assumptions.unit_cost"
 
   year_1_profit:
     formula: "=year_1_revenue - year_1_cogs"
@@ -706,33 +708,27 @@ financials:
 forge scenarios scenario_npv.yaml --output scenario_results.yaml
 ```
 
-**Output:**
+**Output** (`forge scenarios scenario_npv.yaml`, trimmed):
 
-```yaml
-scenario_results:
-  base_case:
-    npv: 45678.90
-    year_1_revenue: 656250.00
-    probability: 0.50
-
-  bull_case:
-    npv: 187234.56
-    year_1_revenue: 1449000.00
-    probability: 0.30
-
-  bear_case:
-    npv: -123456.78
-    year_1_revenue: 396000.00
-    probability: 0.20
-
-  expected_value:
-    npv: 51234.57  # Weighted average: 0.5*45679 + 0.3*187235 + 0.2*(-123457)
-    year_1_revenue: 759075.00
-
-  decision:
-    recommendation: "PROCEED"
-    reason: "Positive expected NPV with acceptable downside"
 ```
+   base_case (p=50%): Market grows 5%, we maintain share
+      financials.npv: 4272727.272727
+      financials.year_1_revenue: 13125000
+
+   bear_case (p=20%): Recession, market contracts
+      financials.npv: 1463636.363636
+      financials.year_1_revenue: 7920000
+
+   bull_case (p=30%): Competitor exits, we gain share
+      financials.npv: 12672727.272727
+      financials.year_1_revenue: 28980000
+
+   Expected Values (probability-weighted):
+      financials.npv: 6230909.090909   (range 1463636.363636 to 12672727.272727, P(>0) = 100%)
+      financials.year_1_revenue: 16840500   (range 7920000 to 28980000, P(>0) = 100%)
+```
+
+Check by hand, base case: revenue 5,000,000 × 1.05 × 0.10 × 25 = 13,125,000; COGS 13,125,000 / 25 × 15 = 7,875,000; NPV 5,250,000 / 1.1 − 500,000 = 4,272,727. Expected NPV 0.5 × 4,272,727 + 0.3 × 12,672,727 + 0.2 × 1,463,636 = 6,230,909.
 
 **Use case explanation:**
 
@@ -742,7 +738,7 @@ Scenario analysis is ideal when:
 - Strategic futures are mutually exclusive (only one will occur)
 - Combining with Monte Carlo for continuous uncertainty within scenarios
 
-**Key insight**: Expected NPV is positive ($51K) despite 20% chance of loss, but bull case drives most upside.
+**Key insight**: every case is positive here, so the question is not whether to invest but how much the outcome depends on the bull case: it is 30% of the probability and 61% of the expected NPV.
 
 ---
 
@@ -755,7 +751,7 @@ Model sequential decisions and chance events to find optimal decision paths usin
 **Input (rnd_decision.yaml):**
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 # Decision tree configuration
 decision_tree:
@@ -1099,13 +1095,24 @@ bootstrap:
     0.02, 0.05, -0.01, 0.08
   ]
 
+# The same returns as a table, for formulas (bootstrap.data is a setting,
+# not a column, so formulas cannot read it)
+history:
+  monthly_return: [
+    0.05, -0.02, 0.08, 0.03, -0.05, 0.12, 0.01, -0.01,
+    0.06, 0.04, 0.02, -0.03, 0.07, 0.04, -0.02, 0.09,
+    0.00, -0.04, 0.05, 0.03, 0.08, -0.01, 0.06, 0.02,
+    0.04, 0.07, -0.02, 0.05, 0.03, -0.03, 0.06, 0.04,
+    0.02, 0.05, -0.01, 0.08
+  ]
+
 # Reference calculation for comparison
 analysis:
   sample_mean:
-    formula: "=AVERAGE(bootstrap.data)"
+    formula: "=AVERAGE(history.monthly_return)"
 
   sample_std:
-    formula: "=STDEV(bootstrap.data)"
+    formula: "=STDEV(history.monthly_return)"
 
   annualized_return:
     formula: "=sample_mean * 12"
@@ -1120,69 +1127,21 @@ analysis:
 forge bootstrap returns_bootstrap.yaml --output bootstrap_results.yaml
 ```
 
-**Output:**
+**Output** (`forge bootstrap returns_bootstrap.yaml`):
 
-```yaml
-bootstrap_results:
-  statistic: "mean"
-  iterations: 10000
-
-  # Original sample statistics
-  original_estimate: 0.0361  # 3.61% average monthly return
-  sample_size: 36
-
-  # Bootstrap distribution of means
-  bootstrap_distribution:
-    mean: 0.0362  # Average of 10,000 bootstrap means
-    std_error: 0.0087  # Standard error of the mean
-    min: 0.0089  # Minimum bootstrap mean
-    max: 0.0634  # Maximum bootstrap mean
-
-  # Confidence intervals
-  confidence_intervals:
-    - level: 0.90
-      lower: 0.0219  # 5th percentile
-      upper: 0.0507  # 95th percentile
-      width: 0.0288
-      interpretation: "90% confident mean return is between 2.19% and 5.07%"
-
-    - level: 0.95
-      lower: 0.0193  # 2.5th percentile
-      upper: 0.0531  # 97.5th percentile
-      width: 0.0338
-      interpretation: "95% confident mean return is between 1.93% and 5.31%"
-
-    - level: 0.99
-      lower: 0.0141  # 0.5th percentile
-      upper: 0.0583  # 99.5th percentile
-      width: 0.0442
-      interpretation: "99% confident mean return is between 1.41% and 5.83%"
-
-  # Annualized metrics (for reference)
-  annualized:
-    point_estimate: 0.4332  # 43.32% annualized
-    ci_95_lower: 0.2316  # 23.16% annualized
-    ci_95_upper: 0.6372  # 63.72% annualized
-
-# Comparison to parametric approach (if we assumed normality)
-parametric_comparison:
-  normal_assumption:
-    mean: 0.0361
-    std_error: 0.0087  # sample_std / sqrt(n)
-    ci_95: [0.0189, 0.0533]  # mean ± 1.96 * SE
-
-  bootstrap_result:
-    ci_95: [0.0193, 0.0531]
-
-  difference: "Negligible - data is approximately normal"
-
-  when_bootstrap_matters: |
-    Bootstrap is superior when:
-    - Distribution is skewed or has fat tails
-    - Small sample size (<30)
-    - Outliers present
-    - Distribution shape unknown
 ```
+   Original statistic: 0.0292
+   Bootstrap mean: 0.0292
+   Bootstrap std error: 0.0068
+   Bias: 0.0000
+
+   Confidence Intervals:
+      90% CI: [0.0181, 0.0403]
+      95% CI: [0.0158, 0.0422]
+      99% CI: [0.0119, 0.0464]
+```
+
+The 36 months average 2.92% a month. With 95% confidence the true average is between 1.58% and 4.22%. For comparison, assuming normality gives 2.92% ± 1.96 × 0.69% = [1.57%, 4.26%], almost the same, because these returns are roughly symmetric; bootstrap matters more for skewed data, fat tails or small samples.
 
 **Use case explanation:**
 

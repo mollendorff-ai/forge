@@ -63,6 +63,11 @@ tier1:
     why: "Import still writes 5.0.0 with value/formula pairs, so a model that starts in Excel arrives with the old noise"
     acceptance: "Importing each exported examples/ model gives a 5.1.0 file that calculates to the same results as the original (byte-compared), with no null in it"
 
+  - id: T1-EXAMPLES-OUTPUT
+    title: "EXAMPLES.md shows invented outputs; replace them with real ones"
+    why: "Several output blocks are placeholder digits (45678.91, 245678.90) presented as results, and two examples did not run at all (fixed with ADR-051). A reader, or an LLM, takes them as what Forge prints"
+    acceptance: "Every output block in docs/EXAMPLES.md is produced by running its input block, and a test (like test_mcp_doc_inline_examples_run) runs each input block so they cannot drift"
+
   - id: T1-SCEN-SIM
     title: "Collect the scenario and simulation features the maintainer needs"
     why: "ADR-050 keeps the engines because they are used; the next features should come from that use, not from a list"
