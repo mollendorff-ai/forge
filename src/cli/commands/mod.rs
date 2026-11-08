@@ -197,7 +197,7 @@ pub fn calculate_core(
     let file_updated = if dry_run {
         false
     } else {
-        writer::write_calculated_results(file, &result)?.is_some_and(|n| n > 0)
+        writer::write_calculated_results(file, &result)? > 0
     };
 
     Ok(results::CalculationResult {
@@ -345,7 +345,7 @@ pub fn calculate(
         println!("{}", "📋 Dry run complete - no changes written".yellow());
     } else {
         match writer::write_calculated_results(file, &result)? {
-            Some(0) => {
+            0 => {
                 println!(
                     "{}",
                     format!(
@@ -355,7 +355,7 @@ pub fn calculate(
                     .green()
                 );
             },
-            Some(n) => {
+            n => {
                 println!(
                     "{}",
                     format!(
@@ -369,17 +369,6 @@ pub fn calculate(
                 println!(
                     "{}",
                     format!("   Backup saved to {}.bak", file.display()).dimmed()
-                );
-            },
-            None => {
-                // Multi-document YAML - write-back not supported (v4.4.2)
-                println!(
-                    "{}",
-                    "⚠️  Multi-document YAML - write-back not supported yet".yellow()
-                );
-                println!(
-                    "{}",
-                    "   Results displayed above. Split into separate files to persist.".dimmed()
                 );
             },
         }

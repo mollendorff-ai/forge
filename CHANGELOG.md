@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- **`forge import` writes model format 5.1.0** (ADR-051): inputs as plain numbers, formulas as `{formula, value}` with no `value: null` or `formula: null`, and whole numbers as `100` instead of `100.0`. Every calculable example (including the bagel models) still round-trips through Excel to the same numbers.
-
 ### Fixed
+- **Formulas in multi-document files could not refer to any table or scalar group** (ADR-052). Names were stored as `document.name`, but formulas were left as written, so `=SUM(sales.tax)` and even `=totals.tax * 2` in the same document were unknown. The documents of a file now share one namespace: a formula uses any document's tables and scalars by their usual names. A name defined in two documents is an error naming both, and a formula that starts with a document label says what to write instead.
+- **`forge calculate` did not write results into multi-document files.** It now does, document by document, with the same in-place editing and checks as for one file.
+- **`forge import --split-files` wrote files whose formulas could not work** when one part used another's table or scalars. It now refuses before writing anything and lists the formulas; a self-contained model is still split.
 - **`forge import --split-files` and `--multi-doc` wrote files that did not validate** for any workbook with a table: they declared `_forge_version: "1.0.0"`, which allows no tables. They now declare 5.1.0. Formulas that refer across the split documents still do not resolve (each document is read under its own name); FEATURES.md says so and the roadmap has it.
+
+### Changed
+- **Result names in multi-document models no longer start with the document's `_name`** (`totals.tax`, not `summary.totals.tax`); `_name` is a label. Dotted table names, which only came from that prefix, no longer arise.
+- `forge import --multi-doc` of the bagel example calculates to exactly the numbers of the single-file import (tested).
+- **`forge import` writes model format 5.1.0** (ADR-051): inputs as plain numbers, formulas as `{formula, value}` with no `value: null` or `formula: null`, and whole numbers as `100` instead of `100.0`. Every calculable example (including the bagel models) still round-trips through Excel to the same numbers.
 
 ## [10.0.0-rc.6] - 2026-11-08
 

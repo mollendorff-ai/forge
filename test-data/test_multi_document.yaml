@@ -1,5 +1,6 @@
 # Multi-document YAML test file (v4.4.2)
-# Each document becomes a separate sheet in Excel
+# Each document becomes a separate sheet in Excel; the documents share one
+# set of names, so Summary uses the other documents' tables (ADR-052)
 ---
 _forge_version: "5.0.0"
 _name: "Sales"
@@ -30,9 +31,9 @@ _name: "Summary"
 summary:
   total_revenue:
     value: null
-    formula: "=1000+1200+1500"
+    formula: "=SUM(sales.revenue)"
     unit: "CAD"
   total_expenses:
     value: null
-    formula: "=7000*3"
+    formula: "=SUM(expenses.total)"
     unit: "CAD"

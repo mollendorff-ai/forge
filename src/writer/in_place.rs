@@ -31,6 +31,72 @@ pub fn set_values(text: &str, values: &[(ScalarPath, f64)]) -> Result<String, St
     Ok(edited)
 }
 
+/// `set_values` for a file of several YAML documents (ADR-052).
+///
+/// Each value goes to the document that defines its scalar (names are unique
+/// across documents); each document is edited and checked on its own, and
+/// the `---` lines between them are kept.
+///
+/// # Errors
+///
+/// Returns an error if a scalar is in no document, or if `set_values` fails
+/// for a document.
+pub fn set_values_multi(text: &str, values: &[(ScalarPath, f64)]) -> Result<String, String> {
+    let mut chunks: Vec<(String, String)> = Vec::new(); // (separator line, body)
+    let mut separator = String::new();
+    let mut body = String::new();
+    for line in text.split_inclusive('\n') {
+        let t = line.trim();
+        if t == "---" || t.starts_with("--- ") {
+            chunks.push((std::mem::take(&mut separator), std::mem::take(&mut body)));
+            separator = line.to_string();
+        } else {
+            body.push_str(line);
+        }
+    }
+    chunks.push((separator, body));
+
+    let mut placed = vec![false; values.len()];
+    let mut out = String::new();
+    for (separator, body) in chunks {
+        let doc: Option<Value> = yaml_serde::from_str(&body).ok();
+        let in_doc = |path: &ScalarPath| {
+            doc.as_ref().is_some_and(|d| {
+                let mut node = Some(d);
+                for part in path {
+                    node = node.and_then(|n| n.get(part.as_str()));
+                }
+                node.is_some()
+            })
+        };
+        let mut mine: Vec<(ScalarPath, f64)> = Vec::new();
+        for (i, (path, value)) in values.iter().enumerate() {
+            if !placed[i] && in_doc(path) {
+                placed[i] = true;
+                mine.push((path.clone(), *value));
+            }
+        }
+        out.push_str(&separator);
+        if mine.is_empty() {
+            out.push_str(&body);
+        } else {
+            out.push_str(&set_values(&body, &mine)?);
+        }
+    }
+    if let Some((path, _)) = values
+        .iter()
+        .zip(&placed)
+        .find(|(_, p)| !**p)
+        .map(|(v, _)| v)
+    {
+        return Err(format!(
+            "'{}' was not found in any document",
+            path.join(".")
+        ));
+    }
+    Ok(out)
+}
+
 /// Rewrite a 5.0.0 model in the 5.1.0 short form (ADR-051).
 ///
 /// - `name: {value: 16, formula: null}` (block or flow, no metadata) becomes `name: 16`
