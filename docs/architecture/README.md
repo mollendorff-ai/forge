@@ -67,6 +67,7 @@ Technical documentation for Forge's architecture.
 | [ADR-048](ADR-048-RMCP-MIGRATION.md) | rmcp Migration | Accepted |
 | [ADR-049](adr-049-mcp-inline-content.md) | MCP Inline Content for Sandboxed Clients | Accepted |
 | [ADR-050](ADR-050-KEEP-ALL-ANALYSIS-ENGINES.md) | Keep All Analysis Engines Supported | Accepted |
+| [ADR-051](ADR-051-SCALAR-SHORT-FORM.md) | Scalar Short Form, No Nulls, Results Written Back in Place | Accepted |
 
 ## Architecture Principles
 

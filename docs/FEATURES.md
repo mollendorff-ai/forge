@@ -4,6 +4,52 @@ Complete reference for all Forge capabilities (v10.0.0).
 
 ---
 
+## The Model File
+
+A model is one YAML file that holds inputs, formulas and the last result of each formula, the way an Excel cell holds a formula and its value (ADR-051).
+
+```yaml
+_forge_version: "5.1.0"
+
+assumptions:
+  price_per_dozen: 16        # an input: a plain number
+  rent_per_month:
+    value: 4800              # an input with metadata
+    unit: CAD
+    better: lower
+
+months:                      # a table: lists are columns, strings are row formulas
+  month: [1, 2, 3]
+  dozens: [1650, 1700, 1750]
+  revenue: "=dozens * assumptions.price_per_dozen"
+
+year:
+  revenue:
+    formula: "=SUM(months.revenue)"   # a calculated scalar
+  profit:
+    formula: "=year.revenue - assumptions.rent_per_month * 3"
+```
+
+`forge calculate` writes each formula's result into the same file, next to its formula, and nothing else:
+
+```yaml
+year:
+  revenue:
+    formula: "=SUM(months.revenue)"   # a calculated scalar
+    value: 81600
+  profit:
+    formula: "=year.revenue - assumptions.rent_per_month * 3"
+    value: 67200
+```
+
+Comments, quotes, blank lines, key order and inputs stay as you typed them, and a `.yaml.bak` keeps the previous file. If the results cannot be written without changing anything else, Forge leaves the file alone and says so. `--dry-run` shows the results without writing. A stored `value` can be out of date after you change an input, as with any saved result: run `forge calculate` again, and `forge validate` reports any value that no longer matches its formula.
+
+How Forge reads a group under a top-level key: it is a **table** if any entry is a list; otherwise a **group of scalars** if any entry is a number or has `value:` or `formula:`. In a group of scalars, a formula needs the `formula:` form, because a bare string has no place to hold its result.
+
+**`_forge_version` is the version of the model format, not of Forge.** Forge 10 reads three formats: `1.0.0` (scalars only), `5.0.0` (tables, with every scalar written as `{value: ..., formula: ...}`, nulls included) and `5.1.0` (5.0.0 plus the short form above). The format changes only when files change. `forge upgrade model.yaml` converts a 5.0.0 model to 5.1.0 in place, keeping its comments, and checks that the result reads as the same model before writing it. `forge schema v5.1` prints the JSON schema.
+
+---
+
 ## Core Features
 
 ### Formula Evaluation
@@ -21,18 +67,16 @@ A model can read scalars from another YAML file. Name the file and a namespace i
 
 ```yaml
 # rates.yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 fx:
-  usd_eur:
-    value: 0.92
+  usd_eur: 0.92
   eur_usd:
-    value: null
     formula: "=1 / fx.usd_eur"
 ```
 
 ```yaml
 # model.yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 _includes:
   - file: rates.yaml
     as: rates
@@ -41,7 +85,6 @@ sales:
   amount_eur: "=amount * @rates.fx.usd_eur"   # [920, 1840, 2760]
 summary:
   back_to_usd:
-    value: null
     formula: "=SUM(sales.amount_eur) * @rates.fx.eur_usd"   # 6000
 ```
 

@@ -6,50 +6,6 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Check if a YAML file needs schema upgrade (v5.3.0).
-/// Returns `Some(current_version)` if upgrade needed, None otherwise.
-/// Skips multi-doc files (not supported for auto-upgrade yet).
-///
-/// # Errors
-///
-/// Returns an error if the file cannot be read or parsed as YAML.
-pub fn needs_schema_upgrade(file: &Path) -> ForgeResult<Option<String>> {
-    let content = fs::read_to_string(file)
-        .map_err(|e| ForgeError::IO(format!("Failed to read {}: {}", file.display(), e)))?;
-
-    // Skip multi-doc files (contain "---" separator after first line)
-    let is_multi_doc = content.lines().skip(1).any(|line| line.trim() == "---");
-    if is_multi_doc {
-        return Ok(None);
-    }
-
-    let yaml: yaml_serde::Value = yaml_serde::from_str(&content)
-        .map_err(|e| ForgeError::Parse(format!("Failed to parse {}: {}", file.display(), e)))?;
-
-    let version = yaml
-        .get("_forge_version")
-        .and_then(|v| v.as_str())
-        .unwrap_or("1.0.0");
-
-    // Current schema version is 5.0.0
-    if version == "5.0.0" {
-        Ok(None)
-    } else {
-        Ok(Some(version.to_string()))
-    }
-}
-
-/// Auto-upgrade schema for calculate command (v5.3.0).
-///
-/// # Errors
-///
-/// Returns an error if the file or any included files cannot be read, parsed, or written.
-pub fn auto_upgrade_schema(file: &Path, verbose: bool) -> ForgeResult<()> {
-    let mut upgraded_files = HashSet::new();
-    upgrade_file_recursive(file, "5.0.0", false, verbose, &mut upgraded_files)?;
-    Ok(())
-}
-
 /// Execute the upgrade command - migrate YAML files to latest schema version.
 ///
 /// # Errors
@@ -186,6 +142,17 @@ pub fn upgrade_file_recursive(
         target_version
     );
 
+    // 5.0.0 -> 5.1.0: the short form, edited in place (ADR-051), comments kept
+    if target_version == "5.1.0" {
+        upgrade_to_short_form(file, &content, &yaml, current_version, dry_run, verbose)?;
+        return Ok(changes + 1);
+    }
+    if target_version != "5.0.0" {
+        return Err(ForgeError::Validation(format!(
+            "Unknown target format '{target_version}'; use 5.1.0 (default) or 5.0.0"
+        )));
+    }
+
     // Perform transformations
     let yaml_map = yaml
         .as_mapping_mut()
@@ -224,6 +191,58 @@ pub fn upgrade_file_recursive(
     }
 
     Ok(changes + 1)
+}
+
+/// Convert one file to model format 5.1.0, in place (ADR-051).
+///
+/// A 5.0.0 file, or a 1.0.0 file that is valid 5.x as written, is converted
+/// as text so its comments are kept. Other 1.0.0 files go through the 5.0.0
+/// restructuring first, which cannot keep comments; that is said on screen.
+fn upgrade_to_short_form(
+    file: &Path,
+    content: &str,
+    yaml: &yaml_serde::Value,
+    current_version: &str,
+    dry_run: bool,
+    verbose: bool,
+) -> ForgeResult<()> {
+    let converted = match crate::writer::in_place::to_short_form(content) {
+        Ok(text) => Ok(text),
+        Err(_) if current_version != "5.0.0" => {
+            println!(
+                "      {} comments in {} cannot be kept: it needs the 1.0.0 to 5.0.0 restructuring",
+                "⚠️".yellow(),
+                file.display()
+            );
+            let mut yaml50 = yaml.clone();
+            let map = yaml50
+                .as_mapping_mut()
+                .ok_or_else(|| ForgeError::Parse("Root must be a YAML mapping".to_string()))?;
+            map.insert(
+                yaml_serde::Value::String("_forge_version".to_string()),
+                yaml_serde::Value::String("5.0.0".to_string()),
+            );
+            split_scalars_to_inputs_outputs(map, verbose);
+            let text = yaml_serde::to_string(&yaml50)
+                .map_err(|e| ForgeError::IO(format!("Failed to serialize YAML: {e}")))?;
+            crate::writer::in_place::to_short_form(&text)
+        },
+        Err(e) => Err(e),
+    }
+    .map_err(|e| {
+        ForgeError::Validation(format!(
+            "{}: not converted, the file is unchanged: {e}",
+            file.display()
+        ))
+    })?;
+    if !dry_run {
+        let backup_path = file.with_extension("yaml.bak");
+        fs::copy(file, &backup_path)
+            .map_err(|e| ForgeError::IO(format!("Failed to create backup: {e}")))?;
+        fs::write(file, converted)
+            .map_err(|e| ForgeError::IO(format!("Failed to write {}: {}", file.display(), e)))?;
+    }
+    Ok(())
 }
 
 /// Split scalars section into inputs and outputs based on formula presence.
@@ -309,128 +328,5 @@ pub fn split_scalars_to_inputs_outputs(yaml_map: &mut yaml_serde::Mapping, verbo
             yaml_serde::Value::String("outputs".to_string()),
             yaml_serde::Value::Mapping(outputs),
         );
-    }
-}
-
-#[cfg(test)]
-mod auto_upgrade_tests {
-    use super::*;
-    use tempfile::TempDir;
-
-    #[test]
-    fn test_needs_schema_upgrade_old_version() {
-        let dir = TempDir::new().unwrap();
-        let yaml_path = dir.path().join("old.yaml");
-        std::fs::write(
-            &yaml_path,
-            r#"_forge_version: "1.0.0"
-x:
-  value: 10
-  formula: null
-"#,
-        )
-        .unwrap();
-
-        let result = needs_schema_upgrade(&yaml_path).unwrap();
-        assert_eq!(result, Some("1.0.0".to_string()));
-    }
-
-    #[test]
-    fn test_needs_schema_upgrade_v4_version() {
-        let dir = TempDir::new().unwrap();
-        let yaml_path = dir.path().join("v4.yaml");
-        std::fs::write(
-            &yaml_path,
-            r#"_forge_version: "4.0.0"
-x:
-  value: 10
-  formula: null
-"#,
-        )
-        .unwrap();
-
-        let result = needs_schema_upgrade(&yaml_path).unwrap();
-        assert_eq!(result, Some("4.0.0".to_string()));
-    }
-
-    #[test]
-    fn test_needs_schema_upgrade_current_version() {
-        let dir = TempDir::new().unwrap();
-        let yaml_path = dir.path().join("current.yaml");
-        std::fs::write(
-            &yaml_path,
-            r#"_forge_version: "5.0.0"
-x:
-  value: 10
-  formula: null
-"#,
-        )
-        .unwrap();
-
-        let result = needs_schema_upgrade(&yaml_path).unwrap();
-        assert_eq!(result, None);
-    }
-
-    #[test]
-    fn test_needs_schema_upgrade_skips_multi_doc() {
-        let dir = TempDir::new().unwrap();
-        let yaml_path = dir.path().join("multi.yaml");
-        std::fs::write(
-            &yaml_path,
-            r#"---
-_forge_version: "1.0.0"
-x:
-  value: 10
----
-_forge_version: "1.0.0"
-y:
-  value: 20
-"#,
-        )
-        .unwrap();
-
-        // Multi-doc should return None (skip upgrade)
-        let result = needs_schema_upgrade(&yaml_path).unwrap();
-        assert_eq!(result, None);
-    }
-
-    #[test]
-    fn test_needs_schema_upgrade_no_version() {
-        let dir = TempDir::new().unwrap();
-        let yaml_path = dir.path().join("noversion.yaml");
-        std::fs::write(
-            &yaml_path,
-            r"x:
-  value: 10
-  formula: null
-",
-        )
-        .unwrap();
-
-        // No version defaults to "1.0.0"
-        let result = needs_schema_upgrade(&yaml_path).unwrap();
-        assert_eq!(result, Some("1.0.0".to_string()));
-    }
-
-    #[test]
-    fn test_auto_upgrade_schema_upgrades_file() {
-        let dir = TempDir::new().unwrap();
-        let yaml_path = dir.path().join("upgrade_me.yaml");
-        std::fs::write(
-            &yaml_path,
-            r#"_forge_version: "1.0.0"
-x:
-  value: 10
-  formula: null
-"#,
-        )
-        .unwrap();
-
-        let result = auto_upgrade_schema(&yaml_path, false);
-        assert!(result.is_ok());
-
-        // Verify upgrade happened
-        let content = std::fs::read_to_string(&yaml_path).unwrap();
-        assert!(content.contains("5.0.0"));
     }
 }

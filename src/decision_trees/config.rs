@@ -3,7 +3,6 @@
 //! Handles parsing and validation of decision tree structures from YAML.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Type of node in the decision tree
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -88,7 +87,7 @@ pub struct Node {
     #[serde(default)]
     pub name: String,
     /// Branches from this node
-    pub branches: HashMap<String, Branch>,
+    pub branches: indexmap::IndexMap<String, Branch>,
 }
 
 impl Node {
@@ -98,7 +97,7 @@ impl Node {
         Self {
             node_type: NodeType::Decision,
             name: name.to_string(),
-            branches: HashMap::new(),
+            branches: indexmap::IndexMap::new(),
         }
     }
 
@@ -108,7 +107,7 @@ impl Node {
         Self {
             node_type: NodeType::Chance,
             name: name.to_string(),
-            branches: HashMap::new(),
+            branches: indexmap::IndexMap::new(),
         }
     }
 
@@ -157,7 +156,7 @@ pub struct DecisionTreeConfig {
     pub root: Option<Node>,
     /// Additional nodes by name
     #[serde(default)]
-    pub nodes: HashMap<String, Node>,
+    pub nodes: indexmap::IndexMap<String, Node>,
 }
 
 impl DecisionTreeConfig {
@@ -167,7 +166,7 @@ impl DecisionTreeConfig {
         Self {
             name: name.to_string(),
             root: None,
-            nodes: HashMap::new(),
+            nodes: indexmap::IndexMap::new(),
         }
     }
 

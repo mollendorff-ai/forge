@@ -343,15 +343,15 @@ forge export model.yaml output.xlsx
 ## Example: 5-Year DCF Model
 
 ```yaml
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 assumptions:
-  revenue_y1: {value: 1000000, formula: null}
-  growth_rate: {value: 0.15, formula: null}
-  gross_margin: {value: 0.65, formula: null}
-  opex_pct: {value: 0.30, formula: null}
-  tax_rate: {value: 0.25, formula: null}
-  discount_rate: {value: 0.10, formula: null}
+  revenue_y1: 1000000
+  growth_rate: 0.15
+  gross_margin: 0.65
+  opex_pct: 0.30
+  tax_rate: 0.25
+  discount_rate: 0.10
 
 projections:
   year: [1, 2, 3, 4, 5]
@@ -364,13 +364,10 @@ projections:
 
 valuation:
   total_revenue:
-    value: null
     formula: "=SUM(projections.revenue)"
   avg_gross_margin:
-    value: null
     formula: "=SUM(projections.gross_profit) / SUM(projections.revenue)"
   npv_cash_flows:
-    value: null
     formula: "=NPV(assumptions.discount_rate, projections.net_income)"
 
 scenarios:

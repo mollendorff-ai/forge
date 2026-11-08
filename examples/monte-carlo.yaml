@@ -12,7 +12,7 @@
 # - Probability of positive NPV
 # - Sensitivity analysis (which inputs drive variance)
 
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Monte Carlo Configuration
@@ -41,27 +41,20 @@ monte_carlo:
 assumptions:
   # Revenue growth: Expected 15%, could range 5% to 25%
   revenue_growth:
-    value: null
     formula: "=MC.Normal(0.15, 0.05)"
 
   # Operating costs: Best case $400K, most likely $500K, worst case $700K
   operating_costs:
-    value: null
     formula: "=MC.Triangular(400000, 500000, 700000)"
 
   # Discount rate: Somewhere between 8% and 12%
   discount_rate:
-    value: null
     formula: "=MC.Uniform(0.08, 0.12)"
 
   # Fixed inputs (not uncertain)
-  initial_revenue:
-    value: 1000000
-    formula: null
+  initial_revenue: 1000000
 
-  tax_rate:
-    value: 0.25
-    formula: null
+  tax_rate: 0.25
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Projections (5-Year Model)
@@ -90,7 +83,6 @@ projections:
 valuation:
   # NPV of cash flows at sampled discount rate
   npv:
-    value: null
     formula: "=NPV(assumptions.discount_rate, projections.cash_flow)"
 
 

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Model format 5.1.0: the short form (ADR-051).** An input can be a plain number (`price: 16`) and a formula scalar a mapping with only `formula:`, so a model no longer needs `value: null` or `formula: null` anywhere. The long form stays valid in 5.1.0 and 5.0.0. `forge upgrade` (now defaulting to 5.1.0) converts a 5.0.0 model in place, keeping its comments, and refuses to write if the converted file would not read as the same model. `forge schema v5.1` prints the new schema. All files in `examples/` are converted; every command gives byte-identical results on them before and after (58 outputs compared, plus the Excel export cell by cell). `test-data/` and the validation repositories stay at 5.0.0, so the long form keeps being tested.
+- **ADR-051** records the decision: one file with formulas and their results, like Excel; format 5.1.0 because the change is backward compatible; `_forge_version` keeps its name and is documented as the model format version, independent of the tool version.
+
+### Fixed
+- **`forge calculate` damaged the file it wrote to.** It serialized the whole YAML again, which deleted every comment, removed quotes and turned `16` into `16.0`. It now writes only the `value:` of formula scalars, editing the text in place, and checks that nothing else changed before saving. It says how many values it updated, and does not rewrite the file (or make a `.bak`) when nothing changed. It also no longer overwrites a table column named `value` with numbers.
+- **`forge upgrade` deleted comments** in the same way; converting to 5.1.0 now keeps them.
+- **A group was read as a table or as scalars depending on the order of its keys.** A table whose first entry was a column with metadata (`y: {formula: ..., unit: ...}`) could be read as a group of scalars, dropping its data columns. Any list now makes it a table.
+- **Decision-tree paths and the order of scenario errors changed between runs** (hash maps), against STABILITY.md's "same input, same output". They now follow the file.
+- Clear errors for the likely mistakes: a plain number in a 5.0.0 file says to use 5.1.0; a bare formula string in a group of scalars says to write `{formula: ...}`; an unknown `_forge_version` says it is the model format, not the Forge version.
+
+### Removed
+- `writer::update_yaml_file`, `writer::update_scalars`, `cli::needs_schema_upgrade` and `cli::auto_upgrade_schema`. They rewrote whole files (losing comments), and nothing called them; nothing now changes a file's format on its own.
+
 ## [10.0.0-rc.5] - 2026-11-08
 
 Fifth release candidate. `forge variance` in rc.4 called cost overruns favorable (a wrong answer; first entry under Fixed), so the two weeks before the stable release start again from this candidate. Every analysis command has now been checked once on a real model against an outside calculation (`examples/bagel/`), and all of them stay supported (ADR-050).

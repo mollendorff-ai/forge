@@ -17,6 +17,10 @@ state:
   version: 10.0.0-rc.5, released 2026-11-08 after the variance wrong answer
     (PR 79). The two-week stable clock in docs/STABILITY.md runs from this
     release; a new wrong answer restarts it.
+  format: model format 5.1.0 (ADR-051), with inputs as plain numbers, formula
+    scalars as a formula mapping, and results written next to formulas in
+    place. examples/ are 5.1.0; test-data/ and the validation repos stay
+    5.0.0 on purpose.
   scope: all analysis engines are supported (ADR-050). The maintainer uses
     them and expects more scenario and simulation features.
   users: none known. One outside contributor used Forge for a few weeks in
@@ -44,12 +48,6 @@ tier1:
     why: "It found more in one evening than 1,500 unit tests had; make it the rule, not a one-off"
     acceptance: "CONTRIBUTING.md and project.yaml conventions say so; the PR template asks for the example and the outside calculation"
 
-  - id: T1-SYNTAX
-    title: "Short scalar syntax: `price: 16` and `profit: \"=revenue - costs\"`"
-    why: "value:/formula: pairs double the length of every model and are the thing LLMs most often get wrong (was T3-SCHEMADX; it belongs here)"
-    how: "A scalar that is a bare number is a value; a bare string starting with = is a formula; the mapping form stays for metadata (unit, description). Parser accepts both; writer keeps whichever form the file used; forge upgrade can convert"
-    acceptance: "All examples/ models rewritten in the short form calculate to the same numbers as before (byte-compared results); FEATURES.md and MCP.md examples use the short form; the schema accepts both"
-
   - id: T1-EXPORT-INCLUDES
     title: "Excel export: formulas that read included values point at the include's sheet"
     why: "Today they are written as frozen numbers, so changing the flour price in Excel changes nothing; the include's sheet is already in the workbook"
@@ -59,6 +57,11 @@ tier1:
     title: "Keep .asimov/project.yaml and the architecture docs true"
     why: "The warmup briefed agents on actix-web (the code is axum) and on a no-unwrap convention the code broke in 13 places; a wrong briefing produces confident wrong work"
     acceptance: "project.yaml stack matches Cargo.toml; each convention is either enforced by a lint/test or removed; docs/architecture pages that describe removed designs carry a superseded note at the top (done for xlformula_engine; check the rest)"
+
+  - id: T1-IMPORT-SHORT
+    title: "forge import writes the 5.1.0 short form"
+    why: "Import still writes 5.0.0 with value/formula pairs, so a model that starts in Excel arrives with the old noise"
+    acceptance: "Importing each exported examples/ model gives a 5.1.0 file that calculates to the same results as the original (byte-compared), with no null in it"
 
   - id: T1-SCEN-SIM
     title: "Collect the scenario and simulation features the maintainer needs"

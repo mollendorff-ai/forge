@@ -1,27 +1,14 @@
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 # Supplier and labour costs, kept apart so the shop model can be re-run
 # when a supplier changes a price. All figures are made-up assumptions.
 ingredients:
-  flour_per_kg:
-    value: 1.15
-    formula: null
-  sesame_per_kg:
-    value: 9.40
-    formula: null
-  honey_water_per_dozen:
-    value: 0.35
-    formula: null
+  flour_per_kg: 1.15
+  sesame_per_kg: 9.40
+  honey_water_per_dozen: 0.35
 labour:
-  wage_per_hour:
-    value: 18.50
-    formula: null
-  payroll_load:
-    value: 0.15
-    formula: null
+  wage_per_hour: 18.50
+  payroll_load: 0.15
   loaded_wage:
-    value: null
     formula: "=wage_per_hour * (1 + payroll_load)"
 fixed:
-  maple_wood_per_month:
-    value: 950
-    formula: null
+  maple_wood_per_month: 950

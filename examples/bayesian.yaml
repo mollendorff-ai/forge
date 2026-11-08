@@ -21,7 +21,7 @@
 # The last one runs the chain backwards: given a high default risk, how likely
 # is each economic condition?
 
-_forge_version: "5.0.0"
+_forge_version: "5.1.0"
 
 bayesian_network:
   name: "Credit Risk Assessment"

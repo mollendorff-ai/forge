@@ -77,18 +77,30 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                 }
             }
 
-            // Check if this is a table (mapping with arrays) or scalar (mapping with value/formula)
+            // A top-level number is an input scalar (5.1.0 short form)
+            if let Value::Number(n) = value {
+                let variable = crate::types::Variable::new(key_str.to_string(), n.as_f64(), None);
+                model.add_scalar(key_str.to_string(), variable);
+                continue;
+            }
+
+            // A table, a group of scalars, or one scalar (ADR-051 "How a group is read")
             if let Value::Mapping(inner_map) = value {
-                // Check if it has {value, formula} pattern (scalar)
-                if inner_map.contains_key("value") || inner_map.contains_key("formula") {
-                    // This is a scalar variable
+                let is_one_scalar = (inner_map.contains_key("value")
+                    && !matches!(inner_map.get("value"), Some(Value::Sequence(_))))
+                    || (inner_map.contains_key("formula")
+                        && !inner_map.values().any(|v| matches!(v, Value::Mapping(_))));
+                if is_one_scalar && !is_table(inner_map) {
                     let variable = parse_scalar_variable(value, key_str)?;
                     model.add_scalar(key_str.to_string(), variable);
+                } else if is_table(inner_map) {
+                    let table = parse_table(key_str, inner_map)?;
+                    model.add_table(table);
                 } else if is_nested_scalar_section(inner_map) {
-                    // This is a section containing nested scalars (e.g., summary.total)
+                    // A group of scalars (e.g., summary.total)
                     parse_nested_scalars(key_str, inner_map, &mut model)?;
                 } else {
-                    // This is a table - parse it
+                    // Only formula columns: a table
                     let table = parse_table(key_str, inner_map)?;
                     model.add_table(table);
                 }
@@ -118,16 +130,44 @@ pub fn parse_nested_scalars(
             .as_str()
             .ok_or_else(|| ForgeError::Parse("Scalar name must be a string".to_string()))?;
 
-        if let Value::Mapping(child_map) = value {
-            if child_map.contains_key("value") || child_map.contains_key("formula") {
-                // This is a scalar variable
-                let full_path = format!("{parent_key}.{key_str}");
+        let full_path = format!("{parent_key}.{key_str}");
+        match value {
+            // 5.1.0 short form: a plain number is an input
+            Value::Number(n) => {
+                let variable = crate::types::Variable::new(full_path.clone(), n.as_f64(), None);
+                model.add_scalar(full_path, variable);
+            },
+            Value::Mapping(child_map)
+                if child_map.contains_key("value") || child_map.contains_key("formula") =>
+            {
                 let variable = parse_scalar_variable(value, &full_path)?;
-                model.add_scalar(full_path.clone(), variable);
-            }
+                model.add_scalar(full_path, variable);
+            },
+            Value::String(s) if s.starts_with('=') => {
+                return Err(ForgeError::Parse(format!(
+                    "'{full_path}' is a formula in a group of scalars; write it as \
+                     `{key_str}: {{formula: \"{s}\"}}` so its result has a place in the file"
+                )));
+            },
+            _ => {
+                return Err(ForgeError::Parse(format!(
+                    "'{full_path}' must be a number or a mapping with `value:` or `formula:`"
+                )));
+            },
         }
     }
     Ok(())
+}
+
+/// A mapping is a table if any child is a list, or a mapping whose `value` is
+/// a list (a column with metadata).
+#[must_use]
+pub fn is_table(map: &yaml_serde::Mapping) -> bool {
+    map.values().any(|v| match v {
+        Value::Sequence(_) => true,
+        Value::Mapping(m) => matches!(m.get("value"), Some(Value::Sequence(_))),
+        _ => false,
+    })
 }
 
 /// Parse scenarios section from YAML

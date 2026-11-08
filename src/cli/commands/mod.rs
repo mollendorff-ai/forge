@@ -42,7 +42,7 @@ pub use prediction::{bayesian, bootstrap, decision_tree, real_options, scenarios
 pub use schema::schema;
 pub use simulate::simulate;
 pub use update::update;
-pub use upgrade::{auto_upgrade_schema, needs_schema_upgrade, upgrade};
+pub use upgrade::upgrade;
 
 // Core function re-exports (return structured results, no printing)
 pub use analysis::{compare_core, goal_seek_core, sensitivity_core, variance_core};
@@ -197,7 +197,7 @@ pub fn calculate_core(
     let file_updated = if dry_run {
         false
     } else {
-        writer::write_calculated_results(file, &result)?
+        writer::write_calculated_results(file, &result)?.is_some_and(|n| n > 0)
     };
 
     Ok(results::CalculationResult {
@@ -344,28 +344,44 @@ pub fn calculate(
     if dry_run {
         println!("{}", "📋 Dry run complete - no changes written".yellow());
     } else {
-        let wrote = writer::write_calculated_results(file, &result)?;
-        if wrote {
-            println!(
-                "{}",
-                format!("💾 Results written to {}", file.display())
+        match writer::write_calculated_results(file, &result)? {
+            Some(0) => {
+                println!(
+                    "{}",
+                    format!(
+                        "✅ {} is up to date (no stored result changed)",
+                        file.display()
+                    )
+                    .green()
+                );
+            },
+            Some(n) => {
+                println!(
+                    "{}",
+                    format!(
+                        "💾 {n} value{} updated in {}",
+                        if n == 1 { "" } else { "s" },
+                        file.display()
+                    )
                     .bold()
                     .green()
-            );
-            println!(
-                "{}",
-                format!("   Backup saved to {}.bak", file.display()).dimmed()
-            );
-        } else {
-            // Multi-document YAML - write-back not supported (v4.4.2)
-            println!(
-                "{}",
-                "⚠️  Multi-document YAML - write-back not supported yet".yellow()
-            );
-            println!(
-                "{}",
-                "   Results displayed above. Split into separate files to persist.".dimmed()
-            );
+                );
+                println!(
+                    "{}",
+                    format!("   Backup saved to {}.bak", file.display()).dimmed()
+                );
+            },
+            None => {
+                // Multi-document YAML - write-back not supported (v4.4.2)
+                println!(
+                    "{}",
+                    "⚠️  Multi-document YAML - write-back not supported yet".yellow()
+                );
+                println!(
+                    "{}",
+                    "   Results displayed above. Split into separate files to persist.".dimmed()
+                );
+            },
         }
     }
 

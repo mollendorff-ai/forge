@@ -130,6 +130,10 @@ pub fn parse_metadata(map: &yaml_serde::Mapping) -> Metadata {
 /// Returns false for v4.0 rich table columns (where value is an array)
 #[must_use]
 pub fn is_nested_scalar_section(map: &yaml_serde::Mapping) -> bool {
+    // A plain number child makes it a group of scalars (5.1.0 short form)
+    if map.values().any(|v| matches!(v, Value::Number(_))) {
+        return true;
+    }
     // Check if children are mappings with {value, formula} pattern where value is a scalar (not array)
     for (_key, value) in map {
         if let Value::Mapping(child_map) = value {
