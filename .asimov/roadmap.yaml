@@ -14,9 +14,11 @@
 # written down. "Polish" and "improve" are not criteria.
 
 state:
-  version: 10.0.0-rc.4, released 2026-11-07 after the scenario-override
-    wrong answer (PR 76). The two-week stable clock in docs/STABILITY.md
-    runs from this release; a new wrong answer restarts it.
+  version: 10.0.0-rc.5, released 2026-11-08 after the variance wrong answer
+    (PR 79). The two-week stable clock in docs/STABILITY.md runs from this
+    release; a new wrong answer restarts it.
+  scope: all analysis engines are supported (ADR-050). The maintainer uses
+    them and expects more scenario and simulation features.
   users: none known. One outside contributor used Forge for a few weeks in
     2026 and paused.
   what_works: calculate, validate, audit, export, import, includes with
@@ -37,11 +39,6 @@ state:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier1:
-  - id: T1-SCOPE
-    title: "ADR: which analysis engines Forge keeps maintaining"
-    why: "T1-USE found every engine's numbers right, so this is no longer about trust; it is about what one maintainer can keep right as the code changes. Each engine costs review time on every change to the calculator"
-    how: "Owner decision. Options: keep all ten as supported; or mark the ones no user has asked for (bayesian, real-options, decision-tree, bootstrap) as experimental, outside the STABILITY.md promises, without removing them"
-    acceptance: "ADR merged stating the choice and why; if any engine is experimental, --help, README and its MCP tool description say so and STABILITY.md says the promises do not cover it"
   - id: T1-USE-AGAIN
     title: "Every new or changed command gets an examples/ model with externally checked numbers"
     why: "It found more in one evening than 1,500 unit tests had; make it the rule, not a one-off"
@@ -62,6 +59,12 @@ tier1:
     title: "Keep .asimov/project.yaml and the architecture docs true"
     why: "The warmup briefed agents on actix-web (the code is axum) and on a no-unwrap convention the code broke in 13 places; a wrong briefing produces confident wrong work"
     acceptance: "project.yaml stack matches Cargo.toml; each convention is either enforced by a lint/test or removed; docs/architecture pages that describe removed designs carry a superseded note at the top (done for xlformula_engine; check the rest)"
+
+  - id: T1-SCEN-SIM
+    title: "Collect the scenario and simulation features the maintainer needs"
+    why: "ADR-050 keeps the engines because they are used; the next features should come from that use, not from a list"
+    how: "Ask for the models being built and what is awkward in them; write each need as a roadmap item with a worked example before any code"
+    acceptance: "Each need is a roadmap item with an example model and the number it should produce, agreed with the maintainer"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
