@@ -16,7 +16,9 @@ use super::distributions::{
     parse_distribution, standard_normal_cdf, standard_normal_quantile, Distribution,
 };
 use super::sampler::{Sampler, SamplingMethod};
-use super::statistics::{evaluate_threshold, parse_threshold, Histogram, Statistics};
+use super::statistics::{
+    calculate_percentiles, evaluate_threshold, parse_threshold, Histogram, Statistics,
+};
 use crate::types::ParsedModel;
 
 /// Result of a Monte Carlo simulation
@@ -134,7 +136,11 @@ impl MonteCarloEngine {
                 })?;
 
             // Calculate statistics
-            let statistics = Statistics::from_samples(&samples);
+            let mut statistics = Statistics::from_samples(&samples);
+            // The percentiles asked for, on top of the standard set
+            statistics
+                .percentiles
+                .extend(calculate_percentiles(&samples, &output_config.percentiles));
 
             // Create histogram (50 bins default)
             let histogram = Histogram::from_samples(&samples, 50);
@@ -234,7 +240,11 @@ impl MonteCarloEngine {
             let var = &output_config.variable;
             let samples = output_samples.get(var).cloned().unwrap_or_default();
 
-            let statistics = Statistics::from_samples(&samples);
+            let mut statistics = Statistics::from_samples(&samples);
+            // The percentiles asked for, on top of the standard set
+            statistics
+                .percentiles
+                .extend(calculate_percentiles(&samples, &output_config.percentiles));
             let histogram = Histogram::from_samples(&samples, 50);
 
             let mut threshold_probabilities = HashMap::new();
