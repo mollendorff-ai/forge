@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`forge simulate --seek "P(year.profit > 0) = 0.8" --vary price_per_dozen --min 14 --max 24`** (T2-SIM-MORE) finds the value of one input at which an output meets a threshold with a given probability: on the bagel model, a price of 18.32 a dozen for the year to make money in 80% of runs. Every value tried sees the same draws, and bisection finds where the probability first reaches the goal; a goal not crossed in the range is an error that gives the probability at each end. Checked against numpy: with profit linear in the price, the answer is just above the 800th lowest of the 1,000 runs' break-even prices. The MCP tool takes `seek`, `vary`, `min` and `max`.
+- **A table column as a simulation output** (`variable: months.profit`): one result per row, printed as a table with each row's mean, P10, P50, P90 and thresholds. It was an error ("has no calculated value"). On the bagel model, November, January and February lose money in every run.
+- **`expected_shortfall: [5, 10]`**: the mean of the worst 5% and 10% of runs (the highest results when the variable has `better: lower`).
+- A correlation between an input of an included file and one of the model is tested (it worked; the rank correlation that results is 0.58 for 0.6, as the Gaussian copula gives).
+
+### Fixed
+- An output that names nothing in the model is an error that says so before the simulation runs, instead of failing at the first iteration with "has no calculated value". FEATURES.md said `iterations` could be 1 in the file; the schema requires at least 100 (`-n` accepts any count).
+
 ### Changed
 - **`forge simulate` is about 11 times faster** (T2-SIM-SPEED): 5,000 runs of the bagel model take 0.55 seconds instead of 6.3 (median of five runs each), with byte-identical results for the same seed. The formulas are parsed, checked and ordered once for the whole simulation (`CalcPlan`, shared by every iteration and keyed by a fingerprint of the model's names and formulas, so a different model never reuses it); the values a formula can read are kept up to date as cells are calculated instead of being rebuilt for every formula and copied for every row; and name lookups during evaluation use a fixed fast hash. Every calculation benefits a little; the output of `calculate`, `tornado`, `scenarios`, `sensitivity`, `goal-seek` and `break-even` on every example and test-data model is unchanged byte for byte.
 - Library: `EvalContext.scalars` and `.tables` are `NameMap`s (a `HashMap` with `foldhash`'s fixed hasher) instead of std `HashMap`s, and `ArrayCalculator::new` is no longer `const`.

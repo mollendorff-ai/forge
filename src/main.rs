@@ -517,7 +517,9 @@ EXAMPLES:
   forge simulate model.yaml -n 10000           # Override iterations
   forge simulate model.yaml --seed 42          # Reproducible
   forge simulate model.yaml -o results.json    # JSON output
-  forge simulate model.yaml --scenario rainy   # Under a scenario's overrides")]
+  forge simulate model.yaml --scenario rainy   # Under a scenario's overrides
+  forge simulate model.yaml --seek \"P(year.profit > 0) = 0.8\" --vary price --min 14 --max 24
+                                               # The price at which 80% of runs make money")]
     /// Run Monte Carlo simulation
     Simulate {
         /// Path to YAML file with `monte_carlo`: section
@@ -538,6 +540,22 @@ EXAMPLES:
         /// Apply a scenario's overrides first (an override of an MC.* input fixes it)
         #[arg(long)]
         scenario: Option<String>,
+
+        /// Find the value of --vary that meets a probability, e.g. "P(year.profit > 0) = 0.8"
+        #[arg(long, requires_all = ["vary", "min", "max"])]
+        seek: Option<String>,
+
+        /// Input to vary for --seek (a scalar with a plain value)
+        #[arg(long, requires = "seek")]
+        vary: Option<String>,
+
+        /// Lowest value of --vary to try
+        #[arg(long, requires = "seek", allow_hyphen_values = true)]
+        min: Option<f64>,
+
+        /// Highest value of --vary to try
+        #[arg(long, requires = "seek", allow_hyphen_values = true)]
+        max: Option<f64>,
 
         /// Output file (.json, .yaml or .xlsx)
         #[arg(short, long)]
@@ -1224,17 +1242,24 @@ fn run() -> ForgeResult<()> {
             output,
             verbose,
             scenario,
-        } => cli::simulate(
-            &file,
-            cli::SimulateOptions {
+            seek,
+            vary,
+            min,
+            max,
+        } => {
+            let options = cli::SimulateOptions {
                 iterations,
                 seed,
                 sampling: sampling.as_deref(),
                 scenario: scenario.as_deref(),
-            },
-            output,
-            verbose,
-        ),
+            };
+            match (seek, vary, min, max) {
+                (Some(seek), Some(vary), Some(min), Some(max)) => {
+                    cli::probability_seek(&file, options, &seek, &vary, min, max)
+                },
+                _ => cli::simulate(&file, options, output, verbose),
+            }
+        },
 
         Commands::Scenarios {
             file,

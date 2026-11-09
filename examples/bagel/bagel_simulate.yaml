@@ -63,10 +63,16 @@ monte_carlo:
       percentiles: [10, 50, 90]
       # Lose money; make a living (20,000); lose more than half the savings buffer
       thresholds: ["> 0", "> 20000", "< -50000"]
+      # How bad the worst years are on average
+      expected_shortfall: [5, 10]
     - variable: year.worst_month_profit
       thresholds: ["< -10000"]
+    # Each month: how often it loses money
+    - variable: months.profit
+      thresholds: ["< 0"]
 
 # forge simulate bagel_simulate.yaml --scenario rent_hike
+# forge simulate bagel_simulate.yaml --seek "P(year.profit > 0) = 0.8" --vary price_per_dozen --min 14 --max 24
 # (the landlord raises the rent at signing)
 scenarios:
   rent_hike:

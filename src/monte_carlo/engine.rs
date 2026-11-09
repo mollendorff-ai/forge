@@ -52,6 +52,8 @@ pub struct OutputResult {
     pub threshold_probabilities: IndexMap<String, f64>,
     /// Inputs ranked by how strongly they move this output
     pub drivers: Vec<Driver>,
+    /// Mean of the worst p% of runs, for each p asked for, in that order
+    pub expected_shortfall: Vec<(u8, f64)>,
 }
 
 /// How strongly one sampled input moves an output.
@@ -88,6 +90,16 @@ fn summarize(
         .collect();
 
     let drivers = drivers(&samples, input_samples);
+    let expected_shortfall = output_config
+        .expected_shortfall
+        .iter()
+        .map(|&p| {
+            (
+                p,
+                expected_shortfall(&samples, p, output_config.higher_is_worse),
+            )
+        })
+        .collect();
     OutputResult {
         variable: output_config.variable.clone(),
         statistics,
@@ -95,7 +107,33 @@ fn summarize(
         histogram,
         threshold_probabilities,
         drivers,
+        expected_shortfall,
     }
+}
+
+/// The mean of the worst `percent`% of `samples`: the lowest, or the highest
+/// when `higher_is_worse`. The worst ceil(n × percent / 100) samples are
+/// averaged, so there is always at least one.
+fn expected_shortfall(samples: &[f64], percent: u8, higher_is_worse: bool) -> f64 {
+    if samples.is_empty() {
+        return f64::NAN;
+    }
+    let mut sorted = samples.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    if higher_is_worse {
+        sorted.reverse();
+    }
+    // n is far below 2^52, so the products are exact
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
+    let count = ((sorted.len() as f64) * f64::from(percent) / 100.0).ceil() as usize;
+    let worst = &sorted[..count.clamp(1, sorted.len())];
+    #[allow(clippy::cast_precision_loss)]
+    let mean = worst.iter().sum::<f64>() / worst.len() as f64;
+    mean
 }
 
 /// Every input whose samples vary, ranked by the size of its rank
@@ -456,6 +494,12 @@ impl SimulationResult {
                     let _ = writeln!(output, "        \"{t}\": {prob:.4}");
                 }
             }
+            if !result.expected_shortfall.is_empty() {
+                output.push_str("      expected_shortfall:\n");
+                for (p, v) in &result.expected_shortfall {
+                    let _ = writeln!(output, "        worst_{p}_percent: {v:.4}");
+                }
+            }
             if !result.drivers.is_empty() {
                 output.push_str("      drivers:\n");
                 for d in &result.drivers {
@@ -506,6 +550,11 @@ impl SimulationResult {
                     "percentiles": percentiles,
                     "thresholds": thresholds,
                     "drivers": drivers,
+                    "expected_shortfall": result
+                        .expected_shortfall
+                        .iter()
+                        .map(|(p, v)| json!({"percent": p, "mean": v}))
+                        .collect::<Vec<_>>(),
                 }),
             );
         }
@@ -540,6 +589,9 @@ mod tests {
                 percentiles: vec![10, 50, 90],
                 threshold: Some("> 100000".to_string()),
                 thresholds: vec![],
+                expected_shortfall: vec![],
+                higher_is_worse: false,
+                row: None,
                 label: None,
             }],
             correlations: vec![],
@@ -596,6 +648,9 @@ mod tests {
                 percentiles: vec![10, 50, 90],
                 threshold: Some("> 0".to_string()),
                 thresholds: vec![],
+                expected_shortfall: vec![],
+                higher_is_worse: false,
+                row: None,
                 label: None,
             }],
             correlations: vec![],

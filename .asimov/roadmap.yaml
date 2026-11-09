@@ -56,12 +56,6 @@ tier2:
     why: "editors/vscode and editors/zed launch forge-lsp (ADR-005 removed the language server), so neither extension works"
     acceptance: "Either the extensions provide syntax highlighting and the schema without a server, or editors/ is removed and the README says so"
 
-  - id: T2-SIM-MORE
-    title: "Simulation features to consider next"
-    why: "The maintainer asked for more scenario and simulation features and left the choice open (2026-11-09); thresholds, drivers, scenarios and uncertain includes were done first because the bagel model needed them"
-    candidates: "Correlated inputs across included files (correlations name @ns inputs: check it works and test it); a target-probability goal seek (the price at which P(profit > 0) reaches 80%); value at risk and expected shortfall per output; simulating over a table column (each month's profit, not only the year's)"
-    acceptance: "Each candidate is tried on examples/bagel first, and becomes a tier-1 item with the number it should produce before any code"
-
   - id: T2-EXPORT-FORGE-FUNCTIONS
     title: "Export Forge-only functions, LET and LAMBDA as Excel formulas"
     why: "forge export writes VARIANCE*, BREAKEVEN_*, COUNTUNIQUE, LET and LAMBDA as values, so those cells do not follow their inputs in Excel; 59 forge-e2e-gnumeric cases skip Gnumeric for it"

@@ -315,7 +315,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_simulate",
-        description = "Run Monte Carlo simulation with probabilistic distributions (MC.Normal, MC.Triangular, MC.Uniform, MC.PERT, MC.Lognormal). Returns statistics, percentiles, threshold probabilities, and drivers (each MC.* input's rank correlation with each output). An MC.* input may be in an included file. `scenario` applies a scenario's overrides first."
+        description = "Run Monte Carlo simulation with probabilistic distributions (MC.Normal, MC.Triangular, MC.Uniform, MC.PERT, MC.Lognormal). Returns statistics, percentiles, threshold probabilities, and drivers (each MC.* input's rank correlation with each output). An MC.* input may be in an included file. `scenario` applies a scenario's overrides first. An output may be a table column (one result per row). With `seek` (\"P(year.profit > 0) = 0.8\"), `vary`, `min` and `max`, returns the value of that input at which the probability is first met."
     )]
     fn simulate(&self, Parameters(req): Parameters<SimulateRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
@@ -333,6 +333,18 @@ impl ForgeMcpServer {
             sampling: req.sampling.as_deref(),
             scenario: req.scenario.as_deref(),
         };
+        if let Some(seek) = req.seek.as_deref() {
+            let (Some(vary), Some(min), Some(max)) = (req.vary.as_deref(), req.min, req.max) else {
+                return Err("seek needs vary, min and max".to_string());
+            };
+            let goal = crate::cli::SeekGoal::parse(seek)?;
+            return crate::cli::probability_seek_core(&path, options, &goal, vary, min, max)
+                .map_err(|e| format!("Seek failed: {e}"))
+                .and_then(|r| {
+                    serde_json::to_string_pretty(&r)
+                        .map_err(|e| format!("Serialization failed: {e}"))
+                });
+        }
         simulate_core(&path, options)
             .map_err(|e| format!("Simulation failed: {e}"))
             .and_then(|r| {

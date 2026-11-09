@@ -39,7 +39,7 @@ pub mod statistics;
 pub use config::MonteCarloConfig;
 pub use correlation::CorrelationMatrix;
 pub use distributions::{Distribution, DistributionType};
-pub use engine::{MonteCarloEngine, SimulationResult};
+pub use engine::{Driver, MonteCarloEngine, OutputResult, SimulationResult};
 pub use sampler::{Sampler, SamplingMethod};
 pub use sensitivity::SensitivityAnalysis;
 pub use statistics::Statistics;

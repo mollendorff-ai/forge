@@ -189,6 +189,15 @@ pub struct SimulateRequest {
     pub sampling: Option<String>,
     /// Scenario whose overrides apply first (an override of an MC.* input fixes it)
     pub scenario: Option<String>,
+    /// Find the value of `vary` that meets a probability, e.g. "P(year.profit > 0) = 0.8"
+    /// (with `vary`, `min` and `max`); returns that value instead of the statistics
+    pub seek: Option<String>,
+    /// Input to vary for `seek` (a scalar with a plain value)
+    pub vary: Option<String>,
+    /// Lowest value of `vary` to try
+    pub min: Option<f64>,
+    /// Highest value of `vary` to try
+    pub max: Option<f64>,
 }
 
 /// Parameters for the `forge_scenarios` tool.
