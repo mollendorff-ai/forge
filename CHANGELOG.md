@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.8] - 2026-11-08
+
+Eighth release candidate, for two wrong answers found while making the Gnumeric check honest: `POWER(0, 0)` and `POW(0, 0)` gave 1 instead of #NUM!, and `ADDRESS` gave addresses Excel does not (`$A$0` for row 0, `R2C3` for R1C1 relative forms, no sheet name). Under docs/STABILITY.md that restarts the two-week clock: the stable release is no earlier than 2026-11-23. The export also writes 12 more functions as Excel formulas, and forge-e2e-gnumeric now fails any case Gnumeric did not calculate unless it says why.
+
 ### Fixed
 - **`POWER(0, 0)` and `POW(0, 0)` gave 1.** Excel gives #NUM!, and so did Forge's own `0^0`. The functions now compute exactly like `^`: 0^0 and a negative base with a fractional exponent are #NUM!, and 0 to a negative power is #DIV/0! (`POWER(0, -1)` was #NUM!).
 - **`ADDRESS` gave addresses Excel does not.** A row outside 1 to 1,048,576 gave text such as `$A$0`, and an `abs_num` outside 1 to 4 was read as 1; both are #VALUE! in Excel and now in Forge. In R1C1 style, `abs_num` 2 and 3 gave `R2C3` instead of `R2C[3]` and `R[2]C3`. The fifth argument, the sheet name, was ignored; it now gives `Sheet1!$A$1` (quoted when the name needs it).
