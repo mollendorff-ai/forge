@@ -1,5 +1,7 @@
 # ADR-004: 100% Test Coverage Requirement
 
+> **Note (2026-11-08):** 100% is a goal, not a gate: neither the Makefile nor CI fails below 100% (`make coverage` reports, CI reads the function percentage for a badge).
+
 **Status:** Accepted
 **Date:** 2025-12-04
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)

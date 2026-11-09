@@ -1,6 +1,6 @@
 # ADR-031: License Change - Elastic-2.0 to MIT OR Apache-2.0
 
-**Status**: SUPERSEDED
+**Status**: Accepted (updated 2026-02-16: MIT OR Apache-2.0; the original Elastic-2.0 decision is superseded)
 **Date**: 2025-12-29 (original), 2026-02-16 (updated)
 **Supersedes**: ADR-030 (license section only)
 

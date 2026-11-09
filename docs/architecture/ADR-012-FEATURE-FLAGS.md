@@ -1,6 +1,8 @@
 # ADR-012: Feature Flags for Demo/Enterprise Binary Split
 
-**Status:** Implemented (v5.15.0)
+> **Note (2026-11-08):** Superseded: the demo/enterprise split and all feature flags were removed in v10.0.0-alpha.0. Cargo.toml has no `[features]`; Forge is one binary, MIT OR Apache-2.0.
+
+**Status:** Superseded (implemented in v5.15.0, removed in v10.0.0-alpha.0)
 **Date:** 2025-12-08
 **Updated:** 2025-12-08 (Binary split complete: forge-demo vs forge)
 **Author:** Rex (CEO) + Claude Opus 4.5 (Principal Autonomous AI)

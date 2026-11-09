@@ -2,6 +2,8 @@
 
 ## Forge HTTP REST API Server (v2.0.0)
 
+> **Updated (2026-11-08):** The configuration, middleware and security sections below were rewritten from the code (they described an API open to every origin with no authentication). The MCP server is separate: `forge mcp` speaks MCP over stdio (rmcp) and does not go through this HTTP API. Handlers call the synchronous core functions directly; there is no `spawn_blocking`.
+
 **Last Updated:** 2025-11-25
 
 **Status:** Complete
@@ -30,7 +32,7 @@ The Forge API Server provides a production-ready HTTP REST API for enterprise in
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │                   Tower Middleware Stack                    │  │
 │  │  ┌────────────┐  ┌──────────────┐  ┌────────────────────┐  │  │
-│  │  │   CORS     │  │   Tracing    │  │  Request Logging   │  │  │
+│  │  │ Host/token │  │   Tracing    │  │ CORS (opt-in only) │  │  │
 │  │  └────────────┘  └──────────────┘  └────────────────────┘  │  │
 │  └────────────────────────────────────────────────────────────┘  │
 │  ┌────────────────────────────────────────────────────────────┐  │
@@ -126,9 +128,8 @@ All responses use a consistent JSON envelope:
 ApiResponse::ok(data)
 // -> { "success": true, "request_id": "...", "data": {...} }
 
-// Error response
-ApiResponse::err("message")
-// -> { "success": false, "request_id": "...", "error": "message" }
+// A failed validation or calculation is still `ok`: the failure is in `data`
+// -> { "success": true, "request_id": "...", "data": { "valid": false, ... } }
 ```
 
 ---
@@ -139,8 +140,10 @@ ApiResponse::err("message")
 
 ```rust
 pub struct ApiConfig {
-    pub host: String,  // Default: "127.0.0.1"
-    pub port: u16,     // Default: 8080
+    pub host: String,              // Default: "127.0.0.1"
+    pub port: u16,                 // Default: 8080
+    pub token: Option<String>,     // Required on /api/v1/* when set
+    pub cors_origins: Vec<String>, // None by default
 }
 ```
 
@@ -150,6 +153,7 @@ pub struct ApiConfig {
 |----------|-------------|---------|
 | `FORGE_HOST` | Host address to bind | `127.0.0.1` |
 | `FORGE_PORT` | Port to listen on | `8080` |
+| `FORGE_API_TOKEN` | Token required on `/api/v1/*` | none |
 
 ### CLI Arguments
 
@@ -159,6 +163,8 @@ forge serve [OPTIONS]
 Options:
   -H, --host <HOST>  Host address [default: 127.0.0.1] [env: FORGE_HOST]
   -p, --port <PORT>  Port number [default: 8080] [env: FORGE_PORT]
+      --token <TOKEN>          Token required on /api/v1/* [env: FORGE_API_TOKEN]
+      --cors-origin <ORIGIN>   Browser origin allowed to call the API (repeatable; none by default)
   -h, --help         Print help
   -V, --version      Print version
 ```
@@ -167,26 +173,15 @@ Options:
 
 ## Middleware Stack
 
-### Tower HTTP Layers
+### Layers
 
-```rust
-let app = Router::new()
-    .route(...)
-    .with_state(state)
-    .layer(CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any))
-    .layer(TraceLayer::new_for_http());
-```
+`build_router` in `src/api/server.rs`:
 
-### CORS Configuration
+- a guard on every route: it rejects a request whose `Host` header is not this machine (403, against DNS rebinding) when the server listens on a loopback address, and a request to `/api/v1/*` without `Authorization: Bearer <token>` (401) when a token is set;
+- a CORS layer only when `--cors-origin` is given: those origins, `GET` and `POST`, `Content-Type` and `Authorization` headers; `*` is refused;
+- `TraceLayer` for request tracing.
 
-- **Origins:** All allowed (`Any`)
-- **Methods:** All allowed (`Any`)
-- **Headers:** All allowed (`Any`)
-
-For production, restrict CORS to specific origins.
+Forge refuses to listen on a non-loopback address without a token.
 
 ---
 
@@ -249,8 +244,10 @@ Client                 API Server             CLI Layer            Forge Core
 
 | Code | Usage |
 |------|-------|
-| 200 | All successful operations |
+| 200 | Every handled request, including a failed validation or calculation (see `data`) |
 | 400 | Malformed request body |
+| 401 | `/api/v1/*` without the token, when one is set |
+| 403 | `Host` header that is not this machine |
 | 404 | Unknown endpoint |
 | 500 | Internal server error |
 
@@ -258,7 +255,7 @@ Client                 API Server             CLI Layer            Forge Core
 
 ```json
 {
-  "success": false,
+  "success": true,
   "request_id": "550e8400-e29b-41d4-a716-446655440000",
   "data": {
     "valid": false,
@@ -268,13 +265,13 @@ Client                 API Server             CLI Layer            Forge Core
 }
 ```
 
-Note: Errors are returned with HTTP 200 and `success: false` in the response body to maintain consistent response structure.
+Note: a failed validation or calculation comes back with HTTP 200 and `success: true`; the failure is in `data` (`valid: false` or `calculated: false`).
 
 ---
 
 ## Testing
 
-### Unit Tests (30 tests)
+### Unit Tests
 
 ```
 api::handlers::tests::
@@ -328,7 +325,6 @@ api::server::tests::
 
 - Uses Tokio multi-threaded runtime
 - All handlers are async
-- Non-blocking I/O for file operations
 
 ### Connection Handling
 
@@ -347,17 +343,18 @@ api::server::tests::
 
 ### Current Implementation
 
-- CORS allows all origins (development mode)
-- No authentication/authorization
-- No rate limiting
+- Listens on 127.0.0.1 by default and rejects requests whose `Host` header is not this machine
+- No CORS unless `--cors-origin` names an origin
+- A bearer token (`--token` or `FORGE_API_TOKEN`) on `/api/v1/*`; required to listen on another address
+- The API reads and writes the files requests name, as the user running it
+- No rate limiting and no HTTPS (use a reverse proxy)
 
 ### Production Recommendations
 
-1. **Restrict CORS** to specific domains
-2. **Add authentication** (JWT, API keys)
-3. **Implement rate limiting** (tower-governor)
-4. **Enable HTTPS** (reverse proxy or rustls)
-5. **Add request validation** (payload size limits)
+1. **Keep the token secret** and prefer the environment variable to `--token`
+2. **Implement rate limiting** (tower-governor)
+3. **Enable HTTPS** (reverse proxy or rustls)
+4. **Add request validation** (payload size limits)
 
 ---
 

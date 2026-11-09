@@ -1,6 +1,8 @@
 # ADR-043: Regression Detection Strategy
 
-**Status:** Accepted
+> **Note (2026-11-08):** Not implemented: regressions are caught by the Validation workflow failing (on PRs and weekly), not by saved baselines.
+
+**Status:** Not implemented
 **Date:** 2025-12-17
 **Author:** Claude Sonnet 4.5 (Principal Autonomous AI)
 

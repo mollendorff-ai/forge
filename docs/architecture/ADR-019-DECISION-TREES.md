@@ -1,5 +1,7 @@
 # ADR-019: Decision Trees
 
+> **Note (2026-11-08):** The decision holds; the CLI flags differ (`--export` and `--sensitivity` do not exist; `--dot` does). `forge decision-tree --help` is current.
+
 ## Status
 
 **Implemented** - v8.4.0

@@ -5,7 +5,7 @@
 **Last Updated:** 2025-12-04
 **Status:** Complete
 
-> **Note (2026-11-07):** This overview dates from v5.0.0. The cost, CO₂, token, speed and test-count figures it once carried were never sourced and have been removed; [VALIDATION.md](../../VALIDATION.md) says what is checked and how. The architecture below has not been brought up to date. For example, Forge evaluates formulas with its own evaluator in `src/core/array_calculator` and no longer depends on `xlformula_engine`; 01-COMPONENT-ARCHITECTURE.md, 02-DATA-MODEL.md, 03-FORMULA-EVALUATION.md and ADR-011 still describe that earlier integration.
+> **Note (2026-11-08):** This overview dates from v5.0.0. The cost, CO₂, token, speed and test-count figures it once carried were never sourced and have been removed; [VALIDATION.md](../../VALIDATION.md) says what is checked and how. The architecture sections have not been brought up to date and are wrong in detail: the dependency versions (see Cargo.toml), the module tree (`core/array_calculator/` and `cli/commands/` are directories; `src/lib.rs` has 18 modules, including `api`, `mcp` and the analysis engines), the type names (`ParsedModel`, `ExcelExporter`, `ExcelImporter`, `writer::write_calculated_results`), the Excel path (`src/excel/workbook_refs.rs`, not `FormulaTranslator`), the version marker (1.0.0 is scalars only; tables need 5.0.0 or 5.1.0) and several linked pages that do not exist. `forge calculate` writes results into the file (ADR-051) unless `--dry-run`. 01 to 05 carry their own notes.
 
 ---
 

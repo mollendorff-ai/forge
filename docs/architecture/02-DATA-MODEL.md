@@ -1,6 +1,6 @@
 # Data Model Architecture
 
-> **Superseded (2026-11-07):** Forge no longer uses `xlformula_engine`. Formulas are evaluated by Forge's own evaluator in `src/core/array_calculator/` (tokenizer, parser, evaluator), checked against Gnumeric and R by `forge-e2e-gnumeric` and `forge-e2e-r`. The parts of this page that describe `xlformula_engine` are history.
+> **Superseded (2026-11-08):** This page describes Forge as it was around v1.2, and most of it no longer matches the code. Gone: `xlformula_engine` (formulas are evaluated by Forge's own evaluator in `src/core/array_calculator/`, checked against Gnumeric and R by `forge-e2e-gnumeric` and `forge-e2e-r`), the v0.2.0 format, its scalar calculator and version detection (`_forge_version` is required: 1.0.0, 5.0.0 or 5.1.0, ADR-051), `ForgeVersion`, `Variable.alias`, `columns:`/`row_formulas:` table keys, and the files `core/calculator.rs`, `core/array_calculator.rs` and `cli/commands.rs` (now directories). `@namespace.name` is the current `_includes` mechanism, not a v0.2.0 leftover. Read the code, [FEATURES.md](../FEATURES.md) and ADR-050 to ADR-052 for what Forge does today.
 
 **Document Version:** 1.0.0
 **Forge Version:** v1.2.1

@@ -12,19 +12,23 @@ description: >
 stack:
   - rust (stable; CI lints with the newest stable, so pin nothing)
   - clap (CLI)
-  - axum + tokio (REST API)
+  - yaml_serde + serde, jsonschema (model files and their schemas in schema/)
+  - petgraph (dependency graph of formula cells)
+  - axum + tokio + tower-http (REST API)
   - rmcp (MCP server, stdio)
   - rust_xlsxwriter / calamine (Excel write / read)
-  - statrs (statistics)
+  - rand + rand_distr, statrs (Monte Carlo sampling, statistics)
   - indexmap (model order is preserved everywhere)
+  - notify (forge watch)
 
 conventions:
-  - "Result<T, E> for errors in library code; a panic is a bug. Sorting and comparing f64 uses total_cmp, never partial_cmp().unwrap()"
+  - "Result<T, E> for errors in library code; a panic is a bug. Sorting and comparing f64 uses total_cmp, never partial_cmp().unwrap() (tests/conventions.rs)"
   - "No silent wrong answers: an input that cannot be used (unknown name, NaN, failing include) is an error that names it and suggests the closest name"
-  - "Unit tests in the same file (#[cfg(test)] mod tests); end-to-end checks in the two forge-e2e repositories"
-  - "Every fix for a wrong answer comes with a test that fails on the previous commit"
-  - "Zero warnings; clippy pedantic + nursery + cargo at -D warnings (the pre-commit hook enforces it)"
-  - "CHANGELOG.md has an [Unreleased] section; every PR adds its entry there in plain words that say what a user saw and what changed"
-  - "Docs describe what the code does today; a superseded design doc gets a dated note at the top, not a rewrite"
-  - "No file > 1,500 lines"
-  - "MIT OR Apache-2.0 license"
+  - "Unit tests next to the code (#[cfg(test)], in the same file or a sibling *_tests.rs module); integration tests in tests/; end-to-end checks in forge-e2e-gnumeric and forge-e2e-r, run by .github/workflows/validation.yml"
+  - "Every fix for a wrong answer comes with a test that fails on the previous commit (the PR template asks for it)"
+  - "Every new or changed command gets an examples/ model whose numbers are checked by a calculation made outside Forge, asserted in a test (tests/bagel_example.rs shows how; the PR template asks for it)"
+  - "Zero warnings; clippy pedantic + nursery + cargo ([lints] in Cargo.toml) at -D warnings, in the pre-commit hook (make lint) and in CI"
+  - "CHANGELOG.md has an [Unreleased] section; every PR adds its entry there in plain words that say what a user saw and what changed (the PR template asks for it)"
+  - "Docs describe what the code does today; a superseded design doc gets a dated note at the top, not a rewrite (the PR template asks; last checked across docs/architecture on 2026-11-08)"
+  - "No source file over 1,500 lines (tests/conventions.rs)"
+  - "MIT OR Apache-2.0 license (Cargo.toml, LICENSE-MIT, LICENSE-APACHE)"

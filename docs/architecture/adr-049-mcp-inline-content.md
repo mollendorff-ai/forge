@@ -1,5 +1,7 @@
 # ADR-049: MCP Inline Content for Sandboxed Clients
 
+> **Note (2026-11-08):** Since then, `forge_export` returns the workbook as `excel_base64` when `excel_path` is left out, and the REST API accepts `content` too.
+
 **Status:** Accepted
 **Date:** 2026-03-07
 **Author:** Claude Opus 4.6 (AI Engineering Agent)

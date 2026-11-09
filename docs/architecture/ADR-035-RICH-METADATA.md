@@ -1,5 +1,7 @@
 # ADR-035: Rich Metadata Schema
 
+> **Note (2026-11-08):** Implemented under model format 5.x, not 4.0: migration is `forge upgrade` (to 5.1.0), `@namespace` references read scalars only, and there is no Sources sheet in the Excel export.
+
 **Status:** Implemented
 
 > Enterprise-grade financial modeling with full traceability

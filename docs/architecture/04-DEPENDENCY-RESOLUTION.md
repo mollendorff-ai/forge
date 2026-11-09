@@ -1,5 +1,7 @@
 # Dependency Resolution Architecture
 
+> **Superseded (2026-11-08):** The idea holds (a dependency graph, sorted with `petgraph`), the structure does not. There are no per-table graphs and no table phase then scalar phase: one graph holds every formula column and scalar (`Cell::Column` and `Cell::Scalar` in `src/core/array_calculator/mod.rs`), so a column can read a calculated scalar. A cycle is reported with the cells that form it (`tarjan_scc`), and an unknown name fails when that cell is evaluated while every other cell is still calculated, so all failures are reported at once. The table examples below use `columns:`/`row_formulas:` keys, which the parser rejects: a column is an array or an `=` formula directly under the table.
+
 **Document Version:** 1.0.0
 **Forge Version:** v1.2.1
 **Last Updated:** 2025-11-24

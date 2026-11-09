@@ -44,16 +44,6 @@ state:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier1:
-  - id: T1-USE-AGAIN
-    title: "Every new or changed command gets an examples/ model with externally checked numbers"
-    why: "It found more in one evening than 1,500 unit tests had; make it the rule, not a one-off"
-    acceptance: "CONTRIBUTING.md and project.yaml conventions say so; the PR template asks for the example and the outside calculation"
-
-  - id: T1-PROJECT-TRUTH
-    title: "Keep .asimov/project.yaml and the architecture docs true"
-    why: "The warmup briefed agents on actix-web (the code is axum) and on a no-unwrap convention the code broke in 13 places; a wrong briefing produces confident wrong work"
-    acceptance: "project.yaml stack matches Cargo.toml; each convention is either enforced by a lint/test or removed; docs/architecture pages that describe removed designs carry a superseded note at the top (done for xlformula_engine; check the rest)"
-
   - id: T1-SCEN-SIM
     title: "Collect the scenario and simulation features the maintainer needs"
     why: "ADR-050 keeps the engines because they are used; the next features should come from that use, not from a list"
@@ -66,6 +56,11 @@ tier1:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier2:
+  - id: T2-EDITORS
+    title: "Editor extensions start a forge-lsp binary that no longer exists"
+    why: "editors/vscode and editors/zed launch forge-lsp (ADR-005 removed the language server), so neither extension works"
+    acceptance: "Either the extensions provide syntax highlighting and the schema without a server, or editors/ is removed and the README says so"
+
   - id: T2-EXPORT-FORGE-FUNCTIONS
     title: "Export Forge-only functions, LET and LAMBDA as Excel formulas"
     why: "forge export writes VARIANCE*, BREAKEVEN_*, COUNTUNIQUE, LET and LAMBDA as values, so those cells do not follow their inputs in Excel; 59 forge-e2e-gnumeric cases skip Gnumeric for it"

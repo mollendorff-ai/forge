@@ -1,5 +1,7 @@
 # ADR-021: Tornado Diagrams (Sensitivity Analysis)
 
+> **Note (2026-11-08):** The decision holds; the CLI flags differ (`--format` and `--top` do not exist). `forge tornado --help` is current.
+
 ## Status
 
 **Implemented** - v8.6.0
