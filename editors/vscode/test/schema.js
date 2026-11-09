@@ -2,7 +2,8 @@
 // language server behind VS Code's YAML extension (and Zed's YAML support):
 // - the bundled schema is the repository's current one;
 // - every example model gets no diagnostic;
-// - a model with mistakes gets one on each mistaken line.
+// - a model with mistakes gets one on each mistaken line, and none on the
+//   valid line beside them.
 
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -93,6 +94,9 @@ function validate(docs) {
   const bad = found['file:///tmp/forge-bad.yaml'] || [];
   const lines = new Set(bad.map((x) => x.range.start.line + 1));
   for (const line of [5, 7]) if (!lines.has(line)) failures.push(`the misspelt key and the text value (line ${line}) got no diagnostic: ${JSON.stringify(bad)}`);
+  // The schema reads a group as the parser does, so the valid scalar beside
+  // the mistakes is not marked
+  if (lines.has(3)) failures.push(`the valid line 3 (principal) got a diagnostic: ${JSON.stringify(bad)}`);
 
   console.log(`${files.length} examples validated against ${path.basename(bundled)}, and one model with mistakes`);
   if (failures.length) {

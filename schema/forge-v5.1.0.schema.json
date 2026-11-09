@@ -71,17 +71,53 @@
     }
   },
   "additionalProperties": {
-    "anyOf": [
-      {
-        "$ref": "#/definitions/Table"
+    "description": "A table, a group of scalars or one scalar, decided as the parser does (ADR-051, 'How a group is read')",
+    "if": {
+      "type": "object"
+    },
+    "then": {
+      "if": {
+        "allOf": [
+          {
+            "$ref": "#/definitions/IsOneScalar"
+          },
+          {
+            "not": {
+              "$ref": "#/definitions/IsTable"
+            }
+          }
+        ]
       },
-      {
-        "$ref": "#/definitions/ScalarGroup"
+      "then": {
+        "$ref": "#/definitions/ScalarMapping"
       },
-      {
-        "$ref": "#/definitions/Scalar"
+      "else": {
+        "if": {
+          "$ref": "#/definitions/IsTable"
+        },
+        "then": {
+          "$ref": "#/definitions/Table"
+        },
+        "else": {
+          "if": {
+            "$ref": "#/definitions/IsScalarGroup"
+          },
+          "then": {
+            "$ref": "#/definitions/ScalarGroup"
+          },
+          "else": {
+            "$ref": "#/definitions/Table"
+          }
+        }
       }
-    ]
+    },
+    "else": {
+      "type": [
+        "number",
+        "object"
+      ],
+      "description": "A top-level entry is a number (an input), or a mapping: a table, a group of scalars or one scalar"
+    }
   },
   "definitions": {
     "Table": {
@@ -89,35 +125,7 @@
       "description": "A table with column arrays that maps to an Excel sheet",
       "type": "object",
       "additionalProperties": {
-        "anyOf": [
-          {
-            "$ref": "#/definitions/NumberArray"
-          },
-          {
-            "$ref": "#/definitions/TextArray"
-          },
-          {
-            "$ref": "#/definitions/DateArray"
-          },
-          {
-            "$ref": "#/definitions/BooleanArray"
-          },
-          {
-            "$ref": "#/definitions/FormulaArray"
-          },
-          {
-            "$ref": "#/definitions/RowFormula"
-          },
-          {
-            "$ref": "#/definitions/AggregationFormula"
-          },
-          {
-            "$ref": "#/definitions/RichColumn"
-          },
-          {
-            "$ref": "#/definitions/RichFormula"
-          }
-        ]
+        "$ref": "#/definitions/TableColumn"
       },
       "examples": [
         {
@@ -420,104 +428,6 @@
     "Scalar": {
       "title": "Scalar",
       "description": "An input as a plain number, or a mapping with `value:` (input) or `formula:` (calculated) and optional metadata",
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "title": "Scalar (mapping)",
-          "description": "Single value with optional formula and rich metadata (v4.0 enhanced)",
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "value": {
-              "oneOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Input value, or the last calculated result of the formula (written by forge calculate)"
-            },
-            "formula": {
-              "oneOf": [
-                {
-                  "type": "string",
-                  "pattern": "^=.+",
-                  "description": "Formula expression starting with ="
-                },
-                {
-                  "type": "null",
-                  "description": "No formula (manual input value)"
-                }
-              ]
-            },
-            "unit": {
-              "type": "string",
-              "description": "Unit of measurement (CAD, USD, %, count, days, ratio)"
-            },
-            "notes": {
-              "type": "string",
-              "description": "Human-readable explanation"
-            },
-            "source": {
-              "type": "string",
-              "description": "Where data came from (file:field or URL)"
-            },
-            "validation_status": {
-              "type": "string",
-              "enum": [
-                "VALIDATED",
-                "PROJECTED",
-                "ESTIMATED"
-              ],
-              "description": "Data validation status"
-            },
-            "last_updated": {
-              "type": "string",
-              "description": "ISO date of last update"
-            },
-            "better": {
-              "type": "string",
-              "enum": [
-                "higher",
-                "lower"
-              ],
-              "description": "Which way is good, for variance analysis: higher (revenue, profit) or lower (costs)"
-            }
-          },
-          "examples": [
-            {
-              "value": 0.9,
-              "formula": "=1 - platform_take_rate"
-            },
-            {
-              "value": 0.1,
-              "formula": null
-            },
-            {
-              "value": 100000,
-              "unit": "CAD",
-              "notes": "Annual revenue target",
-              "validation_status": "PROJECTED"
-            }
-          ],
-          "anyOf": [
-            {
-              "required": [
-                "value"
-              ]
-            },
-            {
-              "required": [
-                "formula"
-              ]
-            }
-          ]
-        }
-      ],
       "examples": [
         16,
         {
@@ -529,7 +439,17 @@
           "unit": "CAD",
           "better": "lower"
         }
-      ]
+      ],
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "$ref": "#/definitions/ScalarMapping"
+      },
+      "else": {
+        "type": "number",
+        "description": "An input as a plain number"
+      }
     },
     "Scenarios": {
       "title": "Scenarios",
@@ -855,6 +775,250 @@
       "required": [
         "probability"
       ]
+    },
+    "IsTable": {
+      "description": "A mapping is a table if a child is a list, or a mapping whose value is a list (parser: is_table)",
+      "type": "object",
+      "not": {
+        "additionalProperties": {
+          "not": {
+            "anyOf": [
+              {
+                "type": "array"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "value"
+                ],
+                "properties": {
+                  "value": {
+                    "type": "array"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "IsOneScalar": {
+      "description": "A mapping is one scalar if it has a value that is not a list, or a formula and no child mapping (parser: is_one_scalar)",
+      "type": "object",
+      "anyOf": [
+        {
+          "required": [
+            "value"
+          ],
+          "properties": {
+            "value": {
+              "not": {
+                "type": "array"
+              }
+            }
+          }
+        },
+        {
+          "required": [
+            "formula"
+          ],
+          "additionalProperties": {
+            "not": {
+              "type": "object"
+            }
+          }
+        }
+      ]
+    },
+    "IsScalarGroup": {
+      "description": "A mapping that is not a table is a group of scalars if a child is a number, or a mapping with value or formula (parser: is_nested_scalar_section)",
+      "type": "object",
+      "anyOf": [
+        {
+          "not": {
+            "additionalProperties": {
+              "not": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        {
+          "not": {
+            "additionalProperties": {
+              "not": {
+                "type": "object",
+                "anyOf": [
+                  {
+                    "required": [
+                      "value"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "formula"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ScalarMapping": {
+      "title": "Scalar (mapping)",
+      "description": "Single value with optional formula and rich metadata (v4.0 enhanced)",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Input value, or the last calculated result of the formula (written by forge calculate)"
+        },
+        "formula": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^=.+",
+              "description": "Formula expression starting with ="
+            },
+            {
+              "type": "null",
+              "description": "No formula (manual input value)"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement (CAD, USD, %, count, days, ratio)"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Human-readable explanation"
+        },
+        "source": {
+          "type": "string",
+          "description": "Where data came from (file:field or URL)"
+        },
+        "validation_status": {
+          "type": "string",
+          "enum": [
+            "VALIDATED",
+            "PROJECTED",
+            "ESTIMATED"
+          ],
+          "description": "Data validation status"
+        },
+        "last_updated": {
+          "type": "string",
+          "description": "ISO date of last update"
+        },
+        "better": {
+          "type": "string",
+          "enum": [
+            "higher",
+            "lower"
+          ],
+          "description": "Which way is good, for variance analysis: higher (revenue, profit) or lower (costs)"
+        }
+      },
+      "examples": [
+        {
+          "value": 0.9,
+          "formula": "=1 - platform_take_rate"
+        },
+        {
+          "value": 0.1,
+          "formula": null
+        },
+        {
+          "value": 100000,
+          "unit": "CAD",
+          "notes": "Annual revenue target",
+          "validation_status": "PROJECTED"
+        }
+      ],
+      "anyOf": [
+        {
+          "required": [
+            "value"
+          ]
+        },
+        {
+          "required": [
+            "formula"
+          ]
+        }
+      ]
+    },
+    "TableColumn": {
+      "title": "Table column",
+      "description": "A list of values of one type, a row formula (a text starting with =), or a mapping with value: (a list) or formula: and metadata",
+      "if": {
+        "type": "array"
+      },
+      "then": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/NumberArray"
+          },
+          {
+            "$ref": "#/definitions/TextArray"
+          },
+          {
+            "$ref": "#/definitions/DateArray"
+          },
+          {
+            "$ref": "#/definitions/BooleanArray"
+          },
+          {
+            "$ref": "#/definitions/FormulaArray"
+          }
+        ]
+      },
+      "else": {
+        "if": {
+          "type": "string"
+        },
+        "then": {
+          "$ref": "#/definitions/RowFormula"
+        },
+        "else": {
+          "if": {
+            "type": "object",
+            "required": [
+              "value"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/RichColumn"
+          },
+          "else": {
+            "if": {
+              "type": "object"
+            },
+            "then": {
+              "$ref": "#/definitions/RichFormula"
+            },
+            "else": {
+              "type": [
+                "array",
+                "string",
+                "object"
+              ],
+              "description": "A table column is a list or a formula; a single number belongs in a group of scalars"
+            }
+          }
+        }
+      }
     }
   },
   "examples": [

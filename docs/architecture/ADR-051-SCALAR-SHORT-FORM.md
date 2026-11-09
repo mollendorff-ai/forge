@@ -53,9 +53,12 @@ What the maintainer wants to keep: **one file that holds formulas and their resu
 
 A mapping under a top-level key is:
 
+- **one scalar** if it has a `value` that is not a list, or a `formula` and no child mapping (and is not a table); its keys are then `value`, `formula` and the metadata, and any other key is an error;
 - a **table** if any child is a list (a column) or a mapping whose `value` is a list;
 - otherwise a **scalar group** if any child is a number or a mapping with `value` or `formula`;
 - otherwise a table of formula columns.
+
+The 5.1.0 schema applies these rules in this order (`if`/`then`/`else`, since 2026-11-09), so a mistake is reported under the reading Forge will use. It used to accept a mapping under any reading that fitted, and Forge then read some of them another way and dropped part without a word (`single: {value: 3, doubled: {formula: ...}}` lost `doubled`).
 
 In a scalar group, a bare formula string (`profit: "=revenue - costs"`) is an error that says to write `profit: {formula: "=revenue - costs"}`: a bare string has no place to hold its result, and writing one back would change what the author typed. In a table, a bare formula string is a row formula, as before.
 

@@ -80,6 +80,7 @@ pub fn parse_table(name: &str, map: &yaml_serde::Mapping) -> ForgeResult<Table> 
 /// Returns an error if the value is not a mapping.
 pub fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable> {
     if let Value::Mapping(map) = value {
+        check_scalar_keys(map, path)?;
         let val = map.get("value").and_then(yaml_serde::Value::as_f64);
         let formula = map
             .get("formula")
@@ -98,6 +99,84 @@ pub fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable>
         Err(ForgeError::Parse(format!(
             "Expected mapping for scalar variable '{path}'"
         )))
+    }
+}
+
+/// The keys a scalar's mapping may have.
+pub const SCALAR_KEYS: [&str; 8] = [
+    "value",
+    "formula",
+    "unit",
+    "notes",
+    "source",
+    "validation_status",
+    "last_updated",
+    "better",
+];
+
+/// Refuse what reading a mapping as one scalar would otherwise drop without a
+/// word: a key it does not have (`formla`, or a second scalar beside `value:`),
+/// a `value` that is not a number and a `formula` that is not text.
+///
+/// # Errors
+///
+/// Returns an error naming the scalar and the key.
+pub fn check_scalar_keys(map: &yaml_serde::Mapping, path: &str) -> ForgeResult<()> {
+    for (key, value) in map {
+        let Some(key) = key.as_str() else {
+            return Err(ForgeError::Parse(format!(
+                "'{path}': a key of a scalar must be text"
+            )));
+        };
+        if !SCALAR_KEYS.contains(&key) {
+            let hint = crate::error::closest(key, &SCALAR_KEYS)
+                .map(|k| format!(" Did you mean '{k}'?"))
+                .unwrap_or_default();
+            let nested = if matches!(value, Value::Mapping(_)) {
+                format!(
+                    " ('{path}' has `value:` or `formula:`, so it is read as one scalar, \
+                     and '{key}' cannot be a scalar inside it)"
+                )
+            } else {
+                String::new()
+            };
+            return Err(ForgeError::Parse(format!(
+                "'{path}.{key}': a scalar has no key '{key}'.{hint}{nested} \
+                 A scalar's keys are {}",
+                SCALAR_KEYS.join(", ")
+            )));
+        }
+        let bad = match key {
+            "value" => !matches!(value, Value::Number(_) | Value::Null),
+            "formula" => !matches!(value, Value::String(_) | Value::Null),
+            _ => false,
+        };
+        if bad {
+            let expected = if key == "value" {
+                "a number"
+            } else {
+                "a formula starting with = (in quotes)"
+            };
+            return Err(ForgeError::Parse(format!(
+                "'{path}.{key}' must be {expected}, not {}",
+                describe(value)
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// A YAML value in a few words, for an error message.
+#[must_use]
+pub fn describe(value: &Value) -> String {
+    match value {
+        Value::Null => "empty".to_string(),
+        Value::Bool(b) => format!("{b} (true or false)"),
+        Value::Number(n) => format!("the number {n}"),
+        Value::String(s) => format!("the text \"{s}\""),
+        Value::Sequence(_) => "a list".to_string(),
+        Value::Mapping(_) => "a mapping".to_string(),
+        Value::Tagged(_) => "a tagged value".to_string(),
     }
 }
 
@@ -154,6 +233,35 @@ pub fn is_nested_scalar_section(map: &yaml_serde::Mapping) -> bool {
 
 #[cfg(test)]
 mod tests {
+
+    /// Reading a mapping as one scalar refuses what it would otherwise drop.
+    #[test]
+    fn a_scalar_refuses_keys_and_values_it_would_drop() {
+        let read = |text: &str| {
+            let value: Value = yaml_serde::from_str(text).unwrap();
+            parse_scalar_variable(&value, "loan.payment").map_err(|e| e.to_string())
+        };
+        assert!(read("value: 3\nformula: \"=a\"\nunit: CAD\nbetter: lower\n").is_ok());
+        assert!(read("value: null\nformula: null\n").is_ok());
+        let err = read("formla: \"=a\"\n").unwrap_err();
+        assert!(
+            err.contains("'loan.payment.formla'") && err.contains("Did you mean 'formula'?"),
+            "{err}"
+        );
+        let err = read("value: 3\ndoubled:\n  formula: \"=value * 2\"\n").unwrap_err();
+        assert!(err.contains("read as one scalar"), "{err}");
+        let err = read("value: high\n").unwrap_err();
+        assert!(
+            err.contains("'loan.payment.value' must be a number, not the text \"high\""),
+            "{err}"
+        );
+        let err = read("formula: 3\n").unwrap_err();
+        assert!(
+            err.contains("'loan.payment.formula' must be a formula"),
+            "{err}"
+        );
+    }
+
     use super::*;
     use crate::types::ColumnValue;
     use std::io::Write;
