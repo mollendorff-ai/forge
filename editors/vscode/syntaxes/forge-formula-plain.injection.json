@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Forge formulas in unquoted YAML values",
+  "scopeName": "forge.formula.plain.injection",
+  "injectionSelector": "L:string.unquoted.plain.out.yaml, L:string.unquoted.plain.in.yaml",
+  "patterns": [
+    {
+      "comment": "An unquoted formula: key: =a + b, or - =a + b",
+      "begin": "(?<=: |- )(=)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.operator.formula.forge"
+        }
+      },
+      "end": "$|(?= #)",
+      "contentName": "meta.formula.forge",
+      "patterns": [
+        {
+          "include": "forge.formula.injection#formula"
+        }
+      ]
+    }
+  ]
+}

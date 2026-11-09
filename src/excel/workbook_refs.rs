@@ -90,6 +90,10 @@ pub struct WorkbookRefs {
     pub rows: HashMap<String, usize>,
     /// scalar path -> (sheet, Excel row)
     pub scalars: HashMap<String, (String, u32)>,
+    /// table -> its sheet, where that is not the table's name (a table of an
+    /// included file: `@costs.prices` and `prices` in its own layout are on
+    /// the sheet `costs.prices`)
+    pub sheets: HashMap<String, String>,
 }
 
 /// Excel column letter for a 0-based index (0 -> A, 26 -> AA).
@@ -149,15 +153,7 @@ impl WorkbookRefs {
     ) -> Self {
         let mut refs = Self::default();
         for (table, columns, row_count) in tables {
-            let mut seen = std::collections::HashSet::new();
-            let map = columns
-                .into_iter()
-                .filter(|name| seen.insert(name.clone()))
-                .enumerate()
-                .map(|(i, name)| (name, column_letter(i)))
-                .collect();
-            refs.columns.insert(table.to_string(), map);
-            refs.rows.insert(table.to_string(), row_count);
+            refs.add_table(table, columns, row_count);
         }
         let mut groups: HashMap<String, Vec<&str>> = HashMap::new();
         for path in scalar_paths {
@@ -188,12 +184,56 @@ impl WorkbookRefs {
         }
     }
 
+    /// Make the tables of an included file readable as
+    /// `@{namespace}.{table}.{column}`, on the sheets `{namespace}.{table}`
+    /// that `ExcelExporter` writes for them.
+    pub fn add_include_tables(
+        &mut self,
+        namespace: &str,
+        tables: impl IntoIterator<Item = (String, Vec<String>, usize)>,
+    ) {
+        for (table, columns, row_count) in tables {
+            let key = format!("@{namespace}.{table}");
+            self.add_table(&key, columns, row_count);
+            self.sheets.insert(key, format!("{namespace}.{table}"));
+        }
+    }
+
+    /// Lay out one table: columns A, B, C... in the order given (a repeated
+    /// name keeps its first letter).
+    fn add_table(&mut self, table: &str, columns: Vec<String>, row_count: usize) {
+        let mut seen = std::collections::HashSet::new();
+        let map = columns
+            .into_iter()
+            .filter(|name| seen.insert(name.clone()))
+            .enumerate()
+            .map(|(i, name)| (name, column_letter(i)))
+            .collect();
+        self.columns.insert(table.to_string(), map);
+        self.rows.insert(table.to_string(), row_count);
+    }
+
+    /// The sheet a table is on.
+    fn sheet_of<'s>(&'s self, table: &'s str) -> &'s str {
+        self.sheets.get(table).map_or(table, String::as_str)
+    }
+
     /// The layout for an included file's own formulas: its scalars by their
-    /// own paths, on its `{namespace}.Scalars` sheet.
+    /// own paths, on its `{namespace}.Scalars` sheet, and its tables by their
+    /// own names, on the sheets `{namespace}.{table}`.
     #[must_use]
-    pub fn for_include<'a>(namespace: &str, paths: impl IntoIterator<Item = &'a str>) -> Self {
+    pub fn for_include<'a>(
+        namespace: &str,
+        paths: impl IntoIterator<Item = &'a str>,
+        tables: impl IntoIterator<Item = (String, Vec<String>, usize)>,
+    ) -> Self {
         let sheet = include_sheet(namespace);
         let mut refs = Self::default();
+        for (table, columns, row_count) in tables {
+            refs.add_table(&table, columns, row_count);
+            refs.sheets
+                .insert(table.clone(), format!("{namespace}.{table}"));
+        }
         for (i, path) in paths.into_iter().enumerate() {
             #[allow(clippy::cast_possible_truncation)] // far below u32::MAX scalars
             let row = (i + 2) as u32;
@@ -251,7 +291,7 @@ impl WorkbookRefs {
         let last = self.rows.get(table).copied().unwrap_or(0) + 1;
         format!(
             "{}$A$2:${}${last}",
-            sheet_prefix(table),
+            sheet_prefix(self.sheet_of(table)),
             column_letter(width - 1)
         )
     }
@@ -270,6 +310,21 @@ impl WorkbookRefs {
         whole_column: bool,
         has_range: &mut bool,
     ) -> Result<String, String> {
+        // A column of a table of an included file: `@costs.prices.flour`
+        if word.starts_with('@') && !self.scalars.contains_key(word) {
+            if let Some((table, column)) = word.rsplit_once('.') {
+                if let Some(letter) = self.columns.get(table).and_then(|c| c.get(column)) {
+                    let prefix = sheet_prefix(self.sheet_of(table));
+                    if let Context::Row { row, .. } = ctx {
+                        if !whole_column {
+                            return Ok(format!("{prefix}{letter}{row}"));
+                        }
+                    }
+                    *has_range = true;
+                    return Ok(self.column_range(&prefix, table, letter));
+                }
+            }
+        }
         match ctx {
             Context::Row { table, row } => {
                 // A column of this table, then a scalar, then `table.column`.
@@ -291,7 +346,7 @@ impl WorkbookRefs {
                         let prefix = if other == table {
                             String::new()
                         } else {
-                            sheet_prefix(other)
+                            sheet_prefix(self.sheet_of(other))
                         };
                         if whole_column {
                             *has_range = true;
@@ -309,7 +364,11 @@ impl WorkbookRefs {
                 if let Some((table, column)) = word.split_once('.') {
                     if let Some(letter) = self.columns.get(table).and_then(|c| c.get(column)) {
                         *has_range = true;
-                        return Ok(self.column_range(&sheet_prefix(table), table, letter));
+                        return Ok(self.column_range(
+                            &sheet_prefix(self.sheet_of(table)),
+                            table,
+                            letter,
+                        ));
                     }
                 }
             },
@@ -857,10 +916,14 @@ mod tests {
 /// What a sheet holds, read back from a workbook.
 #[derive(Debug, Clone)]
 pub enum SheetKind {
-    /// A table: column letter -> column name
+    /// A table: column letter -> column name. `include` is the namespace when
+    /// the sheet holds a table of an included file (`{namespace}.{table}`):
+    /// `name` is then the file's own name for it, and the main model reads
+    /// its columns as `@{namespace}.{name}.{column}`.
     Table {
         name: String,
         columns: HashMap<String, String>,
+        include: Option<String>,
     },
     /// A scalar sheet (`Name` / `Value`): Excel row -> scalar path.
     ///
@@ -877,8 +940,7 @@ impl SheetKind {
     /// The namespace of an included file's sheet.
     fn include(&self) -> Option<&str> {
         match self {
-            Self::Scalars { include, .. } => include.as_deref(),
-            Self::Table { .. } => None,
+            Self::Scalars { include, .. } | Self::Table { include, .. } => include.as_deref(),
         }
     }
 }
@@ -1160,10 +1222,16 @@ impl ReverseRefs {
                     )),
                 }
             },
-            SheetKind::Table { .. } if current.include().is_some() => {
-                Err("an included file's scalar reads a table".to_string())
+            SheetKind::Table { include, .. }
+                if current.include().is_some() && include.as_deref() != current.include() =>
+            {
+                Err("an included file reads a table outside itself".to_string())
             },
-            SheetKind::Table { name, columns } => {
+            SheetKind::Table {
+                name,
+                columns,
+                include,
+            } => {
                 if let Some(last) = last {
                     if last.column != first.column {
                         return Err("range over several columns".to_string());
@@ -1172,8 +1240,12 @@ impl ReverseRefs {
                 let column = columns
                     .get(&first.column)
                     .ok_or_else(|| format!("no column {} in '{name}'", first.column))?;
-                let in_current_table =
-                    matches!(current, SheetKind::Table { name: n, .. } if n == name);
+                let in_current_table = matches!(current, SheetKind::Table { name: n, include: i, .. } if n == name && i == include);
+                // The main model reads a table of an included file by namespace
+                let qualified = match (include.as_deref(), current.include()) {
+                    (Some(ns), None) => format!("@{ns}.{name}"),
+                    _ => name.clone(),
+                };
                 match (current, last) {
                     // A single cell in a row formula must be in the same row.
                     (SheetKind::Table { .. }, None) if first.row != row => {
@@ -1184,7 +1256,7 @@ impl ReverseRefs {
                         Err("reference to a single table cell".to_string())
                     },
                     _ if in_current_table => Ok(column.clone()),
-                    _ => Ok(format!("{name}.{column}")),
+                    _ => Ok(format!("{qualified}.{column}")),
                 }
             },
         }
@@ -1208,6 +1280,7 @@ mod reverse_tests {
                 SheetKind::Table {
                     name: table.clone(),
                     columns,
+                    include: None,
                 },
             );
         }
@@ -1312,7 +1385,11 @@ mod reverse_tests {
             .unwrap_err()
             .contains("unknown name"));
 
-        let own = WorkbookRefs::for_include("costs", ["labour.wage", "labour.loaded"]);
+        let own = WorkbookRefs::for_include(
+            "costs",
+            ["labour.wage", "labour.loaded"],
+            std::iter::empty(),
+        );
         let xl_own = own
             .to_excel(
                 "=wage * 1.15",

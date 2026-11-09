@@ -333,6 +333,10 @@ pub struct ParsedModel {
     /// Empty for single-document files
     #[serde(default)]
     pub documents: Vec<String>,
+
+    /// The file the model was read from, for messages that name it
+    #[serde(skip)]
+    pub source: Option<std::path::PathBuf>,
 }
 
 impl ParsedModel {
@@ -343,6 +347,7 @@ impl ParsedModel {
             scalars: IndexMap::new(),
             aggregations: HashMap::new(),
             scenarios: HashMap::new(),
+            source: None,
             includes: Vec::new(),
             resolved_includes: HashMap::new(),
             documents: Vec::new(),

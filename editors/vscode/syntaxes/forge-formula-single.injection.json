@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Forge formulas in single-quoted YAML strings",
+  "scopeName": "forge.formula.single.injection",
+  "injectionSelector": "L:string.quoted.single.yaml",
+  "patterns": [
+    {
+      "comment": "A formula in single quotes: '=a + b'",
+      "begin": "(?<=')(?<!'')(=)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.operator.formula.forge"
+        }
+      },
+      "end": "(?=')",
+      "contentName": "meta.formula.forge",
+      "patterns": [
+        {
+          "include": "forge.formula.injection#formula"
+        }
+      ]
+    }
+  ]
+}

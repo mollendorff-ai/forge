@@ -375,17 +375,30 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
                 return Ok(value);
             }
 
-            if let Some(namespace) = table.strip_prefix('@') {
-                return Err(EvalError::new(format!(
-                    "Unknown included value: {table}.{column} (needs an `_includes` entry \
-                     with `as: {namespace}` whose file has a scalar `{column}`)"
-                )));
-            }
-
-            // Fall back to table.column lookup
-            let col = ctx
-                .get_column(table, column)
-                .ok_or_else(|| EvalError::new(format!("Unknown column: {table}.{column}")))?;
+            let col = if let Some(namespace) = table.strip_prefix('@') {
+                // A column of a table of an included file: @costs.prices.flour
+                // (the included tables are in the context as `@costs.prices`)
+                let included = column.split_once('.').and_then(|(inner, col)| {
+                    SCALAR_KEY.with(|key| {
+                        let mut key = key.borrow_mut();
+                        key.clear();
+                        key.push_str(table);
+                        key.push('.');
+                        key.push_str(inner);
+                        ctx.tables.get(key.as_str()).and_then(|t| t.get(col))
+                    })
+                });
+                included.ok_or_else(|| {
+                    EvalError::new(format!(
+                        "Unknown included value: {table}.{column} (needs an `_includes` entry \
+                         with `as: {namespace}` whose file has a scalar `{column}`, or a \
+                         table column `table.column`)"
+                    ))
+                })?
+            } else {
+                ctx.get_column(table, column)
+                    .ok_or_else(|| EvalError::new(format!("Unknown column: {table}.{column}")))?
+            };
 
             // In row-wise mode, validate row count matches and return single value
             if let Some(row) = ctx.current_row {

@@ -197,7 +197,7 @@ fn include_files(
                 continue;
             }
             return Err(ForgeError::Import(format!(
-                "the workbook's sheet {}.Scalars holds other values than {}. Nothing was \
+                "the workbook's sheets for {} hold other values than {}. Nothing was \
                  written. Import into another folder, then compare the two files",
                 include.namespace,
                 path.display()
@@ -208,18 +208,24 @@ fn include_files(
     Ok(files)
 }
 
-/// Whether the model file at `path` calculates to the scalars of `sheet`: the
-/// same names, the same values, and a formula where the sheet has one.
+/// Whether the model file at `path` calculates to what the workbook's sheets
+/// for it hold: the same scalars and tables, the same values, and a formula
+/// where the sheets have one.
 fn holds_the_same_values(path: &Path, sheet: &crate::types::ParsedModel) -> bool {
     let Ok(existing) = parser::parse_model(path) else {
         return false;
     };
-    let existing = crate::core::ArrayCalculator::new(existing.clone())
-        .calculate_all()
-        .unwrap_or(existing);
+    let calculated = |m: &crate::types::ParsedModel| {
+        crate::core::ArrayCalculator::new(m.clone()).calculate_all()
+    };
+    let Ok(existing) = calculated(&existing) else {
+        return false;
+    };
+    let Ok(sheet) = calculated(sheet) else {
+        return false;
+    };
     let close = |a: f64, b: f64| (a - b).abs() <= 1e-9 * a.abs().max(b.abs()).max(1.0);
-    existing.tables.is_empty()
-        && existing.scalars.len() == sheet.scalars.len()
+    let same_scalars = existing.scalars.len() == sheet.scalars.len()
         && sheet.scalars.iter().all(|(name, var)| {
             existing.scalars.get(name).is_some_and(|old| {
                 old.formula.is_some() == var.formula.is_some()
@@ -228,7 +234,33 @@ fn holds_the_same_values(path: &Path, sheet: &crate::types::ParsedModel) -> bool
                         (a, b) => a.is_none() && b.is_none(),
                     }
             })
-        })
+        });
+    let same_column = |a: &crate::types::ColumnValue, b: &crate::types::ColumnValue| {
+        use crate::types::ColumnValue::Number;
+        match (a, b) {
+            (Number(x), Number(y)) => {
+                x.len() == y.len() && x.iter().zip(y).all(|(p, q)| close(*p, *q))
+            },
+            _ => a == b,
+        }
+    };
+    let same_tables = existing.tables.len() == sheet.tables.len()
+        && sheet.tables.iter().all(|(name, table)| {
+            existing.tables.get(name).is_some_and(|old| {
+                old.columns.len() == table.columns.len()
+                    && old
+                        .row_formulas
+                        .keys()
+                        .collect::<std::collections::BTreeSet<_>>()
+                        == table.row_formulas.keys().collect()
+                    && table.columns.iter().all(|(col, c)| {
+                        old.columns
+                            .get(col)
+                            .is_some_and(|o| same_column(&o.values, &c.values))
+                    })
+            })
+        });
+    same_scalars && same_tables
 }
 
 /// Write the imported model as one file, with its included files beside it.
@@ -828,7 +860,7 @@ g:
         let err = import_core(&xlsx, &changed.path().join("main.yaml"), false, false)
             .unwrap_err()
             .to_string();
-        assert!(err.contains("holds other values"), "{err}");
+        assert!(err.contains("hold other values"), "{err}");
         assert!(
             !changed.path().join("main.yaml").exists(),
             "nothing may be written"
@@ -844,6 +876,92 @@ g:
             part.scalars["shop.pay"].value,
             original.scalars["shop.pay"].value
         );
+    }
+
+    /// T2-INCLUDE-COLUMNS: a table of an included file is a sheet with its
+    /// formulas, a formula that reads one of its columns reads that sheet
+    /// (the same row in a row formula, the whole column in an aggregate), and
+    /// import puts the table back in the included file.
+    #[test]
+    fn included_tables_stay_live_and_come_back_in_the_include() {
+        use calamine::{open_workbook, Reader, Xlsx};
+        let dir = tempfile::TempDir::new().unwrap();
+        let prices = "_forge_version: \"5.1.0\"\ntax:\n  rate: 0.15\nlist:\n  per_kg: [1.15, 9.40, 0.80]\n  with_tax: \"=per_kg * (1 + tax.rate)\"\n";
+        fs::write(dir.path().join("prices.yaml"), prices).unwrap();
+        let main = dir.path().join("main.yaml");
+        fs::write(
+            &main,
+            "_forge_version: \"5.1.0\"\n_includes:\n  - file: prices.yaml\n    as: prices\norder:\n  kg: [120, 6, 3]\n  cost: \"=kg * @prices.list.with_tax\"\ntotal:\n  dearest:\n    formula: \"=MAX(@prices.list.per_kg)\"\n",
+        )
+        .unwrap();
+        let original = calculate(parser::parse_model(&main).unwrap()).unwrap();
+        let xlsx = dir.path().join("main.xlsx");
+        let warnings = ExcelExporter::new(original.clone())
+            .export_with_warnings(&xlsx)
+            .unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+
+        let mut wb: Xlsx<_> = open_workbook(&xlsx).unwrap();
+        let order = wb.worksheet_formula("order").unwrap();
+        assert_eq!(
+            order.get_value((1, 1)).map(String::as_str),
+            Some("A2 * 'prices.list'!B2"),
+            "the same row of the included table"
+        );
+        let list = wb.worksheet_formula("prices.list").unwrap();
+        assert_eq!(
+            list.get_value((1, 1)).map(String::as_str),
+            Some("A2 * (1 + 'prices.Scalars'!$B$2)"),
+            "the included table's own formula"
+        );
+        let total = wb.worksheet_formula("total").unwrap();
+        assert_eq!(
+            total.get_value((1, 1)).map(String::as_str),
+            Some("MAX('prices.list'!$A$2:$A$4)")
+        );
+
+        let other = tempfile::TempDir::new().unwrap();
+        let back = other.path().join("main.yaml");
+        import_core(&xlsx, &back, false, false).unwrap();
+        let text = fs::read_to_string(&back).unwrap();
+        assert!(text.contains("cost: =kg * @prices.list.with_tax"), "{text}");
+        assert!(text.contains("=MAX(@prices.list.per_kg)"), "{text}");
+        assert!(
+            !text.contains("per_kg:"),
+            "the table stays in the include: {text}"
+        );
+        let included = fs::read_to_string(other.path().join("prices.yaml")).unwrap();
+        assert!(
+            included.contains("with_tax: =per_kg * (1 + tax.rate)"),
+            "{included}"
+        );
+        let calculated = calculate(parser::parse_model(&back).unwrap()).unwrap();
+        assert_eq!(
+            calculated.tables["order"].columns["cost"].values,
+            original.tables["order"].columns["cost"].values
+        );
+        assert_eq!(
+            calculated.scalars["total.dearest"].value,
+            original.scalars["total.dearest"].value
+        );
+
+        // Beside the original, which means the same: kept as written
+        import_core(&xlsx, &dir.path().join("back.yaml"), false, false).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.path().join("prices.yaml")).unwrap(),
+            prices
+        );
+        // Beside one whose table holds another price: refused
+        let changed = tempfile::TempDir::new().unwrap();
+        fs::write(
+            changed.path().join("prices.yaml"),
+            prices.replace("9.40", "9.50"),
+        )
+        .unwrap();
+        let err = import_core(&xlsx, &changed.path().join("main.yaml"), false, false)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("hold other values"), "{err}");
     }
 
     /// ADR-052: `--multi-doc` gives the same numbers as one file, and

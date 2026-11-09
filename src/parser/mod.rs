@@ -68,13 +68,15 @@ pub fn parse_model(path: &std::path::Path) -> ForgeResult<ParsedModel> {
     // We need to skip comments and whitespace when detecting
     let is_multi_doc = detect_multi_document(&content);
 
-    if is_multi_doc {
+    let mut model = if is_multi_doc {
         // Parse all documents and merge (v4.4.2)
-        parse_multi_document_yaml(&content, path)
+        parse_multi_document_yaml(&content, path)?
     } else {
         // Single document parsing (original behavior)
-        parse_single_document_yaml(&content, path)
-    }
+        parse_single_document_yaml(&content, path)?
+    };
+    model.source = Some(path.to_path_buf());
+    Ok(model)
 }
 
 #[cfg(test)]

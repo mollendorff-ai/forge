@@ -39,16 +39,19 @@ async function grammar(withInjection, files) {
   const wasm = fs.readFileSync(require.resolve('vscode-oniguruma/release/onig.wasm')).buffer;
   await onig.loadWASM(wasm).catch(() => {}); // already loaded on the second call
   const manifest = require('../package.json');
-  const injection = manifest.contributes.grammars[0];
+  const injections = manifest.contributes.grammars;
   const all = { ...files };
-  all[injection.scopeName] = JSON.parse(fs.readFileSync(path.join(__dirname, '..', injection.path), 'utf8'));
+  for (const injection of injections) {
+    all[injection.scopeName] = JSON.parse(fs.readFileSync(path.join(__dirname, '..', injection.path), 'utf8'));
+  }
   const registry = new tm.Registry({
     onigLib: Promise.resolve({
       createOnigScanner: (p) => new onig.OnigScanner(p),
       createOnigString: (s) => new onig.OnigString(s),
     }),
     loadGrammar: async (scope) => (all[scope] ? tm.parseRawGrammar(JSON.stringify(all[scope]), 'g.json') : null),
-    getInjections: (scope) => (withInjection && injection.injectTo.includes(scope) ? [injection.scopeName] : []),
+    getInjections: (scope) =>
+      withInjection ? injections.filter((i) => i.injectTo.includes(scope)).map((i) => i.scopeName) : [],
   });
   return registry.loadGrammar('source.yaml');
 }
@@ -94,7 +97,11 @@ function yamlFiles(dir) {
       const a0 = perChar(after[i], true).filter((_, k) => !inside[k]);
       if (JSON.stringify(b0) !== JSON.stringify(a0)) failures.push(`${where}: changed outside a formula: ${line}`);
       const found = inside.some(Boolean);
-      const looks = /(^|[:-] |\[|, )["']?=[^=]/.test(line) && !line.trimStart().startsWith('#');
+      // A value that starts with "=": after `key: ` or `- ` at the start of
+      // the line, or an entry of a flow list
+      const looks =
+        !line.trimStart().startsWith('#') &&
+        (/^\s*(?:-\s+)?(?:[\w.@-]+:\s+)?["']?=[^=]/.test(line) || /\[\s*["']?=[^=]|,\s*["']=[^=]/.test(line));
       if (found) formulas += 1;
       if (looks && !found) failures.push(`${where}: formula not recognised: ${line}`);
       for (const t of after[i]) {
@@ -114,6 +121,12 @@ function yamlFiles(dir) {
     ['  s: "=SUMIF(r, \\"North\\", v)"', [['=', 'keyword.operator.formula'], ['SUMIF', 'support.function'], ['(', 'punctuation.separator'], ['r', 'variable.other'], [',', 'punctuation.separator'], ['\\"North\\"', 'string.quoted.double.formula'], [',', 'punctuation.separator'], ['v', 'variable.other'], [')', 'punctuation.separator']]],
     ['  t: \'=IF(x >= 0, "yes", TRUE)\'', [['=', 'keyword.operator.formula'], ['IF', 'support.function'], ['(', 'punctuation.separator'], ['x', 'variable.other'], ['>=', 'keyword.operator'], ['0', 'constant.numeric'], [',', 'punctuation.separator'], ['"yes"', 'string.quoted.double.formula'], [',', 'punctuation.separator'], ['TRUE', 'constant.language.boolean'], [')', 'punctuation.separator']]],
     ['  note: "a = b"', []],
+    // Text that only contains ": =" is not a formula, in any kind of string
+    ['  why: "found in cases: =SUM(a, b) fails"', []],
+    ["  why: 'found in cases: =SUM(a, b) fails'", []],
+    ['  why: "say \\"=x\\" here"', []],
+    ["  why: 'it''=s'", []],
+    ['  - =a * 2', [['=', 'keyword.operator.formula'], ['a', 'variable.other'], ['*', 'keyword.operator'], ['2', 'constant.numeric']]],
   ];
   for (const [line, want] of expect) {
     const got = tokenize(forge, `a:\n${line}`)[1]

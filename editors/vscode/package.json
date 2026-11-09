@@ -32,6 +32,20 @@
         "injectTo": [
           "source.yaml"
         ]
+      },
+      {
+        "scopeName": "forge.formula.single.injection",
+        "path": "./syntaxes/forge-formula-single.injection.json",
+        "injectTo": [
+          "source.yaml"
+        ]
+      },
+      {
+        "scopeName": "forge.formula.plain.injection",
+        "path": "./syntaxes/forge-formula-plain.injection.json",
+        "injectTo": [
+          "source.yaml"
+        ]
       }
     ],
     "yamlValidation": [

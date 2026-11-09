@@ -194,6 +194,18 @@ impl<'a> Builder<'a> {
             };
             let mut inner: At = at.to_vec();
             inner.push(index);
+            // A column of a table of the included file: `@costs.prices.flour`
+            let included = self.scope(&inner);
+            if !included.model.scalars.contains_key(path) {
+                if let Some((table, column)) = path.rsplit_once('.') {
+                    let found = included.model.tables.get(table).is_some_and(|t| {
+                        t.columns.contains_key(column) || t.row_formulas.contains_key(column)
+                    });
+                    if found {
+                        return self.column_node(&inner, table, column, depth);
+                    }
+                }
+            }
             return self.scalar_node(&inner, path, depth);
         }
 
@@ -540,6 +552,34 @@ mod tests {
         walk(deps, &mut unknown, &mut dozens);
         assert!(unknown.is_empty(), "{unknown:?}");
         assert_eq!(dozens, 1);
+    }
+
+    /// A column of an included table is followed into its file.
+    #[test]
+    fn an_included_column_is_followed_into_its_file() {
+        let dir = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            dir.path().join("prices.yaml"),
+            "_forge_version: \"5.1.0\"\ntax:\n  rate: 0.15\nlist:\n  per_kg: [1.15, 9.40, 0.80]\n  with_tax: \"=per_kg * (1 + tax.rate)\"\n",
+        )
+        .unwrap();
+        let main = dir.path().join("main.yaml");
+        std::fs::write(
+            &main,
+            "_forge_version: \"5.1.0\"\n_includes:\n  - file: prices.yaml\n    as: prices\norder:\n  kg: [120, 6, 3]\n  cost: \"=kg * @prices.list.with_tax\"\ntotal:\n  cost:\n    formula: \"=SUM(order.cost)\"\n",
+        )
+        .unwrap();
+        let result = audit_core(&main, "total.cost").unwrap();
+        let deps = &result.dependencies;
+        let with_tax = find(deps, "@prices.list.with_tax").unwrap();
+        assert_eq!(with_tax.dep_type, "Column[list]");
+        assert_eq!(with_tax.source.as_deref(), Some("prices.yaml"));
+        assert_eq!(with_tax.values.as_ref().map(Vec::len), Some(3));
+        assert!(find(&with_tax.children, "@prices.list.per_kg").is_some());
+        assert!(find(&with_tax.children, "@prices.tax.rate").is_some());
+        let (mut unknown, mut dozens) = (Vec::new(), 0);
+        walk(deps, &mut unknown, &mut dozens);
+        assert!(unknown.is_empty(), "{unknown:?}");
     }
 
     #[test]

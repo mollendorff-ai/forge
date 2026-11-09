@@ -51,6 +51,11 @@ tier1:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier2:
+  - id: T2-SUMPRODUCT
+    title: "SUMPRODUCT"
+    why: "Found while writing include-column cases: =SUMPRODUCT(a, b) is 'Unknown function', and it is one of the most used functions in spreadsheet models (weighted totals, price x quantity). SUM(a * b) works today"
+    acceptance: "SUMPRODUCT with 1 to 255 arrays of equal length, text treated as 0 and a length mismatch as #VALUE! as in Excel; forge-e2e-gnumeric cases recalculated by Gnumeric, and the export writes it as SUMPRODUCT"
+
   - id: T2-EXPORT-LET
     title: "Export LET, LAMBDA, COUNTUNIQUE and TODAY as Excel formulas"
     why: "forge export writes them as values, so those cells do not follow their inputs in Excel; 36 forge-e2e-gnumeric cases skip Gnumeric for it (VARIANCE* and BREAKEVEN_* are done)"
@@ -62,11 +67,6 @@ tier2:
     why: "Every financial model has time. Today seasonality, growth and NPV are arithmetic on `month - 1`; a user coming from Excel or a planning tool expects revenue[t-1]"
     how: "Design first (ADR with 3 worked examples: monthly budget, loan schedule, 5-year DCF). Likely shape: a table may declare `period: {start: 2026-11, count: 12, unit: month}`; row formulas may reference prev()/offset() and period attributes; export writes real dates in the first column"
     acceptance: "ADR merged with the three examples; the loan schedule example matches an amortization computed in Python to the cent; Gnumeric recalculation of its export matches"
-
-  - id: T2-INCLUDE-COLUMNS
-    title: "Read table columns from included files (@costs.prices.flour as a column)"
-    why: "Includes read scalars only; shared price lists and rate curves are tables"
-    acceptance: "A row formula referencing an included column calculates; a length mismatch is a clear error naming both files"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done and at least two people use it)
