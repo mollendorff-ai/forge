@@ -469,7 +469,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_functions",
-        description = "List all 173 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.)."
+        description = "List all 174 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.)."
     )]
     fn functions(&self, Parameters(_req): Parameters<FunctionsRequest>) -> Result<String, String> {
         functions_core()
@@ -493,7 +493,7 @@ impl ForgeMcpServer {
 impl ServerHandler for ForgeMcpServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_instructions("Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 173 Excel-compatible functions. All tools return structured JSON.")
+            .with_instructions("Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 174 Excel-compatible functions. All tools return structured JSON.")
             .with_server_info(
                 rmcp::model::Implementation::new("forge", env!("CARGO_PKG_VERSION"))
             )

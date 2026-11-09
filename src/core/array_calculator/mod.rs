@@ -603,7 +603,8 @@ impl ArrayCalculator {
         use parser::Expr;
         const ROW_WISE_WITH_SEVERAL_ARGS: [&str; 7] =
             ["SUM", "AVERAGE", "AVG", "MAX", "MIN", "COUNT", "MEDIAN"];
-        const ALWAYS_AGGREGATE: [&str; 17] = [
+        const ALWAYS_AGGREGATE: [&str; 18] = [
+            "SUMPRODUCT",
             "SUMIF",
             "COUNTIF",
             "AVERAGEIF",

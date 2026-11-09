@@ -336,6 +336,7 @@ fn is_function_name(token: &str) -> bool {
             | "ABS"
             | "SQRT"
             | "SUMIF"
+            | "SUMPRODUCT"
             | "COUNTIF"
             | "AVERAGEIF"
             | "VLOOKUP"

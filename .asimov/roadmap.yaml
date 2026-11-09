@@ -51,11 +51,6 @@ tier1:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier2:
-  - id: T2-SUMPRODUCT
-    title: "SUMPRODUCT"
-    why: "Found while writing include-column cases: =SUMPRODUCT(a, b) is 'Unknown function', and it is one of the most used functions in spreadsheet models (weighted totals, price x quantity). SUM(a * b) works today"
-    acceptance: "SUMPRODUCT with 1 to 255 arrays of equal length, text treated as 0 and a length mismatch as #VALUE! as in Excel; forge-e2e-gnumeric cases recalculated by Gnumeric, and the export writes it as SUMPRODUCT"
-
   - id: T2-EXPORT-LET
     title: "Export LET, LAMBDA, COUNTUNIQUE and TODAY as Excel formulas"
     why: "forge export writes them as values, so those cells do not follow their inputs in Excel; 36 forge-e2e-gnumeric cases skip Gnumeric for it (VARIANCE* and BREAKEVEN_* are done)"
@@ -86,11 +81,6 @@ tier3:
   - id: T3-TRANSPORT
     title: "MCP over HTTP/SSE via rmcp"
     why: "Needed for hosted or browser clients; nobody has one yet"
-
-  - id: T3-SUMPRODUCT
-    title: "SUMPRODUCT"
-    why: "Common in finance; SUM(a*b) works today"
-    acceptance: "Added to forge-e2e-gnumeric cases"
 
   - id: T3-BENCH
     title: "Per-function benchmarks"
