@@ -1,8 +1,8 @@
 {
   "name": "forge-yaml",
   "displayName": "Forge YAML",
-  "description": "Language support for Forge YAML formula files - syntax highlighting, validation, and autocomplete",
-  "version": "3.1.0",
+  "description": "Highlights the formulas in Forge model files and checks the files against the Forge schema",
+  "version": "4.0.0",
   "publisher": "mollendorff-ai",
   "repository": {
     "type": "git",
@@ -13,107 +13,45 @@
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Programming Languages",
-    "Linters",
-    "Formatters"
+    "Programming Languages"
   ],
   "keywords": [
     "yaml",
     "forge",
-    "excel",
     "formula",
-    "financial",
-    "spreadsheet"
+    "financial model"
   ],
-  "activationEvents": [
-    "onLanguage:yaml",
-    "workspaceContains:**/*.forge.yaml",
-    "workspaceContains:**/*.yaml"
+  "extensionDependencies": [
+    "redhat.vscode-yaml"
   ],
-  "main": "./out/extension.js",
   "contributes": {
-    "languages": [
-      {
-        "id": "forge-yaml",
-        "aliases": [
-          "Forge YAML",
-          "forge"
-        ],
-        "extensions": [
-          ".forge.yaml",
-          ".forge.yml"
-        ],
-        "configuration": "./language-configuration.json"
-      }
-    ],
     "grammars": [
       {
-        "language": "forge-yaml",
-        "scopeName": "source.forge-yaml",
-        "path": "./syntaxes/forge-yaml.tmLanguage.json"
+        "scopeName": "forge.formula.injection",
+        "path": "./syntaxes/forge-formula.injection.json",
+        "injectTo": [
+          "source.yaml"
+        ]
       }
     ],
-    "configuration": {
-      "title": "Forge YAML",
-      "properties": {
-        "forge.lspPath": {
-          "type": "string",
-          "default": "forge-lsp",
-          "description": "Path to the Forge LSP server executable"
-        },
-        "forge.validateOnSave": {
-          "type": "boolean",
-          "default": true,
-          "description": "Validate Forge YAML files on save"
-        },
-        "forge.validateOnType": {
-          "type": "boolean",
-          "default": true,
-          "description": "Validate Forge YAML files while typing"
-        },
-        "forge.showCalculatedValues": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show calculated values on hover"
-        }
-      }
-    },
-    "commands": [
+    "yamlValidation": [
       {
-        "command": "forge.validate",
-        "title": "Forge: Validate Current File"
-      },
-      {
-        "command": "forge.calculate",
-        "title": "Forge: Calculate All Formulas"
-      },
-      {
-        "command": "forge.exportExcel",
-        "title": "Forge: Export to Excel"
-      },
-      {
-        "command": "forge.showAudit",
-        "title": "Forge: Show Audit Trail"
+        "fileMatch": [
+          "*.forge.yaml",
+          "*.forge.yml"
+        ],
+        "url": "./schemas/forge-v5.1.0.schema.json"
       }
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
-  },
-  "dependencies": {
-    "vscode-languageclient": "^9.0.1"
+    "test": "node test/grammar.js && node test/schema.js",
+    "package": "vsce package"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
-    "@types/node": "^20.0.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
-    "eslint": "^8.0.0",
-    "typescript": "^5.0.0",
-    "@vscode/test-electron": "^2.3.0"
+    "@vscode/vsce": "4.0.0",
+    "vscode-oniguruma": "2.0.1",
+    "vscode-textmate": "9.3.2",
+    "yaml-language-server": "2.0.0"
   }
 }

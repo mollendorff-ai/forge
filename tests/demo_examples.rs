@@ -14,6 +14,8 @@
 //!         if months <= 12: y1i += i; y1p += p - i
 //!     return months, p, interest, y1i, y1p
 //! run(pay)        # interest 319106.2888696
+//! # the extra payment that saves 80,000 of interest, as in the README
+//! brentq(lambda e: run(pay)[2] - run(pay + e)[2] - 80000, 1, 2000)  # 397.044208
 //! run(pay + 300)  # 247 payments, the last 42.248775, interest 254509.4056479,
 //!                 # first year interest 21056.173122, principal 13308.078432
 //! ```
@@ -22,7 +24,7 @@
 //! actual; expenses 3100 budgeted, 1650 + 812.43 + 96.50 + 163.20 + 120 +
 //! 388.75 + 74.97 = 3305.85 actual; left over 2500 and 2044.15.
 
-use mollendorff_forge::cli::{calculate_core, variance_core};
+use mollendorff_forge::cli::{calculate_core, goal_seek_core, variance_core};
 use std::path::Path;
 
 fn close(a: f64, b: f64, tol: f64) -> bool {
@@ -47,6 +49,25 @@ fn the_mortgage_matches_an_amortisation_loop() {
     }
     // 246 full payments and a smaller last one: 247, as in the loop
     assert!(close(get("with_extra.full_months"), 246.0, 0.0));
+}
+
+#[test]
+fn the_extra_payment_that_saves_eighty_thousand() {
+    let result = goal_seek_core(
+        Path::new("examples/mortgage/mortgage.yaml"),
+        "saved.interest",
+        80_000.0,
+        "loan.extra_per_month",
+        (None, None),
+        0.0001,
+    )
+    .unwrap();
+    assert!(result.converged);
+    assert!(
+        close(result.solution, 397.044_208, 1e-4),
+        "{}",
+        result.solution
+    );
 }
 
 #[test]
@@ -115,5 +136,29 @@ fn each_demo_calculates_in_under_a_second() {
         let took = start.elapsed();
         // A debug build is slower than a release build; a second is still ample
         assert!(took.as_secs_f64() < 1.0, "{model}: {took:?}");
+    }
+}
+
+/// Every model under examples/ passes the schema of its format (the parser
+/// checks it before anything else) and parses.
+#[test]
+fn every_example_passes_its_schema() {
+    fn models(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                models(&path, out);
+            } else if path.extension().is_some_and(|e| e == "yaml") {
+                out.push(path);
+            }
+        }
+    }
+    let mut files = Vec::new();
+    models(Path::new("examples"), &mut files);
+    assert!(files.len() >= 20, "{files:?}");
+    for file in files {
+        if let Err(e) = mollendorff_forge::parser::parse_model(&file) {
+            panic!("{}: {e}", file.display());
+        }
     }
 }

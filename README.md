@@ -38,13 +38,53 @@ Known problems as of 2026-11-08 (what is planned, and in what order, is in the [
 
 **Size:** for one 5-year DCF model, the `.xlsx` file was about 7× the size of the YAML in bytes (about 19× counting the XML inside it). Token counts were not measured, and an agent that reads only the cells it needs avoids most of this cost.
 
-## Example models
+## Examples
 
-Three models of the kind people have, each built through the MCP tools and checked against a calculation written outside Forge (the tests say which):
+Three models of the kind people have, each built through the MCP tools. Every number below is what the command prints. The tests check each one against a calculation written outside Forge (the price seek with 1,000 runs instead of 5,000).
 
-- [`examples/household`](examples/household/README.md): a monthly household budget and what was actually spent, for `forge variance`. Spending 205.85 over budget and earning 250 less left 2,044.15 instead of 2,500.
-- [`examples/mortgage`](examples/mortgage/README.md): a 450,000 mortgage at 4.79% compounded semi-annually, and what 300 more a month does: 247 payments instead of 300 and 64,596.88 less interest.
-- [`examples/bagel`](examples/bagel/README.md): a bagel shop's first twelve months, with its supplier costs in an included file, used by every analytics command.
+**How much more a month to save 80,000 of interest on a mortgage?** [`examples/mortgage`](examples/mortgage/README.md) is 450,000 at 4.79% over 25 years, compounded twice a year as Canadian fixed rates are. Paying 300 more a month already means 247 payments instead of 300 and 64,596.88 less interest.
+
+```text
+$ forge goal-seek examples/mortgage/mortgage.yaml --target saved.interest --value 80000 --vary loan.extra_per_month
+   loan.extra_per_month = 397.044208 → saved.interest = 79999.999976
+```
+
+A month-by-month loop in Python, solved with SciPy, gives 397.044208.
+
+**What price gives a new bagel shop an 80% chance of making money in its first year?** [`examples/bagel`](examples/bagel/README.md) has twelve months of seasonal demand, five cost lines, and supplier prices kept in an included file. In the simulation, opening demand, staffing, the flour price and the wage are uncertain.
+
+```text
+$ forge simulate examples/bagel/bagel_simulate.yaml --seek "P(year.profit > 0) = 0.8" --vary price_per_dozen --min 14 --max 24
+   assumptions.price_per_dozen = 18.324083
+   P(year.profit > 0) there: 80.00%  (2.92% at 14, 100.00% at 24)
+   22 simulations of 5000 iterations, the same draws each time
+```
+
+At the planned 16 a dozen, the chance is 34.76%. The simulation names what drives the result: opening demand (+0.84), then staff hours (-0.42), the wage (-0.29) and the flour price (-0.09). The tornado shows how far each input can move the year when it changes alone:
+
+```text
+$ forge tornado examples/bagel/bagel.yaml
+   assumptions.opening_dozens_per_day |██████████████████████████████| swing 114499.75  (output -56463.56 at low, 58036.20 at high)
+   assumptions.price_per_dozen        |████████████████████████      | swing 94192.48  (output -46309.92 at low, 47882.56 at high)
+   assumptions.staff_hours_per_day    |████████████████████          | swing 76590.00  (output 46740.32 at low, -29849.68 at high)
+   assumptions.rent_per_month         |██████                        | swing 24000.00  (output 10386.32 at low, -13613.68 at high)
+   assumptions.card_fee_rate          |█                             | swing 4641.93  (output 3880.94 at low, -760.99 at high)
+```
+
+**Where did the household's October go?** [`examples/household`](examples/household/README.md) compares a budget with what came in and went out. Under `income` higher is better, and under `expenses` lower is better.
+
+```text
+$ forge variance examples/household/budget.yaml examples/household/actual.yaml
+Variable                      Budget       Actual     Variance      Var %   Status
+income.side_work                 400          150         -250     -62.5%     ⚠️ ❌
+expenses.groceries               700       812.43       112.43      16.1%     ⚠️ ❌
+expenses.transport               180         96.5        -83.5     -46.4%     ⚠️ ✅
+expenses.eating_out              250       388.75       138.75      55.5%     ⚠️ ❌
+expenses.total                  3100      3305.85       205.85       6.6%        ❌
+result.left_over                2500      2044.15      -455.85     -18.2%     ⚠️ ❌
+```
+
+(Six of its thirteen lines.) The same bagel model also runs scenarios, break-even, a decision tree, real options, a bootstrap and a Bayesian network: see its [README](examples/bagel/README.md).
 
 ---
 
@@ -168,13 +208,8 @@ Unit tests check Black-Scholes and binomial prices against QuantLib reference va
 
 One-at-a-time sensitivity analysis. Instantly see what drives variance.
 
-```text
-NPV Sensitivity Analysis (Base: $1.2M)
-
-Revenue Growth    |████████████████████| ± $450K
-Discount Rate     |██████████████      | ± $320K
-Operating Margin  |██████████          | ± $180K
-Tax Rate          |████                | ± $75K
+```bash
+forge tornado examples/bagel/bagel.yaml   # the output is under Examples above
 ```
 
 ### 6. Bayesian Networks
@@ -344,6 +379,20 @@ forge calculate model.yaml --scenario optimistic
 # Export to Excel with formulas (see known limitations)
 forge export model.yaml output.xlsx
 ```
+
+---
+
+## Editors
+
+Forge models are YAML files, so any editor with YAML support works. Two things help:
+
+- **The schema**: [`schema/forge-v5.1.0.schema.json`](schema/forge-v5.1.0.schema.json) gives completion of keys and marks a misspelt key or a text where a number belongs as you type, in any editor that runs yaml-language-server (VS Code with the YAML extension, Zed, Neovim, Helix). Put this first line in a model, or see [schema/README.md](schema/README.md) for the settings:
+  ```yaml
+  # yaml-language-server: $schema=https://raw.githubusercontent.com/mollendorff-ai/forge/main/schema/forge-v5.1.0.schema.json
+  ```
+- **VS Code**: [`editors/vscode`](editors/vscode/README.md) highlights formulas (functions, names, `@include` values, numbers) inside any YAML file and applies the schema to `*.forge.yaml` files. It is not on the Marketplace yet; the README says how to build and install it.
+
+There is no language server: run `forge validate` and `forge calculate` in a terminal, or `forge watch` to recalculate on every save.
 
 ---
 

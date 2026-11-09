@@ -51,11 +51,6 @@ tier1:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier2:
-  - id: T2-EDITORS
-    title: "Editor extensions start a forge-lsp binary that no longer exists"
-    why: "editors/vscode and editors/zed launch forge-lsp (ADR-005 removed the language server), so neither extension works"
-    acceptance: "Either the extensions provide syntax highlighting and the schema without a server, or editors/ is removed and the README says so"
-
   - id: T2-EXPORT-LET
     title: "Export LET, LAMBDA, COUNTUNIQUE and TODAY as Excel formulas"
     why: "forge export writes them as values, so those cells do not follow their inputs in Excel; 36 forge-e2e-gnumeric cases skip Gnumeric for it (VARIANCE* and BREAKEVEN_* are done)"
