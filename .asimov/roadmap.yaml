@@ -56,11 +56,11 @@ tier2:
     why: "editors/vscode and editors/zed launch forge-lsp (ADR-005 removed the language server), so neither extension works"
     acceptance: "Either the extensions provide syntax highlighting and the schema without a server, or editors/ is removed and the README says so"
 
-  - id: T2-EXPORT-FORGE-FUNCTIONS
-    title: "Export Forge-only functions, LET and LAMBDA as Excel formulas"
-    why: "forge export writes VARIANCE*, BREAKEVEN_*, COUNTUNIQUE, LET and LAMBDA as values, so those cells do not follow their inputs in Excel; 59 forge-e2e-gnumeric cases skip Gnumeric for it"
-    how: "VARIANCE(a, b) is a - b, BREAKEVEN_UNITS(f, p, v) is f / (p - v) with Forge's error when p <= v, and so on; LET needs its names kept local (Excel stores them as _xlpm.name). Gnumeric 1.12 cannot read LET or LAMBDA, so those need another check"
-    acceptance: "Each translated function's e2e cases drop their gnumeric_skip and pass in Gnumeric"
+  - id: T2-EXPORT-LET
+    title: "Export LET, LAMBDA, COUNTUNIQUE and TODAY as Excel formulas"
+    why: "forge export writes them as values, so those cells do not follow their inputs in Excel; 36 forge-e2e-gnumeric cases skip Gnumeric for it (VARIANCE* and BREAKEVEN_* are done)"
+    how: "LET and LAMBDA need their names kept local (Excel stores them as _xlpm.name), but Gnumeric 1.12 cannot read either, so a check needs another engine; COUNTUNIQUE has no expression Gnumeric reads (SUMPRODUCT(1/COUNTIF(r, r)) gives #VALUE!); Forge's TODAY is text, Excel's a date serial"
+    acceptance: "Each translated function's e2e cases drop their gnumeric_skip and pass in an engine that recalculates them"
 
   - id: T2-TIME
     title: "Periods as a first-class axis"
