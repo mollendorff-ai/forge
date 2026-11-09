@@ -342,7 +342,7 @@ impl TestRunner {
         yaml_path: &Path,
         xlsx_path: &Path,
         out_dir: &Path,
-    ) -> Result<(Vec<PathBuf>, Vec<String>), String> {
+    ) -> Result<(Vec<PathBuf>, Vec<WrittenAsValue>), String> {
         let output = Command::new(&self.forge_binary)
             .arg("export")
             .arg(yaml_path)
@@ -359,8 +359,8 @@ impl TestRunner {
         // Gnumeric would only read back: list them (`- name: written as ...`).
         let written_as_values = String::from_utf8_lossy(&output.stdout)
             .lines()
-            .filter_map(|l| l.trim().strip_prefix("- ")?.split_once(": written as"))
-            .map(|(name, _)| name.to_string())
+            .filter_map(|l| l.trim().strip_prefix("- ")?.split_once(": written as "))
+            .map(|(name, rest)| (name.to_string(), rest.to_string()))
             .collect();
         let csv_files = self
             .engine
@@ -567,21 +567,25 @@ fn table_data_for(source: Option<&Path>) -> String {
         .unwrap_or_default()
 }
 
+/// A formula `forge export` wrote as its value: (name, Forge's reason).
+type WrittenAsValue = (String, String);
+
 /// What Gnumeric gave for a formula `forge export` wrote as a value.
 const NOT_CALCULATED: &str =
     "forge export wrote this formula as a value, so Gnumeric did not calculate it";
 
 /// Gnumeric's value, unless Forge wrote the formula as a value: then
-/// Gnumeric only read back Forge's number, and judged nothing.
+/// Gnumeric only read back Forge's number, and judged nothing, so the case
+/// fails unless it has a `gnumeric_skip` saying why.
 fn not_calculated(
-    written_as_values: &[String],
+    written_as_values: &[WrittenAsValue],
     name: &str,
     value: Result<f64, String>,
 ) -> Result<f64, String> {
-    if written_as_values.iter().any(|n| n == name) {
-        return Err(NOT_CALCULATED.to_string());
+    match written_as_values.iter().find(|(n, _)| n == name) {
+        Some((_, reason)) => Err(format!("{NOT_CALCULATED}: written as {reason}")),
+        None => value,
     }
-    value
 }
 
 /// Builds a failing result.
@@ -621,12 +625,8 @@ fn judge(
         }
         Err(e) => problems.push(e.clone()),
     }
-    let mut gnumeric_calculated = true;
     match gnumeric {
         _ if tc.gnumeric_skip.is_some() => {}
-        Err(e) if e == NOT_CALCULATED && !tc.gnumeric_must_calculate => {
-            gnumeric_calculated = false;
-        }
         Ok(v) if matches(*v, tc.expected) => {}
         Ok(v) => {
             shown = shown.or(Some(*v));
@@ -656,7 +656,6 @@ fn judge(
                 formula: tc.formula.clone(),
                 expected: tc.expected,
                 actual: *actual,
-                gnumeric_calculated,
             };
         }
     }

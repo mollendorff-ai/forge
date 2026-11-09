@@ -4,10 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **A case that `forge export` writes as a value fails** unless it has a `gnumeric_skip` saying why. The error gives Forge's reason. Forge now exports 67 of the 126 such cases as formulas, and Gnumeric agrees with all of them; the other 59 (`LET`, `LAMBDA`, `COUNTUNIQUE`, `TODAY`, `VARIANCE*`, `BREAKEVEN_*`) have a `gnumeric_skip` (Forge roadmap T2-EXPORT-FORGE-FUNCTIONS). `_gnumeric_must_calculate` is gone: this is now the rule for every spec.
+
 ### Added
 
+- Cases for the `POWER(0, 0)` and `ADDRESS` wrong answers Forge fixed (row 0, R1C1 with `abs_num` 2 and 3, the sheet name). They fail with Forge 10.0.0-rc.7.
+
 - **Included files.** A spec can have `_includes` (files relative to the spec); the runner copies them beside the generated model. `tests/edge/edge_includes.yaml` reads values and a formula from `tests/edge/includes/costs.yaml` as `@costs.name`. It fails with Forge before T1-EXPORT-INCLUDES, which wrote those formulas as values.
-- **Cases Gnumeric did not calculate are reported.** When `forge export` writes a case's formula as its value (a function Excel lacks, say), Gnumeric only reads Forge's number back. Such a case now says so in its TAP line, and the summary counts them: 126 of the 1,324 passing cases today. A spec with `_gnumeric_must_calculate: true` fails them instead; that becomes the default once each one has a formula or a `gnumeric_skip` (Forge roadmap T1-E2E-UNJUDGED).
+- **Cases Gnumeric did not calculate are reported.** When `forge export` writes a case's formula as its value (a function Excel lacks, say), Gnumeric only reads Forge's number back. These were 126 of the 1,324 passing cases (see Changed above).
 
 ### Changed
 

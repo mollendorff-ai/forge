@@ -7,8 +7,6 @@
 # the sheet back into an included file, and the result calculates the same.
 
 _forge_version: "5.0.0"
-# A formula written as a value would pass unjudged; here it must be a formula.
-_gnumeric_must_calculate: true
 _includes:
   - file: includes/costs.yaml
     as: costs

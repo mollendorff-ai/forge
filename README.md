@@ -60,7 +60,7 @@ Only the cell labelled `test_result` counts as Gnumeric's answer.
 
 Gnumeric 1.12 cannot judge a few cases (`DATEDIF` read from xlsx, `XLOOKUP`, `ISFORMULA` on a literal). Mark those with `gnumeric_skip: "reason"` next to `expected:`. They are then checked against Forge only, and the summary counts them.
 
-A case whose formula `forge export` writes as its value (a function Excel lacks) is not calculated by Gnumeric at all; its TAP line says so and the summary counts it. Put `_gnumeric_must_calculate: true` at the top of a spec to fail such cases instead. A spec can read included files with `_includes` (paths relative to the spec), as a Forge model does. Where Excel and Gnumeric differ from each other, the case carries a `gnumeric_skip` reason that names the difference.
+A case whose formula `forge export` writes as its value (a function Excel lacks) is not calculated by Gnumeric at all, so it fails unless it has a `gnumeric_skip` that says why. A spec can read included files with `_includes` (paths relative to the spec), as a Forge model does. Where Excel and Gnumeric differ from each other, the case carries a `gnumeric_skip` reason that names the difference.
 
 ## Architecture
 

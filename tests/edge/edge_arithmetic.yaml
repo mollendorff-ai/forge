@@ -37,6 +37,16 @@ assumptions:
     formula: =0^0
     expected: 1
     skip: "0^0 is #NUM! in Excel, Gnumeric and Forge; this runner compares numbers only (Forge unit test covers it)"
+  test_power_function_zero_zero:
+    value: null
+    formula: "=IFERROR(POWER(0, 0), -1)"
+    expected: -1
+
+  test_power_function_zero_negative:
+    value: null
+    formula: "=IFERROR(POWER(0, -1), -1)"
+    expected: -1
+
   test_power_fractional:
     value: 1.41421
     formula: =ROUND(POWER(2, 0.5), 5)
