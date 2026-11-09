@@ -341,7 +341,9 @@ pub fn variance(
 }
 
 /// Which way is good for a scalar: its `better:` field in either model, or
-/// else a word in its name that clearly means a cost or a result.
+/// else a word in its name that clearly means a cost or a result, or else
+/// its group (`income.*` higher, `expenses.*` lower). Anything in an expense
+/// group is lower; a salary, wage or interest in an income group is higher.
 fn better_direction(
     name: &str,
     budget: &crate::types::Variable,
@@ -357,9 +359,34 @@ fn better_direction(
         Some("higher") => return "higher",
         _ => {},
     }
-    let last = name.rsplit('.').next().unwrap_or(name).to_lowercase();
+    let lower = name.to_lowercase();
+    let (groups, last) = lower.rsplit_once('.').unwrap_or(("", &lower));
     let words: Vec<&str> = last.split('_').collect();
     let has = |list: &[&str]| words.iter().any(|w| list.contains(w));
+    // The group says which way a name goes when the name alone cannot:
+    // `income.salary` is earned, `expenses.salary` is paid
+    let group_words: Vec<&str> = groups.split(['.', '_']).collect();
+    let group_is = |list: &[&str]| group_words.iter().any(|w| list.contains(w));
+    let group = if group_is(&[
+        "income", "revenue", "revenues", "sales", "earnings", "inflows",
+    ]) {
+        Some("higher")
+    } else if group_is(&[
+        "expense", "expenses", "cost", "costs", "spending", "opex", "capex", "outflows",
+    ]) {
+        Some("lower")
+    } else {
+        None
+    };
+    // Everything in an expense group is paid, a sales commission included
+    if group == Some("lower") {
+        return "lower";
+    }
+    // Earned by a household, paid by a business
+    let either_way = ["salary", "salaries", "wage", "wages", "interest"];
+    if group == Some("higher") && words.iter().any(|w| either_way.contains(w)) {
+        return "higher";
+    }
     if has(&[
         "cost",
         "costs",
@@ -392,7 +419,7 @@ fn better_direction(
     ]) {
         "higher"
     } else {
-        "unknown"
+        group.unwrap_or("unknown")
     }
 }
 
@@ -478,12 +505,20 @@ fn variance_status(v: &VarianceResult) -> &'static str {
 
 /// Print variance results as a table
 pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
+    // As wide as the longest name, so every column lines up
+    let w = variances
+        .iter()
+        .map(|v| v.name.chars().count())
+        .max()
+        .unwrap_or(0)
+        .max(20);
+    let rule = "─".repeat(w + 65);
     println!("\n{}", "📊 Budget vs Actual Variance:".bold().cyan());
-    println!("{}", "─".repeat(85));
+    println!("{rule}");
 
     // Header
     println!(
-        "{:<20} {:>12} {:>12} {:>12} {:>10} {:>8}",
+        "{:<w$} {:>12} {:>12} {:>12} {:>10} {:>8}",
         "Variable".bold(),
         "Budget".bold(),
         "Actual".bold(),
@@ -491,7 +526,7 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
         "Var %".bold(),
         "Status".bold()
     );
-    println!("{}", "─".repeat(85));
+    println!("{rule}");
 
     // Data rows
     for v in variances {
@@ -518,7 +553,7 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
         };
 
         println!(
-            "{:<20} {:>12} {:>12} {:>12} {:>10} {:>8}",
+            "{:<w$} {:>12} {:>12} {:>12} {:>10} {:>8}",
             v.name.bright_blue(),
             format_number(v.budget),
             format_number(v.actual),
@@ -528,7 +563,7 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
         );
     }
 
-    println!("{}", "─".repeat(85));
+    println!("{rule}");
     println!("   {} = exceeds {:.0}% threshold", "⚠️".yellow(), threshold);
 }
 
@@ -1267,4 +1302,38 @@ pub fn break_even(
 
     // Break-even is just goal-seek with value = 0
     goal_seek(file, output, 0.0, vary, (min, max), 0.0001, verbose)
+}
+
+#[cfg(test)]
+mod direction_tests {
+    use super::better_direction;
+    use crate::types::Variable;
+
+    fn plain() -> Variable {
+        Variable::new("x".to_string(), Some(1.0), None)
+    }
+
+    #[test]
+    fn the_group_decides_what_the_name_cannot() {
+        let v = plain();
+        for (name, expected) in [
+            ("income.salary", "higher"),
+            ("income.side_work", "higher"),
+            ("income.total", "higher"),
+            ("expenses.salary", "lower"),
+            ("expenses.groceries", "lower"),
+            ("costs.staff.wages", "lower"),
+            ("revenue.interest", "higher"),
+            ("payroll.salary", "lower"),
+            ("assumptions.rent", "lower"),
+            ("income.tax", "lower"),
+            ("expenses.sales_commission", "lower"),
+            ("assumptions.growth", "unknown"),
+        ] {
+            assert_eq!(better_direction(name, &v, &v), expected, "{name}");
+        }
+        let mut declared = plain();
+        declared.metadata.better = Some("lower".to_string());
+        assert_eq!(better_direction("income.salary", &declared, &v), "lower");
+    }
 }

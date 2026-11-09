@@ -1,0 +1,67 @@
+_forge_version: "5.1.0"
+# A Canadian mortgage, and what paying 300 more each month does.
+# Canadian fixed rates compound twice a year, payments are monthly.
+# All figures are made up.
+
+loan:
+  principal: 450000
+  annual_rate: 0.0479
+  amortization_years: 25
+  extra_per_month: 300
+
+terms:
+  # The monthly rate that compounds to the semi-annual rate
+  monthly_rate:
+    formula: "=(1 + loan.annual_rate / 2) ^ (1 / 6) - 1"
+  months:
+    formula: "=loan.amortization_years * 12"
+  payment:
+    formula: "=-PMT(monthly_rate, months, loan.principal)"
+    unit: CAD
+
+as_agreed:
+  total_paid:
+    formula: "=terms.payment * terms.months"
+  total_interest:
+    formula: "=total_paid - loan.principal"
+
+with_extra:
+  payment:
+    formula: "=terms.payment + loan.extra_per_month"
+  # Fractional: the last payment is smaller
+  months_exact:
+    formula: "=NPER(terms.monthly_rate, -payment, loan.principal)"
+  full_months:
+    formula: "=INT(months_exact)"
+  # Balance left after the full payments, paid with interest a month later
+  balance_after_full:
+    formula: "=loan.principal * (1 + terms.monthly_rate) ^ full_months - payment * ((1 + terms.monthly_rate) ^ full_months - 1) / terms.monthly_rate"
+  last_payment:
+    formula: "=balance_after_full * (1 + terms.monthly_rate)"
+  total_paid:
+    formula: "=payment * full_months + last_payment"
+  total_interest:
+    formula: "=total_paid - loan.principal"
+
+saved:
+  interest:
+    formula: "=as_agreed.total_interest - with_extra.total_interest"
+  months:
+    formula: "=terms.months - ROUNDUP(with_extra.months_exact, 0)"
+  years:
+    formula: "=months / 12"
+
+# The first year with the extra payment. Forge has no "previous row" yet
+# (roadmap T2-TIME), so each row computes its opening balance directly.
+first_year:
+  month: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  opening: "=loan.principal * (1 + terms.monthly_rate) ^ (month - 1) - with_extra.payment * ((1 + terms.monthly_rate) ^ (month - 1) - 1) / terms.monthly_rate"
+  interest: "=opening * terms.monthly_rate"
+  principal_paid: "=with_extra.payment - interest"
+  closing: "=opening - principal_paid"
+
+year_one:
+  interest:
+    formula: "=SUM(first_year.interest)"
+  principal_paid:
+    formula: "=SUM(first_year.principal_paid)"
