@@ -103,7 +103,7 @@ summary:
 - `forge import` turns such sheets back into the included file (`rates.yaml`, beside the imported model, with its scalars and its tables) and their references into `@rates.fx.eur_usd` and `@rates.prices.eur`, with an `_includes` entry. If a file of that name is already there and calculates to the sheets' values (usually the original), it is kept as it is; if it holds other values, the import stops before writing anything.
 - With the MCP server and inline `content`, pass the included files in the `includes` map (see [MCP.md](MCP.md)).
 
-### 173 Excel-Compatible Functions
+### 174 Excel-Compatible Functions
 
 ```mermaid
 graph LR
@@ -168,6 +168,7 @@ graph LR
 
 **v1.1.0 Functions (27):**
 
+- Aggregation: SUMPRODUCT (1 to 255 equal-length arrays; text counts as 0; different lengths are `#VALUE!`, as in Excel)
 - Conditional: SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, AVERAGEIFS, MAXIFS, MINIFS
 - Math: ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER
 - Text: CONCAT, TRIM, UPPER, LOWER, LEN, MID, REPT

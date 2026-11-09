@@ -233,6 +233,7 @@ impl FormulaTranslator {
                 | "COUNT"
                 | "COUNTA"
                 | "PRODUCT"
+                | "SUMPRODUCT"
                 | "MEDIAN"
                 | "AVG"
                 // Conditional aggregations

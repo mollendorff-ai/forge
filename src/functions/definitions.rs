@@ -1,13 +1,13 @@
 //! Function definitions - THE SINGLE SOURCE OF TRUTH
 //!
-//! This file contains all 173 function definitions.
+//! This file contains all 174 function definitions.
 //! Separated from registry.rs to keep files under 1500 lines.
 
 use super::{Category, FunctionDef};
 
 /// All supported functions - THE SINGLE SOURCE OF TRUTH
 ///
-/// Total: 173 functions (includes aliases)
+/// Total: 174 functions (includes aliases)
 pub static FUNCTIONS: &[FunctionDef] = &[
     // ══════════════════════════════════════════════════════════════════════════
     // MATH (19 total)
@@ -217,6 +217,13 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         description: "Product of values",
         syntax: "=PRODUCT(value1, value2, ...)",
         scalar: true,
+    },
+    FunctionDef {
+        name: "SUMPRODUCT",
+        category: Category::Aggregation,
+        description: "Sum of the products of arrays",
+        syntax: "=SUMPRODUCT(array1, array2, ...)",
+        scalar: false,
     },
     FunctionDef {
         name: "LARGE",

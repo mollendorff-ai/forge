@@ -111,10 +111,109 @@ pub fn try_evaluate(
             }
         },
 
+        "SUMPRODUCT" => sumproduct(args, ctx)?,
+
         _ => return Ok(None),
     };
 
     Ok(Some(result))
+}
+
+/// `SUMPRODUCT(a, b, ...)`: multiply the arrays element by element and add up.
+///
+/// As in Excel: 1 to 255 arguments, text and booleans inside an array count
+/// as 0, and arrays of different lengths are an error (`#VALUE!`). A single
+/// number is an array of one.
+fn sumproduct(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    if args.is_empty() || args.len() > 255 {
+        return Err(EvalError::new("SUMPRODUCT takes 1 to 255 arrays (#VALUE!)"));
+    }
+    let mut arrays: Vec<Vec<f64>> = Vec::with_capacity(args.len());
+    for arg in args {
+        arrays.push(match evaluate(arg, ctx)? {
+            Value::Array(items) => items
+                .iter()
+                .map(|v| if let Value::Number(n) = v { *n } else { 0.0 })
+                .collect(),
+            Value::Number(n) => vec![n],
+            _ => vec![0.0],
+        });
+    }
+    let len = arrays[0].len();
+    if let Some(other) = arrays.iter().find(|a| a.len() != len) {
+        return Err(EvalError::new(format!(
+            "SUMPRODUCT arrays have different lengths ({len} and {}) (#VALUE!)",
+            other.len()
+        )));
+    }
+    Ok(Value::Number(
+        (0..len)
+            .map(|i| arrays.iter().map(|a| a[i]).product::<f64>())
+            .sum(),
+    ))
+}
+
+#[cfg(test)]
+mod sumproduct_tests {
+    use super::super::tests::eval;
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ctx() -> EvalContext {
+        let mut c = EvalContext::new();
+        let mut t = HashMap::new();
+        let nums = |v: &[f64]| v.iter().map(|n| Value::Number(*n)).collect::<Vec<_>>();
+        t.insert("a".into(), nums(&[1.0, 2.0, 3.0]));
+        t.insert("b".into(), nums(&[4.0, 5.0, 6.0]));
+        t.insert("c".into(), nums(&[1.0, 2.0]));
+        t.insert(
+            "m".into(),
+            vec![
+                Value::Number(1.0),
+                Value::Text("x".into()),
+                Value::Number(3.0),
+            ],
+        );
+        c.tables.insert("t".to_string(), t.into_iter().collect());
+        c
+    }
+
+    #[test]
+    fn multiplies_and_adds() {
+        let c = ctx();
+        assert_eq!(
+            eval("SUMPRODUCT(t.a, t.b)", &c).unwrap(),
+            Value::Number(32.0)
+        );
+        assert_eq!(eval("SUMPRODUCT(t.a)", &c).unwrap(), Value::Number(6.0));
+        assert_eq!(
+            eval("SUMPRODUCT(t.a, t.b, t.a)", &c).unwrap(),
+            Value::Number(78.0)
+        );
+    }
+
+    #[test]
+    fn text_counts_as_zero() {
+        // 1*4 + 0*5 + 3*6
+        assert_eq!(
+            eval("SUMPRODUCT(t.m, t.b)", &ctx()).unwrap(),
+            Value::Number(22.0)
+        );
+    }
+
+    #[test]
+    fn different_lengths_are_value_errors() {
+        let err = eval("SUMPRODUCT(t.a, t.c)", &ctx()).unwrap_err();
+        assert!(err.to_string().contains("#VALUE!"), "{err}");
+    }
+
+    #[test]
+    fn works_on_arithmetic_arrays() {
+        assert_eq!(
+            eval("SUMPRODUCT((t.a > 1) * t.b)", &ctx()).unwrap(),
+            Value::Number(11.0)
+        );
+    }
 }
 
 #[cfg(test)]
@@ -827,19 +926,10 @@ mod integration_tests {
         );
 
         let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all();
 
-        // SUMPRODUCT is not implemented in base version
-        // Verify it returns an error for unknown function
-        assert!(
-            result.is_err(),
-            "SUMPRODUCT should return error (not implemented)"
-        );
-        let err = result.unwrap_err();
-        assert!(
-            err.to_string().contains("SUMPRODUCT") || err.to_string().contains("Unknown function"),
-            "Error should mention SUMPRODUCT or Unknown function, got: {err}"
-        );
+        // 10*5 + 20*10 + 30*15
+        let result = calculator.calculate_all().unwrap();
+        assert_eq!(result.scalars["total"].value, Some(700.0));
     }
 
     #[test]
