@@ -1509,6 +1509,7 @@ dependencies = [
  "chrono",
  "clap",
  "colored",
+ "foldhash 0.2.0",
  "indexmap",
  "jsonschema",
  "libc",

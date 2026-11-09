@@ -325,7 +325,7 @@ An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}
 
 Checked on `examples/bagel/bagel_simulate.yaml`: the outputs Forge calculates for its own input samples match a numpy re-implementation of the model to 1e-10, and the threshold probabilities and drivers match numpy and `scipy.stats.spearmanr` on those samples (`tests/bagel_example.rs`).
 
-Each iteration recalculates the whole model, including its included files: the 12-month bagel model takes about 1.2 ms an iteration (5,000 in 6 seconds).
+Each iteration recalculates the model with the sampled values, including its included files; the formulas are parsed and ordered once for the whole simulation. The 12-month bagel model takes about 0.11 ms an iteration: 5,000 runs in about half a second, 100,000 in about 12 seconds.
 
 ---
 

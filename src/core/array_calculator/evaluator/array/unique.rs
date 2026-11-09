@@ -51,7 +51,8 @@ mod tests {
                 Value::Text("C".to_string()),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         let result = eval("UNIQUE(t.data)", &ctx).unwrap();
         if let Value::Array(arr) = result {
@@ -74,7 +75,8 @@ mod tests {
                 Value::Text("C".to_string()),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         assert_eq!(
             eval("COUNTUNIQUE(t.data)", &ctx).unwrap(),

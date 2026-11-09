@@ -281,7 +281,8 @@ mod tests {
                 Value::Number(4.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         assert_eq!(eval("ROWS(t.col)", &ctx).unwrap(), Value::Number(4.0));
     }
@@ -291,7 +292,8 @@ mod tests {
         let mut ctx = EvalContext::new();
         let mut table = HashMap::new();
         table.insert("col".to_string(), vec![Value::Number(1.0)]);
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         assert_eq!(eval("COLUMNS(t.col)", &ctx).unwrap(), Value::Number(1.0));
     }
@@ -317,7 +319,8 @@ mod tests {
                 Value::Number(30.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         assert_eq!(
             eval("OFFSET(t.col, 1, 0)", &ctx).unwrap(),

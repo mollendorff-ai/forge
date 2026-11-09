@@ -154,13 +154,17 @@ impl Value {
     }
 }
 
+/// A map by name with fast, fixed hashing: formulas look names up many
+/// times per calculation, and the keys are the model's own names.
+pub type NameMap<V> = HashMap<String, V, foldhash::fast::FixedState>;
+
 /// Evaluation context containing variables and tables
 #[derive(Debug, Clone)]
 pub struct EvalContext {
     /// Scalar variables (name -> value)
-    pub scalars: HashMap<String, Value>,
+    pub scalars: NameMap<Value>,
     /// Table data (`table_name` -> `column_name` -> values)
-    pub tables: HashMap<String, HashMap<String, Vec<Value>>>,
+    pub tables: NameMap<NameMap<Vec<Value>>>,
     /// Scenarios (`scenario_name` -> `variable_name` -> value)
     pub scenarios: HashMap<String, HashMap<String, f64>>,
     /// Current row index for row-wise evaluation (None for scalar mode)
@@ -174,8 +178,8 @@ impl EvalContext {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            scalars: HashMap::new(),
-            tables: HashMap::new(),
+            scalars: NameMap::default(),
+            tables: NameMap::default(),
             scenarios: HashMap::new(),
             current_row: None,
             row_count: None,
@@ -330,32 +334,45 @@ pub fn evaluate(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
     }
 }
 
+thread_local! {
+    /// `table.column` of the reference being looked up, reused so a lookup
+    /// does not allocate
+    static SCALAR_KEY: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+}
+
 /// Evaluate a reference (scalar or table.column)
 fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value, EvalError> {
     match reference {
         Reference::Scalar(name) => {
             let value = ctx
                 .get_scalar(name)
-                .cloned()
                 .ok_or_else(|| EvalError::new(format!("Unknown variable: {name}")))?;
 
             // In row-wise mode, if the value is an array, extract current row
+            // (without copying the whole array first)
             if let Some(row) = ctx.current_row {
-                if let Value::Array(arr) = &value {
+                if let Value::Array(arr) = value {
                     return arr
                         .get(row)
                         .cloned()
                         .ok_or_else(|| EvalError::new(format!("Row {row} out of bounds")));
                 }
             }
-            Ok(value)
+            Ok(value.clone())
         },
 
         Reference::TableColumn { table, column } => {
             // First try as a section.scalar reference (e.g., thresholds.min_value)
-            let scalar_key = format!("{table}.{column}");
-            if let Some(value) = ctx.scalars.get(&scalar_key) {
-                return Ok(value.clone());
+            let scalar = SCALAR_KEY.with(|key| {
+                let mut key = key.borrow_mut();
+                key.clear();
+                key.push_str(table);
+                key.push('.');
+                key.push_str(column);
+                ctx.scalars.get(key.as_str()).cloned()
+            });
+            if let Some(value) = scalar {
+                return Ok(value);
             }
 
             if let Some(namespace) = table.strip_prefix('@') {
@@ -1059,7 +1076,8 @@ mod tests {
                 Value::Number(30.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         assert_eq!(eval("t.col[0]", &ctx).unwrap(), Value::Number(10.0));
         assert_eq!(eval("t.col[2]", &ctx).unwrap(), Value::Number(30.0));
@@ -1081,7 +1099,8 @@ mod tests {
             "price".to_string(),
             vec![Value::Number(5.0), Value::Number(6.0), Value::Number(7.0)],
         );
-        ctx.tables.insert("orders".to_string(), table);
+        ctx.tables
+            .insert("orders".to_string(), table.into_iter().collect());
 
         // In row-wise mode, table.column returns single value
         let row_ctx = ctx.clone().with_row(0, 3);
@@ -1154,7 +1173,8 @@ mod tests {
         table.insert("b".to_string(), column(&[10.0, 20.0, 30.0]));
         table.insert("short".to_string(), column(&[1.0, 2.0]));
         table.insert("one".to_string(), column(&[5.0]));
-        ctx.tables.insert("p".to_string(), table);
+        ctx.tables
+            .insert("p".to_string(), table.into_iter().collect());
         ctx
     }
 

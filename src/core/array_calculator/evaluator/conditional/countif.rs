@@ -70,7 +70,8 @@ mod tests {
                 Value::Number(90.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
         assert_eq!(
             eval("COUNTIF(t.scores, \">70\")", &ctx).unwrap(),
             Value::Number(3.0)

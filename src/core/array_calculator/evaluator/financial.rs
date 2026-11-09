@@ -825,7 +825,8 @@ mod tests {
             "cf".to_string(),
             flows.iter().copied().map(Value::Number).collect(),
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
         let without = eval_number("IRR(t.cf)", &ctx);
         let with = eval_number("IRR(t.cf, 0.2)", &ctx);
         assert!((without - with).abs() < 1e-9, "{without} vs {with}");
@@ -864,7 +865,8 @@ mod tests {
             "c".to_string(),
             vec![Value::Number(0.0), Value::Number(1.0)],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
         for formula in [
             "RATE(48, -200, 8000, 0, t.c)",
             "RATE(48, -200, 8000, 0, 0, t.c)",

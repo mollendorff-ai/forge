@@ -56,12 +56,6 @@ tier2:
     why: "editors/vscode and editors/zed launch forge-lsp (ADR-005 removed the language server), so neither extension works"
     acceptance: "Either the extensions provide syntax highlighting and the schema without a server, or editors/ is removed and the README says so"
 
-  - id: T2-SIM-SPEED
-    title: "forge simulate recalculates the whole model for each iteration"
-    why: "Each iteration clones the model, rebuilds its dependency graph and recalculates its included files: about 1.2 ms an iteration on the 12-month bagel model, so 5,000 runs take 6 seconds and 100,000 two minutes"
-    how: "Build the graph and calculate the cells that no MC.* input reaches once, then recalculate only the cells downstream of the inputs"
-    acceptance: "examples/bagel/bagel_simulate.yaml at 5,000 iterations at least 10 times faster, with byte-identical results for the same seed"
-
   - id: T2-SIM-MORE
     title: "Simulation features to consider next"
     why: "The maintainer asked for more scenario and simulation features and left the choice open (2026-11-09); thresholds, drivers, scenarios and uncertain includes were done first because the bagel model needed them"

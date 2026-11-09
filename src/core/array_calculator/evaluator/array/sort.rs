@@ -43,7 +43,8 @@ mod tests {
                 Value::Number(5.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         let result = eval("SORT(t.data)", &ctx).unwrap();
         if let Value::Array(arr) = result {

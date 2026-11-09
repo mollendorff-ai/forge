@@ -61,6 +61,8 @@ petgraph = "0.8"
 
 # Ordered maps: tables, columns and scalars keep the order of the model file
 indexmap = { version = "2", features = ["serde"] }
+# Fast, fixed hashing for the evaluator's name lookups (already used by indexmap)
+foldhash = "0.2"
 
 # Regex for array indexing preprocessing
 regex = "1.12"

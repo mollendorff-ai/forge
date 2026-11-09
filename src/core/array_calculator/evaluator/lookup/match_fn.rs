@@ -119,7 +119,8 @@ mod tests {
                 Value::Number(30.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         // Exact match (match_type = 0)
         assert_eq!(

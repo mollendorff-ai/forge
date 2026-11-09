@@ -9,12 +9,17 @@ mod include_reference_tests;
 #[cfg(test)]
 mod nan_input_tests;
 pub mod parser;
+mod plan;
 #[cfg(test)]
 mod scalar_scope_tests;
 pub mod tokenizer;
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Column, ColumnValue, ParsedModel, Table};
+use std::collections::HashMap;
+use std::rc::Rc;
+
+pub use plan::CalcPlan;
 
 /// What a name used in a formula refers to
 enum ScalarName {
@@ -162,14 +167,42 @@ pub struct ArrayCalculator {
     /// Scalars of included files as `@namespace.path`, calculated before the
     /// model (see [`ArrayCalculator::included_values`]).
     included: Vec<(String, f64)>,
+    /// Scalar names by their last part (`price` -> [`a.price`, `b.price`]),
+    /// sorted. Calculation sets values, never names, so it is built once.
+    by_last_part: std::cell::OnceCell<HashMap<String, Vec<String>>>,
+    /// Every value a formula can read by its full name (scalars, included
+    /// values, tables, scenarios), kept up to date as cells are calculated,
+    /// so it is not rebuilt for each formula (see [`ArrayCalculator::evaluate_in_context`]).
+    ctx: Option<evaluator::EvalContext>,
+    /// Parsed formulas, order and name resolution, shared with other
+    /// calculations of models with the same formulas
+    plan: Rc<CalcPlan>,
+    /// [`plan::fingerprint`] of the model as given, set by `calculate_all`
+    fingerprint: u64,
+    /// Position in the calculation order of the cell being calculated
+    step: Option<usize>,
 }
 
 impl ArrayCalculator {
     #[must_use]
-    pub const fn new(model: ParsedModel) -> Self {
+    pub fn new(model: ParsedModel) -> Self {
+        Self::with_plan(model, CalcPlan::new())
+    }
+
+    /// A calculator that reuses `plan`: what an earlier calculation of a model
+    /// with the same names and formulas worked out (parsed formulas, the
+    /// calculation order, name resolution) is not worked out again. Results
+    /// are the same as with [`ArrayCalculator::new`].
+    #[must_use]
+    pub const fn with_plan(model: ParsedModel, plan: Rc<CalcPlan>) -> Self {
         Self {
             model,
             included: Vec::new(),
+            by_last_part: std::cell::OnceCell::new(),
+            ctx: None,
+            plan,
+            fingerprint: 0,
+            step: None,
         }
     }
 
@@ -183,7 +216,7 @@ impl ArrayCalculator {
         let mut values = Vec::new();
         for namespace in namespaces {
             let resolved = &self.model.resolved_includes[namespace];
-            let calculated = Self::new(resolved.model.clone())
+            let calculated = Self::with_plan(resolved.model.clone(), self.plan.include(namespace))
                 .calculate_all()
                 .map_err(|e| {
                     let reason = match e {
@@ -217,6 +250,7 @@ impl ArrayCalculator {
     /// Panics if the model's table map is in an inconsistent state (should not
     /// occur with valid `ParsedModel` construction).
     pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
+        self.fingerprint = plan::fingerprint(&self.model);
         self.included = self.included_values()?;
 
         // A formula scalar's stored value (from the file, an import or an
@@ -252,17 +286,16 @@ impl ArrayCalculator {
         let mut failures: Vec<String> = Vec::new();
         let mut skipped: Vec<(Cell, Cell)> = Vec::new();
         let mut failed: std::collections::BTreeSet<Cell> = std::collections::BTreeSet::new();
-        for cell in self.calculation_order()? {
-            let blocked_by = self
-                .cell_dependencies(&cell)?
-                .into_iter()
-                .find(|dep| failed.contains(dep));
+        let order = self.planned_order()?;
+        for (step, (cell, dependencies)) in order.iter().enumerate() {
+            self.step = Some(step);
+            let blocked_by = dependencies.iter().find(|dep| failed.contains(*dep));
             if let Some(dep) = blocked_by {
-                skipped.push((cell.clone(), dep));
-                failed.insert(cell);
+                skipped.push((cell.clone(), dep.clone()));
+                failed.insert(cell.clone());
                 continue;
             }
-            let outcome = match &cell {
+            let outcome = match cell {
                 Cell::Column { table, column } => self.calculate_column(table, column),
                 Cell::Scalar(name) => self.calculate_scalar(name),
             };
@@ -271,7 +304,7 @@ impl ArrayCalculator {
                     ForgeError::Eval(msg) => msg,
                     other => other.to_string(),
                 });
-                failed.insert(cell);
+                failed.insert(cell.clone());
             }
         }
 
@@ -282,6 +315,28 @@ impl ArrayCalculator {
         failures.sort();
         skipped.sort_by_key(|(cell, _)| cell.label());
         Err(failure_report(&failures, &skipped))
+    }
+
+    /// [`ArrayCalculator::calculation_order`] with each cell's dependencies,
+    /// from the plan when a model with the same formulas was ordered before.
+    fn planned_order(&self) -> ForgeResult<plan::Order> {
+        if let Some(order) = self.plan.structure(self.fingerprint, |s| s.order.clone()) {
+            return Ok(order);
+        }
+        let order = self
+            .calculation_order()?
+            .into_iter()
+            .map(|cell| {
+                let deps = self.cell_dependencies(&cell)?;
+                Ok((cell, deps))
+            })
+            .collect::<ForgeResult<Vec<_>>>()?;
+        let order = Rc::new(order);
+        self.plan.structure(self.fingerprint, |s| {
+            s.steps = vec![plan::Step::default(); order.len()];
+            s.order = Some(Rc::clone(&order));
+        });
+        Ok(order)
     }
 
     /// Every formula cell (table column or scalar) in dependency order.
@@ -396,16 +451,29 @@ impl ArrayCalculator {
 
     /// Calculate one row-formula column and store it in its table
     fn calculate_column(&mut self, table_name: &str, col_name: &str) -> ForgeResult<()> {
-        let table = self.model.tables[table_name].clone();
-        let formula = table.row_formulas[col_name].clone();
-        if Self::is_aggregation_formula(&formula) {
+        let formula = self.model.tables[table_name].row_formulas[col_name].clone();
+        if self.step_cached(
+            |step| step.aggregates,
+            |step, aggregates| step.aggregates = Some(aggregates),
+            || {
+                Ok(self
+                    .plan
+                    .aggregation(&formula, || Self::is_aggregation_formula(&formula)))
+            },
+        )? {
             return Err(ForgeError::Eval(format!(
                 "Table '{table_name}': Column '{col_name}' uses aggregation formula - aggregations should be in scalars section"
             )));
         }
         let result = self
-            .evaluate_rowwise_formula_ast(&table, &formula)
+            .evaluate_rowwise_formula_ast(table_name, &formula)
             .map_err(|e| locate_error(e, &format!("{table_name}.{col_name}"), &formula))?;
+        if let Some(ctx) = self.ctx.as_mut() {
+            ctx.tables
+                .entry(table_name.to_string())
+                .or_default()
+                .insert(col_name.to_string(), column_values(&result));
+        }
         if let Some(stored) = self.model.tables.get_mut(table_name) {
             stored.add_column(Column::new(col_name.to_string(), result));
         }
@@ -427,6 +495,10 @@ impl ArrayCalculator {
             .map_err(|e| locate_error(e, scalar_name, &formula))?;
         if let Some(var) = self.model.scalars.get_mut(scalar_name) {
             var.value = Some(value);
+        }
+        if let Some(ctx) = self.ctx.as_mut() {
+            ctx.scalars
+                .insert(scalar_name.to_string(), evaluator::Value::Number(value));
         }
         Ok(())
     }
@@ -520,23 +592,63 @@ impl ArrayCalculator {
         if word.contains('.') {
             return ScalarName::Missing;
         }
-        let mut matches: Vec<String> = self
-            .model
-            .scalars
-            .keys()
-            .filter(|name| name.rsplit_once('.').is_some_and(|(_, last)| last == word))
-            .cloned()
-            .collect();
-        matches.sort();
-        match matches.len() {
-            0 => ScalarName::Missing,
-            1 => ScalarName::Found(matches.remove(0)),
-            _ => ScalarName::Ambiguous(matches),
+        let by_last_part = self.by_last_part.get_or_init(|| {
+            let mut map: HashMap<String, Vec<String>> = HashMap::new();
+            for name in self.model.scalars.keys() {
+                if let Some((_, last)) = name.rsplit_once('.') {
+                    map.entry(last.to_string()).or_default().push(name.clone());
+                }
+            }
+            for names in map.values_mut() {
+                names.sort();
+            }
+            map
+        });
+        match by_last_part.get(word).map(Vec::as_slice) {
+            None | Some([]) => ScalarName::Missing,
+            Some([only]) => ScalarName::Found(only.clone()),
+            Some(several) => ScalarName::Ambiguous(several.to_vec()),
         }
     }
 
     /// Return an error if a bare name in `formula` could mean several scalars.
     fn check_ambiguous_names(
+        &self,
+        formula: &str,
+        section: Option<&str>,
+        table: &Table,
+    ) -> ForgeResult<()> {
+        self.step_cached(
+            |step| step.unambiguous.then_some(()),
+            |step, ()| step.unambiguous = true,
+            || self.check_ambiguous_names_by_text(formula, section, table),
+        )
+    }
+
+    fn check_ambiguous_names_by_text(
+        &self,
+        formula: &str,
+        section: Option<&str>,
+        table: &Table,
+    ) -> ForgeResult<()> {
+        let key = (
+            formula.to_string(),
+            section.map(str::to_string),
+            Some(table.name.clone()),
+        );
+        if self
+            .plan
+            .structure(self.fingerprint, |s| s.unambiguous.contains(&key))
+        {
+            return Ok(());
+        }
+        self.find_ambiguous_names(formula, section, table)?;
+        self.plan
+            .structure(self.fingerprint, |s| s.unambiguous.insert(key));
+        Ok(())
+    }
+
+    fn find_ambiguous_names(
         &self,
         formula: &str,
         section: Option<&str>,
@@ -558,131 +670,215 @@ impl ArrayCalculator {
         Ok(())
     }
 
-    /// Build an evaluation context from the model state for a given table.
-    ///
-    /// `section` is the section of the scalar being calculated, if any; it
-    /// decides which scalar a bare name refers to.
-    fn build_eval_context(&self, table: &Table, section: Option<&str>) -> evaluator::EvalContext {
-        use std::collections::{BTreeSet, HashMap};
+    /// The values every formula can read by their full name: scalars,
+    /// values of included files (`@namespace.path`), tables and scenarios.
+    fn base_context(&self) -> evaluator::EvalContext {
         let mut ctx = evaluator::EvalContext::new();
-
-        // Add all scalars to context under their full names
         for (name, scalar) in &self.model.scalars {
             if let Some(value) = scalar.value {
                 ctx.scalars
                     .insert(name.clone(), evaluator::Value::Number(value));
             }
         }
-
-        // Values from included files, under `@namespace.path`
         for (name, value) in &self.included {
             ctx.scalars
                 .insert(name.clone(), evaluator::Value::Number(*value));
         }
+        for (table_name, tbl) in &self.model.tables {
+            let columns = tbl
+                .columns
+                .iter()
+                .map(|(col_name, col)| (col_name.clone(), column_values(&col.values)))
+                .collect();
+            ctx.tables.insert(table_name.clone(), columns);
+        }
+        for (scenario_name, scenario) in &self.model.scenarios {
+            ctx.scenarios.insert(
+                scenario_name.clone(),
+                scenario.overrides.clone().into_iter().collect(),
+            );
+        }
+        ctx
+    }
 
-        // Add short names (e.g., "price" for "summary.price") that resolve to
-        // exactly one scalar, so formulas can reference them without prefix
-        let short_names: BTreeSet<&str> = self
+    /// The value of scalar `full`, read from the shared context, which mirrors
+    /// the model's scalar values.
+    fn model_value(&self, ctx: &evaluator::EvalContext, full: &str) -> Option<f64> {
+        debug_assert_eq!(
+            ctx.scalars.get(full).and_then(evaluator::Value::as_number),
+            self.model.scalars.get(full).and_then(|s| s.value),
+            "context and model disagree on {full}"
+        );
+        ctx.scalars.get(full).and_then(evaluator::Value::as_number)
+    }
+
+    /// Each short name (`price` for `summary.price`) that resolves to exactly
+    /// one scalar from `section`, with that scalar's full name, in name order.
+    fn short_names(&self, section: Option<&str>) -> Rc<Vec<(String, String)>> {
+        let key = section.map(str::to_string);
+        if let Some(found) = self
+            .plan
+            .structure(self.fingerprint, |s| s.short_names.get(&key).cloned())
+        {
+            return found;
+        }
+        let short_names: std::collections::BTreeSet<&str> = self
             .model
             .scalars
             .keys()
             .filter_map(|name| name.rsplit_once('.').map(|(_, last)| last))
             .collect();
-        for short_name in short_names {
-            if let ScalarName::Found(full) = self.resolve_scalar_name(short_name, section) {
-                if let Some(value) = self.model.scalars.get(&full).and_then(|s| s.value) {
-                    ctx.scalars
-                        .insert(short_name.to_string(), evaluator::Value::Number(value));
-                }
+        let resolved: Vec<(String, String)> = short_names
+            .into_iter()
+            .filter_map(|short| match self.resolve_scalar_name(short, section) {
+                ScalarName::Found(full) => Some((short.to_string(), full)),
+                _ => None,
+            })
+            .collect();
+        let resolved = Rc::new(resolved);
+        self.plan.structure(self.fingerprint, |s| {
+            s.short_names.insert(key, Rc::clone(&resolved));
+        });
+        resolved
+    }
+
+    /// Evaluate with the context a formula of `table` (row formulas) or of
+    /// section `section` (scalar formulas) sees: every value by its full name,
+    /// then the short names (`price` for `summary.price`) that resolve to
+    /// exactly one scalar from that section, then the columns of `table` by
+    /// their own names. The short names and columns are laid over the shared
+    /// context for this formula only and removed afterwards.
+    fn evaluate_in_context<R>(
+        &mut self,
+        table: Option<&str>,
+        section: Option<&str>,
+        evaluate: impl FnOnce(&mut evaluator::EvalContext) -> R,
+    ) -> R {
+        let mut ctx = self.ctx.take().unwrap_or_else(|| self.base_context());
+        // Each name laid over the shared context, with what it held before
+        let mut saved: Vec<(String, Option<evaluator::Value>)> = Vec::new();
+        let mut lay = |ctx: &mut evaluator::EvalContext, name: String, value: evaluator::Value| {
+            let previous = ctx.scalars.insert(name.clone(), value);
+            if !saved.iter().any(|(laid, _)| *laid == name) {
+                saved.push((name, previous));
+            }
+        };
+
+        // The shared context holds each calculated scalar under its full name
+        // (a full name is never another short name's key, so this reads the
+        // scalar's own value)
+        for (short_name, full) in self.short_names(section).iter() {
+            if let Some(value) = self.model_value(&ctx, full) {
+                lay(
+                    &mut ctx,
+                    short_name.clone(),
+                    evaluator::Value::Number(value),
+                );
             }
         }
+        let table = table.and_then(|name| self.model.tables.get(name));
+        if let Some(table) = table {
+            for (col_name, col) in &table.columns {
+                lay(
+                    &mut ctx,
+                    col_name.clone(),
+                    evaluator::Value::Array(column_values(&col.values)),
+                );
+            }
+        }
+        ctx.current_row = None;
+        ctx.row_count = Some(table.map_or(0, Table::row_count));
 
-        // Add current table columns
-        for (col_name, col) in &table.columns {
-            let values: Vec<evaluator::Value> = match &col.values {
-                ColumnValue::Number(nums) => {
-                    nums.iter().map(|n| evaluator::Value::Number(*n)).collect()
-                },
-                ColumnValue::Text(texts) => texts
-                    .iter()
-                    .map(|s| evaluator::Value::Text(s.clone()))
-                    .collect(),
-                ColumnValue::Boolean(bools) => bools
-                    .iter()
-                    .map(|b| evaluator::Value::Boolean(*b))
-                    .collect(),
-                ColumnValue::Date(dates) => dates
-                    .iter()
-                    .map(|d| evaluator::Value::Text(d.clone()))
-                    .collect(),
+        let result = evaluate(&mut ctx);
+
+        for (name, previous) in saved.into_iter().rev() {
+            match previous {
+                Some(value) => ctx.scalars.insert(name, value),
+                None => ctx.scalars.remove(&name),
             };
-            ctx.scalars
-                .insert(col_name.clone(), evaluator::Value::Array(values));
         }
+        self.ctx = Some(ctx);
+        result
+    }
 
-        // Add all tables to context
-        for (table_name, tbl) in &self.model.tables {
-            let mut table_data: HashMap<String, Vec<evaluator::Value>> = HashMap::new();
-            for (col_name, col) in &tbl.columns {
-                let values: Vec<evaluator::Value> = match &col.values {
-                    ColumnValue::Number(nums) => {
-                        nums.iter().map(|n| evaluator::Value::Number(*n)).collect()
-                    },
-                    ColumnValue::Text(texts) => texts
-                        .iter()
-                        .map(|s| evaluator::Value::Text(s.clone()))
-                        .collect(),
-                    ColumnValue::Boolean(bools) => bools
-                        .iter()
-                        .map(|b| evaluator::Value::Boolean(*b))
-                        .collect(),
-                    ColumnValue::Date(dates) => dates
-                        .iter()
-                        .map(|d| evaluator::Value::Text(d.clone()))
-                        .collect(),
-                };
-                table_data.insert(col_name.clone(), values);
+    /// What the current step of the order worked out in an earlier
+    /// calculation (`get`), or else `compute` it and keep it (`set`).
+    fn step_cached<T: Clone>(
+        &self,
+        get: impl Fn(&plan::Step) -> Option<T>,
+        set: impl FnOnce(&mut plan::Step, T),
+        compute: impl FnOnce() -> ForgeResult<T>,
+    ) -> ForgeResult<T> {
+        let Some(index) = self.step else {
+            return compute();
+        };
+        let fingerprint = self.fingerprint;
+        if let Some(found) = self
+            .plan
+            .structure(fingerprint, |s| s.steps.get(index).and_then(&get))
+        {
+            return Ok(found);
+        }
+        let value = compute()?;
+        self.plan.structure(fingerprint, |s| {
+            if let Some(step) = s.steps.get_mut(index) {
+                set(step, value.clone());
             }
-            ctx.tables.insert(table_name.clone(), table_data);
-        }
+        });
+        Ok(value)
+    }
 
-        // Add scenarios to context
-        for (scenario_name, scenario) in &self.model.scenarios {
-            let mut overrides = HashMap::new();
-            for (var_name, value) in &scenario.overrides {
-                overrides.insert(var_name.clone(), *value);
-            }
-            ctx.scenarios.insert(scenario_name.clone(), overrides);
-        }
+    /// A formula's syntax tree, parsed once per plan.
+    fn parsed(&self, formula: &str) -> ForgeResult<Rc<parser::Expr>> {
+        self.step_cached(
+            |step| step.ast.clone(),
+            |step, ast| step.ast = Some(ast),
+            || self.parsed_by_text(formula),
+        )
+    }
 
-        ctx.row_count = Some(table.row_count());
-        ctx
+    fn parsed_by_text(&self, formula: &str) -> ForgeResult<Rc<parser::Expr>> {
+        let body = formula.trim_start_matches('=').trim();
+        self.plan
+            .ast(body, || {
+                let tokens = tokenizer::tokenize(body)
+                    .map_err(|e| format!("syntax error: {}", e.message))?;
+                parser::parse(tokens).map_err(|e| format!("syntax error: {}", e.message))
+            })
+            .map_err(ForgeError::Eval)
     }
 
     /// Evaluate a row-wise formula using the AST evaluator
     fn evaluate_rowwise_formula_ast(
-        &self,
-        table: &Table,
+        &mut self,
+        table_name: &str,
         formula: &str,
     ) -> ForgeResult<ColumnValue> {
-        let formula_str = formula.trim_start_matches('=').trim();
-        let tokens = tokenizer::tokenize(formula_str)
-            .map_err(|e| ForgeError::Eval(format!("syntax error: {}", e.message)))?;
-        let ast = parser::parse(tokens)
-            .map_err(|e| ForgeError::Eval(format!("syntax error: {}", e.message)))?;
+        let table = &self.model.tables[table_name];
+        let ast = self.parsed(formula)?;
 
         self.check_ambiguous_names(formula, None, table)?;
-        let base_ctx = self.build_eval_context(table, None);
         let row_count = table.row_count();
         if row_count == 0 {
             return Err(ForgeError::Eval(
                 "Cannot evaluate on empty table".to_string(),
             ));
         }
+        self.evaluate_in_context(Some(table_name), None, |row_ctx| {
+            Self::evaluate_rows(&ast, row_ctx, row_count)
+        })
+    }
 
-        // Evaluate first row to determine result type
-        let first_ctx = base_ctx.clone().with_row(0, row_count);
-        let first_result = evaluator::evaluate(&ast, &first_ctx)
+    /// Evaluate a row formula in each of `row_count` rows. Only the row of
+    /// the context changes (evaluation reads the context, never changes it).
+    fn evaluate_rows(
+        ast: &parser::Expr,
+        row_ctx: &mut evaluator::EvalContext,
+        row_count: usize,
+    ) -> ForgeResult<ColumnValue> {
+        row_ctx.current_row = Some(0);
+        row_ctx.row_count = Some(row_count);
+        let first_result = evaluator::evaluate(ast, row_ctx)
             .map_err(|e| ForgeError::Eval(format!("row 1: {}", e.message)))?;
 
         // Determine column type from first result and evaluate all rows
@@ -691,8 +887,8 @@ impl ArrayCalculator {
                 let mut results: Vec<String> = Vec::with_capacity(row_count);
                 results.push(first_result.as_text());
                 for row_idx in 1..row_count {
-                    let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
-                    let result = evaluator::evaluate(&ast, &row_ctx).map_err(|e| {
+                    row_ctx.current_row = Some(row_idx);
+                    let result = evaluator::evaluate(ast, row_ctx).map_err(|e| {
                         ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
                     })?;
                     results.push(result.as_text());
@@ -703,8 +899,8 @@ impl ArrayCalculator {
                 let mut results: Vec<bool> = Vec::with_capacity(row_count);
                 results.push(first_result.as_bool().unwrap_or(false));
                 for row_idx in 1..row_count {
-                    let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
-                    let result = evaluator::evaluate(&ast, &row_ctx).map_err(|e| {
+                    row_ctx.current_row = Some(row_idx);
+                    let result = evaluator::evaluate(ast, row_ctx).map_err(|e| {
                         ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
                     })?;
                     results.push(result.as_bool().unwrap_or(false));
@@ -719,8 +915,8 @@ impl ArrayCalculator {
                     .ok_or_else(|| ForgeError::Eval("row 1: result is not a number".to_string()))?;
                 results.push(first_num);
                 for row_idx in 1..row_count {
-                    let row_ctx = base_ctx.clone().with_row(row_idx, row_count);
-                    let result = evaluator::evaluate(&ast, &row_ctx).map_err(|e| {
+                    row_ctx.current_row = Some(row_idx);
+                    let result = evaluator::evaluate(ast, row_ctx).map_err(|e| {
                         ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
                     })?;
                     let value = result.as_number().ok_or_else(|| {
@@ -734,18 +930,19 @@ impl ArrayCalculator {
     }
 
     /// Evaluate the formula of scalar `scalar_name` using the AST evaluator
-    fn evaluate_scalar_formula_ast(&self, scalar_name: &str, formula: &str) -> ForgeResult<f64> {
-        let formula_str = formula.trim_start_matches('=').trim();
-        let tokens = tokenizer::tokenize(formula_str)
-            .map_err(|e| ForgeError::Eval(format!("syntax error: {}", e.message)))?;
-        let ast = parser::parse(tokens)
-            .map_err(|e| ForgeError::Eval(format!("syntax error: {}", e.message)))?;
+    fn evaluate_scalar_formula_ast(
+        &mut self,
+        scalar_name: &str,
+        formula: &str,
+    ) -> ForgeResult<f64> {
+        let ast = self.parsed(formula)?;
 
         let empty_table = Table::new("_scalar_context".to_string());
         let section = scalar_name.rsplit_once('.').map(|(section, _)| section);
         self.check_ambiguous_names(formula, section, &empty_table)?;
-        let ctx = self.build_eval_context(&empty_table, section);
-        let result = evaluator::evaluate(&ast, &ctx).map_err(|e| ForgeError::Eval(e.message))?;
+        let result = self
+            .evaluate_in_context(None, section, |ctx| evaluator::evaluate(&ast, ctx))
+            .map_err(|e| ForgeError::Eval(e.message))?;
         if let evaluator::Value::Array(items) = &result {
             if items.len() != 1 {
                 return Err(ForgeError::Eval(format!(
@@ -787,6 +984,25 @@ impl ArrayCalculator {
         }
 
         Ok(deps)
+    }
+}
+
+/// A column's values as the evaluator reads them (dates as text).
+fn column_values(values: &ColumnValue) -> Vec<evaluator::Value> {
+    match values {
+        ColumnValue::Number(nums) => nums.iter().map(|n| evaluator::Value::Number(*n)).collect(),
+        ColumnValue::Text(texts) => texts
+            .iter()
+            .map(|s| evaluator::Value::Text(s.clone()))
+            .collect(),
+        ColumnValue::Boolean(bools) => bools
+            .iter()
+            .map(|b| evaluator::Value::Boolean(*b))
+            .collect(),
+        ColumnValue::Date(dates) => dates
+            .iter()
+            .map(|d| evaluator::Value::Text(d.clone()))
+            .collect(),
     }
 }
 

@@ -253,7 +253,8 @@ mod tests {
                 Value::Number(9.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         // Sample variance
         let var_result = eval("VAR(t.data)", &ctx).unwrap();
@@ -282,7 +283,8 @@ mod tests {
                 Value::Number(5.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         assert_eq!(
             eval("PERCENTILE(t.data, 0.5)", &ctx).unwrap(),
@@ -304,7 +306,8 @@ mod tests {
                 Value::Number(5.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         assert_eq!(
             eval("QUARTILE(t.data, 2)", &ctx).unwrap(),
@@ -342,7 +345,8 @@ mod tests {
                 Value::Number(5.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         // LARGE(data, 1) = 5 (largest)
         assert_eq!(eval("LARGE(t.data, 1)", &ctx).unwrap(), Value::Number(5.0));
@@ -364,7 +368,8 @@ mod tests {
                 Value::Number(5.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         // SMALL(data, 1) = 1 (smallest)
         assert_eq!(eval("SMALL(t.data, 1)", &ctx).unwrap(), Value::Number(1.0));
@@ -388,7 +393,8 @@ mod tests {
                 Value::Number(2.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         // RANK(5, data) = 1 (largest, descending default)
         assert_eq!(eval("RANK(5, t.data)", &ctx).unwrap(), Value::Number(1.0));

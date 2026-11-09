@@ -52,7 +52,8 @@ mod tests {
                 Value::Boolean(true),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         // FILTER should return [10, 30, 50]
         let result = eval("FILTER(t.values, t.include)", &ctx).unwrap();
@@ -79,7 +80,8 @@ mod tests {
             "include".to_string(),
             vec![Value::Boolean(false), Value::Boolean(false)],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         // FILTER should return empty array
         let result = eval("FILTER(t.values, t.include)", &ctx).unwrap();
@@ -111,7 +113,8 @@ mod tests {
                 Value::Boolean(true),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
 
         // FILTER should return all values
         let result = eval("FILTER(t.values, t.include)", &ctx).unwrap();
