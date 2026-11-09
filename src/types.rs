@@ -14,9 +14,28 @@ pub struct TestSpec {
     #[serde(rename = "_forge_version")]
     pub forge_version: String,
 
+    /// Included files (`_includes`), each read as `@namespace.name`.
+    #[serde(rename = "_includes", default)]
+    pub includes: Vec<IncludeSpec>,
+
+    /// Fail a case whose formula `forge export` writes as a value, instead of
+    /// passing it unjudged by Gnumeric.
+    #[serde(rename = "_gnumeric_must_calculate", default)]
+    pub gnumeric_must_calculate: bool,
+
     /// Named sections containing test definitions.
     #[serde(flatten)]
     pub sections: HashMap<String, Section>,
+}
+
+/// One entry of `_includes`: a file, relative to the spec, and its namespace.
+#[derive(Debug, Clone, Deserialize)]
+pub struct IncludeSpec {
+    /// Path of the included file, relative to the spec file.
+    pub file: String,
+    /// Namespace the spec's formulas read it by (`@namespace.name`).
+    #[serde(rename = "as")]
+    pub namespace: String,
 }
 
 /// A section in the test spec (e.g., "assumptions", "projections").
@@ -72,6 +91,8 @@ pub struct TestCase {
     pub forge_version: String,
     /// Why Gnumeric is not consulted for this case, if it is not.
     pub gnumeric_skip: Option<String>,
+    /// Whether the case fails when `forge export` writes it as a value.
+    pub gnumeric_must_calculate: bool,
 }
 
 /// A test case that should be skipped.
@@ -93,6 +114,9 @@ pub enum TestResult {
         formula: String,
         expected: f64,
         actual: f64,
+        /// Whether Gnumeric calculated the formula: `false` when `forge
+        /// export` wrote it as a value, so Gnumeric only read Forge's number.
+        gnumeric_calculated: bool,
     },
     /// Test failed - mismatch or error.
     Fail {
@@ -154,6 +178,7 @@ pub fn extract_test_cases(spec: &TestSpec, source_file: Option<&std::path::Path>
                         source_file: source_file.map(std::path::Path::to_path_buf),
                         forge_version: spec.forge_version.clone(),
                         gnumeric_skip: scalar.gnumeric_skip.clone(),
+                        gnumeric_must_calculate: spec.gnumeric_must_calculate,
                     });
                 }
             }
@@ -257,6 +282,7 @@ assumptions:
             formula: "=1".to_string(),
             expected: 1.0,
             actual: 1.0,
+            gnumeric_calculated: true,
         };
         assert!(pass.is_pass());
         assert!(!pass.is_fail());

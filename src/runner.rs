@@ -220,11 +220,19 @@ impl TestRunner {
                 .collect()
         };
 
+        let temp_dir = match tempfile::tempdir() {
+            Ok(d) => d,
+            Err(e) => return fail_all(format!("Failed to create temp dir: {e}")),
+        };
+        let includes = match includes_for(source, temp_dir.path()) {
+            Ok(block) => block,
+            Err(e) => return fail_all(e),
+        };
         let forge_version = cases
             .first()
             .map_or("1.0.0", |tc| tc.forge_version.as_str());
         let mut yaml_content = format!(
-            "_forge_version: \"{forge_version}\"\n{}assumptions:\n",
+            "_forge_version: \"{forge_version}\"\n{includes}{}assumptions:\n",
             table_data_for(source)
         );
         for (i, tc) in cases.iter().enumerate() {
@@ -235,10 +243,6 @@ impl TestRunner {
             );
         }
 
-        let temp_dir = match tempfile::tempdir() {
-            Ok(d) => d,
-            Err(e) => return fail_all(format!("Failed to create temp dir: {e}")),
-        };
         let yaml_path = temp_dir.path().join("batch.yaml");
         let xlsx_path = temp_dir.path().join("batch.xlsx");
         if let Err(e) = fs::write(&yaml_path, &yaml_content) {
@@ -252,7 +256,11 @@ impl TestRunner {
 
         let gnumeric_values =
             match self.forge_export_and_recalc(&yaml_path, &xlsx_path, temp_dir.path()) {
-                Ok(csv_files) => Self::parse_batch_csv(&csv_files, cases.len()),
+                Ok((csv_files, as_values)) => Self::parse_batch_csv(&csv_files, cases.len())
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, v)| not_calculated(&as_values, &format!("assumptions.test_{i}"), v))
+                    .collect(),
                 Err(e) => vec![Err(e); cases.len()],
             };
 
@@ -334,7 +342,7 @@ impl TestRunner {
         yaml_path: &Path,
         xlsx_path: &Path,
         out_dir: &Path,
-    ) -> Result<Vec<PathBuf>, String> {
+    ) -> Result<(Vec<PathBuf>, Vec<String>), String> {
         let output = Command::new(&self.forge_binary)
             .arg("export")
             .arg(yaml_path)
@@ -347,9 +355,18 @@ impl TestRunner {
                 String::from_utf8_lossy(&output.stderr)
             ));
         }
-        self.engine
+        // A formula Excel cannot express is written as its value, which
+        // Gnumeric would only read back: list them (`- name: written as ...`).
+        let written_as_values = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .filter_map(|l| l.trim().strip_prefix("- ")?.split_once(": written as"))
+            .map(|(name, _)| name.to_string())
+            .collect();
+        let csv_files = self
+            .engine
             .xlsx_to_csv_all_sheets(xlsx_path, out_dir)
-            .map_err(|e| format!("CSV conversion failed: {e}"))
+            .map_err(|e| format!("CSV conversion failed: {e}"))?;
+        Ok((csv_files, written_as_values))
     }
 
     /// Runs `forge import` on Forge's own exported workbook, so the result can be
@@ -423,18 +440,6 @@ impl TestRunner {
     /// expected value.
     #[must_use]
     pub fn run_test(&self, test_case: &TestCase) -> TestResult {
-        let escaped_formula = test_case.formula.replace('"', "\\\"");
-        let forge_version = &test_case.forge_version;
-        let yaml_content = format!(
-            r#"_forge_version: "{forge_version}"
-{table_data}assumptions:
-  test_result:
-    value: null
-    formula: "{escaped_formula}"
-"#,
-            table_data = table_data_for(test_case.source_file.as_deref()),
-        );
-
         let temp_dir = match tempfile::tempdir() {
             Ok(d) => d,
             Err(e) => {
@@ -445,6 +450,22 @@ impl TestRunner {
                 )
             }
         };
+        let includes = match includes_for(test_case.source_file.as_deref(), temp_dir.path()) {
+            Ok(block) => block,
+            Err(e) => return fail(test_case, None, Some(e)),
+        };
+        let escaped_formula = test_case.formula.replace('"', "\\\"");
+        let forge_version = &test_case.forge_version;
+        let yaml_content = format!(
+            r#"_forge_version: "{forge_version}"
+{includes}{table_data}assumptions:
+  test_result:
+    value: null
+    formula: "{escaped_formula}"
+"#,
+            table_data = table_data_for(test_case.source_file.as_deref()),
+        );
+
         let yaml_path = temp_dir.path().join("test.yaml");
         let xlsx_path = temp_dir.path().join("test.xlsx");
 
@@ -460,7 +481,10 @@ impl TestRunner {
 
         let gnumeric_value = self
             .forge_export_and_recalc(&yaml_path, &xlsx_path, temp_dir.path())
-            .and_then(|files| Self::find_result_in_csvs(&files));
+            .and_then(|(files, as_values)| {
+                let value = Self::find_result_in_csvs(&files);
+                not_calculated(&as_values, "assumptions.test_result", value)
+            });
 
         let roundtrip_value = self
             .forge_import_and_calculate(&xlsx_path, temp_dir.path())
@@ -494,6 +518,46 @@ impl TestRunner {
     }
 }
 
+/// The spec's `_includes`, resolved: (file beside the spec, namespace).
+fn includes_of(source: Option<&Path>) -> Vec<(PathBuf, String)> {
+    let Some(path) = source else {
+        return Vec::new();
+    };
+    let dir = path.parent().unwrap_or_else(|| Path::new("."));
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|content| yaml_serde::from_str::<TestSpec>(&content).ok())
+        .map(|spec| {
+            spec.includes
+                .into_iter()
+                .map(|inc| (dir.join(inc.file), inc.namespace))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Copy the spec's included files into `dir`, the folder of the generated
+/// model, and return its `_includes:` section naming those copies.
+fn includes_for(source: Option<&Path>, dir: &Path) -> Result<String, String> {
+    let mut block = String::new();
+    for (file, namespace) in includes_of(source) {
+        let name = file
+            .file_name()
+            .ok_or_else(|| format!("include without a file name: {}", file.display()))?;
+        fs::copy(&file, dir.join(name))
+            .map_err(|e| format!("Failed to copy include {}: {e}", file.display()))?;
+        if block.is_empty() {
+            block.push_str("_includes:\n");
+        }
+        let _ = writeln!(
+            block,
+            "  - file: {}\n    as: {namespace}",
+            name.to_string_lossy()
+        );
+    }
+    Ok(block)
+}
+
 /// Table sections of a spec file, as YAML to prepend to a generated model.
 fn table_data_for(source: Option<&Path>) -> String {
     source
@@ -501,6 +565,23 @@ fn table_data_for(source: Option<&Path>) -> String {
         .and_then(|content| yaml_serde::from_str::<TestSpec>(&content).ok())
         .map(|spec| extract_table_data_yaml(&spec))
         .unwrap_or_default()
+}
+
+/// What Gnumeric gave for a formula `forge export` wrote as a value.
+const NOT_CALCULATED: &str =
+    "forge export wrote this formula as a value, so Gnumeric did not calculate it";
+
+/// Gnumeric's value, unless Forge wrote the formula as a value: then
+/// Gnumeric only read back Forge's number, and judged nothing.
+fn not_calculated(
+    written_as_values: &[String],
+    name: &str,
+    value: Result<f64, String>,
+) -> Result<f64, String> {
+    if written_as_values.iter().any(|n| n == name) {
+        return Err(NOT_CALCULATED.to_string());
+    }
+    value
 }
 
 /// Builds a failing result.
@@ -540,8 +621,12 @@ fn judge(
         }
         Err(e) => problems.push(e.clone()),
     }
+    let mut gnumeric_calculated = true;
     match gnumeric {
         _ if tc.gnumeric_skip.is_some() => {}
+        Err(e) if e == NOT_CALCULATED && !tc.gnumeric_must_calculate => {
+            gnumeric_calculated = false;
+        }
         Ok(v) if matches(*v, tc.expected) => {}
         Ok(v) => {
             shown = shown.or(Some(*v));
@@ -571,6 +656,7 @@ fn judge(
                 formula: tc.formula.clone(),
                 expected: tc.expected,
                 actual: *actual,
+                gnumeric_calculated,
             };
         }
     }

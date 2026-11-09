@@ -113,6 +113,24 @@ fn run_all(cli: &Cli, runner: &TestRunner, forge_binary: &Path) {
         .iter()
         .filter(|tc| tc.gnumeric_skip.is_some())
         .count();
+    let not_calculated = results
+        .iter()
+        .filter(|r| {
+            matches!(
+                r,
+                TestResult::Pass {
+                    gnumeric_calculated: false,
+                    ..
+                }
+            )
+        })
+        .count();
+    if not_calculated > 0 {
+        println!(
+            "# {not_calculated} passed cases were not calculated by Gnumeric: forge export \
+             wrote them as values, so Gnumeric read back Forge's own number"
+        );
+    }
     if forge_only > 0 {
         println!("# {forge_only} cases checked against Forge only (Gnumeric cannot judge them)");
     }
@@ -129,8 +147,16 @@ fn run_all(cli: &Cli, runner: &TestRunner, forge_binary: &Path) {
 
 fn print_tap_line(n: usize, result: &TestResult) {
     match result {
-        TestResult::Pass { name, .. } => {
-            println!("ok {n} - {name}");
+        TestResult::Pass {
+            name,
+            gnumeric_calculated,
+            ..
+        } => {
+            if *gnumeric_calculated {
+                println!("ok {n} - {name}");
+            } else {
+                println!("ok {n} - {name} # Gnumeric did not calculate it (exported as a value)");
+            }
         }
         TestResult::Fail {
             name,
