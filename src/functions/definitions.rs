@@ -647,7 +647,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         name: "ADDRESS",
         category: Category::Lookup,
         description: "Cell address text",
-        syntax: "=ADDRESS(row, col, abs_type)",
+        syntax: "=ADDRESS(row, col, abs_type, a1, sheet)",
         scalar: true,
     },
     FunctionDef {

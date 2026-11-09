@@ -102,8 +102,15 @@ pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         true
     };
 
+    // Excel: #VALUE! outside the sheet, or for an abs_num other than 1 to 4
+    if !(1..=1_048_576).contains(&row_num) {
+        return Err(EvalError::new("#VALUE!: ADDRESS: row out of range"));
+    }
     if !(1..=16384).contains(&col_num) {
         return Err(EvalError::new("ADDRESS: column out of range"));
+    }
+    if !(1..=4).contains(&abs_num) {
+        return Err(EvalError::new("#VALUE!: ADDRESS: abs_num must be 1 to 4"));
     }
 
     // Convert column number to letter(s)
@@ -118,12 +125,28 @@ pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
             _ => format!("${col_letter}${row_num}"), // 1 and default: absolute
         }
     } else {
-        // R1C1 style
+        // R1C1 style: brackets mark the relative part
         match abs_num {
+            2 => format!("R{row_num}C[{col_num}]"),
+            3 => format!("R[{row_num}]C{col_num}"),
             4 => format!("R[{row_num}]C[{col_num}]"),
-            _ => format!("R{row_num}C{col_num}"), // 1 and default: absolute
+            _ => format!("R{row_num}C{col_num}"),
         }
     };
+    // sheet_text: `Sheet1!$A$1`, quoted when the name needs it (`'My Sheet'!`)
+    if args.len() > 4 {
+        let sheet = evaluate(&args[4], ctx)?.as_text();
+        let plain = sheet
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_' || c == '.')
+            && !sheet.starts_with(|c: char| c.is_ascii_digit());
+        let prefix = if plain {
+            sheet
+        } else {
+            format!("'{}'", sheet.replace('\'', "''"))
+        };
+        return Ok(Value::Text(format!("{prefix}!{address}")));
+    }
     Ok(Value::Text(address))
 }
 

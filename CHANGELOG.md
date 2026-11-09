@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`POWER(0, 0)` and `POW(0, 0)` gave 1.** Excel gives #NUM!, and so did Forge's own `0^0`. The functions now compute exactly like `^`: 0^0 and a negative base with a fractional exponent are #NUM!, and 0 to a negative power is #DIV/0! (`POWER(0, -1)` was #NUM!).
+- **`ADDRESS` gave addresses Excel does not.** A row outside 1 to 1,048,576 gave text such as `$A$0`, and an `abs_num` outside 1 to 4 was read as 1; both are #VALUE! in Excel and now in Forge. In R1C1 style, `abs_num` 2 and 3 gave `R2C3` instead of `R2C[3]` and `R[2]C3`. The fifth argument, the sheet name, was ignored; it now gives `Sheet1!$A$1` (quoted when the name needs it).
+- **67 forge-e2e-gnumeric cases were never calculated by Gnumeric** (T1-E2E-UNJUDGED). `forge export` wrote them as values, so Gnumeric read Forge's own number back and the case passed. `AVG`, `POW`, `E()`, `STDEV.S`, `STDEV.P`, `VAR.S`, `VAR.P`, `RANK.EQ`, `ADDRESS`, `RAND`, `RANDBETWEEN` and `COLUMNS(table)` are now exported as Excel formulas, and Gnumeric's results agree with Forge in all 67. The other 59 (`LET`, `LAMBDA`, `COUNTUNIQUE`, `TODAY`, `VARIANCE*`, `BREAKEVEN_*`) are still written as values, so each now carries a `gnumeric_skip` with the reason, and the harness fails any case written as a value without one.
+
 ## [10.0.0-rc.7] - 2026-11-08
 
 Seventh release candidate. Multi-document files now work as one model (ADR-052), values from an included file stay live in the Excel export and come back as an include on import, and every example in docs/EXAMPLES.md runs, with its printed output checked by a test. None of these fixes a wrong number from Forge's calculations: the bugs were errors, missing output, broken imported files, frozen Excel cells and invented numbers in the docs. The stable release must still be a candidate published for two weeks, so the date stays no earlier than 2026-11-22.
