@@ -1,0 +1,31 @@
+_forge_version: "5.1.0"
+# A household's monthly budget for October (all figures made up).
+# Compare the two with:
+#   forge variance examples/household/budget.yaml examples/household/actual.yaml --threshold 10
+# Anything under income is better higher and anything under expenses better
+# lower, so no item needs a better: of its own; what is left over says so.
+
+income:
+  salary: 5200
+  side_work: 400
+  total:
+    formula: "=salary + side_work"
+
+expenses:
+  rent: 1650
+  groceries: 700
+  transport: 180
+  utilities: 140
+  phone_internet: 120
+  eating_out: 250
+  subscriptions: 60
+  total:
+    formula: "=rent + groceries + transport + utilities + phone_internet + eating_out + subscriptions"
+
+result:
+  left_over:
+    formula: "=income.total - expenses.total"
+    better: higher
+  savings_rate:
+    formula: "=left_over / income.total"
+    better: higher

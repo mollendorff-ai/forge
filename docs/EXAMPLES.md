@@ -36,6 +36,10 @@ forge calculate pricing.yaml
 
 The results are printed. A table formula stays a formula in the file (`final_price` keeps `=base_price * (1 - discount_rate)`); a scalar formula also gets its result stored next to it (see FEATURES.md, The Model File). `--dry-run` prints without writing anything.
 
+## Example Models
+
+Three complete models, each with a README and tests against an outside calculation: [`examples/household`](../examples/household/README.md) (budget against actual), [`examples/mortgage`](../examples/mortgage/README.md) (a loan with extra payments) and [`examples/bagel`](../examples/bagel/README.md) (a small business's first year, with an included costs file).
+
 ## Financial Models
 
 ### SaaS Metrics (v1.2.1)

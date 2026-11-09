@@ -282,12 +282,14 @@ impl ForgeMcpServer {
             req.budget_path.as_deref(),
             req.budget_content.as_deref(),
             req.includes.as_ref(),
-        )?;
+        )
+        .map_err(|e| e.replace("file_path or content", "budget_path or budget_content"))?;
         let (actual_path, _tmpdir_a) = resolve_model_input(
             req.actual_path.as_deref(),
             req.actual_content.as_deref(),
             req.includes.as_ref(),
-        )?;
+        )
+        .map_err(|e| e.replace("file_path or content", "actual_path or actual_content"))?;
         let threshold = req.threshold.unwrap_or(10.0);
         variance_core(&budget_path, &actual_path, threshold)
             .map(|r| to_json(&r))

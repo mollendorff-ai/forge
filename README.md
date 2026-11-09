@@ -38,6 +38,14 @@ Known problems as of 2026-11-08 (what is planned, and in what order, is in the [
 
 **Size:** for one 5-year DCF model, the `.xlsx` file was about 7× the size of the YAML in bytes (about 19× counting the XML inside it). Token counts were not measured, and an agent that reads only the cells it needs avoids most of this cost.
 
+## Example models
+
+Three models of the kind people have, each built through the MCP tools and checked against a calculation written outside Forge (the tests say which):
+
+- [`examples/household`](examples/household/README.md): a monthly household budget and what was actually spent, for `forge variance`. Spending 205.85 over budget and earning 250 less left 2,044.15 instead of 2,500.
+- [`examples/mortgage`](examples/mortgage/README.md): a 450,000 mortgage at 4.79% compounded semi-annually, and what 300 more a month does: 247 payments instead of 300 and 64,596.88 less interest.
+- [`examples/bagel`](examples/bagel/README.md): a bagel shop's first twelve months, with its supplier costs in an included file, used by every analytics command.
+
 ---
 
 ## AI Integration

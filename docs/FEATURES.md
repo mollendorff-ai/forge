@@ -412,8 +412,10 @@ For each scenario: its probability, its description, every scalar's value (`scal
 Whether a difference is good depends on the scalar. Forge decides it in this order:
 
 1. A `better:` field on the scalar, in either file: `better: lower` for costs, hours, churn; `better: higher` for revenue, profit, customers.
-2. A word in the scalar's last name segment that clearly means a cost (`cost`, `cogs`, `expense`, `opex`, `rent`, `wage`, `salary`, `payroll`, `labour`, `fee`, `tax`, `interest`, `depreciation`, `spend`, `debt`) or a result (`revenue`, `sales`, `profit`, `income`, `margin`, `ebit`, `ebitda`, `npv`, `irr`).
-3. Otherwise the direction is unknown: the variance is reported with `is_favorable: null` and status "No direction", never guessed.
+2. A group that says it: everything under a group named `expenses`, `costs`, `spending`, `opex`, `capex` or `outflows` (at any level, also as a word of a group name, as in `fixed_costs.rent`) is better lower. Under `income`, `revenue`, `sales`, `earnings` or `inflows`, a salary, wage or interest is better higher: a household earns them, where a business pays them.
+3. A word in the scalar's last name segment that clearly means a cost (`cost`, `cogs`, `expense`, `opex`, `rent`, `wage`, `salary`, `payroll`, `labour`, `fee`, `tax`, `interest`, `depreciation`, `spend`, `debt`) or a result (`revenue`, `sales`, `profit`, `income`, `margin`, `ebit`, `ebitda`, `npv`, `irr`). So `income.tax` is better lower.
+4. Otherwise the group of step 2, if any: `income.side_work` is better higher.
+5. Otherwise the direction is unknown: the variance is reported with `is_favorable: null` and status "No direction", never guessed.
 
 ```yaml
 assumptions:
