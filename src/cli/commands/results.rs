@@ -56,18 +56,36 @@ pub struct AuditResult {
     pub current_value: Option<f64>,
     pub calculated_value: Option<f64>,
     pub formula: Option<String>,
+    /// For a table column: its calculated values, in row order
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calculated_values: Option<Vec<f64>>,
     pub dependencies: Vec<AuditDep>,
+    /// The value in the file matches the calculated one, and the model calculates
     pub is_valid: bool,
+    /// Why the model does not calculate, if it does not (values are then the file's)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calculation_error: Option<String>,
 }
 
-/// Serializable dependency info (mirrors `AuditDependency` with Serialize)
+/// One name a formula reads, with what it reads in turn
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditDep {
     pub name: String,
+    /// `Scalar`, `Included scalar`, `Column[table]` or `Unknown`
     pub dep_type: String,
     pub formula: Option<String>,
+    /// A scalar's calculated value
     pub value: Option<f64>,
     pub children: Vec<Self>,
+    /// A column's calculated values, in row order
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub values: Option<Vec<f64>>,
+    /// The included file it comes from
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    /// Shown earlier in the tree, so its dependencies are not repeated
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub repeated: bool,
 }
 
 /// Result of the export command

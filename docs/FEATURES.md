@@ -1087,26 +1087,24 @@ forge watch model.yaml --calculate  # Auto-calculate on save
 
 ### Audit Trail
 
-Dependency chain visualization:
-
-```bash
-forge audit model.yaml total_profit
-```
-
-Output:
+`forge audit <file> <name>` shows what a scalar or a table column (`months.profit`) is calculated from, all the way down, with calculated values:
 
 ```
-Audit trail for 'total_profit':
+forge audit examples/bagel/bagel.yaml year.margin
 
-total_profit
-├── =revenue - expenses
-├── revenue (from: pl_2025)
-│   └── [100000, 120000, 150000]
-└── expenses (from: pl_2025)
-    └── [80000, 90000, 100000]
-
-Calculated value: [20000, 30000, 50000]
+   └─ year.profit (Scalar) = 786.320362 =SUM(months.profit)
+      └─ months.profit (Column[months]) = 12 rows: -7908.027 … 3572.327657 =revenue - costs
+         └─ months.revenue (Column[months]) = 12 rows: 22440 … 36543.774187 =dozens * assumptions.price_per_dozen
+         ...
+            └─ months.labour (Column[months]) = 12 rows: 20424 … 20424 =assumptions.staff_hours_per_day * assumptions.open_days_per_month * @costs.labour.loaded_wage
+               └─ @costs.labour.loaded_wage (Included scalar) = 21.275 =wage_per_hour * (1 + payroll_load) [costs.yaml]
+                  └─ @costs.labour.wage_per_hour (Included scalar) = 18.5 [costs.yaml]
 ```
+
+- Names resolve the way the calculator resolves them: in a row formula a bare name is a column of the same table first; in a scalar formula, a scalar of the formula's own group first. Function names are not dependencies.
+- A value of an included file shows its value, its formula and its file, and is followed inside that file, and into the files it includes.
+- A node that appears again further down is shown once and then marked `(see above)`.
+- The value in the file is compared with the calculated one: a stale value says to run `forge calculate`. A model that does not calculate (one with `MC.*` inputs, say) shows the file's values and says why. The MCP `forge_audit` tool and `POST /api/v1/audit` return the same tree as JSON, with `values` for columns and `source` for included values.
 
 ---
 

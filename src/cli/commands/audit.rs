@@ -1,421 +1,564 @@
-//! Audit command and dependency tracking
+//! `forge audit`: what a value is calculated from, all the way down.
+//!
+//! Each name a formula reads is resolved the way the calculator resolves it:
+//! in a row formula, a bare name is a column of the same table first; in a
+//! scalar formula, a bare name is a scalar of the formula's own group first,
+//! then a top-level scalar, then the only scalar with that last part;
+//! `table.column` is a column; `@costs.labour.wage` is a value of the file
+//! included as `costs`, whose own formulas are followed inside that file.
+//! Values are the calculated ones. A node that appears again further down is
+//! shown once, then marked as repeated.
 
+use crate::core::array_calculator::tokenizer::{tokenize, Token};
 use crate::core::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
+use crate::types::{ColumnValue, ParsedModel};
 use colored::Colorize;
+use std::collections::HashSet;
 use std::path::Path;
 
 use super::format_number;
+use super::results::{AuditDep, AuditResult};
 
-/// Strip string literals from a formula before extracting references.
-/// This prevents content inside quotes from being parsed as variable references.
-/// e.g., =LEN("Hello") should not treat "Hello" as a variable reference.
-fn strip_string_literals(formula: &str) -> String {
-    let mut result = String::with_capacity(formula.len());
-    let mut in_string = false;
-    let mut quote_char = '"';
+/// One model to resolve names in: the main file or an included one.
+struct Scope<'a> {
+    /// As parsed (formulas)
+    model: &'a ParsedModel,
+    /// As calculated (values), when it calculates
+    calculated: Option<ParsedModel>,
+    /// The included file, for an include (`None` for the main file)
+    file: Option<String>,
+    /// `@namespace.` for an include: its names as the including file writes them
+    prefix: String,
+    /// The files it includes, by namespace, in name order
+    includes: Vec<(String, Self)>,
+}
 
-    for c in formula.chars() {
-        if !in_string && (c == '"' || c == '\'') {
-            in_string = true;
-            quote_char = c;
-        } else if in_string && c == quote_char {
-            in_string = false;
-        } else if !in_string {
-            result.push(c);
+impl<'a> Scope<'a> {
+    fn new(model: &'a ParsedModel, file: Option<String>, prefix: String) -> Self {
+        let calculated = ArrayCalculator::new(model.clone()).calculate_all().ok();
+        let mut includes: Vec<(String, Self)> = model
+            .resolved_includes
+            .iter()
+            .map(|(ns, r)| {
+                (
+                    ns.clone(),
+                    Self::new(&r.model, Some(r.include.file.clone()), format!("@{ns}.")),
+                )
+            })
+            .collect();
+        includes.sort_by(|a, b| a.0.cmp(&b.0));
+        Self {
+            model,
+            calculated,
+            file,
+            prefix,
+            includes,
         }
     }
 
-    result
+    fn scalar_value(&self, name: &str) -> Option<f64> {
+        self.calculated
+            .as_ref()
+            .unwrap_or(self.model)
+            .scalars
+            .get(name)
+            .and_then(|s| s.value)
+    }
+
+    fn column_values(&self, table: &str, column: &str) -> Option<Vec<f64>> {
+        let model = self.calculated.as_ref().unwrap_or(self.model);
+        match &model.tables.get(table)?.columns.get(column)?.values {
+            ColumnValue::Number(v) => Some(v.clone()),
+            _ => None,
+        }
+    }
+
+    /// A scalar the way the calculator resolves a name in group `section`.
+    fn resolve_scalar(&self, word: &str, section: Option<&str>) -> Option<String> {
+        let scalars = &self.model.scalars;
+        if let Some(section) = section {
+            if !word.contains('.') {
+                let scoped = format!("{section}.{word}");
+                if scalars.contains_key(&scoped) {
+                    return Some(scoped);
+                }
+            }
+        }
+        if scalars.contains_key(word) {
+            return Some(word.to_string());
+        }
+        if word.contains('.') {
+            return None;
+        }
+        let mut matches = scalars
+            .keys()
+            .filter(|name| name.rsplit_once('.').is_some_and(|(_, last)| last == word));
+        match (matches.next(), matches.next()) {
+            (Some(only), None) => Some(only.clone()),
+            _ => None,
+        }
+    }
 }
 
-/// Represents a dependency in the audit tree
-pub struct AuditDependency {
-    pub name: String,
-    pub dep_type: String,
-    pub formula: Option<String>,
-    pub value: Option<f64>,
-    pub children: Vec<Self>,
+/// What a formula is written in: a scalar (its group) or a table's row formula.
+#[derive(Clone, Copy)]
+enum Place<'a> {
+    Scalar { section: Option<&'a str> },
+    Row { table: &'a str },
 }
 
-/// Convert `AuditDependency` tree to serializable `AuditDep`
-fn to_audit_dep(dep: &AuditDependency) -> super::results::AuditDep {
-    super::results::AuditDep {
-        name: dep.name.clone(),
-        dep_type: dep.dep_type.clone(),
-        formula: dep.formula.clone(),
-        value: dep.value,
-        children: dep.children.iter().map(to_audit_dep).collect(),
+/// The names a formula reads: every identifier that is not a function name.
+fn formula_references(formula: &str) -> Vec<String> {
+    let body = formula.trim().trim_start_matches('=');
+    let Ok(tokens) = tokenize(body) else {
+        return Vec::new();
+    };
+    let mut refs: Vec<String> = Vec::new();
+    for (i, token) in tokens.iter().enumerate() {
+        if let Token::Identifier(word) = token {
+            let is_call = matches!(tokens.get(i + 1), Some(Token::OpenParen));
+            if !is_call && !refs.contains(word) {
+                refs.push(word.clone());
+            }
+        }
+    }
+    refs
+}
+
+struct Builder<'a> {
+    main: Scope<'a>,
+    /// Nodes already expanded, by scope and name
+    seen: HashSet<String>,
+}
+
+/// Where a name is resolved: the indexes of the includes followed from the
+/// main file (empty for the main file itself).
+type At = Vec<usize>;
+
+impl<'a> Builder<'a> {
+    fn new(model: &'a ParsedModel) -> Self {
+        Self {
+            main: Scope::new(model, None, String::new()),
+            seen: HashSet::new(),
+        }
+    }
+
+    fn scope(&self, at: &[usize]) -> &Scope<'a> {
+        at.iter().fold(&self.main, |scope, &i| &scope.includes[i].1)
+    }
+
+    /// Whether `label` in `at` was expanded already (and mark it if not).
+    fn seen_before(&mut self, at: &[usize], label: &str) -> bool {
+        !self.seen.insert(format!("{at:?} {label}"))
+    }
+
+    /// The dependencies of `formula`, written at `place` in `scope`.
+    fn children(
+        &mut self,
+        at: &[usize],
+        formula: &str,
+        place: Place<'_>,
+        depth: usize,
+    ) -> Vec<AuditDep> {
+        formula_references(formula)
+            .into_iter()
+            .map(|word| self.node(at, &word, place, depth))
+            .collect()
+    }
+
+    fn node(&mut self, at: &[usize], word: &str, place: Place<'_>, depth: usize) -> AuditDep {
+        let scope = self.scope(at);
+        let dep = AuditDep {
+            name: if word.starts_with('@') {
+                word.to_string()
+            } else {
+                format!("{}{word}", scope.prefix)
+            },
+            dep_type: "Unknown".to_string(),
+            formula: None,
+            value: None,
+            children: Vec::new(),
+            values: None,
+            source: scope.file.clone(),
+            repeated: false,
+        };
+
+        // A value of an included file: `@costs.labour.wage`
+        if let Some(rest) = word.strip_prefix('@') {
+            let (ns, path) = rest.split_once('.').unwrap_or((rest, ""));
+            // An included file's own includes are followed too
+            let Some(index) = scope.includes.iter().position(|(n, _)| n == ns) else {
+                return dep;
+            };
+            let mut inner: At = at.to_vec();
+            inner.push(index);
+            return self.scalar_node(&inner, path, depth);
+        }
+
+        let column = match place {
+            Place::Row { table }
+                if !word.contains('.')
+                    && scope.model.tables.get(table).is_some_and(|t| {
+                        t.columns.contains_key(word) || t.row_formulas.contains_key(word)
+                    }) =>
+            {
+                Some((table.to_string(), word.to_string()))
+            },
+            _ => None,
+        };
+        if let Some((table, column)) = column {
+            return self.column_node(at, &table, &column, depth);
+        }
+        let section = match place {
+            Place::Scalar { section } => section,
+            Place::Row { .. } => None,
+        };
+        if let Some(full) = scope.resolve_scalar(word, section) {
+            return self.scalar_node(at, &full, depth);
+        }
+        if let Some((table, column)) = word.split_once('.') {
+            let found = scope.model.tables.get(table).is_some_and(|t| {
+                t.columns.contains_key(column) || t.row_formulas.contains_key(column)
+            });
+            if found {
+                return self.column_node(at, table, column, depth);
+            }
+        }
+        dep
+    }
+
+    fn scalar_node(&mut self, at: &[usize], name: &str, depth: usize) -> AuditDep {
+        let scope = self.scope(at);
+        let label = format!("{}{name}", scope.prefix);
+        let Some(var) = scope.model.scalars.get(name) else {
+            return AuditDep::unknown(label, scope.file.clone());
+        };
+        let formula = var.formula.clone();
+        let mut dep = AuditDep {
+            name: label.clone(),
+            dep_type: if at.is_empty() {
+                "Scalar".to_string()
+            } else {
+                "Included scalar".to_string()
+            },
+            formula: formula.clone(),
+            value: scope.scalar_value(name),
+            children: Vec::new(),
+            values: None,
+            source: scope.file.clone(),
+            repeated: false,
+        };
+        if let Some(formula) = formula {
+            if depth >= 30 || self.seen_before(at, &label) {
+                dep.repeated = true;
+                return dep;
+            }
+            let section = name.rsplit_once('.').map(|(s, _)| s.to_string());
+            dep.children = self.children(
+                at,
+                &formula,
+                Place::Scalar {
+                    section: section.as_deref(),
+                },
+                depth + 1,
+            );
+        }
+        dep
+    }
+
+    fn column_node(&mut self, at: &[usize], table: &str, column: &str, depth: usize) -> AuditDep {
+        let scope = self.scope(at);
+        let label = format!("{}{table}.{column}", scope.prefix);
+        let formula = scope.model.tables[table].row_formulas.get(column).cloned();
+        let mut dep = AuditDep {
+            name: label.clone(),
+            dep_type: format!("Column[{table}]"),
+            formula: formula.clone(),
+            value: None,
+            children: Vec::new(),
+            values: scope.column_values(table, column),
+            source: scope.file.clone(),
+            repeated: false,
+        };
+        if let Some(formula) = formula {
+            if depth >= 30 || self.seen_before(at, &label) {
+                dep.repeated = true;
+                return dep;
+            }
+            dep.children = self.children(at, &formula, Place::Row { table }, depth + 1);
+        }
+        dep
+    }
+}
+
+impl AuditDep {
+    fn unknown(name: String, source: Option<String>) -> Self {
+        Self {
+            name,
+            dep_type: "Unknown".to_string(),
+            formula: None,
+            value: None,
+            children: Vec::new(),
+            values: None,
+            source,
+            repeated: false,
+        }
     }
 }
 
 /// Audit a variable and return structured results (no printing).
 ///
+/// `variable` is a scalar (`year.profit`, or a short name that is unique),
+/// or a table column (`months.profit`).
+///
 /// # Errors
 ///
-/// Returns an error if the file cannot be parsed, the variable is not found,
-/// or formula calculation fails.
-pub fn audit_core(file: &Path, variable: &str) -> ForgeResult<super::results::AuditResult> {
+/// Returns an error if the file cannot be parsed or the variable is not found.
+pub fn audit_core(file: &Path, variable: &str) -> ForgeResult<AuditResult> {
     let model = parser::parse_model(file)?;
-    let (var_type, formula, current_value) = find_variable(&model, variable)?;
-
-    let dependencies = if formula.is_some() {
-        let deps = build_dependency_tree(&model, variable, formula.as_ref(), 0)?;
-        deps.iter().map(to_audit_dep).collect()
-    } else {
-        vec![]
-    };
-
-    let calculator = ArrayCalculator::new(model);
-    let result = calculator.calculate_all();
-
-    let (calculated_value, is_valid) = result.as_ref().map_or((None, false), |r| {
-        r.scalars.get(variable).map_or((None, true), |scalar| {
-            let calc_val = scalar.value;
-            let valid = match (current_value, calc_val) {
-                (Some(curr), Some(calc)) => (curr - calc).abs() < 0.0001,
-                _ => true,
-            };
-            (calc_val, valid)
+    let mut builder = Builder::new(&model);
+    let target = builder
+        .main
+        .resolve_scalar(variable, None)
+        .map(|name| builder.scalar_node(&[], &name, 0))
+        .or_else(|| {
+            let (table, column) = variable.split_once('.')?;
+            let t = model.tables.get(table)?;
+            (t.columns.contains_key(column) || t.row_formulas.contains_key(column))
+                .then(|| builder.column_node(&[], table, column, 0))
         })
-    });
+        .ok_or_else(|| not_found(&model, variable))?;
 
-    Ok(super::results::AuditResult {
-        variable: variable.to_string(),
-        var_type,
-        current_value,
-        calculated_value,
-        formula,
-        dependencies,
-        is_valid,
+    let stored = model.scalars.get(&target.name).and_then(|s| s.value);
+    let is_scalar = target.dep_type == "Scalar";
+    let is_valid = match (stored, target.value) {
+        (Some(stored), Some(calculated)) => {
+            (stored - calculated).abs() <= 1e-9 * stored.abs().max(calculated.abs()).max(1.0)
+        },
+        _ => true,
+    };
+    Ok(AuditResult {
+        variable: target.name.clone(),
+        var_type: if is_scalar {
+            "Scalar".to_string()
+        } else {
+            target.dep_type.clone()
+        },
+        current_value: stored,
+        calculated_value: target.value,
+        calculated_values: target.values,
+        formula: target.formula,
+        dependencies: target.children,
+        is_valid: is_valid && builder.main.calculated.is_some(),
+        calculation_error: ArrayCalculator::new(model.clone())
+            .calculate_all()
+            .err()
+            .map(|e| e.to_string()),
     })
+}
+
+fn not_found(model: &ParsedModel, variable: &str) -> ForgeError {
+    let tables: Vec<String> = model
+        .tables
+        .iter()
+        .flat_map(|(t, table)| {
+            table
+                .column_names()
+                .into_iter()
+                .map(move |c| format!("{t}.{c}"))
+        })
+        .collect();
+    ForgeError::Validation(format!(
+        "'{variable}' is not a scalar or a table column of the model.\n  Scalars: {}\n  Columns: {}",
+        model.scalars.keys().cloned().collect::<Vec<_>>().join(", "),
+        tables.join(", ")
+    ))
 }
 
 /// Execute the audit command - show calculation dependency chain.
 ///
 /// # Errors
 ///
-/// Returns an error if the file cannot be parsed, the variable is not found,
-/// or formula calculation fails.
+/// Returns an error if the file cannot be parsed or the variable is not found.
 pub fn audit(file: &Path, variable: &str) -> ForgeResult<()> {
     println!("{}", "🔍 Forge - Audit Trail".bold().green());
     println!("   File: {}", file.display());
     println!("   Variable: {}\n", variable.bright_blue().bold());
 
-    // Parse the model
-    let model = parser::parse_model(file)?;
-
-    // Try to find the variable
-    let (var_type, formula, current_value) = find_variable(&model, variable)?;
-
+    let result = audit_core(file, variable)?;
     println!("{}", "📋 Variable Information:".bold().cyan());
-    println!("   Type: {}", var_type.cyan());
-    if let Some(val) = current_value {
-        println!("   Current Value: {}", format_number(val).bold().green());
-    }
-    if let Some(ref f) = formula {
+    println!("   Name: {}", result.variable.bright_blue());
+    println!("   Type: {}", result.var_type.cyan());
+    if let Some(ref f) = result.formula {
         println!("   Formula: {}", f.bright_yellow());
+    }
+    if let Some(value) = result.calculated_value {
+        println!("   Calculated: {}", format_number(value).bold().green());
+    }
+    if let Some(values) = &result.calculated_values {
+        println!("   Calculated: {}", summarize(values).green());
+    }
+    if let (Some(stored), Some(calculated)) = (result.current_value, result.calculated_value) {
+        if result.is_valid {
+            println!("   {} The value in the file matches", "✅".green());
+        } else if (stored - calculated).abs() > 0.0 {
+            println!(
+                "   {} The value in the file is {}: run forge calculate to update it",
+                "⚠️".yellow(),
+                format_number(stored).red()
+            );
+        }
     }
     println!();
 
-    // Build and display dependency tree
-    if formula.is_some() {
+    if let Some(error) = &result.calculation_error {
+        println!(
+            "   {} The model does not calculate, so values are the file's: {error}",
+            "⚠️".yellow()
+        );
+        println!();
+    }
+    if result.formula.is_some() {
         println!("{}", "🌳 Dependency Tree:".bold().cyan());
-        let deps = build_dependency_tree(&model, variable, formula.as_ref(), 0)?;
-
-        if deps.is_empty() {
-            println!("   No dependencies (literal value)");
-        } else {
-            for dep in &deps {
-                print_dependency(dep, 1);
-            }
+        if result.dependencies.is_empty() {
+            println!("   No dependencies (constant formula)");
+        }
+        for dep in &result.dependencies {
+            print_dependency(dep, 1);
         }
         println!();
     }
-
-    // Calculate and verify
-    println!("{}", "🧮 Calculation Chain:".bold().cyan());
-    let calculator = ArrayCalculator::new(model);
-    match calculator.calculate_all() {
-        Ok(result) => {
-            // Find the calculated value
-            if let Some(scalar) = result.scalars.get(variable) {
-                if let Some(calc_val) = scalar.value {
-                    println!("   Calculated: {}", format_number(calc_val).bold().green());
-
-                    // Check if it matches current value
-                    if let Some(curr) = current_value {
-                        let diff = (curr - calc_val).abs();
-                        if diff < 0.0001 {
-                            println!("   {} Values match!", "✅".green());
-                        } else {
-                            println!("   {} Value mismatch!", "⚠️".yellow());
-                            println!("      Current:    {}", format_number(curr).red());
-                            println!("      Calculated: {}", format_number(calc_val).green());
-                        }
-                    }
-                }
-            } else {
-                // Check in tables
-                for (table_name, table) in &result.tables {
-                    if let Some(col) = table.columns.get(variable) {
-                        println!("   Table: {}", table_name.bright_blue());
-                        println!("   Column values: {:?}", col.values);
-                        break;
-                    }
-                }
-            }
-        },
-        Err(e) => {
-            println!("   {} Calculation error: {}", "❌".red(), e);
-        },
-    }
-
-    println!();
     println!("{}", "✅ Audit complete".bold().green());
     Ok(())
 }
 
-/// Find a variable in the model and return its type, formula, and current value.
-///
-/// # Errors
-///
-/// Returns an error if the variable is not found in scalars, aggregations, or table columns.
-pub fn find_variable(
-    model: &crate::types::ParsedModel,
-    name: &str,
-) -> ForgeResult<(String, Option<String>, Option<f64>)> {
-    // Check scalars first
-    if let Some(scalar) = model.scalars.get(name) {
-        let formula = scalar.formula.clone();
-        let value = scalar.value;
-        return Ok(("Scalar".to_string(), formula, value));
+/// `12 rows: 4,632.01 … 7,346.41` for a column's values.
+fn summarize(values: &[f64]) -> String {
+    match values {
+        [] => "no rows".to_string(),
+        [only] => format!("1 row: {}", format_number(*only)),
+        [first, .., last] => format!(
+            "{} rows: {} … {}",
+            values.len(),
+            format_number(*first),
+            format_number(*last)
+        ),
     }
-
-    // Check aggregations
-    if let Some(agg_formula) = model.aggregations.get(name) {
-        return Ok(("Aggregation".to_string(), Some(agg_formula.clone()), None));
-    }
-
-    // Check table columns
-    for (table_name, table) in &model.tables {
-        if table.columns.contains_key(name) {
-            let formula = table.row_formulas.get(name).cloned();
-            return Ok((format!("Column in table '{table_name}'"), formula, None));
-        }
-    }
-
-    Err(ForgeError::Validation(format!(
-        "Variable '{}' not found in model. Available:\n  Scalars: {:?}\n  Aggregations: {:?}\n  Tables: {:?}",
-        name,
-        model.scalars.keys().collect::<Vec<_>>(),
-        model.aggregations.keys().collect::<Vec<_>>(),
-        model.tables.keys().collect::<Vec<_>>()
-    )))
-}
-
-/// Build the dependency tree for a variable.
-///
-/// # Errors
-///
-/// Returns an error if recursive dependency resolution fails.
-pub fn build_dependency_tree(
-    model: &crate::types::ParsedModel,
-    _name: &str,
-    formula: Option<&String>,
-    depth: usize,
-) -> ForgeResult<Vec<AuditDependency>> {
-    // Prevent infinite recursion
-    if depth > 20 {
-        return Ok(vec![]);
-    }
-
-    let mut deps = Vec::new();
-
-    if let Some(f) = formula {
-        // Extract references from formula
-        let refs = extract_references_from_formula(f);
-
-        for ref_name in refs {
-            let mut dep = AuditDependency {
-                name: ref_name.clone(),
-                dep_type: "Unknown".to_string(),
-                formula: None,
-                value: None,
-                children: vec![],
-            };
-
-            // Try to find this reference in the model
-            if let Some(scalar) = model.scalars.get(&ref_name) {
-                dep.dep_type = "Scalar".to_string();
-                dep.formula.clone_from(&scalar.formula);
-                dep.value = scalar.value;
-
-                // Recursively get children
-                if scalar.formula.is_some() {
-                    dep.children = build_dependency_tree(
-                        model,
-                        &ref_name,
-                        scalar.formula.as_ref(),
-                        depth + 1,
-                    )?;
-                }
-            } else if let Some(agg) = model.aggregations.get(&ref_name) {
-                dep.dep_type = "Aggregation".to_string();
-                dep.formula = Some(agg.clone());
-                dep.children = build_dependency_tree(model, &ref_name, Some(agg), depth + 1)?;
-            } else {
-                // `table.column` names one column of one table.
-                if let Some((table_name, column)) = ref_name.split_once('.') {
-                    if let Some(table) = model.tables.get(table_name) {
-                        if table.columns.contains_key(column)
-                            || table.row_formulas.contains_key(column)
-                        {
-                            dep.dep_type = format!("Column[{table_name}]");
-                            dep.formula = table.row_formulas.get(column).cloned();
-                        }
-                    }
-                }
-                // Check if it's a table column
-                for (table_name, table) in &model.tables {
-                    if table.columns.contains_key(&ref_name) {
-                        dep.dep_type = format!("Column[{table_name}]");
-                        dep.formula = table.row_formulas.get(&ref_name).cloned();
-                        break;
-                    }
-                }
-            }
-
-            deps.push(dep);
-        }
-    }
-
-    Ok(deps)
-}
-
-/// Extract variable references from a formula.
-///
-/// # Panics
-///
-/// Panics if a non-empty word has no first character, which cannot happen since
-/// empty words are skipped.
-#[must_use]
-pub fn extract_references_from_formula(formula: &str) -> Vec<String> {
-    let formula = formula.trim_start_matches('=');
-    // Strip string literals to avoid parsing their contents as variable references
-    // e.g., =LEN("Hello") should not treat "Hello" as a variable reference
-    let formula_stripped = strip_string_literals(formula);
-    let mut refs = Vec::new();
-
-    // Known function names to exclude
-    let functions = [
-        "SUM",
-        "AVERAGE",
-        "AVG",
-        "MAX",
-        "MIN",
-        "COUNT",
-        "PRODUCT",
-        "SUMIF",
-        "COUNTIF",
-        "AVERAGEIF",
-        "SUMIFS",
-        "COUNTIFS",
-        "AVERAGEIFS",
-        "MAXIFS",
-        "MINIFS",
-        "ROUND",
-        "ROUNDUP",
-        "ROUNDDOWN",
-        "CEILING",
-        "FLOOR",
-        "SQRT",
-        "POWER",
-        "MOD",
-        "ABS",
-        "IF",
-        "AND",
-        "OR",
-        "NOT",
-        "CONCAT",
-        "UPPER",
-        "LOWER",
-        "TRIM",
-        "LEN",
-        "MID",
-        "TODAY",
-        "DATE",
-        "YEAR",
-        "MONTH",
-        "DAY",
-        "MATCH",
-        "INDEX",
-        "XLOOKUP",
-        "VLOOKUP",
-        "IFERROR",
-        "TRUE",
-        "FALSE",
-        "UNIQUE",
-        "COUNTUNIQUE",
-    ];
-
-    // Dots and `@` belong to a name (`summary.total`, `@rates.fx.usd_eur`).
-    for word in
-        formula_stripped.split(|c: char| !c.is_alphanumeric() && !matches!(c, '_' | '.' | '@'))
-    {
-        let word = word.trim_matches('.');
-        if word.is_empty() {
-            continue;
-        }
-        // Skip if starts with number
-        if word.chars().next().unwrap().is_numeric() {
-            continue;
-        }
-        // Skip function names
-        if functions.contains(&word.to_uppercase().as_str()) {
-            continue;
-        }
-        // Skip if already added
-        if !refs.contains(&word.to_string()) {
-            refs.push(word.to_string());
-        }
-    }
-
-    refs
 }
 
 /// Print a dependency with indentation
-pub fn print_dependency(dep: &AuditDependency, indent: usize) {
+fn print_dependency(dep: &AuditDep, indent: usize) {
     let prefix = "   ".repeat(indent);
-    let arrow = if indent > 0 { "└─ " } else { "" };
-
-    print!("{}{}{} ", prefix, arrow, dep.name.bright_blue());
-    print!("({})", dep.dep_type.cyan());
-
+    print!(
+        "{prefix}└─ {} ({})",
+        dep.name.bright_blue(),
+        dep.dep_type.cyan()
+    );
     if let Some(val) = dep.value {
         print!(" = {}", format_number(val).green());
     }
-
+    if let Some(values) = &dep.values {
+        print!(" = {}", summarize(values).green());
+    }
     if let Some(ref f) = dep.formula {
         print!(" {}", f.yellow());
     }
-
+    if let Some(source) = &dep.source {
+        print!(" [{source}]");
+    }
+    if dep.repeated && dep.formula.is_some() {
+        print!(" {}", "(see above)".dimmed());
+    }
     println!();
-
     for child in &dep.children {
         print_dependency(child, indent + 1);
     }
 }
 
 #[cfg(test)]
-mod name_tests {
-    use super::extract_references_from_formula;
+mod tests {
+    use super::*;
 
     #[test]
-    fn dotted_names_stay_whole() {
-        let refs =
-            extract_references_from_formula("=summary.total + SUM(sales.tax) * @rates.fx.usd");
-        assert_eq!(refs, ["summary.total", "sales.tax", "@rates.fx.usd"]);
+    fn references_skip_function_names_and_text() {
+        let refs = formula_references(
+            "=NPV(rate / 12, months.profit) - SUM(sales.tax) * @rates.fx.usd + LEN(\"total\")",
+        );
+        assert_eq!(
+            refs,
+            ["rate", "months.profit", "sales.tax", "@rates.fx.usd"]
+        );
+    }
+
+    fn find<'a>(deps: &'a [AuditDep], name: &str) -> Option<&'a AuditDep> {
+        deps.iter().find_map(|d| {
+            if d.name == name {
+                Some(d)
+            } else {
+                find(&d.children, name)
+            }
+        })
+    }
+
+    fn walk(deps: &[AuditDep], unknown: &mut Vec<String>, dozens: &mut usize) {
+        for d in deps {
+            if d.dep_type == "Unknown" {
+                unknown.push(d.name.clone());
+            }
+            if d.name == "months.dozens" && !d.repeated {
+                *dozens += 1;
+            }
+            walk(&d.children, unknown, dozens);
+        }
+    }
+
+    /// The bagel model, from the year's profit down to the included costs.
+    #[test]
+    fn bagel_profit_down_to_the_included_costs() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let result = audit_core(&root.join("examples/bagel/bagel.yaml"), "year.profit").unwrap();
+        assert!((result.calculated_value.unwrap() - 786.320_361_7).abs() < 1e-6);
+        assert!(result.is_valid);
+        let deps = &result.dependencies;
+        assert_eq!(deps[0].name, "months.profit");
+        assert_eq!(deps[0].values.as_ref().map(Vec::len), Some(12));
+        // Bare names in a row formula are columns of the same table
+        let revenue = find(deps, "months.revenue").unwrap();
+        assert_eq!(revenue.dep_type, "Column[months]");
+        assert!(find(&revenue.children, "assumptions.price_per_dozen").is_some());
+        // Included values: their value, formula and file, followed inside it
+        let wage = find(deps, "@costs.labour.loaded_wage").unwrap();
+        assert_eq!(wage.dep_type, "Included scalar");
+        assert_eq!(wage.source.as_deref(), Some("costs.yaml"));
+        assert!((wage.value.unwrap() - 21.275).abs() < 1e-9);
+        let rate = find(&wage.children, "@costs.labour.wage_per_hour").unwrap();
+        assert!((rate.value.unwrap() - 18.5).abs() < 1e-12);
+        // Nothing unresolved, and `dozens` is expanded once
+        let (mut unknown, mut dozens) = (Vec::new(), 0);
+        walk(deps, &mut unknown, &mut dozens);
+        assert!(unknown.is_empty(), "{unknown:?}");
+        assert_eq!(dozens, 1);
+    }
+
+    #[test]
+    fn a_column_and_a_scalar_from_its_own_group() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let column = audit_core(&root.join("examples/bagel/bagel.yaml"), "months.costs").unwrap();
+        assert_eq!(column.var_type, "Column[months]");
+        assert_eq!(column.calculated_values.as_ref().map(Vec::len), Some(12));
+        // `margin = profit / revenue`: both are scalars of `year`
+        let margin = audit_core(&root.join("examples/bagel/bagel.yaml"), "year.margin").unwrap();
+        let names: Vec<&str> = margin
+            .dependencies
+            .iter()
+            .map(|d| d.name.as_str())
+            .collect();
+        assert_eq!(names, ["year.profit", "year.revenue"]);
+        let err = audit_core(&root.join("examples/bagel/bagel.yaml"), "nope")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("not a scalar or a table column"), "{err}");
     }
 }

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`forge audit` stopped at the first table column and showed included values as "Unknown"** (T2-AUDIT). On the bagel model, `audit year.profit` showed one line, `months.profit`. It now follows every formula down to the inputs, resolving names the way the calculator does (bare names in a row formula are columns of the same table; a scalar formula's own group first), and shows calculated values (columns as `12 rows: first … last`). Values of included files show their value, formula and file, and are followed inside the file and into the files it includes. Function names such as `NPV` were listed as unknown dependencies; they are no longer dependencies. A node that repeats is expanded once. A table column can be audited (`months.profit`), a stale value in the file is reported, and a model that does not calculate says why. Every formula scalar of every example now audits without an unresolved name.
+- **`forge export --help`, `forge import --help` and `forge schema --help` described Forge as it was in 2025**: export "only works with v1.0.0 array models", import keeps formulas "as Excel syntax" until a "Phase 4.3", and schema listed two versions. They now describe what the commands do.
+
 ### Changed
 - **`forge export` writes Forge's own variance and break-even functions as live Excel formulas** (T2-EXPORT-FORGE-FUNCTIONS): `VARIANCE`, `VARIANCE_PCT`, `VARIANCE_STATUS`, `BREAKEVEN_UNITS` and `BREAKEVEN_REVENUE` become the Excel expression that computes the same, so changing a price or a budget in Excel changes the result. They were written as frozen values. Where Forge gives an error (a margin of zero or less), Excel gives #N/A. The 23 forge-e2e-gnumeric cases that skipped Gnumeric for them are now recalculated by Gnumeric, with 11 new edge cases (zero and negative budgets, the threshold boundary, `"cost"`, a margin above 1); all agree. The examples recalculate with 0 mismatches in an independent engine.
 

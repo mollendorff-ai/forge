@@ -138,24 +138,28 @@ BATCH VALIDATION:
         files: Vec<PathBuf>,
     },
 
-    #[command(long_about = "Export v1.0.0 array model to Excel .xlsx format.
+    #[command(
+        long_about = "Export a model to an Excel .xlsx workbook, formulas included.
 
-Converts YAML column arrays to Excel worksheets with full formula support.
-Each table becomes a separate worksheet. Formulas are translated to Excel syntax.
+The model is calculated first, and each formula cell carries Forge's result.
 
-SUPPORTED FEATURES (Phase 3.1 - Basic Export):
-  Table columns -> Excel columns (A, B, C, ...)
-  Data values (Number, Text, Date, Boolean)
-  Multiple tables -> Multiple worksheets
-  Scalars -> Dedicated \"Scalars\" worksheet
+LAYOUT:
+  Each table -> a sheet, one column per data or formula column, in file order
+  Each scalar group -> a sheet with Name (A) and Value (B), one scalar per row
+  Ungrouped scalars -> a sheet named Scalars
+  An included file -> its own sheets (costs.Scalars); @costs.x reads its cells
+
+Row formulas and scalar formulas become live Excel formulas. A formula Excel
+cannot express with the same meaning (MC.*, LET, COUNTUNIQUE, ...) is written
+as its value, with the Forge formula in a cell note, and listed. Scenarios
+are not exported (Excel has no equivalent).
 
 EXAMPLE:
-  forge export quarterly_pl.yaml quarterly_pl.xlsx
-
-NOTE: Only works with v1.0.0 array models. v0.2.0 scalar models are not supported.")]
-    /// Export v1.0.0 array model to Excel .xlsx
+  forge export examples/bagel/bagel.yaml bagel.xlsx"
+    )]
+    /// Export a model to an Excel .xlsx workbook
     Export {
-        /// Path to v1.0.0 YAML file (must have 'tables' section)
+        /// Path to the model (.yaml)
         input: PathBuf,
 
         /// Output Excel file path (.xlsx)
@@ -166,29 +170,27 @@ NOTE: Only works with v1.0.0 array models. v0.2.0 scalar models are not supporte
         verbose: bool,
     },
 
-    #[command(long_about = "Import Excel .xlsx file to YAML v1.0.0 format.
+    #[command(
+        long_about = "Import an Excel .xlsx workbook as a Forge model (format 5.1.0).
 
-Converts Excel worksheets to YAML tables with formula preservation.
-Each worksheet becomes a table in the output YAML file.
+Reads the layout forge export writes, and plain workbooks too:
+  A sheet whose header is Name, Value -> a scalar group (Scalars -> ungrouped)
+  A sheet costs.Scalars of an exported include -> costs.yaml and @costs.x
+  Any other sheet -> a table, header in the first row
 
-SUPPORTED FEATURES (Phase 4.1 - Basic Import):
-  Excel worksheets -> YAML tables
-  Data values (Number, Text, Boolean)
-  Multiple worksheets -> One YAML file (one-to-one)
-  \"Scalars\" sheet -> Scalar section
+Excel formulas are translated to Forge formulas (table.column, group.name).
+A formula Forge cannot express (a reference to another row, a single table
+cell in a scalar formula, named ranges) is imported as its value and listed.
 
 WORKFLOW:
-  1. Import existing Excel -> YAML
-  2. Work with AI + Forge (version control!)
-  3. Export back to Excel
-  4. Round-trip: Excel -> YAML -> Excel
+  forge import model.xlsx model.yaml     # Excel -> YAML
+  forge calculate model.yaml             # work with the YAML, in git
+  forge export model.yaml model.xlsx     # back to Excel
 
-EXAMPLE:
-  forge import quarterly_pl.xlsx quarterly_pl.yaml
-
-NOTE: Formulas are preserved as Excel syntax (Phase 4.1).
-      Formula translation to YAML syntax coming in Phase 4.3.")]
-    /// Import Excel .xlsx file to YAML v1.0.0
+--split-files writes one file per sheet (refused when sheets refer to each
+other); --multi-doc writes one file with one document per sheet."
+    )]
+    /// Import an Excel .xlsx workbook as a Forge model
     Import {
         /// Path to Excel file (.xlsx)
         input: PathBuf,
@@ -907,18 +909,19 @@ EXAMPLES:
 
     #[command(long_about = "Display JSON schema for validating Forge YAML models.
 
-Forge supports two schema versions:
-  v1.0.0 - Scalar-only models (simple key-value pairs)
-  v5.0.0 - Full support for arrays, tables, and advanced features
+The versions are model formats (_forge_version), not Forge versions:
+  v1.0.0 - Scalars only
+  v5.0.0 - Tables, row formulas and the analysis sections
+  v5.1.0 - v5.0.0 plus the short form: plain-number inputs, formulas
+           without value: null (ADR-051)
 
 EXAMPLES:
-  forge schema              # List available versions
-  forge schema v1           # Show v1.0.0 schema
-  forge schema v5           # Show v5.0.0 schema
-  forge schema v5 > s.json  # Pipe to file for IDE use")]
+  forge schema                # List available versions
+  forge schema v5.1           # Show the v5.1.0 schema
+  forge schema v5.1 > s.json  # Pipe to file for IDE use")]
     /// Display JSON schema for model validation
     Schema {
-        /// Schema version to display (v1, v5, 1.0.0, 5.0.0)
+        /// Schema version to display (v1, v5, v5.1, 1.0.0, 5.0.0, 5.1.0)
         version: Option<String>,
 
         /// List available schema versions

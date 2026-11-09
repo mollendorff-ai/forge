@@ -78,11 +78,6 @@ tier2:
     why: "Top of funnel, and they double as T1-USE fixtures. Not SaaS valuation theatre: a household budget vs actual, a loan with extra payments, a small business 12-month plan with an included costs file"
     acceptance: "Each runs with `forge calculate` in under a second, has a README paragraph, and its headline numbers are asserted against an outside computation"
 
-  - id: T2-AUDIT
-    title: "forge audit reads included values and table formulas fully"
-    why: "The tree now keeps dotted names whole, but @namespace values show as Unknown"
-    acceptance: "audit on the bagel example shows @costs.* leaves with their values and source file"
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done and at least two people use it)
 # ═══════════════════════════════════════════════════════════════════════════════
