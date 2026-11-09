@@ -1,32 +1,24 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "Forge formulas in YAML",
+  "name": "Forge formulas in double-quoted YAML strings (and the formula rules the other two share)",
   "scopeName": "forge.formula.injection",
-  "injectionSelector": "L:string.quoted.double.yaml, L:string.quoted.single.yaml, L:string.unquoted.plain.out.yaml, L:string.unquoted.plain.in.yaml",
+  "injectionSelector": "L:string.quoted.double.yaml",
   "patterns": [
     {
       "comment": "A formula in double quotes: \"=a + b\"",
-      "begin": "(?<=\")(=)",
-      "beginCaptures": { "1": { "name": "keyword.operator.formula.forge" } },
+      "begin": "(?<=\")(?<!\\\\\")(=)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.operator.formula.forge"
+        }
+      },
       "end": "(?<!\\\\)(?=\")",
       "contentName": "meta.formula.forge",
-      "patterns": [{ "include": "#formula" }]
-    },
-    {
-      "comment": "A formula in single quotes: '=a + b'",
-      "begin": "(?<=')(=)",
-      "beginCaptures": { "1": { "name": "keyword.operator.formula.forge" } },
-      "end": "(?=')",
-      "contentName": "meta.formula.forge",
-      "patterns": [{ "include": "#formula" }]
-    },
-    {
-      "comment": "An unquoted formula: key: =a + b, or - =a + b",
-      "begin": "(?<=: |- )(=)",
-      "beginCaptures": { "1": { "name": "keyword.operator.formula.forge" } },
-      "end": "$|(?= #)",
-      "contentName": "meta.formula.forge",
-      "patterns": [{ "include": "#formula" }]
+      "patterns": [
+        {
+          "include": "#formula"
+        }
+      ]
     }
   ],
   "repository": {
@@ -40,7 +32,11 @@
         {
           "comment": "A function call, including dotted names: SUM(, MC.Normal(",
           "match": "\\b([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)(?=\\s*\\()",
-          "captures": { "1": { "name": "support.function.forge" } }
+          "captures": {
+            "1": {
+              "name": "support.function.forge"
+            }
+          }
         },
         {
           "comment": "A value of an included file: @costs.ingredients.flour_per_kg",
