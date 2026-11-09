@@ -1,0 +1,10 @@
+# Included by edge_include_columns.yaml. Holds no tests of its own.
+_forge_version: "5.0.0"
+tax:
+  rate:
+    value: 0.15
+    formula: null
+list:
+  item: ["flour", "sesame", "salt"]
+  per_kg: [1.15, 9.40, 0.80]
+  with_tax: "=per_kg * (1 + tax.rate)"

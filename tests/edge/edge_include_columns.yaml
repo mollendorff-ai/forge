@@ -1,0 +1,42 @@
+# Columns of a table of an included file, read as @prices.list.per_kg.
+#
+# forge export writes the included table to its own sheet (prices.list),
+# with its formula column as a formula, and a formula that reads one of its
+# columns as a reference to that sheet: the same row in a row formula
+# (order.cost), the whole column in an aggregate. Gnumeric recalculates them
+# from the cells. forge import puts the table back in the included file.
+
+_forge_version: "5.0.0"
+_includes:
+  - file: includes/price_list.yaml
+    as: prices
+
+order:
+  kg: [120, 6, 3]
+  cost: "=kg * @prices.list.with_tax"
+
+assumptions:
+  test_include_column_sum:
+    value: null
+    formula: "=SUM(@prices.list.per_kg)"
+    expected: 11.35
+  test_include_formula_column:
+    value: null
+    formula: "=MAX(@prices.list.with_tax)"
+    expected: 10.81
+  test_row_formula_reads_include_column:
+    value: null
+    formula: "=ROUND(SUM(order.cost), 6)"
+    expected: 226.32
+  test_include_column_index:
+    value: null
+    formula: "=INDEX(@prices.list.per_kg, 2)"
+    expected: 9.4
+  test_include_column_times_column:
+    value: null
+    formula: "=SUM(order.kg * @prices.list.per_kg)"
+    expected: 196.8
+  test_include_column_lookup:
+    value: null
+    formula: "=INDEX(@prices.list.per_kg, MATCH(\"salt\", @prices.list.item, 0))"
+    expected: 0.8
