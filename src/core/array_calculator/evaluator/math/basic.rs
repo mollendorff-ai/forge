@@ -45,7 +45,7 @@ pub fn eval_power(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
     let exp = evaluate(&args[1], ctx)?
         .as_number()
         .ok_or_else(|| EvalError::new("POWER requires numbers"))?;
-    Ok(Value::Number(base.powf(exp)))
+    super::super::power(base, exp)
 }
 
 pub fn eval_sign(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -76,7 +76,7 @@ pub fn eval_pow(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     let exp = evaluate(&args[1], ctx)?
         .as_number()
         .ok_or_else(|| EvalError::new("POW requires numbers"))?;
-    Ok(Value::Number(base.powf(exp)))
+    super::super::power(base, exp)
 }
 
 pub fn eval_e(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {

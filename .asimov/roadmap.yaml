@@ -49,11 +49,6 @@ tier1:
     why: "It found more in one evening than 1,500 unit tests had; make it the rule, not a one-off"
     acceptance: "CONTRIBUTING.md and project.yaml conventions say so; the PR template asks for the example and the outside calculation"
 
-  - id: T1-E2E-UNJUDGED
-    title: "Say which Gnumeric cases Gnumeric does not calculate"
-    why: "forge export writes 126 of the 1,324 passing forge-e2e-gnumeric cases as values (VARIANCE, BREAKEVEN_*, SCENARIO, LAMBDA, ADDRESS, TODAY, COUNTUNIQUE, and a few names Excel cannot resolve); Gnumeric reads Forge's own number back, so those passes checked nothing against Gnumeric"
-    acceptance: "Each such case either gets an Excel formula that Gnumeric calculates, or a gnumeric_skip that says why; then the harness fails any case written as a value (today it does so only for specs with _gnumeric_must_calculate: true, and reports the rest)"
-
   - id: T1-PROJECT-TRUTH
     title: "Keep .asimov/project.yaml and the architecture docs true"
     why: "The warmup briefed agents on actix-web (the code is axum) and on a no-unwrap convention the code broke in 13 places; a wrong briefing produces confident wrong work"
@@ -71,6 +66,12 @@ tier1:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier2:
+  - id: T2-EXPORT-FORGE-FUNCTIONS
+    title: "Export Forge-only functions, LET and LAMBDA as Excel formulas"
+    why: "forge export writes VARIANCE*, BREAKEVEN_*, COUNTUNIQUE, LET and LAMBDA as values, so those cells do not follow their inputs in Excel; 59 forge-e2e-gnumeric cases skip Gnumeric for it"
+    how: "VARIANCE(a, b) is a - b, BREAKEVEN_UNITS(f, p, v) is f / (p - v) with Forge's error when p <= v, and so on; LET needs its names kept local (Excel stores them as _xlpm.name). Gnumeric 1.12 cannot read LET or LAMBDA, so those need another check"
+    acceptance: "Each translated function's e2e cases drop their gnumeric_skip and pass in Gnumeric"
+
   - id: T2-TIME
     title: "Periods as a first-class axis"
     why: "Every financial model has time. Today seasonality, growth and NPV are arithmetic on `month - 1`; a user coming from Excel or a planning tool expects revenue[t-1]"

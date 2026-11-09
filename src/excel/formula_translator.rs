@@ -234,6 +234,7 @@ impl FormulaTranslator {
                 | "COUNTA"
                 | "PRODUCT"
                 | "MEDIAN"
+                | "AVG"
                 // Conditional aggregations
                 | "SUMIF"
                 | "SUMIFS"
@@ -388,6 +389,13 @@ impl FormulaTranslator {
                 | "LARGE"
                 | "SMALL"
                 | "RANK"
+                | "RANK.EQ"
+                | "STDEV.S"
+                | "STDEV.P"
+                | "VAR.S"
+                | "VAR.P"
+                | "RAND"
+                | "RANDBETWEEN"
                 // Advanced functions
                 | "LET"
                 | "LAMBDA"

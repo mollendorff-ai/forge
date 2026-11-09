@@ -440,6 +440,25 @@ fn broadcast_right(op: &str, left: &Value, items: &[Value]) -> Result<Value, Eva
 /// Evaluate a binary operation on two non-array values
 // Arithmetic + comparison + logical operators require many match arms.
 #[allow(clippy::too_many_lines)]
+/// `base ^ exponent` as Excel computes it, for `^`, `POWER` and `POW`: 0^0
+/// and a negative base with a fractional exponent are #NUM!, and 0 to a
+/// negative power is #DIV/0!.
+pub(crate) fn power(base: f64, exponent: f64) -> Result<Value, EvalError> {
+    if base == 0.0 && exponent == 0.0 {
+        return Err(EvalError::new("#NUM!: 0^0 is undefined"));
+    }
+    if base == 0.0 && exponent < 0.0 {
+        return Err(EvalError::new("#DIV/0!: zero to a negative power"));
+    }
+    let result = base.powf(exponent);
+    if result.is_nan() {
+        return Err(EvalError::new(
+            "#NUM!: negative base with a fractional exponent",
+        ));
+    }
+    finite(result)
+}
+
 /// Excel returns #NUM! when arithmetic overflows; an f64 would quietly become inf.
 fn finite(result: f64) -> Result<Value, EvalError> {
     if result.is_infinite() {
@@ -494,21 +513,7 @@ fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Va
         },
         "^" => {
             let (l, r) = numbers(left, right)?;
-            // Excel: 0^0 and a negative base with a fractional exponent are
-            // #NUM!, and 0 to a negative power is #DIV/0!.
-            if l == 0.0 && r == 0.0 {
-                return Err(EvalError::new("#NUM!: 0^0 is undefined"));
-            }
-            if l == 0.0 && r < 0.0 {
-                return Err(EvalError::new("#DIV/0!: zero to a negative power"));
-            }
-            let result = l.powf(r);
-            if result.is_nan() {
-                return Err(EvalError::new(
-                    "#NUM!: negative base with a fractional exponent",
-                ));
-            }
-            finite(result)
+            power(l, r)
         },
 
         // String concatenation operator
@@ -817,6 +822,51 @@ mod tests {
         let tokens = tokenize(formula).map_err(|e| EvalError::new(e.message))?;
         let ast = parse(tokens).map_err(|e| EvalError::new(e.message))?;
         evaluate(&ast, ctx)
+    }
+
+    /// `POWER` and `POW` gave 1 for 0^0, where Excel and Forge's own `^` give
+    /// #NUM!; all three now follow Excel.
+    #[test]
+    fn power_functions_match_the_operator() {
+        let ctx = EvalContext::new();
+        for (formula, error) in [
+            ("0^0", "#NUM!"),
+            ("POWER(0, 0)", "#NUM!"),
+            ("POW(0, 0)", "#NUM!"),
+            ("POWER(0, -1)", "#DIV/0!"),
+            ("POW(-8, 1/3)", "#NUM!"),
+        ] {
+            let err = eval(formula, &ctx).unwrap_err().to_string();
+            assert!(err.contains(error), "{formula}: {err}");
+        }
+        assert_eq!(eval("POWER(2, 10)", &ctx).unwrap(), Value::Number(1024.0));
+        assert_eq!(eval("POW(-2, 3)", &ctx).unwrap(), Value::Number(-8.0));
+    }
+
+    /// `ADDRESS` as Excel computes it: R1C1 brackets on the relative part,
+    /// `sheet_text`, and #VALUE! outside the sheet (it gave `$A$0`).
+    #[test]
+    fn address_matches_excel() {
+        let ctx = EvalContext::new();
+        for (formula, text) in [
+            ("ADDRESS(2, 3)", "$C$2"),
+            ("ADDRESS(2, 3, 2)", "C$2"),
+            ("ADDRESS(2, 3, 2, FALSE)", "R2C[3]"),
+            ("ADDRESS(2, 3, 3, FALSE)", "R[2]C3"),
+            ("ADDRESS(2, 3, 4, FALSE)", "R[2]C[3]"),
+            ("ADDRESS(1, 1, 1, TRUE, \"Sheet1\")", "Sheet1!$A$1"),
+            ("ADDRESS(1, 1, 1, TRUE, \"My Sheet\")", "'My Sheet'!$A$1"),
+            ("ADDRESS(2, 3, 1, FALSE, \"S\")", "S!R2C3"),
+        ] {
+            assert_eq!(
+                eval(formula, &ctx).unwrap(),
+                Value::Text(text.to_string()),
+                "{formula}"
+            );
+        }
+        for formula in ["ADDRESS(0, 1)", "ADDRESS(1048577, 1)", "ADDRESS(1, 1, 5)"] {
+            assert!(eval(formula, &ctx).is_err(), "{formula}");
+        }
     }
 
     #[test]

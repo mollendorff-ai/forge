@@ -19,16 +19,15 @@ use std::fmt::Write as _;
 /// Sheet that holds scalars without a group.
 pub const UNGROUPED_SHEET: &str = "Scalars";
 
-/// Functions Forge accepts that Excel either lacks (`POW`, `COUNTUNIQUE`) or
+/// Functions Forge accepts that Excel either lacks (`COUNTUNIQUE`) or
 /// evaluates differently: Forge's `VLOOKUP` takes one column and ignores the
 /// column index, `ROW`/`COLUMN`/`OFFSET`/`INDIRECT` work on Forge names rather
 /// than sheet cells, `TODAY`/`NOW` return text instead of a date serial, and
-/// `UNIQUE`/`SORT`/`FILTER`/`SEQUENCE` spill in Excel.
-const DIFFERENT_IN_EXCEL: [&str; 18] = [
-    "POW",
+/// `UNIQUE`/`SORT`/`FILTER`/`SEQUENCE` spill in Excel. (`LET` and `LAMBDA`
+/// exist in Excel, but their names are not translated.)
+const DIFFERENT_IN_EXCEL: [&str; 15] = [
     "TODAY",
     "NOW",
-    "E",
     "COUNTUNIQUE",
     "UNIQUE",
     "SORT",
@@ -40,7 +39,6 @@ const DIFFERENT_IN_EXCEL: [&str; 18] = [
     "LAMBDA",
     "INDIRECT",
     "OFFSET",
-    "ADDRESS",
     "ROW",
     "COLUMN",
 ];
@@ -54,6 +52,16 @@ const WHOLE_COLUMN_ARGS: [(&str, usize); 5] = [
     ("XLOOKUP", 1),
     ("XLOOKUP", 2),
 ];
+
+/// Forge names for functions Excel calls otherwise (`E()` is `EXP(1)`).
+fn excel_name(upper: &str) -> &str {
+    match upper {
+        "AVG" => "AVERAGE",
+        "POW" => "POWER",
+        "E" => "EXP",
+        other => other,
+    }
+}
 
 /// Where a formula is written.
 #[derive(Debug, Clone, Copy)]
@@ -237,6 +245,17 @@ impl WorkbookRefs {
         format!("{prefix}$B${row}")
     }
 
+    /// The whole data range of a table, on its sheet: `'t'!$A$2:$C$n`.
+    fn table_range(&self, table: &str) -> String {
+        let width = self.columns.get(table).map_or(1, HashMap::len).max(1);
+        let last = self.rows.get(table).copied().unwrap_or(0) + 1;
+        format!(
+            "{}$A$2:${}${last}",
+            sheet_prefix(table),
+            column_letter(width - 1)
+        )
+    }
+
     /// `$L$2:$L$n` for a table column, with an optional sheet prefix.
     fn column_range(&self, prefix: &str, table: &str, letter: &str) -> String {
         let last = self.rows.get(table).copied().unwrap_or(0) + 1;
@@ -331,8 +350,19 @@ impl WorkbookRefs {
                     {
                         return Err(format!("function {word} has no Excel equivalent"));
                     }
-                    out.push_str(&upper);
+                    if upper == "E" && !matches!(tokens.get(i + 2), Some(Token::CloseParen)) {
+                        return Err("E takes no arguments".to_string());
+                    }
+                    out.push_str(excel_name(&upper));
                     pending_function = Some(upper);
+                },
+                // `COLUMNS(table)`: Forge counts the table's columns
+                Token::Identifier(word)
+                    if self.columns.contains_key(word.as_str())
+                        && matches!(calls.last(), Some((Some(f), 0)) if f == "COLUMNS") =>
+                {
+                    has_range = true;
+                    out.push_str(&self.table_range(word));
                 },
                 Token::Identifier(word) => {
                     let whole_column = calls.iter().any(|(name, arg)| {
@@ -351,8 +381,12 @@ impl WorkbookRefs {
                     }
                 },
                 Token::OpenParen => {
-                    calls.push((pending_function.take(), 0));
+                    let function = pending_function.take();
                     out.push('(');
+                    if function.as_deref() == Some("E") {
+                        out.push('1'); // EXP(1)
+                    }
+                    calls.push((function, 0));
                 },
                 Token::CloseParen => {
                     calls.pop();
@@ -592,13 +626,41 @@ mod tests {
 
     #[test]
     fn functions_that_differ_in_excel_are_not_translated() {
-        for f in [
-            "=VLOOKUP(1, revenue, 2)",
-            "=COUNTUNIQUE(revenue)",
-            "=POW(revenue, 2)",
-            "=ROW()",
-        ] {
+        for f in ["=VLOOKUP(1, revenue, 2)", "=COUNTUNIQUE(revenue)", "=ROW()"] {
             assert!(row(f).unwrap_err().contains("no Excel equivalent"), "{f}");
+        }
+    }
+
+    /// Forge names Excel spells otherwise, functions Excel stores with a
+    /// prefix, and `COLUMNS(table)`.
+    #[test]
+    fn functions_with_other_names_in_excel() {
+        for (forge, excel) in [
+            ("=POW(revenue, 2)", "=POWER(A3, 2)"),
+            ("=AVG(revenue, 1)", "=AVERAGE(A3, 1)"),
+            ("=ROUND(E() * revenue, 2)", "=ROUND(EXP(1) * A3, 2)"),
+            ("=LN(E())", "=LN(EXP(1))"),
+        ] {
+            assert_eq!(row(forge).unwrap(), excel, "{forge}");
+        }
+        assert!(row("=E(1)").unwrap_err().contains("no arguments"));
+        for (forge, excel) in [
+            (
+                "=STDEV.S(projections.revenue)",
+                "=STDEV.S('projections'!$A$2:$A$4)",
+            ),
+            (
+                "=RANK.EQ(assumptions.growth, projections.revenue, 1)",
+                "=RANK.EQ('assumptions'!$B$3, 'projections'!$A$2:$A$4, 1)",
+            ),
+            ("=COLUMNS(projections)", "=COLUMNS('projections'!$A$2:$C$4)"),
+            ("=RANDBETWEEN(1, 6)", "=RANDBETWEEN(1, 6)"),
+        ] {
+            assert_eq!(
+                scalar(forge, Some("valuation")).unwrap().formula,
+                excel,
+                "{forge}"
+            );
         }
     }
 
