@@ -105,6 +105,12 @@ pub fn sheet_prefix(sheet: &str) -> String {
     format!("'{}'!", sheet.replace('\'', "''"))
 }
 
+/// The sheet that holds an included file's scalars.
+#[must_use]
+pub fn include_sheet(namespace: &str) -> String {
+    format!("{namespace}.Scalars")
+}
+
 /// Split `group.name`; a path without a dot is ungrouped.
 #[must_use]
 pub fn split_scalar_path(path: &str) -> (Option<&str>, &str) {
@@ -160,6 +166,34 @@ impl WorkbookRefs {
         refs
     }
 
+    /// Make the scalars of an included file readable as `@{namespace}.{path}`.
+    ///
+    /// They live on the sheet `{namespace}.Scalars`, rows 2, 3, 4... in the
+    /// order given, the layout `ExcelExporter` writes for an include.
+    pub fn add_include<'a>(&mut self, namespace: &str, paths: impl IntoIterator<Item = &'a str>) {
+        let sheet = include_sheet(namespace);
+        for (i, path) in paths.into_iter().enumerate() {
+            #[allow(clippy::cast_possible_truncation)] // far below u32::MAX scalars
+            let row = (i + 2) as u32;
+            self.scalars
+                .insert(format!("@{namespace}.{path}"), (sheet.clone(), row));
+        }
+    }
+
+    /// The layout for an included file's own formulas: its scalars by their
+    /// own paths, on its `{namespace}.Scalars` sheet.
+    #[must_use]
+    pub fn for_include<'a>(namespace: &str, paths: impl IntoIterator<Item = &'a str>) -> Self {
+        let sheet = include_sheet(namespace);
+        let mut refs = Self::default();
+        for (i, path) in paths.into_iter().enumerate() {
+            #[allow(clippy::cast_possible_truncation)] // far below u32::MAX scalars
+            let row = (i + 2) as u32;
+            refs.scalars.insert(path.to_string(), (sheet.clone(), row));
+        }
+        refs
+    }
+
     /// Resolve a scalar name the way the calculator does: the formula's own
     /// group first, then the exact name, then a unique last segment.
     fn resolve_scalar(&self, word: &str, group: Option<&str>) -> Result<Option<String>, String> {
@@ -177,9 +211,11 @@ impl WorkbookRefs {
         if word.contains('.') {
             return Ok(None);
         }
+        // A value from an included file is only ever named in full (`@ns.path`)
         let mut matches: Vec<&String> = self
             .scalars
             .keys()
+            .filter(|p| !p.starts_with('@'))
             .filter(|p| p.rsplit_once('.').is_some_and(|(_, last)| last == word))
             .collect();
         matches.sort();
@@ -580,8 +616,25 @@ pub enum SheetKind {
         name: String,
         columns: HashMap<String, String>,
     },
-    /// A scalar sheet (`Name` / `Value`): Excel row -> scalar path
-    Scalars { rows: HashMap<u32, String> },
+    /// A scalar sheet (`Name` / `Value`): Excel row -> scalar path.
+    ///
+    /// `include` is the namespace when the sheet holds an included file's
+    /// scalars (`{namespace}.Scalars`): its paths are the file's own, and the
+    /// main model reads them as `@{namespace}.{path}`.
+    Scalars {
+        rows: HashMap<u32, String>,
+        include: Option<String>,
+    },
+}
+
+impl SheetKind {
+    /// The namespace of an included file's sheet.
+    fn include(&self) -> Option<&str> {
+        match self {
+            Self::Scalars { include, .. } => include.as_deref(),
+            Self::Table { .. } => None,
+        }
+    }
 }
 
 /// Workbook layout for translating Excel formulas back to Forge.
@@ -842,13 +895,27 @@ impl ReverseRefs {
         row: u32,
     ) -> Result<String, String> {
         match kind {
-            SheetKind::Scalars { rows } => {
+            SheetKind::Scalars { rows, include } => {
                 if last.is_some() || first.column != "B" {
                     return Err("reference to a scalar sheet outside the Value column".to_string());
                 }
-                rows.get(&first.row)
+                let path = rows
+                    .get(&first.row)
                     .cloned()
-                    .ok_or_else(|| format!("no scalar in row {}", first.row))
+                    .ok_or_else(|| format!("no scalar in row {}", first.row))?;
+                // An included file sees only its own names; the main model
+                // reads an included file's names as `@namespace.path`.
+                match (include.as_deref(), current.include()) {
+                    (None, None) => Ok(path),
+                    (Some(ns), Some(here)) if ns == here => Ok(path),
+                    (Some(ns), None) => Ok(format!("@{ns}.{path}")),
+                    (_, Some(here)) => Err(format!(
+                        "the included file '{here}' reads a value outside itself"
+                    )),
+                }
+            },
+            SheetKind::Table { .. } if current.include().is_some() => {
+                Err("an included file's scalar reads a table".to_string())
             },
             SheetKind::Table { name, columns } => {
                 if let Some(last) = last {
@@ -903,8 +970,9 @@ mod reverse_tests {
                 .entry(sheet.clone())
                 .or_insert_with(|| SheetKind::Scalars {
                     rows: HashMap::new(),
+                    include: None,
                 });
-            if let SheetKind::Scalars { rows } = entry {
+            if let SheetKind::Scalars { rows, .. } = entry {
                 rows.insert(*row, path.clone());
             }
         }
@@ -969,6 +1037,73 @@ mod reverse_tests {
                 xl.formula
             );
         }
+    }
+
+    /// `@costs.x` is a cell on the include's sheet and comes back as
+    /// `@costs.x`; the include's own formulas come back in its own names.
+    #[test]
+    fn include_references_round_trip() {
+        let mut refs = layout();
+        refs.add_include("costs", ["labour.wage", "labour.loaded"]);
+        let mut back = reverse(&refs);
+        let xl = refs
+            .to_excel(
+                "=a.base * @costs.labour.wage",
+                Context::Scalar { group: Some("v") },
+            )
+            .unwrap();
+        assert_eq!(xl.formula, "='a'!$B$2 * 'costs.Scalars'!$B$2");
+        let xl_row = refs
+            .to_excel(
+                "=rev * @costs.labour.loaded",
+                Context::Row { table: "p", row: 3 },
+            )
+            .unwrap();
+        assert_eq!(xl_row.formula, "=B3 * 'costs.Scalars'!$B$3");
+        // A bare last segment does not reach into an included file
+        assert!(refs
+            .to_excel("=wage", Context::Scalar { group: None })
+            .unwrap_err()
+            .contains("unknown name"));
+
+        let own = WorkbookRefs::for_include("costs", ["labour.wage", "labour.loaded"]);
+        let xl_own = own
+            .to_excel(
+                "=wage * 1.15",
+                Context::Scalar {
+                    group: Some("labour"),
+                },
+            )
+            .unwrap();
+        assert_eq!(xl_own.formula, "='costs.Scalars'!$B$2 * 1.15");
+
+        // As the importer reads the sheet: the include's own paths
+        back.sheets.insert(
+            "costs.Scalars".to_string(),
+            SheetKind::Scalars {
+                rows: HashMap::from([
+                    (2, "labour.wage".to_string()),
+                    (3, "labour.loaded".to_string()),
+                ]),
+                include: Some("costs".to_string()),
+            },
+        );
+        assert_eq!(
+            back.to_forge(&xl.formula, "v", 0).unwrap(),
+            "=a.base * @costs.labour.wage"
+        );
+        assert_eq!(
+            back.to_forge(&xl_row.formula, "p", 3).unwrap(),
+            "=rev * @costs.labour.loaded"
+        );
+        assert_eq!(
+            back.to_forge(&xl_own.formula, "costs.Scalars", 0).unwrap(),
+            "=labour.wage * 1.15"
+        );
+        assert!(back
+            .to_forge("='a'!$B$2 * 2", "costs.Scalars", 0)
+            .unwrap_err()
+            .contains("outside itself"));
     }
 
     #[test]

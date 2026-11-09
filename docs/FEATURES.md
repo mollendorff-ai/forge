@@ -98,7 +98,8 @@ summary:
 - Paths are relative to the including file. A file that includes itself, directly or through another, is an error.
 - Only scalars can be read. A name that the included file does not have is an error that names the `_includes` entry it needs.
 - A group in the model can have the same name as a namespace; `@` keeps them apart.
-- `forge export` writes a formula that reads an included value as its calculated value and lists it, because the workbook has no link to the other file. The included file's scalars and tables are written to their own sheets (`rates.Scalars`), calculated.
+- `forge export` writes the included file's scalars to a sheet of their own (`rates.Scalars`, names `rates.fx.eur_usd`), and a formula that reads one (`@rates.fx.eur_usd`) as a reference to its cell, so changing the rate in Excel changes every result that uses it. The included file's own formulas are formulas on that sheet. Its tables are written to their own sheets (`rates.prices`) as values. An include of the included file is not followed: a formula that reads one is written as its value and listed.
+- `forge import` turns such a sheet back into the included file (`rates.yaml`, beside the imported model) and its references into `@rates.fx.eur_usd`, with an `_includes` entry. If a file of that name is already there and calculates to the sheet's values (usually the original), it is kept as it is; if it holds other values, the import stops before writing anything.
 - With the MCP server and inline `content`, pass the included files in the `includes` map (see [MCP.md](MCP.md)).
 
 ### 173 Excel-Compatible Functions

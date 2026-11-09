@@ -155,8 +155,96 @@ fn scalars_to_value(
     map
 }
 
+/// `_includes:` for the included files a workbook held (one `{ns}.Scalars`
+/// sheet each), as YAML text; empty when there are none, or when `uses` is
+/// given and names none of them (`@ns.`).
+fn includes_block(model: &crate::types::ParsedModel, uses: Option<&str>) -> String {
+    let mut block = String::new();
+    for include in &model.includes {
+        if uses.is_some_and(|text| !text.contains(&format!("@{}.", include.namespace))) {
+            continue;
+        }
+        if block.is_empty() {
+            block.push_str("_includes:\n");
+        }
+        let _ = writeln!(
+            block,
+            "  - file: {}\n    as: {}",
+            include.file, include.namespace
+        );
+    }
+    block
+}
+
+/// The included files to write into `dir`, as (path, YAML).
+///
+/// A file already there is usually the original include, exported and
+/// imported unchanged: it is kept as written (comments and all) when it
+/// calculates to the values on the workbook's sheet. When it holds other
+/// values, nothing is written: replacing it would lose what it says.
+fn include_files(
+    dir: &Path,
+    model: &crate::types::ParsedModel,
+) -> ForgeResult<Vec<(std::path::PathBuf, String)>> {
+    let mut files = Vec::new();
+    for include in &model.includes {
+        let Some(resolved) = model.resolved_includes.get(&include.namespace) else {
+            continue;
+        };
+        let path = dir.join(&include.file);
+        if path.exists() {
+            if holds_the_same_values(&path, &resolved.model) {
+                continue;
+            }
+            return Err(ForgeError::Import(format!(
+                "the workbook's sheet {}.Scalars holds other values than {}. Nothing was \
+                 written. Import into another folder, then compare the two files",
+                include.namespace,
+                path.display()
+            )));
+        }
+        files.push((path, model_to_yaml(&resolved.model)?));
+    }
+    Ok(files)
+}
+
+/// Whether the model file at `path` calculates to the scalars of `sheet`: the
+/// same names, the same values, and a formula where the sheet has one.
+fn holds_the_same_values(path: &Path, sheet: &crate::types::ParsedModel) -> bool {
+    let Ok(existing) = parser::parse_model(path) else {
+        return false;
+    };
+    let existing = crate::core::ArrayCalculator::new(existing.clone())
+        .calculate_all()
+        .unwrap_or(existing);
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-9 * a.abs().max(b.abs()).max(1.0);
+    existing.tables.is_empty()
+        && existing.scalars.len() == sheet.scalars.len()
+        && sheet.scalars.iter().all(|(name, var)| {
+            existing.scalars.get(name).is_some_and(|old| {
+                old.formula.is_some() == var.formula.is_some()
+                    && match (old.value, var.value) {
+                        (Some(a), Some(b)) => close(a, b),
+                        (a, b) => a.is_none() && b.is_none(),
+                    }
+            })
+        })
+}
+
+/// Write the imported model as one file, with its included files beside it.
+fn write_single(output: &Path, model: &crate::types::ParsedModel) -> ForgeResult<()> {
+    let yaml = model_to_yaml(model)?;
+    let dir = output.parent().unwrap_or_else(|| Path::new("."));
+    let files = include_files(dir, model)?;
+    for (path, text) in files {
+        fs::write(path, text).map_err(ForgeError::Io)?;
+    }
+    fs::write(output, yaml).map_err(ForgeError::Io)
+}
+
 /// The whole imported model as YAML that `forge validate` and `forge calculate` accept.
 fn model_to_yaml(model: &crate::types::ParsedModel) -> ForgeResult<String> {
+    let includes = includes_block(model, None);
     let mut map = tables_to_value(&model.tables);
     for (key, value) in scalars_to_value(&model.scalars) {
         if map.contains_key(&key) {
@@ -168,10 +256,10 @@ fn model_to_yaml(model: &crate::types::ParsedModel) -> ForgeResult<String> {
         map.insert(key, value);
     }
     if map.is_empty() {
-        return Ok("_forge_version: \"5.1.0\"\n".to_string());
+        return Ok(format!("_forge_version: \"5.1.0\"\n{includes}"));
     }
     let body = yaml_serde::to_string(&map).map_err(ForgeError::Yaml)?;
-    Ok(format!("_forge_version: \"5.1.0\"\n\n{body}"))
+    Ok(format!("_forge_version: \"5.1.0\"\n{includes}\n{body}"))
 }
 
 /// Import Excel to YAML and return structured results (no printing).
@@ -199,12 +287,11 @@ pub fn import_core(
     };
 
     if split_files {
-        write_split_files_quiet(output, model)?;
+        write_split_files_quiet(output, &model)?;
     } else if multi_doc {
-        write_multi_doc(output, model)?;
+        write_multi_doc_quiet(output, &model)?;
     } else {
-        let yaml_string = model_to_yaml(&model)?;
-        fs::write(output, yaml_string).map_err(ForgeError::Io)?;
+        write_single(output, &model)?;
     }
 
     Ok(super::results::ImportResult {
@@ -279,34 +366,41 @@ fn check_split_is_self_contained(model: &crate::types::ParsedModel) -> ForgeResu
     )))
 }
 
-/// Write split files without printing (for core function)
-fn write_split_files_quiet(output: &Path, model: crate::types::ParsedModel) -> ForgeResult<()> {
-    check_split_is_self_contained(&model)?;
-    fs::create_dir_all(output).map_err(ForgeError::Io)?;
+/// Write each table, and the scalars, as files of their own, with the
+/// included files beside them; each part lists the includes it reads.
+/// Returns the files written.
+fn write_split_files_quiet(
+    output: &Path,
+    model: &crate::types::ParsedModel,
+) -> ForgeResult<Vec<std::path::PathBuf>> {
+    check_split_is_self_contained(model)?;
+    let mut parts = Vec::new();
     for (table_name, table) in &model.tables {
-        let mut table_model = crate::types::ParsedModel::new();
-        table_model.tables.insert(table_name.clone(), table.clone());
-        let file_path = output.join(format!("{table_name}.yaml"));
-        let yaml_string = format!(
-            "_forge_version: \"5.1.0\"\n_name: \"{}\"\n\n{}",
-            table_name,
-            yaml_serde::to_string(&tables_to_value(&table_model.tables))
-                .map_err(ForgeError::Yaml)?
-        );
-        fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
+        let mut one = indexmap::IndexMap::new();
+        one.insert(table_name.clone(), table.clone());
+        let body = yaml_serde::to_string(&tables_to_value(&one)).map_err(ForgeError::Yaml)?;
+        parts.push((format!("{table_name}.yaml"), table_name.clone(), body));
     }
     if !model.scalars.is_empty() {
-        let file_path = output.join("scalars.yaml");
-        let mut scalar_model = crate::types::ParsedModel::new();
-        scalar_model.scalars = model.scalars;
-        let yaml_string = format!(
-            "_forge_version: \"5.1.0\"\n_name: \"scalars\"\n\n{}",
-            yaml_serde::to_string(&scalars_to_value(&scalar_model.scalars))
-                .map_err(ForgeError::Yaml)?
-        );
-        fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
+        let body =
+            yaml_serde::to_string(&scalars_to_value(&model.scalars)).map_err(ForgeError::Yaml)?;
+        parts.push(("scalars.yaml".to_string(), "scalars".to_string(), body));
     }
-    Ok(())
+    fs::create_dir_all(output).map_err(ForgeError::Io)?;
+    let includes = include_files(output, model)?;
+    let mut written = Vec::new();
+    for (file, name, body) in parts {
+        let path = output.join(file);
+        let includes = includes_block(model, Some(&body));
+        let text = format!("_forge_version: \"5.1.0\"\n_name: \"{name}\"\n{includes}\n{body}");
+        fs::write(&path, text).map_err(ForgeError::Io)?;
+        written.push(path);
+    }
+    for (path, text) in includes {
+        fs::write(&path, text).map_err(ForgeError::Io)?;
+        written.push(path);
+    }
+    Ok(written)
 }
 
 /// Execute the export command.
@@ -398,12 +492,11 @@ pub fn import(
     }
 
     if split_files {
-        write_split_files(output, model, verbose)?;
+        write_split_files(output, &model, verbose)?;
     } else if multi_doc {
-        write_multi_doc(output, model)?;
+        write_multi_doc(output, &model)?;
     } else {
-        let yaml_string = model_to_yaml(&model)?;
-        fs::write(output, yaml_string).map_err(ForgeError::Io)?;
+        write_single(output, &model)?;
         println!("{}", "✅ Import Complete!".bold().green());
         println!("   YAML file: {}\n", output.display());
     }
@@ -423,38 +516,13 @@ pub fn import(
 
 fn write_split_files(
     output: &Path,
-    model: crate::types::ParsedModel,
+    model: &crate::types::ParsedModel,
     verbose: bool,
 ) -> ForgeResult<()> {
-    check_split_is_self_contained(&model)?;
-    fs::create_dir_all(output).map_err(ForgeError::Io)?;
-    for (table_name, table) in &model.tables {
-        let mut table_model = crate::types::ParsedModel::new();
-        table_model.tables.insert(table_name.clone(), table.clone());
-        let file_path = output.join(format!("{table_name}.yaml"));
-        let yaml_string = format!(
-            "_forge_version: \"5.1.0\"\n_name: \"{}\"\n\n{}",
-            table_name,
-            yaml_serde::to_string(&tables_to_value(&table_model.tables))
-                .map_err(ForgeError::Yaml)?
-        );
-        fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
-        if verbose {
-            println!("   Created: {}", file_path.display());
-        }
-    }
-    if !model.scalars.is_empty() {
-        let file_path = output.join("scalars.yaml");
-        let mut scalar_model = crate::types::ParsedModel::new();
-        scalar_model.scalars = model.scalars;
-        let yaml_string = format!(
-            "_forge_version: \"5.1.0\"\n_name: \"scalars\"\n\n{}",
-            yaml_serde::to_string(&scalars_to_value(&scalar_model.scalars))
-                .map_err(ForgeError::Yaml)?
-        );
-        fs::write(&file_path, yaml_string).map_err(ForgeError::Io)?;
-        if verbose {
-            println!("   Created: {}", file_path.display());
+    let written = write_split_files_quiet(output, model)?;
+    if verbose {
+        for path in &written {
+            println!("   Created: {}", path.display());
         }
     }
     println!("{}", "✅ Import Complete!".bold().green());
@@ -462,32 +530,38 @@ fn write_split_files(
     Ok(())
 }
 
-fn write_multi_doc(output: &Path, model: crate::types::ParsedModel) -> ForgeResult<()> {
+/// One file, one document per table and one for the scalars (ADR-052: one
+/// namespace), the first listing the included files, written beside it.
+fn write_multi_doc_quiet(output: &Path, model: &crate::types::ParsedModel) -> ForgeResult<()> {
     let mut yaml_output = String::new();
-    for (table_name, table) in &model.tables {
-        let mut table_model = crate::types::ParsedModel::new();
-        table_model.tables.insert(table_name.clone(), table.clone());
-        yaml_output.push_str("---\n");
-        yaml_output.push_str("_forge_version: \"5.1.0\"\n");
-        let _ = write!(yaml_output, "_name: \"{table_name}\"\n\n");
-        yaml_output.push_str(
-            &yaml_serde::to_string(&tables_to_value(&table_model.tables))
-                .map_err(ForgeError::Yaml)?,
-        );
+    let mut includes = includes_block(model, None);
+    let mut document = |name: &str, body: String| {
+        yaml_output.push_str("---\n_forge_version: \"5.1.0\"\n");
+        let _ = writeln!(yaml_output, "_name: \"{name}\"");
+        yaml_output.push_str(&std::mem::take(&mut includes));
         yaml_output.push('\n');
+        yaml_output.push_str(&body);
+    };
+    for (table_name, table) in &model.tables {
+        let mut one = indexmap::IndexMap::new();
+        one.insert(table_name.clone(), table.clone());
+        let body = yaml_serde::to_string(&tables_to_value(&one)).map_err(ForgeError::Yaml)?;
+        document(table_name, format!("{body}\n"));
     }
     if !model.scalars.is_empty() {
-        let mut scalar_model = crate::types::ParsedModel::new();
-        scalar_model.scalars = model.scalars;
-        yaml_output.push_str("---\n");
-        yaml_output.push_str("_forge_version: \"5.1.0\"\n");
-        yaml_output.push_str("_name: \"scalars\"\n\n");
-        yaml_output.push_str(
-            &yaml_serde::to_string(&scalars_to_value(&scalar_model.scalars))
-                .map_err(ForgeError::Yaml)?,
-        );
+        let body =
+            yaml_serde::to_string(&scalars_to_value(&model.scalars)).map_err(ForgeError::Yaml)?;
+        document("scalars", body);
     }
-    fs::write(output, yaml_output).map_err(ForgeError::Io)?;
+    let dir = output.parent().unwrap_or_else(|| Path::new("."));
+    for (path, text) in include_files(dir, model)? {
+        fs::write(path, text).map_err(ForgeError::Io)?;
+    }
+    fs::write(output, yaml_output).map_err(ForgeError::Io)
+}
+
+fn write_multi_doc(output: &Path, model: &crate::types::ParsedModel) -> ForgeResult<()> {
+    write_multi_doc_quiet(output, model)?;
     println!("{}", "✅ Import Complete!".bold().green());
     println!("   YAML file: {}\n", output.display());
     Ok(())
@@ -675,6 +749,101 @@ g:
             let diffs = round_trip(&file).unwrap_or_else(|e| panic!("{example}: {e}"));
             assert!(diffs.is_empty(), "{example}: {diffs:#?}");
         }
+    }
+
+    /// T1-EXPORT-INCLUDES: a value from an included file is a cell reference
+    /// in Excel, the included file's own formula is a formula on its sheet,
+    /// and import gives back the included file and `@costs` references.
+    #[test]
+    fn included_values_stay_live_and_come_back_as_an_include() {
+        use calamine::{open_workbook, Reader, Xlsx};
+        let dir = tempfile::TempDir::new().unwrap();
+        let costs = "_forge_version: \"5.1.0\"\n# kept as written\nlabour:\n  wage: 18.5\n  load: 0.15\n  loaded:\n    formula: \"=wage * (1 + load)\"\n";
+        fs::write(dir.path().join("costs.yaml"), costs).unwrap();
+        let main = dir.path().join("main.yaml");
+        fs::write(
+            &main,
+            "_forge_version: \"5.1.0\"\n_includes:\n  - file: costs.yaml\n    as: costs\nshop:\n  hours: 100\n  pay:\n    formula: \"=hours * @costs.labour.loaded\"\n",
+        )
+        .unwrap();
+        let original = calculate(parser::parse_model(&main).unwrap()).unwrap();
+        let xlsx = dir.path().join("main.xlsx");
+        let warnings = ExcelExporter::new(original.clone())
+            .export_with_warnings(&xlsx)
+            .unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+
+        let mut wb: Xlsx<_> = open_workbook(&xlsx).unwrap();
+        let shop = wb.worksheet_formula("shop").unwrap();
+        assert_eq!(
+            shop.get_value((2, 1)).map(String::as_str),
+            Some("$B$2 * 'costs.Scalars'!$B$4"),
+            "pay reads the include's cell"
+        );
+        let inc = wb.worksheet_formula("costs.Scalars").unwrap();
+        assert_eq!(
+            inc.get_value((3, 1)).map(String::as_str),
+            Some("'costs.Scalars'!$B$2 * (1 + 'costs.Scalars'!$B$3)"),
+            "the include's own formula is a formula"
+        );
+
+        // Into another folder: the included file is written, and read by `@costs`
+        let other = tempfile::TempDir::new().unwrap();
+        let back = other.path().join("main.yaml");
+        import_core(&xlsx, &back, false, false).unwrap();
+        let text = fs::read_to_string(&back).unwrap();
+        assert!(
+            text.contains("_includes:\n  - file: costs.yaml\n    as: costs\n"),
+            "{text}"
+        );
+        assert!(
+            text.contains("=shop.hours * @costs.labour.loaded"),
+            "{text}"
+        );
+        let included = fs::read_to_string(other.path().join("costs.yaml")).unwrap();
+        assert!(
+            included.contains("labour:\n  wage: 18.5\n  load: 0.15\n  loaded:\n    formula: =labour.wage * (1 + labour.load)"),
+            "{included}"
+        );
+        let calculated = calculate(parser::parse_model(&back).unwrap()).unwrap();
+        assert_eq!(
+            calculated.scalars["shop.pay"].value,
+            original.scalars["shop.pay"].value
+        );
+
+        // Beside the original: it means the same, so it stays as written
+        import_core(&xlsx, &dir.path().join("back.yaml"), false, false).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.path().join("costs.yaml")).unwrap(),
+            costs
+        );
+
+        // Beside a file with other values: refused, nothing written
+        let changed = tempfile::TempDir::new().unwrap();
+        fs::write(
+            changed.path().join("costs.yaml"),
+            costs.replace("18.5", "19"),
+        )
+        .unwrap();
+        let err = import_core(&xlsx, &changed.path().join("main.yaml"), false, false)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("holds other values"), "{err}");
+        assert!(
+            !changed.path().join("main.yaml").exists(),
+            "nothing may be written"
+        );
+
+        // Split files: the part that reads `@costs` lists the include
+        let split = other.path().join("split");
+        import_core(&xlsx, &split, true, false).unwrap();
+        let scalars = fs::read_to_string(split.join("scalars.yaml")).unwrap();
+        assert!(scalars.contains("_includes:"), "{scalars}");
+        let part = calculate(parser::parse_model(&split.join("scalars.yaml")).unwrap()).unwrap();
+        assert_eq!(
+            part.scalars["shop.pay"].value,
+            original.scalars["shop.pay"].value
+        );
     }
 
     /// ADR-052: `--multi-doc` gives the same numbers as one file, and

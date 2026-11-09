@@ -125,8 +125,11 @@ impl ExcelImporter {
         let mut model = ParsedModel::new();
         let mut warnings = Vec::new();
         for sheet in &sheets {
-            if sheet.is_scalar_sheet() {
-                Self::import_scalars(sheet, &refs, &mut model, &mut warnings);
+            if let Some(namespace) = Self::include_namespace(sheet) {
+                Self::import_include(sheet, &namespace, &refs, &mut model, &mut warnings);
+            } else if sheet.is_scalar_sheet() {
+                let group = Self::scalar_group(&sheet.name);
+                Self::import_scalars(sheet, group.as_deref(), &refs, &mut model, &mut warnings);
             } else {
                 Self::import_table(sheet, &refs, &mut model, &mut warnings)?;
             }
@@ -147,47 +150,117 @@ impl ExcelImporter {
     fn layout(sheets: &[Sheet]) -> ReverseRefs {
         let mut refs = ReverseRefs::default();
         for sheet in sheets {
-            let (height, width) = sheet.values.get_size();
-            let kind = if sheet.is_scalar_sheet() {
-                let group = Self::scalar_group(&sheet.name);
-                let rows = (1..height)
-                    .filter_map(|row| {
-                        let name = sheet.values.get((row, 0))?.to_string();
-                        if name.is_empty() {
-                            return None;
-                        }
-                        let path = group
-                            .as_ref()
-                            .map_or_else(|| name.clone(), |g| format!("{g}.{name}"));
-                        Some((sheet.excel_row(row), path))
-                    })
-                    .collect();
-                SheetKind::Scalars { rows }
-            } else {
-                let columns = (0..width)
-                    .map(|col| {
-                        let name = sheet.header(col).unwrap_or_else(|| format!("col_{col}"));
-                        (sheet.letter(col), name)
-                    })
-                    .collect();
-                SheetKind::Table {
-                    name: Self::sanitize_table_name(&sheet.name),
-                    columns,
-                }
+            let (_, width) = sheet.values.get_size();
+            let kind = match Self::include_namespace(sheet) {
+                Some(namespace) => {
+                    let prefix = format!("{namespace}.");
+                    let rows = Self::scalar_names(sheet)
+                        .map(|(row, name)| (row, name[prefix.len()..].to_string()))
+                        .collect();
+                    SheetKind::Scalars {
+                        rows,
+                        include: Some(namespace),
+                    }
+                },
+                None if sheet.is_scalar_sheet() => {
+                    let group = Self::scalar_group(&sheet.name);
+                    let rows = Self::scalar_names(sheet)
+                        .map(|(row, name)| {
+                            let path = group
+                                .as_ref()
+                                .map_or_else(|| name.clone(), |g| format!("{g}.{name}"));
+                            (row, path)
+                        })
+                        .collect();
+                    SheetKind::Scalars {
+                        rows,
+                        include: None,
+                    }
+                },
+                None => {
+                    let columns = (0..width)
+                        .map(|col| {
+                            let name = sheet.header(col).unwrap_or_else(|| format!("col_{col}"));
+                            (sheet.letter(col), name)
+                        })
+                        .collect();
+                    SheetKind::Table {
+                        name: Self::sanitize_table_name(&sheet.name),
+                        columns,
+                    }
+                },
             };
             refs.sheets.insert(sheet.name.clone(), kind);
         }
         refs
     }
 
-    /// A `Name` / `Value` sheet: one scalar per row.
-    fn import_scalars(
+    /// Excel row and name of each scalar on a `Name` / `Value` sheet.
+    fn scalar_names(sheet: &Sheet) -> impl Iterator<Item = (u32, String)> + '_ {
+        let (height, _) = sheet.values.get_size();
+        (1..height).filter_map(|row| {
+            let name = sheet.values.get((row, 0))?.to_string();
+            (!name.is_empty()).then(|| (sheet.excel_row(row), name))
+        })
+    }
+
+    /// The namespace of a sheet `forge export` writes for an included file:
+    /// named `{namespace}.Scalars`, every name starting with `{namespace}.`.
+    fn include_namespace(sheet: &Sheet) -> Option<String> {
+        let namespace = sheet.name.strip_suffix(".Scalars")?;
+        let valid = !namespace.is_empty()
+            && namespace
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_');
+        if !valid || !sheet.is_scalar_sheet() {
+            return None;
+        }
+        let prefix = format!("{namespace}.");
+        let mut names = Self::scalar_names(sheet).peekable();
+        let all_prefixed = names.peek().is_some()
+            && names.all(|(_, n)| n.len() > prefix.len() && n.starts_with(&prefix));
+        all_prefixed.then(|| namespace.to_string())
+    }
+
+    /// An included file's sheet: its scalars, under their own paths, become
+    /// that file's model, read by the main model as `@{namespace}.{path}`.
+    fn import_include(
         sheet: &Sheet,
+        namespace: &str,
         refs: &ReverseRefs,
         model: &mut ParsedModel,
         warnings: &mut Vec<String>,
     ) {
-        let group = Self::scalar_group(&sheet.name);
+        let mut included = ParsedModel::new();
+        Self::import_scalars(sheet, None, refs, &mut included, warnings);
+        let prefix = format!("{namespace}.");
+        let scalars = std::mem::take(&mut included.scalars);
+        for (name, mut var) in scalars {
+            let path = name[prefix.len()..].to_string();
+            var.path.clone_from(&path);
+            included.add_scalar(path, var);
+        }
+        let file = format!("{namespace}.yaml");
+        let include = crate::types::Include::new(file.clone(), namespace.to_string());
+        model.add_include(include.clone());
+        model.resolved_includes.insert(
+            namespace.to_string(),
+            crate::types::ResolvedInclude {
+                include,
+                resolved_path: std::path::PathBuf::from(file),
+                model: included,
+            },
+        );
+    }
+
+    /// A `Name` / `Value` sheet: one scalar per row, named `{group}.{name}`.
+    fn import_scalars(
+        sheet: &Sheet,
+        group: Option<&str>,
+        refs: &ReverseRefs,
+        model: &mut ParsedModel,
+        warnings: &mut Vec<String>,
+    ) {
         let (height, _) = sheet.values.get_size();
         for row in 1..height {
             let Some(name) = sheet.values.get((row, 0)).map(ToString::to_string) else {
