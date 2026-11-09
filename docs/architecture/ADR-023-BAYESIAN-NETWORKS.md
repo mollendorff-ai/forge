@@ -1,5 +1,7 @@
 # ADR-023: Bayesian Networks
 
+> **Note (2026-11-08):** The decision holds; the CLI flags differ (`--mpe`, `--query-all` and `--export-graph` do not exist). `forge bayesian --help` is current.
+
 ## Status
 
 **Implemented** - v9.0.0

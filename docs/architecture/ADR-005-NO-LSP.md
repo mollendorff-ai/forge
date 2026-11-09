@@ -1,5 +1,7 @@
 # ADR-005: No Language Server Protocol (LSP)
 
+> **Note (2026-11-08):** Still in force in `src/`. The editor extensions in `editors/` still start a `forge-lsp` binary that no longer exists, so they do not work.
+
 **Status:** Accepted
 **Date:** 2025-12-04
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)

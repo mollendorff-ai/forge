@@ -1,5 +1,7 @@
 # ADR-026: FPGA Acceleration for High-Frequency Trading
 
+> **Note (2026-11-08):** Still deferred. The SIMD, Rayon and GPU roadmap below was not built, and multi-threading would contradict ADR-017.
+
 ## Status
 
 **DEFERRED** - Post-capitalization milestone

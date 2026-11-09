@@ -103,8 +103,9 @@ help:
 	@echo "  make test-calculate     - Calculate all test-data files (dry-run)"
 	@echo "  make test-all           - Run ALL tests (unit + validate + calculate)"
 	@echo ""
-	@echo "E2E Tests (separate repository - ADR-027):"
-	@echo "  See: https://github.com/mollendorff-ai/forge-e2e"
+	@echo "E2E Tests (separate repositories, run by .github/workflows/validation.yml):"
+	@echo "  https://github.com/mollendorff-ai/forge-e2e-gnumeric"
+	@echo "  https://github.com/mollendorff-ai/forge-e2e-r"
 	@echo ""
 	@echo "Coverage Targets:"
 	@echo "  make coverage           - Run test coverage analysis"
@@ -367,10 +368,9 @@ test-unit:
 
 test-integration:
 	@echo "🧪 Running integration tests..."
-	@cargo test --test validation_tests
+	@cargo test --test '*'
 
-# E2E tests migrated to forge-e2e (ADR-027)
-# See: https://github.com/mollendorff-ai/forge-e2e
+# E2E tests: forge-e2e-gnumeric and forge-e2e-r (ADR-027, run by validation.yml)
 
 test-all: test test-validate test-calculate
 	@echo ""

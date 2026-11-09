@@ -1,5 +1,7 @@
 # ADR-006: Coverage Exclusions
 
+> **Note (2026-11-08):** The mechanism (`cfg(coverage)`) is in force; the exclusions now live in `src/api/server.rs`, `src/cli/commands/mod.rs` (watch), `src/cli/commands/update.rs` and `src/main.rs`. The table of files below names files that no longer exist.
+
 **Status:** Accepted (Updated 2025-12-29)
 **Date:** 2025-12-04 (Updated 2025-12-29)
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)

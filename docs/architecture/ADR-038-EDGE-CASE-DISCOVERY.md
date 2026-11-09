@@ -1,5 +1,7 @@
 # ADR-038: Edge Case Discovery
 
+> **Note (2026-11-08):** The process stands, but the outcomes of BUG-010 to BUG-013 were reversed to match Excel: `TRUE = 1` is FALSE, text comparison is case-insensitive, `TRIM` collapses inner spaces, and `0^0` is #NUM!.
+
 **Status:** Accepted
 **Date:** 2025-12-17
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)

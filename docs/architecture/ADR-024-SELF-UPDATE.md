@@ -1,5 +1,7 @@
 # ADR-024: Self-Update Command
 
+> **Note (2026-11-08):** Since then, release assets are named by Rust target (`forge-x86_64-unknown-linux-musl.tar.gz`, a `.zip` on Windows) and each download is checked against `checksums.txt` (SHA-256).
+
 ## Status
 
 **Restored** - v10.0.0-alpha.5

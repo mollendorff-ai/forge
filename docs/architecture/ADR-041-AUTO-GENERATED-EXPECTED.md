@@ -1,6 +1,8 @@
 # ADR-041: Auto-Generated Expected Values
 
-**Status:** Accepted
+> **Note (2026-11-08):** Not implemented: there are no generate_expected scripts. Expected values are written by hand and checked by the Gnumeric and R suites.
+
+**Status:** Not implemented
 **Date:** 2025-12-17
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)
 

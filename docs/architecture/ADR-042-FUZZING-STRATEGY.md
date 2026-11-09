@@ -1,6 +1,8 @@
 # ADR-042: Property-Based Fuzzing Strategy
 
-**Status:** Accepted
+> **Note (2026-11-08):** Not implemented: there is no fuzzing in Forge or in the end-to-end suites.
+
+**Status:** Not implemented
 **Date:** 2025-12-17
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)
 

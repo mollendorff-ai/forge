@@ -1,5 +1,7 @@
 # ADR-048: Migrate MCP Server to rmcp SDK
 
+> **Note (2026-11-08):** rmcp is at 3.8 (Cargo.toml), not 0.16.
+
 **Status:** Accepted
 **Date:** 2026-02-22
 **Author:** Claude Opus 4.6 (AI Engineering Agent)

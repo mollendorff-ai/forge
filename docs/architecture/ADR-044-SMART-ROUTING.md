@@ -1,6 +1,8 @@
 # ADR-044: Smart Test Routing
 
-**Status:** Accepted
+> **Note (2026-11-08):** Superseded: a case Gnumeric cannot judge carries a hand-written `gnumeric_skip` with the reason and is checked against Forge only; a case Forge exports as a value fails unless it has one. There is no automatic routing and no Excel 365 route.
+
+**Status:** Superseded
 **Date:** 2026-01-01
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)
 

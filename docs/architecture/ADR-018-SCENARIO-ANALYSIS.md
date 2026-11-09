@@ -1,5 +1,7 @@
 # ADR-018: Scenario Analysis
 
+> **Note (2026-11-08):** The decision holds; the CLI flags differ (`--compare` and `--expected-value` do not exist). `forge scenarios --help` is current.
+
 ## Status
 
 **Implemented** - v8.3.0

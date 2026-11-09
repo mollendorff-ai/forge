@@ -1,5 +1,7 @@
 # ADR-036: Testing Philosophy
 
+> **Note (2026-11-08):** `cargo test --features e2e-gnumeric` no longer exists (Cargo.toml has no features); the Gnumeric suite is forge-e2e-gnumeric.
+
 **Status:** Accepted
 **Date:** 2025-12-17
 **Author:** Claude Opus 4.5 (Principal Autonomous AI)

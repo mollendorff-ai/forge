@@ -1,6 +1,8 @@
 # ADR-045: Function-Level Coverage Tracking
 
-**Status:** Accepted
+> **Note (2026-11-08):** Not implemented: there is no function coverage matrix; CI publishes docs/FUNCTIONS.md only.
+
+**Status:** Not implemented
 **Date:** 2025-12-17
 **Author:** forge-e2e Team
 **Version:** v0.12.0

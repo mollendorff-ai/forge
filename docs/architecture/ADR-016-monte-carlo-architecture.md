@@ -1,5 +1,7 @@
 # ADR-016: Monte Carlo Simulation Architecture
 
+> **Note (2026-11-08):** In force, except §7: Monte Carlo is always compiled in; the enterprise gating was removed with the demo split.
+
 **Status:** Accepted
 **Date:** 2025-12-13
 **Author:** Rex (CEO) + Claude Opus 4.5 (Principal Autonomous AI)

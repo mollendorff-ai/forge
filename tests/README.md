@@ -1,34 +1,20 @@
-# Integration Tests Migrated
+# tests/
 
-As per **ADR-027**, all integration tests have been moved to the `forge-e2e` package.
+Integration tests that run Forge as a library on whole models:
 
-## Test Structure (ADR-027)
+- `bagel_example.rs`: every analysis command on the `examples/bagel` models, with numbers checked against calculations made outside Forge.
+- `doc_examples.rs`: every model in docs/EXAMPLES.md runs, and the output the doc shows is what Forge gives.
+- `broken_pipe.rs`: the CLI exits quietly when its output is closed (`forge ... | head`).
+- `conventions.rs`: the conventions in `.asimov/project.yaml` that a test can check.
 
-- **Unit tests**: Inline in `src/` modules using `#[cfg(test)]`
-- **Integration tests**: In `../forge-e2e/tests/integration/`
-- **E2E tests**: In `../forge-e2e/tests/e2e/`
+Unit tests are next to the code (`#[cfg(test)]`, in the same file or a sibling `*_tests.rs` module).
 
-## Migration Details
+The end-to-end suites live in two other repositories and run the release binary from `.github/workflows/validation.yml` on pull requests and weekly:
 
-All `.rs` and `.yaml` test files previously in this directory have been moved to:
-
-```
-../forge-e2e/tests/integration/
-```
-
-This includes:
-- 34 `.rs` test files (array_calculator, formula_edge_cases, unit_*, validation, excel, parser, error, math_complete, xlformula_equivalence)
-- 14 `.yaml` test fixture files (aggregation, date, edge_*, logical, lookup, math, text)
-
-## Running Tests
-
-To run the integration tests:
+- [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric): formulas against Gnumeric, and the Excel export and import round trip;
+- [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r): statistics and analytics against R.
 
 ```bash
-cd ../forge-e2e
-cargo test
+cargo test               # unit and integration tests
+make test-integration    # integration tests only
 ```
-
-## Why This Directory Exists
-
-This empty `tests/` directory is preserved for potential future use and to maintain the standard Rust project structure. Per ADR-027, `forge` is a library crate with unit tests inline in source files, while integration tests live in the separate `forge-e2e` package.

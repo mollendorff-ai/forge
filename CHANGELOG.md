@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The project's own description is true again** (T1-PROJECT-TRUTH, T1-USE-AGAIN). Every page in docs/architecture was checked against the code. The pages that describe a design Forge no longer has (01 to 05, and the architecture half of 00) carry a dated note saying what changed and where to look; 30 ADRs got a dated note, and 11 a corrected status (five testing ADRs were never built; ADR-031 is the license in force, not superseded). The API page described a server open to every origin with no authentication; its configuration and security sections were rewritten from the code. `.asimov/project.yaml` lists the stack from Cargo.toml, and each convention says what enforces it: `tests/conventions.rs` checks file length and `partial_cmp().unwrap()`, and a new pull request template asks for the rest (changelog entry, a failing test for a wrong answer, an example with outside numbers for a new command). `src/mcp/server.rs` was over the 1,500-line limit; its tests moved to `server_tests.rs`. `make test-integration` ran a test that did not exist, and tests/README.md described a repository that was split in two.
+
 ## [10.0.0-rc.8] - 2026-11-08
 
 Eighth release candidate, for two wrong answers found while making the Gnumeric check honest: `POWER(0, 0)` and `POW(0, 0)` gave 1 instead of #NUM!, and `ADDRESS` gave addresses Excel does not (`$A$0` for row 0, `R2C3` for R1C1 relative forms, no sheet name). Under docs/STABILITY.md that restarts the two-week clock: the stable release is no earlier than 2026-11-23. The export also writes 12 more functions as Excel formulas, and forge-e2e-gnumeric now fails any case Gnumeric did not calculate unless it says why.

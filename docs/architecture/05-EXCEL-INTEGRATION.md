@@ -1,5 +1,7 @@
 # Excel Integration Architecture
 
+> **Superseded (2026-11-08):** Export and import were rebuilt around `src/excel/workbook_refs.rs`. Columns keep model order; formulas are translated token by token (`WorkbookRefs::to_excel`, and `ReverseRefs::to_forge` on import); scalars go on one sheet per group (`Scalars` for ungrouped ones, `{namespace}.Scalars` for an included file) with `Name` and `Value`, the value cell a live formula with Forge's result cached. A formula Excel cannot express with the same meaning is written as its value with a cell note and a warning, not as text, and metadata goes into cell notes. `forge export` calculates first and exports even if that fails. The layout, examples and error messages below are history; [FEATURES.md](../FEATURES.md#excel-export) says what export and import do today.
+
 **Document Version:** 1.0.0
 **Forge Version:** v1.2.1
 **Last Updated:** 2025-11-24

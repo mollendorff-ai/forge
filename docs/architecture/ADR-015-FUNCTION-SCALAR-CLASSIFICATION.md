@@ -1,5 +1,7 @@
 # ADR-015: Function Scalar/Array Classification
 
+> **Note (2026-11-08):** The `scalar` field is kept as metadata (shown by `forge functions`); the demo build it was for, and its tests, are gone.
+
 ## Status
 
 Accepted

@@ -1,8 +1,10 @@
 # ADR-025: Feature Gate Inversion
 
+> **Note (2026-11-08):** Superseded: the demo/enterprise split was removed in v10.0.0-alpha.0 (see ADR-012).
+
 ## Status
 
-**Implemented** - v9.3.0
+**Superseded** (implemented in v9.3.0, removed in v10.0.0-alpha.0)
 
 > **Note:** This ADR is historical. The demo/enterprise split was removed in v10.0.0-alpha.0. Forge is now a single MIT/Apache-2.0 licensed binary.
 

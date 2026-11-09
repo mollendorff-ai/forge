@@ -228,7 +228,7 @@ pub fn build_router(config: &ApiConfig) -> Result<Router, String> {
 ///
 /// # Coverage Exclusion (ADR-006)
 /// This function binds to a real TCP port and runs forever until terminated.
-/// Cannot be unit tested - verified via integration tests in `binary_integration_tests.rs`
+/// It is not unit tested; `build_router`, which holds the routes and layers, is.
 #[cfg(not(coverage))]
 pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
     // Initialize tracing

@@ -1,5 +1,7 @@
 # ADR-022: Bootstrap Resampling
 
+> **Note (2026-11-08):** The decision holds; the CLI flags differ (`--format` and `--quick` do not exist). `forge bootstrap --help` is current.
+
 ## Status
 
 **Implemented** - v8.7.0

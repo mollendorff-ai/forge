@@ -1,6 +1,8 @@
 # ADR-030: Go-To-Market and Licensing Strategy
 
-**Status**: ACCEPTED
+> **Note (2026-11-08):** Superseded by ADR-031: Forge is MIT OR Apache-2.0, with no commercial licence, trial or pricing tiers. Only the decision to ship one product with no demo still holds.
+
+**Status**: SUPERSEDED by ADR-031, except shipping one product with no demo
 **Date**: 2025-12-29
 **Decision Makers**: Möllendorff AI
 
