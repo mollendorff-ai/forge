@@ -16,6 +16,7 @@ mod includes;
 pub(crate) mod model;
 mod multi_doc;
 mod schema;
+mod schema_errors;
 #[cfg(test)]
 mod short_form_tests;
 mod variables;

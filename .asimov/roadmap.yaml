@@ -51,12 +51,6 @@ tier1:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier2:
-  - id: T2-SCHEMA-MESSAGES
-    title: "Say what is wrong with a model that fails the schema"
-    why: "A misspelt `formla:` gives `forge validate` a dump of the whole group as JSON ('is not valid under any of the schemas listed in the anyOf keyword'), and in an editor 'Incorrect type' on that line and on the valid lines beside it, because the group fails anyOf as a whole"
-    how: "Restructure the 5.1.0 schema so a scalar's mapping form has additionalProperties: false and the group forms are told apart before anyOf (an array means a table column, a mapping with formula/value a scalar), and print the most specific error with its path and line"
-    acceptance: "For a misspelt key, a text where a number belongs and a formula without '=', forge validate names the key path and says what is expected, and yaml-language-server marks only the wrong line; every example still validates"
-
   - id: T2-EXPORT-LET
     title: "Export LET, LAMBDA, COUNTUNIQUE and TODAY as Excel formulas"
     why: "forge export writes them as values, so those cells do not follow their inputs in Excel; 36 forge-e2e-gnumeric cases skip Gnumeric for it (VARIANCE* and BREAKEVEN_* are done)"

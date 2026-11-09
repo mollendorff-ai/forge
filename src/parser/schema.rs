@@ -36,6 +36,10 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
     };
 
     check_short_form(yaml, version)?;
+    // Tables in a 1.0.0 model: say so before the schema reports the shapes
+    if version == "1.0.0" {
+        validate_v1_0_0_no_tables(yaml)?;
+    }
 
     let schema_value: serde_json::Value = serde_json::from_str(schema_str)
         .map_err(|e| ForgeError::Validation(format!("Failed to parse schema: {e}")))?;
@@ -49,20 +53,15 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         .map_err(|e| ForgeError::Validation(format!("Failed to compile schema: {e}")))?;
 
     // Validate
-    if let Err(_error) = validator.validate(&json_value) {
-        let error_messages: Vec<String> = validator
-            .iter_errors(&json_value)
-            .map(|e| format!("  - {e}"))
-            .collect();
+    if validator.validate(&json_value).is_err() {
         return Err(ForgeError::Validation(format!(
-            "Schema validation failed:\n{}",
-            error_messages.join("\n")
+            "The model does not fit model format {version}:\n{}",
+            super::schema_errors::describe_errors(
+                validator.iter_errors(&json_value),
+                &json_value,
+                &schema_value
+            )
         )));
-    }
-
-    // Additional runtime check for v1.0.0: NO tables/arrays allowed
-    if version == "1.0.0" {
-        validate_v1_0_0_no_tables(yaml)?;
     }
 
     Ok(())
