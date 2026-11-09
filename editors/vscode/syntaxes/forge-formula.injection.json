@@ -1,0 +1,74 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Forge formulas in YAML",
+  "scopeName": "forge.formula.injection",
+  "injectionSelector": "L:string.quoted.double.yaml, L:string.quoted.single.yaml, L:string.unquoted.plain.out.yaml, L:string.unquoted.plain.in.yaml",
+  "patterns": [
+    {
+      "comment": "A formula in double quotes: \"=a + b\"",
+      "begin": "(?<=\")(=)",
+      "beginCaptures": { "1": { "name": "keyword.operator.formula.forge" } },
+      "end": "(?<!\\\\)(?=\")",
+      "contentName": "meta.formula.forge",
+      "patterns": [{ "include": "#formula" }]
+    },
+    {
+      "comment": "A formula in single quotes: '=a + b'",
+      "begin": "(?<=')(=)",
+      "beginCaptures": { "1": { "name": "keyword.operator.formula.forge" } },
+      "end": "(?=')",
+      "contentName": "meta.formula.forge",
+      "patterns": [{ "include": "#formula" }]
+    },
+    {
+      "comment": "An unquoted formula: key: =a + b, or - =a + b",
+      "begin": "(?<=: |- )(=)",
+      "beginCaptures": { "1": { "name": "keyword.operator.formula.forge" } },
+      "end": "$|(?= #)",
+      "contentName": "meta.formula.forge",
+      "patterns": [{ "include": "#formula" }]
+    }
+  ],
+  "repository": {
+    "formula": {
+      "patterns": [
+        {
+          "comment": "A text literal: \\\"yes\\\" inside a double-quoted formula, \"yes\" elsewhere",
+          "match": "\\\\\"(?:[^\"\\\\]|\\\\[^\"])*\\\\\"|\"[^\"]*\"",
+          "name": "string.quoted.double.formula.forge"
+        },
+        {
+          "comment": "A function call, including dotted names: SUM(, MC.Normal(",
+          "match": "\\b([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)(?=\\s*\\()",
+          "captures": { "1": { "name": "support.function.forge" } }
+        },
+        {
+          "comment": "A value of an included file: @costs.ingredients.flour_per_kg",
+          "match": "@[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+",
+          "name": "variable.other.include.forge"
+        },
+        {
+          "match": "\\b(?i:TRUE|FALSE)\\b",
+          "name": "constant.language.boolean.forge"
+        },
+        {
+          "comment": "A name: rate, loan.principal, months.profit",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*\\b",
+          "name": "variable.other.forge"
+        },
+        {
+          "match": "(?<![A-Za-z0-9_.])\\d*\\.?\\d+(?:[eE][-+]?\\d+)?%?",
+          "name": "constant.numeric.forge"
+        },
+        {
+          "match": "<=|>=|<>|[-+*/^&=<>]",
+          "name": "keyword.operator.forge"
+        },
+        {
+          "match": "[(),;:\\[\\]{}]",
+          "name": "punctuation.separator.forge"
+        }
+      ]
+    }
+  }
+}

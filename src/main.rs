@@ -62,29 +62,29 @@ struct Cli {
 enum Commands {
     #[command(long_about = "Calculate all formulas in a YAML file.
 
-Evaluates formulas in dependency order and updates values in ALL files
-(main file + all included files) - just like Excel updates all worksheets.
+Evaluates formulas in dependency order and writes each scalar formula's
+result next to it in the file.
 
 CROSS-FILE REFERENCES:
-  Add 'includes:' section to reference other files:
+  Add an '_includes' section to read the scalars of other files:
 
-  includes:
+  _includes:
     - file: pricing.yaml
       as: pricing
     - file: costs.yaml
       as: costs
 
-  Then use @alias.variable in formulas:
+  Then use @alias.name in formulas:
     formula: \"=@pricing.base_price * volume - @costs.total\"
 
-IMPORTANT: Calculate updates ALL files in the chain (Excel-style)!
-  If pricing.yaml has stale formulas, they will be recalculated too.
-  This ensures data integrity across all referenced files.
+  An included file is calculated first, so its own formulas count, but only
+  the file given is written. Run 'forge calculate costs.yaml' to store the
+  results of an included file in it.
 
 Use --dry-run to preview changes without modifying files.")]
     /// Calculate all formulas in a YAML file
     Calculate {
-        /// Path to YAML file (can include other files via 'includes' section)
+        /// Path to YAML file (can include other files via an '_includes' section)
         file: PathBuf,
 
         /// Preview changes without writing to file
@@ -111,22 +111,22 @@ Use --dry-run to preview changes without modifying files.")]
 
     #[command(long_about = "Validate formulas without calculating.
 
-Checks that all formula values match their calculations across ALL files
-(main file + all included files). Detects stale values that need recalculation.
+Checks that the result stored next to each formula is what the formula
+calculates to, with the included files calculated first.
 
 CROSS-FILE REFERENCES:
-  Validates formulas using @alias.variable syntax:
+  Formulas may read included files with @alias.name:
 
-  includes:
+  _includes:
     - file: pricing.yaml
       as: pricing
 
   Formula example:
     formula: \"=@pricing.base_price * 10\"
 
-NOTE: Validation checks ALL files in the chain.
-  If any included file has stale values, validation will fail.
-  Run 'calculate' to update all files.
+NOTE: Only the stored results of the files given are checked. To check an
+  included file's own stored results, give it too:
+  forge validate model.yaml pricing.yaml
 
 BATCH VALIDATION:
   forge validate file1.yaml file2.yaml file3.yaml
@@ -213,14 +213,15 @@ other); --multi-doc writes one file with one document per sheet."
 
     #[command(long_about = "Watch YAML files and auto-calculate on changes.
 
-Monitors the specified file (and all included files) for changes.
+Monitors the folder of the specified file: a change to any .yaml file in it
+(the model, or an included file kept beside it) runs it again. An included
+file in another folder is not watched.
 When a change is detected, automatically runs validation/calculation.
 
 FEATURES:
   Real-time file monitoring
   Auto-calculate on save
   Debounced updates (waits for file write to complete)
-  Watches included files too
   Clear error messages on formula issues
 
 WORKFLOW:

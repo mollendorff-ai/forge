@@ -79,6 +79,44 @@ fn break_even_price_and_staffing_for_sixty_thousand() {
     assert!(close(hours.solution, 24.268_7, 1e-3), "{}", hours.solution);
 }
 
+/// The tornado in the README: each input moved alone to its low and high.
+///
+/// The profit function of the comment at the top of this file, with every
+/// input as an argument (rent 4800 + firewood 950 were its 5750):
+/// ```python
+/// for k, (lo, hi) in dict(opening=(45, 65), price=(14, 18), staff=(26, 36),
+///                         rent=(4000, 6000), fee=(0.018, 0.03)).items():
+///     profit(**{k: lo}), profit(**{k: hi})
+/// # opening -56463.56 58036.20, price -46309.92 47882.56,
+/// # staff 46740.32 -29849.68, rent 10386.32 -13613.68, fee 3880.94 -760.99
+/// ```
+#[test]
+fn tornado_matches_the_independent_calculation() {
+    let result = mollendorff_forge::cli::tornado_core(Path::new(MODEL), None).unwrap();
+    let expected = [
+        ("assumptions.opening_dozens_per_day", -56_463.56, 58_036.20),
+        ("assumptions.price_per_dozen", -46_309.92, 47_882.56),
+        ("assumptions.staff_hours_per_day", 46_740.32, -29_849.68),
+        ("assumptions.rent_per_month", 10_386.32, -13_613.68),
+        ("assumptions.card_fee_rate", 3_880.94, -760.99),
+    ];
+    assert_eq!(result.bars.len(), expected.len());
+    // In the order of the swing, largest first
+    for (bar, (name, low, high)) in result.bars.iter().zip(expected) {
+        assert_eq!(bar.input_name, name);
+        assert!(
+            close(bar.output_at_low, low, 0.006),
+            "{name} {}",
+            bar.output_at_low
+        );
+        assert!(
+            close(bar.output_at_high, high, 0.006),
+            "{name} {}",
+            bar.output_at_high
+        );
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // The rest of examples/bagel: one model per analytics command (roadmap T1-USE).
 // Each expected value was computed by Python written independently of Forge;

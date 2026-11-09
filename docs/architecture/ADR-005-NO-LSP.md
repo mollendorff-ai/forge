@@ -1,6 +1,6 @@
 # ADR-005: No Language Server Protocol (LSP)
 
-> **Note (2026-11-08):** Still in force in `src/`. The editor extensions in `editors/` still start a `forge-lsp` binary that no longer exists, so they do not work.
+> **Note (2026-11-09):** Still in force. The editor extensions that started a `forge-lsp` binary are gone: `editors/vscode` is now a declarative extension (formula highlighting injected into YAML, and the schema through Red Hat's YAML extension) with no server, and the Zed extension was removed in favour of Zed's built-in yaml-language-server with the schema (see schema/README.md).
 
 **Status:** Accepted
 **Date:** 2025-12-04

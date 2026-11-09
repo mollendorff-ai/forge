@@ -1,73 +1,41 @@
-# Forge YAML Extension for VSCode
+# Forge YAML for VS Code
 
-Language support for Forge YAML formula files.
+Highlighting for the formulas in [Forge](https://github.com/mollendorff-ai/forge) model files, and the Forge schema for the files themselves.
 
-## Features
+- **Formulas**: in any YAML file, a value that starts with `=` (`"=SUM(months.revenue)"`, `'=MC.Normal(1, 2)'`, `price: =cost * 1.3`) is highlighted as a formula: functions, names, values of included files (`@costs.flour_per_kg`), numbers, operators and text. The file stays a YAML file, with everything VS Code's YAML support does for it.
+- **Schema**: files named `*.forge.yaml` or `*.forge.yml` are checked against the schema of model format 5.1.0, with completion of keys, by the [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml), which this extension depends on.
 
-- **Syntax Highlighting** - Beautiful highlighting for Forge YAML files
-- **Real-time Validation** - See formula errors as you type
-- **Autocomplete** - Complete variable names and 50+ Excel functions
-- **Hover Information** - See calculated values and formula documentation
-- **Go to Definition** - Jump to variable definitions
-- **Commands** - Validate, calculate, export, and audit
+There is no language server: the extension does not calculate. Run `forge validate` and `forge calculate` in a terminal.
 
-## Requirements
+## The schema for any file name
 
-- Install the Forge CLI: `cargo install mollendorff-forge`
-- The `forge-lsp` binary must be in your PATH
+Forge models are usually plain `.yaml` files. To check one against the schema, put this first line in it:
 
-## Commands
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mollendorff-ai/forge/main/schema/forge-v5.1.0.schema.json
+```
 
-- `Forge: Validate Current File` - Validate formulas
-- `Forge: Calculate All Formulas` - Calculate with dry-run
-- `Forge: Export to Excel` - Export to .xlsx
-- `Forge: Show Audit Trail` - Show dependency chain
+or map a folder to it in your settings:
 
-## Supported Functions (50+)
+```json
+"yaml.schemas": {
+  "https://raw.githubusercontent.com/mollendorff-ai/forge/main/schema/forge-v5.1.0.schema.json": "models/**/*.yaml"
+}
+```
 
-### Aggregation
-`SUM`, `AVERAGE`, `COUNT`, `MAX`, `MIN`, `PRODUCT`
+`forge schema v5.1 > forge.schema.json` writes the schema of the Forge you have installed, to use as a local path instead.
 
-### Conditional
-`SUMIF`, `COUNTIF`, `AVERAGEIF`, `SUMIFS`, `COUNTIFS`, `AVERAGEIFS`, `MAXIFS`, `MINIFS`
+## Install
 
-### Logical
-`IF`, `AND`, `OR`, `NOT`, `IFERROR`
-
-### Math
-`ROUND`, `ROUNDUP`, `ROUNDDOWN`, `CEILING`, `FLOOR`, `SQRT`, `POWER`, `MOD`, `ABS`
-
-### Text
-`CONCAT`, `UPPER`, `LOWER`, `TRIM`, `LEN`, `MID`
-
-### Date
-`TODAY`, `DATE`, `YEAR`, `MONTH`, `DAY`
-
-### Lookup
-`MATCH`, `INDEX`, `XLOOKUP`, `VLOOKUP`
-
-## Configuration
-
-- `forge.lspPath` - Path to forge-lsp binary (default: "forge-lsp")
-- `forge.validateOnSave` - Validate on save (default: true)
-- `forge.validateOnType` - Validate while typing (default: true)
-- `forge.showCalculatedValues` - Show values on hover (default: true)
-
-## Installation
-
-1. Install from the VS Code Marketplace (search for "Forge YAML")
-2. Or install the VSIX file directly
-
-## Building from Source
+The extension is not on the Marketplace. Build it and install the file:
 
 ```bash
 cd editors/vscode
 npm install
-npm run compile
+npx vsce package                          # writes forge-yaml-4.0.0.vsix
+code --install-extension forge-yaml-4.0.0.vsix
 ```
 
-## License
+## Tests
 
-MIT OR Apache-2.0 - See [LICENSE-MIT](../../LICENSE-MIT) or [LICENSE-APACHE](../../LICENSE-APACHE)
-
-Copyright (c) 2025-2026 Möllendorff AI
+`npm test` tokenizes every YAML file of the repository with VS Code's own YAML grammar, with and without the formula highlighting, and checks that nothing outside a formula changes and that every formula is recognised. It then validates every example model with yaml-language-server against the bundled schema. CI runs both.
