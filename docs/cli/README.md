@@ -53,8 +53,8 @@ Commands:
   calculate      Calculate all formulas in a YAML file
   audit          Show audit trail for a specific variable
   validate       Validate formulas without calculating
-  export         Export v1.0.0 array model to Excel .xlsx
-  import         Import Excel .xlsx file to YAML v1.0.0
+  export         Export a model to an Excel .xlsx workbook
+  import         Import an Excel .xlsx workbook as a Forge model
   watch          Watch YAML files and auto-calculate on changes
   compare        Compare results across multiple scenarios
   variance       Compare budget vs actual with variance analysis
@@ -186,27 +186,29 @@ Options:
 ## export
 
 ```
-Export v1.0.0 array model to Excel .xlsx format.
+Export a model to an Excel .xlsx workbook, formulas included.
 
-Converts YAML column arrays to Excel worksheets with full formula support.
-Each table becomes a separate worksheet. Formulas are translated to Excel syntax.
+The model is calculated first, and each formula cell carries Forge's result.
 
-SUPPORTED FEATURES (Phase 3.1 - Basic Export):
-  Table columns -> Excel columns (A, B, C, ...)
-  Data values (Number, Text, Date, Boolean)
-  Multiple tables -> Multiple worksheets
-  Scalars -> Dedicated "Scalars" worksheet
+LAYOUT:
+  Each table -> a sheet, one column per data or formula column, in file order
+  Each scalar group -> a sheet with Name (A) and Value (B), one scalar per row
+  Ungrouped scalars -> a sheet named Scalars
+  An included file -> its own sheets (costs.Scalars); @costs.x reads its cells
+
+Row formulas and scalar formulas become live Excel formulas. A formula Excel
+cannot express with the same meaning (MC.*, LET, COUNTUNIQUE, ...) is written
+as its value, with the Forge formula in a cell note, and listed. Scenarios
+are not exported (Excel has no equivalent).
 
 EXAMPLE:
-  forge export quarterly_pl.yaml quarterly_pl.xlsx
-
-NOTE: Only works with v1.0.0 array models. v0.2.0 scalar models are not supported.
+  forge export examples/bagel/bagel.yaml bagel.xlsx
 
 Usage: forge export [OPTIONS] <INPUT> <OUTPUT>
 
 Arguments:
   <INPUT>
-          Path to v1.0.0 YAML file (must have 'tables' section)
+          Path to the model (.yaml)
 
   <OUTPUT>
           Output Excel file path (.xlsx)
@@ -222,28 +224,24 @@ Options:
 ## import
 
 ```
-Import Excel .xlsx file to YAML v1.0.0 format.
+Import an Excel .xlsx workbook as a Forge model (format 5.1.0).
 
-Converts Excel worksheets to YAML tables with formula preservation.
-Each worksheet becomes a table in the output YAML file.
+Reads the layout forge export writes, and plain workbooks too:
+  A sheet whose header is Name, Value -> a scalar group (Scalars -> ungrouped)
+  A sheet costs.Scalars of an exported include -> costs.yaml and @costs.x
+  Any other sheet -> a table, header in the first row
 
-SUPPORTED FEATURES (Phase 4.1 - Basic Import):
-  Excel worksheets -> YAML tables
-  Data values (Number, Text, Boolean)
-  Multiple worksheets -> One YAML file (one-to-one)
-  "Scalars" sheet -> Scalar section
+Excel formulas are translated to Forge formulas (table.column, group.name).
+A formula Forge cannot express (a reference to another row, a single table
+cell in a scalar formula, named ranges) is imported as its value and listed.
 
 WORKFLOW:
-  1. Import existing Excel -> YAML
-  2. Work with AI + Forge (version control!)
-  3. Export back to Excel
-  4. Round-trip: Excel -> YAML -> Excel
+  forge import model.xlsx model.yaml     # Excel -> YAML
+  forge calculate model.yaml             # work with the YAML, in git
+  forge export model.yaml model.xlsx     # back to Excel
 
-EXAMPLE:
-  forge import quarterly_pl.xlsx quarterly_pl.yaml
-
-NOTE: Formulas are preserved as Excel syntax (Phase 4.1).
-      Formula translation to YAML syntax coming in Phase 4.3.
+--split-files writes one file per sheet (refused when sheets refer to each
+other); --multi-doc writes one file with one document per sheet.
 
 Usage: forge import [OPTIONS] <INPUT> <OUTPUT>
 
@@ -489,7 +487,7 @@ EXAMPLES:
 
 OPTIONS:
   --min, --max: Override automatic bounds for the search
-  --tolerance: Precision of the result (default: 0.0001)
+  --tolerance: How close the output must get to the target (default: 0.0001)
 
 Usage: forge goal-seek [OPTIONS] --target <TARGET> --value <VALUE> --vary <VARY> <FILE>
 
@@ -514,7 +512,7 @@ Options:
           Maximum bound for search (optional)
 
       --tolerance <TOLERANCE>
-          Solution tolerance (default: 0.0001)
+          How close the output must get to the target (default: 0.0001)
           
           [default: 0.0001]
 
@@ -607,19 +605,9 @@ Options:
 ```
 List all supported Excel-compatible functions by category.
 
-Forge supports 58 Excel functions for financial modeling. Use this command
-to see all available functions organized by category.
-
-CATEGORIES:
-  Financial   - NPV, IRR, XNPV, XIRR, PMT, PV, FV, RATE, NPER (9)
-  Lookup      - MATCH, INDEX, VLOOKUP, XLOOKUP, CHOOSE, OFFSET (6)
-  Conditional - SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, MAXIFS, MINIFS (8)
-  Array       - UNIQUE, COUNTUNIQUE, FILTER, SORT (4)
-  Aggregation - SUM, AVERAGE, MIN, MAX, COUNT (5)
-  Math        - ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER, ABS (9)
-  Text        - CONCAT, TRIM, UPPER, LOWER, LEN, MID (6)
-  Date        - TODAY, DATE, YEAR, MONTH, DAY, DATEDIF, EDATE, EOMONTH (8)
-  Logic       - IF, AND, OR (3)
+Most functions are Excel-compatible; a few are FP&A-native functions Excel
+does not have. The list is generated from the function registry and shows the
+total and the count for each category.
 
 EXAMPLES:
   forge functions           # List all functions
@@ -640,21 +628,22 @@ Options:
 ```
 Display JSON schema for validating Forge YAML models.
 
-Forge supports two schema versions:
-  v1.0.0 - Scalar-only models (simple key-value pairs)
-  v5.0.0 - Full support for arrays, tables, and advanced features
+The versions are model formats (_forge_version), not Forge versions:
+  v1.0.0 - Scalars only
+  v5.0.0 - Tables, row formulas and the analysis sections
+  v5.1.0 - v5.0.0 plus the short form: plain-number inputs, formulas
+           without value: null (ADR-051)
 
 EXAMPLES:
-  forge schema              # List available versions
-  forge schema v1           # Show v1.0.0 schema
-  forge schema v5           # Show v5.0.0 schema
-  forge schema v5 > s.json  # Pipe to file for IDE use
+  forge schema                # List available versions
+  forge schema v5.1           # Show the v5.1.0 schema
+  forge schema v5.1 > s.json  # Pipe to file for IDE use
 
 Usage: forge schema [OPTIONS] [VERSION]
 
 Arguments:
   [VERSION]
-          Schema version to display (v1, v5, 1.0.0, 5.0.0)
+          Schema version to display (v1, v5, v5.1, 1.0.0, 5.0.0, 5.1.0)
 
 Options:
   -l, --list
@@ -706,17 +695,19 @@ Options:
 ## upgrade
 
 ```
-Upgrade YAML files to latest schema version (v5.0.0).
+Upgrade a model and its includes to the latest model format (5.1.0).
 
-Automatically migrates YAML files and all included files to the latest schema.
+_forge_version is the model format version, not the Forge version.
 Creates backups before modifying files.
 
-TRANSFORMATIONS:
-  - Updates _forge_version to 5.0.0
-  - Splits scalars into inputs/outputs based on formula presence:
-    - Scalars with value only -> inputs section
-    - Scalars with formula -> outputs section
-  - Adds _name field for multi-document files
+TO 5.1.0 (default, ADR-051):
+  - `name: {value: 16, formula: null}` becomes `name: 16`
+  - `value: null` and `formula: null` lines are removed
+  - Edited in place: comments, quotes and layout are kept
+  - Checked: the converted file must read as the same model, or it is not written
+
+TO 5.0.0 (from 1.0.0):
+  - Splits scalars into inputs/outputs based on formula presence
   - Preserves all existing metadata
 
 RECURSIVE PROCESSING:
@@ -726,7 +717,7 @@ RECURSIVE PROCESSING:
 EXAMPLES:
   forge upgrade model.yaml              # Upgrade file and includes
   forge upgrade model.yaml --dry-run    # Preview changes only
-  forge upgrade model.yaml --to 5.0.0   # Explicit target version
+  forge upgrade model.yaml --to 5.0.0   # Older format, long form
 
 BACKUP:
   Original files are backed up as .yaml.bak before modification.
@@ -742,9 +733,9 @@ Options:
           Preview changes without modifying files
 
       --to <TO>
-          Target schema version (default: 5.0.0)
+          Target model format (default: 5.1.0)
           
-          [default: 5.0.0]
+          [default: 5.1.0]
 
   -v, --verbose
           Show verbose output
@@ -773,28 +764,35 @@ YAML CONFIGURATION:
   monte_carlo:
     enabled: true
     iterations: 10000
-    sampling: latin_hypercube  # 5x faster than monte_carlo
+    sampling: latin_hypercube  # spreads samples evenly; steadier results per iteration
     seed: 12345                # For reproducibility
     outputs:
       - variable: valuation.npv
         percentiles: [10, 50, 90]
-        threshold: "> 0"
+        thresholds: ["> 0", "> 250000"]
 
   assumptions:
-    revenue: =MC.Normal(1000000, 150000)
-    costs: =MC.Triangular(400000, 500000, 600000)
+    revenue:
+      formula: "=MC.Normal(1000000, 150000)"
+    costs:
+      formula: "=MC.Triangular(400000, 500000, 600000)"
+
+An MC.* input can also be in an included file (read as @costs.flour).
 
 OUTPUT:
   - Statistics: mean, median, std dev, min, max
-  - Percentiles: P5, P10, P25, P50, P75, P90, P95
-  - Probabilities: P(NPV > 0), P(IRR > hurdle)
-  - Histogram data for visualization
+  - Percentiles: P5, P10, P25, P50, P75, P90, P95 and those asked for
+  - Probabilities: P(NPV > 0), P(NPV > 250000)
+  - Drivers: the sampled inputs ranked by rank correlation with each output
 
 EXAMPLES:
   forge simulate model.yaml                    # Use YAML config
   forge simulate model.yaml -n 10000           # Override iterations
   forge simulate model.yaml --seed 42          # Reproducible
   forge simulate model.yaml -o results.json    # JSON output
+  forge simulate model.yaml --scenario rainy   # Under a scenario's overrides
+  forge simulate model.yaml --seek "P(year.profit > 0) = 0.8" --vary price --min 14 --max 24
+                                               # The price at which 80% of runs make money
 
 Usage: forge simulate [OPTIONS] <FILE>
 
@@ -812,8 +810,23 @@ Options:
       --sampling <SAMPLING>
           Sampling method: `monte_carlo` or `latin_hypercube`
 
+      --scenario <SCENARIO>
+          Apply a scenario's overrides first (an override of an MC.* input fixes it)
+
+      --seek <SEEK>
+          Find the value of --vary that meets a probability, e.g. "P(year.profit > 0) = 0.8"
+
+      --vary <VARY>
+          Input to vary for --seek (a scalar with a plain value)
+
+      --min <MIN>
+          Lowest value of --vary to try
+
+      --max <MAX>
+          Highest value of --vary to try
+
   -o, --output <OUTPUT>
-          Output file (.json or .yaml)
+          Output file (.json, .yaml or .xlsx)
 
   -v, --verbose
           Show verbose output
@@ -1139,6 +1152,9 @@ YAML CONFIGURATION:
           good: [0.8, 0.15, 0.05]
           neutral: [0.4, 0.4, 0.2]
           bad: [0.1, 0.3, 0.6]
+
+  A node with several parents (parents: [a, b]) has one CPT row per
+  combination of their states, in that order: "x, y": [...]
 
 EXAMPLES:
   forge bayesian model.yaml                           # Query all nodes

@@ -66,11 +66,6 @@ pub use analysis::{
     print_variance_table, VarianceResult,
 };
 #[cfg(test)]
-pub use audit::{
-    build_dependency_tree, extract_references_from_formula, find_variable, print_dependency,
-    AuditDependency,
-};
-#[cfg(test)]
 pub use upgrade::split_scalars_to_inputs_outputs;
 
 use crate::core::{ArrayCalculator, UnitValidator};
