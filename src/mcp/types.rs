@@ -185,8 +185,10 @@ pub struct SimulateRequest {
     pub iterations: Option<u64>,
     /// Random seed for reproducibility
     pub seed: Option<u64>,
-    /// Sampling method: 'random' or `latin_hypercube` (default: from config)
+    /// Sampling method: `monte_carlo` or `latin_hypercube` (default: from config)
     pub sampling: Option<String>,
+    /// Scenario whose overrides apply first (an override of an MC.* input fixes it)
+    pub scenario: Option<String>,
 }
 
 /// Parameters for the `forge_scenarios` tool.

@@ -48,9 +48,27 @@ pub struct OutputConfig {
     #[serde(default)]
     pub threshold: Option<String>,
 
+    /// Several thresholds (e.g., `["> 0", "> 20000"]`), after `threshold`
+    #[serde(default)]
+    pub thresholds: Vec<String>,
+
     /// Custom label for output
     #[serde(default)]
     pub label: Option<String>,
+}
+
+impl OutputConfig {
+    /// `threshold` and then `thresholds`, each once, in the order written.
+    #[must_use]
+    pub fn all_thresholds(&self) -> Vec<&str> {
+        let mut all: Vec<&str> = Vec::new();
+        for t in self.threshold.iter().chain(&self.thresholds) {
+            if !all.contains(&t.as_str()) {
+                all.push(t);
+            }
+        }
+        all
+    }
 }
 
 /// Correlation specification between variables
@@ -139,7 +157,7 @@ impl MonteCarloConfig {
                     output.variable
                 ));
             }
-            if let Some(threshold) = &output.threshold {
+            for threshold in output.all_thresholds() {
                 crate::monte_carlo::statistics::parse_threshold(threshold)
                     .map_err(|e| format!("output '{}': {e}", output.variable))?;
             }

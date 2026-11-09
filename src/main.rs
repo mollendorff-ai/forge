@@ -491,28 +491,33 @@ YAML CONFIGURATION:
   monte_carlo:
     enabled: true
     iterations: 10000
-    sampling: latin_hypercube  # 5x faster than monte_carlo
+    sampling: latin_hypercube  # spreads samples evenly; steadier results per iteration
     seed: 12345                # For reproducibility
     outputs:
       - variable: valuation.npv
         percentiles: [10, 50, 90]
-        threshold: \"> 0\"
+        thresholds: [\"> 0\", \"> 250000\"]
 
   assumptions:
-    revenue: =MC.Normal(1000000, 150000)
-    costs: =MC.Triangular(400000, 500000, 600000)
+    revenue:
+      formula: \"=MC.Normal(1000000, 150000)\"
+    costs:
+      formula: \"=MC.Triangular(400000, 500000, 600000)\"
+
+An MC.* input can also be in an included file (read as @costs.flour).
 
 OUTPUT:
   - Statistics: mean, median, std dev, min, max
-  - Percentiles: P5, P10, P25, P50, P75, P90, P95
-  - Probabilities: P(NPV > 0), P(IRR > hurdle)
-  - Histogram data for visualization
+  - Percentiles: P5, P10, P25, P50, P75, P90, P95 and those asked for
+  - Probabilities: P(NPV > 0), P(NPV > 250000)
+  - Drivers: the sampled inputs ranked by rank correlation with each output
 
 EXAMPLES:
   forge simulate model.yaml                    # Use YAML config
   forge simulate model.yaml -n 10000           # Override iterations
   forge simulate model.yaml --seed 42          # Reproducible
-  forge simulate model.yaml -o results.json    # JSON output")]
+  forge simulate model.yaml -o results.json    # JSON output
+  forge simulate model.yaml --scenario rainy   # Under a scenario's overrides")]
     /// Run Monte Carlo simulation
     Simulate {
         /// Path to YAML file with `monte_carlo`: section
@@ -530,7 +535,11 @@ EXAMPLES:
         #[arg(long)]
         sampling: Option<String>,
 
-        /// Output file (.json or .yaml)
+        /// Apply a scenario's overrides first (an override of an MC.* input fixes it)
+        #[arg(long)]
+        scenario: Option<String>,
+
+        /// Output file (.json, .yaml or .xlsx)
         #[arg(short, long)]
         output: Option<PathBuf>,
 
@@ -1214,11 +1223,15 @@ fn run() -> ForgeResult<()> {
             sampling,
             output,
             verbose,
+            scenario,
         } => cli::simulate(
             &file,
-            iterations,
-            seed,
-            sampling.as_deref(),
+            cli::SimulateOptions {
+                iterations,
+                seed,
+                sampling: sampling.as_deref(),
+                scenario: scenario.as_deref(),
+            },
             output,
             verbose,
         ),

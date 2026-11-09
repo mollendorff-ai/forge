@@ -6,6 +6,7 @@
 //! 3. Evaluate formulas for each iteration
 //! 4. Compute output statistics
 
+use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Instant;
@@ -30,8 +31,8 @@ pub struct SimulationResult {
     pub iterations_completed: usize,
     /// Execution time in milliseconds
     pub execution_time_ms: u64,
-    /// Results for each tracked output variable
-    pub outputs: HashMap<String, OutputResult>,
+    /// Results for each tracked output variable, in the order configured
+    pub outputs: IndexMap<String, OutputResult>,
     /// All sampled values for inputs (variable -> samples)
     pub input_samples: HashMap<String, Vec<f64>>,
 }
@@ -47,8 +48,79 @@ pub struct OutputResult {
     pub samples: Vec<f64>,
     /// Histogram data
     pub histogram: Histogram,
-    /// Probability thresholds (threshold string -> probability)
-    pub threshold_probabilities: HashMap<String, f64>,
+    /// Probability thresholds (threshold string -> probability), in the order configured
+    pub threshold_probabilities: IndexMap<String, f64>,
+    /// Inputs ranked by how strongly they move this output
+    pub drivers: Vec<Driver>,
+}
+
+/// How strongly one sampled input moves an output.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Driver {
+    /// The `MC.*` input
+    pub input: String,
+    /// Spearman rank correlation between the input's samples and the output's
+    /// (-1 to 1; the sign says which way the output moves)
+    pub rank_correlation: f64,
+}
+
+/// Statistics, thresholds and drivers of one output's samples.
+fn summarize(
+    output_config: &super::config::OutputConfig,
+    samples: Vec<f64>,
+    input_samples: &HashMap<String, Vec<f64>>,
+) -> OutputResult {
+    let mut statistics = Statistics::from_samples(&samples);
+    // The percentiles asked for, on top of the standard set
+    statistics
+        .percentiles
+        .extend(calculate_percentiles(&samples, &output_config.percentiles));
+    let histogram = Histogram::from_samples(&samples, 50);
+
+    // Thresholds were checked by `MonteCarloConfig::validate`
+    let threshold_probabilities = output_config
+        .all_thresholds()
+        .into_iter()
+        .filter_map(|t| {
+            let (op, value) = parse_threshold(t).ok()?;
+            Some((t.to_string(), evaluate_threshold(&samples, &op, value)))
+        })
+        .collect();
+
+    let drivers = drivers(&samples, input_samples);
+    OutputResult {
+        variable: output_config.variable.clone(),
+        statistics,
+        samples,
+        histogram,
+        threshold_probabilities,
+        drivers,
+    }
+}
+
+/// Every input whose samples vary, ranked by the size of its rank
+/// correlation with the output (name order breaks ties). An input that does
+/// not vary, or an output that does not, moves nothing and is left out.
+fn drivers(output: &[f64], input_samples: &HashMap<String, Vec<f64>>) -> Vec<Driver> {
+    let varies = |v: &[f64]| v.iter().any(|x| (x - v[0]).abs() > 0.0);
+    if output.is_empty() || !varies(output) {
+        return Vec::new();
+    }
+    let mut drivers: Vec<Driver> = input_samples
+        .iter()
+        .filter(|(_, samples)| samples.len() == output.len() && varies(samples))
+        .map(|(input, samples)| Driver {
+            input: input.clone(),
+            rank_correlation: super::sensitivity::spearman_correlation(samples, output),
+        })
+        .collect();
+    drivers.sort_by(|a, b| {
+        b.rank_correlation
+            .abs()
+            .total_cmp(&a.rank_correlation.abs())
+            .then_with(|| a.input.cmp(&b.input))
+    });
+    drivers
 }
 
 /// Monte Carlo simulation engine
@@ -83,12 +155,22 @@ impl MonteCarloEngine {
             .insert(variable.to_string(), distribution);
     }
 
-    /// Parse distributions from a model's scalar formulas
+    /// Parse distributions from a model's scalar formulas, and from those of
+    /// the files it includes (named `@namespace.path`).
     ///
     /// # Errors
     ///
     /// Returns an error if any `MC.*` formula fails to parse.
     pub fn parse_distributions_from_model(&mut self, model: &ParsedModel) -> Result<(), String> {
+        self.add_distributions_of(model, "")?;
+        for (namespace, resolved) in &model.resolved_includes {
+            self.add_distributions_of(&resolved.model, &format!("@{namespace}."))
+                .map_err(|e| format!("{e} (in the file included as '{namespace}')"))?;
+        }
+        Ok(())
+    }
+
+    fn add_distributions_of(&mut self, model: &ParsedModel, prefix: &str) -> Result<(), String> {
         for (name, scalar) in &model.scalars {
             if let Some(formula) = &scalar.formula {
                 let formula = formula.trim();
@@ -97,7 +179,7 @@ impl MonteCarloEngine {
 
                 if formula_content.starts_with("MC.") {
                     let dist = parse_distribution(formula_content)?;
-                    self.add_distribution(name, dist);
+                    self.add_distribution(&format!("{prefix}{name}"), dist);
                 }
             }
         }
@@ -115,15 +197,10 @@ impl MonteCarloEngine {
 
         let input_samples = self.sample_inputs(n)?;
 
-        // For now, output results are the same as input samples
-        // (Full formula evaluation will be added when integrating with calculator)
-        let mut outputs = HashMap::new();
-
+        let mut outputs = IndexMap::new();
         for output_config in &self.config.outputs {
             let var = &output_config.variable;
-
-            // Get samples for this variable (either from inputs or computed)
-            // Try exact match first, then with "scalars." prefix
+            // Without an evaluator an output can only be an input itself
             let samples = input_samples
                 .get(var)
                 .or_else(|| input_samples.get(&format!("scalars.{var}")))
@@ -134,35 +211,9 @@ impl MonteCarloEngine {
                          calculate it"
                     )
                 })?;
-
-            // Calculate statistics
-            let mut statistics = Statistics::from_samples(&samples);
-            // The percentiles asked for, on top of the standard set
-            statistics
-                .percentiles
-                .extend(calculate_percentiles(&samples, &output_config.percentiles));
-
-            // Create histogram (50 bins default)
-            let histogram = Histogram::from_samples(&samples, 50);
-
-            // Evaluate thresholds
-            let mut threshold_probabilities = HashMap::new();
-            if let Some(threshold_str) = &output_config.threshold {
-                if let Ok((op, value)) = parse_threshold(threshold_str) {
-                    let prob = evaluate_threshold(&samples, &op, value);
-                    threshold_probabilities.insert(threshold_str.clone(), prob);
-                }
-            }
-
             outputs.insert(
                 var.clone(),
-                OutputResult {
-                    variable: var.clone(),
-                    statistics,
-                    samples,
-                    histogram,
-                    threshold_probabilities,
-                },
+                summarize(output_config, samples, &input_samples),
             );
         }
 
@@ -234,36 +285,13 @@ impl MonteCarloEngine {
             }
         }
 
-        // Calculate statistics for outputs
-        let mut outputs = HashMap::new();
+        let mut outputs = IndexMap::new();
         for output_config in &self.config.outputs {
             let var = &output_config.variable;
-            let samples = output_samples.get(var).cloned().unwrap_or_default();
-
-            let mut statistics = Statistics::from_samples(&samples);
-            // The percentiles asked for, on top of the standard set
-            statistics
-                .percentiles
-                .extend(calculate_percentiles(&samples, &output_config.percentiles));
-            let histogram = Histogram::from_samples(&samples, 50);
-
-            let mut threshold_probabilities = HashMap::new();
-            if let Some(threshold_str) = &output_config.threshold {
-                if let Ok((op, value)) = parse_threshold(threshold_str) {
-                    let prob = evaluate_threshold(&samples, &op, value);
-                    threshold_probabilities.insert(threshold_str.clone(), prob);
-                }
-            }
-
+            let samples = output_samples.remove(var).unwrap_or_default();
             outputs.insert(
                 var.clone(),
-                OutputResult {
-                    variable: var.clone(),
-                    statistics,
-                    samples,
-                    histogram,
-                    threshold_probabilities,
-                },
+                summarize(output_config, samples, &input_samples),
             );
         }
 
@@ -428,6 +456,12 @@ impl SimulationResult {
                     let _ = writeln!(output, "        \"{t}\": {prob:.4}");
                 }
             }
+            if !result.drivers.is_empty() {
+                output.push_str("      drivers:\n");
+                for d in &result.drivers {
+                    let _ = writeln!(output, "        \"{}\": {:.4}", d.input, d.rank_correlation);
+                }
+            }
         }
 
         output
@@ -455,6 +489,11 @@ impl SimulationResult {
                 .iter()
                 .map(|(t, p)| (t.clone(), json!(p)))
                 .collect();
+            let drivers: Vec<serde_json::Value> = result
+                .drivers
+                .iter()
+                .map(|d| json!({"input": d.input, "rank_correlation": d.rank_correlation}))
+                .collect();
 
             outputs_json.insert(
                 var.clone(),
@@ -466,6 +505,7 @@ impl SimulationResult {
                     "max": result.statistics.max,
                     "percentiles": percentiles,
                     "thresholds": thresholds,
+                    "drivers": drivers,
                 }),
             );
         }
@@ -499,6 +539,7 @@ mod tests {
                 variable: "revenue".to_string(),
                 percentiles: vec![10, 50, 90],
                 threshold: Some("> 100000".to_string()),
+                thresholds: vec![],
                 label: None,
             }],
             correlations: vec![],
@@ -554,6 +595,7 @@ mod tests {
                 variable: "profit".to_string(),
                 percentiles: vec![10, 50, 90],
                 threshold: Some("> 0".to_string()),
+                thresholds: vec![],
                 label: None,
             }],
             correlations: vec![],

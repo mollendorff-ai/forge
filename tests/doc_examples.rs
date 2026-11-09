@@ -39,7 +39,8 @@ fn run(body: &str, dir: &Path, index: usize) -> Result<String, String> {
     let json = |v: serde_json::Value| v.to_string();
     let has = |section: &str| body.lines().any(|l| l.starts_with(section));
     if has("monte_carlo:") {
-        let r = simulate_core(&path, None, None, None).map_err(|e| e.to_string())?;
+        let r = simulate_core(&path, mollendorff_forge::cli::SimulateOptions::default())
+            .map_err(|e| e.to_string())?;
         r.to_json().map_err(|e| e.to_string())
     } else if has("decision_tree:") {
         decision_tree_core(&path)

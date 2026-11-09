@@ -13,6 +13,8 @@ use std::path::{Path, PathBuf};
 
 /// Calculate the model once with the sampled `inputs` and read the outputs.
 ///
+/// An input named `@ns.path` is a distribution in the included file `ns`.
+///
 /// # Errors
 ///
 /// Returns the calculation error, or an error naming an output that has no
@@ -25,10 +27,7 @@ fn evaluate_iteration(
     let mut iter_model = model.clone();
     // Replace MC.* distribution formulas with the sampled values
     for (var_name, &value) in inputs {
-        if let Some(scalar) = iter_model.scalars.get_mut(var_name) {
-            scalar.value = Some(value);
-            scalar.formula = None;
-        }
+        iter_model.override_scalar(var_name, Some(value), None)?;
     }
 
     let calculated = ArrayCalculator::new(iter_model)
@@ -50,33 +49,48 @@ fn evaluate_iteration(
         .collect()
 }
 
+/// What `forge simulate` runs, beyond the model file.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SimulateOptions<'a> {
+    /// Number of iterations, instead of the file's
+    pub iterations: Option<usize>,
+    /// Random seed, instead of the file's
+    pub seed: Option<u64>,
+    /// `monte_carlo` or `latin_hypercube`, instead of the file's
+    pub sampling: Option<&'a str>,
+    /// A scenario of the model whose overrides apply first. An override of an
+    /// `MC.*` input fixes that input at the scenario's value.
+    pub scenario: Option<&'a str>,
+}
+
 /// Run Monte Carlo simulation and return structured results (no printing).
 ///
 /// # Errors
 ///
 /// Returns an error if the YAML file cannot be parsed, the Monte Carlo
-/// configuration is invalid, or the simulation fails.
+/// configuration is invalid, the scenario does not exist, or the simulation fails.
 pub fn simulate_core(
     file: &Path,
-    iterations_override: Option<usize>,
-    seed_override: Option<u64>,
-    sampling_override: Option<&str>,
+    options: SimulateOptions<'_>,
 ) -> ForgeResult<crate::monte_carlo::SimulationResult> {
     let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
     let mut config = parse_monte_carlo_config(&yaml_content)?;
 
-    if let Some(n) = iterations_override {
+    if let Some(n) = options.iterations {
         config.iterations = n;
     }
-    if let Some(s) = seed_override {
+    if let Some(s) = options.seed {
         config.seed = Some(s);
     }
-    if let Some(sampling) = sampling_override {
+    if let Some(sampling) = options.sampling {
         config.sampling = sampling.to_string();
     }
     config.validate().map_err(ForgeError::Validation)?;
 
-    let model = parser::parse_model(file)?;
+    let mut model = parser::parse_model(file)?;
+    if let Some(scenario) = options.scenario {
+        super::apply_scenario(&mut model, scenario)?;
+    }
     let mut engine = MonteCarloEngine::new(config.clone()).map_err(ForgeError::Validation)?;
     engine
         .parse_distributions_from_model(&model)
@@ -99,41 +113,22 @@ pub fn simulate_core(
 /// configuration is invalid, or the simulation fails.
 pub fn simulate(
     file: &Path,
-    iterations_override: Option<usize>,
-    seed_override: Option<u64>,
-    sampling_override: Option<&str>,
+    options: SimulateOptions<'_>,
     output_file: Option<PathBuf>,
     verbose: bool,
 ) -> ForgeResult<()> {
     println!("{}", "🎲 Forge - Monte Carlo Simulation".bold().green());
     println!("   File: {}", file.display());
+    if let Some(scenario) = options.scenario {
+        println!("   Scenario: {}", scenario.bright_blue());
+    }
     println!();
-
-    // Parse the YAML file
     if verbose {
-        println!("{}", "📖 Parsing YAML file...".cyan());
+        println!("{}", "🎲 Running simulation...".cyan());
     }
 
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
-
-    // Parse monte_carlo config from YAML
-    let mut config = parse_monte_carlo_config(&yaml_content)?;
-
-    // Apply command-line overrides
-    if let Some(n) = iterations_override {
-        config.iterations = n;
-    }
-    if let Some(s) = seed_override {
-        config.seed = Some(s);
-    }
-    if let Some(sampling) = sampling_override {
-        config.sampling = sampling.to_string();
-    }
-
-    // Validate config
-    config.validate().map_err(ForgeError::Validation)?;
-
-    // Display config
+    let result = simulate_core(file, options)?;
+    let config = &result.config;
     println!("   {}", "Configuration:".bold());
     println!(
         "      Iterations: {}",
@@ -145,44 +140,8 @@ pub fn simulate(
     }
     println!();
 
-    // Parse the full model to extract distributions
-    let model = parser::parse_model(file)?;
-
-    if verbose {
-        println!(
-            "   Found {} tables, {} scalars",
-            model.tables.len(),
-            model.scalars.len()
-        );
-    }
-
-    // Create engine
-    let mut engine = MonteCarloEngine::new(config.clone()).map_err(ForgeError::Validation)?;
-
-    // Parse distributions from model
-    engine
-        .parse_distributions_from_model(&model)
-        .map_err(ForgeError::Validation)?;
-
-    // Run simulation with formula evaluation
-    if verbose {
-        println!("{}", "🎲 Running simulation...".cyan());
-    }
-
-    // Get output variable names from config
-    let output_vars: Vec<String> = config.outputs.iter().map(|o| o.variable.clone()).collect();
-
-    // Create evaluator that runs formulas for each iteration
-    let result = engine
-        .run_with_evaluator(|inputs: &HashMap<String, f64>| {
-            evaluate_iteration(&model, &output_vars, inputs)
-        })
-        .map_err(ForgeError::Eval)?;
-
-    // Display results
     print_simulation_results(&result);
 
-    // Write output file if specified
     if let Some(output_path) = output_file {
         write_simulation_output(&result, &output_path)?;
     }
@@ -226,7 +185,7 @@ fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
     // Show output results
     if !result.outputs.is_empty() {
         println!("   {}", "Output Statistics:".bold());
-        for (var_name, output) in sorted_by_name(&result.outputs) {
+        for (var_name, output) in &result.outputs {
             let stats = &output.statistics;
             println!("      {}:", var_name.bright_blue().bold());
             println!("         Mean:      {:.4}", stats.mean);
@@ -241,14 +200,25 @@ fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
                 println!("            P{p}: {v:.4}");
             }
 
-            // Thresholds
-            for (threshold, prob) in sorted_by_name(&output.threshold_probabilities) {
+            // Thresholds, in the order configured
+            for (threshold, prob) in &output.threshold_probabilities {
                 println!(
                     "         P({} {}) = {:.2}%",
                     var_name,
                     threshold,
                     prob * 100.0
                 );
+            }
+
+            // Which sampled inputs move it most
+            if !output.drivers.is_empty() {
+                println!("         Drivers (rank correlation with the output):");
+                for driver in &output.drivers {
+                    println!(
+                        "            {:+.3}  {}",
+                        driver.rank_correlation, driver.input
+                    );
+                }
             }
             println!();
         }
@@ -440,5 +410,117 @@ scalars:
             "Mean should be ~60 (p_sampled * 100), got {}",
             result_stats.statistics.mean
         );
+    }
+
+    fn write(dir: &std::path::Path, name: &str, text: &str) -> std::path::PathBuf {
+        let path = dir.join(name);
+        std::fs::write(&path, text).unwrap();
+        path
+    }
+
+    /// A scenario that overrides an MC.* input fixes it: it is no longer
+    /// sampled, and drives nothing.
+    #[test]
+    fn scenario_fixes_an_uncertain_input() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write(
+            dir.path(),
+            "m.yaml",
+            r#"_forge_version: "5.1.0"
+a:
+  x:
+    formula: "=MC.Uniform(0, 10)"
+  y:
+    formula: "=MC.Uniform(0, 1)"
+  total:
+    formula: "=x + y"
+monte_carlo:
+  iterations: 200
+  seed: 3
+  outputs:
+    - variable: a.total
+      thresholds: ["> 5", "<= 1"]
+scenarios:
+  known_x:
+    x: 4
+"#,
+        );
+        let base = simulate_core(&path, SimulateOptions::default()).unwrap();
+        let drivers: Vec<&str> = base.outputs["a.total"]
+            .drivers
+            .iter()
+            .map(|d| d.input.as_str())
+            .collect();
+        assert_eq!(drivers, ["a.x", "a.y"], "x varies ten times more");
+        let thresholds: Vec<&String> = base.outputs["a.total"]
+            .threshold_probabilities
+            .keys()
+            .collect();
+        assert_eq!(thresholds, ["> 5", "<= 1"], "in the order written");
+
+        let fixed = simulate_core(
+            &path,
+            SimulateOptions {
+                scenario: Some("known_x"),
+                ..SimulateOptions::default()
+            },
+        )
+        .unwrap();
+        assert!(!fixed.input_samples.contains_key("a.x"));
+        let total = &fixed.outputs["a.total"];
+        assert!(total.samples.iter().all(|t| (4.0..=5.0).contains(t)));
+        assert!(total.threshold_probabilities["> 5"].abs() < f64::EPSILON);
+        assert_eq!(total.drivers.len(), 1);
+        assert_eq!(total.drivers[0].input, "a.y");
+        assert!((total.drivers[0].rank_correlation - 1.0).abs() < 1e-12);
+
+        let err = simulate_core(
+            &path,
+            SimulateOptions {
+                scenario: Some("nope"),
+                ..SimulateOptions::default()
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("known_x"), "{err}");
+    }
+
+    /// An MC.* input can be in an included file: it is sampled as `@ns.name`,
+    /// and the formulas of that file that read it follow.
+    #[test]
+    fn uncertain_input_in_an_included_file() {
+        let dir = tempfile::tempdir().unwrap();
+        write(
+            dir.path(),
+            "rates.yaml",
+            "_forge_version: \"5.1.0\"\nfx:\n  usd:\n    formula: \"=MC.Uniform(1.3, 1.4)\"\n  usd_with_fee:\n    formula: \"=usd * 1.01\"\n",
+        );
+        let path = write(
+            dir.path(),
+            "m.yaml",
+            "_forge_version: \"5.1.0\"\n_includes:\n  - file: rates.yaml\n    as: rates\nbuy:\n  cad:\n    formula: \"=100 * @rates.fx.usd_with_fee\"\nmonte_carlo:\n  iterations: 100\n  seed: 1\n  outputs:\n    - variable: buy.cad\n",
+        );
+        let result = simulate_core(&path, SimulateOptions::default()).unwrap();
+        let usd = &result.input_samples["@rates.fx.usd"];
+        let cad = &result.outputs["buy.cad"].samples;
+        for (u, c) in usd.iter().zip(cad) {
+            assert!((c - 100.0 * u * 1.01).abs() < 1e-9, "{u} {c}");
+        }
+        assert_eq!(result.outputs["buy.cad"].drivers[0].input, "@rates.fx.usd");
+    }
+
+    #[test]
+    fn a_bad_threshold_in_the_list_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write(
+            dir.path(),
+            "m.yaml",
+            "_forge_version: \"5.1.0\"\na:\n  x:\n    formula: \"=MC.Uniform(0, 1)\"\nmonte_carlo:\n  iterations: 10\n  outputs:\n    - variable: a.x\n      thresholds: [\"> 0\", \"about 3\"]\n",
+        );
+        let err = simulate_core(&path, SimulateOptions::default())
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("a.x"), "{err}");
     }
 }

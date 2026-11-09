@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`forge simulate` says what drives each output** (T1-SCEN-SIM). Every sampled input is ranked by its Spearman rank correlation with each output, printed under the output and returned in JSON, YAML, the Excel workbook and the MCP tool. On the bagel model, opening demand drives the year's profit most (+0.84) and the uncertain flour price least (-0.09). FEATURES.md had promised this as `sensitivity: true`, which was an error.
+- **Several thresholds per output**: `thresholds: ["> 0", "> 20000"]`, next to the single `threshold`, reported in the order written.
+- **`forge simulate --scenario name`** (and `scenario` in the MCP tool) applies a scenario's overrides first; an override of an `MC.*` input fixes it.
+- **`MC.*` inputs in an included file**, sampled as `@costs.ingredients.flour_per_kg`. They were an "Unknown function" error. `examples/bagel/costs_risk.yaml` makes the flour price and the wage uncertain and reads the other costs from `costs.yaml`.
+- Checked outside Forge: on `examples/bagel/bagel_simulate.yaml`, a numpy re-implementation of the model gives Forge's outputs from Forge's own input samples to 1e-10, and numpy and `scipy.stats.spearmanr` give the thresholds and drivers Forge reports (asserted in `tests/bagel_example.rs`).
+
+### Fixed
+- **Outputs and thresholds of `forge simulate` came out in an order that could change between runs** (hash maps) in the YAML output and the workbook; they follow the configuration now.
+- **The Monte Carlo section of FEATURES.md described settings that are errors** (`thresholds: [0, 100000]` as numbers, `sensitivity: true`, `histogram: true`, `bins`), bare `=MC.Normal(...)` strings, a `forge monte-carlo` command, scenarios with `MC.*` formulas inside them (a schema error), and an unsourced performance table. It was rewritten from the code with an example whose output is real. The `forge simulate --help` example had the same bare strings and called Latin hypercube sampling "5x faster"; docs/MCP.md offered a `random` sampling that does not exist.
+
 ### Changed
 - **The project's own description is true again** (T1-PROJECT-TRUTH, T1-USE-AGAIN). Every page in docs/architecture was checked against the code. The pages that describe a design Forge no longer has (01 to 05, and the architecture half of 00) carry a dated note saying what changed and where to look; 30 ADRs got a dated note, and 11 a corrected status (five testing ADRs were never built; ADR-031 is the license in force, not superseded). The API page described a server open to every origin with no authentication; its configuration and security sections were rewritten from the code. `.asimov/project.yaml` lists the stack from Cargo.toml, and each convention says what enforces it: `tests/conventions.rs` checks file length and `partial_cmp().unwrap()`, and a new pull request template asks for the rest (changelog entry, a failing test for a wrong answer, an example with outside numbers for a new command). `src/mcp/server.rs` was over the 1,500-line limit; its tests moved to `server_tests.rs`. `make test-integration` ran a test that did not exist, and tests/README.md described a repository that was split in two.
 

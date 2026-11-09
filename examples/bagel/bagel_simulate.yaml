@@ -1,8 +1,9 @@
 _forge_version: "5.1.0"
-# Bagel Lune, Monte Carlo version: uncertain demand and staffing (bagel.yaml has the plan).
+# Bagel Lune, Monte Carlo version: uncertain demand, staffing, flour price and
+# wage (bagel.yaml has the plan). The prices are uncertain in costs_risk.yaml.
 # Run with forge simulate (calculate cannot evaluate MC.* inputs).
 _includes:
-  - file: costs.yaml
+  - file: costs_risk.yaml
     as: costs
 
 assumptions:
@@ -60,4 +61,13 @@ monte_carlo:
   outputs:
     - variable: year.profit
       percentiles: [10, 50, 90]
-      threshold: "> 0"
+      # Lose money; make a living (20,000); lose more than half the savings buffer
+      thresholds: ["> 0", "> 20000", "< -50000"]
+    - variable: year.worst_month_profit
+      thresholds: ["< -10000"]
+
+# forge simulate bagel_simulate.yaml --scenario rent_hike
+# (the landlord raises the rent at signing)
+scenarios:
+  rent_hike:
+    rent_per_month: 5600
