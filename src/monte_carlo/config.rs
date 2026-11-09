@@ -55,6 +55,21 @@ pub struct OutputConfig {
     /// Custom label for output
     #[serde(default)]
     pub label: Option<String>,
+
+    /// Mean of the worst p% of runs, for each p (e.g., `[5]`): the lowest
+    /// results, or the highest when the variable has `better: lower`
+    #[serde(default)]
+    pub expected_shortfall: Vec<u8>,
+
+    /// Whether the highest results are the worst (`better: lower` on the
+    /// variable); set from the model, not read from the file
+    #[serde(skip)]
+    pub higher_is_worse: bool,
+
+    /// For one row of a table column output: the column (`months.profit`)
+    /// and the row (0-based); set when the outputs are expanded
+    #[serde(skip)]
+    pub row: Option<(String, usize)>,
 }
 
 impl OutputConfig {
@@ -154,6 +169,16 @@ impl MonteCarloConfig {
             if let Some(p) = output.percentiles.iter().find(|p| **p > 100) {
                 return Err(format!(
                     "output '{}': percentile {p} is not between 0 and 100",
+                    output.variable
+                ));
+            }
+            if let Some(p) = output
+                .expected_shortfall
+                .iter()
+                .find(|p| **p == 0 || **p >= 100)
+            {
+                return Err(format!(
+                    "output '{}': expected_shortfall {p} is not between 1 and 99 (percent of runs)",
                     output.variable
                 ));
             }

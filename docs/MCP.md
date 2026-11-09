@@ -280,6 +280,8 @@ Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular,
 | `seed` | integer | no | Random seed for reproducibility |
 | `sampling` | string | no | `monte_carlo` or `latin_hypercube` (default: from config) |
 | `scenario` | string | no | A scenario whose overrides apply first; an override of an `MC.*` input fixes it |
+| `seek` | string | no | `"P(year.profit > 0) = 0.8"`: returns the value of `vary` at which the probability is first met, instead of the statistics |
+| `vary`, `min`, `max` | string, number, number | with `seek` | The input to vary and the range to search |
 
 *One of `file_path` or `content` is required.
 

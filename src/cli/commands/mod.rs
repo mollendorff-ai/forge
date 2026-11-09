@@ -24,6 +24,7 @@ mod examples;
 mod excel_io;
 mod functions;
 mod prediction;
+mod probability_seek;
 pub mod results;
 mod schema;
 mod simulate;
@@ -54,6 +55,7 @@ pub use prediction::{
     bayesian_core, bootstrap_core, decision_tree_core, real_options_core, scenarios_core,
     tornado_core,
 };
+pub use probability_seek::{probability_seek, probability_seek_core, SeekGoal, SeekResult};
 pub use schema::schema_core;
 pub use simulate::{simulate_core, SimulateOptions};
 

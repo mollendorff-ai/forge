@@ -312,9 +312,13 @@ An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}
 
 ### Settings (`monte_carlo:`)
 
-- `iterations` (1 to 1,000,000, default 10,000), `sampling` (`latin_hypercube`, the default, spreads each input's samples evenly and gives steadier results for the same count; or `monte_carlo`), and `seed` for the same samples on every run.
-- `outputs`: for each output, `variable`; `percentiles` (added to P5, P10, P25, P50, P75, P90 and P95, each 0 to 100); `threshold` or `thresholds` (`"> 0"`, `"<= 100000"`; operators `>`, `>=`, `<`, `<=`, `=`). An unknown key is an error.
-- `correlations`: pairs of inputs and a coefficient between -1 and 1, applied as a Gaussian copula, so each input keeps its own distribution. A name can be the full name or its last part when that is unique.
+- `iterations` (100 to 1,000,000 in the file, default 10,000; `-n` accepts any count from 1), `sampling` (`latin_hypercube`, the default, spreads each input's samples evenly and gives steadier results for the same count; or `monte_carlo`), and `seed` for the same samples on every run.
+- `outputs`: for each output, `variable` (a scalar, or a table column such as `months.profit`, which gives one result per row, printed as a table); `percentiles` (added to P5, P10, P25, P50, P75, P90 and P95, each 0 to 100); `threshold` or `thresholds` (`"> 0"`, `"<= 100000"`; operators `>`, `>=`, `<`, `<=`, `=`); `expected_shortfall` (`[5, 10]`: the mean of the worst 5% and 10% of runs, the lowest results, or the highest when the variable has `better: lower`; the worst ceil(n × p / 100) runs are averaged). An unknown key is an error.
+- `correlations`: pairs of inputs and a coefficient between -1 and 1, applied as a Gaussian copula, so each input keeps its own distribution (the rank correlation that results is a little lower: 0.58 for 0.6). A name can be the full name or its last part when that is unique, and an input of an included file can be paired with one of the model.
+
+### Seeking a probability
+
+`forge simulate model.yaml --seek "P(year.profit > 0) = 0.8" --vary price_per_dozen --min 14 --max 24` finds the value of one input at which an output meets a threshold with the probability asked for (`= 80%` works too). Every simulation uses the same seed, so the uncertain inputs are drawn the same way for every value tried; the probability then changes in steps, and bisection finds, to a millionth of the range, the value where it first reaches the goal. If the goal is not crossed between `--min` and `--max`, it says what the probability is at each end. On the bagel model (1,000 runs) the answer is a price of 18.354: just above the 800th lowest of the runs' break-even prices, which numpy computes from the same samples (`tests/bagel_example.rs`). The MCP `forge_simulate` tool takes `seek`, `vary`, `min` and `max`.
 
 ### Results
 

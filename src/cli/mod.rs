@@ -9,7 +9,7 @@ pub use commands::{
 
 pub use commands::upgrade;
 
-pub use commands::simulate;
+pub use commands::{probability_seek, simulate};
 
 pub use commands::{bayesian, bootstrap, decision_tree, real_options, scenarios, tornado};
 
@@ -20,3 +20,4 @@ pub use commands::{
     real_options_core, scenarios_core, schema_core, sensitivity_core, simulate_core, tornado_core,
     validate_core, variance_core, SimulateOptions,
 };
+pub use commands::{probability_seek_core, SeekGoal, SeekResult};

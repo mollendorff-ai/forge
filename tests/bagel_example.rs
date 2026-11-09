@@ -287,8 +287,15 @@ fn simulation_drivers_and_thresholds_match_scipy() {
     }
     assert_eq!(drivers.len(), 4);
     // Outputs in the order configured
-    let names: Vec<&String> = result.outputs.keys().collect();
-    assert_eq!(names, ["year.profit", "year.worst_month_profit"]);
+    let names: Vec<&String> = result.outputs.keys().take(3).collect();
+    assert_eq!(
+        names,
+        [
+            "year.profit",
+            "year.worst_month_profit",
+            "months.profit (row 1)"
+        ]
+    );
 
     // The rent hike moves every sample by exactly 12 months of 800
     let hiked = simulate_core(
@@ -306,4 +313,86 @@ fn simulation_drivers_and_thresholds_match_scipy() {
     {
         assert!(close(a - b, 9600.0, 1e-6), "{a} {b}");
     }
+}
+
+/// `forge simulate --seek`: the price at which 80% of runs make money.
+///
+/// Checked outside Forge: profit is linear in the price, so each run has a
+/// break-even price (costs before card fees / (dozens x 0.974)), computed in
+/// numpy from Forge's input samples (1,000 runs, seed 7). The year makes
+/// money in 80% of runs just above the 800th lowest of them,
+/// 18.354117372865204 (the 801st is 18.359180292780614).
+#[test]
+fn price_for_an_eighty_percent_chance_of_profit() {
+    use mollendorff_forge::cli::{probability_seek_core, SeekGoal, SimulateOptions};
+    let goal = SeekGoal::parse("P(year.profit > 0) = 0.8").unwrap();
+    let result = probability_seek_core(
+        Path::new("examples/bagel/bagel_simulate.yaml"),
+        SimulateOptions {
+            iterations: Some(1000),
+            ..SimulateOptions::default()
+        },
+        &goal,
+        "price_per_dozen",
+        14.0,
+        24.0,
+    )
+    .unwrap();
+    assert_eq!(result.input, "assumptions.price_per_dozen");
+    assert!(
+        result.value > 18.354_117_372_865_204 && result.value < 18.354_117_372_865_204 + 1e-4,
+        "{}",
+        result.value
+    );
+    assert!(close(result.probability, 0.8, 1e-12));
+}
+
+/// Each month as a simulation output, and the expected shortfall of the year.
+#[test]
+#[allow(clippy::suboptimal_flops)] // the model typed as in the Python check
+fn simulation_months_and_expected_shortfall() {
+    use mollendorff_forge::cli::{simulate_core, SimulateOptions};
+    let result = simulate_core(
+        Path::new("examples/bagel/bagel_simulate.yaml"),
+        SimulateOptions {
+            iterations: Some(1000),
+            ..SimulateOptions::default()
+        },
+    )
+    .unwrap();
+    let inputs = &result.input_samples;
+    let profit = &result.outputs["year.profit"];
+    let season = [
+        0.85, 1.25, 0.80, 0.80, 0.90, 0.95, 1.05, 1.15, 1.25, 1.25, 1.05, 1.00,
+    ];
+    assert_eq!(result.outputs.len(), 2 + 12, "one output per month");
+
+    // Each month's profit is the model's month, run by run
+    for (m, se) in season.iter().enumerate() {
+        let month = &result.outputs[&format!("months.profit (row {})", m + 1)];
+        for i in [0, 499, 999] {
+            let opening = inputs["assumptions.opening_dozens_per_day"][i];
+            let dz = opening * 1.03_f64.powi(i32::try_from(m).unwrap()) * se * 30.0;
+            let r = dz * 16.0;
+            let c = dz * 12.0 / 9.0 * inputs["@costs.ingredients.flour_per_kg"][i]
+                + dz * 12.0 * 6.0 / 1000.0 * 9.40
+                + dz * 0.35
+                + inputs["assumptions.staff_hours_per_day"][i]
+                    * 30.0
+                    * inputs["@costs.labour.wage_per_hour"][i]
+                    * 1.15
+                + 5750.0
+                + r * 0.026;
+            assert!(close(r - c, month.samples[i], 1e-6), "month {m} run {i}");
+        }
+    }
+    // The mean of the worst 5% and 10% of years (numpy: sort, average the
+    // lowest 50 and 100 of the 1,000)
+    let mut sorted = profit.samples.clone();
+    sorted.sort_by(f64::total_cmp);
+    let worst = |k: usize| sorted[..k].iter().sum::<f64>() / f64::from(u32::try_from(k).unwrap());
+    let shortfall: Vec<(u8, f64)> = profit.expected_shortfall.clone();
+    assert_eq!(shortfall.len(), 2);
+    assert!(close(shortfall[0].1, worst(50), 1e-9));
+    assert!(close(shortfall[1].1, worst(100), 1e-9));
 }
