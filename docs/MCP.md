@@ -269,7 +269,7 @@ Compare calculation results across multiple scenarios side-by-side.
 
 #### `forge_simulate`
 
-Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular, Uniform, PERT, Lognormal). Returns statistics, percentiles, and threshold probabilities.
+Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular, Uniform, PERT, Lognormal, Discrete). Returns statistics, percentiles, threshold probabilities, and drivers (each `MC.*` input's rank correlation with each output). An `MC.*` input may be in an included file.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -278,7 +278,8 @@ Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular,
 | `includes` | object | no | Inline include content as namespace-to-YAML map |
 | `iterations` | integer | no | Number of iterations (default: from YAML config or 10000) |
 | `seed` | integer | no | Random seed for reproducibility |
-| `sampling` | string | no | `random` or `latin_hypercube` (default: from config) |
+| `sampling` | string | no | `monte_carlo` or `latin_hypercube` (default: from config) |
+| `scenario` | string | no | A scenario whose overrides apply first; an override of an `MC.*` input fixes it |
 
 *One of `file_path` or `content` is required.
 

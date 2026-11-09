@@ -163,6 +163,10 @@ forge simulate npv_analysis.yaml
             P50: 88265.5005
             P90: 109079.7955
          P(valuation.npv > 0) = 100.00%
+         Drivers (rank correlation with the output):
+            -0.772  assumptions.initial_cost
+            +0.466  assumptions.revenue_growth
+            -0.392  assumptions.discount_rate
 ```
 
 Check by hand: at the inputs' averages (growth 15%, initial cost 110,000, rate 10%) the NPV is 87,218; the average of 10,000 runs is 87,437 (close, not equal, because NPV is not linear in the rate). `NPV()` discounts every cash flow, year 0 included, as Excel's does.
@@ -171,7 +175,7 @@ Check by hand: at the inputs' averages (growth 15%, initial cost 110,000, rate 1
 
 1. **Risk**: none of the 10,000 runs loses money; even the 10th percentile is about 64,000.
 2. **Spread**: 80% of outcomes fall between about 64,000 and 109,000, so the decision does not hinge on the exact inputs.
-3. **What drives it**: `forge simulate` reports the outcome's spread, not its drivers; run `forge tornado` on the same model with low and high values for each input to see which one matters most.
+3. **What drives it**: the initial cost moves the NPV most (rank correlation -0.77), then growth, then the rate. The drivers rank how consistently each input moves the result while the others vary too; `forge tornado` shows how far each one moves it alone.
 
 **Decision framework:**
 
@@ -228,6 +232,10 @@ forge simulate revenue_forecast.yaml --output forecast_results.yaml
             P75: 751521.9758
             P90: 799584.7064
          P(forecast.q4_revenue > 750000) = 25.62%
+         Drivers (rank correlation with the output):
+            +0.784  assumptions.base_revenue
+            +0.531  assumptions.seasonality_factor
+            +0.251  assumptions.growth_rate
 ```
 
 Check by hand: 600,000 × (1 + 0.1167, the triangular mean) × 1.05 (the uniform mean) = 703,500; the simulated mean is 703,473. One quarter in four beats 750,000; plan on about 650,000 to 750,000 (P25 to P75).
@@ -302,6 +310,10 @@ forge simulate correlated_model.yaml --output corr_results.yaml
             P75: 125748.6329
             P95: 173228.5997
          P(financials.net_income > 0) = 98.43%
+         Drivers (rank correlation with the output):
+            +0.485  financials.margin
+            +0.314  financials.revenue
+            -0.310  financials.fixed_costs
       financials.revenue:
             P10: 808766.3382
             P50: 1000048.2642
@@ -407,16 +419,22 @@ forge simulate multi_output.yaml --output multi_results.yaml
             P95: 213680.4184
             P99: 289681.6702
          P(metrics.ebitda > 0) = 77.20%
-      metrics.payback_years:
-         Median:    8.8083
-            P25: 4.2886
-            P75: 100.9898
-         P(metrics.payback_years < 3) = 11.86%
+         Drivers (rank correlation with the output):
+            +0.606  assumptions.market_share
+            +0.476  assumptions.avg_price
+            +0.387  assumptions.market_size
+            -0.310  assumptions.unit_cost
+            -0.242  assumptions.opex
       metrics.roi:
             P10: -0.0698
             P50: 0.1135
             P90: 0.3518
          P(metrics.roi > 0.15) = 41.62%
+      metrics.payback_years:
+         Median:    8.8083
+            P25: 4.2886
+            P75: 100.9898
+         P(metrics.payback_years < 3) = 11.86%
       projections.year_1_revenue:
          Mean:      549468.9215
             P10: 354324.1950
@@ -494,6 +512,13 @@ forge simulate project_cost.yaml --output cost_results.yaml
             P95: 435343.4332
             P99: 470931.1788
          P(project.total_cost > 350000) = 55.26%
+         Drivers (rank correlation with the output):
+            +0.610  phases.dev_cost
+            +0.535  risks.scope_creep
+            +0.468  risks.resource_availability
+            +0.199  phases.design_cost
+            +0.182  phases.test_cost
+            +0.124  phases.deploy_cost
 ```
 
 Check by hand: the phases average 55,000 + 163,333 + 43,333 + 23,333 = 285,000 (each triangular mean is (min + mode + max) / 3), and the two risk factors average 1.125 and 1.117, so the expected cost is 285,000 × 1.125 × 1.117 = 358,031; the simulation gives 358,064.

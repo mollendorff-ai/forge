@@ -335,6 +335,7 @@ scalars:
         iterations: None,
         seed: None,
         sampling: None,
+        scenario: None,
     })));
     let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
     assert!(
@@ -355,6 +356,7 @@ fn test_call_simulate_nonexistent() {
         iterations: None,
         seed: None,
         sampling: None,
+        scenario: None,
     }));
     assert!(result.is_err());
 }

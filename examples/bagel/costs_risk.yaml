@@ -1,0 +1,26 @@
+_forge_version: "5.1.0"
+# costs.yaml with the two prices we are least sure of made uncertain, for
+# forge simulate. Everything else is read from costs.yaml, so it is typed once.
+_includes:
+  - file: costs.yaml
+    as: base
+
+ingredients:
+  # Wheat has been volatile: most likely unchanged, at worst the flour_shock price
+  flour_per_kg:
+    formula: "=MC.Triangular(1.05, 1.15, 1.70)"
+  sesame_per_kg:
+    formula: "=@base.ingredients.sesame_per_kg"
+  honey_water_per_dozen:
+    formula: "=@base.ingredients.honey_water_per_dozen"
+labour:
+  # Minimum-wage changes and a tight market for bakers
+  wage_per_hour:
+    formula: "=MC.Uniform(17.50, 20.50)"
+  payroll_load:
+    formula: "=@base.labour.payroll_load"
+  loaded_wage:
+    formula: "=wage_per_hour * (1 + payroll_load)"
+fixed:
+  maple_wood_per_month:
+    formula: "=@base.fixed.maple_wood_per_month"

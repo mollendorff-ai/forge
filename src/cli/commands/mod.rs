@@ -55,7 +55,7 @@ pub use prediction::{
     tornado_core,
 };
 pub use schema::schema_core;
-pub use simulate::simulate_core;
+pub use simulate::{simulate_core, SimulateOptions};
 
 // Re-exports for tests (internal functions)
 #[cfg(test)]

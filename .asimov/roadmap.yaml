@@ -44,12 +44,7 @@ state:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier1:
-  - id: T1-SCEN-SIM
-    title: "Collect the scenario and simulation features the maintainer needs"
-    why: "ADR-050 keeps the engines because they are used; the next features should come from that use, not from a list"
-    how: "Ask for the models being built and what is awkward in them; write each need as a roadmap item with a worked example before any code"
-    acceptance: "Each need is a roadmap item with an example model and the number it should produce, agreed with the maintainer"
-    candidates: "Several thresholds per Monte Carlo output (the old docs promised thresholds: [0, 100000]); simulate reporting which inputs drive an output (the docs promised sensitivity: true; today forge tornado answers that question deterministically)"
+  [] # every tier-1 item is done (2026-11-09); the next ones come from tier 2
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
@@ -60,6 +55,18 @@ tier2:
     title: "Editor extensions start a forge-lsp binary that no longer exists"
     why: "editors/vscode and editors/zed launch forge-lsp (ADR-005 removed the language server), so neither extension works"
     acceptance: "Either the extensions provide syntax highlighting and the schema without a server, or editors/ is removed and the README says so"
+
+  - id: T2-SIM-SPEED
+    title: "forge simulate recalculates the whole model for each iteration"
+    why: "Each iteration clones the model, rebuilds its dependency graph and recalculates its included files: about 1.2 ms an iteration on the 12-month bagel model, so 5,000 runs take 6 seconds and 100,000 two minutes"
+    how: "Build the graph and calculate the cells that no MC.* input reaches once, then recalculate only the cells downstream of the inputs"
+    acceptance: "examples/bagel/bagel_simulate.yaml at 5,000 iterations at least 10 times faster, with byte-identical results for the same seed"
+
+  - id: T2-SIM-MORE
+    title: "Simulation features to consider next"
+    why: "The maintainer asked for more scenario and simulation features and left the choice open (2026-11-09); thresholds, drivers, scenarios and uncertain includes were done first because the bagel model needed them"
+    candidates: "Correlated inputs across included files (correlations name @ns inputs: check it works and test it); a target-probability goal seek (the price at which P(profit > 0) reaches 80%); value at risk and expected shortfall per output; simulating over a table column (each month's profit, not only the year's)"
+    acceptance: "Each candidate is tried on examples/bagel first, and becomes a tier-1 item with the number it should produce before any code"
 
   - id: T2-EXPORT-FORGE-FUNCTIONS
     title: "Export Forge-only functions, LET and LAMBDA as Excel formulas"

@@ -315,7 +315,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_simulate",
-        description = "Run Monte Carlo simulation with probabilistic distributions (MC.Normal, MC.Triangular, MC.Uniform, MC.PERT, MC.Lognormal). Returns statistics, percentiles, and threshold probabilities."
+        description = "Run Monte Carlo simulation with probabilistic distributions (MC.Normal, MC.Triangular, MC.Uniform, MC.PERT, MC.Lognormal). Returns statistics, percentiles, threshold probabilities, and drivers (each MC.* input's rank correlation with each output). An MC.* input may be in an included file. `scenario` applies a scenario's overrides first."
     )]
     fn simulate(&self, Parameters(req): Parameters<SimulateRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
@@ -327,7 +327,13 @@ impl ForgeMcpServer {
         #[allow(clippy::cast_possible_truncation)]
         let iterations = req.iterations.map(|n| n as usize);
 
-        simulate_core(&path, iterations, req.seed, req.sampling.as_deref())
+        let options = crate::cli::SimulateOptions {
+            iterations,
+            seed: req.seed,
+            sampling: req.sampling.as_deref(),
+            scenario: req.scenario.as_deref(),
+        };
+        simulate_core(&path, options)
             .map_err(|e| format!("Simulation failed: {e}"))
             .and_then(|r| {
                 r.to_json()

@@ -1,7 +1,7 @@
 //! Monte Carlo Excel Export
 //!
 //! Exports simulation results to Excel format with:
-//! - Summary sheet with statistics for each output
+//! - Summary sheet with statistics, thresholds and drivers for each output
 //! - Histogram data sheet with bin counts
 //! - Input samples sheet (optional)
 //! - Output samples sheet (optional)
@@ -153,6 +153,24 @@ fn export_summary(
         }
     }
 
+    // Drivers: each sampled input's rank correlation with each output
+    row += 2;
+    let _ = worksheet.write_string_with_format(row, 0, "Drivers", header_format);
+    row += 1;
+    let _ = worksheet.write_string_with_format(row, 0, "Variable", header_format);
+    let _ = worksheet.write_string_with_format(row, 1, "Input", header_format);
+    let _ = worksheet.write_string_with_format(row, 2, "Rank correlation", header_format);
+    row += 1;
+    for (var_name, output) in &result.outputs {
+        for driver in &output.drivers {
+            let _ = worksheet.write_string(row, 0, var_name);
+            let _ = worksheet.write_string(row, 1, &driver.input);
+            let _ =
+                worksheet.write_number_with_format(row, 2, driver.rank_correlation, number_format);
+            row += 1;
+        }
+    }
+
     // Auto-fit columns
     let _ = worksheet.set_column_width(0, 20);
     for col in 1..13 {
@@ -300,6 +318,7 @@ mod tests {
                 variable: "revenue".to_string(),
                 percentiles: vec![10, 50, 90],
                 threshold: Some("> 50".to_string()),
+                thresholds: vec![],
                 label: None,
             }],
             correlations: vec![],

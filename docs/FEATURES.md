@@ -239,315 +239,93 @@ Give `file_path` or `content`, not both. Include paths in inline content must be
 
 ---
 
-## Monte Carlo Simulation (v8.0.0)
+## Monte Carlo Simulation (`forge simulate`)
 
-Probabilistic FP&A analysis with uncertainty quantification.
-
-### Overview
-
-Monte Carlo simulation enables risk-aware financial planning by running thousands of simulations to understand the full range of possible outcomes. Instead of single-point forecasts, model uncertainty with probability distributions and quantify risks.
-
-**Why Monte Carlo for FP&A:**
-- Quantify uncertainty in revenue, costs, and cash flows
-- Calculate probability of meeting financial targets
-- Identify key risk drivers through sensitivity analysis
-- Support better decision-making with confidence intervals
-- Replace "best/worst/base case" with full probability distributions
-
-**Configuration:**
-
-```yaml
-monte_carlo:
-  enabled: true
-  iterations: 10000          # Number of simulations (1K-1M)
-  sampling: latin_hypercube  # or 'monte_carlo'
-  seed: 12345               # Optional: for reproducibility
-  outputs:
-    - variable: valuation.npv
-      percentiles: [10, 50, 90]
-      thresholds: [0, 100000]
-      sensitivity: true
-      histogram: true         # Generate histogram data
-```
-
-### Probability Distributions
-
-All six supported distributions for modeling uncertainty:
-
-| Distribution | Function | Parameters | Use Case |
-|--------------|----------|------------|----------|
-| Normal | `MC.Normal(mean, std_dev)` | mean, standard deviation | Revenue growth rates, cost variations |
-| Triangular | `MC.Triangular(min, mode, max)` | minimum, most likely, maximum | Project costs with best/worst/likely estimates |
-| Uniform | `MC.Uniform(min, max)` | minimum, maximum | Equal probability across range |
-| PERT | `MC.PERT(min, mode, max)` | minimum, most likely, maximum | Three-point estimates (smoother than Triangular) |
-| Lognormal | `MC.Lognormal(mean, std_dev)` | mean, standard deviation | Stock prices, asset values, multiplicative growth |
-| Discrete | `MC.Discrete(values, probabilities)` | values array, probabilities array | Scenarios with specific outcomes |
-
-**Examples:**
-
-```yaml
-assumptions:
-  # Normal: Continuous symmetric distribution
-  revenue_growth: =MC.Normal(0.15, 0.05)  # 15% mean, 5% std dev
-
-  # Triangular: Three-point estimate
-  project_cost: =MC.Triangular(80000, 100000, 150000)
-
-  # Uniform: All values equally likely
-  discount_rate: =MC.Uniform(0.08, 0.12)
-
-  # PERT: Smoother three-point (beta distribution)
-  contract_value: =MC.PERT(200000, 250000, 400000)
-
-  # Lognormal: Right-skewed, positive values only
-  customer_ltv: =MC.Lognormal(5000, 1500)
-
-  # Discrete: Specific scenarios with probabilities
-  market_outcome: =MC.Discrete([0.05, 0.15, 0.25], [0.2, 0.5, 0.3])
-  # 20% chance of 5%, 50% chance of 15%, 30% chance of 25%
-```
-
-### Output Statistics
-
-Monte Carlo simulations generate comprehensive statistics for each tracked variable:
-
-**Core Statistics:**
-- `mean`: Expected value across all simulations
-- `median`: Middle value (50th percentile)
-- `std_dev`: Standard deviation (volatility measure)
-- `min`: Minimum value observed
-- `max`: Maximum value observed
-
-**Percentiles**: Understand the distribution of outcomes
-```yaml
-outputs:
-  - variable: valuation.npv
-    percentiles: [10, 25, 50, 75, 90, 95, 99]  # Custom percentile levels
-```
-
-**Probability Thresholds**: Answer "what's the probability of X?"
-```yaml
-outputs:
-  - variable: valuation.npv
-    thresholds: [0, 100000, 500000]
-    # Returns: P(NPV > 0), P(NPV > 100K), P(NPV > 500K)
-```
-
-**Histograms**: Visualize outcome distribution
-```yaml
-outputs:
-  - variable: valuation.npv
-    histogram: true
-    bins: 50  # Number of histogram bins (default: 50)
-```
-
-**Sensitivity Analysis**: Identify key drivers
-```yaml
-outputs:
-  - variable: valuation.npv
-    sensitivity: true  # Correlation coefficients for each input
-```
-
-### Correlation
-
-Model relationships between uncertain variables using correlation coefficients:
-
-```yaml
-monte_carlo:
-  enabled: true
-  iterations: 10000
-  sampling: latin_hypercube
-
-  # Define correlated variables
-  correlations:
-    - variables: [assumptions.revenue_growth, assumptions.market_growth]
-      coefficient: 0.85  # Strong positive correlation
-
-    - variables: [assumptions.oil_price, assumptions.energy_cost]
-      coefficient: 0.70  # Moderate positive correlation
-
-    - variables: [assumptions.interest_rate, assumptions.bond_price]
-      coefficient: -0.90  # Strong negative correlation
-
-assumptions:
-  revenue_growth: =MC.Normal(0.15, 0.05)
-  market_growth: =MC.Normal(0.12, 0.04)
-  oil_price: =MC.Lognormal(80, 15)
-  energy_cost: =MC.Normal(50000, 10000)
-  interest_rate: =MC.Uniform(0.03, 0.08)
-  bond_price: =MC.Normal(100, 5)
-```
-
-**Correlation Guidelines:**
-- Coefficient range: -1.0 (perfect negative) to +1.0 (perfect positive)
-- 0.0 = no correlation (independent variables)
-- Use domain knowledge to identify relationships
-- Correlations are preserved using Gaussian copula transformation
-
-### Example: Revenue Simulation
-
-Complete revenue forecasting model with Monte Carlo uncertainty quantification.
-
-**Command:**
-
-```bash
-forge monte-carlo revenue_forecast.yaml --output results.yaml
-```
-
-**Input Model (`revenue_forecast.yaml`):**
+A model gets uncertain inputs as `MC.*` formulas; `forge simulate` samples them thousands of times, calculates the whole model for each sample, and reports each output's spread, the probability of thresholds, and which inputs drive it.
 
 ```yaml
 _forge_version: "5.1.0"
 
+assumptions:
+  units:
+    formula: "=MC.PERT(8000, 12000, 20000)"
+  price:
+    formula: "=MC.Triangular(45, 50, 52)"
+  unit_cost:
+    formula: "=MC.Normal(30, 3)"
+  launch_cost: 150000
+
+result:
+  profit:
+    formula: "=assumptions.units * (assumptions.price - assumptions.unit_cost) - assumptions.launch_cost"
+
 monte_carlo:
-  enabled: true
   iterations: 10000
   sampling: latin_hypercube
   seed: 42
-
-  # Model correlations between market and company performance
   correlations:
-    - variables: [assumptions.market_growth, assumptions.revenue_growth]
-      coefficient: 0.75  # Revenue correlated with market
-
+    # A lower price sells more units
+    - variables: [units, price]
+      coefficient: -0.5
   outputs:
-    - variable: forecast.total_revenue
-      percentiles: [10, 25, 50, 75, 90]
-      thresholds: [1000000, 1200000, 1500000]
-      sensitivity: true
-      histogram: true
-
-    - variable: forecast.gross_profit
+    - variable: result.profit
       percentiles: [10, 50, 90]
-      sensitivity: true
+      thresholds: ["> 0", "> 100000"]
 
-assumptions:
-  # Market conditions
-  market_growth: =MC.Normal(0.08, 0.03)  # 8% growth, 3% volatility
-
-  # Revenue drivers (correlated with market)
-  revenue_growth: =MC.Normal(0.12, 0.05)  # 12% growth, 5% volatility
-
-  # Cost structure
-  cogs_margin: =MC.Triangular(0.35, 0.40, 0.45)  # 35-45% COGS
-
-  # Customer metrics
-  churn_rate: =MC.Uniform(0.05, 0.15)  # 5-15% monthly churn
-
-  # One-time events
-  contract_win: =MC.Discrete([0, 250000, 500000], [0.4, 0.4, 0.2])
-  # 40% no win, 40% medium win, 20% large win
-
-baseline:
-  starting_revenue: 800000
-  customers: 1000
-
-forecast:
-  year: [1, 2, 3]
-
-  # Revenue with growth and one-time contracts
-  revenue: "=baseline.starting_revenue * POWER(1 + assumptions.revenue_growth, year) + IF(year = 1, assumptions.contract_win, 0)"
-
-  # Costs vary with revenue
-  cogs: "=revenue * assumptions.cogs_margin"
-
-  # Gross profit
-  gross_profit: "=revenue - cogs"
-
-  # Customer retention
-  retained_customers: "=baseline.customers * POWER(1 - assumptions.churn_rate, year)"
-
-  # Total revenue across forecast period
-  total_revenue: =SUM(revenue)
+scenarios:
+  supplier_deal:
+    unit_cost: 27
 ```
 
-**Output (`results.yaml`):**
+`forge simulate launch.yaml` prints (trimmed):
 
-```yaml
-monte_carlo_results:
-  forecast.total_revenue:
-    statistics:
-      mean: 3245678.90
-      median: 3198234.50
-      std_dev: 487234.12
-      min: 2012345.00
-      max: 5234567.00
-
-    percentiles:
-      p10: 2634567.00  # 10% chance below this
-      p25: 2898234.00
-      p50: 3198234.50  # Median
-      p75: 3567890.00
-      p90: 3989234.00  # 90% chance below this
-
-    thresholds:
-      "1000000": 0.99  # 99% probability > $1M
-      "1200000": 0.95  # 95% probability > $1.2M
-      "1500000": 0.88  # 88% probability > $1.5M
-
-    sensitivity:
-      assumptions.revenue_growth: 0.92      # Highest impact
-      assumptions.contract_win: 0.45        # Moderate impact
-      assumptions.cogs_margin: -0.38        # Negative correlation
-      assumptions.market_growth: 0.67       # Via correlation
-      assumptions.churn_rate: -0.12         # Minor impact
-
-    histogram:
-      bins: 50
-      counts: [12, 45, 89, 156, 234, ...]   # Frequency per bin
-      edges: [2012345, 2076789, 2141234, ...] # Bin boundaries
-
-  forecast.gross_profit:
-    statistics:
-      mean: 1947234.56
-      median: 1923456.78
-      std_dev: 298765.43
-      min: 1123456.00
-      max: 3234567.00
-
-    percentiles:
-      p10: 1567890.00
-      p50: 1923456.78
-      p90: 2398765.00
-
-    sensitivity:
-      assumptions.revenue_growth: 0.89
-      assumptions.cogs_margin: -0.85      # Strong negative impact
-      assumptions.contract_win: 0.43
-      assumptions.market_growth: 0.62
-      assumptions.churn_rate: -0.09
+```
+      result.profit:
+         Mean:      89022.0423
+         Median:    84598.8071
+         ...
+            P10: 25578.4953
+            P50: 84598.8071
+            P90: 159334.0741
+         P(result.profit > 0) = 97.22%
+         P(result.profit > 100000) = 38.96%
+         Drivers (rank correlation with the output):
+            -0.694  assumptions.unit_cost
+            +0.608  assumptions.units
+            -0.044  assumptions.price
 ```
 
-**Interpretation:**
+The price barely drives profit: a higher price brings fewer units (the correlation), and the two effects almost cancel. With `--scenario supplier_deal`, the unit cost is fixed at 27 and the mean profit rises to 127,059, with P(profit > 100,000) at 71%.
 
-- **Expected total revenue**: $3.25M with 80% confidence interval [$2.63M, $3.99M]
-- **Risk assessment**: 88% probability of exceeding $1.5M revenue target
-- **Key driver**: Revenue growth rate (correlation: 0.92) is the primary uncertainty
-- **Cost risk**: COGS margin has strong negative correlation (-0.85) with gross profit
-- **Market dependency**: Market growth indirectly affects revenue (0.67) through correlation
+### Distributions
 
-### Sampling Methods
+| Function | Parameters | Typical use |
+|----------|------------|-------------|
+| `MC.Normal(mean, std_dev)` | mean, standard deviation | Growth rates, cost variations |
+| `MC.Triangular(min, mode, max)` | minimum, most likely, maximum | Three-point estimates |
+| `MC.Uniform(min, max)` | minimum, maximum | Anything in a range, equally likely |
+| `MC.PERT(min, mode, max)` | minimum, most likely, maximum | Three-point estimates, smoother than triangular |
+| `MC.Lognormal(mean, std_dev)` | mean, standard deviation | Prices and values that cannot go negative |
+| `MC.Discrete(values, probabilities)` | two arrays | A few specific outcomes |
 
-**Latin Hypercube Sampling (Recommended)**:
-- More efficient convergence
-- Better coverage of probability space
-- Preferred for <50K iterations
+An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}`); a bare string is an error in a scalar group. It can also be in an included file: the input is then named `@costs.ingredients.flour_per_kg`, and `examples/bagel/costs_risk.yaml` shows the pattern (it reads the certain prices from `costs.yaml` and makes two uncertain). `forge calculate` cannot evaluate `MC.*` and says to run `forge simulate`.
 
-**Random Sampling**:
-- Simple Monte Carlo
-- Requires more iterations
-- Use for >100K iterations
+### Settings (`monte_carlo:`)
 
-### Performance
+- `iterations` (1 to 1,000,000, default 10,000), `sampling` (`latin_hypercube`, the default, spreads each input's samples evenly and gives steadier results for the same count; or `monte_carlo`), and `seed` for the same samples on every run.
+- `outputs`: for each output, `variable`; `percentiles` (added to P5, P10, P25, P50, P75, P90 and P95, each 0 to 100); `threshold` or `thresholds` (`"> 0"`, `"<= 100000"`; operators `>`, `>=`, `<`, `<=`, `=`). An unknown key is an error.
+- `correlations`: pairs of inputs and a coefficient between -1 and 1, applied as a Gaussian copula, so each input keeps its own distribution. A name can be the full name or its last part when that is unique.
 
-| Iterations | Variables | Time | Notes |
-|------------|-----------|------|-------|
-| 1,000 | 20 | <1s | Quick analysis |
-| 10,000 | 20 | <5s | Standard analysis |
-| 100,000 | 20 | <30s | High precision |
-| 1,000,000 | 20 | <5min | Research-grade |
+### Results
 
-**Performance**: Optimized for 10K-100K iterations with Latin Hypercube Sampling.
+- For each output, in the order configured: mean, median, standard deviation, minimum, maximum, the percentiles, the probability of each threshold, and the **drivers**: every sampled input that varies, ranked by the size of its Spearman rank correlation with the output. The sign says which way the output moves. A rank correlation measures how consistently an input moves the output, with the other inputs varying too; for how far one input alone moves it, use `forge tornado`.
+- `--scenario name` applies a scenario's overrides first (the simple `scenarios:` form, `name: {input: value}`). An override of an `MC.*` input fixes that input.
+- `-o results.json`, `.yaml` or `.xlsx`; the workbook also holds histograms and the first 1,000 samples of every input and output. The MCP `forge_simulate` tool returns the JSON, and takes `scenario` too.
+- A failed iteration stops the simulation with its number and the error; it is never counted as 0.
+
+Checked on `examples/bagel/bagel_simulate.yaml`: the outputs Forge calculates for its own input samples match a numpy re-implementation of the model to 1e-10, and the threshold probabilities and drivers match numpy and `scipy.stats.spearmanr` on those samples (`tests/bagel_example.rs`).
+
+Each iteration recalculates the whole model, including its included files: the 12-month bagel model takes about 1.2 ms an iteration (5,000 in 6 seconds).
 
 ---
 
@@ -562,14 +340,13 @@ Scenario Analysis models strategic decision-making through distinct future state
 **Why Scenario Analysis for FP&A:**
 - Board-friendly presentation format with clear storylines
 - Models mutually exclusive strategic futures
-- Combines discrete scenarios with Monte Carlo uncertainty
+- Runs under Monte Carlo too: `forge simulate --scenario`
 - Simpler than full distributions when outcomes are categorical
 - Calculates probability-weighted expected values
 
 **Key Features:**
 - Define 2-10 scenarios with probability weights (must sum to 1.0)
 - Override any scalar variable per scenario
-- Combine with Monte Carlo distributions within scenarios
 - Calculate expected values across all scenarios
 - Full integration with existing Forge models
 
@@ -599,45 +376,9 @@ scenarios:
       market_share: 0.15
 ```
 
-### Combining Scenarios with Monte Carlo
+### Scenarios and Monte Carlo
 
-Model discrete scenario branches with continuous uncertainty within each scenario:
-
-```yaml
-_forge_version: "8.3.0"
-
-# Enable Monte Carlo for continuous uncertainty WITHIN scenarios
-monte_carlo:
-  enabled: true
-  iterations: 10000
-  sampling: latin_hypercube
-
-scenarios:
-  win_contract:
-    probability: 0.60
-    description: "Win the major contract"
-    scalars:
-      # If we win, revenue is uncertain but high
-      contract_value:
-        formula: "=MC.Normal(5000000, 500000)"
-      customer_count:
-        formula: "=MC.Triangular(800, 1000, 1200)"
-
-  lose_contract:
-    probability: 0.40
-    description: "Lose to competitor"
-    scalars:
-      # If we lose, revenue is uncertain but lower
-      contract_value:
-        formula: "=MC.Normal(1000000, 200000)"
-      customer_count:
-        formula: "=MC.Triangular(400, 500, 600)"
-
-forecast:
-  year: [1, 2, 3]
-  revenue: "=contract_value * POWER(1.05, year)"
-  total_revenue: =SUM(revenue)
-```
+A scenario's overrides are numbers. To see a scenario's spread, give the uncertain inputs `MC.*` formulas and run `forge simulate --scenario name` (see Monte Carlo Simulation above).
 
 ### Naming what a scenario changes
 

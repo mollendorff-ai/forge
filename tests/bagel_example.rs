@@ -215,3 +215,95 @@ fn compare_and_real_options_output_is_the_same_every_time() {
         );
     }
 }
+
+/// `forge simulate` on the bagel model with uncertain demand, staffing, flour
+/// price and wage (the last two in the included `costs_risk.yaml`).
+///
+/// Checked outside Forge: the model typed again below (and in numpy) gives
+/// Forge's outputs from Forge's own input samples to 1e-9, and on those
+/// samples numpy gives the threshold probabilities and
+/// `scipy.stats.spearmanr` the rank correlations asserted here (1,000
+/// iterations, seed 7).
+#[test]
+// The model is typed as in the Python check, row by row, so it reads the same
+#[allow(clippy::needless_range_loop, clippy::suboptimal_flops)]
+fn simulation_drivers_and_thresholds_match_scipy() {
+    use mollendorff_forge::cli::{simulate_core, SimulateOptions};
+    let options = SimulateOptions {
+        iterations: Some(1000),
+        ..SimulateOptions::default()
+    };
+    let result = simulate_core(Path::new("examples/bagel/bagel_simulate.yaml"), options).unwrap();
+    let inputs = &result.input_samples;
+    let profit = &result.outputs["year.profit"];
+
+    // The model again, from bagel_simulate.yaml and costs.yaml
+    let season = [
+        0.85, 1.25, 0.80, 0.80, 0.90, 0.95, 1.05, 1.15, 1.25, 1.25, 1.05, 1.00,
+    ];
+    for i in 0..1000 {
+        let flour = inputs["@costs.ingredients.flour_per_kg"][i];
+        let wage = inputs["@costs.labour.wage_per_hour"][i];
+        let opening = inputs["assumptions.opening_dozens_per_day"][i];
+        let staff = inputs["assumptions.staff_hours_per_day"][i];
+        let mut total = 0.0;
+        for (m, se) in season.iter().enumerate() {
+            let dz = opening * 1.03_f64.powi(i32::try_from(m).unwrap()) * se * 30.0;
+            let r = dz * 16.0;
+            let c = dz * 12.0 / 9.0 * flour
+                + dz * 12.0 * 6.0 / 1000.0 * 9.40
+                + dz * 0.35
+                + staff * 30.0 * wage * 1.15
+                + 4800.0
+                + 950.0
+                + r * 0.026;
+            total += r - c;
+        }
+        assert!(close(total, profit.samples[i], 1e-6), "iteration {i}");
+    }
+
+    let thresholds: Vec<(&str, f64)> = profit
+        .threshold_probabilities
+        .iter()
+        .map(|(t, p)| (t.as_str(), *p))
+        .collect();
+    assert_eq!(
+        thresholds,
+        [("> 0", 0.349), ("> 20000", 0.196), ("< -50000", 0.205)]
+    );
+    let drivers: Vec<(&str, f64)> = profit
+        .drivers
+        .iter()
+        .map(|d| (d.input.as_str(), d.rank_correlation))
+        .collect();
+    for ((name, rho), (want_name, want)) in drivers.iter().zip([
+        ("assumptions.opening_dozens_per_day", 0.845_145_641_146),
+        ("assumptions.staff_hours_per_day", -0.417_853_641_854),
+        ("@costs.labour.wage_per_hour", -0.322_749_874_750),
+        ("@costs.ingredients.flour_per_kg", -0.098_687_702_688),
+    ]) {
+        assert_eq!(*name, want_name);
+        assert!(close(*rho, want, 1e-11), "{name}: {rho}");
+    }
+    assert_eq!(drivers.len(), 4);
+    // Outputs in the order configured
+    let names: Vec<&String> = result.outputs.keys().collect();
+    assert_eq!(names, ["year.profit", "year.worst_month_profit"]);
+
+    // The rent hike moves every sample by exactly 12 months of 800
+    let hiked = simulate_core(
+        Path::new("examples/bagel/bagel_simulate.yaml"),
+        SimulateOptions {
+            scenario: Some("rent_hike"),
+            ..options
+        },
+    )
+    .unwrap();
+    for (a, b) in profit
+        .samples
+        .iter()
+        .zip(&hiked.outputs["year.profit"].samples)
+    {
+        assert!(close(a - b, 9600.0, 1e-6), "{a} {b}");
+    }
+}
