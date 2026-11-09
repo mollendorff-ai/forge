@@ -14,9 +14,10 @@
 # written down. "Polish" and "improve" are not criteria.
 
 state:
-  version: 10.0.0-rc.6, released 2026-11-08 with model format 5.1.0
-    (ADR-051). The two-week stable clock in docs/STABILITY.md runs from this
-    release; a new wrong answer restarts it.
+  version: 10.0.0-rc.7, released 2026-11-08 with multi-document files in one
+    namespace (ADR-052), live included values in Excel, and tested docs. The
+    two-week stable clock in docs/STABILITY.md runs from this release (no
+    earlier than 2026-11-22); a new wrong answer restarts it.
   format: model format 5.1.0 (ADR-051), with inputs as plain numbers, formula
     scalars as a formula mapping, and results written next to formulas in
     place. examples/ are 5.1.0; test-data/ and the validation repos stay
