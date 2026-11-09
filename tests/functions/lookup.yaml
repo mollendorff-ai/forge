@@ -247,6 +247,29 @@ assumptions:
     formula: "=LEN(ADDRESS(100, 26))"
     expected: 6
 
+  # R1C1 style brackets the relative part: R2C[3], R[2]C3
+  test_address_r1c1_abs_row_len:
+    value: null
+    formula: "=LEN(ADDRESS(2, 3, 2, FALSE))"
+    expected: 6
+
+  test_address_r1c1_abs_col_len:
+    value: null
+    formula: "=LEN(ADDRESS(2, 3, 3, FALSE))"
+    expected: 6
+
+  # The sheet name comes first: Sheet1!$A$1
+  test_address_sheet_len:
+    value: null
+    formula: "=LEN(ADDRESS(1, 1, 1, TRUE, \"Sheet1\"))"
+    expected: 11
+
+  # Row 0 is outside the sheet
+  test_address_row_zero:
+    value: null
+    formula: "=IFERROR(LEN(ADDRESS(0, 1)), -1)"
+    expected: -1
+
   # ══════════════════════════════════════════════════════════════════════════
   # ROW - Row number (tested via ROWS)
   # ══════════════════════════════════════════════════════════════════════════

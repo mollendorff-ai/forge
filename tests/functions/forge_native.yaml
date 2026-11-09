@@ -14,58 +14,69 @@ assumptions:
     value: null
     formula: "=VARIANCE(100, 90)"
     expected: 10
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_variance_negative:
     value: null
     formula: "=VARIANCE(90, 100)"
     expected: -10
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_variance_zero:
     value: null
     formula: "=VARIANCE(100, 100)"
     expected: 0
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   # VARIANCE_PCT: Percentage variance ((actual - budget) / budget)
   test_variance_pct_positive:
     value: null
     formula: "=ROUND(VARIANCE_PCT(110, 100), 2)"
     expected: 0.1
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_variance_pct_negative:
     value: null
     formula: "=ROUND(VARIANCE_PCT(90, 100), 2)"
     expected: -0.1
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_variance_pct_large:
     value: null
     formula: "=VARIANCE_PCT(200, 100)"
     expected: 1.0
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   # VARIANCE_STATUS: Returns -1 (under), 0 (on target), 1 (over)
   test_variance_status_favorable:
     value: null
     formula: "=VARIANCE_STATUS(110, 100)"
     expected: 1
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_variance_status_unfavorable:
     value: null
     formula: "=VARIANCE_STATUS(80, 100)"
     expected: -1
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_variance_status_on_target:
     value: null
     formula: "=VARIANCE_STATUS(100.5, 100)"
     expected: 0
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_variance_status_with_threshold:
     value: null
     formula: "=VARIANCE_STATUS(105, 100, 0.10)"
     expected: 0
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_variance_status_cost_favorable:
     value: null
     formula: "=VARIANCE_STATUS(90, 100, \"cost\")"
     expected: 1
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   # ══════════════════════════════════════════════════════════════════════
   # BREAKEVEN FUNCTIONS (2) - Financial Analysis
@@ -76,42 +87,50 @@ assumptions:
     value: null
     formula: "=BREAKEVEN_UNITS(50000, 100, 60)"
     expected: 1250
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_breakeven_units_high_margin:
     value: null
     formula: "=BREAKEVEN_UNITS(10000, 100, 20)"
     expected: 125
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_breakeven_units_low_margin:
     value: null
     formula: "=BREAKEVEN_UNITS(10000, 100, 90)"
     expected: 1000
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_breakeven_units_zero_fixed:
     value: null
     formula: "=BREAKEVEN_UNITS(0, 100, 60)"
     expected: 0
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   # BREAKEVEN_REVENUE: Fixed costs / Contribution margin percentage
   test_breakeven_revenue_basic:
     value: null
     formula: "=BREAKEVEN_REVENUE(50000, 0.40)"
     expected: 125000
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_breakeven_revenue_high_margin:
     value: null
     formula: "=BREAKEVEN_REVENUE(10000, 0.80)"
     expected: 12500
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_breakeven_revenue_low_margin:
     value: null
     formula: "=BREAKEVEN_REVENUE(10000, 0.10)"
     expected: 100000
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   test_breakeven_revenue_zero_fixed:
     value: null
     formula: "=BREAKEVEN_REVENUE(0, 0.40)"
     expected: 0
+    gnumeric_skip: "Forge-only function with no Excel equivalent, so forge export writes the value"
 
   # ══════════════════════════════════════════════════════════════════════
   # DATE DIFFERENCE FUNCTIONS (3) - YD, YM, MD

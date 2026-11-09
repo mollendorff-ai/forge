@@ -182,6 +182,7 @@ assumptions:
     value: null
     formula: "=COUNTUNIQUE(unique_data.values)"  # Expected: 4
     expected: 4
+    gnumeric_skip: "Excel has no COUNTUNIQUE (and Gnumeric 1.12 no UNIQUE), so forge export writes the value"
 
   # ═══════════════════════════════════════════════════════════════════════════
   # RANK.EQ - Position in sorted list (REAL TESTS)
