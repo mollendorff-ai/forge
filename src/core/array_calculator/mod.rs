@@ -160,6 +160,21 @@ fn strip_string_literals(formula: &str) -> String {
     result
 }
 
+/// What the included files give a formula: their scalars as
+/// `@namespace.path` with their values, and their tables.
+type Included = (Vec<(String, f64)>, Vec<IncludedTable>);
+
+/// A table of an included file, calculated.
+#[derive(Debug, Clone)]
+struct IncludedTable {
+    /// `@namespace.table`
+    name: String,
+    /// The file, as its `_includes` entry names it
+    file: String,
+    /// Each column's values
+    columns: Vec<(String, Vec<evaluator::Value>)>,
+}
+
 /// Array-aware calculator for v1.0.0 models
 /// Handles both row-wise (element-wise) and aggregation formulas
 pub struct ArrayCalculator {
@@ -167,6 +182,9 @@ pub struct ArrayCalculator {
     /// Scalars of included files as `@namespace.path`, calculated before the
     /// model (see [`ArrayCalculator::included_values`]).
     included: Vec<(String, f64)>,
+    /// Tables of included files as `@namespace.table`, with their calculated
+    /// columns and the file they come from
+    included_tables: Vec<IncludedTable>,
     /// Scalar names by their last part (`price` -> [`a.price`, `b.price`]),
     /// sorted. Calculation sets values, never names, so it is built once.
     by_last_part: std::cell::OnceCell<HashMap<String, Vec<String>>>,
@@ -198,6 +216,7 @@ impl ArrayCalculator {
         Self {
             model,
             included: Vec::new(),
+            included_tables: Vec::new(),
             by_last_part: std::cell::OnceCell::new(),
             ctx: None,
             plan,
@@ -207,13 +226,15 @@ impl ArrayCalculator {
     }
 
     /// The scalars of every included file, as `@namespace.path` with their
-    /// values. Each included model is calculated first, with its own includes,
-    /// so a value an included file defines by formula is available. Namespaces
-    /// are taken in name order, so an error is the same on every run.
-    fn included_values(&self) -> ForgeResult<Vec<(String, f64)>> {
+    /// values, and its tables as `@namespace.table`. Each included model is
+    /// calculated first, with its own includes, so a value or column an
+    /// included file defines by formula is available. Namespaces are taken in
+    /// name order, so an error is the same on every run.
+    fn included_values(&self) -> ForgeResult<Included> {
         let mut namespaces: Vec<&String> = self.model.resolved_includes.keys().collect();
         namespaces.sort();
         let mut values = Vec::new();
+        let mut tables = Vec::new();
         for namespace in namespaces {
             let resolved = &self.model.resolved_includes[namespace];
             let calculated = Self::with_plan(resolved.model.clone(), self.plan.include(namespace))
@@ -233,8 +254,67 @@ impl ArrayCalculator {
                     values.push((format!("@{namespace}.{path}"), value));
                 }
             }
+            for (name, table) in &calculated.tables {
+                tables.push(IncludedTable {
+                    name: format!("@{namespace}.{name}"),
+                    file: resolved.include.file.clone(),
+                    columns: table
+                        .columns
+                        .iter()
+                        .map(|(col, c)| (col.clone(), column_values(&c.values)))
+                        .collect(),
+                });
+            }
         }
-        Ok(values)
+        Ok((values, tables))
+    }
+
+    /// The evaluator's row count mismatch for a column of an included table,
+    /// said with both files: a row formula pairs the rows of the two tables
+    /// one by one. Any other error is returned as it is.
+    fn explain_included_mismatch(&self, err: ForgeError, table_name: &str) -> ForgeError {
+        let ForgeError::Eval(msg) = &err else {
+            return err;
+        };
+        let Some(at) = msg.find("Row count mismatch: @") else {
+            return err;
+        };
+        let rest = &msg[at + "Row count mismatch: ".len()..];
+        let parsed = rest.split_once(" has ").and_then(|(word, counts)| {
+            let (rows, expected) = counts.split_once(" rows but expected ")?;
+            let expected: String = expected.chars().take_while(char::is_ascii_digit).collect();
+            Some((
+                word,
+                rows.parse::<usize>().ok()?,
+                expected.parse::<usize>().ok()?,
+            ))
+        });
+        let Some((word, rows, expected)) = parsed else {
+            return err;
+        };
+        let file = word
+            .strip_prefix('@')
+            .and_then(|r| r.rsplit_once('.'))
+            .and_then(|(table, _)| {
+                let table = format!("@{table}");
+                self.included_tables.iter().find(|t| t.name == table)
+            })
+            .map_or_else(|| "an included file".to_string(), |t| t.file.clone());
+        let here = self
+            .model
+            .source
+            .as_ref()
+            .and_then(|p| p.file_name())
+            .map_or_else(
+                || "this model".to_string(),
+                |f| f.to_string_lossy().into_owned(),
+            );
+        ForgeError::Eval(format!(
+            "{word} has {rows} rows (in {file}), but table '{table_name}' has {expected} \
+             (in {here}); a row formula pairs their rows one by one, so they must have as \
+             many. To read one row whatever the lengths, use INDEX({word}, n); for a total, \
+             put SUM({word}) in a scalar and use that"
+        ))
     }
 
     /// Calculate all formulas in the model
@@ -251,7 +331,7 @@ impl ArrayCalculator {
     /// occur with valid `ParsedModel` construction).
     pub fn calculate_all(mut self) -> ForgeResult<ParsedModel> {
         self.fingerprint = plan::fingerprint(&self.model);
-        self.included = self.included_values()?;
+        (self.included, self.included_tables) = self.included_values()?;
 
         // A formula scalar's stored value (from the file, an import or an
         // earlier run) is never read: it is unknown until it is recalculated.
@@ -684,6 +764,10 @@ impl ArrayCalculator {
             ctx.scalars
                 .insert(name.clone(), evaluator::Value::Number(*value));
         }
+        for table in &self.included_tables {
+            ctx.tables
+                .insert(table.name.clone(), table.columns.iter().cloned().collect());
+        }
         for (table_name, tbl) in &self.model.tables {
             let columns = tbl
                 .columns
@@ -867,6 +951,7 @@ impl ArrayCalculator {
         self.evaluate_in_context(Some(table_name), None, |row_ctx| {
             Self::evaluate_rows(&ast, row_ctx, row_count)
         })
+        .map_err(|e| self.explain_included_mismatch(e, table_name))
     }
 
     /// Evaluate a row formula in each of `row_count` rows. Only the row of

@@ -48,10 +48,19 @@ impl ExcelExporter {
                     .calculate_all()
                     .unwrap_or_else(|_| resolved.model.clone());
                 let paths = || included.scalars.keys().map(String::as_str);
+                let tables = || {
+                    included.tables.iter().map(|(name, table)| {
+                        let columns: Vec<String> =
+                            table.column_names().into_iter().cloned().collect();
+                        (name.clone(), columns, Self::row_count(table))
+                    })
+                };
                 // `@costs.labour.wage` in the main model is a cell on the
-                // include's sheet, so a value changed there flows through.
+                // include's sheet, and `@costs.prices.flour` a column of the
+                // include's table, so a value changed there flows through.
                 refs.add_include(namespace, paths());
-                let own = WorkbookRefs::for_include(namespace, paths());
+                refs.add_include_tables(namespace, tables());
+                let own = WorkbookRefs::for_include(namespace, paths(), tables());
                 (namespace.clone(), included, own)
             })
             .collect();
@@ -124,22 +133,36 @@ impl ExcelExporter {
 
         // Tables in model order, which is the same on every run
         for (table_name, table) in &self.model.tables {
-            self.export_table(&mut workbook, table_name, table, &mut warnings)?;
+            Self::export_table(
+                &mut workbook,
+                &self.refs,
+                (table_name, table_name),
+                table,
+                &mut warnings,
+            )?;
         }
 
         if !self.model.scalars.is_empty() {
             self.export_scalars(&mut workbook, &mut warnings)?;
         }
 
-        // Included files: tables with a namespace prefix (their row formulas
-        // are not in this workbook's layout, so they are written as values),
-        // and scalars on a `{namespace}.Scalars` sheet with their formulas.
+        // Included files: tables on `{namespace}.{table}` sheets and scalars
+        // on a `{namespace}.Scalars` sheet, each with its formulas in the
+        // included file's own names.
         for (namespace, included, own) in &self.includes {
             for (table_name, table) in &included.tables {
-                let prefixed_name = format!("{namespace}.{table_name}");
-                self.export_table(&mut workbook, &prefixed_name, table, &mut warnings)?;
+                let sheet = format!("{namespace}.{table_name}");
+                Self::export_table(
+                    &mut workbook,
+                    own,
+                    (&sheet, table_name),
+                    table,
+                    &mut warnings,
+                )?;
             }
-            if !included.scalars.is_empty() {
+            // Written even without scalars: it is how an import knows the
+            // `{namespace}.{table}` sheets belong to an included file
+            if !included.scalars.is_empty() || !included.tables.is_empty() {
                 Self::export_namespaced_scalars(
                     &mut workbook,
                     namespace,
@@ -166,16 +189,19 @@ impl ExcelExporter {
 
     /// Export a single table to a worksheet
     #[allow(clippy::cast_possible_truncation)] // column count and row count are within u16/u32 Excel limits
+    /// Write a table to its sheet. `names` is (the sheet, the table's name in
+    /// `refs`); they differ for a table of an included file.
     fn export_table(
-        &self,
         workbook: &mut Workbook,
-        table_name: &str,
+        refs: &WorkbookRefs,
+        names: (&str, &str),
         table: &Table,
         warnings: &mut Vec<String>,
     ) -> ForgeResult<()> {
+        let (sheet_name, table_name) = names;
         let worksheet = workbook.add_worksheet();
         worksheet
-            .set_name(table_name)
+            .set_name(sheet_name)
             .map_err(|e| ForgeError::Export(format!("Failed to set worksheet name: {e}")))?;
 
         // Data and formula columns in model order (the same order as `self.refs`)
@@ -207,9 +233,9 @@ impl ExcelExporter {
                 table: table_name,
                 row: 2,
             };
-            if let Err(reason) = self.refs.to_excel(formula, ctx) {
+            if let Err(reason) = refs.to_excel(formula, ctx) {
                 warnings.push(format!(
-                    "{table_name}.{name}: written as values ({reason}): {formula}"
+                    "{sheet_name}.{name}: written as values ({reason}): {formula}"
                 ));
                 untranslatable.insert(name.as_str(), reason);
             }
@@ -227,10 +253,9 @@ impl ExcelExporter {
                         table: table_name,
                         row: excel_row,
                     };
-                    let translated = self
-                        .refs
+                    let translated = refs
                         .to_excel(formula, ctx)
-                        .map_err(|e| ForgeError::Export(format!("{table_name}.{col_name}: {e}")))?;
+                        .map_err(|e| ForgeError::Export(format!("{sheet_name}.{col_name}: {e}")))?;
                     let mut excel_formula = Formula::new(&translated.formula);
                     // Cache Forge's result, so viewers that do not recalculate show it
                     if let Some(result) = table

@@ -120,3 +120,88 @@ fn failing_included_formula_names_the_file() {
     assert!(err.contains("Division by zero"), "{err}");
     assert_eq!(err.matches("Formula evaluation error").count(), 1, "{err}");
 }
+
+/// An included file with a price table, whose `with_tax` column is a formula
+/// that reads one of the file's own scalars.
+const PRICES: &str = r#"
+_forge_version: "5.1.0"
+tax:
+  rate: 0.15
+list:
+  item: ["flour", "sesame", "salt"]
+  per_kg: [1.15, 9.40, 0.80]
+  with_tax: "=per_kg * (1 + tax.rate)"
+"#;
+
+fn order(body: &str) -> String {
+    format!("_forge_version: \"5.1.0\"\n_includes:\n  - file: prices.yaml\n    as: prices\n{body}")
+}
+
+fn numbers(model: &ParsedModel, table: &str, column: &str) -> Vec<f64> {
+    match &model.tables[table].columns[column].values {
+        crate::types::ColumnValue::Number(v) => v.clone(),
+        other => panic!("{table}.{column}: {other:?}"),
+    }
+}
+
+/// Checked outside Forge: 120 kg x 1.15 x 1.15, 6 x 9.40 x 1.15, 3 x 0.80 x 1.15.
+#[test]
+fn row_formula_reads_a_column_of_an_included_table() {
+    let main = order(
+        "order:\n  kg: [120, 6, 3]\n  cost: \"=kg * @prices.list.with_tax\"\n  raw: \"=kg * @prices.list.per_kg\"\n",
+    );
+    let model = calculate(&[("main.yaml", &main), ("prices.yaml", PRICES)]).unwrap();
+    let cost = numbers(&model, "order", "cost");
+    for (got, want) in cost.iter().zip([158.7, 64.86, 2.76]) {
+        assert!((got - want).abs() < 1e-9, "{cost:?}");
+    }
+    let raw = numbers(&model, "order", "raw");
+    for (got, want) in raw.iter().zip([138.0, 56.4, 2.4]) {
+        assert!((got - want).abs() < 1e-9, "{raw:?}");
+    }
+}
+
+#[test]
+fn scalar_formulas_aggregate_and_index_an_included_column() {
+    let main = order(
+        "total:\n  sum:\n    formula: \"=SUM(@prices.list.per_kg)\"\n  dearest:\n    formula: \"=MAX(@prices.list.with_tax)\"\n  salt:\n    formula: \"=INDEX(@prices.list.per_kg, MATCH(\\\"salt\\\", @prices.list.item, 0))\"\n",
+    );
+    let model = calculate(&[("main.yaml", &main), ("prices.yaml", PRICES)]).unwrap();
+    assert!((model.scalars["total.sum"].value.unwrap() - 11.35).abs() < 1e-12);
+    assert!((model.scalars["total.dearest"].value.unwrap() - 10.81).abs() < 1e-12);
+    assert_eq!(model.scalars["total.salt"].value, Some(0.8));
+}
+
+/// A row formula pairs rows one by one: a column of another length is an
+/// error that names both files and says what to do instead.
+#[test]
+fn an_included_column_of_another_length_names_both_files() {
+    let main = order("order:\n  kg: [120, 6]\n  cost: \"=kg * @prices.list.per_kg\"\n");
+    let err = calculate(&[("main.yaml", &main), ("prices.yaml", PRICES)]).unwrap_err();
+    for part in [
+        "order.cost",
+        "@prices.list.per_kg has 3 rows (in prices.yaml)",
+        "table 'order' has 2 (in main.yaml)",
+        "INDEX(@prices.list.per_kg, n)",
+    ] {
+        assert!(err.contains(part), "missing {part}: {err}");
+    }
+    // A lookup reads the whole column, so the lengths do not matter there
+    let main = order("order:\n  kg: [120, 6]\n  flour: \"=kg * INDEX(@prices.list.per_kg, 1)\"\n");
+    let model = calculate(&[("main.yaml", &main), ("prices.yaml", PRICES)]).unwrap();
+    let flour = numbers(&model, "order", "flour");
+    assert!(
+        (flour[0] - 138.0).abs() < 1e-9 && (flour[1] - 6.9).abs() < 1e-9,
+        "{flour:?}"
+    );
+}
+
+#[test]
+fn an_unknown_included_column_is_an_error() {
+    let main = order("order:\n  kg: [1, 2, 3]\n  cost: \"=kg * @prices.list.nope\"\n");
+    let err = calculate(&[("main.yaml", &main), ("prices.yaml", PRICES)]).unwrap_err();
+    assert!(
+        err.contains("Unknown included value: @prices.list.nope"),
+        "{err}"
+    );
+}

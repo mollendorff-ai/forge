@@ -122,6 +122,7 @@ impl ExcelImporter {
         }
 
         let refs = Self::layout(&sheets);
+        let namespaces = Self::namespaces(&sheets);
         let mut model = ParsedModel::new();
         let mut warnings = Vec::new();
         for sheet in &sheets {
@@ -130,6 +131,10 @@ impl ExcelImporter {
             } else if sheet.is_scalar_sheet() {
                 let group = Self::scalar_group(&sheet.name);
                 Self::import_scalars(sheet, group.as_deref(), &refs, &mut model, &mut warnings);
+            } else if let Some((namespace, _)) = Self::include_table(&sheet.name, &namespaces) {
+                // A table of an included file goes into that file
+                let included = Self::included_model(&mut model, &namespace);
+                Self::import_table(sheet, &refs, included, &mut warnings)?;
             } else {
                 Self::import_table(sheet, &refs, &mut model, &mut warnings)?;
             }
@@ -149,6 +154,7 @@ impl ExcelImporter {
     /// Where every column and scalar is, for translating formulas.
     fn layout(sheets: &[Sheet]) -> ReverseRefs {
         let mut refs = ReverseRefs::default();
+        let namespaces = Self::namespaces(sheets);
         for sheet in sheets {
             let (_, width) = sheet.values.get_size();
             let kind = match Self::include_namespace(sheet) {
@@ -184,9 +190,14 @@ impl ExcelImporter {
                             (sheet.letter(col), name)
                         })
                         .collect();
+                    let (include, name) = match Self::include_table(&sheet.name, &namespaces) {
+                        Some((ns, table)) => (Some(ns), table),
+                        None => (None, Self::sanitize_table_name(&sheet.name)),
+                    };
                     SheetKind::Table {
-                        name: Self::sanitize_table_name(&sheet.name),
+                        name,
                         columns,
+                        include,
                     }
                 },
             };
@@ -204,6 +215,42 @@ impl ExcelImporter {
         })
     }
 
+    /// The namespaces of the included files whose sheets the workbook has.
+    fn namespaces(sheets: &[Sheet]) -> Vec<String> {
+        sheets.iter().filter_map(Self::include_namespace).collect()
+    }
+
+    /// For a sheet `{namespace}.{table}` of an included file whose
+    /// `{namespace}.Scalars` sheet the workbook has: the namespace and the
+    /// table's name in that file.
+    fn include_table(sheet_name: &str, namespaces: &[String]) -> Option<(String, String)> {
+        let (namespace, table) = sheet_name.split_once('.')?;
+        (table != "Scalars" && !table.is_empty() && namespaces.iter().any(|n| n == namespace))
+            .then(|| (namespace.to_string(), Self::sanitize_table_name(table)))
+    }
+
+    /// The model of the included file `namespace`, created the first time.
+    fn included_model<'m>(model: &'m mut ParsedModel, namespace: &str) -> &'m mut ParsedModel {
+        if !model.resolved_includes.contains_key(namespace) {
+            let file = format!("{namespace}.yaml");
+            let include = crate::types::Include::new(file.clone(), namespace.to_string());
+            model.add_include(include.clone());
+            model.resolved_includes.insert(
+                namespace.to_string(),
+                crate::types::ResolvedInclude {
+                    include,
+                    resolved_path: std::path::PathBuf::from(file),
+                    model: ParsedModel::new(),
+                },
+            );
+        }
+        &mut model
+            .resolved_includes
+            .get_mut(namespace)
+            .expect("inserted above")
+            .model
+    }
+
     /// The namespace of a sheet `forge export` writes for an included file:
     /// named `{namespace}.Scalars`, every name starting with `{namespace}.`.
     fn include_namespace(sheet: &Sheet) -> Option<String> {
@@ -215,10 +262,11 @@ impl ExcelImporter {
         if !valid || !sheet.is_scalar_sheet() {
             return None;
         }
+        // Every name starts with `{namespace}.`; no name at all is an
+        // included file with tables only
         let prefix = format!("{namespace}.");
-        let mut names = Self::scalar_names(sheet).peekable();
-        let all_prefixed = names.peek().is_some()
-            && names.all(|(_, n)| n.len() > prefix.len() && n.starts_with(&prefix));
+        let all_prefixed = Self::scalar_names(sheet)
+            .all(|(_, n)| n.len() > prefix.len() && n.starts_with(&prefix));
         all_prefixed.then(|| namespace.to_string())
     }
 
@@ -231,26 +279,15 @@ impl ExcelImporter {
         model: &mut ParsedModel,
         warnings: &mut Vec<String>,
     ) {
-        let mut included = ParsedModel::new();
-        Self::import_scalars(sheet, None, refs, &mut included, warnings);
+        let mut sheet_model = ParsedModel::new();
+        Self::import_scalars(sheet, None, refs, &mut sheet_model, warnings);
         let prefix = format!("{namespace}.");
-        let scalars = std::mem::take(&mut included.scalars);
-        for (name, mut var) in scalars {
+        let included = Self::included_model(model, namespace);
+        for (name, mut var) in sheet_model.scalars {
             let path = name[prefix.len()..].to_string();
             var.path.clone_from(&path);
             included.add_scalar(path, var);
         }
-        let file = format!("{namespace}.yaml");
-        let include = crate::types::Include::new(file.clone(), namespace.to_string());
-        model.add_include(include.clone());
-        model.resolved_includes.insert(
-            namespace.to_string(),
-            crate::types::ResolvedInclude {
-                include,
-                resolved_path: std::path::PathBuf::from(file),
-                model: included,
-            },
-        );
     }
 
     /// A `Name` / `Value` sheet: one scalar per row, named `{group}.{name}`.
@@ -311,7 +348,10 @@ impl ExcelImporter {
         if height < 2 {
             return Ok(()); // header only
         }
-        let table_name = Self::sanitize_table_name(&sheet.name);
+        let table_name = match refs.sheets.get(&sheet.name) {
+            Some(SheetKind::Table { name, .. }) => name.clone(),
+            _ => Self::sanitize_table_name(&sheet.name),
+        };
         let mut table = Table::new(table_name.clone());
 
         for col in 0..width {
