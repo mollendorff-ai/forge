@@ -162,7 +162,7 @@
 | `XLOOKUP` | Extended lookup | `=XLOOKUP(lookup, lookup_array, return_array, not_found)` |
 | `OFFSET` | Reference offset | `=OFFSET(ref, rows, cols, height, width)` |
 | `INDIRECT` | Reference from text | `=INDIRECT(ref_text)` |
-| `ADDRESS` | Cell address text | `=ADDRESS(row, col, abs_type)` |
+| `ADDRESS` | Cell address text | `=ADDRESS(row, col, abs_type, a1, sheet)` |
 | `ROW` | Row number | `=ROW(reference)` |
 | `COLUMN` | Column number | `=COLUMN(reference)` |
 | `ROWS` | Number of rows | `=ROWS(array)` |
