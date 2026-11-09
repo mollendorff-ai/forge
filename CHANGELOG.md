@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- The 23 `VARIANCE*` and `BREAKEVEN_*` cases are calculated by Gnumeric: Forge now exports them as Excel expressions (its PR of the same branch name). 11 new edge cases test those expressions: zero and negative budgets, the threshold boundary, `"cost"` and other text, a margin of 1 and above 1, and a nested call. Gnumeric-skipped cases drop from 99 to 76.
+
+### Changed
+
 - **A case that `forge export` writes as a value fails** unless it has a `gnumeric_skip` saying why. The error gives Forge's reason. Forge now exports 67 of the 126 such cases as formulas, and Gnumeric agrees with all of them; the other 59 (`LET`, `LAMBDA`, `COUNTUNIQUE`, `TODAY`, `VARIANCE*`, `BREAKEVEN_*`) have a `gnumeric_skip` (Forge roadmap T2-EXPORT-FORGE-FUNCTIONS). `_gnumeric_must_calculate` is gone: this is now the rule for every spec.
 
 ### Added
