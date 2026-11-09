@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **`forge export` writes Forge's own variance and break-even functions as live Excel formulas** (T2-EXPORT-FORGE-FUNCTIONS): `VARIANCE`, `VARIANCE_PCT`, `VARIANCE_STATUS`, `BREAKEVEN_UNITS` and `BREAKEVEN_REVENUE` become the Excel expression that computes the same, so changing a price or a budget in Excel changes the result. They were written as frozen values. Where Forge gives an error (a margin of zero or less), Excel gives #N/A. The 23 forge-e2e-gnumeric cases that skipped Gnumeric for them are now recalculated by Gnumeric, with 11 new edge cases (zero and negative budgets, the threshold boundary, `"cost"`, a margin above 1); all agree. The examples recalculate with 0 mismatches in an independent engine.
+
 ### Added
 - **`forge simulate --seek "P(year.profit > 0) = 0.8" --vary price_per_dozen --min 14 --max 24`** (T2-SIM-MORE) finds the value of one input at which an output meets a threshold with a given probability: on the bagel model, a price of 18.32 a dozen for the year to make money in 80% of runs. Every value tried sees the same draws, and bisection finds where the probability first reaches the goal; a goal not crossed in the range is an error that gives the probability at each end. Checked against numpy: with profit linear in the price, the answer is just above the 800th lowest of the 1,000 runs' break-even prices. The MCP tool takes `seek`, `vary`, `min` and `max`.
 - **A table column as a simulation output** (`variable: months.profit`): one result per row, printed as a table with each row's mean, P10, P50, P90 and thresholds. It was an error ("has no calculated value"). On the bagel model, November, January and February lose money in every run.
