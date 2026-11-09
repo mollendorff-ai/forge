@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 /// calculated value. Callers must not turn either into a 0 sample.
 fn evaluate_iteration(
     model: &crate::types::ParsedModel,
+    plan: &std::rc::Rc<crate::core::array_calculator::CalcPlan>,
     output_vars: &[String],
     inputs: &HashMap<String, f64>,
 ) -> Result<HashMap<String, f64>, String> {
@@ -30,7 +31,8 @@ fn evaluate_iteration(
         iter_model.override_scalar(var_name, Some(value), None)?;
     }
 
-    let calculated = ArrayCalculator::new(iter_model)
+    // Every iteration has the same formulas, so they are parsed and ordered once
+    let calculated = ArrayCalculator::with_plan(iter_model, std::rc::Rc::clone(plan))
         .calculate_all()
         .map_err(|e| e.to_string())?;
 
@@ -97,10 +99,11 @@ pub fn simulate_core(
         .map_err(ForgeError::Validation)?;
 
     let output_vars: Vec<String> = config.outputs.iter().map(|o| o.variable.clone()).collect();
+    let plan = crate::core::array_calculator::CalcPlan::new();
 
     engine
         .run_with_evaluator(|inputs: &HashMap<String, f64>| {
-            evaluate_iteration(&model, &output_vars, inputs)
+            evaluate_iteration(&model, &plan, &output_vars, inputs)
         })
         .map_err(ForgeError::Eval)
 }
@@ -389,11 +392,12 @@ scalars:
 
         // Get output variable names
         let output_vars: Vec<String> = config.outputs.iter().map(|o| o.variable.clone()).collect();
+        let plan = crate::core::array_calculator::CalcPlan::new();
 
         // Run with formula evaluation (the fix)
         let result = engine
             .run_with_evaluator(|inputs: &HashMap<String, f64>| {
-                evaluate_iteration(&model, &output_vars, inputs)
+                evaluate_iteration(&model, &plan, &output_vars, inputs)
             })
             .unwrap();
 

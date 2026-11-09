@@ -90,7 +90,8 @@ mod tests {
                 Value::Number(30.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
         assert_eq!(
             eval("SUMIF(t.category, \"A\", t.amount)", &ctx).unwrap(),
             Value::Number(40.0)

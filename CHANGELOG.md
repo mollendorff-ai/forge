@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **`forge simulate` is about 11 times faster** (T2-SIM-SPEED): 5,000 runs of the bagel model take 0.55 seconds instead of 6.3 (median of five runs each), with byte-identical results for the same seed. The formulas are parsed, checked and ordered once for the whole simulation (`CalcPlan`, shared by every iteration and keyed by a fingerprint of the model's names and formulas, so a different model never reuses it); the values a formula can read are kept up to date as cells are calculated instead of being rebuilt for every formula and copied for every row; and name lookups during evaluation use a fixed fast hash. Every calculation benefits a little; the output of `calculate`, `tornado`, `scenarios`, `sensitivity`, `goal-seek` and `break-even` on every example and test-data model is unchanged byte for byte.
+- Library: `EvalContext.scalars` and `.tables` are `NameMap`s (a `HashMap` with `foldhash`'s fixed hasher) instead of std `HashMap`s, and `ArrayCalculator::new` is no longer `const`.
+
 ### Added
 - **`forge simulate` says what drives each output** (T1-SCEN-SIM). Every sampled input is ranked by its Spearman rank correlation with each output, printed under the output and returned in JSON, YAML, the Excel workbook and the MCP tool. On the bagel model, opening demand drives the year's profit most (+0.84) and the uncertain flour price least (-0.09). FEATURES.md had promised this as `sensitivity: true`, which was an error.
 - **Several thresholds per output**: `thresholds: ["> 0", "> 20000"]`, next to the single `threshold`, reported in the order written.

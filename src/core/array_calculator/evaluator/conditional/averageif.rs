@@ -96,7 +96,8 @@ mod tests {
                 Value::Number(90.0),
             ],
         );
-        ctx.tables.insert("t".to_string(), table);
+        ctx.tables
+            .insert("t".to_string(), table.into_iter().collect());
         let result = eval("AVERAGEIF(t.scores, \">=75\")", &ctx).unwrap();
         assert!(matches!(result, Value::Number(n) if (n - 81.666).abs() < 0.01));
     }
