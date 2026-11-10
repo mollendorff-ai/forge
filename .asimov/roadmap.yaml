@@ -61,7 +61,7 @@ tier2:
   # failed twice on its format. Ahead of tier 3 because they come from use.
   - id: T2-REPORT
     title: "forge report: a calculated model's scalars as a table"
-    why: "Forge computes but does not present. calculate --dry-run prints one line per scalar (le_george.year1_monthly = 1510); comparing five groups side by side took a script. compare lines up scenarios of one model, not groups"
+    why: "Forge computes but does not present. calculate --dry-run prints one line per scalar (oak_suite.year1_monthly = 1510); comparing five groups side by side took a script. compare lines up scenarios of one model, not groups"
     how: "A read-only command: one row per group, one column per key, groups with the same keys in one table, others in their own, in file order; inputs before formulas; table, csv, json and markdown. It never calculates and never writes the file; uncalculated formulas are said so in one line. The CLI surface is approved by the maintainer before code, because a command's flags are kept within 10.x (docs/STABILITY.md)"
     acceptance: "On the comparison example, every number report prints equals the value calculate wrote, the file is byte-identical after report, the markdown output parses as one pipe table per key set, and a rate such as 0.0479 is not printed as 0.05"
 

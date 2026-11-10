@@ -385,7 +385,7 @@ EXAMPLES:
   forge calculate options.yaml
   forge report options.yaml
   forge report options.yaml --format markdown
-  forge report options.yaml --group le_george,unit_806 --keys rent,year1_monthly
+  forge report options.yaml --group oak_suite,elm_loft --keys rent,year1_monthly
   forge report options.yaml --no-inputs --format csv
 
 Usage: forge report [OPTIONS] <FILE>

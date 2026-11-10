@@ -9,8 +9,8 @@ forge report options.yaml
 
 ```
 group          rent  utilities  year1_monthly
-le_george  1,450.00      60.00       1,510.00
-unit_806   1,390.00      90.00       1,480.00
+oak_suite  1,450.00      60.00       1,510.00
+elm_loft   1,390.00      90.00       1,480.00
 ```
 
 ## What it reads
@@ -20,14 +20,14 @@ The values that `forge calculate` wrote into the file. `report` does not calcula
 A formula with no value yet is shown as `—`, and one note on standard error names it. The command still succeeds (exit 0):
 
 ```
-Note: 2 formulas have no value yet and are shown as —; run `forge calculate options.yaml` first (le_george.year1_monthly, unit_806.year1_monthly)
+Note: 2 formulas have no value yet and are shown as —; run `forge calculate options.yaml` first (oak_suite.year1_monthly, elm_loft.year1_monthly)
 ```
 
 Only scalars are shown. A table (columns of values) is listed in a note; `forge export` writes tables to Excel.
 
 ## How the rows and columns are chosen
 
-- A **group** is a mapping of scalars at the top of the file (`le_george:` above). Scalars at the top level of the file, outside any group, are one row named `(top level)`.
+- A **group** is a mapping of scalars at the top of the file (`oak_suite:` above). Scalars at the top level of the file, outside any group, are one row named `(top level)`.
 - Groups that have **the same keys** share one table, whatever order the keys are written in. Groups with other keys get their own table. Tables, and the rows in each, come in file order.
 - **Inputs** (values written with no formula) come before formulas, each in file order.
 

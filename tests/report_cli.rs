@@ -1,17 +1,22 @@
 //! `forge report` on the command line: what it prints, what it leaves alone.
+//!
+//! A coverage build stubs `main` (ADR-006), so these run the real binary only
+//! in an ordinary build.
+
+#![cfg(not(coverage))]
 
 use std::path::Path;
 use std::process::{Command, Output};
 
 const CALCULATED: &str = r#"_forge_version: "5.1.0"
-le_george:
+oak_suite:
   rent: 1450
   utilities: 60
-  year1_monthly: {formula: "=le_george.rent + le_george.utilities", value: 1510}
-unit_806:
+  year1_monthly: {formula: "=oak_suite.rent + oak_suite.utilities", value: 1510}
+elm_loft:
   rent: 1390
   utilities: 90
-  year1_monthly: {formula: "=unit_806.rent + unit_806.utilities", value: 1480}
+  year1_monthly: {formula: "=elm_loft.rent + elm_loft.utilities", value: 1480}
 "#;
 
 fn forge(args: &[&str]) -> Output {
@@ -38,11 +43,11 @@ fn report_prints_markdown_and_leaves_the_file_as_it_was() {
         "\
 | group | rent | utilities | year1_monthly |
 | --- | ---: | ---: | ---: |
-| le_george | 1,450.00 | 60.00 | 1,510.00 |
-| unit_806 | 1,390.00 | 90.00 | 1,480.00 |
+| oak_suite | 1,450.00 | 60.00 | 1,510.00 |
+| elm_loft | 1,390.00 | 90.00 | 1,480.00 |
 "
     );
-    assert!(out.stderr.is_empty(), "{out:?}");
+    assert_eq!(String::from_utf8_lossy(&out.stderr), "");
     assert_eq!(std::fs::read_to_string(&file).expect("read"), CALCULATED);
 }
 
@@ -57,7 +62,7 @@ fn report_of_an_uncalculated_file_says_so_and_succeeds() {
     assert!(out.status.success(), "{out:?}");
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
-        stdout.contains("le_george  1,450.00      60.00              —"),
+        stdout.contains("oak_suite  1,450.00      60.00              —"),
         "{stdout}"
     );
     let stderr = String::from_utf8_lossy(&out.stderr);
@@ -93,7 +98,7 @@ fn report_rejects_an_unknown_group_and_an_unknown_format() {
     let out = forge(&["report", &file, "--group", "unit_807"]);
     assert_eq!(out.status.code(), Some(1), "{out:?}");
     assert!(String::from_utf8_lossy(&out.stderr)
-        .contains("'unit_807' is not a group of scalars in the file. Groups: le_george, unit_806"));
+        .contains("'unit_807' is not a group of scalars in the file. Groups: oak_suite, elm_loft"));
 
     let out = forge(&["report", &file, "--format", "html"]);
     assert_eq!(out.status.code(), Some(2), "{out:?}");
