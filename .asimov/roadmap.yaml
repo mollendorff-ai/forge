@@ -24,6 +24,10 @@ state:
     the first release with forge report, the starter model, dates as real
     dates, and Homebrew and cargo-binstall installation. rc.11 added PREV,
     period columns and model format 5.2.0 (ADR-053).
+    Unreleased since rc.12 is a wrong answer in forge export (T1-TEXT-NUMBERS,
+    done 2026-11-10), formulas over text that looks like a number written
+    live where Excel reads that text another way, so the next release
+    candidate restarts the clock.
   format: model format 5.1.0 (ADR-051), with inputs as plain numbers, formula
     scalars as a formula mapping, and results written next to formulas in
     place; 5.2.0 (ADR-053) adds the period column and is needed only by a
@@ -55,12 +59,6 @@ tier1:
   # Found while making dates real dates (ADR-054, 2026-11-10): places where
   # Forge and Excel may give different answers without a warning, and places
   # where Forge says less than it knows.
-  - id: T1-TEXT-NUMBERS
-    title: "Text that is a number is read as a number where Excel reads text"
-    why: "A text column such as [\"5\", \"apple\", \"2\", \"x\"]: SUM is 7, COUNT 2 and MAX 5 in Forge and all three 0 in Gnumeric and LibreOffice; COUNTIF(s, \">3\") is 1 in Forge and 0 in both; s > 3 is FALSE for \"2\" in Forge and TRUE in both (in Excel any text is greater than any number). And where the text is not a number Forge stops with an error and Excel carries on: IFERROR(IF(s > 3, 1, 0), -1) is -1 for \"apple\" in Forge and 1 in both, and the same on a column of months (2026-01) compared with DATE(). forge export writes all of these formulas as they are. A date is settled (ADR-054, where text that holds a date is written as values wherever a number is read from it): this is the other text"
-    how: "Excel's rule: arithmetic turns such text into a number, a comparison and an aggregate over cells do not. Decide whether Forge follows it or refuses to export; the machinery is there (workbook_refs/dates.rs writes values with a warning for a kind of column and a kind of reading). A text column of numbers is rare, a silent difference is not acceptable"
-    acceptance: "forge-e2e-gnumeric cases on a text column of numbers and of other text (SUM, COUNT, MAX, COUNTIF with >, and <, >, = in a row, with and without IFERROR) pass in both engines, or the export writes values with a warning"
-
   - id: T1-YEARFRAC-FEB
     title: "YEARFRAC from the last day of February to a 31st, basis 0"
     why: "YEARFRAC(2026-02-28, 2026-12-31) is 300/360 in Forge and 301/360 in Gnumeric and LibreOffice. Forge applies the 30/360 rule for a 31st after moving the February start to the 30th; the published account of Excel's own YEARFRAC does not. The Excel check of 2026-11-06 covered an end on the 17th, not on a 31st"

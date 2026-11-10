@@ -97,8 +97,11 @@ impl ExcelExporter {
             .iter()
             .filter_map(|(name, column)| match column.values {
                 super::super::types::ColumnValue::Number(_) => Some((name.as_str(), false)),
-                super::super::types::ColumnValue::Text(_) => Some((name.as_str(), true)),
-                _ => None,
+                // Months (`2026-01`) and other dates Excel cannot hold are
+                // text in the workbook; a column of dates is marked after
+                super::super::types::ColumnValue::Text(_)
+                | super::super::types::ColumnValue::Date(_) => Some((name.as_str(), true)),
+                super::super::types::ColumnValue::Boolean(_) => None,
             })
     }
 
@@ -123,18 +126,20 @@ impl ExcelExporter {
             .map(|(name, _)| name.as_str())
     }
 
-    /// The columns of a table that stay text and hold a date in some row:
-    /// `n/a` among dates, or a date before 1900-03-01. Forge reads such a
-    /// date as its day number; in the workbook it is text.
+    /// The columns of a table that stay text and have a digit in some row:
+    /// `n/a` among dates, a date before 1900-03-01, a month (`2026-01`), a
+    /// number written as text (`"5"`). Forge reads a number from such text
+    /// its own way, and Excel its own: a formula that reads one is written
+    /// as values (ADR-054). A column of words reads the same in both.
     fn mixed_columns(table: &Table) -> impl Iterator<Item = &str> {
-        use crate::core::array_calculator::evaluator::date_serial;
         table
             .columns
             .iter()
             .filter(|(_, column)| match &column.values {
                 ColumnValue::Date(v) | ColumnValue::Text(v) => {
                     !Self::holds_dates(&column.values)
-                        && v.iter().any(|text| date_serial(text).is_some())
+                        && v.iter()
+                            .any(|text| text.bytes().any(|b| b.is_ascii_digit()))
                 },
                 _ => false,
             })

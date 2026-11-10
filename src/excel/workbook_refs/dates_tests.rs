@@ -401,3 +401,124 @@ fn import_reads_text_that_may_be_a_date_as_excel_does() {
         assert!(back(formula, Holds::Numbers).is_err(), "{formula}");
     }
 }
+
+/// The table `t` with `due` replaced by `code` (E), text with digits in it
+/// (`"5"`, `apple`, `"2"`): Forge reads `"5"` as 5 in a column, Excel as text.
+fn with_number_text() -> WorkbookRefs {
+    let columns = ["d", "e", "v", "name", "code"].map(String::from).to_vec();
+    let mut refs = WorkbookRefs::new([("t", columns, 4)], ["r.x"]);
+    refs.add_column_types("t", [("v", false), ("name", true), ("code", true)]);
+    refs.add_date_columns("t", ["d", "e"]);
+    refs.add_mixed_columns("t", ["code"]);
+    refs
+}
+
+/// Measured with a text column `["5", "apple", "2", "x"]`: `SUM` 7 in Forge
+/// and 0 in Gnumeric and `LibreOffice`, `COUNTIF(">3")` 1 and 0, `s > 3` FALSE
+/// for `"2"` in Forge and TRUE in both, `IFERROR(IF(s > 3, 1, 0), -1)` -1 for
+/// `apple` in Forge and 1 in both. Each is written as its values.
+#[test]
+fn text_with_digits_is_not_read_as_a_number_in_the_workbook() {
+    let refs = with_number_text();
+    for formula in [
+        "=code * 2",
+        "=code + 1",
+        "=ROUND(code, 0)",
+        "=MAX(code, 1)",
+        "=IFERROR(IF(code > 3, 1, 0), -1)",
+        "=IF(code = 5, 1, 0)",
+    ] {
+        let refused = refs.to_excel_as(formula, ROW, Holds::Numbers);
+        assert!(refused.is_err(), "{formula}: {refused:?}");
+    }
+    for formula in [
+        "=SUM(t.code)",
+        "=COUNT(t.code)",
+        "=MAX(t.code)",
+        "=COUNTIF(t.code, \">3\")",
+        "=COUNTIF(t.code, \"5\")",
+        "=SUMIF(t.v, \">1\", t.code)",
+        "=SUMPRODUCT(t.code, t.v)",
+        "=MATCH(5, t.code, 0)",
+    ] {
+        let refused = refs.to_excel_as(formula, SCALAR, Holds::Other);
+        assert!(refused.is_err(), "{formula}: {refused:?}");
+    }
+}
+
+#[test]
+fn text_with_digits_read_as_text_stays_a_formula() {
+    let refs = with_number_text();
+    let row = |formula: &str, holds| refs.to_excel_as(formula, ROW, holds).unwrap().formula;
+    let scalar = |formula: &str| {
+        refs.to_excel_as(formula, SCALAR, Holds::Other)
+            .unwrap()
+            .formula
+    };
+    assert_eq!(row("=LEN(code)", Holds::Numbers), "=LEN(E2)");
+    assert_eq!(
+        row("=code & \"-\" & name", Holds::Other),
+        "=E2 & \"-\" & D2"
+    );
+    assert_eq!(
+        row("=IF(code = \"5\", 1, 0)", Holds::Numbers),
+        "=IF(E2 = \"5\", 1, 0)"
+    );
+    assert_eq!(scalar("=COUNTA(t.code)"), "=COUNTA('t'!$E$2:$E$5)");
+    assert_eq!(
+        scalar("=COUNTIF(t.code, \"apple\")"),
+        "=COUNTIF('t'!$E$2:$E$5, \"apple\")"
+    );
+}
+
+/// A column of words has no text a spreadsheet would turn into a number:
+/// read as a number it fails, or counts as nothing, in both. Ordered against
+/// a number or against text, Excel has a rule Forge does not.
+#[test]
+fn words_are_read_the_same_but_not_ordered_the_same() {
+    let refs = refs();
+    let scalar = |formula: &str| refs.to_excel_as(formula, SCALAR, Holds::Other);
+    assert_eq!(
+        scalar("=SUMPRODUCT(t.name, t.v)").unwrap().formula,
+        "=SUMPRODUCT('t'!$D$2:$D$5, 't'!$C$2:$C$5)"
+    );
+    assert_eq!(
+        scalar("=SUM(t.name)").unwrap().formula,
+        "=SUM('t'!$D$2:$D$5)"
+    );
+    for formula in [
+        "=IFERROR(IF(name > 3, 1, 0), -1)",
+        "=IFERROR(IF(name > \"m\", 1, 0), -1)",
+        "=IFERROR(IF(3 <= name, 1, 0), -1)",
+    ] {
+        let refused = refs.to_excel_as(formula, ROW, Holds::Numbers);
+        assert!(
+            refused
+                .as_ref()
+                .is_err_and(|why| why.contains("compares text")),
+            "{formula}: {refused:?}"
+        );
+    }
+}
+
+/// Text made in the formula can hold anything; read as a number, Excel
+/// parses more than Forge does (`"5%"`, `"1,200"`, `"2026-01"`).
+#[test]
+fn text_made_in_a_formula_is_not_read_as_a_number() {
+    let refs = refs();
+    let row = |formula: &str| refs.to_excel_as(formula, ROW, Holds::Numbers);
+    assert!(row("=LEFT(name, 2) * 1").is_err());
+    assert!(row("=(name & \"1\") + 0").is_err());
+    // VALUE says what is meant, and reads its text as text
+    assert_eq!(
+        row("=VALUE(LEFT(name, 2))").unwrap().formula,
+        "=VALUE(LEFT(D2, 2))"
+    );
+    // The formula's own text result is not a reading of text
+    assert_eq!(
+        refs.to_excel_as("=LEFT(name, 2)", ROW, Holds::Numbers)
+            .unwrap()
+            .formula,
+        "=LEFT(D2, 2)"
+    );
+}
