@@ -60,7 +60,7 @@ pub use prediction::{
 };
 pub use probability_seek::{probability_seek, probability_seek_core, SeekGoal, SeekResult};
 pub use report::{
-    build_report, display_number, report_core, Cell, Report, ReportRow, ReportSection,
+    build_report, display_number, render, report_core, Cell, Report, ReportRow, ReportSection,
 };
 pub use schema::schema_core;
 pub use simulate::{simulate_core, SimulateOptions};

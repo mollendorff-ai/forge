@@ -53,10 +53,24 @@ A year or a count is formatted like any other number (`2,047.00`, `247.00`): the
 
 ## Example
 
-The examples in `examples/` work with `report` once calculated (they are kept without results):
+[`examples/options/compare-options.yaml`](../examples/options/compare-options.yaml) compares five invented rental units, each a group with the same keys, against a take-home pay. The examples are kept without results, so calculate a copy first:
 
 ```bash
-cp examples/mortgage/mortgage.yaml /tmp/mortgage.yaml
-forge calculate /tmp/mortgage.yaml
-forge report /tmp/mortgage.yaml --group with_extra,saved --format markdown
+cp examples/options/compare-options.yaml /tmp/options.yaml
+forge calculate /tmp/options.yaml
+forge report /tmp/options.yaml --no-inputs --format markdown
 ```
+
+| group | monthly | first_year | second_year_monthly | left_each_month | share_of_pay | room_under_cap |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| maple_studio | 1,582.00 | 19,884.00 | 1,622.50 | 3,218.00 | 0.3296 | 98.00 |
+| harbour_one_bed | 1,650.00 | 21,000.00 | 1,689.88 | 3,150.00 | 0.3438 | 30.00 |
+| park_loft | 1,752.00 | 21,674.00 | 1,811.20 | 3,048.00 | 0.365 | -72.00 |
+| river_studio | 1,542.00 | 20,004.00 | 1,587.15 | 3,258.00 | 0.3213 | 138.00 |
+| garden_one_bed | 1,660.00 | 20,320.00 | 1,736.25 | 3,140.00 | 0.3458 | 20.00 |
+
+| group | lowest_monthly | lowest_first_year |
+| --- | ---: | ---: |
+| summary | 1,542.00 | 19,884.00 |
+
+The `budget` group holds only inputs, so `--no-inputs` leaves it out. Its numbers, and the five options', are checked against the same calculation in Python in `tests/demo_examples.rs`. `--keys monthly,first_year` gives a narrower table, for a phone.

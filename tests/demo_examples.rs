@@ -44,10 +44,26 @@
 //! # equity 5682284.77856104
 //! ```
 //!
+//! examples/options/compare-options.yaml, in Python:
+//! ```python
+//! T, cap = 4800, 0.35
+//! for rent, util, net, transit, move_in, inc in options:
+//!     mo = rent + util + net + transit
+//!     row = (mo, mo * 12 + move_in, rent * (1 + inc) + util + net + transit,
+//!            T - mo, mo / T, T * cap - mo)
+//! # maple_studio    1582 19884 1622.5             3218 0.32958333333333334  98
+//! # harbour_one_bed 1650 21000 1689.8749999999998 3150 0.34375              30
+//! # park_loft       1752 21674 1811.2             3048 0.365               -72
+//! # river_studio    1542 20004 1587.1499999999999 3258 0.32125             138
+//! # garden_one_bed  1660 20320 1736.25            3140 0.3458333333333333   20
+//! # lowest monthly 1542, lowest first year 19884
+//! ```
+//!
 //! The household: income 5200 + 400 = 5600 budgeted, 5200 + 150 = 5350
 //! actual; expenses 3100 budgeted, 1650 + 812.43 + 96.50 + 163.20 + 120 +
 //! 388.75 + 74.97 = 3305.85 actual; left over 2500 and 2044.15.
 
+use mollendorff_forge::cli::commands::{render, report_core, Cell, ReportFormat, ReportOptions};
 use mollendorff_forge::cli::{calculate_core, goal_seek_core, variance_core};
 use mollendorff_forge::core::ArrayCalculator;
 use mollendorff_forge::ColumnValue;
@@ -278,6 +294,7 @@ fn each_demo_calculates_in_under_a_second() {
         "examples/bagel/bagel.yaml",
         "examples/periods/monthly_plan.yaml",
         "examples/periods/dcf.yaml",
+        "examples/options/compare-options.yaml",
     ] {
         let start = std::time::Instant::now();
         calculate_core(Path::new(model), true, None).unwrap();
@@ -309,4 +326,110 @@ fn every_example_passes_its_schema() {
             panic!("{}: {e}", file.display());
         }
     }
+}
+
+/// T2-COMPARE-EXAMPLE: forge calculate, then forge report, gives Python's
+/// numbers, the five options in one table and the summary in its own.
+#[test]
+fn the_comparison_example_matches_python_through_report() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("compare-options.yaml");
+    std::fs::copy("examples/options/compare-options.yaml", &file).unwrap();
+    calculate_core(&file, false, None).unwrap();
+    let before = std::fs::read_to_string(&file).unwrap();
+    let report = report_core(
+        &file,
+        &ReportOptions {
+            no_inputs: true,
+            ..ReportOptions::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), before);
+
+    let expected: [(&str, [f64; 6]); 5] = [
+        (
+            "maple_studio",
+            [
+                1582.0,
+                19884.0,
+                1622.5,
+                3218.0,
+                0.329_583_333_333_333_34,
+                98.0,
+            ],
+        ),
+        (
+            "harbour_one_bed",
+            [
+                1650.0,
+                21000.0,
+                1_689.874_999_999_999_8,
+                3150.0,
+                0.34375,
+                30.0,
+            ],
+        ),
+        ("park_loft", [1752.0, 21674.0, 1811.2, 3048.0, 0.365, -72.0]),
+        (
+            "river_studio",
+            [
+                1542.0,
+                20004.0,
+                1_587.149_999_999_999_9,
+                3258.0,
+                0.32125,
+                138.0,
+            ],
+        ),
+        (
+            "garden_one_bed",
+            [
+                1660.0,
+                20320.0,
+                1736.25,
+                3140.0,
+                0.345_833_333_333_333_3,
+                20.0,
+            ],
+        ),
+    ];
+    assert_eq!(report.sections.len(), 2, "{report:?}");
+    let options = &report.sections[0];
+    assert_eq!(
+        options.keys,
+        [
+            "monthly",
+            "first_year",
+            "second_year_monthly",
+            "left_each_month",
+            "share_of_pay",
+            "room_under_cap"
+        ]
+    );
+    assert_eq!(options.rows.len(), 5);
+    for (row, (group, values)) in options.rows.iter().zip(expected) {
+        assert_eq!(row.group, group);
+        for (cell, want) in row.cells.iter().zip(values) {
+            let Cell::Value(got) = cell else {
+                panic!("{group}: {cell:?}")
+            };
+            assert!(close(*got, want, 1e-9), "{group}: {got} vs {want}");
+        }
+    }
+    let summary = &report.sections[1];
+    assert_eq!(summary.rows[0].group, "summary");
+    assert_eq!(
+        summary.rows[0].cells,
+        [Cell::Value(1542.0), Cell::Value(19884.0)]
+    );
+    assert_eq!(report.uncalculated, Vec::<String>::new());
+
+    // docs/REPORT.md shows this report as Markdown, as it is printed.
+    let doc = std::fs::read_to_string("docs/REPORT.md").unwrap();
+    let markdown = render(&report, ReportFormat::Markdown);
+    assert!(
+        doc.contains(&markdown),
+        "docs/REPORT.md must show:\n{markdown}"
+    );
 }

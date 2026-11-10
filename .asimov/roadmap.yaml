@@ -57,24 +57,13 @@ tier1:
 tier2:
   # From a real use on 2026-11-10: five apartment options as five groups of
   # scalars with the same keys. forge calculate gave every number right; a
-  # side-by-side table of them took a Python script, and the first model
-  # failed twice on its format. Ahead of tier 3 because they come from use.
-  - id: T2-REPORT
-    title: "forge report: a calculated model's scalars as a table"
-    why: "Forge computes but does not present. calculate --dry-run prints one line per scalar (oak_suite.year1_monthly = 1510); comparing five groups side by side took a script. compare lines up scenarios of one model, not groups"
-    how: "A read-only command: one row per group, one column per key, groups with the same keys in one table, others in their own, in file order; inputs before formulas; table, csv, json and markdown. It never calculates and never writes the file; uncalculated formulas are said so in one line. The CLI surface is approved by the maintainer before code, because a command's flags are kept within 10.x (docs/STABILITY.md)"
-    acceptance: "On the comparison example, every number report prints equals the value calculate wrote, the file is byte-identical after report, the markdown output parses as one pipe table per key set, and a rate such as 0.0479 is not printed as 0.05"
-
+  # side-by-side table of them took a Python script (forge report and
+  # examples/options, done), and the first model failed twice on its format.
+  # Ahead of tier 3 because it comes from use.
   - id: T2-FIRST-MODEL
     title: "A first model that calculates without a format error"
     why: "The two mistakes every first model makes are _forge_version set to the Forge version and a bare =formula in a group of scalars; LLMs, the stated users, make them first. forge examples starter, the Your first model section of docs/EXAMPLES.md, the MCP instructions and the version error now show both rules. What is left is the check"
     acceptance: "An LLM given only forge examples starter (or the MCP server) and asked for a five-option comparison writes a file that calculates on the first try; tried once in a fresh session, the result noted here"
-
-  - id: T2-COMPARE-EXAMPLE
-    title: "Example: comparing options side by side"
-    why: "The flow that prompted T2-REPORT, calculate then report, should be one file anyone can run"
-    how: "examples/options/compare-options.yaml (not examples/scenarios/, which would sit beside scenarios.yaml and suggest the scenarios command): five invented options (rental units or phone plans) with the same formula keys, referenced from the report doc. Lands with or after T2-REPORT"
-    acceptance: "Runs in CI with the other examples, and its numbers are checked against the same calculation in Python in tests/demo_examples.rs"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done and at least two people use it)

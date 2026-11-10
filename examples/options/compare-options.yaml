@@ -1,0 +1,90 @@
+# Five rental units side by side. The units and every number are invented.
+#
+#   forge calculate compare-options.yaml
+#   forge report compare-options.yaml --format markdown
+#
+# Each option is a group of scalars with the same keys, so forge report lines
+# them up in one table. Within a group, a formula names its own keys (rent);
+# budget.take_home names a key of another group.
+
+_forge_version: "5.1.0"
+
+# What every option is measured against.
+budget:
+  take_home: 4800       # monthly pay after tax
+  most_on_housing: 0.35 # the share of it to spend on housing, at most
+
+maple_studio:
+  rent: 1350
+  utilities: 75
+  internet: 60
+  transit: 97
+  move_in: 900
+  increase: 0.03
+  monthly: {formula: "=rent + utilities + internet + transit"}
+  first_year: {formula: "=monthly * 12 + move_in"}
+  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit"}
+  left_each_month: {formula: "=budget.take_home - monthly"}
+  share_of_pay: {formula: "=monthly / budget.take_home"}
+  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly"}
+
+harbour_one_bed:
+  rent: 1595
+  utilities: 0
+  internet: 55
+  transit: 0
+  move_in: 1200
+  increase: 0.025
+  monthly: {formula: "=rent + utilities + internet + transit"}
+  first_year: {formula: "=monthly * 12 + move_in"}
+  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit"}
+  left_each_month: {formula: "=budget.take_home - monthly"}
+  share_of_pay: {formula: "=monthly / budget.take_home"}
+  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly"}
+
+park_loft:
+  rent: 1480
+  utilities: 110
+  internet: 65
+  transit: 97
+  move_in: 650
+  increase: 0.04
+  monthly: {formula: "=rent + utilities + internet + transit"}
+  first_year: {formula: "=monthly * 12 + move_in"}
+  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit"}
+  left_each_month: {formula: "=budget.take_home - monthly"}
+  share_of_pay: {formula: "=monthly / budget.take_home"}
+  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly"}
+
+river_studio:
+  rent: 1290
+  utilities: 95
+  internet: 60
+  transit: 97
+  move_in: 1500
+  increase: 0.035
+  monthly: {formula: "=rent + utilities + internet + transit"}
+  first_year: {formula: "=monthly * 12 + move_in"}
+  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit"}
+  left_each_month: {formula: "=budget.take_home - monthly"}
+  share_of_pay: {formula: "=monthly / budget.take_home"}
+  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly"}
+
+garden_one_bed:
+  rent: 1525
+  utilities: 85
+  internet: 50
+  transit: 0
+  move_in: 400
+  increase: 0.05
+  monthly: {formula: "=rent + utilities + internet + transit"}
+  first_year: {formula: "=monthly * 12 + move_in"}
+  second_year_monthly: {formula: "=rent * (1 + increase) + utilities + internet + transit"}
+  left_each_month: {formula: "=budget.take_home - monthly"}
+  share_of_pay: {formula: "=monthly / budget.take_home"}
+  room_under_cap: {formula: "=budget.take_home * budget.most_on_housing - monthly"}
+
+# Across the options: other keys, so forge report gives them their own table.
+summary:
+  lowest_monthly: {formula: "=MIN(maple_studio.monthly, harbour_one_bed.monthly, park_loft.monthly, river_studio.monthly, garden_one_bed.monthly)"}
+  lowest_first_year: {formula: "=MIN(maple_studio.first_year, harbour_one_bed.first_year, park_loft.first_year, river_studio.first_year, garden_one_bed.first_year)"}
