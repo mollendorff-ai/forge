@@ -9,6 +9,8 @@ pub use commands::{
 
 pub use commands::upgrade;
 
+pub use commands::{report, ReportFormat, ReportOptions};
+
 pub use commands::{probability_seek, simulate};
 
 pub use commands::{bayesian, bootstrap, decision_tree, real_options, scenarios, tornado};

@@ -484,6 +484,16 @@ forge schema v5                     # Show JSON schema
 forge examples monte-carlo          # Show example YAML
 ```
 
+### Side by side: `forge report`
+
+`forge report` shows a calculated file's scalars as a table: one row per group, one column per key, and groups with the same keys lined up. It reads what `forge calculate` wrote and never writes the file. `--format markdown` pastes into a document; `csv` and `json` keep full precision.
+
+```bash
+forge calculate options.yaml && forge report options.yaml --format markdown
+```
+
+See [docs/REPORT.md](docs/REPORT.md).
+
 ---
 
 ## Documentation Commands

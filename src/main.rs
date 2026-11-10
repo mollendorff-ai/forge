@@ -33,6 +33,7 @@ COMMANDS:
   break-even    - Find zero-crossing point
   variance      - Budget vs actual analysis
   compare       - Multi-scenario comparison
+  report        - Scalars side by side, from a calculated file
   export        - YAML -> Excel (.xlsx) with formulas
   import        - Excel -> YAML
   watch         - Auto-calculate on save
@@ -48,6 +49,7 @@ EXAMPLES:
   forge decision-tree model.yaml                # Decision tree
   forge tornado model.yaml                      # Sensitivity diagram
   forge variance budget.yaml actual.yaml        # Budget vs actual
+  forge report model.yaml --format markdown     # Scalars as a table
   forge schema v5                               # Show JSON schema
   forge examples monte-carlo                    # Show Monte Carlo example
 
@@ -289,6 +291,51 @@ OUTPUT:
         /// Show verbose output
         #[arg(short, long)]
         verbose: bool,
+    },
+
+    #[command(
+        long_about = "Show a calculated model's scalars side by side: one row per group,
+one column per key.
+
+Groups that have the same keys share a table; other groups get their own,
+in file order. Inputs (values written with no formula) come before formulas.
+
+report reads the values that `forge calculate` wrote. It does not calculate
+and never writes the file. A formula without a value is shown as — and named
+in a note on standard error; tables are not shown.
+
+NUMBERS:
+  table and markdown: two decimals and thousands separators (1,450.00); a
+  number under 1 keeps four significant digits (0.0479)
+  csv and json: full precision, no separators
+
+EXAMPLES:
+  forge calculate options.yaml
+  forge report options.yaml
+  forge report options.yaml --format markdown
+  forge report options.yaml --group le_george,unit_806 --keys rent,year1_monthly
+  forge report options.yaml --no-inputs --format csv"
+    )]
+    /// Show a calculated model's scalars side by side
+    Report {
+        /// Path to a calculated YAML file
+        file: PathBuf,
+
+        /// Show only these groups (comma-separated)
+        #[arg(long, value_delimiter = ',')]
+        group: Vec<String>,
+
+        /// Show only these keys, in this order, as one table (comma-separated)
+        #[arg(long, value_delimiter = ',', conflicts_with = "no_inputs")]
+        keys: Vec<String>,
+
+        /// Output format
+        #[arg(long, default_value = "table", value_parser = ["table", "csv", "json", "markdown"])]
+        format: String,
+
+        /// Leave out inputs, the values written with no formula
+        #[arg(long)]
+        no_inputs: bool,
     },
 
     #[command(long_about = "Compare budget vs actual with variance analysis.
@@ -1198,6 +1245,22 @@ fn run() -> ForgeResult<()> {
             scenarios,
             verbose,
         } => cli::compare(&file, &scenarios, verbose),
+
+        Commands::Report {
+            file,
+            group,
+            keys,
+            format,
+            no_inputs,
+        } => cli::report(
+            &file,
+            &cli::ReportOptions {
+                groups: group,
+                keys,
+                no_inputs,
+            },
+            format.parse::<cli::ReportFormat>()?,
+        ),
 
         Commands::Variance {
             budget,

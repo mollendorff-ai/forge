@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`forge report`** (T2-REPORT): a calculated model's scalars side by side, one row per group and one column per key, so comparing options needs no script. Groups with the same keys share a table, others get their own, in file order; inputs come before formulas. `--group`, `--keys`, `--no-inputs`, and `--format table|csv|json|markdown`: Markdown is a pipe table to paste into a document, CSV and JSON keep full precision. In a table, numbers have two decimals and thousands separators, and a number under 1 keeps four significant digits (a rate of 0.0479 is not shown as 0.05). `report` reads the values `forge calculate` wrote: it never calculates or writes the file, and a formula without a value is shown as `—` and named in a note on standard error. docs/REPORT.md. It is one of the commands docs/STABILITY.md keeps within 10.x.
+
 ## [10.0.0-rc.11] - 2026-11-10
 
 Eleventh release candidate, for two wrong answers in `forge import` (a running balance built in Excel came in as another formula; Excel's `ROW()` and `COLUMN()` were read as Forge's). Under docs/STABILITY.md that restarts the two-week clock: the stable release is no earlier than 2026-11-24. It also adds `PREV`, period columns and model format 5.2.0 (ADR-053).

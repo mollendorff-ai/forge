@@ -27,6 +27,7 @@ COMMANDS:
   break-even    - Find zero-crossing point
   variance      - Budget vs actual analysis
   compare       - Multi-scenario comparison
+  report        - Scalars side by side, from a calculated file
   export        - YAML -> Excel (.xlsx) with formulas
   import        - Excel -> YAML
   watch         - Auto-calculate on save
@@ -42,6 +43,7 @@ EXAMPLES:
   forge decision-tree model.yaml                # Decision tree
   forge tornado model.yaml                      # Sensitivity diagram
   forge variance budget.yaml actual.yaml        # Budget vs actual
+  forge report model.yaml --format markdown     # Scalars as a table
   forge schema v5                               # Show JSON schema
   forge examples monte-carlo                    # Show Monte Carlo example
 
@@ -57,6 +59,7 @@ Commands:
   import         Import an Excel .xlsx workbook as a Forge model
   watch          Watch YAML files and auto-calculate on changes
   compare        Compare results across multiple scenarios
+  report         Show a calculated model's scalars side by side
   variance       Compare budget vs actual with variance analysis
   sensitivity    Run sensitivity analysis on model variables
   goal-seek      Find input value to achieve target output
@@ -355,6 +358,57 @@ Options:
 
   -v, --verbose
           Show verbose output
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+## report
+
+```
+Show a calculated model's scalars side by side: one row per group,
+one column per key.
+
+Groups that have the same keys share a table; other groups get their own,
+in file order. Inputs (values written with no formula) come before formulas.
+
+report reads the values that `forge calculate` wrote. It does not calculate
+and never writes the file. A formula without a value is shown as — and named
+in a note on standard error; tables are not shown.
+
+NUMBERS:
+  table and markdown: two decimals and thousands separators (1,450.00); a
+  number under 1 keeps four significant digits (0.0479)
+  csv and json: full precision, no separators
+
+EXAMPLES:
+  forge calculate options.yaml
+  forge report options.yaml
+  forge report options.yaml --format markdown
+  forge report options.yaml --group le_george,unit_806 --keys rent,year1_monthly
+  forge report options.yaml --no-inputs --format csv
+
+Usage: forge report [OPTIONS] <FILE>
+
+Arguments:
+  <FILE>
+          Path to a calculated YAML file
+
+Options:
+      --group <GROUP>
+          Show only these groups (comma-separated)
+
+      --keys <KEYS>
+          Show only these keys, in this order, as one table (comma-separated)
+
+      --format <FORMAT>
+          Output format
+          
+          [default: table]
+          [possible values: table, csv, json, markdown]
+
+      --no-inputs
+          Leave out inputs, the values written with no formula
 
   -h, --help
           Print help (see a summary with '-h')
