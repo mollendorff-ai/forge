@@ -220,7 +220,9 @@ pub fn extract_table_data_yaml(spec: &TestSpec) -> String {
                         let _ = writeln!(yaml, "  {col_name}: [{}]", strs_escaped.join(", "));
                     }
                     TableColumn::Formula(f) => {
-                        let _ = writeln!(yaml, "  {col_name}: \"{f}\"");
+                        // A formula may hold text in quotes: `=LEFT(d, 4) & "x"`
+                        let escaped = f.replace('\\', "\\\\").replace('"', "\\\"");
+                        let _ = writeln!(yaml, "  {col_name}: \"{escaped}\"");
                     }
                     TableColumn::Period { start, count, unit } => {
                         let start = match start {

@@ -11,7 +11,7 @@ All validation comes from trusted third-party sources.
 
 ### Test Coverage
 
-- **1,368 formula tests** across 44 YAML files
+- **1,436 formula tests** across 45 YAML files
 - **30 function test files** covering math, text, date, financial, lookup, aggregation, statistical, trigonometric, logical, and information functions
 - **10 edge case test files** covering boundary conditions, type coercion, error propagation, and numeric precision
 
@@ -26,7 +26,7 @@ All validation comes from trusted third-party sources.
   # Ubuntu/Debian
   apt install gnumeric
   ```
-- **LibreOffice 24.8 or later**: `soffice` in PATH, for the 68 cases Gnumeric 1.12 cannot judge (each has a `libreoffice:` key saying why: no `LET`, `UNIQUE` or `XLOOKUP`, `DATEDIF` read from an xlsx file gives #VALUE!, and a few results where Gnumeric differs from Excel). Without it those cases fail and say so.
+- **LibreOffice 24.8 or later**: `soffice` in PATH, for the 70 cases Gnumeric 1.12 cannot judge (each has a `libreoffice:` key saying why: no `LET`, `UNIQUE` or `XLOOKUP`, `DATEDIF` read from an xlsx file gives #VALUE!, and a few results where Gnumeric differs from Excel). Without it those cases fail and say so.
   ```bash
   # macOS
   brew install --cask libreoffice
