@@ -68,7 +68,6 @@ assumptions:
     value: 0.0
     formula: =TODAY() - TODAY()
     expected: 0
-    gnumeric_skip: "Forge's TODAY is text and Excel's a date serial, so forge export writes the value"
   test_eomonth_subtraction:
     value: 30.0
     formula: =EOMONTH(DATE(2024, 1, 15), 0) - DATE(2024, 1, 1)

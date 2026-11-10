@@ -30,25 +30,25 @@ assumptions:
     value: 5.0
     formula: =COUNTUNIQUE(array_data.values)
     expected: 5
-    gnumeric_skip: "Excel has no COUNTUNIQUE (and Gnumeric 1.12 no UNIQUE), so forge export writes the value"
+    libreoffice: "Excel has no COUNTUNIQUE; forge export writes UNIQUE (numbers) or MMULT(EXACT(...)) in SUMPRODUCT (text), which Gnumeric 1.12 cannot work out"
 
   test_unique_count_categories:
     value: 3.0
     formula: =COUNTUNIQUE(array_data.categories)
     expected: 3
-    gnumeric_skip: "Excel has no COUNTUNIQUE (and Gnumeric 1.12 no UNIQUE), so forge export writes the value"
+    libreoffice: "Excel has no COUNTUNIQUE; forge export writes UNIQUE (numbers) or MMULT(EXACT(...)) in SUMPRODUCT (text), which Gnumeric 1.12 cannot work out"
 
   test_unique_count_mixed:
     value: 8.0
     formula: =COUNTUNIQUE(array_data.mixed)
     expected: 8
-    gnumeric_skip: "Excel has no COUNTUNIQUE (and Gnumeric 1.12 no UNIQUE), so forge export writes the value"
+    libreoffice: "Excel has no COUNTUNIQUE; forge export writes UNIQUE (numbers) or MMULT(EXACT(...)) in SUMPRODUCT (text), which Gnumeric 1.12 cannot work out"
 
   test_unique_count_scores:
     value: 8.0
     formula: =COUNTUNIQUE(array_data.scores)
     expected: 8
-    gnumeric_skip: "Excel has no COUNTUNIQUE (and Gnumeric 1.12 no UNIQUE), so forge export writes the value"
+    libreoffice: "Excel has no COUNTUNIQUE; forge export writes UNIQUE (numbers) or MMULT(EXACT(...)) in SUMPRODUCT (text), which Gnumeric 1.12 cannot work out"
 
   # ══════════════════════════════════════════════════════════════════════════
   # FILTER - Filter array by condition

@@ -18,49 +18,49 @@ assumptions:
     value: 100.0
     formula: =LET(x, 10, x*x)
     expected: 100
-    gnumeric_skip: "forge export writes LET as its value (it does not translate LET names), and Gnumeric 1.12 cannot read LET"
+    libreoffice: "Gnumeric 1.12 cannot read LET"
 
   test_let_two_vars:
     value: 105.0
     formula: =LET(x, 10, y, 5, x*x+y)
     expected: 105
-    gnumeric_skip: "forge export writes LET as its value (it does not translate LET names), and Gnumeric 1.12 cannot read LET"
+    libreoffice: "Gnumeric 1.12 cannot read LET"
 
   test_let_three_vars:
     value: 32.0
     formula: =LET(a, 2, b, 3, c, 10, a*b+c+a*a*4)
     expected: 32
-    gnumeric_skip: "forge export writes LET as its value (it does not translate LET names), and Gnumeric 1.12 cannot read LET"
+    libreoffice: "Gnumeric 1.12 cannot read LET"
 
   test_let_dependent:
     value: 25.0
     formula: =LET(a, 10, b, a*2, b+5)
     expected: 25
-    gnumeric_skip: "forge export writes LET as its value (it does not translate LET names), and Gnumeric 1.12 cannot read LET"
+    libreoffice: "Gnumeric 1.12 cannot read LET"
 
   test_let_complex:
     value: 45.0
     formula: =LET(a, 2, b, 3, c, 10, (a+b)*(a-b+c))
     expected: 45
-    gnumeric_skip: "forge export writes LET as its value (it does not translate LET names), and Gnumeric 1.12 cannot read LET"
+    libreoffice: "Gnumeric 1.12 cannot read LET"
 
   test_let_nested_calc:
     value: 10000.0
     formula: =LET(base, 100, rate, 0.1, years, 10, base*years/(rate))
     expected: 10000  # 100*10/0.1 = 1000/0.1 = 10000
-    gnumeric_skip: "forge export writes LET as its value (it does not translate LET names), and Gnumeric 1.12 cannot read LET"
+    libreoffice: "Gnumeric 1.12 cannot read LET"
 
   test_let_financial:
     value: 1200.0
     formula: =LET(principal, 1000, rate, 0.05, years, 4, principal*(1+rate*years))
     expected: 1200
-    gnumeric_skip: "forge export writes LET as its value (it does not translate LET names), and Gnumeric 1.12 cannot read LET"
+    libreoffice: "Gnumeric 1.12 cannot read LET"
 
   test_let_multi_step:
     value: 80.0
     formula: =LET(x, 5, y, x+10, z, y*2, x+y+z+z)
     expected: 80  # x=5, y=15, z=30 → 5+15+30+30=80
-    gnumeric_skip: "forge export writes LET as its value (it does not translate LET names), and Gnumeric 1.12 cannot read LET"
+    libreoffice: "Gnumeric 1.12 cannot read LET"
 
   # ══════════════════════════════════════════════════════════════════════════
   # LAMBDA - Anonymous functions
@@ -69,61 +69,61 @@ assumptions:
     value: 25.0
     formula: =LAMBDA(x, x*x)(5)
     expected: 25
-    gnumeric_skip: "forge export writes LAMBDA as its value, and Gnumeric 1.12 cannot read LAMBDA"
+    libreoffice: "Gnumeric 1.12 cannot read LET (forge export writes a LAMBDA called at once as a LET)"
 
   test_lambda_cube:
     value: 64.0
     formula: =LAMBDA(x, x*x*x)(4)
     expected: 64
-    gnumeric_skip: "forge export writes LAMBDA as its value, and Gnumeric 1.12 cannot read LAMBDA"
+    libreoffice: "Gnumeric 1.12 cannot read LET (forge export writes a LAMBDA called at once as a LET)"
 
   test_lambda_add:
     value: 7.0
     formula: =LAMBDA(a, b, a+b)(3, 4)
     expected: 7
-    gnumeric_skip: "forge export writes LAMBDA as its value, and Gnumeric 1.12 cannot read LAMBDA"
+    libreoffice: "Gnumeric 1.12 cannot read LET (forge export writes a LAMBDA called at once as a LET)"
 
   test_lambda_multiply:
     value: 42.0
     formula: =LAMBDA(x, y, x*y)(6, 7)
     expected: 42
-    gnumeric_skip: "forge export writes LAMBDA as its value, and Gnumeric 1.12 cannot read LAMBDA"
+    libreoffice: "Gnumeric 1.12 cannot read LET (forge export writes a LAMBDA called at once as a LET)"
 
   test_lambda_three_params:
     value: 60.0
     formula: =LAMBDA(a, b, c, a*b+c)(5, 10, 10)
     expected: 60
-    gnumeric_skip: "forge export writes LAMBDA as its value, and Gnumeric 1.12 cannot read LAMBDA"
+    libreoffice: "Gnumeric 1.12 cannot read LET (forge export writes a LAMBDA called at once as a LET)"
 
   test_lambda_compound_interest:
     value: 1628.894626777442
     formula: =LAMBDA(p, r, n, p*(1+r)^n)(1000, 0.05, 10)
     expected: 1628.894626777442
-    gnumeric_skip: "forge export writes LAMBDA as its value, and Gnumeric 1.12 cannot read LAMBDA"
+    libreoffice: "Gnumeric 1.12 cannot read LET (forge export writes a LAMBDA called at once as a LET)"
 
   test_lambda_division:
     value: 5.0
     formula: =LAMBDA(x, y, x/y)(100, 20)
     expected: 5
-    gnumeric_skip: "forge export writes LAMBDA as its value, and Gnumeric 1.12 cannot read LAMBDA"
+    libreoffice: "Gnumeric 1.12 cannot read LET (forge export writes a LAMBDA called at once as a LET)"
 
   test_lambda_with_round:
     value: 1628.89
     formula: =ROUND(LAMBDA(p, r, n, p*(1+r)^n)(1000, 0.05, 10), 2)
     expected: 1628.89
-    gnumeric_skip: "forge export writes LAMBDA as its value, and Gnumeric 1.12 cannot read LAMBDA"
+    libreoffice: "Gnumeric 1.12 cannot read LET (forge export writes a LAMBDA called at once as a LET)"
 
   test_lambda_percentage:
     value: 25.0
     formula: =LAMBDA(part, total, part/total*100)(50, 200)
     expected: 25
-    gnumeric_skip: "forge export writes LAMBDA as its value, and Gnumeric 1.12 cannot read LAMBDA"
+    libreoffice: "Gnumeric 1.12 cannot read LET (forge export writes a LAMBDA called at once as a LET)"
 
   test_lambda_average:
     value: 30.0
     formula: =LAMBDA(a, b, c, (a+b+c)/3)(20, 30, 40)
     expected: 30
-    gnumeric_skip: "forge export writes LAMBDA as its value, and Gnumeric 1.12 cannot read LAMBDA"
+    libreoffice: "Gnumeric 1.12 cannot read LET (forge export writes a LAMBDA called at once as a LET)"
 
   # ══════════════════════════════════════════════════════════════════════════
   # SCENARIO - Scenario-based lookups
@@ -181,31 +181,31 @@ assumptions:
     value: 144.0
     formula: =LET(a, 12, LAMBDA(x, x*x)(a))
     expected: 144
-    gnumeric_skip: "forge export writes LET as its value (it does not translate LET names), and Gnumeric 1.12 cannot read LET"
+    libreoffice: "Gnumeric 1.12 cannot read LET"
 
   test_nested_let:
     value: 35.0
     formula: =LET(x, LET(a, 5, a*2), y, 3, x*y+5)
     expected: 35
-    gnumeric_skip: "forge export writes LET as its value (it does not translate LET names), and Gnumeric 1.12 cannot read LET"
+    libreoffice: "Gnumeric 1.12 cannot read LET"
 
   test_lambda_with_let_inside:
     value: 42.0
     formula: =LAMBDA(x, LET(y, x*2, z, y+1, z*2))(10)
     expected: 42
-    gnumeric_skip: "forge export writes LAMBDA as its value, and Gnumeric 1.12 cannot read LAMBDA"
+    libreoffice: "Gnumeric 1.12 cannot read LET (forge export writes a LAMBDA called at once as a LET)"
 
   test_let_financial_calc:
     value: null
     formula: =LET(pv, 5000, rate, 0.06, periods, 10, pmt, -550, pv - pmt*periods)
     expected: 10500
-    gnumeric_skip: "forge export writes LET as its value (it does not translate LET names), and Gnumeric 1.12 cannot read LET"
+    libreoffice: "Gnumeric 1.12 cannot read LET"
 
   test_lambda_npv_style:
     value: 90.909090909091
     formula: =ROUND(LAMBDA(cf, rate, cf/(1+rate))(100, 0.1), 12)
     expected: 90.909090909091
-    gnumeric_skip: "forge export writes LAMBDA as its value, and Gnumeric 1.12 cannot read LAMBDA"
+    libreoffice: "Gnumeric 1.12 cannot read LET (forge export writes a LAMBDA called at once as a LET)"
 
   # ══════════════════════════════════════════════════════════════════════════
   # Complex scenarios

@@ -258,25 +258,25 @@ assumptions:
     value: null
     formula: "=COUNTUNIQUE(unique_data.values)"
     expected: 5
-    gnumeric_skip: "Excel has no COUNTUNIQUE (and Gnumeric 1.12 no UNIQUE), so forge export writes the value"
+    libreoffice: "Excel has no COUNTUNIQUE; forge export writes UNIQUE (numbers) or MMULT(EXACT(...)) in SUMPRODUCT (text), which Gnumeric 1.12 cannot work out"
 
   countunique_small_set:
     value: null
     formula: "=COUNTUNIQUE(agg_data.small_set)"
     expected: 7
-    gnumeric_skip: "Excel has no COUNTUNIQUE (and Gnumeric 1.12 no UNIQUE), so forge export writes the value"
+    libreoffice: "Excel has no COUNTUNIQUE; forge export writes UNIQUE (numbers) or MMULT(EXACT(...)) in SUMPRODUCT (text), which Gnumeric 1.12 cannot work out"
 
   countunique_from_mixed:
     value: null
     formula: "=COUNTUNIQUE(agg_data.mixed)"
     expected: 5
-    gnumeric_skip: "Excel has no COUNTUNIQUE (and Gnumeric 1.12 no UNIQUE), so forge export writes the value"
+    libreoffice: "Excel has no COUNTUNIQUE; forge export writes UNIQUE (numbers) or MMULT(EXACT(...)) in SUMPRODUCT (text), which Gnumeric 1.12 cannot work out"
 
   countunique_from_values:
     value: null
     formula: "=COUNTUNIQUE(agg_data.values)"
     expected: 9
-    gnumeric_skip: "Excel has no COUNTUNIQUE (and Gnumeric 1.12 no UNIQUE), so forge export writes the value"
+    libreoffice: "Excel has no COUNTUNIQUE; forge export writes UNIQUE (numbers) or MMULT(EXACT(...)) in SUMPRODUCT (text), which Gnumeric 1.12 cannot work out"
 
   # ═══════════════════════════════════════════════════════════════════════════
   # PRODUCT - Product of values
