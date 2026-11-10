@@ -17,12 +17,14 @@ plan:
 
 # A table: columns of the same length, one row per item.
 # A column formula is a bare "=..." string, calculated row by row from the
-# table's own columns.
+# table's own columns. It cannot reduce a column (SUM, MIN, MAX, AVERAGE of a
+# whole column): that is a scalar, below, and a column may read it.
 products:
   name: ["Basic", "Plus", "Pro"]
   price: [20, 40, 80]
   units: [200, 120, 30]
   revenue: "=price * units"
+  share_of_revenue: "=revenue / totals.revenue"
 
 # A scalar can reduce a column of a table, which it names with the table.
 totals:
