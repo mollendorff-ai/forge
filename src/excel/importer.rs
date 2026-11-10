@@ -357,9 +357,51 @@ impl ExcelImporter {
         for col in 0..width {
             let col_name = sheet.header(col).unwrap_or_else(|| format!("col_{col}"));
 
-            // A formula in the first data row makes this a calculated column
+            // A formula in the first data row makes this a calculated column,
+            // if every row holds that same formula: a Forge row formula is one
+            // formula for the whole column
             if let Some(excel) = sheet.formula(1, col) {
-                match refs.to_forge(&excel, &sheet.name, sheet.excel_row(1)) {
+                let whole_column = refs
+                    .to_forge(&excel, &sheet.name, sheet.excel_row(1))
+                    .and_then(|forge| {
+                        let other = (2..height).find(|&row| {
+                            sheet.formula(row, col).map(|excel| {
+                                refs.to_forge(&excel, &sheet.name, sheet.excel_row(row))
+                            }) != Some(Ok(forge.clone()))
+                        });
+                        if other.is_none() {
+                            return Ok(forge);
+                        }
+                        // The first row differs from the rest, as in a running
+                        // balance: one formula for the first row, one for the
+                        // others, which may read the row above
+                        let above = |row: usize| {
+                            sheet.formula(row, col).map(|excel| {
+                                refs.to_forge_reading_above(
+                                    &excel,
+                                    &sheet.name,
+                                    sheet.excel_row(row),
+                                )
+                            })
+                        };
+                        let rest = above(2)
+                            .unwrap_or_else(|| Err("row 3 holds no formula".to_string()))?;
+                        if let Some(row) =
+                            (3..height).find(|&row| above(row) != Some(Ok(rest.clone())))
+                        {
+                            return Err(format!(
+                                "row {} holds another formula than the rows above it, and a \
+                                 Forge row formula is one formula for the whole column",
+                                sheet.excel_row(row)
+                            ));
+                        }
+                        Ok(format!(
+                            "=IF(ROW() = 1, {}, {})",
+                            forge.trim_start_matches('='),
+                            rest.trim_start_matches('=')
+                        ))
+                    });
+                match whole_column {
                     Ok(forge) => {
                         table.add_row_formula(col_name, forge);
                         continue;

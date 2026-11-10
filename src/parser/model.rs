@@ -159,13 +159,16 @@ pub fn parse_nested_scalars(
     Ok(())
 }
 
-/// A mapping is a table if any child is a list, or a mapping whose `value` is
-/// a list (a column with metadata).
+/// A mapping is a table if any child is a list, a mapping whose `value` is
+/// a list (a column with metadata), or a period column (ADR-053).
 #[must_use]
 pub fn is_table(map: &yaml_serde::Mapping) -> bool {
     map.values().any(|v| match v {
         Value::Sequence(_) => true,
-        Value::Mapping(m) => matches!(m.get("value"), Some(Value::Sequence(_))),
+        Value::Mapping(m) => {
+            matches!(m.get("value"), Some(Value::Sequence(_)))
+                || super::periods::is_period_column(m)
+        },
         _ => false,
     })
 }

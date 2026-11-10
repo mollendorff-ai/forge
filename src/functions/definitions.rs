@@ -1,13 +1,13 @@
 //! Function definitions - THE SINGLE SOURCE OF TRUTH
 //!
-//! This file contains all 174 function definitions.
+//! This file contains all 175 function definitions.
 //! Separated from registry.rs to keep files under 1500 lines.
 
 use super::{Category, FunctionDef};
 
 /// All supported functions - THE SINGLE SOURCE OF TRUTH
 ///
-/// Total: 174 functions (includes aliases)
+/// Total: 175 functions (includes aliases)
 pub static FUNCTIONS: &[FunctionDef] = &[
     // ══════════════════════════════════════════════════════════════════════════
     // MATH (19 total)
@@ -1171,6 +1171,13 @@ pub static FUNCTIONS: &[FunctionDef] = &[
     // ══════════════════════════════════════════════════════════════════════════
     // FORGE NATIVE (8 total)
     // ══════════════════════════════════════════════════════════════════════════
+    FunctionDef {
+        name: "PREV",
+        category: Category::ForgeNative,
+        description: "Value in the row above (row formulas)",
+        syntax: "=PREV(value, first_row_value, [rows_back])",
+        scalar: false,
+    },
     FunctionDef {
         name: "VARIANCE",
         category: Category::ForgeNative,

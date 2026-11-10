@@ -21,6 +21,8 @@ pub fn eval_index(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
         scenarios: ctx.scenarios.clone(),
         current_row: None,
         row_count: ctx.row_count,
+        lag: std::cell::Cell::new(0),
+        growing_table: None,
     };
     let array = evaluate(&args[0], &array_ctx)?;
     let row_num = number_or(&args[1], ctx, 1.0)? as i64;

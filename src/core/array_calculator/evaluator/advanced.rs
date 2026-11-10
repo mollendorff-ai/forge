@@ -38,6 +38,8 @@ pub fn try_evaluate(
             }
         },
 
+        "PREV" => prev(args, ctx)?,
+
         "LET" => {
             // LET(name1, value1, [name2, value2, ...], calculation)
             if args.len() < 3 || args.len().is_multiple_of(2) {
@@ -94,6 +96,45 @@ pub fn try_evaluate(
     };
 
     Ok(Some(result))
+}
+
+/// `PREV(value, first, [back])`: `value` as it is `back` rows up (1 if not
+/// given), and `first` in the rows that have no row that far up (ADR-053).
+///
+/// Only `value` is read in the earlier row; `first` and `back` are read in
+/// the row of the formula.
+fn prev(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    if !(2..=3).contains(&args.len()) {
+        return Err(EvalError::new(
+            "PREV takes a value, what to use in the first row, and optionally how many rows back: \
+             PREV(balance, 0)",
+        ));
+    }
+    let Some(row) = ctx.row() else {
+        return Err(EvalError::new(
+            "PREV reads the row above, so it works only in a table's row formula",
+        ));
+    };
+    let back = match args.get(2) {
+        None => 1,
+        Some(expr) => match evaluate(expr, ctx)?.as_number() {
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            Some(n) if n >= 1.0 && n.fract() == 0.0 && n <= 1e9 => n as usize,
+            _ => {
+                return Err(EvalError::new(
+                    "PREV: the number of rows back must be a whole number, 1 or more",
+                ))
+            },
+        },
+    };
+    if row < back {
+        return evaluate(&args[1], ctx);
+    }
+    let lag = ctx.lag.get();
+    ctx.lag.set(lag + back);
+    let value = evaluate(&args[0], ctx);
+    ctx.lag.set(lag);
+    value
 }
 
 #[cfg(test)]

@@ -68,6 +68,7 @@ Technical documentation for Forge's architecture.
 | [ADR-050](ADR-050-KEEP-ALL-ANALYSIS-ENGINES.md) | Keep All Analysis Engines Supported | Accepted |
 | [ADR-051](ADR-051-SCALAR-SHORT-FORM.md) | Scalar Short Form, No Nulls, Results Written Back in Place | Accepted |
 | [ADR-052](ADR-052-MULTI-DOCUMENT-ONE-NAMESPACE.md) | The Documents of a File Share One Namespace | Accepted |
+| [ADR-053](ADR-053-PERIODS-AND-THE-ROW-ABOVE.md) | Periods and the Row Above | Accepted |
 
 ## Architecture Principles
 

@@ -35,6 +35,15 @@ pub fn parse_table(name: &str, map: &yaml_serde::Mapping) -> ForgeResult<Table> 
             }
         }
 
+        // A period column: {start: 2026-12, count: 300, unit: month} (ADR-053)
+        if let Value::Mapping(col_map) = value {
+            if super::periods::looks_like_period_column(col_map) {
+                let dates = super::periods::period_column(name, col_name, col_map)?;
+                table.add_column(Column::new(col_name.to_string(), dates));
+                continue;
+            }
+        }
+
         // Check for v4.0 rich column format: { value: [...], unit: "...", notes: "..." }
         if let Value::Mapping(col_map) = value {
             // Check if it has a 'value' key with an array (v4.0 rich format)

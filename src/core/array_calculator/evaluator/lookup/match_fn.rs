@@ -22,6 +22,8 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
         scenarios: ctx.scenarios.clone(),
         current_row: None,
         row_count: ctx.row_count,
+        lag: std::cell::Cell::new(0),
+        growing_table: None,
     };
     let lookup_array = evaluate(&args[1], &array_ctx)?;
 

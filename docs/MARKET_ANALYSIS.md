@@ -75,7 +75,7 @@ AI Agent (Claude/LangChain/etc)
 ┌─────────────────────────────┐
 │  FORGE MCP SERVER           │  ← Forge's position
 │  • Parse YAML (2K tokens)   │
-│  • Calculate 174 functions  │
+│  • Calculate 175 functions  │
 │  • Verify vs Gnumeric/R     │
 │  • Return verified results  │
 └─────────────────────────────┘
@@ -88,7 +88,7 @@ AI Agent (Claude/LangChain/etc)
 | **MCP Integration** | Native to Claude ecosystem (`forge mcp`) |
 | **10-15x Token Efficiency (Measured)** | 2K tokens vs 100K for Excel |
 | **Gnumeric/R Validation** | E2E verified math (trust layer) |
-| **174 Functions** | Excel-compatible + 6 FP&A-native |
+| **175 Functions** | Excel-compatible + 6 FP&A-native |
 | **2,486 Tests** | Engineering discipline |
 | **YAML Format** | AI models trained on millions of YAML files |
 | **Deterministic** | Same input = same output (audit-ready) |
@@ -167,7 +167,7 @@ Unlike AI orchestration (5,879 repos), there are **no viable open-source FP&A to
 1. **Only AI-native FP&A tool** - Zero direct competitors
 2. **Infrastructure FOR AI** - Not competing WITH AI orchestration
 3. **MCP integration** - Native to winning ecosystem (Claude)
-4. **Domain moat** - 174 functions, Gnumeric/R validation, FP&A expertise
+4. **Domain moat** - 175 functions, Gnumeric/R validation, FP&A expertise
 5. **Proven exit multiple** - Anaplan at $10.7B (8.5x LangChain)
 6. **Token economics** - 10-15x measured efficiency = structural cost advantage
 7. **Trust layer** - Verified math is non-negotiable in finance
@@ -240,7 +240,7 @@ Based on this analysis, the following GTM strategy was adopted:
 | Decision | Choice |
 |----------|--------|
 | **License** | MIT OR Apache-2.0 (standard Rust dual license) |
-| **Product** | One version - full forge with all 174 functions |
+| **Product** | One version - full forge with all 175 functions |
 
 > **Note:** This analysis was written when Forge used Elastic-2.0 licensing.
 > Forge was relicensed to MIT OR Apache-2.0 in February 2026 for open-source release.

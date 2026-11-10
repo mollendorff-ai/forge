@@ -23,6 +23,8 @@ pub fn eval_xlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         scenarios: ctx.scenarios.clone(),
         current_row: None,
         row_count: ctx.row_count,
+        lag: std::cell::Cell::new(0),
+        growing_table: None,
     };
     let lookup_arr = evaluate(&args[1], &array_ctx)?;
     let return_arr = evaluate(&args[2], &array_ctx)?;
@@ -121,6 +123,8 @@ pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         scenarios: ctx.scenarios.clone(),
         current_row: None,
         row_count: ctx.row_count,
+        lag: std::cell::Cell::new(0),
+        growing_table: None,
     };
     let table_array = evaluate(&args[1], &array_ctx)?;
     let _col_index = evaluate(&args[2], ctx)?
@@ -181,6 +185,8 @@ pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         scenarios: ctx.scenarios.clone(),
         current_row: None,
         row_count: ctx.row_count,
+        lag: std::cell::Cell::new(0),
+        growing_table: None,
     };
     let table_array = evaluate(&args[1], &array_ctx)?;
     let _row_index = evaluate(&args[2], ctx)?

@@ -2,7 +2,7 @@
   "name": "forge-yaml",
   "displayName": "Forge YAML",
   "description": "Highlights the formulas in Forge model files and checks the files against the Forge schema",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "publisher": "mollendorff-ai",
   "repository": {
     "type": "git",
@@ -54,7 +54,7 @@
           "*.forge.yaml",
           "*.forge.yml"
         ],
-        "url": "./schemas/forge-v5.1.0.schema.json"
+        "url": "./schemas/forge.schema.json"
       }
     ]
   },

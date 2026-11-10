@@ -15,6 +15,7 @@ mod arrays;
 mod includes;
 pub(crate) mod model;
 mod multi_doc;
+pub(crate) mod periods;
 mod schema;
 mod schema_errors;
 #[cfg(test)]

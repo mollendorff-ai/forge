@@ -16,6 +16,7 @@ use crate::core::array_calculator::tokenizer::{tokenize, Token};
 use std::collections::HashMap;
 
 mod local_names;
+mod previous_row;
 use local_names::Locals;
 use std::fmt::Write as _;
 
@@ -24,8 +25,11 @@ pub const UNGROUPED_SHEET: &str = "Scalars";
 
 /// Functions Excel evaluates differently from Forge: Forge's `VLOOKUP` takes
 /// one column and ignores the column index, `ROW`/`COLUMN`/`OFFSET`/`INDIRECT`
-/// work on Forge names rather than sheet cells, `NOW` returns text instead of
-/// a date serial, and `UNIQUE`/`SORT`/`FILTER`/`SEQUENCE` spill in Excel.
+/// work on Forge names rather than sheet cells (`ROW()` alone is the table's
+/// row and is translated: `previous_row`), `NOW` returns text instead of a
+/// date serial, and `UNIQUE`/`SORT`/`FILTER`/`SEQUENCE` spill in Excel.
+/// `forge import` does not read a formula that uses one either: it would
+/// calculate something else in Forge.
 /// (`LET`, `LAMBDA` called at once and `COUNTUNIQUE` of a column are written
 /// as the Excel expression that computes the same thing: `local_names`. A
 /// `TODAY` whose result is a text column is written as values by the
@@ -521,6 +525,22 @@ impl WorkbookRefs {
                     i = end;
                     continue;
                 },
+                // PREV and ROW(): the row above, and the table's row number
+                Token::Identifier(word)
+                    if next_is_paren
+                        && (word.eq_ignore_ascii_case("PREV")
+                            || word.eq_ignore_ascii_case("ROW")) =>
+                {
+                    let (text, end) = if word.eq_ignore_ascii_case("PREV") {
+                        self.translate_prev(tokens, i, ctx, &calls, locals, has_range)?
+                    } else {
+                        Self::translate_row(tokens, i, ctx, locals)?
+                    };
+                    out.push_str(&text);
+                    after_value = true;
+                    i = end;
+                    continue;
+                },
                 Token::Identifier(word) if next_is_paren && locals.get(word).is_some() => {
                     return Err(format!(
                         "{word} is a name of a LET or LAMBDA, not a function"
@@ -934,7 +954,12 @@ mod tests {
 
     #[test]
     fn functions_that_differ_in_excel_are_not_translated() {
-        for f in ["=VLOOKUP(1, revenue, 2)", "=NOW()", "=ROW()"] {
+        for f in [
+            "=VLOOKUP(1, revenue, 2)",
+            "=NOW()",
+            "=ROW(revenue)",
+            "=COLUMN()",
+        ] {
             assert!(row(f).unwrap_err().contains("no Excel equivalent"), "{f}");
         }
         // COUNTUNIQUE has an Excel form only in a scalar (local_names)
@@ -1253,14 +1278,48 @@ impl ReverseRefs {
     ///
     /// Returns the reason when the formula cannot be expressed in Forge.
     pub fn to_forge(&self, formula: &str, sheet: &str, row: u32) -> Result<String, String> {
+        self.translate_back(formula, sheet, row, false)
+    }
+
+    /// [`ReverseRefs::to_forge`] for a table formula that may read the row
+    /// above: a cell of the row above is `PREV(column, 0)`. The 0 is never
+    /// used when the formula is kept for the rows that have a row above
+    /// (`forge import` writes `IF(ROW() = 1, first row's formula, this)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns the reason when the formula cannot be expressed in Forge.
+    pub fn to_forge_reading_above(
+        &self,
+        formula: &str,
+        sheet: &str,
+        row: u32,
+    ) -> Result<String, String> {
+        self.translate_back(formula, sheet, row, true)
+    }
+
+    fn translate_back(
+        &self,
+        formula: &str,
+        sheet: &str,
+        row: u32,
+        above: bool,
+    ) -> Result<String, String> {
         let current = self
             .sheets
             .get(sheet)
             .ok_or_else(|| format!("unknown sheet '{sheet}'"))?;
         let mut out = String::from("=");
         let mut after_value = false;
-        for token in excel_tokens(formula)? {
-            match &token {
+        let tokens = excel_tokens(formula)?;
+        let mut skip = 0;
+        let mut only_in_count_unique = false;
+        for (i, token) in tokens.iter().enumerate() {
+            if skip > 0 {
+                skip -= 1;
+                continue;
+            }
+            match token {
                 XlToken::Number(n) => out.push_str(n),
                 XlToken::Text(t) => {
                     if t.contains('"') {
@@ -1269,6 +1328,32 @@ impl ReverseRefs {
                     let _ = write!(out, "\"{t}\"");
                 },
                 XlToken::Bool(b) => out.push_str(if *b { "TRUE" } else { "FALSE" }),
+                // Excel's ROW() is the sheet's row; a table starts in row 2
+                XlToken::Function(name)
+                    if name.eq_ignore_ascii_case("ROW")
+                        && matches!(current, SheetKind::Table { .. })
+                        && tokens.get(i + 1..i + 3) == Some(&[XlToken::Open, XlToken::Close]) =>
+                {
+                    out.push_str("(ROW() + 1)");
+                    skip = 2;
+                    after_value = true;
+                    continue;
+                },
+                // ROW(range) and UNIQUE are read only as part of what `forge
+                // export` writes for COUNTUNIQUE (checked below)
+                XlToken::Function(name)
+                    if name.eq_ignore_ascii_case("ROW") || name.eq_ignore_ascii_case("UNIQUE") =>
+                {
+                    only_in_count_unique = true;
+                    out.push_str(&name.to_uppercase());
+                },
+                XlToken::Function(name)
+                    if DIFFERENT_IN_EXCEL.contains(&name.to_uppercase().as_str()) =>
+                {
+                    return Err(format!(
+                        "function {name} works differently in Forge than in Excel"
+                    ));
+                },
                 XlToken::Function(name) | XlToken::Local(name) => out.push_str(name),
                 XlToken::Reference(target, first, last) => {
                     let target_name = target.as_deref().unwrap_or(sheet);
@@ -1276,7 +1361,13 @@ impl ReverseRefs {
                         .sheets
                         .get(target_name)
                         .ok_or_else(|| format!("unknown sheet '{target_name}'"))?;
-                    out.push_str(&Self::name_for(current, kind, first, last.as_ref(), row)?);
+                    out.push_str(&Self::name_for(
+                        current,
+                        kind,
+                        first,
+                        last.as_ref(),
+                        (row, above),
+                    )?);
                 },
                 XlToken::Operator(op) => {
                     if after_value {
@@ -1299,7 +1390,19 @@ impl ReverseRefs {
                     | XlToken::Close
             );
         }
-        Ok(local_names::restore_count_unique(&out))
+        // What `forge export` writes for Forge's ROW()
+        let out = out.replace("((ROW() + 1) - 1)", "ROW()");
+        let out = local_names::restore_count_unique(&out);
+        if only_in_count_unique {
+            let rest = out.replace("ROW()", "").replace("COUNTUNIQUE(", "");
+            if let Some(name) = ["ROW(", "UNIQUE("].iter().find(|f| rest.contains(**f)) {
+                return Err(format!(
+                    "function {} works differently in Forge than in Excel",
+                    name.trim_end_matches('(')
+                ));
+            }
+        }
+        Ok(out)
     }
 
     /// Forge name for a cell or range on `kind`, seen from `current`.
@@ -1308,7 +1411,7 @@ impl ReverseRefs {
         kind: &SheetKind,
         first: &Cell,
         last: Option<&Cell>,
-        row: u32,
+        (row, above): (u32, bool),
     ) -> Result<String, String> {
         match kind {
             SheetKind::Scalars { rows, include } => {
@@ -1354,8 +1457,17 @@ impl ReverseRefs {
                     (Some(ns), None) => format!("@{ns}.{name}"),
                     _ => name.clone(),
                 };
+                let name = if in_current_table {
+                    column.clone()
+                } else {
+                    format!("{qualified}.{column}")
+                };
                 match (current, last) {
-                    // A single cell in a row formula must be in the same row.
+                    // A single cell in a row formula is in the same row, or
+                    // (where the caller reads it so) in the row above
+                    (SheetKind::Table { .. }, None) if above && first.row + 1 == row => {
+                        Ok(format!("PREV({name}, 0)"))
+                    },
                     (SheetKind::Table { .. }, None) if first.row != row => {
                         Err("reference to another row".to_string())
                     },
@@ -1363,8 +1475,7 @@ impl ReverseRefs {
                     (SheetKind::Scalars { .. }, None) => {
                         Err("reference to a single table cell".to_string())
                     },
-                    _ if in_current_table => Ok(column.clone()),
-                    _ => Ok(format!("{qualified}.{column}")),
+                    _ => Ok(name),
                 }
             },
         }
