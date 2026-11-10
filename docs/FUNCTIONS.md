@@ -233,7 +233,7 @@
 | `LOWER` | Lowercase text | `=LOWER(text)` |
 | `TRIM` | Remove extra spaces | `=TRIM(text)` |
 | `REPT` | Repeat text | `=REPT(text, times)` |
-| `TEXT` | Format number as text | `=TEXT(value, format)` |
+| `TEXT` | A number or a date written with an Excel format code (0 # . , % E+00, yyyy mmm dd; another code is an error) | `=TEXT(value, format)` |
 | `VALUE` | Convert text to number | `=VALUE(text)` |
 | `FIND` | Find text position | `=FIND(find_text, within_text, start)` |
 | `SEARCH` | Find text (case insensitive) | `=SEARCH(find_text, within_text, start)` |
