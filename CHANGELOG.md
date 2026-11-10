@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.11] - 2026-11-10
+
+Eleventh release candidate, for two wrong answers in `forge import` (a running balance built in Excel came in as another formula; Excel's `ROW()` and `COLUMN()` were read as Forge's). Under docs/STABILITY.md that restarts the two-week clock: the stable release is no earlier than 2026-11-24. It also adds `PREV`, period columns and model format 5.2.0 (ADR-053).
+
 ### Fixed
 - **`forge import` took the formula of the first data row for the whole column.** A running balance built in Excel (`=A2`, then `=B2+A3`, `=B3+A4`: 100, 150, 175) was imported as `balance: =amount` and calculated 100, 50, 25, without a warning. Import now reads every row. A column is a row formula only if every row holds the same formula; a column whose first row holds one formula and every other row another, which may read the row above, comes in as `=IF(ROW() = 1, amount, PREV(balance, 0) + amount)`; any other column of differing formulas is imported as its values, with a warning. This is a wrong answer under docs/STABILITY.md, so the next release candidate restarts the two-week clock.
 - **`forge import` read Excel's `ROW()` and `COLUMN()` as Forge's**, which count differently: `=ROW()*A2` in a table gave 40, 90, 160 in Excel and 20, 60, 120 after import. Excel's `ROW()` in a table is now read as `(ROW() + 1)`, and a formula that uses a function Forge defines differently from Excel (`COLUMN`, `ROW` of a reference, `VLOOKUP`, `HLOOKUP`, `OFFSET`, `INDIRECT`, `NOW`, `UNIQUE`, `SORT`, `FILTER`, `SEQUENCE`, `RANDARRAY`) is imported as its value, with a warning. `forge export` already refused to write those; import did not refuse to read them.

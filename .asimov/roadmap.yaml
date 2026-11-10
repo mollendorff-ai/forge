@@ -14,13 +14,12 @@
 # written down. "Polish" and "improve" are not criteria.
 
 state:
-  version: 10.0.0-rc.10, released 2026-11-09 after a wrong answer in forge
-    export (a column shorter than its table got the table's rows). The
-    two-week stable clock in docs/STABILITY.md runs from this release (no
-    earlier than 2026-11-23); a new wrong answer restarts it. Unreleased since
-    rc.10 are two wrong answers in forge import (the first row's formula taken
-    for the whole column; Excel's ROW() and COLUMN() read as Forge's), so the
-    next release candidate restarts the clock.
+  version: 10.0.0-rc.11, released 2026-11-10 after two wrong answers in forge
+    import (the first row's formula taken for the whole column; Excel's ROW()
+    and COLUMN() read as Forge's). The two-week stable clock in
+    docs/STABILITY.md runs from this release (no earlier than 2026-11-24); a
+    new wrong answer restarts it. rc.11 also adds PREV, period columns and
+    model format 5.2.0 (ADR-053).
   format: model format 5.1.0 (ADR-051), with inputs as plain numbers, formula
     scalars as a formula mapping, and results written next to formulas in
     place; 5.2.0 (ADR-053) adds the period column and is needed only by a
