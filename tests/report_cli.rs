@@ -43,8 +43,8 @@ fn report_prints_markdown_and_leaves_the_file_as_it_was() {
         "\
 | group | rent | utilities | year1_monthly |
 | --- | ---: | ---: | ---: |
-| oak_suite | 1,450.00 | 60.00 | 1,510.00 |
-| elm_loft | 1,390.00 | 90.00 | 1,480.00 |
+| oak_suite | 1,450 | 60 | 1,510 |
+| elm_loft | 1,390 | 90 | 1,480 |
 "
     );
     assert_eq!(String::from_utf8_lossy(&out.stderr), "");
@@ -62,7 +62,7 @@ fn report_of_an_uncalculated_file_says_so_and_succeeds() {
     assert!(out.status.success(), "{out:?}");
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
-        stdout.contains("oak_suite  1,450.00      60.00              —"),
+        stdout.contains("oak_suite  1,450         60              —"),
         "{stdout}"
     );
     let stderr = String::from_utf8_lossy(&out.stderr);
@@ -110,4 +110,45 @@ fn keys_and_no_inputs_are_one_or_the_other() {
     let file = write(dir.path(), "options.yaml", CALCULATED);
     let out = forge(&["report", &file, "--keys", "rent", "--no-inputs"]);
     assert_eq!(out.status.code(), Some(2), "{out:?}");
+}
+
+#[test]
+fn the_conflict_of_no_inputs_and_keys_is_explained_in_the_help_of_both() {
+    let out = forge(&["report", "--help"]);
+    let help = String::from_utf8_lossy(&out.stdout).replace('\n', " ");
+    let squeezed: String = help.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(
+        squeezed.contains("Not with --keys, which already chooses the columns"),
+        "{help}"
+    );
+    assert!(
+        squeezed.contains("Not with --no-inputs: --keys already chooses the columns"),
+        "{help}"
+    );
+    // and the combination is still refused
+    let dir = tempfile::tempdir().expect("temp dir");
+    let file = write(dir.path(), "options.yaml", CALCULATED);
+    let refused = forge(&["report", &file, "--keys", "rent", "--no-inputs"]);
+    assert!(!refused.status.success());
+}
+
+#[test]
+fn the_help_says_keys_narrows_a_wide_table() {
+    let out = forge(&["report", "--help"]);
+    let help = String::from_utf8_lossy(&out.stdout);
+    assert!(help.contains("WIDE TABLES"), "{help}");
+    assert!(
+        help.contains("forge report options.yaml --keys rent,year1_monthly"),
+        "{help}"
+    );
+}
+
+#[test]
+fn whole_number_columns_print_without_decimals() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let file = write(dir.path(), "options.yaml", CALCULATED);
+    let out = forge(&["report", &file]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("1,450"), "{text}");
+    assert!(!text.contains("1,450.00"), "{text}");
 }
