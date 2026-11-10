@@ -35,6 +35,16 @@ exclude = [
 
 # Main binary (175 functions, all features)
 # Build: cargo build --release
+# cargo binstall mollendorff-forge downloads the binary of the GitHub release
+# (forge-<target>.tar.gz, forge-<target>.zip on Windows) instead of building it.
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/forge-{ target }{ archive-suffix }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"
+
 [[bin]]
 name = "forge"
 path = "src/main.rs"

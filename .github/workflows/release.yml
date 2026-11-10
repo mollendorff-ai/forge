@@ -211,3 +211,52 @@ jobs:
       - name: Publish to crates.io
         run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
         continue-on-error: true  # Don't fail if already published
+
+  # The formula in Formula/ (this repository is the Homebrew tap) installs the
+  # binaries of the release, so it is rewritten from this release's checksums.
+  homebrew:
+    name: Update Homebrew formula
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.formula.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Write the formula for this release
+        id: formula
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          gh release download "$TAG" --pattern checksums.txt --dir /tmp
+          scripts/homebrew-formula.sh "${TAG#v}" /tmp/checksums.txt > Formula/forge.rb
+          git diff --stat
+
+      - name: Commit it to main
+        run: |
+          if git diff --quiet Formula/forge.rb; then
+            echo "The formula is already for ${{ github.ref_name }}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Homebrew formula for ${{ github.ref_name }}" Formula/forge.rb
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 10
+          done
+          exit 1
+
+  # brew install and cargo binstall, as a user runs them, give this version.
+  install:
+    name: Install check
+    needs: [homebrew, publish]
+    uses: ./.github/workflows/install.yml
+    with:
+      version: ${{ needs.homebrew.outputs.version }}

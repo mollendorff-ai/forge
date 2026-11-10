@@ -364,11 +364,15 @@ breakeven:
 ## Quick Start
 
 ```bash
-# Install from source (prebuilt binaries are on the Releases page)
-cargo install --path .
+# Install the prebuilt binary with Homebrew (macOS, Linux); this repository is the tap
+brew tap mollendorff-ai/forge https://github.com/mollendorff-ai/forge
+brew install mollendorff-ai/forge/forge
 
-# Or use the Makefile
-make install-forge
+# Or with cargo-binstall (releases after 10.0.0-rc.11; Windows too)
+cargo binstall mollendorff-forge
+
+# Or build from source
+cargo install --path .
 
 # Validate a model
 forge validate model.yaml
