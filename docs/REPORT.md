@@ -8,9 +8,9 @@ forge report options.yaml
 ```
 
 ```
-group          rent  utilities  year1_monthly
-oak_suite  1,450.00      60.00       1,510.00
-elm_loft   1,390.00      90.00       1,480.00
+group       rent  utilities  year1_monthly
+oak_suite  1,450         60          1,510
+elm_loft   1,390         90          1,480
 ```
 
 ## What it reads
@@ -35,7 +35,7 @@ Only scalars are shown. A table (columns of values) is listed in a note; `forge 
 | --- | --- |
 | `--group a,b` | Only these groups, in file order. An unknown name is an error that lists the groups. |
 | `--keys x,y` | Only these keys, in this order, as one table, for every group that has at least one of them. A group without a key has an empty cell there. An unknown key is an error that lists the keys. |
-| `--no-inputs` | Leave out inputs. Cannot be combined with `--keys`, which already chooses the columns. |
+| `--no-inputs` | Leave out inputs. Not with `--keys`, which already chooses the columns (`--help` of both says so). |
 | `--format table` | Aligned columns for the terminal (the default). |
 | `--format markdown` | One pipe table per set of keys, to paste into a document. |
 | `--format csv` | One block per set of keys with its own header, separated by a blank line. `--keys` gives a single block. |
@@ -49,7 +49,17 @@ In `table` and `markdown`, a number has two decimals and thousands separators (`
 
 In `csv` and `json`, numbers are at full precision with no separators, for another program to read.
 
-A year or a count is formatted like any other number (`2,047.00`, `247.00`): the file does not say which numbers are amounts.
+A column whose values are all whole numbers has no decimals (`1,700`, `3`, `0`, `2,047`). The rule is per column, not per cell, so a column never mixes `3` and `3.50`: one fractional value gives every cell of that column its decimals. The file does not say which numbers are amounts, so a column of whole amounts (`1,700`) reads the same as a column of counts.
+
+An input is shown as written where the rules above would round it: `0.14975` is not `0.1498`. A formula's result is never shown more precisely than the rules say; use `--format csv` or `json` for full precision.
+
+## A wide table
+
+A model with many keys makes a table wider than a phone or a narrow terminal. `report` does not wrap or cut it. `--keys` narrows it to the columns you choose, in your order:
+
+```bash
+forge report options.yaml --keys rent,year1_monthly
+```
 
 ## Example
 
@@ -63,14 +73,14 @@ forge report /tmp/options.yaml --no-inputs --format markdown
 
 | group | monthly | first_year | second_year_monthly | left_each_month | share_of_pay | room_under_cap |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| maple_studio | 1,582.00 | 19,884.00 | 1,622.50 | 3,218.00 | 0.3296 | 98.00 |
-| harbour_one_bed | 1,650.00 | 21,000.00 | 1,689.88 | 3,150.00 | 0.3438 | 30.00 |
-| park_loft | 1,752.00 | 21,674.00 | 1,811.20 | 3,048.00 | 0.365 | -72.00 |
-| river_studio | 1,542.00 | 20,004.00 | 1,587.15 | 3,258.00 | 0.3213 | 138.00 |
-| garden_one_bed | 1,660.00 | 20,320.00 | 1,736.25 | 3,140.00 | 0.3458 | 20.00 |
+| maple_studio | 1,582 | 19,884 | 1,622.50 | 3,218 | 0.3296 | 98 |
+| harbour_one_bed | 1,650 | 21,000 | 1,689.88 | 3,150 | 0.3438 | 30 |
+| park_loft | 1,752 | 21,674 | 1,811.20 | 3,048 | 0.365 | -72 |
+| river_studio | 1,542 | 20,004 | 1,587.15 | 3,258 | 0.3213 | 138 |
+| garden_one_bed | 1,660 | 20,320 | 1,736.25 | 3,140 | 0.3458 | 20 |
 
 | group | lowest_monthly | lowest_first_year |
 | --- | ---: | ---: |
-| summary | 1,542.00 | 19,884.00 |
+| summary | 1,542 | 19,884 |
 
 The `budget` group holds only inputs, so `--no-inputs` leaves it out. Its numbers, and the five options', are checked against the same calculation in Python in `tests/demo_examples.rs`. `--keys monthly,first_year` gives a narrower table, for a phone.

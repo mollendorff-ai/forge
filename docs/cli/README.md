@@ -378,8 +378,16 @@ in a note on standard error; tables are not shown.
 
 NUMBERS:
   table and markdown: two decimals and thousands separators (1,450.00); a
-  number under 1 keeps four significant digits (0.0479)
+  number under 1 keeps four significant digits (0.0479). A column whose
+  values are all whole numbers has no decimals (1,700, 3, 0), decided per
+  column, so 3 and 3.50 never share one. An input is shown as written where
+  rounding would change it (0.14975)
   csv and json: full precision, no separators
+
+WIDE TABLES:
+  A model with many keys makes a table wider than a phone or a narrow
+  terminal. --keys narrows it to the columns you choose, in your order:
+  forge report options.yaml --keys rent,year1_monthly
 
 EXAMPLES:
   forge calculate options.yaml
@@ -399,7 +407,7 @@ Options:
           Show only these groups (comma-separated)
 
       --keys <KEYS>
-          Show only these keys, in this order, as one table (comma-separated)
+          Show only these keys, in this order, as one table (comma-separated); narrows a wide table. Not with --no-inputs: --keys already chooses the columns
 
       --format <FORMAT>
           Output format
@@ -408,7 +416,7 @@ Options:
           [possible values: table, csv, json, markdown]
 
       --no-inputs
-          Leave out inputs, the values written with no formula
+          Leave out inputs, the values written with no formula. Not with --keys, which already chooses the columns
 
   -h, --help
           Print help (see a summary with '-h')

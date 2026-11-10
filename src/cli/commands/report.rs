@@ -70,6 +70,8 @@ pub struct ReportRow {
     pub group: String,
     /// One cell per key of the section
     pub cells: Vec<Cell>,
+    /// Per cell, whether it is an input (written in the file, not calculated)
+    pub inputs: Vec<bool>,
 }
 
 /// Groups that have the same keys, as one table
@@ -140,15 +142,19 @@ const fn shown_name(group: &str) -> &str {
     }
 }
 
-fn cells_for(keys: &[String], entries: &[&Entry]) -> Vec<Cell> {
-    keys.iter()
-        .map(|k| {
-            entries
-                .iter()
-                .find(|e| &e.key == k)
-                .map_or(Cell::Absent, |e| e.cell)
-        })
-        .collect()
+fn row_for(group: &str, keys: &[String], entries: &[&Entry]) -> ReportRow {
+    let found: Vec<Option<&&Entry>> = keys
+        .iter()
+        .map(|k| entries.iter().find(|e| &e.key == k))
+        .collect();
+    ReportRow {
+        group: group.to_string(),
+        cells: found
+            .iter()
+            .map(|e| e.map_or(Cell::Absent, |e| e.cell))
+            .collect(),
+        inputs: found.iter().map(|e| e.is_some_and(|e| e.input)).collect(),
+    }
 }
 
 /// Build the report of a parsed model.
@@ -229,22 +235,16 @@ fn sections_by_keys(groups: &[Group], no_inputs: bool) -> Vec<ReportSection> {
         let mut key_set: Vec<String> = entries.iter().map(|e| e.key.clone()).collect();
         key_set.sort_unstable();
         if let Some((_, section)) = sections.iter_mut().find(|(set, _)| *set == key_set) {
-            let cells = cells_for(&section.keys, &entries);
-            section.rows.push(ReportRow {
-                group: group.name.clone(),
-                cells,
-            });
+            let row = row_for(&group.name, &section.keys, &entries);
+            section.rows.push(row);
         } else {
             let keys: Vec<String> = entries.iter().map(|e| e.key.clone()).collect();
-            let cells = cells_for(&keys, &entries);
+            let row = row_for(&group.name, &keys, &entries);
             sections.push((
                 key_set,
                 ReportSection {
                     keys,
-                    rows: vec![ReportRow {
-                        group: group.name.clone(),
-                        cells,
-                    }],
+                    rows: vec![row],
                 },
             ));
         }
@@ -280,10 +280,7 @@ fn chosen_keys(groups: &[Group], keys: &[String]) -> ForgeResult<ReportSection> 
         .filter(|g| g.entries.iter().any(|e| keys.contains(&e.key)))
         .map(|g| {
             let entries: Vec<&Entry> = g.entries.iter().collect();
-            ReportRow {
-                group: g.name.clone(),
-                cells: cells_for(keys, &entries),
-            }
+            row_for(&g.name, keys, &entries)
         })
         .collect();
     Ok(ReportSection {
@@ -329,6 +326,41 @@ pub fn display_number(x: f64) -> String {
     format!("{sign}{}.{fraction}", with_thousands(&whole))
 }
 
+/// The same number with no decimals, for a column of whole numbers
+/// (`1,700`, `3`, `0`).
+fn display_whole(x: f64) -> String {
+    display_number(x).trim_end_matches(".00").to_string()
+}
+
+/// Whether a column shows whole numbers only: every value it shows ends in
+/// `.00`, so `3.50` or `0.0479` keeps the column's decimals for every cell.
+fn column_is_whole(section: &ReportSection, column: usize) -> bool {
+    section.rows.iter().all(|row| match row.cells[column] {
+        Cell::Value(v) => !v.is_finite() || display_number(v).ends_with(".00"),
+        Cell::Uncalculated | Cell::Absent => true,
+    })
+}
+
+/// An input is shown as written when the column's rule would round it:
+/// `0.14975` is not `0.1498`.
+fn shown_input(x: f64, shown: String) -> String {
+    let same = shown
+        .replace(',', "")
+        .parse::<f64>()
+        .is_ok_and(|p| p.to_bits() == x.to_bits());
+    if same || !x.is_finite() {
+        return shown;
+    }
+    let text = x.abs().to_string();
+    let (whole, fraction) = text.split_once('.').unwrap_or((text.as_str(), ""));
+    let sign = if x < 0.0 { "-" } else { "" };
+    if fraction.is_empty() {
+        format!("{sign}{}", with_thousands(whole))
+    } else {
+        format!("{sign}{}.{fraction}", with_thousands(whole))
+    }
+}
+
 fn with_thousands(whole: &str) -> String {
     let mut out = String::with_capacity(whole.len() + whole.len() / 3);
     for (i, c) in whole.chars().enumerate() {
@@ -355,12 +387,38 @@ pub fn render(report: &Report, format: ReportFormat) -> String {
     }
 }
 
-fn shown_cell(cell: Cell) -> String {
+/// A cell as table and Markdown show it; `whole` says its column has whole
+/// numbers only.
+fn shown_cell(cell: Cell, input: bool, whole: bool) -> String {
     match cell {
-        Cell::Value(v) => display_number(v),
+        Cell::Value(v) => {
+            let shown = if whole {
+                display_whole(v)
+            } else {
+                display_number(v)
+            };
+            if input {
+                shown_input(v, shown)
+            } else {
+                shown
+            }
+        },
         Cell::Uncalculated => "—".to_string(),
         Cell::Absent => String::new(),
     }
+}
+
+/// The cells of a row, as table and Markdown show them.
+fn shown_row(section: &ReportSection, wholes: &[bool], row: &ReportRow) -> Vec<String> {
+    (0..section.keys.len())
+        .map(|c| shown_cell(row.cells[c], row.inputs[c], wholes[c]))
+        .collect()
+}
+
+fn whole_columns(section: &ReportSection) -> Vec<bool> {
+    (0..section.keys.len())
+        .map(|c| column_is_whole(section, c))
+        .collect()
 }
 
 fn render_table(report: &Report) -> String {
@@ -369,13 +427,14 @@ fn render_table(report: &Report) -> String {
         if i > 0 {
             out.push('\n');
         }
+        let wholes = whole_columns(section);
         let mut lines: Vec<Vec<String>> = vec![std::iter::once("group".to_string())
             .chain(section.keys.iter().cloned())
             .collect()];
         for row in &section.rows {
             lines.push(
                 std::iter::once(shown_name(&row.group).to_string())
-                    .chain(row.cells.iter().map(|c| shown_cell(*c)))
+                    .chain(shown_row(section, &wholes, row))
                     .collect(),
             );
         }
@@ -424,9 +483,10 @@ fn render_markdown(report: &Report) -> String {
             .chain(section.keys.iter().map(|_| "---:"))
             .collect();
         let _ = writeln!(out, "| {} |", rule.join(" | "));
+        let wholes = whole_columns(section);
         for row in &section.rows {
             let items: Vec<String> = std::iter::once(markdown_text(shown_name(&row.group)))
-                .chain(row.cells.iter().map(|c| shown_cell(*c)))
+                .chain(shown_row(section, &wholes, row))
                 .collect();
             let _ = writeln!(out, "| {} |", items.join(" | "));
         }

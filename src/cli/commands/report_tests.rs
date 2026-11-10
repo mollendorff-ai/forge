@@ -278,9 +278,9 @@ fn table_format() {
     assert_eq!(
         render(&report, ReportFormat::Table),
         "\
-group          rent  utilities  year1_monthly
-oak_suite  1,450.00      60.00       1,510.00
-elm_loft   1,390.00      90.00       1,480.00
+group       rent  utilities  year1_monthly
+oak_suite  1,450         60          1,510
+elm_loft   1,390         90          1,480
 
 group          rate
 assumptions  0.0479
@@ -296,8 +296,8 @@ fn markdown_format() {
         "\
 | group | rent | utilities | year1_monthly |
 | --- | ---: | ---: | ---: |
-| oak_suite | 1,450.00 | 60.00 | 1,510.00 |
-| elm_loft | 1,390.00 | 90.00 | 1,480.00 |
+| oak_suite | 1,450 | 60 | 1,510 |
+| elm_loft | 1,390 | 90 | 1,480 |
 
 | group | rate |
 | --- | ---: |
@@ -324,7 +324,7 @@ fn markdown_is_one_pipe_table_per_key_set() {
             assert_eq!(cells(line), cells(lines[0]), "{table}");
         }
     }
-    assert!(text.contains("| a | 1.00 | — |"), "{text}");
+    assert!(text.contains("| a | 1 | — |"), "{text}");
 }
 
 #[test]
@@ -400,4 +400,85 @@ fn formats_are_read_by_name() {
         ReportFormat::Markdown
     );
     assert!("html".parse::<ReportFormat>().is_err());
+}
+
+const MIXED: &str = r#"_forge_version: "5.1.0"
+unit_a:
+  list_rent: 1700
+  free_months: 3
+  spread: 0
+  fee: 12.5
+  rate: 0.14975
+unit_b:
+  list_rent: 1250
+  free_months: 0
+  spread: 0
+  fee: 8
+  rate: 0.2
+"#;
+
+#[test]
+fn a_column_of_whole_numbers_has_no_decimals() {
+    let report = report_of(MIXED, &ReportOptions::default());
+    assert_eq!(
+        render(&report, ReportFormat::Table),
+        "\
+group   list_rent  free_months  spread    fee     rate
+unit_a      1,700            3       0  12.50  0.14975
+unit_b      1,250            0       0   8.00     0.20
+"
+    );
+}
+
+#[test]
+fn the_rule_is_per_column_so_a_column_never_mixes_3_and_3_50() {
+    let report = report_of(MIXED, &ReportOptions::default());
+    let markdown = render(&report, ReportFormat::Markdown);
+    // fee: 12.5 and 8 keep two decimals in both rows
+    assert!(markdown.contains("| 12.50 |") && markdown.contains("| 8.00 |"));
+    // free_months: 3 and 0 are whole
+    assert!(markdown.contains("| 3 |") && markdown.contains("| 0 |"));
+}
+
+#[test]
+fn an_input_is_shown_as_written_where_rounding_would_change_it() {
+    let report = report_of(MIXED, &ReportOptions::default());
+    let table = render(&report, ReportFormat::Table);
+    // 0.14975 would be 0.1498 under the four-digit rule
+    assert!(table.contains("0.14975"), "{table}");
+    assert!(!table.contains("0.1498"), "{table}");
+}
+
+#[test]
+fn a_calculated_value_is_never_shown_as_an_input_is() {
+    let yaml = r#"_forge_version: "5.1.0"
+a:
+  x: {formula: "=1 / 3", value: 0.333333333333}
+"#;
+    let report = report_of(yaml, &ReportOptions::default());
+    assert!(render(&report, ReportFormat::Table).contains("0.3333"));
+}
+
+#[test]
+fn whole_columns_leave_csv_and_json_alone() {
+    let report = report_of(MIXED, &ReportOptions::default());
+    assert!(render(&report, ReportFormat::Csv).contains("unit_a,1700,3,0,12.5,0.14975"));
+    assert!(render(&report, ReportFormat::Json).contains("\"free_months\": 3.0"));
+}
+
+#[test]
+fn an_uncalculated_cell_does_not_stop_a_column_being_whole() {
+    let yaml = r#"_forge_version: "5.1.0"
+a:
+  n: 3
+  total: {formula: "=a.n * 2"}
+b:
+  n: 4
+  total: {formula: "=b.n * 2", value: 8}
+"#;
+    let report = report_of(yaml, &ReportOptions::default());
+    assert_eq!(
+        render(&report, ReportFormat::Table),
+        "group  n  total\na      3      —\nb      4      8\n"
+    );
 }
