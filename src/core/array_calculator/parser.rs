@@ -168,14 +168,31 @@ impl Parser {
         self.comparison()
     }
 
-    /// Comparison: term (( "=" | "<>" | "<" | ">" | "<=" | ">=" ) term)*
+    /// Comparison: concat (( "=" | "<>" | "<" | ">" | "<=" | ">=" ) concat)*
     fn comparison(&mut self) -> Result<Expr, ParseError> {
-        let mut left = self.term()?;
+        let mut left = self.concat()?;
 
         while let Some(op) = self.match_any_operator(&["=", "<>", "<", ">", "<=", ">="]) {
-            let right = self.term()?;
+            let right = self.concat()?;
             left = Expr::BinaryOp {
                 op,
+                left: Box::new(left),
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
+    }
+
+    /// Concat: term ( "&" term )*, which binds less than `+` and more than a
+    /// comparison, as in Excel: `a & b + 1 = c` is `(a & (b + 1)) = c`
+    fn concat(&mut self) -> Result<Expr, ParseError> {
+        let mut left = self.term()?;
+
+        while self.match_operator("&") {
+            let right = self.term()?;
+            left = Expr::BinaryOp {
+                op: "&".to_string(),
                 left: Box::new(left),
                 right: Box::new(right),
             };

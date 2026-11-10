@@ -56,6 +56,8 @@ pub fn try_evaluate(
                         count += arr.iter().filter(|v| v.as_number().is_some()).count();
                     },
                     Value::Number(_) => count += 1,
+                    // A date counts as the number it is (ADR-054)
+                    Value::Text(text) if super::date_serial(&text).is_some() => count += 1,
                     _ => {},
                 }
             }

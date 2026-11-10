@@ -6,6 +6,7 @@ mod case;
 mod concat;
 mod convert;
 mod length;
+pub mod number_format;
 mod replace;
 mod search;
 

@@ -402,7 +402,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
     FunctionDef {
         name: "TEXT",
         category: Category::Text,
-        description: "Format number as text",
+        description: "A number or a date written with an Excel format code (0 # . , % E+00, yyyy mmm dd; another code is an error)",
         syntax: "=TEXT(value, format)",
         scalar: true,
     },

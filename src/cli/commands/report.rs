@@ -5,6 +5,7 @@
 //! and never writes the file: the YAML stays the source of truth. A formula
 //! without a value is shown as `—` and named in a note.
 
+use crate::core::array_calculator::evaluator::text::number_format::rounded_digits;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use crate::types::ParsedModel;
@@ -326,57 +327,6 @@ pub fn display_number(x: f64) -> String {
     let is_zero = whole == "0" && fraction.bytes().all(|b| b == b'0');
     let sign = if x < 0.0 && !is_zero { "-" } else { "" };
     format!("{sign}{}.{fraction}", with_thousands(&whole))
-}
-
-/// The whole and fractional digits of a non-negative number rounded to
-/// `decimals` places, half away from zero, from its 15 significant digits.
-fn rounded_digits(magnitude: f64, decimals: usize) -> (String, String) {
-    let scientific = format!("{magnitude:.14e}");
-    let (mantissa, exponent) = scientific
-        .split_once('e')
-        .unwrap_or((scientific.as_str(), "0"));
-    let exponent: i64 = exponent.parse().unwrap_or(0);
-    let digits: Vec<u8> = mantissa
-        .bytes()
-        .filter(u8::is_ascii_digit)
-        .map(|b| b - b'0')
-        .collect();
-    let digit_at = |i: i64| -> u8 {
-        usize::try_from(i)
-            .ok()
-            .and_then(|i| digits.get(i).copied())
-            .unwrap_or(0)
-    };
-
-    // digits[0] is the 10^exponent place; keep every place down to 10^-decimals.
-    let decimals_i64 = i64::try_from(decimals).unwrap_or(6);
-    let keep = exponent + 1 + decimals_i64;
-    let mut kept: Vec<u8> = (0..keep.max(0)).map(digit_at).collect();
-    if keep >= 0 && digit_at(keep) >= 5 {
-        let mut i = kept.len();
-        loop {
-            if i == 0 {
-                kept.insert(0, 1);
-                break;
-            }
-            i -= 1;
-            if kept[i] == 9 {
-                kept[i] = 0;
-            } else {
-                kept[i] += 1;
-                break;
-            }
-        }
-    }
-    while kept.len() <= decimals {
-        kept.insert(0, 0);
-    }
-    let split = kept.len() - decimals;
-    let to_text = |d: &[u8]| -> String { d.iter().map(|d| char::from(b'0' + d)).collect() };
-    let whole = to_text(&kept[..split]);
-    let whole = whole.trim_start_matches('0');
-    let whole = if whole.is_empty() { "0" } else { whole };
-    (whole.to_string(), to_text(&kept[split..]))
 }
 
 fn with_thousands(whole: &str) -> String {
