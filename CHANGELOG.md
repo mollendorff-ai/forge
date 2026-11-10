@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.9] - 2026-11-09
+
+Ninth release candidate: new functions, commands and editor support since rc.8, and no wrong answer, so the two-week clock in docs/STABILITY.md keeps running from rc.8 (stable no earlier than 2026-11-23). Highlights: `SUMPRODUCT`, table columns read from included files (`@prices.list.per_kg`), error messages that say what is wrong and where, a schema that reads a model the way Forge does, a VS Code extension that works without a server, and worked examples (mortgage, household budget) checked against independent calculations.
+
 ### Added
 - **A security policy** (`SECURITY.md`): how to report a vulnerability privately (security@mollendorff.ai or GitHub's private reporting), which versions get fixes (the latest release only), what to expect (a reply within 14 days, best effort) and what is in scope. GitHub now shows it under the repository's Security tab.
 - **`SUMPRODUCT`** (T2-SUMPRODUCT): `=SUMPRODUCT(orders.qty, orders.price)` multiplies 1 to 255 arrays element by element and adds up, the way Excel does: text in an array counts as 0, and arrays of different lengths are an error that names both lengths (`#VALUE!` in Excel). It also takes one array, or a computed one: `SUMPRODUCT((orders.region = "N") * orders.qty * orders.price)`. `forge export` writes it as `SUMPRODUCT` over the columns' ranges, so it follows its inputs in Excel; Gnumeric recalculates the five new forge-e2e-gnumeric cases (two, one and three arrays, a text column, a condition times columns) and they match. 174 functions. A unit test that expected it to be unknown is now one that checks its result.
