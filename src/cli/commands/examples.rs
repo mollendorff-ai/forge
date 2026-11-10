@@ -6,6 +6,7 @@ use std::io::Write;
 use std::process::Command;
 
 /// Embedded example YAML files (compile-time)
+const EXAMPLE_STARTER: &str = include_str!("../../../examples/starter.yaml");
 const EXAMPLE_MONTE_CARLO: &str = include_str!("../../../examples/monte-carlo.yaml");
 const EXAMPLE_SCENARIOS: &str = include_str!("../../../examples/scenarios.yaml");
 const EXAMPLE_DECISION_TREE: &str = include_str!("../../../examples/decision-tree.yaml");
@@ -26,6 +27,12 @@ struct Example {
 
 /// All available examples
 const EXAMPLES: &[Example] = &[
+    Example {
+        name: "starter",
+        description: "A first model: a group of scalars and a table",
+        command: "forge calculate",
+        content: EXAMPLE_STARTER,
+    },
     Example {
         name: "monte-carlo",
         description: "Probabilistic simulation with distributions",
@@ -184,7 +191,7 @@ fn print_examples_list() {
     println!();
     println!(
         "{}",
-        "Forge-specific capabilities beyond Excel functions:".dimmed()
+        "Start with `starter`; the others show Forge's analysis commands:".dimmed()
     );
     println!();
 
@@ -324,7 +331,7 @@ mod tests {
 
     #[test]
     fn test_example_count() {
-        assert_eq!(EXAMPLES.len(), 9, "Should have exactly 9 examples");
+        assert_eq!(EXAMPLES.len(), 10, "Should have exactly 10 examples");
     }
 
     #[test]

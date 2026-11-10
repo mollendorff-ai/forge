@@ -67,9 +67,8 @@ tier2:
 
   - id: T2-FIRST-MODEL
     title: "A first model that calculates without a format error"
-    why: "The two mistakes every first model makes are _forge_version set to the Forge version and a bare =formula in a group of scalars. Both errors already say what is wrong and how to write it (since 2026-11-08), but the mistake is still made, and LLMs, the stated users, make it first"
-    how: "There is no forge init; the templates are forge examples (and the MCP examples tool). Add a starter that shows both shapes, a group of scalars with {formula: ...} and a table with bare =formula columns, each with a one-line comment saying why. Add a short Your first model section with those two rules first. Optionally end the version error with the exact line to write"
-    acceptance: "The starter, copied as is, calculates; an LLM given only the starter and asked for a five-option comparison writes a file that calculates on the first try (tried once, noted in the PR)"
+    why: "The two mistakes every first model makes are _forge_version set to the Forge version and a bare =formula in a group of scalars; LLMs, the stated users, make them first. forge examples starter, the Your first model section of docs/EXAMPLES.md, the MCP instructions and the version error now show both rules. What is left is the check"
+    acceptance: "An LLM given only forge examples starter (or the MCP server) and asked for a five-option comparison writes a file that calculates on the first try; tried once in a fresh session, the result noted here"
 
   - id: T2-COMPARE-EXAMPLE
     title: "Example: comparing options side by side"

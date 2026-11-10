@@ -982,7 +982,8 @@ EXAMPLES:
     #[command(
         long_about = "Display runnable example YAML models for Forge capabilities.
 
-Examples demonstrate Forge-specific features beyond Excel formulas:
+Start a new model from `starter`; the others show Forge's analysis commands:
+  starter       - A first model: a group of scalars and a table
   monte-carlo   - Probabilistic simulation with distributions
   scenarios     - Probability-weighted scenario analysis
   decision-tree - Sequential decisions with backward induction
@@ -995,6 +996,7 @@ Examples demonstrate Forge-specific features beyond Excel formulas:
 
 EXAMPLES:
   forge examples                    # List all examples
+  forge examples starter > model.yaml  # Start a new model
   forge examples monte-carlo        # Show Monte Carlo example
   forge examples monte-carlo --run  # Show and execute example
   forge examples --json             # List as JSON (for tooling)"

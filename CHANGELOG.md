@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **`forge report`** (T2-REPORT): a calculated model's scalars side by side, one row per group and one column per key, so comparing options needs no script. Groups with the same keys share a table, others get their own, in file order; inputs come before formulas. `--group`, `--keys`, `--no-inputs`, and `--format table|csv|json|markdown`: Markdown is a pipe table to paste into a document, CSV and JSON keep full precision. In a table, numbers have two decimals and thousands separators, and a number under 1 keeps four significant digits (a rate of 0.0479 is not shown as 0.05). `report` reads the values `forge calculate` wrote: it never calculates or writes the file, and a formula without a value is shown as `—` and named in a note on standard error. docs/REPORT.md. It is one of the commands docs/STABILITY.md keeps within 10.x.
+- **A first model to start from** (T2-FIRST-MODEL): `forge examples starter` (and the MCP `forge_examples` tool, name `starter`) is a model with a group of scalars written `{formula: "=..."}` and a table with bare `"=..."` column formulas, each with a one-line comment saying why; it calculates as it is. docs/EXAMPLES.md opens with "Your first model": the two rules every first model breaks (`_forge_version` is the format version, not Forge's; a formula in a group of scalars is a mapping), then the starter, whose output the doc test checks. The MCP server's instructions say the same in one sentence.
+
+### Changed
+- An unsupported `_forge_version` now ends with the line to write: `` write `_forge_version: "5.1.0"` for a new model (`"5.2.0"` if a table has a period column), or start from `forge examples starter` ``.
 
 ## [10.0.0-rc.11] - 2026-11-10
 
