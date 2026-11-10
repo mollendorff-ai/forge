@@ -18,7 +18,9 @@ state:
     no wrong answer). The two-week stable clock in docs/STABILITY.md still
     runs from rc.8, released 2026-11-08 after two wrong answers (POWER(0, 0)
     gave 1; ADDRESS gave addresses Excel does not): no earlier than
-    2026-11-23. A new wrong answer restarts it.
+    2026-11-23. A new wrong answer restarts it. Unreleased since rc.9: a wrong
+    answer in forge export (a column shorter than its table got the table's
+    rows), so the next release candidate restarts the clock.
   format: model format 5.1.0 (ADR-051), with inputs as plain numbers, formula
     scalars as a formula mapping, and results written next to formulas in
     place. examples/ are 5.1.0; test-data/ and the validation repos stay
@@ -52,12 +54,6 @@ tier1:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier2:
-  - id: T2-EXPORT-LET
-    title: "Export LET, LAMBDA, COUNTUNIQUE and TODAY as Excel formulas"
-    why: "forge export writes them as values, so those cells do not follow their inputs in Excel; 36 forge-e2e-gnumeric cases skip Gnumeric for it (VARIANCE* and BREAKEVEN_* are done)"
-    how: "LET and LAMBDA need their names kept local (Excel stores them as _xlpm.name), but Gnumeric 1.12 cannot read either, so a check needs another engine; COUNTUNIQUE has no expression Gnumeric reads (SUMPRODUCT(1/COUNTIF(r, r)) gives #VALUE!); Forge's TODAY is text, Excel's a date serial"
-    acceptance: "Each translated function's e2e cases drop their gnumeric_skip and pass in an engine that recalculates them"
-
   - id: T2-TIME
     title: "Periods as a first-class axis"
     why: "Every financial model has time. Today seasonality, growth and NPV are arithmetic on `month - 1`; a user coming from Excel or a planning tool expects revenue[t-1]"
