@@ -12,14 +12,14 @@ fn report_of(yaml: &str, options: &ReportOptions) -> Report {
 }
 
 const OPTIONS: &str = r#"_forge_version: "5.1.0"
-le_george:
+oak_suite:
   rent: 1450
   utilities: 60
-  year1_monthly: {formula: "=le_george.rent + le_george.utilities", value: 1510}
-unit_806:
+  year1_monthly: {formula: "=oak_suite.rent + oak_suite.utilities", value: 1510}
+elm_loft:
   utilities: 90
   rent: 1390
-  year1_monthly: {formula: "=unit_806.rent + unit_806.utilities", value: 1480}
+  year1_monthly: {formula: "=elm_loft.rent + elm_loft.utilities", value: 1480}
 assumptions:
   rate: 0.0479
 "#;
@@ -73,8 +73,8 @@ fn groups_with_the_same_keys_share_a_table_aligned_by_key() {
     assert_eq!(report.sections.len(), 2);
     let first = &report.sections[0];
     assert_eq!(first.keys, ["rent", "utilities", "year1_monthly"]);
-    assert_eq!(first.rows[0].group, "le_george");
-    // unit_806 lists utilities before rent; its cells follow the section's keys.
+    assert_eq!(first.rows[0].group, "oak_suite");
+    // elm_loft lists utilities before rent; its cells follow the section's keys.
     assert_eq!(
         first.rows[1].cells,
         [Cell::Value(1390.0), Cell::Value(90.0), Cell::Value(1480.0)]
@@ -150,7 +150,7 @@ fn chosen_groups_are_shown_in_file_order() {
     let report = report_of(
         OPTIONS,
         &ReportOptions {
-            groups: vec!["unit_806".into(), "le_george".into()],
+            groups: vec!["elm_loft".into(), "oak_suite".into()],
             ..ReportOptions::default()
         },
     );
@@ -159,8 +159,8 @@ fn chosen_groups_are_shown_in_file_order() {
         .iter()
         .map(|r| r.group.as_str())
         .collect();
-    assert_eq!(groups, ["le_george", "unit_806"]);
-    assert!(report.tables_not_shown.is_empty());
+    assert_eq!(groups, ["oak_suite", "elm_loft"]);
+    assert_eq!(report.tables_not_shown, Vec::<String>::new());
 }
 
 #[test]
@@ -175,7 +175,7 @@ fn an_unknown_group_is_an_error_that_lists_the_groups() {
     .unwrap_err()
     .to_string();
     assert!(err.contains("'unit_807' is not a group"), "{err}");
-    assert!(err.contains("le_george, unit_806, assumptions"), "{err}");
+    assert!(err.contains("oak_suite, elm_loft, assumptions"), "{err}");
 }
 
 #[test]
@@ -264,7 +264,7 @@ items:
   amount: [1, 2]
 "#;
     let report = report_of(yaml, &ReportOptions::default());
-    assert!(report.sections.is_empty());
+    assert_eq!(report.sections, Vec::<ReportSection>::new());
     assert_eq!(render(&report, ReportFormat::Table), "");
     assert_eq!(
         notes(&report, Path::new("m.yaml"))[0],
@@ -279,8 +279,8 @@ fn table_format() {
         render(&report, ReportFormat::Table),
         "\
 group          rent  utilities  year1_monthly
-le_george  1,450.00      60.00       1,510.00
-unit_806   1,390.00      90.00       1,480.00
+oak_suite  1,450.00      60.00       1,510.00
+elm_loft   1,390.00      90.00       1,480.00
 
 group          rate
 assumptions  0.0479
@@ -296,8 +296,8 @@ fn markdown_format() {
         "\
 | group | rent | utilities | year1_monthly |
 | --- | ---: | ---: | ---: |
-| le_george | 1,450.00 | 60.00 | 1,510.00 |
-| unit_806 | 1,390.00 | 90.00 | 1,480.00 |
+| oak_suite | 1,450.00 | 60.00 | 1,510.00 |
+| elm_loft | 1,390.00 | 90.00 | 1,480.00 |
 
 | group | rate |
 | --- | ---: |
@@ -349,8 +349,8 @@ fn csv_sections_are_separated_by_a_blank_line() {
         render(&report, ReportFormat::Csv),
         "\
 group,rent,utilities,year1_monthly
-le_george,1450,60,1510
-unit_806,1390,90,1480
+oak_suite,1450,60,1510
+elm_loft,1390,90,1480
 
 group,rate
 assumptions,0.0479
