@@ -171,6 +171,12 @@ pub struct EvalContext {
     pub current_row: Option<usize>,
     /// Number of rows in current table context
     pub row_count: Option<usize>,
+    /// Rows back from `current_row` that references are read at: set by
+    /// `PREV` while it evaluates its first argument (see [`EvalContext::row`])
+    pub lag: std::cell::Cell<usize>,
+    /// The table whose columns are being calculated together row by row
+    /// (`PREV`): its columns may be shorter than the table while they grow
+    pub growing_table: Option<String>,
 }
 
 impl EvalContext {
@@ -183,7 +189,17 @@ impl EvalContext {
             scenarios: HashMap::new(),
             current_row: None,
             row_count: None,
+            lag: std::cell::Cell::new(0),
+            growing_table: None,
         }
+    }
+
+    /// The row a row formula is being evaluated in: the current row, or an
+    /// earlier one inside `PREV`. `None` outside a row formula.
+    #[must_use]
+    pub fn row(&self) -> Option<usize> {
+        self.current_row
+            .map(|row| row.saturating_sub(self.lag.get()))
     }
 
     /// Get a scalar value by name
@@ -350,7 +366,7 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
 
             // In row-wise mode, if the value is an array, extract current row
             // (without copying the whole array first)
-            if let Some(row) = ctx.current_row {
+            if let Some(row) = ctx.row() {
                 if let Value::Array(arr) = value {
                     return arr
                         .get(row)
@@ -401,10 +417,11 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
             };
 
             // In row-wise mode, validate row count matches and return single value
-            if let Some(row) = ctx.current_row {
+            if let Some(row) = ctx.row() {
                 // Validate cross-table row count matches current context
                 if let Some(expected_count) = ctx.row_count {
-                    if col.len() != expected_count {
+                    let growing = ctx.growing_table.as_deref() == Some(table.as_str());
+                    if col.len() != expected_count && !growing {
                         return Err(EvalError::new(format!(
                             "Row count mismatch: {}.{} has {} rows but expected {}",
                             table,

@@ -49,7 +49,7 @@ $ forge goal-seek examples/mortgage/mortgage.yaml --target saved.interest --valu
    loan.extra_per_month = 397.044208 → saved.interest = 79999.999976
 ```
 
-A month-by-month loop in Python, solved with SciPy, gives 397.044208.
+A month-by-month loop in Python, solved with SciPy, gives 397.044208. The model holds that loop too, as a table of 300 months in which each month opens with what the month before closed with (`opening: "=PREV(closing, loan.principal)"`): it is paid off with payment 247, in June 2047, and its interest equals the closed form's. [`examples/periods`](examples/periods/README.md) has a monthly plan and a five-year valuation written the same way.
 
 **What price gives a new bagel shop an 80% chance of making money in its first year?** [`examples/bagel`](examples/bagel/README.md) has twelve months of seasonal demand, five cost lines, and supplier prices kept in an included file. In the simulation, opening demand, staffing, the flour price and the wage are uncertain.
 
@@ -132,8 +132,8 @@ Forge's results are checked against other engines. None of the checks is complet
 
 | Check | What it covers | Latest result (2026-11-09) |
 | --- | --- | --- |
-| Unit tests (this repo) | 1,599 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
-| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,354 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 68 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,353 pass, 1 skipped; weekly in CI |
+| Unit tests (this repo) | 1,617 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
+| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,368 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 68 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,367 pass, 1 skipped; weekly in CI |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 119 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped; weekly in CI |
 
 Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
@@ -309,7 +309,7 @@ For Claude Desktop or MCP-compatible hosts, Forge exposes 20 tools via Model Con
 | Tool | What It Does |
 |------|--------------|
 | `forge_schema` | Get JSON Schema for Forge YAML model formats |
-| `forge_functions` | List all 174 supported functions with descriptions |
+| `forge_functions` | List all 175 supported functions with descriptions |
 | `forge_examples` | Get runnable YAML examples for all capabilities |
 
 All tools accept inline YAML via `content` parameter — no host filesystem access required. Works with sandboxed clients (Claude.ai, Cursor, containers).
@@ -318,9 +318,9 @@ See [docs/MCP.md](docs/MCP.md) for the full integration guide.
 
 ---
 
-## 174 Functions
+## 175 Functions
 
-174 functions: most are Excel-compatible, plus 6 FP&A-native functions Excel doesn't have. Not every Excel function is covered; `forge functions` lists what is.
+175 functions: most are Excel-compatible, plus 7 Excel doesn't have: 6 for FP&A, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is.
 
 | Category | Examples |
 |----------|----------|
@@ -386,9 +386,9 @@ forge export model.yaml output.xlsx
 
 Forge models are YAML files, so any editor with YAML support works. Two things help:
 
-- **The schema**: [`schema/forge-v5.1.0.schema.json`](schema/forge-v5.1.0.schema.json) gives completion of keys and marks a misspelt key or a text where a number belongs as you type, in any editor that runs yaml-language-server (VS Code with the YAML extension, Zed, Neovim, Helix). Put this first line in a model, or see [schema/README.md](schema/README.md) for the settings:
+- **The schema**: [`schema/forge.schema.json`](schema/forge.schema.json) (which checks a file against the schema of the format its `_forge_version` names) gives completion of keys and marks a misspelt key or a text where a number belongs as you type, in any editor that runs yaml-language-server (VS Code with the YAML extension, Zed, Neovim, Helix). Put this first line in a model, or see [schema/README.md](schema/README.md) for the settings:
   ```yaml
-  # yaml-language-server: $schema=https://raw.githubusercontent.com/mollendorff-ai/forge/main/schema/forge-v5.1.0.schema.json
+  # yaml-language-server: $schema=https://raw.githubusercontent.com/mollendorff-ai/forge/main/schema/forge.schema.json
   ```
 - **VS Code**: [`editors/vscode`](editors/vscode/README.md) highlights formulas (functions, names, `@include` values, numbers) inside any YAML file and applies the schema to `*.forge.yaml` files. It is not on the Marketplace yet; the README says how to build and install it.
 
@@ -399,7 +399,7 @@ There is no language server: run `forge validate` and `forge calculate` in a ter
 ## Example: 5-Year DCF Model
 
 ```yaml
-_forge_version: "5.1.0"
+_forge_version: "5.2.0"
 
 assumptions:
   revenue_y1: 1000000
@@ -410,8 +410,9 @@ assumptions:
   discount_rate: 0.10
 
 projections:
-  year: [1, 2, 3, 4, 5]
-  revenue: "=assumptions.revenue_y1 * (1 + assumptions.growth_rate) ^ (year - 1)"
+  year: {start: 2027, count: 5, unit: year}
+  # Each year's revenue is the year before, grown
+  revenue: "=PREV(revenue * (1 + assumptions.growth_rate), assumptions.revenue_y1)"
   gross_profit: "=revenue * assumptions.gross_margin"
   opex: "=revenue * assumptions.opex_pct"
   ebit: "=gross_profit - opex"
@@ -478,7 +479,7 @@ forge mcp                           # Start MCP server
 forge serve --port 8080             # Start REST API
 
 # Reference
-forge functions                     # List all 174 functions
+forge functions                     # List all 175 functions
 forge schema v5                     # Show JSON schema
 forge examples monte-carlo          # Show example YAML
 ```
@@ -492,6 +493,7 @@ forge examples monte-carlo          # Show example YAML
 forge schema                    # List available versions
 forge schema v1                 # Show v1.0.0 schema (scalar-only)
 forge schema v5.1               # Show the 5.1.0 model format schema (use for new models)
+forge schema v5.2               # 5.1.0 plus the period column (ADR-053)
 forge schema v5 > schema.json   # Pipe to file for IDE use
 
 # View runnable examples for Forge capabilities
@@ -531,7 +533,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 | Metric | Value |
 | --- | --- |
 | **Unit tests** | 1,480 unit tests and 2 doctests (counted 2026-11-06) |
-| **Functions** | 174, of which 6 are FP&A-native |
+| **Functions** | 175, of which 6 are FP&A-native and one (`PREV`) reads the row above |
 | **Lints** | clippy pedantic is enabled and CI fails on warnings |
 | **External validation** | Partial; see [Validation status](#validation-status) |
 
@@ -539,7 +541,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 
 ```text
 forge (this repo)             validation repos
-├── 1,599 tests               ├── forge-e2e-gnumeric: 1,354 formula specs
+├── 1,617 tests               ├── forge-e2e-gnumeric: 1,368 formula specs
 ├── #[cfg(test)] modules      └── forge-e2e-r: 119 function checks, 77 analytics specs
 └── 2 doctests
 ```

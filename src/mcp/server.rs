@@ -461,7 +461,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_schema",
-        description = "Get JSON Schema for Forge YAML model formats. Write new models as _forge_version \"5.1.0\": inputs as plain numbers (price: 16), formula scalars as {formula: \"=...\"}, tables as lists and row-formula strings."
+        description = "Get JSON Schema for Forge YAML model formats. Write new models as _forge_version \"5.1.0\": inputs as plain numbers (price: 16), formula scalars as {formula: \"=...\"}, tables as lists and row-formula strings. For a table over time use \"5.2.0\": a period column (month: {start: 2026-12, count: 12, unit: month}) gives the rows, and PREV(value, first_row_value) reads the row above."
     )]
     fn schema(&self, Parameters(req): Parameters<SchemaRequest>) -> Result<String, String> {
         schema_core(req.version.as_deref()).map_err(|e| format!("Schema error: {e}"))
@@ -469,7 +469,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_functions",
-        description = "List all 174 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.)."
+        description = "List all 175 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.)."
     )]
     fn functions(&self, Parameters(_req): Parameters<FunctionsRequest>) -> Result<String, String> {
         functions_core()
@@ -493,7 +493,7 @@ impl ForgeMcpServer {
 impl ServerHandler for ForgeMcpServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_instructions("Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 174 Excel-compatible functions. All tools return structured JSON.")
+            .with_instructions("Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 175 Excel-compatible functions. All tools return structured JSON.")
             .with_server_info(
                 rmcp::model::Implementation::new("forge", env!("CARGO_PKG_VERSION"))
             )

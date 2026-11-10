@@ -6,13 +6,13 @@
 
 ```
 Forge - Git-native financial modeling
-174 functions | Beta | Validation suites: forge-e2e-gnumeric, forge-e2e-r
+175 functions | Beta | Validation suites: forge-e2e-gnumeric, forge-e2e-r
 
 COMMANDS:
   calculate     - Execute formulas, update values
   validate      - Check model integrity
   audit         - Trace formula dependencies
-  functions     - List all 174 supported functions
+  functions     - List all 175 supported functions
   schema        - Display JSON schema for model validation
   examples      - Show runnable YAML examples
   simulate      - Monte Carlo simulation with distributions
@@ -634,6 +634,8 @@ The versions are model formats (_forge_version), not Forge versions:
   v5.0.0 - Tables, row formulas and the analysis sections
   v5.1.0 - v5.0.0 plus the short form: plain-number inputs, formulas
            without value: null (ADR-051)
+  v5.2.0 - v5.1.0 plus the period column: a table column written as
+           {start: 2026-12, count: 300, unit: month} (ADR-053)
 
 EXAMPLES:
   forge schema                # List available versions
@@ -644,7 +646,7 @@ Usage: forge schema [OPTIONS] [VERSION]
 
 Arguments:
   [VERSION]
-          Schema version to display (v1, v5, v5.1, 1.0.0, 5.0.0, 5.1.0)
+          Schema version to display (v1, v5, v5.1, v5.2, 1.0.0, 5.0.0, 5.1.0, 5.2.0)
 
 Options:
   -l, --list
@@ -707,6 +709,10 @@ TO 5.1.0 (default, ADR-051):
   - Edited in place: comments, quotes and layout are kept
   - Checked: the converted file must read as the same model, or it is not written
 
+TO 5.2.0 (ADR-053):
+  - As to 5.1.0, with _forge_version 5.2.0: the format a table with a
+    period column needs. A 5.1.0 file only changes that line.
+
 TO 5.0.0 (from 1.0.0):
   - Splits scalars into inputs/outputs based on formula presence
   - Preserves all existing metadata
@@ -718,6 +724,7 @@ RECURSIVE PROCESSING:
 EXAMPLES:
   forge upgrade model.yaml              # Upgrade file and includes
   forge upgrade model.yaml --dry-run    # Preview changes only
+  forge upgrade model.yaml --to 5.2.0   # For period columns
   forge upgrade model.yaml --to 5.0.0   # Older format, long form
 
 BACKUP:

@@ -1,4 +1,4 @@
-_forge_version: "5.1.0"
+_forge_version: "5.2.0"
 # A Canadian mortgage, and what paying 300 more each month does.
 # Canadian fixed rates compound twice a year, payments are monthly.
 # All figures are made up.
@@ -51,17 +51,40 @@ saved:
   years:
     formula: "=months / 12"
 
-# The first year with the extra payment. Forge has no "previous row" yet
-# (roadmap T2-TIME), so each row computes its opening balance directly.
-first_year:
-  month: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-  opening: "=loan.principal * (1 + terms.monthly_rate) ^ (month - 1) - with_extra.payment * ((1 + terms.monthly_rate) ^ (month - 1) - 1) / terms.monthly_rate"
+# The loan month by month with the extra payment: each month opens with
+# what the month before closed with. The last payment is what is left, and
+# the months after it are zeros. The closed forms above say the same:
+# check.* are all zero.
+schedule:
+  month: {start: 2026-12, count: 300, unit: month}
+  number: "=ROW()"
+  opening: "=PREV(closing, loan.principal)"
   interest: "=opening * terms.monthly_rate"
-  principal_paid: "=with_extra.payment - interest"
-  closing: "=opening - principal_paid"
+  payment: "=MIN(with_extra.payment, opening + interest)"
+  principal_paid: "=payment - interest"
+  closing: "=opening + interest - payment"
 
 year_one:
   interest:
-    formula: "=SUM(first_year.interest)"
+    formula: "=SUMIFS(schedule.interest, schedule.number, \"<=12\")"
   principal_paid:
-    formula: "=SUM(first_year.principal_paid)"
+    formula: "=SUMIFS(schedule.principal_paid, schedule.number, \"<=12\")"
+
+paid_off:
+  payments:
+    formula: "=COUNTIF(schedule.payment, \">0\")"
+  last_payment:
+    formula: "=INDEX(schedule.payment, payments)"
+  year:
+    formula: "=YEAR(INDEX(schedule.month, payments))"
+  month_of_year:
+    formula: "=MONTH(INDEX(schedule.month, payments))"
+
+# The schedule against the closed forms
+check:
+  interest:
+    formula: "=ROUND(SUM(schedule.interest) - with_extra.total_interest, 6)"
+  last_payment:
+    formula: "=ROUND(paid_off.last_payment - with_extra.last_payment, 6)"
+  payments:
+    formula: "=paid_off.payments - ROUNDUP(with_extra.months_exact, 0)"

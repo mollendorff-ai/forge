@@ -1,0 +1,39 @@
+_forge_version: "5.2.0"
+# A shop's plan for 2027, month by month: sales grow a little each month,
+# some months are better than others, and cash carries over.
+# All figures are made up.
+
+inputs:
+  opening_cash: 12000
+  january_trend: 18000
+  monthly_growth: 0.01
+  cost_of_goods: 0.42
+  fixed_costs: 9500
+
+# How each calendar month compares with an average one (they average 1)
+season:
+  factor: [0.85, 0.80, 0.95, 1.00, 1.05, 1.10, 0.90, 0.85, 1.00, 1.05, 1.15, 1.30]
+
+months:
+  month: {start: 2027-01, count: 12, unit: month}
+  # What sales would be without seasons: last month's, a little higher
+  trend: "=PREV(trend * (1 + inputs.monthly_growth), inputs.january_trend)"
+  sales: "=trend * INDEX(season.factor, MONTH(month))"
+  gross_margin: "=sales * (1 - inputs.cost_of_goods)"
+  profit: "=gross_margin - inputs.fixed_costs"
+  # Cash at the end of the month: what the month before ended with, plus profit
+  cash: "=PREV(cash, inputs.opening_cash) + profit"
+  # Sales against the month before (the first month has none)
+  change: "=sales / PREV(sales, sales) - 1"
+
+year:
+  sales:
+    formula: "=SUM(months.sales)"
+  profit:
+    formula: "=SUM(months.profit)"
+  closing_cash:
+    formula: "=INDEX(months.cash, 12)"
+  lowest_cash:
+    formula: "=MIN(months.cash)"
+  months_at_a_loss:
+    formula: "=COUNTIF(months.profit, \"<0\")"

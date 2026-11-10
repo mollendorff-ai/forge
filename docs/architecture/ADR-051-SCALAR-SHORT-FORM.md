@@ -54,7 +54,7 @@ What the maintainer wants to keep: **one file that holds formulas and their resu
 A mapping under a top-level key is:
 
 - **one scalar** if it has a `value` that is not a list, or a `formula` and no child mapping (and is not a table); its keys are then `value`, `formula` and the metadata, and any other key is an error;
-- a **table** if any child is a list (a column) or a mapping whose `value` is a list;
+- a **table** if any child is a list (a column) or a mapping whose `value` is a list (since 2026-11-09 and format 5.2.0, also if a child is a period column, a mapping with `start` and `count`: ADR-053);
 - otherwise a **scalar group** if any child is a number or a mapping with `value` or `formula`;
 - otherwise a table of formula columns.
 

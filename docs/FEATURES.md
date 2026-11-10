@@ -44,9 +44,9 @@ year:
 
 Comments, quotes, blank lines, key order and inputs stay as you typed them, and a `.yaml.bak` keeps the previous file. If the results cannot be written without changing anything else, Forge leaves the file alone and says so. `--dry-run` shows the results without writing. A stored `value` can be out of date after you change an input, as with any saved result: run `forge calculate` again, and `forge validate` reports any value that no longer matches its formula.
 
-How Forge reads a group under a top-level key: it is a **table** if any entry is a list; otherwise a **group of scalars** if any entry is a number or has `value:` or `formula:`. In a group of scalars, a formula needs the `formula:` form, because a bare string has no place to hold its result.
+How Forge reads a group under a top-level key: it is a **table** if any entry is a list or a period column (`{start, count, unit}`, below); otherwise a **group of scalars** if any entry is a number or has `value:` or `formula:`. In a group of scalars, a formula needs the `formula:` form, because a bare string has no place to hold its result.
 
-**`_forge_version` is the version of the model format, not of Forge.** Forge 10 reads three formats: `1.0.0` (scalars only), `5.0.0` (tables, with every scalar written as `{value: ..., formula: ...}`, nulls included) and `5.1.0` (5.0.0 plus the short form above). The format changes only when files change. `forge upgrade model.yaml` converts a 5.0.0 model to 5.1.0 in place, keeping its comments, and checks that the result reads as the same model before writing it. `forge schema v5.1` prints the JSON schema.
+**`_forge_version` is the version of the model format, not of Forge.** Forge 10 reads four formats: `1.0.0` (scalars only), `5.0.0` (tables, with every scalar written as `{value: ..., formula: ...}`, nulls included), `5.1.0` (5.0.0 plus the short form above) and `5.2.0` (5.1.0 plus the period column, needed only by a file that has one; `forge upgrade --to 5.2.0`). The format changes only when files change. `forge upgrade model.yaml` converts a 5.0.0 model to 5.1.0 in place, keeping its comments, and checks that the result reads as the same model before writing it. `forge schema v5.1` prints the JSON schema.
 
 ---
 
@@ -66,6 +66,43 @@ A file can hold several YAML documents separated by `---`, each with its own `_f
 - **Array indexing**: `revenue[3]`
 - **Nested functions**: `=ROUND(SQRT(revenue), 2)`
 - **Values from other files**: `=amount * @rates.fx.usd_eur` (see below)
+- **The row above**: `=PREV(closing, loan.principal)` (see below)
+
+### Periods and the Row Above
+
+A table over time needs two things: its periods, and a way for a row to read the one before it (ADR-053).
+
+```yaml
+_forge_version: "5.2.0"
+loan:
+  principal: 1000
+  rate_per_month: 0.01
+  payment: 300
+
+schedule:
+  month: {start: 2026-12, count: 5, unit: month}
+  opening: "=PREV(closing, loan.principal)"
+  interest: "=opening * loan.rate_per_month"
+  paid: "=MIN(loan.payment, opening + interest)"
+  closing: "=opening + interest - paid"
+```
+
+```text
+month        opening   interest   paid        closing
+2026-12-01   1000      10         300         710
+2027-01-01    710       7.10      300         417.10
+2027-02-01    417.10    4.171     300         121.271
+2027-03-01    121.271   1.21271   122.48371     0
+2027-04-01      0       0           0           0
+```
+
+- **A period column** is written `{start: ..., count: ..., unit: ...}` and is the column of the dates on which `count` periods start. `unit` is `day`, `week`, `month`, `quarter` or `year`. `start` is a month (`2026-12`, its first day), a day (`2026-12-15`) or a year (`2026`). It gives the table its rows, and it is an ordinary date column: `YEAR(month)`, `MONTH(month)`, `INDEX(schedule.month, 4)`. A start on the 31st gives the last day of the shorter months. It needs `_forge_version: "5.2.0"`.
+- **`PREV(value, first)`** is `value` as it is in the row above, and `first` in the first row. `value` can be any expression: `=PREV(sales * 1.01, 100)` grows 1% a row from 100, `=PREV(total, 0) + amount` is a running total, `=sales / PREV(sales, sales) - 1` the change from the row above. `PREV(value, first, 12)` reads 12 rows up, and gives `first` in the first 12 rows. It works in every format that has tables.
+- **Columns that read each other through `PREV`** (`opening` and `closing` above) are calculated together, row by row. Within a row nothing may be circular: `opening` may read `closing` only through `PREV`. A cycle through a scalar (`=SUM(schedule.closing)`) or another table is an error.
+- **`ROW()`** is the number of the row, from 1: `=1 / (1 + wacc) ^ ROW()` is the discount factor of each year.
+- A column calculated row by row is known only up to the row being calculated, so reading a later row of it (`INDEX(closing, 5)` in a row formula of its own table) is an error; that belongs in a scalar.
+
+`examples/mortgage` (a 300-month schedule with extra payments), `examples/periods/monthly_plan.yaml` (growth, seasons and running cash) and `examples/periods/dcf.yaml` (a five-year valuation) use them; their numbers are checked against Python in `tests/demo_examples.rs`.
 
 ### Values from Other Files (`_includes`)
 
@@ -103,7 +140,7 @@ summary:
 - `forge import` turns such sheets back into the included file (`rates.yaml`, beside the imported model, with its scalars and its tables) and their references into `@rates.fx.eur_usd` and `@rates.prices.eur`, with an `_includes` entry. If a file of that name is already there and calculates to the sheets' values (usually the original), it is kept as it is; if it holds other values, the import stops before writing anything.
 - With the MCP server and inline `content`, pass the included files in the `includes` map (see [MCP.md](MCP.md)).
 
-### 174 Excel-Compatible Functions
+### 175 Excel-Compatible Functions
 
 ```mermaid
 graph LR
@@ -1129,6 +1166,7 @@ forge export model.yaml output.xlsx
 - `LET` is written as Excel's `LET`, with its names stored as Excel stores them (`_xlpm.x`). A `LAMBDA` called where it is written, `LAMBDA(p, r, p * (1 + r))(1000, 0.05)`, is written as the `LET` that computes the same, `LET(p, 1000, r_, 0.05, p * (1 + r_))`: the values are worked out first, then the body, in both. Excel 2021 has `LET`; only Excel 365 has `LAMBDA`. A name Excel refuses (`r`, `c`, `x1`), one used twice in the formula, or one that is also a value the formula reads, gets `_` added in Excel; a `LET` that is the whole value or calculation of another is merged into it. `forge import` reads them back as a `LET`.
 - `COUNTUNIQUE(t.c)` in a scalar is written as `ROWS(UNIQUE(range))` for a column of numbers, and as `SUMPRODUCT(1 / MMULT(--EXACT(range, TRANSPOSE(range)), ROW(range)^0))` for a column of text, because Forge counts `a` and `A` as two values and Excel's `UNIQUE` as one. `forge import` reads both back as `COUNTUNIQUE`. `TODAY()` is Excel's `TODAY()` where its result is a number (`YEAR(TODAY())`, a scalar `=TODAY()`, which Forge stores as the date serial).
 - Forge's own `VARIANCE`, `VARIANCE_PCT`, `VARIANCE_STATUS`, `BREAKEVEN_UNITS` and `BREAKEVEN_REVENUE` are written as the Excel expression that computes the same (`BREAKEVEN_UNITS(f, p, v)` becomes `IF((p - v) <= 0, NA(), f / (p - v))`), so those cells follow their inputs in Excel; where Forge gives an error, Excel gives #N/A. `VARIANCE_STATUS` needs its third argument written as a number or `"cost"`, since only then is its meaning known; otherwise it is written as its value.
+- `PREV(value, first)` is written row by row as what it means: `first` in the first row, and `value` read in the row above in every other row (`=(G2)`), the way a schedule is built by hand. `ROW()` is written `(ROW() - 1)`, the number of the table's row. A period column is written as its dates, as text (`2026-12-01`), like every date column. A `PREV` whose number of rows back is calculated is written as values.
 - Forge names that Excel spells otherwise are translated: `AVG` to `AVERAGE`, `POW` to `POWER`, `E()` to `EXP(1)`, and `COLUMNS(table)` to the table's range. `STDEV.S`, `STDEV.P`, `VAR.S`, `VAR.P` and `RANK.EQ` are written with the prefix Excel stores them with.
 
 Checked in CI by forge-e2e-gnumeric: each case's model is exported, the workbook is recalculated by Gnumeric (or, for the 68 cases Gnumeric 1.12 cannot judge, such as `LET`, `UNIQUE`, `XLOOKUP` and `DATEDIF`, by LibreOffice 24.8 or later), and the result must equal the expected value, as must Forge's own result before export and after export and import.
@@ -1141,7 +1179,8 @@ forge import spreadsheet.xlsx output.yaml
 
 - A sheet whose header is `Name`, `Value` becomes a scalar group; any other sheet becomes a table.
 - References are translated with every sheet's layout, so `'assumptions'!$B$3` comes back as `assumptions.base_revenue` and a column range as `table.column`.
-- A formula Forge cannot express (a reference to another row, a single cell of a table in a scalar formula, named ranges) is imported as its value, with a warning.
+- A table column is a row formula only if every row holds the same formula. A column whose first row holds one formula and every other row another, which may read the row above (a running balance: `=A2`, then `=B2+A3`), comes in as `=IF(ROW() = 1, amount, PREV(balance, 0) + amount)`. Any other column of differing formulas is imported as its values, with a warning.
+- A formula Forge cannot express (a reference two or more rows up, a single cell of a table in a scalar formula, named ranges) is imported as its value, with a warning. So is a formula that uses a function Forge defines differently from Excel (`COLUMN`, `VLOOKUP`, `HLOOKUP`, `OFFSET`, `INDIRECT`, `NOW`, `UNIQUE`, `SORT`, `FILTER`, `SEQUENCE`). Excel's `ROW()` in a table is read as `(ROW() + 1)`, since a table's first row is the sheet's second.
 - The YAML is model format 5.1.0: an input is a plain number (`price: 16`), a formula keeps its last result (`{formula: "=...", value: 600000}`), and whole numbers stay whole.
 - A model exported with `forge export` and imported again calculates to the same numbers (tested on the examples and the forge-e2e-gnumeric models). The YAML keeps the model's order but is not identical: comments are not in the workbook, and formulas are respaced.
 - `--multi-doc` writes one file with a document per sheet; it calculates exactly like the single file (ADR-052). `--split-files` writes a file per sheet, and refuses, writing nothing, when a formula in one part uses another part's table or scalars, since separate files cannot refer to each other's tables.
@@ -1156,7 +1195,8 @@ forge import spreadsheet.xlsx output.yaml
 |------|---------|-------|
 | Numbers | `[100, 200, 300]` | f64 precision |
 | Text | `["Q1", "Q2", "Q3"]` | UTF-8 strings |
-| Dates | `["2025-01", "2025-02"]` | YYYY-MM format |
+| Dates | `["2025-01-31", "2025-02-28"]` | YYYY-MM-DD, or YYYY-MM as a label (date functions need a day) |
+| Periods | `{start: 2026-12, count: 300, unit: month}` | The dates the periods start on (format 5.2.0) |
 | Booleans | `[true, false, true]` | Logical values |
 
 **Type Safety:**

@@ -1,6 +1,6 @@
 //! JSON Schema validation for Forge YAML models
 //!
-//! Validates YAML against embedded JSON schemas (v1.0.0, v5.0.0, v5.1.0).
+//! Validates YAML against embedded JSON schemas (v1.0.0, v5.0.0, v5.1.0, v5.2.0).
 
 use crate::error::{ForgeError, ForgeResult};
 use yaml_serde::Value;
@@ -18,7 +18,7 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
             ForgeError::Validation(
-                "Missing required field: _forge_version (the model format version). Must be \"1.0.0\", \"5.0.0\" or \"5.1.0\""
+                "Missing required field: _forge_version (the model format version). Must be \"1.0.0\", \"5.0.0\", \"5.1.0\" or \"5.2.0\""
                     .to_string(),
             )
         })?;
@@ -28,14 +28,16 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         "1.0.0" => include_str!("../../schema/forge-v1.0.0.schema.json"),
         "5.0.0" => include_str!("../../schema/forge-v5.0.0.schema.json"),
         "5.1.0" => include_str!("../../schema/forge-v5.1.0.schema.json"),
+        "5.2.0" => include_str!("../../schema/forge-v5.2.0.schema.json"),
         _ => {
             return Err(ForgeError::Validation(format!(
-                "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`). This is the model format version, not the Forge version"
+                "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns). This is the model format version, not the Forge version"
             )));
         },
     };
 
     check_short_form(yaml, version)?;
+    check_period_columns(yaml, version)?;
     // Tables in a 1.0.0 model: say so before the schema reports the shapes
     if version == "1.0.0" {
         validate_v1_0_0_no_tables(yaml)?;
@@ -64,6 +66,32 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         )));
     }
 
+    Ok(())
+}
+
+/// A period column in a model of an earlier format: say which format has it,
+/// before the schema reports the keys it does not know.
+fn check_period_columns(yaml: &Value, version: &str) -> ForgeResult<()> {
+    let (Some(root), false) = (yaml.as_mapping(), version == "5.2.0") else {
+        return Ok(());
+    };
+    for (key, value) in root {
+        let (Some(table), Some(columns)) = (key.as_str(), value.as_mapping()) else {
+            continue;
+        };
+        let period = columns.iter().find_map(|(name, column)| {
+            column
+                .as_mapping()
+                .filter(|m| crate::parser::periods::is_period_column(m))
+                .and(name.as_str())
+        });
+        if let Some(column) = period {
+            return Err(ForgeError::Validation(format!(
+                "'{table}.{column}' is a period column (start, count, unit), which model format \
+                 5.2.0 adds. Set `_forge_version: \"5.2.0\"` (this file says {version})"
+            )));
+        }
+    }
     Ok(())
 }
 
@@ -111,7 +139,7 @@ fn check_short_form(yaml: &Value, version: &str) -> ForgeResult<()> {
                 .collect(),
             _ => Vec::new(),
         };
-        if version != "5.1.0" {
+        if !matches!(version, "5.1.0" | "5.2.0") {
             if let Some(first) = numbers.first() {
                 return Err(ForgeError::Validation(format!(
                     "'{first}' is a plain number, which is the short form of model format 5.1.0. \

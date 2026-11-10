@@ -33,7 +33,7 @@ exclude = [
 ]
 # Note: examples/ is included because src/cli/commands/examples.rs uses include_str!()
 
-# Main binary (174 functions, all features)
+# Main binary (175 functions, all features)
 # Build: cargo build --release
 [[bin]]
 name = "forge"

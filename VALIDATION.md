@@ -8,8 +8,8 @@ Forge is a beta and an R&D prototype. These checks reduce the chance of a wrong 
 
 | Check | Compares Forge with | Result |
 | --- | --- | --- |
-| Unit tests (this repo) | Expected values written in the tests | 1,599 tests and 2 doctests pass |
-| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | Gnumeric, a separate spreadsheet engine, and LibreOffice for 68 cases Gnumeric cannot read | 1,353 formula cases pass, 1 skipped |
+| Unit tests (this repo) | Expected values written in the tests | 1,617 tests and 2 doctests pass |
+| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | Gnumeric, a separate spreadsheet engine, and LibreOffice for 68 cases Gnumeric cannot read | 1,367 formula cases pass, 1 skipped |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r), formulas | R, with Excel rules where R differs | 119 math, date and financial checks pass |
 | forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 70 of 77 specs pass against R in the Validation workflow; 7 skipped |
 | Real Excel (by hand, once) | Microsoft Excel for iPhone, recalculating a workbook written by `forge export` | 18 of 18 financial and date results match (2026-11-06) |
@@ -34,7 +34,7 @@ cd forge-e2e-gnumeric
 FORGE_BIN=/path/to/forge cargo run --release
 ```
 
-Needs `ssconvert` (package `gnumeric`) and LibreOffice 24.8 or later (`soffice`; on Ubuntu 24.04 from noble-backports). Result: 1,353 passed, 0 failed, 1 skipped; 68 of them recalculated by LibreOffice. Every case is also checked after `forge export` and `forge import`, so a formula that does not survive the round trip fails. Four cases are checked against Forge only, each with a written reason: `PRICEDISC` and `ACCRINT` results where Gnumeric 1.12 and LibreOffice 26.2 both differ from Excel, which was checked by hand (section 5). With every cached scalar result written 1,000 too high, the 144 cases of two spec files (27 of them in LibreOffice) still all passed, so both engines recalculate rather than read the cache.
+Needs `ssconvert` (package `gnumeric`) and LibreOffice 24.8 or later (`soffice`; on Ubuntu 24.04 from noble-backports). Result: 1,367 passed, 0 failed, 1 skipped; 68 of them recalculated by LibreOffice. Every case is also checked after `forge export` and `forge import`, so a formula that does not survive the round trip fails. Four cases are checked against Forge only, each with a written reason: `PRICEDISC` and `ACCRINT` results where Gnumeric 1.12 and LibreOffice 26.2 both differ from Excel, which was checked by hand (section 5). With every cached scalar result written 1,000 too high, the 144 cases of two spec files (27 of them in LibreOffice) still all passed, so both engines recalculate rather than read the cache.
 
 ## 3. Math, date and financial functions against R
 

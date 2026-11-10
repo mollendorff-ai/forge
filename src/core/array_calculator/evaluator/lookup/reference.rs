@@ -50,6 +50,8 @@ pub fn eval_offset(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
         scenarios: ctx.scenarios.clone(),
         current_row: None,
         row_count: ctx.row_count,
+        lag: std::cell::Cell::new(0),
+        growing_table: None,
     };
     let base = evaluate(&args[0], &array_ctx)?;
     let rows = evaluate(&args[1], ctx)?
@@ -155,16 +157,12 @@ pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 /// Returns the row number of a reference
 // Returns Result for uniform eval_* function signature (callers expect Result).
 #[allow(clippy::unnecessary_wraps)]
-pub const fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+pub fn eval_row(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     // ROW() returns current row number (1-based)
     // ROW(reference) returns the row number of the reference
     if args.is_empty() {
         // Return current row if available
-        if let Some(row) = ctx.current_row {
-            Ok(Value::Number((row + 1) as f64))
-        } else {
-            Ok(Value::Number(1.0))
-        }
+        Ok(Value::Number(ctx.row().map_or(1.0, |row| (row + 1) as f64)))
     } else {
         // For a reference, we'd need to parse it. Simplified: return 1
         Ok(Value::Number(1.0))
@@ -193,6 +191,8 @@ pub fn eval_rows(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
         scenarios: ctx.scenarios.clone(),
         current_row: None,
         row_count: ctx.row_count,
+        lag: std::cell::Cell::new(0),
+        growing_table: None,
     };
     let val = evaluate(&args[0], &array_ctx)?;
     match val {

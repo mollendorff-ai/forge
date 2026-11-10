@@ -97,6 +97,22 @@ pub fn set_values_multi(text: &str, values: &[(ScalarPath, f64)]) -> Result<Stri
     Ok(out)
 }
 
+/// Set the `_forge_version` line of a model to `version`, every other line
+/// kept as typed.
+#[must_use]
+pub fn set_format_version(text: &str, version: &str) -> String {
+    split_lines(text)
+        .iter()
+        .map(|line| {
+            if indent(line) == 0 && key_of(line).is_some_and(|(k, _)| k == "_forge_version") {
+                replace_after_colon(line, &format!("\"{version}\""))
+            } else {
+                line.clone()
+            }
+        })
+        .collect()
+}
+
 /// Rewrite a 5.0.0 model in the 5.1.0 short form (ADR-051).
 ///
 /// - `name: {value: 16, formula: null}` (block or flow, no metadata) becomes `name: 16`

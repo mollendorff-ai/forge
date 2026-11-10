@@ -1,0 +1,39 @@
+_forge_version: "5.2.0"
+# A five-year discounted cash flow valuation.
+# All figures are made up.
+
+assumptions:
+  revenue_2026: 4200000
+  growth: 0.08
+  ebit_margin: 0.18
+  tax_rate: 0.265
+  # Share of after-tax profit put back into the business
+  reinvestment: 0.30
+  wacc: 0.095
+  terminal_growth: 0.025
+  net_debt: 1500000
+
+forecast:
+  year: {start: 2027, count: 5, unit: year}
+  revenue: "=PREV(revenue, assumptions.revenue_2026) * (1 + assumptions.growth)"
+  after_tax_profit: "=revenue * assumptions.ebit_margin * (1 - assumptions.tax_rate)"
+  free_cash_flow: "=after_tax_profit * (1 - assumptions.reinvestment)"
+  # ROW() is the number of the year: 1 for 2027
+  discount_factor: "=1 / (1 + assumptions.wacc) ^ ROW()"
+  present_value: "=free_cash_flow * discount_factor"
+
+valuation:
+  forecast_years:
+    formula: "=SUM(forecast.present_value)"
+  # Cash flows after year 5, growing for ever, valued at the end of year 5
+  terminal_value:
+    formula: "=INDEX(forecast.free_cash_flow, 5) * (1 + assumptions.terminal_growth) / (assumptions.wacc - assumptions.terminal_growth)"
+  terminal_value_today:
+    formula: "=terminal_value * INDEX(forecast.discount_factor, 5)"
+  enterprise_value:
+    formula: "=forecast_years + terminal_value_today"
+  equity_value:
+    formula: "=enterprise_value - assumptions.net_debt"
+  # The same five years with NPV
+  check:
+    formula: "=ROUND(ABS(NPV(assumptions.wacc, forecast.free_cash_flow) - forecast_years), 6)"

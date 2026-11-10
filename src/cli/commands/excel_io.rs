@@ -967,6 +967,144 @@ g:
         }
     }
 
+    fn column(model: &crate::types::ParsedModel, table: &str, column: &str) -> Vec<f64> {
+        match &model.tables[table].columns[column].values {
+            crate::types::ColumnValue::Number(v) => v.clone(),
+            other => panic!("{table}.{column}: {other:?}"),
+        }
+    }
+
+    /// T2-TIME: a PREV column is cells that read the row above, a period
+    /// column is its dates, and import reads the column back as one formula
+    /// that still reads the row above.
+    #[test]
+    fn a_column_that_reads_the_row_above_survives_export_and_import() {
+        use calamine::{open_workbook, Reader, Xlsx};
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("m.yaml");
+        fs::write(
+            &path,
+            concat!(
+                "_forge_version: \"5.2.0\"\n",
+                "loan:\n  principal: 1000\n",
+                "schedule:\n",
+                "  month: {start: 2026-12, count: 4, unit: month}\n",
+                "  number: \"=ROW()\"\n",
+                "  opening: \"=PREV(closing, loan.principal)\"\n",
+                "  interest: \"=opening * 0.01\"\n",
+                "  closing: \"=opening + interest - 300\"\n",
+            ),
+        )
+        .unwrap();
+        let model = calculate(parser::parse_model(&path).unwrap()).unwrap();
+        // 1000 -> 710 -> 417.10 -> 121.271 -> -177.51629
+        let closing = column(&model, "schedule", "closing");
+        assert!((closing[3] + 177.516_29).abs() < 1e-9, "{closing:?}");
+        let xlsx = dir.path().join("m.xlsx");
+        let warnings = ExcelExporter::new(model)
+            .export_with_warnings(&xlsx)
+            .unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+
+        let mut wb: Xlsx<_> = open_workbook(&xlsx).unwrap();
+        let sheet = wb.worksheet_formula("schedule").unwrap();
+        let cell = |row, col| sheet.get_value((row, col)).map(String::as_str);
+        assert_eq!(cell(1, 1), Some("(ROW() - 1)"));
+        assert_eq!(cell(1, 2), Some("('loan'!$B$2)"));
+        assert_eq!(cell(2, 2), Some("(E2)"));
+        assert_eq!(cell(4, 2), Some("(E4)"));
+        let values = wb.worksheet_range("schedule").unwrap();
+        assert_eq!(
+            values.get_value((2, 0)).map(ToString::to_string).as_deref(),
+            Some("2027-01-01")
+        );
+
+        let back = dir.path().join("back.yaml");
+        import_core(&xlsx, &back, false, false).unwrap();
+        let text = fs::read_to_string(&back).unwrap();
+        for formula in [
+            "number: =ROW()",
+            "opening: =IF(ROW() = 1, (loan.principal), (PREV(closing, 0)))",
+            "closing: =opening + interest - 300",
+        ] {
+            assert!(text.contains(formula), "{formula} in {text}");
+        }
+        // Still a model: another principal gives another schedule
+        let changed = text.replace("principal: 1000", "principal: 2000");
+        fs::write(&back, changed).unwrap();
+        let again = calculate(parser::parse_model(&back).unwrap()).unwrap();
+        // 2000 -> 1720 -> 1437.2
+        assert!((column(&again, "schedule", "closing")[1] - 1437.2).abs() < 1e-9);
+    }
+
+    /// `forge import` took the formula of the first data row for the whole
+    /// column, so a running balance (100, 150, 175) came back as `=amount`
+    /// (100, 50, 25), and Excel's `ROW()` and `COLUMN()` were read as
+    /// Forge's, which count differently.
+    #[test]
+    fn import_reads_every_row_of_a_formula_column() {
+        use rust_xlsxwriter::{Formula, Workbook};
+        let dir = tempfile::TempDir::new().unwrap();
+        let xlsx = dir.path().join("ledger.xlsx");
+        let mut workbook = Workbook::new();
+        let sheet = workbook.add_worksheet().set_name("ledger").unwrap();
+        for (col, name) in ["amount", "balance", "double", "odd", "row", "column"]
+            .iter()
+            .enumerate()
+        {
+            sheet
+                .write_string(0, u16::try_from(col).unwrap(), *name)
+                .unwrap();
+        }
+        let amounts = [100.0, 50.0, 25.0];
+        let mut balance = 0.0;
+        for (i, amount) in amounts.iter().enumerate() {
+            let row = u32::try_from(i).unwrap() + 1;
+            let r = row + 1; // Excel row
+            balance += amount;
+            sheet.write_number(row, 0, *amount).unwrap();
+            let cells = [
+                (
+                    if i == 0 {
+                        "=A2".to_string()
+                    } else {
+                        format!("=B{}+A{r}", r - 1)
+                    },
+                    balance,
+                ),
+                (format!("=A{r}*2"), amount * 2.0),
+                // A different formula in every row
+                (format!("=A{r}*{}", i + 1), amount * f64::from(row)),
+                (format!("=ROW()*A{r}"), f64::from(r) * amount),
+                (format!("=COLUMN()+A{r}"), 6.0 + amount),
+            ];
+            for (col, (formula, result)) in cells.iter().enumerate() {
+                let formula = Formula::new(formula).set_result(result.to_string());
+                sheet
+                    .write_formula(row, u16::try_from(col).unwrap() + 1, formula)
+                    .unwrap();
+            }
+        }
+        workbook.save(&xlsx).unwrap();
+
+        let back = dir.path().join("ledger.yaml");
+        import_core(&xlsx, &back, false, false).unwrap();
+        let text = fs::read_to_string(&back).unwrap();
+        assert!(
+            text.contains("balance: =IF(ROW() = 1, amount, PREV(balance, 0) + amount)"),
+            "{text}"
+        );
+        assert!(text.contains("double: =amount * 2"), "{text}");
+        assert!(text.contains("row: =(ROW() + 1) * amount"), "{text}");
+        let model = calculate(parser::parse_model(&back).unwrap()).unwrap();
+        assert_eq!(column(&model, "ledger", "balance"), [100.0, 150.0, 175.0]);
+        assert_eq!(column(&model, "ledger", "double"), [200.0, 100.0, 50.0]);
+        // Kept as the workbook's values, not as the first row's formula
+        assert_eq!(column(&model, "ledger", "odd"), [100.0, 100.0, 75.0]);
+        assert_eq!(column(&model, "ledger", "row"), [200.0, 150.0, 100.0]);
+        assert_eq!(column(&model, "ledger", "column"), [106.0, 56.0, 31.0]);
+    }
+
     /// T2-INCLUDE-COLUMNS: a table of an included file is a sheet with its
     /// formulas, a formula that reads one of its columns reads that sheet
     /// (the same row in a row formula, the whole column in an aggregate), and

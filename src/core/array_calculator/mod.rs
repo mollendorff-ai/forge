@@ -10,6 +10,9 @@ mod include_reference_tests;
 mod nan_input_tests;
 pub mod parser;
 mod plan;
+mod recursive;
+#[cfg(test)]
+mod recursive_tests;
 #[cfg(test)]
 mod scalar_scope_tests;
 pub mod tokenizer;
@@ -35,8 +38,17 @@ enum ScalarName {
 /// Ordered by kind, then name, so iteration is deterministic.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum Cell {
-    Column { table: String, column: String },
+    Column {
+        table: String,
+        column: String,
+    },
     Scalar(String),
+    /// Columns of one table that read each other through `PREV`, calculated
+    /// together row by row, in this order within a row (`recursive`)
+    Columns {
+        table: String,
+        columns: Vec<String>,
+    },
 }
 
 impl Cell {
@@ -44,6 +56,22 @@ impl Cell {
         match self {
             Self::Column { table, column } => format!("{table}.{column}"),
             Self::Scalar(name) => name.clone(),
+            Self::Columns { table, columns } => format!("{table}.{}", columns.join(", ")),
+        }
+    }
+
+    /// The single cells this step calculates: itself, or each column of a
+    /// group. Other cells name these as what they depend on.
+    fn members(&self) -> Vec<Self> {
+        match self {
+            Self::Columns { table, columns } => columns
+                .iter()
+                .map(|column| Self::Column {
+                    table: table.clone(),
+                    column: column.clone(),
+                })
+                .collect(),
+            other => vec![other.clone()],
         }
     }
 }
@@ -132,6 +160,9 @@ fn describe_cycle(graph: &petgraph::graph::DiGraph<Cell, ()>) -> String {
     let names: Vec<String> = cells.iter().map(|c| c.label()).collect();
     match names.as_slice() {
         [] => "formulas depend on each other".to_string(),
+        [one] if matches!(cells[0], Cell::Column { .. }) => format!(
+            "{one} refers to itself (to read the row above, write PREV(column, first_row_value))"
+        ),
         [one] => format!("{one} refers to itself"),
         _ => format!("{kind} {} depend on each other", names.join(", ")),
     }
@@ -372,19 +403,20 @@ impl ArrayCalculator {
             let blocked_by = dependencies.iter().find(|dep| failed.contains(*dep));
             if let Some(dep) = blocked_by {
                 skipped.push((cell.clone(), dep.clone()));
-                failed.insert(cell.clone());
+                failed.extend(cell.members());
                 continue;
             }
             let outcome = match cell {
                 Cell::Column { table, column } => self.calculate_column(table, column),
                 Cell::Scalar(name) => self.calculate_scalar(name),
+                Cell::Columns { table, columns } => self.calculate_columns(table, columns),
             };
             if let Err(e) = outcome {
                 failures.push(match e {
                     ForgeError::Eval(msg) => msg,
                     other => other.to_string(),
                 });
-                failed.insert(cell.clone());
+                failed.extend(cell.members());
             }
         }
 
@@ -419,62 +451,6 @@ impl ArrayCalculator {
         Ok(order)
     }
 
-    /// Every formula cell (table column or scalar) in dependency order.
-    ///
-    /// Nodes are added in name order, so the order, and which error is
-    /// reported first, is the same on every run.
-    fn calculation_order(&self) -> ForgeResult<Vec<Cell>> {
-        use petgraph::algo::toposort;
-        use petgraph::graph::DiGraph;
-        use std::collections::BTreeMap;
-
-        let mut graph: DiGraph<Cell, ()> = DiGraph::new();
-        let mut index = BTreeMap::new();
-
-        let mut table_names: Vec<&String> = self.model.tables.keys().collect();
-        table_names.sort();
-        for table_name in &table_names {
-            let mut columns: Vec<&String> =
-                self.model.tables[*table_name].row_formulas.keys().collect();
-            columns.sort();
-            for column in columns {
-                let cell = Cell::Column {
-                    table: (*table_name).clone(),
-                    column: column.clone(),
-                };
-                index.insert(cell.clone(), graph.add_node(cell));
-            }
-        }
-        let mut scalar_names: Vec<&String> = self
-            .model
-            .scalars
-            .iter()
-            .filter(|(_, var)| var.formula.is_some())
-            .map(|(name, _)| name)
-            .collect();
-        scalar_names.sort();
-        for name in scalar_names {
-            let cell = Cell::Scalar(name.clone());
-            index.insert(cell.clone(), graph.add_node(cell));
-        }
-
-        let cells: Vec<Cell> = index.keys().cloned().collect();
-        for cell in &cells {
-            for dep in self.cell_dependencies(cell)? {
-                if let (Some(&from), Some(&to)) = (index.get(&dep), index.get(cell)) {
-                    graph.add_edge(from, to, ());
-                }
-            }
-        }
-
-        let order = toposort(&graph, None)
-            .map_err(|_| ForgeError::CircularDependency(describe_cycle(&graph)))?;
-        Ok(order
-            .into_iter()
-            .filter_map(|idx| graph.node_weight(idx).cloned())
-            .collect())
-    }
-
     /// The formula cells that `cell`'s formula reads. Names that are data
     /// (an input column, a scalar without a formula) need no edge and are
     /// left out.
@@ -498,6 +474,16 @@ impl ArrayCalculator {
                         // An input column
                     } else if let ScalarName::Found(full) = self.resolve_scalar_name(&word, None) {
                         deps.push(Cell::Scalar(full));
+                    }
+                }
+            },
+            Cell::Columns { .. } => {
+                let members = cell.members();
+                for member in &members {
+                    for dep in self.cell_dependencies(member)? {
+                        if !members.contains(&dep) && !deps.contains(&dep) {
+                            deps.push(dep);
+                        }
                     }
                 }
             },
@@ -737,7 +723,14 @@ impl ArrayCalculator {
     ) -> ForgeResult<()> {
         let stripped = strip_string_literals(formula);
         for word in stripped.split(|c: char| !is_name_char(c)) {
-            if word.is_empty() || word.contains('.') || table.columns.contains_key(word) {
+            // A bare name is a column of the table first: a data column, or a
+            // formula column (which may not be calculated yet, when the two
+            // are calculated together row by row)
+            if word.is_empty()
+                || word.contains('.')
+                || table.columns.contains_key(word)
+                || table.row_formulas.contains_key(word)
+            {
                 continue;
             }
             if let ScalarName::Ambiguous(matches) = self.resolve_scalar_name(word, section) {

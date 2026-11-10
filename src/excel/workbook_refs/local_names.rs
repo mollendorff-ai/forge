@@ -39,6 +39,8 @@ pub(super) const HANDLED: [&str; 3] = ["LET", "LAMBDA", "COUNTUNIQUE"];
 pub(super) struct Locals {
     visible: Vec<(String, String)>,
     taken: Rc<RefCell<Vec<String>>>,
+    /// Rows above the cell that the formula is being read in (inside `PREV`)
+    lag: u32,
 }
 
 impl Locals {
@@ -48,7 +50,20 @@ impl Locals {
         Self {
             visible: Vec::new(),
             taken: Rc::new(RefCell::new(taken)),
+            lag: 0,
         }
+    }
+
+    /// The same names, read `back` rows further up.
+    pub(super) fn lagged(&self, back: u32) -> Self {
+        let mut locals = self.clone();
+        locals.lag += back;
+        locals
+    }
+
+    /// Rows above the cell that the formula is being read in.
+    pub(super) const fn lag(&self) -> u32 {
+        self.lag
     }
 
     /// The Excel name of a bound name, the innermost binding first.
@@ -525,6 +540,7 @@ mod tests {
         let mut other = Locals {
             visible: Vec::new(),
             taken: locals.taken.clone(),
+            lag: 0,
         };
         assert_eq!(other.bind("x"), "x_3");
     }

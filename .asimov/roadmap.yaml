@@ -17,11 +17,16 @@ state:
   version: 10.0.0-rc.10, released 2026-11-09 after a wrong answer in forge
     export (a column shorter than its table got the table's rows). The
     two-week stable clock in docs/STABILITY.md runs from this release (no
-    earlier than 2026-11-23); a new wrong answer restarts it.
+    earlier than 2026-11-23); a new wrong answer restarts it. Unreleased since
+    rc.10 are two wrong answers in forge import (the first row's formula taken
+    for the whole column; Excel's ROW() and COLUMN() read as Forge's), so the
+    next release candidate restarts the clock.
   format: model format 5.1.0 (ADR-051), with inputs as plain numbers, formula
     scalars as a formula mapping, and results written next to formulas in
-    place. examples/ are 5.1.0; test-data/ and the validation repos stay
-    5.0.0 on purpose.
+    place; 5.2.0 (ADR-053) adds the period column and is needed only by a
+    file that has one. examples/ are 5.1.0, and 5.2.0 where they have a period
+    column; test-data/ and the validation repos stay 5.0.0 on purpose (one
+    spec of forge-e2e-gnumeric is 5.2.0, for the period column).
   scope: all analysis engines are supported (ADR-050). The maintainer uses
     them and expects more scenario and simulation features.
   users: none known. One outside contributor used Forge for a few weeks in
@@ -51,17 +56,24 @@ tier1:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier2:
-  - id: T2-TIME
-    title: "Periods as a first-class axis"
-    why: "Every financial model has time. Today seasonality, growth and NPV are arithmetic on `month - 1`; a user coming from Excel or a planning tool expects revenue[t-1]"
-    how: "Design first (ADR with 3 worked examples: monthly budget, loan schedule, 5-year DCF). Likely shape: a table may declare `period: {start: 2026-11, count: 12, unit: month}`; row formulas may reference prev()/offset() and period attributes; export writes real dates in the first column"
-    acceptance: "ADR merged with the three examples; the loan schedule example matches an amortization computed in Python to the cent; Gnumeric recalculation of its export matches"
+  [] # every tier-2 item is done (2026-11-09); the next ones come from tier 3
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done and at least two people use it)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier3:
+  - id: T3-EXPORT-DATES
+    title: "Date columns as real dates in Excel"
+    why: "forge export writes dates as text (2026-12-01), a period column included (ADR-053). Charts, filters and pivots in Excel want real dates"
+    how: "Decide what a text function on a date column means first: LEFT(month, 4) is 2026 in Forge and would be 4635 on a date serial in Excel. forge import must read date cells back as ISO text"
+    acceptance: "A date column is a date in Excel, every forge-e2e-gnumeric date case still passes in Gnumeric and after import, and a formula whose result would differ is written as its value"
+
+  - id: T3-IMPORT-PREV
+    title: "Import reads PREV back as written"
+    why: "forge import reads a column that reads the row above as IF(ROW() = 1, first, PREV(...)): correct, but not the PREV(value, first) the model was exported from, and a column that reads two or more rows up comes in as values"
+    acceptance: "A model with PREV(value, first) and PREV(value, first, 2) columns is exported and imported to the same formulas, respaced"
+
   - id: T3-DIST
     title: "Homebrew formula + cargo-binstall"
     why: "Nobody installs from source; but nobody is trying to yet"

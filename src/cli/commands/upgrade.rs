@@ -143,13 +143,16 @@ pub fn upgrade_file_recursive(
     );
 
     // 5.0.0 -> 5.1.0: the short form, edited in place (ADR-051), comments kept
-    if target_version == "5.1.0" {
-        upgrade_to_short_form(file, &content, &yaml, current_version, dry_run, verbose)?;
+    // 5.2.0 is 5.1.0 plus the period column (ADR-053): the same conversion,
+    // then the version line. A 5.1.0 file only changes that line.
+    if matches!(target_version, "5.1.0" | "5.2.0") {
+        let versions = (current_version, target_version);
+        upgrade_to_short_form(file, &content, &yaml, versions, dry_run, verbose)?;
         return Ok(changes + 1);
     }
     if target_version != "5.0.0" {
         return Err(ForgeError::Validation(format!(
-            "Unknown target format '{target_version}'; use 5.1.0 (default) or 5.0.0"
+            "Unknown target format '{target_version}'; use 5.1.0 (default), 5.2.0 or 5.0.0"
         )));
     }
 
@@ -202,11 +205,19 @@ fn upgrade_to_short_form(
     file: &Path,
     content: &str,
     yaml: &yaml_serde::Value,
-    current_version: &str,
+    (current_version, target_version): (&str, &str),
     dry_run: bool,
     verbose: bool,
 ) -> ForgeResult<()> {
+    if current_version == "5.2.0" {
+        return Err(ForgeError::Validation(format!(
+            "{}: format 5.2.0 is not converted back to 5.1.0 (a period column has no 5.1.0 form)",
+            file.display()
+        )));
+    }
     let converted = match crate::writer::in_place::to_short_form(content) {
+        // Already in the short form: only the version line changes
+        _ if current_version == "5.1.0" => Ok(content.to_string()),
         Ok(text) => Ok(text),
         Err(_) if current_version != "5.0.0" => {
             println!(
@@ -235,6 +246,7 @@ fn upgrade_to_short_form(
             file.display()
         ))
     })?;
+    let converted = crate::writer::in_place::set_format_version(&converted, target_version);
     if !dry_run {
         let backup_path = file.with_extension("yaml.bak");
         fs::copy(file, &backup_path)
