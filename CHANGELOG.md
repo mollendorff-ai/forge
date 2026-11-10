@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+- **Forge Studio, a web interface, and Forge in the browser** (ADR-055, ADR-056, roadmap `studio`). Decisions only, nothing built yet: Forge's engine compiled to WebAssembly as a `forge-wasm` crate, and a phone-first page in `studio/` that calculates with it, with the YAML editor and the cards side by side on wide screens, published on GitHub Pages with each release. Users of the command line, MCP and the REST API see no change.
+
 ## [10.0.0-rc.12] - 2026-11-10
 
 Twelfth release candidate, for wrong answers in `forge export` and `forge import` found while making dates real dates in Excel (ADR-054, below). Under docs/STABILITY.md that restarts the two-week clock: the stable release is no earlier than 2026-11-24. It is also the first release with `forge report`, the starter model, dates as real dates in Excel, and installation with Homebrew or cargo-binstall; the README described the first three before they were published. Known and not fixed: text that is a number is read as a number where Excel reads text (roadmap T1-TEXT-NUMBERS), which restarts the clock again when it is fixed.
