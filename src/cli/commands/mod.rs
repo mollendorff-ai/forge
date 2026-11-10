@@ -8,6 +8,7 @@
 //! - export/import: Excel file I/O
 //! - `variance/sensitivity/goal_seek/break_even`: Analysis tools
 //! - compare: Scenario comparison
+//! - report: Scalars side by side, from a calculated file
 //! - functions: List supported functions
 //! - simulate: Monte Carlo simulation
 //! - upgrade: Schema migration
@@ -25,6 +26,7 @@ mod excel_io;
 mod functions;
 mod prediction;
 mod probability_seek;
+mod report;
 pub mod results;
 mod schema;
 mod simulate;
@@ -40,6 +42,7 @@ pub use examples::examples;
 pub use excel_io::{export, import};
 pub use functions::functions;
 pub use prediction::{bayesian, bootstrap, decision_tree, real_options, scenarios, tornado};
+pub use report::{report, ReportFormat, ReportOptions};
 pub use schema::schema;
 pub use simulate::simulate;
 pub use update::update;
@@ -56,6 +59,9 @@ pub use prediction::{
     tornado_core,
 };
 pub use probability_seek::{probability_seek, probability_seek_core, SeekGoal, SeekResult};
+pub use report::{
+    build_report, display_number, report_core, Cell, Report, ReportRow, ReportSection,
+};
 pub use schema::schema_core;
 pub use simulate::{simulate_core, SimulateOptions};
 

@@ -504,7 +504,7 @@ docs-cli:
 	@./target/release/forge --help >> docs/cli/README.md
 	@echo '```' >> docs/cli/README.md
 	@echo "" >> docs/cli/README.md
-	@for cmd in calculate validate audit export import watch compare variance sensitivity goal-seek break-even update functions schema examples upgrade simulate scenarios decision-tree real-options tornado bootstrap bayesian mcp serve; do \
+	@for cmd in calculate validate audit export import watch compare report variance sensitivity goal-seek break-even update functions schema examples upgrade simulate scenarios decision-tree real-options tornado bootstrap bayesian mcp serve; do \
 		echo "## $$cmd" >> docs/cli/README.md; \
 		echo "" >> docs/cli/README.md; \
 		echo '```' >> docs/cli/README.md; \
