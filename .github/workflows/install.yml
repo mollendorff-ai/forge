@@ -1,0 +1,111 @@
+name: Install
+
+# Checks that Homebrew and cargo-binstall install the released binary
+# (roadmap T3-DIST): `forge --version` must name the version.
+#
+# On a pull request that touches the packaging, it installs the formula of the
+# pull request from a local tap, and runs cargo-binstall with the metadata of
+# the pull request's Cargo.toml, both against the release the formula names.
+# After a release (called by release.yml) it installs the way a user does:
+# from the tap on main, and from crates.io.
+
+on:
+  pull_request:
+    paths:
+      - 'Formula/**'
+      - 'scripts/homebrew-formula.sh'
+      - 'Cargo.toml'
+      - '.github/workflows/install.yml'
+  workflow_call:
+    inputs:
+      version:
+        description: The released version, without the v
+        required: true
+        type: string
+
+jobs:
+  homebrew:
+    name: brew install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Put Homebrew on the PATH (Linux)
+        if: runner.os == 'Linux'
+        run: echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
+
+      - name: Install from the formula of this pull request
+        if: github.event_name == 'pull_request'
+        run: |
+          brew tap-new --no-git local/forge
+          cp Formula/forge.rb "$(brew --repository local/forge)/Formula/forge.rb"
+          brew install local/forge/forge
+          brew test local/forge/forge
+          echo "VERSION=$(sed -n 's/^  version "\(.*\)"$/\1/p' Formula/forge.rb)" >> "$GITHUB_ENV"
+
+      - name: Install as a user does
+        if: github.event_name != 'pull_request'
+        run: |
+          brew tap mollendorff-ai/forge https://github.com/mollendorff-ai/forge
+          brew install mollendorff-ai/forge/forge
+          brew test mollendorff-ai/forge/forge
+          echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+
+      - name: forge --version names the version
+        run: |
+          out=$(forge --version)
+          echo "$out"
+          test "$out" = "forge $VERSION"
+
+  binstall:
+    name: cargo binstall (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install cargo-binstall
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-binstall
+
+      # Only the release's own archive counts: no QuickInstall, no building.
+      - name: Install with the metadata of this pull request
+        if: github.event_name == 'pull_request'
+        run: |
+          VERSION=$(sed -n 's/^  version "\(.*\)"$/\1/p' Formula/forge.rb)
+          sed -i.orig "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+          cargo binstall --no-confirm --force --disable-strategies quick-install,compile \
+            --manifest-path Cargo.toml "mollendorff-forge@$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Install as a user does
+        if: github.event_name != 'pull_request'
+        run: |
+          # crates.io can take a minute to serve a version just published.
+          for attempt in 1 2 3 4 5; do
+            cargo binstall --no-confirm --disable-strategies quick-install,compile \
+              "mollendorff-forge@${{ inputs.version }}" && break
+            [ "$attempt" = 5 ] && exit 1
+            sleep 30
+          done
+          echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+
+      - name: forge --version names the version
+        run: |
+          out=$(forge --version | tr -d '\r')
+          echo "$out"
+          test "$out" = "forge $VERSION"

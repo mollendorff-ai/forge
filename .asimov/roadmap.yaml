@@ -73,11 +73,6 @@ tier3:
     why: "forge import reads a column that reads the row above as IF(ROW() = 1, first, PREV(...)): correct, but not the PREV(value, first) the model was exported from, and a column that reads two or more rows up comes in as values"
     acceptance: "A model with PREV(value, first) and PREV(value, first, 2) columns is exported and imported to the same formulas, respaced"
 
-  - id: T3-DIST
-    title: "Homebrew formula + cargo-binstall"
-    why: "Nobody installs from source; but nobody is trying to yet"
-    acceptance: "brew install and cargo binstall both produce a binary whose --version matches the release"
-
   - id: T3-API
     title: "REST endpoints for the analytics tools (parity with the 20 MCP tools) + OpenAPI spec"
     why: "validate, calculate and audit already take inline content; the rest only exist over MCP"
