@@ -138,12 +138,12 @@ assumptions:
     value: null
     formula: "=IF(ISFORMULA(42), 1, 0)"    # Expected: 0 (literal value)
     expected: 0
-    gnumeric_skip: "ISFORMULA needs a cell reference; Gnumeric returns #VALUE! for a literal"
+    libreoffice: "ISFORMULA needs a cell reference; Gnumeric returns #VALUE! for a literal"
   isformula_text:
     value: null
     formula: "=IF(ISFORMULA(\"test\"), 1, 0)"  # Expected: 0 (text value)
     expected: 0
-    gnumeric_skip: "ISFORMULA needs a cell reference; Gnumeric returns #VALUE! for a literal"
+    libreoffice: "ISFORMULA needs a cell reference; Gnumeric returns #VALUE! for a literal"
   # Note: Testing ISFORMULA(A1) requires checking if cell A1 contains a formula, which is context-dependent
 
   # ═══════════════════════════════════════════════════════════════════════════

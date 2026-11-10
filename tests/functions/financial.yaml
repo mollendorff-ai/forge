@@ -290,19 +290,19 @@ assumptions:
     value: null
     formula: "=ROUND(PRICEDISC(36341, 39903, 0.05, 100, 0), 4)"
     expected: 51.2500
-    gnumeric_skip: "Gnumeric 1.12 gives 51.2361; Excel gives 51.2500, as Forge does"
+    gnumeric_skip: "Gnumeric 1.12 gives 51.2361; Excel gives 51.2500, as Forge does; LibreOffice 26.2 gives 51.2361"
 
   test_pricedisc_basis4:
     value: null
     formula: "=ROUND(PRICEDISC(43541, 43708, 0.05, 100, 4), 4)"
     expected: 97.7361
-    gnumeric_skip: "Gnumeric 1.12 gives 97.7222; Excel gives 97.7361, as Forge does"
+    gnumeric_skip: "Gnumeric 1.12 gives 97.7222; Excel gives 97.7361, as Forge does; LibreOffice 26.2 gives 97.7222"
 
   test_pricedisc_basis1_long:
     value: null
     formula: "=ROUND(PRICEDISC(38777, 49064, 0.05, 100, 1), 4)"
     expected: -40.8247
-    gnumeric_skip: "Gnumeric 1.12 gives -40.9178; Excel gives -40.8247, as Forge does"
+    gnumeric_skip: "Gnumeric 1.12 gives -40.9178; Excel gives -40.8247, as Forge does; LibreOffice 26.2 gives -40.9178"
 
   # YIELDDISC - Annual yield of a discounted security
   test_yielddisc_tbill_182:
@@ -346,13 +346,13 @@ assumptions:
     value: null
     formula: "=ROUND(ACCRINT(34938, 35115, 39325, 0.06, 1000, 1, 0), 4)"
     expected: 720.6667
-    gnumeric_skip: "Gnumeric 1.12 gives 691.8333; Excel gives 720.6667, as Forge does"
+    libreoffice: "Gnumeric 1.12 gives 691.8333; Excel gives 720.6667, as Forge does"
 
   test_accrint_basis1_semiannual:
     value: null
     formula: "=ROUND(ACCRINT(44296, 44548, 48337, 0.06, 1000, 2, 1), 4)"
     expected: 663.8326
-    gnumeric_skip: "Gnumeric 1.12 gives 662.4590; Excel gives 663.8326, as Forge does"
+    gnumeric_skip: "Gnumeric 1.12 gives 662.4590; Excel gives 663.8326, as Forge does; LibreOffice 26.2 gives 664.2740"
 
   # YEARFRAC edge cases, checked in Excel (iPhone app) on 2026-11-06
   test_yearfrac_basis1_multi_year:
@@ -407,7 +407,7 @@ assumptions:
     value: null
     formula: "=ROUND(IPMT(0.01, 1, 24, 10000, 0, 1), 2)"
     expected: 0.00
-    gnumeric_skip: "Gnumeric 1.12 gives -99.01; Excel gives 0 (checked 2026-11-06), as Forge does"
+    libreoffice: "Gnumeric 1.12 gives -99.01; Excel gives 0 (checked 2026-11-06), as Forge does"
 
   test_ipmt_type1_period2:
     value: null

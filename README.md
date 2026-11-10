@@ -11,7 +11,7 @@ All validation comes from trusted third-party sources.
 
 ### Test Coverage
 
-- **1,321 formula tests** across 40 YAML files
+- **1,354 formula tests** across 41 YAML files
 - **30 function test files** covering math, text, date, financial, lookup, aggregation, statistical, trigonometric, logical, and information functions
 - **10 edge case test files** covering boundary conditions, type coercion, error propagation, and numeric precision
 
@@ -25,6 +25,14 @@ All validation comes from trusted third-party sources.
 
   # Ubuntu/Debian
   apt install gnumeric
+  ```
+- **LibreOffice 24.8 or later**: `soffice` in PATH, for the 68 cases Gnumeric 1.12 cannot judge (each has a `libreoffice:` key saying why: no `LET`, `UNIQUE` or `XLOOKUP`, `DATEDIF` read from an xlsx file gives #VALUE!, and a few results where Gnumeric differs from Excel). Without it those cases fail and say so.
+  ```bash
+  # macOS
+  brew install --cask libreoffice
+
+  # Ubuntu 24.04 (its own LibreOffice is 24.2, without LET)
+  sudo apt install -t noble-backports libreoffice-calc-nogui
   ```
 
 ## Usage
@@ -45,7 +53,7 @@ cargo run --release -- --batch
 ```
                     ┌─ forge calculate ──────────────────────────┐
 YAML Test Spec ─────┤                                            ├─ all three must equal expected
-                    ├─ forge export → XLSX → ssconvert --recalc ─┤
+                    ├─ forge export → XLSX → ssconvert --recalc ─┤  (or LibreOffice)
                     └─ forge export → forge import → calculate ──┘
 ```
 
@@ -57,6 +65,8 @@ YAML Test Spec ─────┤                                            ├
 6. A case passes only when all three equal the expected value (relative tolerance 1e-9)
 
 Only the cell labelled `test_result` counts as Gnumeric's answer.
+
+A case with `libreoffice: "<why Gnumeric cannot>"` is recalculated by LibreOffice instead (`soffice --headless --convert-to csv`, every sheet). LibreOffice shows the results cached in an xlsx file unless told otherwise, and Forge caches its own results, so the harness runs it with a profile of its own that recalculates every formula on load. A case with `gnumeric_skip: "<why>"` is checked against Forge only: four are left, results where both engines differ from Excel, which was checked by hand.
 
 Gnumeric 1.12 cannot judge a few cases (`DATEDIF` read from xlsx, `XLOOKUP`, `ISFORMULA` on a literal). Mark those with `gnumeric_skip: "reason"` next to `expected:`. They are then checked against Forge only, and the summary counts them.
 

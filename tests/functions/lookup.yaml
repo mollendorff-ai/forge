@@ -158,25 +158,25 @@ assumptions:
     value: null
     formula: "=XLOOKUP(\"Widget\", products.name, products.price, -1)"
     expected: 100
-    gnumeric_skip: "Gnumeric 1.12 has no XLOOKUP"
+    libreoffice: "Gnumeric 1.12 has no XLOOKUP"
 
   test_xlookup_name_len_by_id:
     value: null
     formula: "=LEN(XLOOKUP(3, products.id, products.name, \"NotFound\"))"
     expected: 5
-    gnumeric_skip: "Gnumeric 1.12 has no XLOOKUP"
+    libreoffice: "Gnumeric 1.12 has no XLOOKUP"
 
   test_xlookup_with_default:
     value: null
     formula: "=XLOOKUP(999, products.id, products.price, -999)"
     expected: -999
-    gnumeric_skip: "Gnumeric 1.12 has no XLOOKUP"
+    libreoffice: "Gnumeric 1.12 has no XLOOKUP"
 
   test_xlookup_category_len:
     value: null
     formula: "=LEN(XLOOKUP(200, products.price, products.category, \"X\"))"
     expected: 1
-    gnumeric_skip: "Gnumeric 1.12 has no XLOOKUP"
+    libreoffice: "Gnumeric 1.12 has no XLOOKUP"
 
   # ══════════════════════════════════════════════════════════════════════════
   # OFFSET - Reference offset via INDEX simulation

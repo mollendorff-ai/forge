@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use clap::Parser;
 
-use forge_e2e_gnumeric::engine::GnumericEngine;
+use forge_e2e_gnumeric::engine::{GnumericEngine, LibreOfficeEngine};
 use forge_e2e_gnumeric::runner::TestRunner;
 use forge_e2e_gnumeric::types::TestResult;
 
@@ -64,7 +64,11 @@ fn main() -> anyhow::Result<()> {
     })?;
 
     // Create runner and execute
-    let runner = TestRunner::new(forge_binary.clone(), engine, cli.tests.clone())?;
+    // LibreOffice, for the cases Gnumeric cannot read (a case that needs it
+    // fails when it cannot be used)
+    let libreoffice = LibreOfficeEngine::detect();
+
+    let runner = TestRunner::new(forge_binary.clone(), engine, libreoffice, cli.tests.clone())?;
     run_all(&cli, &runner, &forge_binary);
 
     Ok(())
@@ -77,7 +81,21 @@ fn run_all(cli: &Cli, runner: &TestRunner, forge_binary: &Path) {
     // TAP header: diagnostic comments then version and plan
     println!("# forge-e2e-gnumeric");
     println!("# Forge: {}", forge_binary.display());
-    println!("# Engine: {} (ssconvert)", GnumericEngine::name());
+    println!("# Engine: {}", GnumericEngine::name());
+    let in_libreoffice = runner
+        .test_cases()
+        .iter()
+        .filter(|tc| tc.libreoffice.is_some())
+        .count();
+    match runner.libreoffice() {
+        Ok(lo) => println!(
+            "# Engine for {in_libreoffice} cases Gnumeric cannot read: {}",
+            lo.version()
+        ),
+        Err(why) => {
+            println!("# LibreOffice cannot be used ({why}): {in_libreoffice} cases will fail");
+        }
+    }
     println!("# Tests: {}", cli.tests.display());
     println!("# Mode: {mode}");
     println!("TAP version 14");
@@ -114,7 +132,12 @@ fn run_all(cli: &Cli, runner: &TestRunner, forge_binary: &Path) {
         .filter(|tc| tc.gnumeric_skip.is_some())
         .count();
     if forge_only > 0 {
-        println!("# {forge_only} cases checked against Forge only (Gnumeric cannot judge them)");
+        println!(
+            "# {forge_only} cases checked against Forge only (neither engine gives Excel's answer)"
+        );
+    }
+    if in_libreoffice > 0 {
+        println!("# {in_libreoffice} cases recalculated by LibreOffice instead of Gnumeric");
     }
 
     println!(

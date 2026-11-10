@@ -57,6 +57,9 @@ pub struct Scalar {
     /// Reason Gnumeric cannot judge this case (if set, only Forge's own
     /// `calculate` result is checked).
     pub gnumeric_skip: Option<String>,
+    /// Reason Gnumeric cannot read this case's workbook; if set, `LibreOffice`
+    /// recalculates it instead.
+    pub libreoffice: Option<String>,
 }
 
 /// A table column (array of values or formula).
@@ -86,6 +89,8 @@ pub struct TestCase {
     pub forge_version: String,
     /// Why Gnumeric is not consulted for this case, if it is not.
     pub gnumeric_skip: Option<String>,
+    /// Why `LibreOffice` recalculates this case instead of Gnumeric, if it does.
+    pub libreoffice: Option<String>,
 }
 
 /// A test case that should be skipped.
@@ -168,6 +173,7 @@ pub fn extract_test_cases(spec: &TestSpec, source_file: Option<&std::path::Path>
                         source_file: source_file.map(std::path::Path::to_path_buf),
                         forge_version: spec.forge_version.clone(),
                         gnumeric_skip: scalar.gnumeric_skip.clone(),
+                        libreoffice: scalar.libreoffice.clone(),
                     });
                 }
             }

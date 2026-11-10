@@ -4,7 +4,8 @@
 //! 1. Load test specs from YAML files
 //! 2. For each test, generate a minimal YAML with the formula
 //! 3. Run forge export to create XLSX
-//! 4. Use Gnumeric (ssconvert) to recalculate and export to CSV
+//! 4. Use Gnumeric (ssconvert) to recalculate and export to CSV; `LibreOffice`
+//!    for a case whose `libreoffice` key says why Gnumeric cannot
 //! 5. Compare results against expected values
 
 use std::fmt::Write;
@@ -13,7 +14,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::engine::GnumericEngine;
+use crate::engine::{GnumericEngine, LibreOfficeEngine, LIBREOFFICE_MINIMUM};
 use crate::types::{
     extract_skip_cases, extract_table_data_yaml, extract_test_cases, SkipCase, TestCase,
     TestResult, TestSpec,
@@ -25,6 +26,8 @@ pub struct TestRunner {
     forge_binary: PathBuf,
     /// Gnumeric engine for validation.
     engine: GnumericEngine,
+    /// `LibreOffice`, for the cases Gnumeric cannot read, or why it cannot be used.
+    libreoffice: Result<LibreOfficeEngine, String>,
     /// Directory containing test spec files.
     tests_dir: PathBuf,
     /// All loaded test cases.
@@ -43,6 +46,7 @@ impl TestRunner {
     pub fn new(
         forge_binary: PathBuf,
         engine: GnumericEngine,
+        libreoffice: Result<LibreOfficeEngine, String>,
         tests_dir: PathBuf,
     ) -> anyhow::Result<Self> {
         let (test_cases, skip_cases) = Self::load_test_cases(&tests_dir)?;
@@ -50,6 +54,7 @@ impl TestRunner {
         Ok(Self {
             forge_binary,
             engine,
+            libreoffice,
             tests_dir,
             test_cases,
             skip_cases,
@@ -136,6 +141,11 @@ impl TestRunner {
         &self.test_cases
     }
 
+    /// `LibreOffice`, or why it cannot be used.
+    pub const fn libreoffice(&self) -> &Result<LibreOfficeEngine, String> {
+        &self.libreoffice
+    }
+
     /// Returns all skip cases.
     #[must_use]
     pub fn skip_cases(&self) -> &[SkipCase] {
@@ -196,9 +206,13 @@ impl TestRunner {
             })
             .collect();
 
+        // One workbook per source file and engine
         let mut groups: Vec<(Option<PathBuf>, Vec<&TestCase>)> = Vec::new();
         for tc in &self.test_cases {
-            match groups.iter_mut().find(|(src, _)| *src == tc.source_file) {
+            let same = |src: &Option<PathBuf>, cases: &[&TestCase]| {
+                *src == tc.source_file && cases[0].libreoffice.is_some() == tc.libreoffice.is_some()
+            };
+            match groups.iter_mut().find(|(src, cases)| same(src, cases)) {
                 Some((_, cases)) => cases.push(tc),
                 None => groups.push((tc.source_file.clone(), vec![tc])),
             }
@@ -254,15 +268,20 @@ impl TestRunner {
             Err(e) => vec![Err(e); cases.len()],
         };
 
-        let gnumeric_values =
-            match self.forge_export_and_recalc(&yaml_path, &xlsx_path, temp_dir.path()) {
-                Ok((csv_files, as_values)) => Self::parse_batch_csv(&csv_files, cases.len())
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, v)| not_calculated(&as_values, &format!("assumptions.test_{i}"), v))
-                    .collect(),
-                Err(e) => vec![Err(e); cases.len()],
-            };
+        let in_libreoffice = cases.first().is_some_and(|tc| tc.libreoffice.is_some());
+        let gnumeric_values = match self.forge_export_and_recalc(
+            &yaml_path,
+            &xlsx_path,
+            temp_dir.path(),
+            in_libreoffice,
+        ) {
+            Ok((csv_files, as_values)) => Self::parse_batch_csv(&csv_files, cases.len())
+                .into_iter()
+                .enumerate()
+                .map(|(i, v)| not_calculated(&as_values, &format!("assumptions.test_{i}"), v))
+                .collect(),
+            Err(e) => vec![Err(e); cases.len()],
+        };
 
         let roundtrip_values = match self.forge_import_and_calculate(&xlsx_path, temp_dir.path()) {
             Ok(back) => match self.forge_calculate(&back, "test_", cases.len()) {
@@ -336,12 +355,14 @@ impl TestRunner {
         }
     }
 
-    /// Runs `forge export`, then has Gnumeric recalculate the workbook.
+    /// Runs `forge export`, then has Gnumeric (or `LibreOffice`) recalculate
+    /// the workbook.
     fn forge_export_and_recalc(
         &self,
         yaml_path: &Path,
         xlsx_path: &Path,
         out_dir: &Path,
+        in_libreoffice: bool,
     ) -> Result<(Vec<PathBuf>, Vec<WrittenAsValue>), String> {
         let output = Command::new(&self.forge_binary)
             .arg("export")
@@ -362,10 +383,18 @@ impl TestRunner {
             .filter_map(|l| l.trim().strip_prefix("- ")?.split_once(": written as "))
             .map(|(name, rest)| (name.to_string(), rest.to_string()))
             .collect();
-        let csv_files = self
-            .engine
-            .xlsx_to_csv_all_sheets(xlsx_path, out_dir)
-            .map_err(|e| format!("CSV conversion failed: {e}"))?;
+        let csv_files = if in_libreoffice {
+            let engine = self.libreoffice.as_ref().map_err(|why| {
+                format!(
+                    "this case is recalculated by LibreOffice {}.{} or later, which cannot be used: {why}",
+                    LIBREOFFICE_MINIMUM.0, LIBREOFFICE_MINIMUM.1
+                )
+            })?;
+            engine.xlsx_to_csv_all_sheets(xlsx_path, out_dir)
+        } else {
+            self.engine.xlsx_to_csv_all_sheets(xlsx_path, out_dir)
+        }
+        .map_err(|e| format!("CSV conversion failed: {e}"))?;
         Ok((csv_files, written_as_values))
     }
 
@@ -422,8 +451,10 @@ impl TestRunner {
                     match cells[1].parse::<f64>() {
                         Ok(value) => results[idx] = Ok(value),
                         Err(_) => {
-                            results[idx] =
-                                Err(format!("Gnumeric cell is not a number: {}", cells[1]));
+                            results[idx] = Err(format!(
+                                "the recalculated cell is not a number: {}",
+                                cells[1]
+                            ));
                         }
                     }
                 }
@@ -480,7 +511,12 @@ impl TestRunner {
             .and_then(|mut v| v.remove(0));
 
         let gnumeric_value = self
-            .forge_export_and_recalc(&yaml_path, &xlsx_path, temp_dir.path())
+            .forge_export_and_recalc(
+                &yaml_path,
+                &xlsx_path,
+                temp_dir.path(),
+                test_case.libreoffice.is_some(),
+            )
             .and_then(|(files, as_values)| {
                 let value = Self::find_result_in_csvs(&files);
                 not_calculated(&as_values, "assumptions.test_result", value)
@@ -508,9 +544,9 @@ impl TestRunner {
                     .map(|s| s.trim_matches('"').trim())
                     .collect();
                 if cells.len() >= 2 && (cells[0] == "test_result" || cells[0] == "result") {
-                    return cells[1]
-                        .parse::<f64>()
-                        .map_err(|_| format!("Gnumeric cell is not a number: {}", cells[1]));
+                    return cells[1].parse::<f64>().map_err(|_| {
+                        format!("the recalculated cell is not a number: {}", cells[1])
+                    });
                 }
             }
         }
@@ -570,9 +606,9 @@ fn table_data_for(source: Option<&Path>) -> String {
 /// A formula `forge export` wrote as its value: (name, Forge's reason).
 type WrittenAsValue = (String, String);
 
-/// What Gnumeric gave for a formula `forge export` wrote as a value.
+/// What the engine gave for a formula `forge export` wrote as a value.
 const NOT_CALCULATED: &str =
-    "forge export wrote this formula as a value, so Gnumeric did not calculate it";
+    "forge export wrote this formula as a value, so the spreadsheet engine did not calculate it";
 
 /// Gnumeric's value, unless Forge wrote the formula as a value: then
 /// Gnumeric only read back Forge's number, and judged nothing, so the case
@@ -630,8 +666,13 @@ fn judge(
         Ok(v) if matches(*v, tc.expected) => {}
         Ok(v) => {
             shown = shown.or(Some(*v));
+            let engine = if tc.libreoffice.is_some() {
+                "LibreOffice"
+            } else {
+                "Gnumeric"
+            };
             problems.push(format!(
-                "Gnumeric recalculation of the export gave {v}, expected {}",
+                "{engine} recalculation of the export gave {v}, expected {}",
                 tc.expected
             ));
         }
