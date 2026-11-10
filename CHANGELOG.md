@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.12] - 2026-11-10
+
+Twelfth release candidate, for wrong answers in `forge export` and `forge import` found while making dates real dates in Excel (ADR-054, below). Under docs/STABILITY.md that restarts the two-week clock: the stable release is no earlier than 2026-11-24. It is also the first release with `forge report`, the starter model, dates as real dates in Excel, and installation with Homebrew or cargo-binstall; the README described the first three before they were published. Known and not fixed: text that is a number is read as a number where Excel reads text (roadmap T1-TEXT-NUMBERS), which restarts the clock again when it is fixed.
+
 ### Fixed
 Found while making dates real dates in Excel (ADR-054). Each was a wrong answer under docs/STABILITY.md, so the next release candidate restarts the two-week clock.
 - **Formulas over a date column gave other answers in Excel than in Forge.** `forge export` wrote a date as text, and Excel does not read text as Forge reads a date. With four dates in `t.d`: `=IF(d > DATE(2026, 6, 1), 1, 0)` was 0, 0, 1, 0 in Forge and 1, 1, 1, 1 in Gnumeric and LibreOffice (text is greater than any number there); `=MIN(t.d)`, `=MAX(t.d)` and `=SUM(t.d)` were the day numbers in Forge and 0 in both; `=COUNT(t.d)` 4 and 0; `=YEAR(MAX(t.d))` 2026 and 1899; `=SUMPRODUCT((t.d > DATE(2026, 2, 1)) * t.v)` 90 and 100; `=IF(EDATE(d, 0) = d, 1, 0)` 1 and 0. Dates are now written as dates, and all of these agree.
