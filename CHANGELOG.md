@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A first model to start from** (T2-FIRST-MODEL): `forge examples starter` (and the MCP `forge_examples` tool, name `starter`) is a model with a group of scalars written `{formula: "=..."}` and a table with bare `"=..."` column formulas, each with a one-line comment saying why; it calculates as it is. docs/EXAMPLES.md opens with "Your first model": the two rules every first model breaks (`_forge_version` is the format version, not Forge's; a formula in a group of scalars is a mapping), then the starter, whose output the doc test checks. The MCP server's instructions say the same in one sentence.
 
 ### Changed
+- **The starter says that a column cannot reduce a column** (T2-FIRST-MODEL). A fresh agent given only `forge examples starter` and asked for a five-plan comparison failed its first run: it put `MIN(plans.total_cost)` in a table column ("aggregations should be in scalars section"). The starter now has a column that reads a scalar total (`share_of_revenue: "=revenue / totals.revenue"`) and a comment on the rule, and "Your first model" has it as a third rule. Three fresh agents given the new starter and three different tasks (five car loans, a six-product shop, four job offers) each wrote a model that calculated on the first run.
 - An unsupported `_forge_version` now ends with the line to write: `` write `_forge_version: "5.1.0"` for a new model (`"5.2.0"` if a table has a period column), or start from `forge examples starter` ``.
 
 ## [10.0.0-rc.11] - 2026-11-10

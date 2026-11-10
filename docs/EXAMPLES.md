@@ -4,10 +4,11 @@ Real-world usage examples and patterns.
 
 ## Your first model
 
-Two rules catch most first models:
+Three rules catch most first models:
 
 1. **`_forge_version` is the version of the model format, not of Forge.** Write `"5.1.0"`, or `"5.2.0"` only if a table has a period column. `"10.0.0"` is Forge's own version and is refused.
 2. **In a group of scalars, a formula is written `{formula: "=..."}`**, because `forge calculate` writes its result next to it (`value: 4800`). A bare `"=..."` string is a column formula and belongs in a table.
+3. **A table column works row by row, so it cannot reduce a column.** `SUM`, `MIN`, `MAX` or `AVERAGE` of a whole column goes in a scalar (`totals.revenue`), and a column can read that scalar (`revenue / totals.revenue`). The same formula in a column is an error: "aggregations should be in scalars section".
 
 `forge examples starter > model.yaml` gives this model, which calculates as it is:
 
@@ -31,12 +32,14 @@ plan:
 
 # A table: columns of the same length, one row per item.
 # A column formula is a bare "=..." string, calculated row by row from the
-# table's own columns.
+# table's own columns. It cannot reduce a column (SUM, MIN, MAX, AVERAGE of a
+# whole column): that is a scalar, below, and a column may read it.
 products:
   name: ["Basic", "Plus", "Pro"]
   price: [20, 40, 80]
   units: [200, 120, 30]
   revenue: "=price * units"
+  share_of_revenue: "=revenue / totals.revenue"
 
 # A scalar can reduce a column of a table, which it names with the table.
 totals:
