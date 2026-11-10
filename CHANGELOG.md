@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.10] - 2026-11-09
+
+Tenth release candidate, for one wrong answer: `forge export` gave a column shorter than its table the table's rows, so `ROWS` and `INDEX` over it gave other results in Excel than in Forge. Under docs/STABILITY.md that restarts the two-week clock: the stable release is no earlier than 2026-11-23. It also writes `LET`, `LAMBDA` called at once, `COUNTUNIQUE` and `TODAY` as Excel formulas, and forge-e2e-gnumeric now recalculates in LibreOffice the 68 cases Gnumeric cannot read.
+
 ### Fixed
 - **`forge export` gave a column shorter than its table the table's rows.** In `d: {long: [1, 2, 3, 4, 5], short: [7, 8]}`, `ROWS(d.short)` is 2 in Forge and was written as `ROWS('d'!$B$2:$B$6)`, which is 5 in Excel; `INDEX(d.short, ROWS(d.short))` read an empty cell (0 in Gnumeric, 8 in Forge), and the new `COUNTUNIQUE` form counted the empty cells. A column's range now ends at its own last value. Found when LibreOffice counted 8 distinct values in a column of 8 with a repeat (forge-e2e-gnumeric `countunique_small_set`); a new test checks the formula written. This is a wrong answer under docs/STABILITY.md, so the next release candidate restarts the two-week clock.
 
