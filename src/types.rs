@@ -72,6 +72,13 @@ pub enum TableColumn {
     Strings(Vec<String>),
     /// Column defined by a formula.
     Formula(String),
+    /// A period column of model format 5.2.0: the dates `count` periods of
+    /// one `unit` start on (`{start: 2026-12, count: 5, unit: month}`).
+    Period {
+        start: yaml_serde::Value,
+        count: u64,
+        unit: String,
+    },
 }
 
 /// Individual test case extracted from a spec.
@@ -214,6 +221,19 @@ pub fn extract_table_data_yaml(spec: &TestSpec) -> String {
                     }
                     TableColumn::Formula(f) => {
                         let _ = writeln!(yaml, "  {col_name}: \"{f}\"");
+                    }
+                    TableColumn::Period { start, count, unit } => {
+                        let start = match start {
+                            yaml_serde::Value::String(s) => format!("\"{s}\""),
+                            other => yaml_serde::to_string(other)
+                                .unwrap_or_default()
+                                .trim()
+                                .to_string(),
+                        };
+                        let _ = writeln!(
+                            yaml,
+                            "  {col_name}: {{start: {start}, count: {count}, unit: {unit}}}"
+                        );
                     }
                 }
             }
