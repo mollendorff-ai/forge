@@ -216,3 +216,14 @@ fn tables_for_example_files_match() {
         assert!(doc.contains(&row), "doc does not show: {row}");
     }
 }
+
+#[test]
+fn the_first_model_in_the_doc_is_the_starter_example() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let doc = std::fs::read_to_string(root.join("docs/EXAMPLES.md")).unwrap();
+    let starter = std::fs::read_to_string(root.join("examples/starter.yaml")).unwrap();
+    assert!(
+        doc.contains(&format!("```yaml\n{starter}```")),
+        "docs/EXAMPLES.md must show examples/starter.yaml as it is"
+    );
+}

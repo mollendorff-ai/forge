@@ -1,0 +1,30 @@
+# A first Forge model. Calculate it with: forge calculate starter.yaml
+# Then see the results side by side with: forge report starter.yaml
+
+# The model FORMAT version, not the Forge version: "5.1.0" for a new model.
+_forge_version: "5.1.0"
+
+# A group of scalars: one value per name.
+# An input is a plain number. A formula is written {formula: "=..."}, because
+# forge calculate writes its result next to it, as value: ...
+# The full name (plan.price) always works; a key of the same group (price) too.
+plan:
+  price: 40
+  units_per_month: 120
+  monthly_costs: 3000
+  revenue: {formula: "=plan.price * plan.units_per_month"}
+  profit: {formula: "=plan.revenue - plan.monthly_costs"}
+
+# A table: columns of the same length, one row per item.
+# A column formula is a bare "=..." string, calculated row by row from the
+# table's own columns.
+products:
+  name: ["Basic", "Plus", "Pro"]
+  price: [20, 40, 80]
+  units: [200, 120, 30]
+  revenue: "=price * units"
+
+# A scalar can reduce a column of a table, which it names with the table.
+totals:
+  revenue: {formula: "=SUM(products.revenue)"}
+  best_seller_units: {formula: "=MAX(products.units)"}

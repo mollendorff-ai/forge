@@ -2,6 +2,67 @@
 
 Real-world usage examples and patterns.
 
+## Your first model
+
+Two rules catch most first models:
+
+1. **`_forge_version` is the version of the model format, not of Forge.** Write `"5.1.0"`, or `"5.2.0"` only if a table has a period column. `"10.0.0"` is Forge's own version and is refused.
+2. **In a group of scalars, a formula is written `{formula: "=..."}`**, because `forge calculate` writes its result next to it (`value: 4800`). A bare `"=..."` string is a column formula and belongs in a table.
+
+`forge examples starter > model.yaml` gives this model, which calculates as it is:
+
+```yaml
+# A first Forge model. Calculate it with: forge calculate starter.yaml
+# Then see the results side by side with: forge report starter.yaml
+
+# The model FORMAT version, not the Forge version: "5.1.0" for a new model.
+_forge_version: "5.1.0"
+
+# A group of scalars: one value per name.
+# An input is a plain number. A formula is written {formula: "=..."}, because
+# forge calculate writes its result next to it, as value: ...
+# The full name (plan.price) always works; a key of the same group (price) too.
+plan:
+  price: 40
+  units_per_month: 120
+  monthly_costs: 3000
+  revenue: {formula: "=plan.price * plan.units_per_month"}
+  profit: {formula: "=plan.revenue - plan.monthly_costs"}
+
+# A table: columns of the same length, one row per item.
+# A column formula is a bare "=..." string, calculated row by row from the
+# table's own columns.
+products:
+  name: ["Basic", "Plus", "Pro"]
+  price: [20, 40, 80]
+  units: [200, 120, 30]
+  revenue: "=price * units"
+
+# A scalar can reduce a column of a table, which it names with the table.
+totals:
+  revenue: {formula: "=SUM(products.revenue)"}
+  best_seller_units: {formula: "=MAX(products.units)"}
+```
+
+`forge calculate model.yaml` writes the results into the file:
+
+```
+      plan.revenue = 4800
+      plan.profit = 1800
+      totals.revenue = 11200
+      totals.best_seller_units = 200
+```
+
+and `forge report model.yaml` shows them side by side (see [REPORT.md](REPORT.md)):
+
+```text
+group  price  units_per_month  monthly_costs   revenue    profit
+plan   40.00           120.00       3,000.00  4,800.00  1,800.00
+
+group     revenue  best_seller_units
+totals  11,200.00             200.00
+```
+
 ## Quick Start
 
 ### Basic Calculation

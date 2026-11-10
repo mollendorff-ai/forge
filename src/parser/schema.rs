@@ -31,7 +31,7 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         "5.2.0" => include_str!("../../schema/forge-v5.2.0.schema.json"),
         _ => {
             return Err(ForgeError::Validation(format!(
-                "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns). This is the model format version, not the Forge version"
+                "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns). This is the model format version, not the Forge version: write `_forge_version: \"5.1.0\"` for a new model (`\"5.2.0\"` if a table has a period column), or start from `forge examples starter`"
             )));
         },
     };

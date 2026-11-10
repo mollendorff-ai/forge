@@ -479,7 +479,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_examples",
-        description = "Get runnable YAML examples for all Forge capabilities. Use without a name to list available examples, or specify a name to get the full YAML content."
+        description = "Get runnable YAML examples for all Forge capabilities. Use without a name to list available examples, or specify a name to get the full YAML content. `starter` is a first model to start from."
     )]
     fn examples(&self, Parameters(req): Parameters<ExamplesRequest>) -> Result<String, String> {
         examples_core(req.name.as_deref())
@@ -493,7 +493,7 @@ impl ForgeMcpServer {
 impl ServerHandler for ForgeMcpServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_instructions("Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 175 Excel-compatible functions. All tools return structured JSON.")
+            .with_instructions("Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 175 Excel-compatible functions. All tools return structured JSON. A new model: start from forge_examples name=starter; _forge_version is the model format version (5.1.0), not the Forge version; in a group of scalars a formula is {formula: \"=...\"}, in a table a column formula is a bare \"=...\".")
             .with_server_info(
                 rmcp::model::Implementation::new("forge", env!("CARGO_PKG_VERSION"))
             )
