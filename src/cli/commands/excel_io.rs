@@ -1013,22 +1013,30 @@ g:
         assert_eq!(cell(1, 2), Some("('loan'!$B$2)"));
         assert_eq!(cell(2, 2), Some("(E2)"));
         assert_eq!(cell(4, 2), Some("(E4)"));
+        // A period column is dates in the workbook: the day number of
+        // 2027-01-01, shown as a date (ADR-054)
         let values = wb.worksheet_range("schedule").unwrap();
-        assert_eq!(
-            values.get_value((2, 0)).map(ToString::to_string).as_deref(),
-            Some("2027-01-01")
-        );
+        match values.get_value((2, 0)) {
+            Some(calamine::Data::DateTime(date)) => {
+                assert!((date.as_f64() - 46388.0).abs() < 1e-9, "{date:?}");
+                assert_eq!(date.to_ymd_hms_milli(), (2027, 1, 1, 0, 0, 0, 0));
+            },
+            other => panic!("not a date: {other:?}"),
+        }
 
         let back = dir.path().join("back.yaml");
         import_core(&xlsx, &back, false, false).unwrap();
         let text = fs::read_to_string(&back).unwrap();
         for formula in [
             "number: =ROW()",
-            "opening: =IF(ROW() = 1, (loan.principal), (PREV(closing, 0)))",
+            // The column only reads the row above: PREV, as it was written
+            "opening: =PREV(closing, loan.principal)",
             "closing: =opening + interest - 300",
         ] {
             assert!(text.contains(formula), "{formula} in {text}");
         }
+        // The months come back as the dates they are
+        assert!(text.contains("- 2026-12-01\n  - 2027-01-01"), "{text}");
         // Still a model: another principal gives another schedule
         let changed = text.replace("principal: 1000", "principal: 2000");
         fs::write(&back, changed).unwrap();

@@ -21,7 +21,7 @@ mod logical;
 mod lookup;
 mod math;
 mod statistical;
-mod text;
+pub(crate) mod text;
 mod trig;
 
 // Extended evaluator modules
@@ -83,14 +83,8 @@ impl Value {
                 if let Ok(n) = s.parse::<f64>() {
                     return Some(n);
                 }
-                // Then try date parsing (YYYY-MM-DD format → Excel serial)
-                if let Ok(date) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-                    // Excel serial: days since 1899-12-30
-                    let base = chrono::NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
-                    let days = (date - base).num_days();
-                    return Some(days as f64);
-                }
-                None
+                // Then a date (YYYY-MM-DD), as its day number
+                date_serial(s)
             },
             Self::Boolean(b) => Some(if *b { 1.0 } else { 0.0 }),
             // A one-element array is its element. A longer array has no single
@@ -529,18 +523,15 @@ fn numbers(left: &Value, right: &Value) -> Result<(f64, f64), EvalError> {
 fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, EvalError> {
     match op {
         // Arithmetic operators
+        // `+` adds, as in Excel: a date is its day number and "5" is 5.
+        // Text that is neither is #VALUE!; `&` joins text (ADR-054).
         "+" => {
-            // Handle text concatenation
-            if matches!(left, Value::Text(_)) || matches!(right, Value::Text(_)) {
-                Ok(Value::Text(format!(
-                    "{}{}",
-                    left.as_text(),
-                    right.as_text()
-                )))
-            } else {
-                let (l, r) = numbers(left, right)?;
-                finite(l + r)
-            }
+            let (Some(l), Some(r)) = (left.as_number(), right.as_number()) else {
+                return Err(EvalError::new(
+                    "#VALUE!: + adds numbers; use & or CONCAT to join text",
+                ));
+            };
+            finite(l + r)
         },
         "-" => {
             let (l, r) = numbers(left, right)?;
@@ -611,6 +602,11 @@ pub(crate) fn values_equal(left: &Value, right: &Value) -> bool {
         // Single-element array compared with scalar
         (Value::Array(arr), other) if arr.len() == 1 => values_equal(&arr[0], other),
         (other, Value::Array(arr)) if arr.len() == 1 => values_equal(other, &arr[0]),
+        // A date is equal to its day number: `d = DATE(2026, 1, 31)` (ADR-054).
+        // Other text is never equal to a number, as in Excel (`"5" = 5` is FALSE).
+        (Value::Text(text), Value::Number(n)) | (Value::Number(n), Value::Text(text)) => {
+            date_serial(text).is_some_and(|serial| (serial - n).abs() < 1e-10)
+        },
         // Boolean vs Number is never equal: in Excel and Gnumeric `TRUE = 1`
         // and `FALSE = 0` are FALSE (arithmetic still coerces: TRUE + 1 = 2).
         _ => false,
@@ -769,11 +765,31 @@ pub(crate) fn collect_numeric_values(
                 }
             },
             Value::Number(n) => values.push(n),
+            // A date is a number wherever one is read, from a column (above)
+            // or as a single value: `MAX(due, DATE(2026, 6, 1))` (ADR-054)
+            Value::Text(text) => values.extend(date_serial(&text)),
             _ => {},
         }
     }
 
     Ok(values)
+}
+
+/// The day number of a date written `YYYY-MM-DD`: the days since 1899-12-30,
+/// which is Excel's serial number for every date from 1900-03-01 on.
+#[must_use]
+pub fn date_serial(text: &str) -> Option<f64> {
+    let date = chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()?;
+    let base = chrono::NaiveDate::from_ymd_opt(1899, 12, 30)?;
+    #[allow(clippy::cast_precision_loss)] // a day count is far below 2^52
+    Some((date - base).num_days() as f64)
+}
+
+/// The number a criterion such as `>=2026-02-01` or `>50` compares with: a
+/// number, or a date as its day number.
+fn criterion_number(text: &str) -> Option<f64> {
+    let text = text.trim();
+    text.parse::<f64>().ok().or_else(|| date_serial(text))
 }
 
 /// Collect all values from an expression as a Vec<Value>
@@ -796,11 +812,11 @@ pub(crate) fn matches_criteria(val: &Value, criteria: &Value) -> bool {
 
     // Handle comparison operators
     if let Some(stripped) = criteria_str.strip_prefix(">=") {
-        if let (Some(v), Ok(c)) = (val.as_number(), stripped.trim().parse::<f64>()) {
+        if let (Some(v), Some(c)) = (val.as_number(), criterion_number(stripped)) {
             return v >= c;
         }
     } else if let Some(stripped) = criteria_str.strip_prefix("<=") {
-        if let (Some(v), Ok(c)) = (val.as_number(), stripped.trim().parse::<f64>()) {
+        if let (Some(v), Some(c)) = (val.as_number(), criterion_number(stripped)) {
             return v <= c;
         }
     } else if let Some(stripped) = criteria_str
@@ -808,21 +824,21 @@ pub(crate) fn matches_criteria(val: &Value, criteria: &Value) -> bool {
         .or_else(|| criteria_str.strip_prefix("!="))
     {
         let crit_val = stripped.trim();
-        if let (Some(v), Ok(c)) = (val.as_number(), crit_val.parse::<f64>()) {
+        if let (Some(v), Some(c)) = (val.as_number(), criterion_number(crit_val)) {
             return (v - c).abs() > f64::EPSILON;
         }
         return val.as_text() != crit_val;
     } else if let Some(stripped) = criteria_str.strip_prefix('>') {
-        if let (Some(v), Ok(c)) = (val.as_number(), stripped.trim().parse::<f64>()) {
+        if let (Some(v), Some(c)) = (val.as_number(), criterion_number(stripped)) {
             return v > c;
         }
     } else if let Some(stripped) = criteria_str.strip_prefix('<') {
-        if let (Some(v), Ok(c)) = (val.as_number(), stripped.trim().parse::<f64>()) {
+        if let (Some(v), Some(c)) = (val.as_number(), criterion_number(stripped)) {
             return v < c;
         }
     } else if let Some(stripped) = criteria_str.strip_prefix('=') {
         let crit_val = stripped.trim();
-        if let (Some(v), Ok(c)) = (val.as_number(), crit_val.parse::<f64>()) {
+        if let (Some(v), Some(c)) = (val.as_number(), criterion_number(crit_val)) {
             return (v - c).abs() < f64::EPSILON;
         }
         return val.as_text().eq_ignore_ascii_case(crit_val);
@@ -858,6 +874,9 @@ pub(crate) fn parse_date_value(val: &Value) -> Result<chrono::NaiveDate, EvalErr
         _ => Err(EvalError::new("Expected date string or serial number")),
     }
 }
+
+#[cfg(test)]
+mod date_tests;
 
 #[cfg(test)]
 mod tests {

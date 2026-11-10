@@ -19,7 +19,15 @@ state:
     and COLUMN() read as Forge's). The two-week stable clock in
     docs/STABILITY.md runs from this release (no earlier than 2026-11-24); a
     new wrong answer restarts it. rc.11 also adds PREV, period columns and
-    model format 5.2.0 (ADR-053).
+    model format 5.2.0 (ADR-053). Unreleased since rc.11 are wrong answers
+    found while making dates real dates (ADR-054). They are formulas over a
+    date column that forge export wrote for text dates (a date compared with
+    DATE(), MIN, MAX, SUM and COUNT of dates, SUMPRODUCT with a date test),
+    the + that joined text where Excel adds, a single date ignored by MAX, MIN
+    and COUNT, a date criterion with > or < that matched nothing, TEXT with a
+    format it did not know, and forge import reading a comparison of text
+    dates with a number (TRUE for any text in a spreadsheet) as a comparison
+    of dates. The next release candidate restarts the clock.
   format: model format 5.1.0 (ADR-051), with inputs as plain numbers, formula
     scalars as a formula mapping, and results written next to formulas in
     place; 5.2.0 (ADR-053) adds the period column and is needed only by a
@@ -48,7 +56,42 @@ state:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier1:
-  [] # every tier-1 item is done (2026-11-09); the next ones come from tier 2
+  # Found while making dates real dates (ADR-054, 2026-11-10): places where
+  # Forge and Excel may give different answers without a warning, and places
+  # where Forge says less than it knows.
+  - id: T1-TEXT-NUMBERS
+    title: "Text that is a number is read as a number where Excel reads text"
+    why: "A text column such as [\"5\", \"apple\", \"2\", \"x\"]: SUM is 7, COUNT 2 and MAX 5 in Forge and all three 0 in Gnumeric and LibreOffice; COUNTIF(s, \">3\") is 1 in Forge and 0 in both; s > 3 is FALSE for \"2\" in Forge and TRUE in both (in Excel any text is greater than any number). And where the text is not a number Forge stops with an error and Excel carries on: IFERROR(IF(s > 3, 1, 0), -1) is -1 for \"apple\" in Forge and 1 in both, and the same on a column of months (2026-01) compared with DATE(). forge export writes all of these formulas as they are. A date is settled (ADR-054, where text that holds a date is written as values wherever a number is read from it): this is the other text"
+    how: "Excel's rule: arithmetic turns such text into a number, a comparison and an aggregate over cells do not. Decide whether Forge follows it or refuses to export; the machinery is there (workbook_refs/dates.rs writes values with a warning for a kind of column and a kind of reading). A text column of numbers is rare, a silent difference is not acceptable"
+    acceptance: "forge-e2e-gnumeric cases on a text column of numbers and of other text (SUM, COUNT, MAX, COUNTIF with >, and <, >, = in a row, with and without IFERROR) pass in both engines, or the export writes values with a warning"
+
+  - id: T1-YEARFRAC-FEB
+    title: "YEARFRAC from the last day of February to a 31st, basis 0"
+    why: "YEARFRAC(2026-02-28, 2026-12-31) is 300/360 in Forge and 301/360 in Gnumeric and LibreOffice. Forge applies the 30/360 rule for a 31st after moving the February start to the 30th; the published account of Excel's own YEARFRAC does not. The Excel check of 2026-11-06 covered an end on the 17th, not on a 31st"
+    how: "Type =YEARFRAC(DATE(2026,2,28), DATE(2026,12,31), 0) in Excel: 0.8333 is Forge's, 0.8361 the engines'. If Excel gives 0.8361, change YEARFRAC, and check ACCRINT and PRICEDISC with the same dates before touching the day count they share"
+    acceptance: "The Excel value is recorded in forge-e2e-gnumeric with the date it was checked, and Forge gives it"
+
+  - id: T1-IMPORT-MIXED
+    title: "forge import turns text in a column of numbers into 0"
+    why: "A column whose first cell is a number is imported as numbers, and a cell that holds text (n/a, a note) becomes 0 without a warning"
+    acceptance: "Such a column is imported with a warning that names the cells, and a test holds it"
+
+  - id: T1-IMPORT-AGGREGATE
+    title: "forge import writes a model that does not calculate from a column that reads its own total"
+    why: "A share of a total, =A2/SUM($A$2:$A$5) down a column, is imported as share: =n / SUM(n), which forge calculate refuses (aggregations should be in scalars section). The import says Import Complete and gives no warning. Found 2026-11-10 with a workbook made for the date checks; rc.11 does the same"
+    how: "Either import the total as a scalar the column reads, as the starter writes it by hand (share: =n / totals.n), or import the column as its values with a warning. The first keeps the formula"
+    acceptance: "A workbook with a share-of-total column is imported to a model that calculates to the workbook's values, and a test holds it"
+
+  - id: T1-EXPORT-UNCALCULATED
+    title: "forge export says Export Complete for a model that does not calculate"
+    why: "A model with one failing formula (a MATCH that finds nothing) is exported with exit code 0 and no warning: the formulas are written without results. The export needs the results to know what each formula column holds (ADR-054), so next: =EDATE(d, 1) and y4: =LEFT(next, 4) are written as =LEFT(B2, 4), which is 4608 in Excel where Forge, once the model calculates, holds 2026. rc.11 writes the same"
+    how: "Say that the model does not calculate and name the error, at least; decide whether to refuse the export (forge calculate already refuses) or to write it with the warning"
+    acceptance: "forge export of a model that does not calculate either fails with the calculation's error or says in its output that no result was checked, and a test holds it"
+
+  - id: T1-FUNCTION-LIST
+    title: "forge functions lists Y, M, D, YD, YM and MD, which cannot be called"
+    why: "They are units of DATEDIF, listed as three Date and three Forge Native functions; =YD(a, b) and =D(a, b) are Unknown function. The count of 175 includes them"
+    acceptance: "The list holds only what a formula can call, and every count in the docs follows"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
@@ -62,16 +105,15 @@ tier2:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier3:
-  - id: T3-EXPORT-DATES
-    title: "Date columns as real dates in Excel"
-    why: "forge export writes dates as text (2026-12-01), a period column included (ADR-053). Charts, filters and pivots in Excel want real dates"
-    how: "Decide what a text function on a date column means first: LEFT(month, 4) is 2026 in Forge and would be 4635 on a date serial in Excel. forge import must read date cells back as ISO text"
-    acceptance: "A date column is a date in Excel, every forge-e2e-gnumeric date case still passes in Gnumeric and after import, and a formula whose result would differ is written as its value"
-
   - id: T3-IMPORT-PREV
-    title: "Import reads PREV back as written"
-    why: "forge import reads a column that reads the row above as IF(ROW() = 1, first, PREV(...)): correct, but not the PREV(value, first) the model was exported from, and a column that reads two or more rows up comes in as values"
-    acceptance: "A model with PREV(value, first) and PREV(value, first, 2) columns is exported and imported to the same formulas, respaced"
+    title: "Import reads every PREV back as written"
+    why: "A column that only reads the row above comes back as PREV(value, first) (2026-11-10). A formula with a PREV inside it (a running balance) still comes back as IF(ROW() = 1, first row, PREV(...)): correct, but not what was written, and a column that reads two or more rows up comes in as values"
+    acceptance: "A model with PREV(value, first) + x and PREV(value, first, 2) columns is exported and imported to the same formulas, respaced"
+
+  - id: T3-CACHED-TEXT
+    title: "A formula's text result that looks like a number is cached as a number"
+    why: "forge export caches Forge's result in each formula cell for viewers that do not recalculate. =LEFT(d, 4) caches 2026 as a number, not the text it is; Excel and LibreOffice recalculate and show text, a viewer that does not shows a number"
+    acceptance: "The cached value of a text result is text in the workbook's XML"
 
   - id: T3-API
     title: "REST endpoints for the analytics tools (parity with the 20 MCP tools) + OpenAPI spec"

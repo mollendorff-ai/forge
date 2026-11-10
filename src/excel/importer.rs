@@ -6,7 +6,9 @@
 //! back as `table.column` and `group.scalar`. A formula that cannot be
 //! expressed in Forge is imported as its value, with a warning.
 
-use super::workbook_refs::{column_letter, ReverseRefs, SheetKind};
+use super::workbook_refs::dates::{excel_date, Holds};
+use super::workbook_refs::{column_letter, Context, ReverseRefs, SheetKind, WorkbookRefs};
+use crate::core::array_calculator::evaluator::date_serial;
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 use calamine::{open_workbook, Data, Range, Reader, Xlsx};
@@ -74,6 +76,85 @@ impl Sheet {
     }
 }
 
+/// What the cells of a column hold.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Cells {
+    /// Dates: every cell a whole day Excel shows as a date
+    Dates,
+    Numbers,
+    Text,
+    Other,
+}
+
+/// The date a cell shows, as Forge writes it (`2026-01-31`): a cell with a
+/// date format and no time of day, from 1900-03-01 on.
+fn date_of(cell: &Data) -> Option<String> {
+    let Data::DateTime(value) = cell else {
+        return None;
+    };
+    if !value.is_datetime() {
+        return None;
+    }
+    let (year, month, day, hour, minute, second, milli) = value.to_ymd_hms_milli();
+    if (hour, minute, second, milli) != (0, 0, 0, 0) {
+        return None;
+    }
+    let text = format!("{year:04}-{month:02}-{day:02}");
+    excel_date(&text).map(|_| text)
+}
+
+/// The number a cell holds; a date or a time as Excel's day number.
+#[allow(clippy::cast_precision_loss)] // Excel integers fit in f64
+fn number_of(cell: &Data) -> Option<f64> {
+    match cell {
+        Data::Float(f) => Some(*f),
+        Data::Int(i) => Some(*i as f64),
+        Data::DateTime(value) => Some(value.as_f64()),
+        _ => None,
+    }
+}
+
+fn cells_of<'d>(cells: impl IntoIterator<Item = &'d Data>) -> Cells {
+    let mut found = None;
+    for cell in cells {
+        let kind = match cell {
+            Data::Empty => continue,
+            _ if date_of(cell).is_some() => Cells::Dates,
+            Data::Float(_) | Data::Int(_) | Data::DateTime(_) => Cells::Numbers,
+            Data::String(_) => Cells::Text,
+            _ => Cells::Other,
+        };
+        found = Some(match (found, kind) {
+            (None, kind) => kind,
+            (Some(same), kind) if same == kind => same,
+            // Dates among other numbers are numbers: their day numbers
+            (Some(Cells::Dates | Cells::Numbers), Cells::Dates | Cells::Numbers) => Cells::Numbers,
+            _ => Cells::Other,
+        });
+    }
+    found.unwrap_or(Cells::Other)
+}
+
+/// The names of the workbook and what each column holds, to read the dates
+/// of a formula as Forge reads them (`workbook_refs::dates`): for the main
+/// model, and for each included file's own formulas.
+#[derive(Default)]
+struct Names {
+    main: WorkbookRefs,
+    own: std::collections::HashMap<String, WorkbookRefs>,
+}
+
+impl Names {
+    /// The names a formula written on `sheet` reads.
+    fn of(&self, refs: &ReverseRefs, sheet: &str) -> &WorkbookRefs {
+        refs.sheets
+            .get(sheet)
+            .and_then(SheetKind::include)
+            .and_then(|namespace| self.own.get(namespace))
+            .unwrap_or(&self.main)
+    }
+}
+
 /// Excel importer for converting .xlsx files to Forge models
 pub struct ExcelImporter {
     path: std::path::PathBuf,
@@ -122,24 +203,169 @@ impl ExcelImporter {
         }
 
         let refs = Self::layout(&sheets);
+        let names = Self::names(&sheets, &refs);
+        let read = (&refs, &names);
         let namespaces = Self::namespaces(&sheets);
         let mut model = ParsedModel::new();
         let mut warnings = Vec::new();
         for sheet in &sheets {
             if let Some(namespace) = Self::include_namespace(sheet) {
-                Self::import_include(sheet, &namespace, &refs, &mut model, &mut warnings);
+                Self::import_include(sheet, &namespace, read, &mut model, &mut warnings);
             } else if sheet.is_scalar_sheet() {
                 let group = Self::scalar_group(&sheet.name);
-                Self::import_scalars(sheet, group.as_deref(), &refs, &mut model, &mut warnings);
+                Self::import_scalars(sheet, group.as_deref(), read, &mut model, &mut warnings);
             } else if let Some((namespace, _)) = Self::include_table(&sheet.name, &namespaces) {
                 // A table of an included file goes into that file
                 let included = Self::included_model(&mut model, &namespace);
-                Self::import_table(sheet, &refs, included, &mut warnings)?;
+                Self::import_table(sheet, read, included, &mut warnings)?;
             } else {
-                Self::import_table(sheet, &refs, &mut model, &mut warnings)?;
+                Self::import_table(sheet, read, &mut model, &mut warnings)?;
             }
         }
         Ok((model, warnings))
+    }
+
+    /// The cells of a table's column, below the header.
+    fn column_cells(sheet: &Sheet, col: usize) -> impl Iterator<Item = &Data> {
+        let (height, _) = sheet.values.get_size();
+        (1..height).filter_map(move |row| sheet.values.get((row, col)))
+    }
+
+    /// The names of the workbook, and which columns hold dates, text or
+    /// numbers (ADR-054).
+    ///
+    /// A column Excel shows as dates is a column of dates in Forge if its
+    /// cells are values, or its formula gives a date (`EDATE(d, 1)`, `IF(c,
+    /// d, e)`). A formula such as `d + 30` gives a number in Forge, the day
+    /// number the cell holds, so that column is one of numbers.
+    fn names(sheets: &[Sheet], refs: &ReverseRefs) -> Names {
+        let mut names = Names::default();
+        // (the names it is in, table key there, column, sheet, column index)
+        let mut dated: Vec<(Option<String>, String, String, &Sheet, usize)> = Vec::new();
+        for sheet in sheets {
+            match refs.sheets.get(&sheet.name) {
+                Some(SheetKind::Table { name, include, .. }) => {
+                    let (_, width) = sheet.values.get_size();
+                    let columns: Vec<String> = (0..width)
+                        .map(|col| sheet.header(col).unwrap_or_else(|| format!("col_{col}")))
+                        .collect();
+                    let letters = |columns: &[String]| {
+                        columns
+                            .iter()
+                            .enumerate()
+                            .map(|(i, column)| (column.clone(), sheet.letter(i)))
+                            .collect()
+                    };
+                    // The main model reads an included table as `@ns.table`;
+                    // the included file's own formulas read it as `table`
+                    let mut places: Vec<(Option<String>, String)> = Vec::new();
+                    match include {
+                        Some(namespace) => {
+                            places.push((None, format!("@{namespace}.{name}")));
+                            places.push((Some(namespace.clone()), name.clone()));
+                        },
+                        None => places.push((None, name.clone())),
+                    }
+                    for (place, key) in places {
+                        let target = match &place {
+                            Some(namespace) => names.own.entry(namespace.clone()).or_default(),
+                            None => &mut names.main,
+                        };
+                        target.columns.insert(key.clone(), letters(&columns));
+                        for (col, column) in columns.iter().enumerate() {
+                            match cells_of(Self::column_cells(sheet, col)) {
+                                Cells::Dates => {
+                                    target.add_date_columns(&key, [column.as_str()]);
+                                    if sheet.formula(1, col).is_some() {
+                                        dated.push((
+                                            place.clone(),
+                                            key.clone(),
+                                            column.clone(),
+                                            sheet,
+                                            col,
+                                        ));
+                                    }
+                                },
+                                Cells::Numbers => {
+                                    target.add_column_types(&key, [(column.as_str(), false)]);
+                                },
+                                Cells::Text => {
+                                    target.add_column_types(&key, [(column.as_str(), true)]);
+                                    // Text that Forge would read as a date
+                                    let dated = Self::column_cells(sheet, col).any(|cell| {
+                                        matches!(cell, Data::String(text)
+                                            if date_serial(text).is_some())
+                                    });
+                                    if dated {
+                                        target.add_mixed_columns(&key, [column.as_str()]);
+                                    }
+                                },
+                                Cells::Other => {},
+                            }
+                        }
+                    }
+                },
+                Some(SheetKind::Scalars { rows, include }) => {
+                    for path in rows.values() {
+                        let cell = (sheet.name.clone(), 0);
+                        match include {
+                            Some(namespace) => {
+                                names
+                                    .main
+                                    .scalars
+                                    .insert(format!("@{namespace}.{path}"), cell.clone());
+                                names
+                                    .own
+                                    .entry(namespace.clone())
+                                    .or_default()
+                                    .scalars
+                                    .insert(path.clone(), cell);
+                            },
+                            None => {
+                                names.main.scalars.insert(path.clone(), cell);
+                            },
+                        }
+                    }
+                },
+                None => {},
+            }
+        }
+        Self::settle_dates(&mut names, dated, refs);
+        names
+    }
+
+    /// A formula column shown as dates whose formula gives a number is a
+    /// column of numbers, which may make another column one too: settle
+    /// which of the `dated` columns are columns of dates.
+    fn settle_dates(
+        names: &mut Names,
+        mut dated: Vec<(Option<String>, String, String, &Sheet, usize)>,
+        refs: &ReverseRefs,
+    ) {
+        loop {
+            let demoted = dated.iter().position(|(place, key, column, sheet, col)| {
+                let target = place
+                    .as_ref()
+                    .and_then(|namespace| names.own.get(namespace))
+                    .unwrap_or(&names.main);
+                let table = key.as_str();
+                let is_date = sheet
+                    .formula(1, *col)
+                    .and_then(|excel| refs.to_forge(&excel, &sheet.name, sheet.excel_row(1)).ok())
+                    .is_none_or(|forge| {
+                        target.reads_as_a_date(&forge, Context::Row { table, row: 2 })
+                    });
+                !is_date && target.date_columns.contains(&format!("{key}.{column}"))
+            });
+            let Some(index) = demoted else { break };
+            let (place, key, column, ..) = dated.remove(index);
+            let target = match &place {
+                Some(namespace) => names.own.entry(namespace.clone()).or_default(),
+                None => &mut names.main,
+            };
+            target.date_columns.remove(&format!("{key}.{column}"));
+            target.add_column_types(&key, [(column.as_str(), false)]);
+        }
     }
 
     /// Scalar group for a sheet name; the `Scalars` sheet holds ungrouped ones.
@@ -275,12 +501,12 @@ impl ExcelImporter {
     fn import_include(
         sheet: &Sheet,
         namespace: &str,
-        refs: &ReverseRefs,
+        read: (&ReverseRefs, &Names),
         model: &mut ParsedModel,
         warnings: &mut Vec<String>,
     ) {
         let mut sheet_model = ParsedModel::new();
-        Self::import_scalars(sheet, None, refs, &mut sheet_model, warnings);
+        Self::import_scalars(sheet, None, read, &mut sheet_model, warnings);
         let prefix = format!("{namespace}.");
         let included = Self::included_model(model, namespace);
         for (name, mut var) in sheet_model.scalars {
@@ -294,10 +520,11 @@ impl ExcelImporter {
     fn import_scalars(
         sheet: &Sheet,
         group: Option<&str>,
-        refs: &ReverseRefs,
+        read: (&ReverseRefs, &Names),
         model: &mut ParsedModel,
         warnings: &mut Vec<String>,
     ) {
+        let (refs, names) = read;
         let (height, _) = sheet.values.get_size();
         for row in 1..height {
             let Some(name) = sheet.values.get((row, 0)).map(ToString::to_string) else {
@@ -310,12 +537,10 @@ impl ExcelImporter {
                 .as_ref()
                 .map_or_else(|| name.clone(), |g| format!("{g}.{name}"));
 
-            #[allow(clippy::cast_precision_loss)] // Excel integers fit in f64
+            // A scalar is a number: a date is the day number its cell holds
             let value = sheet.values.get((row, 1)).and_then(|cell| match cell {
-                Data::Float(f) => Some(*f),
-                Data::Int(i) => Some(*i as f64),
                 Data::Bool(b) => Some(f64::from(u8::from(*b))),
-                _ => None,
+                other => number_of(other),
             });
 
             let formula = sheet.formula(row, 1).map_or_else(
@@ -324,7 +549,15 @@ impl ExcelImporter {
                     Some(Data::String(f)) if !f.is_empty() => Some(f.clone()),
                     _ => None,
                 },
-                |excel| match refs.to_forge(&excel, &sheet.name, sheet.excel_row(row)) {
+                |excel| match refs
+                    .to_forge(&excel, &sheet.name, sheet.excel_row(row))
+                    .and_then(|forge| {
+                        names.of(refs, &sheet.name).read_dates(
+                            &forge,
+                            Context::Scalar { group },
+                            Holds::Other,
+                        )
+                    }) {
                     Ok(forge) => Some(forge),
                     Err(reason) => {
                         warnings.push(format!("{path}: imported as a value ({reason}): {excel}"));
@@ -340,10 +573,12 @@ impl ExcelImporter {
     /// Any other sheet: a table, header in the first row.
     fn import_table(
         sheet: &Sheet,
-        refs: &ReverseRefs,
+        read: (&ReverseRefs, &Names),
         model: &mut ParsedModel,
         warnings: &mut Vec<String>,
     ) -> ForgeResult<()> {
+        let (refs, names) = read;
+        let names = names.of(refs, &sheet.name);
         let (height, width) = sheet.values.get_size();
         if height < 2 {
             return Ok(()); // header only
@@ -356,51 +591,17 @@ impl ExcelImporter {
 
         for col in 0..width {
             let col_name = sheet.header(col).unwrap_or_else(|| format!("col_{col}"));
+            // Whether the column is one of dates in Forge (`Self::names`)
+            let holds_dates = names
+                .date_columns
+                .contains(&format!("{table_name}.{col_name}"));
 
             // A formula in the first data row makes this a calculated column,
             // if every row holds that same formula: a Forge row formula is one
             // formula for the whole column
             if let Some(excel) = sheet.formula(1, col) {
-                let whole_column = refs
-                    .to_forge(&excel, &sheet.name, sheet.excel_row(1))
-                    .and_then(|forge| {
-                        let other = (2..height).find(|&row| {
-                            sheet.formula(row, col).map(|excel| {
-                                refs.to_forge(&excel, &sheet.name, sheet.excel_row(row))
-                            }) != Some(Ok(forge.clone()))
-                        });
-                        if other.is_none() {
-                            return Ok(forge);
-                        }
-                        // The first row differs from the rest, as in a running
-                        // balance: one formula for the first row, one for the
-                        // others, which may read the row above
-                        let above = |row: usize| {
-                            sheet.formula(row, col).map(|excel| {
-                                refs.to_forge_reading_above(
-                                    &excel,
-                                    &sheet.name,
-                                    sheet.excel_row(row),
-                                )
-                            })
-                        };
-                        let rest = above(2)
-                            .unwrap_or_else(|| Err("row 3 holds no formula".to_string()))?;
-                        if let Some(row) =
-                            (3..height).find(|&row| above(row) != Some(Ok(rest.clone())))
-                        {
-                            return Err(format!(
-                                "row {} holds another formula than the rows above it, and a \
-                                 Forge row formula is one formula for the whole column",
-                                sheet.excel_row(row)
-                            ));
-                        }
-                        Ok(format!(
-                            "=IF(ROW() = 1, {}, {})",
-                            forge.trim_start_matches('='),
-                            rest.trim_start_matches('=')
-                        ))
-                    });
+                let whole_column =
+                    Self::row_formula(sheet, col, (refs, names), &table_name, holds_dates, &excel);
                 match whole_column {
                     Ok(forge) => {
                         table.add_row_formula(col_name, forge);
@@ -422,7 +623,24 @@ impl ExcelImporter {
             if data.is_empty() {
                 continue;
             }
-            let column_value = Self::convert_to_column_value(&data)?;
+            let column_value = if cells_of(&data) == Cells::Dates && !holds_dates {
+                // Shown as dates, but numbers to the formulas that read them
+                ColumnValue::Number(data.iter().map(|c| number_of(c).unwrap_or(0.0)).collect())
+            } else {
+                Self::convert_to_column_value(&data)?
+            };
+            // Forge reads a column that starts with a date as a column of
+            // dates, and rejects any other text in it
+            if let ColumnValue::Text(texts) = &column_value {
+                let dated = |t: &String| crate::parser::is_valid_date_format(t);
+                if texts.first().is_some_and(dated) && !texts.iter().all(dated) {
+                    warnings.push(format!(
+                        "{table_name}.{col_name}: starts with a date and holds other text; Forge \
+                         reads a column that starts with a date as dates, so `forge calculate` \
+                         rejects this file until the column is edited"
+                    ));
+                }
+            }
             table.add_column(Column::new(col_name, column_value));
         }
 
@@ -430,8 +648,117 @@ impl ExcelImporter {
         Ok(())
     }
 
+    /// The Forge row formula of a column whose first data row holds the
+    /// formula `excel`: the one formula every row holds, or, for a column
+    /// whose first row differs from the rest (a running balance), one that
+    /// reads the row above.
+    fn row_formula(
+        sheet: &Sheet,
+        col: usize,
+        read: (&ReverseRefs, &WorkbookRefs),
+        table_name: &str,
+        holds_dates: bool,
+        excel: &str,
+    ) -> Result<String, String> {
+        let (refs, names) = read;
+        let (height, _) = sheet.values.get_size();
+        refs
+            .to_forge(excel, &sheet.name, sheet.excel_row(1))
+            .and_then(|forge| {
+                let other = (2..height).find(|&row| {
+                    sheet.formula(row, col).map(|excel| {
+                        refs.to_forge(&excel, &sheet.name, sheet.excel_row(row))
+                    }) != Some(Ok(forge.clone()))
+                });
+                if other.is_none() {
+                    return Ok(forge);
+                }
+                // The first row differs from the rest, as in a running
+                // balance: one formula for the first row, one for the
+                // others, which may read the row above
+                let above = |row: usize| {
+                    sheet.formula(row, col).map(|excel| {
+                        refs.to_forge_reading_above(
+                            &excel,
+                            &sheet.name,
+                            sheet.excel_row(row),
+                        )
+                    })
+                };
+                let rest = above(2)
+                    .unwrap_or_else(|| Err("row 3 holds no formula".to_string()))?;
+                if let Some(row) =
+                    (3..height).find(|&row| above(row) != Some(Ok(rest.clone())))
+                {
+                    return Err(format!(
+                        "row {} holds another formula than the rows above it, and a \
+                         Forge row formula is one formula for the whole column",
+                        sheet.excel_row(row)
+                    ));
+                }
+                let (first, rest) =
+                    (forge.trim_start_matches('='), rest.trim_start_matches('='));
+                // The rows below only read the row above: PREV with
+                // the first row's formula as its first value
+                if let Some(value) = Self::only_reads_above(rest) {
+                    return Ok(format!("=PREV({value}, {})", Self::without_parentheses(first)));
+                }
+                Ok(format!("=IF(ROW() = 1, {first}, {rest})"))
+            })
+            // A date is read as Forge reads it, or the formula is not
+            // the same calculation in Forge (ADR-054)
+            .and_then(|forge| {
+                let ctx = Context::Row {
+                    table: table_name,
+                    row: 2,
+                };
+                let holds = match cells_of(Self::column_cells(sheet, col)) {
+                    Cells::Dates if holds_dates => Holds::Dates,
+                    Cells::Dates | Cells::Numbers => Holds::Numbers,
+                    _ => Holds::Other,
+                };
+                names.read_dates(&forge, ctx, holds)
+            })
+    }
+
+    /// A formula without the parentheses Excel's cell had around all of it.
+    fn without_parentheses(formula: &str) -> String {
+        use crate::core::array_calculator::parser::parse;
+        use crate::core::array_calculator::tokenizer::tokenize;
+        tokenize(formula)
+            .ok()
+            .and_then(|tokens| parse(tokens).ok())
+            .map_or_else(
+                || formula.to_string(),
+                |expr| super::workbook_refs::dates::formula_of(&expr),
+            )
+    }
+
+    /// `x` if `formula` is `PREV(x, 0)` and nothing else: what
+    /// `ReverseRefs::to_forge_reading_above` gives for a cell that only reads
+    /// the cell above it.
+    fn only_reads_above(formula: &str) -> Option<String> {
+        use crate::core::array_calculator::parser::{parse, Expr};
+        use crate::core::array_calculator::tokenizer::tokenize;
+        let whole = parse(tokenize(formula).ok()?).ok()?;
+        let Expr::FunctionCall { name, args } = &whole else {
+            return None;
+        };
+        match args.as_slice() {
+            [value, Expr::Number(n)] if name == "PREV" && *n == 0.0 => {
+                Some(super::workbook_refs::dates::formula_of(value))
+            },
+            _ => None,
+        }
+    }
+
     /// Convert Excel Data array to `ColumnValue`
     fn convert_to_column_value(data: &[Data]) -> ForgeResult<ColumnValue> {
+        // A column of dates: every cell a whole day shown as a date (ADR-054)
+        if cells_of(data) == Cells::Dates && data.iter().all(|c| !matches!(c, Data::Empty)) {
+            return Ok(ColumnValue::Date(data.iter().filter_map(date_of).collect()));
+        }
+
         // Detect column type from first non-empty cell
         let first_type = data
             .iter()
@@ -439,17 +766,16 @@ impl ExcelImporter {
             .ok_or_else(|| ForgeError::Import("Column has no data".to_string()))?;
 
         match first_type {
-            Data::Float(_) | Data::Int(_) => {
-                // Number column
+            Data::Float(_) | Data::Int(_) | Data::DateTime(_) => {
+                // Number column: dates with a time of day, times and durations
+                // are Excel's day numbers
                 #[allow(clippy::cast_precision_loss)]
                 // Excel integer values fit within f64 precision
                 let numbers: Vec<f64> = data
                     .iter()
-                    .map(|cell| match cell {
-                        Data::Float(f) => *f,
-                        Data::Int(i) => *i as f64,
-                        _ => 0.0, // Default for empty or other cells
-                    })
+                    // An empty cell, or one that holds text, is 0; a date
+                    // or a time is its day number
+                    .map(|cell| number_of(cell).unwrap_or(0.0))
                     .collect();
                 Ok(ColumnValue::Number(numbers))
             },
