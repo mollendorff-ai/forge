@@ -338,9 +338,30 @@ jobs:
           git push origin "v${{ steps.cargo_version.outputs.version }}"
           echo "Created and pushed tag v${{ steps.cargo_version.outputs.version }}"
 
+      # A tag can exist without its GitHub release: the Release run failed (on
+      # 2026-11-10 no macOS arm64 runner took the job for 15 minutes and GitHub
+      # cancelled it). Starting Release again on the next push to main retries it,
+      # unless a Release run is already queued or running.
+      - name: Check if the release exists
+        id: release_check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ steps.cargo_version.outputs.version }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "missing=false" >> $GITHUB_OUTPUT
+            echo "Release $TAG exists"
+          elif [ -n "$(gh run list --workflow release.yml --json status --jq '.[] | select(.status != "completed") | .status')" ]; then
+            echo "missing=false" >> $GITHUB_OUTPUT
+            echo "Release $TAG is being built"
+          else
+            echo "missing=true" >> $GITHUB_OUTPUT
+            echo "Release $TAG does not exist - will start the Release workflow"
+          fi
+
       # Tags pushed with GITHUB_TOKEN do not start other workflows, so start Release explicitly.
       - name: Start Release workflow
-        if: steps.tag_check.outputs.exists == 'false'
+        if: steps.tag_check.outputs.exists == 'false' || steps.release_check.outputs.missing == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run release.yml --ref "v${{ steps.cargo_version.outputs.version }}"
