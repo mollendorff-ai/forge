@@ -878,6 +878,95 @@ g:
         );
     }
 
+    /// A column shorter than its table is its own range: with the table's
+    /// rows, `ROWS(d.short)` was 5 in Excel and 2 in Forge, and `INDEX` past
+    /// the column's end read an empty cell.
+    #[test]
+    fn a_short_column_is_exported_as_its_own_range() {
+        use calamine::{open_workbook, Reader, Xlsx};
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("m.yaml");
+        fs::write(
+            &path,
+            "_forge_version: \"5.1.0\"\nd:\n  long: [1, 2, 3, 4, 5]\n  short: [7, 8]\ns:\n  rows:\n    formula: \"=ROWS(d.short)\"\n  last:\n    formula: \"=INDEX(d.short, ROWS(d.short))\"\n",
+        )
+        .unwrap();
+        let model = calculate(parser::parse_model(&path).unwrap()).unwrap();
+        assert_eq!(model.scalars["s.rows"].value, Some(2.0));
+        let xlsx = dir.path().join("m.xlsx");
+        ExcelExporter::new(model)
+            .export_with_warnings(&xlsx)
+            .unwrap();
+        let mut wb: Xlsx<_> = open_workbook(&xlsx).unwrap();
+        let s = wb.worksheet_formula("s").unwrap();
+        assert_eq!(
+            s.get_value((1, 1)).map(String::as_str),
+            Some("ROWS('d'!$B$2:$B$3)")
+        );
+        assert_eq!(
+            s.get_value((2, 1)).map(String::as_str),
+            Some("INDEX('d'!$B$2:$B$3, ROWS('d'!$B$2:$B$3))")
+        );
+    }
+
+    /// T2-EXPORT-LET: LET, a LAMBDA called at once, COUNTUNIQUE of a column
+    /// and TODAY are Excel formulas, and import reads them back to formulas
+    /// that calculate the same. (forge-e2e-gnumeric recalculates each kind in
+    /// `LibreOffice`.)
+    #[test]
+    fn let_lambda_countunique_and_today_are_formulas_both_ways() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("m.yaml");
+        fs::write(
+            &path,
+            concat!(
+                "_forge_version: \"5.1.0\"\n",
+                "t:\n  name: [\"a\", \"A\", \"b\", \"a\"]\n  n: [1, 2, 2, 3]\n  year: \"=YEAR(TODAY()) + n\"\n",
+                "x: 100\n",
+                "s:\n",
+                "  let:\n    formula: \"=LET(a, 2, b, a * 3, a + b)\"\n",
+                "  lambda:\n    formula: \"=LAMBDA(x, r, x * r + 1)(4, x)\"\n",
+                "  nested:\n    formula: \"=LET(v, LET(a, 5, a * 2), v + x)\"\n",
+                "  text:\n    formula: \"=COUNTUNIQUE(t.name)\"\n",
+                "  numbers:\n    formula: \"=COUNTUNIQUE(t.n)\"\n",
+                "  today:\n    formula: \"=TODAY() - TODAY()\"\n",
+            ),
+        )
+        .unwrap();
+        let model = calculate(parser::parse_model(&path).unwrap()).unwrap();
+        let xlsx = dir.path().join("m.xlsx");
+        let warnings = ExcelExporter::new(model.clone())
+            .export_with_warnings(&xlsx)
+            .unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+
+        let back = dir.path().join("back.yaml");
+        import_core(&xlsx, &back, false, false).unwrap();
+        let text = fs::read_to_string(&back).unwrap();
+        for formula in [
+            "=LET(a, 2, b, a * 3, a + b)",
+            "=LET(x_, 4, r_, x, x_ * r_ + 1)",
+            "=LET(a, 5, v, a * 2, v + x)",
+            "=COUNTUNIQUE(t.name)",
+            "=COUNTUNIQUE(t.n)",
+            "=YEAR(TODAY()) + n",
+        ] {
+            assert!(text.contains(formula), "{formula} in {text}");
+        }
+        let again = calculate(parser::parse_model(&back).unwrap()).unwrap();
+        for (name, want) in [
+            ("s.let", 8.0),
+            ("s.lambda", 401.0),
+            ("s.nested", 110.0),
+            ("s.text", 3.0),
+            ("s.numbers", 3.0),
+            ("s.today", 0.0),
+        ] {
+            assert_eq!(model.scalars[name].value, Some(want), "{name}");
+            assert_eq!(again.scalars[name].value, Some(want), "{name} after import");
+        }
+    }
+
     /// T2-INCLUDE-COLUMNS: a table of an included file is a sheet with its
     /// formulas, a formula that reads one of its columns reads that sheet
     /// (the same row in a row formula, the whole column in an aggregate), and

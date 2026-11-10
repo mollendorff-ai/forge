@@ -8,8 +8,8 @@ Forge is a beta and an R&D prototype. These checks reduce the chance of a wrong 
 
 | Check | Compares Forge with | Result |
 | --- | --- | --- |
-| Unit tests (this repo) | Expected values written in the tests | 1,480 unit tests and 2 doctests pass |
-| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | Gnumeric, a separate spreadsheet engine | 1,320 formula cases pass, 1 skipped |
+| Unit tests (this repo) | Expected values written in the tests | 1,599 tests and 2 doctests pass |
+| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | Gnumeric, a separate spreadsheet engine, and LibreOffice for 68 cases Gnumeric cannot read | 1,353 formula cases pass, 1 skipped |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r), formulas | R, with Excel rules where R differs | 119 math, date and financial checks pass |
 | forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 70 of 77 specs pass against R in the Validation workflow; 7 skipped |
 | Real Excel (by hand, once) | Microsoft Excel for iPhone, recalculating a workbook written by `forge export` | 18 of 18 financial and date results match (2026-11-06) |
@@ -26,7 +26,7 @@ Includes Black-Scholes and binomial option prices checked against QuantLib refer
 
 ## 2. Formulas against Gnumeric
 
-Each case is a Forge model with an expected value. A case passes only if both agree with it: `forge calculate`, and Gnumeric's recalculation of the file written by `forge export`.
+Each case is a Forge model with an expected value. A case passes only if both agree with it: `forge calculate`, and Gnumeric's recalculation of the file written by `forge export`. A case whose `libreoffice` key says why Gnumeric cannot read it (Gnumeric 1.12 has no `LET`, `UNIQUE` or `XLOOKUP`, gives #VALUE! for `DATEDIF` read from an xlsx file and for `ISFORMULA` of a literal, and differs from Excel on a comparison at 15 digits and on two financial results) is recalculated by LibreOffice instead, run with a profile that recalculates every formula on load: the workbook caches Forge's results, which LibreOffice would otherwise show.
 
 ```bash
 git clone https://github.com/mollendorff-ai/forge-e2e-gnumeric
@@ -34,7 +34,7 @@ cd forge-e2e-gnumeric
 FORGE_BIN=/path/to/forge cargo run --release
 ```
 
-Needs `ssconvert` (package `gnumeric`). Result: 1,320 passed, 0 failed, 1 skipped. Every case is also checked after `forge export` and `forge import`, so a formula that does not survive the round trip fails. Of the passed cases, 40 are checked against Forge only, each with a written reason: Gnumeric 1.12 cannot read the formula or has no such function (for example `XLOOKUP`), or Gnumeric and Excel give different answers. Six of those differences were settled in real Excel (section 5).
+Needs `ssconvert` (package `gnumeric`) and LibreOffice 24.8 or later (`soffice`; on Ubuntu 24.04 from noble-backports). Result: 1,353 passed, 0 failed, 1 skipped; 68 of them recalculated by LibreOffice. Every case is also checked after `forge export` and `forge import`, so a formula that does not survive the round trip fails. Four cases are checked against Forge only, each with a written reason: `PRICEDISC` and `ACCRINT` results where Gnumeric 1.12 and LibreOffice 26.2 both differ from Excel, which was checked by hand (section 5). With every cached scalar result written 1,000 too high, the 144 cases of two spec files (27 of them in LibreOffice) still all passed, so both engines recalculate rather than read the cache.
 
 ## 3. Math, date and financial functions against R
 

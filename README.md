@@ -130,10 +130,10 @@ MCP server and REST API available for tighter integration (see below).
 
 Forge's results are checked against other engines. None of the checks is complete. The unit tests run on every push; the two external suites run weekly in CI and on every pull request that changes the source. [VALIDATION.md](VALIDATION.md) lists what each check covers, its latest result and the command to run it. What a stable release will and will not promise is in [docs/STABILITY.md](docs/STABILITY.md).
 
-| Check | What it covers | Latest result (2026-11-05) |
+| Check | What it covers | Latest result (2026-11-09) |
 | --- | --- | --- |
-| Unit tests (this repo) | 1,480 unit tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
-| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,321 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx`, and Forge after export and import all match the expected value | 1,320 pass, 1 skipped; weekly in CI |
+| Unit tests (this repo) | 1,599 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
+| [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,354 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 68 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,353 pass, 1 skipped; weekly in CI |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 119 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped; weekly in CI |
 
 Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
@@ -539,7 +539,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 
 ```text
 forge (this repo)             validation repos
-├── 1,480 unit tests          ├── forge-e2e-gnumeric: 1,321 formula specs
+├── 1,599 tests               ├── forge-e2e-gnumeric: 1,354 formula specs
 ├── #[cfg(test)] modules      └── forge-e2e-r: 119 function checks, 77 analytics specs
 └── 2 doctests
 ```

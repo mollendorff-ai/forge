@@ -32,6 +32,10 @@ impl ExcelExporter {
             (name.as_str(), columns, Self::row_count(table))
         });
         let mut refs = WorkbookRefs::new(tables, model.scalars.keys().map(String::as_str));
+        for (name, table) in &model.tables {
+            refs.add_column_types(name, Self::column_types(table));
+            refs.add_column_lengths(name, Self::column_lengths(table));
+        }
 
         // `resolved_includes` is a HashMap, so sort the namespaces: with two or
         // more includes the sheet order would otherwise change between runs.
@@ -60,7 +64,14 @@ impl ExcelExporter {
                 // include's table, so a value changed there flows through.
                 refs.add_include(namespace, paths());
                 refs.add_include_tables(namespace, tables());
-                let own = WorkbookRefs::for_include(namespace, paths(), tables());
+                let mut own = WorkbookRefs::for_include(namespace, paths(), tables());
+                for (name, table) in &included.tables {
+                    let key = format!("@{namespace}.{name}");
+                    refs.add_column_types(&key, Self::column_types(table));
+                    refs.add_column_lengths(&key, Self::column_lengths(table));
+                    own.add_column_types(name, Self::column_types(table));
+                    own.add_column_lengths(name, Self::column_lengths(table));
+                }
                 (namespace.clone(), included, own)
             })
             .collect();
@@ -69,6 +80,27 @@ impl ExcelExporter {
             refs,
             includes,
         }
+    }
+
+    /// Whether each column of numbers or text holds text (`COUNTUNIQUE` is
+    /// written differently for each).
+    fn column_types(table: &Table) -> impl Iterator<Item = (&str, bool)> {
+        table
+            .columns
+            .iter()
+            .filter_map(|(name, column)| match column.values {
+                super::super::types::ColumnValue::Number(_) => Some((name.as_str(), false)),
+                super::super::types::ColumnValue::Text(_) => Some((name.as_str(), true)),
+                _ => None,
+            })
+    }
+
+    /// The number of values of each column.
+    fn column_lengths(table: &Table) -> impl Iterator<Item = (&str, usize)> {
+        table
+            .columns
+            .iter()
+            .map(|(name, column)| (name.as_str(), column.len()))
     }
 
     /// Number of data rows: the longest column (columns may differ in length).
@@ -233,7 +265,17 @@ impl ExcelExporter {
                 table: table_name,
                 row: 2,
             };
-            if let Err(reason) = refs.to_excel(formula, ctx) {
+            // Forge's TODAY is text in a table column, Excel's a date serial
+            let today_text = crate::excel::workbook_refs::calls_function(formula, "TODAY")
+                && table.columns.get(name).is_some_and(|c| {
+                    !matches!(c.values, super::super::types::ColumnValue::Number(_))
+                });
+            let translated = if today_text {
+                Err("TODAY gives text in a table column, and a date serial in Excel".to_string())
+            } else {
+                refs.to_excel(formula, ctx).map(|_| ())
+            };
+            if let Err(reason) = translated {
                 warnings.push(format!(
                     "{sheet_name}.{name}: written as values ({reason}): {formula}"
                 ));

@@ -1,7 +1,8 @@
 name: Validation
 
 # Runs the two external validation suites against a fresh build of Forge:
-#   forge-e2e-gnumeric  formulas compared with Gnumeric
+#   forge-e2e-gnumeric  formulas compared with Gnumeric (and LibreOffice, for
+#                       the LET, LAMBDA and COUNTUNIQUE cases Gnumeric cannot read)
 #   forge-e2e-r         functions and analytics compared with R
 # They clone the latest main of each suite, so this also notices a change in a
 # suite. Weekly, on demand, and on the pull requests described below.
@@ -29,8 +30,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install Gnumeric
-        run: sudo apt-get update && sudo apt-get install -y gnumeric
+      - name: Install Gnumeric and LibreOffice
+        # LibreOffice from noble-backports: LET needs 24.8 or later, and
+        # Ubuntu 24.04 itself has 24.2
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnumeric
+          sudo apt-get install -y -t noble-backports libreoffice-calc-nogui
+          soffice --version
       - name: Build Forge
         run: cargo build --release
       - name: Get the suite
