@@ -1,6 +1,6 @@
 [package]
 name = "mollendorff-forge"
-version = "10.0.0-rc.15"
+version = "10.0.0-rc.16"
 edition = "2021"
 authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "Möllendorff AI <admin@mollendorff.ai>"]
 description = "YAML financial modeling engine with Excel-style formulas, Monte Carlo, decision trees, real options and an MCP server for AI agents. Release candidate."
