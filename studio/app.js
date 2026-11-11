@@ -938,5 +938,14 @@ async function boot() {
     S.error = e.message; renderAll(); finish(); return;
   }
   await load();
+  keepOffline();
+}
+
+// Keeps the page on the device (sw.js) once Forge is running, so as not to
+// compete with it for the connection; where a service worker is not allowed
+// (plain http, a private window) Studio works as before, online.
+function keepOffline() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 boot();

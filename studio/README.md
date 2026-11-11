@@ -6,7 +6,7 @@ On a phone it shows one view at a time with tabs at the bottom. Above 900 px the
 
 A formula can be changed on its card: it is kept only when Forge accepts it, and otherwise Forge's message says why.
 
-Every number is Forge's. The page runs `forge-wasm` (ADR-055) in a background worker and reads no YAML itself: a change on a card is written into that line of the YAML, comments and all, and Forge calculates the files again. Nothing leaves the device; the files stay in the browser's storage until Save, which on an iPhone or iPad opens the share sheet (Save to Files, iCloud Drive) for the model's YAML or its Excel workbook.
+Every number is Forge's. The page runs `forge-wasm` (ADR-055) in a background worker and reads no YAML itself: a change on a card is written into that line of the YAML, comments and all, and Forge calculates the files again. Nothing leaves the device; the files stay in the browser's storage until Save, which on an iPhone or iPad opens the share sheet (Save to Files, iCloud Drive) for the model's YAML or its Excel workbook. Once Forge is running, the page keeps its own files on the device (`sw.js`), so Studio opens and calculates without a connection, and on an iPhone it can be added to the Home Screen (Share, Add to Home Screen) to open like an app. A new release replaces the files the next time Studio is opened after being closed, never half of each.
 
 | File | What it holds |
 | --- | --- |
@@ -47,6 +47,7 @@ Pages is switched on once, by an administrator: Settings, Pages, Source: GitHub 
 
 - `node studio/tests/excel.mjs studio-site <workbooks>`: the workbook Studio downloads for bagel and mortgage is the one `forge export` writes, part by part, apart from when it was made; a workbook `forge export` wrote, opened in Studio, calculates to the same numbers.
 - `node studio/tests/save.mjs studio-site <workbooks>`: Save shares the model's files and the workbook through the share sheet, within the tap.
+- `node studio/tests/offline.mjs studio-site`: every file is kept on the device, the page opens and calculates with the connection cut, and a later release replaces the cache once Studio has been closed.
 - `node studio/tests/format.mjs`: the percent rule and how typed numbers are read.
 
 All nine run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact.

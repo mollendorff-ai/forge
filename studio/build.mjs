@@ -4,6 +4,7 @@
 //
 //   node studio/build.mjs <wasm-bindgen --target web output> <out dir>
 
+import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,6 +48,24 @@ export function formulaRules(injection) {
     captures: Object.fromEntries(Object.entries(p.captures ?? {}).map(([n, c]) => [n, c.name])),
   }));
 }
+// sw.js with the list of the site's files and a name made from their content
+export function writeServiceWorker(out) {
+  const files = [];
+  const walk = (dir, prefix) => {
+    for (const e of readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if (e.isDirectory()) walk(join(dir, e.name), `${prefix}${e.name}/`);
+      else if (e.name !== "sw.js" && e.name !== ".nojekyll") files.push(`${prefix}${e.name}`);
+    }
+  };
+  walk(out, "");
+  const hash = createHash("sha256");
+  for (const f of files) hash.update(f).update(readFileSync(join(out, f)));
+  const list = ["./", ...files];
+  writeFileSync(join(out, "sw.js"), readFileSync(join(here, "sw.js"), "utf8")
+    .replace("__BUILD__", hash.digest("hex").slice(0, 12))
+    .replace("__FILES__", JSON.stringify(list, null, 2)));
+}
+
 export const GRAMMAR = join(here, "..", "editors", "vscode", "syntaxes", "forge-formula.injection.json");
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -57,7 +76,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   }
   mkdirSync(join(out, "pkg"), { recursive: true });
   for (const f of readdirSync(here)) {
-    if (/\.(html|css|js)$/.test(f)) copyFileSync(join(here, f), join(out, f));
+    if (/\.(html|css|js|svg|png|webmanifest)$/.test(f) && f !== "sw.js") copyFileSync(join(here, f), join(out, f));
   }
   for (const f of ["forge_wasm.js", "forge_wasm_bg.wasm"]) {
     if (!existsSync(join(pkg, f))) { console.error(`${f} is not in ${pkg}: build forge-wasm with wasm-bindgen --target web`); process.exit(1); }
@@ -71,5 +90,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   writeFileSync(join(out, "formula-rules.json"), JSON.stringify(formulaRules(JSON.parse(readFileSync(GRAMMAR, "utf8")))));
   // GitHub Pages runs Jekyll on a site unless told not to
   writeFileSync(join(out, ".nojekyll"), "");
+  writeServiceWorker(out);
   console.log(`Forge Studio in ${out}: ${sets.length} example sets`);
 }
