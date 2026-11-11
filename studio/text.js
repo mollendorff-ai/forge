@@ -40,37 +40,72 @@ export function setInputText(text, group, name, v) {
   return null;
 }
 
-// Formula rules ported from Forge's VS Code extension (editors/vscode/syntaxes), in its order:
-// text, function call, @include value, TRUE/FALSE, name, number, operator, punctuation.
-// The YAML around them (keys, comments, strings, numbers) is a small line scanner.
-export const FORMULA_RULES = [
-  [/^(?:\\"(?:[^"\\]|\\[^"])*\\"|"[^"]*")/, "t-str"],
-  [/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*(?=\s*\()/, "t-fn"],
-  [/^@[A-Za-z_][A-Za-z0-9_]*(?:\.@?[A-Za-z_][A-Za-z0-9_]*)+/, "t-inc"],
-  [/^(?:TRUE|FALSE)\b/i, "t-const"],
-  [/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*\b/, "t-name"],
-  [/^\d*\.?\d+(?:[eE][-+]?\d+)?%?/, "t-num"],
-  [/^(?:<=|>=|<>|[-+*/^&=<>])/, "t-op"],
-  [/^[(),;:\[\]{}]/, "t-punct"],
-];
+
+// Formula colours come from the VS Code extension's grammar,
+// editors/vscode/syntaxes/forge-formula.injection.json (ADR-056 decision 4).
+// build.mjs writes its patterns, in its order, to formula-rules.json; the page
+// loads them with useFormulaRules(). Only two things are Studio's own: which
+// CSS class each of the grammar's scopes gets, and the YAML around a formula
+// (keys, comments, strings), which is a small line scanner below.
+export const SCOPE_CLASS = {
+  "keyword.operator.formula.forge": "t-eq",
+  "string.quoted.double.formula.forge": "t-str",
+  "support.function.forge": "t-fn",
+  "variable.other.include.forge": "t-inc",
+  "constant.language.boolean.forge": "t-const",
+  "variable.other.forge": "t-name",
+  "constant.numeric.forge": "t-num",
+  "keyword.operator.forge": "t-op",
+  "punctuation.separator.forge": "t-punct",
+};
+
+// TextMate patterns are Oniguruma's; JavaScript runs them but not `(?i:...)`
+// (case-insensitive group), which is written out as [tT][rR]... here. Anything
+// else JavaScript cannot read throws, and the test (tests/highlight.mjs) fails.
+export function compileRule(rule) {
+  const insensitive = (body) => body.replace(/\\.|\[(?:[^\]\\]|\\.)*\]|[A-Za-z]/g, (t) => (/^[A-Za-z]$/.test(t) ? `[${t.toLowerCase()}${t.toUpperCase()}]` : t));
+  const source = rule.match.replace(/\(\?i:((?:[^()\\]|\\.)*)\)/g, (_, body) => `(?:${insensitive(body)})`);
+  // sticky, so \b and look-behinds see the text before the match, as in a TextMate grammar
+  return new RegExp(source, "yd");
+}
+let formulaRules = [];
+export function useFormulaRules(list) {
+  formulaRules = list.map((r) => ({ re: compileRule(r), scope: r.scope, captures: Object.entries(r.captures || {}).sort((a, b) => a[0] - b[0]) }));
+}
+
 const span = (cls, s) => (s ? `<span class="${cls}">${esc(s)}</span>` : "");
-function hlFormula(src, quote) {
+// Where no rule matches, a character is plain, and from there the next
+// position is tried: the earliest match, and among those the first rule, as in TextMate.
+function paintMatch(m, rule) {
+  const name = (scope) => SCOPE_CLASS[scope] || "";
+  if (rule.scope) return span(name(rule.scope), m[0]);
+  let out = "", at = 0;
+  for (const [n, scope] of rule.captures) {
+    const [from, to] = m.indices[n].map((x) => x - m.index);
+    out += esc(m[0].slice(at, from)) + span(name(scope), m[0].slice(from, to));
+    at = to;
+  }
+  return out + esc(m[0].slice(at));
+}
+function hlFormula(src) {
   let out = span("t-eq", "="), i = 1;
   while (i < src.length) {
-    const rest = src.slice(i);
-    if (/^\s/.test(rest)) { const m = /^\s+/.exec(rest)[0]; out += esc(m); i += m.length; continue; }
-    if (quote === "'" && rest.startsWith('"')) { const j = src.indexOf('"', i + 1); const s = j < 0 ? rest : src.slice(i, j + 1); out += span("t-str", s); i += s.length; continue; }
     let hit = null;
-    for (const [re, cls] of FORMULA_RULES) { const m = re.exec(rest); if (m && m[0]) { hit = [m[0], cls]; break; } }
-    if (!hit) { out += esc(rest[0]); i++; continue; }
-    out += span(hit[1], hit[0]); i += hit[0].length;
+    for (const rule of formulaRules) {
+      rule.re.lastIndex = i;
+      const m = rule.re.exec(src);
+      if (m && m[0]) { hit = [m, rule]; break; }
+    }
+    if (!hit) { out += esc(src[i]); i++; continue; }
+    out += paintMatch(hit[0], hit[1]);
+    i += hit[0][0].length;
   }
   return out;
 }
 function hlQuoted(s, q) {
   const body = s.slice(1, s.endsWith(q) && s.length > 1 ? -1 : undefined);
   const close = s.length > 1 && s.endsWith(q) ? q : "";
-  if (body.startsWith("=")) return span("t-q", q) + `<span class="t-formula">${hlFormula(body, q)}</span>` + span("t-q", close);
+  if (body.startsWith("=")) return span("t-q", q) + `<span class="t-formula">${hlFormula(body)}</span>` + span("t-q", close);
   return span("t-ystr", s);
 }
 function hlValue(v) {
@@ -89,7 +124,7 @@ function hlValue(v) {
     if (rest[0] === "=" && !inFlow) {
       const c = rest.search(/\s#/);
       const f = c < 0 ? rest : rest.slice(0, c);
-      out += `<span class="t-formula">${hlFormula(f, "")}</span>`; i += f.length; continue;
+      out += `<span class="t-formula">${hlFormula(f)}</span>`; i += f.length; continue;
     }
     m = inFlow ? /^[^,{}\[\]\s][^,{}\[\]]*?(?=\s*[,}\]]|\s+#|$)/.exec(rest) : /^.+?(?=\s+#|$)/.exec(rest);
     if (!m) { out += esc(rest[0]); i++; continue; }

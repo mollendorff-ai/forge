@@ -171,11 +171,17 @@ jobs:
       - name: Studio holds no calculation code
         run: node studio/tests/no-engine.mjs
 
+      - name: Studio's formula colours are the VS Code grammar's
+        run: node studio/tests/highlight.mjs
+
       - name: Build Forge Studio
         run: |
           wasm-bindgen --target web --out-dir forge-wasm/pkg-web \
             target/wasm32-unknown-unknown/release/forge_wasm.wasm
           node studio/build.mjs forge-wasm/pkg-web studio-site
+
+      - name: The built site has the grammar's rules
+        run: node studio/tests/highlight.mjs studio-site
 
       - name: Every scalar on screen is forge calculate's
         working-directory: studio

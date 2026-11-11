@@ -79,16 +79,11 @@ tier2:
 # checked against forge calculate in a headless browser.
 # S4, Studio published on GitHub Pages after each release (workflow
 # pages.yml; it publishes once Pages is switched on and the workflow runs).
-# S5, the editor and the cards side by side above 900 px.
-# Order: S6 to S8.
+# S5, the editor and the cards side by side above 900 px; S6, formula colours
+# read from the VS Code extension's grammar, with one copy of the rules.
+# Order: S7, S8.
 
 studio:
-  - id: S6-HIGHLIGHT-ONE-SOURCE
-    title: "Studio highlights formulas with the VS Code extension's rules"
-    why: "Two copies of the same rules drift (ADR-056 decision 4)"
-    how: "Studio reads the patterns from editors/vscode/syntaxes at build time or holds a copy that a test compares; plain YAML (keys, comments, strings, numbers) is Studio's own"
-    acceptance: "A test fails when Studio's formula patterns or their order differ from forge-formula.injection.json; on every file in examples/ the highlighted text, with its tags removed, equals the file"
-
   - id: S7-CARD-FORMULAS
     title: "Edit a formula on its card"
     why: "Today a card changes only inputs; a formula is edited in the YAML view"
