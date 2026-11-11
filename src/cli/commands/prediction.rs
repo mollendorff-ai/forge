@@ -669,7 +669,7 @@ pub fn tornado(
     println!("{}", "📊 Tornado Diagram:".bold().green());
     println!(
         "   Base value: {}",
-        format!("{:.2}", result.base_value).bold()
+        super::display_number(result.base_value).bold()
     );
     println!();
 
@@ -699,12 +699,12 @@ pub fn tornado(
 
         // `swing` is the output at the high input minus the output at the low input.
         println!(
-            "   {:name_width$} |{:30}| swing {:.2}  (output {:.2} at low, {:.2} at high)",
+            "   {:name_width$} |{:30}| swing {}  (output {} at low, {} at high)",
             bar.input_name.bright_blue(),
             bar_str.cyan(),
-            bar.swing.abs(),
-            bar.output_at_low,
-            bar.output_at_high
+            super::display_number(bar.swing.abs()),
+            super::display_number(bar.output_at_low),
+            super::display_number(bar.output_at_high)
         );
     }
     println!();

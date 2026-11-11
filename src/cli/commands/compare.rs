@@ -111,8 +111,18 @@ pub fn render_comparison(
     width: Option<usize>,
 ) -> String {
     match format {
-        ReportFormat::Table => render_table(result, inputs, width),
-        ReportFormat::Markdown => render_markdown(result, inputs),
+        ReportFormat::Table => format!(
+            "{}{}",
+            render_table(result, inputs, width),
+            legend(result, false)
+        ),
+        ReportFormat::Markdown => {
+            format!(
+                "{}{}",
+                render_markdown(result, inputs),
+                legend(result, true)
+            )
+        },
         ReportFormat::Csv => render_csv(result),
         ReportFormat::Json => {
             let mut out = serde_json::to_string_pretty(result).unwrap_or_default();
@@ -222,6 +232,25 @@ fn grid(
             out
         })
         .collect()
+}
+
+/// The scenarios' descriptions, below the table: a blank line and one line per
+/// scenario that has one.
+fn legend(result: &ComparisonResult, markdown: bool) -> String {
+    if result.descriptions.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from("\n");
+    for scenario in &result.scenarios {
+        if let Some(text) = result.descriptions.get(scenario) {
+            if markdown {
+                let _ = writeln!(out, "- **{}**: {text}", markdown_text(scenario));
+            } else {
+                let _ = writeln!(out, "{scenario}: {text}");
+            }
+        }
+    }
+    out
 }
 
 fn render_markdown(result: &ComparisonResult, inputs: &[String]) -> String {

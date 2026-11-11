@@ -209,4 +209,7 @@ pub struct ComparisonResult {
     pub variables: Vec<String>,
     /// Variable, then scenario, in model and request order
     pub values: indexmap::IndexMap<String, indexmap::IndexMap<String, Option<f64>>>,
+    /// The `description` of each scenario that has one
+    #[serde(default, skip_serializing_if = "indexmap::IndexMap::is_empty")]
+    pub descriptions: indexmap::IndexMap<String, String>,
 }
