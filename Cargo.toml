@@ -45,9 +45,35 @@ pkg-fmt = "tgz"
 [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
 pkg-fmt = "zip"
 
+# The command line, the MCP server and the REST API (default), and Excel.
+# `--no-default-features` builds the parser, the calculator and the analysis
+# engines alone, which is what the browser build uses (ADR-055).
+[features]
+default = ["cli"]
+cli = [
+    "excel",
+    "dep:clap",
+    "dep:colored",
+    "dep:notify",
+    "dep:notify-debouncer-mini",
+    "dep:tokio",
+    "dep:rmcp",
+    "dep:axum",
+    "dep:tower",
+    "dep:tower-http",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+    "dep:uuid",
+    "dep:tempfile",
+    "dep:sha2",
+    "dep:base64",
+]
+excel = ["dep:rust_xlsxwriter", "dep:calamine", "dep:regex"]
+
 [[bin]]
 name = "forge"
 path = "src/main.rs"
+required-features = ["cli"]
 
 
 [dependencies]
@@ -57,10 +83,10 @@ yaml_serde = "0.10"
 serde_json = "1.0"  # JSON handling for schema validation
 
 # JSON Schema validation (v1.0.0 array model)
-jsonschema = "0.60"
+jsonschema = { version = "0.60", default-features = false, features = ["resolve-file", "idna"] }
 
 # CLI
-clap = { version = "4.5.53", features = ["derive", "env"] }
+clap = { version = "4.5.53", features = ["derive", "env"], optional = true }
 
 # Error handling
 anyhow = "1.0"
@@ -75,51 +101,60 @@ indexmap = { version = "2", features = ["serde"] }
 foldhash = "0.2"
 
 # Regex for array indexing preprocessing
-regex = "1.12"
+regex = { version = "1.12", optional = true }
 
 # Pretty output
-colored = "3.0"
+colored = { version = "3.0", optional = true }
 
 # Excel export (v1.0.0 array model)
-rust_xlsxwriter = "0.102"
+rust_xlsxwriter = { version = "0.102", optional = true }
 
 # Excel import (v1.0.0 array model)
-calamine = "0.38"
+calamine = { version = "0.38", optional = true }
 
 # File watching (v1.4.0 watch mode)
-notify = "8.2"
-notify-debouncer-mini = "0.7"
+notify = { version = "8.2", optional = true }
+notify-debouncer-mini = { version = "0.7", optional = true }
 
 # Async runtime (API server, MCP server)
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "signal", "net"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "signal", "net"], optional = true }
 
 # MCP server (Model Context Protocol via rmcp SDK)
-rmcp = { version = "3.8", features = ["server", "transport-io"] }
+rmcp = { version = "3.8", features = ["server", "transport-io"], optional = true }
 
 # API Server
-axum = "0.8"
-tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.7", features = ["cors", "trace"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-uuid = { version = "1.0", features = ["v4"] }
+axum = { version = "0.8", optional = true }
+tower = { version = "0.5", features = ["util"], optional = true }
+tower-http = { version = "0.7", features = ["cors", "trace"], optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+uuid = { version = "1.0", features = ["v4"], optional = true }
 chrono = { version = "0.4", features = ["serde"] }
 rand = "0.10"
 
 # Temp files (inline content for MCP tools)
-tempfile = "3.8"
+tempfile = { version = "3.8", optional = true }
 
 # SHA-256 of downloaded release archives (forge update)
-sha2 = "0.11"
+sha2 = { version = "0.11", optional = true }
 
 # Monte Carlo simulation
 rand_distr = "0.6"  # Distribution sampling (Normal, Triangular, PERT, etc.)
 statrs = "0.19"     # Statistical functions (PDF, CDF, percentiles)
-base64 = "0.23.1"
+base64 = { version = "0.23.1", optional = true }
 
 # A closed pipe (`forge functions | head`) ends the CLI quietly
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+# In a browser (wasm32-unknown-unknown, ADR-055): randomness for unseeded
+# simulations from the browser's crypto, and today's date from its clock.
+# Both apply to that target only; other builds are unchanged.
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"] }
+# jsonschema's hashing (ahash) still uses getrandom 0.3
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+chrono = { version = "0.4", features = ["serde", "wasmbind"] }
 
 # E2E tests migrated to forge-e2e repository (see ADR-027)
 # Gnumeric, R, Python validation now in https://github.com/mollendorff-ai/forge-e2e
