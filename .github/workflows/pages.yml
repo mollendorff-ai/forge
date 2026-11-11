@@ -1,0 +1,114 @@
+name: Studio on Pages
+
+# Forge Studio (ADR-056 decision 6, roadmap S4) is published on GitHub Pages
+# after each release: the page, forge-wasm of that release, and the release's
+# examples. Pull requests build Studio and keep it as an artifact (ci.yml,
+# job forge-wasm) and publish nothing.
+#
+# A release made by the Release workflow does not start a `release: published`
+# trigger (events made with GITHUB_TOKEN start nothing), so this one follows
+# the Release workflow itself. Start it by hand, with the tag, to publish a
+# release that has already happened.
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag to publish, for example v10.0.0-rc.13"
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Studio
+    # A release that failed publishes nothing
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The Release workflow runs on the tag, so its head_branch is the tag
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_branch }}
+
+      - name: Version of this release
+        id: version
+        run: echo "version=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust stable with the WebAssembly target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install wasm-bindgen, the version in Cargo.lock
+        run: |
+          version=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/^version = "\(.*\)"/\1/p')
+          cargo install wasm-bindgen-cli --version "$version" --locked
+
+      - name: Build forge-wasm and Studio
+        run: |
+          cargo build -p forge-wasm --release --target wasm32-unknown-unknown
+          wasm-bindgen --target web --out-dir forge-wasm/pkg-web \
+            target/wasm32-unknown-unknown/release/forge_wasm.wasm
+          node studio/build.mjs forge-wasm/pkg-web studio-site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: studio-site
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  # The roadmap's acceptance check: the address shows this release's version
+  # and the bagel model's profit, in a browser, from the published files
+  check:
+    name: The published page gives Forge's numbers
+    needs: [build, deploy]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_branch }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Open the page
+        working-directory: studio
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          node tests/live.mjs "${{ needs.deploy.outputs.page_url }}" "${{ needs.build.outputs.version }}"
