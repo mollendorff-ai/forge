@@ -24,7 +24,7 @@
 
 * { box-sizing: border-box }
 [hidden] { display: none !important }
-body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; -webkit-text-size-adjust: 100% }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; -webkit-text-size-adjust: 100% }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface) }
 button, input, select, textarea { font: inherit; color: inherit }
 button { cursor: pointer }
@@ -234,3 +234,44 @@ textarea.editor.ta::selection { background: color-mix(in srgb, var(--accent) 30%
 .t-op, .t-eq { color: var(--syn-op) } .t-str, .t-ystr { color: var(--syn-str) } .t-q, .t-punct { color: var(--muted) }
 .t-comment { color: var(--syn-comment); font-style: italic } .t-const { color: var(--syn-meta) }
 .legend span { font-family: var(--f-mono); font-size: 12px; margin-right: 4px }
+
+/* pane controls and divider: wide screens only */
+.panes, #divider { display: none }
+.pane-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 10px; font-size: 12.5px; color: var(--muted) }
+.pane-btn svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round }
+.pane-btn[aria-pressed="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent) }
+
+/* Wide: the editor on the left, the other views on the right (ADR-056 decision 3) */
+@media (min-width: 900px) {
+  body.wide { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden }
+  body.wide .top { position: static; flex: none }
+  body.wide .top-in, body.wide .tabs-in { max-width: none }
+  body.wide .tabs { position: static; flex: none; border-top: 0; border-bottom: 1px solid var(--line); padding-bottom: 0 }
+  body.wide .tabs-in { display: flex; align-items: center; gap: 2px }
+  body.wide .tab { flex-direction: row; gap: 7px; padding: 10px 14px; font-size: 13.5px }
+  body.wide .tab svg { width: 18px; height: 18px }
+  body.wide .tab[data-tab="yaml"] { display: none }
+  body.wide .tab[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--accent) }
+  body.wide .panes { display: inline-flex; gap: 6px; margin-left: auto; padding: 6px 4px }
+
+  body.wide main { flex: 1; min-height: 0; padding: 0; display: grid; grid-template-columns: var(--left, 42%) 9px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) }
+  body.wide main > .view { grid-row: 1; grid-column: 3; max-width: none; margin: 0; overflow: auto; overscroll-behavior: contain; min-height: 0;
+    padding: 16px max(20px, calc((100% - 720px) / 2)) 40px }
+  /* In a pane that scrolls, a row that scrolls sideways (the chips) must not shrink */
+  body.wide main > .view > * { flex-shrink: 0 }
+  body.wide #view-yaml { grid-column: 1; padding: 14px 18px 24px; background: var(--sunk) }
+  body.wide #view-yaml .lead { display: none }
+  body.wide #view-yaml .editor { min-height: calc(100dvh - 300px) }
+  body.wide #yaml-apply { display: none }
+  body.wide #divider { display: block; grid-column: 2; grid-row: 1; cursor: col-resize; touch-action: none; position: relative; background: var(--line); width: 1px; justify-self: center }
+  body.wide #divider::before { content: ""; position: absolute; inset: 0 -5px }
+  body.wide #divider::after { content: ""; position: absolute; top: 50%; left: -2px; width: 5px; height: 36px; margin-top: -18px; border-radius: 3px; background: var(--muted); opacity: .45 }
+  body.wide #divider:hover::after, body.wide #divider:focus-visible::after, body.dragging #divider::after { opacity: 1; background: var(--accent) }
+  body.dragging { user-select: none; cursor: col-resize }
+
+  body.wide[data-hide="editor"] main { grid-template-columns: 0 0 minmax(0, 1fr) }
+  body.wide[data-hide="editor"] #view-yaml, body.wide[data-hide="editor"] #divider { display: none !important }
+  body.wide[data-hide="cards"] main { grid-template-columns: minmax(0, 1fr) 0 0 }
+  body.wide[data-hide="cards"] #divider, body.wide[data-hide="cards"] main > .view:not(#view-yaml) { display: none !important }
+  body.wide[data-hide="cards"] #view-yaml { padding-inline: max(18px, calc((100% - 960px) / 2)) }
+}

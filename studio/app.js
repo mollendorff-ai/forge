@@ -297,6 +297,7 @@ function setInput(path, value) {
     return;
   }
   S.files[file] = text;
+  refreshEditor(file);
   const s = allScalars().find((x) => x.path === path);
   if (s) s.value = value;
   save();
@@ -357,7 +358,16 @@ function yamlDirty() {
   return dirty;
 }
 const vy = $("#view-yaml");
-vy.addEventListener("input", (e) => { if (e.target.id === "yaml-editor") { paintYaml(); yamlDirty(); } });
+// On a wide screen the cards are beside the editor, so Forge reads the text
+// as it is typed (after a pause); on a phone the edit is applied with a button.
+let editing = 0;
+vy.addEventListener("input", (e) => {
+  if (e.target.id !== "yaml-editor") return;
+  paintYaml();
+  if (!yamlDirty() || !S.wide) return;
+  clearTimeout(editing);
+  editing = setTimeout(applyEditor, 450);
+});
 vy.addEventListener("scroll", (e) => { if (e.target.id === "yaml-editor") paintYaml(); }, true);
 vy.addEventListener("keydown", (e) => {
   if (e.target.id === "yaml-editor" && e.key === "Tab") { e.preventDefault(); document.execCommand("insertText", false, "  "); }
@@ -366,20 +376,32 @@ vy.addEventListener("click", async (e) => {
   const f = e.target.closest("[data-file]");
   if (f) { S.yamlFile = f.dataset.file; renderYaml(); return; }
   if (e.target.id === "yaml-revert") { renderYaml(); return; }
-  if (e.target.id === "yaml-apply") {
-    const text = $("#yaml-editor").value, msg = $("#yaml-msg");
-    const files = { ...S.files, [S.yamlFile]: text };
-    try {
-      await call("validate", { files, main: S.main });
-      S.files = files; save();
-      msg.className = "msg"; msg.textContent = "Forge read it. The cards are up to date.";
-      $("#yaml-apply").disabled = $("#yaml-revert").disabled = true;
-      await load();
-    } catch (err) {
-      msg.className = "msg bad"; msg.textContent = `Forge did not accept it: ${err.message}`;
-    }
-  }
+  if (e.target.id === "yaml-apply") await applyEditor();
 });
+async function applyEditor() {
+  const editor = $("#yaml-editor"), msg = $("#yaml-msg");
+  if (!editor) return;
+  const file = S.yamlFile, text = editor.value;
+  const files = { ...S.files, [file]: text };
+  try {
+    await call("validate", { files, main: S.main });
+    if (editor.value !== text || S.yamlFile !== file) return; // typed on meanwhile
+    S.files = files; save();
+    msg.className = "msg"; msg.textContent = "Forge read it. The cards are up to date.";
+    $("#yaml-apply").disabled = $("#yaml-revert").disabled = true;
+    await load();
+  } catch (err) {
+    if (editor.value !== text) return;
+    msg.className = "msg bad"; msg.textContent = `Forge did not accept it: ${err.message}`;
+  }
+}
+// A change on a card shows in the editor beside it, unless someone is typing there
+function refreshEditor(file) {
+  const editor = $("#yaml-editor");
+  if (!editor || S.yamlFile !== file || document.activeElement === editor) return;
+  editor.value = S.files[file];
+  paintYaml();
+}
 
 // ---------- Analyze view ----------
 const opt = (path, sel) => `<option value="${esc(path)}" ${path === sel ? "selected" : ""}>${esc(path)}</option>`;
@@ -630,18 +652,80 @@ vf.addEventListener("change", async (e) => {
   forget(); save(); show("model"); await load();
 });
 
-// ---------- routing ----------
+// ---------- routing and layout ----------
+// Below 900 px: one view at a time and the tabs at the bottom. Wider: the
+// YAML editor on the left, the other views on the right, a divider between
+// them that can be dragged, and controls to hide either side (ADR-056).
 const VIEWS = ["model", "yaml", "analyze", "mcp", "files"];
 const RENDER = { model: () => { renderModel(); updateValues(); }, yaml: renderYaml, analyze: renderAnalyze, mcp: renderTools, files: renderFiles };
+const WIDE = matchMedia("(min-width: 900px)");
+const LAYOUT = "forge-studio-layout";
+const layout = (() => { try { return JSON.parse(localStorage.getItem(LAYOUT)) || {}; } catch (e) { return {}; } })();
+const keepLayout = () => { try { localStorage.setItem(LAYOUT, JSON.stringify(layout)); } catch (e) { /* private mode */ } };
+
 function show(tab) {
+  if (S.wide && tab === "yaml") tab = S.tab === "yaml" ? "model" : S.tab;
   S.tab = tab;
-  for (const v of VIEWS) $("#view-" + v).hidden = v !== tab;
+  for (const v of VIEWS) $("#view-" + v).hidden = !(v === tab || (S.wide && v === "yaml"));
   $$(".tab").forEach((b) => (b.dataset.tab === tab ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
+  if (S.wide && layout.hide === "cards") hidePane(null);
   RENDER[tab]();
-  window.scrollTo(0, 0);
+  if (S.wide) $("#view-" + tab).scrollTop = 0; else window.scrollTo(0, 0);
 }
-function renderAll() { RENDER[S.tab](); updateStatus(); }
+function renderAll() {
+  RENDER[S.tab]();
+  const editor = $("#yaml-editor");
+  if (S.wide && editor && (!(S.yamlFile in S.files) || editor.value !== S.files[S.yamlFile]) && document.activeElement !== editor) renderYaml();
+  updateStatus();
+}
+function arrange() {
+  const was = S.wide;
+  S.wide = WIDE.matches;
+  document.body.classList.toggle("wide", S.wide);
+  $("main").style.setProperty("--left", `${layout.left || 42}%`);
+  hidePane(S.wide ? layout.hide || null : null, false);
+  if (S.wide && !was) { renderYaml(); show(S.tab); }
+  if (!S.wide && was) show(S.tab);
+}
+function hidePane(side, remember = true) {
+  if (side) document.body.dataset.hide = side; else delete document.body.dataset.hide;
+  $("#hide-editor").setAttribute("aria-pressed", side === "editor");
+  $("#hide-cards").setAttribute("aria-pressed", side === "cards");
+  if (remember) { layout.hide = side; keepLayout(); }
+}
 $$(".tab").forEach((b) => b.addEventListener("click", () => show(b.dataset.tab)));
+$("#hide-editor").addEventListener("click", () => hidePane(document.body.dataset.hide === "editor" ? null : "editor"));
+$("#hide-cards").addEventListener("click", () => hidePane(document.body.dataset.hide === "cards" ? null : "cards"));
+WIDE.addEventListener("change", arrange);
+
+// The divider: drag it, or focus it and use the arrow keys
+const divider = $("#divider");
+function setLeft(percent) {
+  layout.left = Math.round(Math.min(75, Math.max(25, percent)) * 10) / 10;
+  $("main").style.setProperty("--left", `${layout.left}%`);
+  divider.setAttribute("aria-valuenow", Math.round(layout.left));
+}
+divider.addEventListener("pointerdown", (e) => {
+  divider.setPointerCapture(e.pointerId);
+  document.body.classList.add("dragging");
+});
+divider.addEventListener("pointermove", (e) => {
+  if (!divider.hasPointerCapture(e.pointerId)) return;
+  const box = $("main").getBoundingClientRect();
+  setLeft(((e.clientX - box.left) / box.width) * 100);
+});
+divider.addEventListener("pointerup", (e) => {
+  divider.releasePointerCapture(e.pointerId);
+  document.body.classList.remove("dragging");
+  keepLayout();
+});
+divider.addEventListener("keydown", (e) => {
+  const step = { ArrowLeft: -2, ArrowRight: 2 }[e.key];
+  if (!step) return;
+  e.preventDefault();
+  setLeft((layout.left || 42) + step);
+  keepLayout();
+});
 
 // ---------- start ----------
 async function boot() {
@@ -653,6 +737,7 @@ async function boot() {
   const asked = new URLSearchParams(location.search).get("example");
   if (asked || !restore()) { if (S.sets.length) openSet(asked || S.sets[0].id); }
   S.yamlFile = S.main;
+  arrange();
   show("model");
   try {
     S.version = await start();
