@@ -80,15 +80,11 @@ tier2:
 # S4, Studio published on GitHub Pages after each release (workflow
 # pages.yml; it publishes once Pages is switched on and the workflow runs).
 # S5, the editor and the cards side by side above 900 px; S6, formula colours
-# read from the VS Code extension's grammar, with one copy of the rules.
-# Order: S7, S8.
+# read from the VS Code extension's grammar, with one copy of the rules; S7,
+# a formula edited on its card, kept only when Forge accepts it.
+# Next: S8.
 
 studio:
-  - id: S7-CARD-FORMULAS
-    title: "Edit a formula on its card"
-    why: "Today a card changes only inputs; a formula is edited in the YAML view"
-    acceptance: "Editing a formula on a card changes that formula's line in the YAML and nothing else (a byte comparison in a test), and an invalid formula is refused with Forge's message before the text changes"
-
   - id: S8-EXCEL-IN-BROWSER
     title: "Excel export and import in the browser"
     why: "Files is limited to YAML and CSV until rust_xlsxwriter and calamine build for wasm32"

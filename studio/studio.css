@@ -275,3 +275,12 @@ textarea.editor.ta::selection { background: color-mix(in srgb, var(--accent) 30%
   body.wide[data-hide="cards"] #divider, body.wide[data-hide="cards"] main > .view:not(#view-yaml) { display: none !important }
   body.wide[data-hide="cards"] #view-yaml { padding-inline: max(18px, calc((100% - 960px) / 2)) }
 }
+
+/* editing a formula on its card */
+.formula-row { display: flex; align-items: center; gap: 8px; margin-top: 4px }
+.formula-row .formula { flex: 1; min-width: 0; margin-top: 0 }
+.formula-row.editing, .col-edit.editing { display: block }
+.edit-btn { flex: none; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: var(--surface); color: var(--accent); border-radius: 8px; padding: 3px 8px; font-size: 12px }
+.edit-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round }
+.col-edit { padding: 0 14px 12px }
+.fedit { display: flex; flex-direction: column; gap: 8px; margin-top: 6px }

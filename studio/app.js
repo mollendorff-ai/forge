@@ -4,7 +4,7 @@
 // calculates nothing; see studio/tests/no-engine.mjs.
 
 import { call, start } from "./forge.js";
-import { esc, setInputText, highlightYaml, useFormulaRules } from "./text.js";
+import { esc, setInputText, setFormulaText, highlightYaml, useFormulaRules } from "./text.js";
 import { fmt, short, spark, sliderRange, readNumber, isPercentName } from "./format.js";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -156,10 +156,12 @@ function scalarCards(list) {
   for (const s of list.filter((x) => x.formula != null)) {
     const calculated = !s.path.startsWith("@");
     h += `<div class="row" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${calculated ? ` data-scalar="${esc(s.path)}"` : ""}><div class="res-name">${esc(leaf(s.path))}${unitOf(s)}</div>
-      <div class="res-val" data-val>${calculated ? "" : '<span class="note">used by the model</span>'}</div><div class="formula">${esc(s.formula)}</div></div>`;
+      <div class="res-val" data-val>${calculated ? "" : '<span class="note">used by the model</span>'}</div>
+      <div class="formula-row" data-fslot="${esc(s.path)}"><div class="formula">${esc(s.formula)}</div>${editButton(s.path)}</div></div>`;
   }
   return h;
 }
+const editButton = (path, label = "Edit") => `<button type="button" class="edit-btn" data-edit="${esc(path)}" aria-label="Edit the formula of ${esc(path)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>${esc(label)}</button>`;
 function tagOf(list) {
   const i = list.some((s) => s.formula == null), f = list.some((s) => s.formula != null);
   return i && f ? "inputs and results" : i ? "inputs" : "results";
@@ -175,7 +177,8 @@ function tableCards(tables, inc = "") {
       h += `<div class="row" style="padding:0" data-card="${esc(key)}" data-table="${esc(t.name)}" data-column="${esc(c.name)}"><button type="button" class="col" data-col="${esc(key)}" aria-expanded="${open}">
         <span class="col-name">${esc(c.name)}${c.unit ? ` <span class="unit">${esc(c.unit)}</span>` : ""}</span><span data-spark></span>
         ${c.formula ? `<span class="formula">${esc(c.formula)}</span>` : ""}<span class="col-meta" data-meta></span></button>
-        <div class="vals" data-vals ${open ? "" : "hidden"}></div></div>`;
+        <div class="vals" data-vals ${open ? "" : "hidden"}></div>
+        ${c.formula ? `<div class="col-edit" data-fslot="${esc(key)}" ${open ? "" : "hidden"}>${editButton(key, "Edit the formula")}</div>` : ""}</div>`;
     }
     h += `</div>`;
   }
@@ -327,9 +330,106 @@ $("#view-model").addEventListener("click", (e) => {
     if (S.open.has(k)) S.open.delete(k); else S.open.add(k);
     col.setAttribute("aria-expanded", S.open.has(k));
     col.parentElement.querySelector("[data-vals]").hidden = !S.open.has(k);
+    const edit = col.parentElement.querySelector(".col-edit");
+    if (edit) edit.hidden = !S.open.has(k);
     updateValues();
+    return;
   }
+  const edit = e.target.closest("[data-edit]");
+  if (edit) { openFormulaEditor(edit.dataset.edit); return; }
+  const cancel = e.target.closest("[data-fcancel]");
+  if (cancel) { closeFormulaEditor(cancel.dataset.fcancel); return; }
+  const keep = e.target.closest("[data-fsave]");
+  if (keep) saveFormula(keep.dataset.fsave);
 });
+$("#view-model").addEventListener("keydown", (e) => {
+  const input = e.target.closest("[data-finput]");
+  if (!input) return;
+  if (e.key === "Enter") { e.preventDefault(); saveFormula(input.dataset.finput); }
+  if (e.key === "Escape") closeFormulaEditor(input.dataset.finput);
+});
+
+// ---------- editing a formula on its card (roadmap S7) ----------
+// The new text is kept only when Forge accepts it: the model must validate
+// (or simulate, for a model with distributions), and Forge must read back
+// exactly this formula and nothing else changed. Otherwise Forge's message is
+// shown and the file is as it was.
+function formulaOf(structure, path) {
+  const scalars = [...structure.scalars, ...structure.includes.flatMap((i) => i.scalars)];
+  const s = scalars.find((x) => x.path === path);
+  if (s) return s;
+  for (const t of [...structure.tables, ...structure.includes.flatMap((i) => i.tables)]) {
+    const c = t.columns.find((x) => `${t.name}.${x.name}` === path);
+    if (c) return c;
+  }
+  return null;
+}
+const slotOf = (path) => $(`#view-model [data-fslot="${CSS.escape(path)}"]`);
+function openFormulaEditor(path) {
+  const slot = slotOf(path), entry = formulaOf(S.structure, path);
+  if (!slot || !entry) return;
+  slot.dataset.before = slot.innerHTML;
+  slot.classList.add("editing");
+  slot.innerHTML = `<div class="fedit"><label class="lab" for="f-${esc(path)}">Formula of ${esc(path)}</label>
+    <input class="txt" id="f-${esc(path)}" data-finput="${esc(path)}" value="${esc(entry.formula)}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div class="btns"><button type="button" class="btn primary" data-fsave="${esc(path)}">Check and save</button><button type="button" class="btn" data-fcancel="${esc(path)}">Cancel</button></div>
+    <div class="msg bad" data-fmsg hidden></div></div>`;
+  const input = $("[data-finput]", slot);
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+}
+function closeFormulaEditor(path) {
+  const slot = slotOf(path);
+  if (!slot || slot.dataset.before === undefined) return;
+  slot.innerHTML = slot.dataset.before;
+  delete slot.dataset.before;
+  slot.classList.remove("editing");
+}
+async function check(files) {
+  try {
+    await call("validate", { files, main: S.main });
+  } catch (e) {
+    // validate cannot evaluate distributions; a short simulation evaluates every formula
+    if (!/MC\.\* distributions/.test(e.message)) throw e;
+    await call("simulate", { files, main: S.main, iterations: 10, seed: 1 });
+  }
+}
+async function saveFormula(path) {
+  const slot = slotOf(path);
+  if (!slot) return;
+  const input = $("[data-finput]", slot), msg = $("[data-fmsg]", slot), button = $("[data-fsave]", slot);
+  const say = (text) => { msg.hidden = false; msg.textContent = text; };
+  let formula = input.value.trim();
+  if (!formula.startsWith("=")) formula = "=" + formula;
+  const entry = formulaOf(S.structure, path);
+  if (!entry) return;
+  if (formula === entry.formula) { closeFormulaEditor(path); return; }
+  const { ns, group, name } = split(path);
+  const file = fileOfNs(ns);
+  const text = setFormulaText(S.files[file], group, name, formula);
+  if (text == null) { say(`Studio could not find this formula's line in ${file}. Change it on the YAML tab.`); return; }
+  const files = { ...S.files, [file]: text };
+  button.disabled = true;
+  try {
+    await check(files);
+    const after = await call("model", { files, main: S.main });
+    const expected = JSON.parse(JSON.stringify(S.structure));
+    formulaOf(expected, path).formula = formula;
+    if (JSON.stringify(after) !== JSON.stringify(expected)) {
+      say("Forge reads the new text differently from what was typed, so it was not saved. Change it on the YAML tab.");
+      button.disabled = false;
+      return;
+    }
+  } catch (e) {
+    say(e.message);
+    button.disabled = false;
+    return;
+  }
+  S.files = files;
+  save();
+  refreshEditor(file);
+  await load();
+}
 
 // ---------- YAML view ----------
 function renderYaml() {
