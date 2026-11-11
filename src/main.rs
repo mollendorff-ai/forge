@@ -273,6 +273,19 @@ SCENARIOS IN YAML:
 
 EXAMPLE:
   forge compare model.yaml --scenarios base,optimistic,pessimistic
+  forge compare model.yaml --scenarios base,optimistic --format csv
+
+FORMATS:
+  table (the default), csv, json and markdown, as in forge report. csv and
+  json print the numbers at full precision and nothing else; table and
+  markdown show them as forge report does (1,450.00; whole numbers without
+  decimals; an input as written).
+
+WIDE TABLES:
+  A table wider than the terminal is printed in blocks of columns that fit,
+  each with the row names: one row per scalar, or one row per scenario when
+  that needs fewer blocks. COLUMNS sets the width; output to a file or a pipe
+  is not wrapped.
 
 OUTPUT:
   Scenario Comparison: model.yaml
@@ -287,6 +300,10 @@ OUTPUT:
         /// Comma-separated list of scenario names to compare
         #[arg(short, long, value_delimiter = ',')]
         scenarios: Vec<String>,
+
+        /// Output format
+        #[arg(long, default_value = "table", value_parser = ["table", "csv", "json", "markdown"])]
+        format: String,
 
         /// Show verbose output
         #[arg(short, long)]
@@ -1255,8 +1272,14 @@ fn run() -> ForgeResult<()> {
         Commands::Compare {
             file,
             scenarios,
+            format,
             verbose,
-        } => cli::compare(&file, &scenarios, verbose),
+        } => cli::compare(
+            &file,
+            &scenarios,
+            verbose,
+            format.parse::<cli::ReportFormat>()?,
+        ),
 
         Commands::Report {
             file,

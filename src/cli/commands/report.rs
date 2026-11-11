@@ -35,7 +35,7 @@ impl std::str::FromStr for ReportFormat {
             "json" => Ok(Self::Json),
             "markdown" => Ok(Self::Markdown),
             other => Err(ForgeError::Validation(format!(
-                "'{other}' is not a report format; use table, csv, json or markdown"
+                "'{other}' is not a format; use table, csv, json or markdown"
             ))),
         }
     }
@@ -328,7 +328,7 @@ pub fn display_number(x: f64) -> String {
 
 /// The same number with no decimals, for a column of whole numbers
 /// (`1,700`, `3`, `0`).
-fn display_whole(x: f64) -> String {
+pub fn display_whole(x: f64) -> String {
     display_number(x).trim_end_matches(".00").to_string()
 }
 
@@ -343,7 +343,7 @@ fn column_is_whole(section: &ReportSection, column: usize) -> bool {
 
 /// An input is shown as written when the column's rule would round it:
 /// `0.14975` is not `0.1498`.
-fn shown_input(x: f64, shown: String) -> String {
+pub fn shown_input(x: f64, shown: String) -> String {
     let same = shown
         .replace(',', "")
         .parse::<f64>()
@@ -465,7 +465,7 @@ fn render_table(report: &Report) -> String {
     out
 }
 
-fn markdown_text(text: &str) -> String {
+pub fn markdown_text(text: &str) -> String {
     text.replace('|', "\\|")
 }
 
@@ -494,7 +494,7 @@ fn render_markdown(report: &Report) -> String {
     out
 }
 
-fn csv_text(text: &str) -> String {
+pub fn csv_text(text: &str) -> String {
     if text.contains([',', '"', '\n', '\r']) {
         format!("\"{}\"", text.replace('"', "\"\""))
     } else {
