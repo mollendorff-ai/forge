@@ -83,12 +83,16 @@ jobs:
           tool: cargo-binstall
 
       # Only the release's own archive counts: no QuickInstall, no building.
+      # cargo-binstall gives up on a download it cannot check within 15
+      # seconds; GitHub's macOS runners took longer five times in a row after
+      # 10.0.0-rc.12 (the archive was there), so the check waits 120.
       - name: Install with the metadata of this pull request
         if: github.event_name == 'pull_request'
         run: |
           VERSION=$(sed -n 's/^  version "\(.*\)"$/\1/p' Formula/forge.rb)
           sed -i.orig "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
           cargo binstall --no-confirm --force --disable-strategies quick-install,compile \
+            --maximum-resolution-timeout 120 \
             --manifest-path Cargo.toml "mollendorff-forge@$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
@@ -98,6 +102,7 @@ jobs:
           # crates.io can take a minute to serve a version just published.
           for attempt in 1 2 3 4 5; do
             cargo binstall --no-confirm --disable-strategies quick-install,compile \
+              --maximum-resolution-timeout 120 \
               "mollendorff-forge@${{ inputs.version }}" && break
             [ "$attempt" = 5 ] && exit 1
             sleep 30
