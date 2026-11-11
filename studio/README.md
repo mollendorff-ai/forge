@@ -29,7 +29,7 @@ node studio/build.mjs forge-wasm/pkg-web studio-site
 
 On GitHub Pages, at `https://mollendorff-ai.github.io/forge/`, after each release (`.github/workflows/pages.yml`). The page's status pill shows the Forge version it runs. The workflow builds at the release's tag, deploys, and then opens the published address in a headless browser (`tests/live.mjs`): the version must be the release's and the bagel example's `year.profit` must be 786.32.
 
-Pages is switched on once, by an administrator: Settings, Pages, Source: GitHub Actions. To publish a release that already happened, run the workflow from the Actions tab and give it the tag (for example `v10.0.0-rc.13`). The page uses relative paths only, so a custom domain needs no change to the files.
+Pages is switched on once, by an administrator: Settings, Pages, Source: GitHub Actions. To publish by hand, run the workflow from the Actions tab with a tag or a branch; it defaults to `main`. Releases up to v10.0.0-rc.13 predate Studio and cannot be published. The page uses relative paths only, so a custom domain needs no change to the files.
 
 ## How it is checked
 

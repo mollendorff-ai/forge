@@ -17,8 +17,9 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Tag to publish, for example v10.0.0-rc.13"
+        description: "Tag or branch to publish. A release before v10.0.0-rc.14 has no Studio: use main"
         required: true
+        default: main
 
 env:
   CARGO_TERM_COLOR: always
