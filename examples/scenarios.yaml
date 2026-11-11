@@ -18,13 +18,13 @@ projections:
   total_profit: =operating_profit + synergies
 valuation:
   npv_cash_flows:
-    value: 3963185.5747558223
+    value: 3963185.57475582
     formula: =NPV(assumptions.discount_rate, projections.total_profit)
   net_value:
-    value: -6036814.425244178
+    value: -6036814.42524418
     formula: =npv_cash_flows - assumptions.acquisition_cost
   irr:
-    value: -0.2773900956338679
+    value: -0.277390095633868
     formula: =IRR(-assumptions.acquisition_cost, projections.total_profit)
 scenarios:
   bull_case:

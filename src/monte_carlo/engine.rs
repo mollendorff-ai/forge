@@ -583,7 +583,7 @@ impl SimulationResult {
             }
         });
 
-        to_string_pretty(&result_json)
+        to_string_pretty(&crate::core::precision::Rounded(&result_json))
     }
 }
 

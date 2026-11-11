@@ -10,6 +10,7 @@
 
 use crate::bayesian::{BayesianConfig, BayesianEngine};
 use crate::bootstrap::{BootstrapConfig, BootstrapEngine};
+use crate::core::precision::Rounded;
 use crate::decision_trees::{DecisionTreeConfig, DecisionTreeEngine};
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
@@ -22,13 +23,15 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Serialises an analytics result for `--output`: JSON for a `.json` path,
-/// YAML otherwise. (This used to write a Rust debug dump, which no tool can read.)
+/// YAML otherwise, with numbers to 15 significant digits (`core::precision`).
+/// (This used to write a Rust debug dump, which no tool can read.)
 fn serialize_for_file<T: serde::Serialize>(value: &T, path: &Path) -> ForgeResult<String> {
     if path.extension().and_then(|e| e.to_str()) == Some("json") {
-        serde_json::to_string_pretty(value)
+        serde_json::to_string_pretty(&Rounded(value))
             .map_err(|e| ForgeError::Validation(format!("JSON error: {e}")))
     } else {
-        yaml_serde::to_string(value).map_err(|e| ForgeError::Validation(format!("YAML error: {e}")))
+        yaml_serde::to_string(&Rounded(value))
+            .map_err(|e| ForgeError::Validation(format!("YAML error: {e}")))
     }
 }
 

@@ -7,12 +7,16 @@
 
 pub mod in_place;
 
+use crate::core::precision::to_15_digits;
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::ParsedModel;
 use std::fs;
 use std::path::Path;
 
 /// Write the results of formula scalars into the model file.
+///
+/// Each result is stored rounded to 15 significant digits, as Excel shows it
+/// (`core::precision`): `418.33`, not `418.3299999999999`.
 ///
 /// Returns the number of values that changed. Multi-document files are
 /// written document by document (ADR-052). The file is rewritten,
@@ -32,8 +36,12 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
         .iter()
         .filter(|(_, var)| var.formula.is_some())
         .filter_map(|(name, var)| {
-            var.value
-                .map(|v| (name.split('.').map(str::to_string).collect(), v))
+            var.value.map(|v| {
+                (
+                    name.split('.').map(str::to_string).collect(),
+                    to_15_digits(v),
+                )
+            })
         })
         .collect();
 

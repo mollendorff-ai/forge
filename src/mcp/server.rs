@@ -89,9 +89,10 @@ impl Default for ForgeMcpServer {
     }
 }
 
-/// Serialize a successful result to JSON string.
+/// Serialize a successful result to JSON string, numbers to 15 significant
+/// digits (`core::precision`).
 fn to_json<T: serde::Serialize>(result: &T) -> String {
-    serde_json::to_string(result).unwrap_or_default()
+    serde_json::to_string(&crate::core::precision::Rounded(result)).unwrap_or_default()
 }
 
 #[tool_router]
@@ -140,7 +141,8 @@ impl ForgeMcpServer {
             }
         }
 
-        serde_json::to_string(&json_val).map_err(|e| format!("Serialization failed: {e}"))
+        serde_json::to_string(&crate::core::precision::Rounded(&json_val))
+            .map_err(|e| format!("Serialization failed: {e}"))
     }
 
     #[tool(
@@ -343,7 +345,7 @@ impl ForgeMcpServer {
             return crate::cli::probability_seek_core(&path, options, &goal, vary, min, max)
                 .map_err(|e| format!("Seek failed: {e}"))
                 .and_then(|r| {
-                    serde_json::to_string_pretty(&r)
+                    serde_json::to_string_pretty(&crate::core::precision::Rounded(&r))
                         .map_err(|e| format!("Serialization failed: {e}"))
                 });
         }

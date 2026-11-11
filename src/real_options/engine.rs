@@ -68,7 +68,8 @@ impl OptionsResult {
     /// Export results to YAML format
     #[must_use]
     pub fn to_yaml(&self) -> String {
-        yaml_serde::to_string(self).unwrap_or_else(|_| "# Error serializing results".to_string())
+        yaml_serde::to_string(&crate::core::precision::Rounded(self))
+            .unwrap_or_else(|_| "# Error serializing results".to_string())
     }
 
     /// Export results to JSON format
@@ -77,7 +78,7 @@ impl OptionsResult {
     ///
     /// Returns an error if JSON serialization fails.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
-        serde_json::to_string_pretty(self)
+        serde_json::to_string_pretty(&crate::core::precision::Rounded(self))
     }
 }
 

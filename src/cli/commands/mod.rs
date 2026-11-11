@@ -88,6 +88,7 @@ pub use analysis::{
 #[cfg(test)]
 pub use upgrade::split_scalars_to_inputs_outputs;
 
+use crate::core::precision::to_15_digits;
 use crate::core::{ArrayCalculator, UnitValidator};
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
@@ -124,7 +125,10 @@ pub fn format_number(n: f64) -> String {
 /// and JSON results. A number that is not finite becomes null.
 fn column_json_values(values: &ColumnValue) -> Vec<serde_json::Value> {
     match values {
-        ColumnValue::Number(v) => v.iter().map(|n| serde_json::json!(n)).collect(),
+        ColumnValue::Number(v) => v
+            .iter()
+            .map(|n| serde_json::json!(to_15_digits(*n)))
+            .collect(),
         ColumnValue::Text(v) | ColumnValue::Date(v) => {
             v.iter().map(|t| serde_json::json!(t)).collect()
         },
@@ -132,12 +136,12 @@ fn column_json_values(values: &ColumnValue) -> Vec<serde_json::Value> {
     }
 }
 
-/// A column's values for the terminal, all of them and at full precision, like
-/// scalars: `[1, 2, 3]`. Long columns are not cut, because the values are what
+/// A column's values for the terminal, all of them and to 15 significant
+/// digits, like scalars: `[1, 2, 3]`. Long columns are not cut, because the values are what
 /// a reader (or an agent) needs.
 fn format_column_values(values: &ColumnValue) -> String {
     let items: Vec<String> = match values {
-        ColumnValue::Number(v) => v.iter().map(ToString::to_string).collect(),
+        ColumnValue::Number(v) => v.iter().map(|n| to_15_digits(*n).to_string()).collect(),
         ColumnValue::Text(v) | ColumnValue::Date(v) => v.iter().map(|t| format!("{t:?}")).collect(),
         ColumnValue::Boolean(v) => v.iter().map(|b| b.to_string().to_uppercase()).collect(),
     };
@@ -208,7 +212,7 @@ pub fn calculate_core(
     // Build scalar map
     let mut scalars = std::collections::BTreeMap::new();
     for (name, var) in &result.scalars {
-        scalars.insert(name.clone(), var.value);
+        scalars.insert(name.clone(), var.value.map(to_15_digits));
     }
 
     // Write results if not dry run
@@ -351,7 +355,7 @@ pub fn calculate(
                 println!(
                     "      {} = {}",
                     name.bright_blue(),
-                    format!("{value}").bold()
+                    to_15_digits(value).to_string().bold()
                 );
             }
         }
