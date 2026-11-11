@@ -71,17 +71,13 @@ tier2:
 # STUDIO — the web interface (ADR-055, ADR-056)
 # ═══════════════════════════════════════════════════════════════════════════════
 # A track of its own, worked in its own session alongside the engine tiers.
-# It does not wait for tier 1 and does not compete with it. S1 (the engine
-# builds without the command line or the servers, and for wasm32 in CI) is done
-# (PR #126). Order: S2, S3, S4 (publish early), then S5 to S8.
+# It does not wait for tier 1 and does not compete with it. Done: S1, the
+# engine builds without the command line or the servers, and for wasm32 in CI
+# (PR #126); S2, forge-wasm runs Forge's 20 tools in WebAssembly with the
+# native answers, 4.62 MB (1.51 MB gzipped) before wasm-opt (PR #129).
+# Order: S3, S4 (publish early), then S5 to S8.
 
 studio:
-  - id: S2-FORGE-WASM
-    title: "The forge-wasm crate: Forge's tools as functions that take text and return JSON"
-    why: "One engine for the terminal, MCP and the browser (ADR-055)"
-    how: "A workspace member with wasm-bindgen exposing the tools of ADR-055 decision 2, with the MCP tools' inputs minus file paths; built by wasm-pack in CI"
-    acceptance: "In CI, Node runs every example model through the WebAssembly build and gets the numbers asserted in tests/demo_examples.rs and tests/bagel_example.rs, a seeded simulation included; the build's size is written in the workflow summary"
-
   - id: S3-STUDIO-PORT
     title: "Forge Studio in studio/, calculating with forge-wasm"
     why: "The mockup works on a phone but calculates with its own JavaScript engine (ADR-055 Context)"
