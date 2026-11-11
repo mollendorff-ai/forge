@@ -3,6 +3,7 @@
 use crate::error::{ForgeError, ForgeResult};
 use crate::excel::{ExcelExporter, ExcelImporter};
 use crate::parser;
+#[cfg(feature = "cli")]
 use colored::Colorize;
 use std::fmt::Write as _;
 use std::fs;
@@ -57,6 +58,7 @@ pub fn export_core(input: &Path, output: &Path) -> ForgeResult<super::results::E
 /// # Errors
 ///
 /// Returns an error if the YAML file cannot be parsed or the Excel buffer export fails.
+#[cfg(feature = "cli")]
 pub fn export_buffer_core(input: &Path) -> ForgeResult<super::results::ExportBufferResult> {
     use base64::{engine::general_purpose::STANDARD, Engine as _};
 
@@ -65,15 +67,82 @@ pub fn export_buffer_core(input: &Path) -> ForgeResult<super::results::ExportBuf
     let scalar_count = model.scalars.len();
 
     let exporter = ExcelExporter::new(model);
-    let buffer = exporter.export_to_buffer()?;
+    let (buffer, written_as_values) = exporter.export_to_buffer_with_warnings()?;
     let base64_content = STANDARD.encode(&buffer);
+    let mut warnings: Vec<String> = uncalculated.into_iter().collect();
+    warnings.extend(written_as_values);
 
     Ok(super::results::ExportBufferResult {
         table_count,
         scalar_count,
         excel_base64: base64_content,
         byte_count: buffer.len(),
-        warnings: uncalculated.into_iter().collect(),
+        warnings,
+    })
+}
+
+/// A workbook made in memory, for a caller with no files (Forge Studio).
+pub struct ExportBytes {
+    /// The .xlsx file's bytes, as `forge export` would write them
+    pub bytes: Vec<u8>,
+    pub table_count: usize,
+    pub scalar_count: usize,
+    /// As `forge export`: the model does not calculate, a formula written as its value
+    pub warnings: Vec<String>,
+}
+
+/// [`export_core`] into memory, with the same workbook and the same warnings.
+///
+/// # Errors
+///
+/// Returns an error if the model cannot be parsed or the workbook cannot be made.
+pub fn export_bytes_core(input: &Path) -> ForgeResult<ExportBytes> {
+    let (model, uncalculated) = load_for_export(input)?;
+    let table_count = model.tables.len();
+    let scalar_count = model.scalars.len();
+    let (bytes, written_as_values) = ExcelExporter::new(model).export_to_buffer_with_warnings()?;
+    let mut warnings: Vec<String> = uncalculated.into_iter().collect();
+    warnings.extend(written_as_values);
+    Ok(ExportBytes {
+        bytes,
+        table_count,
+        scalar_count,
+        warnings,
+    })
+}
+
+/// A workbook imported into YAML text, for a caller with no files.
+pub struct ImportText {
+    /// The main model, as `forge import` writes it to a single file
+    pub main: String,
+    /// Each included file's text, by the name `_includes` gives it
+    pub includes: Vec<(String, String)>,
+    pub table_count: usize,
+    pub scalar_count: usize,
+    /// As `forge import`: formulas imported as values, text in a column of numbers
+    pub warnings: Vec<String>,
+}
+
+/// [`import_core`] of a single file, from the workbook's bytes to YAML text.
+///
+/// # Errors
+///
+/// Returns an error if the bytes are not a workbook Forge can read, or the
+/// model cannot be written as YAML.
+pub fn import_text_core(bytes: Vec<u8>) -> ForgeResult<ImportText> {
+    let (model, warnings) = ExcelImporter::from_bytes(bytes).import_with_warnings()?;
+    let mut includes = Vec::new();
+    for include in &model.includes {
+        if let Some(resolved) = model.resolved_includes.get(&include.namespace) {
+            includes.push((include.file.clone(), model_to_yaml(&resolved.model)?));
+        }
+    }
+    Ok(ImportText {
+        main: model_to_yaml(&model)?,
+        includes,
+        table_count: model.tables.len(),
+        scalar_count: model.scalars.len(),
+        warnings,
     })
 }
 
@@ -453,6 +522,7 @@ fn write_split_files_quiet(
 /// # Errors
 ///
 /// Returns an error if the YAML file cannot be parsed or the Excel export fails.
+#[cfg(feature = "cli")]
 pub fn export(input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
     println!("{}", "🔥 Forge - Excel Export".bold().green());
     println!("   Input:  {}", input.display());
@@ -501,6 +571,7 @@ pub fn export(input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
 /// # Errors
 ///
 /// Returns an error if the Excel file cannot be read, imported, or written as YAML.
+#[cfg(feature = "cli")]
 pub fn import(
     input: &Path,
     output: &Path,
@@ -563,6 +634,7 @@ pub fn import(
     Ok(())
 }
 
+#[cfg(feature = "cli")]
 fn write_split_files(
     output: &Path,
     model: &crate::types::ParsedModel,
@@ -609,6 +681,7 @@ fn write_multi_doc_quiet(output: &Path, model: &crate::types::ParsedModel) -> Fo
     fs::write(output, yaml_output).map_err(ForgeError::Io)
 }
 
+#[cfg(feature = "cli")]
 fn write_multi_doc(output: &Path, model: &crate::types::ParsedModel) -> ForgeResult<()> {
     write_multi_doc_quiet(output, model)?;
     println!("{}", "✅ Import Complete!".bold().green());

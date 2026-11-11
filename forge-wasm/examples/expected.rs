@@ -2,6 +2,10 @@
 //! object by case name. CI compares the WebAssembly build's results with these.
 //!
 //! `cargo run -p forge-wasm --release --example expected > expected.json`
+//!
+//! With a directory as argument it also writes there what `forge export` writes
+//! for each example Forge Studio exports (`bagel.xlsx`, `mortgage.xlsx`), with
+//! the command line's own function, for the workbook comparisons.
 
 use forge_wasm::{cases, run};
 use serde_json::{Map, Value};
@@ -20,4 +24,16 @@ fn main() {
         results.insert(name, answer);
     }
     println!("{}", Value::Object(results));
+
+    if let Some(dir) = std::env::args().nth(1) {
+        let dir = Path::new(&dir);
+        std::fs::create_dir_all(dir).expect("the directory for the workbooks");
+        for (model, out) in [
+            ("bagel/bagel.yaml", "bagel.xlsx"),
+            ("mortgage/mortgage.yaml", "mortgage.xlsx"),
+        ] {
+            mollendorff_forge::cli::export_core(&examples.join(model), &dir.join(out))
+                .unwrap_or_else(|e| panic!("forge export {model}: {e}"));
+        }
+    }
 }

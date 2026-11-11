@@ -22,3 +22,4 @@ dist/
 /studio/node_modules/
 /studio/package-lock.json
 /studio-screenshots/
+/forge-wasm/xlsx/

@@ -10,6 +10,7 @@ import { readFileSync, statSync, appendFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { differences as workbookDifferences } from "./xlsx.mjs";
 
 const [pkg, expectedPath, examples] = process.argv.slice(2).map((p) => resolve(p));
 const here = dirname(fileURLToPath(import.meta.url));
@@ -35,6 +36,12 @@ function compare(a, b, path) {
   if (a && b && typeof a === "object" && typeof b === "object") {
     const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
     keys.delete("execution_time_ms");
+    // A workbook is compared by its parts (xlsx.mjs): it records when it was made
+    if ("excel_base64" in a && "excel_base64" in b) {
+      keys.delete("excel_base64");
+      keys.delete("byte_count");
+      for (const d of workbookDifferences(Buffer.from(a.excel_base64, "base64"), Buffer.from(b.excel_base64, "base64"))) differences.push(`${path}: ${d}`);
+    }
     for (const k of keys) {
       if (!(k in a) || !(k in b)) differences.push(`${path}.${k}: only in ${k in a ? "wasm" : "native"}`);
       else compare(a[k], b[k], `${path}.${k}`);

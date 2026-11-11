@@ -736,10 +736,13 @@ function renderFiles() {
     <div class="eyebrow"><h2>this model's files</h2><span class="tag">${Object.keys(S.files).length}</span></div>
     <div class="card stack">${Object.keys(S.files).map((f) => `<div class="row file"><div><b>${esc(f)}</b><p class="note">${f === S.main ? "Main model" : included.has(f) ? "Included by the main model" : "Another model"}</p></div>
       ${f !== S.main && !included.has(f) ? `<button class="btn" type="button" data-main="${esc(f)}">Open</button>` : ""}<button class="btn" type="button" data-dl="${esc(f)}">Download</button></div>`).join("")}</div>
+    <div class="eyebrow"><h2>excel</h2><span class="tag">forge export</span></div>
+    <div class="card row form"><div class="file"><div><b>${esc(S.main.replace(/\.ya?ml$/i, ""))}.xlsx</b><p class="note">The workbook <span class="mono">forge export</span> writes: every table and scalar group on its own sheet, with live formulas.</p></div>
+      <button class="btn primary" type="button" id="xlsx" ${S.structure ? "" : "disabled"}>Download</button></div><div id="xlsx-msg"></div></div>
     ${S.calc && Object.keys(S.calc.tables).length ? `<div class="eyebrow"><h2>tables as CSV</h2><span class="tag">calculated</span></div><div class="card stack">${Object.keys(S.calc.tables).map((t) => `<div class="row file"><div><b>${esc(t)}.csv</b></div><button class="btn" type="button" data-csv="${esc(t)}">Download</button></div>`).join("")}</div>` : ""}
     <div class="eyebrow"><h2>your own model</h2></div>
-    <div class="card row form"><label class="lab" for="imp">Open YAML files from this device (the main model and the files it includes)</label><input type="file" id="imp" accept=".yaml,.yml,text/yaml" multiple>
-      <p class="note">They stay in this browser. Excel files come later (roadmap S8).</p></div>
+    <div class="card row form"><label class="lab" for="imp">Open YAML files from this device (the main model and the files it includes), or an Excel workbook (.xlsx), which <span class="mono">forge import</span> turns into a model</label><input type="file" id="imp" accept=".yaml,.yml,.xlsx,text/yaml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple>
+      <div id="imp-msg"></div><p class="note">They stay in this browser.</p></div>
     ${edited ? `<div class="btns"><button class="btn warn" type="button" id="reset">Undo all edits to ${esc(set.title)}</button></div>` : ""}`;
 }
 const vf = $("#view-files");
@@ -750,9 +753,43 @@ vf.addEventListener("click", async (e) => {
   if (t.dataset.dl) download(t.dataset.dl, S.files[t.dataset.dl]);
   if (t.dataset.csv) download(t.dataset.csv + ".csv", csvOf(t.dataset.csv), "text/csv");
   if (t.id === "reset") { openSet(S.set); save(); show("model"); await load(); }
+  if (t.id === "xlsx") await exportWorkbook();
 });
+
+// ---------- Excel (roadmap S8): forge export and forge import, in the browser ----------
+// A workbook crosses to and from forge-wasm as base64, as in the MCP tool
+const toBase64 = (bytes) => {
+  let text = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(text);
+};
+const fromBase64 = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+const warningList = (title, warnings) => (warnings.length ? `<div class="msg" style="margin-top:8px"><b>${esc(title)}</b><ul>${warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : "");
+async function exportWorkbook() {
+  const box = $("#xlsx-msg");
+  busy(box, "Forge is writing the workbook…");
+  try {
+    const r = await call("export", request());
+    const name = `${S.main.replace(/\.ya?ml$/i, "")}.xlsx`;
+    download(name, fromBase64(r.excel_base64), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    box.innerHTML = `<p class="note" style="margin-top:8px">${esc(name)}: ${r.table_count} tables, ${r.scalar_count} scalars, ${(r.byte_count / 1024).toFixed(0)} KB.</p>` + warningList("Written as values, because Excel cannot express them:", r.warnings);
+  } catch (err) { fail(box, err); }
+}
 vf.addEventListener("change", async (e) => {
   if (e.target.id !== "imp" || !e.target.files.length) return;
+  const workbook = [...e.target.files].find((f) => /\.xlsx$/i.test(f.name));
+  if (workbook) {
+    const box = $("#imp-msg");
+    busy(box, "Forge is reading the workbook…");
+    try {
+      const name = workbook.name.replace(/\.xlsx$/i, ".yaml");
+      const r = await call("import", { excel_base64: toBase64(new Uint8Array(await workbook.arrayBuffer())), name });
+      Object.assign(S, { set: null, files: r.files, main: r.main, title: workbook.name });
+      forget(); save(); show("model"); await load();
+      if (r.warnings.length) openSheet("Imported, with warnings", warningList("forge import says:", r.warnings));
+    } catch (err) { fail(box, err); }
+    return;
+  }
   const files = {};
   for (const f of e.target.files) files[f.name] = await f.text();
   const names = Object.keys(files);

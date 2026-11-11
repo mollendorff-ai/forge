@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Excel export and import in Forge Studio** (roadmap S8-EXCEL-IN-BROWSER). The Files tab downloads the model as the workbook `forge export` writes, and opens an `.xlsx` file, which Forge imports into a model as `forge import` does. `rust_xlsxwriter` and `calamine` build for the browser (with `rust_xlsxwriter`'s `wasm` feature, so a workbook's creation time comes from the browser's clock), and `forge-wasm` gains the tools `export` and `import`. The workbook Studio downloads for the bagel and mortgage examples is the one `forge export` writes: the same parts, each the same byte for byte, apart from the time it was made, to the second, in `docProps/core.xml`; made in the same second, the two files are equal byte for byte. `studio/tests/excel.mjs` checks this in CI on the WebAssembly build, and that `forge export`'s bagel workbook, opened in Studio, calculates to `year.profit` 786.32.
+- **`ExcelImporter::from_bytes`, `export_bytes_core` and `import_text_core`**: a workbook read from memory, and export and import without files, with the same workbook, model and warnings as `forge export` and `forge import` (a test imports the same workbook from a file and from its bytes and compares). They build with the `excel` feature alone, without the command line.
+
 ### Fixed
 - **`forge --version` says which commit a build came from.** A build of main said `forge 10.0.0-rc.11`, the same as the release, though it had code the release did not, so a bug report could not say which code it came from. A build of any commit other than a release now says `forge 10.0.0-rc.13 (a8ec1db)`, or `(a8ec1db, modified)` with uncommitted changes; a release, a crates.io build and any build without Git history say the plain version, as before. It is text read at build time by `build.rs`, not a `-dev` version in `Cargo.toml`: Auto Release tags a version change, so a `-dev` version on main would publish a release for every merge. The release workflow sets `FORGE_RELEASE` as well, and the install checks that compare `forge --version` with the version still pass.
-
-### Planned
-- **Forge Studio: Excel export and import in the browser (S8).** Users of the command line, MCP and the REST API see no change.
+- **The MCP tool `forge_export` without a path did not say which formulas it wrote as values.** Exported to a file, it lists each formula Excel cannot express that was written as its value; exported to memory (`excel_base64`), it listed only whether the model calculates. Both now give the same warnings.
 
 ## [10.0.0-rc.14] - 2026-11-11
 

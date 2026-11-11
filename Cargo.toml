@@ -166,6 +166,9 @@ getrandom = { version = "0.4", features = ["wasm_js"] }
 # jsonschema's hashing (ahash) still uses getrandom 0.3
 getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 chrono = { version = "0.4", features = ["serde", "wasmbind"] }
+# A workbook's creation time from the browser's clock (std's clock panics
+# there); only when Excel is built in (feature `excel`)
+rust_xlsxwriter = { version = "0.102", optional = true, features = ["wasm"] }
 
 # E2E tests migrated to forge-e2e repository (see ADR-027)
 # Gnumeric, R, Python validation now in https://github.com/mollendorff-ai/forge-e2e
