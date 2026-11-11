@@ -79,15 +79,10 @@ tier2:
 # checked against forge calculate in a headless browser.
 # S4, Studio published on GitHub Pages after each release (workflow
 # pages.yml; it publishes once Pages is switched on and the workflow runs).
-# Order: S5 to S8.
+# S5, the editor and the cards side by side above 900 px.
+# Order: S6 to S8.
 
 studio:
-  - id: S5-SPLIT-VIEW
-    title: "Editor and cards side by side on wide screens"
-    why: "On a laptop the YAML and its results should be visible together, so a change in one shows in the other (ADR-056 decision 3)"
-    how: "Below about 900 px: one column and bottom tabs. Wider: editor left, cards right, a draggable divider, a control to hide either side; Analyze, MCP and Files open in the right pane"
-    acceptance: "Screenshots at 390 x 844 and 1440 x 900, in light and dark, are in the pull request; a headless test at 320 px finds no horizontal scroll; typing a number in the editor on the wide layout changes its card"
-
   - id: S6-HIGHLIGHT-ONE-SOURCE
     title: "Studio highlights formulas with the VS Code extension's rules"
     why: "Two copies of the same rules drift (ADR-056 decision 4)"

@@ -15,21 +15,24 @@
   </div>
 </header>
 
-<main>
-  <section class="view" id="view-model"></section>
-  <section class="view" id="view-yaml" hidden></section>
-  <section class="view" id="view-analyze" hidden></section>
-  <section class="view" id="view-mcp" hidden></section>
-  <section class="view" id="view-files" hidden></section>
-</main>
-
 <nav class="tabs" aria-label="Views"><div class="tabs-in">
   <button class="tab" data-tab="model" type="button"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="5" rx="1.5"/><rect x="4" y="11" width="16" height="9" rx="1.5"/></svg>Model</button>
   <button class="tab" data-tab="yaml" type="button"><svg viewBox="0 0 24 24"><path d="M8 7l-4 5 4 5M16 7l4 5-4 5M13.5 5l-3 14"/></svg>YAML</button>
   <button class="tab" data-tab="analyze" type="button"><svg viewBox="0 0 24 24"><path d="M4 20h16M6 20v-5M10 20V8M14 20v-9M18 20v-4"/></svg>Analyze</button>
   <button class="tab" data-tab="mcp" type="button"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M8 11l8-4M8 13l8 4"/></svg>Tools</button>
   <button class="tab" data-tab="files" type="button"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M12 11v6M9 14l3 3 3-3"/></svg>Files</button>
+  <span class="panes" role="group" aria-label="Show"><button type="button" class="pane-btn" id="hide-editor" aria-pressed="false" title="Hide the editor"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M10 4.5v15"/><path d="M5.5 9h2.5M5.5 12h2.5M5.5 15h2.5"/></svg>Hide editor</button><button type="button" class="pane-btn" id="hide-cards" aria-pressed="false" title="Hide the cards"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M14 4.5v15"/><rect x="15.8" y="8" width="3" height="3" rx=".6"/><rect x="15.8" y="13" width="3" height="3" rx=".6"/></svg>Hide cards</button></span>
 </div></nav>
+
+<main>
+  <section class="view" id="view-yaml" hidden aria-label="YAML"></section>
+  <div id="divider" role="separator" aria-orientation="vertical" aria-label="Resize the editor" aria-valuemin="25" aria-valuemax="75" aria-valuenow="42" tabindex="0"></div>
+  <section class="view" id="view-model"></section>
+  <section class="view" id="view-analyze" hidden></section>
+  <section class="view" id="view-mcp" hidden></section>
+  <section class="view" id="view-files" hidden></section>
+</main>
+
 
 <div class="sheet-bg" id="sheet" hidden><div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><h3 id="sheet-title">Problems</h3><div id="sheet-body"></div><div class="btns" style="margin-top:14px"><button class="btn" id="sheet-close" type="button">Close</button></div></div></div>
 

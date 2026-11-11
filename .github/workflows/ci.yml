@@ -189,6 +189,19 @@ jobs:
           timeout 180 npx playwright install-deps chromium || echo "system packages not installed; continuing"
           node tests/screen.mjs ../studio-site ../forge-wasm/expected.json
 
+      - name: Studio's layouts (320 px, side by side at 1440 px) and screenshots
+        working-directory: studio
+        run: node tests/layout.mjs ../studio-site ../studio-screenshots
+
+      - name: Upload Studio's screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: studio-screenshots
+          path: studio-screenshots
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload Forge Studio
         uses: actions/upload-artifact@v7
         with:
