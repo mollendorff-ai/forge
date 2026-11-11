@@ -582,6 +582,7 @@ forge (this repo)             validation repos
 cargo test                              # Run all tests
 cargo clippy -- -D warnings             # Lint (pedantic)
 make check                              # Full CI check
+cargo build --lib --no-default-features # The engine alone: no command line, servers or Excel (ADR-055)
 ```
 
 ---

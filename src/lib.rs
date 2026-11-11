@@ -30,26 +30,37 @@
 //! # Ok::<(), mollendorff_forge::error::ForgeError>(())
 //! ```
 
-pub mod cli;
 pub mod core;
 pub mod error;
-pub mod excel;
 pub mod functions;
 pub mod parser;
 pub mod types;
 pub mod writer;
 
 // Analysis modules
-pub mod api;
 pub mod bayesian;
 pub mod bootstrap;
 pub mod decision_trees;
-pub mod inline_model;
-pub mod mcp;
 pub mod monte_carlo;
 pub mod real_options;
 pub mod scenarios;
 pub mod tornado;
+
+// Excel export and import (feature `excel`, part of the default `cli`)
+#[cfg(feature = "excel")]
+pub mod excel;
+
+// The command line, the MCP server and the REST API (feature `cli`, the
+// default). Without it the crate is the parser, the calculator and the
+// analysis engines, which also build for a browser (ADR-055).
+#[cfg(feature = "cli")]
+pub mod api;
+#[cfg(feature = "cli")]
+pub mod cli;
+#[cfg(feature = "cli")]
+pub mod inline_model;
+#[cfg(feature = "cli")]
+pub mod mcp;
 
 #[cfg(test)]
 mod config_strictness_tests;

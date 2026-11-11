@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The engine builds without the command line, the servers and Excel** (roadmap S1-CORE-NO-OS, ADR-055), the first step towards running Forge in a browser. A new default feature, `cli`, holds the command line, the MCP server, the REST API and Excel (`excel`); `cargo build --lib --no-default-features` builds the parser, the calculator and the analysis engines alone, and CI builds that for `wasm32-unknown-unknown`. `cargo install mollendorff-forge`, `cargo build` and the release binaries are unchanged: on every example, the same 74 commands (calculate, validate, scenarios, simulate, export and the rest) gave the same output before and after, apart from timings, file paths and the workbook's creation time.
+- **A model can be read from memory**: `parser::parse_model_text(name, text, files)` takes the main model's text and the texts of the files it includes, by the path written in `_includes`, and reads nothing from disk. It gives the same model and the same results as `parse_model` on the same files, including an include of an include (tests in `src/parser/memory_tests.rs`).
+- **`jsonschema` no longer fetches schemas over HTTP.** Forge's schemas are built in and never referred to the web, so nothing changes for a model; Cargo.lock loses 54 crates of HTTP and TLS code.
+
 ### Planned
 - **Forge Studio, a web interface, and Forge in the browser** (ADR-055, ADR-056, roadmap `studio`). Decisions only, nothing built yet: Forge's engine compiled to WebAssembly as a `forge-wasm` crate, and a phone-first page in `studio/` that calculates with it, with the YAML editor and the cards side by side on wide screens, published on GitHub Pages with each release. Users of the command line, MCP and the REST API see no change.
 

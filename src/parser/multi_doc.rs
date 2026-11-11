@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use yaml_serde::Value;
 
-use super::includes::resolve_includes;
+use super::includes::{resolve_includes_from, FileSource, IncludeSource};
 use super::model::parse_v1_model;
 
 /// Detect if content is a multi-document YAML file
@@ -35,6 +35,15 @@ pub fn detect_multi_document(content: &str) -> bool {
 ///
 /// Returns an error if the YAML content is invalid or fails schema validation.
 pub fn parse_single_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedModel> {
+    parse_single_document_from(&FileSource, content, path)
+}
+
+/// [`parse_single_document_yaml`], with included files read from `source`.
+pub(super) fn parse_single_document_from(
+    source: &dyn IncludeSource,
+    content: &str,
+    path: &Path,
+) -> ForgeResult<ParsedModel> {
     // Strip leading document marker if present
     let content = content.trim_start();
     let content = content.strip_prefix("---").map_or(content, str::trim_start);
@@ -45,7 +54,7 @@ pub fn parse_single_document_yaml(content: &str, path: &Path) -> ForgeResult<Par
 
     // Resolve includes if any (v4.0)
     if !model.includes.is_empty() {
-        resolve_includes(&mut model, path, &mut HashSet::new())?;
+        resolve_includes_from(source, &mut model, path, &mut HashSet::new())?;
     }
 
     Ok(model)
@@ -65,6 +74,15 @@ pub fn parse_single_document_yaml(content: &str, path: &Path) -> ForgeResult<Par
 /// Returns an error if any document is invalid YAML or fails schema
 /// validation, or if two documents define the same table, scalar or scenario.
 pub fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<ParsedModel> {
+    parse_multi_document_from(&FileSource, content, path)
+}
+
+/// [`parse_multi_document_yaml`], with included files read from `source`.
+pub(super) fn parse_multi_document_from(
+    source: &dyn IncludeSource,
+    content: &str,
+    path: &Path,
+) -> ForgeResult<ParsedModel> {
     let mut merged_model = ParsedModel::new();
     // Which document defined each name, for the collision message
     let mut defined_in: std::collections::HashMap<String, String> =
@@ -133,7 +151,7 @@ pub fn parse_multi_document_yaml(content: &str, path: &Path) -> ForgeResult<Pars
     check_document_labels_in_formulas(&merged_model)?;
 
     if !merged_model.includes.is_empty() {
-        resolve_includes(&mut merged_model, path, &mut HashSet::new())?;
+        resolve_includes_from(source, &mut merged_model, path, &mut HashSet::new())?;
     }
 
     Ok(merged_model)

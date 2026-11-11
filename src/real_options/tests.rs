@@ -320,6 +320,7 @@ options:
 }
 
 /// The shipped example: build now (NPV $2M) and keep the option to expand.
+#[cfg(feature = "cli")]
 #[test]
 fn test_example_file_best_option() {
     use crate::cli::commands::real_options_core;

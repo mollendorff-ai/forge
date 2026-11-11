@@ -71,17 +71,11 @@ tier2:
 # STUDIO — the web interface (ADR-055, ADR-056)
 # ═══════════════════════════════════════════════════════════════════════════════
 # A track of its own, worked in its own session alongside the engine tiers.
-# It does not wait for tier 1 and does not compete with it, with one exception:
-# S1 changes Cargo.toml and the parser, so it is merged before other engine work
-# starts on those files. Order: S1, S2, S3, S4 (publish early), then S5 to S8.
+# It does not wait for tier 1 and does not compete with it. S1 (the engine
+# builds without the command line or the servers, and for wasm32 in CI) is done
+# (PR #126). Order: S2, S3, S4 (publish early), then S5 to S8.
 
 studio:
-  - id: S1-CORE-NO-OS
-    title: "Build the parser, calculator and analysis engines without the command line or the servers"
-    why: "The browser build (ADR-055) cannot link tokio, axum, rmcp, notify, tempfile or clap. Outside tests the core reads files in two places, parse_model and the include loader"
-    how: "A default Cargo feature for the command line and the servers; a model source of main text and include texts, filled from files by the CLI and from memory by the browser; rand's browser source only for unseeded runs; jsonschema without HTTP"
-    acceptance: "cargo build --no-default-features --target wasm32-unknown-unknown passes in CI; cargo test passes unchanged; the release binary's commands and output are byte for byte the same on the examples"
-
   - id: S2-FORGE-WASM
     title: "The forge-wasm crate: Forge's tools as functions that take text and return JSON"
     why: "One engine for the terminal, MCP and the browser (ADR-055)"

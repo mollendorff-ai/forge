@@ -13,12 +13,14 @@
 
 mod arrays;
 mod includes;
+#[cfg(test)]
+mod memory_tests;
 pub(crate) mod model;
 mod multi_doc;
 pub(crate) mod periods;
 mod schema;
 mod schema_errors;
-#[cfg(test)]
+#[cfg(all(test, feature = "cli"))]
 mod short_form_tests;
 mod variables;
 
@@ -63,21 +65,44 @@ use crate::types::ParsedModel;
 /// ```
 pub fn parse_model(path: &std::path::Path) -> ForgeResult<ParsedModel> {
     let content = std::fs::read_to_string(path)?;
-
-    // Check if this is a multi-document YAML file (v4.4.2)
-    // Multi-doc files have at least two document separators (---) on their own lines
-    // We need to skip comments and whitespace when detecting
-    let is_multi_doc = detect_multi_document(&content);
-
-    let mut model = if is_multi_doc {
-        // Parse all documents and merge (v4.4.2)
-        parse_multi_document_yaml(&content, path)?
-    } else {
-        // Single document parsing (original behavior)
-        parse_single_document_yaml(&content, path)?
-    };
+    let mut model = parse_content(&includes::FileSource, &content, path)?;
     model.source = Some(path.to_path_buf());
     Ok(model)
+}
+
+/// Parse a model held in memory, reading nothing from the file system (ADR-055).
+///
+/// `text` is the main model and `name` its file name, used in messages and as
+/// the place its includes are relative to. `files` holds the text of every
+/// file it includes, directly or through another include, by the path written
+/// in `_includes` (`costs.yaml`), relative to the main model as on disk. The
+/// model's `source` is `None`: there is no file to write results back to.
+///
+/// # Errors
+///
+/// Returns the errors [`parse_model`] returns for the same files, including
+/// an included file that is not in `files`.
+pub fn parse_model_text<S: std::hash::BuildHasher>(
+    name: &str,
+    text: &str,
+    files: &std::collections::HashMap<String, String, S>,
+) -> ForgeResult<ParsedModel> {
+    let source = includes::MemorySource { files };
+    parse_content(&source, text, std::path::Path::new(name))
+}
+
+/// One file's text, of one document or several (v4.4.2: a multi-document
+/// file has at least two `---` lines), with its includes read from `source`.
+fn parse_content(
+    source: &dyn includes::IncludeSource,
+    content: &str,
+    path: &std::path::Path,
+) -> ForgeResult<ParsedModel> {
+    if detect_multi_document(content) {
+        multi_doc::parse_multi_document_from(source, content, path)
+    } else {
+        multi_doc::parse_single_document_from(source, content, path)
+    }
 }
 
 #[cfg(test)]

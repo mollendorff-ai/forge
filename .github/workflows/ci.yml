@@ -101,6 +101,26 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-targets -- -D warnings
 
+  # The parser, the calculator and the analysis engines without the command
+  # line or the servers, for a browser (ADR-055, roadmap S1-CORE-NO-OS)
+  core-browser:
+    name: Core for the browser (wasm32)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust stable with the WebAssembly target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy
+
+      - name: Build the core for wasm32-unknown-unknown
+        run: cargo build --lib --release --no-default-features --target wasm32-unknown-unknown
+
+      - name: Lint the core without the default features
+        run: cargo clippy --lib --no-default-features -- -D warnings
+
   build:
     name: Build
     runs-on: ubuntu-22.04

@@ -4,11 +4,78 @@
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Include, ParsedModel, ResolvedInclude};
-use std::collections::HashSet;
-use std::path::Path;
+use std::collections::{HashMap, HashSet};
+use std::hash::BuildHasher;
+use std::path::{Component, Path, PathBuf};
 use yaml_serde::Value;
 
 use super::model::parse_v1_model;
+
+/// Where the files a model includes come from (ADR-055): the file system for
+/// the command line, a map of texts for a model held in memory.
+pub(super) trait IncludeSource {
+    /// Whether the file at `path` exists.
+    fn exists(&self, path: &Path) -> bool;
+    /// The text of the file at `path`.
+    fn read(&self, path: &Path) -> ForgeResult<String>;
+    /// The one name of the file at `path`, for finding circular includes.
+    fn identity(&self, path: &Path) -> PathBuf;
+}
+
+/// Included files read from the file system.
+pub(super) struct FileSource;
+
+impl IncludeSource for FileSource {
+    fn exists(&self, path: &Path) -> bool {
+        path.exists()
+    }
+
+    fn read(&self, path: &Path) -> ForgeResult<String> {
+        Ok(std::fs::read_to_string(path)?)
+    }
+
+    fn identity(&self, path: &Path) -> PathBuf {
+        path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+    }
+}
+
+/// Included files held in memory, by the path written in `_includes`
+/// relative to the main model (`costs.yaml`, `data/costs.yaml`).
+pub(super) struct MemorySource<'a, S: BuildHasher> {
+    pub(super) files: &'a HashMap<String, String, S>,
+}
+
+impl<S: BuildHasher> IncludeSource for MemorySource<'_, S> {
+    fn exists(&self, path: &Path) -> bool {
+        self.files.contains_key(&normalize(path))
+    }
+
+    fn read(&self, path: &Path) -> ForgeResult<String> {
+        self.files.get(&normalize(path)).cloned().ok_or_else(|| {
+            ForgeError::Parse(format!("Included file not found: {}", path.display()))
+        })
+    }
+
+    fn identity(&self, path: &Path) -> PathBuf {
+        PathBuf::from(normalize(path))
+    }
+}
+
+/// A relative path without `.` and `..`, its parts joined with `/`
+/// (`./a/../costs.yaml` is `costs.yaml`).
+fn normalize(path: &Path) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    for component in path.components() {
+        match component {
+            Component::Normal(part) => parts.push(part.to_string_lossy().into_owned()),
+            Component::ParentDir => {
+                parts.pop();
+            },
+            Component::CurDir | Component::RootDir | Component::Prefix(_) => {},
+        }
+    }
+    parts.join("/")
+}
 
 /// Resolve all includes in a model, loading and parsing referenced files.
 /// Detects circular dependencies.
@@ -17,17 +84,25 @@ use super::model::parse_v1_model;
 ///
 /// Returns an error if an included file is not found, contains invalid YAML,
 /// or creates a circular dependency.
-pub fn resolve_includes<S: std::hash::BuildHasher>(
+pub fn resolve_includes<S: BuildHasher>(
     model: &mut ParsedModel,
     base_path: &Path,
-    visited: &mut HashSet<std::path::PathBuf, S>,
+    visited: &mut HashSet<PathBuf, S>,
+) -> ForgeResult<()> {
+    resolve_includes_from(&FileSource, model, base_path, visited)
+}
+
+/// [`resolve_includes`], with the included files read from `source`.
+pub(super) fn resolve_includes_from<S: BuildHasher>(
+    source: &dyn IncludeSource,
+    model: &mut ParsedModel,
+    base_path: &Path,
+    visited: &mut HashSet<PathBuf, S>,
 ) -> ForgeResult<()> {
     let base_dir = base_path.parent().unwrap_or_else(|| Path::new("."));
 
     // Check for circular dependency
-    let canonical = base_path
-        .canonicalize()
-        .unwrap_or_else(|_| base_path.to_path_buf());
+    let canonical = source.identity(base_path);
     if visited.contains(&canonical) {
         return Err(ForgeError::Parse(format!(
             "Circular dependency detected: {} is already included",
@@ -40,7 +115,7 @@ pub fn resolve_includes<S: std::hash::BuildHasher>(
     for include in model.includes.clone() {
         let include_path = base_dir.join(&include.file);
 
-        if !include_path.exists() {
+        if !source.exists(&include_path) {
             return Err(ForgeError::Parse(format!(
                 "Included file not found: {} (referenced as '{}')",
                 include_path.display(),
@@ -49,19 +124,19 @@ pub fn resolve_includes<S: std::hash::BuildHasher>(
         }
 
         // Parse the included file
-        let content = std::fs::read_to_string(&include_path)?;
+        let content = source.read(&include_path)?;
         let yaml: Value = yaml_serde::from_str(&content)?;
         let mut included_model = parse_v1_model(&yaml)?;
 
         // Recursively resolve includes in the included file
         if !included_model.includes.is_empty() {
-            resolve_includes(&mut included_model, &include_path, visited)?;
+            resolve_includes_from(source, &mut included_model, &include_path, visited)?;
         }
 
         // Store resolved include
         let resolved = ResolvedInclude {
             include: include.clone(),
-            resolved_path: include_path.canonicalize().unwrap_or(include_path),
+            resolved_path: source.identity(&include_path),
             model: included_model,
         };
         model

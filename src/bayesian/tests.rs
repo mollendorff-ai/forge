@@ -406,6 +406,7 @@ fn test_cpt_row_must_name_a_parent_state() {
     assert!(err.contains("'z' is not a state"), "{err}");
 }
 
+#[cfg(feature = "cli")]
 #[test]
 fn test_example_file_matches_hand_computed_posteriors() {
     use crate::cli::commands::bayesian_core;
