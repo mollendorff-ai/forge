@@ -84,7 +84,23 @@ tier2:
 # export and import in the browser, the workbook forge export writes.
 
 studio:
-  [] # every studio item is done (2026-11-11); the next ones come from using Studio
+  - id: S9-ADD-ELEMENTS
+    title: "Add and delete model elements from cards"
+    why: "Typing YAML on a phone is the hardest part of Studio (the maintainer, 2026-11-11). A card edit changes a value or a formula; it cannot add an input, a formula or a table column, or remove one"
+    how: "An ADR first (an addendum to ADR-056) on what Studio may write: adding a new element to a section and deleting one, in the file's own style, with the same rule as S7 (kept only if Forge accepts the model and reads back exactly the new element, nothing else changed). Rename is not in this item: it has to rewrite every formula that uses the name"
+    acceptance: "Adding an input, a scalar formula and a table column to every example, and deleting each again, gives back the original file byte for byte (a test); the added line is the only change in between; an element that makes the model invalid, or a name that already exists, is refused with Forge's message and the file is as it was"
+
+  - id: S10-AUTOCOMPLETE
+    title: "Suggest names and functions while a formula is typed"
+    why: "A formula is typed from memory today; a wrong name is found only after Save. On a phone a dropdown is covered by the keyboard"
+    how: "Start in the formula editor (card formulas, and the formula in the add form of S9), not the YAML editor. Names come from the model as Forge returns it and functions from Forge's function list, not from a list in the page (no-engine.mjs). A strip of suggestions above the keyboard. Keys such as unit: and formula: in the YAML editor come after, from the model format's schema"
+    acceptance: "For every formula in every example, typing its first letters at each name or function offers the name or function that follows (a test over the examples); a suggestion inserts exactly its text; the functions offered are the 169 Forge lists, and a function Forge does not list is never offered"
+
+  - id: S11-GRID
+    title: "A spreadsheet view of the model"
+    why: "Cards show one value at a time. A model with tables is read as a grid in Excel, and the maintainer asked for a spreadsheet visualizer (2026-11-11)"
+    how: "Read-only, built from what Forge returns: each table as rows and columns, scalars as a list, a tap on a cell shows its formula. To confirm with the maintainer: this reading (a grid tab), or a preview of the exported workbook with its sheets and Excel formulas, which is a larger item"
+    acceptance: "For every table of every example, each cell of the grid equals the value Forge returns for it (a test); a tap on a formula cell shows the formula Forge reports; nothing in the page calculates"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done and at least two people use it)
