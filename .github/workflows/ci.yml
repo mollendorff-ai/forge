@@ -181,12 +181,12 @@ jobs:
         working-directory: studio
         run: |
           npm install --no-audit --no-fund
-          # The runner's package mirror sometimes does not answer (2026-11-11)
-          for attempt in 1 2 3; do
-            npx playwright install --with-deps chromium && break
-            [ "$attempt" = 3 ] && exit 1
-            sleep 20
-          done
+          # The browser comes from Playwright's own server. Its system packages
+          # come from the runner's Ubuntu mirror, which did not answer on
+          # 2026-11-11 and held a run for 20 minutes, so that step is limited
+          # and the test says so if a library is still missing.
+          npx playwright install chromium
+          timeout 180 npx playwright install-deps chromium || echo "system packages not installed; continuing"
           node tests/screen.mjs ../studio-site ../forge-wasm/expected.json
 
       - name: Upload Forge Studio
