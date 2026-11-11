@@ -65,13 +65,6 @@ tier1:
     how: "Type =YEARFRAC(DATE(2026,2,28), DATE(2026,12,31), 0) in Excel: 0.8333 is Forge's, 0.8361 the engines'. If Excel gives 0.8361, change YEARFRAC, and check ACCRINT and PRICEDISC with the same dates before touching the day count they share"
     acceptance: "The Excel value is recorded in forge-e2e-gnumeric with the date it was checked, and Forge gives it"
 
-  - id: T1-EXPORT-UNCALCULATED
-    title: "forge export says Export Complete for a model that does not calculate"
-    why: "A model with one failing formula (a MATCH that finds nothing) is exported with exit code 0 and no warning: the formulas are written without results. The export needs the results to know what each formula column holds (ADR-054), so next: =EDATE(d, 1) and y4: =LEFT(next, 4) are written as =LEFT(B2, 4), which is 4608 in Excel where Forge, once the model calculates, holds 2026. rc.11 writes the same"
-    how: "Say that the model does not calculate and name the error, at least; decide whether to refuse the export (forge calculate already refuses) or to write it with the warning"
-    acceptance: "forge export of a model that does not calculate either fails with the calculation's error or says in its output that no result was checked, and a test holds it"
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
 # ═══════════════════════════════════════════════════════════════════════════════
