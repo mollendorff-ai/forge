@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **`forge --version` says which commit a build came from.** A build of main said `forge 10.0.0-rc.11`, the same as the release, though it had code the release did not, so a bug report could not say which code it came from. A build of any commit other than a release now says `forge 10.0.0-rc.13 (a8ec1db)`, or `(a8ec1db, modified)` with uncommitted changes; a release, a crates.io build and any build without Git history say the plain version, as before. It is text read at build time by `build.rs`, not a `-dev` version in `Cargo.toml`: Auto Release tags a version change, so a `-dev` version on main would publish a release for every merge. The release workflow sets `FORGE_RELEASE` as well, and the install checks that compare `forge --version` with the version still pass.
 - **The MCP tool `forge_export` without a path did not say which formulas it wrote as values.** Exported to a file, it lists each formula Excel cannot express that was written as its value; exported to memory (`excel_base64`), it listed only whether the model calculates. Both now give the same warnings.
+- **Forge Studio was not published after rc.14.** The Pages workflow waited for the Release workflow to finish (`workflow_run`), but a release started by Auto Release runs with GitHub's own token, and its end starts no other workflow. The Release workflow now starts the Pages workflow itself, with the release's tag, once the GitHub release exists.
 
 ## [10.0.0-rc.14] - 2026-11-11
 

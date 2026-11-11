@@ -5,15 +5,13 @@ name: Studio on Pages
 # examples. Pull requests build Studio and keep it as an artifact (ci.yml,
 # job forge-wasm) and publish nothing.
 #
-# A release made by the Release workflow does not start a `release: published`
-# trigger (events made with GITHUB_TOKEN start nothing), so this one follows
-# the Release workflow itself. Start it by hand, with the tag, to publish a
-# release that has already happened.
+# The Release workflow starts this one with the release's tag, once the
+# GitHub release exists (job `studio` in release.yml). Events made with
+# GITHUB_TOKEN start no other workflow, and neither `release: published` nor
+# `workflow_run` reached this one for rc.14, so it is started explicitly. It
+# can also be started by hand, with a tag or a branch.
 
 on:
-  workflow_run:
-    workflows: [Release]
-    types: [completed]
   workflow_dispatch:
     inputs:
       ref:
@@ -34,16 +32,13 @@ concurrency:
 jobs:
   build:
     name: Build Studio
-    # A release that failed publishes nothing
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-22.04
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
-          # The Release workflow runs on the tag, so its head_branch is the tag
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_branch }}
+          ref: ${{ inputs.ref }}
 
       - name: Version of this release
         id: version
@@ -101,7 +96,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_branch }}
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-node@v6
         with:
