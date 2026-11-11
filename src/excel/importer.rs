@@ -8,7 +8,6 @@
 
 use super::workbook_refs::dates::{excel_date, Holds};
 use super::workbook_refs::{column_letter, Context, ReverseRefs, SheetKind, WorkbookRefs};
-use crate::core::array_calculator::evaluator::date_serial;
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 use calamine::{open_workbook, Data, Range, Reader, Xlsx};
@@ -291,10 +290,11 @@ impl ExcelImporter {
                                 },
                                 Cells::Text => {
                                     target.add_column_types(&key, [(column.as_str(), true)]);
-                                    // Text that Forge would read as a date
+                                    // Text with a digit: Forge reads a number
+                                    // from it its own way (a date, "5")
                                     let dated = Self::column_cells(sheet, col).any(|cell| {
                                         matches!(cell, Data::String(text)
-                                            if date_serial(text).is_some())
+                                            if text.bytes().any(|b| b.is_ascii_digit()))
                                     });
                                     if dated {
                                         target.add_mixed_columns(&key, [column.as_str()]);

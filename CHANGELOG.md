@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`forge export` wrote formulas over text that looks like a number as they were, and Excel reads such text its own way.** With `s: ["5", "apple", "2", "x"]`: `SUM(t.s)` was 7 in Forge and 0 in Gnumeric and LibreOffice, `COUNTIF(t.s, ">3")` 1 and 0, and `IFERROR(IF(s > 3, 1, 0), -1)` 1, -1, 0, -1 in Forge and 1 in every row in both (Excel puts any text above every number). The same held for a column of months (`2026-01`) compared with a date. A formula that reads a number from text with a digit in it, that orders text with `<`, `>`, `<=` or `>=`, or that reads a number from text made in the formula (`LEFT(code, 2) * 1`), is now written as its values, with a warning; one that reads text as text stays a formula, and so does a column of words read as numbers (nothing, in both). `forge import` applies the same rule to a workbook's own formulas. Forge's own results do not change. A wrong answer under docs/STABILITY.md: the next release candidate restarts the two-week clock (ADR-054, decision 6, amended; roadmap T1-TEXT-NUMBERS).
+
 ### Planned
 - **Forge Studio, a web interface, and Forge in the browser** (ADR-055, ADR-056, roadmap `studio`). Decisions only, nothing built yet: Forge's engine compiled to WebAssembly as a `forge-wasm` crate, and a phone-first page in `studio/` that calculates with it, with the YAML editor and the cards side by side on wide screens, published on GitHub Pages with each release. Users of the command line, MCP and the REST API see no change.
 

@@ -32,9 +32,10 @@ enum Kind {
     Date,
     /// A date written in the formula (`"2026-01-31"`)
     Written,
-    /// Text that is a date in some rows (`n/a` among dates), or dates Excel
-    /// cannot hold: text in the workbook, which Forge still reads as a day
-    /// number where a number is read. Excel reads text there.
+    /// Text with a digit in some row: a date (`n/a` among dates), a date
+    /// Excel cannot hold, a month (`2026-01`), a number (`"5"`, `"1,200"`).
+    /// Forge reads it as a number where a number is read, or fails to, and
+    /// Excel reads text there or parses it its own way.
     Mixed,
     Text,
     /// A number or TRUE/FALSE
@@ -486,6 +487,16 @@ impl Dates<'_> {
                 _ => "text that may be a date is read as a number".to_string(),
             });
         }
+        if read == Read::Number && self.is_text_value(expr) {
+            return Err(match expr {
+                Expr::Reference(reference) => format!(
+                    "{} is text, read here as a number; Forge and Excel turn text into numbers differently",
+                    Self::word(reference)
+                ),
+                _ => "text is read here as a number; Forge and Excel turn text into numbers differently"
+                    .to_string(),
+            });
+        }
         match expr {
             Expr::Number(_) | Expr::Boolean(_) => Ok(expr.clone()),
             Expr::Text(text) => Ok(match (read, as_number(text)) {
@@ -510,6 +521,15 @@ impl Dates<'_> {
                 operand: Box::new(self.write(operand, Read::Number, whole)?),
             }),
             Expr::BinaryOp { op, left, right } => {
+                if ["<", ">", "<=", ">="].contains(&op.as_str())
+                    && [left, right]
+                        .iter()
+                        .any(|side| matches!(self.kind(side), Kind::Text | Kind::Mixed))
+                {
+                    return Err(format!(
+                        "{op} compares text; Excel puts any text above every number and orders text by its letters, and Forge does neither"
+                    ));
+                }
                 let read = match op.as_str() {
                     "&" => Read::Text,
                     "=" | "<>" => self.equality(left, right)?,
@@ -532,11 +552,43 @@ impl Dates<'_> {
         }
     }
 
+    /// Whether `expr` is text made in the formula that a reader would turn
+    /// into a number: a function that gives text, or `&`. Text written in the
+    /// formula is what it shows, and `IF` and its like are judged by the
+    /// values they pass on.
+    fn is_text_value(&self, expr: &Expr) -> bool {
+        if self.kind(expr) != Kind::Text {
+            return false;
+        }
+        // A column of text is judged by its values (`mixed_columns`): a
+        // column of words reads the same in both
+        match expr {
+            Expr::BinaryOp { op, .. } => op == "&",
+            Expr::FunctionCall { name, args } => {
+                let upper = name.to_uppercase();
+                passed_on(&upper, args.len()).is_none()
+                    && !["PREV", "SWITCH", "LET", "XLOOKUP"].contains(&upper.as_str())
+            },
+            _ => false,
+        }
+    }
+
+    /// How the formula's own result is written: a text result is text, what
+    /// the column holds aside (an imported column of `LEFT(d, 4)` may hold
+    /// `2026` as a number). Only what the formula reads is judged.
+    fn result_read(&self, expr: &Expr, read: Read) -> Read {
+        if self.is_text_value(expr) {
+            Read::Text
+        } else {
+            read
+        }
+    }
+
     /// How a column handed to a function as it is (the array of `INDEX` or
     /// `MATCH`, the range of a criterion, a column to count) is written: the
     /// cells themselves. Text that may be a date is not read as a number here.
     fn handed_on(&self, expr: &Expr) -> Read {
-        if self.kind(expr) == Kind::Mixed {
+        if matches!(self.kind(expr), Kind::Mixed | Kind::Text) {
             Read::Text
         } else {
             Read::Number
@@ -1178,11 +1230,18 @@ impl WorkbookRefs {
             locals: Vec::new(),
         };
         if !dates.touches_dates(expr) {
-            return if column_holds_dates {
-                Err("its result is dates, made from text".to_string())
-            } else {
-                Ok(None)
+            if column_holds_dates {
+                return Err("its result is dates, made from text".to_string());
+            }
+            // No date to write, but text may still be read as a number or
+            // ordered against one, which Excel does its own way (ADR-054)
+            let read = match ctx {
+                Context::Scalar { .. } => Read::Number,
+                Context::Row { .. } if holds == Holds::Numbers => Read::Number,
+                Context::Row { .. } => Read::Text,
             };
+            dates.write(expr, dates.result_read(expr, read), false)?;
+            return Ok(None);
         }
         let kind = dates.kind(expr);
         let is_date = kind.is_date();
@@ -1209,7 +1268,7 @@ impl WorkbookRefs {
                 Read::Text
             },
         };
-        let written = dates.write(expr, read, false)?;
+        let written = dates.write(expr, dates.result_read(expr, read), false)?;
         Ok(Some((written, is_date && read == Read::Number)))
     }
 
