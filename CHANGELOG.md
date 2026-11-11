@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+- **Forge Studio: Excel export and import in the browser (S8).** Users of the command line, MCP and the REST API see no change.
+
+## [10.0.0-rc.14] - 2026-11-11
+
+The first release with Forge Studio, a web page that runs Forge itself in the browser and is published on GitHub Pages with each release (ADR-055, ADR-056). No wrong answer was fixed since rc.13, so the two-week stable clock of docs/STABILITY.md still runs from rc.13 (no earlier than 2026-11-24). The command line, MCP and the REST API give the same results; `forge compare`, `forge goal-seek` and `forge tornado` print their tables differently (below).
+
 ### Added
 - **A formula can be edited on its card in Forge Studio** (roadmap S7-CARD-FORMULAS): scalars, table columns and the formulas of included files have an Edit button. The new formula is written into its one line of the YAML, in the way the file already writes it (`"=..."`, `'=...'`, plain, `{formula: ...}` or a `formula:` line), keeping the key, a comment and the rest of a flow mapping; plain text that YAML would misread is put in double quotes. It is kept only when Forge accepts it: the model validates (for a model with distributions, a ten-run simulation evaluates every formula), and Forge reads back exactly the formula typed and nothing else changed. Otherwise Forge's message is shown and the file is as it was. `studio/tests/formulas.mjs` changes every formula of every example on its card (113 in 7 sets) and checks byte for byte that only its line changed, by the two parentheses added, and that four invalid formulas are refused with Forge's message and no change; `studio/tests/text.mjs` covers the spellings the examples lack (comments after a formula, flow mappings, quoting).
 - **Forge Studio colours formulas with the VS Code extension's rules, from one copy** (roadmap S6-HIGHLIGHT-ONE-SOURCE, ADR-056 decision 4): the build reads the patterns of `editors/vscode/syntaxes/forge-formula.injection.json`, in their order, into `formula-rules.json`, and the editor uses them as they are (matching as TextMate does: the earliest match, then the first rule). The hand-made copy this replaces had drifted in three places: an extra `@` allowed inside an included name, a number could start inside a name, and a function name had no word boundary before it. `studio/tests/highlight.mjs` fails when the built rules differ from the grammar's patterns or their order, when the grammar gains a scope Studio has no colour for or a pattern JavaScript cannot run, when highlighting any YAML file of `examples/` (26 files, 222 formulas) changes the text once its tags are removed, or when a formula does not get the grammar's classes. Only the colour of each scope and the YAML around formulas (keys, comments, strings) are Studio's own.
@@ -29,9 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Forge Studio no longer shows an exchange rate of 1.38 as 138%.** It decided a number was a percentage from its name alone (rate, growth, margin, share, pct, percent) for any value up to 5, so `exchange_rate 1.38` showed 138%, `hourly_rate 4.5` 450% and `margin 3` 300%, while `renewal_increase 0.04` showed 0.04. The numbers underneath were Forge's and right; the display was not. Now the model's unit decides: `%`, `percent`, `percentage` or `pct` shows the value (a fraction, as `VARIANCE_PCT` gives it) as a percentage, and any other unit never does. With no unit, the name decides by whole words (so `corporate_tax` is no longer read as a rate), now also `increase`, `inflation` and `wacc`, and only for values of 1 or less. One function, `isPercent` in `studio/format.js`, drives every card, hint, slider, table, report and analysis. On the examples nothing that was a percentage stops being one; the rent increases of the rentals example and the DCF's WACC now show as percentages. A percentage typed into a field ("4.5 %") is read as hundredths, 0.045, instead of being written as 4.5.
 - **Forge Studio can change an input written with a negative exponent or in hex.** An input such as `1e-5`, `1.5E+3` or `0x10` gave "Not changed": the card's pattern did not have every number Forge reads. It now has the ones Forge accepts (a sign, a point, an exponent, 0x, 0o and 0b integers), in all three ways an input is written. `1_000`, `.inf` and `1,000` are not numbers to Forge, so they stay out.
-
-### Planned
-- **Forge Studio: Excel export and import in the browser (S8).** Users of the command line, MCP and the REST API see no change.
 
 ## [10.0.0-rc.13] - 2026-11-10
 
