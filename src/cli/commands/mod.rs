@@ -22,6 +22,8 @@
 mod analysis;
 mod audit;
 mod examples;
+// Export and import need Excel and base64 (feature `cli`)
+#[cfg(feature = "cli")]
 mod excel_io;
 mod functions;
 mod prediction;
@@ -30,6 +32,8 @@ mod report;
 pub mod results;
 mod schema;
 mod simulate;
+// Self-update downloads releases (feature `cli`)
+#[cfg(feature = "cli")]
 mod update;
 mod upgrade;
 #[cfg(test)]
@@ -39,12 +43,14 @@ mod what_if_tests;
 pub use analysis::{break_even, compare, goal_seek, sensitivity, variance};
 pub use audit::audit;
 pub use examples::examples;
+#[cfg(feature = "cli")]
 pub use excel_io::{export, import};
 pub use functions::functions;
 pub use prediction::{bayesian, bootstrap, decision_tree, real_options, scenarios, tornado};
 pub use report::{report, ReportFormat, ReportOptions};
 pub use schema::schema;
 pub use simulate::simulate;
+#[cfg(feature = "cli")]
 pub use update::update;
 pub use upgrade::upgrade;
 
@@ -52,6 +58,7 @@ pub use upgrade::upgrade;
 pub use analysis::{compare_core, goal_seek_core, sensitivity_core, variance_core};
 pub use audit::audit_core;
 pub use examples::examples_core;
+#[cfg(feature = "cli")]
 pub use excel_io::{export_buffer_core, export_core, import_core};
 pub use functions::functions_core;
 pub use prediction::{
@@ -83,14 +90,15 @@ use colored::Colorize;
 use std::path::Path;
 use std::path::PathBuf;
 
-// Watch-related imports only for non-coverage builds (see ADR-006)
-#[cfg(not(coverage))]
+// Watch-related imports only for non-coverage builds (see ADR-006) with the
+// `cli` feature, which brings the file watcher
+#[cfg(all(not(coverage), feature = "cli"))]
 use notify::RecursiveMode;
-#[cfg(not(coverage))]
+#[cfg(all(not(coverage), feature = "cli"))]
 use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
-#[cfg(not(coverage))]
+#[cfg(all(not(coverage), feature = "cli"))]
 use std::sync::mpsc::channel;
-#[cfg(not(coverage))]
+#[cfg(all(not(coverage), feature = "cli"))]
 use std::time::Duration;
 
 /// Format a number for display, removing unnecessary decimal places
@@ -599,7 +607,7 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
 /// # Coverage Exclusion (ADR-006)
 /// Contains infinite loop waiting for file system events - cannot unit test.
 /// Tested via: `cli_integration_tests.rs` (manual termination after initial run)
-#[cfg(not(coverage))]
+#[cfg(all(not(coverage), feature = "cli"))]
 pub fn watch(file: &Path, validate_only: bool, verbose: bool) -> ForgeResult<()> {
     println!("{}", "👁️  Forge - Watch Mode".bold().green());
     println!("   Watching: {}", file.display());
@@ -713,7 +721,7 @@ pub fn watch(file: &Path, validate_only: bool, verbose: bool) -> ForgeResult<()>
 }
 
 /// Stub for coverage builds - see ADR-006
-#[cfg(coverage)]
+#[cfg(all(coverage, feature = "cli"))]
 pub fn watch(file: &Path, _validate_only: bool, _verbose: bool) -> ForgeResult<()> {
     // Validate file exists (testable error path)
     if !file.exists() {
@@ -726,7 +734,7 @@ pub fn watch(file: &Path, _validate_only: bool, _verbose: bool) -> ForgeResult<(
 }
 
 /// Get a simple timestamp without external dependencies
-#[cfg(any(not(coverage), test))]
+#[cfg(all(feature = "cli", any(not(coverage), test)))]
 fn chrono_lite_timestamp() -> String {
     use std::time::SystemTime;
     let now = SystemTime::now()
@@ -740,7 +748,7 @@ fn chrono_lite_timestamp() -> String {
 }
 
 /// Run the watch action (validate or calculate)
-#[cfg(any(not(coverage), test))]
+#[cfg(all(feature = "cli", any(not(coverage), test)))]
 fn run_watch_action(file: &Path, validate_only: bool, verbose: bool) {
     if validate_only {
         match validate_internal(file, verbose) {
@@ -756,7 +764,7 @@ fn run_watch_action(file: &Path, validate_only: bool, verbose: bool) {
 }
 
 /// Internal validation function for watch mode
-#[cfg(any(not(coverage), test))]
+#[cfg(all(feature = "cli", any(not(coverage), test)))]
 fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
     const TOLERANCE: f64 = 0.0001;
 
@@ -813,7 +821,7 @@ fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
 }
 
 /// Internal calculation function for watch mode
-#[cfg(any(not(coverage), test))]
+#[cfg(all(feature = "cli", any(not(coverage), test)))]
 fn calculate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
     let model = parser::parse_model(file)?;
 

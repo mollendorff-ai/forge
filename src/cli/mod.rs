@@ -3,9 +3,13 @@
 pub mod commands;
 
 pub use commands::{
-    audit, break_even, calculate, compare, examples, export, functions, goal_seek, import, schema,
-    sensitivity, update, validate, variance, watch,
+    audit, break_even, calculate, compare, examples, functions, goal_seek, schema, sensitivity,
+    validate, variance,
 };
+
+// Watch, update, export and import need the `cli` feature
+#[cfg(feature = "cli")]
+pub use commands::{export, import, update, watch};
 
 pub use commands::upgrade;
 
@@ -18,8 +22,9 @@ pub use commands::{bayesian, bootstrap, decision_tree, real_options, scenarios, 
 // Core function re-exports (structured results, no printing)
 pub use commands::{
     audit_core, bayesian_core, bootstrap_core, calculate_core, compare_core, decision_tree_core,
-    examples_core, export_buffer_core, export_core, functions_core, goal_seek_core, import_core,
-    real_options_core, scenarios_core, schema_core, sensitivity_core, simulate_core, tornado_core,
-    validate_core, variance_core, SimulateOptions,
+    examples_core, functions_core, goal_seek_core, real_options_core, scenarios_core, schema_core,
+    sensitivity_core, simulate_core, tornado_core, validate_core, variance_core, SimulateOptions,
 };
+#[cfg(feature = "cli")]
+pub use commands::{export_buffer_core, export_core, import_core};
 pub use commands::{probability_seek_core, SeekGoal, SeekResult};

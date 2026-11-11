@@ -42,7 +42,7 @@ pub fn scenarios_core(
     file: &Path,
     scenario_filter: Option<&str>,
 ) -> ForgeResult<crate::scenarios::ScenarioResults> {
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let yaml_content = parser::read_model_text(file)?;
     let model = parser::parse_model(file)?;
 
     let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
@@ -102,7 +102,7 @@ pub fn scenarios_core(
 /// Returns an error if the file cannot be parsed, no `decision_tree` section exists,
 /// or the analysis fails.
 pub fn decision_tree_core(file: &Path) -> ForgeResult<crate::decision_trees::TreeResult> {
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let yaml_content = parser::read_model_text(file)?;
 
     let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
@@ -127,7 +127,7 @@ pub fn decision_tree_core(file: &Path) -> ForgeResult<crate::decision_trees::Tre
 /// Returns an error if the file cannot be parsed, no `real_options` section exists,
 /// or the analysis fails.
 pub fn real_options_core(file: &Path) -> ForgeResult<crate::real_options::OptionsResult> {
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let yaml_content = parser::read_model_text(file)?;
 
     let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
@@ -155,7 +155,7 @@ pub fn tornado_core(
     file: &Path,
     output_var: Option<&str>,
 ) -> ForgeResult<crate::tornado::TornadoResult> {
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let yaml_content = parser::read_model_text(file)?;
     let model = parser::parse_model(file)?;
 
     let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
@@ -190,7 +190,7 @@ pub fn bootstrap_core(
     seed_override: Option<u64>,
     confidence_override: Option<Vec<f64>>,
 ) -> ForgeResult<crate::bootstrap::BootstrapResult> {
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let yaml_content = parser::read_model_text(file)?;
 
     let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
@@ -229,7 +229,7 @@ pub fn bayesian_core(
     query_var: Option<&str>,
     evidence: &[String],
 ) -> ForgeResult<crate::bayesian::BayesianResult> {
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let yaml_content = parser::read_model_text(file)?;
 
     let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
         .map_err(|e| ForgeError::Validation(format!("YAML parse error: {e}")))?;
@@ -380,7 +380,7 @@ pub fn decision_tree(
     println!();
 
     // Parse YAML
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let yaml_content = parser::read_model_text(file)?;
 
     // Parse decision_tree config
     let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
@@ -508,7 +508,7 @@ pub fn real_options(
     println!();
 
     // Parse YAML
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let yaml_content = parser::read_model_text(file)?;
 
     // Parse real_options config
     let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
@@ -609,7 +609,7 @@ pub fn tornado(
     println!();
 
     // Parse YAML and model
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let yaml_content = parser::read_model_text(file)?;
     let model = parser::parse_model(file)?;
 
     // Parse tornado config
@@ -733,7 +733,7 @@ pub fn bootstrap(
     println!();
 
     // Parse YAML
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let yaml_content = parser::read_model_text(file)?;
 
     // Parse bootstrap config
     let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
@@ -845,7 +845,7 @@ pub fn bayesian(
     println!();
 
     // Parse YAML
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let yaml_content = parser::read_model_text(file)?;
 
     // Parse bayesian_network config
     let value: yaml_serde::Value = yaml_serde::from_str(&yaml_content)
