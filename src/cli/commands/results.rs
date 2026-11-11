@@ -110,6 +110,8 @@ pub struct ExportBufferResult {
     pub excel_base64: String,
     /// Size of the raw Excel file in bytes
     pub byte_count: usize,
+    /// What the export could not do, for example that the model does not calculate
+    pub warnings: Vec<String>,
 }
 
 /// Result of the import command

@@ -10,12 +10,23 @@ use std::path::Path;
 
 /// Parse a model for export and calculate it, so a formula that Excel cannot
 /// express can be written as its value. If calculation fails, the formulas are
-/// still exported and those cells are left empty.
-fn load_for_export(input: &Path) -> ForgeResult<crate::types::ParsedModel> {
+/// still exported, without results, and the second part says why: what each
+/// formula column holds (ADR-054) is known only from the results.
+fn load_for_export(input: &Path) -> ForgeResult<(crate::types::ParsedModel, Option<String>)> {
     let model = parser::parse_model(input)?;
-    Ok(crate::core::ArrayCalculator::new(model.clone())
-        .calculate_all()
-        .unwrap_or(model))
+    Ok(
+        match crate::core::ArrayCalculator::new(model.clone()).calculate_all() {
+            Ok(calculated) => (calculated, None),
+            Err(error) => (
+                model,
+                Some(format!(
+                    "the model does not calculate ({error}): the formulas are written without \
+                     results, and a formula over dates or text may not give in Excel what it \
+                     gives in Forge. Fix the error and export again"
+                )),
+            ),
+        },
+    )
 }
 
 /// Export YAML to Excel and return structured results (no printing).
@@ -24,12 +35,13 @@ fn load_for_export(input: &Path) -> ForgeResult<crate::types::ParsedModel> {
 ///
 /// Returns an error if the YAML file cannot be parsed or the Excel export fails.
 pub fn export_core(input: &Path, output: &Path) -> ForgeResult<super::results::ExportResult> {
-    let model = load_for_export(input)?;
+    let (model, uncalculated) = load_for_export(input)?;
     let table_count = model.tables.len();
     let scalar_count = model.scalars.len();
 
     let exporter = ExcelExporter::new(model);
-    let warnings = exporter.export_with_warnings(output)?;
+    let mut warnings: Vec<String> = uncalculated.into_iter().collect();
+    warnings.extend(exporter.export_with_warnings(output)?);
 
     Ok(super::results::ExportResult {
         input_path: input.display().to_string(),
@@ -48,7 +60,7 @@ pub fn export_core(input: &Path, output: &Path) -> ForgeResult<super::results::E
 pub fn export_buffer_core(input: &Path) -> ForgeResult<super::results::ExportBufferResult> {
     use base64::{engine::general_purpose::STANDARD, Engine as _};
 
-    let model = load_for_export(input)?;
+    let (model, uncalculated) = load_for_export(input)?;
     let table_count = model.tables.len();
     let scalar_count = model.scalars.len();
 
@@ -61,6 +73,7 @@ pub fn export_buffer_core(input: &Path) -> ForgeResult<super::results::ExportBuf
         scalar_count,
         excel_base64: base64_content,
         byte_count: buffer.len(),
+        warnings: uncalculated.into_iter().collect(),
     })
 }
 
@@ -449,7 +462,7 @@ pub fn export(input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
         println!("{}", "📖 Parsing YAML file...".cyan());
     }
 
-    let model = load_for_export(input)?;
+    let (model, uncalculated) = load_for_export(input)?;
 
     if verbose {
         println!(
@@ -466,6 +479,10 @@ pub fn export(input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
     let exporter = ExcelExporter::new(model);
     let warnings = exporter.export_with_warnings(output)?;
 
+    if let Some(reason) = &uncalculated {
+        println!("{}", "⚠️  Exported, but not checked:".yellow());
+        println!("   - {reason}\n");
+    }
     println!("{}", "✅ Export Complete!".bold().green());
     println!("   Excel file: {}\n", output.display());
     if !warnings.is_empty() {
