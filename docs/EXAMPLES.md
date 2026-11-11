@@ -1,6 +1,6 @@
 # Forge Examples
 
-Real-world usage examples and patterns.
+Real-world usage examples and patterns. For eight questions answered start to finish with the examples in `examples/`, see [docs/posts](posts/README.md).
 
 ## Your first model
 
