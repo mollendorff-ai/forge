@@ -14,20 +14,15 @@
 # written down. "Polish" and "improve" are not criteria.
 
 state:
-  version: 10.0.0-rc.12, released 2026-11-10 after wrong answers in forge
-    export and forge import found while making dates real dates (ADR-054), namely
-    formulas over a date column that gave other answers in Excel than in
-    Forge, + that joined text, TEXT with a format it did not know, and an
-    import that read dates held as text as dates. The two-week stable clock in
-    docs/STABILITY.md runs from this release (no earlier than 2026-11-24); a
-    new wrong answer restarts it, and fixing T1-TEXT-NUMBERS will. rc.12 is
-    the first release with forge report, the starter model, dates as real
-    dates, and Homebrew and cargo-binstall installation. rc.11 added PREV,
-    period columns and model format 5.2.0 (ADR-053).
-    Unreleased since rc.12 is a wrong answer in forge export (T1-TEXT-NUMBERS,
-    done 2026-11-10), formulas over text that looks like a number written
-    live where Excel reads that text another way, so the next release
-    candidate restarts the clock.
+  version: 10.0.0-rc.13, released 2026-11-10 after a wrong answer in forge
+    export (T1-TEXT-NUMBERS): formulas over text that looks like a number were
+    written live where Excel reads that text another way. The two-week stable
+    clock in docs/STABILITY.md runs from this release (no earlier than
+    2026-11-24); a new wrong answer restarts it. rc.13 also fixes the function
+    list (169, not 175), and makes forge import and forge export say what they
+    cannot keep. rc.12 was the first release with forge report, the starter
+    model, dates as real dates, and Homebrew and cargo-binstall installation.
+    rc.11 added PREV, period columns and model format 5.2.0 (ADR-053).
   format: model format 5.1.0 (ADR-051), with inputs as plain numbers, formula
     scalars as a formula mapping, and results written next to formulas in
     place; 5.2.0 (ADR-053) adds the period column and is needed only by a
