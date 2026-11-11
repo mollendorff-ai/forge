@@ -1,12 +1,27 @@
 // How numbers look on screen. The numbers themselves are Forge's: this file
 // rounds them for display and draws them, and never derives one from another.
 
-const PCT = /(rate|growth|margin|share|pct|percent)/i;
+// Whether a number is shown as a percentage. One rule, used by every place
+// that shows or edits a number:
+// - a unit decides when there is one: "%", "percent", "percentage" or "pct"
+//   means a fraction shown as a percentage (Forge's VARIANCE_PCT gives 0.05
+//   for 5%, and the examples write 0.72 with unit "%"); any other unit means
+//   never a percentage, whatever the name;
+// - with no unit, a name with one of these words in it (whole words, split on
+//   "_" and "."), and only for a value of 1 or less either way: a rate of 1.38
+//   is an exchange rate or a price, not 138%.
+const PERCENT_UNITS = new Set(["%", "percent", "percentage", "pct"]);
+const PERCENT_WORDS = new Set(["rate", "rates", "growth", "margin", "share", "pct", "percent", "percentage", "increase", "inflation", "wacc"]);
 const YEARISH = /(^|_)(year|years)$/i;
 
-export const isPercentName = (name) => PCT.test(name);
+export function isPercent(name = "", unit = null, value = undefined) {
+  if (unit !== null && unit !== undefined && String(unit).trim() !== "") return PERCENT_UNITS.has(String(unit).trim().toLowerCase());
+  const words = String(name).toLowerCase().split(/[._]/);
+  if (!words.some((w) => PERCENT_WORDS.has(w))) return false;
+  return value === undefined || (typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= 1);
+}
 
-export function fmt(v, name = "") {
+export function fmt(v, name = "", unit = null) {
   if (v === null || v === undefined) return "—";
   if (Array.isArray(v)) return v.length + " values";
   if (typeof v === "string") return v;
@@ -14,7 +29,7 @@ export function fmt(v, name = "") {
   if (typeof v !== "number" || !Number.isFinite(v)) return String(v);
   const minus = v < 0 ? "−" : "";
   const a = Math.abs(v);
-  if (PCT.test(name) && a <= 5) {
+  if (isPercent(name, unit, v)) {
     const opts = a < 0.01 && a > 0 ? { maximumSignificantDigits: 3 } : { maximumFractionDigits: a < 0.1 ? 2 : 1 };
     return minus + (a * 100).toLocaleString("en-US", opts) + "%";
   }
@@ -23,21 +38,21 @@ export function fmt(v, name = "") {
   return minus + a.toLocaleString("en-US", { maximumFractionDigits: digits });
 }
 
-export function short(v, name = "") {
+export function short(v, name = "", unit = null) {
   if (typeof v !== "number") return String(v);
   const a = Math.abs(v), minus = v < 0 ? "−" : "";
-  if (PCT.test(name) && a <= 5) return fmt(v, name);
+  if (isPercent(name, unit, v)) return fmt(v, name, unit);
   if (a >= 1e6) return minus + (a / 1e6).toFixed(a >= 1e7 ? 1 : 2) + "M";
   if (a >= 1e4) return minus + (a / 1e3).toFixed(a >= 1e5 ? 0 : 1) + "k";
-  return fmt(Number(v.toFixed(2)), name);
+  return fmt(Number(v.toFixed(2)), name, unit);
 }
 
 // The range of an input's slider: from 0 (or the negative) to twice the value,
 // in steps of about a hundredth of its order of magnitude.
-export function sliderRange(v, name = "") {
+export function sliderRange(v, name = "", unit = null) {
   if (!Number.isFinite(v)) return { min: 0, max: 100, step: 1 };
   const a = Math.abs(v);
-  if (PCT.test(name) || (a < 1 && !Number.isInteger(v))) {
+  if (isPercent(name, unit, v) || (a < 1 && !Number.isInteger(v))) {
     return { min: 0, max: Math.max(Number((a * 3).toPrecision(2)), 0.1), step: 0.0001 };
   }
   if (v === 0) return { min: 0, max: 1000, step: 1 };
@@ -58,10 +73,16 @@ export function spark(vals) {
   return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true">${zero}<polygon points="${x(0)},${h - pad} ${pts} ${x(last)},${h - pad}" fill="var(--accent-soft)"/><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round"/><circle cx="${x(last).toFixed(1)}" cy="${y(vals[last]).toFixed(1)}" r="2.6" fill="var(--accent)"/></svg>`;
 }
 
-// A number typed by a person: "1,250", "4.5 %" and "−3" are read; anything
-// else is null.
+// A number typed by a person: "1,250", "−3" and "1e-5" are read. A "%" at the
+// end means hundredths, so "4.5 %" is 0.045, the way a percentage is held in
+// a model (and shown on its card); the decimal point is moved in the digits,
+// so no rounding is added. Anything else is null.
 export function readNumber(text) {
-  const t = String(text).replace(/[,\s%]/g, "").replace("−", "-");
-  if (!/^-?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(t)) return null;
-  return Number(t);
+  let t = String(text).trim().replace(/[,\s]/g, "").replace("−", "-");
+  const percent = t.endsWith("%");
+  if (percent) t = t.slice(0, -1);
+  if (!/^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(t)) return null;
+  if (!percent) return Number(t);
+  const [mantissa, exponent = "0"] = t.split(/[eE]/);
+  return Number(`${mantissa}e${Number(exponent) - 2}`);
 }

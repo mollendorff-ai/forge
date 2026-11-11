@@ -177,6 +177,9 @@ jobs:
       - name: Studio changes one value in a YAML file and nothing else
         run: node studio/tests/text.mjs
 
+      - name: Studio shows a percentage by the model's unit, and reads typed percentages as hundredths
+        run: node studio/tests/format.mjs
+
       - name: Build Forge Studio
         run: |
           wasm-bindgen --target web --out-dir forge-wasm/pkg-web \
