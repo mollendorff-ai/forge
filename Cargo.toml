@@ -27,6 +27,7 @@ exclude = [
     "editors/*",
     "scripts/*",
     "releases/*",
+    "forge-wasm/*",
     "Makefile",
     "*.md",
     "!README.md",
@@ -46,14 +47,14 @@ pkg-fmt = "tgz"
 pkg-fmt = "zip"
 
 # The command line, the MCP server and the REST API (default), and Excel.
-# `--no-default-features` builds the parser, the calculator and the analysis
-# engines alone, which is what the browser build uses (ADR-055).
+# `--no-default-features` builds the parser, the calculator, the analysis
+# engines and the commands' core functions alone, which is what the browser
+# build uses (ADR-055); watch, update, export and import need `cli` or `excel`.
 [features]
 default = ["cli"]
 cli = [
     "excel",
     "dep:clap",
-    "dep:colored",
     "dep:notify",
     "dep:notify-debouncer-mini",
     "dep:tokio",
@@ -69,6 +70,11 @@ cli = [
     "dep:base64",
 ]
 excel = ["dep:rust_xlsxwriter", "dep:calamine", "dep:regex"]
+
+# forge-wasm runs the same core functions in a browser (ADR-055); it is not
+# published and not part of this crate's package
+[workspace]
+members = ["forge-wasm"]
 
 [[bin]]
 name = "forge"
@@ -104,7 +110,7 @@ foldhash = "0.2"
 regex = { version = "1.12", optional = true }
 
 # Pretty output
-colored = { version = "3.0", optional = true }
+colored = "3.0"
 
 # Excel export (v1.0.0 array model)
 rust_xlsxwriter = { version = "0.102", optional = true }

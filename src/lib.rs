@@ -50,13 +50,14 @@ pub mod tornado;
 #[cfg(feature = "excel")]
 pub mod excel;
 
-// The command line, the MCP server and the REST API (feature `cli`, the
-// default). Without it the crate is the parser, the calculator and the
-// analysis engines, which also build for a browser (ADR-055).
+// The commands. Their core functions (`calculate_core`, `simulate_core`, ...)
+// build without the `cli` feature, for a browser (ADR-055); watch, update,
+// export and import need it.
+pub mod cli;
+
+// The MCP server and the REST API (feature `cli`, the default)
 #[cfg(feature = "cli")]
 pub mod api;
-#[cfg(feature = "cli")]
-pub mod cli;
 #[cfg(feature = "cli")]
 pub mod inline_model;
 #[cfg(feature = "cli")]
@@ -64,6 +65,9 @@ pub mod mcp;
 
 #[cfg(test)]
 mod config_strictness_tests;
+
+/// The version of Forge, as in Cargo.toml (`10.0.0-rc.13`)
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // Re-export commonly used types
 pub use error::{ForgeError, ForgeResult};

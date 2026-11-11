@@ -37,7 +37,7 @@ Not checked: that the crate compiles to `wasm32-unknown-unknown` (the session th
 
 6. **One engine.** The mockup's JavaScript engine is not carried into the repository as a fallback. A browser that cannot run WebAssembly gets a message that says so. The numbers a person sees in Forge Studio are Forge's.
 
-7. **Built and checked by CI.** A workflow builds the crate with `wasm-pack`, runs the example models through the WebAssembly build, and compares them with the numbers already asserted in `tests/demo_examples.rs` and `tests/bagel_example.rs`. Its size is measured and written in the workflow's summary; no size is promised here.
+7. **Built and checked by CI.** A workflow builds the crate with `wasm-bindgen` (the tool `wasm-pack` runs), runs the example models through the WebAssembly build, and compares them with the numbers already asserted in `tests/demo_examples.rs` and `tests/bagel_example.rs`. Its size is measured and written in the workflow's summary; no size is promised here.
 
 ## Alternatives considered
 

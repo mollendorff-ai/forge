@@ -485,6 +485,25 @@ pub fn export_variance_to_excel(
     variances: &[VarianceResult],
     threshold: f64,
 ) -> ForgeResult<()> {
+    #[cfg(not(feature = "excel"))]
+    {
+        let _ = (output, variances, threshold);
+        Err(ForgeError::Validation(
+            "Writing Excel needs Forge's `excel` feature, which this build does not have"
+                .to_string(),
+        ))
+    }
+    #[cfg(feature = "excel")]
+    export_variance_to_excel_with_xlsx(output, variances, threshold)
+}
+
+/// [`export_variance_to_excel`], with Excel available.
+#[cfg(feature = "excel")]
+fn export_variance_to_excel_with_xlsx(
+    output: &Path,
+    variances: &[VarianceResult],
+    threshold: f64,
+) -> ForgeResult<()> {
     use rust_xlsxwriter::{Format, Workbook};
 
     let mut workbook = Workbook::new();

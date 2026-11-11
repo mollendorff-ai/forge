@@ -13,3 +13,7 @@ tests/validators/.venv/
 # Build artifacts
 releases/
 dist/
+
+# forge-wasm build output (CI)
+/forge-wasm/pkg/
+/forge-wasm/expected.json

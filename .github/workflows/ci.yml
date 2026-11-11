@@ -11,6 +11,7 @@ on:
       - 'Cargo.lock'
       - 'schema/**'
       - 'editors/**'
+      - 'forge-wasm/**'
       - '.github/workflows/*.yml'
   pull_request:
     branches: [ main ]
@@ -22,6 +23,7 @@ on:
       - 'Cargo.lock'
       - 'schema/**'
       - 'editors/**'
+      - 'forge-wasm/**'
       - '.github/workflows/*.yml'
 
 env:
@@ -120,6 +122,47 @@ jobs:
 
       - name: Lint the core without the default features
         run: cargo clippy --lib --no-default-features -- -D warnings
+
+  # Forge's tools in WebAssembly give the native answers (ADR-055, roadmap
+  # S2-FORGE-WASM). The module's size and each case's time are in the summary.
+  forge-wasm:
+    name: forge-wasm (WebAssembly against native)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust stable with the WebAssembly target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install wasm-bindgen, the version in Cargo.lock
+        run: |
+          version=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/^version = "\(.*\)"/\1/p')
+          cargo install wasm-bindgen-cli --version "$version" --locked
+
+      - name: Lint forge-wasm
+        run: cargo clippy -p forge-wasm --all-targets -- -D warnings
+
+      - name: Native tests (memory against disk, headline numbers)
+        run: cargo test -p forge-wasm --release
+
+      - name: Build the WebAssembly module
+        run: |
+          cargo build -p forge-wasm --release --target wasm32-unknown-unknown
+          wasm-bindgen --target nodejs --out-dir forge-wasm/pkg \
+            target/wasm32-unknown-unknown/release/forge_wasm.wasm
+
+      - name: Native answers to every case
+        run: cargo run -p forge-wasm --release --example expected > forge-wasm/expected.json
+
+      - name: The WebAssembly answers equal the native ones
+        run: node forge-wasm/tests/node/compare.mjs forge-wasm/pkg forge-wasm/expected.json examples
 
   build:
     name: Build

@@ -63,7 +63,7 @@ impl<S: BuildHasher> IncludeSource for MemorySource<'_, S> {
 
 /// A relative path without `.` and `..`, its parts joined with `/`
 /// (`./a/../costs.yaml` is `costs.yaml`).
-fn normalize(path: &Path) -> String {
+pub(super) fn normalize(path: &Path) -> String {
     let mut parts: Vec<String> = Vec::new();
     for component in path.components() {
         match component {

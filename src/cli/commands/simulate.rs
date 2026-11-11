@@ -158,7 +158,7 @@ pub(super) fn prepare(
     file: &Path,
     options: SimulateOptions<'_>,
 ) -> ForgeResult<(MonteCarloConfig, crate::types::ParsedModel)> {
-    let yaml_content = fs::read_to_string(file).map_err(ForgeError::Io)?;
+    let yaml_content = parser::read_model_text(file)?;
     let mut config = parse_monte_carlo_config(&yaml_content)?;
 
     if let Some(n) = options.iterations {
@@ -402,8 +402,14 @@ fn write_simulation_output(
     let ext = output_path.extension().and_then(|e| e.to_str());
     match ext {
         Some("xlsx") => {
+            #[cfg(feature = "excel")]
             crate::monte_carlo::excel_export::export_results(result, output_path)
                 .map_err(ForgeError::Validation)?;
+            #[cfg(not(feature = "excel"))]
+            return Err(ForgeError::Validation(
+                "Writing Excel needs Forge's `excel` feature, which this build does not have"
+                    .to_string(),
+            ));
         },
         Some("json") => {
             let output_str = result

@@ -13,6 +13,7 @@
 
 mod arrays;
 mod includes;
+mod memory;
 #[cfg(test)]
 mod memory_tests;
 pub(crate) mod model;
@@ -27,6 +28,7 @@ mod variables;
 // Re-export commonly used functions
 pub use arrays::{detect_array_type, is_valid_date_format, parse_array_value, type_name};
 pub use includes::{parse_includes, resolve_includes};
+pub use memory::{files_in_memory, read_model_text, with_files_in_memory};
 pub use model::{parse_nested_scalars, parse_scenarios, parse_v1_model};
 pub use multi_doc::{
     detect_multi_document, parse_multi_document_yaml, parse_single_document_yaml,
@@ -64,8 +66,14 @@ use crate::types::ParsedModel;
 /// # Ok::<(), mollendorff_forge::error::ForgeError>(())
 /// ```
 pub fn parse_model(path: &std::path::Path) -> ForgeResult<ParsedModel> {
-    let content = std::fs::read_to_string(path)?;
-    let mut model = parse_content(&includes::FileSource, &content, path)?;
+    let content = read_model_text(path)?;
+    // Inside `with_files_in_memory` the includes come from memory too
+    let mut model = memory::with_current(|files| {
+        files.map_or_else(
+            || parse_content(&includes::FileSource, &content, path),
+            |files| parse_content(&includes::MemorySource { files }, &content, path),
+        )
+    })?;
     model.source = Some(path.to_path_buf());
     Ok(model)
 }
