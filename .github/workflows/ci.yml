@@ -222,6 +222,10 @@ jobs:
         working-directory: studio
         run: node tests/save.mjs ../studio-site ../forge-wasm/xlsx
 
+      - name: Studio adds and deletes elements on the cards of every example
+        working-directory: studio
+        run: node tests/elements.mjs ../studio-site
+
       - name: Studio opens offline, and a later release replaces the cache
         working-directory: studio
         run: node tests/offline.mjs ../studio-site

@@ -84,12 +84,6 @@ tier2:
 # export and import in the browser, the workbook forge export writes.
 
 studio:
-  - id: S9-ADD-ELEMENTS
-    title: "Add and delete model elements from cards"
-    why: "Typing YAML on a phone is the hardest part of Studio (the maintainer, 2026-11-11). A card edit changes a value or a formula; it cannot add an input, a formula or a table column, or remove one"
-    how: "An ADR first (an addendum to ADR-056) on what Studio may write: adding a new element to a section and deleting one, in the file's own style, with the same rule as S7 (kept only if Forge accepts the model and reads back exactly the new element, nothing else changed). Rename is not in this item: it has to rewrite every formula that uses the name"
-    acceptance: "Adding an input, a scalar formula and a table column to every example, and deleting each again, gives back the original file byte for byte (a test); the added line is the only change in between; an element that makes the model invalid, or a name that already exists, is refused with Forge's message and the file is as it was"
-
   - id: S10-AUTOCOMPLETE
     title: "Suggest names and functions while a formula is typed"
     why: "A formula is typed from memory today; a wrong name is found only after Save. On a phone a dropdown is covered by the keyboard"

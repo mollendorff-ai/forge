@@ -4,7 +4,7 @@
 // calculates nothing; see studio/tests/no-engine.mjs.
 
 import { call, start } from "./forge.js";
-import { esc, setInputText, setFormulaText, highlightYaml, useFormulaRules } from "./text.js";
+import { esc, setInputText, setFormulaText, addEntryText, deleteEntryText, NAME, highlightYaml, useFormulaRules } from "./text.js";
 import { fmt, short, spark, sliderRange, readNumber, isPercent } from "./format.js";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -160,17 +160,27 @@ function scalarCards(list) {
       <input class="field" id="${id}" data-input="${esc(s.path)}" inputmode="decimal" autocomplete="off" value="${s.value ?? ""}"></div>
       <input type="range" data-range="${esc(s.path)}" min="${r.min}" max="${r.max}" step="${r.step}" value="${s.value ?? r.min}" aria-label="${esc(leaf(s.path))}">
       ${s.better ? `<div class="note">better ${esc(s.better)}</div>` : ""}${s.notes ? `<div class="note">${esc(s.notes)}</div>` : ""}
-      <div class="by-scn" data-byscn hidden></div><div class="err-msg" data-err hidden></div></div>`;
+      <div class="by-scn" data-byscn hidden></div><div class="err-msg" data-err hidden></div><div class="row-actions">${deleteButton(s.path)}</div></div>`;
   }
   for (const s of list.filter((x) => x.formula != null)) {
     const calculated = !s.path.startsWith("@");
     h += `<div class="row" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${calculated ? ` data-scalar="${esc(s.path)}"` : ""}><div class="res-name">${esc(leaf(s.path))}${unitOf(s)}</div>
       <div class="res-val" data-val>${calculated ? "" : '<span class="note">used by the model</span>'}</div>
-      <div class="formula-row" data-fslot="${esc(s.path)}"><div class="formula">${esc(s.formula)}</div>${editButton(s.path)}</div></div>`;
+      <div class="formula-row" data-fslot="${esc(s.path)}"><div class="formula">${esc(s.formula)}</div>${editButton(s.path)}</div><div class="row-actions">${deleteButton(s.path)}</div></div>`;
   }
   return h;
 }
 const editButton = (path, label = "Edit") => `<button type="button" class="edit-btn" data-edit="${esc(path)}" aria-label="Edit the formula of ${esc(path)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>${esc(label)}</button>`;
+const deleteButton = (path) => `<button type="button" class="edit-btn del-btn" data-del="${esc(path)}" aria-label="Delete ${esc(path)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>Delete</button>`;
+// The Add button of a group of scalars (list: its scalars) or of a table
+// (list null), in the main file (ns null) or an included one
+const addKey = (ns, group) => `${ns ? "@" + ns + "." : ""}${group || ""}`;
+function addButton(ns, group, list) {
+  // At the top level a new scalar goes after the last one shown
+  const after = !group && list ? leaf(list[list.length - 1].path) : "";
+  return `<button type="button" class="edit-btn add-btn" data-add="${esc(addKey(ns, group))}" data-ns="${esc(ns || "")}" data-group="${esc(group || "")}" data-after="${esc(after)}" data-kind="${list ? "scalar" : "column"}" aria-label="Add to ${esc(group || "the top level")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add</button>`;
+}
+const addSlot = (ns, group) => `<div class="card add-form" data-addslot="${esc(addKey(ns, group))}" hidden></div>`;
 function tagOf(list) {
   const i = list.some((s) => s.formula == null), f = list.some((s) => s.formula != null);
   return i && f ? "inputs and results" : i ? "inputs" : "results";
@@ -179,7 +189,8 @@ function tableCards(tables, inc = "") {
   let h = "";
   for (const t of tables) {
     const rows = Math.max(0, ...t.columns.map((c) => c.rows || 0));
-    h += `<div class="eyebrow"><h2>${esc(t.name.replace(/^@[^.]+\./, ""))}</h2><span class="tag">table${rows ? ` · ${rows} rows` : ""}</span>${inc}</div><div class="card stack">`;
+    const ns = /^@([^.]+)\./.exec(t.name), tname = t.name.replace(/^@[^.]+\./, "");
+    h += `<div class="eyebrow"><h2>${esc(tname)}</h2><span class="tag">table${rows ? ` · ${rows} rows` : ""}</span>${inc}${addButton(ns && ns[1], tname, null)}</div>${addSlot(ns && ns[1], tname)}<div class="card stack">`;
     for (const c of t.columns) {
       const key = `${t.name}.${c.name}`;
       const open = S.open.has(key);
@@ -187,7 +198,7 @@ function tableCards(tables, inc = "") {
         <span class="col-name">${esc(c.name)}${c.unit ? ` <span class="unit">${esc(c.unit)}</span>` : ""}</span><span data-spark></span>
         ${c.formula ? `<span class="formula">${esc(c.formula)}</span>` : ""}<span class="col-meta" data-meta></span></button>
         <div class="vals" data-vals ${open ? "" : "hidden"}></div>
-        ${c.formula ? `<div class="col-edit" data-fslot="${esc(key)}" ${open ? "" : "hidden"}>${editButton(key, "Edit the formula")}</div>` : ""}</div>`;
+        <div class="col-edit" ${c.formula ? `data-fslot="${esc(key)}"` : ""} ${open ? "" : "hidden"}>${c.formula ? editButton(key, "Edit the formula") : ""}${deleteButton(key)}</div></div>`;
     }
     h += `</div>`;
   }
@@ -219,13 +230,13 @@ function renderModel() {
   }
   h += reportCards();
   for (const [g, list] of groupsOf(S.structure.scalars)) {
-    h += `<div class="eyebrow"><h2>${esc(g || "top level")}</h2><span class="tag">${tagOf(list)}</span></div><div class="card stack">${scalarCards(list)}</div>`;
+    h += `<div class="eyebrow"><h2>${esc(g || "top level")}</h2><span class="tag">${tagOf(list)}</span>${addButton(null, g, list)}</div>${addSlot(null, g)}<div class="card stack">${scalarCards(list)}</div>`;
   }
   h += tableCards(S.structure.tables);
   for (const inc of S.structure.includes) {
     const badge = `<span class="inc">@${esc(inc.as)} · ${esc(inc.file)}</span>`;
     for (const [g, list] of groupsOf(inc.scalars)) {
-      h += `<div class="eyebrow"><h2>${esc(g || "top level")}</h2><span class="tag">${tagOf(list)}</span>${badge}</div><div class="card stack">${scalarCards(list)}</div>`;
+      h += `<div class="eyebrow"><h2>${esc(g || "top level")}</h2><span class="tag">${tagOf(list)}</span>${badge}${addButton(inc.as, g, list)}</div>${addSlot(inc.as, g)}<div class="card stack">${scalarCards(list)}</div>`;
     }
     h += tableCards(inc.tables, badge);
   }
@@ -346,12 +357,32 @@ $("#view-model").addEventListener("click", (e) => {
   }
   const edit = e.target.closest("[data-edit]");
   if (edit) { openFormulaEditor(edit.dataset.edit); return; }
+  const add = e.target.closest("[data-add]");
+  if (add) { openAddForm(add); return; }
+  const kind = e.target.closest("[data-akind]");
+  if (kind) { setAddKind(kind.closest("[data-addslot]"), kind.dataset.akind); return; }
+  const addCancel = e.target.closest("[data-acancel]");
+  if (addCancel) { closeAddForm(addCancel.closest("[data-addslot]")); return; }
+  const addSave = e.target.closest("[data-asave]");
+  if (addSave) { saveAdd(addSave.closest("[data-addslot]")); return; }
+  const del = e.target.closest("[data-del]");
+  if (del) { askDelete(del); return; }
+  const delYes = e.target.closest("[data-delyes]");
+  if (delYes) { deleteElement(delYes.dataset.delyes); return; }
+  const delNo = e.target.closest("[data-delno]");
+  if (delNo) { const ask = delNo.closest(".del-ask"); ask.previousElementSibling.hidden = false; ask.remove(); return; }
   const cancel = e.target.closest("[data-fcancel]");
   if (cancel) { closeFormulaEditor(cancel.dataset.fcancel); return; }
   const keep = e.target.closest("[data-fsave]");
   if (keep) saveFormula(keep.dataset.fsave);
 });
 $("#view-model").addEventListener("keydown", (e) => {
+  const slot = e.target.closest("[data-addslot]");
+  if (slot && e.target.matches("input")) {
+    if (e.key === "Enter") { e.preventDefault(); saveAdd(slot); }
+    if (e.key === "Escape") closeAddForm(slot);
+    return;
+  }
   const input = e.target.closest("[data-finput]");
   if (!input) return;
   if (e.key === "Enter") { e.preventDefault(); saveFormula(input.dataset.finput); }
@@ -438,6 +469,124 @@ async function saveFormula(path) {
   save();
   refreshEditor(file);
   await load();
+}
+
+// ---------- adding and deleting an element (roadmap S9) ----------
+// As for a formula: the new text is kept only when the model still validates
+// and Forge reads back exactly the model before, with the one element added
+// or gone. Otherwise Forge's message is shown and the file is as it was.
+const clone = (x) => JSON.parse(JSON.stringify(x));
+// The structure without the element at `path` (a scalar or a table column);
+// false when it is not there
+function without(structure, path) {
+  const st = clone(structure);
+  const parts = [st, ...st.includes];
+  for (const part of parts) {
+    const i = part.scalars.findIndex((x) => x.path === path);
+    if (i >= 0) { part.scalars.splice(i, 1); return st; }
+    for (const t of part.tables) {
+      const j = t.columns.findIndex((c) => `${t.name}.${c.name}` === path);
+      if (j >= 0) { t.columns.splice(j, 1); return st; }
+    }
+  }
+  return false;
+}
+// Check `text` as the new content of `file` with Forge, and keep it when
+// `expected(after)` holds for the model Forge reads from it
+async function commit(file, text, expected) {
+  const files = { ...S.files, [file]: text };
+  await check(files);
+  const after = await call("model", { files, main: S.main });
+  if (!expected(after)) throw new Error("Forge reads the new text differently from what was asked, so it was not kept. Change it on the YAML tab.");
+  S.files = files;
+  save();
+  refreshEditor(file);
+  await load();
+}
+
+function openAddForm(button) {
+  const slot = $(`[data-addslot="${CSS.escape(button.dataset.add)}"]`, $("#view-model"));
+  if (!slot) return;
+  if (!slot.hidden) { closeAddForm(slot); return; }
+  Object.assign(slot.dataset, { ns: button.dataset.ns, group: button.dataset.group, after: button.dataset.after, kind: button.dataset.kind === "column" ? "column" : "input" });
+  const where = button.dataset.group || "the top level";
+  const column = button.dataset.kind === "column";
+  slot.innerHTML = `<div class="fedit">
+    ${column ? `<p class="note">A new column of ${esc(where)}, calculated for each row.</p>` : `<div class="chips" role="group" aria-label="Kind"><button type="button" class="chip" data-akind="input" aria-pressed="true">Input</button><button type="button" class="chip" data-akind="formula" aria-pressed="false">Formula</button></div>`}
+    <div><label class="lab" for="a-name-${esc(button.dataset.add)}">Name</label><input class="txt" id="a-name-${esc(button.dataset.add)}" data-aname autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="new_name"></div>
+    <div data-avalue ${column ? "hidden" : ""}><label class="lab" for="a-value-${esc(button.dataset.add)}">Value</label><input class="txt" id="a-value-${esc(button.dataset.add)}" data-ainput inputmode="decimal" autocomplete="off" placeholder="0"></div>
+    <div data-aformula ${column ? "" : "hidden"}><label class="lab" for="a-formula-${esc(button.dataset.add)}">Formula</label><input class="txt" id="a-formula-${esc(button.dataset.add)}" data-aform autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="=…"></div>
+    ${column ? "" : `<div><label class="lab" for="a-unit-${esc(button.dataset.add)}">Unit (optional)</label><input class="txt" id="a-unit-${esc(button.dataset.add)}" data-aunit autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="CAD, %, months…"></div>`}
+    <div class="btns"><button type="button" class="btn primary" data-asave>Check and add</button><button type="button" class="btn" data-acancel>Cancel</button></div>
+    <div class="msg bad" data-amsg hidden></div></div>`;
+  slot.hidden = false;
+  $("[data-aname]", slot).focus();
+}
+function setAddKind(slot, kind) {
+  slot.dataset.kind = kind;
+  $$("[data-akind]", slot).forEach((b) => b.setAttribute("aria-pressed", b.dataset.akind === kind));
+  $("[data-avalue]", slot).hidden = kind !== "input";
+  $("[data-aformula]", slot).hidden = kind !== "formula";
+}
+function closeAddForm(slot) { slot.hidden = true; slot.innerHTML = ""; }
+
+async function saveAdd(slot) {
+  const msg = $("[data-amsg]", slot), button = $("[data-asave]", slot);
+  const say = (text) => { msg.hidden = false; msg.textContent = text; };
+  const { ns, group, after, kind } = slot.dataset;
+  const name = $("[data-aname]", slot).value.trim();
+  if (!NAME.test(name)) { say("A name starts with a letter or _, and has only letters, digits and _."); return; }
+  const prefix = `${ns ? "@" + ns + "." : ""}${group ? group + "." : ""}`;
+  const path = prefix + name;
+  if (formulaOf(S.structure, path) || allScalars().some((x) => x.path === path)) { say(`${path} is already in the model.`); return; }
+  const unitField = $("[data-aunit]", slot), unit = unitField ? unitField.value.trim() || null : null;
+  let entry;
+  if (kind === "input") {
+    const value = readNumber($("[data-ainput]", slot).value);
+    if (value === null) { say("The value must be a number."); return; }
+    entry = { kind, value, unit };
+  } else {
+    let formula = $("[data-aform]", slot).value.trim();
+    if (!formula) { say("Write the formula."); return; }
+    if (!formula.startsWith("=")) formula = "=" + formula;
+    entry = { kind, formula, unit };
+  }
+  const file = fileOfNs(ns || null);
+  const text = addEntryText(S.files[file], group || null, name, { ...entry, after: after || undefined });
+  if (text == null) { say(`Studio cannot add to this part of ${file} the way it is written. Add it on the YAML tab.`); return; }
+  button.disabled = true;
+  try {
+    await commit(file, text, (model) => {
+      const added = formulaOf(model, path);
+      if (!added) return false;
+      if (kind === "input" && (added.value !== entry.value || added.formula != null || (added.unit ?? null) !== unit)) return false;
+      if (kind !== "input" && (added.formula !== entry.formula || (kind === "formula" && (added.unit ?? null) !== unit))) return false;
+      return JSON.stringify(without(model, path)) === JSON.stringify(S.structure);
+    });
+  } catch (e) {
+    say(e.message);
+    button.disabled = false;
+  }
+}
+
+function askDelete(button) {
+  const path = button.dataset.del;
+  button.hidden = true;
+  button.insertAdjacentHTML("afterend", `<span class="del-ask">Delete ${esc(leaf(path))}? <button type="button" class="edit-btn warn" data-delyes="${esc(path)}">Delete</button><button type="button" class="edit-btn" data-delno>Keep</button></span>`);
+}
+async function deleteElement(path) {
+  const { ns, group, name } = split(path);
+  const file = fileOfNs(ns);
+  const fail = (text) => openSheet("Not deleted", `<p>${esc(text)}</p>`);
+  const text = deleteEntryText(S.files[file], group, name);
+  if (text == null) { fail(`Studio cannot delete ${path} from ${file} the way it is written (it may be the last one in its group). Delete it on the YAML tab.`); return; }
+  const expected = without(S.structure, path);
+  try {
+    await commit(file, text, (model) => expected && JSON.stringify(model) === JSON.stringify(expected));
+  } catch (e) {
+    fail(e.message);
+    renderModel(); updateValues();
+  }
 }
 
 // ---------- YAML view ----------
