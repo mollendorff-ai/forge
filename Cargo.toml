@@ -83,7 +83,7 @@ yaml_serde = "0.10"
 serde_json = "1.0"  # JSON handling for schema validation
 
 # JSON Schema validation (v1.0.0 array model)
-jsonschema = { version = "0.60", default-features = false, features = ["resolve-file", "idna"] }
+jsonschema = { version = "0.60", default-features = false, features = ["idna"] }
 
 # CLI
 clap = { version = "4.5.53", features = ["derive", "env"], optional = true }
@@ -146,6 +146,11 @@ base64 = { version = "0.23.1", optional = true }
 # A closed pipe (`forge functions | head`) ends the CLI quietly
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+# jsonschema may follow a $ref to a local file everywhere but in a browser,
+# where its file resolver does not build (Forge's schemas are built in)
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
+jsonschema = { version = "0.60", default-features = false, features = ["resolve-file"] }
 
 # In a browser (wasm32-unknown-unknown, ADR-055): randomness for unseeded
 # simulations from the browser's crypto, and today's date from its clock.
