@@ -4,7 +4,7 @@ identity:
 
 description: >
   YAML financial modeling engine with Excel-style formulas, its own
-  evaluator (175 functions), Monte Carlo and scenario analysis, Excel
+  evaluator (169 functions), Monte Carlo and scenario analysis, Excel
   export/import, an MCP server and a REST API. Deterministic. Formulas
   checked against Gnumeric and analytics against R in the forge-e2e-gnumeric
   and forge-e2e-r repositories.

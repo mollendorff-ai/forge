@@ -10,7 +10,7 @@
 
 ## Context
 
-Forge implements 175 Excel-compatible functions with complex edge cases. Traditional unit tests are limited:
+Forge implements 169 Excel-compatible functions with complex edge cases. Traditional unit tests are limited:
 
 - **Test bias**: We test what we think might break, not what actually breaks
 - **Limited coverage**: Edge cases are infinite; we test a finite set

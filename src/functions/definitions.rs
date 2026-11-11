@@ -1,13 +1,13 @@
 //! Function definitions - THE SINGLE SOURCE OF TRUTH
 //!
-//! This file contains all 175 function definitions.
+//! This file contains all 169 function definitions.
 //! Separated from registry.rs to keep files under 1500 lines.
 
 use super::{Category, FunctionDef};
 
 /// All supported functions - THE SINGLE SOURCE OF TRUTH
 ///
-/// Total: 175 functions (includes aliases)
+/// Total: 169 functions (includes aliases)
 pub static FUNCTIONS: &[FunctionDef] = &[
     // ══════════════════════════════════════════════════════════════════════════
     // MATH (19 total)
@@ -442,7 +442,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
-    // DATE (21 total)
+    // DATE (18 total)
     // ══════════════════════════════════════════════════════════════════════════
     FunctionDef {
         name: "TODAY",
@@ -568,27 +568,6 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         category: Category::Date,
         description: "Year fraction",
         syntax: "=YEARFRAC(start, end, basis)",
-        scalar: true,
-    },
-    FunctionDef {
-        name: "Y",
-        category: Category::Date,
-        description: "Years between (shorthand)",
-        syntax: "=Y(start, end)",
-        scalar: true,
-    },
-    FunctionDef {
-        name: "M",
-        category: Category::Date,
-        description: "Months between (shorthand)",
-        syntax: "=M(start, end)",
-        scalar: true,
-    },
-    FunctionDef {
-        name: "D",
-        category: Category::Date,
-        description: "Days between (shorthand)",
-        syntax: "=D(start, end)",
         scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
@@ -1169,7 +1148,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
-    // FORGE NATIVE (8 total)
+    // FORGE NATIVE (6 total)
     // ══════════════════════════════════════════════════════════════════════════
     FunctionDef {
         name: "PREV",
@@ -1211,27 +1190,6 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         category: Category::ForgeNative,
         description: "Break-even revenue",
         syntax: "=BREAKEVEN_REVENUE(fixed, margin_pct)",
-        scalar: true,
-    },
-    FunctionDef {
-        name: "YD",
-        category: Category::ForgeNative,
-        description: "Years and days since",
-        syntax: "=YD(start, end)",
-        scalar: true,
-    },
-    FunctionDef {
-        name: "YM",
-        category: Category::ForgeNative,
-        description: "Years and months since",
-        syntax: "=YM(start, end)",
-        scalar: true,
-    },
-    FunctionDef {
-        name: "MD",
-        category: Category::ForgeNative,
-        description: "Months and days since",
-        syntax: "=MD(start, end)",
         scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
