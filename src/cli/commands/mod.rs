@@ -21,6 +21,7 @@
 
 mod analysis;
 mod audit;
+mod compare;
 mod examples;
 mod excel_io;
 mod functions;
@@ -36,8 +37,9 @@ mod upgrade;
 mod what_if_tests;
 
 // Re-exports
-pub use analysis::{break_even, compare, goal_seek, sensitivity, variance};
+pub use analysis::{break_even, goal_seek, sensitivity, variance};
 pub use audit::audit;
+pub use compare::{compare, render_comparison, terminal_width};
 pub use examples::examples;
 pub use excel_io::{export, import};
 pub use functions::functions;
