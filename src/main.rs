@@ -54,7 +54,7 @@ EXAMPLES:
   forge examples monte-carlo                    # Show Monte Carlo example
 
 Docs: https://mollendorff.ai/forge")]
-#[command(version)]
+#[command(version = env!("FORGE_VERSION_TEXT"))]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
