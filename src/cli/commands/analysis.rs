@@ -901,7 +901,7 @@ pub fn sensitivity(
                     println!(
                         "{:>12} {:>15}",
                         format!("{val:.4}").bright_yellow(),
-                        display_number(result).green()
+                        format_number(result).green()
                     );
                 },
                 Err(e) => {
