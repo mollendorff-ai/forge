@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Forge Studio works offline and can be added to the Home Screen.** Once Forge is running, the page keeps all its files (the page, Forge's WebAssembly, the examples) on the device with a service worker, so it opens and calculates with no connection, in a hospital, a tunnel or a plane. On an iPhone, Share, Add to Home Screen puts it on the Home Screen with its own icon and opens it without Safari's bars (`manifest.webmanifest`, `apple-touch-icon.png`). A new release is a new cache, taken over only when Studio is next opened after being closed, so the page and Forge always come from the same release. `studio/tests/offline.mjs` checks in CI, on the WebAssembly build, that every file of the site is kept, that with the connection cut the page opens in the same state as online with no failed request, and that a later release replaces the cache.
+
 ## [10.0.0-rc.15] - 2026-11-11
 
 The Excel workbook in Forge Studio, saving to Files and iCloud Drive, and numbers with at most 15 significant digits everywhere Forge writes or prints them. No wrong answer was fixed since rc.13 (the rounding changes how a number is shown, not its value to 15 digits), so the two-week stable clock of docs/STABILITY.md still runs from rc.13 (no earlier than 2026-11-24).
