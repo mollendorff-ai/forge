@@ -220,6 +220,10 @@ pub fn parse_scenarios(
                 overrides_map.contains_key("probability") || overrides_map.contains_key("scalars");
 
             if is_structured {
+                scenario.description = overrides_map
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
                 // Structured ScenarioDefinition format: extract overrides from "scalars" only.
                 // "probability" and "description" are intentionally skipped here;
                 // they are consumed by ScenarioEngine via serde deserialization.

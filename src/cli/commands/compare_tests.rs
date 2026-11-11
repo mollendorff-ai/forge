@@ -38,6 +38,7 @@ fn eight() -> ComparisonResult {
         scenarios,
         variables,
         values,
+        descriptions: indexmap::IndexMap::new(),
     }
 }
 
@@ -121,6 +122,7 @@ fn many_scalars_and_short_scenario_names_keep_one_row_per_scalar() {
         scenarios,
         variables,
         values,
+        descriptions: indexmap::IndexMap::new(),
     };
     let text = render_comparison(&result, &[], ReportFormat::Table, Some(60));
     assert!(text.starts_with("variable "), "{text}");
@@ -168,4 +170,34 @@ fn markdown_is_one_pipe_table_whatever_the_width() {
     assert_eq!(lines[1], format!("| --- |{}", " ---: |".repeat(8)));
     assert!(lines[2].starts_with("| bankruptcy.monthly_surplus_payment | 774.75 |"));
     assert!(lines[4].contains("| 0.14975 |"));
+}
+
+#[test]
+fn descriptions_are_a_legend_below_the_table() {
+    let mut result = eight();
+    result.descriptions.insert(
+        "rent_1500_prosupport_recognized".to_string(),
+        "Studio at $1,500, support recognized".to_string(),
+    );
+    let table = render_comparison(&result, &inputs(), ReportFormat::Table, None);
+    assert!(
+        table
+            .ends_with("\nrent_1500_prosupport_recognized: Studio at $1,500, support recognized\n"),
+        "{table}"
+    );
+    let markdown = render_comparison(&result, &inputs(), ReportFormat::Markdown, None);
+    assert!(
+        markdown.ends_with(
+            "\n- **rent_1500_prosupport_recognized**: Studio at $1,500, support recognized\n"
+        ),
+        "{markdown}"
+    );
+    // Data formats carry the descriptions only in JSON, and the CSV stays a table
+    let csv = render_comparison(&result, &inputs(), ReportFormat::Csv, None);
+    assert!(!csv.contains("Studio"));
+    let json = render_comparison(&result, &inputs(), ReportFormat::Json, None);
+    assert!(json.contains("\"descriptions\""));
+    // No description, no legend and no field
+    let plain = render_comparison(&eight(), &inputs(), ReportFormat::Json, None);
+    assert!(!plain.contains("descriptions"));
 }

@@ -8,7 +8,7 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 
-use super::{apply_scenario, format_number};
+use super::{apply_scenario, display_number, format_number};
 
 /// Variance result for a single variable
 #[derive(Debug, Clone)]
@@ -74,10 +74,19 @@ pub fn compare_core(
         values.insert(scalar_name.clone(), scenario_values);
     }
 
+    let descriptions = scenarios
+        .iter()
+        .filter_map(|name| {
+            let text = base_model.scenarios.get(name)?.description.clone()?;
+            Some((name.clone(), text))
+        })
+        .collect();
+
     Ok(super::results::ComparisonResult {
         scenarios: scenarios.to_vec(),
         variables: all_scalars,
         values,
+        descriptions,
     })
 }
 
@@ -1192,9 +1201,9 @@ fn print_goal_seek_result(
     println!(
         "   {} = {} → {} = {}",
         vary.bright_yellow().bold(),
-        format_number(mid).bold().green(),
+        display_number(mid).bold().green(),
         target.bright_blue(),
-        format_number(final_value).green()
+        display_number(final_value).green()
     );
 
     let error = (final_value - value).abs();

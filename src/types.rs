@@ -287,6 +287,9 @@ pub struct ResolvedInclude {
 pub struct Scenario {
     /// Variable overrides for this scenario (`variable_name` -> value)
     pub overrides: HashMap<String, f64>,
+    /// What the scenario is, in words (the `description` of the full form)
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 impl Scenario {
@@ -294,6 +297,7 @@ impl Scenario {
     pub fn new() -> Self {
         Self {
             overrides: HashMap::new(),
+            description: None,
         }
     }
 
