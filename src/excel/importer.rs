@@ -602,6 +602,20 @@ impl ExcelImporter {
             if let Some(excel) = sheet.formula(1, col) {
                 let whole_column =
                     Self::row_formula(sheet, col, (refs, names), &table_name, holds_dates, &excel);
+                // `forge calculate` refuses an aggregate in a row formula, so a
+                // column that reads its own total (a share of the total,
+                // `=A2/SUM($A$2:$A$5)`) is imported as the values it shows
+                let whole_column = whole_column.and_then(|forge| {
+                    if crate::core::array_calculator::ArrayCalculator::is_aggregation_formula(
+                        &forge,
+                    ) {
+                        Err("it reads a total of its own column, which a Forge column \
+                             formula cannot; put the total in a scalar"
+                            .to_string())
+                    } else {
+                        Ok(forge)
+                    }
+                });
                 match whole_column {
                     Ok(forge) => {
                         table.add_row_formula(col_name, forge);
@@ -629,6 +643,36 @@ impl ExcelImporter {
             } else {
                 Self::convert_to_column_value(&data)?
             };
+            if matches!(column_value, ColumnValue::Number(_)) {
+                // Text, a boolean or an error among numbers is 0 in Forge
+                let not_numbers: Vec<String> = data
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, cell)| !matches!(cell, Data::Empty) && number_of(cell).is_none())
+                    .map(|(i, cell)| {
+                        format!("{}{} ({cell})", sheet.letter(col), sheet.excel_row(i + 1))
+                    })
+                    .collect();
+                if !not_numbers.is_empty() {
+                    let shown = not_numbers.iter().take(5).cloned().collect::<Vec<_>>();
+                    let more = not_numbers.len() - shown.len();
+                    warnings.push(format!(
+                        "{table_name}.{col_name}: a column of numbers holds text or another \
+                         non-number in {} imported as 0: {}{}",
+                        if not_numbers.len() == 1 {
+                            "1 cell,"
+                        } else {
+                            "several cells,"
+                        },
+                        shown.join(", "),
+                        if more > 0 {
+                            format!(" and {more} more")
+                        } else {
+                            String::new()
+                        }
+                    ));
+                }
+            }
             // Forge reads a column that starts with a date as a column of
             // dates, and rejects any other text in it
             if let ColumnValue::Text(texts) = &column_value {

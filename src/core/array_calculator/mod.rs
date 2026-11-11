@@ -570,7 +570,7 @@ impl ArrayCalculator {
     }
 
     /// Check if a formula is an aggregation (returns scalar)
-    fn is_aggregation_formula(formula: &str) -> bool {
+    pub(crate) fn is_aggregation_formula(formula: &str) -> bool {
         let body = formula.trim_start_matches('=').trim();
         match tokenizer::tokenize(body).map(parser::parse) {
             Ok(Ok(ast)) => Self::expr_has_aggregation(&ast),
