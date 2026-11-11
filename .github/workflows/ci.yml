@@ -181,7 +181,12 @@ jobs:
         working-directory: studio
         run: |
           npm install --no-audit --no-fund
-          npx playwright install --with-deps chromium
+          # The runner's package mirror sometimes does not answer (2026-11-11)
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && break
+            [ "$attempt" = 3 ] && exit 1
+            sleep 20
+          done
           node tests/screen.mjs ../studio-site ../forge-wasm/expected.json
 
       - name: Upload Forge Studio
