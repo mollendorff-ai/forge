@@ -9,10 +9,11 @@ export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "
 // `name: {value: 16, ...}` and a `value: 16` line under `name:`. `group` is
 // the scalar's group (null at the top level). Answers null when the line is
 // not found, and the caller says so instead of rewriting the file.
-export function setInputText(text, group, name, v) {
-  const lines = text.split("\n");
+// The line of `name` (under the top-level `group`, or at the top level when
+// group is null): its index, its indentation and the text after the colon.
+function findKey(lines, group, name) {
   const keyRe = (k) => new RegExp(`^(\\s*)("${k}"|'${k}'|${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}):(.*)$`);
-  let start = 0, indent = -1;
+  let start = 0;
   if (group) {
     const g = lines.findIndex((l) => keyRe(group).test(l) && !/^\s/.test(l));
     if (g < 0) return null;
@@ -23,21 +24,88 @@ export function setInputText(text, group, name, v) {
     if (group && /^\S/.test(l)) break;
     const m = keyRe(name).exec(l);
     if (!m || (group && m[1].length === 0) || (!group && m[1].length)) continue;
-    indent = m[1].length;
-    const rest = m[3];
-    const sm = /^(\s*)(-?[\d.eE+]+)(\s*(#.*)?)$/.exec(rest);
-    if (sm) { lines[i] = m[1] + m[2] + ":" + sm[1] + v + sm[3]; return lines.join("\n"); }
-    const fm = /^(\s*\{.*?\bvalue:\s*)(-?[\d.eE+]+|null|~)(.*)$/.exec(rest);
-    if (fm) { lines[i] = m[1] + m[2] + ":" + fm[1] + v + fm[3]; return lines.join("\n"); }
-    for (let j = i + 1; j < lines.length; j++) {
-      const lj = lines[j];
-      if (lj.trim() && !lj.trim().startsWith("#") && lj.match(/^\s*/)[0].length <= indent) break;
-      const vm = /^(\s+value:\s*)([^#]*?)(\s*#.*)?$/.exec(lj);
-      if (vm) { lines[j] = vm[1] + v + (vm[3] || ""); return lines.join("\n"); }
-    }
-    return null;
+    return { i, indent: m[1].length, head: m[1] + m[2] + ":", rest: m[3] };
   }
   return null;
+}
+
+// The lines under the key at line i (more indented, or blank, or comments).
+function* childLines(lines, i, indent) {
+  for (let j = i + 1; j < lines.length; j++) {
+    const lj = lines[j];
+    if (lj.trim() && !lj.trim().startsWith("#") && lj.match(/^\s*/)[0].length <= indent) return;
+    yield j;
+  }
+}
+
+export function setInputText(text, group, name, v) {
+  const lines = text.split("\n");
+  const at = findKey(lines, group, name);
+  if (!at) return null;
+  const { i, head, rest } = at;
+  const sm = /^(\s*)(-?[\d.eE+]+)(\s*(#.*)?)$/.exec(rest);
+  if (sm) { lines[i] = head + sm[1] + v + sm[3]; return lines.join("\n"); }
+  const fm = /^(\s*\{.*?\bvalue:\s*)(-?[\d.eE+]+|null|~)(.*)$/.exec(rest);
+  if (fm) { lines[i] = head + fm[1] + v + fm[3]; return lines.join("\n"); }
+  for (const j of childLines(lines, i, at.indent)) {
+    const vm = /^(\s+value:\s*)([^#]*?)(\s*#.*)?$/.exec(lines[j]);
+    if (vm) { lines[j] = vm[1] + v + (vm[3] || ""); return lines.join("\n"); }
+  }
+  return null;
+}
+
+// A formula written for YAML in the style the file already uses for it:
+// "double quotes", 'single quotes', or plain when that is safe; otherwise in
+// double quotes.
+function encodeFormula(formula, style, flow) {
+  const plainSafe = !/: |\s#|^\s|\s$|["'`\\]/.test(formula) && !(flow && /[,{}[\]]/.test(formula));
+  if (style === "plain" && plainSafe) return formula;
+  if (style === "single") return `'${formula.replace(/'/g, "''")}'`;
+  return `"${formula.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+// Replace the YAML value at the start of `text` (after its spaces), keeping
+// whatever follows it on the line: a comment, the rest of a flow mapping.
+function replaceValue(text, formula, flow) {
+  const lead = /^\s*/.exec(text)[0], v = text.slice(lead.length);
+  let token, style;
+  if (v.startsWith('"')) { token = /^"(?:[^"\\]|\\.)*"/.exec(v); style = "double"; }
+  else if (v.startsWith("'")) { token = /^'(?:[^']|'')*'/.exec(v); style = "single"; }
+  else { token = (flow ? /^[^,}\]]*?(?=\s*[,}\]]|\s+#|$)/ : /^.*?(?=\s+#|$)/).exec(v); style = "plain"; }
+  if (!token || !token[0]) return null;
+  return lead + encodeFormula(formula, style, flow) + v.slice(token[0].length);
+}
+
+// Change one formula in a file's text and nothing else (roadmap S7). It
+// handles the ways a formula is written: `name: "=..."`, `name: '=...'`,
+// `name: =...`, `name: {formula: "=...", ...}` and a `formula:` line under
+// `name:`. Answers null when it cannot find the formula; the caller then
+// asks Forge whether the new text holds exactly this change before keeping it.
+export function setFormulaText(text, group, name, formula) {
+  if (/[\r\n]/.test(formula)) return null;
+  const lines = text.split("\n");
+  const at = findKey(lines, group, name);
+  if (!at) return null;
+  const { i, head, rest } = at;
+  const v = rest.trimStart();
+  let changed = null;
+  if (/^["']?=/.test(v)) changed = replaceValue(rest, formula, false);
+  else if (v.startsWith("{")) {
+    const m = /^(\s*\{(?:.*?[{,]\s*)?formula\s*:)(.*)$/.exec(rest);
+    const tail = m && replaceValue(m[2], formula, true);
+    if (tail != null) changed = m[1] + tail;
+  } else if (!v || v.startsWith("#")) {
+    for (const j of childLines(lines, i, at.indent)) {
+      const fm = /^(\s+formula:)(.*)$/.exec(lines[j]);
+      if (!fm) continue;
+      const tail = replaceValue(fm[2], formula, false);
+      if (tail == null) return null;
+      lines[j] = fm[1] + tail;
+      return lines.join("\n");
+    }
+  }
+  if (changed == null) return null;
+  lines[i] = head + changed;
+  return lines.join("\n");
 }
 
 

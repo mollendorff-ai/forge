@@ -4,6 +4,8 @@ A web page for Forge's YAML models, phone first (ADR-056). It opens the models o
 
 On a phone it shows one view at a time with tabs at the bottom. Above 900 px the editor is on the left and the other views on the right: a number typed in the editor changes its card, a number changed on a card shows in the editor, the divider between them can be dragged, and either side can be hidden.
 
+A formula can be changed on its card: it is kept only when Forge accepts it, and otherwise Forge's message says why.
+
 Every number is Forge's. The page runs `forge-wasm` (ADR-055) in a background worker and reads no YAML itself: a change on a card is written into that line of the YAML, comments and all, and Forge calculates the files again. Nothing leaves the device; the files stay in the browser's storage.
 
 | File | What it holds |
@@ -11,7 +13,7 @@ Every number is Forge's. The page runs `forge-wasm` (ADR-055) in a background wo
 | `index.html`, `studio.css` | The page |
 | `app.js` | State, the five views, events |
 | `forge.js`, `worker.js` | The only way to a number: `call(tool, request)` to forge-wasm, in a worker |
-| `text.js` | Text work on YAML: changing one input's line, colouring the editor with the VS Code grammar's rules (`formula-rules.json`, written by `build.mjs` from `editors/vscode/syntaxes/`) |
+| `text.js` | Text work on YAML: changing one input's or one formula's line, colouring the editor with the VS Code grammar's rules (`formula-rules.json`, written by `build.mjs` from `editors/vscode/syntaxes/`) |
 | `format.js` | How numbers look on screen |
 | `build.mjs` | Puts the page, forge-wasm and the example sets in one folder |
 
@@ -40,4 +42,7 @@ Pages is switched on once, by an administrator: Settings, Pages, Source: GitHub 
 
 - `node studio/tests/highlight.mjs [studio-site]`: the colours of formulas are the VS Code grammar's (patterns, order, scopes), and highlighting leaves every YAML file of `examples/` unchanged once its tags are removed.
 
-All four run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact.
+- `node studio/tests/text.mjs`: changing an input or a formula changes its one value and nothing else, for each way YAML writes it.
+- `node studio/tests/formulas.mjs studio-site`: every formula of every example, changed on its card, changes its one line and Forge reads it back; invalid formulas are refused with Forge's message and no change.
+
+All six run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact.
