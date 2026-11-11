@@ -97,6 +97,61 @@ tier2:
   [] # every tier-2 item is done (2026-11-10): forge report, the comparison example and the first-model starter (three fresh agents wrote a model that calculated on the first run); the next ones come from tier 3
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# STUDIO — the web interface (ADR-055, ADR-056)
+# ═══════════════════════════════════════════════════════════════════════════════
+# A track of its own, worked in its own session alongside the engine tiers.
+# It does not wait for tier 1 and does not compete with it, with one exception:
+# S1 changes Cargo.toml and the parser, so it is merged before other engine work
+# starts on those files. Order: S1, S2, S3, S4 (publish early), then S5 to S8.
+
+studio:
+  - id: S1-CORE-NO-OS
+    title: "Build the parser, calculator and analysis engines without the command line or the servers"
+    why: "The browser build (ADR-055) cannot link tokio, axum, rmcp, notify, tempfile or clap. Outside tests the core reads files in two places, parse_model and the include loader"
+    how: "A default Cargo feature for the command line and the servers; a model source of main text and include texts, filled from files by the CLI and from memory by the browser; rand's browser source only for unseeded runs; jsonschema without HTTP"
+    acceptance: "cargo build --no-default-features --target wasm32-unknown-unknown passes in CI; cargo test passes unchanged; the release binary's commands and output are byte for byte the same on the examples"
+
+  - id: S2-FORGE-WASM
+    title: "The forge-wasm crate: Forge's tools as functions that take text and return JSON"
+    why: "One engine for the terminal, MCP and the browser (ADR-055)"
+    how: "A workspace member with wasm-bindgen exposing the tools of ADR-055 decision 2, with the MCP tools' inputs minus file paths; built by wasm-pack in CI"
+    acceptance: "In CI, Node runs every example model through the WebAssembly build and gets the numbers asserted in tests/demo_examples.rs and tests/bagel_example.rs, a seeded simulation included; the build's size is written in the workflow summary"
+
+  - id: S3-STUDIO-PORT
+    title: "Forge Studio in studio/, calculating with forge-wasm"
+    why: "The mockup works on a phone but calculates with its own JavaScript engine (ADR-055 Context)"
+    how: "Bring the mockup's five views into studio/ as JavaScript modules; replace its engine and its YAML library with forge-wasm; open the release's examples/; delete the JavaScript engine"
+    acceptance: "A headless browser in CI opens each example in Studio, and every scalar on screen equals forge calculate's for that model; the page holds no calculation code of its own (a test greps for it)"
+
+  - id: S4-PAGES
+    title: "Publish Studio on GitHub Pages on each release"
+    why: "A web address a person can open on a phone without installing anything (ADR-056 decision 6)"
+    how: "A workflow builds forge-wasm and Studio and deploys them to Pages after a release; pull requests build them as an artifact without publishing. Pages is switched on once, by an administrator"
+    acceptance: "After a release the Pages address shows that release's version and year.profit 786.32 for examples/bagel/bagel.yaml; the maintainer opens it once on an iPhone and the numbers are the same"
+
+  - id: S5-SPLIT-VIEW
+    title: "Editor and cards side by side on wide screens"
+    why: "On a laptop the YAML and its results should be visible together, so a change in one shows in the other (ADR-056 decision 3)"
+    how: "Below about 900 px: one column and bottom tabs. Wider: editor left, cards right, a draggable divider, a control to hide either side; Analyze, MCP and Files open in the right pane"
+    acceptance: "Screenshots at 390 x 844 and 1440 x 900, in light and dark, are in the pull request; a headless test at 320 px finds no horizontal scroll; typing a number in the editor on the wide layout changes its card"
+
+  - id: S6-HIGHLIGHT-ONE-SOURCE
+    title: "Studio highlights formulas with the VS Code extension's rules"
+    why: "Two copies of the same rules drift (ADR-056 decision 4)"
+    how: "Studio reads the patterns from editors/vscode/syntaxes at build time or holds a copy that a test compares; plain YAML (keys, comments, strings, numbers) is Studio's own"
+    acceptance: "A test fails when Studio's formula patterns or their order differ from forge-formula.injection.json; on every file in examples/ the highlighted text, with its tags removed, equals the file"
+
+  - id: S7-CARD-FORMULAS
+    title: "Edit a formula on its card"
+    why: "Today a card changes only inputs; a formula is edited in the YAML view"
+    acceptance: "Editing a formula on a card changes that formula's line in the YAML and nothing else (a byte comparison in a test), and an invalid formula is refused with Forge's message before the text changes"
+
+  - id: S8-EXCEL-IN-BROWSER
+    title: "Excel export and import in the browser"
+    why: "Files is limited to YAML and CSV until rust_xlsxwriter and calamine build for wasm32"
+    acceptance: "A workbook exported in Studio from examples/bagel/bagel.yaml is byte for byte the one forge export writes for the same release, or the difference is listed and explained"
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done and at least two people use it)
 # ═══════════════════════════════════════════════════════════════════════════════
 
