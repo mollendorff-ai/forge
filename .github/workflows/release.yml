@@ -201,6 +201,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Publish to crates.io on release
+  # Forge Studio on GitHub Pages (ADR-056 decision 6), at this tag. A run
+  # started with GITHUB_TOKEN, as Auto Release starts this one, sends no
+  # workflow_run event to other workflows (rc.14 published nothing on its
+  # own), so the Pages workflow is started here, the way Auto Release starts
+  # this one.
+  studio:
+    name: Publish Forge Studio
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Start Studio on Pages for this tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run pages.yml --repo "${{ github.repository }}" --ref main -f ref="${{ github.ref_name }}"
+
   publish:
     name: Publish to crates.io
     needs: release
