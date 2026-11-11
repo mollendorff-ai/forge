@@ -53,6 +53,7 @@ for (const c of cases) {
     );
   }
   if (c.main) request.main = c.main;
+  console.log(`running: ${c.name}`);
   const start = performance.now();
   const answer = JSON.parse(forge.call(c.tool, JSON.stringify(request)));
   const ms = performance.now() - start;

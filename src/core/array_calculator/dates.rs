@@ -25,18 +25,28 @@ use super::ArrayCalculator;
 impl ArrayCalculator {
     /// Evaluate TODAY function: `TODAY()`
     pub(super) fn eval_today(&self) -> String {
-        use std::time::{SystemTime, UNIX_EPOCH};
+        // A browser build has no clock behind SystemTime, which panics there;
+        // chrono reads the browser's (ADR-055). The day is UTC in both.
+        #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+        {
+            chrono::Utc::now().format("%Y-%m-%d").to_string()
+        }
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+        {
+            use std::time::{SystemTime, UNIX_EPOCH};
 
-        // Convert Unix timestamp to date (simplified, no timezone handling)
-        let days_since_epoch = now / 86400;
-        let (year, month, day) = Self::days_to_date(days_since_epoch as i32);
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
 
-        format!("{year:04}-{month:02}-{day:02}")
+            // Convert Unix timestamp to date (simplified, no timezone handling)
+            let days_since_epoch = now / 86400;
+            let (year, month, day) = Self::days_to_date(days_since_epoch as i32);
+
+            format!("{year:04}-{month:02}-{day:02}")
+        }
     }
 
     /// Evaluate DATE function: DATE(year, month, day)

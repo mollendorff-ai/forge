@@ -11,6 +11,24 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Instant;
 
+/// When a run starts, to report `execution_time_ms`. A browser build
+/// (wasm32-unknown-unknown) has no clock behind `Instant`, which panics
+/// there; it reports 0 ms (ADR-055).
+fn stopwatch() -> Option<Instant> {
+    if cfg!(all(target_arch = "wasm32", target_os = "unknown")) {
+        None
+    } else {
+        Some(Instant::now())
+    }
+}
+
+/// Milliseconds since [`stopwatch`], or 0 without a clock.
+// cast_possible_truncation: simulation time in ms will never exceed u64::MAX
+#[allow(clippy::cast_possible_truncation)]
+fn elapsed_ms(start: Option<Instant>) -> u64 {
+    start.map_or(0, |start| start.elapsed().as_millis() as u64)
+}
+
 use super::config::MonteCarloConfig;
 use super::correlation::CorrelationMatrix;
 use super::distributions::{
@@ -230,7 +248,7 @@ impl MonteCarloEngine {
     ///
     /// Returns an error if output variable samples cannot be resolved.
     pub fn run(&mut self) -> Result<SimulationResult, String> {
-        let start = Instant::now();
+        let start = stopwatch();
         let n = self.config.iterations;
 
         let input_samples = self.sample_inputs(n)?;
@@ -255,9 +273,7 @@ impl MonteCarloEngine {
             );
         }
 
-        // cast_possible_truncation: simulation time in ms will never exceed u64::MAX
-        #[allow(clippy::cast_possible_truncation)]
-        let execution_time_ms = start.elapsed().as_millis() as u64;
+        let execution_time_ms = elapsed_ms(start);
 
         Ok(SimulationResult {
             config: self.config.clone(),
@@ -285,7 +301,7 @@ impl MonteCarloEngine {
     where
         F: FnMut(&HashMap<String, f64>) -> Result<HashMap<String, f64>, String>,
     {
-        let start = Instant::now();
+        let start = stopwatch();
         let n = self.config.iterations;
 
         let input_samples = self.sample_inputs(n)?;
@@ -333,9 +349,7 @@ impl MonteCarloEngine {
             );
         }
 
-        // cast_possible_truncation: simulation time in ms will never exceed u64::MAX
-        #[allow(clippy::cast_possible_truncation)]
-        let execution_time_ms = start.elapsed().as_millis() as u64;
+        let execution_time_ms = elapsed_ms(start);
 
         Ok(SimulationResult {
             config: self.config.clone(),

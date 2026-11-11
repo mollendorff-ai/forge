@@ -58,6 +58,10 @@ pub const TOOLS: [&str; 20] = [
 #[wasm_bindgen]
 #[must_use]
 pub fn call(tool: &str, request: &str) -> String {
+    // A panic aborts (the release profile), so its message only reaches the
+    // console through this hook
+    static HOOK: std::sync::Once = std::sync::Once::new();
+    HOOK.call_once(|| std::panic::set_hook(Box::new(console_error_panic_hook::hook)));
     let answer = serde_json::from_str::<Value>(request)
         .map_err(|e| format!("The request is not JSON: {e}"))
         .and_then(|request| run(tool, &request));
