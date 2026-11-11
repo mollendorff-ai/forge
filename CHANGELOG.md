@@ -7,14 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+- **Forge Studio, a web interface, and Forge in the browser** (ADR-055, ADR-056, roadmap `studio`). Decisions only, nothing built yet: Forge's engine compiled to WebAssembly as a `forge-wasm` crate, and a phone-first page in `studio/` that calculates with it, with the YAML editor and the cards side by side on wide screens, published on GitHub Pages with each release. Users of the command line, MCP and the REST API see no change.
+
+## [10.0.0-rc.13] - 2026-11-10
+
+One more wrong answer in `forge export` fixed, so the two-week stable clock of docs/STABILITY.md restarts here (no earlier than 2026-11-24).
+
 ### Fixed
 - **`forge export` wrote formulas over text that looks like a number as they were, and Excel reads such text its own way.** With `s: ["5", "apple", "2", "x"]`: `SUM(t.s)` was 7 in Forge and 0 in Gnumeric and LibreOffice, `COUNTIF(t.s, ">3")` 1 and 0, and `IFERROR(IF(s > 3, 1, 0), -1)` 1, -1, 0, -1 in Forge and 1 in every row in both (Excel puts any text above every number). The same held for a column of months (`2026-01`) compared with a date. A formula that reads a number from text with a digit in it, that orders text with `<`, `>`, `<=` or `>=`, or that reads a number from text made in the formula (`LEFT(code, 2) * 1`), is now written as its values, with a warning; one that reads text as text stays a formula, and so does a column of words read as numbers (nothing, in both). `forge import` applies the same rule to a workbook's own formulas. Forge's own results do not change. A wrong answer under docs/STABILITY.md: the next release candidate restarts the two-week clock (ADR-054, decision 6, amended; roadmap T1-TEXT-NUMBERS).
 - **`forge functions` listed six names a formula cannot call.** `Y`, `M`, `D`, `YD`, `YM` and `MD` are the units of `DATEDIF(a, b, "YD")`, not functions: `=YD(a, b)` was an unknown function. The list, the MCP `forge_functions` tool and every count are now 169, of which six are FP&A-native. A test calls every listed function by name. It also found that `=IRR()` with no arguments panicked; it now says `IRR requires cash flows` (roadmap T1-FUNCTION-LIST).
 - **`forge import` said "Import Complete" and said nothing about two things it could not keep.** A column of numbers with text in it (`n/a`, a note) came in with 0 in those cells; the warning now names them (`orders.amount: ... A3 (n/a), A5 (see note) ... imported as 0`). A column that reads its own total, a share of the total `=A2/SUM($A$2:$A$5)`, came in as a column formula that `forge calculate` refuses (`aggregations should be in scalars section`); it is now imported as the values the workbook shows, with a warning, and the model calculates to those values (roadmap T1-IMPORT-MIXED, T1-IMPORT-AGGREGATE).
 - **`forge export` of a model that does not calculate said "Export Complete" and nothing else.** The formulas were then written without results, and what a formula column holds is known only from the results (ADR-054): `next: =EDATE(d, 1)` and `y4: =LEFT(next, 4)` were written as `=LEFT(B2, 4)`, 4608 in Excel where Forge, once the model calculates, holds 2026. The export still writes the file and exits 0, now with a warning that names the calculation's error (`Exported, but not checked` in the command; the first entry of `warnings` in the MCP tool, which has a new `warnings` field on the in-memory export too) (roadmap T1-EXPORT-UNCALCULATED).
-
-### Planned
-- **Forge Studio, a web interface, and Forge in the browser** (ADR-055, ADR-056, roadmap `studio`). Decisions only, nothing built yet: Forge's engine compiled to WebAssembly as a `forge-wasm` crate, and a phone-first page in `studio/` that calculates with it, with the YAML editor and the cards side by side on wide screens, published on GitHub Pages with each release. Users of the command line, MCP and the REST API see no change.
 
 ## [10.0.0-rc.12] - 2026-11-10
 
