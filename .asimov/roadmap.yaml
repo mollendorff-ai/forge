@@ -121,6 +121,10 @@ tier3:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 parked:
+  - id: P-STUDIO-ASSISTANT
+    title: "An AI assistant in Forge Studio that builds a model in conversation"
+    why: "Forge was built for AI agents and its tools already run in the page (forge-wasm): an assistant could write the YAML and check it with Forge as an agent does through MCP. The maintainer's idea, 2026-11-11, parked by him"
+    how: "An ADR first. Studio has no server, so the calls to a model would use the person's own API key, kept in their browser; each conversation costs on that key, and the model's text goes to the provider"
   - id: P-GAME
     title: "Game theory module"
   - id: P-GPU
