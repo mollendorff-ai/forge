@@ -12,7 +12,10 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-mollendorff-forge = { path = "..", default-features = false }
+# Excel (rust_xlsxwriter, calamine) builds for the browser too (roadmap S8)
+mollendorff-forge = { path = "..", default-features = false, features = ["excel"] }
+# A workbook crosses JSON as base64, as in the MCP tool forge_export
+base64 = "0.23"
 serde = "1.0"
 serde_json = "1.0"
 wasm-bindgen = "0.2"

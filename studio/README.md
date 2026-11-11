@@ -1,6 +1,6 @@
 # Forge Studio
 
-A web page for Forge's YAML models, phone first (ADR-056). It opens the models of this repository's `examples/`, or YAML files from the device, and shows them as cards: inputs to change, results with their formulas, tables, scenarios. Analyze runs goal seek, break-even, scenarios, a tornado, a simulation and budget against actual; Tools runs the MCP server's 20 tools on the open model; YAML is the model's text, with Forge's formula colours.
+A web page for Forge's YAML models, phone first (ADR-056). It opens the models of this repository's `examples/`, YAML files from the device, or an Excel workbook (imported by Forge), and shows them as cards: inputs to change, results with their formulas, tables, scenarios. Analyze runs goal seek, break-even, scenarios, a tornado, a simulation and budget against actual; Tools runs the MCP server's 20 tools on the open model; YAML is the model's text, with Forge's formula colours.
 
 On a phone it shows one view at a time with tabs at the bottom. Above 900 px the editor is on the left and the other views on the right: a number typed in the editor changes its card, a number changed on a card shows in the editor, the divider between them can be dragged, and either side can be hidden.
 
@@ -45,6 +45,7 @@ Pages is switched on once, by an administrator: Settings, Pages, Source: GitHub 
 - `node studio/tests/text.mjs`: changing an input or a formula changes its one value and nothing else, for each way YAML writes it.
 - `node studio/tests/formulas.mjs studio-site`: every formula of every example, changed on its card, changes its one line and Forge reads it back; invalid formulas are refused with Forge's message and no change.
 
+- `node studio/tests/excel.mjs studio-site <workbooks>`: the workbook Studio downloads for bagel and mortgage is the one `forge export` writes, part by part, apart from when it was made; a workbook `forge export` wrote, opened in Studio, calculates to the same numbers.
 - `node studio/tests/format.mjs`: the percent rule and how typed numbers are read.
 
-All seven run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact.
+All eight run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact.

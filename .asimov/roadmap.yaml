@@ -78,14 +78,11 @@ tier2:
 # pages.yml; it publishes once Pages is switched on and the workflow runs).
 # S5, the editor and the cards side by side above 900 px; S6, formula colours
 # read from the VS Code extension's grammar, with one copy of the rules; S7,
-# a formula edited on its card, kept only when Forge accepts it.
-# Next: S8.
+# a formula edited on its card, kept only when Forge accepts it; S8, Excel
+# export and import in the browser, the workbook forge export writes.
 
 studio:
-  - id: S8-EXCEL-IN-BROWSER
-    title: "Excel export and import in the browser"
-    why: "Files is limited to YAML and CSV until rust_xlsxwriter and calamine build for wasm32"
-    acceptance: "A workbook exported in Studio from examples/bagel/bagel.yaml is byte for byte the one forge export writes for the same release, or the difference is listed and explained"
+  [] # every studio item is done (2026-11-11); the next ones come from using Studio
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done and at least two people use it)

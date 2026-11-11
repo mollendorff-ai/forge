@@ -15,6 +15,10 @@ fn steady(mut value: Value) -> Value {
     match &mut value {
         Value::Object(map) => {
             map.remove("execution_time_ms");
+            // A workbook records when it was made (docProps/core.xml); its
+            // parts are compared in tests/node/compare.mjs
+            map.remove("excel_base64");
+            map.remove("byte_count");
             for v in map.values_mut() {
                 *v = steady(v.take());
             }
@@ -176,11 +180,11 @@ fn the_browser_entry_point_answers_in_json() {
         "'main' names model.yaml, which is not in 'files'"
     );
 
-    let unknown: Value = serde_json::from_str(&call("export", r#"{"files": {}}"#)).unwrap();
+    let unknown: Value = serde_json::from_str(&call("nope", r#"{"files": {}}"#)).unwrap();
     assert!(unknown["error"]
         .as_str()
         .unwrap()
-        .starts_with("No tool named 'export'"));
+        .starts_with("No tool named 'nope'"));
 }
 
 #[test]
@@ -210,4 +214,35 @@ fn model_lists_inputs_and_formulas_in_file_order() {
         .unwrap()
         .iter()
         .any(|s| s["path"] == "@costs.ingredients.flour_per_kg"));
+}
+
+#[test]
+fn a_workbook_comes_back_through_import() {
+    let exported = case("export bagel");
+    assert!(exported["byte_count"].as_u64().unwrap() > 1000);
+    let imported = run(
+        "import",
+        &serde_json::json!({"excel_base64": exported["excel_base64"], "name": "bagel.yaml"}),
+    )
+    .unwrap();
+    assert_eq!(imported["main"], "bagel.yaml");
+    let files = imported["files"].as_object().unwrap();
+    assert!(
+        files.contains_key("costs.yaml"),
+        "files: {:?}",
+        files.keys()
+    );
+    let calculated = run(
+        "calculate",
+        &serde_json::json!({"files": imported["files"], "main": "bagel.yaml"}),
+    )
+    .unwrap();
+    close(number(&calculated, "/scalars/year.profit"), 786.32, 0.005);
+
+    let refused = run(
+        "import",
+        &serde_json::json!({"excel_base64": "bm90IGEgd29ya2Jvb2s="}),
+    );
+    let message = refused.unwrap_err();
+    assert!(message.contains("Failed to open Excel file"), "{message}");
 }

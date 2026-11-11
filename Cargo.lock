@@ -671,6 +671,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 name = "forge-wasm"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "console_error_panic_hook",
  "mollendorff-forge",
  "serde",
@@ -1868,6 +1869,8 @@ version = "0.102.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ca3d0e879a578c1313c2800ab0c6c029d38eed18098675e50341a30d32372ed"
 dependencies = [
+ "js-sys",
+ "wasm-bindgen",
  "zip",
 ]
 

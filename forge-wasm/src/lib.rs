@@ -23,6 +23,7 @@ use mollendorff_forge::cli::{
 use mollendorff_forge::cli::{
     commands::render, commands::report_core, ReportFormat, ReportOptions,
 };
+use mollendorff_forge::cli::{export_bytes_core, import_text_core};
 use mollendorff_forge::parser::{parse_model, with_files_in_memory};
 use mollendorff_forge::types::ParsedModel;
 use serde_json::{json, Map, Value};
@@ -31,7 +32,7 @@ use std::path::Path;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// The tools, by the names of the MCP tools without `forge_`.
-pub const TOOLS: [&str; 20] = [
+pub const TOOLS: [&str; 22] = [
     "validate",
     "calculate",
     "audit",
@@ -52,6 +53,8 @@ pub const TOOLS: [&str; 20] = [
     "functions",
     "examples",
     "schema",
+    "export",
+    "import",
 ];
 
 /// Tools for Forge Studio that are not MCP tools.
@@ -106,6 +109,7 @@ pub fn run(tool: &str, request: &Value) -> Result<Value, String> {
                 .map(Value::String)
                 .map_err(|e| e.to_string())
         },
+        "import" => return import(args),
         _ => {},
     }
     if !TOOLS.contains(&tool) && !STUDIO_TOOLS.contains(&tool) {
@@ -150,6 +154,7 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
     let fail = |e: mollendorff_forge::ForgeError| e.to_string();
     match tool {
         "validate" => to_value(validate_core(main).map_err(fail)?),
+        "export" => export(main),
         "model" => parse_model(main)
             .map(|model| structure(&model))
             .map_err(fail),
@@ -286,6 +291,42 @@ fn structure(model: &ParsedModel) -> Value {
         "includes": includes,
         "scenarios": scenarios,
     })
+}
+
+/// `forge export` into memory: the MCP tool's in-memory answer.
+fn export(main: &Path) -> Result<Value, String> {
+    use base64::Engine as _;
+    let done = export_bytes_core(main).map_err(|e| e.to_string())?;
+    Ok(json!({
+        "table_count": done.table_count,
+        "scalar_count": done.scalar_count,
+        "excel_base64": base64::engine::general_purpose::STANDARD.encode(&done.bytes),
+        "byte_count": done.bytes.len(),
+        "warnings": done.warnings,
+    }))
+}
+
+/// `forge import` of one workbook into one model file and its included files,
+/// as text: `{"files": {name: yaml}, "main": name, ...}`.
+fn import(args: &Map<String, Value>) -> Result<Value, String> {
+    use base64::Engine as _;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(str_arg(args, "excel_base64")?)
+        .map_err(|e| format!("'excel_base64' is not base64: {e}"))?;
+    let main = opt_str(args, "name")?.unwrap_or("model.yaml");
+    let done = import_text_core(bytes).map_err(|e| e.to_string())?;
+    let mut files = Map::new();
+    files.insert(main.to_string(), Value::String(done.main));
+    for (name, text) in done.includes {
+        files.insert(name, Value::String(text));
+    }
+    Ok(json!({
+        "files": files,
+        "main": main,
+        "table_count": done.table_count,
+        "scalar_count": done.scalar_count,
+        "warnings": done.warnings,
+    }))
 }
 
 fn simulate(main: &Path, args: &Map<String, Value>) -> Result<Value, String> {

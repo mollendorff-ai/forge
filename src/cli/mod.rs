@@ -20,11 +20,15 @@ pub use commands::{probability_seek, simulate};
 pub use commands::{bayesian, bootstrap, decision_tree, real_options, scenarios, tornado};
 
 // Core function re-exports (structured results, no printing)
+#[cfg(feature = "cli")]
+pub use commands::export_buffer_core;
 pub use commands::{
     audit_core, bayesian_core, bootstrap_core, calculate_core, compare_core, decision_tree_core,
     examples_core, functions_core, goal_seek_core, real_options_core, scenarios_core, schema_core,
     sensitivity_core, simulate_core, tornado_core, validate_core, variance_core, SimulateOptions,
 };
-#[cfg(feature = "cli")]
-pub use commands::{export_buffer_core, export_core, import_core};
+#[cfg(feature = "excel")]
+pub use commands::{
+    export_bytes_core, export_core, import_core, import_text_core, ExportBytes, ImportText,
+};
 pub use commands::{probability_seek_core, SeekGoal, SeekResult};

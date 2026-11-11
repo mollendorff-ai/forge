@@ -231,10 +231,21 @@ impl ExcelExporter {
     ///
     /// Returns an error if the workbook cannot be serialized.
     pub fn export_to_buffer(&self) -> ForgeResult<Vec<u8>> {
-        let (mut workbook, _warnings) = self.build_workbook()?;
-        workbook
+        self.export_to_buffer_with_warnings()
+            .map(|(bytes, _)| bytes)
+    }
+
+    /// Export to memory and return the warnings [`Self::export_with_warnings`] gives.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the workbook cannot be serialized.
+    pub fn export_to_buffer_with_warnings(&self) -> ForgeResult<(Vec<u8>, Vec<String>)> {
+        let (mut workbook, warnings) = self.build_workbook()?;
+        let bytes = workbook
             .save_to_buffer()
-            .map_err(|e| ForgeError::IO(format!("Failed to create Excel buffer: {e}")))
+            .map_err(|e| ForgeError::IO(format!("Failed to create Excel buffer: {e}")))?;
+        Ok((bytes, warnings))
     }
 
     fn build_workbook(&self) -> ForgeResult<(Workbook, Vec<String>)> {

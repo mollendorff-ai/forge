@@ -23,8 +23,9 @@ mod analysis;
 mod audit;
 mod compare;
 mod examples;
-// Export and import need Excel and base64 (feature `cli`)
-#[cfg(feature = "cli")]
+// Export and import need Excel (feature `excel`); printing them and base64
+// belong to the command line (feature `cli`)
+#[cfg(feature = "excel")]
 mod excel_io;
 mod functions;
 mod prediction;
@@ -61,7 +62,11 @@ pub use analysis::{compare_core, goal_seek_core, sensitivity_core, variance_core
 pub use audit::audit_core;
 pub use examples::examples_core;
 #[cfg(feature = "cli")]
-pub use excel_io::{export_buffer_core, export_core, import_core};
+pub use excel_io::export_buffer_core;
+#[cfg(feature = "excel")]
+pub use excel_io::{
+    export_bytes_core, export_core, import_core, import_text_core, ExportBytes, ImportText,
+};
 pub use functions::functions_core;
 pub use prediction::{
     bayesian_core, bootstrap_core, decision_tree_core, real_options_core, scenarios_core,

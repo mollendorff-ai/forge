@@ -122,8 +122,13 @@ jobs:
       - name: Build the core for wasm32-unknown-unknown
         run: cargo build --lib --release --no-default-features --target wasm32-unknown-unknown
 
+      - name: Build the core with Excel for wasm32-unknown-unknown
+        run: cargo build --lib --release --no-default-features --features excel --target wasm32-unknown-unknown
+
       - name: Lint the core without the default features
-        run: cargo clippy --lib --no-default-features -- -D warnings
+        run: |
+          cargo clippy --lib --no-default-features -- -D warnings
+          cargo clippy --lib --no-default-features --features excel -- -D warnings
 
   # Forge's tools in WebAssembly give the native answers (ADR-055, roadmap
   # S2-FORGE-WASM). The module's size and each case's time are in the summary.
@@ -161,7 +166,7 @@ jobs:
             target/wasm32-unknown-unknown/release/forge_wasm.wasm
 
       - name: Native answers to every case
-        run: cargo run -p forge-wasm --release --example expected > forge-wasm/expected.json
+        run: cargo run -p forge-wasm --release --example expected -- forge-wasm/xlsx > forge-wasm/expected.json
 
       - name: The WebAssembly answers equal the native ones
         run: node forge-wasm/tests/node/compare.mjs forge-wasm/pkg forge-wasm/expected.json examples
@@ -204,6 +209,10 @@ jobs:
       - name: Formulas edited on their cards change their one line, and Forge refuses invalid ones
         working-directory: studio
         run: node tests/formulas.mjs ../studio-site
+
+      - name: Studio's workbooks are forge export's, and Studio imports them
+        working-directory: studio
+        run: node tests/excel.mjs ../studio-site ../forge-wasm/xlsx
 
       - name: Studio's layouts (320 px, side by side at 1440 px) and screenshots
         working-directory: studio

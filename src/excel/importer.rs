@@ -11,6 +11,7 @@ use super::workbook_refs::{column_letter, Context, ReverseRefs, SheetKind, Workb
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 use calamine::{open_workbook, Data, Range, Reader, Xlsx};
+use std::io::{Cursor, Read, Seek};
 use std::path::Path;
 
 /// One worksheet read from the file.
@@ -156,14 +157,28 @@ impl Names {
 
 /// Excel importer for converting .xlsx files to Forge models
 pub struct ExcelImporter {
-    path: std::path::PathBuf,
+    source: Source,
+}
+
+/// Where the workbook comes from: a file, or its bytes (a browser has no files)
+enum Source {
+    Path(std::path::PathBuf),
+    Bytes(Vec<u8>),
 }
 
 impl ExcelImporter {
     /// Create a new Excel importer
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         Self {
-            path: path.as_ref().to_path_buf(),
+            source: Source::Path(path.as_ref().to_path_buf()),
+        }
+    }
+
+    /// An importer for a workbook held in memory, the bytes of an .xlsx file.
+    #[must_use]
+    pub const fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self {
+            source: Source::Bytes(bytes),
         }
     }
 
@@ -182,24 +197,14 @@ impl ExcelImporter {
     ///
     /// Returns an error if the Excel file cannot be opened or parsed.
     pub fn import_with_warnings(&self) -> ForgeResult<(ParsedModel, Vec<String>)> {
-        let mut workbook: Xlsx<_> = open_workbook(&self.path)
-            .map_err(|e| ForgeError::IO(format!("Failed to open Excel file: {e}")))?;
-
-        let mut sheets = Vec::new();
-        for name in workbook.sheet_names() {
-            let Ok(values) = workbook.worksheet_range(&name) else {
-                continue;
-            };
-            if values.is_empty() {
-                continue;
-            }
-            let formulas = workbook.worksheet_formula(&name).ok();
-            sheets.push(Sheet {
-                name,
-                values,
-                formulas,
-            });
-        }
+        let fail =
+            |e: calamine::XlsxError| ForgeError::IO(format!("Failed to open Excel file: {e}"));
+        let sheets = match &self.source {
+            Source::Path(path) => Self::sheets(open_workbook(path).map_err(fail)?),
+            Source::Bytes(bytes) => {
+                Self::sheets(Xlsx::new(Cursor::new(bytes.as_slice())).map_err(fail)?)
+            },
+        };
 
         let refs = Self::layout(&sheets);
         let names = Self::names(&sheets, &refs);
@@ -222,6 +227,26 @@ impl ExcelImporter {
             }
         }
         Ok((model, warnings))
+    }
+
+    /// Every worksheet with something in it.
+    fn sheets<R: Read + Seek>(mut workbook: Xlsx<R>) -> Vec<Sheet> {
+        let mut sheets = Vec::new();
+        for name in workbook.sheet_names() {
+            let Ok(values) = workbook.worksheet_range(&name) else {
+                continue;
+            };
+            if values.is_empty() {
+                continue;
+            }
+            let formulas = workbook.worksheet_formula(&name).ok();
+            sheets.push(Sheet {
+                name,
+                values,
+                formulas,
+            });
+        }
+        sheets
     }
 
     /// The cells of a table's column, below the header.
@@ -1060,7 +1085,34 @@ mod tests {
     fn test_importer_new_stores_path() {
         let path = std::path::Path::new("/some/path/file.xlsx");
         let importer = ExcelImporter::new(path);
-        assert_ne!(importer.path.to_str().unwrap(), "");
+        assert!(matches!(&importer.source, Source::Path(p) if p == path));
+    }
+
+    #[test]
+    fn test_importer_reads_bytes_as_it_reads_the_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let xlsx = dir.path().join("bagel.xlsx");
+        let bagel =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/bagel/bagel.yaml");
+        crate::excel::ExcelExporter::new(crate::parser::parse_model(&bagel).unwrap())
+            .export(&xlsx)
+            .unwrap();
+        let (from_file, file_warnings) = ExcelImporter::new(&xlsx).import_with_warnings().unwrap();
+        let (from_bytes, byte_warnings) = ExcelImporter::from_bytes(std::fs::read(&xlsx).unwrap())
+            .import_with_warnings()
+            .unwrap();
+        assert_eq!(file_warnings, byte_warnings);
+        assert_eq!(
+            serde_json::to_string(&from_file.scalars).unwrap(),
+            serde_json::to_string(&from_bytes.scalars).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_string(&from_file.tables).unwrap(),
+            serde_json::to_string(&from_bytes.tables).unwrap()
+        );
+        assert!(ExcelImporter::from_bytes(b"not a workbook".to_vec())
+            .import()
+            .is_err());
     }
 
     #[test]
