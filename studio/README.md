@@ -14,7 +14,7 @@ Every number is Forge's. The page runs `forge-wasm` (ADR-055) in a background wo
 | `app.js` | State, the five views, events |
 | `forge.js`, `worker.js` | The only way to a number: `call(tool, request)` to forge-wasm, in a worker |
 | `text.js` | Text work on YAML: changing one input's or one formula's line, colouring the editor with the VS Code grammar's rules (`formula-rules.json`, written by `build.mjs` from `editors/vscode/syntaxes/`) |
-| `format.js` | How numbers look on screen |
+| `format.js` | How numbers look on screen: one rule (`isPercent`) for when a number is a percentage, by the model's unit first |
 | `build.mjs` | Puts the page, forge-wasm and the example sets in one folder |
 
 ## Building it
@@ -45,4 +45,6 @@ Pages is switched on once, by an administrator: Settings, Pages, Source: GitHub 
 - `node studio/tests/text.mjs`: changing an input or a formula changes its one value and nothing else, for each way YAML writes it.
 - `node studio/tests/formulas.mjs studio-site`: every formula of every example, changed on its card, changes its one line and Forge reads it back; invalid formulas are refused with Forge's message and no change.
 
-All six run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact.
+- `node studio/tests/format.mjs`: the percent rule and how typed numbers are read.
+
+All seven run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact.

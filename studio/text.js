@@ -38,18 +38,27 @@ function* childLines(lines, i, indent) {
   }
 }
 
+// A number as Forge reads it in a model (its YAML reader, checked on
+// 2026-11-11): a sign, digits with or without a point, an exponent (1e-5,
+// 1.5E+3), and 0x, 0o and 0b integers. 1_000, .inf and 1,000 are not numbers
+// to Forge, so they are not here either.
+const NUMBER = String.raw`[-+]?(?:0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+|(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)`;
+const INLINE = new RegExp(String.raw`^(\s*)(${NUMBER})(\s*(#.*)?)$`);
+const FLOW = new RegExp(String.raw`^(\s*\{.*?\bvalue:\s*)(${NUMBER}|null|~)(\s*[,}].*)$`);
+const BLOCK = new RegExp(String.raw`^(\s+value:)(\s*)(${NUMBER}|null|~)?(\s*(#.*)?)$`);
+
 export function setInputText(text, group, name, v) {
   const lines = text.split("\n");
   const at = findKey(lines, group, name);
   if (!at) return null;
   const { i, head, rest } = at;
-  const sm = /^(\s*)(-?[\d.eE+]+)(\s*(#.*)?)$/.exec(rest);
+  const sm = INLINE.exec(rest);
   if (sm) { lines[i] = head + sm[1] + v + sm[3]; return lines.join("\n"); }
-  const fm = /^(\s*\{.*?\bvalue:\s*)(-?[\d.eE+]+|null|~)(.*)$/.exec(rest);
+  const fm = FLOW.exec(rest);
   if (fm) { lines[i] = head + fm[1] + v + fm[3]; return lines.join("\n"); }
   for (const j of childLines(lines, i, at.indent)) {
-    const vm = /^(\s+value:\s*)([^#]*?)(\s*#.*)?$/.exec(lines[j]);
-    if (vm) { lines[j] = vm[1] + v + (vm[3] || ""); return lines.join("\n"); }
+    const vm = BLOCK.exec(lines[j]);
+    if (vm) { lines[j] = vm[1] + (vm[2] || " ") + v + vm[4]; return lines.join("\n"); }
   }
   return null;
 }

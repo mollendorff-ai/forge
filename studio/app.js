@@ -5,7 +5,7 @@
 
 import { call, start } from "./forge.js";
 import { esc, setInputText, setFormulaText, highlightYaml, useFormulaRules } from "./text.js";
-import { fmt, short, spark, sliderRange, readNumber, isPercentName } from "./format.js";
+import { fmt, short, spark, sliderRange, readNumber, isPercent } from "./format.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -34,6 +34,15 @@ const allScalars = () => S.structure ? [...S.structure.scalars, ...S.structure.i
 const inputs = () => (S.structure ? S.structure.scalars.filter((s) => s.formula == null && s.value != null) : []);
 const results = () => (S.structure ? S.structure.scalars.filter((s) => s.formula != null) : []);
 const valueOf = (path) => (S.calc && path in S.calc.scalars ? S.calc.scalars[path] : undefined);
+// The unit the model gives a scalar or a column (null when it has none), so
+// that a number is shown as a percentage by its unit first (format.js)
+function unitAt(path) {
+  if (!S.structure || !path) return null;
+  const entry = formulaOf(S.structure, String(path).replace(/ \(row \d+\)$/, ""));
+  return entry && entry.unit ? entry.unit : null;
+}
+const fmtAt = (v, path) => fmt(v, leaf(String(path || "").replace(/ \(row \d+\)$/, "")), unitAt(path));
+const shortAt = (v, path) => short(v, leaf(String(path || "").replace(/ \(row \d+\)$/, "")), unitAt(path));
 
 // ---------- storage (this browser only) ----------
 function save() {
@@ -144,7 +153,7 @@ const unitOf = (s) => (s.unit ? ` <span class="unit">${esc(s.unit)}</span>` : ""
 function scalarCards(list) {
   let h = "";
   for (const s of list.filter((x) => x.formula == null)) {
-    const r = sliderRange(s.value, leaf(s.path));
+    const r = sliderRange(s.value, leaf(s.path), s.unit);
     const id = "in-" + s.path.replace(/[^A-Za-z0-9_-]/g, "_");
     h += `<div class="row" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${s.path.startsWith("@") ? "" : ` data-scalar="${esc(s.path)}"`}>
       <div class="inp-head"><label class="inp-name" for="${id}">${esc(leaf(s.path))}${unitOf(s)}</label><span class="inp-hint" data-hint></span>
@@ -189,7 +198,7 @@ function reportCards() {
   return S.report.sections.filter((s) => s.rows.length >= 2).map((s) =>
     `<div class="eyebrow"><h2>side by side</h2><span class="tag">forge report · swipe sideways</span></div>
     <div class="card scroll-x"><table class="report"><thead><tr><th scope="col">group</th>${s.keys.map((k) => `<th scope="col">${esc(k)}</th>`).join("")}</tr></thead><tbody>` +
-    s.rows.map((r) => `<tr><th scope="row">${esc(r.group)}</th>${s.keys.map((k) => { const v = r.values[k]; return `<td class="${typeof v === "number" && v < 0 ? "neg" : ""}">${esc(fmt(v, k))}</td>`; }).join("")}</tr>`).join("") +
+    s.rows.map((r) => `<tr><th scope="row">${esc(r.group)}</th>${s.keys.map((k) => { const v = r.values[k]; return `<td class="${typeof v === "number" && v < 0 ? "neg" : ""}">${esc(fmtAt(v, `${r.group}.${k}`))}</td>`; }).join("")}</tr>`).join("") +
     `</tbody></table></div>`).join("");
 }
 
@@ -265,11 +274,11 @@ function updateValues() {
       if (document.activeElement !== r && shown != null) r.value = shown;
       f.disabled = r.disabled = forced;
       b.hidden = !forced;
-      if (forced) b.textContent = `Set by the ${S.scenario} scenario. The plan has ${fmt(s.value, leaf(path))}.`;
-      $("[data-hint]", card).textContent = isPercentName(leaf(path)) && shown != null ? fmt(shown, leaf(path)) : "";
+      if (forced) b.textContent = `Set by the ${S.scenario} scenario. The plan has ${fmtAt(s.value, path)}.`;
+      $("[data-hint]", card).textContent = shown != null && isPercent(leaf(path), unitAt(path), shown) ? fmtAt(shown, path) : "";
     } else {
       const el = $("[data-val]", card);
-      el.textContent = S.calc ? fmt(v, leaf(path)) : "Not calculated";
+      el.textContent = S.calc ? fmtAt(v, path) : "Not calculated";
       el.classList.toggle("neg", typeof v === "number" && v < 0);
     }
   }
@@ -281,11 +290,11 @@ function updateValues() {
     const numbers = vals.length && vals.every((x) => typeof x === "number");
     sp.innerHTML = numbers ? spark(vals) : "";
     meta.innerHTML = !vals.length ? "<span>Not calculated</span>"
-      : numbers ? `<span>${esc(short(Math.min(...vals), name))} to ${esc(short(Math.max(...vals), name))}</span><span>last ${esc(fmt(vals[vals.length - 1], name))}</span>`
-      : `<span>${esc(vals.slice(0, 3).map((x) => fmt(x, name)).join(", "))}${vals.length > 3 ? ", …" : ""}</span><span>${vals.length} rows</span>`;
+      : numbers ? `<span>${esc(shortAt(Math.min(...vals), card.dataset.card))} to ${esc(shortAt(Math.max(...vals), card.dataset.card))}</span><span>last ${esc(fmtAt(vals[vals.length - 1], card.dataset.card))}</span>`
+      : `<span>${esc(vals.slice(0, 3).map((x) => fmtAt(x, card.dataset.card)).join(", "))}${vals.length > 3 ? ", …" : ""}</span><span>${vals.length} rows</span>`;
     if (!list.hidden) {
       const labels = rowLabels(card.dataset.table);
-      list.innerHTML = vals.map((x, i) => `<span><i>${esc(labels[i] ?? i + 1)}</i>${esc(fmt(x, name))}</span>`).join("");
+      list.innerHTML = vals.map((x, i) => `<span><i>${esc(labels[i] ?? i + 1)}</i>${esc(fmtAt(x, card.dataset.card))}</span>`).join("");
     }
   }
 }
@@ -548,16 +557,16 @@ function renderAnalyze() {
 }
 function updateSeekNow() {
   const el = $("#sk-now");
-  if (el) el.textContent = fmt(valueOf(S.analyze.out), leaf(S.analyze.out || ""));
+  if (el) el.textContent = fmtAt(valueOf(S.analyze.out), S.analyze.out);
 }
 function drawScenarios() {
   const box = $("#scn-box");
   if (!box || !S.scenarios) return;
-  const out = S.analyze.out, name = leaf(out || "");
-  const rows = S.scenarios.scenarios.map((s) => `<tr><th scope="row">${esc(s.name)}</th><td>${s.probability != null ? Math.round(s.probability * 100) + "%" : "—"}</td><td class="${s.outputs[out] < 0 ? "neg" : ""}">${esc(fmt(s.outputs[out], name))}</td></tr>`).join("");
+  const out = S.analyze.out;
+  const rows = S.scenarios.scenarios.map((s) => `<tr><th scope="row">${esc(s.name)}</th><td>${s.probability != null ? Math.round(s.probability * 100) + "%" : "—"}</td><td class="${s.outputs[out] < 0 ? "neg" : ""}">${esc(fmtAt(s.outputs[out], out))}</td></tr>`).join("");
   const ev = S.scenarios.expected_values ? S.scenarios.expected_values[out] : undefined;
   box.innerHTML = `<div class="scroll-x"><table class="report"><thead><tr><th scope="col">scenario</th><th scope="col">chance</th><th scope="col">${esc(out)}</th></tr></thead><tbody>${rows}</tbody>
-    ${ev !== undefined ? `<tfoot><tr><th scope="row">expected</th><td></td><td>${esc(fmt(ev, name))}</td></tr></tfoot>` : ""}</table></div>
+    ${ev !== undefined ? `<tfoot><tr><th scope="row">expected</th><td></td><td>${esc(fmtAt(ev, out))}</td></tr></tfoot>` : ""}</table></div>
     <p class="note">The result chosen under goal seek, in each scenario, and weighted by the chances.</p>`;
 }
 const fail = (box, e) => { box.innerHTML = `<div class="msg bad">${esc(e.message)}</div>`; };
@@ -573,23 +582,23 @@ async function runSeek(breakEven) {
     const r = breakEven ? await call("break_even", request({ output: A.out, vary: A.vary }))
       : await call("goal_seek", request({ target: A.out, value: target, vary: A.vary }));
     A.solution = r.solution;
-    box.innerHTML = `<div class="answer"><div class="note">${esc(r.vary)}</div><div class="res-val">${esc(fmt(Number(r.solution.toFixed(6)), leaf(r.vary)))}</div>
-      <div class="note">gives ${esc(r.target)} = ${esc(fmt(r.achieved, leaf(r.target)))}, against ${esc(fmt(valueOf(r.vary), leaf(r.vary)))} now. ${r.converged ? `Found in ${r.iterations} calculations.` : "Forge did not converge."}</div></div>
+    box.innerHTML = `<div class="answer"><div class="note">${esc(r.vary)}</div><div class="res-val">${esc(fmtAt(Number(r.solution.toFixed(6)), r.vary))}</div>
+      <div class="note">gives ${esc(r.target)} = ${esc(fmtAt(r.achieved, r.target))}, against ${esc(fmtAt(valueOf(r.vary), r.vary))} now. ${r.converged ? `Found in ${r.iterations} calculations.` : "Forge did not converge."}</div></div>
       <div class="btns"><button class="btn" type="button" id="sk-use">Use this value</button></div>`;
   } catch (e) { fail(box, e); }
 }
 function drawTornado(t) {
-  const box = $("#tor-box"), name = leaf(t.output);
+  const box = $("#tor-box"), out = t.output;
   const lo = Math.min(...t.bars.map((b) => Math.min(b.output_at_low, b.output_at_high)), t.base_value);
   const hi = Math.max(...t.bars.map((b) => Math.max(b.output_at_low, b.output_at_high)), t.base_value);
   const pos = (v) => ((v - lo) / (hi - lo || 1)) * 100;
-  box.innerHTML = `<p class="note" style="margin:10px 0">How far ${esc(t.output)} moves when each input goes from its low to its high value, one at a time. The line is the plan, ${esc(fmt(t.base_value, name))}. Copper means the result drops.</p><div class="tor">` +
+  box.innerHTML = `<p class="note" style="margin:10px 0">How far ${esc(t.output)} moves when each input goes from its low to its high value, one at a time. The line is the plan, ${esc(fmtAt(t.base_value, out))}. Copper means the result drops.</p><div class="tor">` +
     t.bars.map((b) => {
       const a = Math.min(b.output_at_low, b.output_at_high), z = Math.max(b.output_at_low, b.output_at_high);
       const down = b.output_at_high < b.output_at_low;
-      return `<div class="tor-row"><div class="tor-name"><span>${esc(b.input_name)}</span><span>swing ${esc(short(b.abs_swing, name))}</span></div>
+      return `<div class="tor-row"><div class="tor-name"><span>${esc(b.input_name)}</span><span>swing ${esc(shortAt(b.abs_swing, out))}</span></div>
         <div class="tor-track"><div class="tor-bar" style="left:${pos(a)}%;width:${Math.max(0.5, pos(z) - pos(a))}%;background:${down ? "var(--ember)" : "var(--accent)"}"></div><div class="tor-axis" style="left:${pos(t.base_value)}%"></div></div>
-        <div class="tor-ends"><span>${esc(fmt(b.input_low, leaf(b.input_name)))} → ${esc(short(b.output_at_low, name))}</span><span>${esc(fmt(b.input_high, leaf(b.input_name)))} → ${esc(short(b.output_at_high, name))}</span></div></div>`;
+        <div class="tor-ends"><span>${esc(fmtAt(b.input_low, b.input_name))} → ${esc(shortAt(b.output_at_low, out))}</span><span>${esc(fmtAt(b.input_high, b.input_name))} → ${esc(shortAt(b.output_at_high, out))}</span></div></div>`;
     }).join("") + "</div>";
 }
 function drawSim() {
@@ -597,11 +606,11 @@ function drawSim() {
   if (!r) return;
   const outs = Object.keys(r.outputs);
   if (!outs.includes(A.simOut)) A.simOut = outs.find((o) => !/\(row \d+\)/.test(o)) || outs[0];
-  const o = r.outputs[A.simOut], name = leaf(A.simOut.replace(/ \(row \d+\)$/, ""));
+  const o = r.outputs[A.simOut], out = A.simOut;
   const th = Object.entries(o.thresholds || {});
   const p = o.percentiles;
   box.innerHTML = `<div style="margin-top:10px"><label class="lab" for="sim-out">Output</label><select class="sel" id="sim-out">${outs.map((x) => opt(x, A.simOut)).join("")}</select></div>
-    <div class="stats" style="margin-top:10px">${[["mean", o.mean], ["P5", p.p5], ["P50", p.p50], ["P95", p.p95]].map(([k, v]) => `<div class="stat"><b>${k}</b><span>${esc(short(v, name))}</span></div>`).join("")}</div>
+    <div class="stats" style="margin-top:10px">${[["mean", o.mean], ["P5", p.p5], ["P50", p.p50], ["P95", p.p95]].map(([k, v]) => `<div class="stat"><b>${k}</b><span>${esc(shortAt(v, out))}</span></div>`).join("")}</div>
     ${th.map(([k, v]) => `<p class="note" style="margin-top:8px">Chance that ${esc(A.simOut)} ${esc(k)}: <b>${(v * 100).toFixed(1)}%</b></p>`).join("")}
     ${o.drivers && o.drivers.length ? `<p class="sub" style="margin-top:12px">what drives it</p>${o.drivers.map((d) => `<div class="var-nums"><span class="mono">${esc(d.input)}</span><span>${d.rank_correlation.toFixed(2)}</span></div>`).join("")}` : ""}
     <p class="note" style="margin-top:8px">${r.iterations.toLocaleString("en-US")} runs, seed ${esc(A.seed)}. The same seed gives the same numbers as <span class="mono">forge simulate</span>.</p>`;
@@ -612,7 +621,7 @@ function drawVariance(r) {
     <div class="stack">${r.results.map((x) => {
       const pill = x.is_favorable === true ? '<span class="pill good">favorable</span>' : x.is_favorable === false ? '<span class="pill bad">unfavorable</span>' : '<span class="pill none">no direction</span>';
       return `<div class="var ${x.exceeds_threshold ? "" : "dim"}" style="padding:8px 0;border-top:1px solid var(--line)"><div class="var-top"><span class="var-name">${esc(x.name)}</span>${pill}</div>
-        <div class="var-nums"><span>${esc(fmt(x.budget, leaf(x.name)))} → ${esc(fmt(x.actual, leaf(x.name)))}</span><span>${x.variance_pct == null ? "" : (x.variance_pct > 0 ? "+" : "") + x.variance_pct.toFixed(1) + "%"}</span></div></div>`;
+        <div class="var-nums"><span>${esc(fmtAt(x.budget, x.name))} → ${esc(fmtAt(x.actual, x.name))}</span><span>${x.variance_pct == null ? "" : (x.variance_pct > 0 ? "+" : "") + x.variance_pct.toFixed(1) + "%"}</span></div></div>`;
     }).join("")}</div>`;
 }
 const va = $("#view-analyze");

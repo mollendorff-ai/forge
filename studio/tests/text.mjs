@@ -23,6 +23,12 @@ year:
     better: lower
     value: 32   # per day
   rate: {value: 0.03, unit: ratio}
+  tiny: 1e-5   # an exponent
+  loss: -3
+  hex: 0x10
+  small:
+    value: 1.5E+3
+  flow_exp: {value: 2.5e-4, unit: ratio}
 months:
   dozens: "=a * 2"
   profit: =revenue - costs
@@ -71,8 +77,16 @@ expectLine("input", setInputText(FILE, "year", "price", 17), at("price:"), "  pr
 expectLine("input under value:", setInputText(FILE, "year", "hours", 30), at("value: 32"), "    value: 30   # per day");
 expectLine("input in a flow mapping", setInputText(FILE, "year", "rate", 0.04), at("rate:"), "  rate: {value: 0.04, unit: ratio}");
 
+expectLine("input written 1e-5", setInputText(FILE, "year", "tiny", 0.00002), at("tiny:"), "  tiny: 0.00002   # an exponent");
+expectLine("input written -3", setInputText(FILE, "year", "loss", -4), at("loss:"), "  loss: -4");
+expectLine("input written in hex", setInputText(FILE, "year", "hex", 17), at("hex:"), "  hex: 17");
+expectLine("input under value:, with an exponent", setInputText(FILE, "year", "small", 1600), at("value: 1.5E+3"), "    value: 1600");
+expectLine("input in a flow mapping, with an exponent", setInputText(FILE, "year", "flow_exp", 1e-7), at("flow_exp:"), "  flow_exp: {value: 1e-7, unit: ratio}");
+if (setInputText(FILE, "year", "nothing", 1) !== null) failures.push("an input that is not there must give null");
+if (setInputText(FILE, "year", "margin", 1) !== null) failures.push("a formula must not become an input");
+
 if (failures.length) {
   console.error(`${failures.length} problems:\n` + failures.join("\n"));
   process.exit(1);
 }
-console.log("Text changes: 13 formula and 3 input cases change their one value and nothing else.");
+console.log("Text changes: 13 formula and 10 input cases change their one value and nothing else.");
