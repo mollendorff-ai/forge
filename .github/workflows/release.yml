@@ -115,6 +115,9 @@ jobs:
 
       - name: Build release (native)
         if: ${{ !matrix.cross }}
+        # build.rs stamps other builds with the commit; a release is plain
+        env:
+          FORGE_RELEASE: "1"
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Build release (cross)
