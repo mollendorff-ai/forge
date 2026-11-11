@@ -47,11 +47,11 @@ Notes go to standard error, so the output of `--format csv` or `json` can be pip
 
 In `table` and `markdown`, a number has two decimals and thousands separators (`1,450.00`). A number under 1 keeps four significant digits, so a rate of `0.0479` is not shown as `0.05`. The digits are rounded half away from zero from the number's first 15 significant digits, as a spreadsheet shows them (`2.675` is `2.68`). A number under 1 shows at most six decimals, so a value closer to zero than 0.0000005 is `0.00`, without a sign.
 
-In `csv` and `json`, numbers are at full precision with no separators, for another program to read.
+In `csv` and `json`, numbers have 15 significant digits, as Excel shows them, with no separators, for another program to read.
 
 A column whose values are all whole numbers has no decimals (`1,700`, `3`, `0`, `2,047`). The rule is per column, not per cell, so a column never mixes `3` and `3.50`: one fractional value gives every cell of that column its decimals. The file does not say which numbers are amounts, so a column of whole amounts (`1,700`) reads the same as a column of counts.
 
-An input is shown as written where the rules above would round it: `0.14975` is not `0.1498`. A formula's result is never shown more precisely than the rules say; use `--format csv` or `json` for full precision.
+An input is shown as written where the rules above would round it: `0.14975` is not `0.1498`. A formula's result is never shown more precisely than the rules say; use `--format csv` or `json` for all 15 significant digits.
 
 ## A wide table
 

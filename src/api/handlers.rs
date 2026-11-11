@@ -19,10 +19,15 @@ use super::server::AppState;
 
 /// Standard API response wrapper
 #[derive(Serialize)]
+#[serde(bound = "T: Serialize")]
 pub struct ApiResponse<T> {
     pub success: bool,
     pub request_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Numbers to 15 significant digits (`core::precision`).
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "crate::core::precision::serialize_rounded"
+    )]
     pub data: Option<T>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,

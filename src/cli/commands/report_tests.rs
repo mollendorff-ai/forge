@@ -328,7 +328,7 @@ fn markdown_is_one_pipe_table_per_key_set() {
 }
 
 #[test]
-fn csv_format_has_full_precision_and_no_separators() {
+fn csv_format_has_every_digit_and_no_separators() {
     let yaml = r#"_forge_version: "5.1.0"
 "a,b":
   big: 1234567.891

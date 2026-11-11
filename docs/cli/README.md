@@ -368,7 +368,7 @@ OUTPUT:
 
 FORMATS:
   table (the default), csv, json and markdown, as in forge report. csv and
-  json print the numbers at full precision and nothing else; table and
+  json print the numbers to 15 significant digits and nothing else; table and
   markdown show them as forge report does (1,450.00; whole numbers without
   decimals; an input as written).
 
@@ -420,7 +420,7 @@ NUMBERS:
   values are all whole numbers has no decimals (1,700, 3, 0), decided per
   column, so 3 and 3.50 never share one. An input is shown as written where
   rounding would change it (0.14975)
-  csv and json: full precision, no separators
+  csv and json: 15 significant digits, no separators
 
 WIDE TABLES:
   A model with many keys makes a table wider than a phone or a narrow

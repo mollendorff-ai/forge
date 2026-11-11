@@ -1,5 +1,6 @@
 //! Analysis commands: variance, sensitivity, `goal_seek`, `break_even`, compare
 
+use crate::core::precision::to_15_digits;
 use crate::core::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
@@ -627,9 +628,9 @@ pub fn export_variance_to_yaml(
     content.push_str("variances:\n");
     for v in variances {
         let _ = writeln!(content, "  {}:", v.name);
-        let _ = writeln!(content, "    budget: {}", v.budget);
-        let _ = writeln!(content, "    actual: {}", v.actual);
-        let _ = writeln!(content, "    variance: {}", v.variance);
+        let _ = writeln!(content, "    budget: {}", to_15_digits(v.budget));
+        let _ = writeln!(content, "    actual: {}", to_15_digits(v.actual));
+        let _ = writeln!(content, "    variance: {}", to_15_digits(v.variance));
         let _ = writeln!(content, "    variance_pct: {:.2}", v.variance_pct);
         let favorable = v
             .is_favorable

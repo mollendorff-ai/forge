@@ -132,7 +132,7 @@ Forge's results are checked against other engines. None of the checks is complet
 
 | Check | What it covers | Latest result (2026-11-09) |
 | --- | --- | --- |
-| Unit tests (this repo) | 1,728 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
+| Unit tests (this repo) | 1,736 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
 | [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,446 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 70 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,445 pass, 1 skipped; weekly in CI |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 119 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped; weekly in CI |
 
@@ -490,7 +490,7 @@ forge examples monte-carlo          # Show example YAML
 
 ### Side by side: `forge report`
 
-`forge report` shows a calculated file's scalars as a table: one row per group, one column per key, and groups with the same keys lined up. It reads what `forge calculate` wrote and never writes the file. `--format markdown` pastes into a document; `csv` and `json` keep full precision.
+`forge report` shows a calculated file's scalars as a table: one row per group, one column per key, and groups with the same keys lined up. It reads what `forge calculate` wrote and never writes the file. `--format markdown` pastes into a document; `csv` and `json` keep all 15 significant digits.
 
 ```bash
 forge calculate options.yaml && forge report options.yaml --format markdown
@@ -555,7 +555,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 
 ```text
 forge (this repo)             validation repos
-├── 1,728 tests               ├── forge-e2e-gnumeric: 1,446 formula specs
+├── 1,736 tests               ├── forge-e2e-gnumeric: 1,446 formula specs
 ├── #[cfg(test)] modules      └── forge-e2e-r: 119 function checks, 77 analytics specs
 └── 2 doctests
 ```

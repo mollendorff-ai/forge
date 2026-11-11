@@ -372,7 +372,8 @@ fn model_to_yaml(model: &crate::types::ParsedModel) -> ForgeResult<String> {
     if map.is_empty() {
         return Ok(format!("_forge_version: \"5.1.0\"\n{includes}"));
     }
-    let body = yaml_serde::to_string(&map).map_err(ForgeError::Yaml)?;
+    let body =
+        yaml_serde::to_string(&crate::core::precision::Rounded(&map)).map_err(ForgeError::Yaml)?;
     Ok(format!("_forge_version: \"5.1.0\"\n{includes}\n{body}"))
 }
 
@@ -492,12 +493,15 @@ fn write_split_files_quiet(
     for (table_name, table) in &model.tables {
         let mut one = indexmap::IndexMap::new();
         one.insert(table_name.clone(), table.clone());
-        let body = yaml_serde::to_string(&tables_to_value(&one)).map_err(ForgeError::Yaml)?;
+        let body = yaml_serde::to_string(&crate::core::precision::Rounded(&tables_to_value(&one)))
+            .map_err(ForgeError::Yaml)?;
         parts.push((format!("{table_name}.yaml"), table_name.clone(), body));
     }
     if !model.scalars.is_empty() {
-        let body =
-            yaml_serde::to_string(&scalars_to_value(&model.scalars)).map_err(ForgeError::Yaml)?;
+        let body = yaml_serde::to_string(&crate::core::precision::Rounded(&scalars_to_value(
+            &model.scalars,
+        )))
+        .map_err(ForgeError::Yaml)?;
         parts.push(("scalars.yaml".to_string(), "scalars".to_string(), body));
     }
     fs::create_dir_all(output).map_err(ForgeError::Io)?;
@@ -666,12 +670,15 @@ fn write_multi_doc_quiet(output: &Path, model: &crate::types::ParsedModel) -> Fo
     for (table_name, table) in &model.tables {
         let mut one = indexmap::IndexMap::new();
         one.insert(table_name.clone(), table.clone());
-        let body = yaml_serde::to_string(&tables_to_value(&one)).map_err(ForgeError::Yaml)?;
+        let body = yaml_serde::to_string(&crate::core::precision::Rounded(&tables_to_value(&one)))
+            .map_err(ForgeError::Yaml)?;
         document(table_name, format!("{body}\n"));
     }
     if !model.scalars.is_empty() {
-        let body =
-            yaml_serde::to_string(&scalars_to_value(&model.scalars)).map_err(ForgeError::Yaml)?;
+        let body = yaml_serde::to_string(&crate::core::precision::Rounded(&scalars_to_value(
+            &model.scalars,
+        )))
+        .map_err(ForgeError::Yaml)?;
         document("scalars", body);
     }
     let dir = output.parent().unwrap_or_else(|| Path::new("."));

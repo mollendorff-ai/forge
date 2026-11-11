@@ -11,16 +11,16 @@ inputs:
 
 forecast:
   burn_rate:
-    value: 0.6046511627906976
+    value: 0.604651162790698
     formula: "=inputs.current_usage_pct / inputs.hours_since_reset"
   projected_add:
     value: 75.5813953488372
     formula: "=forecast.burn_rate * inputs.hours_until_reset"
   projected_total:
-    value: 101.5813953488372
+    value: 101.581395348837
     formula: "=inputs.current_usage_pct + forecast.projected_add"
   remaining:
-    value: -1.581395348837205
+    value: -1.58139534883721
     formula: "=100 - forecast.projected_total"
 
 # Expected results after calculate:

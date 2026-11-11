@@ -11,6 +11,7 @@ use super::report::{
     csv_text, display_number, display_whole, markdown_text, shown_input, ReportFormat,
 };
 use super::results::ComparisonResult;
+use crate::core::precision::{to_15_digits, Rounded};
 use crate::error::ForgeResult;
 use crate::parser;
 use colored::Colorize;
@@ -125,7 +126,7 @@ pub fn render_comparison(
         },
         ReportFormat::Csv => render_csv(result),
         ReportFormat::Json => {
-            let mut out = serde_json::to_string_pretty(result).unwrap_or_default();
+            let mut out = serde_json::to_string_pretty(&Rounded(result)).unwrap_or_default();
             out.push('\n');
             out
         },
@@ -285,7 +286,7 @@ fn render_csv(result: &ComparisonResult) -> String {
             .chain(
                 row_values(result, variable)
                     .iter()
-                    .map(|v| v.map(|v| v.to_string()).unwrap_or_default()),
+                    .map(|v| v.map(|v| to_15_digits(v).to_string()).unwrap_or_default()),
             )
             .collect();
         out.push_str(&items.join(","));

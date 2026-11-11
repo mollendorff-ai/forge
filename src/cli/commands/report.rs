@@ -6,6 +6,7 @@
 //! without a value is shown as `—` and named in a note.
 
 use crate::core::array_calculator::evaluator::text::number_format::rounded_digits;
+use crate::core::precision::to_15_digits;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use crate::types::ParsedModel;
@@ -17,9 +18,9 @@ use std::path::Path;
 pub enum ReportFormat {
     /// Aligned columns for the terminal
     Table,
-    /// Comma-separated, numbers at full precision
+    /// Comma-separated, numbers to 15 significant digits
     Csv,
-    /// One JSON document, numbers at full precision
+    /// One JSON document, numbers to 15 significant digits
     Json,
     /// Pipe tables, to paste into a document
     Markdown,
@@ -516,7 +517,7 @@ fn render_csv(report: &Report) -> String {
         for row in &section.rows {
             let items: Vec<String> = std::iter::once(csv_text(&row.group))
                 .chain(row.cells.iter().map(|c| match c {
-                    Cell::Value(v) => v.to_string(),
+                    Cell::Value(v) => to_15_digits(*v).to_string(),
                     Cell::Uncalculated | Cell::Absent => String::new(),
                 }))
                 .collect();
@@ -559,7 +560,8 @@ fn render_json(report: &Report) -> String {
         "uncalculated": report.uncalculated,
         "tables_not_shown": report.tables_not_shown,
     });
-    let mut out = serde_json::to_string_pretty(&document).unwrap_or_default();
+    let mut out = serde_json::to_string_pretty(&crate::core::precision::Rounded(&document))
+        .unwrap_or_default();
     out.push('\n');
     out
 }
