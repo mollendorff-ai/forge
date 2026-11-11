@@ -182,3 +182,32 @@ fn the_browser_entry_point_answers_in_json() {
         .unwrap()
         .starts_with("No tool named 'export'"));
 }
+
+#[test]
+fn model_lists_inputs_and_formulas_in_file_order() {
+    let model = case("model bagel");
+    let first = &model["scalars"][0];
+    assert_eq!(first["path"], "assumptions.price_per_dozen");
+    assert_eq!(first["value"], 16.0);
+    assert!(first["formula"].is_null());
+    let profit = model["scalars"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["path"] == "year.profit")
+        .unwrap();
+    assert_eq!(profit["formula"], "=SUM(months.profit)");
+    let months = &model["tables"][0];
+    assert_eq!(months["name"], "months");
+    assert_eq!(months["columns"][0]["name"], "month");
+    assert_eq!(months["columns"][0]["rows"], 12);
+    assert_eq!(months["columns"][2]["name"], "dozens");
+    assert!(months["columns"][2]["formula"].is_string());
+    let costs = &model["includes"][0];
+    assert_eq!(costs["as"], "costs");
+    assert!(costs["scalars"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|s| s["path"] == "@costs.ingredients.flour_per_kg"));
+}

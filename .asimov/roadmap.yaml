@@ -74,16 +74,12 @@ tier2:
 # It does not wait for tier 1 and does not compete with it. Done: S1, the
 # engine builds without the command line or the servers, and for wasm32 in CI
 # (PR #126); S2, forge-wasm runs Forge's 20 tools in WebAssembly with the
-# native answers, 4.62 MB (1.51 MB gzipped) before wasm-opt (PR #129).
-# Order: S3, S4 (publish early), then S5 to S8.
+# native answers, 4.62 MB (1.51 MB gzipped) before wasm-opt (PR #129); S3,
+# Forge Studio in studio/ calculating with forge-wasm, every scalar on screen
+# checked against forge calculate in a headless browser.
+# Order: S4 (publish early), then S5 to S8.
 
 studio:
-  - id: S3-STUDIO-PORT
-    title: "Forge Studio in studio/, calculating with forge-wasm"
-    why: "The mockup works on a phone but calculates with its own JavaScript engine (ADR-055 Context)"
-    how: "Bring the mockup's five views into studio/ as JavaScript modules; replace its engine and its YAML library with forge-wasm; open the release's examples/; delete the JavaScript engine"
-    acceptance: "A headless browser in CI opens each example in Studio, and every scalar on screen equals forge calculate's for that model; the page holds no calculation code of its own (a test greps for it)"
-
   - id: S4-PAGES
     title: "Publish Studio on GitHub Pages on each release"
     why: "A web address a person can open on a phone without installing anything (ADR-056 decision 6)"

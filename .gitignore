@@ -17,3 +17,7 @@ dist/
 # forge-wasm build output (CI)
 /forge-wasm/pkg/
 /forge-wasm/expected.json
+/forge-wasm/pkg-web/
+/studio-site/
+/studio/node_modules/
+/studio/package-lock.json

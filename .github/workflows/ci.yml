@@ -12,6 +12,7 @@ on:
       - 'schema/**'
       - 'editors/**'
       - 'forge-wasm/**'
+      - 'studio/**'
       - '.github/workflows/*.yml'
   pull_request:
     branches: [ main ]
@@ -24,6 +25,7 @@ on:
       - 'schema/**'
       - 'editors/**'
       - 'forge-wasm/**'
+      - 'studio/**'
       - '.github/workflows/*.yml'
 
 env:
@@ -126,7 +128,7 @@ jobs:
   # Forge's tools in WebAssembly give the native answers (ADR-055, roadmap
   # S2-FORGE-WASM). The module's size and each case's time are in the summary.
   forge-wasm:
-    name: forge-wasm (WebAssembly against native)
+    name: forge-wasm and Studio (WebAssembly against native)
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
@@ -163,6 +165,32 @@ jobs:
 
       - name: The WebAssembly answers equal the native ones
         run: node forge-wasm/tests/node/compare.mjs forge-wasm/pkg forge-wasm/expected.json examples
+
+      # Forge Studio (ADR-056): the same module built for the web, the page
+      # around it, and a headless browser that reads the numbers on screen
+      - name: Studio holds no calculation code
+        run: node studio/tests/no-engine.mjs
+
+      - name: Build Forge Studio
+        run: |
+          wasm-bindgen --target web --out-dir forge-wasm/pkg-web \
+            target/wasm32-unknown-unknown/release/forge_wasm.wasm
+          node studio/build.mjs forge-wasm/pkg-web studio-site
+
+      - name: Every scalar on screen is forge calculate's
+        working-directory: studio
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          node tests/screen.mjs ../studio-site ../forge-wasm/expected.json
+
+      - name: Upload Forge Studio
+        uses: actions/upload-artifact@v7
+        with:
+          name: forge-studio
+          path: studio-site
+          include-hidden-files: true
+          retention-days: 7
 
   build:
     name: Build
