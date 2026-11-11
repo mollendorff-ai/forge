@@ -49,8 +49,8 @@ year:
     formula: "=MIN(months.profit)"
   npv_first_year:
     formula: "=NPV(assumptions.annual_discount_rate / 12, months.profit) - assumptions.oven_and_fit_out"
-  payback_months:
-    formula: "=assumptions.oven_and_fit_out / (profit / 12)"
+  first_year_return:
+    formula: "=profit / assumptions.oven_and_fit_out"
 
 scenarios:
   base:

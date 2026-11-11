@@ -37,6 +37,22 @@ fn year_profit_matches_the_independent_calculation() {
     ));
 }
 
+/// The first year's return on the fit-out: profit / 95,000. It replaced
+/// `payback_months`, which was 1,449.79 in the base case (120 years) and
+/// negative when the year lost money: a payback that is not a number cannot
+/// be averaged by `forge scenarios`, a return can (786.3203617 / 95000 and
+/// -16943.271075 / 95000 in Python).
+#[test]
+fn first_year_return_is_defined_whatever_the_profit() {
+    let result = calculate_core(Path::new(MODEL), true, None).unwrap();
+    let base = result.scalars["year.first_year_return"].unwrap();
+    assert!(close(base, 786.320_361_7 / 95_000.0, 1e-9), "{base}");
+    let scenarios = vec!["flour_shock".to_string()];
+    let shock = compare_core(Path::new(MODEL), &scenarios).unwrap();
+    let value = shock.values["year.first_year_return"]["flour_shock"].unwrap();
+    assert!(close(value, -16_943.271_075 / 95_000.0, 1e-9), "{value}");
+}
+
 #[test]
 fn flour_shock_changes_the_included_price() {
     let results = scenarios_core(Path::new(MODEL), Some("flour_shock")).unwrap();
