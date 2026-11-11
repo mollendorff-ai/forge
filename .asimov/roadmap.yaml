@@ -77,15 +77,11 @@ tier2:
 # native answers, 4.62 MB (1.51 MB gzipped) before wasm-opt (PR #129); S3,
 # Forge Studio in studio/ calculating with forge-wasm, every scalar on screen
 # checked against forge calculate in a headless browser.
-# Order: S4 (publish early), then S5 to S8.
+# S4, Studio published on GitHub Pages after each release (workflow
+# pages.yml; it publishes once Pages is switched on and the workflow runs).
+# Order: S5 to S8.
 
 studio:
-  - id: S4-PAGES
-    title: "Publish Studio on GitHub Pages on each release"
-    why: "A web address a person can open on a phone without installing anything (ADR-056 decision 6)"
-    how: "A workflow builds forge-wasm and Studio and deploys them to Pages after a release; pull requests build them as an artifact without publishing. Pages is switched on once, by an administrator"
-    acceptance: "After a release the Pages address shows that release's version and year.profit 786.32 for examples/bagel/bagel.yaml; the maintainer opens it once on an iPhone and the numbers are the same"
-
   - id: S5-SPLIT-VIEW
     title: "Editor and cards side by side on wide screens"
     why: "On a laptop the YAML and its results should be visible together, so a change in one shows in the other (ADR-056 decision 3)"

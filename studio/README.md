@@ -23,6 +23,12 @@ node studio/build.mjs forge-wasm/pkg-web studio-site
 
 `studio-site` is a static site. Serve it over HTTP (a worker and `fetch` do not run from `file://`), for example `python3 -m http.server -d studio-site`.
 
+## Where it is published
+
+On GitHub Pages, at `https://mollendorff-ai.github.io/forge/`, after each release (`.github/workflows/pages.yml`). The page's status pill shows the Forge version it runs. The workflow builds at the release's tag, deploys, and then opens the published address in a headless browser (`tests/live.mjs`): the version must be the release's and the bagel example's `year.profit` must be 786.32.
+
+Pages is switched on once, by an administrator: Settings, Pages, Source: GitHub Actions. To publish a release that already happened, run the workflow from the Actions tab and give it the tag (for example `v10.0.0-rc.13`). The page uses relative paths only, so a custom domain needs no change to the files.
+
 ## How it is checked
 
 - `node studio/tests/no-engine.mjs`: no file of the page loads a YAML library or implements what Forge calculates.
