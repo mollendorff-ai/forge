@@ -37,13 +37,14 @@ const answer = JSON.parse(forge.call("goal_seek", JSON.stringify({
 | `bootstrap` | `iterations`, `seed`, `confidence` (list) |
 | `bayesian` | `query`, `evidence` (`["sales=slow"]`) |
 | `functions`, `examples` (`name`), `schema` (`version`) | no `files` |
+| `model` (not an MCP tool) | none: the model read and not calculated, as Forge Studio's cards show it: each scalar's input value or formula with its unit, each table's columns (data or formula) in the file's order, and each included file's scalars as `@namespace.group.name` |
 
 `calculate` never writes results back: there is no file. Excel export and import are not here yet (roadmap S8).
 
 ## How it is checked
 
 - `cargo test -p forge-wasm --release`: every case of `tests/cases.json`, all on the repository's `examples/`, gives the same answer from files in memory as from the same files on disk; the headline numbers of the bagel and mortgage examples come out.
-- CI (job `forge-wasm`) builds the module, runs the same cases in Node, and compares each answer with the native one (`examples/expected.rs`, `tests/node/compare.mjs`). The module's size and each case's time are in the job's summary.
+- CI (job `forge-wasm`, which also tests Forge Studio) builds the module, runs the same cases in Node, and compares each answer with the native one (`examples/expected.rs`, `tests/node/compare.mjs`). The module's size and each case's time are in the job's summary.
 
 ## Building it
 
@@ -54,4 +55,4 @@ cargo build -p forge-wasm --release --target wasm32-unknown-unknown
 wasm-bindgen --target web --out-dir pkg target/wasm32-unknown-unknown/release/forge_wasm.wasm
 ```
 
-`--target web` gives an ES module for a page; CI uses `--target nodejs`.
+`--target web` gives an ES module for a page, which Forge Studio uses (`studio/README.md`); the Node comparison uses `--target nodejs`.

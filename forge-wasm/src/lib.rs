@@ -23,7 +23,8 @@ use mollendorff_forge::cli::{
 use mollendorff_forge::cli::{
     commands::render, commands::report_core, ReportFormat, ReportOptions,
 };
-use mollendorff_forge::parser::with_files_in_memory;
+use mollendorff_forge::parser::{parse_model, with_files_in_memory};
+use mollendorff_forge::types::ParsedModel;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::path::Path;
@@ -52,6 +53,14 @@ pub const TOOLS: [&str; 20] = [
     "examples",
     "schema",
 ];
+
+/// Tools for Forge Studio that are not MCP tools.
+///
+/// `model` parses a model without calculating it and answers with what the page shows on its cards:
+/// each scalar's input value or formula, each table column's data or formula,
+/// in the order of the file, and the included files' scalars under their
+/// namespace.
+pub const STUDIO_TOOLS: [&str; 1] = ["model"];
 
 /// Run `tool` on `request` (JSON) and answer in JSON: `{"ok": result}` or
 /// `{"error": message}`.
@@ -99,10 +108,11 @@ pub fn run(tool: &str, request: &Value) -> Result<Value, String> {
         },
         _ => {},
     }
-    if !TOOLS.contains(&tool) {
+    if !TOOLS.contains(&tool) && !STUDIO_TOOLS.contains(&tool) {
         return Err(format!(
-            "No tool named '{tool}'. The tools are: {}",
-            TOOLS.join(", ")
+            "No tool named '{tool}'. The tools are: {}, {}",
+            TOOLS.join(", "),
+            STUDIO_TOOLS.join(", ")
         ));
     }
     let files = files(args)?;
@@ -140,6 +150,9 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
     let fail = |e: mollendorff_forge::ForgeError| e.to_string();
     match tool {
         "validate" => to_value(validate_core(main).map_err(fail)?),
+        "model" => parse_model(main)
+            .map(|model| structure(&model))
+            .map_err(fail),
         // Results are never written back: there is no file to write to
         "calculate" => {
             to_value(calculate_core(main, true, opt_str(args, "scenario")?).map_err(fail)?)
@@ -208,6 +221,71 @@ fn run_on_files(tool: &str, main: &Path, args: &Map<String, Value>) -> Result<Va
         ),
         _ => Err(format!("No tool named '{tool}'")),
     }
+}
+
+/// What a model holds, before it is calculated (the `model` tool).
+fn structure(model: &ParsedModel) -> Value {
+    let scalars = |model: &ParsedModel, prefix: &str| -> Vec<Value> {
+        model
+            .scalars
+            .values()
+            .map(|v| {
+                json!({
+                    "path": format!("{prefix}{}", v.path),
+                    "value": v.value,
+                    "formula": v.formula,
+                    "unit": v.metadata.unit,
+                    "notes": v.metadata.notes,
+                    "better": v.metadata.better,
+                })
+            })
+            .collect()
+    };
+    let tables = |model: &ParsedModel, prefix: &str| -> Vec<Value> {
+        model
+            .tables
+            .values()
+            .map(|t| {
+                let columns: Vec<Value> = t
+                    .column_names()
+                    .into_iter()
+                    .map(|name| {
+                        t.row_formulas.get(name).map_or_else(
+                            || {
+                                let c = &t.columns[name];
+                                json!({"name": name, "type": c.values.type_name(),
+                                       "unit": c.metadata.unit, "rows": c.values.len()})
+                            },
+                            |formula| json!({"name": name, "formula": formula}),
+                        )
+                    })
+                    .collect();
+                json!({"name": format!("{prefix}{}", t.name), "columns": columns})
+            })
+            .collect()
+    };
+    let includes: Vec<Value> = model
+        .includes
+        .iter()
+        .map(|inc| {
+            let prefix = format!("@{}.", inc.namespace);
+            let (s, t) = model
+                .resolved_includes
+                .get(&inc.namespace)
+                .map_or_else(Default::default, |r| {
+                    (scalars(&r.model, &prefix), tables(&r.model, &prefix))
+                });
+            json!({"file": inc.file, "as": inc.namespace, "scalars": s, "tables": t})
+        })
+        .collect();
+    let mut scenarios: Vec<&String> = model.scenarios.keys().collect();
+    scenarios.sort();
+    json!({
+        "scalars": scalars(model, ""),
+        "tables": tables(model, ""),
+        "includes": includes,
+        "scenarios": scenarios,
+    })
 }
 
 fn simulate(main: &Path, args: &Map<String, Value>) -> Result<Value, String> {

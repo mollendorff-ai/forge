@@ -24,6 +24,9 @@
   {"name": "variance household", "tool": "variance", "dir": "household", "files": ["budget.yaml", "actual.yaml"], "args": {"budget": "budget.yaml", "actual": "actual.yaml", "threshold": 10}},
   {"name": "report options", "tool": "report", "dir": "options", "files": ["compare-options.yaml"], "main": "compare-options.yaml"},
   {"name": "calculate starter", "tool": "calculate", "dir": "", "files": ["starter.yaml"], "main": "starter.yaml"},
+  {"name": "calculate household", "tool": "calculate", "dir": "household", "files": ["budget.yaml"], "main": "budget.yaml"},
+  {"name": "calculate options", "tool": "calculate", "dir": "options", "files": ["compare-options.yaml"], "main": "compare-options.yaml"},
+  {"name": "model bagel", "tool": "model", "dir": "bagel", "files": ["bagel.yaml", "costs.yaml"], "main": "bagel.yaml"},
   {"name": "functions", "tool": "functions"},
   {"name": "schema 5.2", "tool": "schema", "args": {"version": "v5.2"}},
   {"name": "examples list", "tool": "examples"}

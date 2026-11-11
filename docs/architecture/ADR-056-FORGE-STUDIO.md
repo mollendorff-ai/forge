@@ -1,6 +1,6 @@
 # ADR-056: Forge Studio, a Web Interface in This Repository
 
-**Status:** Accepted, not yet built (roadmap `studio`)
+**Status:** Accepted; Studio is in `studio/` and calculates with forge-wasm (S3); not yet published (S4)
 **Date:** 2026-11-10
 **Decided by:** the maintainer (a public demo page, phone first, with a split view on wide screens, built in this repository and published on GitHub Pages); the design is Claude's, in a session configured for Opus 5.5
 

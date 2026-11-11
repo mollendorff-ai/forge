@@ -1,0 +1,9 @@
+{
+  "name": "forge-studio",
+  "private": true,
+  "description": "Forge Studio's tests: a headless browser reads the numbers on screen (tests/screen.mjs)",
+  "type": "module",
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

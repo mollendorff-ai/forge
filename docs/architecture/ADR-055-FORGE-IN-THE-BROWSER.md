@@ -1,6 +1,6 @@
 # ADR-055: Forge in the Browser (forge-wasm)
 
-**Status:** Accepted, not yet built (roadmap `studio`, S1 and S2)
+**Status:** Accepted; built (roadmap `studio`, S1 and S2)
 **Date:** 2026-11-10
 **Decided by:** the maintainer (a web interface that runs Forge's own engine, built and published from this repository); the design is Claude's, in a session configured for Opus 5.5
 

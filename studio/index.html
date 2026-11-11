@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Forge Studio</title>
+<meta name="description" content="Forge's YAML financial models on a phone: cards, scenarios, goal seek and simulation, calculated by Forge itself in the browser.">
+<link rel="stylesheet" href="studio.css">
+</head>
+<body data-state="loading">
+<header class="top">
+  <div class="top-in">
+    <button type="button" class="brand" id="title-btn" aria-label="Open another model"><span class="brand-row"><h1 id="model-title">Forge Studio</h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></span><p id="model-files">loading Forge…</p></button>
+    <button class="status" id="status" type="button" aria-label="Show problems"><span class="dot"></span><span id="status-text">…</span></button>
+  </div>
+</header>
+
+<main>
+  <section class="view" id="view-model"></section>
+  <section class="view" id="view-yaml" hidden></section>
+  <section class="view" id="view-analyze" hidden></section>
+  <section class="view" id="view-mcp" hidden></section>
+  <section class="view" id="view-files" hidden></section>
+</main>
+
+<nav class="tabs" aria-label="Views"><div class="tabs-in">
+  <button class="tab" data-tab="model" type="button"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="5" rx="1.5"/><rect x="4" y="11" width="16" height="9" rx="1.5"/></svg>Model</button>
+  <button class="tab" data-tab="yaml" type="button"><svg viewBox="0 0 24 24"><path d="M8 7l-4 5 4 5M16 7l4 5-4 5M13.5 5l-3 14"/></svg>YAML</button>
+  <button class="tab" data-tab="analyze" type="button"><svg viewBox="0 0 24 24"><path d="M4 20h16M6 20v-5M10 20V8M14 20v-9M18 20v-4"/></svg>Analyze</button>
+  <button class="tab" data-tab="mcp" type="button"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M8 11l8-4M8 13l8 4"/></svg>Tools</button>
+  <button class="tab" data-tab="files" type="button"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M12 11v6M9 14l3 3 3-3"/></svg>Files</button>
+</div></nav>
+
+<div class="sheet-bg" id="sheet" hidden><div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><h3 id="sheet-title">Problems</h3><div id="sheet-body"></div><div class="btns" style="margin-top:14px"><button class="btn" id="sheet-close" type="button">Close</button></div></div></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
