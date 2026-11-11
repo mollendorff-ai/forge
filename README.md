@@ -15,6 +15,8 @@ YAML-based financial modeling with Excel-style formula evaluation. Git-native an
 
 > A raw spreadsheet file is mostly XML. A YAML model is small, readable and diffable.
 
+**Try it on a phone:** [Forge Studio](https://mollendorff-ai.github.io/forge/) shows a model as cards (inputs with sliders, results with their formulas, scenarios) and runs this same engine in the browser through WebAssembly. The page calculates nothing itself, and the files stay on your device. Source: [`studio/`](studio/README.md) and `forge-wasm/`. It is an R&D prototype too.
+
 ## Status and known limitations
 
 Forge is a release candidate (v10.0.0-rc.14) and an R&D prototype, built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
