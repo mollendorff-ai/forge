@@ -64,11 +64,11 @@ At the planned 16 a dozen, the chance is 34.76%. The simulation names what drive
 
 ```text
 $ forge tornado examples/bagel/bagel.yaml
-   assumptions.opening_dozens_per_day |██████████████████████████████| swing 114499.75  (output -56463.56 at low, 58036.20 at high)
-   assumptions.price_per_dozen        |████████████████████████      | swing 94192.48  (output -46309.92 at low, 47882.56 at high)
-   assumptions.staff_hours_per_day    |████████████████████          | swing 76590.00  (output 46740.32 at low, -29849.68 at high)
-   assumptions.rent_per_month         |██████                        | swing 24000.00  (output 10386.32 at low, -13613.68 at high)
-   assumptions.card_fee_rate          |█                             | swing 4641.93  (output 3880.94 at low, -760.99 at high)
+   assumptions.opening_dozens_per_day |██████████████████████████████| swing 114,499.75  (output -56,463.56 at low, 58,036.20 at high)
+   assumptions.price_per_dozen        |████████████████████████      | swing 94,192.48  (output -46,309.92 at low, 47,882.56 at high)
+   assumptions.staff_hours_per_day    |████████████████████          | swing 76,590.00  (output 46,740.32 at low, -29,849.68 at high)
+   assumptions.rent_per_month         |██████                        | swing 24,000.00  (output 10,386.32 at low, -13,613.68 at high)
+   assumptions.card_fee_rate          |█                             | swing 4,641.93  (output 3,880.94 at low, -760.99 at high)
 ```
 
 **Where did the household's October go?** [`examples/household`](examples/household/README.md) compares a budget with what came in and went out. Under `income` higher is better, and under `expenses` lower is better.
@@ -132,7 +132,7 @@ Forge's results are checked against other engines. None of the checks is complet
 
 | Check | What it covers | Latest result (2026-11-09) |
 | --- | --- | --- |
-| Unit tests (this repo) | 1,726 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
+| Unit tests (this repo) | 1,727 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
 | [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,446 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 70 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,445 pass, 1 skipped; weekly in CI |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 119 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped; weekly in CI |
 
@@ -555,7 +555,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 
 ```text
 forge (this repo)             validation repos
-├── 1,726 tests               ├── forge-e2e-gnumeric: 1,446 formula specs
+├── 1,727 tests               ├── forge-e2e-gnumeric: 1,446 formula specs
 ├── #[cfg(test)] modules      └── forge-e2e-r: 119 function checks, 77 analytics specs
 └── 2 doctests
 ```

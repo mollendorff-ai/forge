@@ -2,7 +2,7 @@
 
 A fictional wood-fired bagel shop in Mile End, Montreal, planned over its first twelve months. All numbers are made up. The model was built through the MCP tools on 2026-11-07 to see how Forge behaves on a model someone might actually have; it found the bugs fixed in PR 76.
 
-- `bagel.yaml`: the plan. A monthly table (seasonality, growth, revenue, five cost lines, profit), a `year` group with totals, margin, NPV and payback, and four scenarios. Supplier and wage costs come from `costs.yaml` through `_includes`, so a formula reads them as `@costs.ingredients.flour_per_kg`. The `flour_shock` scenario changes a value in that included file.
+- `bagel.yaml`: the plan. A monthly table (seasonality, growth, revenue, five cost lines, profit), a `year` group with totals, margin, NPV and the first year's return on the fit-out, and four scenarios. Supplier and wage costs come from `costs.yaml` through `_includes`, so a formula reads them as `@costs.ingredients.flour_per_kg`. The `flour_shock` scenario changes a value in that included file.
 - `costs.yaml`: ingredient prices, the loaded wage (a formula inside the included file) and the firewood.
 - `bagel_simulate.yaml`: the same plan with uncertain opening demand (PERT) and staffing (triangular), for `forge simulate`, with three thresholds and the expected shortfall of the year's profit, each month's chance of a loss, and a `rent_hike` scenario. `forge calculate` refuses it and says why.
 - `costs_risk.yaml`: `costs.yaml` with the flour price (triangular, up to the flour-shock price) and the wage (uniform) uncertain; it reads the other costs from `costs.yaml`.
