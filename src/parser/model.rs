@@ -63,7 +63,10 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                         .all(|(_, v)| matches!(v, Value::Mapping(_)))
                         && scenarios_map.iter().any(|(_, v)| {
                             if let Value::Mapping(m) = v {
+                                // A number (a flat override, or `probability`) or
+                                // a `scalars` mapping, which needs no probability
                                 m.iter().any(|(_, vv)| matches!(vv, Value::Number(_)))
+                                    || matches!(m.get("scalars"), Some(Value::Mapping(_)))
                             } else {
                                 false
                             }

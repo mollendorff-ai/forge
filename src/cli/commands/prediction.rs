@@ -55,6 +55,17 @@ pub fn scenarios_core(
 
         let mut config = ScenarioConfig::default();
         for (name, def) in scenarios_map {
+            // `forge compare` needs no probability; this command weighs by it
+            if def
+                .as_mapping()
+                .is_some_and(|m| !m.contains_key("probability"))
+            {
+                return Err(ForgeError::Validation(format!(
+                    "scenario '{name}' has no probability. forge scenarios weighs the scenarios \
+                     by it, and the probabilities of all scenarios must sum to 1 (forge compare \
+                     does not need it)"
+                )));
+            }
             let scenario_def = yaml_serde::from_value(def)
                 .map_err(|e| ForgeError::Validation(format!("scenario '{name}' error: {e}")))?;
             config.scenarios.insert(name, scenario_def);
