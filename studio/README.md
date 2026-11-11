@@ -6,7 +6,7 @@ On a phone it shows one view at a time with tabs at the bottom. Above 900 px the
 
 A formula can be changed on its card: it is kept only when Forge accepts it, and otherwise Forge's message says why.
 
-Every number is Forge's. The page runs `forge-wasm` (ADR-055) in a background worker and reads no YAML itself: a change on a card is written into that line of the YAML, comments and all, and Forge calculates the files again. Nothing leaves the device; the files stay in the browser's storage.
+Every number is Forge's. The page runs `forge-wasm` (ADR-055) in a background worker and reads no YAML itself: a change on a card is written into that line of the YAML, comments and all, and Forge calculates the files again. Nothing leaves the device; the files stay in the browser's storage until Save, which on an iPhone or iPad opens the share sheet (Save to Files, iCloud Drive) for the model's YAML or its Excel workbook.
 
 | File | What it holds |
 | --- | --- |
@@ -46,6 +46,7 @@ Pages is switched on once, by an administrator: Settings, Pages, Source: GitHub 
 - `node studio/tests/formulas.mjs studio-site`: every formula of every example, changed on its card, changes its one line and Forge reads it back; invalid formulas are refused with Forge's message and no change.
 
 - `node studio/tests/excel.mjs studio-site <workbooks>`: the workbook Studio downloads for bagel and mortgage is the one `forge export` writes, part by part, apart from when it was made; a workbook `forge export` wrote, opened in Studio, calculates to the same numbers.
+- `node studio/tests/save.mjs studio-site <workbooks>`: Save shares the model's files and the workbook through the share sheet, within the tap.
 - `node studio/tests/format.mjs`: the percent rule and how typed numbers are read.
 
-All eight run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact.
+All nine run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact.

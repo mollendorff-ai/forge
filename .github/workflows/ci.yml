@@ -214,6 +214,10 @@ jobs:
         working-directory: studio
         run: node tests/excel.mjs ../studio-site ../forge-wasm/xlsx
 
+      - name: Studio saves through the share sheet, within the tap
+        working-directory: studio
+        run: node tests/save.mjs ../studio-site ../forge-wasm/xlsx
+
       - name: Studio's layouts (320 px, side by side at 1440 px) and screenshots
         working-directory: studio
         run: node tests/layout.mjs ../studio-site ../studio-screenshots

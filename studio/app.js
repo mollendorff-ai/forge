@@ -733,17 +733,22 @@ function renderFiles() {
   const included = new Set(S.structure ? S.structure.includes.map((i) => i.file) : []);
   v.innerHTML = `<div class="eyebrow"><h2>examples</h2><span class="tag">from forge's examples/</span></div>
     <div class="card stack">${S.sets.map((x) => `<div class="row"><button type="button" class="ex" data-set="${esc(x.id)}"><b>${esc(x.title)}</b>${x.id === S.set ? '<span class="pill live">open</span>' : ""}<span class="note">${esc(x.blurb)}</span></button></div>`).join("")}</div>
+    <div class="eyebrow"><h2>save</h2><span class="tag">files, icloud drive</span></div>
+    <div class="card row form"><div class="file"><div><b>${esc(modelFiles().join(" + "))}</b><p class="note">On an iPhone or iPad, Save opens the share sheet: choose Save to Files, then iCloud Drive and a folder. Elsewhere the files are downloaded.</p></div>
+      <button class="btn primary" type="button" id="save-yaml">Save</button></div><div id="save-msg"></div></div>
     <div class="eyebrow"><h2>this model's files</h2><span class="tag">${Object.keys(S.files).length}</span></div>
     <div class="card stack">${Object.keys(S.files).map((f) => `<div class="row file"><div><b>${esc(f)}</b><p class="note">${f === S.main ? "Main model" : included.has(f) ? "Included by the main model" : "Another model"}</p></div>
       ${f !== S.main && !included.has(f) ? `<button class="btn" type="button" data-main="${esc(f)}">Open</button>` : ""}<button class="btn" type="button" data-dl="${esc(f)}">Download</button></div>`).join("")}</div>
     <div class="eyebrow"><h2>excel</h2><span class="tag">forge export</span></div>
     <div class="card row form"><div class="file"><div><b>${esc(S.main.replace(/\.ya?ml$/i, ""))}.xlsx</b><p class="note">The workbook <span class="mono">forge export</span> writes: every table and scalar group on its own sheet, with live formulas.</p></div>
-      <button class="btn primary" type="button" id="xlsx" ${S.structure ? "" : "disabled"}>Download</button></div><div id="xlsx-msg"></div></div>
+      <button class="btn primary" type="button" id="xlsx" ${S.structure ? "" : "disabled"}>Save</button></div><div id="xlsx-msg"></div></div>
     ${S.calc && Object.keys(S.calc.tables).length ? `<div class="eyebrow"><h2>tables as CSV</h2><span class="tag">calculated</span></div><div class="card stack">${Object.keys(S.calc.tables).map((t) => `<div class="row file"><div><b>${esc(t)}.csv</b></div><button class="btn" type="button" data-csv="${esc(t)}">Download</button></div>`).join("")}</div>` : ""}
     <div class="eyebrow"><h2>your own model</h2></div>
     <div class="card row form"><label class="lab" for="imp">Open YAML files from this device (the main model and the files it includes), or an Excel workbook (.xlsx), which <span class="mono">forge import</span> turns into a model</label><input type="file" id="imp" accept=".yaml,.yml,.xlsx,text/yaml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple>
       <div id="imp-msg"></div><p class="note">They stay in this browser.</p></div>
     ${edited ? `<div class="btns"><button class="btn warn" type="button" id="reset">Undo all edits to ${esc(set.title)}</button></div>` : ""}`;
+  // Made now, so that a tap on Save can open the share sheet at once (below)
+  if (S.structure) prepareWorkbook().catch(() => {});
 }
 const vf = $("#view-files");
 vf.addEventListener("click", async (e) => {
@@ -754,7 +759,34 @@ vf.addEventListener("click", async (e) => {
   if (t.dataset.csv) download(t.dataset.csv + ".csv", csvOf(t.dataset.csv), "text/csv");
   if (t.id === "reset") { openSet(S.set); save(); show("model"); await load(); }
   if (t.id === "xlsx") await exportWorkbook();
+  if (t.id === "save-yaml") {
+    const how = await saveFiles(modelFiles().map((f) => ({ name: f, data: S.files[f], type: "text/plain" })));
+    $("#save-msg").innerHTML = how === "downloaded" ? `<p class="note" style="margin-top:8px">Downloaded ${esc(modelFiles().join(", "))}.</p>` : "";
+  }
 });
+
+// ---------- saving: the share sheet where there is one ----------
+// The main model and the files it includes: what another Forge needs to open it
+function modelFiles() {
+  const included = S.structure ? S.structure.includes.map((i) => i.file).filter((f) => f in S.files) : [];
+  return [S.main, ...included];
+}
+// Safari opens the share sheet only within a tap: share() is called before
+// anything is awaited. Where files cannot be shared (most desktop browsers),
+// or the browser refuses, they are downloaded. Answers how they were saved.
+async function saveFiles(list) {
+  const files = list.map((f) => new File([f.data], f.name, { type: f.type }));
+  if (navigator.canShare && navigator.canShare({ files })) {
+    try {
+      await navigator.share({ files });
+      return "shared";
+    } catch (e) {
+      if (e.name === "AbortError") return "cancelled";
+    }
+  }
+  for (const f of list) download(f.name, f.data, f.type);
+  return "downloaded";
+}
 
 // ---------- Excel (roadmap S8): forge export and forge import, in the browser ----------
 // A workbook crosses to and from forge-wasm as base64, as in the MCP tool
@@ -765,14 +797,26 @@ const toBase64 = (bytes) => {
 };
 const fromBase64 = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 const warningList = (title, warnings) => (warnings.length ? `<div class="msg" style="margin-top:8px"><b>${esc(title)}</b><ul>${warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : "");
+const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+// The workbook of the files as they are now, made once per change
+let workbook = null;
+async function prepareWorkbook() {
+  const key = JSON.stringify([S.main, S.files]);
+  if (workbook && workbook.key === key) return workbook;
+  const r = await call("export", request());
+  workbook = { key, name: `${S.main.replace(/\.ya?ml$/i, "")}.xlsx`, bytes: fromBase64(r.excel_base64), r };
+  return workbook;
+}
 async function exportWorkbook() {
   const box = $("#xlsx-msg");
-  busy(box, "Forge is writing the workbook…");
+  const key = JSON.stringify([S.main, S.files]);
   try {
-    const r = await call("export", request());
-    const name = `${S.main.replace(/\.ya?ml$/i, "")}.xlsx`;
-    download(name, fromBase64(r.excel_base64), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    box.innerHTML = `<p class="note" style="margin-top:8px">${esc(name)}: ${r.table_count} tables, ${r.scalar_count} scalars, ${(r.byte_count / 1024).toFixed(0)} KB.</p>` + warningList("Written as values, because Excel cannot express them:", r.warnings);
+    // Ready: share within the tap. Not ready yet: make it, then share or download
+    let w = workbook && workbook.key === key ? workbook : null;
+    if (!w) { busy(box, "Forge is writing the workbook…"); w = await prepareWorkbook(); }
+    const how = await saveFiles([{ name: w.name, data: w.bytes, type: XLSX }]);
+    const { r } = w;
+    box.innerHTML = (how === "cancelled" ? "" : `<p class="note" style="margin-top:8px">${esc(w.name)}: ${r.table_count} tables, ${r.scalar_count} scalars, ${(r.byte_count / 1024).toFixed(0)} KB${how === "downloaded" ? ", downloaded" : ""}.</p>`) + warningList("Written as values, because Excel cannot express them:", r.warnings);
   } catch (err) { fail(box, err); }
 }
 vf.addEventListener("change", async (e) => {
