@@ -29,6 +29,36 @@ fn steady(mut value: Value) -> Value {
     value
 }
 
+/// The same answer: equal, except that numbers may differ in their last bits.
+/// `forge bayesian` applies its evidence in hash-map order, which changes from
+/// run to run, and with it the rounding of a probability
+/// (0.7272727272727272 or ...273), on disk as in memory.
+fn same(a: &Value, b: &Value, at: &str) {
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => {
+            let (x, y) = (x.as_f64().unwrap(), y.as_f64().unwrap());
+            assert!(
+                (x - y).abs() <= 1e-12 * x.abs().max(y.abs()).max(1.0),
+                "{at}: {x} in memory, {y} on disk"
+            );
+        },
+        (Value::Array(x), Value::Array(y)) => {
+            assert_eq!(x.len(), y.len(), "{at}: lengths differ");
+            for (i, (x, y)) in x.iter().zip(y).enumerate() {
+                same(x, y, &format!("{at}[{i}]"));
+            }
+        },
+        (Value::Object(x), Value::Object(y)) => {
+            let keys = |m: &serde_json::Map<String, Value>| m.keys().cloned().collect::<Vec<_>>();
+            assert_eq!(keys(x), keys(y), "{at}: keys differ");
+            for (k, v) in x {
+                same(v, &y[k], &format!("{at}.{k}"));
+            }
+        },
+        _ => assert_eq!(a, b, "{at}: memory and disk differ"),
+    }
+}
+
 fn case(name: &str) -> Value {
     let case = cases::all()
         .into_iter()
@@ -65,11 +95,7 @@ fn every_case_answers_from_memory_as_from_disk() {
         }
         let dir = examples().join(case["dir"].as_str().unwrap());
         let on_disk = run_on_disk(tool, &request, &dir);
-        assert_eq!(
-            steady(in_memory.unwrap()),
-            steady(on_disk.unwrap()),
-            "{name}: memory and disk differ"
-        );
+        same(&steady(in_memory.unwrap()), &steady(on_disk.unwrap()), name);
     }
 }
 
