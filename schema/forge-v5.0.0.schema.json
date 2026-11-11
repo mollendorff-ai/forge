@@ -527,7 +527,8 @@
           "description": "Scalar value overrides for this scenario"
         }
       },
-      "required": ["probability"]
+      "anyOf": [{ "required": ["probability"] }, { "required": ["scalars"] }],
+      "additionalProperties": false
     }
   },
 

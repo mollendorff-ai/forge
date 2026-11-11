@@ -258,22 +258,47 @@ Runs calculations for each specified scenario and displays results side-by-side.
 Useful for sensitivity analysis and what-if modeling.
 
 SCENARIOS IN YAML:
-  Define scenarios in your model file:
+  A scenario sets scalars, by their full name (group.name). Two forms; use
+  one of them for all the scenarios of a file.
+
+  Flat, the overrides directly:
 
   scenarios:
-    base:
-      growth_rate: 0.05
-      churn_rate: 0.02
     optimistic:
-      growth_rate: 0.12
-      churn_rate: 0.01
+      assumptions.growth_rate: 0.12
+      assumptions.churn_rate: 0.01
     pessimistic:
-      growth_rate: 0.02
-      churn_rate: 0.05
+      assumptions.growth_rate: 0.02
+      assumptions.churn_rate: 0.05
+
+  Full, with a description and scalars (and a probability, optional here):
+
+  scenarios:
+    optimistic:
+      description: Faster growth, less churn
+      scalars:
+        assumptions.growth_rate: 0.12
+        assumptions.churn_rate: 0.01
+    pessimistic:
+      description: Slow growth, more churn
+      scalars:
+        assumptions.growth_rate: 0.02
+        assumptions.churn_rate: 0.05
+
+  compare does not weigh the scenarios, so it needs no probability. forge
+  scenarios does: the probabilities must sum to 1.
 
 EXAMPLE:
-  forge compare model.yaml --scenarios base,optimistic,pessimistic
-  forge compare model.yaml --scenarios base,optimistic --format csv
+  forge compare model.yaml --scenarios optimistic,pessimistic
+  forge compare model.yaml --scenarios optimistic,pessimistic --format csv
+
+OUTPUT:
+  variable                 optimistic  pessimistic
+  assumptions.growth_rate        0.12         0.02
+  assumptions.churn_rate         0.01         0.05
+  assumptions.customers         1,200        1,200
+  assumptions.price                49           49
+  summary.revenue              65,268       57,036
 
 FORMATS:
   table (the default), csv, json and markdown, as in forge report. csv and
@@ -285,13 +310,7 @@ WIDE TABLES:
   A table wider than the terminal is printed in blocks of columns that fit,
   each with the row names: one row per scalar, or one row per scenario when
   that needs fewer blocks. COLUMNS sets the width; output to a file or a pipe
-  is not wrapped.
-
-OUTPUT:
-  Scenario Comparison: model.yaml
-  Variable          Base      Optimistic  Pessimistic
-  revenue           $1.2M     $1.8M       $0.9M
-  profit            $200K     $450K       -$50K")]
+  is not wrapped.")]
     /// Compare results across multiple scenarios
     Compare {
         /// Path to YAML file

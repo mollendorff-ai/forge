@@ -772,9 +772,11 @@
           "description": "Scalar value overrides for this scenario"
         }
       },
-      "required": [
-        "probability"
-      ]
+      "anyOf": [
+        { "required": ["probability"] },
+        { "required": ["scalars"] }
+      ],
+      "additionalProperties": false
     },
     "IsTable": {
       "description": "A mapping is a table if a child is a list, or a mapping whose value is a list (parser: is_table)",
