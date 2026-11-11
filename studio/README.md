@@ -11,7 +11,7 @@ Every number is Forge's. The page runs `forge-wasm` (ADR-055) in a background wo
 | `index.html`, `studio.css` | The page |
 | `app.js` | State, the five views, events |
 | `forge.js`, `worker.js` | The only way to a number: `call(tool, request)` to forge-wasm, in a worker |
-| `text.js` | Text work on YAML: changing one input's line, colouring the editor |
+| `text.js` | Text work on YAML: changing one input's line, colouring the editor with the VS Code grammar's rules (`formula-rules.json`, written by `build.mjs` from `editors/vscode/syntaxes/`) |
 | `format.js` | How numbers look on screen |
 | `build.mjs` | Puts the page, forge-wasm and the example sets in one folder |
 
@@ -38,4 +38,6 @@ Pages is switched on once, by an administrator: Settings, Pages, Source: GitHub 
 
 - `node studio/tests/layout.mjs studio-site [screenshots dir]`: no view scrolls sideways at 320 px; at 1440 x 900 the editor and the cards follow each other, the divider moves and either side hides; screenshots at 390 x 844 and 1440 x 900, light and dark.
 
-All three run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact.
+- `node studio/tests/highlight.mjs [studio-site]`: the colours of formulas are the VS Code grammar's (patterns, order, scopes), and highlighting leaves every YAML file of `examples/` unchanged once its tags are removed.
+
+All four run in CI, in the `forge-wasm` job, which keeps the built site as the `forge-studio` artifact.

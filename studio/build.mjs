@@ -10,11 +10,6 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const examples = join(here, "..", "examples");
-const [pkg, out] = process.argv.slice(2).map((p) => resolve(p));
-if (!pkg || !out) {
-  console.error("usage: node studio/build.mjs <pkg dir> <out dir>");
-  process.exit(2);
-}
 
 // Each set opens on its main model. `case` names the forge-wasm case
 // (forge-wasm/tests/cases.json) that calculates the main model natively; the
@@ -43,7 +38,23 @@ export const SETS = [
     files: ["starter.yaml"] },
 ];
 
+// The patterns of the VS Code extension's formula grammar, in its order. The
+// page colours formulas with these (studio/text.js), so there is one copy.
+export function formulaRules(injection) {
+  return injection.repository.formula.patterns.map((p) => ({
+    match: p.match,
+    scope: p.name ?? null,
+    captures: Object.fromEntries(Object.entries(p.captures ?? {}).map(([n, c]) => [n, c.name])),
+  }));
+}
+export const GRAMMAR = join(here, "..", "editors", "vscode", "syntaxes", "forge-formula.injection.json");
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const [pkg, out] = process.argv.slice(2).map((p) => resolve(p));
+  if (!pkg || !out) {
+    console.error("usage: node studio/build.mjs <pkg dir> <out dir>");
+    process.exit(2);
+  }
   mkdirSync(join(out, "pkg"), { recursive: true });
   for (const f of readdirSync(here)) {
     if (/\.(html|css|js)$/.test(f)) copyFileSync(join(here, f), join(out, f));
@@ -57,6 +68,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     files: Object.fromEntries(files.map((f) => [f, readFileSync(join(examples, dir, f), "utf8")])),
   }));
   writeFileSync(join(out, "examples.json"), JSON.stringify(sets));
+  writeFileSync(join(out, "formula-rules.json"), JSON.stringify(formulaRules(JSON.parse(readFileSync(GRAMMAR, "utf8")))));
   // GitHub Pages runs Jekyll on a site unless told not to
   writeFileSync(join(out, ".nojekyll"), "");
   console.log(`Forge Studio in ${out}: ${sets.length} example sets`);

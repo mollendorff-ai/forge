@@ -4,7 +4,7 @@
 // calculates nothing; see studio/tests/no-engine.mjs.
 
 import { call, start } from "./forge.js";
-import { esc, setInputText, highlightYaml } from "./text.js";
+import { esc, setInputText, highlightYaml, useFormulaRules } from "./text.js";
 import { fmt, short, spark, sliderRange, readNumber, isPercentName } from "./format.js";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -734,6 +734,9 @@ async function boot() {
   } catch (e) {
     S.error = "The examples could not be loaded."; S.sets = [];
   }
+  try {
+    useFormulaRules(await (await fetch("formula-rules.json")).json());
+  } catch (e) { /* formulas stay plain in the editor; the cards do not need the colours */ }
   const asked = new URLSearchParams(location.search).get("example");
   if (asked || !restore()) { if (S.sets.length) openSet(asked || S.sets[0].id); }
   S.yamlFile = S.main;
