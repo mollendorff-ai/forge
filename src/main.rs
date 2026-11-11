@@ -10,15 +10,15 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "forge")]
-#[command(about = "Git-native financial modeling in YAML. 175 functions. Beta.")]
+#[command(about = "Git-native financial modeling in YAML. 169 functions. Beta.")]
 #[command(long_about = "Forge - Git-native financial modeling
-175 functions | Beta | Validation suites: forge-e2e-gnumeric, forge-e2e-r
+169 functions | Beta | Validation suites: forge-e2e-gnumeric, forge-e2e-r
 
 COMMANDS:
   calculate     - Execute formulas, update values
   validate      - Check model integrity
   audit         - Trace formula dependencies
-  functions     - List all 175 supported functions
+  functions     - List all 169 supported functions
   schema        - Display JSON schema for model validation
   examples      - Show runnable YAML examples
   simulate      - Monte Carlo simulation with distributions

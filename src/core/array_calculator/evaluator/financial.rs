@@ -275,7 +275,10 @@ pub fn try_evaluate(
             // IRR(values, [guess]). Older models pass the flows as separate
             // arguments, so a second argument is a guess only when the first
             // is an array of several values.
-            let first = evaluate(&args[0], ctx)?;
+            let first = match args.first() {
+                Some(arg) => evaluate(arg, ctx)?,
+                None => return Err(EvalError::new("IRR requires cash flows")),
+            };
             let has_guess = args.len() == 2 && matches!(&first, Value::Array(a) if a.len() > 1);
             let (values, guess) = if has_guess {
                 let guess = evaluate(&args[1], ctx)?

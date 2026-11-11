@@ -712,7 +712,7 @@ fn test_call_functions() {
         parsed.get("edition").is_none(),
         "there is no enterprise edition"
     );
-    assert!(parsed["total"].as_u64().unwrap() >= 170);
+    assert_eq!(parsed["total"].as_u64().unwrap(), 169);
 }
 
 #[test]

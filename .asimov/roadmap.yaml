@@ -82,10 +82,6 @@ tier1:
     how: "Say that the model does not calculate and name the error, at least; decide whether to refuse the export (forge calculate already refuses) or to write it with the warning"
     acceptance: "forge export of a model that does not calculate either fails with the calculation's error or says in its output that no result was checked, and a test holds it"
 
-  - id: T1-FUNCTION-LIST
-    title: "forge functions lists Y, M, D, YD, YM and MD, which cannot be called"
-    why: "They are units of DATEDIF, listed as three Date and three Forge Native functions; =YD(a, b) and =D(a, b) are Unknown function. The count of 175 includes them"
-    acceptance: "The list holds only what a formula can call, and every count in the docs follows"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)

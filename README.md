@@ -309,7 +309,7 @@ For Claude Desktop or MCP-compatible hosts, Forge exposes 20 tools via Model Con
 | Tool | What It Does |
 |------|--------------|
 | `forge_schema` | Get JSON Schema for Forge YAML model formats |
-| `forge_functions` | List all 175 supported functions with descriptions |
+| `forge_functions` | List all 169 supported functions with descriptions |
 | `forge_examples` | Get runnable YAML examples for all capabilities |
 
 All tools accept inline YAML via `content` parameter — no host filesystem access required. Works with sandboxed clients (Claude.ai, Cursor, containers).
@@ -318,9 +318,9 @@ See [docs/MCP.md](docs/MCP.md) for the full integration guide.
 
 ---
 
-## 175 Functions
+## 169 Functions
 
-175 functions: most are Excel-compatible, plus 7 Excel doesn't have: 6 for FP&A, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is.
+169 functions: most are Excel-compatible, plus 7 Excel doesn't have: 6 for FP&A, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is.
 
 | Category | Examples |
 |----------|----------|
@@ -483,7 +483,7 @@ forge mcp                           # Start MCP server
 forge serve --port 8080             # Start REST API
 
 # Reference
-forge functions                     # List all 175 functions
+forge functions                     # List all 169 functions
 forge schema v5                     # Show JSON schema
 forge examples monte-carlo          # Show example YAML
 ```
@@ -547,7 +547,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 | Metric | Value |
 | --- | --- |
 | **Unit tests** | 1,480 unit tests and 2 doctests (counted 2026-11-06) |
-| **Functions** | 175, of which 6 are FP&A-native and one (`PREV`) reads the row above |
+| **Functions** | 169, of which 6 are FP&A-native and one (`PREV`) reads the row above |
 | **Lints** | clippy pedantic is enabled and CI fails on warnings |
 | **External validation** | Partial; see [Validation status](#validation-status) |
 

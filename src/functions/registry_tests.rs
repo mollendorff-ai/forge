@@ -7,7 +7,7 @@ mod tests {
 
     #[test]
     fn test_function_count() {
-        assert_eq!(count_all(), 175, "Registry should have 175 functions");
+        assert_eq!(count_all(), 169, "Registry should have 169 functions");
     }
 
     #[test]
@@ -26,7 +26,7 @@ mod tests {
         let array_only = count_array_only();
         assert_eq!(
             scalar + array_only,
-            175,
+            169,
             "Scalar + array-only should equal total"
         );
         // 24 array-only functions:

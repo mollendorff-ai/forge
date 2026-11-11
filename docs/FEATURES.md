@@ -20,7 +20,7 @@ assumptions:
 
 months:                      # a table: lists are columns, strings are row formulas
   month: [1, 2, 3]
-  dozens: [1650, 1700, 1750]
+  dozens: [1650, 1700, 1690]
   revenue: "=dozens * assumptions.price_per_dozen"
 
 year:
@@ -140,7 +140,7 @@ summary:
 - `forge import` turns such sheets back into the included file (`rates.yaml`, beside the imported model, with its scalars and its tables) and their references into `@rates.fx.eur_usd` and `@rates.prices.eur`, with an `_includes` entry. If a file of that name is already there and calculates to the sheets' values (usually the original), it is kept as it is; if it holds other values, the import stops before writing anything.
 - With the MCP server and inline `content`, pass the included files in the `includes` map (see [MCP.md](MCP.md)).
 
-### 175 Excel-Compatible Functions
+### 169 Excel-Compatible Functions
 
 ```mermaid
 graph LR
