@@ -117,6 +117,106 @@ export function setFormulaText(text, group, name, formula) {
   return lines.join("\n");
 }
 
+// ---------- adding and deleting an element (roadmap S9) ----------
+// Both work on lines, as above, and answer null when the file is written in a
+// way they do not handle (a group in a flow mapping, nested groups); the
+// caller then points to the YAML tab. The caller asks Forge whether the new
+// text holds exactly this change before keeping it.
+
+// A name Studio writes as a plain YAML key; Forge decides whether it is a
+// valid name for the model.
+export const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+// The last line of the block of the key at line i: its own line, the lines
+// indented under it, and a block sequence written at its own indentation
+// ("- x"). Blank lines and comments after the last of them are not part of it.
+function blockEnd(lines, i, indent) {
+  let end = i;
+  for (let j = i + 1; j < lines.length; j++) {
+    const t = lines[j].trim();
+    if (!t || t.startsWith("#")) continue;
+    const ind = lines[j].match(/^\s*/)[0].length;
+    if (ind > indent || (ind === indent && /^-(\s|$)/.test(t))) { end = j; continue; }
+    break;
+  }
+  return end;
+}
+// The indentation of the first key under the key at line i, or null.
+function childIndent(lines, i, indent) {
+  for (let j = i + 1; j < lines.length; j++) {
+    const t = lines[j].trim();
+    if (!t || t.startsWith("#")) continue;
+    const ind = lines[j].match(/^\s*/)[0].length;
+    return ind > indent ? ind : null;
+  }
+  return null;
+}
+// A unit as YAML: plain when it is a word or a few, otherwise in double quotes
+const yamlText = (s) => (/^[A-Za-z][A-Za-z0-9_ ./-]*$/.test(s) && !/\s$/.test(s) ? s : JSON.stringify(s));
+
+// Add an element at the end of `group` (a top-level key of the file), or, at
+// the top level (group null), after the block of the top-level scalar
+// `entry.after`. `entry` is one of
+//   {kind: "input", value, unit}     name: 16, or value: and unit: under name:
+//   {kind: "formula", formula, unit} name: with formula: (and unit:) under it
+//   {kind: "column", formula}        name: "=..." in a table
+// The new lines take the indentation of the keys already there.
+export function addEntryText(text, group, name, entry) {
+  if (!NAME.test(name)) return null;
+  if (entry.formula != null && (/[\r\n]/.test(entry.formula) || !entry.formula.startsWith("="))) return null;
+  if (entry.unit != null && /[\r\n]/.test(entry.unit)) return null;
+  const lines = text.split("\n");
+  if (findKey(lines, group, name)) return null;
+  let at, pad;
+  if (group) {
+    const g = findKey(lines, null, group);
+    if (!g || g.rest.trim() && !g.rest.trim().startsWith("#")) return null;
+    const ind = childIndent(lines, g.i, 0);
+    if (ind == null) return null;
+    at = blockEnd(lines, g.i, 0) + 1;
+    pad = " ".repeat(ind);
+  } else {
+    const a = entry.after && findKey(lines, null, entry.after);
+    if (!a) return null;
+    at = blockEnd(lines, a.i, 0) + 1;
+    pad = "";
+  }
+  const inner = pad + (pad || "  ");
+  const unit = entry.unit ? [`${inner}unit: ${yamlText(entry.unit)}`] : [];
+  let add;
+  if (entry.kind === "input") {
+    if (typeof entry.value !== "number" || !Number.isFinite(entry.value)) return null;
+    add = unit.length ? [`${pad}${name}:`, `${inner}value: ${entry.value}`, ...unit] : [`${pad}${name}: ${entry.value}`];
+  } else if (entry.kind === "formula") {
+    add = [`${pad}${name}:`, `${inner}formula: ${encodeFormula(entry.formula, "double")}`, ...unit];
+  } else if (entry.kind === "column" && group) {
+    add = [`${pad}${name}: ${encodeFormula(entry.formula, "double")}`];
+  } else return null;
+  lines.splice(at, 0, ...add);
+  return lines.join("\n");
+}
+
+// Delete an element: its key line and the lines under it. A comment on the
+// lines above it is kept (it may be about what follows). The last element of
+// a group is not deleted here: the group would be left empty.
+export function deleteEntryText(text, group, name) {
+  const lines = text.split("\n");
+  const at = findKey(lines, group, name);
+  if (!at) return null;
+  const end = blockEnd(lines, at.i, at.indent);
+  if (group) {
+    const g = findKey(lines, null, group);
+    const gEnd = blockEnd(lines, g.i, 0);
+    const others = lines.slice(g.i + 1, gEnd + 1).some((l, k) => {
+      const j = g.i + 1 + k, t = l.trim();
+      return (j < at.i || j > end) && t && !t.startsWith("#");
+    });
+    if (!others) return null;
+  }
+  lines.splice(at.i, end - at.i + 1);
+  return lines.join("\n");
+}
+
 
 // Formula colours come from the VS Code extension's grammar,
 // editors/vscode/syntaxes/forge-formula.injection.json (ADR-056 decision 4).

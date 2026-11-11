@@ -1,6 +1,6 @@
 # ADR-056: Forge Studio, a Web Interface in This Repository
 
-**Status:** Accepted; Studio is in `studio/` and calculates with forge-wasm (S3); published by `pages.yml` once Pages is switched on (S4)
+**Status:** Accepted; Studio is in `studio/` and calculates with forge-wasm (S3); published by `pages.yml` once Pages is switched on (S4); addendum on adding and deleting elements (S9), 2026-11-11
 **Date:** 2026-11-10
 **Decided by:** the maintainer (a public demo page, phone first, with a split view on wide screens, built in this repository and published on GitHub Pages); the design is Claude's, in a session configured for Opus 5.5
 
@@ -47,3 +47,19 @@ A mockup was built outside this repository between 2026-11-07 and 2026-11-10 and
 - **GitHub Pages must be switched on once** in the repository's settings (Settings, Pages, Source: GitHub Actions) by an administrator.
 - **Studio follows the engine.** A format change (as ADR-051, ADR-053, ADR-054) needs Studio's cards to show it; the headless test catches a model that no longer opens.
 - **Editing formulas on a card, and Excel export and import in the browser,** are later steps (roadmap S7, S8).
+
+## Addendum, 2026-11-11: adding and deleting elements (roadmap S9)
+
+**Decided by:** the maintainer asked for a visual way to add elements to a model, since typing YAML on a phone is the hardest part of Studio; the design is Claude's, in a session configured for Opus 5.5.
+
+Decision 2 holds: the YAML is the model, and a card writes text. S7 let a card change a formula; S9 lets a group's card add an element and any card delete one.
+
+1. **What can be added.** To a group of scalars: an input (a number, with an optional unit) or a formula (with an optional unit). To a table: a column calculated by a formula. At the top level, a scalar goes after the last top-level scalar. Data columns (a list of values per row), groups, tables, scenarios and renames are not added from cards: a data column needs a value per row, and a rename has to rewrite every formula that uses the name. They stay on the YAML tab.
+
+2. **How it is written.** The new lines go at the end of the group, in the indentation its keys already use, the way format 5.1.0 writes each kind (ADR-051): `name: 16`, or `value:` and `unit:` under `name:`; a formula as `formula: "=..."` (and `unit:`) under `name:`; a column as `name: "=..."`. A formula is always in double quotes. Names are restricted to letters, digits and `_`, starting with a letter or `_`, so the key is always plain YAML; Forge decides whether the name is valid in the model. A group written as a flow mapping, or a nested group, is not changed: Studio says so and points to the YAML tab.
+
+3. **How it is deleted.** The element's key line and every line under it, including a block sequence written at the key's own indentation. A comment on the lines above it stays, since it may be about what follows. The last element of a group is not deleted from a card: the group would be left empty.
+
+4. **What is kept.** As for a formula (S7): the new text is kept only when the model still validates (for a model with distributions, a ten-run simulation evaluates every formula), and the model Forge reads back is exactly the one before, with that one element added (with the value, formula and unit typed) or gone. Anything else (a name already in the model, a formula Forge refuses, deleting an input other formulas use) shows Forge's message, and the file is as it was. Adding and then deleting an element gives back the file byte for byte.
+
+5. **What it costs.** Text functions in `studio/text.js` that find lines and insert or remove them; no YAML library, and the page still calculates nothing (`no-engine.mjs`). `studio/tests/text.mjs` covers the ways a file is written; `studio/tests/elements.mjs` adds an input and a formula to every group, and a column to every table, of every example, deletes each again, and checks the file byte for byte.

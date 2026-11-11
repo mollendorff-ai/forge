@@ -284,3 +284,15 @@ textarea.editor.ta::selection { background: color-mix(in srgb, var(--accent) 30%
 .edit-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round }
 .col-edit { padding: 0 14px 12px }
 .fedit { display: flex; flex-direction: column; gap: 8px; margin-top: 6px }
+
+/* Adding and deleting an element (S9) */
+.eyebrow { flex-wrap: wrap }
+.eyebrow .add-btn { margin-left: auto; align-self: center }
+.card.add-form { padding: 12px 14px }
+.card.add-form .fedit { margin-top: 0 }
+.row-actions { display: flex; justify-content: flex-end; margin-top: 4px }
+.col-edit { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.col-edit[hidden] { display: none }
+.del-btn { color: var(--muted) }
+.edit-btn.warn { color: var(--bad); border-color: var(--bad) }
+.del-ask { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--bad) }
