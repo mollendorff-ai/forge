@@ -296,3 +296,11 @@ textarea.editor.ta::selection { background: color-mix(in srgb, var(--accent) 30%
 .del-btn { color: var(--muted) }
 .edit-btn.warn { color: var(--bad); border-color: var(--bad) }
 .del-ask { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--bad) }
+
+/* Suggestions while a formula is typed (S10) */
+.suggest { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch }
+.suggest::-webkit-scrollbar { display: none }
+.suggest[hidden] { display: none }
+.sug { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 11px; font-family: var(--f-mono); font-size: 13px; white-space: nowrap }
+.sug.function { color: var(--syn-fn); border-color: color-mix(in srgb, var(--syn-fn) 35%, var(--line)) }
+.sug.included { color: var(--syn-inc) }

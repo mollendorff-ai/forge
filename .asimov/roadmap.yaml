@@ -85,11 +85,11 @@ tier2:
 # export and import in the browser, the workbook forge export writes.
 
 studio:
-  - id: S10-AUTOCOMPLETE
-    title: "Suggest names and functions while a formula is typed"
-    why: "A formula is typed from memory today; a wrong name is found only after Save. On a phone a dropdown is covered by the keyboard"
-    how: "Start in the formula editor (card formulas, and the formula in the add form of S9), not the YAML editor. Names come from the model as Forge returns it and functions from Forge's function list, not from a list in the page (no-engine.mjs). A strip of suggestions above the keyboard. Keys such as unit: and formula: in the YAML editor come after, from the model format's schema"
-    acceptance: "For every formula in every example, typing its first letters at each name or function offers the name or function that follows (a test over the examples); a suggestion inserts exactly its text; the functions offered are the 169 Forge lists, and a function Forge does not list is never offered"
+  - id: S12-YAML-KEYS
+    title: "Suggest keys while the YAML is typed"
+    why: "The formula field suggests names and functions (S10); the YAML editor does not suggest the keys of the model format (value:, unit:, formula:, better:, notes:), so a typo is found only when Forge reads the file"
+    how: "From the model format's schema (the schema tool), not a list in the page; on a phone a strip above the keyboard, as in the formula field"
+    acceptance: "In every example's YAML, typing the first letters of each key offers it (a test over the examples); only keys of the schema are offered, and none inside a formula"
 
   - id: S11-GRID
     title: "A spreadsheet view of the model"

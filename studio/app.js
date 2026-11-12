@@ -6,6 +6,7 @@
 import { call, start } from "./forge.js";
 import { esc, setInputText, setFormulaText, addEntryText, deleteEntryText, NAME, highlightYaml, useFormulaRules } from "./text.js";
 import { fmt, short, spark, sliderRange, readNumber, isPercent } from "./format.js";
+import { scopeOf, namesFor, functionsOf, suggest, apply } from "./suggest.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -337,6 +338,8 @@ $("#view-model").addEventListener("input", (e) => {
   setInput(path, n);
 });
 $("#view-model").addEventListener("click", (e) => {
+  const sug = e.target.closest("[data-sug]");
+  if (sug) { takeSuggestion(sug); return; }
   const chip = e.target.closest("[data-scn]");
   if (chip) {
     S.scenario = chip.dataset.scn || null;
@@ -389,6 +392,45 @@ $("#view-model").addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeFormulaEditor(input.dataset.finput);
 });
 
+// ---------- suggestions while a formula is typed (roadmap S10) ----------
+// A strip of names and functions above the field, from the model and from
+// Forge's own function list (suggest.js); a tap inserts exactly its text.
+let functionList = null, functionsLoading = null;
+function loadFunctions() {
+  if (!functionsLoading) {
+    functionsLoading = call("functions", {}).then((a) => { functionList = functionsOf(a); }).catch(() => { functionList = []; });
+  }
+  return functionsLoading;
+}
+const formulaFields = "[data-finput], [data-aform]";
+function scopeFor(input) {
+  if (input.dataset.finput) return scopeOf(S.structure, input.dataset.finput);
+  const { ns, group, kind } = input.closest("[data-addslot]").dataset;
+  return kind === "column" ? { ns: ns || null, group: null, table: group || null } : { ns: ns || null, group: group || null, table: null };
+}
+function showSuggestions(input) {
+  const strip = input.parentElement.querySelector("[data-suggest]");
+  if (!strip || !S.structure) return;
+  if (!functionList) loadFunctions().then(() => { if (input.isConnected) showSuggestions(input); });
+  const list = suggest({ names: namesFor(S.structure, scopeFor(input)), functions: functionList || [] }, input.value, input.selectionStart ?? input.value.length);
+  strip.innerHTML = list.map((x, i) => `<button type="button" class="sug ${x.kind}" data-sug="${i}" title="${esc(x.title)}">${esc(x.label)}</button>`).join("");
+  strip._list = list;
+  strip.hidden = !list.length;
+}
+function takeSuggestion(button) {
+  const strip = button.closest("[data-suggest]"), input = strip.parentElement.querySelector("input");
+  const r = apply(input.value, strip._list[Number(button.dataset.sug)]);
+  input.value = r.text;
+  input.focus();
+  input.setSelectionRange(r.caret, r.caret);
+  showSuggestions(input);
+}
+for (const type of ["input", "keyup", "click", "focusin"]) {
+  $("#view-model").addEventListener(type, (e) => { if (e.target.matches && e.target.matches(formulaFields)) showSuggestions(e.target); });
+}
+// A tap on a suggestion must not take the focus (and the keyboard) from the field
+$("#view-model").addEventListener("mousedown", (e) => { if (e.target.closest("[data-sug]")) e.preventDefault(); });
+
 // ---------- editing a formula on its card (roadmap S7) ----------
 // The new text is kept only when Forge accepts it: the model must validate
 // (or simulate, for a model with distributions), and Forge must read back
@@ -411,6 +453,7 @@ function openFormulaEditor(path) {
   slot.dataset.before = slot.innerHTML;
   slot.classList.add("editing");
   slot.innerHTML = `<div class="fedit"><label class="lab" for="f-${esc(path)}">Formula of ${esc(path)}</label>
+    <div class="suggest" data-suggest hidden aria-label="Suggestions"></div>
     <input class="txt" id="f-${esc(path)}" data-finput="${esc(path)}" value="${esc(entry.formula)}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
     <div class="btns"><button type="button" class="btn primary" data-fsave="${esc(path)}">Check and save</button><button type="button" class="btn" data-fcancel="${esc(path)}">Cancel</button></div>
     <div class="msg bad" data-fmsg hidden></div></div>`;
@@ -515,7 +558,7 @@ function openAddForm(button) {
     ${column ? `<p class="note">A new column of ${esc(where)}, calculated for each row.</p>` : `<div class="chips" role="group" aria-label="Kind"><button type="button" class="chip" data-akind="input" aria-pressed="true">Input</button><button type="button" class="chip" data-akind="formula" aria-pressed="false">Formula</button></div>`}
     <div><label class="lab" for="a-name-${esc(button.dataset.add)}">Name</label><input class="txt" id="a-name-${esc(button.dataset.add)}" data-aname autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="new_name"></div>
     <div data-avalue ${column ? "hidden" : ""}><label class="lab" for="a-value-${esc(button.dataset.add)}">Value</label><input class="txt" id="a-value-${esc(button.dataset.add)}" data-ainput inputmode="decimal" autocomplete="off" placeholder="0"></div>
-    <div data-aformula ${column ? "" : "hidden"}><label class="lab" for="a-formula-${esc(button.dataset.add)}">Formula</label><input class="txt" id="a-formula-${esc(button.dataset.add)}" data-aform autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="=…"></div>
+    <div data-aformula ${column ? "" : "hidden"}><label class="lab" for="a-formula-${esc(button.dataset.add)}">Formula</label><div class="suggest" data-suggest hidden aria-label="Suggestions"></div><input class="txt" id="a-formula-${esc(button.dataset.add)}" data-aform autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="=…"></div>
     ${column ? "" : `<div><label class="lab" for="a-unit-${esc(button.dataset.add)}">Unit (optional)</label><input class="txt" id="a-unit-${esc(button.dataset.add)}" data-aunit autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="CAD, %, months…"></div>`}
     <div class="btns"><button type="button" class="btn primary" data-asave>Check and add</button><button type="button" class="btn" data-acancel>Cancel</button></div>
     <div class="msg bad" data-amsg hidden></div></div>`;
@@ -1087,6 +1130,7 @@ async function boot() {
     S.error = e.message; renderAll(); finish(); return;
   }
   await load();
+  loadFunctions();
   keepOffline();
 }
 
