@@ -28,10 +28,8 @@ tempfile = "3.23"
 
 # Error handling
 anyhow = "1.0"
-thiserror = "2.0"
 
 # CSV parsing
-csv = "1.4"
 
 # Excel reading/writing
 calamine = "0.38"

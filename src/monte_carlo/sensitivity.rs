@@ -74,8 +74,7 @@ impl SensitivityAnalysis {
     pub fn top_drivers(&self, output: &str, n: usize) -> Vec<&TornadoBar> {
         self.tornado_data
             .get(output)
-            .map(|bars| bars.iter().take(n).collect())
-            .unwrap_or_default()
+            .map_or_default(|bars| bars.iter().take(n).collect())
     }
 
     /// Get correlation between an input and output

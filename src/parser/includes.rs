@@ -139,9 +139,7 @@ pub(super) fn resolve_includes_from<S: BuildHasher>(
             resolved_path: source.identity(&include_path),
             model: included_model,
         };
-        model
-            .resolved_includes
-            .insert(include.namespace.clone(), resolved);
+        model.resolved_includes.insert(include.namespace, resolved);
     }
 
     Ok(())

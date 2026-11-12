@@ -286,7 +286,7 @@ fn render_csv(result: &ComparisonResult) -> String {
             .chain(
                 row_values(result, variable)
                     .iter()
-                    .map(|v| v.map(|v| to_15_digits(v).to_string()).unwrap_or_default()),
+                    .map(|v| v.map_or_default(|v| to_15_digits(v).to_string())),
             )
             .collect();
         out.push_str(&items.join(","));

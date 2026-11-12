@@ -588,11 +588,8 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
         for (name, current, expected, diff) in &mismatches {
             println!("   {}", name.bright_blue().bold());
             // Format numbers with reasonable precision (remove trailing zeros)
-            println!("      Current:  {}", format_number(*current).clone().red());
-            println!(
-                "      Expected: {}",
-                format_number(*expected).clone().green()
-            );
+            println!("      Current:  {}", format_number(*current).red());
+            println!("      Expected: {}", format_number(*expected).green());
             println!("      Diff:     {}", format!("{diff:.6}").yellow());
             println!();
         }

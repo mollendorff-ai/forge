@@ -315,18 +315,16 @@ fn parse_r_stats(results: Option<&serde_json::Value>) -> Option<Stats> {
     let percentiles = results
         .get("percentiles")
         .and_then(|p| p.as_object())
-        .map(|obj| {
+        .map_or_default(|obj| {
             obj.iter()
                 .filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f)))
                 .collect()
-        })
-        .unwrap_or_default();
+        });
 
     let samples = results
         .get("samples")
         .and_then(|s| s.as_array())
-        .map(|arr| arr.iter().filter_map(serde_json::Value::as_f64).collect())
-        .unwrap_or_default();
+        .map_or_default(|arr| arr.iter().filter_map(serde_json::Value::as_f64).collect());
 
     Some(Stats {
         mean,

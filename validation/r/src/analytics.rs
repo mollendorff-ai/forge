@@ -105,9 +105,7 @@ fn run_forge(forge: &Path, args: &[&std::ffi::OsStr]) -> Result<(), String> {
     } else {
         Err(format!(
             "forge {} failed: {}{}",
-            args.first()
-                .map(|a| a.to_string_lossy())
-                .unwrap_or_default(),
+            args.first().map_or_default(|a| a.to_string_lossy()),
             String::from_utf8_lossy(&output.stderr),
             String::from_utf8_lossy(&output.stdout)
         ))
@@ -648,12 +646,11 @@ fn sensitivity(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
         .raw
         .get("vary")
         .and_then(|v| v.as_sequence())
-        .map(|s| {
+        .map_or_default(|s| {
             s.iter()
                 .filter_map(|n| n.as_str().map(String::from))
                 .collect()
-        })
-        .unwrap_or_default();
+        });
     let Some(model) = linear_or_product_model(spec) else {
         return error(spec, "Spec has no usable base_values".to_string());
     };
@@ -727,16 +724,14 @@ fn sensitivity(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
         let grid: Vec<Vec<f64>> = data
             .get("grid")
             .and_then(Json::as_array)
-            .map(|g| {
+            .map_or_default(|g| {
                 g.iter()
                     .map(|row| {
                         row.as_array()
-                            .map(|r| r.iter().filter_map(Json::as_f64).collect())
-                            .unwrap_or_default()
+                            .map_or_default(|r| r.iter().filter_map(Json::as_f64).collect())
                     })
                     .collect()
-            })
-            .unwrap_or_default();
+            });
         // Rows of the table: [row_value, out, out, ...]
         let body: Vec<&Vec<f64>> = rows
             .iter()
@@ -758,8 +753,7 @@ fn sensitivity(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
         let r_values: Vec<f64> = data
             .get("outputs")
             .and_then(Json::as_array)
-            .map(|a| a.iter().filter_map(Json::as_f64).collect())
-            .unwrap_or_default();
+            .map_or_default(|a| a.iter().filter_map(Json::as_f64).collect());
         let body: Vec<&Vec<f64>> = rows.iter().filter(|r| r.len() == 2).collect();
         if body.len() != r_values.len() {
             problems.push(format!(
@@ -1038,14 +1032,11 @@ fn real_options(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn string_list(value: Option<&yaml_serde::Value>) -> Vec<String> {
-    value
-        .and_then(|v| v.as_sequence())
-        .map(|s| {
-            s.iter()
-                .filter_map(|x| x.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default()
+    value.and_then(|v| v.as_sequence()).map_or_default(|s| {
+        s.iter()
+            .filter_map(|x| x.as_str().map(String::from))
+            .collect()
+    })
 }
 
 /// Translates the spec's network into Forge's `bayesian_network` model.
@@ -1140,12 +1131,11 @@ fn bayesian(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
         .get("query")
         .and_then(|q| q.get("evidence"))
         .and_then(|e| e.as_mapping())
-        .map(|m| {
+        .map_or_default(|m| {
             m.iter()
                 .filter_map(|(k, v)| Some((k.as_str()?.to_string(), v.as_str()?.to_string())))
                 .collect()
-        })
-        .unwrap_or_default();
+        });
     let mut extra = vec!["-q".to_string(), target.to_string()];
     for (var, state) in &evidence {
         extra.push("-e".to_string());

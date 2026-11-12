@@ -331,16 +331,12 @@ scalars:
     };
 
     // Get tolerance from test spec or use defaults
-    let tolerance = test
-        .tolerance
-        .as_ref()
-        .map(|t| Tolerance {
-            mean: t.mean.unwrap_or(0.01),
-            std: t.std.unwrap_or(0.05),
-            percentiles: t.percentiles.unwrap_or(0.02),
-            ..Default::default()
-        })
-        .unwrap_or_default();
+    let tolerance = test.tolerance.as_ref().map_or_default(|t| Tolerance {
+        mean: t.mean.unwrap_or(0.01),
+        std: t.std.unwrap_or(0.05),
+        percentiles: t.percentiles.unwrap_or(0.02),
+        ..Default::default()
+    });
 
     // Compare results
     compare_forge_r_results(&test.name, &forge_stats, &r_stats, &tolerance)
