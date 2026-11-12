@@ -39,7 +39,7 @@ fn main() -> anyhow::Result<()> {
         .clone()
         .or_else(|| std::env::var("FORGE_BIN").ok().map(PathBuf::from))
         .or_else(|| {
-            let relative = PathBuf::from("../forge/target/release/forge");
+            let relative = PathBuf::from("../../target/release/forge");
             if relative.exists() {
                 Some(relative)
             } else {
@@ -48,7 +48,7 @@ fn main() -> anyhow::Result<()> {
         })
         .ok_or_else(|| {
             anyhow::anyhow!(
-                "Forge binary not found. Set FORGE_BIN or use --binary, or build forge at ../forge/"
+                "Forge binary not found. Set FORGE_BIN or use --binary, or build forge in this repository (cargo build --release)"
             )
         })?;
 
@@ -94,7 +94,7 @@ fn run_all(cli: &Cli, runner: &TestRunner, forge_binary: &Path) {
         ),
         Err(why) => {
             println!("# LibreOffice cannot be used ({why}): {in_libreoffice} cases will fail");
-        }
+        },
     }
     println!("# Tests: {}", cli.tests.display());
     println!("# Mode: {mode}");
@@ -154,7 +154,7 @@ fn print_tap_line(n: usize, result: &TestResult) {
     match result {
         TestResult::Pass { name, .. } => {
             println!("ok {n} - {name}");
-        }
+        },
         TestResult::Fail {
             name,
             formula,
@@ -173,9 +173,9 @@ fn print_tap_line(n: usize, result: &TestResult) {
                 println!("  error: \"{error}\"");
             }
             println!("  ...");
-        }
+        },
         TestResult::Skip { name, reason } => {
             println!("ok {n} - {name} # SKIP {reason}");
-        }
+        },
     }
 }

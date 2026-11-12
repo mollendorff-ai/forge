@@ -17,7 +17,7 @@ All validation comes from trusted third-party sources.
 
 ## Requirements
 
-- **Forge**: Set `FORGE_BIN` environment variable or place at `../forge/target/release/forge`
+- **Forge**: `cargo build --release` at the root of this repository (the suite runs `../../target/release/forge`), or set `FORGE_BIN`
 - **Gnumeric**: `ssconvert` in PATH
   ```bash
   # macOS
@@ -108,15 +108,12 @@ assumptions:
     expected: 200
 ```
 
-## Versioning
+## Where it lives
 
-This repository has no releases or tags of its own, and the `1.0.0` in `Cargo.toml` is not a published version. It is run by Forge's Validation workflow. On a Forge pull request the workflow uses the branch of this repository with the same name as the Forge branch, if there is one; on the weekly schedule, and when there is no such branch, it uses `main`. A change here that goes with a Forge change should use the same branch name.
+This suite is part of Forge's repository (ADR-057, 2026-11-12); until then it was [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric), now archived, whose history is in this repository's history. It has no version of its own and is not published. Forge's Validation workflow runs it against the build of the same commit, so a change here and the Forge change it goes with are one pull request. A pull request that changes or removes an expected value here says `changes expected values` in its title (CONTRIBUTING.md).
 
-## Related Projects
-
-- [forge](https://github.com/mollendorff-ai/forge) - Deterministic YAML-based financial modeling engine
-- [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) - Statistical validation against R
+The other suite is [forge-e2e-r](../r), in `validation/r`.
 
 ## License
 
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
+Dual-licensed under [MIT](../../LICENSE-MIT) or [Apache-2.0](../../LICENSE-APACHE), at your option, as Forge is.

@@ -1,0 +1,28 @@
+name: Expected values
+
+# A pull request that changes or removes an expected value of the validation
+# suites must say `changes expected values` in its title, and where each new
+# value comes from in its description (ADR-057, rule 5). Adding cases needs
+# nothing. Runs again when the title is edited.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    paths:
+      - 'validation/**'
+
+jobs:
+  expected-values:
+    name: Expected values say where they come from
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: PyYAML
+        run: python3 -c "import yaml" 2>/dev/null || (sudo apt-get update && sudo apt-get install -y python3-yaml)
+      - name: Compare the expected values with the base branch
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: python3 scripts/check-expected-values.py "$BASE_SHA" "$TITLE"

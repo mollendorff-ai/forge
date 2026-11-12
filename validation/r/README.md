@@ -9,7 +9,7 @@ R-validated E2E testing for [forge](https://github.com/mollendorff-ai/forge) ana
 All tests validate forge against R, the gold-standard for statistical computing.
 If forge disagrees with R, forge has a bug.
 
-This is one of two validation suites for [Forge](https://github.com/mollendorff-ai/forge); the other is [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric). They replace the earlier forge-e2e repository, which is archived.
+This is one of the two validation suites of [Forge](../..), in `validation/r`; the other is [forge-e2e-gnumeric](../gnumeric). Until 2026-11-12 it was the [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) repository, now archived, whose history is in this repository's history (ADR-057). It has no version of its own and is not published; Forge's Validation workflow runs it against the build of the same commit. A pull request that changes or removes an expected value here says `changes expected values` in its title (CONTRIBUTING.md).
 
 ## What It Tests
 
@@ -44,11 +44,11 @@ This repository has no releases or tags of its own. It is run by Forge's Validat
 ### Forge Binary
 
 ```bash
-# Option 1: Set environment variable
-export FORGE_BIN=/path/to/forge
+# Option 1: build Forge at the root of this repository (auto-detected as ../../target/release/forge)
+(cd ../.. && cargo build --release)
 
-# Option 2: Build forge in sibling directory (auto-detected)
-cd ../forge && cargo build --release
+# Option 2: set the environment variable (the R function validators need it)
+export FORGE_BIN=/path/to/forge
 ```
 
 ### R Installation
@@ -216,11 +216,6 @@ cargo clippy -- -D warnings
 cargo fmt
 ```
 
-## Related Projects
-
-- [forge](https://github.com/mollendorff-ai/forge) - Deterministic YAML financial modeling engine
-- [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) - Excel formula validation
-
 ## License
 
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
+Dual-licensed under [MIT](../../LICENSE-MIT) or [Apache-2.0](../../LICENSE-APACHE), at your option, as Forge is.

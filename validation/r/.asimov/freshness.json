@@ -1,3 +1,0 @@
-{
-  "rule": "MUST use `ref fetch <url>` for all web fetching. NEVER use WebSearch or WebFetch - they are blocked by bot protection (403/999 errors). ref uses headless Chrome and works. When ref is in PATH, WebSearch and WebFetch are prohibited."
-}

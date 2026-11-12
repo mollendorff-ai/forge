@@ -213,17 +213,17 @@ pub fn extract_table_data_yaml(spec: &TestSpec) -> String {
                     TableColumn::Numbers(nums) => {
                         let nums_str: Vec<String> = nums.iter().map(ToString::to_string).collect();
                         let _ = writeln!(yaml, "  {col_name}: [{}]", nums_str.join(", "));
-                    }
+                    },
                     TableColumn::Strings(strs) => {
                         let strs_escaped: Vec<String> =
                             strs.iter().map(|s| format!("\"{s}\"")).collect();
                         let _ = writeln!(yaml, "  {col_name}: [{}]", strs_escaped.join(", "));
-                    }
+                    },
                     TableColumn::Formula(f) => {
                         // A formula may hold text in quotes: `=LEFT(d, 4) & "x"`
                         let escaped = f.replace('\\', "\\\\").replace('"', "\\\"");
                         let _ = writeln!(yaml, "  {col_name}: \"{escaped}\"");
-                    }
+                    },
                     TableColumn::Period { start, count, unit } => {
                         let start = match start {
                             yaml_serde::Value::String(s) => format!("\"{s}\""),
@@ -236,7 +236,7 @@ pub fn extract_table_data_yaml(spec: &TestSpec) -> String {
                             yaml,
                             "  {col_name}: {{start: {start}, count: {count}, unit: {unit}}}"
                         );
-                    }
+                    },
                 }
             }
         }

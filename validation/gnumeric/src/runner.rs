@@ -110,10 +110,10 @@ impl TestRunner {
                         let skips = extract_skip_cases(&spec);
                         all_cases.extend(cases);
                         all_skips.extend(skips);
-                    }
+                    },
                     Err(e) => {
                         eprintln!("Warning: Failed to parse {}: {e}", path.display());
-                    }
+                    },
                 }
             }
         }
@@ -455,7 +455,7 @@ impl TestRunner {
                                 "the recalculated cell is not a number: {}",
                                 cells[1]
                             ));
-                        }
+                        },
                     }
                 }
             }
@@ -479,7 +479,7 @@ impl TestRunner {
                     None,
                     Some(format!("Failed to create temp dir: {e}")),
                 )
-            }
+            },
         };
         let includes = match includes_for(test_case.source_file.as_deref(), temp_dir.path()) {
             Ok(block) => block,
@@ -651,19 +651,19 @@ fn judge(
     let mut shown = None;
 
     match forge {
-        Ok(v) if matches(*v, tc.expected) => {}
+        Ok(v) if matches(*v, tc.expected) => {},
         Ok(v) => {
             shown = Some(*v);
             problems.push(format!(
                 "forge calculate gave {v}, expected {}",
                 tc.expected
             ));
-        }
+        },
         Err(e) => problems.push(e.clone()),
     }
     match gnumeric {
-        _ if tc.gnumeric_skip.is_some() => {}
-        Ok(v) if matches(*v, tc.expected) => {}
+        _ if tc.gnumeric_skip.is_some() => {},
+        Ok(v) if matches(*v, tc.expected) => {},
         Ok(v) => {
             shown = shown.or(Some(*v));
             let engine = if tc.libreoffice.is_some() {
@@ -675,18 +675,18 @@ fn judge(
                 "{engine} recalculation of the export gave {v}, expected {}",
                 tc.expected
             ));
-        }
+        },
         Err(e) => problems.push(e.clone()),
     }
     match roundtrip {
-        Ok(v) if matches(*v, tc.expected) => {}
+        Ok(v) if matches(*v, tc.expected) => {},
         Ok(v) => {
             shown = shown.or(Some(*v));
             problems.push(format!(
                 "after forge export and forge import, forge calculate gave {v}, expected {}",
                 tc.expected
             ));
-        }
+        },
         Err(e) => problems.push(format!("export and import: {e}")),
     }
 

@@ -212,7 +212,7 @@ fn bootstrap(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
                 spec,
                 format!("R returned error: {}", r.error.unwrap_or_default()),
             )
-        }
+        },
         Err(e) => return error(spec, format!("R validator failed: {e}")),
     };
 
@@ -664,7 +664,7 @@ fn sensitivity(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
         Ok(r) => r,
         Err(e) if e == "single-point ranges" => {
             return skip(spec, "Forge needs at least two points in a range");
-        }
+        },
         Err(e) => return error(spec, e),
     };
 

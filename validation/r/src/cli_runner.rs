@@ -134,14 +134,14 @@ fn execute_with_timeout(command: &mut Command, timeout: Duration) -> Result<Outp
                     stdout,
                     stderr,
                 });
-            }
+            },
             Ok(None) => {
                 if start.elapsed() > timeout {
                     let _ = child.kill();
                     return Err(anyhow!("Command timed out after {timeout_ms}ms"));
                 }
                 thread::sleep(Duration::from_millis(10));
-            }
+            },
             Err(e) => return Err(anyhow!("Error waiting for process: {e}")),
         }
     }
@@ -241,7 +241,7 @@ pub fn find_forge_binary() -> Option<PathBuf> {
         }
     }
 
-    let relative = Path::new("../forge/target/release/forge");
+    let relative = Path::new("../../target/release/forge");
     if relative.exists() {
         return Some(relative.to_path_buf());
     }

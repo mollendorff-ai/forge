@@ -1,24 +1,27 @@
 name: Validation
 
-# Runs the two external validation suites against a fresh build of Forge:
-#   forge-e2e-gnumeric  formulas compared with Gnumeric (and LibreOffice, for
-#                       the LET, LAMBDA and COUNTUNIQUE cases Gnumeric cannot read)
-#   forge-e2e-r         functions and analytics compared with R
-# They clone the latest main of each suite, so this also notices a change in a
-# suite. Weekly, on demand, and on the pull requests described below.
+# Runs the two validation suites in validation/ (ADR-057) against a fresh
+# build of Forge from the same commit:
+#   validation/gnumeric  formulas compared with Gnumeric (and LibreOffice, for
+#                        the LET, LAMBDA and COUNTUNIQUE cases Gnumeric cannot read)
+#   validation/r         functions and analytics compared with R
+# Weekly (which notices a new Gnumeric, LibreOffice or R), on demand, and on
+# the pull requests described below.
 # Runs on Ubuntu 24.04: with the Gnumeric of 22.04, FLOOR and CEILING of a
 # negative number returned #NUM! and six cases failed.
 on:
   schedule:
     - cron: '41 6 * * 1'   # Mondays 06:41 UTC
   workflow_dispatch:
-  # Also on pull requests that change this file, the source code, or the version or
-  # dependencies in Cargo.toml, so the result shows on the PR before it is merged.
+  # Also on pull requests that change this file, the source code, the version or
+  # dependencies in Cargo.toml, or a suite, so the result shows on the PR before
+  # it is merged.
   pull_request:
     paths:
       - '.github/workflows/validation.yml'
       - 'Cargo.toml'
       - 'src/**'
+      - 'validation/**'
 
 # A pull request's newer push cancels its older run. Every other run (a push
 # to main) has a group of its own, so that one that hangs cannot hold up the
@@ -47,19 +50,8 @@ jobs:
           soffice --version
       - name: Build Forge
         run: cargo build --release
-      - name: Get the suite
-        # On a pull request, use the suite branch with the same name if there is
-        # one, so a Forge change and its suite change can be tested together.
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-        run: |
-          url=https://github.com/mollendorff-ai/forge-e2e-gnumeric
-          ref=main
-          if [ -n "$HEAD_REF" ] && git ls-remote --exit-code --heads "$url" "$HEAD_REF" >/dev/null; then ref=$HEAD_REF; fi
-          echo "forge-e2e-gnumeric: branch $ref"
-          git clone --depth 1 --branch "$ref" "$url" ../forge-e2e-gnumeric
       - name: Run the suite
-        working-directory: ../forge-e2e-gnumeric
+        working-directory: validation/gnumeric
         env:
           FORGE_BIN: ${{ github.workspace }}/target/release/forge
         run: cargo run --release
@@ -79,24 +71,13 @@ jobs:
           sudo Rscript -e 'for (v in c("4.9.4", "4.9.3", "4.9.2", "4.9.1", "4.9", "4.8.3")) { if (!requireNamespace("bnlearn", quietly = TRUE)) try(install.packages(paste0("https://cloud.r-project.org/src/contrib/Archive/bnlearn/bnlearn_", v, ".tar.gz"), repos = NULL, type = "source")) }; library(bnlearn); cat("bnlearn", as.character(packageVersion("bnlearn")), "\n")'
       - name: Build Forge
         run: cargo build --release
-      - name: Get the suite
-        # On a pull request, use the suite branch with the same name if there is
-        # one, so a Forge change and its suite change can be tested together.
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-        run: |
-          url=https://github.com/mollendorff-ai/forge-e2e-r
-          ref=main
-          if [ -n "$HEAD_REF" ] && git ls-remote --exit-code --heads "$url" "$HEAD_REF" >/dev/null; then ref=$HEAD_REF; fi
-          echo "forge-e2e-r: branch $ref"
-          git clone --depth 1 --branch "$ref" "$url" ../forge-e2e-r
       - name: Math, date and financial functions
-        working-directory: ../forge-e2e-r
+        working-directory: validation/r
         env:
           FORGE_BIN: ${{ github.workspace }}/target/release/forge
         run: bash validators/r/run_all.sh
       - name: Analytics specs
-        working-directory: ../forge-e2e-r
+        working-directory: validation/r
         env:
           FORGE_BIN: ${{ github.workspace }}/target/release/forge
         run: cargo run --release -- --all

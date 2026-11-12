@@ -1,24 +1,11 @@
 [package]
 name = "mollendorff-forge-e2e-gnumeric"
-version = "1.0.0"
+version = "0.0.0"
 edition = "2021"
-authors = ["Möllendorff AI <admin@mollendorff.ai>"]
-description = "E2E validation of forge against Gnumeric (Excel-compatible functions)"
-repository = "https://github.com/mollendorff-ai/forge-e2e-gnumeric"
-homepage = "https://github.com/mollendorff-ai/forge"
-documentation = "https://github.com/mollendorff-ai/forge-e2e-gnumeric#readme"
+description = "Forge formulas compared with Gnumeric and LibreOffice"
 license = "MIT OR Apache-2.0"
-keywords = ["forge", "e2e", "testing", "gnumeric", "excel"]
-categories = ["development-tools::testing"]
-readme = "README.md"
-exclude = [
-    ".git*",
-    ".asimov/*",
-    ".claude/*",
-    "docs/*",
-    "*.md",
-    "!README.md",
-]
+# Run from this repository (ADR-057); not published
+publish = false
 
 [lib]
 name = "forge_e2e_gnumeric"
@@ -68,10 +55,3 @@ too_many_lines = "allow"
 option_if_let_else = "allow"
 needless_continue = "allow"
 redundant_closure_for_method_calls = "allow"
-
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-strip = true
-panic = "abort"

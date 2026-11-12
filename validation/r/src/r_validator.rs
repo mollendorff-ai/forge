@@ -264,14 +264,14 @@ fn execute_with_timeout(command: &mut Command, timeout: Duration) -> Result<Outp
                     stdout,
                     stderr,
                 });
-            }
+            },
             Ok(None) => {
                 if start.elapsed() > timeout {
                     let _ = child.kill();
                     return Err(anyhow!("R script timed out after {timeout_ms}ms"));
                 }
                 thread::sleep(Duration::from_millis(10));
-            }
+            },
             Err(e) => return Err(anyhow!("Error waiting for R process: {e}")),
         }
     }

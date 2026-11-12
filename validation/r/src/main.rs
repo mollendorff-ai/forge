@@ -107,7 +107,7 @@ fn load_tests(tests_dir: &PathBuf) -> anyhow::Result<Vec<forge_e2e_r::types::Ana
                 Ok(tests) => all_tests.extend(tests),
                 Err(e) => {
                     eprintln!("Warning: Failed to parse {}: {e}", path.display());
-                }
+                },
             }
         }
     }
@@ -235,7 +235,7 @@ fn run_monte_carlo_test(
                 name: test.name.clone(),
                 reason: format!("Cannot build formula: {e}"),
             };
-        }
+        },
     };
 
     // Create temporary YAML file for forge
@@ -267,7 +267,7 @@ scalars:
                 name: test.name.clone(),
                 error: format!("Failed to create temp file: {e}"),
             };
-        }
+        },
     };
 
     if let Err(e) = fs::write(temp_file.path(), &yaml_content) {
@@ -286,7 +286,7 @@ scalars:
                 name: test.name.clone(),
                 error: format!("Forge failed: {e}"),
             };
-        }
+        },
     };
 
     // Run R validator
@@ -309,7 +309,7 @@ scalars:
                 name: test.name.clone(),
                 error: format!("R validator failed: {e}"),
             };
-        }
+        },
     };
 
     if !r_result.success {
@@ -353,12 +353,12 @@ fn build_mc_formula(distribution: &str, params: &HashMap<String, f64>) -> Result
             let mean = params.get("mean").ok_or("Missing 'mean' param")?;
             let sd = params.get("sd").ok_or("Missing 'sd' param")?;
             Ok(format!("=MC.Normal({mean}, {sd})"))
-        }
+        },
         "uniform" => {
             let min = params.get("min").ok_or("Missing 'min' param")?;
             let max = params.get("max").ok_or("Missing 'max' param")?;
             Ok(format!("=MC.Uniform({min}, {max})"))
-        }
+        },
         "lognormal" => {
             let meanlog = params.get("meanlog").ok_or("Missing 'meanlog' param")?;
             let sdlog = params.get("sdlog").ok_or("Missing 'sdlog' param")?;
@@ -370,24 +370,24 @@ fn build_mc_formula(distribution: &str, params: &HashMap<String, f64>) -> Result
             let variance = (sdlog * sdlog).exp_m1() * (2.0 * meanlog + sdlog * sdlog).exp();
             let stdev = variance.sqrt();
             Ok(format!("=MC.Lognormal({mean}, {stdev})"))
-        }
+        },
         "triangular" => {
             let min = params.get("min").ok_or("Missing 'min' param")?;
             let mode = params.get("mode").ok_or("Missing 'mode' param")?;
             let max = params.get("max").ok_or("Missing 'max' param")?;
             Ok(format!("=MC.Triangular({min}, {mode}, {max})"))
-        }
+        },
         "pert" => {
             let min = params.get("min").ok_or("Missing 'min' param")?;
             let mode = params.get("mode").ok_or("Missing 'mode' param")?;
             let max = params.get("max").ok_or("Missing 'max' param")?;
             // Note: Forge's MC.PERT doesn't take a shape argument (uses default shape=4)
             Ok(format!("=MC.PERT({min}, {mode}, {max})"))
-        }
+        },
         "exponential" => {
             // Forge doesn't support MC.Exponential yet
             Err("Exponential distribution not supported by forge".to_string())
-        }
+        },
         other => Err(format!("Unsupported distribution: {other}")),
     }
 }
@@ -584,17 +584,17 @@ fn print_result(result: &TestResult) {
     match result {
         TestResult::Pass { name, .. } => {
             println!("  {} {}", "✓".green(), name);
-        }
+        },
         TestResult::Fail { name, reason } => {
             println!("  {} {}", "✗".red(), name.red());
             println!("      {reason}");
-        }
+        },
         TestResult::Error { name, error } => {
             println!("  {} {} (error)", "✗".red(), name.red());
             println!("      {error}");
-        }
+        },
         TestResult::Skip { name, reason } => {
             println!("  {} {} ({})", "○".yellow(), name.dimmed(), reason.dimmed());
-        }
+        },
     }
 }
