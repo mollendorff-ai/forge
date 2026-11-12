@@ -1,0 +1,21 @@
+identity:
+  name: "forge-e2e-gnumeric"
+  type: rust
+
+description: >
+  End-to-end test suite that validates Forge spreadsheet functions against
+  Gnumeric (ssconvert) as independent reference implementation. YAML-driven
+  test definitions cover math, text, date, financial, lookup, statistical,
+  and edge-case categories.
+
+stack:
+  - rust
+  - gnumeric (ssconvert)
+  - yaml
+  - xlsx (calamine + rust_xlsxwriter)
+
+conventions:
+  - "Forge is never the authority; Gnumeric validates all results"
+  - "Test specs are YAML files in tests/functions/ and tests/edge/"
+  - "Result<T, E> for errors, no unwrap() in library code"
+  - "clippy pedantic/nursery, zero warnings, unsafe forbidden"

@@ -1,0 +1,343 @@
+# Dates as real dates in the workbook (Forge ADR-054).
+#
+# forge export writes a column of dates as date cells (the day number, shown
+# as a date). A formula reads a date as Forge reads it there: the cell where a
+# number is read, the date's text where text is read, DATE(y, m, d) for a date
+# written in the formula. Gnumeric and LibreOffice recalculate the cells.
+#
+# Expected values, from the same calculation in Python (datetime, not Forge):
+#   day numbers: 2026-01-31 = 46053, 2026-02-28 = 46081, 2026-12-01 = 46357,
+#                2026-06-01 = 46174, 2026-01-01 = 46023, 2000-01-01 = 36526
+#   due.d          2026-01-31  2026-02-28  2026-12-01  2026-02-28
+#   due.amount     10          20          30          40
+#   next_month     2026-02-28  2026-03-28  2027-01-01  2026-03-28
+#   late           0           0           1           0
+#   tomorrow       46054       46082       46358       46082
+#   later_of       46174       46174       46357       46174
+#   or_default     2000-01-01  2026-02-28  2026-12-01  2026-02-28
+#   before         2026-01-01  2026-01-31  2026-02-28  2026-12-01
+#   plan.month     2026-11-01  2026-12-01  2027-01-01  2027-02-01
+#   month_end      2026-11-30  2026-12-31  2027-01-31  2027-02-28 (46446)
+#   loans.maturity n/a         2026-01-31  2026-12-01  none    (text in the workbook)
+#
+# loans.maturity is text that is a date in some rows. Forge reads such a date
+# as its day number where a number is read, and Excel reads text there: text
+# is greater than any number, MAX skips it, and it equals no number. forge
+# export writes those formulas as Forge's values (the columns year, late and
+# is_jan31_number); with the formulas live, Gnumeric and LibreOffice give 4
+# for the sum of late and 0 for the equality with DATE(). A scalar written as
+# its value (MAX(loans.maturity), 0 in both engines) is not a case here: the
+# engines would have nothing to calculate. Forge's own tests hold those.
+#
+# Also here, because they came with the same decision: + adds as in Excel
+# ("5" + 1 is 6), & joins text, and TEXT reads Excel's format codes.
+
+_forge_version: "5.2.0"
+
+due:
+  d: ["2026-01-31", "2026-02-28", "2026-12-01", "2026-02-28"]
+  amount: [10, 20, 30, 40]
+  label: ["a", "b", "c", "d"]
+  next_month: "=EDATE(d, 1)"
+  late: "=IF(d > DATE(2026, 6, 1), 1, 0)"
+  late_written: "=IF(d > \"2026-06-01\", 1, 0)"
+  is_jan31: "=IF(d = DATE(2026, 1, 31), 1, 0)"
+  is_jan31_written: "=IF(d = \"2026-01-31\", 1, 0)"
+  year_text: "=LEFT(d, 4)"
+  tag: "=label & \"-\" & d"
+  tomorrow: "=d + 1"
+  later_of: "=MAX(d, DATE(2026, 6, 1))"
+  or_default: "=IF(amount > 15, d, \"2000-01-01\")"
+  before: "=PREV(d, \"2026-01-01\")"
+  shown: "=TEXT(d, \"mmm d, yyyy\")"
+  is_text: "=IF(ISTEXT(d), 1, 0)"
+
+plan:
+  month: {start: 2026-11, count: 4, unit: month}
+  month_end: "=EOMONTH(month, 0)"
+  days: "=DAY(EOMONTH(month, 0))"
+
+loans:
+  maturity: ["n/a", "2026-01-31", "2026-12-01", "none"]
+  amount: [10, 20, 30, 40]
+  open: "=IF(maturity = \"n/a\", 1, 0)"
+  is_jan31: "=IF(maturity = \"2026-01-31\", 1, 0)"
+  is_jan31_number: "=IF(maturity = DATE(2026, 1, 31), 1, 0)"
+  year: "=IFERROR(YEAR(maturity), 0)"
+  late: "=IFERROR(IF(maturity > DATE(2026, 6, 1), 1, 0), 0)"
+
+assumptions:
+  test_min_of_a_date_column:
+    value: null
+    formula: '=MIN(due.d)'
+    expected: 46053
+  test_max_of_a_date_column:
+    value: null
+    formula: '=MAX(due.d)'
+    expected: 46357
+  test_count_of_a_date_column:
+    value: null
+    formula: '=COUNT(due.d)'
+    expected: 4
+  test_sum_of_a_date_column:
+    value: null
+    formula: '=SUM(due.d)'
+    expected: 184572
+  test_average_of_a_date_column:
+    value: null
+    formula: '=AVERAGE(due.d)'
+    expected: 46143
+  test_median_of_a_date_column:
+    value: null
+    formula: '=MEDIAN(due.d)'
+    expected: 46081
+  test_second_largest_date:
+    value: null
+    formula: '=LARGE(due.d, 2)'
+    expected: 46081
+  test_year_of_the_latest_date:
+    value: null
+    formula: '=YEAR(MAX(due.d))'
+    expected: 2026
+  test_month_of_the_latest_date:
+    value: null
+    formula: '=MONTH(MAX(due.d))'
+    expected: 12
+  test_countif_a_written_date:
+    value: null
+    formula: '=COUNTIF(due.d, "2026-02-28")'
+    expected: 2
+  test_countif_after_a_written_date:
+    value: null
+    formula: '=COUNTIF(due.d, ">2026-02-01")'
+    expected: 3
+  test_countif_a_date_function:
+    value: null
+    formula: '=COUNTIF(due.d, DATE(2026, 2, 28))'
+    expected: 2
+  test_countif_from_a_date_cell:
+    value: null
+    formula: '=COUNTIF(due.d, ">=" & INDEX(due.d, 2))'
+    expected: 3
+  test_sumif_a_written_date:
+    value: null
+    formula: '=SUMIF(due.d, "2026-02-28", due.amount)'
+    expected: 60
+  test_sumifs_between_two_dates:
+    value: null
+    formula: '=SUMIFS(due.amount, due.d, ">=2026-02-01", due.d, "<=2026-02-28")'
+    expected: 60
+  test_averageif_before_a_date:
+    value: null
+    formula: '=ROUND(AVERAGEIF(due.d, "<2026-06-01", due.amount), 6)'
+    expected: 23.333333
+  test_match_a_written_date:
+    value: null
+    formula: '=MATCH("2026-12-01", due.d, 0)'
+    expected: 3
+  test_match_a_date_function:
+    value: null
+    formula: '=MATCH(DATE(2026, 12, 1), due.d, 0)'
+    expected: 3
+  test_year_of_an_indexed_date:
+    value: null
+    formula: '=YEAR(INDEX(due.d, 3))'
+    expected: 2026
+  test_day_of_an_indexed_date:
+    value: null
+    formula: '=DAY(INDEX(due.d, 1))'
+    expected: 31
+  test_an_indexed_date_is_its_day_number:
+    value: null
+    formula: '=INDEX(due.d, 2) + 0'
+    expected: 46081
+  test_sumproduct_after_a_date:
+    value: null
+    formula: '=SUMPRODUCT((due.d > DATE(2026, 2, 1)) * due.amount)'
+    expected: 90
+  test_later_than_a_date_function:
+    value: null
+    formula: '=SUM(due.late)'
+    expected: 1
+  test_later_than_a_written_date:
+    value: null
+    formula: '=SUM(due.late_written)'
+    expected: 1
+  test_equal_to_a_date_function:
+    value: null
+    formula: '=SUM(due.is_jan31)'
+    expected: 1
+  test_equal_to_a_written_date:
+    value: null
+    formula: '=SUM(due.is_jan31_written)'
+    expected: 1
+  test_a_date_plus_one_day:
+    value: null
+    formula: '=SUM(due.tomorrow)'
+    expected: 184576
+  test_max_of_a_date_and_a_date_function:
+    value: null
+    formula: '=SUM(due.later_of)'
+    expected: 184879
+  test_edate_column_latest:
+    value: null
+    formula: '=MAX(due.next_month)'
+    expected: 46388
+  test_edate_column_year:
+    value: null
+    formula: '=YEAR(INDEX(due.next_month, 3))'
+    expected: 2027
+  test_left_of_a_date_is_its_year_text:
+    value: null
+    formula: '=VALUE(INDEX(due.year_text, 1)) + 1'
+    expected: 2027
+  test_left_of_a_date_length:
+    value: null
+    formula: '=LEN(INDEX(due.year_text, 2))'
+    expected: 4
+  test_a_date_joined_to_text_length:
+    value: null
+    formula: '=LEN(INDEX(due.tag, 3))'
+    expected: 12
+  test_a_date_joined_to_text:
+    value: null
+    formula: '=IF(INDEX(due.tag, 1) = "a-2026-01-31", 1, 0)'
+    expected: 1
+  test_if_of_a_date_and_a_written_date:
+    value: null
+    formula: '=MIN(due.or_default)'
+    expected: 36526
+  test_if_of_dates_is_a_date_column:
+    value: null
+    formula: '=COUNT(due.or_default)'
+    expected: 4
+  test_the_row_above_first:
+    value: null
+    formula: '=INDEX(due.before, 1) + 0'
+    expected: 46023
+  test_the_row_above_last:
+    value: null
+    formula: '=INDEX(due.before, 4) + 0'
+    expected: 46357
+  test_text_of_a_date_with_names:
+    value: null
+    formula: '=IF(INDEX(due.shown, 1) = "Jan 31, 2026", 1, 0)'
+    expected: 1
+  test_a_date_is_text_to_istext:
+    value: null
+    formula: '=SUM(due.is_text)'
+    expected: 4
+  test_period_month_end_last:
+    value: null
+    formula: '=INDEX(plan.month_end, 4) + 0'
+    expected: 46446
+  test_period_days_in_months:
+    value: null
+    formula: '=SUM(plan.days)'
+    expected: 120
+  test_period_span_in_days:
+    value: null
+    formula: '=MAX(plan.month) - MIN(plan.month)'
+    expected: 92
+  test_countunique_of_dates:
+    value: null
+    formula: '=COUNTUNIQUE(due.d)'
+    expected: 3
+    libreoffice: "Gnumeric 1.12 has no UNIQUE"
+  test_xlookup_a_written_date:
+    value: null
+    formula: '=XLOOKUP("2026-12-01", due.d, due.amount)'
+    expected: 30
+    libreoffice: "Gnumeric 1.12 has no XLOOKUP"
+  test_plus_adds_a_number_written_as_text:
+    value: null
+    formula: '="5" + 1'
+    expected: 6
+  test_plus_adds_a_day_to_a_written_date:
+    value: null
+    formula: '="2026-01-31" + 1'
+    expected: 46054
+  test_ampersand_joins_text:
+    value: null
+    formula: '=LEN("a" & "b" & 1)'
+    expected: 3
+  test_ampersand_binds_less_than_plus:
+    value: null
+    formula: '=IF("x" & 1 + 2 = "x3", 1, 0)'
+    expected: 1
+  test_text_thousands_and_decimals:
+    value: null
+    formula: '=IF(TEXT(1234.5, "#,##0.00") = "1,234.50", 1, 0)'
+    expected: 1
+  test_text_thousands_rounds:
+    value: null
+    formula: '=IF(TEXT(1234567.891, "#,##0") = "1,234,568", 1, 0)'
+    expected: 1
+  test_text_percent:
+    value: null
+    formula: '=IF(TEXT(0.07, "0.0%") = "7.0%", 1, 0)'
+    expected: 1
+  test_text_currency_negative:
+    value: null
+    formula: '=IF(TEXT(-1234.5, "$#,##0.00") = "-$1,234.50", 1, 0)'
+    expected: 1
+  test_text_leading_zeros:
+    value: null
+    formula: '=IF(TEXT(5, "000") = "005", 1, 0)'
+    expected: 1
+  test_text_digits_between_hyphens:
+    value: null
+    formula: '=IF(TEXT(20260131, "0000-00-00") = "2026-01-31", 1, 0)'
+    expected: 1
+  test_text_scientific:
+    value: null
+    formula: '=IF(TEXT(123456789, "0.00E+00") = "1.23E+08", 1, 0)'
+    expected: 1
+  test_text_iso_date:
+    value: null
+    formula: '=IF(TEXT(46053, "yyyy-mm-dd") = "2026-01-31", 1, 0)'
+    expected: 1
+  test_text_year_of_a_date:
+    value: null
+    formula: '=VALUE(TEXT(46053, "yyyy"))'
+    expected: 2026
+  test_text_day_month_names:
+    value: null
+    formula: '=IF(TEXT(46053, "dddd, mmmm d") = "Saturday, January 31", 1, 0)'
+    expected: 1
+  test_text_short_date:
+    value: null
+    formula: '=IF(TEXT(46053, "d-mmm-yy") = "31-Jan-26", 1, 0)'
+    expected: 1
+  test_text_dates_count_of_other_text:
+    value: null
+    formula: '=COUNTIF(loans.maturity, "n/a")'
+    expected: 1
+  test_text_dates_equal_to_text:
+    value: null
+    formula: '=SUM(loans.open)'
+    expected: 1
+  test_text_dates_equal_to_a_written_date:
+    value: null
+    formula: '=SUM(loans.is_jan31)'
+    expected: 1
+  test_text_dates_equal_to_a_date:
+    value: null
+    formula: '=SUM(loans.is_jan31_number)'
+    expected: 1
+  test_text_dates_years:
+    value: null
+    formula: '=SUM(loans.year)'
+    expected: 4052
+  test_text_dates_after_a_date:
+    value: null
+    formula: '=SUM(loans.late)'
+    expected: 1
+  test_text_dates_match_text:
+    value: null
+    formula: '=MATCH("2026-12-01", loans.maturity, 0)'
+    expected: 3
+  test_text_dates_sumproduct_of_text:
+    value: null
+    formula: '=SUMPRODUCT((loans.maturity = "2026-12-01") * loans.amount)'
+    expected: 30

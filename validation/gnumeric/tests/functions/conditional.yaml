@@ -1,0 +1,352 @@
+# E2E Conditional Function Tests
+# Validated against Gnumeric
+# All 8 conditional functions: IFS, SWITCH, SUMIF, SUMIFS, COUNTIF, COUNTIFS, AVERAGEIF, AVERAGEIFS
+
+_forge_version: "5.0.0"
+
+sales:
+  region:
+    - "North"
+    - "South"
+    - "East"
+    - "North"
+    - "South"
+    - "West"
+    - "East"
+    - "North"
+  amount:
+    - 1000
+    - 500
+    - 750
+    - 2000
+    - 1500
+    - 300
+    - 1200
+    - 800
+  status:
+    - "Active"
+    - "Active"
+    - "Inactive"
+    - "Active"
+    - "Inactive"
+    - "Active"
+    - "Active"
+    - "Inactive"
+  quarter:
+    - 1
+    - 1
+    - 1
+    - 2
+    - 2
+    - 2
+    - 2
+    - 3
+
+products:
+  category:
+    - "Electronics"
+    - "Furniture"
+    - "Electronics"
+    - "Clothing"
+    - "Furniture"
+    - "Electronics"
+  price:
+    - 1200
+    - 450
+    - 800
+    - 150
+    - 650
+    - 2000
+  stock:
+    - 50
+    - 20
+    - 0
+    - 100
+    - 15
+    - 30
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # IFS - Multiple conditions
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_ifs_first_true:
+    value: null
+    formula: "=IFS(10>5, 100, 10<5, 200)"
+    expected: 100
+
+  test_ifs_second_true:
+    value: null
+    formula: "=IFS(10<5, 100, 10>5, 200)"
+    expected: 200
+
+  test_ifs_numeric:
+    value: null
+    formula: "=IFS(5<3, 1, 5>3, 2, 1=1, 3)"
+    expected: 2
+
+  test_ifs_default:
+    value: null
+    formula: "=IFS(5<0, 10, 5<0, 20, 1=1, 99)"
+    expected: 99
+
+  # Test IFS with numeric outputs (forge calculate requires numeric scalars)
+  test_ifs_value_check:
+    value: null
+    formula: "=IFS(100>50, 3, 100>25, 2, 1=1, 1)"
+    expected: 3
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SWITCH - Switch case
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_switch_first:
+    value: null
+    formula: "=SWITCH(1, 1, 10, 2, 20, 3, 30)"
+    expected: 10
+
+  test_switch_second:
+    value: null
+    formula: "=SWITCH(2, 1, 10, 2, 20, 3, 30)"
+    expected: 20
+
+  test_switch_third:
+    value: null
+    formula: "=SWITCH(3, 1, 10, 2, 20, 3, 30)"
+    expected: 30
+
+  test_switch_default:
+    value: null
+    formula: "=SWITCH(9, 1, 10, 2, 20, 99)"
+    expected: 99
+
+  # Test SWITCH with numeric outputs (forge calculate requires numeric scalars)
+  test_switch_text:
+    value: null
+    formula: "=SWITCH(\"B\", \"A\", 1, \"B\", 2, \"C\", 3)"
+    expected: 2
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SUMIF - Sum with condition
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_sumif_north:
+    value: null
+    formula: "=SUMIF(sales.region, \"North\", sales.amount)"
+    expected: 3800
+
+  test_sumif_active:
+    value: null
+    formula: "=SUMIF(sales.status, \"Active\", sales.amount)"
+    expected: 5000  # Active rows: 1000+500+2000+300+1200 = 5000
+
+  test_sumif_electronics:
+    value: null
+    formula: "=SUMIF(products.category, \"Electronics\", products.price)"
+    expected: 4000
+
+  test_sumif_gt_1000:
+    value: null
+    formula: "=SUMIF(sales.amount, \">1000\", sales.amount)"
+    expected: 4700
+
+  test_sumif_lt_1000:
+    value: null
+    formula: "=SUMIF(sales.amount, \"<1000\", sales.amount)"
+    expected: 2350  # <1000: 500+750+300+800 = 2350
+
+  test_sumif_gte_500:
+    value: null
+    formula: "=SUMIF(sales.amount, \">=500\", sales.amount)"
+    expected: 7750
+
+  test_sumif_lte_800:
+    value: null
+    formula: "=SUMIF(sales.amount, \"<=800\", sales.amount)"
+    expected: 2350
+
+  test_sumif_ne_1000:
+    value: null
+    formula: "=SUMIF(sales.amount, \"<>1000\", sales.amount)"
+    expected: 7050
+
+  test_sumif_no_match:
+    value: null
+    formula: "=SUMIF(sales.region, \"Antarctica\", sales.amount)"
+    expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SUMIFS - Sum with multiple conditions
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_sumifs_north_active:
+    value: null
+    formula: "=SUMIFS(sales.amount, sales.region, \"North\", sales.status, \"Active\")"
+    expected: 3000  # North+Active: 1000+2000 = 3000
+
+  test_sumifs_q2:
+    value: null
+    formula: "=SUMIFS(sales.amount, sales.quarter, 2)"
+    expected: 5000  # Q2: 2000+1500+300+1200 = 5000
+
+  test_sumifs_q2_active:
+    value: null
+    formula: "=SUMIFS(sales.amount, sales.quarter, 2, sales.status, \"Active\")"
+    expected: 3500  # Q2+Active: 2000+300+1200 = 3500
+
+  test_sumifs_gt_500_active:
+    value: null
+    formula: "=SUMIFS(sales.amount, sales.amount, \">500\", sales.status, \"Active\")"
+    expected: 4200  # >500+Active: 1000+2000+1200 = 4200
+
+  test_sumifs_electronics_gt_500:
+    value: null
+    formula: "=SUMIFS(products.price, products.category, \"Electronics\", products.price, \">500\")"
+    expected: 4000
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COUNTIF - Count with condition
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_countif_north:
+    value: null
+    formula: "=COUNTIF(sales.region, \"North\")"
+    expected: 3
+
+  test_countif_active:
+    value: null
+    formula: "=COUNTIF(sales.status, \"Active\")"
+    expected: 5
+
+  test_countif_furniture:
+    value: null
+    formula: "=COUNTIF(products.category, \"Furniture\")"
+    expected: 2
+
+  test_countif_gt_1000:
+    value: null
+    formula: "=COUNTIF(sales.amount, \">1000\")"
+    expected: 3  # >1000: 2000,1500,1200 = 3 values
+
+  test_countif_lt_1000:
+    value: null
+    formula: "=COUNTIF(sales.amount, \"<1000\")"
+    expected: 4  # <1000: 500,750,300,800 = 4 values
+
+  test_countif_gte_500:
+    value: null
+    formula: "=COUNTIF(sales.amount, \">=500\")"
+    expected: 7
+
+  test_countif_lte_800:
+    value: null
+    formula: "=COUNTIF(sales.amount, \"<=800\")"
+    expected: 4  # <=800: 500,750,300,800 = 4 values
+
+  test_countif_eq_1000:
+    value: null
+    formula: "=COUNTIF(sales.amount, 1000)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COUNTIFS - Count with multiple conditions
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_countifs_north_active:
+    value: null
+    formula: "=COUNTIFS(sales.region, \"North\", sales.status, \"Active\")"
+    expected: 2  # North+Active: rows 0,3 = 2 values
+
+  test_countifs_q2:
+    value: null
+    formula: "=COUNTIFS(sales.quarter, 2)"
+    expected: 4
+
+  test_countifs_q2_active:
+    value: null
+    formula: "=COUNTIFS(sales.quarter, 2, sales.status, \"Active\")"
+    expected: 3  # Q2+Active: rows 3,5,6 = 3 values
+
+  test_countifs_gt_500_active:
+    value: null
+    formula: "=COUNTIFS(sales.amount, \">500\", sales.status, \"Active\")"
+    expected: 3  # >500+Active: rows 0,3,6 = 3 values
+
+  test_countifs_electronics_instock:
+    value: null
+    formula: "=COUNTIFS(products.category, \"Electronics\", products.stock, \">0\")"
+    expected: 2
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AVERAGEIF - Average with condition
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_averageif_north:
+    value: null
+    formula: "=ROUND(AVERAGEIF(sales.region, \"North\", sales.amount), 2)"
+    expected: 1266.67  # North: (1000+2000+800)/3 = 1266.67
+
+  test_averageif_active:
+    value: null
+    formula: "=AVERAGEIF(sales.status, \"Active\", sales.amount)"
+    expected: 1000  # Active rows: (1000+500+2000+300+1200)/5 = 5000/5 = 1000
+
+  test_averageif_electronics:
+    value: null
+    formula: "=ROUND(AVERAGEIF(products.category, \"Electronics\", products.price), 2)"
+    expected: 1333.33  # Electronics: (1200+800+2000)/3 = 1333.33
+
+  test_averageif_gt_1000:
+    value: null
+    formula: "=ROUND(AVERAGEIF(sales.amount, \">1000\", sales.amount), 2)"
+    expected: 1566.67  # >1000: (2000+1500+1200)/3 = 4700/3 = 1566.67
+
+  test_averageif_lt_1000:
+    value: null
+    formula: "=AVERAGEIF(sales.amount, \"<1000\", sales.amount)"
+    expected: 587.5  # <1000: (500+750+300+800)/4 = 2350/4 = 587.5
+
+  test_averageif_gte_500:
+    value: null
+    formula: "=ROUND(AVERAGEIF(sales.amount, \">=500\", sales.amount), 2)"
+    expected: 1107.14  # >=500: (1000+500+750+2000+1500+1200+800)/7 = 1107.14
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AVERAGEIFS - Average with multiple conditions
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_averageifs_north_active:
+    value: null
+    formula: "=AVERAGEIFS(sales.amount, sales.region, \"North\", sales.status, \"Active\")"
+    expected: 1500  # North+Active: (1000+2000)/2 = 1500
+
+  test_averageifs_q2:
+    value: null
+    formula: "=AVERAGEIFS(sales.amount, sales.quarter, 2)"
+    expected: 1250  # Q2: (2000+1500+300+1200)/4 = 5000/4 = 1250
+
+  test_averageifs_q2_active:
+    value: null
+    formula: "=ROUND(AVERAGEIFS(sales.amount, sales.quarter, 2, sales.status, \"Active\"), 2)"
+    expected: 1166.67  # Q2+Active: (2000+300+1200)/3 = 3500/3 = 1166.67
+
+  test_averageifs_gt_500_active:
+    value: null
+    formula: "=AVERAGEIFS(sales.amount, sales.amount, \">500\", sales.status, \"Active\")"
+    expected: 1400  # >500+Active: (1000+2000+1200)/3 = 4200/3 = 1400
+
+  test_averageifs_electronics_instock:
+    value: null
+    formula: "=AVERAGEIFS(products.price, products.category, \"Electronics\", products.stock, \">0\")"
+    expected: 1600
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Combined operations
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_combined_sumif_countif:
+    value: null
+    formula: "=ROUND(SUMIF(sales.region, \"North\", sales.amount) / COUNTIF(sales.region, \"North\"), 2)"
+    expected: 1266.67  # 3800/3 = 1266.67
+
+  # forge calculate requires numeric scalar results
+  test_combined_ifs_sumif:
+    value: null
+    formula: "=IFS(SUMIF(sales.region, \"North\", sales.amount) > 3000, 1, 1=1, 0)"
+    expected: 1
+
+  test_combined_switch_countif:
+    value: null
+    formula: "=SWITCH(COUNTIF(sales.region, \"North\"), 1, 10, 2, 20, 3, 30, 99)"
+    expected: 30

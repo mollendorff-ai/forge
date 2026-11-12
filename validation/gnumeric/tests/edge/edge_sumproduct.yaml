@@ -1,0 +1,35 @@
+# SUMPRODUCT: multiply arrays element by element and add up.
+#
+# forge export writes it as SUMPRODUCT over the columns' ranges and Gnumeric
+# recalculates it from the cells. Expected values were worked out by hand:
+#   qty * price  = 2*1.5 + 3*2.5 + 4*10      = 50.5
+#   qty*price*qty = 6 + 22.5 + 160           = 188.5
+#   (region = "N") * qty * price = 2*1.5 + 4*10 = 43
+
+_forge_version: "5.0.0"
+orders:
+  region: ["N", "S", "N"]
+  qty: [2, 3, 4]
+  price: [1.5, 2.5, 10]
+
+assumptions:
+  test_two_arrays:
+    value: null
+    formula: "=SUMPRODUCT(orders.qty, orders.price)"
+    expected: 50.5
+  test_one_array:
+    value: null
+    formula: "=SUMPRODUCT(orders.qty)"
+    expected: 9
+  test_three_arrays:
+    value: null
+    formula: "=SUMPRODUCT(orders.qty, orders.price, orders.qty)"
+    expected: 188.5
+  test_text_column_counts_as_zero:
+    value: null
+    formula: "=SUMPRODUCT(orders.region, orders.price)"
+    expected: 0
+  test_condition_times_columns:
+    value: null
+    formula: "=SUMPRODUCT((orders.region = \"N\") * orders.qty * orders.price)"
+    expected: 43

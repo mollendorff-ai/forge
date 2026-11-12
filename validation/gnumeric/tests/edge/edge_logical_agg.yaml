@@ -1,0 +1,82 @@
+_forge_version: 1.0.0
+assumptions:
+  test_and_true_true:
+    value: 1.0
+    formula: =IF(AND(TRUE, TRUE), 1, 0)
+    expected: 1
+  test_and_true_false:
+    value: 0.0
+    formula: =IF(AND(TRUE, FALSE), 1, 0)
+    expected: 0
+  test_and_nonzero:
+    value: 1.0
+    formula: =IF(AND(1, 1), 1, 0)
+    expected: 1
+  test_and_with_zero:
+    value: 0.0
+    formula: =IF(AND(1, 0), 1, 0)
+    expected: 0
+  test_or_false_false:
+    value: 0.0
+    formula: =IF(OR(FALSE, FALSE), 1, 0)
+    expected: 0
+  test_or_true_false:
+    value: 1.0
+    formula: =IF(OR(TRUE, FALSE), 1, 0)
+    expected: 1
+  test_or_zero_one:
+    value: 1.0
+    formula: =IF(OR(0, 1), 1, 0)
+    expected: 1
+  test_not_false:
+    value: 1.0
+    formula: =IF(NOT(FALSE), 1, 0)
+    expected: 1
+  test_not_true:
+    value: 0.0
+    formula: =IF(NOT(TRUE), 1, 0)
+    expected: 0
+  test_not_zero:
+    value: 1.0
+    formula: =IF(NOT(0), 1, 0)
+    expected: 1
+  test_not_one:
+    value: 0.0
+    formula: =IF(NOT(1), 1, 0)
+    expected: 0
+  test_not_nonzero:
+    value: 0.0
+    formula: =IF(NOT(5), 1, 0)
+    expected: 0
+  test_if_nonzero_condition:
+    value: 100.0
+    formula: =IF(2, 100, 200)
+    expected: 100
+  test_if_zero_condition:
+    value: 200.0
+    formula: =IF(0, 100, 200)
+    expected: 200
+  test_sum_basic:
+    value: 6.0
+    formula: =SUM(1, 2, 3)
+    expected: 6
+  test_average_basic:
+    value: 4.0
+    formula: =AVERAGE(2, 4, 6)
+    expected: 4
+  test_min_basic:
+    value: 1.0
+    formula: =MIN(5, 3, 8, 1)
+    expected: 1
+  test_max_basic:
+    value: 8.0
+    formula: =MAX(5, 3, 8, 1)
+    expected: 8
+  test_count_basic:
+    value: 5.0
+    formula: =COUNT(1, 2, 3, 4, 5)
+    expected: 5
+  test_sum_empty:
+    value: 0.0
+    formula: =SUM()
+    expected: 0

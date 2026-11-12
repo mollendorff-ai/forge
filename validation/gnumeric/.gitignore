@@ -1,0 +1,6 @@
+/target
+.claude_checkpoint.yaml
+*.bak
+coverage-report/
+lcov.info
+.DS_Store

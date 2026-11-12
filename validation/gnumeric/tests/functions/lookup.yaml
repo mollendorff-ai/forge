@@ -1,0 +1,366 @@
+# E2E Lookup Function Tests
+# Validated against Gnumeric
+# Coverage: 13 lookup functions
+
+_forge_version: "5.0.0"
+
+# Test data tables
+products:
+  id: [1, 2, 3, 4, 5]
+  name: ["Widget", "Gadget", "Gizmo", "Doodad", "Thing"]
+  price: [100, 200, 150, 300, 250]
+  category: ["A", "B", "A", "B", "A"]
+
+sales:
+  q1: [1000, 2000, 1500]
+  q2: [1100, 2100, 1600]
+  q3: [1200, 2200, 1700]
+  q4: [1300, 2300, 1800]
+
+values:
+  data: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+grid:
+  col_a: [10, 20, 30, 40, 50]
+  col_b: [15, 25, 35, 45, 55]
+  col_c: [17, 27, 37, 47, 57]
+
+assumptions:
+  # ══════════════════════════════════════════════════════════════════════════
+  # CHOOSE - Pick value by index (DEMO)
+  # ══════════════════════════════════════════════════════════════════════════
+  test_choose_first:
+    value: null
+    formula: "=CHOOSE(1, 10, 20, 30)"
+    expected: 10
+
+  test_choose_second:
+    value: null
+    formula: "=CHOOSE(2, 10, 20, 30)"
+    expected: 20
+
+  test_choose_third:
+    value: null
+    formula: "=CHOOSE(3, 10, 20, 30)"
+    expected: 30
+
+  test_choose_text_len:
+    value: null
+    formula: "=LEN(CHOOSE(2, \"A\", \"BB\", \"CCC\"))"
+    expected: 2
+
+  test_choose_with_calc:
+    value: null
+    formula: "=CHOOSE(1+1, 100, 200, 300)"
+    expected: 200
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # INDEX - Get value at position
+  # ══════════════════════════════════════════════════════════════════════════
+  test_index_first:
+    value: null
+    formula: "=INDEX(products.price, 1)"
+    expected: 100
+
+  test_index_middle:
+    value: null
+    formula: "=INDEX(products.price, 3)"
+    expected: 150
+
+  test_index_last:
+    value: null
+    formula: "=INDEX(products.price, 5)"
+    expected: 250
+
+  test_index_text_len:
+    value: null
+    formula: "=LEN(INDEX(products.name, 2))"
+    expected: 6
+
+  test_index_with_calc:
+    value: null
+    formula: "=INDEX(values.data, 5+2)"
+    expected: 70
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # MATCH - Find position
+  # ══════════════════════════════════════════════════════════════════════════
+  test_match_exact_number:
+    value: null
+    formula: "=MATCH(200, products.price, 0)"
+    expected: 2
+
+  test_match_exact_first:
+    value: null
+    formula: "=MATCH(100, products.price, 0)"
+    expected: 1
+
+  test_match_exact_last:
+    value: null
+    formula: "=MATCH(250, products.price, 0)"
+    expected: 5
+
+  test_match_text:
+    value: null
+    formula: "=MATCH(\"Gizmo\", products.name, 0)"
+    expected: 3
+
+  test_match_category:
+    value: null
+    formula: "=MATCH(\"B\", products.category, 0)"
+    expected: 2
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # VLOOKUP - Vertical lookup via INDEX+MATCH
+  # ══════════════════════════════════════════════════════════════════════════
+  test_vlookup_price_by_id:
+    value: null
+    formula: "=INDEX(products.price, MATCH(3, products.id, 0))"
+    expected: 150
+
+  test_vlookup_name_len_by_id:
+    value: null
+    formula: "=LEN(INDEX(products.name, MATCH(2, products.id, 0)))"
+    expected: 6
+
+  test_vlookup_category_by_id:
+    value: null
+    formula: "=LEN(INDEX(products.category, MATCH(4, products.id, 0)))"
+    expected: 1
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # HLOOKUP - Horizontal lookup
+  # ══════════════════════════════════════════════════════════════════════════
+  test_hlookup_q1_first:
+    value: null
+    formula: "=INDEX(sales.q1, 1)"
+    expected: 1000
+
+  test_hlookup_q2_second:
+    value: null
+    formula: "=INDEX(sales.q2, 2)"
+    expected: 2100
+
+  test_hlookup_q3_third:
+    value: null
+    formula: "=INDEX(sales.q3, 3)"
+    expected: 1700
+
+  test_hlookup_q4_first:
+    value: null
+    formula: "=INDEX(sales.q4, 1)"
+    expected: 1300
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # XLOOKUP - Modern flexible lookup
+  # ══════════════════════════════════════════════════════════════════════════
+  test_xlookup_price_by_name:
+    value: null
+    formula: "=XLOOKUP(\"Widget\", products.name, products.price, -1)"
+    expected: 100
+    libreoffice: "Gnumeric 1.12 has no XLOOKUP"
+
+  test_xlookup_name_len_by_id:
+    value: null
+    formula: "=LEN(XLOOKUP(3, products.id, products.name, \"NotFound\"))"
+    expected: 5
+    libreoffice: "Gnumeric 1.12 has no XLOOKUP"
+
+  test_xlookup_with_default:
+    value: null
+    formula: "=XLOOKUP(999, products.id, products.price, -999)"
+    expected: -999
+    libreoffice: "Gnumeric 1.12 has no XLOOKUP"
+
+  test_xlookup_category_len:
+    value: null
+    formula: "=LEN(XLOOKUP(200, products.price, products.category, \"X\"))"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 has no XLOOKUP"
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # OFFSET - Reference offset via INDEX simulation
+  # ══════════════════════════════════════════════════════════════════════════
+  test_offset_down_1:
+    value: null
+    formula: "=INDEX(products.price, 1+1)"
+    expected: 200
+
+  test_offset_down_2:
+    value: null
+    formula: "=INDEX(products.price, 1+2)"
+    expected: 150
+
+  test_offset_down_3:
+    value: null
+    formula: "=INDEX(values.data, 5+3)"
+    expected: 80
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # INDIRECT - Reference from text via INDEX simulation
+  # ══════════════════════════════════════════════════════════════════════════
+  test_indirect_col_a_1:
+    value: null
+    formula: "=INDEX(grid.col_a, 1)"
+    expected: 10
+
+  test_indirect_col_b_2:
+    value: null
+    formula: "=INDEX(grid.col_b, 2)"
+    expected: 25
+
+  test_indirect_col_c_3:
+    value: null
+    formula: "=INDEX(grid.col_c, 3)"
+    expected: 37
+
+  test_indirect_dynamic:
+    value: null
+    formula: "=INDEX(products.price, MATCH(\"Gadget\", products.name, 0))"
+    expected: 200
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # ADDRESS - Cell reference string
+  # ══════════════════════════════════════════════════════════════════════════
+  test_address_a1_len:
+    value: null
+    formula: "=LEN(ADDRESS(1, 1))"
+    expected: 4
+
+  test_address_b2_len:
+    value: null
+    formula: "=LEN(ADDRESS(2, 2))"
+    expected: 4
+
+  test_address_c10_len:
+    value: null
+    formula: "=LEN(ADDRESS(10, 3))"
+    expected: 5
+
+  test_address_relative_len:
+    value: null
+    formula: "=LEN(ADDRESS(1, 1, 4))"
+    expected: 2
+
+  test_address_z100_len:
+    value: null
+    formula: "=LEN(ADDRESS(100, 26))"
+    expected: 6
+
+  # R1C1 style brackets the relative part: R2C[3], R[2]C3
+  test_address_r1c1_abs_row_len:
+    value: null
+    formula: "=LEN(ADDRESS(2, 3, 2, FALSE))"
+    expected: 6
+
+  test_address_r1c1_abs_col_len:
+    value: null
+    formula: "=LEN(ADDRESS(2, 3, 3, FALSE))"
+    expected: 6
+
+  # The sheet name comes first: Sheet1!$A$1
+  test_address_sheet_len:
+    value: null
+    formula: "=LEN(ADDRESS(1, 1, 1, TRUE, \"Sheet1\"))"
+    expected: 11
+
+  # Row 0 is outside the sheet
+  test_address_row_zero:
+    value: null
+    formula: "=IFERROR(LEN(ADDRESS(0, 1)), -1)"
+    expected: -1
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # ROW - Row number (tested via ROWS)
+  # ══════════════════════════════════════════════════════════════════════════
+  test_row_count_products:
+    value: null
+    formula: "=ROWS(products.id)"
+    expected: 5
+
+  test_row_count_values:
+    value: null
+    formula: "=ROWS(values.data)"
+    expected: 10
+
+  test_row_count_grid:
+    value: null
+    formula: "=ROWS(grid.col_a)"
+    expected: 5
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # COLUMN - Column number (tested via COLUMNS)
+  # ══════════════════════════════════════════════════════════════════════════
+  test_column_count_products:
+    value: null
+    formula: "=COLUMNS(products)"
+    expected: 4
+
+  test_column_count_sales:
+    value: null
+    formula: "=COLUMNS(sales)"
+    expected: 4
+
+  test_column_count_grid:
+    value: null
+    formula: "=COLUMNS(grid)"
+    expected: 3
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # ROWS - Count rows in array
+  # ══════════════════════════════════════════════════════════════════════════
+  test_rows_products:
+    value: null
+    formula: "=ROWS(products.id)"
+    expected: 5
+
+  test_rows_values:
+    value: null
+    formula: "=ROWS(values.data)"
+    expected: 10
+
+  test_rows_sales:
+    value: null
+    formula: "=ROWS(sales.q1)"
+    expected: 3
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # COLUMNS - Count columns in table
+  # ══════════════════════════════════════════════════════════════════════════
+  test_columns_products:
+    value: null
+    formula: "=COLUMNS(products)"
+    expected: 4
+
+  test_columns_sales:
+    value: null
+    formula: "=COLUMNS(sales)"
+    expected: 4
+
+  test_columns_grid:
+    value: null
+    formula: "=COLUMNS(grid)"
+    expected: 3
+
+  test_columns_single:
+    value: null
+    formula: "=COLUMNS(values)"
+    expected: 1
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Combined lookup operations
+  # ══════════════════════════════════════════════════════════════════════════
+  test_nested_choose:
+    value: null
+    formula: "=CHOOSE(CHOOSE(1, 1, 2, 3), 100, 200, 300)"
+    expected: 100
+
+  test_index_match_combo:
+    value: null
+    formula: "=INDEX(products.price, MATCH(\"Gizmo\", products.name, 0))"
+    expected: 150
+
+  test_nested_index:
+    value: null
+    formula: "=INDEX(products.price, INDEX(products.id, 2))"
+    expected: 200

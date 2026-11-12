@@ -1,0 +1,31 @@
+# Möllendorff Asimov Roadmap
+#
+# WHAT to build - milestones only
+#
+# See: CHANGELOG.md for release history
+# See: docs/adr/ for detailed rationale
+
+current:
+  version: "1.1.0"
+  status: planned
+  summary: "Coverage expansion"
+  goal: "COMPLETENESS"
+  deliverables:
+    - "[ ] Add tests for any missing Forge functions"
+    - "[ ] Sync with forge-e2e-r for statistical function coverage"
+    - "[ ] Add tolerance-based comparison for floating-point tests"
+
+next:
+  - version: "1.2.0"
+    summary: "CI/CD integration"
+    goal: "AUTOMATION"
+    deliverables:
+      - "[ ] GitHub Actions workflow"
+      - "[ ] Gnumeric installation in CI"
+      - "[ ] Test result reporting"
+
+backlog:
+  - "Remove 'enterprise' tier labels from test YAML comments"
+  - "Performance benchmarking and optimization"
+  - "Parallel test execution"
+  - "HTML test report generation"

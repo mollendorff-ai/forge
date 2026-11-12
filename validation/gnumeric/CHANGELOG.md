@@ -1,0 +1,77 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+
+### Changed
+
+- The 23 `VARIANCE*` and `BREAKEVEN_*` cases are calculated by Gnumeric: Forge now exports them as Excel expressions (its PR of the same branch name). 11 new edge cases test those expressions: zero and negative budgets, the threshold boundary, `"cost"` and other text, a margin of 1 and above 1, and a nested call. Gnumeric-skipped cases drop from 99 to 76.
+
+### Changed
+
+- **A case that `forge export` writes as a value fails** unless it has a `gnumeric_skip` saying why. The error gives Forge's reason. Forge now exports 67 of the 126 such cases as formulas, and Gnumeric agrees with all of them; the other 59 (`LET`, `LAMBDA`, `COUNTUNIQUE`, `TODAY`, `VARIANCE*`, `BREAKEVEN_*`) have a `gnumeric_skip` (Forge roadmap T2-EXPORT-FORGE-FUNCTIONS). `_gnumeric_must_calculate` is gone: this is now the rule for every spec.
+
+### Added
+
+- Cases for the `POWER(0, 0)` and `ADDRESS` wrong answers Forge fixed (row 0, R1C1 with `abs_num` 2 and 3, the sheet name). They fail with Forge 10.0.0-rc.7.
+
+- **Included files.** A spec can have `_includes` (files relative to the spec); the runner copies them beside the generated model. `tests/edge/edge_includes.yaml` reads values and a formula from `tests/edge/includes/costs.yaml` as `@costs.name`. It fails with Forge before T1-EXPORT-INCLUDES, which wrote those formulas as values.
+- **Cases Gnumeric did not calculate are reported.** When `forge export` writes a case's formula as its value (a function Excel lacks, say), Gnumeric only reads Forge's number back. These were 126 of the 1,324 passing cases (see Changed above).
+
+### Changed
+
+- The export-and-import check reads a scalar written as a plain number, the model format 5.1.0 short form that `forge import` writes (Forge ADR-051), as well as `{value: ...}`. Before, a formula imported as its value came back as `test_result: -999` and was reported as missing.
+
+- `TRUE = 1` and `FALSE = 0` expect 0 (Excel and Gnumeric: a boolean never equals a number); `0^0` is skipped (it is #NUM! in every engine). Forge now agrees (mollendorff-ai/forge fix for both). Gnumeric-only skips drop from 37 to 34.
+
+### Fixed
+
+- **Forge's own evaluator was never tested.** The runner only had Gnumeric recalculate the exported workbook. Each case now also runs `forge calculate`, and passes only when both agree with the expected value.
+- A cell anywhere in the sheet that happened to equal the expected number counted as a pass (a table value could satisfy a quartile test). Only the cell labelled `test_result` counts now.
+- Batch mode failed every case ("Failed to open CSV"). It now runs one workbook per source file, with that file's tables.
+- `e2e_statistical_complete.yaml`: the data column `esc_quartile_test` should be `quartile_test`, so `forge calculate` could not run the file.
+- Tables named `scenarios` were dropped from generated models, so every scenario case failed in Forge.
+- `MOD(-10, 3)` expected -1; Excel, Gnumeric and Forge all give 2.
+- README listed `--all`, which does not exist, and 1,909 tests; the suite has 1,301.
+
+### Added
+
+- `gnumeric_skip` on a case: Gnumeric 1.12 cannot judge it, so only Forge is checked. 37 cases use it.
+
+## [1.1.1] - 2026-02-16
+
+### Changed
+
+- **Replace colored TUI with TAP v14 output**
+  - Removed `colored` crate dependency
+  - Output now uses TAP (Test Anything Protocol) version 14 format
+  - YAML diagnostic blocks on failures (formula, expected, actual, error)
+  - `# SKIP reason` directive for skipped tests
+  - Diagnostic comments for config (forge path, engine version, test dir, mode)
+  - Summary as TAP comment after results
+  - Machine-parseable output enables CI/CD integration and downstream tooling
+
+## [1.0.1] - 2026-01-24
+
+### Changed
+
+- **Rebranding: RoyalBit to Möllendorff AI**
+  - Updated all references from RoyalBit to Möllendorff
+  - **Why rebrand?** The "RoyalBit" name (company founded 2006) was hijacked by unrelated cryptocurrency scammers:
+    - UK FCA issued official warning (Oct 2024) about "Royalbit Miners" - unauthorized firm
+    - Multiple fraudulent domains: royalbit.ltd (trust score 38/100), royalbit.top, royal-bit.club
+    - Classic HYIP Ponzi schemes offering impossible returns (155-580% in days)
+    - Sources: [FCA Warning](https://www.fca.org.uk/news/warnings/royalbit-miners), [Scam Detector](https://www.scam-detector.com/validator/royalbit-ltd-review/)
+
+## [1.0.0] - 2026-01-02
+
+### Added
+
+- Test runner with streaming and batch modes
+- Gnumeric ssconvert integration for formula validation
+- 1,909+ formula tests across 40 YAML files
+- Function tests: math, text, date, financial, lookup, aggregation, statistical, trigonometric, logical, information
+- Edge case tests: type coercion, error propagation, numeric precision
+- Multi-sheet CSV parsing for flexible test organization
+- Table data extraction for context-aware formula testing
