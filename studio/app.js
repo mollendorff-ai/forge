@@ -159,20 +159,22 @@ function scalarCards(list) {
     h += `<div class="row" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${s.path.startsWith("@") ? "" : ` data-scalar="${esc(s.path)}"`}>
       <div class="inp-head"><label class="inp-name" for="${id}">${esc(leaf(s.path))}${unitOf(s)}</label><span class="inp-hint" data-hint></span>
       <input class="field" id="${id}" data-input="${esc(s.path)}" inputmode="decimal" autocomplete="off" value="${s.value ?? ""}"></div>
-      <input type="range" data-range="${esc(s.path)}" min="${r.min}" max="${r.max}" step="${r.step}" value="${s.value ?? r.min}" aria-label="${esc(leaf(s.path))}">
+      <div class="slide-row"><input type="range" data-range="${esc(s.path)}" min="${r.min}" max="${r.max}" step="${r.step}" value="${s.value ?? r.min}" aria-label="${esc(leaf(s.path))}">${deleteButton(s.path, true)}</div>
       ${s.better ? `<div class="note">better ${esc(s.better)}</div>` : ""}${s.notes ? `<div class="note">${esc(s.notes)}</div>` : ""}
-      <div class="by-scn" data-byscn hidden></div><div class="err-msg" data-err hidden></div><div class="row-actions">${deleteButton(s.path)}</div></div>`;
+      <div class="by-scn" data-byscn hidden></div><div class="err-msg" data-err hidden></div></div>`;
   }
   for (const s of list.filter((x) => x.formula != null)) {
     const calculated = !s.path.startsWith("@");
-    h += `<div class="row" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${calculated ? ` data-scalar="${esc(s.path)}"` : ""}><div class="res-name">${esc(leaf(s.path))}${unitOf(s)}</div>
+    h += `<div class="row" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${calculated ? ` data-scalar="${esc(s.path)}"` : ""}><div class="res-top"><div class="res-name">${esc(leaf(s.path))}${unitOf(s)}</div>${deleteButton(s.path, true)}</div>
       <div class="res-val" data-val>${calculated ? "" : '<span class="note">used by the model</span>'}</div>
-      <div class="formula-row" data-fslot="${esc(s.path)}"><div class="formula">${esc(s.formula)}</div>${editButton(s.path)}</div><div class="row-actions">${deleteButton(s.path)}</div></div>`;
+      <div class="formula-row" data-fslot="${esc(s.path)}"><div class="formula">${esc(s.formula)}</div>${editButton(s.path)}</div></div>`;
   }
   return h;
 }
 const editButton = (path, label = "Edit") => `<button type="button" class="edit-btn" data-edit="${esc(path)}" aria-label="Edit the formula of ${esc(path)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>${esc(label)}</button>`;
-const deleteButton = (path) => `<button type="button" class="edit-btn del-btn" data-del="${esc(path)}" aria-label="Delete ${esc(path)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>Delete</button>`;
+// `icon`: only the bin, so that the card keeps its height (the column's
+// buttons, shown when it is open, keep the word)
+const deleteButton = (path, icon = false) => `<button type="button" class="edit-btn del-btn${icon ? " icon" : ""}" data-del="${esc(path)}" aria-label="Delete ${esc(path)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>${icon ? "" : "Delete"}</button>`;
 // The Add button of a group of scalars (list: its scalars) or of a table
 // (list null), in the main file (ns null) or an included one
 const addKey = (ns, group) => `${ns ? "@" + ns + "." : ""}${group || ""}`;
@@ -783,6 +785,29 @@ for (const type of ["keyup", "click", "focusin"]) {
   vy.addEventListener(type, (e) => { if (e.target.id === "yaml-editor") showKeySuggestions(e.target); });
 }
 vy.addEventListener("mousedown", (e) => { if (e.target.closest("[data-sug]")) e.preventDefault(); });
+// On a phone the editor is taller than what is left above the keyboard, and
+// the page scrolls to keep the caret in view, which takes the strip (above
+// the editor) off the top of the screen. While the editor has the focus the
+// strip is docked at the bottom of what is visible: on the keyboard.
+const vv = window.visualViewport;
+function placeDock() {
+  const keyboard = vv ? Math.max(0, innerHeight - vv.height - vv.offsetTop) : 0;
+  const tabs = $(".tabs");
+  document.documentElement.style.setProperty("--dock", (keyboard || (tabs ? tabs.offsetHeight : 0)) + "px");
+}
+if (vv) { vv.addEventListener("resize", placeDock); vv.addEventListener("scroll", placeDock); }
+let undock = 0;
+vy.addEventListener("focusin", (e) => {
+  if (e.target.id !== "yaml-editor" || S.wide) return;
+  clearTimeout(undock);
+  placeDock();
+  $("#view-yaml [data-suggest]").classList.add("docked");
+});
+vy.addEventListener("focusout", (e) => {
+  if (e.target.id !== "yaml-editor") return;
+  // Not at once: a tap on a suggestion takes the focus before it is a click
+  undock = setTimeout(() => { const strip = $("#view-yaml [data-suggest]"); if (strip) strip.classList.remove("docked"); }, 700);
+});
 vy.addEventListener("click", async (e) => {
   const sug = e.target.closest("[data-sug]");
   if (sug) { takeSuggestion(sug); return; }

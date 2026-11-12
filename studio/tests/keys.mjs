@@ -128,6 +128,31 @@ if (!(await strip.locator("[data-sug]").allTextContents()).includes("file:")) fa
 await type('_forge_version: "5.1.0"\nyear:\n  margin:\n    formula: "=SU');
 if (await strip.locator("[data-sug]").count()) fail("keys are offered inside a formula in the editor");
 
+// On a phone the strip is docked at the bottom of what is visible, on the
+// keyboard, so that it is in sight wherever the page has scrolled to
+await type('_forge_version: "5.1.0"\nassumptions:\n  hours:\n    un');
+await strip.locator("[data-sug]", { hasText: /^unit:$/ }).waitFor({ timeout: 30000 }).catch(() => {});
+const dockBox = () => strip.evaluate((el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, pos: getComputedStyle(el).position, docked: el.classList.contains("docked"), height: innerHeight }; });
+let d = await dockBox();
+if (!d.docked || d.pos !== "fixed") fail(`while typing in the editor the strip is not docked (${JSON.stringify(d)})`);
+const tabsTop = await page.evaluate(() => document.querySelector(".tabs").getBoundingClientRect().top);
+if (d.top < 0 || d.bottom > tabsTop + 1) fail(`the docked strip is not in sight above the tabs (${JSON.stringify(d)}, tabs at ${tabsTop})`);
+// With a keyboard of 344 px (the visual viewport is shorter than the page)
+await page.evaluate(() => {
+  Object.defineProperty(window.visualViewport, "height", { configurable: true, get: () => innerHeight - 344 });
+  window.visualViewport.dispatchEvent(new Event("resize"));
+});
+d = await dockBox();
+if (Math.abs(d.bottom - (d.height - 344)) > 1) fail(`with a keyboard of 344 px the strip ends at ${d.bottom}, not at ${d.height - 344}`);
+await page.evaluate(() => { delete window.visualViewport.height; window.visualViewport.dispatchEvent(new Event("resize")); });
+// A tap on a suggestion while docked still inserts it
+await strip.locator("[data-sug]", { hasText: /^unit:$/ }).click();
+if ((await editor.inputValue()) !== '_forge_version: "5.1.0"\nassumptions:\n  hours:\n    unit: ') fail("a tap on the docked strip did not insert the key");
+// Left, it comes back to its place
+await editor.evaluate((el) => el.blur());
+await page.waitForTimeout(1000);
+if ((await dockBox()).docked) fail("the strip stays docked after the editor lost the focus");
+
 await browser.close();
 if (!remote) server.close();
 if (failures.length) {
