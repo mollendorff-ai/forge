@@ -471,7 +471,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_functions",
-        description = "List all 169 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.)."
+        description = "List all 176 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.)."
     )]
     fn functions(&self, Parameters(_req): Parameters<FunctionsRequest>) -> Result<String, String> {
         functions_core()
@@ -495,7 +495,7 @@ impl ForgeMcpServer {
 impl ServerHandler for ForgeMcpServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_instructions("Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 169 Excel-compatible functions. All tools return structured JSON. A new model: start from forge_examples name=starter; _forge_version is the model format version (5.1.0), not the Forge version; in a group of scalars a formula is {formula: \"=...\"}, in a table a column formula is a bare \"=...\".")
+            .with_instructions("Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 176 Excel-compatible functions. All tools return structured JSON. A new model: start from forge_examples name=starter; _forge_version is the model format version (5.1.0), not the Forge version; in a group of scalars a formula is {formula: \"=...\"}, in a table a column formula is a bare \"=...\".")
             .with_server_info(
                 rmcp::model::Implementation::new("forge", env!("CARGO_PKG_VERSION"))
             )

@@ -1,16 +1,16 @@
 //! Function definitions - THE SINGLE SOURCE OF TRUTH
 //!
-//! This file contains all 169 function definitions.
+//! This file contains all 176 function definitions.
 //! Separated from registry.rs to keep files under 1500 lines.
 
 use super::{Category, FunctionDef};
 
 /// All supported functions - THE SINGLE SOURCE OF TRUTH
 ///
-/// Total: 169 functions (includes aliases)
+/// Total: 176 functions (includes aliases)
 pub static FUNCTIONS: &[FunctionDef] = &[
     // ══════════════════════════════════════════════════════════════════════════
-    // MATH (19 total)
+    // MATH (21 total)
     // ══════════════════════════════════════════════════════════════════════════
     FunctionDef {
         name: "ABS",
@@ -87,6 +87,13 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         category: Category::Math,
         description: "Natural logarithm",
         syntax: "=LN(value)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "LOG",
+        category: Category::Math,
+        description: "Logarithm in a base (10 when none) - the base is optional",
+        syntax: "=LOG(number, base)",
         scalar: true,
     },
     FunctionDef {
@@ -808,7 +815,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         scalar: true,
     },
     // ══════════════════════════════════════════════════════════════════════════
-    // STATISTICAL (11 total)
+    // STATISTICAL (14 total)
     // ══════════════════════════════════════════════════════════════════════════
     FunctionDef {
         name: "MEDIAN",
@@ -843,6 +850,48 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         category: Category::Statistical,
         description: "Population std deviation",
         syntax: "=STDEVP(value1, value2, ...)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "VAR",
+        category: Category::Statistical,
+        description: "Alias for VAR.S",
+        syntax: "=VAR(value1, value2, ...)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "VAR.P",
+        category: Category::Statistical,
+        description: "Population variance",
+        syntax: "=VAR.P(value1, value2, ...)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "STDEV",
+        category: Category::Statistical,
+        description: "Alias for STDEV.S",
+        syntax: "=STDEV(value1, value2, ...)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "STDEV.P",
+        category: Category::Statistical,
+        description: "Population std deviation",
+        syntax: "=STDEV.P(value1, value2, ...)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "MODE",
+        category: Category::Statistical,
+        description: "Most frequent value (the first of a tie; an error when none repeats)",
+        syntax: "=MODE(value1, value2, ...)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "MODE.SNGL",
+        category: Category::Statistical,
+        description: "Alias for MODE",
+        syntax: "=MODE.SNGL(value1, value2, ...)",
         scalar: true,
     },
     FunctionDef {
