@@ -1,11 +1,12 @@
 //! Excel exporter implementation
 
+use super::text_results::{self, TextCell, TextResult};
 use super::workbook_refs::dates::{excel_serial, Holds};
 use super::workbook_refs::{
     include_sheet, split_scalar_path, Context, WorkbookRefs, UNGROUPED_SHEET,
 };
 use crate::error::{ForgeError, ForgeResult};
-use crate::types::{ColumnValue, Metadata, ParsedModel, Table};
+use crate::types::{Column, ColumnValue, Metadata, ParsedModel, Table};
 use rust_xlsxwriter::{Format, Formula, Note, Workbook, Worksheet};
 use std::collections::HashMap;
 use std::path::Path;
@@ -202,6 +203,32 @@ impl ExcelExporter {
         }
     }
 
+    /// The formula with Forge's result cached in it. A text result that the
+    /// writer would read as a number, a boolean or an error (`010`, `TRUE`) is
+    /// noted in `text_results`, to be marked as text after the save.
+    fn with_cached_result(
+        formula: Formula,
+        column: Option<&Column>,
+        (row_idx, is_date): (usize, bool),
+        (cell, text_results): (TextCell, &mut Vec<TextResult>),
+    ) -> Formula {
+        let Some(column) = column else {
+            return formula;
+        };
+        let Some(result) = Self::cached_result(&column.values, row_idx, is_date) else {
+            return formula;
+        };
+        let is_text = matches!(column.values, ColumnValue::Text(_) | ColumnValue::Date(_));
+        if is_text && !is_date && text_results::looks_like_another_type(&result) {
+            text_results.push(TextResult {
+                sheet: cell.sheet,
+                position: cell.position,
+                text: result.clone(),
+            });
+        }
+        formula.set_result(result)
+    }
+
     /// Export the model to an Excel .xlsx file
     ///
     /// # Errors
@@ -218,9 +245,8 @@ impl ExcelExporter {
     ///
     /// Returns an error if the workbook cannot be saved to the specified path.
     pub fn export_with_warnings(&self, output_path: &Path) -> ForgeResult<Vec<String>> {
-        let (mut workbook, warnings) = self.build_workbook()?;
-        workbook
-            .save(output_path)
+        let (bytes, warnings) = self.export_to_buffer_with_warnings()?;
+        std::fs::write(output_path, bytes)
             .map_err(|e| ForgeError::IO(format!("Failed to save Excel file: {e}")))?;
         Ok(warnings)
     }
@@ -241,16 +267,17 @@ impl ExcelExporter {
     ///
     /// Returns an error if the workbook cannot be serialized.
     pub fn export_to_buffer_with_warnings(&self) -> ForgeResult<(Vec<u8>, Vec<String>)> {
-        let (mut workbook, warnings) = self.build_workbook()?;
+        let (mut workbook, warnings, text_results) = self.build_workbook()?;
         let bytes = workbook
             .save_to_buffer()
             .map_err(|e| ForgeError::IO(format!("Failed to create Excel buffer: {e}")))?;
-        Ok((bytes, warnings))
+        Ok((text_results::mark_as_text(bytes, &text_results)?, warnings))
     }
 
-    fn build_workbook(&self) -> ForgeResult<(Workbook, Vec<String>)> {
+    fn build_workbook(&self) -> ForgeResult<(Workbook, Vec<String>, Vec<TextResult>)> {
         let mut workbook = Workbook::new();
         let mut warnings = Vec::new();
+        let mut text_results = Vec::new();
 
         // Tables in model order, which is the same on every run
         for (table_name, table) in &self.model.tables {
@@ -259,7 +286,7 @@ impl ExcelExporter {
                 &self.refs,
                 (table_name, table_name),
                 table,
-                &mut warnings,
+                (&mut warnings, &mut text_results),
             )?;
         }
 
@@ -278,7 +305,7 @@ impl ExcelExporter {
                     own,
                     (&sheet, table_name),
                     table,
-                    &mut warnings,
+                    (&mut warnings, &mut text_results),
                 )?;
             }
             // Written even without scalars: it is how an import knows the
@@ -305,7 +332,7 @@ impl ExcelExporter {
             ));
         }
 
-        Ok((workbook, warnings))
+        Ok((workbook, warnings, text_results))
     }
 
     /// Export a single table to a worksheet
@@ -317,9 +344,11 @@ impl ExcelExporter {
         refs: &WorkbookRefs,
         names: (&str, &str),
         table: &Table,
-        warnings: &mut Vec<String>,
+        out: (&mut Vec<String>, &mut Vec<TextResult>),
     ) -> ForgeResult<()> {
         let (sheet_name, table_name) = names;
+        let (warnings, text_results) = out;
+        let sheet = workbook.worksheets().len();
         let worksheet = workbook.add_worksheet();
         worksheet
             .set_name(sheet_name)
@@ -384,15 +413,19 @@ impl ExcelExporter {
                     let translated = refs
                         .to_excel_as(formula, ctx, holds)
                         .map_err(|e| ForgeError::Export(format!("{sheet_name}.{col_name}: {e}")))?;
-                    let mut excel_formula = Formula::new(&translated.formula);
                     // Cache Forge's result, so viewers that do not recalculate show it
-                    if let Some(result) = table
-                        .columns
-                        .get(col_name)
-                        .and_then(|c| Self::cached_result(&c.values, row_idx, translated.is_date))
-                    {
-                        excel_formula = excel_formula.set_result(result);
-                    }
+                    let excel_formula = Self::with_cached_result(
+                        Formula::new(&translated.formula),
+                        table.columns.get(col_name),
+                        (row_idx, translated.is_date),
+                        (
+                            TextCell {
+                                sheet,
+                                position: (excel_row - 1, col),
+                            },
+                            text_results,
+                        ),
+                    );
                     if translated.is_date {
                         worksheet.write_formula_with_format(
                             excel_row - 1,

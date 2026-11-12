@@ -8,6 +8,7 @@ mod exporter;
 mod formula_translator;
 mod importer;
 mod reverse_formula_translator;
+mod text_results;
 pub mod workbook_refs;
 
 pub use exporter::ExcelExporter;
