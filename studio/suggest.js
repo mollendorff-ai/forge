@@ -118,19 +118,15 @@ function expand(node, defs, out = [], seen = new Set()) {
   for (const k of ["then", "else"]) expand(node[k], defs, out, seen);
   return out;
 }
-// Where a position in a file is, as the names of the keys above it, with "[]"
-// for a list item; null when the caret is not at a key: after a colon, in a
-// comment, or in a list that is not at the start of an item.
-export function keyContext(text, caret) {
-  const lines = text.slice(0, caret).split("\n");
-  const here = lines.pop();
-  const m = /^(\s*)(-\s+)?([A-Za-z_][A-Za-z0-9_]*)$/.exec(here);
-  if (!m) return null;
-  const indent = m[1].length, dash = !!m[2];
+// The names of the keys above a line, from the top, with "[]" for a list
+// item: `lines` are the lines above it, `indent` where the line starts and
+// `dashLen` the width of its "- " (0 when it is not at a list item)
+function keysAbove(lines, indent, dashLen) {
+  const dash = dashLen > 0;
   const chain = dash ? ["[]"] : [];
   // `limit`: a line is above us when it is indented less; `column`: where the
   // keys of the mapping we are in start
-  let limit = indent, column = indent + (dash ? m[2].length : 0);
+  let limit = indent, column = indent + dashLen;
   for (let j = lines.length - 1; j >= 0; j--) {
     const l = lines[j];
     if (!l.trim() || l.trim().startsWith("#")) continue;
@@ -150,6 +146,18 @@ export function keyContext(text, caret) {
       if (ind === 0) break;
     }
   }
+  return chain;
+}
+// Where a position in a file is, as the names of the keys above it, with "[]"
+// for a list item; null when the caret is not at a key: after a colon, in a
+// comment, or in a list that is not at the start of an item.
+export function keyContext(text, caret) {
+  const lines = text.slice(0, caret).split("\n");
+  const here = lines.pop();
+  const m = /^(\s*)(-\s+)?([A-Za-z_][A-Za-z0-9_]*)$/.exec(here);
+  if (!m) return null;
+  const chain = keysAbove(lines, m[1].length, m[2] ? m[2].length : 0);
+  if (!chain) return null;
   return { chain, prefix: m[3], start: caret - m[3].length };
 }
 // The schema for a model: `answer` is the schema tool's text, parsed once
@@ -201,4 +209,43 @@ export function suggestKeys(schema, text, caret) {
     .sort((a, b) => byLength(a[0], b[0]))
     .slice(0, 12)
     .map(([k, v]) => ({ label: `${k}:`, insert: v.type === "block" ? `${k}:` : `${k}: `, start: at.start, end: caret, kind: "key", title: v.description, used: siblings.has(k) }));
+}
+
+// ---------- names and functions inside a formula typed in the YAML editor ----------
+// A formula in a file is a quoted text that starts with "=" after a key
+// (`formula: "=SUM(...)"`, or `revenue: "=dozens * ..."` in a table). While
+// the caret is inside one, the strip offers what the cards offer: the names
+// that formula can use, written as it writes them, and Forge's functions.
+
+// Where the caret is, when it is inside a formula not yet closed: the keys
+// above it, its own key, the formula typed so far and where that starts
+export function formulaContext(text, caret) {
+  const lines = text.slice(0, caret).split("\n");
+  const here = lines.pop();
+  const m = /^(\s*)(-\s+)?(?:"([^"]+)"|'([^']+)'|([^\s:#"'-][^:#"']*?))\s*:\s+(?:"(=(?:[^"\\]|\\.)*)|'(=(?:[^']|'')*))$/.exec(here);
+  if (!m) return null;
+  const chain = keysAbove(lines, m[1].length, m[2] ? m[2].length : 0);
+  if (!chain) return null;
+  const formula = m[6] ?? m[7];
+  return { chain, key: m[3] ?? m[4] ?? m[5], formula, start: caret - formula.length };
+}
+// The scope of the formula an entry holds, from where it is in its file: the
+// entry is the last of the keys down to it (its own key, or the key above a
+// `formula:`), and what holds it is a table or a group
+export function scopeInYaml(structure, file, chain, key) {
+  const keys = [...chain, ...(key === "formula" ? [] : [key])].filter((k) => k !== "[]");
+  const holder = keys.length >= 2 ? keys[keys.length - 2] : null;
+  const inc = structure.includes.find((i) => i.file === file);
+  const part = inc || structure;
+  const isTable = holder != null && part.tables.some((t) => (inc ? t.name.slice(inc.as.length + 2) : t.name) === holder);
+  return { ns: inc ? inc.as : null, group: holder && !isTable ? holder : null, table: isTable ? holder : null };
+}
+// What to offer at `caret` when it is in a formula of `file`; null when it is
+// not in one. `structure` is the model as Forge reads it, or null for a file
+// that is not part of it (the functions are still offered).
+export function suggestInFormula({ structure, functions, file }, text, caret) {
+  const at = formulaContext(text, caret);
+  if (!at) return null;
+  const names = structure ? namesFor(structure, scopeInYaml(structure, file, at.chain, at.key)) : [];
+  return suggest({ names, functions }, at.formula, at.formula.length).map((o) => ({ ...o, start: o.start + at.start, end: o.end + at.start }));
 }

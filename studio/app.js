@@ -6,7 +6,7 @@
 import { call, start } from "./forge.js";
 import { esc, setInputText, setFormulaText, addEntryText, deleteEntryText, NAME, highlightYaml, useFormulaRules } from "./text.js";
 import { fmt, short, spark, sliderRange, readNumber, isPercent } from "./format.js";
-import { scopeOf, namesFor, functionsOf, suggest, apply, schemaOf, suggestKeys } from "./suggest.js";
+import { scopeOf, namesFor, functionsOf, suggest, apply, schemaOf, suggestKeys, formulaContext, suggestInFormula } from "./suggest.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -455,10 +455,19 @@ async function showKeySuggestions(editor) {
   if (!strip) return;
   const token = ++keysFor;
   const text = editor.value, caret = editor.selectionStart ?? text.length;
-  const schema = await loadSchema(text);
-  if (token !== keysFor || !editor.isConnected) return;
-  const list = suggestKeys(schema, text, caret);
-  strip.innerHTML = list.map((x, i) => `<button type="button" class="sug key${x.used ? " used" : ""}" data-sug="${i}" title="${esc(x.title)}">${esc(x.label)}</button>`).join("");
+  let list;
+  if (formulaContext(text, caret)) {
+    // In a formula: the names and functions of the cards, not keys
+    await loadFunctions();
+    if (token !== keysFor || !editor.isConnected) return;
+    const part = S.structure && (S.yamlFile === S.main || S.structure.includes.some((i) => i.file === S.yamlFile));
+    list = suggestInFormula({ structure: part ? S.structure : null, functions: functionList || [], file: S.yamlFile }, text, caret) || [];
+  } else {
+    const schema = await loadSchema(text);
+    if (token !== keysFor || !editor.isConnected) return;
+    list = suggestKeys(schema, text, caret);
+  }
+  strip.innerHTML = list.map((x, i) => `<button type="button" class="sug ${x.kind}${x.used ? " used" : ""}" data-sug="${i}" title="${esc(x.title)}">${esc(x.label)}</button>`).join("");
   strip._list = list;
   strip.hidden = !list.length;
 }

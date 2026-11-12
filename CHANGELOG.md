@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Forge Studio suggests names and functions inside a formula typed in the YAML editor.** The strip above the editor offered only keys; inside a quoted formula (`formula: "=SU`, or `revenue: "=dozens * re` in a table) it now offers what the cards offer: the names that formula can use, as that formula writes them (a name of its group or table bare, any other as `group.name`, `table.column` or `@file.group.name`), and Forge's functions, taken from Forge and not from a list in the page. The scope comes from where the formula sits in the file, in the main file and in the files it includes. Keys are offered again once the formula is closed. `studio/tests/yamlformula.mjs` types the first three letters of each of the 218 names and functions in the 77 formulas of the examples' model files, at their place in the file, and checks that each is offered and completes to the same word, that nothing is offered after the formula, in a comment or for a plain value, and that the strip in the editor inserts exactly the text.
+
 ## [10.0.0-rc.18] - 2026-11-12
 
 Forge Studio on a phone (the key suggestions sit on the keyboard, Delete takes less room), the validation suites in this repository, and `forge simulate`, `variance`, `sensitivity` and `break-even` printing numbers as the other commands do. No wrong answer was fixed since rc.13, so the two-week stable clock of docs/STABILITY.md still runs from rc.13 (no earlier than 2026-11-24).
