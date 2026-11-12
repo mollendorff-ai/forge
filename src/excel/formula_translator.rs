@@ -395,6 +395,8 @@ impl FormulaTranslator {
                 | "STDEV.P"
                 | "VAR.S"
                 | "VAR.P"
+                | "MODE"
+                | "MODE.SNGL"
                 | "RAND"
                 | "RANDBETWEEN"
                 // Advanced functions
@@ -933,6 +935,29 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("not found"));
+    }
+
+    #[test]
+    fn every_listed_excel_function_is_known_to_the_export() {
+        // A function in the list (`forge functions`) that the export does not
+        // know would be read as a column name and stop the export. Forge's own
+        // functions and the Monte Carlo ones have no Excel name and are left out.
+        use crate::functions::registry::{Category, FUNCTIONS};
+        let own = [
+            "SCENARIO",
+            "PREV",
+            "VARIANCE",
+            "VARIANCE_PCT",
+            "VARIANCE_STATUS",
+        ];
+        let missing: Vec<&str> = FUNCTIONS
+            .iter()
+            .filter(|f| !matches!(f.category, Category::MonteCarlo | Category::ForgeNative))
+            .map(|f| f.name)
+            .filter(|n| !own.contains(n))
+            .filter(|n| !FormulaTranslator::is_excel_function(n))
+            .collect();
+        assert!(missing.is_empty(), "not known to the export: {missing:?}");
     }
 
     #[test]

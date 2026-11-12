@@ -133,7 +133,7 @@ Forge's results are checked against other engines. None of the checks is complet
 | Check | What it covers | Latest result (2026-11-12) |
 | --- | --- | --- |
 | Unit tests (this repo) | 1,768 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
-| [forge-e2e-gnumeric](validation/gnumeric) | 1,446 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 70 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,445 pass, 1 skipped |
+| [forge-e2e-gnumeric](validation/gnumeric) | 1,460 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 70 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,445 pass, 1 skipped |
 | [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped |
 
 Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
@@ -309,7 +309,7 @@ For Claude Desktop or MCP-compatible hosts, Forge exposes 20 tools via Model Con
 | Tool | What It Does |
 |------|--------------|
 | `forge_schema` | Get JSON Schema for Forge YAML model formats |
-| `forge_functions` | List all 169 supported functions with descriptions |
+| `forge_functions` | List all 176 supported functions with descriptions |
 | `forge_examples` | Get runnable YAML examples for all capabilities |
 
 All tools accept inline YAML via `content` parameter — no host filesystem access required. Works with sandboxed clients (Claude.ai, Cursor, containers).
@@ -318,9 +318,9 @@ See [docs/MCP.md](docs/MCP.md) for the full integration guide.
 
 ---
 
-## 169 Functions
+## 176 Functions
 
-169 functions: most are Excel-compatible, plus 7 Excel doesn't have: 6 for FP&A, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is.
+176 functions: most are Excel-compatible, plus 7 Excel doesn't have: 6 for FP&A, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is.
 
 | Category | Examples |
 |----------|----------|
@@ -330,7 +330,7 @@ See [docs/MCP.md](docs/MCP.md) for the full integration guide.
 | **Math** | ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER |
 | **Logic** | IF, AND, OR, LET, SWITCH, INDIRECT, LAMBDA |
 | **Lookup** | MATCH, INDEX, VLOOKUP, HLOOKUP, XLOOKUP, CHOOSE |
-| **Statistical** | MEDIAN, VAR, STDEV, PERCENTILE, QUARTILE, CORREL |
+| **Statistical** | MEDIAN, MODE, VAR, STDEV, PERCENTILE, QUARTILE, CORREL |
 | **Text** | CONCAT, TRIM, UPPER, LOWER, LEN, MID |
 | **Aggregation** | SUM, AVERAGE, MIN, MAX, COUNT |
 | **Array** | UNIQUE, COUNTUNIQUE, FILTER, SORT |
@@ -483,7 +483,7 @@ forge mcp                           # Start MCP server
 forge serve --port 8080             # Start REST API
 
 # Reference
-forge functions                     # List all 169 functions
+forge functions                     # List all 176 functions
 forge schema v5                     # Show JSON schema
 forge examples monte-carlo          # Show example YAML
 ```
@@ -547,7 +547,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 | Metric | Value |
 | --- | --- |
 | **Unit tests** | 1,768 tests and 2 doctests |
-| **Functions** | 169, of which 6 are FP&A-native and one (`PREV`) reads the row above |
+| **Functions** | 176, of which 6 are FP&A-native and one (`PREV`) reads the row above |
 | **Lints** | clippy pedantic is enabled and CI fails on warnings |
 | **External validation** | Partial; see [Validation status](#validation-status) |
 
@@ -555,7 +555,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 
 ```text
 forge                         validation/ (same repository, ADR-057)
-├── 1,768 tests               ├── gnumeric: 1,446 formula specs
+├── 1,768 tests               ├── gnumeric: 1,460 formula specs
 ├── #[cfg(test)] modules      └── r: 136 function checks, 77 analytics specs
 └── 2 doctests
 ```

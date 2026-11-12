@@ -1,4 +1,4 @@
-//! Statistical functions: VAR, VARP, STDEV, STDEVP, PERCENTILE, QUARTILE, CORREL, LARGE, SMALL, RANK
+//! Statistical functions: VAR, VARP, STDEV, STDEVP, MODE, PERCENTILE, QUARTILE, CORREL, LARGE, SMALL, RANK
 
 use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
@@ -59,6 +59,24 @@ pub fn try_evaluate(
             let sum_sq: f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
             let variance = sum_sq / values.len() as f64;
             Value::Number(variance.sqrt())
+        },
+
+        "MODE" | "MODE.SNGL" => {
+            let values = collect_numeric_values(args, ctx)?;
+            // The most frequent value; the first one met when several tie.
+            let mut best: Option<(f64, usize)> = None;
+            for &v in &values {
+                // Equal means exactly equal, as in Excel.
+                #[allow(clippy::float_cmp)]
+                let count = values.iter().filter(|&&w| w == v).count();
+                if count > 1 && best.is_none_or(|(_, c)| count > c) {
+                    best = Some((v, count));
+                }
+            }
+            match best {
+                Some((v, _)) => Value::Number(v),
+                None => return Err(EvalError::new("MODE: no value occurs twice (#N/A)")),
+            }
         },
 
         "PERCENTILE" => {
@@ -329,6 +347,26 @@ mod tests {
         // STDEVP should work same as STDEV.P
         let stdevp_result = eval("STDEVP(2, 4, 4, 4, 5, 5, 7, 9)", &ctx).unwrap();
         assert!(matches!(stdevp_result, Value::Number(n) if (n - 2.0).abs() < 0.01));
+    }
+
+    #[test]
+    fn test_mode() {
+        let ctx = EvalContext::new();
+        assert_eq!(
+            eval("MODE(2, 4, 4, 4, 5, 5, 7, 9)", &ctx).unwrap(),
+            Value::Number(4.0)
+        );
+        // A tie goes to the value met first, as in Excel.
+        assert_eq!(eval("MODE(5, 1, 1, 5)", &ctx).unwrap(), Value::Number(5.0));
+        assert_eq!(
+            eval("MODE.SNGL(3, 3, 1)", &ctx).unwrap(),
+            Value::Number(3.0)
+        );
+        // No value twice: an error, as Excel's #N/A.
+        assert!(eval("MODE(1, 2, 3)", &ctx)
+            .unwrap_err()
+            .to_string()
+            .contains("#N/A"));
     }
 
     #[test]

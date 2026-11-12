@@ -1,6 +1,8 @@
 //! Logarithmic and exponential functions: EXP, LN, LOG10, LOG
 
-use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
+use super::super::{
+    evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
+};
 
 /// Evaluate EXP function - returns e raised to power of x
 pub fn eval_exp(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -35,16 +37,28 @@ pub fn eval_log10(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
     Ok(Value::Number(val.log10()))
 }
 
-/// Evaluate LOG function - returns base-10 logarithm
+/// Evaluate LOG function - logarithm in a base, 10 when there is none, as in Excel
 pub fn eval_log(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
-    require_args("LOG", args, 1)?;
+    require_args_range("LOG", args, 1, 2)?;
     let val = evaluate(&args[0], ctx)?
         .as_number()
         .ok_or_else(|| EvalError::new("LOG requires a number"))?;
     if val <= 0.0 {
         return Err(EvalError::new("LOG of non-positive number"));
     }
-    Ok(Value::Number(val.log10()))
+    if args.len() == 1 {
+        return Ok(Value::Number(val.log10()));
+    }
+    let base = evaluate(&args[1], ctx)?
+        .as_number()
+        .ok_or_else(|| EvalError::new("LOG base must be a number"))?;
+    if base <= 0.0 {
+        return Err(EvalError::new("LOG base must be positive"));
+    }
+    if (base - 1.0).abs() < f64::EPSILON {
+        return Err(EvalError::new("LOG base 1 divides by zero"));
+    }
+    Ok(Value::Number(val.log(base)))
 }
 
 #[cfg(test)]
@@ -67,6 +81,32 @@ mod tests {
         assert_eq!(eval("LOG10(100)", &ctx).unwrap(), Value::Number(2.0));
         assert_eq!(eval("LOG10(1)", &ctx).unwrap(), Value::Number(0.0));
         assert_eq!(eval("LOG10(10)", &ctx).unwrap(), Value::Number(1.0));
+    }
+
+    #[test]
+    fn test_log_with_and_without_base() {
+        let ctx = EvalContext::new();
+        assert_eq!(eval("LOG(100)", &ctx).unwrap(), Value::Number(2.0));
+        assert_eq!(eval("LOG(100, 10)", &ctx).unwrap(), Value::Number(2.0));
+        assert!(
+            matches!(eval("LOG(8, 2)", &ctx).unwrap(), Value::Number(n) if (n - 3.0).abs() < 1e-12)
+        );
+        assert!(
+            matches!(eval("LOG(10, 0.1)", &ctx).unwrap(), Value::Number(n) if (n + 1.0).abs() < 1e-12)
+        );
+        assert!(eval("LOG(8, 1)", &ctx)
+            .unwrap_err()
+            .to_string()
+            .contains("divides by zero"));
+        assert!(eval("LOG(8, 0)", &ctx)
+            .unwrap_err()
+            .to_string()
+            .contains("positive"));
+        assert!(eval("LOG(0, 2)", &ctx)
+            .unwrap_err()
+            .to_string()
+            .contains("non-positive"));
+        assert!(eval("LOG(1, 2, 3)", &ctx).is_err());
     }
 
     #[test]

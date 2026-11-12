@@ -30,7 +30,7 @@
 //!
 //! ### Discovery Tools
 //! - `forge_schema` - JSON Schema for model validation
-//! - `forge_functions` - List 169 Excel-compatible functions
+//! - `forge_functions` - List 176 Excel-compatible functions
 //! - `forge_examples` - Runnable YAML examples
 //!
 //! ## Usage
