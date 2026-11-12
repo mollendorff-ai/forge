@@ -98,3 +98,107 @@ export function apply(text, s) {
   const next = text.slice(0, s.start) + s.insert + text.slice(s.end);
   return { text: next, caret: s.start + s.insert.length };
 }
+
+// ---------- keys of the model format in the YAML editor (roadmap S12) ----------
+// The keys come from the model format's JSON Schema as Forge returns it (the
+// `schema` tool), not from a list in the page. The schema describes a model
+// with references, alternatives and if/then/else; a key is offered when it is
+// a property of any schema the position in the file can be read as.
+
+// The schemas a node can be: itself and everything it refers to or combines
+function expand(node, defs, out = [], seen = new Set()) {
+  if (!node || typeof node !== "object" || seen.has(node)) return out;
+  seen.add(node);
+  out.push(node);
+  if (node.$ref) {
+    const name = String(node.$ref).replace(/^#\/definitions\//, "");
+    expand(defs[name], defs, out, seen);
+  }
+  for (const k of ["allOf", "anyOf", "oneOf"]) for (const n of node[k] || []) expand(n, defs, out, seen);
+  for (const k of ["then", "else"]) expand(node[k], defs, out, seen);
+  return out;
+}
+// Where a position in a file is, as the names of the keys above it, with "[]"
+// for a list item; null when the caret is not at a key: after a colon, in a
+// comment, or in a list that is not at the start of an item.
+export function keyContext(text, caret) {
+  const lines = text.slice(0, caret).split("\n");
+  const here = lines.pop();
+  const m = /^(\s*)(-\s+)?([A-Za-z_][A-Za-z0-9_]*)$/.exec(here);
+  if (!m) return null;
+  const indent = m[1].length, dash = !!m[2];
+  const chain = dash ? ["[]"] : [];
+  // `limit`: a line is above us when it is indented less; `column`: where the
+  // keys of the mapping we are in start
+  let limit = indent, column = indent + (dash ? m[2].length : 0);
+  for (let j = lines.length - 1; j >= 0; j--) {
+    const l = lines[j];
+    if (!l.trim() || l.trim().startsWith("#")) continue;
+    const lm = /^(\s*)(-\s+)?(?:"([^"]+)"|'([^']+)'|([^\s:#"'][^:#]*?))\s*:(?:\s|$)/.exec(l);
+    const ind = l.match(/^\s*/)[0].length;
+    const lcol = ind + (lm && lm[2] ? lm[2].length : 0);
+    if (!dash && lm && lm[2] && lcol === column && ind < column) {
+      // the first key of the list item we are in
+      chain.unshift("[]");
+      limit = ind; column = ind;
+      continue;
+    }
+    if (ind < limit) {
+      if (!lm) { if (/^\s*-\s/.test(l)) { limit = ind; continue; } return null; }
+      chain.unshift(lm[3] ?? lm[4] ?? lm[5]);
+      limit = ind; column = ind;
+      if (ind === 0) break;
+    }
+  }
+  return { chain, prefix: m[3], start: caret - m[3].length };
+}
+// The schema for a model: `answer` is the schema tool's text, parsed once
+export function schemaOf(answer) {
+  const root = typeof answer === "string" ? JSON.parse(answer) : answer;
+  return { root, defs: root.definitions || {} };
+}
+const typeOf = (nodes) => {
+  const types = new Set(nodes.flatMap((n) => [].concat(n.type || [])));
+  return types.has("object") || types.has("array") ? "block" : "scalar";
+};
+// The schemas for the position named by `chain`
+function nodesAt(schema, chain) {
+  let nodes = expand(schema.root, schema.defs);
+  for (const seg of chain) {
+    const next = [];
+    for (const n of nodes) {
+      if (seg === "[]") { if (n.items) expand(n.items, schema.defs, next); continue; }
+      if (n.properties && n.properties[seg]) expand(n.properties[seg], schema.defs, next);
+      else if (n.additionalProperties && typeof n.additionalProperties === "object") expand(n.additionalProperties, schema.defs, next);
+      if (n.patternProperties) for (const v of Object.values(n.patternProperties)) expand(v, schema.defs, next);
+    }
+    nodes = next;
+  }
+  return nodes;
+}
+// Every key the schema names anywhere (for the test)
+export function allKeys(schema) {
+  const keys = new Set(Object.keys(schema.root.properties || {}));
+  for (const d of Object.values(schema.defs)) for (const n of expand(d, schema.defs)) Object.keys(n.properties || {}).forEach((k) => keys.add(k));
+  return keys;
+}
+// What to offer for the key being typed at `caret`: {label, insert, start,
+// end, kind: "key", title}
+export function suggestKeys(schema, text, caret) {
+  if (!schema) return [];
+  const at = keyContext(text, caret);
+  if (!at) return [];
+  const nodes = nodesAt(schema, at.chain);
+  const found = new Map();
+  for (const n of nodes) {
+    for (const [k, v] of Object.entries(n.properties || {})) {
+      if (!k.toLowerCase().startsWith(at.prefix.toLowerCase()) || found.has(k)) continue;
+      found.set(k, { description: v.description || (n.description || ""), type: typeOf(expand(v, schema.defs)) });
+    }
+  }
+  const siblings = new Set(text.split("\n").map((l) => /^\s*(?:-\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*:/.exec(l)).filter(Boolean).map((m) => m[1]));
+  return [...found.entries()]
+    .sort((a, b) => byLength(a[0], b[0]))
+    .slice(0, 12)
+    .map(([k, v]) => ({ label: `${k}:`, insert: v.type === "block" ? `${k}:` : `${k}: `, start: at.start, end: caret, kind: "key", title: v.description, used: siblings.has(k) }));
+}
