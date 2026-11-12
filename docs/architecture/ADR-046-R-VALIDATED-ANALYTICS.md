@@ -1,5 +1,7 @@
 # ADR-046: R-Validated Analytics E2E Tests
 
+> **Note (2026-11-12):** The suite is in this repository, `validation/r` (ADR-057).
+
 > **Note (2026-11-08):** Implemented in forge-e2e-r with boot, data.tree, mc2d, derivmkts, bnlearn and base R; RQuantLib, tornado and sensitivity are not used, and there is no goal-seek spec.
 
 **Status:** Accepted

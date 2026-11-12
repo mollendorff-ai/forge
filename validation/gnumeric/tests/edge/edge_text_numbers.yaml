@@ -1,0 +1,70 @@
+# Text that looks like a number, and words (Forge roadmap T1-TEXT-NUMBERS,
+# ADR-054 decision 6).
+#
+# codes.s is text with digits in it. Forge reads "5" as 5 in a column and
+# Excel reads text there; Excel also turns more text into numbers than Forge
+# does ("5%", "1,200", "2026-01"). forge export writes a formula that reads a
+# number from such a column as Forge's values, so those are not cases here
+# (the engines would have nothing to calculate; Forge's own tests hold them).
+# These are the formulas that read the same in both and stay live: text read
+# as text, and words read as numbers (nothing, in both).
+#
+# Expected values, from the same calculation in Python:
+#   s        "5"      "apple"        "2"     "x"
+#   region   north    south          east    west
+#   n        1        2              3       4
+#   size     1        5              1       1      sum 8
+#   is_five  1        0              0       0      sum 1
+#   label    north-5  south-apple    east-2  west-x
+
+_forge_version: "5.0.0"
+
+codes:
+  s: ["5", "apple", "2", "x"]
+  region: ["north", "south", "east", "west"]
+  n: [1, 2, 3, 4]
+  size: "=LEN(s)"
+  is_five: "=IF(s = \"5\", 1, 0)"
+  label: "=region & \"-\" & s"
+
+assumptions:
+  test_text_digits_length:
+    value: null
+    formula: '=SUM(codes.size)'
+    expected: 8
+  test_text_digits_equal_to_text:
+    value: null
+    formula: '=SUM(codes.is_five)'
+    expected: 1
+  test_text_digits_criterion_is_text:
+    value: null
+    formula: '=COUNTIF(codes.s, "apple")'
+    expected: 1
+  test_text_digits_counta:
+    value: null
+    formula: '=COUNTA(codes.s)'
+    expected: 4
+  test_text_digits_joined:
+    value: null
+    formula: '=LEN(INDEX(codes.label, 2))'
+    expected: 11
+  test_text_digits_match_as_text:
+    value: null
+    formula: '=MATCH("2", codes.s, 0)'
+    expected: 3
+  test_text_digits_sumproduct_of_a_test:
+    value: null
+    formula: '=SUMPRODUCT((codes.s = "5") * codes.n)'
+    expected: 1
+  test_words_sum_is_zero:
+    value: null
+    formula: '=SUM(codes.region)'
+    expected: 0
+  test_words_count_is_zero:
+    value: null
+    formula: '=COUNT(codes.region)'
+    expected: 0
+  test_words_sumproduct_is_zero:
+    value: null
+    formula: '=SUMPRODUCT(codes.region, codes.n)'
+    expected: 0

@@ -1,0 +1,649 @@
+# E2E Aggregation Function Tests
+# Complete coverage of all 14 aggregation functions
+# SUM, AVERAGE, MIN, MAX, COUNT, AVG, COUNTA, COUNTUNIQUE, PRODUCT, LARGE, SMALL, MAXIFS, MINIFS, RANK.EQ
+
+_forge_version: "5.0.0"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TEST DATA TABLES
+# ═══════════════════════════════════════════════════════════════════════════
+
+# General aggregation data
+agg_data:
+  values: [10, 50, 30, 70, 20, 90, 40, 60, 80]
+  mixed: [5, 10, 15, 20, 25]
+  small_set: [3, 1, 4, 1, 5, 9, 2, 6]
+
+# For ranking tests
+rank_data:
+  scores: [85, 90, 78, 92, 88, 85, 95]
+  simple: [10, 20, 30, 40, 50]
+
+# For conditional aggregation (MAXIFS/MINIFS)
+sales_data:
+  amount: [100, 200, 150, 300, 250, 180, 220, 400, 120, 350]
+  region: ["East", "West", "East", "West", "East", "West", "East", "West", "East", "West"]
+  quarter: [1, 1, 1, 1, 2, 2, 2, 2, 2, 2]
+  product: ["A", "A", "B", "B", "A", "A", "B", "B", "A", "B"]
+
+# For unique counting
+unique_data:
+  values: [10, 20, 10, 30, 20, 40, 10, 50, 30]
+  letters: ["A", "B", "A", "C", "B", "A", "D"]
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SUM - Sum of values (Demo function)
+  # ═══════════════════════════════════════════════════════════════════════════
+  sum_basic:
+    value: null
+    formula: "=SUM(1, 2, 3, 4, 5)"
+    expected: 15
+
+  sum_single:
+    value: null
+    formula: "=SUM(42)"
+    expected: 42
+
+  sum_negative:
+    value: null
+    formula: "=SUM(-10, -5, 0, 5, 10)"
+    expected: 0
+
+  sum_decimals:
+    value: null
+    formula: "=SUM(1.5, 2.5, 3.0, 2.5)"
+    expected: 9.5
+
+  sum_zeros:
+    value: null
+    formula: "=SUM(0, 0, 0, 0)"
+    expected: 0
+
+  sum_large_numbers:
+    value: null
+    formula: "=SUM(1000, 2000, 3000)"
+    expected: 6000
+
+  sum_mixed_signs:
+    value: null
+    formula: "=SUM(100, -50, 200, -75, 25)"
+    expected: 200
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AVERAGE - Mean of values (Demo function)
+  # ═══════════════════════════════════════════════════════════════════════════
+  average_basic:
+    value: null
+    formula: "=AVERAGE(10, 20, 30, 40, 50)"
+    expected: 30
+
+  average_single:
+    value: null
+    formula: "=AVERAGE(42)"
+    expected: 42
+
+  average_decimals:
+    value: null
+    formula: "=AVERAGE(1, 2, 3, 4)"
+    expected: 2.5
+
+  average_negative:
+    value: null
+    formula: "=AVERAGE(-10, 10, -20, 20)"
+    expected: 0
+
+  average_mixed:
+    value: null
+    formula: "=AVERAGE(5, 10, 15, 20, 25, 30)"
+    expected: 17.5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AVG - Alias for AVERAGE
+  # ═══════════════════════════════════════════════════════════════════════════
+  avg_basic:
+    value: null
+    formula: "=AVG(5, 10, 15, 20)"
+    expected: 12.5
+
+  avg_single:
+    value: null
+    formula: "=AVG(100)"
+    expected: 100
+
+  avg_negative:
+    value: null
+    formula: "=AVG(-5, -10, -15)"
+    expected: -10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MIN - Minimum value (Demo function)
+  # ═══════════════════════════════════════════════════════════════════════════
+  min_basic:
+    value: null
+    formula: "=MIN(5, 3, 8, 1, 9)"
+    expected: 1
+
+  min_single:
+    value: null
+    formula: "=MIN(42)"
+    expected: 42
+
+  min_negative:
+    value: null
+    formula: "=MIN(-5, 0, 5, -10, 3)"
+    expected: -10
+
+  min_decimals:
+    value: null
+    formula: "=MIN(1.5, 0.5, 2.5, 0.1)"
+    expected: 0.1
+
+  min_same:
+    value: null
+    formula: "=MIN(7, 7, 7, 7)"
+    expected: 7
+
+  min_all_negative:
+    value: null
+    formula: "=MIN(-1, -2, -3, -4, -5)"
+    expected: -5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MAX - Maximum value (Demo function)
+  # ═══════════════════════════════════════════════════════════════════════════
+  max_basic:
+    value: null
+    formula: "=MAX(5, 3, 8, 1, 9)"
+    expected: 9
+
+  max_single:
+    value: null
+    formula: "=MAX(42)"
+    expected: 42
+
+  max_negative:
+    value: null
+    formula: "=MAX(-5, -10, -1, -20)"
+    expected: -1
+
+  max_decimals:
+    value: null
+    formula: "=MAX(1.5, 0.5, 2.5, 3.7)"
+    expected: 3.7
+
+  max_same:
+    value: null
+    formula: "=MAX(7, 7, 7, 7)"
+    expected: 7
+
+  max_mixed:
+    value: null
+    formula: "=MAX(-100, 0, 50, -50, 100)"
+    expected: 100
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COUNT - Count numeric values (Demo function)
+  # ═══════════════════════════════════════════════════════════════════════════
+  count_basic:
+    value: null
+    formula: "=COUNT(1, 2, 3, 4, 5)"
+    expected: 5
+
+  count_single:
+    value: null
+    formula: "=COUNT(42)"
+    expected: 1
+
+  count_mixed:
+    value: null
+    formula: "=COUNT(1, \"text\", 3, \"more\", 5)"
+    expected: 3
+
+  count_all_numbers:
+    value: null
+    formula: "=COUNT(10, 20, 30, 40, 50, 60, 70, 80)"
+    expected: 8
+
+  count_zeros:
+    value: null
+    formula: "=COUNT(0, 0, 0)"
+    expected: 3
+
+  count_negative:
+    value: null
+    formula: "=COUNT(-1, -2, -3, -4)"
+    expected: 4
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COUNTA - Count non-empty values
+  # ═══════════════════════════════════════════════════════════════════════════
+  counta_all:
+    value: null
+    formula: "=COUNTA(1, \"text\", 3, \"more\", 5)"
+    expected: 5
+
+  counta_text_only:
+    value: null
+    formula: "=COUNTA(\"apple\", \"banana\", \"cherry\")"
+    expected: 3
+
+  counta_numbers:
+    value: null
+    formula: "=COUNTA(1, 2, 3, 4, 5)"
+    expected: 5
+
+  counta_mixed:
+    value: null
+    formula: "=COUNTA(10, \"hello\", 20, \"world\", 30)"
+    expected: 5
+
+  counta_zeros:
+    value: null
+    formula: "=COUNTA(0, 0, 0)"
+    expected: 3
+
+  counta_single:
+    value: null
+    formula: "=COUNTA(\"test\")"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COUNTUNIQUE - Count unique values
+  # unique_data.values: [10, 20, 10, 30, 20, 40, 10, 50, 30] => 5 unique (10,20,30,40,50)
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COUNTUNIQUE - Count unique values
+  # Note: forge COUNTUNIQUE takes a single array/range argument
+  countunique_basic:
+    value: null
+    formula: "=COUNTUNIQUE(unique_data.values)"
+    expected: 5
+    libreoffice: "Excel has no COUNTUNIQUE; forge export writes UNIQUE (numbers) or MMULT(EXACT(...)) in SUMPRODUCT (text), which Gnumeric 1.12 cannot work out"
+
+  countunique_small_set:
+    value: null
+    formula: "=COUNTUNIQUE(agg_data.small_set)"
+    expected: 7
+    libreoffice: "Excel has no COUNTUNIQUE; forge export writes UNIQUE (numbers) or MMULT(EXACT(...)) in SUMPRODUCT (text), which Gnumeric 1.12 cannot work out"
+
+  countunique_from_mixed:
+    value: null
+    formula: "=COUNTUNIQUE(agg_data.mixed)"
+    expected: 5
+    libreoffice: "Excel has no COUNTUNIQUE; forge export writes UNIQUE (numbers) or MMULT(EXACT(...)) in SUMPRODUCT (text), which Gnumeric 1.12 cannot work out"
+
+  countunique_from_values:
+    value: null
+    formula: "=COUNTUNIQUE(agg_data.values)"
+    expected: 9
+    libreoffice: "Excel has no COUNTUNIQUE; forge export writes UNIQUE (numbers) or MMULT(EXACT(...)) in SUMPRODUCT (text), which Gnumeric 1.12 cannot work out"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PRODUCT - Product of values
+  # ═══════════════════════════════════════════════════════════════════════════
+  product_basic:
+    value: null
+    formula: "=PRODUCT(2, 3, 4)"
+    expected: 24
+
+  product_single:
+    value: null
+    formula: "=PRODUCT(5)"
+    expected: 5
+
+  product_with_one:
+    value: null
+    formula: "=PRODUCT(1, 1, 1, 5)"
+    expected: 5
+
+  product_decimals:
+    value: null
+    formula: "=PRODUCT(1.5, 2, 4)"
+    expected: 12
+
+  product_negative:
+    value: null
+    formula: "=PRODUCT(-2, 3, 4)"
+    expected: -24
+
+  product_two_negatives:
+    value: null
+    formula: "=PRODUCT(-2, -3, 4)"
+    expected: 24
+
+  product_with_zero:
+    value: null
+    formula: "=PRODUCT(5, 0, 10)"
+    expected: 0
+
+  product_small:
+    value: null
+    formula: "=PRODUCT(0.5, 0.5, 4)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LARGE - Nth largest value
+  # agg_data.values: [10, 50, 30, 70, 20, 90, 40, 60, 80]
+  # Sorted descending: [90, 80, 70, 60, 50, 40, 30, 20, 10]
+  # ═══════════════════════════════════════════════════════════════════════════
+  large_first:
+    value: null
+    formula: "=LARGE(agg_data.values, 1)"
+    expected: 90
+
+  large_second:
+    value: null
+    formula: "=LARGE(agg_data.values, 2)"
+    expected: 80
+
+  large_third:
+    value: null
+    formula: "=LARGE(agg_data.values, 3)"
+    expected: 70
+
+  large_fifth:
+    value: null
+    formula: "=LARGE(agg_data.values, 5)"
+    expected: 50
+
+  large_last:
+    value: null
+    formula: "=LARGE(agg_data.values, 9)"
+    expected: 10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SMALL - Nth smallest value
+  # agg_data.values: [10, 50, 30, 70, 20, 90, 40, 60, 80]
+  # Sorted ascending: [10, 20, 30, 40, 50, 60, 70, 80, 90]
+  # ═══════════════════════════════════════════════════════════════════════════
+  small_first:
+    value: null
+    formula: "=SMALL(agg_data.values, 1)"
+    expected: 10
+
+  small_second:
+    value: null
+    formula: "=SMALL(agg_data.values, 2)"
+    expected: 20
+
+  small_third:
+    value: null
+    formula: "=SMALL(agg_data.values, 3)"
+    expected: 30
+
+  small_fifth:
+    value: null
+    formula: "=SMALL(agg_data.values, 5)"
+    expected: 50
+
+  small_last:
+    value: null
+    formula: "=SMALL(agg_data.values, 9)"
+    expected: 90
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RANK.EQ - Rank of value in array
+  # rank_data.scores: [85, 90, 78, 92, 88, 85, 95]
+  # Descending ranks: 95=1, 92=2, 90=3, 88=4, 85=5 (tied), 78=7
+  # Ascending ranks: 78=1, 85=2 (tied), 88=4, 90=5, 92=6, 95=7
+  # ═══════════════════════════════════════════════════════════════════════════
+  rank_eq_highest_desc:
+    value: null
+    formula: "=RANK.EQ(95, rank_data.scores)"
+    expected: 1
+
+  rank_eq_second_desc:
+    value: null
+    formula: "=RANK.EQ(92, rank_data.scores, 0)"
+    expected: 2
+
+  rank_eq_third_desc:
+    value: null
+    formula: "=RANK.EQ(90, rank_data.scores)"
+    expected: 3
+
+  rank_eq_tied_desc:
+    value: null
+    formula: "=RANK.EQ(85, rank_data.scores, 0)"
+    expected: 5
+
+  rank_eq_lowest_desc:
+    value: null
+    formula: "=RANK.EQ(78, rank_data.scores)"
+    expected: 7
+
+  rank_eq_lowest_asc:
+    value: null
+    formula: "=RANK.EQ(78, rank_data.scores, 1)"
+    expected: 1
+
+  rank_eq_tied_asc:
+    value: null
+    formula: "=RANK.EQ(85, rank_data.scores, 1)"
+    expected: 2
+
+  rank_eq_highest_asc:
+    value: null
+    formula: "=RANK.EQ(95, rank_data.scores, 1)"
+    expected: 7
+
+  # Test with simpler data
+  rank_eq_simple_max:
+    value: null
+    formula: "=RANK.EQ(50, rank_data.simple, 0)"
+    expected: 1
+
+  rank_eq_simple_min:
+    value: null
+    formula: "=RANK.EQ(10, rank_data.simple, 0)"
+    expected: 5
+
+  rank_eq_simple_middle:
+    value: null
+    formula: "=RANK.EQ(30, rank_data.simple)"
+    expected: 3
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RANK - Alias for RANK.EQ
+  # ═══════════════════════════════════════════════════════════════════════════
+  rank_alias_desc:
+    value: null
+    formula: "=RANK(92, rank_data.scores)"
+    expected: 2
+
+  rank_alias_asc:
+    value: null
+    formula: "=RANK(78, rank_data.scores, 1)"
+    expected: 1
+
+  rank_alias_tied:
+    value: null
+    formula: "=RANK(85, rank_data.scores, 0)"
+    expected: 5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MAXIFS - Max with conditions
+  # sales_data:
+  #   amount: [100, 200, 150, 300, 250, 180, 220, 400, 120, 350]
+  #   region: [East, West, East, West, East, West, East, West, East, West]
+  #   quarter: [1, 1, 1, 1, 2, 2, 2, 2, 2, 2]
+  #   product: [A, A, B, B, A, A, B, B, A, B]
+  # ═══════════════════════════════════════════════════════════════════════════
+  maxifs_region_east:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.region, \"East\")"
+    expected: 250
+
+  maxifs_region_west:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.region, \"West\")"
+    expected: 400
+
+  maxifs_q1:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.quarter, 1)"
+    expected: 300
+
+  maxifs_q2:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.quarter, 2)"
+    expected: 400
+
+  maxifs_east_q1:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.region, \"East\", sales_data.quarter, 1)"
+    expected: 150
+
+  maxifs_east_q2:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.region, \"East\", sales_data.quarter, 2)"
+    expected: 250
+
+  maxifs_west_q2:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.region, \"West\", sales_data.quarter, 2)"
+    expected: 400
+
+  maxifs_product_a:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.product, \"A\")"
+    expected: 250  # Product A: max(100,200,250,180,120) = 250
+
+  maxifs_product_b:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.product, \"B\")"
+    expected: 400
+
+  maxifs_east_product_a:
+    value: null
+    formula: "=MAXIFS(sales_data.amount, sales_data.region, \"East\", sales_data.product, \"A\")"
+    expected: 250
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MINIFS - Min with conditions
+  # ═══════════════════════════════════════════════════════════════════════════
+  minifs_region_east:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.region, \"East\")"
+    expected: 100
+
+  minifs_region_west:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.region, \"West\")"
+    expected: 180
+
+  minifs_q1:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.quarter, 1)"
+    expected: 100
+
+  minifs_q2:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.quarter, 2)"
+    expected: 120
+
+  minifs_east_q1:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.region, \"East\", sales_data.quarter, 1)"
+    expected: 100
+
+  minifs_east_q2:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.region, \"East\", sales_data.quarter, 2)"
+    expected: 120
+
+  minifs_west_q1:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.region, \"West\", sales_data.quarter, 1)"
+    expected: 200
+
+  minifs_west_q2:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.region, \"West\", sales_data.quarter, 2)"
+    expected: 180
+
+  minifs_product_a:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.product, \"A\")"
+    expected: 100
+
+  minifs_product_b:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.product, \"B\")"
+    expected: 150
+
+  minifs_west_product_b:
+    value: null
+    formula: "=MINIFS(sales_data.amount, sales_data.region, \"West\", sales_data.product, \"B\")"
+    expected: 300
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMBINED OPERATIONS - Testing functions together
+  # ═══════════════════════════════════════════════════════════════════════════
+  combined_sum_with_round:
+    value: null
+    formula: "=ROUND(SUM(1.111, 2.222, 3.333), 2)"
+    expected: 6.67
+
+  combined_average_with_round:
+    value: null
+    formula: "=ROUND(AVERAGE(1, 2, 3, 4, 5), 1)"
+    expected: 3.0
+
+  combined_min_max_diff:
+    value: null
+    formula: "=MAX(1, 5, 9) - MIN(1, 5, 9)"
+    expected: 8
+
+  combined_sum_product:
+    value: null
+    formula: "=SUM(PRODUCT(2, 3), PRODUCT(4, 5))"
+    expected: 26
+
+  combined_avg_min_max:
+    value: null
+    formula: "=AVERAGE(MIN(10, 20, 30), MAX(10, 20, 30))"
+    expected: 20
+
+  combined_count_counta:
+    value: null
+    formula: "=COUNT(1, \"a\", 2, \"b\", 3) + COUNTA(1, \"a\", 2, \"b\", 3)"
+    expected: 8
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # EDGE CASES
+  # ═══════════════════════════════════════════════════════════════════════════
+  edge_sum_single_zero:
+    value: null
+    formula: "=SUM(0)"
+    expected: 0
+
+  edge_average_two_values:
+    value: null
+    formula: "=AVERAGE(5, 15)"
+    expected: 10
+
+  edge_product_one_value:
+    value: null
+    formula: "=PRODUCT(7)"
+    expected: 7
+
+  edge_min_max_same_value:
+    value: null
+    formula: "=MIN(5) + MAX(5)"
+    expected: 10
+
+  edge_count_single:
+    value: null
+    formula: "=COUNT(1)"
+    expected: 1
+
+  edge_large_equals_max:
+    value: null
+    formula: "=LARGE(agg_data.mixed, 1)"
+    expected: 25
+
+  edge_small_equals_min:
+    value: null
+    formula: "=SMALL(agg_data.mixed, 1)"
+    expected: 5

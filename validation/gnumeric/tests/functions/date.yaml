@@ -1,0 +1,601 @@
+# E2E Date Function Tests
+# Validated against Gnumeric
+# Note: TODAY and NOW are dynamic - we test via component extraction
+# Note: Dates use Excel serial date format (days since 1900-01-01)
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ══════════════════════════════════════════════════════════════════════════
+  # DATE - Create date from year/month/day (Demo)
+  # ══════════════════════════════════════════════════════════════════════════
+  test_date_basic:
+    value: null
+    formula: "=YEAR(DATE(2024, 6, 15))"
+    expected: 2024
+
+  test_date_jan_first:
+    value: null
+    formula: "=YEAR(DATE(2025, 1, 1))"
+    expected: 2025
+
+  test_date_dec_last:
+    value: null
+    formula: "=DAY(DATE(2024, 12, 31))"
+    expected: 31
+
+  test_date_leap_year:
+    value: null
+    formula: "=DAY(DATE(2024, 2, 29))"
+    expected: 29
+
+  test_date_year_2000:
+    value: null
+    formula: "=YEAR(DATE(2000, 1, 1))"
+    expected: 2000
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # YEAR - Extract year from date (Demo)
+  # ══════════════════════════════════════════════════════════════════════════
+  test_year_2024:
+    value: null
+    formula: "=YEAR(DATE(2024, 6, 15))"
+    expected: 2024
+
+  test_year_2025:
+    value: null
+    formula: "=YEAR(DATE(2025, 1, 1))"
+    expected: 2025
+
+  test_year_2023:
+    value: null
+    formula: "=YEAR(DATE(2023, 12, 31))"
+    expected: 2023
+
+  test_year_leap:
+    value: null
+    formula: "=YEAR(DATE(2024, 2, 29))"
+    expected: 2024
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # MONTH - Extract month from date (Demo)
+  # ══════════════════════════════════════════════════════════════════════════
+  test_month_january:
+    value: null
+    formula: "=MONTH(DATE(2024, 1, 15))"
+    expected: 1
+
+  test_month_june:
+    value: null
+    formula: "=MONTH(DATE(2024, 6, 15))"
+    expected: 6
+
+  test_month_december:
+    value: null
+    formula: "=MONTH(DATE(2024, 12, 25))"
+    expected: 12
+
+  test_month_february_leap:
+    value: null
+    formula: "=MONTH(DATE(2024, 2, 29))"
+    expected: 2
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # DAY - Extract day from date (Demo)
+  # ══════════════════════════════════════════════════════════════════════════
+  test_day_first:
+    value: null
+    formula: "=DAY(DATE(2024, 1, 1))"
+    expected: 1
+
+  test_day_15:
+    value: null
+    formula: "=DAY(DATE(2024, 6, 15))"
+    expected: 15
+
+  test_day_31:
+    value: null
+    formula: "=DAY(DATE(2024, 1, 31))"
+    expected: 31
+
+  test_day_leap:
+    value: null
+    formula: "=DAY(DATE(2024, 2, 29))"
+    expected: 29
+
+  test_day_mid_month:
+    value: null
+    formula: "=DAY(DATE(2024, 7, 20))"
+    expected: 20
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # TODAY - Current date (Demo)
+  # ══════════════════════════════════════════════════════════════════════════
+  # (YEAR(TODAY()) was expected to be 2026, so the case would fail from 2027)
+  test_today_year:
+    value: null
+    formula: "=IF(AND(YEAR(TODAY())>=2026, YEAR(TODAY())<=2100), 1, 0)"
+    expected: 1
+
+  test_today_is_a_date_serial:
+    value: null
+    formula: "=TODAY() - DATE(YEAR(TODAY()), MONTH(TODAY()), DAY(TODAY()))"
+    expected: 0
+
+  test_today_month_valid:
+    value: null
+    formula: "=IF(AND(MONTH(TODAY())>=1, MONTH(TODAY())<=12), 1, 0)"
+    expected: 1
+
+  test_today_day_valid:
+    value: null
+    formula: "=IF(AND(DAY(TODAY())>=1, DAY(TODAY())<=31), 1, 0)"
+    expected: 1
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # DATEDIF - Date difference (Demo)
+  # ══════════════════════════════════════════════════════════════════════════
+  test_datedif_days:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 12, 31), \"D\")"
+    expected: 365
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  test_datedif_months:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 15), DATE(2024, 6, 15), \"M\")"
+    expected: 5
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  test_datedif_years:
+    value: null
+    formula: "=DATEDIF(DATE(2020, 1, 1), DATE(2024, 1, 1), \"Y\")"
+    expected: 4
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  test_datedif_md:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 10), DATE(2024, 3, 25), \"MD\")"
+    expected: 15
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  test_datedif_ym:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 3, 1), DATE(2024, 8, 1), \"YM\")"
+    expected: 5
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  test_datedif_yd:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 3, 1), \"YD\")"
+    expected: 60
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  test_datedif_leap_year:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2025, 1, 1), \"D\")"
+    expected: 366
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # NOW - Current date and time
+  # Note: NOW() returns datetime string - not compatible with forge calculate
+  # Tests are via CLI: forge calculate with --now flag or programmatic API
+  # ══════════════════════════════════════════════════════════════════════════
+  # NOW tests removed - forge calculate parses NOW() as datetime string
+  # which cannot be used with date functions like YEAR(), MONTH(), DAY()
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # TIME - Create time from hours/minutes/seconds
+  # ══════════════════════════════════════════════════════════════════════════
+  test_time_midnight:
+    value: null
+    formula: "=TIME(0, 0, 0)"
+    expected: 0
+
+  test_time_noon:
+    value: null
+    formula: "=TIME(12, 0, 0)"
+    expected: 0.5
+
+  test_time_6pm:
+    value: null
+    formula: "=TIME(18, 0, 0)"
+    expected: 0.75
+
+  test_time_with_minutes:
+    value: null
+    formula: "=TIME(6, 30, 0)"
+    expected: 0.2708333333333333
+
+  test_time_with_seconds:
+    value: null
+    formula: "=ROUND(TIME(12, 30, 30) * 86400, 0)"
+    expected: 45030
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # HOUR - Extract hour from time
+  # ══════════════════════════════════════════════════════════════════════════
+  test_hour_midnight:
+    value: null
+    formula: "=HOUR(0)"
+    expected: 0
+
+  test_hour_noon:
+    value: null
+    formula: "=HOUR(0.5)"
+    expected: 12
+
+  test_hour_6pm:
+    value: null
+    formula: "=HOUR(0.75)"
+    expected: 18
+
+  test_hour_morning:
+    value: null
+    formula: "=HOUR(TIME(6, 30, 0))"
+    expected: 6
+
+  test_hour_evening:
+    value: null
+    formula: "=HOUR(TIME(23, 45, 0))"
+    expected: 23
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # MINUTE - Extract minute from time
+  # ══════════════════════════════════════════════════════════════════════════
+  test_minute_zero:
+    value: null
+    formula: "=MINUTE(0.5)"
+    expected: 0
+
+  test_minute_30:
+    value: null
+    formula: "=MINUTE(0.5208333333333333)"
+    expected: 30
+
+  test_minute_45:
+    value: null
+    formula: "=MINUTE(TIME(12, 45, 0))"
+    expected: 45
+
+  test_minute_15:
+    value: null
+    formula: "=MINUTE(TIME(6, 15, 30))"
+    expected: 15
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # SECOND - Extract second from time
+  # ══════════════════════════════════════════════════════════════════════════
+  test_second_zero:
+    value: null
+    formula: "=SECOND(0.5)"
+    expected: 0
+
+  test_second_30:
+    value: null
+    formula: "=SECOND(TIME(12, 30, 30))"
+    expected: 30
+
+  test_second_45:
+    value: null
+    formula: "=SECOND(TIME(6, 15, 45))"
+    expected: 45
+
+  test_second_59:
+    value: null
+    formula: "=SECOND(TIME(23, 59, 59))"
+    expected: 59
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # WEEKDAY - Day of week
+  # ══════════════════════════════════════════════════════════════════════════
+  test_weekday_monday:
+    value: null
+    formula: "=WEEKDAY(DATE(2024, 1, 1))"
+    expected: 2
+
+  test_weekday_sunday:
+    value: null
+    formula: "=WEEKDAY(DATE(2024, 1, 7))"
+    expected: 1
+
+  test_weekday_saturday:
+    value: null
+    formula: "=WEEKDAY(DATE(2024, 1, 6))"
+    expected: 7
+
+  test_weekday_type2_monday:
+    value: null
+    formula: "=WEEKDAY(DATE(2024, 1, 1), 2)"
+    expected: 1
+
+  test_weekday_type3_monday:
+    value: null
+    formula: "=WEEKDAY(DATE(2024, 1, 1), 3)"
+    expected: 0
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # DAYS - Days between dates
+  # ══════════════════════════════════════════════════════════════════════════
+  test_days_30:
+    value: null
+    formula: "=DAYS(DATE(2024, 1, 31), DATE(2024, 1, 1))"
+    expected: 30
+
+  test_days_leap_month:
+    value: null
+    formula: "=DAYS(DATE(2024, 3, 1), DATE(2024, 2, 1))"
+    expected: 29
+
+  test_days_normal_month:
+    value: null
+    formula: "=DAYS(DATE(2023, 3, 1), DATE(2023, 2, 1))"
+    expected: 28
+
+  test_days_year:
+    value: null
+    formula: "=DAYS(DATE(2025, 1, 1), DATE(2024, 1, 1))"
+    expected: 366
+
+  test_days_negative:
+    value: null
+    formula: "=DAYS(DATE(2024, 1, 1), DATE(2024, 1, 31))"
+    expected: -30
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # EDATE - Add months to date
+  # ══════════════════════════════════════════════════════════════════════════
+  test_edate_add_3:
+    value: null
+    formula: "=MONTH(EDATE(DATE(2024, 1, 15), 3))"
+    expected: 4
+
+  test_edate_add_6:
+    value: null
+    formula: "=MONTH(EDATE(DATE(2024, 3, 15), 6))"
+    expected: 9
+
+  test_edate_subtract_3:
+    value: null
+    formula: "=MONTH(EDATE(DATE(2024, 4, 15), -3))"
+    expected: 1
+
+  test_edate_year_wrap:
+    value: null
+    formula: "=YEAR(EDATE(DATE(2024, 11, 15), 3))"
+    expected: 2025
+
+  test_edate_leap_day:
+    value: null
+    formula: "=DAY(EDATE(DATE(2024, 1, 31), 1))"
+    expected: 29
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # EOMONTH - End of month
+  # ══════════════════════════════════════════════════════════════════════════
+  test_eomonth_jan:
+    value: null
+    formula: "=DAY(EOMONTH(DATE(2024, 1, 15), 0))"
+    expected: 31
+
+  test_eomonth_feb_leap:
+    value: null
+    formula: "=DAY(EOMONTH(DATE(2024, 2, 15), 0))"
+    expected: 29
+
+  test_eomonth_feb_normal:
+    value: null
+    formula: "=DAY(EOMONTH(DATE(2023, 2, 15), 0))"
+    expected: 28
+
+  test_eomonth_dec:
+    value: null
+    formula: "=DAY(EOMONTH(DATE(2024, 12, 15), 0))"
+    expected: 31
+
+  test_eomonth_next_month:
+    value: null
+    formula: "=MONTH(EOMONTH(DATE(2024, 1, 15), 1))"
+    expected: 2
+
+  test_eomonth_april:
+    value: null
+    formula: "=DAY(EOMONTH(DATE(2024, 4, 15), 0))"
+    expected: 30
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # NETWORKDAYS - Working days between dates
+  # ══════════════════════════════════════════════════════════════════════════
+  test_networkdays_week:
+    value: null
+    formula: "=NETWORKDAYS(DATE(2024, 1, 1), DATE(2024, 1, 5))"
+    expected: 5
+
+  test_networkdays_two_weeks:
+    value: null
+    formula: "=NETWORKDAYS(DATE(2024, 1, 1), DATE(2024, 1, 12))"
+    expected: 10
+
+  test_networkdays_with_weekend:
+    value: null
+    formula: "=NETWORKDAYS(DATE(2024, 6, 3), DATE(2024, 6, 14))"
+    expected: 10
+
+  test_networkdays_same_month:
+    value: null
+    formula: "=NETWORKDAYS(DATE(2024, 3, 1), DATE(2024, 3, 15))"
+    expected: 11
+
+  test_networkdays_one_day:
+    value: null
+    formula: "=NETWORKDAYS(DATE(2024, 1, 2), DATE(2024, 1, 2))"
+    expected: 1
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # WORKDAY - Add working days to date
+  # ══════════════════════════════════════════════════════════════════════════
+  test_workday_add_5:
+    value: null
+    formula: "=DAY(WORKDAY(DATE(2024, 1, 2), 5))"
+    expected: 9
+
+  test_workday_add_10:
+    value: null
+    formula: "=DAY(WORKDAY(DATE(2024, 1, 2), 10))"
+    expected: 16
+
+  test_workday_subtract_5:
+    value: null
+    formula: "=DAY(WORKDAY(DATE(2024, 1, 15), -5))"
+    expected: 8
+
+  test_workday_skip_weekend:
+    value: null
+    formula: "=WEEKDAY(WORKDAY(DATE(2024, 1, 1), 5))"
+    expected: 2
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # YEARFRAC - Fraction of year between dates
+  # ══════════════════════════════════════════════════════════════════════════
+  test_yearfrac_quarter:
+    value: null
+    formula: "=YEARFRAC(DATE(2024, 1, 1), DATE(2024, 4, 1), 0)"
+    expected: 0.25
+
+  test_yearfrac_half:
+    value: null
+    formula: "=YEARFRAC(DATE(2024, 1, 1), DATE(2024, 7, 1), 0)"
+    expected: 0.5
+
+  test_yearfrac_full:
+    value: null
+    formula: "=YEARFRAC(DATE(2024, 1, 1), DATE(2025, 1, 1), 0)"
+    expected: 1
+
+  test_yearfrac_basis_1:
+    value: null
+    formula: "=ROUND(YEARFRAC(DATE(2024, 1, 1), DATE(2024, 7, 1), 1), 4)"
+    expected: 0.4973
+
+  test_yearfrac_basis_2:
+    value: null
+    formula: "=ROUND(YEARFRAC(DATE(2024, 1, 1), DATE(2024, 7, 1), 2), 4)"
+    expected: 0.5056
+
+  test_yearfrac_basis_3:
+    value: null
+    formula: "=ROUND(YEARFRAC(DATE(2024, 1, 1), DATE(2024, 7, 1), 3), 4)"
+    expected: 0.4986
+
+  test_yearfrac_basis_4:
+    value: null
+    formula: "=YEARFRAC(DATE(2024, 1, 1), DATE(2024, 7, 1), 4)"
+    expected: 0.5
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Years between dates (using DATEDIF)
+  # Note: Y(), M(), D() shorthand functions are not in forge - use DATEDIF
+  # ══════════════════════════════════════════════════════════════════════════
+  test_years_one_year:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2025, 1, 1), \"Y\")"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  test_years_four_years:
+    value: null
+    formula: "=DATEDIF(DATE(2020, 6, 15), DATE(2024, 6, 15), \"Y\")"
+    expected: 4
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  test_years_partial_year:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 6, 1), DATE(2024, 12, 31), \"Y\")"
+    expected: 0
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  test_years_zero:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 6, 1), \"Y\")"
+    expected: 0
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Months between dates (using DATEDIF)
+  # ══════════════════════════════════════════════════════════════════════════
+  test_months_six_months:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2024, 7, 1), \"M\")"
+    expected: 6
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  test_months_twelve_months:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 1), DATE(2025, 1, 1), \"M\")"
+    expected: 12
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  test_months_one_month:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 6, 15), DATE(2024, 7, 15), \"M\")"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  test_months_partial_month:
+    value: null
+    formula: "=DATEDIF(DATE(2024, 1, 15), DATE(2024, 1, 30), \"M\")"
+    expected: 0
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Days between dates (using DAYS function)
+  # Note: DAYS(end, start) returns positive for end > start
+  # ══════════════════════════════════════════════════════════════════════════
+  test_days_one_day:
+    value: null
+    formula: "=DAYS(DATE(2024, 1, 2), DATE(2024, 1, 1))"
+    expected: 1
+
+  test_days_thirty_days:
+    value: null
+    formula: "=DAYS(DATE(2024, 1, 31), DATE(2024, 1, 1))"
+    expected: 30
+
+  test_days_leap_year_full:
+    value: null
+    formula: "=DAYS(DATE(2025, 1, 1), DATE(2024, 1, 1))"
+    expected: 366
+
+  test_days_negative_result:
+    value: null
+    formula: "=DAYS(DATE(2024, 1, 1), DATE(2024, 1, 31))"
+    expected: -30
+
+  test_days_same_day:
+    value: null
+    formula: "=DAYS(DATE(2024, 6, 15), DATE(2024, 6, 15))"
+    expected: 0
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Date arithmetic - Additional edge cases
+  # ══════════════════════════════════════════════════════════════════════════
+  test_date_diff_30_days:
+    value: null
+    formula: "=DATE(2024, 1, 31) - DATE(2024, 1, 1)"
+    expected: 30
+
+  test_date_diff_full_year:
+    value: null
+    formula: "=DATE(2024, 12, 31) - DATE(2024, 1, 1)"
+    expected: 365
+
+  test_date_diff_leap_year:
+    value: null
+    formula: "=DATE(2024, 3, 1) - DATE(2024, 2, 1)"
+    expected: 29
+
+  test_date_diff_non_leap:
+    value: null
+    formula: "=DATE(2023, 3, 1) - DATE(2023, 2, 1)"
+    expected: 28

@@ -1,0 +1,30 @@
+# Values read from an included file (@namespace.name).
+#
+# forge export writes the included file's scalars on a sheet of their own
+# (costs.Scalars) and the formulas that read them as references to that
+# sheet, so Gnumeric recalculates them from the cells; the included file's
+# own formula (loaded_wage) is a formula on that sheet. forge import turns
+# the sheet back into an included file, and the result calculates the same.
+
+_forge_version: "5.0.0"
+_includes:
+  - file: includes/costs.yaml
+    as: costs
+
+assumptions:
+  test_include_value:
+    value: null
+    formula: "=@costs.prices.flour * 10"
+    expected: 11.5
+  test_include_formula:
+    value: null
+    formula: "=@costs.labour.loaded_wage * 2"
+    expected: 42.55
+  test_include_two_values:
+    value: null
+    formula: "=@costs.labour.wage + @costs.prices.flour"
+    expected: 19.65
+  test_include_in_function:
+    value: null
+    formula: "=ROUND(MAX(@costs.labour.wage, @costs.labour.loaded_wage), 3)"
+    expected: 21.275

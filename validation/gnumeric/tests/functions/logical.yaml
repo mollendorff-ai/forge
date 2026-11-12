@@ -1,0 +1,228 @@
+# E2E Logical Function Tests
+# Validated against Gnumeric
+# All 9 logical functions: IF, AND, OR, NOT, IFERROR, XOR, IFNA, TRUE, FALSE
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # IF - Conditional value
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_if_true:
+    value: null
+    formula: "=IF(10>5, 100, 200)"
+    expected: 100
+
+  test_if_false:
+    value: null
+    formula: "=IF(10<5, 100, 200)"
+    expected: 200
+
+  test_if_equal:
+    value: null
+    formula: "=IF(5=5, 1, 0)"
+    expected: 1
+
+  test_if_nested:
+    value: null
+    formula: "=IF(5>10, 1, IF(5>3, 2, 3))"
+    expected: 2
+
+  # forge calculate requires numeric scalar results
+  test_if_text:
+    value: null
+    formula: "=IF(1=1, 1, 0)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AND - All conditions true
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_and_true:
+    value: null
+    formula: "=IF(AND(1>0, 2>1), 1, 0)"
+    expected: 1
+
+  test_and_false:
+    value: null
+    formula: "=IF(AND(1>0, 2<1), 1, 0)"
+    expected: 0
+
+  test_and_three_args:
+    value: null
+    formula: "=IF(AND(5>3, 10>5, 15>10), 1, 0)"
+    expected: 1
+
+  test_and_all_false:
+    value: null
+    formula: "=IF(AND(1<0, 2<1), 1, 0)"
+    expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OR - Any condition true
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_or_true:
+    value: null
+    formula: "=IF(OR(1<0, 2>1), 1, 0)"
+    expected: 1
+
+  test_or_false:
+    value: null
+    formula: "=IF(OR(1<0, 2<1), 1, 0)"
+    expected: 0
+
+  test_or_all_true:
+    value: null
+    formula: "=IF(OR(1>0, 2>1), 1, 0)"
+    expected: 1
+
+  test_or_three_args:
+    value: null
+    formula: "=IF(OR(1<0, 2<1, 5>3), 1, 0)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NOT - Negate condition
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_not_comparison_false:
+    value: null
+    formula: "=IF(NOT(1<0), 1, 0)"
+    expected: 1
+
+  test_not_comparison_true:
+    value: null
+    formula: "=IF(NOT(1>0), 1, 0)"
+    expected: 0
+
+  test_not_inequality:
+    value: null
+    formula: "=IF(NOT(5=3), 1, 0)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # IFERROR - Handle errors
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_iferror_no_error:
+    value: null
+    formula: "=IFERROR(10/2, -1)"
+    expected: 5
+
+  test_iferror_with_error:
+    value: null
+    formula: "=IFERROR(1/0, -1)"
+    expected: -1
+
+  test_iferror_text_fallback:
+    value: null
+    formula: "=IFERROR(5+5, \"error\")"
+    expected: 10
+
+  test_iferror_double_nested:
+    value: null
+    formula: "=IFERROR(IFERROR(1/0, 2/0), 99)"
+    expected: 99
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # XOR - Exclusive or
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_xor_one_true:
+    value: null
+    formula: "=IF(XOR(1>0, 1<0), 1, 0)"
+    expected: 1
+
+  test_xor_both_true:
+    value: null
+    formula: "=IF(XOR(1>0, 2>1), 1, 0)"
+    expected: 0
+
+  test_xor_both_false:
+    value: null
+    formula: "=IF(XOR(1<0, 2<1), 1, 0)"
+    expected: 0
+
+  test_xor_three_args_odd:
+    value: null
+    formula: "=IF(XOR(1>0, 1<0, 1<0), 1, 0)"
+    expected: 1
+
+  test_xor_three_args_even:
+    value: null
+    formula: "=IF(XOR(1>0, 2>1, 1<0), 1, 0)"
+    expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # IFNA - Handle #N/A errors
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_ifna_no_error:
+    value: null
+    formula: "=IFNA(10, -1)"
+    expected: 10
+
+  test_ifna_with_na:
+    value: null
+    formula: "=IFNA(NA(), -1)"
+    expected: -1
+
+  test_ifna_calculation:
+    value: null
+    formula: "=IFNA(5+5, 99)"
+    expected: 10
+
+  # forge calculate requires numeric scalar results
+  test_ifna_text:
+    value: null
+    formula: "=LEN(IFNA(\"hello\", \"error\"))"
+    expected: 5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TRUE - Boolean TRUE constant
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_true_returns_one:
+    value: null
+    formula: "=IF(TRUE(), 1, 0)"
+    expected: 1
+
+  test_true_in_calculation:
+    value: null
+    formula: "=TRUE() + 5"
+    expected: 6
+
+  test_true_with_and:
+    value: null
+    formula: "=IF(AND(TRUE(), 1>0), 1, 0)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FALSE - Boolean FALSE constant
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_false_returns_zero:
+    value: null
+    formula: "=IF(FALSE(), 1, 0)"
+    expected: 0
+
+  test_false_in_calculation:
+    value: null
+    formula: "=FALSE() + 5"
+    expected: 5
+
+  test_false_with_or:
+    value: null
+    formula: "=IF(OR(FALSE(), 1>0), 1, 0)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Combined operations
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_combined_and_or:
+    value: null
+    formula: "=IF(AND(OR(1>0, 2<1), 5>3), 1, 0)"
+    expected: 1
+
+  test_combined_not_and:
+    value: null
+    formula: "=IF(NOT(AND(1<0, 2<1)), 1, 0)"
+    expected: 1
+
+  test_combined_xor_not:
+    value: null
+    formula: "=IF(XOR(NOT(1<0), 2<1), 1, 0)"
+    expected: 1

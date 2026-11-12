@@ -1,0 +1,29 @@
+# E2E Function Error Edge Cases
+# Tests error handling for VARIANCE and BREAKEVEN functions
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # VARIANCE_PCT: Division by zero when budget is 0
+  test_variance_pct_zero_budget:
+    value: null
+    formula: "=IFERROR(VARIANCE_PCT(100, 0), -999)"
+    expected: -999
+
+  # BREAKEVEN_UNITS: Zero margin (price = variable cost)
+  test_breakeven_zero_margin:
+    value: null
+    formula: "=IFERROR(BREAKEVEN_UNITS(50000, 100, 100), -999)"
+    expected: -999
+
+  # BREAKEVEN_REVENUE: Zero margin percentage
+  test_breakeven_zero_margin_pct:
+    value: null
+    formula: "=IFERROR(BREAKEVEN_REVENUE(50000, 0), -999)"
+    expected: -999
+
+  # BREAKEVEN_UNITS: Negative margin (variable cost > price)
+  test_breakeven_negative_margin:
+    value: null
+    formula: "=IFERROR(BREAKEVEN_UNITS(50000, 80, 100), -999)"
+    expected: -999

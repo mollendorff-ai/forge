@@ -1,0 +1,444 @@
+# E2E Information Function Tests
+# Validated against Gnumeric
+# All 13 information functions: ISBLANK, ISERROR, ISNA, ISNUMBER, ISTEXT, ISLOGICAL, ISEVEN, ISODD, ISREF, ISFORMULA, NA, TYPE, N
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ISBLANK - Is cell empty
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_isblank_empty_string:
+    value: null
+    formula: "=IF(ISBLANK(\"\"), 1, 0)"
+    expected: 0  # Empty string is NOT blank (it's a text value)
+
+  test_isblank_number:
+    value: null
+    formula: "=IF(ISBLANK(0), 1, 0)"
+    expected: 0
+
+  test_isblank_text:
+    value: null
+    formula: "=IF(ISBLANK(\"hello\"), 1, 0)"
+    expected: 0
+
+  test_isblank_space:
+    value: null
+    formula: "=IF(ISBLANK(\" \"), 1, 0)"
+    expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ISERROR - Is error value
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_iserror_valid_number:
+    value: null
+    formula: "=IF(ISERROR(1+1), 1, 0)"
+    expected: 0
+
+  test_iserror_number:
+    value: null
+    formula: "=IF(ISERROR(123), 1, 0)"
+    expected: 0
+
+  test_iserror_text:
+    value: null
+    formula: "=IF(ISERROR(\"test\"), 1, 0)"
+    expected: 0
+
+  test_iserror_division:
+    value: null
+    formula: "=IF(ISERROR(10/2), 1, 0)"
+    expected: 0
+
+  test_iserror_with_na:
+    value: null
+    formula: "=IF(ISERROR(NA()), 1, 0)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ISNA - Is #N/A error
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_isna_number:
+    value: null
+    formula: "=IF(ISNA(5), 1, 0)"
+    expected: 0
+
+  test_isna_text:
+    value: null
+    formula: "=IF(ISNA(\"test\"), 1, 0)"
+    expected: 0
+
+  test_isna_with_na:
+    value: null
+    formula: "=IF(ISNA(NA()), 1, 0)"
+    expected: 1
+
+  test_isna_calculation:
+    value: null
+    formula: "=IF(ISNA(5+5), 1, 0)"
+    expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ISNUMBER - Is numeric
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_isnumber_integer:
+    value: null
+    formula: "=IF(ISNUMBER(123), 1, 0)"
+    expected: 1
+
+  test_isnumber_decimal:
+    value: null
+    formula: "=IF(ISNUMBER(123.45), 1, 0)"
+    expected: 1
+
+  test_isnumber_negative:
+    value: null
+    formula: "=IF(ISNUMBER(-42), 1, 0)"
+    expected: 1
+
+  test_isnumber_zero:
+    value: null
+    formula: "=IF(ISNUMBER(0), 1, 0)"
+    expected: 1
+
+  test_isnumber_text:
+    value: null
+    formula: "=IF(ISNUMBER(\"123\"), 1, 0)"
+    expected: 0
+
+  test_isnumber_calculation:
+    value: null
+    formula: "=IF(ISNUMBER(5+5), 1, 0)"
+    expected: 1
+
+  test_isnumber_true:
+    value: null
+    formula: "=IF(ISNUMBER(TRUE()), 1, 0)"
+    expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ISTEXT - Is text
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_istext_string:
+    value: null
+    formula: "=IF(ISTEXT(\"abc\"), 1, 0)"
+    expected: 1
+
+  test_istext_empty:
+    value: null
+    formula: "=IF(ISTEXT(\"\"), 1, 0)"
+    expected: 1
+
+  test_istext_number:
+    value: null
+    formula: "=IF(ISTEXT(123), 1, 0)"
+    expected: 0
+
+  test_istext_number_string:
+    value: null
+    formula: "=IF(ISTEXT(\"123\"), 1, 0)"
+    expected: 1
+
+  test_istext_space:
+    value: null
+    formula: "=IF(ISTEXT(\" \"), 1, 0)"
+    expected: 1
+
+  test_istext_concat:
+    value: null
+    formula: "=IF(ISTEXT(CONCAT(\"hello\", \" \", \"world\")), 1, 0)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ISLOGICAL - Is boolean
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_islogical_true:
+    value: null
+    formula: "=IF(ISLOGICAL(TRUE()), 1, 0)"
+    expected: 1
+
+  test_islogical_false:
+    value: null
+    formula: "=IF(ISLOGICAL(FALSE()), 1, 0)"
+    expected: 1
+
+  test_islogical_number:
+    value: null
+    formula: "=IF(ISLOGICAL(1), 1, 0)"
+    expected: 0
+
+  test_islogical_text:
+    value: null
+    formula: "=IF(ISLOGICAL(\"TRUE\"), 1, 0)"
+    expected: 0
+
+  test_islogical_comparison:
+    value: null
+    formula: "=IF(ISLOGICAL(5>3), 1, 0)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ISEVEN - Is even number
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_iseven_positive_even:
+    value: null
+    formula: "=IF(ISEVEN(4), 1, 0)"
+    expected: 1
+
+  test_iseven_positive_odd:
+    value: null
+    formula: "=IF(ISEVEN(5), 1, 0)"
+    expected: 0
+
+  test_iseven_zero:
+    value: null
+    formula: "=IF(ISEVEN(0), 1, 0)"
+    expected: 1
+
+  test_iseven_negative_even:
+    value: null
+    formula: "=IF(ISEVEN(-4), 1, 0)"
+    expected: 1
+
+  test_iseven_negative_odd:
+    value: null
+    formula: "=IF(ISEVEN(-5), 1, 0)"
+    expected: 0
+
+  test_iseven_large:
+    value: null
+    formula: "=IF(ISEVEN(1000), 1, 0)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ISODD - Is odd number
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_isodd_positive_odd:
+    value: null
+    formula: "=IF(ISODD(5), 1, 0)"
+    expected: 1
+
+  test_isodd_positive_even:
+    value: null
+    formula: "=IF(ISODD(4), 1, 0)"
+    expected: 0
+
+  test_isodd_zero:
+    value: null
+    formula: "=IF(ISODD(0), 1, 0)"
+    expected: 0
+
+  test_isodd_negative_odd:
+    value: null
+    formula: "=IF(ISODD(-3), 1, 0)"
+    expected: 1
+
+  test_isodd_negative_even:
+    value: null
+    formula: "=IF(ISODD(-4), 1, 0)"
+    expected: 0
+
+  test_isodd_large:
+    value: null
+    formula: "=IF(ISODD(999), 1, 0)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ISREF - Is reference
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_isref_number:
+    value: null
+    formula: "=IF(ISREF(123), 1, 0)"
+    expected: 0
+
+  test_isref_text:
+    value: null
+    formula: "=IF(ISREF(\"A1\"), 1, 0)"
+    expected: 0
+
+  test_isref_calculation:
+    value: null
+    formula: "=IF(ISREF(5+5), 1, 0)"
+    expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ISFORMULA - Is formula
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_isformula_number:
+    value: null
+    formula: "=IF(ISFORMULA(42), 1, 0)"
+    expected: 0
+    libreoffice: "ISFORMULA needs a cell reference; Gnumeric returns #VALUE! for a literal"
+
+  test_isformula_text:
+    value: null
+    formula: "=IF(ISFORMULA(\"test\"), 1, 0)"
+    expected: 0
+    libreoffice: "ISFORMULA needs a cell reference; Gnumeric returns #VALUE! for a literal"
+
+  test_isformula_calculation:
+    value: null
+    formula: "=IF(ISFORMULA(5+5), 1, 0)"
+    expected: 0
+    libreoffice: "ISFORMULA needs a cell reference; Gnumeric returns #VALUE! for a literal"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NA - Return #N/A error value
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_na_detected_by_isna:
+    value: null
+    formula: "=IF(ISNA(NA()), 1, 0)"
+    expected: 1
+
+  test_na_detected_by_iserror:
+    value: null
+    formula: "=IF(ISERROR(NA()), 1, 0)"
+    expected: 1
+
+  test_na_not_a_number:
+    value: null
+    formula: "=IF(ISNUMBER(NA()), 1, 0)"
+    expected: 0
+
+  test_na_not_text:
+    value: null
+    formula: "=IF(ISTEXT(NA()), 1, 0)"
+    expected: 0
+
+  test_na_type:
+    value: null
+    formula: "=TYPE(NA())"
+    expected: 16
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TYPE - Type of value
+  # Returns: 1=number, 2=text, 4=logical, 16=error
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_type_number:
+    value: null
+    formula: "=TYPE(123)"
+    expected: 1
+
+  test_type_decimal:
+    value: null
+    formula: "=TYPE(123.45)"
+    expected: 1
+
+  test_type_text:
+    value: null
+    formula: "=TYPE(\"abc\")"
+    expected: 2
+
+  test_type_empty_string:
+    value: null
+    formula: "=TYPE(\"\")"
+    expected: 2
+
+  test_type_true:
+    value: null
+    formula: "=TYPE(TRUE())"
+    expected: 4
+
+  test_type_false:
+    value: null
+    formula: "=TYPE(FALSE())"
+    expected: 4
+
+  test_type_na:
+    value: null
+    formula: "=TYPE(NA())"
+    expected: 16
+
+  test_type_calculation_number:
+    value: null
+    formula: "=TYPE(5+5)"
+    expected: 1
+
+  test_type_calculation_text:
+    value: null
+    formula: "=TYPE(CONCAT(\"a\", \"b\"))"
+    expected: 2
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # N - Convert to number
+  # Returns: 1 for TRUE, 0 for FALSE, number for number, 0 for others
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_n_true:
+    value: null
+    formula: "=N(TRUE())"
+    expected: 1
+
+  test_n_false:
+    value: null
+    formula: "=N(FALSE())"
+    expected: 0
+
+  test_n_number:
+    value: null
+    formula: "=N(42)"
+    expected: 42
+
+  test_n_decimal:
+    value: null
+    formula: "=N(3.14)"
+    expected: 3.14
+
+  test_n_negative:
+    value: null
+    formula: "=N(-10)"
+    expected: -10
+
+  test_n_zero:
+    value: null
+    formula: "=N(0)"
+    expected: 0
+
+  test_n_calculation:
+    value: null
+    formula: "=N(5+5)"
+    expected: 10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Combined operations
+  # ═══════════════════════════════════════════════════════════════════════════
+  test_combined_iseven_isodd:
+    value: null
+    formula: "=IF(AND(ISEVEN(4), ISODD(5)), 1, 0)"
+    expected: 1
+
+  test_combined_isnumber_istext:
+    value: null
+    formula: "=IF(OR(ISNUMBER(123), ISTEXT(\"abc\")), 1, 0)"
+    expected: 1
+
+  # forge calculate requires numeric scalar results
+  test_combined_type_switch:
+    value: null
+    formula: "=SWITCH(TYPE(\"hello\"), 1, 100, 2, 200, 4, 400, 999)"
+    expected: 200
+
+  test_combined_n_sum:
+    value: null
+    formula: "=N(TRUE()) + N(FALSE()) + N(5)"
+    expected: 6
+
+  test_combined_isna_ifna:
+    value: null
+    formula: "=IF(ISNA(IFNA(NA(), 10)), 1, 0)"
+    expected: 0
+
+  test_combined_iserror_iferror:
+    value: null
+    formula: "=IF(ISERROR(IFERROR(NA(), 10)), 1, 0)"
+    expected: 0
+
+  test_combined_isblank_len:
+    value: null
+    formula: "=IF(AND(ISBLANK(\"\"), LEN(\"\")=0), 1, 0)"
+    expected: 0  # ISBLANK("") is FALSE, so AND fails
+
+  test_combined_islogical_and:
+    value: null
+    formula: "=IF(ISLOGICAL(AND(1>0, 2>1)), 1, 0)"
+    expected: 1

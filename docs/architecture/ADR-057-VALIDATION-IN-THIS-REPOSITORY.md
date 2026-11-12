@@ -1,6 +1,6 @@
 # ADR-057: The Validation Suites Live in This Repository
 
-**Status:** Proposed (accepted when this file is merged; not yet built, roadmap T1-VALIDATION-IN-REPO)
+**Status:** Accepted (2026-11-12); built, the old repositories not yet archived (roadmap T1-VALIDATION-IN-REPO)
 **Date:** 2026-11-12
 **Decided by:** the maintainer (bring the two end-to-end suites into Forge and archive their repositories); the design is Claude's, in a session configured for Fable 5.2
 **Supersedes:** the rest of ADR-027 (the suites in repositories of their own)
@@ -77,6 +77,12 @@ What the separation was thought to give is independence. The independence that m
 - Whether both suites pass `clippy -D warnings` as workspace members without changes. If not, they are fixed in the move, not exempted.
 - Whether either suite was ever published on crates.io under its package name. If one was, that version stays there and is not yanked; nothing depends on it.
 - Whether the session that does the move can archive a repository through the API. If it cannot, archiving is the one step left to the maintainer.
+
+**Found in the move (2026-11-12)**
+
+- Both suites pass `cargo clippy --all-targets -- -D warnings` as workspace members, with their own pedantic lint settings, unchanged. They were reformatted to Forge's `rustfmt.toml` (11 files, layout only).
+- Neither was published: crates.io answers 404 for `mollendorff-forge-e2e-gnumeric` and `mollendorff-forge-e2e-r` (and 200 for `mollendorff-forge`).
+- forge-e2e-r had `cargo-husky` as a dev-dependency, which installs the git hooks in its `.cargo-husky/` when its tests are built. Forge has a pre-commit hook of its own, so both are removed. The suites' release profiles are dropped too, since a profile counts only at the workspace root.
 
 ## Alternatives considered
 

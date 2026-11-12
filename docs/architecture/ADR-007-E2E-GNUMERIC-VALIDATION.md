@@ -1,5 +1,7 @@
 # ADR-007: E2E Validation via Gnumeric
 
+> **Note (2026-11-12):** The suite is in this repository, `validation/gnumeric` (ADR-057).
+
 **Status:** Accepted
 **Date:** 2025-12-08
 **Updated:** 2025-12-17 (Tests migrated to forge-e2e)

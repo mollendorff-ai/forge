@@ -1,0 +1,16 @@
+# Included by edge_includes.yaml. Holds no tests of its own.
+_forge_version: "5.0.0"
+prices:
+  flour:
+    value: 1.15
+    formula: null
+labour:
+  wage:
+    value: 18.5
+    formula: null
+  load:
+    value: 0.15
+    formula: null
+  loaded_wage:
+    value: null
+    formula: "=wage * (1 + load)"

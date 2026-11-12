@@ -1,0 +1,361 @@
+# E2E Monte Carlo Distribution Function Tests
+# R-Validated against R's stats package and mc2d
+#
+# Phase 2: Monte Carlo validation with 6 distributions
+# Validated by: validators/r/monte_carlo_validator.R
+#
+# Testing approach:
+#   1. Run forge simulate with distribution parameters
+#   2. Capture JSON output (mean, std, percentiles)
+#   3. Run R validator with same parameters
+#   4. Compare within statistical tolerance
+#
+# Tolerance (per ADR-010):
+#   - Mean: 1% relative difference
+#   - Std:  5% relative difference
+#   - Percentiles: 2% relative difference
+#   - KS test: p > 0.05 (same distribution shape)
+
+_forge_version: "1.0.0"
+_r_validator: "monte_carlo_validator.R"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Normal Distribution
+# ═══════════════════════════════════════════════════════════════════════════════
+
+tests:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 1: Normal(100, 15) - Standard case
+  # ─────────────────────────────────────────────────────────────────────────────
+  normal_standard:
+    distribution: normal
+    params:
+      mean: 100
+      sd: 15
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 99.6126336002
+      std: 15.0378185524
+      percentiles:
+        "5": 75.3192593056
+        "50": 99.8029873351
+        "95": 123.0023063276
+    tolerance:
+      mean: 0.01
+      std: 0.05
+      percentiles: 0.02
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 2: Normal(50, 5) - Narrow distribution
+  # ─────────────────────────────────────────────────────────────────────────────
+  normal_narrow:
+    distribution: normal
+    params:
+      mean: 50
+      sd: 5
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 49.8708778667
+      std: 5.0126061841
+      percentiles:
+        "5": 41.7730864352
+        "50": 49.9343291117
+        "95": 58.0007687759
+    tolerance:
+      mean: 0.01
+      std: 0.05
+      percentiles: 0.02
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Uniform Distribution
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 3: Uniform(0, 100)
+  # ─────────────────────────────────────────────────────────────────────────────
+  uniform_standard:
+    distribution: uniform
+    params:
+      min: 0
+      max: 100
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 50.0  # Theoretical
+      std: 28.87  # 100/sqrt(12)
+      percentiles:
+        "5": 5.0
+        "50": 50.0
+        "95": 95.0
+    tolerance:
+      mean: 0.02
+      std: 0.05
+      percentiles: 0.03
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 4: Uniform(10, 20) - Narrow range
+  # ─────────────────────────────────────────────────────────────────────────────
+  uniform_narrow:
+    distribution: uniform
+    params:
+      min: 10
+      max: 20
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 15.0  # Theoretical
+      std: 2.887  # 10/sqrt(12)
+      percentiles:
+        "5": 10.5
+        "50": 15.0
+        "95": 19.5
+    tolerance:
+      mean: 0.02
+      std: 0.05
+      percentiles: 0.03
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Lognormal Distribution
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 5: Lognormal(meanlog=4, sdlog=0.5)
+  # ─────────────────────────────────────────────────────────────────────────────
+  lognormal_standard:
+    distribution: lognormal
+    params:
+      meanlog: 4
+      sdlog: 0.5
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 66.69  # exp(4 + 0.5^2/2)
+      std: 35.52   # exp(4+0.25/2)*sqrt(exp(0.25)-1)
+      percentiles:
+        "5": 33.10
+        "50": 54.60  # exp(4)
+        "95": 133.07
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      percentiles: 0.05
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 6: Lognormal(meanlog=2, sdlog=0.3)
+  # ─────────────────────────────────────────────────────────────────────────────
+  lognormal_narrow:
+    distribution: lognormal
+    params:
+      meanlog: 2
+      sdlog: 0.3
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 7.78   # exp(2 + 0.09/2)
+      std: 2.39
+      percentiles:
+        "5": 4.85
+        "50": 7.39   # exp(2)
+        "95": 12.61
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      percentiles: 0.05
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Triangular Distribution
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 7: Triangular(10, 50, 100) - Symmetric-ish
+  # ─────────────────────────────────────────────────────────────────────────────
+  triangular_standard:
+    distribution: triangular
+    params:
+      min: 10
+      mode: 50
+      max: 100
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 53.33   # (min+mode+max)/3
+      std: 18.26
+      percentiles:
+        "5": 24.0
+        "50": 52.5
+        "95": 84.0
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      percentiles: 0.05
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 8: Triangular(0, 20, 100) - Left skewed mode
+  # ─────────────────────────────────────────────────────────────────────────────
+  triangular_skewed:
+    distribution: triangular
+    params:
+      min: 0
+      mode: 20
+      max: 100
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 40.0    # (0+20+100)/3
+      std: 24.5
+      percentiles:
+        "5": 8.0
+        "50": 36.0
+        "95": 84.0
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      percentiles: 0.05
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: PERT Distribution (using mc2d)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 9: PERT(10, 50, 100, shape=4) - Standard
+  # ─────────────────────────────────────────────────────────────────────────────
+  pert_standard:
+    distribution: pert
+    params:
+      min: 10
+      mode: 50
+      max: 100
+      shape: 4
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 51.67   # (min + 4*mode + max) / 6
+      std: 15.12
+      percentiles:
+        "5": 26.0
+        "50": 51.0
+        "95": 78.0
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      percentiles: 0.05
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 10: PERT(0, 30, 50, shape=4) - Narrow range
+  # ─────────────────────────────────────────────────────────────────────────────
+  pert_narrow:
+    distribution: pert
+    params:
+      min: 0
+      mode: 30
+      max: 50
+      shape: 4
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 28.33   # (0 + 4*30 + 50) / 6
+      std: 8.45
+      percentiles:
+        "5": 13.0
+        "50": 28.5
+        "95": 43.0
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      percentiles: 0.05
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Exponential Distribution
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 11: Exponential(rate=0.1) - Mean=10
+  # ─────────────────────────────────────────────────────────────────────────────
+  exponential_slow:
+    distribution: exponential
+    params:
+      rate: 0.1
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 10.0    # 1/rate
+      std: 10.0     # 1/rate
+      percentiles:
+        "5": 0.51
+        "50": 6.93   # ln(2)/rate
+        "95": 29.96
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      percentiles: 0.05
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 12: Exponential(rate=0.5) - Mean=2
+  # ─────────────────────────────────────────────────────────────────────────────
+  exponential_fast:
+    distribution: exponential
+    params:
+      rate: 0.5
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 2.0     # 1/rate
+      std: 2.0      # 1/rate
+      percentiles:
+        "5": 0.10
+        "50": 1.39   # ln(2)/rate
+        "95": 5.99
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      percentiles: 0.05
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Convergence Tests (at multiple iteration counts)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+convergence_tests:
+  # Test convergence by running same distribution at different N
+  normal_convergence:
+    distribution: normal
+    params:
+      mean: 100
+      sd: 15
+    seed: 42
+    iteration_counts:
+      - 1000
+      - 10000
+      - 100000
+    expected_error_reduction: true  # Error should decrease with N
+
+  exponential_convergence:
+    distribution: exponential
+    params:
+      rate: 0.1
+    seed: 42
+    iteration_counts:
+      - 1000
+      - 10000
+      - 100000
+    expected_error_reduction: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Metadata
+# ═══════════════════════════════════════════════════════════════════════════════
+
+metadata:
+  total_tests: 12
+  distributions:
+    - normal
+    - uniform
+    - lognormal
+    - triangular
+    - pert
+    - exponential
+  r_packages:
+    - stats
+    - mc2d
+  validation_method: "R round-trip comparison"
+  reference: "ADR-010: R-Validated Analytics E2E Tests"

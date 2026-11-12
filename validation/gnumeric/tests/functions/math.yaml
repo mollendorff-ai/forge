@@ -1,0 +1,574 @@
+# E2E Math Function Tests - Complete Coverage
+# Validates forge calculations against Gnumeric
+# Total: 20 functions
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ABS - Absolute value
+  # ═══════════════════════════════════════════════════════════════════════════
+  abs_positive:
+    value: null
+    formula: "=ABS(42)"
+    expected: 42
+
+  abs_negative:
+    value: null
+    formula: "=ABS(-42)"
+    expected: 42
+
+  abs_zero:
+    value: null
+    formula: "=ABS(0)"
+    expected: 0
+
+  abs_decimal:
+    value: null
+    formula: "=ABS(-3.14159)"
+    expected: 3.14159
+
+  abs_large:
+    value: null
+    formula: "=ABS(-1000000)"
+    expected: 1000000
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SQRT - Square root
+  # ═══════════════════════════════════════════════════════════════════════════
+  sqrt_perfect_square:
+    value: null
+    formula: "=SQRT(144)"
+    expected: 12
+
+  sqrt_four:
+    value: null
+    formula: "=SQRT(4)"
+    expected: 2
+
+  sqrt_zero:
+    value: null
+    formula: "=SQRT(0)"
+    expected: 0
+
+  sqrt_decimal:
+    value: null
+    formula: "=ROUND(SQRT(2), 6)"
+    expected: 1.414214
+
+  sqrt_large:
+    value: null
+    formula: "=SQRT(10000)"
+    expected: 100
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ROUND - Round to decimals
+  # ═══════════════════════════════════════════════════════════════════════════
+  round_up:
+    value: null
+    formula: "=ROUND(2.567, 2)"
+    expected: 2.57
+
+  round_down:
+    value: null
+    formula: "=ROUND(2.564, 2)"
+    expected: 2.56
+
+  round_zero_decimals:
+    value: null
+    formula: "=ROUND(3.7, 0)"
+    expected: 4
+
+  round_negative:
+    value: null
+    formula: "=ROUND(-5.678, 1)"
+    expected: -5.7
+
+  round_exact:
+    value: null
+    formula: "=ROUND(5.5, 0)"
+    expected: 6
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ROUNDUP - Round up away from zero
+  # ═══════════════════════════════════════════════════════════════════════════
+  roundup_positive:
+    value: null
+    formula: "=ROUNDUP(2.321, 2)"
+    expected: 2.33
+
+  roundup_negative:
+    value: null
+    formula: "=ROUNDUP(-2.321, 2)"
+    expected: -2.33
+
+  roundup_zero_decimals:
+    value: null
+    formula: "=ROUNDUP(3.1, 0)"
+    expected: 4
+
+  roundup_exact:
+    value: null
+    formula: "=ROUNDUP(5.0, 2)"
+    expected: 5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ROUNDDOWN - Round down toward zero
+  # ═══════════════════════════════════════════════════════════════════════════
+  rounddown_positive:
+    value: null
+    formula: "=ROUNDDOWN(2.789, 2)"
+    expected: 2.78
+
+  rounddown_negative:
+    value: null
+    formula: "=ROUNDDOWN(-2.789, 2)"
+    expected: -2.78
+
+  rounddown_zero_decimals:
+    value: null
+    formula: "=ROUNDDOWN(3.9, 0)"
+    expected: 3
+
+  rounddown_exact:
+    value: null
+    formula: "=ROUNDDOWN(7.0, 1)"
+    expected: 7
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FLOOR - Round down to multiple
+  # ═══════════════════════════════════════════════════════════════════════════
+  floor_basic:
+    value: null
+    formula: "=FLOOR(2.7, 1)"
+    expected: 2
+
+  floor_to_five:
+    value: null
+    formula: "=FLOOR(23, 5)"
+    expected: 20
+
+  floor_decimal_significance:
+    value: null
+    formula: "=FLOOR(3.7, 0.5)"
+    expected: 3.5
+
+  floor_exact:
+    value: null
+    formula: "=FLOOR(10, 1)"
+    expected: 10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CEILING - Round up to multiple
+  # ═══════════════════════════════════════════════════════════════════════════
+  ceiling_basic:
+    value: null
+    formula: "=CEILING(2.3, 1)"
+    expected: 3
+
+  ceiling_to_five:
+    value: null
+    formula: "=CEILING(22, 5)"
+    expected: 25
+
+  ceiling_decimal_significance:
+    value: null
+    formula: "=CEILING(3.2, 0.5)"
+    expected: 3.5
+
+  ceiling_exact:
+    value: null
+    formula: "=CEILING(15, 1)"
+    expected: 15
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MOD - Remainder after division
+  # ═══════════════════════════════════════════════════════════════════════════
+  mod_basic:
+    value: null
+    formula: "=MOD(10, 3)"
+    expected: 1
+
+  mod_exact:
+    value: null
+    formula: "=MOD(12, 4)"
+    expected: 0
+
+  mod_zero_dividend:
+    value: null
+    formula: "=MOD(0, 5)"
+    expected: 0
+
+  mod_larger_divisor:
+    value: null
+    formula: "=MOD(3, 10)"
+    expected: 3
+
+  mod_negative_dividend:
+    value: null
+    formula: "=MOD(-10, 3)"
+    expected: 2
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # POWER - Number raised to power
+  # ═══════════════════════════════════════════════════════════════════════════
+  power_squared:
+    value: null
+    formula: "=POWER(5, 2)"
+    expected: 25
+
+  power_cubed:
+    value: null
+    formula: "=POWER(3, 3)"
+    expected: 27
+
+  power_zero:
+    value: null
+    formula: "=POWER(42, 0)"
+    expected: 1
+
+  power_one:
+    value: null
+    formula: "=POWER(7, 1)"
+    expected: 7
+
+  power_negative_exponent:
+    value: null
+    formula: "=POWER(2, -1)"
+    expected: 0.5
+
+  power_fractional:
+    value: null
+    formula: "=POWER(16, 0.5)"
+    expected: 4
+
+  power_large:
+    value: null
+    formula: "=POWER(2, 10)"
+    expected: 1024
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # POW - Alias for POWER
+  # ═══════════════════════════════════════════════════════════════════════════
+  pow_squared:
+    value: null
+    formula: "=POW(5, 2)"
+    expected: 25
+
+  pow_cubed:
+    value: null
+    formula: "=POW(2, 3)"
+    expected: 8
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # EXP - e raised to power
+  # ═══════════════════════════════════════════════════════════════════════════
+  exp_zero:
+    value: null
+    formula: "=EXP(0)"
+    expected: 1
+
+  exp_one:
+    value: null
+    formula: "=ROUND(EXP(1), 5)"
+    expected: 2.71828
+
+  exp_two:
+    value: null
+    formula: "=ROUND(EXP(2), 5)"
+    expected: 7.38906
+
+  exp_negative:
+    value: null
+    formula: "=ROUND(EXP(-1), 5)"
+    expected: 0.36788
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LN - Natural logarithm
+  # ═══════════════════════════════════════════════════════════════════════════
+  ln_one:
+    value: null
+    formula: "=LN(1)"
+    expected: 0
+
+  ln_e:
+    value: null
+    formula: "=ROUND(LN(EXP(1)), 10)"
+    expected: 1
+
+  ln_e_squared:
+    value: null
+    formula: "=ROUND(LN(EXP(2)), 10)"
+    expected: 2
+
+  ln_ten:
+    value: null
+    formula: "=ROUND(LN(10), 6)"
+    expected: 2.302585
+
+  ln_large:
+    value: null
+    formula: "=ROUND(LN(1000), 6)"
+    expected: 6.907755
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LOG10 - Base-10 logarithm
+  # ═══════════════════════════════════════════════════════════════════════════
+  log10_one:
+    value: null
+    formula: "=LOG10(1)"
+    expected: 0
+
+  log10_ten:
+    value: null
+    formula: "=LOG10(10)"
+    expected: 1
+
+  log10_hundred:
+    value: null
+    formula: "=LOG10(100)"
+    expected: 2
+
+  log10_thousand:
+    value: null
+    formula: "=LOG10(1000)"
+    expected: 3
+
+  log10_decimal:
+    value: null
+    formula: "=ROUND(LOG10(5), 6)"
+    expected: 0.69897
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # INT - Integer part
+  # ═══════════════════════════════════════════════════════════════════════════
+  int_positive:
+    value: null
+    formula: "=INT(5.7)"
+    expected: 5
+
+  int_negative:
+    value: null
+    formula: "=INT(-5.7)"
+    expected: -6
+
+  int_exact:
+    value: null
+    formula: "=INT(10)"
+    expected: 10
+
+  int_zero:
+    value: null
+    formula: "=INT(0.5)"
+    expected: 0
+
+  int_large:
+    value: null
+    formula: "=INT(999.999)"
+    expected: 999
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SIGN - Sign of number (-1, 0, 1)
+  # ═══════════════════════════════════════════════════════════════════════════
+  sign_positive:
+    value: null
+    formula: "=SIGN(42)"
+    expected: 1
+
+  sign_negative:
+    value: null
+    formula: "=SIGN(-42)"
+    expected: -1
+
+  sign_zero:
+    value: null
+    formula: "=SIGN(0)"
+    expected: 0
+
+  sign_decimal_positive:
+    value: null
+    formula: "=SIGN(0.001)"
+    expected: 1
+
+  sign_decimal_negative:
+    value: null
+    formula: "=SIGN(-0.001)"
+    expected: -1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TRUNC - Truncate to decimals
+  # ═══════════════════════════════════════════════════════════════════════════
+  trunc_positive:
+    value: null
+    formula: "=TRUNC(5.7)"
+    expected: 5
+
+  trunc_negative:
+    value: null
+    formula: "=TRUNC(-5.7)"
+    expected: -5
+
+  trunc_with_decimals:
+    value: null
+    formula: "=TRUNC(5.789, 2)"
+    expected: 5.78
+
+  trunc_zero_decimals:
+    value: null
+    formula: "=TRUNC(9.999, 0)"
+    expected: 9
+
+  trunc_exact:
+    value: null
+    formula: "=TRUNC(42.0, 1)"
+    expected: 42
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PI - Pi constant
+  # ═══════════════════════════════════════════════════════════════════════════
+  pi_value:
+    value: null
+    formula: "=ROUND(PI(), 5)"
+    expected: 3.14159
+
+  pi_times_two:
+    value: null
+    formula: "=ROUND(PI() * 2, 5)"
+    expected: 6.28319
+
+  pi_half:
+    value: null
+    formula: "=ROUND(PI() / 2, 5)"
+    expected: 1.5708
+
+  pi_squared:
+    value: null
+    formula: "=ROUND(PI() * PI(), 5)"
+    expected: 9.8696
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # E - Euler's number
+  # ═══════════════════════════════════════════════════════════════════════════
+  e_value:
+    value: null
+    formula: "=ROUND(E(), 5)"
+    expected: 2.71828
+
+  e_times_two:
+    value: null
+    formula: "=ROUND(E() * 2, 5)"
+    expected: 5.43656
+
+  e_squared:
+    value: null
+    formula: "=ROUND(E() * E(), 5)"
+    expected: 7.38906
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DEGREES - Radians to degrees
+  # ═══════════════════════════════════════════════════════════════════════════
+  degrees_zero:
+    value: null
+    formula: "=DEGREES(0)"
+    expected: 0
+
+  degrees_pi:
+    value: null
+    formula: "=ROUND(DEGREES(PI()), 2)"
+    expected: 180
+
+  degrees_pi_half:
+    value: null
+    formula: "=ROUND(DEGREES(PI() / 2), 2)"
+    expected: 90
+
+  degrees_pi_quarter:
+    value: null
+    formula: "=ROUND(DEGREES(PI() / 4), 2)"
+    expected: 45
+
+  degrees_two_pi:
+    value: null
+    formula: "=ROUND(DEGREES(2 * PI()), 2)"
+    expected: 360
+
+  degrees_negative:
+    value: null
+    formula: "=ROUND(DEGREES(-PI() / 2), 2)"
+    expected: -90
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RADIANS - Degrees to radians
+  # ═══════════════════════════════════════════════════════════════════════════
+  radians_zero:
+    value: null
+    formula: "=RADIANS(0)"
+    expected: 0
+
+  radians_45:
+    value: null
+    formula: "=ROUND(RADIANS(45), 6)"
+    expected: 0.785398
+
+  radians_90:
+    value: null
+    formula: "=ROUND(RADIANS(90), 6)"
+    expected: 1.570796
+
+  radians_180:
+    value: null
+    formula: "=ROUND(RADIANS(180), 6)"
+    expected: 3.141593
+
+  radians_360:
+    value: null
+    formula: "=ROUND(RADIANS(360), 6)"
+    expected: 6.283185
+
+  radians_negative:
+    value: null
+    formula: "=ROUND(RADIANS(-90), 6)"
+    expected: -1.570796
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Combined/Integration Tests
+  # ═══════════════════════════════════════════════════════════════════════════
+  combined_roundtrip_degrees_radians:
+    value: null
+    formula: "=ROUND(DEGREES(RADIANS(123.456)), 3)"
+    expected: 123.456
+
+  combined_roundtrip_radians_degrees:
+    value: null
+    formula: "=ROUND(RADIANS(DEGREES(2.5)), 3)"
+    expected: 2.5
+
+  combined_power_sqrt:
+    value: null
+    formula: "=POWER(SQRT(16), 2)"
+    expected: 16
+
+  combined_ln_exp:
+    value: null
+    formula: "=ROUND(LN(EXP(5)), 10)"
+    expected: 5
+
+  combined_log10_power:
+    value: null
+    formula: "=LOG10(POWER(10, 3))"
+    expected: 3
+
+  combined_abs_negative_power:
+    value: null
+    formula: "=ABS(POWER(-2, 3))"
+    expected: 8
+
+  combined_round_division:
+    value: null
+    formula: "=ROUND(22 / 7, 5)"
+    expected: 3.14286
+
+  combined_floor_ceiling_avg:
+    value: null
+    formula: "=(FLOOR(5.7, 1) + CEILING(5.7, 1)) / 2"
+    expected: 5.5

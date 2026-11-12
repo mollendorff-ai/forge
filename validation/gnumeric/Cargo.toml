@@ -1,0 +1,57 @@
+[package]
+name = "mollendorff-forge-e2e-gnumeric"
+version = "0.0.0"
+edition = "2021"
+description = "Forge formulas compared with Gnumeric and LibreOffice"
+license = "MIT OR Apache-2.0"
+# Run from this repository (ADR-057); not published
+publish = false
+
+[lib]
+name = "forge_e2e_gnumeric"
+path = "src/lib.rs"
+
+[[bin]]
+name = "forge-e2e-gnumeric"
+path = "src/main.rs"
+
+[dependencies]
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# YAML parsing
+serde = { version = "1.0", features = ["derive"] }
+yaml_serde = "0.10"
+
+# Temp files for XLSX/CSV
+tempfile = "3.23"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# CSV parsing
+csv = "1.4"
+
+# Excel reading/writing
+calamine = "0.38"
+rust_xlsxwriter = "0.102"
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+too_many_lines = "allow"
+option_if_let_else = "allow"
+needless_continue = "allow"
+redundant_closure_for_method_calls = "allow"

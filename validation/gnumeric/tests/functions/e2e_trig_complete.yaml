@@ -1,0 +1,224 @@
+# E2E Trigonometric Function Complete Coverage
+# v7.0.3 - All 11 trigonometric functions with comprehensive tests
+# Includes: SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, RADIANS, DEGREES
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SIN - Sine function
+  # ═══════════════════════════════════════════════════════════════════════════
+  etc_sin_zero:
+    value: null
+    formula: "=SIN(0)"                     # Expected: 0
+    expected: 0
+  etc_sin_pi_half:
+    value: null
+    formula: "=ROUND(SIN(PI()/2), 6)"      # Expected: 1
+    expected: 1
+  etc_sin_pi:
+    value: null
+    formula: "=ROUND(SIN(PI()), 6)"        # Expected: ~0
+  etc_sin_negative:
+    value: null
+    formula: "=ROUND(SIN(-PI()/2), 6)"     # Expected: -1
+    expected: -1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COS - Cosine function
+  # ═══════════════════════════════════════════════════════════════════════════
+  etc_cos_zero:
+    value: null
+    formula: "=COS(0)"                     # Expected: 1
+    expected: 1
+  etc_cos_pi_half:
+    value: null
+    formula: "=ROUND(COS(PI()/2), 6)"      # Expected: ~0
+  etc_cos_pi:
+    value: null
+    formula: "=ROUND(COS(PI()), 6)"        # Expected: -1
+    expected: -1
+  etc_cos_2pi:
+    value: null
+    formula: "=ROUND(COS(2*PI()), 6)"      # Expected: 1
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TAN - Tangent function
+  # ═══════════════════════════════════════════════════════════════════════════
+  etc_tan_zero:
+    value: null
+    formula: "=TAN(0)"                     # Expected: 0
+    expected: 0
+  etc_tan_pi_4:
+    value: null
+    formula: "=ROUND(TAN(PI()/4), 6)"      # Expected: 1
+    expected: 1
+  etc_tan_negative:
+    value: null
+    formula: "=ROUND(TAN(-PI()/4), 6)"     # Expected: -1
+    expected: -1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ASIN - Arcsine function
+  # ═══════════════════════════════════════════════════════════════════════════
+  etc_asin_zero:
+    value: null
+    formula: "=ASIN(0)"                    # Expected: 0
+    expected: 0
+  etc_asin_one:
+    value: null
+    formula: "=ROUND(ASIN(1), 6)"          # Expected: PI/2 ≈ 1.570796
+  etc_asin_half:
+    value: null
+    formula: "=ROUND(ASIN(0.5), 6)"        # Expected: PI/6 ≈ 0.523599
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ACOS - Arccosine function
+  # ═══════════════════════════════════════════════════════════════════════════
+  etc_acos_one:
+    value: null
+    formula: "=ACOS(1)"                    # Expected: 0
+    expected: 0
+  etc_acos_zero:
+    value: null
+    formula: "=ROUND(ACOS(0), 6)"          # Expected: PI/2 ≈ 1.570796
+  etc_acos_half:
+    value: null
+    formula: "=ROUND(ACOS(0.5), 6)"        # Expected: PI/3 ≈ 1.047198
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ATAN - Arctangent function
+  # ═══════════════════════════════════════════════════════════════════════════
+  etc_atan_zero:
+    value: null
+    formula: "=ATAN(0)"                    # Expected: 0
+    expected: 0
+  etc_atan_one:
+    value: null
+    formula: "=ROUND(ATAN(1), 6)"          # Expected: PI/4 ≈ 0.785398
+  etc_atan_large:
+    value: null
+    formula: "=ROUND(ATAN(1000), 6)"       # Expected: ~PI/2 ≈ 1.569796
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SINH - Hyperbolic sine
+  # ═══════════════════════════════════════════════════════════════════════════
+  etc_sinh_zero:
+    value: null
+    formula: "=SINH(0)"                    # Expected: 0
+    expected: 0
+  etc_sinh_one:
+    value: null
+    formula: "=ROUND(SINH(1), 6)"          # Expected: 1.175201
+    expected: 1.175201
+  etc_sinh_negative:
+    value: null
+    formula: "=ROUND(SINH(-1), 6)"         # Expected: -1.175201
+    expected: -1.175201
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COSH - Hyperbolic cosine
+  # ═══════════════════════════════════════════════════════════════════════════
+  etc_cosh_zero:
+    value: null
+    formula: "=COSH(0)"                    # Expected: 1
+    expected: 1
+  etc_cosh_one:
+    value: null
+    formula: "=ROUND(COSH(1), 6)"          # Expected: 1.543081
+    expected: 1.543081
+  etc_cosh_negative:
+    value: null
+    formula: "=ROUND(COSH(-1), 6)"         # Expected: 1.543081 (even function)
+    expected: 1.543081
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TANH - Hyperbolic tangent
+  # ═══════════════════════════════════════════════════════════════════════════
+  etc_tanh_zero:
+    value: null
+    formula: "=TANH(0)"                    # Expected: 0
+    expected: 0
+  etc_tanh_one:
+    value: null
+    formula: "=ROUND(TANH(1), 6)"          # Expected: 0.761594
+    expected: 0.761594
+  etc_tanh_large:
+    value: null
+    formula: "=ROUND(TANH(10), 6)"         # Expected: ~1
+  etc_tanh_negative:
+    value: null
+    formula: "=ROUND(TANH(-1), 6)"         # Expected: -0.761594
+    expected: -0.761594
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RADIANS - Degrees to radians conversion
+  # ═══════════════════════════════════════════════════════════════════════════
+  radians_zero:
+    value: null
+    formula: "=RADIANS(0)"                    # Expected: 0
+    expected: 0
+  radians_45:
+    value: null
+    formula: "=ROUND(RADIANS(45), 6)"         # Expected: PI/4 ≈ 0.785398
+  radians_90:
+    value: null
+    formula: "=ROUND(RADIANS(90), 6)"         # Expected: PI/2 ≈ 1.570796
+  radians_180:
+    value: null
+    formula: "=ROUND(RADIANS(180), 6)"        # Expected: PI ≈ 3.141593
+  radians_360:
+    value: null
+    formula: "=ROUND(RADIANS(360), 6)"        # Expected: 2*PI ≈ 6.283185
+  radians_negative:
+    value: null
+    formula: "=ROUND(RADIANS(-90), 6)"        # Expected: -PI/2 ≈ -1.570796
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DEGREES - Radians to degrees conversion
+  # ═══════════════════════════════════════════════════════════════════════════
+  degrees_zero:
+    value: null
+    formula: "=DEGREES(0)"                    # Expected: 0
+    expected: 0
+  degrees_pi_4:
+    value: null
+    formula: "=ROUND(DEGREES(0.785398163), 2)"  # Expected: 45
+    expected: 45
+  degrees_pi_2:
+    value: null
+    formula: "=ROUND(DEGREES(1.570796327), 2)"  # Expected: 90
+    expected: 90
+  degrees_pi:
+    value: null
+    formula: "=ROUND(DEGREES(3.141592654), 2)"  # Expected: 180
+    expected: 180
+  degrees_2pi:
+    value: null
+    formula: "=ROUND(DEGREES(6.283185307), 2)"  # Expected: 360
+    expected: 360
+  degrees_negative:
+    value: null
+    formula: "=ROUND(DEGREES(-1.570796327), 2)" # Expected: -90
+    expected: -90
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Combined trig identities
+  # ═══════════════════════════════════════════════════════════════════════════
+  identity_sin_cos:
+    value: null
+    formula: "=ROUND(SIN(0.5)^2 + COS(0.5)^2, 6)"  # Expected: 1 (Pythagorean)
+    expected: 1
+  identity_tan:
+    value: null
+    formula: "=ROUND(TAN(0.5) - SIN(0.5)/COS(0.5), 6)"  # Expected: 0
+    expected: 0
+  identity_radians_degrees:
+    value: null
+    formula: "=DEGREES(RADIANS(123.456))"     # Expected: 123.456 (roundtrip)
+    expected: 123.456
+  identity_degrees_radians:
+    value: null
+    formula: "=RADIANS(DEGREES(2.5))"         # Expected: 2.5 (roundtrip)
+    expected: 2.5

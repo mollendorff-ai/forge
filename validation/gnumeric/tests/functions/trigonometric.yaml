@@ -1,0 +1,401 @@
+# E2E Trigonometric Function Tests - Complete Coverage
+# Validates forge calculations against Gnumeric
+# Total: 9 functions
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SIN - Sine function
+  # ═══════════════════════════════════════════════════════════════════════════
+  sin_zero:
+    value: null
+    formula: "=SIN(0)"
+    expected: 0
+
+  sin_pi_half:
+    value: null
+    formula: "=ROUND(SIN(PI() / 2), 10)"
+    expected: 1
+
+  sin_pi:
+    value: null
+    formula: "=ROUND(SIN(PI()), 10)"
+    expected: 0
+
+  sin_three_pi_half:
+    value: null
+    formula: "=ROUND(SIN(3 * PI() / 2), 10)"
+    expected: -1
+
+  sin_two_pi:
+    value: null
+    formula: "=ROUND(SIN(2 * PI()), 10)"
+    expected: 0
+
+  sin_negative:
+    value: null
+    formula: "=ROUND(SIN(-PI() / 2), 10)"
+    expected: -1
+
+  sin_pi_quarter:
+    value: null
+    formula: "=ROUND(SIN(PI() / 4), 6)"
+    expected: 0.707107
+
+  sin_pi_sixth:
+    value: null
+    formula: "=ROUND(SIN(PI() / 6), 6)"
+    expected: 0.5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COS - Cosine function
+  # ═══════════════════════════════════════════════════════════════════════════
+  cos_zero:
+    value: null
+    formula: "=COS(0)"
+    expected: 1
+
+  cos_pi_half:
+    value: null
+    formula: "=ROUND(COS(PI() / 2), 10)"
+    expected: 0
+
+  cos_pi:
+    value: null
+    formula: "=ROUND(COS(PI()), 10)"
+    expected: -1
+
+  cos_three_pi_half:
+    value: null
+    formula: "=ROUND(COS(3 * PI() / 2), 10)"
+    expected: 0
+
+  cos_two_pi:
+    value: null
+    formula: "=ROUND(COS(2 * PI()), 10)"
+    expected: 1
+
+  cos_negative:
+    value: null
+    formula: "=ROUND(COS(-PI()), 10)"
+    expected: -1
+
+  cos_pi_quarter:
+    value: null
+    formula: "=ROUND(COS(PI() / 4), 6)"
+    expected: 0.707107
+
+  cos_pi_third:
+    value: null
+    formula: "=ROUND(COS(PI() / 3), 6)"
+    expected: 0.5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TAN - Tangent function
+  # ═══════════════════════════════════════════════════════════════════════════
+  tan_zero:
+    value: null
+    formula: "=TAN(0)"
+    expected: 0
+
+  tan_pi_quarter:
+    value: null
+    formula: "=ROUND(TAN(PI() / 4), 10)"
+    expected: 1
+
+  tan_pi:
+    value: null
+    formula: "=ROUND(TAN(PI()), 10)"
+    expected: 0
+
+  tan_negative:
+    value: null
+    formula: "=ROUND(TAN(-PI() / 4), 10)"
+    expected: -1
+
+  tan_pi_sixth:
+    value: null
+    formula: "=ROUND(TAN(PI() / 6), 6)"
+    expected: 0.57735
+
+  tan_pi_third:
+    value: null
+    formula: "=ROUND(TAN(PI() / 3), 6)"
+    expected: 1.732051
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ASIN - Arcsine function
+  # ═══════════════════════════════════════════════════════════════════════════
+  asin_zero:
+    value: null
+    formula: "=ASIN(0)"
+    expected: 0
+
+  asin_one:
+    value: null
+    formula: "=ROUND(ASIN(1), 6)"
+    expected: 1.570796
+
+  asin_negative_one:
+    value: null
+    formula: "=ROUND(ASIN(-1), 6)"
+    expected: -1.570796
+
+  asin_half:
+    value: null
+    formula: "=ROUND(ASIN(0.5), 6)"
+    expected: 0.523599
+
+  asin_negative_half:
+    value: null
+    formula: "=ROUND(ASIN(-0.5), 6)"
+    expected: -0.523599
+
+  asin_sqrt2_half:
+    value: null
+    formula: "=ROUND(ASIN(SQRT(2) / 2), 6)"
+    expected: 0.785398
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ACOS - Arccosine function
+  # ═══════════════════════════════════════════════════════════════════════════
+  acos_zero:
+    value: null
+    formula: "=ROUND(ACOS(0), 6)"
+    expected: 1.570796
+
+  acos_one:
+    value: null
+    formula: "=ACOS(1)"
+    expected: 0
+
+  acos_negative_one:
+    value: null
+    formula: "=ROUND(ACOS(-1), 6)"
+    expected: 3.141593
+
+  acos_half:
+    value: null
+    formula: "=ROUND(ACOS(0.5), 6)"
+    expected: 1.047198
+
+  acos_negative_half:
+    value: null
+    formula: "=ROUND(ACOS(-0.5), 6)"
+    expected: 2.094395
+
+  acos_sqrt2_half:
+    value: null
+    formula: "=ROUND(ACOS(SQRT(2) / 2), 6)"
+    expected: 0.785398
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ATAN - Arctangent function
+  # ═══════════════════════════════════════════════════════════════════════════
+  atan_zero:
+    value: null
+    formula: "=ATAN(0)"
+    expected: 0
+
+  atan_one:
+    value: null
+    formula: "=ROUND(ATAN(1), 6)"
+    expected: 0.785398
+
+  atan_negative_one:
+    value: null
+    formula: "=ROUND(ATAN(-1), 6)"
+    expected: -0.785398
+
+  atan_sqrt3:
+    value: null
+    formula: "=ROUND(ATAN(SQRT(3)), 6)"
+    expected: 1.047198
+
+  atan_large_positive:
+    value: null
+    formula: "=ROUND(ATAN(1000), 6)"
+    expected: 1.569796
+
+  atan_large_negative:
+    value: null
+    formula: "=ROUND(ATAN(-1000), 6)"
+    expected: -1.569796
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SINH - Hyperbolic sine
+  # ═══════════════════════════════════════════════════════════════════════════
+  sinh_zero:
+    value: null
+    formula: "=SINH(0)"
+    expected: 0
+
+  sinh_one:
+    value: null
+    formula: "=ROUND(SINH(1), 6)"
+    expected: 1.175201
+
+  sinh_negative_one:
+    value: null
+    formula: "=ROUND(SINH(-1), 6)"
+    expected: -1.175201
+
+  sinh_two:
+    value: null
+    formula: "=ROUND(SINH(2), 6)"
+    expected: 3.626860
+
+  sinh_half:
+    value: null
+    formula: "=ROUND(SINH(0.5), 6)"
+    expected: 0.521095
+
+  sinh_negative_half:
+    value: null
+    formula: "=ROUND(SINH(-0.5), 6)"
+    expected: -0.521095
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COSH - Hyperbolic cosine
+  # ═══════════════════════════════════════════════════════════════════════════
+  cosh_zero:
+    value: null
+    formula: "=COSH(0)"
+    expected: 1
+
+  cosh_one:
+    value: null
+    formula: "=ROUND(COSH(1), 6)"
+    expected: 1.543081
+
+  cosh_negative_one:
+    value: null
+    formula: "=ROUND(COSH(-1), 6)"
+    expected: 1.543081
+
+  cosh_two:
+    value: null
+    formula: "=ROUND(COSH(2), 6)"
+    expected: 3.762196
+
+  cosh_half:
+    value: null
+    formula: "=ROUND(COSH(0.5), 6)"
+    expected: 1.127626
+
+  cosh_negative_half:
+    value: null
+    formula: "=ROUND(COSH(-0.5), 6)"
+    expected: 1.127626
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TANH - Hyperbolic tangent
+  # ═══════════════════════════════════════════════════════════════════════════
+  tanh_zero:
+    value: null
+    formula: "=TANH(0)"
+    expected: 0
+
+  tanh_one:
+    value: null
+    formula: "=ROUND(TANH(1), 6)"
+    expected: 0.761594
+
+  tanh_negative_one:
+    value: null
+    formula: "=ROUND(TANH(-1), 6)"
+    expected: -0.761594
+
+  tanh_two:
+    value: null
+    formula: "=ROUND(TANH(2), 6)"
+    expected: 0.964028
+
+  tanh_large_positive:
+    value: null
+    formula: "=ROUND(TANH(10), 6)"
+    expected: 1
+
+  tanh_large_negative:
+    value: null
+    formula: "=ROUND(TANH(-10), 6)"
+    expected: -1
+
+  tanh_half:
+    value: null
+    formula: "=ROUND(TANH(0.5), 6)"
+    expected: 0.462117
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Trigonometric Identities and Combined Tests
+  # ═══════════════════════════════════════════════════════════════════════════
+  identity_pythagorean:
+    value: null
+    formula: "=ROUND(SIN(0.5) * SIN(0.5) + COS(0.5) * COS(0.5), 10)"
+    expected: 1
+
+  identity_tan_definition:
+    value: null
+    formula: "=ROUND(TAN(0.5) - SIN(0.5) / COS(0.5), 10)"
+    expected: 0
+
+  identity_sin_asin:
+    value: null
+    formula: "=ROUND(SIN(ASIN(0.7)), 10)"
+    expected: 0.7
+
+  identity_cos_acos:
+    value: null
+    formula: "=ROUND(COS(ACOS(0.6)), 10)"
+    expected: 0.6
+
+  identity_tan_atan:
+    value: null
+    formula: "=ROUND(TAN(ATAN(1.5)), 10)"
+    expected: 1.5
+
+  identity_asin_acos_sum:
+    value: null
+    formula: "=ROUND(ASIN(0.5) + ACOS(0.5) - PI() / 2, 10)"
+    expected: 0
+
+  identity_hyperbolic_cosh_sinh:
+    value: null
+    formula: "=ROUND(COSH(1.2) * COSH(1.2) - SINH(1.2) * SINH(1.2), 10)"
+    expected: 1
+
+  identity_tanh_definition:
+    value: null
+    formula: "=ROUND(TANH(0.8) - SINH(0.8) / COSH(0.8), 10)"
+    expected: 0
+
+  combined_sin_radians:
+    value: null
+    formula: "=ROUND(SIN(RADIANS(30)), 6)"
+    expected: 0.5
+
+  combined_cos_degrees:
+    value: null
+    formula: "=ROUND(DEGREES(ACOS(0.5)), 2)"
+    expected: 60
+
+  combined_tan_pi:
+    value: null
+    formula: "=ROUND(TAN(PI() / 3), 6)"
+    expected: 1.732051
+
+  combined_sin_cos_sum_angles:
+    value: null
+    formula: "=ROUND(SIN(0.3) * COS(0.2) + COS(0.3) * SIN(0.2) - SIN(0.5), 10)"
+    expected: 0
+
+  combined_double_angle_sin:
+    value: null
+    formula: "=ROUND(2 * SIN(PI() / 6) * COS(PI() / 6) - SIN(PI() / 3), 10)"
+    expected: 0
+
+  combined_double_angle_cos:
+    value: null
+    formula: "=ROUND(COS(PI() / 6) * COS(PI() / 6) - SIN(PI() / 6) * SIN(PI() / 6) - COS(PI() / 3), 10)"
+    expected: 0

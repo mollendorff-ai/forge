@@ -1,0 +1,95 @@
+# PREV (the row above), ROW() and period columns (Forge ADR-053).
+#
+# forge export writes a PREV column as cells that read the row above (the
+# first row holds the first-row value), ROW() as the table's row number, and
+# a period column as its dates. Gnumeric recalculates the cells.
+#
+# Expected values, worked out by hand:
+#   loan: 1000 at 1% a month, paying 300 a month until it is paid
+#     opening   1000      710      417.10    121.271     0
+#     interest    10        7.10     4.171     1.21271   0
+#     payment    300      300      300       122.48371   0
+#     closing    710      417.10   121.271     0         0
+#   series: x = 10, 20, 30, 40
+#     running   10, 30, 60, 100        (the row above plus x)
+#     two_back  -1, -1, 10, 20         (x two rows up, -1 where there is none)
+#     change     0, 10, 10, 10         (x less the x above; the first is x - x)
+#     number     1,  2,  3,  4
+#     above      0,  1,  2,  3         (the ROW() of the row above)
+#     grown      8, 12, 18, 27         (the row above times 1.5, from 8)
+
+_forge_version: "5.2.0"
+
+loan:
+  month: {start: 2026-12, count: 5, unit: month}
+  opening: "=PREV(closing, 1000)"
+  interest: "=opening * 0.01"
+  payment: "=MIN(300, opening + interest)"
+  closing: "=opening + interest - payment"
+
+series:
+  x: [10, 20, 30, 40]
+  running: "=PREV(running, 0) + x"
+  two_back: "=PREV(x, -1, 2)"
+  change: "=x - PREV(x, x)"
+  number: "=ROW()"
+  above: "=PREV(ROW(), 0)"
+  grown: "=PREV(grown * 1.5, 8)"
+
+assumptions:
+  test_loan_closing_after_three_payments:
+    value: null
+    formula: "=ROUND(INDEX(loan.closing, 3), 9)"
+    expected: 121.271
+  test_loan_last_payment:
+    value: null
+    formula: "=ROUND(INDEX(loan.payment, 4), 9)"
+    expected: 122.48371
+  test_loan_total_interest:
+    value: null
+    formula: "=ROUND(SUM(loan.interest), 9)"
+    expected: 22.48371
+  test_loan_number_of_payments:
+    value: null
+    formula: "=COUNTIF(loan.payment, \">0\")"
+    expected: 4
+  test_loan_is_paid:
+    value: null
+    formula: "=INDEX(loan.closing, 5)"
+    expected: 0
+  test_period_year_of_fourth_month:
+    value: null
+    formula: "=YEAR(INDEX(loan.month, 4))"
+    expected: 2027
+  test_period_month_of_fourth_month:
+    value: null
+    formula: "=MONTH(INDEX(loan.month, 4))"
+    expected: 3
+  test_running_total_last:
+    value: null
+    formula: "=INDEX(series.running, 4)"
+    expected: 100
+  test_running_total_sum:
+    value: null
+    formula: "=SUM(series.running)"
+    expected: 200
+  test_two_rows_back:
+    value: null
+    formula: "=SUM(series.two_back)"
+    expected: 28
+  test_change_from_the_row_above:
+    value: null
+    formula: "=SUM(series.change)"
+    expected: 30
+  test_row_numbers:
+    value: null
+    formula: "=SUM(series.number)"
+    expected: 10
+  test_row_number_of_the_row_above:
+    value: null
+    formula: "=SUM(series.above)"
+    expected: 6
+  test_growth_from_the_row_above:
+    value: null
+    formula: "=INDEX(series.grown, 4)"
+    expected: 27

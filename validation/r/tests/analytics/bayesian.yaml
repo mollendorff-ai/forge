@@ -1,0 +1,385 @@
+# E2E Bayesian Network Tests
+# R-Validated against bnlearn calculations
+#
+# Phase 5: Bayesian network inference validation
+# Validated by: validators/r/bayesian_validator.R
+#
+# Testing approach:
+#   1. Run forge bayesian with network specification
+#   2. Capture JSON output (posteriors, marginals)
+#   3. Run R validator with same network structure
+#   4. Compare probabilities within tolerance
+#
+# Tolerance (per ADR-010):
+#   - Probabilities: 2% absolute difference (sampling-based)
+#   - Rankings: Exact match for most probable states
+
+_forge_version: "1.0.0"
+_r_validator: "bayesian_validator.R"
+
+# Probability tables are listed row by row: one row per state of the node, one
+# column per combination of parent states (first parent varies fastest). Each
+# column must sum to 1. Expected values were recomputed on 2026-11-05 by hand
+# enumeration; the R validator decides when the runner runs without --expected-only.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Simple Networks
+# ═══════════════════════════════════════════════════════════════════════════════
+
+tests:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 1: Simple Two-Node Network
+  # A -> B (basic cause-effect)
+  # ─────────────────────────────────────────────────────────────────────────────
+  simple_two_node:
+    network:
+      nodes: ["A", "B"]
+      arcs: [["A", "B"]]
+      cpts:
+        A:
+          levels: ["no", "yes"]
+          probs: [0.3, 0.7]  # P(A=no)=0.3, P(A=yes)=0.7
+        B:
+          levels: ["no", "yes"]
+          parents: ["A"]
+          # P(B|A): rows are B levels, cols are A levels
+          probs: [0.9, 0.2, 0.1, 0.8]  # P(B=no|A=no)=0.9, P(B=no|A=yes)=0.2, etc.
+    query:
+      target: "A"
+      evidence:
+        B: "yes"
+    r_expected:
+      # P(A=yes|B=yes) using Bayes theorem:
+      # P(A=yes|B=yes) = P(B=yes|A=yes)*P(A=yes) / P(B=yes)
+      # P(B=yes) = 0.8*0.7 + 0.1*0.3 = 0.56 + 0.03 = 0.59
+      # P(A=yes|B=yes) = 0.8*0.7/0.59 = 0.56/0.59 ≈ 0.949
+      posterior:
+        "no": 0.051
+        "yes": 0.949
+    tolerance:
+      probability: 0.02
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 2: Rain-Sprinkler-Grass (Classic Example)
+  # Rain -> Grass <- Sprinkler (V-structure)
+  # ─────────────────────────────────────────────────────────────────────────────
+  rain_sprinkler_grass:
+    network:
+      nodes: ["Rain", "Sprinkler", "Grass"]
+      arcs: [["Rain", "Grass"], ["Sprinkler", "Grass"]]
+      cpts:
+        Rain:
+          levels: ["no", "yes"]
+          probs: [0.8, 0.2]  # P(Rain=yes)=0.2
+        Sprinkler:
+          levels: ["off", "on"]
+          probs: [0.6, 0.4]  # P(Sprinkler=on)=0.4
+        Grass:
+          levels: ["dry", "wet"]
+          parents: ["Rain", "Sprinkler"]
+          # P(Grass|Rain,Sprinkler) - order: [Rain=no,Spr=off], [Rain=yes,Spr=off], [Rain=no,Spr=on], [Rain=yes,Spr=on]
+          probs: [1.0, 0.2, 0.1, 0.01, 0.0, 0.8, 0.9, 0.99]
+    query:
+      target: "Rain"
+      evidence:
+        Grass: "wet"
+    r_expected:
+      # Observing wet grass should increase belief in rain
+      # P(Rain=yes) prior = 0.2
+      # P(Rain=yes|Grass=wet) > 0.2 (explained away by sprinkler too)
+      posterior:
+        "no": 0.62  # Approximately
+        "yes": 0.38
+    tolerance:
+      probability: 0.03
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 3: Chain Network (A -> B -> C)
+  # Test information flow through chain
+  # ─────────────────────────────────────────────────────────────────────────────
+  chain_network:
+    network:
+      nodes: ["A", "B", "C"]
+      arcs: [["A", "B"], ["B", "C"]]
+      cpts:
+        A:
+          levels: ["a0", "a1"]
+          probs: [0.6, 0.4]
+        B:
+          levels: ["b0", "b1"]
+          parents: ["A"]
+          probs: [0.9, 0.2, 0.1, 0.8]  # P(B|A)
+        C:
+          levels: ["c0", "c1"]
+          parents: ["B"]
+          probs: [0.7, 0.1, 0.3, 0.9]  # P(C|B)
+    query:
+      target: "B"
+    r_expected:
+      # P(B=b1) = P(B=b1|A=a0)*P(A=a0) + P(B=b1|A=a1)*P(A=a1)
+      #         = 0.1*0.6 + 0.8*0.4 = 0.06 + 0.32 = 0.38
+      posterior:
+        "b0": 0.62
+        "b1": 0.38
+    tolerance:
+      probability: 0.02
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 4: Common Cause (Fork Structure)
+  # B -> A and B -> C
+  # ─────────────────────────────────────────────────────────────────────────────
+  common_cause:
+    network:
+      nodes: ["A", "B", "C"]
+      arcs: [["B", "A"], ["B", "C"]]
+      cpts:
+        B:
+          levels: ["b0", "b1"]
+          probs: [0.5, 0.5]  # Fair coin
+        A:
+          levels: ["a0", "a1"]
+          parents: ["B"]
+          probs: [0.8, 0.3, 0.2, 0.7]
+        C:
+          levels: ["c0", "c1"]
+          parents: ["B"]
+          probs: [0.9, 0.4, 0.1, 0.6]
+    query:
+      target: "B"
+      evidence:
+        A: "a1"
+    r_expected:
+      # Observing A=a1 updates belief about B
+      # P(B=b1|A=a1) = P(A=a1|B=b1)*P(B=b1) / P(A=a1)
+      # P(A=a1) = 0.2*0.5 + 0.7*0.5 = 0.45
+      # P(B=b1|A=a1) = 0.7*0.5/0.45 = 0.778
+      posterior:
+        "b0": 0.222
+        "b1": 0.778
+    tolerance:
+      probability: 0.02
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 5: Explaining Away (V-Structure)
+  # A -> C <- B (collider)
+  # ─────────────────────────────────────────────────────────────────────────────
+  explaining_away:
+    network:
+      nodes: ["A", "B", "C"]
+      arcs: [["A", "C"], ["B", "C"]]
+      cpts:
+        A:
+          levels: ["a0", "a1"]
+          probs: [0.5, 0.5]
+        B:
+          levels: ["b0", "b1"]
+          probs: [0.5, 0.5]
+        C:
+          levels: ["c0", "c1"]
+          parents: ["A", "B"]
+          # C is true if A or B (or both)
+          probs: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+    query:
+      target: "B"
+      evidence:
+        C: "c1"
+        A: "a1"
+    r_expected:
+      # Given C=c1 and A=a1, B is explained away
+      # Since A=a1 explains C=c1, P(B=b1|C=c1,A=a1) should decrease
+      # from P(B=b1|C=c1) ≈ 0.67
+      posterior:
+        "b0": 0.5
+        "b1": 0.5
+    tolerance:
+      probability: 0.02
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Inference Scenarios
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 6: Credit Risk Network
+  # Economic -> Revenue -> Default
+  # ─────────────────────────────────────────────────────────────────────────────
+  credit_risk:
+    network:
+      nodes: ["Economy", "Revenue", "Default"]
+      arcs: [["Economy", "Revenue"], ["Revenue", "Default"]]
+      cpts:
+        Economy:
+          levels: ["good", "neutral", "bad"]
+          probs: [0.3, 0.5, 0.2]
+        Revenue:
+          levels: ["high", "medium", "low"]
+          parents: ["Economy"]
+          # P(Revenue|Economy), one row per Revenue state, one column per
+          # Economy state (good, neutral, bad); each column sums to 1
+          probs: [0.6, 0.3, 0.1, 0.3, 0.5, 0.3, 0.1, 0.2, 0.6]
+        Default:
+          levels: ["low", "medium", "high"]
+          parents: ["Revenue"]
+          # P(Default|Revenue)
+          probs: [0.8, 0.4, 0.1, 0.15, 0.4, 0.3, 0.05, 0.2, 0.6]
+    query:
+      target: "Default"
+      evidence:
+        Economy: "bad"
+    r_expected:
+      # Bad economy increases default risk
+      # P(Default=high|Economy=bad) should be elevated
+      posterior:
+        "low": 0.26
+        "medium": 0.315
+        "high": 0.425
+    tolerance:
+      probability: 0.03
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 7: Medical Diagnosis
+  # Disease -> Symptom1, Symptom2
+  # ─────────────────────────────────────────────────────────────────────────────
+  medical_diagnosis:
+    network:
+      nodes: ["Disease", "Fever", "Cough"]
+      arcs: [["Disease", "Fever"], ["Disease", "Cough"]]
+      cpts:
+        Disease:
+          levels: ["healthy", "flu", "cold"]
+          probs: [0.7, 0.15, 0.15]  # Prior: most people healthy
+        Fever:
+          levels: ["no", "yes"]
+          parents: ["Disease"]
+          probs: [0.95, 0.1, 0.3, 0.05, 0.9, 0.7]  # P(Fever|Disease)
+        Cough:
+          levels: ["no", "yes"]
+          parents: ["Disease"]
+          probs: [0.9, 0.2, 0.4, 0.1, 0.8, 0.6]  # P(Cough|Disease)
+    query:
+      target: "Disease"
+      evidence:
+        Fever: "yes"
+        Cough: "yes"
+    r_expected:
+      # Both symptoms present -> likely flu
+      posterior:
+        "healthy": 0.020  # Low given both symptoms
+        "flu": 0.619      # Most likely
+        "cold": 0.361     # Possible
+    tolerance:
+      probability: 0.05
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 8: Alarm Network (Simplified)
+  # Burglary/Earthquake -> Alarm -> JohnCalls
+  # ─────────────────────────────────────────────────────────────────────────────
+  alarm_network:
+    network:
+      nodes: ["Burglary", "Earthquake", "Alarm", "JohnCalls"]
+      arcs: [["Burglary", "Alarm"], ["Earthquake", "Alarm"], ["Alarm", "JohnCalls"]]
+      cpts:
+        Burglary:
+          levels: ["no", "yes"]
+          probs: [0.999, 0.001]  # Rare
+        Earthquake:
+          levels: ["no", "yes"]
+          probs: [0.998, 0.002]  # Rare
+        Alarm:
+          levels: ["no", "yes"]
+          parents: ["Burglary", "Earthquake"]
+          # P(Alarm|B,E)
+          probs: [0.999, 0.06, 0.29, 0.05, 0.001, 0.94, 0.71, 0.95]
+        JohnCalls:
+          levels: ["no", "yes"]
+          parents: ["Alarm"]
+          probs: [0.95, 0.1, 0.05, 0.9]
+    query:
+      target: "Burglary"
+      evidence:
+        JohnCalls: "yes"
+    r_expected:
+      # John calling increases burglary probability slightly
+      posterior:
+        "no": 0.984
+        "yes": 0.016
+    tolerance:
+      probability: 0.02
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Edge Cases
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 9: Deterministic CPT
+  # Node with certain outcome given parent
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_deterministic:
+    network:
+      nodes: ["Input", "Output"]
+      arcs: [["Input", "Output"]]
+      cpts:
+        Input:
+          levels: ["off", "on"]
+          probs: [0.3, 0.7]
+        Output:
+          levels: ["off", "on"]
+          parents: ["Input"]
+          probs: [1.0, 0.0, 0.0, 1.0]  # Output = Input (deterministic)
+    query:
+      target: "Input"
+      evidence:
+        Output: "on"
+    r_expected:
+      # If Output=on, Input must be on (deterministic)
+      posterior:
+        "off": 0.0
+        "on": 1.0
+    tolerance:
+      probability: 0.01
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 10: Single Node (No Parents, No Children)
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_single_node:
+    network:
+      nodes: ["X"]
+      arcs: []
+      cpts:
+        X:
+          levels: ["low", "medium", "high"]
+          probs: [0.2, 0.5, 0.3]
+    query:
+      target: "X"
+    r_expected:
+      # No evidence, just return prior
+      posterior:
+        "low": 0.2
+        "medium": 0.5
+        "high": 0.3
+    tolerance:
+      probability: 0.02
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Metadata
+# ═══════════════════════════════════════════════════════════════════════════════
+
+metadata:
+  total_tests: 10
+  network_types:
+    - simple_chain
+    - v_structure
+    - common_cause
+    - complex
+  inference_types:
+    - posterior_query
+    - marginal_query
+  r_packages:
+    - bnlearn
+    - jsonlite
+  validation_method: "R bnlearn rejection sampling comparison"
+  reference: "ADR-010: R-Validated Analytics E2E Tests"
+  notes:
+    - "Uses rejection sampling (approximate inference)"
+    - "Higher tolerance (2-3%) due to sampling variance"
+    - "100K samples used for each inference"
+    - "Probabilities must sum to 1"

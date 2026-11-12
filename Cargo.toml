@@ -28,6 +28,7 @@ exclude = [
     "scripts/*",
     "releases/*",
     "forge-wasm/*",
+    "validation/*",
     "Makefile",
     "*.md",
     "!README.md",
@@ -74,7 +75,7 @@ excel = ["dep:rust_xlsxwriter", "dep:calamine", "dep:regex", "dep:zip"]
 # forge-wasm runs the same core functions in a browser (ADR-055); it is not
 # published and not part of this crate's package
 [workspace]
-members = ["forge-wasm"]
+members = ["forge-wasm", "validation/gnumeric", "validation/r"]
 
 [[bin]]
 name = "forge"
@@ -174,8 +175,8 @@ chrono = { version = "0.4", features = ["serde", "wasmbind"] }
 # there); only when Excel is built in (feature `excel`)
 rust_xlsxwriter = { version = "0.102", optional = true, features = ["wasm"] }
 
-# E2E tests migrated to forge-e2e repository (see ADR-027)
-# Gnumeric, R, Python validation now in https://github.com/mollendorff-ai/forge-e2e
+# The validation suites against Gnumeric and R are workspace members in
+# validation/ (ADR-057)
 
 [dev-dependencies]
 # Testing

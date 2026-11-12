@@ -1,0 +1,221 @@
+# forge-e2e-r
+
+R-validated E2E testing for [forge](https://github.com/mollendorff-ai/forge) analytics.
+
+## Philosophy
+
+**Forge is NEVER the authority.**
+
+All tests validate forge against R, the gold-standard for statistical computing.
+If forge disagrees with R, forge has a bug.
+
+This is one of the two validation suites of [Forge](../..), in `validation/r`; the other is [forge-e2e-gnumeric](../gnumeric). Until 2026-11-12 it was the [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) repository, now archived, whose history is in this repository's history (ADR-057). It has no version of its own and is not published; Forge's Validation workflow runs it against the build of the same commit. A pull request that changes or removes an expected value here says `changes expected values` in its title (CONTRIBUTING.md).
+
+## What It Tests
+
+| Category | Tests | R Packages |
+|----------|-------|------------|
+| Monte Carlo | 12 distribution tests | stats, mc2d |
+| Bootstrap | Confidence intervals | boot |
+| Bayesian Networks | Inference, belief propagation | bnlearn |
+| Decision Trees | Expected monetary value | data.tree |
+| Real Options | Black-Scholes, binomial | derivmkts |
+| Tornado | Sensitivity analysis | base R |
+| Scenarios | Probability-weighted | base R |
+| Variance | Budget vs actual | base R |
+| Breakeven | Unit economics | base R |
+
+### What actually runs
+
+`cargo run --release -- --all` loads the 77 specs in `tests/analytics` and compares Forge with R for 70 of them: Monte Carlo 10 of 12, bootstrap 12 of 12, tornado 7 of 8, sensitivity 6 of 10, decision trees 10 of 10, real options 15 of 15, Bayesian networks 10 of 10. The decision tree runner needs the R package `data.tree` and the Bayesian runner needs `bnlearn`; without them those tests error. The real options validator uses `derivmkts` when it is installed, as a second independent price. `--expected-only` compares decision trees, real options and Bayesian networks with the expected values written in the spec instead of running R, and the summary says so. The other 7 specs are skipped, each with its reason: Forge has no exponential distribution, no elasticity command, and rejects one-point ranges. Real options are compared on price only: Forge's command does not print Greeks. Bootstrap, tornado and sensitivity need a Forge build with machine-readable `--output` (forge PR #27). `variance.yaml`, `breakeven.yaml` and `scenarios.yaml` are Forge models with hand-written expected values, not R comparisons, and the runner does not load them.
+
+`validators/r/math_validator.R`, `date_validator.R` and `financial_validator.R` run each formula through `forge calculate` and compare the result with R. They need `FORGE_BIN` set (or `forge` on the PATH) and stop with exit code 2 if Forge cannot be found. Where R and Excel differ, the reference is Excel: `ROUND` rounds half away from zero and `NETWORKDAYS` counts both end dates.
+
+### Which checks call Forge
+
+`validators/r/run_all.sh` runs six validators. Three of them send formulas through `forge calculate` and compare the result with R: math (48 checks), date (40) and financial (31), 119 checks in all. These are the 119 that VALIDATION.md in the Forge repository reports. The other two validators (bootstrap and distribution) check R's own output and do not call Forge, and the script's summary counts them as well, so it prints a larger total (136 when I ran it). The Forge comparison for bootstrap and the distributions is done by the analytics runner (`cargo run --release -- --all`) described above.
+
+### Versioning
+
+This repository has no releases or tags of its own. It is run by Forge's Validation workflow. On a Forge pull request the workflow uses the branch of this repository with the same name as the Forge branch, if there is one; on the weekly schedule, and when there is no such branch, it uses `main`. A change here that goes with a Forge change should use the same branch name.
+
+## Requirements
+
+### Forge Binary
+
+```bash
+# Option 1: build Forge at the root of this repository (auto-detected as ../../target/release/forge)
+(cd ../.. && cargo build --release)
+
+# Option 2: set the environment variable (the R function validators need it)
+export FORGE_BIN=/path/to/forge
+```
+
+### R Installation
+
+```bash
+# macOS
+brew install r
+
+# Ubuntu/Debian
+apt install r-base
+
+# Fedora/RHEL
+dnf install R
+```
+
+### R Packages
+
+```bash
+# Core packages (required)
+Rscript -e 'install.packages(c("jsonlite", "boot", "mc2d"))'
+
+# Optional packages (for full test coverage)
+Rscript -e 'install.packages(c("bnlearn", "data.tree", "derivmkts"))'
+
+# Or use the installer script
+Rscript validators/r/install_deps.R
+```
+
+## Usage
+
+```bash
+# Run all tests
+FORGE_BIN=/path/to/forge cargo run --release -- --all
+
+# Run specific test file
+cargo run --release -- --tests tests/analytics/monte_carlo.yaml
+
+# Run specific test directory
+cargo run --release -- --tests tests/analytics --all
+
+# With verbose output
+cargo run --release -- --all --verbose
+```
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Test Execution                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   1. Load YAML test spec                                        │
+│      └── distribution, params, seed, iterations                 │
+│                                                                 │
+│   2. Run forge command                                          │
+│      └── forge simulate → JSON output                           │
+│                                                                 │
+│   3. Run R validator                                            │
+│      └── Rscript validator.R → R reference results              │
+│                                                                 │
+│   4. Compare statistics                                         │
+│      ├── Mean: 1% tolerance                                     │
+│      ├── Std: 5% tolerance                                      │
+│      ├── Percentiles: 2% tolerance                              │
+│      └── KS test: p > 0.05                                      │
+│                                                                 │
+│   5. Report Pass/Fail                                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Project Structure
+
+```
+forge-e2e-r/
+├── src/
+│   ├── main.rs           # CLI test runner
+│   ├── lib.rs            # Library exports
+│   ├── cli_runner.rs     # Forge binary orchestration
+│   ├── r_validator.rs    # R process management
+│   ├── types.rs          # Test specifications
+│   └── stats.rs          # Statistical comparison
+│
+├── tests/analytics/      # YAML test specifications
+│   ├── monte_carlo.yaml  # 12 distribution tests
+│   ├── bootstrap.yaml    # Confidence intervals
+│   ├── bayesian.yaml     # Bayesian networks
+│   ├── decision_trees.yaml
+│   ├── real_options.yaml
+│   ├── tornado.yaml
+│   ├── sensitivity.yaml
+│   ├── scenarios.yaml
+│   ├── variance.yaml
+│   └── breakeven.yaml
+│
+└── validators/r/         # R validation scripts
+    ├── monte_carlo_validator.R
+    ├── bootstrap_validator.R
+    ├── bayesian_validator.R
+    ├── decision_tree_validator.R
+    ├── real_options_validator.R
+    ├── tornado_validator.R
+    ├── sensitivity_validator.R
+    ├── distribution_validator.R
+    ├── financial_validator.R
+    ├── math_validator.R
+    ├── date_validator.R
+    └── install_deps.R
+```
+
+## Test YAML Format
+
+```yaml
+_forge_version: "1.0.0"
+_r_validator: "monte_carlo_validator.R"
+
+tests:
+  normal_standard:
+    distribution: normal
+    params:
+      mean: 100
+      sd: 15
+    seed: 42
+    iterations: 10000
+    r_expected:
+      mean: 99.6126336002
+      std: 15.0378185524
+      percentiles:
+        "5": 75.3192593056
+        "50": 99.8029873351
+        "95": 123.0023063276
+    tolerance:
+      mean: 0.01
+      std: 0.05
+      percentiles: 0.02
+```
+
+## Tolerance Rationale
+
+| Statistic | Tolerance | Rationale |
+|-----------|-----------|-----------|
+| Mean | 1% | Central tendency converges quickly |
+| Std | 5% | Variance estimates have higher variance |
+| Percentiles | 2% | Tail estimates need more samples |
+| KS test | p > 0.05 | Standard significance level |
+
+These tolerances account for:
+- Random sampling variation (even with same seed, implementation may differ)
+- Floating-point precision differences
+- Algorithm variations between implementations
+
+## Development
+
+```bash
+# Build
+cargo build --release
+
+# Run tests
+cargo test
+
+# Lint
+cargo clippy -- -D warnings
+
+# Format
+cargo fmt
+```
+
+## License
+
+Dual-licensed under [MIT](../../LICENSE-MIT) or [Apache-2.0](../../LICENSE-APACHE), at your option, as Forge is.

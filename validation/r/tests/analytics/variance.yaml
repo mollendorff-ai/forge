@@ -1,0 +1,65 @@
+# E2E Enterprise Variance Function Tests
+# VARIANCE, VARIANCE_PCT, VARIANCE_STATUS are enterprise-only features
+# These tests are disabled in demo mode
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # VARIANCE: Simple variance calculation (actual - budget)
+  test_variance_basic:
+    value: null
+    formula: "=VARIANCE(100000, 120000)"
+    expected: -20000
+
+  test_variance_positive:
+    value: null
+    formula: "=VARIANCE(150000, 100000)"
+    expected: 50000
+
+  test_variance_zero:
+    value: null
+    formula: "=VARIANCE(100000, 100000)"
+    expected: 0
+
+  # VARIANCE_PCT: Percentage variance ((actual - budget) / budget)
+  test_variance_pct_under:
+    value: null
+    formula: "=ROUND(VARIANCE_PCT(100000, 120000), 4)"
+    expected: -0.1667
+
+  test_variance_pct_over:
+    value: null
+    formula: "=ROUND(VARIANCE_PCT(150000, 100000), 4)"
+    expected: 0.5
+
+  test_variance_pct_on_target:
+    value: null
+    formula: "=VARIANCE_PCT(100000, 100000)"
+    expected: 0
+
+  # VARIANCE_STATUS: Returns -1 (under), 0 (on target), 1 (over)
+  test_variance_status_under:
+    value: null
+    formula: "=VARIANCE_STATUS(100000, 120000, 0.10)"
+    expected: -1
+
+  test_variance_status_on_target:
+    value: null
+    formula: "=VARIANCE_STATUS(120010, 120000)"
+    expected: 0
+
+  test_variance_status_over:
+    value: null
+    formula: "=VARIANCE_STATUS(150000, 120000, 0.10)"
+    expected: 1
+
+  # VARIANCE_STATUS with cost type (reversed logic)
+  test_variance_status_cost_favorable:
+    value: null
+    formula: "=VARIANCE_STATUS(80000, 100000, \"cost\")"
+    expected: 1
+
+  test_variance_status_cost_unfavorable:
+    value: null
+    formula: "=VARIANCE_STATUS(120000, 100000, \"cost\")"
+    expected: -1

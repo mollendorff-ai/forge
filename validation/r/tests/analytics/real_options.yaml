@@ -1,0 +1,384 @@
+# E2E Real Options Tests
+# R-Validated against derivmkts calculations
+#
+# Phase 4: Real options valuation validation
+# Validated by: validators/r/real_options_validator.R
+#
+# Testing approach:
+#   1. Run forge real-options with option specification
+#   2. Capture JSON output (prices, Greeks)
+#   3. Run R validator with same parameters
+#   4. Compare values within tolerance
+#
+# Tolerance (per ADR-010):
+#   - Option prices: 0.1% relative difference
+#   - Greeks: 1% relative difference (numerical sensitivity)
+
+_forge_version: "1.0.0"
+_r_validator: "real_options_validator.R"
+
+# Expected prices were recomputed on 2026-11-05 with an independent Black-Scholes
+# and binomial (CRR) implementation; earlier hand-written values were wrong for
+# 11 cases. R decides the comparison when the runner runs without --expected-only.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Black-Scholes Model
+# ═══════════════════════════════════════════════════════════════════════════════
+
+tests:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 1: At-The-Money Call Option
+  # Classic reference case: S = K = 100
+  # ─────────────────────────────────────────────────────────────────────────────
+  bs_atm_call:
+    model: black_scholes
+    option_type: call
+    S: 100         # Current asset value
+    K: 100         # Strike price
+    r: 0.05        # Risk-free rate (5%)
+    sigma: 0.30    # Volatility (30%)
+    T: 1           # Time to expiration (1 year)
+    q: 0           # No dividend yield
+    r_expected:
+      # From R: bs_call(100, 100, 0.05, 0.3, 1)
+      price: 14.2313
+      greeks:
+        delta: 0.6243
+        gamma: 0.0126
+        theta: -0.0222  # per day
+        vega: 0.3794    # per 1% vol
+        rho: 0.4819     # per 1% rate
+    tolerance:
+      price: 0.001
+      greeks: 0.01
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 2: At-The-Money Put Option
+  # Put-call parity validation
+  # ─────────────────────────────────────────────────────────────────────────────
+  bs_atm_put:
+    model: black_scholes
+    option_type: put
+    S: 100
+    K: 100
+    r: 0.05
+    sigma: 0.30
+    T: 1
+    q: 0
+    r_expected:
+      # From R: bs_put(100, 100, 0.05, 0.3, 1)
+      # Put-Call Parity: P = C - S + K*exp(-rT)
+      # P = 14.2313 - 100 + 100*exp(-0.05) = 14.2313 - 100 + 95.1229 = 9.3542
+      price: 9.3542
+      greeks:
+        delta: -0.3757  # N(d1) - 1
+    tolerance:
+      price: 0.001
+      greeks: 0.01
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 3: In-The-Money Call Option
+  # S > K (profitable to exercise immediately)
+  # ─────────────────────────────────────────────────────────────────────────────
+  bs_itm_call:
+    model: black_scholes
+    option_type: call
+    S: 120         # Current value above strike
+    K: 100         # Strike price
+    r: 0.05
+    sigma: 0.30
+    T: 1
+    q: 0
+    r_expected:
+      # ITM: high delta, intrinsic value = 20
+      price: 28.8804
+      intrinsic: 20
+      time_value: 7.9534
+    tolerance:
+      price: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 4: Out-of-The-Money Call Option
+  # S < K (no intrinsic value)
+  # ─────────────────────────────────────────────────────────────────────────────
+  bs_otm_call:
+    model: black_scholes
+    option_type: call
+    S: 80          # Current value below strike
+    K: 100         # Strike price
+    r: 0.05
+    sigma: 0.30
+    T: 1
+    q: 0
+    r_expected:
+      # OTM: low delta, all time value
+      price: 4.5532
+      intrinsic: 0
+      time_value: 5.2595
+    tolerance:
+      price: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 5: Short-Term Option (3 months)
+  # Time decay effect
+  # ─────────────────────────────────────────────────────────────────────────────
+  bs_short_term:
+    model: black_scholes
+    option_type: call
+    S: 100
+    K: 100
+    r: 0.05
+    sigma: 0.30
+    T: 0.25        # 3 months
+    q: 0
+    r_expected:
+      # Shorter time = less option value
+      price: 6.5831
+    tolerance:
+      price: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 6: Long-Term Option (3 years)
+  # LEAPS-style
+  # ─────────────────────────────────────────────────────────────────────────────
+  bs_long_term:
+    model: black_scholes
+    option_type: call
+    S: 100
+    K: 100
+    r: 0.05
+    sigma: 0.30
+    T: 3           # 3 years
+    q: 0
+    r_expected:
+      # Longer time = more option value
+      price: 26.8055
+    tolerance:
+      price: 0.001
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Binomial Model
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 7: Binomial Model Convergence
+  # Should converge to Black-Scholes as steps increase
+  # ─────────────────────────────────────────────────────────────────────────────
+  binomial_convergence:
+    model: binomial
+    option_type: call
+    S: 100
+    K: 100
+    r: 0.05
+    sigma: 0.30
+    T: 1
+    n: 500         # High step count for accuracy
+    american: false # European-style
+    r_expected:
+      # Should match BS very closely with 500 steps
+      price: 14.2254
+      # Tree parameters
+      u: 1.0134     # Up factor per step
+      d: 0.9868     # Down factor
+    tolerance:
+      price: 0.005  # Slightly higher tolerance for binomial
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 8: American Put Option (Early Exercise)
+  # American put can be worth more than European
+  # ─────────────────────────────────────────────────────────────────────────────
+  binomial_american_put:
+    model: binomial
+    option_type: put
+    S: 100
+    K: 110         # ITM put
+    r: 0.05
+    sigma: 0.30
+    T: 1
+    n: 100
+    american: true
+    r_expected:
+      # American put >= European put (early exercise premium)
+      # European put would be ~15.0, American slightly higher
+      price: 15.6384
+    tolerance:
+      price: 0.01
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Real Options Interpretation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 9: Option to Delay Investment
+  # Wait and see if project value increases
+  # ─────────────────────────────────────────────────────────────────────────────
+  real_option_delay:
+    model: black_scholes
+    option_type: call
+    S: 100000      # Present value of project cash flows
+    K: 100000      # Investment cost
+    r: 0.05        # Risk-free rate
+    sigma: 0.40    # High uncertainty
+    T: 2           # 2 years to decide
+    q: 0
+    r_expected:
+      # High volatility + time = valuable option to wait
+      price: 26290.24
+      npv_now: 0   # S - K = 0 (break-even)
+      value_of_waiting: 26290.24
+      recommendation: "wait"  # Option value > max(NPV, 0)
+    tolerance:
+      price: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 10: Option to Abandon (Put Option)
+  # Downside protection from salvage value
+  # ─────────────────────────────────────────────────────────────────────────────
+  real_option_abandon:
+    model: black_scholes
+    option_type: put
+    S: 100000      # Current project value
+    K: 80000       # Salvage value (can sell for this)
+    r: 0.05
+    sigma: 0.35
+    T: 3           # 3 years
+    q: 0
+    r_expected:
+      # Put option provides downside protection
+      price: 8069.53
+    tolerance:
+      price: 0.001
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Edge Cases
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 11: Zero Volatility (Deterministic)
+  # Option value = max(0, S*exp(-qT) - K*exp(-rT)) for call
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_zero_volatility:
+    model: black_scholes
+    option_type: call
+    S: 110
+    K: 100
+    r: 0.05
+    sigma: 0.001   # Near-zero volatility
+    T: 1
+    q: 0
+    r_expected:
+      # Approaches intrinsic value discounted
+      price: 14.8770   # S - K*exp(-rT) = 110 - 100*0.9512 = 14.88
+    tolerance:
+      price: 0.01
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 12: Very Short Expiration
+  # At expiration, option = intrinsic value
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_near_expiry:
+    model: black_scholes
+    option_type: call
+    S: 105
+    K: 100
+    r: 0.05
+    sigma: 0.30
+    T: 0.01        # ~4 days
+    q: 0
+    r_expected:
+      # Very close to intrinsic
+      price: 5.1145
+      intrinsic: 5
+    tolerance:
+      price: 0.01
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 13: Deep In-The-Money
+  # Delta approaches 1
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_deep_itm:
+    model: black_scholes
+    option_type: call
+    S: 200         # Very high S
+    K: 100         # Low strike
+    r: 0.05
+    sigma: 0.30
+    T: 1
+    q: 0
+    r_expected:
+      # Mostly intrinsic value
+      price: 104.9652
+      intrinsic: 100
+      greeks:
+        delta: 0.9894  # Near 1
+    tolerance:
+      price: 0.001
+      greeks: 0.01
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 14: Deep Out-of-The-Money
+  # Delta approaches 0
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_deep_otm:
+    model: black_scholes
+    option_type: call
+    S: 50          # Very low S
+    K: 100         # High strike
+    r: 0.05
+    sigma: 0.30
+    T: 1
+    q: 0
+    r_expected:
+      # Small probability of reaching strike
+      price: 0.1174
+      intrinsic: 0
+      greeks:
+        delta: 0.0773  # Near 0
+    tolerance:
+      price: 0.01
+      greeks: 0.02
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 15: With Dividend Yield
+  # Cost of carry effect
+  # ─────────────────────────────────────────────────────────────────────────────
+  bs_with_dividend:
+    model: black_scholes
+    option_type: call
+    S: 100
+    K: 100
+    r: 0.05
+    sigma: 0.30
+    T: 1
+    q: 0.02        # 2% dividend yield
+    r_expected:
+      # Dividend reduces call value
+      price: 13.0203
+    tolerance:
+      price: 0.001
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Metadata
+# ═══════════════════════════════════════════════════════════════════════════════
+
+metadata:
+  total_tests: 15
+  model_types:
+    - black_scholes
+    - binomial
+  option_types:
+    - call
+    - put
+    - american
+    - european
+  r_packages:
+    - derivmkts
+    - jsonlite
+  validation_method: "R derivmkts option pricing comparison"
+  reference: "ADR-010: R-Validated Analytics E2E Tests"
+  notes:
+    - "Black-Scholes assumes continuous trading, constant volatility"
+    - "Binomial tree approximates with discrete time steps"
+    - "American options allow early exercise"
+    - "Greeks measure sensitivity to parameters"
+    - "Real options apply to project/investment decisions"

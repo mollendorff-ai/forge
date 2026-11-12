@@ -1,0 +1,50 @@
+[package]
+name = "mollendorff-forge-e2e-r"
+version = "0.0.0"
+edition = "2021"
+description = "Forge functions and analytics compared with R"
+license = "MIT OR Apache-2.0"
+# Run from this repository (ADR-057); not published
+publish = false
+
+[lib]
+name = "forge_e2e_r"
+path = "src/lib.rs"
+
+[[bin]]
+name = "forge-e2e-r"
+path = "src/main.rs"
+
+[dependencies]
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+yaml_serde = "0.10"
+
+# Colored output
+colored = "3.0"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Temp files
+tempfile = "3.15"
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"

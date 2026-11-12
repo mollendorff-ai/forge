@@ -1,0 +1,274 @@
+# E2E Tornado Chart Tests
+# R-Validated against manual calculations
+#
+# Phase 3: Tornado analysis validation
+# Validated by: validators/r/tornado_validator.R
+#
+# Testing approach:
+#   1. Run forge tornado with model specification
+#   2. Capture JSON output (rankings, swing values)
+#   3. Run R validator with same parameters
+#   4. Compare rankings and swing values within tolerance
+#
+# Tolerance (per ADR-010):
+#   - Rankings: Exact match
+#   - Swing values: 0.1% relative difference
+
+_forge_version: "1.0.0"
+_r_validator: "tornado_validator.R"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Linear Models
+# ═══════════════════════════════════════════════════════════════════════════════
+
+tests:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 1: Simple Revenue Model
+  # Revenue = price * volume_coef + volume * price_coef
+  # ─────────────────────────────────────────────────────────────────────────────
+  linear_revenue_model:
+    model: linear
+    base_value: 50000
+    variables:
+      - name: price
+        low: 80
+        high: 120
+        base: 100
+      - name: volume
+        low: 800
+        high: 1200
+        base: 1000
+    coefficients:
+      price: 1000   # Each unit of price adds 1000 to output
+      volume: 100   # Each unit of volume adds 100 to output
+    r_expected:
+      rankings: ["price", "volume"]
+      swings:
+        price: 40000  # (120-80) * 1000
+        volume: 40000 # (1200-800) * 100
+    tolerance:
+      rankings: exact
+      swing: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 2: NPV Model with 3 Variables
+  # NPV = revenue - cost - investment
+  # ─────────────────────────────────────────────────────────────────────────────
+  linear_npv_model:
+    model: linear
+    base_value: 100000
+    variables:
+      - name: revenue
+        low: 180000
+        high: 220000
+        base: 200000
+      - name: cost
+        low: 80000
+        high: 120000
+        base: 100000
+      - name: investment
+        low: 40000
+        high: 60000
+        base: 50000
+    coefficients:
+      revenue: 1      # +1 per unit
+      cost: -1        # -1 per unit (cost reduces NPV)
+      investment: -1  # -1 per unit
+    r_expected:
+      # All have same absolute coefficient, but revenue has wider range
+      rankings: ["revenue", "cost", "investment"]
+      swings:
+        revenue: 40000   # (220k-180k) * 1
+        cost: 40000      # (120k-80k) * 1
+        investment: 20000 # (60k-40k) * 1
+    tolerance:
+      rankings: exact
+      swing: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 3: Profit Margin Model
+  # Profit = (price - cost) * volume
+  # For linear approximation: profit = price*volume - cost*volume
+  # ─────────────────────────────────────────────────────────────────────────────
+  linear_profit_margin:
+    model: linear
+    base_value: 50000  # (100-50)*1000
+    variables:
+      - name: price
+        low: 90
+        high: 110
+        base: 100
+      - name: cost
+        low: 40
+        high: 60
+        base: 50
+      - name: volume
+        low: 800
+        high: 1200
+        base: 1000
+    coefficients:
+      price: 1000    # price impact = volume
+      cost: -1000    # cost impact = -volume
+      volume: 50     # volume impact = margin (price-cost)
+    r_expected:
+      rankings: ["price", "cost", "volume"]
+      swings:
+        price: 20000   # (110-90) * 1000
+        cost: 20000    # (60-40) * 1000
+        volume: 20000  # (1200-800) * 50
+    tolerance:
+      rankings: exact
+      swing: 0.001
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Multiplicative Models (Cobb-Douglas style)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 4: Cobb-Douglas Production Function
+  # Y = L^0.7 * K^0.3
+  # ─────────────────────────────────────────────────────────────────────────────
+  multiplicative_cobb_douglas:
+    model: multiplicative
+    base_value: 120.3  # 100^0.7 * 200^0.3
+    variables:
+      - name: labor
+        low: 80
+        high: 120
+        base: 100
+      - name: capital
+        low: 160
+        high: 240
+        base: 200
+    coefficients:
+      labor: 0.7     # Labor exponent
+      capital: 0.3   # Capital exponent
+    r_expected:
+      # Labor more sensitive due to higher exponent
+      rankings: ["labor", "capital"]
+    tolerance:
+      rankings: exact
+      swing: 0.01  # Higher tolerance for multiplicative
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 5: Price-Volume Relationship
+  # Revenue = price * volume (price^1 * volume^1)
+  # ─────────────────────────────────────────────────────────────────────────────
+  multiplicative_revenue:
+    model: multiplicative
+    base_value: 100000  # 100 * 1000
+    variables:
+      - name: price
+        low: 80
+        high: 120
+        base: 100
+      - name: volume
+        low: 800
+        high: 1200
+        base: 1000
+    coefficients:
+      price: 1
+      volume: 1
+    r_expected:
+      # Both have equal elasticity, but check swings
+      rankings: ["price", "volume"]  # Same swing, order may vary
+    tolerance:
+      rankings: exact
+      swing: 0.01
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Edge Cases
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 6: Single Variable (degenerate tornado)
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_single_variable:
+    model: linear
+    base_value: 1000
+    variables:
+      - name: price
+        low: 80
+        high: 120
+        base: 100
+    coefficients:
+      price: 10
+    r_expected:
+      rankings: ["price"]
+      swings:
+        price: 400  # (120-80) * 10
+    tolerance:
+      rankings: exact
+      swing: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 7: Zero Swing Variable
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_zero_swing:
+    model: linear
+    base_value: 1000
+    variables:
+      - name: active
+        low: 80
+        high: 120
+        base: 100
+      - name: fixed
+        low: 50
+        high: 50
+        base: 50
+    coefficients:
+      active: 10
+      fixed: 10
+    r_expected:
+      rankings: ["active", "fixed"]
+      swings:
+        active: 400  # (120-80) * 10
+        fixed: 0     # (50-50) * 10
+    tolerance:
+      rankings: exact
+      swing: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 8: Symmetric Ranges (equal swings)
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_symmetric:
+    model: linear
+    base_value: 1000
+    variables:
+      - name: var_a
+        low: 80
+        high: 120
+        base: 100
+      - name: var_b
+        low: 80
+        high: 120
+        base: 100
+    coefficients:
+      var_a: 10
+      var_b: 10
+    r_expected:
+      # Both have equal swing - order may depend on input order
+      swings:
+        var_a: 400
+        var_b: 400
+    tolerance:
+      rankings: exact
+      swing: 0.001
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Metadata
+# ═══════════════════════════════════════════════════════════════════════════════
+
+metadata:
+  total_tests: 8
+  model_types:
+    - linear
+    - multiplicative
+  r_packages: []  # Uses base R only
+  validation_method: "R manual calculation comparison"
+  reference: "ADR-010: R-Validated Analytics E2E Tests"
+  notes:
+    - "Tornado charts show one-at-a-time sensitivity"
+    - "Rankings should match exactly"
+    - "Swing values compared with 0.1% tolerance"
+    - "Multiplicative models use higher tolerance due to nonlinearity"

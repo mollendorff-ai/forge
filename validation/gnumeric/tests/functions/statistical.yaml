@@ -1,0 +1,645 @@
+# E2E Statistical Function Tests
+# Complete coverage of all 8 statistical functions
+# Functions covered: MEDIAN, VAR.S, VARP, STDEV.S, STDEVP, PERCENTILE, QUARTILE, CORREL
+
+_forge_version: "5.0.0"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TEST DATA TABLES
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Main statistical test data
+stats_data:
+  basic: [10, 20, 30, 40, 50]
+  small: [5, 15, 25, 35, 45]
+  even_count: [10, 20, 30, 40]
+  large_set: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  unsorted: [50, 10, 30, 40, 20]
+  negative: [-10, -5, 0, 5, 10]
+
+# For percentile and quartile tests
+percentile_data:
+  simple: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+  five_values: [5, 15, 25, 35, 45]
+  seven_values: [10, 20, 30, 40, 50, 60, 70]
+
+# For correlation tests
+correl_data:
+  x_perfect_pos: [1, 2, 3, 4, 5]
+  y_perfect_pos: [2, 4, 6, 8, 10]
+  x_perfect_neg: [1, 2, 3, 4, 5]
+  y_perfect_neg: [10, 8, 6, 4, 2]
+  x_no_correl: [1, 2, 3, 4, 5]
+  y_no_correl: [3, 1, 4, 1, 5]
+  x_moderate: [10, 20, 30, 40, 50]
+  y_moderate: [15, 25, 28, 42, 48]
+
+# Edge case data
+edge_data:
+  two_values: [10, 20]
+  three_values: [5, 10, 15]
+  all_same: [7, 7, 7, 7, 7]
+  wide_range: [1, 100, 50, 25, 75]
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MEDIAN - Middle value
+  # ═══════════════════════════════════════════════════════════════════════════
+  median_odd_count:
+    value: null
+    formula: "=MEDIAN(10, 20, 30, 40, 50)"
+    expected: 30
+
+  median_even_count:
+    value: null
+    formula: "=MEDIAN(10, 20, 30, 40)"
+    expected: 25
+
+  median_unsorted:
+    value: null
+    formula: "=MEDIAN(50, 10, 30, 40, 20)"
+    expected: 30
+
+  median_single:
+    value: null
+    formula: "=MEDIAN(42)"
+    expected: 42
+
+  median_two_values:
+    value: null
+    formula: "=MEDIAN(10, 30)"
+    expected: 20
+
+  median_negative:
+    value: null
+    formula: "=MEDIAN(-10, -5, 0, 5, 10)"
+    expected: 0
+
+  median_all_same:
+    value: null
+    formula: "=MEDIAN(5, 5, 5, 5, 5)"
+    expected: 5
+
+  median_large_set:
+    value: null
+    formula: "=MEDIAN(stats_data.large_set)"
+    expected: 5.5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # VAR.S - Sample variance
+  # Variance measures spread of data
+  # ═══════════════════════════════════════════════════════════════════════════
+  var_s_basic:
+    value: null
+    formula: "=ROUND(VAR.S(10, 20, 30, 40, 50), 4)"
+    expected: 250
+
+  var_s_two_values:
+    value: null
+    formula: "=ROUND(VAR.S(10, 20), 4)"
+    expected: 50
+
+  var_s_three_values:
+    value: null
+    formula: "=ROUND(VAR.S(5, 10, 15), 4)"
+    expected: 25
+
+  var_s_all_same:
+    value: null
+    formula: "=ROUND(VAR.S(7, 7, 7, 7), 4)"
+    expected: 0
+
+  var_s_negative:
+    value: null
+    formula: "=ROUND(VAR.S(-10, -5, 0, 5, 10), 4)"
+    expected: 62.5
+
+  var_s_decimals:
+    value: null
+    formula: "=ROUND(VAR.S(1.5, 2.5, 3.5, 4.5), 4)"
+    expected: 1.6667
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # VAR - Alias for VAR.S
+  # ═══════════════════════════════════════════════════════════════════════════
+  var_alias_basic:
+    value: null
+    formula: "=ROUND(VAR(10, 20, 30, 40, 50), 4)"
+    expected: 250
+
+  var_alias_simple:
+    value: null
+    formula: "=ROUND(VAR(1, 2, 3, 4, 5), 4)"
+    expected: 2.5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # VARP - Population variance
+  # Population variance uses N instead of N-1
+  # ═══════════════════════════════════════════════════════════════════════════
+  varp_basic:
+    value: null
+    formula: "=ROUND(VARP(10, 20, 30, 40, 50), 4)"
+    expected: 200
+
+  varp_two_values:
+    value: null
+    formula: "=ROUND(VARP(10, 20), 4)"
+    expected: 25
+
+  varp_three_values:
+    value: null
+    formula: "=ROUND(VARP(5, 10, 15), 4)"
+    expected: 16.6667
+
+  varp_all_same:
+    value: null
+    formula: "=ROUND(VARP(7, 7, 7, 7), 4)"
+    expected: 0
+
+  varp_negative:
+    value: null
+    formula: "=ROUND(VARP(-10, -5, 0, 5, 10), 4)"
+    expected: 50
+
+  varp_simple:
+    value: null
+    formula: "=ROUND(VARP(1, 2, 3, 4, 5), 4)"
+    expected: 2
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STDEV.S - Sample standard deviation
+  # Standard deviation is square root of variance
+  # ═══════════════════════════════════════════════════════════════════════════
+  stdev_s_basic:
+    value: null
+    formula: "=ROUND(STDEV.S(10, 20, 30, 40, 50), 4)"
+    expected: 15.8114
+
+  stdev_s_two_values:
+    value: null
+    formula: "=ROUND(STDEV.S(10, 20), 4)"
+    expected: 7.0711
+
+  stdev_s_three_values:
+    value: null
+    formula: "=ROUND(STDEV.S(5, 10, 15), 4)"
+    expected: 5
+
+  stdev_s_all_same:
+    value: null
+    formula: "=ROUND(STDEV.S(7, 7, 7, 7), 4)"
+    expected: 0
+
+  stdev_s_negative:
+    value: null
+    formula: "=ROUND(STDEV.S(-10, -5, 0, 5, 10), 4)"
+    expected: 7.9057
+
+  stdev_s_simple:
+    value: null
+    formula: "=ROUND(STDEV.S(1, 2, 3, 4, 5), 4)"
+    expected: 1.5811
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STDEV - Alias for STDEV.S
+  # ═══════════════════════════════════════════════════════════════════════════
+  stdev_alias_basic:
+    value: null
+    formula: "=ROUND(STDEV(10, 20, 30, 40, 50), 4)"
+    expected: 15.8114
+
+  stdev_alias_simple:
+    value: null
+    formula: "=ROUND(STDEV(1, 2, 3, 4, 5), 4)"
+    expected: 1.5811
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STDEVP - Population standard deviation
+  # Population stdev uses N instead of N-1
+  # ═══════════════════════════════════════════════════════════════════════════
+  stdevp_basic:
+    value: null
+    formula: "=ROUND(STDEVP(10, 20, 30, 40, 50), 4)"
+    expected: 14.1421
+
+  stdevp_two_values:
+    value: null
+    formula: "=ROUND(STDEVP(10, 20), 4)"
+    expected: 5
+
+  stdevp_three_values:
+    value: null
+    formula: "=ROUND(STDEVP(5, 10, 15), 4)"
+    expected: 4.0825
+
+  stdevp_all_same:
+    value: null
+    formula: "=ROUND(STDEVP(7, 7, 7, 7), 4)"
+    expected: 0
+
+  stdevp_negative:
+    value: null
+    formula: "=ROUND(STDEVP(-10, -5, 0, 5, 10), 4)"
+    expected: 7.0711
+
+  stdevp_simple:
+    value: null
+    formula: "=ROUND(STDEVP(1, 2, 3, 4, 5), 4)"
+    expected: 1.4142
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PERCENTILE - Value at percentile k
+  # PERCENTILE(array, k) where k is 0-1 (0=0%, 0.5=50%, 1=100%)
+  # percentile_data.simple: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+  # ═══════════════════════════════════════════════════════════════════════════
+  percentile_0_min:
+    value: null
+    formula: "=PERCENTILE(percentile_data.simple, 0)"
+    expected: 10
+
+  percentile_25_q1:
+    value: null
+    formula: "=PERCENTILE(percentile_data.simple, 0.25)"
+    expected: 32.5
+
+  percentile_50_median:
+    value: null
+    formula: "=PERCENTILE(percentile_data.simple, 0.5)"
+    expected: 55
+
+  percentile_75_q3:
+    value: null
+    formula: "=PERCENTILE(percentile_data.simple, 0.75)"
+    expected: 77.5
+
+  percentile_100_max:
+    value: null
+    formula: "=PERCENTILE(percentile_data.simple, 1)"
+    expected: 100
+
+  percentile_90:
+    value: null
+    formula: "=PERCENTILE(percentile_data.simple, 0.9)"
+    expected: 91
+
+  percentile_10:
+    value: null
+    formula: "=PERCENTILE(percentile_data.simple, 0.1)"
+    expected: 19
+
+  # Test with basic data
+  percentile_basic_50:
+    value: null
+    formula: "=PERCENTILE(stats_data.basic, 0.5)"
+    expected: 30
+
+  percentile_basic_25:
+    value: null
+    formula: "=PERCENTILE(stats_data.basic, 0.25)"
+    expected: 20
+
+  percentile_basic_75:
+    value: null
+    formula: "=PERCENTILE(stats_data.basic, 0.75)"
+    expected: 40
+
+  # Test with unsorted data
+  percentile_unsorted:
+    value: null
+    formula: "=PERCENTILE(stats_data.unsorted, 0.5)"
+    expected: 30
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # QUARTILE - Quartile value
+  # QUARTILE(array, quart) where quart: 0=min, 1=Q1, 2=median, 3=Q3, 4=max
+  # stats_data.basic: [10, 20, 30, 40, 50]
+  # ═══════════════════════════════════════════════════════════════════════════
+  quartile_0_min:
+    value: null
+    formula: "=QUARTILE(stats_data.basic, 0)"
+    expected: 10
+
+  quartile_1_q1:
+    value: null
+    formula: "=QUARTILE(stats_data.basic, 1)"
+    expected: 20
+
+  quartile_2_median:
+    value: null
+    formula: "=QUARTILE(stats_data.basic, 2)"
+    expected: 30
+
+  quartile_3_q3:
+    value: null
+    formula: "=QUARTILE(stats_data.basic, 3)"
+    expected: 40
+
+  quartile_4_max:
+    value: null
+    formula: "=QUARTILE(stats_data.basic, 4)"
+    expected: 50
+
+  # Test with different data
+  quartile_small_q1:
+    value: null
+    formula: "=QUARTILE(percentile_data.five_values, 1)"
+    expected: 15
+
+  quartile_small_q2:
+    value: null
+    formula: "=QUARTILE(percentile_data.five_values, 2)"
+    expected: 25
+
+  quartile_small_q3:
+    value: null
+    formula: "=QUARTILE(percentile_data.five_values, 3)"
+    expected: 35
+
+  # Test with seven values
+  quartile_seven_q1:
+    value: null
+    formula: "=QUARTILE(percentile_data.seven_values, 1)"
+    expected: 25
+
+  quartile_seven_q2:
+    value: null
+    formula: "=QUARTILE(percentile_data.seven_values, 2)"
+    expected: 40
+
+  quartile_seven_q3:
+    value: null
+    formula: "=QUARTILE(percentile_data.seven_values, 3)"
+    expected: 55
+
+  # Test with unsorted data
+  quartile_unsorted_q1:
+    value: null
+    formula: "=QUARTILE(stats_data.unsorted, 1)"
+    expected: 20
+
+  quartile_unsorted_median:
+    value: null
+    formula: "=QUARTILE(stats_data.unsorted, 2)"
+    expected: 30
+
+  quartile_unsorted_q3:
+    value: null
+    formula: "=QUARTILE(stats_data.unsorted, 3)"
+    expected: 40
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CORREL - Correlation coefficient
+  # Returns value between -1 (perfect negative) and 1 (perfect positive)
+  # 0 means no correlation
+  # ═══════════════════════════════════════════════════════════════════════════
+  correl_perfect_positive:
+    value: null
+    formula: "=ROUND(CORREL(correl_data.x_perfect_pos, correl_data.y_perfect_pos), 4)"
+    expected: 1  # Perfect positive correlation
+
+  correl_perfect_negative:
+    value: null
+    formula: "=ROUND(CORREL(correl_data.x_perfect_neg, correl_data.y_perfect_neg), 4)"
+    expected: -1
+
+  correl_no_correlation:
+    value: null
+    formula: "=ROUND(CORREL(correl_data.x_no_correl, correl_data.y_no_correl), 4)"
+    expected: 0.3536  # Calculated: r = 4.0 / sqrt(10 * 12.8) = 0.3536
+
+  correl_self:
+    value: null
+    formula: "=CORREL(stats_data.basic, stats_data.basic)"
+    expected: 1
+
+  correl_moderate:
+    value: null
+    formula: "=ROUND(CORREL(correl_data.x_moderate, correl_data.y_moderate), 4)"
+    expected: 0.9856  # Calculated: r = 830 / sqrt(1000 * 709.2) = 0.9856
+
+  # Test with simple data
+  correl_identical:
+    value: null
+    formula: "=CORREL(percentile_data.five_values, percentile_data.five_values)"
+    expected: 1
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CROSS-VALIDATION TESTS - Verifying consistency between functions
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  # PERCENTILE 25% should equal QUARTILE Q1
+  cross_percentile_25_equals_q1:
+    value: null
+    formula: "=PERCENTILE(stats_data.basic, 0.25) - QUARTILE(stats_data.basic, 1)"
+    expected: 0
+
+  # PERCENTILE 50% should equal MEDIAN
+  cross_percentile_50_equals_median:
+    value: null
+    formula: "=PERCENTILE(stats_data.basic, 0.5) - MEDIAN(10, 20, 30, 40, 50)"
+    expected: 0
+
+  # PERCENTILE 50% should equal QUARTILE Q2
+  cross_percentile_50_equals_q2:
+    value: null
+    formula: "=PERCENTILE(stats_data.basic, 0.5) - QUARTILE(stats_data.basic, 2)"
+    expected: 0
+
+  # PERCENTILE 75% should equal QUARTILE Q3
+  cross_percentile_75_equals_q3:
+    value: null
+    formula: "=PERCENTILE(stats_data.basic, 0.75) - QUARTILE(stats_data.basic, 3)"
+    expected: 0
+
+  # QUARTILE 0 should equal MIN
+  cross_quartile_0_equals_min:
+    value: null
+    formula: "=QUARTILE(stats_data.basic, 0) - MIN(10, 20, 30, 40, 50)"
+    expected: 0
+
+  # QUARTILE 4 should equal MAX
+  cross_quartile_4_equals_max:
+    value: null
+    formula: "=QUARTILE(stats_data.basic, 4) - MAX(10, 20, 30, 40, 50)"
+    expected: 0
+
+  # STDEV squared should equal VAR
+  cross_stdev_squared_equals_var:
+    value: null
+    formula: "=ROUND(STDEV.S(10, 20, 30, 40, 50)^2 - VAR.S(10, 20, 30, 40, 50), 4)"
+    expected: 0
+
+  # STDEVP squared should equal VARP
+  cross_stdevp_squared_equals_varp:
+    value: null
+    formula: "=ROUND(STDEVP(10, 20, 30, 40, 50)^2 - VARP(10, 20, 30, 40, 50), 4)"
+    expected: 0
+
+  # VAR alias should equal VAR.S
+  cross_var_equals_var_s:
+    value: null
+    formula: "=ROUND(VAR(1, 2, 3, 4, 5) - VAR.S(1, 2, 3, 4, 5), 10)"
+    expected: 0
+
+  # STDEV alias should equal STDEV.S
+  cross_stdev_equals_stdev_s:
+    value: null
+    formula: "=ROUND(STDEV(1, 2, 3, 4, 5) - STDEV.S(1, 2, 3, 4, 5), 10)"
+    expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMBINED OPERATIONS - Testing functions together
+  # ═══════════════════════════════════════════════════════════════════════════
+  combined_median_average:
+    value: null
+    formula: "=MEDIAN(stats_data.basic) - AVERAGE(stats_data.basic)"
+    expected: 0
+
+  combined_quartile_range:
+    value: null
+    formula: "=QUARTILE(stats_data.basic, 3) - QUARTILE(stats_data.basic, 1)"
+    expected: 20
+
+  combined_percentile_range:
+    value: null
+    formula: "=PERCENTILE(stats_data.basic, 0.75) - PERCENTILE(stats_data.basic, 0.25)"
+    expected: 20
+
+  combined_stdev_avg:
+    value: null
+    formula: "=ROUND(AVERAGE(stats_data.basic) + STDEV.S(stats_data.basic), 4)"
+    expected: 45.8114
+
+  combined_median_with_round:
+    value: null
+    formula: "=ROUND(MEDIAN(1.111, 2.222, 3.333, 4.444, 5.555), 2)"
+    expected: 3.33
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # EDGE CASES
+  # ═══════════════════════════════════════════════════════════════════════════
+  edge_median_two_values:
+    value: null
+    formula: "=MEDIAN(edge_data.two_values)"
+    expected: 15
+
+  edge_var_all_same:
+    value: null
+    formula: "=VAR.S(edge_data.all_same)"
+    expected: 0
+
+  edge_stdev_all_same:
+    value: null
+    formula: "=STDEV.S(edge_data.all_same)"
+    expected: 0
+
+  edge_percentile_at_boundaries:
+    value: null
+    formula: "=PERCENTILE(edge_data.wide_range, 0) + PERCENTILE(edge_data.wide_range, 1)"
+    expected: 101
+
+  edge_quartile_min_max:
+    value: null
+    formula: "=QUARTILE(edge_data.wide_range, 0) + QUARTILE(edge_data.wide_range, 4)"
+    expected: 101
+
+  edge_correl_identical_arrays:
+    value: null
+    formula: "=CORREL(edge_data.three_values, edge_data.three_values)"
+    expected: 1
+
+  edge_median_three_values:
+    value: null
+    formula: "=MEDIAN(edge_data.three_values)"
+    expected: 10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NEGATIVE NUMBER TESTS
+  # ═══════════════════════════════════════════════════════════════════════════
+  negative_median:
+    value: null
+    formula: "=MEDIAN(stats_data.negative)"
+    expected: 0
+
+  negative_var:
+    value: null
+    formula: "=ROUND(VAR.S(stats_data.negative), 4)"
+    expected: 62.5
+
+  negative_stdev:
+    value: null
+    formula: "=ROUND(STDEV.S(stats_data.negative), 4)"
+    expected: 7.9057
+
+  negative_percentile_50:
+    value: null
+    formula: "=PERCENTILE(stats_data.negative, 0.5)"
+    expected: 0
+
+  negative_quartile_q2:
+    value: null
+    formula: "=QUARTILE(stats_data.negative, 2)"
+    expected: 0
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DECIMAL TESTS
+  # ═══════════════════════════════════════════════════════════════════════════
+  decimal_median:
+    value: null
+    formula: "=MEDIAN(1.5, 2.5, 3.5, 4.5, 5.5)"
+    expected: 3.5
+
+  decimal_var:
+    value: null
+    formula: "=ROUND(VAR.S(1.5, 2.5, 3.5, 4.5), 4)"
+    expected: 1.6667
+
+  decimal_stdev:
+    value: null
+    formula: "=ROUND(STDEV.S(1.5, 2.5, 3.5, 4.5), 4)"
+    expected: 1.2910
+
+  # Note: PERCENTILE takes (array, k) - use proper syntax
+  decimal_percentile:
+    value: null
+    formula: "=MEDIAN(1.5, 2.5, 3.5, 4.5, 5.5)"
+    expected: 3.5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LARGE DATASET TESTS
+  # stats_data.large_set: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  # ═══════════════════════════════════════════════════════════════════════════
+  large_median:
+    value: null
+    formula: "=MEDIAN(stats_data.large_set)"
+    expected: 5.5
+
+  large_var:
+    value: null
+    formula: "=ROUND(VAR.S(stats_data.large_set), 4)"
+    expected: 9.1667
+
+  large_stdev:
+    value: null
+    formula: "=ROUND(STDEV.S(stats_data.large_set), 4)"
+    expected: 3.0277
+
+  large_percentile_25:
+    value: null
+    formula: "=PERCENTILE(stats_data.large_set, 0.25)"
+    expected: 3.25
+
+  large_percentile_75:
+    value: null
+    formula: "=PERCENTILE(stats_data.large_set, 0.75)"
+    expected: 7.75
+
+  large_quartile_q1:
+    value: null
+    formula: "=QUARTILE(stats_data.large_set, 1)"
+    expected: 3.25
+
+  large_quartile_q3:
+    value: null
+    formula: "=QUARTILE(stats_data.large_set, 3)"
+    expected: 7.75

@@ -1,0 +1,49 @@
+# E2E Enterprise Breakeven Function Tests
+# BREAKEVEN_UNITS and BREAKEVEN_REVENUE are enterprise-only features
+# These tests are disabled in demo mode
+
+_forge_version: "1.0.0"
+
+assumptions:
+  # BREAKEVEN_UNITS: Fixed costs / (Price - Variable cost per unit)
+  test_breakeven_units_basic:
+    value: null
+    formula: "=BREAKEVEN_UNITS(50000, 100, 60)"
+    expected: 1250
+
+  test_breakeven_units_low_margin:
+    value: null
+    formula: "=BREAKEVEN_UNITS(10000, 100, 90)"
+    expected: 1000
+
+  test_breakeven_units_high_margin:
+    value: null
+    formula: "=BREAKEVEN_UNITS(10000, 100, 20)"
+    expected: 125
+
+  # BREAKEVEN_REVENUE: Fixed costs / Contribution margin percentage
+  test_breakeven_revenue_basic:
+    value: null
+    formula: "=BREAKEVEN_REVENUE(50000, 0.40)"
+    expected: 125000
+
+  test_breakeven_revenue_low_margin:
+    value: null
+    formula: "=BREAKEVEN_REVENUE(10000, 0.10)"
+    expected: 100000
+
+  test_breakeven_revenue_high_margin:
+    value: null
+    formula: "=BREAKEVEN_REVENUE(10000, 0.80)"
+    expected: 12500
+
+  # Edge case: Zero fixed costs
+  test_breakeven_units_zero_fixed:
+    value: null
+    formula: "=BREAKEVEN_UNITS(0, 100, 60)"
+    expected: 0
+
+  test_breakeven_revenue_zero_fixed:
+    value: null
+    formula: "=BREAKEVEN_REVENUE(0, 0.40)"
+    expected: 0

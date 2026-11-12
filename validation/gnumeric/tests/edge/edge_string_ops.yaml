@@ -1,0 +1,71 @@
+_forge_version: 1.0.0
+assumptions:
+  # Note: & concatenation operator - use CONCAT function instead
+  test_concat_with_spaces:
+    value: 11.0
+    formula: =LEN(CONCAT("Hello", " ", "World"))
+    expected: 11
+  test_empty_string:
+    value: 0.0
+    formula: =LEN("")
+    expected: 0
+  test_single_space:
+    value: 1.0
+    formula: =LEN(" ")
+    expected: 1
+  test_left_empty_string:
+    value: 0.0
+    formula: =LEN(LEFT("", 5))
+    expected: 0
+  test_right_empty_string:
+    value: 0.0
+    formula: =LEN(RIGHT("", 5))
+    expected: 0
+  # Note: MID("test", 1, 3) returns 3 chars, but MID is 1-indexed in Excel
+  # MID("Hello", 1, 3) -> "Hel" = 3 chars (comment below was inconsistent with formula)
+  test_mid_from_start:
+    value: 3.0
+    formula: =LEN(MID("Hello", 1, 3))
+    expected: 3
+  test_mid_from_middle:
+    value: 2.0
+    formula: =LEN(MID("test", 2, 2))
+    expected: 2
+  # TRIM collapses multiple internal spaces to single space (Excel behavior)
+  # "  a  b  " -> "a b" = 3 chars
+  test_trim_internal_spaces:
+    value: 3.0
+    formula: =LEN(TRIM("  a  b  "))
+    expected: 3
+  test_trim_only_spaces:
+    value: 0.0
+    formula: =LEN(TRIM("   "))
+    expected: 0
+  test_upper_length:
+    value: 3.0
+    formula: =LEN(UPPER("abc"))
+    expected: 3
+  test_lower_length:
+    value: 3.0
+    formula: =LEN(LOWER("ABC"))
+    expected: 3
+  test_concat_function:
+    value: 4.0
+    formula: =LEN(CONCAT("ab", "cd"))
+    expected: 4
+  test_rept_single_char:
+    value: 5.0
+    formula: =LEN(REPT("x", 5))
+    expected: 5
+  test_rept_multi_char:
+    value: 6.0
+    formula: =LEN(REPT("ab", 3))
+    expected: 6
+  test_left_partial:
+    value: 3.0
+    formula: =LEN(LEFT("Hello", 3))
+    expected: 3
+  test_right_partial:
+    value: 3.0
+    formula: =LEN(RIGHT("Hello", 3))
+    expected: 3

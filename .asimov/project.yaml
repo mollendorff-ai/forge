@@ -6,8 +6,8 @@ description: >
   YAML financial modeling engine with Excel-style formulas, its own
   evaluator (169 functions), Monte Carlo and scenario analysis, Excel
   export/import, an MCP server and a REST API. Deterministic. Formulas
-  checked against Gnumeric and analytics against R in the forge-e2e-gnumeric
-  and forge-e2e-r repositories.
+  checked against Gnumeric and analytics against R by the two suites in
+  validation/ (forge-e2e-gnumeric and forge-e2e-r, ADR-057).
 
 stack:
   - rust (stable; CI lints with the newest stable, so pin nothing)
@@ -24,7 +24,7 @@ stack:
 conventions:
   - "Result<T, E> for errors in library code; a panic is a bug. Sorting and comparing f64 uses total_cmp, never partial_cmp().unwrap() (tests/conventions.rs)"
   - "No silent wrong answers: an input that cannot be used (unknown name, NaN, failing include) is an error that names it and suggests the closest name"
-  - "Unit tests next to the code (#[cfg(test)], in the same file or a sibling *_tests.rs module); integration tests in tests/; end-to-end checks in forge-e2e-gnumeric and forge-e2e-r, run by .github/workflows/validation.yml"
+  - "Unit tests next to the code (#[cfg(test)], in the same file or a sibling *_tests.rs module); integration tests in tests/; end-to-end checks in validation/gnumeric and validation/r, run by .github/workflows/validation.yml; a changed expected value is named in the pull request title (ADR-057)"
   - "Every fix for a wrong answer comes with a test that fails on the previous commit (the PR template asks for it)"
   - "Every new or changed command gets an examples/ model whose numbers are checked by a calculation made outside Forge, asserted in a test (tests/bagel_example.rs shows how; the PR template asks for it)"
   - "Zero warnings; clippy pedantic + nursery + cargo ([lints] in Cargo.toml) at -D warnings, in the pre-commit hook (make lint) and in CI"

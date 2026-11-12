@@ -13,6 +13,7 @@ on:
       - 'editors/**'
       - 'forge-wasm/**'
       - 'studio/**'
+      - 'validation/**'
       - '.github/workflows/*.yml'
   pull_request:
     branches: [ main ]
@@ -26,6 +27,7 @@ on:
       - 'editors/**'
       - 'forge-wasm/**'
       - 'studio/**'
+      - 'validation/**'
       - '.github/workflows/*.yml'
 
 # A pull request's newer push cancels its older run. Every other run (a push
@@ -113,6 +115,15 @@ jobs:
 
       - name: Run clippy
         run: cargo clippy --all-targets -- -D warnings
+
+      # The validation suites are programs that run the forge binary
+      # (ADR-057); here only their lint and their own unit tests. The
+      # Validation workflow runs them against Gnumeric and R.
+      - name: Lint the validation suites
+        run: cargo clippy -p mollendorff-forge-e2e-gnumeric -p mollendorff-forge-e2e-r --all-targets -- -D warnings
+
+      - name: Unit tests of the validation suites
+        run: cargo test -p mollendorff-forge-e2e-gnumeric -p mollendorff-forge-e2e-r
 
   # The parser, the calculator and the analysis engines without the command
   # line or the servers, for a browser (ADR-055, roadmap S1-CORE-NO-OS)
