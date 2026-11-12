@@ -62,6 +62,12 @@ tier1:
     how: "Type =YEARFRAC(DATE(2026,2,28), DATE(2026,12,31), 0) in Excel: 0.8333 is Forge's, 0.8361 the engines'. If Excel gives 0.8361, change YEARFRAC, and check ACCRINT and PRICEDISC with the same dates before touching the day count they share"
     acceptance: "The Excel value is recorded in forge-e2e-gnumeric with the date it was checked, and Forge gives it"
 
+  - id: T1-VALIDATION-IN-REPO
+    title: "The two validation suites move into this repository (ADR-057)"
+    why: "A change that touches the engine and a suite needs two pull requests and code that works with both versions (#161 and forge-e2e-r#13, 2026-11-12); a merge in a suite changes what Forge's CI does; forge-e2e-r has no CI of its own. The reason for the split (ADR-027: Forge was 636,000 lines) is gone. The maintainer's idea, 2026-11-12"
+    how: "As ADR-057 says: git subtree add of each suite, not squashed, into validation/gnumeric and validation/r; workspace members that still run the binary through FORGE_BIN; the Validation workflow runs the suites of the commit it builds; a CI check that fails a pull request that changes an existing expected value without saying so in its title; the living documents updated. Then archive the two repositories"
+    acceptance: "The Validation workflow on main, with no clone of another repository, gives the counts of the last run from the separate repositories (1,445 passed and 1 skipped against Gnumeric; 136 function checks and 70 of 77 analytics specs against R); git log shows the suites' own commits; the two old repositories are read-only and their READMEs say where the suites went"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
 # ═══════════════════════════════════════════════════════════════════════════════

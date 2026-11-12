@@ -1,6 +1,6 @@
 # ADR-027: E2E Test Migration to forge-e2e
 
-> **Note (2026-11-08):** Partly superseded: the end-to-end suites live in two repositories, forge-e2e-gnumeric and forge-e2e-r, which run the release binary (`FORGE_BIN`) from `.github/workflows/validation.yml` on PRs and weekly. Three integration tests stay in `tests/`. There is no Python or Excel validation. The bug fixes it lists were later reversed to match Excel (see ADR-038).
+> **Note (2026-11-08):** Partly superseded: the end-to-end suites live in two repositories, forge-e2e-gnumeric and forge-e2e-r, which run the release binary (`FORGE_BIN`) from `.github/workflows/validation.yml` on PRs and weekly. Three integration tests stay in `tests/`. There is no Python or Excel validation. The bug fixes it lists were later reversed to match Excel (see ADR-038). ADR-057 (2026-11-12) proposes to bring the two suites back into this repository.
 
 ## Status
 
