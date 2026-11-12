@@ -6,7 +6,7 @@
 import { call, start } from "./forge.js";
 import { esc, setInputText, setFormulaText, addEntryText, deleteEntryText, NAME, highlightYaml, useFormulaRules } from "./text.js";
 import { fmt, short, spark, sliderRange, readNumber, isPercent } from "./format.js";
-import { scopeOf, namesFor, functionsOf, suggest, apply } from "./suggest.js";
+import { scopeOf, namesFor, functionsOf, suggest, apply, schemaOf, suggestKeys } from "./suggest.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -418,12 +418,47 @@ function showSuggestions(input) {
   strip.hidden = !list.length;
 }
 function takeSuggestion(button) {
-  const strip = button.closest("[data-suggest]"), input = strip.parentElement.querySelector("input");
+  const strip = button.closest("[data-suggest]"), input = strip.parentElement.querySelector("input, textarea");
   const r = apply(input.value, strip._list[Number(button.dataset.sug)]);
   input.value = r.text;
   input.focus();
   input.setSelectionRange(r.caret, r.caret);
-  showSuggestions(input);
+  if (input.id === "yaml-editor") input.dispatchEvent(new Event("input", { bubbles: true })); // paint, and apply on a wide screen
+  else showSuggestions(input);
+}
+
+// Keys of the model format in the YAML editor (roadmap S12): from the schema
+// Forge returns for the file's own format version (the `schema` tool)
+const schemas = new Map();
+function loadSchema(text) {
+  const m = /^_forge_version:\s*["']?(\d+\.\d+\.\d+)/m.exec(text);
+  const version = m ? `v${m[1]}` : "latest";
+  if (!schemas.has(version)) {
+    schemas.set(version, (async () => {
+      try {
+        let v = version;
+        if (v === "latest") {
+          const list = JSON.parse(await call("schema", {})).available_versions;
+          v = list[list.length - 1].version;
+        }
+        return schemaOf(await call("schema", { version: v }));
+      } catch (e) { return null; }
+    })());
+  }
+  return schemas.get(version);
+}
+let keysFor = 0;
+async function showKeySuggestions(editor) {
+  const strip = $("#view-yaml [data-suggest]");
+  if (!strip) return;
+  const token = ++keysFor;
+  const text = editor.value, caret = editor.selectionStart ?? text.length;
+  const schema = await loadSchema(text);
+  if (token !== keysFor || !editor.isConnected) return;
+  const list = suggestKeys(schema, text, caret);
+  strip.innerHTML = list.map((x, i) => `<button type="button" class="sug key${x.used ? " used" : ""}" data-sug="${i}" title="${esc(x.title)}">${esc(x.label)}</button>`).join("");
+  strip._list = list;
+  strip.hidden = !list.length;
 }
 for (const type of ["input", "keyup", "click", "focusin"]) {
   $("#view-model").addEventListener(type, (e) => { if (e.target.matches && e.target.matches(formulaFields)) showSuggestions(e.target); });
@@ -708,6 +743,7 @@ function renderYaml() {
   v.innerHTML = `
     <p class="lead">The YAML is the model. Every card comes from these files, and a change on a card is written back here, comments and all.</p>
     <div class="chips" role="group" aria-label="File">${Object.keys(S.files).map((n) => `<button type="button" class="chip" data-file="${esc(n)}" aria-pressed="${n === S.yamlFile}">${esc(n)}${n === S.main ? "<small>main</small>" : ""}</button>`).join("")}</div>
+    <div class="suggest" data-suggest hidden aria-label="Keys of the model format"></div>
     <div class="editor-wrap"><pre class="editor hl" id="yaml-hl" aria-hidden="true"></pre><textarea class="editor ta" id="yaml-editor" wrap="off" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="YAML of ${esc(S.yamlFile)}"></textarea></div>
     <p class="note legend"><span class="t-fn">functions</span> <span class="t-name">names</span> <span class="t-inc">@included values</span> <span class="t-num">numbers</span> <span class="t-op">operators</span> <span class="t-str">"text"</span> · formula colors follow Forge's VS Code extension</p>
     <div class="msg" id="yaml-msg">In use by the model.</div>
@@ -734,6 +770,7 @@ let editing = 0;
 vy.addEventListener("input", (e) => {
   if (e.target.id !== "yaml-editor") return;
   paintYaml();
+  showKeySuggestions(e.target);
   if (!yamlDirty() || !S.wide) return;
   clearTimeout(editing);
   editing = setTimeout(applyEditor, 450);
@@ -742,7 +779,13 @@ vy.addEventListener("scroll", (e) => { if (e.target.id === "yaml-editor") paintY
 vy.addEventListener("keydown", (e) => {
   if (e.target.id === "yaml-editor" && e.key === "Tab") { e.preventDefault(); document.execCommand("insertText", false, "  "); }
 });
+for (const type of ["keyup", "click", "focusin"]) {
+  vy.addEventListener(type, (e) => { if (e.target.id === "yaml-editor") showKeySuggestions(e.target); });
+}
+vy.addEventListener("mousedown", (e) => { if (e.target.closest("[data-sug]")) e.preventDefault(); });
 vy.addEventListener("click", async (e) => {
+  const sug = e.target.closest("[data-sug]");
+  if (sug) { takeSuggestion(sug); return; }
   const f = e.target.closest("[data-file]");
   if (f) { S.yamlFile = f.dataset.file; renderYaml(); return; }
   if (e.target.id === "yaml-revert") { renderYaml(); return; }

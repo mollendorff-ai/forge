@@ -85,11 +85,7 @@ tier2:
 # export and import in the browser, the workbook forge export writes.
 
 studio:
-  - id: S12-YAML-KEYS
-    title: "Suggest keys while the YAML is typed"
-    why: "The formula field suggests names and functions (S10); the YAML editor does not suggest the keys of the model format (value:, unit:, formula:, better:, notes:), so a typo is found only when Forge reads the file"
-    how: "From the model format's schema (the schema tool), not a list in the page; on a phone a strip above the keyboard, as in the formula field"
-    acceptance: "In every example's YAML, typing the first letters of each key offers it (a test over the examples); only keys of the schema are offered, and none inside a formula"
+  [] # every studio item is done (2026-11-11); the next ones come from using Studio
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done and at least two people use it)

@@ -324,3 +324,5 @@ table.grid.scalars .g-formula { max-width: 15rem }
 .g-group th { position: static !important; background: var(--sunk); color: var(--muted); font-family: var(--f-mono); font-size: 11.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; border-right: 0 }
 
 .grid-wrap.flat { max-height: none }
+.sug.key { color: var(--syn-key); border-color: color-mix(in srgb, var(--syn-key) 35%, var(--line)) }
+.sug.key.used { opacity: .55 }

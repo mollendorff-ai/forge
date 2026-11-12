@@ -229,6 +229,10 @@ jobs:
         working-directory: studio
         run: node tests/save.mjs ../studio-site ../forge-wasm/xlsx
 
+      - name: Studio suggests the model format's keys in the YAML editor
+        working-directory: studio
+        run: node tests/keys.mjs ../studio-site
+
       - name: Studio's grid shows what Forge returns
         working-directory: studio
         run: node tests/grid.mjs ../studio-site

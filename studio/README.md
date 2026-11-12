@@ -47,6 +47,7 @@ Pages is switched on once, by an administrator: Settings, Pages, Source: GitHub 
 
 - `node studio/tests/excel.mjs studio-site <workbooks>`: the workbook Studio downloads for bagel and mortgage is the one `forge export` writes, part by part, apart from when it was made; a workbook `forge export` wrote, opened in Studio, calculates to the same numbers.
 - `node studio/tests/save.mjs studio-site <workbooks>`: Save shares the model's files and the workbook through the share sheet, within the tap.
+- `node studio/tests/keys.mjs studio-site`: the keys of the model format, from Forge's schema, are offered at their place in every example file (and nowhere else) while the YAML is typed.
 - `node studio/tests/grid.mjs studio-site`: every cell of every table, and every scalar, in the Grid tab is what Forge returns (with and without a scenario), with its formula; a tap shows the formula and leads to the card.
 - `node studio/tests/suggest.mjs studio-site`: the first three letters of every name and function in every example's formulas offer it, only Forge's functions are offered, and the strip works on a card and in the Add form.
 - `node studio/tests/elements.mjs studio-site`: an input and a formula added to every group, and a column to every table, of every example, then deleted, each the new lines only and back to the file byte for byte; refusals leave the file as it was.
