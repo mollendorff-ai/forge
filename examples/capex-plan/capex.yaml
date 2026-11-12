@@ -1,0 +1,57 @@
+_forge_version: "5.2.0"
+# A machine bought on a loan: what the bank is paid in year 2, how the
+# machine is written down, and what its revenue grew by. All figures are made up.
+
+machine:
+  cost: 120000
+  salvage: 12000
+  life_years: 8
+
+loan:
+  amount: 120000
+  annual_rate: 0.065
+  years: 5
+
+revenue:
+  # Five years of revenue from the machine's line, and the years themselves
+  year: [1, 2, 3, 4, 5]
+  amount: [41000, 47500, 52000, 60500, 66000]
+
+# Monthly payments; year 2 is payments 13 to 24
+bank:
+  monthly_rate:
+    formula: "=loan.annual_rate / 12"
+  months:
+    formula: "=loan.years * 12"
+  payment:
+    formula: "=-PMT(monthly_rate, months, loan.amount)"
+  year2_interest:
+    formula: "=-CUMIPMT(monthly_rate, months, loan.amount, 13, 24, 0)"
+  year2_principal:
+    formula: "=-CUMPRINC(monthly_rate, months, loan.amount, 13, 24, 0)"
+  # Interest plus principal of year 2 is twelve payments
+  check:
+    formula: "=year2_interest + year2_principal - payment * 12"
+
+# Depreciation of year 3, by three methods
+writedown:
+  straight_line:
+    formula: "=SLN(machine.cost, machine.salvage, machine.life_years)"
+  sum_of_years:
+    formula: "=SYD(machine.cost, machine.salvage, machine.life_years, 3)"
+  double_declining:
+    formula: "=VDB(machine.cost, machine.salvage, machine.life_years, 2, 3)"
+  # Over the whole life every method writes off cost less salvage
+  total:
+    formula: "=VDB(machine.cost, machine.salvage, machine.life_years, 0, machine.life_years)"
+
+growth:
+  # Revenue growth a year, first to last year
+  cagr:
+    formula: "=RRI(4, INDEX(revenue.amount, 1), INDEX(revenue.amount, 5))"
+  slope:
+    formula: "=SLOPE(revenue.amount, revenue.year)"
+  year6:
+    formula: "=FORECAST.LINEAR(6, revenue.amount, revenue.year)"
+  fit:
+    formula: "=RSQ(revenue.amount, revenue.year)"

@@ -140,7 +140,7 @@ summary:
 - `forge import` turns such sheets back into the included file (`rates.yaml`, beside the imported model, with its scalars and its tables) and their references into `@rates.fx.eur_usd` and `@rates.prices.eur`, with an `_includes` entry. If a file of that name is already there and calculates to the sheets' values (usually the original), it is kept as it is; if it holds other values, the import stops before writing anything.
 - With the MCP server and inline `content`, pass the included files in the `includes` map (see [MCP.md](MCP.md)).
 
-### 176 Excel-Compatible Functions
+### 202 Excel-Compatible Functions
 
 ```mermaid
 graph LR
@@ -186,6 +186,17 @@ graph LR
         AA --> AB[YEAR/MONTH/DAY]
     end
 ```
+
+**10.1 Functions (26 new):**
+
+- Financial: RRI, SYD, VDB (with `no_switch`), CUMIPMT, CUMPRINC
+- Statistical: SLOPE, INTERCEPT, RSQ, FORECAST, FORECAST.LINEAR, COVARIANCE.S, COVARIANCE.P, NORM.DIST, NORM.S.DIST, NORM.INV, NORM.S.INV, GEOMEAN, PERCENTILE.INC, PERCENTILE.EXC, QUARTILE.INC, QUARTILE.EXC
+- Math: MROUND
+- Text: TEXTJOIN
+- Lookup: XMATCH (exact, next smaller, next larger, first or last; no wildcards, no binary search)
+- Date: WEEKNUM (all return types), ISOWEEKNUM
+
+See `examples/capex-plan`. `TREND` and `GROWTH` are not included: they return arrays.
 
 **v1.6.0 Financial Functions (7 new):**
 

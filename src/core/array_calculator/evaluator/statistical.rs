@@ -79,7 +79,7 @@ pub fn try_evaluate(
             }
         },
 
-        "PERCENTILE" => {
+        "PERCENTILE" | "PERCENTILE.INC" => {
             require_args(name, args, 2)?;
             let mut values = collect_numeric_values(&args[..1], ctx)?;
             if values.is_empty() {
@@ -107,7 +107,7 @@ pub fn try_evaluate(
             }
         },
 
-        "QUARTILE" => {
+        "QUARTILE" | "QUARTILE.INC" => {
             require_args(name, args, 2)?;
             let mut values = collect_numeric_values(&args[..1], ctx)?;
             if values.is_empty() {
@@ -135,6 +135,58 @@ pub fn try_evaluate(
             } else {
                 Value::Number(values[lower].mul_add(1.0 - frac, values[upper] * frac))
             }
+        },
+
+        "PERCENTILE.EXC" | "QUARTILE.EXC" => {
+            require_args(name, args, 2)?;
+            let mut values = collect_numeric_values(&args[..1], ctx)?;
+            if values.is_empty() {
+                return Err(EvalError::new(format!("{name} of empty set")));
+            }
+            let arg = evaluate(&args[1], ctx)?.as_number().ok_or_else(|| {
+                EvalError::new(format!("{name}: the second argument must be a number"))
+            })?;
+            // A quartile is the percentile of a quarter, three and no more
+            let k = if name == "QUARTILE.EXC" {
+                let quart = arg.trunc();
+                if !(1.0..=3.0).contains(&quart) {
+                    return Err(EvalError::new(
+                        "QUARTILE.EXC quart must be 1, 2 or 3 (#NUM!)",
+                    ));
+                }
+                quart / 4.0
+            } else {
+                arg
+            };
+            values.sort_by(f64::total_cmp);
+            let n = values.len() as f64;
+            // Rank k * (n + 1), counted from 1, so k must leave room for it
+            if k < 1.0 / (n + 1.0) || k > n / (n + 1.0) {
+                return Err(EvalError::new(format!(
+                    "{name}: k must be between 1/(n+1) and n/(n+1) for {n} values (#NUM!)"
+                )));
+            }
+            let rank = k * (n + 1.0);
+            let lower = rank.floor();
+            let frac = rank - lower;
+            let low = values[lower as usize - 1];
+            if frac == 0.0 {
+                Value::Number(low)
+            } else {
+                Value::Number(low.mul_add(1.0 - frac, values[lower as usize] * frac))
+            }
+        },
+
+        "GEOMEAN" => {
+            let values = collect_numeric_values(args, ctx)?;
+            if values.is_empty() {
+                return Err(EvalError::new("GEOMEAN of empty set"));
+            }
+            if values.iter().any(|v| *v <= 0.0) {
+                return Err(EvalError::new("GEOMEAN needs numbers above 0 (#NUM!)"));
+            }
+            let mean_ln = values.iter().map(|v| v.ln()).sum::<f64>() / values.len() as f64;
+            Value::Number(mean_ln.exp())
         },
 
         "CORREL" => {

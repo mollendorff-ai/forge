@@ -1,4 +1,4 @@
-//! Rounding functions: ROUND, ROUNDUP, ROUNDDOWN, FLOOR, CEILING, TRUNC, INT
+//! Rounding functions: ROUND, ROUNDUP, ROUNDDOWN, FLOOR, CEILING, MROUND, TRUNC, INT
 
 // Rounding casts: f64 decimal-place counts to i32 (small bounded integers, typically 0..15).
 #![allow(clippy::cast_possible_truncation)]
@@ -86,6 +86,26 @@ pub fn eval_ceiling(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         return Ok(Value::Number(0.0));
     }
     Ok(Value::Number((val / sig).ceil() * sig))
+}
+
+/// MROUND(number, multiple): the nearest multiple, a half going away from 0
+pub fn eval_mround(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args("MROUND", args, 2)?;
+    let val = evaluate(&args[0], ctx)?
+        .as_number()
+        .ok_or_else(|| EvalError::new("MROUND requires a number"))?;
+    let multiple = evaluate(&args[1], ctx)?
+        .as_number()
+        .ok_or_else(|| EvalError::new("MROUND requires a multiple"))?;
+    if multiple == 0.0 {
+        return Ok(Value::Number(0.0));
+    }
+    if val * multiple < 0.0 {
+        return Err(EvalError::new(
+            "MROUND: the number and the multiple must have the same sign (#NUM!)",
+        ));
+    }
+    Ok(Value::Number((val / multiple).round() * multiple))
 }
 
 pub fn eval_int(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {

@@ -30,6 +30,7 @@ pub fn try_evaluate(
         "ROUNDDOWN" => rounding::eval_rounddown(args, ctx)?,
         "FLOOR" => rounding::eval_floor(args, ctx)?,
         "CEILING" => rounding::eval_ceiling(args, ctx)?,
+        "MROUND" => rounding::eval_mround(args, ctx)?,
         "TRUNC" => rounding::eval_trunc(args, ctx)?,
         "INT" => rounding::eval_int(args, ctx)?,
 

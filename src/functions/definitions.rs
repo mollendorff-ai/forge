@@ -1,13 +1,13 @@
 //! Function definitions - THE SINGLE SOURCE OF TRUTH
 //!
-//! This file contains all 176 function definitions.
+//! This file contains all 202 function definitions.
 //! Separated from registry.rs to keep files under 1500 lines.
 
 use super::{Category, FunctionDef};
 
 /// All supported functions - THE SINGLE SOURCE OF TRUTH
 ///
-/// Total: 176 functions (includes aliases)
+/// Total: 202 functions (includes aliases)
 pub static FUNCTIONS: &[FunctionDef] = &[
     // ══════════════════════════════════════════════════════════════════════════
     // MATH (21 total)
@@ -94,6 +94,13 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         category: Category::Math,
         description: "Logarithm in a base (10 when none) - the base is optional",
         syntax: "=LOG(number, base)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "MROUND",
+        category: Category::Math,
+        description: "Round to the nearest multiple",
+        syntax: "=MROUND(number, multiple)",
         scalar: true,
     },
     FunctionDef {
@@ -407,6 +414,13 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         scalar: true,
     },
     FunctionDef {
+        name: "TEXTJOIN",
+        category: Category::Text,
+        description: "Join text with a delimiter",
+        syntax: "=TEXTJOIN(delimiter, ignore_empty, text1, text2, ...)",
+        scalar: true,
+    },
+    FunctionDef {
         name: "TEXT",
         category: Category::Text,
         description: "A number or a date written with an Excel format code (0 # . , % E+00, yyyy mmm dd; another code is an error)",
@@ -529,6 +543,20 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         scalar: true,
     },
     FunctionDef {
+        name: "WEEKNUM",
+        category: Category::Date,
+        description: "Week of the year",
+        syntax: "=WEEKNUM(date, type)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "ISOWEEKNUM",
+        category: Category::Date,
+        description: "ISO week of the year",
+        syntax: "=ISOWEEKNUM(date)",
+        scalar: true,
+    },
+    FunctionDef {
         name: "WEEKDAY",
         category: Category::Date,
         description: "Day of week",
@@ -613,6 +641,13 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         category: Category::Lookup,
         description: "Horizontal lookup",
         syntax: "=HLOOKUP(lookup, table, row, exact)",
+        scalar: false,
+    },
+    FunctionDef {
+        name: "XMATCH",
+        category: Category::Lookup,
+        description: "Find position, exactly or the nearest",
+        syntax: "=XMATCH(lookup_value, lookup_array, match_mode, search_mode)",
         scalar: false,
     },
     FunctionDef {
@@ -780,6 +815,41 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         scalar: true,
     },
     FunctionDef {
+        name: "RRI",
+        category: Category::Financial,
+        description: "Growth rate per period between two values",
+        syntax: "=RRI(nper, pv, fv)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "SYD",
+        category: Category::Financial,
+        description: "Sum-of-years-digits depreciation",
+        syntax: "=SYD(cost, salvage, life, period)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "CUMIPMT",
+        category: Category::Financial,
+        description: "Interest paid between two periods of a loan",
+        syntax: "=CUMIPMT(rate, nper, pv, start_period, end_period, type)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "CUMPRINC",
+        category: Category::Financial,
+        description: "Principal paid between two periods of a loan",
+        syntax: "=CUMPRINC(rate, nper, pv, start_period, end_period, type)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "VDB",
+        category: Category::Financial,
+        description: "Declining-balance depreciation between two periods, switching to straight line",
+        syntax: "=VDB(cost, salvage, life, start_period, end_period, factor, no_switch)",
+        scalar: true,
+    },
+    FunctionDef {
         name: "ACCRINT",
         category: Category::Financial,
         description: "Accrued interest",
@@ -892,6 +962,118 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         category: Category::Statistical,
         description: "Alias for MODE",
         syntax: "=MODE.SNGL(value1, value2, ...)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "SLOPE",
+        category: Category::Statistical,
+        description: "Slope of the line through the points",
+        syntax: "=SLOPE(known_ys, known_xs)",
+        scalar: false,
+    },
+    FunctionDef {
+        name: "INTERCEPT",
+        category: Category::Statistical,
+        description: "Where the line through the points crosses the y axis",
+        syntax: "=INTERCEPT(known_ys, known_xs)",
+        scalar: false,
+    },
+    FunctionDef {
+        name: "RSQ",
+        category: Category::Statistical,
+        description: "Squared correlation of the points",
+        syntax: "=RSQ(known_ys, known_xs)",
+        scalar: false,
+    },
+    FunctionDef {
+        name: "FORECAST",
+        category: Category::Statistical,
+        description: "Value on the line through the points",
+        syntax: "=FORECAST(x, known_ys, known_xs)",
+        scalar: false,
+    },
+    FunctionDef {
+        name: "FORECAST.LINEAR",
+        category: Category::Statistical,
+        description: "Value on the line through the points (FORECAST)",
+        syntax: "=FORECAST.LINEAR(x, known_ys, known_xs)",
+        scalar: false,
+    },
+    FunctionDef {
+        name: "COVARIANCE.P",
+        category: Category::Statistical,
+        description: "Population covariance",
+        syntax: "=COVARIANCE.P(array1, array2)",
+        scalar: false,
+    },
+    FunctionDef {
+        name: "COVARIANCE.S",
+        category: Category::Statistical,
+        description: "Sample covariance",
+        syntax: "=COVARIANCE.S(array1, array2)",
+        scalar: false,
+    },
+    FunctionDef {
+        name: "GEOMEAN",
+        category: Category::Statistical,
+        description: "Geometric mean of positive numbers",
+        syntax: "=GEOMEAN(value1, value2, ...)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "PERCENTILE.INC",
+        category: Category::Statistical,
+        description: "Percentile, 0 to 1 included (PERCENTILE)",
+        syntax: "=PERCENTILE.INC(array, k)",
+        scalar: false,
+    },
+    FunctionDef {
+        name: "PERCENTILE.EXC",
+        category: Category::Statistical,
+        description: "Percentile, 0 and 1 excluded",
+        syntax: "=PERCENTILE.EXC(array, k)",
+        scalar: false,
+    },
+    FunctionDef {
+        name: "QUARTILE.INC",
+        category: Category::Statistical,
+        description: "Quartile, 0 to 4 included (QUARTILE)",
+        syntax: "=QUARTILE.INC(array, quart)",
+        scalar: false,
+    },
+    FunctionDef {
+        name: "QUARTILE.EXC",
+        category: Category::Statistical,
+        description: "Quartile, 1 to 3 only",
+        syntax: "=QUARTILE.EXC(array, quart)",
+        scalar: false,
+    },
+    FunctionDef {
+        name: "NORM.DIST",
+        category: Category::Statistical,
+        description: "Normal distribution, cumulative or density",
+        syntax: "=NORM.DIST(x, mean, std_dev, cumulative)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "NORM.INV",
+        category: Category::Statistical,
+        description: "Value for a probability of the normal distribution",
+        syntax: "=NORM.INV(probability, mean, std_dev)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "NORM.S.DIST",
+        category: Category::Statistical,
+        description: "Standard normal distribution, cumulative or density",
+        syntax: "=NORM.S.DIST(z, cumulative)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "NORM.S.INV",
+        category: Category::Statistical,
+        description: "Value for a probability of the standard normal distribution",
+        syntax: "=NORM.S.INV(probability)",
         scalar: true,
     },
     FunctionDef {

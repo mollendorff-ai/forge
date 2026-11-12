@@ -1,0 +1,1018 @@
+# Batch of 26 functions added in Forge 10.1: regression, the normal distribution,
+# loan and depreciation schedules, and a few conveniences.
+# Functions covered: SLOPE, INTERCEPT, RSQ, FORECAST, FORECAST.LINEAR, COVARIANCE.P, COVARIANCE.S,
+#   GEOMEAN, PERCENTILE.INC, PERCENTILE.EXC, QUARTILE.INC, QUARTILE.EXC, NORM.DIST, NORM.INV,
+#   NORM.S.DIST, NORM.S.INV, RRI, SYD, CUMIPMT, CUMPRINC, VDB, MROUND, WEEKNUM, ISOWEEKNUM, XMATCH
+# Expected values come from outside Forge: R (lm, cor, quantile types 7 and 6, pnorm, dnorm, qnorm,
+# an amortisation loop for CUMIPMT and CUMPRINC), and Python (a depreciation loop for VDB, the
+# calendar for weeks, round-half-away for MROUND). TEXTJOIN returns text and is checked in its unit tests.
+
+_forge_version: "5.0.0"
+
+pts:
+  y: [3.1, 4.9, 7.2, 8.8, 11.1]
+  x: [1, 2, 3, 4, 5]
+
+pts2:
+  y: [2.3, 2.9, 5.1, 6.2, 8.8, 9.1, 11.7]
+  x: [1, 2, 4, 5, 7, 8, 10]
+
+pts3:
+  y: [10, 8, 7, 3, 1]
+  x: [1, 2, 3, 4, 5]
+
+vals:
+  pos: [1, 2, 4, 8, 16]
+  mix: [3.5, 1.2, 9.9, 4.4, 7.7, 2.1, 8.8, 6.6]
+  ten: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+  dup: [5, 3, 5, 3, 5]
+
+assumptions:
+  slope_pts:
+    value: null
+    formula: "=SLOPE(pts.y, pts.x)"
+    expected: 1.9899999999999998
+  intercept_pts:
+    value: null
+    formula: "=INTERCEPT(pts.y, pts.x)"
+    expected: 1.0500000000000018
+  rsq_pts:
+    value: null
+    formula: "=RSQ(pts.y, pts.x)"
+    expected: 0.9973053289009768
+  covp_pts:
+    value: null
+    formula: "=COVARIANCE.P(pts.y, pts.x)"
+    expected: 3.9799999999999995
+  covs_pts:
+    value: null
+    formula: "=COVARIANCE.S(pts.y, pts.x)"
+    expected: 4.975
+  forecast0_pts:
+    value: null
+    formula: "=FORECAST(6, pts.y, pts.x)"
+    expected: 12.99
+  forecast1_pts:
+    value: null
+    formula: "=FORECAST.LINEAR(0, pts.y, pts.x)"
+    expected: 1.0500000000000018
+    libreoffice: "Gnumeric 1.12 cannot read FORECAST.LINEAR"
+  forecast2_pts:
+    value: null
+    formula: "=FORECAST(2.5, pts.y, pts.x)"
+    expected: 6.025000000000001
+  slope_pts2:
+    value: null
+    formula: "=SLOPE(pts2.y, pts2.x)"
+    expected: 1.0599099099099099
+  intercept_pts2:
+    value: null
+    formula: "=INTERCEPT(pts2.y, pts2.x)"
+    expected: 0.9833333333333333
+  rsq_pts2:
+    value: null
+    formula: "=RSQ(pts2.y, pts2.x)"
+    expected: 0.9939691594667481
+  covp_pts2:
+    value: null
+    formula: "=COVARIANCE.P(pts2.y, pts2.x)"
+    expected: 9.604081632653061
+  covs_pts2:
+    value: null
+    formula: "=COVARIANCE.S(pts2.y, pts2.x)"
+    expected: 11.204761904761904
+  forecast0_pts2:
+    value: null
+    formula: "=FORECAST(12, pts2.y, pts2.x)"
+    expected: 13.70225225225225
+  forecast1_pts2:
+    value: null
+    formula: "=FORECAST.LINEAR(0, pts2.y, pts2.x)"
+    expected: 0.9833333333333333
+    libreoffice: "Gnumeric 1.12 cannot read FORECAST.LINEAR"
+  forecast2_pts2:
+    value: null
+    formula: "=FORECAST(5.5, pts2.y, pts2.x)"
+    expected: 6.812837837837837
+  slope_pts3:
+    value: null
+    formula: "=SLOPE(pts3.y, pts3.x)"
+    expected: -2.2999999999999994
+  intercept_pts3:
+    value: null
+    formula: "=INTERCEPT(pts3.y, pts3.x)"
+    expected: 12.699999999999996
+  rsq_pts3:
+    value: null
+    formula: "=RSQ(pts3.y, pts3.x)"
+    expected: 0.9653284671532847
+  covp_pts3:
+    value: null
+    formula: "=COVARIANCE.P(pts3.y, pts3.x)"
+    expected: -4.6
+  covs_pts3:
+    value: null
+    formula: "=COVARIANCE.S(pts3.y, pts3.x)"
+    expected: -5.75
+  forecast0_pts3:
+    value: null
+    formula: "=FORECAST(6, pts3.y, pts3.x)"
+    expected: -1.1000000000000014
+  forecast1_pts3:
+    value: null
+    formula: "=FORECAST.LINEAR(0, pts3.y, pts3.x)"
+    expected: 12.699999999999996
+    libreoffice: "Gnumeric 1.12 cannot read FORECAST.LINEAR"
+  forecast2_pts3:
+    value: null
+    formula: "=FORECAST(2.5, pts3.y, pts3.x)"
+    expected: 6.9499999999999975
+  geomean_pos:
+    value: null
+    formula: "=GEOMEAN(vals.pos)"
+    expected: 4.0
+  geomean_mix:
+    value: null
+    formula: "=GEOMEAN(vals.mix)"
+    expected: 4.512157219935065
+  geomean_args:
+    value: null
+    formula: "=GEOMEAN(0.5, 2, 8)"
+    expected: 2.0
+  pinc_mix_0:
+    value: null
+    formula: "=PERCENTILE.INC(vals.mix, 0)"
+    expected: 1.2
+  pinc_mix_0_1:
+    value: null
+    formula: "=PERCENTILE.INC(vals.mix, 0.1)"
+    expected: 1.83
+  pinc_mix_0_3:
+    value: null
+    formula: "=PERCENTILE.INC(vals.mix, 0.3)"
+    expected: 3.59
+  pinc_mix_0_5:
+    value: null
+    formula: "=PERCENTILE.INC(vals.mix, 0.5)"
+    expected: 5.5
+  pinc_mix_0_77:
+    value: null
+    formula: "=PERCENTILE.INC(vals.mix, 0.77)"
+    expected: 8.129000000000001
+  pinc_mix_1:
+    value: null
+    formula: "=PERCENTILE.INC(vals.mix, 1)"
+    expected: 9.9
+  pexc_mix_0_12:
+    value: null
+    formula: "=PERCENTILE.EXC(vals.mix, 0.12)"
+    expected: 1.272
+  pexc_mix_0_3:
+    value: null
+    formula: "=PERCENTILE.EXC(vals.mix, 0.3)"
+    expected: 3.08
+  pexc_mix_0_5:
+    value: null
+    formula: "=PERCENTILE.EXC(vals.mix, 0.5)"
+    expected: 5.5
+  pexc_mix_0_88:
+    value: null
+    formula: "=PERCENTILE.EXC(vals.mix, 0.88)"
+    expected: 9.812
+  pexc_ten_0_1:
+    value: null
+    formula: "=PERCENTILE.EXC(vals.ten, 0.1)"
+    expected: 11.000000000000002
+  pexc_ten_0_25:
+    value: null
+    formula: "=PERCENTILE.EXC(vals.ten, 0.25)"
+    expected: 27.5
+  pexc_ten_0_75:
+    value: null
+    formula: "=PERCENTILE.EXC(vals.ten, 0.75)"
+    expected: 82.5
+  pexc_ten_0_9:
+    value: null
+    formula: "=PERCENTILE.EXC(vals.ten, 0.9)"
+    expected: 99.0
+  qinc_mix_0:
+    value: null
+    formula: "=QUARTILE.INC(vals.mix, 0)"
+    expected: 1.2
+  qinc_mix_1:
+    value: null
+    formula: "=QUARTILE.INC(vals.mix, 1)"
+    expected: 3.15
+  qinc_mix_2:
+    value: null
+    formula: "=QUARTILE.INC(vals.mix, 2)"
+    expected: 5.5
+  qinc_mix_3:
+    value: null
+    formula: "=QUARTILE.INC(vals.mix, 3)"
+    expected: 7.9750000000000005
+  qinc_mix_4:
+    value: null
+    formula: "=QUARTILE.INC(vals.mix, 4)"
+    expected: 9.9
+  qexc_mix_1:
+    value: null
+    formula: "=QUARTILE.EXC(vals.mix, 1)"
+    expected: 2.45
+  qexc_ten_1:
+    value: null
+    formula: "=QUARTILE.EXC(vals.ten, 1)"
+    expected: 27.5
+  qexc_mix_2:
+    value: null
+    formula: "=QUARTILE.EXC(vals.mix, 2)"
+    expected: 5.5
+  qexc_ten_2:
+    value: null
+    formula: "=QUARTILE.EXC(vals.ten, 2)"
+    expected: 55.0
+  qexc_mix_3:
+    value: null
+    formula: "=QUARTILE.EXC(vals.mix, 3)"
+    expected: 8.525
+  qexc_ten_3:
+    value: null
+    formula: "=QUARTILE.EXC(vals.ten, 3)"
+    expected: 82.5
+  nsd_cdf_m3:
+    value: null
+    formula: "=NORM.S.DIST(-3, TRUE)"
+    expected: 0.0013498980316300946
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_pdf_m3:
+    value: null
+    formula: "=NORM.S.DIST(-3, FALSE)"
+    expected: 0.0044318484119380075
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_cdf_m1_96:
+    value: null
+    formula: "=NORM.S.DIST(-1.96, TRUE)"
+    expected: 0.024997895148220428
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_pdf_m1_96:
+    value: null
+    formula: "=NORM.S.DIST(-1.96, FALSE)"
+    expected: 0.05844094433345147
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_cdf_m0_5:
+    value: null
+    formula: "=NORM.S.DIST(-0.5, TRUE)"
+    expected: 0.30853753872598694
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_pdf_m0_5:
+    value: null
+    formula: "=NORM.S.DIST(-0.5, FALSE)"
+    expected: 0.3520653267642995
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_cdf_0:
+    value: null
+    formula: "=NORM.S.DIST(0, TRUE)"
+    expected: 0.5
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_pdf_0:
+    value: null
+    formula: "=NORM.S.DIST(0, FALSE)"
+    expected: 0.3989422804014327
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_cdf_0_5:
+    value: null
+    formula: "=NORM.S.DIST(0.5, TRUE)"
+    expected: 0.691462461274013
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_pdf_0_5:
+    value: null
+    formula: "=NORM.S.DIST(0.5, FALSE)"
+    expected: 0.3520653267642995
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_cdf_1:
+    value: null
+    formula: "=NORM.S.DIST(1, TRUE)"
+    expected: 0.8413447460685429
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_pdf_1:
+    value: null
+    formula: "=NORM.S.DIST(1, FALSE)"
+    expected: 0.24197072451914337
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_cdf_2_5:
+    value: null
+    formula: "=NORM.S.DIST(2.5, TRUE)"
+    expected: 0.9937903346742238
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsd_pdf_2_5:
+    value: null
+    formula: "=NORM.S.DIST(2.5, FALSE)"
+    expected: 0.01752830049356854
+    libreoffice: "Gnumeric 1.12 cannot read NORM.S.DIST"
+  nsi_0_001:
+    value: null
+    formula: "=NORM.S.INV(0.001)"
+    expected: -3.090232306167813
+  nsi_0_025:
+    value: null
+    formula: "=NORM.S.INV(0.025)"
+    expected: -1.9599639845400538
+  nsi_0_5:
+    value: null
+    formula: "=NORM.S.INV(0.5)"
+    expected: 0.0
+  nsi_0_9:
+    value: null
+    formula: "=NORM.S.INV(0.9)"
+    expected: 1.2815515655446008
+  nsi_0_999:
+    value: null
+    formula: "=NORM.S.INV(0.999)"
+    expected: 3.090232306167813
+  nd_cdf_115_100_15:
+    value: null
+    formula: "=NORM.DIST(115, 100, 15, TRUE)"
+    expected: 0.8413447460685429
+  nd_pdf_115_100_15:
+    value: null
+    formula: "=NORM.DIST(115, 100, 15, FALSE)"
+    expected: 0.016131381634609556
+  nd_cdf_3_5_2:
+    value: null
+    formula: "=NORM.DIST(3, 5, 2, TRUE)"
+    expected: 0.15865525393145705
+  nd_pdf_3_5_2:
+    value: null
+    formula: "=NORM.DIST(3, 5, 2, FALSE)"
+    expected: 0.12098536225957168
+  nd_cdf_m1_5_0_0.5:
+    value: null
+    formula: "=NORM.DIST(-1.5, 0, 0.5, TRUE)"
+    expected: 0.0013498980316300946
+  nd_pdf_m1_5_0_0.5:
+    value: null
+    formula: "=NORM.DIST(-1.5, 0, 0.5, FALSE)"
+    expected: 0.008863696823876015
+  nd_cdf_100_100_15:
+    value: null
+    formula: "=NORM.DIST(100, 100, 15, TRUE)"
+    expected: 0.5
+  nd_pdf_100_100_15:
+    value: null
+    formula: "=NORM.DIST(100, 100, 15, FALSE)"
+    expected: 0.02659615202676218
+  ni_0_9_100_15:
+    value: null
+    formula: "=NORM.INV(0.9, 100, 15)"
+    expected: 119.22327348316901
+  ni_0_05_50_10:
+    value: null
+    formula: "=NORM.INV(0.05, 50, 10)"
+    expected: 33.551463730485274
+  ni_0_5_7_3:
+    value: null
+    formula: "=NORM.INV(0.5, 7, 3)"
+    expected: 7.0
+  rri_0:
+    value: null
+    formula: "=RRI(10, 1000, 2500)"
+    expected: 0.09595822638521723
+  rri_1:
+    value: null
+    formula: "=RRI(3, 100, 50)"
+    expected: -0.2062994740159002
+  rri_2:
+    value: null
+    formula: "=RRI(0.5, 100, 121)"
+    expected: 0.46409999999999996
+  rri_3:
+    value: null
+    formula: "=RRI(12, 5000, 5000)"
+    expected: 0.0
+  rri_4:
+    value: null
+    formula: "=RRI(5, -200, -350)"
+    expected: 0.11842691472014466
+  syd_5_1:
+    value: null
+    formula: "=SYD(10000, 1000, 5, 1)"
+    expected: 3000.0
+  syd_5_2:
+    value: null
+    formula: "=SYD(10000, 1000, 5, 2)"
+    expected: 2400.0
+  syd_5_3:
+    value: null
+    formula: "=SYD(10000, 1000, 5, 3)"
+    expected: 1800.0
+  syd_5_4:
+    value: null
+    formula: "=SYD(10000, 1000, 5, 4)"
+    expected: 1200.0
+  syd_5_5:
+    value: null
+    formula: "=SYD(10000, 1000, 5, 5)"
+    expected: 600.0
+  syd_10_1:
+    value: null
+    formula: "=SYD(30000, 7500, 10, 1)"
+    expected: 4090.909090909091
+  syd_10_4:
+    value: null
+    formula: "=SYD(30000, 7500, 10, 4)"
+    expected: 2863.6363636363635
+  syd_10_10:
+    value: null
+    formula: "=SYD(30000, 7500, 10, 10)"
+    expected: 409.09090909090907
+  cumipmt_360_13_24_0_125000:
+    value: null
+    formula: "=CUMIPMT(0.0075, 360, 125000, 13, 24, 0)"
+    expected: -11135.232130750846
+  cumprinc_360_13_24_0_125000:
+    value: null
+    formula: "=CUMPRINC(0.0075, 360, 125000, 13, 24, 0)"
+    expected: -934.1071234208758
+  cumipmt_360_1_1_0_125000:
+    value: null
+    formula: "=CUMIPMT(0.0075, 360, 125000, 1, 1, 0)"
+    expected: -937.5
+  cumprinc_360_1_1_0_125000:
+    value: null
+    formula: "=CUMPRINC(0.0075, 360, 125000, 1, 1, 0)"
+    expected: -68.27827118097684
+  cumipmt_360_1_360_0_125000:
+    value: null
+    formula: "=CUMIPMT(0.0075, 360, 125000, 1, 360, 0)"
+    expected: -237080.17762515444
+  cumprinc_360_1_360_0_125000:
+    value: null
+    formula: "=CUMPRINC(0.0075, 360, 125000, 1, 360, 0)"
+    expected: -124999.99999999724
+  cumipmt_360_13_24_1_125000:
+    value: null
+    formula: "=CUMIPMT(0.0075, 360, 125000, 13, 24, 1)"
+    expected: -11052.339583871808
+  cumprinc_360_13_24_1_125000:
+    value: null
+    formula: "=CUMPRINC(0.0075, 360, 125000, 13, 24, 1)"
+    expected: -927.1534723780392
+  cumipmt_360_1_1_1_125000:
+    value: null
+    formula: "=CUMIPMT(0.0075, 360, 125000, 1, 1, 1)"
+    expected: -0.0
+  cumprinc_360_1_1_1_125000:
+    value: null
+    formula: "=CUMPRINC(0.0075, 360, 125000, 1, 1, 1)"
+    expected: -998.2910880208206
+  cumipmt_10_3_7_0_20000:
+    value: null
+    formula: "=CUMIPMT(0.05, 10, 20000, 3, 7, 0)"
+    expected: -3263.606641512223
+  cumprinc_10_3_7_0_20000:
+    value: null
+    formula: "=CUMPRINC(0.05, 10, 20000, 3, 7, 0)"
+    expected: -9686.850855033437
+  cumipmt_10_3_7_1_20000:
+    value: null
+    formula: "=CUMIPMT(0.05, 10, 20000, 3, 7, 1)"
+    expected: -3108.1968014402123
+  cumprinc_10_3_7_1_20000:
+    value: null
+    formula: "=CUMPRINC(0.05, 10, 20000, 3, 7, 1)"
+    expected: -9225.572242888986
+  cumipmt_48_25_36_0_18000:
+    value: null
+    formula: "=CUMIPMT(0.0125, 48, 18000, 25, 36, 0)"
+    expected: -1229.879566982326
+  cumprinc_48_25_36_0_18000:
+    value: null
+    formula: "=CUMPRINC(0.0125, 48, 18000, 25, 36, 0)"
+    expected: -4781.56205857656
+  vdb_0:
+    value: null
+    formula: "=VDB(2400, 300, 10, 0, 1)"
+    expected: 480.0
+  vdb_1:
+    value: null
+    formula: "=VDB(2400, 300, 10, 0, 10)"
+    expected: 2100.0
+  vdb_2:
+    value: null
+    formula: "=VDB(2400, 300, 10, 2, 5)"
+    expected: 749.568
+  vdb_3:
+    value: null
+    formula: "=VDB(2400, 300, 120, 0, 1)"
+    expected: 40.0
+  vdb_4:
+    value: null
+    formula: "=VDB(2400, 300, 120, 6, 18, 3)"
+    expected: 540.1855581996978
+  vdb_5:
+    value: null
+    formula: "=VDB(2400, 300, 120, 6, 18, 1.5)"
+    expected: 311.80893665823413
+  vdb_6:
+    value: null
+    formula: "=VDB(50000, 5000, 8, 0, 3)"
+    expected: 28906.25
+  vdb_7:
+    value: null
+    formula: "=VDB(50000, 5000, 8, 4, 8)"
+    expected: 10820.3125
+  vdb_8:
+    value: null
+    formula: "=VDB(50000, 5000, 8, 4, 8, 2, TRUE)"
+    expected: 10814.666748046875
+  vdb_9:
+    value: null
+    formula: "=VDB(50000, 5000, 8, 0, 8, 2, TRUE)"
+    expected: 44994.354248046875
+  vdb_10:
+    value: null
+    formula: "=VDB(10000, 0, 5, 0, 5)"
+    expected: 10000.0
+  vdb_11:
+    value: null
+    formula: "=VDB(10000, 1000, 6, 1, 4, 1.5)"
+    expected: 4354.166666666667
+  vdb_12:
+    value: null
+    formula: "=VDB(900, 100, 4, 0, 4, 3)"
+    expected: 800.0
+  mround_0:
+    value: null
+    formula: "=MROUND(10, 3)"
+    expected: 9.0
+  mround_1:
+    value: null
+    formula: "=MROUND(-10, -3)"
+    expected: -9.0
+  mround_2:
+    value: null
+    formula: "=MROUND(1.3, 0.2)"
+    expected: 1.4000000000000001
+    libreoffice: "Gnumeric gives 1.2 for MROUND(1.3, 0.2); Excel's documentation gives 1.4"
+  mround_3:
+    value: null
+    formula: "=MROUND(5, 2)"
+    expected: 6.0
+  mround_4:
+    value: null
+    formula: "=MROUND(-5, -2)"
+    expected: -6.0
+  mround_5:
+    value: null
+    formula: "=MROUND(7.5, 0)"
+    expected: 0.0
+  mround_6:
+    value: null
+    formula: "=MROUND(1234.5678, 0.05)"
+    expected: 1234.5500000000002
+  mround_7:
+    value: null
+    formula: "=MROUND(0, 5)"
+    expected: 0.0
+  mround_8:
+    value: null
+    formula: "=MROUND(2.5, 0.5)"
+    expected: 2.5
+  mround_9:
+    value: null
+    formula: "=MROUND(17, 5)"
+    expected: 15.0
+  mround_10:
+    value: null
+    formula: "=MROUND(0.6, 0.25)"
+    expected: 0.5
+  weeknum_0_1:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 1))"
+    expected: 1.0
+  weeknum_0_2:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 1), 2)"
+    expected: 1.0
+  weeknum_0_11:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 1), 11)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_0_12:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 1), 12)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_0_15:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 1), 15)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_0_17:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 1), 17)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_0_21:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 1), 21)"
+    expected: 1.0
+  isoweeknum_0:
+    value: null
+    formula: "=ISOWEEKNUM(DATE(2026, 1, 1))"
+    expected: 1.0
+  weeknum_1_1:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 4))"
+    expected: 2.0
+  weeknum_1_2:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 4), 2)"
+    expected: 1.0
+  weeknum_1_11:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 4), 11)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_1_12:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 4), 12)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_1_15:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 4), 15)"
+    expected: 2.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_1_17:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 4), 17)"
+    expected: 2.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_1_21:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 4), 21)"
+    expected: 1.0
+  isoweeknum_1:
+    value: null
+    formula: "=ISOWEEKNUM(DATE(2026, 1, 4))"
+    expected: 1.0
+  weeknum_2_1:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 5))"
+    expected: 2.0
+  weeknum_2_2:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 5), 2)"
+    expected: 2.0
+  weeknum_2_11:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 5), 11)"
+    expected: 2.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_2_12:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 5), 12)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_2_15:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 5), 15)"
+    expected: 2.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_2_17:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 5), 17)"
+    expected: 2.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_2_21:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 1, 5), 21)"
+    expected: 2.0
+  isoweeknum_2:
+    value: null
+    formula: "=ISOWEEKNUM(DATE(2026, 1, 5))"
+    expected: 2.0
+  weeknum_3_1:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 12, 31))"
+    expected: 53.0
+  weeknum_3_2:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 12, 31), 2)"
+    expected: 53.0
+  weeknum_3_11:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 12, 31), 11)"
+    expected: 53.0
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+  weeknum_3_12:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 12, 31), 12)"
+    expected: 53.0
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+  weeknum_3_15:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 12, 31), 15)"
+    expected: 53.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_3_17:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 12, 31), 17)"
+    expected: 53.0
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+  weeknum_3_21:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 12, 31), 21)"
+    expected: 53.0
+  isoweeknum_3:
+    value: null
+    formula: "=ISOWEEKNUM(DATE(2026, 12, 31))"
+    expected: 53.0
+  weeknum_4_1:
+    value: null
+    formula: "=WEEKNUM(DATE(2024, 12, 30))"
+    expected: 53.0
+  weeknum_4_2:
+    value: null
+    formula: "=WEEKNUM(DATE(2024, 12, 30), 2)"
+    expected: 53.0
+  weeknum_4_11:
+    value: null
+    formula: "=WEEKNUM(DATE(2024, 12, 30), 11)"
+    expected: 53.0
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+  weeknum_4_12:
+    value: null
+    formula: "=WEEKNUM(DATE(2024, 12, 30), 12)"
+    expected: 53.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_4_15:
+    value: null
+    formula: "=WEEKNUM(DATE(2024, 12, 30), 15)"
+    expected: 53.0
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+  weeknum_4_17:
+    value: null
+    formula: "=WEEKNUM(DATE(2024, 12, 30), 17)"
+    expected: 53.0
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+  weeknum_4_21:
+    value: null
+    formula: "=WEEKNUM(DATE(2024, 12, 30), 21)"
+    expected: 1.0
+  isoweeknum_4:
+    value: null
+    formula: "=ISOWEEKNUM(DATE(2024, 12, 30))"
+    expected: 1.0
+  weeknum_5_1:
+    value: null
+    formula: "=WEEKNUM(DATE(2027, 1, 1))"
+    expected: 1.0
+  weeknum_5_2:
+    value: null
+    formula: "=WEEKNUM(DATE(2027, 1, 1), 2)"
+    expected: 1.0
+  weeknum_5_11:
+    value: null
+    formula: "=WEEKNUM(DATE(2027, 1, 1), 11)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_5_12:
+    value: null
+    formula: "=WEEKNUM(DATE(2027, 1, 1), 12)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_5_15:
+    value: null
+    formula: "=WEEKNUM(DATE(2027, 1, 1), 15)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_5_17:
+    value: null
+    formula: "=WEEKNUM(DATE(2027, 1, 1), 17)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_5_21:
+    value: null
+    formula: "=WEEKNUM(DATE(2027, 1, 1), 21)"
+    expected: 53.0
+  isoweeknum_5:
+    value: null
+    formula: "=ISOWEEKNUM(DATE(2027, 1, 1))"
+    expected: 53.0
+  weeknum_6_1:
+    value: null
+    formula: "=WEEKNUM(DATE(2021, 1, 3))"
+    expected: 2.0
+  weeknum_6_2:
+    value: null
+    formula: "=WEEKNUM(DATE(2021, 1, 3), 2)"
+    expected: 1.0
+  weeknum_6_11:
+    value: null
+    formula: "=WEEKNUM(DATE(2021, 1, 3), 11)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_6_12:
+    value: null
+    formula: "=WEEKNUM(DATE(2021, 1, 3), 12)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_6_15:
+    value: null
+    formula: "=WEEKNUM(DATE(2021, 1, 3), 15)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_6_17:
+    value: null
+    formula: "=WEEKNUM(DATE(2021, 1, 3), 17)"
+    expected: 2.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_6_21:
+    value: null
+    formula: "=WEEKNUM(DATE(2021, 1, 3), 21)"
+    expected: 53.0
+  isoweeknum_6:
+    value: null
+    formula: "=ISOWEEKNUM(DATE(2021, 1, 3))"
+    expected: 53.0
+  weeknum_7_1:
+    value: null
+    formula: "=WEEKNUM(DATE(2020, 12, 31))"
+    expected: 53.0
+  weeknum_7_2:
+    value: null
+    formula: "=WEEKNUM(DATE(2020, 12, 31), 2)"
+    expected: 53.0
+  weeknum_7_11:
+    value: null
+    formula: "=WEEKNUM(DATE(2020, 12, 31), 11)"
+    expected: 53.0
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+  weeknum_7_12:
+    value: null
+    formula: "=WEEKNUM(DATE(2020, 12, 31), 12)"
+    expected: 53.0
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+  weeknum_7_15:
+    value: null
+    formula: "=WEEKNUM(DATE(2020, 12, 31), 15)"
+    expected: 53.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_7_17:
+    value: null
+    formula: "=WEEKNUM(DATE(2020, 12, 31), 17)"
+    expected: 53.0
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+  weeknum_7_21:
+    value: null
+    formula: "=WEEKNUM(DATE(2020, 12, 31), 21)"
+    expected: 53.0
+  isoweeknum_7:
+    value: null
+    formula: "=ISOWEEKNUM(DATE(2020, 12, 31))"
+    expected: 53.0
+  weeknum_8_1:
+    value: null
+    formula: "=WEEKNUM(DATE(2023, 1, 1))"
+    expected: 1.0
+  weeknum_8_2:
+    value: null
+    formula: "=WEEKNUM(DATE(2023, 1, 1), 2)"
+    expected: 1.0
+  weeknum_8_11:
+    value: null
+    formula: "=WEEKNUM(DATE(2023, 1, 1), 11)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_8_12:
+    value: null
+    formula: "=WEEKNUM(DATE(2023, 1, 1), 12)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_8_15:
+    value: null
+    formula: "=WEEKNUM(DATE(2023, 1, 1), 15)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_8_17:
+    value: null
+    formula: "=WEEKNUM(DATE(2023, 1, 1), 17)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_8_21:
+    value: null
+    formula: "=WEEKNUM(DATE(2023, 1, 1), 21)"
+    expected: 52.0
+  isoweeknum_8:
+    value: null
+    formula: "=ISOWEEKNUM(DATE(2023, 1, 1))"
+    expected: 52.0
+  weeknum_9_1:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 6, 15))"
+    expected: 25.0
+  weeknum_9_2:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 6, 15), 2)"
+    expected: 25.0
+  weeknum_9_11:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 6, 15), 11)"
+    expected: 25.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_9_12:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 6, 15), 12)"
+    expected: 24.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_9_15:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 6, 15), 15)"
+    expected: 25.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_9_17:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 6, 15), 17)"
+    expected: 25.0
+    libreoffice: "Gnumeric 1.12 reads only the return types 1, 2 and 21 of WEEKNUM"
+  weeknum_9_21:
+    value: null
+    formula: "=WEEKNUM(DATE(2026, 6, 15), 21)"
+    expected: 25.0
+  isoweeknum_9:
+    value: null
+    formula: "=ISOWEEKNUM(DATE(2026, 6, 15))"
+    expected: 25.0
+  xmatch_0:
+    value: null
+    formula: "=XMATCH(30, vals.ten)"
+    expected: 3.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_1:
+    value: null
+    formula: "=XMATCH(100, vals.ten, 0)"
+    expected: 10.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_2:
+    value: null
+    formula: "=XMATCH(10, vals.ten, 0, 1)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_3:
+    value: null
+    formula: "=XMATCH(35, vals.ten, -1)"
+    expected: 3.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_4:
+    value: null
+    formula: "=XMATCH(35, vals.ten, 1)"
+    expected: 4.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_5:
+    value: null
+    formula: "=XMATCH(100, vals.ten, 1)"
+    expected: 10.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_6:
+    value: null
+    formula: "=XMATCH(10, vals.ten, -1)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_7:
+    value: null
+    formula: "=XMATCH(5, vals.dup)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_8:
+    value: null
+    formula: "=XMATCH(5, vals.dup, 0, -1)"
+    expected: 5.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_9:
+    value: null
+    formula: "=XMATCH(3, vals.dup, 0, -1)"
+    expected: 4.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_10:
+    value: null
+    formula: "=XMATCH(4, vals.dup, -1)"
+    expected: 2.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_11:
+    value: null
+    formula: "=XMATCH(4, vals.dup, 1)"
+    expected: 1.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_12:
+    value: null
+    formula: "=XMATCH(4, vals.dup, -1, -1)"
+    expected: 4.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"
+  xmatch_13:
+    value: null
+    formula: "=XMATCH(4, vals.dup, 1, -1)"
+    expected: 5.0
+    libreoffice: "Gnumeric 1.12 has no XMATCH"

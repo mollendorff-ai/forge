@@ -483,3 +483,33 @@ fn the_comparison_example_matches_python_through_report() {
         "docs/REPORT.md must show:\n{markdown}"
     );
 }
+
+/// examples/capex-plan against a month-by-month loan and a least-squares fit.
+/// In Python: the loan loop gives payment 2347.9377862474407, year-2 interest
+/// 5775.928291150727 and principal 22399.32514381856; with numpy,
+/// `polyfit(x, y, 1)` is [6300, 34500] and `(66000 / 41000) ** .25 - 1` is
+/// 0.12639319927790216.
+#[test]
+fn the_capex_plan_matches_python() {
+    let result = calculate_core(Path::new("examples/capex-plan/capex.yaml"), true, None).unwrap();
+    let value = |name: &str| result.scalars[name].unwrap();
+    assert!(close(value("bank.payment"), 2_347.937_786_247_440_7, 1e-9));
+    assert!(close(
+        value("bank.year2_interest"),
+        5_775.928_291_150_727,
+        1e-9
+    ));
+    assert!(close(
+        value("bank.year2_principal"),
+        22_399.325_143_818_56,
+        1e-9
+    ));
+    assert!(value("bank.check").abs() < 1e-9);
+    assert!(close(value("writedown.straight_line"), 13_500.0, 1e-12));
+    assert!(close(value("writedown.sum_of_years"), 18_000.0, 1e-12));
+    assert!(close(value("writedown.double_declining"), 16_875.0, 1e-12));
+    assert!(close(value("writedown.total"), 108_000.0, 1e-12));
+    assert!(close(value("growth.cagr"), 0.126_393_199_277_902_16, 1e-9));
+    assert!(close(value("growth.slope"), 6_300.0, 1e-9));
+    assert!(close(value("growth.year6"), 72_300.0, 1e-9));
+}

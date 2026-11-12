@@ -20,6 +20,9 @@ mod financial;
 mod logical;
 mod lookup;
 mod math;
+mod normal;
+mod regression;
+mod schedule;
 mod statistical;
 pub(crate) mod text;
 mod trig;
@@ -660,6 +663,15 @@ fn evaluate_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Val
     if let Some(result) = financial::try_evaluate(&upper_name, args, ctx)? {
         return Ok(result);
     }
+    if let Some(result) = normal::try_evaluate(&upper_name, args, ctx)? {
+        return Ok(result);
+    }
+    if let Some(result) = schedule::try_evaluate(&upper_name, args, ctx)? {
+        return Ok(result);
+    }
+    if let Some(result) = regression::try_evaluate(&upper_name, args, ctx)? {
+        return Ok(result);
+    }
     if let Some(result) = statistical::try_evaluate(&upper_name, args, ctx)? {
         return Ok(result);
     }
@@ -875,6 +887,8 @@ pub(crate) fn parse_date_value(val: &Value) -> Result<chrono::NaiveDate, EvalErr
     }
 }
 
+#[cfg(test)]
+mod batch_tests;
 #[cfg(test)]
 mod date_tests;
 

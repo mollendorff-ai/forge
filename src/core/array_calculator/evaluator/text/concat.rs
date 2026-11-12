@@ -1,4 +1,4 @@
-//! String concatenation functions: CONCAT, REPT, CONCATENATE
+//! String concatenation functions: CONCAT, REPT, CONCATENATE, TEXTJOIN
 
 // Concat casts: f64 repeat count to usize (bounded, small integer).
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
@@ -22,6 +22,33 @@ pub fn eval_rept(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     let text = evaluate(&args[0], ctx)?.as_text();
     let times = number_or(&args[1], ctx, 0.0)? as usize;
     Ok(Value::Text(text.repeat(times)))
+}
+
+/// TEXTJOIN(delimiter, `ignore_empty`, text1, [text2], ...) - Joins text with a
+/// delimiter between the pieces; a column or range gives all its values
+pub fn eval_textjoin(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    if args.len() < 3 {
+        return Err(EvalError::new(format!(
+            "TEXTJOIN requires at least 3 arguments, got {}",
+            args.len()
+        )));
+    }
+    let delimiter = evaluate(&args[0], ctx)?.as_text();
+    let ignore_empty = match evaluate(&args[1], ctx)? {
+        Value::Boolean(b) => b,
+        other => other.as_number().is_some_and(|n| n != 0.0),
+    };
+    let mut pieces = Vec::new();
+    for arg in &args[2..] {
+        match evaluate(arg, ctx)? {
+            Value::Array(items) => pieces.extend(items.iter().map(Value::as_text)),
+            single => pieces.push(single.as_text()),
+        }
+    }
+    if ignore_empty {
+        pieces.retain(|piece| !piece.is_empty());
+    }
+    Ok(Value::Text(pieces.join(&delimiter)))
 }
 
 /// CONCATENATE(text1, [text2], ...) - Excel's CONCATENATE (alias for CONCAT)

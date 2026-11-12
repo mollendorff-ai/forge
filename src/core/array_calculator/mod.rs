@@ -581,15 +581,25 @@ impl ArrayCalculator {
 
     /// Whether an expression aggregates a whole column.
     ///
-    /// `SUM`, `AVERAGE`, `MAX`, `MIN`, `COUNT` and `MEDIAN` aggregate only with
+    /// `SUM`, `AVERAGE`, `MAX`, `MIN`, `COUNT`, `MEDIAN`, `MODE` and `GEOMEAN` aggregate only with
     /// a single argument: with several, a row formula such as `=MAX(0, ebit)`
     /// works row by row, as it does in Excel. The other functions listed always
     /// aggregate.
     fn expr_has_aggregation(expr: &parser::Expr) -> bool {
         use parser::Expr;
-        const ROW_WISE_WITH_SEVERAL_ARGS: [&str; 7] =
-            ["SUM", "AVERAGE", "AVG", "MAX", "MIN", "COUNT", "MEDIAN"];
-        const ALWAYS_AGGREGATE: [&str; 20] = [
+        const ROW_WISE_WITH_SEVERAL_ARGS: [&str; 10] = [
+            "SUM",
+            "AVERAGE",
+            "AVG",
+            "MAX",
+            "MIN",
+            "COUNT",
+            "MEDIAN",
+            "MODE",
+            "MODE.SNGL",
+            "GEOMEAN",
+        ];
+        const ALWAYS_AGGREGATE: [&str; 27] = [
             "SUMPRODUCT",
             "SUMIF",
             "COUNTIF",
@@ -605,11 +615,18 @@ impl ArrayCalculator {
             "STDEV",
             "STDEV.S",
             "STDEV.P",
-            "MODE",
-            "MODE.SNGL",
             "PERCENTILE",
+            "PERCENTILE.INC",
+            "PERCENTILE.EXC",
             "QUARTILE",
+            "QUARTILE.INC",
+            "QUARTILE.EXC",
             "CORREL",
+            "SLOPE",
+            "INTERCEPT",
+            "RSQ",
+            "COVARIANCE.P",
+            "COVARIANCE.S",
         ];
         match expr {
             Expr::FunctionCall { name, args } => {
