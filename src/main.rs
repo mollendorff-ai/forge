@@ -479,6 +479,10 @@ EXAMPLES:
         #[arg(short, long)]
         output: String,
 
+        /// Output format: table (default) or json
+        #[arg(long, default_value = "table", value_parser = ["table", "json"])]
+        format: String,
+
         /// Show verbose output
         #[arg(long)]
         verbose: bool,
@@ -1331,15 +1335,14 @@ fn run() -> ForgeResult<()> {
             vary2,
             range2,
             output,
+            format,
             verbose,
-        } => cli::sensitivity(
+        } => cli::sensitivity_in_format(
             &file,
-            &vary,
-            &range,
-            vary2.as_deref(),
-            range2.as_deref(),
+            (&vary, &range),
+            (vary2.as_deref(), range2.as_deref()),
             &output,
-            verbose,
+            (&format, verbose),
         ),
 
         Commands::GoalSeek {

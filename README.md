@@ -76,12 +76,12 @@ $ forge tornado examples/bagel/bagel.yaml
 ```text
 $ forge variance examples/household/budget.yaml examples/household/actual.yaml
 Variable                      Budget       Actual     Variance      Var %   Status
-income.side_work                 400          150         -250     -62.5%     ⚠️ ❌
-expenses.groceries               700       812.43       112.43      16.1%     ⚠️ ❌
-expenses.transport               180         96.5        -83.5     -46.4%     ⚠️ ✅
-expenses.eating_out              250       388.75       138.75      55.5%     ⚠️ ❌
-expenses.total                  3100      3305.85       205.85       6.6%        ❌
-result.left_over                2500      2044.15      -455.85     -18.2%     ⚠️ ❌
+income.side_work              400.00       150.00      -250.00     -62.5%     ⚠️ ❌
+expenses.groceries            700.00       812.43       112.43      16.1%     ⚠️ ❌
+expenses.transport            180.00        96.50       -83.50     -46.4%     ⚠️ ✅
+expenses.eating_out           250.00       388.75       138.75      55.5%     ⚠️ ❌
+expenses.total              3,100.00     3,305.85       205.85       6.6%        ❌
+result.left_over            2,500.00     2,044.15      -455.85     -18.2%     ⚠️ ❌
 ```
 
 (Six of its thirteen lines.) The same bagel model also runs scenarios, break-even, a decision tree, real options, a bootstrap and a Bayesian network: see its [README](examples/bagel/README.md).
@@ -132,7 +132,7 @@ Forge's results are checked against other engines. None of the checks is complet
 
 | Check | What it covers | Latest result (2026-11-09) |
 | --- | --- | --- |
-| Unit tests (this repo) | 1,761 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
+| Unit tests (this repo) | 1,768 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
 | [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) | 1,446 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 70 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,445 pass, 1 skipped; weekly in CI |
 | [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 119 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped; weekly in CI |
 
@@ -555,7 +555,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 
 ```text
 forge (this repo)             validation repos
-├── 1,761 tests               ├── forge-e2e-gnumeric: 1,446 formula specs
+├── 1,768 tests               ├── forge-e2e-gnumeric: 1,446 formula specs
 ├── #[cfg(test)] modules      └── forge-e2e-r: 119 function checks, 77 analytics specs
 └── 2 doctests
 ```

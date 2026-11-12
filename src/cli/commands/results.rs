@@ -125,6 +125,9 @@ pub struct ImportResult {
     /// Formulas imported as values because Forge cannot express them
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+    /// Included files written beside the model, from the sheets of an included file
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub included_files: Vec<String>,
 }
 
 /// Result of sensitivity analysis

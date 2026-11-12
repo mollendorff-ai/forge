@@ -346,14 +346,29 @@ fn holds_the_same_values(path: &Path, sheet: &crate::types::ParsedModel) -> bool
 }
 
 /// Write the imported model as one file, with its included files beside it.
-fn write_single(output: &Path, model: &crate::types::ParsedModel) -> ForgeResult<()> {
+fn write_single(output: &Path, model: &crate::types::ParsedModel) -> ForgeResult<Vec<String>> {
     let yaml = model_to_yaml(model)?;
     let dir = output.parent().unwrap_or_else(|| Path::new("."));
-    let files = include_files(dir, model)?;
-    for (path, text) in files {
-        fs::write(path, text).map_err(ForgeError::Io)?;
+    let written = write_include_files(dir, model)?;
+    fs::write(output, yaml).map_err(ForgeError::Io)?;
+    Ok(written)
+}
+
+/// Write the included files the workbook holds, beside the model, and give
+/// their names. A file that is already there with the same values is not
+/// written again, and is not listed.
+fn write_include_files(dir: &Path, model: &crate::types::ParsedModel) -> ForgeResult<Vec<String>> {
+    let mut written = Vec::new();
+    for (path, text) in include_files(dir, model)? {
+        fs::write(&path, text).map_err(ForgeError::Io)?;
+        written.push(
+            path.strip_prefix(dir)
+                .unwrap_or(&path)
+                .display()
+                .to_string(),
+        );
     }
-    fs::write(output, yaml).map_err(ForgeError::Io)
+    Ok(written)
 }
 
 /// The whole imported model as YAML that `forge validate` and `forge calculate` accept.
@@ -401,12 +416,13 @@ pub fn import_core(
         "single"
     };
 
+    let mut included_files = Vec::new();
     if split_files {
         write_split_files_quiet(output, &model)?;
     } else if multi_doc {
-        write_multi_doc_quiet(output, &model)?;
+        included_files = write_multi_doc_quiet(output, &model)?;
     } else {
-        write_single(output, &model)?;
+        included_files = write_single(output, &model)?;
     }
 
     Ok(super::results::ImportResult {
@@ -416,6 +432,7 @@ pub fn import_core(
         scalar_count,
         mode: mode.to_string(),
         warnings,
+        included_files,
     })
 }
 
@@ -620,9 +637,11 @@ pub fn import(
     } else if multi_doc {
         write_multi_doc(output, &model)?;
     } else {
-        write_single(output, &model)?;
+        let included = write_single(output, &model)?;
         println!("{}", "✅ Import Complete!".bold().green());
-        println!("   YAML file: {}\n", output.display());
+        println!("   YAML file: {}", output.display());
+        print_included_files(&included);
+        println!();
     }
 
     if !warnings.is_empty() {
@@ -657,7 +676,10 @@ fn write_split_files(
 
 /// One file, one document per table and one for the scalars (ADR-052: one
 /// namespace), the first listing the included files, written beside it.
-fn write_multi_doc_quiet(output: &Path, model: &crate::types::ParsedModel) -> ForgeResult<()> {
+fn write_multi_doc_quiet(
+    output: &Path,
+    model: &crate::types::ParsedModel,
+) -> ForgeResult<Vec<String>> {
     let mut yaml_output = String::new();
     let mut includes = includes_block(model, None);
     let mut document = |name: &str, body: String| {
@@ -682,18 +704,28 @@ fn write_multi_doc_quiet(output: &Path, model: &crate::types::ParsedModel) -> Fo
         document("scalars", body);
     }
     let dir = output.parent().unwrap_or_else(|| Path::new("."));
-    for (path, text) in include_files(dir, model)? {
-        fs::write(path, text).map_err(ForgeError::Io)?;
-    }
-    fs::write(output, yaml_output).map_err(ForgeError::Io)
+    let written = write_include_files(dir, model)?;
+    fs::write(output, yaml_output).map_err(ForgeError::Io)?;
+    Ok(written)
 }
 
 #[cfg(feature = "cli")]
 fn write_multi_doc(output: &Path, model: &crate::types::ParsedModel) -> ForgeResult<()> {
-    write_multi_doc_quiet(output, model)?;
+    let included = write_multi_doc_quiet(output, model)?;
     println!("{}", "✅ Import Complete!".bold().green());
-    println!("   YAML file: {}\n", output.display());
+    println!("   YAML file: {}", output.display());
+    print_included_files(&included);
+    println!();
     Ok(())
+}
+
+/// Say which included files an import wrote beside the model: they hold the
+/// values of the sheets that belong to an included file.
+#[cfg(feature = "cli")]
+fn print_included_files(written: &[String]) {
+    if !written.is_empty() {
+        println!("   Included files: {}", written.join(", "));
+    }
 }
 
 #[cfg(test)]

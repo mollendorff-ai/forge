@@ -327,12 +327,12 @@ scenarios:
 
 ```
       result.profit:
-         Mean:      89022.0423
-         Median:    84598.8071
+         Mean:      89,022.04
+         Median:    84,598.81
          ...
-            P10: 25578.4953
-            P50: 84598.8071
-            P90: 159334.0741
+            P10: 25,578.50
+            P50: 84,598.81
+            P90: 159,334.07
          P(result.profit > 0) = 97.22%
          P(result.profit > 100000) = 38.96%
          Drivers (rank correlation with the output):
