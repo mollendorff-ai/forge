@@ -1087,10 +1087,10 @@ impl ReverseRefs {
         self.translate_back(formula, sheet, row, false)
     }
 
-    /// [`ReverseRefs::to_forge`] for a table formula that may read the row
-    /// above: a cell of the row above is `PREV(column, 0)`. The 0 is never
-    /// used when the formula is kept for the rows that have a row above
-    /// (`forge import` writes `IF(ROW() = 1, first row's formula, this)`).
+    /// [`ReverseRefs::to_forge`] for a table formula that may read the rows
+    /// above: a cell of the row above is `PREV(column, 0)`, one `n` rows up
+    /// `PREV(column, 0, n)`. The 0 stands for the first rows' value, which
+    /// `forge import` reads from those rows (`previous_rows`).
     ///
     /// # Errors
     ///
@@ -1270,9 +1270,12 @@ impl ReverseRefs {
                 };
                 match (current, last) {
                     // A single cell in a row formula is in the same row, or
-                    // (where the caller reads it so) in the row above
-                    (SheetKind::Table { .. }, None) if above && first.row + 1 == row => {
-                        Ok(format!("PREV({name}, 0)"))
+                    // (where the caller reads it so) in a data row above
+                    (SheetKind::Table { .. }, None) if above && (2..row).contains(&first.row) => {
+                        Ok(match row - first.row {
+                            1 => format!("PREV({name}, 0)"),
+                            back => format!("PREV({name}, 0, {back})"),
+                        })
                     },
                     (SheetKind::Table { .. }, None) if first.row != row => {
                         Err("reference to another row".to_string())

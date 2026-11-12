@@ -176,7 +176,11 @@ mod tests {
             back.to_forge_reading_above("=B2 + A3", "t", 3).unwrap(),
             "=PREV(closing, 0) + x"
         );
-        // Two rows up is not the row above
+        // Two data rows up, and the header row, which is not data
+        assert_eq!(
+            back.to_forge_reading_above("=B2 + A4", "t", 4).unwrap(),
+            "=PREV(closing, 0, 2) + x"
+        );
         assert!(back.to_forge_reading_above("=B1 + A3", "t", 3).is_err());
         for different in [
             "=COLUMN()",
