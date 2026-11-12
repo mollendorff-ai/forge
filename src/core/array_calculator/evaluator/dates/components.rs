@@ -1,10 +1,42 @@
-//! Time component extraction functions: WEEKDAY, HOUR, MINUTE, SECOND
+//! Time component extraction functions: WEEKDAY, WEEKNUM, ISOWEEKNUM, HOUR, MINUTE, SECOND
 
 use super::{
     evaluate, parse_date_value, require_args, require_args_range, Datelike, EvalContext, EvalError,
     Expr, Timelike, Value,
 };
 use crate::core::array_calculator::evaluator::number_or;
+
+/// The week of the year, counted from January 1
+fn week_number(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range(name, args, 1, 2)?;
+    let date = parse_date_value(&evaluate(&args[0], ctx)?)?;
+    #[allow(clippy::cast_possible_truncation)]
+    let return_type = if args.len() > 1 {
+        number_or(&args[1], ctx, 1.0)? as i32
+    } else {
+        1
+    };
+    // The day a week starts on (0 = Sunday); 21 is the ISO week
+    let start = match return_type {
+        1 | 17 => 0,
+        2 | 11 => 1,
+        12 => 2,
+        13 => 3,
+        14 => 4,
+        15 => 5,
+        16 => 6,
+        21 => return Ok(Value::Number(f64::from(date.iso_week().week()))),
+        _ => {
+            return Err(EvalError::new(format!(
+                "WEEKNUM: the return type {return_type} is not one of 1, 2, 11 to 17, 21 (#NUM!)"
+            )))
+        },
+    };
+    // Week 1 is the week with January 1, counted from the day it starts on
+    let jan1 = date.with_ordinal(1).unwrap_or(date);
+    let offset = (jan1.weekday().num_days_from_sunday() + 7 - start) % 7;
+    Ok(Value::Number(f64::from((date.ordinal0() + offset) / 7 + 1)))
+}
 
 /// Try to evaluate a time component function.
 #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
@@ -38,6 +70,14 @@ pub fn try_evaluate(
                 _ => f64::from(day + 1), // Type 1 (default): Sunday=1
             };
             Value::Number(result)
+        },
+
+        "WEEKNUM" => week_number(name, args, ctx)?,
+
+        "ISOWEEKNUM" => {
+            require_args(name, args, 1)?;
+            let date = parse_date_value(&evaluate(&args[0], ctx)?)?;
+            Value::Number(f64::from(date.iso_week().week()))
         },
 
         "HOUR" => {

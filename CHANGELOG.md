@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **`examples/rolling-forecast`: a rolling forecast for FP&A.** A fiscal year that starts in April, actuals up to October 2026 and a forecast for twelve months after them, two products, a budget looked up month by month, quarters, year to date, the next twelve months, and the variance split into volume, mix and price that add up to it exactly. `tests/demo_examples.rs` checks its numbers against Python, and the exported workbook recalculates to them in Gnumeric. Building it found three gaps, now on the roadmap: a table column cannot aggregate another table (T2-TABLE-AGGREGATES), a number column cannot have an empty cell (T2-MISSING-VALUES), and a scalar cannot be a date (T2-SCALAR-DATES). The README has a paragraph on it.
+- 26 functions, 202 in all: `RRI`, `SYD`, `VDB`, `CUMIPMT`, `CUMPRINC`; `SLOPE`, `INTERCEPT`, `RSQ`, `FORECAST`, `FORECAST.LINEAR`, `COVARIANCE.S`, `COVARIANCE.P`; `NORM.DIST`, `NORM.S.DIST`, `NORM.INV`, `NORM.S.INV`; `GEOMEAN`, `PERCENTILE.INC`, `PERCENTILE.EXC`, `QUARTILE.INC`, `QUARTILE.EXC`; `MROUND`, `TEXTJOIN`, `XMATCH`, `WEEKNUM`, `ISOWEEKNUM`. They are checked against Gnumeric, LibreOffice, R and Python (229 cases in `validation/gnumeric`) and export to Excel. Left out on purpose: `TREND` and `GROWTH` (they return arrays); `XMATCH` takes no wildcards and no binary search.
+- `examples/capex-plan`: a loan, three depreciation methods and a revenue trend, with a test against Python.
+
+### Changed
+
+- The normal distribution's CDF and PDF no longer go through `statrs`, which is accurate to about 11 digits; Forge's own is accurate to about 15.
 
 ## [10.0.0-rc.18] - 2026-11-12
 

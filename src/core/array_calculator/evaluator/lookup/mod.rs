@@ -21,6 +21,7 @@ pub fn try_evaluate(
     let result = match name {
         "INDEX" => index::eval_index(args, ctx)?,
         "MATCH" => match_fn::eval_match(args, ctx)?,
+        "XMATCH" => match_fn::eval_xmatch(args, ctx)?,
         "CHOOSE" => choose::eval_choose(args, ctx)?,
 
         // ═══════════════════════════════════════════════════════════════════════════

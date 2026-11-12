@@ -1,4 +1,4 @@
-//! MATCH function implementation
+//! MATCH and XMATCH function implementations
 
 // Match casts: f64 match type to i32, array position to f64 (small bounded integers).
 #![allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
@@ -98,6 +98,87 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
             "MATCH: invalid match_type {match_type}"
         ))),
     }
+}
+
+/// Evaluate XMATCH function
+/// `XMATCH(lookup_value`, `lookup_array`, [`match_mode`], [`search_mode`])
+/// `match_mode`: 0 exact (default), -1 exact or the next smaller, 1 exact or
+/// the next larger. `search_mode`: 1 first to last (default), -1 last to
+/// first. Wildcards (`match_mode` 2) and binary searches (`search_mode` 2 and
+/// -2) are not supported and are errors.
+pub fn eval_xmatch(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range("XMATCH", args, 2, 4)?;
+
+    let lookup_value = evaluate(&args[0], ctx)?;
+    let array_ctx = EvalContext {
+        scalars: ctx.scalars.clone(),
+        tables: ctx.tables.clone(),
+        scenarios: ctx.scenarios.clone(),
+        current_row: None,
+        row_count: ctx.row_count,
+        lag: std::cell::Cell::new(0),
+        growing_table: None,
+    };
+    let Value::Array(arr) = evaluate(&args[1], &array_ctx)? else {
+        return Err(EvalError::new("XMATCH requires an array"));
+    };
+    let match_mode = if args.len() > 2 {
+        number_or(&args[2], ctx, 0.0)? as i32
+    } else {
+        0
+    };
+    let search_mode = if args.len() > 3 {
+        number_or(&args[3], ctx, 1.0)? as i32
+    } else {
+        1
+    };
+    if !matches!(match_mode, -1..=1) {
+        return Err(EvalError::new(
+            "XMATCH: only match modes 0, 1 and -1 are supported (no wildcards)",
+        ));
+    }
+    if !matches!(search_mode, -1 | 1) {
+        return Err(EvalError::new(
+            "XMATCH: only search modes 1 and -1 are supported (no binary search)",
+        ));
+    }
+
+    // Positions in the order they are searched
+    let order: Vec<usize> = if search_mode == 1 {
+        (0..arr.len()).collect()
+    } else {
+        (0..arr.len()).rev().collect()
+    };
+    if let Some(&i) = order
+        .iter()
+        .find(|&&i| values_equal(&lookup_value, &arr[i]))
+    {
+        return Ok(Value::Number((i + 1) as f64));
+    }
+    if match_mode != 0 {
+        if let Some(wanted) = lookup_value.as_number() {
+            // The closest number on the chosen side; the first met wins a tie
+            let mut best: Option<(usize, f64)> = None;
+            for &i in &order {
+                let Some(v) = arr[i].as_number() else {
+                    continue;
+                };
+                let side = if match_mode < 0 {
+                    v < wanted
+                } else {
+                    v > wanted
+                };
+                let closer = best.is_none_or(|(_, b)| if match_mode < 0 { v > b } else { v < b });
+                if side && closer {
+                    best = Some((i, v));
+                }
+            }
+            if let Some((i, _)) = best {
+                return Ok(Value::Number((i + 1) as f64));
+            }
+        }
+    }
+    Err(EvalError::new("XMATCH: value not found (#N/A)"))
 }
 
 #[cfg(test)]

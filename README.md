@@ -323,7 +323,7 @@ For Claude Desktop or MCP-compatible hosts, Forge exposes 20 tools via Model Con
 | Tool | What It Does |
 |------|--------------|
 | `forge_schema` | Get JSON Schema for Forge YAML model formats |
-| `forge_functions` | List all 176 supported functions with descriptions |
+| `forge_functions` | List all 202 supported functions with descriptions |
 | `forge_examples` | Get runnable YAML examples for all capabilities |
 
 All tools accept inline YAML via `content` parameter — no host filesystem access required. Works with sandboxed clients (Claude.ai, Cursor, containers).
@@ -332,25 +332,25 @@ See [docs/MCP.md](docs/MCP.md) for the full integration guide.
 
 ---
 
-## 176 Functions
+## 202 Functions
 
-176 functions: most are Excel-compatible, plus 7 Excel doesn't have: 6 for FP&A, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is.
+202 functions: most are Excel-compatible, plus 7 Excel doesn't have: 6 for FP&A, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is.
 
 | Category | Examples |
 |----------|----------|
-| **Financial** | NPV, IRR, MIRR, XNPV, XIRR, PMT, PV, FV, RATE, NPER |
-| **Date** | TODAY, DATE, YEAR, MONTH, DATEDIF, EDATE, EOMONTH, NETWORKDAYS |
+| **Financial** | NPV, IRR, MIRR, XNPV, XIRR, PMT, PV, FV, RATE, NPER, CUMIPMT, CUMPRINC, SYD, VDB, RRI |
+| **Date** | TODAY, DATE, YEAR, MONTH, DATEDIF, EDATE, EOMONTH, NETWORKDAYS, WEEKNUM, ISOWEEKNUM |
 | **Conditional** | SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, MAXIFS, MINIFS |
-| **Math** | ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER |
+| **Math** | ROUND, ROUNDUP, ROUNDDOWN, MROUND, CEILING, FLOOR, MOD, SQRT, POWER |
 | **Logic** | IF, AND, OR, LET, SWITCH, INDIRECT, LAMBDA |
-| **Lookup** | MATCH, INDEX, VLOOKUP, HLOOKUP, XLOOKUP, CHOOSE |
-| **Statistical** | MEDIAN, MODE, VAR, STDEV, PERCENTILE, QUARTILE, CORREL |
-| **Text** | CONCAT, TRIM, UPPER, LOWER, LEN, MID |
+| **Lookup** | MATCH, INDEX, VLOOKUP, HLOOKUP, XLOOKUP, XMATCH, CHOOSE |
+| **Statistical** | MEDIAN, MODE, VAR, STDEV, PERCENTILE.INC/.EXC, QUARTILE.INC/.EXC, CORREL, SLOPE, INTERCEPT, RSQ, FORECAST.LINEAR, NORM.DIST, NORM.INV, GEOMEAN |
+| **Text** | CONCAT, TEXTJOIN, TRIM, UPPER, LOWER, LEN, MID |
 | **Aggregation** | SUM, AVERAGE, MIN, MAX, COUNT |
 | **Array** | UNIQUE, COUNTUNIQUE, FILTER, SORT |
 | **FP&A-Native** | VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, BREAKEVEN_UNITS, BREAKEVEN_REVENUE, SCENARIO |
 
-Run `forge functions` for full syntax and examples.
+Run `forge functions` for full syntax and examples. [`examples/capex-plan`](examples/capex-plan/README.md) puts the loan, depreciation and trend functions to work on one machine.
 
 ---
 
@@ -497,7 +497,7 @@ forge mcp                           # Start MCP server
 forge serve --port 8080             # Start REST API
 
 # Reference
-forge functions                     # List all 176 functions
+forge functions                     # List all 202 functions
 forge schema v5                     # Show JSON schema
 forge examples monte-carlo          # Show example YAML
 ```
@@ -561,7 +561,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 | Metric | Value |
 | --- | --- |
 | **Unit tests** | 1,768 tests and 2 doctests |
-| **Functions** | 176, of which 6 are FP&A-native and one (`PREV`) reads the row above |
+| **Functions** | 202, of which 6 are FP&A-native and one (`PREV`) reads the row above |
 | **Lints** | clippy pedantic is enabled and CI fails on warnings |
 | **External validation** | Partial; see [Validation status](#validation-status) |
 

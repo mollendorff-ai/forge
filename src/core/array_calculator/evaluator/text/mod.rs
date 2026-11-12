@@ -32,6 +32,7 @@ pub fn try_evaluate(
 
         "CONCAT" => concat::eval_concat(args, ctx)?,
         "REPT" => concat::eval_rept(args, ctx)?,
+        "TEXTJOIN" => concat::eval_textjoin(args, ctx)?,
 
         // ═══════════════════════════════════════════════════════════════════════════
         // ═══════════════════════════════════════════════════════════════════════════

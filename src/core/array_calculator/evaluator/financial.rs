@@ -156,7 +156,7 @@ fn annuity_pv(rate: f64, nper: f64, pmt: f64, fv: f64, due: f64) -> f64 {
 }
 
 /// Level payment that turns `pv` into `fv` over `nper` periods (Excel `PMT`).
-fn annuity_pmt(rate: f64, nper: f64, pv: f64, fv: f64, due: f64) -> f64 {
+pub(super) fn annuity_pmt(rate: f64, nper: f64, pv: f64, fv: f64, due: f64) -> f64 {
     if rate == 0.0 {
         return -(pv + fv) / nper;
     }
@@ -165,7 +165,7 @@ fn annuity_pmt(rate: f64, nper: f64, pv: f64, fv: f64, due: f64) -> f64 {
 }
 
 /// Interest part of the payment in period `per` (Excel `IPMT`).
-fn annuity_ipmt(rate: f64, per: f64, nper: f64, pv: f64, fv: f64, due: f64) -> f64 {
+pub(super) fn annuity_ipmt(rate: f64, per: f64, nper: f64, pv: f64, fv: f64, due: f64) -> f64 {
     if rate == 0.0 || (due != 0.0 && (per - 1.0).abs() < f64::EPSILON) {
         return 0.0;
     }

@@ -52,12 +52,17 @@ const DIFFERENT_IN_EXCEL: [&str; 12] = [
 
 /// Arguments that Forge reads as a whole column even inside a row formula
 /// (function, 0-based argument position).
-const WHOLE_COLUMN_ARGS: [(&str, usize); 5] = [
+const WHOLE_COLUMN_ARGS: [(&str, usize); 10] = [
     ("INDEX", 0),
     ("MATCH", 1),
+    ("XMATCH", 1),
     ("ROWS", 0),
     ("XLOOKUP", 1),
     ("XLOOKUP", 2),
+    ("FORECAST", 1),
+    ("FORECAST", 2),
+    ("FORECAST.LINEAR", 1),
+    ("FORECAST.LINEAR", 2),
 ];
 
 /// Forge names for functions Excel calls otherwise (`E()` is `EXP(1)`).
