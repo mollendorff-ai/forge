@@ -69,7 +69,7 @@ cli = [
     "dep:sha2",
     "dep:base64",
 ]
-excel = ["dep:rust_xlsxwriter", "dep:calamine", "dep:regex"]
+excel = ["dep:rust_xlsxwriter", "dep:calamine", "dep:regex", "dep:zip"]
 
 # forge-wasm runs the same core functions in a browser (ADR-055); it is not
 # published and not part of this crate's package
@@ -114,6 +114,10 @@ colored = "3.0"
 
 # Excel export (v1.0.0 array model)
 rust_xlsxwriter = { version = "0.102", optional = true }
+
+# Text results that look like numbers are marked as text in the saved workbook
+# (already in the build through rust_xlsxwriter and calamine)
+zip = { version = "9", optional = true, default-features = false, features = ["deflate"] }
 
 # Excel import (v1.0.0 array model)
 calamine = { version = "0.38", optional = true }

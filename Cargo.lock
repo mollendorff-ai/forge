@@ -1364,6 +1364,7 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "yaml_serde",
+ "zip",
 ]
 
 [[package]]
