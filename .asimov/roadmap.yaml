@@ -67,7 +67,13 @@ tier1:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier2:
-  [] # every tier-2 item is done (2026-11-10): forge report, the comparison example and the first-model starter (three fresh agents wrote a model that calculated on the first run); the next ones come from tier 3
+  # The earlier tier-2 items are done (2026-11-10): forge report, the
+  # comparison example and the first-model starter.
+  - id: T2-NUMBER-FORMAT
+    title: "A format: attribute next to unit:, carried into the exported workbook"
+    why: "forge export writes every number in Excel's default format, so a margin is 0.1234 and a price 786.32036, and the workbook has to be formatted by hand before it is shown to anyone. unit: says what a number is, not how to show it. The maintainer's and his brother's idea, 2026-11-12: the workbook is what an audience sees"
+    how: "An ADR first: it changes the model format (a new version, as 5.2.0 was for the period column), so it touches the schema, the parser, the exporter and the importer. Decide there: whether format: holds Excel's own number-format codes (\"0.0%\", \"#,##0.00\"; nothing to translate, and import can read them back) or a smaller list of Forge's; whether it is allowed on scalars, on columns, or both; and that it changes how a number is shown and never its value (calculate, JSON and --output keep the numbers as they are). forge report and Forge Studio's cards and grid then show what Forge gives them; Studio adds no formatting rule of its own"
+    acceptance: "The bagel example with a format: on a price, a percentage and a count, exported and opened in Excel or LibreOffice, shows those cells formatted, with the same values and 0 mismatches after recalculation; forge import of that workbook gives the format: back; a file without format: exports the workbook it exports today, byte for byte apart from the time"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # STUDIO — the web interface (ADR-055, ADR-056)
@@ -88,6 +94,10 @@ tier2:
 
 studio:
   [] # every studio item is done (2026-11-11); the next ones come from using Studio
+  # Decided 2026-11-12, not to be added: editing in the Grid tab. The cards
+  # and the YAML editor already edit values and formulas, a column has one
+  # formula and a grid invites one per cell, and Studio is not an imitation of
+  # Excel. The grid stays a read-only view (ADR-056 addendum, S11).
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done and at least two people use it)
