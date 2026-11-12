@@ -82,6 +82,8 @@ What the separation was thought to give is independence. The independence that m
 
 - Both suites pass `cargo clippy --all-targets -- -D warnings` as workspace members, with their own pedantic lint settings, unchanged. They were reformatted to Forge's `rustfmt.toml` (11 files, layout only).
 - Neither was published: crates.io answers 404 for `mollendorff-forge-e2e-gnumeric` and `mollendorff-forge-e2e-r` (and 200 for `mollendorff-forge`).
+- The Validation workflow on `main` ran the suites from `validation/` on 2026-11-12 (after #165, which also runs it on merges to `main`), green: 1,445 passed and 1 skipped against Gnumeric, 136 function checks and 70 of 77 analytics specs against R.
+- A session cannot archive a repository: GitHub refuses repository settings writes, and file writes through the API, through the session's proxy. The README notes are pull requests in the old repositories; archiving is the maintainer's.
 - forge-e2e-r had `cargo-husky` as a dev-dependency, which installs the git hooks in its `.cargo-husky/` when its tests are built. Forge has a pre-commit hook of its own, so both are removed. The suites' release profiles are dropped too, since a profile counts only at the workspace root.
 
 ## Alternatives considered
