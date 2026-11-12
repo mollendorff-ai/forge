@@ -6,7 +6,8 @@
 //   two letters at that place in the file offers it;
 // - only keys the schema names are ever offered;
 // - nothing is offered after a colon, inside a formula or a text, or in a
-//   comment;
+//   comment (inside a formula the editor offers names and functions, not keys:
+//   yamlformula.mjs);
 // - in the editor, the strip above it offers the key, a tap inserts exactly
 //   its text, and the editor then holds the file as typed.
 //
@@ -126,7 +127,8 @@ await type('_forge_version: "5.1.0"\n_includes:\n  - fi');
 await strip.locator("[data-sug]", { hasText: /^file:$/ }).waitFor({ timeout: 30000 }).catch(() => {});
 if (!(await strip.locator("[data-sug]").allTextContents()).includes("file:")) fail('typing "fi" in an include does not offer file:');
 await type('_forge_version: "5.1.0"\nyear:\n  margin:\n    formula: "=SU');
-if (await strip.locator("[data-sug]").count()) fail("keys are offered inside a formula in the editor");
+await strip.locator("[data-sug]").first().waitFor({ timeout: 30000 }).catch(() => {});
+if ((await strip.locator("[data-sug]").allTextContents()).some((t) => /:$/.test(t))) fail("keys are offered inside a formula in the editor (functions and names may be, see yamlformula.mjs)");
 
 // On a phone the strip is docked at the bottom of what is visible, on the
 // keyboard, so that it is in sight wherever the page has scrolled to

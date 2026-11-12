@@ -256,6 +256,10 @@ jobs:
         working-directory: studio
         run: node tests/keys.mjs ../studio-site
 
+      - name: Studio suggests names and functions inside a formula in the YAML editor
+        working-directory: studio
+        run: node tests/yamlformula.mjs ../studio-site
+
       - name: Studio's grid shows what Forge returns
         working-directory: studio
         run: node tests/grid.mjs ../studio-site
