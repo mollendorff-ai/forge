@@ -1,6 +1,6 @@
 # Validation
 
-How Forge's results are checked, what the checks cover, and how to run each one yourself. Numbers are from 2026-11-06 on Forge main.
+How Forge's results are checked, what the checks cover, and how to run each one yourself. Numbers are from 2026-11-12 on Forge main.
 
 Forge is a beta and an R&D prototype. These checks reduce the chance of a wrong answer; they do not rule it out. Check results that matter independently.
 
@@ -8,13 +8,13 @@ Forge is a beta and an R&D prototype. These checks reduce the chance of a wrong 
 
 | Check | Compares Forge with | Result |
 | --- | --- | --- |
-| Unit tests (this repo) | Expected values written in the tests | 1,728 tests and 2 doctests pass |
+| Unit tests (this repo) | Expected values written in the tests | 1,768 tests and 2 doctests pass |
 | [forge-e2e-gnumeric](validation/gnumeric) | Gnumeric, a separate spreadsheet engine, and LibreOffice for 70 cases Gnumeric cannot read | 1,445 formula cases pass, 1 skipped |
-| [forge-e2e-r](validation/r), formulas | R, with Excel rules where R differs | 119 math, date and financial checks pass |
+| [forge-e2e-r](validation/r), formulas | R, with Excel rules where R differs | 136 math, date and financial checks pass |
 | forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 70 of 77 specs pass against R in the Validation workflow; 7 skipped |
 | Real Excel (by hand, once) | Microsoft Excel for iPhone, recalculating a workbook written by `forge export` | 18 of 18 financial and date results match (2026-11-06) |
 
-The unit tests run on every push. The two validation suites run in the **Validation** workflow, weekly and on every pull request that changes `src/` (Actions tab, also runnable on demand) and can be run by hand with the commands below.
+The unit tests run on every push. The two validation suites, in `validation/` (ADR-057), run in the **Validation** workflow on every pull request and every merge to `main` that changes `src/`, `Cargo.toml` or a suite, and weekly (Actions tab, also runnable on demand) and can be run by hand with the commands below.
 
 ## 1. Unit tests
 
@@ -46,7 +46,7 @@ cd validation/r
 FORGE_BIN=../../target/release/forge bash validators/r/run_all.sh
 ```
 
-Needs R with `jsonlite`. Result: 119 checks pass.
+Needs R with `jsonlite`. Result: 136 checks pass.
 
 ## 4. Analytics against R
 
@@ -73,7 +73,7 @@ Running without `--expected-only` on a machine without `data.tree`, `derivmkts` 
 
 - The Bayesian comparison uses `bnlearn` 4.9.4 (the newest release that installs on R 4.3, which GitHub's Ubuntu 24.04 runner has) and sampling with a fixed seed, so it agrees with Forge within 2 to 5 percentage points, not exactly.
 - When the real options and Bayesian runners were added, 11 expected prices and 2 expected posteriors in the specs turned out to be wrong and were recomputed; Forge matched an independent calculation in every case.
-- The Gnumeric and R suites run weekly and on pull requests that change `src/`, not on every push to a branch.
+- The Gnumeric and R suites run on pull requests and merges to `main` that change the engine or a suite, and weekly; not on every push to a branch.
 - The expected values in a spec were written by the author or by an AI assistant. Where R or Gnumeric disagreed with them, the disagreement was investigated, but a value on which both Forge and its expected value are wrong in the same way would pass.
 - Real-options switch and compound valuations are rough approximations.
 - `cargo audit` reports no vulnerabilities and no warnings.

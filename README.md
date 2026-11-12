@@ -19,7 +19,7 @@ YAML-based financial modeling with Excel-style formula evaluation. Git-native an
 
 Forge is a release candidate (v10.0.0-rc.17) and an R&D prototype, built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
 
-Known problems as of 2026-11-08 (what is planned, and in what order, is in the [roadmap](.asimov/roadmap.yaml)):
+Known problems as of 2026-11-12 (what is planned, and in what order, is in the [roadmap](.asimov/roadmap.yaml)):
 
 - `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value and lists it.
 - `forge export` does not write `scenarios` (Excel has no equivalent); it lists them as not exported. Keep the YAML file as the source of truth.
@@ -128,13 +128,13 @@ MCP server and REST API available for tighter integration (see below).
 
 ## Validation status
 
-Forge's results are checked against other engines. None of the checks is complete. The unit tests run on every push; the two external suites run weekly in CI and on every pull request that changes the source. [VALIDATION.md](VALIDATION.md) lists what each check covers, its latest result and the command to run it. What a stable release will and will not promise is in [docs/STABILITY.md](docs/STABILITY.md).
+Forge's results are checked against other engines. None of the checks is complete. The unit tests run on every push; the two validation suites, in [`validation/`](validation/), run on every pull request and every merge to `main` that changes the engine or a suite, and weekly. [VALIDATION.md](VALIDATION.md) lists what each check covers, its latest result and the command to run it. What a stable release will and will not promise is in [docs/STABILITY.md](docs/STABILITY.md).
 
-| Check | What it covers | Latest result (2026-11-09) |
+| Check | What it covers | Latest result (2026-11-12) |
 | --- | --- | --- |
 | Unit tests (this repo) | 1,768 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
-| [forge-e2e-gnumeric](validation/gnumeric) | 1,446 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 70 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,445 pass, 1 skipped; weekly in CI |
-| [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 119 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped; weekly in CI |
+| [forge-e2e-gnumeric](validation/gnumeric) | 1,446 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 70 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,445 pass, 1 skipped |
+| [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped |
 
 Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
 
@@ -546,7 +546,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 
 | Metric | Value |
 | --- | --- |
-| **Unit tests** | 1,480 unit tests and 2 doctests (counted 2026-11-06) |
+| **Unit tests** | 1,768 tests and 2 doctests |
 | **Functions** | 169, of which 6 are FP&A-native and one (`PREV`) reads the row above |
 | **Lints** | clippy pedantic is enabled and CI fails on warnings |
 | **External validation** | Partial; see [Validation status](#validation-status) |
@@ -554,9 +554,9 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 ### Test Architecture
 
 ```text
-forge (this repo)             validation repos
-├── 1,768 tests               ├── forge-e2e-gnumeric: 1,446 formula specs
-├── #[cfg(test)] modules      └── forge-e2e-r: 119 function checks, 77 analytics specs
+forge                         validation/ (same repository, ADR-057)
+├── 1,768 tests               ├── gnumeric: 1,446 formula specs
+├── #[cfg(test)] modules      └── r: 136 function checks, 77 analytics specs
 └── 2 doctests
 ```
 
@@ -582,6 +582,7 @@ forge (this repo)             validation repos
 cargo test                              # Run all tests
 cargo clippy -- -D warnings             # Lint (pedantic)
 make check                              # Full CI check
+cargo build --release && (cd validation/gnumeric && cargo run --release)   # Against Gnumeric and LibreOffice (VALIDATION.md)
 cargo build --lib --no-default-features # The engine alone: no command line, servers or Excel (ADR-055)
 ```
 
