@@ -1,0 +1,334 @@
+# E2E Sensitivity Analysis Tests
+# R-Validated against manual calculations
+#
+# Phase 3: Sensitivity analysis validation
+# Validated by: validators/r/sensitivity_validator.R
+#
+# Testing approach:
+#   1. Run forge sensitivity with parameters
+#   2. Capture JSON output (tables, elasticities)
+#   3. Run R validator with same parameters
+#   4. Compare values within tolerance
+#
+# Tolerance (per ADR-010):
+#   - Output values: 0.1% relative difference
+#   - Elasticities: 0.1% relative difference
+
+_forge_version: "1.0.0"
+_r_validator: "sensitivity_validator.R"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: One-Way Sensitivity
+# ═══════════════════════════════════════════════════════════════════════════════
+
+tests:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 1: Linear Price Sensitivity
+  # Output = price * 1000 + volume * 100
+  # Vary price from 80 to 120
+  # ─────────────────────────────────────────────────────────────────────────────
+  one_way_price_linear:
+    analysis_type: one_way
+    model: linear
+    base_values:
+      price: 100
+      volume: 1000
+    vary: ["price"]
+    range:
+      price:
+        low: 80
+        high: 120
+        steps: 5
+    coefficients:
+      price: 1000
+      volume: 100
+    r_expected:
+      vary_values: [80, 90, 100, 110, 120]
+      outputs: [180000, 190000, 200000, 210000, 220000]
+      base_output: 200000
+      elasticity: 0.5  # (dY/Y)/(dX/X) = (1000/200000)/(1/100) = 0.5
+      range: 40000
+    tolerance:
+      output: 0.001
+      elasticity: 0.01
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 2: Linear Volume Sensitivity
+  # ─────────────────────────────────────────────────────────────────────────────
+  one_way_volume_linear:
+    analysis_type: one_way
+    model: linear
+    base_values:
+      price: 100
+      volume: 1000
+    vary: ["volume"]
+    range:
+      volume:
+        low: 800
+        high: 1200
+        steps: 5
+    coefficients:
+      price: 1000
+      volume: 100
+    r_expected:
+      vary_values: [800, 900, 1000, 1100, 1200]
+      outputs: [180000, 190000, 200000, 210000, 220000]
+      base_output: 200000
+      elasticity: 0.5
+      range: 40000
+    tolerance:
+      output: 0.001
+      elasticity: 0.01
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 3: Higher Resolution Sensitivity (10 steps)
+  # ─────────────────────────────────────────────────────────────────────────────
+  one_way_high_resolution:
+    analysis_type: one_way
+    model: linear
+    base_values:
+      price: 100
+      volume: 1000
+    vary: ["price"]
+    range:
+      price:
+        low: 80
+        high: 120
+        steps: 11
+    coefficients:
+      price: 1000
+      volume: 100
+    r_expected:
+      vary_values: [80, 84, 88, 92, 96, 100, 104, 108, 112, 116, 120]
+      base_output: 200000
+      min_output: 180000
+      max_output: 220000
+    tolerance:
+      output: 0.001
+      elasticity: 0.01
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Two-Way Sensitivity
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 4: Price x Volume Grid
+  # ─────────────────────────────────────────────────────────────────────────────
+  two_way_price_volume:
+    analysis_type: two_way
+    model: linear
+    base_values:
+      price: 100
+      volume: 1000
+    vary: ["price", "volume"]
+    range:
+      price:
+        low: 80
+        high: 120
+        steps: 3
+      volume:
+        low: 800
+        high: 1200
+        steps: 3
+    coefficients:
+      price: 1000
+      volume: 100
+    r_expected:
+      # Grid: rows=price, cols=volume
+      # Output = price*1000 + volume*100
+      grid:
+        - [160000, 180000, 200000]  # price=80
+        - [180000, 200000, 220000]  # price=100
+        - [200000, 220000, 240000]  # price=120
+      min_output: 160000  # price=80, volume=800
+      max_output: 240000  # price=120, volume=1200
+    tolerance:
+      output: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 5: Two-Way with Finer Grid (5x5)
+  # ─────────────────────────────────────────────────────────────────────────────
+  two_way_fine_grid:
+    analysis_type: two_way
+    model: linear
+    base_values:
+      price: 100
+      volume: 1000
+    vary: ["price", "volume"]
+    range:
+      price:
+        low: 90
+        high: 110
+        steps: 5
+      volume:
+        low: 900
+        high: 1100
+        steps: 5
+    coefficients:
+      price: 1000
+      volume: 100
+    r_expected:
+      # 5x5 grid centered on base case
+      min_output: 180000  # 90*1000 + 900*100
+      max_output: 220000  # 110*1000 + 1100*100
+    tolerance:
+      output: 0.001
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Elasticity Analysis
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 6: Elasticity Rankings
+  # ─────────────────────────────────────────────────────────────────────────────
+  elasticity_rankings:
+    analysis_type: elasticity
+    model: linear
+    base_values:
+      price: 100
+      volume: 1000
+      fixed_cost: 50000
+    coefficients:
+      price: 1000
+      volume: 100
+      fixed_cost: -1
+    r_expected:
+      base_output: 150000  # 100*1000 + 1000*100 - 50000
+      elasticities:
+        - rank: 1
+          variable: price
+          elasticity: 0.667  # (1000*100)/150000
+          interpretation: inelastic
+        - rank: 2
+          variable: volume
+          elasticity: 0.667  # (100*1000)/150000
+          interpretation: inelastic
+        - rank: 3
+          variable: fixed_cost
+          elasticity: -0.333  # (-1*50000)/150000
+          interpretation: inelastic
+    tolerance:
+      elasticity: 0.01
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 7: Unit Elasticity Case
+  # For multiplicative Y = X, elasticity = 1
+  # ─────────────────────────────────────────────────────────────────────────────
+  elasticity_unit:
+    analysis_type: elasticity
+    model: multiplicative
+    base_values:
+      x: 100
+    coefficients:
+      x: 1.0  # Y = X^1
+    r_expected:
+      base_output: 100
+      elasticities:
+        - rank: 1
+          variable: x
+          elasticity: 1.0
+          interpretation: elastic
+    tolerance:
+      elasticity: 0.01
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 8: Cobb-Douglas Elasticities
+  # Y = L^0.7 * K^0.3 => elasticity(L) = 0.7, elasticity(K) = 0.3
+  # ─────────────────────────────────────────────────────────────────────────────
+  elasticity_cobb_douglas:
+    analysis_type: elasticity
+    model: multiplicative
+    base_values:
+      labor: 100
+      capital: 200
+    coefficients:
+      labor: 0.7
+      capital: 0.3
+    r_expected:
+      elasticities:
+        - rank: 1
+          variable: labor
+          elasticity: 0.7
+          interpretation: inelastic
+        - rank: 2
+          variable: capital
+          elasticity: 0.3
+          interpretation: inelastic
+    tolerance:
+      elasticity: 0.01
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Edge Cases
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 9: Single Point Sensitivity (1 step)
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_single_point:
+    analysis_type: one_way
+    model: linear
+    base_values:
+      price: 100
+    vary: ["price"]
+    range:
+      price:
+        low: 100
+        high: 100
+        steps: 1
+    coefficients:
+      price: 1000
+    r_expected:
+      vary_values: [100]
+      outputs: [100000]
+      range: 0
+    tolerance:
+      output: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 10: Negative Coefficient (Cost Impact)
+  # ─────────────────────────────────────────────────────────────────────────────
+  one_way_negative_coef:
+    analysis_type: one_way
+    model: linear
+    base_values:
+      revenue: 200000
+      cost: 100000
+    vary: ["cost"]
+    range:
+      cost:
+        low: 80000
+        high: 120000
+        steps: 5
+    coefficients:
+      revenue: 1
+      cost: -1  # Cost reduces output
+    r_expected:
+      vary_values: [80000, 90000, 100000, 110000, 120000]
+      outputs: [120000, 110000, 100000, 90000, 80000]  # Decreasing
+      base_output: 100000
+      elasticity: -1.0  # Perfectly negative
+    tolerance:
+      output: 0.001
+      elasticity: 0.01
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Metadata
+# ═══════════════════════════════════════════════════════════════════════════════
+
+metadata:
+  total_tests: 10
+  analysis_types:
+    - one_way
+    - two_way
+    - elasticity
+  model_types:
+    - linear
+    - multiplicative
+  r_packages: []  # Uses base R only
+  validation_method: "R manual calculation comparison"
+  reference: "ADR-010: R-Validated Analytics E2E Tests"
+  notes:
+    - "One-way: Vary single variable, keep others at base"
+    - "Two-way: Create grid of outputs for two variables"
+    - "Elasticity: % change in output / % change in input"
+    - "Elasticity > 1 is 'elastic', < 1 is 'inelastic'"

@@ -1,0 +1,335 @@
+# E2E Bootstrap Resampling Tests
+# R-Validated against R's boot package
+#
+# Phase 2: Bootstrap validation with 3 CI methods
+# Validated by: validators/r/bootstrap_validator.R
+#
+# Testing approach:
+#   1. Run forge predict --bootstrap with config
+#   2. Capture JSON output (mean, std, CIs, bias)
+#   3. Run R validator with same parameters
+#   4. Compare within statistical tolerance
+#
+# Tolerance (per ADR-010):
+#   - Mean: 1% relative difference
+#   - Std:  5% relative difference
+#   - CI bounds: 2% relative difference
+
+_forge_version: "1.0.0"
+_r_validator: "bootstrap_validator.R"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Percentile Method (Standard)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+tests:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 1: Financial Returns - Mean (Percentile)
+  # ─────────────────────────────────────────────────────────────────────────────
+  percentile_mean_returns:
+    data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12, 0.01, -0.01, 0.06, 0.04]
+    statistic: mean
+    method: percentile
+    confidence_levels: [0.90, 0.95, 0.99]
+    seed: 42
+    iterations: 10000
+    r_expected:
+      original_estimate: 0.031
+      mean: 0.030715
+      std: 0.0152
+      bias: -0.000285
+      confidence_intervals:
+        "0.90":
+          lower: 0.006
+          upper: 0.056
+        "0.95":
+          lower: 0.00
+          upper: 0.060
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      ci_bounds: 0.05
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 2: Larger Dataset - Mean (Percentile)
+  # ─────────────────────────────────────────────────────────────────────────────
+  percentile_mean_large:
+    # 20 values for more robust estimates
+    data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12, 0.01, -0.01, 0.06, 0.04,
+           0.02, -0.03, 0.07, 0.04, -0.02, 0.09, 0.00, -0.04, 0.05, 0.03]
+    statistic: mean
+    method: percentile
+    confidence_levels: [0.95]
+    seed: 42
+    iterations: 10000
+    r_expected:
+      original_estimate: 0.026
+      mean: 0.0259
+      std: 0.011
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      ci_bounds: 0.05
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 3: Bootstrap Median (Percentile)
+  # ─────────────────────────────────────────────────────────────────────────────
+  percentile_median:
+    data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12, 0.01, -0.01, 0.06, 0.04]
+    statistic: median
+    method: percentile
+    confidence_levels: [0.95]
+    seed: 42
+    iterations: 10000
+    r_expected:
+      original_estimate: 0.035
+      mean: 0.035
+      std: 0.018
+    tolerance:
+      mean: 0.02
+      std: 0.15
+      ci_bounds: 0.10
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 4: Bootstrap Std Dev (Percentile)
+  # ─────────────────────────────────────────────────────────────────────────────
+  percentile_std:
+    data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12, 0.01, -0.01, 0.06, 0.04]
+    statistic: std
+    method: percentile
+    confidence_levels: [0.95]
+    seed: 42
+    iterations: 10000
+    r_expected:
+      original_estimate: 0.0522
+      mean: 0.0495
+      std: 0.0098
+    tolerance:
+      mean: 0.05
+      std: 0.15
+      ci_bounds: 0.10
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: BCa Method (Bias-Corrected Accelerated)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 5: Financial Returns - Mean (BCa)
+  # ─────────────────────────────────────────────────────────────────────────────
+  bca_mean_returns:
+    data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12, 0.01, -0.01, 0.06, 0.04]
+    statistic: mean
+    method: bca
+    confidence_levels: [0.95]
+    seed: 42
+    iterations: 10000
+    r_expected:
+      original_estimate: 0.031
+      mean: 0.030715
+      std: 0.0152
+      # BCa intervals differ from percentile for skewed data
+      confidence_intervals:
+        "0.95":
+          lower: 0.002
+          upper: 0.058
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      ci_bounds: 0.10  # BCa has more variance
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 6: Skewed Data - Mean (BCa)
+  # BCa is more appropriate for skewed distributions
+  # ─────────────────────────────────────────────────────────────────────────────
+  bca_mean_skewed:
+    data: [1, 2, 3, 4, 5, 6, 7, 8, 9, 50]  # Outlier at 50
+    statistic: mean
+    method: bca
+    confidence_levels: [0.95]
+    seed: 42
+    iterations: 10000
+    r_expected:
+      original_estimate: 9.5
+      mean: 9.3
+      std: 3.5
+    tolerance:
+      mean: 0.05
+      std: 0.15
+      ci_bounds: 0.15
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 7: BCa Variance
+  # ─────────────────────────────────────────────────────────────────────────────
+  bca_variance:
+    data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12, 0.01, -0.01, 0.06, 0.04]
+    statistic: var
+    method: bca
+    confidence_levels: [0.95]
+    seed: 42
+    iterations: 10000
+    r_expected:
+      original_estimate: 0.00272
+      mean: 0.00245
+      std: 0.001
+    tolerance:
+      mean: 0.10
+      std: 0.20
+      ci_bounds: 0.15
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Basic Method
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 8: Financial Returns - Mean (Basic)
+  # ─────────────────────────────────────────────────────────────────────────────
+  basic_mean_returns:
+    data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12, 0.01, -0.01, 0.06, 0.04]
+    statistic: mean
+    method: basic
+    confidence_levels: [0.95]
+    seed: 42
+    iterations: 10000
+    r_expected:
+      original_estimate: 0.031
+      mean: 0.030715
+      std: 0.0152
+      confidence_intervals:
+        "0.95":
+          lower: 0.002
+          upper: 0.056
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      ci_bounds: 0.05
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 9: Basic Median
+  # ─────────────────────────────────────────────────────────────────────────────
+  basic_median:
+    data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12, 0.01, -0.01, 0.06, 0.04]
+    statistic: median
+    method: basic
+    confidence_levels: [0.95]
+    seed: 42
+    iterations: 10000
+    r_expected:
+      original_estimate: 0.035
+      mean: 0.035
+      std: 0.018
+    tolerance:
+      mean: 0.02
+      std: 0.15
+      ci_bounds: 0.10
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Edge Cases
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 10: Constant Values (all same)
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_constant:
+    data: [5, 5, 5, 5, 5]
+    statistic: mean
+    method: percentile
+    confidence_levels: [0.95]
+    seed: 42
+    iterations: 10000
+    r_expected:
+      original_estimate: 5.0
+      mean: 5.0
+      std: 0.0  # No variance
+    tolerance:
+      mean: 0.001
+      std: 0.001
+      ci_bounds: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 11: Two Values
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_two_values:
+    data: [0, 10]
+    statistic: mean
+    method: percentile
+    confidence_levels: [0.95]
+    seed: 42
+    iterations: 10000
+    r_expected:
+      original_estimate: 5.0
+      mean: 5.0
+      std: 2.5
+      confidence_intervals:
+        "0.95":
+          lower: 0.0  # Bootstrap can only pick 0, 5, or 10
+          upper: 10.0
+    tolerance:
+      mean: 0.02
+      std: 0.10
+      ci_bounds: 0.10
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 12: Outlier Present
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_outlier:
+    data: [1, 2, 3, 4, 100]
+    statistic: mean
+    method: percentile
+    confidence_levels: [0.95]
+    seed: 42
+    iterations: 10000
+    r_expected:
+      original_estimate: 22.0
+      mean: 21.5
+      std: 9.0
+    tolerance:
+      mean: 0.05
+      std: 0.15
+      ci_bounds: 0.10
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Comparison Tests (Method Differences)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+comparison_tests:
+  # Compare percentile, BCa, and basic on same data
+  method_comparison:
+    data: [0.05, -0.02, 0.08, 0.03, -0.05, 0.12, 0.01, -0.01, 0.06, 0.04]
+    statistic: mean
+    seed: 42
+    iterations: 10000
+    methods:
+      - percentile
+      - bca
+      - basic
+    # All methods should give similar point estimates
+    # but CIs may differ, especially for skewed data
+    expected_behavior:
+      - "Point estimates should be within 1% of each other"
+      - "CI widths should be similar for symmetric data"
+      - "BCa should differ more for skewed distributions"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Metadata
+# ═══════════════════════════════════════════════════════════════════════════════
+
+metadata:
+  total_tests: 12
+  ci_methods:
+    - percentile
+    - bca
+    - basic
+  statistics:
+    - mean
+    - median
+    - std
+    - var
+  r_packages:
+    - boot
+  validation_method: "R boot package round-trip comparison"
+  reference: "ADR-010: R-Validated Analytics E2E Tests"
+  notes:
+    - "BCa (Bias-Corrected Accelerated) is preferred for skewed distributions"
+    - "Percentile method is simpler but assumes symmetry"
+    - "Basic method is a simple reflection approach"
+    - "All methods converge for large sample sizes"

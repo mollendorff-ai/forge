@@ -1,0 +1,39 @@
+# forge-e2e-r Roadmap
+#
+# R-validated E2E testing for forge analytics
+#
+# Philosophy: Forge is NEVER the authority.
+# All tests validate forge against R (gold-standard statistical computing).
+# If forge disagrees with R, forge has a bug.
+#
+# See: CHANGELOG.md for release history
+
+current:
+  version: "1.1.0"
+  status: planned
+  summary: "Expanded distribution coverage"
+  goal: "COVERAGE"
+  deliverables:
+    - "[ ] Add Beta distribution tests"
+    - "[ ] Add Gamma distribution tests"
+    - "[ ] Add Weibull distribution tests"
+    - "[ ] Add Poisson distribution tests"
+    - "[ ] Add correlation matrix validation"
+
+next:
+  - version: "1.2.0"
+    summary: "CI/CD integration"
+    goal: "AUTOMATION"
+    deliverables:
+      - "GitHub Actions workflow"
+      - "Docker container with R dependencies"
+      - "Parallel test execution"
+      - "Test result artifacts"
+
+backlog:
+  - "Remove 'enterprise' tier labels from test YAML comments"
+  - "Latin Hypercube sampling validation"
+  - "Gaussian copula correlation tests"
+  - "Convergence analysis automation"
+  - "Performance benchmarks vs R"
+  - "Additional R package validators"

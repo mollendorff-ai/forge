@@ -1,0 +1,415 @@
+# E2E Decision Tree Tests
+# R-Validated against data.tree calculations
+#
+# Phase 4: Decision tree EMV validation
+# Validated by: validators/r/decision_tree_validator.R
+#
+# Testing approach:
+#   1. Run forge decision-tree with tree specification
+#   2. Capture JSON output (EMV, optimal decisions)
+#   3. Run R validator with same tree structure
+#   4. Compare EMV values within tolerance
+#
+# Tolerance (per ADR-010):
+#   - EMV values: 0.1% relative difference
+#   - Rankings: Exact match
+
+_forge_version: "1.0.0"
+_r_validator: "decision_tree_validator.R"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Simple Decision Trees
+# ═══════════════════════════════════════════════════════════════════════════════
+
+tests:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 1: Binary Decision (Invest vs Don't Invest)
+  # Classic investment decision with chance outcomes
+  # ─────────────────────────────────────────────────────────────────────────────
+  binary_investment_decision:
+    tree:
+      name: "Investment Decision"
+      type: decision
+      children:
+        - name: "Invest"
+          type: chance
+          cost: 100000
+          children:
+            - name: "Success"
+              type: terminal
+              probability: 0.7
+              payoff: 300000
+            - name: "Failure"
+              type: terminal
+              probability: 0.3
+              payoff: 50000
+        - name: "Don't Invest"
+          type: terminal
+          payoff: 0
+    r_expected:
+      # EMV(Invest) = 0.7*300000 + 0.3*50000 - 100000 = 125000
+      # EMV(Don't Invest) = 0
+      # Optimal: Invest (125000 > 0)
+      root_emv: 125000
+      optimal_decision: "Invest"
+      node_emvs:
+        "Investment Decision": 125000
+        "Invest": 125000
+        "Success": 300000
+        "Failure": 50000
+        "Don't Invest": 0
+    tolerance:
+      emv: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 2: Three-Way Decision
+  # Choose between three alternatives
+  # ─────────────────────────────────────────────────────────────────────────────
+  three_way_decision:
+    tree:
+      name: "Market Entry"
+      type: decision
+      children:
+        - name: "Large Investment"
+          type: chance
+          cost: 500000
+          children:
+            - name: "High Demand"
+              type: terminal
+              probability: 0.3
+              payoff: 2000000
+            - name: "Medium Demand"
+              type: terminal
+              probability: 0.5
+              payoff: 800000
+            - name: "Low Demand"
+              type: terminal
+              probability: 0.2
+              payoff: 200000
+        - name: "Small Investment"
+          type: chance
+          cost: 100000
+          children:
+            - name: "High Demand"
+              type: terminal
+              probability: 0.3
+              payoff: 500000
+            - name: "Medium Demand"
+              type: terminal
+              probability: 0.5
+              payoff: 300000
+            - name: "Low Demand"
+              type: terminal
+              probability: 0.2
+              payoff: 100000
+        - name: "No Entry"
+          type: terminal
+          payoff: 0
+    r_expected:
+      # Large: 0.3*2M + 0.5*800K + 0.2*200K - 500K = 600K + 400K + 40K - 500K = 540K
+      # Small: 0.3*500K + 0.5*300K + 0.2*100K - 100K = 150K + 150K + 20K - 100K = 220K
+      # No Entry: 0
+      root_emv: 540000
+      optimal_decision: "Large Investment"
+    tolerance:
+      emv: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 3: Sequential Decisions (Two-Stage)
+  # Decision -> Chance -> Decision
+  # ─────────────────────────────────────────────────────────────────────────────
+  sequential_decisions:
+    tree:
+      name: "R&D Investment"
+      type: decision
+      children:
+        - name: "Fund R&D"
+          type: chance
+          cost: 50000
+          children:
+            - name: "R&D Success"
+              type: decision
+              probability: 0.6
+              children:
+                - name: "Commercialize"
+                  type: terminal
+                  cost: 200000
+                  payoff: 500000
+                - name: "License"
+                  type: terminal
+                  payoff: 150000
+            - name: "R&D Failure"
+              type: terminal
+              probability: 0.4
+              payoff: 0
+        - name: "Skip R&D"
+          type: terminal
+          payoff: 0
+    r_expected:
+      # If R&D succeeds: max(500K-200K, 150K) = max(300K, 150K) = 300K (Commercialize)
+      # EMV(Fund R&D) = 0.6*300K + 0.4*0 - 50K = 180K - 50K = 130K
+      root_emv: 130000
+      optimal_decision: "Fund R&D"
+      decision_path: ["Fund R&D", "Commercialize"]
+    tolerance:
+      emv: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 4: Perfect Information Value
+  # Compare with and without uncertainty
+  # ─────────────────────────────────────────────────────────────────────────────
+  perfect_information:
+    tree:
+      name: "Weather Dependent"
+      type: decision
+      children:
+        - name: "Outdoor Event"
+          type: chance
+          cost: 10000
+          children:
+            - name: "Good Weather"
+              type: terminal
+              probability: 0.7
+              payoff: 50000
+            - name: "Bad Weather"
+              type: terminal
+              probability: 0.3
+              payoff: 5000
+        - name: "Indoor Event"
+          type: terminal
+          cost: 5000
+          payoff: 25000
+    r_expected:
+      # Outdoor: 0.7*50K + 0.3*5K - 10K = 35K + 1.5K - 10K = 26.5K
+      # Indoor: 25K - 5K = 20K
+      # With perfect info: 0.7*max(50K-10K, 20K) + 0.3*max(5K-10K, 20K)
+      #                  = 0.7*40K + 0.3*20K = 28K + 6K = 34K
+      # Value of info: 34K - 26.5K = 7.5K
+      root_emv: 26500
+      optimal_decision: "Outdoor Event"
+    tolerance:
+      emv: 0.001
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Risk Analysis
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 5: Risk Profile Comparison
+  # Compare alternatives with different risk profiles
+  # ─────────────────────────────────────────────────────────────────────────────
+  risk_profiles:
+    tree:
+      name: "Risk Choice"
+      type: decision
+      children:
+        - name: "High Risk"
+          type: chance
+          children:
+            - name: "Win Big"
+              type: terminal
+              probability: 0.2
+              payoff: 500000
+            - name: "Lose Big"
+              type: terminal
+              probability: 0.8
+              payoff: 0
+        - name: "Low Risk"
+          type: chance
+          children:
+            - name: "Small Win"
+              type: terminal
+              probability: 0.9
+              payoff: 110000
+            - name: "Small Loss"
+              type: terminal
+              probability: 0.1
+              payoff: 10000
+    r_expected:
+      # High Risk: 0.2*500K + 0.8*0 = 100K
+      # Low Risk: 0.9*110K + 0.1*10K = 99K + 1K = 100K
+      # Same EMV, different risk profiles
+      root_emv: 100000
+      # Both equal - order depends on input order
+    tolerance:
+      emv: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 6: Negative Payoffs (Loss Scenarios)
+  # Handling negative outcomes
+  # ─────────────────────────────────────────────────────────────────────────────
+  negative_payoffs:
+    tree:
+      name: "Damage Control"
+      type: decision
+      children:
+        - name: "Fix Now"
+          type: terminal
+          cost: 50000
+          payoff: 0
+        - name: "Wait"
+          type: chance
+          children:
+            - name: "Problem Worsens"
+              type: terminal
+              probability: 0.6
+              payoff: -100000  # Net loss
+            - name: "Problem Resolves"
+              type: terminal
+              probability: 0.4
+              payoff: 0
+    r_expected:
+      # Fix Now: 0 - 50K = -50K
+      # Wait: 0.6*(-100K) + 0.4*0 = -60K
+      # Optimal: Fix Now (less negative)
+      root_emv: -50000
+      optimal_decision: "Fix Now"
+    tolerance:
+      emv: 0.001
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Test Suite: Edge Cases
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 7: Single Path Tree
+  # Degenerate tree with no real decision
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_single_path:
+    tree:
+      name: "Single Option"
+      type: decision
+      children:
+        - name: "Only Choice"
+          type: terminal
+          payoff: 100000
+    r_expected:
+      root_emv: 100000
+      optimal_decision: "Only Choice"
+    tolerance:
+      emv: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 8: Equal Alternatives
+  # All options have same EMV
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_equal_alternatives:
+    tree:
+      name: "Equal Choice"
+      type: decision
+      children:
+        - name: "Option A"
+          type: terminal
+          payoff: 100000
+        - name: "Option B"
+          type: terminal
+          payoff: 100000
+        - name: "Option C"
+          type: terminal
+          payoff: 100000
+    r_expected:
+      root_emv: 100000
+      # Any of A, B, C is valid
+    tolerance:
+      emv: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 9: Zero Probabilities
+  # Handle impossible outcomes
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge_zero_probability:
+    tree:
+      name: "Certain Outcome"
+      type: decision
+      children:
+        - name: "Certain Path"
+          type: chance
+          children:
+            - name: "Always Happens"
+              type: terminal
+              probability: 1.0
+              payoff: 50000
+            - name: "Never Happens"
+              type: terminal
+              probability: 0.0
+              payoff: 1000000
+        - name: "Skip"
+          type: terminal
+          payoff: 0
+    r_expected:
+      # Certain Path: 1.0*50K + 0.0*1M = 50K
+      root_emv: 50000
+      optimal_decision: "Certain Path"
+    tolerance:
+      emv: 0.001
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test 10: Deep Tree (4 levels)
+  # Test backward induction through multiple levels
+  # ─────────────────────────────────────────────────────────────────────────────
+  deep_tree:
+    tree:
+      name: "Multi-Stage Project"
+      type: decision
+      children:
+        - name: "Start Project"
+          type: chance
+          cost: 10000
+          children:
+            - name: "Phase 1 Success"
+              type: decision
+              probability: 0.8
+              children:
+                - name: "Continue"
+                  type: chance
+                  cost: 20000
+                  children:
+                    - name: "Phase 2 Success"
+                      type: terminal
+                      probability: 0.7
+                      payoff: 200000
+                    - name: "Phase 2 Failure"
+                      type: terminal
+                      probability: 0.3
+                      payoff: 30000
+                - name: "Stop"
+                  type: terminal
+                  payoff: 50000
+            - name: "Phase 1 Failure"
+              type: terminal
+              probability: 0.2
+              payoff: 0
+        - name: "Skip"
+          type: terminal
+          payoff: 0
+    r_expected:
+      # Phase 2: 0.7*200K + 0.3*30K - 20K = 140K + 9K - 20K = 129K
+      # Continue vs Stop at Phase 1: max(129K, 50K) = 129K
+      # Phase 1: 0.8*129K + 0.2*0 - 10K = 103.2K - 10K = 93.2K
+      root_emv: 93200
+      optimal_decision: "Start Project"
+      decision_path: ["Start Project", "Continue"]
+    tolerance:
+      emv: 0.001
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Metadata
+# ═══════════════════════════════════════════════════════════════════════════════
+
+metadata:
+  total_tests: 10
+  tree_types:
+    - simple_binary
+    - multi_alternative
+    - sequential
+    - risk_analysis
+  r_packages:
+    - data.tree
+    - jsonlite
+  validation_method: "R data.tree EMV calculation comparison"
+  reference: "ADR-010: R-Validated Analytics E2E Tests"
+  notes:
+    - "EMV = Expected Monetary Value using backward induction"
+    - "Decision nodes: maximize EMV among alternatives"
+    - "Chance nodes: probability-weighted average of outcomes"
+    - "Terminal nodes: payoff minus any costs"

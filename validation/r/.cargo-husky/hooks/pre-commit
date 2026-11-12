@@ -1,0 +1,18 @@
+#!/bin/sh
+echo "Running pre-commit checks..."
+
+echo "Checking formatting..."
+if ! cargo fmt --all -- --check; then
+    echo ""
+    echo "❌ Run: cargo fmt --all"
+    exit 1
+fi
+
+echo "Running clippy..."
+if ! cargo clippy --all-targets -- -D warnings; then
+    echo ""
+    echo "❌ Fix clippy warnings"
+    exit 1
+fi
+
+echo "✓ Pre-commit checks passed"

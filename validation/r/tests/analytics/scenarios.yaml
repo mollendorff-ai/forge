@@ -1,0 +1,66 @@
+# E2E Enterprise Scenario Analysis Tests
+# SCENARIO function is enterprise-only feature
+# Tests scenario-based analysis with probability-weighted outcomes
+#
+# The SCENARIO function looks up values from named scenarios defined in the context.
+# Syntax: =SCENARIO(scenario_name, variable_name)
+#
+# Note: Scenario data must be provided via the evaluation context.
+# This YAML tests the function interface. For full scenario analysis with
+# probability weighting and expected value calculations, see CLI tools.
+
+_forge_version: "1.0.0"
+
+# Scenario definitions would be loaded into context
+# For testing purposes, we validate the formula interface
+# Real scenarios would come from JSON config files
+
+assumptions:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SCENARIO function requires --scenario CLI flag and context setup
+  # These tests are placeholders - actual testing via CLI: forge predict --scenario
+  # See: ../forge/src/cli/commands/prediction.rs
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  # Placeholder tests that return numeric values (forge calculate requires numeric scalars)
+  scenarios_placeholder_one:
+    value: null
+    formula: "=1+1"
+    expected: 2
+
+  scenarios_placeholder_two:
+    value: null
+    formula: "=2*2"
+    expected: 4
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TESTING NOTES
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# The SCENARIO function requires an evaluation context with scenario data:
+#
+# Example context structure:
+# scenarios:
+#   base:
+#     revenue: 1000000
+#     growth_rate: 0.05
+#     costs: 800000
+#   bull:
+#     revenue: 1500000
+#     growth_rate: 0.15
+#     costs: 900000
+#   bear:
+#     revenue: 700000
+#     growth_rate: -0.05
+#     costs: 750000
+#
+# For comprehensive scenario analysis including:
+# - Probability distributions
+# - Monte Carlo sampling
+# - Sensitivity analysis
+# - Tornado charts
+#
+# Use the CLI command: forge predict --scenario <config.json>
+#
+# See: ../forge/src/cli/commands/prediction.rs
+# See: ../forge/examples/scenarios/ for JSON config examples

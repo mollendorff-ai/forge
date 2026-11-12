@@ -1,0 +1,18 @@
+identity:
+  name: "forge-e2e-r"
+  type: rust
+
+description: >
+  R-validated E2E testing for forge analytics. Forge is never the authority —
+  all tests validate forge output against R (gold-standard statistical computing).
+
+stack:
+  - Rust
+  - R / Rscript
+  - YAML test specs
+
+conventions:
+  - "Result<T,E> for errors, no unwrap() in library code"
+  - "clippy pedantic, zero warnings, cargo fmt"
+  - "Statistical tolerance not exact match (ADR-010)"
+  - "YAML test specs → Forge → R comparison pipeline"
