@@ -139,8 +139,7 @@ pub fn check_scalar_keys(map: &yaml_serde::Mapping, path: &str) -> ForgeResult<(
         };
         if !SCALAR_KEYS.contains(&key) {
             let hint = crate::error::closest(key, &SCALAR_KEYS)
-                .map(|k| format!(" Did you mean '{k}'?"))
-                .unwrap_or_default();
+                .map_or_else(String::new, |k| format!(" Did you mean '{k}'?"));
             let nested = if matches!(value, Value::Mapping(_)) {
                 format!(
                     " ('{path}' has `value:` or `formula:`, so it is read as one scalar, \

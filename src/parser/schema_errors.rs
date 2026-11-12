@@ -268,8 +268,7 @@ fn unknown_keys(
         .iter()
         .map(|key| {
             let hint = crate::error::closest(key, &allowed_refs)
-                .map(|k| format!(" Did you mean '{k}'?"))
-                .unwrap_or_default();
+                .map_or_else(String::new, |k| format!(" Did you mean '{k}'?"));
             let at = if path == "the model" {
                 key.clone()
             } else {
