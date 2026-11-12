@@ -6,16 +6,24 @@ name: Validation
 #                        the LET, LAMBDA and COUNTUNIQUE cases Gnumeric cannot read)
 #   validation/r         functions and analytics compared with R
 # Weekly (which notices a new Gnumeric, LibreOffice or R), on demand, and on
-# the pull requests described below.
+# the pull requests and merges to main described below.
 # Runs on Ubuntu 24.04: with the Gnumeric of 22.04, FLOOR and CEILING of a
 # negative number returned #NUM! and six cases failed.
 on:
   schedule:
     - cron: '41 6 * * 1'   # Mondays 06:41 UTC
   workflow_dispatch:
-  # Also on pull requests that change this file, the source code, the version or
-  # dependencies in Cargo.toml, or a suite, so the result shows on the PR before
-  # it is merged.
+  # On pull requests and on main after a merge, when they change this file, the
+  # source code, the version or dependencies in Cargo.toml, or a suite: the
+  # result shows on the PR before it is merged, and main is checked with the
+  # suites of the same commit (ADR-057).
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/validation.yml'
+      - 'Cargo.toml'
+      - 'src/**'
+      - 'validation/**'
   pull_request:
     paths:
       - '.github/workflows/validation.yml'
