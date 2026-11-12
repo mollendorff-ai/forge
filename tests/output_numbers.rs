@@ -82,3 +82,88 @@ plan:
         "{text}"
     );
 }
+
+// `forge scenarios`, `forge simulate --seek`, `forge decision-tree` and
+// `forge real-options` followed their own rules (six decimals, `$61500.00`,
+// `$-117000.00`). They now print numbers as `forge report` does, and money
+// with separators and the sign before the `$`. JSON and files keep the raw
+// numbers.
+
+#[test]
+fn scenarios_print_numbers_as_forge_report_does() {
+    let text = run(&["scenarios", "examples/bagel/bagel.yaml"]);
+    assert!(text.contains("year.profit: 786.32\n"), "{text}");
+    assert!(text.contains("year.revenue: 386,827.45\n"), "{text}");
+    assert!(text.contains("year.npv_first_year: -95,579.52\n"), "{text}");
+    assert!(text.contains("year.margin: 0.002033\n"), "{text}");
+    assert!(
+        text.contains("(range -71,197.20 to 80,811.24, P(>0) = 70%)"),
+        "{text}"
+    );
+    assert!(!text.contains("786.320362"), "{text}");
+}
+
+#[test]
+fn a_probability_seek_prints_the_solution_with_two_decimals() {
+    let text = run(&[
+        "simulate",
+        "examples/bagel/bagel_simulate.yaml",
+        "--seek",
+        "P(year.profit > 0) = 0.8",
+        "--vary",
+        "price_per_dozen",
+        "--min",
+        "14",
+        "--max",
+        "24",
+    ]);
+    assert!(
+        text.contains("assumptions.price_per_dozen = 18.32\n"),
+        "{text}"
+    );
+    assert!(!text.contains("18.324083"), "{text}");
+}
+
+#[test]
+fn a_decision_tree_prints_money_with_separators() {
+    let text = run(&["decision-tree", "examples/bagel/second_shop.yaml"]);
+    for expected in [
+        "Expected Value: $61,500.00",
+        "Best case:  $198,000.00",
+        "Worst case: -$117,000.00",
+        "-$12,000.00 with probability 50.0%",
+    ] {
+        assert!(text.contains(expected), "{expected}\n{text}");
+    }
+    assert!(!text.contains("$-"), "{text}");
+}
+
+#[test]
+fn real_options_print_money_with_separators() {
+    let text = run(&["real-options", "examples/bagel/wait_option.yaml"]);
+    for expected in [
+        "invest now, no flexibility): $60,000.00",
+        "option value $64,604.68",
+        "Underlying value: $240,000.00",
+        "exercise when value > $198,000",
+        "project value $64,605.",
+        "worth $4,605 more than deciding now",
+    ] {
+        assert!(text.contains(expected), "{expected}\n{text}");
+    }
+}
+
+#[test]
+fn the_json_of_an_analysis_keeps_the_numbers_not_the_display() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("tree.json");
+    run(&[
+        "decision-tree",
+        "examples/bagel/second_shop.yaml",
+        "-o",
+        file.to_str().unwrap(),
+    ]);
+    let json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    assert_eq!(json["root_expected_value"], 61_500.0);
+}

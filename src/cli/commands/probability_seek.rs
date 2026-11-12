@@ -241,7 +241,7 @@ pub fn probability_seek(
     println!(
         "   {} = {}",
         result.input.bright_blue().bold(),
-        format!("{:.6}", result.value).bold()
+        super::display_number(result.value).bold()
     );
     println!(
         "   P({} {}) there: {:.2}%  ({:.2}% at {min}, {:.2}% at {max})",

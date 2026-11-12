@@ -93,7 +93,7 @@ fn bagel_price() {
             "--max",
             "24",
         ],
-        &["price_per_dozen = 18.32", "(2.92% at 14, 100.00% at 24)"],
+        &["price_per_dozen = 18.32\n", "(2.92% at 14, 100.00% at 24)"],
         &["18.32", "2.92%", "2.32 more"],
     );
 }
@@ -152,10 +152,10 @@ fn second_shop() {
         "second-shop",
         &["decision-tree", "examples/bagel/second_shop.yaml"],
         &[
-            "Expected Value: $61500.00",
-            "$198000.00 with probability 40.0%",
-            "$-12000.00 with probability 50.0%",
-            "$-117000.00 with probability 10.0%",
+            "Expected Value: $61,500.00",
+            "$198,000.00 with probability 40.0%",
+            "-$12,000.00 with probability 50.0%",
+            "-$117,000.00 with probability 10.0%",
             "At \"open_after_busy\": choose \"open\"",
             "At \"open_after_quiet\": choose \"walk_away\"",
         ],
@@ -172,9 +172,9 @@ fn second_shop() {
         "second-shop",
         &["decision-tree", file.to_str().unwrap()],
         &[
-            "Expected Value: $58500.00",
+            "Expected Value: $58,500.00",
             "P(value > 0): 45.0%",
-            "Worst case: $-90000.00",
+            "Worst case: -$90,000.00",
         ],
         &["58,500", "90,000", "second_shop_without_popup.yaml"],
     );
@@ -214,11 +214,11 @@ fn waiting() {
         "waiting",
         &["real-options", "examples/bagel/wait_option.yaml"],
         &[
-            "Traditional NPV (invest now, no flexibility): $60000.00",
-            "option value $64604.68",
+            "Traditional NPV (invest now, no flexibility): $60,000.00",
+            "option value $64,604.68",
             "option value $279.72",
-            "exercise when value > $198000",
-            "exercise when value < $132000",
+            "exercise when value > $198,000",
+            "exercise when value < $132,000",
         ],
         &["64,604.68", "279.72", "4,604.68", "198,000", "132,000"],
     );
