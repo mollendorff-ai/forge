@@ -172,9 +172,9 @@ jobs:
 
       - name: Build the WebAssembly module
         run: |
-          cargo build -p forge-wasm --release --target wasm32-unknown-unknown
+          cargo build -p forge-wasm --profile wasm --target wasm32-unknown-unknown
           wasm-bindgen --target nodejs --out-dir forge-wasm/pkg \
-            target/wasm32-unknown-unknown/release/forge_wasm.wasm
+            target/wasm32-unknown-unknown/wasm/forge_wasm.wasm
 
       - name: Native answers to every case
         run: cargo run -p forge-wasm --release --example expected -- forge-wasm/xlsx > forge-wasm/expected.json
@@ -199,8 +199,20 @@ jobs:
       - name: Build Forge Studio
         run: |
           wasm-bindgen --target web --out-dir forge-wasm/pkg-web \
-            target/wasm32-unknown-unknown/release/forge_wasm.wasm
+            target/wasm32-unknown-unknown/wasm/forge_wasm.wasm
           node studio/build.mjs forge-wasm/pkg-web studio-site
+
+      # What a person downloads to open Studio. The budget is checked with gzip,
+      # as GitHub Pages serves it; it was 1.86 MB when it was set (2026-11-11).
+      - name: The WebAssembly module is within its size budget (2.0 MB gzipped)
+        run: |
+          raw=$(stat -c %s forge-wasm/pkg-web/forge_wasm_bg.wasm)
+          gz=$(gzip -9 -c forge-wasm/pkg-web/forge_wasm_bg.wasm | wc -c)
+          echo "forge_wasm_bg.wasm: $raw bytes, $gz gzipped" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$gz" -gt 2000000 ]; then
+            echo "::error::The WebAssembly module is $gz bytes gzipped, over the 2,000,000-byte budget. Find what grew, or raise the budget in ci.yml with the reason."
+            exit 1
+          fi
 
       - name: The built site has the grammar's rules
         run: node studio/tests/highlight.mjs studio-site
