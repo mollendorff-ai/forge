@@ -62,6 +62,27 @@
 //! The household: income 5200 + 400 = 5600 budgeted, 5200 + 150 = 5350
 //! actual; expenses 3100 budgeted, 1650 + 812.43 + 96.50 + 163.20 + 120 +
 //! 388.75 + 74.97 = 3305.85 actual; left over 2500 and 2044.15.
+//!
+//! examples/rolling-forecast, in Python:
+//! ```python
+//! su, sp = [985, 1032, 1001, 1047, 1052, 1038, 1066], [50, 50, 49.5, 49.5, 49.8, 49.8, 50.1]
+//! pu, pp = [214, 220, 231, 228, 240, 244, 251], [118, 118, 119, 119, 119.5, 119.5, 120]
+//! for _ in range(12):   # November 2026 to October 2027, grown from the month before
+//!     su.append(su[-1] * 1.008); sp.append(sp[-1] * 1.002)
+//!     pu.append(pu[-1] * 1.015); pp.append(pp[-1] * 1.003)
+//! rev = [su[i] * sp[i] + pu[i] * pp[i] for i in range(19)]
+//! fy27 = sum(rev[:12])                                    # 987621.9306764038
+//! bs, bp = sum(1000 + 10 * i for i in range(12)), sum(200 + 5 * i for i in range(12))
+//! budget = bs * 50 + bp * 120                             # 960600
+//! quarters = [sum(rev[k:k + 3]) for k in (0, 3, 6, 9)]   # 229100.5, 240878.5,
+//! #                                   253830.2732159771, 263812.6574604267
+//! next_12 = sum(rev[7:])                                  # 1090944.3557895026
+//! ls, lp = sum(su[:12]), sum(pu[:12]); L, B = ls + lp, bs + bp
+//! volume = (L - B) * budget / B                          # 14412.743557430787
+//! mix = L * ((ls / L - bs / B) * 50 + (lp / L - bp / B) * 120)   # 11875.965095038919
+//! price = sum(su[i] * sp[i] - su[i] * 50 + pu[i] * pp[i] - pu[i] * 120 for i in range(12))
+//! #                                                       # 733.22202393...
+//! ```
 
 use mollendorff_forge::cli::commands::{render, report_core, Cell, ReportFormat, ReportOptions};
 use mollendorff_forge::cli::{calculate_core, goal_seek_core, variance_core};
@@ -286,6 +307,34 @@ fn the_household_variance_has_the_right_directions_and_totals() {
 }
 
 #[test]
+fn the_rolling_forecast_matches_python() {
+    let model = calculate_core(
+        Path::new("examples/rolling-forecast/forecast.yaml"),
+        true,
+        None,
+    )
+    .unwrap();
+    for (name, expected) in [
+        ("fy2027.revenue", 987_621.930_676_403_8),
+        ("fy2027.budget", 960_600.0),
+        ("fy2027.variance", 27_021.930_676_403_8),
+        ("fy2027.actual_so_far", 553_505.6),
+        ("fy2027.q1", 229_100.5),
+        ("fy2027.q2", 240_878.5),
+        ("fy2027.q3", 253_830.273_215_977_1),
+        ("fy2027.q4", 263_812.657_460_426_7),
+        ("next_12_months.revenue", 1_090_944.355_789_502_6),
+        ("pvm.volume", 14_412.743_557_430_787),
+        ("pvm.mix", 11_875.965_095_038_919),
+        ("pvm.price", 733.222_023_934),
+        ("pvm.check", 0.0),
+    ] {
+        let got = model.scalars[name].unwrap();
+        assert!(close(got, expected, 1e-6), "{name}: {got}");
+    }
+}
+
+#[test]
 fn each_demo_calculates_in_under_a_second() {
     for model in [
         "examples/mortgage/mortgage.yaml",
@@ -295,6 +344,7 @@ fn each_demo_calculates_in_under_a_second() {
         "examples/periods/monthly_plan.yaml",
         "examples/periods/dcf.yaml",
         "examples/options/compare-options.yaml",
+        "examples/rolling-forecast/forecast.yaml",
     ] {
         let start = std::time::Instant::now();
         calculate_core(Path::new(model), true, None).unwrap();

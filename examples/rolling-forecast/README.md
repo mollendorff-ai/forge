@@ -1,0 +1,32 @@
+# A rolling forecast
+
+`forecast.yaml` is the model an FP&A team updates every month. The fiscal year starts in April, and actuals are in up to October 2026. It runs 19 months, from April 2026 to October 2027, and from November 2026 on it is forecast, twelve months past the last actual. The budget covers the fiscal year 2027, April 2026 to March 2027. There are two products, Standard and Premium. All figures are made up.
+
+Things that usually take a spreadsheet's worth of care are one formula each:
+
+- **Actuals, then forecast.** `is_actual: "=month <= inputs.last_actual"` marks the months with actuals. Each driver is the actual where there is one, and otherwise the month before, grown: `=IF(is_actual, actual_standard_units, PREV(standard_units, 0) * (1 + inputs.standard_volume_growth))`. Next month, change `last_actual`, type in the new actuals, and add one to the period column's `count` (and a 0 to each actual column) to keep twelve months ahead; the forecast starts one month later by itself.
+- **The fiscal calendar.** `fiscal_year` and `fiscal_quarter` come from the month and `fy_start_month`, so a year that starts in July is one number to change.
+- **Year to date.** `fiscal_ytd` starts again each April: `=IF(fiscal_year = PREV(fiscal_year, 0), PREV(fiscal_ytd, 0), 0) + revenue`.
+- **The budget, month by month.** The budget is a table of its own with 12 months. `XLOOKUP(month, budget.month, ...)` finds the budget of the same month, and gives 0 after the budget's year.
+- **Quarters and the next twelve months.** `SUMIFS` by fiscal year and quarter, or by a window of dates after the last actual.
+- **Price, volume and mix.** Why the fiscal year 2027 differs from budget. Volume counts all units, sold in the budget's mix at the budget's prices. Mix is each product's share, at the budget's prices, and price is each product's own price. `pvm.check` shows that the three add up to the variance.
+
+The fiscal year 2027 comes to 987,621.93 against a budget of 960,600.00, which is 27,021.93 over. Of that, volume is 14,412.74, mix 11,875.97 (Premium sells more than budgeted) and price 733.22. The quarters are 229,100.50, 240,878.50, 253,830.27 and 263,812.66, and the actuals so far are 553,505.60. The twelve months after October 2026 come to 1,090,944.36.
+
+```bash
+forge calculate examples/rolling-forecast/forecast.yaml --dry-run
+forge sensitivity examples/rolling-forecast/forecast.yaml -v inputs.premium_volume_growth -r 0,0.03,0.01 -o fy2027.revenue
+forge export examples/rolling-forecast/forecast.yaml forecast.xlsx
+```
+
+`tests/demo_examples.rs` checks these numbers against the same calculation written in Python. In the exported workbook every result is a formula, and Gnumeric recalculates it to the same numbers.
+
+## What Forge cannot do here yet
+
+Building this model found three gaps, now on the roadmap:
+
+- **A table of quarters.** A column of a table cannot aggregate another table: `=SUMIFS(months.revenue, months.fiscal_quarter, quarter)` in a table of quarters stops with "aggregations should be in scalars section". So the quarters are four scalars, written by hand, and so is the mix, which can only be worked out for the whole year and not month by month (T2-TABLE-AGGREGATES).
+- **Months without actuals.** A number column cannot have an empty cell, so the months not yet closed hold 0. A month whose actual really is 0 looks the same (T2-MISSING-VALUES).
+- **A date as an input.** `last_actual: 2026-10-31` is refused, so the model writes `=DATE(2026, 10, 31)`. Its value is printed as 46326, Excel's day number, and not as a date (T2-SCALAR-DATES).
+
+Two products are four columns and their formulas twice. A dimension such as product × month is the job of a planning tool (Anaplan, Pigment), and Forge does not try to be one.

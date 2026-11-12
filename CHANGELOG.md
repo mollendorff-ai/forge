@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`examples/rolling-forecast`: a rolling forecast for FP&A.** A fiscal year that starts in April, actuals up to October 2026 and a forecast for twelve months after them, two products, a budget looked up month by month, quarters, year to date, the next twelve months, and the variance split into volume, mix and price that add up to it exactly. `tests/demo_examples.rs` checks its numbers against Python, and the exported workbook recalculates to them in Gnumeric. Building it found three gaps, now on the roadmap: a table column cannot aggregate another table (T2-TABLE-AGGREGATES), a number column cannot have an empty cell (T2-MISSING-VALUES), and a scalar cannot be a date (T2-SCALAR-DATES). The README has a paragraph on it.
+
 ## [10.0.0-rc.18] - 2026-11-12
 
 Forge Studio on a phone (the key suggestions sit on the keyboard, Delete takes less room), the validation suites in this repository, and `forge simulate`, `variance`, `sensitivity` and `break-even` printing numbers as the other commands do. No wrong answer was fixed since rc.13, so the two-week stable clock of docs/STABILITY.md still runs from rc.13 (no earlier than 2026-11-24).
