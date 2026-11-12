@@ -72,8 +72,7 @@ fn misspelt_keys(model: &Value, schema: &Value, problems: &mut Vec<Problem>) {
             .pointer(pointer)
             .and_then(|s| s.get("properties"))
             .and_then(Value::as_object)
-            .map(|p| p.keys().cloned().collect())
-            .unwrap_or_default()
+            .map_or_default(|p| p.keys().cloned().collect())
     };
     let mut found = Vec::new();
     let sections = keys_of("");
@@ -245,8 +244,7 @@ fn allowed_keys(schema: &Value, schema_path: &str) -> Vec<String> {
     schema_at(schema, parent)
         .and_then(|s| s.get("properties"))
         .and_then(Value::as_object)
-        .map(|p| p.keys().cloned().collect())
-        .unwrap_or_default()
+        .map_or_default(|p| p.keys().cloned().collect())
 }
 
 /// One line for each key the schema does not have where it is.
@@ -330,8 +328,7 @@ fn collect(error: &ValidationError<'_>, schema: &Value, out: &mut Vec<Problem>) 
         ValidationErrorKind::Enum { options } => {
             let options: Vec<String> = options
                 .as_array()
-                .map(|a| a.iter().map(std::string::ToString::to_string).collect())
-                .unwrap_or_default();
+                .map_or_default(|a| a.iter().map(std::string::ToString::to_string).collect());
             let options: Vec<&str> = options.iter().map(String::as_str).collect();
             push(
                 out,

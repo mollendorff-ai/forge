@@ -435,8 +435,7 @@ impl ParsedModel {
 
         let hint = self
             .closest_scalar(name)
-            .map(|c| format!(" Did you mean '{c}'?"))
-            .unwrap_or_default();
+            .map_or_default(|c| format!(" Did you mean '{c}'?"));
         Err(format!(
             "Scenario override '{name}' does not name a scalar in the model.{hint}"
         ))

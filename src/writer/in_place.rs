@@ -135,7 +135,7 @@ pub fn to_short_form(text: &str) -> Result<String, String> {
     while i < lines.len() {
         let line = &lines[i];
         if indent(line) == 0 && is_content(line) {
-            section = key_of(line).map(|(k, _)| k).unwrap_or_default();
+            section = key_of(line).map_or_default(|(k, _)| k);
         }
         if indent(line) == 0 && key_of(line).is_some_and(|(k, _)| k == "_forge_version") {
             out.push(replace_after_colon(line, "\"5.1.0\""));
