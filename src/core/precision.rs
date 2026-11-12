@@ -10,6 +10,7 @@
 //! rounded to 15 significant digits, so `418.3299999999999` is stored as
 //! `418.33`. The calculation itself is not rounded.
 
+use crate::core::array_calculator::evaluator::text::number_format::rounded_digits;
 use serde::ser::{
     Serialize, SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple,
     SerializeTupleStruct, SerializeTupleVariant, Serializer,
@@ -28,6 +29,44 @@ pub fn to_15_digits(value: f64) -> f64 {
     // `{:.14e}` is correctly rounded: one digit before the point and fourteen
     // after it. The nearest `f64` to that decimal prints back as it.
     format!("{value:.14e}").parse().unwrap_or(value)
+}
+
+/// An amount of money as the commands print it: `$61,500.00`.
+///
+/// A loss is `-$117,000.00`. Two decimals, thousands separators, the sign in
+/// front of the `$`, and the digits a spreadsheet shows (15 significant,
+/// half away from zero).
+#[must_use]
+pub fn money(amount: f64) -> String {
+    money_with(amount, 2)
+}
+
+/// [`money`] in whole dollars, for a rule of thumb or a sentence:
+/// `$198,000`.
+#[must_use]
+pub fn money_whole(amount: f64) -> String {
+    money_with(amount, 0)
+}
+
+fn money_with(amount: f64, decimals: usize) -> String {
+    if !amount.is_finite() {
+        return format!("${amount}");
+    }
+    let (whole, fraction) = rounded_digits(amount.abs(), decimals);
+    let mut grouped = String::with_capacity(whole.len() + whole.len() / 3);
+    for (i, c) in whole.chars().enumerate() {
+        if i > 0 && (whole.len() - i).is_multiple_of(3) {
+            grouped.push(',');
+        }
+        grouped.push(c);
+    }
+    let zero = whole == "0" && fraction.bytes().all(|b| b == b'0');
+    let sign = if amount < 0.0 && !zero { "-" } else { "" };
+    if decimals == 0 {
+        format!("{sign}${grouped}")
+    } else {
+        format!("{sign}${grouped}.{fraction}")
+    }
 }
 
 /// A value serialized with every `f64` in it, at any depth, rounded to 15
@@ -312,6 +351,23 @@ impl<C: SerializeStructVariant> SerializeStructVariant for Compound<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn money_has_separators_two_decimals_and_the_sign_first() {
+        assert_eq!(money(61_500.0), "$61,500.00");
+        assert_eq!(money(-117_000.0), "-$117,000.00");
+        assert_eq!(money(64_604.68), "$64,604.68");
+        assert_eq!(money(279.719_999_999_999_9), "$279.72");
+        assert_eq!(money(0.5), "$0.50");
+        assert_eq!(money(0.0), "$0.00");
+        assert_eq!(money(-0.001), "$0.00");
+        assert_eq!(money(1_234_567.891), "$1,234,567.89");
+        assert_eq!(money(f64::INFINITY), "$inf");
+        assert_eq!(money_whole(198_000.0), "$198,000");
+        assert_eq!(money_whole(64_604.68), "$64,605");
+        assert_eq!(money_whole(-4_604.68), "-$4,605");
+        assert_eq!(money_whole(999.5), "$1,000");
+    }
 
     #[test]
     #[allow(clippy::float_cmp)] // the exact numbers are the point

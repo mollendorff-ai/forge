@@ -5,6 +5,7 @@
 use super::binomial::BinomialTree;
 use super::black_scholes::BlackScholes;
 use super::config::{OptionDefinition, OptionType, RealOptionsConfig, ValuationMethod};
+use crate::core::precision::money_whole;
 use serde::{Deserialize, Serialize};
 
 /// Result for a single option
@@ -313,19 +314,19 @@ impl RealOptionsEngine {
         match option.option_type {
             OptionType::Defer => {
                 let trigger_value = option.exercise_cost * 1.1; // 10% above exercise cost
-                Some(format!("value > ${trigger_value:.0}"))
+                Some(format!("value > {}", money_whole(trigger_value)))
             },
             OptionType::Expand => {
                 let trigger_value = option.exercise_cost * 2.0; // Good ROI on expansion
-                Some(format!("value > ${trigger_value:.0}"))
+                Some(format!("value > {}", money_whole(trigger_value)))
             },
             OptionType::Abandon => {
                 let trigger_value = option.salvage_value * 1.2;
-                Some(format!("value < ${trigger_value:.0}"))
+                Some(format!("value < {}", money_whole(trigger_value)))
             },
             OptionType::Contract => {
                 let trigger_value = u.current_value * option.contraction_factor;
-                Some(format!("value < ${trigger_value:.0}"))
+                Some(format!("value < {}", money_whole(trigger_value)))
             },
             _ => None,
         }
@@ -340,11 +341,16 @@ impl RealOptionsEngine {
         let mut parts = Vec::new();
 
         if let Some((name, value)) = best {
-            parts.push(format!("Best option: {name}, project value ${value:.0}"));
+            parts.push(format!(
+                "Best option: {name}, project value {}",
+                money_whole(*value)
+            ));
             if let Some(npv) = self.traditional_npv {
                 if npv < 0.0 && *value > 0.0 {
                     parts.push(format!(
-                        "Traditional NPV is negative (${npv:.0}), but with {name} the project is worth ${value:.0}"
+                        "Traditional NPV is negative ({}), but with {name} the project is worth {}",
+                        money_whole(npv),
+                        money_whole(*value)
                     ));
                 }
                 if options
@@ -353,7 +359,8 @@ impl RealOptionsEngine {
                 {
                     let premium = value - npv.max(0.0);
                     parts.push(format!(
-                        "Keeping the right to wait is worth ${premium:.0} more than deciding now"
+                        "Keeping the right to wait is worth {} more than deciding now",
+                        money_whole(premium)
                     ));
                 }
             }

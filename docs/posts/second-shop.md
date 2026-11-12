@@ -14,9 +14,9 @@ The same file with the `popup_first` branch deleted, so that only "open now" and
 
 ```
 forge decision-tree second_shop_without_popup.yaml
-   Expected Value: $58500.00
-      Best case:  $240000.00
-      Worst case: $-90000.00
+   Expected Value: $58,500.00
+      Best case:  $240,000.00
+      Worst case: -$90,000.00
       P(value > 0): 45.0%
 ```
 
@@ -30,7 +30,7 @@ forge decision-tree examples/bagel/second_shop.yaml
    Optimal Path:
       → Second shop? → popup_first
    ...
-   Expected Value: $61500.00
+   Expected Value: $61,500.00
 
    Decision Policy:
       At "open_after_busy": choose "open"
@@ -38,9 +38,9 @@ forge decision-tree examples/bagel/second_shop.yaml
       At "root": choose "popup_first"
 
       Outcomes under the optimal policy:
-         $198000.00 with probability 40.0%
-         $-12000.00 with probability 50.0%
-         $-117000.00 with probability 10.0%
+         $198,000.00 with probability 40.0%
+         -$12,000.00 with probability 50.0%
+         -$117,000.00 with probability 10.0%
 ```
 
 The pop-up is worth 61,500, which is 3,000 more than opening now. The policy is: run the stall; open the shop only if the stall was busy; walk away if it was quiet.

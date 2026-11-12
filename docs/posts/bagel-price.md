@@ -40,7 +40,7 @@ Instead of trying prices by hand, ask for the price that makes the year pay in 8
 ```
 forge simulate examples/bagel/bagel_simulate.yaml --seek "P(year.profit > 0) = 0.8" --vary price_per_dozen --min 14 --max 24
 
-   assumptions.price_per_dozen = 18.324083
+   assumptions.price_per_dozen = 18.32
    P(year.profit > 0) there: 80.00%  (2.92% at 14, 100.00% at 24)
    22 simulations of 5000 iterations, the same draws each time
 ```

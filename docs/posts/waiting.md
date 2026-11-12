@@ -10,17 +10,17 @@ The shop's value is uncertain (35% a year), the risk-free rate is 4%, and waitin
 ```
 forge real-options examples/bagel/wait_option.yaml
 
-   Traditional NPV (invest now, no flexibility): $60000.00
+   Traditional NPV (invest now, no flexibility): $60,000.00
 
    Options (each valued on its own):
-      Wait up to a year (Defer): option value $64604.68
-         Project value with this option: $64604.68
-         Rule of thumb: exercise when value > $198000
+      Wait up to a year (Defer): option value $64,604.68
+         Project value with this option: $64,604.68
+         Rule of thumb: exercise when value > $198,000
       Sell the oven and fit-out if it fails (Abandon): option value $279.72
-         Project value with this option: $60279.72
-         Rule of thumb: exercise when value < $132000
+         Project value with this option: $60,279.72
+         Rule of thumb: exercise when value < $132,000
 
-   Project value with the best option (Wait up to a year): $64604.68
+   Project value with the best option (Wait up to a year): $64,604.68
    Option values overlap, so they are compared, not added.
 
    Decision: ACCEPT (with Wait up to a year)

@@ -81,6 +81,17 @@ fn collect(v: &serde_json::Value, out: &mut Vec<f64>) {
     }
 }
 
+/// Whether `chars[j]` is a comma between groups of three digits in the whole
+/// part of the number that starts at `i`: the `,` of `4,272,727.27`.
+fn thousands_separator(chars: &[char], i: usize, j: usize) -> bool {
+    chars[j] == ','
+        && !chars[i..j].contains(&'.')
+        && chars
+            .get(j + 1..j + 4)
+            .is_some_and(|d| d.iter().all(char::is_ascii_digit))
+        && !chars.get(j + 4).is_some_and(char::is_ascii_digit)
+}
+
 /// The numbers a doc output block shows, with their decimals. Labels such as
 /// `P10` and `p=50%` are not numbers; a percentage is read as a fraction.
 fn shown_numbers(block: &str) -> Vec<(f64, usize)> {
@@ -103,12 +114,16 @@ fn shown_numbers(block: &str) -> Vec<(f64, usize)> {
             }
             continue;
         }
-        let negative = i > 0 && chars[i - 1] == '-';
+        // `-117` and `-$117,000.00`
+        let negative =
+            (i > 0 && chars[i - 1] == '-') || (i > 1 && chars[i - 1] == '$' && chars[i - 2] == '-');
         let mut j = i;
-        while j < chars.len() && (chars[j].is_ascii_digit() || chars[j] == '.') {
+        while j < chars.len()
+            && (chars[j].is_ascii_digit() || chars[j] == '.' || thousands_separator(&chars, i, j))
+        {
             j += 1;
         }
-        let text: String = chars[i..j].iter().collect();
+        let text: String = chars[i..j].iter().filter(|c| **c != ',').collect();
         let text = text.trim_end_matches('.');
         let decimals = text.split_once('.').map_or(0, |(_, d)| d.len());
         let percent = chars.get(j) == Some(&'%');

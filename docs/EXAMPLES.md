@@ -755,20 +755,20 @@ forge scenarios scenario_npv.yaml --output scenario_results.yaml
 
 ```
    base_case (p=50%): Market grows 5%, we maintain share
-      financials.npv: 4272727.272727
-      financials.year_1_revenue: 13125000
+      financials.npv: 4,272,727.27
+      financials.year_1_revenue: 13,125,000.00
 
    bear_case (p=20%): Recession, market contracts
-      financials.npv: 1463636.363636
-      financials.year_1_revenue: 7920000
+      financials.npv: 1,463,636.36
+      financials.year_1_revenue: 7,920,000.00
 
    bull_case (p=30%): Competitor exits, we gain share
-      financials.npv: 12672727.272727
-      financials.year_1_revenue: 28980000
+      financials.npv: 12,672,727.27
+      financials.year_1_revenue: 28,980,000.00
 
    Expected Values (probability-weighted):
-      financials.npv: 6230909.090909   (range 1463636.363636 to 12672727.272727, P(>0) = 100%)
-      financials.year_1_revenue: 16840500   (range 7920000 to 28980000, P(>0) = 100%)
+      financials.npv: 6,230,909.09   (range 1,463,636.36 to 12,672,727.27, P(>0) = 100%)
+      financials.year_1_revenue: 16,840,500.00   (range 7,920,000.00 to 28,980,000.00, P(>0) = 100%)
 ```
 
 Check by hand, base case: revenue 5,000,000 × 1.05 × 0.10 × 25 = 13,125,000; COGS 13,125,000 / 25 × 15 = 7,875,000; NPV 5,250,000 / 1.1 − 500,000 = 4,272,727. Expected NPV 0.5 × 4,272,727 + 0.3 × 12,672,727 + 0.2 × 1,463,636 = 6,230,909.
@@ -855,7 +855,7 @@ forge decision-tree rnd_decision.yaml
       →   if success →
       →     How to commercialize? → license
 
-   Expected Value: $1000000.00
+   Expected Value: $1,000,000.00
 
    Decision Policy:
       At "commercialize": choose "license"
@@ -863,8 +863,8 @@ forge decision-tree rnd_decision.yaml
       At "root": choose "invest"
 
    Risk Profile:
-      Best case:  $3000000.00
-      Worst case: $-2000000.00
+      Best case:  $3,000,000.00
+      Worst case: -$2,000,000.00
       P(value > 0): 60.0%
 ```
 

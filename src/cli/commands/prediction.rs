@@ -10,6 +10,7 @@
 
 use crate::bayesian::{BayesianConfig, BayesianEngine};
 use crate::bootstrap::{BootstrapConfig, BootstrapEngine};
+use crate::core::precision::money;
 use crate::core::precision::Rounded;
 use crate::decision_trees::{DecisionTreeConfig, DecisionTreeEngine};
 use crate::error::{ForgeError, ForgeResult};
@@ -331,7 +332,7 @@ pub fn scenarios(
             result.description
         );
         for (var, value) in &result.outputs {
-            println!("      {}: {}", var.cyan(), super::format_number(*value));
+            println!("      {}: {}", var.cyan(), super::display_number(*value));
         }
         println!();
     }
@@ -350,9 +351,9 @@ pub fn scenarios(
         println!(
             "      {}: {}   (range {} to {}, P(>0) = {}%)",
             var.bright_blue(),
-            super::format_number(*ev),
-            super::format_number(low),
-            super::format_number(high),
+            super::display_number(*ev),
+            super::display_number(low),
+            super::display_number(high),
             super::format_number(positive * 100.0)
         );
     }
@@ -440,7 +441,7 @@ pub fn decision_tree(
     // Expected value at root
     println!(
         "   Expected Value: {}",
-        format!("${:.2}", result.root_expected_value).bold().green()
+        money(result.root_expected_value).bold().green()
     );
 
     // Decision policy
@@ -464,8 +465,11 @@ pub fn decision_tree(
     // Risk profile
     println!();
     println!("   {}", "Risk Profile:".bold());
-    println!("      Best case:  ${:.2}", result.risk_profile.best_case);
-    println!("      Worst case: ${:.2}", result.risk_profile.worst_case);
+    println!("      Best case:  {}", money(result.risk_profile.best_case));
+    println!(
+        "      Worst case: {}",
+        money(result.risk_profile.worst_case)
+    );
     println!(
         "      P(value > 0): {:.1}%",
         result.risk_profile.probability_positive * 100.0
@@ -473,8 +477,8 @@ pub fn decision_tree(
     println!("      Outcomes under the optimal policy:");
     for outcome in &result.risk_profile.outcomes {
         println!(
-            "         ${:.2} with probability {:.1}%: {}",
-            outcome.value,
+            "         {} with probability {:.1}%: {}",
+            money(outcome.value),
             outcome.probability * 100.0,
             outcome.path.join(" → ")
         );
@@ -544,8 +548,8 @@ pub fn real_options(
         format!("{:?}", config.method).bright_blue()
     );
     println!(
-        "      Underlying value: ${:.2}",
-        config.underlying.current_value
+        "      Underlying value: {}",
+        money(config.underlying.current_value)
     );
     println!(
         "      Volatility: {:.1}%",
@@ -986,7 +990,7 @@ fn print_real_options_results(
     match result.traditional_npv {
         Some(npv) => println!(
             "   Traditional NPV (invest now, no flexibility): {}",
-            format!("${npv:.2}").yellow()
+            money(npv).yellow()
         ),
         None if compare_npv => println!(
             "   Traditional NPV: {}",
@@ -1008,10 +1012,10 @@ fn print_real_options_results(
             "      {} ({}): option value {}",
             opt_result.name.bright_blue(),
             format!("{:?}", opt_result.option_type).dimmed(),
-            format!("${:.2}", opt_result.value).bold().green()
+            money(opt_result.value).bold().green()
         );
         match opt_result.project_value {
-            Some(pv) => println!("         Project value with this option: ${pv:.2}"),
+            Some(pv) => println!("         Project value with this option: {}", money(pv)),
             None => println!("         Project value with this option: needs traditional_npv"),
         }
         if let Some(ref trigger) = opt_result.optimal_trigger {
@@ -1027,7 +1031,7 @@ fn print_real_options_results(
         println!(
             "   Project value with the best option ({}): {}",
             best.bright_blue(),
-            format!("${pv:.2}").bold().green()
+            money(pv).bold().green()
         );
     }
     if result.options.len() > 1 {
