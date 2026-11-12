@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.18] - 2026-11-12
+
+Forge Studio on a phone (the key suggestions sit on the keyboard, Delete takes less room), the validation suites in this repository, and `forge simulate`, `variance`, `sensitivity` and `break-even` printing numbers as the other commands do. No wrong answer was fixed since rc.13, so the two-week stable clock of docs/STABILITY.md still runs from rc.13 (no earlier than 2026-11-24).
+
 ### Fixed
 - **Forge Studio on a phone: the YAML editor's key suggestions were out of sight, and Delete made every card taller.** Typing at the end of a long file makes the page scroll to keep the caret in view, which took the strip of suggestions (above the editor) off the top of the screen, so on an iPhone nothing seemed to be offered. While the editor has the focus the strip is now docked at the bottom of what is visible, on the keyboard (on a wide screen it stays where it was). Delete on the Model tab is a small bin beside the slider, or beside a result's name, instead of a row of its own, so a screen shows about a third more cards. The confirmation still asks before anything is deleted. `studio/tests/keys.mjs` now checks that the strip is docked, sits on a keyboard of 344 px, takes a tap, and goes back when the editor loses the focus (it fails without the change).
 
