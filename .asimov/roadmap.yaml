@@ -79,6 +79,27 @@ tier1:
 tier2:
   # The earlier tier-2 items are done (2026-11-10): forge report, the
   # comparison example and the first-model starter.
+  # Found building examples/rolling-forecast (2026-11-12), the FP&A audit:
+  # actuals then forecast, fiscal quarters, year to date, a budget looked up
+  # by month and price/volume/mix all work; these three did not.
+  - id: T2-TABLE-AGGREGATES
+    title: "A table column that aggregates another table: a table of quarters from a table of months"
+    why: "A column of a table of quarters written as SUMIFS(months.revenue, months.fiscal_quarter, quarter) stops with 'aggregations should be in scalars section', so a roll-up of months into quarters or years is one scalar per period written by hand, and a mix variance can only be worked out for a whole year. In Excel this is the ordinary summary sheet. XLOOKUP(month, budget.month, budget.units) already reads another table's whole column in a row formula; an aggregate does not"
+    how: "An ADR first. Decide: inside an aggregate's range and criteria-range arguments, a column of another table is its whole column, and a name of the row's own table is still the row's value (as XLOOKUP does today); whether an aggregate of the row's own table (revenue / SUM(revenue)) is allowed too or stays an error that names the scalar workaround; how forge export writes it (whole-column references, as for a scalar) and forge import reads it back. The plan's aggregation check is where the error is raised today"
+    acceptance: "examples/rolling-forecast has a table of quarters made with SUMIFS over months, its values equal the four quarter scalars, the exported workbook recalculates to them in Gnumeric and LibreOffice, and import gives the formula back"
+
+  - id: T2-MISSING-VALUES
+    title: "An empty cell in a number column: a month with no actual yet"
+    why: "A number column refuses null ('null values not allowed in numeric arrays'), so the months of a forecast that are not closed hold 0, and an actual that really is 0 looks the same. Excel has empty cells, and ISBLANK, COUNT and AVERAGE treat them differently from 0"
+    how: "An ADR first, as Excel's rules for an empty cell differ by function (SUM skips it, AVERAGE does not count it, a reference to it reads 0, ISBLANK is TRUE); decide whether Forge follows them or keeps a smaller rule, how a blank is written in YAML (null or ~), shown in JSON, exported (an empty cell) and imported"
+    acceptance: "The rolling forecast's actual columns hold null for open months, is_actual can be ISNUMBER(actual), and for each function the Gnumeric suite checks on an empty cell, Forge gives Gnumeric's answer"
+
+  - id: T2-SCALAR-DATES
+    title: "A date as a scalar input, and a date result shown as a date"
+    why: "last_actual: 2026-10-31 is refused ('must be a number'), so a model writes =DATE(2026, 10, 31), and the result is printed as 46326, Excel's day number, in calculate, report and the exported Scalars sheet. A table column of dates is already a date (ADR-054); a scalar is not"
+    how: "Extend ADR-054 to scalars: a scalar written as a date is a date, shown as a date and exported as a date cell; a formula scalar whose result is a date (DATE, EOMONTH, EDATE) is shown as one. The schema of the model format changes, so decide in the ADR whether this needs a new version"
+    acceptance: "The rolling forecast writes last_actual: 2026-10-31, forge calculate and forge report print 2026-10-31, the workbook's cell is a date cell, and import gives the date back"
+
   - id: T2-NUMBER-FORMAT
     title: "A format: attribute next to unit:, carried into the exported workbook"
     why: "forge export writes every number in Excel's default format, so a margin is 0.1234 and a price 786.32036, and the workbook has to be formatted by hand before it is shown to anyone. unit: says what a number is, not how to show it. The maintainer's and his brother's idea, 2026-11-12: the workbook is what an audience sees"
