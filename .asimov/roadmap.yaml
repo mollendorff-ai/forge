@@ -92,16 +92,6 @@ studio:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier3:
-  - id: T3-IMPORT-PREV
-    title: "Import reads every PREV back as written"
-    why: "A column that only reads the row above comes back as PREV(value, first) (2026-11-10). A formula with a PREV inside it (a running balance) still comes back as IF(ROW() = 1, first row, PREV(...)): correct, but not what was written, and a column that reads two or more rows up comes in as values"
-    acceptance: "A model with PREV(value, first) + x and PREV(value, first, 2) columns is exported and imported to the same formulas, respaced"
-
-  - id: T3-CACHED-TEXT
-    title: "A formula's text result that looks like a number is cached as a number"
-    why: "forge export caches Forge's result in each formula cell for viewers that do not recalculate. =LEFT(d, 4) caches 2026 as a number, not the text it is; Excel and LibreOffice recalculate and show text, a viewer that does not shows a number"
-    acceptance: "The cached value of a text result is text in the workbook's XML"
-
   - id: T3-API
     title: "REST endpoints for the analytics tools (parity with the 20 MCP tools) + OpenAPI spec"
     why: "validate, calculate and audit already take inline content; the rest only exist over MCP"

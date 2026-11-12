@@ -742,37 +742,38 @@ impl ExcelImporter {
                 if other.is_none() {
                     return Ok(forge);
                 }
-                // The first row differs from the rest, as in a running
-                // balance: one formula for the first row, one for the
-                // others, which may read the row above
-                let above = |row: usize| {
-                    sheet.formula(row, col).map(|excel| {
-                        refs.to_forge_reading_above(
-                            &excel,
-                            &sheet.name,
-                            sheet.excel_row(row),
-                        )
+                // The first rows differ from the rest, as in a running
+                // balance: a PREV, whose first value is in those rows
+                let rows: Vec<String> = (1..height)
+                    .map(|row| {
+                        sheet
+                            .formula(row, col)
+                            .ok_or_else(|| {
+                                format!("row {} holds no formula", sheet.excel_row(row))
+                            })
+                            .and_then(|excel| {
+                                refs.to_forge_reading_above(
+                                    &excel,
+                                    &sheet.name,
+                                    sheet.excel_row(row),
+                                )
+                            })
                     })
-                };
-                let rest = above(2)
-                    .unwrap_or_else(|| Err("row 3 holds no formula".to_string()))?;
-                if let Some(row) =
-                    (3..height).find(|&row| above(row) != Some(Ok(rest.clone())))
-                {
-                    return Err(format!(
+                    .collect::<Result<_, _>>()?;
+                match super::previous_rows::column_formula(&rows) {
+                    Ok(formula) => Ok(formula),
+                    // Only the first row differs: correct, if not as written
+                    Err(_) if rows[1..].iter().all(|r| *r == rows[1]) => Ok(format!(
+                        "=IF(ROW() = 1, {}, {})",
+                        forge.trim_start_matches('='),
+                        rows[1].trim_start_matches('=')
+                    )),
+                    Err(index) => Err(format!(
                         "row {} holds another formula than the rows above it, and a \
                          Forge row formula is one formula for the whole column",
-                        sheet.excel_row(row)
-                    ));
+                        sheet.excel_row(index + 1)
+                    )),
                 }
-                let (first, rest) =
-                    (forge.trim_start_matches('='), rest.trim_start_matches('='));
-                // The rows below only read the row above: PREV with
-                // the first row's formula as its first value
-                if let Some(value) = Self::only_reads_above(rest) {
-                    return Ok(format!("=PREV({value}, {})", Self::without_parentheses(first)));
-                }
-                Ok(format!("=IF(ROW() = 1, {first}, {rest})"))
             })
             // A date is read as Forge reads it, or the formula is not
             // the same calculation in Forge (ADR-054)
@@ -788,37 +789,6 @@ impl ExcelImporter {
                 };
                 names.read_dates(&forge, ctx, holds)
             })
-    }
-
-    /// A formula without the parentheses Excel's cell had around all of it.
-    fn without_parentheses(formula: &str) -> String {
-        use crate::core::array_calculator::parser::parse;
-        use crate::core::array_calculator::tokenizer::tokenize;
-        tokenize(formula)
-            .ok()
-            .and_then(|tokens| parse(tokens).ok())
-            .map_or_else(
-                || formula.to_string(),
-                |expr| super::workbook_refs::dates::formula_of(&expr),
-            )
-    }
-
-    /// `x` if `formula` is `PREV(x, 0)` and nothing else: what
-    /// `ReverseRefs::to_forge_reading_above` gives for a cell that only reads
-    /// the cell above it.
-    fn only_reads_above(formula: &str) -> Option<String> {
-        use crate::core::array_calculator::parser::{parse, Expr};
-        use crate::core::array_calculator::tokenizer::tokenize;
-        let whole = parse(tokenize(formula).ok()?).ok()?;
-        let Expr::FunctionCall { name, args } = &whole else {
-            return None;
-        };
-        match args.as_slice() {
-            [value, Expr::Number(n)] if name == "PREV" && *n == 0.0 => {
-                Some(super::workbook_refs::dates::formula_of(value))
-            },
-            _ => None,
-        }
     }
 
     /// Convert Excel Data array to `ColumnValue`

@@ -107,7 +107,7 @@ A row formula is written once per row, so `PREV` needs nothing new in Excel: the
 
 Gnumeric recalculates the exported loan schedule and the two other examples to Forge's numbers, and so does LibreOffice. forge-e2e-gnumeric has 14 cases on `PREV`, `ROW()` and a period column (`tests/edge/edge_previous_row.yaml`), with expected values worked out by hand.
 
-`forge import` reads a column whose first row holds one formula and every other row another, which may read the row above, as `=IF(ROW() = 1, first row's formula, PREV(...) form)`. That is what Forge's own export of a `PREV` column comes back as, and what a running balance built by hand in Excel (`=A2`, then `=B2+A3`) comes in as. It is the same calculation, written differently from the original `PREV(closing, loan.principal)`.
+`forge import` reads a column whose first rows differ from the rest back as the `PREV` that was written. The later rows are read with a marker for each cell from a row above (`PREV(closing, 0)`, or `PREV(x, 0, 2)` two rows up), lined up with the first row, and each part that reads only the rows above becomes `PREV(part, the first row's part, back)`; the result is kept only if it gives every first row as the workbook holds it (T3-IMPORT-PREV, 2026-11-12). A running balance built by hand in Excel (`=A2`, then `=B2+A3`) has `amount` in its first row where a `PREV` would have `0 + amount`, so it comes in as `=IF(ROW() = 1, amount, PREV(balance, 0) + amount)`: the same calculation, written differently. Until 2026-11-12 every such column came in that way, and one that read two rows up came in as values.
 
 ## Alternatives considered
 
