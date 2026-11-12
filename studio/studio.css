@@ -290,17 +290,24 @@ textarea.editor.ta::selection { background: color-mix(in srgb, var(--accent) 30%
 .eyebrow .add-btn { margin-left: auto; align-self: center }
 .card.add-form { padding: 12px 14px }
 .card.add-form .fedit { margin-top: 0 }
-.row-actions { display: flex; justify-content: flex-end; margin-top: 4px }
+.del-btn.icon { width: 40px; height: 40px; padding: 0; justify-content: center; border-color: transparent; background: transparent }
+.del-btn.icon svg { width: 18px; height: 18px }
+.slide-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px }
+.slide-row input[type="range"] { flex: 1 1 0; width: auto; min-width: 120px }
+.res-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 6px }
+.res-top .del-btn.icon { margin: -6px -6px 0 0 }
 .col-edit { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
 .col-edit[hidden] { display: none }
 .del-btn { color: var(--muted) }
 .edit-btn.warn { color: var(--bad); border-color: var(--bad) }
-.del-ask { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--bad) }
+.del-ask { flex: 1 1 100%; justify-content: flex-end; display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--bad) }
 
 /* Suggestions while a formula is typed (S10) */
 .suggest { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch }
 .suggest::-webkit-scrollbar { display: none }
 .suggest[hidden] { display: none }
+/* The YAML editor's strip while typing on a phone: on the keyboard */
+.suggest.docked { position: fixed; left: 0; right: 0; bottom: var(--dock, 0px); z-index: 40; padding: 8px 12px; background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -2px 8px rgb(0 0 0 / .08) }
 .sug { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 11px; font-family: var(--f-mono); font-size: 13px; white-space: nowrap }
 .sug.function { color: var(--syn-fn); border-color: color-mix(in srgb, var(--syn-fn) 35%, var(--line)) }
 .sug.included { color: var(--syn-inc) }

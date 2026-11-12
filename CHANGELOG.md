@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Forge Studio on a phone: the YAML editor's key suggestions were out of sight, and Delete made every card taller.** Typing at the end of a long file makes the page scroll to keep the caret in view, which took the strip of suggestions (above the editor) off the top of the screen, so on an iPhone nothing seemed to be offered. While the editor has the focus the strip is now docked at the bottom of what is visible, on the keyboard (on a wide screen it stays where it was). Delete on the Model tab is a small bin beside the slider, or beside a result's name, instead of a row of its own, so a screen shows about a third more cards. The confirmation still asks before anything is deleted. `studio/tests/keys.mjs` now checks that the strip is docked, sits on a keyboard of 344 px, takes a tap, and goes back when the editor loses the focus (it fails without the change).
+
 ### Added
 - **The two validation suites are in this repository** (ADR-057): forge-e2e-gnumeric in `validation/gnumeric` and forge-e2e-r in `validation/r`, with their history. The Validation workflow runs the suites of the commit it builds, so a change to the engine and to a suite is one pull request (#161 needed two) and nothing outside Forge changes what its CI does. Their lint and unit tests run in CI, which forge-e2e-r never had. A new check, Expected values, fails a pull request that changes or removes an expected value of the suites unless its title says `changes expected values`. The Validation workflow also runs on `main` after a merge that changes the engine, `Cargo.toml` or a suite. The two old repositories are to be archived once it runs green there.
 
