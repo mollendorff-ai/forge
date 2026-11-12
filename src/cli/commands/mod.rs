@@ -42,7 +42,7 @@ mod upgrade;
 mod what_if_tests;
 
 // Re-exports
-pub use analysis::{break_even, goal_seek, sensitivity, variance};
+pub use analysis::{break_even, goal_seek, sensitivity, sensitivity_in_format, variance};
 pub use audit::audit;
 pub use compare::{compare, render_comparison, terminal_width};
 pub use examples::examples;

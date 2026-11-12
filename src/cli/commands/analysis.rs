@@ -9,7 +9,7 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 
-use super::{apply_scenario, display_number, format_number};
+use super::{apply_scenario, display_number};
 
 /// Variance result for a single variable
 #[derive(Debug, Clone)]
@@ -448,7 +448,7 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
 
     // Data rows
     for v in variances {
-        let var_str = format_number(v.variance);
+        let var_str = display_number(v.variance);
         let pct_str = format!("{:.1}%", v.variance_pct);
 
         let mark = match v.is_favorable {
@@ -473,8 +473,8 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
         println!(
             "{:<w$} {:>12} {:>12} {:>12} {:>10} {:>8}",
             v.name.bright_blue(),
-            format_number(v.budget),
-            format_number(v.actual),
+            display_number(v.budget),
+            display_number(v.actual),
             var_colored,
             pct_colored,
             status
@@ -892,32 +892,82 @@ pub fn sensitivity(
             vary.yellow(),
             output.bright_blue()
         );
-        println!("{}", "─".repeat(30));
-        println!("{:>12} {:>15}", vary.bold(), output.bold());
-        println!("{}", "─".repeat(30));
-
-        for val in &values1 {
-            match calculate_with_override(&base_model, vary, *val, output) {
-                Ok(result) => {
-                    println!(
-                        "{:>12} {:>15}",
-                        format!("{val:.4}").bright_yellow(),
-                        format_number(result).green()
-                    );
-                },
-                Err(e) => {
-                    println!(
-                        "{:>12} {:>15}",
-                        format!("{val:.4}").bright_yellow(),
-                        format!("ERR: {e}").red()
-                    );
-                },
-            }
+        // Wide enough for the names and the numbers, so the header lines up
+        let rows: Vec<(String, Result<f64, String>)> = values1
+            .iter()
+            .map(|val| {
+                (
+                    format!("{val:.4}"),
+                    calculate_with_override(&base_model, vary, *val, output)
+                        .map_err(|e| e.to_string()),
+                )
+            })
+            .collect();
+        let shown = |result: &Result<f64, String>| match result {
+            Ok(v) => display_number(*v),
+            Err(e) => format!("ERR: {e}"),
+        };
+        let input_width = rows
+            .iter()
+            .map(|(input, _)| input.len())
+            .chain([vary.chars().count()])
+            .max()
+            .unwrap_or(12);
+        let output_width = rows
+            .iter()
+            .map(|(_, result)| shown(result).chars().count())
+            .chain([output.chars().count()])
+            .max()
+            .unwrap_or(15);
+        let rule = "─".repeat(input_width + 1 + output_width);
+        println!("{rule}");
+        println!(
+            "{:>input_width$} {:>output_width$}",
+            vary.bold(),
+            output.bold()
+        );
+        println!("{rule}");
+        for (input, result) in &rows {
+            let text = shown(result);
+            println!(
+                "{:>input_width$} {:>output_width$}",
+                input.bright_yellow(),
+                if result.is_ok() {
+                    text.green()
+                } else {
+                    text.red()
+                }
+            );
         }
-        println!("{}", "─".repeat(30));
+        println!("{rule}");
     }
 
     println!("\n{}", "✅ Sensitivity analysis complete".bold().green());
+    Ok(())
+}
+
+/// `forge sensitivity` in the format asked for: the table, or JSON for
+/// programs that read it, with the numbers at their 15 significant digits
+/// and not as the table shows them.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, variables are not found,
+/// ranges are invalid, or calculation fails.
+pub fn sensitivity_in_format(
+    file: &Path,
+    (vary, range): (&str, &str),
+    (vary2, range2): (Option<&str>, Option<&str>),
+    output: &str,
+    (format, verbose): (&str, bool),
+) -> ForgeResult<()> {
+    if format != "json" {
+        return sensitivity(file, vary, range, vary2, range2, output, verbose);
+    }
+    let result = sensitivity_core(file, vary, range, vary2, range2, output)?;
+    let json = serde_json::to_string_pretty(&crate::core::precision::Rounded(&result))
+        .map_err(|e| ForgeError::Validation(format!("Failed to write JSON: {e}")))?;
+    println!("{json}");
     Ok(())
 }
 
@@ -1078,7 +1128,20 @@ pub fn goal_seek(
     println!("   Target: {} = {}", target.bright_blue(), value);
     println!("   Vary: {}", vary.bright_yellow());
     println!("   Tolerance: {tolerance}\n");
+    solve(file, target, value, vary, bounds, tolerance, verbose)
+}
 
+/// Find the input, then print the solution (the part goal-seek and
+/// break-even share, after their own headers).
+fn solve(
+    file: &Path,
+    target: &str,
+    value: f64,
+    vary: &str,
+    bounds: (Option<f64>, Option<f64>),
+    tolerance: f64,
+    verbose: bool,
+) -> ForgeResult<()> {
     let result = goal_seek_core(file, target, value, vary, bounds, tolerance)?;
     if verbose {
         println!(
@@ -1135,46 +1198,67 @@ fn run_two_var_sensitivity(
         output.bright_blue()
     );
 
+    // Calculate every cell first, so the columns can be as wide as their numbers
+    let cell = |val1: f64, val2: f64| {
+        let mut model = base_model.clone();
+        if let Some(s) = model.scalars.get_mut(vary) {
+            s.value = Some(val1);
+            s.formula = None;
+        }
+        if let Some(s) = model.scalars.get_mut(v2) {
+            s.value = Some(val2);
+            s.formula = None;
+        }
+        match ArrayCalculator::new(model).calculate_all() {
+            Ok(result) => result.scalars.get(output).map_or_else(
+                || "?".to_string(),
+                |scalar| scalar.value.map_or_else(|| "-".to_string(), display_number),
+            ),
+            Err(_) => "ERR".to_string(),
+        }
+    };
+    let rows: Vec<(String, Vec<String>)> = values1
+        .iter()
+        .map(|val1| {
+            (
+                format!("{val1:.4}"),
+                values2.iter().map(|val2| cell(*val1, *val2)).collect(),
+            )
+        })
+        .collect();
+    let heads: Vec<String> = values2.iter().map(|val2| format!("{val2:.4}")).collect();
+    let first_width = rows
+        .iter()
+        .map(|(input, _)| input.len())
+        .chain([vary.chars().count()])
+        .max()
+        .unwrap_or(12);
+    let width = rows
+        .iter()
+        .flat_map(|(_, cells)| cells.iter())
+        .chain(heads.iter())
+        .map(|text| text.chars().count())
+        .max()
+        .unwrap_or(0)
+        .max(12)
+        + 1;
+
     // Header row
-    print!("{:>12}", vary.bright_yellow());
-    for val2 in &values2 {
-        print!("{:>12}", format!("{val2:.4}").dimmed());
+    print!("{:>first_width$}", vary.bright_yellow());
+    for head in &heads {
+        print!("{:>width$}", head.dimmed());
     }
     println!();
-    println!("{}", "─".repeat(12 + values2.len() * 12));
+    println!("{}", "─".repeat(first_width + heads.len() * width));
 
     // Data rows
-    for val1 in values1 {
-        print!("{:>12}", format!("{val1:.4}").bright_yellow());
-
-        for val2 in &values2 {
-            let mut model = base_model.clone();
-
-            if let Some(s) = model.scalars.get_mut(vary) {
-                s.value = Some(*val1);
-                s.formula = None;
-            }
-            if let Some(s) = model.scalars.get_mut(v2) {
-                s.value = Some(*val2);
-                s.formula = None;
-            }
-
-            let calculator = ArrayCalculator::new(model);
-            match calculator.calculate_all() {
-                Ok(result) => {
-                    if let Some(scalar) = result.scalars.get(output) {
-                        if let Some(v) = scalar.value {
-                            print!("{:>12}", format_number(v).green());
-                        } else {
-                            print!("{:>12}", "-".dimmed());
-                        }
-                    } else {
-                        print!("{:>12}", "?".red());
-                    }
-                },
-                Err(_) => {
-                    print!("{:>12}", "ERR".red());
-                },
+    for (input, cells) in &rows {
+        print!("{:>first_width$}", input.bright_yellow());
+        for text in cells {
+            match text.as_str() {
+                "ERR" | "?" => print!("{:>width$}", text.red()),
+                "-" => print!("{:>width$}", text.dimmed()),
+                _ => print!("{:>width$}", text.green()),
             }
         }
         println!();
@@ -1235,11 +1319,25 @@ pub fn break_even(
     verbose: bool,
 ) -> ForgeResult<()> {
     println!("{}", "🔥 Forge - Break-Even Analysis".bold().green());
-    println!("   Finding where {} = 0\n", output.bright_blue());
+    println!("   File: {}", file.display());
+    println!("   Finding where {} = 0", output.bright_blue());
+    println!("   Vary: {}", vary.bright_yellow());
+    println!("   Tolerance: {BREAK_EVEN_TOLERANCE}\n");
 
-    // Break-even is just goal-seek with value = 0
-    goal_seek(file, output, 0.0, vary, (min, max), 0.0001, verbose)
+    // Break-even is goal-seek with value = 0
+    solve(
+        file,
+        output,
+        0.0,
+        vary,
+        (min, max),
+        BREAK_EVEN_TOLERANCE,
+        verbose,
+    )
 }
+
+/// How close to zero the output must be for `forge break-even`.
+const BREAK_EVEN_TOLERANCE: f64 = 0.0001;
 
 #[cfg(test)]
 mod direction_tests {

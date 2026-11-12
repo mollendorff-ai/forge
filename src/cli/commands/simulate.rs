@@ -277,11 +277,11 @@ fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
         let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
         let max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         println!(
-            "      {} mean={:.2} min={:.2} max={:.2}",
+            "      {} mean={} min={} max={}",
             var_name.bright_blue(),
-            mean,
-            min,
-            max
+            super::display_number(mean),
+            super::display_number(min),
+            super::display_number(max)
         );
     }
     println!();
@@ -308,16 +308,22 @@ fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
             }
             let stats = &output.statistics;
             println!("      {}:", var_name.bright_blue().bold());
-            println!("         Mean:      {:.4}", stats.mean);
-            println!("         Median:    {:.4}", stats.median);
-            println!("         Std Dev:   {:.4}", stats.std_dev);
-            println!("         Min:       {:.4}", stats.min);
-            println!("         Max:       {:.4}", stats.max);
+            println!("         Mean:      {}", super::display_number(stats.mean));
+            println!(
+                "         Median:    {}",
+                super::display_number(stats.median)
+            );
+            println!(
+                "         Std Dev:   {}",
+                super::display_number(stats.std_dev)
+            );
+            println!("         Min:       {}", super::display_number(stats.min));
+            println!("         Max:       {}", super::display_number(stats.max));
 
             // Percentiles
             println!("         Percentiles:");
             for (p, v) in &stats.percentiles {
-                println!("            P{p}: {v:.4}");
+                println!("            P{p}: {}", super::display_number(*v));
             }
 
             // Thresholds, in the order configured
@@ -331,7 +337,10 @@ fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
             }
 
             for (p, mean) in &output.expected_shortfall {
-                println!("         Mean of the worst {p}% (expected shortfall): {mean:.4}");
+                println!(
+                    "         Mean of the worst {p}% (expected shortfall): {}",
+                    super::display_number(*mean)
+                );
             }
 
             // Which sampled inputs move it most
@@ -379,12 +388,12 @@ fn print_column_rows(result: &crate::monte_carlo::SimulationResult, column: &str
                 .unwrap_or(f64::NAN)
         };
         let mut line = format!(
-            "         {:>4} {:>14.2} {:>14.2} {:>14.2} {:>14.2}",
+            "         {:>4} {:>14} {:>14} {:>14} {:>14}",
             row + 1,
-            output.statistics.mean,
-            p(10),
-            p(50),
-            p(90)
+            super::display_number(output.statistics.mean),
+            super::display_number(p(10)),
+            super::display_number(p(50)),
+            super::display_number(p(90))
         );
         for prob in output.threshold_probabilities.values() {
             let _ = write!(line, " {:>9.2}%", prob * 100.0);

@@ -339,13 +339,13 @@ fn household() {
         "household",
         &["variance", budget, actual, "--threshold", "10"],
         &[
-            "income.side_work                 400          150         -250     -62.5%",
-            "expenses.groceries               700       812.43       112.43      16.1%",
-            "expenses.transport               180         96.5        -83.5     -46.4%",
-            "expenses.eating_out              250       388.75       138.75      55.5%",
+            "income.side_work              400.00       150.00      -250.00     -62.5%",
+            "expenses.groceries            700.00       812.43       112.43      16.1%",
+            "expenses.transport            180.00        96.50       -83.50     -46.4%",
+            "expenses.eating_out           250.00       388.75       138.75      55.5%",
             "Favorable: 1  ❌ Unfavorable: 9",
             "Alerts (>10%): 8",
-            "expenses.total                  3100      3305.85       205.85       6.6%",
+            "expenses.total              3,100.00     3,305.85       205.85       6.6%",
         ],
         &["205.85", "6.6%", "55.5%", "83.50", "Alerts (>10%): 8"],
     );

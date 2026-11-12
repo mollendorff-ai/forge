@@ -560,8 +560,13 @@ pub fn real_options(
         config.underlying.risk_free_rate * 100.0
     );
     println!(
-        "      Time horizon: {} years",
-        config.underlying.time_horizon
+        "      Time horizon: {} {}",
+        config.underlying.time_horizon,
+        if (config.underlying.time_horizon - 1.0).abs() < f64::EPSILON {
+            "year"
+        } else {
+            "years"
+        }
     );
     println!();
 

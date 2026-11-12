@@ -222,14 +222,14 @@ forge simulate npv_analysis.yaml
 
 ```
       valuation.npv:
-         Mean:      87437.4814
-         Median:    88265.5005
-         Std Dev:   17132.3025
-         Min:       34406.0210
-         Max:       146902.3347
-            P10: 64080.8089
-            P50: 88265.5005
-            P90: 109079.7955
+         Mean:      87,437.48
+         Median:    88,265.50
+         Std Dev:   17,132.30
+         Min:       34,406.02
+         Max:       146,902.33
+            P10: 64,080.81
+            P50: 88,265.50
+            P90: 109,079.80
          P(valuation.npv > 0) = 100.00%
          Drivers (rank correlation with the output):
             -0.772  assumptions.initial_cost
@@ -293,12 +293,12 @@ forge simulate revenue_forecast.yaml --output forecast_results.yaml
 
 ```
       forecast.q4_revenue:
-         Mean:      703473.4428
-            P10: 610255.8531
-            P25: 651287.8197
-            P50: 701644.4310
-            P75: 751521.9758
-            P90: 799584.7064
+         Mean:      703,473.44
+            P10: 610,255.85
+            P25: 651,287.82
+            P50: 701,644.43
+            P75: 751,521.98
+            P90: 799,584.71
          P(forecast.q4_revenue > 750000) = 25.62%
          Drivers (rank correlation with the output):
             +0.784  assumptions.base_revenue
@@ -371,24 +371,24 @@ forge simulate correlated_model.yaml --output corr_results.yaml
 
 ```
       financials.net_income:
-         Mean:      95563.1612
-            P5: 21981.2317
-            P25: 63962.4224
-            P50: 94779.0054
-            P75: 125748.6329
-            P95: 173228.5997
+         Mean:      95,563.16
+            P5: 21,981.23
+            P25: 63,962.42
+            P50: 94,779.01
+            P75: 125,748.63
+            P95: 173,228.60
          P(financials.net_income > 0) = 98.43%
          Drivers (rank correlation with the output):
             +0.485  financials.margin
             +0.314  financials.revenue
             -0.310  financials.fixed_costs
       financials.revenue:
-            P10: 808766.3382
-            P50: 1000048.2642
-            P90: 1192681.4769
+            P10: 808,766.34
+            P50: 1,000,048.26
+            P90: 1,192,681.48
       financials.margin:
             P10: 0.2359
-            P50: 0.3000
+            P50: 0.30
             P90: 0.3641
 ```
 
@@ -478,14 +478,14 @@ forge simulate multi_output.yaml --output multi_results.yaml
 
 ```
       metrics.ebitda:
-         Mean:      64708.0114
-            P1: -100507.2091
-            P5: -58395.8111
-            P25: 4950.9948
-            P50: 56764.3989
-            P75: 116586.8545
-            P95: 213680.4184
-            P99: 289681.6702
+         Mean:      64,708.01
+            P1: -100,507.21
+            P5: -58,395.81
+            P25: 4,950.99
+            P50: 56,764.40
+            P75: 116,586.85
+            P95: 213,680.42
+            P99: 289,681.67
          P(metrics.ebitda > 0) = 77.20%
          Drivers (rank correlation with the output):
             +0.606  assumptions.market_share
@@ -499,15 +499,15 @@ forge simulate multi_output.yaml --output multi_results.yaml
             P90: 0.3518
          P(metrics.roi > 0.15) = 41.62%
       metrics.payback_years:
-         Median:    8.8083
-            P25: 4.2886
-            P75: 100.9898
+         Median:    8.81
+            P25: 4.29
+            P75: 100.99
          P(metrics.payback_years < 3) = 11.86%
       projections.year_1_revenue:
-         Mean:      549468.9215
-            P10: 354324.1950
-            P50: 533585.4917
-            P90: 766406.2371
+         Mean:      549,468.92
+            P10: 354,324.19
+            P50: 533,585.49
+            P90: 766,406.24
 ```
 
 Check by hand: revenue averages 5,000,000 × 0.11 (the triangular mean of the share) = 550,000; the simulation gives 549,469.
@@ -573,12 +573,12 @@ forge simulate project_cost.yaml --output cost_results.yaml
 
 ```
       project.total_cost:
-         Mean:      358064.4719
-            P10: 304332.6095
-            P50: 355350.5458
-            P90: 416021.1895
-            P95: 435343.4332
-            P99: 470931.1788
+         Mean:      358,064.47
+            P10: 304,332.61
+            P50: 355,350.55
+            P90: 416,021.19
+            P95: 435,343.43
+            P99: 470,931.18
          P(project.total_cost > 350000) = 55.26%
          Drivers (rank correlation with the output):
             +0.610  phases.dev_cost

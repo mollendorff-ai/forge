@@ -24,14 +24,14 @@ The household planned to keep 2,500 and kept 2,044.15. The savings rate fell fro
 forge variance examples/household/budget.yaml examples/household/actual.yaml --threshold 10
 
 Variable                      Budget       Actual     Variance      Var %   Status
-income.side_work                 400          150         -250     -62.5%     ⚠️ ❌
-expenses.groceries               700       812.43       112.43      16.1%     ⚠️ ❌
-expenses.transport               180         96.5        -83.5     -46.4%     ⚠️ ✅
-expenses.utilities               140        163.2         23.2      16.6%     ⚠️ ❌
-expenses.eating_out              250       388.75       138.75      55.5%     ⚠️ ❌
-expenses.subscriptions            60        74.97        14.97      24.9%     ⚠️ ❌
-result.left_over                2500      2044.15      -455.85     -18.2%     ⚠️ ❌
-result.savings_rate         0.446429     0.382084    -0.064344     -14.4%     ⚠️ ❌
+income.side_work              400.00       150.00      -250.00     -62.5%     ⚠️ ❌
+expenses.groceries            700.00       812.43       112.43      16.1%     ⚠️ ❌
+expenses.transport            180.00        96.50       -83.50     -46.4%     ⚠️ ✅
+expenses.utilities            140.00       163.20        23.20      16.6%     ⚠️ ❌
+expenses.eating_out           250.00       388.75       138.75      55.5%     ⚠️ ❌
+expenses.subscriptions         60.00        74.97        14.97      24.9%     ⚠️ ❌
+result.left_over            2,500.00     2,044.15      -455.85     -18.2%     ⚠️ ❌
+result.savings_rate           0.4464       0.3821     -0.06434     -14.4%     ⚠️ ❌
 
    ✅ Favorable: 1  ❌ Unfavorable: 9  · No direction: 0  = On target: 3  ⚠️ Alerts (>10%): 8
 ```

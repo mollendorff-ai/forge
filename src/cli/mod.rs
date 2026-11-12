@@ -4,7 +4,7 @@ pub mod commands;
 
 pub use commands::{
     audit, break_even, calculate, compare, examples, functions, goal_seek, schema, sensitivity,
-    validate, variance,
+    sensitivity_in_format, validate, variance,
 };
 
 // Watch, update, export and import need the `cli` feature

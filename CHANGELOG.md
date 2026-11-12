@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **`forge simulate`, `forge variance` and `forge sensitivity` print numbers as `forge report` does.** `simulate` printed `2731555.7601` and `variance` `386827.449538`; they now print `2,731,555.76` and `386,827.45`, and the sensitivity table is as wide as its names and numbers, so its header lines up. `forge sensitivity --format json` prints the numbers at their 15 significant digits for programs that read it (the table is not made for that).
+- **`forge break-even` has a header of its own** and no longer says "Goal Seek" under "Break-Even Analysis"; a time horizon of one prints `1 year`.
+- **`forge import` says which included files it wrote** beside the model (`Included files: costs.yaml`), in the `included_files` field of the JSON result too.
+
 ## [10.0.0-rc.17] - 2026-11-12
 
 The YAML editor in Forge Studio suggests the keys of the model format, Studio downloads 20% less, and `forge scenarios`, `simulate --seek`, `decision-tree` and `real-options` print numbers as the other commands do. A workbook's cached text is stored as text, and CI no longer lets one hung run block the release. The Grid tab, which the rc.16 tag already contained, is now listed under rc.16. The two-week stable clock of docs/STABILITY.md is unchanged, still from rc.13 (no earlier than 2026-11-24).

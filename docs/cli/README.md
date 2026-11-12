@@ -564,6 +564,12 @@ Options:
   -o, --output <OUTPUT>
           Output variable to observe
 
+      --format <FORMAT>
+          Output format: table (default) or json
+          
+          [default: table]
+          [possible values: table, json]
+
       --verbose
           Show verbose output
 
