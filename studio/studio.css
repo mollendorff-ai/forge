@@ -49,7 +49,7 @@ main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: m
 
 .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line);
   padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px) }
-.tabs-in { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr) }
+.tabs-in { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: repeat(6, 1fr) }
 .tab { background: none; border: 0; padding: 8px 2px 9px; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--muted); font-size: 11.5px; font-weight: 500 }
 .tab svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round }
 .tab[aria-current="page"] { color: var(--accent) }
@@ -304,3 +304,23 @@ textarea.editor.ta::selection { background: color-mix(in srgb, var(--accent) 30%
 .sug { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 11px; font-family: var(--f-mono); font-size: 13px; white-space: nowrap }
 .sug.function { color: var(--syn-fn); border-color: color-mix(in srgb, var(--syn-fn) 35%, var(--line)) }
 .sug.included { color: var(--syn-inc) }
+
+/* The grid view (S11) */
+.grid-wrap { padding: 0; overflow: auto; max-height: 72vh; -webkit-overflow-scrolling: touch }
+table.grid { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13px; font-variant-numeric: tabular-nums }
+.grid th, .grid td { padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface); text-align: left; vertical-align: top }
+.grid thead th { position: sticky; top: 0; z-index: 2; background: var(--sunk); font-weight: 500; cursor: pointer }
+.grid tbody th[scope="row"] { position: sticky; left: 0; z-index: 1; background: var(--sunk); color: var(--muted); font-weight: 400; font-family: var(--f-mono); font-size: 12px; border-right: 1px solid var(--line) }
+.grid thead th.corner { left: 0; z-index: 3; cursor: default; border-right: 1px solid var(--line) }
+.grid td.num, .grid th.num { text-align: right }
+.grid td { cursor: pointer }
+.grid td.neg { color: var(--ember) }
+.grid .empty { color: var(--muted); cursor: default }
+.g-name { display: block; font-family: var(--f-mono); font-size: 12.5px }
+.g-unit { display: inline-block; margin-top: 1px; font-size: 11px; color: var(--muted) }
+.g-formula { display: block; max-width: 11rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--f-mono); font-size: 11px; font-weight: 400; color: var(--muted) }
+table.grid.scalars { width: 100% }
+table.grid.scalars .g-formula { max-width: 15rem }
+.g-group th { position: static !important; background: var(--sunk); color: var(--muted); font-family: var(--f-mono); font-size: 11.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; border-right: 0 }
+
+.grid-wrap.flat { max-height: none }

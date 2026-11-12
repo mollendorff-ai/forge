@@ -632,6 +632,75 @@ async function deleteElement(path) {
   }
 }
 
+// ---------- grid view (roadmap S11) ----------
+// The model as a spreadsheet reads it: each table as rows and columns, with
+// the column's one formula in its header, and the scalars as a list. It is
+// read-only and shows what Forge calculated (S.calc), formatted by the same
+// rules as the cards; a tap on a cell or a header shows its value and
+// formula, and takes you to its card, where editing stays.
+const cellText = (v, path) => (typeof v === "number" ? fmtAt(v, path) : v === null || v === undefined ? "" : String(v));
+function gridTable(t) {
+  const calc = S.calc && S.calc.tables[t.name];
+  const rows = calc ? Math.max(0, ...Object.values(calc.values).map((x) => x.length)) : 0;
+  const labels = rowLabels(t.name);
+  const head = t.columns.map((c) => `<th scope="col" class="g-head" data-gcol="${esc(t.name + "." + c.name)}"><span class="g-name">${esc(c.name)}</span>${c.unit ? `<span class="g-unit">${esc(c.unit)}</span>` : ""}${c.formula ? `<span class="g-formula" title="${esc(c.formula)}">${esc(c.formula)}</span>` : ""}</th>`).join("");
+  let body = "";
+  for (let i = 0; i < rows; i++) {
+    body += `<tr><th scope="row">${esc(labels[i] ?? i + 1)}</th>` + t.columns.map((c) => {
+      const v = calc.values[c.name] ? calc.values[c.name][i] : undefined;
+      const path = `${t.name}.${c.name}`;
+      return `<td data-cell="${esc(path)}" data-row="${i}" data-value="${esc(v === undefined || v === null ? "" : String(v))}" class="${typeof v === "number" ? "num" : ""}${typeof v === "number" && v < 0 ? " neg" : ""}">${esc(cellText(v, path))}</td>`;
+    }).join("") + `</tr>`;
+  }
+  if (!rows) body = `<tr><td class="empty" colspan="${t.columns.length + 1}">Not calculated</td></tr>`;
+  return `<div class="eyebrow"><h2>${esc(t.name)}</h2><span class="tag">table · ${rows} rows</span></div>
+    <div class="card grid-wrap"><table class="grid"><thead><tr><th class="corner" scope="col"></th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function gridScalars(list) {
+  let body = "", group;
+  for (const s of list) {
+    const g = split(s.path).group ?? "";
+    if (g !== group) { group = g; body += `<tr class="g-group"><th colspan="2" scope="colgroup">${esc(g || "top level")}</th></tr>`; }
+    const v = valueOf(s.path);
+    body += `<tr data-gscalar="${esc(s.path)}" data-value="${esc(v === undefined || v === null ? "" : String(v))}"><th scope="row"><span class="g-name">${esc(leaf(s.path))}</span>${s.unit ? `<span class="g-unit">${esc(s.unit)}</span>` : ""}${s.formula != null ? `<span class="g-formula" title="${esc(s.formula)}">${esc(s.formula)}</span>` : ""}</th><td class="num${typeof v === "number" && v < 0 ? " neg" : ""}">${esc(S.calc ? cellText(v, s.path) : "")}</td></tr>`;
+  }
+  return `<div class="eyebrow"><h2>scalars</h2><span class="tag">inputs and results</span></div>
+    <div class="card grid-wrap flat"><table class="grid scalars"><thead><tr><th scope="col">name</th><th scope="col" class="num">value</th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function renderGrid() {
+  const v = $("#view-grid");
+  if (!S.structure) {
+    v.innerHTML = `<div class="msg bad">${esc(S.error || "Forge is starting…")}</div><p class="note">Fix it in the YAML tab, or open another model from Files.</p>`;
+    return;
+  }
+  let h = `<p class="lead">The model as a spreadsheet reads it${S.scenario ? `, with the ${esc(S.scenario)} scenario applied` : ""}. Tap a cell or a heading for its formula; change things on the cards.</p>`;
+  if (S.error) h += `<div class="msg bad">${esc(S.error)}</div>`;
+  if (S.structure.scalars.length) h += gridScalars(S.structure.scalars);
+  for (const t of S.structure.tables) h += gridTable(t);
+  if (S.structure.includes.length) h += `<p class="note">Included files (${S.structure.includes.map((i) => esc(i.file)).join(", ")}) are on the Model tab.</p>`;
+  v.innerHTML = h;
+}
+$("#view-grid").addEventListener("click", (e) => {
+  const cell = e.target.closest("[data-cell]"), col = e.target.closest("[data-gcol]"), sc = e.target.closest("[data-gscalar]");
+  const path = cell ? cell.dataset.cell : col ? col.dataset.gcol : sc ? sc.dataset.gscalar : null;
+  if (!path) return;
+  const entry = formulaOf(S.structure, path);
+  const where = cell ? ` · row ${rowLabels(path.slice(0, path.lastIndexOf(".")))[Number(cell.dataset.row)] ?? Number(cell.dataset.row) + 1}` : "";
+  const shown = cell ? cell.textContent : sc ? sc.querySelector("td").textContent : "";
+  openSheet(`${path}${where}`,
+    (cell || sc ? `<p class="res-val" data-gvalue>${esc(shown)}</p>` : "") +
+    (entry && entry.formula ? `<p class="note">Formula</p><div class="formula" data-gformula>${esc(entry.formula)}</div>` : `<p class="note">${entry && entry.unit ? `${esc(entry.unit)} · ` : ""}typed in the file, not calculated</p>`) +
+    `<div class="btns" style="margin-top:12px"><button type="button" class="btn primary" data-gocard="${esc(path)}">Show its card</button></div>`);
+});
+$("#sheet-body").addEventListener("click", (e) => {
+  const go = e.target.closest("[data-gocard]");
+  if (!go) return;
+  $("#sheet").hidden = true;
+  show("model");
+  const card = $(`#view-model [data-card="${CSS.escape(go.dataset.gocard)}"]`);
+  if (card) { card.scrollIntoView({ block: "center" }); card.classList.remove("pulse"); void card.offsetWidth; card.classList.add("pulse"); }
+});
+
 // ---------- YAML view ----------
 function renderYaml() {
   const v = $("#view-yaml");
@@ -1038,8 +1107,8 @@ vf.addEventListener("change", async (e) => {
 // Below 900 px: one view at a time and the tabs at the bottom. Wider: the
 // YAML editor on the left, the other views on the right, a divider between
 // them that can be dragged, and controls to hide either side (ADR-056).
-const VIEWS = ["model", "yaml", "analyze", "mcp", "files"];
-const RENDER = { model: () => { renderModel(); updateValues(); }, yaml: renderYaml, analyze: renderAnalyze, mcp: renderTools, files: renderFiles };
+const VIEWS = ["model", "grid", "yaml", "analyze", "mcp", "files"];
+const RENDER = { model: () => { renderModel(); updateValues(); }, grid: renderGrid, yaml: renderYaml, analyze: renderAnalyze, mcp: renderTools, files: renderFiles };
 const WIDE = matchMedia("(min-width: 900px)");
 const LAYOUT = "forge-studio-layout";
 const layout = (() => { try { return JSON.parse(localStorage.getItem(LAYOUT)) || {}; } catch (e) { return {}; } })();

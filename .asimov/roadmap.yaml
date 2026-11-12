@@ -91,12 +91,6 @@ studio:
     how: "From the model format's schema (the schema tool), not a list in the page; on a phone a strip above the keyboard, as in the formula field"
     acceptance: "In every example's YAML, typing the first letters of each key offers it (a test over the examples); only keys of the schema are offered, and none inside a formula"
 
-  - id: S11-GRID
-    title: "A spreadsheet view of the model"
-    why: "Cards show one value at a time. A model with tables is read as a grid in Excel, and the maintainer asked for a spreadsheet visualizer (2026-11-11)"
-    how: "Read-only, built from what Forge returns (decided with the maintainer, 2026-11-11: a grid tab, not a preview of the exported workbook, which iOS already opens in Quick Look or Numbers). Each table as rows and columns with the column's one formula in its header, scalars as a list, a tap on a cell shows its formula and opens its card; the first column stays in view on a phone. Needs a short ADR-056 addendum: decision 8 says Studio is not a spreadsheet with a grid, and this view is read-only, with editing staying on the cards"
-    acceptance: "For every table of every example, each cell of the grid equals the value Forge returns for it (a test); a tap on a formula cell shows the formula Forge reports; nothing in the page calculates"
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 3 — REACH (after tier 1 is done and at least two people use it)
 # ═══════════════════════════════════════════════════════════════════════════════

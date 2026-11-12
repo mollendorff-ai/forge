@@ -1,6 +1,6 @@
 # ADR-056: Forge Studio, a Web Interface in This Repository
 
-**Status:** Accepted; Studio is in `studio/` and calculates with forge-wasm (S3); published by `pages.yml` once Pages is switched on (S4); addendum on adding and deleting elements (S9), 2026-11-11
+**Status:** Accepted; Studio is in `studio/` and calculates with forge-wasm (S3); published by `pages.yml` once Pages is switched on (S4); addenda on adding and deleting elements (S9) and on the grid view (S11), 2026-11-11
 **Date:** 2026-11-10
 **Decided by:** the maintainer (a public demo page, phone first, with a split view on wide screens, built in this repository and published on GitHub Pages); the design is Claude's, in a session configured for Opus 5.5
 
@@ -63,3 +63,15 @@ Decision 2 holds: the YAML is the model, and a card writes text. S7 let a card c
 4. **What is kept.** As for a formula (S7): the new text is kept only when the model still validates (for a model with distributions, a ten-run simulation evaluates every formula), and the model Forge reads back is exactly the one before, with that one element added (with the value, formula and unit typed) or gone. Anything else (a name already in the model, a formula Forge refuses, deleting an input other formulas use) shows Forge's message, and the file is as it was. Adding and then deleting an element gives back the file byte for byte.
 
 5. **What it costs.** Text functions in `studio/text.js` that find lines and insert or remove them; no YAML library, and the page still calculates nothing (`no-engine.mjs`). `studio/tests/text.mjs` covers the ways a file is written; `studio/tests/elements.mjs` adds an input and a formula to every group, and a column to every table, of every example, deletes each again, and checks the file byte for byte.
+
+## Addendum, 2026-11-11: the grid view (roadmap S11)
+
+**Decided by:** the maintainer asked for a spreadsheet visualizer and, after the options were set out, agreed on a read-only grid tab; the design is Claude's, in a session configured for Opus 5.5.
+
+Decision 8 says what Studio is not: "a spreadsheet with a grid". That stands for what the word meant there: a grid as the way to edit a model, with a formula per cell. The **Grid** tab is a different thing, a way to read.
+
+1. **What it shows.** Each table as rows and columns, with the column's one formula under its name in the heading (Forge has one formula per column, where Excel has one per cell), and the scalars as a list with their formulas. The numbers are the ones Forge calculated, in the scenario that is applied, formatted by the same rules as the cards. Included files stay on the Model tab.
+2. **What it does not do.** It writes nothing: there is no input in it, and editing stays on the cards (S7, S9). A tap on a cell or a heading shows its value and formula and offers "Show its card".
+3. **What it is not.** A preview of the exported workbook. iOS opens the `.xlsx` from Files in Quick Look or Numbers, with the real sheets and formulas, and showing it in the page would need either a spreadsheet library there (the page reads nothing itself, decision 2) or a new engine tool that mostly rebuilds a viewer the device has.
+4. **On a phone** the first column (the row) and the heading stay in view while the table scrolls, and the page never scrolls sideways (the table scrolls inside its card).
+5. **Tested.** `studio/tests/grid.mjs` compares every cell of every table of every example, and every scalar, with what Forge returns, with and without a scenario; it also checks the formula a tap shows and that the card is brought into view.
