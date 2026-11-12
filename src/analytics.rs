@@ -560,6 +560,67 @@ fn range_arg(spec: &AnalyticsTestSpec, var: &str) -> Result<String, String> {
     Ok(format!("{low},{high},{}", (high - low) / (steps - 1.0)))
 }
 
+/// The rows of Forge's sensitivity result: `[input, output]` for one
+/// variable, `[row value, outputs...]` for two.
+///
+/// Read from `--format json`, which has the numbers whole. A Forge that does
+/// not have that option prints a table, whose numbers are read instead (they
+/// have no thousands separators there).
+fn sensitivity_rows(env: &Env, args: &[String]) -> Result<Vec<Vec<f64>>, String> {
+    let run = |extra: &[&str]| {
+        Command::new(env.forge)
+            .args(args)
+            .args(extra)
+            .output()
+            .map_err(|e| format!("Failed to run forge: {e}"))
+    };
+    let out = run(&["--format", "json"])?;
+    if out.status.success() {
+        let json: Json = serde_json::from_slice(&out.stdout)
+            .map_err(|e| format!("forge sensitivity --format json is not JSON: {e}"))?;
+        return rows_of_json(&json);
+    }
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    if !stderr.contains("--format") {
+        return Err(format!("forge sensitivity failed: {stderr}"));
+    }
+    let out = run(&[])?;
+    if !out.status.success() {
+        return Err(format!(
+            "forge sensitivity failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        ));
+    }
+    Ok(numeric_rows(&String::from_utf8_lossy(&out.stdout)))
+}
+
+/// The rows of a sensitivity result in JSON. A point Forge could not
+/// calculate is NaN, which no reference value matches.
+fn rows_of_json(json: &Json) -> Result<Vec<Vec<f64>>, String> {
+    let data = json.get("data").ok_or("no data in the sensitivity JSON")?;
+    let number = |v: &Json| v.as_f64().unwrap_or(f64::NAN);
+    if let Some(entries) = data.pointer("/OneVar/entries").and_then(Json::as_array) {
+        return Ok(entries
+            .iter()
+            .map(|e| vec![number(&e["input"]), number(&e["output"])])
+            .collect());
+    }
+    let two = data
+        .get("TwoVar")
+        .ok_or("neither OneVar nor TwoVar in the JSON")?;
+    let row_values = two["row_values"].as_array().ok_or("no row_values")?;
+    let matrix = two["matrix"].as_array().ok_or("no matrix")?;
+    Ok(row_values
+        .iter()
+        .zip(matrix)
+        .map(|(row_value, cells)| {
+            let mut row = vec![number(row_value)];
+            row.extend(cells.as_array().into_iter().flatten().map(number));
+            row
+        })
+        .collect())
+}
+
 /// Numbers on each data row of Forge's printed table (rows made only of numbers).
 fn numeric_rows(stdout: &str) -> Vec<Vec<f64>> {
     stdout
@@ -615,16 +676,16 @@ fn sensitivity(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
     if let Err(e) = fs::write(&path, model) {
         return error(spec, format!("Failed to write model: {e}"));
     }
-    let mut cmd = Command::new(env.forge);
-    cmd.arg("sensitivity")
-        .arg(&path)
-        .args([
-            "--vary",
-            &format!("assumptions.{first}"),
-            "--range",
-            &range1,
-        ])
-        .args(["--output", "result.total"]);
+    let mut args: Vec<String> = vec![
+        "sensitivity".into(),
+        path.display().to_string(),
+        "--vary".into(),
+        format!("assumptions.{first}"),
+        "--range".into(),
+        range1,
+        "--output".into(),
+        "result.total".into(),
+    ];
     if kind == "two_way" {
         let Some(second) = vary.get(1) else {
             return error(spec, "two_way needs two variables".to_string());
@@ -633,27 +694,17 @@ fn sensitivity(spec: &AnalyticsTestSpec, env: &Env) -> TestResult {
             Ok(r) => r,
             Err(e) => return error(spec, e),
         };
-        cmd.args([
-            "--vary2",
-            &format!("assumptions.{second}"),
-            "--range2",
-            &range2,
+        args.extend([
+            "--vary2".into(),
+            format!("assumptions.{second}"),
+            "--range2".into(),
+            range2,
         ]);
     }
-    let out = match cmd.output() {
-        Ok(o) => o,
-        Err(e) => return error(spec, format!("Failed to run forge: {e}")),
+    let rows = match sensitivity_rows(env, &args) {
+        Ok(rows) => rows,
+        Err(e) => return error(spec, e),
     };
-    if !out.status.success() {
-        return error(
-            spec,
-            format!(
-                "forge sensitivity failed: {}",
-                String::from_utf8_lossy(&out.stderr)
-            ),
-        );
-    }
-    let rows = numeric_rows(&String::from_utf8_lossy(&out.stdout));
 
     let r_params = json!({
         "analysis_type": kind,

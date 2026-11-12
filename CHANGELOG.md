@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The sensitivity runner reads `forge sensitivity --format json`, with the numbers whole, and no longer parses the printed table, whose numbers Forge now prints with thousands separators. A Forge without `--format` (before 10.0.0-rc.18) still works: its table is read as before.
+
 ### Added
 
 - The Bayesian runner translates nodes with several parents (Forge supports them from forge #50): `rain_sprinkler_grass`, `explaining_away` and `alarm_network` now run; 10 of 10 Bayesian specs. Their expected posteriors were checked by hand enumeration.
