@@ -20,8 +20,11 @@ on:
       - 'Cargo.toml'
       - 'src/**'
 
+# A pull request's newer push cancels its older run. Every other run (a push
+# to main) has a group of its own, so that one that hangs cannot hold up the
+# ones after it, the release among them.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
