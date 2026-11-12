@@ -50,7 +50,7 @@ async function open(viewport, example, colorScheme = "light") {
 // 1. Nothing scrolls sideways on a 320 px phone, in any view
 for (const example of ["bagel", "options", "mortgage"]) {
   const page = await open({ width: 320, height: 640 }, example);
-  for (const tab of ["model", "yaml", "analyze", "mcp", "files"]) {
+  for (const tab of ["model", "grid", "yaml", "analyze", "mcp", "files"]) {
     await page.click(`.tab[data-tab="${tab}"]`);
     await page.waitForTimeout(150);
     const [scroll, client] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);

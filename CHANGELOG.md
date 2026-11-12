@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Forge Studio has a Grid tab: the model as a spreadsheet reads it** (roadmap S11, ADR-056 addendum). Each table is shown as rows and columns, with the column's one formula under its name in the heading, and the scalars as a list with their formulas; the numbers are Forge's, in the scenario that is applied, formatted as on the cards. It is read-only: a tap on a cell or a heading shows its value and formula, and "Show its card" opens the Model tab at the card, where editing stays. On a phone the row labels and the headings stay in view while the table scrolls inside its card. `studio/tests/grid.mjs` compares each of the 2,385 cells and 155 scalars of the examples with what Forge returns (and with a scenario applied), the heading formulas, the formula a tap shows, and that the card is brought into view.
+
 ## [10.0.0-rc.16] - 2026-11-11
 
 Forge Studio works offline and can be added to the Home Screen, and adds and deletes model elements on its cards. No wrong answer was fixed since rc.13, so the two-week stable clock of docs/STABILITY.md still runs from rc.13 (no earlier than 2026-11-24).

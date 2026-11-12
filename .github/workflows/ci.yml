@@ -222,6 +222,10 @@ jobs:
         working-directory: studio
         run: node tests/save.mjs ../studio-site ../forge-wasm/xlsx
 
+      - name: Studio's grid shows what Forge returns
+        working-directory: studio
+        run: node tests/grid.mjs ../studio-site
+
       - name: Studio suggests names and functions while a formula is typed
         working-directory: studio
         run: node tests/suggest.mjs ../studio-site
