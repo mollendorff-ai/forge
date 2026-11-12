@@ -209,3 +209,13 @@ lto = true
 codegen-units = 1
 strip = true
 panic = "abort"
+
+# Forge in the browser (forge-wasm, ADR-055, Studio): built for size, since
+# there the download is what a person waits for. Measured on 2026-11-11 against
+# the release profile (opt-level 3): the module is 20% smaller over the wire
+# (gzip, 2.32 MB to 1.86 MB) and as fast (a 10,000-run simulation of the bagel
+# example 1.79 s against 1.62 s; calculate and tornado faster). opt-level "z"
+# saves 31% but makes that simulation 64% slower.
+[profile.wasm]
+inherits = "release"
+opt-level = "s"

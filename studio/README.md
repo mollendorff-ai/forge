@@ -20,8 +20,8 @@ Every number is Forge's. The page runs `forge-wasm` (ADR-055) in a background wo
 ## Building it
 
 ```bash
-cargo build -p forge-wasm --release --target wasm32-unknown-unknown
-wasm-bindgen --target web --out-dir forge-wasm/pkg-web target/wasm32-unknown-unknown/release/forge_wasm.wasm
+cargo build -p forge-wasm --profile wasm --target wasm32-unknown-unknown
+wasm-bindgen --target web --out-dir forge-wasm/pkg-web target/wasm32-unknown-unknown/wasm/forge_wasm.wasm
 node studio/build.mjs forge-wasm/pkg-web studio-site
 ```
 
