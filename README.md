@@ -86,6 +86,20 @@ result.left_over            2,500.00     2,044.15      -455.85     -18.2%     âš
 
 (Six of its thirteen lines.) The same bagel model also runs scenarios, break-even, a decision tree, real options, a bootstrap and a Bayesian network: see its [README](examples/bagel/README.md).
 
+**Why is the year 27,000 over budget?** [`examples/rolling-forecast`](examples/rolling-forecast/README.md) is a rolling forecast with a fiscal year that starts in April. Its months are actuals up to October 2026 and forecast after, there are two products, and a budget table is looked up month by month. The variance splits into volume, mix and price, and the three add up to it exactly.
+
+```text
+$ forge calculate examples/rolling-forecast/forecast.yaml --dry-run
+      fy2027.revenue = 987621.930676404
+      fy2027.budget = 960600
+      fy2027.variance = 27021.9306764037
+      pvm.volume = 14412.7435574308
+      pvm.mix = 11875.965095039
+      pvm.price = 733.222023933951
+```
+
+(Six of its lines.) Its README lists what Forge cannot do there yet, such as a table of quarters.
+
 ---
 
 ## AI Integration
