@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **ADR-057, proposed: the two validation suites move into this repository** (`validation/gnumeric`, `validation/r`), with their history, and their repositories are archived. One pull request for a change that touches the engine and a suite, where #161 needed two; a CI check so that an expected value cannot change without the pull request saying so. Not built yet (roadmap T1-VALIDATION-IN-REPO).
+
 ### Changed
 - **`forge simulate`, `forge variance` and `forge sensitivity` print numbers as `forge report` does.** `simulate` printed `2731555.7601` and `variance` `386827.449538`; they now print `2,731,555.76` and `386,827.45`, and the sensitivity table is as wide as its names and numbers, so its header lines up. `forge sensitivity --format json` prints the numbers at their 15 significant digits for programs that read it (the table is not made for that).
 - **`forge break-even` has a header of its own** and no longer says "Goal Seek" under "Break-Even Analysis"; a time horizon of one prints `1 year`.
