@@ -445,6 +445,10 @@ jobs:
     needs: [test, lint, build]
     runs-on: ubuntu-22.04
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # One run at a time, so two merges close together do not push over each other
+    concurrency:
+      group: update-generated-docs
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
@@ -499,7 +503,16 @@ jobs:
             echo "No changes to FUNCTIONS.md"
           else
             git commit -m "docs: auto-update FUNCTIONS.md [skip ci]"
-            git push
+            # main can move while this job runs (a release tags it, the
+            # Homebrew formula is committed): put the commit on top and retry
+            for attempt in 1 2 3 4 5; do
+              if git push origin HEAD:main; then exit 0; fi
+              echo "main moved; rebasing (attempt $attempt)"
+              sleep $((attempt * 5))
+              git pull --rebase origin main || { git rebase --abort; exit 1; }
+            done
+            echo "Could not push FUNCTIONS.md after 5 attempts"
+            exit 1
           fi
 
   # Auto-release: if version changed, create tag to trigger release workflow
