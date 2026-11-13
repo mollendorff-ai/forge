@@ -68,10 +68,10 @@ tier1:
   # Forge and Excel may give different answers without a warning, and places
   # where Forge says less than it knows.
   - id: T1-YEARFRAC-FEB
-    title: "YEARFRAC from the last day of February to a 31st, basis 0"
-    why: "YEARFRAC(2026-02-28, 2026-12-31) is 300/360 in Forge and 301/360 in Gnumeric and LibreOffice. Forge applies the 30/360 rule for a 31st after moving the February start to the 30th; the published account of Excel's own YEARFRAC does not. The Excel check of 2026-11-06 covered an end on the 17th, not on a 31st"
-    how: "Type =YEARFRAC(DATE(2026,2,28), DATE(2026,12,31), 0) in Excel: 0.8333 is Forge's, 0.8361 the engines'. If Excel gives 0.8361, change YEARFRAC, and check ACCRINT and PRICEDISC with the same dates before touching the day count they share"
-    acceptance: "The Excel value is recorded in forge-e2e-gnumeric with the date it was checked, and Forge gives it"
+    title: "Confirm in Excel: YEARFRAC from the last day of February to a 31st, basis 0, and the security functions"
+    why: "Built (2026-11-13) on published evidence: YEARFRAC(2026-02-28, 2026-12-31, 0) is 301/360 in Forge now, as in Gnumeric, LibreOffice and the algorithm Microsoft confirmed matches Excel 2007 (D. A. Wheeler, OASIS office-formula, June 2008); Microsoft's YEARFRAC page warns about this start. Not yet typed into Excel itself. PRICEDISC, YIELDDISC and ACCRINT keep the NASD count (300/360 here): nothing published says they share the exception, and Excel's PRICEDISC on month ends (2026-11-06) agrees with NASD where both engines do not"
+    how: "In Excel: =YEARFRAC(DATE(2026,2,28),DATE(2026,12,31),0) (Forge 0.8361), =PRICEDISC(DATE(2026,2,28),DATE(2026,12,31),0.05,100,0) (Forge 95.8333, engines 95.8194), =YIELDDISC(DATE(2026,2,28),DATE(2026,12,31),97,100,0) (Forge 0.03711, engines 0.03699), =ACCRINT(DATE(2026,2,28),DATE(2026,8,31),DATE(2026,12,31),0.1,1000,2,0) (Forge 83.3333, LibreOffice 83.6111). If YEARFRAC is not 0.8361, revert it; if a security function gives the engines' value, give it YEARFRAC's count"
+    acceptance: "The four Excel values are recorded in validation/gnumeric (financial.yaml) with the date they were checked, and Forge gives them"
 
   - id: T1-EXCEL-CHECKS
     title: "Two documented results to check in real Excel (functions added in rc.19)"

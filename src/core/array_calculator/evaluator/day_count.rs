@@ -115,7 +115,49 @@ pub fn year_length(date: NaiveDate, basis: Basis) -> f64 {
     }
 }
 
-/// Excel's `YEARFRAC`: the fraction of a year between two dates, in either order
+/// Excel's `YEARFRAC`: the fraction of a year between two dates, in either
+/// order. Basis 0 counts as Excel's `YEARFRAC` does, which differs from the
+/// NASD rule the security functions use in one case: from the last day of
+/// February to a 31st, the 31st stays the 31st.
+pub fn yearfrac(a: NaiveDate, b: NaiveDate, basis: Basis) -> f64 {
+    if basis == Basis::Us30360 {
+        let (start, end) = if a <= b { (a, b) } else { (b, a) };
+        return yearfrac_30_360_days(start, end) / 360.0;
+    }
+    year_fraction(a, b, basis)
+}
+
+/// Days in 30/360 as Excel's `YEARFRAC` counts them for basis 0: the rule of
+/// D. A. Wheeler's published algorithm, which Microsoft confirmed matches
+/// Excel 2007 (OASIS office-formula list, June 2008); the first rule that
+/// applies is used. Microsoft's YEARFRAC page warns that basis 0 "may return an
+/// incorrect result" when the start is the last day of February: this is that
+/// case.
+fn yearfrac_30_360_days(start: NaiveDate, end: NaiveDate) -> f64 {
+    // Gnumeric and LibreOffice count the same way
+    let (mut d1, mut d2) = (start.day().cast_signed(), end.day().cast_signed());
+    let start_feb_end = is_last_day_of_february(start);
+    if d1 == 31 && d2 == 31 {
+        d1 = 30;
+        d2 = 30;
+    } else if d1 == 31 {
+        d1 = 30;
+    } else if d1 == 30 && d2 == 31 {
+        d2 = 30;
+    } else if start_feb_end && is_last_day_of_february(end) {
+        d1 = 30;
+        d2 = 30;
+    } else if start_feb_end {
+        d1 = 30;
+    }
+    let months = (end.year() - start.year()) * 12
+        + (end.month().cast_signed() - start.month().cast_signed());
+    f64::from(months * 30 + (d2 - d1))
+}
+
+/// The fraction of a year between two dates under `basis`, in either order, as
+/// the security functions count it (`PRICEDISC`, `YIELDDISC`): NASD 30/360 for
+/// basis 0
 pub fn year_fraction(a: NaiveDate, b: NaiveDate, basis: Basis) -> f64 {
     let (start, end) = if a <= b { (a, b) } else { (b, a) };
     match basis {
@@ -279,12 +321,62 @@ mod tests {
         ));
     }
 
+    // YEARFRAC's basis 0 keeps a 31st after a start on the last day of
+    // February (Excel's algorithm, Gnumeric, LibreOffice); every other case
+    // counts as NASD does
+    #[test]
+    fn yearfrac_from_the_end_of_february_to_a_31st() {
+        let yf = |a, b| yearfrac(a, b, Basis::Us30360);
+        assert!(close(
+            yf(date(2026, 2, 28), date(2026, 12, 31)),
+            301.0 / 360.0
+        ));
+        assert!(close(
+            yf(date(2026, 12, 31), date(2026, 2, 28)),
+            301.0 / 360.0
+        ));
+        assert!(close(
+            yf(date(2024, 2, 29), date(2024, 3, 31)),
+            31.0 / 360.0
+        ));
+        // Both at the end of February: both the 30th
+        assert!(close(yf(date(2023, 2, 28), date(2024, 2, 29)), 1.0));
+        // Not the last day of February: as before
+        assert!(close(
+            yf(date(2026, 2, 27), date(2026, 12, 31)),
+            304.0 / 360.0
+        ));
+        // Every other pair counts as NASD does, over three years of dates
+        let mut a = date(2023, 1, 1);
+        while a <= date(2025, 12, 31) {
+            let mut b = a;
+            while b <= date(2026, 1, 31) {
+                let special = is_last_day_of_february(a) && b.day() == 31;
+                if !special {
+                    assert!(close(
+                        yearfrac_30_360_days(a, b),
+                        days_between(a, b, Basis::Us30360)
+                    ));
+                }
+                b = b + chrono::Days::new(5);
+            }
+            a = a + chrono::Days::new(1);
+        }
+    }
+
     #[test]
     fn thirty_360_rules() {
         // US: both dates at the end of February count as the 30th
         assert!(close(
             days_between(date(2023, 2, 28), date(2024, 2, 29), Basis::Us30360),
             360.0
+        ));
+        // US (NASD), as PRICEDISC counts: from the last day of February to a
+        // 31st, both are the 30th (PRICEDISC checked in Excel on 2026-11-06
+        // counts the 30th to a 31st this way)
+        assert!(close(
+            days_between(date(2026, 2, 28), date(2026, 12, 31), Basis::Us30360),
+            300.0
         ));
         // US: the 31st becomes the 30th only when the start is the 30th or 31st
         assert!(close(
