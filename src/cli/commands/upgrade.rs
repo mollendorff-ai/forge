@@ -220,7 +220,7 @@ fn upgrade_to_short_form(
         if from > to {
             return Err(ForgeError::Validation(format!(
                 "{}: format {current_version} is not converted back to {target_version} (a period \
-                 column, an empty cell or a date as a scalar has no form in the earlier format)",
+                 column, an empty cell, a date as a scalar or a format: has no form in the earlier format)",
                 file.display()
             )));
         }

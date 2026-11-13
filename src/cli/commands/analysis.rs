@@ -887,6 +887,12 @@ pub fn sensitivity(
         )));
     }
 
+    for name in std::iter::once(vary).chain(vary2) {
+        base_model
+            .refuse_date_input(name, "sensitivity")
+            .map_err(ForgeError::Validation)?;
+    }
+
     // Parse range
     let values1 = parse_range(range)?;
 

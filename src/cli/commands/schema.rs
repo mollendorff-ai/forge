@@ -36,7 +36,7 @@ pub fn schema_core(version: Option<&str>) -> ForgeResult<String> {
                     {"version": "v5.1.0", "description": "5.0.0 plus the short form (`price: 16`, `{formula: ...}` without nulls); use this for new models"},
                     {"version": "v5.2.0", "description": "5.1.0 plus the period column (`month: {start: 2026-12, count: 300, unit: month}`); needed only for a table with one"},
                     {"version": "v5.3.0", "description": "5.2.0 plus the empty cell (`actual: [985, 1032, null]`, ADR-059); needed only for a column with one"},
-                    {"version": "v5.4.0", "description": "5.3.0 plus a date as a scalar (`last_actual: 2026-10-31`, ADR-060); needed only for a scalar written as a date"}
+                    {"version": "v5.4.0", "description": "5.3.0 plus a date as a scalar (`last_actual: 2026-10-31`, ADR-060) and `format:`, an Excel number format beside `unit:` (ADR-061); needed only for a date scalar or a `format:`"}
                 ],
                 "note": "These are model format versions (_forge_version), not Forge tool versions"
             })
@@ -129,11 +129,12 @@ fn print_schema_list() {
     println!("         - Needed only for a column with an empty cell");
     println!();
     println!(
-        "  {}  5.3.0 plus a date as a scalar (ADR-060)",
+        "  {}  5.3.0 plus a date as a scalar (ADR-060) and a number format (ADR-061)",
         "v5.4.0".cyan().bold()
     );
     println!("         - last_actual: 2026-10-31: a date, read as a date column's cell is");
-    println!("         - Needed only for a scalar written as a date");
+    println!("         - price: {{value: 16, format: \"$#,##0.00\"}}: how a number is shown, never its value");
+    println!("         - Needed only for a scalar written as a date or a format:");
     println!();
     println!(
         "Usage: {}, {}, {}, {}, {} or {}",
