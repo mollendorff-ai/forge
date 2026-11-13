@@ -25,7 +25,7 @@ forge export examples/rolling-forecast/forecast.yaml forecast.xlsx
 
 Building this model found three gaps, now on the roadmap:
 
-- **A table of quarters.** A column of a table cannot aggregate another table: `=SUMIFS(months.revenue, months.fiscal_quarter, quarter)` in a table of quarters stops with "aggregations should be in scalars section". So the quarters are four scalars, written by hand, and so is the mix, which can only be worked out for the whole year and not month by month (T2-TABLE-AGGREGATES).
+- **A table of quarters.** A column of a table cannot aggregate another table: `=SUMIFS(months.revenue, months.fiscal_quarter, quarter)` in a table of quarters stops with "aggregations should be in scalars section". So the quarters are four scalars, written by hand, and so is the mix, which can only be worked out for the whole year and not month by month (T2-TABLE-AGGREGATES; the design is ADR-058, proposed).
 - **Months without actuals.** A number column cannot have an empty cell, so the months not yet closed hold 0. A month whose actual really is 0 looks the same (T2-MISSING-VALUES).
 - **A date as an input.** `last_actual: 2026-10-31` is refused, so the model writes `=DATE(2026, 10, 31)`. Its value is printed as 46326, Excel's day number, and not as a date (T2-SCALAR-DATES).
 
