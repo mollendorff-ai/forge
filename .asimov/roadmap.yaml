@@ -81,13 +81,8 @@ tier2:
   # comparison example and the first-model starter.
   # Found building examples/rolling-forecast (2026-11-12), the FP&A audit:
   # actuals then forecast, fiscal quarters, year to date, a budget looked up
-  # by month and price/volume/mix all work; these three did not.
-  - id: T2-TABLE-AGGREGATES
-    title: "A table column that aggregates another table: a table of quarters from a table of months"
-    why: "A column of a table of quarters written as SUMIFS(months.revenue, months.fiscal_quarter, quarter) stops with 'aggregations should be in scalars section', so a roll-up of months into quarters or years is one scalar per period written by hand, and a mix variance can only be worked out for a whole year. In Excel this is the ordinary summary sheet. XLOOKUP(month, budget.month, budget.units) already reads another table's whole column in a row formula; an aggregate does not"
-    how: "ADR-058 (proposed): an argument Excel reads as a range is a whole column in a row formula, by a table of functions and positions shared by the evaluator, the dependency order and the exporter; an own-table aggregate (revenue / SUM(revenue)) is allowed; SUM, MAX and the others keep their row-by-row meaning with several arguments; whole columns are read without copying the context (row lookups copy the whole model today, 0.79 s for 4,000 rows); NPV and IRR are left as they are. Build it once the ADR is accepted"
-    acceptance: "examples/rolling-forecast has a table of quarters made with SUMIFS over months, its values equal the four quarter scalars, the exported workbook recalculates to them in Gnumeric and LibreOffice, and import gives the formula back"
-
+  # by month and price/volume/mix all work; three did not. The first, a
+  # table of quarters, is built (ADR-058); the other two are below.
   - id: T2-MISSING-VALUES
     title: "An empty cell in a number column: a month with no actual yet"
     why: "A number column refuses null ('null values not allowed in numeric arrays'), so the months of a forecast that are not closed hold 0, and an actual that really is 0 looks the same. Excel has empty cells, and ISBLANK, COUNT and AVERAGE treat them differently from 0"

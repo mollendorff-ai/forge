@@ -172,12 +172,11 @@ mod integration_tests {
         );
         model.add_table(data);
 
-        let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all();
-
-        assert!(
-            result.is_err(),
-            "Aggregation in row formula should error (invalid usage)"
+        // The sum of another table's column is its whole column (ADR-058): 50
+        let result = ArrayCalculator::new(model).calculate_all().unwrap();
+        assert_eq!(
+            result.tables["data"].columns["above_min"].values,
+            ColumnValue::Number(vec![0.0, 1.0, 0.0])
         );
     }
 

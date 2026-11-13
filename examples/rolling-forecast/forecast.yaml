@@ -57,14 +57,15 @@ fy2027:
     formula: "=revenue - budget"
   actual_so_far:
     formula: "=SUMIFS(months.revenue, months.is_actual, TRUE)"
-  q1:
-    formula: "=SUMIFS(months.revenue, months.fiscal_year, 2027, months.fiscal_quarter, 1)"
-  q2:
-    formula: "=SUMIFS(months.revenue, months.fiscal_year, 2027, months.fiscal_quarter, 2)"
-  q3:
-    formula: "=SUMIFS(months.revenue, months.fiscal_year, 2027, months.fiscal_quarter, 3)"
-  q4:
-    formula: "=SUMIFS(months.revenue, months.fiscal_year, 2027, months.fiscal_quarter, 4)"
+
+# The fiscal year 2027 by quarter, rolled up from the months (ADR-058): in
+# each row, months.revenue is the whole column and quarter the row's own
+quarters:
+  quarter: [1, 2, 3, 4]
+  revenue: "=SUMIFS(months.revenue, months.fiscal_year, 2027, months.fiscal_quarter, quarter)"
+  budget: "=SUMIFS(months.budget_revenue, months.fiscal_year, 2027, months.fiscal_quarter, quarter)"
+  variance: "=revenue - budget"
+  share_of_year: "=revenue / SUM(revenue)"
 
 # The next twelve months after the last actual, whatever fiscal year they are in
 next_12_months:

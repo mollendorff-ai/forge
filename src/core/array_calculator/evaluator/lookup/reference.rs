@@ -52,6 +52,8 @@ pub fn eval_offset(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
         row_count: ctx.row_count,
         lag: std::cell::Cell::new(0),
         growing_table: None,
+        whole_args: std::cell::RefCell::new(Vec::new()),
+        hidden_row: std::cell::Cell::new(0),
     };
     let base = evaluate(&args[0], &array_ctx)?;
     let rows = evaluate(&args[1], ctx)?
@@ -185,16 +187,7 @@ pub const fn eval_column(_args: &[Expr], _ctx: &EvalContext) -> Result<Value, Ev
 /// Returns the number of rows in a reference or array
 pub fn eval_rows(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("ROWS", args, 1)?;
-    let array_ctx = EvalContext {
-        scalars: ctx.scalars.clone(),
-        tables: ctx.tables.clone(),
-        scenarios: ctx.scenarios.clone(),
-        current_row: None,
-        row_count: ctx.row_count,
-        lag: std::cell::Cell::new(0),
-        growing_table: None,
-    };
-    let val = evaluate(&args[0], &array_ctx)?;
+    let val = evaluate(&args[0], ctx)?;
     match val {
         Value::Array(arr) => Ok(Value::Number(arr.len() as f64)),
         _ => Ok(Value::Number(1.0)),

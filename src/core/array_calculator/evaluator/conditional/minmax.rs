@@ -8,7 +8,7 @@
 //! - `MAXIFS(max_range`, `criteria_range1`, criteria1, [`criteria_range2`, criteria2], ...)
 
 use super::super::{
-    collect_values_as_vec, evaluate, matches_criteria, EvalContext, EvalError, Expr, Value,
+    collect_values_as_vec, evaluate, Criterion, EvalContext, EvalError, Expr, Value,
 };
 
 /// Evaluate MAXIFS function
@@ -22,9 +22,9 @@ pub fn eval_maxifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     let mut matches = vec![true; max_range.len()];
     for pair in args[1..].chunks(2) {
         let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
-        let criteria = evaluate(&pair[1], ctx)?;
+        let criteria = Criterion::new(&evaluate(&pair[1], ctx)?);
         for (i, val) in criteria_range.iter().enumerate() {
-            if i < matches.len() && !matches_criteria(val, &criteria) {
+            if i < matches.len() && !criteria.matches(val) {
                 matches[i] = false;
             }
         }
@@ -55,9 +55,9 @@ pub fn eval_minifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     let mut matches = vec![true; min_range.len()];
     for pair in args[1..].chunks(2) {
         let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
-        let criteria = evaluate(&pair[1], ctx)?;
+        let criteria = Criterion::new(&evaluate(&pair[1], ctx)?);
         for (i, val) in criteria_range.iter().enumerate() {
-            if i < matches.len() && !matches_criteria(val, &criteria) {
+            if i < matches.len() && !criteria.matches(val) {
                 matches[i] = false;
             }
         }

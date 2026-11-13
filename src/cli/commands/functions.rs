@@ -148,6 +148,15 @@ pub fn functions(json_output: bool) -> ForgeResult<()> {
                 .bright_black()
         );
         println!();
+        println!(
+            "{}",
+            "In a table column, an aggregate's range is the whole column and its criterion the\n\
+             row's value: quarters.revenue: \"=SUMIFS(months.revenue, months.quarter, quarter)\".\n\
+             SUM, MAX and the like read the whole column with one argument and work row by row\n\
+             with several (=MAX(0, ebit))."
+                .bright_black()
+        );
+        println!();
     }
 
     Ok(())

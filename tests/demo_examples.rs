@@ -319,10 +319,6 @@ fn the_rolling_forecast_matches_python() {
         ("fy2027.budget", 960_600.0),
         ("fy2027.variance", 27_021.930_676_403_8),
         ("fy2027.actual_so_far", 553_505.6),
-        ("fy2027.q1", 229_100.5),
-        ("fy2027.q2", 240_878.5),
-        ("fy2027.q3", 253_830.273_215_977_1),
-        ("fy2027.q4", 263_812.657_460_426_7),
         ("next_12_months.revenue", 1_090_944.355_789_502_6),
         ("pvm.volume", 14_412.743_557_430_787),
         ("pvm.mix", 11_875.965_095_038_919),
@@ -331,6 +327,36 @@ fn the_rolling_forecast_matches_python() {
     ] {
         let got = model.scalars[name].unwrap();
         assert!(close(got, expected, 1e-6), "{name}: {got}");
+    }
+    // The table of quarters (ADR-058): the quarters of the same Python, and
+    // the budget's months by quarter, by hand (Q1: 3,030 x 50 + 615 x 120)
+    let quarter = |column: &str| -> Vec<f64> {
+        model.tables["quarters"].values[column]
+            .iter()
+            .map(|v| v.as_f64().unwrap())
+            .collect()
+    };
+    let revenue = [
+        229_100.5,
+        240_878.5,
+        253_830.273_215_977_1,
+        263_812.657_460_426_7,
+    ];
+    let budget = [225_300.0, 235_200.0, 245_100.0, 255_000.0];
+    for (i, (r, b)) in revenue.iter().zip(&budget).enumerate() {
+        assert!(close(quarter("revenue")[i], *r, 1e-6), "quarter {}", i + 1);
+        assert!(close(quarter("budget")[i], *b, 1e-9), "quarter {}", i + 1);
+        assert!(
+            close(quarter("variance")[i], r - b, 1e-6),
+            "quarter {}",
+            i + 1
+        );
+        let share = r / 987_621.930_676_403_8;
+        assert!(
+            close(quarter("share_of_year")[i], share, 1e-9),
+            "quarter {}",
+            i + 1
+        );
     }
 }
 

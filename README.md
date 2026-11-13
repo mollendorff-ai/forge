@@ -98,7 +98,15 @@ $ forge calculate examples/rolling-forecast/forecast.yaml --dry-run
       pvm.price = 733.222023933951
 ```
 
-(Six of its lines.) Its README lists what Forge cannot do there yet, such as a table of quarters.
+The quarters are a table of their own, rolled up from the months with one formula: in a table column an aggregate's range is the whole column and its criterion the row's value, as on a summary sheet in Excel (ADR-058).
+
+```text
+   📊 Table: quarters
+      revenue = [229100.5, 240878.5, 253830.273215977, 263812.657460427]
+      budget = [225300, 235200, 245100, 255000]
+```
+
+(A few of its lines.) Its README lists what Forge cannot do there yet, such as months without actuals.
 
 ---
 

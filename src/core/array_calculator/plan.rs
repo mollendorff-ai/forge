@@ -40,8 +40,6 @@ pub(super) struct Structure {
 pub(super) struct Step {
     /// The parsed formula
     pub ast: Option<Rc<Expr>>,
-    /// Whether the formula aggregates a whole column (row formulas)
-    pub aggregates: Option<bool>,
     /// Whether its names were checked and are not ambiguous
     pub unambiguous: bool,
 }
@@ -51,8 +49,6 @@ pub(super) struct Step {
 pub struct CalcPlan {
     /// Parsed formulas by text (a syntax error is kept as its message)
     asts: RefCell<HashMap<String, Result<Rc<Expr>, String>>>,
-    /// Whether a row formula aggregates a whole column, by text
-    aggregation: RefCell<HashMap<String, bool>>,
     /// Order and name resolution, by model fingerprint
     structures: RefCell<HashMap<u64, Structure>>,
     /// Plans for the included files, by namespace
@@ -80,17 +76,6 @@ impl CalcPlan {
             .borrow_mut()
             .insert(formula.to_string(), parsed.clone());
         parsed
-    }
-
-    pub(super) fn aggregation(&self, formula: &str, classify: impl FnOnce() -> bool) -> bool {
-        if let Some(&found) = self.aggregation.borrow().get(formula) {
-            return found;
-        }
-        let aggregates = classify();
-        self.aggregation
-            .borrow_mut()
-            .insert(formula.to_string(), aggregates);
-        aggregates
     }
 
     /// The plan for an included file.

@@ -182,7 +182,8 @@ Reads the layout forge export writes, and plain workbooks too:
 
 Excel formulas are translated to Forge formulas (table.column, group.name).
 A formula Forge cannot express (a reference to another row, a single table
-cell in a scalar formula, named ranges) is imported as its value and listed.
+cell in a scalar formula, a range where Forge reads the row's value, named
+ranges) is imported as its value and listed.
 
 WORKFLOW:
   forge import model.xlsx model.yaml     # Excel -> YAML

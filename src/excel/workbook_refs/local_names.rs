@@ -183,7 +183,7 @@ impl WorkbookRefs {
         tokens: &[Token],
         at: usize,
         ctx: Context<'_>,
-        calls: &[(Option<String>, usize)],
+        calls: &[super::Call],
         locals: &Locals,
         has_range: &mut bool,
     ) -> Result<(String, usize), String> {
@@ -205,7 +205,7 @@ impl WorkbookRefs {
         arg: &[Token],
         pairs: &mut Vec<String>,
         ctx: Context<'_>,
-        calls: &[(Option<String>, usize)],
+        calls: &[super::Call],
         scope: &Locals,
         has_range: &mut bool,
     ) -> Result<String, String> {
@@ -226,7 +226,7 @@ impl WorkbookRefs {
         tokens: &[Token],
         at: usize,
         ctx: Context<'_>,
-        calls: &[(Option<String>, usize)],
+        calls: &[super::Call],
         locals: &Locals,
         has_range: &mut bool,
     ) -> Result<(LetForm, usize), String> {

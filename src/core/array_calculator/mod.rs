@@ -16,6 +16,7 @@ mod recursive_tests;
 #[cfg(test)]
 mod scalar_scope_tests;
 pub mod tokenizer;
+pub mod whole_column;
 
 use crate::error::{ForgeError, ForgeResult};
 use crate::types::{Column, ColumnValue, ParsedModel, Table};
@@ -518,19 +519,6 @@ impl ArrayCalculator {
     /// Calculate one row-formula column and store it in its table
     fn calculate_column(&mut self, table_name: &str, col_name: &str) -> ForgeResult<()> {
         let formula = self.model.tables[table_name].row_formulas[col_name].clone();
-        if self.step_cached(
-            |step| step.aggregates,
-            |step, aggregates| step.aggregates = Some(aggregates),
-            || {
-                Ok(self
-                    .plan
-                    .aggregation(&formula, || Self::is_aggregation_formula(&formula)))
-            },
-        )? {
-            return Err(ForgeError::Eval(format!(
-                "Table '{table_name}': Column '{col_name}' uses aggregation formula - aggregations should be in scalars section"
-            )));
-        }
         let result = self
             .evaluate_rowwise_formula_ast(table_name, &formula)
             .map_err(|e| locate_error(e, &format!("{table_name}.{col_name}"), &formula))?;
@@ -567,89 +555,6 @@ impl ArrayCalculator {
                 .insert(scalar_name.to_string(), evaluator::Value::Number(value));
         }
         Ok(())
-    }
-
-    /// Check if a formula is an aggregation (returns scalar)
-    pub(crate) fn is_aggregation_formula(formula: &str) -> bool {
-        let body = formula.trim_start_matches('=').trim();
-        match tokenizer::tokenize(body).map(parser::parse) {
-            Ok(Ok(ast)) => Self::expr_has_aggregation(&ast),
-            // Unparseable formulas fail later with a parse error
-            _ => false,
-        }
-    }
-
-    /// Whether an expression aggregates a whole column.
-    ///
-    /// `SUM`, `AVERAGE`, `MAX`, `MIN`, `COUNT`, `MEDIAN`, `MODE` and `GEOMEAN` aggregate only with
-    /// a single argument: with several, a row formula such as `=MAX(0, ebit)`
-    /// works row by row, as it does in Excel. The other functions listed always
-    /// aggregate.
-    fn expr_has_aggregation(expr: &parser::Expr) -> bool {
-        use parser::Expr;
-        const ROW_WISE_WITH_SEVERAL_ARGS: [&str; 10] = [
-            "SUM",
-            "AVERAGE",
-            "AVG",
-            "MAX",
-            "MIN",
-            "COUNT",
-            "MEDIAN",
-            "MODE",
-            "MODE.SNGL",
-            "GEOMEAN",
-        ];
-        const ALWAYS_AGGREGATE: [&str; 27] = [
-            "SUMPRODUCT",
-            "SUMIF",
-            "COUNTIF",
-            "AVERAGEIF",
-            "SUMIFS",
-            "COUNTIFS",
-            "AVERAGEIFS",
-            "MAXIFS",
-            "MINIFS",
-            "VAR",
-            "VAR.S",
-            "VAR.P",
-            "STDEV",
-            "STDEV.S",
-            "STDEV.P",
-            "PERCENTILE",
-            "PERCENTILE.INC",
-            "PERCENTILE.EXC",
-            "QUARTILE",
-            "QUARTILE.INC",
-            "QUARTILE.EXC",
-            "CORREL",
-            "SLOPE",
-            "INTERCEPT",
-            "RSQ",
-            "COVARIANCE.P",
-            "COVARIANCE.S",
-        ];
-        match expr {
-            Expr::FunctionCall { name, args } => {
-                let upper = name.to_uppercase();
-                let aggregates = ALWAYS_AGGREGATE.contains(&upper.as_str())
-                    || (ROW_WISE_WITH_SEVERAL_ARGS.contains(&upper.as_str()) && args.len() == 1);
-                aggregates || args.iter().any(Self::expr_has_aggregation)
-            },
-            Expr::CallResult { callable, args } => {
-                Self::expr_has_aggregation(callable) || args.iter().any(Self::expr_has_aggregation)
-            },
-            Expr::ArrayIndex { array, index } => {
-                Self::expr_has_aggregation(array) || Self::expr_has_aggregation(index)
-            },
-            Expr::BinaryOp { left, right, .. } => {
-                Self::expr_has_aggregation(left) || Self::expr_has_aggregation(right)
-            },
-            Expr::Range { start, end } => {
-                Self::expr_has_aggregation(start) || Self::expr_has_aggregation(end)
-            },
-            Expr::UnaryOp { operand, .. } => Self::expr_has_aggregation(operand),
-            Expr::Number(_) | Expr::Text(_) | Expr::Boolean(_) | Expr::Reference(_) => false,
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1137,11 +1042,59 @@ mod aggregation_classifier_tests {
     }
 
     #[test]
-    fn test_single_argument_aggregate_in_table_is_rejected() {
-        for formula in ["=SUM(x)", "=MAX(x)", "=x / SUM(x)", "=SUMIF(x, \">0\", x)"] {
-            let err = calculate_column(formula).unwrap_err();
-            assert!(err.contains("aggregation"), "{formula}: {err}");
+    fn test_single_argument_aggregate_in_table_reads_the_whole_column() {
+        // x is 3, -2, 5 (ADR-058): by hand, the sum is 6 and the positives 8
+        for (formula, expected) in [
+            ("=SUM(x)", vec![6.0, 6.0, 6.0]),
+            ("=MAX(x)", vec![5.0, 5.0, 5.0]),
+            ("=x / SUM(x)", vec![0.5, -2.0 / 6.0, 5.0 / 6.0]),
+            ("=SUMIF(x, \">0\", x)", vec![8.0, 8.0, 8.0]),
+            ("=COUNTIF(x, \">\" & x) + 1", vec![2.0, 3.0, 1.0]),
+        ] {
+            assert_eq!(
+                calculate_column(formula).unwrap(),
+                ColumnValue::Number(expected),
+                "{formula}"
+            );
         }
+    }
+
+    #[test]
+    fn test_a_column_that_aggregates_itself_is_circular() {
+        let mut model = ParsedModel::new();
+        let mut table = Table::new("t".to_string());
+        table.add_column(Column::new("x".to_string(), ColumnValue::Number(vec![1.0])));
+        table.add_row_formula("total".to_string(), "=SUM(total)".to_string());
+        model.add_table(table);
+        let err = ArrayCalculator::new(model)
+            .calculate_all()
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("t.total refers to itself"), "{err}");
+    }
+
+    #[test]
+    fn test_several_arguments_of_another_length_say_how_to_aggregate() {
+        let mut model = ParsedModel::new();
+        let mut other = Table::new("o".to_string());
+        other.add_column(Column::new(
+            "v".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0]),
+        ));
+        model.add_table(other);
+        let mut table = Table::new("t".to_string());
+        table.add_column(Column::new(
+            "x".to_string(),
+            ColumnValue::Number(vec![1.0, 2.0, 3.0]),
+        ));
+        table.add_row_formula("m".to_string(), "=MAX(0, o.v)".to_string());
+        model.add_table(table);
+        let err = ArrayCalculator::new(model)
+            .calculate_all()
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Row count mismatch"), "{err}");
+        assert!(err.contains("SUM(o.v) with one argument"), "{err}");
     }
 
     #[test]

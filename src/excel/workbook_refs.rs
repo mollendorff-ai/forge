@@ -50,20 +50,9 @@ const DIFFERENT_IN_EXCEL: [&str; 12] = [
     "COLUMN",
 ];
 
-/// Arguments that Forge reads as a whole column even inside a row formula
-/// (function, 0-based argument position).
-const WHOLE_COLUMN_ARGS: [(&str, usize); 10] = [
-    ("INDEX", 0),
-    ("MATCH", 1),
-    ("XMATCH", 1),
-    ("ROWS", 0),
-    ("XLOOKUP", 1),
-    ("XLOOKUP", 2),
-    ("FORECAST", 1),
-    ("FORECAST", 2),
-    ("FORECAST.LINEAR", 1),
-    ("FORECAST.LINEAR", 2),
-];
+/// An open parenthesis: the function called, if any; the argument being
+/// written (0-based); how many arguments the call has
+pub(super) type Call = (Option<String>, usize, usize);
 
 /// Forge names for functions Excel calls otherwise (`E()` is `EXP(1)`).
 fn excel_name(upper: &str) -> &str {
@@ -532,13 +521,12 @@ impl WorkbookRefs {
         &self,
         tokens: &[Token],
         ctx: Context<'_>,
-        outer: &[(Option<String>, usize)],
+        outer: &[Call],
         locals: &Locals,
         has_range: &mut bool,
     ) -> Result<String, String> {
         let mut out = String::new();
-        // Open parentheses: (function name, if any; current argument position)
-        let mut calls: Vec<(Option<String>, usize)> = outer.to_vec();
+        let mut calls: Vec<Call> = outer.to_vec();
         let mut pending_function: Option<String> = None;
         // Whether the previous token ends a value, so `-` after it is binary.
         let mut after_value = false;
@@ -630,15 +618,19 @@ impl WorkbookRefs {
                 // `COLUMNS(table)`: Forge counts the table's columns
                 Token::Identifier(word)
                     if self.columns.contains_key(word.as_str())
-                        && matches!(calls.last(), Some((Some(f), 0)) if f == "COLUMNS") =>
+                        && matches!(calls.last(), Some((Some(f), 0, _)) if f == "COLUMNS") =>
                 {
                     *has_range = true;
                     out.push_str(&self.table_range(word));
                 },
                 Token::Identifier(word) => {
-                    let whole_column = calls.iter().any(|(name, arg)| {
-                        name.as_deref()
-                            .is_some_and(|n| WHOLE_COLUMN_ARGS.contains(&(n, *arg)))
+                    // A range argument (ADR-058), or inside one
+                    let whole_column = calls.iter().any(|(name, arg, count)| {
+                        name.as_deref().is_some_and(|n| {
+                            crate::core::array_calculator::whole_column::is_whole_column(
+                                n, *count, *arg,
+                            )
+                        })
                     });
                     out.push_str(&self.reference(word, ctx, whole_column, has_range)?);
                 },
@@ -657,7 +649,9 @@ impl WorkbookRefs {
                     if function.as_deref() == Some("E") {
                         out.push('1'); // EXP(1)
                     }
-                    calls.push((function, 0));
+                    let count = matching_paren(tokens, i)
+                        .map_or(0, |close| split_arguments(&tokens[i + 1..close]).len());
+                    calls.push((function, 0, count));
                 },
                 Token::CloseParen => {
                     calls.pop();
@@ -704,6 +698,54 @@ const FORGE_FUNCTIONS: [&str; 5] = [
     "BREAKEVEN_UNITS",
     "BREAKEVEN_REVENUE",
 ];
+
+/// Keep `calls` up to date at token `i` of an Excel formula: a `(` opens a
+/// call (with its function and number of arguments), a `)` closes one, a `,`
+/// moves to the next argument.
+fn track_call(tokens: &[XlToken], i: usize, calls: &mut Vec<Call>) {
+    match &tokens[i] {
+        XlToken::Open => {
+            let function = match i.checked_sub(1).and_then(|p| tokens.get(p)) {
+                Some(XlToken::Function(name)) => Some(
+                    name.trim_start_matches("_xlfn.")
+                        .trim_start_matches("_xlws.")
+                        .to_uppercase(),
+                ),
+                _ => None,
+            };
+            calls.push((function, 0, excel_argument_count(tokens, i)));
+        },
+        XlToken::Close => {
+            calls.pop();
+        },
+        XlToken::Comma => {
+            if let Some(call) = calls.last_mut() {
+                call.1 += 1;
+            }
+        },
+        _ => {},
+    }
+}
+
+/// The number of arguments of the Excel call whose `(` is at `open`.
+fn excel_argument_count(tokens: &[XlToken], open: usize) -> usize {
+    // Depth inside the call's own parentheses
+    let mut depth = 0usize;
+    let mut count = 0;
+    for token in tokens.iter().skip(open + 1) {
+        match token {
+            XlToken::Close if depth == 0 => return count,
+            XlToken::Close => depth -= 1,
+            XlToken::Comma if depth == 0 => count = count.max(1) + 1,
+            XlToken::Open => {
+                count = count.max(1);
+                depth += 1;
+            },
+            _ => count = count.max(1),
+        }
+    }
+    count
+}
 
 /// Index of the `)` that closes the `(` at `open`.
 fn matching_paren(tokens: &[Token], open: usize) -> Option<usize> {
@@ -1125,11 +1167,14 @@ impl ReverseRefs {
         let tokens = excel_tokens(formula)?;
         let mut skip = 0;
         let mut only_in_count_unique = false;
+        // Open parentheses, as in `translate` (ADR-058)
+        let mut calls: Vec<Call> = Vec::new();
         for (i, token) in tokens.iter().enumerate() {
             if skip > 0 {
                 skip -= 1;
                 continue;
             }
+            track_call(&tokens, i, &mut calls);
             match token {
                 XlToken::Number(n) => out.push_str(n),
                 XlToken::Text(t) => {
@@ -1172,13 +1217,9 @@ impl ReverseRefs {
                         .sheets
                         .get(target_name)
                         .ok_or_else(|| format!("unknown sheet '{target_name}'"))?;
-                    out.push_str(&Self::name_for(
-                        current,
-                        kind,
-                        first,
-                        last.as_ref(),
-                        (row, above),
-                    )?);
+                    let name = Self::name_for(current, kind, first, last.as_ref(), (row, above))?;
+                    Self::check_whole_column(current, kind, last.is_some(), &calls)?;
+                    out.push_str(&name);
                 },
                 XlToken::Operator(op) => {
                     if after_value {
@@ -1214,6 +1255,42 @@ impl ReverseRefs {
             }
         }
         Ok(out)
+    }
+
+    /// A reference of a row formula read as Forge would read its name (ADR-058):
+    /// a range only where Forge reads the whole column, one cell only where it
+    /// reads the row's value. UNIQUE and ROW(range) are checked as COUNTUNIQUE.
+    fn check_whole_column(
+        current: &SheetKind,
+        kind: &SheetKind,
+        is_range: bool,
+        calls: &[Call],
+    ) -> Result<(), String> {
+        if !matches!(current, SheetKind::Table { .. }) || !matches!(kind, SheetKind::Table { .. }) {
+            return Ok(());
+        }
+        if calls
+            .iter()
+            .any(|(name, _, _)| matches!(name.as_deref(), Some("UNIQUE" | "ROW")))
+        {
+            return Ok(());
+        }
+        let whole = calls.iter().any(|(name, arg, count)| {
+            name.as_deref().is_some_and(|n| {
+                crate::core::array_calculator::whole_column::is_whole_column(n, *count, *arg)
+            })
+        });
+        if is_range && !whole {
+            return Err(
+                "a range where Forge reads the row's value (a row formula reads a \
+                        whole column only as an aggregate's range, ADR-058)"
+                    .to_string(),
+            );
+        }
+        if !is_range && whole {
+            return Err("one cell where Forge reads the whole column (ADR-058)".to_string());
+        }
+        Ok(())
     }
 
     /// Forge name for a cell or range on `kind`, seen from `current`.

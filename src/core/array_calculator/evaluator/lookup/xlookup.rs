@@ -17,17 +17,8 @@ pub fn eval_xlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 
     let lookup_val = evaluate(&args[0], ctx)?;
 
-    let array_ctx = EvalContext {
-        scalars: ctx.scalars.clone(),
-        tables: ctx.tables.clone(),
-        scenarios: ctx.scenarios.clone(),
-        current_row: None,
-        row_count: ctx.row_count,
-        lag: std::cell::Cell::new(0),
-        growing_table: None,
-    };
-    let lookup_arr = evaluate(&args[1], &array_ctx)?;
-    let return_arr = evaluate(&args[2], &array_ctx)?;
+    let lookup_arr = evaluate(&args[1], ctx)?;
+    let return_arr = evaluate(&args[2], ctx)?;
 
     let if_not_found = if args.len() > 3 {
         Some(evaluate(&args[3], ctx)?)
@@ -125,6 +116,8 @@ pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         row_count: ctx.row_count,
         lag: std::cell::Cell::new(0),
         growing_table: None,
+        whole_args: std::cell::RefCell::new(Vec::new()),
+        hidden_row: std::cell::Cell::new(0),
     };
     let table_array = evaluate(&args[1], &array_ctx)?;
     let _col_index = evaluate(&args[2], ctx)?
@@ -187,6 +180,8 @@ pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         row_count: ctx.row_count,
         lag: std::cell::Cell::new(0),
         growing_table: None,
+        whole_args: std::cell::RefCell::new(Vec::new()),
+        hidden_row: std::cell::Cell::new(0),
     };
     let table_array = evaluate(&args[1], &array_ctx)?;
     let _row_index = evaluate(&args[2], ctx)?

@@ -364,14 +364,6 @@ impl ArrayCalculator {
         for column in columns {
             let formula = table.row_formulas[column].clone();
             let place = format!("{table_name}.{column}");
-            if self
-                .plan
-                .aggregation(&formula, || Self::is_aggregation_formula(&formula))
-            {
-                return Err(ForgeError::Eval(format!(
-                    "Table '{table_name}': Column '{column}' uses aggregation formula - aggregations should be in scalars section"
-                )));
-            }
             let ast = self
                 .parsed_by_text(&formula)
                 .and_then(|ast| {
@@ -379,6 +371,20 @@ impl ArrayCalculator {
                     Ok(ast)
                 })
                 .map_err(|e| locate_error(e, &place, &formula))?;
+            // A whole column of the group does not exist until its last row (ADR-058)
+            let whole = super::whole_column::whole_column_names(&ast);
+            if let Some(name) = columns.iter().find(|c| {
+                whole.contains(c.as_str()) || whole.contains(&format!("{table_name}.{c}"))
+            }) {
+                return Err(locate_error(
+                    ForgeError::Eval(format!(
+                        "reads all of {table_name}.{name}, which is calculated row by row with \
+                         this column through PREV, so it needs a whole column first"
+                    )),
+                    &place,
+                    &formula,
+                ));
+            }
             formulas.push((column.clone(), place, formula, ast));
         }
         let row_count = table.row_count();

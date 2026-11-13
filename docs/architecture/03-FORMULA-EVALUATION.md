@@ -548,6 +548,30 @@ if var_name.contains('.') {
 
 ---
 
+### Whole Columns in a Row Formula (ADR-058)
+
+In a row formula a name is the value in the current row, except in an argument that Excel reads as a range. There it is the whole column, of another table or of the row's own:
+
+```yaml
+months:
+  quarter: [1, 1, 2, 2, 3]
+  revenue: [10, 20, 30, 40, 50]
+  share: "=revenue / SUM(revenue)"            # 10/150, 20/150, ...
+quarters:
+  quarter: [1, 2, 3]
+  revenue: "=SUMIFS(months.revenue, months.quarter, quarter)"   # 30, 70, 50
+```
+
+`months.revenue` and `months.quarter` are ranges of `SUMIFS`, so they are whole columns; `quarter`, the criterion, is the row's value. Which arguments are ranges is one table, by function and position, in `src/core/array_calculator/whole_column.rs`: the evaluator, the calculation order and `forge export` all read it.
+
+- `SUM`, `AVERAGE`, `MAX`, `MIN`, `COUNT`, `MEDIAN`, `MODE` and `GEOMEAN` read a whole column with one argument and work row by row with several (`=MAX(0, ebit)`).
+- Inside a range argument every name is a whole column, so `SUMPRODUCT((months.quarter = quarter) * months.revenue)` compares two whole columns. To use the row's value there, name it first: `=LET(q, quarter, SUMPRODUCT((months.quarter = q) * months.revenue))`.
+- A column that aggregates itself (`total: "=SUM(total)"`) is circular, and a column calculated row by row through `PREV` cannot be read whole by a column of its own group.
+- The evaluator reads a whole column by hiding the row while it evaluates that argument; it copies nothing. A `SUMIFS` in each of 5,000 rows over 5,000 rows takes about half a second.
+- `forge export` writes a range argument as an absolute range (`'months'!$B$2:$B$6`) and the row's value as its cell (`A2`); `forge import` reads them back, and refuses a range where Forge would read the row's value (`=MAX(0, $B$2:$B$6)`, `=NPV(0.1, $B$2:$B$6)`), importing that column as values.
+
+---
+
 ## Aggregation Formula Evaluation
 
 ### Concept

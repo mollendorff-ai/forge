@@ -16,16 +16,7 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 
     let lookup_value = evaluate(&args[0], ctx)?;
 
-    let array_ctx = EvalContext {
-        scalars: ctx.scalars.clone(),
-        tables: ctx.tables.clone(),
-        scenarios: ctx.scenarios.clone(),
-        current_row: None,
-        row_count: ctx.row_count,
-        lag: std::cell::Cell::new(0),
-        growing_table: None,
-    };
-    let lookup_array = evaluate(&args[1], &array_ctx)?;
+    let lookup_array = evaluate(&args[1], ctx)?;
 
     let match_type = if args.len() > 2 {
         number_or(&args[2], ctx, 1.0)? as i32
@@ -110,16 +101,7 @@ pub fn eval_xmatch(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     require_args_range("XMATCH", args, 2, 4)?;
 
     let lookup_value = evaluate(&args[0], ctx)?;
-    let array_ctx = EvalContext {
-        scalars: ctx.scalars.clone(),
-        tables: ctx.tables.clone(),
-        scenarios: ctx.scenarios.clone(),
-        current_row: None,
-        row_count: ctx.row_count,
-        lag: std::cell::Cell::new(0),
-        growing_table: None,
-    };
-    let Value::Array(arr) = evaluate(&args[1], &array_ctx)? else {
+    let Value::Array(arr) = evaluate(&args[1], ctx)? else {
         return Err(EvalError::new("XMATCH requires an array"));
     };
     let match_mode = if args.len() > 2 {

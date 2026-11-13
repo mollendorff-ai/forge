@@ -15,16 +15,7 @@ pub fn eval_index(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
     require_args_range("INDEX", args, 2, 3)?;
 
     // Evaluate array without row context to get full array
-    let array_ctx = EvalContext {
-        scalars: ctx.scalars.clone(),
-        tables: ctx.tables.clone(),
-        scenarios: ctx.scenarios.clone(),
-        current_row: None,
-        row_count: ctx.row_count,
-        lag: std::cell::Cell::new(0),
-        growing_table: None,
-    };
-    let array = evaluate(&args[0], &array_ctx)?;
+    let array = evaluate(&args[0], ctx)?;
     let row_num = number_or(&args[1], ctx, 1.0)? as i64;
 
     // INDEX is 1-based, row_num must be >= 1
