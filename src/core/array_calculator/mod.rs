@@ -423,6 +423,7 @@ impl ArrayCalculator {
         }
 
         if failures.is_empty() {
+            check_formula_formats(&self.model)?;
             return Ok(self.model);
         }
         // Each failure starts with its cell's name; list both in name order
@@ -1000,6 +1001,45 @@ impl ArrayCalculator {
 }
 
 /// A column's values as the evaluator reads them (dates as text).
+/// A formula's `format:` must be a date code where its value is a date and a
+/// number code where it is a number (ADR-061); its value is known only once
+/// calculated.
+fn check_formula_formats(model: &ParsedModel) -> ForgeResult<()> {
+    use evaluator::text::number_format::{check_format, FormatKind};
+    let mismatch = |path: &str, format: &str, is_date: bool| -> ForgeResult<()> {
+        let kind = check_format(format).map_err(ForgeError::Eval)?;
+        let (wrong, value) = match (kind, is_date) {
+            (FormatKind::Date, false) => ("a date format", "a number"),
+            (FormatKind::Number, true) => ("a number format", "a date"),
+            _ => return Ok(()),
+        };
+        Err(ForgeError::Eval(format!(
+            "'{path}.format': \"{format}\" is {wrong}, and the value of '{path}' is {value}"
+        )))
+    };
+    for (path, var) in &model.scalars {
+        if let (Some(format), Some(_), Some(_)) = (&var.metadata.format, &var.formula, var.value) {
+            mismatch(path, format, var.is_date)?;
+        }
+    }
+    for (name, table) in &model.tables {
+        for (column, metadata) in &table.formula_metadata {
+            let (Some(format), Some(col)) = (&metadata.format, table.columns.get(column)) else {
+                continue;
+            };
+            let is_date = match &col.values {
+                ColumnValue::Date(_) => true,
+                ColumnValue::Text(v) => {
+                    !v.is_empty() && v.iter().all(|t| evaluator::excel_date_serial(t).is_some())
+                },
+                _ => false,
+            };
+            mismatch(&format!("{name}.{column}"), format, is_date)?;
+        }
+    }
+    Ok(())
+}
+
 /// A scalar's value as a formula reads it: a date as its text, as a cell of
 /// a date column is (ADR-060), a number as itself.
 fn scalar_value(scalar: &crate::types::Variable) -> Option<evaluator::Value> {

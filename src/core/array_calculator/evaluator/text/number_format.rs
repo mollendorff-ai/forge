@@ -8,11 +8,17 @@
 //!   digits (`0000-00-00`);
 //! - dates: `yy yyyy`, `m mm mmm mmmm mmmmm`, `d dd ddd dddd`, with the same
 //!   literals and `. , /` (month and day names in English);
-//! - `General` and `@`.
+//! - `General` and `@`;
+//! - up to three sections, `positive;negative;zero` (the negative one has no
+//!   minus of its own), a colour in brackets (`[Red]`, which adds no text),
+//!   `_x` (a space) and `*x` (nothing: a fill has no width in text), and a
+//!   run of `,` right after the last digit, each dividing by 1,000
+//!   (`0.0,,"M"`). These were added with `format:` (ADR-061), measured in
+//!   Gnumeric 1.12 and `LibreOffice` 26.2.
 //!
-//! Any other code (several sections with `;`, times, fractions, `?`, `*`,
-//! `_`, `[...]`, a `,` that scales) is an error that says so: a format Forge
-//! does not know must not come out as a wrong string.
+//! Any other code (a fourth section, a condition or a locale in brackets,
+//! times, fractions, `?`) is an error that says so: a format Forge does not
+//! know must not come out as a wrong string.
 
 use super::super::{date_serial, EvalError, Value};
 use chrono::{Datelike, NaiveDate};
@@ -91,10 +97,37 @@ fn pieces(format: &str) -> Result<Vec<Piece>, EvalError> {
             '$' | '-' | '+' | '(' | ')' | ':' | ' ' | '/' => {
                 out.push(Piece::Literal(c.to_string()));
             },
-            ';' => return Err(unsupported(format, "sections with ; are not read")),
-            '?' | '*' | '_' | '[' | ']' | '@' => {
-                return Err(unsupported(format, &format!("{c} is not read")))
+            // A space as wide as the next character
+            '_' => {
+                if i + 1 >= chars.len() {
+                    return Err(unsupported(format, "nothing follows the _"));
+                }
+                out.push(Piece::Literal(" ".to_string()));
+                i += 1;
             },
+            // A fill: nothing in text
+            '*' => {
+                if i + 1 >= chars.len() {
+                    return Err(unsupported(format, "nothing follows the *"));
+                }
+                i += 1;
+            },
+            '[' => {
+                let end = chars[i + 1..]
+                    .iter()
+                    .position(|q| *q == ']')
+                    .ok_or_else(|| unsupported(format, "a [ is not closed"))?;
+                let inside: String = chars[i + 1..i + 1 + end].iter().collect();
+                if !is_colour(&inside) {
+                    return Err(unsupported(
+                        format,
+                        &format!("[{inside}] is not read: only a colour, such as [Red]"),
+                    ));
+                }
+                i += end + 1;
+            },
+            ';' => return Err(unsupported(format, "more than three sections")),
+            '?' | ']' | '@' => return Err(unsupported(format, &format!("{c} is not read"))),
             'h' | 'H' | 's' | 'S' | 'a' | 'A' | 'p' | 'P' => {
                 return Err(unsupported(
                     format,
@@ -113,6 +146,103 @@ fn pieces(format: &str) -> Result<Vec<Piece>, EvalError> {
     Ok(out)
 }
 
+/// Excel's colours in a format: `[Red]`, and `[Color1]` to `[Color56]`.
+fn is_colour(name: &str) -> bool {
+    const COLOURS: [&str; 8] = [
+        "black", "blue", "cyan", "green", "magenta", "red", "white", "yellow",
+    ];
+    let lower = name.to_ascii_lowercase();
+    COLOURS.contains(&lower.as_str())
+        || lower
+            .strip_prefix("color")
+            .and_then(|n| n.parse::<u8>().ok())
+            .is_some_and(|n| (1..=56).contains(&n))
+}
+
+/// The sections of a format, split at each `;` outside quotes and after no
+/// `\`: one, two (positive and zero; negative) or three (positive;
+/// negative; zero).
+fn sections(format: &str) -> Result<Vec<&str>, EvalError> {
+    let mut parts = Vec::new();
+    let (mut start, mut quoted, mut escaped) = (0, false, false);
+    for (i, c) in format.char_indices() {
+        match c {
+            _ if escaped => escaped = false,
+            '\\' if !quoted => escaped = true,
+            '"' => quoted = !quoted,
+            ';' if !quoted => {
+                parts.push(&format[start..i]);
+                start = i + 1;
+            },
+            _ => {},
+        }
+    }
+    parts.push(&format[start..]);
+    if parts.len() > 3 {
+        return Err(unsupported(
+            format,
+            "a fourth section, for text, is not read",
+        ));
+    }
+    Ok(parts)
+}
+
+/// What a format shows: a number, a date, or anything as it is (`General`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FormatKind {
+    Number,
+    Date,
+    General,
+}
+
+fn kind_of(pieces: &[Piece]) -> Option<FormatKind> {
+    let has_date = pieces.iter().any(|p| matches!(p, Piece::Date(..)));
+    let has_number = pieces
+        .iter()
+        .any(|p| matches!(p, Piece::Digit(_) | Piece::Percent | Piece::Exponent { .. }));
+    match (has_date, has_number) {
+        (true, true) => None,
+        (true, false) => Some(FormatKind::Date),
+        _ => Some(FormatKind::Number),
+    }
+}
+
+/// Whether Forge reads a format code, and what it shows (ADR-061): the
+/// check `format:` is given when a model is read.
+///
+/// # Errors
+///
+/// Returns the reason, as `TEXT` would give it, for a code Forge does not
+/// read, or one that mixes dates and numbers.
+pub fn check_format(format: &str) -> Result<FormatKind, String> {
+    let trimmed = format.trim();
+    if trimmed.eq_ignore_ascii_case("general") {
+        return Ok(FormatKind::General);
+    }
+    if trimmed == "@" {
+        return Err("@ is a format for text, and format: is for numbers and dates".to_string());
+    }
+    let mut kinds = Vec::new();
+    for section in sections(format).map_err(|e| e.message)? {
+        let pieces = pieces(section).map_err(|e| e.message)?;
+        let kind = kind_of(&pieces)
+            .ok_or_else(|| unsupported(format, "it mixes a date and digits").message)?;
+        kinds.push(kind);
+        // Each section must be one Forge can write a number with
+        if kind == FormatKind::Number {
+            write_number(1234.5, &pieces, format).map_err(|e| e.message)?;
+        }
+    }
+    if kinds.contains(&FormatKind::Date) && kinds.contains(&FormatKind::Number) {
+        return Err(unsupported(format, "it mixes a date and digits").message);
+    }
+    Ok(if kinds.contains(&FormatKind::Date) {
+        FormatKind::Date
+    } else {
+        FormatKind::Number
+    })
+}
+
 /// `value` written with `format`, as Excel's `TEXT` writes it.
 ///
 /// # Errors
@@ -124,14 +254,7 @@ pub fn format_value(value: &Value, format: &str) -> Result<String, EvalError> {
     if trimmed.eq_ignore_ascii_case("general") || trimmed == "@" {
         return Ok(value.as_text());
     }
-    let pieces = pieces(format)?;
-    let has_date = pieces.iter().any(|p| matches!(p, Piece::Date(..)));
-    let has_number = pieces
-        .iter()
-        .any(|p| matches!(p, Piece::Digit(_) | Piece::Percent | Piece::Exponent { .. }));
-    if has_date && has_number {
-        return Err(unsupported(format, "it mixes a date and digits"));
-    }
+    let sections = sections(format)?;
     // Text that is neither a number nor a date comes back as it is, as in
     // Excel; so does TRUE or FALSE.
     let number = match value {
@@ -147,7 +270,35 @@ pub fn format_value(value: &Value, format: &str) -> Result<String, EvalError> {
         },
         other => return Ok(other.as_text()),
     };
-    if has_date {
+    // The section for the number: a negative one is written without its
+    // minus, as its own section shows it
+    let (section, number) = match (sections.as_slice(), number) {
+        ([_, negative, ..], n) if n < 0.0 => (*negative, -n),
+        ([_, _, zero], n) if n == 0.0 => (*zero, n),
+        ([first, ..], n) => (*first, n),
+        ([], n) => (format, n),
+    };
+    let pieces = pieces(section)?;
+    let kind = kind_of(&pieces).ok_or_else(|| unsupported(format, "it mixes a date and digits"))?;
+    // A section of text only (`"-"` for zero) is that text
+    let is_text = !pieces.iter().any(|p| {
+        matches!(
+            p,
+            Piece::Digit(_) | Piece::Percent | Piece::Exponent { .. } | Piece::Date(..)
+        )
+    });
+    if is_text {
+        return Ok(pieces
+            .iter()
+            .map(|p| match p {
+                Piece::Literal(text) => text.clone(),
+                Piece::Point => ".".to_string(),
+                Piece::Comma => ",".to_string(),
+                _ => String::new(),
+            })
+            .collect());
+    }
+    if kind == FormatKind::Date {
         write_date(number, &pieces, format)
     } else {
         write_number(number, &pieces, format)
@@ -294,10 +445,41 @@ fn write_number(value: f64, pieces: &[Piece], format: &str) -> Result<String, Ev
     if !value.is_finite() {
         return Err(EvalError::new("#NUM!: TEXT of a number that is not finite"));
     }
+    // A run of commas right after the last digit divides by 1,000 each
+    // (`#,##0,"k"`, `0.0,,"M"`), and so does one right before the point
+    let is_digit_piece = |p: &Piece| matches!(p, Piece::Digit(_));
+    let mut scaling: Vec<usize> = Vec::new();
+    if let Some(last) = pieces.iter().rposition(is_digit_piece) {
+        scaling.extend((last + 1..pieces.len()).take_while(|&i| pieces[i] == Piece::Comma));
+    }
+    if let Some(point) = pieces.iter().position(|p| *p == Piece::Point) {
+        let before: Vec<usize> = (0..point)
+            .rev()
+            .take_while(|&i| pieces[i] == Piece::Comma)
+            .collect();
+        if point > before.len() && is_digit_piece(&pieces[point - before.len() - 1]) {
+            scaling.extend(before);
+        }
+    }
+    let kept: Vec<Piece>;
+    let pieces: &[Piece] = if scaling.is_empty() {
+        pieces
+    } else {
+        kept = pieces
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| !scaling.contains(i))
+            .map(|(_, p)| p.clone())
+            .collect();
+        &kept
+    };
     let percents = pieces.iter().filter(|p| **p == Piece::Percent).count();
     let mut magnitude = value.abs();
     for _ in 0..percents {
         magnitude *= 100.0;
+    }
+    for _ in &scaling {
+        magnitude /= 1000.0;
     }
 
     let point = pieces.iter().position(|p| *p == Piece::Point);
@@ -611,11 +793,12 @@ mod tests {
     #[test]
     fn other_formats_are_errors_that_say_why() {
         for (format, why) in [
-            ("0.00;(0.00)", "sections with ;"),
+            ("0;0;0;@", "a fourth section"),
+            ("[>100]0", "only a colour"),
+            ("[$€-407]0.00", "only a colour"),
             ("h:mm", "times are not read"),
             ("# ?/?", "? is not read"),
-            ("[Red]0", "[ is not read"),
-            ("0.0,", "a comma that is not between digits"),
+            (",0", "a comma that is not between digits"),
             ("0.00 units", "write the text u in quotes"),
             ("yyyy 0", "mixes a date and digits"),
             ("0.0.0", "two decimal points"),
@@ -631,6 +814,57 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(error.contains("#VALUE!"), "{error}");
+    }
+
+    /// The codes `format:` added (ADR-061): each is what Gnumeric 1.12 and
+    /// `LibreOffice` 26.2 both give (measured 2026-11-13).
+    #[test]
+    fn sections_colours_spaces_fills_and_scaling_as_both_engines_write_them() {
+        for (format, cases) in [
+            ("#,##0;(#,##0)", ["1,235", "(1,235)", "0", "0"]),
+            (
+                "#,##0.00;[Red](#,##0.00);\"-\"",
+                ["1,234.57", "(1,234.57)", "-", "0.12"],
+            ),
+            ("#,##0;-#,##0;\"–\"", ["1,235", "-1,235", "–", "0"]),
+            ("#,##0_);(#,##0)", ["1,235 ", "(1,235)", "0 ", "0 "]),
+            ("[Red]0.00", ["1234.57", "-1234.57", "0.00", "0.12"]),
+            // Both engines write 0.0M for -1234.567: a negative number that
+            // rounds to zero loses its minus there. Forge keeps it, as for
+            // TEXT(-0.001, "0.00") (below), which Excel is believed to do
+            ("0.0,,\"M\"", ["0.0M", "-0.0M", "0.0M", "0.0M"]),
+            ("#,##0,\"k\"", ["1k", "-1k", "0k", "0k"]),
+            (
+                "_($* #,##0.00_)",
+                [" $1,234.57 ", "- $1,234.57 ", " $0.00 ", " $0.12 "],
+            ),
+            (
+                "#,##0.00;-#,##0.00;0.00",
+                ["1,234.57", "-1,234.57", "0.00", "0.12"],
+            ),
+        ] {
+            for (value, expected) in [1234.567, -1234.567, 0.0, 0.1234].iter().zip(cases) {
+                assert_eq!(
+                    text(*value, format),
+                    expected,
+                    "TEXT({value}, \"{format}\")"
+                );
+            }
+        }
+        assert_eq!(text(12_345_678.0, "0.0,,\"M\""), "12.3M");
+        assert_eq!(text(46_326.0, "#,##0,\"k\""), "46k");
+    }
+
+    #[test]
+    fn check_format_says_what_a_format_shows() {
+        assert_eq!(check_format("#,##0;(#,##0)"), Ok(FormatKind::Number));
+        assert_eq!(check_format("mmm yyyy"), Ok(FormatKind::Date));
+        assert_eq!(check_format("General"), Ok(FormatKind::General));
+        assert!(check_format("0;0;0;@")
+            .unwrap_err()
+            .contains("fourth section"));
+        assert!(check_format("0;mmm").unwrap_err().contains("mixes a date"));
+        assert!(check_format("@").is_err());
     }
 
     #[test]

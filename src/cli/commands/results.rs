@@ -37,6 +37,8 @@ pub struct CalculationResult {
     pub scalars: BTreeMap<String, Option<f64>>,
     /// The scalars whose value is a date
     pub dates: std::collections::BTreeSet<String>,
+    /// Each scalar with a `format:`, as that format shows it (ADR-061)
+    pub formatted: BTreeMap<String, String>,
     pub unit_warnings: Vec<String>,
     pub file_updated: bool,
     pub dry_run: bool,
@@ -61,6 +63,8 @@ impl CalculationResult {
 struct CalculationWire {
     tables: BTreeMap<String, TableSummary>,
     scalars: BTreeMap<String, serde_json::Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    formatted: BTreeMap<String, String>,
     unit_warnings: Vec<String>,
     file_updated: bool,
     dry_run: bool,
@@ -85,6 +89,7 @@ impl From<CalculationResult> for CalculationWire {
         Self {
             tables: r.tables,
             scalars,
+            formatted: r.formatted,
             unit_warnings: r.unit_warnings,
             file_updated: r.file_updated,
             dry_run: r.dry_run,
@@ -117,6 +122,7 @@ impl From<CalculationWire> for CalculationResult {
             tables: w.tables,
             scalars,
             dates,
+            formatted: w.formatted,
             unit_warnings: w.unit_warnings,
             file_updated: w.file_updated,
             dry_run: w.dry_run,
@@ -135,6 +141,10 @@ pub struct TableSummary {
     /// (as text) or booleans. Keyed by column name, in name order.
     #[serde(default)]
     pub values: BTreeMap<String, Vec<serde_json::Value>>,
+    /// Each column with a `format:`, as that format shows its values
+    /// (ADR-061); an empty cell is ""
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub formatted: BTreeMap<String, Vec<String>>,
 }
 
 /// Result of the audit command

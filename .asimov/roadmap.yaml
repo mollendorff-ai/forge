@@ -33,9 +33,10 @@ state:
   format: model format 5.1.0 (ADR-051), with inputs as plain numbers, formula
     scalars as a formula mapping, and results written next to formulas in
     place; 5.2.0 (ADR-053) adds the period column, 5.3.0 (ADR-059) the
-    empty cell and 5.4.0 (ADR-060) a date as a scalar, each needed only by a
+    empty cell and 5.4.0 a date as a scalar (ADR-060) and a number format
+    beside the unit (ADR-061), each needed only by a
     file that has one. examples/ are 5.1.0, or the format of the newest of
-    these they use (the rolling forecast is 5.4.0); test-data/ and
+    these they use (the rolling forecast and the bagel are 5.4.0); test-data/ and
     validation/ stay 5.0.0 on purpose (a few validation specs are 5.2.0 to
     5.4.0, for those features).
   scope: all analysis engines are supported (ADR-050). The maintainer uses
@@ -79,19 +80,15 @@ tier1:
 # TIER 2 — MODELING (what would change how Forge feels to use)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-tier2:
-  # The earlier tier-2 items are done (2026-11-10): forge report, the
+tier2: []
+  # No open item. The earlier tier-2 items are done (2026-11-10): forge report, the
   # comparison example and the first-model starter.
   # Found building examples/rolling-forecast (2026-11-12), the FP&A audit:
   # actuals then forecast, fiscal quarters, year to date, a budget looked up
   # by month and price/volume/mix all work; three did not, and all three are
   # built: a table of quarters (ADR-058), empty cells (ADR-059) and a date as
-  # a scalar (ADR-060).
-  - id: T2-NUMBER-FORMAT
-    title: "A format: attribute next to unit:, carried into the exported workbook"
-    why: "forge export writes every number in Excel's default format, so a margin is 0.1234 and a price 786.32036, and the workbook has to be formatted by hand before it is shown to anyone. unit: says what a number is, not how to show it. The maintainer's and his brother's idea, 2026-11-12: the workbook is what an audience sees"
-    how: "ADR-061 (proposed): format: holds an Excel number-format code, on a scalar, a data column and a formula column; Forge accepts only codes its renderer writes as Gnumeric and LibreOffice do (measured: 25 codes, the engines agree on all), the part TEXT reads plus sections, colours, _ and * and scaling commas, so TEXT reads them too; a format never changes a value (calculate, JSON values and --output unchanged; JSON gains formatted); export writes the code, import reads it back where a column's cells share one; a formula column keeps its metadata (unit: and notes: are dropped today); format 5.4.0 if built before 5.4.0 is in a release, 5.5.0 otherwise"
-    acceptance: "The bagel example with a format: on a price, a percentage and a count, exported and opened in Excel or LibreOffice, shows those cells formatted, with the same values and 0 mismatches after recalculation; forge import of that workbook gives the format: back; a file without format: exports the workbook it exports today, byte for byte apart from the time"
+  # a scalar (ADR-060). The number format the maintainer asked for is built
+  # too (ADR-061).
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # STUDIO — the web interface (ADR-055, ADR-056)

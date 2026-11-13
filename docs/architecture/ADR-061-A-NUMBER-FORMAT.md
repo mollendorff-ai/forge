@@ -1,6 +1,6 @@
 # ADR-061: A Number Format, Next to the Unit
 
-**Status:** Proposed
+**Status:** Accepted (2026-11-13, by merging #192); built (2026-11-13)
 **Date:** 2026-11-13
 **Decided by:** the maintainer (roadmap T2-NUMBER-FORMAT, the maintainer's and his brother's idea of 2026-11-12: the workbook is what an audience sees; accepted by merging this ADR); the design is Claude's, in a session configured for Opus 5.5
 **Extends:** ADR-054 (`TEXT` and Excel's format codes) and ADR-060 (model format 5.4.0)
@@ -73,7 +73,11 @@ The model files keep what a number is in `unit:`, and `Metadata` (`src/types.rs`
 
 6. **A formula column keeps its metadata.** The long form `{formula: "=...", unit: ..., notes: ..., format: ...}` stores `unit:`, `notes:` and the rest instead of dropping them. Whatever reads a column's metadata then reads a formula column's too: the export's notes, `forge report`, Studio. That is a change of its own, made in the same pull request because `format:` needs it, and it is listed there.
 
-7. **Model format.** `format:` is new, so a model with one names a format that has it. If this is built before a release carries 5.4.0 (ADR-060, not released as this is written), 5.4.0 has it and nothing else changes. Otherwise it is 5.5.0, with its own schema. Either way an earlier format refuses `format:` and names the one that has it.
+7. **Model format.** `format:` is new, so a model with one names a format that has it. If this is built before a release carries 5.4.0 (ADR-060, not released as this is written), 5.4.0 has it and nothing else changes. Otherwise it is 5.5.0, with its own schema. Either way an earlier format refuses `format:` and names the one that has it. *(Built in 5.4.0, before any release carried it.)*
+
+**Built this way, two notes.**
+- **A negative number that rounds to zero keeps its minus in Forge.** For example, `0.0,,"M"` of -1234.567 is `-0.0M`, where both engines write `0.0M`. That is the rule `TEXT` already had (`TEXT(-0.001, "0.00")` is `-0.00`, ADR-054), which Excel is believed to follow and which neither engine confirms. The case is left out of the Gnumeric suite and named there.
+- **LibreOffice formats some cells itself when it recalculates a workbook.** It gave `revenue = dozens * price` the price's currency format. `forge import` reads what a workbook holds, so a workbook saved by LibreOffice can come back with more `format:` than Forge exported.
 
 ## Consequences
 

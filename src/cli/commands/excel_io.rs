@@ -153,9 +153,22 @@ fn table_to_value(table: &crate::types::Table) -> yaml_serde::Value {
     use crate::types::ColumnValue;
     use yaml_serde::Value;
     let mut map = yaml_serde::Mapping::new();
+    // A column with a format: in its long form (ADR-061)
+    let with_format = |value: Value, key: &str, name: &str| -> Value {
+        match table.format_of(name) {
+            Some(format) => {
+                let mut long = yaml_serde::Mapping::new();
+                long.insert(Value::from(key), value);
+                long.insert(Value::from("format"), Value::from(format));
+                Value::Mapping(long)
+            },
+            None => value,
+        }
+    };
     for name in table.column_names() {
         if let Some(formula) = table.row_formulas.get(name) {
-            map.insert(Value::String(name.clone()), Value::String(formula.clone()));
+            let formula = with_format(Value::String(formula.clone()), "formula", name);
+            map.insert(Value::String(name.clone()), formula);
             continue;
         }
         let items: Vec<Value> = match &table.columns[name].values {
@@ -167,7 +180,8 @@ fn table_to_value(table: &crate::types::Table) -> yaml_serde::Value {
             // An empty cell is null (ADR-059)
             ColumnValue::Blanks(v) => v.iter().map(|n| n.map_or(Value::Null, number)).collect(),
         };
-        map.insert(Value::String(name.clone()), Value::Sequence(items));
+        let column = with_format(Value::Sequence(items), "value", name);
+        map.insert(Value::String(name.clone()), column);
     }
     Value::Mapping(map)
 }
@@ -205,7 +219,21 @@ fn scalars_to_value(
     use yaml_serde::{Mapping, Value};
     let mut map = Mapping::new();
     for (path, variable) in scalars {
+        let format = variable.metadata.format.as_ref();
         let entry = match (&variable.formula, variable.value) {
+            // An input with a format: is a mapping (ADR-061)
+            (None, Some(value)) if format.is_some() => {
+                let mut entry = Mapping::new();
+                let value = variable
+                    .date_text()
+                    .map_or_else(|| number(value), Value::String);
+                entry.insert(Value::from("value"), value);
+                entry.insert(
+                    Value::from("format"),
+                    Value::from(format.cloned().unwrap_or_default()),
+                );
+                Value::Mapping(entry)
+            },
             // A date input is its text (ADR-060)
             (None, Some(_)) if variable.is_date => {
                 Value::String(variable.date_text().unwrap_or_default())
@@ -216,6 +244,9 @@ fn scalars_to_value(
                 entry.insert(Value::from("formula"), Value::from(formula.clone()));
                 if let Some(value) = value {
                     entry.insert(Value::from("value"), number(value));
+                }
+                if let Some(format) = format {
+                    entry.insert(Value::from("format"), Value::from(format.clone()));
                 }
                 Value::Mapping(entry)
             },
@@ -381,10 +412,16 @@ fn write_include_files(dir: &Path, model: &crate::types::ParsedModel) -> ForgeRe
 /// (ADR-060), 5.3.0 when a column has an empty cell (ADR-059), 5.1.0
 /// otherwise.
 fn import_format(model: &crate::types::ParsedModel) -> &'static str {
+    // A date input (ADR-060) or a format: (ADR-061) is 5.4.0
     let dates = model
         .scalars
         .values()
-        .any(|v| v.is_date && v.formula.is_none());
+        .any(|v| v.metadata.format.is_some() || (v.is_date && v.formula.is_none()))
+        || model.tables.values().any(|t| {
+            t.column_names()
+                .into_iter()
+                .any(|name| t.format_of(name).is_some())
+        });
     let blanks = model.tables.values().any(|table| {
         table
             .columns
@@ -1398,7 +1435,8 @@ g:
         assert!(!split.exists(), "nothing may be written");
     }
 
-    /// `forge import` writes model format 5.1.0, without nulls (ADR-051).
+    /// `forge import` writes model format 5.1.0, without nulls (ADR-051); the
+    /// bagel has number formats, so 5.4.0 (ADR-061).
     #[test]
     fn imported_examples_are_short_form() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -1413,7 +1451,11 @@ g:
             ExcelExporter::new(model).export(&xlsx).unwrap();
             import_core(&xlsx, &yaml, false, false).unwrap();
             let text = fs::read_to_string(&yaml).unwrap();
-            assert!(text.starts_with("_forge_version: \"5.1.0\""), "{example}");
+            let version = ["5.1.0", "5.4.0"][usize::from(example == "bagel/bagel")];
+            assert!(
+                text.starts_with(&format!("_forge_version: \"{version}\"")),
+                "{example}"
+            );
             assert!(!text.contains("null"), "{example}:\n{text}");
             assert!(
                 !text.contains(".0\n"),

@@ -19,9 +19,77 @@ struct Sheet {
     name: String,
     values: Range<Data>,
     formulas: Option<Range<String>>,
+    /// Each cell's style, for its number format (ADR-061)
+    styles: Option<calamine::StyleRange>,
 }
 
 impl Sheet {
+    /// The number-format code of a cell, by 0-based position relative to the
+    /// used range of values.
+    fn format_code(&self, row: usize, col: usize) -> Option<String> {
+        let (r0, c0) = self.values.start()?;
+        let pos = (r0 + u32::try_from(row).ok()?, c0 + u32::try_from(col).ok()?);
+        let style = self.styles.as_ref()?.get(pos)?;
+        style.number_format.as_ref().map(|f| f.format_code.clone())
+    }
+
+    /// The `format:` of the cells at `rows` of column `col`, as `forge import`
+    /// writes it (ADR-061): their one code, if they share one that Forge
+    /// reads and that is not `General` (nor, on dates, the `yyyy-mm-dd` Forge
+    /// writes for a date without a format). A code Forge does not read, or
+    /// cells with different codes, give a warning and no format.
+    fn imported_format(
+        &self,
+        place: &str,
+        cells: impl IntoIterator<Item = (usize, usize)>,
+        is_date: bool,
+        warnings: &mut Vec<String>,
+    ) -> Option<String> {
+        use crate::core::array_calculator::evaluator::text::number_format::{
+            check_format, FormatKind,
+        };
+        let mut codes: Vec<String> = Vec::new();
+        for (row, col) in cells {
+            let code = self
+                .format_code(row, col)
+                .unwrap_or_else(|| "General".to_string());
+            if !codes.contains(&code) {
+                codes.push(code);
+            }
+        }
+        match codes.as_slice() {
+            [] => None,
+            [code] => {
+                if code.eq_ignore_ascii_case("general") || (is_date && code == "yyyy-mm-dd") {
+                    return None;
+                }
+                match check_format(code) {
+                    Ok(FormatKind::General) => None,
+                    Ok(FormatKind::Date) if !is_date => None,
+                    Ok(FormatKind::Number) if is_date => None,
+                    Ok(_) => Some(code.clone()),
+                    Err(why) => {
+                        warnings.push(format!(
+                            "{place}: the number format \"{code}\" is not imported: {}",
+                            why.trim_start_matches("TEXT: ")
+                        ));
+                        None
+                    },
+                }
+            },
+            several => {
+                let general = several.iter().all(|c| c.eq_ignore_ascii_case("general"));
+                if !general {
+                    warnings.push(format!(
+                        "{place}: its cells have different number formats ({}), so none is \
+                         imported",
+                        several.join(", ")
+                    ));
+                }
+                None
+            },
+        }
+    }
     /// Cell text by 0-based position relative to the used range of values.
     fn header(&self, col: usize) -> Option<String> {
         match self.values.get((0, col))? {
@@ -240,10 +308,12 @@ impl ExcelImporter {
                 continue;
             }
             let formulas = workbook.worksheet_formula(&name).ok();
+            let styles = workbook.worksheet_style(&name).ok();
             sheets.push(Sheet {
                 name,
                 values,
                 formulas,
+                styles,
             });
         }
         sheets
@@ -665,9 +735,48 @@ impl ExcelImporter {
                 },
             );
 
+            // Its number format (ADR-061); a formula's is a date by Forge's rule
+            let shows_date = is_date || names.of(refs, &sheet.name).date_scalars.contains(&path);
+            let format = sheet.imported_format(&path, [(row, 1)], shows_date, warnings);
             let mut variable = Variable::new(path.clone(), value, formula);
             variable.is_date = is_date;
+            variable.metadata.format = format;
             model.add_scalar(path, variable);
+        }
+    }
+
+    /// Text, a boolean or an error among numbers is 0 in Forge: name the cells.
+    fn warn_not_numbers(
+        sheet: &Sheet,
+        col: usize,
+        (table_name, col_name): (&str, &str),
+        data: &[Data],
+        warnings: &mut Vec<String>,
+    ) {
+        let not_numbers: Vec<String> = data
+            .iter()
+            .enumerate()
+            .filter(|(_, cell)| !matches!(cell, Data::Empty) && number_of(cell).is_none())
+            .map(|(i, cell)| format!("{}{} ({cell})", sheet.letter(col), sheet.excel_row(i + 1)))
+            .collect();
+        if !not_numbers.is_empty() {
+            let shown = not_numbers.iter().take(5).cloned().collect::<Vec<_>>();
+            let more = not_numbers.len() - shown.len();
+            warnings.push(format!(
+                "{table_name}.{col_name}: a column of numbers holds text or another \
+                 non-number in {} imported as 0: {}{}",
+                if not_numbers.len() == 1 {
+                    "1 cell,"
+                } else {
+                    "several cells,"
+                },
+                shown.join(", "),
+                if more > 0 {
+                    format!(" and {more} more")
+                } else {
+                    String::new()
+                }
+            ));
         }
     }
 
@@ -709,6 +818,23 @@ impl ExcelImporter {
                     Self::row_formula(sheet, col, (refs, names), &table_name, holds_dates, &excel);
                 match whole_column {
                     Ok(forge) => {
+                        let place = format!("{table_name}.{col_name}");
+                        let rows = (1..height).filter(|row| sheet.formula(*row, col).is_some());
+                        let format = sheet.imported_format(
+                            &place,
+                            rows.map(|row| (row, col)),
+                            holds_dates,
+                            warnings,
+                        );
+                        if let Some(format) = format {
+                            table.formula_metadata.insert(
+                                col_name.clone(),
+                                crate::types::Metadata {
+                                    format: Some(format),
+                                    ..Default::default()
+                                },
+                            );
+                        }
                         table.add_row_formula(col_name, forge);
                         continue;
                     },
@@ -749,34 +875,7 @@ impl ExcelImporter {
                 column_value,
                 ColumnValue::Number(_) | ColumnValue::Blanks(_)
             ) {
-                // Text, a boolean or an error among numbers is 0 in Forge
-                let not_numbers: Vec<String> = data
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, cell)| !matches!(cell, Data::Empty) && number_of(cell).is_none())
-                    .map(|(i, cell)| {
-                        format!("{}{} ({cell})", sheet.letter(col), sheet.excel_row(i + 1))
-                    })
-                    .collect();
-                if !not_numbers.is_empty() {
-                    let shown = not_numbers.iter().take(5).cloned().collect::<Vec<_>>();
-                    let more = not_numbers.len() - shown.len();
-                    warnings.push(format!(
-                        "{table_name}.{col_name}: a column of numbers holds text or another \
-                         non-number in {} imported as 0: {}{}",
-                        if not_numbers.len() == 1 {
-                            "1 cell,"
-                        } else {
-                            "several cells,"
-                        },
-                        shown.join(", "),
-                        if more > 0 {
-                            format!(" and {more} more")
-                        } else {
-                            String::new()
-                        }
-                    ));
-                }
+                Self::warn_not_numbers(sheet, col, (&table_name, &col_name), &data, warnings);
             }
             // Forge reads a column that starts with a date as a column of
             // dates, and rejects any other text in it
@@ -790,7 +889,16 @@ impl ExcelImporter {
                     ));
                 }
             }
-            table.add_column(Column::new(col_name, column_value));
+            // The number format its cells share (ADR-061)
+            let is_date = matches!(column_value, ColumnValue::Date(_));
+            let cells = (0..data.len())
+                .filter(|i| !matches!(data[*i], Data::Empty))
+                .map(|i| (i + 1, col));
+            let place = format!("{table_name}.{col_name}");
+            let format = sheet.imported_format(&place, cells, is_date, warnings);
+            let mut column = Column::new(col_name, column_value);
+            column.metadata.format = format;
+            table.add_column(column);
         }
 
         model.add_table(table);

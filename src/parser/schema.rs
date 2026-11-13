@@ -42,6 +42,7 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
     check_period_columns(yaml, version)?;
     check_empty_cells(yaml, version)?;
     check_date_scalars(yaml, version)?;
+    check_formats(yaml, version)?;
     // Tables in a 1.0.0 model: say so before the schema reports the shapes
     if version == "1.0.0" {
         validate_v1_0_0_no_tables(yaml)?;
@@ -156,6 +157,42 @@ fn date_scalars(yaml: &Value) -> Vec<(String, String)> {
         }
     }
     found
+}
+
+/// A `format:` in a model of an earlier format: say which format has it
+/// (ADR-061).
+fn check_formats(yaml: &Value, version: &str) -> ForgeResult<()> {
+    if version == "5.4.0" {
+        return Ok(());
+    }
+    let Some(root) = yaml.as_mapping() else {
+        return Ok(());
+    };
+    let has_format = |v: &Value| matches!(v, Value::Mapping(m) if m.contains_key("format"));
+    for (key, value) in root {
+        let Some(key) = key.as_str() else { continue };
+        if key.starts_with('_') {
+            continue;
+        }
+        let found = if has_format(value) {
+            Some(key.to_string())
+        } else if let Value::Mapping(group) = value {
+            group
+                .iter()
+                .find(|(_, child)| has_format(child))
+                .and_then(|(name, _)| name.as_str())
+                .map(|name| format!("{key}.{name}"))
+        } else {
+            None
+        };
+        if let Some(path) = found {
+            return Err(ForgeError::Validation(format!(
+                "'{path}' has a format:, which model format 5.4.0 adds (ADR-061). Set \
+                 `_forge_version: \"5.4.0\"` (this file says {version})"
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// A scalar written as a date in a model of an earlier format: say which

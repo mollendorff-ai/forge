@@ -43,6 +43,9 @@ function unitAt(path) {
   const entry = formulaOf(S.structure, String(path).replace(/ \(row \d+\)$/, ""));
   return entry && entry.unit ? entry.unit : null;
 }
+// A value with a format: is shown as Forge formats it (ADR-061); Studio adds
+// no rule of its own then
+const formattedAt = (path) => (S.calc && S.calc.formatted && path in S.calc.formatted ? S.calc.formatted[path] : undefined);
 const fmtAt = (v, path) => fmt(v, leaf(String(path || "").replace(/ \(row \d+\)$/, "")), unitAt(path));
 const shortAt = (v, path) => short(v, leaf(String(path || "").replace(/ \(row \d+\)$/, "")), unitAt(path));
 
@@ -301,10 +304,11 @@ function updateValues() {
       if (r) r.disabled = forced;
       b.hidden = !forced;
       if (forced) b.textContent = `Set by the ${S.scenario} scenario. The plan has ${fmtAt(s.value, path)}.`;
-      $("[data-hint]", card).textContent = shown != null && isPercent(leaf(path), unitAt(path), shown) ? fmtAt(shown, path) : "";
+      const formatted = formattedAt(path);
+      $("[data-hint]", card).textContent = formatted !== undefined ? formatted : shown != null && isPercent(leaf(path), unitAt(path), shown) ? fmtAt(shown, path) : "";
     } else {
       const el = $("[data-val]", card);
-      el.textContent = S.calc ? fmtAt(v, path) : "Not calculated";
+      el.textContent = S.calc ? formattedAt(path) ?? fmtAt(v, path) : "Not calculated";
       el.classList.toggle("neg", typeof v === "number" && v < 0);
     }
   }
@@ -715,7 +719,8 @@ function gridTable(t) {
     body += `<tr><th scope="row">${esc(labels[i] ?? i + 1)}</th>` + t.columns.map((c) => {
       const v = calc.values[c.name] ? calc.values[c.name][i] : undefined;
       const path = `${t.name}.${c.name}`;
-      return `<td data-cell="${esc(path)}" data-row="${i}" data-value="${esc(v === undefined || v === null ? "" : String(v))}" class="${typeof v === "number" ? "num" : ""}${typeof v === "number" && v < 0 ? " neg" : ""}">${esc(cellText(v, path))}</td>`;
+      const f = calc.formatted && calc.formatted[c.name] ? calc.formatted[c.name][i] : undefined;
+      return `<td data-cell="${esc(path)}" data-row="${i}" data-value="${esc(v === undefined || v === null ? "" : String(v))}" class="${typeof v === "number" ? "num" : ""}${typeof v === "number" && v < 0 ? " neg" : ""}">${esc(f ?? cellText(v, path))}</td>`;
     }).join("") + `</tr>`;
   }
   if (!rows) body = `<tr><td class="empty" colspan="${t.columns.length + 1}">Not calculated</td></tr>`;
@@ -728,7 +733,7 @@ function gridScalars(list) {
     const g = split(s.path).group ?? "";
     if (g !== group) { group = g; body += `<tr class="g-group"><th colspan="2" scope="colgroup">${esc(g || "top level")}</th></tr>`; }
     const v = valueOf(s.path);
-    body += `<tr data-gscalar="${esc(s.path)}" data-value="${esc(v === undefined || v === null ? "" : String(v))}"><th scope="row"><span class="g-name">${esc(leaf(s.path))}</span>${s.unit ? `<span class="g-unit">${esc(s.unit)}</span>` : ""}${s.formula != null ? `<span class="g-formula" title="${esc(s.formula)}">${esc(s.formula)}</span>` : ""}</th><td class="num${typeof v === "number" && v < 0 ? " neg" : ""}">${esc(S.calc ? cellText(v, s.path) : "")}</td></tr>`;
+    body += `<tr data-gscalar="${esc(s.path)}" data-value="${esc(v === undefined || v === null ? "" : String(v))}"><th scope="row"><span class="g-name">${esc(leaf(s.path))}</span>${s.unit ? `<span class="g-unit">${esc(s.unit)}</span>` : ""}${s.formula != null ? `<span class="g-formula" title="${esc(s.formula)}">${esc(s.formula)}</span>` : ""}</th><td class="num${typeof v === "number" && v < 0 ? " neg" : ""}">${esc(S.calc ? formattedAt(s.path) ?? cellText(v, s.path) : "")}</td></tr>`;
   }
   return `<div class="eyebrow"><h2>scalars</h2><span class="tag">inputs and results</span></div>
     <div class="card grid-wrap flat"><table class="grid scalars"><thead><tr><th scope="col">name</th><th scope="col" class="num">value</th></tr></thead><tbody>${body}</tbody></table></div>`;

@@ -185,10 +185,9 @@ impl ExcelExporter {
         let Some(value) = var.value else {
             return Ok(());
         };
-        let written = if var.is_date {
-            worksheet.write_number_with_format(row, 1, value, &Self::date_format())
-        } else {
-            worksheet.write_number(row, 1, value)
+        let written = match Self::scalar_format(var) {
+            Some(format) => worksheet.write_number_with_format(row, 1, value, &format),
+            None => worksheet.write_number(row, 1, value),
         };
         written
             .map(|_| ())
@@ -206,19 +205,27 @@ impl ExcelExporter {
         if let Some(value) = var.value {
             formula = formula.set_result(value.to_string());
         }
-        let written = match (var.is_date, translated.has_range) {
-            (true, true) => {
-                worksheet.write_dynamic_formula_with_format(row, 1, formula, &Self::date_format())
+        let written = match (Self::scalar_format(var), translated.has_range) {
+            (Some(format), true) => {
+                worksheet.write_dynamic_formula_with_format(row, 1, formula, &format)
             },
-            (true, false) => {
-                worksheet.write_formula_with_format(row, 1, formula, &Self::date_format())
-            },
-            (false, true) => worksheet.write_dynamic_formula(row, 1, formula),
-            (false, false) => worksheet.write_formula(row, 1, formula),
+            (Some(format), false) => worksheet.write_formula_with_format(row, 1, formula, &format),
+            (None, true) => worksheet.write_dynamic_formula(row, 1, formula),
+            (None, false) => worksheet.write_formula(row, 1, formula),
         };
         written
             .map(|_| ())
             .map_err(|e| ForgeError::Export(format!("Failed to write scalar formula: {e}")))
+    }
+
+    /// The cell format of a scalar: its `format:` (ADR-061), else a date's
+    /// (ADR-060), else none.
+    fn scalar_format(var: &crate::types::Variable) -> Option<Format> {
+        match (&var.metadata.format, var.is_date) {
+            (Some(code), _) => Some(Format::new().set_num_format(code)),
+            (None, true) => Some(Self::date_format()),
+            (None, false) => None,
+        }
     }
 
     /// The format of a date cell: the day number shown as Forge writes dates.
@@ -419,27 +426,13 @@ impl ExcelExporter {
         // Data and formula columns in model order (the same order as `self.refs`)
         let column_names: Vec<String> = table.column_names().into_iter().cloned().collect();
 
-        // Write header row (row 0) with metadata as notes (v4.0)
-        for (col_idx, col_name) in column_names.iter().enumerate() {
-            worksheet
-                .write_string(0, col_idx as u16, col_name)
-                .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
-
-            // Add metadata as cell note if column has metadata (v4.0)
-            if let Some(column) = table.columns.get(col_name) {
-                if let Some(note_text) = Self::format_metadata_note(&column.metadata) {
-                    let note = Note::new(note_text).set_author("Forge");
-                    worksheet
-                        .insert_note(0, col_idx as u16, &note)
-                        .map_err(|e| ForgeError::Export(format!("Failed to add note: {e}")))?;
-                }
-            }
-        }
+        Self::write_header(worksheet, table, &column_names)?;
 
         let row_count = Self::row_count(table);
 
         // The columns written as dates, found once (not once per cell)
         let date_columns: std::collections::HashSet<&str> = Self::date_columns(table).collect();
+        let formats = Self::column_formats(table, &column_names);
 
         // Formula columns that Excel cannot express are written as values.
         let mut untranslatable: HashMap<&str, String> = HashMap::new();
@@ -488,15 +481,21 @@ impl ExcelExporter {
                             text_results,
                         ),
                     );
-                    if translated.is_date {
-                        worksheet.write_formula_with_format(
+                    let format = formats.get(col_name.as_str());
+                    match (format, translated.is_date) {
+                        (Some(format), _) => worksheet.write_formula_with_format(
+                            excel_row - 1,
+                            col,
+                            excel_formula,
+                            format,
+                        ),
+                        (None, true) => worksheet.write_formula_with_format(
                             excel_row - 1,
                             col,
                             excel_formula,
                             &Self::date_format(),
-                        )
-                    } else {
-                        worksheet.write_formula(excel_row - 1, col, excel_formula)
+                        ),
+                        (None, false) => worksheet.write_formula(excel_row - 1, col, excel_formula),
                     }
                     .map_err(|e| ForgeError::Export(format!("Failed to write formula: {e}")))?;
                 } else if let Some(column) = table.columns.get(col_name) {
@@ -506,7 +505,10 @@ impl ExcelExporter {
                         (excel_row - 1, col),
                         &column.values,
                         row_idx,
-                        date_columns.contains(col_name.as_str()),
+                        (
+                            date_columns.contains(col_name.as_str()),
+                            formats.get(col_name.as_str()),
+                        ),
                     )?;
                 }
                 if row_idx == 0 {
@@ -528,30 +530,71 @@ impl ExcelExporter {
         Ok(())
     }
 
+    /// The header row (row 0), with each column's metadata as a note (v4.0),
+    /// a formula column's too (ADR-061).
+    #[allow(clippy::cast_possible_truncation)] // far fewer columns than u16::MAX
+    fn write_header(
+        worksheet: &mut Worksheet,
+        table: &Table,
+        column_names: &[String],
+    ) -> ForgeResult<()> {
+        for (col_idx, col_name) in column_names.iter().enumerate() {
+            worksheet
+                .write_string(0, col_idx as u16, col_name)
+                .map_err(|e| ForgeError::Export(format!("Failed to write header: {e}")))?;
+            if let Some(note_text) = table
+                .metadata(col_name)
+                .and_then(Self::format_metadata_note)
+            {
+                let note = Note::new(note_text).set_author("Forge");
+                worksheet
+                    .insert_note(0, col_idx as u16, &note)
+                    .map_err(|e| ForgeError::Export(format!("Failed to add note: {e}")))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Each column's `format:`, as the cell format its cells are written
+    /// with (ADR-061).
+    fn column_formats<'t>(table: &Table, column_names: &'t [String]) -> HashMap<&'t str, Format> {
+        column_names
+            .iter()
+            .filter_map(|name| {
+                let code = table.format_of(name)?;
+                Some((name.as_str(), Format::new().set_num_format(code)))
+            })
+            .collect()
+    }
+
     /// Write a single cell value based on column type; `is_date` says the
-    /// column is written as dates.
+    /// column is written as dates, and `format` is its `format:` (ADR-061).
     fn write_cell_value(
         worksheet: &mut Worksheet,
         cell: (u32, u16),
         values: &ColumnValue,
         index: usize,
-        is_date: bool,
+        (is_date, format): (bool, Option<&Format>),
     ) -> ForgeResult<()> {
         let (row, col) = cell;
+        let number = |worksheet: &mut Worksheet, value: f64| {
+            match format {
+                Some(format) => worksheet.write_number_with_format(row, col, value, format),
+                None => worksheet.write_number(row, col, value),
+            }
+            .map(|_| ())
+            .map_err(|e| ForgeError::Export(format!("Failed to write number: {e}")))
+        };
         match values {
             ColumnValue::Number(nums) => {
                 if let Some(&value) = nums.get(index) {
-                    worksheet
-                        .write_number(row, col, value)
-                        .map_err(|e| ForgeError::Export(format!("Failed to write number: {e}")))?;
+                    number(worksheet, value)?;
                 }
             },
             // An empty cell is left empty (ADR-059)
             ColumnValue::Blanks(nums) => {
                 if let Some(Some(value)) = nums.get(index) {
-                    worksheet
-                        .write_number(row, col, *value)
-                        .map_err(|e| ForgeError::Export(format!("Failed to write number: {e}")))?;
+                    number(worksheet, *value)?;
                 }
             },
             // A column of dates is written as dates: the day number, shown
@@ -560,8 +603,14 @@ impl ExcelExporter {
                 if let Some(value) = texts.get(index) {
                     if is_date {
                         if let Some(serial) = excel_serial(value) {
+                            let date_format = Self::date_format();
                             worksheet
-                                .write_number_with_format(row, col, serial, &Self::date_format())
+                                .write_number_with_format(
+                                    row,
+                                    col,
+                                    serial,
+                                    format.unwrap_or(&date_format),
+                                )
                                 .map_err(|e| {
                                     ForgeError::Export(format!("Failed to write date: {e}"))
                                 })?;

@@ -75,6 +75,9 @@ pub struct ReportRow {
     pub cells: Vec<Cell>,
     /// Per cell, whether it is an input (written in the file, not calculated)
     pub inputs: Vec<bool>,
+    /// Per cell, its value as its `format:` shows it (ADR-061), if it has one:
+    /// the table and Markdown show this, CSV and JSON the value
+    pub formatted: Vec<Option<String>>,
 }
 
 /// Groups that have the same keys, as one table
@@ -103,6 +106,7 @@ struct Entry {
     key: String,
     input: bool,
     cell: Cell,
+    formatted: Option<String>,
 }
 
 /// The scalars of one group, inputs first
@@ -120,6 +124,7 @@ fn groups_of(model: &ParsedModel) -> Vec<Group> {
         let entry = Entry {
             key: key.to_string(),
             input: variable.formula.is_none(),
+            formatted: variable.formatted(),
             cell: match variable.value {
                 Some(v) if variable.is_date => Cell::Date(v),
                 Some(v) => Cell::Value(v),
@@ -161,6 +166,10 @@ fn row_for(group: &str, keys: &[String], entries: &[&Entry]) -> ReportRow {
             .map(|e| e.map_or(Cell::Absent, |e| e.cell))
             .collect(),
         inputs: found.iter().map(|e| e.is_some_and(|e| e.input)).collect(),
+        formatted: found
+            .iter()
+            .map(|e| e.and_then(|e| e.formatted.clone()))
+            .collect(),
     }
 }
 
@@ -424,7 +433,13 @@ fn date_text(serial: f64) -> String {
 /// The cells of a row, as table and Markdown show them.
 fn shown_row(section: &ReportSection, wholes: &[bool], row: &ReportRow) -> Vec<String> {
     (0..section.keys.len())
-        .map(|c| shown_cell(row.cells[c], row.inputs[c], wholes[c]))
+        .map(|c| {
+            row.formatted
+                .get(c)
+                .cloned()
+                .flatten()
+                .unwrap_or_else(|| shown_cell(row.cells[c], row.inputs[c], wholes[c]))
+        })
         .collect()
 }
 

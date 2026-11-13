@@ -145,6 +145,25 @@ fn column_json_values(values: &ColumnValue) -> Vec<serde_json::Value> {
     }
 }
 
+/// A column's values as its `format:` shows them (ADR-061); an empty cell
+/// is "".
+#[must_use]
+pub fn formatted_column(values: &ColumnValue, format: &str) -> Vec<String> {
+    use crate::core::array_calculator::evaluator::{text::number_format::format_value, Value};
+    let show = |value: Value| format_value(&value, format).unwrap_or_default();
+    match values {
+        ColumnValue::Number(v) => v.iter().map(|n| show(Value::Number(*n))).collect(),
+        ColumnValue::Blanks(v) => v
+            .iter()
+            .map(|n| n.map_or_else(String::new, |n| show(Value::Number(n))))
+            .collect(),
+        ColumnValue::Text(v) | ColumnValue::Date(v) => {
+            v.iter().map(|t| show(Value::Text(t.clone()))).collect()
+        },
+        ColumnValue::Boolean(v) => v.iter().map(|b| show(Value::Boolean(*b))).collect(),
+    }
+}
+
 /// A column's values for the terminal, all of them and to 15 significant
 /// digits, like scalars: `[1, 2, 3]`. Long columns are not cut, because the values are what
 /// a reader (or an agent) needs.
@@ -218,6 +237,14 @@ pub fn calculate_core(
                     .iter()
                     .map(|(name, column)| (name.clone(), column_json_values(&column.values)))
                     .collect(),
+                formatted: table
+                    .columns
+                    .iter()
+                    .filter_map(|(name, column)| {
+                        let format = table.format_of(name)?;
+                        Some((name.clone(), formatted_column(&column.values, format)))
+                    })
+                    .collect(),
             },
         );
     }
@@ -225,8 +252,12 @@ pub fn calculate_core(
     // Build scalar map
     let mut scalars = std::collections::BTreeMap::new();
     let mut dates = std::collections::BTreeSet::new();
+    let mut formatted = std::collections::BTreeMap::new();
     for (name, var) in &result.scalars {
         scalars.insert(name.clone(), var.value.map(to_15_digits));
+        if let Some(text) = var.formatted() {
+            formatted.insert(name.clone(), text);
+        }
         if var.date_text().is_some() {
             dates.insert(name.clone());
         }
@@ -243,6 +274,7 @@ pub fn calculate_core(
         tables,
         scalars,
         dates,
+        formatted,
         unit_warnings,
         file_updated,
         dry_run,

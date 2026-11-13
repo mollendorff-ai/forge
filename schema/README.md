@@ -5,7 +5,7 @@ JSON Schemas for the Forge model formats. The version is the model format (`_for
 | File | Format |
 | --- | --- |
 | `forge.schema.json` | Any of them, for editors: it checks a file against the schema of the format its `_forge_version` names (5.4.0, 5.3.0, 5.2.0 or 5.1.0; for 5.0.0 and 1.0.0 it checks only the version, and `forge validate` does the rest). |
-| `forge-v5.4.0.schema.json` | 5.4.0 (ADR-060): 5.3.0 plus a date as a scalar (`last_actual: 2026-10-31`). Needed only by a file that has one. |
+| `forge-v5.4.0.schema.json` | 5.4.0 (ADR-060, ADR-061): 5.3.0 plus a date as a scalar (`last_actual: 2026-10-31`) and `format:` beside `unit:` (`{value: 16, format: "$#,##0.00"}`). Needed only by a file that has one. |
 | `forge-v5.3.0.schema.json` | 5.3.0 (ADR-059): 5.2.0 plus the empty cell, `null` in a column of numbers (`actual: [985, 1032, null]`). Needed only by a file that has one. |
 | `forge-v5.2.0.schema.json` | 5.2.0 (ADR-053): 5.1.0 plus the period column, a table column written as `{start: 2026-12, count: 300, unit: month}`. Needed only by a file that has one. |
 | `forge-v5.1.0.schema.json` | 5.1.0 (ADR-051): 5.0.0 plus plain-number inputs (`rate: 0.05`) and formula scalars written as `{formula: "=..."}` without `value: null`. `examples/` use it. |

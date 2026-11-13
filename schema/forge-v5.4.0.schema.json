@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/mollendorff-ai/forge/schema/forge-v5.4.0.json",
   "title": "Forge Model Format v5.4.0",
-  "description": "JSON Schema for Forge model format 5.4.0 (ADR-060). Same as 5.3.0, plus a date as a scalar: `last_actual: 2026-10-31` is a date, read as a cell of a date column is. 5.3.0 added the empty cell (ADR-059): null in a column of numbers (`actual: [985, 1032, null]`) is an empty cell, which an aggregate skips and a formula reads as 0, as in Excel. 5.2.0 added the period column (ADR-053). The format version is independent of the Forge tool version.",
+  "description": "JSON Schema for Forge model format 5.4.0 (ADR-060). Same as 5.3.0, plus a date as a scalar: `last_actual: 2026-10-31` is a date, read as a cell of a date column is. It also adds `format:` beside `unit:`, an Excel number-format code that changes how a number is shown in the workbook, the report and Studio, and never its value (ADR-061). 5.3.0 added the empty cell (ADR-059): null in a column of numbers (`actual: [985, 1032, null]`) is an empty cell, which an aggregate skips and a formula reads as 0, as in Excel. 5.2.0 added the period column (ADR-053). The format version is independent of the Forge tool version.",
   "type": "object",
   "required": [
     "_forge_version"
@@ -186,6 +186,10 @@
           "type": "string",
           "description": "Unit of measurement (CAD, USD, %, count, days, ratio)"
         },
+        "format": {
+          "type": "string",
+          "description": "How the number is shown, as an Excel number-format code Forge reads (\"#,##0.00\", \"0.0%\", \"#,##0;(#,##0)\", \"mmm yyyy\" on a date; ADR-061). It never changes the value"
+        },
         "notes": {
           "type": "string",
           "description": "Human-readable explanation"
@@ -243,6 +247,10 @@
         },
         "unit": {
           "type": "string"
+        },
+        "format": {
+          "type": "string",
+          "description": "How the number is shown, as an Excel number-format code Forge reads (\"#,##0.00\", \"0.0%\", \"#,##0;(#,##0)\", \"mmm yyyy\" on a date; ADR-061). It never changes the value"
         },
         "notes": {
           "type": "string"
@@ -955,6 +963,10 @@
         "unit": {
           "type": "string",
           "description": "Unit of measurement (CAD, USD, %, count, days, ratio)"
+        },
+        "format": {
+          "type": "string",
+          "description": "How the number is shown, as an Excel number-format code Forge reads (\"#,##0.00\", \"0.0%\", \"#,##0;(#,##0)\", \"mmm yyyy\" on a date; ADR-061). It never changes the value"
         },
         "notes": {
           "type": "string",

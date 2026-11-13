@@ -50,6 +50,8 @@ pub fn parse_table(name: &str, map: &yaml_serde::Mapping) -> ForgeResult<Table> 
             if let Some(Value::Sequence(seq)) = col_map.get("value") {
                 let column_value = parse_array_value(col_name, seq)?;
                 let metadata = parse_metadata(col_map);
+                let is_date = matches!(column_value, crate::types::ColumnValue::Date(_));
+                check_format(&format!("{name}.{col_name}"), &metadata, Some(is_date))?;
                 let column = Column::with_metadata(col_name.to_string(), column_value, metadata);
                 table.add_column(column);
                 continue;
@@ -58,9 +60,15 @@ pub fn parse_table(name: &str, map: &yaml_serde::Mapping) -> ForgeResult<Table> 
             if let Some(formula_val) = col_map.get("formula") {
                 if let Some(formula_str) = formula_val.as_str() {
                     if formula_str.starts_with('=') {
-                        // This is a row-wise formula with metadata
-                        // TODO: Store formula metadata when we add formula metadata support
+                        // A row formula with metadata, kept beside it (ADR-061)
                         table.add_row_formula(col_name.to_string(), formula_str.to_string());
+                        let metadata = parse_metadata(col_map);
+                        check_format(&format!("{name}.{col_name}"), &metadata, None)?;
+                        if !metadata.is_empty() {
+                            table
+                                .formula_metadata
+                                .insert(col_name.to_string(), metadata);
+                        }
                         continue;
                     }
                 }
@@ -101,6 +109,8 @@ pub fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable>
 
         // Extract v4.0 metadata fields
         let metadata = parse_metadata(map);
+        let is_date = formula.is_none().then_some(date.is_some());
+        check_format(path, &metadata, is_date)?;
         if date.is_some() && formula.is_none() && metadata.unit.is_some() {
             return Err(ForgeError::Parse(format!(
                 "'{path}' is a date, and a date has no unit: remove `unit:` (ADR-060)"
@@ -122,7 +132,7 @@ pub fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable>
 }
 
 /// The keys a scalar's mapping may have.
-pub const SCALAR_KEYS: [&str; 8] = [
+pub const SCALAR_KEYS: [&str; 9] = [
     "value",
     "formula",
     "unit",
@@ -131,6 +141,7 @@ pub const SCALAR_KEYS: [&str; 8] = [
     "validation_status",
     "last_updated",
     "better",
+    "format",
 ];
 
 /// Refuse what reading a mapping as one scalar would otherwise drop without a
@@ -171,13 +182,14 @@ pub fn check_scalar_keys(map: &yaml_serde::Mapping, path: &str) -> ForgeResult<(
                 _ => true,
             },
             "formula" => !matches!(value, Value::String(_) | Value::Null),
+            "format" => !matches!(value, Value::String(_)),
             _ => false,
         };
         if bad {
-            let expected = if key == "value" {
-                "a number or a date (2026-10-31)"
-            } else {
-                "a formula starting with = (in quotes)"
+            let expected = match key {
+                "value" => "a number or a date (2026-10-31)",
+                "format" => "an Excel number format in quotes, such as \"#,##0.00\"",
+                _ => "a formula starting with = (in quotes)",
             };
             return Err(ForgeError::Parse(format!(
                 "'{path}.{key}' must be {expected}, not {}",
@@ -273,6 +285,38 @@ pub fn parse_metadata(map: &yaml_serde::Mapping) -> Metadata {
         better: map
             .get("better")
             .and_then(|v| v.as_str().map(std::string::ToString::to_string)),
+        format: map
+            .get("format")
+            .and_then(|v| v.as_str().map(std::string::ToString::to_string)),
+    }
+}
+
+/// A `format:` must be a code Forge reads, a date code on a date and a
+/// number code on a number (ADR-061). `is_date` is `None` where the value is
+/// a formula's, known only once calculated.
+///
+/// # Errors
+///
+/// Returns an error naming `path` and what Forge does not read.
+pub fn check_format(path: &str, metadata: &Metadata, is_date: Option<bool>) -> ForgeResult<()> {
+    use crate::core::array_calculator::evaluator::text::number_format::{check_format, FormatKind};
+    let Some(format) = &metadata.format else {
+        return Ok(());
+    };
+    let kind = check_format(format).map_err(|why| {
+        ForgeError::Parse(format!(
+            "'{path}.format': {}",
+            why.trim_start_matches("TEXT: ")
+        ))
+    })?;
+    match (kind, is_date) {
+        (FormatKind::Date, Some(false)) => Err(ForgeError::Parse(format!(
+            "'{path}.format': \"{format}\" is a date format, and '{path}' is a number"
+        ))),
+        (FormatKind::Number, Some(true)) => Err(ForgeError::Parse(format!(
+            "'{path}.format': \"{format}\" is a number format, and '{path}' is a date"
+        ))),
+        _ => Ok(()),
     }
 }
 
