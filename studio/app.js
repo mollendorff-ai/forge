@@ -301,10 +301,13 @@ function updateValues() {
     const vals = t ? t.values[card.dataset.column] || [] : [];
     const name = card.dataset.column, meta = $("[data-meta]", card), sp = $("[data-spark]", card), list = $("[data-vals]", card);
     pulse(card, card.dataset.card, JSON.stringify(vals));
-    const numbers = vals.length && vals.every((x) => typeof x === "number");
-    sp.innerHTML = numbers ? spark(vals) : "";
+    // A column of numbers may have empty cells (null, ADR-059): the spark and
+    // the range are of its numbers
+    const nums = vals.filter((x) => x !== null);
+    const numbers = nums.length && nums.every((x) => typeof x === "number");
+    sp.innerHTML = numbers ? spark(nums) : "";
     meta.innerHTML = !vals.length ? "<span>Not calculated</span>"
-      : numbers ? `<span>${esc(shortAt(Math.min(...vals), card.dataset.card))} to ${esc(shortAt(Math.max(...vals), card.dataset.card))}</span><span>last ${esc(fmtAt(vals[vals.length - 1], card.dataset.card))}</span>`
+      : numbers ? `<span>${esc(shortAt(Math.min(...nums), card.dataset.card))} to ${esc(shortAt(Math.max(...nums), card.dataset.card))}</span><span>last ${esc(fmtAt(vals[vals.length - 1], card.dataset.card))}</span>`
       : `<span>${esc(vals.slice(0, 3).map((x) => fmtAt(x, card.dataset.card)).join(", "))}${vals.length > 3 ? ", …" : ""}</span><span>${vals.length} rows</span>`;
     if (!list.hidden) {
       const labels = rowLabels(card.dataset.table);

@@ -14,7 +14,7 @@ pub fn try_evaluate(
         "SIN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("SIN requires a number"))?;
             Value::Number(val.sin())
         },
@@ -22,7 +22,7 @@ pub fn try_evaluate(
         "COS" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("COS requires a number"))?;
             Value::Number(val.cos())
         },
@@ -30,7 +30,7 @@ pub fn try_evaluate(
         "TAN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("TAN requires a number"))?;
             Value::Number(val.tan())
         },
@@ -38,7 +38,7 @@ pub fn try_evaluate(
         "ASIN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("ASIN requires a number"))?;
             if !(-1.0..=1.0).contains(&val) {
                 return Err(EvalError::new("ASIN argument must be between -1 and 1"));
@@ -49,7 +49,7 @@ pub fn try_evaluate(
         "ACOS" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("ACOS requires a number"))?;
             if !(-1.0..=1.0).contains(&val) {
                 return Err(EvalError::new("ACOS argument must be between -1 and 1"));
@@ -60,7 +60,7 @@ pub fn try_evaluate(
         "ATAN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("ATAN requires a number"))?;
             Value::Number(val.atan())
         },
@@ -70,7 +70,7 @@ pub fn try_evaluate(
         "SINH" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("SINH requires a number"))?;
             Value::Number(val.sinh())
         },
@@ -78,7 +78,7 @@ pub fn try_evaluate(
         "COSH" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("COSH requires a number"))?;
             Value::Number(val.cosh())
         },
@@ -86,7 +86,7 @@ pub fn try_evaluate(
         "TANH" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("TANH requires a number"))?;
             Value::Number(val.tanh())
         },
@@ -94,7 +94,7 @@ pub fn try_evaluate(
         "RADIANS" => {
             require_args(name, args, 1)?;
             let degrees = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("RADIANS requires a number"))?;
             Value::Number(degrees.to_radians())
         },
@@ -102,7 +102,7 @@ pub fn try_evaluate(
         "DEGREES" => {
             require_args(name, args, 1)?;
             let radians = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("DEGREES requires a number"))?;
             Value::Number(radians.to_degrees())
         },

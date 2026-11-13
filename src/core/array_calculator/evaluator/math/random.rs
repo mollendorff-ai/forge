@@ -21,10 +21,10 @@ pub fn eval_rand(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 pub fn eval_randbetween(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("RANDBETWEEN", args, 2, 2)?;
     let bottom = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("RANDBETWEEN requires numbers"))?;
     let top = evaluate(&args[1], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("RANDBETWEEN requires numbers"))?;
 
     if bottom > top {

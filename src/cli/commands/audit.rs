@@ -67,10 +67,11 @@ impl<'a> Scope<'a> {
             .and_then(|s| s.value)
     }
 
-    fn column_values(&self, table: &str, column: &str) -> Option<Vec<f64>> {
+    fn column_values(&self, table: &str, column: &str) -> Option<Vec<Option<f64>>> {
         let model = self.calculated.as_ref().unwrap_or(self.model);
         match &model.tables.get(table)?.columns.get(column)?.values {
-            ColumnValue::Number(v) => Some(v.clone()),
+            ColumnValue::Number(v) => Some(v.iter().copied().map(Some).collect()),
+            ColumnValue::Blanks(v) => Some(v.clone()),
             _ => None,
         }
     }
@@ -351,6 +352,14 @@ pub fn audit_core(file: &Path, variable: &str) -> ForgeResult<AuditResult> {
         },
         _ => true,
     };
+    let mut warnings = Vec::new();
+    empty_cell_warnings(
+        &target.name,
+        target.formula.as_deref(),
+        &target.children,
+        &mut warnings,
+    );
+    warnings.dedup();
     Ok(AuditResult {
         variable: target.name.clone(),
         var_type: if is_scalar {
@@ -368,7 +377,55 @@ pub fn audit_core(file: &Path, variable: &str) -> ForgeResult<AuditResult> {
             .calculate_all()
             .err()
             .map(|e| e.to_string()),
+        warnings,
     })
+}
+
+/// Whether `formula` calls `function`
+fn calls(formula: &str, function: &str) -> bool {
+    use crate::core::array_calculator::tokenizer::{tokenize, Token};
+    tokenize(formula.trim().trim_start_matches('=')).is_ok_and(|tokens| {
+        tokens.windows(2).any(|w| {
+            matches!(&w[0], Token::Identifier(name) if name.eq_ignore_ascii_case(function))
+                && matches!(w[1], Token::OpenParen)
+        })
+    })
+}
+
+/// NPV and IRR skip an empty cell, as in Excel, so every cash flow after it
+/// moves a period earlier (ADR-059, decision 7): one warning for each
+/// formula that gives one of them a column with an empty cell.
+fn empty_cell_warnings(
+    name: &str,
+    formula: Option<&str>,
+    deps: &[AuditDep],
+    out: &mut Vec<String>,
+) {
+    if let Some(formula) = formula {
+        for function in ["NPV", "IRR"] {
+            if !calls(formula, function) {
+                continue;
+            }
+            for dep in deps {
+                let empty = dep
+                    .values
+                    .as_ref()
+                    .map_or(0, |v| v.iter().filter(|n| n.is_none()).count());
+                if empty > 0 {
+                    out.push(format!(
+                        "{name}: {function} skips the {empty} empty cell{} of {}, as Excel does, \
+                         so each cash flow after one is discounted a period earlier; write 0 \
+                         where a period has no cash flow",
+                        if empty == 1 { "" } else { "s" },
+                        dep.name
+                    ));
+                }
+            }
+        }
+    }
+    for dep in deps {
+        empty_cell_warnings(&dep.name, dep.formula.as_deref(), &dep.children, out);
+    }
 }
 
 fn not_found(model: &ParsedModel, variable: &str) -> ForgeError {
@@ -425,6 +482,12 @@ pub fn audit(file: &Path, variable: &str) -> ForgeResult<()> {
     }
     println!();
 
+    for warning in &result.warnings {
+        println!("   {} {warning}", "⚠️".yellow());
+    }
+    if !result.warnings.is_empty() {
+        println!();
+    }
     if let Some(error) = &result.calculation_error {
         println!(
             "   {} The model does not calculate, so values are the file's: {error}",
@@ -447,15 +510,22 @@ pub fn audit(file: &Path, variable: &str) -> ForgeResult<()> {
 }
 
 /// `12 rows: 4,632.01 … 7,346.41` for a column's values.
-fn summarize(values: &[f64]) -> String {
+fn summarize(values: &[Option<f64>]) -> String {
+    let shown = |v: &Option<f64>| v.map_or_else(|| "empty".to_string(), format_number);
+    let empty = values.iter().filter(|v| v.is_none()).count();
+    let empty = match empty {
+        0 => String::new(),
+        1 => " (1 empty cell)".to_string(),
+        n => format!(" ({n} empty cells)"),
+    };
     match values {
         [] => "no rows".to_string(),
-        [only] => format!("1 row: {}", format_number(*only)),
+        [only] => format!("1 row: {}", shown(only)),
         [first, .., last] => format!(
-            "{} rows: {} … {}",
+            "{} rows: {} … {}{empty}",
             values.len(),
-            format_number(*first),
-            format_number(*last)
+            shown(first),
+            shown(last)
         ),
     }
 }

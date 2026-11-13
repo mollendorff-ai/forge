@@ -164,6 +164,8 @@ fn table_to_value(table: &crate::types::Table) -> yaml_serde::Value {
                 v.iter().map(|t| Value::String(t.clone())).collect()
             },
             ColumnValue::Boolean(v) => v.iter().map(|b| Value::Bool(*b)).collect(),
+            // An empty cell is null (ADR-059)
+            ColumnValue::Blanks(v) => v.iter().map(|n| n.map_or(Value::Null, number)).collect(),
         };
         map.insert(Value::String(name.clone()), Value::Sequence(items));
     }
@@ -371,6 +373,22 @@ fn write_include_files(dir: &Path, model: &crate::types::ParsedModel) -> ForgeRe
     Ok(written)
 }
 
+/// The model format an imported model needs: 5.3.0 when a column has an
+/// empty cell (ADR-059), 5.1.0 otherwise.
+fn import_format(model: &crate::types::ParsedModel) -> &'static str {
+    let blanks = model.tables.values().any(|table| {
+        table
+            .columns
+            .values()
+            .any(|c| matches!(c.values, crate::types::ColumnValue::Blanks(_)))
+    });
+    if blanks {
+        "5.3.0"
+    } else {
+        "5.1.0"
+    }
+}
+
 /// The whole imported model as YAML that `forge validate` and `forge calculate` accept.
 fn model_to_yaml(model: &crate::types::ParsedModel) -> ForgeResult<String> {
     let includes = includes_block(model, None);
@@ -389,7 +407,8 @@ fn model_to_yaml(model: &crate::types::ParsedModel) -> ForgeResult<String> {
     }
     let body =
         yaml_serde::to_string(&crate::core::precision::Rounded(&map)).map_err(ForgeError::Yaml)?;
-    Ok(format!("_forge_version: \"5.1.0\"\n{includes}\n{body}"))
+    let version = import_format(model);
+    Ok(format!("_forge_version: \"{version}\"\n{includes}\n{body}"))
 }
 
 /// Import Excel to YAML and return structured results (no printing).
@@ -527,7 +546,8 @@ fn write_split_files_quiet(
     for (file, name, body) in parts {
         let path = output.join(file);
         let includes = includes_block(model, Some(&body));
-        let text = format!("_forge_version: \"5.1.0\"\n_name: \"{name}\"\n{includes}\n{body}");
+        let version = import_format(model);
+        let text = format!("_forge_version: \"{version}\"\n_name: \"{name}\"\n{includes}\n{body}");
         fs::write(&path, text).map_err(ForgeError::Io)?;
         written.push(path);
     }
@@ -682,8 +702,9 @@ fn write_multi_doc_quiet(
 ) -> ForgeResult<Vec<String>> {
     let mut yaml_output = String::new();
     let mut includes = includes_block(model, None);
+    let version = import_format(model);
     let mut document = |name: &str, body: String| {
-        yaml_output.push_str("---\n_forge_version: \"5.1.0\"\n");
+        let _ = writeln!(yaml_output, "---\n_forge_version: \"{version}\"");
         let _ = writeln!(yaml_output, "_name: \"{name}\"");
         yaml_output.push_str(&std::mem::take(&mut includes));
         yaml_output.push('\n');

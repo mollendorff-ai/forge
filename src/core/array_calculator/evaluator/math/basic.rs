@@ -5,7 +5,7 @@ use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
 pub fn eval_abs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("ABS", args, 1)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("ABS requires a number"))?;
     Ok(Value::Number(val.abs()))
 }
@@ -13,7 +13,7 @@ pub fn eval_abs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 pub fn eval_sqrt(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("SQRT", args, 1)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("SQRT requires a number"))?;
     if val < 0.0 {
         return Err(EvalError::new("SQRT of negative number"));
@@ -24,10 +24,10 @@ pub fn eval_sqrt(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 pub fn eval_mod(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("MOD", args, 2)?;
     let num = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("MOD requires numbers"))?;
     let divisor = evaluate(&args[1], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("MOD requires numbers"))?;
     if divisor == 0.0 {
         return Err(EvalError::new("MOD division by zero"));
@@ -40,10 +40,10 @@ pub fn eval_mod(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 pub fn eval_power(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("POWER", args, 2)?;
     let base = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("POWER requires numbers"))?;
     let exp = evaluate(&args[1], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("POWER requires numbers"))?;
     super::super::power(base, exp)
 }
@@ -51,7 +51,7 @@ pub fn eval_power(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 pub fn eval_sign(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("SIGN", args, 1)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("SIGN requires a number"))?;
     Ok(Value::Number(if val > 0.0 {
         1.0
@@ -71,10 +71,10 @@ pub fn eval_pi(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 pub fn eval_pow(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("POW", args, 2)?;
     let base = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("POW requires numbers"))?;
     let exp = evaluate(&args[1], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("POW requires numbers"))?;
     super::super::power(base, exp)
 }

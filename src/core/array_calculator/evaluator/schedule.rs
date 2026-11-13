@@ -11,7 +11,7 @@ use super::{EvalContext, EvalError, Expr, Value};
 /// The argument at `index` as a number
 fn number(name: &str, args: &[Expr], index: usize, ctx: &EvalContext) -> Result<f64, EvalError> {
     evaluate(&args[index], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new(format!("{name} needs a number as argument {}", index + 1)))
 }
 

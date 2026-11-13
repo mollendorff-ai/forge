@@ -46,15 +46,15 @@ pub fn try_evaluate(
         "DATE" => {
             require_args(name, args, 3)?;
             let year = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("DATE: year must be a number"))?
                 as i32;
             let month = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("DATE: month must be a number"))?
                 as i32;
             let day = evaluate(&args[2], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("DATE: day must be a number"))?
                 as i32;
 
@@ -87,7 +87,7 @@ pub fn try_evaluate(
             require_args(name, args, 2)?;
             let start_date = evaluate(&args[0], ctx)?;
             let months = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("EDATE requires months as number"))?
                 as i32;
 
@@ -107,7 +107,7 @@ pub fn try_evaluate(
             require_args(name, args, 2)?;
             let start_date = evaluate(&args[0], ctx)?;
             let months = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("EOMONTH requires months as number"))?
                 as i32;
 

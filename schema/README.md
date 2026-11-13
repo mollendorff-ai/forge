@@ -4,13 +4,14 @@ JSON Schemas for the Forge model formats. The version is the model format (`_for
 
 | File | Format |
 | --- | --- |
-| `forge.schema.json` | Any of them, for editors: it checks a file against the schema of the format its `_forge_version` names (5.2.0 or 5.1.0; for 5.0.0 and 1.0.0 it checks only the version, and `forge validate` does the rest). |
+| `forge.schema.json` | Any of them, for editors: it checks a file against the schema of the format its `_forge_version` names (5.3.0, 5.2.0 or 5.1.0; for 5.0.0 and 1.0.0 it checks only the version, and `forge validate` does the rest). |
+| `forge-v5.3.0.schema.json` | 5.3.0 (ADR-059): 5.2.0 plus the empty cell, `null` in a column of numbers (`actual: [985, 1032, null]`). Needed only by a file that has one. |
 | `forge-v5.2.0.schema.json` | 5.2.0 (ADR-053): 5.1.0 plus the period column, a table column written as `{start: 2026-12, count: 300, unit: month}`. Needed only by a file that has one. |
 | `forge-v5.1.0.schema.json` | 5.1.0 (ADR-051): 5.0.0 plus plain-number inputs (`rate: 0.05`) and formula scalars written as `{formula: "=..."}` without `value: null`. `examples/` use it. |
 | `forge-v5.0.0.schema.json` | 5.0.0: tables, row formulas, includes and the analysis sections (`monte_carlo`, `scenarios`, `decision_tree`, `tornado` and the others). `test-data/` uses it. |
 | `forge-v1.0.0.schema.json` | 1.0.0: scalars only. |
 
-Forge embeds these files: `forge schema v5.2` (or `v5.1`, `v5`, `v1`) prints the one of the Forge you have installed, and every model is checked against its schema before it is calculated. So a mixed array (`[100, "Q2", 150]`) or a formula without its `=` (`total: "SUM(revenue)"`) is an error from `forge validate` and `forge calculate`. The 5.1.0 and 5.2.0 schemas read each top-level mapping the way Forge does (one scalar, a table or a group of scalars, ADR-051), so an error is reported under the one reading that applies, with its key path: `'loan.payment.formla': there is no key 'formla' here. Did you mean 'formula'?` The schema checks the shape of a file; whether a formula's names exist and its stored results are current is what `forge validate` checks after that.
+Forge embeds these files: `forge schema v5.3` (or `v5.2`, `v5.1`, `v5`, `v1`) prints the one of the Forge you have installed, and every model is checked against its schema before it is calculated. So a mixed array (`[100, "Q2", 150]`) or a formula without its `=` (`total: "SUM(revenue)"`) is an error from `forge validate` and `forge calculate`. The 5.1.0, 5.2.0 and 5.3.0 schemas read each top-level mapping the way Forge does (one scalar, a table or a group of scalars, ADR-051), so an error is reported under the one reading that applies, with its key path: `'loan.payment.formla': there is no key 'formla' here. Did you mean 'formula'?` The schema checks the shape of a file; whether a formula's names exist and its stored results are current is what `forge validate` checks after that.
 
 ## In an editor
 

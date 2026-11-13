@@ -66,8 +66,8 @@ pub struct Scalar {
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum TableColumn {
-    /// Column of numeric values.
-    Numbers(Vec<f64>),
+    /// Column of numeric values; `None` is an empty cell (model format 5.3.0).
+    Numbers(Vec<Option<f64>>),
     /// Column of string values.
     Strings(Vec<String>),
     /// Column defined by a formula.
@@ -211,7 +211,10 @@ pub fn extract_table_data_yaml(spec: &TestSpec) -> String {
             for (col_name, col_data) in columns {
                 match col_data {
                     TableColumn::Numbers(nums) => {
-                        let nums_str: Vec<String> = nums.iter().map(ToString::to_string).collect();
+                        let nums_str: Vec<String> = nums
+                            .iter()
+                            .map(|n| n.map_or_else(|| "null".to_string(), |n| n.to_string()))
+                            .collect();
                         let _ = writeln!(yaml, "  {col_name}: [{}]", nums_str.join(", "));
                     },
                     TableColumn::Strings(strs) => {

@@ -613,6 +613,10 @@ impl ExcelImporter {
             _ => Self::sanitize_table_name(&sheet.name),
         };
         let mut table = Table::new(table_name.clone());
+        // The rows the sheet's formulas run down to: a column of numbers is as
+        // long as that, its last cells empty (ADR-059). A sheet without
+        // formulas keeps its shorter columns short.
+        let formula_rows = Self::formula_rows(sheet, height, width);
 
         for col in 0..width {
             let col_name = sheet.header(col).unwrap_or_else(|| format!("col_{col}"));
@@ -645,7 +649,16 @@ impl ExcelImporter {
             while matches!(data.last(), Some(Data::Empty)) {
                 data.pop();
             }
+            Self::pad_numbers(&mut data, formula_rows);
             if data.is_empty() {
+                // A column with a name and no value: a column of empty cells
+                // as long as the sheet's data (ADR-059)
+                if sheet.header(col).is_some() && height > 1 {
+                    table.add_column(Column::new(
+                        col_name,
+                        ColumnValue::Blanks(vec![None; height - 1]),
+                    ));
+                }
                 continue;
             }
             let column_value = if cells_of(&data) == Cells::Dates && !holds_dates {
@@ -654,7 +667,12 @@ impl ExcelImporter {
             } else {
                 Self::convert_to_column_value(&data)?
             };
-            if matches!(column_value, ColumnValue::Number(_)) {
+            // An empty cell among numbers stays empty (ADR-059)
+            let column_value = Self::with_empty_cells(column_value, &data);
+            if matches!(
+                column_value,
+                ColumnValue::Number(_) | ColumnValue::Blanks(_)
+            ) {
                 // Text, a boolean or an error among numbers is 0 in Forge
                 let not_numbers: Vec<String> = data
                     .iter()
@@ -664,13 +682,6 @@ impl ExcelImporter {
                         format!("{}{} ({cell})", sheet.letter(col), sheet.excel_row(i + 1))
                     })
                     .collect();
-                warnings.extend(Self::empty_cells_warning(
-                    sheet,
-                    col,
-                    &data,
-                    &table_name,
-                    &col_name,
-                ));
                 if !not_numbers.is_empty() {
                     let shown = not_numbers.iter().take(5).cloned().collect::<Vec<_>>();
                     let more = not_numbers.len() - shown.len();
@@ -784,42 +795,41 @@ impl ExcelImporter {
             })
     }
 
-    /// The warning for empty cells among numbers, imported as 0: Excel skips
-    /// them in AVERAGE, COUNT and MIN (ADR-059, decision 6)
-    fn empty_cells_warning(
-        sheet: &Sheet,
-        col: usize,
-        data: &[Data],
-        table_name: &str,
-        col_name: &str,
-    ) -> Option<String> {
-        let empty: Vec<String> = data
-            .iter()
-            .enumerate()
-            .filter(|(_, cell)| matches!(cell, Data::Empty))
-            .map(|(i, _)| format!("{}{}", sheet.letter(col), sheet.excel_row(i + 1)))
-            .collect();
-        if empty.is_empty() {
-            return None;
+    /// The last data row of `sheet` that holds a formula (0 if none does)
+    fn formula_rows(sheet: &Sheet, height: usize, width: usize) -> usize {
+        (1..height)
+            .rev()
+            .find(|&row| (0..width).any(|col| sheet.formula(row, col).is_some()))
+            .unwrap_or(0)
+    }
+
+    /// A column of numbers beside formulas that run further down: its last
+    /// cells are empty cells, as a month not closed yet (ADR-059)
+    fn pad_numbers(data: &mut Vec<Data>, formula_rows: usize) {
+        let numbers = data.iter().any(|c| number_of(c).is_some())
+            && data
+                .iter()
+                .all(|c| matches!(c, Data::Empty) || number_of(c).is_some());
+        if numbers && data.len() < formula_rows {
+            data.resize(formula_rows, Data::Empty);
         }
-        let shown = empty.iter().take(5).cloned().collect::<Vec<_>>();
-        let more = empty.len() - shown.len();
-        Some(format!(
-            "{table_name}.{col_name}: {} imported as 0: {}{}. Forge has no empty cell yet, so \
-             AVERAGE, COUNT, MIN and the like of this column can differ from Excel's, which \
-             skip an empty cell (ADR-059)",
-            if empty.len() == 1 {
-                "1 empty cell".to_string()
-            } else {
-                format!("{} empty cells", empty.len())
+    }
+
+    /// A column of numbers whose cells include an empty one, as a column with
+    /// empty cells (ADR-059); any other column as it is.
+    fn with_empty_cells(values: ColumnValue, data: &[Data]) -> ColumnValue {
+        match values {
+            ColumnValue::Number(numbers) if data.iter().any(|c| matches!(c, Data::Empty)) => {
+                ColumnValue::Blanks(
+                    numbers
+                        .into_iter()
+                        .zip(data)
+                        .map(|(n, cell)| (!matches!(cell, Data::Empty)).then_some(n))
+                        .collect(),
+                )
             },
-            shown.join(", "),
-            if more > 0 {
-                format!(" and {more} more")
-            } else {
-                String::new()
-            }
-        ))
+            other => other,
+        }
     }
 
     /// Convert Excel Data array to `ColumnValue`

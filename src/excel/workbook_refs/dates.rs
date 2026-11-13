@@ -155,7 +155,7 @@ const READ_NUMBERS: [&str; 53] = [
 ];
 
 /// Functions that count or measure a column whatever it holds.
-const ANY_VALUES: [&str; 4] = ["COUNTA", "ROWS", "COLUMNS", "COUNTUNIQUE"];
+const ANY_VALUES: [&str; 5] = ["COUNTA", "COUNTBLANK", "ROWS", "COLUMNS", "COUNTUNIQUE"];
 
 /// `IF`-like functions: (name, first value argument, step between values).
 /// The other arguments are conditions.

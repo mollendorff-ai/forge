@@ -10,15 +10,15 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "forge")]
-#[command(about = "Git-native financial modeling in YAML. 202 functions. Beta.")]
+#[command(about = "Git-native financial modeling in YAML. 203 functions. Beta.")]
 #[command(long_about = "Forge - Git-native financial modeling
-202 functions | Beta | Validated against Gnumeric and R (validation/)
+203 functions | Beta | Validated against Gnumeric and R (validation/)
 
 COMMANDS:
   calculate     - Execute formulas, update values
   validate      - Check model integrity
   audit         - Trace formula dependencies
-  functions     - List all 202 supported functions
+  functions     - List all 203 supported functions
   schema        - Display JSON schema for model validation
   examples      - Show runnable YAML examples
   simulate      - Monte Carlo simulation with distributions
@@ -1015,6 +1015,7 @@ The versions are model formats (_forge_version), not Forge versions:
            without value: null (ADR-051)
   v5.2.0 - v5.1.0 plus the period column: a table column written as
            {start: 2026-12, count: 300, unit: month} (ADR-053)
+  v5.3.0 - v5.2.0 plus the empty cell, null in a column of numbers (ADR-059)
 
 EXAMPLES:
   forge schema                # List available versions
@@ -1022,7 +1023,7 @@ EXAMPLES:
   forge schema v5.1 > s.json  # Pipe to file for IDE use")]
     /// Display JSON schema for model validation
     Schema {
-        /// Schema version to display (v1, v5, v5.1, v5.2, 1.0.0, 5.0.0, 5.1.0, 5.2.0)
+        /// Schema version to display (v1, v5, v5.1, v5.2, v5.3, 1.0.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0)
         version: Option<String>,
 
         /// List available schema versions
@@ -1078,9 +1079,9 @@ TO 5.1.0 (default, ADR-051):
   - Edited in place: comments, quotes and layout are kept
   - Checked: the converted file must read as the same model, or it is not written
 
-TO 5.2.0 (ADR-053):
-  - As to 5.1.0, with _forge_version 5.2.0: the format a table with a
-    period column needs. A 5.1.0 file only changes that line.
+TO 5.2.0 OR 5.3.0 (ADR-053, ADR-059):
+  - As to 5.1.0, with that _forge_version: the format a period column (5.2.0)
+    or an empty cell (5.3.0) needs. A 5.1.0 file only changes that line.
 
 TO 5.0.0 (from 1.0.0):
   - Splits scalars into inputs/outputs based on formula presence
@@ -1093,7 +1094,7 @@ RECURSIVE PROCESSING:
 EXAMPLES:
   forge upgrade model.yaml              # Upgrade file and includes
   forge upgrade model.yaml --dry-run    # Preview changes only
-  forge upgrade model.yaml --to 5.2.0   # For period columns
+  forge upgrade model.yaml --to 5.3.0   # For empty cells (5.2.0: periods)
   forge upgrade model.yaml --to 5.0.0   # Older format, long form
 
 BACKUP:

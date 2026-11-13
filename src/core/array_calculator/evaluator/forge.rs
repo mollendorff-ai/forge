@@ -14,13 +14,13 @@ pub fn try_evaluate(
         "BREAKEVEN_UNITS" => {
             require_args(name, args, 3)?;
             let fixed_costs = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("BREAKEVEN_UNITS requires numbers"))?;
             let price_per_unit = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("BREAKEVEN_UNITS requires numbers"))?;
             let variable_cost_per_unit = evaluate(&args[2], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("BREAKEVEN_UNITS requires numbers"))?;
 
             let contribution_margin = price_per_unit - variable_cost_per_unit;
@@ -35,10 +35,10 @@ pub fn try_evaluate(
         "BREAKEVEN_REVENUE" => {
             require_args(name, args, 2)?;
             let fixed_costs = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("BREAKEVEN_REVENUE requires numbers"))?;
             let contribution_margin_ratio = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("BREAKEVEN_REVENUE requires numbers"))?;
 
             if contribution_margin_ratio <= 0.0 || contribution_margin_ratio > 1.0 {
@@ -52,10 +52,10 @@ pub fn try_evaluate(
         "VARIANCE" => {
             require_args(name, args, 2)?;
             let actual = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("VARIANCE requires numbers"))?;
             let budget = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("VARIANCE requires numbers"))?;
             Value::Number(actual - budget)
         },
@@ -63,10 +63,10 @@ pub fn try_evaluate(
         "VARIANCE_PCT" => {
             require_args(name, args, 2)?;
             let actual = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("VARIANCE_PCT requires numbers"))?;
             let budget = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("VARIANCE_PCT requires numbers"))?;
             if budget == 0.0 {
                 return Err(EvalError::new("VARIANCE_PCT: budget cannot be zero"));
@@ -82,10 +82,10 @@ pub fn try_evaluate(
             // Returns: 1 = favorable, -1 = unfavorable, 0 = on budget (within threshold)
             require_args_range(name, args, 2, 3)?;
             let actual = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("VARIANCE_STATUS requires numbers"))?;
             let budget = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("VARIANCE_STATUS requires numbers"))?;
 
             let (threshold, is_cost) = if args.len() > 2 {

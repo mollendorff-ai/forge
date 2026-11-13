@@ -799,9 +799,10 @@ data:
         let result = parse_model(temp_file.path());
         assert!(result.is_err());
 
+        // An empty cell needs model format 5.3.0 (ADR-059)
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("null values not allowed"));
-        assert!(err.contains("Use 0 or remove the row"));
+        assert!(err.contains("'data.values' row 2 is empty"), "{err}");
+        assert!(err.contains("Set `_forge_version: \"5.3.0\"`"), "{err}");
     }
 
     #[test]

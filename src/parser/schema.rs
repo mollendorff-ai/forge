@@ -1,6 +1,6 @@
 //! JSON Schema validation for Forge YAML models
 //!
-//! Validates YAML against embedded JSON schemas (v1.0.0, v5.0.0, v5.1.0, v5.2.0).
+//! Validates YAML against embedded JSON schemas (v1.0.0, v5.0.0, v5.1.0, v5.2.0, v5.3.0).
 
 use crate::error::{ForgeError, ForgeResult};
 use yaml_serde::Value;
@@ -18,7 +18,7 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
             ForgeError::Validation(
-                "Missing required field: _forge_version (the model format version). Must be \"1.0.0\", \"5.0.0\", \"5.1.0\" or \"5.2.0\""
+                "Missing required field: _forge_version (the model format version). Must be \"1.0.0\", \"5.0.0\", \"5.1.0\", \"5.2.0\" or \"5.3.0\""
                     .to_string(),
             )
         })?;
@@ -29,15 +29,17 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         "5.0.0" => include_str!("../../schema/forge-v5.0.0.schema.json"),
         "5.1.0" => include_str!("../../schema/forge-v5.1.0.schema.json"),
         "5.2.0" => include_str!("../../schema/forge-v5.2.0.schema.json"),
+        "5.3.0" => include_str!("../../schema/forge-v5.3.0.schema.json"),
         _ => {
             return Err(ForgeError::Validation(format!(
-                "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns). This is the model format version, not the Forge version: write `_forge_version: \"5.1.0\"` for a new model (`\"5.2.0\"` if a table has a period column), or start from `forge examples starter`"
+                "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns), 5.3.0 (5.2.0 plus empty cells). This is the model format version, not the Forge version: write `_forge_version: \"5.1.0\"` for a new model (`\"5.2.0\"` if a table has a period column), or start from `forge examples starter`"
             )));
         },
     };
 
     check_short_form(yaml, version)?;
     check_period_columns(yaml, version)?;
+    check_empty_cells(yaml, version)?;
     // Tables in a 1.0.0 model: say so before the schema reports the shapes
     if version == "1.0.0" {
         validate_v1_0_0_no_tables(yaml)?;
@@ -72,7 +74,7 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
 /// A period column in a model of an earlier format: say which format has it,
 /// before the schema reports the keys it does not know.
 fn check_period_columns(yaml: &Value, version: &str) -> ForgeResult<()> {
-    let (Some(root), false) = (yaml.as_mapping(), version == "5.2.0") else {
+    let (Some(root), false) = (yaml.as_mapping(), matches!(version, "5.2.0" | "5.3.0")) else {
         return Ok(());
     };
     for (key, value) in root {
@@ -90,6 +92,43 @@ fn check_period_columns(yaml: &Value, version: &str) -> ForgeResult<()> {
                 "'{table}.{column}' is a period column (start, count, unit), which model format \
                  5.2.0 adds. Set `_forge_version: \"5.2.0\"` (this file says {version})"
             )));
+        }
+    }
+    Ok(())
+}
+
+/// An empty cell (null in a column of data) in a model of an earlier format:
+/// say which format has it (ADR-059).
+fn check_empty_cells(yaml: &Value, version: &str) -> ForgeResult<()> {
+    let (Some(root), false) = (yaml.as_mapping(), version == "5.3.0") else {
+        return Ok(());
+    };
+    for (key, value) in root {
+        let (Some(table), Some(columns)) = (key.as_str(), value.as_mapping()) else {
+            continue;
+        };
+        if !crate::parser::model::is_table(columns) {
+            continue;
+        }
+        for (name, column) in columns {
+            let values = match column {
+                Value::Sequence(values) => values,
+                Value::Mapping(rich) => match rich.get("value") {
+                    Some(Value::Sequence(values)) => values,
+                    _ => continue,
+                },
+                _ => continue,
+            };
+            if let Some(row) = values.iter().position(Value::is_null) {
+                return Err(ForgeError::Validation(format!(
+                    "'{table}.{}' row {} is empty (null), which model format 5.3.0 adds: an \
+                     empty cell, skipped by aggregates and read as 0 by formulas, as in Excel \
+                     (ADR-059). Set `_forge_version: \"5.3.0\"` (this file says {version}), or \
+                     write 0 if the value is 0",
+                    name.as_str().unwrap_or("?"),
+                    row + 1
+                )));
+            }
         }
     }
     Ok(())
@@ -139,7 +178,7 @@ fn check_short_form(yaml: &Value, version: &str) -> ForgeResult<()> {
                 .collect(),
             _ => Vec::new(),
         };
-        if !matches!(version, "5.1.0" | "5.2.0") {
+        if !matches!(version, "5.1.0" | "5.2.0" | "5.3.0") {
             if let Some(first) = numbers.first() {
                 return Err(ForgeError::Validation(format!(
                     "'{first}' is a plain number, which is the short form of model format 5.1.0. \

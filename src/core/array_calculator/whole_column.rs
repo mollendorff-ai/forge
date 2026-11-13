@@ -31,6 +31,7 @@ pub fn is_whole_column(function: &str, arg_count: usize, position: usize) -> boo
         },
         // pairs of criteria range and criterion
         "COUNTIFS" => position.is_multiple_of(2),
+        "COUNTBLANK" => position == 0,
         "SUMPRODUCT" | "VAR" | "VAR.S" | "VAR.P" | "STDEV" | "STDEV.S" | "STDEV.P" => true,
         // the values, then k or the quartile (a different one in each row)
         "PERCENTILE" | "PERCENTILE.INC" | "PERCENTILE.EXC" | "QUARTILE" | "QUARTILE.INC"

@@ -133,6 +133,15 @@ fn column_json_values(values: &ColumnValue) -> Vec<serde_json::Value> {
             v.iter().map(|t| serde_json::json!(t)).collect()
         },
         ColumnValue::Boolean(v) => v.iter().map(|b| serde_json::json!(b)).collect(),
+        // An empty cell is null (ADR-059)
+        ColumnValue::Blanks(v) => v
+            .iter()
+            .map(|n| {
+                n.map_or(serde_json::Value::Null, |n| {
+                    serde_json::json!(to_15_digits(n))
+                })
+            })
+            .collect(),
     }
 }
 
@@ -144,6 +153,10 @@ fn format_column_values(values: &ColumnValue) -> String {
         ColumnValue::Number(v) => v.iter().map(|n| to_15_digits(*n).to_string()).collect(),
         ColumnValue::Text(v) | ColumnValue::Date(v) => v.iter().map(|t| format!("{t:?}")).collect(),
         ColumnValue::Boolean(v) => v.iter().map(|b| b.to_string().to_uppercase()).collect(),
+        ColumnValue::Blanks(v) => v
+            .iter()
+            .map(|n| n.map_or_else(|| "null".to_string(), |n| to_15_digits(n).to_string()))
+            .collect(),
     };
     format!("[{}]", items.join(", "))
 }

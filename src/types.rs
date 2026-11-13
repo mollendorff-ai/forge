@@ -17,6 +17,10 @@ pub enum ColumnValue {
     Date(Vec<String>),
     /// Array of booleans
     Boolean(Vec<bool>),
+    /// A column of numbers with an empty cell (`None`), written `null` in
+    /// model format 5.3.0 (ADR-059). Only data: a formula never gives an
+    /// empty cell, and a column without one is `Number`.
+    Blanks(Vec<Option<f64>>),
 }
 
 impl ColumnValue {
@@ -27,6 +31,7 @@ impl ColumnValue {
             Self::Number(v) => v.len(),
             Self::Text(v) | Self::Date(v) => v.len(),
             Self::Boolean(v) => v.len(),
+            Self::Blanks(v) => v.len(),
         }
     }
 
@@ -40,10 +45,23 @@ impl ColumnValue {
     #[must_use]
     pub const fn type_name(&self) -> &'static str {
         match self {
-            Self::Number(_) => "Number",
+            Self::Number(_) | Self::Blanks(_) => "Number",
             Self::Text(_) => "Text",
             Self::Date(_) => "Date",
             Self::Boolean(_) => "Boolean",
+        }
+    }
+
+    /// The numbers of a column of numbers, an empty cell as 0 (what a formula
+    /// reads it as); `None` for a column of another type
+    #[must_use]
+    pub fn numbers(&self) -> Option<std::borrow::Cow<'_, [f64]>> {
+        match self {
+            Self::Number(v) => Some(std::borrow::Cow::Borrowed(v)),
+            Self::Blanks(v) => Some(std::borrow::Cow::Owned(
+                v.iter().map(|n| n.unwrap_or(0.0)).collect(),
+            )),
+            _ => None,
         }
     }
 }

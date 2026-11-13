@@ -64,11 +64,11 @@ fn a_share_of_the_total_imports_as_a_formula() {
     assert_eq!(share, [0.1, 0.2, 0.3, 0.4]);
 }
 
-/// ADR-059, decision 6: an empty cell among numbers is imported as 0, and
-/// says so, as Excel skips it: 10, empty, 30, empty, 0 has an AVERAGE of 40/3
-/// in Excel and 8 with the zeros.
+/// ADR-059: an empty cell among numbers is imported as an empty cell (null,
+/// model format 5.3.0), so AVERAGE of 10, empty, 30, empty, 0 is 40/3, as in
+/// Excel (it was 8 when the empty cells came in as 0).
 #[test]
-fn an_empty_cell_among_numbers_is_named() {
+fn an_empty_cell_among_numbers_stays_empty() {
     let dir = tempfile::tempdir().unwrap();
     let xlsx = dir.path().join("gaps.xlsx");
     let mut workbook = Workbook::new();
@@ -77,17 +77,23 @@ fn an_empty_cell_among_numbers_is_named() {
     sheet.write_number(1, 0, 10.0).unwrap();
     sheet.write_number(3, 0, 30.0).unwrap();
     sheet.write_number(5, 0, 0.0).unwrap();
+    sheet.write_string(0, 1, "nothing").unwrap();
     workbook.save(&xlsx).unwrap();
 
     let out = dir.path().join("gaps.yaml");
     let imported = import_core(&xlsx, &out, false, false).unwrap();
-    assert_eq!(imported.warnings.len(), 1, "{:?}", imported.warnings);
-    let warning = &imported.warnings[0];
-    for expected in ["gaps.x", "2 empty cells imported as 0", "A3, A5", "AVERAGE"] {
-        assert!(warning.contains(expected), "{warning}");
-    }
-    assert!(
-        !warning.contains("A2") && !warning.contains("A6"),
-        "{warning}"
+    assert!(imported.warnings.is_empty(), "{:?}", imported.warnings);
+    let yaml = std::fs::read_to_string(&out).unwrap();
+    assert!(yaml.starts_with("_forge_version: \"5.3.0\""), "{yaml}");
+
+    // The model reads the empty cells as Excel does
+    let model = format!(
+        "{yaml}\ns:\n  average:\n    formula: \"=AVERAGE(gaps.x)\"\n  empty:\n    formula: \"=COUNTBLANK(gaps.x)\"\n  none:\n    formula: \"=COUNTBLANK(gaps.nothing)\"\n"
     );
+    std::fs::write(&out, model).unwrap();
+    let result = calculate_core(&out, true, None).unwrap();
+    assert!((result.scalars["s.average"].unwrap() - 40.0 / 3.0).abs() < 1e-12);
+    assert_eq!(result.scalars["s.empty"], Some(2.0));
+    // A column with a name and no value is a column of empty cells
+    assert_eq!(result.scalars["s.none"], Some(5.0));
 }

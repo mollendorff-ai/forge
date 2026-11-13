@@ -18,7 +18,7 @@ use rand::RngExt;
 pub fn eval_sequence(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("SEQUENCE", args, 1, 4)?;
     let rows = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("SEQUENCE: rows must be a number"))? as usize;
     let cols = if args.len() > 1 {
         number_or(&args[1], ctx, 1.0)? as usize

@@ -4,7 +4,8 @@
 //   picks the format's schema by `_forge_version`, and the schemas it picks);
 // - every example model gets no diagnostic, whichever format it is in;
 // - a model with mistakes gets one on each mistaken line, and none on the
-//   valid line beside them, in format 5.1.0 and in 5.2.0.
+//   valid line beside them, in format 5.1.0 and in 5.2.0 (5.3.0, with its
+//   empty cells, is checked by the rolling forecast example).
 
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -97,7 +98,7 @@ function validate(docs) {
       failures.push(`${path.relative(root, copy)} differs from ${path.relative(root, source)}: copy it again`);
     }
   }
-  for (const needed of ['forge.schema.json', 'forge-v5.1.0.schema.json', 'forge-v5.2.0.schema.json']) {
+  for (const needed of ['forge.schema.json', 'forge-v5.1.0.schema.json', 'forge-v5.2.0.schema.json', 'forge-v5.3.0.schema.json']) {
     if (!schemas.includes(needed)) failures.push(`the extension does not bundle ${needed}`);
   }
   const files = examples(path.join(root, 'examples'));

@@ -96,8 +96,9 @@ fn column_from(values: &[Value]) -> Result<ColumnValue, String> {
             .iter()
             .enumerate()
             .map(|(row, value)| {
+                // A formula never gives an empty cell: it gives 0 (ADR-059)
                 value
-                    .as_number()
+                    .as_cell_number()
                     .ok_or_else(|| format!("row {}: result is not a number", row + 1))
             })
             .collect::<Result<Vec<f64>, String>>()

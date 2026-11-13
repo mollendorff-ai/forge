@@ -14,12 +14,14 @@
 )]
 
 mod aggregation;
+mod criterion;
 mod dates;
 pub(crate) mod day_count;
 mod financial;
 mod logical;
 mod lookup;
 mod math;
+pub(crate) use criterion::Criterion;
 mod normal;
 mod regression;
 mod schedule;
@@ -97,6 +99,17 @@ impl Value {
                 _ => None,
             },
             Self::Lambda { .. } | Self::Null => None,
+        }
+    }
+
+    /// A value used as one number, where an empty cell is 0, as in Excel
+    /// (`=A3 + 1`, `ROUND(A3, 0)`, ADR-059). Elements of a range keep
+    /// [`Value::as_number`], which skips an empty cell, as aggregates must.
+    #[must_use]
+    pub fn as_cell_number(&self) -> Option<f64> {
+        match self {
+            Self::Null => Some(0.0),
+            other => other.as_number(),
         }
     }
 
@@ -572,6 +585,40 @@ fn numbers(left: &Value, right: &Value) -> Result<(f64, f64), EvalError> {
 }
 
 fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, EvalError> {
+    // An empty cell is 0 in arithmetic and comparison, and equal to both 0 and
+    // "" (and to FALSE), as in Excel (ADR-059); `&` reads it as ""
+    if matches!(left, Value::Null) || matches!(right, Value::Null) {
+        let empty_equal = |other: &Value| match other {
+            Value::Null => true,
+            Value::Text(t) => t.is_empty(),
+            Value::Boolean(b) => !b,
+            other => other.as_number() == Some(0.0),
+        };
+        let other = if matches!(left, Value::Null) {
+            right
+        } else {
+            left
+        };
+        match op {
+            "=" => return Ok(Value::Boolean(empty_equal(other))),
+            "<>" => return Ok(Value::Boolean(!empty_equal(other))),
+            "&" => {},
+            _ => {
+                let zero = Value::Number(0.0);
+                let l = if matches!(left, Value::Null) {
+                    &zero
+                } else {
+                    left
+                };
+                let r = if matches!(right, Value::Null) {
+                    &zero
+                } else {
+                    right
+                };
+                return evaluate_scalar_binary_op(op, l, r);
+            },
+        }
+    }
     match op {
         // Arithmetic operators
         // `+` adds, as in Excel: a date is its day number and "5" is 5.
@@ -674,11 +721,14 @@ fn evaluate_unary_op(op: &str, operand: &Value) -> Result<Value, EvalError> {
             .map(Value::Array);
     }
     match op {
+        // -(an empty cell) is 0 (ADR-059)
+        "-" if matches!(operand, Value::Null) => Ok(Value::Number(0.0)),
         "-" => {
             let n = operand
                 .as_number()
                 .ok_or_else(|| EvalError::new("Operand must be a number"))?;
-            Ok(Value::Number(-n))
+            // 0 - n, so that -(0) is 0 and not -0, as Excel shows it
+            Ok(Value::Number(0.0 - n))
         },
         _ => Err(EvalError::new(format!("Unknown unary operator: {op}"))),
     }
@@ -804,6 +854,9 @@ pub(crate) fn number_or(arg: &Expr, ctx: &EvalContext, default: f64) -> Result<f
             )));
         }
     }
+    if matches!(value, Value::Null) {
+        return Ok(0.0); // an empty cell given for an argument is 0 (ADR-059)
+    }
     Ok(value.as_number().unwrap_or(default))
 }
 
@@ -867,93 +920,6 @@ pub(crate) fn collect_values_as_vec(
 
 /// Check if a value matches a criteria (supports comparisons like ">50", "<=100", "<>0", "=text")
 /// (used by conditional functions)
-/// A criterion of SUMIF, COUNTIFS and the like, read once and then tested
-/// against each value of the range (reading it for each value turned the
-/// criterion into text every time).
-pub(crate) struct Criterion {
-    /// The criterion as text
-    text: String,
-    /// The criterion as a number, for a direct comparison
-    number: Option<f64>,
-    test: Test,
-}
-
-/// A comparison written at the start of a criterion (`">=5"`)
-enum Test {
-    AtLeast(Option<f64>),
-    AtMost(Option<f64>),
-    Above(Option<f64>),
-    Below(Option<f64>),
-    /// `<>x`: the text after the operator and its number
-    Not(String, Option<f64>),
-    /// `=x`
-    Equal(String, Option<f64>),
-    /// No operator: equal to the criterion
-    Plain,
-}
-
-impl Test {
-    /// The comparison a criterion's text starts with
-    fn of(text: &str) -> Self {
-        if let Some(rest) = text.strip_prefix(">=") {
-            return Self::AtLeast(criterion_number(rest));
-        }
-        if let Some(rest) = text.strip_prefix("<=") {
-            return Self::AtMost(criterion_number(rest));
-        }
-        if let Some(rest) = text.strip_prefix("<>").or_else(|| text.strip_prefix("!=")) {
-            let rest = rest.trim();
-            return Self::Not(rest.to_string(), criterion_number(rest));
-        }
-        if let Some(rest) = text.strip_prefix('>') {
-            return Self::Above(criterion_number(rest));
-        }
-        if let Some(rest) = text.strip_prefix('<') {
-            return Self::Below(criterion_number(rest));
-        }
-        if let Some(rest) = text.strip_prefix('=') {
-            let rest = rest.trim();
-            return Self::Equal(rest.to_string(), criterion_number(rest));
-        }
-        Self::Plain
-    }
-}
-
-impl Criterion {
-    pub(crate) fn new(criteria: &Value) -> Self {
-        let text = criteria.as_text();
-        let comparison = Test::of(&text);
-        Self {
-            number: criteria.as_number(),
-            test: comparison,
-            text,
-        }
-    }
-
-    /// Whether `val` meets the criterion. A comparison whose sides are not
-    /// both numbers falls back to equality with the criterion's text.
-    pub(crate) fn matches(&self, val: &Value) -> bool {
-        let v = val.as_number();
-        match (&self.test, v) {
-            (Test::AtLeast(Some(c)), Some(v)) => return v >= *c,
-            (Test::AtMost(Some(c)), Some(v)) => return v <= *c,
-            (Test::Above(Some(c)), Some(v)) => return v > *c,
-            (Test::Below(Some(c)), Some(v)) => return v < *c,
-            (Test::Not(_, Some(c)), Some(v)) => return (v - c).abs() > f64::EPSILON,
-            (Test::Not(rest, _), _) => return val.as_text() != *rest,
-            (Test::Equal(_, Some(c)), Some(v)) => return (v - c).abs() < f64::EPSILON,
-            (Test::Equal(rest, _), _) => return val.as_text().eq_ignore_ascii_case(rest),
-            _ => {},
-        }
-        // Direct comparison (numeric or text)
-        if let (Some(v), Some(c)) = (v, self.number) {
-            return (v - c).abs() < f64::EPSILON;
-        }
-        // Text comparison (case-insensitive)
-        val.as_text().eq_ignore_ascii_case(&self.text)
-    }
-}
-
 /// Parse a Value into a `NaiveDate` (supports YYYY-MM-DD strings and Excel serial numbers)
 pub(crate) fn parse_date_value(val: &Value) -> Result<chrono::NaiveDate, EvalError> {
     use chrono::NaiveDate;
@@ -980,6 +946,8 @@ pub(crate) fn parse_date_value(val: &Value) -> Result<chrono::NaiveDate, EvalErr
 mod batch_tests;
 #[cfg(test)]
 mod date_tests;
+#[cfg(test)]
+mod empty_cell_tests;
 
 #[cfg(test)]
 mod tests {

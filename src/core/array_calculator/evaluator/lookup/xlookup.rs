@@ -121,7 +121,7 @@ pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     };
     let table_array = evaluate(&args[1], &array_ctx)?;
     let _col_index = evaluate(&args[2], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("VLOOKUP: col_index must be a number"))?
         as usize;
     let range_lookup = if args.len() > 3 {
@@ -185,7 +185,7 @@ pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     };
     let table_array = evaluate(&args[1], &array_ctx)?;
     let _row_index = evaluate(&args[2], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("HLOOKUP: row_index must be a number"))?
         as usize;
     let range_lookup = if args.len() > 3 {
