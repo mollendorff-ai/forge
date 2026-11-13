@@ -114,8 +114,16 @@ tier2:
 # a formula edited on its card, kept only when Forge accepts it; S8, Excel
 # export and import in the browser, the workbook forge export writes.
 
+# S13, Studio at forge.mollendorff.ai (2026-11-13): a CNAME at EasyDNS,
+# mollendorff.ai verified for the organization on GitHub Pages, no wildcard
+# record (GitHub advises against one: any account could claim a subdomain).
+
 studio:
-  [] # every studio item is done (2026-11-11); the next ones come from using Studio
+  - id: S-HOME
+    title: "A one-page home for Möllendorff AI at mollendorff.ai"
+    why: "The organization has no page of its own: one place that says what Möllendorff AI is and leads to Forge Studio and the repositories. mollendorff.com and mollendorff.ca forward to it"
+    how: "Its own small repository on GitHub Pages (mollendorff-ai.github.io), static, no scripts it does not need, no cookies or analytics, like Studio. Forge Studio stays at forge.mollendorff.ai, so neither can break the other or read the other's storage"
+    acceptance: "mollendorff.ai shows the page over HTTPS; .com and .ca reach it; it links to forge.mollendorff.ai and to the Forge and Ref repositories; no request leaves for another site"
   # Decided 2026-11-12, not to be added: editing in the Grid tab. The cards
   # and the YAML editor already edit values and formulas, a column has one
   # formula and a grid invites one per cell, and Studio is not an imitation of
@@ -152,6 +160,10 @@ parked:
     title: "An AI assistant in Forge Studio that builds a model in conversation"
     why: "Forge was built for AI agents and its tools already run in the page (forge-wasm): an assistant could write the YAML and check it with Forge as an agent does through MCP. The maintainer's idea, 2026-11-11, parked by him"
     how: "An ADR first. Studio has no server, so the calls to a model would use the person's own API key, kept in their browser; each conversation costs on that key, and the model's text goes to the provider"
+  - id: P-STUDIO-TOUR
+    title: "A guided first visit in Forge Studio"
+    why: "An FP&A analyst who has never seen YAML might not know where to tap. No one has been seen getting lost yet, and a tour has to change with every screen it explains. Parked 2026-11-13"
+    how: "Revisit when someone using Studio for the first time is seen getting stuck; try one hint on the first screen before anything like a tour"
   - id: P-GAME
     title: "Game theory module"
   - id: P-GPU

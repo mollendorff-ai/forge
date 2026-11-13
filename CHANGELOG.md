@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Forge Studio is at <https://forge.mollendorff.ai/>.** The old address, `mollendorff-ai.github.io/forge/`, redirects there. Models saved in the browser at the old address stay there: save them to Files and open them at the new one. The links in the READMEs point to the new address; the check after each release opens whatever address Pages reports.
+
 ### Added
 - **Forge Studio opens `examples/capex-plan` and `examples/rolling-forecast`** (nine example sets, from seven). The page's tests run on both: the numbers on screen, the grid, the formula edits and the suggestions are checked against what Forge returns for them.
 
