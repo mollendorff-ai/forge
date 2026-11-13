@@ -65,12 +65,11 @@ tier1:
     how: "Type =YEARFRAC(DATE(2026,2,28), DATE(2026,12,31), 0) in Excel: 0.8333 is Forge's, 0.8361 the engines'. If Excel gives 0.8361, change YEARFRAC, and check ACCRINT and PRICEDISC with the same dates before touching the day count they share"
     acceptance: "The Excel value is recorded in forge-e2e-gnumeric with the date it was checked, and Forge gives it"
 
-  - id: T1-VALIDATION-IN-REPO
-    title: "The two validation suites move into this repository (ADR-057)"
-    why: "A change that touches the engine and a suite needs two pull requests and code that works with both versions (#161 and forge-e2e-r#13, 2026-11-12); a merge in a suite changes what Forge's CI does; forge-e2e-r has no CI of its own. The reason for the split (ADR-027: Forge was 636,000 lines) is gone. The maintainer's idea, 2026-11-12"
-    how: "As ADR-057 says: git subtree add of each suite, not squashed, into validation/gnumeric and validation/r; workspace members that still run the binary through FORGE_BIN; the Validation workflow runs the suites of the commit it builds; a CI check that fails a pull request that changes an existing expected value without saying so in its title; the living documents updated. Then archive the two repositories"
-    status: "Built (#164, #165). The Validation workflow on main ran from validation/ on 2026-11-12, green, with the counts below. Left: merging the README notes (forge-e2e-gnumeric#19, forge-e2e-r#14) and archiving the two repositories, which this session cannot do (GitHub refuses repository settings writes through its proxy)"
-    acceptance: "The Validation workflow on main, with no clone of another repository, gives the counts of the last run from the separate repositories (1,445 passed and 1 skipped against Gnumeric; 136 function checks and 70 of 77 analytics specs against R); git log shows the suites' own commits; the two old repositories are read-only and their READMEs say where the suites went"
+  - id: T1-EXCEL-CHECKS
+    title: "Two documented results to check in real Excel (functions added in rc.19)"
+    why: "Forge, Gnumeric, LibreOffice and an independent Python loop agree on both, but each differs from something published or from one engine. VDB(2400,300,10*12,6,18,3): Microsoft's page says 396.31, all four computations give 540.19 (the other four documented examples match), so the page is probably wrong. WEEKNUM(DATE(2020,12,31),11): Forge and the calendar say 53, LibreOffice says 1; nine such year-end cases of types 11 to 17 are checked against Forge only (gnumeric_skip)"
+    how: "Type both in Excel. If VDB gives 396.31, find what differs and change VDB; if WEEKNUM gives 1, change the year-end rule of types 11 to 17"
+    acceptance: "The Excel values are recorded in validation/gnumeric (statistics_finance_batch.yaml) with the date they were checked, and Forge gives them"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
