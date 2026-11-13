@@ -70,9 +70,11 @@ for (const example of ["bagel", "options", "mortgage"]) {
   const profitBefore = await value(page, "year.profit");
   let before = await generation(page);
   const text = await page.inputValue("#yaml-editor");
-  if (!/price_per_dozen: 16\b/.test(text)) fail("bagel.yaml no longer has price_per_dozen: 16; update this test");
+  // The price is written plain or with its format: (ADR-061)
+  const price = /(price_per_dozen: (?:\{value: )?)16\b/;
+  if (!price.test(text)) fail("bagel.yaml no longer has price_per_dozen: 16; update this test");
   await page.click("#yaml-editor");
-  await page.fill("#yaml-editor", text.replace(/price_per_dozen: 16\b/, "price_per_dozen: 17"));
+  await page.fill("#yaml-editor", text.replace(price, "$117"));
   await settle(page, before);
   if ((await value(page, "assumptions.price_per_dozen")) !== "17") fail("1440 px: typing 17 in the editor did not change the price card");
   if ((await value(page, "year.profit")) === profitBefore) fail("1440 px: typing 17 in the editor did not change year.profit");
