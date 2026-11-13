@@ -88,7 +88,7 @@ tier2:
   - id: T2-SCALAR-DATES
     title: "A date as a scalar input, and a date result shown as a date"
     why: "last_actual: 2026-10-31 is refused ('must be a number'), so a model writes =DATE(2026, 10, 31), and the result is printed as 46326, Excel's day number, in calculate, report and the exported Scalars sheet. A table column of dates is already a date (ADR-054); a scalar is not"
-    how: "Extend ADR-054 to scalars: a scalar written as a date is a date, shown as a date and exported as a date cell; a formula scalar whose result is a date (DATE, EOMONTH, EDATE) is shown as one. The schema of the model format changes, so decide in the ADR whether this needs a new version"
+    how: "ADR-060 (proposed): a scalar written as a date is a date in format 5.4.0 (5.3.0 shipped in rc.20), read as a cell of a date column is (ADR-054: its day number where a number is read, its text where text is read); a formula scalar is a date when its value is one, by the rule columns follow; DATE gives a date, as EDATE and EOMONTH do; Forge sets the date format of the cell on export, as Gnumeric and LibreOffice guess it differently; the commands that vary an input refuse a date"
     acceptance: "The rolling forecast writes last_actual: 2026-10-31, forge calculate and forge report print 2026-10-31, the workbook's cell is a date cell, and import gives the date back"
 
   - id: T2-NUMBER-FORMAT
