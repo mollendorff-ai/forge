@@ -41,21 +41,28 @@ months:
   standard_price: "=IF(is_actual, actual_standard_price, PREV(standard_price, 0) * (1 + inputs.standard_price_growth))"
   premium_units: "=IF(is_actual, actual_premium_units, PREV(premium_units, 0) * (1 + inputs.premium_volume_growth))"
   premium_price: "=IF(is_actual, actual_premium_price, PREV(premium_price, 0) * (1 + inputs.premium_price_growth))"
-  revenue: "=standard_units * standard_price + premium_units * premium_price"
+  revenue:
+    formula: "=standard_units * standard_price + premium_units * premium_price"
+    format: "#,##0"
 
   # The budget of the same month (0 after the budget's year)
   budget_revenue: "=XLOOKUP(month, budget.month, budget.standard_units, 0) * XLOOKUP(month, budget.month, budget.standard_price, 0) + XLOOKUP(month, budget.month, budget.premium_units, 0) * XLOOKUP(month, budget.month, budget.premium_price, 0)"
   # Revenue so far in the fiscal year: starts again in April
   fiscal_ytd: "=IF(fiscal_year = PREV(fiscal_year, 0), PREV(fiscal_ytd, 0), 0) + revenue"
 
+# format: says how a number is shown, never what it is (ADR-061); a shortfall
+# is in parentheses, as finance writes it.
 # The fiscal year 2027: latest estimate (actuals, then forecast) against budget
 fy2027:
   revenue:
     formula: "=SUMIFS(months.revenue, months.fiscal_year, 2027)"
+    format: "#,##0"
   budget:
     formula: "=SUM(budget.standard_units * budget.standard_price) + SUM(budget.premium_units * budget.premium_price)"
+    format: "#,##0"
   variance:
     formula: "=revenue - budget"
+    format: "#,##0;(#,##0)"
   actual_so_far:
     formula: "=SUMIFS(months.revenue, months.is_actual, TRUE)"
 
@@ -65,8 +72,12 @@ quarters:
   quarter: [1, 2, 3, 4]
   revenue: "=SUMIFS(months.revenue, months.fiscal_year, 2027, months.fiscal_quarter, quarter)"
   budget: "=SUMIFS(months.budget_revenue, months.fiscal_year, 2027, months.fiscal_quarter, quarter)"
-  variance: "=revenue - budget"
-  share_of_year: "=revenue / SUM(revenue)"
+  variance:
+    formula: "=revenue - budget"
+    format: "#,##0;(#,##0)"
+  share_of_year:
+    formula: "=revenue / SUM(revenue)"
+    format: "0.0%"
 
 # The next twelve months after the last actual, whatever fiscal year they are in
 next_12_months:
@@ -100,9 +111,12 @@ pvm:
     formula: "=budget_standard_units + budget_premium_units"
   volume:
     formula: "=(le_units - budget_units) * (budget_standard_units * budget_standard_price + budget_premium_units * budget_premium_price) / budget_units"
+    format: "#,##0;(#,##0)"
   mix:
     formula: "=le_units * ((le_standard_units / le_units - budget_standard_units / budget_units) * budget_standard_price + (le_premium_units / le_units - budget_premium_units / budget_units) * budget_premium_price)"
+    format: "#,##0;(#,##0)"
   price:
     formula: "=le_standard_revenue - le_standard_units * budget_standard_price + le_premium_revenue - le_premium_units * budget_premium_price"
+    format: "#,##0;(#,##0)"
   check:
     formula: "=ROUND(volume + mix + price - fy2027.variance, 6)"
