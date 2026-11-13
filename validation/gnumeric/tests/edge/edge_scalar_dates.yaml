@@ -1,0 +1,118 @@
+# A date as a scalar (Forge ADR-060, model format 5.4.0), and DATE giving a
+# date in a scalar and in a column.
+#
+# forge export writes a date scalar as a date cell (its day number, shown as
+# yyyy-mm-dd) and a formula scalar whose value is a date with that format too;
+# Gnumeric recalculates the formulas that read them. The expected values are
+# the ADR's table, measured in Gnumeric 1.12 and LibreOffice 26.2 on a date
+# cell (2026-11-13), where the two agree on every value. A date result is its
+# day number, the days since 1899-12-30 (worked in Python's datetime):
+#   2026-10-31 is 46326, 2026-11-30 46356, 2026-12-31 46387, 2027-10-31 46691,
+#   2026-04-01 46113; 2026-10-31 - 2026-04-01 is 213 days
+# Where a formula reads text, a date is its text, as a cell of a date column
+# is (ADR-054): LEFT(last_actual, 4) is "2026", LEN is 10, ISNUMBER is FALSE.
+# The month column has 19 month starts, April 2026 to October 2027: twelve of
+# them are after 2026-10-31.
+
+_forge_version: "5.4.0"
+
+inputs:
+  last_actual: 2026-10-31
+  start: 2026-04-01
+
+months:
+  month: {start: 2026-04, count: 19, unit: month}
+  # A formula column, so the runner reads this section as a table
+  m: "=MONTH(month)"
+
+t:
+  d: [2026-01-31, 2026-11-30]
+  year_end: "=DATE(YEAR(d), 12, 31)"
+  year_end_text: "=DATE(YEAR(d), 12, 31) & \"\""
+  after_close: "=IF(d > inputs.last_actual, 1, 0)"
+  close: "=inputs.last_actual"
+
+assumptions:
+  # A number is read: the day number
+  test_year:
+    value: null
+    formula: "=YEAR(inputs.last_actual)"
+    expected: 2026
+  test_plus_one:
+    value: null
+    formula: "=inputs.last_actual + 1"
+    expected: 46327
+  test_days_between:
+    value: null
+    formula: "=inputs.last_actual - inputs.start"
+    expected: 213
+  test_compare_dates:
+    value: null
+    formula: "=IF(inputs.last_actual > inputs.start, 1, 0)"
+    expected: 1
+  test_equals_date:
+    value: null
+    formula: "=IF(inputs.last_actual = DATE(2026, 10, 31), 1, 0)"
+    expected: 1
+  test_criterion:
+    value: null
+    formula: "=COUNTIF(months.month, \">\" & inputs.last_actual)"
+    expected: 12
+  test_max_of_dates:
+    value: null
+    formula: "=MAX(inputs.last_actual, inputs.start)"
+    expected: 46326
+
+  # Text is read: the date's text
+  test_left:
+    value: null
+    formula: "=VALUE(LEFT(inputs.last_actual, 4))"
+    expected: 2026
+  test_len:
+    value: null
+    formula: "=LEN(inputs.last_actual)"
+    expected: 10
+  test_joined_len:
+    value: null
+    formula: "=LEN(\"[\" & inputs.last_actual & \"]\")"
+    expected: 12
+  test_isnumber:
+    value: null
+    formula: "=IF(ISNUMBER(inputs.last_actual), 1, 0)"
+    expected: 0
+
+  # A formula scalar whose value is a date
+  test_eomonth:
+    value: null
+    formula: "=EOMONTH(inputs.last_actual, 12)"
+    expected: 46691
+  test_edate:
+    value: null
+    formula: "=EDATE(inputs.last_actual, 1)"
+    expected: 46356
+  test_reference:
+    value: null
+    formula: "=inputs.last_actual"
+    expected: 46326
+  test_date_function:
+    value: null
+    formula: "=DATE(2026, 10, 31)"
+    expected: 46326
+
+  # DATE in a column, and a column reading a date scalar
+  test_date_column:
+    value: null
+    formula: "=INDEX(t.year_end, 1)"
+    expected: 46387
+  test_date_column_text:
+    value: null
+    formula: "=LEN(INDEX(t.year_end_text, 1))"
+    expected: 10
+  test_row_reads_scalar:
+    value: null
+    formula: "=SUM(t.after_close)"
+    expected: 1
+  test_column_of_the_scalar:
+    value: null
+    formula: "=INDEX(t.close, 2)"
+    expected: 46326

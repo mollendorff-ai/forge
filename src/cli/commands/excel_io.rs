@@ -206,6 +206,10 @@ fn scalars_to_value(
     let mut map = Mapping::new();
     for (path, variable) in scalars {
         let entry = match (&variable.formula, variable.value) {
+            // A date input is its text (ADR-060)
+            (None, Some(_)) if variable.is_date => {
+                Value::String(variable.date_text().unwrap_or_default())
+            },
             (None, Some(value)) => number(value),
             (Some(formula), value) => {
                 let mut entry = Mapping::new();
@@ -373,16 +377,23 @@ fn write_include_files(dir: &Path, model: &crate::types::ParsedModel) -> ForgeRe
     Ok(written)
 }
 
-/// The model format an imported model needs: 5.3.0 when a column has an
-/// empty cell (ADR-059), 5.1.0 otherwise.
+/// The model format an imported model needs: 5.4.0 when a scalar is a date
+/// (ADR-060), 5.3.0 when a column has an empty cell (ADR-059), 5.1.0
+/// otherwise.
 fn import_format(model: &crate::types::ParsedModel) -> &'static str {
+    let dates = model
+        .scalars
+        .values()
+        .any(|v| v.is_date && v.formula.is_none());
     let blanks = model.tables.values().any(|table| {
         table
             .columns
             .values()
             .any(|c| matches!(c.values, crate::types::ColumnValue::Blanks(_)))
     });
-    if blanks {
+    if dates {
+        "5.4.0"
+    } else if blanks {
         "5.3.0"
     } else {
         "5.1.0"

@@ -6,7 +6,7 @@ Real-world usage examples and patterns. For eight questions answered start to fi
 
 Three rules catch most first models:
 
-1. **`_forge_version` is the version of the model format, not of Forge.** Write `"5.1.0"`, `"5.2.0"` only if a table has a period column, or `"5.3.0"` only if a column has an empty cell (`null`). `"10.0.0"` is Forge's own version and is refused.
+1. **`_forge_version` is the version of the model format, not of Forge.** Write `"5.1.0"`, `"5.2.0"` only if a table has a period column, `"5.3.0"` only if a column has an empty cell (`null`), or `"5.4.0"` only if a scalar is a date (`last_actual: 2026-10-31`). `"10.0.0"` is Forge's own version and is refused.
 2. **In a group of scalars, a formula is written `{formula: "=..."}`**, because `forge calculate` writes its result next to it (`value: 4800`). A bare `"=..."` string is a column formula and belongs in a table.
 3. **A table column works row by row; an aggregate's range is the whole column.** In a column, `revenue` is the row's revenue, but inside `SUM(revenue)` or as the range of `SUMIFS` it is the whole column, so `share: "=revenue / SUM(revenue)"` is each row's share of the total, and a table of quarters can sum a table of months: `revenue: "=SUMIFS(months.revenue, months.quarter, quarter)"` (the criterion, `quarter`, is the row's). With several arguments `SUM`, `MAX` and the like work row by row: `=MAX(0, ebit)`. See ADR-058.
 

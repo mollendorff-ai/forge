@@ -26,13 +26,102 @@ pub struct ValidationMismatch {
 }
 
 /// Result of the calculate command
+///
+/// In JSON a date scalar's value is its text (`"2026-10-31"`), as a cell of a
+/// date column is (ADR-060); here it is its day number in `scalars`, named in
+/// `dates`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(from = "CalculationWire", into = "CalculationWire")]
 pub struct CalculationResult {
     pub tables: BTreeMap<String, TableSummary>,
     pub scalars: BTreeMap<String, Option<f64>>,
+    /// The scalars whose value is a date
+    pub dates: std::collections::BTreeSet<String>,
     pub unit_warnings: Vec<String>,
     pub file_updated: bool,
     pub dry_run: bool,
+}
+
+impl CalculationResult {
+    /// A scalar's value as the model shows it: the date's text for a date,
+    /// else the number.
+    #[must_use]
+    pub fn shown(&self, name: &str) -> Option<String> {
+        let value = self.scalars.get(name).copied().flatten()?;
+        Some(if self.dates.contains(name) {
+            crate::core::array_calculator::evaluator::serial_date_text(value)
+        } else {
+            value.to_string()
+        })
+    }
+}
+
+/// [`CalculationResult`] as JSON: each scalar a number, a date's text or null.
+#[derive(Serialize, Deserialize)]
+struct CalculationWire {
+    tables: BTreeMap<String, TableSummary>,
+    scalars: BTreeMap<String, serde_json::Value>,
+    unit_warnings: Vec<String>,
+    file_updated: bool,
+    dry_run: bool,
+}
+
+impl From<CalculationResult> for CalculationWire {
+    fn from(r: CalculationResult) -> Self {
+        let scalars = r
+            .scalars
+            .iter()
+            .map(|(name, value)| {
+                let json = match value {
+                    Some(n) if r.dates.contains(name) => serde_json::Value::String(
+                        crate::core::array_calculator::evaluator::serial_date_text(*n),
+                    ),
+                    Some(n) => serde_json::json!(n),
+                    None => serde_json::Value::Null,
+                };
+                (name.clone(), json)
+            })
+            .collect();
+        Self {
+            tables: r.tables,
+            scalars,
+            unit_warnings: r.unit_warnings,
+            file_updated: r.file_updated,
+            dry_run: r.dry_run,
+        }
+    }
+}
+
+impl From<CalculationWire> for CalculationResult {
+    fn from(w: CalculationWire) -> Self {
+        let mut dates = std::collections::BTreeSet::new();
+        let scalars = w
+            .scalars
+            .into_iter()
+            .map(|(name, json)| {
+                let value = match &json {
+                    serde_json::Value::String(text) => {
+                        let serial =
+                            crate::core::array_calculator::evaluator::excel_date_serial(text);
+                        if serial.is_some() {
+                            dates.insert(name.clone());
+                        }
+                        serial
+                    },
+                    other => other.as_f64(),
+                };
+                (name, value)
+            })
+            .collect();
+        Self {
+            tables: w.tables,
+            scalars,
+            dates,
+            unit_warnings: w.unit_warnings,
+            file_updated: w.file_updated,
+            dry_run: w.dry_run,
+        }
+    }
 }
 
 /// Summary of a calculated table
@@ -68,6 +157,9 @@ pub struct AuditResult {
     /// What to check: NPV or IRR reading a column with empty cells (ADR-059)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+    /// The calculated value as a date, when it is one (ADR-060)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calculated_date: Option<String>,
 }
 
 /// One name a formula reads, with what it reads in turn
@@ -89,6 +181,9 @@ pub struct AuditDep {
     /// Shown earlier in the tree, so its dependencies are not repeated
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub repeated: bool,
+    /// A scalar's value as a date, when it is one (ADR-060)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date: Option<String>,
 }
 
 /// Result of the export command
@@ -218,4 +313,8 @@ pub struct ComparisonResult {
     /// The `description` of each scenario that has one
     #[serde(default, skip_serializing_if = "indexmap::IndexMap::is_empty")]
     pub descriptions: indexmap::IndexMap<String, String>,
+    /// The variables whose values are dates, held as day numbers in `values`
+    /// and shown as dates, also in JSON (ADR-060)
+    #[serde(skip)]
+    pub dates: std::collections::BTreeSet<String>,
 }

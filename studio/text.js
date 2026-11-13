@@ -43,9 +43,11 @@ function* childLines(lines, i, indent) {
 // 1.5E+3), and 0x, 0o and 0b integers. 1_000, .inf and 1,000 are not numbers
 // to Forge, so they are not here either.
 const NUMBER = String.raw`[-+]?(?:0x[0-9a-fA-F]+|0o[0-7]+|0b[01]+|(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)`;
-const INLINE = new RegExp(String.raw`^(\s*)(${NUMBER})(\s*(#.*)?)$`);
-const FLOW = new RegExp(String.raw`^(\s*\{.*?\bvalue:\s*)(${NUMBER}|null|~)(\s*[,}].*)$`);
-const BLOCK = new RegExp(String.raw`^(\s+value:)(\s*)(${NUMBER}|null|~)?(\s*(#.*)?)$`);
+// An input's value: a number, or a date (model format 5.4.0, ADR-060)
+const VALUE = String.raw`${NUMBER}|\d{4}-\d{2}-\d{2}`;
+const INLINE = new RegExp(String.raw`^(\s*)(${VALUE})(\s*(#.*)?)$`);
+const FLOW = new RegExp(String.raw`^(\s*\{.*?\bvalue:\s*)(${VALUE}|null|~)(\s*[,}].*)$`);
+const BLOCK = new RegExp(String.raw`^(\s+value:)(\s*)(${VALUE}|null|~)?(\s*(#.*)?)$`);
 
 export function setInputText(text, group, name, v) {
   const lines = text.split("\n");

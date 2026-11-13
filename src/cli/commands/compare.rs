@@ -59,7 +59,13 @@ const fn window_columns() -> Option<usize> {
 /// The cells of one row, as the table and Markdown show them: whole numbers
 /// without decimals when every value of the row is whole, an input as written,
 /// and `—` where a scenario has no value.
-fn shown_row(values: &[Option<f64>], input: bool) -> Vec<String> {
+fn shown_row(values: &[Option<f64>], input: bool, date: bool) -> Vec<String> {
+    if date {
+        return values
+            .iter()
+            .map(|v| v.map_or_else(|| "—".to_string(), date_text))
+            .collect();
+    }
     let whole = values
         .iter()
         .flatten()
@@ -84,6 +90,11 @@ fn shown_row(values: &[Option<f64>], input: bool) -> Vec<String> {
             )
         })
         .collect()
+}
+
+/// The text of the date with day number `serial` (ADR-060).
+fn date_text(serial: f64) -> String {
+    crate::core::array_calculator::evaluator::serial_date_text(serial)
 }
 
 fn row_values(result: &ComparisonResult, variable: &str) -> Vec<Option<f64>> {
@@ -126,7 +137,18 @@ pub fn render_comparison(
         },
         ReportFormat::Csv => render_csv(result),
         ReportFormat::Json => {
-            let mut out = serde_json::to_string_pretty(&Rounded(result)).unwrap_or_default();
+            let mut json = serde_json::to_value(Rounded(result)).unwrap_or_default();
+            // A date's value is its text, as in `forge calculate`'s JSON (ADR-060)
+            for variable in &result.dates {
+                if let Some(row) = json["values"][variable].as_object_mut() {
+                    for value in row.values_mut() {
+                        if let Some(serial) = value.as_f64() {
+                            *value = serde_json::Value::String(date_text(serial));
+                        }
+                    }
+                }
+            }
+            let mut out = serde_json::to_string_pretty(&json).unwrap_or_default();
             out.push('\n');
             out
         },
@@ -137,7 +159,13 @@ fn render_table(result: &ComparisonResult, inputs: &[String], width: Option<usiz
     let cells: Vec<Vec<String>> = result
         .variables
         .iter()
-        .map(|v| shown_row(&row_values(result, v), inputs.contains(v)))
+        .map(|v| {
+            shown_row(
+                &row_values(result, v),
+                inputs.contains(v),
+                result.dates.contains(v),
+            )
+        })
         .collect();
     let by_variable = grid(
         "variable",
@@ -265,7 +293,11 @@ fn render_markdown(result: &ComparisonResult, inputs: &[String]) -> String {
         .collect();
     let _ = writeln!(out, "| {} |", rule.join(" | "));
     for variable in &result.variables {
-        let cells = shown_row(&row_values(result, variable), inputs.contains(variable));
+        let cells = shown_row(
+            &row_values(result, variable),
+            inputs.contains(variable),
+            result.dates.contains(variable),
+        );
         let items: Vec<String> = std::iter::once(markdown_text(variable))
             .chain(cells)
             .collect();
@@ -283,11 +315,15 @@ fn render_csv(result: &ComparisonResult) -> String {
     out.push('\n');
     for variable in &result.variables {
         let items: Vec<String> = std::iter::once(csv_text(variable))
-            .chain(
-                row_values(result, variable)
-                    .iter()
-                    .map(|v| v.map_or_default(|v| to_15_digits(v).to_string())),
-            )
+            .chain(row_values(result, variable).iter().map(|v| {
+                v.map_or_default(|v| {
+                    if result.dates.contains(variable) {
+                        date_text(v)
+                    } else {
+                        to_15_digits(v).to_string()
+                    }
+                })
+            }))
             .collect();
         out.push_str(&items.join(","));
         out.push('\n');

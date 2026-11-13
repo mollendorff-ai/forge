@@ -235,9 +235,14 @@ fn structure(model: &ParsedModel) -> Value {
             .scalars
             .values()
             .map(|v| {
+                // A date input's value is its text (ADR-060)
+                let value = v
+                    .date_text()
+                    .map_or_else(|| json!(v.value), |date| json!(date));
                 json!({
                     "path": format!("{prefix}{}", v.path),
-                    "value": v.value,
+                    "value": value,
+                    "date": v.is_date,
                     "formula": v.formula,
                     "unit": v.metadata.unit,
                     "notes": v.metadata.notes,

@@ -31,17 +31,21 @@ pub fn write_calculated_results(path: &Path, result: &ParsedModel) -> ForgeResul
     let content = fs::read_to_string(path)?;
     let multi_doc = crate::parser::detect_multi_document(&content);
 
-    let values: Vec<(in_place::ScalarPath, f64)> = result
+    // A date is written as a date in a file of model format 5.4.0, and as its
+    // day number before that, which has no dates as scalars (ADR-060)
+    let dates = content
+        .lines()
+        .any(|line| line.trim_start().starts_with("_forge_version") && line.contains("5.4.0"));
+    let values: Vec<(in_place::ScalarPath, in_place::Written)> = result
         .scalars
         .iter()
         .filter(|(_, var)| var.formula.is_some())
         .filter_map(|(name, var)| {
-            var.value.map(|v| {
-                (
-                    name.split('.').map(str::to_string).collect(),
-                    to_15_digits(v),
-                )
-            })
+            let written = match var.date_text() {
+                Some(date) if dates => in_place::Written::Date(date),
+                _ => in_place::Written::Number(to_15_digits(var.value?)),
+            };
+            Some((name.split('.').map(str::to_string).collect(), written))
         })
         .collect();
 

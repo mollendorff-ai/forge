@@ -194,7 +194,7 @@ fn strip_string_literals(formula: &str) -> String {
 
 /// What the included files give a formula: their scalars as
 /// `@namespace.path` with their values, and their tables.
-type Included = (Vec<(String, f64)>, Vec<IncludedTable>);
+type Included = (Vec<(String, evaluator::Value)>, Vec<IncludedTable>);
 
 /// A table of an included file, calculated.
 #[derive(Debug, Clone)]
@@ -213,7 +213,7 @@ pub struct ArrayCalculator {
     model: ParsedModel,
     /// Scalars of included files as `@namespace.path`, calculated before the
     /// model (see [`ArrayCalculator::included_values`]).
-    included: Vec<(String, f64)>,
+    included: Vec<(String, evaluator::Value)>,
     /// Tables of included files as `@namespace.table`, with their calculated
     /// columns and the file they come from
     included_tables: Vec<IncludedTable>,
@@ -282,7 +282,7 @@ impl ArrayCalculator {
                     ))
                 })?;
             for (path, var) in &calculated.scalars {
-                if let Some(value) = var.value {
+                if let Some(value) = scalar_value(var) {
                     values.push((format!("@{namespace}.{path}"), value));
                 }
             }
@@ -372,6 +372,7 @@ impl ArrayCalculator {
         for var in self.model.scalars.values_mut() {
             if var.formula.is_some() {
                 var.value = None;
+                var.is_date = false;
             }
         }
 
@@ -544,15 +545,15 @@ impl ArrayCalculator {
         else {
             return Ok(());
         };
-        let value = self
+        let (value, is_date) = self
             .evaluate_scalar_formula_ast(scalar_name, &formula)
             .map_err(|e| locate_error(e, scalar_name, &formula))?;
         if let Some(var) = self.model.scalars.get_mut(scalar_name) {
             var.value = Some(value);
-        }
-        if let Some(ctx) = self.ctx.as_mut() {
-            ctx.scalars
-                .insert(scalar_name.to_string(), evaluator::Value::Number(value));
+            var.is_date = is_date;
+            if let (Some(ctx), Some(held)) = (self.ctx.as_mut(), scalar_value(var)) {
+                ctx.scalars.insert(scalar_name.to_string(), held);
+            }
         }
         Ok(())
     }
@@ -673,14 +674,12 @@ impl ArrayCalculator {
     fn base_context(&self) -> evaluator::EvalContext {
         let mut ctx = evaluator::EvalContext::new();
         for (name, scalar) in &self.model.scalars {
-            if let Some(value) = scalar.value {
-                ctx.scalars
-                    .insert(name.clone(), evaluator::Value::Number(value));
+            if let Some(value) = scalar_value(scalar) {
+                ctx.scalars.insert(name.clone(), value);
             }
         }
         for (name, value) in &self.included {
-            ctx.scalars
-                .insert(name.clone(), evaluator::Value::Number(*value));
+            ctx.scalars.insert(name.clone(), value.clone());
         }
         for table in &self.included_tables {
             ctx.tables
@@ -705,13 +704,13 @@ impl ArrayCalculator {
 
     /// The value of scalar `full`, read from the shared context, which mirrors
     /// the model's scalar values.
-    fn model_value(&self, ctx: &evaluator::EvalContext, full: &str) -> Option<f64> {
+    fn model_value(&self, ctx: &evaluator::EvalContext, full: &str) -> Option<evaluator::Value> {
         debug_assert_eq!(
             ctx.scalars.get(full).and_then(evaluator::Value::as_number),
             self.model.scalars.get(full).and_then(|s| s.value),
             "context and model disagree on {full}"
         );
-        ctx.scalars.get(full).and_then(evaluator::Value::as_number)
+        ctx.scalars.get(full).cloned()
     }
 
     /// Each short name (`price` for `summary.price`) that resolves to exactly
@@ -771,11 +770,7 @@ impl ArrayCalculator {
         // scalar's own value)
         for (short_name, full) in self.short_names(section).iter() {
             if let Some(value) = self.model_value(&ctx, full) {
-                lay(
-                    &mut ctx,
-                    short_name.clone(),
-                    evaluator::Value::Number(value),
-                );
+                lay(&mut ctx, short_name.clone(), value);
             }
         }
         let table = table.and_then(|name| self.model.tables.get(name));
@@ -933,12 +928,13 @@ impl ArrayCalculator {
         }
     }
 
-    /// Evaluate the formula of scalar `scalar_name` using the AST evaluator
+    /// Evaluate the formula of scalar `scalar_name` using the AST evaluator:
+    /// its value, and whether that is a date (ADR-060)
     fn evaluate_scalar_formula_ast(
         &mut self,
         scalar_name: &str,
         formula: &str,
-    ) -> ForgeResult<f64> {
+    ) -> ForgeResult<(f64, bool)> {
         let ast = self.parsed(formula)?;
 
         let empty_table = Table::new("_scalar_context".to_string());
@@ -956,9 +952,20 @@ impl ArrayCalculator {
                 )));
             }
         }
+        // A date, as a column of dates holds one (ADR-060)
+        let single = match &result {
+            evaluator::Value::Array(items) => items.first().unwrap_or(&result),
+            other => other,
+        };
+        if let evaluator::Value::Text(text) = single {
+            if let Some(serial) = evaluator::excel_date_serial(text) {
+                return Ok((serial, true));
+            }
+        }
         // A formula never gives an empty cell: it gives 0 (ADR-059)
         result
             .as_cell_number()
+            .map(|n| (n, false))
             .ok_or_else(|| ForgeError::Eval("result is not a number".to_string()))
     }
 
@@ -993,6 +1000,15 @@ impl ArrayCalculator {
 }
 
 /// A column's values as the evaluator reads them (dates as text).
+/// A scalar's value as a formula reads it: a date as its text, as a cell of
+/// a date column is (ADR-060), a number as itself.
+fn scalar_value(scalar: &crate::types::Variable) -> Option<evaluator::Value> {
+    scalar.date_text().map_or_else(
+        || scalar.value.map(evaluator::Value::Number),
+        |date| Some(evaluator::Value::Text(date)),
+    )
+}
+
 fn column_values(values: &ColumnValue) -> Vec<evaluator::Value> {
     match values {
         ColumnValue::Number(nums) => nums.iter().map(|n| evaluator::Value::Number(*n)).collect(),

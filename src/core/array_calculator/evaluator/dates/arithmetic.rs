@@ -78,9 +78,16 @@ pub fn try_evaluate(
                     .checked_sub_days(Days::new((1 - day) as u64))
                     .ok_or_else(|| EvalError::new("DATE: day underflow"))?
             };
-            // Return Excel serial number (days since 1899-12-30)
+            // A date, as EDATE and EOMONTH give (ADR-060): its day number
+            // (days since 1899-12-30) wherever a number is read. Before
+            // 1900-03-01, which Excel cannot hold as a date, the day number.
             let excel_base = NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
-            Value::Number((date - excel_base).num_days() as f64)
+            let first = NaiveDate::from_ymd_opt(1900, 3, 1).unwrap();
+            if date >= first {
+                Value::Text(date.format("%Y-%m-%d").to_string())
+            } else {
+                Value::Number((date - excel_base).num_days() as f64)
+            }
         },
 
         "EDATE" => {
@@ -178,12 +185,16 @@ mod tests {
     #[test]
     fn test_date_construction() {
         let ctx = EvalContext::new();
-        // DATE returns Excel serial number (days since 1899-12-30)
-        // 2024-06-15 = 45458
-        assert_eq!(
-            eval("DATE(2024, 6, 15)", &ctx).unwrap(),
-            Value::Number(45458.0)
-        );
+        // DATE returns a date (ADR-060), whose day number (days since
+        // 1899-12-30) is 45458 for 2024-06-15
+        let date = eval("DATE(2024, 6, 15)", &ctx).unwrap();
+        assert_eq!(date, Value::Text("2024-06-15".to_string()));
+        assert_eq!(date.as_number(), Some(45458.0));
+        // Before 1900-03-01 Excel holds no date: the day number
+        assert!(matches!(
+            eval("DATE(1900, 1, 15)", &ctx).unwrap(),
+            Value::Number(_)
+        ));
     }
 
     #[test]
@@ -206,8 +217,8 @@ mod tests {
         let ctx = EvalContext::new();
         // Month 14 = February of next year (2025-02-15 = serial 45703)
         assert_eq!(
-            eval("DATE(2024, 14, 15)", &ctx).unwrap(),
-            Value::Number(45703.0)
+            eval("DATE(2024, 14, 15)", &ctx).unwrap().as_number(),
+            Some(45703.0)
         );
     }
 
@@ -288,13 +299,12 @@ mod tests {
         let result_table = result.tables.get("data").unwrap();
 
         let full_date = result_table.columns.get("full_date").unwrap();
+        // A column of DATE is a column of dates (ADR-060)
         match &full_date.values {
-            ColumnValue::Number(nums) => {
-                assert_eq!(nums[0], 45672.0); // 2025-01-15
-                assert_eq!(nums[1], 45463.0); // 2024-06-20
-                assert_eq!(nums[2], 45291.0); // 2023-12-31
+            ColumnValue::Text(dates) | ColumnValue::Date(dates) => {
+                assert_eq!(dates, &["2025-01-15", "2024-06-20", "2023-12-31"]);
             },
-            _ => panic!("Expected Number array"),
+            other => panic!("Expected dates, got {other:?}"),
         }
     }
 
@@ -336,7 +346,7 @@ mod tests {
         let ctx = EvalContext::new();
         // Leap year: DATE(2024, 2, 29) should be valid
         let result = eval("DATE(2024, 2, 29)", &ctx).unwrap();
-        if let Value::Number(serial) = result {
+        if let Some(serial) = result.as_number() {
             assert_eq!(serial, 45351.0);
         } else {
             panic!("Expected Number from DATE");
@@ -348,7 +358,7 @@ mod tests {
         let ctx = EvalContext::new();
         // Non-leap year: DATE(2023, 2, 29) should roll to March 1
         let result = eval("DATE(2023, 2, 29)", &ctx).unwrap();
-        if let Value::Number(serial) = result {
+        if let Some(serial) = result.as_number() {
             assert_eq!(serial, 44986.0);
         } else {
             panic!("Expected Number from DATE");
@@ -360,7 +370,7 @@ mod tests {
         let ctx = EvalContext::new();
         // Month zero: DATE(2024, 0, 1) should go to previous year December
         let result = eval("DATE(2024, 0, 1)", &ctx).unwrap();
-        if let Value::Number(serial) = result {
+        if let Some(serial) = result.as_number() {
             assert_eq!(serial, 45261.0);
         } else {
             panic!("Expected Number from DATE");
@@ -372,7 +382,7 @@ mod tests {
         let ctx = EvalContext::new();
         // Day zero: DATE(2024, 1, 0) should go to previous month's last day
         let result = eval("DATE(2024, 1, 0)", &ctx).unwrap();
-        if let Value::Number(serial) = result {
+        if let Some(serial) = result.as_number() {
             assert_eq!(serial, 45291.0);
         } else {
             panic!("Expected Number from DATE");

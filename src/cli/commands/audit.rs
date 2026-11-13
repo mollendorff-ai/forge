@@ -67,6 +67,15 @@ impl<'a> Scope<'a> {
             .and_then(|s| s.value)
     }
 
+    fn scalar_date(&self, name: &str) -> Option<String> {
+        self.calculated
+            .as_ref()
+            .unwrap_or(self.model)
+            .scalars
+            .get(name)
+            .and_then(crate::types::Variable::date_text)
+    }
+
     fn column_values(&self, table: &str, column: &str) -> Option<Vec<Option<f64>>> {
         let model = self.calculated.as_ref().unwrap_or(self.model);
         match &model.tables.get(table)?.columns.get(column)?.values {
@@ -184,6 +193,7 @@ impl<'a> Builder<'a> {
             values: None,
             source: scope.file.clone(),
             repeated: false,
+            date: None,
         };
 
         // A value of an included file: `@costs.labour.wage`
@@ -262,6 +272,7 @@ impl<'a> Builder<'a> {
             values: None,
             source: scope.file.clone(),
             repeated: false,
+            date: scope.scalar_date(name),
         };
         if let Some(formula) = formula {
             if depth >= 30 || self.seen_before(at, &label) {
@@ -294,6 +305,7 @@ impl<'a> Builder<'a> {
             values: scope.column_values(table, column),
             source: scope.file.clone(),
             repeated: false,
+            date: None,
         };
         if let Some(formula) = formula {
             if depth >= 30 || self.seen_before(at, &label) {
@@ -317,6 +329,7 @@ impl AuditDep {
             values: None,
             source,
             repeated: false,
+            date: None,
         }
     }
 }
@@ -369,6 +382,7 @@ pub fn audit_core(file: &Path, variable: &str) -> ForgeResult<AuditResult> {
         },
         current_value: stored,
         calculated_value: target.value,
+        calculated_date: target.date.clone(),
         calculated_values: target.values,
         formula: target.formula,
         dependencies: target.children,
@@ -464,7 +478,11 @@ pub fn audit(file: &Path, variable: &str) -> ForgeResult<()> {
         println!("   Formula: {}", f.bright_yellow());
     }
     if let Some(value) = result.calculated_value {
-        println!("   Calculated: {}", format_number(value).bold().green());
+        let shown = result
+            .calculated_date
+            .clone()
+            .unwrap_or_else(|| format_number(value));
+        println!("   Calculated: {}", shown.bold().green());
     }
     if let Some(values) = &result.calculated_values {
         println!("   Calculated: {}", summarize(values).green());
@@ -539,7 +557,8 @@ fn print_dependency(dep: &AuditDep, indent: usize) {
         dep.dep_type.cyan()
     );
     if let Some(val) = dep.value {
-        print!(" = {}", format_number(val).green());
+        let shown = dep.date.clone().unwrap_or_else(|| format_number(val));
+        print!(" = {}", shown.green());
     }
     if let Some(values) = &dep.values {
         print!(" = {}", summarize(values).green());

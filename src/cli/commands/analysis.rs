@@ -66,11 +66,15 @@ pub fn compare_core(
     }
 
     let mut values = indexmap::IndexMap::new();
+    let mut dates = std::collections::BTreeSet::new();
     for scalar_name in &all_scalars {
         let mut scenario_values = indexmap::IndexMap::new();
         for (scenario_name, result_model) in &results {
-            let val = result_model.scalars.get(scalar_name).and_then(|v| v.value);
-            scenario_values.insert(scenario_name.clone(), val);
+            let scalar = result_model.scalars.get(scalar_name);
+            if scalar.is_some_and(|v| v.is_date) {
+                dates.insert(scalar_name.clone());
+            }
+            scenario_values.insert(scenario_name.clone(), scalar.and_then(|v| v.value));
         }
         values.insert(scalar_name.clone(), scenario_values);
     }
@@ -88,6 +92,7 @@ pub fn compare_core(
         variables: all_scalars,
         values,
         descriptions,
+        dates,
     })
 }
 
@@ -250,7 +255,7 @@ pub fn variance(
     }
     if !not_compared.is_empty() {
         println!(
-            "   Not compared (missing or empty in one model): {}",
+            "   Not compared (missing or empty in one model, or a date): {}",
             not_compared.join(", ")
         );
     }
@@ -363,6 +368,11 @@ fn collect_variances(
             not_compared.push(name.clone());
             continue;
         };
+        // A date has no variance as a share of the budget (ADR-060)
+        if budget_scalar.is_date || actual_scalar.is_date {
+            not_compared.push(name.clone());
+            continue;
+        }
 
         let variance_abs = actual_val - budget_val;
         // Divide by the size of the budget, so a worse result is negative
@@ -708,6 +718,9 @@ pub fn calculate_with_override(
     var_value: f64,
     output_name: &str,
 ) -> ForgeResult<f64> {
+    base_model
+        .refuse_date_input(var_name, "this command")
+        .map_err(ForgeError::Validation)?;
     let mut model = base_model.clone();
 
     // Override the variable
@@ -763,6 +776,11 @@ pub fn sensitivity_core(
             vary,
             base_model.scalars.keys().collect::<Vec<_>>()
         )));
+    }
+    for name in std::iter::once(vary).chain(vary2) {
+        base_model
+            .refuse_date_input(name, "sensitivity")
+            .map_err(ForgeError::Validation)?;
     }
 
     let values1 = parse_range(range)?;
@@ -1171,6 +1189,11 @@ fn run_two_var_sensitivity(
     values1: &[f64],
     verbose: bool,
 ) -> ForgeResult<()> {
+    for name in [vary, v2] {
+        base_model
+            .refuse_date_input(name, "sensitivity")
+            .map_err(ForgeError::Validation)?;
+    }
     if !base_model.scalars.contains_key(v2) {
         return Err(ForgeError::Validation(format!(
             "Variable '{}' not found. Available scalars: {:?}",

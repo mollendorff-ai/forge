@@ -804,6 +804,7 @@ fn test_export_warns_when_scenarios_are_not_exported() {
             crate::types::Scenario {
                 overrides: std::collections::HashMap::from([("rate".to_string(), 0.2)]),
                 description: None,
+                dates: std::collections::BTreeSet::new(),
             },
         );
     }

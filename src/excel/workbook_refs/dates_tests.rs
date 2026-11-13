@@ -266,11 +266,9 @@ fn import_keeps_what_excel_calculates() {
     // A date plus days is a number in Forge, the day number Excel holds,
     // even where Excel shows it as a date
     assert_eq!(back("=d + 30", Holds::Dates).unwrap(), "=d + 30");
-    // DATE where text is read is the day number's text in both
-    assert_eq!(
-        back("=LEFT(DATE(2026, 1, 1), 4)", Holds::Other).unwrap(),
-        "=LEFT(DATE(2026, 1, 1), 4)"
-    );
+    // DATE where text is read: the day number's text in Excel (4605), the
+    // date's in Forge (2026, ADR-060), so the workbook's formula is its values
+    assert!(back("=LEFT(DATE(2026, 1, 1), 4)", Holds::Other).is_err());
     // No date at all
     assert_eq!(back("=v * 2", Holds::Numbers).unwrap(), "=v * 2");
 }
@@ -330,6 +328,17 @@ fn text_that_may_be_a_date_is_live_where_text_is_read() {
         "=MATCH(\"2026-01-31\", 't'!$E$2:$E$5, 0)"
     );
     assert_eq!(live("=INDEX(t.due, 2)", ROW), "=INDEX($E$2:$E$5, 2)");
+    // DATE gives a date (ADR-060): compared with text, as its text, as `d` is
+    let found = live("=MATCH(DATE(2026, 12, 1), t.due, 0)", SCALAR);
+    assert!(
+        found.starts_with("=MATCH(TEXT(YEAR(DATE(2026, 12, 1))"),
+        "{found}"
+    );
+    let jan31 = live("=IF(due = DATE(2026, 1, 31), 1, 0)", ROW);
+    assert!(
+        jan31.starts_with("=IF(E2 = TEXT(YEAR(DATE(2026, 1, 31))"),
+        "{jan31}"
+    );
 }
 
 /// Forge reads `2026-01-31` in a text column as its day number where a
@@ -344,7 +353,6 @@ fn text_that_may_be_a_date_is_not_written_where_a_number_is_read() {
         "=due + 1",
         "=IF(due > d, 1, 0)",
         "=IF(due > \"2026-06-01\", 1, 0)",
-        "=IF(due = DATE(2026, 1, 31), 1, 0)",
         "=IF(due = v, 1, 0)",
         "=TEXT(due, \"yyyy\")",
         "=YEAR(INDEX(t.due, 2))",
@@ -366,7 +374,6 @@ fn text_that_may_be_a_date_is_not_written_where_a_number_is_read() {
         "=COUNTIF(t.d, INDEX(t.due, 2))",
         "=SUMIF(t.v, \">1\", t.due)",
         "=SUMIFS(t.due, t.v, \">1\")",
-        "=MATCH(DATE(2026, 12, 1), t.due, 0)",
         "=INDEX(t.due, 2)",
         "=SUMPRODUCT((t.due > DATE(2026, 2, 1)) * t.v)",
     ];

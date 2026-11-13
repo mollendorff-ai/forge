@@ -32,7 +32,8 @@ function split(path) {
 const leaf = (path) => split(path).name;
 const fileOfNs = (ns) => (ns ? (S.structure.includes.find((i) => i.as === ns) || {}).file : S.main);
 const allScalars = () => S.structure ? [...S.structure.scalars, ...S.structure.includes.flatMap((i) => i.scalars)] : [];
-const inputs = () => (S.structure ? S.structure.scalars.filter((s) => s.formula == null && s.value != null) : []);
+// The inputs an analysis can vary: numbers, not dates (ADR-060)
+const inputs = () => (S.structure ? S.structure.scalars.filter((s) => s.formula == null && s.value != null && !s.date) : []);
 const results = () => (S.structure ? S.structure.scalars.filter((s) => s.formula != null) : []);
 const valueOf = (path) => (S.calc && path in S.calc.scalars ? S.calc.scalars[path] : undefined);
 // The unit the model gives a scalar or a column (null when it has none), so
@@ -153,7 +154,17 @@ const unitOf = (s) => (s.unit ? ` <span class="unit">${esc(s.unit)}</span>` : ""
 
 function scalarCards(list) {
   let h = "";
-  for (const s of list.filter((x) => x.formula == null)) {
+  for (const s of list.filter((x) => x.formula == null && x.date)) {
+    // A date: typed as 2026-10-31, with no slider (ADR-060)
+    const id = "in-" + s.path.replace(/[^A-Za-z0-9_-]/g, "_");
+    h += `<div class="row" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${s.path.startsWith("@") ? "" : ` data-scalar="${esc(s.path)}"`}>
+      <div class="inp-head"><label class="inp-name" for="${id}">${esc(leaf(s.path))}</label><span class="inp-hint" data-hint></span>
+      <input class="field" id="${id}" data-input="${esc(s.path)}" data-date="1" inputmode="numeric" autocomplete="off" placeholder="yyyy-mm-dd" value="${esc(s.value ?? "")}"></div>
+      <div class="slide-row">${deleteButton(s.path, true)}</div>
+      ${s.notes ? `<div class="note">${esc(s.notes)}</div>` : ""}
+      <div class="by-scn" data-byscn hidden></div><div class="err-msg" data-err hidden></div></div>`;
+  }
+  for (const s of list.filter((x) => x.formula == null && !x.date)) {
     const r = sliderRange(s.value, leaf(s.path), s.unit);
     const id = "in-" + s.path.replace(/[^A-Za-z0-9_-]/g, "_");
     h += `<div class="row" data-card="${esc(s.path)}" data-path="${esc(s.path)}"${s.path.startsWith("@") ? "" : ` data-scalar="${esc(s.path)}"`}>
@@ -285,8 +296,9 @@ function updateValues() {
       const forced = S.scenario !== null && v !== undefined && v !== s.value;
       const shown = v === undefined ? s.value : v;
       if (document.activeElement !== f) f.value = shown ?? "";
-      if (document.activeElement !== r && shown != null) r.value = shown;
-      f.disabled = r.disabled = forced;
+      if (r && document.activeElement !== r && shown != null) r.value = shown;
+      f.disabled = forced;
+      if (r) r.disabled = forced;
       b.hidden = !forced;
       if (forced) b.textContent = `Set by the ${S.scenario} scenario. The plan has ${fmtAt(s.value, path)}.`;
       $("[data-hint]", card).textContent = shown != null && isPercent(leaf(path), unitAt(path), shown) ? fmtAt(shown, path) : "";
@@ -336,6 +348,11 @@ function setInput(path, value) {
 $("#view-model").addEventListener("input", (e) => {
   const t = e.target, path = t.dataset.input || t.dataset.range;
   if (!path) return;
+  if (t.dataset.date) {
+    // A whole date only, so the file never holds half of one
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t.value.trim())) setInput(path, t.value.trim());
+    return;
+  }
   const n = readNumber(t.value);
   if (n === null) return;
   const card = t.closest("[data-card]");

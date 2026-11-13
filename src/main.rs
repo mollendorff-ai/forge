@@ -1016,6 +1016,7 @@ The versions are model formats (_forge_version), not Forge versions:
   v5.2.0 - v5.1.0 plus the period column: a table column written as
            {start: 2026-12, count: 300, unit: month} (ADR-053)
   v5.3.0 - v5.2.0 plus the empty cell, null in a column of numbers (ADR-059)
+  v5.4.0 - v5.3.0 plus a date as a scalar, last_actual: 2026-10-31 (ADR-060)
 
 EXAMPLES:
   forge schema                # List available versions
@@ -1023,7 +1024,7 @@ EXAMPLES:
   forge schema v5.1 > s.json  # Pipe to file for IDE use")]
     /// Display JSON schema for model validation
     Schema {
-        /// Schema version to display (v1, v5, v5.1, v5.2, v5.3, 1.0.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0)
+        /// Schema version to display (v1, v5, v5.1 ... v5.4, 1.0.0, 5.0.0, 5.1.0 ... 5.4.0)
         version: Option<String>,
 
         /// List available schema versions
@@ -1079,13 +1080,12 @@ TO 5.1.0 (default, ADR-051):
   - Edited in place: comments, quotes and layout are kept
   - Checked: the converted file must read as the same model, or it is not written
 
-TO 5.2.0 OR 5.3.0 (ADR-053, ADR-059):
-  - As to 5.1.0, with that _forge_version: the format a period column (5.2.0)
-    or an empty cell (5.3.0) needs. A 5.1.0 file only changes that line.
+TO 5.2.0, 5.3.0 OR 5.4.0 (ADR-053, ADR-059, ADR-060):
+  - As to 5.1.0, with the _forge_version a period column (5.2.0), an empty
+    cell (5.3.0) or a date as a scalar (5.4.0) needs. 5.1.0 changes that line.
 
 TO 5.0.0 (from 1.0.0):
-  - Splits scalars into inputs/outputs based on formula presence
-  - Preserves all existing metadata
+  - Splits scalars into inputs/outputs by formula presence, keeping metadata
 
 RECURSIVE PROCESSING:
   If the file has _includes, all included files are upgraded FIRST.
@@ -1094,7 +1094,7 @@ RECURSIVE PROCESSING:
 EXAMPLES:
   forge upgrade model.yaml              # Upgrade file and includes
   forge upgrade model.yaml --dry-run    # Preview changes only
-  forge upgrade model.yaml --to 5.3.0   # For empty cells (5.2.0: periods)
+  forge upgrade model.yaml --to 5.4.0   # Dates as scalars (5.3.0: empty cells)
   forge upgrade model.yaml --to 5.0.0   # Older format, long form
 
 BACKUP:

@@ -356,7 +356,78 @@ impl ExcelImporter {
             }
         }
         Self::settle_dates(&mut names, dated, refs);
+        Self::settle_date_scalars(&mut names, sheets, refs);
         names
+    }
+
+    /// Which scalars are dates (ADR-060): a date cell with no formula, and a
+    /// formula whose value is a date in Forge, whatever the cell's format
+    /// (a formula reading a date scalar may make another one a date).
+    fn settle_date_scalars(names: &mut Names, sheets: &[Sheet], refs: &ReverseRefs) {
+        // (namespace, path, sheet, data row)
+        let mut formulas: Vec<(Option<String>, String, &Sheet, usize)> = Vec::new();
+        let mut dates: Vec<(Option<String>, String)> = Vec::new();
+        for sheet in sheets {
+            let Some(SheetKind::Scalars { rows, include }) = refs.sheets.get(&sheet.name) else {
+                continue;
+            };
+            let (height, _) = sheet.values.get_size();
+            for row in 1..height {
+                let Some(path) = rows.get(&sheet.excel_row(row)) else {
+                    continue;
+                };
+                if sheet.formula(row, 1).is_some() {
+                    formulas.push((include.clone(), path.clone(), sheet, row));
+                } else if sheet.values.get((row, 1)).and_then(date_of).is_some() {
+                    dates.push((include.clone(), path.clone()));
+                }
+            }
+        }
+        loop {
+            for (namespace, path) in std::mem::take(&mut dates) {
+                match namespace {
+                    Some(namespace) => {
+                        names
+                            .main
+                            .date_scalars
+                            .insert(format!("@{namespace}.{path}"));
+                        names
+                            .own
+                            .entry(namespace)
+                            .or_default()
+                            .date_scalars
+                            .insert(path);
+                    },
+                    None => {
+                        names.main.date_scalars.insert(path);
+                    },
+                }
+            }
+            let found = formulas.iter().position(|(_, path, sheet, row)| {
+                let group = Self::scalar_group(&sheet.name);
+                let group = match refs.sheets.get(&sheet.name).and_then(SheetKind::include) {
+                    Some(_) => path.rsplit_once('.').map(|(g, _)| g.to_string()),
+                    None => group,
+                };
+                sheet
+                    .formula(*row, 1)
+                    .and_then(|excel| {
+                        refs.to_forge(&excel, &sheet.name, sheet.excel_row(*row))
+                            .ok()
+                    })
+                    .is_some_and(|forge| {
+                        names.of(refs, &sheet.name).reads_as_a_date(
+                            &forge,
+                            Context::Scalar {
+                                group: group.as_deref(),
+                            },
+                        )
+                    })
+            });
+            let Some(index) = found else { break };
+            let (namespace, path, ..) = formulas.remove(index);
+            dates.push((namespace, path));
+        }
     }
 
     /// A formula column shown as dates whose formula gives a number is a
@@ -562,11 +633,14 @@ impl ExcelImporter {
                 .as_ref()
                 .map_or_else(|| name.clone(), |g| format!("{g}.{name}"));
 
-            // A scalar is a number: a date is the day number its cell holds
-            let value = sheet.values.get((row, 1)).and_then(|cell| match cell {
+            // A scalar is a number, or a date cell with no formula: a date,
+            // held as the day number its cell holds (ADR-060)
+            let cell = sheet.values.get((row, 1));
+            let value = cell.and_then(|cell| match cell {
                 Data::Bool(b) => Some(f64::from(u8::from(*b))),
                 other => number_of(other),
             });
+            let is_date = sheet.formula(row, 1).is_none() && cell.and_then(date_of).is_some();
 
             let formula = sheet.formula(row, 1).map_or_else(
                 // Older workbooks: Forge formula as text in a third column
@@ -591,7 +665,9 @@ impl ExcelImporter {
                 },
             );
 
-            model.add_scalar(path.clone(), Variable::new(path, value, formula));
+            let mut variable = Variable::new(path.clone(), value, formula);
+            variable.is_date = is_date;
+            model.add_scalar(path, variable);
         }
     }
 

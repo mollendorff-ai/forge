@@ -1,6 +1,6 @@
 //! JSON Schema validation for Forge YAML models
 //!
-//! Validates YAML against embedded JSON schemas (v1.0.0, v5.0.0, v5.1.0, v5.2.0, v5.3.0).
+//! Validates YAML against embedded JSON schemas (v1.0.0, v5.0.0, v5.1.0, v5.2.0, v5.3.0, v5.4.0).
 
 use crate::error::{ForgeError, ForgeResult};
 use yaml_serde::Value;
@@ -18,7 +18,7 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
             ForgeError::Validation(
-                "Missing required field: _forge_version (the model format version). Must be \"1.0.0\", \"5.0.0\", \"5.1.0\", \"5.2.0\" or \"5.3.0\""
+                "Missing required field: _forge_version (the model format version). Must be \"1.0.0\", \"5.0.0\", \"5.1.0\", \"5.2.0\", \"5.3.0\" or \"5.4.0\""
                     .to_string(),
             )
         })?;
@@ -30,9 +30,10 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
         "5.1.0" => include_str!("../../schema/forge-v5.1.0.schema.json"),
         "5.2.0" => include_str!("../../schema/forge-v5.2.0.schema.json"),
         "5.3.0" => include_str!("../../schema/forge-v5.3.0.schema.json"),
+        "5.4.0" => include_str!("../../schema/forge-v5.4.0.schema.json"),
         _ => {
             return Err(ForgeError::Validation(format!(
-                "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns), 5.3.0 (5.2.0 plus empty cells). This is the model format version, not the Forge version: write `_forge_version: \"5.1.0\"` for a new model (`\"5.2.0\"` if a table has a period column), or start from `forge examples starter`"
+                "Unsupported _forge_version: '{version}'. Supported model formats: 1.0.0 (scalar-only), 5.0.0 (arrays/tables), 5.1.0 (5.0.0 plus the short form `price: 16`), 5.2.0 (5.1.0 plus period columns), 5.3.0 (5.2.0 plus empty cells), 5.4.0 (5.3.0 plus dates as scalars). This is the model format version, not the Forge version: write `_forge_version: \"5.1.0\"` for a new model (`\"5.2.0\"` if a table has a period column), or start from `forge examples starter`"
             )));
         },
     };
@@ -40,6 +41,7 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
     check_short_form(yaml, version)?;
     check_period_columns(yaml, version)?;
     check_empty_cells(yaml, version)?;
+    check_date_scalars(yaml, version)?;
     // Tables in a 1.0.0 model: say so before the schema reports the shapes
     if version == "1.0.0" {
         validate_v1_0_0_no_tables(yaml)?;
@@ -74,7 +76,10 @@ pub fn validate_against_schema(yaml: &Value) -> ForgeResult<()> {
 /// A period column in a model of an earlier format: say which format has it,
 /// before the schema reports the keys it does not know.
 fn check_period_columns(yaml: &Value, version: &str) -> ForgeResult<()> {
-    let (Some(root), false) = (yaml.as_mapping(), matches!(version, "5.2.0" | "5.3.0")) else {
+    let (Some(root), false) = (
+        yaml.as_mapping(),
+        matches!(version, "5.2.0" | "5.3.0" | "5.4.0"),
+    ) else {
         return Ok(());
     };
     for (key, value) in root {
@@ -97,10 +102,86 @@ fn check_period_columns(yaml: &Value, version: &str) -> ForgeResult<()> {
     Ok(())
 }
 
+/// Every scalar written as a date (ADR-060), as `(path, text)`: at the top
+/// level, in a group, as a mapping's `value:` and as a scenario's override.
+fn date_scalars(yaml: &Value) -> Vec<(String, String)> {
+    use crate::parser::looks_like_date;
+    let date = |v: &Value| match v {
+        Value::String(text) if looks_like_date(text) => Some(text.clone()),
+        Value::Mapping(m) => match m.get("value") {
+            Some(Value::String(text)) if looks_like_date(text) => Some(text.clone()),
+            _ => None,
+        },
+        _ => None,
+    };
+    let mut found = Vec::new();
+    let Some(root) = yaml.as_mapping() else {
+        return found;
+    };
+    for (key, value) in root {
+        let Some(key) = key.as_str() else { continue };
+        if key.starts_with('_') {
+            continue;
+        }
+        if let Some(text) = date(value) {
+            found.push((key.to_string(), text));
+            continue;
+        }
+        let Value::Mapping(group) = value else {
+            continue;
+        };
+        if crate::parser::model::is_table(group) {
+            continue;
+        }
+        for (name, child) in group {
+            let Some(name) = name.as_str() else { continue };
+            if let Some(text) = date(child) {
+                found.push((format!("{key}.{name}"), text));
+            }
+            // A scenario's overrides, flat or under `scalars:`
+            if key == "scenarios" {
+                let overrides = match child {
+                    Value::Mapping(m) => match m.get("scalars") {
+                        Some(Value::Mapping(inner)) => Some(inner),
+                        _ => Some(m),
+                    },
+                    _ => None,
+                };
+                for (var, v) in overrides.into_iter().flatten() {
+                    if let (Some(var), Some(text)) = (var.as_str(), date(v)) {
+                        found.push((format!("scenarios.{name}.{var}"), text));
+                    }
+                }
+            }
+        }
+    }
+    found
+}
+
+/// A scalar written as a date in a model of an earlier format: say which
+/// format has it. In 5.4.0, a month, an impossible date or one before
+/// 1900-03-01 is refused with what is wanted (ADR-060).
+fn check_date_scalars(yaml: &Value, version: &str) -> ForgeResult<()> {
+    for (path, text) in date_scalars(yaml) {
+        if version == "5.4.0" {
+            crate::parser::scalar_date(&text, &path).map_err(|e| match e {
+                ForgeError::Parse(message) => ForgeError::Validation(message),
+                other => other,
+            })?;
+        } else {
+            return Err(ForgeError::Validation(format!(
+                "'{path}' is the date {text}, and a date as a scalar is in model format 5.4.0 \
+                 (ADR-060). Set `_forge_version: \"5.4.0\"` (this file says {version})"
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// An empty cell (null in a column of data) in a model of an earlier format:
 /// say which format has it (ADR-059).
 fn check_empty_cells(yaml: &Value, version: &str) -> ForgeResult<()> {
-    let (Some(root), false) = (yaml.as_mapping(), version == "5.3.0") else {
+    let (Some(root), false) = (yaml.as_mapping(), matches!(version, "5.3.0" | "5.4.0")) else {
         return Ok(());
     };
     for (key, value) in root {
@@ -178,7 +259,7 @@ fn check_short_form(yaml: &Value, version: &str) -> ForgeResult<()> {
                 .collect(),
             _ => Vec::new(),
         };
-        if !matches!(version, "5.1.0" | "5.2.0" | "5.3.0") {
+        if !matches!(version, "5.1.0" | "5.2.0" | "5.3.0" | "5.4.0") {
             if let Some(first) = numbers.first() {
                 return Err(ForgeError::Validation(format!(
                     "'{first}' is a plain number, which is the short form of model format 5.1.0. \

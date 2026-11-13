@@ -147,6 +147,7 @@ impl TornadoEngine {
         for input in &mut config.inputs {
             input.name = resolve_scalar_name(&base_model, &input.name)
                 .map_err(|error| format!("Tornado input '{}': {error}", input.name))?;
+            base_model.refuse_date_input(&input.name, "tornado")?;
         }
         Ok(Self { config, base_model })
     }

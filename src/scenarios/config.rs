@@ -27,6 +27,8 @@ pub enum ScalarOverride {
     Value(f64),
     /// Formula (can include MC.* distributions)
     Formula { formula: String },
+    /// A date, for a date input (ADR-060)
+    Date(String),
 }
 
 impl ScalarOverride {
@@ -35,7 +37,7 @@ impl ScalarOverride {
     pub const fn as_value(&self) -> Option<f64> {
         match self {
             Self::Value(v) => Some(*v),
-            Self::Formula { .. } => None,
+            Self::Formula { .. } | Self::Date(_) => None,
         }
     }
 
@@ -43,7 +45,7 @@ impl ScalarOverride {
     #[must_use]
     pub fn as_formula(&self) -> Option<&str> {
         match self {
-            Self::Value(_) => None,
+            Self::Value(_) | Self::Date(_) => None,
             Self::Formula { formula } => Some(formula),
         }
     }
