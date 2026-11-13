@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`forge import` keeps a share of the total as a formula.** `=A2/SUM($A$2:$A$5)` imports as `=n / SUM(n)`; it was imported as its values.
 
 ### Fixed
+- **`forge import` turned an empty cell among numbers into 0 without a word.** Excel skips an empty cell in `AVERAGE`, `COUNT`, `MIN` and the like, so a column of 10, empty, 30, empty, 0 has an average of 13.33 in Excel and 8 in the imported model. The cells are still imported as 0, since a Forge column cannot hold an empty cell until ADR-059 is built, but the warnings now name them and say what differs. A wrong answer made visible, so by docs/STABILITY.md the two weeks before a stable release start again at the release that carries it.
 - **`forge import` gave a different answer for a range in an argument Forge reads row by row.** In a workbook not written by Forge, a column such as `=MAX(0, $B$2:$B$6)` or `=NPV(0.1, $B$2:$B$6)` was imported as `=MAX(0, revenue)` or `=NPV(0.1, revenue)`, which Forge calculates from the row's revenue, not the column's: a plausible number, and a different one. Such a column (and one cell where Forge would read the whole column, `=SUM(B2)`) is now imported as its values, with the reason in the warnings. A workbook written by `forge export` never has one. This is a wrong answer fixed, so by docs/STABILITY.md the two weeks before a stable release start again at the release that carries it.
 
 ## [10.0.0-rc.19] - 2026-11-12

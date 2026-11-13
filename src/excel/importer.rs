@@ -664,6 +664,13 @@ impl ExcelImporter {
                         format!("{}{} ({cell})", sheet.letter(col), sheet.excel_row(i + 1))
                     })
                     .collect();
+                warnings.extend(Self::empty_cells_warning(
+                    sheet,
+                    col,
+                    &data,
+                    &table_name,
+                    &col_name,
+                ));
                 if !not_numbers.is_empty() {
                     let shown = not_numbers.iter().take(5).cloned().collect::<Vec<_>>();
                     let more = not_numbers.len() - shown.len();
@@ -775,6 +782,44 @@ impl ExcelImporter {
                 };
                 names.read_dates(&forge, ctx, holds)
             })
+    }
+
+    /// The warning for empty cells among numbers, imported as 0: Excel skips
+    /// them in AVERAGE, COUNT and MIN (ADR-059, decision 6)
+    fn empty_cells_warning(
+        sheet: &Sheet,
+        col: usize,
+        data: &[Data],
+        table_name: &str,
+        col_name: &str,
+    ) -> Option<String> {
+        let empty: Vec<String> = data
+            .iter()
+            .enumerate()
+            .filter(|(_, cell)| matches!(cell, Data::Empty))
+            .map(|(i, _)| format!("{}{}", sheet.letter(col), sheet.excel_row(i + 1)))
+            .collect();
+        if empty.is_empty() {
+            return None;
+        }
+        let shown = empty.iter().take(5).cloned().collect::<Vec<_>>();
+        let more = empty.len() - shown.len();
+        Some(format!(
+            "{table_name}.{col_name}: {} imported as 0: {}{}. Forge has no empty cell yet, so \
+             AVERAGE, COUNT, MIN and the like of this column can differ from Excel's, which \
+             skip an empty cell (ADR-059)",
+            if empty.len() == 1 {
+                "1 empty cell".to_string()
+            } else {
+                format!("{} empty cells", empty.len())
+            },
+            shown.join(", "),
+            if more > 0 {
+                format!(" and {more} more")
+            } else {
+                String::new()
+            }
+        ))
     }
 
     /// Convert Excel Data array to `ColumnValue`

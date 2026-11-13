@@ -63,3 +63,31 @@ fn a_share_of_the_total_imports_as_a_formula() {
         .collect();
     assert_eq!(share, [0.1, 0.2, 0.3, 0.4]);
 }
+
+/// ADR-059, decision 6: an empty cell among numbers is imported as 0, and
+/// says so, as Excel skips it: 10, empty, 30, empty, 0 has an AVERAGE of 40/3
+/// in Excel and 8 with the zeros.
+#[test]
+fn an_empty_cell_among_numbers_is_named() {
+    let dir = tempfile::tempdir().unwrap();
+    let xlsx = dir.path().join("gaps.xlsx");
+    let mut workbook = Workbook::new();
+    let sheet = workbook.add_worksheet().set_name("gaps").unwrap();
+    sheet.write_string(0, 0, "x").unwrap();
+    sheet.write_number(1, 0, 10.0).unwrap();
+    sheet.write_number(3, 0, 30.0).unwrap();
+    sheet.write_number(5, 0, 0.0).unwrap();
+    workbook.save(&xlsx).unwrap();
+
+    let out = dir.path().join("gaps.yaml");
+    let imported = import_core(&xlsx, &out, false, false).unwrap();
+    assert_eq!(imported.warnings.len(), 1, "{:?}", imported.warnings);
+    let warning = &imported.warnings[0];
+    for expected in ["gaps.x", "2 empty cells imported as 0", "A3, A5", "AVERAGE"] {
+        assert!(warning.contains(expected), "{warning}");
+    }
+    assert!(
+        !warning.contains("A2") && !warning.contains("A6"),
+        "{warning}"
+    );
+}
