@@ -1,6 +1,6 @@
 # A machine bought on a loan
 
-A 120,000 machine paid for with a five-year loan at 6.5%, written down over eight years, with five years of revenue from its line. It uses the schedule and regression functions added in 10.1: `CUMIPMT`, `CUMPRINC`, `SYD`, `VDB`, `RRI`, `SLOPE`, `FORECAST.LINEAR` and `RSQ`.
+A 120,000 machine paid for with a five-year loan at 6.5%, written down over eight years, with five years of revenue from its line. It uses the schedule and regression functions `CUMIPMT`, `CUMPRINC`, `SYD`, `VDB`, `RRI`, `SLOPE`, `FORECAST.LINEAR` and `RSQ`.
 
 ```
 $ forge calculate examples/capex-plan/capex.yaml

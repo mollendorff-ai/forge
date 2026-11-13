@@ -1,6 +1,6 @@
-# forge-e2e-gnumeric
+# Validation against Gnumeric (forge-e2e-gnumeric)
 
-E2E validation of [Forge](https://github.com/mollendorff-ai/forge) Excel-compatible functions against Gnumeric.
+Forge writes Excel workbooks with live formulas. This suite asks an independent spreadsheet engine whether those formulas mean what Forge says they mean: it exports each test case to `.xlsx`, has Gnumeric (or LibreOffice) recalculate it, and compares with the value the case expects.
 
 ## Overview
 
@@ -11,9 +11,9 @@ All validation comes from trusted third-party sources.
 
 ### Test Coverage
 
-- **1,460 formula tests** across 47 YAML files
-- **30 function test files** covering math, text, date, financial, lookup, aggregation, statistical, trigonometric, logical, and information functions
-- **10 edge case test files** covering boundary conditions, type coercion, error propagation, and numeric precision
+- **1,460 formula tests** across 51 YAML files (`VALIDATION.md` has the latest run)
+- **32 function test files** covering math, text, date, financial, lookup, aggregation, statistical, trigonometric, logical, and information functions
+- **19 edge case test files** covering boundary conditions, type coercion, error propagation, and numeric precision
 
 ## Requirements
 
@@ -77,14 +77,15 @@ A case whose formula `forge export` writes as its value (a function Excel lacks)
 ```
 src/
 ├── main.rs      # CLI entry point
+├── lib.rs       # Library exports
 ├── types.rs     # TestSpec, TestCase, TestResult structures
 ├── engine.rs    # Gnumeric ssconvert integration
 ├── runner.rs    # Test execution pipeline
 └── excel.rs     # XLSX read/write helpers
 
 tests/
-├── functions/   # 30 YAML files - Excel function tests
-└── edge/        # 10 YAML files - Edge case tests
+├── functions/   # 32 YAML files: Excel function tests
+└── edge/        # 19 YAML files: edge cases
 ```
 
 ## Test Format

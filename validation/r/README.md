@@ -1,6 +1,6 @@
-# forge-e2e-r
+# Validation against R (forge-e2e-r)
 
-R-validated E2E testing for [forge](https://github.com/mollendorff-ai/forge) analytics.
+Forge's Monte Carlo, bootstrap, decision trees, real options and other analytics are only worth something if another implementation agrees. This suite runs each one on a fixed seed and compares the answer with R, using R's own packages, within a stated tolerance.
 
 ## Philosophy
 
@@ -123,10 +123,11 @@ cargo run --release -- --all --verbose
 ## Project Structure
 
 ```
-forge-e2e-r/
+validation/r/
 ├── src/
 │   ├── main.rs           # CLI test runner
 │   ├── lib.rs            # Library exports
+│   ├── analytics.rs      # The analytics specs and how each is compared
 │   ├── cli_runner.rs     # Forge binary orchestration
 │   ├── r_validator.rs    # R process management
 │   ├── types.rs          # Test specifications
@@ -144,7 +145,7 @@ forge-e2e-r/
 │   ├── variance.yaml
 │   └── breakeven.yaml
 │
-└── validators/r/         # R validation scripts
+└── validators/r/         # R validation scripts (and run_all.sh)
     ├── monte_carlo_validator.R
     ├── bootstrap_validator.R
     ├── bayesian_validator.R
@@ -156,6 +157,8 @@ forge-e2e-r/
     ├── financial_validator.R
     ├── math_validator.R
     ├── date_validator.R
+    ├── forge_helper.R
+    ├── run_all.sh
     └── install_deps.R
 ```
 
