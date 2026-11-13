@@ -1,0 +1,378 @@
+# Excel number formats, as format: holds them and TEXT reads them (Forge
+# ADR-061, model format 5.4.0).
+#
+# Each case is TEXT(value, code) against the text that Gnumeric 1.12 and
+# LibreOffice 26.2 both give for it (measured 2026-11-13, 25 codes on the
+# values 1234.567, -1234.567, 0, 0.1234 and 46326; the two engines agree on
+# every one used here). The first codes are those format: added: sections
+# (the negative one has no minus of its own), colours, _ (a space), * (a
+# fill: nothing in text) and trailing commas, each dividing by 1,000. The
+# rest are codes Forge read before, kept as a check that they still do.
+#
+# Left out: 0.0,,"M" of -1234.567, where both engines write 0.0M and Forge
+# -0.0M (a negative number that rounds to zero keeps its minus in Forge, as
+# for TEXT(-0.001, "0.00"); see number_format.rs).
+
+_forge_version: "5.4.0"
+
+assumptions:
+  test_01:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"0.00\") = \"1234.57\", 1, 0)"
+    expected: 1
+  test_02:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"0.00\") = \"-1234.57\", 1, 0)"
+    expected: 1
+  test_03:
+    value: null
+    formula: "=IF(TEXT(0, \"0.00\") = \"0.00\", 1, 0)"
+    expected: 1
+  test_04:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"0.00\") = \"0.12\", 1, 0)"
+    expected: 1
+  test_05:
+    value: null
+    formula: "=IF(TEXT(46326, \"0.00\") = \"46326.00\", 1, 0)"
+    expected: 1
+  test_06:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"#,##0\") = \"1,235\", 1, 0)"
+    expected: 1
+  test_07:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"#,##0\") = \"-1,235\", 1, 0)"
+    expected: 1
+  test_08:
+    value: null
+    formula: "=IF(TEXT(0, \"#,##0\") = \"0\", 1, 0)"
+    expected: 1
+  test_09:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"#,##0\") = \"0\", 1, 0)"
+    expected: 1
+  test_10:
+    value: null
+    formula: "=IF(TEXT(46326, \"#,##0\") = \"46,326\", 1, 0)"
+    expected: 1
+  test_11:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"#,##0.00\") = \"1,234.57\", 1, 0)"
+    expected: 1
+  test_12:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"#,##0.00\") = \"-1,234.57\", 1, 0)"
+    expected: 1
+  test_13:
+    value: null
+    formula: "=IF(TEXT(0, \"#,##0.00\") = \"0.00\", 1, 0)"
+    expected: 1
+  test_14:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"#,##0.00\") = \"0.12\", 1, 0)"
+    expected: 1
+  test_15:
+    value: null
+    formula: "=IF(TEXT(46326, \"#,##0.00\") = \"46,326.00\", 1, 0)"
+    expected: 1
+  test_16:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"0.0%\") = \"123456.7%\", 1, 0)"
+    expected: 1
+  test_17:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"0.0%\") = \"-123456.7%\", 1, 0)"
+    expected: 1
+  test_18:
+    value: null
+    formula: "=IF(TEXT(0, \"0.0%\") = \"0.0%\", 1, 0)"
+    expected: 1
+  test_19:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"0.0%\") = \"12.3%\", 1, 0)"
+    expected: 1
+  test_20:
+    value: null
+    formula: "=IF(TEXT(46326, \"0.0%\") = \"4632600.0%\", 1, 0)"
+    expected: 1
+  test_21:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"$#,##0.00\") = \"$1,234.57\", 1, 0)"
+    expected: 1
+  test_22:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"$#,##0.00\") = \"-$1,234.57\", 1, 0)"
+    expected: 1
+  test_23:
+    value: null
+    formula: "=IF(TEXT(0, \"$#,##0.00\") = \"$0.00\", 1, 0)"
+    expected: 1
+  test_24:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"$#,##0.00\") = \"$0.12\", 1, 0)"
+    expected: 1
+  test_25:
+    value: null
+    formula: "=IF(TEXT(46326, \"$#,##0.00\") = \"$46,326.00\", 1, 0)"
+    expected: 1
+  test_26:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"#,##0;(#,##0)\") = \"1,235\", 1, 0)"
+    expected: 1
+  test_27:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"#,##0;(#,##0)\") = \"(1,235)\", 1, 0)"
+    expected: 1
+  test_28:
+    value: null
+    formula: "=IF(TEXT(0, \"#,##0;(#,##0)\") = \"0\", 1, 0)"
+    expected: 1
+  test_29:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"#,##0;(#,##0)\") = \"0\", 1, 0)"
+    expected: 1
+  test_30:
+    value: null
+    formula: "=IF(TEXT(46326, \"#,##0;(#,##0)\") = \"46,326\", 1, 0)"
+    expected: 1
+  test_31:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"#,##0.00;[Red](#,##0.00);\"\"-\"\"\") = \"1,234.57\", 1, 0)"
+    expected: 1
+  test_32:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"#,##0.00;[Red](#,##0.00);\"\"-\"\"\") = \"(1,234.57)\", 1, 0)"
+    expected: 1
+  test_33:
+    value: null
+    formula: "=IF(TEXT(0, \"#,##0.00;[Red](#,##0.00);\"\"-\"\"\") = \"-\", 1, 0)"
+    expected: 1
+  test_34:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"#,##0.00;[Red](#,##0.00);\"\"-\"\"\") = \"0.12\", 1, 0)"
+    expected: 1
+  test_35:
+    value: null
+    formula: "=IF(TEXT(46326, \"#,##0.00;[Red](#,##0.00);\"\"-\"\"\") = \"46,326.00\", 1, 0)"
+    expected: 1
+  test_36:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"#,##0_);(#,##0)\") = \"1,235 \", 1, 0)"
+    expected: 1
+  test_37:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"#,##0_);(#,##0)\") = \"(1,235)\", 1, 0)"
+    expected: 1
+  test_38:
+    value: null
+    formula: "=IF(TEXT(0, \"#,##0_);(#,##0)\") = \"0 \", 1, 0)"
+    expected: 1
+  test_39:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"#,##0_);(#,##0)\") = \"0 \", 1, 0)"
+    expected: 1
+  test_40:
+    value: null
+    formula: "=IF(TEXT(46326, \"#,##0_);(#,##0)\") = \"46,326 \", 1, 0)"
+    expected: 1
+  test_41:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"0.0,,\"\"M\"\"\") = \"0.0M\", 1, 0)"
+    expected: 1
+  test_42:
+    value: null
+    formula: "=IF(TEXT(0, \"0.0,,\"\"M\"\"\") = \"0.0M\", 1, 0)"
+    expected: 1
+  test_43:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"0.0,,\"\"M\"\"\") = \"0.0M\", 1, 0)"
+    expected: 1
+  test_44:
+    value: null
+    formula: "=IF(TEXT(46326, \"0.0,,\"\"M\"\"\") = \"0.0M\", 1, 0)"
+    expected: 1
+  test_45:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"#,##0,\"\"k\"\"\") = \"1k\", 1, 0)"
+    expected: 1
+  test_46:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"#,##0,\"\"k\"\"\") = \"-1k\", 1, 0)"
+    expected: 1
+  test_47:
+    value: null
+    formula: "=IF(TEXT(0, \"#,##0,\"\"k\"\"\") = \"0k\", 1, 0)"
+    expected: 1
+  test_48:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"#,##0,\"\"k\"\"\") = \"0k\", 1, 0)"
+    expected: 1
+  test_49:
+    value: null
+    formula: "=IF(TEXT(46326, \"#,##0,\"\"k\"\"\") = \"46k\", 1, 0)"
+    expected: 1
+  test_50:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"0.00E+00\") = \"1.23E+03\", 1, 0)"
+    expected: 1
+  test_51:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"0.00E+00\") = \"-1.23E+03\", 1, 0)"
+    expected: 1
+  test_52:
+    value: null
+    formula: "=IF(TEXT(0, \"0.00E+00\") = \"0.00E+00\", 1, 0)"
+    expected: 1
+  test_53:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"0.00E+00\") = \"1.23E-01\", 1, 0)"
+    expected: 1
+  test_54:
+    value: null
+    formula: "=IF(TEXT(46326, \"0.00E+00\") = \"4.63E+04\", 1, 0)"
+    expected: 1
+  test_55:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"\"\"CAD \"\"#,##0\") = \"CAD 1,235\", 1, 0)"
+    expected: 1
+  test_56:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"\"\"CAD \"\"#,##0\") = \"-CAD 1,235\", 1, 0)"
+    expected: 1
+  test_57:
+    value: null
+    formula: "=IF(TEXT(0, \"\"\"CAD \"\"#,##0\") = \"CAD 0\", 1, 0)"
+    expected: 1
+  test_58:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"\"\"CAD \"\"#,##0\") = \"CAD 0\", 1, 0)"
+    expected: 1
+  test_59:
+    value: null
+    formula: "=IF(TEXT(46326, \"\"\"CAD \"\"#,##0\") = \"CAD 46,326\", 1, 0)"
+    expected: 1
+  test_60:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"[Red]0.00\") = \"1234.57\", 1, 0)"
+    expected: 1
+  test_61:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"[Red]0.00\") = \"-1234.57\", 1, 0)"
+    expected: 1
+  test_62:
+    value: null
+    formula: "=IF(TEXT(0, \"[Red]0.00\") = \"0.00\", 1, 0)"
+    expected: 1
+  test_63:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"[Red]0.00\") = \"0.12\", 1, 0)"
+    expected: 1
+  test_64:
+    value: null
+    formula: "=IF(TEXT(46326, \"[Red]0.00\") = \"46326.00\", 1, 0)"
+    expected: 1
+  test_65:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"#,##0.00;-#,##0.00;0.00\") = \"1,234.57\", 1, 0)"
+    expected: 1
+  test_66:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"#,##0.00;-#,##0.00;0.00\") = \"-1,234.57\", 1, 0)"
+    expected: 1
+  test_67:
+    value: null
+    formula: "=IF(TEXT(0, \"#,##0.00;-#,##0.00;0.00\") = \"0.00\", 1, 0)"
+    expected: 1
+  test_68:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"#,##0.00;-#,##0.00;0.00\") = \"0.12\", 1, 0)"
+    expected: 1
+  test_69:
+    value: null
+    formula: "=IF(TEXT(46326, \"#,##0.00;-#,##0.00;0.00\") = \"46,326.00\", 1, 0)"
+    expected: 1
+  test_70:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"#,##0;-#,##0;\"\"–\"\"\") = \"1,235\", 1, 0)"
+    expected: 1
+  test_71:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"#,##0;-#,##0;\"\"–\"\"\") = \"-1,235\", 1, 0)"
+    expected: 1
+  test_72:
+    value: null
+    formula: "=IF(TEXT(0, \"#,##0;-#,##0;\"\"–\"\"\") = \"–\", 1, 0)"
+    expected: 1
+  test_73:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"#,##0;-#,##0;\"\"–\"\"\") = \"0\", 1, 0)"
+    expected: 1
+  test_74:
+    value: null
+    formula: "=IF(TEXT(46326, \"#,##0;-#,##0;\"\"–\"\"\") = \"46,326\", 1, 0)"
+    expected: 1
+  test_75:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"mmm yyyy\") = \"May 1903\", 1, 0)"
+    expected: 1
+  test_76:
+    value: null
+    formula: "=IF(TEXT(0, \"mmm yyyy\") = \"Dec 1899\", 1, 0)"
+    expected: 1
+  test_77:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"mmm yyyy\") = \"Dec 1899\", 1, 0)"
+    expected: 1
+  test_78:
+    value: null
+    formula: "=IF(TEXT(46326, \"mmm yyyy\") = \"Oct 2026\", 1, 0)"
+    expected: 1
+  test_79:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"d mmm yy\") = \"18 May 03\", 1, 0)"
+    expected: 1
+  test_80:
+    value: null
+    formula: "=IF(TEXT(46326, \"d mmm yy\") = \"31 Oct 26\", 1, 0)"
+    expected: 1
+  test_81:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"_($* #,##0.00_)\") = \" $1,234.57 \", 1, 0)"
+    expected: 1
+  test_82:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"_($* #,##0.00_)\") = \"- $1,234.57 \", 1, 0)"
+    expected: 1
+  test_83:
+    value: null
+    formula: "=IF(TEXT(0, \"_($* #,##0.00_)\") = \" $0.00 \", 1, 0)"
+    expected: 1
+  test_84:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"_($* #,##0.00_)\") = \" $0.12 \", 1, 0)"
+    expected: 1
+  test_85:
+    value: null
+    formula: "=IF(TEXT(46326, \"_($* #,##0.00_)\") = \" $46,326.00 \", 1, 0)"
+    expected: 1
+  test_86:
+    value: null
+    formula: "=IF(TEXT(1234.567, \"#,##0.0\"\" months\"\"\") = \"1,234.6 months\", 1, 0)"
+    expected: 1
+  test_87:
+    value: null
+    formula: "=IF(TEXT(-1234.567, \"#,##0.0\"\" months\"\"\") = \"-1,234.6 months\", 1, 0)"
+    expected: 1
+  test_88:
+    value: null
+    formula: "=IF(TEXT(0, \"#,##0.0\"\" months\"\"\") = \"0.0 months\", 1, 0)"
+    expected: 1
+  test_89:
+    value: null
+    formula: "=IF(TEXT(0.1234, \"#,##0.0\"\" months\"\"\") = \"0.1 months\", 1, 0)"
+    expected: 1
+  test_90:
+    value: null
+    formula: "=IF(TEXT(46326, \"#,##0.0\"\" months\"\"\") = \"46,326.0 months\", 1, 0)"
+    expected: 1

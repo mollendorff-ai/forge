@@ -70,6 +70,7 @@ fn test_format_metadata_note_multiple_fields() {
         validation_status: Some("PROJECTED".to_string()),
         last_updated: Some("2025-11-26".to_string()),
         better: None,
+        format: None,
     };
     let note = ExcelExporter::format_metadata_note(&metadata).unwrap();
     assert!(note.contains("Unit: CAD"));
@@ -409,6 +410,7 @@ fn test_export_with_metadata() {
         validation_status: Some("VALIDATED".to_string()),
         last_updated: Some("2024-01-01".to_string()),
         better: None,
+        format: None,
     };
 
     table.add_column(Column::with_metadata(
@@ -661,6 +663,7 @@ fn test_export_all_metadata_fields() {
         validation_status: Some("PENDING".to_string()),
         last_updated: Some("2025-12-04".to_string()),
         better: None,
+        format: None,
     };
 
     table.add_column(Column::with_metadata(

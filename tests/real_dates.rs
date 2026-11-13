@@ -312,16 +312,22 @@ fn import_reads_a_workbook_with_dates() {
     let back = dir.path().join("invoices.yaml");
     let imported = import_core(&xlsx, &back, false, false).unwrap();
     let text = std::fs::read_to_string(&back).unwrap();
-    // The dates are dates, whatever format Excel showed them in
+    // The dates are dates, and the format Excel showed them in comes back as
+    // their format: (ADR-061)
     assert!(
-        text.contains("issued:\n  - 2026-01-31\n  - 2026-02-28\n  - 2026-12-01"),
+        text.contains(
+            "issued:\n    value:\n    - 2026-01-31\n    - 2026-02-28\n    - 2026-12-01\n    format: d mmm yyyy"
+        ),
+        "{text}"
+    );
+    assert!(
+        text.contains("next:\n    formula: =EDATE(issued, 1)\n    format: d mmm yyyy"),
         "{text}"
     );
     for formula in [
         "year: =YEAR(issued)",
         // A number in Forge, the day number Excel holds and shows as a date
         "due: =issued + 30",
-        "next: =EDATE(issued, 1)",
         "late: =IF(issued > \"2026-06-01\", 1, 0)",
         "month: =TEXT(issued, \"yyyy-mm\")",
     ] {

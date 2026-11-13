@@ -245,6 +245,7 @@ fn structure(model: &ParsedModel) -> Value {
                     "date": v.is_date,
                     "formula": v.formula,
                     "unit": v.metadata.unit,
+                    "format": v.metadata.format,
                     "notes": v.metadata.notes,
                     "better": v.metadata.better,
                 })
@@ -264,9 +265,13 @@ fn structure(model: &ParsedModel) -> Value {
                             || {
                                 let c = &t.columns[name];
                                 json!({"name": name, "type": c.values.type_name(),
-                                       "unit": c.metadata.unit, "rows": c.values.len()})
+                                       "unit": c.metadata.unit, "format": t.format_of(name),
+                                       "rows": c.values.len()})
                             },
-                            |formula| json!({"name": name, "formula": formula}),
+                            |formula| {
+                                json!({"name": name, "formula": formula,
+                                       "format": t.format_of(name)})
+                            },
                         )
                     })
                     .collect();

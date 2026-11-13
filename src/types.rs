@@ -113,6 +113,10 @@ pub struct Table {
     pub columns: IndexMap<String, Column>,
     /// Row-wise formulas (e.g., "profit: =revenue - expenses")
     pub row_formulas: IndexMap<String, String>,
+    /// The metadata of a formula column written in its long form
+    /// (`{formula: "=...", unit: ..., format: ...}`), by column (ADR-061)
+    #[serde(default)]
+    pub formula_metadata: IndexMap<String, Metadata>,
     /// Data columns and row formulas live in two maps, so neither map alone
     /// knows whether `year` came before `revenue`. This records the order in
     /// which names were first added (the order of the model file, or of the
@@ -128,8 +132,24 @@ impl Table {
             name,
             columns: IndexMap::new(),
             row_formulas: IndexMap::new(),
+            formula_metadata: IndexMap::new(),
             column_order: Vec::new(),
         }
+    }
+
+    /// The metadata of column `name`: a data column's, or a formula column's
+    /// from its long form (ADR-061).
+    #[must_use]
+    pub fn metadata(&self, name: &str) -> Option<&Metadata> {
+        self.formula_metadata
+            .get(name)
+            .or_else(|| self.columns.get(name).map(|c| &c.metadata))
+    }
+
+    /// The `format:` of column `name`, if it has one (ADR-061).
+    #[must_use]
+    pub fn format_of(&self, name: &str) -> Option<&str> {
+        self.metadata(name).and_then(|m| m.format.as_deref())
     }
 
     pub fn add_column(&mut self, column: Column) {
@@ -211,6 +231,10 @@ pub struct Metadata {
     pub last_updated: Option<String>,
     /// Which way is good, for variance analysis: "higher" or "lower"
     pub better: Option<String>,
+    /// How the number is shown: an Excel number-format code that Forge
+    /// reads (`"#,##0.00"`, `"0.0%"`; ADR-061). It never changes the value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
 }
 
 impl Metadata {
@@ -222,6 +246,7 @@ impl Metadata {
             && self.validation_status.is_none()
             && self.last_updated.is_none()
             && self.better.is_none()
+            && self.format.is_none()
     }
 }
 
@@ -248,6 +273,18 @@ impl Variable {
         self.value
             .filter(|_| self.is_date)
             .map(crate::core::array_calculator::evaluator::serial_date_text)
+    }
+
+    /// The value as its `format:` shows it (ADR-061), if it has one.
+    #[must_use]
+    pub fn formatted(&self) -> Option<String> {
+        use crate::core::array_calculator::evaluator::{text::number_format::format_value, Value};
+        let format = self.metadata.format.as_ref()?;
+        let value = match self.date_text() {
+            Some(date) => Value::Text(date),
+            None => Value::Number(self.value?),
+        };
+        format_value(&value, format).ok()
     }
 
     /// The value as JSON: the date's text for a date, else the number.
@@ -686,6 +723,7 @@ mod tests {
             validation_status: Some("PROJECTED".to_string()),
             last_updated: Some("2025-11-26".to_string()),
             better: None,
+            format: None,
         };
         assert!(!metadata.is_empty());
         assert_eq!(metadata.unit, Some("CAD".to_string()));

@@ -1,11 +1,13 @@
-_forge_version: "5.1.0"
+_forge_version: "5.4.0"
 # Bagel Lune: a fictional wood-fired bagel shop in Mile End, first 12 months.
 _includes:
   - file: costs.yaml
     as: costs
 
 assumptions:
-  price_per_dozen: 16
+  # format: says how a number is shown, in the workbook, forge report and
+  # Studio; it never changes the value (ADR-061, model format 5.4.0)
+  price_per_dozen: {value: 16, format: "$#,##0.00"}
   opening_dozens_per_day: 55
   monthly_growth: 0.03
   open_days_per_month: 30
@@ -22,8 +24,12 @@ assumptions:
 months:
   month: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
   # Nov opening; summer tourists and December holidays lift sales
-  season: [0.85, 1.25, 0.80, 0.80, 0.90, 0.95, 1.05, 1.15, 1.25, 1.25, 1.05, 1.00]
-  dozens: "=assumptions.opening_dozens_per_day * (1 + assumptions.monthly_growth) ^ (month - 1) * season * assumptions.open_days_per_month"
+  season:
+    value: [0.85, 1.25, 0.80, 0.80, 0.90, 0.95, 1.05, 1.15, 1.25, 1.25, 1.05, 1.00]
+    format: "0%"
+  dozens:
+    formula: "=assumptions.opening_dozens_per_day * (1 + assumptions.monthly_growth) ^ (month - 1) * season * assumptions.open_days_per_month"
+    format: "#,##0"
   revenue: "=dozens * assumptions.price_per_dozen"
   flour: "=dozens * 12 / assumptions.bagels_per_kg_flour * @costs.ingredients.flour_per_kg"
   sesame: "=dozens * 12 * assumptions.sesame_grams_per_bagel / 1000 * @costs.ingredients.sesame_per_kg"
@@ -41,6 +47,7 @@ year:
     formula: "=SUM(months.profit)"
   margin:
     formula: "=profit / revenue"
+    format: "0.0%"
   dozens_sold:
     formula: "=SUM(months.dozens)"
   food_cost_share:
