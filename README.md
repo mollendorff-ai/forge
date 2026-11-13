@@ -1,6 +1,6 @@
 # Forge
 
-> 📌 **R&D Prototype** — Interpret claims as hypotheses, not proven facts.
+**Financial models as plain text: readable by people, writable by AI, calculated the same way every time.**
 
 [![CI](https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/mollendorff-forge.svg)](https://crates.io/crates/mollendorff-forge)
@@ -9,15 +9,34 @@
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/lctavares/b8e2fa78efcf26a20ff97b483050b05a/raw/forge-coverage.json)](https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
-**Financial models an AI agent can write and a program can calculate.**
+Forge reads a financial model written in YAML (inputs, formulas, tables, scenarios) and calculates it with 202 Excel-style functions, plus what a spreadsheet leaves to plug-ins: Monte Carlo, tornado charts, decision trees, real options, Bayesian networks. One engine, written in Rust, runs on the command line, as an MCP server for AI agents, and in your browser.
 
-YAML-based financial modeling with Excel-style formula evaluation. Git-native and deterministic. Beta software: see [Status and known limitations](#status-and-known-limitations).
+<p align="center">
+  <a href="https://mollendorff-ai.github.io/forge/"><img src="https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/images/studio-phone.png" alt="Forge Studio on a phone: the bagel example's year, with revenue 386,827.45, profit 786.32 and the formula under each result" width="260"></a>
+  &nbsp;
+  <a href="https://mollendorff-ai.github.io/forge/"><img src="https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/images/studio-desktop.png" alt="Forge Studio on a laptop: the YAML model on the left, its inputs as sliders on the right" width="560"></a>
+</p>
 
-> A raw spreadsheet file is mostly XML. A YAML model is small, readable and diffable.
+| **You work with numbers** | **You build with AI agents** |
+| --- | --- |
+| Open [Forge Studio](https://mollendorff-ai.github.io/forge/) in your browser. Nothing to install, made for a phone, works offline. | Install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
+| [Try it →](https://mollendorff-ai.github.io/forge/) · [More on Studio](#forge-studio) | [Quick start →](#quick-start) · [MCP tools](#mcp-integration-optional) |
+
+**Checked, not trusted.** 1,460 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. What does not work yet is [listed below](#status-and-known-limitations), not hidden.
+
+## Forge Studio
+
+Studio is Forge compiled to WebAssembly and run in your browser tab. Open an example, or your own YAML or Excel file, and the model shows as cards: drag an input, the results move. Edit a formula with suggestions for names and functions, see the whole model as a grid, apply a scenario, run goal seek, a tornado or a Monte Carlo simulation, and save the workbook `forge export` writes.
+
+- **Your model stays on your device.** There is no server doing the math, no account, no cookies and no analytics. GitHub Pages serves the page, so GitHub sees that someone downloaded it, as with any website; after that, nothing you type leaves the tab. Your files are kept in your browser's storage, on your device.
+- **It works offline.** Add it to your Home Screen and it opens and calculates with no connection: on a plane, in a tunnel, in a meeting room with bad Wi-Fi.
+- **The numbers are Forge's.** The page calculates nothing itself; it asks the same engine as the command line, and CI checks that the WebAssembly answers equal the native ones, case by case.
+
+The shop in the screenshots, Bagel Lune, is fictional. It makes 786.32 on 386,827.45 of revenue, and Forge will tell you in one command that it [breaks even at 15.97 a dozen](docs/posts/bagel-price.md), three cents under its price. Bagels are a hard business; the arithmetic, at least, is easy.
 
 ## Status and known limitations
 
-Forge is a release candidate (v10.0.0-rc.19) and an R&D prototype, built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
+Forge is a release candidate (v10.0.0-rc.19) and an R&D prototype: read its claims as hypotheses to check, not facts to trust. It was built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
 
 Known problems as of 2026-11-12 (what is planned, and in what order, is in the [roadmap](.asimov/roadmap.yaml)):
 
