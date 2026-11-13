@@ -21,9 +21,10 @@
 //! A place this module has no rule for is an error, and the caller writes the
 //! formula's values: a date read the wrong way would be a wrong answer.
 
-use super::{Context, WorkbookRefs, WHOLE_COLUMN_ARGS};
+use super::{Context, WorkbookRefs};
 use crate::core::array_calculator::parser::{parse, Expr, Reference};
 use crate::core::array_calculator::tokenizer::{tokenize, Token};
+use crate::core::array_calculator::whole_column::is_whole_column;
 
 /// What a part of a formula is in Forge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -701,7 +702,7 @@ impl Dates<'_> {
     ) -> Result<Expr, String> {
         let upper = name.to_uppercase();
         let upper = upper.as_str();
-        let whole_arg = |i: usize| whole || WHOLE_COLUMN_ARGS.contains(&(upper, i));
+        let whole_arg = |i: usize| whole || is_whole_column(upper, args.len(), i);
         let kind = self.kind_of_call(upper, args);
 
         // IF and its like pass a value on: every value is written the way the

@@ -1,5 +1,6 @@
-//! `forge import` says what it cannot keep (roadmap T1-IMPORT-MIXED and
-//! T1-IMPORT-AGGREGATE). Both used to import without a word.
+//! `forge import` says what it cannot keep (roadmap T1-IMPORT-MIXED), and
+//! keeps a share of the total as a formula since ADR-058 (T1-IMPORT-AGGREGATE
+//! imported it as values).
 //!
 //! The numbers are worked by hand: shares of 10, 20, 30 and 40 over their
 //! total of 100 are 0.1, 0.2, 0.3 and 0.4.
@@ -32,7 +33,7 @@ fn text_in_a_column_of_numbers_is_named() {
 }
 
 #[test]
-fn a_share_of_the_total_imports_as_values_that_calculate() {
+fn a_share_of_the_total_imports_as_a_formula() {
     let dir = tempfile::tempdir().unwrap();
     let xlsx = dir.path().join("shares.xlsx");
     let mut workbook = Workbook::new();
@@ -50,13 +51,9 @@ fn a_share_of_the_total_imports_as_values_that_calculate() {
 
     let out = dir.path().join("shares.yaml");
     let imported = import_core(&xlsx, &out, false, false).unwrap();
-    assert_eq!(imported.warnings.len(), 1, "{:?}", imported.warnings);
-    assert!(
-        imported.warnings[0].contains("shares.share")
-            && imported.warnings[0].contains("imported as values"),
-        "{:?}",
-        imported.warnings
-    );
+    assert!(imported.warnings.is_empty(), "{:?}", imported.warnings);
+    let yaml = std::fs::read_to_string(&out).unwrap();
+    assert!(yaml.contains("share: =n / SUM(n)"), "{yaml}");
 
     // The model calculates, to the workbook's values
     let result = calculate_core(&out, true, None).unwrap();

@@ -22,7 +22,7 @@ impl WorkbookRefs {
         tokens: &[Token],
         at: usize,
         ctx: Context<'_>,
-        calls: &[(Option<String>, usize)],
+        calls: &[super::Call],
         locals: &Locals,
         has_range: &mut bool,
     ) -> Result<(String, usize), String> {

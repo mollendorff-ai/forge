@@ -1,8 +1,8 @@
 # ADR-058: Aggregates in a Row Formula
 
-**Status:** Proposed (2026-11-12); not built (roadmap T2-TABLE-AGGREGATES)
+**Status:** Accepted (2026-11-12); built
 **Date:** 2026-11-12
-**Decided by:** the maintainer (an ADR before a table column may aggregate another table, agreed after the FP&A audit of 2026-11-12); the design is Claude's, in a session configured for Opus 5.5
+**Decided by:** the maintainer (an ADR before a table column may aggregate another table, agreed after the FP&A audit of 2026-11-12; accepted by merging it, #174); the design is Claude's, in a session configured for Opus 5.5
 **Extends:** ADR-053 (periods and the row above), for the rule of what a name means in a row formula
 
 ---

@@ -8,15 +8,15 @@
 //! - `SUMIFS(sum_range`, `criteria_range1`, criteria1, [`criteria_range2`, criteria2], ...)
 
 use super::super::{
-    collect_values_as_vec, evaluate, matches_criteria, require_args_range, EvalContext, EvalError,
-    Expr, Value,
+    collect_values_as_vec, evaluate, require_args_range, Criterion, EvalContext, EvalError, Expr,
+    Value,
 };
 
 /// Evaluate SUMIF function
 pub fn eval_sumif(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("SUMIF", args, 2, 3)?;
     let range_vals = collect_values_as_vec(&args[0], ctx)?;
-    let criteria = evaluate(&args[1], ctx)?;
+    let criteria = Criterion::new(&evaluate(&args[1], ctx)?);
     let sum_range_vals = if args.len() > 2 {
         collect_values_as_vec(&args[2], ctx)?
     } else {
@@ -24,7 +24,7 @@ pub fn eval_sumif(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
     };
     let mut total = 0.0;
     for (i, val) in range_vals.iter().enumerate() {
-        if matches_criteria(val, &criteria) {
+        if criteria.matches(val) {
             if let Some(sum_val) = sum_range_vals.get(i) {
                 if let Some(n) = sum_val.as_number() {
                     total += n;
@@ -46,9 +46,9 @@ pub fn eval_sumifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     let mut matches = vec![true; sum_range.len()];
     for pair in args[1..].chunks(2) {
         let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
-        let criteria = evaluate(&pair[1], ctx)?;
+        let criteria = Criterion::new(&evaluate(&pair[1], ctx)?);
         for (i, val) in criteria_range.iter().enumerate() {
-            if i < matches.len() && !matches_criteria(val, &criteria) {
+            if i < matches.len() && !criteria.matches(val) {
                 matches[i] = false;
             }
         }

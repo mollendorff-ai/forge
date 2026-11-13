@@ -174,6 +174,11 @@ pub struct EvalContext {
     /// The table whose columns are being calculated together row by row
     /// (`PREV`): its columns may be shorter than the table while they grow
     pub growing_table: Option<String>,
+    /// The arguments being read as whole columns (ADR-058), by the address of
+    /// their node in the formula, and how many of them are being evaluated:
+    /// while one is, the row is hidden (see [`EvalContext::row`])
+    pub whole_args: std::cell::RefCell<Vec<usize>>,
+    pub hidden_row: std::cell::Cell<usize>,
 }
 
 impl EvalContext {
@@ -188,6 +193,8 @@ impl EvalContext {
             row_count: None,
             lag: std::cell::Cell::new(0),
             growing_table: None,
+            whole_args: std::cell::RefCell::new(Vec::new()),
+            hidden_row: std::cell::Cell::new(0),
         }
     }
 
@@ -195,6 +202,9 @@ impl EvalContext {
     /// earlier one inside `PREV`. `None` outside a row formula.
     #[must_use]
     pub fn row(&self) -> Option<usize> {
+        if self.hidden_row.get() > 0 {
+            return None;
+        }
         self.current_row
             .map(|row| row.saturating_sub(self.lag.get()))
     }
@@ -255,6 +265,44 @@ impl std::error::Error for EvalError {}
 /// Returns `EvalError` if the expression cannot be evaluated (e.g., unknown
 /// function, type mismatch, or division by zero).
 pub fn evaluate(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
+    // An argument read as a whole column: evaluated with the row hidden
+    if ctx.hidden_row.get() == 0 && !ctx.whole_args.borrow().is_empty() {
+        let address = std::ptr::from_ref(expr) as usize;
+        if ctx.whole_args.borrow().contains(&address) {
+            ctx.hidden_row.set(1);
+            let result = evaluate_expr(expr, ctx);
+            ctx.hidden_row.set(0);
+            return result;
+        }
+    }
+    evaluate_expr(expr, ctx)
+}
+
+/// Evaluate a function call, its whole-column arguments (ADR-058) with the
+/// row hidden when it is called in a row formula
+fn evaluate_call(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    if ctx.row().is_none() {
+        return evaluate_function(name, args, ctx);
+    }
+    let upper = name.to_uppercase();
+    if !super::whole_column::has_whole_column(&upper, args.len()) {
+        return evaluate_function(name, args, ctx);
+    }
+    let before = ctx.whole_args.borrow().len();
+    ctx.whole_args.borrow_mut().extend(
+        args.iter()
+            .enumerate()
+            .filter(|(position, _)| {
+                super::whole_column::is_whole_column(&upper, args.len(), *position)
+            })
+            .map(|(_, arg)| std::ptr::from_ref(arg) as usize),
+    );
+    let result = evaluate_function(name, args, ctx);
+    ctx.whole_args.borrow_mut().truncate(before);
+    result
+}
+
+fn evaluate_expr(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
     match expr {
         Expr::Number(n) => Ok(Value::Number(*n)),
 
@@ -282,7 +330,7 @@ pub fn evaluate(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
             }
         },
 
-        Expr::FunctionCall { name, args } => match evaluate_function(name, args, ctx)? {
+        Expr::FunctionCall { name, args } => match evaluate_call(name, args, ctx)? {
             Value::Number(n) if n.is_infinite() => {
                 Err(EvalError::new(format!("#NUM!: {name} result is too large")))
             },
@@ -420,11 +468,11 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
                     let growing = ctx.growing_table.as_deref() == Some(table.as_str());
                     if col.len() != expected_count && !growing {
                         return Err(EvalError::new(format!(
-                            "Row count mismatch: {}.{} has {} rows but expected {}",
-                            table,
-                            column,
+                            "Row count mismatch: {table}.{column} has {} rows but expected \
+                             {expected_count}. A row formula reads the same row of another \
+                             table; to read the whole column, give it to an aggregate as its \
+                             range: SUM({table}.{column}) with one argument, or SUMIFS",
                             col.len(),
-                            expected_count
                         )));
                     }
                 }
@@ -819,50 +867,91 @@ pub(crate) fn collect_values_as_vec(
 
 /// Check if a value matches a criteria (supports comparisons like ">50", "<=100", "<>0", "=text")
 /// (used by conditional functions)
-pub(crate) fn matches_criteria(val: &Value, criteria: &Value) -> bool {
-    let criteria_str = criteria.as_text();
+/// A criterion of SUMIF, COUNTIFS and the like, read once and then tested
+/// against each value of the range (reading it for each value turned the
+/// criterion into text every time).
+pub(crate) struct Criterion {
+    /// The criterion as text
+    text: String,
+    /// The criterion as a number, for a direct comparison
+    number: Option<f64>,
+    test: Test,
+}
 
-    // Handle comparison operators
-    if let Some(stripped) = criteria_str.strip_prefix(">=") {
-        if let (Some(v), Some(c)) = (val.as_number(), criterion_number(stripped)) {
-            return v >= c;
+/// A comparison written at the start of a criterion (`">=5"`)
+enum Test {
+    AtLeast(Option<f64>),
+    AtMost(Option<f64>),
+    Above(Option<f64>),
+    Below(Option<f64>),
+    /// `<>x`: the text after the operator and its number
+    Not(String, Option<f64>),
+    /// `=x`
+    Equal(String, Option<f64>),
+    /// No operator: equal to the criterion
+    Plain,
+}
+
+impl Test {
+    /// The comparison a criterion's text starts with
+    fn of(text: &str) -> Self {
+        if let Some(rest) = text.strip_prefix(">=") {
+            return Self::AtLeast(criterion_number(rest));
         }
-    } else if let Some(stripped) = criteria_str.strip_prefix("<=") {
-        if let (Some(v), Some(c)) = (val.as_number(), criterion_number(stripped)) {
-            return v <= c;
+        if let Some(rest) = text.strip_prefix("<=") {
+            return Self::AtMost(criterion_number(rest));
         }
-    } else if let Some(stripped) = criteria_str
-        .strip_prefix("<>")
-        .or_else(|| criteria_str.strip_prefix("!="))
-    {
-        let crit_val = stripped.trim();
-        if let (Some(v), Some(c)) = (val.as_number(), criterion_number(crit_val)) {
-            return (v - c).abs() > f64::EPSILON;
+        if let Some(rest) = text.strip_prefix("<>").or_else(|| text.strip_prefix("!=")) {
+            let rest = rest.trim();
+            return Self::Not(rest.to_string(), criterion_number(rest));
         }
-        return val.as_text() != crit_val;
-    } else if let Some(stripped) = criteria_str.strip_prefix('>') {
-        if let (Some(v), Some(c)) = (val.as_number(), criterion_number(stripped)) {
-            return v > c;
+        if let Some(rest) = text.strip_prefix('>') {
+            return Self::Above(criterion_number(rest));
         }
-    } else if let Some(stripped) = criteria_str.strip_prefix('<') {
-        if let (Some(v), Some(c)) = (val.as_number(), criterion_number(stripped)) {
-            return v < c;
+        if let Some(rest) = text.strip_prefix('<') {
+            return Self::Below(criterion_number(rest));
         }
-    } else if let Some(stripped) = criteria_str.strip_prefix('=') {
-        let crit_val = stripped.trim();
-        if let (Some(v), Some(c)) = (val.as_number(), criterion_number(crit_val)) {
+        if let Some(rest) = text.strip_prefix('=') {
+            let rest = rest.trim();
+            return Self::Equal(rest.to_string(), criterion_number(rest));
+        }
+        Self::Plain
+    }
+}
+
+impl Criterion {
+    pub(crate) fn new(criteria: &Value) -> Self {
+        let text = criteria.as_text();
+        let comparison = Test::of(&text);
+        Self {
+            number: criteria.as_number(),
+            test: comparison,
+            text,
+        }
+    }
+
+    /// Whether `val` meets the criterion. A comparison whose sides are not
+    /// both numbers falls back to equality with the criterion's text.
+    pub(crate) fn matches(&self, val: &Value) -> bool {
+        let v = val.as_number();
+        match (&self.test, v) {
+            (Test::AtLeast(Some(c)), Some(v)) => return v >= *c,
+            (Test::AtMost(Some(c)), Some(v)) => return v <= *c,
+            (Test::Above(Some(c)), Some(v)) => return v > *c,
+            (Test::Below(Some(c)), Some(v)) => return v < *c,
+            (Test::Not(_, Some(c)), Some(v)) => return (v - c).abs() > f64::EPSILON,
+            (Test::Not(rest, _), _) => return val.as_text() != *rest,
+            (Test::Equal(_, Some(c)), Some(v)) => return (v - c).abs() < f64::EPSILON,
+            (Test::Equal(rest, _), _) => return val.as_text().eq_ignore_ascii_case(rest),
+            _ => {},
+        }
+        // Direct comparison (numeric or text)
+        if let (Some(v), Some(c)) = (v, self.number) {
             return (v - c).abs() < f64::EPSILON;
         }
-        return val.as_text().eq_ignore_ascii_case(crit_val);
+        // Text comparison (case-insensitive)
+        val.as_text().eq_ignore_ascii_case(&self.text)
     }
-
-    // Direct comparison (numeric or text)
-    if let (Some(v), Some(c)) = (val.as_number(), criteria.as_number()) {
-        return (v - c).abs() < f64::EPSILON;
-    }
-
-    // Text comparison (case-insensitive)
-    val.as_text().eq_ignore_ascii_case(&criteria_str)
 }
 
 /// Parse a Value into a `NaiveDate` (supports YYYY-MM-DD strings and Excel serial numbers)

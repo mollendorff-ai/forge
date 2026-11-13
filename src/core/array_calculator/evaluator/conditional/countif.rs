@@ -11,19 +11,15 @@
 #![allow(clippy::cast_precision_loss)]
 
 use super::super::{
-    collect_values_as_vec, evaluate, matches_criteria, require_args, EvalContext, EvalError, Expr,
-    Value,
+    collect_values_as_vec, evaluate, require_args, Criterion, EvalContext, EvalError, Expr, Value,
 };
 
 /// Evaluate COUNTIF function
 pub fn eval_countif(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("COUNTIF", args, 2)?;
     let range_vals = collect_values_as_vec(&args[0], ctx)?;
-    let criteria = evaluate(&args[1], ctx)?;
-    let count = range_vals
-        .iter()
-        .filter(|v| matches_criteria(v, &criteria))
-        .count();
+    let criteria = Criterion::new(&evaluate(&args[1], ctx)?);
+    let count = range_vals.iter().filter(|v| criteria.matches(v)).count();
     Ok(Value::Number(count as f64))
 }
 
@@ -38,9 +34,9 @@ pub fn eval_countifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
     let mut matches = vec![true; first_range.len()];
     for pair in args.chunks(2) {
         let criteria_range = collect_values_as_vec(&pair[0], ctx)?;
-        let criteria = evaluate(&pair[1], ctx)?;
+        let criteria = Criterion::new(&evaluate(&pair[1], ctx)?);
         for (i, val) in criteria_range.iter().enumerate() {
-            if i < matches.len() && !matches_criteria(val, &criteria) {
+            if i < matches.len() && !criteria.matches(val) {
                 matches[i] = false;
             }
         }

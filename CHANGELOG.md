@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A table column can aggregate a column: of another table, or its own (ADR-058).** In a row formula an aggregate's range is the whole column and its criterion the row's value, as on a summary sheet in Excel. A table of quarters is `revenue: "=SUMIFS(months.revenue, months.fiscal_quarter, quarter)"`, a share of the total is `=revenue / SUM(revenue)`, and `=PERCENTILE.INC(results.npv, p)` takes a different `p` in each row. This used to stop with "aggregations should be in scalars section". One table of functions and argument positions (`whole_column.rs`) is read by the evaluator, the calculation order and `forge export`, which writes a range as an absolute range; `forge import` reads it back. With several arguments `SUM`, `MAX` and the like still work row by row (`=MAX(0, ebit)`), and a row-count mismatch now says how to aggregate the whole column. A column that aggregates itself is circular, and a column calculated row by row through `PREV` cannot be read whole by its own group. `examples/rolling-forecast` has a table of quarters in place of four scalars written by hand, with each quarter's budget, variance and share of the year. `tests/row_aggregates.rs` checks one case per function against values worked by hand, and 50 new cases in `validation/gnumeric/tests/edge/edge_row_aggregates.yaml` check the exported workbook in Gnumeric and LibreOffice.
+
+### Changed
+- **Row lookups and conditional aggregates are faster.** `XLOOKUP`, `MATCH`, `XMATCH`, `INDEX` and `ROWS` in a row formula copied the whole model on every row; they now read the column in place (4,000 rows looking up 4,000: 0.79 s before, 0.26 s now, release build). A criterion of `SUMIF`, `COUNTIFS` and the like is read once per call instead of being turned into text for every value (`SUMIFS` in each of 5,000 rows over 5,000 rows: 1.16 s before this change, 0.47 s).
+- **`forge import` keeps a share of the total as a formula.** `=A2/SUM($A$2:$A$5)` imports as `=n / SUM(n)`; it was imported as its values.
+
+### Fixed
+- **`forge import` gave a different answer for a range in an argument Forge reads row by row.** In a workbook not written by Forge, a column such as `=MAX(0, $B$2:$B$6)` or `=NPV(0.1, $B$2:$B$6)` was imported as `=MAX(0, revenue)` or `=NPV(0.1, revenue)`, which Forge calculates from the row's revenue, not the column's: a plausible number, and a different one. Such a column (and one cell where Forge would read the whole column, `=SUM(B2)`) is now imported as its values, with the reason in the warnings. A workbook written by `forge export` never has one. This is a wrong answer fixed, so by docs/STABILITY.md the two weeks before a stable release start again at the release that carries it.
+
 ## [10.0.0-rc.19] - 2026-11-12
 
 Twenty-six new functions (202 in all) and two new examples, `rolling-forecast` and `capex-plan`, and Forge Studio suggests names and functions inside a formula in the YAML editor. No wrong answer was fixed since rc.13, so the two-week stable clock of docs/STABILITY.md still runs from rc.13 (no earlier than 2026-11-24).

@@ -1,0 +1,265 @@
+# Aggregates in a row formula (Forge ADR-058): an aggregate's range is the
+# whole column, of another table or of the row's own, and its criterion the
+# row's value. forge export writes the range as an absolute range and the
+# criterion as the row's cell, as on a summary sheet in Excel.
+#
+# Expected values, worked out by hand (tests/row_aggregates.rs has the same):
+#   months: q = 1, 1, 2, 2, 3; revenue = 10, 20, 30, 40, 50
+#   by quarter: sums 30, 70, 50; counts 2, 2, 1; means 15, 35, 50;
+#     maxima 20, 40, 50; minima 10, 30, 50; with cat "a" only 10, 30, 50
+#   percentiles 0.25, 0.5, 0.75 of the revenue: (n - 1) p gives 20, 30, 40,
+#     (n + 1) p gives 15, 30, 45; quartiles 1, 2, 3 give 20, 30, 40
+#   revenue: mean 30, squared deviations 1000 (VAR.S 250, STDEV.P sqrt 200);
+#     against q (mean 1.8): products of deviations 50, squared q deviations
+#     2.8, so slope 50 / 2.8, intercept 30 - 1.8 slope, CORREL 50 / sqrt 2800,
+#     FORECAST at quarter x: 30 + slope (x - 1.8)
+#   SUMPRODUCT(revenue, q) = 10 + 20 + 60 + 80 + 150 = 320; GEOMEAN 12e6^0.2
+#   own table: share 10/150 .. 50/150; rank by COUNTIF 5 .. 1; MAX(25, revenue)
+#     works row by row (several arguments): 25 .. 50
+
+_forge_version: "5.1.0"
+
+months:
+  q: [1, 1, 2, 2, 3]
+  cat: ["a", "b", "a", "b", "a"]
+  revenue: [10, 20, 30, 40, 50]
+  share: "=revenue / SUM(revenue)"
+  rank: "=COUNTIF(revenue, \">\" & revenue) + 1"
+  clipped: "=MAX(25, revenue)"
+  weighted: "=SUMPRODUCT(revenue, q)"
+
+quarters:
+  quarter: [1, 2, 3]
+  p: [0.25, 0.5, 0.75]
+  sumifs: "=SUMIFS(months.revenue, months.q, quarter)"
+  sumifs_two: "=SUMIFS(months.revenue, months.q, quarter, months.cat, \"a\")"
+  averageifs: "=AVERAGEIFS(months.revenue, months.q, quarter)"
+  maxifs: "=MAXIFS(months.revenue, months.q, quarter)"
+  minifs: "=MINIFS(months.revenue, months.q, quarter)"
+  countifs: "=COUNTIFS(months.q, quarter)"
+  sumif: "=SUMIF(months.q, quarter, months.revenue)"
+  countif: "=COUNTIF(months.q, quarter)"
+  averageif: "=AVERAGEIF(months.q, quarter, months.revenue)"
+  percentile: "=PERCENTILE.INC(months.revenue, p)"
+  percentile_exc: "=PERCENTILE.EXC(months.revenue, p)"
+  quartile: "=QUARTILE.INC(months.revenue, quarter)"
+  forecast: "=FORECAST(quarter, months.revenue, months.q)"
+  with_let: "=LET(k, quarter, SUMPRODUCT((months.q = k) * months.revenue))"
+  sum: "=SUM(months.revenue)"
+  average: "=AVERAGE(months.revenue)"
+  max: "=MAX(months.revenue)"
+  min: "=MIN(months.revenue)"
+  count: "=COUNT(months.revenue)"
+  median: "=MEDIAN(months.revenue)"
+  mode: "=MODE(months.q)"
+  geomean: "=GEOMEAN(months.revenue)"
+  sumproduct: "=SUMPRODUCT(months.revenue, months.q)"
+  var: "=VAR.S(months.revenue)"
+  stdev: "=STDEV.P(months.revenue)"
+  correl: "=CORREL(months.revenue, months.q)"
+  slope: "=SLOPE(months.revenue, months.q)"
+  intercept: "=INTERCEPT(months.revenue, months.q)"
+
+assumptions:
+  test_sumifs_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.sumifs, 1)"
+    expected: 30
+  test_sumifs_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.sumifs, 3)"
+    expected: 50
+  test_sumifs_two_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.sumifs_two, 1)"
+    expected: 10
+  test_sumifs_two_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.sumifs_two, 3)"
+    expected: 50
+  test_averageifs_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.averageifs, 1)"
+    expected: 15
+  test_averageifs_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.averageifs, 3)"
+    expected: 50
+  test_maxifs_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.maxifs, 1)"
+    expected: 20
+  test_maxifs_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.maxifs, 3)"
+    expected: 50
+  test_minifs_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.minifs, 1)"
+    expected: 10
+  test_minifs_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.minifs, 3)"
+    expected: 50
+  test_countifs_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.countifs, 1)"
+    expected: 2
+  test_countifs_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.countifs, 3)"
+    expected: 1
+  test_sumif_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.sumif, 1)"
+    expected: 30
+  test_sumif_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.sumif, 3)"
+    expected: 50
+  test_countif_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.countif, 1)"
+    expected: 2
+  test_countif_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.countif, 3)"
+    expected: 1
+  test_averageif_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.averageif, 1)"
+    expected: 15
+  test_averageif_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.averageif, 3)"
+    expected: 50
+  test_percentile_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.percentile, 1)"
+    expected: 20
+  test_percentile_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.percentile, 3)"
+    expected: 40
+  test_percentile_exc_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.percentile_exc, 1)"
+    expected: 15
+  test_percentile_exc_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.percentile_exc, 3)"
+    expected: 45
+  test_quartile_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.quartile, 1)"
+    expected: 20
+  test_quartile_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.quartile, 3)"
+    expected: 40
+  test_forecast_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.forecast, 1)"
+    expected: 15.714285714285714
+  test_forecast_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.forecast, 3)"
+    expected: 51.42857142857143
+  test_with_let_quarter_1:
+    value: null
+    formula: "=INDEX(quarters.with_let, 1)"
+    expected: 30
+    libreoffice: "Gnumeric 1.12 cannot read LET"
+  test_with_let_quarter_3:
+    value: null
+    formula: "=INDEX(quarters.with_let, 3)"
+    expected: 50
+    libreoffice: "Gnumeric 1.12 cannot read LET"
+  test_sum_whole_column:
+    value: null
+    formula: "=INDEX(quarters.sum, 2)"
+    expected: 150
+  test_average_whole_column:
+    value: null
+    formula: "=INDEX(quarters.average, 2)"
+    expected: 30
+  test_max_whole_column:
+    value: null
+    formula: "=INDEX(quarters.max, 2)"
+    expected: 50
+  test_min_whole_column:
+    value: null
+    formula: "=INDEX(quarters.min, 2)"
+    expected: 10
+  test_count_whole_column:
+    value: null
+    formula: "=INDEX(quarters.count, 2)"
+    expected: 5
+  test_median_whole_column:
+    value: null
+    formula: "=INDEX(quarters.median, 2)"
+    expected: 30
+  test_mode_whole_column:
+    value: null
+    formula: "=INDEX(quarters.mode, 2)"
+    expected: 1
+  test_geomean_whole_column:
+    value: null
+    formula: "=INDEX(quarters.geomean, 2)"
+    expected: 26.051710846973524
+  test_sumproduct_whole_column:
+    value: null
+    formula: "=INDEX(quarters.sumproduct, 2)"
+    expected: 320
+  test_var_whole_column:
+    value: null
+    formula: "=INDEX(quarters.var, 2)"
+    expected: 250
+  test_stdev_whole_column:
+    value: null
+    formula: "=INDEX(quarters.stdev, 2)"
+    expected: 14.142135623730951
+  test_correl_whole_column:
+    value: null
+    formula: "=INDEX(quarters.correl, 2)"
+    expected: 0.944911182523068
+  test_slope_whole_column:
+    value: null
+    formula: "=INDEX(quarters.slope, 2)"
+    expected: 17.857142857142858
+  test_intercept_whole_column:
+    value: null
+    formula: "=INDEX(quarters.intercept, 2)"
+    expected: -2.142857142857146
+  test_own_share_row_1:
+    value: null
+    formula: "=INDEX(months.share, 1)"
+    expected: 0.06666666666666667
+  test_own_share_row_5:
+    value: null
+    formula: "=INDEX(months.share, 5)"
+    expected: 0.3333333333333333
+  test_own_rank_row_1:
+    value: null
+    formula: "=INDEX(months.rank, 1)"
+    expected: 5
+  test_own_rank_row_5:
+    value: null
+    formula: "=INDEX(months.rank, 5)"
+    expected: 1
+  test_own_clipped_row_1:
+    value: null
+    formula: "=INDEX(months.clipped, 1)"
+    expected: 25
+  test_own_clipped_row_5:
+    value: null
+    formula: "=INDEX(months.clipped, 5)"
+    expected: 50
+  test_own_weighted_row_1:
+    value: null
+    formula: "=INDEX(months.weighted, 1)"
+    expected: 320
+  test_own_weighted_row_5:
+    value: null
+    formula: "=INDEX(months.weighted, 5)"
+    expected: 320

@@ -627,20 +627,6 @@ impl ExcelImporter {
             if let Some(excel) = sheet.formula(1, col) {
                 let whole_column =
                     Self::row_formula(sheet, col, (refs, names), &table_name, holds_dates, &excel);
-                // `forge calculate` refuses an aggregate in a row formula, so a
-                // column that reads its own total (a share of the total,
-                // `=A2/SUM($A$2:$A$5)`) is imported as the values it shows
-                let whole_column = whole_column.and_then(|forge| {
-                    if crate::core::array_calculator::ArrayCalculator::is_aggregation_formula(
-                        &forge,
-                    ) {
-                        Err("it reads a total of its own column, which a Forge column \
-                             formula cannot; put the total in a scalar"
-                            .to_string())
-                    } else {
-                        Ok(forge)
-                    }
-                });
                 match whole_column {
                     Ok(forge) => {
                         table.add_row_formula(col_name, forge);

@@ -155,10 +155,14 @@ fn what_prev_refuses() {
         ),
         (vec![("a", "=PREV(x, 0, 0)")], "whole number, 1 or more"),
         (vec![("a", "=PREV(x, 0, 1.5)")], "whole number, 1 or more"),
-        // Reading a later row of a column being calculated
+        // Reading the whole of a column being calculated row by row (ADR-058)
         (
             vec![("a", "=PREV(b, 0) + 1"), ("b", "=a + INDEX(a, 3)")],
-            "known only up to the row being calculated",
+            "reads all of t.a, which is calculated row by row",
+        ),
+        (
+            vec![("a", "=PREV(b, 0) + 1"), ("b", "=a - SUM(a)")],
+            "so it needs a whole column first",
         ),
     ] {
         let err = calculate(model(&[("x", vec![1.0, 2.0, 3.0])], &formulas)).unwrap_err();
