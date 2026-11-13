@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Forge Studio read a decimal comma as a thousands separator**: `0,03` typed on a card was 3, not 0.03, with no warning, on a phone set to French. A comma is now a decimal mark (`0,03`, `3,5`, `4,5 %`) except in the shapes that are thousands (`1,250` is 1250 as before, `1,234,567`, `1.234,56` and `1 234,5` with a space or no-break space). A group that does not fit, such as `1,2,3,4`, is refused instead of read. `studio/tests/format.mjs` and `layout.mjs` cover it.
+
 ## [10.0.0-rc.22] - 2026-11-13
 
 `YEARFRAC` with basis 0, from the last day of February to a 31st, gives the answer of Gnumeric, LibreOffice and the algorithm Microsoft confirmed for Excel (not yet checked in Excel itself), and the command line and the MCP tools agree on dates. The fix is to a wrong answer, so by docs/STABILITY.md the two weeks before a stable release start again from this release: no earlier than 2026-11-27.

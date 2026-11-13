@@ -46,6 +46,27 @@ same('"−3"', readNumber("−3"), -3);
 same('"1e-5"', readNumber("1e-5"), 0.00001);
 same('"1,250"', readNumber("1,250"), 1250);
 same('"abc"', readNumber("abc"), null);
+// A French keyboard: a decimal comma, spaces between groups
+same('"0,03" is 0.03, not 3', readNumber("0,03"), 0.03);
+same('"3,5"', readNumber("3,5"), 3.5);
+same('"1,5"', readNumber("1,5"), 1.5);
+same('"12,34"', readNumber("12,34"), 12.34);
+same('"4,5 %" is 0.045', readNumber("4,5 %"), 0.045);
+same('"4,5%"', readNumber("4,5%"), 0.045);
+same('"1 234,5"', readNumber("1 234,5"), 1234.5);
+same('"1 234,5" with a no-break space', readNumber("1\u00a0234,5"), 1234.5);
+same('"1 234,5" with a narrow no-break space', readNumber("1\u202f234,5"), 1234.5);
+same('"1.234,56"', readNumber("1.234,56"), 1234.56);
+same('"1,234.56"', readNumber("1,234.56"), 1234.56);
+same('"1,234,567"', readNumber("1,234,567"), 1234567);
+same('"1.234.567"', readNumber("1.234.567"), 1234567);
+same('"0,250" is a decimal, a thousand never starts with 0', readNumber("0,250"), 0.25);
+same('"-0,5"', readNumber("-0,5"), -0.5);
+same('"1,2e3"', readNumber("1,2e3"), 1200);
+same('"1,2,3,4" is not a number', readNumber("1,2,3,4"), null);
+same('"1.2.3" is not a number', readNumber("1.2.3"), null);
+same('"1,2.3,4" is not a number', readNumber("1,2.3,4"), null);
+same('"," alone', readNumber(","), null);
 same('"%"', readNumber("%"), null);
 
 if (failures.length) {

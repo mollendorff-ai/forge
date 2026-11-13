@@ -162,6 +162,11 @@ parked:
     title: "A guided first visit in Forge Studio"
     why: "An FP&A analyst who has never seen YAML might not know where to tap. No one has been seen getting lost yet, and a tour has to change with every screen it explains. Parked 2026-11-13"
     how: "Revisit when someone using Studio for the first time is seen getting stuck; try one hint on the first screen before anything like a tour"
+  - id: P-STUDIO-FRENCH
+    title: "Forge Studio's interface in French"
+    why: "The maintainer is in Montreal and the first readers may be French-speaking FP&A teams. Parked 2026-11-13: every label is written in the code and most tests read the English text, every later feature would need both languages, and Forge's own messages are in English, so the page would turn English when something goes wrong"
+    how: "An ADR first: strings out of the code into one table, and whether Forge's messages are translated in the engine (then the page shows them as they are). Numbers typed with a decimal comma are read already; how a number is shown (1 234,56) belongs to format: and the engine. A model stays English: function names (SUM, not SOMME) and separators are the same in every file"
+    trigger: "A French-speaking user asks, or Studio is shown to a Quebec audience"
   - id: P-GAME
     title: "Game theory module"
   - id: P-GPU
