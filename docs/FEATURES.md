@@ -1,6 +1,74 @@
 # Forge Features
 
-Complete reference for all Forge capabilities (v10.0.0).
+The reference for what Forge does, one section per feature. For a first model, start with the [README](../README.md); for the functions, [FUNCTIONS.md](FUNCTIONS.md).
+
+---
+
+## Commands
+
+```bash
+# Core Operations
+forge validate <files...>           # Validate YAML model(s)
+forge calculate <file>              # Execute all formulas
+forge audit <file> <variable>       # Trace formula dependencies
+forge watch <file>                  # Validate and calculate again on every save
+forge report <file>                 # A calculated file's scalars side by side
+
+# Analysis
+forge sensitivity <file> -v VAR -r RANGE -o OUTPUT
+forge goal-seek <file> --target VAR --value N --vary INPUT
+forge break-even <file> -o OUTPUT -v INPUT
+forge variance <budget> <actual> --threshold PCT
+forge compare <file> --scenarios A,B   # Scenarios side by side
+
+# Prediction & Simulation
+forge simulate <file> --iterations N    # Monte Carlo
+forge scenarios <file>                  # Scenario analysis
+forge decision-tree <file>              # Decision trees
+forge real-options <file>               # Real options
+forge tornado <file>                    # Tornado diagrams
+forge bootstrap <file>                  # Bootstrap resampling
+forge bayesian <file> -q NODE -e NODE=STATE   # Bayesian network inference
+
+# Excel Bridge
+forge export <yaml> <xlsx>          # YAML → Excel with formulas
+forge import <xlsx> <yaml>          # Excel → YAML
+
+# AI Integration
+forge mcp                           # Start MCP server
+forge serve --port 8080             # Start REST API
+
+# Reference
+forge functions                     # List all 202 functions
+forge schema v5                     # Show JSON schema
+forge examples monte-carlo          # Show example YAML
+```
+
+Schemas and runnable examples, from the binary itself:
+
+```bash
+# View JSON schemas for model validation
+forge schema                    # List available versions
+forge schema v1                 # Show v1.0.0 schema (scalar-only)
+forge schema v5.1               # Show the 5.1.0 model format schema (use for new models)
+forge schema v5.2               # 5.1.0 plus the period column (ADR-053)
+forge schema v5 > schema.json   # Pipe to file for IDE use
+
+# View runnable examples for Forge capabilities
+forge examples                  # List all examples
+forge examples monte-carlo      # Monte Carlo simulation
+forge examples scenarios        # Probability-weighted scenarios
+forge examples decision-tree    # Sequential decision modeling
+forge examples real-options     # Option pricing for flexibility
+forge examples tornado          # Sensitivity analysis
+forge examples bootstrap        # Confidence intervals
+forge examples bayesian         # Probabilistic graphical models
+forge examples variance         # Budget vs actual analysis
+forge examples breakeven        # Break-even calculations
+
+forge examples monte-carlo --run  # Show and execute example
+forge examples --json             # Machine-readable list
+```
 
 ---
 
@@ -142,91 +210,7 @@ summary:
 
 ### 202 Excel-Compatible Functions
 
-```mermaid
-graph LR
-    subgraph Aggregation
-        A[SUM] --> B[AVERAGE]
-        B --> C[MAX/MIN]
-        C --> D[COUNT]
-        D --> E[PRODUCT]
-    end
-
-    subgraph Conditional
-        F[SUMIF] --> G[COUNTIF]
-        G --> H[AVERAGEIF]
-        H --> I[SUMIFS/COUNTIFS]
-        I --> J[MAXIFS/MINIFS]
-    end
-
-    subgraph Lookup
-        K[INDEX] --> L[MATCH]
-        L --> M[XLOOKUP]
-        M --> N[VLOOKUP]
-    end
-
-    subgraph Financial
-        O[NPV] --> P[IRR]
-        P --> Q[PMT/FV/PV]
-        Q --> R[RATE/NPER]
-    end
-
-    subgraph Math
-        S[ROUND] --> T[CEILING/FLOOR]
-        T --> U[MOD/SQRT/POWER]
-    end
-
-    subgraph Text
-        V[CONCAT] --> W[TRIM]
-        W --> X[UPPER/LOWER]
-        X --> Y[LEN/MID]
-    end
-
-    subgraph Date
-        Z[TODAY] --> AA[DATE]
-        AA --> AB[YEAR/MONTH/DAY]
-    end
-```
-
-**10.1 Functions (26 new):**
-
-- Financial: RRI, SYD, VDB (with `no_switch`), CUMIPMT, CUMPRINC
-- Statistical: SLOPE, INTERCEPT, RSQ, FORECAST, FORECAST.LINEAR, COVARIANCE.S, COVARIANCE.P, NORM.DIST, NORM.S.DIST, NORM.INV, NORM.S.INV, GEOMEAN, PERCENTILE.INC, PERCENTILE.EXC, QUARTILE.INC, QUARTILE.EXC
-- Math: MROUND
-- Text: TEXTJOIN
-- Lookup: XMATCH (exact, next smaller, next larger, first or last; no wildcards, no binary search)
-- Date: WEEKNUM (all return types), ISOWEEKNUM
-
-See `examples/capex-plan`. `TREND` and `GROWTH` are not included: they return arrays.
-
-**v1.6.0 Financial Functions (7 new):**
-
-| Function | Description | Example |
-|----------|-------------|---------|
-| `NPV(rate, values)` | Net Present Value | `=NPV(0.1, cash_flows)` |
-| `IRR(values)` | Internal Rate of Return | `=IRR(cash_flows)` |
-| `PMT(rate, nper, pv)` | Payment calculation | `=PMT(0.05/12, 360, 200000)` |
-| `FV(rate, nper, pmt)` | Future Value | `=FV(0.08, 10, -1000)` |
-| `PV(rate, nper, pmt)` | Present Value | `=PV(0.06, 5, -1000)` |
-| `RATE(nper, pmt, pv)` | Interest rate finder | `=RATE(360, -1000, 200000)` |
-| `NPER(rate, pmt, pv)` | Number of periods | `=NPER(0.05/12, -500, 20000)` |
-
-**v1.2.0 Lookup Functions (4):**
-
-- INDEX, MATCH, XLOOKUP, VLOOKUP
-
-**v1.1.0 Functions (27):**
-
-- Aggregation: SUMPRODUCT (1 to 255 equal-length arrays; text counts as 0; different lengths are `#VALUE!`, as in Excel)
-- Conditional: SUMIF, COUNTIF, AVERAGEIF, SUMIFS, COUNTIFS, AVERAGEIFS, MAXIFS, MINIFS
-- Math: ROUND, ROUNDUP, ROUNDDOWN, CEILING, FLOOR, MOD, SQRT, POWER
-- Text: CONCAT, TRIM, UPPER, LOWER, LEN, MID, REPT
-- Date: TODAY, DATE, YEAR, MONTH, DAY
-
-**v1.0.0 Functions:**
-
-- Aggregation: SUM, AVERAGE, MAX, MIN, COUNT, PRODUCT
-- Logical: IF, AND, OR, NOT, XOR
-- Math: ABS
+The full list, by category, is in [FUNCTIONS.md](FUNCTIONS.md); `forge functions` prints it. `TREND` and `GROWTH` are left out on purpose: they return arrays. `XMATCH` takes no wildcards and no binary search. Each function is checked against Gnumeric, LibreOffice, R or Python (see the README's section on how we know the numbers are right). A worked example of the loan and regression functions is in `examples/capex-plan`.
 
 **Dates, `+` and `&`** (ADR-054):
 
@@ -390,7 +374,7 @@ Each iteration recalculates the model with the sampled values, including its inc
 
 ---
 
-## Scenario Analysis (v8.3.0)
+## Scenario Analysis
 
 Evaluate discrete, mutually exclusive futures with probability-weighted outcomes.
 
@@ -487,7 +471,7 @@ A value exactly on budget is "On target" and is not counted as favorable. A scal
 
 ---
 
-## Decision Trees (v8.4.0)
+## Decision Trees
 
 Sequential decision modeling with backward induction and optimal path finding.
 
@@ -604,7 +588,7 @@ decision_tree_results:
 
 ---
 
-## Real Options (v8.5.0)
+## Real Options
 
 Value managerial flexibility using financial options theory.
 
@@ -726,7 +710,7 @@ The "exercise when" lines are rules of thumb (for example 10% above the exercise
 
 ---
 
-## Tornado Diagrams (v8.6.0)
+## Tornado Diagrams
 
 One-way sensitivity analysis with visual ranking of input impact.
 
@@ -849,7 +833,7 @@ Working Capital   |██                  | ± $40K
 
 ---
 
-## Bootstrap Resampling (v8.7.0)
+## Bootstrap Resampling
 
 Non-parametric confidence intervals from historical data.
 
@@ -989,7 +973,7 @@ bootstrap_results:
 
 ---
 
-## Bayesian Networks (v9.0.0)
+## Bayesian Networks
 
 Probabilistic graphical models with variable elimination inference.
 
@@ -1099,17 +1083,17 @@ Evidence at any node updates beliefs throughout the network.
 
 ---
 
-## AI Integration (v1.7.0)
+## AI Integration
 
 ### MCP Server
 
-Model Context Protocol server for AI agents:
+Model Context Protocol server for AI agents, JSON-RPC over stdin/stdout:
 
 ```bash
-forge mcp  # Runs JSON-RPC over stdin/stdout
+forge mcp
 ```
 
-**Claude Desktop Configuration:**
+Claude Desktop configuration:
 
 ```json
 {
@@ -1122,17 +1106,11 @@ forge mcp  # Runs JSON-RPC over stdin/stdout
 }
 ```
 
-**Available Tools:**
-
-- `forge_validate` - Validate YAML models
-- `forge_calculate` - Calculate formulas
-- `forge_audit` - Audit dependencies
-- `forge_export` - Export to Excel
-- `forge_import` - Import from Excel
+The tools (validate, calculate, audit, export, import, and the analyses) and how to call them are in [MCP.md](MCP.md); `forge schema` and `forge examples` give an agent the format and runnable models.
 
 ---
 
-## Developer Tools (v1.4.0-v1.5.0)
+## Developer Tools
 
 ### Watch Mode
 
@@ -1218,24 +1196,7 @@ forge import spreadsheet.xlsx output.yaml
 | Periods | `{start: 2026-12, count: 300, unit: month}` | The dates the periods start on (format 5.2.0) |
 | Booleans | `[true, false, true]` | Logical values |
 
-**Type Safety:**
-
-- Homogeneous arrays (no mixed types)
-- Compile-time validation
-- Rust memory safety guarantees
-
----
-
-## Performance
-
-| Operation | Time | Notes |
-|-----------|------|-------|
-| Validation | <200ms | 850 formulas |
-| Calculation | <200ms | Complex models |
-| Export | <500ms | 10 worksheets |
-| Import | <500ms | 10 worksheets |
-
-**Zero tokens**: All operations run locally.
+Arrays are homogeneous: a column holds numbers, text, dates or booleans, not a mix.
 
 ---
 
@@ -1261,21 +1222,7 @@ jobs:
 
 ## CLI Reference
 
-```bash
-forge validate <files...>       # Validate YAML model(s) - supports multiple files
-forge calculate <file>          # Calculate formulas
-forge calculate <file> --dry-run  # Preview without saving
-forge audit <file> <variable>   # Show dependency chain
-forge export <yaml> <xlsx>      # Export to Excel
-forge import <xlsx> <yaml>      # Import from Excel
-forge watch <path>              # Watch for changes
-forge mcp                       # Start MCP server
-forge serve                     # Start HTTP API server
-```
-
-**v4.2.1 Updates:**
-- Multi-file validation: `forge validate file1.yaml file2.yaml`
-- COUNT function works on any column type (not just numeric)
+The commands are listed at the top of this page under [Commands](#commands); `forge --help` and `forge <command> --help` are always current.
 
 ---
 
