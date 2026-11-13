@@ -97,6 +97,23 @@ fn date_text(serial: f64) -> String {
     crate::core::array_calculator::evaluator::serial_date_text(serial)
 }
 
+/// A comparison as JSON, a date's value as its text, as in `forge calculate`'s
+/// JSON (ADR-060). `forge compare --format json` and the MCP tool share it.
+#[must_use]
+pub fn comparison_json(result: &ComparisonResult) -> serde_json::Value {
+    let mut json = serde_json::to_value(Rounded(result)).unwrap_or_default();
+    for variable in &result.dates {
+        if let Some(row) = json["values"][variable].as_object_mut() {
+            for value in row.values_mut() {
+                if let Some(serial) = value.as_f64() {
+                    *value = serde_json::Value::String(date_text(serial));
+                }
+            }
+        }
+    }
+    json
+}
+
 fn row_values(result: &ComparisonResult, variable: &str) -> Vec<Option<f64>> {
     result
         .scenarios
@@ -137,17 +154,7 @@ pub fn render_comparison(
         },
         ReportFormat::Csv => render_csv(result),
         ReportFormat::Json => {
-            let mut json = serde_json::to_value(Rounded(result)).unwrap_or_default();
-            // A date's value is its text, as in `forge calculate`'s JSON (ADR-060)
-            for variable in &result.dates {
-                if let Some(row) = json["values"][variable].as_object_mut() {
-                    for value in row.values_mut() {
-                        if let Some(serial) = value.as_f64() {
-                            *value = serde_json::Value::String(date_text(serial));
-                        }
-                    }
-                }
-            }
+            let json = comparison_json(result);
             let mut out = serde_json::to_string_pretty(&json).unwrap_or_default();
             out.push('\n');
             out

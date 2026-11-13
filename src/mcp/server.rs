@@ -13,8 +13,8 @@ use rmcp::{tool, tool_handler, tool_router, ServerHandler};
 
 use crate::cli::calculate_core;
 use crate::cli::{
-    audit_core, bayesian_core, bootstrap_core, compare_core, decision_tree_core, examples_core,
-    export_buffer_core, export_core, functions_core, goal_seek_core, import_core,
+    audit_core, bayesian_core, bootstrap_core, compare_core, comparison_json, decision_tree_core,
+    examples_core, export_buffer_core, export_core, functions_core, goal_seek_core, import_core,
     real_options_core, scenarios_core, schema_core, sensitivity_core, simulate_core, tornado_core,
     validate_core, variance_core,
 };
@@ -93,6 +93,51 @@ impl Default for ForgeMcpServer {
 /// digits (`core::precision`).
 fn to_json<T: serde::Serialize>(result: &T) -> String {
     serde_json::to_string(&crate::core::precision::Rounded(result)).unwrap_or_default()
+}
+
+/// Scenario results as JSON, a date's value as its text, as in `forge calculate`
+/// (ADR-060): the engine holds a date as a day number.
+fn scenarios_json(path: &Path, results: &crate::scenarios::ScenarioResults) -> String {
+    let mut json =
+        serde_json::to_value(crate::core::precision::Rounded(results)).unwrap_or_default();
+    let dates: Vec<String> = crate::parser::parse_model(path).map_or_else(
+        |_| Vec::new(),
+        |m| {
+            m.scalars
+                .iter()
+                .filter(|(_, v)| v.is_date)
+                .map(|(k, _)| k.clone())
+                .collect()
+        },
+    );
+    let text = |v: &serde_json::Value| {
+        v.as_f64().map_or_else(
+            || v.clone(),
+            |n| {
+                serde_json::Value::String(
+                    crate::core::array_calculator::evaluator::serial_date_text(n),
+                )
+            },
+        )
+    };
+    for name in &dates {
+        if let Some(scenarios) = json["scenarios"].as_array_mut() {
+            for scenario in scenarios {
+                if let Some(v) = scenario["scalars"].get_mut(name) {
+                    *v = text(v);
+                }
+            }
+        }
+        if let Some(v) = json["expected_values"].get_mut(name) {
+            *v = text(v);
+        }
+        if let Some(range) = json["ranges"].get_mut(name).and_then(|r| r.as_array_mut()) {
+            for end in range {
+                *end = text(end);
+            }
+        }
+    }
+    json.to_string()
 }
 
 #[tool_router]
@@ -309,7 +354,7 @@ impl ForgeMcpServer {
             req.includes.as_ref(),
         )?;
         compare_core(&path, &req.scenarios)
-            .map(|r| to_json(&r))
+            .map(|r| comparison_json(&r).to_string())
             .map_err(|e| format!("Scenario comparison failed: {e}"))
     }
 
@@ -368,7 +413,7 @@ impl ForgeMcpServer {
             req.includes.as_ref(),
         )?;
         scenarios_core(&path, req.scenario_filter.as_deref())
-            .map(|r| to_json(&r))
+            .map(|r| scenarios_json(&path, &r))
             .map_err(|e| format!("Scenario analysis failed: {e}"))
     }
 
@@ -463,7 +508,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_schema",
-        description = "Get JSON Schema for Forge YAML model formats. Write new models as _forge_version \"5.1.0\": inputs as plain numbers (price: 16), formula scalars as {formula: \"=...\"}, tables as lists and row-formula strings. For a table over time use \"5.2.0\": a period column (month: {start: 2026-12, count: 12, unit: month}) gives the rows, and PREV(value, first_row_value) reads the row above."
+        description = "Get JSON Schema for Forge YAML model formats. Write new models as _forge_version \"5.1.0\": inputs as plain numbers (price: 16), formula scalars as {formula: \"=...\"}, tables as lists and row-formula strings. For a table over time use \"5.2.0\": a period column (month: {start: 2026-12, count: 12, unit: month}) gives the rows, and PREV(value, first_row_value) reads the row above. \"5.3.0\" allows an empty cell (null) in a column of numbers. \"5.4.0\" allows a date as a scalar (last_actual: 2026-10-31) and format: beside unit:, an Excel number format that changes how a number is shown, never its value (price: {value: 16, format: \"$#,##0.00\"}); results then carry a formatted map."
     )]
     fn schema(&self, Parameters(req): Parameters<SchemaRequest>) -> Result<String, String> {
         schema_core(req.version.as_deref()).map_err(|e| format!("Schema error: {e}"))

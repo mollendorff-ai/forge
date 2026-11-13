@@ -1145,3 +1145,62 @@ fn test_inline_export_buffer() {
         "Should be a valid ZIP/XLSX header"
     );
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// DATES (ADR-060): a date is its text, as in forge calculate's JSON
+// ═══════════════════════════════════════════════════════════════════════
+
+const DATED: &str = r#"_forge_version: "5.4.0"
+inputs:
+  last_actual: 2026-10-31
+  rate: {value: 0.5, format: "0%"}
+out:
+  next:
+    formula: "=EOMONTH(inputs.last_actual, 1) * inputs.rate"
+scenarios:
+  base:
+    probability: 0.5
+    scalars: {}
+  later:
+    probability: 0.5
+    scalars:
+      last_actual: 2026-11-30
+"#;
+
+#[test]
+fn test_compare_gives_a_date_as_its_text() {
+    let server = ForgeMcpServer::new();
+    let text = ok_text(server.compare(Parameters(CompareRequest {
+        file_path: None,
+        content: Some(DATED.to_string()),
+        includes: None,
+        scenarios: vec!["base".into(), "later".into()],
+    })));
+    let v: serde_json::Value = serde_json::from_str(&text).expect("json");
+    assert_eq!(v["values"]["inputs.last_actual"]["base"], "2026-10-31");
+    assert_eq!(v["values"]["inputs.last_actual"]["later"], "2026-11-30");
+    assert!(v["values"]["inputs.rate"]["base"].is_number());
+}
+
+#[test]
+fn test_scenarios_give_a_date_as_its_text() {
+    let server = ForgeMcpServer::new();
+    let text = ok_text(server.scenarios(Parameters(ScenariosRequest {
+        file_path: None,
+        content: Some(DATED.to_string()),
+        includes: None,
+        scenario_filter: None,
+    })));
+    let v: serde_json::Value = serde_json::from_str(&text).expect("json");
+    let dates: Vec<&str> = v["scenarios"]
+        .as_array()
+        .expect("scenarios")
+        .iter()
+        .filter_map(|s| s["scalars"]["inputs.last_actual"].as_str())
+        .collect();
+    assert!(
+        dates.contains(&"2026-10-31") && dates.contains(&"2026-11-30"),
+        "{text}"
+    );
+    assert!(v["expected_values"]["inputs.rate"].is_number());
+}

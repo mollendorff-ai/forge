@@ -264,6 +264,10 @@ jobs:
         working-directory: studio
         run: node tests/grid.mjs ../studio-site
 
+      - name: Studio shows a format as Forge gives it
+        working-directory: studio
+        run: node tests/formats.mjs ../studio-site
+
       - name: Studio suggests names and functions while a formula is typed
         working-directory: studio
         run: node tests/suggest.mjs ../studio-site

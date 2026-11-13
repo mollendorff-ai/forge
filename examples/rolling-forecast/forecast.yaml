@@ -8,13 +8,13 @@ _forge_version: "5.4.0"
 inputs:
   # The last day with actuals: the next twelve months are counted from it.
   # A date, read as a cell of the month column is (format 5.4.0, ADR-060)
-  last_actual: 2026-10-31
+  last_actual: {value: 2026-10-31, format: "d mmm yyyy"}
   # The fiscal year starts in this month and is named after the year it ends in
   fy_start_month: 4
-  standard_volume_growth: 0.008
-  premium_volume_growth: 0.015
-  standard_price_growth: 0.002
-  premium_price_growth: 0.003
+  standard_volume_growth: {value: 0.008, format: "0.0%"}
+  premium_volume_growth: {value: 0.015, format: "0.0%"}
+  standard_price_growth: {value: 0.002, format: "0.0%"}
+  premium_price_growth: {value: 0.003, format: "0.0%"}
 
 budget:
   month: {start: 2026-04, count: 12, unit: month}
@@ -37,18 +37,30 @@ months:
   fiscal_quarter: "=INT(MOD(MONTH(month) - inputs.fy_start_month, 12) / 3) + 1"
 
   # The actual where there is one; otherwise the month before, grown
-  standard_units: "=IF(is_actual, actual_standard_units, PREV(standard_units, 0) * (1 + inputs.standard_volume_growth))"
-  standard_price: "=IF(is_actual, actual_standard_price, PREV(standard_price, 0) * (1 + inputs.standard_price_growth))"
-  premium_units: "=IF(is_actual, actual_premium_units, PREV(premium_units, 0) * (1 + inputs.premium_volume_growth))"
-  premium_price: "=IF(is_actual, actual_premium_price, PREV(premium_price, 0) * (1 + inputs.premium_price_growth))"
+  standard_units:
+    formula: "=IF(is_actual, actual_standard_units, PREV(standard_units, 0) * (1 + inputs.standard_volume_growth))"
+    format: "#,##0"
+  standard_price:
+    formula: "=IF(is_actual, actual_standard_price, PREV(standard_price, 0) * (1 + inputs.standard_price_growth))"
+    format: "#,##0.00"
+  premium_units:
+    formula: "=IF(is_actual, actual_premium_units, PREV(premium_units, 0) * (1 + inputs.premium_volume_growth))"
+    format: "#,##0"
+  premium_price:
+    formula: "=IF(is_actual, actual_premium_price, PREV(premium_price, 0) * (1 + inputs.premium_price_growth))"
+    format: "#,##0.00"
   revenue:
     formula: "=standard_units * standard_price + premium_units * premium_price"
     format: "#,##0"
 
   # The budget of the same month (0 after the budget's year)
-  budget_revenue: "=XLOOKUP(month, budget.month, budget.standard_units, 0) * XLOOKUP(month, budget.month, budget.standard_price, 0) + XLOOKUP(month, budget.month, budget.premium_units, 0) * XLOOKUP(month, budget.month, budget.premium_price, 0)"
+  budget_revenue:
+    formula: "=XLOOKUP(month, budget.month, budget.standard_units, 0) * XLOOKUP(month, budget.month, budget.standard_price, 0) + XLOOKUP(month, budget.month, budget.premium_units, 0) * XLOOKUP(month, budget.month, budget.premium_price, 0)"
+    format: "#,##0"
   # Revenue so far in the fiscal year: starts again in April
-  fiscal_ytd: "=IF(fiscal_year = PREV(fiscal_year, 0), PREV(fiscal_ytd, 0), 0) + revenue"
+  fiscal_ytd:
+    formula: "=IF(fiscal_year = PREV(fiscal_year, 0), PREV(fiscal_ytd, 0), 0) + revenue"
+    format: "#,##0"
 
 # format: says how a number is shown, never what it is (ADR-061); a shortfall
 # is in parentheses, as finance writes it.
@@ -65,13 +77,18 @@ fy2027:
     format: "#,##0;(#,##0)"
   actual_so_far:
     formula: "=SUMIFS(months.revenue, months.is_actual, TRUE)"
+    format: "#,##0"
 
 # The fiscal year 2027 by quarter, rolled up from the months (ADR-058): in
 # each row, months.revenue is the whole column and quarter the row's own
 quarters:
   quarter: [1, 2, 3, 4]
-  revenue: "=SUMIFS(months.revenue, months.fiscal_year, 2027, months.fiscal_quarter, quarter)"
-  budget: "=SUMIFS(months.budget_revenue, months.fiscal_year, 2027, months.fiscal_quarter, quarter)"
+  revenue:
+    formula: "=SUMIFS(months.revenue, months.fiscal_year, 2027, months.fiscal_quarter, quarter)"
+    format: "#,##0"
+  budget:
+    formula: "=SUMIFS(months.budget_revenue, months.fiscal_year, 2027, months.fiscal_quarter, quarter)"
+    format: "#,##0"
   variance:
     formula: "=revenue - budget"
     format: "#,##0;(#,##0)"
@@ -83,6 +100,7 @@ quarters:
 next_12_months:
   revenue:
     formula: "=SUMIFS(months.revenue, months.month, \">\" & inputs.last_actual, months.month, \"<=\" & EOMONTH(inputs.last_actual, 12))"
+    format: "#,##0"
 
 # Why the fiscal year 2027 differs from budget: volume, mix and price.
 # Volume: all units, sold in the budget's mix at the budget's prices.

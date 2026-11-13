@@ -59,6 +59,7 @@ All of these run in CI, in the `forge-wasm` job, which keeps the built site as t
 | `no-engine.mjs` | No file of the page loads a YAML library or implements what Forge calculates |
 | `screen.mjs` | Every scalar on screen equals `forge calculate` run natively for that model, and the same with a scenario applied (`expected.json` comes from `cargo run -p forge-wasm --release --example expected`) |
 | `grid.mjs` | Every cell of every table and every scalar in the Grid tab is what Forge returns, with its formula; a tap leads to the card |
+| `formats.mjs` | A `format:` on screen: the bagel's price, margin, season and dozens, and the rolling forecast's date, percentages and counts, are the text Forge gives on the cards and in the grid, with the values underneath unchanged |
 | `text.mjs`, `formulas.mjs` | Changing an input or a formula changes its one line and nothing else, byte for byte, for each way YAML writes it; an invalid formula is refused with Forge's message and the file stays as it was |
 | `elements.mjs` | An input, a formula and a column added to every group and table of every example, then deleted: only the new lines, and the file back byte for byte; refusals leave it as it was |
 | `suggest.mjs`, `yamlformula.mjs`, `keys.mjs` | The first letters of every name, function and key in every example are offered at their place (on a card, in the Add form and in the YAML editor), only Forge's functions and the schema's keys are offered, and nothing inside a text, a number, a comment or after a colon |

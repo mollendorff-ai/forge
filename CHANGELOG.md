@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Studio's `formats.mjs` test** checks that the bagel's and the forecast's formatted numbers on the cards and in the grid are the text Forge gives, with the values unchanged. It runs in CI.
+
 ### Changed
 - **`examples/rolling-forecast` uses `format:`** (ADR-061): revenue with thousands separators, variances and the volume, mix and price split with a shortfall in parentheses, `share_of_year` as `0.0%`. No number changes: `forge calculate` gives the same output as before, byte for byte, and `tests/demo_examples.rs` passes. A period column does not take a `format:` yet (`months.month.format` is refused), so the months keep their ISO dates.
+- **`examples/rolling-forecast` has `format:` on more of its numbers**: units (`#,##0`), prices (`#,##0.00`), growth rates (`0.0%`), the budget by month, the year to date, the actuals so far and the last actual (`d mmm yyyy`). Its numbers are the same.
+
+### Fixed
+- **`forge sensitivity` with one date input did not refuse it.** It printed an error on every row, then "Sensitivity analysis complete", and exited 0. It stops with the message the two-input form and the other analysis commands give, and a failing exit code (ADR-060).
+- **The MCP tools `forge_compare` and `forge_scenarios` gave a date as its day number** (`46326`), where `forge_calculate` and `forge compare --format json` give `"2026-10-31"`. They give the text now (ADR-060).
+- **Help and schema text said 5.4.0 was only for a date as a scalar.** `forge schema`, `forge upgrade --help`, the refusal when `forge upgrade` would go back to an earlier format, and the MCP `forge_schema` description name `format:` (ADR-061) and the empty cell (5.3.0) too.
 
 ## [10.0.0-rc.21] - 2026-11-13
 
