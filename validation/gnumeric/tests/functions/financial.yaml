@@ -365,6 +365,37 @@ assumptions:
     formula: "=ROUND(YEARFRAC(37315, 43298, 0), 8)"
     expected: 16.38055556
 
+  # From the last day of February to a 31st, basis 0: the 31st stays the 31st
+  # (301/360, not NASD's 300/360). Gnumeric 1.12 and LibreOffice 26.2 give it,
+  # and so does the algorithm Microsoft confirmed matches Excel 2007's YEARFRAC
+  # (D. A. Wheeler, OASIS office-formula list, June 2008); Microsoft's YEARFRAC
+  # page warns that basis 0 "may return an incorrect result" for this start.
+  test_yearfrac_basis0_february_end_to_31st:
+    value: null
+    formula: "=ROUND(YEARFRAC(46081, 46387, 0), 8)"
+    expected: 0.83611111
+
+  test_yearfrac_basis0_31st_back_to_february_end:
+    value: null
+    formula: "=ROUND(YEARFRAC(46387, 46081, 0), 8)"
+    expected: 0.83611111
+
+  test_yearfrac_basis0_february_29_to_31st:
+    value: null
+    formula: "=ROUND(YEARFRAC(45351, 45382, 0), 8)"
+    expected: 0.08611111
+
+  test_yearfrac_basis0_february_end_to_a_31st_next_year:
+    value: null
+    formula: "=ROUND(YEARFRAC(45716, 46387, 0), 8)"
+    expected: 1.83611111
+
+  # The day before is not the end of February: as NASD counts, 304/360
+  test_yearfrac_basis0_february_27_to_31st:
+    value: null
+    formula: "=ROUND(YEARFRAC(46080, 46387, 0), 8)"
+    expected: 0.84444444
+
 
   # Payments at the start of each period (type = 1). Expected values from
   # numpy-financial 1.1.0; Forge ignored this argument for FV, PV, NPER, IPMT and PPMT until November 2026.

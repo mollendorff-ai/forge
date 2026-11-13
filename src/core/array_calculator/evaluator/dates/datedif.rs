@@ -137,7 +137,7 @@ pub fn try_evaluate(
                 0.0
             };
             let basis = day_count::Basis::from_number(basis, "YEARFRAC")?;
-            Value::Number(day_count::year_fraction(start, end, basis))
+            Value::Number(day_count::yearfrac(start, end, basis))
         },
 
         "TIME" => {
