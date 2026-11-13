@@ -24,7 +24,7 @@ The AI orchestration market is saturating (5,879 GitHub repos), while FP&A has n
 
 ## Decision Drivers
 
-### Market Analysis (See [MARKET_ANALYSIS.md](../MARKET_ANALYSIS.md))
+### Market Analysis (December 2025; the full analysis was removed as out of date)
 
 | Factor | AI Orchestration | Forge (FP&A) |
 |--------|-----------------|--------------|
@@ -302,7 +302,6 @@ A time-limited full demo answers: "Is this AI-native FP&A?" (Only Forge)
 
 ## References
 
-- [MARKET_ANALYSIS.md](../MARKET_ANALYSIS.md) - Full competitive analysis
 - [BSL License](https://mariadb.com/bsl11/) - Business Source License 1.1
 - [HashiCorp BSL Announcement](https://www.hashicorp.com/blog/hashicorp-adopts-business-source-license)
 - [Sentry BSL Case Study](https://blog.sentry.io/relicensing-sentry/)
