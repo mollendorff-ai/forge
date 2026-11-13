@@ -114,7 +114,7 @@ Comments, quotes, blank lines, key order and inputs stay as you typed them, and 
 
 How Forge reads a group under a top-level key: it is a **table** if any entry is a list or a period column (`{start, count, unit}`, below); otherwise a **group of scalars** if any entry is a number or has `value:` or `formula:`. In a group of scalars, a formula needs the `formula:` form, because a bare string has no place to hold its result.
 
-**`_forge_version` is the version of the model format, not of Forge.** Forge 10 reads four formats: `1.0.0` (scalars only), `5.0.0` (tables, with every scalar written as `{value: ..., formula: ...}`, nulls included), `5.1.0` (5.0.0 plus the short form above) and `5.2.0` (5.1.0 plus the period column, needed only by a file that has one; `forge upgrade --to 5.2.0`). The format changes only when files change. `forge upgrade model.yaml` converts a 5.0.0 model to 5.1.0 in place, keeping its comments, and checks that the result reads as the same model before writing it. `forge schema v5.1` prints the JSON schema.
+**`_forge_version` is the version of the model format, not of Forge.** Forge 10 reads five formats: `1.0.0` (scalars only), `5.0.0` (tables, with every scalar written as `{value: ..., formula: ...}`, nulls included), `5.1.0` (5.0.0 plus the short form above), `5.2.0` (5.1.0 plus the period column, needed only by a file that has one; `forge upgrade --to 5.2.0`) and `5.3.0` (5.2.0 plus the empty cell, below; `forge upgrade --to 5.3.0`). The format changes only when files change. `forge upgrade model.yaml` converts a 5.0.0 model to 5.1.0 in place, keeping its comments, and checks that the result reads as the same model before writing it. `forge schema v5.1` prints the JSON schema.
 
 ---
 
@@ -170,6 +170,14 @@ month        opening   interest   paid        closing
 - **`ROW()`** is the number of the row, from 1: `=1 / (1 + wacc) ^ ROW()` is the discount factor of each year.
 - A column calculated row by row is known only up to the row being calculated, so reading a later row of it (`INDEX(closing, 5)` in a row formula of its own table) is an error; that belongs in a scalar.
 
+**Empty cells** (format 5.3.0, ADR-059). `null` in a column of numbers is an empty cell, as a month that has no actual yet: `actual: [985, 1032, null, null]`. It does what Excel does with one, as measured in Gnumeric and LibreOffice:
+
+- Aggregates skip it, and count a real 0: `SUM`, `COUNT`, `AVERAGE`, `MIN`, `MEDIAN`, `STDEV` and the `IF` functions of 10, empty, 30, empty, 0 are 40, 3, 13.33, 0, 10, 15.28. `COUNTBLANK` counts the empty cells; `COUNTIF(x, "")` counts them too, and `COUNTIF(x, 0)` does not.
+- A formula reads it as 0 in arithmetic, `""` in text and FALSE in a condition, and `= 0` and `= ""` are both TRUE. `ISBLANK` is TRUE and `ISNUMBER` FALSE, so `is_actual: "=ISNUMBER(actual)"` marks the months that have one.
+- A formula never gives an empty cell: `=actual` is 0 where `actual` is empty, as in Excel. Only data has empty cells.
+- `NPV`, `IRR` and `MIRR` skip it, so the cash flows after it are discounted a period earlier, as in Excel; `forge audit` warns when one reads a column with an empty cell. `XNPV` and `XIRR` leave out the cash flow with its date.
+- `forge calculate` keeps the nulls, JSON shows `null`, `forge export` writes an empty cell, and `forge import` reads one back as `null` (beside formulas that run further down, the last cells of a column of numbers are empty cells too). A column of text, dates or booleans cannot have an empty cell.
+
 `examples/mortgage` (a 300-month schedule with extra payments), `examples/periods/monthly_plan.yaml` (growth, seasons and running cash) and `examples/periods/dcf.yaml` (a five-year valuation) use them; their numbers are checked against Python in `tests/demo_examples.rs`.
 
 ### Values from Other Files (`_includes`)
@@ -208,7 +216,7 @@ summary:
 - `forge import` turns such sheets back into the included file (`rates.yaml`, beside the imported model, with its scalars and its tables) and their references into `@rates.fx.eur_usd` and `@rates.prices.eur`, with an `_includes` entry. If a file of that name is already there and calculates to the sheets' values (usually the original), it is kept as it is; if it holds other values, the import stops before writing anything.
 - With the MCP server and inline `content`, pass the included files in the `includes` map (see [MCP.md](MCP.md)).
 
-### 202 Excel-Compatible Functions
+### 203 Excel-Compatible Functions
 
 ```mermaid
 graph LR
@@ -1284,6 +1292,7 @@ forge import spreadsheet.xlsx output.yaml
 | Text | `["Q1", "Q2", "Q3"]` | UTF-8 strings |
 | Dates | `["2025-01-31", "2025-02-28"]` | YYYY-MM-DD, or YYYY-MM as a label (date functions need a day) |
 | Periods | `{start: 2026-12, count: 300, unit: month}` | The dates the periods start on (format 5.2.0) |
+| Empty cells | `[985, 1032, null]` | In a column of numbers (format 5.3.0): skipped by aggregates, 0 to a formula |
 | Booleans | `[true, false, true]` | Logical values |
 
 **Type Safety:**

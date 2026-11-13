@@ -143,15 +143,15 @@ pub fn try_evaluate(
         "TIME" => {
             require_args(name, args, 3)?;
             let hour = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("TIME: hour must be a number"))?
                 as i32;
             let minute = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("TIME: minute must be a number"))?
                 as i32;
             let second = evaluate(&args[2], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("TIME: second must be a number"))?
                 as i32;
 

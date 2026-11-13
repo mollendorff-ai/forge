@@ -18,7 +18,8 @@ pub fn try_evaluate(
     let result = match name {
         "SUM" => {
             let values = collect_numeric_values(args, ctx)?;
-            Value::Number(values.iter().sum())
+            // + 0.0: the sum of nothing is 0, not -0
+            Value::Number(values.iter().sum::<f64>() + 0.0)
         },
 
         "AVERAGE" => {
@@ -34,8 +35,8 @@ pub fn try_evaluate(
             values
                 .into_iter()
                 .min_by(f64::total_cmp)
-                .map(Value::Number)
-                .ok_or_else(|| EvalError::new("MIN of empty set"))?
+                // No numbers (only empty cells or text): 0, as in Excel
+                .map_or(Value::Number(0.0), Value::Number)
         },
 
         "MAX" => {
@@ -43,8 +44,8 @@ pub fn try_evaluate(
             values
                 .into_iter()
                 .max_by(f64::total_cmp)
-                .map(Value::Number)
-                .ok_or_else(|| EvalError::new("MAX of empty set"))?
+                // No numbers (only empty cells or text): 0, as in Excel
+                .map_or(Value::Number(0.0), Value::Number)
         },
 
         "COUNT" => {
@@ -82,6 +83,21 @@ pub fn try_evaluate(
             } else {
                 Value::Number(values.iter().product())
             }
+        },
+
+        // Empty cells and empty text, as in Excel (ADR-059)
+        "COUNTBLANK" => {
+            super::require_args(name, args, 1)?;
+            let blank = |v: &Value| match v {
+                Value::Null => true,
+                Value::Text(t) => t.is_empty(),
+                _ => false,
+            };
+            let count = match evaluate(&args[0], ctx)? {
+                Value::Array(arr) => arr.iter().filter(|v| blank(v)).count(),
+                single => usize::from(blank(&single)),
+            };
+            Value::Number(count as f64)
         },
 
         "COUNTA" => {
@@ -1009,20 +1025,9 @@ mod integration_tests {
                 Some("=COUNTBLANK(data.values)".to_string()),
             ),
         );
-        let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all();
-
-        // COUNTBLANK is not implemented
-        // Verify it returns an error for unknown function
-        assert!(
-            result.is_err(),
-            "COUNTBLANK should return error (not implemented)"
-        );
-        let err = result.unwrap_err();
-        assert!(
-            err.to_string().contains("COUNTBLANK") || err.to_string().contains("Unknown function"),
-            "Error should mention COUNTBLANK or Unknown function, got: {err}"
-        );
+        // Empty text counts as empty, as in Excel (ADR-059)
+        let result = ArrayCalculator::new(model).calculate_all().unwrap();
+        assert_eq!(result.scalars["count"].value, Some(2.0));
     }
 
     #[test]

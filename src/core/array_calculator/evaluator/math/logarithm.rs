@@ -8,7 +8,7 @@ use super::super::{
 pub fn eval_exp(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("EXP", args, 1)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("EXP requires a number"))?;
     Ok(Value::Number(val.exp()))
 }
@@ -17,7 +17,7 @@ pub fn eval_exp(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 pub fn eval_ln(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("LN", args, 1)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("LN requires a number"))?;
     if val <= 0.0 {
         return Err(EvalError::new("LN of non-positive number"));
@@ -29,7 +29,7 @@ pub fn eval_ln(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 pub fn eval_log10(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("LOG10", args, 1)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("LOG10 requires a number"))?;
     if val <= 0.0 {
         return Err(EvalError::new("LOG10 of non-positive number"));
@@ -41,7 +41,7 @@ pub fn eval_log10(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 pub fn eval_log(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("LOG", args, 1, 2)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("LOG requires a number"))?;
     if val <= 0.0 {
         return Err(EvalError::new("LOG of non-positive number"));
@@ -50,7 +50,7 @@ pub fn eval_log(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
         return Ok(Value::Number(val.log10()));
     }
     let base = evaluate(&args[1], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("LOG base must be a number"))?;
     if base <= 0.0 {
         return Err(EvalError::new("LOG base must be positive"));

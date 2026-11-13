@@ -57,10 +57,10 @@ pub fn eval_offset(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     };
     let base = evaluate(&args[0], &array_ctx)?;
     let rows = evaluate(&args[1], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("OFFSET: rows must be a number"))? as i64;
     let cols = evaluate(&args[2], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("OFFSET: cols must be a number"))? as i64;
 
     // OFFSET returns a reference offset by rows and cols
@@ -89,10 +89,10 @@ pub fn eval_offset(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
 pub fn eval_address(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("ADDRESS", args, 2, 5)?;
     let row_num = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("ADDRESS: row must be a number"))? as i64;
     let col_num = evaluate(&args[1], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("ADDRESS: column must be a number"))?
         as i64;
     let abs_num = if args.len() > 2 {

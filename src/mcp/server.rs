@@ -471,7 +471,7 @@ impl ForgeMcpServer {
 
     #[tool(
         name = "forge_functions",
-        description = "List all 202 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.)."
+        description = "List all 203 supported Excel-compatible functions with descriptions and syntax. Organized by category (Financial, Statistical, Math, Lookup, etc.)."
     )]
     fn functions(&self, Parameters(_req): Parameters<FunctionsRequest>) -> Result<String, String> {
         functions_core()

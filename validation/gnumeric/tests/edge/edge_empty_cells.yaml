@@ -1,0 +1,218 @@
+# An empty cell in a column of numbers (Forge ADR-059, model format 5.3.0).
+#
+# forge export writes an empty cell; Gnumeric recalculates the formulas that
+# read it. The expected values are what Gnumeric 1.12 and LibreOffice 26.2
+# give for the same workbook (measured 2026-11-12 and 2026-11-13; the two
+# agree on every case but XNPV), which is the ADR's table:
+#   x = 10, empty, 30, empty, 0
+#   an empty cell is 0 in arithmetic, equal to 0 and to "" (so <> 0 is FALSE),
+#   not a number, FALSE in a condition, "" in text (so "[" & x & "]" has 2
+#   characters); a formula that reads it gives 0
+#   aggregates skip it: SUM 40, COUNT 3, AVERAGE 40/3, MEDIAN 10, STDEV of
+#   10, 30, 0; MIN 0 is the real 0; COUNTIF(x, "") counts it, COUNTIF(x, 0)
+#   does not; NPV skips it (10/1.1 + 30/1.1^2 + 0)
+#   a column of only empty cells: SUM, COUNT, MAX and MIN are 0
+#   f.v = -100, empty, 60, 60: IRR, MIRR and XIRR leave the empty cell out
+#   (with its date for XIRR), as both engines do. XNPV: LibreOffice leaves the
+#   pair out too (4.13...), Gnumeric gives #VALUE!, so it is LibreOffice's.
+
+_forge_version: "5.3.0"
+
+t:
+  x: [10, null, 30, null, 0]
+  b: [null, null, null, null, null]
+  plus1: "=x + 1"
+  times5: "=x * 5"
+  eq0: "=x = 0"
+  eqempty: "=x = \"\""
+  ne0: "=x <> 0"
+  isblank: "=ISBLANK(x)"
+  isnumber: "=ISNUMBER(x)"
+  if_empty: "=IF(x, 1, 2)"
+  joined_len: "=LEN(\"[\" & x & \"]\")"
+  shown: "=x"
+  negated: "=-x"
+  rounded: "=ROUND(x, 0)"
+
+f:
+  v: [-100, null, 60, 60]
+  d: [2026-01-01, 2026-07-01, 2027-01-01, 2028-01-01]
+
+assumptions:
+  test_ref_plus:
+    value: null
+    formula: "=INDEX(t.plus1, 2)"
+    expected: 1
+  test_ref_times:
+    value: null
+    formula: "=INDEX(t.times5, 2)"
+    expected: 0
+  test_ref_eq0:
+    value: null
+    formula: "=IF(INDEX(t.eq0, 2), 1, 0)"
+    expected: 1
+  test_ref_eqempty:
+    value: null
+    formula: "=IF(INDEX(t.eqempty, 2), 1, 0)"
+    expected: 1
+  test_ref_ne0:
+    value: null
+    formula: "=IF(INDEX(t.ne0, 2), 1, 0)"
+    expected: 0
+  test_isblank:
+    value: null
+    formula: "=IF(INDEX(t.isblank, 2), 1, 0)"
+    expected: 1
+  test_isnumber:
+    value: null
+    formula: "=IF(INDEX(t.isnumber, 2), 1, 0)"
+    expected: 0
+  test_if_empty:
+    value: null
+    formula: "=INDEX(t.if_empty, 2)"
+    expected: 2
+  test_joined_len:
+    value: null
+    formula: "=INDEX(t.joined_len, 2)"
+    expected: 2
+  test_shown:
+    value: null
+    formula: "=INDEX(t.shown, 2)"
+    expected: 0
+  test_negated:
+    value: null
+    formula: "=INDEX(t.negated, 2)"
+    expected: 0
+  test_rounded:
+    value: null
+    formula: "=INDEX(t.rounded, 2)"
+    expected: 0
+  test_sum:
+    value: null
+    formula: "=SUM(t.x)"
+    expected: 40
+  test_count:
+    value: null
+    formula: "=COUNT(t.x)"
+    expected: 3
+  test_counta:
+    value: null
+    formula: "=COUNTA(t.x)"
+    expected: 3
+  test_countblank:
+    value: null
+    formula: "=COUNTBLANK(t.x)"
+    expected: 2
+  test_average:
+    value: null
+    formula: "=AVERAGE(t.x)"
+    expected: 13.333333333333334
+  test_median:
+    value: null
+    formula: "=MEDIAN(t.x)"
+    expected: 10
+  test_stdev:
+    value: null
+    formula: "=STDEV(t.x)"
+    expected: 15.275252316519467
+  test_percentile:
+    value: null
+    formula: "=PERCENTILE(t.x, 0.5)"
+    expected: 10
+  test_min:
+    value: null
+    formula: "=MIN(t.x)"
+    expected: 0
+  test_max:
+    value: null
+    formula: "=MAX(t.x)"
+    expected: 30
+  test_product:
+    value: null
+    formula: "=PRODUCT(t.x)"
+    expected: 0
+  test_large3:
+    value: null
+    formula: "=LARGE(t.x, 3)"
+    expected: 0
+  test_small1:
+    value: null
+    formula: "=SMALL(t.x, 1)"
+    expected: 0
+  test_rank30:
+    value: null
+    formula: "=RANK(30, t.x)"
+    expected: 1
+  test_sumproduct:
+    value: null
+    formula: "=SUMPRODUCT(t.x, t.x)"
+    expected: 1000
+  test_countif_empty:
+    value: null
+    formula: "=COUNTIF(t.x, \"\")"
+    expected: 2
+  test_countif_eq:
+    value: null
+    formula: "=COUNTIF(t.x, \"=\")"
+    expected: 2
+  test_countif_ne:
+    value: null
+    formula: "=COUNTIF(t.x, \"<>\")"
+    expected: 3
+  test_countif_0:
+    value: null
+    formula: "=COUNTIF(t.x, 0)"
+    expected: 1
+  test_sumif:
+    value: null
+    formula: "=SUMIF(t.x, \">=0\")"
+    expected: 40
+  test_averageif:
+    value: null
+    formula: "=AVERAGEIF(t.x, \">=0\")"
+    expected: 13.333333333333334
+  test_countifs_empty:
+    value: null
+    formula: "=COUNTIFS(t.x, \"\")"
+    expected: 2
+  test_npv:
+    value: null
+    formula: "=NPV(0.1, t.x)"
+    expected: 33.88429752066115
+  test_index2:
+    value: null
+    formula: "=INDEX(t.x, 2)"
+    expected: 0
+  test_all_sum:
+    value: null
+    formula: "=SUM(t.b)"
+    expected: 0
+  test_all_count:
+    value: null
+    formula: "=COUNT(t.b)"
+    expected: 0
+  test_all_max:
+    value: null
+    formula: "=MAX(t.b)"
+    expected: 0
+  test_all_min:
+    value: null
+    formula: "=MIN(t.b)"
+    expected: 0
+  test_irr:
+    value: null
+    formula: "=IRR(f.v)"
+    expected: 0.13066238629180738
+  test_mirr:
+    value: null
+    formula: "=MIRR(f.v, 0.1, 0.12)"
+    expected: 0.12782977438973475
+  test_xirr:
+    value: null
+    formula: "=XIRR(f.v, f.d)"
+    expected: 0.13066238629180738
+  test_xnpv:
+    value: null
+    formula: "=XNPV(0.1, f.v, f.d)"
+    expected: 4.132231404958674
+    libreoffice: "Gnumeric 1.12 gives #VALUE! for XNPV with an empty cash flow; LibreOffice leaves the pair out, as both engines do for XIRR"

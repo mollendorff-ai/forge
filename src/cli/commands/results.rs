@@ -56,15 +56,18 @@ pub struct AuditResult {
     pub current_value: Option<f64>,
     pub calculated_value: Option<f64>,
     pub formula: Option<String>,
-    /// For a table column: its calculated values, in row order
+    /// For a table column: its calculated values, in row order (`None` is an empty cell)
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub calculated_values: Option<Vec<f64>>,
+    pub calculated_values: Option<Vec<Option<f64>>>,
     pub dependencies: Vec<AuditDep>,
     /// The value in the file matches the calculated one, and the model calculates
     pub is_valid: bool,
     /// Why the model does not calculate, if it does not (values are then the file's)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calculation_error: Option<String>,
+    /// What to check: NPV or IRR reading a column with empty cells (ADR-059)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 /// One name a formula reads, with what it reads in turn
@@ -77,9 +80,9 @@ pub struct AuditDep {
     /// A scalar's calculated value
     pub value: Option<f64>,
     pub children: Vec<Self>,
-    /// A column's calculated values, in row order
+    /// A column's calculated values, in row order (`None` is an empty cell, ADR-059)
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub values: Option<Vec<f64>>,
+    pub values: Option<Vec<Option<f64>>>,
     /// The included file it comes from
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,

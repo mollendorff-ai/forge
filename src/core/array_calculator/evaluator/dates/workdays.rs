@@ -19,7 +19,7 @@ pub fn try_evaluate(
             require_args_range(name, args, 2, 3)?;
             let start = evaluate(&args[0], ctx)?;
             let days = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("WORKDAY: days must be a number"))?
                 as i32;
 

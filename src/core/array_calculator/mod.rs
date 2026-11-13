@@ -913,8 +913,9 @@ impl ArrayCalculator {
             _ => {
                 // Default to numeric
                 let mut results: Vec<f64> = Vec::with_capacity(row_count);
+                // A formula never gives an empty cell: it gives 0 (ADR-059)
                 let first_num = first_result
-                    .as_number()
+                    .as_cell_number()
                     .ok_or_else(|| ForgeError::Eval("row 1: result is not a number".to_string()))?;
                 results.push(first_num);
                 for row_idx in 1..row_count {
@@ -922,7 +923,7 @@ impl ArrayCalculator {
                     let result = evaluator::evaluate(ast, row_ctx).map_err(|e| {
                         ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
                     })?;
-                    let value = result.as_number().ok_or_else(|| {
+                    let value = result.as_cell_number().ok_or_else(|| {
                         ForgeError::Eval(format!("row {}: result is not a number", row_idx + 1))
                     })?;
                     results.push(value);
@@ -955,8 +956,9 @@ impl ArrayCalculator {
                 )));
             }
         }
+        // A formula never gives an empty cell: it gives 0 (ADR-059)
         result
-            .as_number()
+            .as_cell_number()
             .ok_or_else(|| ForgeError::Eval("result is not a number".to_string()))
     }
 
@@ -994,6 +996,11 @@ impl ArrayCalculator {
 fn column_values(values: &ColumnValue) -> Vec<evaluator::Value> {
     match values {
         ColumnValue::Number(nums) => nums.iter().map(|n| evaluator::Value::Number(*n)).collect(),
+        // An empty cell is Null to the evaluator (ADR-059)
+        ColumnValue::Blanks(nums) => nums
+            .iter()
+            .map(|n| n.map_or(evaluator::Value::Null, evaluator::Value::Number))
+            .collect(),
         ColumnValue::Text(texts) => texts
             .iter()
             .map(|s| evaluator::Value::Text(s.clone()))

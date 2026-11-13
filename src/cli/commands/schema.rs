@@ -8,6 +8,7 @@ const SCHEMA_V1: &str = include_str!("../../../schema/forge-v1.0.0.schema.json")
 const SCHEMA_V5: &str = include_str!("../../../schema/forge-v5.0.0.schema.json");
 const SCHEMA_V5_1: &str = include_str!("../../../schema/forge-v5.1.0.schema.json");
 const SCHEMA_V5_2: &str = include_str!("../../../schema/forge-v5.2.0.schema.json");
+const SCHEMA_V5_3: &str = include_str!("../../../schema/forge-v5.3.0.schema.json");
 
 /// Return a JSON schema as a string (no printing).
 ///
@@ -20,8 +21,9 @@ pub fn schema_core(version: Option<&str>) -> ForgeResult<String> {
         Some("v5" | "v5.0.0" | "5" | "5.0.0") => Ok(SCHEMA_V5.to_string()),
         Some("v5.1" | "v5.1.0" | "5.1" | "5.1.0") => Ok(SCHEMA_V5_1.to_string()),
         Some("v5.2" | "v5.2.0" | "5.2" | "5.2.0") => Ok(SCHEMA_V5_2.to_string()),
+        Some("v5.3" | "v5.3.0" | "5.3" | "5.3.0") => Ok(SCHEMA_V5_3.to_string()),
         Some(v) => Err(ForgeError::Validation(format!(
-            "Unknown model format '{v}'. Use 'v1', 'v5', 'v5.1' or 'v5.2'."
+            "Unknown model format '{v}'. Use 'v1', 'v5', 'v5.1', 'v5.2' or 'v5.3'."
         ))),
         None => {
             // Return list of available versions as JSON
@@ -30,7 +32,8 @@ pub fn schema_core(version: Option<&str>) -> ForgeResult<String> {
                     {"version": "v1.0.0", "description": "Scalar-only models (simple key-value pairs)"},
                     {"version": "v5.0.0", "description": "Full feature set (arrays, tables, Monte Carlo, etc.)"},
                     {"version": "v5.1.0", "description": "5.0.0 plus the short form (`price: 16`, `{formula: ...}` without nulls); use this for new models"},
-                    {"version": "v5.2.0", "description": "5.1.0 plus the period column (`month: {start: 2026-12, count: 300, unit: month}`); needed only for a table with one"}
+                    {"version": "v5.2.0", "description": "5.1.0 plus the period column (`month: {start: 2026-12, count: 300, unit: month}`); needed only for a table with one"},
+                    {"version": "v5.3.0", "description": "5.2.0 plus the empty cell (`actual: [985, 1032, null]`, ADR-059); needed only for a column with one"}
                 ],
                 "note": "These are model format versions (_forge_version), not Forge tool versions"
             })
@@ -55,9 +58,10 @@ pub fn schema(version: Option<&str>, list: bool) -> ForgeResult<()> {
         Some("v5" | "v5.0.0" | "5" | "5.0.0") => SCHEMA_V5,
         Some("v5.1" | "v5.1.0" | "5.1" | "5.1.0") => SCHEMA_V5_1,
         Some("v5.2" | "v5.2.0" | "5.2" | "5.2.0") => SCHEMA_V5_2,
+        Some("v5.3" | "v5.3.0" | "5.3" | "5.3.0") => SCHEMA_V5_3,
         Some(v) => {
             eprintln!(
-                "{}: Unknown model format '{}'. Use 'v1', 'v5', 'v5.1' or 'v5.2'.",
+                "{}: Unknown model format '{}'. Use 'v1', 'v5', 'v5.1', 'v5.2' or 'v5.3'.",
                 "Error".red().bold(),
                 v
             );
@@ -114,11 +118,19 @@ fn print_schema_list() {
     println!("         - Needed only for a table with a period column");
     println!();
     println!(
-        "Usage: {}, {}, {} or {}",
+        "  {}  5.2.0 plus the empty cell (ADR-059)",
+        "v5.3.0".cyan().bold()
+    );
+    println!("         - actual: [985, 1032, null]: aggregates skip it, formulas read 0");
+    println!("         - Needed only for a column with an empty cell");
+    println!();
+    println!(
+        "Usage: {}, {}, {}, {} or {}",
         "forge schema v1".yellow(),
         "forge schema v5".yellow(),
         "forge schema v5.1".yellow(),
-        "forge schema v5.2".yellow()
+        "forge schema v5.2".yellow(),
+        "forge schema v5.3".yellow()
     );
     println!();
     println!(

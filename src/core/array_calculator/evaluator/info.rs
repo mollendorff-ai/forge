@@ -57,7 +57,7 @@ pub fn try_evaluate(
         "ISEVEN" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("ISEVEN requires a number"))?;
             let int_val = val.trunc() as i64;
             Value::Boolean(int_val % 2 == 0)
@@ -66,7 +66,7 @@ pub fn try_evaluate(
         "ISODD" => {
             require_args(name, args, 1)?;
             let val = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("ISODD requires a number"))?;
             let int_val = val.trunc() as i64;
             Value::Boolean(int_val % 2 != 0)

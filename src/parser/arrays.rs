@@ -18,47 +18,21 @@ pub fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnVal
         )));
     }
 
-    // Detect the type from the first element
-    let array_type = detect_array_type(&seq[0])?;
+    // The type comes from the first value that is not empty (null, ADR-059);
+    // a column of only empty cells is a column of numbers
+    let array_type = seq
+        .iter()
+        .find(|v| !v.is_null())
+        .map_or(Ok("Number"), detect_array_type)?;
 
     match array_type {
-        "Number" => {
-            let mut numbers = Vec::new();
-            for (i, val) in seq.iter().enumerate() {
-                match val {
-                    Value::Number(n) => {
-                        if let Some(f) = n.as_f64() {
-                            numbers.push(f);
-                        } else {
-                            return Err(ForgeError::Parse(format!(
-                                "Column '{col_name}' row {i}: Invalid number format"
-                            )));
-                        }
-                    },
-                    Value::Null => {
-                        // Provide clear error for null values in numeric arrays
-                        return Err(ForgeError::Parse(format!(
-                            "Column '{col_name}' row {i}: null values not allowed in numeric arrays. \
-                            Use 0 or remove the row if the value is missing."
-                        )));
-                    },
-                    _ => {
-                        return Err(ForgeError::Parse(format!(
-                            "Column '{}' row {}: Expected Number, found {}",
-                            col_name,
-                            i,
-                            type_name(val)
-                        )));
-                    },
-                }
-            }
-            Ok(ColumnValue::Number(numbers))
-        },
+        "Number" => parse_numbers(col_name, seq),
         "Text" => {
             let mut texts = Vec::new();
             for (i, val) in seq.iter().enumerate() {
                 match val {
                     Value::String(s) => texts.push(s.clone()),
+                    Value::Null => return Err(empty_outside_numbers(col_name, i, "text")),
                     _ => {
                         return Err(ForgeError::Parse(format!(
                             "Column '{}' row {}: Expected Text, found {}",
@@ -84,6 +58,7 @@ pub fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnVal
                         }
                         dates.push(s.clone());
                     },
+                    Value::Null => return Err(empty_outside_numbers(col_name, i, "dates")),
                     _ => {
                         return Err(ForgeError::Parse(format!(
                             "Column '{}' row {}: Expected Date, found {}",
@@ -101,6 +76,7 @@ pub fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnVal
             for (i, val) in seq.iter().enumerate() {
                 match val {
                     Value::Bool(b) => bools.push(*b),
+                    Value::Null => return Err(empty_outside_numbers(col_name, i, "booleans")),
                     _ => {
                         return Err(ForgeError::Parse(format!(
                             "Column '{}' row {}: Expected Boolean, found {}",
@@ -117,6 +93,47 @@ pub fn parse_array_value(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnVal
             "Column '{col_name}': Unsupported array type '{array_type}'"
         ))),
     }
+}
+
+/// A column of numbers; with a null, a column with empty cells (ADR-059)
+fn parse_numbers(col_name: &str, seq: &[Value]) -> ForgeResult<ColumnValue> {
+    let mut numbers = Vec::new();
+    for (i, val) in seq.iter().enumerate() {
+        match val {
+            Value::Number(n) => {
+                if let Some(f) = n.as_f64() {
+                    numbers.push(Some(f));
+                } else {
+                    return Err(ForgeError::Parse(format!(
+                        "Column '{col_name}' row {i}: Invalid number format"
+                    )));
+                }
+            },
+            // An empty cell; the schema check allows it only in 5.3.0
+            Value::Null => numbers.push(None),
+            _ => {
+                return Err(ForgeError::Parse(format!(
+                    "Column '{}' row {}: Expected Number, found {}",
+                    col_name,
+                    i,
+                    type_name(val)
+                )));
+            },
+        }
+    }
+    if numbers.iter().any(Option::is_none) {
+        Ok(ColumnValue::Blanks(numbers))
+    } else {
+        Ok(ColumnValue::Number(numbers.into_iter().flatten().collect()))
+    }
+}
+
+/// An empty cell is allowed only in a column of numbers (ADR-059)
+fn empty_outside_numbers(col_name: &str, row: usize, kind: &str) -> ForgeError {
+    ForgeError::Parse(format!(
+        "Column '{col_name}' row {row}: an empty cell (null) is allowed only in a column of \
+         numbers, and this is a column of {kind}"
+    ))
 }
 
 /// Detect the type of a YAML value

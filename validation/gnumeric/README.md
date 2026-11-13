@@ -70,7 +70,7 @@ A case with `libreoffice: "<why Gnumeric cannot>"` is recalculated by LibreOffic
 
 Gnumeric 1.12 cannot judge some cases (`LET`, `UNIQUE`, `XLOOKUP`, `DATEDIF` read from xlsx, `ISFORMULA` on a literal). Mark those with `libreoffice: "reason"` next to `expected:`, and LibreOffice judges them. Only where neither engine gives Excel's answer, mark the case `gnumeric_skip: "reason"`: it is then checked against Forge only, and the summary counts it.
 
-A case whose formula `forge export` writes as its value (a function Excel lacks) is not calculated by Gnumeric at all, so it fails unless it has a `gnumeric_skip` that says why. A spec can read included files with `_includes` (paths relative to the spec), as a Forge model does. A spec's tables are copied into each generated model: lists of numbers or text, row formulas, and period columns (`month: {start: 2026-12, count: 5, unit: month}`, model format 5.2.0). Where Excel and Gnumeric differ from each other, the case carries a `gnumeric_skip` reason that names the difference.
+A case whose formula `forge export` writes as its value (a function Excel lacks) is not calculated by Gnumeric at all, so it fails unless it has a `gnumeric_skip` that says why. A spec can read included files with `_includes` (paths relative to the spec), as a Forge model does. A spec's tables are copied into each generated model: lists of numbers (with empty cells, `null`, model format 5.3.0) or text, row formulas, and period columns (`month: {start: 2026-12, count: 5, unit: month}`, model format 5.2.0). Where Excel and Gnumeric differ from each other, the case carries a `gnumeric_skip` reason that names the difference.
 
 ## Architecture
 

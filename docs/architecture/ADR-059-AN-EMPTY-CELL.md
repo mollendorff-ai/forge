@@ -1,6 +1,6 @@
 # ADR-059: An Empty Cell in a Number Column
 
-**Status:** Proposed (2026-11-12); not built (roadmap T2-MISSING-VALUES)
+**Status:** Accepted (2026-11-12, by merging #178); built (2026-11-13)
 **Date:** 2026-11-12
 **Decided by:** the maintainer (an ADR before a number column may hold an empty cell, agreed after the FP&A audit of 2026-11-12); the design is Claude's, in a session configured for Opus 5.5
 **Extends:** ADR-053 and ADR-054 (the model format's versions and what a column holds)
@@ -75,11 +75,11 @@ The number column is `ColumnValue::Number(Vec<f64>)`, matched in 328 places in 4
    - JSON output (`--format json`, MCP) gives `null`.
    - `forge calculate` writes the data back with the nulls where they were.
    - `forge export` writes an empty cell.
-   - `forge import` reads an empty cell inside a column of numbers as null, and writes `_forge_version: "5.3.0"` when there is one. As now, the empty cells at the end of a shorter column are trimmed.
+   - `forge import` reads an empty cell inside a column of numbers as null, and writes `_forge_version: "5.3.0"` when there is one. The empty cells at the end of a column are trimmed, as before, so a shorter column stays shorter, except beside formulas that run further down: there the last cells of a column of numbers are empty cells, kept to the last formula row (the months not closed yet of a forecast). A column with a name and no value is a column of empty cells. *(Built this way; the proposal trimmed every column, which lost the open months of the rolling forecast on import.)*
 
 6. **Until this is built, `forge import` says what it does.** An empty cell imported as 0 gets a warning that names the cells and says that `AVERAGE`, `COUNT` and `MIN` will differ from Excel. This is a small change on its own, released before the rest. It is a fix of a silent wrong answer, so by docs/STABILITY.md it restarts the two weeks before a stable release.
 
-7. **`NPV` and `IRR` follow Excel and skip an empty cell.** That shifts the later cash flows a period earlier, which is easy to miss. Both engines measured do this for `IRR` too (-100, empty, 60, 60 gives the IRR of -100, 60, 60: 13.07%). `forge functions` says so for `NPV` and `IRR`, and `forge audit` warns when one of them reads a column with an empty cell. `XNPV`, `XIRR` and `MIRR` with an empty cell are measured when this is built, and follow the engines where they agree. Following Excel matters more here than a rule of Forge's own, because the export has to recalculate to the same number.
+7. **`NPV` and `IRR` follow Excel and skip an empty cell.** That shifts the later cash flows a period earlier, which is easy to miss. Both engines measured do this for `IRR` too (-100, empty, 60, 60 gives the IRR of -100, 60, 60: 13.07%). `forge functions` says so for `NPV` and `IRR`, and `forge audit` warns when one of them reads a column with an empty cell. Measured when it was built (2026-11-13): `MIRR` skips the empty cell in both engines; `XIRR` leaves out the cash flow with its date in both; for `XNPV` LibreOffice leaves out the pair too and Gnumeric gives #VALUE!. Forge leaves out the pair for both. Following Excel matters more here than a rule of Forge's own, because the export has to recalculate to the same number.
 
 ## Consequences
 

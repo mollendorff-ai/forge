@@ -599,6 +599,8 @@ impl ArrayCalculator {
                 // Assume numbers are already serial dates
                 Ok(nums.clone())
             },
+            // An empty cell reads as 0, as in Excel (ADR-059)
+            ColumnValue::Blanks(nums) => Ok(nums.iter().map(|n| n.unwrap_or(0.0)).collect()),
             ColumnValue::Text(texts) => {
                 // Try to parse as date strings
                 let mut serials = Vec::with_capacity(texts.len());

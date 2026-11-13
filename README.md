@@ -9,7 +9,7 @@
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/lctavares/b8e2fa78efcf26a20ff97b483050b05a/raw/forge-coverage.json)](https://github.com/mollendorff-ai/forge/actions/workflows/ci.yml)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 
-Forge reads a financial model written in YAML (inputs, formulas, tables, scenarios) and calculates it with 202 Excel-style functions, plus what a spreadsheet leaves to plug-ins: Monte Carlo, tornado charts, decision trees, real options, Bayesian networks. One engine, written in Rust, runs on the command line, as an MCP server for AI agents, and in your browser.
+Forge reads a financial model written in YAML (inputs, formulas, tables, scenarios) and calculates it with 203 Excel-style functions, plus what a spreadsheet leaves to plug-ins: Monte Carlo, tornado charts, decision trees, real options, Bayesian networks. One engine, written in Rust, runs on the command line, as an MCP server for AI agents, and in your browser.
 
 <p align="center">
   <a href="https://mollendorff-ai.github.io/forge/"><img src="https://raw.githubusercontent.com/mollendorff-ai/forge/main/docs/images/studio-phone.png" alt="Forge Studio on a phone: the bagel example's year, with revenue 386,827.45, profit 786.32 and the formula under each result" width="260"></a>
@@ -113,7 +113,7 @@ The quarters are a table of their own, rolled up from the months with one formul
       budget = [225300, 235200, 245100, 255000]
 ```
 
-(A few of its lines.) Its README lists what Forge cannot do there yet, such as months without actuals.
+(A few of its lines.) The months not closed yet are empty cells (`null`), which aggregates skip and formulas read as 0, as in Excel (ADR-059). Its README lists what Forge cannot do there yet: a date as a scalar input.
 
 ## Beyond the spreadsheet
 
@@ -133,7 +133,7 @@ A spreadsheet calculates cells. The questions above need more than that, and For
 
 How each one is set up in YAML, with examples: [docs/FEATURES.md](docs/FEATURES.md). Every command is listed there too, and `forge examples` prints a runnable model for most of them.
 
-### 202 functions
+### 203 functions
 
 Most are Excel's, under Excel's names, so a formula reads as it would in a cell. Seven are not in Excel: `VARIANCE`, `VARIANCE_PCT` and `VARIANCE_STATUS` (which knows that a cost under budget is good news), `BREAKEVEN_UNITS`, `BREAKEVEN_REVENUE`, `SCENARIO`, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is, and [docs/FUNCTIONS.md](docs/FUNCTIONS.md) has them all.
 
@@ -250,7 +250,7 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 | Document | What it holds |
 | --- | --- |
 | [Features](docs/FEATURES.md) | The model file, every command, every analysis |
-| [Functions](docs/FUNCTIONS.md) | The 202 functions |
+| [Functions](docs/FUNCTIONS.md) | The 203 functions |
 | [MCP](docs/MCP.md) | The MCP server and its 20 tools |
 | [Examples](examples/) | Runnable models, each with a README |
 | [Posts](docs/posts/) | One question each, answered with the examples |

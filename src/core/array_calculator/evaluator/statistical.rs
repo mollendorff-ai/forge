@@ -86,7 +86,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("PERCENTILE of empty set"));
             }
             let k = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("PERCENTILE k must be a number"))?;
             if !(0.0..=1.0).contains(&k) {
                 return Err(EvalError::new("PERCENTILE k must be between 0 and 1"));
@@ -114,7 +114,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("QUARTILE of empty set"));
             }
             let quart = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("QUARTILE quart must be a number"))?
                 as i32;
             if !(0..=4).contains(&quart) {
@@ -143,7 +143,7 @@ pub fn try_evaluate(
             if values.is_empty() {
                 return Err(EvalError::new(format!("{name} of empty set")));
             }
-            let arg = evaluate(&args[1], ctx)?.as_number().ok_or_else(|| {
+            let arg = evaluate(&args[1], ctx)?.as_cell_number().ok_or_else(|| {
                 EvalError::new(format!("{name}: the second argument must be a number"))
             })?;
             // A quartile is the percentile of a quarter, three and no more
@@ -224,7 +224,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("LARGE: array is empty"));
             }
             let k = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("LARGE: k must be a number"))?
                 as usize;
             if k == 0 || k > values.len() {
@@ -246,7 +246,7 @@ pub fn try_evaluate(
                 return Err(EvalError::new("SMALL: array is empty"));
             }
             let k = evaluate(&args[1], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("SMALL: k must be a number"))?
                 as usize;
             if k == 0 || k > values.len() {
@@ -264,7 +264,7 @@ pub fn try_evaluate(
         "RANK" | "RANK.EQ" => {
             require_args_range(name, args, 2, 3)?;
             let number = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new("RANK: number must be a number"))?;
             let values = collect_numeric_values(&args[1..2], ctx)?;
             if values.is_empty() {

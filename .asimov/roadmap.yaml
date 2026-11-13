@@ -80,14 +80,8 @@ tier2:
   # comparison example and the first-model starter.
   # Found building examples/rolling-forecast (2026-11-12), the FP&A audit:
   # actuals then forecast, fiscal quarters, year to date, a budget looked up
-  # by month and price/volume/mix all work; three did not. The first, a
-  # table of quarters, is built (ADR-058); the other two are below.
-  - id: T2-MISSING-VALUES
-    title: "An empty cell in a number column: a month with no actual yet"
-    why: "A number column refuses null ('null values not allowed in numeric arrays'), so the months of a forecast that are not closed hold 0, and an actual that really is 0 looks the same. Excel has empty cells, and ISBLANK, COUNT and AVERAGE treat them differently from 0"
-    how: "ADR-059 (proposed): null in a number column is an empty cell, in format 5.3.0; it does what Excel does, as measured in Gnumeric and LibreOffice (the ADR's table: 0 in arithmetic, skipped by aggregates, = 0 and = \"\" both TRUE, COUNTBLANK added); a formula never returns one; a column with one is a ColumnValue variant of its own, so a model without null is unchanged byte for byte. forge import turns an empty cell into 0 today without a word (AVERAGE 8 where Excel gives 13.33): a warning comes first, on its own"
-    acceptance: "The rolling forecast's actual columns hold null for open months, is_actual can be ISNUMBER(actual), and for each function the Gnumeric suite checks on an empty cell, Forge gives Gnumeric's answer"
-
+  # by month and price/volume/mix all work; three did not. Two are built:
+  # a table of quarters (ADR-058) and empty cells (ADR-059); one is below.
   - id: T2-SCALAR-DATES
     title: "A date as a scalar input, and a date result shown as a date"
     why: "last_actual: 2026-10-31 is refused ('must be a number'), so a model writes =DATE(2026, 10, 31), and the result is printed as 46326, Excel's day number, in calculate, report and the exported Scalars sheet. A table column of dates is already a date (ADR-054); a scalar is not"

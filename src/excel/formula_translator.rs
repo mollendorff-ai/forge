@@ -232,6 +232,7 @@ impl FormulaTranslator {
                 | "MIN"
                 | "COUNT"
                 | "COUNTA"
+                | "COUNTBLANK"
                 | "PRODUCT"
                 | "SUMPRODUCT"
                 | "MEDIAN"

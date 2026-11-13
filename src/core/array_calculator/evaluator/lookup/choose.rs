@@ -13,7 +13,7 @@ use crate::core::array_calculator::evaluator::{
 pub fn eval_choose(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("CHOOSE", args, 2, 255)?;
     let index = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("CHOOSE index must be a number"))? as usize;
 
     if index < 1 || index >= args.len() {

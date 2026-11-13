@@ -97,7 +97,8 @@ impl ExcelExporter {
             .columns
             .iter()
             .filter_map(|(name, column)| match column.values {
-                super::super::types::ColumnValue::Number(_) => Some((name.as_str(), false)),
+                super::super::types::ColumnValue::Number(_)
+                | super::super::types::ColumnValue::Blanks(_) => Some((name.as_str(), false)),
                 // Months (`2026-01`) and other dates Excel cannot hold are
                 // text in the workbook; a column of dates is marked after
                 super::super::types::ColumnValue::Text(_)
@@ -155,7 +156,7 @@ impl ExcelExporter {
         match table.columns.get(column).map(|c| &c.values) {
             Some(values) if values.is_empty() => Holds::Unknown,
             None => Holds::Unknown,
-            Some(ColumnValue::Number(_)) => Holds::Numbers,
+            Some(ColumnValue::Number(_) | ColumnValue::Blanks(_)) => Holds::Numbers,
             Some(_) => Holds::Other,
         }
     }
@@ -196,6 +197,7 @@ impl ExcelExporter {
         }
         match values {
             ColumnValue::Number(v) => v.get(index).map(ToString::to_string),
+            ColumnValue::Blanks(v) => v.get(index).copied().flatten().map(|n| n.to_string()),
             ColumnValue::Text(v) | ColumnValue::Date(v) => v.get(index).cloned(),
             ColumnValue::Boolean(v) => v
                 .get(index)
@@ -481,6 +483,14 @@ impl ExcelExporter {
                 if let Some(&value) = nums.get(index) {
                     worksheet
                         .write_number(row, col, value)
+                        .map_err(|e| ForgeError::Export(format!("Failed to write number: {e}")))?;
+                }
+            },
+            // An empty cell is left empty (ADR-059)
+            ColumnValue::Blanks(nums) => {
+                if let Some(Some(value)) = nums.get(index) {
+                    worksheet
+                        .write_number(row, col, *value)
                         .map_err(|e| ForgeError::Export(format!("Failed to write number: {e}")))?;
                 }
             },

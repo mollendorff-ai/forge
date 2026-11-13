@@ -1,13 +1,13 @@
 //! Function definitions - THE SINGLE SOURCE OF TRUTH
 //!
-//! This file contains all 202 function definitions.
+//! This file contains all 203 function definitions.
 //! Separated from registry.rs to keep files under 1500 lines.
 
 use super::{Category, FunctionDef};
 
 /// All supported functions - THE SINGLE SOURCE OF TRUTH
 ///
-/// Total: 202 functions (includes aliases)
+/// Total: 203 functions (includes aliases)
 pub static FUNCTIONS: &[FunctionDef] = &[
     // ══════════════════════════════════════════════════════════════════════════
     // MATH (21 total)
@@ -216,6 +216,13 @@ pub static FUNCTIONS: &[FunctionDef] = &[
         category: Category::Aggregation,
         description: "Count non-empty",
         syntax: "=COUNTA(value1, value2, ...)",
+        scalar: true,
+    },
+    FunctionDef {
+        name: "COUNTBLANK",
+        category: Category::Aggregation,
+        description: "Count empty cells (and empty text)",
+        syntax: "=COUNTBLANK(range)",
         scalar: true,
     },
     FunctionDef {
@@ -733,14 +740,14 @@ pub static FUNCTIONS: &[FunctionDef] = &[
     FunctionDef {
         name: "NPV",
         category: Category::Financial,
-        description: "Net present value",
+        description: "Net present value (skips an empty cell, as Excel does)",
         syntax: "=NPV(rate, value1, value2, ...)",
         scalar: true,
     },
     FunctionDef {
         name: "IRR",
         category: Category::Financial,
-        description: "Internal rate of return",
+        description: "Internal rate of return (skips an empty cell, as Excel does)",
         syntax: "=IRR(values, guess)",
         scalar: true,
     },

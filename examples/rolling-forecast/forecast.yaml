@@ -1,4 +1,4 @@
-_forge_version: "5.2.0"
+_forge_version: "5.3.0"
 # A rolling forecast for a company whose fiscal year starts in April.
 # Actuals are in up to October 2026; November on is forecast, to October
 # 2027, twelve months after the last actual. The budget covers the fiscal
@@ -6,7 +6,7 @@ _forge_version: "5.2.0"
 # All figures are made up.
 
 inputs:
-  # The last day with actuals: months up to it are actuals, the rest forecast
+  # The last day with actuals: the next twelve months are counted from it
   last_actual:
     formula: "=DATE(2026, 10, 31)"
   # The fiscal year starts in this month and is named after the year it ends in
@@ -25,13 +25,14 @@ budget:
 
 months:
   month: {start: 2026-04, count: 19, unit: month}
-  # Actuals, then 0 for the months that have none yet
-  actual_standard_units: [985, 1032, 1001, 1047, 1052, 1038, 1066, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  actual_standard_price: [50, 50, 49.5, 49.5, 49.8, 49.8, 50.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  actual_premium_units: [214, 220, 231, 228, 240, 244, 251, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  actual_premium_price: [118, 118, 119, 119, 119.5, 119.5, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  # Actuals, then an empty cell (null) for the months not closed yet (ADR-059)
+  actual_standard_units: [985, 1032, 1001, 1047, 1052, 1038, 1066, null, null, null, null, null, null, null, null, null, null, null, null]
+  actual_standard_price: [50, 50, 49.5, 49.5, 49.8, 49.8, 50.1, null, null, null, null, null, null, null, null, null, null, null, null]
+  actual_premium_units: [214, 220, 231, 228, 240, 244, 251, null, null, null, null, null, null, null, null, null, null, null, null]
+  actual_premium_price: [118, 118, 119, 119, 119.5, 119.5, 120, null, null, null, null, null, null, null, null, null, null, null, null]
 
-  is_actual: "=month <= inputs.last_actual"
+  # A month has actuals when its cell is not empty
+  is_actual: "=ISNUMBER(actual_standard_units)"
   fiscal_year: "=YEAR(month) + IF(MONTH(month) >= inputs.fy_start_month, 1, 0)"
   fiscal_quarter: "=INT(MOD(MONTH(month) - inputs.fy_start_month, 12) / 3) + 1"
 

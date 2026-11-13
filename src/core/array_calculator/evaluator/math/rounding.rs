@@ -11,7 +11,7 @@ use crate::core::array_calculator::evaluator::number_or;
 pub fn eval_round(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("ROUND", args, 1, 2)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("ROUND requires a number"))?;
     let decimals = if args.len() > 1 {
         number_or(&args[1], ctx, 0.0)? as i32
@@ -25,7 +25,7 @@ pub fn eval_round(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 pub fn eval_roundup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("ROUNDUP", args, 1, 2)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("ROUNDUP requires a number"))?;
     let decimals = if args.len() > 1 {
         number_or(&args[1], ctx, 0.0)? as i32
@@ -42,7 +42,7 @@ pub fn eval_roundup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 pub fn eval_rounddown(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("ROUNDDOWN", args, 1, 2)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("ROUNDDOWN requires a number"))?;
     let decimals = if args.len() > 1 {
         number_or(&args[1], ctx, 0.0)? as i32
@@ -59,7 +59,7 @@ pub fn eval_rounddown(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErr
 pub fn eval_floor(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("FLOOR", args, 1, 2)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("FLOOR requires a number"))?;
     let sig = if args.len() > 1 {
         number_or(&args[1], ctx, 1.0)?
@@ -75,7 +75,7 @@ pub fn eval_floor(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 pub fn eval_ceiling(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("CEILING", args, 1, 2)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("CEILING requires a number"))?;
     let sig = if args.len() > 1 {
         number_or(&args[1], ctx, 1.0)?
@@ -92,10 +92,10 @@ pub fn eval_ceiling(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
 pub fn eval_mround(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("MROUND", args, 2)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("MROUND requires a number"))?;
     let multiple = evaluate(&args[1], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("MROUND requires a multiple"))?;
     if multiple == 0.0 {
         return Ok(Value::Number(0.0));
@@ -111,7 +111,7 @@ pub fn eval_mround(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
 pub fn eval_int(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("INT", args, 1)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("INT requires a number"))?;
     Ok(Value::Number(val.floor()))
 }
@@ -119,7 +119,7 @@ pub fn eval_int(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 pub fn eval_trunc(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("TRUNC", args, 1, 2)?;
     let val = evaluate(&args[0], ctx)?
-        .as_number()
+        .as_cell_number()
         .ok_or_else(|| EvalError::new("TRUNC requires a number"))?;
     let decimals = if args.len() > 1 {
         number_or(&args[1], ctx, 0.0)? as i32

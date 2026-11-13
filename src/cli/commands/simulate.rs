@@ -46,10 +46,8 @@ fn evaluate_iteration(
                     .tables
                     .get(table)
                     .and_then(|t| t.columns.get(col))
-                    .and_then(|c| match &c.values {
-                        crate::types::ColumnValue::Number(v) => v.get(*row).copied(),
-                        _ => None,
-                    })
+                    // An empty cell of a data column is 0, as a formula reads it
+                    .and_then(|c| c.values.numbers().and_then(|v| v.get(*row).copied()))
                     .map(|value| (var_name.clone(), value))
                     .ok_or_else(|| format!("output '{var_name}' has no calculated number"));
             }

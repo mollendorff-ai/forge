@@ -99,7 +99,7 @@ pub fn try_evaluate(
         "FORECAST" | "FORECAST.LINEAR" => {
             require_args(name, args, 3)?;
             let x = evaluate(&args[0], ctx)?
-                .as_number()
+                .as_cell_number()
                 .ok_or_else(|| EvalError::new(format!("{name}: x must be a number")))?;
             let fit = Fit::of(name, &args[1..2], &args[2..3], ctx)?;
             let slope = fit.slope(name)?;
