@@ -64,6 +64,8 @@ export function tokenAt(text, caret) {
 }
 
 const LIMIT = { names: 16, functions: 8 };
+// The two words of the formula language that are values, not names or functions
+const CONSTANTS = ["TRUE", "FALSE"];
 const byLength = (a, b) => a.length - b.length || a.localeCompare(b);
 
 // What to offer for the word at `caret`: names first (as written in this
@@ -86,6 +88,7 @@ export function suggest(index, text, caret) {
   full.sort((a, b) => byLength(a.label, b.label));
   for (const n of [...names, ...full].slice(0, LIMIT.names)) out.push(n);
   if (!/[.@]/.test(at.token)) {
+    for (const c of CONSTANTS) if (c.toLowerCase().startsWith(low) && !seen.has(c)) out.push({ label: c, insert: c, kind: "constant", title: "A logical value" });
     const next = text[at.end];
     const fns = index.functions.filter((f) => f.name.toLowerCase().startsWith(low)).sort((a, b) => byLength(a.name, b.name));
     for (const f of fns.slice(0, LIMIT.functions)) out.push({ label: `${f.name}(`, insert: f.name + (next === "(" ? "" : "("), kind: "function", title: `${f.syntax} · ${f.description}`, syntax: f.syntax, description: f.description });
