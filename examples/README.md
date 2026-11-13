@@ -1,6 +1,6 @@
 # Examples
 
-Every file here runs as it is. Start with the first one, or open the same examples in your browser, with nothing to install, in [Forge Studio](https://mollendorff-ai.github.io/forge/).
+Every file here runs as it is. Start with the first one, or open the same examples in your browser, with nothing to install, in [Forge Studio](https://forge.mollendorff.ai/).
 
 ```bash
 forge calculate examples/starter.yaml

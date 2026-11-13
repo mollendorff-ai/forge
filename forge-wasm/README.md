@@ -2,7 +2,7 @@
 
 Forge's tools in a browser (ADR-055). Each tool runs the same core function as the command line and the MCP server (`calculate_core`, `simulate_core`, ...) on a model held in memory. Nothing in this crate calculates.
 
-It is part of this repository's workspace and is not published. [Forge Studio](../studio/README.md) (ADR-056) is built on it: the page calls `call(tool, request)` in a worker and calculates nothing itself, so what you see in the browser is what the command line would print. Try it at <https://mollendorff-ai.github.io/forge/>.
+It is part of this repository's workspace and is not published. [Forge Studio](../studio/README.md) (ADR-056) is built on it: the page calls `call(tool, request)` in a worker and calculates nothing itself, so what you see in the browser is what the command line would print. Try it at <https://forge.mollendorff.ai/>.
 
 ## Calling it
 

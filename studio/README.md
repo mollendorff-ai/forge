@@ -1,6 +1,6 @@
 # Forge Studio
 
-Forge in your browser, phone first (ADR-056): **<https://mollendorff-ai.github.io/forge/>**
+Forge in your browser, phone first (ADR-056): **<https://forge.mollendorff.ai/>**
 
 Open one of the examples, a YAML file from your device, or an Excel workbook, and the model shows as cards: inputs to change, results with their formulas, tables, scenarios. Change a number and Forge calculates the model again. It is the same engine as the command line, running in the page as WebAssembly.
 
@@ -46,7 +46,7 @@ node studio/build.mjs forge-wasm/pkg-web studio-site
 
 ## Where it is published
 
-On GitHub Pages, at `https://mollendorff-ai.github.io/forge/`, after each release: the Release workflow starts `.github/workflows/pages.yml` with its tag. The page's status pill shows the Forge version it runs. The workflow builds at the release's tag, deploys, and then opens the published address in a headless browser (`tests/live.mjs`): the version must be the release's and the bagel example's `year.profit` must be 786.32.
+At <https://forge.mollendorff.ai/>, on GitHub Pages (the old `mollendorff-ai.github.io/forge/` address redirects there), after each release: the Release workflow starts `.github/workflows/pages.yml` with its tag. The page's status pill shows the Forge version it runs. The workflow builds at the release's tag, deploys, and then opens the published address in a headless browser (`tests/live.mjs`): the version must be the release's and the bagel example's `year.profit` must be 786.32.
 
 Pages is switched on once, by an administrator: Settings, Pages, Source: GitHub Actions. To publish by hand, run the workflow from the Actions tab with a tag or a branch; it defaults to `main`. Releases up to v10.0.0-rc.13 predate Studio and cannot be published. The page uses relative paths only, so a custom domain needs no change to the files.
 
