@@ -98,6 +98,9 @@ const result = await page.evaluate(async () => {
   const inFormula = 'year:\n  margin:\n    formula: "=un';
   if (suggestKeys(schema, inFormula, inFormula.length).length) problems.push("keys are offered inside a formula");
   if (!formulaContext(inFormula, inFormula.length)) problems.push("a formula is not seen as one");
+  const bare = 'year:\n  margin:\n    formula: =un';
+  if (suggestKeys(schema, bare, bare.length).length) problems.push("keys are offered inside an unquoted formula");
+  if (formulaContext(bare, bare.length)?.formula !== "=un") problems.push("an unquoted formula is not seen as one");
   return { problems, formulas, words, offered, files };
 });
 for (const p of result.problems.slice(0, 40)) fail(p);
@@ -130,6 +133,15 @@ if (!(await page.locator("#yaml-apply").isEnabled())) fail("after taking a name 
 await type(head + 'year:\n  margin2:\n    formula: "=profit / revenue"\n    un');
 await strip.locator("[data-sug]", { hasText: /^unit:$/ }).waitFor({ timeout: 30000 }).catch(() => {});
 if (!(await strip.locator("[data-sug]").allTextContents()).includes("unit:")) fail("after a closed formula the keys are not offered again");
+
+// A formula written without quotes, as the strip leaves it after `formula: `
+await type(head + 'year:\n  margin2:\n    formula: =profit / re');
+await strip.locator("[data-sug]", { hasText: /^revenue$/ }).waitFor({ timeout: 30000 }).catch(() => {});
+if (!(await strip.locator("[data-sug]").allTextContents()).includes("revenue")) fail("an unquoted formula is not offered names");
+await strip.locator("[data-sug]", { hasText: /^revenue$/ }).click();
+if (!(await editor.inputValue()).endsWith("formula: =profit / revenue")) fail("taking revenue in an unquoted formula did not give the name as typed");
+await type(head + 'year:\n  margin2:\n    formula: =profit # re');
+if ((await strip.locator("[data-sug]").allTextContents()).includes("revenue")) fail("names are offered in a comment after an unquoted formula");
 
 await browser.close();
 if (!remote) server.close();

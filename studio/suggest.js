@@ -222,11 +222,11 @@ export function suggestKeys(schema, text, caret) {
 export function formulaContext(text, caret) {
   const lines = text.slice(0, caret).split("\n");
   const here = lines.pop();
-  const m = /^(\s*)(-\s+)?(?:"([^"]+)"|'([^']+)'|([^\s:#"'-][^:#"']*?))\s*:\s+(?:"(=(?:[^"\\]|\\.)*)|'(=(?:[^']|'')*))$/.exec(here);
+  const m = /^(\s*)(-\s+)?(?:"([^"]+)"|'([^']+)'|([^\s:#"'-][^:#"']*?))\s*:\s+(?:"(=(?:[^"\\]|\\.)*)|'(=(?:[^']|'')*)|(=[^#"']*))$/.exec(here);
   if (!m) return null;
   const chain = keysAbove(lines, m[1].length, m[2] ? m[2].length : 0);
   if (!chain) return null;
-  const formula = m[6] ?? m[7];
+  const formula = m[6] ?? m[7] ?? m[8];
   return { chain, key: m[3] ?? m[4] ?? m[5], formula, start: caret - formula.length };
 }
 // The scope of the formula an entry holds, from where it is in its file: the
