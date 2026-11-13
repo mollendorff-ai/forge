@@ -106,7 +106,7 @@ Three complete models, each with a README and tests against an outside calculati
 
 ## Financial Models
 
-### SaaS Metrics (v1.2.1)
+### SaaS Metrics
 
 ```yaml
 _forge_version: "5.1.0"
@@ -122,7 +122,7 @@ saas_metrics:
   payback_months: "=cac / (mrr * 0.70)"
 
 summary:
-  # v1.2.1 conditional aggregations
+  # conditional aggregations
   total_arr:
     formula: "=SUM(saas_metrics.arr)"
   
@@ -161,7 +161,7 @@ summary:
 
 `forge calculate` gives `total_revenue` 370,000 and `avg_gross_margin` 0.6; `ebitda` is 30,000, 40,000 and 55,000 for the three months.
 
-### Monte Carlo Simulation (v8.0.0)
+### Monte Carlo Simulation
 
 **NPV Uncertainty Analysis:**
 
@@ -651,7 +651,7 @@ pricing:
   final_price: "=base_price * (1 - discount)"
 ```
 
-### Multi-Criteria Filtering (v1.2.1)
+### Multi-Criteria Filtering
 
 ```yaml
 _forge_version: "5.1.0"
@@ -666,7 +666,7 @@ analysis:
     formula: "=SUMIFS(sales.revenue, sales.region, 'North', sales.category, 'Tech')"
 ```
 
-### Precision Control (v1.2.1)
+### Precision Control
 
 ```yaml
 _forge_version: "5.1.0"
@@ -680,7 +680,7 @@ calculations:
 
 ## Advanced Prediction Methods
 
-### Scenario Analysis (v8.3.0)
+### Scenario Analysis
 
 Model discrete strategic futures with assigned probabilities - perfect for board presentations and strategic planning.
 
@@ -785,7 +785,7 @@ Scenario analysis is ideal when:
 
 ---
 
-### Decision Trees (v8.4.0)
+### Decision Trees
 
 Model sequential decisions and chance events to find optimal decision paths using expected value rollback.
 
@@ -882,7 +882,7 @@ Decision trees excel when:
 
 ---
 
-### Real Options (v8.5.0)
+### Real Options
 
 Value managerial flexibility to defer, expand, contract, or abandon projects. Recognizes that you can adapt as uncertainty resolves.
 
@@ -924,7 +924,7 @@ Real options are crucial when:
 
 ---
 
-### Tornado Diagrams (v8.6.0)
+### Tornado Diagrams
 
 Visualize which input variables drive the most output variance. Essential for focusing analysis effort on what matters.
 
@@ -1024,7 +1024,7 @@ Tornado diagrams are essential for:
 
 ---
 
-### Bootstrap Resampling (v8.7.0)
+### Bootstrap Resampling
 
 Non-parametric confidence intervals from historical data. Let the data speak without assuming distributions.
 
