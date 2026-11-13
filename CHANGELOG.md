@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.21] - 2026-11-13
+
+A date can be a scalar (ADR-060) and `format:` holds an Excel number format beside `unit:` (ADR-061); both are in model format 5.4.0. Neither fixes a wrong answer, so the stable date stays no earlier than 2026-11-27.
+
 ### Changed
 - **Forge Studio is at <https://forge.mollendorff.ai/>.** The old address, `mollendorff-ai.github.io/forge/`, redirects there. Models saved in the browser at the old address stay there: save them to Files and open them at the new one. The links in the READMEs point to the new address; the check after each release opens whatever address Pages reports.
 
