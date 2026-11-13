@@ -20,7 +20,7 @@ Forge reads a financial model written in YAML (inputs, formulas, tables, scenari
 | **You work with numbers** | **You build with AI agents** |
 | --- | --- |
 | Open [Forge Studio](https://mollendorff-ai.github.io/forge/) in your browser. Nothing to install, made for a phone, works offline. | Install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
-| [Try it →](https://mollendorff-ai.github.io/forge/) · [More on Studio](#forge-studio) | [Quick start →](#quick-start) · [MCP tools](#mcp-integration-optional) |
+| [Try it →](https://mollendorff-ai.github.io/forge/) · [More on Studio](#forge-studio) | [Quick start →](#quick-start) · [For AI agents](#for-ai-agents) |
 
 **Checked, not trusted.** 1,460 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. What does not work yet is [listed below](#status-and-known-limitations), not hidden.
 
@@ -45,21 +45,9 @@ Known problems as of 2026-11-12 (what is planned, and in what order, is in the [
 - `forge calculate` cannot evaluate `MC.*` distributions (for example `examples/monte-carlo.yaml`); it says so and points to `forge simulate`.
 - Each analytics command has been checked once end to end, on the `examples/bagel` models, against calculations written outside Forge. That is one model each, not broad coverage.
 
-## The Problem
+## Four questions, answered
 
-| Excel + AI | The Cost |
-|------------|----------|
-| `.xlsx` is compressed XML | Massive token consumption |
-| Cell references like `B7:G42` | AI has to guess what that means |
-| No semantic structure | Context wasted on formatting |
-| Can't diff, can't PR | No version control |
-| AI hallucinates numbers | And Excel can't catch it |
-
-**Size:** for one 5-year DCF model, the `.xlsx` file was about 7× the size of the YAML in bytes (about 19× counting the XML inside it). Token counts were not measured, and an agent that reads only the cells it needs avoids most of this cost.
-
-## Examples
-
-Three models of the kind people have, each built through the MCP tools. Every number below is what the command prints. The tests check each one against a calculation written outside Forge (the price seek with 1,000 runs instead of 5,000).
+Models of the kind people have. Every number below is what the command prints, and the tests check each one against a calculation written outside Forge (the price seek with 1,000 runs instead of 5,000).
 
 **How much more a month to save 80,000 of interest on a mortgage?** [`examples/mortgage`](examples/mortgage/README.md) is 450,000 at 4.79% over 25 years, compounded twice a year as Canadian fixed rates are. Paying 300 more a month already means 247 payments instead of 300 and 64,596.88 less interest.
 
@@ -127,241 +115,27 @@ The quarters are a table of their own, rolled up from the months with one formul
 
 (A few of its lines.) Its README lists what Forge cannot do there yet, such as months without actuals.
 
----
-
-## AI Integration
-
-Any AI coding agent can use Forge — Claude Code, ChatGPT, Gemini, Cursor, Copilot, Aider, or anything that writes files and runs commands:
-
-```text
-1. AI writes a YAML model
-2. forge calculate model.yaml
-3. Deterministic result
-```
-
-That's it. No SDK. No API key. No protocol. **Files are the universal interface.**
-
-### Example: AI Agent Swarm
-
-```bash
-# You describe the problem to your AI coding assistant
-"Model a SaaS acquisition: $10M, 3-year earnout,
- 15% growth base case, Monte Carlo on churn risk"
-
-# AI spawns agents, each writes a scenario
-├── valuation.yaml      # DCF with earnout structure
-├── scenarios.yaml      # Bull/base/bear cases
-└── simulation.yaml     # Monte Carlo on churn
-
-# Forge evaluates deterministically
-forge calculate valuation.yaml
-forge scenarios scenarios.yaml
-forge simulate simulation.yaml -n 10000
-
-# Results feed back to AI for synthesis
-```
-
-Results come from the formula evaluator, not from a model's own arithmetic, and each one traces to a formula.
-
-MCP server and REST API available for tighter integration (see below).
-
----
-
-## Validation status
-
-Forge's results are checked against other engines. None of the checks is complete. The unit tests run on every push; the two validation suites, in [`validation/`](validation/), run on every pull request and every merge to `main` that changes the engine or a suite, and weekly. [VALIDATION.md](VALIDATION.md) lists what each check covers, its latest result and the command to run it. What a stable release will and will not promise is in [docs/STABILITY.md](docs/STABILITY.md).
-
-| Check | What it covers | Latest result (2026-11-12) |
-| --- | --- | --- |
-| Unit tests (this repo) | 1,768 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
-| [forge-e2e-gnumeric](validation/gnumeric) | 1,460 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 70 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,445 pass, 1 skipped |
-| [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped |
-
-Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
-
----
-
-## What Excel Can't Do
-
-Forge isn't Excel 2.0. It's a purpose-built FP&A engine with 7 analysis types that a plain spreadsheet does not include:
-
-### 1. Monte Carlo Simulation
-
-Model uncertainty with probability distributions. Run 10,000+ iterations to get P10/P50/P90 outcomes.
-
-```yaml
-assumptions:
-  revenue_growth:
-    formula: "=MC.Normal(0.15, 0.05)"  # Mean 15%, StdDev 5%
-
-  project_cost:
-    formula: "=MC.Triangular(80000, 100000, 150000)"  # Min/Mode/Max
-```
-
-**6 distributions:** Normal, Triangular, Uniform, PERT, Lognormal, Discrete
-
-### 2. Bootstrap Resampling
-
-Generate confidence intervals from historical data without assuming a distribution.
-
-```yaml
-bootstrap:
-  iterations: 10000
-  confidence_levels: [0.90, 0.95, 0.99]
-  data: [0.05, -0.02, 0.08, 0.03, ...]  # Historical returns
-  method: percentile                    # or basic, or bca (for skewed data)
-```
-
-Percentile, basic and BCa intervals; compared with R's `boot` package (see [VALIDATION.md](VALIDATION.md)). BCa stops with an error when it is undefined for the data (for example, every resample is on one side of the estimate).
-
-### 3. Decision Trees
-
-Model sequential decisions with backward induction. Forge finds the optimal path automatically.
-
-```yaml
-decision_tree:
-  root:
-    type: decision
-    name: "Invest in R&D?"
-    branches:
-      invest:
-        cost: 2000000
-        next: tech_outcome
-      dont_invest:
-        value: 0
-```
-
-### 4. Real Options Analysis
-
-Quantify the value of managerial flexibility using Black-Scholes and binomial methods.
-
-| Option Type | What It Values |
-|-------------|----------------|
-| **Defer** | Wait before investing |
-| **Expand** | Scale up if successful |
-| **Contract** | Scale down if weak |
-| **Abandon** | Exit and recover salvage |
-| **Switch** | Change inputs/outputs |
-
-Unit tests check Black-Scholes and binomial prices against QuantLib reference values.
-
-### 5. Tornado Diagrams
-
-One-at-a-time sensitivity analysis. Instantly see what drives variance.
-
-```bash
-forge tornado examples/bagel/bagel.yaml   # the output is under Examples above
-```
-
-### 6. Bayesian Networks
-
-Probabilistic graphical models for causal reasoning. Model how risks cascade.
-
-```yaml
-bayesian_network:
-  nodes:
-    economic_conditions:
-      states: ["good", "neutral", "bad"]
-      prior: [0.3, 0.5, 0.2]
-
-    company_revenue:
-      states: ["high", "medium", "low"]
-      parents: ["economic_conditions"]       # several parents: rows like "good, high"
-      cpt:
-        good:    [0.60, 0.30, 0.10]          # one row per parent state
-        neutral: [0.30, 0.50, 0.20]
-        bad:     [0.10, 0.30, 0.60]
-```
-
-Query it with `forge bayesian examples/bayesian.yaml -q company_revenue -e economic_conditions=bad`.
-
-A unit test checks a small network against a hand calculation of a pgmpy example.
-
-### 7. Scenario Analysis
-
-Probability-weighted scenarios with expected value calculation.
-
-```yaml
-scenarios:
-  bull_case:
-    probability: 0.30
-    scalars:
-      revenue_growth: 0.25
-
-  bear_case:
-    probability: 0.20
-    scalars:
-      revenue_growth: -0.10
-```
-
----
-
-## MCP Integration (Optional)
-
-For Claude Desktop or MCP-compatible hosts, Forge exposes 20 tools via Model Context Protocol:
-
-```json
-{
-  "mcpServers": {
-    "forge": {
-      "command": "forge",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-### Available Tools
-
-**Core (5)**
-
-| Tool | What It Does |
-|------|--------------|
-| `forge_validate` | Check YAML for formula errors |
-| `forge_calculate` | Execute all formulas |
-| `forge_audit` | Trace formula dependencies |
-| `forge_export` | YAML → Excel |
-| `forge_import` | Excel → YAML |
-
-**Analysis (5)**
-
-| Tool | What It Does |
-|------|--------------|
-| `forge_sensitivity` | 1D/2D what-if analysis |
-| `forge_goal_seek` | Find input for target output |
-| `forge_break_even` | Find where output = 0 |
-| `forge_variance` | Budget vs actual analysis |
-| `forge_compare` | Multi-scenario comparison |
-
-**Engines (7)**
-
-| Tool | What It Does |
-|------|--------------|
-| `forge_simulate` | Run Monte Carlo simulation with probabilistic distributions |
-| `forge_scenarios` | Run probability-weighted scenario analysis (Base/Bull/Bear) |
-| `forge_decision_tree` | Analyze decision trees using backward induction |
-| `forge_real_options` | Value managerial flexibility using real options pricing |
-| `forge_tornado` | Generate tornado sensitivity diagram |
-| `forge_bootstrap` | Non-parametric bootstrap resampling for confidence intervals |
-| `forge_bayesian` | Bayesian network inference with optional evidence |
-
-**Discovery (3)**
-
-| Tool | What It Does |
-|------|--------------|
-| `forge_schema` | Get JSON Schema for Forge YAML model formats |
-| `forge_functions` | List all 202 supported functions with descriptions |
-| `forge_examples` | Get runnable YAML examples for all capabilities |
-
-All tools accept inline YAML via `content` parameter — no host filesystem access required. Works with sandboxed clients (Claude.ai, Cursor, containers).
-
-See [docs/MCP.md](docs/MCP.md) for the full integration guide.
-
----
-
-## 202 Functions
-
-202 functions: most are Excel-compatible, plus 7 Excel doesn't have: 6 for FP&A, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is.
+## Beyond the spreadsheet
+
+A spreadsheet calculates cells. The questions above need more than that, and Forge has a command for each, from the same YAML file:
+
+| The question | The command |
+| --- | --- |
+| How likely is the year to make money? | `forge simulate`: Monte Carlo with six distributions (normal, triangular, uniform, PERT, lognormal, discrete), percentiles, and the input value that reaches a chosen probability |
+| Which input matters most? | `forge tornado`, `forge sensitivity` |
+| What if things go well, or badly? | `forge scenarios`: probability-weighted, with the expected value |
+| Invest now, wait, or walk away? | `forge decision-tree` (backward induction), `forge real-options` (Black-Scholes and binomial: defer, expand, contract, abandon, switch) |
+| How sure is that average? | `forge bootstrap`: percentile, basic and BCa intervals |
+| How does one risk lead to another? | `forge bayesian`: Bayesian networks, with evidence |
+| Where did the budget go? | `forge variance`, `forge report` |
+| What price breaks even? Hits a target? | `forge break-even`, `forge goal-seek` |
+| Can my colleague open it in Excel? | `forge export` writes a workbook with live formulas; `forge import` reads one back |
+
+How each one is set up in YAML, with examples: [docs/FEATURES.md](docs/FEATURES.md). Every command is listed there too, and `forge examples` prints a runnable model for most of them.
+
+### 202 functions
+
+Most are Excel's, under Excel's names, so a formula reads as it would in a cell. Seven are not in Excel: `VARIANCE`, `VARIANCE_PCT` and `VARIANCE_STATUS` (which knows that a cost under budget is good news), `BREAKEVEN_UNITS`, `BREAKEVEN_REVENUE`, `SCENARIO`, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is, and [docs/FUNCTIONS.md](docs/FUNCTIONS.md) has them all.
 
 | Category | Examples |
 |----------|----------|
@@ -377,32 +151,28 @@ See [docs/MCP.md](docs/MCP.md) for the full integration guide.
 | **Array** | UNIQUE, COUNTUNIQUE, FILTER, SORT |
 | **FP&A-Native** | VARIANCE, VARIANCE_PCT, VARIANCE_STATUS, BREAKEVEN_UNITS, BREAKEVEN_REVENUE, SCENARIO |
 
-Run `forge functions` for full syntax and examples. [`examples/capex-plan`](examples/capex-plan/README.md) puts the loan, depreciation and trend functions to work on one machine.
+## For AI agents
 
----
+Any agent that can write a file and run a command can use Forge: Claude Code, Codex, Gemini, Cursor, Copilot, Aider. The agent writes YAML, `forge calculate` gives the numbers. No SDK, no API key, no protocol: files are the interface. The results come from the formula evaluator, not from a language model's arithmetic, and each one traces back to a formula.
 
-## FP&A Functions Excel Doesn't Have
+Why not let the agent edit a spreadsheet? A `.xlsx` file is zipped XML, and its formulas say `B7:G42` where a YAML model says `months.revenue`. For one five-year DCF, the workbook was about 7 times the size of the YAML (19 times counting the XML inside). Token counts were not measured, and an agent that reads only the cells it needs avoids much of that; the names are the bigger difference. A YAML model also diffs, reviews and merges like code.
 
-Every analyst builds these manually. Forge has them built-in:
+For tighter integration, `forge mcp` is an MCP server with 20 tools (validate, calculate, audit, export and import; sensitivity, goal seek, break-even, variance, compare; simulate, scenarios, decision trees, real options, tornado, bootstrap, Bayesian networks; and schema, functions and examples for discovery). Every tool takes the YAML inline, so it works in sandboxed clients with no file system:
 
-```yaml
-# VARIANCE - What Excel makes you do manually
-variance_analysis:
-  revenue_var: "=VARIANCE(actual.revenue, budget.revenue)"           # Returns: -5000
-  revenue_pct: "=VARIANCE_PCT(actual.revenue, budget.revenue)"       # Returns: -5%
-  revenue_status: "=VARIANCE_STATUS(actual.revenue, budget.revenue)" # Returns a numeric status code
-
-# BREAKEVEN - Instant unit economics
-breakeven:
-  units_required: "=BREAKEVEN_UNITS(500000, 150, 60)"     # Returns: 5,556 units
-  revenue_required: "=BREAKEVEN_REVENUE(500000, 0.60)"    # Returns: $833,333
+```json
+{
+  "mcpServers": {
+    "forge": {
+      "command": "forge",
+      "args": ["mcp"]
+    }
+  }
+}
 ```
 
-**Type-aware variance:** Costs use inverted logic (under budget = BEAT).
+[docs/MCP.md](docs/MCP.md) describes each tool. `forge serve` runs a REST API for validate, calculate, audit, export and import ([docs/FEATURES.md](docs/FEATURES.md#http-rest-api-server)).
 
----
-
-## Quick Start
+## Quick start
 
 ```bash
 # Install the prebuilt binary with Homebrew (macOS, Linux); this repository is the tap
@@ -425,9 +195,9 @@ forge calculate model.yaml --scenario optimistic
 forge export model.yaml output.xlsx
 ```
 
----
+There are runnable models in [`examples/`](examples/); [`examples/starter.yaml`](examples/starter.yaml) is the one to copy.
 
-## Editors
+### Editors
 
 Forge models are YAML files, so any editor with YAML support works. Two things help:
 
@@ -439,96 +209,6 @@ Forge models are YAML files, so any editor with YAML support works. Two things h
 
 There is no language server: run `forge validate` and `forge calculate` in a terminal, or `forge watch` to recalculate on every save.
 
----
-
-## Example: 5-Year DCF Model
-
-```yaml
-_forge_version: "5.2.0"
-
-assumptions:
-  revenue_y1: 1000000
-  growth_rate: 0.15
-  gross_margin: 0.65
-  opex_pct: 0.30
-  tax_rate: 0.25
-  discount_rate: 0.10
-
-projections:
-  year: {start: 2027, count: 5, unit: year}
-  # Each year's revenue is the year before, grown
-  revenue: "=PREV(revenue * (1 + assumptions.growth_rate), assumptions.revenue_y1)"
-  gross_profit: "=revenue * assumptions.gross_margin"
-  opex: "=revenue * assumptions.opex_pct"
-  ebit: "=gross_profit - opex"
-  tax: "=ebit * assumptions.tax_rate"
-  net_income: "=ebit - tax"
-
-valuation:
-  total_revenue:
-    formula: "=SUM(projections.revenue)"
-  avg_gross_margin:
-    formula: "=SUM(projections.gross_profit) / SUM(projections.revenue)"
-  npv_cash_flows:
-    formula: "=NPV(assumptions.discount_rate, projections.net_income)"
-
-scenarios:
-  base:
-    growth_rate: 0.15
-  bull:
-    growth_rate: 0.25
-    gross_margin: 0.70
-  bear:
-    growth_rate: 0.05
-    gross_margin: 0.55
-```
-
-```bash
-forge calculate model.yaml --dry-run                  # preview results without writing the file
-forge calculate model.yaml --scenario bull --dry-run
-forge sensitivity model.yaml -v assumptions.growth_rate -r 0.05,0.30,0.05 -o valuation.npv_cash_flows
-```
-
-`forge calculate` prints every calculated value, including each table column. Without `--dry-run`, it also writes the calculated scalar values back into the file and keeps a `.bak` copy; table columns keep their formulas in the file. The MCP `forge_calculate` tool returns the column values under `tables.<name>.values`.
-
----
-
-## Commands
-
-```bash
-# Core Operations
-forge validate <files...>           # Validate YAML model(s)
-forge calculate <file>              # Execute all formulas
-forge audit <file> <variable>       # Trace formula dependencies
-
-# Analysis
-forge sensitivity <file> -v VAR -r RANGE -o OUTPUT
-forge goal-seek <file> --target VAR --value N --vary INPUT
-forge break-even <file> -o OUTPUT -v INPUT
-forge variance <budget> <actual> --threshold PCT
-
-# Prediction & Simulation
-forge simulate <file> --iterations N    # Monte Carlo
-forge scenarios <file>                  # Scenario analysis
-forge decision-tree <file>              # Decision trees
-forge real-options <file>               # Real options
-forge tornado <file>                    # Tornado diagrams
-forge bootstrap <file>                  # Bootstrap resampling
-
-# Excel Bridge
-forge export <yaml> <xlsx>          # YAML → Excel with formulas
-forge import <xlsx> <yaml>          # Excel → YAML
-
-# AI Integration
-forge mcp                           # Start MCP server
-forge serve --port 8080             # Start REST API
-
-# Reference
-forge functions                     # List all 202 functions
-forge schema v5                     # Show JSON schema
-forge examples monte-carlo          # Show example YAML
-```
-
 ### Side by side: `forge report`
 
 `forge report` shows a calculated file's scalars as a table: one row per group, one column per key, and groups with the same keys lined up. It reads what `forge calculate` wrote and never writes the file. `--format markdown` pastes into a document; `csv` and `json` keep all 15 significant digits.
@@ -539,35 +219,19 @@ forge calculate options.yaml && forge report options.yaml --format markdown
 
 See [docs/REPORT.md](docs/REPORT.md).
 
----
+## How we know the numbers are right
 
-## Documentation Commands
+Forge's results are checked against engines it does not control, and none of the checks is complete. The unit tests run on every push. The two validation suites, in [`validation/`](validation/), run on every pull request and every merge to `main` that changes the engine or a suite, and every week. [VALIDATION.md](VALIDATION.md) lists what each one covers, its latest result and how to run it; [docs/STABILITY.md](docs/STABILITY.md) says what a stable release will promise, and what it will not.
 
-```bash
-# View JSON schemas for model validation
-forge schema                    # List available versions
-forge schema v1                 # Show v1.0.0 schema (scalar-only)
-forge schema v5.1               # Show the 5.1.0 model format schema (use for new models)
-forge schema v5.2               # 5.1.0 plus the period column (ADR-053)
-forge schema v5 > schema.json   # Pipe to file for IDE use
+| Check | What it covers | Latest result (2026-11-12) |
+| --- | --- | --- |
+| Unit tests (this repo) | 1,768 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
+| [forge-e2e-gnumeric](validation/gnumeric) | 1,460 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 70 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,445 pass, 1 skipped |
+| [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped |
 
-# View runnable examples for Forge capabilities
-forge examples                  # List all examples
-forge examples monte-carlo      # Monte Carlo simulation
-forge examples scenarios        # Probability-weighted scenarios
-forge examples decision-tree    # Sequential decision modeling
-forge examples real-options     # Option pricing for flexibility
-forge examples tornado          # Sensitivity analysis
-forge examples bootstrap        # Confidence intervals
-forge examples bayesian         # Probabilistic graphical models
-forge examples variance         # Budget vs actual analysis
-forge examples breakeven        # Break-even calculations
+Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
 
-forge examples monte-carlo --run  # Show and execute example
-forge examples --json             # Machine-readable list
-```
-
----
+Clippy runs in pedantic mode and CI fails on a warning.
 
 ## Intended use
 
@@ -581,41 +245,20 @@ Forge is new and there is no adoption data yet. These are the uses it is designe
 | **Fintech** | Automated projections via API, embedded calculations |
 | **AI Agents** | A coding agent writes YAML and Forge evaluates it |
 
----
-
-## Quality Assurance
-
-| Metric | Value |
-| --- | --- |
-| **Unit tests** | 1,768 tests and 2 doctests |
-| **Functions** | 202, of which 6 are FP&A-native and one (`PREV`) reads the row above |
-| **Lints** | clippy pedantic is enabled and CI fails on warnings |
-| **External validation** | Partial; see [Validation status](#validation-status) |
-
-### Test Architecture
-
-```text
-forge                         validation/ (same repository, ADR-057)
-├── 1,768 tests               ├── gnumeric: 1,460 formula specs
-├── #[cfg(test)] modules      └── r: 136 function checks, 77 analytics specs
-└── 2 doctests
-```
-
----
-
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [CHANGELOG](CHANGELOG.md) | Version history |
-| [Roadmap](.asimov/roadmap.yaml) | What is next and why, in order; current state and what is unverified |
-| [Architecture](docs/architecture/) | Technical design and ADRs |
-| [Examples](docs/EXAMPLES.md) | YAML model examples |
-| [Features](docs/FEATURES.md) | Full feature reference |
-| [Market Analysis](docs/MARKET_ANALYSIS.md) | Investment thesis and positioning |
-| [JSON Schema](schema/) | Model validation schema |
-
----
+| Document | What it holds |
+| --- | --- |
+| [Features](docs/FEATURES.md) | The model file, every command, every analysis |
+| [Functions](docs/FUNCTIONS.md) | The 202 functions |
+| [MCP](docs/MCP.md) | The MCP server and its 20 tools |
+| [Examples](examples/) | Runnable models, each with a README |
+| [Posts](docs/posts/) | One question each, answered with the examples |
+| [Validation](VALIDATION.md) | What is checked against what, and the latest results |
+| [Stability](docs/STABILITY.md) | What a stable release promises |
+| [Architecture](docs/architecture/) | The decisions (ADRs) and why |
+| [Roadmap](.asimov/roadmap.yaml) | What is next, in order, and what is unverified |
+| [Changelog](CHANGELOG.md) | Every release |
 
 ## Development
 
@@ -626,8 +269,6 @@ make check                              # Full CI check
 cargo build --release && (cd validation/gnumeric && cargo run --release)   # Against Gnumeric and LibreOffice (VALIDATION.md)
 cargo build --lib --no-default-features # The engine alone: no command line, servers or Excel (ADR-055)
 ```
-
----
 
 ## License
 
