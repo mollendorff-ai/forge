@@ -2,7 +2,7 @@
 
 Forge's tools in a browser (ADR-055). Each tool runs the same core function as the command line and the MCP server (`calculate_core`, `simulate_core`, ...) on a model held in memory. Nothing in this crate calculates.
 
-It is part of this repository's workspace and is not published. Forge Studio (ADR-056) will call it.
+It is part of this repository's workspace and is not published. [Forge Studio](../studio/README.md) (ADR-056) is built on it: the page calls `call(tool, request)` in a worker and calculates nothing itself, so what you see in the browser is what the command line would print. Try it at <https://mollendorff-ai.github.io/forge/>.
 
 ## Calling it
 
@@ -41,7 +41,7 @@ const answer = JSON.parse(forge.call("goal_seek", JSON.stringify({
 | `import` | `excel_base64`, `name` (`model.yaml`), no `files`: the model `forge import` writes from that workbook, as `files` (the main model and its included files, by name) and `main`, with `warnings` |
 | `model` (not an MCP tool) | none: the model read and not calculated, as Forge Studio's cards show it: each scalar's input value or formula with its unit, each table's columns (data or formula) in the file's order, and each included file's scalars as `@namespace.group.name` |
 
-`calculate` never writes results back: there is no file. A workbook made by `export` is the one `forge export` writes from the same files, apart from the time it was made (docProps/core.xml, to the second); CI compares them part by part.
+`calculate` never writes results back: there is no file. The module is built without the engine's command line and servers (ADR-055) and runs inside the page's own tab: nothing in it sends a model anywhere. A workbook made by `export` is the one `forge export` writes from the same files, apart from the time it was made (docProps/core.xml, to the second); CI compares them part by part.
 
 ## How it is checked
 
