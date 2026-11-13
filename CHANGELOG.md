@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Forge Studio opens `examples/capex-plan` and `examples/rolling-forecast`** (nine example sets, from seven). The page's tests run on both: the numbers on screen, the grid, the formula edits and the suggestions are checked against what Forge returns for them.
+
+### Fixed
+- **Forge Studio did not suggest `TRUE` and `FALSE` inside a formula**, only `TRUE(` and `FALSE(`, so the `TRUE` of `=SUMIFS(months.revenue, months.is_actual, TRUE)` in the rolling forecast could not be completed. Found by running the suggestion tests on that example.
+
 ## [10.0.0-rc.20] - 2026-11-13
 
 A table column can aggregate a column, of another table or its own (ADR-058), and a column of numbers can hold an empty cell (ADR-059, model format 5.3.0), which does what Excel does with one; `COUNTBLANK` makes 203 functions. Two wrong answers in `forge import` are fixed: an empty cell came in as 0, and a range where Forge reads the row's value came in as a formula with another answer. By docs/STABILITY.md those fixes start the two weeks before a stable release again: from rc.20, no earlier than 2026-11-27. The README and the longer docs are rewritten and shorter.

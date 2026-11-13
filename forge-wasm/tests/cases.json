@@ -23,6 +23,8 @@
   {"name": "sensitivity dcf", "tool": "sensitivity", "dir": "periods", "files": ["dcf.yaml"], "main": "dcf.yaml", "args": {"vary": "assumptions.wacc", "range": "0.08,0.11,0.005", "output": "valuation.equity_value"}},
   {"name": "variance household", "tool": "variance", "dir": "household", "files": ["budget.yaml", "actual.yaml"], "args": {"budget": "budget.yaml", "actual": "actual.yaml", "threshold": 10}},
   {"name": "report options", "tool": "report", "dir": "options", "files": ["compare-options.yaml"], "main": "compare-options.yaml"},
+  {"name": "calculate capex", "tool": "calculate", "dir": "capex-plan", "files": ["capex.yaml"], "main": "capex.yaml"},
+  {"name": "calculate rolling forecast", "tool": "calculate", "dir": "rolling-forecast", "files": ["forecast.yaml"], "main": "forecast.yaml"},
   {"name": "calculate starter", "tool": "calculate", "dir": "", "files": ["starter.yaml"], "main": "starter.yaml"},
   {"name": "calculate household", "tool": "calculate", "dir": "household", "files": ["budget.yaml"], "main": "budget.yaml"},
   {"name": "calculate options", "tool": "calculate", "dir": "options", "files": ["compare-options.yaml"], "main": "compare-options.yaml"},

@@ -21,7 +21,7 @@ Each has a README with the numbers it should print. All figures are made up.
 | [`capex-plan/`](capex-plan/) | A machine bought on a loan: payment schedule, depreciation and a revenue trend. |
 | [`options/`](options/compare-options.yaml) | Two rentals compared. |
 
-Studio opens `starter`, `bagel`, `mortgage`, the two models in `periods`, `household` and `options`. `capex-plan` and `rolling-forecast` run from the command line only for now.
+Studio opens all of these except the one-command files below.
 
 ## One command each
 
