@@ -1,6 +1,6 @@
 # ADR-060: A Date as a Scalar
 
-**Status:** Proposed
+**Status:** Accepted (2026-11-13, by merging #188); built (2026-11-13)
 **Date:** 2026-11-13
 **Decided by:** the maintainer (roadmap T2-SCALAR-DATES, from the FP&A audit of 2026-11-12; accepted by merging this ADR); the design is Claude's, in a session configured for Opus 5.5
 **Extends:** ADR-054 (a date is a date) from table columns to scalars
@@ -62,13 +62,14 @@ They do not agree on **which results they show as dates**. LibreOffice shows `=B
 5. **Shown as a date everywhere a scalar's value is shown.**
    - `forge calculate` prints `inputs.last_actual = 2026-10-31`. When it writes the file back, it writes `last_actual: 2026-10-31`, and a formula scalar's cached `value:` is the date too.
    - `forge report` and Forge Studio's cards show the date.
-   - JSON (`--format json`, MCP, forge-wasm) gives `"2026-10-31"`, the text, as it does for a cell of a date column. This changes the JSON of a formula scalar whose value is a date, which today is a number. None is in the corpus apart from the forecast. The changelog says so.
-   - `forge compare` and `forge variance` show both dates, and the difference in days.
-   - The commands that set an input to numbers of their own (`sensitivity`, `goal-seek`, `break-even`, `tornado`, and `simulate`'s distributions) refuse a date input with a message that names it. Varying a date is not decided here. A date scalar among their outputs is shown as a date.
+   - JSON (MCP, the REST API, forge-wasm) gives `"2026-10-31"`, the text, as it does for a cell of a date column. This changes the JSON of a formula scalar whose value is a date, which today is a number. None is in the corpus apart from the forecast. The changelog says so.
+   - `forge compare` shows the dates. *(Built this way: `forge variance` lists a date among the scalars it does not compare, because its variance is a share of the budget, and a share of a day number means nothing. The proposal had it show the difference in days.)*
+   - The commands that set an input to numbers of their own (`sensitivity`, `goal-seek`, `break-even`, `tornado` and `probability-seek`) refuse a date input with a message that names it. `simulate` samples only formula scalars (`MC.*`), so it never sets a date. Varying a date is not decided here. *(Built this way: their outputs are numbers, as before. A date among them would be printed as its day number; none of these commands has a table where a date output means something yet.)*
+   - `forge audit` shows a date as a date, in the variable's value and in its dependency tree.
 
 6. **Export and import.** A date scalar is written to its sheet as its day number with the number format `yyyy-mm-dd`, and so is a formula scalar whose value is a date. Forge sets the format itself instead of leaving the engine to guess (see the measurement above). In the export a formula that reads a date scalar follows ADR-054's rules, as a reference to a date column does. So `=LEFT(inputs.last_actual, 4)` becomes `=LEFT(TEXT(YEAR($B$2)*10000+…, "0000-00-00"), 4)`, and `">" & inputs.last_actual` becomes `">" & $B$2`. `forge import` reads a scalar cell with a date format, no time of day and a date from 1900-03-01 on as a date scalar. It reads a formula scalar by its formula: whether it is a date is decided by decision 3, not by the cell's format, as for a column (ADR-054, decision 8). A workbook formula that Forge would not have written, such as `=LEFT(B2, 4)` on a date cell (`"4632"` there, `"2026"` in Forge), is imported as its value, with a warning, as it is for a column.
 
-7. **Model format 5.4.0.** A model with a date scalar says `_forge_version: "5.4.0"`. Format 5.3.0 shipped in rc.20 today. That Forge would refuse a date scalar in a 5.3.0 file with "must be a number", and a version is how an older Forge is meant to refuse a file it cannot read (ADR-059, decision 1). In 5.3.0 and earlier, a date scalar stays the error it is now, and the message names 5.4.0. `DATE`'s change (decision 4) applies in every version, as ADR-054's changes did, because it is about what a formula gives and not about what a file may hold. If T2-NUMBER-FORMAT changes the format before 5.4.0 is in a release, it shares that version.
+7. **Model format 5.4.0.** A model with a date scalar says `_forge_version: "5.4.0"`. Format 5.3.0 shipped in rc.20 today. That Forge would refuse a date scalar in a 5.3.0 file with "must be a number", and a version is how an older Forge is meant to refuse a file it cannot read (ADR-059, decision 1). In 5.3.0 and earlier, a date scalar stays the error it is now, and the message names 5.4.0. A formula scalar whose value is a date is written back by `forge calculate` as its date in a 5.4.0 file, and as its day number before that, so an older file stays readable by the Forge that wrote it. `DATE`'s change (decision 4) applies in every version, as ADR-054's changes did, because it is about what a formula gives and not about what a file may hold. If T2-NUMBER-FORMAT changes the format before 5.4.0 is in a release, it shares that version.
 
 ## Consequences
 

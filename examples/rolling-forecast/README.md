@@ -4,7 +4,7 @@
 
 Things that usually take a spreadsheet's worth of care are one formula each:
 
-- **Actuals, then forecast.** The months not closed yet have an empty cell (`null`) in each actual column, and `is_actual: "=ISNUMBER(actual_standard_units)"` marks the months that have one (format 5.3.0, ADR-059). An actual of 0 is a 0, not an open month. Each driver is the actual where there is one, and otherwise the month before, grown: `=IF(is_actual, actual_standard_units, PREV(standard_units, 0) * (1 + inputs.standard_volume_growth))`. Next month, type in the new actuals over the nulls, change `last_actual` (the next twelve months are counted from it), and add one to the period column's `count` (and a `null` to each actual column) to keep twelve months ahead; the forecast starts one month later by itself.
+- **Actuals, then forecast.** The months not closed yet have an empty cell (`null`) in each actual column, and `is_actual: "=ISNUMBER(actual_standard_units)"` marks the months that have one (ADR-059). An actual of 0 is a 0, not an open month. Each driver is the actual where there is one, and otherwise the month before, grown: `=IF(is_actual, actual_standard_units, PREV(standard_units, 0) * (1 + inputs.standard_volume_growth))`. Next month, type in the new actuals over the nulls, change `last_actual: 2026-10-31` to the new month's last day (the next twelve months are counted from it; a date as a scalar is format 5.4.0, ADR-060), and add one to the period column's `count` (and a `null` to each actual column) to keep twelve months ahead; the forecast starts one month later by itself.
 - **The fiscal calendar.** `fiscal_year` and `fiscal_quarter` come from the month and `fy_start_month`, so a year that starts in July is one number to change.
 - **Year to date.** `fiscal_ytd` starts again each April: `=IF(fiscal_year = PREV(fiscal_year, 0), PREV(fiscal_ytd, 0), 0) + revenue`.
 - **The budget, month by month.** The budget is a table of its own with 12 months. `XLOOKUP(month, budget.month, ...)` finds the budget of the same month, and gives 0 after the budget's year.
@@ -24,8 +24,6 @@ forge export examples/rolling-forecast/forecast.yaml forecast.xlsx
 
 ## What Forge cannot do here yet
 
-Building this model found three gaps. Two are closed: a table of quarters (ADR-058) and months without actuals (ADR-059). One is on the roadmap:
-
-- **A date as an input.** `last_actual: 2026-10-31` is refused, so the model writes `=DATE(2026, 10, 31)`. Its value is printed as 46326, Excel's day number, and not as a date (T2-SCALAR-DATES).
+Building this model found three gaps, all closed now: a table of quarters (ADR-058), months without actuals (ADR-059) and the last actual as a date (ADR-060).
 
 Two products are four columns and their formulas twice. A dimension such as product × month is the job of a planning tool (Anaplan, Pigment), and Forge does not try to be one.

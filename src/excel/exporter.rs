@@ -34,6 +34,7 @@ impl ExcelExporter {
             (name.as_str(), columns, Self::row_count(table))
         });
         let mut refs = WorkbookRefs::new(tables, model.scalars.keys().map(String::as_str));
+        refs.add_date_scalars(Self::date_scalars(&model));
         for (name, table) in &model.tables {
             refs.add_column_types(name, Self::column_types(table));
             refs.add_date_columns(name, Self::date_columns(table));
@@ -68,7 +69,12 @@ impl ExcelExporter {
                 // include's table, so a value changed there flows through.
                 refs.add_include(namespace, paths());
                 refs.add_include_tables(namespace, tables());
+                let dated: Vec<String> = Self::date_scalars(&included)
+                    .map(|path| format!("@{namespace}.{path}"))
+                    .collect();
+                refs.add_date_scalars(dated.iter().map(String::as_str));
                 let mut own = WorkbookRefs::for_include(namespace, paths(), tables());
+                own.add_date_scalars(Self::date_scalars(&included));
                 for (name, table) in &included.tables {
                     let key = format!("@{namespace}.{name}");
                     refs.add_column_types(&key, Self::column_types(table));
@@ -159,6 +165,60 @@ impl ExcelExporter {
             Some(ColumnValue::Number(_) | ColumnValue::Blanks(_)) => Holds::Numbers,
             Some(_) => Holds::Other,
         }
+    }
+
+    /// The scalars whose value is a date (ADR-060).
+    fn date_scalars(model: &ParsedModel) -> impl Iterator<Item = &str> {
+        model
+            .scalars
+            .iter()
+            .filter(|(_, var)| var.is_date)
+            .map(|(path, _)| path.as_str())
+    }
+
+    /// Write a scalar's value: a date as a date cell (ADR-060).
+    fn write_scalar_value(
+        worksheet: &mut rust_xlsxwriter::Worksheet,
+        row: u32,
+        var: &crate::types::Variable,
+    ) -> ForgeResult<()> {
+        let Some(value) = var.value else {
+            return Ok(());
+        };
+        let written = if var.is_date {
+            worksheet.write_number_with_format(row, 1, value, &Self::date_format())
+        } else {
+            worksheet.write_number(row, 1, value)
+        };
+        written
+            .map(|_| ())
+            .map_err(|e| ForgeError::Export(format!("Failed to write scalar value: {e}")))
+    }
+
+    /// Write a scalar's formula, with its cached value: a date as a date cell.
+    fn write_scalar_formula(
+        worksheet: &mut rust_xlsxwriter::Worksheet,
+        row: u32,
+        var: &crate::types::Variable,
+        translated: &super::workbook_refs::Translated,
+    ) -> ForgeResult<()> {
+        let mut formula = Formula::new(&translated.formula);
+        if let Some(value) = var.value {
+            formula = formula.set_result(value.to_string());
+        }
+        let written = match (var.is_date, translated.has_range) {
+            (true, true) => {
+                worksheet.write_dynamic_formula_with_format(row, 1, formula, &Self::date_format())
+            },
+            (true, false) => {
+                worksheet.write_formula_with_format(row, 1, formula, &Self::date_format())
+            },
+            (false, true) => worksheet.write_dynamic_formula(row, 1, formula),
+            (false, false) => worksheet.write_formula(row, 1, formula),
+        };
+        written
+            .map(|_| ())
+            .map_err(|e| ForgeError::Export(format!("Failed to write scalar formula: {e}")))
     }
 
     /// The format of a date cell: the day number shown as Forge writes dates.
@@ -579,38 +639,15 @@ impl ExcelExporter {
                 .as_ref()
                 .map(|f| (f, self.refs.to_excel(f, Context::Scalar { group })));
             match translated {
-                Some((_, Ok(t))) => {
-                    let mut formula = Formula::new(&t.formula);
-                    if let Some(value) = var.value {
-                        formula = formula.set_result(value.to_string());
-                    }
-                    let written = if t.has_range {
-                        worksheet.write_dynamic_formula(row, 1, formula)
-                    } else {
-                        worksheet.write_formula(row, 1, formula)
-                    };
-                    written.map_err(|e| {
-                        ForgeError::Export(format!("Failed to write scalar formula: {e}"))
-                    })?;
-                },
+                Some((_, Ok(t))) => Self::write_scalar_formula(worksheet, row, var, &t)?,
                 Some((formula, Err(reason))) => {
                     warnings.push(format!("{path}: written as a value ({reason}): {formula}"));
                     notes.push(format!(
                         "Forge formula: {formula}\nWritten as a value: {reason}"
                     ));
-                    if let Some(value) = var.value {
-                        worksheet.write_number(row, 1, value).map_err(|e| {
-                            ForgeError::Export(format!("Failed to write scalar value: {e}"))
-                        })?;
-                    }
+                    Self::write_scalar_value(worksheet, row, var)?;
                 },
-                None => {
-                    if let Some(value) = var.value {
-                        worksheet.write_number(row, 1, value).map_err(|e| {
-                            ForgeError::Export(format!("Failed to write scalar value: {e}"))
-                        })?;
-                    }
-                },
+                None => Self::write_scalar_value(worksheet, row, var)?,
             }
 
             if let Some(note_text) = Self::format_metadata_note(&var.metadata) {
@@ -662,20 +699,7 @@ impl ExcelExporter {
                 .as_ref()
                 .map(|f| (f, own.to_excel(f, Context::Scalar { group })));
             match translated {
-                Some((_, Ok(t))) => {
-                    let mut formula = Formula::new(&t.formula);
-                    if let Some(value) = var.value {
-                        formula = formula.set_result(value.to_string());
-                    }
-                    let written = if t.has_range {
-                        worksheet.write_dynamic_formula(row, 1, formula)
-                    } else {
-                        worksheet.write_formula(row, 1, formula)
-                    };
-                    written.map_err(|e| {
-                        ForgeError::Export(format!("Failed to write scalar formula: {e}"))
-                    })?;
-                },
+                Some((_, Ok(t))) => Self::write_scalar_formula(worksheet, row, var, &t)?,
                 other => {
                     if let Some((formula, Err(reason))) = other {
                         warnings.push(format!(
@@ -685,11 +709,7 @@ impl ExcelExporter {
                             "Forge formula: {formula}\nWritten as a value: {reason}"
                         ));
                     }
-                    if let Some(value) = var.value {
-                        worksheet.write_number(row, 1, value).map_err(|e| {
-                            ForgeError::Export(format!("Failed to write scalar value: {e}"))
-                        })?;
-                    }
+                    Self::write_scalar_value(worksheet, row, var)?;
                 },
             }
 

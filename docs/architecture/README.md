@@ -75,7 +75,7 @@ Technical documentation for Forge's architecture.
 | [ADR-057](ADR-057-VALIDATION-IN-THIS-REPOSITORY.md) | The Validation Suites Live in This Repository | Accepted; built |
 | [ADR-058](ADR-058-AGGREGATES-IN-A-ROW-FORMULA.md) | Aggregates in a Row Formula | Accepted; built |
 | [ADR-059](ADR-059-AN-EMPTY-CELL.md) | An Empty Cell in a Number Column | Accepted; built |
-| [ADR-060](ADR-060-A-DATE-AS-A-SCALAR.md) | A Date as a Scalar | Proposed |
+| [ADR-060](ADR-060-A-DATE-AS-A-SCALAR.md) | A Date as a Scalar | Accepted; built |
 
 ## Architecture Principles
 

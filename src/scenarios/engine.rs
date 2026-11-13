@@ -135,13 +135,20 @@ impl ScenarioEngine {
         // Apply scenario overrides (resolving grouped names like "rate" → "assumptions.rate",
         // and `@namespace.name` to a scalar of an included file)
         for (var_name, override_val) in &scenario.scalars {
-            let (value, formula) = match override_val {
-                ScalarOverride::Value(v) => (Some(*v), None),
-                ScalarOverride::Formula { formula } => (None, Some(formula.clone())),
+            let applied = match override_val {
+                ScalarOverride::Value(v) => model.override_scalar(var_name, Some(*v), None),
+                ScalarOverride::Formula { formula } => {
+                    model.override_scalar(var_name, None, Some(formula.clone()))
+                },
+                ScalarOverride::Date(text) => match crate::parser::scalar_date(text, var_name) {
+                    Ok(Some(serial)) => model.override_date(var_name, serial),
+                    Ok(None) => Err(format!(
+                        "'{var_name}': \"{text}\" is not a number or a date"
+                    )),
+                    Err(e) => Err(e.to_string()),
+                },
             };
-            model
-                .override_scalar(var_name, value, formula)
-                .map_err(|e| format!("Scenario '{name}': {e}"))?;
+            applied.map_err(|e| format!("Scenario '{name}': {e}"))?;
         }
 
         // Calculate the model

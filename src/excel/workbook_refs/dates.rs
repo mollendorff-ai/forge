@@ -76,7 +76,7 @@ enum Read {
 }
 
 /// Functions that give a date in Forge (date text) and in Excel (a day number).
-const GIVE_A_DATE: [&str; 4] = ["EDATE", "EOMONTH", "WORKDAY", "TODAY"];
+const GIVE_A_DATE: [&str; 5] = ["DATE", "EDATE", "EOMONTH", "WORKDAY", "TODAY"];
 
 /// Functions that give text.
 const GIVE_TEXT: [&str; 13] = [
@@ -362,8 +362,23 @@ impl Dates<'_> {
                 Some(false) => Kind::Number,
                 None => Kind::Unknown,
             },
-            // A scalar is a number; an unknown name is reported by the translator
-            None => Kind::Number,
+            // A scalar is a number or a date (ADR-060); an unknown name is
+            // reported by the translator
+            None => {
+                let group = match self.ctx {
+                    Context::Row { table, .. } => Some(table),
+                    Context::Scalar { group } => group,
+                };
+                let path = match self.refs.resolve_scalar(word, group) {
+                    Ok(Some(path)) => path,
+                    _ => word.to_string(),
+                };
+                if self.refs.date_scalars.contains(&path) {
+                    Kind::Date
+                } else {
+                    Kind::Number
+                }
+            },
         }
     }
 

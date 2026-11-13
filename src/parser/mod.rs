@@ -35,7 +35,10 @@ pub use multi_doc::{
     split_yaml_documents,
 };
 pub use schema::{validate_against_schema, validate_v1_0_0_no_tables};
-pub use variables::{is_nested_scalar_section, parse_metadata, parse_scalar_variable, parse_table};
+pub use variables::{
+    is_nested_scalar_section, looks_like_date, parse_metadata, parse_scalar_variable, parse_table,
+    scalar_date,
+};
 
 use crate::error::ForgeResult;
 use crate::types::ParsedModel;

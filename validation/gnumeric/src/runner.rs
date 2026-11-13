@@ -344,7 +344,13 @@ impl TestRunner {
         let read = |key: &str| -> Result<f64, String> {
             group
                 .get(key)
-                .and_then(|entry| entry.as_f64().or_else(|| entry.get("value")?.as_f64()))
+                .and_then(|entry| {
+                    let value = entry.get("value").unwrap_or(entry);
+                    // A date (Forge ADR-060) is its day number
+                    value
+                        .as_f64()
+                        .or_else(|| value.as_str().and_then(cell_number))
+                })
                 .ok_or_else(|| format!("forge calculate gave no numeric value for {key}"))
         };
 
@@ -448,9 +454,9 @@ impl TestRunner {
                     continue;
                 };
                 if idx < count {
-                    match cells[1].parse::<f64>() {
-                        Ok(value) => results[idx] = Ok(value),
-                        Err(_) => {
+                    match cell_number(cells[1]) {
+                        Some(value) => results[idx] = Ok(value),
+                        None => {
                             results[idx] = Err(format!(
                                 "the recalculated cell is not a number: {}",
                                 cells[1]
@@ -544,7 +550,7 @@ impl TestRunner {
                     .map(|s| s.trim_matches('"').trim())
                     .collect();
                 if cells.len() >= 2 && (cells[0] == "test_result" || cells[0] == "result") {
-                    return cells[1].parse::<f64>().map_err(|_| {
+                    return cell_number(cells[1]).ok_or_else(|| {
                         format!("the recalculated cell is not a number: {}", cells[1])
                     });
                 }
@@ -552,6 +558,36 @@ impl TestRunner {
         }
         Err("Could not find a labelled test_result row in any sheet".to_string())
     }
+}
+
+/// A number as a CSV cell or a calculated YAML value shows it, or a date shown
+/// as `2026-10-31` or `2026/10/31` (a date cell, a date scalar of Forge ADR-060) as Excel's
+/// day number, the days since 1899-12-30.
+fn cell_number(text: &str) -> Option<f64> {
+    if let Ok(n) = text.parse::<f64>() {
+        return Some(n);
+    }
+    // Gnumeric's CSV shows a date cell as 2026/10/31
+    let mut parts = text.split(['-', '/']);
+    let (y, m, d) = (parts.next()?, parts.next()?, parts.next()?);
+    if parts.next().is_some() || y.len() != 4 || m.len() != 2 || d.len() != 2 {
+        return None;
+    }
+    let (y, m, d): (i64, i64, i64) = (y.parse().ok()?, m.parse().ok()?, d.parse().ok()?);
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+        return None;
+    }
+    // Days from 1970-01-01 of a civil date (H. Hinnant's algorithm)
+    let days_from_epoch = |y: i64, m: i64, d: i64| {
+        let y = if m <= 2 { y - 1 } else { y };
+        let era = y.div_euclid(400);
+        let yoe = y - era * 400;
+        let doy = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + d - 1;
+        let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        era * 146_097 + doe - 719_468
+    };
+    #[allow(clippy::cast_precision_loss)] // a day count, far below 2^52
+    Some((days_from_epoch(y, m, d) - days_from_epoch(1899, 12, 30)) as f64)
 }
 
 /// The spec's `_includes`, resolved: (file beside the spec, namespace).
@@ -704,6 +740,17 @@ fn judge(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_date_cell_is_its_day_number() {
+        assert_eq!(cell_number("2026-10-31"), Some(46326.0));
+        assert_eq!(cell_number("1900-03-01"), Some(61.0));
+        assert_eq!(cell_number("2024-02-29"), Some(45351.0));
+        assert_eq!(cell_number("2026/10/31"), Some(46326.0));
+        assert_eq!(cell_number("12.5"), Some(12.5));
+        assert_eq!(cell_number("2026-10"), None);
+        assert_eq!(cell_number("n/a"), None);
+    }
 
     #[test]
     fn load_empty_dir_returns_empty_cases() {

@@ -90,19 +90,29 @@ pub fn parse_table(name: &str, map: &yaml_serde::Mapping) -> ForgeResult<Table> 
 pub fn parse_scalar_variable(value: &Value, path: &str) -> ForgeResult<Variable> {
     if let Value::Mapping(map) = value {
         check_scalar_keys(map, path)?;
-        let val = map.get("value").and_then(yaml_serde::Value::as_f64);
+        let date = match map.get("value") {
+            Some(Value::String(text)) => scalar_date(text, &format!("{path}.value"))?,
+            _ => None,
+        };
+        let val = date.or_else(|| map.get("value").and_then(yaml_serde::Value::as_f64));
         let formula = map
             .get("formula")
             .and_then(|f| f.as_str().map(std::string::ToString::to_string));
 
         // Extract v4.0 metadata fields
         let metadata = parse_metadata(map);
+        if date.is_some() && formula.is_none() && metadata.unit.is_some() {
+            return Err(ForgeError::Parse(format!(
+                "'{path}' is a date, and a date has no unit: remove `unit:` (ADR-060)"
+            )));
+        }
 
         Ok(Variable {
             path: path.to_string(),
             value: val,
             formula,
             metadata,
+            is_date: date.is_some(),
         })
     } else {
         Err(ForgeError::Parse(format!(
@@ -155,13 +165,17 @@ pub fn check_scalar_keys(map: &yaml_serde::Mapping, path: &str) -> ForgeResult<(
             )));
         }
         let bad = match key {
-            "value" => !matches!(value, Value::Number(_) | Value::Null),
+            "value" => match value {
+                Value::Number(_) | Value::Null => false,
+                Value::String(text) => scalar_date(text, &format!("{path}.value"))?.is_none(),
+                _ => true,
+            },
             "formula" => !matches!(value, Value::String(_) | Value::Null),
             _ => false,
         };
         if bad {
             let expected = if key == "value" {
-                "a number"
+                "a number or a date (2026-10-31)"
             } else {
                 "a formula starting with = (in quotes)"
             };
@@ -172,6 +186,55 @@ pub fn check_scalar_keys(map: &yaml_serde::Mapping, path: &str) -> ForgeResult<(
         }
     }
     Ok(())
+}
+
+/// Whether text is written like a date or a month (`2026-10-31`, `2026-10`,
+/// `2026-1-5`): four digits, a dash and one or two digits, once or twice.
+#[must_use]
+pub fn looks_like_date(text: &str) -> bool {
+    let mut parts = text.split('-');
+    let year = parts
+        .next()
+        .is_some_and(|y| y.len() == 4 && y.bytes().all(|b| b.is_ascii_digit()));
+    let rest: Vec<&str> = parts.collect();
+    year && (1..=2).contains(&rest.len())
+        && rest
+            .iter()
+            .all(|p| (1..=2).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// A scalar written as a date (ADR-060): its day number. `Ok(None)` for text
+/// not written like a date.
+///
+/// # Errors
+///
+/// Returns an error naming `path` for a month, a date that does not exist and
+/// a date before 1900-03-01, saying which form is wanted.
+pub fn scalar_date(text: &str, path: &str) -> ForgeResult<Option<f64>> {
+    if !looks_like_date(text) {
+        return Ok(None);
+    }
+    if let Some(serial) = crate::core::array_calculator::evaluator::excel_date_serial(text) {
+        return Ok(Some(serial));
+    }
+    let message = if text.matches('-').count() == 1 {
+        format!(
+            "'{path}' is the month {text}, and a date in a scalar is a day: write {text}-01 for its \
+             first day, or use EOMONTH for its last (ADR-060)"
+        )
+    } else if chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d").is_err() {
+        format!("'{path}' is not a date: {text} is no day of the calendar (a date is written 2026-10-31)")
+    } else if text.len() != 10 {
+        format!(
+            "'{path}': write the date with two digits for the month and the day, as in 2026-01-05"
+        )
+    } else {
+        format!(
+            "'{path}' is {text}, and a date in a scalar is from 1900-03-01 on, the first day \
+             Excel's day numbers count right"
+        )
+    };
+    Err(ForgeError::Parse(message))
 }
 
 /// A YAML value in a few words, for an error message.
@@ -217,8 +280,13 @@ pub fn parse_metadata(map: &yaml_serde::Mapping) -> Metadata {
 /// Returns false for v4.0 rich table columns (where value is an array)
 #[must_use]
 pub fn is_nested_scalar_section(map: &yaml_serde::Mapping) -> bool {
-    // A plain number child makes it a group of scalars (5.1.0 short form)
-    if map.values().any(|v| matches!(v, Value::Number(_))) {
+    // A plain number child makes it a group of scalars (5.1.0 short form), and
+    // so does a date (5.4.0, ADR-060)
+    if map.values().any(|v| match v {
+        Value::Number(_) => true,
+        Value::String(text) => looks_like_date(text),
+        _ => false,
+    }) {
         return true;
     }
     // Check if children are mappings with {value, formula} pattern where value is a scalar (not array)
@@ -260,7 +328,9 @@ mod tests {
         assert!(err.contains("read as one scalar"), "{err}");
         let err = read("value: high\n").unwrap_err();
         assert!(
-            err.contains("'loan.payment.value' must be a number, not the text \"high\""),
+            err.contains(
+                "'loan.payment.value' must be a number or a date (2026-10-31), not the text \"high\""
+            ),
             "{err}"
         );
         let err = read("formula: 3\n").unwrap_err();

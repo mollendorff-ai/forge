@@ -46,7 +46,9 @@ function check(label, shown, native) {
   for (const [path, value] of Object.entries(native)) {
     if (!seen.has(path)) { failures.push(`${label}: ${path} is not on screen`); continue; }
     const text = seen.get(path);
-    if (value === null ? text !== "" : !close(Number(text), value)) failures.push(`${label}: ${path} shows ${text}, forge calculate gives ${value}`);
+    // A date (ADR-060) is its text, shown exactly; a number within the rounding
+    const differs = value === null ? text !== "" : typeof value === "string" ? text !== value : !close(Number(text), value);
+    if (differs) failures.push(`${label}: ${path} shows ${text}, forge calculate gives ${value}`);
   }
   for (const path of seen.keys()) if (!(path in native)) failures.push(`${label}: ${path} is on screen but not in forge calculate's answer`);
   return seen.size;

@@ -1,4 +1,4 @@
-_forge_version: "5.3.0"
+_forge_version: "5.4.0"
 # A rolling forecast for a company whose fiscal year starts in April.
 # Actuals are in up to October 2026; November on is forecast, to October
 # 2027, twelve months after the last actual. The budget covers the fiscal
@@ -6,9 +6,9 @@ _forge_version: "5.3.0"
 # All figures are made up.
 
 inputs:
-  # The last day with actuals: the next twelve months are counted from it
-  last_actual:
-    formula: "=DATE(2026, 10, 31)"
+  # The last day with actuals: the next twelve months are counted from it.
+  # A date, read as a cell of the month column is (format 5.4.0, ADR-060)
+  last_actual: 2026-10-31
   # The fiscal year starts in this month and is named after the year it ends in
   fy_start_month: 4
   standard_volume_growth: 0.008

@@ -58,6 +58,8 @@ pub struct ReportOptions {
 pub enum Cell {
     /// The value in the file
     Value(f64),
+    /// A date in the file, as its day number (ADR-060)
+    Date(f64),
     /// A formula that has no value yet in the file
     Uncalculated,
     /// The group has no such key (only when keys are chosen)
@@ -118,7 +120,11 @@ fn groups_of(model: &ParsedModel) -> Vec<Group> {
         let entry = Entry {
             key: key.to_string(),
             input: variable.formula.is_none(),
-            cell: variable.value.map_or(Cell::Uncalculated, Cell::Value),
+            cell: match variable.value {
+                Some(v) if variable.is_date => Cell::Date(v),
+                Some(v) => Cell::Value(v),
+                None => Cell::Uncalculated,
+            },
         };
         if let Some(existing) = groups.iter_mut().find(|g| g.name == group) {
             existing.entries.push(entry);
@@ -338,7 +344,7 @@ pub fn display_whole(x: f64) -> String {
 fn column_is_whole(section: &ReportSection, column: usize) -> bool {
     section.rows.iter().all(|row| match row.cells[column] {
         Cell::Value(v) => !v.is_finite() || display_number(v).ends_with(".00"),
-        Cell::Uncalculated | Cell::Absent => true,
+        Cell::Date(_) | Cell::Uncalculated | Cell::Absent => true,
     })
 }
 
@@ -404,9 +410,15 @@ fn shown_cell(cell: Cell, input: bool, whole: bool) -> String {
                 shown
             }
         },
+        Cell::Date(v) => date_text(v),
         Cell::Uncalculated => "—".to_string(),
         Cell::Absent => String::new(),
     }
+}
+
+/// The text of the date with day number `serial` (ADR-060).
+fn date_text(serial: f64) -> String {
+    crate::core::array_calculator::evaluator::serial_date_text(serial)
 }
 
 /// The cells of a row, as table and Markdown show them.
@@ -518,6 +530,7 @@ fn render_csv(report: &Report) -> String {
             let items: Vec<String> = std::iter::once(csv_text(&row.group))
                 .chain(row.cells.iter().map(|c| match c {
                     Cell::Value(v) => to_15_digits(*v).to_string(),
+                    Cell::Date(v) => date_text(*v),
                     Cell::Uncalculated | Cell::Absent => String::new(),
                 }))
                 .collect();
@@ -542,6 +555,9 @@ fn render_json(report: &Report) -> String {
                         match cell {
                             Cell::Value(v) => {
                                 values.insert(key.clone(), serde_json::json!(v));
+                            },
+                            Cell::Date(v) => {
+                                values.insert(key.clone(), serde_json::json!(date_text(*v)));
                             },
                             Cell::Uncalculated => {
                                 values.insert(key.clone(), serde_json::Value::Null);

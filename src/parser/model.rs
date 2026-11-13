@@ -65,8 +65,11 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                             if let Value::Mapping(m) = v {
                                 // A number (a flat override, or `probability`) or
                                 // a `scalars` mapping, which needs no probability
-                                m.iter().any(|(_, vv)| matches!(vv, Value::Number(_)))
-                                    || matches!(m.get("scalars"), Some(Value::Mapping(_)))
+                                m.iter().any(|(_, vv)| match vv {
+                                    Value::Number(_) => true,
+                                    Value::String(text) => super::variables::looks_like_date(text),
+                                    _ => false,
+                                }) || matches!(m.get("scalars"), Some(Value::Mapping(_)))
                             } else {
                                 false
                             }
@@ -85,6 +88,13 @@ pub fn parse_v1_model(yaml: &Value) -> ForgeResult<ParsedModel> {
                 let variable = crate::types::Variable::new(key_str.to_string(), n.as_f64(), None);
                 model.add_scalar(key_str.to_string(), variable);
                 continue;
+            }
+            // So is a date (5.4.0, ADR-060)
+            if let Value::String(text) = value {
+                if let Some(serial) = super::variables::scalar_date(text, key_str)? {
+                    model.add_scalar(key_str.to_string(), date_input(key_str, serial));
+                    continue;
+                }
             }
 
             // A table, a group of scalars, or one scalar (ADR-051 "How a group is read")
@@ -146,6 +156,11 @@ pub fn parse_nested_scalars(
                 let variable = parse_scalar_variable(value, &full_path)?;
                 model.add_scalar(full_path, variable);
             },
+            Value::String(text) if super::variables::looks_like_date(text) => {
+                let serial = super::variables::scalar_date(text, &full_path)?
+                    .ok_or_else(|| ForgeError::Parse(format!("'{full_path}' is not a date")))?;
+                model.add_scalar(full_path.clone(), date_input(&full_path, serial));
+            },
             Value::String(s) if s.starts_with('=') => {
                 return Err(ForgeError::Parse(format!(
                     "'{full_path}' is a formula in a group of scalars; write it as \
@@ -154,12 +169,19 @@ pub fn parse_nested_scalars(
             },
             _ => {
                 return Err(ForgeError::Parse(format!(
-                    "'{full_path}' must be a number or a mapping with `value:` or `formula:`"
+                    "'{full_path}' must be a number, a date (2026-10-31) or a mapping with `value:` or `formula:`"
                 )));
             },
         }
     }
     Ok(())
+}
+
+/// An input scalar written as a date, held as its day number (ADR-060).
+fn date_input(path: &str, serial: f64) -> crate::types::Variable {
+    let mut variable = crate::types::Variable::new(path.to_string(), Some(serial), None);
+    variable.is_date = true;
+    variable
 }
 
 /// A mapping is a table if any child is a list, a mapping whose `value` is
@@ -234,20 +256,7 @@ pub fn parse_scenarios(
                                 ForgeError::Parse("Variable name must be a string".to_string())
                             })?;
 
-                            let value = match var_value {
-                                Value::Number(n) => n.as_f64().ok_or_else(|| {
-                                    ForgeError::Parse(format!(
-                                        "Scenario '{name}': Variable '{var_name_str}' must be a number"
-                                    ))
-                                })?,
-                                _ => {
-                                    return Err(ForgeError::Parse(format!(
-                                        "Scenario '{name}': Variable '{var_name_str}' must be a number"
-                                    )));
-                                },
-                            };
-
-                            scenario.add_override(var_name_str.to_string(), value);
+                            add_override(&mut scenario, name, var_name_str, var_value)?;
                         }
                     } else {
                         return Err(ForgeError::Parse(format!(
@@ -262,20 +271,7 @@ pub fn parse_scenarios(
                         ForgeError::Parse("Variable name must be a string".to_string())
                     })?;
 
-                    let value = match var_value {
-                        Value::Number(n) => n.as_f64().ok_or_else(|| {
-                            ForgeError::Parse(format!(
-                                "Scenario '{name}': Variable '{var_name_str}' must be a number"
-                            ))
-                        })?,
-                        _ => {
-                            return Err(ForgeError::Parse(format!(
-                                "Scenario '{name}': Variable '{var_name_str}' must be a number"
-                            )));
-                        },
-                    };
-
-                    scenario.add_override(var_name_str.to_string(), value);
+                    add_override(&mut scenario, name, var_name_str, var_value)?;
                 }
             }
 
@@ -287,6 +283,34 @@ pub fn parse_scenarios(
         }
     }
 
+    Ok(())
+}
+
+/// One override of scenario `name`: a number, or a date for a date scalar
+/// (ADR-060).
+fn add_override(
+    scenario: &mut Scenario,
+    name: &str,
+    var_name: &str,
+    var_value: &Value,
+) -> ForgeResult<()> {
+    let must = || {
+        ForgeError::Parse(format!(
+            "Scenario '{name}': Variable '{var_name}' must be a number or a date (2026-10-31)"
+        ))
+    };
+    match var_value {
+        Value::Number(n) => {
+            scenario.add_override(var_name.to_string(), n.as_f64().ok_or_else(must)?);
+        },
+        Value::String(text) => {
+            let path = format!("Scenario '{name}': '{var_name}'");
+            let serial = super::variables::scalar_date(text, &path)?.ok_or_else(must)?;
+            scenario.add_override(var_name.to_string(), serial);
+            scenario.dates.insert(var_name.to_string());
+        },
+        _ => return Err(must()),
+    }
     Ok(())
 }
 

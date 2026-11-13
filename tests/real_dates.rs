@@ -404,10 +404,11 @@ checks:
         .collect();
     assert_eq!(
         written_as_values,
+        // `maturity = DATE(2026, 1, 31)` is written live: DATE gives a date,
+        // compared with text as its text, which Excel finds equal too (ADR-060)
         [
             "loans.year",
             "loans.late",
-            "loans.is_jan31",
             "checks.last",
             "checks.after_june"
         ],
@@ -428,12 +429,19 @@ checks:
         cell(&xlsx, "checks", 2, 1).1,
         "COUNTIF('loans'!$A$2:$A$5, \"n/a\")"
     );
+    // Compared with a DATE, the date as its text (ADR-060): G is_jan31
+    assert!(
+        cell(&xlsx, "loans", 2, 6)
+            .1
+            .starts_with("IF(A3 = TEXT(YEAR(DATE(2026, 1, 31))"),
+        "{:?}",
+        cell(&xlsx, "loans", 2, 6)
+    );
     // A number read from it is Forge's value, with no formula: E year,
-    // F late, G is_jan31, and the latest maturity
+    // F late, and the latest maturity
     for (sheet, row, col, value) in [
         ("loans", 2, 4, 2026.0),
         ("loans", 3, 5, 1.0),
-        ("loans", 2, 6, 1.0),
         ("checks", 1, 1, 46357.0),
         ("checks", 3, 1, 1.0),
     ] {

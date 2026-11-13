@@ -12,6 +12,32 @@ use yaml_serde::Value;
 /// A scalar's place in the file: `["year", "profit"]` or `["total"]`.
 pub type ScalarPath = Vec<String>;
 
+/// A result to write into a `value:`: a number, or a date's text in a file of
+/// model format 5.4.0 (ADR-060).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Written {
+    Number(f64),
+    Date(String),
+}
+
+impl Written {
+    /// As YAML text, reading back to the same value.
+    fn yaml(&self) -> String {
+        match self {
+            Self::Number(n) => format_number(*n),
+            Self::Date(text) => text.clone(),
+        }
+    }
+
+    /// As the YAML value the file must hold afterwards.
+    fn value(&self) -> Value {
+        match self {
+            Self::Number(n) => Value::from(*n),
+            Self::Date(text) => Value::String(text.clone()),
+        }
+    }
+}
+
 /// Set the `value:` of each scalar, adding it after `formula:` when missing.
 ///
 /// Returns the new text. Every other byte is kept.
@@ -21,10 +47,10 @@ pub type ScalarPath = Vec<String>;
 /// Returns an error if a scalar cannot be found, is written in a layout this
 /// editor does not handle, or if the edited text does not read back as the
 /// original with only those values changed.
-pub fn set_values(text: &str, values: &[(ScalarPath, f64)]) -> Result<String, String> {
+pub fn set_values(text: &str, values: &[(ScalarPath, Written)]) -> Result<String, String> {
     let mut lines: Vec<String> = split_lines(text);
     for (path, value) in values {
-        set_one(&mut lines, path, &format_number(*value))?;
+        set_one(&mut lines, path, &value.yaml())?;
     }
     let edited = lines.concat();
     verify_values(text, &edited, values)?;
@@ -41,7 +67,7 @@ pub fn set_values(text: &str, values: &[(ScalarPath, f64)]) -> Result<String, St
 ///
 /// Returns an error if a scalar is in no document, or if `set_values` fails
 /// for a document.
-pub fn set_values_multi(text: &str, values: &[(ScalarPath, f64)]) -> Result<String, String> {
+pub fn set_values_multi(text: &str, values: &[(ScalarPath, Written)]) -> Result<String, String> {
     let mut chunks: Vec<(String, String)> = Vec::new(); // (separator line, body)
     let mut separator = String::new();
     let mut body = String::new();
@@ -69,11 +95,11 @@ pub fn set_values_multi(text: &str, values: &[(ScalarPath, f64)]) -> Result<Stri
                 node.is_some()
             })
         };
-        let mut mine: Vec<(ScalarPath, f64)> = Vec::new();
+        let mut mine: Vec<(ScalarPath, Written)> = Vec::new();
         for (i, (path, value)) in values.iter().enumerate() {
             if !placed[i] && in_doc(path) {
                 placed[i] = true;
-                mine.push((path.clone(), *value));
+                mine.push((path.clone(), value.clone()));
             }
         }
         out.push_str(&separator);
@@ -332,7 +358,7 @@ fn set_one(lines: &mut Vec<String>, path: &[String], value: &str) -> Result<(), 
         };
         if let Some(v) = key_line("value") {
             let current = key_of(&lines[v]).map(|(_, r)| strip_comment(r).trim().to_string());
-            if !current.is_some_and(|c| same_number(&c, value)) {
+            if !current.is_some_and(|c| c == value || same_number(&c, value)) {
                 lines[v] = replace_after_colon(&lines[v], value);
             }
             return Ok(());
@@ -653,7 +679,11 @@ fn parse(text: &str) -> Result<Value, String> {
 }
 
 /// The edited text must equal the original with only these values set.
-fn verify_values(original: &str, edited: &str, values: &[(ScalarPath, f64)]) -> Result<(), String> {
+fn verify_values(
+    original: &str,
+    edited: &str,
+    values: &[(ScalarPath, Written)],
+) -> Result<(), String> {
     let mut expected = parse(original)?;
     for (path, value) in values {
         let mut node = &mut expected;
@@ -665,7 +695,7 @@ fn verify_values(original: &str, edited: &str, values: &[(ScalarPath, f64)]) -> 
         let map = node
             .as_mapping_mut()
             .ok_or_else(|| format!("'{}' is not a mapping", path.join(".")))?;
-        map.insert(Value::from("value"), Value::from(*value));
+        map.insert(Value::from("value"), value.value());
     }
     let actual = parse(edited)?;
     if same(&expected, &actual) {
@@ -795,11 +825,27 @@ fn same(a: &Value, b: &Value) -> bool {
 mod tests {
     use super::*;
 
-    fn paths(items: &[(&str, f64)]) -> Vec<(ScalarPath, f64)> {
+    fn paths(items: &[(&str, f64)]) -> Vec<(ScalarPath, Written)> {
         items
             .iter()
-            .map(|(p, v)| (p.split('.').map(str::to_string).collect(), *v))
+            .map(|(p, v)| {
+                (
+                    p.split('.').map(str::to_string).collect(),
+                    Written::Number(*v),
+                )
+            })
             .collect()
+    }
+
+    #[test]
+    fn a_date_is_written_as_its_text() {
+        let text = "_forge_version: \"5.4.0\"\nend:\n  formula: \"=DATE(2026, 10, 31)\"\n";
+        let values = vec![(
+            vec!["end".to_string()],
+            Written::Date("2026-10-31".to_string()),
+        )];
+        let edited = set_values(text, &values).unwrap();
+        assert!(edited.contains("  value: 2026-10-31\n"), "{edited}");
     }
 
     #[test]

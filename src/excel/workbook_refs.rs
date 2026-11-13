@@ -115,6 +115,9 @@ pub struct WorkbookRefs {
     /// Forge reads its day number where a number is read; Excel reads text
     /// (ADR-054)
     pub mixed_columns: std::collections::HashSet<String>,
+    /// The path of every scalar whose value is a date (`@ns.path` for an
+    /// include's): a date cell, read as a cell of a date column is (ADR-060)
+    pub date_scalars: std::collections::HashSet<String>,
 }
 
 /// Excel column letter for a 0-based index (0 -> A, 26 -> AA).
@@ -258,6 +261,12 @@ impl WorkbookRefs {
             self.date_columns.insert(format!("{table}.{column}"));
             self.text_columns.insert(format!("{table}.{column}"), false);
         }
+    }
+
+    /// Record the scalars whose value is a date (`@ns.path` for an include's).
+    pub fn add_date_scalars<'a>(&mut self, paths: impl IntoIterator<Item = &'a str>) {
+        self.date_scalars
+            .extend(paths.into_iter().map(str::to_string));
     }
 
     /// Record the columns of a table that stay text in the workbook and hold

@@ -3,7 +3,7 @@
 Highlighting for the formulas in [Forge](https://github.com/mollendorff-ai/forge) model files, and the Forge schema for the files themselves.
 
 - **Formulas**: in any YAML file, a value that starts with `=` (`"=SUM(months.revenue)"`, `'=MC.Normal(1, 2)'`, `price: =cost * 1.3`) is highlighted as a formula: functions, names, values of included files (`@costs.flour_per_kg`), numbers, operators and text. The file stays a YAML file, with everything VS Code's YAML support does for it.
-- **Schema**: files named `*.forge.yaml` or `*.forge.yml` are checked against the schema of the model format they name in `_forge_version` (5.1.0, 5.2.0 or 5.3.0), with completion of keys, by the [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml), which this extension depends on.
+- **Schema**: files named `*.forge.yaml` or `*.forge.yml` are checked against the schema of the model format they name in `_forge_version` (5.1.0, 5.2.0, 5.3.0 or 5.4.0), with completion of keys, by the [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml), which this extension depends on.
 
 There is no language server: the extension does not calculate. Run `forge validate` and `forge calculate` in a terminal.
 

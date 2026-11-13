@@ -2,28 +2,34 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://raw.githubusercontent.com/mollendorff-ai/forge/main/schema/forge.schema.json",
   "title": "Forge model",
-  "description": "A Forge model of format 5.3.0, 5.2.0 or 5.1.0, checked against the schema of the format its `_forge_version` names. For editors: one schema for every model file. Models of the formats 5.0.0 and 1.0.0 are only checked for their version here; `forge validate` checks them in full.",
+  "description": "A Forge model of format 5.4.0, 5.3.0, 5.2.0 or 5.1.0, checked against the schema of the format its `_forge_version` names. For editors: one schema for every model file. Models of the formats 5.0.0 and 1.0.0 are only checked for their version here; `forge validate` checks them in full.",
   "type": "object",
   "required": ["_forge_version"],
   "if": {
-    "properties": { "_forge_version": { "const": "5.3.0" } }
+    "properties": { "_forge_version": { "const": "5.4.0" } }
   },
-  "then": { "$ref": "forge-v5.3.0.schema.json" },
+  "then": { "$ref": "forge-v5.4.0.schema.json" },
   "else": {
     "if": {
-      "properties": { "_forge_version": { "const": "5.2.0" } }
+      "properties": { "_forge_version": { "const": "5.3.0" } }
     },
-    "then": { "$ref": "forge-v5.2.0.schema.json" },
+    "then": { "$ref": "forge-v5.3.0.schema.json" },
     "else": {
       "if": {
-        "properties": { "_forge_version": { "const": "5.1.0" } }
+        "properties": { "_forge_version": { "const": "5.2.0" } }
       },
-      "then": { "$ref": "forge-v5.1.0.schema.json" },
+      "then": { "$ref": "forge-v5.2.0.schema.json" },
       "else": {
-        "properties": {
-          "_forge_version": {
-            "enum": ["1.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"],
-            "description": "Model format version (not the Forge tool version)"
+        "if": {
+          "properties": { "_forge_version": { "const": "5.1.0" } }
+        },
+        "then": { "$ref": "forge-v5.1.0.schema.json" },
+        "else": {
+          "properties": {
+            "_forge_version": {
+              "enum": ["1.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0", "5.4.0"],
+              "description": "Model format version (not the Forge tool version)"
+            }
           }
         }
       }

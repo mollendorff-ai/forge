@@ -234,9 +234,32 @@ pub struct Variable {
     /// Rich metadata (v4.0) - unit, notes, source, `validation_status`
     #[serde(default)]
     pub metadata: Metadata,
+    /// Whether `value` is a date, held as its day number (ADR-060): written
+    /// as a date, or a formula whose value is one
+    #[serde(default)]
+    pub is_date: bool,
 }
 
 impl Variable {
+    /// The value as the model shows it: the date's text for a date
+    /// (`2026-10-31`), `None` for a number.
+    #[must_use]
+    pub fn date_text(&self) -> Option<String> {
+        self.value
+            .filter(|_| self.is_date)
+            .map(crate::core::array_calculator::evaluator::serial_date_text)
+    }
+
+    /// The value as JSON: the date's text for a date, else the number.
+    #[must_use]
+    pub fn json_value(&self) -> serde_json::Value {
+        match (self.date_text(), self.value) {
+            (Some(date), _) => serde_json::Value::String(date),
+            (None, Some(n)) => serde_json::json!(crate::core::precision::to_15_digits(n)),
+            (None, None) => serde_json::Value::Null,
+        }
+    }
+
     /// Create a new variable with default (empty) metadata
     #[must_use]
     pub fn new(path: String, value: Option<f64>, formula: Option<String>) -> Self {
@@ -245,6 +268,7 @@ impl Variable {
             value,
             formula,
             metadata: Metadata::default(),
+            is_date: false,
         }
     }
 
@@ -261,6 +285,7 @@ impl Variable {
             value,
             formula,
             metadata,
+            is_date: false,
         }
     }
 }
@@ -308,6 +333,9 @@ pub struct Scenario {
     /// What the scenario is, in words (the `description` of the full form)
     #[serde(default)]
     pub description: Option<String>,
+    /// The overrides written as a date, held as its day number (ADR-060)
+    #[serde(default)]
+    pub dates: std::collections::BTreeSet<String>,
 }
 
 impl Scenario {
@@ -316,6 +344,7 @@ impl Scenario {
         Self {
             overrides: HashMap::new(),
             description: None,
+            dates: std::collections::BTreeSet::new(),
         }
     }
 
@@ -508,9 +537,71 @@ impl ParsedModel {
         let scalar = self.scalars.get_mut(&resolved).ok_or_else(|| {
             format!("Scenario override '{name}' does not name a scalar in the model.")
         })?;
+        if scalar.is_date && scalar.formula.is_none() && value.is_some() {
+            return Err(format!(
+                "'{resolved}' is a date ({}), so it is set to a date, not a number (ADR-060)",
+                scalar.date_text().unwrap_or_default()
+            ));
+        }
         scalar.value = value;
         scalar.formula = formula;
         Ok(())
+    }
+
+    /// Set the date input `name` to the date with day number `serial`, as a
+    /// scenario does (ADR-060).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the name matches no scalar, or a scalar that is not
+    /// a date.
+    pub fn override_date(&mut self, name: &str, serial: f64) -> Result<(), String> {
+        if let Some(rest) = name.strip_prefix('@') {
+            let (namespace, inner) = rest.split_once('.').ok_or_else(|| {
+                format!("Scenario override '{name}' needs a name after the include")
+            })?;
+            let resolved = self.resolved_includes.get_mut(namespace).ok_or_else(|| {
+                format!("Scenario override '{name}': the model has no `_includes` entry with `as: {namespace}`")
+            })?;
+            return resolved
+                .model
+                .override_date(inner, serial)
+                .map_err(|e| format!("{e} (in the file included as '{namespace}')"));
+        }
+        let resolved = self.resolve_scalar_name(name)?;
+        let scalar = self.scalars.get_mut(&resolved).ok_or_else(|| {
+            format!("Scenario override '{name}' does not name a scalar in the model.")
+        })?;
+        if !scalar.is_date || scalar.formula.is_some() {
+            return Err(format!(
+                "'{resolved}' is not a date input, so a date cannot be given to it (ADR-060)"
+            ));
+        }
+        scalar.value = Some(serial);
+        Ok(())
+    }
+
+    /// An error if `name` is a date scalar: the commands that set an input to
+    /// numbers of their own (sensitivity, goal-seek, break-even, tornado,
+    /// simulate) do not vary a date (ADR-060).
+    ///
+    /// # Errors
+    ///
+    /// Returns the message, naming the scalar and the command.
+    pub fn refuse_date_input(&self, name: &str, command: &str) -> Result<(), String> {
+        let found = self.scalars.get(name).or_else(|| {
+            self.resolve_scalar_name(name)
+                .ok()
+                .and_then(|n| self.scalars.get(&n))
+        });
+        match found {
+            Some(scalar) if scalar.is_date => Err(format!(
+                "'{name}' is a date ({}), and {command} varies numbers: varying a date is not \
+                 supported (ADR-060)",
+                scalar.date_text().unwrap_or_default()
+            )),
+            _ => Ok(()),
+        }
     }
 }
 

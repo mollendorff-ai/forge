@@ -224,8 +224,12 @@ pub fn calculate_core(
 
     // Build scalar map
     let mut scalars = std::collections::BTreeMap::new();
+    let mut dates = std::collections::BTreeSet::new();
     for (name, var) in &result.scalars {
         scalars.insert(name.clone(), var.value.map(to_15_digits));
+        if var.date_text().is_some() {
+            dates.insert(name.clone());
+        }
     }
 
     // Write results if not dry run
@@ -238,6 +242,7 @@ pub fn calculate_core(
     Ok(results::CalculationResult {
         tables,
         scalars,
+        dates,
         unit_warnings,
         file_updated,
         dry_run,
@@ -365,11 +370,10 @@ pub fn calculate(
         println!("\n   📐 Scalars:");
         for (name, var) in &result.scalars {
             if let Some(value) = var.value {
-                println!(
-                    "      {} = {}",
-                    name.bright_blue(),
-                    to_15_digits(value).to_string().bold()
-                );
+                let shown = var
+                    .date_text()
+                    .unwrap_or_else(|| to_15_digits(value).to_string());
+                println!("      {} = {}", name.bright_blue(), shown.bold());
             }
         }
     }
@@ -894,10 +898,14 @@ pub fn apply_scenario(
 
     // Apply overrides to scalars (resolving grouped names like "rate" → "assumptions.rate",
     // and `@namespace.name` to a scalar of an included file)
+    let dates = scenario.dates.clone();
     for (var_name, override_value) in &overrides {
-        model
-            .override_scalar(var_name, Some(*override_value), None)
-            .map_err(|e| ForgeError::Validation(format!("Scenario '{scenario_name}': {e}")))?;
+        if dates.contains(var_name) {
+            model.override_date(var_name, *override_value)
+        } else {
+            model.override_scalar(var_name, Some(*override_value), None)
+        }
+        .map_err(|e| ForgeError::Validation(format!("Scenario '{scenario_name}': {e}")))?;
     }
 
     Ok(())

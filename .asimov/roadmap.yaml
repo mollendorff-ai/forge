@@ -32,11 +32,12 @@ state:
     175).
   format: model format 5.1.0 (ADR-051), with inputs as plain numbers, formula
     scalars as a formula mapping, and results written next to formulas in
-    place; 5.2.0 (ADR-053) adds the period column and 5.3.0 (ADR-059) the
-    empty cell, each needed only by a file that has one. examples/ are 5.1.0,
-    5.2.0 where they have a period column and 5.3.0 where they have an empty
-    cell; test-data/ and validation/ stay 5.0.0 on purpose (a few validation
-    specs are 5.2.0 or 5.3.0, for those features).
+    place; 5.2.0 (ADR-053) adds the period column, 5.3.0 (ADR-059) the
+    empty cell and 5.4.0 (ADR-060) a date as a scalar, each needed only by a
+    file that has one. examples/ are 5.1.0, or the format of the newest of
+    these they use (the rolling forecast is 5.4.0); test-data/ and
+    validation/ stay 5.0.0 on purpose (a few validation specs are 5.2.0 to
+    5.4.0, for those features).
   scope: all analysis engines are supported (ADR-050). The maintainer uses
     them and expects more scenario and simulation features.
   users: none known. One outside contributor used Forge for a few weeks in
@@ -83,18 +84,13 @@ tier2:
   # comparison example and the first-model starter.
   # Found building examples/rolling-forecast (2026-11-12), the FP&A audit:
   # actuals then forecast, fiscal quarters, year to date, a budget looked up
-  # by month and price/volume/mix all work; three did not. Two are built:
-  # a table of quarters (ADR-058) and empty cells (ADR-059); one is below.
-  - id: T2-SCALAR-DATES
-    title: "A date as a scalar input, and a date result shown as a date"
-    why: "last_actual: 2026-10-31 is refused ('must be a number'), so a model writes =DATE(2026, 10, 31), and the result is printed as 46326, Excel's day number, in calculate, report and the exported Scalars sheet. A table column of dates is already a date (ADR-054); a scalar is not"
-    how: "ADR-060 (proposed): a scalar written as a date is a date in format 5.4.0 (5.3.0 shipped in rc.20), read as a cell of a date column is (ADR-054: its day number where a number is read, its text where text is read); a formula scalar is a date when its value is one, by the rule columns follow; DATE gives a date, as EDATE and EOMONTH do; Forge sets the date format of the cell on export, as Gnumeric and LibreOffice guess it differently; the commands that vary an input refuse a date"
-    acceptance: "The rolling forecast writes last_actual: 2026-10-31, forge calculate and forge report print 2026-10-31, the workbook's cell is a date cell, and import gives the date back"
-
+  # by month and price/volume/mix all work; three did not, and all three are
+  # built: a table of quarters (ADR-058), empty cells (ADR-059) and a date as
+  # a scalar (ADR-060).
   - id: T2-NUMBER-FORMAT
     title: "A format: attribute next to unit:, carried into the exported workbook"
     why: "forge export writes every number in Excel's default format, so a margin is 0.1234 and a price 786.32036, and the workbook has to be formatted by hand before it is shown to anyone. unit: says what a number is, not how to show it. The maintainer's and his brother's idea, 2026-11-12: the workbook is what an audience sees"
-    how: "An ADR first: it changes the model format (a new version, as 5.2.0 was for the period column), so it touches the schema, the parser, the exporter and the importer. Decide there: whether format: holds Excel's own number-format codes (\"0.0%\", \"#,##0.00\"; nothing to translate, and import can read them back) or a smaller list of Forge's; whether it is allowed on scalars, on columns, or both; and that it changes how a number is shown and never its value (calculate, JSON and --output keep the numbers as they are). forge report and Forge Studio's cards and grid then show what Forge gives them; Studio adds no formatting rule of its own"
+    how: "An ADR first: it changes the model format (5.4.0 if it lands before 5.4.0 is in a release, ADR-060; a new version otherwise), so it touches the schema, the parser, the exporter and the importer. Decide there: whether format: holds Excel's own number-format codes (\"0.0%\", \"#,##0.00\"; nothing to translate, and import can read them back) or a smaller list of Forge's; whether it is allowed on scalars, on columns, or both; and that it changes how a number is shown and never its value (calculate, JSON and --output keep the numbers as they are). forge report and Forge Studio's cards and grid then show what Forge gives them; Studio adds no formatting rule of its own"
     acceptance: "The bagel example with a format: on a price, a percentage and a count, exported and opened in Excel or LibreOffice, shows those cells formatted, with the same values and 0 mismatches after recalculation; forge import of that workbook gives the format: back; a file without format: exports the workbook it exports today, byte for byte apart from the time"
 
 # ═══════════════════════════════════════════════════════════════════════════════

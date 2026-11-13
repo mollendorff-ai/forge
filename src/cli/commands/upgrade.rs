@@ -145,15 +145,16 @@ pub fn upgrade_file_recursive(
     // 5.0.0 -> 5.1.0: the short form, edited in place (ADR-051), comments kept
     // 5.2.0 is 5.1.0 plus the period column (ADR-053): the same conversion,
     // then the version line. A 5.1.0 file only changes that line. 5.3.0 is
-    // 5.2.0 plus the empty cell (ADR-059), the same again.
-    if matches!(target_version, "5.1.0" | "5.2.0" | "5.3.0") {
+    // 5.2.0 plus the empty cell (ADR-059), and 5.4.0 is 5.3.0 plus the date as
+    // a scalar (ADR-060), the same again.
+    if matches!(target_version, "5.1.0" | "5.2.0" | "5.3.0" | "5.4.0") {
         let versions = (current_version, target_version);
         upgrade_to_short_form(file, &content, &yaml, versions, dry_run, verbose)?;
         return Ok(changes + 1);
     }
     if target_version != "5.0.0" {
         return Err(ForgeError::Validation(format!(
-            "Unknown target format '{target_version}'; use 5.1.0 (default), 5.2.0, 5.3.0 or 5.0.0"
+            "Unknown target format '{target_version}'; use 5.1.0 (default), 5.2.0, 5.3.0, 5.4.0 or 5.0.0"
         )));
     }
 
@@ -211,7 +212,7 @@ fn upgrade_to_short_form(
     verbose: bool,
 ) -> ForgeResult<()> {
     let rank = |v: &str| {
-        ["5.1.0", "5.2.0", "5.3.0"]
+        ["5.1.0", "5.2.0", "5.3.0", "5.4.0"]
             .iter()
             .position(|known| *known == v)
     };
@@ -219,7 +220,7 @@ fn upgrade_to_short_form(
         if from > to {
             return Err(ForgeError::Validation(format!(
                 "{}: format {current_version} is not converted back to {target_version} (a period \
-                 column or an empty cell has no form in the earlier format)",
+                 column, an empty cell or a date as a scalar has no form in the earlier format)",
                 file.display()
             )));
         }

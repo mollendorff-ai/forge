@@ -1,0 +1,1185 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/mollendorff-ai/forge/schema/forge-v5.4.0.json",
+  "title": "Forge Model Format v5.4.0",
+  "description": "JSON Schema for Forge model format 5.4.0 (ADR-060). Same as 5.3.0, plus a date as a scalar: `last_actual: 2026-10-31` is a date, read as a cell of a date column is. 5.3.0 added the empty cell (ADR-059): null in a column of numbers (`actual: [985, 1032, null]`) is an empty cell, which an aggregate skips and a formula reads as 0, as in Excel. 5.2.0 added the period column (ADR-053). The format version is independent of the Forge tool version.",
+  "type": "object",
+  "required": [
+    "_forge_version"
+  ],
+  "properties": {
+    "_forge_version": {
+      "type": "string",
+      "enum": [
+        "5.4.0"
+      ],
+      "description": "Model format version (not the Forge tool version). 5.4.0 adds the date as a scalar to 5.3.0, which added the empty cell to 5.2.0, which added the period column to 5.1.0."
+    },
+    "_name": {
+      "type": "string",
+      "description": "Document/workbook name (v4.4.2) - used for sheet naming in multi-document YAML"
+    },
+    "_includes": {
+      "$ref": "#/definitions/Includes",
+      "description": "Cross-file references (v4.0) - include external YAML files"
+    },
+    "scenarios": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Scenarios"
+        },
+        {
+          "$ref": "#/definitions/ScenariosCommand"
+        },
+        {
+          "$ref": "#/definitions/Table"
+        }
+      ],
+      "description": "Named scenarios with variable overrides, command format, or a table"
+    },
+    "inputs": {
+      "$ref": "#/definitions/ScalarGroup",
+      "description": "Input scalars without formulas (v5.0.0) - manual input values only"
+    },
+    "outputs": {
+      "$ref": "#/definitions/ScalarGroup",
+      "description": "Output scalars with formulas (v5.0.0) - calculated values from formulas"
+    },
+    "monte_carlo": {
+      "$ref": "#/definitions/MonteCarlo",
+      "description": "Monte Carlo simulation configuration (v8.0.0) - probabilistic analysis"
+    },
+    "tornado": {
+      "$ref": "#/definitions/Tornado",
+      "description": "Tornado sensitivity diagram configuration - one-at-a-time sensitivity analysis"
+    },
+    "decision_tree": {
+      "$ref": "#/definitions/DecisionTree",
+      "description": "Decision tree configuration - sequential decisions with backward induction"
+    },
+    "real_options": {
+      "type": "object",
+      "description": "Real options configuration. Checked by `forge real-options`, not by this schema"
+    },
+    "bootstrap": {
+      "type": "object",
+      "description": "Bootstrap resampling configuration. Checked by `forge bootstrap`, not by this schema"
+    },
+    "bayesian_network": {
+      "type": "object",
+      "description": "Bayesian network configuration. Checked by `forge bayesian`, not by this schema"
+    }
+  },
+  "additionalProperties": {
+    "description": "A table, a group of scalars or one scalar, decided as the parser does (ADR-051, 'How a group is read')",
+    "if": {
+      "type": "object"
+    },
+    "then": {
+      "if": {
+        "allOf": [
+          {
+            "$ref": "#/definitions/IsOneScalar"
+          },
+          {
+            "not": {
+              "$ref": "#/definitions/IsTable"
+            }
+          }
+        ]
+      },
+      "then": {
+        "$ref": "#/definitions/ScalarMapping"
+      },
+      "else": {
+        "if": {
+          "$ref": "#/definitions/IsTable"
+        },
+        "then": {
+          "$ref": "#/definitions/Table"
+        },
+        "else": {
+          "if": {
+            "$ref": "#/definitions/IsScalarGroup"
+          },
+          "then": {
+            "$ref": "#/definitions/ScalarGroup"
+          },
+          "else": {
+            "$ref": "#/definitions/Table"
+          }
+        }
+      }
+    },
+    "else": {
+      "anyOf": [
+        {
+          "type": [
+            "number",
+            "object"
+          ]
+        },
+        {
+          "$ref": "#/definitions/ScalarDate"
+        }
+      ],
+      "description": "A top-level entry is a number or a date (an input), or a mapping: a table, a group of scalars or one scalar"
+    }
+  },
+  "definitions": {
+    "ScalarDate": {
+      "title": "Date",
+      "description": "A date as a scalar (ADR-060): `2026-10-31`, a full date from 1900-03-01 on. It is its day number where a formula reads a number and its text where a formula reads text, as a cell of a date column is (ADR-054)",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "Table": {
+      "title": "Table (Column Arrays)",
+      "description": "A table with column arrays that maps to an Excel sheet",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/TableColumn"
+      },
+      "examples": [
+        {
+          "quarterly_revenue": {
+            "quarter": [
+              "Q1",
+              "Q2",
+              "Q3",
+              "Q4"
+            ],
+            "revenue": [
+              100000,
+              120000,
+              150000,
+              180000
+            ],
+            "profit": "=revenue * 0.2"
+          }
+        }
+      ]
+    },
+    "RichColumn": {
+      "title": "Rich Column (v4.0)",
+      "description": "Column with metadata (unit, notes, source, validation_status)",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/NumberArray"
+            },
+            {
+              "$ref": "#/definitions/TextArray"
+            },
+            {
+              "$ref": "#/definitions/DateArray"
+            },
+            {
+              "$ref": "#/definitions/BooleanArray"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement (CAD, USD, %, count, days, ratio)"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Human-readable explanation"
+        },
+        "source": {
+          "type": "string",
+          "description": "Where data came from (file:field or URL)"
+        },
+        "validation_status": {
+          "type": "string",
+          "enum": [
+            "VALIDATED",
+            "PROJECTED",
+            "ESTIMATED"
+          ],
+          "description": "Data validation status"
+        },
+        "last_updated": {
+          "type": "string",
+          "description": "ISO date of last update"
+        },
+        "better": {
+          "type": "string",
+          "enum": [
+            "higher",
+            "lower"
+          ],
+          "description": "Which way is good, for variance analysis: higher (revenue, profit) or lower (costs)"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "examples": [
+        {
+          "value": [
+            100,
+            200,
+            300
+          ],
+          "unit": "CAD",
+          "notes": "Monthly revenue",
+          "validation_status": "PROJECTED"
+        }
+      ]
+    },
+    "RichFormula": {
+      "title": "Rich Formula (v4.0)",
+      "description": "Formula column with metadata (unit, notes, source) - NO value field (distinguishes from Scalar)",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "formula": {
+          "$ref": "#/definitions/RowFormula"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "validation_status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "formula"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "value"
+            ]
+          }
+        ]
+      }
+    },
+    "NumberArray": {
+      "title": "Number Array",
+      "description": "Array of numbers (maps to an Excel column of numbers). null is an empty cell (ADR-059): aggregates skip it and a formula reads it as 0, as in Excel.",
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "minItems": 1,
+      "examples": [
+        [
+          100,
+          120,
+          150,
+          180
+        ],
+        [
+          0.1,
+          0.15,
+          0.2,
+          0.25
+        ]
+      ]
+    },
+    "TextArray": {
+      "title": "Text Array",
+      "description": "Homogeneous array of strings (maps to Excel column with Text format)",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "examples": [
+        [
+          "Q1",
+          "Q2",
+          "Q3",
+          "Q4"
+        ],
+        [
+          "Jan",
+          "Feb",
+          "Mar"
+        ]
+      ]
+    },
+    "DateArray": {
+      "title": "Date Array",
+      "description": "Homogeneous array of ISO date strings (maps to Excel column with Date format)",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "date",
+        "pattern": "^\\d{4}-\\d{2}(-\\d{2})?$"
+      },
+      "minItems": 1,
+      "examples": [
+        [
+          "2025-01",
+          "2025-02",
+          "2025-03"
+        ],
+        [
+          "2025-01-01",
+          "2025-02-01",
+          "2025-03-01"
+        ]
+      ]
+    },
+    "BooleanArray": {
+      "title": "Boolean Array",
+      "description": "Homogeneous array of booleans (maps to Excel TRUE/FALSE)",
+      "type": "array",
+      "items": {
+        "type": "boolean"
+      },
+      "minItems": 1,
+      "examples": [
+        [
+          true,
+          false,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          false
+        ]
+      ]
+    },
+    "FormulaArray": {
+      "title": "Formula Array",
+      "description": "Array of formulas and/or null values (per-row formulas)",
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^=.+"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "minItems": 1,
+      "examples": [
+        [
+          null,
+          null,
+          "=value[0] * (1 - value[1])"
+        ],
+        [
+          "=A + B",
+          "=C * D",
+          "=E / F"
+        ]
+      ]
+    },
+    "RowFormula": {
+      "title": "Row-wise Formula",
+      "description": "Formula applied element-wise to each row (like Excel drag-down)",
+      "type": "string",
+      "pattern": "^=.+",
+      "examples": [
+        "=revenue - expenses",
+        "=price * quantity",
+        "=profit / revenue"
+      ]
+    },
+    "AggregationFormula": {
+      "title": "Aggregation Formula",
+      "description": "Formula that aggregates column to single value",
+      "type": "string",
+      "pattern": "^=(SUM|AVERAGE|MAX|MIN|COUNT|PRODUCT|SUMIF|AVERAGEIF|COUNTIF)\\(.+\\)",
+      "examples": [
+        "=SUM(revenue)",
+        "=AVERAGE(profit_margin)",
+        "=MAX(quarterly_revenue)",
+        "=SUMIF(revenue, > 100000)"
+      ]
+    },
+    "ScalarGroup": {
+      "title": "Scalar Group",
+      "description": "Group of scalar values (v0.2.0 compatible, maps to named cells)",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Scalar"
+      },
+      "examples": [
+        {
+          "assumptions": {
+            "tax_rate": {
+              "value": 0.25,
+              "formula": null
+            },
+            "discount_rate": {
+              "value": 0.1,
+              "formula": null
+            }
+          }
+        }
+      ]
+    },
+    "Scalar": {
+      "title": "Scalar",
+      "description": "An input as a plain number or a date, or a mapping with `value:` (input) or `formula:` (calculated) and optional metadata",
+      "examples": [
+        16,
+        {
+          "formula": "=revenue - costs",
+          "unit": "CAD"
+        },
+        {
+          "value": 4800,
+          "unit": "CAD",
+          "better": "lower"
+        }
+      ],
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "$ref": "#/definitions/ScalarMapping"
+      },
+      "else": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "$ref": "#/definitions/ScalarDate"
+          }
+        ],
+        "description": "An input as a plain number or a date"
+      }
+    },
+    "Scenarios": {
+      "title": "Scenarios",
+      "description": "Named scenarios with variable overrides for what-if modeling (v2.2.0+)",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/ScenarioOverrides"
+      },
+      "examples": [
+        {
+          "base": {
+            "growth_rate": 0.05,
+            "churn_rate": 0.02
+          },
+          "optimistic": {
+            "growth_rate": 0.12,
+            "churn_rate": 0.01
+          },
+          "pessimistic": {
+            "growth_rate": 0.02,
+            "churn_rate": 0.05
+          }
+        }
+      ]
+    },
+    "ScenarioOverrides": {
+      "title": "Scenario Overrides",
+      "description": "Variable overrides for a single scenario",
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "$ref": "#/definitions/ScalarDate"
+          }
+        ],
+        "description": "Override value for a scalar variable"
+      }
+    },
+    "Includes": {
+      "title": "Cross-File Includes (v4.0)",
+      "description": "Array of file includes for cross-file references",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Include"
+      },
+      "examples": [
+        [
+          {
+            "file": "data_sources.yaml",
+            "as": "sources"
+          },
+          {
+            "file": "pricing.yaml",
+            "as": "pricing"
+          }
+        ]
+      ]
+    },
+    "Include": {
+      "title": "Include Directive (v4.0)",
+      "description": "Single file include with namespace alias",
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Path to the YAML file to include (relative to current file)"
+        },
+        "as": {
+          "type": "string",
+          "description": "Namespace alias for @namespace.field references"
+        }
+      },
+      "required": [
+        "file",
+        "as"
+      ],
+      "examples": [
+        {
+          "file": "data_sources.yaml",
+          "as": "sources"
+        }
+      ]
+    },
+    "MonteCarlo": {
+      "title": "Monte Carlo Configuration (v8.0.0)",
+      "description": "Configuration for probabilistic simulation",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "iterations": {
+          "type": "integer",
+          "minimum": 100,
+          "default": 10000
+        },
+        "sampling": {
+          "type": "string",
+          "enum": [
+            "monte_carlo",
+            "latin_hypercube"
+          ],
+          "default": "latin_hypercube"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MonteCarloOutput"
+          }
+        },
+        "correlations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MonteCarloCorrelation"
+          }
+        }
+      }
+    },
+    "MonteCarloOutput": {
+      "type": "object",
+      "properties": {
+        "variable": {
+          "type": "string"
+        },
+        "percentiles": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "threshold": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "variable"
+      ]
+    },
+    "MonteCarloCorrelation": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "coefficient": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "variables",
+        "coefficient"
+      ]
+    },
+    "Tornado": {
+      "title": "Tornado Sensitivity Configuration",
+      "description": "Configuration for one-at-a-time sensitivity tornado diagrams",
+      "type": "object",
+      "properties": {
+        "output": {
+          "type": "string",
+          "description": "Output variable to analyze"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TornadoInput"
+          },
+          "description": "Input variables with low/high ranges"
+        },
+        "steps": {
+          "type": "integer",
+          "minimum": 2,
+          "default": 2
+        }
+      },
+      "required": [
+        "output",
+        "inputs"
+      ]
+    },
+    "TornadoInput": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Variable name to vary"
+        },
+        "low": {
+          "type": "number",
+          "description": "Low value for sensitivity"
+        },
+        "high": {
+          "type": "number",
+          "description": "High value for sensitivity"
+        },
+        "base": {
+          "type": "number",
+          "description": "Optional base value (default: midpoint)"
+        }
+      },
+      "required": [
+        "name",
+        "low",
+        "high"
+      ]
+    },
+    "DecisionTree": {
+      "title": "Decision Tree Configuration",
+      "description": "Configuration for decision tree analysis with backward induction",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the decision tree"
+        },
+        "root": {
+          "$ref": "#/definitions/TreeNode",
+          "description": "Root node of the tree"
+        },
+        "nodes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/TreeNode"
+          },
+          "description": "Named nodes referenced by 'next' in branches"
+        }
+      },
+      "required": [
+        "name",
+        "root"
+      ]
+    },
+    "TreeNode": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "decision",
+            "chance"
+          ],
+          "description": "Node type"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name for the node"
+        },
+        "branches": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/TreeBranch"
+          },
+          "description": "Named branches from this node"
+        }
+      },
+      "required": [
+        "type",
+        "branches"
+      ]
+    },
+    "TreeBranch": {
+      "type": "object",
+      "properties": {
+        "probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Probability (for chance nodes)"
+        },
+        "cost": {
+          "type": "number",
+          "description": "Cost incurred on this branch"
+        },
+        "value": {
+          "type": "number",
+          "description": "Terminal value (for leaf nodes)"
+        },
+        "next": {
+          "type": "string",
+          "description": "Reference to next node (for non-leaf)"
+        }
+      }
+    },
+    "ScenariosCommand": {
+      "title": "Scenarios Command Configuration",
+      "description": "Probability-weighted scenario analysis configuration",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/ScenarioDefinition"
+      }
+    },
+    "ScenarioDefinition": {
+      "type": "object",
+      "properties": {
+        "probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Probability weight (0.0 to 1.0)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        },
+        "scalars": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/definitions/ScalarDate"
+              }
+            ]
+          },
+          "description": "Scalar value overrides for this scenario: a number, or a date for a date scalar"
+        }
+      },
+      "anyOf": [
+        { "required": ["probability"] },
+        { "required": ["scalars"] }
+      ],
+      "additionalProperties": false
+    },
+    "IsTable": {
+      "description": "A mapping is a table if a child is a list, a mapping whose value is a list, or a period column (parser: is_table)",
+      "type": "object",
+      "not": {
+        "additionalProperties": {
+          "not": {
+            "anyOf": [
+              {
+                "type": "array"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "value"
+                ],
+                "properties": {
+                  "value": {
+                    "type": "array"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "required": [
+                  "start",
+                  "count"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "IsOneScalar": {
+      "description": "A mapping is one scalar if it has a value that is not a list, or a formula and no child mapping (parser: is_one_scalar)",
+      "type": "object",
+      "anyOf": [
+        {
+          "required": [
+            "value"
+          ],
+          "properties": {
+            "value": {
+              "not": {
+                "type": "array"
+              }
+            }
+          }
+        },
+        {
+          "required": [
+            "formula"
+          ],
+          "additionalProperties": {
+            "not": {
+              "type": "object"
+            }
+          }
+        }
+      ]
+    },
+    "IsScalarGroup": {
+      "description": "A mapping that is not a table is a group of scalars if a child is a number or a date, or a mapping with value or formula (parser: is_nested_scalar_section)",
+      "type": "object",
+      "anyOf": [
+        {
+          "not": {
+            "additionalProperties": {
+              "not": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        {
+          "not": {
+            "additionalProperties": {
+              "not": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{1,2}(-[0-9]{1,2})?$"
+              }
+            }
+          }
+        },
+        {
+          "not": {
+            "additionalProperties": {
+              "not": {
+                "type": "object",
+                "anyOf": [
+                  {
+                    "required": [
+                      "value"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "formula"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ScalarMapping": {
+      "title": "Scalar (mapping)",
+      "description": "Single value with optional formula and rich metadata (v4.0 enhanced)",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/ScalarDate"
+            }
+          ],
+          "description": "Input value (a number or a date), or the last calculated result of the formula (written by forge calculate)"
+        },
+        "formula": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^=.+",
+              "description": "Formula expression starting with ="
+            },
+            {
+              "type": "null",
+              "description": "No formula (manual input value)"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement (CAD, USD, %, count, days, ratio)"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Human-readable explanation"
+        },
+        "source": {
+          "type": "string",
+          "description": "Where data came from (file:field or URL)"
+        },
+        "validation_status": {
+          "type": "string",
+          "enum": [
+            "VALIDATED",
+            "PROJECTED",
+            "ESTIMATED"
+          ],
+          "description": "Data validation status"
+        },
+        "last_updated": {
+          "type": "string",
+          "description": "ISO date of last update"
+        },
+        "better": {
+          "type": "string",
+          "enum": [
+            "higher",
+            "lower"
+          ],
+          "description": "Which way is good, for variance analysis: higher (revenue, profit) or lower (costs)"
+        }
+      },
+      "examples": [
+        {
+          "value": 0.9,
+          "formula": "=1 - platform_take_rate"
+        },
+        {
+          "value": 0.1,
+          "formula": null
+        },
+        {
+          "value": 100000,
+          "unit": "CAD",
+          "notes": "Annual revenue target",
+          "validation_status": "PROJECTED"
+        }
+      ],
+      "anyOf": [
+        {
+          "required": [
+            "value"
+          ]
+        },
+        {
+          "required": [
+            "formula"
+          ]
+        }
+      ]
+    },
+    "TableColumn": {
+      "title": "Table column",
+      "description": "A list of values of one type, a row formula (a text starting with =), a period column (start, count, unit), or a mapping with value: (a list) or formula: and metadata",
+      "if": {
+        "type": "array"
+      },
+      "then": {
+        "anyOf": [
+          {
+            "$ref": "#/definitions/NumberArray"
+          },
+          {
+            "$ref": "#/definitions/TextArray"
+          },
+          {
+            "$ref": "#/definitions/DateArray"
+          },
+          {
+            "$ref": "#/definitions/BooleanArray"
+          },
+          {
+            "$ref": "#/definitions/FormulaArray"
+          }
+        ]
+      },
+      "else": {
+        "if": {
+          "type": "string"
+        },
+        "then": {
+          "$ref": "#/definitions/RowFormula"
+        },
+        "else": {
+          "if": {
+            "type": "object",
+            "anyOf": [
+              {
+                "required": [
+                  "start"
+                ]
+              },
+              {
+                "required": [
+                  "count"
+                ]
+              }
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/PeriodColumn"
+          },
+          "else": {
+            "if": {
+              "type": "object",
+              "required": [
+                "value"
+              ]
+            },
+            "then": {
+              "$ref": "#/definitions/RichColumn"
+            },
+            "else": {
+              "if": {
+                "type": "object"
+              },
+              "then": {
+                "$ref": "#/definitions/RichFormula"
+              },
+              "else": {
+                "type": [
+                  "array",
+                  "string",
+                  "object"
+                ],
+                "description": "A table column is a list or a formula; a single number belongs in a group of scalars"
+              }
+            }
+          }
+        }
+      }
+    },
+    "PeriodColumn": {
+      "title": "Period column",
+      "description": "The dates a run of periods start on, as a column of dates: `count` periods of one `unit`, the first starting at `start` (ADR-053)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "count",
+        "unit"
+      ],
+      "properties": {
+        "start": {
+          "description": "Where the first period starts: a month (2026-12, its first day), a day (2026-12-15), or a year (2026, its first day)",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12][0-9]|3[01]))?$"
+            },
+            {
+              "type": "integer",
+              "minimum": 1900,
+              "maximum": 9999
+            }
+          ]
+        },
+        "count": {
+          "description": "How many periods, which is the table's number of rows",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048575
+        },
+        "unit": {
+          "description": "The length of a period",
+          "enum": [
+            "day",
+            "week",
+            "month",
+            "quarter",
+            "year"
+          ]
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "_forge_version": "5.4.0",
+      "assumptions": {
+        "price_per_dozen": 16,
+        "opening_dozens_per_day": 55
+      },
+      "months": {
+        "month": [
+          1,
+          2,
+          3
+        ],
+        "dozens": "=assumptions.opening_dozens_per_day * 30",
+        "revenue": "=dozens * assumptions.price_per_dozen"
+      },
+      "year": {
+        "revenue": {
+          "formula": "=SUM(months.revenue)",
+          "value": 79200
+        }
+      }
+    },
+    {
+      "_forge_version": "5.4.0",
+      "loan": {
+        "principal": 1000,
+        "rate": 0.01,
+        "payment": 340.02
+      },
+      "schedule": {
+        "month": {
+          "start": "2026-12",
+          "count": 3,
+          "unit": "month"
+        },
+        "opening": "=PREV(closing, loan.principal)",
+        "interest": "=opening * loan.rate",
+        "closing": "=opening + interest - loan.payment"
+      }
+    }
+  ]
+}
