@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **`examples/rolling-forecast` uses `format:`** (ADR-061): revenue with thousands separators, variances and the volume, mix and price split with a shortfall in parentheses, `share_of_year` as `0.0%`. No number changes: `forge calculate` gives the same output as before, byte for byte, and `tests/demo_examples.rs` passes. A period column does not take a `format:` yet (`months.month.format` is refused), so the months keep their ISO dates.
+
 ## [10.0.0-rc.21] - 2026-11-13
 
 A date can be a scalar (ADR-060) and `format:` holds an Excel number format beside `unit:` (ADR-061); both are in model format 5.4.0. Neither fixes a wrong answer, so the stable date stays no earlier than 2026-11-27.
