@@ -4,6 +4,74 @@ Complete reference for all Forge capabilities (v10.0.0).
 
 ---
 
+## Commands
+
+```bash
+# Core Operations
+forge validate <files...>           # Validate YAML model(s)
+forge calculate <file>              # Execute all formulas
+forge audit <file> <variable>       # Trace formula dependencies
+forge watch <file>                  # Validate and calculate again on every save
+forge report <file>                 # A calculated file's scalars side by side
+
+# Analysis
+forge sensitivity <file> -v VAR -r RANGE -o OUTPUT
+forge goal-seek <file> --target VAR --value N --vary INPUT
+forge break-even <file> -o OUTPUT -v INPUT
+forge variance <budget> <actual> --threshold PCT
+forge compare <file> --scenarios A,B   # Scenarios side by side
+
+# Prediction & Simulation
+forge simulate <file> --iterations N    # Monte Carlo
+forge scenarios <file>                  # Scenario analysis
+forge decision-tree <file>              # Decision trees
+forge real-options <file>               # Real options
+forge tornado <file>                    # Tornado diagrams
+forge bootstrap <file>                  # Bootstrap resampling
+forge bayesian <file> -q NODE -e NODE=STATE   # Bayesian network inference
+
+# Excel Bridge
+forge export <yaml> <xlsx>          # YAML → Excel with formulas
+forge import <xlsx> <yaml>          # Excel → YAML
+
+# AI Integration
+forge mcp                           # Start MCP server
+forge serve --port 8080             # Start REST API
+
+# Reference
+forge functions                     # List all 202 functions
+forge schema v5                     # Show JSON schema
+forge examples monte-carlo          # Show example YAML
+```
+
+Schemas and runnable examples, from the binary itself:
+
+```bash
+# View JSON schemas for model validation
+forge schema                    # List available versions
+forge schema v1                 # Show v1.0.0 schema (scalar-only)
+forge schema v5.1               # Show the 5.1.0 model format schema (use for new models)
+forge schema v5.2               # 5.1.0 plus the period column (ADR-053)
+forge schema v5 > schema.json   # Pipe to file for IDE use
+
+# View runnable examples for Forge capabilities
+forge examples                  # List all examples
+forge examples monte-carlo      # Monte Carlo simulation
+forge examples scenarios        # Probability-weighted scenarios
+forge examples decision-tree    # Sequential decision modeling
+forge examples real-options     # Option pricing for flexibility
+forge examples tornado          # Sensitivity analysis
+forge examples bootstrap        # Confidence intervals
+forge examples bayesian         # Probabilistic graphical models
+forge examples variance         # Budget vs actual analysis
+forge examples breakeven        # Break-even calculations
+
+forge examples monte-carlo --run  # Show and execute example
+forge examples --json             # Machine-readable list
+```
+
+---
+
 ## The Model File
 
 A model is one YAML file that holds inputs, formulas and the last result of each formula, the way an Excel cell holds a formula and its value (ADR-051).
