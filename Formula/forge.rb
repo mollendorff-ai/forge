@@ -3,28 +3,28 @@
 class Forge < Formula
   desc "Git-native financial modeling in YAML"
   homepage "https://mollendorff.ai/forge"
-  version "10.0.0-rc.18"
+  version "10.0.0-rc.19"
   license any_of: ["MIT", "Apache-2.0"]
 
   on_macos do
     on_arm do
-      url "https://github.com/mollendorff-ai/forge/releases/download/v10.0.0-rc.18/forge-aarch64-apple-darwin.tar.gz"
-      sha256 "9207d2172deb5010516dfd903d3b815e27c0cab4604ed62bab0652cadd24bb6d"
+      url "https://github.com/mollendorff-ai/forge/releases/download/v10.0.0-rc.19/forge-aarch64-apple-darwin.tar.gz"
+      sha256 "9b1dbfae03f99d3b1af3f14f3cf98f6252d8c8d3bae4deb652f8f1a4870c721a"
     end
     on_intel do
-      url "https://github.com/mollendorff-ai/forge/releases/download/v10.0.0-rc.18/forge-x86_64-apple-darwin.tar.gz"
-      sha256 "83ab41a6a47157d0b32737ed318dcc4cc14f75fd5d749d7203c7314d83302431"
+      url "https://github.com/mollendorff-ai/forge/releases/download/v10.0.0-rc.19/forge-x86_64-apple-darwin.tar.gz"
+      sha256 "2a49d26be6ae317e08f5c58ff65a737315dbb617fdfed7d72063b6c35309396a"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/mollendorff-ai/forge/releases/download/v10.0.0-rc.18/forge-aarch64-unknown-linux-musl.tar.gz"
-      sha256 "d2da5a1e6de780546f63c3f5b6475479741174c18b13a5ecda2f0fbda4ccf5be"
+      url "https://github.com/mollendorff-ai/forge/releases/download/v10.0.0-rc.19/forge-aarch64-unknown-linux-musl.tar.gz"
+      sha256 "acf9edfb01d4c0f99f335575a4d0ebfce40a0d6ae6b12b00ba6161b822eb6e41"
     end
     on_intel do
-      url "https://github.com/mollendorff-ai/forge/releases/download/v10.0.0-rc.18/forge-x86_64-unknown-linux-musl.tar.gz"
-      sha256 "196382b88dc9fc59c1fdab2b969fc6b61e8c35af7e6b3a497a264117de3352ca"
+      url "https://github.com/mollendorff-ai/forge/releases/download/v10.0.0-rc.19/forge-x86_64-unknown-linux-musl.tar.gz"
+      sha256 "5b67a4813a5d02ecae86bdb0911a8bb777002f8d88f7ebafa8b9346e5bcd0dc2"
     end
   end
 
