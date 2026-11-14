@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Forge did not build on Rust 1.97.0** (8 uses of `Option::map_or_default`, stable only since 1.98, and 14 more in the validation suites). They are `map(..).unwrap_or_default()` now.
 
 ### Added
+- **Forge Studio greets a first visit with a welcome card** (ADR-056 addendum): what the page is (a real model, calculated in the browser, nothing sent anywhere) and three tips (change an input, open a formula with Edit, where Grid, YAML and Files lead). Got it removes it for good on that device (a flag in `localStorage`); "Show the welcome tips again" on the Files tab brings it back. It replaces the guided tour parked on 2026-11-13, now that newcomers are trying Studio. `studio/tests/welcome.mjs` covers it.
 - **`rust-version = "1.97"`** in Cargo.toml, the same `msrv` in `clippy.toml` (clippy stops suggesting newer APIs), and a CI job that builds on the declared version.
 
 ### Changed

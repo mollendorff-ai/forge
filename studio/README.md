@@ -2,7 +2,7 @@
 
 Forge in your browser, phone first (ADR-056): **<https://forge.mollendorff.ai/>**
 
-Open one of the examples, a YAML file from your device, or an Excel workbook, and the model shows as cards: inputs to change, results with their formulas, tables, scenarios. Change a number and Forge calculates the model again. It is the same engine as the command line, running in the page as WebAssembly.
+The first visit opens with a short welcome card: what the page is and three things to try. Open one of the examples, a YAML file from your device, or an Excel workbook, and the model shows as cards: inputs to change, results with their formulas, tables, scenarios. Change a number and Forge calculates the model again. It is the same engine as the command line, running in the page as WebAssembly.
 
 ## What it does
 
@@ -67,6 +67,7 @@ All of these run in CI, in the `forge-wasm` job, which keeps the built site as t
 | `offline.mjs` | Every file is kept on the device, the page opens and calculates with the connection cut, and a later release replaces the cache once Studio has been closed |
 | `layout.mjs` | No view scrolls sideways at 320 px; at 1440 x 900 the editor and the cards are side by side and follow each other, the divider moves, either side hides |
 | `highlight.mjs`, `format.mjs` | The formula colours are the VS Code extension's rules, unchanged; the percent rule and how typed numbers are read |
+| `welcome.mjs` | A first visit shows the welcome card with its three tips, the model still recalculates under it, Got it keeps it away after a reload, and the Files tab brings it back |
 | `live.mjs` | After each release, the published page runs the release's Forge and the bagel example's `year.profit` is 786.32 |
 
 Run one with `node studio/tests/<name>.mjs studio-site` (after `npm install` here); `no-engine.mjs`, `text.mjs`, `format.mjs` and `highlight.mjs` need no built site.

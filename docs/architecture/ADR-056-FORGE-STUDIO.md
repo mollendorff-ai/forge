@@ -75,3 +75,13 @@ Decision 8 says what Studio is not: "a spreadsheet with a grid". That stands for
 3. **What it is not.** A preview of the exported workbook. iOS opens the `.xlsx` from Files in Quick Look or Numbers, with the real sheets and formulas, and showing it in the page would need either a spreadsheet library there (the page reads nothing itself, decision 2) or a new engine tool that mostly rebuilds a viewer the device has.
 4. **On a phone** the first column (the row) and the heading stay in view while the table scrolls, and the page never scrolls sideways (the table scrolls inside its card).
 5. **Tested.** `studio/tests/grid.mjs` compares every cell of every table of every example, and every scalar, with what Forge returns, with and without a scenario; it also checks the formula a tap shows and that the card is brought into view.
+
+## Addendum, 2026-11-14: a welcome card on the first visit
+
+**Decided by:** the maintainer, as newcomers start trying Studio from his brother's network (the trigger set when the guided tour was parked on 2026-11-13); the design is Claude's, in a session configured for Opus 5.5.
+
+1. **A card, not a tour.** The first time Studio opens on a device, a card above the model says what the page is (a real model, calculated in the browser, nothing sent anywhere) and gives three tips: change an input, open a formula with Edit, and where the Grid, YAML and Files tabs lead. Got it removes it. A tour with many steps is skipped by most people and has to change with every screen it points at; a card names what to do and stays out of the way.
+2. **Remembered on the device only.** Got it sets one flag in `localStorage` (`forge-studio-welcome-seen`); nothing is sent. Where storage is not allowed (a private window), the card shows on each visit until dismissed. "Show the welcome tips again", on the Files tab, clears the flag.
+3. **No feedback loop in the page.** Studio has no analytics (decision 5 and the README), so the page cannot tell where people get stuck. What testers say is the only signal; the card's words change when they show a tip is missing or wrong.
+4. **Tested.** `studio/tests/welcome.mjs`: a first visit shows the card with its three tips, an input still recalculates under it, Got it keeps it away after a reload, the Files tab brings it back, and it fits 320 px.
+
