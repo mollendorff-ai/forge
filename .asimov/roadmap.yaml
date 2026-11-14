@@ -68,6 +68,83 @@ state:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier1:
+  # From an evaluation of rc.23 (2026-11-14): every result checked by hand
+  # matched, 1,828 tests and 1,791 Gnumeric cases passed. What it found is in
+  # the checks around the numbers and in what the project says about itself.
+  # In order of impact; T1-TEST-RULE, T1-GENERATED and T1-PROPERTIES are the
+  # testing plan that follows from it ("covered" is not "correct").
+  - id: T1-R-HARNESS
+    title: "The R formula suite cannot fail, and 15 of its date checks do"
+    why: "validation/r/validators/r/run_all.sh runs each validator as `Rscript ... | tee`, so the status it tests is tee's, never R's: a failing validator is counted as passed, and the Validation workflow stays green. On rc.23 it prints 121 passed, 15 failed, then All validators passed, and exits 0. The 15 are DATE and WORKDAY: since rc.21 (ADR-060) Forge prints a date result as text (2024-02-29) and forge_helper.R reads a serial number, gets NA and fails the check. Forge's answers are right; the README's 136 checks pass is not true on main"
+    how: "set -o pipefail in run_all.sh (or test PIPESTATUS); forge_helper.R reads an ISO date as a date. Then make one validator fail on purpose and see the script and the workflow fail. Correct the count in README.md and VALIDATION.md"
+    acceptance: "A deliberately wrong expected value fails run_all.sh with a non-zero exit and fails the Validation workflow; with it removed, all 136 checks pass, and the README and VALIDATION.md say what the run printed"
+
+  - id: T1-TEST-RULE
+    title: "Every bug fix starts with a failing test, not only a wrong answer"
+    why: ".asimov/project.yaml and the PR template ask for a failing test only for a wrong answer. Errors, crashes, wrong messages and refusals that should not happen get fixed without one, so they can come back"
+    how: "Extend the rule in .asimov/project.yaml and the checkbox in .github/pull_request_template.md: the test reproduces the bug, fails on the commit before the fix and passes after it"
+    acceptance: "Both files state the wider rule; the next bug-fix PR carries such a test and says which commit it fails on"
+
+  - id: T1-GENERATED
+    title: "Generated cases against Gnumeric and LibreOffice, in CI"
+    why: "The validation cases are written by hand, so bugs live in inputs nobody imagined (YEARFRAC from the last day of February). validation/sweep already generates cases (dates.py, fin.py, vdb.py: 9,327 over a fixed grid) and found the eight wrong answers fixed in rc.23, but it runs only by hand and covers only date and financial functions"
+    how: "An ADR first. Build on validation/sweep rather than beside it: draw arguments per function at random with a fixed seed (printed with each failure so it can be replayed), weighted toward edges: month ends, leap years, Feb 28 and 29, the 31st, zero, negatives, empty cells, very large and very small numbers. Run each case through Forge and through Gnumeric, or LibreOffice where Gnumeric cannot judge, and report every disagreement. A disagreement confirmed as a bug becomes a handwritten case in validation/gnumeric/tests under T1-TEST-RULE; one where both engines differ from Excel goes to T1-EXCEL-CHECKS. Date and financial functions first, then the rest (T1-SWEEP-REST)"
+    acceptance: "The ADR is written; a small seeded batch runs on every pull request and a large one in weekly.yml; replaying a reported seed gives the same case; every disagreement found so far is either a case in validation/gnumeric/tests or a written reason"
+
+  - id: T1-PROPERTIES
+    title: "Property tests for rules that must always hold"
+    why: "Some promises need no reference engine, only the rule itself, and nothing tests them on inputs nobody wrote. Forge has no property tests (no proptest or quickcheck)"
+    how: "The proptest crate as a dev-dependency, on generated models: format: never changes a value (ADR-061); export then import gives the same numbers; calculating a model twice gives the same output; a seeded simulation gives the same numbers twice (docs/STABILITY.md point 4). A shrunk failing input becomes an ordinary test under T1-TEST-RULE"
+    acceptance: "The four properties run in cargo test with a fixed case count that keeps CI under its time limit; any failure they found is fixed with a test"
+
+  - id: T1-SWEEP-REST
+    title: "Sweep the function families not yet swept, before the stable release"
+    why: "Sweeping dates and finance found eight wrong answers in one run, some silent (NETWORKDAYS and WORKDAY accepted holidays and ignored them). Statistical, lookup, text and math functions have only their handwritten cases"
+    how: "With T1-GENERATED's generator once it exists, or validation/sweep's way until then"
+    acceptance: "Each family has had a run against both engines; every disagreement is fixed with a test, recorded for T1-EXCEL-CHECKS, or explained in validation/sweep/README.md"
+
+  - id: T1-MSRV
+    title: "Declare the oldest Rust Forge builds with, and check it"
+    why: "cargo build on Rust 1.97.0 (July 2026) fails with 8 x error[E0658] (Option::map_or_default, unstable there); it builds on 1.100.0. Cargo.toml has no rust-version, so a newcomer gets a compiler error, not update Rust. CI runs only the latest stable, and clippy there suggests the newest APIs (PR #167)"
+    how: "rust-version in Cargo.toml and the same msrv in clippy.toml (clippy then stops suggesting newer APIs), and a CI job that builds on that version. Or replace the 8 map_or_default calls and pick an older version"
+    acceptance: "Building with an older toolchain says which version is needed; the CI job builds on the declared version"
+
+  - id: T1-CLAIMS
+    title: "What Forge says about itself matches what it does"
+    why: "The README is candid, but other places drift from it. GitHub About: 10-15x fewer tokens than Excel, which nothing measures and the README says was not measured. forge --help and VALIDATION.md: Beta (it is a release candidate). VALIDATION.md: tests on stable and beta Rust on every push (beta is weekly). Cargo.toml comment: 175 functions (203). README goal-seek block: 397.044208 -> 79999.999976, the command prints 397.04 -> 80,000.00. Counts dated 2026-11-12: 1,768 tests (1,828 on rc.23), 1,460 Gnumeric cases with 70 by LibreOffice in 51 files (1,931, 139 and 55). Cargo.toml authors and 40 places in docs: Claude (Opus 4.5) - Principal Autonomous AI, a self-given title and one model of several"
+    how: "Correct each. Have CI write the counts where it already measures them (the badges do), so they cannot go stale. The author line names Claude (Anthropic) plainly. The About text is changed by the maintainer on GitHub (Safari, desktop view)"
+    acceptance: "A search of the repository for Beta, 175 functions, 1,768, 1,460 and Principal Autonomous AI finds only the changelog; the README's command blocks are what the commands print (tests/doc_examples.rs or similar checks them); the About text matches the README's first line"
+
+  - id: T1-VALIDATE-GAPS
+    title: "validate refuses a table with columns of different lengths, and a missing name suggests the closest"
+    why: "forge validate on a table with a 3-row and a 2-row column says All tables are valid (the error comes only when a formula reads the table), and forge export writes it. A missing scalar is reported as Unknown column: a.price, with no suggestion, while .asimov/project.yaml says an unknown name is an error that suggests the closest name (a.prce was one letter away)"
+    how: "Check column lengths in validate and export; say unknown name for a scalar and suggest the nearest existing name, as for columns"
+    acceptance: "Both cases have tests (T1-TEST-RULE); validate exits 1 on the ragged table; the message for a.price names a.prce"
+
+  - id: T1-ADR-PRUNE
+    title: "Delete the speculative ADRs from the public folder"
+    why: "ADR-026 (FPGA for high-frequency trading, after $1M+ AUM), ADR-028 (crystal analysis, not implemented, DANEEL work) and ADR-030 (go-to-market tiers, superseded) say little about Forge and cost a reader's trust; their dated notes do not undo the first impression"
+    how: "Delete the three files and the parked items that point to them (P-FPGA, P-CRYSTAL); keep ADR-031's one line on the licence history. The maintainer confirms before the files go"
+    acceptance: "No link in the repository points to a deleted ADR (the docs link check passes)"
+
+  - id: T1-MCP-ROOT
+    title: "An optional folder that MCP and REST file paths must stay inside"
+    why: "The MCP tools take file_path, yaml_path and excel_path, so an agent, or a prompt injected into one, can read any model or workbook and write a file anywhere the user can. Normal for a local MCP server, and SECURITY.md lists the MCP server in scope"
+    how: "forge mcp --root DIR and forge serve --root DIR: a path outside DIR (after resolving .. and links) is refused with the reason; without --root, nothing changes"
+    acceptance: "Tests show a path outside the root refused for read and write, including through .. and a symbolic link; docs/MCP.md and SECURITY.md describe it"
+
+  - id: T1-TIDY
+    title: "Remove the committed __pycache__"
+    why: "validation/sweep/__pycache__/harness.cpython-313.pyc is in git"
+    how: "git rm it and ignore __pycache__/ in .gitignore"
+    acceptance: "git ls-files lists no .pyc file"
+
+  - id: T1-LISTINGS
+    title: "Outside listings show today's Forge"
+    why: "The LobeHub MCP listing (royalbit forge) still shows the Elastic-2.0 licence and the battle-tested wording of an old README"
+    how: "The maintainer asks LobeHub to refresh or remove it; check other listings (ecosyste.ms, docs.rs for old versions) at the same time"
+    acceptance: "The listing shows MIT OR Apache-2.0 and the current description, or is gone"
+
   # Found while making dates real dates (ADR-054, 2026-11-10): places where
   # Forge and Excel may give different answers without a warning, and places
   # where Forge says less than it knows.
@@ -87,8 +164,14 @@ tier1:
 # TIER 2 — MODELING (what would change how Forge feels to use)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-tier2: []
-  # No open item. The earlier tier-2 items are done (2026-11-10): forge report, the
+tier2:
+  - id: T2-FIRST-USER
+    title: "Watch one real person build a model with Forge"
+    why: "No known users. Every bug found on 2026-11-07 came from building a model, and the maintainer's plan is to test demand with one real user before investing in reach (tier 3)"
+    how: "One FP&A analyst or AI pipeline builder, their own small model, Studio or the command line, the maintainer watching without helping. Write down where they stop"
+    acceptance: "Notes from the session are in this file as tier items with acceptance criteria, or the decision that nothing needs to change"
+
+  # The earlier tier-2 items are done (2026-11-10): forge report, the
   # comparison example and the first-model starter.
   # Found building examples/rolling-forecast (2026-11-12), the FP&A audit:
   # actuals then forecast, fiscal quarters, year to date, a budget looked up
