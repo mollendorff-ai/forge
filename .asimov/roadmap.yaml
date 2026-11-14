@@ -85,12 +85,6 @@ tier1:
     how: "The maintainer changes the About text on GitHub (Safari, desktop view) to the README's first line. CI writes the counts where it already measures them, as the badges do (tests, functions, coverage), or a test fails when a count in the docs differs from the run. A test runs the command blocks in README.md as tests/doc_examples.rs does for docs/EXAMPLES.md"
     acceptance: "The About text matches the README's first line; a count changed in the code without the docs fails a check; the README's goal-seek block is what the command prints"
 
-  - id: T1-MCP-ROOT
-    title: "An optional folder that MCP and REST file paths must stay inside"
-    why: "The MCP tools take file_path, yaml_path and excel_path, so an agent, or a prompt injected into one, can read any model or workbook and write a file anywhere the user can. Normal for a local MCP server, and SECURITY.md lists the MCP server in scope"
-    how: "forge mcp --root DIR and forge serve --root DIR: a path outside DIR (after resolving .. and links) is refused with the reason; without --root, nothing changes"
-    acceptance: "Tests show a path outside the root refused for read and write, including through .. and a symbolic link; docs/MCP.md and SECURITY.md describe it"
-
   - id: T1-LISTINGS
     title: "Outside listings show today's Forge"
     why: "The LobeHub MCP listing (royalbit forge) still shows the Elastic-2.0 licence and the battle-tested wording of an old README"

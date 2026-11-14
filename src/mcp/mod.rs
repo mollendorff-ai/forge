@@ -51,3 +51,33 @@ pub mod server;
 pub mod types;
 
 pub use server::ForgeMcpServer;
+
+/// Serve MCP over stdin and stdout until the client disconnects, with file
+/// paths kept inside `root` if one is given (`forge mcp --root`).
+///
+/// # Errors
+///
+/// Returns an error if `root` is not a folder, the runtime cannot start or
+/// the connection fails.
+///
+/// # Coverage Exclusion (ADR-006)
+/// Waits on stdin for a client: tested through the binary in `tests/`.
+#[cfg(not(coverage))]
+pub fn run_stdio(root: Option<&std::path::Path>) -> crate::error::ForgeResult<()> {
+    use crate::error::ForgeError;
+    use rmcp::{transport::io, ServiceExt};
+    let mut server = ForgeMcpServer::new();
+    if let Some(dir) = root {
+        server =
+            server.with_root(crate::path_root::Root::new(dir).map_err(ForgeError::Validation)?);
+    }
+    let failed =
+        |e: &dyn std::fmt::Display| ForgeError::Validation(format!("MCP server error: {e}"));
+    let runtime = tokio::runtime::Runtime::new()
+        .map_err(|e| ForgeError::Validation(format!("Failed to create runtime: {e}")))?;
+    runtime.block_on(async {
+        let service = server.serve(io::stdio()).await.map_err(|e| failed(&e))?;
+        service.waiting().await.map_err(|e| failed(&e))?;
+        Ok(())
+    })
+}

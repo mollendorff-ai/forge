@@ -11,11 +11,13 @@ use tempfile::TempDir;
 
 /// Resolve model input from either a file path or inline YAML content.
 ///
-/// Shared by the MCP server and the REST API.
+/// Shared by the MCP server and the REST API. With a `root`, a path outside
+/// it, or a model that includes a file outside it, is refused.
 ///
 /// Returns `(PathBuf, Option<TempDir>)` — the `TempDir` guard must be kept
 /// alive in the caller so the temp files are not cleaned up prematurely.
 pub(crate) fn resolve_model_input(
+    root: Option<&crate::path_root::Root>,
     file_path: Option<&str>,
     content: Option<&str>,
     includes: Option<&HashMap<String, String>>,
@@ -23,7 +25,11 @@ pub(crate) fn resolve_model_input(
     match (file_path, content) {
         (Some(_), Some(_)) => Err("Provide either file_path or content, not both".into()),
         (None, None) => Err("Either file_path or content is required".into()),
-        (Some(path), None) => Ok((PathBuf::from(path), None)),
+        (Some(path), None) => match root {
+            // `forge mcp --root`: the path and the files it includes
+            Some(root) => Ok((root.model(path)?, None)),
+            None => Ok((PathBuf::from(path), None)),
+        },
         (None, Some(yaml)) => {
             let tmp = TempDir::new().map_err(|e| format!("Failed to create temp dir: {e}"))?;
             resolve_inline_includes(yaml, includes, tmp.path())?;

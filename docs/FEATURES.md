@@ -242,7 +242,7 @@ forge serve                                     # localhost only
 FORGE_API_TOKEN=... forge serve --host 0.0.0.0  # other machines, token required
 ```
 
-The API reads and writes the files that requests name, as the user running it. By default it listens on 127.0.0.1, rejects requests whose `Host` header is not this machine, and allows no browser requests from other websites. Listening on another address needs a token; requests to `/api/v1/*` then send `Authorization: Bearer <token>`. Use `--cors-origin <origin>` to let a specific web app call it.
+The API reads and writes the files that requests name, as the user running it. By default it listens on 127.0.0.1, rejects requests whose `Host` header is not this machine, and allows no browser requests from other websites. Listening on another address needs a token; requests to `/api/v1/*` then send `Authorization: Bearer <token>`. Use `--cors-origin <origin>` to let a specific web app call it. `--root DIR` refuses any path outside `DIR`, after `..` and links are resolved, as for `forge mcp` ([MCP.md](MCP.md#keeping-files-inside-one-folder)).
 
 **Endpoints:**
 
