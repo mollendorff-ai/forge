@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.24] - 2026-11-14
+
+### Changed
+- **Test counts in README.md, VALIDATION.md and validation/gnumeric/README.md updated**: 1,849 tests and 2 doctests, 2,024 Gnumeric cases in 57 files (150 judged by LibreOffice).
+
 ### Added
 - **Generated cases against Gnumeric and LibreOffice in CI (ADR-062).** `validation/sweep/generate.py` draws each of 133 functions' arguments from a seed, toward the values where spreadsheets go wrong. A pull request runs seed 1 (2,660 cases, 3 s), and the Monday run of the Validation workflow a new seed every week (26,600 cases, 22 s). A case where Forge disagrees with the engines fails, unless `validation/sweep/known.py` covers it: 21 rules, one class of input each, with the reason and where it is tracked. A failure prints the command that replays it.
 
