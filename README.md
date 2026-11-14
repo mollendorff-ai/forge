@@ -184,6 +184,10 @@ brew install mollendorff-ai/forge/forge
 # Or with cargo-binstall (releases after 10.0.0-rc.11; Windows too)
 cargo binstall mollendorff-forge
 
+# Or download the archive for your system from the release page and check it
+# (on macOS: shasum -a 256 -c)
+sha256sum -c --ignore-missing checksums.txt
+
 # Or build from source
 cargo install --path .
 
@@ -196,6 +200,8 @@ forge calculate model.yaml --scenario optimistic
 # Export to Excel with formulas (see known limitations)
 forge export model.yaml output.xlsx
 ```
+
+`forge calculate` writes each result into the model, next to its formula, and keeps the file as it was in `model.yaml.bak`; `--dry-run` prints the results and changes nothing.
 
 There are runnable models in [`examples/`](examples/); [`examples/starter.yaml`](examples/starter.yaml) is the one to copy.
 

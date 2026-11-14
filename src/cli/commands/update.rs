@@ -604,6 +604,14 @@ c4c3e290f8043329925127b97cc7831094f0f0fcfbf0cc362bd6cb92c5573a54  forge-x86_64-u
             "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
         );
         assert_eq!(other.len(), 1);
+        // From the release after rc.24: the published names, no folder
+        let bare = parse_checksums(
+            "c4c3e290f8043329925127b97cc7831094f0f0fcfbf0cc362bd6cb92c5573a54  forge-x86_64-unknown-linux-musl.tar.gz\n",
+        );
+        assert_eq!(
+            bare["forge-x86_64-unknown-linux-musl.tar.gz"],
+            "c4c3e290f8043329925127b97cc7831094f0f0fcfbf0cc362bd6cb92c5573a54"
+        );
     }
 
     #[test]
