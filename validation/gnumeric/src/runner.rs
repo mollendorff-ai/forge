@@ -78,7 +78,7 @@ impl TestRunner {
     }
 
     /// Loads all test cases from the tests directory.
-    fn load_test_cases(tests_dir: &Path) -> anyhow::Result<(Vec<TestCase>, Vec<SkipCase>)> {
+    pub fn load_test_cases(tests_dir: &Path) -> anyhow::Result<(Vec<TestCase>, Vec<SkipCase>)> {
         let mut all_cases = Vec::new();
         let mut all_skips = Vec::new();
 

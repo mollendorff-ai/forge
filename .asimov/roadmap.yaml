@@ -83,10 +83,10 @@ tier1:
   # with the known differences in validation/sweep/known.py.
 
   - id: T1-CLAIMS
-    title: "What Forge says about itself cannot go stale"
-    why: "The evaluation's stale labels, counts and author titles are corrected by hand (2026-11-14), and the counts will drift again with every release. Left open: the GitHub About text still says 10-15x fewer tokens than Excel, which nothing measures and the README says was not measured; and the numbers in README.md, VALIDATION.md and validation/gnumeric/README.md (tests, cases, LibreOffice cases, files) are typed by hand"
-    how: "The maintainer changes the About text on GitHub (Safari, desktop view) to the README's first line. CI writes the counts where it already measures them, as the badges do (tests, functions, coverage), or a test fails when a count in the docs differs from the run. A test runs the command blocks in README.md as tests/doc_examples.rs does for docs/EXAMPLES.md"
-    acceptance: "The About text matches the README's first line; a count changed in the code without the docs fails a check; the README's goal-seek block is what the command prints"
+    title: "The GitHub About text matches what the README says"
+    why: "The GitHub About text still says 10-15x fewer tokens than Excel, which nothing measures and the README says was not measured. Everything else Forge says about itself (counts, function numbers, the README's commands) is now checked by tests/doc_counts.rs, validation/gnumeric/tests/doc_counts.rs and tests/readme_commands.rs"
+    how: "The maintainer changes the About text on GitHub (Safari, desktop view) to the README's first line"
+    acceptance: "The About text matches the README's first line"
 
   - id: T1-LISTINGS
     title: "Outside listings show today's Forge"

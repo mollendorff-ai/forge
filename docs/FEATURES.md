@@ -39,7 +39,7 @@ forge mcp                           # Start MCP server
 forge serve --port 8080             # Start REST API
 
 # Reference
-forge functions                     # List all 202 functions
+forge functions                     # List all 203 functions
 forge schema v5                     # Show JSON schema
 forge examples monte-carlo          # Show example YAML
 ```

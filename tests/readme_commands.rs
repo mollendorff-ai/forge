@@ -1,0 +1,146 @@
+//! Every command the README shows (a `text` block that starts with `$ forge`)
+//! is run, and every line the README shows as its output is a line the
+//! command prints (roadmap T1-CLAIMS). The README once showed `397.04 → 80,000.00`
+//! for a command that printed something else.
+//!
+//! A block may show only some of the lines ("A few of its lines"), so a line
+//! of the README must appear in the output, not the other way round. A block
+//! without a command shows more lines of the command above it.
+//!
+//! `forge simulate --seek` runs 22 simulations of 5,000 iterations: seconds in
+//! a release build, over a minute in a debug one. A debug build skips it (and
+//! says so); the Validation workflow runs this test in release, where it runs.
+//!
+//! A coverage build stubs `main` (ADR-006), so this runs the real binary only
+//! in an ordinary build.
+
+#![cfg(not(coverage))]
+
+use std::path::Path;
+use std::process::Command;
+
+/// The `text` code blocks of a markdown file, as lines.
+fn text_blocks(doc: &str) -> Vec<Vec<String>> {
+    let mut out = Vec::new();
+    let mut lines = doc.lines();
+    while let Some(line) = lines.next() {
+        if line.trim() == "```text" {
+            let mut block = Vec::new();
+            for inner in lines.by_ref() {
+                if inner.starts_with("```") {
+                    break;
+                }
+                block.push(inner.to_string());
+            }
+            out.push(block);
+        }
+    }
+    out
+}
+
+/// Words separated by single spaces, so a changed column width is not a change.
+fn squeeze(line: &str) -> String {
+    line.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+#[test]
+fn every_command_in_the_readme_prints_what_the_readme_shows() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let doc = std::fs::read_to_string(root.join("README.md")).unwrap();
+    let mut commands = 0;
+    let mut lines_checked = 0;
+    let mut printed: Vec<String> = Vec::new();
+    let mut skipping = false;
+    for block in text_blocks(&doc) {
+        let slow = block
+            .first()
+            .is_some_and(|l| l.starts_with("$ forge simulate"));
+        if slow && cfg!(debug_assertions) {
+            eprintln!(
+                "skipped in a debug build (run with --release): {}",
+                block[0]
+            );
+            skipping = true;
+            continue;
+        }
+        if skipping && !block.first().is_some_and(|l| l.starts_with("$ ")) {
+            continue;
+        }
+        skipping = false;
+        let (shown, label) = match block.first().and_then(|l| l.strip_prefix("$ forge ")) {
+            Some(args) => {
+                let args: Vec<&str> = args.split_whitespace().collect();
+                // The shown arguments are quoted as a shell would: "P(year.profit > 0) = 0.8"
+                let args = rejoin_quotes(&args);
+                let out = Command::new(env!("CARGO_BIN_EXE_forge"))
+                    .args(&args)
+                    .current_dir(root)
+                    .env("NO_COLOR", "1")
+                    .output()
+                    .expect("forge runs");
+                assert!(
+                    out.status.success(),
+                    "`forge {}` fails:\n{}{}",
+                    args.join(" "),
+                    String::from_utf8_lossy(&out.stdout),
+                    String::from_utf8_lossy(&out.stderr)
+                );
+                printed = String::from_utf8_lossy(&out.stdout)
+                    .lines()
+                    .chain(String::from_utf8_lossy(&out.stderr).lines())
+                    .map(squeeze)
+                    .collect();
+                commands += 1;
+                (&block[1..], format!("forge {}", args.join(" ")))
+            },
+            None if commands > 0 => (&block[..], "the command above".to_string()),
+            None => continue,
+        };
+        for line in shown {
+            let wanted = squeeze(line);
+            if wanted.is_empty() {
+                continue;
+            }
+            assert!(
+                printed.contains(&wanted),
+                "README shows a line that `{label}` does not print:\n  {wanted}\nIt prints:\n{}",
+                printed.join("\n")
+            );
+            lines_checked += 1;
+        }
+    }
+    assert!(
+        commands >= 4,
+        "only {commands} commands found in the README"
+    );
+    assert!(lines_checked >= 15, "only {lines_checked} lines checked");
+}
+
+/// Join the words of a `"..."` argument back into one.
+fn rejoin_quotes(words: &[&str]) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut open: Option<String> = None;
+    for word in words {
+        match open.take() {
+            Some(mut text) => {
+                text.push(' ');
+                text.push_str(word.trim_end_matches('"'));
+                if word.ends_with('"') {
+                    out.push(text);
+                } else {
+                    open = Some(text);
+                }
+            },
+            None if word.starts_with('"') => {
+                let inner = word.trim_start_matches('"');
+                if inner.ends_with('"') {
+                    out.push(inner.trim_end_matches('"').to_string());
+                } else {
+                    open = Some(inner.to_string());
+                }
+            },
+            None => out.push((*word).to_string()),
+        }
+    }
+    out
+}
