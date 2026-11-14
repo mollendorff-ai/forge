@@ -170,8 +170,11 @@ fn xmatch_exact_nearest_and_from_the_end() {
     assert!(close(number("XMATCH(4, t.dup, -1)", &ctx), 2.0));
     assert!(close(number("XMATCH(4, t.dup, -1, -1)", &ctx), 4.0));
     // What is not supported says so
-    assert!(error("XMATCH(30, t.ten, 2)", &ctx).contains("wildcards"));
-    assert!(error("XMATCH(30, t.ten, 0, 2)", &ctx).contains("binary"));
+    // A wildcard match (mode 2) and a binary search of sorted values (2, -2)
+    assert!(close(number("XMATCH(30, t.ten, 2)", &ctx), 3.0));
+    assert!(close(number("XMATCH(30, t.ten, 0, 2)", &ctx), 3.0));
+    assert!(error("XMATCH(30, t.ten, 3)", &ctx).contains("match_mode"));
+    assert!(error("XMATCH(30, t.ten, 0, 3)", &ctx).contains("search_mode"));
 }
 
 #[test]

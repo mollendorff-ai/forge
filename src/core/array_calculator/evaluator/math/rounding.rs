@@ -8,18 +8,60 @@ use super::super::{
 };
 use crate::core::array_calculator::evaluator::number_or;
 
+/// `x` to 15 significant digits, as Excel holds a number before it rounds:
+/// 1.005 * 100 is 100.49999999999999 in binary and 100.5 in Excel, so
+/// `ROUND(1.005, 2)` is 1.01 there.
+fn excel_digits(x: f64) -> f64 {
+    if !x.is_finite() || x == 0.0 {
+        return x;
+    }
+    format!("{x:.14e}").parse().unwrap_or(x)
+}
+
+/// `val` rounded to `decimals` places with `op` (round, ceil, floor) applied
+/// to its magnitude, the sign kept: the rounding of ROUND, ROUNDUP,
+/// ROUNDDOWN and TRUNC.
+fn round_with(val: f64, decimals: f64, op: fn(f64) -> f64) -> f64 {
+    let decimals = decimals.trunc().clamp(-400.0, 400.0) as i32;
+    let magnitude = val.abs();
+    let rounded = if decimals >= 0 {
+        let multiplier = 10_f64.powi(decimals);
+        let scaled = magnitude * multiplier;
+        // Past 2^52 a double has no fraction left to round
+        if !scaled.is_finite() || scaled >= 4_503_599_627_370_496.0 {
+            return val;
+        }
+        op(excel_digits(scaled)) / multiplier
+    } else {
+        let divisor = 10_f64.powi(-decimals);
+        op(excel_digits(magnitude / divisor)) * divisor
+    };
+    if val < 0.0 {
+        -rounded
+    } else {
+        rounded
+    }
+}
+
+/// The decimals argument of ROUND and the like, 0 when it is left out
+fn decimals_arg(args: &[Expr], ctx: &EvalContext) -> Result<f64, EvalError> {
+    if args.len() > 1 {
+        number_or(&args[1], ctx, 0.0)
+    } else {
+        Ok(0.0)
+    }
+}
+
 pub fn eval_round(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("ROUND", args, 1, 2)?;
     let val = evaluate(&args[0], ctx)?
         .as_cell_number()
         .ok_or_else(|| EvalError::new("ROUND requires a number"))?;
-    let decimals = if args.len() > 1 {
-        number_or(&args[1], ctx, 0.0)? as i32
-    } else {
-        0
-    };
-    let multiplier = 10_f64.powi(decimals);
-    Ok(Value::Number((val * multiplier).round() / multiplier))
+    Ok(Value::Number(round_with(
+        val,
+        decimals_arg(args, ctx)?,
+        f64::round,
+    )))
 }
 
 pub fn eval_roundup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -27,16 +69,11 @@ pub fn eval_roundup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     let val = evaluate(&args[0], ctx)?
         .as_cell_number()
         .ok_or_else(|| EvalError::new("ROUNDUP requires a number"))?;
-    let decimals = if args.len() > 1 {
-        number_or(&args[1], ctx, 0.0)? as i32
-    } else {
-        0
-    };
-    let multiplier = 10_f64.powi(decimals);
-    let sign = if val >= 0.0 { 1.0 } else { -1.0 };
-    Ok(Value::Number(
-        sign * (val.abs() * multiplier).ceil() / multiplier,
-    ))
+    Ok(Value::Number(round_with(
+        val,
+        decimals_arg(args, ctx)?,
+        f64::ceil,
+    )))
 }
 
 pub fn eval_rounddown(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -44,16 +81,11 @@ pub fn eval_rounddown(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErr
     let val = evaluate(&args[0], ctx)?
         .as_cell_number()
         .ok_or_else(|| EvalError::new("ROUNDDOWN requires a number"))?;
-    let decimals = if args.len() > 1 {
-        number_or(&args[1], ctx, 0.0)? as i32
-    } else {
-        0
-    };
-    let multiplier = 10_f64.powi(decimals);
-    let sign = if val >= 0.0 { 1.0 } else { -1.0 };
-    Ok(Value::Number(
-        sign * (val.abs() * multiplier).floor() / multiplier,
-    ))
+    Ok(Value::Number(round_with(
+        val,
+        decimals_arg(args, ctx)?,
+        f64::floor,
+    )))
 }
 
 pub fn eval_floor(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -66,10 +98,18 @@ pub fn eval_floor(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
     } else {
         1.0
     };
-    if sig == 0.0 {
+    if val == 0.0 {
         return Ok(Value::Number(0.0));
     }
-    Ok(Value::Number((val / sig).floor() * sig))
+    if sig == 0.0 {
+        return Err(EvalError::new("#DIV/0!: FLOOR: the significance is 0"));
+    }
+    if val > 0.0 && sig < 0.0 {
+        return Err(EvalError::new(
+            "#NUM!: FLOOR: a positive number needs a positive significance",
+        ));
+    }
+    Ok(Value::Number(excel_digits(val / sig).floor() * sig))
 }
 
 pub fn eval_ceiling(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -82,10 +122,15 @@ pub fn eval_ceiling(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     } else {
         1.0
     };
-    if sig == 0.0 {
+    if sig == 0.0 || val == 0.0 {
         return Ok(Value::Number(0.0));
     }
-    Ok(Value::Number((val / sig).ceil() * sig))
+    if val > 0.0 && sig < 0.0 {
+        return Err(EvalError::new(
+            "#NUM!: CEILING: a positive number needs a positive significance",
+        ));
+    }
+    Ok(Value::Number(excel_digits(val / sig).ceil() * sig))
 }
 
 /// MROUND(number, multiple): the nearest multiple, a half going away from 0
@@ -105,7 +150,9 @@ pub fn eval_mround(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
             "MROUND: the number and the multiple must have the same sign (#NUM!)",
         ));
     }
-    Ok(Value::Number((val / multiple).round() * multiple))
+    Ok(Value::Number(
+        excel_digits(val / multiple).round() * multiple,
+    ))
 }
 
 pub fn eval_int(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
@@ -121,15 +168,11 @@ pub fn eval_trunc(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
     let val = evaluate(&args[0], ctx)?
         .as_cell_number()
         .ok_or_else(|| EvalError::new("TRUNC requires a number"))?;
-    let decimals = if args.len() > 1 {
-        number_or(&args[1], ctx, 0.0)? as i32
-    } else {
-        0
-    };
-    let multiplier = 10_f64.powi(decimals);
-    Ok(Value::Number(
-        val.signum() * (val.abs() * multiplier).floor() / multiplier,
-    ))
+    Ok(Value::Number(round_with(
+        val,
+        decimals_arg(args, ctx)?,
+        f64::floor,
+    )))
 }
 
 #[cfg(test)]
@@ -166,7 +209,11 @@ mod tests {
         let ctx = EvalContext::new();
         assert_eq!(eval("FLOOR(3.7)", &ctx).unwrap(), Value::Number(3.0));
         assert_eq!(eval("FLOOR(17, 5)", &ctx).unwrap(), Value::Number(15.0));
-        assert_eq!(eval("FLOOR(3.5, 0)", &ctx).unwrap(), Value::Number(0.0));
+        // Excel: FLOOR with a significance of 0 is #DIV/0!, CEILING's is 0
+        assert!(eval("FLOOR(3.5, 0)", &ctx)
+            .unwrap_err()
+            .to_string()
+            .contains("#DIV/0!"));
         assert_eq!(eval("CEILING(3.2)", &ctx).unwrap(), Value::Number(4.0));
         assert_eq!(eval("CEILING(13, 5)", &ctx).unwrap(), Value::Number(15.0));
         assert_eq!(eval("CEILING(3.5, 0)", &ctx).unwrap(), Value::Number(0.0));

@@ -10,6 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - **Three ADRs about work that is not Forge's:** ADR-026 (FPGA acceleration for high-frequency trading), ADR-028 (crystal analysis for DANEEL, never built) and ADR-030 (a go-to-market plan from the Elastic-2.0 period). All three were deferred, not scheduled or superseded. ADR-031 keeps the licence history. No code or behaviour changes.
 
+### Fixed
+Wrong answers found by sweeping the statistical, lookup, math and text functions (about 5,900 generated cases) against Gnumeric and LibreOffice; each now gives what both engines give, or what LibreOffice and Excel's documentation give where Gnumeric differs. Cases in `validation/gnumeric/tests/edge/edge_text_lookup_sweep.yaml`; the sweep is in `validation/sweep/`.
+- **Wildcards were read as plain text.** `*` (any run of characters), `?` (one character) and `~` (the next character itself) now work in the criteria of `COUNTIF`, `SUMIF`, `AVERAGEIF`, `COUNTIFS`, `SUMIFS`, `AVERAGEIFS`, `MAXIFS` and `MINIFS` (also after `=` and `<>`), in `MATCH` and `VLOOKUP` with an exact match, in `SEARCH`, and in `XMATCH` and `XLOOKUP` with match mode 2. `COUNTIF(names, "b*")` counted only a cell holding `b*`. A pattern matches text only, never a number or an empty cell, as in Excel.
+- **`XLOOKUP` ignored its search mode**: `-1` (from the last) found the first match. `XMATCH` and `XLOOKUP` now share one search, and the binary search modes 2 and -2 are read (on sorted values they find what a search from the first finds) instead of being errors.
+- **`FIND` and `SEARCH` counted bytes, not characters**: `FIND("γ", "αβγ")` was 5, and a start inside a character such as `FIND("β", "αβγ", 2)` crashed Forge. A start below 1 is #VALUE!, as it was not.
+- **`REPLACE` with a start past the end of the text crashed Forge**; it adds the new text at the end, as Excel does.
+- **`LEFT`, `RIGHT`, `MID`, `REPT`, `REPLACE` and `SUBSTITUTE` accepted a negative count or a position below 1** and gave text; they are #VALUE!. `REPT` longer than Excel's 32,767 characters is #VALUE! too.
+- **`ROUND`, `ROUNDUP`, `ROUNDDOWN` and `TRUNC` rounded the binary value**: `ROUND(1.005, 2)` was 1.00, `ROUNDDOWN(4.35, 2)` 4.34 and `ROUNDUP(0.1 + 0.2, 1)` 0.4. They round the value to 15 significant digits first, as Excel does (1.01, 4.35, 0.3). `FLOOR`, `CEILING` and `MROUND` do the same with their quotient (`FLOOR(0.3, 0.1)` was 0.2).
+- **`FLOOR` and `CEILING` of a positive number with a negative significance gave a number**; it is #NUM!. `FLOOR` with a significance of 0 is #DIV/0! (it was 0); `CEILING`'s is still 0, as in Excel.
+- **A number turned into text kept 17 digits**: `CONCAT(0.1 + 0.2)` was `0.30000000000000004` and `LEN(2/3)` 18. Excel and LibreOffice keep 15 significant digits (`0.3`, 17); a whole number below 1E+16 is written in full and a larger one as `1E+20`.
+- **`CONCAT` of a column wrote `[a, , b, c]`**; it joins the values (`abc`).
+- **`VALUE` read `inf` and `nan` as numbers, and `1,2,3` as 123**, and refused `50%`, `$1,000`, `(5)`, `5-`, `2024-01-15` and `12:30`. It now reads what Excel reads in an English locale and nothing else.
+- **`MATCH` with a fractional match type** is cut to a whole number, as LibreOffice does (0.5 is an exact match).
+
+These are wrong answers fixed, so by docs/STABILITY.md the two weeks before a stable release start again from the release that carries them.
+
 ## [10.0.0-rc.23] - 2026-11-14
 
 Eight wrong answers in date and financial functions fixed, plus a Studio fix for the decimal comma. They are wrong answers, so by docs/STABILITY.md the two weeks before a stable release start again from this release: no earlier than 2026-11-28.

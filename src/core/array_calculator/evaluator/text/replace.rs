@@ -6,19 +6,19 @@
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
-use crate::core::array_calculator::evaluator::number_or;
+use super::whole_arg;
 
 /// `REPLACE(old_text`, `start_num`, `num_chars`, `new_text`) - Replaces characters within text
 pub fn eval_replace(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("REPLACE", args, 4)?;
     let old_text = evaluate(&args[0], ctx)?.as_text();
-    let start_num = number_or(&args[1], ctx, 1.0)? as usize;
-    let num_chars = number_or(&args[2], ctx, 0.0)? as usize;
+    let start_num = whole_arg("REPLACE", "start_num", &args[1], ctx, 1.0, 1.0)?;
+    let num_chars = whole_arg("REPLACE", "num_chars", &args[2], ctx, 0.0, 0.0)?;
     let new_text = evaluate(&args[3], ctx)?.as_text();
 
     // REPLACE is position-based (1-indexed)
     let chars: Vec<char> = old_text.chars().collect();
-    let start_idx = start_num.saturating_sub(1);
+    let start_idx = start_num.saturating_sub(1).min(chars.len());
     let end_idx = (start_idx + num_chars).min(chars.len());
 
     let prefix: String = chars[..start_idx].iter().collect();
@@ -34,14 +34,13 @@ pub fn eval_substitute(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalEr
     let old_text = evaluate(&args[1], ctx)?.as_text();
     let new_text = evaluate(&args[2], ctx)?.as_text();
 
-    // If old_text is empty, return original text unchanged (Excel behavior)
-    if old_text.is_empty() {
-        return Ok(Value::Text(text));
-    }
-
     if args.len() > 3 {
         // Replace only the nth occurrence
-        let instance = number_or(&args[3], ctx, 1.0)? as usize;
+        let instance = whole_arg("SUBSTITUTE", "instance_num", &args[3], ctx, 1.0, 1.0)?;
+        // If old_text is empty, return original text unchanged (Excel behavior)
+        if old_text.is_empty() {
+            return Ok(Value::Text(text));
+        }
         let mut result = text;
         let mut count = 0;
         let mut pos = 0;
@@ -62,7 +61,10 @@ pub fn eval_substitute(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalEr
         }
         Ok(Value::Text(result))
     } else {
-        // Replace all occurrences
+        // Replace all occurrences; an empty old_text leaves the text as it is
+        if old_text.is_empty() {
+            return Ok(Value::Text(text));
+        }
         Ok(Value::Text(text.replace(&old_text, &new_text)))
     }
 }

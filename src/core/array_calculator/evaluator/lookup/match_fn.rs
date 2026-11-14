@@ -3,10 +3,10 @@
 // Match casts: f64 match type to i32, array position to f64 (small bounded integers).
 #![allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
 
-use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, values_equal, EvalContext, EvalError, Expr, Value,
 };
+use crate::core::array_calculator::evaluator::{number_or, wildcard};
 
 /// Evaluate MATCH function
 /// `MATCH(lookup_value`, `lookup_array`, [`match_type`])
@@ -18,8 +18,10 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 
     let lookup_array = evaluate(&args[1], ctx)?;
 
+    // A fraction is cut to a whole number (0.5 is an exact match), as
+    // LibreOffice does; a type other than 1, 0 or -1 is an error
     let match_type = if args.len() > 2 {
-        number_or(&args[2], ctx, 1.0)? as i32
+        number_or(&args[2], ctx, 1.0)?.trunc() as i32
     } else {
         1
     };
@@ -34,7 +36,7 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
         0 => {
             // Exact match
             for (i, val) in arr.iter().enumerate() {
-                if values_equal(&lookup_value, val) {
+                if exact_match(&lookup_value, val, true) {
                     return Ok(Value::Number((i + 1) as f64));
                 }
             }
@@ -94,9 +96,9 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 /// Evaluate XMATCH function
 /// `XMATCH(lookup_value`, `lookup_array`, [`match_mode`], [`search_mode`])
 /// `match_mode`: 0 exact (default), -1 exact or the next smaller, 1 exact or
-/// the next larger. `search_mode`: 1 first to last (default), -1 last to
-/// first. Wildcards (`match_mode` 2) and binary searches (`search_mode` 2 and
-/// -2) are not supported and are errors.
+/// the next larger, 2 a wildcard pattern. `search_mode`: 1 first to last
+/// (default), -1 last to first, 2 and -2 a binary search of sorted values,
+/// which on sorted values finds what a search from the first finds.
 pub fn eval_xmatch(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("XMATCH", args, 2, 4)?;
 
@@ -105,39 +107,69 @@ pub fn eval_xmatch(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
         return Err(EvalError::new("XMATCH requires an array"));
     };
     let match_mode = if args.len() > 2 {
-        number_or(&args[2], ctx, 0.0)? as i32
+        number_or(&args[2], ctx, 0.0)?
     } else {
-        0
+        0.0
     };
     let search_mode = if args.len() > 3 {
-        number_or(&args[3], ctx, 1.0)? as i32
+        number_or(&args[3], ctx, 1.0)?
     } else {
-        1
+        1.0
     };
-    if !matches!(match_mode, -1..=1) {
-        return Err(EvalError::new(
-            "XMATCH: only match modes 0, 1 and -1 are supported (no wildcards)",
-        ));
-    }
-    if !matches!(search_mode, -1 | 1) {
-        return Err(EvalError::new(
-            "XMATCH: only search modes 1 and -1 are supported (no binary search)",
-        ));
-    }
+    xmatch_index("XMATCH", &lookup_value, &arr, match_mode, search_mode)?.map_or_else(
+        || Err(EvalError::new("XMATCH: value not found (#N/A)")),
+        |i| Ok(Value::Number((i + 1) as f64)),
+    )
+}
 
+/// Whether `val` is what an exact match looks for: with wildcards allowed
+/// and a text with `*`, `?` or `~`, a text matching it as a pattern
+pub(super) fn exact_match(lookup: &Value, val: &Value, wildcards: bool) -> bool {
+    if wildcards {
+        if let Value::Text(pattern) = lookup {
+            if wildcard::has_wildcards(pattern) {
+                return matches!(val, Value::Text(t) if wildcard::matches(pattern, t));
+            }
+        }
+    }
+    values_equal(lookup, val)
+}
+
+/// The position XMATCH and XLOOKUP find, or None (#N/A)
+pub(super) fn xmatch_index(
+    name: &str,
+    lookup_value: &Value,
+    arr: &[Value],
+    match_mode: f64,
+    search_mode: f64,
+) -> Result<Option<usize>, EvalError> {
+    let match_mode = match_mode.trunc();
+    let search_mode = search_mode.trunc();
+    if ![-1.0, 0.0, 1.0, 2.0].contains(&match_mode) {
+        return Err(EvalError::new(format!(
+            "#VALUE!: {name}: match_mode must be 0, -1, 1 or 2, not {match_mode}"
+        )));
+    }
+    if ![-2.0, -1.0, 1.0, 2.0].contains(&search_mode) {
+        return Err(EvalError::new(format!(
+            "#VALUE!: {name}: search_mode must be 1, -1, 2 or -2, not {search_mode}"
+        )));
+    }
+    let (match_mode, search_mode) = (match_mode as i32, search_mode as i32);
     // Positions in the order they are searched
-    let order: Vec<usize> = if search_mode == 1 {
-        (0..arr.len()).collect()
-    } else {
+    let order: Vec<usize> = if search_mode == -1 {
         (0..arr.len()).rev().collect()
+    } else {
+        (0..arr.len()).collect()
     };
+    let wildcards = match_mode == 2;
     if let Some(&i) = order
         .iter()
-        .find(|&&i| values_equal(&lookup_value, &arr[i]))
+        .find(|&&i| exact_match(lookup_value, &arr[i], wildcards))
     {
-        return Ok(Value::Number((i + 1) as f64));
+        return Ok(Some(i));
     }
-    if match_mode != 0 {
+    if match_mode == -1 || match_mode == 1 {
         if let Some(wanted) = lookup_value.as_number() {
             // The closest number on the chosen side; the first met wins a tie
             let mut best: Option<(usize, f64)> = None;
@@ -155,12 +187,10 @@ pub fn eval_xmatch(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
                     best = Some((i, v));
                 }
             }
-            if let Some((i, _)) = best {
-                return Ok(Value::Number((i + 1) as f64));
-            }
+            return Ok(best.map(|(i, _)| i));
         }
     }
-    Err(EvalError::new("XMATCH: value not found (#N/A)"))
+    Ok(None)
 }
 
 #[cfg(test)]

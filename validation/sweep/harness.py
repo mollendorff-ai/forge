@@ -112,3 +112,67 @@ def report(name, cases, workdir, extra=""):
           f"engines differ (Forge=LO) {len(c['engines_differ_forge_lo'])}, (Forge=Gnumeric) {len(c['engines_differ_forge_gn'])}; all differ {len(c['all_differ'])}")
     json.dump(c, open(os.path.join(workdir, f"{name}_result.json"), "w"), indent=1, default=str)
     return c
+
+def run_text(name, cases, workdir, extra=""):
+    """Like run, for formulas that can give text: each case is a column of a
+    one-row table s, =IFERROR(formula, "#ERR"), so an error on either side is
+    the text #ERR. Values are compared as text, or as numbers when both read
+    as numbers."""
+    os.makedirs(workdir, exist_ok=True)
+    y = os.path.join(workdir, f"{name}.yaml")
+    with open(y, "w") as f:
+        f.write('_forge_version: "5.4.0"\ns:\n  k: [1]\n')
+        for cid, formula in cases:
+            body = formula.lstrip("=")
+            f.write(f'  {cid}: {json.dumps("=IFERROR(" + body + ", \"#ERR\")")}\n')
+        f.write(extra)
+    out = subprocess.run([FORGE, "calculate", y, "--dry-run"], capture_output=True, text=True)
+    forge = {}
+    for line in out.stdout.splitlines():
+        m = re.match(r"\s+(\w+) = \[(.*)\]$", line)
+        if m and m.group(1) in dict(cases):
+            v = m.group(2)
+            forge[m.group(1)] = json.loads(v) if v.startswith('"') else to_num(v)
+    if not forge:
+        print(out.stdout[-3000:], out.stderr[-3000:]); raise SystemExit("forge failed")
+    x = os.path.join(workdir, f"{name}.xlsx")
+    r = subprocess.run([FORGE, "export", y, x], capture_output=True, text=True)
+    if r.returncode: print(r.stdout, r.stderr); raise SystemExit("export failed")
+    s = os.path.join(workdir, f"{name}_nocache.xlsx")
+    with zipfile.ZipFile(x) as zin, zipfile.ZipFile(s, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename.startswith("xl/worksheets/"):
+                data = re.sub(rb"(<c [^>]*>)(<f>[^<]*</f>)<v>[^<]*</v>", rb"\1\2", data)
+                data = re.sub(rb'(<c [^>]*?) t="(?:str|s)"([^>]*>)(<f>[^<]*</f>)', rb"\1\2\3", data)
+            zout.writestr(item, data)
+    lo_dir = os.path.join(workdir, "lo_" + name); shutil.rmtree(lo_dir, ignore_errors=True)
+    subprocess.run(["soffice", "--headless", "--convert-to",
+                    "csv:Text - txt - csv (StarCalc):44,34,76,1,,0,false,true,false,false,false,-1",
+                    "--outdir", lo_dir, s], capture_output=True)
+    gn_dir = os.path.join(workdir, "gn_" + name); shutil.rmtree(gn_dir, ignore_errors=True); os.makedirs(gn_dir)
+    subprocess.run(["ssconvert", "-S", "--recalc", x, os.path.join(gn_dir, "%s.csv")], capture_output=True)
+    def cols(p):
+        rows = list(csv.reader(open(p, newline="")))
+        return dict(zip(rows[0], rows[1]))
+    lo = cols(os.path.join(lo_dir, f"{name}_nocache-s.csv"))
+    gn = cols(os.path.join(gn_dir, "s.csv"))
+    def val(v):
+        if v is None: return None
+        n = to_num(v)
+        return n if isinstance(n, float) and not re.fullmatch(r"\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4}", v.strip()) else v
+    res = []
+    for cid, _ in cases:
+        f = forge.get(cid)
+        if isinstance(f, str): f = val(f)
+        res.append((cid, f, val(lo.get(cid)), val(gn.get(cid))))
+    return res
+
+def report_text(name, cases, workdir, extra=""):
+    formulas = dict(cases)
+    res = run_text(name, cases, workdir, extra)
+    c = classify(res, formulas)
+    print(f"== {name}: {len(res)} cases; all agree {len(c['all_agree'])}; Forge vs both engines {len(c['forge_vs_both'])}; "
+          f"engines differ (Forge=LO) {len(c['engines_differ_forge_lo'])}, (Forge=Gnumeric) {len(c['engines_differ_forge_gn'])}; all differ {len(c['all_differ'])}")
+    json.dump(c, open(os.path.join(workdir, f"{name}_result.json"), "w"), indent=1, default=str)
+    return c
