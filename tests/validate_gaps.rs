@@ -1,5 +1,5 @@
 //! Two gaps `forge validate` had (T1-VALIDATE-GAPS): a table whose columns
-//! have different lengths passed when no formula read it, and a scalar name
+//! have different lengths passed `validate` when no formula read it, and a scalar name
 //! with a typo was reported as an unknown column with no suggestion.
 //!
 //! A coverage build stubs `main` (ADR-006), so these run the real binary only
@@ -61,15 +61,17 @@ fn validate_refuses_a_table_with_columns_of_different_lengths() {
 }
 
 #[test]
-fn export_refuses_a_table_with_columns_of_different_lengths() {
+fn export_writes_a_table_with_columns_of_different_lengths_and_warns() {
+    // Columns of different lengths are ranges in the workbook (the Gnumeric
+    // suite's fixtures rely on it), so export warns instead of refusing.
     let dir = tempfile::tempdir().expect("temp dir");
     let file = write(dir.path(), "ragged.yaml", RAGGED);
     let output = dir.path().join("out.xlsx");
     let out = forge(&["export", &file, output.to_str().expect("utf-8")]);
     let text = all_output(&out);
-    assert_eq!(out.status.code(), Some(1), "{text}");
-    assert!(!output.exists(), "no workbook is written");
-    assert!(text.contains("units"), "{text}");
+    assert!(out.status.success(), "{text}");
+    assert!(output.exists(), "the workbook is written");
+    assert!(text.contains("units") && text.contains("2 rows"), "{text}");
 }
 
 #[test]

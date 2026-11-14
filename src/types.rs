@@ -431,19 +431,19 @@ impl ParsedModel {
     /// Check that every table has columns of one length.
     ///
     /// A formula that reads a table finds this out when it runs; this finds it
-    /// for a table nothing reads, so `validate` and `export` can refuse it.
+    /// for a table nothing reads, so `validate` can refuse it and `export` can warn.
     ///
     /// # Errors
     ///
     /// Returns an error naming the first table (in name order) with a column
     /// of a different length than its first column.
-    pub fn check_table_lengths(&self) -> Result<(), crate::error::ForgeError> {
+    pub fn check_table_lengths(&self) -> Result<(), String> {
         let mut names: Vec<&String> = self.tables.keys().collect();
         names.sort();
         for name in names {
-            self.tables[name].validate_lengths().map_err(|e| {
-                crate::error::ForgeError::Validation(format!("Table '{name}': {e}"))
-            })?;
+            self.tables[name]
+                .validate_lengths()
+                .map_err(|e| format!("Table '{name}': {e}"))?;
         }
         Ok(())
     }

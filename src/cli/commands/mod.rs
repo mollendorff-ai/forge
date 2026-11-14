@@ -587,7 +587,7 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
     // lengths; a formula that reads one finds out when it runs.
     if let Err(e) = model.check_table_lengths() {
         println!("\n{}", format!("❌ {e}").bold().red());
-        return Err(e);
+        return Err(ForgeError::Validation(e));
     }
 
     // Calculate what values SHOULD be based on formulas
