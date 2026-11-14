@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.23] - 2026-11-14
+
+Eight wrong answers in date and financial functions fixed, plus a Studio fix for the decimal comma. They are wrong answers, so by docs/STABILITY.md the two weeks before a stable release start again from this release: no earlier than 2026-11-28.
+
 ### Fixed
 Wrong answers found by sweeping the 45 date and financial functions (7,959 generated cases) against Gnumeric and LibreOffice; each now gives what both engines give, or what Excel's documentation says where they differ. Cases in `validation/gnumeric/tests/edge/edge_date_finance_sweep.yaml`; the sweep is in `validation/sweep/`.
 - **`NETWORKDAYS` and `WORKDAY` ignored their holidays.** The third argument was accepted and dropped, so a range with holidays counted them as working days. A date, a day number or a column of them is read now; empty cells are skipped.
