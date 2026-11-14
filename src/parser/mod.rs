@@ -102,6 +102,31 @@ pub fn parse_model_text<S: std::hash::BuildHasher>(
     parse_content(&source, text, std::path::Path::new(name))
 }
 
+/// Check every file the model at `path` includes, before reading it.
+///
+/// Each path the parser would open, directly or through another include, is
+/// given to `check` first (`forge mcp --root`). Errors other than a refused
+/// path are left to the command that reads the model.
+///
+/// # Errors
+///
+/// Returns the first refusal of `check`.
+pub fn check_included_files(
+    path: &std::path::Path,
+    check: &dyn Fn(&std::path::Path) -> Result<(), String>,
+) -> Result<(), String> {
+    let Ok(content) = read_model_text(path) else {
+        return Ok(());
+    };
+    let source = includes::CheckedFileSource {
+        check,
+        refused: std::cell::RefCell::new(None),
+    };
+    // Only the refusal matters here; the command reports any other error
+    let _ = parse_content(&source, &content, path);
+    source.refused.into_inner().map_or(Ok(()), Err)
+}
+
 /// One file's text, of one document or several (v4.4.2: a multi-document
 /// file has at least two `---` lines), with its includes read from `source`.
 fn parse_content(

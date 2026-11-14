@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::cli::commands::results::{AuditResult, CalculationResult, ValidationResult};
 use crate::cli::{audit_core, calculate_core, validate_core};
 use crate::cli::{export as cli_export, import as cli_import};
+use crate::error::ForgeError;
 use crate::inline_model::resolve_model_input;
 
 use super::server::AppState;
@@ -168,8 +169,9 @@ pub struct ModelSource {
 }
 
 impl ModelSource {
-    fn resolve(&self) -> Result<(PathBuf, Option<tempfile::TempDir>), String> {
+    fn resolve(&self, state: &AppState) -> Result<(PathBuf, Option<tempfile::TempDir>), String> {
         resolve_model_input(
+            state.root.as_ref(),
             self.file_path.as_deref(),
             self.content.as_deref(),
             self.includes.as_ref(),
@@ -201,11 +203,14 @@ pub struct ValidateResponse {
 }
 
 /// POST /api/v1/validate - Validate a YAML model
-pub async fn validate(Json(req): Json<ValidateRequest>) -> impl IntoResponse {
+pub async fn validate(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ValidateRequest>,
+) -> impl IntoResponse {
     let file_path = req.source.label();
     let outcome = req
         .source
-        .resolve()
+        .resolve(&state)
         .and_then(|(path, _tmp)| validate_core(&path).map_err(|e| e.to_string()));
 
     Json(ApiResponse::ok(match outcome {
@@ -255,11 +260,14 @@ pub struct CalculateResponse {
 }
 
 /// POST /api/v1/calculate - Calculate formulas
-pub async fn calculate(Json(req): Json<CalculateRequest>) -> impl IntoResponse {
+pub async fn calculate(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<CalculateRequest>,
+) -> impl IntoResponse {
     let file_path = req.source.label();
     let dry_run = req.dry_run;
     let is_inline = req.source.content.is_some();
-    let outcome = req.source.resolve().and_then(|(path, _tmp)| {
+    let outcome = req.source.resolve(&state).and_then(|(path, _tmp)| {
         let result = calculate_core(&path, dry_run, req.scenario.as_deref())
             .map_err(|e| format!("Error: {e}"))?;
         let content = if is_inline && !dry_run {
@@ -317,12 +325,15 @@ pub struct AuditResponse {
 }
 
 /// POST /api/v1/audit - Audit a variable
-pub async fn audit(Json(req): Json<AuditRequest>) -> impl IntoResponse {
+pub async fn audit(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<AuditRequest>,
+) -> impl IntoResponse {
     let file_path = req.source.label();
     let variable = req.variable.clone();
     let outcome = req
         .source
-        .resolve()
+        .resolve(&state)
         .and_then(|(path, _tmp)| audit_core(&path, &variable).map_err(|e| format!("Error: {e}")));
 
     Json(ApiResponse::ok(match outcome {
@@ -360,11 +371,23 @@ pub struct ExportResponse {
 }
 
 /// POST /api/v1/export - Export YAML to Excel
-pub async fn export(Json(req): Json<ExportRequest>) -> impl IntoResponse {
-    let yaml_path = PathBuf::from(&req.yaml_path);
-    let excel_path = PathBuf::from(&req.excel_path);
-
-    match cli_export(&yaml_path, &excel_path, false) {
+pub async fn export(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ExportRequest>,
+) -> impl IntoResponse {
+    let outcome = state.root.as_ref().map_or_else(
+        || {
+            Ok((
+                PathBuf::from(&req.yaml_path),
+                PathBuf::from(&req.excel_path),
+            ))
+        },
+        |root| Ok((root.model(&req.yaml_path)?, root.file(&req.excel_path)?)),
+    );
+    let outcome = outcome
+        .map_err(ForgeError::Validation)
+        .and_then(|(yaml_path, excel_path)| cli_export(&yaml_path, &excel_path, false));
+    match outcome {
         Ok(()) => Json(ApiResponse::ok(ExportResponse {
             exported: true,
             yaml_path: req.yaml_path,
@@ -397,11 +420,25 @@ pub struct ImportResponse {
 }
 
 /// POST /api/v1/import - Import Excel to YAML
-pub async fn import_excel(Json(req): Json<ImportRequest>) -> impl IntoResponse {
-    let excel_path = PathBuf::from(&req.excel_path);
-    let yaml_path = PathBuf::from(&req.yaml_path);
-
-    match cli_import(&excel_path, &yaml_path, false, false, false) {
+pub async fn import_excel(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ImportRequest>,
+) -> impl IntoResponse {
+    let outcome = state.root.as_ref().map_or_else(
+        || {
+            Ok((
+                PathBuf::from(&req.excel_path),
+                PathBuf::from(&req.yaml_path),
+            ))
+        },
+        |root| Ok((root.file(&req.excel_path)?, root.file(&req.yaml_path)?)),
+    );
+    let outcome = outcome
+        .map_err(ForgeError::Validation)
+        .and_then(|(excel_path, yaml_path)| {
+            cli_import(&excel_path, &yaml_path, false, false, false)
+        });
+    match outcome {
         Ok(()) => Json(ApiResponse::ok(ImportResponse {
             imported: true,
             excel_path: req.excel_path,
@@ -706,6 +743,16 @@ mod tests {
         assert_eq!(response.status(), axum::http::StatusCode::OK);
     }
 
+    /// The state of a server without `--root`
+    fn no_root() -> State<Arc<AppState>> {
+        State(Arc::new(AppState {
+            version: "5.0.0".to_string(),
+            token: None,
+            loopback_only: true,
+            root: None,
+        }))
+    }
+
     #[tokio::test]
     async fn test_version_handler() {
         use axum::response::IntoResponse;
@@ -714,6 +761,7 @@ mod tests {
             version: "5.0.0".to_string(),
             token: None,
             loopback_only: true,
+            root: None,
         });
 
         let response = version(State(state)).await;
@@ -730,6 +778,7 @@ mod tests {
             version: "5.0.0".to_string(),
             token: None,
             loopback_only: true,
+            root: None,
         });
 
         let response = root(State(state)).await;
@@ -749,7 +798,7 @@ mod tests {
             },
         };
 
-        let response = validate(Json(req)).await;
+        let response = validate(no_root(), Json(req)).await;
         let response = response.into_response();
 
         // Should return 200 with error in body (API convention)
@@ -767,7 +816,7 @@ mod tests {
             },
         };
 
-        let response = validate(Json(req)).await;
+        let response = validate(no_root(), Json(req)).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);
@@ -786,7 +835,7 @@ mod tests {
             scenario: None,
         };
 
-        let response = calculate(Json(req)).await;
+        let response = calculate(no_root(), Json(req)).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);
@@ -805,7 +854,7 @@ mod tests {
             scenario: None,
         };
 
-        let response = calculate(Json(req)).await;
+        let response = calculate(no_root(), Json(req)).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);
@@ -823,7 +872,7 @@ mod tests {
             variable: "profit".to_string(),
         };
 
-        let response = audit(Json(req)).await;
+        let response = audit(no_root(), Json(req)).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);
@@ -841,7 +890,7 @@ mod tests {
             variable: "test".to_string(),
         };
 
-        let response = audit(Json(req)).await;
+        let response = audit(no_root(), Json(req)).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);
@@ -860,7 +909,7 @@ mod tests {
             excel_path: output_path.to_string_lossy().to_string(),
         };
 
-        let response = export(Json(req)).await;
+        let response = export(no_root(), Json(req)).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);
@@ -875,7 +924,7 @@ mod tests {
             excel_path: "/tmp/test.xlsx".to_string(),
         };
 
-        let response = export(Json(req)).await;
+        let response = export(no_root(), Json(req)).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);
@@ -890,7 +939,7 @@ mod tests {
             yaml_path: "/tmp/test.yaml".to_string(),
         };
 
-        let response = import_excel(Json(req)).await;
+        let response = import_excel(no_root(), Json(req)).await;
         let response = response.into_response();
 
         assert_eq!(response.status(), axum::http::StatusCode::OK);

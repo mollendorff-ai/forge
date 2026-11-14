@@ -37,6 +37,32 @@ forge mcp
 
 The server reads JSON-RPC requests from stdin and writes responses to stdout, one JSON object per line.
 
+## Keeping Files Inside One Folder
+
+The tools read and write the files an agent names, with your permissions: `forge_calculate` writes results into the model, `forge_export` and `forge_import` write a workbook or a model wherever `excel_path` or `yaml_path` points. That is normal for a local MCP server, but it means an agent, or a prompt injected into one by a document it read, can read any model or workbook you can and write a file anywhere you can.
+
+`forge mcp --root DIR` limits every path to one folder:
+
+```json
+{
+  "mcpServers": {
+    "forge": {
+      "command": "forge",
+      "args": ["mcp", "--root", "/Users/you/models"]
+    }
+  }
+}
+```
+
+- A path is resolved first, `..` and symbolic links followed as the system would, and refused unless the result is inside `DIR`. This holds for reading (`file_path`, `yaml_path`, `budget_path`, `actual_path`, an import's `excel_path`) and for writing (an export's `excel_path`, an import's `yaml_path`, a calculation written back to its model).
+- A model that includes a file outside `DIR`, directly or through another include, is refused before the included file is opened.
+- A link that points to a file that does not exist yet is refused, as writing it would create that file wherever the link points.
+- A relative path is relative to `DIR`, and the server's instructions tell the agent the folder.
+- Inline `content` is unchanged: it is written to a temporary folder, and its includes must already be plain relative paths.
+- Without `--root`, nothing changes. `forge serve --root DIR` does the same for the REST API.
+
+The check runs before each command does, so it limits what requests name; it is not a sandbox. A process that can change links inside `DIR` while a request runs could get around it.
+
 ## Inline Content Mode
 
 MCP clients running in sandboxed environments (Claude.ai, Cursor, containers) cannot pass a `file_path` because the path does not exist on the Forge host. These clients can pass YAML content directly using the `content` parameter instead.
@@ -472,7 +498,9 @@ When building a new model from scratch:
 
 ## Troubleshooting
 
-**File paths must be absolute.** Relative paths resolve from the MCP server's working directory, which may not be what you expect. Always use absolute paths.
+**File paths must be absolute** without `--root`: relative paths resolve from the MCP server's working directory, which may not be what you expect. With `--root DIR`, a relative path is relative to `DIR`.
+
+**"... is outside DIR, the folder this server may use (--root)".** The path, or a file the model includes, resolves to somewhere outside the folder given with `--root`. Use a path inside it.
 
 **"Provide either file_path or content, not both."** You passed both a file path and inline content. Use one or the other. If you have a file on disk, use `file_path`. If you are generating YAML in a sandbox, use `content`.
 

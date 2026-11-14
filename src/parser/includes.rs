@@ -39,6 +39,35 @@ impl IncludeSource for FileSource {
     }
 }
 
+/// Included files read from the file system, each path first given to
+/// `check` (`forge mcp --root`): a path it refuses is not opened, and the
+/// first refusal is kept to report.
+pub(super) struct CheckedFileSource<'a> {
+    pub(super) check: &'a dyn Fn(&Path) -> Result<(), String>,
+    pub(super) refused: std::cell::RefCell<Option<String>>,
+}
+
+impl IncludeSource for CheckedFileSource<'_> {
+    fn exists(&self, path: &Path) -> bool {
+        match (self.check)(path) {
+            Ok(()) => path.exists(),
+            Err(e) => {
+                self.refused.borrow_mut().get_or_insert(e);
+                false
+            },
+        }
+    }
+
+    fn read(&self, path: &Path) -> ForgeResult<String> {
+        (self.check)(path).map_err(ForgeError::Validation)?;
+        FileSource.read(path)
+    }
+
+    fn identity(&self, path: &Path) -> PathBuf {
+        FileSource.identity(path)
+    }
+}
+
 /// Included files held in memory, by the path written in `_includes`
 /// relative to the main model (`costs.yaml`, `data/costs.yaml`).
 pub(super) struct MemorySource<'a, S: BuildHasher> {

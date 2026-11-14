@@ -170,7 +170,7 @@ For tighter integration, `forge mcp` is an MCP server with 20 tools (validate, c
 }
 ```
 
-[docs/MCP.md](docs/MCP.md) describes each tool. `forge serve` runs a REST API for validate, calculate, audit, export and import ([docs/FEATURES.md](docs/FEATURES.md#http-rest-api-server)).
+With a file path, the server reads and writes as you; `"args": ["mcp", "--root", "/path/to/models"]` keeps every path inside that folder ([docs/MCP.md](docs/MCP.md#keeping-files-inside-one-folder)). [docs/MCP.md](docs/MCP.md) describes each tool. `forge serve` runs a REST API for validate, calculate, audit, export and import ([docs/FEATURES.md](docs/FEATURES.md#http-rest-api-server)).
 
 ## Quick start
 
@@ -225,7 +225,7 @@ Forge's results are checked against engines it does not control, and none of the
 
 | Check | What it covers | Latest result |
 | --- | --- | --- |
-| Unit tests (this repo) | 1,843 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | 1,845 pass, 0 fail (2026-11-14); run on every push |
+| Unit tests (this repo) | 1,865 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | 1,867 pass, 0 fail (2026-11-14); run on every push |
 | [forge-e2e-gnumeric](validation/gnumeric) | 1,931 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 139 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,791 pass, 1 skipped with Gnumeric (rc.23, 2026-11-14); the 139 cases for LibreOffice run in the Validation workflow (Actions tab) |
 | [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass (2026-11-14); 70 of 77 analytics specs compared with R, 7 skipped (2026-11-12) |
 

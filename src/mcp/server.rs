@@ -72,6 +72,8 @@ fn compact_bootstrap(result: &crate::bootstrap::BootstrapResult) -> serde_json::
 #[derive(Debug, Clone)]
 pub struct ForgeMcpServer {
     tool_router: ToolRouter<Self>,
+    /// The folder file paths must stay inside (`forge mcp --root`), if any
+    root: Option<crate::path_root::Root>,
 }
 
 impl ForgeMcpServer {
@@ -79,7 +81,22 @@ impl ForgeMcpServer {
     pub fn new() -> Self {
         Self {
             tool_router: Self::tool_router(),
+            root: None,
         }
+    }
+
+    /// Refuse any file path outside `root` (T1-MCP-ROOT).
+    #[must_use]
+    pub fn with_root(mut self, root: crate::path_root::Root) -> Self {
+        self.root = Some(root);
+        self
+    }
+
+    /// A file a tool reads or writes, checked against the root if there is one.
+    fn file(&self, path: &str) -> Result<std::path::PathBuf, String> {
+        self.root
+            .as_ref()
+            .map_or_else(|| Ok(path.into()), |root| root.file(path))
     }
 }
 
@@ -140,6 +157,9 @@ fn scenarios_json(path: &Path, results: &crate::scenarios::ScenarioResults) -> S
     json.to_string()
 }
 
+/// What the server tells the agent it serves.
+const INSTRUCTIONS: &str = "Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 202 Excel-compatible functions. All tools return structured JSON. A new model: start from forge_examples name=starter; _forge_version is the model format version (5.1.0), not the Forge version; in a group of scalars a formula is {formula: \"=...\"}, in a table a column formula is a bare \"=...\".";
+
 #[tool_router]
 #[allow(clippy::unused_self)] // rmcp #[tool] macro requires &self on all tool methods
 impl ForgeMcpServer {
@@ -153,6 +173,7 @@ impl ForgeMcpServer {
     )]
     fn validate(&self, Parameters(req): Parameters<ValidateRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -169,6 +190,7 @@ impl ForgeMcpServer {
     fn calculate(&self, Parameters(req): Parameters<CalculateRequest>) -> Result<String, String> {
         let is_inline = req.content.is_some();
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -196,6 +218,7 @@ impl ForgeMcpServer {
     )]
     fn audit(&self, Parameters(req): Parameters<AuditRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -214,6 +237,7 @@ impl ForgeMcpServer {
     )]
     fn export(&self, Parameters(req): Parameters<ExportRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.yaml_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -225,7 +249,7 @@ impl ForgeMcpServer {
                     .map_err(|e| format!("Export failed: {e}"))
             },
             |excel_path| {
-                export_core(&path, Path::new(excel_path))
+                export_core(&path, &self.file(excel_path)?)
                     .map(|r| to_json(&r))
                     .map_err(|e| format!("Export failed: {e}"))
             },
@@ -238,8 +262,8 @@ impl ForgeMcpServer {
     )]
     fn import(&self, Parameters(req): Parameters<ImportRequest>) -> Result<String, String> {
         import_core(
-            Path::new(&req.excel_path),
-            Path::new(&req.yaml_path),
+            &self.file(&req.excel_path)?,
+            &self.file(&req.yaml_path)?,
             false,
             false,
         )
@@ -260,6 +284,7 @@ impl ForgeMcpServer {
         Parameters(req): Parameters<SensitivityRequest>,
     ) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -282,6 +307,7 @@ impl ForgeMcpServer {
     )]
     fn goal_seek(&self, Parameters(req): Parameters<GoalSeekRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -304,6 +330,7 @@ impl ForgeMcpServer {
     )]
     fn break_even(&self, Parameters(req): Parameters<BreakEvenRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -326,12 +353,14 @@ impl ForgeMcpServer {
     )]
     fn variance(&self, Parameters(req): Parameters<VarianceRequest>) -> Result<String, String> {
         let (budget_path, _tmpdir_b) = resolve_model_input(
+            self.root.as_ref(),
             req.budget_path.as_deref(),
             req.budget_content.as_deref(),
             req.includes.as_ref(),
         )
         .map_err(|e| e.replace("file_path or content", "budget_path or budget_content"))?;
         let (actual_path, _tmpdir_a) = resolve_model_input(
+            self.root.as_ref(),
             req.actual_path.as_deref(),
             req.actual_content.as_deref(),
             req.includes.as_ref(),
@@ -349,6 +378,7 @@ impl ForgeMcpServer {
     )]
     fn compare(&self, Parameters(req): Parameters<CompareRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -368,6 +398,7 @@ impl ForgeMcpServer {
     )]
     fn simulate(&self, Parameters(req): Parameters<SimulateRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -408,6 +439,7 @@ impl ForgeMcpServer {
     )]
     fn scenarios(&self, Parameters(req): Parameters<ScenariosRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -426,6 +458,7 @@ impl ForgeMcpServer {
         Parameters(req): Parameters<DecisionTreeRequest>,
     ) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -444,6 +477,7 @@ impl ForgeMcpServer {
         Parameters(req): Parameters<RealOptionsRequest>,
     ) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -459,6 +493,7 @@ impl ForgeMcpServer {
     )]
     fn tornado(&self, Parameters(req): Parameters<TornadoRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -474,6 +509,7 @@ impl ForgeMcpServer {
     )]
     fn bootstrap(&self, Parameters(req): Parameters<BootstrapRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -492,6 +528,7 @@ impl ForgeMcpServer {
     )]
     fn bayesian(&self, Parameters(req): Parameters<BayesianRequest>) -> Result<String, String> {
         let (path, _tmpdir) = resolve_model_input(
+            self.root.as_ref(),
             req.file_path.as_deref(),
             req.content.as_deref(),
             req.includes.as_ref(),
@@ -540,13 +577,26 @@ impl ForgeMcpServer {
 impl ServerHandler for ForgeMcpServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_instructions("Forge MCP Server - 20 tools for AI-native financial modeling. Core: validate, calculate, audit, export, import. Analysis: sensitivity, goal-seek, break-even, variance, compare. Engines: simulate (Monte Carlo), scenarios, decision-tree, real-options, tornado, bootstrap, bayesian. Discovery: schema, functions, examples. 202 Excel-compatible functions. All tools return structured JSON. A new model: start from forge_examples name=starter; _forge_version is the model format version (5.1.0), not the Forge version; in a group of scalars a formula is {formula: \"=...\"}, in a table a column formula is a bare \"=...\".")
-            .with_server_info(
-                rmcp::model::Implementation::new("forge", env!("CARGO_PKG_VERSION"))
-            )
+            .with_instructions(self.root.as_ref().map_or_else(
+                || INSTRUCTIONS.to_string(),
+                |root| {
+                    format!(
+                        "{INSTRUCTIONS} Files: only inside {}; a relative path is relative to it.",
+                        root.dir().display()
+                    )
+                },
+            ))
+            .with_server_info(rmcp::model::Implementation::new(
+                "forge",
+                env!("CARGO_PKG_VERSION"),
+            ))
     }
 }
 
 #[cfg(test)]
 #[path = "server_tests.rs"]
 mod tests;
+
+#[cfg(all(test, unix))] // the tests use symbolic links
+#[path = "root_tests.rs"]
+mod root_tests;

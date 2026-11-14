@@ -37,6 +37,8 @@ pub struct ApiConfig {
     pub token: Option<String>,
     /// Browser origins allowed to call the API (none by default)
     pub cors_origins: Vec<String>,
+    /// The folder file paths must stay inside (`--root`), if any
+    pub root: Option<std::path::PathBuf>,
 }
 
 impl Default for ApiConfig {
@@ -46,6 +48,7 @@ impl Default for ApiConfig {
             port: 8080,
             token: None,
             cors_origins: Vec::new(),
+            root: None,
         }
     }
 }
@@ -110,6 +113,8 @@ pub struct AppState {
     pub token: Option<String>,
     /// Reject requests whose `Host` header is not this machine
     pub loopback_only: bool,
+    /// The folder file paths must stay inside (`--root`), if any
+    pub root: Option<crate::path_root::Root>,
 }
 
 /// Whether a `Host` header names this machine (`localhost`, `127.0.0.1` or
@@ -180,10 +185,16 @@ async fn guard(State(state): State<Arc<AppState>>, request: Request, next: Next)
 /// Returns an error if [`ApiConfig::check`] rejects the configuration.
 pub fn build_router(config: &ApiConfig) -> Result<Router, String> {
     config.check()?;
+    let root = config
+        .root
+        .as_deref()
+        .map(crate::path_root::Root::new)
+        .transpose()?;
     let state = Arc::new(AppState {
         version: env!("CARGO_PKG_VERSION").to_string(),
         token: config.token.clone(),
         loopback_only: config.is_loopback(),
+        root,
     });
 
     let router = Router::new()
@@ -247,6 +258,9 @@ pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
     info!("🔥 Forge API Server starting on http://{}", addr);
     info!("   Endpoints: /api/v1/validate, /api/v1/calculate, /api/v1/audit, /api/v1/export, /api/v1/import");
     info!("   Health: /health, Version: /version");
+    if let Some(root) = &config.root {
+        info!("   Files: only inside {}", root.display());
+    }
     info!(
         "   Token: {}. Browser origins allowed: {}",
         if config.token.is_some() {
@@ -366,6 +380,7 @@ mod tests {
             version: "2.0.0".to_string(),
             token: None,
             loopback_only: true,
+            root: None,
         };
         assert_eq!(state.version, "2.0.0");
     }
@@ -376,6 +391,7 @@ mod tests {
             version: "2.0.0".to_string(),
             token: None,
             loopback_only: true,
+            root: None,
         };
         let state2 = state1.clone();
         assert_eq!(state1.version, state2.version);
@@ -387,6 +403,7 @@ mod tests {
             version: "2.0.0".to_string(),
             token: None,
             loopback_only: true,
+            root: None,
         });
         let state_clone = Arc::clone(&state);
         assert_eq!(state.version, state_clone.version);
@@ -431,6 +448,7 @@ mod tests {
             version: "5.0.0".to_string(),
             token: None,
             loopback_only: true,
+            root: None,
         });
 
         let app = Router::new()
@@ -460,6 +478,7 @@ mod tests {
             version: "5.0.0".to_string(),
             token: None,
             loopback_only: true,
+            root: None,
         });
 
         let app = Router::new()
@@ -489,6 +508,7 @@ mod tests {
             version: "5.0.0".to_string(),
             token: None,
             loopback_only: true,
+            root: None,
         });
 
         let app = Router::new()
@@ -513,6 +533,7 @@ mod tests {
             version: "5.0.0".to_string(),
             token: None,
             loopback_only: true,
+            root: None,
         });
 
         let app = Router::new()
@@ -546,6 +567,7 @@ mod tests {
             version: "5.0.0".to_string(),
             token: None,
             loopback_only: true,
+            root: None,
         });
 
         let app = Router::new()
@@ -579,6 +601,7 @@ mod tests {
             version: "5.0.0".to_string(),
             token: None,
             loopback_only: true,
+            root: None,
         });
 
         let app = Router::new()

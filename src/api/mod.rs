@@ -13,3 +13,6 @@ mod security_tests;
 
 #[cfg(test)]
 mod inline_tests;
+
+#[cfg(all(test, unix))] // the tests use symbolic links
+mod root_tests;

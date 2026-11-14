@@ -62,6 +62,8 @@ pub mod api;
 pub mod inline_model;
 #[cfg(feature = "cli")]
 pub mod mcp;
+#[cfg(feature = "cli")]
+pub mod path_root;
 
 #[cfg(test)]
 mod config_strictness_tests;

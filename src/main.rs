@@ -5,7 +5,6 @@ use clap::{Parser, Subcommand};
 use mollendorff_forge::api::{run_api_server, server::ApiConfig};
 use mollendorff_forge::cli;
 use mollendorff_forge::error::{ForgeError, ForgeResult};
-use mollendorff_forge::mcp::ForgeMcpServer;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -1175,11 +1174,19 @@ AVAILABLE TOOLS (20):
              forge_tornado, forge_bootstrap, forge_bayesian
   Discovery: forge_schema, forge_functions, forge_examples
 
+FILES:
+  The tools read and write the files an agent names, as your user. --root DIR
+  refuses a path outside DIR (.. and links resolved) or a model including one.
+
 EXAMPLE:
-  forge mcp   # Start MCP server (reads JSON-RPC from stdin)"
+  forge mcp --root ~/models   # Start MCP server (reads JSON-RPC from stdin)"
     )]
     /// Start MCP server for AI integration (JSON-RPC over stdio)
-    Mcp,
+    Mcp {
+        /// Folder every file path must stay inside (none by default)
+        #[arg(long, value_name = "DIR")]
+        root: Option<std::path::PathBuf>,
+    },
 
     #[command(long_about = "Start HTTP REST API server.
 
@@ -1201,6 +1208,7 @@ Security:
   is not this machine, and does not allow browser requests from other
   websites (no CORS). To listen on another address, set a token; requests
   to /api/v1/* must then send 'Authorization: Bearer <token>'.
+  --root DIR refuses any path outside DIR, as for forge mcp.
 
 Features:
   Graceful shutdown on SIGINT/SIGTERM
@@ -1230,6 +1238,9 @@ EXAMPLES:
         /// (repeatable; none by default)
         #[arg(long = "cors-origin", value_name = "ORIGIN")]
         cors_origins: Vec<String>,
+        /// Folder every file path must stay inside (none by default)
+        #[arg(long, value_name = "DIR")]
+        root: Option<std::path::PathBuf>,
     },
 }
 
@@ -1255,7 +1266,7 @@ fn run() -> ForgeResult<()> {
     // The servers keep Rust's default, so a client that disconnects is an
     // error on that connection, not the end of the process.
     #[cfg(unix)]
-    if !matches!(cli.command, Commands::Mcp | Commands::Serve { .. }) {
+    if !matches!(cli.command, Commands::Mcp { .. } | Commands::Serve { .. }) {
         // SAFETY: restoring the default action for SIGPIPE before any output.
         unsafe {
             libc::signal(libc::SIGPIPE, libc::SIG_DFL);
@@ -1455,34 +1466,21 @@ fn run() -> ForgeResult<()> {
 
         Commands::Update { check, verbose } => cli::update(check, verbose),
 
-        Commands::Mcp => {
-            let rt = tokio::runtime::Runtime::new()
-                .map_err(|e| ForgeError::Validation(format!("Failed to create runtime: {e}")))?;
-            rt.block_on(async {
-                use rmcp::{transport::io, ServiceExt};
-                let service = ForgeMcpServer::new()
-                    .serve(io::stdio())
-                    .await
-                    .map_err(|e| ForgeError::Validation(format!("MCP server error: {e}")))?;
-                service
-                    .waiting()
-                    .await
-                    .map_err(|e| ForgeError::Validation(format!("MCP server error: {e}")))?;
-                Ok(())
-            })
-        },
+        Commands::Mcp { root } => mollendorff_forge::mcp::run_stdio(root.as_deref()),
 
         Commands::Serve {
             host,
             port,
             token,
             cors_origins,
+            root,
         } => {
             let config = ApiConfig {
                 host,
                 port,
                 token,
                 cors_origins,
+                root,
             };
             let rt = tokio::runtime::Runtime::new()
                 .map_err(|e| ForgeError::Validation(format!("Failed to create runtime: {e}")))?;
