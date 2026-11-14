@@ -51,7 +51,7 @@
 | `SWITCH` | Switch case | `=SWITCH(expr, case1, val1, case2, val2, ...)` |
 | `SUMIF` | Sum with condition | `=SUMIF(range, criteria, sum_range)` |
 | `SUMIFS` | Sum with conditions | `=SUMIFS(sum_range, range1, crit1, ...)` |
-| `COUNTIF` | Count with condition | `=COUNTIF(range, criteria)` |
+| `COUNTIF` | Count with condition (">5", "<>x", or a pattern with the wildcards *, ? and ~) | `=COUNTIF(range, criteria)` |
 | `COUNTIFS` | Count with conditions | `=COUNTIFS(range1, crit1, range2, crit2, ...)` |
 | `AVERAGEIF` | Average with condition | `=AVERAGEIF(range, criteria, avg_range)` |
 | `AVERAGEIFS` | Average with conditions | `=AVERAGEIFS(avg_range, range1, crit1, ...)` |
@@ -159,12 +159,12 @@
 | Function | Description | Syntax |
 |----------|-------------|--------|
 | `INDEX` | Value by position | `=INDEX(array, row, col)` |
-| `MATCH` | Find position | `=MATCH(lookup_value, array, type)` |
+| `MATCH` | Find position (an exact match, type 0, reads the wildcards *, ? and ~) | `=MATCH(lookup_value, array, type)` |
 | `CHOOSE` | Pick by index | `=CHOOSE(index, value1, value2, ...)` |
 | `VLOOKUP` | Vertical lookup | `=VLOOKUP(lookup, table, col, exact)` |
 | `HLOOKUP` | Horizontal lookup | `=HLOOKUP(lookup, table, row, exact)` |
-| `XMATCH` | Find position, exactly or the nearest | `=XMATCH(lookup_value, lookup_array, match_mode, search_mode)` |
-| `XLOOKUP` | Extended lookup | `=XLOOKUP(lookup, lookup_array, return_array, not_found)` |
+| `XMATCH` | Find position: exactly, the nearest, or a wildcard pattern (match mode 2); from the first, from the last, or a binary search | `=XMATCH(lookup_value, lookup_array, match_mode, search_mode)` |
+| `XLOOKUP` | Extended lookup, with XMATCH's match and search modes | `=XLOOKUP(lookup, lookup_array, return_array, not_found, match_mode, search_mode)` |
 | `OFFSET` | Reference offset | `=OFFSET(ref, rows, cols, height, width)` |
 | `INDIRECT` | Reference from text | `=INDIRECT(ref_text)` |
 | `ADDRESS` | Cell address text | `=ADDRESS(row, col, abs_type, a1, sheet)` |
@@ -264,7 +264,7 @@
 | `TEXT` | A number or a date written with an Excel format code (0 # . , % E+00, yyyy mmm dd; another code is an error) | `=TEXT(value, format)` |
 | `VALUE` | Convert text to number | `=VALUE(text)` |
 | `FIND` | Find text position | `=FIND(find_text, within_text, start)` |
-| `SEARCH` | Find text (case insensitive) | `=SEARCH(find_text, within_text, start)` |
+| `SEARCH` | Find text (case insensitive, with the wildcards *, ? and ~) | `=SEARCH(find_text, within_text, start)` |
 | `REPLACE` | Replace characters | `=REPLACE(text, start, num_chars, new_text)` |
 | `SUBSTITUTE` | Substitute text | `=SUBSTITUTE(text, old_text, new_text, instance)` |
 
