@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Test counts brought up to date** in README.md, VALIDATION.md and validation/gnumeric/README.md: 1,871 tests and 2 doctests; 2,024 Gnumeric cases in 57 files, 150 of them judged by LibreOffice. ADR-063 is marked Accepted.
+- **Release binaries are no longer packed with UPX.** The Linux x86_64 and Windows builds were; packed executables are a common trigger for antivirus false positives (Windows Defender and corporate scanners quarantine them), they unpack into memory on every start, which a command an AI agent may call hundreds of times pays for, and the step ran with `|| true`, so a failed packing shipped an unpacked binary without a word. The `.tar.gz` and `.zip` archives are compressed already, so the download grows less than the file does (the Linux binary compresses to 5.5 MB with gzip alone). Every platform now ships the binary as built. `make build-compressed` is still there for anyone who wants a packed binary of their own.
 
 ## [10.0.0-rc.24] - 2026-11-14
 
