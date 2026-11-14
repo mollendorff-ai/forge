@@ -75,6 +75,7 @@ Technical documentation for Forge's architecture.
 | [ADR-060](ADR-060-A-DATE-AS-A-SCALAR.md) | A Date as a Scalar | Accepted; built |
 | [ADR-061](ADR-061-A-NUMBER-FORMAT.md) | A Number Format, Next to the Unit | Accepted; built |
 | [ADR-062](ADR-062-GENERATED-CASES.md) | Generated Cases Against Gnumeric and LibreOffice, in CI | Accepted; built |
+| [ADR-063](ADR-063-ORIGIN-OF-FORGE.md) | Where Forge Came From, and Why It Is Not a Trading Engine | Proposed |
 
 ## Architecture Principles
 
