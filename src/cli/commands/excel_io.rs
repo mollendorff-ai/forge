@@ -15,6 +15,7 @@ use std::path::Path;
 /// formula column holds (ADR-054) is known only from the results.
 fn load_for_export(input: &Path) -> ForgeResult<(crate::types::ParsedModel, Option<String>)> {
     let model = parser::parse_model(input)?;
+    model.check_table_lengths()?;
     Ok(
         match crate::core::ArrayCalculator::new(model.clone()).calculate_all() {
             Ok(calculated) => (calculated, None),
