@@ -6,7 +6,34 @@
 use super::super::{
     evaluate, parse_date_value, require_args_range, EvalContext, EvalError, Expr, Value,
 };
-use chrono::Datelike;
+use chrono::{Datelike, NaiveDate};
+use std::collections::BTreeSet;
+
+/// The holidays argument of WORKDAY and NETWORKDAYS: a date, a day number or
+/// a column of them. Empty cells are skipped, as Excel skips empty cells of
+/// its range.
+fn holidays(args: &[Expr], ctx: &EvalContext) -> Result<BTreeSet<NaiveDate>, EvalError> {
+    let mut found = BTreeSet::new();
+    let Some(arg) = args.get(2) else {
+        return Ok(found);
+    };
+    let value = evaluate(arg, ctx)?;
+    let items = match value {
+        Value::Array(items) => items,
+        other => vec![other],
+    };
+    for item in &items {
+        if matches!(item, Value::Null) {
+            continue;
+        }
+        found.insert(parse_date_value(item)?);
+    }
+    Ok(found)
+}
+
+fn is_workday(date: NaiveDate, holidays: &BTreeSet<NaiveDate>) -> bool {
+    date.weekday().num_days_from_monday() < 5 && !holidays.contains(&date)
+}
 
 /// Try to evaluate a workday function. Returns None if function not recognized.
 pub fn try_evaluate(
@@ -24,6 +51,7 @@ pub fn try_evaluate(
                 as i32;
 
             let mut current = parse_date_value(&start)?;
+            let holidays = holidays(args, ctx)?;
             let direction = if days >= 0 { 1 } else { -1 };
             let mut remaining = days.abs();
 
@@ -33,9 +61,7 @@ pub fn try_evaluate(
                 } else {
                     current.pred_opt().unwrap_or(current)
                 };
-                let weekday = current.weekday().num_days_from_monday();
-                if weekday < 5 {
-                    // Monday-Friday
+                if is_workday(current, &holidays) {
                     remaining -= 1;
                 }
             }
@@ -50,6 +76,7 @@ pub fn try_evaluate(
 
             let start_date = parse_date_value(&start)?;
             let end_date = parse_date_value(&end)?;
+            let holidays = holidays(args, ctx)?;
 
             // Excel: a start date after the end date counts the same days and
             // returns the result negated.
@@ -61,8 +88,7 @@ pub fn try_evaluate(
             let mut count = 0;
             let mut current = first;
             while current <= last {
-                let weekday = current.weekday().num_days_from_monday();
-                if weekday < 5 {
+                if is_workday(current, &holidays) {
                     count += 1;
                 }
                 current = current.succ_opt().unwrap_or(current);
@@ -136,5 +162,25 @@ mod tests {
         // Excel: start after end returns the negated count
         assert!((networkdays("=NETWORKDAYS(\"2024-01-22\", \"2024-01-15\")") + 6.0).abs() < 1e-9);
         assert!((networkdays("=NETWORKDAYS(\"2024-01-19\", \"2024-01-15\")") + 5.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_holidays_are_not_working_days() {
+        // 2023-12-25 to 2024-01-12: 15 weekdays; 2024-01-01 is a Monday,
+        // 2024-01-06 a Saturday (not counted twice)
+        let n = |f: &str| networkdays(f);
+        assert!(
+            (n("=NETWORKDAYS(\"2023-12-25\", \"2024-01-12\", \"2024-01-01\")") - 14.0).abs() < 1e-9
+        );
+        assert!(
+            (n("=NETWORKDAYS(\"2023-12-25\", \"2024-01-12\", \"2024-01-06\")") - 15.0).abs() < 1e-9
+        );
+        assert!(
+            (n("=NETWORKDAYS(\"2024-01-12\", \"2023-12-25\", DATE(2024, 1, 1))") + 14.0).abs()
+                < 1e-9
+        );
+        // WORKDAY steps over the holiday: Friday 2023-12-29 plus one working
+        // day is Tuesday 2024-01-02 (day number 45293)
+        assert!((n("=WORKDAY(\"2023-12-29\", 1, \"2024-01-01\")") - 45293.0).abs() < 1e-9);
     }
 }

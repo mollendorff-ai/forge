@@ -58,6 +58,14 @@ pub fn try_evaluate(
                 .ok_or_else(|| EvalError::new("DATE: day must be a number"))?
                 as i32;
 
+            // Excel: a year from 0 to 1899 is that many years after 1900
+            // (DATE(99, 1, 1) is 1999-01-01); below 0 or from 10000 is #NUM!
+            if !(0..10_000).contains(&year) {
+                return Err(EvalError::new(format!(
+                    "#NUM!: DATE year must be from 0 to 9999, got {year}"
+                )));
+            }
+            let year = if year < 1900 { year + 1900 } else { year };
             // Handle month overflow/underflow (Excel-compatible behavior)
             let total_months = year * 12 + month - 1;
             let adj_year = total_months.div_euclid(12);
@@ -83,6 +91,11 @@ pub fn try_evaluate(
             // 1900-03-01, which Excel cannot hold as a date, the day number.
             let excel_base = NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
             let first = NaiveDate::from_ymd_opt(1900, 3, 1).unwrap();
+            if date > NaiveDate::from_ymd_opt(9999, 12, 31).unwrap() {
+                return Err(EvalError::new(format!(
+                    "#NUM!: DATE gives {date}, after 9999-12-31, the last date Excel holds"
+                )));
+            }
             if date >= first {
                 Value::Text(date.format("%Y-%m-%d").to_string())
             } else {

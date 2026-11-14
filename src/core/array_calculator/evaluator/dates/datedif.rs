@@ -84,14 +84,12 @@ pub fn try_evaluate(
                 "YM" => {
                     // Months between dates, ignoring years
                     let mut month_diff = end_date.month() as i32 - start_date.month() as i32;
-                    if month_diff < 0 {
-                        month_diff += 12;
-                    }
-                    // Adjust if end day < start day (incomplete month)
-                    if end_date.day() < start_date.day() && month_diff > 0 {
+                    // An incomplete last month does not count, also across a year
+                    // end: 30 January to 1 January is 11 months
+                    if end_date.day() < start_date.day() {
                         month_diff -= 1;
                     }
-                    f64::from(month_diff)
+                    f64::from(month_diff.rem_euclid(12))
                 },
                 "YD" => {
                     // Days between dates, ignoring years
@@ -155,9 +153,15 @@ pub fn try_evaluate(
                 .ok_or_else(|| EvalError::new("TIME: second must be a number"))?
                 as i32;
 
-            // Return as fraction of day (Excel time serial)
+            // A fraction of a day, as Excel gives: past 24 hours it starts the
+            // day again (TIME(27, 0, 0) is TIME(3, 0, 0)); a negative time is #NUM!
             let total_seconds = hour * 3600 + minute * 60 + second;
-            Value::Number(f64::from(total_seconds) / 86400.0)
+            if total_seconds < 0 {
+                return Err(EvalError::new(format!(
+                    "#NUM!: TIME({hour}, {minute}, {second}) is before midnight"
+                )));
+            }
+            Value::Number(f64::from(total_seconds % 86_400) / 86400.0)
         },
 
         _ => return Ok(None),

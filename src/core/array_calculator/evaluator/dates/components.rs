@@ -64,10 +64,20 @@ pub fn try_evaluate(
             // 1 (default): Sunday=1, Saturday=7
             // 2: Monday=1, Sunday=7
             // 3: Monday=0, Sunday=6
+            // 11 to 17: the week starts on Monday (11) ... Sunday (17), which is 1
             let result = match return_type {
+                1 => f64::from(day + 1),
                 2 => f64::from((day + 6) % 7 + 1),
                 3 => f64::from((day + 6) % 7),
-                _ => f64::from(day + 1), // Type 1 (default): Sunday=1
+                11..=17 => {
+                    let first = (return_type - 10).cast_unsigned() % 7; // Sunday = 0
+                    f64::from((day + 7 - first) % 7 + 1)
+                },
+                _ => {
+                    return Err(EvalError::new(format!(
+                        "#NUM!: WEEKDAY return_type must be 1, 2, 3 or 11 to 17, got {return_type}"
+                    )))
+                },
             };
             Value::Number(result)
         },

@@ -530,6 +530,12 @@ pub fn try_evaluate(
             if life == 0.0 {
                 return Err(EvalError::new("DDB: life cannot be zero"));
             }
+            // Excel: a period before the first or after the life is #NUM!
+            if period <= 0.0 || period > life {
+                return Err(EvalError::new(format!(
+                    "#NUM!: DDB period must be from 1 to the life ({life}), got {period}"
+                )));
+            }
 
             let rate = factor / life;
             let mut remaining = cost;
@@ -606,6 +612,12 @@ pub fn try_evaluate(
                 .ok_or_else(|| EvalError::new("PPMT requires present value"))?;
             let fv = optional_number(args, 4, ctx, 0.0)?;
             let due = payment_timing(args, 5, ctx)?;
+            // Excel: a period outside 1 to nper is #NUM!, whatever the rate
+            if per < 1.0 || per > nper {
+                return Err(EvalError::new(format!(
+                    "#NUM!: PPMT period must be from 1 to nper ({nper}), got {per}"
+                )));
+            }
             let payment = annuity_pmt(rate, nper, pv, fv, due);
             Value::Number(payment - annuity_ipmt(rate, per, nper, pv, fv, due))
         },
@@ -628,6 +640,12 @@ pub fn try_evaluate(
                 .ok_or_else(|| EvalError::new("IPMT requires present value"))?;
             let fv = optional_number(args, 4, ctx, 0.0)?;
             let due = payment_timing(args, 5, ctx)?;
+            // Excel: a period outside 1 to nper is #NUM!, whatever the rate
+            if per < 1.0 || per > nper {
+                return Err(EvalError::new(format!(
+                    "#NUM!: IPMT period must be from 1 to nper ({nper}), got {per}"
+                )));
+            }
             Value::Number(annuity_ipmt(rate, per, nper, pv, fv, due))
         },
 
@@ -641,6 +659,8 @@ pub fn try_evaluate(
             let npery = evaluate(&args[1], ctx)?
                 .as_cell_number()
                 .ok_or_else(|| EvalError::new("EFFECT requires periods per year"))?;
+            // Excel truncates the periods per year to a whole number
+            let npery = npery.trunc();
 
             if npery < 1.0 {
                 return Err(EvalError::new("EFFECT: periods per year must be >= 1"));
@@ -663,6 +683,8 @@ pub fn try_evaluate(
             let npery = evaluate(&args[1], ctx)?
                 .as_cell_number()
                 .ok_or_else(|| EvalError::new("NOMINAL requires periods per year"))?;
+            // Excel truncates the periods per year to a whole number
+            let npery = npery.trunc();
 
             if npery < 1.0 {
                 return Err(EvalError::new("NOMINAL: periods per year must be >= 1"));

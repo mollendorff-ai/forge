@@ -1,0 +1,178 @@
+# Wrong answers found on 2026-11-13 by sweeping Forge's 45 date and financial
+# functions (7,959 cases) against Gnumeric 1.12 and LibreOffice 26.2, each
+# fixed in Forge. The expected values are what both engines give (the DATEDIF
+# cases are recalculated by LibreOffice: Gnumeric cannot read DATEDIF from an
+# xlsx file), worked by hand or in Python's datetime where noted. A case that
+# should be an error is wrapped in IFERROR(..., -1).
+#
+# Holidays: 2024-01-01 (Mon), 2024-01-02 (Tue), 2024-01-10 (Wed). From
+# 2023-12-25 to 2024-01-12 there are 15 weekdays, 12 without the holidays.
+# 2023-01-30 is a Monday, 2024-01-07 a Sunday, 2024-01-06 a Saturday.
+# Day numbers (days since 1899-12-30): 2024-01-04 is 45295, 2024-01-09 45300,
+# 1999-01-01 36161, 2008-01-02 39449, 3799-12-31 693962.
+
+_forge_version: "5.4.0"
+
+hol:
+  d: [2024-01-01, 2024-01-02, 2024-01-10]
+  # A formula column, so the runner reads this section as a table
+  m: "=MONTH(d)"
+
+assumptions:
+  # NETWORKDAYS and WORKDAY read their holidays (they were ignored)
+  test_networkdays_holiday_column:
+    value: null
+    formula: "=NETWORKDAYS(DATE(2023,12,25), DATE(2024,1,12), hol.d)"
+    expected: 12
+  test_networkdays_one_holiday:
+    value: null
+    formula: "=NETWORKDAYS(DATE(2023,12,25), DATE(2024,1,12), DATE(2024,1,1))"
+    expected: 14
+  test_networkdays_holiday_on_a_saturday:
+    value: null
+    formula: "=NETWORKDAYS(DATE(2023,12,25), DATE(2024,1,12), DATE(2024,1,6))"
+    expected: 15
+  test_workday_holidays_forward:
+    value: null
+    formula: "=WORKDAY(DATE(2023,12,31), 5, hol.d)"
+    expected: 45300
+  test_workday_holidays_backward:
+    value: null
+    formula: "=WORKDAY(DATE(2024,1,12), -5, hol.d)"
+    expected: 45295
+
+  # WEEKDAY return types 11 to 17: the week starts on Monday ... Sunday
+  test_weekday_11_monday:
+    value: null
+    formula: "=WEEKDAY(DATE(2023,1,30), 11)"
+    expected: 1
+  test_weekday_12_monday:
+    value: null
+    formula: "=WEEKDAY(DATE(2023,1,30), 12)"
+    expected: 7
+  test_weekday_13_monday:
+    value: null
+    formula: "=WEEKDAY(DATE(2023,1,30), 13)"
+    expected: 6
+  test_weekday_14_monday:
+    value: null
+    formula: "=WEEKDAY(DATE(2023,1,30), 14)"
+    expected: 5
+  test_weekday_15_monday:
+    value: null
+    formula: "=WEEKDAY(DATE(2023,1,30), 15)"
+    expected: 4
+  test_weekday_16_monday:
+    value: null
+    formula: "=WEEKDAY(DATE(2023,1,30), 16)"
+    expected: 3
+  test_weekday_17_monday:
+    value: null
+    formula: "=WEEKDAY(DATE(2023,1,30), 17)"
+    expected: 2
+  test_weekday_11_sunday:
+    value: null
+    formula: "=WEEKDAY(DATE(2024,1,7), 11)"
+    expected: 7
+  test_weekday_17_sunday:
+    value: null
+    formula: "=WEEKDAY(DATE(2024,1,7), 17)"
+    expected: 1
+  test_weekday_type_4_is_an_error:
+    value: null
+    formula: "=IFERROR(WEEKDAY(DATE(2024,1,7), 4), -1)"
+    expected: -1
+
+  # DATEDIF "YM": an incomplete month across a year end does not count
+  test_datedif_ym_across_a_year_end:
+    value: null
+    formula: "=DATEDIF(DATE(2023,1,30), DATE(2024,1,1), \"YM\")"
+    expected: 11
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+  test_datedif_ym_same_month_earlier_day:
+    value: null
+    formula: "=DATEDIF(DATE(2023,5,31), DATE(2024,5,1), \"YM\")"
+    expected: 11
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+  test_datedif_ym_within_a_year:
+    value: null
+    formula: "=DATEDIF(DATE(2023,1,15), DATE(2023,3,20), \"YM\")"
+    expected: 2
+    libreoffice: "Gnumeric 1.12 returns #VALUE! for DATEDIF read from an xlsx file"
+
+  # DATE: a year from 0 to 1899 is that many years after 1900
+  test_date_two_digit_year:
+    value: null
+    formula: "=DATE(99, 1, 1)"
+    expected: 36161
+  test_date_microsofts_example:
+    value: null
+    formula: "=DATE(108, 1, 2)"
+    expected: 39449
+  # Microsoft's DATE page: "If year is between 0 (zero) and 1899 (inclusive),
+  # Excel adds that value to 1900", so 1899 is 3799
+  test_date_year_1899:
+    value: null
+    formula: "=DATE(1899, 12, 31)"
+    expected: 693962
+    gnumeric_skip: "Gnumeric 1.12 and LibreOffice 26.2 read 1899 as the year 1899 (both give 1); Microsoft's DATE page says Excel adds 1900, as Forge does"
+  test_date_negative_year_is_an_error:
+    value: null
+    formula: "=IFERROR(DATE(-1, 1, 1), -1)"
+    expected: -1
+
+  # TIME: past 24 hours it starts the day again; negative is an error
+  test_time_25_hours:
+    value: null
+    formula: "=ROUND(TIME(25, 0, 0), 10)"
+    expected: 0.0416666667
+  test_time_90000_seconds:
+    value: null
+    formula: "=ROUND(TIME(0, 0, 90000), 10)"
+    expected: 0.0416666667
+  test_time_48_hours_30:
+    value: null
+    formula: "=ROUND(TIME(48, 30, 0), 10)"
+    expected: 0.0208333333
+  test_time_negative_is_an_error:
+    value: null
+    formula: "=IFERROR(TIME(-1, 0, 0), -1)"
+    expected: -1
+
+  # EFFECT and NOMINAL truncate the periods per year
+  test_effect_truncates_npery:
+    value: null
+    formula: "=ROUND(EFFECT(0.05, 2.7), 10)"
+    expected: 0.050625
+  test_effect_truncates_npery_4_9:
+    value: null
+    formula: "=ROUND(EFFECT(0.05, 4.9), 10)"
+    expected: 0.0509453369
+  test_nominal_truncates_npery:
+    value: null
+    formula: "=ROUND(NOMINAL(0.05, 2.7), 10)"
+    expected: 0.0493901532
+
+  # IPMT and PPMT: a period outside 1 to nper is an error, at any rate
+  test_ipmt_zero_rate_period_after_nper:
+    value: null
+    formula: "=IFERROR(IPMT(0, 13, 12, -20000), -1)"
+    expected: -1
+  test_ppmt_zero_rate_period_zero:
+    value: null
+    formula: "=IFERROR(PPMT(0, 0, 12, -20000), -1)"
+    expected: -1
+  test_ppmt_zero_rate_in_range:
+    value: null
+    formula: "=ROUND(PPMT(0, 6, 12, -20000), 10)"
+    expected: 1666.6666666667
+
+  # DDB: a period after the life is an error
+  test_ddb_period_after_life:
+    value: null
+    formula: "=IFERROR(DDB(10000, 1000, 5, 6), -1)"
+    expected: -1
+  test_ddb_last_period:
+    value: null
+    formula: "=ROUND(DDB(10000, 1000, 5, 5), 10)"
+    expected: 296
