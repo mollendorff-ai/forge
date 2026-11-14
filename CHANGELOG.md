@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Three ADRs about work that is not Forge's:** ADR-026 (FPGA acceleration for high-frequency trading), ADR-028 (crystal analysis for DANEEL, never built) and ADR-030 (a go-to-market plan from the Elastic-2.0 period). All three were deferred, not scheduled or superseded. ADR-031 keeps the licence history. No code or behaviour changes.
+
 ## [10.0.0-rc.23] - 2026-11-14
 
 Eight wrong answers in date and financial functions fixed, plus a Studio fix for the decimal comma. They are wrong answers, so by docs/STABILITY.md the two weeks before a stable release start again from this release: no earlier than 2026-11-28.

@@ -121,12 +121,6 @@ tier1:
     how: "Check column lengths in validate and export; say unknown name for a scalar and suggest the nearest existing name, as for columns"
     acceptance: "Both cases have tests (T1-TEST-RULE); validate exits 1 on the ragged table; the message for a.price names a.prce"
 
-  - id: T1-ADR-PRUNE
-    title: "Delete the speculative ADRs from the public folder"
-    why: "ADR-026 (FPGA for high-frequency trading, after $1M+ AUM), ADR-028 (crystal analysis, not implemented, DANEEL work) and ADR-030 (go-to-market tiers, superseded) say little about Forge and cost a reader's trust; their dated notes do not undo the first impression"
-    how: "Delete the three files and the parked items that point to them (P-FPGA, P-CRYSTAL); keep ADR-031's one line on the licence history. The maintainer confirms before the files go"
-    acceptance: "No link in the repository points to a deleted ADR (the docs link check passes)"
-
   - id: T1-MCP-ROOT
     title: "An optional folder that MCP and REST file paths must stay inside"
     why: "The MCP tools take file_path, yaml_path and excel_path, so an agent, or a prompt injected into one, can read any model or workbook and write a file anywhere the user can. Normal for a local MCP server, and SECURITY.md lists the MCP server in scope"
@@ -256,10 +250,6 @@ parked:
     title: "Game theory module"
   - id: P-GPU
     title: "GPU acceleration"
-  - id: P-FPGA
-    title: "FPGA acceleration (ADR-026)"
-  - id: P-CRYSTAL
-    title: "Crystal analysis for DANEEL (ADR-028)"
   - id: P-SIMD
     title: "SIMD / Rayon"
     why: "Models run in milliseconds"
