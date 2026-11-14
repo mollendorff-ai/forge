@@ -187,6 +187,8 @@ pretty_assertions = "1.4"
 tempfile = "3.8"
 assert_cmd = "2.0"  # CLI integration testing
 predicates = "3.1"  # CLI output assertions
+# Property tests: rules that must hold for any model (tests/properties.rs)
+proptest = { version = "1", default-features = false, features = ["std"] }
 # Git hooks (auto-installs on cargo test)
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
 
