@@ -15,10 +15,12 @@
 
 state:
   version: >-
-    10.0.0-rc.21, released 2026-11-13: a date as a scalar (ADR-060) and
-    format: beside unit: (ADR-061), both in model format 5.4.0. Neither
-    fixes a wrong answer, so the stable clock stays at no earlier than
-    2026-11-27. rc.20 (2026-11-13): a table column can aggregate a
+    10.0.0-rc.22, released 2026-11-13: YEARFRAC basis 0 from the last day
+    of February to a 31st fixed (a wrong answer, so the two weeks in
+    docs/STABILITY.md start again from rc.22: no earlier than 2026-11-27,
+    the same day as before since rc.20 was also today), and the CLI and MCP
+    agree on dates. rc.21 (2026-11-13): a date as a scalar (ADR-060) and
+    format: beside unit: (ADR-061), both in model format 5.4.0. rc.20 (2026-11-13): a table column can aggregate a
     column (ADR-058), an empty cell in a column of numbers (ADR-059, model
     format 5.3.0, COUNTBLANK: 203 functions), and two wrong answers in
     forge import fixed (an empty cell imported as 0, and a range where Forge
