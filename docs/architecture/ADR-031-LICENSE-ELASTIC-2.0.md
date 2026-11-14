@@ -2,7 +2,7 @@
 
 **Status**: Accepted (updated 2026-02-16: MIT OR Apache-2.0; the original Elastic-2.0 decision is superseded)
 **Date**: 2025-12-29 (original), 2026-02-16 (updated)
-**Supersedes**: ADR-030 (license section only)
+**Supersedes**: ADR-030, a go-to-market plan from the Elastic-2.0 period (deleted 2026-11-14; this page keeps its licence history)
 
 ---
 

@@ -74,6 +74,5 @@ forge update --verbose    # Show detailed progress
 
 ## References
 
-- ADR-030: GTM Licensing Strategy
 - ADR-031: License (MIT OR Apache-2.0)
 - Version: v10.0.0-alpha.5
