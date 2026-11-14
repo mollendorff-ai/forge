@@ -1,6 +1,6 @@
 # ADR-063: Where Forge Came From, and Why It Is Not a Trading Engine
 
-**Status:** Proposed (2026-11-14); accepted by merging this pull request
+**Status:** Accepted (2026-11-14, by merging #213)
 **Date:** 2026-11-14
 **Decided by:** the maintainer (the account below is his, stated on 2026-11-14; accepted by merging this ADR); the text is Claude's, in a session configured for Sonnet 5.5
 **Replaces:** the reasoning of ADR-026 (FPGA acceleration for high-frequency trading), deleted on 2026-11-14 (T1-ADR-PRUNE)
