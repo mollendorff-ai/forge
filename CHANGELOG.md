@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.24] - 2026-11-14
+
+Wrong answers fixed in the lookup, math, text, statistical and financial functions (found by sweeps and by the new generated cases, ADR-062), `NA()` is now the error #N/A, and `forge validate` refuses a table with columns of different lengths. Forge Studio gets a welcome card. These are wrong answers, so by docs/STABILITY.md the two weeks before a stable release start again from this release: no earlier than 2026-11-28.
+
 ### Added
 - **Generated cases against Gnumeric and LibreOffice in CI (ADR-062).** `validation/sweep/generate.py` draws each of 133 functions' arguments from a seed, toward the values where spreadsheets go wrong. A pull request runs seed 1 (2,660 cases, 3 s), and the Monday run of the Validation workflow a new seed every week (26,600 cases, 22 s). A case where Forge disagrees with the engines fails, unless `validation/sweep/known.py` covers it: 21 rules, one class of input each, with the reason and where it is tracked. A failure prints the command that replays it.
 
