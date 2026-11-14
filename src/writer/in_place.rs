@@ -653,7 +653,13 @@ pub fn format_number(v: f64) -> String {
     if v.fract() == 0.0 && v.abs() < 1e15 {
         return format!("{}", v as i64);
     }
-    let plain = format!("{v}");
+    let mut plain = format!("{v}");
+    // A whole number from 1e15 on prints as digits alone, which YAML reads
+    // as an integer: past i64 (about 9.2e18) the file no longer parses. A
+    // decimal point makes it a float of any size.
+    if !plain.contains(['.', 'e', 'E']) {
+        plain.push_str(".0");
+    }
     if plain.len() <= 24 {
         return plain;
     }
@@ -905,12 +911,29 @@ mod tests {
             1e15,
             -0.0,
             123_456.789,
+            // Whole numbers past i64: written as digits alone, YAML read
+            // them as an integer that does not fit (found by
+            // tests/properties.rs, calculating_again_changes_nothing)
+            1e20,
+            -9_999_999_999_999_970_000.0,
+            9.3e18,
+            -1e24,
         ] {
             let s = format_number(v);
             let back: f64 = yaml_serde::from_str(&s).unwrap();
             assert!(
                 back.to_bits() == v.to_bits() || back == v,
                 "{v} -> {s} -> {back}"
+            );
+            // As part of a file, read without knowing it is a number
+            let in_file: Value =
+                parse(&format!("x: {s}\n")).unwrap_or_else(|e| panic!("{v} -> {s}: {e}"));
+            let back = in_file["x"]
+                .as_f64()
+                .unwrap_or_else(|| panic!("{v} -> {s} is not a number"));
+            assert!(
+                back.to_bits() == v.to_bits() || back == v,
+                "{v} -> {s} -> {back} in a file"
             );
         }
     }

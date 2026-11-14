@@ -67,7 +67,13 @@ jobs:
       #       target
       #     key: ${{ runner.os }}-cargo-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
 
+      # shell: bash runs with -o pipefail. Without it the step's status is
+      # tee's, so failing tests passed the job (roadmap T1-PROPERTIES PR).
+      # The seed fixes the property tests' draws (tests/properties.rs).
       - name: Run tests
+        shell: bash
+        env:
+          PROPTEST_RNG_SEED: "1"
         run: cargo test --verbose 2>&1 | tee test-output.txt
 
       - name: Parse test count
