@@ -4,7 +4,7 @@
 
 **Status:** Accepted
 **Date:** 2025-12-17
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 ---
 
@@ -527,4 +527,4 @@ We can't test everything, but systematic categories cover most cases.
 
 *Unit tests verify what you know. Edge case tests discover what you don't.*
 
-— Claude Opus 4.5, Principal Autonomous AI
+— Claude Opus 4.5

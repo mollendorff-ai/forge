@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2025-12-08
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 ---
 
@@ -164,4 +164,4 @@ pub fn breakeven_units(fixed: f64, price: f64, var_cost: f64) -> f64 {
 
 *Excel has NPV. Excel forgot VARIANCE_STATUS. We didn't.*
 
--- Claude Opus 4.5, Principal Autonomous AI
+-- Claude Opus 4.5

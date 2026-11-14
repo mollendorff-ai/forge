@@ -22,7 +22,7 @@ Forge reads a financial model written in YAML (inputs, formulas, tables, scenari
 | Open [Forge Studio](https://forge.mollendorff.ai/) in your browser. Nothing to install, made for a phone, works offline. | Install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
 | [Try it →](https://forge.mollendorff.ai/) · [More on Studio](#forge-studio) | [Quick start →](#quick-start) · [For AI agents](#for-ai-agents) |
 
-**Checked, not trusted.** 1,460 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. What does not work yet is [listed below](#status-and-known-limitations), not hidden.
+**Checked, not trusted.** 1,931 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. What does not work yet is [listed below](#status-and-known-limitations), not hidden.
 
 ## Forge Studio
 
@@ -53,10 +53,10 @@ Models of the kind people have. Every number below is what the command prints, a
 
 ```text
 $ forge goal-seek examples/mortgage/mortgage.yaml --target saved.interest --value 80000 --vary loan.extra_per_month
-   loan.extra_per_month = 397.044208 → saved.interest = 79999.999976
+   loan.extra_per_month = 397.04 → saved.interest = 80,000.00
 ```
 
-A month-by-month loop in Python, solved with SciPy, gives 397.044208. The model holds that loop too, as a table of 300 months in which each month opens with what the month before closed with (`opening: "=PREV(closing, loan.principal)"`): it is paid off with payment 247, in June 2047, and its interest equals the closed form's. [`examples/periods`](examples/periods/README.md) has a monthly plan and a five-year valuation written the same way.
+A month-by-month loop in Python, solved with SciPy, gives 397.044208 (the command prints two decimals; the test compares the full value). The model holds that loop too, as a table of 300 months in which each month opens with what the month before closed with (`opening: "=PREV(closing, loan.principal)"`): it is paid off with payment 247, in June 2047, and its interest equals the closed form's. [`examples/periods`](examples/periods/README.md) has a monthly plan and a five-year valuation written the same way.
 
 **What price gives a new bagel shop an 80% chance of making money in its first year?** [`examples/bagel`](examples/bagel/README.md) has twelve months of seasonal demand, five cost lines, and supplier prices kept in an included file. In the simulation, opening demand, staffing, the flour price and the wage are uncertain.
 
@@ -223,11 +223,11 @@ See [docs/REPORT.md](docs/REPORT.md).
 
 Forge's results are checked against engines it does not control, and none of the checks is complete. The unit tests run on every push. The two validation suites, in [`validation/`](validation/), run on every pull request and every merge to `main` that changes the engine or a suite, and every week. [VALIDATION.md](VALIDATION.md) lists what each one covers, its latest result and how to run it; [docs/STABILITY.md](docs/STABILITY.md) says what a stable release will promise, and what it will not.
 
-| Check | What it covers | Latest result (2026-11-12) |
+| Check | What it covers | Latest result |
 | --- | --- | --- |
-| Unit tests (this repo) | 1,768 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | Pass; run on every push |
-| [forge-e2e-gnumeric](validation/gnumeric) | 1,460 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 70 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,445 pass, 1 skipped |
-| [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass; 70 of 77 analytics specs compared with R, 7 skipped |
+| Unit tests (this repo) | 1,826 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | 1,828 pass, 0 fail (rc.23, 2026-11-14); run on every push |
+| [forge-e2e-gnumeric](validation/gnumeric) | 1,931 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 139 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 1,791 pass, 1 skipped with Gnumeric (rc.23, 2026-11-14); the 139 cases for LibreOffice run in the Validation workflow (Actions tab) |
+| [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass (2026-11-14); 70 of 77 analytics specs compared with R, 7 skipped (2026-11-12) |
 
 Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).
 

@@ -125,6 +125,27 @@ jobs:
       - name: Unit tests of the validation suites
         run: cargo test -p mollendorff-forge-e2e-gnumeric -p mollendorff-forge-e2e-r
 
+  # The oldest Rust Forge says it builds with (Cargo.toml rust-version,
+  # clippy.toml msrv): a newer API used by accident breaks this job, not a
+  # newcomer's first build (roadmap T1-MSRV)
+  msrv:
+    name: Builds on the oldest supported Rust
+    timeout-minutes: 30
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read the declared version
+        run: echo "MSRV=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml)" >> "$GITHUB_ENV"
+
+      - name: Install that Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.MSRV }}
+
+      - name: Build the command line and the library
+        run: cargo build --locked --bin forge --lib
+
   # The parser, the calculator and the analysis engines without the command
   # line or the servers, for a browser (ADR-055, roadmap S1-CORE-NO-OS)
   core-browser:

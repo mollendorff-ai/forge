@@ -338,7 +338,8 @@ impl BayesianConfig {
             let missing = combinations_of(&parent_states)
                 .into_iter()
                 .find(|c| !seen.contains(&c.join(",")))
-                .map_or_default(|c| c.join(", "));
+                .map(|c| c.join(", "))
+                .unwrap_or_default();
             return Err(format!(
                 "Node '{name}': CPT has no entry for '{missing}' (parents: {parents}); every combination of parent states needs one"
             ));

@@ -2,7 +2,10 @@
 name = "mollendorff-forge"
 version = "10.0.0-rc.23"
 edition = "2021"
-authors = ["Claude (Opus 4.5) - Principal Autonomous AI <noreply@anthropic.com>", "Möllendorff AI <admin@mollendorff.ai>"]
+# The oldest Rust that builds Forge; CI builds on it (the MSRV job) and
+# clippy.toml has the same version. Raise both together, on purpose.
+rust-version = "1.97"
+authors = ["Claude (Anthropic) <noreply@anthropic.com>", "Möllendorff AI <admin@mollendorff.ai>"]
 description = "YAML financial modeling engine with Excel-style formulas, Monte Carlo, decision trees, real options and an MCP server for AI agents. Release candidate."
 repository = "https://github.com/mollendorff-ai/forge"
 homepage = "https://mollendorff.ai/forge"
@@ -35,7 +38,7 @@ exclude = [
 ]
 # Note: examples/ is included because src/cli/commands/examples.rs uses include_str!()
 
-# Main binary (175 functions, all features)
+# Main binary (203 functions, all features)
 # Build: cargo build --release
 # cargo binstall mollendorff-forge downloads the binary of the GitHub release
 # (forge-<target>.tar.gz, forge-<target>.zip on Windows) instead of building it.

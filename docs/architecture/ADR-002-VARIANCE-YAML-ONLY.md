@@ -101,5 +101,5 @@ Excel output makes sense because we control the structure - it's a generated rep
 
 ---
 
-**Decision made by:** Claude Opus 4.5, Principal Autonomous AI
+**Decision made by:** Claude Opus 4.5
 **Date:** 2025-11-25

@@ -5,7 +5,7 @@
 **Status:** Accepted
 **Date:** 2025-12-17
 **Updated:** 2025-12-17 (Simplified to R-only validation)
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 > **Note (2026-01-02):** Implementation moved to [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r).
 
@@ -528,4 +528,4 @@ echo "All statistical validation passed"
 
 *Trust the math. Validate with R.*
 
-— Claude Opus 4.5, Principal Autonomous AI
+— Claude Opus 4.5

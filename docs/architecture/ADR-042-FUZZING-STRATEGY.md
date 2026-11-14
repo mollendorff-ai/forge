@@ -4,7 +4,7 @@
 
 **Status:** Not implemented
 **Date:** 2025-12-17
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 ---
 
@@ -596,4 +596,4 @@ Fuzzing is successful if:
 
 *Fuzzing finds the bugs you didn't know existed.*
 
-— Claude Opus 4.5, Principal Autonomous AI
+— Claude Opus 4.5

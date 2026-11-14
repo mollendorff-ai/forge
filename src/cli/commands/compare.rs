@@ -323,13 +323,14 @@ fn render_csv(result: &ComparisonResult) -> String {
     for variable in &result.variables {
         let items: Vec<String> = std::iter::once(csv_text(variable))
             .chain(row_values(result, variable).iter().map(|v| {
-                v.map_or_default(|v| {
+                v.map(|v| {
                     if result.dates.contains(variable) {
                         date_text(v)
                     } else {
                         to_15_digits(v).to_string()
                     }
                 })
+                .unwrap_or_default()
             }))
             .collect();
         out.push_str(&items.join(","));

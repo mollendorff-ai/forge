@@ -73,18 +73,6 @@ tier1:
   # the checks around the numbers and in what the project says about itself.
   # In order of impact; T1-TEST-RULE, T1-GENERATED and T1-PROPERTIES are the
   # testing plan that follows from it ("covered" is not "correct").
-  - id: T1-R-HARNESS
-    title: "The R formula suite cannot fail, and 15 of its date checks do"
-    why: "validation/r/validators/r/run_all.sh runs each validator as `Rscript ... | tee`, so the status it tests is tee's, never R's: a failing validator is counted as passed, and the Validation workflow stays green. On rc.23 it prints 121 passed, 15 failed, then All validators passed, and exits 0. The 15 are DATE and WORKDAY: since rc.21 (ADR-060) Forge prints a date result as text (2024-02-29) and forge_helper.R reads a serial number, gets NA and fails the check. Forge's answers are right; the README's 136 checks pass is not true on main"
-    how: "set -o pipefail in run_all.sh (or test PIPESTATUS); forge_helper.R reads an ISO date as a date. Then make one validator fail on purpose and see the script and the workflow fail. Correct the count in README.md and VALIDATION.md"
-    acceptance: "A deliberately wrong expected value fails run_all.sh with a non-zero exit and fails the Validation workflow; with it removed, all 136 checks pass, and the README and VALIDATION.md say what the run printed"
-
-  - id: T1-TEST-RULE
-    title: "Every bug fix starts with a failing test, not only a wrong answer"
-    why: ".asimov/project.yaml and the PR template ask for a failing test only for a wrong answer. Errors, crashes, wrong messages and refusals that should not happen get fixed without one, so they can come back"
-    how: "Extend the rule in .asimov/project.yaml and the checkbox in .github/pull_request_template.md: the test reproduces the bug, fails on the commit before the fix and passes after it"
-    acceptance: "Both files state the wider rule; the next bug-fix PR carries such a test and says which commit it fails on"
-
   - id: T1-GENERATED
     title: "Generated cases against Gnumeric and LibreOffice, in CI"
     why: "The validation cases are written by hand, so bugs live in inputs nobody imagined (YEARFRAC from the last day of February). validation/sweep already generates cases (dates.py, fin.py, vdb.py: 9,327 over a fixed grid) and found the eight wrong answers fixed in rc.23, but it runs only by hand and covers only date and financial functions"
@@ -103,17 +91,11 @@ tier1:
     how: "With T1-GENERATED's generator once it exists, or validation/sweep's way until then"
     acceptance: "Each family has had a run against both engines; every disagreement is fixed with a test, recorded for T1-EXCEL-CHECKS, or explained in validation/sweep/README.md"
 
-  - id: T1-MSRV
-    title: "Declare the oldest Rust Forge builds with, and check it"
-    why: "cargo build on Rust 1.97.0 (July 2026) fails with 8 x error[E0658] (Option::map_or_default, unstable there); it builds on 1.100.0. Cargo.toml has no rust-version, so a newcomer gets a compiler error, not update Rust. CI runs only the latest stable, and clippy there suggests the newest APIs (PR #167)"
-    how: "rust-version in Cargo.toml and the same msrv in clippy.toml (clippy then stops suggesting newer APIs), and a CI job that builds on that version. Or replace the 8 map_or_default calls and pick an older version"
-    acceptance: "Building with an older toolchain says which version is needed; the CI job builds on the declared version"
-
   - id: T1-CLAIMS
-    title: "What Forge says about itself matches what it does"
-    why: "The README is candid, but other places drift from it. GitHub About: 10-15x fewer tokens than Excel, which nothing measures and the README says was not measured. forge --help and VALIDATION.md: Beta (it is a release candidate). VALIDATION.md: tests on stable and beta Rust on every push (beta is weekly). Cargo.toml comment: 175 functions (203). README goal-seek block: 397.044208 -> 79999.999976, the command prints 397.04 -> 80,000.00. Counts dated 2026-11-12: 1,768 tests (1,828 on rc.23), 1,460 Gnumeric cases with 70 by LibreOffice in 51 files (1,931, 139 and 55). Cargo.toml authors and 40 places in docs: Claude (Opus 4.5) - Principal Autonomous AI, a self-given title and one model of several"
-    how: "Correct each. Have CI write the counts where it already measures them (the badges do), so they cannot go stale. The author line names Claude (Anthropic) plainly. The About text is changed by the maintainer on GitHub (Safari, desktop view)"
-    acceptance: "A search of the repository for Beta, 175 functions, 1,768, 1,460 and Principal Autonomous AI finds only the changelog; the README's command blocks are what the commands print (tests/doc_examples.rs or similar checks them); the About text matches the README's first line"
+    title: "What Forge says about itself cannot go stale"
+    why: "The evaluation's stale labels, counts and author titles are corrected by hand (2026-11-14), and the counts will drift again with every release. Left open: the GitHub About text still says 10-15x fewer tokens than Excel, which nothing measures and the README says was not measured; and the numbers in README.md, VALIDATION.md and validation/gnumeric/README.md (tests, cases, LibreOffice cases, files) are typed by hand"
+    how: "The maintainer changes the About text on GitHub (Safari, desktop view) to the README's first line. CI writes the counts where it already measures them, as the badges do (tests, functions, coverage), or a test fails when a count in the docs differs from the run. A test runs the command blocks in README.md as tests/doc_examples.rs does for docs/EXAMPLES.md"
+    acceptance: "The About text matches the README's first line; a count changed in the code without the docs fails a check; the README's goal-seek block is what the command prints"
 
   - id: T1-VALIDATE-GAPS
     title: "validate refuses a table with columns of different lengths, and a missing name suggests the closest"
@@ -126,12 +108,6 @@ tier1:
     why: "The MCP tools take file_path, yaml_path and excel_path, so an agent, or a prompt injected into one, can read any model or workbook and write a file anywhere the user can. Normal for a local MCP server, and SECURITY.md lists the MCP server in scope"
     how: "forge mcp --root DIR and forge serve --root DIR: a path outside DIR (after resolving .. and links) is refused with the reason; without --root, nothing changes"
     acceptance: "Tests show a path outside the root refused for read and write, including through .. and a symbolic link; docs/MCP.md and SECURITY.md describe it"
-
-  - id: T1-TIDY
-    title: "Remove the committed __pycache__"
-    why: "validation/sweep/__pycache__/harness.cpython-313.pyc is in git"
-    how: "git rm it and ignore __pycache__/ in .gitignore"
-    acceptance: "git ls-files lists no .pyc file"
 
   - id: T1-LISTINGS
     title: "Outside listings show today's Forge"

@@ -1,0 +1,3 @@
+# The oldest Rust Forge builds with (Cargo.toml: rust-version). Clippy then does
+# not suggest APIs newer than this, which would break the build on it.
+msrv = "1.97.0"

@@ -4,7 +4,7 @@
 
 **Status:** Accepted
 **Date:** 2025-12-04
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 ---
 
@@ -131,4 +131,4 @@ MCP remains as the AI integration layer for deterministic calculations.
 
 *The right tool for the right job. LSP solves IDE problems. Forge users don't have IDE problems. MCP solves AI hallucination problems. Forge users DO have that problem.*
 
-— Claude Opus 4.5, Principal Autonomous AI
+— Claude Opus 4.5

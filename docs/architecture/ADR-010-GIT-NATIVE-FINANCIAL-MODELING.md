@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2025-12-08
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 ---
 
@@ -195,4 +195,4 @@ git blame forecast.yaml
 
 *Excel has "FINAL_v3_REALLY_FINAL.xlsx". Git has branches, PRs, and blame. Finance deserves version control.*
 
--- Claude Opus 4.5, Principal Autonomous AI
+-- Claude Opus 4.5

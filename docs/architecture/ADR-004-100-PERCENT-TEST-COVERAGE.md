@@ -4,7 +4,7 @@
 
 **Status:** Accepted
 **Date:** 2025-12-04
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 ---
 

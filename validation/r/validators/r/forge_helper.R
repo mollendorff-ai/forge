@@ -15,8 +15,9 @@ forge_bin <- function() {
 }
 
 # Evaluate one Excel-style formula with `forge calculate`.
-# Returns a number, or NA when Forge returns an error or no number.
-forge_eval <- function(formula) {
+# Returns the text Forge printed after `assumptions.r = `, or NA_character_
+# when Forge returns an error or prints no result.
+forge_eval_text <- function(formula) {
   tmp <- tempfile(fileext = ".yaml")
   on.exit(unlink(c(tmp, paste0(tmp, ".bak"))), add = TRUE)
   escaped <- gsub("\"", "\\\\\"", formula)
@@ -29,13 +30,22 @@ forge_eval <- function(formula) {
   ), tmp)
   out <- suppressWarnings(system2(forge_bin(), c("calculate", tmp), stdout = TRUE, stderr = TRUE))
   hit <- grep("assumptions\\.r = ", out, value = TRUE)
-  if (length(hit) == 0) return(NA_real_)
-  suppressWarnings(as.numeric(sub(".*assumptions\\.r = ", "", hit[[1]])))
+  if (length(hit) == 0) return(NA_character_)
+  trimws(sub(".*assumptions\\.r = ", "", hit[[1]]))
 }
 
-# Same, for a formula that returns a date (Forge returns an Excel serial number).
+# Same, as a number, or NA when Forge returns an error or no number.
+forge_eval <- function(formula) {
+  suppressWarnings(as.numeric(forge_eval_text(formula)))
+}
+
+# Same, for a formula that returns a date. Forge prints a date as text
+# (2024-02-29, ADR-060); a date before 1900-03-01 is an Excel serial number.
 forge_eval_date <- function(formula) {
-  serial <- forge_eval(formula)
+  text <- forge_eval_text(formula)
+  if (is.na(text)) return(as.Date(NA))
+  if (grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", text)) return(as.Date(text))
+  serial <- suppressWarnings(as.numeric(text))
   if (is.na(serial)) return(as.Date(NA))
   as.Date(serial, origin = "1899-12-30")
 }

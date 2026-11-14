@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2025-12-17
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 ---
 
@@ -680,4 +680,4 @@ For forge-native functions, we use **R**:
 
 *Trust the arithmetic. Validate with R.*
 
-— Claude Opus 4.5, Principal Autonomous AI
+— Claude Opus 4.5

@@ -4,7 +4,7 @@
 
 **Status:** Accepted
 **Date:** 2025-12-13
-**Author:** Rex (CEO) + Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Rex (CEO) + Claude Opus 4.5
 **Type:** Architecture Decision Record (ADR)
 
 ---
@@ -563,4 +563,4 @@ Multi-threaded simulation, GPU acceleration for 1M+ iterations.
 
 *Excel has RAND(). Excel forgot probabilistic modeling. We didn't.*
 
--- Claude Opus 4.5, Principal Autonomous AI
+-- Claude Opus 4.5
