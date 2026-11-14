@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+Wrong answers found by sweeping the 45 date and financial functions (7,959 generated cases) against Gnumeric and LibreOffice; each now gives what both engines give, or what Excel's documentation says where they differ. Cases in `validation/gnumeric/tests/edge/edge_date_finance_sweep.yaml`; the sweep is in `validation/sweep/`.
+- **`NETWORKDAYS` and `WORKDAY` ignored their holidays.** The third argument was accepted and dropped, so a range with holidays counted them as working days. A date, a day number or a column of them is read now; empty cells are skipped.
+- **`WEEKDAY` with return type 11 to 17 answered as type 1**, and any other unknown type did too. Types 11 to 17 start the week on Monday to Sunday; other types are #NUM!.
+- **`DATEDIF(start, end, "YM")` gave 0 instead of 11** when the end was in the same calendar month as the start, on an earlier day, a year later (2023-01-30 to 2024-01-01).
+- **`DATE` with a year from 0 to 1899 used that year**: `DATE(99, 1, 1)` was the year 99. Excel adds 1900 (Microsoft's example: `DATE(108, 1, 2)` is 2008-01-02). A year below 0 or above 9999, or a date after 9999-12-31, is #NUM!.
+- **`TIME` past 24 hours gave more than a day** (`TIME(25, 0, 0)` was 1.0417): it starts the day again, as Excel does (0.0417). A negative time is #NUM!.
+- **`EFFECT` and `NOMINAL` used a fractional number of periods per year**; Excel truncates it (`EFFECT(0.05, 2.7)` is `EFFECT(0.05, 2)`).
+- **`IPMT` and `PPMT` at a rate of 0 accepted a period outside 1 to nper**; it is #NUM!, as at any other rate.
+- **`DDB` gave 0 for a period after the life**; it is #NUM!.
+
+These are wrong answers fixed, so by docs/STABILITY.md the two weeks before a stable release start again from the release that carries them.
+
+### Fixed
 - **Forge Studio read a decimal comma as a thousands separator**: `0,03` typed on a card was 3, not 0.03, with no warning, on a phone set to French. A comma is now a decimal mark (`0,03`, `3,5`, `4,5 %`) except in the shapes that are thousands (`1,250` is 1250 as before, `1,234,567`, `1.234,56` and `1 234,5` with a space or no-break space). A group that does not fit, such as `1,2,3,4`, is refused instead of read. `studio/tests/format.mjs` and `layout.mjs` cover it.
 
 ## [10.0.0-rc.22] - 2026-11-13

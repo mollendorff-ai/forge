@@ -76,10 +76,10 @@ tier1:
     acceptance: "The four Excel values are recorded in validation/gnumeric (financial.yaml) with the date they were checked, and Forge gives them"
 
   - id: T1-EXCEL-CHECKS
-    title: "Two documented results to check in real Excel (functions added in rc.19)"
-    why: "Forge, Gnumeric, LibreOffice and an independent Python loop agree on both, but each differs from something published or from one engine. VDB(2400,300,10*12,6,18,3): Microsoft's page says 396.31, all four computations give 540.19 (the other four documented examples match), so the page is probably wrong. WEEKNUM(DATE(2020,12,31),11): Forge and the calendar say 53, LibreOffice says 1; nine such year-end cases of types 11 to 17 are checked against Forge only (gnumeric_skip)"
-    how: "Type both in Excel. If VDB gives 396.31, find what differs and change VDB; if WEEKNUM gives 1, change the year-end rule of types 11 to 17"
-    acceptance: "The Excel values are recorded in validation/gnumeric (statistics_finance_batch.yaml) with the date they were checked, and Forge gives them"
+    title: "Results to check in real Excel, where the engines and Forge do not settle it"
+    why: "Each differs from something published or from one or both engines. VDB(2400,300,10*12,6,18,3): Microsoft's page says 396.31, Forge, Gnumeric, LibreOffice and a Python loop give 540.19. WEEKNUM(DATE(2020,12,31),11): Forge and the calendar say 53, LibreOffice says 1 (nine year-end cases of types 11 to 17 are checked against Forge only). Found by the sweep of 2026-11-13 (validation/sweep): VDB with a fractional start differs from both engines in all 281 such cases (VDB(100,10,3,0.5,1): Forge 22.22, both 33.33; whole starts all agree); TIME(23,59,59.5): Forge 0.999988 (seconds truncated, as Excel is believed to), both 0.999994; DATEDIF(DATE(2024,2,29),DATE(2025,12,29),\"YD\"): Forge 304, LibreOffice 303; SYD(10000,1000,0.5,1): Forge #NUM! (period after a life under 1), both 12000; DATE(1899,12,31): Forge 3799-12-31 by Microsoft's DATE page, both engines 1899-12-31"
+    how: "Type each in Excel. VDB 396.31: find what differs. WEEKNUM 1: change the year-end rule of types 11 to 17. VDB with a fractional start at 33.33: count it as the engines do. For the others, give Forge Excel's answer where it differs"
+    acceptance: "The Excel values are recorded in validation/gnumeric with the date they were checked, and Forge gives them"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
