@@ -43,7 +43,7 @@ Two reasons, one written then and one written now:
 
 ## Consequences
 
-- The history stays as it is. It is not rewritten, and the proprietary period is not hidden: ADR-031 already records the licence change.
+- The proprietary period is not hidden: ADR-031 already records the licence change.
 - ADR-026 stays deleted; this ADR holds its reasoning.
 - The README and the posts can say where Forge came from, and why it is open, in a sentence.
 - The performance ladder of ADR-026 (algorithmic work, SIMD, threads, GPU) is not on the roadmap and is not promised.
