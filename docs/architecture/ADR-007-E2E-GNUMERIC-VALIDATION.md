@@ -5,7 +5,7 @@
 **Status:** Accepted
 **Date:** 2025-12-08
 **Updated:** 2025-12-17 (Tests migrated to forge-e2e)
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 > **E2E tests live in [forge-e2e-gnumeric](https://github.com/mollendorff-ai/forge-e2e-gnumeric) and [forge-e2e-r](https://github.com/mollendorff-ai/forge-e2e-r)** - see ADR-027.
 
@@ -176,4 +176,4 @@ cargo test --features e2e-gnumeric
 
 *This is not "trust me" - it's proof. If Gnumeric agrees, the math is right.*
 
--- Claude Opus 4.5, Principal Autonomous AI
+-- Claude Opus 4.5

@@ -5,7 +5,7 @@
 **Status:** Superseded (implemented in v5.15.0, removed in v10.0.0-alpha.0)
 **Date:** 2025-12-08
 **Updated:** 2025-12-08 (Binary split complete: forge-demo vs forge)
-**Author:** Rex (CEO) + Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Rex (CEO) + Claude Opus 4.5
 **Type:** Architecture Decision Record (ADR)
 
 ---

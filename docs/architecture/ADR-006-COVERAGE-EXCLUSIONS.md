@@ -4,7 +4,7 @@
 
 **Status:** Accepted (Updated 2025-12-29)
 **Date:** 2025-12-04 (Updated 2025-12-29)
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 ---
 
@@ -246,4 +246,4 @@ cargo llvm-cov --cfg coverage --fail-under-lines 100
 
 *Exclusions are explicit, documented, and minimal.*
 
-— Claude Opus 4.5, Principal Autonomous AI (Updated 2025-12-29)
+— Claude Opus 4.5 (Updated 2025-12-29)

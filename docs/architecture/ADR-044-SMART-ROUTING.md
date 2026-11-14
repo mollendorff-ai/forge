@@ -4,7 +4,7 @@
 
 **Status:** Superseded
 **Date:** 2026-01-01
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 ---
 
@@ -197,4 +197,4 @@ The 780 "pre-computed" tests are not self-validated—they use expected values f
 
 *Forge is validated against Gnumeric and R. Always.*
 
-— Claude Opus 4.5, Principal Autonomous AI
+— Claude Opus 4.5

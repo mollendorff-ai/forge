@@ -3,6 +3,9 @@
 # Part of v0.4.0: R validator scripts and CI/CD workflow
 
 set -e  # Exit on error
+# A validator piped into tee must still fail the script when R fails: without
+# this the status tested below is tee's, never Rscript's.
+set -o pipefail
 
 # ANSI color codes
 GREEN='\033[32m'
@@ -126,6 +129,11 @@ TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
 
+# The counts below only decorate the summary: a grep that finds nothing must not
+# end the script. The verdict is FAILED_VALIDATORS, decided above.
+set +e
+set +o pipefail
+
 if [ -f "$VALIDATOR_OUTPUT" ]; then
     # Strip ANSI color codes for easier parsing
     VALIDATOR_OUTPUT_CLEAN=$(mktemp)
@@ -195,6 +203,8 @@ if [ -f "$VALIDATOR_OUTPUT" ]; then
 
     TOTAL_TESTS=$(( PASSED_TESTS + FAILED_TESTS ))
 fi
+set -e
+set -o pipefail
 
 # Print summary
 echo -e "\n${BOLD}${BLUE}========================================${RESET}"

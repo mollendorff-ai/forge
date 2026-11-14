@@ -599,12 +599,13 @@ fn includes_of(source: Option<&Path>) -> Vec<(PathBuf, String)> {
     fs::read_to_string(path)
         .ok()
         .and_then(|content| yaml_serde::from_str::<TestSpec>(&content).ok())
-        .map_or_default(|spec| {
+        .map(|spec| {
             spec.includes
                 .into_iter()
                 .map(|inc| (dir.join(inc.file), inc.namespace))
                 .collect()
         })
+        .unwrap_or_default()
 }
 
 /// Copy the spec's included files into `dir`, the folder of the generated
@@ -634,7 +635,8 @@ fn table_data_for(source: Option<&Path>) -> String {
     source
         .and_then(|path| fs::read_to_string(path).ok())
         .and_then(|content| yaml_serde::from_str::<TestSpec>(&content).ok())
-        .map_or_default(|spec| extract_table_data_yaml(&spec))
+        .map(|spec| extract_table_data_yaml(&spec))
+        .unwrap_or_default()
 }
 
 /// A formula `forge export` wrote as its value: (name, Forge's reason).

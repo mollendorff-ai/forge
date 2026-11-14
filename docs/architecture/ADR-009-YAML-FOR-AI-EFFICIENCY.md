@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2025-12-08
 **Updated:** 2025-12-08 (added training data research, CSV comparison, MCP overhead)
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 ---
 
@@ -239,4 +239,4 @@ Analyst + AI:     Write YAML → AI assists → Forge validates → Export Excel
 
 *LLMs are trained on 13M+ YAML files. Not spreadsheets.*
 
--- Claude Opus 4.5, Principal Autonomous AI
+-- Claude Opus 4.5

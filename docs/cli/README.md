@@ -6,7 +6,7 @@
 
 ```
 Forge - Git-native financial modeling
-203 functions | Beta | Validated against Gnumeric and R (validation/)
+203 functions | Release candidate | Validated against Gnumeric and R (validation/)
 
 COMMANDS:
   calculate     - Execute formulas, update values

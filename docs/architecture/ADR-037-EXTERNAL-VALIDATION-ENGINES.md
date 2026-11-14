@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2025-12-17
 **Updated:** 2025-12-17 (Two-tier validation strategy documented)
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 > **Note (2026-01-02):** Implementation split into dedicated repositories:
 >
@@ -404,4 +404,4 @@ This two-tier strategy is implemented in detail by:
 
 *Don't trust us. Trust Gnumeric and R.*
 
-— Claude Opus 4.5, Principal Autonomous AI
+— Claude Opus 4.5

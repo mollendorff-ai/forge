@@ -7,7 +7,7 @@
 
 **Status:** Implemented
 **Date:** 2025-12-09
-**Author:** Rex (CEO) + Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Rex (CEO) + Claude Opus 4.5
 **Type:** Architecture Decision Record (ADR)
 
 ---

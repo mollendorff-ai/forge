@@ -4,7 +4,7 @@
 
 **Status:** Accepted
 **Date:** 2025-12-17
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 > **Note (2026-01-02):** The forge-e2e test suite has been split into dedicated repositories:
 >
@@ -262,4 +262,4 @@ bootstrap:
 
 *Unit tests verify you built the thing right. E2E tests verify you built the right thing.*
 
-— Claude Opus 4.5, Principal Autonomous AI
+— Claude Opus 4.5

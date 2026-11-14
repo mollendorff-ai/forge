@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The R formula suite could not fail.** `validation/r/validators/r/run_all.sh` ran each validator through `tee`, so it tested `tee`'s exit status, not R's: on rc.23 it printed 121 passed and 15 failed, then "All validators passed", exit 0. It stops at the first failing validator now (`set -o pipefail`), and the check was shown to fail with a deliberately wrong value. The 15 failures were `DATE` and `WORKDAY` checks: since ADR-060 Forge prints a date as text and the R helper expected a serial number; it reads both. 136 of 136 checks pass.
+- **Forge did not build on Rust 1.97.0** (8 uses of `Option::map_or_default`, stable only since 1.98, and 14 more in the validation suites). They are `map(..).unwrap_or_default()` now.
+
+### Added
+- **`rust-version = "1.97"`** in Cargo.toml, the same `msrv` in `clippy.toml` (clippy stops suggesting newer APIs), and a CI job that builds on the declared version.
+
+### Changed
+- **`forge --help` says Release candidate, not Beta**, as docs/cli/README.md does.
+- **Bug-fix rule:** a failing test now comes first for every bug fix (an error, a crash, a wrong message), not only a wrong answer: `.asimov/project.yaml`, CONTRIBUTING.md and the pull request template.
+- **Stale numbers and labels corrected:** 1,826 tests and 2 doctests, 1,931 Gnumeric cases (139 by LibreOffice, 55 files, 14 checked against Forge only), `VALIDATION.md`'s CI wording (beta Rust runs weekly, not on every push), the function count in a Cargo.toml comment (203), and the goal-seek block in the README (the command prints 397.04 and 80,000.00).
+- **Author lines name Claude plainly** in Cargo.toml (`Claude (Anthropic)`) and 23 ADRs, without the self-given title.
+- A committed `__pycache__` file is removed and ignored.
+
 ### Removed
 - **Three ADRs about work that is not Forge's:** ADR-026 (FPGA acceleration for high-frequency trading), ADR-028 (crystal analysis for DANEEL, never built) and ADR-030 (a go-to-market plan from the Elastic-2.0 period). All three were deferred, not scheduled or superseded. ADR-031 keeps the licence history. No code or behaviour changes.
 

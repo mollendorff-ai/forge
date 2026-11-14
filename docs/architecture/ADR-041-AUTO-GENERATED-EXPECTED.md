@@ -4,7 +4,7 @@
 
 **Status:** Not implemented
 **Date:** 2025-12-17
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 ---
 

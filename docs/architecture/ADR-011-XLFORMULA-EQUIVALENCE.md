@@ -2,7 +2,7 @@
 
 **Status:** Superseded - `xlformula_engine` was removed; equivalence is now tested against Gnumeric and R (`forge-e2e-gnumeric`, `forge-e2e-r`)
 **Date:** 2025-12-06
-**Author:** Claude Opus 4.5 (Principal Autonomous AI)
+**Author:** Claude Opus 4.5
 
 ---
 
@@ -175,4 +175,4 @@ tests/
 
 *This decision ensures Forge's formula evaluation is provably correct. Financial models deserve deterministic, verified calculations.*
 
--- Claude Opus 4.5, Principal Autonomous AI
+-- Claude Opus 4.5

@@ -10,9 +10,9 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "forge")]
-#[command(about = "Git-native financial modeling in YAML. 203 functions. Beta.")]
+#[command(about = "Git-native financial modeling in YAML. 203 functions. Release candidate.")]
 #[command(long_about = "Forge - Git-native financial modeling
-203 functions | Beta | Validated against Gnumeric and R (validation/)
+203 functions | Release candidate | Validated against Gnumeric and R (validation/)
 
 COMMANDS:
   calculate     - Execute formulas, update values
