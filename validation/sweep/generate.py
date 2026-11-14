@@ -114,7 +114,6 @@ def yaml_tables(cols):
 # and ? before a kind for an argument that may be left out.
 
 NUM, TXT = "num", "text"
-CHUNK = 1000
 CATALOGUE = {
     # dates
     "DATE": (NUM, "i:1899:2101 i:-2:14 i:-1:32"), "EDATE": (NUM, "d i:-25:25"), "EOMONTH": (NUM, "d i:-25:25"),
@@ -263,13 +262,9 @@ def main():
         part = [c for c in cases if c["kind"] == kind]
         if not part:
             continue
-        # Models of at most CHUNK cases: forge calculate slows down faster
-        # than the number of scalars grows (1,000 in 0.2 s, 4,000 in 8 s)
         values = {}
-        for i in range(0, len(part), CHUNK):
-            chunk = part[i:i + CHUNK]
-            for n, f, lo, gn in runner(f"gen{a.seed}{suffix}_{i // CHUNK}", [(c["id"], c["formula"]) for c in chunk], a.work, extra):
-                values[n] = (f, lo, gn)
+        for n, f, lo, gn in runner(f"gen{a.seed}{suffix}", [(c["id"], c["formula"]) for c in part], a.work, extra):
+            values[n] = (f, lo, gn)
         for c in part:
             c["forge"], c["lo"], c["gn"] = values[c["id"]]
     counts = {"agreed": 0, "forge-alone": 0, "judges-split": 0, "all-different": 0}

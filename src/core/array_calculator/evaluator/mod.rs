@@ -25,11 +25,13 @@ pub(crate) use criterion::Criterion;
 mod normal;
 mod regression;
 mod schedule;
+mod scope;
 mod statistical;
 pub(crate) mod text;
 mod trig;
 mod values;
 pub(crate) mod wildcard;
+pub use scope::{evaluate_without_row, Aliases};
 pub use values::number_text;
 pub(crate) use values::{is_na_error, paired_numbers};
 
@@ -190,6 +192,11 @@ pub struct EvalContext {
     /// while one is, the row is hidden (see [`EvalContext::row`])
     pub whole_args: std::cell::RefCell<Vec<usize>>,
     pub hidden_row: std::cell::Cell<usize>,
+    /// Short names (`price` for `summary.price`) the formula being evaluated
+    /// may use, with the full name each stands for. A name in `scalars`
+    /// comes first, so a column or a LAMBDA parameter laid over the context
+    /// hides a short name, as it hid one laid there.
+    pub aliases: Option<std::rc::Rc<Aliases>>,
 }
 
 impl EvalContext {
@@ -206,6 +213,7 @@ impl EvalContext {
             growing_table: None,
             whole_args: std::cell::RefCell::new(Vec::new()),
             hidden_row: std::cell::Cell::new(0),
+            aliases: None,
         }
     }
 
@@ -223,7 +231,10 @@ impl EvalContext {
     /// Get a scalar value by name
     #[must_use]
     pub fn get_scalar(&self, name: &str) -> Option<&Value> {
-        self.scalars.get(name)
+        self.scalars.get(name).or_else(|| {
+            let full = self.aliases.as_ref()?.get(name)?;
+            self.scalars.get(full)
+        })
     }
 
     /// Get a table column
@@ -475,7 +486,12 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
                     if ctx.tables.contains_key(table.as_str()) {
                         return EvalError::new(format!("Unknown column: {wanted}"));
                     }
-                    let names: Vec<&str> = ctx.scalars.keys().map(String::as_str).collect();
+                    let names: Vec<&str> = ctx
+                        .scalars
+                        .keys()
+                        .chain(ctx.aliases.iter().flat_map(|a| a.keys()))
+                        .map(String::as_str)
+                        .collect();
                     let hint = crate::error::closest(&wanted, &names)
                         .map(|c| format!(" Did you mean '{c}'?"))
                         .unwrap_or_default();

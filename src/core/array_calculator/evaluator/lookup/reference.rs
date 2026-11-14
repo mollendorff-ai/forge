@@ -9,10 +9,10 @@
     clippy::cast_precision_loss
 )]
 
-use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
+use crate::core::array_calculator::evaluator::{evaluate_without_row, number_or};
 
 /// Evaluate INDIRECT function
 /// `INDIRECT(ref_text`, [a1])
@@ -20,7 +20,7 @@ use crate::core::array_calculator::evaluator::{
 pub fn eval_indirect(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("INDIRECT", args, 1)?;
     let ref_str = evaluate(&args[0], ctx)?.as_text();
-    if let Some(val) = ctx.scalars.get(&ref_str) {
+    if let Some(val) = ctx.get_scalar(&ref_str) {
         return Ok(val.clone());
     }
     if ref_str.contains('.') {
@@ -43,19 +43,7 @@ pub fn eval_indirect(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
 /// Returns a reference offset from a given reference
 pub fn eval_offset(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("OFFSET", args, 3, 5)?;
-
-    let array_ctx = EvalContext {
-        scalars: ctx.scalars.clone(),
-        tables: ctx.tables.clone(),
-        scenarios: ctx.scenarios.clone(),
-        current_row: None,
-        row_count: ctx.row_count,
-        lag: std::cell::Cell::new(0),
-        growing_table: None,
-        whole_args: std::cell::RefCell::new(Vec::new()),
-        hidden_row: std::cell::Cell::new(0),
-    };
-    let base = evaluate(&args[0], &array_ctx)?;
+    let base = evaluate_without_row(&args[0], ctx)?;
     let rows = evaluate(&args[1], ctx)?
         .as_cell_number()
         .ok_or_else(|| EvalError::new("OFFSET: rows must be a number"))? as i64;
