@@ -15,11 +15,13 @@
 
 state:
   version: >-
-    10.0.0-rc.22, released 2026-11-13: YEARFRAC basis 0 from the last day
-    of February to a 31st fixed (a wrong answer, so the two weeks in
-    docs/STABILITY.md start again from rc.22: no earlier than 2026-11-27,
-    the same day as before since rc.20 was also today), and the CLI and MCP
-    agree on dates. rc.21 (2026-11-13): a date as a scalar (ADR-060) and
+    10.0.0-rc.23, released 2026-11-14: eight wrong answers in date and
+    financial functions fixed (NETWORKDAYS/WORKDAY holidays, WEEKDAY types
+    11-17, DATEDIF YM, DATE years below 1900, TIME past 24 hours, EFFECT and
+    NOMINAL periods, IPMT/PPMT and DDB periods out of range), so the two
+    weeks in docs/STABILITY.md start again from rc.23: no earlier than
+    2026-11-28. rc.22 (2026-11-13): YEARFRAC basis 0 from the last day of
+    February to a 31st fixed, and the CLI and MCP agree on dates. rc.21 (2026-11-13): a date as a scalar (ADR-060) and
     format: beside unit: (ADR-061), both in model format 5.4.0. rc.20 (2026-11-13): a table column can aggregate a
     column (ADR-058), an empty cell in a column of numbers (ADR-059, model
     format 5.3.0, COUNTBLANK: 203 functions), and two wrong answers in
