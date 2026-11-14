@@ -156,15 +156,19 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f
 
+      # The names are the published ones, without the build job's folder,
+      # so `sha256sum -c checksums.txt` works next to downloaded archives
       - name: Generate checksums
         run: |
-          cd artifacts
-          for dir in */; do
-            for file in "$dir"*; do
-              sha256sum "$file" >> ../checksums.txt
-            done
-          done
-          cat ../checksums.txt
+          scripts/release-checksums.sh artifacts > checksums.txt
+          cat checksums.txt
+
+      - name: Check the checksums before publishing
+        run: |
+          mkdir published
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} published/ \;
+          cp checksums.txt published/
+          cd published && sha256sum -c checksums.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -176,6 +180,15 @@ jobs:
             checksums.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # What a tester gets: every asset of the release, downloaded into an
+      # empty folder, checked with a plain sha256sum -c
+      - name: Check the published assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ github.ref_name }}" --repo "${{ github.repository }}" --dir downloaded
+          cd downloaded && sha256sum -c checksums.txt
 
   # Publish to crates.io on release
   # Forge Studio on GitHub Pages (ADR-056 decision 6), at this tag. A run
