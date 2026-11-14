@@ -28,7 +28,10 @@ mod schedule;
 mod statistical;
 pub(crate) mod text;
 mod trig;
+mod values;
 pub(crate) mod wildcard;
+pub use values::number_text;
+pub(crate) use values::{is_na_error, paired_numbers};
 
 // Extended evaluator modules
 mod advanced;
@@ -894,42 +897,6 @@ pub(crate) fn collect_numeric_values(
     Ok(values)
 }
 
-/// A number as Excel turns it into text (`CONCAT`, `LEN`, `&`).
-///
-/// At most 15 significant digits, so `0.1 + 0.2` is `0.3` and `1/3` is
-/// `0.333333333333333`; a whole number below 1E+16 in full; from 1E+15 on
-/// otherwise, and below 1E-10, in the form `1E+20`.
-#[must_use]
-#[allow(clippy::cast_possible_truncation)]
-pub fn number_text(n: f64) -> String {
-    if !n.is_finite() {
-        return format!("{n}");
-    }
-    if n == 0.0 {
-        return "0".to_string();
-    }
-    // A whole number below 1E+16 is written in full, as both engines write it
-    if n.fract() == 0.0 && n.abs() < 1e16 {
-        return format!("{}", n as i64);
-    }
-    let scientific = format!("{n:.14e}");
-    let (mantissa, exponent) = scientific.split_once('e').unwrap_or((&scientific, "0"));
-    let exponent: i32 = exponent.parse().unwrap_or(0);
-    if !(-10..15).contains(&exponent) {
-        let mantissa = mantissa.trim_end_matches('0').trim_end_matches('.');
-        let sign = if exponent < 0 { '-' } else { '+' };
-        return format!("{mantissa}E{sign}{:02}", exponent.abs());
-    }
-    let decimals = usize::try_from(14 - exponent).unwrap_or(0);
-    let rounded: f64 = scientific.parse().unwrap_or(n);
-    let text = format!("{rounded:.decimals$}");
-    if text.contains('.') {
-        text.trim_end_matches('0').trim_end_matches('.').to_string()
-    } else {
-        text
-    }
-}
-
 /// The day number of a date written `YYYY-MM-DD`: the days since 1899-12-30,
 /// which is Excel's serial number for every date from 1900-03-01 on.
 #[must_use]
@@ -1019,6 +986,8 @@ mod batch_tests;
 mod date_tests;
 #[cfg(test)]
 mod empty_cell_tests;
+#[cfg(test)]
+mod generated_tests;
 #[cfg(test)]
 mod sweep_text_lookup_tests;
 

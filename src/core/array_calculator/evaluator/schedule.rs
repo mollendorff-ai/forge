@@ -28,6 +28,54 @@ fn cumulative(
     ctx: &EvalContext,
     part: impl Fn(f64, f64, f64, f64, f64) -> f64,
 ) -> Result<f64, EvalError> {
+    let (rate, nper, pv, start, end, kind) = cumulative_args(name, args, ctx)?;
+    let mut total = 0.0;
+    let mut per = start;
+    while per <= end {
+        total += part(rate, per, nper, pv, kind);
+        per += 1.0;
+    }
+    Ok(total)
+}
+
+/// CUMPRINC in closed form. The principal of period k is the first full
+/// period's times (1 + r)^(k - 1), and that first one is -pv * r / ((1 + r)^n - 1),
+/// so the sum is a geometric series with no difference of large numbers (the
+/// sum of PMT - IPMT lost digits at a rate of 50%: 7E-6 relative). With
+/// payments at the start, period 1 is the whole payment and the series starts
+/// at period 2.
+fn cumulative_principal(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<f64, EvalError> {
+    let (rate, nper, pv, start, end, kind) = cumulative_args(name, args, ctx)?;
+    let ln = rate.ln_1p();
+    let grow = |k: f64| (k * ln).exp();
+    let grown = |k: f64| (k * ln).exp_m1();
+    let per_unit = -pv / grown(nper);
+    // Sum of (1 + r)^j for j from a to b, times r: (1 + r)^a * ((1 + r)^(b - a + 1) - 1)
+    let series = |a: f64, b: f64| {
+        if b < a {
+            0.0
+        } else {
+            grow(a) * grown(b - a + 1.0)
+        }
+    };
+    Ok(if kind == 0.0 {
+        per_unit * series(start - 1.0, end - 1.0)
+    } else {
+        let first = if start <= 1.0 {
+            annuity_pmt(rate, nper, pv, 0.0, 1.0)
+        } else {
+            0.0
+        };
+        per_unit.mul_add(series(start.max(2.0) - 2.0, end - 2.0), first)
+    })
+}
+
+/// The checked arguments of CUMIPMT and CUMPRINC
+fn cumulative_args(
+    name: &str,
+    args: &[Expr],
+    ctx: &EvalContext,
+) -> Result<(f64, f64, f64, f64, f64, f64), EvalError> {
     require_args(name, args, 6)?;
     let rate = number(name, args, 0, ctx)?;
     let nper = number(name, args, 1, ctx)?;
@@ -50,18 +98,11 @@ fn cumulative(
     if kind != 0.0 && kind != 1.0 {
         return Err(num_error(name, "the type must be 0 or 1"));
     }
-    let nper = nper.trunc();
-    let mut total = 0.0;
-    let mut per = start;
-    while per <= end {
-        total += part(rate, per, nper, pv, kind);
-        per += 1.0;
-    }
-    Ok(total)
+    Ok((rate, nper.trunc(), pv, start, end, kind))
 }
 
 /// Depreciation of one whole period by the declining balance, as `DDB` gives it
-fn declining(cost: f64, salvage: f64, life: f64, period: f64, factor: f64) -> f64 {
+pub(super) fn declining(cost: f64, salvage: f64, life: f64, period: f64, factor: f64) -> f64 {
     let mut rate = factor / life;
     let before = if rate >= 1.0 {
         rate = 1.0;
@@ -143,8 +184,10 @@ fn vdb(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<f64, EvalError> {
     } else {
         false
     };
+    // A salvage above the cost is #NUM! too, as both engines give
     if cost < 0.0
         || salvage < 0.0
+        || salvage > cost
         || life <= 0.0
         || start < 0.0
         || end < start
@@ -208,14 +251,16 @@ pub fn try_evaluate(
             if pv == 0.0 {
                 return Err(EvalError::new("RRI: the present value is 0 (#DIV/0!)"));
             }
-            let ratio = fv / pv;
-            if ratio < 0.0 {
+            // A negative ratio has a root only when 1/nper is a whole number,
+            // as in POWER (RRI(1, 100, -50) is -1.5, as both engines give)
+            let grown = (fv / pv).powf(1.0 / nper);
+            if grown.is_nan() {
                 return Err(num_error(
                     name,
                     "the present and future values must have the same sign",
                 ));
             }
-            Value::Number(ratio.powf(1.0 / nper) - 1.0)
+            Value::Number(grown - 1.0)
         },
 
         "SYD" => {
@@ -234,10 +279,7 @@ pub fn try_evaluate(
             annuity_ipmt(rate, per, nper, pv, 0.0, kind)
         })?),
 
-        "CUMPRINC" => Value::Number(cumulative(name, args, ctx, |rate, per, nper, pv, kind| {
-            annuity_pmt(rate, nper, pv, 0.0, kind) - annuity_ipmt(rate, per, nper, pv, 0.0, kind)
-        })?),
-
+        "CUMPRINC" => Value::Number(cumulative_principal(name, args, ctx)?),
         "VDB" => Value::Number(vdb(name, args, ctx)?),
 
         _ => return Ok(None),

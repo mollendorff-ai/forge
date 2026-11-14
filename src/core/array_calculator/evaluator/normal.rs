@@ -13,6 +13,11 @@ fn exp_neg_square(x: f64) -> f64 {
 
 /// `exp(-z * z / 2)`, split the same way
 fn exp_neg_half_square(z: f64) -> f64 {
+    // exp(-800) is below the smallest double; the split below would give
+    // 0 * infinity there
+    if z.abs() > 40.0 {
+        return 0.0;
+    }
     let hi = (z * 16.0).floor() / 16.0;
     (-hi * hi / 2.0).exp() * (-(z - hi) * (z + hi) / 2.0).exp()
 }

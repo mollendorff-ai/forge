@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Generated cases against Gnumeric and LibreOffice in CI (ADR-062).** `validation/sweep/generate.py` draws each of 133 functions' arguments from a seed, toward the values where spreadsheets go wrong. A pull request runs seed 1 (2,660 cases, 3 s), and the Monday run of the Validation workflow a new seed every week (26,600 cases, 22 s). A case where Forge disagrees with the engines fails, unless `validation/sweep/known.py` covers it: 21 rules, one class of input each, with the reason and where it is tracked. A failure prints the command that replays it.
+
+### Fixed
+Wrong answers found by the generated cases (seeds 1 to 10 and 202646). Each now gives what both engines give, or LibreOffice where Gnumeric cannot judge, or the exact value where every engine loses digits. Cases are in `validation/gnumeric/tests/edge/edge_generated.yaml`, and the Forge-only answers have unit tests.
+- **`NA()` was an empty value**, the same as an empty cell (ADR-059). So `IFNA(MATCH(...), x)` and `ISNA(MATCH(...))`, the usual test for "not found", failed instead of catching it; `IFERROR` and `ISERROR` took an empty cell for an error; and `ISBLANK(NA())` was TRUE. `NA()` is now the error `#N/A`, which a lookup that finds nothing also gives (`MATCH`, `XMATCH`, `XLOOKUP`, `VLOOKUP`, `HLOOKUP`, `RANK.EQ`, `IFS`, `SWITCH`). `IFNA` and `ISNA` catch it and no other error. The `IS` functions never fail. `TYPE` of an empty cell is 1. A formula that reads `NA()` now fails, as in Excel, where before it read nothing.
+- **`CORREL`, `SLOPE`, `INTERCEPT`, `RSQ`, `FORECAST`, `COVARIANCE.P` and `COVARIANCE.S` failed when a column had an empty cell**: it was dropped from one column only. A pair with an empty cell is left out, as in Excel.
+- **`DATEDIF` with the start after the end gave a number**; it is #NUM!.
+- **`HOUR`, `MINUTE` and `SECOND` of a negative number gave a negative result**, and a time that rounds up to midnight gave hour 24. A negative number is #NUM!; midnight is the next day's 0.
+- **`PMT`, `PV`, `FV`, `IPMT`, `PPMT`, `RATE` and `NPER` lost digits at a rate near 0**: `PMT(1e-9, 24, -2.5, -0.227)` was 0.11362885, where it is 0.11362886. `RATE` stopped short of the root with a large loan (`RATE(276, -100, 1E15)` was -0.0725; it is -0.0951). `CUMPRINC` lost digits at a rate of 50% (7E-6 relative) and is now a closed form, exact to 15 digits. `NPER` is exact to 15 digits where both engines lose some.
+- **`NORM.DIST` far in a tail was an error**; the density there is 0.
+- **`DB` gave nonsense past the life** (-6.7E+36) and 0 for a life of 0. It is #NUM! outside LibreOffice's range: salvage from 0 to the cost, a period up to the life + 1, a month from 1 to 12. **`DDB` with a fractional period**, or past the salvage, used a loop over whole periods; it uses the closed form `VDB` and both engines use. **`VDB` with a salvage above the cost** is #NUM!, as both engines give.
+- **`RRI` refused a negative ratio over one period**: `RRI(1, 100, -50)` is -1.5, as `POWER` gives.
+- **`COUNTIF` and the other criteria did not compare text with `>`, `<`, `>=` and `<=`**: `COUNTIF(names, ">c")` was 0. They compare text, ignoring case. A pattern (`*`, `?`) no longer matches an empty text, which the workbook holds as an empty cell, and neither a pattern nor a comparison with text matches a date, which the workbook holds as a number.
+- **`RANK.EQ` counted 1E-12 as equal to 0**, one place early; it counts the values above, exactly.
+- **`MOD` computed n - d·INT(n/d) in floating point**: `MOD(7.3, 0.1)` was -5.8E-16, negative for a positive divisor, and `MOD(1E15, 1E-12)` was 0.0068, larger than the divisor. It is the exact remainder, with the divisor's sign.
+- **A number as text rounded its binary value to 15 digits**: -985667.1985084685 was written ...468, not ...469. It rounds the shortest decimal form, as LibreOffice does.
+
+These are wrong answers fixed, so by docs/STABILITY.md the two weeks before a stable release start again from the release that carries them.
+
 ### Fixed
 - **`forge validate` accepted a table whose columns have different lengths.** A table with a 3-row and a 2-row column passed validation ("All tables are valid"); the error came only when a formula read the table. `validate` now refuses it, naming the table, the column and both lengths, and exits 1. `forge export` still writes it, as columns of different lengths are ranges in a workbook (the Gnumeric suite's fixtures use them), but now warns with the same message. Roadmap T1-VALIDATE-GAPS; `tests/validate_gaps.rs`.
 - **A misspelled scalar name was reported as `Unknown column: a.price`, with no suggestion.** It now says `Unknown name: a.price. Did you mean 'a.prce'?` when the name is close to one in the model, as `.asimov/project.yaml` requires. A missing column of a table that exists still says `Unknown column`.

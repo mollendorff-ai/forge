@@ -61,7 +61,7 @@ pub fn eval_xlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         search_mode,
     )?;
     idx.map_or_else(
-        || if_not_found.map_or_else(|| Err(EvalError::new("XLOOKUP: No match found")), Ok),
+        || if_not_found.map_or_else(|| Err(EvalError::new("#N/A: XLOOKUP: no match found")), Ok),
         |i| Ok(return_values.get(i).cloned().unwrap_or(Value::Null)),
     )
 }
@@ -128,7 +128,7 @@ pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     };
 
     idx.map_or_else(
-        || Err(EvalError::new("VLOOKUP: value not found")),
+        || Err(EvalError::new("#N/A: VLOOKUP: value not found")),
         |i| Ok(lookup_arr.get(i).cloned().unwrap_or(Value::Null)),
     )
 }
@@ -189,7 +189,7 @@ pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     };
 
     idx.map_or_else(
-        || Err(EvalError::new("HLOOKUP: value not found")),
+        || Err(EvalError::new("#N/A: HLOOKUP: value not found")),
         |i| Ok(lookup_arr.get(i).cloned().unwrap_or(Value::Null)),
     )
 }

@@ -13,6 +13,14 @@ on:
   schedule:
     - cron: '41 6 * * 1'   # Mondays 06:41 UTC
   workflow_dispatch:
+    inputs:
+      seed:
+        description: "Generated cases: the seed to replay (empty: this week's)"
+        required: false
+      per_function:
+        description: "Generated cases: how many a function"
+        required: false
+        default: '200'
   # On pull requests and on main after a merge, when they change this file, the
   # source code, the version or dependencies in Cargo.toml, or a suite: the
   # result shows on the PR before it is merged, and main is checked with the
@@ -63,6 +71,25 @@ jobs:
         env:
           FORGE_BIN: ${{ github.workspace }}/target/release/forge
         run: cargo run --release
+      # Generated cases (ADR-062): seed 1 on a pull request and a push, so a
+      # change fails only for what it changes; the week's seed (year and ISO
+      # week) on Mondays, 200 a function, to find what nobody wrote a case for.
+      # A failure prints the command that replays it.
+      - name: Generated cases
+        working-directory: validation/sweep
+        env:
+          FORGE: ${{ github.workspace }}/target/release/forge
+          SEED_INPUT: ${{ github.event.inputs.seed }}
+          PER_FUNCTION_INPUT: ${{ github.event.inputs.per_function }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            seed="${SEED_INPUT:-$(date -u +%G%V)}"
+            per="${PER_FUNCTION_INPUT:-200}"
+          else
+            seed=1
+            per=20
+          fi
+          python3 -I generate.py --seed "$seed" --per-function "$per" --fail
 
   r:
     name: Functions and analytics vs R

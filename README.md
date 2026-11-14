@@ -22,7 +22,7 @@ Forge reads a financial model written in YAML (inputs, formulas, tables, scenari
 | Open [Forge Studio](https://forge.mollendorff.ai/) in your browser. Nothing to install, made for a phone, works offline. | Install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
 | [Try it →](https://forge.mollendorff.ai/) · [More on Studio](#forge-studio) | [Quick start →](#quick-start) · [For AI agents](#for-ai-agents) |
 
-**Checked, not trusted.** 1,931 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. What does not work yet is [listed below](#status-and-known-limitations), not hidden.
+**Checked, not trusted.** 1,931 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. On every pull request, 2,660 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 26,600 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
 
 ## Forge Studio
 

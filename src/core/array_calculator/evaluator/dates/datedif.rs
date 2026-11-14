@@ -31,6 +31,11 @@ pub fn try_evaluate(
 
             let start_date = parse_date_value(&start)?;
             let end_date = parse_date_value(&end)?;
+            if start_date > end_date {
+                return Err(EvalError::new(
+                    "#NUM!: DATEDIF: the start date is after the end date",
+                ));
+            }
 
             let result = match unit.as_str() {
                 "D" => (end_date - start_date).num_days() as f64,

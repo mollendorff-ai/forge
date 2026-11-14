@@ -1,6 +1,6 @@
 //! Statistical functions: VAR, VARP, STDEV, STDEVP, MODE, PERCENTILE, QUARTILE, CORREL, LARGE, SMALL, RANK
 
-use super::{collect_numeric_values, evaluate, require_args, require_args_range};
+use super::{collect_numeric_values, evaluate, paired_numbers, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::number_or;
 
@@ -191,9 +191,8 @@ pub fn try_evaluate(
 
         "CORREL" => {
             require_args(name, args, 2)?;
-            let x_vals = collect_numeric_values(&args[..1], ctx)?;
-            let y_vals = collect_numeric_values(&args[1..2], ctx)?;
-            if x_vals.len() != y_vals.len() || x_vals.len() < 2 {
+            let (x_vals, y_vals) = paired_numbers(name, &args[0], &args[1], ctx)?;
+            if x_vals.len() < 2 {
                 return Err(EvalError::new(
                     "CORREL requires two arrays of equal length >= 2",
                 ));
@@ -276,22 +275,17 @@ pub fn try_evaluate(
                 0 // Default: descending (0)
             };
 
-            // Clone and sort
-            let mut sorted = values;
-            if order == 0 {
-                // Descending order (largest = rank 1)
-                sorted.sort_by(|a, b| b.total_cmp(a));
-            } else {
-                // Ascending order (smallest = rank 1)
-                sorted.sort_by(f64::total_cmp);
+            // 1 + the values above it (below it, in ascending order), as in
+            // Excel; the number must be one of the values (#N/A). Sorting with
+            // total_cmp put -0 before 0 and ranked 0 one place too high.
+            if !values.iter().any(|&x| (x - number).abs() < 1e-10) {
+                return Err(EvalError::new("#N/A: RANK: value not found in array"));
             }
-
-            // Find rank (1-based)
-            let rank = sorted.iter().position(|&x| (x - number).abs() < 1e-10);
-            match rank {
-                Some(pos) => Value::Number((pos + 1) as f64),
-                None => return Err(EvalError::new("RANK: value not found in array")),
-            }
+            let ahead = values
+                .iter()
+                .filter(|&&x| if order == 0 { x > number } else { x < number })
+                .count();
+            Value::Number((ahead + 1) as f64)
         },
 
         _ => return Ok(None),

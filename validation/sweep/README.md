@@ -1,9 +1,35 @@
 # Sweeps against Gnumeric and LibreOffice
 
-Generated cases, many at a time, to find answers where Forge disagrees with
-both spreadsheet engines. They are not part of CI: each run takes minutes and
-reports candidates for a person to judge, and a confirmed case goes into
-`validation/gnumeric/tests` with its expected value.
+Cases made by a program, many at a time, to find answers where Forge disagrees
+with both spreadsheet engines. A confirmed case goes into
+`validation/gnumeric/tests` with its expected value, by hand.
+
+## Generated cases, in CI (ADR-062)
+
+`generate.py` draws each function's arguments from a seed, weighted toward the
+edges (month ends, Feb 29, zero, halves, 1E±12, multi-byte text, wildcards,
+columns with empty cells), over a catalogue of 133 functions, and judges each
+case against both engines (LibreOffice alone where `JUDGES` says why). Forge
+alone against the judges, or all three different, fails unless a rule in
+`known.py` covers it: one class of input each, with its reason and where it is
+tracked.
+
+```bash
+cargo build --release
+cd validation/sweep
+FORGE=../../target/release/forge python3 -I generate.py --seed 1 --per-function 20 --fail   # as a pull request runs it (3 s)
+FORGE=../../target/release/forge python3 -I generate.py --seed 202646 --per-function 200    # a week's run (22 s)
+FORGE=../../target/release/forge python3 -I generate.py --seed 202646 --per-function 200 --only DATEDIF   # replay one function
+```
+
+The `Formulas vs Gnumeric` job in `.github/workflows/validation.yml` runs seed
+1 on every pull request and push, and the week's seed (ISO year and week) on
+Mondays; Run workflow takes a seed and a count to replay one. The same seed,
+`--per-function` and commit give the same cases.
+
+## Grids, by hand
+
+The grids below run by hand and report candidates for a person to judge.
 
 ```bash
 cargo build --release

@@ -24,7 +24,7 @@ valuation:
     value: -6036814.42524418
     formula: =npv_cash_flows - assumptions.acquisition_cost
   irr:
-    value: -0.277390095633868
+    value: -0.277390095549418
     formula: =IRR(-assumptions.acquisition_cost, projections.total_profit)
 scenarios:
   bull_case:

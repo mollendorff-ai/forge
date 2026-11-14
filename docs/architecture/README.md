@@ -74,7 +74,7 @@ Technical documentation for Forge's architecture.
 | [ADR-059](ADR-059-AN-EMPTY-CELL.md) | An Empty Cell in a Number Column | Accepted; built |
 | [ADR-060](ADR-060-A-DATE-AS-A-SCALAR.md) | A Date as a Scalar | Accepted; built |
 | [ADR-061](ADR-061-A-NUMBER-FORMAT.md) | A Number Format, Next to the Unit | Accepted; built |
-| [ADR-062](ADR-062-GENERATED-CASES.md) | Generated Cases Against Gnumeric and LibreOffice, in CI | Proposed |
+| [ADR-062](ADR-062-GENERATED-CASES.md) | Generated Cases Against Gnumeric and LibreOffice, in CI | Accepted; built |
 
 ## Architecture Principles
 

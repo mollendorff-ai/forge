@@ -1,7 +1,7 @@
 //! Two arrays against each other: SLOPE, INTERCEPT, RSQ, FORECAST, FORECAST.LINEAR,
 //! COVARIANCE.S and COVARIANCE.P
 
-use super::{collect_numeric_values, evaluate, require_args};
+use super::{evaluate, paired_numbers, require_args};
 use super::{EvalContext, EvalError, Expr, Value};
 
 /// The sums a straight line through the points needs.
@@ -25,15 +25,7 @@ impl Fit {
         second: &[Expr],
         ctx: &EvalContext,
     ) -> Result<Self, EvalError> {
-        let ys = collect_numeric_values(first, ctx)?;
-        let xs = collect_numeric_values(second, ctx)?;
-        if xs.len() != ys.len() {
-            return Err(EvalError::new(format!(
-                "{name} needs two arrays of the same size, got {} and {}",
-                ys.len(),
-                xs.len()
-            )));
-        }
+        let (ys, xs) = paired_numbers(name, &first[0], &second[0], ctx)?;
         if xs.len() < 2 {
             return Err(EvalError::new(format!("{name} needs at least 2 points")));
         }
