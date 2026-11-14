@@ -333,3 +333,10 @@ table.grid.scalars .g-formula { max-width: 15rem }
 .grid-wrap.flat { max-height: none }
 .sug.key { color: var(--syn-key); border-color: color-mix(in srgb, var(--syn-key) 35%, var(--line)) }
 .sug.key.used { opacity: .55 }
+
+/* The welcome card on a first visit (ADR-056 addendum) */
+.welcome { padding: 16px 16px 14px; border-color: color-mix(in srgb, var(--accent) 40%, var(--line)) }
+.welcome h2 { margin: 0 0 6px; font-size: 17px }
+.welcome p { margin: 0 0 10px; color: var(--muted) }
+.welcome ul { margin: 0 0 14px; padding-left: 18px }
+.welcome li { margin: 6px 0 }

@@ -53,6 +53,27 @@ const shortAt = (v, path) => short(v, leaf(String(path || "").replace(/ \(row \d
 function save() {
   try { localStorage.setItem(STORE, JSON.stringify({ set: S.set, files: S.files, main: S.main, title: S.title })); } catch (e) { /* private mode */ }
 }
+// The welcome card shows on a first visit until it is dismissed (ADR-056
+// addendum): a flag on this device, nothing sent anywhere
+const WELCOME = "forge-studio-welcome-seen";
+let welcomeSeen = (() => { try { return localStorage.getItem(WELCOME) === "1"; } catch (e) { return false; } })();
+function setWelcome(seen) {
+  welcomeSeen = seen;
+  try { seen ? localStorage.setItem(WELCOME, "1") : localStorage.removeItem(WELCOME); } catch (e) { /* private mode: this visit only */ }
+}
+function welcomeCard() {
+  if (welcomeSeen) return "";
+  return `<section class="welcome card" id="welcome" aria-labelledby="welcome-title">
+    <h2 id="welcome-title">Welcome to Forge Studio</h2>
+    <p>This is a real financial model, calculated by Forge in your browser. Nothing you type leaves this device.</p>
+    <ul>
+      <li><b>Change an input.</b> Drag a slider or type a number, and every result below is calculated again.</li>
+      <li><b>Open a formula.</b> Tap Edit on a result to see how it is calculated, and change it.</li>
+      <li><b>Look around.</b> Grid shows the model as a spreadsheet, YAML shows the file itself, and Files has the other examples and your own files.</li>
+    </ul>
+    <button type="button" class="btn primary" id="welcome-done">Got it</button>
+  </section>`;
+}
 function restore() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE) || "null");
@@ -236,7 +257,7 @@ function renderModel() {
     v.innerHTML = `<div class="msg bad">${esc(S.error || "Forge is starting…")}</div><p class="note">Fix it in the YAML tab, or open another model from Files.</p>`;
     return;
   }
-  let h = `<div class="msg bad" id="model-error" hidden></div>`;
+  let h = welcomeCard() + `<div class="msg bad" id="model-error" hidden></div>`;
   if (S.structure.scenarios.length) {
     const info = (n) => (S.scenarios ? S.scenarios.scenarios.find((s) => s.name === n) : null);
     h += `<div class="eyebrow"><h2>scenarios</h2><span class="tag">tap to apply</span></div>
@@ -364,6 +385,7 @@ $("#view-model").addEventListener("input", (e) => {
   setInput(path, n);
 });
 $("#view-model").addEventListener("click", (e) => {
+  if (e.target.id === "welcome-done") { setWelcome(true); $("#welcome").remove(); return; }
   const sug = e.target.closest("[data-sug]");
   if (sug) { takeSuggestion(sug); return; }
   const chip = e.target.closest("[data-scn]");
@@ -1109,7 +1131,8 @@ function renderFiles() {
     <div class="eyebrow"><h2>your own model</h2></div>
     <div class="card row form"><label class="lab" for="imp">Open YAML files from this device (the main model and the files it includes), or an Excel workbook (.xlsx), which <span class="mono">forge import</span> turns into a model</label><input type="file" id="imp" accept=".yaml,.yml,.xlsx,text/yaml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple>
       <div id="imp-msg"></div><p class="note">They stay in this browser.</p></div>
-    ${edited ? `<div class="btns"><button class="btn warn" type="button" id="reset">Undo all edits to ${esc(set.title)}</button></div>` : ""}`;
+    ${edited ? `<div class="btns"><button class="btn warn" type="button" id="reset">Undo all edits to ${esc(set.title)}</button></div>` : ""}
+    ${welcomeSeen ? `<div class="btns"><button class="btn" type="button" id="welcome-again">Show the welcome tips again</button></div>` : ""}`;
   // Made now, so that a tap on Save can open the share sheet at once (below)
   if (S.structure) prepareWorkbook().catch(() => {});
 }
@@ -1121,6 +1144,7 @@ vf.addEventListener("click", async (e) => {
   if (t.dataset.dl) download(t.dataset.dl, S.files[t.dataset.dl]);
   if (t.dataset.csv) download(t.dataset.csv + ".csv", csvOf(t.dataset.csv), "text/csv");
   if (t.id === "reset") { openSet(S.set); save(); show("model"); await load(); }
+  if (t.id === "welcome-again") { setWelcome(false); renderModel(); updateValues(); show("model"); window.scrollTo(0, 0); return; }
   if (t.id === "xlsx") await exportWorkbook();
   if (t.id === "save-yaml") {
     const how = await saveFiles(modelFiles().map((f) => ({ name: f, data: S.files[f], type: "text/plain" })));

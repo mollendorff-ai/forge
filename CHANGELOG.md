@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Property tests** (`tests/properties.rs`, the `proptest` crate, roadmap T1-PROPERTIES) for four rules that must hold for any model, on generated models with numbers from 1e-6 to 1e12, negative and zero, and empty cells: `format:` never changes a value; `forge export` then `forge import` gives the same numbers; calculating gives the same output every time, and calculating the file Forge wrote changes nothing; a seeded simulation repeats exactly. A pull request runs about 150 cases from a fixed seed (`PROPTEST_RNG_SEED=1`, about 3 seconds); the weekly workflow runs 1,000 per property from that week's seed, printed so a failure can be replayed.
+- **Forge Studio greets a first visit with a welcome card** (ADR-056 addendum): what the page is (a real model, calculated in the browser, nothing sent anywhere) and three tips (change an input, open a formula with Edit, where Grid, YAML and Files lead). Got it removes it for good on that device (a flag in `localStorage`); "Show the welcome tips again" on the Files tab brings it back. It replaces the guided tour parked on 2026-11-13, now that newcomers are trying Studio. `studio/tests/welcome.mjs` covers it.
 - **`rust-version = "1.97"`** in Cargo.toml, the same `msrv` in `clippy.toml` (clippy stops suggesting newer APIs), and a CI job that builds on the declared version.
 
 ### Changed

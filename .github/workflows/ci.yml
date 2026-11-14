@@ -287,6 +287,10 @@ jobs:
         working-directory: studio
         run: node tests/yamlformula.mjs ../studio-site
 
+      - name: Studio shows a welcome card on a first visit, once
+        working-directory: studio
+        run: node tests/welcome.mjs ../studio-site
+
       - name: Studio's grid shows what Forge returns
         working-directory: studio
         run: node tests/grid.mjs ../studio-site

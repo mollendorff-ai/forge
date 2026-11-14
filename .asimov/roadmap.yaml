@@ -77,7 +77,7 @@ tier1:
     title: "Generated cases against Gnumeric and LibreOffice, in CI"
     why: "The validation cases are written by hand, so bugs live in inputs nobody imagined (YEARFRAC from the last day of February). validation/sweep already generates cases (dates.py, fin.py, vdb.py: 9,327 over a fixed grid) and found the eight wrong answers fixed in rc.23, but it runs only by hand and covers only date and financial functions"
     how: "An ADR first. Build on validation/sweep rather than beside it: draw arguments per function at random with a fixed seed (printed with each failure so it can be replayed), weighted toward edges: month ends, leap years, Feb 28 and 29, the 31st, zero, negatives, empty cells, very large and very small numbers. Run each case through Forge and through Gnumeric, or LibreOffice where Gnumeric cannot judge, and report every disagreement. A disagreement confirmed as a bug becomes a handwritten case in validation/gnumeric/tests under T1-TEST-RULE; one where both engines differ from Excel goes to T1-EXCEL-CHECKS. Date and financial functions first, then the rest (T1-SWEEP-REST)"
-    acceptance: "The ADR is written; a small seeded batch runs on every pull request and a large one in weekly.yml; replaying a reported seed gives the same case; every disagreement found so far is either a case in validation/gnumeric/tests or a written reason"
+    acceptance: "The ADR is written (ADR-062, proposed 2026-11-14); a small seeded batch runs on every pull request and a large one every week (in validation.yml's Monday run, where the engines are installed: ADR-062 decision 5); replaying a reported seed gives the same case; every disagreement found so far is either a case in validation/gnumeric/tests or a written reason"
 
   - id: T1-CLAIMS
     title: "What Forge says about itself cannot go stale"
@@ -155,6 +155,8 @@ tier2:
 # a formula edited on its card, kept only when Forge accepts it; S8, Excel
 # export and import in the browser, the workbook forge export writes.
 
+# S14, a welcome card on the first visit (2026-11-14, ADR-056 addendum), in
+# place of the guided tour parked on 2026-11-13: newcomers had started to arrive.
 # S13, Studio at forge.mollendorff.ai (2026-11-13): a CNAME at EasyDNS,
 # mollendorff.ai verified for the organization on GitHub Pages, no wildcard
 # record (GitHub advises against one: any account could claim a subdomain).
@@ -201,10 +203,6 @@ parked:
     title: "An AI assistant in Forge Studio that builds a model in conversation"
     why: "Forge was built for AI agents and its tools already run in the page (forge-wasm): an assistant could write the YAML and check it with Forge as an agent does through MCP. The maintainer's idea, 2026-11-11, parked by him"
     how: "An ADR first. Studio has no server, so the calls to a model would use the person's own API key, kept in their browser; each conversation costs on that key, and the model's text goes to the provider"
-  - id: P-STUDIO-TOUR
-    title: "A guided first visit in Forge Studio"
-    why: "An FP&A analyst who has never seen YAML might not know where to tap. No one has been seen getting lost yet, and a tour has to change with every screen it explains. Parked 2026-11-13"
-    how: "Revisit when someone using Studio for the first time is seen getting stuck; try one hint on the first screen before anything like a tour"
   - id: P-STUDIO-FRENCH
     title: "Forge Studio's interface in French"
     why: "The maintainer is in Montreal and the first readers may be French-speaking FP&A teams. Parked 2026-11-13: every label is written in the code and most tests read the English text, every later feature would need both languages, and Forge's own messages are in English, so the page would turn English when something goes wrong"
