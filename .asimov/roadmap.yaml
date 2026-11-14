@@ -166,6 +166,8 @@ tier2:
 # a formula edited on its card, kept only when Forge accepts it; S8, Excel
 # export and import in the browser, the workbook forge export writes.
 
+# S14, a welcome card on the first visit (2026-11-14, ADR-056 addendum), in
+# place of the guided tour parked on 2026-11-13: newcomers had started to arrive.
 # S13, Studio at forge.mollendorff.ai (2026-11-13): a CNAME at EasyDNS,
 # mollendorff.ai verified for the organization on GitHub Pages, no wildcard
 # record (GitHub advises against one: any account could claim a subdomain).
@@ -212,10 +214,6 @@ parked:
     title: "An AI assistant in Forge Studio that builds a model in conversation"
     why: "Forge was built for AI agents and its tools already run in the page (forge-wasm): an assistant could write the YAML and check it with Forge as an agent does through MCP. The maintainer's idea, 2026-11-11, parked by him"
     how: "An ADR first. Studio has no server, so the calls to a model would use the person's own API key, kept in their browser; each conversation costs on that key, and the model's text goes to the provider"
-  - id: P-STUDIO-TOUR
-    title: "A guided first visit in Forge Studio"
-    why: "An FP&A analyst who has never seen YAML might not know where to tap. No one has been seen getting lost yet, and a tour has to change with every screen it explains. Parked 2026-11-13"
-    how: "Revisit when someone using Studio for the first time is seen getting stuck; try one hint on the first screen before anything like a tour"
   - id: P-STUDIO-FRENCH
     title: "Forge Studio's interface in French"
     why: "The maintainer is in Montreal and the first readers may be French-speaking FP&A teams. Parked 2026-11-13: every label is written in the code and most tests read the English text, every later feature would need both languages, and Forge's own messages are in English, so the page would turn English when something goes wrong"
