@@ -465,8 +465,19 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
                     ))
                 })?
             } else {
-                ctx.get_column(table, column)
-                    .ok_or_else(|| EvalError::new(format!("Unknown column: {table}.{column}")))?
+                ctx.get_column(table, column).ok_or_else(|| {
+                    // A group of scalars is not a table: `a.price` with only
+                    // `a.prce` in the model is a misspelled name.
+                    let wanted = format!("{table}.{column}");
+                    if ctx.tables.contains_key(table.as_str()) {
+                        return EvalError::new(format!("Unknown column: {wanted}"));
+                    }
+                    let names: Vec<&str> = ctx.scalars.keys().map(String::as_str).collect();
+                    let hint = crate::error::closest(&wanted, &names)
+                        .map(|c| format!(" Did you mean '{c}'?"))
+                        .unwrap_or_default();
+                    EvalError::new(format!("Unknown name: {wanted}.{hint}"))
+                })?
             };
 
             // In row-wise mode, validate row count matches and return single value

@@ -8,7 +8,7 @@ Forge is a release candidate and an R&D prototype. These checks reduce the chanc
 
 | Check | Compares Forge with | Result |
 | --- | --- | --- |
-| Unit tests (this repo) | Expected values written in the tests | 1,840 tests and 2 doctests pass |
+| Unit tests (this repo) | Expected values written in the tests | 1,843 tests and 2 doctests pass |
 | [forge-e2e-gnumeric](validation/gnumeric) | Gnumeric, a separate spreadsheet engine, and LibreOffice for 139 cases Gnumeric cannot read | 1,931 formula cases; 1,791 pass, 1 skipped with Gnumeric (rc.23, 2026-11-14); the 139 cases for LibreOffice run in the Validation workflow (Actions tab) |
 | [forge-e2e-r](validation/r), formulas | R, with Excel rules where R differs | 136 math, date and financial checks pass |
 | forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 70 of 77 specs pass against R in the Validation workflow; 7 skipped |

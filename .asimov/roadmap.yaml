@@ -85,12 +85,6 @@ tier1:
     how: "The maintainer changes the About text on GitHub (Safari, desktop view) to the README's first line. CI writes the counts where it already measures them, as the badges do (tests, functions, coverage), or a test fails when a count in the docs differs from the run. A test runs the command blocks in README.md as tests/doc_examples.rs does for docs/EXAMPLES.md"
     acceptance: "The About text matches the README's first line; a count changed in the code without the docs fails a check; the README's goal-seek block is what the command prints"
 
-  - id: T1-VALIDATE-GAPS
-    title: "validate refuses a table with columns of different lengths, and a missing name suggests the closest"
-    why: "forge validate on a table with a 3-row and a 2-row column says All tables are valid (the error comes only when a formula reads the table), and forge export writes it. A missing scalar is reported as Unknown column: a.price, with no suggestion, while .asimov/project.yaml says an unknown name is an error that suggests the closest name (a.prce was one letter away)"
-    how: "Check column lengths in validate and export; say unknown name for a scalar and suggest the nearest existing name, as for columns"
-    acceptance: "Both cases have tests (T1-TEST-RULE); validate exits 1 on the ragged table; the message for a.price names a.prce"
-
   - id: T1-MCP-ROOT
     title: "An optional folder that MCP and REST file paths must stay inside"
     why: "The MCP tools take file_path, yaml_path and excel_path, so an agent, or a prompt injected into one, can read any model or workbook and write a file anywhere the user can. Normal for a local MCP server, and SECURITY.md lists the MCP server in scope"

@@ -583,8 +583,12 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
         model.scalars.len()
     );
 
-    // Note: Table column length validation is deferred to calculation time
-    // Row-wise operations will validate at runtime in array_calculator
+    // A table nothing reads would otherwise pass with columns of different
+    // lengths; a formula that reads one finds out when it runs.
+    if let Err(e) = model.check_table_lengths() {
+        println!("\n{}", format!("❌ {e}").bold().red());
+        return Err(ForgeError::Validation(e));
+    }
 
     // Calculate what values SHOULD be based on formulas
     let calculator = ArrayCalculator::new(model.clone());
