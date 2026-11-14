@@ -27,11 +27,23 @@ pub(super) struct Structure {
     pub order: Option<Order>,
     /// For a section (`None` for row formulas): each short name and the full
     /// name it resolves to there
-    pub short_names: HashMap<Option<String>, Rc<Vec<(String, String)>>>,
+    pub short_names: HashMap<Option<String>, Rc<ShortNames>>,
     /// (formula, section, table) whose names were checked and are not ambiguous
     pub unambiguous: HashSet<(String, Option<String>, Option<String>)>,
     /// What each cell of `order` worked out, by position
     pub steps: Vec<Step>,
+}
+
+/// The short names (`price` for `summary.price`) a formula of one section
+/// sees, each with the full name it resolves to there.
+#[derive(Debug, Default)]
+pub(super) struct ShortNames {
+    /// Every short name, read when a name is not in the context itself
+    pub aliases: Rc<super::evaluator::Aliases>,
+    /// The short names that are also a name of their own in the context (a
+    /// top-level scalar `price`, read from section `summary` as
+    /// `summary.price`): these are laid over the context for the formula
+    pub shadowing: Vec<(String, String)>,
 }
 
 /// What one formula cell worked out, kept by its position in the order so

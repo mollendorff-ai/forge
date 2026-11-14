@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`forge calculate` took time growing with the cube of the number of scalars.** Every formula laid each short name of the model (`price` for `summary.price`) over the context and checked it against every name laid before it, so 1,000 scalars took 0.3 s, 4,000 took 14 s and 26,600 did not finish in 10 minutes. Short names are now looked up when a formula reads one, and only the few that hide a name of their own (a top-level `price` read from section `summary`) are laid over the context. 26,600 scalars take 0.3 s, a chain of 26,600 formulas each reading the one before as well. A model of many small sections (1,000 sections of 10) was quadratic too: each section's short names were found by going through every scalar. `VLOOKUP`, `HLOOKUP` and `OFFSET` in a row formula copied the whole context (every scalar and table) for each row: 8,000 rows of `VLOOKUP` took 2.8 s and now take 0.6 s. What is left there, a column copied for each row, is roadmap T1-COLUMN-COPIES. Results are the same: the Gnumeric suite, the unit tests and the generated cases give what they gave. `tests/scalar_scaling.rs` checks that 10,000 scalars take under 2 s in a release build; new tests in `scalar_scope_tests.rs` check that a LAMBDA or LET name, or a table column, still hides a short name, and that INDIRECT reads one. Roadmap T1-SCALAR-SCALING.
+
 ### Changed
 - **Test counts brought up to date** in README.md, VALIDATION.md and validation/gnumeric/README.md: 1,871 tests and 2 doctests; 2,024 Gnumeric cases in 57 files, 150 of them judged by LibreOffice. ADR-063 is marked Accepted.
 - **Release binaries are no longer packed with UPX.** The Linux x86_64 and Windows builds were; packed executables are a common trigger for antivirus false positives (Windows Defender and corporate scanners quarantine them), they unpack into memory on every start, which a command an AI agent may call hundreds of times pays for, and the step ran with `|| true`, so a failed packing shipped an unpacked binary without a word. The `.tar.gz` and `.zip` archives are compressed already, so the download grows less than the file does (the Linux binary compresses to 5.5 MB with gzip alone). Every platform now ships the binary as built. `make build-compressed` is still there for anyone who wants a packed binary of their own.
+- **The generated cases run as one model a batch** (`validation/sweep/generate.py`), no longer split into models of 1,000 for the slowdown above: the weekly 26,600 cases take 5 s with both engines, against 27 s.
 
 ## [10.0.0-rc.24] - 2026-11-14
 

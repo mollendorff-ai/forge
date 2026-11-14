@@ -207,6 +207,14 @@ struct IncludedTable {
     columns: Vec<(String, Vec<evaluator::Value>)>,
 }
 
+/// See [`ArrayCalculator::sections`]
+struct Sections {
+    own: HashMap<String, Rc<evaluator::NameMap<String>>>,
+    unique: Rc<evaluator::NameMap<String>>,
+    /// The entries of `unique` that are also the name of an included value
+    unique_shadowing: Vec<(String, String)>,
+}
+
 /// Array-aware calculator for v1.0.0 models
 /// Handles both row-wise (element-wise) and aggregation formulas
 pub struct ArrayCalculator {
@@ -220,6 +228,9 @@ pub struct ArrayCalculator {
     /// Scalar names by their last part (`price` -> [`a.price`, `b.price`]),
     /// sorted. Calculation sets values, never names, so it is built once.
     by_last_part: std::cell::OnceCell<HashMap<String, Vec<String>>>,
+    /// Each section's scalars by their last part, and the last parts that
+    /// name one scalar only (see [`ArrayCalculator::short_names`]); built once
+    sections: std::cell::OnceCell<Sections>,
     /// Every value a formula can read by its full name (scalars, included
     /// values, tables, scenarios), kept up to date as cells are calculated,
     /// so it is not rebuilt for each formula (see [`ArrayCalculator::evaluate_in_context`]).
@@ -250,6 +261,7 @@ impl ArrayCalculator {
             included: Vec::new(),
             included_tables: Vec::new(),
             by_last_part: std::cell::OnceCell::new(),
+            sections: std::cell::OnceCell::new(),
             ctx: None,
             plan,
             fingerprint: 0,
@@ -714,9 +726,49 @@ impl ArrayCalculator {
         ctx.scalars.get(full).cloned()
     }
 
-    /// Each short name (`price` for `summary.price`) that resolves to exactly
-    /// one scalar from `section`, with that scalar's full name, in name order.
-    fn short_names(&self, section: Option<&str>) -> Rc<Vec<(String, String)>> {
+    /// The model's scalars by section, and the last parts that name one
+    /// scalar only and no top-level scalar.
+    fn sections(&self) -> &Sections {
+        self.sections.get_or_init(|| {
+            let mut own: HashMap<String, evaluator::NameMap<String>> = HashMap::new();
+            for name in self.model.scalars.keys() {
+                if let Some((section, last)) = name.rsplit_once('.') {
+                    own.entry(section.to_string())
+                        .or_default()
+                        .insert(last.to_string(), name.clone());
+                }
+            }
+            let own = own.into_iter().map(|(k, v)| (k, Rc::new(v))).collect();
+            let mut unique = evaluator::NameMap::default();
+            for name in self.model.scalars.keys() {
+                if let Some((_, last)) = name.rsplit_once('.') {
+                    if let ScalarName::Found(full) = self.resolve_scalar_name(last, None) {
+                        if full != last {
+                            unique.insert(last.to_string(), full);
+                        }
+                    }
+                }
+            }
+            let unique_shadowing = unique
+                .iter()
+                .filter(|(short, _)| self.included.iter().any(|(name, _)| name == *short))
+                .map(|(short, full)| (short.clone(), full.clone()))
+                .collect();
+            Sections {
+                own,
+                unique: Rc::new(unique),
+                unique_shadowing,
+            }
+        })
+    }
+
+    /// The short names (`price` for `summary.price`) a formula of `section`
+    /// may use, each with the scalar it resolves to there, as
+    /// [`ArrayCalculator::resolve_scalar_name`] resolves it: the section's
+    /// own scalars, then the last parts that name one scalar only. And those
+    /// of them that are also a name in the context of their own, which are
+    /// laid over it.
+    fn short_names(&self, section: Option<&str>) -> Rc<plan::ShortNames> {
         let key = section.map(str::to_string);
         if let Some(found) = self
             .plan
@@ -724,20 +776,38 @@ impl ArrayCalculator {
         {
             return found;
         }
-        let short_names: std::collections::BTreeSet<&str> = self
-            .model
-            .scalars
-            .keys()
-            .filter_map(|name| name.rsplit_once('.').map(|(_, last)| last))
+        let sections = self.sections();
+        let own = section
+            .and_then(|section| sections.own.get(section))
+            .cloned()
+            .unwrap_or_default();
+        let own_name = |short: &str| {
+            self.model.scalars.contains_key(short)
+                || self.included.iter().any(|(name, _)| name == short)
+        };
+        // A short name of the section hides a top-level scalar of that name;
+        // one from elsewhere never does (it resolves to the top-level one),
+        // but it can hide an included value
+        let mut shadowing: Vec<(String, String)> = own
+            .iter()
+            .filter(|(short, _)| own_name(short))
+            .map(|(short, full)| (short.clone(), full.clone()))
             .collect();
-        let resolved: Vec<(String, String)> = short_names
-            .into_iter()
-            .filter_map(|short| match self.resolve_scalar_name(short, section) {
-                ScalarName::Found(full) => Some((short.to_string(), full)),
-                _ => None,
-            })
-            .collect();
-        let resolved = Rc::new(resolved);
+        shadowing.extend(
+            sections
+                .unique_shadowing
+                .iter()
+                .filter(|(short, _)| !own.contains_key(short))
+                .cloned(),
+        );
+        shadowing.sort();
+        let resolved = Rc::new(plan::ShortNames {
+            aliases: Rc::new(evaluator::Aliases {
+                own,
+                unique: Rc::clone(&sections.unique),
+            }),
+            shadowing,
+        });
         self.plan.structure(self.fingerprint, |s| {
             s.short_names.insert(key, Rc::clone(&resolved));
         });
@@ -748,8 +818,10 @@ impl ArrayCalculator {
     /// section `section` (scalar formulas) sees: every value by its full name,
     /// then the short names (`price` for `summary.price`) that resolve to
     /// exactly one scalar from that section, then the columns of `table` by
-    /// their own names. The short names and columns are laid over the shared
-    /// context for this formula only and removed afterwards.
+    /// their own names. The columns, and the few short names that hide a name
+    /// of their own, are laid over the shared context for this formula only
+    /// and removed afterwards; the other short names are read through
+    /// `aliases`, so a formula does not pay for every name in the model.
     fn evaluate_in_context<R>(
         &mut self,
         table: Option<&str>,
@@ -759,9 +831,10 @@ impl ArrayCalculator {
         let mut ctx = self.ctx.take().unwrap_or_else(|| self.base_context());
         // Each name laid over the shared context, with what it held before
         let mut saved: Vec<(String, Option<evaluator::Value>)> = Vec::new();
+        let mut laid: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut lay = |ctx: &mut evaluator::EvalContext, name: String, value: evaluator::Value| {
             let previous = ctx.scalars.insert(name.clone(), value);
-            if !saved.iter().any(|(laid, _)| *laid == name) {
+            if laid.insert(name.clone()) {
                 saved.push((name, previous));
             }
         };
@@ -769,11 +842,13 @@ impl ArrayCalculator {
         // The shared context holds each calculated scalar under its full name
         // (a full name is never another short name's key, so this reads the
         // scalar's own value)
-        for (short_name, full) in self.short_names(section).iter() {
+        let short_names = self.short_names(section);
+        for (short_name, full) in &short_names.shadowing {
             if let Some(value) = self.model_value(&ctx, full) {
                 lay(&mut ctx, short_name.clone(), value);
             }
         }
+        let previous_aliases = ctx.aliases.replace(Rc::clone(&short_names.aliases));
         let table = table.and_then(|name| self.model.tables.get(name));
         if let Some(table) = table {
             for (col_name, col) in &table.columns {
@@ -789,6 +864,7 @@ impl ArrayCalculator {
 
         let result = evaluate(&mut ctx);
 
+        ctx.aliases = previous_aliases;
         for (name, previous) in saved.into_iter().rev() {
             match previous {
                 Some(value) => ctx.scalars.insert(name, value),

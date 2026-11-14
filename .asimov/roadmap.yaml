@@ -103,11 +103,11 @@ tier1:
     how: "In Excel: =YEARFRAC(DATE(2026,2,28),DATE(2026,12,31),0) (Forge 0.8361), =PRICEDISC(DATE(2026,2,28),DATE(2026,12,31),0.05,100,0) (Forge 95.8333, engines 95.8194), =YIELDDISC(DATE(2026,2,28),DATE(2026,12,31),97,100,0) (Forge 0.03711, engines 0.03699), =ACCRINT(DATE(2026,2,28),DATE(2026,8,31),DATE(2026,12,31),0.1,1000,2,0) (Forge 83.3333, LibreOffice 83.6111). If YEARFRAC is not 0.8361, revert it; if a security function gives the engines' value, give it YEARFRAC's count"
     acceptance: "The four Excel values are recorded in validation/gnumeric (financial.yaml) with the date they were checked, and Forge gives them"
 
-  - id: T1-SCALAR-SCALING
-    title: "forge calculate slows down faster than the number of scalars grows"
-    why: "Measured 2026-11-14 on generated models (validation/sweep): 1,000 scalar formulas take 0.2 s, 2,000 take 1.1 s, 4,000 take 8 s, and 26,600 did not finish in 10 minutes. generate.py works around it with models of 1,000 cases. A model with a few thousand scalars is rare, but nothing says where the limit is"
-    how: "Profile forge calculate on validation/sweep's generated models (python3 -I generate.py writes them to work/); find the step that is quadratic or worse (dependency order, the scalar lookup, the error collection) and make it linear or n log n. Check table formulas the same way"
-    acceptance: "26,600 scalars calculate in under 5 s, with a test that 10,000 take under 2 s in release; the CHUNK in generate.py can be raised to the whole batch"
+  - id: T1-COLUMN-COPIES
+    title: "A row formula that reads a whole column copies it for every row"
+    why: "Measured 2026-11-14 after T1-SCALAR-SCALING: a table of 8,000 rows with =INDEX(d.v, MATCH(k, d.k, 0)) takes 1.0 s and =VLOOKUP(k, d.k, 1, FALSE) 0.6 s, four times as long for twice the rows. Evaluating d.k gives a Value::Array that is a copy of the column, made again for each row, so the time grows with the square of the rows. The search itself also grows with the square (as in Excel), but it is a small part. VLOOKUP, HLOOKUP and OFFSET copied the whole context each row as well (all scalars and tables, 2.8 s for the VLOOKUP); that is fixed"
+    how: "Share a column's values instead of copying them (an Rc slice in Value::Array, or a borrowed view for references to a column), and measure 8,000 and 16,000 rows again"
+    acceptance: "16,000 rows of =INDEX(d.v, MATCH(k, d.k, 0)) calculate in under 1 s in release, with a test, and the Gnumeric suite gives the same results"
 
   - id: T1-EXCEL-CHECKS
     title: "Results to check in real Excel, where the engines and Forge do not settle it"

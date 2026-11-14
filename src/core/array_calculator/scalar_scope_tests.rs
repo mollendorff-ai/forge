@@ -97,3 +97,82 @@ fn test_ambiguous_bare_name_in_table_formula_is_an_error() {
         .to_string();
     assert!(err.contains("ambiguous"), "{err}");
 }
+
+// Short names are read through the context's aliases rather than laid over
+// it for every formula (T1-SCALAR-SCALING); these hold either way.
+
+#[test]
+fn test_lambda_parameter_hides_a_short_name() {
+    let result = calculate(&[
+        ("a.x", Some(5.0), None),
+        ("a.y", None, Some("=LAMBDA(x, x * 2)(3) + x")),
+    ])
+    .unwrap();
+    assert!((value(&result, "a.y") - 11.0).abs() < 1e-9);
+}
+
+#[test]
+fn test_let_name_hides_a_short_name() {
+    let result = calculate(&[
+        ("a.x", Some(5.0), None),
+        ("a.y", None, Some("=LET(x, 1, x + 1)")),
+    ])
+    .unwrap();
+    assert!((value(&result, "a.y") - 2.0).abs() < 1e-9);
+}
+
+#[test]
+fn test_indirect_reads_a_short_name() {
+    let result = calculate(&[
+        ("a.x", Some(5.0), None),
+        ("a.y", None, Some("=INDIRECT(\"x\") * 2")),
+    ])
+    .unwrap();
+    assert!((value(&result, "a.y") - 10.0).abs() < 1e-9);
+}
+
+#[test]
+fn test_short_name_reads_a_value_calculated_earlier() {
+    let result = calculate(&[
+        ("a.x", None, Some("=2 + 3")),
+        ("a.y", None, Some("=x * 2")),
+        ("b.z", None, Some("=y + 1")),
+    ])
+    .unwrap();
+    assert!((value(&result, "a.y") - 10.0).abs() < 1e-9);
+    assert!((value(&result, "b.z") - 11.0).abs() < 1e-9);
+}
+
+#[test]
+fn test_column_hides_a_short_name_in_a_row_formula() {
+    let mut model = model(&[("a.x", Some(100.0), None)]);
+    let mut table = Table::new("t".to_string());
+    table.add_column(Column::new(
+        "x".to_string(),
+        ColumnValue::Number(vec![1.0, 2.0]),
+    ));
+    table.add_row_formula("y".to_string(), "=x * 2".to_string());
+    model.add_table(table);
+    let result = ArrayCalculator::new(model).calculate_all().unwrap();
+    let ColumnValue::Number(y) = &result.tables["t"].columns["y"].values else {
+        panic!("y is not a column of numbers");
+    };
+    assert_eq!(y, &vec![2.0, 4.0]);
+}
+
+#[test]
+fn test_row_formula_reads_a_short_name() {
+    let mut model = model(&[("a.rate", Some(0.5), None)]);
+    let mut table = Table::new("t".to_string());
+    table.add_column(Column::new(
+        "x".to_string(),
+        ColumnValue::Number(vec![2.0, 4.0]),
+    ));
+    table.add_row_formula("y".to_string(), "=x * rate".to_string());
+    model.add_table(table);
+    let result = ArrayCalculator::new(model).calculate_all().unwrap();
+    let ColumnValue::Number(y) = &result.tables["t"].columns["y"].values else {
+        panic!("y is not a column of numbers");
+    };
+    assert_eq!(y, &vec![1.0, 2.0]);
+}

@@ -6,10 +6,10 @@
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 
 use super::match_fn::{exact_match, xmatch_index};
-use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
+use crate::core::array_calculator::evaluator::{evaluate_without_row, number_or};
 
 /// Evaluate XLOOKUP function
 /// `XLOOKUP(lookup_value`, `lookup_array`, `return_array`, [`if_not_found`], [`match_mode`], [`search_mode`])
@@ -72,20 +72,7 @@ pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     require_args_range("VLOOKUP", args, 3, 4)?;
 
     let lookup_val = evaluate(&args[0], ctx)?;
-
-    // Get the table array without row context
-    let array_ctx = EvalContext {
-        scalars: ctx.scalars.clone(),
-        tables: ctx.tables.clone(),
-        scenarios: ctx.scenarios.clone(),
-        current_row: None,
-        row_count: ctx.row_count,
-        lag: std::cell::Cell::new(0),
-        growing_table: None,
-        whole_args: std::cell::RefCell::new(Vec::new()),
-        hidden_row: std::cell::Cell::new(0),
-    };
-    let table_array = evaluate(&args[1], &array_ctx)?;
+    let table_array = evaluate_without_row(&args[1], ctx)?;
     let _col_index = evaluate(&args[2], ctx)?
         .as_cell_number()
         .ok_or_else(|| EvalError::new("VLOOKUP: col_index must be a number"))?
@@ -139,19 +126,7 @@ pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
     require_args_range("HLOOKUP", args, 3, 4)?;
 
     let lookup_val = evaluate(&args[0], ctx)?;
-
-    let array_ctx = EvalContext {
-        scalars: ctx.scalars.clone(),
-        tables: ctx.tables.clone(),
-        scenarios: ctx.scenarios.clone(),
-        current_row: None,
-        row_count: ctx.row_count,
-        lag: std::cell::Cell::new(0),
-        growing_table: None,
-        whole_args: std::cell::RefCell::new(Vec::new()),
-        hidden_row: std::cell::Cell::new(0),
-    };
-    let table_array = evaluate(&args[1], &array_ctx)?;
+    let table_array = evaluate_without_row(&args[1], ctx)?;
     let _row_index = evaluate(&args[2], ctx)?
         .as_cell_number()
         .ok_or_else(|| EvalError::new("HLOOKUP: row_index must be a number"))?
@@ -586,5 +561,40 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         assert_eq!(result.scalars.get("result").unwrap().value, Some(30.0));
+    }
+
+    /// The table argument of VLOOKUP, HLOOKUP and OFFSET in a row formula
+    /// reads the whole column (it is evaluated with the row hidden, no
+    /// longer in a copy of the context)
+    #[test]
+    fn test_lookups_in_a_row_formula_read_the_whole_column() {
+        let mut model = ParsedModel::new();
+        let mut t = Table::new("t".to_string());
+        t.add_column(Column::new(
+            "k".to_string(),
+            ColumnValue::Number(vec![3.0, 1.0, 2.0]),
+        ));
+        t.add_column(Column::new(
+            "v".to_string(),
+            ColumnValue::Number(vec![10.0, 20.0, 30.0]),
+        ));
+        for (name, formula) in [
+            ("vl", "=VLOOKUP(k, t.k, 1, FALSE)"),
+            ("hl", "=HLOOKUP(k, t.k, 1, FALSE)"),
+            ("off", "=OFFSET(t.v, k - 1, 0)"),
+            ("total", "=k + SUM(t.v)"),
+        ] {
+            t.row_formulas.insert(name.to_string(), formula.to_string());
+        }
+        model.add_table(t);
+        let result = ArrayCalculator::new(model).calculate_all().unwrap();
+        let column = |name: &str| match &result.tables["t"].columns[name].values {
+            ColumnValue::Number(values) => values.clone(),
+            other => panic!("{name}: {other:?}"),
+        };
+        assert_eq!(column("vl"), vec![3.0, 1.0, 2.0]);
+        assert_eq!(column("hl"), vec![3.0, 1.0, 2.0]);
+        assert_eq!(column("off"), vec![30.0, 10.0, 20.0]);
+        assert_eq!(column("total"), vec![63.0, 61.0, 62.0]);
     }
 }
