@@ -304,7 +304,9 @@ fn mortgage() {
     check(
         "mortgage",
         &["calculate", model.to_str().unwrap(), "--dry-run"],
-        &["m.naive = 2575.8919890758", "m.diff = 12.2043595104824"],
+        // PMT keeps its digits since 2026-11-14: the exact payments for these
+        // two rates are 2575.8919890757813 and 2563.6876295653160
+        &["m.naive = 2575.89198907578", "m.semi = 2563.68762956532"],
         &["2,575.89", "12.20"],
     );
 }

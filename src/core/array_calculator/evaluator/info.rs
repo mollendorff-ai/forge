@@ -3,7 +3,7 @@
 // Info function casts: TYPE returns f64 type codes from small bounded integers.
 #![allow(clippy::cast_possible_truncation)]
 
-use super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
+use super::{evaluate, is_na_error, require_args, EvalContext, EvalError, Expr, Value};
 
 /// Try to evaluate an info function. Returns None if function not recognized.
 pub fn try_evaluate(
@@ -14,44 +14,35 @@ pub fn try_evaluate(
     let result = match name {
         "ISBLANK" => {
             require_args(name, args, 1)?;
-            let val = evaluate(&args[0], ctx)?;
-            Value::Boolean(matches!(val, Value::Null))
+            // An IS function never fails: an error is FALSE here, as in Excel
+            Value::Boolean(matches!(evaluate(&args[0], ctx), Ok(Value::Null)))
         },
 
         "ISERROR" => {
             require_args(name, args, 1)?;
-            // Check if evaluation produces an error OR returns NA (Null)
-            // In Excel, ISERROR returns TRUE for ALL error types including #N/A
-            let is_error = match evaluate(&args[0], ctx) {
-                Err(_) | Ok(Value::Null) => true, // NA() returns Null, which is an error
-                Ok(_) => false,
-            };
-            Value::Boolean(is_error)
+            // Every error, #N/A among them; an empty cell is not one (ADR-059)
+            Value::Boolean(evaluate(&args[0], ctx).is_err())
         },
 
         "ISNA" => {
             require_args(name, args, 1)?;
-            let val = evaluate(&args[0], ctx)?;
-            // In Forge, we treat Null as NA
-            Value::Boolean(matches!(val, Value::Null))
+            // #N/A only: NA() and a lookup that finds nothing
+            Value::Boolean(matches!(evaluate(&args[0], ctx), Err(e) if is_na_error(&e)))
         },
 
         "ISNUMBER" => {
             require_args(name, args, 1)?;
-            let val = evaluate(&args[0], ctx)?;
-            Value::Boolean(matches!(val, Value::Number(_)))
+            Value::Boolean(matches!(evaluate(&args[0], ctx), Ok(Value::Number(_))))
         },
 
         "ISTEXT" => {
             require_args(name, args, 1)?;
-            let val = evaluate(&args[0], ctx)?;
-            Value::Boolean(matches!(val, Value::Text(_)))
+            Value::Boolean(matches!(evaluate(&args[0], ctx), Ok(Value::Text(_))))
         },
 
         "ISLOGICAL" => {
             require_args(name, args, 1)?;
-            let val = evaluate(&args[0], ctx)?;
-            Value::Boolean(matches!(val, Value::Boolean(_)))
+            Value::Boolean(matches!(evaluate(&args[0], ctx), Ok(Value::Boolean(_))))
         },
 
         "ISEVEN" => {
@@ -88,21 +79,22 @@ pub fn try_evaluate(
 
         "NA" => {
             require_args(name, args, 0)?;
-            // Return Null to represent #N/A
-            Value::Null
+            // #N/A, an error like any other: IFERROR, IFNA, ISERROR and ISNA
+            // see it, and a formula that reads it fails, as in Excel (an empty
+            // cell, Value::Null, is not an error: ADR-059)
+            return Err(EvalError::new("#N/A: NA()"));
         },
 
         "TYPE" => {
             require_args(name, args, 1)?;
-            let val = evaluate(&args[0], ctx)?;
             // Excel TYPE function returns:
-            // 1 = number, 2 = text, 4 = logical, 16 = error, 64 = array
-            let type_num = match val {
-                Value::Number(_) => 1.0,
-                Value::Text(_) => 2.0,
-                Value::Boolean(_) => 4.0,
-                Value::Array(_) => 64.0,
-                Value::Null | Value::Lambda { .. } => 16.0, // Null=error, Lambda=no Excel equivalent
+            // 1 = number (an empty cell too), 2 = text, 4 = logical, 16 = error, 64 = array
+            let type_num = match evaluate(&args[0], ctx) {
+                Ok(Value::Number(_) | Value::Null) => 1.0,
+                Ok(Value::Text(_)) => 2.0,
+                Ok(Value::Boolean(_)) => 4.0,
+                Ok(Value::Array(_)) => 64.0,
+                Err(_) | Ok(Value::Lambda { .. }) => 16.0, // a Lambda has no Excel equivalent
             };
             Value::Number(type_num)
         },
@@ -244,14 +236,16 @@ mod tests {
     #[test]
     fn test_na() {
         let ctx = EvalContext::new();
-        // NA() returns Null
-        assert_eq!(eval("NA()", &ctx).unwrap(), Value::Null);
+        // NA() is the error #N/A, not an empty value (ADR-059: an empty cell
+        // is Null, and the two must differ for IFERROR and ISBLANK)
+        let error = eval("NA()", &ctx).unwrap_err().to_string();
+        assert!(error.contains("#N/A"), "{error}");
     }
 
     #[test]
     fn test_isna() {
         let ctx = EvalContext::new();
-        // NA() returns Null, ISNA should detect it
+        // ISNA sees the #N/A of NA()
         assert_eq!(eval("ISNA(NA())", &ctx).unwrap(), Value::Boolean(true));
         // Regular number is not NA
         assert_eq!(eval("ISNA(5)", &ctx).unwrap(), Value::Boolean(false));
@@ -273,7 +267,8 @@ mod tests {
     #[test]
     fn test_isblank() {
         let ctx = EvalContext::new();
-        assert_eq!(eval("ISBLANK(NA())", &ctx).unwrap(), Value::Boolean(true));
+        // An error is not an empty cell (Excel: ISBLANK(NA()) is FALSE)
+        assert_eq!(eval("ISBLANK(NA())", &ctx).unwrap(), Value::Boolean(false));
         assert_eq!(eval("ISBLANK(0)", &ctx).unwrap(), Value::Boolean(false));
         assert_eq!(eval("ISBLANK(\"\")", &ctx).unwrap(), Value::Boolean(false));
         // Empty string is not blank

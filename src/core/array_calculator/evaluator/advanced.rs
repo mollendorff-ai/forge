@@ -88,7 +88,7 @@ pub fn try_evaluate(
             if remaining.len() % 2 == 1 {
                 evaluate(&remaining[remaining.len() - 1], ctx)?
             } else {
-                return Err(EvalError::new("SWITCH: No match found"));
+                return Err(EvalError::new("#N/A: SWITCH: no match found"));
             }
         },
 

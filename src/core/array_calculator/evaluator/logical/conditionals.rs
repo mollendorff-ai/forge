@@ -3,7 +3,7 @@
 //! Functions: IF, IFERROR, IFNA, IFS
 
 use crate::core::array_calculator::evaluator::{
-    evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
+    evaluate, is_na_error, require_args, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 
 /// Evaluate IF function - conditional evaluation
@@ -66,22 +66,18 @@ fn eval_if_array(
 /// In Excel, IFERROR catches ALL errors including #N/A
 pub fn eval_iferror(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args(name, args, 2)?;
-    match evaluate(&args[0], ctx) {
-        Ok(val) if !matches!(val, Value::Null) => Ok(val),
-        _ => evaluate(&args[1], ctx), // Error or NA (Null) => use fallback
-    }
+    // An empty cell is no error: it stays empty, which reads as 0 (ADR-059)
+    evaluate(&args[0], ctx).or_else(|_| evaluate(&args[1], ctx))
 }
 
 /// Evaluate IFNA function - returns fallback value when result is NA (null)
 pub fn eval_ifna(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args(name, args, 2)?;
-    let val = evaluate(&args[0], ctx)?;
-    // In Excel, IFNA returns value_if_na when the result is #N/A
-    // Since we don't have a proper NA error type, treat Null as NA
-    if matches!(val, Value::Null) {
-        evaluate(&args[1], ctx)
-    } else {
-        Ok(val)
+    // #N/A (NA() or a lookup that finds nothing) gives the fallback; any
+    // other error stays an error, as in Excel
+    match evaluate(&args[0], ctx) {
+        Err(e) if is_na_error(&e) => evaluate(&args[1], ctx),
+        other => other,
     }
 }
 
@@ -104,7 +100,7 @@ pub fn eval_ifs(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
         }
     }
     Err(EvalError::new(
-        "IFS: No matching condition found (consider adding TRUE as final condition)",
+        "#N/A: IFS: no condition is TRUE (consider adding TRUE as the last condition)",
     ))
 }
 

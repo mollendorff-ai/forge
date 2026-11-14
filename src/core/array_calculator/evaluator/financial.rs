@@ -53,7 +53,10 @@ fn solve_rate(
         if !npv.is_finite() {
             break;
         }
-        if npv.abs() <= tolerance {
+        // A residual within the tolerance is not yet the root: with a large
+        // loan the tolerance is large, so iterate until the step is nothing
+        // (RATE(276, -100, 1E15) stopped at -0.0725; the root is -0.0951)
+        if npv == 0.0 {
             return Ok(rate);
         }
         let step = 1e-6 * (1.0 + rate.abs());
@@ -66,7 +69,7 @@ fn solve_rate(
             // Stay above -100%: move halfway towards it instead
             next = (rate - 1.0) / 2.0;
         }
-        if (next - rate).abs() <= 1e-12 * (1.0 + rate.abs()) {
+        if (next - rate).abs() <= 1e-15 * (1.0 + rate.abs()) {
             rate = next;
             break;
         }
@@ -137,13 +140,20 @@ fn payment_timing(args: &[Expr], index: usize, ctx: &EvalContext) -> Result<f64,
     })
 }
 
+/// `(1 + rate)^nper` and `(1 + rate)^nper - 1`, the second without the loss
+/// of digits that subtracting 1 gives at a rate near 0 (`PMT(1e-9, 24, …)`).
+fn growth(rate: f64, nper: f64) -> (f64, f64) {
+    let exponent = nper * rate.ln_1p();
+    (exponent.exp(), exponent.exp_m1())
+}
+
 /// Future value of a present value and a level payment (Excel `FV`).
 fn annuity_fv(rate: f64, nper: f64, pmt: f64, pv: f64, due: f64) -> f64 {
     if rate == 0.0 {
         return -pmt.mul_add(nper, pv);
     }
-    let growth = (1.0 + rate).powf(nper);
-    -pv.mul_add(growth, pmt * due.mul_add(rate, 1.0) * (growth - 1.0) / rate)
+    let (growth, grown) = growth(rate, nper);
+    -pv.mul_add(growth, pmt * due.mul_add(rate, 1.0) * grown / rate)
 }
 
 /// Present value of a future value and a level payment (Excel `PV`).
@@ -151,8 +161,8 @@ fn annuity_pv(rate: f64, nper: f64, pmt: f64, fv: f64, due: f64) -> f64 {
     if rate == 0.0 {
         return -pmt.mul_add(nper, fv);
     }
-    let growth = (1.0 + rate).powf(nper);
-    -(pmt * due.mul_add(rate, 1.0)).mul_add((growth - 1.0) / rate, fv) / growth
+    let (growth, grown) = growth(rate, nper);
+    -(pmt * due.mul_add(rate, 1.0)).mul_add(grown / rate, fv) / growth
 }
 
 /// Level payment that turns `pv` into `fv` over `nper` periods (Excel `PMT`).
@@ -160,8 +170,8 @@ pub(super) fn annuity_pmt(rate: f64, nper: f64, pv: f64, fv: f64, due: f64) -> f
     if rate == 0.0 {
         return -(pv + fv) / nper;
     }
-    let growth = (1.0 + rate).powf(nper);
-    -pv.mul_add(growth, fv) * rate / ((growth - 1.0) * due.mul_add(rate, 1.0))
+    let (growth, grown) = growth(rate, nper);
+    -pv.mul_add(growth, fv) * rate / (grown * due.mul_add(rate, 1.0))
 }
 
 /// Interest part of the payment in period `per` (Excel `IPMT`).
@@ -402,8 +412,17 @@ pub fn try_evaluate(
             if rate == 0.0 {
                 Value::Number(-(pv + fv) / pmt)
             } else {
+                // ln((z - fv) / (z + pv)); when the ratio is near 1 (a rate
+                // near 0, z large) as ln_1p of its distance from 1, which
+                // keeps the digits that subtracting 1 would lose
                 let z = pmt * due.mul_add(rate, 1.0) / rate;
-                Value::Number(((z - fv) / (z + pv)).ln() / rate.ln_1p())
+                let off_one = -(fv + pv) / (z + pv);
+                let log = if off_one.abs() < 0.5 {
+                    off_one.ln_1p()
+                } else {
+                    ((z - fv) / (z + pv)).ln()
+                };
+                Value::Number(log / rate.ln_1p())
             }
         },
 
@@ -439,8 +458,8 @@ pub fn try_evaluate(
                 if rate.abs() < 1e-12 {
                     return pmt.mul_add(nper, pv) + fv;
                 }
-                let growth = (1.0 + rate).powf(nper);
-                pv.mul_add(growth, pmt * due.mul_add(rate, 1.0) * (growth - 1.0) / rate) + fv
+                let (growth, grown) = growth(rate, nper);
+                pv.mul_add(growth, pmt * due.mul_add(rate, 1.0) * grown / rate) + fv
             })?;
             Value::Number(rate)
         },
@@ -483,8 +502,20 @@ pub fn try_evaluate(
                 12.0
             };
 
-            if life == 0.0 || cost == 0.0 {
-                return Ok(Some(Value::Number(0.0)));
+            // LibreOffice's checks, which Excel's documentation does not
+            // contradict: a period past the life (and the part year after
+            // it) has no depreciation to give (#NUM!)
+            if cost <= 0.0
+                || salvage < 0.0
+                || salvage > cost
+                || life <= 0.0
+                || period <= 0.0
+                || period > life + 1.0
+                || !(1.0..=12.0).contains(&month)
+            {
+                return Err(EvalError::new(
+                    "#NUM!: DB needs 0 <= salvage <= cost, a life and a period above 0, a period at most the life + 1, and a month from 1 to 12",
+                ));
             }
 
             let rate = 1.0 - (salvage / cost).powf(1.0 / life);
@@ -537,22 +568,14 @@ pub fn try_evaluate(
                 )));
             }
 
-            let rate = factor / life;
-            let mut remaining = cost;
-            let mut depreciation = 0.0;
-
-            for _p in 1..=(period as i32) {
-                depreciation = remaining * rate;
-                if remaining - depreciation < salvage {
-                    depreciation = remaining - salvage;
-                }
-                if depreciation < 0.0 {
-                    depreciation = 0.0;
-                }
-                remaining -= depreciation;
-            }
-
-            Value::Number(depreciation)
+            // The closed form VDB uses, as both engines do: a fractional
+            // period is read as it is, and once the value is down to the
+            // salvage there is nothing more to take (the loop over whole
+            // periods gave 1.10 for DDB(202.845, 35.9, 21, 18.7), where both
+            // engines give 0)
+            Value::Number(super::schedule::declining(
+                cost, salvage, life, period, factor,
+            ))
         },
 
         "MIRR" => {
@@ -942,18 +965,17 @@ mod tests {
     #[test]
     fn test_db_zero_life() {
         let ctx = EvalContext::new();
-        // DB with life = 0 returns 0
-        assert_eq!(
-            eval("DB(10000, 1000, 0, 1)", &ctx).unwrap(),
-            Value::Number(0.0)
-        );
+        // DB with life = 0 is #NUM!, as LibreOffice gives (it was 0)
+        let error = eval("DB(10000, 1000, 0, 1)", &ctx).unwrap_err().to_string();
+        assert!(error.contains("#NUM!"), "{error}");
     }
 
     #[test]
     fn test_db_zero_cost() {
         let ctx = EvalContext::new();
-        // DB with cost = 0 returns 0
-        assert_eq!(eval("DB(0, 0, 5, 1)", &ctx).unwrap(), Value::Number(0.0));
+        // DB with cost = 0 is #NUM!, as LibreOffice gives (it was 0)
+        let error = eval("DB(0, 0, 5, 1)", &ctx).unwrap_err().to_string();
+        assert!(error.contains("#NUM!"), "{error}");
     }
 
     #[test]

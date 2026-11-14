@@ -32,8 +32,18 @@ pub fn eval_mod(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     if divisor == 0.0 {
         return Err(EvalError::new("MOD division by zero"));
     }
+    // The exact remainder of the two binary values, with the divisor's sign:
+    // Microsoft's n - d * INT(n / d) in exact arithmetic. Computing that
+    // formula in floating point gave MOD(7.3, 0.1) = -5.8E-16 (a negative
+    // result for a positive divisor) and MOD(1E15, 1E-12) = 0.0068, larger
+    // than the divisor.
+    let remainder = num % divisor;
     Ok(Value::Number(
-        divisor.mul_add(-(num / divisor).floor(), num),
+        if remainder != 0.0 && (remainder < 0.0) != (divisor < 0.0) {
+            remainder + divisor
+        } else {
+            remainder
+        },
     ))
 }
 

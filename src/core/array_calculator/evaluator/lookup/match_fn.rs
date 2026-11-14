@@ -40,7 +40,7 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
                     return Ok(Value::Number((i + 1) as f64));
                 }
             }
-            Err(EvalError::new("MATCH: value not found"))
+            Err(EvalError::new("#N/A: MATCH: value not found"))
         },
         1 => {
             // Find largest value <= lookup_value
@@ -57,7 +57,7 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
                 }
                 best_idx
                     .map(|i| Value::Number((i + 1) as f64))
-                    .ok_or_else(|| EvalError::new("MATCH: value not found"))
+                    .ok_or_else(|| EvalError::new("#N/A: MATCH: value not found"))
             } else {
                 let lookup_text = lookup_value.as_text().to_lowercase();
                 for (i, val) in arr.iter().enumerate() {
@@ -65,7 +65,7 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
                         return Ok(Value::Number((i + 1) as f64));
                     }
                 }
-                Err(EvalError::new("MATCH: value not found"))
+                Err(EvalError::new("#N/A: MATCH: value not found"))
             }
         },
         -1 => {
@@ -85,7 +85,7 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
             }
             best_idx
                 .map(|i| Value::Number((i + 1) as f64))
-                .ok_or_else(|| EvalError::new("MATCH: value not found"))
+                .ok_or_else(|| EvalError::new("#N/A: MATCH: value not found"))
         },
         _ => Err(EvalError::new(format!(
             "MATCH: invalid match_type {match_type}"
@@ -117,7 +117,7 @@ pub fn eval_xmatch(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
         1.0
     };
     xmatch_index("XMATCH", &lookup_value, &arr, match_mode, search_mode)?.map_or_else(
-        || Err(EvalError::new("XMATCH: value not found (#N/A)")),
+        || Err(EvalError::new("#N/A: XMATCH: value not found")),
         |i| Ok(Value::Number((i + 1) as f64)),
     )
 }
@@ -128,7 +128,8 @@ pub(super) fn exact_match(lookup: &Value, val: &Value, wildcards: bool) -> bool 
     if wildcards {
         if let Value::Text(pattern) = lookup {
             if wildcard::has_wildcards(pattern) {
-                return matches!(val, Value::Text(t) if wildcard::matches(pattern, t));
+                // An empty text is an empty cell in the workbook: no match
+                return matches!(val, Value::Text(t) if !t.is_empty() && wildcard::matches(pattern, t));
             }
         }
     }

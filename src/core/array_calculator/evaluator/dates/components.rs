@@ -107,8 +107,7 @@ pub fn try_evaluate(
             }
             // Try as fraction of day (Excel serial time)
             if let Some(n) = val.as_number() {
-                let frac = n.fract();
-                let total_seconds = (frac * 86400.0).round() as i64;
+                let total_seconds = seconds_of_day("HOUR", n)?;
                 return Ok(Some(Value::Number((total_seconds / 3600) as f64)));
             }
             return Err(EvalError::new("HOUR: Could not parse time"));
@@ -127,8 +126,7 @@ pub fn try_evaluate(
                 return Ok(Some(Value::Number(f64::from(parsed.minute()))));
             }
             if let Some(n) = val.as_number() {
-                let frac = n.fract();
-                let total_seconds = (frac * 86400.0).round() as i64;
+                let total_seconds = seconds_of_day("MINUTE", n)?;
                 return Ok(Some(Value::Number(((total_seconds / 60) % 60) as f64)));
             }
             return Err(EvalError::new("MINUTE: Could not parse time"));
@@ -147,8 +145,7 @@ pub fn try_evaluate(
                 return Ok(Some(Value::Number(f64::from(parsed.second()))));
             }
             if let Some(n) = val.as_number() {
-                let frac = n.fract();
-                let total_seconds = (frac * 86400.0).round() as i64;
+                let total_seconds = seconds_of_day("SECOND", n)?;
                 return Ok(Some(Value::Number((total_seconds % 60) as f64)));
             }
             return Err(EvalError::new("SECOND: Could not parse time"));
@@ -158,6 +155,19 @@ pub fn try_evaluate(
     };
 
     Ok(Some(result))
+}
+
+/// The second of the day a time holds, rounded to the nearest second; a time
+/// that rounds up to midnight is the next day's 0 (`HOUR(0.9999999)` is 0).
+/// A negative number is no time in Excel's calendar (#NUM!).
+#[allow(clippy::cast_possible_truncation)]
+fn seconds_of_day(name: &str, n: f64) -> Result<i64, EvalError> {
+    if n < 0.0 {
+        return Err(EvalError::new(format!(
+            "#NUM!: {name}: {n} is before the first day Excel holds"
+        )));
+    }
+    Ok((n.fract() * 86_400.0).round() as i64 % 86_400)
 }
 
 #[cfg(test)]

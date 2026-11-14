@@ -4,13 +4,19 @@ Forge, LibreOffice and Gnumeric by harness.py.
 
     FORGE=../../target/release/forge python3 -I generate.py --seed 7 --per-function 20
     python3 -I generate.py --seed 7 --per-function 20 --only DATEDIF   # replay one function
+    python3 -I generate.py --seed 1 --per-function 20 --fail           # as CI runs it
+
+Every case is judged against LibreOffice and Gnumeric (or LibreOffice alone,
+where JUDGES says why). Forge alone against the judges, or all three
+different, is a failure unless a rule in known.py covers it (ADR-062).
 
 The same seed and the same file give the same cases, in the same order, with
 the same data columns: a case's id is <function>_<seed>_<n>.
 """
-import argparse, datetime as dt, json, os, random, sys
+import argparse, datetime as dt, json, os, random, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import report, report_text
+from harness import ERR, run, run_text, same
+import known
 
 BASE = dt.date(1899, 12, 30)
 q = lambda s: json.dumps(s, ensure_ascii=False)
@@ -108,6 +114,7 @@ def yaml_tables(cols):
 # and ? before a kind for an argument that may be left out.
 
 NUM, TXT = "num", "text"
+CHUNK = 1000
 CATALOGUE = {
     # dates
     "DATE": (NUM, "i:1899:2101 i:-2:14 i:-1:32"), "EDATE": (NUM, "d i:-25:25"), "EOMONTH": (NUM, "d i:-25:25"),
@@ -210,31 +217,99 @@ def cases_for(seed, per_function, only=None):
             fn = ALIAS.get(name, name)
             cid = f"{name.replace('.', '_').lower()}_{seed}_{n}"
             formula = f"{fn}({','.join(args)})"
+            case = {"id": cid, "fn": fn, "name": name, "args": args, "kind": kind, "formula": "=" + formula}
             if kind == TXT and any(a.startswith(("g.", "h.")) for a in args):
                 # A text case runs in a one-row table, which cannot read
                 # another table's column row by row: measure it as a scalar
-                out.append((NUM, cid, f"=LEN({formula})"))
-            else:
-                out.append((kind, cid, "=" + formula))
+                case.update(kind=NUM, formula=f"=LEN({formula})")
+            out.append(case)
     del cols["__table__"]
     return out, cols
+
+# Who judges a function (ADR-062, decision 3): both engines unless one cannot
+JUDGES = {
+    "DATEDIF": ("lo", "Gnumeric 1.12 cannot read DATEDIF from an xlsx file"),
+    "XMATCH": ("lo", "Gnumeric 1.12 has no XMATCH"),
+    "XLOOKUP": ("lo", "Gnumeric 1.12 has no XLOOKUP"),
+}
+
+def verdict(case):
+    """agreed, forge-alone, judges-split or all-different (ADR-062, decision 3)."""
+    f, lo, gn = case["forge"], case["lo"], case["gn"]
+    if case["fn"] in JUDGES:
+        return "agreed" if same(f, lo) else "forge-alone"
+    if same(f, lo) and same(f, gn):
+        return "agreed"
+    if same(lo, gn):
+        return "forge-alone"
+    if same(f, lo) or same(f, gn):
+        return "judges-split"
+    return "all-different"
+
+def show(v):
+    return "an error" if v == ERR or v == "#ERR" else repr(v)
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--seed", type=int, required=True)
     p.add_argument("--per-function", type=int, default=20)
-    p.add_argument("--only", nargs="*", help="function names to replay")
+    p.add_argument("--only", nargs="*", help="function names to replay (as in the catalogue)")
     p.add_argument("--work", default="work")
+    p.add_argument("--fail", action="store_true", help="exit 1 when a case fails (CI)")
     a = p.parse_args()
     cases, cols = cases_for(a.seed, a.per_function, set(a.only) if a.only else None)
     extra = yaml_tables(cols)
-    num = [(cid, f) for k, cid, f in cases if k == NUM]
-    txt = [(cid, f) for k, cid, f in cases if k == TXT]
-    print(f"seed {a.seed}: {len(num)} number cases, {len(txt)} text cases")
-    results = {}
-    if num: results["num"] = report(f"gen{a.seed}", num, a.work, extra)
-    if txt: results["text"] = report_text(f"gen{a.seed}t", txt, a.work, extra)
-    return results
+    for kind, runner, suffix in ((NUM, run, ""), (TXT, run_text, "t")):
+        part = [c for c in cases if c["kind"] == kind]
+        if not part:
+            continue
+        # Models of at most CHUNK cases: forge calculate slows down faster
+        # than the number of scalars grows (1,000 in 0.2 s, 4,000 in 8 s)
+        values = {}
+        for i in range(0, len(part), CHUNK):
+            chunk = part[i:i + CHUNK]
+            for n, f, lo, gn in runner(f"gen{a.seed}{suffix}_{i // CHUNK}", [(c["id"], c["formula"]) for c in chunk], a.work, extra):
+                values[n] = (f, lo, gn)
+        for c in part:
+            c["forge"], c["lo"], c["gn"] = values[c["id"]]
+    counts = {"agreed": 0, "forge-alone": 0, "judges-split": 0, "all-different": 0}
+    failures, explained = [], {r.id: 0 for r in known.RULES}
+    for c in cases:
+        v = verdict(c)
+        c["verdict"] = v
+        counts[v] += 1
+        if v in ("forge-alone", "all-different"):
+            rule = known.explain(c)
+            if rule:
+                explained[rule.id] += 1
+            else:
+                failures.append((v, c))
+    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+    print(f"seed {a.seed}, {a.per_function} a function, {len(cases)} cases (commit {commit or 'unknown'}): "
+          f"{counts['agreed']} agreed, {counts['judges-split']} with the engines split (reported, not failed), "
+          f"{counts['forge-alone'] + counts['all-different'] - len(failures)} covered by a known difference, {len(failures)} failed")
+    for rule in known.RULES:
+        if explained[rule.id]:
+            print(f"  known {rule.id}: {explained[rule.id]}  ({rule.tracked})")
+    unused = [r.id for r in known.RULES if not explained[r.id]]
+    if unused and not a.only:
+        print(f"  known differences that matched nothing this run: {', '.join(unused)}")
+    by_fn = {}
+    for v, c in failures:
+        by_fn.setdefault(c["name"], []).append((v, c))
+    for name, items in sorted(by_fn.items()):
+        print(f"FAIL {name}: {len(items)} case(s); replay: python3 -I generate.py --seed {a.seed} --per-function {a.per_function} --only {name}")
+        for v, c in items[:5]:
+            judges = "LibreOffice" if c["fn"] in JUDGES else "LibreOffice, Gnumeric"
+            print(f"     {c['id']}: {c['formula']}  Forge {show(c['forge'])}; {judges}: {show(c['lo'])}"
+                  + ("" if c["fn"] in JUDGES else f", {show(c['gn'])}") + f"  [{v}]")
+    json.dump(cases, open(os.path.join(a.work, f"gen{a.seed}_cases.json"), "w"), indent=1, default=str)
+    # The workbooks and engine outputs of a large run fill the disk
+    for f in os.listdir(a.work):
+        if f.startswith(f"gen{a.seed}") and f.endswith(".xlsx"):
+            os.remove(os.path.join(a.work, f))
+    if a.fail and failures:
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
