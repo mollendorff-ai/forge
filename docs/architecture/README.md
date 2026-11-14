@@ -42,10 +42,7 @@ Technical documentation for Forge's architecture.
 | [ADR-023](ADR-023-BAYESIAN-NETWORKS.md) | Bayesian Networks | Accepted |
 | [ADR-024](ADR-024-SELF-UPDATE.md) | Self-Update | Accepted (restored) |
 | [ADR-025](ADR-025-FEATURE-GATE-INVERSION.md) | Feature Gate Inversion | Superseded |
-| [ADR-026](ADR-026-FPGA-HFT-ACCELERATION.md) | FPGA HFT Acceleration | Deferred |
 | [ADR-027](ADR-027-E2E-TEST-MIGRATION.md) | E2E Test Migration | Partly superseded |
-| [ADR-028](ADR-028-CRYSTAL-ANALYSIS.md) | Crystal Analysis | Not scheduled |
-| [ADR-030](ADR-030-GTM-LICENSING-STRATEGY.md) | GTM Licensing Strategy | Superseded |
 | [ADR-031](ADR-031-LICENSE-ELASTIC-2.0.md) | License: MIT OR Apache-2.0 | Accepted |
 | [ADR-032](ADR-032-CLI-SCHEMA-EXAMPLES.md) | CLI Schema Examples | Accepted |
 | [ADR-033](ADR-033-EXCEL-EXPORT.md) | Excel Export | Implemented |
