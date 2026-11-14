@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **The R formula suite could not fail.** `validation/r/validators/r/run_all.sh` ran each validator through `tee`, so it tested `tee`'s exit status, not R's: on rc.23 it printed 121 passed and 15 failed, then "All validators passed", exit 0. It stops at the first failing validator now (`set -o pipefail`), and the check was shown to fail with a deliberately wrong value. The 15 failures were `DATE` and `WORKDAY` checks: since ADR-060 Forge prints a date as text and the R helper expected a serial number; it reads both. 136 of 136 checks pass.
-- **Forge did not build on Rust 1.97.0** (8 uses of `Option::map_or_default`, not stable there). They are `map(..).unwrap_or_default()` now.
+- **Forge did not build on Rust 1.97.0** (8 uses of `Option::map_or_default`, stable only since 1.98, and 14 more in the validation suites). They are `map(..).unwrap_or_default()` now.
 
 ### Added
 - **`rust-version = "1.97"`** in Cargo.toml, the same `msrv` in `clippy.toml` (clippy stops suggesting newer APIs), and a CI job that builds on the declared version.
