@@ -97,11 +97,10 @@ tier1:
     how: "The proptest crate as a dev-dependency, on generated models: format: never changes a value (ADR-061); export then import gives the same numbers; calculating a model twice gives the same output; a seeded simulation gives the same numbers twice (docs/STABILITY.md point 4). A shrunk failing input becomes an ordinary test under T1-TEST-RULE"
     acceptance: "The four properties run in cargo test with a fixed case count that keeps CI under its time limit; any failure they found is fixed with a test"
 
-  - id: T1-SWEEP-REST
-    title: "Sweep the function families not yet swept, before the stable release"
-    why: "Sweeping dates and finance found eight wrong answers in one run, some silent (NETWORKDAYS and WORKDAY accepted holidays and ignored them). Statistical, lookup, text and math functions have only their handwritten cases"
-    how: "With T1-GENERATED's generator once it exists, or validation/sweep's way until then"
-    acceptance: "Each family has had a run against both engines; every disagreement is fixed with a test, recorded for T1-EXCEL-CHECKS, or explained in validation/sweep/README.md"
+  # T1-SWEEP-REST is done (2026-11-14): statistical, lookup, math and text
+  # swept against both engines, the wrong answers fixed with cases in
+  # validation/gnumeric/tests/edge/edge_text_lookup_sweep.yaml, the rest in
+  # T1-EXCEL-CHECKS or validation/sweep/README.md.
 
   - id: T1-MSRV
     title: "Declare the oldest Rust Forge builds with, and check it"
@@ -150,7 +149,7 @@ tier1:
 
   - id: T1-EXCEL-CHECKS
     title: "Results to check in real Excel, where the engines and Forge do not settle it"
-    why: "Each differs from something published or from one or both engines. VDB(2400,300,10*12,6,18,3): Microsoft's page says 396.31, Forge, Gnumeric, LibreOffice and a Python loop give 540.19. WEEKNUM(DATE(2020,12,31),11): Forge and the calendar say 53, LibreOffice says 1 (nine year-end cases of types 11 to 17 are checked against Forge only). Found by the sweep of 2026-11-13 (validation/sweep): VDB with a fractional start differs from both engines in all 281 such cases (VDB(100,10,3,0.5,1): Forge 22.22, both 33.33; whole starts all agree); TIME(23,59,59.5): Forge 0.999988 (seconds truncated, as Excel is believed to), both 0.999994; DATEDIF(DATE(2024,2,29),DATE(2025,12,29),\"YD\"): Forge 304, LibreOffice 303; SYD(10000,1000,0.5,1): Forge #NUM! (period after a life under 1), both 12000; DATE(1899,12,31): Forge 3799-12-31 by Microsoft's DATE page, both engines 1899-12-31"
+    why: "Each differs from something published or from one or both engines. VDB(2400,300,10*12,6,18,3): Microsoft's page says 396.31, Forge, Gnumeric, LibreOffice and a Python loop give 540.19. WEEKNUM(DATE(2020,12,31),11): Forge and the calendar say 53, LibreOffice says 1 (nine year-end cases of types 11 to 17 are checked against Forge only). Found by the sweep of 2026-11-13 (validation/sweep): VDB with a fractional start differs from both engines in all 281 such cases (VDB(100,10,3,0.5,1): Forge 22.22, both 33.33; whole starts all agree); TIME(23,59,59.5): Forge 0.999988 (seconds truncated, as Excel is believed to), both 0.999994; DATEDIF(DATE(2024,2,29),DATE(2025,12,29),\"YD\"): Forge 304, LibreOffice 303; SYD(10000,1000,0.5,1): Forge #NUM! (period after a life under 1), both 12000; DATE(1899,12,31): Forge 3799-12-31 by Microsoft's DATE page, both engines 1899-12-31. Found by the sweep of 2026-11-14 (statistical, lookup, math, text): LARGE({5,1,3,3,8},1.5): Forge 8 (k cut to 1), both engines 5 (k 2), and SMALL with a fractional k differs between the engines; a number as text below 1E-5: Forge 0.00001, LibreOffice 1E-05, and from 1E+15 Forge writes a whole number below 1E+16 in full as both engines do, though Excel keeps 15 digits; MATCH with match type 2: Gnumeric reads it as 1, LibreOffice and Forge give an error; MATCH with an approximate match on values not sorted the way the type needs (MATCH(0,{1,3,5,7,9,11},-1): Forge 1, both engines 6, from their binary search); a pattern after = or <> in COUNTIF (COUNTIF(names,\"<>b*\")): Forge and LibreOffice match it, Gnumeric reads it as plain text; MOD(7.3,0.1): Forge and LibreOffice -5.8E-16, Gnumeric 0.1; ADDRESS(2,26,5): Forge #VALUE! (Microsoft: abs_num 1 to 4), both engines $Z$2; VALUE(\"TRUE\"): Forge #VALUE!, both engines 1"
     how: "Type each in Excel. VDB 396.31: find what differs. WEEKNUM 1: change the year-end rule of types 11 to 17. VDB with a fractional start at 33.33: count it as the engines do. For the others, give Forge Excel's answer where it differs"
     acceptance: "The Excel values are recorded in validation/gnumeric with the date they were checked, and Forge gives them"
 

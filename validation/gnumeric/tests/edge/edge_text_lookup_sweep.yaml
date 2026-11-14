@@ -1,0 +1,273 @@
+# Wrong answers found on 2026-11-14 by sweeping Forge's statistical, lookup,
+# math and text functions (validation/sweep: about 5,900 cases) against
+# Gnumeric 1.12 and LibreOffice 26.2, each fixed in Forge. The expected values
+# are what both engines give, or LibreOffice where Gnumeric differs (each says
+# why in its libreoffice key). A case that should be an error is wrapped in
+# IFERROR(..., -1); text results are measured with LEN or FIND.
+#
+# wl.nm: apple, Banana, cherry, apple pie, date, b* (a real asterisk)
+# wl.lu: 4, 2, 9, 2, 7, 4    wl.pr: 10, 20, 30, 40, 50, 60
+
+_forge_version: "5.4.0"
+
+wl:
+  nm: ["apple", "Banana", "cherry", "apple pie", "date", "b*"]
+  lu: [4, 2, 9, 2, 7, 4]
+  pr: [10, 20, 30, 40, 50, 60]
+  # A formula column, so the runner reads this section as a table
+  k: "=pr * 1"
+
+wlt:
+  s: ["a", "", "b", "c"]
+  n: "=LEN(s)"
+
+assumptions:
+  # Wildcards in criteria (they were read as plain text)
+  test_countif_star:
+    value: null
+    formula: "=COUNTIF(wl.nm, \"b*\")"
+    expected: 2
+  test_countif_star_end:
+    value: null
+    formula: "=COUNTIF(wl.nm, \"*e\")"
+    expected: 3
+  test_countif_question:
+    value: null
+    formula: "=COUNTIF(wl.nm, \"?pple\")"
+    expected: 1
+  test_countif_tilde:
+    value: null
+    formula: "=COUNTIF(wl.nm, \"b~*\")"
+    expected: 1
+  test_countif_not_pattern:
+    value: null
+    formula: "=COUNTIF(wl.nm, \"<>b*\")"
+    expected: 4
+    libreoffice: "Gnumeric 1.12 reads a pattern after <> as plain text; LibreOffice and Excel's documentation match it"
+  test_countif_equal_pattern:
+    value: null
+    formula: "=COUNTIF(wl.nm, \"=c?erry\")"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 reads a pattern after = as plain text; LibreOffice and Excel's documentation match it"
+  test_sumif_pattern:
+    value: null
+    formula: "=SUMIF(wl.nm, \"apple*\", wl.pr)"
+    expected: 50
+  test_averageif_pattern:
+    value: null
+    formula: "=AVERAGEIF(wl.nm, \"*e\", wl.pr)"
+    expected: 33.333333333333336
+  test_countifs_pattern:
+    value: null
+    formula: "=COUNTIFS(wl.nm, \"b*\", wl.pr, \">15\")"
+    expected: 2
+  test_maxifs_pattern:
+    value: null
+    formula: "=MAXIFS(wl.pr, wl.nm, \"a*\")"
+    expected: 40
+  test_countif_no_match:
+    value: null
+    formula: "=COUNTIF(wl.nm, \"ban\")"
+    expected: 0
+  # Wildcards in MATCH with an exact match, and in SEARCH
+  test_match_question:
+    value: null
+    formula: "=MATCH(\"c?erry\", wl.nm, 0)"
+    expected: 3
+  test_match_star:
+    value: null
+    formula: "=MATCH(\"ban*\", wl.nm, 0)"
+    expected: 2
+  test_match_tilde:
+    value: null
+    formula: "=MATCH(\"b~*\", wl.nm, 0)"
+    expected: 6
+  test_search_question:
+    value: null
+    formula: "=SEARCH(\"?\", \"hello\", 4)"
+    expected: 4
+  test_search_star:
+    value: null
+    formula: "=SEARCH(\"*\", \"hello\", 3)"
+    expected: 3
+  test_search_tilde:
+    value: null
+    formula: "=SEARCH(\"~*\", \"a*b?c\")"
+    expected: 2
+  test_search_pattern_control:
+    value: null
+    formula: "=SEARCH(\"b?c\", \"a*b?c\")"
+    expected: 3
+  # XLOOKUP's search mode -1 searches from the end (it was ignored)
+  test_xlookup_last_exact:
+    value: null
+    formula: "=XLOOKUP(2, wl.lu, wl.pr, -1, 0, -1)"
+    expected: 40
+    libreoffice: "Gnumeric 1.12 has no XLOOKUP"
+  test_xlookup_last_next_larger:
+    value: null
+    formula: "=XLOOKUP(3, wl.lu, wl.pr, -1, 1, -1)"
+    expected: 60
+    libreoffice: "Gnumeric 1.12 has no XLOOKUP"
+  test_xlookup_first_control:
+    value: null
+    formula: "=XLOOKUP(2, wl.lu, wl.pr, -1, 0, 1)"
+    expected: 20
+    libreoffice: "Gnumeric 1.12 has no XLOOKUP"
+  # FIND and SEARCH count characters, not bytes (a start inside a character crashed)
+  test_find_greek:
+    value: null
+    formula: "=FIND(\"γ\", \"αβγ\")"
+    expected: 3
+  test_find_greek_start:
+    value: null
+    formula: "=FIND(\"β\", \"αβγ\", 2)"
+    expected: 2
+  test_search_eszett:
+    value: null
+    formula: "=SEARCH(\"E\", \"straße\")"
+    expected: 6
+  test_find_start_zero:
+    value: null
+    formula: "=IFERROR(FIND(\"l\", \"hello\", 0), -1)"
+    expected: -1
+  test_search_start_negative:
+    value: null
+    formula: "=IFERROR(SEARCH(\"l\", \"hello\", -1), -1)"
+    expected: -1
+  # A negative count or a position below 1 is #VALUE! (they gave text)
+  test_left_negative:
+    value: null
+    formula: "=IFERROR(LEN(LEFT(\"hello\", -1)), -1)"
+    expected: -1
+  test_right_negative:
+    value: null
+    formula: "=IFERROR(LEN(RIGHT(\"hello\", -1)), -1)"
+    expected: -1
+  test_mid_start_zero:
+    value: null
+    formula: "=IFERROR(LEN(MID(\"hello\", 0, 2)), -1)"
+    expected: -1
+  test_mid_count_negative:
+    value: null
+    formula: "=IFERROR(LEN(MID(\"hello\", 1, -1)), -1)"
+    expected: -1
+  test_rept_negative:
+    value: null
+    formula: "=IFERROR(LEN(REPT(\"ab\", -1)), -1)"
+    expected: -1
+  test_replace_start_zero:
+    value: null
+    formula: "=IFERROR(LEN(REPLACE(\"hello\", 0, 1, \"Z\")), -1)"
+    expected: -1
+  test_substitute_instance_zero:
+    value: null
+    formula: "=IFERROR(LEN(SUBSTITUTE(\"hello\", \"l\", \"L\", 0)), -1)"
+    expected: -1
+  test_replace_past_end:
+    value: null
+    formula: "=FIND(\"Q\", REPLACE(\"hello\", 20, 2, \"Q\"))"
+    expected: 6
+  test_mid_fractions_control:
+    value: null
+    formula: "=LEN(MID(\"hello\", 2.9, 2.5))"
+    expected: 2
+  # CONCAT joins a column's values, and a number reads with 15 digits
+  test_concat_column:
+    value: null
+    formula: "=LEN(CONCAT(wlt.s))"
+    expected: 3
+  test_concat_tenths:
+    value: null
+    formula: "=LEN(CONCAT(0.1 + 0.2))"
+    expected: 3
+    libreoffice: "Gnumeric writes a number as text in its shortest exact form; LibreOffice and Excel keep 15 digits"
+  test_len_third:
+    value: null
+    formula: "=LEN(2 / 3)"
+    expected: 17
+    libreoffice: "Gnumeric writes a number as text in its shortest exact form; LibreOffice and Excel keep 15 digits"
+  test_len_hundred_thirds:
+    value: null
+    formula: "=LEN(100 / 3)"
+    expected: 16
+    libreoffice: "Gnumeric writes a number as text in its shortest exact form; LibreOffice and Excel keep 15 digits"
+  # VALUE reads percent, currency, a negative in parentheses, a date and a time
+  test_value_percent:
+    value: null
+    formula: "=VALUE(\"50%\")"
+    expected: 0.5
+  test_value_dollars:
+    value: null
+    formula: "=VALUE(\"$1,000\")"
+    expected: 1000
+  test_value_parentheses:
+    value: null
+    formula: "=VALUE(\"(5)\")"
+    expected: -5
+  test_value_trailing_minus:
+    value: null
+    formula: "=VALUE(\"5-\")"
+    expected: -5
+  test_value_date:
+    value: null
+    formula: "=VALUE(\"2024-01-15\")"
+    expected: 45306
+  test_value_time:
+    value: null
+    formula: "=VALUE(\"12:30\")"
+    expected: 0.5208333333333334
+  test_value_bad_groups:
+    value: null
+    formula: "=IFERROR(VALUE(\"1,2,3\"), -1)"
+    expected: -1
+  # Rounding works on 15 significant digits, as Excel does
+  test_round_1005:
+    value: null
+    formula: "=ROUND(1.005, 2)"
+    expected: 1.01
+  test_round_0285:
+    value: null
+    formula: "=ROUND(0.285, 2)"
+    expected: 0.29
+  test_round_5015:
+    value: null
+    formula: "=ROUND(5.015, 2)"
+    expected: 5.02
+  test_rounddown_435:
+    value: null
+    formula: "=ROUNDDOWN(4.35, 2)"
+    expected: 4.35
+  test_trunc_435:
+    value: null
+    formula: "=TRUNC(4.35, 2)"
+    expected: 4.35
+  test_roundup_tenths:
+    value: null
+    formula: "=ROUNDUP(0.1 + 0.2, 1)"
+    expected: 0.3
+  test_round_negative_half_control:
+    value: null
+    formula: "=ROUND(-2.5, 0)"
+    expected: -3
+  # FLOOR and CEILING: a positive number with a negative significance is #NUM!, FLOOR by 0 is #DIV/0!
+  test_floor_negative_significance:
+    value: null
+    formula: "=IFERROR(FLOOR(7.3, -1), -1)"
+    expected: -1
+  test_ceiling_negative_significance:
+    value: null
+    formula: "=IFERROR(CEILING(7.3, -2), -1)"
+    expected: -1
+  test_floor_zero_significance:
+    value: null
+    formula: "=IFERROR(FLOOR(7.3, 0), -1)"
+    expected: -1
+  test_floor_tenths:
+    value: null
+    formula: "=FLOOR(0.3, 0.1)"
+    expected: 0.3
+  test_floor_both_negative_control:
+    value: null
+    formula: "=FLOOR(-7.3, -2)"
+    expected: -6

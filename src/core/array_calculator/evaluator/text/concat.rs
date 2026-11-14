@@ -4,14 +4,21 @@
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 
 use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
-use crate::core::array_calculator::evaluator::number_or;
+use super::whole_arg;
 
 /// CONCAT(text1, [text2], ...) - Joins multiple text values into one
 pub fn eval_concat(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     let mut result = String::new();
     for arg in args {
-        let val = evaluate(arg, ctx)?;
-        result.push_str(&val.as_text());
+        // A column or range gives each of its values in turn
+        match evaluate(arg, ctx)? {
+            Value::Array(items) => {
+                for item in items {
+                    result.push_str(&item.as_text());
+                }
+            },
+            val => result.push_str(&val.as_text()),
+        }
     }
     Ok(Value::Text(result))
 }
@@ -20,7 +27,13 @@ pub fn eval_concat(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
 pub fn eval_rept(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("REPT", args, 2)?;
     let text = evaluate(&args[0], ctx)?.as_text();
-    let times = number_or(&args[1], ctx, 0.0)? as usize;
+    let times = whole_arg("REPT", "number_times", &args[1], ctx, 0.0, 0.0)?;
+    // Excel's longest text is 32,767 characters; longer is #VALUE!
+    if text.chars().count().saturating_mul(times) > 32_767 {
+        return Err(EvalError::new(
+            "#VALUE!: REPT: the result would be longer than 32,767 characters",
+        ));
+    }
     Ok(Value::Text(text.repeat(times)))
 }
 

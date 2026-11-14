@@ -1,6 +1,6 @@
 //! The criteria of SUMIF, COUNTIFS and the like (`">=5"`, `""`, `0`)
 
-use super::{criterion_number, Value};
+use super::{criterion_number, wildcard, Value};
 
 /// A criterion of SUMIF, COUNTIFS and the like, read once and then tested
 /// against each value of the range (reading it for each value turned the
@@ -75,16 +75,26 @@ impl Criterion {
             (Test::Above(Some(c)), Some(v)) => return v > *c,
             (Test::Below(Some(c)), Some(v)) => return v < *c,
             (Test::Not(_, Some(c)), Some(v)) => return (v - c).abs() > f64::EPSILON,
-            (Test::Not(rest, _), _) => return val.as_text() != *rest,
+            (Test::Not(rest, _), _) => return !text_matches(rest, val),
             (Test::Equal(_, Some(c)), Some(v)) => return (v - c).abs() < f64::EPSILON,
-            (Test::Equal(rest, _), _) => return val.as_text().eq_ignore_ascii_case(rest),
+            (Test::Equal(rest, _), _) => return text_matches(rest, val),
             _ => {},
         }
         // Direct comparison (numeric or text)
         if let (Some(v), Some(c)) = (v, self.number) {
             return (v - c).abs() < f64::EPSILON;
         }
-        // Text comparison (case-insensitive)
-        val.as_text().eq_ignore_ascii_case(&self.text)
+        // Text comparison (case-insensitive, with wildcards)
+        text_matches(&self.text, val)
     }
+}
+
+/// Whether a value equals a criterion's text, ignoring case; with `*`, `?`
+/// or `~` in it the criterion is a pattern that only text matches, as in
+/// Excel (`"b*"` counts no number and no empty cell).
+fn text_matches(criterion: &str, val: &Value) -> bool {
+    if wildcard::has_wildcards(criterion) {
+        return matches!(val, Value::Text(t) if wildcard::matches(criterion, t));
+    }
+    val.as_text().to_lowercase() == criterion.to_lowercase()
 }

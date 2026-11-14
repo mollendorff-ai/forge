@@ -5,9 +5,10 @@
 // Lookup casts: f64 row/col indices to usize (bounded by array length).
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 
+use super::match_fn::{exact_match, xmatch_index};
 use crate::core::array_calculator::evaluator::number_or;
 use crate::core::array_calculator::evaluator::{
-    evaluate, require_args_range, values_equal, EvalContext, EvalError, Expr, Value,
+    evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
 
 /// Evaluate XLOOKUP function
@@ -26,9 +27,14 @@ pub fn eval_xlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         None
     };
     let match_mode = if args.len() > 4 {
-        number_or(&args[4], ctx, 0.0)? as i32
+        number_or(&args[4], ctx, 0.0)?
     } else {
-        0
+        0.0
+    };
+    let search_mode = if args.len() > 5 {
+        number_or(&args[5], ctx, 1.0)?
+    } else {
+        1.0
     };
 
     let Value::Array(lookup_values) = lookup_arr else {
@@ -47,53 +53,13 @@ pub fn eval_xlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         )));
     }
 
-    let idx = match match_mode {
-        0 => lookup_values
-            .iter()
-            .position(|v| values_equal(v, &lookup_val)),
-        -1 => {
-            let mut best_idx: Option<usize> = None;
-            let mut best_val: Option<f64> = None;
-            let lookup_num = lookup_val.as_number();
-
-            for (i, v) in lookup_values.iter().enumerate() {
-                if values_equal(v, &lookup_val) {
-                    return Ok(return_values.get(i).cloned().unwrap_or(Value::Null));
-                }
-                if let (Some(ln), Some(vn)) = (lookup_num, v.as_number()) {
-                    if vn <= ln && (best_val.is_none() || vn > best_val.unwrap()) {
-                        best_val = Some(vn);
-                        best_idx = Some(i);
-                    }
-                }
-            }
-            best_idx
-        },
-        1 => {
-            let mut best_idx: Option<usize> = None;
-            let mut best_val: Option<f64> = None;
-            let lookup_num = lookup_val.as_number();
-
-            for (i, v) in lookup_values.iter().enumerate() {
-                if values_equal(v, &lookup_val) {
-                    return Ok(return_values.get(i).cloned().unwrap_or(Value::Null));
-                }
-                if let (Some(ln), Some(vn)) = (lookup_num, v.as_number()) {
-                    if vn >= ln && (best_val.is_none() || vn < best_val.unwrap()) {
-                        best_val = Some(vn);
-                        best_idx = Some(i);
-                    }
-                }
-            }
-            best_idx
-        },
-        _ => {
-            return Err(EvalError::new(format!(
-                "XLOOKUP: invalid match_mode {match_mode}"
-            )))
-        },
-    };
-
+    let idx = xmatch_index(
+        "XLOOKUP",
+        &lookup_val,
+        &lookup_values,
+        match_mode,
+        search_mode,
+    )?;
     idx.map_or_else(
         || if_not_found.map_or_else(|| Err(EvalError::new("XLOOKUP: No match found")), Ok),
         |i| Ok(return_values.get(i).cloned().unwrap_or(Value::Null)),
@@ -156,7 +122,9 @@ pub fn eval_vlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         best_idx
     } else {
         // Exact match
-        lookup_arr.iter().position(|v| values_equal(v, &lookup_val))
+        lookup_arr
+            .iter()
+            .position(|v| exact_match(&lookup_val, v, true))
     };
 
     idx.map_or_else(
@@ -215,7 +183,9 @@ pub fn eval_hlookup(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError
         }
         best_idx
     } else {
-        lookup_arr.iter().position(|v| values_equal(v, &lookup_val))
+        lookup_arr
+            .iter()
+            .position(|v| exact_match(&lookup_val, v, true))
     };
 
     idx.map_or_else(

@@ -8,52 +8,55 @@
 )]
 
 use super::super::{evaluate, require_args_range, EvalContext, EvalError, Expr, Value};
-use crate::core::array_calculator::evaluator::number_or;
+use crate::core::array_calculator::evaluator::{number_or, wildcard};
 
-/// `FIND(find_text`, `within_text`, [`start_num`]) - Finds text within text (case-sensitive)
-pub fn eval_find(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
-    require_args_range("FIND", args, 2, 3)?;
-    let find_text = evaluate(&args[0], ctx)?.as_text();
-    let within_text = evaluate(&args[1], ctx)?.as_text();
-    let start_num = if args.len() > 2 {
-        number_or(&args[2], ctx, 1.0)? as usize
+/// The 0-based character position to start at, from an optional 1-based
+/// `start_num`: #VALUE! below 1 or past the end of the text, as in Excel.
+fn start_index(
+    name: &str,
+    args: &[Expr],
+    ctx: &EvalContext,
+    length: usize,
+) -> Result<usize, EvalError> {
+    let start = if args.len() > 2 {
+        number_or(&args[2], ctx, 1.0)?.trunc()
     } else {
-        1
+        1.0
     };
-
-    // FIND is case-sensitive and 1-indexed
-    let start_idx = start_num.saturating_sub(1);
-    if start_idx >= within_text.len() {
-        return Err(EvalError::new("FIND: start_num out of range"));
+    if start < 1.0 || start > length as f64 {
+        return Err(EvalError::new(format!(
+            "#VALUE!: {name}: start_num {start} is outside the text (1 to {length})"
+        )));
     }
-
-    within_text[start_idx..].find(&find_text).map_or_else(
-        || Err(EvalError::new("FIND: text not found")),
-        |pos| Ok(Value::Number((pos + start_num) as f64)),
-    )
+    Ok(start as usize - 1)
 }
 
-/// `SEARCH(find_text`, `within_text`, [`start_num`]) - Finds text within text (case-insensitive)
+/// `FIND(find_text`, `within_text`, [`start_num`]) - Finds text within text
+/// (case-sensitive, no wildcards); positions count characters
+pub fn eval_find(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
+    require_args_range("FIND", args, 2, 3)?;
+    let find_text: Vec<char> = evaluate(&args[0], ctx)?.as_text().chars().collect();
+    let within: Vec<char> = evaluate(&args[1], ctx)?.as_text().chars().collect();
+    let start = start_index("FIND", args, ctx, within.len())?;
+    (start..=within.len().saturating_sub(find_text.len()))
+        .find(|&i| within[i..].starts_with(&find_text))
+        .map_or_else(
+            || Err(EvalError::new("#VALUE!: FIND: text not found")),
+            |i| Ok(Value::Number((i + 1) as f64)),
+        )
+}
+
+/// `SEARCH(find_text`, `within_text`, [`start_num`]) - Finds text within text
+/// (case-insensitive, with the wildcards `*`, `?` and `~`); positions count
+/// characters
 pub fn eval_search(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args_range("SEARCH", args, 2, 3)?;
-    let find_text = evaluate(&args[0], ctx)?.as_text().to_lowercase();
-    let within_text = evaluate(&args[1], ctx)?.as_text();
-    let start_num = if args.len() > 2 {
-        number_or(&args[2], ctx, 1.0)? as usize
-    } else {
-        1
-    };
-
-    // SEARCH is case-insensitive and 1-indexed
-    let start_idx = start_num.saturating_sub(1);
-    if start_idx >= within_text.len() {
-        return Err(EvalError::new("SEARCH: start_num out of range"));
-    }
-
-    let search_in = within_text[start_idx..].to_lowercase();
-    search_in.find(&find_text).map_or_else(
-        || Err(EvalError::new("SEARCH: text not found")),
-        |pos| Ok(Value::Number((pos + start_num) as f64)),
+    let find_text = evaluate(&args[0], ctx)?.as_text();
+    let within = evaluate(&args[1], ctx)?.as_text();
+    let start = start_index("SEARCH", args, ctx, within.chars().count())?;
+    wildcard::find(&find_text, &within, start).map_or_else(
+        || Err(EvalError::new("#VALUE!: SEARCH: text not found")),
+        |i| Ok(Value::Number((i + 1) as f64)),
     )
 }
 

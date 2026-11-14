@@ -10,7 +10,28 @@ pub mod number_format;
 mod replace;
 mod search;
 
-use super::{EvalContext, EvalError, Expr, Value};
+use super::{number_or, EvalContext, EvalError, Expr, Value};
+
+/// A number of characters or a position given to a text function, made a
+/// whole number toward zero as Excel does. Below `least` (0 for a count, 1 for
+/// a position) it is #VALUE!, as in Excel.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+pub(super) fn whole_arg(
+    name: &str,
+    what: &str,
+    arg: &Expr,
+    ctx: &EvalContext,
+    default: f64,
+    least: f64,
+) -> Result<usize, EvalError> {
+    let n = number_or(arg, ctx, default)?.trunc();
+    if n.is_nan() || n < least {
+        return Err(EvalError::new(format!(
+            "#VALUE!: {name}: {what} {n} is below {least}"
+        )));
+    }
+    Ok(n.min(1e9) as usize)
+}
 
 /// Try to evaluate a text function. Returns None if function not recognized.
 pub fn try_evaluate(

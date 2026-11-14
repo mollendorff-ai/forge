@@ -451,7 +451,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
     FunctionDef {
         name: "SEARCH",
         category: Category::Text,
-        description: "Find text (case insensitive)",
+        description: "Find text (case insensitive, with the wildcards *, ? and ~)",
         syntax: "=SEARCH(find_text, within_text, start)",
         scalar: true,
     },
@@ -625,7 +625,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
     FunctionDef {
         name: "MATCH",
         category: Category::Lookup,
-        description: "Find position",
+        description: "Find position (an exact match, type 0, reads the wildcards *, ? and ~)",
         syntax: "=MATCH(lookup_value, array, type)",
         scalar: false,
     },
@@ -653,15 +653,15 @@ pub static FUNCTIONS: &[FunctionDef] = &[
     FunctionDef {
         name: "XMATCH",
         category: Category::Lookup,
-        description: "Find position, exactly or the nearest",
+        description: "Find position: exactly, the nearest, or a wildcard pattern (match mode 2); from the first, from the last, or a binary search",
         syntax: "=XMATCH(lookup_value, lookup_array, match_mode, search_mode)",
         scalar: false,
     },
     FunctionDef {
         name: "XLOOKUP",
         category: Category::Lookup,
-        description: "Extended lookup",
-        syntax: "=XLOOKUP(lookup, lookup_array, return_array, not_found)",
+        description: "Extended lookup, with XMATCH's match and search modes",
+        syntax: "=XLOOKUP(lookup, lookup_array, return_array, not_found, match_mode, search_mode)",
         scalar: false,
     },
     FunctionDef {
@@ -1298,7 +1298,7 @@ pub static FUNCTIONS: &[FunctionDef] = &[
     FunctionDef {
         name: "COUNTIF",
         category: Category::Conditional,
-        description: "Count with condition",
+        description: "Count with condition (\">5\", \"<>x\", or a pattern with the wildcards *, ? and ~)",
         syntax: "=COUNTIF(range, criteria)",
         scalar: false,
     },
