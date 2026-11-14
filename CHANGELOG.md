@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Test counts brought up to date** in README.md, VALIDATION.md and validation/gnumeric/README.md: 1,871 tests and 2 doctests; 2,024 Gnumeric cases in 57 files, 150 of them judged by LibreOffice. ADR-063 is marked Accepted.
+
 ## [10.0.0-rc.24] - 2026-11-14
 
 Wrong answers fixed in the lookup, math, text, statistical and financial functions (found by sweeps and by the new generated cases, ADR-062), `NA()` is now the error #N/A, and `forge validate` refuses a table with columns of different lengths. Forge Studio gets a welcome card. These are wrong answers, so by docs/STABILITY.md the two weeks before a stable release start again from this release: no earlier than 2026-11-28.
