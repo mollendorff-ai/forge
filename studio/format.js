@@ -77,10 +77,34 @@ export function spark(vals) {
 // end means hundredths, so "4.5 %" is 0.045, the way a percentage is held in
 // a model (and shown on its card); the decimal point is moved in the digits,
 // so no rounding is added. Anything else is null.
+//
+// A French keyboard types "0,03" and "1 234,5". Spaces (also the no-break ones
+// and the apostrophe) group digits. With both "," and "." the last one is the
+// decimal mark. A single "," is a decimal mark ("0,03", "3,5", "1,5"), except
+// when exactly three digits follow it after a leading 1 to 999 ("1,250" is
+// 1250, as it always was); a "0," before them is a decimal ("0,250" is 0.25).
+// Several "," or several "." are grouping ("1,234,567", "1.234.567").
 export function readNumber(text) {
-  let t = String(text).trim().replace(/[,\s]/g, "").replace("−", "-");
+  let t = String(text).trim().replace(/[\s\u00a0\u202f'’]/g, "").replace("−", "-");
   const percent = t.endsWith("%");
   if (percent) t = t.slice(0, -1);
+  const commas = (t.match(/,/g) || []).length, dots = (t.match(/\./g) || []).length;
+  if (commas && dots) {
+    const decimal = t.lastIndexOf(",") > t.lastIndexOf(".") ? "," : ".";
+    const group = decimal === "," ? "." : ",";
+    if (t.split(decimal).length > 2) return null;
+    t = t.split(group).join("").replace(decimal, ".");
+  } else if (commas === 1) {
+    const [whole, frac] = t.split(",");
+    const thousands = /^[-+]?[1-9]\d{0,2}$/.test(whole) && /^\d{3}($|[eE])/.test(frac);
+    t = thousands ? whole + frac : whole + "." + frac;
+  } else if (commas > 1) {
+    if (!/^[-+]?\d{1,3}(,\d{3})+(\.\d*)?$/.test(t.split(/[eE]/)[0])) return null;
+    t = t.replace(/,/g, "");
+  } else if (dots > 1) {
+    if (!/^[-+]?\d{1,3}(\.\d{3})+$/.test(t)) return null;
+    t = t.replace(/\./g, "");
+  }
   if (!/^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(t)) return null;
   if (!percent) return Number(t);
   const [mantissa, exponent = "0"] = t.split(/[eE]/);

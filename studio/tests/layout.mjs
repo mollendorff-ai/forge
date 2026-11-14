@@ -85,6 +85,12 @@ for (const example of ["bagel", "options", "mortgage"]) {
   await settle(page, before);
   if (!/open_days_per_month: 28\b/.test(await page.inputValue("#yaml-editor"))) fail("1440 px: a change on a card did not show in the editor");
 
+  // A French keyboard's decimal comma is read as a decimal: 0,03 is 0.03, not 3
+  before = await generation(page);
+  await page.fill('[data-input="assumptions.monthly_growth"]', "0,05");
+  await settle(page, before);
+  if (!/monthly_growth: (?:\{value: )?0\.05\b/.test(await page.inputValue("#yaml-editor"))) fail("1440 px: typing 0,05 on a card did not give 0.05 in the file");
+
   // The divider moves; either side can be hidden
   const box = await page.locator("#divider").boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
