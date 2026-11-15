@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **The quick start puts `install.sh` first, and its `cargo binstall` line works.** The bare `cargo binstall mollendorff-forge` found no version, as Forge has only release candidates; it now asks for `>=10.0.0-rc.1` and disables compiling, which binstall did silently for six minutes in a sandbox whose GitHub token cannot use the GraphQL API. Building from crates.io (`cargo install mollendorff-forge --version '>=10.0.0-rc.1'`) is listed beside building from a copy of the repository.
 
+### Fixed
+- **What a program found hard in Forge (roadmap T1-PIPELINE-FINDINGS, from Sentinel's first run).** `docs/MCP.md` said a Monte Carlo section needs `enabled: true`; `forge simulate` never reads the key, so the doc now says it is accepted and not read. It also said `forge_functions` lists 173 functions; there are 203, and `tests/doc_counts.rs` now reads `docs/MCP.md` too. A tornado input that cannot move the output used to be listed with a swing of 0 and no reason; the table now says "Changing this input does not change the output: the output's formula does not use it", and the JSON bar carries a `note` field only in that case.
+
+
 ## [10.0.0-rc.26] - 2026-11-15
 
 Five wrong answers fixed after 40 formulas were checked in real Excel, array constants such as `{1,2,3}` in formulas (ADR-064), and terminal output that reads better: `forge variance` shows `n/m` for a percentage that means nothing, and `calculate`, `scenarios` and `compare` show numbers with their `format:`. These are wrong answers fixed, so by docs/STABILITY.md the two weeks before a stable release start again from this release: no earlier than 2026-11-29.

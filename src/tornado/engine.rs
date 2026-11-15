@@ -24,6 +24,9 @@ pub struct SensitivityBar {
     pub input_low: f64,
     /// High input value used
     pub input_high: f64,
+    /// Said only when the input cannot move the output
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 impl SensitivityBar {
@@ -199,6 +202,10 @@ impl TornadoEngine {
         // Bars are ranked by the change in the output, the same number that is shown.
         let swing = output_at_high - output_at_low;
         let abs_swing = swing.abs();
+        let note = output_at_high.total_cmp(&output_at_low).is_eq().then(|| {
+            "Changing this input does not change the output: the output's formula does not use it"
+                .to_string()
+        });
 
         Ok(SensitivityBar {
             input_name: input.name.clone(),
@@ -208,6 +215,7 @@ impl TornadoEngine {
             abs_swing,
             input_low: input.low,
             input_high: input.high,
+            note,
         })
     }
 

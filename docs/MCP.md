@@ -434,7 +434,7 @@ Get JSON Schema for Forge YAML model formats.
 
 #### `forge_functions`
 
-List all 173 supported Excel-compatible functions with descriptions and syntax. Organized by category.
+List all 203 supported Excel-compatible functions with descriptions and syntax. Organized by category.
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"forge_functions","arguments":{}}}
@@ -516,6 +516,6 @@ When building a new model from scratch:
 
 **Tool returns `isError: true`.** The tool executed but encountered a domain error (e.g., file not found, invalid YAML, missing section). Check the `text` field for details.
 
-**Monte Carlo requires `monte_carlo` config.** The YAML file must have a `monte_carlo:` section with `enabled: true` and scalar formulas using `MC.*` distributions.
+**Monte Carlo requires `monte_carlo` config.** The YAML file must have a `monte_carlo:` section and scalar formulas using `MC.*` distributions. The `enabled` key is accepted but not read: a section with `enabled: false`, or without it, still runs.
 
 **Scenario analysis requires `scenarios` section.** The YAML file must define named scenarios under a `scenarios:` key.
