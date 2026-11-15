@@ -534,6 +534,8 @@ fn the_capex_plan_matches_python() {
     assert!(close(value("writedown.straight_line"), 13_500.0, 1e-12));
     assert!(close(value("writedown.sum_of_years"), 18_000.0, 1e-12));
     assert!(close(value("writedown.double_declining"), 16_875.0, 1e-12));
+    // 17.49% of 120,000, the third rate of the IRS table
+    assert!(close(value("writedown.tax_macrs"), 20_988.0, 1e-12));
     assert!(close(value("writedown.total"), 108_000.0, 1e-12));
     assert!(close(value("growth.cagr"), 0.126_393_199_277_902_16, 1e-9));
     assert!(close(value("growth.slope"), 6_300.0, 1e-9));

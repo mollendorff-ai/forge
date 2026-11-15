@@ -41,6 +41,11 @@ writedown:
     formula: "=SYD(machine.cost, machine.salvage, machine.life_years, 3)"
   double_declining:
     formula: "=VDB(machine.cost, machine.salvage, machine.life_years, 2, 3)"
+  # A tax table typed into the formula as an array constant: the IRS's
+  # 7-year MACRS rates in percent (Publication 946, table A-1, half-year
+  # convention). Year 3 is the third item. Tax depreciation ignores salvage.
+  tax_macrs:
+    formula: "=machine.cost * INDEX({14.29; 24.49; 17.49; 12.49; 8.93; 8.92; 8.93; 4.46}, 3) / 100"
   # Over the whole life every method writes off cost less salvage
   total:
     formula: "=VDB(machine.cost, machine.salvage, machine.life_years, 0, machine.life_years)"
