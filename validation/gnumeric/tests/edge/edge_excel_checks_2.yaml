@@ -1,0 +1,67 @@
+# Checked in Excel (iPhone app) on 2026-11-15: the open results of
+# T1-EXCEL-CHECKS. Each expected value is Excel's, read from screenshots of
+# the sheet "Forge against Excel 2"; Excel agreed with Forge on all eight that
+# calculate. Where Excel refused a formula (COUNTIF and SUMIF over an array
+# constant: "There's a problem with this formula"), Forge refuses it too, with
+# the reason: tests/array_constants.rs.
+#
+# An error is wrapped in IFERROR(..., -1).
+#
+# ta.v: 5, 1, 3, 3, 8. hl.v: 9, 7, 5, 3, 1. d.day: three dates.
+
+_forge_version: "5.4.0"
+
+ta:
+  v: [5, 1, 3, 3, 8]
+  k: "=v * 1"
+
+hl:
+  v: [9, 7, 5, 3, 1]
+  k: "=v * 1"
+
+d:
+  day: ["2026-01-05", "2026-02-10", "2026-03-15"]
+  k: "=1 + 0"
+
+assumptions:
+  # LARGE with k = 1.2: Excel rounds k up (1.5 up before), so the second value, 5
+  test_excel2_large12:
+    value: null
+    formula: "=LARGE(ta.v, 1.2)"
+    expected: 5
+  # k = 1.8: not cut to 1
+  test_excel2_large18:
+    value: null
+    formula: "=LARGE(ta.v, 1.8)"
+    expected: 5
+  # MATCH with match type -2 counts as -1, by its sign, as 2 counts as 1
+  test_excel2_match_m2:
+    value: null
+    formula: "=MATCH(4, hl.v, -2)"
+    expected: 3
+  # MATCH type 1 over numbers and texts mixed, looking for a number: only the numbers count
+  test_excel2_match_mixed_number:
+    value: null
+    formula: "=MATCH(4, {1,\"a\",3,\"b\",5}, 1)"
+    expected: 3
+  # ... and for a text: only the texts count
+  test_excel2_match_mixed_text:
+    value: null
+    formula: "=MATCH(\"b\", {1,\"a\",3,\"b\",5}, 1)"
+    expected: 4
+  # DB with a fractional life
+  test_excel2_db_life:
+    value: null
+    formula: "=DB(10000,1000,5.5,2,12)"
+    expected: 2250.36
+  # DB with a fractional period
+  test_excel2_db_period:
+    value: null
+    formula: "=DB(10000,1000,5,1.5,12)"
+    expected: 3690
+    libreoffice: "Gnumeric 1.12 gives 0 for a fractional period; Excel gives 3690 (checked 2026-11-15)"
+  # COUNTIF with a pattern over a column of dates matches texts only
+  test_excel2_countif_dates:
+    value: null
+    formula: "=COUNTIF(d.day, \"*\")"
+    expected: 0

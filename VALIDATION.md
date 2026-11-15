@@ -9,7 +9,7 @@ Forge is a release candidate and an R&D prototype. These checks reduce the chanc
 | Check | Compares Forge with | Result |
 | --- | --- | --- |
 | Unit tests (this repo) | Expected values written in the tests | over 1,900 tests and 2 doctests pass |
-| [forge-e2e-gnumeric](validation/gnumeric) | Gnumeric, a separate spreadsheet engine, and LibreOffice for 157 cases Gnumeric cannot read | 2,084 formula cases; 2,083 pass, 0 fail, 1 skipped, the 157 by LibreOffice included (2026-11-14); CI runs them on every pull request |
+| [forge-e2e-gnumeric](validation/gnumeric) | Gnumeric, a separate spreadsheet engine, and LibreOffice for 158 cases Gnumeric cannot read | 2,092 formula cases; 2,091 pass, 0 fail, 1 skipped, the 158 by LibreOffice included (2026-11-15); CI runs them on every pull request |
 | [forge-e2e-r](validation/r), formulas | R, with Excel rules where R differs | 136 math, date and financial checks pass |
 | forge-e2e-r, analytics | R packages `boot`, `stats`, `data.tree`, `derivmkts`, `bnlearn` and base R | 70 of 77 specs pass against R in the Validation workflow; 7 skipped |
 | Real Excel (by hand, once) | Microsoft Excel for iPhone, recalculating a workbook written by `forge export` | 18 of 18 financial and date results match (2026-11-06) |
@@ -34,7 +34,7 @@ cd validation/gnumeric
 cargo run --release      # runs ../../target/release/forge; FORGE_BIN=/path/to/forge for another
 ```
 
-Needs `ssconvert` (package `gnumeric`) and LibreOffice 24.8 or later (`soffice`; on Ubuntu 24.04 from noble-backports). Result on 2026-11-14 (after rc.25, with the Excel checks): 2,084 cases, of which 157 are recalculated by LibreOffice (26.2); 2,083 passed, 0 failed, 1 skipped. Every case is also checked after `forge export` and `forge import`, so a formula that does not survive the round trip fails. Fourteen cases are checked against Forge only, each with a written reason in its spec (`gnumeric_skip`), among them `PRICEDISC` and `ACCRINT` results where Gnumeric 1.12 and LibreOffice 26.2 both differ from Excel, which was checked by hand (section 5). With every cached scalar result written 1,000 too high, the 144 cases of two spec files (27 of them in LibreOffice) still all passed, so both engines recalculate rather than read the cache.
+Needs `ssconvert` (package `gnumeric`) and LibreOffice 24.8 or later (`soffice`; on Ubuntu 24.04 from noble-backports). Result on 2026-11-15 (after rc.26, with the Excel checks): 2,092 cases, of which 158 are recalculated by LibreOffice (26.2); 2,091 passed, 0 failed, 1 skipped. Every case is also checked after `forge export` and `forge import`, so a formula that does not survive the round trip fails. Fourteen cases are checked against Forge only, each with a written reason in its spec (`gnumeric_skip`), among them `PRICEDISC` and `ACCRINT` results where Gnumeric 1.12 and LibreOffice 26.2 both differ from Excel, which was checked by hand (section 5). With every cached scalar result written 1,000 too high, the 144 cases of two spec files (27 of them in LibreOffice) still all passed, so both engines recalculate rather than read the cache.
 
 ## 3. Math, date and financial functions against R
 
@@ -84,4 +84,6 @@ Done once, on 2026-11-06, with Forge `fix/day-count-and-export` (after v10.0.0-b
 
 All 18 matched: XIRR, XNPV, two RATE cases, IRR with a negative rate, PMT, FV and IPMT with payments at the start of the period (including period 1, where Excel gives 0), NPER, PRICEDISC with bases 0, 1 and 4, YIELDDISC with basis 1, ACCRINT with bases 0 and 1, and YEARFRAC with bases 0 and 1. Six of these are cases where Gnumeric gives a different answer; Excel agreed with Forge on all six, and the Gnumeric suite now records them with that reason.
 
-This covers one workbook and is not repeated automatically. An earlier check of the README example, on 2026-11-06, was made in a file viewer, not in Excel, and does not count.
+Two more rounds were done the same way, in the Excel app for iPhone, on formulas where Gnumeric, LibreOffice and Forge differed (specs `validation/gnumeric/tests/edge/edge_excel_checks.yaml` and `edge_excel_checks_2.yaml`, with each Excel value and the date). On 2026-11-14 Excel agreed with Forge on 35 of 40; the five where it did not are fixed in Forge. On 2026-11-15 it agreed on all eight that calculate (`LARGE` with a fractional k, `MATCH` with type -2 and over mixed numbers and texts, `DB` with a fractional life and period, `COUNTIF` with a pattern over dates), and refused `COUNTIF` and `SUMIF` over an array constant, which Forge now refuses too (ADR-064).
+
+This covers one workbook in the first round and is not repeated automatically. An earlier check of the README example, on 2026-11-06, was made in a file viewer, not in Excel, and does not count.

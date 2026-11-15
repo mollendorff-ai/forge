@@ -1,6 +1,6 @@
 # ADR-064: Array Constants in Formulas
 
-**Status:** Proposed (2026-11-14), and built in the same pull request; accepted by merging it
+**Status:** Accepted (proposed 2026-11-14, built in the same pull request and accepted by merging it); amended 2026-11-15 after a check in Excel (decision 2, last item)
 **Date:** 2026-11-14
 **Decided by:** the maintainer ("let's fix it", 2026-11-14, after the Excel-check workbook needed cell ranges where Excel users type `{5,1,3,3,8}`; ADR and code in one pull request, at his request); the design is Claude's, in a session configured for Opus 5.5
 **Extends:** ADR-058 (an aggregate's range is a whole column) and ADR-059 (empty cells)
@@ -42,6 +42,7 @@ Forge has no two-dimensional values. A table is columns of one dimension each, a
 2. **What Forge cannot hold is refused at parse time, with the reason:**
    - **A constant with both `,` and `;`** has rows and columns. The error says Forge has no two-dimensional values and suggests a row, a column or a table.
    - **An error value** (`#N/A`, `#DIV/0!`) cannot be held, since Forge's arrays have no error items. The error says that `NA()` gives `#N/A`. `#` outside braces gets the same message.
+   - **A constant where `COUNTIF` and its family read a range** (`SUMIF`, `AVERAGEIF`, `COUNTIFS`, `SUMIFS`, `AVERAGEIFS`, `MAXIFS`, `MINIFS`). Excel answers "There's a problem with this formula" (checked on 2026-11-15 for `COUNTIF` and `SUMIF`), so a workbook with one cannot be opened there. The error says to put the values in a table column. A constant is accepted as a criterion.
    - **Anything else in the braces is refused:** a name, an expression such as `2+3` and nested parentheses, as in Excel. An empty item (`{1,,2}`) is refused too, since Microsoft's pages do not say Excel takes one.
 
 3. **A constant is a whole list, like a column given to an aggregate (ADR-058).**
@@ -71,4 +72,4 @@ Forge has no two-dimensional values. A table is columns of one dimension each, a
 **What is still missing:**
 - **Two-dimensional constants:** Forge has no two-dimensional values.
 - **Error values inside braces:** Forge's arrays have no error items.
-- **`COUNTIF` and `SUMIF` over a constant:** Forge accepts them, as LibreOffice and Gnumeric do, but Excel takes only a range there. A model that uses one is valid in Forge and refused by Excel after export. This is not checked.
+- **`COUNTIF`, `SUMIF` and the like over a constant:** Excel takes only a range there. Checked in Excel on 2026-11-15, `=COUNTIF({1,2,3,2},2)` and `=SUMIF({1,2,3},">1")` are both refused ("There's a problem with this formula"), though Gnumeric, LibreOffice and Forge had accepted them. Forge now refuses a constant in a range argument of `COUNTIF`, `SUMIF`, `AVERAGEIF`, `COUNTIFS`, `SUMIFS`, `AVERAGEIFS`, `MAXIFS` and `MINIFS`, at parse time, with the reason, so that no workbook Excel would refuse is written. Excel was asked about the first two only; the others are in the same family, whose pages in Microsoft's documentation name a range. A constant is still accepted as a criterion, and in functions that take arrays (`SUMPRODUCT`, `MATCH`, `INDEX`).

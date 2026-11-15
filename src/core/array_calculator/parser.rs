@@ -282,6 +282,7 @@ impl Parser {
 
                 expr = match &expr {
                     Expr::Reference(Reference::Scalar(name)) => {
+                        Self::refuse_constant_for_range(name, &args)?;
                         // Normal function call: FN(args)
                         Expr::FunctionCall {
                             name: name.clone(),
@@ -397,6 +398,42 @@ impl Parser {
                 self.position,
             )),
         }
+    }
+
+    /// Excel takes only a range, not an array constant, where `COUNTIF` and
+    /// its family read a range: it answers "There's a problem with this
+    /// formula" (checked in Excel for `COUNTIF` and `SUMIF`, 2026-11-15). A
+    /// model that Excel refuses after `forge export` is refused here, with the
+    /// reason, instead of being exported (ADR-064).
+    fn refuse_constant_for_range(name: &str, args: &[Expr]) -> Result<(), ParseError> {
+        let function = name.to_uppercase();
+        let in_family = matches!(
+            function.as_str(),
+            "SUMIF"
+                | "COUNTIF"
+                | "AVERAGEIF"
+                | "SUMIFS"
+                | "COUNTIFS"
+                | "AVERAGEIFS"
+                | "MAXIFS"
+                | "MINIFS"
+        );
+        if in_family
+            && args.iter().enumerate().any(|(position, arg)| {
+                matches!(arg, Expr::Array { .. })
+                    && super::whole_column::is_whole_column(&function, args.len(), position)
+            })
+        {
+            return Err(ParseError::new(
+                format!(
+                    "{function} reads a range, and Excel does not accept an array constant \
+                     there (it says \"There's a problem with this formula\"). Put the \
+                     values in a table column and give that column"
+                ),
+                0,
+            ));
+        }
+        Ok(())
     }
 
     /// The rest of an array constant, after its `{` (ADR-064): items
