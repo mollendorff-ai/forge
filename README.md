@@ -53,9 +53,15 @@ Then, with the forge binary it installed:
    bagel.yaml and costs.yaml with your own code, and say whether they agree.
 3. Change one input (the price per dozen, say), calculate again, and explain
    what changed and why.
+
+If you cannot run commands here, say so plainly and do not invent any
+results. Point me to Forge Studio instead (https://forge.mollendorff.ai/),
+where I can open the bagel example myself in a browser.
 ```
 
 It names the project exactly, since "Forge" is a crowded name; it installs the release binary in a few seconds instead of letting the agent compile for minutes; and it asks the AI to check Forge rather than repeat the README's numbers.
+
+It needs an AI that can run commands. Tried by the maintainer on 2026-11-15: it worked on Claude and on Grok, free tiers included; the free tiers of ChatGPT and Gemini had no sandbox to run it in. For those, the prompt's last lines ask the AI to say so rather than make numbers up, and to send you to [Forge Studio](https://forge.mollendorff.ai/), which needs nothing but a browser.
 
 ## Status and known limitations
 
