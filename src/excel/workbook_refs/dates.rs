@@ -401,7 +401,10 @@ impl Dates<'_> {
                 }
             },
             Expr::FunctionCall { name, args } => self.kind_of_call(&name.to_uppercase(), args),
-            Expr::ArrayIndex { .. } | Expr::CallResult { .. } | Expr::Range { .. } => Kind::Unknown,
+            Expr::ArrayIndex { .. }
+            | Expr::CallResult { .. }
+            | Expr::Range { .. }
+            | Expr::Array { .. } => Kind::Unknown,
         }
     }
 
@@ -469,6 +472,7 @@ impl Dates<'_> {
         match expr {
             Expr::Number(_) | Expr::Boolean(_) => false,
             Expr::Text(text) => excel_date(text).is_some(),
+            Expr::Array { items, .. } => items.iter().any(|item| self.touches_dates(item)),
             Expr::Reference(reference) => self
                 .kind_of_name(&Self::word(reference))
                 .may_be_read_as_a_date(),
@@ -515,6 +519,20 @@ impl Dates<'_> {
         }
         match expr {
             Expr::Number(_) | Expr::Boolean(_) => Ok(expr.clone()),
+            // Excel reads a date written as text in braces as text, Forge as a
+            // date (ADR-060), so such a constant is not written as a formula
+            Expr::Array { items, .. } => {
+                if items
+                    .iter()
+                    .any(|item| matches!(item, Expr::Text(text) if excel_date(text).is_some()))
+                {
+                    return Err(
+                        "an array constant holds a date as text, which Excel reads as text"
+                            .to_string(),
+                    );
+                }
+                Ok(expr.clone())
+            },
             Expr::Text(text) => Ok(match (read, as_number(text)) {
                 (Read::Number, Some(date)) => date,
                 _ => expr.clone(),
@@ -1013,6 +1031,20 @@ fn push(expr: &Expr, tokens: &mut Vec<Token>) {
         Expr::Number(n) => tokens.push(Token::Number(*n)),
         Expr::Text(text) => tokens.push(Token::Text(text.clone())),
         Expr::Boolean(b) => tokens.push(Token::Boolean(*b)),
+        Expr::Array { items, column } => {
+            tokens.push(Token::OpenBrace);
+            for (i, item) in items.iter().enumerate() {
+                if i > 0 {
+                    tokens.push(if *column {
+                        Token::Semicolon
+                    } else {
+                        Token::Comma
+                    });
+                }
+                push(item, tokens);
+            }
+            tokens.push(Token::CloseBrace);
+        },
         Expr::Reference(reference) => tokens.push(Token::Identifier(Dates::word(reference))),
         Expr::FunctionCall { name, args } => {
             tokens.push(Token::Identifier(name.clone()));
@@ -1089,13 +1121,17 @@ fn formula_text(tokens: &[Token]) -> String {
             Token::CloseBracket => out.push(']'),
             Token::Comma => out.push_str(", "),
             Token::Colon => out.push(':'),
+            Token::OpenBrace => out.push('{'),
+            Token::CloseBrace => out.push('}'),
+            Token::Semicolon => out.push_str("; "),
         }
         after_value = match token {
             Token::Number(_)
             | Token::Text(_)
             | Token::Boolean(_)
             | Token::CloseParen
-            | Token::CloseBracket => true,
+            | Token::CloseBracket
+            | Token::CloseBrace => true,
             Token::Identifier(_) => !matches!(tokens.get(i + 1), Some(Token::OpenParen)),
             _ => false,
         };
@@ -1116,7 +1152,11 @@ pub fn formula_of(expr: &Expr) -> String {
 fn map(expr: &Expr, change: &impl Fn(Expr) -> Expr) -> Expr {
     let all = |items: &[Expr]| items.iter().map(|e| map(e, change)).collect::<Vec<_>>();
     let inner = match expr {
-        Expr::Number(_) | Expr::Text(_) | Expr::Boolean(_) | Expr::Reference(_) => expr.clone(),
+        Expr::Number(_)
+        | Expr::Text(_)
+        | Expr::Boolean(_)
+        | Expr::Array { .. }
+        | Expr::Reference(_) => expr.clone(),
         Expr::ArrayIndex { array, index } => Expr::ArrayIndex {
             array: Box::new(map(array, change)),
             index: Box::new(map(index, change)),

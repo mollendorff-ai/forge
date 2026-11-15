@@ -988,16 +988,16 @@ impl ArrayCalculator {
                 // A formula never gives an empty cell: it gives 0 (ADR-059)
                 let first_num = first_result
                     .as_cell_number()
-                    .ok_or_else(|| ForgeError::Eval("row 1: result is not a number".to_string()))?;
+                    .ok_or_else(|| not_a_number(1, &first_result))?;
                 results.push(first_num);
                 for row_idx in 1..row_count {
                     row_ctx.current_row = Some(row_idx);
                     let result = evaluator::evaluate(ast, row_ctx).map_err(|e| {
                         ForgeError::Eval(format!("row {}: {}", row_idx + 1, e.message))
                     })?;
-                    let value = result.as_cell_number().ok_or_else(|| {
-                        ForgeError::Eval(format!("row {}: result is not a number", row_idx + 1))
-                    })?;
+                    let value = result
+                        .as_cell_number()
+                        .ok_or_else(|| not_a_number(row_idx + 1, &result))?;
                     results.push(value);
                 }
                 Ok(ColumnValue::Number(results))
@@ -1073,6 +1073,20 @@ impl ArrayCalculator {
         }
 
         Ok(deps)
+    }
+}
+
+/// The error for a row formula whose result in `row` is not one number:
+/// several values (an array constant or a whole column, unaggregated) or
+/// none.
+fn not_a_number(row: usize, result: &evaluator::Value) -> ForgeError {
+    match result {
+        evaluator::Value::Array(items) => ForgeError::Eval(format!(
+            "row {row}: the result has {} values, and a row formula gives one value a \
+             row. Aggregate it with a function such as SUM or INDEX",
+            items.len()
+        )),
+        _ => ForgeError::Eval(format!("row {row}: result is not a number")),
     }
 }
 

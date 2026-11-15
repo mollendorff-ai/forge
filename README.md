@@ -22,7 +22,7 @@ Forge reads a financial model written in YAML (inputs, formulas, tables, scenari
 | Open [Forge Studio](https://forge.mollendorff.ai/) in your browser. Nothing to install, made for a phone, works offline. | Install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
 | [Try it →](https://forge.mollendorff.ai/) · [More on Studio](#forge-studio) | [Quick start →](#quick-start) · [For AI agents](#for-ai-agents) |
 
-**Checked, not trusted.** 2,024 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. On every pull request, 2,660 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 26,600 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
+**Checked, not trusted.** 2,044 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. On every pull request, 2,660 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 26,600 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
 
 ## Forge Studio
 
@@ -44,6 +44,7 @@ Known problems as of 2026-11-12 (what is planned, and in what order, is in the [
 
 - `forge export` writes a formula that Excel cannot express with the same meaning (Monte Carlo functions, Forge's one-column `VLOOKUP`, `IRR(-cost, flows)` and a few others) as its calculated value and lists it.
 - `forge export` does not write `scenarios` (Excel has no equivalent); it lists them as not exported. Keep the YAML file as the source of truth.
+- A two-dimensional array constant such as `{1,2;3,4}` is refused (Forge has no two-dimensional values), and `forge import` brings a formula with one in as its values.
 - `forge calculate` cannot evaluate `MC.*` distributions (for example `examples/monte-carlo.yaml`); it says so and points to `forge simulate`.
 - Each analytics command has been checked once end to end, on the `examples/bagel` models, against calculations written outside Forge. That is one model each, not broad coverage.
 
@@ -137,7 +138,7 @@ How each one is set up in YAML, with examples: [docs/FEATURES.md](docs/FEATURES.
 
 ### 203 functions
 
-Most are Excel's, under Excel's names, so a formula reads as it would in a cell. Seven are not in Excel: `VARIANCE`, `VARIANCE_PCT` and `VARIANCE_STATUS` (which knows that a cost under budget is good news), `BREAKEVEN_UNITS`, `BREAKEVEN_REVENUE`, `SCENARIO`, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is, and [docs/FUNCTIONS.md](docs/FUNCTIONS.md) has them all.
+Most are Excel's, under Excel's names, so a formula reads as it would in a cell. Seven are not in Excel: `VARIANCE`, `VARIANCE_PCT` and `VARIANCE_STATUS` (which knows that a cost under budget is good news), `BREAKEVEN_UNITS`, `BREAKEVEN_REVENUE`, `SCENARIO`, and `PREV` for the row above. Not every Excel function is covered; `forge functions` lists what is, and [docs/FUNCTIONS.md](docs/FUNCTIONS.md) has them all. A formula can hold a list in braces as in Excel, a row `{1,2,3}` or a column `{1;2;3}`: `=LARGE(x, {1,2,3})` ([ADR-064](docs/architecture/ADR-064-ARRAY-CONSTANTS.md)).
 
 | Category | Examples |
 |----------|----------|
@@ -234,7 +235,7 @@ Forge's results are checked against engines it does not control, and none of the
 | Check | What it covers | Latest result |
 | --- | --- | --- |
 | Unit tests (this repo) | over 1,850 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | 1,873 pass, 0 fail (2026-11-14); run on every push |
-| [forge-e2e-gnumeric](validation/gnumeric) | 2,024 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 150 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 2,023 pass, 0 fail, 1 skipped, the 150 by LibreOffice included (rc.24, 2026-11-14); CI runs them on every pull request |
+| [forge-e2e-gnumeric](validation/gnumeric) | 2,044 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 153 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 2,043 pass, 0 fail, 1 skipped, the 153 by LibreOffice included (2026-11-14); CI runs them on every pull request |
 | [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass (2026-11-14); 70 of 77 analytics specs compared with R, 7 skipped (2026-11-12) |
 
 Next steps: compare more of the skipped analytics specs (elasticity, the exponential distribution, one-point ranges).

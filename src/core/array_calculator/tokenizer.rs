@@ -31,6 +31,12 @@ pub enum Token {
     Comma,
     /// Colon for ranges (A1:B2)
     Colon,
+    /// Opening brace of an array constant: `{1,2,3}` (ADR-064)
+    OpenBrace,
+    /// Closing brace of an array constant
+    CloseBrace,
+    /// Semicolon between the items of a column constant: `{1;2;3}`
+    Semicolon,
 }
 
 /// Error during tokenization
@@ -133,6 +139,18 @@ impl<'a> Tokenizer<'a> {
                         self.advance();
                         Token::Colon
                     },
+                    '{' => {
+                        self.advance();
+                        Token::OpenBrace
+                    },
+                    '}' => {
+                        self.advance();
+                        Token::CloseBrace
+                    },
+                    ';' => {
+                        self.advance();
+                        Token::Semicolon
+                    },
 
                     // Operators (need to handle multi-char operators)
                     '+' | '*' | '/' | '^' | '&' => {
@@ -157,6 +175,15 @@ impl<'a> Tokenizer<'a> {
                     // Identifiers (function names, variable names, table.column,
                     // and @namespace.name for a value from an included file)
                     c if c.is_alphabetic() || c == '_' || c == '@' => self.read_identifier()?,
+
+                    // An error value written out (Excel's #N/A, #DIV/0!)
+                    '#' => {
+                        return Err(TokenizeError::new(
+                            "Unexpected character: '#'. An error value such as #N/A is not \
+                             written in a Forge formula: NA() gives #N/A",
+                            self.position,
+                        ));
+                    },
 
                     // Unknown character
                     c => {

@@ -76,6 +76,7 @@ Technical documentation for Forge's architecture.
 | [ADR-061](ADR-061-A-NUMBER-FORMAT.md) | A Number Format, Next to the Unit | Accepted; built |
 | [ADR-062](ADR-062-GENERATED-CASES.md) | Generated Cases Against Gnumeric and LibreOffice, in CI | Accepted; built |
 | [ADR-063](ADR-063-ORIGIN-OF-FORGE.md) | Where Forge Came From, and Why It Is Not a Trading Engine | Accepted |
+| [ADR-064](ADR-064-ARRAY-CONSTANTS.md) | Array Constants in Formulas | Proposed; built |
 
 ## Architecture Principles
 

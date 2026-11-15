@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Array constants in formulas (ADR-064)**: a row `{1,2,3}` or a column `{1;2;3}` of numbers, texts and `TRUE`/`FALSE`, as in Excel: `=LARGE(x, {1,2,3})`, `=MATCH(v, {"a";"b";"c"}, 0)`, `=SUMPRODUCT({1,2,3}, {4,5,6})`. A constant is a whole list, as a column given to an aggregate is (ADR-058); `SUM({1,2,3} * 2)` is 12, and in a row formula the constant is the same list on every row. `forge export` writes it as Excel does, and `forge import` keeps a workbook formula with one, where it imported the formula as its values ("unsupported character '{'"). A constant with rows and columns (`{1,2;3,4}`) is refused, as Forge has no two-dimensional values, and so is an error value such as `#N/A` in the braces (`NA()` gives it); each refusal says why. `examples/capex-plan` types the IRS's 7-year MACRS rates as a constant. 20 cases in `validation/gnumeric/tests/functions/array_constants.yaml` (three judged by LibreOffice, each with its reason), and `tests/array_constants.rs` for the refusals and the import.
+
+### Changed
+- **A row formula whose result has several values** says so ("the result has 3 values, and a row formula gives one value a row. Aggregate it with a function such as SUM or INDEX"), where it said "result is not a number".
+
 ## [10.0.0-rc.25] - 2026-11-14
 
 A release's `checksums.txt` now verifies with a plain `sha256sum -c`, `forge calculate` no longer slows to a crawl on models with thousands of scalars, and the release binaries are no longer packed with UPX. No wrong answer is fixed, so the stable date in docs/STABILITY.md stays where rc.24 put it: no earlier than 2026-11-28.

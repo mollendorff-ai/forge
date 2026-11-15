@@ -332,6 +332,13 @@ fn evaluate_expr(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
 
         Expr::Boolean(b) => Ok(Value::Boolean(*b)),
 
+        // An array constant (ADR-064): its items are literals
+        Expr::Array { items, .. } => items
+            .iter()
+            .map(|item| evaluate_expr(item, ctx))
+            .collect::<Result<Vec<_>, _>>()
+            .map(Value::Array),
+
         Expr::Reference(reference) => evaluate_reference(reference, ctx),
 
         Expr::ArrayIndex { array, index } => {
