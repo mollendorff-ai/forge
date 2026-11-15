@@ -1,5 +1,9 @@
 //! docs/WORKFLOWS.md names Forge commands in its diagrams and examples; each
 //! must be one the binary has, and each page it links to must exist.
+//! A coverage build stubs `main` (ADR-006), so this runs the real binary only
+//! outside coverage.
+
+#![cfg(not(coverage))]
 
 use std::path::Path;
 use std::process::Command;
