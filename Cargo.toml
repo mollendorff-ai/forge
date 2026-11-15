@@ -1,6 +1,6 @@
 [package]
 name = "mollendorff-forge"
-version = "10.0.0-rc.26"
+version = "10.0.0-rc.27"
 edition = "2021"
 # The oldest Rust that builds Forge; CI builds on it (the MSRV job) and
 # clippy.toml has the same version. Raise both together, on purpose.
