@@ -19,6 +19,9 @@ pub struct VarianceResult {
     pub actual: f64,
     pub variance: f64,
     pub variance_pct: f64,
+    /// `false` when the percentage means nothing (n/m): the budget is zero,
+    /// or the budget and the actual have opposite signs
+    pub pct_meaningful: bool,
     /// `None` when Forge cannot tell whether higher or lower is better
     pub is_favorable: Option<bool>,
     /// "higher", "lower" or "unknown": which way is good, and so how
@@ -93,6 +96,7 @@ pub fn compare_core(
         values,
         descriptions,
         dates,
+        formats: super::scalar_formats(&base_model),
     })
 }
 
@@ -132,6 +136,7 @@ pub fn variance_core(
             actual: v.actual,
             variance: v.variance,
             variance_pct: v.variance_pct,
+            pct_meaningful: v.pct_meaningful,
             is_favorable: v.is_favorable,
             better: v.better.to_string(),
             exceeds_threshold: v.exceeds_threshold,
@@ -383,6 +388,8 @@ fn collect_variances(
             0.0
         };
 
+        let pct_meaningful = pct_is_meaningful(budget_val, actual_val);
+
         let better = better_direction(name, budget_scalar, actual_scalar);
         let is_favorable = match better {
             "lower" => Some(actual_val <= budget_val),
@@ -390,7 +397,13 @@ fn collect_variances(
             _ => None,
         };
 
-        let exceeds_threshold = variance_pct.abs() >= threshold;
+        // A change from a zero budget, or across zero, is larger than any
+        // share of the budget, so it is always an alert
+        let exceeds_threshold = if pct_meaningful {
+            variance_pct.abs() >= threshold
+        } else {
+            variance_abs.abs() > 0.0
+        };
 
         variances.push(VarianceResult {
             name: name.clone(),
@@ -398,6 +411,7 @@ fn collect_variances(
             actual: actual_val,
             variance: variance_abs,
             variance_pct,
+            pct_meaningful,
             is_favorable,
             better,
             exceeds_threshold,
@@ -409,6 +423,21 @@ fn collect_variances(
         }
     }
     (variances, not_compared)
+}
+
+/// Whether a variance as a percentage of the budget means anything.
+///
+/// It does not (n/m, "not meaningful", as finance reports write it) when the budget
+/// is zero, or when the budget and the actual are on opposite sides of zero:
+/// a profit of 786 that became a loss of 28,314 is not "-3,700%" worse, it is
+/// 29,100 worse. The variance itself is always shown.
+#[must_use]
+#[allow(clippy::float_cmp)] // an actual of exactly zero is -100%, not a sign change
+pub fn pct_is_meaningful(budget: f64, actual: f64) -> bool {
+    if budget.abs() <= 0.0001 {
+        return false;
+    }
+    actual == 0.0 || budget.is_sign_positive() == actual.is_sign_positive()
 }
 
 #[allow(clippy::float_cmp)] // exactly on budget, not "close"
@@ -459,7 +488,11 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
     // Data rows
     for v in variances {
         let var_str = display_number(v.variance);
-        let pct_str = format!("{:.1}%", v.variance_pct);
+        let pct_str = if v.pct_meaningful {
+            format!("{:.1}%", v.variance_pct)
+        } else {
+            "n/m".to_string()
+        };
 
         let mark = match v.is_favorable {
             _ if on_target(v) => "=",
@@ -493,6 +526,11 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
 
     println!("{rule}");
     println!("   {} = exceeds {:.0}% threshold", "⚠️".yellow(), threshold);
+    if variances.iter().any(|v| !v.pct_meaningful) {
+        println!(
+            "   n/m = not meaningful: the budget is zero or the result changed sign; read the variance"
+        );
+    }
 }
 
 /// Export variance report to Excel
@@ -570,7 +608,11 @@ fn export_variance_to_excel_with_xlsx(
         worksheet.write_number(row, 1, v.budget).ok();
         worksheet.write_number(row, 2, v.actual).ok();
         worksheet.write_number(row, 3, v.variance).ok();
-        worksheet.write_number(row, 4, v.variance_pct / 100.0).ok(); // As decimal for %
+        if v.pct_meaningful {
+            worksheet.write_number(row, 4, v.variance_pct / 100.0).ok(); // As decimal for %
+        } else {
+            worksheet.write_string(row, 4, "n/m").ok();
+        }
 
         worksheet.write_string(row, 5, variance_status(v)).ok();
     }
@@ -642,6 +684,7 @@ pub fn export_variance_to_yaml(
         let _ = writeln!(content, "    actual: {}", to_15_digits(v.actual));
         let _ = writeln!(content, "    variance: {}", to_15_digits(v.variance));
         let _ = writeln!(content, "    variance_pct: {:.2}", v.variance_pct);
+        let _ = writeln!(content, "    pct_meaningful: {}", v.pct_meaningful);
         let favorable = v
             .is_favorable
             .map_or_else(|| "null".to_string(), |f| f.to_string());

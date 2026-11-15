@@ -128,32 +128,9 @@ tier2:
   # a scalar (ADR-060). The number format the maintainer asked for is built
   # too (ADR-061).
   # Found by installing rc.25 from the release and running examples/bagel
-  # command by command (2026-11-14). Every number matched the example's
-  # README; what follows is how the output reads, not what it computes.
-
-  - id: T2-VARIANCE-NM
-    title: "forge variance shows n/m where a percentage on a near-zero base means nothing"
-    why: "On examples/bagel the plan's year profit is 786.32 and the actual -28,313.87, so the report prints -3700.8% (and -3865.5% for the margin). An FP&A reader takes the real story to be 29,100 worse, and the percentage hides it. Finance reports mark such a percentage n/m (not meaningful)"
-    how: "Print n/m in the Var % column, and leave it out of the alert count, when the budget is zero, the sign flips, or the budget is below a small share of the output it belongs to; the dollar variance and its status stay. Write the rule down in the command's help and docs/FEATURES.md"
-    acceptance: "forge variance on examples/bagel/bagel.yaml and actual.yaml prints n/m for year.profit, year.margin and year.first_year_return, the other rows are unchanged, and a test pins the rule with a zero budget, a sign flip and a small base"
-
-  - id: T2-CLI-FORMAT
-    title: "calculate, scenarios, compare and break-even print numbers with the model's format:"
-    why: "format: (ADR-061) is used by forge report, Studio and the Excel export, but forge calculate prints margin = 0.815384615384615 and season = 0.85, and scenarios and compare print 0.008277 for a return shown as 0.8% in Studio. The terminal is where an agent and a person both read the numbers first, and it should say what Studio says. A format changes how a number is shown, never its value, so the written-back values stay full precision"
-    how: "Apply the format to the printed value only, reusing what forge report does to format a number; a number with no format: prints as today. Check how scripts get the full-precision number (JSON output, or a flag if none does) and keep that unchanged"
-    acceptance: "On examples/bagel the printed year.margin in forge calculate --dry-run and forge scenarios is 0.2% (the format Studio shows), the value written to the file and the JSON output are unchanged, and a test compares the printed text with forge report's"
-
-  - id: T2-LINUX-INSTALL
-    title: "The README's Quick start gives the commands to install a release archive on Linux"
-    why: "The Quick start says to download the archive for your system and check it, without naming it. The Linux archive is forge-x86_64-unknown-linux-musl.tar.gz (aarch64 for ARM), found by reading .github/workflows/release.yml. Agents, CI and containers install this way, and Homebrew and cargo-binstall are not always there"
-    how: "Three lines under the existing text: download the archive and checksums.txt from the release, sha256sum -c --ignore-missing checksums.txt, tar -xzf. Keep it under tests/readme_commands.rs so it cannot drift"
-    acceptance: "The commands run as written in a clean Linux container against the latest release and print forge --version, and tests/readme_commands.rs covers them"
-
-  - id: T2-WRITEBACK-NOTE
-    title: "The README says that forge calculate writes the results into the model file"
-    why: "forge calculate writes each result next to its formula and leaves a .bak, which is the design (the model is one file with formulas and values, ADR-051) and is explained in examples/starter.yaml's comments and the command's last lines. A first-time user who only reads the Quick start does not meet it until the file has changed"
-    how: "One line in the Quick start beside forge calculate: it writes results into the file and keeps a .bak; --dry-run prints without writing. No change to the behaviour"
-    acceptance: "The line is in the README and tests/readme_commands.rs still passes"
+  # (2026-11-14): n/m in forge variance, format: in the terminal output and
+  # the Linux install lines are built (CHANGELOG, Unreleased); the note that
+  # forge calculate writes into the file was in the README already.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # STUDIO — the web interface (ADR-055, ADR-056)

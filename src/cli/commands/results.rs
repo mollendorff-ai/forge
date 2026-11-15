@@ -306,11 +306,19 @@ pub struct VarianceEntry {
     pub variance: f64,
     /// Variance as a percentage of the size of the budget
     pub variance_pct: f64,
+    /// `false` when that percentage means nothing (n/m): the budget is zero,
+    /// or the budget and the actual have opposite signs
+    #[serde(default = "meaningful")]
+    pub pct_meaningful: bool,
     /// `null` when Forge cannot tell whether higher or lower is better
     pub is_favorable: Option<bool>,
     /// "higher", "lower" or "unknown"
     pub better: String,
     pub exceeds_threshold: bool,
+}
+
+const fn meaningful() -> bool {
+    true
 }
 
 /// Result of scenario comparison
@@ -327,4 +335,8 @@ pub struct ComparisonResult {
     /// and shown as dates, also in JSON (ADR-060)
     #[serde(skip)]
     pub dates: std::collections::BTreeSet<String>,
+    /// The `format:` of each variable that has one (ADR-061), used by the
+    /// table and Markdown; JSON and CSV keep the full numbers
+    #[serde(skip)]
+    pub formats: std::collections::BTreeMap<String, String>,
 }

@@ -1006,7 +1006,7 @@ function drawVariance(r) {
     <div class="stack">${r.results.map((x) => {
       const pill = x.is_favorable === true ? '<span class="pill good">favorable</span>' : x.is_favorable === false ? '<span class="pill bad">unfavorable</span>' : '<span class="pill none">no direction</span>';
       return `<div class="var ${x.exceeds_threshold ? "" : "dim"}" style="padding:8px 0;border-top:1px solid var(--line)"><div class="var-top"><span class="var-name">${esc(x.name)}</span>${pill}</div>
-        <div class="var-nums"><span>${esc(fmtAt(x.budget, x.name))} → ${esc(fmtAt(x.actual, x.name))}</span><span>${x.variance_pct == null ? "" : (x.variance_pct > 0 ? "+" : "") + x.variance_pct.toFixed(1) + "%"}</span></div></div>`;
+        <div class="var-nums"><span>${esc(fmtAt(x.budget, x.name))} → ${esc(fmtAt(x.actual, x.name))}</span><span>${x.variance_pct == null ? "" : x.pct_meaningful === false ? "n/m" : (x.variance_pct > 0 ? "+" : "") + x.variance_pct.toFixed(1) + "%"}</span></div></div>`;
     }).join("")}</div>`;
 }
 const va = $("#view-analyze");

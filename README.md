@@ -100,20 +100,22 @@ result.left_over            2,500.00     2,044.15      -455.85     -18.2%     âš
 
 ```text
 $ forge calculate examples/rolling-forecast/forecast.yaml --dry-run
-      fy2027.revenue = 987621.930676404
-      fy2027.budget = 960600
-      fy2027.variance = 27021.9306764037
-      pvm.volume = 14412.7435574308
-      pvm.mix = 11875.965095039
-      pvm.price = 733.222023933951
+      fy2027.revenue = 987,622  (987621.930676404)
+      fy2027.budget = 960,600  (960600)
+      fy2027.variance = 27,022  (27021.9306764037)
+      pvm.volume = 14,413  (14412.7435574308)
+      pvm.mix = 11,876  (11875.965095039)
+      pvm.price = 733  (733.222023933951)
 ```
 
 The quarters are a table of their own, rolled up from the months with one formula: in a table column an aggregate's range is the whole column and its criterion the row's value, as on a summary sheet in Excel (ADR-058).
 
 ```text
    ðŸ“Š Table: quarters
-      revenue = [229100.5, 240878.5, 253830.273215977, 263812.657460427]
-      budget = [225300, 235200, 245100, 255000]
+      revenue = [229,101; 240,879; 253,830; 263,813]
+                [229100.5, 240878.5, 253830.273215977, 263812.657460427]
+      budget = [225,300; 235,200; 245,100; 255,000]
+               [225300, 235200, 245100, 255000]
 ```
 
 (A few of its lines.) The months not closed yet are empty cells (`null`), which aggregates skip and formulas read as 0, as in Excel (ADR-059). Its README lists what Forge cannot do there yet: a date as a scalar input.
@@ -185,9 +187,12 @@ brew install mollendorff-ai/forge/forge
 # Or with cargo-binstall (releases after 10.0.0-rc.11; Windows too)
 cargo binstall mollendorff-forge
 
-# Or download the archive for your system from the release page and check it
-# (on macOS: shasum -a 256 -c)
+# Or download the archive for your system from the latest release and check it
+# (on macOS: shasum -a 256 -c; on ARM Linux: forge-aarch64-unknown-linux-musl)
+url=https://github.com/mollendorff-ai/forge/releases/latest/download
+curl -LO "$url/forge-x86_64-unknown-linux-musl.tar.gz" -LO "$url/checksums.txt"
 sha256sum -c --ignore-missing checksums.txt
+tar -xzf forge-x86_64-unknown-linux-musl.tar.gz    # the forge binary, here
 
 # Or build from source
 cargo install --path .

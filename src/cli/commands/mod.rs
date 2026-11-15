@@ -58,7 +58,9 @@ pub use update::update;
 pub use upgrade::upgrade;
 
 // Core function re-exports (return structured results, no printing)
-pub use analysis::{compare_core, goal_seek_core, sensitivity_core, variance_core};
+pub use analysis::{
+    compare_core, goal_seek_core, pct_is_meaningful, sensitivity_core, variance_core,
+};
 pub use audit::audit_core;
 pub use examples::examples_core;
 #[cfg(feature = "cli")]
@@ -162,6 +164,26 @@ pub fn formatted_column(values: &ColumnValue, format: &str) -> Vec<String> {
         },
         ColumnValue::Boolean(v) => v.iter().map(|b| show(Value::Boolean(*b))).collect(),
     }
+}
+
+/// A number as a `format:` shows it (ADR-061), or `None` when the format
+/// cannot show it. Only how it is printed changes, never the value.
+#[must_use]
+pub fn number_shown_by(value: f64, format: &str) -> Option<String> {
+    use crate::core::array_calculator::evaluator::{text::number_format::format_value, Value};
+    format_value(&Value::Number(value), format).ok()
+}
+
+/// The `format:` of each scalar of a model that has one (ADR-061).
+#[must_use]
+pub fn scalar_formats(
+    model: &crate::types::ParsedModel,
+) -> std::collections::BTreeMap<String, String> {
+    model
+        .scalars
+        .iter()
+        .filter_map(|(name, v)| Some((name.clone(), v.metadata.format.clone()?)))
+        .collect()
 }
 
 /// A column's values for the terminal, all of them and to 15 significant
@@ -389,11 +411,22 @@ pub fn calculate(
             let Some(column) = table.columns.get(col_name) else {
                 continue;
             };
-            println!(
-                "      {} = {}",
-                col_name.cyan(),
-                format_column_values(&column.values)
-            );
+            let raw = format_column_values(&column.values);
+            // With a format (ADR-061): the values as it shows them, then the
+            // full values underneath, which are what the file holds
+            match table.format_of(col_name) {
+                Some(format) => {
+                    // `;` between values, since a format may put commas in them
+                    let shown = formatted_column(&column.values, format).join("; ");
+                    println!("      {} = [{shown}]", col_name.cyan());
+                    println!(
+                        "      {}   {}",
+                        " ".repeat(col_name.chars().count()),
+                        raw.dimmed()
+                    );
+                },
+                None => println!("      {} = {raw}", col_name.cyan()),
+            }
         }
     }
 
@@ -402,10 +435,20 @@ pub fn calculate(
         println!("\n   📐 Scalars:");
         for (name, var) in &result.scalars {
             if let Some(value) = var.value {
-                let shown = var
+                let full = var
                     .date_text()
                     .unwrap_or_else(|| to_15_digits(value).to_string());
-                println!("      {} = {}", name.bright_blue(), shown.bold());
+                // With a format (ADR-061): as it shows the value, then the
+                // full value when the two differ
+                match var.formatted().filter(|f| *f != full) {
+                    Some(shown) => println!(
+                        "      {} = {}  {}",
+                        name.bright_blue(),
+                        shown.bold(),
+                        format!("({full})").dimmed()
+                    ),
+                    None => println!("      {} = {}", name.bright_blue(), full.bold()),
+                }
             }
         }
     }
