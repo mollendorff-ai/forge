@@ -41,6 +41,10 @@ own code and say whether it agrees.
 At the end, print every YAML file you wrote, in full, each in its own code
 block with its file name, so I can open it in Forge Studio.
 
+After this I will keep asking you questions about this model and what-ifs;
+answer from the model and Forge itself, and use `forge --help` and
+`forge <command> --help` for anything else Forge can do.
+
 If you cannot run commands here, say so plainly and do not invent any
 results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
@@ -71,6 +75,10 @@ the bagel example: `forge export forge-examples/bagel/bagel.yaml bagel.xlsx`.
 At the end, print every YAML file you wrote, in full, each in its own code
 block with its file name, so I can open it in Forge Studio.
 
+After this I will keep asking you questions about this model and what-ifs;
+answer from the model and Forge itself, and use `forge --help` and
+`forge <command> --help` for anything else Forge can do.
+
 If you cannot run commands here, say so plainly and do not invent any
 results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
 ```
@@ -98,6 +106,10 @@ Do not build it from source; install it with:
 
 At the end, print every YAML file you wrote, in full, each in its own code
 block with its file name, so I can open it in Forge Studio.
+
+After this I will keep asking you questions about this model and what-ifs;
+answer from the model and Forge itself, and use `forge --help` and
+`forge <command> --help` for anything else Forge can do.
 
 If you cannot run commands here, say so plainly and do not invent any
 results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
@@ -131,6 +143,10 @@ show that the profit is about zero.
 
 At the end, print every YAML file you wrote or changed, in full, each in its
 own code block with its file name, so I can open it in Forge Studio.
+
+After this I will keep asking you questions about this model and what-ifs;
+answer from the model and Forge itself, and use `forge --help` and
+`forge <command> --help` for anything else Forge can do.
 
 If you cannot run commands here, say so plainly and do not invent any
 results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).
@@ -166,6 +182,10 @@ work out the expected value of each choice by hand from second_shop.yaml.
 At the end, print every YAML file you wrote or changed, in full, each in its
 own code block with its file name, so I can open it in Forge Studio. If you
 changed none, say so.
+
+After this I will keep asking you questions about this model and what-ifs;
+answer from the model and Forge itself, and use `forge --help` and
+`forge <command> --help` for anything else Forge can do.
 
 If you cannot run commands here, say so plainly and do not invent any
 results. Point me to Forge Studio instead (https://forge.mollendorff.ai/).

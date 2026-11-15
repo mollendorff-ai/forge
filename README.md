@@ -54,6 +54,10 @@ Then, with the forge binary it installed:
 3. Change one input (the price per dozen, say), calculate again, and explain
    what changed and why.
 
+After this I will keep asking you questions about this model and what-ifs;
+answer from the model and Forge itself, and use `forge --help` and
+`forge <command> --help` for anything else Forge can do.
+
 If you cannot run commands here, say so plainly and do not invent any
 results. Point me to Forge Studio instead (https://forge.mollendorff.ai/),
 where I can open the bagel example myself in a browser.

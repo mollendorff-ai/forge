@@ -38,6 +38,7 @@ fn the_readme_installs_and_runs_what_exists() {
         2,
         "README must give the install line twice"
     );
+    assert!(readme.contains("I will keep asking you questions"));
     // The prompt runs the bagel example the script copies from examples/
     assert!(readme.contains("forge calculate forge-examples/bagel/bagel.yaml --dry-run"));
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -75,6 +76,10 @@ fn every_prompt_in_docs_installs_checks_and_ends_with_the_yaml() {
         assert!(
             prompt.contains("yourself") || prompt.contains("your own code"),
             "prompt {n} asks for a check"
+        );
+        assert!(
+            prompt.contains("I will keep asking you questions"),
+            "prompt {n} says the conversation goes on"
         );
     }
     // Every example file a prompt names exists
