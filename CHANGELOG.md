@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`main` did not build** after #222 (array constants) and #223 (shared columns) were merged one after the other: each passed on its own, but #223 made `Value::Array` hold a shared list and #222 built one from a plain list. The constant is now made into a shared list, and three date helpers moved from `evaluator/mod.rs` into `evaluator/serial.rs`, which the two together had taken past 1,500 lines.
+
 ### Added
 - **Array constants in formulas (ADR-064)**: a row `{1,2,3}` or a column `{1;2;3}` of numbers, texts and `TRUE`/`FALSE`, as in Excel: `=LARGE(x, {1,2,3})`, `=MATCH(v, {"a";"b";"c"}, 0)`, `=SUMPRODUCT({1,2,3}, {4,5,6})`. A constant is a whole list, as a column given to an aggregate is (ADR-058); `SUM({1,2,3} * 2)` is 12, and in a row formula the constant is the same list on every row. `forge export` writes it as Excel does, and `forge import` keeps a workbook formula with one, where it imported the formula as its values ("unsupported character '{'"). A constant with rows and columns (`{1,2;3,4}`) is refused, as Forge has no two-dimensional values, and so is an error value such as `#N/A` in the braces (`NA()` gives it); each refusal says why. `examples/capex-plan` types the IRS's 7-year MACRS rates as a constant. 20 cases in `validation/gnumeric/tests/functions/array_constants.yaml` (three judged by LibreOffice, each with its reason), and `tests/array_constants.rs` for the refusals and the import.
 
