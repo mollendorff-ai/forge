@@ -66,7 +66,7 @@ YAML Test Spec ─────┤                                            ├
 
 Only the cell labelled `test_result` counts as Gnumeric's answer.
 
-A case with `libreoffice: "<why Gnumeric cannot>"` is recalculated by LibreOffice instead (`soffice --headless --convert-to csv`, every sheet). LibreOffice shows the results cached in an xlsx file unless told otherwise, and Forge caches its own results, so the harness runs it with a profile of its own that recalculates every formula on load. A case with `gnumeric_skip: "<why>"` is checked against Forge only: four are left, results where both engines differ from Excel, which was checked by hand.
+A case with `libreoffice: "<why Gnumeric cannot>"` is recalculated by LibreOffice instead (`soffice --headless --convert-to csv`, every sheet). LibreOffice shows the results cached in an xlsx file unless told otherwise, and Forge caches its own results, so the harness runs it with a profile of its own that recalculates every formula on load. A case with `gnumeric_skip: "<why>"` is checked against Forge only, with its reason, most of them results where both engines differ from Excel, which was checked by hand; `VALIDATION.md` has the current count.
 
 Gnumeric 1.12 cannot judge some cases (`LET`, `UNIQUE`, `XLOOKUP`, `DATEDIF` read from xlsx, `ISFORMULA` on a literal). Mark those with `libreoffice: "reason"` next to `expected:`, and LibreOffice judges them. Only where neither engine gives Excel's answer, mark the case `gnumeric_skip: "reason"`: it is then checked against Forge only, and the summary counts it.
 
