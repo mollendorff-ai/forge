@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.25] - 2026-11-14
+
+A release's `checksums.txt` now verifies with a plain `sha256sum -c`, `forge calculate` no longer slows to a crawl on models with thousands of scalars, and the release binaries are no longer packed with UPX. No wrong answer is fixed, so the stable date in docs/STABILITY.md stays where rc.24 put it: no earlier than 2026-11-28.
+
 ### Fixed
 - **`forge calculate` took time growing with the cube of the number of scalars.** Every formula laid each short name of the model (`price` for `summary.price`) over the context and checked it against every name laid before it, so 1,000 scalars took 0.3 s, 4,000 took 14 s and 26,600 did not finish in 10 minutes. Short names are now looked up when a formula reads one, and only the few that hide a name of their own (a top-level `price` read from section `summary`) are laid over the context. 26,600 scalars take 0.3 s, a chain of 26,600 formulas each reading the one before as well. A model of many small sections (1,000 sections of 10) was quadratic too: each section's short names were found by going through every scalar. `VLOOKUP`, `HLOOKUP` and `OFFSET` in a row formula copied the whole context (every scalar and table) for each row: 8,000 rows of `VLOOKUP` took 2.8 s and now take 0.6 s. What is left there, a column copied for each row, is roadmap T1-COLUMN-COPIES. Results are the same: the Gnumeric suite, the unit tests and the generated cases give what they gave. `tests/scalar_scaling.rs` checks that 10,000 scalars take under 2 s in a release build; new tests in `scalar_scope_tests.rs` check that a LAMBDA or LET name, or a table column, still hides a short name, and that INDIRECT reads one. Roadmap T1-SCALAR-SCALING.
 
