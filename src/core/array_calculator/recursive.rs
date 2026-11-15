@@ -70,7 +70,7 @@ fn names_by_row(ast: &Expr) -> (HashSet<String>, HashSet<String>) {
                 walk(end, lagged, same, earlier);
             },
             Expr::UnaryOp { operand, .. } => walk(operand, lagged, same, earlier),
-            Expr::Number(_) | Expr::Text(_) | Expr::Boolean(_) => {},
+            Expr::Number(_) | Expr::Text(_) | Expr::Boolean(_) | Expr::Array { .. } => {},
         }
     }
     let (mut same, mut earlier) = (HashSet::new(), HashSet::new());

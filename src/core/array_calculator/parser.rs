@@ -45,6 +45,9 @@ pub enum Expr {
     UnaryOp { op: String, operand: Box<Self> },
     /// Range expression: A1:B10 (for INDIRECT, etc.)
     Range { start: Box<Self>, end: Box<Self> },
+    /// An array constant (ADR-064): `{1,2,3}` (a row, `column` false) or
+    /// `{1;2;3}` (a column). Each item is a number, a text or a boolean.
+    Array { items: Vec<Self>, column: bool },
 }
 
 /// Error during parsing
@@ -370,6 +373,10 @@ impl Parser {
                 self.advance();
                 Ok(Self::parse_identifier(name))
             },
+            Some(Token::OpenBrace) => {
+                self.advance();
+                self.array_constant()
+            },
             Some(Token::OpenParen) => {
                 self.advance();
                 let expr = self.expression()?;
@@ -390,6 +397,85 @@ impl Parser {
                 self.position,
             )),
         }
+    }
+
+    /// The rest of an array constant, after its `{` (ADR-064): items
+    /// separated by `,` (a row) or by `;` (a column), as Excel writes them.
+    /// An item is a number, with a sign if any, a text or TRUE or FALSE.
+    fn array_constant(&mut self) -> Result<Expr, ParseError> {
+        let start = self.position;
+        let mut items = Vec::new();
+        let mut separator: Option<Token> = None;
+        loop {
+            items.push(self.array_item()?);
+            match self.peek().cloned() {
+                Some(Token::CloseBrace) => {
+                    self.advance();
+                    break;
+                },
+                Some(sep @ (Token::Comma | Token::Semicolon)) => {
+                    if separator.as_ref().is_some_and(|seen| *seen != sep) {
+                        return Err(ParseError::new(
+                            "An array constant with both , and ; (such as {1,2;3,4}) has rows \
+                             and columns, and Forge has no two-dimensional values. Use a row \
+                             {1,2,3}, a column {1;2;3}, or a table",
+                            self.position,
+                        ));
+                    }
+                    separator = Some(sep);
+                    self.advance();
+                },
+                _ => return Err(Self::not_an_item(self.position.max(start))),
+            }
+        }
+        Ok(Expr::Array {
+            items,
+            column: separator == Some(Token::Semicolon),
+        })
+    }
+
+    /// One item of an array constant
+    fn array_item(&mut self) -> Result<Expr, ParseError> {
+        let sign = match self.peek() {
+            Some(Token::Operator(op)) if op == "-" || op == "+" => {
+                let negative = op == "-";
+                self.advance();
+                Some(negative)
+            },
+            _ => None,
+        };
+        match (self.peek().cloned(), sign) {
+            (Some(Token::Number(n)), Some(true)) => {
+                self.advance();
+                Ok(Expr::Number(-n))
+            },
+            (Some(Token::Number(n)), _) => {
+                self.advance();
+                Ok(Expr::Number(n))
+            },
+            (Some(Token::Text(s)), None) => {
+                self.advance();
+                Ok(Expr::Text(s))
+            },
+            (Some(Token::Boolean(b)), None) => {
+                self.advance();
+                Ok(Expr::Boolean(b))
+            },
+            (Some(Token::CloseBrace), None) => Err(ParseError::new(
+                "An array constant needs at least one item, and no empty item: {1,2,3}",
+                self.position,
+            )),
+            _ => Err(Self::not_an_item(self.position)),
+        }
+    }
+
+    fn not_an_item(position: usize) -> ParseError {
+        ParseError::new(
+            "An array constant holds numbers, texts and TRUE or FALSE only, as in Excel: \
+             {1,2,3} or {\"a\";\"b\"}. A name, a formula or an error such as #N/A cannot go \
+             inside the braces",
+            position,
+        )
     }
 
     /// Parse an identifier - could be scalar or table.column
@@ -441,6 +527,39 @@ mod tests {
                 operand: Box::new(Expr::Number(42.0)),
             }
         );
+    }
+
+    #[test]
+    fn test_parse_array_constants() {
+        assert_eq!(
+            parse_formula("{1,-2,\"a\"}").unwrap(),
+            Expr::Array {
+                items: vec![
+                    Expr::Number(1.0),
+                    Expr::Number(-2.0),
+                    Expr::Text("a".to_string())
+                ],
+                column: false,
+            }
+        );
+        assert_eq!(
+            parse_formula("{TRUE; 2}").unwrap(),
+            Expr::Array {
+                items: vec![Expr::Boolean(true), Expr::Number(2.0)],
+                column: true,
+            }
+        );
+        // One item is a row
+        assert_eq!(
+            parse_formula("{7}").unwrap(),
+            Expr::Array {
+                items: vec![Expr::Number(7.0)],
+                column: false,
+            }
+        );
+        for bad in ["{1,2;3}", "{}", "{1,}", "{x}", "{(1)}", "{-\"a\"}", "{1 2}"] {
+            assert!(parse_formula(bad).is_err(), "{bad}");
+        }
     }
 
     #[test]

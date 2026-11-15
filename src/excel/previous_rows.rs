@@ -51,7 +51,11 @@ fn children(expr: &Expr) -> Vec<&Expr> {
         Expr::UnaryOp { operand, .. } => vec![operand],
         Expr::ArrayIndex { array, index } => vec![array, index],
         Expr::Range { start, end } => vec![start, end],
-        Expr::Number(_) | Expr::Text(_) | Expr::Boolean(_) | Expr::Reference(_) => Vec::new(),
+        Expr::Number(_)
+        | Expr::Text(_)
+        | Expr::Boolean(_)
+        | Expr::Array { .. }
+        | Expr::Reference(_) => Vec::new(),
     }
 }
 

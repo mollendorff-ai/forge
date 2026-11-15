@@ -93,7 +93,7 @@ pub fn whole_column_names(ast: &Expr) -> HashSet<String> {
                 walk(end, whole, names);
             },
             Expr::UnaryOp { operand, .. } => walk(operand, whole, names),
-            Expr::Number(_) | Expr::Text(_) | Expr::Boolean(_) => {},
+            Expr::Number(_) | Expr::Text(_) | Expr::Boolean(_) | Expr::Array { .. } => {},
         }
     }
     let mut names = HashSet::new();

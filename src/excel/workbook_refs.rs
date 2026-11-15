@@ -15,6 +15,7 @@
 use crate::core::array_calculator::tokenizer::{tokenize, Token};
 use std::collections::HashMap;
 
+mod constants;
 pub mod dates;
 mod local_names;
 mod previous_row;
@@ -544,6 +545,17 @@ impl WorkbookRefs {
             let token = &tokens[i];
             let next_is_paren = matches!(tokens.get(i + 1), Some(Token::OpenParen));
             match token {
+                // An array constant (ADR-064), written as Excel writes it
+                Token::OpenBrace => {
+                    let (text, end) = constants::to_excel(tokens, i)?;
+                    out.push_str(&text);
+                    after_value = true;
+                    i = end;
+                    continue;
+                },
+                Token::CloseBrace | Token::Semicolon => {
+                    return Err("{ } or ; outside an array constant".to_string());
+                },
                 Token::Number(n) => out.push_str(&number_text(*n)),
                 Token::Text(t) => {
                     let _ = write!(out, "\"{}\"", t.replace('"', "\"\""));
@@ -784,8 +796,10 @@ fn split_arguments(tokens: &[Token]) -> Vec<&[Token]> {
     let (mut depth, mut start) = (0usize, 0);
     for (i, token) in tokens.iter().enumerate() {
         match token {
-            Token::OpenParen | Token::OpenBracket => depth += 1,
-            Token::CloseParen | Token::CloseBracket => depth = depth.saturating_sub(1),
+            Token::OpenParen | Token::OpenBracket | Token::OpenBrace => depth += 1,
+            Token::CloseParen | Token::CloseBracket | Token::CloseBrace => {
+                depth = depth.saturating_sub(1);
+            },
             Token::Comma if depth == 0 => {
                 args.push(&tokens[start..i]);
                 start = i + 1;
@@ -955,6 +969,8 @@ enum XlToken {
     Open,
     Close,
     Comma,
+    /// An array constant (ADR-064), already as Forge text
+    Constant(String),
 }
 
 /// A cell address: column letters and 1-based row.
@@ -1117,6 +1133,7 @@ fn excel_tokens(formula: &str) -> Result<Vec<XlToken>, String> {
                 tokens.push(XlToken::Comma);
                 i += 1;
             },
+            '{' => tokens.push(XlToken::Constant(constants::from_excel(&chars, &mut i)?)),
             other => return Err(format!("unsupported character '{other}'")),
         }
         // A sheet name is consumed by the cell reference right after it.
@@ -1240,10 +1257,12 @@ impl ReverseRefs {
                 XlToken::Open => out.push('('),
                 XlToken::Close => out.push(')'),
                 XlToken::Comma => out.push_str(", "),
+                XlToken::Constant(text) => out.push_str(text),
             }
             after_value = matches!(
                 token,
                 XlToken::Number(_)
+                    | XlToken::Constant(_)
                     | XlToken::Text(_)
                     | XlToken::Bool(_)
                     | XlToken::Local(_)

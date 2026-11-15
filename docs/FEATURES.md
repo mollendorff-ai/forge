@@ -132,6 +132,7 @@ A file can hold several YAML documents separated by `---`, each with its own `_f
 - **Aggregation formulas**: `=SUM(revenue)`, `=AVERAGE(profit)`
 - **Cross-table references**: `=pl_2025.revenue`
 - **Array indexing**: `revenue[3]`
+- **Array constants**: `=LARGE(x, {1,2,3})`, `=MATCH(v, {"a";"b";"c"}, 0)`: a row `{1,2,3}` or a column `{1;2;3}` of numbers, texts and `TRUE`/`FALSE`, as in Excel, kept by `forge export` and `forge import` (ADR-064). Not two-dimensional `{1,2;3,4}`, and no error values inside the braces
 - **Nested functions**: `=ROUND(SQRT(revenue), 2)`
 - **Values from other files**: `=amount * @rates.fx.usd_eur` (see below)
 - **The row above**: `=PREV(closing, loan.principal)` (see below)
