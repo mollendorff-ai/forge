@@ -49,6 +49,15 @@ fn a_row_formula_reads_a_constant_whole() {
 }
 
 #[test]
+#[allow(clippy::float_cmp)] // small whole numbers
+fn a_constant_is_still_fine_where_excel_takes_one() {
+    // Not in a range argument: the criterion, or a function that takes arrays
+    assert_eq!(one("=SUMPRODUCT(({1,2,3,2}=2)*1)").unwrap(), Some(2.0));
+    let yaml = "_forge_version: \"5.4.0\"\nt:\n  v: [1, 2, 3, 2]\ns:\n  n: {formula: \"=COUNTIF(t.v, 2)\"}\n";
+    assert_eq!(calculate(yaml).unwrap()["s.n"], Some(2.0));
+}
+
+#[test]
 fn what_forge_cannot_hold_is_refused_with_a_reason() {
     for (formula, reason) in [
         ("=SUM({1,2;3,4})", "two-dimensional"),
@@ -58,6 +67,20 @@ fn what_forge_cannot_hold_is_refused_with_a_reason() {
         ("=SUM({})", "at least one item"),
         ("=SUM({1,2", "numbers, texts and TRUE or FALSE only"),
         ("={1,2,3}", "returns 3 values"),
+        // Excel refuses a constant where these read a range (checked in Excel,
+        // 2026-11-15)
+        (
+            "=COUNTIF({1,2,3,2}, 2)",
+            "Excel does not accept an array constant",
+        ),
+        (
+            "=SUMIF({1,2,3}, \">1\")",
+            "Excel does not accept an array constant",
+        ),
+        (
+            "=SUMIFS({1,2,3}, {1,2,3}, 2)",
+            "Excel does not accept an array constant",
+        ),
     ] {
         let err = one(formula).unwrap_err();
         assert!(err.contains(reason), "{formula}: {err}");
