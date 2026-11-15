@@ -24,6 +24,34 @@ Forge reads a financial model written in YAML (inputs, formulas, tables, scenari
 
 **Checked, not trusted.** 2,084 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. On every pull request, 2,660 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 26,600 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
 
+## Four ways to use Forge
+
+The same model and the same binary, from one person to a pipeline nobody watches:
+
+```mermaid
+flowchart LR
+    person([A person])
+    chat([An AI in a chat])
+    job([A scheduled job])
+    agent([An AI agent in a pipeline])
+    forge[["Forge: one engine<br/>command line · MCP · REST API · Studio"]]
+    yaml[(YAML models in git)]
+    out[Results as tables, JSON, CSV<br/>and Excel workbooks]
+    person --> forge
+    chat --> forge
+    job --> forge
+    agent --> forge
+    forge <--> yaml
+    forge --> out
+```
+
+1. **A person alone.** A model is a text file: change an input, `forge calculate`, and `git diff` shows every result it moved. No AI needed.
+2. **A person with an AI in a chat.** The AI writes the model and explains it; Forge does every sum, so no number is the AI's guess. [Tested prompts](docs/PROMPTS.md).
+3. **A pipeline without AI.** Forge as the deterministic calculator in a financial job, at month-end say: the same inputs give the same numbers, a failed formula exits with 1, and the results come out as JSON, CSV or a workbook.
+4. **A pipeline with AI.** An agent reads a new report and writes or updates the model, Forge checks and calculates it, and a person reviews the change as a pull request: a diff of formulas and inputs, not a workbook to trust. This is where Forge is headed.
+
+Each, with its diagram and commands: [docs/WORKFLOWS.md](docs/WORKFLOWS.md). The first two have been run end to end by fresh agents; the two pipelines are built from commands that work but have not yet been run whole, and the AI one is to be shown with Sentinel, an earnings-analysis pipeline built on Forge.
+
 ## Forge Studio
 
 Studio is Forge compiled to WebAssembly and run in your browser tab. Open an example, or your own YAML or Excel file, and the model shows as cards: drag an input, the results move. Edit a formula with suggestions for names and functions, see the whole model as a grid, apply a scenario, run goal seek, a tornado or a Monte Carlo simulation, and save the workbook `forge export` writes.
@@ -68,8 +96,6 @@ It names the project exactly, since "Forge" is a crowded name; it installs the r
 It needs an AI that can run commands. Tried by the maintainer on 2026-11-15: it worked on Claude and on Grok, free tiers included; the free tiers of ChatGPT and Gemini had no sandbox to run it in. For those, the prompt's last lines ask the AI to say so rather than make numbers up, and to send you to [Forge Studio](https://forge.mollendorff.ai/), which needs nothing but a browser.
 
 **Five more prompts** in [docs/PROMPTS.md](docs/PROMPTS.md), each run by a fresh agent before it went in: build a model from a description, bring a workbook in from Excel and back, budget against actual, what-if (scenarios, break-even, goal seek, sensitivity), and risk and decisions (simulation, tornado, decision tree, real options). Each ends with the model's YAML, to open in Studio, and the page ends with what to keep in a prompt of your own.
-
-**Four ways to use Forge**, from one person in an editor to an AI pipeline nobody watches, each with a diagram and its commands: [docs/WORKFLOWS.md](docs/WORKFLOWS.md).
 
 ## Status and known limitations
 
