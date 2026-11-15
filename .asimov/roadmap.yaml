@@ -121,23 +121,29 @@ tier1:
     how: "Fix each in help text, messages and the example comments; make the short flags agree or drop the conflicting ones (a CLI change, noted in the CHANGELOG); accept a bare name on the command line where it names one scalar, as a formula does"
     acceptance: "The five prompts in docs/PROMPTS.md run again by fresh agents, whose reports name none of these"
 
+  - id: T1-PIPELINE-FINDINGS
+    title: "What Sentinel, as a program, found hard about Forge (2026-11-15)"
+    why: "Sentinel (github.com/mollendorff-ai/sentinel, docs/FINDINGS.md) ran the AI pipeline of docs/WORKFLOWS.md against rc.26 and met: docs/MCP.md says a Monte Carlo section needs enabled: true, but forge simulate never reads the flag; docs/MCP.md says forge_functions lists 173 functions while the project description and README count 203; forge validate on a model never calculated says 'All scalar values match their formulas!' with nothing to compare (also in T1-AGENT-FRICTION), so a program has to calculate first; a tornado input that cannot move the output is listed with a swing of 0 and no note that it is not upstream of the output, so a program has to work out the dependency itself"
+    how: "Fix the two documentation errors; make the tornado output say when an input is not upstream of the output (or leave it out); the validate message is handled under T1-AGENT-FRICTION"
+    acceptance: "docs/MCP.md agrees with the code on Monte Carlo and the function count, and a tornado on an input that cannot move the output says so"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier2:
-  - id: T2-PIPELINE-DEMO
-    title: "Show the AI pipeline of docs/WORKFLOWS.md running, with Sentinel"
-    why: "docs/WORKFLOWS.md describes Forge in an AI pipeline (an agent writes the model, Forge validates and calculates, a person reviews the pull request), the use the maintainer sees as Forge's main direction (2026-11-15). Every step is a Forge command that works, but no whole pipeline has run. The maintainer chose Sentinel, his earnings-analysis pipeline built on Forge and Ref, as the demonstration rather than an example inside this repo"
-    how: "After the stable release: first size Sentinel's state, then finish it as a small pipeline that runs once, unattended, on a known input and produces a readable report, with Forge as its only calculator. Record what Forge made hard for a program (messages, options, output), as tier-1 items"
-    acceptance: "Sentinel runs end to end on a known input with no person in the loop, its models and results are in git, and docs/WORKFLOWS.md links to it and no longer calls the AI pipeline architecture only"
-
   - id: T2-FIRST-USER
     title: "Watch one real person build a model with Forge"
     why: "No known users. Every bug found on 2026-11-07 came from building a model, and the maintainer's plan is to test demand with one real user before investing in reach (tier 3)"
     how: "One FP&A analyst or AI pipeline builder, their own small model, Studio or the command line, the maintainer watching without helping. Write down where they stop"
     acceptance: "Notes from the session are in this file as tier items with acceptance criteria, or the decision that nothing needs to change"
 
+  # The AI pipeline demonstration is done (2026-11-15): Sentinel ran docs/WORKFLOWS.md's
+  # fourth workflow once, on Apple's Q4 FY2026 release, with the chat as the AI
+  # and Forge as the only calculator; the run is in git (see WORKFLOWS.md).
+  # A person pasted the prompt and checked the four input figures against the
+  # filing; nobody was needed after that. What Forge made hard for a program is
+  # T1-PIPELINE-FINDINGS.
   # The earlier tier-2 items are done (2026-11-10): forge report, the
   # comparison example and the first-model starter.
   # Found building examples/rolling-forecast (2026-11-12), the FP&A audit:
