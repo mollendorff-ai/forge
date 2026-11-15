@@ -241,7 +241,8 @@ fn first_month() {
     check(
         "first-month",
         &["calculate", BAGEL, "--dry-run"],
-        &["dozens = [1402.5,"],
+        // The format's text (`#,##0`), then the full values (T2-CLI-FORMAT)
+        &["dozens = [1,403; 2,124;", "[1402.5, 2124.375,"],
         &["1,402.5", "46.75"],
     );
 }

@@ -144,3 +144,35 @@ fn rejoin_quotes(words: &[&str]) -> Vec<String> {
     }
     out
 }
+
+/// Every release archive the README names is one the release workflow builds
+/// (T2-LINUX-INSTALL), so the install lines cannot point at a file that no
+/// release has.
+#[test]
+fn the_archives_the_readme_names_are_built_by_the_release() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let readme = std::fs::read_to_string(root.join("README.md")).unwrap();
+    let workflow = std::fs::read_to_string(root.join(".github/workflows/release.yml")).unwrap();
+    let targets: Vec<&str> = workflow
+        .lines()
+        .filter_map(|l| l.trim().strip_prefix("- target:"))
+        .map(str::trim)
+        .collect();
+    assert!(targets.len() >= 4, "{targets:?}");
+    let named: Vec<&str> = readme
+        .split(|c: char| c.is_whitespace() || c == '"' || c == '/' || c == ';' || c == ')')
+        .filter_map(|w| w.strip_prefix("forge-"))
+        .map(|w| w.trim_end_matches(".tar.gz").trim_end_matches(".zip"))
+        .filter(|w| w.contains("-unknown-") || w.contains("-apple-") || w.contains("-pc-"))
+        .collect();
+    assert!(
+        named.contains(&"x86_64-unknown-linux-musl"),
+        "the README names no Linux archive: {named:?}"
+    );
+    for target in named {
+        assert!(
+            targets.contains(&target),
+            "the README names forge-{target}, which release.yml does not build ({targets:?})"
+        );
+    }
+}

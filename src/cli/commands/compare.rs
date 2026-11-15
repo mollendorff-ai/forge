@@ -59,7 +59,22 @@ const fn window_columns() -> Option<usize> {
 /// The cells of one row, as the table and Markdown show them: whole numbers
 /// without decimals when every value of the row is whole, an input as written,
 /// and `—` where a scenario has no value.
-fn shown_row(values: &[Option<f64>], input: bool, date: bool) -> Vec<String> {
+fn shown_row(values: &[Option<f64>], input: bool, date: bool, format: Option<&str>) -> Vec<String> {
+    // A `format:` says how every value of the row is shown (ADR-061)
+    if let Some(format) = format {
+        let shown: Option<Vec<String>> = values
+            .iter()
+            .map(|v| {
+                v.map_or_else(
+                    || Some("—".to_string()),
+                    |v| super::number_shown_by(v, format),
+                )
+            })
+            .collect();
+        if let Some(shown) = shown {
+            return shown;
+        }
+    }
     if date {
         return values
             .iter()
@@ -171,6 +186,7 @@ fn render_table(result: &ComparisonResult, inputs: &[String], width: Option<usiz
                 &row_values(result, v),
                 inputs.contains(v),
                 result.dates.contains(v),
+                result.formats.get(v).map(String::as_str),
             )
         })
         .collect();
@@ -304,6 +320,7 @@ fn render_markdown(result: &ComparisonResult, inputs: &[String]) -> String {
             &row_values(result, variable),
             inputs.contains(variable),
             result.dates.contains(variable),
+            result.formats.get(variable).map(String::as_str),
         );
         let items: Vec<String> = std::iter::once(markdown_text(variable))
             .chain(cells)

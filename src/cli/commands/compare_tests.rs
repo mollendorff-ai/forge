@@ -40,6 +40,7 @@ fn eight() -> ComparisonResult {
         values,
         descriptions: indexmap::IndexMap::new(),
         dates: std::collections::BTreeSet::new(),
+        formats: std::collections::BTreeMap::new(),
     }
 }
 
@@ -125,6 +126,7 @@ fn many_scalars_and_short_scenario_names_keep_one_row_per_scalar() {
         values,
         descriptions: indexmap::IndexMap::new(),
         dates: std::collections::BTreeSet::new(),
+        formats: std::collections::BTreeMap::new(),
     };
     let text = render_comparison(&result, &[], ReportFormat::Table, Some(60));
     assert!(text.starts_with("variable "), "{text}");

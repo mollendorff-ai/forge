@@ -95,7 +95,8 @@ fn scenarios_print_numbers_as_forge_report_does() {
     assert!(text.contains("year.profit: 786.32\n"), "{text}");
     assert!(text.contains("year.revenue: 386,827.45\n"), "{text}");
     assert!(text.contains("year.npv_first_year: -95,579.52\n"), "{text}");
-    assert!(text.contains("year.margin: 0.002033\n"), "{text}");
+    // year.margin has `format: "0.0%"` (ADR-061, T2-CLI-FORMAT)
+    assert!(text.contains("year.margin: 0.2%\n"), "{text}");
     assert!(
         text.contains("(range -71,197.20 to 80,811.24, P(>0) = 70%)"),
         "{text}"

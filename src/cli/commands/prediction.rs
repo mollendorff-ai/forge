@@ -320,6 +320,14 @@ pub fn scenarios(
         }
     }
     let results = scenarios_core(file, scenario_filter)?;
+    // A number with a `format:` is printed as the format shows it (ADR-061)
+    let formats = super::scalar_formats(&parser::parse_model(file)?);
+    let shown = |var: &str, value: f64| {
+        formats
+            .get(var)
+            .and_then(|f| super::number_shown_by(value, f))
+            .unwrap_or_else(|| super::display_number(value))
+    };
 
     // Display results: what each scenario produced (the calculated scalars)
     println!("{}", "📈 Scenario Results:".bold().green());
@@ -332,7 +340,7 @@ pub fn scenarios(
             result.description
         );
         for (var, value) in &result.outputs {
-            println!("      {}: {}", var.cyan(), super::display_number(*value));
+            println!("      {}: {}", var.cyan(), shown(var, *value));
         }
         println!();
     }
@@ -351,9 +359,9 @@ pub fn scenarios(
         println!(
             "      {}: {}   (range {} to {}, P(>0) = {}%)",
             var.bright_blue(),
-            super::display_number(*ev),
-            super::display_number(low),
-            super::display_number(high),
+            shown(var, *ev),
+            shown(var, low),
+            shown(var, high),
             super::format_number(positive * 100.0)
         );
     }
