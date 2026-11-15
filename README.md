@@ -19,8 +19,8 @@ Forge reads a financial model written in YAML (inputs, formulas, tables, scenari
 
 | **You work with numbers** | **You build with AI agents** |
 | --- | --- |
-| Open [Forge Studio](https://forge.mollendorff.ai/) in your browser. Nothing to install, made for a phone, works offline. | Install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
-| [Try it →](https://forge.mollendorff.ai/) · [More on Studio](#forge-studio) | [Quick start →](#quick-start) · [For AI agents](#for-ai-agents) |
+| Open [Forge Studio](https://forge.mollendorff.ai/) in your browser. Nothing to install, made for a phone, works offline. | Paste one prompt into your AI and it installs Forge and runs the bagel example; or install the command line, or give your agent the MCP server. The agent writes YAML; Forge does the arithmetic. |
+| [Try it →](https://forge.mollendorff.ai/) · [More on Studio](#forge-studio) | [Prompt for your AI →](#try-it-with-your-ai) · [Quick start](#quick-start) · [For AI agents](#for-ai-agents) |
 
 **Checked, not trusted.** 2,084 formula tests compare Forge with Gnumeric, the analytics are compared with R, and both suites live [in this repository](validation/) and run in CI. On every pull request, 2,660 generated cases more, arguments drawn from a seed toward the edges, are compared with Gnumeric and LibreOffice, and 26,600 new ones every week ([ADR-062](docs/architecture/ADR-062-GENERATED-CASES.md)). What does not work yet is [listed below](#status-and-known-limitations), not hidden.
 
@@ -33,6 +33,29 @@ Studio is Forge compiled to WebAssembly and run in your browser tab. Open an exa
 - **The numbers are Forge's.** The page calculates nothing itself; it asks the same engine as the command line, and CI checks that the WebAssembly answers equal the native ones, case by case.
 
 The shop in the screenshots, Bagel Lune, is fictional. It makes 786.32 on 386,827.45 of revenue, and Forge will tell you in one command that it [breaks even at 15.97 a dozen](docs/posts/bagel-price.md), three cents under its price. Bagels are a hard business; the arithmetic, at least, is easy.
+
+## Try it with your AI
+
+Forge is made for AI agents, so the quickest way to see it work is to let yours try it. Paste this into Claude, ChatGPT, Grok or any AI that can run commands (a coding agent, or a chat with a code sandbox):
+
+```text
+Try Forge, the financial-modelling engine from Möllendorff AI:
+https://github.com/mollendorff-ai/forge (Rust; the crate is mollendorff-forge).
+Do not build it from source. Install the release binary and its examples with:
+
+  curl -fsSL https://raw.githubusercontent.com/mollendorff-ai/forge/main/install.sh | sh -s -- --examples
+
+Then, with the forge binary it installed:
+1. Run `forge calculate forge-examples/bagel/bagel.yaml --dry-run` and tell me
+   how the bagel shop's first year goes: revenue, profit and the worst month.
+2. Do not just compare with the numbers in Forge's README: those come from
+   Forge too. Check two results yourself: recompute them from the inputs in
+   bagel.yaml and costs.yaml with your own code, and say whether they agree.
+3. Change one input (the price per dozen, say), calculate again, and explain
+   what changed and why.
+```
+
+It names the project exactly, since "Forge" is a crowded name; it installs the release binary in a few seconds instead of letting the agent compile for minutes; and it asks the AI to check Forge rather than repeat the README's numbers.
 
 ## Status and known limitations
 
@@ -180,21 +203,30 @@ With a file path, the server reads and writes as you; `"args": ["mcp", "--root",
 ## Quick start
 
 ```bash
-# Install the prebuilt binary with Homebrew (macOS, Linux); this repository is the tap
+# Install the release binary for your system (Linux, macOS; x86_64, ARM),
+# checked against the release's checksums, into ~/.local/bin; --examples also
+# puts the release's examples in ./forge-examples
+curl -fsSL https://raw.githubusercontent.com/mollendorff-ai/forge/main/install.sh | sh -s -- --examples
+
+# Or with Homebrew (macOS, Linux); this repository is the tap
 brew tap mollendorff-ai/forge https://github.com/mollendorff-ai/forge
 brew install mollendorff-ai/forge/forge
 
-# Or with cargo-binstall (releases after 10.0.0-rc.11; Windows too)
-cargo binstall mollendorff-forge
+# Or with cargo-binstall (Windows too). The version range is needed while
+# Forge has only release candidates, and --disable-strategies compile stops it
+# from quietly building from source when it cannot reach GitHub (a sandbox
+# whose GitHub token cannot use GitHub's GraphQL API, for one)
+cargo binstall mollendorff-forge --version '>=10.0.0-rc.1' --disable-strategies compile
 
-# Or download the archive for your system from the latest release and check it
-# (on macOS: shasum -a 256 -c; on ARM Linux: forge-aarch64-unknown-linux-musl)
+# Or download the archive yourself and check it (on macOS: shasum -a 256 -c;
+# on ARM Linux: forge-aarch64-unknown-linux-musl; on Windows: the .zip)
 url=https://github.com/mollendorff-ai/forge/releases/latest/download
 curl -LO "$url/forge-x86_64-unknown-linux-musl.tar.gz" -LO "$url/checksums.txt"
 sha256sum -c --ignore-missing checksums.txt
 tar -xzf forge-x86_64-unknown-linux-musl.tar.gz    # the forge binary, here
 
-# Or build from source
+# Or build it: from crates.io (several minutes), or from a copy of this repository
+cargo install mollendorff-forge --version '>=10.0.0-rc.1'
 cargo install --path .
 
 # Validate a model
