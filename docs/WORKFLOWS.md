@@ -2,7 +2,7 @@
 
 Forge calculates a financial model written as YAML. The same model, and the same binary, serve four ways of working, from one person in an editor to an AI pipeline that nobody watches. This page shows each one with a diagram and the commands it uses.
 
-**What is proven and what is not.** The commands on this page were run against Forge 10.0.0-rc.26 on 2026-11-15, and the chat workflow was run end to end by fresh agents ([PROMPTS.md](PROMPTS.md)). The two pipeline workflows are architecture: every step in them is a Forge command that works, but no one has yet run a whole pipeline in production. The AI pipeline is to be demonstrated by Sentinel, a small earnings-analysis pipeline built on Forge (roadmap item T2-PIPELINE-DEMO).
+**What is proven and what is not.** The commands on this page were run against Forge 10.0.0-rc.26 on 2026-11-15, and the chat workflow was run end to end by fresh agents ([PROMPTS.md](PROMPTS.md)). The pipeline without AI is architecture: every step in it is a Forge command that works, but no one has yet run a whole one in production. The pipeline with AI has run once, as Sentinel's first run on a real document (section 4).
 
 ## The big picture
 
@@ -155,7 +155,15 @@ Why this is the point of Forge:
 - **Every run leaves a record:** the model as text, in git, with its results stored next to its formulas, so a number in a report can be traced to the formula and the input behind it.
 - **The same answers each time:** rerun a thousand scenarios and the numbers are Forge's every time, never a model's guess.
 
-What is not yet shown: a whole run like this, unattended, on real documents. Before that, the fresh agents that ran [PROMPTS.md](PROMPTS.md) found messages and options that a person works around and a pipeline would not; they are listed in the roadmap as T1-AGENT-FRICTION.
+**It has run once.** [Sentinel](https://github.com/mollendorff-ai/sentinel), a small earnings-analysis pipeline, ran this workflow on Apple's release for the fourth quarter of fiscal 2026 (filed 2026-11-02), with Forge as its only calculator. An AI in a chat read the saved release, wrote the model, and wrote the brief from Forge's results; Forge calculated, ran a Monte Carlo simulation, a tornado, break-even and three scenarios. Everything is in git: the saved filing with its checksums, the model, Forge's results, the brief, and every prompt and answer ([the run](https://github.com/mollendorff-ai/sentinel/tree/main/runs/AAPL/20261115-184457)). Gross profit and operating income, which Forge calculates, equal the figures printed in the filing.
+
+Two checks stand between the AI and the reader. Forge checks the arithmetic. A person-checked file of four figures from the filing checks the AI's reading of it, and the run refuses to start until a person has marked the figures as checked.
+
+What the run does not show, plainly:
+- A person started it, by pasting a prompt into a chat, and checked those four figures once for the quarter. Nobody was needed after that, but it was not a scheduled job.
+- It is one quarter of one company, a small model of four inputs. It shows that the steps connect, not how they hold up over many documents.
+- The AI that wrote the model and the brief was Claude in a chat, not a service Sentinel calls. Sentinel can call one (through an API key), and that mode was tested but not used for this run.
+- What Forge made hard for a program, found by the run, is in the roadmap as T1-PIPELINE-FINDINGS; the fresh agents that ran [PROMPTS.md](PROMPTS.md) found others, listed as T1-AGENT-FRICTION.
 
 ## Choosing an entry point
 
