@@ -1,6 +1,6 @@
 _forge_version: "5.1.0"
 # Bagel Lune, what actually happened in the first 12 months (fictional).
-# Compare with the plan: forge variance examples/bagel/bagel.yaml examples/bagel/actual.yaml
+# Compare with the plan: forge variance bagel/bagel.yaml bagel/actual.yaml
 _includes:
   - file: costs.yaml
     as: costs

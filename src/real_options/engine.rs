@@ -29,6 +29,11 @@ pub struct OptionResult {
     /// `None` when that needs a traditional NPV and none was given.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project_value: Option<f64>,
+    /// What the option adds over the traditional NPV: for a defer option, what
+    /// waiting adds; for any other, its value. `None` without a traditional NPV
+    /// for a defer option.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value_added: Option<f64>,
 }
 
 /// Complete options analysis result
@@ -185,6 +190,10 @@ impl RealOptionsEngine {
             OptionType::Defer => Some(value),
             _ => self.traditional_npv.map(|npv| npv + value),
         };
+        let value_added = match option.option_type {
+            OptionType::Defer => self.traditional_npv.map(|npv| value - npv),
+            _ => Some(value),
+        };
 
         OptionResult {
             name: option.name.clone(),
@@ -193,6 +202,7 @@ impl RealOptionsEngine {
             probability_exercise: None, // Would be populated from simulation
             optimal_trigger: trigger,
             project_value,
+            value_added,
         }
     }
 

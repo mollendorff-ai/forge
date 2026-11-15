@@ -144,7 +144,8 @@ fn real_options_print_money_with_separators() {
     let text = run(&["real-options", "examples/bagel/wait_option.yaml"]);
     for expected in [
         "invest now, no flexibility): $60,000.00",
-        "option value $64,604.68",
+        "Adds over the traditional NPV: $4,604.68",
+        "Project value with this option: $64,604.68",
         "Underlying value: $240,000.00",
         "exercise when value > $198,000",
         "project value $64,605.",

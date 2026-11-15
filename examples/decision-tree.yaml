@@ -1,6 +1,6 @@
 # Decision Tree Example
 # ======================
-# Run with: forge decision-tree examples/decision-tree.yaml
+# Run in the examples folder: forge decision-tree decision-tree.yaml
 #
 # This example models an R&D investment decision:
 #

@@ -269,7 +269,8 @@ fn the_household_variance_has_the_right_directions_and_totals() {
             .unwrap_or_else(|| panic!("{name}"))
     };
     for (name, budget, actual, better, favourable) in [
-        ("income.salary", 5200.0, 5200.0, "higher", Some(true)),
+        // On target: neither favorable nor unfavorable
+        ("income.salary", 5200.0, 5200.0, "higher", None),
         ("income.side_work", 400.0, 150.0, "higher", Some(false)),
         ("income.total", 5600.0, 5350.0, "higher", Some(false)),
         ("expenses.transport", 180.0, 96.5, "lower", Some(true)),

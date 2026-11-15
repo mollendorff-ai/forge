@@ -58,11 +58,11 @@ fn the_sensitivity_table_lines_up_under_its_header() {
     let text = run(&[
         "sensitivity",
         "examples/periods/dcf.yaml",
-        "-v",
+        "--vary",
         "assumptions.wacc",
         "-r",
         "0.08,0.11,0.01",
-        "-o",
+        "--output-var",
         "valuation.equity_value",
     ]);
     let lines: Vec<&str> = text.lines().collect();
@@ -89,11 +89,11 @@ fn sensitivity_can_print_json_with_the_full_numbers() {
     let text = run(&[
         "sensitivity",
         "examples/periods/dcf.yaml",
-        "-v",
+        "--vary",
         "assumptions.wacc",
         "-r",
         "0.08,0.09,0.01",
-        "-o",
+        "--output-var",
         "valuation.equity_value",
         "--format",
         "json",

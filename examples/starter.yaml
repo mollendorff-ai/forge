@@ -1,7 +1,9 @@
 # A first Forge model. Calculate it with: forge calculate starter.yaml
 # Then see the results side by side with: forge report starter.yaml
 
-# The model FORMAT version, not the Forge version: "5.1.0" for a new model.
+# The model FORMAT version, not the Forge version (forge --version): "5.1.0"
+# is enough for a new model. Later formats add features some examples use;
+# forge schema --list lists them.
 _forge_version: "5.1.0"
 
 # A group of scalars: one value per name.

@@ -1,6 +1,6 @@
 # Break-Even Analysis Example
 # ============================
-# Run with: forge calculate examples/breakeven.yaml
+# Run in the examples folder: forge calculate breakeven.yaml
 #
 # This example demonstrates break-even functions:
 # - BREAKEVEN_UNITS(fixed_costs, price, variable_cost): Units to break even

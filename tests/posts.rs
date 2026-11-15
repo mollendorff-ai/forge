@@ -215,8 +215,8 @@ fn waiting() {
         &["real-options", "examples/bagel/wait_option.yaml"],
         &[
             "Traditional NPV (invest now, no flexibility): $60,000.00",
-            "option value $64,604.68",
-            "option value $279.72",
+            "Adds over the traditional NPV: $4,604.68",
+            "Adds over the traditional NPV: $279.72",
             "exercise when value > $198,000",
             "exercise when value < $132,000",
         ],

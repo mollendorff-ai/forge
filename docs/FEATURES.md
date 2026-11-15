@@ -15,9 +15,9 @@ forge watch <file>                  # Validate and calculate again on every save
 forge report <file>                 # A calculated file's scalars side by side
 
 # Analysis
-forge sensitivity <file> -v VAR -r RANGE -o OUTPUT
+forge sensitivity <file> --vary VAR -r RANGE --output-var OUTPUT
 forge goal-seek <file> --target VAR --value N --vary INPUT
-forge break-even <file> -o OUTPUT -v INPUT
+forge break-even <file> --output-var OUTPUT --vary INPUT
 forge variance <budget> <actual> --threshold PCT
 forge compare <file> --scenarios A,B   # Scenarios side by side
 

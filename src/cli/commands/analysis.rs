@@ -166,7 +166,7 @@ pub fn variance(
     actual_path: &Path,
     threshold: f64,
     output: Option<&Path>,
-    verbose: bool,
+    (fail_on_alert, verbose): (bool, bool),
 ) -> ForgeResult<()> {
     println!("{}", "🔥 Forge - Variance Analysis".bold().green());
     println!("   Budget: {}", budget_path.display());
@@ -265,6 +265,11 @@ pub fn variance(
         );
     }
 
+    if fail_on_alert && alert_count > 0 {
+        return Err(ForgeError::Validation(format!(
+            "{alert_count} line(s) exceed the {threshold}% threshold (--fail-on-alert)"
+        )));
+    }
     Ok(())
 }
 
@@ -391,9 +396,13 @@ fn collect_variances(
         let pct_meaningful = pct_is_meaningful(budget_val, actual_val);
 
         let better = better_direction(name, budget_scalar, actual_scalar);
+        // A line on target is neither favorable nor unfavorable, so it is
+        // not counted as either and says so (`null`), exactly as `on_target`
+        #[allow(clippy::float_cmp)]
         let is_favorable = match better {
-            "lower" => Some(actual_val <= budget_val),
-            "higher" => Some(actual_val >= budget_val),
+            _ if actual_val == budget_val => None,
+            "lower" => Some(actual_val < budget_val),
+            "higher" => Some(actual_val > budget_val),
             _ => None,
         };
 
@@ -812,15 +821,13 @@ pub fn sensitivity_core(
     output: &str,
 ) -> ForgeResult<super::results::SensitivityResult> {
     let base_model = parser::parse_model(file)?;
-
-    if !base_model.scalars.contains_key(vary) {
-        return Err(ForgeError::Validation(format!(
-            "Variable '{}' not found. Available scalars: {:?}",
-            vary,
-            base_model.scalars.keys().collect::<Vec<_>>()
-        )));
-    }
-    for name in std::iter::once(vary).chain(vary2) {
+    let vary = &super::names::scalar_name(&base_model, vary, false)?;
+    let vary2 = vary2
+        .map(|v| super::names::scalar_name(&base_model, v, false))
+        .transpose()?;
+    let vary2 = vary2.as_deref();
+    let output = &super::names::scalar_name(&base_model, output, true)?;
+    for name in std::iter::once(vary.as_str()).chain(vary2) {
         base_model
             .refuse_date_input(name, "sensitivity")
             .map_err(ForgeError::Validation)?;
@@ -829,13 +836,6 @@ pub fn sensitivity_core(
     let values1 = parse_range(range)?;
 
     let data = if let (Some(v2), Some(r2)) = (vary2, range2) {
-        if !base_model.scalars.contains_key(v2) {
-            return Err(ForgeError::Validation(format!(
-                "Variable '{}' not found. Available scalars: {:?}",
-                v2,
-                base_model.scalars.keys().collect::<Vec<_>>()
-            )));
-        }
         let values2 = parse_range(r2)?;
         let mut matrix = Vec::new();
         for val1 in &values1 {
@@ -885,8 +885,8 @@ pub fn sensitivity_core(
     };
 
     Ok(super::results::SensitivityResult {
-        vary: vary.to_string(),
-        output: output.to_string(),
+        vary: vary.clone(),
+        output: output.clone(),
         data,
     })
 }
@@ -918,19 +918,15 @@ pub fn sensitivity(
     }
     println!("   Output: {}\n", output.bright_blue());
 
-    // Parse model
     let base_model = parser::parse_model(file)?;
+    let vary = &super::names::scalar_name(&base_model, vary, false)?;
+    let vary2 = vary2
+        .map(|v| super::names::scalar_name(&base_model, v, false))
+        .transpose()?;
+    let vary2 = vary2.as_deref();
+    let output = &super::names::scalar_name(&base_model, output, true)?;
 
-    // Validate that vary variable exists
-    if !base_model.scalars.contains_key(vary) {
-        return Err(ForgeError::Validation(format!(
-            "Variable '{}' not found. Available scalars: {:?}",
-            vary,
-            base_model.scalars.keys().collect::<Vec<_>>()
-        )));
-    }
-
-    for name in std::iter::once(vary).chain(vary2) {
+    for name in std::iter::once(vary.as_str()).chain(vary2) {
         base_model
             .refuse_date_input(name, "sensitivity")
             .map_err(ForgeError::Validation)?;
@@ -1054,14 +1050,8 @@ pub fn goal_seek_core(
 ) -> ForgeResult<super::results::GoalSeekResult> {
     let (min, max) = bounds;
     let base_model = parser::parse_model(file)?;
-
-    if !base_model.scalars.contains_key(vary) {
-        return Err(ForgeError::Validation(format!(
-            "Variable '{}' not found. Available scalars: {:?}",
-            vary,
-            base_model.scalars.keys().collect::<Vec<_>>()
-        )));
-    }
+    let vary = &super::names::scalar_name(&base_model, vary, false)?;
+    let target = &super::names::scalar_name(&base_model, target, true)?;
 
     let current_value = base_model
         .scalars
@@ -1130,8 +1120,8 @@ pub fn goal_seek_core(
     let error = (final_value - value).abs();
 
     Ok(super::results::GoalSeekResult {
-        vary: vary.to_string(),
-        target: target.to_string(),
+        vary: vary.clone(),
+        target: target.clone(),
         target_value: value,
         solution: mid,
         achieved: final_value,

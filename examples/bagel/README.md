@@ -16,7 +16,7 @@ A fictional wood-fired bagel shop in Mile End, Montreal, planned over its first 
 ```bash
 forge calculate examples/bagel/bagel.yaml --dry-run
 forge scenarios examples/bagel/bagel.yaml
-forge break-even examples/bagel/bagel.yaml --output year.profit --vary assumptions.price_per_dozen
+forge break-even examples/bagel/bagel.yaml --output-var year.profit --vary assumptions.price_per_dozen
 forge goal-seek examples/bagel/bagel.yaml --target year.profit --value 60000 --vary assumptions.staff_hours_per_day
 forge tornado examples/bagel/bagel.yaml
 forge simulate examples/bagel/bagel_simulate.yaml

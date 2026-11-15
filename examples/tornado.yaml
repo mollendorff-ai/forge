@@ -1,6 +1,6 @@
 # Tornado Diagram Example
 # ========================
-# Run with: forge tornado examples/tornado.yaml
+# Run in the examples folder: forge tornado tornado.yaml
 #
 # This example performs one-at-a-time sensitivity analysis on project NPV.
 # Each input is varied from its low to high value while others stay at base.

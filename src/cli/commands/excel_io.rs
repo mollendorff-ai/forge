@@ -44,6 +44,7 @@ pub fn export_core(input: &Path, output: &Path) -> ForgeResult<super::results::E
     let exporter = ExcelExporter::new(model);
     let mut warnings: Vec<String> = uncalculated.into_iter().collect();
     warnings.extend(exporter.export_with_warnings(output)?);
+    warnings.extend(super::carried::yaml_only(input));
 
     Ok(super::results::ExportResult {
         input_path: input.display().to_string(),
@@ -72,6 +73,7 @@ pub fn export_buffer_core(input: &Path) -> ForgeResult<super::results::ExportBuf
     let base64_content = STANDARD.encode(&buffer);
     let mut warnings: Vec<String> = uncalculated.into_iter().collect();
     warnings.extend(written_as_values);
+    warnings.extend(super::carried::yaml_only(input));
 
     Ok(super::results::ExportBufferResult {
         table_count,
@@ -621,23 +623,16 @@ pub fn export(input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
     if verbose {
         println!("{}", "📖 Parsing YAML file...".cyan());
     }
-
     let (model, uncalculated) = load_for_export(input)?;
-
     if verbose {
-        println!(
-            "   Found {} tables, {} scalars\n",
-            model.tables.len(),
-            model.scalars.len()
-        );
-    }
-
-    if verbose {
+        let (t, s) = (model.tables.len(), model.scalars.len());
+        println!("   Found {t} tables, {s} scalars\n");
         println!("{}", "📊 Exporting to Excel...".cyan());
     }
 
     let exporter = ExcelExporter::new(model);
-    let warnings = exporter.export_with_warnings(output)?;
+    let mut warnings = exporter.export_with_warnings(output)?;
+    warnings.extend(super::carried::yaml_only(input));
 
     if let Some(reason) = &uncalculated {
         println!("{}", "⚠️  Exported, but not checked:".yellow());
@@ -646,7 +641,7 @@ pub fn export(input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
     println!("{}", "✅ Export Complete!".bold().green());
     println!("   Excel file: {}\n", output.display());
     if !warnings.is_empty() {
-        println!("{}", "⚠️  Not exported as Excel formulas:".yellow());
+        println!("{}", "⚠️  Not exported, or not as Excel formulas:".yellow());
         for warning in &warnings {
             println!("   - {warning}");
         }
@@ -713,16 +708,7 @@ pub fn import(
         println!();
     }
 
-    if !warnings.is_empty() {
-        println!(
-            "{}",
-            "⚠️  Imported as values, because Forge cannot express these formulas:".yellow()
-        );
-        for warning in &warnings {
-            println!("   - {warning}");
-        }
-        println!();
-    }
+    super::carried::print_import_formulas(&model, &warnings);
     Ok(())
 }
 

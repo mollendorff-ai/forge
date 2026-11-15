@@ -1,6 +1,6 @@
 # Bootstrap Resampling Example
 # =============================
-# Run with: forge bootstrap examples/bootstrap.yaml
+# Run in the examples folder: forge bootstrap bootstrap.yaml
 #
 # This example calculates confidence intervals for portfolio returns
 # using non-parametric bootstrap resampling.

@@ -112,7 +112,8 @@ CROSS-FILE REFERENCES:
   the file given is written. Run 'forge calculate costs.yaml' to store the
   results of an included file in it.
 
-Use --dry-run to preview changes without modifying files.
+When a value changes, the file as it was is kept next to it as
+model.yaml.bak. Use --dry-run to preview changes without modifying files.
 
 Usage: forge calculate [OPTIONS] <FILE>
 
@@ -477,8 +478,17 @@ VARIANCE TYPES:
   For revenue/income: actual > budget = favorable
   For expenses/costs: actual < budget = favorable
 
+WHICH WAY IS BETTER:
+  A scalar can say it in the model, as better: higher or better: lower:
+    sales: {value: 5000, better: higher}
+  Without it, Forge goes by the name and its group: costs, expenses and rent
+  are better lower, revenue, sales and income better higher, and a line it
+  cannot place has no direction (neither favorable nor unfavorable).
+
 THRESHOLD:
-  Use --threshold to flag significant variances (default: 10%)
+  Use --threshold to flag significant variances (default: 10%).
+  The exit code is 0 however many lines exceed it; with --fail-on-alert
+  it is 1 when any line does, for a script or CI.
 
 OUTPUT FORMATS:
   Terminal table (default)
@@ -510,6 +520,9 @@ Options:
   -o, --output <OUTPUT>
           Output file (optional: .yaml or .xlsx)
 
+      --fail-on-alert
+          Exit with 1 when any line exceeds the threshold
+
   -v, --verbose
           Show verbose output
 
@@ -526,31 +539,34 @@ Varies the specified input variable(s) across a range and shows how the
 output variable changes. Essential for understanding model behavior and risk.
 
 ONE-VARIABLE ANALYSIS:
-  forge sensitivity model.yaml --vary growth_rate --range 0.01,0.15,0.02 --output npv
+  forge sensitivity model.yaml --vary growth_rate --range 0.01,0.15,0.02 --output-var npv
 
   Shows how NPV changes as growth_rate varies from 1% to 15% in 2% steps.
 
 TWO-VARIABLE ANALYSIS:
   forge sensitivity model.yaml --vary growth_rate --vary2 discount_rate \
-      --range 0.01,0.15,0.02 --range2 0.05,0.15,0.05 --output npv
+      --range 0.01,0.15,0.02 --range2 0.05,0.15,0.05 --output-var npv
 
   Shows a matrix of NPV values for each combination of inputs.
 
 RANGE FORMAT:
   start,end,step - e.g., 0.01,0.15,0.02 means 0.01, 0.03, 0.05, ..., 0.15
 
-EXAMPLES:
-  forge sensitivity model.yaml -v growth_rate -r 0.05,0.20,0.05 -o profit
-  forge sensitivity model.yaml -v price -v2 volume -r 10,50,10 -r2 100,500,100 -o revenue
+A name can be written without its group (price for assumptions.price)
+when only one scalar has it.
 
-Usage: forge sensitivity [OPTIONS] --vary <VARY> --range <RANGE> --output <OUTPUT> <FILE>
+EXAMPLES:
+  forge sensitivity model.yaml --vary growth_rate -r 0.05,0.20,0.05 --output-var profit
+  forge sensitivity model.yaml --vary price --vary2 volume -r 10,50,10 --range2 100,500,100 --output-var revenue
+
+Usage: forge sensitivity [OPTIONS] --vary <VARY> --range <RANGE> --output-var <OUTPUT_VAR> <FILE>
 
 Arguments:
   <FILE>
           Path to YAML file
 
 Options:
-  -v, --vary <VARY>
+      --vary <VARY>
           Variable to vary (scalar name)
 
   -r, --range <RANGE>
@@ -562,8 +578,10 @@ Options:
       --range2 <RANGE2>
           Range for second variable: start,end,step
 
-  -o, --output <OUTPUT>
-          Output variable to observe
+      --output-var <OUTPUT_VAR>
+          Output variable to observe (--output is accepted too)
+          
+          [alias: --output]
 
       --format <FORMAT>
           Output format: table (default) or json
@@ -571,7 +589,7 @@ Options:
           [default: table]
           [possible values: table, json]
 
-      --verbose
+  -v, --verbose
           Show verbose output
 
   -h, --help
@@ -593,6 +611,9 @@ EXAMPLES:
   forge goal-seek model.yaml --target npv --value 0 --vary discount_rate
   -> Find the discount rate that makes NPV = 0 (IRR)
 
+A name can be written without its group (price for assumptions.price)
+when only one scalar has it.
+
 OPTIONS:
   --min, --max: Override automatic bounds for the search
   --tolerance: How close the output must get to the target (default: 0.0001)
@@ -610,7 +631,7 @@ Options:
       --value <VALUE>
           Desired value for target
 
-  -v, --vary <VARY>
+      --vary <VARY>
           Variable to adjust
 
       --min <MIN>
@@ -624,7 +645,7 @@ Options:
           
           [default: 0.0001]
 
-      --verbose
+  -v, --verbose
           Show verbose output
 
   -h, --help
@@ -639,24 +660,29 @@ Find the break-even point where output equals zero.
 Special case of goal-seek that finds where a variable crosses zero.
 Common for finding break-even units, prices, or margins.
 
+A name can be written without its group (price for assumptions.price)
+when only one scalar has it.
+
 EXAMPLES:
-  forge break-even model.yaml --output profit --vary units
+  forge break-even model.yaml --output-var profit --vary units
   -> Find units needed to break even (profit = 0)
 
-  forge break-even model.yaml --output net_margin --vary price
+  forge break-even model.yaml --output-var net_margin --vary price
   -> Find minimum price for positive margin
 
-Usage: forge break-even [OPTIONS] --output <OUTPUT> --vary <VARY> <FILE>
+Usage: forge break-even [OPTIONS] --output-var <OUTPUT_VAR> --vary <VARY> <FILE>
 
 Arguments:
   <FILE>
           Path to YAML file
 
 Options:
-  -o, --output <OUTPUT>
-          Output variable to find zero crossing
+      --output-var <OUTPUT_VAR>
+          Output variable to find zero crossing (--output is accepted too)
+          
+          [alias: --output]
 
-  -v, --vary <VARY>
+      --vary <VARY>
           Variable to adjust
 
       --min <MIN>
@@ -665,7 +691,7 @@ Options:
       --max <MAX>
           Maximum bound for search (optional)
 
-      --verbose
+  -v, --verbose
           Show verbose output
 
   -h, --help
@@ -1170,7 +1196,7 @@ OUTPUT:
 
 EXAMPLES:
   forge tornado model.yaml                  # Generate diagram
-  forge tornado model.yaml --output npv     # Override output variable
+  forge tornado model.yaml --output-var npv # Override output variable
   forge tornado model.yaml -o results.yaml  # Export results
 
 Usage: forge tornado [OPTIONS] <FILE>

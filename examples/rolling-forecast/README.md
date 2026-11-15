@@ -17,7 +17,7 @@ The fiscal year 2027 comes to 987,621.93 against a budget of 960,600.00, which i
 
 ```bash
 forge calculate examples/rolling-forecast/forecast.yaml --dry-run
-forge sensitivity examples/rolling-forecast/forecast.yaml -v inputs.premium_volume_growth -r 0,0.03,0.01 -o fy2027.revenue
+forge sensitivity examples/rolling-forecast/forecast.yaml --vary inputs.premium_volume_growth -r 0,0.03,0.01 --output-var fy2027.revenue
 forge export examples/rolling-forecast/forecast.yaml forecast.xlsx
 ```
 
