@@ -111,7 +111,7 @@ impl BayesianNode {
     pub fn validate(&self, name: &str) -> Result<(), String> {
         match self.node_type {
             NodeType::Discrete => self.validate_discrete(name),
-            NodeType::Continuous => self.validate_continuous(name),
+            NodeType::Continuous => Self::validate_continuous(name),
         }
     }
 
@@ -168,13 +168,15 @@ impl BayesianNode {
         Ok(())
     }
 
-    fn validate_continuous(&self, name: &str) -> Result<(), String> {
-        if self.std <= 0.0 {
-            return Err(format!(
-                "Node '{name}': standard deviation must be positive"
-            ));
-        }
-        Ok(())
+    /// A continuous node is refused: inference works on discrete states only
+    /// (ADR-023 lists continuous nodes as future work), and before this a
+    /// network with one failed inside the engine with "No factors remaining".
+    fn validate_continuous(name: &str) -> Result<(), String> {
+        Err(format!(
+            "Node '{name}': continuous nodes are not supported yet; Bayesian networks in Forge \
+             are discrete. Give the node states and probabilities instead, such as \
+             states: [low, medium, high]"
+        ))
     }
 
     /// Check if this is a root node

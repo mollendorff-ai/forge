@@ -213,12 +213,14 @@ impl BayesianEngine {
         })
     }
 
-    /// Get the most likely explanation (MPE) for all variables
+    /// Each variable's own most likely state, given no evidence. This is not the
+    /// most probable explanation (MPE) of the whole network, which is the one
+    /// combination of states with the highest joint probability, and can differ.
     ///
     /// # Errors
     ///
     /// Returns an error if querying any variable fails.
-    pub fn most_likely_explanation(&self) -> Result<BTreeMap<String, String>, String> {
+    pub fn most_likely_states(&self) -> Result<BTreeMap<String, String>, String> {
         let mut explanation = BTreeMap::new();
 
         for name in self.config.nodes.keys() {
@@ -322,11 +324,11 @@ mod engine_tests {
     }
 
     #[test]
-    fn test_most_likely_explanation() {
+    fn test_most_likely_states() {
         let config = create_credit_risk_network();
         let engine = BayesianEngine::new(config).unwrap();
 
-        let mpe = engine.most_likely_explanation().unwrap();
+        let mpe = engine.most_likely_states().unwrap();
 
         assert!(mpe.contains_key("economic_conditions"));
         assert!(mpe.contains_key("company_revenue"));

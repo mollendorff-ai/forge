@@ -125,6 +125,12 @@ tier1:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier2:
+  - id: T2-BAYESIAN-LINK
+    title: "Let a Bayesian network's results drive the model"
+    why: "Asked 2026-11-15 whether Forge's Bayesian networks are 'too basic' (a Grok review). Read from the code: exact inference on discrete nodes by variable elimination with hard evidence, checked against R's bnlearn on ten networks; no learning from data, no continuous nodes (now refused with a reason; before, 'No factors remaining'), no soft evidence, no joint most-probable explanation. Competing with pgmpy or bnlearn on inference features would be scope creep. What is missing for an FP&A user is that the network sits beside the model: its probabilities cannot come from formulas, and its results cannot feed formulas, scenarios or a simulation, as the other engines' do (the probability of default given the economy feeding expected loss is the use no spreadsheet does)"
+    how: "An ADR first: a node's prior or table entries written as formulas, and a query result readable from a formula (such as =BAYES(network, node, state, evidence)), without a second model format. Decide it with a real use in front of it (T2-FIRST-USER), not before"
+    acceptance: "A worked example in examples/ where a posterior feeds a result in the model, calculated and checked against a hand calculation, and the ADR says what was left out"
+
   - id: T2-FIRST-USER
     title: "Watch one real person build a model with Forge"
     why: "No known users. Every bug found on 2026-11-07 came from building a model, and the maintainer's plan is to test demand with one real user before investing in reach (tier 3)"
