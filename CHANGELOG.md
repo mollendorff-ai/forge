@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **The prompts say the conversation goes on.** Each of the six prompts (the README's and the five in docs/PROMPTS.md) now tells the AI that the user will keep asking questions about the model and to use `forge --help` for the rest. A fresh agent given the first prompt and three follow-ups (rent rising from month 7, a second product, NPV of the monthly profits) answered all three with Forge in about 35 seconds of commands; the checks agree (the rent rise costs 6 x 600 = 3,600 of profit). The tests check the line.
 - **docs/PROMPTS.md: five prompts to paste into an AI, and how to write your own.** Everyday work first: build a model from a description; bring a workbook in from Excel and back; budget against actual; what-if (scenarios, break-even, goal seek, sensitivity); risk and decisions (simulation, tornado, decision tree, real options). Each installs Forge with `install.sh`, asks the AI to check one result its own way rather than repeat Forge's numbers, ends with every YAML file printed to open in Forge Studio (pasted on its YAML tab, then "Check and apply", which was tried), and says what to do without a sandbox. Each was run by a fresh agent on 2026-11-15 before it went in, and the page gives the outcome under each; all five worked on the first try, in one to three minutes. `tests/install_script.rs` checks that every prompt installs the same way, ends the same way, and names only example files that exist. The README links to it.
 
 ### Added
