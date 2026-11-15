@@ -41,7 +41,7 @@ pub fn eval_sequence(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErro
     let values: Vec<Value> = (0..total)
         .map(|i| Value::Number((i as f64).mul_add(step, start)))
         .collect();
-    Ok(Value::Array(values))
+    Ok(Value::Array(values.into()))
 }
 
 /// Evaluate RANDARRAY function - generates an array of random numbers
@@ -87,7 +87,7 @@ pub fn eval_randarray(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErr
             .map(|_| Value::Number(rng.random_range(min..max)))
             .collect()
     };
-    Ok(Value::Array(values))
+    Ok(Value::Array(values.into()))
 }
 
 #[cfg(test)]
@@ -137,8 +137,8 @@ mod tests {
         let result = eval("RANDARRAY(5)", &ctx).unwrap();
         if let Value::Array(arr) = result {
             assert_eq!(arr.len(), 5);
-            for v in arr {
-                if let Value::Number(n) = v {
+            for v in arr.iter() {
+                if let Value::Number(n) = *v {
                     assert!((0.0..1.0).contains(&n));
                 } else {
                     panic!("Expected number");
@@ -157,8 +157,8 @@ mod tests {
         let result = eval("RANDARRAY(3, 1, 1, 10, TRUE())", &ctx).unwrap();
         if let Value::Array(arr) = result {
             assert_eq!(arr.len(), 3);
-            for v in arr {
-                if let Value::Number(n) = v {
+            for v in arr.iter() {
+                if let Value::Number(n) = *v {
                     assert!((1.0..=10.0).contains(&n));
                     assert_eq!(n.fract(), 0.0); // whole number
                 } else {

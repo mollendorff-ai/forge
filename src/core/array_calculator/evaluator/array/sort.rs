@@ -19,7 +19,11 @@ pub fn eval_sort(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
         values.reverse();
     }
     Ok(Value::Array(
-        values.into_iter().map(Value::Number).collect(),
+        values
+            .into_iter()
+            .map(Value::Number)
+            .collect::<Vec<_>>()
+            .into(),
     ))
 }
 
@@ -43,8 +47,10 @@ mod tests {
                 Value::Number(5.0),
             ],
         );
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
 
         let result = eval("SORT(t.data)", &ctx).unwrap();
         if let Value::Array(arr) = result {

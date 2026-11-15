@@ -540,7 +540,7 @@ impl ArrayCalculator {
             ctx.tables
                 .entry(table_name.to_string())
                 .or_default()
-                .insert(col_name.to_string(), column_values(&result));
+                .insert(col_name.to_string(), column_values(&result).into());
         }
         if let Some(stored) = self.model.tables.get_mut(table_name) {
             stored.add_column(Column::new(col_name.to_string(), result));
@@ -695,14 +695,20 @@ impl ArrayCalculator {
             ctx.scalars.insert(name.clone(), value.clone());
         }
         for table in &self.included_tables {
-            ctx.tables
-                .insert(table.name.clone(), table.columns.iter().cloned().collect());
+            ctx.tables.insert(
+                table.name.clone(),
+                table
+                    .columns
+                    .iter()
+                    .map(|(name, values)| (name.clone(), values.clone().into()))
+                    .collect(),
+            );
         }
         for (table_name, tbl) in &self.model.tables {
             let columns = tbl
                 .columns
                 .iter()
-                .map(|(col_name, col)| (col_name.clone(), column_values(&col.values)))
+                .map(|(col_name, col)| (col_name.clone(), column_values(&col.values).into()))
                 .collect();
             ctx.tables.insert(table_name.clone(), columns);
         }
@@ -855,7 +861,7 @@ impl ArrayCalculator {
                 lay(
                     &mut ctx,
                     col_name.clone(),
-                    evaluator::Value::Array(column_values(&col.values)),
+                    evaluator::Value::Array(column_values(&col.values).into()),
                 );
             }
         }

@@ -213,12 +213,12 @@ fn dated_cash_flows(
     ctx: &EvalContext,
 ) -> Result<(Vec<f64>, Vec<f64>), EvalError> {
     let dates = match evaluate(dates, ctx)? {
-        Value::Array(arr) => arr,
+        Value::Array(arr) => std::sync::Arc::unwrap_or_clone(arr),
         Value::Number(n) => vec![Value::Number(n)],
         _ => return Err(EvalError::new(format!("{name} requires dates"))),
     };
     let values = match evaluate(values, ctx)? {
-        Value::Array(arr) => arr,
+        Value::Array(arr) => std::sync::Arc::unwrap_or_clone(arr),
         single => vec![single],
     };
     if values.len() == dates.len() {
@@ -296,7 +296,7 @@ pub fn try_evaluate(
                 let val = evaluate(arg, ctx)?;
                 match val {
                     Value::Array(arr) => {
-                        for v in arr {
+                        for v in arr.iter() {
                             if let Some(n) = v.as_number() {
                                 npv += n / (1.0 + rate).powi(period);
                                 period += 1;
@@ -892,10 +892,12 @@ mod tests {
         let mut table = HashMap::new();
         table.insert(
             "cf".to_string(),
-            flows.iter().copied().map(Value::Number).collect(),
+            flows.iter().copied().map(Value::Number).collect::<Vec<_>>(),
         );
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
         let without = eval_number("IRR(t.cf)", &ctx);
         let with = eval_number("IRR(t.cf, 0.2)", &ctx);
         assert!((without - with).abs() < 1e-9, "{without} vs {with}");
@@ -934,8 +936,10 @@ mod tests {
             "c".to_string(),
             vec![Value::Number(0.0), Value::Number(1.0)],
         );
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
         for formula in [
             "RATE(48, -200, 8000, 0, t.c)",
             "RATE(48, -200, 8000, 0, 0, t.c)",

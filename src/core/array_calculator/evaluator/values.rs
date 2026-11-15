@@ -109,7 +109,7 @@ pub fn paired_numbers(
         )));
     }
     Ok(a.iter()
-        .zip(&b)
+        .zip(b.iter())
         .filter_map(|(x, y)| Some((x.as_number()?, y.as_number()?)))
         .unzip())
 }

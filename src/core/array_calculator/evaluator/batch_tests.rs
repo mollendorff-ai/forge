@@ -13,8 +13,10 @@ fn context(columns: &[(&str, Vec<Value>)]) -> EvalContext {
         .iter()
         .map(|(name, values)| ((*name).to_string(), values.clone()))
         .collect();
-    ctx.tables
-        .insert("t".to_string(), table.into_iter().collect());
+    ctx.tables.insert(
+        "t".to_string(),
+        table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+    );
     ctx
 }
 

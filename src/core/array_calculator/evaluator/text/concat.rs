@@ -13,7 +13,7 @@ pub fn eval_concat(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
         // A column or range gives each of its values in turn
         match evaluate(arg, ctx)? {
             Value::Array(items) => {
-                for item in items {
+                for item in items.iter() {
                     result.push_str(&item.as_text());
                 }
             },
