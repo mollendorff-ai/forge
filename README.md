@@ -69,6 +69,8 @@ It needs an AI that can run commands. Tried by the maintainer on 2026-11-15: it 
 
 **Five more prompts** in [docs/PROMPTS.md](docs/PROMPTS.md), each run by a fresh agent before it went in: build a model from a description, bring a workbook in from Excel and back, budget against actual, what-if (scenarios, break-even, goal seek, sensitivity), and risk and decisions (simulation, tornado, decision tree, real options). Each ends with the model's YAML, to open in Studio, and the page ends with what to keep in a prompt of your own.
 
+**Four ways to use Forge**, from one person in an editor to an AI pipeline nobody watches, each with a diagram and its commands: [docs/WORKFLOWS.md](docs/WORKFLOWS.md).
+
 ## Status and known limitations
 
 Forge is a release candidate (v10.0.0-rc.26) and an R&D prototype: read its claims as hypotheses to check, not facts to trust. It was built with AI assistance under the author's direction (Claude is listed as a co-author in `Cargo.toml`). Do not rely on it for real financial decisions without checking the results independently.
