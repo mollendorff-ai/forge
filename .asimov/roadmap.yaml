@@ -157,10 +157,10 @@ tier2:
 
 studio:
   - id: S-HOME
-    title: "A one-page home for Möllendorff AI at mollendorff.ai"
-    why: "The organization has no page of its own: one place that says what Möllendorff AI is and leads to Forge Studio and the repositories. mollendorff.com and mollendorff.ca forward to it"
-    how: "Its own small repository on GitHub Pages (mollendorff-ai.github.io), static, no scripts it does not need, no cookies or analytics, like Studio. Forge Studio stays at forge.mollendorff.ai, so neither can break the other or read the other's storage"
-    acceptance: "mollendorff.ai shows the page over HTTPS; .com and .ca reach it; it links to forge.mollendorff.ai and to the Forge and Ref repositories; no request leaves for another site"
+    title: "mollendorff.ai: the page is up; the www certificate and the .com/.ca forwards are left (user)"
+    why: "The page exists (mollendorff-ai.github.io, no scripts or cookies). On 2026-11-15 https://www.mollendorff.ai showed 'This Connection Is Not Private' on an iPhone: DNS is right, the GitHub Pages certificate does not cover www"
+    how: "Settings, Pages in mollendorff-ai.github.io: remove the custom domain, save, add mollendorff.ai again, wait for the certificate, tick Enforce HTTPS. Then open mollendorff.com and mollendorff.ca on the phone and see where they land (EasyDNS forwards if they do not reach mollendorff.ai)"
+    acceptance: "https://www.mollendorff.ai opens without a warning; .com and .ca land on mollendorff.ai"
   # Decided 2026-11-12, not to be added: editing in the Grid tab. The cards
   # and the YAML editor already edit values and formulas, a column has one
   # formula and a grid invites one per cell, and Studio is not an imitation of
