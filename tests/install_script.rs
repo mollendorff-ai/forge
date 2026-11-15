@@ -46,3 +46,59 @@ fn the_readme_installs_and_runs_what_exists() {
     }
     assert!(read("install.sh").contains("forge-examples"));
 }
+
+#[test]
+fn every_prompt_in_docs_installs_checks_and_ends_with_the_yaml() {
+    let doc = read("docs/PROMPTS.md");
+    let line = "curl -fsSL https://raw.githubusercontent.com/mollendorff-ai/forge/main/install.sh | sh -s -- --examples";
+    let prompts: Vec<&str> = doc
+        .split("```text\n")
+        .skip(1)
+        .map(|p| p.split("```").next().unwrap_or(""))
+        .collect();
+    assert_eq!(prompts.len(), 5, "docs/PROMPTS.md has five prompts");
+    for (i, prompt) in prompts.iter().enumerate() {
+        let n = i + 1;
+        assert!(
+            prompt.contains("mollendorff-ai/forge"),
+            "prompt {n} names the repository"
+        );
+        assert!(prompt.contains(line), "prompt {n} installs with install.sh");
+        assert!(
+            prompt.contains("print every YAML file"),
+            "prompt {n} ends with the YAML"
+        );
+        assert!(
+            prompt.contains("do not invent any"),
+            "prompt {n} says what to do without a sandbox"
+        );
+        assert!(
+            prompt.contains("yourself") || prompt.contains("your own code"),
+            "prompt {n} asks for a check"
+        );
+    }
+    // Every example file a prompt names exists
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    for file in [
+        "examples/household/budget.yaml",
+        "examples/household/actual.yaml",
+        "examples/bagel/bagel.yaml",
+        "examples/bagel/bagel_simulate.yaml",
+        "examples/bagel/second_shop.yaml",
+        "examples/bagel/wait_option.yaml",
+        "examples/starter.yaml",
+    ] {
+        assert!(root.join(file).exists(), "{file}");
+    }
+    for (name, path) in [
+        (
+            "household/budget.yaml",
+            "forge-examples/household/budget.yaml",
+        ),
+        ("bagel_simulate.yaml", "bagel_simulate.yaml"),
+        ("second_shop.yaml", "second_shop.yaml"),
+        ("wait_option.yaml", "wait_option.yaml"),
+    ] {
+        assert!(doc.contains(path), "docs/PROMPTS.md names {name}");
+    }
+}
