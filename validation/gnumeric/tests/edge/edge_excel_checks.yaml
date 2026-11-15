@@ -1,0 +1,265 @@
+# Checked in Excel (iPhone app) on 2026-11-14: 40 formulas where Gnumeric,
+# LibreOffice, Forge or Microsoft's own documentation disagreed (roadmap
+# T1-EXCEL-CHECKS and T1-YEARFRAC-FEB). Each expected value is Excel's:
+# read from screenshots of the sheet (Excel shows 9 to 10 digits, all
+# matching Forge's where they agree) or, for the seven cases not in them
+# (yf1 to yf3, dt1, dt2, fi2 to fi5), the sheet's own comparison, which
+# found them the same as Forge to 1E-9. Excel agreed with Forge on 35. The five where it did not are fixed in
+# Forge (DB with a fraction of a month, LARGE with a fractional k, MATCH
+# with match type 2, MATCH -1 on values not sorted, TEXT of a negative
+# number that rounds to zero); on rc.25 those five fail.
+#
+# Where Gnumeric gives Excel's value the case is checked against it; where
+# only LibreOffice does, against LibreOffice; where neither does, against
+# Forge only (gnumeric_skip), with both engines' values in the reason. An
+# error is wrapped in IFERROR(..., -1).
+#
+# data.a: apple, banana, blueberry, cherry, apricot; data.b: 10 to 50;
+# data.c: 1 to 5. ta.v: 5, 1, 3, 3, 8. tb.v: 1, 3, 5. tc.v: 1, 3, 5, 7, 9, 11.
+
+_forge_version: "5.4.0"
+
+data:
+  a: ["apple", "banana", "blueberry", "cherry", "apricot"]
+  b: [10, 20, 30, 40, 50]
+  c: [1, 2, 3, 4, 5]
+  k: "=b * 1"
+
+ta:
+  v: [5, 1, 3, 3, 8]
+  k: "=v * 1"
+
+tb:
+  v: [1, 3, 5]
+  k: "=v * 1"
+
+tc:
+  v: [1, 3, 5, 7, 9, 11]
+  k: "=v * 1"
+
+assumptions:
+  # YEARFRAC basis 0 from 28 Feb to 31 Dec; Forge counts 301/360
+  test_excel_yf1:
+    value: null
+    formula: "=YEARFRAC(DATE(2026,2,28),DATE(2026,12,31),0)"
+    expected: 0.836111111111111
+  # PRICEDISC from 28 Feb; the engines give 95.8194
+  test_excel_yf2:
+    value: null
+    formula: "=PRICEDISC(DATE(2026,2,28),DATE(2026,12,31),0.05,100,0)"
+    expected: 95.8333333333333
+    gnumeric_skip: "Excel gives 95.83333333 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 95.81944444 and LibreOffice 26.2 95.81944444"
+  # YIELDDISC from 28 Feb; the engines give 0.03699
+  test_excel_yf3:
+    value: null
+    formula: "=YIELDDISC(DATE(2026,2,28),DATE(2026,12,31),97,100,0)"
+    expected: 0.0371134020618557
+    gnumeric_skip: "Excel gives 0.03711340206 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 0.03699010172 and LibreOffice 26.2 0.03699010172"
+  # ACCRINT over month ends; LibreOffice gives 83.6111
+  test_excel_yf4:
+    value: null
+    formula: "=ACCRINT(DATE(2026,2,28),DATE(2026,8,31),DATE(2026,12,31),0.1,1000,2,0)"
+    expected: 83.3333333333333
+    gnumeric_skip: "Excel gives 83.33333333 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 33.33333333 and LibreOffice 26.2 83.61111111"
+  # Microsoft's VDB page says 396.31; Excel itself gives 540.19, as Forge and both engines do
+  test_excel_vdb1:
+    value: null
+    formula: "=VDB(2400,300,10*12,6,18,3)"
+    expected: 540.185558199698
+  # VDB with a start period of 0.5; both engines give 33.33
+  test_excel_vdb2:
+    value: null
+    formula: "=VDB(100,10,3,0.5,1)"
+    expected: 22.2222222222222
+    gnumeric_skip: "Excel gives 22.22222222 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 33.33333333 and LibreOffice 26.2 33.33333333"
+  # SYD with a period after a life under 1; Forge gives an error, both engines 12000
+  test_excel_syd1:
+    value: null
+    formula: "=IFERROR(SYD(10000,1000,0.5,1), -1)"
+    expected: -1
+    gnumeric_skip: "Excel gives an error (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 12000 and LibreOffice 26.2 12000"
+  # SYD with a period after the life; Forge gives an error, both engines a negative number
+  test_excel_syd2:
+    value: null
+    formula: "=IFERROR(SYD(10000,1000,5,6), -1)"
+    expected: -1
+    gnumeric_skip: "Excel gives an error (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 0 and LibreOffice 26.2 0"
+  # DB with a fractional life; all three differ
+  test_excel_db1:
+    value: null
+    formula: "=DB(10000,1000,5.5,2,12)"
+    expected: 2250.36
+  # DB with a fractional month; all three differ. Forge gave 1998.75 until this fix
+  test_excel_db2:
+    value: null
+    formula: "=DB(10000,1000,5,1,6.5)"
+    expected: 1845
+    libreoffice: "Gnumeric 1.12 gives 1998.75; Excel gives 1845 (checked 2026-11-14), as LibreOffice 26.2 does"
+  # WEEKNUM type 11 on 31 Dec 2020; Forge says 53, LibreOffice 1
+  test_excel_wk1:
+    value: null
+    formula: "=WEEKNUM(DATE(2020,12,31),11)"
+    expected: 53
+    gnumeric_skip: "Excel gives 53 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives an error and LibreOffice 26.2 1"
+  # WEEKNUM type 14 on 31 Dec 2020
+  test_excel_wk2:
+    value: null
+    formula: "=WEEKNUM(DATE(2020,12,31),14)"
+    expected: 54
+    gnumeric_skip: "Excel gives 54 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives an error and LibreOffice 26.2 1"
+  # WEEKNUM type 17 on 31 Dec 2020
+  test_excel_wk3:
+    value: null
+    formula: "=WEEKNUM(DATE(2020,12,31),17)"
+    expected: 53
+    gnumeric_skip: "Excel gives 53 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives an error and LibreOffice 26.2 1"
+  # DATEDIF YD from 29 Feb; Forge 304, LibreOffice 303
+  test_excel_dd1:
+    value: null
+    formula: "=DATEDIF(DATE(2024,2,29),DATE(2025,12,29),\"YD\")"
+    expected: 304
+    gnumeric_skip: "Excel gives 304 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives an error and LibreOffice 26.2 303"
+  # DATE with a year below 1900: Microsoft adds 1900; both engines keep 1899 (the day number)
+  test_excel_dt1:
+    value: null
+    formula: "=YEAR(DATE(1899,12,31))"
+    expected: 3799
+    gnumeric_skip: "Excel gives 3799 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 1 and LibreOffice 26.2 1"
+  # DATE with year 108: Microsoft says 2008
+  test_excel_dt2:
+    value: null
+    formula: "=YEAR(DATE(108,1,2))"
+    expected: 2008
+  # TIME with a fraction of a second; Forge cuts it (0.999988), both engines keep it (0.999994)
+  test_excel_tm1:
+    value: null
+    formula: "=TIME(23,59,59.5)"
+    expected: 0.999988425925926
+    gnumeric_skip: "Excel gives 0.9999884259 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 0.999994213 and LibreOffice 26.2 0.999994213"
+  # TIME with fractions in all three arguments
+  test_excel_tm2:
+    value: null
+    formula: "=TIME(29,53.1,86)"
+    expected: 0.246134259259259
+    gnumeric_skip: "Excel gives 0.2461342593 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 0.2462037037 and LibreOffice 26.2 0.2462037037"
+  # HOUR of a negative number; Forge gives an error, both engines 12
+  test_excel_tm3:
+    value: null
+    formula: "=IFERROR(HOUR(-0.5), -1)"
+    expected: -1
+    gnumeric_skip: "Excel gives an error (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 12 and LibreOffice 26.2 12"
+  # MINUTE of a negative number
+  test_excel_tm4:
+    value: null
+    formula: "=IFERROR(MINUTE(-0.25), -1)"
+    expected: -1
+    gnumeric_skip: "Excel gives an error (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 0 and LibreOffice 26.2 0"
+  # SECOND of a negative number
+  test_excel_tm5:
+    value: null
+    formula: "=IFERROR(SECOND(-0.123456), -1)"
+    expected: -1
+    gnumeric_skip: "Excel gives an error (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 13 and LibreOffice 26.2 13"
+  # LARGE with k = 1.5: Excel rounds k up (5), as both engines do. Forge cut it to 1 (8) until this fix
+  test_excel_ls1:
+    value: null
+    formula: "=LARGE(ta.v, 1.5)"
+    expected: 5
+  # SMALL with k = 1.5; the engines differ
+  test_excel_ls2:
+    value: null
+    formula: "=SMALL(ta.v, 1.5)"
+    expected: 1
+    libreoffice: "Gnumeric 1.12 gives 3; Excel gives 1 (checked 2026-11-14), as LibreOffice 26.2 does"
+  # MATCH with match type 2: Excel reads it as 1 (2), as Gnumeric does; LibreOffice gives an error. Forge gave an error until this fix
+  test_excel_ls3:
+    value: null
+    formula: "=MATCH(3, tb.v, 2)"
+    expected: 2
+  # MATCH type -1 on values sorted the wrong way; Forge 1, both engines 6. Forge gave 1 until this fix
+  test_excel_ls4:
+    value: null
+    formula: "=MATCH(0, tc.v, -1)"
+    expected: 6
+  # COUNTIF with a pattern after <>; Gnumeric reads it as plain text
+  test_excel_ls5:
+    value: null
+    formula: "=COUNTIF(data.a, \"<>b*\")"
+    expected: 3
+    libreoffice: "Gnumeric 1.12 gives 5; Excel gives 3 (checked 2026-11-14), as LibreOffice 26.2 does"
+  # MAXIFS with a pattern over numbers; LibreOffice matches them, Gnumeric gives an error
+  test_excel_ls6:
+    value: null
+    formula: "=MAXIFS(data.b, data.c, \"*\")"
+    expected: 0
+    gnumeric_skip: "Excel gives 0 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives an error and LibreOffice 26.2 50"
+  # MINIFS with a pattern over numbers
+  test_excel_ls7:
+    value: null
+    formula: "=MINIFS(data.b, data.c, \"?\")"
+    expected: 0
+    gnumeric_skip: "Excel gives 0 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives an error and LibreOffice 26.2 10"
+  # MOD(7.3, 0.1); Forge and Gnumeric give 0.1, LibreOffice -5.8E-16
+  test_excel_ma1:
+    value: null
+    formula: "=MOD(7.3,0.1)"
+    expected: 0.1
+  # Length of ADDRESS(2,26,5), abs_num 5 (Microsoft: 1 to 4); Forge gives an error, both engines $Z$2 (length 4)
+  test_excel_ma2:
+    value: null
+    formula: "=IFERROR(LEN(ADDRESS(2,26,5)), -1)"
+    expected: -1
+    gnumeric_skip: "Excel gives an error (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 4 and LibreOffice 26.2 4"
+  # VALUE of the text TRUE; Forge gives an error, both engines 1
+  test_excel_ma3:
+    value: null
+    formula: "=IFERROR(VALUE(\"TRUE\"), -1)"
+    expected: -1
+    gnumeric_skip: "Excel gives an error (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives 1 and LibreOffice 26.2 1"
+  # Length of TEXT(-0.004, 0.00); Forge writes -0.00 (5), both engines 0.00 (4). Forge gave 5 until this fix
+  test_excel_ma4:
+    value: null
+    formula: "=LEN(TEXT(-0.004,\"0.00\"))"
+    expected: 4
+  # Length of 0.000001 as text; Forge and LibreOffice write 0.000001 (8), Gnumeric 1E-06 (5)
+  test_excel_ma5:
+    value: null
+    formula: "=LEN(\"\"&0.000001)"
+    expected: 8
+    libreoffice: "Gnumeric 1.12 gives 5; Excel gives 8 (checked 2026-11-14), as LibreOffice 26.2 does"
+  # Length of 1234567890123456 as text: Excel writes all 16 digits, as Forge does (it was believed to keep 15)
+  test_excel_ma6:
+    value: null
+    formula: "=LEN(\"\"&1234567890123456)"
+    expected: 16
+  # Length of 1E+15 as text: Excel writes 1000000000000000 (16), as Forge does (it was believed to write 1E+15)
+  test_excel_ma7:
+    value: null
+    formula: "=LEN(\"\"&1E+15)"
+    expected: 16
+  # PRICEDISC on actual/actual over more than a year; Forge -4.33217, both engines -4.33589
+  test_excel_fi1:
+    value: null
+    formula: "=PRICEDISC(DATE(1970,11,1),DATE(2024,2,27),0.1,1,1)"
+    expected: -4.33217183533277
+    gnumeric_skip: "Excel gives -4.332171835 (checked 2026-11-14), as Forge does; Gnumeric 1.12 gives -4.335890411 and LibreOffice 26.2 -4.335890411"
+  # CUMIPMT with a fractional nper (Microsoft truncates; LibreOffice does not)
+  test_excel_fi2:
+    value: null
+    formula: "=CUMIPMT(0.01,10.5,1000,1,5,0)"
+    expected: -40.3457314021282
+  # CUMPRINC with a fractional nper
+  test_excel_fi3:
+    value: null
+    formula: "=CUMPRINC(0.01,10.5,1000,1,5,0)"
+    expected: -487.564651353729
+  # RATE with a large loan; Forge -0.0951
+  test_excel_fi4:
+    value: null
+    formula: "=RATE(276,-100,1E15)"
+    expected: -0.0950995532592133
+  # RATE where the answer is below -30% a period; the solvers stop in different places
+  test_excel_fi5:
+    value: null
+    formula: "=RATE(5,1,-100)"
+    expected: -0.553500302130926

@@ -496,8 +496,10 @@ pub fn try_evaluate(
             let period = evaluate(&args[3], ctx)?
                 .as_cell_number()
                 .ok_or_else(|| EvalError::new("DB requires period"))?;
+            // Excel drops a fraction of a month: DB(10000, 1000, 5, 1, 6.5) is
+            // 1845, the value for 6 (checked in Excel, 2026-11-14)
             let month = if args.len() > 4 {
-                number_or(&args[4], ctx, 12.0)?
+                number_or(&args[4], ctx, 12.0)?.trunc()
             } else {
                 12.0
             };

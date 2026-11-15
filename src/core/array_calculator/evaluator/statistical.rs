@@ -222,10 +222,14 @@ pub fn try_evaluate(
             if values.is_empty() {
                 return Err(EvalError::new("LARGE: array is empty"));
             }
+            // Excel rounds a fractional k up for LARGE (LARGE(x, 1.5) is the
+            // second largest; checked in Excel, 2026-11-14) and down for
+            // SMALL: LARGE(k) is SMALL(n + 1 - k) with the index cut
             let k = evaluate(&args[1], ctx)?
                 .as_cell_number()
                 .ok_or_else(|| EvalError::new("LARGE: k must be a number"))?
-                as usize;
+                .ceil();
+            let k = if k < 1.0 { 0 } else { k as usize };
             if k == 0 || k > values.len() {
                 return Err(EvalError::new(format!(
                     "LARGE: k={} out of range (1..{})",
