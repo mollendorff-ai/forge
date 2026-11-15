@@ -1,6 +1,6 @@
 # Variance Analysis Example
 # ==========================
-# Run with: forge calculate examples/variance.yaml
+# Run in the examples folder: forge calculate variance.yaml
 #
 # This example demonstrates FP&A variance analysis functions:
 # - VARIANCE(actual, budget): Simple difference

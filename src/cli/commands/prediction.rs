@@ -1025,11 +1025,17 @@ fn print_real_options_results(
             continue;
         };
         println!(
-            "      {} ({}): option value {}",
+            "      {} ({})",
             opt_result.name.bright_blue(),
             format!("{:?}", opt_result.option_type).dimmed(),
-            money(opt_result.value).bold().green()
         );
+        match opt_result.value_added {
+            Some(v) => println!(
+                "         Adds over the traditional NPV: {}",
+                money(v).bold().green()
+            ),
+            None => println!("         Adds over the traditional NPV: needs traditional_npv"),
+        }
         match opt_result.project_value {
             Some(pv) => println!("         Project value with this option: {}", money(pv)),
             None => println!("         Project value with this option: needs traditional_npv"),

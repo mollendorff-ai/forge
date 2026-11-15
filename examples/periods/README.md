@@ -8,7 +8,7 @@ Two small models over time (ADR-053). Both use a period column, which generates 
 ```bash
 forge calculate examples/periods/monthly_plan.yaml --dry-run
 forge calculate examples/periods/dcf.yaml --dry-run
-forge sensitivity examples/periods/dcf.yaml -v assumptions.wacc -r 0.08,0.11,0.005 -o valuation.equity_value
+forge sensitivity examples/periods/dcf.yaml --vary assumptions.wacc -r 0.08,0.11,0.005 --output-var valuation.equity_value
 forge export examples/periods/monthly_plan.yaml plan.xlsx
 ```
 

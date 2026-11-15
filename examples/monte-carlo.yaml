@@ -1,6 +1,6 @@
 # Monte Carlo Simulation Example
 # ================================
-# Run with: forge simulate examples/monte-carlo.yaml --iterations 10000
+# Run in the examples folder: forge simulate monte-carlo.yaml --iterations 10000
 #
 # This example models a 5-year project NPV with uncertain inputs:
 # - Revenue growth follows a normal distribution (mean 15%, std 5%)

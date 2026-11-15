@@ -1,6 +1,6 @@
 # What is it worth to wait a year before signing the lease?
 
-Bagel Lune has an offer on the Verdun lease, open for one year. Signing today means 180,000 to open a shop worth 240,000 today: a net present value of 60,000. But nobody has to sign today. The model is [`examples/bagel/wait_option.yaml`](../../examples/bagel/wait_option.yaml); the figures are made up. Numbers below are what Forge printed (10.0.0-rc.15).
+Bagel Lune has an offer on the Verdun lease, open for one year. Signing today means 180,000 to open a shop worth 240,000 today: a net present value of 60,000. But nobody has to sign today. The model is [`examples/bagel/wait_option.yaml`](../../examples/bagel/wait_option.yaml); the figures are made up. Numbers below are what Forge printed (10.0.0-rc.15), with the option lines as Forge prints them after rc.26.
 
 The shop's value is uncertain (35% a year), the risk-free rate is 4%, and waiting costs the 6% a year of profit that the shop would have earned. Two rights are valued:
 
@@ -13,10 +13,12 @@ forge real-options examples/bagel/wait_option.yaml
    Traditional NPV (invest now, no flexibility): $60,000.00
 
    Options (each valued on its own):
-      Wait up to a year (Defer): option value $64,604.68
+      Wait up to a year (Defer)
+         Adds over the traditional NPV: $4,604.68
          Project value with this option: $64,604.68
          Rule of thumb: exercise when value > $198,000
-      Sell the oven and fit-out if it fails (Abandon): option value $279.72
+      Sell the oven and fit-out if it fails (Abandon)
+         Adds over the traditional NPV: $279.72
          Project value with this option: $60,279.72
          Rule of thumb: exercise when value < $132,000
 
@@ -28,7 +30,7 @@ forge real-options examples/bagel/wait_option.yaml
 
 ## Reading it
 
-The right to wait is worth 64,604.68, against 60,000 for signing now: 4,604.68 more. The reason is that waiting lets you skip the bad outcomes. If the shop turns out worth less than 180,000 you do not sign; if it is worth more, you sign anyway and have lost only a year of its profit.
+With the right to wait, the project is worth 64,604.68, against 60,000 for signing now: waiting adds 4,604.68. The reason is that waiting lets you skip the bad outcomes. If the shop turns out worth less than 180,000 you do not sign; if it is worth more, you sign anyway and have lost only a year of its profit.
 
 The right to sell the oven is worth 279.72. It matters only in the bad cases, when the shop's value falls below 132,000. The two values overlap, so Forge compares them and does not add them.
 

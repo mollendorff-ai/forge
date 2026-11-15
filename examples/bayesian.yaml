@@ -1,6 +1,6 @@
 # Bayesian Network Example
 # =========================
-# Run with: forge bayesian examples/bayesian.yaml
+# Run in the examples folder: forge bayesian bayesian.yaml
 #
 # This example models credit default risk as a chain:
 #
@@ -10,13 +10,13 @@
 # has one row per state of that parent. A node can also have several parents:
 # list them in `parents`, and key each CPT row by one state of each parent, in
 # that order, separated by commas: `"rainy, yes": [0.9, 0.1]`. See
-# examples/bagel/slow_week.yaml for a two-parent network.
+# bagel/slow_week.yaml for a two-parent network.
 #
 # Queries are command-line options, not part of the file:
-#   forge bayesian examples/bayesian.yaml                                  # every node
-#   forge bayesian examples/bayesian.yaml --query default_probability      # one node
-#   forge bayesian examples/bayesian.yaml -q default_probability -e economic_conditions=bad
-#   forge bayesian examples/bayesian.yaml -q economic_conditions -e default_probability=high
+#   forge bayesian bayesian.yaml                                  # every node
+#   forge bayesian bayesian.yaml --query default_probability      # one node
+#   forge bayesian bayesian.yaml -q default_probability -e economic_conditions=bad
+#   forge bayesian bayesian.yaml -q economic_conditions -e default_probability=high
 #
 # The last one runs the chain backwards: given a high default risk, how likely
 # is each economic condition?

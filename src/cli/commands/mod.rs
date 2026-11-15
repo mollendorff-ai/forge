@@ -21,6 +21,8 @@
 
 mod analysis;
 mod audit;
+#[cfg(feature = "excel")]
+mod carried;
 mod compare;
 mod examples;
 // Export and import need Excel (feature `excel`); printing them and base64
@@ -28,6 +30,7 @@ mod examples;
 #[cfg(feature = "excel")]
 mod excel_io;
 mod functions;
+mod names;
 mod prediction;
 mod probability_seek;
 mod report;
@@ -646,8 +649,14 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
         },
     };
 
-    // Compare calculated values vs. current values in file
+    // Compare calculated values vs. current values in file. A formula with no
+    // stored value (never calculated) has nothing to compare.
     let mut mismatches = Vec::new();
+    let unstored = model
+        .scalars
+        .values()
+        .filter(|v| v.formula.is_some() && v.value.is_none())
+        .count();
 
     for (var_name, var) in &calculated.scalars {
         if let Some(calculated_value) = var.value {
@@ -667,10 +676,17 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
     println!();
     if mismatches.is_empty() {
         println!("{}", "✅ All tables are valid!".bold().green());
-        println!(
-            "{}",
-            "✅ All scalar values match their formulas!".bold().green()
-        );
+        if unstored == 0 {
+            println!(
+                "{}",
+                "✅ All scalar values match their formulas!".bold().green()
+            );
+        } else {
+            println!("{}", "✅ The formulas are valid.".bold().green());
+            println!(
+                "   {unstored} formula(s) have no stored value yet; run 'forge calculate' to store them"
+            );
+        }
         Ok(())
     } else {
         println!(
@@ -679,7 +695,10 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
                 .bold()
                 .red()
         );
-        println!("{}", "   File needs recalculation!\n".yellow());
+        println!(
+            "{}",
+            "   The formulas are valid; the stored values are out of date.\n".yellow()
+        );
 
         for (name, current, expected, diff) in &mismatches {
             println!("   {}", name.bright_blue().bold());
@@ -696,7 +715,8 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
         );
 
         Err(crate::error::ForgeError::Validation(
-            "Values do not match formulas - file needs recalculation".to_string(),
+            "Stored values are out of date (the formulas are valid): run forge calculate"
+                .to_string(),
         ))
     }
 }

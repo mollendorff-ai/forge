@@ -1,6 +1,6 @@
 # Real Options Analysis Example
 # ==============================
-# Run with: forge real-options examples/real-options.yaml
+# Run in the examples folder: forge real-options real-options.yaml
 #
 # This example values a phased factory investment with flexibility:
 #

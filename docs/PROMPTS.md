@@ -32,7 +32,9 @@ staff work 10 hours a day each at $18 an hour.
 
 Put the assumptions in named scalars, a 12-row months table with revenue,
 costs and profit, and the year's totals. Run `forge examples starter` first
-to see the format, and `forge validate` before `forge calculate`.
+to see the format, and `forge validate` before `forge calculate`. After you
+change a formula, run `forge calculate` again: until then `forge validate`
+says the stored values are out of date.
 
 Then tell me the year's revenue and profit and the worst month, and show
 the formula behind the profit. Check the year's revenue yourself with your
