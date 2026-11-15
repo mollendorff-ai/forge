@@ -429,3 +429,22 @@ fn test_example_file_matches_hand_computed_posteriors() {
     let e = &back.queries["economic_conditions"];
     assert!((e.get_probability("bad").unwrap() - 0.3701).abs() < 1e-3);
 }
+
+#[test]
+fn a_continuous_node_is_refused_with_the_reason() {
+    let config =
+        BayesianConfig::new("Rates").with_node("rate", BayesianNode::continuous(0.05, 0.01));
+    let err = config.validate().unwrap_err();
+    assert!(
+        err.contains("continuous nodes are not supported yet"),
+        "{err}"
+    );
+    assert!(err.contains("states: [low, medium, high]"), "{err}");
+    // And the engine refuses it too, where before inference failed with
+    // "No factors remaining"
+    let err = BayesianEngine::new(config).err().expect("refused");
+    assert!(
+        err.contains("continuous nodes are not supported yet"),
+        "{err}"
+    );
+}
