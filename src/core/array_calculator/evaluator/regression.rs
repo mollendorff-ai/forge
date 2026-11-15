@@ -132,8 +132,10 @@ mod tests {
                 )
             })
             .collect();
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
         ctx
     }
 

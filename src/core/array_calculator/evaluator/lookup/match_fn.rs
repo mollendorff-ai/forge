@@ -215,8 +215,10 @@ mod tests {
                 Value::Number(30.0),
             ],
         );
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
 
         // Exact match (match_type = 0)
         assert_eq!(

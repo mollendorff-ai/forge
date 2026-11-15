@@ -54,8 +54,10 @@ pub enum Value {
     Text(String),
     /// A boolean value
     Boolean(bool),
-    /// An array of values (for table columns)
-    Array(Vec<Self>),
+    /// An array of values (for table columns), shared: reading a whole
+    /// column in every row of a row formula is a count, not a copy
+    /// (roadmap T1-COLUMN-COPIES)
+    Array(std::sync::Arc<Vec<Self>>),
     /// A lambda function value (parameter names, body expression)
     Lambda {
         params: Vec<String>,
@@ -174,7 +176,7 @@ pub struct EvalContext {
     /// Scalar variables (name -> value)
     pub scalars: NameMap<Value>,
     /// Table data (`table_name` -> `column_name` -> values)
-    pub tables: NameMap<NameMap<Vec<Value>>>,
+    pub tables: NameMap<NameMap<std::sync::Arc<Vec<Value>>>>,
     /// Scenarios (`scenario_name` -> `variable_name` -> value)
     pub scenarios: HashMap<String, HashMap<String, f64>>,
     /// Current row index for row-wise evaluation (None for scalar mode)
@@ -239,7 +241,7 @@ impl EvalContext {
 
     /// Get a table column
     #[must_use]
-    pub fn get_column(&self, table: &str, column: &str) -> Option<&Vec<Value>> {
+    pub fn get_column(&self, table: &str, column: &str) -> Option<&std::sync::Arc<Vec<Value>>> {
         self.tables.get(table).and_then(|t| t.get(column))
     }
 
@@ -518,7 +520,8 @@ fn evaluate_reference(reference: &Reference, ctx: &EvalContext) -> Result<Value,
                     .cloned()
                     .ok_or_else(|| EvalError::new(format!("Row {row} out of bounds")))
             } else {
-                Ok(Value::Array(col.clone()))
+                // A count, not a copy (T1-COLUMN-COPIES)
+                Ok(Value::Array(std::sync::Arc::clone(col)))
             }
         },
     }
@@ -532,10 +535,10 @@ fn evaluate_binary_op(op: &str, left: &Value, right: &Value) -> Result<Value, Ev
     match (left, right) {
         (Value::Array(l), Value::Array(r)) if l.len() == r.len() => l
             .iter()
-            .zip(r)
+            .zip(r.iter())
             .map(|(a, b)| evaluate_binary_op(op, a, b))
-            .collect::<Result<_, _>>()
-            .map(Value::Array),
+            .collect::<Result<Vec<_>, _>>()
+            .map(|items| Value::Array(items.into())),
         (Value::Array(l), Value::Array(r)) if r.len() == 1 => broadcast_left(op, l, &r[0]),
         (Value::Array(l), Value::Array(r)) if l.len() == 1 => broadcast_right(op, &l[0], r),
         (Value::Array(l), Value::Array(r)) => Err(EvalError::new(format!(
@@ -554,8 +557,8 @@ fn broadcast_left(op: &str, items: &[Value], right: &Value) -> Result<Value, Eva
     items
         .iter()
         .map(|item| evaluate_binary_op(op, item, right))
-        .collect::<Result<_, _>>()
-        .map(Value::Array)
+        .collect::<Result<Vec<_>, _>>()
+        .map(|items| Value::Array(items.into()))
 }
 
 /// Apply `op` between a single left operand and each element of `items`.
@@ -563,8 +566,8 @@ fn broadcast_right(op: &str, left: &Value, items: &[Value]) -> Result<Value, Eva
     items
         .iter()
         .map(|item| evaluate_binary_op(op, left, item))
-        .collect::<Result<_, _>>()
-        .map(Value::Array)
+        .collect::<Result<Vec<_>, _>>()
+        .map(|items| Value::Array(items.into()))
 }
 
 /// Evaluate a binary operation on two non-array values
@@ -742,8 +745,8 @@ fn evaluate_unary_op(op: &str, operand: &Value) -> Result<Value, EvalError> {
         return items
             .iter()
             .map(|item| evaluate_unary_op(op, item))
-            .collect::<Result<_, _>>()
-            .map(Value::Array);
+            .collect::<Result<Vec<_>, _>>()
+            .map(|items| Value::Array(items.into()));
     }
     match op {
         // -(an empty cell) is 0 (ADR-059)
@@ -896,7 +899,7 @@ pub(crate) fn collect_numeric_values(
         let val = evaluate(arg, ctx)?;
         match val {
             Value::Array(arr) => {
-                for v in arr {
+                for v in arr.iter() {
                     if let Some(n) = v.as_number() {
                         values.push(n);
                     }
@@ -961,14 +964,17 @@ fn criterion_number(text: &str) -> Option<f64> {
 
 /// Collect all values from an expression as a Vec<Value>
 /// (used by array functions)
+///
+/// A column comes back shared, not copied (T1-COLUMN-COPIES): a function
+/// that only reads it, as most do, costs nothing per row for it.
 pub(crate) fn collect_values_as_vec(
     expr: &Expr,
     ctx: &EvalContext,
-) -> Result<Vec<Value>, EvalError> {
+) -> Result<std::sync::Arc<Vec<Value>>, EvalError> {
     let val = evaluate(expr, ctx)?;
     match val {
         Value::Array(arr) => Ok(arr),
-        other => Ok(vec![other]),
+        other => Ok(std::sync::Arc::new(vec![other])),
     }
 }
 
@@ -1254,8 +1260,10 @@ mod tests {
                 Value::Number(30.0),
             ],
         );
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
 
         assert_eq!(eval("t.col[0]", &ctx).unwrap(), Value::Number(10.0));
         assert_eq!(eval("t.col[2]", &ctx).unwrap(), Value::Number(30.0));
@@ -1277,8 +1285,10 @@ mod tests {
             "price".to_string(),
             vec![Value::Number(5.0), Value::Number(6.0), Value::Number(7.0)],
         );
-        ctx.tables
-            .insert("orders".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "orders".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
 
         // In row-wise mode, table.column returns single value
         let row_ctx = ctx.clone().with_row(0, 3);
@@ -1300,9 +1310,9 @@ mod tests {
 
     #[test]
     fn test_value_array_equality() {
-        let arr1 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
-        let arr2 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)]);
-        let arr3 = Value::Array(vec![Value::Number(1.0)]);
+        let arr1 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)].into());
+        let arr2 = Value::Array(vec![Value::Number(1.0), Value::Number(2.0)].into());
+        let arr3 = Value::Array(vec![Value::Number(1.0)].into());
         assert_eq!(arr1, arr2);
         assert_ne!(arr1, arr3);
     }
@@ -1331,14 +1341,11 @@ mod tests {
     #[test]
     fn test_value_array_as_number() {
         // An array has no single number, so it must not become its length
-        let arr = Value::Array(vec![
-            Value::Number(1.0),
-            Value::Number(2.0),
-            Value::Number(3.0),
-        ]);
+        let arr =
+            Value::Array(vec![Value::Number(1.0), Value::Number(2.0), Value::Number(3.0)].into());
         assert_eq!(arr.as_number(), None);
         assert_eq!(
-            Value::Array(vec![Value::Number(7.0)]).as_number(),
+            Value::Array(vec![Value::Number(7.0)].into()).as_number(),
             Some(7.0)
         );
     }
@@ -1346,13 +1353,21 @@ mod tests {
     fn array_ctx() -> EvalContext {
         let mut ctx = EvalContext::new();
         let mut table = HashMap::new();
-        let column = |values: &[f64]| values.iter().copied().map(Value::Number).collect();
+        let column = |values: &[f64]| {
+            values
+                .iter()
+                .copied()
+                .map(Value::Number)
+                .collect::<Vec<_>>()
+        };
         table.insert("a".to_string(), column(&[1.0, 2.0, 3.0]));
         table.insert("b".to_string(), column(&[10.0, 20.0, 30.0]));
         table.insert("short".to_string(), column(&[1.0, 2.0]));
         table.insert("one".to_string(), column(&[5.0]));
-        ctx.tables
-            .insert("p".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "p".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
         ctx
     }
 
@@ -1476,6 +1491,6 @@ mod tests {
         // Different types should not be equal
         assert_ne!(Value::Number(1.0), Value::Text("1".to_string()));
         assert_ne!(Value::Boolean(true), Value::Number(1.0));
-        assert_ne!(Value::Array(vec![]), Value::Null);
+        assert_ne!(Value::Array(vec![].into()), Value::Null);
     }
 }

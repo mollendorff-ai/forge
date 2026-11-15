@@ -16,7 +16,10 @@ fn context() -> EvalContext {
         vec![n(10.0), Value::Null, n(30.0), Value::Null, n(0.0)],
     );
     t.insert("b".into(), vec![Value::Null; 5]);
-    ctx.tables.insert("t".into(), t.into_iter().collect());
+    ctx.tables.insert(
+        "t".into(),
+        t.into_iter().map(|(k, v)| (k, v.into())).collect(),
+    );
     ctx.scalars.insert("blank".into(), Value::Null);
     ctx
 }

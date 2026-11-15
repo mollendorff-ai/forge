@@ -128,9 +128,11 @@ fn rows_together(
             ctx.tables
                 .entry(table_name.to_string())
                 .or_default()
-                .insert(column.clone(), Vec::with_capacity(row_count));
-            ctx.scalars
-                .insert(column.clone(), Value::Array(Vec::with_capacity(row_count)))
+                .insert(column.clone(), Vec::with_capacity(row_count).into());
+            ctx.scalars.insert(
+                column.clone(),
+                Value::Array(Vec::with_capacity(row_count).into()),
+            )
         })
         .collect();
     ctx.row_count = Some(row_count);
@@ -141,15 +143,17 @@ fn rows_together(
         for (column, place, formula, ast) in formulas {
             match evaluator::evaluate(ast, ctx) {
                 Ok(value) => {
+                    // Nothing else holds the growing column once a row is
+                    // evaluated, so this pushes in place without a copy
                     if let Some(Value::Array(values)) = ctx.scalars.get_mut(column) {
-                        values.push(value.clone());
+                        std::sync::Arc::make_mut(values).push(value.clone());
                     }
                     if let Some(values) = ctx
                         .tables
                         .get_mut(table_name)
                         .and_then(|t| t.get_mut(column))
                     {
-                        values.push(value);
+                        std::sync::Arc::make_mut(values).push(value);
                     }
                 },
                 Err(e) => {
@@ -174,7 +178,7 @@ fn rows_together(
     let mut results = Vec::with_capacity(formulas.len());
     for ((column, place, formula, _), held) in formulas.iter().zip(before) {
         let values = match ctx.scalars.remove(column) {
-            Some(Value::Array(values)) => values,
+            Some(Value::Array(values)) => std::sync::Arc::unwrap_or_clone(values),
             _ => Vec::new(),
         };
         if let Some(held) = held {

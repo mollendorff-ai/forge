@@ -10,7 +10,8 @@ use super::super::{evaluate, require_args, EvalContext, EvalError, Expr, Value};
 pub fn eval_text(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
     require_args("TEXT", args, 2)?;
     let value = match evaluate(&args[0], ctx)? {
-        Value::Array(items) => match <[Value; 1]>::try_from(items) {
+        Value::Array(items) => match <[Value; 1]>::try_from(std::sync::Arc::unwrap_or_clone(items))
+        {
             Ok([only]) => only,
             Err(items) => {
                 return Err(EvalError::new(format!(

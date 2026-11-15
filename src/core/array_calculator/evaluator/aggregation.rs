@@ -192,7 +192,10 @@ mod sumproduct_tests {
                 Value::Number(3.0),
             ],
         );
-        c.tables.insert("t".to_string(), t.into_iter().collect());
+        c.tables.insert(
+            "t".to_string(),
+            t.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
         c
     }
 
@@ -262,8 +265,10 @@ mod tests {
                 Value::Number(30.0),
             ],
         );
-        ctx.tables
-            .insert("data".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "data".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
 
         assert_eq!(eval("SUM(data.values)", &ctx).unwrap(), Value::Number(60.0));
         assert_eq!(
@@ -285,8 +290,10 @@ mod tests {
                 Value::Null,
             ],
         );
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
 
         assert_eq!(eval("COUNT(t.values)", &ctx).unwrap(), Value::Number(2.0));
     }
@@ -348,8 +355,10 @@ mod tests {
                 Value::Null,
             ],
         );
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
 
         assert_eq!(eval("COUNTA(t.values)", &ctx).unwrap(), Value::Number(3.0));
     }

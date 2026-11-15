@@ -10,12 +10,12 @@ pub fn eval_filter(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     let data = collect_values_as_vec(&args[0], ctx)?;
     let criteria = collect_values_as_vec(&args[1], ctx)?;
     let filtered: Vec<Value> = data
-        .into_iter()
+        .iter()
         .zip(criteria.iter())
         .filter(|(_, c)| c.is_truthy())
-        .map(|(v, _)| v)
+        .map(|(v, _)| v.clone())
         .collect();
-    Ok(Value::Array(filtered))
+    Ok(Value::Array(filtered.into()))
 }
 
 #[cfg(test)]
@@ -52,8 +52,10 @@ mod tests {
                 Value::Boolean(true),
             ],
         );
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
 
         // FILTER should return [10, 30, 50]
         let result = eval("FILTER(t.values, t.include)", &ctx).unwrap();
@@ -80,8 +82,10 @@ mod tests {
             "include".to_string(),
             vec![Value::Boolean(false), Value::Boolean(false)],
         );
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
 
         // FILTER should return empty array
         let result = eval("FILTER(t.values, t.include)", &ctx).unwrap();
@@ -113,8 +117,10 @@ mod tests {
                 Value::Boolean(true),
             ],
         );
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
 
         // FILTER should return all values
         let result = eval("FILTER(t.values, t.include)", &ctx).unwrap();

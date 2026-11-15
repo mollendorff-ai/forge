@@ -12,13 +12,13 @@ pub fn eval_unique(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     require_args("UNIQUE", args, 1)?;
     let values = collect_values_as_vec(&args[0], ctx)?;
     let mut seen = Vec::new();
-    for v in values {
+    for v in values.iter() {
         let text = v.as_text();
         if !seen.iter().any(|s: &Value| s.as_text() == text) {
-            seen.push(v);
+            seen.push(v.clone());
         }
     }
-    Ok(Value::Array(seen))
+    Ok(Value::Array(seen.into()))
 }
 
 /// Evaluate COUNTUNIQUE function - returns count of unique values
@@ -26,7 +26,7 @@ pub fn eval_countunique(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalE
     require_args("COUNTUNIQUE", args, 1)?;
     let values = collect_values_as_vec(&args[0], ctx)?;
     let mut seen = std::collections::HashSet::new();
-    for v in values {
+    for v in values.iter() {
         seen.insert(v.as_text());
     }
     Ok(Value::Number(seen.len() as f64))
@@ -51,8 +51,10 @@ mod tests {
                 Value::Text("C".to_string()),
             ],
         );
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
 
         let result = eval("UNIQUE(t.data)", &ctx).unwrap();
         if let Value::Array(arr) = result {
@@ -75,8 +77,10 @@ mod tests {
                 Value::Text("C".to_string()),
             ],
         );
-        ctx.tables
-            .insert("t".to_string(), table.into_iter().collect());
+        ctx.tables.insert(
+            "t".to_string(),
+            table.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        );
 
         assert_eq!(
             eval("COUNTUNIQUE(t.data)", &ctx).unwrap(),

@@ -9,7 +9,7 @@ use crate::core::array_calculator::evaluator::{
 /// Evaluate an argument and list the values it contributes, one per array element.
 fn logical_values(arg: &Expr, ctx: &EvalContext) -> Result<Vec<Value>, EvalError> {
     Ok(match evaluate(arg, ctx)? {
-        Value::Array(items) => items,
+        Value::Array(items) => std::sync::Arc::unwrap_or_clone(items),
         value => vec![value],
     })
 }
@@ -44,7 +44,8 @@ pub fn eval_not(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<Value, E
                 items
                     .iter()
                     .map(|item| Value::Boolean(!item.is_truthy()))
-                    .collect(),
+                    .collect::<Vec<_>>()
+                    .into(),
             ));
         }
     }

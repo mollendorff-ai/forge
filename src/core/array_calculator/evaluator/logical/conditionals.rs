@@ -58,8 +58,8 @@ fn eval_if_array(
                 scalar => Ok(scalar.clone()),
             }
         })
-        .collect::<Result<_, _>>()
-        .map(Value::Array)
+        .collect::<Result<Vec<_>, _>>()
+        .map(|items| Value::Array(items.into()))
 }
 
 /// Evaluate IFERROR function - returns fallback value on error

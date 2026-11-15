@@ -71,11 +71,12 @@ jobs:
         env:
           FORGE_BIN: ${{ github.workspace }}/target/release/forge
         run: cargo run --release
-      # The commands the README shows print what it shows. In release,
-      # where forge simulate --seek takes seconds, not minutes.
-      - name: README commands
+      # The commands the README shows print what it shows, and the timing
+      # tests hold. In release: forge simulate --seek takes seconds, not
+      # minutes, and a debug build cannot tell a copy from the work.
+      - name: README commands and timings
         shell: bash
-        run: cargo test --release --test readme_commands
+        run: cargo test --release --test readme_commands --test column_copies --test scalar_scaling
       # Generated cases (ADR-062): seed 1 on a pull request and a push, so a
       # change fails only for what it changes; the week's seed (year and ISO
       # week) on Mondays, 200 a function, to find what nobody wrote a case for.

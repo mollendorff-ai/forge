@@ -94,7 +94,7 @@ fn rank_counts_the_values_above_exactly() {
         .collect();
     ctx.tables.insert(
         "t".to_string(),
-        std::iter::once(("v".to_string(), v)).collect(),
+        std::iter::once(("v".to_string(), v.into())).collect(),
     );
     assert_eq!(eval("RANK.EQ(0, t.v)", &ctx).unwrap(), Value::Number(4.0));
     assert_eq!(

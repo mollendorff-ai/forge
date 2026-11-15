@@ -19,7 +19,7 @@ fn holidays(args: &[Expr], ctx: &EvalContext) -> Result<BTreeSet<NaiveDate>, Eva
     };
     let value = evaluate(arg, ctx)?;
     let items = match value {
-        Value::Array(items) => items,
+        Value::Array(items) => std::sync::Arc::unwrap_or_clone(items),
         other => vec![other],
     };
     for item in &items {
