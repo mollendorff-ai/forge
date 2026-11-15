@@ -46,6 +46,7 @@ fn every_function_count_written_anywhere_is_the_registry_count() {
         "README.md",
         "docs/FUNCTIONS.md",
         "docs/FEATURES.md",
+        "docs/MCP.md",
         "src/main.rs",
         "src/mcp/mod.rs",
         "src/mcp/server.rs",
@@ -59,6 +60,7 @@ fn every_function_count_written_anywhere_is_the_registry_count() {
             " functions",
             " excel-compatible functions",
             " supported functions",
+            " supported excel-compatible functions",
             " excel-style functions",
         ] {
             for n in numbers_before(&text, word) {

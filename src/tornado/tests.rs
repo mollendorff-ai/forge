@@ -466,3 +466,47 @@ fn test_equal_swings_come_out_in_name_order() {
     let names: Vec<&str> = result.bars.iter().map(|b| b.input_name.as_str()).collect();
     assert_eq!(names, ["a", "b", "c"]);
 }
+
+#[test]
+fn an_input_the_output_does_not_use_says_so() {
+    let mut model = ParsedModel::new();
+    for (name, v) in [("price", 10.0), ("tax_rate", 0.2)] {
+        model.scalars.insert(
+            name.to_string(),
+            Variable::new(name.to_string(), Some(v), None),
+        );
+    }
+    model.scalars.insert(
+        "revenue".to_string(),
+        Variable::new(
+            "revenue".to_string(),
+            None,
+            Some("=price * 100".to_string()),
+        ),
+    );
+
+    let config = TornadoConfig::new("revenue")
+        .with_input(InputRange::new("price", 5.0, 15.0))
+        .with_input(InputRange::new("tax_rate", 0.1, 0.3));
+    let result = TornadoEngine::new(config, model)
+        .unwrap()
+        .analyze()
+        .unwrap();
+
+    let price = result
+        .bars
+        .iter()
+        .find(|b| b.input_name == "price")
+        .unwrap();
+    let tax = result
+        .bars
+        .iter()
+        .find(|b| b.input_name == "tax_rate")
+        .unwrap();
+    assert!(price.note.is_none(), "{price:?}");
+    let note = tax.note.as_deref().expect("a note on the unused input");
+    assert!(note.contains("does not change"), "{note}");
+    // The JSON carries the note only where there is one
+    let json = serde_json::to_string(&result).unwrap();
+    assert_eq!(json.matches("\"note\"").count(), 1, "{json}");
+}

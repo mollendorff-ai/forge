@@ -726,6 +726,9 @@ pub fn tornado(
             super::display_number(bar.output_at_low),
             super::display_number(bar.output_at_high)
         );
+        if let Some(note) = &bar.note {
+            println!("   {:name_width$}  {}", "", note.yellow());
+        }
     }
     println!();
 

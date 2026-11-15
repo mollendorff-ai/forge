@@ -115,12 +115,6 @@ tier1:
     how: "Fix each in help text, messages and the example comments; make the short flags agree or drop the conflicting ones (a CLI change, noted in the CHANGELOG); accept a bare name on the command line where it names one scalar, as a formula does"
     acceptance: "The five prompts in docs/PROMPTS.md run again by fresh agents, whose reports name none of these"
 
-  - id: T1-PIPELINE-FINDINGS
-    title: "What Sentinel, as a program, found hard about Forge (2026-11-15)"
-    why: "Sentinel (github.com/mollendorff-ai/sentinel, docs/FINDINGS.md) ran the AI pipeline of docs/WORKFLOWS.md against rc.26 and met: docs/MCP.md says a Monte Carlo section needs enabled: true, but forge simulate never reads the flag; docs/MCP.md says forge_functions lists 173 functions while the project description and README count 203; forge validate on a model never calculated says 'All scalar values match their formulas!' with nothing to compare (also in T1-AGENT-FRICTION), so a program has to calculate first; a tornado input that cannot move the output is listed with a swing of 0 and no note that it is not upstream of the output, so a program has to work out the dependency itself"
-    how: "Fix the two documentation errors; make the tornado output say when an input is not upstream of the output (or leave it out); the validate message is handled under T1-AGENT-FRICTION"
-    acceptance: "docs/MCP.md agrees with the code on Monte Carlo and the function count, and a tornado on an input that cannot move the output says so"
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
 # ═══════════════════════════════════════════════════════════════════════════════
