@@ -54,9 +54,7 @@ pub enum Value {
     Text(String),
     /// A boolean value
     Boolean(bool),
-    /// An array of values (for table columns), shared: reading a whole
-    /// column in every row of a row formula is a count, not a copy
-    /// (roadmap T1-COLUMN-COPIES)
+    /// An array of values (for table columns), shared, not copied (T1-COLUMN-COPIES)
     Array(std::sync::Arc<Vec<Self>>),
     /// A lambda function value (parameter names, body expression)
     Lambda {
@@ -339,7 +337,7 @@ fn evaluate_expr(expr: &Expr, ctx: &EvalContext) -> Result<Value, EvalError> {
             .iter()
             .map(|item| evaluate_expr(item, ctx))
             .collect::<Result<Vec<_>, _>>()
-            .map(Value::Array),
+            .map(|items| Value::Array(items.into())),
 
         Expr::Reference(reference) => evaluate_reference(reference, ctx),
 
@@ -971,9 +969,7 @@ fn criterion_number(text: &str) -> Option<f64> {
 
 /// Collect all values from an expression as a Vec<Value>
 /// (used by array functions)
-///
-/// A column comes back shared, not copied (T1-COLUMN-COPIES): a function
-/// that only reads it, as most do, costs nothing per row for it.
+/// A column comes back shared, not copied (T1-COLUMN-COPIES).
 pub(crate) fn collect_values_as_vec(
     expr: &Expr,
     ctx: &EvalContext,
