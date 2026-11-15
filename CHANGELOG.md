@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0-rc.26] - 2026-11-15
+
+Five wrong answers fixed after 40 formulas were checked in real Excel, array constants such as `{1,2,3}` in formulas (ADR-064), and terminal output that reads better: `forge variance` shows `n/m` for a percentage that means nothing, and `calculate`, `scenarios` and `compare` show numbers with their `format:`. These are wrong answers fixed, so by docs/STABILITY.md the two weeks before a stable release start again from this release: no earlier than 2026-11-29.
+
 ### Fixed
 - **`main` did not build** after #222 (array constants) and #223 (shared columns) were merged one after the other: each passed on its own, but #223 made `Value::Array` hold a shared list and #222 built one from a plain list. The constant is now made into a shared list, and three date helpers moved from `evaluator/mod.rs` into `evaluator/serial.rs`, which the two together had taken past 1,500 lines.
 
