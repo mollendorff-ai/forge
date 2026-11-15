@@ -15,7 +15,14 @@
 
 state:
   version: >-
-    10.0.0-rc.25, released 2026-11-14: checksums.txt verifies with a plain
+    10.0.0-rc.26, released 2026-11-15: five wrong answers fixed after 40
+    formulas were checked in real Excel (DB with a fraction of a month,
+    LARGE with a fractional k, MATCH with a match type other than 1, 0 or
+    -1, MATCH on unsorted values, TEXT of a negative that rounds to zero),
+    array constants in formulas (ADR-064), n/m in forge variance and
+    format: in the terminal. Wrong answers, so the two weeks in
+    docs/STABILITY.md start again from rc.26: no earlier than 2026-11-29.
+    rc.25 (2026-11-14): checksums.txt verifies with a plain
     sha256sum -c, forge calculate scales linearly with the number of
     scalars, and release binaries are no longer UPX-packed; no wrong answer,
     so the stable date is unchanged (no earlier than 2026-11-28).
