@@ -6,7 +6,7 @@
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, values_equal, EvalContext, EvalError, Expr, Value,
 };
-use crate::core::array_calculator::evaluator::{number_or, wildcard};
+use crate::core::array_calculator::evaluator::{excel_date_serial, number_or, wildcard};
 
 /// Evaluate MATCH function
 /// `MATCH(lookup_value`, `lookup_array`, [`match_type`])
@@ -19,77 +19,94 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
     let lookup_array = evaluate(&args[1], ctx)?;
 
     // A fraction is cut to a whole number (0.5 is an exact match), as
-    // LibreOffice does; a type other than 1, 0 or -1 is an error
+    // LibreOffice does; any other type counts by its sign, as Excel does:
+    // MATCH(3, {1,3,5}, 2) is 2, an approximate match (checked in Excel,
+    // 2026-11-14)
     let match_type = if args.len() > 2 {
-        number_or(&args[2], ctx, 1.0)?.trunc() as i32
+        number_or(&args[2], ctx, 1.0)?.trunc()
     } else {
-        1
+        1.0
     };
 
     let Value::Array(arr) = lookup_array else {
         return Err(EvalError::new("MATCH requires an array"));
     };
 
-    let lookup_num = lookup_value.as_number();
+    let found = if match_type == 0.0 {
+        arr.iter()
+            .position(|val| exact_match(&lookup_value, val, true))
+    } else {
+        approximate_match(&lookup_value, &arr, match_type < 0.0)
+    };
+    found
+        .map(|i| Value::Number((i + 1) as f64))
+        .ok_or_else(|| EvalError::new("#N/A: MATCH: value not found"))
+}
 
-    match match_type {
-        0 => {
-            // Exact match
-            for (i, val) in arr.iter().enumerate() {
-                if exact_match(&lookup_value, val, true) {
-                    return Ok(Value::Number((i + 1) as f64));
-                }
-            }
-            Err(EvalError::new("#N/A: MATCH: value not found"))
-        },
-        1 => {
-            // Find largest value <= lookup_value
-            if let Some(ln) = lookup_num {
-                let mut best_idx: Option<usize> = None;
-                let mut best_val: Option<f64> = None;
-                for (i, v) in arr.iter().enumerate() {
-                    if let Some(vn) = v.as_number() {
-                        if vn <= ln && (best_val.is_none() || vn > best_val.unwrap()) {
-                            best_val = Some(vn);
-                            best_idx = Some(i);
-                        }
-                    }
-                }
-                best_idx
-                    .map(|i| Value::Number((i + 1) as f64))
-                    .ok_or_else(|| EvalError::new("#N/A: MATCH: value not found"))
-            } else {
-                let lookup_text = lookup_value.as_text().to_lowercase();
-                for (i, val) in arr.iter().enumerate() {
-                    if val.as_text().to_lowercase() == lookup_text {
-                        return Ok(Value::Number((i + 1) as f64));
-                    }
-                }
-                Err(EvalError::new("#N/A: MATCH: value not found"))
-            }
-        },
-        -1 => {
-            // Find smallest value >= lookup_value
-            let mut best_idx: Option<usize> = None;
-            let mut best_val: Option<f64> = None;
+/// MATCH with match type 1 (`descending` false: the last value at most the
+/// lookup value, in values sorted ascending) or -1 (the last value at least
+/// it, in values sorted descending). Excel finds it by halving the range,
+/// as Gnumeric and `LibreOffice` do, so on values not sorted that way it can
+/// find another position than a search from the first would:
+/// MATCH(0, {1,3,5,7,9,11}, -1) is 6 in all three (checked in Excel,
+/// 2026-11-14). On sorted values with repeats it finds the last of them.
+/// Only values of the lookup value's kind take part: numbers (a date
+/// counts as its day number, as it is one in the workbook) for a number,
+/// texts (ignoring case) for a text.
+fn approximate_match(lookup: &Value, arr: &[Value], descending: bool) -> Option<usize> {
+    let lookup = Kind::of(lookup);
+    let order = |val: &Value| -> Option<std::cmp::Ordering> {
+        match (&lookup, Kind::of(val)) {
+            (Kind::Number(x), Kind::Number(v)) => v.partial_cmp(x),
+            (Kind::Text(x), Kind::Text(v)) if !v.is_empty() => {
+                Some(v.to_lowercase().cmp(&x.to_lowercase()))
+            },
+            (Kind::Boolean(x), Kind::Boolean(v)) => Some(v.cmp(x)),
+            _ => None,
+        }
+    };
+    let candidates: Vec<(usize, std::cmp::Ordering)> = arr
+        .iter()
+        .enumerate()
+        .filter_map(|(i, val)| order(val).map(|o| (i, o)))
+        .collect();
+    // The values that qualify come first in a sorted range: at most the
+    // lookup value ascending, at least it descending
+    let qualifies = |o: std::cmp::Ordering| {
+        if descending {
+            o != std::cmp::Ordering::Less
+        } else {
+            o != std::cmp::Ordering::Greater
+        }
+    };
+    let (mut lo, mut hi) = (0, candidates.len());
+    while lo < hi {
+        let mid = lo + (hi - lo) / 2;
+        if qualifies(candidates[mid].1) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+    lo.checked_sub(1).map(|last| candidates[last].0)
+}
 
-            if let Some(ln) = lookup_num {
-                for (i, v) in arr.iter().enumerate() {
-                    if let Some(vn) = v.as_number() {
-                        if vn >= ln && (best_val.is_none() || vn < best_val.unwrap()) {
-                            best_val = Some(vn);
-                            best_idx = Some(i);
-                        }
-                    }
-                }
-            }
-            best_idx
-                .map(|i| Value::Number((i + 1) as f64))
-                .ok_or_else(|| EvalError::new("#N/A: MATCH: value not found"))
-        },
-        _ => Err(EvalError::new(format!(
-            "MATCH: invalid match_type {match_type}"
-        ))),
+/// A value as MATCH compares it: a date written as text is a number
+enum Kind<'v> {
+    Number(f64),
+    Text(&'v str),
+    Boolean(bool),
+    Other,
+}
+
+impl<'v> Kind<'v> {
+    fn of(value: &'v Value) -> Self {
+        match value {
+            Value::Number(n) => Self::Number(*n),
+            Value::Text(t) => excel_date_serial(t).map_or(Self::Text(t), Self::Number),
+            Value::Boolean(b) => Self::Boolean(*b),
+            _ => Self::Other,
+        }
     }
 }
 
@@ -469,7 +486,8 @@ mod tests {
     }
 
     #[test]
-    fn test_match_invalid_match_type() {
+    fn test_match_type_2_counts_as_1() {
+        // Excel counts a match type by its sign (checked 2026-11-14)
         let mut model = ParsedModel::new();
 
         let mut lookup_table = Table::new("ranges".to_string());
@@ -490,9 +508,12 @@ mod tests {
         );
         model.add_table(data);
 
-        let calculator = ArrayCalculator::new(model);
-        let result = calculator.calculate_all();
-        assert!(result.is_err());
+        let result = ArrayCalculator::new(model).calculate_all().unwrap();
+        let ColumnValue::Number(vals) = &result.tables["data"].columns["position"].values else {
+            panic!("position is not a column of numbers");
+        };
+        // 15 is past 10 and before 20: position 1
+        assert_eq!(vals, &vec![1.0]);
     }
 
     #[test]

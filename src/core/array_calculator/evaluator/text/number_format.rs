@@ -572,7 +572,10 @@ fn write_number(value: f64, pieces: &[Piece], format: &str) -> Result<String, Ev
     };
 
     let mut out = String::new();
-    if value < 0.0 {
+    // A negative number that rounds to zero has no minus: TEXT(-0.004,
+    // "0.00") is 0.00 (checked in Excel, 2026-11-14), as in both engines
+    let rounds_to_zero = whole.chars().all(|c| c == '0') && fraction.chars().all(|c| c == '0');
+    if value < 0.0 && !rounds_to_zero {
         out.push('-');
     }
     if thousands {
@@ -774,9 +777,10 @@ mod tests {
         assert_eq!(text(12.5, ".00"), "12.50");
         assert_eq!(text(1.0, "0.##"), "1.");
         assert_eq!(format_value(&Value::Boolean(true), "0").unwrap(), "TRUE");
-        // Not checked in either engine: both write 0.00, Excel is believed
-        // to keep the sign of a negative number that rounds to zero
-        assert_eq!(text(-0.001, "0.00"), "-0.00");
+        // A negative number that rounds to zero loses its minus, in Excel
+        // (TEXT(-0.004, "0.00"), checked 2026-11-14) and both engines
+        assert_eq!(text(-0.001, "0.00"), "0.00");
+        assert_eq!(text(-0.005, "0.00"), "-0.01");
     }
 
     #[test]
@@ -829,10 +833,9 @@ mod tests {
             ("#,##0;-#,##0;\"–\"", ["1,235", "-1,235", "–", "0"]),
             ("#,##0_);(#,##0)", ["1,235 ", "(1,235)", "0 ", "0 "]),
             ("[Red]0.00", ["1234.57", "-1234.57", "0.00", "0.12"]),
-            // Both engines write 0.0M for -1234.567: a negative number that
-            // rounds to zero loses its minus there. Forge keeps it, as for
-            // TEXT(-0.001, "0.00") (below), which Excel is believed to do
-            ("0.0,,\"M\"", ["0.0M", "-0.0M", "0.0M", "0.0M"]),
+            // A negative number that rounds to zero loses its minus, as
+            // TEXT(-0.004, "0.00") does in Excel (below)
+            ("0.0,,\"M\"", ["0.0M", "0.0M", "0.0M", "0.0M"]),
             ("#,##0,\"k\"", ["1k", "-1k", "0k", "0k"]),
             (
                 "_($* #,##0.00_)",

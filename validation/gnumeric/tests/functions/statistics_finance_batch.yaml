@@ -706,12 +706,12 @@ assumptions:
     value: null
     formula: "=WEEKNUM(DATE(2026, 12, 31), 11)"
     expected: 53.0
-    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53), and in Excel for 31 December 2020, types 11, 14 and 17 (2026-11-14: edge_excel_checks.yaml)"
   weeknum_3_12:
     value: null
     formula: "=WEEKNUM(DATE(2026, 12, 31), 12)"
     expected: 53.0
-    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53), and in Excel for 31 December 2020, types 11, 14 and 17 (2026-11-14: edge_excel_checks.yaml)"
   weeknum_3_15:
     value: null
     formula: "=WEEKNUM(DATE(2026, 12, 31), 15)"
@@ -721,7 +721,7 @@ assumptions:
     value: null
     formula: "=WEEKNUM(DATE(2026, 12, 31), 17)"
     expected: 53.0
-    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53), and in Excel for 31 December 2020, types 11, 14 and 17 (2026-11-14: edge_excel_checks.yaml)"
   weeknum_3_21:
     value: null
     formula: "=WEEKNUM(DATE(2026, 12, 31), 21)"
@@ -742,7 +742,7 @@ assumptions:
     value: null
     formula: "=WEEKNUM(DATE(2024, 12, 30), 11)"
     expected: 53.0
-    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53), and in Excel for 31 December 2020, types 11, 14 and 17 (2026-11-14: edge_excel_checks.yaml)"
   weeknum_4_12:
     value: null
     formula: "=WEEKNUM(DATE(2024, 12, 30), 12)"
@@ -752,12 +752,12 @@ assumptions:
     value: null
     formula: "=WEEKNUM(DATE(2024, 12, 30), 15)"
     expected: 53.0
-    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53), and in Excel for 31 December 2020, types 11, 14 and 17 (2026-11-14: edge_excel_checks.yaml)"
   weeknum_4_17:
     value: null
     formula: "=WEEKNUM(DATE(2024, 12, 30), 17)"
     expected: 53.0
-    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53), and in Excel for 31 December 2020, types 11, 14 and 17 (2026-11-14: edge_excel_checks.yaml)"
   weeknum_4_21:
     value: null
     formula: "=WEEKNUM(DATE(2024, 12, 30), 21)"
@@ -850,12 +850,12 @@ assumptions:
     value: null
     formula: "=WEEKNUM(DATE(2020, 12, 31), 11)"
     expected: 53.0
-    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53), and in Excel for 31 December 2020, types 11, 14 and 17 (2026-11-14: edge_excel_checks.yaml)"
   weeknum_7_12:
     value: null
     formula: "=WEEKNUM(DATE(2020, 12, 31), 12)"
     expected: 53.0
-    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53), and in Excel for 31 December 2020, types 11, 14 and 17 (2026-11-14: edge_excel_checks.yaml)"
   weeknum_7_15:
     value: null
     formula: "=WEEKNUM(DATE(2020, 12, 31), 15)"
@@ -865,7 +865,7 @@ assumptions:
     value: null
     formula: "=WEEKNUM(DATE(2020, 12, 31), 17)"
     expected: 53.0
-    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53). Not yet checked in Excel"
+    gnumeric_skip: "Gnumeric has no such WEEKNUM type, and LibreOffice gives week 1 for the last days of a year whose last week holds January 1, where Gnumeric gives week 53 for types 1 and 2; checked against the calendar (53), and in Excel for 31 December 2020, types 11, 14 and 17 (2026-11-14: edge_excel_checks.yaml)"
   weeknum_7_21:
     value: null
     formula: "=WEEKNUM(DATE(2020, 12, 31), 21)"

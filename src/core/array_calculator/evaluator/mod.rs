@@ -975,6 +975,8 @@ mod date_tests;
 #[cfg(test)]
 mod empty_cell_tests;
 #[cfg(test)]
+mod excel_checks_tests;
+#[cfg(test)]
 mod generated_tests;
 #[cfg(test)]
 mod sweep_text_lookup_tests;
