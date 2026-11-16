@@ -8,6 +8,11 @@
 # next real model built with Forge more likely to be right and less painful?
 # Reach (distribution, REST parity, transports, benchmarks) comes after that.
 #
+# Purpose (the maintainer, 2026-11-16): Forge is built for fun and to show
+# engineering judgment. Adoption is not a goal, so no item waits for users
+# and none is justified by growth; a user who turns up is a source of
+# findings, not a target.
+#
 # A roadmap item is an instruction to an autonomous agent. Each one has an
 # acceptance criterion the agent cannot satisfy by writing more code: a
 # number checked outside Forge, a documented behaviour observed, a decision
@@ -137,6 +142,12 @@ tier1:
     how: "A flag on forge simulate, named as --output-var is on break-even and goal-seek, that shows only the outputs named, from those in monte_carlo.outputs; an unknown name is refused with the list of names that can be shown. The same choice in the MCP tool"
     acceptance: "forge simulate examples/bagel/bagel_simulate.yaml with the flag and year.profit prints only year.profit's statistics, percentiles, thresholds and drivers, with the same numbers as without the flag; a name not in outputs exits with 1 and lists the names; a test checks both"
 
+  - id: T1-COVERAGE
+    title: "A coverage gate in CI, ratcheted to 100%"
+    why: "The maintainer's rule (2026-11-16): 100% coverage, gated in CI with pedantic lints and formatting, as Ref and Sentinel already are. Line coverage was 87.7% on 2026-11-16, and the coverage job in ci.yml only updates a badge: nothing fails when coverage drops. Replaces P-COV100, parked on the grounds that coverage caught none of the 2026-11-07 bugs; that stays true (covered is not correct), so the gate is a floor under the tests, not a substitute for checks against outside tools"
+    how: "A ratchet first: CI fails when line coverage falls below the figure on main, and the figure only rises. Then raise it to 100% in steps, testing the uncovered paths (or removing them when they are dead), with any exclusion written down with a reason. Pedantic clippy and cargo fmt --check gate the same job"
+    acceptance: "The coverage job in ci.yml fails a pull request that lowers line coverage, shown once on a test branch; line coverage on main is 100%, apart from exclusions each listed with a reason; clippy pedantic and fmt --check fail the build on a violation"
+
   - id: T1-MA-EXAMPLE
     title: "An acquisition example: what Forge already does for a deal"
     why: "Asked 2026-11-16 why Forge has nothing for mergers and acquisitions, which large companies do all the time. Most of a deal model is not game theory but arithmetic Forge already has: a price and how it is paid, synergies by year, the buyer's earnings per share before and after (accretion or dilution), an earn-out, scenarios, a tornado and a simulation on the synergies. examples/ has a bagel shop, a household, a mortgage and a capital plan, and no deal"
@@ -168,8 +179,8 @@ tier2:
 
   - id: T2-FIRST-USER
     title: "Watch one real person build a model with Forge"
-    why: "No known users. Every bug found on 2026-11-07 came from building a model, and the maintainer's plan is to test demand with one real user before investing in reach (tier 3)"
-    how: "One FP&A analyst or AI pipeline builder, their own small model, Studio or the command line, the maintainer watching without helping. Write down where they stop"
+    why: "Every bug found on 2026-11-07 came from building a model, and fresh agents have found the rest (T1-AGENT-FRICTION). A person who did not write Forge has not been watched yet. This is to find where a model goes wrong or a command confuses, not to test demand: adoption is not a goal (2026-11-16)"
+    how: "When someone offers, not by recruiting: one FP&A analyst or AI pipeline builder, their own small model, Studio or the command line, the maintainer watching without helping. Write down where they stop"
     acceptance: "Notes from the session are in this file as tier items with acceptance criteria, or the decision that nothing needs to change"
 
   # The AI pipeline demonstration is done (2026-11-15): Sentinel ran docs/WORKFLOWS.md's
@@ -226,7 +237,8 @@ studio:
   # Excel. The grid stays a read-only view (ADR-056 addendum, S11).
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TIER 3 — REACH (after tier 1 is done and at least two people use it)
+# TIER 3 — REACH (after tier 1 is done, and only when a use calls for one;
+# adoption is not a goal, 2026-11-16)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier3:
@@ -271,8 +283,5 @@ parked:
   - id: P-SIMD
     title: "SIMD / Rayon"
     why: "Models run in milliseconds"
-  - id: P-COV100
-    title: "100% coverage enforcement"
-    why: "Coverage did not catch any of the 2026-11-07 bugs; T1-USE is the better spend"
 
 # Completed work is recorded in CHANGELOG.md, one entry per release.
