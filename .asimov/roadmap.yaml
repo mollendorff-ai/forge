@@ -123,27 +123,12 @@ tier1:
     how: "A fresh agent per prompt, on a release that has the fixes; each reports where it had to work around Forge"
     acceptance: "The five prompts in docs/PROMPTS.md run again by fresh agents, whose reports name none of the earlier friction"
 
-  # Found by a fresh agent installing rc.27 with install.sh and running the
-  # bagel example's calculate, tornado, simulate and break-even (2026-11-16).
-  # Every number matched the README and a hand check; these two are about
-  # reading the output, not the numbers.
-
-  - id: T1-SIM-MEAN-VS-PLAN
-    title: "forge simulate says why the mean differs from the plan"
-    why: "forge calculate gives the bagel year a profit of 786.32; forge simulate gives a mean of -15,925.94 for the same plan. Both are right: the uncertain inputs lean above the plan (staff hours Triangular(28, 32, 38) has a mean of 32.67, flour Triangular(1.05, 1.15, 1.70) 1.30, the wage Uniform(17.50, 20.50) 19.00 against 18.50 in costs.yaml), and profit is linear in each, so the expected shift is -11,868 for labour and -4,835 for flour, -15,917 in all. Nothing in the output says so, and the agent had to work it out from the YAML before it trusted the number. A reader who does not will think one of the two is wrong, or quote the plan as if it were the expected result"
-    how: "For each MC.* input, show its plan value (the value in the plan file, or the mode or median of the distribution when there is no plan file) beside its sampled mean, and for each output show the value at the plan inputs beside the simulated mean when they differ by more than a set share of the standard deviation. Same lines in the JSON output and the MCP reply. No change to the draws"
-    acceptance: "forge simulate examples/bagel/bagel_simulate.yaml shows, for year.profit, the value with each input at its plan (786.32) beside the mean, and the inputs' plan values beside their means (staff hours 32 against 32.67, flour 1.15 against 1.30, wage 18.50 against 19.00); a test asserts those figures against the distributions' closed-form means, and the bagel README explains the gap in a sentence"
-
-  - id: T1-SIM-SHOW-ONE
-    title: "Show one output of forge simulate from the command line"
-    why: "forge simulate examples/bagel/bagel_simulate.yaml prints every output named in monte_carlo.outputs (year.profit, year.worst_month_profit, the months table by row): about 80 lines, and the agent had to grep for the year.profit block. The YAML chooses what is shown, so a question about one output means editing the model or reading past the rest. -o file.json works for a program, not for a person or an agent reading the terminal"
-    how: "A flag on forge simulate, named as --output-var is on break-even and goal-seek, that shows only the outputs named, from those in monte_carlo.outputs; an unknown name is refused with the list of names that can be shown. The same choice in the MCP tool"
-    acceptance: "forge simulate examples/bagel/bagel_simulate.yaml with the flag and year.profit prints only year.profit's statistics, percentiles, thresholds and drivers, with the same numbers as without the flag; a name not in outputs exits with 1 and lists the names; a test checks both"
-
-  # Non-negotiable (the maintainer, 2026-11-16): 100% test coverage, pedantic
-  # linting and formatting, each a gate that fails CI, not a badge. Formatting
-  # (cargo fmt --check) and pedantic clippy with -D warnings are gates already;
-  # since 2026-11-16 the MSRV job lints every target, tests included.
+  # Found by a fresh agent running the bagel example on rc.27 (2026-11-16);
+  # both done the same day (CHANGELOG [Unreleased]): T1-SIM-SHOW-ONE,
+  # forge simulate --output-var and forge_simulate's outputs; and
+  # T1-SIM-MEAN-VS-PLAN, each input's plan value beside its mean and each
+  # output's value at plan (tests/simulate_plan.rs checks the bagel's 786.32
+  # and the closed-form gap of -16,703.34).
 
   - id: T1-COVERAGE-GATE
     title: "CI fails below 100% coverage"
@@ -162,11 +147,10 @@ tier1:
   # MAX_DEPTH, tests/formula_depth.rs); the audit's 256 overflowed a 2 MiB debug
   # thread, which is the size of a test thread.
 
-  - id: T1-NONFINITE
-    title: "A non-finite distribution parameter ends the process or returns NaN"
-    why: "Reproduced on f77fa0a: MC.PERT(0, 1, 1E+400) panics at src/monte_carlo/distributions.rs:264 (Beta::new(...).expect(...)); with panic = \"abort\" in the release profile forge simulate exits 134, and a forge mcp server would die on the same forge_simulate call. MC.Triangular(0, 1, 1E+400) and MC.Lognormal(1, 1E+400) run to the end and print NaN mean and percentiles with exit 0, against the first promise in docs/STABILITY.md (no silent wrong answers). Normal, Triangular and Uniform sampling unwrap the same way (lines 212, 216, 220); nothing in src/monte_carlo/ checks is_finite"
-    how: "Check that every parameter is finite where a distribution is built, and return an error naming the argument; then sample() has nothing to unwrap. Consider catching panics at the MCP tool boundary so one bad call cannot end the server"
-    acceptance: "forge simulate on models with MC.PERT(0, 1, 1E+400), MC.Triangular(0, 1, 1E+400), MC.Lognormal(1, 1E+400) and a Normal and Uniform with an infinite argument exits 1 with a message naming the argument, and forge mcp answers a forge_simulate call on each with an error and answers the next call. A test per distribution"
+  # T1-NONFINITE is done (2026-11-16): every MC.* parameter must be finite,
+  # and finite ends too far apart to calculate with are refused; forge
+  # simulate exits 1 naming the input and the argument, and forge mcp answers
+  # with the error and goes on (tests/nonfinite_params.rs, server_tests.rs).
 
   - id: T1-SUPPLY-CHAIN
     title: "Workflow and dependency hygiene"

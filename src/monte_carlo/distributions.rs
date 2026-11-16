@@ -345,6 +345,36 @@ impl Distribution {
         }
     }
 
+    /// The value to plan with when the model gives none beside the formula,
+    /// with what it is: the mode of a triangular or PERT, the mean of a normal
+    /// or lognormal as typed, the middle of a uniform (it has no likeliest
+    /// value) and the likeliest value of a discrete distribution.
+    #[must_use]
+    pub fn most_likely(&self) -> (f64, &'static str) {
+        match &self.dist_type {
+            DistributionType::Normal { mean, .. } | DistributionType::Lognormal { mean, .. } => {
+                (*mean, "mean")
+            },
+            DistributionType::Triangular { mode, .. } | DistributionType::PERT { mode, .. } => {
+                (*mode, "mode")
+            },
+            DistributionType::Uniform { min, max } => (min.midpoint(*max), "midpoint"),
+            DistributionType::Discrete {
+                values,
+                probabilities,
+            } => {
+                // The first of the likeliest, as written
+                let mut best = 0;
+                for (i, p) in probabilities.iter().enumerate() {
+                    if *p > probabilities[best] {
+                        best = i;
+                    }
+                }
+                (values[best], "likeliest")
+            },
+        }
+    }
+
     /// Sample multiple values from the distribution
     pub fn sample_n<R: Rng>(&self, rng: &mut R, n: usize) -> Vec<f64> {
         (0..n).map(|_| self.sample(rng)).collect()
@@ -841,6 +871,30 @@ mod tests {
             assert!(x.is_finite(), "{formula} sampled {x}");
             assert!(dist.inverse_cdf(0.5).is_finite(), "{formula}");
         }
+    }
+
+    /// T1-SIM-MEAN-VS-PLAN: the value to plan with when the model gives none
+    #[test]
+    fn most_likely_is_the_value_each_distribution_is_written_around() {
+        let cases = [
+            ("MC.Normal(100, 15)", (100.0, "mean")),
+            ("MC.Lognormal(50, 5)", (50.0, "mean")),
+            ("MC.Triangular(28, 32, 38)", (32.0, "mode")),
+            ("MC.PERT(40, 55, 70)", (55.0, "mode")),
+            ("MC.Uniform(17.5, 20.5)", (19.0, "midpoint")),
+        ];
+        for (formula, expected) in cases {
+            assert_eq!(
+                parse_distribution(formula).unwrap().most_likely(),
+                expected,
+                "{formula}"
+            );
+        }
+        // The likeliest value; on a tie, the first as written
+        let discrete = Distribution::discrete(vec![1.0, 2.0, 3.0], vec![0.25, 0.5, 0.25]).unwrap();
+        assert_eq!(discrete.most_likely(), (2.0, "likeliest"));
+        let tie = Distribution::discrete(vec![7.0, 9.0], vec![0.5, 0.5]).unwrap();
+        assert_eq!(tie.most_likely(), (7.0, "likeliest"));
     }
 
     #[test]

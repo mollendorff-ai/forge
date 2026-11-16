@@ -40,6 +40,17 @@ use super::statistics::{
 };
 use crate::types::ParsedModel;
 
+/// The value an uncertain input is planned at, which the model is calculated
+/// with once to give each output's value at plan.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlanInput {
+    /// The planned value
+    pub value: f64,
+    /// Where it comes from: `value` (written beside the `MC.*` formula), or
+    /// the distribution's `mode`, `mean`, `midpoint` or `likeliest` value
+    pub from: &'static str,
+}
+
 /// Result of a Monte Carlo simulation
 #[derive(Debug, Clone)]
 pub struct SimulationResult {
@@ -53,6 +64,8 @@ pub struct SimulationResult {
     pub outputs: IndexMap<String, OutputResult>,
     /// All sampled values for inputs (variable -> samples)
     pub input_samples: HashMap<String, Vec<f64>>,
+    /// Each uncertain input's plan value, in name order
+    pub plan_inputs: IndexMap<String, PlanInput>,
 }
 
 /// Result for a single output variable
@@ -72,6 +85,9 @@ pub struct OutputResult {
     pub drivers: Vec<Driver>,
     /// Mean of the worst p% of runs, for each p asked for, in that order
     pub expected_shortfall: Vec<(u8, f64)>,
+    /// The output calculated once with every uncertain input at its plan
+    /// value; `None` when that calculation fails
+    pub at_plan: Option<f64>,
 }
 
 /// How strongly one sampled input moves an output.
@@ -126,6 +142,7 @@ fn summarize(
         threshold_probabilities,
         drivers,
         expected_shortfall,
+        at_plan: None,
     }
 }
 
@@ -184,6 +201,8 @@ pub struct MonteCarloEngine {
     config: MonteCarloConfig,
     sampler: Sampler,
     distributions: HashMap<String, Distribution>,
+    /// The `value:` written beside an `MC.*` formula, by input
+    planned: HashMap<String, f64>,
 }
 
 impl MonteCarloEngine {
@@ -202,6 +221,7 @@ impl MonteCarloEngine {
             config,
             sampler,
             distributions: HashMap::new(),
+            planned: HashMap::new(),
         })
     }
 
@@ -236,11 +256,39 @@ impl MonteCarloEngine {
                 if formula_content.starts_with("MC.") {
                     let dist = parse_distribution(formula_content)
                         .map_err(|e| format!("{prefix}{name}: {e}"))?;
-                    self.add_distribution(&format!("{prefix}{name}"), dist);
+                    let variable = format!("{prefix}{name}");
+                    if let Some(value) = scalar.value.filter(|v| v.is_finite()) {
+                        self.planned.insert(variable.clone(), value);
+                    }
+                    self.add_distribution(&variable, dist);
                 }
             }
         }
         Ok(())
+    }
+
+    /// Each uncertain input's plan value, in name order: the `value:` beside
+    /// its formula, or else its distribution's likeliest value.
+    #[must_use]
+    pub fn plan_inputs(&self) -> IndexMap<String, PlanInput> {
+        let mut names: Vec<&String> = self.distributions.keys().collect();
+        names.sort();
+        names
+            .into_iter()
+            .map(|name| {
+                let plan = self.planned.get(name).map_or_else(
+                    || {
+                        let (value, from) = self.distributions[name].most_likely();
+                        PlanInput { value, from }
+                    },
+                    |&value| PlanInput {
+                        value,
+                        from: "value",
+                    },
+                );
+                (name.clone(), plan)
+            })
+            .collect()
     }
 
     /// Run the simulation
@@ -253,6 +301,7 @@ impl MonteCarloEngine {
         let n = self.config.iterations;
 
         let input_samples = self.sample_inputs(n)?;
+        let plan_inputs = self.plan_inputs();
 
         let mut outputs = IndexMap::new();
         for output_config in &self.config.outputs {
@@ -268,10 +317,12 @@ impl MonteCarloEngine {
                          calculate it"
                     )
                 })?;
-            outputs.insert(
-                var.clone(),
-                summarize(output_config, samples, &input_samples),
-            );
+            let mut result = summarize(output_config, samples, &input_samples);
+            result.at_plan = plan_inputs
+                .get(var)
+                .or_else(|| plan_inputs.get(&format!("scalars.{var}")))
+                .map(|p| p.value);
+            outputs.insert(var.clone(), result);
         }
 
         let execution_time_ms = elapsed_ms(start);
@@ -282,6 +333,7 @@ impl MonteCarloEngine {
             execution_time_ms,
             outputs,
             input_samples,
+            plan_inputs,
         })
     }
 
@@ -340,14 +392,23 @@ impl MonteCarloEngine {
             }
         }
 
+        // The model once more, with every uncertain input at its plan value.
+        // The draws are already made, so this changes no other number; a
+        // model that cannot be calculated there has no value at plan.
+        let plan_inputs = self.plan_inputs();
+        let planned: HashMap<String, f64> = plan_inputs
+            .iter()
+            .map(|(name, plan)| (name.clone(), plan.value))
+            .collect();
+        let at_plan = evaluator(&planned).ok();
+
         let mut outputs = IndexMap::new();
         for output_config in &self.config.outputs {
             let var = &output_config.variable;
             let samples = output_samples.remove(var).unwrap_or_default();
-            outputs.insert(
-                var.clone(),
-                summarize(output_config, samples, &input_samples),
-            );
+            let mut result = summarize(output_config, samples, &input_samples);
+            result.at_plan = at_plan.as_ref().and_then(|m| m.get(var).copied());
+            outputs.insert(var.clone(), result);
         }
 
         let execution_time_ms = elapsed_ms(start);
@@ -358,6 +419,7 @@ impl MonteCarloEngine {
             execution_time_ms,
             outputs,
             input_samples,
+            plan_inputs,
         })
     }
 
@@ -493,6 +555,9 @@ impl SimulationResult {
         for (var, result) in &self.outputs {
             let _ = writeln!(output, "    {var}:");
             let _ = writeln!(output, "      mean: {:.4}", result.statistics.mean);
+            if let Some(at_plan) = result.at_plan {
+                let _ = writeln!(output, "      at_plan: {at_plan:.4}");
+            }
             let _ = writeln!(output, "      median: {:.4}", result.statistics.median);
             let _ = writeln!(output, "      std_dev: {:.4}", result.statistics.std_dev);
             let _ = writeln!(output, "      min: {:.4}", result.statistics.min);
@@ -558,6 +623,7 @@ impl SimulationResult {
                 var.clone(),
                 json!({
                     "mean": result.statistics.mean,
+                    "at_plan": result.at_plan,
                     "median": result.statistics.median,
                     "std_dev": result.statistics.std_dev,
                     "min": result.statistics.min,
@@ -574,12 +640,29 @@ impl SimulationResult {
             );
         }
 
+        let inputs_json: serde_json::Map<String, serde_json::Value> = self
+            .plan_inputs
+            .iter()
+            .map(|(name, plan)| {
+                let mean = self.input_samples.get(name).map(|s| {
+                    #[allow(clippy::cast_precision_loss)] // sample counts fit an f64
+                    let n = s.len() as f64;
+                    s.iter().sum::<f64>() / n
+                });
+                (
+                    name.clone(),
+                    json!({"mean": mean, "plan": plan.value, "plan_from": plan.from}),
+                )
+            })
+            .collect();
+
         let result_json = json!({
             "monte_carlo_results": {
                 "iterations": self.iterations_completed,
                 "execution_time_ms": self.execution_time_ms,
                 "sampling": self.config.sampling,
                 "seed": self.config.seed,
+                "inputs": inputs_json,
                 "outputs": outputs_json,
             }
         });
@@ -693,6 +776,74 @@ mod tests {
         // Check threshold probability (profit > 0 should be high)
         let prob = profit_result.threshold_probabilities.get("> 0").unwrap();
         assert!(*prob > 0.9);
+    }
+
+    /// T1-SIM-MEAN-VS-PLAN: with no `value:` beside a formula, an input is
+    /// planned at its distribution's likeliest value, and an output without an
+    /// evaluator (an input itself) is at plan where its input is.
+    #[test]
+    fn plan_values_fall_back_to_the_likeliest_value() {
+        let mut engine = MonteCarloEngine::new(test_config()).unwrap();
+        engine.add_distribution("revenue", Distribution::normal(100.0, 10.0).unwrap());
+        engine.add_distribution("hours", Distribution::triangular(1.0, 2.0, 6.0).unwrap());
+        let plan = engine.plan_inputs();
+        assert_eq!(
+            plan.keys().collect::<Vec<_>>(),
+            ["hours", "revenue"],
+            "in name order"
+        );
+        assert_eq!(
+            plan["hours"],
+            PlanInput {
+                value: 2.0,
+                from: "mode"
+            }
+        );
+        assert_eq!(
+            plan["revenue"],
+            PlanInput {
+                value: 100.0,
+                from: "mean"
+            }
+        );
+
+        let result = engine.run().unwrap();
+        assert_eq!(result.outputs["revenue"].at_plan, Some(100.0));
+        let yaml = result.to_yaml();
+        assert!(yaml.contains("      at_plan: 100.0000\n"), "{yaml}");
+        let json: serde_json::Value = serde_json::from_str(&result.to_json().unwrap()).unwrap();
+        let mc = &json["monte_carlo_results"];
+        assert_eq!(mc["outputs"]["revenue"]["at_plan"], 100.0);
+        assert_eq!(mc["inputs"]["hours"]["plan"], 2.0);
+        assert_eq!(mc["inputs"]["hours"]["plan_from"], "mode");
+        let mean = mc["inputs"]["hours"]["mean"].as_f64().unwrap();
+        assert!((mean - 3.0).abs() < 0.01, "{mean}");
+    }
+
+    /// The plan is calculated once after the draws; a model that cannot be
+    /// calculated there has no value at plan, and its other numbers stand.
+    #[test]
+    fn a_plan_that_cannot_be_calculated_has_no_value_at_plan() {
+        let mut config = test_config();
+        config.outputs[0].variable = "profit".to_string();
+        let mut engine = MonteCarloEngine::new(config).unwrap();
+        engine.add_distribution("revenue", Distribution::normal(100.0, 10.0).unwrap());
+        let result = engine
+            .run_with_evaluator(|inputs| {
+                let revenue = inputs["revenue"];
+                // Exactly the plan value: no draw lands there, so only the
+                // calculation at plan fails
+                #[allow(clippy::float_cmp)] // exact on purpose, see above
+                if revenue == 100.0 {
+                    return Err("division by zero".to_string());
+                }
+                Ok(HashMap::from([("profit".to_string(), revenue - 80.0)]))
+            })
+            .unwrap();
+        let profit = &result.outputs["profit"];
+        assert_eq!(profit.at_plan, None);
+        assert!((profit.statistics.mean - 20.0).abs() < 1.0);
+        assert!(!result.to_yaml().contains("at_plan"));
     }
 
     #[test]

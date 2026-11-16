@@ -295,7 +295,7 @@ Compare calculation results across multiple scenarios side-by-side.
 
 #### `forge_simulate`
 
-Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular, Uniform, PERT, Lognormal, Discrete). Returns statistics, percentiles, threshold probabilities, and drivers (each `MC.*` input's rank correlation with each output). An `MC.*` input may be in an included file.
+Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular, Uniform, PERT, Lognormal, Discrete). Returns statistics, percentiles, threshold probabilities, and drivers (each `MC.*` input's rank correlation with each output), each output's `at_plan` (the model calculated once with every uncertain input at its plan value), and under `inputs` each input's sampled `mean` beside its `plan` and `plan_from` (the `value:` written beside its formula, or else its distribution's mode, mean, midpoint or likeliest value). An `MC.*` input may be in an included file.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
