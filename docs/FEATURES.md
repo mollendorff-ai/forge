@@ -360,6 +360,8 @@ The price barely drives profit: a higher price brings fewer units (the correlati
 | `MC.Lognormal(mean, std_dev)` | mean, standard deviation | Prices and values that cannot go negative |
 | `MC.Discrete(values, probabilities)` | two arrays | A few specific outcomes |
 
+Every argument is a finite number: `inf`, `NaN` and a literal too large for a number (`1E+400`) are refused with the scalar and the argument named, and so is a distribution whose `max - min` or whose draws would overflow (`MC.Normal(0, 1E+308)`).
+
 An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}`); a bare string is an error in a scalar group. It can also be in an included file: the input is then named `@costs.ingredients.flour_per_kg`, and `examples/bagel/costs_risk.yaml` shows the pattern (it reads the certain prices from `costs.yaml` and makes two uncertain). `forge calculate` cannot evaluate `MC.*` and says to run `forge simulate`.
 
 ### Settings (`monte_carlo:`)

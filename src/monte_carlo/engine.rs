@@ -234,7 +234,8 @@ impl MonteCarloEngine {
                 let formula_content = formula.strip_prefix('=').unwrap_or(formula);
 
                 if formula_content.starts_with("MC.") {
-                    let dist = parse_distribution(formula_content)?;
+                    let dist = parse_distribution(formula_content)
+                        .map_err(|e| format!("{prefix}{name}: {e}"))?;
                     self.add_distribution(&format!("{prefix}{name}"), dist);
                 }
             }
