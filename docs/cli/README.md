@@ -935,6 +935,8 @@ EXAMPLES:
   forge simulate model.yaml --seed 42          # Reproducible
   forge simulate model.yaml -o results.json    # JSON output
   forge simulate model.yaml --scenario rainy   # Under a scenario's overrides
+  forge simulate model.yaml --output-var year.profit
+                                               # Only that output of monte_carlo.outputs
   forge simulate model.yaml --seek "P(year.profit > 0) = 0.8" --vary price --min 14 --max 24
                                                # The price at which 80% of runs make money
 
@@ -968,6 +970,9 @@ Options:
 
       --max <MAX>
           Highest value of --vary to try
+
+      --output-var <OUTPUT>
+          Show only this output of `monte_carlo.outputs` (repeat for more). A name can be written without its group when only one output has it
 
   -o, --output <OUTPUT>
           Output file (.json, .yaml or .xlsx)

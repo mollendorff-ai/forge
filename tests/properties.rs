@@ -281,7 +281,7 @@ proptest! {
         let (yaml, _) = sim;
         let dir = tempfile::tempdir().unwrap();
         let path = write(dir.path(), "mc.yaml", &yaml);
-        let options = || SimulateOptions { iterations: None, seed: None, sampling: None, scenario: None };
+        let options = || SimulateOptions { iterations: None, seed: None, sampling: None, scenario: None, outputs: &[] };
         let first = simulate_core(&path, options()).unwrap();
         let second = simulate_core(&path, options()).unwrap();
         let bits = |r: &mollendorff_forge::monte_carlo::SimulationResult| {

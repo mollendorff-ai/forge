@@ -400,6 +400,8 @@ fn simulate_options(args: &Map<String, Value>) -> Result<SimulateOptions<'_>, St
         seed: opt_u64(args, "seed")?,
         sampling: opt_str(args, "sampling")?,
         scenario: opt_str(args, "scenario")?,
+        // Studio shows every output of monte_carlo.outputs
+        outputs: &[],
     })
 }
 

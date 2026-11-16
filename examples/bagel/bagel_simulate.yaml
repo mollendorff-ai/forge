@@ -8,13 +8,17 @@ _includes:
 
 assumptions:
   price_per_dozen: 16
+  # value: is the plan (bagel.yaml's figure); forge simulate calculates the
+  # model once with every uncertain input at it, beside the simulated mean
   opening_dozens_per_day:
+    value: 55
     formula: "=MC.PERT(40, 55, 70)"
   monthly_growth: 0.03
   open_days_per_month: 30
   bagels_per_kg_flour: 9
   sesame_grams_per_bagel: 6
   staff_hours_per_day:
+    value: 32
     formula: "=MC.Triangular(28, 32, 38)"
   rent_per_month: 4800
   card_fee_rate: 0.026

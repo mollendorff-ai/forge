@@ -407,11 +407,18 @@ impl ForgeMcpServer {
         #[allow(clippy::cast_possible_truncation)]
         let iterations = req.iterations.map(|n| n as usize);
 
+        let outputs = req.outputs.unwrap_or_default();
+        if req.seek.is_some() && !outputs.is_empty() {
+            return Err(
+                "outputs cannot be used with seek, which reports its own output".to_string(),
+            );
+        }
         let options = crate::cli::SimulateOptions {
             iterations,
             seed: req.seed,
             sampling: req.sampling.as_deref(),
             scenario: req.scenario.as_deref(),
+            outputs: &outputs,
         };
         if let Some(seek) = req.seek.as_deref() {
             let (Some(vary), Some(min), Some(max)) = (req.vary.as_deref(), req.min, req.max) else {
