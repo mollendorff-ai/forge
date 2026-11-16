@@ -154,6 +154,12 @@ tier1:
     how: "permissions: contents: read at the top of each workflow, widened per job where a job writes; pin each action by commit with its tag in a comment; commit studio/package-lock.json and use npm ci; drop the stale audit ignore"
     acceptance: "Every workflow starts with a permissions: block; no uses: line ends in a branch or tag name that can move; npm ci works in studio/ and CI uses it; cargo audit passes with no ignore for a crate absent from Cargo.lock"
 
+  - id: T1-MA-EXAMPLE
+    title: "An acquisition example: what Forge already does for a deal"
+    why: "Asked 2026-11-16 why Forge has nothing for mergers and acquisitions, which large companies do all the time. Most of a deal model is not game theory but arithmetic Forge already has: a price and how it is paid, synergies by year, the buyer's earnings per share before and after (accretion or dilution), an earn-out, scenarios, a tornado and a simulation on the synergies. examples/ has a bagel shop, a household, a mortgage and a capital plan, and no deal"
+    how: "examples/acquisition/, as examples/bagel is built: a buyer and a target as included files, a deal table by year (price, debt and shares issued, synergies, integration cost), accretion or dilution per year, NPV and IRR of the deal, three scenarios, a tornado, and a Monte Carlo on the synergies. Invented companies and round numbers, with a README that says what each file shows. No engine change; what the example makes hard goes here as tier items"
+    acceptance: "The example runs from a fresh install with every analytics command it names, its headline numbers are asserted in a test against an independent calculation (as tests/bagel_example.rs does), and docs/EXAMPLES.md lists it"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIER 2 — MODELING (what would change how Forge feels to use)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -164,6 +170,18 @@ tier2:
     why: "Asked 2026-11-15 whether Forge's Bayesian networks are 'too basic' (a Grok review). Read from the code: exact inference on discrete nodes by variable elimination with hard evidence, checked against R's bnlearn on ten networks; no learning from data, no continuous nodes (now refused with a reason; before, 'No factors remaining'), no soft evidence, no joint most-probable explanation. Competing with pgmpy or bnlearn on inference features would be scope creep. What is missing for an FP&A user is that the network sits beside the model: its probabilities cannot come from formulas, and its results cannot feed formulas, scenarios or a simulation, as the other engines' do (the probability of default given the economy feeding expected loss is the use no spreadsheet does)"
     how: "An ADR first: a node's prior or table entries written as formulas, and a query result readable from a formula (such as =BAYES(network, node, state, evidence)), without a second model format. Decide it with a real use in front of it (T2-FIRST-USER), not before"
     acceptance: "A worked example in examples/ where a posterior feeds a result in the model, calculated and checked against a hand calculation, and the ADR says what was left out"
+
+  - id: T2-GAME-THEORY
+    title: "Games: a payoff table, and which strategies are an equilibrium"
+    why: "Parked as P-GAME until a user asked; the maintainer asked on 2026-11-16, for his own kinship-protocol (github.com/mollendorff-ai/kinship-protocol), which calls Forge its game-theory calculator and wants more games. Read from its 13 models: a game is written by hand as scalars, one formula per strategy per parameter step (stag_hunt.yaml: c0_coop, c0_defect, c0_coop_wins, then c1_, c2_, c3_), a 'wins' flag is an IF the author writes, and the Axelrod tournament's average payoffs are numbers typed in (grim_base 2.622), calculated somewhere else. Forge works out a payoff and cannot say which strategy is dominated or where the equilibrium is. The second use is the one behind T1-MA-EXAMPLE: a bidding contest or a price answer, where the other side reacts"
+    how: "After the stable release. An ADR first, because it adds a section to the model format: a game with players, named strategies and a payoff table whose cells are formulas over the model, so scenarios, tornado and simulate work on a game as on any model. A forge game command that reports dominated strategies, pure-strategy Nash equilibria and, for two players, mixed ones; then repeated games: a round-robin tournament of named strategies with a continuation probability, seeded where a strategy is random. The ADR says what is left out (more than two players in mixed strategies, extensive-form games, auctions). Checked against an outside tool, as the analytics are against R: Python's nashpy, or Gambit"
+    acceptance: "kinship-protocol's stag hunt, chicken and Axelrod tournament are rewritten as game sections and give the results its models store today, or the difference is explained; the tournament's average payoffs are calculated by Forge and no longer typed in; every equilibrium in the tests is checked against the outside tool or a hand calculation. Two more games, chosen because the three above do not cover them: an inspection game (an AI complies or cheats, a human audits or trusts; it has no pure equilibrium, so it tests the mixed path, and a tornado on the penalty shows the known result that a harsher penalty lowers the audit rate and not the cheating), and a tournament with noise (each move is mistaken with a small seeded probability, so tit-for-tat falls apart and a forgiving strategy wins), each with its equilibrium or ranking checked the same way. Optional, same checks: a battle of the sexes (two pure equilibria and one mixed), and a sweep of the continuation probability that shows cooperation taking over near the threshold kinship-protocol derives by formula"
+
+  - id: T2-GAME-THEORY-MORE
+    title: "Games with more than two players, and strategies that spread"
+    why: "Proposed 2026-11-16 beside T2-GAME-THEORY, from the maintainer's list of games for kinship-protocol. A five-player public goods game is the project's own setup (five AIs), and replicator dynamics (strategy shares changing by generation) would sit beside its predator_prey.yaml. T2-GAME-THEORY leaves both out on purpose: mixed strategies beyond two players, and any dynamics. Parked so the idea is kept, not planned"
+    how: "After T2-GAME-THEORY is built and used. An ADR first, deciding whether pure equilibria for n players are enough for the public goods game, and whether replicator dynamics belong in a game section or in the existing time-series model. Extensive-form games such as the ultimatum game stay out"
+    acceptance: "A five-player public goods game whose pure equilibria are checked against the outside tool or a hand calculation, and the ADR says what was left out"
 
   - id: T2-FIRST-USER
     title: "Watch one real person build a model with Forge"
@@ -265,8 +283,6 @@ parked:
     why: "A table column is a bare string (revenue: \"=price * units\") and a scalar is a mapping (revenue: {formula: \"=...\"}), two spellings for the same idea. examples/starter.yaml explains why (the result is written next to a scalar as value:). Found on 2026-11-14 while writing a first model: it was the one rule to remember"
     how: "An ADR first, because it touches the model format: read a bare =... scalar and rewrite it to the mapping on the first forge calculate, so no file stops working. Weigh it against one more way to write the same thing"
     trigger: "A real user stumbles on it (T2-FIRST-USER notes), not before"
-  - id: P-GAME
-    title: "Game theory module"
   - id: P-GPU
     title: "GPU acceleration"
   - id: P-SIMD
