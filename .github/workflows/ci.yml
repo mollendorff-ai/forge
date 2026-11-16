@@ -153,11 +153,11 @@ jobs:
       - name: Build the command line and the library
         run: cargo build --locked --bin forge --lib
 
-      # The README says CI fails on a warning: on this toolchain too, for the
-      # shipped code. The tests are linted on stable only: clippy 1.97 flags
-      # `assert_eq!` on exact whole-number floats, which later versions accept.
-      - name: Run clippy on the library and the binary
-        run: cargo clippy --locked --lib --bins -- -D warnings
+      # The README says CI fails on a warning: on this toolchain too, tests
+      # included. Clippy 1.97 flags `assert_eq!` on exact whole-number floats;
+      # such a test says so with #[allow(clippy::float_cmp)] and a reason.
+      - name: Run clippy on every target
+        run: cargo clippy --locked --all-targets -- -D warnings
 
   # The parser, the calculator and the analysis engines without the command
   # line or the servers, for a browser (ADR-055, roadmap S1-CORE-NO-OS)

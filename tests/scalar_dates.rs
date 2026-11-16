@@ -54,6 +54,7 @@ fn write(dir: &Path, name: &str, text: &str) -> PathBuf {
 }
 
 #[test]
+#[allow(clippy::float_cmp)] // whole day numbers and years
 fn a_date_scalar_is_read_as_a_cell_of_a_date_column() {
     let dir = tempfile::tempdir().unwrap();
     let result = calculate_core(&write(dir.path(), "m.yaml", MODEL), true, None).unwrap();

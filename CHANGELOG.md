@@ -14,7 +14,7 @@ Fixes from the evaluation of rc.27 (2026-11-15).
 
 ### Added
 - **Build attestations for the release archives.** The Release workflow signs a statement that it built each archive from its commit; `gh attestation verify <archive> --repo mollendorff-ai/forge` checks it (SECURITY.md). `checksums.txt` stays, for broken downloads.
-- **Clippy on the oldest supported Rust.** The MSRV job now lints the library and the binary as well as building them; one doc comment that Rust 1.97's clippy refused is split. The tests are linted on stable only, where clippy accepts `assert_eq!` on exact whole-number floats.
+- **Clippy on the oldest supported Rust, tests included.** The MSRV job now lints every target (`--all-targets`) as well as building; one doc comment that Rust 1.97's clippy refused is split, and the ten test sites it refused (`float_cmp` on exact whole numbers, a `const fn`) are fixed, so `cargo clippy --locked --all-targets -- -D warnings` passes on 1.97.
 
 ### Fixed
 - **Stale counts and wording, now checked by tests.** VALIDATION.md and docs/STABILITY.md said Excel was checked once, on 18 results; they now give the three rounds (2026-11-06, -14 and -15). VALIDATION.md said fourteen cases are checked against Forge only; the suite has 35, and `validation/gnumeric/tests/doc_counts.rs` now compares that count too. The README's unit-test row gave a dated count (1,873) and now points to the CI badge. "Battle-proven" is gone from docs/FPA-PREDICTION-METHODS.md, and a test keeps such words out of the docs.
