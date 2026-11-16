@@ -130,6 +130,11 @@ tier1:
   # output's value at plan (tests/simulate_plan.rs checks the bagel's 786.32
   # and the closed-form gap of -16,703.34).
 
+  # Non-negotiable (the maintainer, 2026-11-16): 100% test coverage, pedantic
+  # linting and formatting, each a gate that fails CI, not a badge. Formatting
+  # (cargo fmt --check) and pedantic clippy with -D warnings are gates already;
+  # since 2026-11-16 the MSRV job lints every target, tests included.
+
   - id: T1-COVERAGE-GATE
     title: "CI fails below 100% coverage"
     why: "ADR-004 requires 100%, but its 2026-11-08 note made it a goal: make coverage only reports and the Coverage job in ci.yml turns the function percentage into a badge. P-COV100 was parked for the same reason, now overruled by the maintainer"
