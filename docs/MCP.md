@@ -308,6 +308,7 @@ Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular,
 | `scenario` | string | no | A scenario whose overrides apply first; an override of an `MC.*` input fixes it |
 | `seek` | string | no | `"P(year.profit > 0) = 0.8"`: returns the value of `vary` at which the probability is first met, instead of the statistics |
 | `vary`, `min`, `max` | string, number, number | with `seek` | The input to vary and the range to search |
+| `outputs` | array of strings | no | Report only these outputs of `monte_carlo.outputs`, with the numbers they have among all of them; a name can be written without its group when only one output has it. Not with `seek` |
 
 *One of `file_path` or `content` is required.
 

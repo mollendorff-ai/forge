@@ -162,12 +162,14 @@ fn run() -> ForgeResult<()> {
             vary,
             min,
             max,
+            output_var,
         } => {
             let options = cli::SimulateOptions {
                 iterations,
                 seed,
                 sampling: sampling.as_deref(),
                 scenario: scenario.as_deref(),
+                outputs: &output_var,
             };
             match (seek, vary, min, max) {
                 (Some(seek), Some(vary), Some(min), Some(max)) => {

@@ -340,6 +340,7 @@ scalars:
         vary: None,
         min: None,
         max: None,
+        outputs: None,
     })));
     let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
     assert!(
@@ -382,6 +383,7 @@ scalars:
         vary: None,
         min: None,
         max: None,
+        outputs: None,
     };
     let server = ForgeMcpServer::new();
     for (formula, argument) in [
@@ -405,6 +407,64 @@ scalars:
     );
 }
 
+/// T1-SIM-SHOW-ONE: `outputs` reports only the outputs named, and is refused
+/// beside `seek`, which reports its own output.
+#[test]
+fn test_call_simulate_outputs_filter() {
+    let content = r#"
+_forge_version: "5.0.0"
+monte_carlo:
+  iterations: 100
+  seed: 42
+  outputs:
+    - variable: revenue
+    - variable: costs
+scalars:
+  revenue:
+    value: 100
+    formula: "=MC.Normal(100, 10)"
+  costs:
+    value: 60
+    formula: "=MC.Normal(60, 5)"
+"#;
+    let request = |outputs: Option<Vec<String>>, seek: Option<String>| SimulateRequest {
+        file_path: None,
+        content: Some(content.to_string()),
+        includes: None,
+        iterations: None,
+        seed: None,
+        sampling: None,
+        scenario: None,
+        seek,
+        vary: None,
+        min: None,
+        max: None,
+        outputs,
+    };
+    let server = ForgeMcpServer::new();
+    let text = ok_text(server.simulate(Parameters(request(Some(vec!["costs".into()]), None))));
+    let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let outputs = parsed["monte_carlo_results"]["outputs"]
+        .as_object()
+        .unwrap();
+    assert_eq!(outputs.keys().collect::<Vec<_>>(), ["costs"]);
+
+    let err = err_text(server.simulate(Parameters(request(Some(vec!["profit".into()]), None))));
+    assert!(
+        err.contains("--output-var profit: not an output of monte_carlo (outputs: revenue, costs)"),
+        "{err}"
+    );
+
+    let err = err_text(server.simulate(Parameters(request(
+        Some(vec!["costs".into()]),
+        Some("P(costs > 50) = 0.5".into()),
+    ))));
+    assert_eq!(
+        err,
+        "outputs cannot be used with seek, which reports its own output"
+    );
+}
+
 #[test]
 fn test_call_simulate_nonexistent() {
     let server = ForgeMcpServer::new();
@@ -420,6 +480,7 @@ fn test_call_simulate_nonexistent() {
         vary: None,
         min: None,
         max: None,
+        outputs: None,
     }));
     assert!(result.is_err());
 }

@@ -125,6 +125,70 @@ pub struct SimulateOptions<'a> {
     /// A scenario of the model whose overrides apply first. An override of an
     /// `MC.*` input fixes that input at the scenario's value.
     pub scenario: Option<&'a str>,
+    /// Only these outputs of `monte_carlo.outputs` (all of them when empty).
+    /// The draws do not depend on the outputs, so each one's numbers are the
+    /// same as in a run of all of them.
+    pub outputs: &'a [String],
+}
+
+/// The outputs of `outputs` that `names` choose, in the order configured: a
+/// name is an output's variable, or its last part when only one output ends
+/// with it (`profit` for `year.profit`). No names chooses all of them.
+///
+/// # Errors
+///
+/// Returns an error for a name that is not an output, or that ends more than
+/// one, listing the outputs.
+fn select_outputs(
+    outputs: &[crate::monte_carlo::config::OutputConfig],
+    names: &[String],
+) -> ForgeResult<Vec<crate::monte_carlo::config::OutputConfig>> {
+    if names.is_empty() {
+        return Ok(outputs.to_vec());
+    }
+    let listed = || {
+        outputs
+            .iter()
+            .map(|o| o.variable.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let mut chosen = vec![false; outputs.len()];
+    for name in names {
+        let index = if let Some(i) = outputs.iter().position(|o| &o.variable == name) {
+            i
+        } else {
+            let suffix = format!(".{name}");
+            let ends: Vec<usize> = (0..outputs.len())
+                .filter(|&i| outputs[i].variable.ends_with(&suffix))
+                .collect();
+            match ends.as_slice() {
+                [i] => *i,
+                [] => {
+                    return Err(ForgeError::Validation(format!(
+                        "--output-var {name}: not an output of monte_carlo (outputs: {})",
+                        listed()
+                    )))
+                },
+                _ => {
+                    let names: Vec<&str> =
+                        ends.iter().map(|&i| outputs[i].variable.as_str()).collect();
+                    return Err(ForgeError::Validation(format!(
+                        "--output-var {name}: more than one output ends with it ({}); write \
+                         the whole name",
+                        names.join(", ")
+                    )));
+                },
+            }
+        };
+        chosen[index] = true;
+    }
+    Ok(outputs
+        .iter()
+        .zip(chosen)
+        .filter(|(_, keep)| *keep)
+        .map(|(o, _)| o.clone())
+        .collect())
 }
 
 /// Run Monte Carlo simulation and return structured results (no printing).
@@ -169,6 +233,7 @@ pub(super) fn prepare(
         config.sampling = sampling.to_string();
     }
     config.validate().map_err(ForgeError::Validation)?;
+    config.outputs = select_outputs(&config.outputs, options.outputs)?;
 
     let mut model = parser::parse_model(file)?;
     if let Some(scenario) = options.scenario {
