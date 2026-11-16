@@ -120,6 +120,40 @@ tier1:
     how: "A fresh agent per prompt, on a release that has the fixes; each reports where it had to work around Forge"
     acceptance: "The five prompts in docs/PROMPTS.md run again by fresh agents, whose reports name none of the earlier friction"
 
+  # Non-negotiable (the maintainer, 2026-11-16): 100% test coverage, pedantic
+  # linting and formatting, each a gate that fails CI, not a badge. Formatting
+  # (cargo fmt --check) and pedantic clippy with -D warnings are gates already;
+  # since 2026-11-16 the MSRV job lints every target, tests included.
+
+  - id: T1-COVERAGE-GATE
+    title: "CI fails below 100% coverage"
+    why: "ADR-004 requires 100%, but its 2026-11-08 note made it a goal: make coverage only reports and the Coverage job in ci.yml turns the function percentage into a badge. P-COV100 was parked for the same reason, now overruled by the maintainer"
+    how: "Measure first (cargo llvm-cov --ignore-filename-regex 'tests/' --summary-only) and list each uncovered line by file. Cover them with tests that assert a result; where a line cannot be reached (a defensive branch), remove it or mark it with the cfg(coverage) attribute already declared in Cargo.toml, each with a reason. Then add --fail-under-lines 100 to the Coverage job and make coverage, and update ADR-004's note"
+    acceptance: "The Coverage job runs cargo llvm-cov with --fail-under-lines 100 and passes on main; every coverage exclusion in src/ carries a written reason"
+
+  # From an independent audit of rc.26 at f389e22 (2026-11-15), checked again
+  # on main at f77fa0a (rc.27, 2026-11-16): the examples were recomputed
+  # outside Forge and agreed to the cent; the findings are in what a malformed
+  # model does, which an AI agent writing the model through MCP can cause.
+  # Of the audit's T1-LINT-GATE, the scope.rs doc comment was fixed in
+  # d335791 and the ten test sites (float_cmp, missing_const_for_fn) on
+  # 2026-11-16; its release attestations (T1-SUPPLY-CHAIN) are in d335791.
+  # T1-DEPTH is done (2026-11-16): a formula may nest 128 levels (parser.rs
+  # MAX_DEPTH, tests/formula_depth.rs); the audit's 256 overflowed a 2 MiB debug
+  # thread, which is the size of a test thread.
+
+  - id: T1-NONFINITE
+    title: "A non-finite distribution parameter ends the process or returns NaN"
+    why: "Reproduced on f77fa0a: MC.PERT(0, 1, 1E+400) panics at src/monte_carlo/distributions.rs:264 (Beta::new(...).expect(...)); with panic = \"abort\" in the release profile forge simulate exits 134, and a forge mcp server would die on the same forge_simulate call. MC.Triangular(0, 1, 1E+400) and MC.Lognormal(1, 1E+400) run to the end and print NaN mean and percentiles with exit 0, against the first promise in docs/STABILITY.md (no silent wrong answers). Normal, Triangular and Uniform sampling unwrap the same way (lines 212, 216, 220); nothing in src/monte_carlo/ checks is_finite"
+    how: "Check that every parameter is finite where a distribution is built, and return an error naming the argument; then sample() has nothing to unwrap. Consider catching panics at the MCP tool boundary so one bad call cannot end the server"
+    acceptance: "forge simulate on models with MC.PERT(0, 1, 1E+400), MC.Triangular(0, 1, 1E+400), MC.Lognormal(1, 1E+400) and a Normal and Uniform with an infinite argument exits 1 with a message naming the argument, and forge mcp answers a forge_simulate call on each with an error and answers the next call. A test per distribution"
+
+  - id: T1-SUPPLY-CHAIN
+    title: "Workflow and dependency hygiene"
+    why: "Checked on f77fa0a. Release attestations are done (d335791). Left: six of seven workflows have no top-level permissions: block (pages.yml has one); actions are pinned by tag or branch (actions/checkout@v7, dtolnay/rust-toolchain@stable and @master, taiki-e/install-action@cargo-llvm-cov), not by commit; studio/ has a package.json but no lockfile and CI and pages.yml run npm install; .cargo/audit.toml ignores RUSTSEC-2024-0436 (paste), but Cargo.lock has pastey, not paste, so the ignore is stale"
+    how: "permissions: contents: read at the top of each workflow, widened per job where a job writes; pin each action by commit with its tag in a comment; commit studio/package-lock.json and use npm ci; drop the stale audit ignore"
+    acceptance: "Every workflow starts with a permissions: block; no uses: line ends in a branch or tag name that can move; npm ci works in studio/ and CI uses it; cargo audit passes with no ignore for a crate absent from Cargo.lock"
+
   - id: T1-MA-EXAMPLE
     title: "An acquisition example: what Forge already does for a deal"
     why: "Asked 2026-11-16 why Forge has nothing for mergers and acquisitions, which large companies do all the time. Most of a deal model is not game theory but arithmetic Forge already has: a price and how it is paid, synergies by year, the buyer's earnings per share before and after (accretion or dilution), an earn-out, scenarios, a tornado and a simulation on the synergies. examples/ has a bagel shop, a household, a mortgage and a capital plan, and no deal"
@@ -254,8 +288,5 @@ parked:
   - id: P-SIMD
     title: "SIMD / Rayon"
     why: "Models run in milliseconds"
-  - id: P-COV100
-    title: "100% coverage enforcement"
-    why: "Coverage did not catch any of the 2026-11-07 bugs; T1-USE is the better spend"
 
 # Completed work is recorded in CHANGELOG.md, one entry per release.

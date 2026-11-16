@@ -164,6 +164,7 @@ fn sumifs_model(rows: usize) -> String {
 }
 
 #[test]
+#[allow(clippy::float_cmp)] // a whole-number sum
 fn a_thousand_rows_aggregating_a_thousand_rows_take_under_a_second() {
     let start = std::time::Instant::now();
     let result = calculate(&sumifs_model(1_000));
@@ -177,6 +178,7 @@ fn a_thousand_rows_aggregating_a_thousand_rows_take_under_a_second() {
 /// as the weekly workflow runs); a debug build is several times slower.
 #[test]
 #[cfg_attr(debug_assertions, ignore = "timed in a release build")]
+#[allow(clippy::float_cmp)] // a whole-number sum
 fn five_thousand_rows_aggregating_five_thousand_rows_take_under_a_second() {
     let model = sumifs_model(5_000);
     let start = std::time::Instant::now();

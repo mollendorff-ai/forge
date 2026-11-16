@@ -133,7 +133,7 @@ A file can hold several YAML documents separated by `---`, each with its own `_f
 - **Cross-table references**: `=pl_2025.revenue`
 - **Array indexing**: `revenue[3]`
 - **Array constants**: `=LARGE(x, {1,2,3})`, `=MATCH(v, {"a";"b";"c"}, 0)`: a row `{1,2,3}` or a column `{1;2;3}` of numbers, texts and `TRUE`/`FALSE`, as in Excel, kept by `forge export` and `forge import` (ADR-064). Not two-dimensional `{1,2;3,4}`, and no error values inside the braces
-- **Nested functions**: `=ROUND(SQRT(revenue), 2)`
+- **Nested functions**: `=ROUND(SQRT(revenue), 2)`. A formula may nest 128 levels (parentheses, function arguments, `[ ]`, a run of `-` or `^`, and each `+`, `*`, `&` or comparison of a chain such as `a + b + c`); a deeper one is refused with a message naming the cell, where it used to end the process with a stack overflow
 - **Values from other files**: `=amount * @rates.fx.usd_eur` (see below)
 - **The row above**: `=PREV(closing, loan.principal)` (see below)
 
