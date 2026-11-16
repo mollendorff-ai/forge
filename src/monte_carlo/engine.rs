@@ -645,7 +645,6 @@ impl SimulationResult {
             .iter()
             .map(|(name, plan)| {
                 let mean = self.input_samples.get(name).map(|s| {
-                    #[allow(clippy::cast_precision_loss)] // sample counts fit an f64
                     let n = s.len() as f64;
                     s.iter().sum::<f64>() / n
                 });
@@ -833,8 +832,7 @@ mod tests {
                 let revenue = inputs["revenue"];
                 // Exactly the plan value: no draw lands there, so only the
                 // calculation at plan fails
-                #[allow(clippy::float_cmp)] // exact on purpose, see above
-                if revenue == 100.0 {
+                if revenue.to_bits() == 100.0_f64.to_bits() {
                     return Err("division by zero".to_string());
                 }
                 Ok(HashMap::from([("profit".to_string(), revenue - 80.0)]))
