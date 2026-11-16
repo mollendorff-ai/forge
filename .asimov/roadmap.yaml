@@ -138,18 +138,15 @@ tier1:
   # Of the audit's T1-LINT-GATE, the scope.rs doc comment was fixed in
   # d335791 and the ten test sites (float_cmp, missing_const_for_fn) on
   # 2026-11-16; its release attestations (T1-SUPPLY-CHAIN) are in d335791.
+  # T1-DEPTH is done (2026-11-16): a formula may nest 128 levels (parser.rs
+  # MAX_DEPTH, tests/formula_depth.rs); the audit's 256 overflowed a 2 MiB debug
+  # thread, which is the size of a test thread.
 
   - id: T1-NONFINITE
     title: "A non-finite distribution parameter ends the process or returns NaN"
     why: "Reproduced on f77fa0a: MC.PERT(0, 1, 1E+400) panics at src/monte_carlo/distributions.rs:264 (Beta::new(...).expect(...)); with panic = \"abort\" in the release profile forge simulate exits 134, and a forge mcp server would die on the same forge_simulate call. MC.Triangular(0, 1, 1E+400) and MC.Lognormal(1, 1E+400) run to the end and print NaN mean and percentiles with exit 0, against the first promise in docs/STABILITY.md (no silent wrong answers). Normal, Triangular and Uniform sampling unwrap the same way (lines 212, 216, 220); nothing in src/monte_carlo/ checks is_finite"
     how: "Check that every parameter is finite where a distribution is built, and return an error naming the argument; then sample() has nothing to unwrap. Consider catching panics at the MCP tool boundary so one bad call cannot end the server"
     acceptance: "forge simulate on models with MC.PERT(0, 1, 1E+400), MC.Triangular(0, 1, 1E+400), MC.Lognormal(1, 1E+400) and a Normal and Uniform with an infinite argument exits 1 with a message naming the argument, and forge mcp answers a forge_simulate call on each with an error and answers the next call. A test per distribution"
-
-  - id: T1-DEPTH
-    title: "A deeply nested formula overflows the stack"
-    why: "Reproduced on f77fa0a: a formula of 10,000 nested parentheses aborts forge calculate with a stack overflow (exit 134); 1,000 is calculated. The audit found forge mcp dies at about 1,600 (it runs on a smaller thread stack). YAML nesting already stops with 'recursion limit exceeded'; formula nesting has no limit in src/parser/ or src/core/array_calculator/"
-    how: "A depth counter in the tokenizer or parser (a limit well above any real model, say 256) returning an error that names the formula and the limit"
-    acceptance: "forge calculate and forge mcp on a formula nested 100,000 deep return an error (exit 1, or an error answer), and the next MCP call is answered. A test at the limit and one above it"
 
   - id: T1-SUPPLY-CHAIN
     title: "Workflow and dependency hygiene"
