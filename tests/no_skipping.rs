@@ -2,7 +2,11 @@
 //! and formatting, with no exceptions. A lint switched off by an attribute
 //! or in a Cargo.toml, a lint group a crate leaves out, code compiled only
 //! for (or only without) the coverage run, an ignored test and a formatting
-//! skip are each a way round a rule, and each is counted here.
+//! skip are each a way round a rule, and each is counted here. So are the
+//! two ways tests left the code they test: a file in a `tests/` folder, and a
+//! test module in a file of its own (tests are inline, in the module they
+//! test; a file over 1,500 lines is split into modules, not emptied of its
+//! tests).
 //!
 //! The counts may only fall, to zero (roadmap T1-NO-SKIPPING). This test
 //! fails when a count rises, so no new way round a rule gets in, and when
@@ -14,13 +18,15 @@ use std::path::{Path, PathBuf};
 
 /// What is left of each kind on 2026-11-16, when the rule was made. Lower a
 /// number when a change removes some; never raise one.
-const BUDGET: [(&str, usize); 6] = [
+const BUDGET: [(&str, usize); 8] = [
     ("lint allow or expect attributes", 219),
     ("lints allowed in a Cargo.toml", 16),
     ("lint groups a crate does not enable", 2),
     ("code compiled only for or only without coverage", 31),
     ("ignored tests", 2),
     ("formatting skips", 0),
+    ("test files in a tests folder", 45),
+    ("test modules in a file of their own", 36),
 ];
 
 /// The crates: their manifest, and the folders of their Rust code
@@ -52,8 +58,22 @@ fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// Each Rust file of every crate, with its text and spaces removed, so that
-/// an attribute written with spaces inside it counts as well
+/// A line without its `//` comment, unless the `//` is inside a string (as
+/// in a URL): a comment that names an attribute is not one
+fn without_comment(line: &str) -> &str {
+    let mut from = 0;
+    while let Some(at) = line[from..].find("//") {
+        let at = from + at;
+        if line[..at].matches('"').count().is_multiple_of(2) {
+            return &line[..at];
+        }
+        from = at + 2;
+    }
+    line
+}
+
+/// Each Rust file of every crate, with its comments and spaces removed, so
+/// that an attribute written with spaces inside it counts as well
 fn compact_sources() -> Vec<(String, String)> {
     let mut files = Vec::new();
     for (_, dirs) in CRATES {
@@ -68,7 +88,9 @@ fn compact_sources() -> Vec<(String, String)> {
         .map(|path| {
             let text: String = std::fs::read_to_string(&path)
                 .unwrap()
-                .split_whitespace()
+                .lines()
+                .map(without_comment)
+                .flat_map(str::split_whitespace)
                 .collect();
             let name = path
                 .strip_prefix(root())
@@ -137,6 +159,65 @@ fn formatting_skips(text: &str) -> usize {
         .count()
 }
 
+/// A `mod name;` with no body, under a `cfg` that names `test`: a test
+/// module kept in a file of its own
+fn test_modules_elsewhere(text: &str) -> usize {
+    let cfg = joined(&["#[", "cfg("]);
+    text.match_indices(cfg.as_str())
+        .filter(|(start, _)| {
+            let attribute = &text[*start..];
+            let end = attribute.find(']').unwrap_or(attribute.len());
+            let names_test = ["(test)", "(test,", ",test)", ",test,"]
+                .iter()
+                .any(|form| attribute[..end].contains(form));
+            let mut rest = attribute.get(end + 1..).unwrap_or_default();
+            while rest.starts_with("#[") {
+                rest = rest
+                    .get(rest.find(']').map_or(rest.len(), |e| e + 1)..)
+                    .unwrap_or_default();
+            }
+            for visibility in ["pub(crate)", "pub(super)", "pub"] {
+                if let Some(after) = rest.strip_prefix(visibility) {
+                    rest = after;
+                    break;
+                }
+            }
+            names_test
+                && rest.strip_prefix("mod").is_some_and(|after| {
+                    let name_end = after
+                        .find(|c: char| !(c.is_alphanumeric() || c == '_'))
+                        .unwrap_or(after.len());
+                    name_end > 0 && after[name_end..].starts_with(';')
+                })
+        })
+        .count()
+}
+
+/// The Rust files in each crate's `tests` folder
+fn test_folder_files() -> Vec<String> {
+    let mut files = Vec::new();
+    for (manifest, _) in CRATES {
+        let folder = root()
+            .join(manifest)
+            .parent()
+            .map(|crate_root| crate_root.join("tests"))
+            .unwrap_or_default();
+        if folder.is_dir() {
+            rust_files(&folder, &mut files);
+        }
+    }
+    files.sort();
+    files
+        .into_iter()
+        .map(|path| {
+            path.strip_prefix(root())
+                .unwrap_or(&path)
+                .display()
+                .to_string()
+        })
+        .collect()
+}
+
 /// The `[lints.clippy]` table of a manifest: the lints set to allow, and the
 /// lint groups it does not turn on
 fn manifest_lints(manifest: &str) -> (Vec<String>, Vec<&'static str>) {
@@ -181,7 +262,11 @@ fn found() -> BTreeMap<&'static str, (usize, Vec<String>)> {
         add(BUDGET[0].0, lint_attributes(&text), file.clone());
         add(BUDGET[3].0, coverage_only(&text), file.clone());
         add(BUDGET[4].0, ignored_tests(&text), file.clone());
-        add(BUDGET[5].0, formatting_skips(&text), file);
+        add(BUDGET[5].0, formatting_skips(&text), file.clone());
+        add(BUDGET[7].0, test_modules_elsewhere(&text), file);
+    }
+    for file in test_folder_files() {
+        add(BUDGET[6].0, 1, file);
     }
     for (manifest, _) in CRATES {
         let (allowed, missing) = manifest_lints(manifest);
