@@ -33,7 +33,7 @@ fn simulate_prints_statistics_with_separators_and_two_decimals() {
         "Median:    -15,689.18",
         "P5: -78,477.56",
         "(expected shortfall): -91,760.43",
-        "assumptions.opening_dozens_per_day mean=55.00 min=40.79 max=69.73",
+        "assumptions.opening_dozens_per_day mean=55.00 plan=55.00 (value) min=40.79 max=69.73",
     ] {
         assert!(text.contains(line), "{line}\n{text}");
     }

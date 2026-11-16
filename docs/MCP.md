@@ -295,7 +295,7 @@ Compare calculation results across multiple scenarios side-by-side.
 
 #### `forge_simulate`
 
-Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular, Uniform, PERT, Lognormal, Discrete). Returns statistics, percentiles, threshold probabilities, and drivers (each `MC.*` input's rank correlation with each output). An `MC.*` input may be in an included file.
+Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular, Uniform, PERT, Lognormal, Discrete). Returns statistics, percentiles, threshold probabilities, and drivers (each `MC.*` input's rank correlation with each output), each output's `at_plan` (the model calculated once with every uncertain input at its plan value), and under `inputs` each input's sampled `mean` beside its `plan` and `plan_from` (the `value:` written beside its formula, or else its distribution's mode, mean, midpoint or likeliest value). An `MC.*` input may be in an included file.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -308,6 +308,7 @@ Run Monte Carlo simulation with probabilistic distributions (Normal, Triangular,
 | `scenario` | string | no | A scenario whose overrides apply first; an override of an `MC.*` input fixes it |
 | `seek` | string | no | `"P(year.profit > 0) = 0.8"`: returns the value of `vary` at which the probability is first met, instead of the statistics |
 | `vary`, `min`, `max` | string, number, number | with `seek` | The input to vary and the range to search |
+| `outputs` | array of strings | no | Report only these outputs of `monte_carlo.outputs`, with the numbers they have among all of them; a name can be written without its group when only one output has it. Not with `seek` |
 
 *One of `file_path` or `content` is required.
 

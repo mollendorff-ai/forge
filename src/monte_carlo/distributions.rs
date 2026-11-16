@@ -346,6 +346,36 @@ impl Distribution {
         }
     }
 
+    /// The value to plan with when the model gives none beside the formula,
+    /// with what it is: the mode of a triangular or PERT, the mean of a normal
+    /// or lognormal as typed, the middle of a uniform (it has no likeliest
+    /// value) and the likeliest value of a discrete distribution.
+    #[must_use]
+    pub fn most_likely(&self) -> (f64, &'static str) {
+        match &self.dist_type {
+            DistributionType::Normal { mean, .. } | DistributionType::Lognormal { mean, .. } => {
+                (*mean, "mean")
+            },
+            DistributionType::Triangular { mode, .. } | DistributionType::PERT { mode, .. } => {
+                (*mode, "mode")
+            },
+            DistributionType::Uniform { min, max } => (min.midpoint(*max), "midpoint"),
+            DistributionType::Discrete {
+                values,
+                probabilities,
+            } => {
+                // The first of the likeliest, as written
+                let mut best = 0;
+                for (i, p) in probabilities.iter().enumerate() {
+                    if *p > probabilities[best] {
+                        best = i;
+                    }
+                }
+                (values[best], "likeliest")
+            },
+        }
+    }
+
     /// Sample multiple values from the distribution
     pub fn sample_n<R: Rng>(&self, rng: &mut R, n: usize) -> Vec<f64> {
         (0..n).map(|_| self.sample(rng)).collect()
@@ -436,9 +466,12 @@ fn sample_pert<R: Rng>(rng: &mut R, min: f64, mode: f64, max: f64) -> f64 {
 /// Beta shape parameters of a PERT distribution with `max > min`
 fn pert_shape(min: f64, mode: f64, max: f64) -> (f64, f64) {
     let range = max - min;
+    // Divide before multiplying by 4: 4 * (max - mode) overflows when the
+    // range is near the largest finite number. Multiplying by 4 is exact, so
+    // the result is the same for every range that does not overflow.
     (
-        1.0 + 4.0 * (mode - min) / range,
-        1.0 + 4.0 * (max - mode) / range,
+        4.0f64.mul_add((mode - min) / range, 1.0),
+        4.0f64.mul_add((max - mode) / range, 1.0),
     )
 }
 
@@ -719,6 +752,41 @@ mod tests {
         assert!(parse_distribution("MC.Normal(100, -5)").is_err()); // Negative stdev
         assert!(parse_distribution("MC.Triangular(10, 5, 0)").is_err()); // min > max
         assert!(parse_distribution("MC.Unknown(1, 2)").is_err()); // Unknown type
+    }
+
+    /// T1-SIM-MEAN-VS-PLAN: the value to plan with when the model gives none
+    #[test]
+    fn most_likely_is_the_value_each_distribution_is_written_around() {
+        let cases = [
+            ("MC.Normal(100, 15)", (100.0, "mean")),
+            ("MC.Lognormal(50, 5)", (50.0, "mean")),
+            ("MC.Triangular(28, 32, 38)", (32.0, "mode")),
+            ("MC.PERT(40, 55, 70)", (55.0, "mode")),
+            ("MC.Uniform(17.5, 20.5)", (19.0, "midpoint")),
+        ];
+        for (formula, expected) in cases {
+            assert_eq!(
+                parse_distribution(formula).unwrap().most_likely(),
+                expected,
+                "{formula}"
+            );
+        }
+        // The likeliest value; on a tie, the first as written
+        let discrete = Distribution::discrete(vec![1.0, 2.0, 3.0], vec![0.25, 0.5, 0.25]).unwrap();
+        assert_eq!(discrete.most_likely(), (2.0, "likeliest"));
+        let tie = Distribution::discrete(vec![7.0, 9.0], vec![0.5, 0.5]).unwrap();
+        assert_eq!(tie.most_likely(), (7.0, "likeliest"));
+    }
+
+    /// A PERT whose range is finite but near the largest number: its shape
+    /// multiplied 4 by `max - mode` before dividing, which overflowed.
+    #[test]
+    fn a_pert_near_the_largest_number_samples() {
+        let dist = parse_distribution("MC.PERT(0, 1, 1E+308)").expect("accepted");
+        let mut rng = seeded_rng();
+        let x = dist.sample(&mut rng);
+        assert!(x.is_finite() && (0.0..=1e308).contains(&x), "{x}");
+        assert!(dist.inverse_cdf(0.5).is_finite());
     }
 
     #[test]

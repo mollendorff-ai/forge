@@ -8,6 +8,7 @@ _includes:
 ingredients:
   # Wheat has been volatile: most likely unchanged, at worst the flour_shock price
   flour_per_kg:
+    value: 1.15 # the plan, as in costs.yaml
     formula: "=MC.Triangular(1.05, 1.15, 1.70)"
   sesame_per_kg:
     formula: "=@base.ingredients.sesame_per_kg"
@@ -16,6 +17,7 @@ ingredients:
 labour:
   # Minimum-wage changes and a tight market for bakers
   wage_per_hour:
+    value: 18.50 # the plan, as in costs.yaml
     formula: "=MC.Uniform(17.50, 20.50)"
   payroll_load:
     formula: "=@base.labour.payroll_load"

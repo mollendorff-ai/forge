@@ -198,6 +198,9 @@ pub struct SimulateRequest {
     pub min: Option<f64>,
     /// Highest value of `vary` to try
     pub max: Option<f64>,
+    /// Report only these outputs of `monte_carlo.outputs`; a name can be
+    /// written without its group when only one output has it (not with `seek`)
+    pub outputs: Option<Vec<String>>,
 }
 
 /// Parameters for the `forge_scenarios` tool.

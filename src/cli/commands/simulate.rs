@@ -125,6 +125,70 @@ pub struct SimulateOptions<'a> {
     /// A scenario of the model whose overrides apply first. An override of an
     /// `MC.*` input fixes that input at the scenario's value.
     pub scenario: Option<&'a str>,
+    /// Only these outputs of `monte_carlo.outputs` (all of them when empty).
+    /// The draws do not depend on the outputs, so each one's numbers are the
+    /// same as in a run of all of them.
+    pub outputs: &'a [String],
+}
+
+/// The outputs of `outputs` that `names` choose, in the order configured: a
+/// name is an output's variable, or its last part when only one output ends
+/// with it (`profit` for `year.profit`). No names chooses all of them.
+///
+/// # Errors
+///
+/// Returns an error for a name that is not an output, or that ends more than
+/// one, listing the outputs.
+fn select_outputs(
+    outputs: &[crate::monte_carlo::config::OutputConfig],
+    names: &[String],
+) -> ForgeResult<Vec<crate::monte_carlo::config::OutputConfig>> {
+    if names.is_empty() {
+        return Ok(outputs.to_vec());
+    }
+    let listed = || {
+        outputs
+            .iter()
+            .map(|o| o.variable.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let mut chosen = vec![false; outputs.len()];
+    for name in names {
+        let index = if let Some(i) = outputs.iter().position(|o| &o.variable == name) {
+            i
+        } else {
+            let suffix = format!(".{name}");
+            let ends: Vec<usize> = (0..outputs.len())
+                .filter(|&i| outputs[i].variable.ends_with(&suffix))
+                .collect();
+            match ends.as_slice() {
+                [i] => *i,
+                [] => {
+                    return Err(ForgeError::Validation(format!(
+                        "--output-var {name}: not an output of monte_carlo (outputs: {})",
+                        listed()
+                    )))
+                },
+                _ => {
+                    let names: Vec<&str> =
+                        ends.iter().map(|&i| outputs[i].variable.as_str()).collect();
+                    return Err(ForgeError::Validation(format!(
+                        "--output-var {name}: more than one output ends with it ({}); write \
+                         the whole name",
+                        names.join(", ")
+                    )));
+                },
+            }
+        };
+        chosen[index] = true;
+    }
+    Ok(outputs
+        .iter()
+        .zip(chosen)
+        .filter(|(_, keep)| *keep)
+        .map(|(o, _)| o.clone())
+        .collect())
 }
 
 /// Run Monte Carlo simulation and return structured results (no printing).
@@ -169,6 +233,7 @@ pub(super) fn prepare(
         config.sampling = sampling.to_string();
     }
     config.validate().map_err(ForgeError::Validation)?;
+    config.outputs = select_outputs(&config.outputs, options.outputs)?;
 
     let mut model = parser::parse_model(file)?;
     if let Some(scenario) = options.scenario {
@@ -274,8 +339,14 @@ fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
         let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
         let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
         let max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let plan = result
+            .plan_inputs
+            .get(var_name)
+            .map_or_else(String::new, |p| {
+                format!(" plan={} ({})", super::display_number(p.value), p.from)
+            });
         println!(
-            "      {} mean={} min={} max={}",
+            "      {} mean={}{plan} min={} max={}",
             var_name.bright_blue(),
             super::display_number(mean),
             super::display_number(min),
@@ -307,6 +378,15 @@ fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
             let stats = &output.statistics;
             println!("      {}:", var_name.bright_blue().bold());
             println!("         Mean:      {}", super::display_number(stats.mean));
+            if let Some(at_plan) = output.at_plan {
+                println!(
+                    "         At plan:   {}  (each uncertain input at its plan value)",
+                    super::display_number(at_plan)
+                );
+                if let Some(note) = mean_versus_plan(stats.mean, at_plan, stats.std_dev) {
+                    println!("         {note}");
+                }
+            }
             println!(
                 "         Median:    {}",
                 super::display_number(stats.median)
@@ -356,6 +436,23 @@ fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
     }
 }
 
+/// A note when an output's mean is far from its value at plan (more than a
+/// tenth of a standard deviation), which a reader would otherwise take for a
+/// contradiction between `forge calculate` and `forge simulate`.
+fn mean_versus_plan(mean: f64, at_plan: f64, std_dev: f64) -> Option<String> {
+    let gap = mean - at_plan;
+    // Not past a tenth of a standard deviation, or not comparable (NaN)
+    if gap.abs().partial_cmp(&(0.1 * std_dev)) != Some(std::cmp::Ordering::Greater) {
+        return None;
+    }
+    Some(format!(
+        "The mean is {} {} the value at plan: the uncertain inputs' means are not their plan \
+         values (see Input Distributions), or the model is not linear in them.",
+        super::display_number(gap.abs()),
+        if gap < 0.0 { "below" } else { "above" }
+    ))
+}
+
 /// A table column output, one line per row: mean, P10, P50, P90, and each
 /// threshold's probability.
 fn print_column_rows(result: &crate::monte_carlo::SimulationResult, column: &str) {
@@ -369,8 +466,8 @@ fn print_column_rows(result: &crate::monte_carlo::SimulationResult, column: &str
     let Some(first) = rows.first() else { return };
     println!("      {} {}:", column.bright_blue().bold(), "by row".bold());
     let mut header = format!(
-        "         {:>4} {:>14} {:>14} {:>14} {:>14}",
-        "row", "mean", "P10", "P50", "P90"
+        "         {:>4} {:>14} {:>14} {:>14} {:>14} {:>14}",
+        "row", "mean", "at plan", "P10", "P50", "P90"
     );
     for threshold in first.threshold_probabilities.keys() {
         let _ = write!(header, " {:>10}", format!("P({threshold})"));
@@ -386,9 +483,12 @@ fn print_column_rows(result: &crate::monte_carlo::SimulationResult, column: &str
                 .unwrap_or(f64::NAN)
         };
         let mut line = format!(
-            "         {:>4} {:>14} {:>14} {:>14} {:>14}",
+            "         {:>4} {:>14} {:>14} {:>14} {:>14} {:>14}",
             row + 1,
             super::display_number(output.statistics.mean),
+            output
+                .at_plan
+                .map_or_else(|| "-".to_string(), super::display_number),
             super::display_number(p(10)),
             super::display_number(p(50)),
             super::display_number(p(90))
@@ -460,6 +560,25 @@ mod tests {
     use super::*;
     use std::io::Write;
     use tempfile::NamedTempFile;
+
+    /// T1-SIM-MEAN-VS-PLAN: the note appears past a tenth of a standard
+    /// deviation, and says which way the mean lies.
+    #[test]
+    fn the_mean_versus_plan_note() {
+        assert_eq!(mean_versus_plan(100.0, 100.5, 10.0), None);
+        assert_eq!(mean_versus_plan(5.0, 5.0, 0.0), None);
+        assert_eq!(mean_versus_plan(f64::NAN, 5.0, 1.0), None);
+        let below = mean_versus_plan(-15_925.94, 786.32, 38_058.05).unwrap();
+        assert!(
+            below.starts_with("The mean is 16,712.26 below the value at plan"),
+            "{below}"
+        );
+        let above = mean_versus_plan(12.0, 10.0, 1.0).unwrap();
+        assert!(
+            above.starts_with("The mean is 2.00 above the value at plan"),
+            "{above}"
+        );
+    }
 
     #[test]
     fn test_parse_monte_carlo_config() {
