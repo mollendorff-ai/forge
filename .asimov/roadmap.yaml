@@ -103,11 +103,9 @@ tier1:
   # every pull request (seed 1) and every week (a new seed) in validation.yml,
   # with the known differences in validation/sweep/known.py.
 
-  - id: T1-CLAIMS
-    title: "The GitHub About text matches what the README says"
-    why: "The GitHub About text still says 10-15x fewer tokens than Excel, which nothing measures and the README says was not measured. Everything else Forge says about itself (counts, function numbers, the README's commands) is now checked by tests/doc_counts.rs, validation/gnumeric/tests/doc_counts.rs and tests/readme_commands.rs"
-    how: "The maintainer changes the About text on GitHub (Safari, desktop view) to the README's first line"
-    acceptance: "The About text matches the README's first line"
+  # T1-CLAIMS is done (seen 2026-11-16): the GitHub About text is the
+  # README's first line, followed by "A Rust engine with a command line, an
+  # MCP server and a browser app."; the 10-15x token claim is gone.
 
   - id: T1-LISTINGS
     title: "Outside listings show today's Forge"
