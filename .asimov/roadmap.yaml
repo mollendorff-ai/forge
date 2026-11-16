@@ -8,6 +8,11 @@
 # next real model built with Forge more likely to be right and less painful?
 # Reach (distribution, REST parity, transports, benchmarks) comes after that.
 #
+# Purpose (the maintainer, 2026-11-16): Forge is built for fun and to show
+# engineering judgment. Adoption is not a goal, so no item waits for users
+# and none is justified by growth; a user who turns up is a source of
+# findings, not a target.
+#
 # A roadmap item is an instruction to an autonomous agent. Each one has an
 # acceptance criterion the agent cannot satisfy by writing more code: a
 # number checked outside Forge, a documented behaviour observed, a decision
@@ -98,11 +103,9 @@ tier1:
   # every pull request (seed 1) and every week (a new seed) in validation.yml,
   # with the known differences in validation/sweep/known.py.
 
-  - id: T1-CLAIMS
-    title: "The GitHub About text matches what the README says"
-    why: "The GitHub About text still says 10-15x fewer tokens than Excel, which nothing measures and the README says was not measured. Everything else Forge says about itself (counts, function numbers, the README's commands) is now checked by tests/doc_counts.rs, validation/gnumeric/tests/doc_counts.rs and tests/readme_commands.rs"
-    how: "The maintainer changes the About text on GitHub (Safari, desktop view) to the README's first line"
-    acceptance: "The About text matches the README's first line"
+  # T1-CLAIMS is done (seen 2026-11-16): the GitHub About text is the
+  # README's first line, followed by "A Rust engine with a command line, an
+  # MCP server and a browser app."; the 10-15x token claim is gone.
 
   - id: T1-LISTINGS
     title: "Outside listings show today's Forge"
@@ -119,6 +122,23 @@ tier1:
     why: "The fixes from the 2026-11-15 runs are in (CHANGELOG [Unreleased]): short flags agree, --output-var, bare names, validate's messages, variance's is_favorable and --fail-on-alert, export and import notes, real-options' value added, help and example paths. Not changed, by design: a table column is one formula or a list of literals, so a product mix needs an IF on a name"
     how: "A fresh agent per prompt, on a release that has the fixes; each reports where it had to work around Forge"
     acceptance: "The five prompts in docs/PROMPTS.md run again by fresh agents, whose reports name none of the earlier friction"
+
+  # Found by a fresh agent installing rc.27 with install.sh and running the
+  # bagel example's calculate, tornado, simulate and break-even (2026-11-16).
+  # Every number matched the README and a hand check; these two are about
+  # reading the output, not the numbers.
+
+  - id: T1-SIM-MEAN-VS-PLAN
+    title: "forge simulate says why the mean differs from the plan"
+    why: "forge calculate gives the bagel year a profit of 786.32; forge simulate gives a mean of -15,925.94 for the same plan. Both are right: the uncertain inputs lean above the plan (staff hours Triangular(28, 32, 38) has a mean of 32.67, flour Triangular(1.05, 1.15, 1.70) 1.30, the wage Uniform(17.50, 20.50) 19.00 against 18.50 in costs.yaml), and profit is linear in each, so the expected shift is -11,868 for labour and -4,835 for flour, -15,917 in all. Nothing in the output says so, and the agent had to work it out from the YAML before it trusted the number. A reader who does not will think one of the two is wrong, or quote the plan as if it were the expected result"
+    how: "For each MC.* input, show its plan value (the value in the plan file, or the mode or median of the distribution when there is no plan file) beside its sampled mean, and for each output show the value at the plan inputs beside the simulated mean when they differ by more than a set share of the standard deviation. Same lines in the JSON output and the MCP reply. No change to the draws"
+    acceptance: "forge simulate examples/bagel/bagel_simulate.yaml shows, for year.profit, the value with each input at its plan (786.32) beside the mean, and the inputs' plan values beside their means (staff hours 32 against 32.67, flour 1.15 against 1.30, wage 18.50 against 19.00); a test asserts those figures against the distributions' closed-form means, and the bagel README explains the gap in a sentence"
+
+  - id: T1-SIM-SHOW-ONE
+    title: "Show one output of forge simulate from the command line"
+    why: "forge simulate examples/bagel/bagel_simulate.yaml prints every output named in monte_carlo.outputs (year.profit, year.worst_month_profit, the months table by row): about 80 lines, and the agent had to grep for the year.profit block. The YAML chooses what is shown, so a question about one output means editing the model or reading past the rest. -o file.json works for a program, not for a person or an agent reading the terminal"
+    how: "A flag on forge simulate, named as --output-var is on break-even and goal-seek, that shows only the outputs named, from those in monte_carlo.outputs; an unknown name is refused with the list of names that can be shown. The same choice in the MCP tool"
+    acceptance: "forge simulate examples/bagel/bagel_simulate.yaml with the flag and year.profit prints only year.profit's statistics, percentiles, thresholds and drivers, with the same numbers as without the flag; a name not in outputs exits with 1 and lists the names; a test checks both"
 
   # Non-negotiable (the maintainer, 2026-11-16): 100% test coverage, pedantic
   # linting and formatting, each a gate that fails CI, not a badge. Formatting
@@ -194,8 +214,8 @@ tier2:
 
   - id: T2-FIRST-USER
     title: "Watch one real person build a model with Forge"
-    why: "No known users. Every bug found on 2026-11-07 came from building a model, and the maintainer's plan is to test demand with one real user before investing in reach (tier 3)"
-    how: "One FP&A analyst or AI pipeline builder, their own small model, Studio or the command line, the maintainer watching without helping. Write down where they stop"
+    why: "Every bug found on 2026-11-07 came from building a model, and fresh agents have found the rest (T1-AGENT-FRICTION). A person who did not write Forge has not been watched yet. This is to find where a model goes wrong or a command confuses, not to test demand: adoption is not a goal (2026-11-16)"
+    how: "When someone offers, not by recruiting: one FP&A analyst or AI pipeline builder, their own small model, Studio or the command line, the maintainer watching without helping. Write down where they stop"
     acceptance: "Notes from the session are in this file as tier items with acceptance criteria, or the decision that nothing needs to change"
 
   # The AI pipeline demonstration is done (2026-11-15): Sentinel ran docs/WORKFLOWS.md's
@@ -252,7 +272,8 @@ studio:
   # Excel. The grid stays a read-only view (ADR-056 addendum, S11).
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TIER 3 — REACH (after tier 1 is done and at least two people use it)
+# TIER 3 — REACH (after tier 1 is done, and only when a use calls for one;
+# adoption is not a goal, 2026-11-16)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 tier3:
