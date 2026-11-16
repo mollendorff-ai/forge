@@ -5,9 +5,11 @@
 use super::{evaluate_expr, EvalContext, EvalError, NameMap, Value};
 use crate::core::array_calculator::parser::Expr;
 
-/// The short names a formula of one section may use: those of its own
-/// section first (`price` for `summary.price` in `summary`), then the ones
-/// that name exactly one scalar in the model, from whichever section.
+/// The short names a formula of one section may use.
+///
+/// Those of its own section come first (`price` for `summary.price` in
+/// `summary`), then the ones that name exactly one scalar in the model, from
+/// whichever section.
 #[derive(Debug, Default)]
 pub struct Aliases {
     /// The section's own scalars, by their last part

@@ -1195,17 +1195,23 @@ AVAILABLE TOOLS (20):
   Discovery: forge_schema, forge_functions, forge_examples
 
 FILES:
-  The tools read and write the files an agent names, as your user. --root DIR
-  refuses a path outside DIR (.. and links resolved) or a model including one.
+  The tools read and write the files an agent names, as your user, and only
+  inside one folder: the folder the server starts in, or --root DIR. A path
+  outside it (.. and links resolved), or a model including one, is refused.
+  --any-path lifts the limit.
 
 EXAMPLE:
   forge mcp --root ~/models   # Start MCP server (reads JSON-RPC from stdin)"
     )]
     /// Start MCP server for AI integration (JSON-RPC over stdio)
     Mcp {
-        /// Folder every file path must stay inside (none by default)
+        /// Folder every file path must stay inside (default: the current folder)
         #[arg(long, value_name = "DIR")]
         root: Option<std::path::PathBuf>,
+
+        /// Allow any path the user can reach (no folder limit)
+        #[arg(long, conflicts_with = "root")]
+        any_path: bool,
     },
 
     #[command(long_about = "Start HTTP REST API server.

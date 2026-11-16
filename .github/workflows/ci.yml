@@ -135,7 +135,7 @@ jobs:
   # clippy.toml msrv): a newer API used by accident breaks this job, not a
   # newcomer's first build (roadmap T1-MSRV)
   msrv:
-    name: Builds on the oldest supported Rust
+    name: Builds and lints on the oldest supported Rust
     timeout-minutes: 30
     runs-on: ubuntu-22.04
     steps:
@@ -148,9 +148,16 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.MSRV }}
+          components: clippy
 
       - name: Build the command line and the library
         run: cargo build --locked --bin forge --lib
+
+      # The README says CI fails on a warning: on this toolchain too, for the
+      # shipped code. The tests are linted on stable only: clippy 1.97 flags
+      # `assert_eq!` on exact whole-number floats, which later versions accept.
+      - name: Run clippy on the library and the binary
+        run: cargo clippy --locked --lib --bins -- -D warnings
 
   # The parser, the calculator and the analysis engines without the command
   # line or the servers, for a browser (ADR-055, roadmap S1-CORE-NO-OS)

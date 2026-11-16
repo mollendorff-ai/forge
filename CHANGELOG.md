@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Fixes from the evaluation of rc.27 (2026-11-15).
+
+### Changed
+- **`forge mcp` keeps file paths inside one folder by default.** Without `--root`, the folder is the one the server starts in, so an agent, or a prompt injected into one, can no longer name any file you can reach. `--any-path` gives the old behaviour. A desktop app may start the server in `/` or your home folder: name the folder with `--root` there (docs/MCP.md). `forge serve` is unchanged.
+
+### Added
+- **Build attestations for the release archives.** The Release workflow signs a statement that it built each archive from its commit; `gh attestation verify <archive> --repo mollendorff-ai/forge` checks it (SECURITY.md). `checksums.txt` stays, for broken downloads.
+- **Clippy on the oldest supported Rust.** The MSRV job now lints the library and the binary as well as building them; one doc comment that Rust 1.97's clippy refused is split. The tests are linted on stable only, where clippy accepts `assert_eq!` on exact whole-number floats.
+
+### Fixed
+- **Stale counts and wording, now checked by tests.** VALIDATION.md and docs/STABILITY.md said Excel was checked once, on 18 results; they now give the three rounds (2026-11-06, -14 and -15). VALIDATION.md said fourteen cases are checked against Forge only; the suite has 35, and `validation/gnumeric/tests/doc_counts.rs` now compares that count too. The README's unit-test row gave a dated count (1,873) and now points to the CI badge. "Battle-proven" is gone from docs/FPA-PREDICTION-METHODS.md, and a test keeps such words out of the docs.
+
 ## [10.0.0-rc.27] - 2026-11-15
 
 Forge is easier to start with an AI and easier for a program to use, after fresh agents ran the prompts and Sentinel ran the pipeline: `install.sh`, a prompt to paste, five tested prompts (docs/PROMPTS.md), four workflows with diagrams (docs/WORKFLOWS.md), and every item the agents reported fixed (T1-AGENT-FRICTION, T1-PIPELINE-FINDINGS). **Two changes can break a command someone wrote:** `-o` is always the output file and `-v` always `--verbose` (the output variable is `--output-var`), and a constant where `COUNTIF` and its family read a range is refused, because Excel refuses it too. The second is a wrong answer fixed (a workbook Excel could not open), so by docs/STABILITY.md the two weeks before a stable release start again from this release: no earlier than 2026-11-29.

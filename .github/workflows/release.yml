@@ -144,6 +144,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
 
     steps:
       - uses: actions/checkout@v7
@@ -169,6 +171,16 @@ jobs:
           find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} published/ \;
           cp checksums.txt published/
           cd published && sha256sum -c checksums.txt
+
+      # A signed statement that this workflow built each archive from this
+      # commit: unlike checksums.txt, it cannot be forged by whoever could
+      # replace the release's files (verify with `gh attestation verify`)
+      - name: Attest the archives
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            published/*.tar.gz
+            published/*.zip
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3

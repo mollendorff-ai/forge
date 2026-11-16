@@ -238,7 +238,7 @@ For tighter integration, `forge mcp` is an MCP server with 20 tools (validate, c
 }
 ```
 
-With a file path, the server reads and writes as you; `"args": ["mcp", "--root", "/path/to/models"]` keeps every path inside that folder ([docs/MCP.md](docs/MCP.md#keeping-files-inside-one-folder)). [docs/MCP.md](docs/MCP.md) describes each tool. `forge serve` runs a REST API for validate, calculate, audit, export and import ([docs/FEATURES.md](docs/FEATURES.md#http-rest-api-server)).
+With a file path, the server reads and writes as you, and only inside the folder it starts in; `"args": ["mcp", "--root", "/path/to/models"]` names the folder, and `--any-path` lifts the limit ([docs/MCP.md](docs/MCP.md#keeping-files-inside-one-folder)). [docs/MCP.md](docs/MCP.md) describes each tool. `forge serve` runs a REST API for validate, calculate, audit, export and import ([docs/FEATURES.md](docs/FEATURES.md#http-rest-api-server)).
 
 ## Quick start
 
@@ -263,6 +263,7 @@ cargo binstall mollendorff-forge --version '>=10.0.0-rc.1' --disable-strategies 
 url=https://github.com/mollendorff-ai/forge/releases/latest/download
 curl -LO "$url/forge-x86_64-unknown-linux-musl.tar.gz" -LO "$url/checksums.txt"
 sha256sum -c --ignore-missing checksums.txt
+gh attestation verify forge-x86_64-unknown-linux-musl.tar.gz --repo mollendorff-ai/forge  # built by this repo's workflow (from rc.28; SECURITY.md)
 tar -xzf forge-x86_64-unknown-linux-musl.tar.gz    # the forge binary, here
 
 # Or build it: from crates.io (several minutes), or from a copy of this repository
@@ -311,7 +312,7 @@ Forge's results are checked against engines it does not control, and none of the
 
 | Check | What it covers | Latest result |
 | --- | --- | --- |
-| Unit tests (this repo) | over 1,900 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | 1,873 pass, 0 fail (2026-11-14); run on every push |
+| Unit tests (this repo) | over 1,900 tests and 2 doctests, including Black-Scholes and binomial option prices checked against QuantLib reference values | all pass, 0 fail, on every push (the CI badge above) |
 | [forge-e2e-gnumeric](validation/gnumeric) | 2,092 formula cases. A case passes only if `forge calculate`, Gnumeric's recalculation of the exported `.xlsx` (LibreOffice's for the 158 cases Gnumeric cannot read), and Forge after export and import all match the expected value | 2,091 pass, 0 fail, 1 skipped, the 158 by LibreOffice included (2026-11-15); CI runs them on every pull request |
 | [forge-e2e-r](validation/r) | Math, date and financial functions, and analytics (Monte Carlo, bootstrap, tornado, sensitivity, decision trees, real options, Bayesian networks) compared with R | 136 function checks pass (2026-11-14); 70 of 77 analytics specs compared with R, 7 skipped (2026-11-12) |
 
