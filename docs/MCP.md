@@ -41,7 +41,7 @@ The server reads JSON-RPC requests from stdin and writes responses to stdout, on
 
 The tools read and write the files an agent names, with your permissions: `forge_calculate` writes results into the model, `forge_export` and `forge_import` write a workbook or a model wherever `excel_path` or `yaml_path` points. That is normal for a local MCP server, but it means an agent, or a prompt injected into one by a document it read, can read any model or workbook you can and write a file anywhere you can.
 
-`forge mcp --root DIR` limits every path to one folder:
+`forge mcp` limits every path to one folder: the folder the server starts in, or the one given with `--root DIR`. Name it in a desktop app's configuration, which may start the server in `/` or your home folder:
 
 ```json
 {
@@ -59,7 +59,7 @@ The tools read and write the files an agent names, with your permissions: `forge
 - A link that points to a file that does not exist yet is refused, as writing it would create that file wherever the link points.
 - A relative path is relative to `DIR`, and the server's instructions tell the agent the folder.
 - Inline `content` is unchanged: it is written to a temporary folder, and its includes must already be plain relative paths.
-- Without `--root`, nothing changes. `forge serve --root DIR` does the same for the REST API.
+- `forge mcp --any-path` lifts the limit: any path you can reach, as before rc.28. `forge serve` has no limit unless given `--root DIR`.
 
 The check runs before each command does, so it limits what requests name; it is not a sandbox. A process that can change links inside `DIR` while a request runs could get around it.
 
@@ -498,9 +498,9 @@ When building a new model from scratch:
 
 ## Troubleshooting
 
-**File paths must be absolute** without `--root`: relative paths resolve from the MCP server's working directory, which may not be what you expect. With `--root DIR`, a relative path is relative to `DIR`.
+**A relative path is relative to the folder the server may use**: `--root DIR`, or the folder the server started in. With `--any-path`, it resolves from the server's working directory, which may not be what you expect, so use absolute paths.
 
-**"... is outside DIR, the folder this server may use (--root)".** The path, or a file the model includes, resolves to somewhere outside the folder given with `--root`. Use a path inside it.
+**"... is outside DIR, the folder this server may use (--root)".** The path, or a file the model includes, resolves to somewhere outside the folder given with `--root`, or the folder the server started in. Use a path inside it, set `--root` to the folder you want, or start with `--any-path`.
 
 **"Provide either file_path or content, not both."** You passed both a file path and inline content. Use one or the other. If you have a file on disk, use `file_path`. If you are generating YAML in a sandbox, use `content`.
 

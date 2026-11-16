@@ -174,3 +174,44 @@ fn the_test_count_in_the_docs_is_a_round_figure_just_under_the_real_one() {
 fn group(n: u64) -> String {
     format!("{},{:03}", n / 1000, n % 1000)
 }
+
+/// Words and counts an evaluation found stale (2026-11-15): Forge's own docs
+/// make no unmeasured claim of maturity, say how many times Excel was
+/// checked, and give no dated unit-test count that the next commit outdates.
+#[test]
+fn the_docs_keep_no_stale_wording() {
+    let mut wrong = Vec::new();
+    let mut docs = vec!["README.md".to_string(), "VALIDATION.md".to_string()];
+    for entry in std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("docs")).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        if path.extension().is_some_and(|x| x == "md") && name != "CHANGELOG_ARCHIVE.md" {
+            docs.push(format!("docs/{name}"));
+        }
+    }
+    for path in &docs {
+        let text = read(path).to_lowercase();
+        for word in ["battle-proven", "battle-tested", "production-grade"] {
+            if text.contains(word) {
+                wrong.push(format!("{path}: says {word}"));
+            }
+        }
+    }
+    for path in ["VALIDATION.md", "docs/STABILITY.md"] {
+        let text = read(path);
+        for once in ["by hand, once", "by hand once"] {
+            if text.contains(once) {
+                wrong.push(format!("{path}: says Excel was checked {once}"));
+            }
+        }
+    }
+    let readme = read("README.md");
+    let row = readme
+        .lines()
+        .find(|l| l.starts_with("| Unit tests"))
+        .expect("README has a unit-test row");
+    if row.contains(" pass, 0 fail (") {
+        wrong.push("README.md: the unit-test row gives a dated count".into());
+    }
+    assert!(wrong.is_empty(), "{wrong:#?}");
+}

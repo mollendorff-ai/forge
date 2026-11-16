@@ -345,7 +345,7 @@ scenarios:
 
 ## Roundtrip Validation
 
-All prediction methods are validated against battle-proven FOSS tools (Gnumeric + R).
+All prediction methods are validated against established FOSS tools (Gnumeric + R).
 
 ### Validation Tools
 

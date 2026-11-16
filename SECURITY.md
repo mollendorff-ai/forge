@@ -18,9 +18,21 @@ You can also use GitHub's private vulnerability reporting, under the **Security*
 
 Forge is a small project kept up on a best-effort basis. I aim to reply within 14 days, and I will tell you what I plan to do about the report. Please give me reasonable time to ship a fix before you share the details publicly. I am glad to credit you in the release notes if you want that.
 
+## Checking a download
+
+Each release has `checksums.txt`, and `install.sh` and `forge update` check the archive against it. That catches a broken download, but the checksums are published next to the archives, so whoever could replace one could replace both.
+
+From 10.0.0-rc.28, each archive also has a build attestation: a statement, signed through GitHub's Sigstore service, that the Release workflow of this repository built it from a given commit. With the GitHub CLI:
+
+```bash
+gh attestation verify forge-x86_64-unknown-linux-musl.tar.gz --repo mollendorff-ai/forge
+```
+
+A file that was not built by that workflow fails the check. Older releases have no attestation.
+
 ## Files the servers can reach
 
-`forge mcp` and `forge serve` read and write the files a request names, as the user who runs them. An agent, or a prompt injected into one, can name any file that user can reach. With `--root DIR`, a path is resolved (`..` and symbolic links followed) and refused unless it is inside `DIR`, for reading and for writing; a model that includes a file outside `DIR` is refused before that file is opened. See [docs/MCP.md](docs/MCP.md#keeping-files-inside-one-folder). The check runs before each command: it limits what requests name, and is not a sandbox against a process that changes links inside `DIR` at the same time. A way past it that needs no such process is in scope.
+`forge mcp` and `forge serve` read and write the files a request names, as the user who runs them. An agent, or a prompt injected into one, can name any file that user can reach, unless a folder limits it. `forge mcp` has that limit by default (the folder it starts in, or `--root DIR`; `--any-path` lifts it); `forge serve` has it with `--root DIR`. With the limit, a path is resolved (`..` and symbolic links followed) and refused unless it is inside `DIR`, for reading and for writing; a model that includes a file outside `DIR` is refused before that file is opened. See [docs/MCP.md](docs/MCP.md#keeping-files-inside-one-folder). The check runs before each command: it limits what requests name, and is not a sandbox against a process that changes links inside `DIR` at the same time. A way past it that needs no such process is in scope.
 
 ## What is in scope
 

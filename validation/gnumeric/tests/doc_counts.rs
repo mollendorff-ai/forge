@@ -35,6 +35,7 @@ fn the_docs_count_the_cases_the_suite_loads() {
     let (cases, skips) = TestRunner::load_test_cases(&here.join("tests")).unwrap();
     let total = cases.len() + skips.len();
     let libreoffice = cases.iter().filter(|c| c.libreoffice.is_some()).count();
+    let forge_only = cases.iter().filter(|c| c.gnumeric_skip.is_some()).count();
     let spec_files = files(&here.join("tests"));
     assert!(
         total > 1900 && libreoffice > 100,
@@ -56,6 +57,10 @@ fn the_docs_count_the_cases_the_suite_loads() {
         (
             "VALIDATION.md",
             format!("of which {libreoffice} are recalculated by LibreOffice"),
+        ),
+        (
+            "VALIDATION.md",
+            format!("{forge_only} cases are checked against Forge only"),
         ),
         (
             "validation/gnumeric/README.md",

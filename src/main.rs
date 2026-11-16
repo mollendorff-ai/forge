@@ -238,7 +238,21 @@ fn run() -> ForgeResult<()> {
 
         Commands::Update { check, verbose } => cli::update(check, verbose),
 
-        Commands::Mcp { root } => mollendorff_forge::mcp::run_stdio(root.as_deref()),
+        Commands::Mcp { root, any_path } => {
+            // Paths stay inside one folder unless --any-path (T1-MCP-ROOT-DEFAULT)
+            let root = if any_path {
+                None
+            } else if let Some(dir) = root {
+                Some(dir)
+            } else {
+                Some(std::env::current_dir().map_err(|e| {
+                    ForgeError::Validation(format!(
+                        "cannot read the current folder for --root: {e}"
+                    ))
+                })?)
+            };
+            mollendorff_forge::mcp::run_stdio(root.as_deref())
+        },
 
         Commands::Serve {
             host,
