@@ -1,6 +1,8 @@
 # ADR-004: 100% Test Coverage Requirement
 
 > **Note (2026-11-08):** 100% is a goal, not a gate: neither the Makefile nor CI fails below 100% (`make coverage` reports, CI reads the function percentage for a badge).
+>
+> **Note (2026-11-16):** the maintainer has made 100% coverage non-negotiable again, as a gate. Until roadmap T1-COVERAGE-GATE is done, the 2026-11-08 note describes what CI does, not what is required.
 
 **Status:** Accepted
 **Date:** 2025-12-04

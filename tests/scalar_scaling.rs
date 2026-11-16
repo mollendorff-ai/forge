@@ -25,7 +25,7 @@ fn model(n: usize, chained: bool) -> String {
 
 /// Under 2 s in a release build; a debug build is slower, so it gets ten
 /// times as long, which the old cubic time still exceeded many times over.
-fn limit() -> Duration {
+const fn limit() -> Duration {
     if cfg!(debug_assertions) {
         Duration::from_secs(20)
     } else {

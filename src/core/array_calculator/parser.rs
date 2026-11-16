@@ -78,10 +78,23 @@ impl std::fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
+/// How deep a formula may nest, the formula itself being the first level.
+///
+/// Parentheses, function arguments, `[ ]`, a chain of operators (`a + b + c`
+/// nests to the left in the tree) and a run of `-` or `^` each count one
+/// level. The evaluator and the drop of the tree recurse to the depth of the
+/// tree, so without a limit a formula of 10,000 parentheses ends the process
+/// with a stack overflow (roadmap T1-DEPTH). No real model comes near 128,
+/// and a debug build on a 2 MiB thread, the size of a test thread, overflows
+/// between 160 and 192 levels of function calls.
+pub const MAX_DEPTH: usize = 128;
+
 /// Parser for formula tokens
 pub struct Parser {
     tokens: Vec<Token>,
     position: usize,
+    /// Levels of nesting entered and not yet left
+    depth: usize,
 }
 
 impl Parser {
@@ -91,6 +104,7 @@ impl Parser {
         Self {
             tokens,
             position: 0,
+            depth: 0,
         }
     }
 
@@ -118,6 +132,25 @@ impl Parser {
     /// Check if we've consumed all tokens
     const fn is_at_end(&self) -> bool {
         self.position >= self.tokens.len()
+    }
+
+    /// Enter one more level of nesting; the caller gives it back with
+    /// `self.depth -= n` when the rule is done. The tree of a chain such as
+    /// `a + b + c` is as deep as the chain is long, so each link enters a
+    /// level too and the depth of the tree stays under twice `MAX_DEPTH`.
+    fn enter(&mut self) -> Result<(), ParseError> {
+        if self.depth >= MAX_DEPTH {
+            return Err(ParseError::new(
+                format!(
+                    "The formula is nested more than {MAX_DEPTH} levels deep (parentheses, \
+                     function arguments and chained operators each count one). Split it into \
+                     several named values or columns"
+                ),
+                self.position,
+            ));
+        }
+        self.depth += 1;
+        Ok(())
     }
 
     /// Peek at the current token
@@ -168,14 +201,20 @@ impl Parser {
 
     /// Expression: comparison
     fn expression(&mut self) -> Result<Expr, ParseError> {
-        self.comparison()
+        self.enter()?;
+        let expr = self.comparison()?;
+        self.depth -= 1;
+        Ok(expr)
     }
 
     /// Comparison: concat (( "=" | "<>" | "<" | ">" | "<=" | ">=" ) concat)*
     fn comparison(&mut self) -> Result<Expr, ParseError> {
         let mut left = self.concat()?;
+        let mut links = 0;
 
         while let Some(op) = self.match_any_operator(&["=", "<>", "<", ">", "<=", ">="]) {
+            self.enter()?;
+            links += 1;
             let right = self.concat()?;
             left = Expr::BinaryOp {
                 op,
@@ -184,6 +223,7 @@ impl Parser {
             };
         }
 
+        self.depth -= links;
         Ok(left)
     }
 
@@ -191,8 +231,11 @@ impl Parser {
     /// comparison, as in Excel: `a & b + 1 = c` is `(a & (b + 1)) = c`
     fn concat(&mut self) -> Result<Expr, ParseError> {
         let mut left = self.term()?;
+        let mut links = 0;
 
         while self.match_operator("&") {
+            self.enter()?;
+            links += 1;
             let right = self.term()?;
             left = Expr::BinaryOp {
                 op: "&".to_string(),
@@ -201,14 +244,18 @@ impl Parser {
             };
         }
 
+        self.depth -= links;
         Ok(left)
     }
 
     /// Term: factor (( "+" | "-" ) factor)*
     fn term(&mut self) -> Result<Expr, ParseError> {
         let mut left = self.factor()?;
+        let mut links = 0;
 
         while let Some(op) = self.match_any_operator(&["+", "-"]) {
+            self.enter()?;
+            links += 1;
             let right = self.factor()?;
             left = Expr::BinaryOp {
                 op,
@@ -217,14 +264,18 @@ impl Parser {
             };
         }
 
+        self.depth -= links;
         Ok(left)
     }
 
     /// Factor: power (( "*" | "/" ) power)*
     fn factor(&mut self) -> Result<Expr, ParseError> {
         let mut left = self.power()?;
+        let mut links = 0;
 
         while let Some(op) = self.match_any_operator(&["*", "/"]) {
+            self.enter()?;
+            links += 1;
             let right = self.power()?;
             left = Expr::BinaryOp {
                 op,
@@ -233,6 +284,7 @@ impl Parser {
             };
         }
 
+        self.depth -= links;
         Ok(left)
     }
 
@@ -241,7 +293,9 @@ impl Parser {
         let left = self.unary()?;
 
         if self.match_operator("^") {
+            self.enter()?;
             let right = self.power()?; // right-associative
+            self.depth -= 1;
             Ok(Expr::BinaryOp {
                 op: "^".to_string(),
                 left: Box::new(left),
@@ -255,7 +309,9 @@ impl Parser {
     /// Unary: ( "-" ) unary | postfix
     fn unary(&mut self) -> Result<Expr, ParseError> {
         if self.match_operator("-") {
+            self.enter()?;
             let operand = self.unary()?;
+            self.depth -= 1;
             Ok(Expr::UnaryOp {
                 op: "-".to_string(),
                 operand: Box::new(operand),
@@ -268,6 +324,7 @@ impl Parser {
     /// Postfix: `primary ( "(" arguments? ")" | "[" expr "]" | ":" expr )*`
     fn postfix(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.primary()?;
+        let mut links = 0;
 
         loop {
             if self.match_token(&Token::OpenParen) {
@@ -299,6 +356,8 @@ impl Parser {
                     _ => {
                         // Calling the result of an expression: expr(args)
                         // Used for LAMBDA immediate invocation: LAMBDA(x, x*2)(5)
+                        self.enter()?;
+                        links += 1;
                         Expr::CallResult {
                             callable: Box::new(expr.clone()),
                             args,
@@ -314,12 +373,16 @@ impl Parser {
                         self.position,
                     ));
                 }
+                self.enter()?;
+                links += 1;
                 expr = Expr::ArrayIndex {
                     array: Box::new(expr),
                     index: Box::new(index),
                 };
             } else if self.match_token(&Token::Colon) {
                 // Range expression (A1:B10)
+                self.enter()?;
+                links += 1;
                 let end = self.primary()?;
                 expr = Expr::Range {
                     start: Box::new(expr),
@@ -330,6 +393,7 @@ impl Parser {
             }
         }
 
+        self.depth -= links;
         Ok(expr)
     }
 
@@ -922,5 +986,165 @@ mod tests {
                 ],
             }
         );
+    }
+    // Nesting limit (roadmap T1-DEPTH): the formula itself is the first level
+
+    fn refused(formula: &str) -> bool {
+        match parse_formula(formula) {
+            Ok(_) => false,
+            Err(e) => {
+                assert!(
+                    e.message
+                        .contains(&format!("nested more than {MAX_DEPTH} levels")),
+                    "{}",
+                    e.message
+                );
+                true
+            },
+        }
+    }
+
+    /// The largest `n` the formula built by `build` accepts, found by
+    /// trying one past it
+    fn at_the_limit(build: impl Fn(usize) -> String, n: usize) {
+        assert!(!refused(&build(n)), "{n} should be accepted");
+        assert!(refused(&build(n + 1)), "{} should be refused", n + 1);
+    }
+
+    fn depth_of(expr: &Expr) -> usize {
+        1 + match expr {
+            Expr::Number(_) | Expr::Text(_) | Expr::Boolean(_) | Expr::Reference(_) => 0,
+            Expr::Array { items, .. } => items.iter().map(depth_of).max().unwrap_or(0),
+            Expr::ArrayIndex { array, index } => depth_of(array).max(depth_of(index)),
+            Expr::FunctionCall { args, .. } => args.iter().map(depth_of).max().unwrap_or(0),
+            Expr::CallResult { callable, args } => {
+                depth_of(callable).max(args.iter().map(depth_of).max().unwrap_or(0))
+            },
+            Expr::BinaryOp { left, right, .. } => depth_of(left).max(depth_of(right)),
+            Expr::UnaryOp { operand, .. } => depth_of(operand),
+            Expr::Range { start, end } => depth_of(start).max(depth_of(end)),
+        }
+    }
+
+    #[test]
+    fn parentheses_stop_at_the_limit() {
+        at_the_limit(
+            |n| format!("{}1{}", "(".repeat(n), ")".repeat(n)),
+            MAX_DEPTH - 1,
+        );
+        // The parentheses add no node: the tree is the number alone
+        let expr = parse_formula(&format!(
+            "{}1{}",
+            "(".repeat(MAX_DEPTH - 1),
+            ")".repeat(MAX_DEPTH - 1)
+        ))
+        .unwrap();
+        assert_eq!(expr, Expr::Number(1.0));
+    }
+
+    #[test]
+    fn function_arguments_stop_at_the_limit() {
+        at_the_limit(
+            |n| format!("{}1{}", "ABS(".repeat(n), ")".repeat(n)),
+            MAX_DEPTH - 1,
+        );
+    }
+
+    #[test]
+    fn a_run_of_minus_signs_stops_at_the_limit() {
+        at_the_limit(|n| format!("{}1", "-".repeat(n)), MAX_DEPTH - 1);
+    }
+
+    #[test]
+    fn a_run_of_powers_stops_at_the_limit() {
+        at_the_limit(|n| vec!["2"; n].join("^"), MAX_DEPTH);
+    }
+
+    #[test]
+    fn a_chain_of_each_operator_stops_at_the_limit() {
+        for op in ["+", "*", "&", "="] {
+            at_the_limit(|n| vec!["1"; n].join(op), MAX_DEPTH);
+        }
+    }
+
+    #[test]
+    fn a_chain_of_indexes_stops_at_the_limit() {
+        at_the_limit(|n| format!("a{}", "[0]".repeat(n)), MAX_DEPTH - 1);
+    }
+
+    #[test]
+    fn a_chain_of_calls_of_a_result_stops_at_the_limit() {
+        at_the_limit(
+            |n| format!("LAMBDA(q, q){}", "(1)".repeat(n)),
+            MAX_DEPTH - 1,
+        );
+    }
+
+    #[test]
+    fn a_chain_of_ranges_stops_at_the_limit() {
+        at_the_limit(|n| vec!["a"; n].join(":"), MAX_DEPTH);
+    }
+
+    #[test]
+    fn the_error_gives_the_limit_and_what_to_do() {
+        let message = parse_formula(&"-".repeat(1_000)).unwrap_err().message;
+        assert_eq!(
+            message,
+            "The formula is nested more than 128 levels deep (parentheses, function \
+             arguments and chained operators each count one). Split it into several \
+             named values or columns"
+        );
+    }
+
+    #[test]
+    fn a_hundred_thousand_levels_are_refused_not_built() {
+        for formula in [
+            format!("{}1{}", "(".repeat(100_000), ")".repeat(100_000)),
+            format!("{}1{}", "ABS(".repeat(100_000), ")".repeat(100_000)),
+            format!("{}1", "-".repeat(100_000)),
+            vec!["2"; 100_000].join("^"),
+            vec!["1"; 100_000].join("+"),
+        ] {
+            assert!(refused(&formula));
+        }
+    }
+
+    #[test]
+    fn levels_are_given_back_when_a_rule_is_done() {
+        // A thousand siblings, none inside another, however deep the sum of them
+        let siblings = vec!["(1)"; 1_000].join(", ");
+        assert!(parse_formula(&format!("SUM({siblings})")).is_ok());
+        let indexes = vec!["a[0]"; 1_000].join(", ");
+        assert!(parse_formula(&format!("SUM({indexes})")).is_ok());
+        let powers = vec!["2^3"; 1_000].join(", ");
+        assert!(parse_formula(&format!("SUM({powers})")).is_ok());
+        let signs = vec!["--1"; 1_000].join(", ");
+        assert!(parse_formula(&format!("SUM({signs})")).is_ok());
+        let calls = vec!["LAMBDA(q, q)(1)(2)"; 1_000].join(", ");
+        assert!(parse_formula(&format!("SUM({calls})")).is_ok());
+        let ranges = vec!["a:b:c"; 1_000].join(", ");
+        assert!(parse_formula(&format!("SUM({ranges})")).is_ok());
+        let sums = vec!["1+2+3"; 1_000].join(", ");
+        assert!(parse_formula(&format!("SUM({sums})")).is_ok());
+    }
+
+    #[test]
+    fn the_tree_stays_under_twice_the_limit() {
+        // The worst case: a chain as long as is allowed inside parentheses,
+        // as the first operand of another as long as is allowed. The first
+        // operand ends at the bottom of the second chain's left side.
+        let inner = (1..=MAX_DEPTH)
+            .map(|n| vec!["1"; n].join("+"))
+            .take_while(|chain| !refused(&format!("({chain})+1")))
+            .last()
+            .unwrap();
+        let outer = (1..=MAX_DEPTH)
+            .map(|n| format!("({inner}){}", "+1".repeat(n)))
+            .take_while(|formula| !refused(formula))
+            .last()
+            .unwrap();
+        let depth = depth_of(&parse_formula(&outer).unwrap());
+        assert!(depth > MAX_DEPTH, "{depth}: the case is not the worst one");
+        assert!(depth <= 2 * MAX_DEPTH, "{depth}");
     }
 }
