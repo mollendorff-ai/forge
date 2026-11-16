@@ -350,6 +350,61 @@ scalars:
     );
 }
 
+/// T1-NONFINITE: a non-finite distribution parameter is an error reply, not a
+/// panic that would end the server, and the server answers the next call.
+#[test]
+fn test_call_simulate_non_finite_parameter_then_next_call() {
+    let model = |formula: &str| {
+        format!(
+            r#"
+_forge_version: "5.0.0"
+monte_carlo:
+  iterations: 100
+  seed: 42
+  outputs:
+    - variable: revenue
+scalars:
+  revenue:
+    value: 100
+    formula: "={formula}"
+"#
+        )
+    };
+    let request = |content: String| SimulateRequest {
+        file_path: None,
+        content: Some(content),
+        includes: None,
+        iterations: None,
+        seed: None,
+        sampling: None,
+        scenario: None,
+        seek: None,
+        vary: None,
+        min: None,
+        max: None,
+    };
+    let server = ForgeMcpServer::new();
+    for (formula, argument) in [
+        ("MC.PERT(0, 1, 1E+400)", "MC.PERT: max"),
+        ("MC.Triangular(0, 1, 1E+400)", "MC.Triangular: max"),
+        ("MC.Lognormal(1, 1E+400)", "MC.Lognormal: stdev"),
+        ("MC.Normal(0, 1E+400)", "MC.Normal: stdev"),
+        ("MC.Uniform(-1E+400, 1)", "MC.Uniform: min"),
+    ] {
+        let err = err_text(server.simulate(Parameters(request(model(formula)))));
+        assert!(
+            err.contains(&format!("revenue: {argument} must be a finite number")),
+            "{formula}: {err}"
+        );
+    }
+    let text = ok_text(server.simulate(Parameters(request(model("MC.Normal(100, 10)")))));
+    let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        parsed["monte_carlo_results"]["iterations"].as_u64(),
+        Some(100)
+    );
+}
+
 #[test]
 fn test_call_simulate_nonexistent() {
     let server = ForgeMcpServer::new();

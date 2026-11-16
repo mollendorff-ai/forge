@@ -16,6 +16,36 @@ use std::fmt;
 /// a uniform draw of exactly 0 cannot map to an infinite value.
 const P_EPSILON: f64 = 1e-12;
 
+/// Refuses a parameter that is not a finite number. `1E+400` reads as
+/// infinity and `NaN` passes every comparison the constructors make, so
+/// without this a model could panic in sampling or print `NaN` with exit 0.
+fn require_finite(dist: &str, params: &[(&str, f64)]) -> Result<(), String> {
+    for (name, value) in params {
+        if value.is_nan() {
+            return Err(format!("{dist}: {name} must be a number, got NaN"));
+        }
+        if value.is_infinite() {
+            return Err(format!(
+                "{dist}: {name} must be a finite number, got {value} (a number beyond \
+                 ±1.8E+308 reads as infinity)"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Refuses a range `max - min` too wide to calculate with: each end is
+/// finite, but their difference is not, and sampling would give `NaN`.
+fn require_finite_range(dist: &str, min: f64, max: f64) -> Result<(), String> {
+    if (max - min).is_finite() {
+        Ok(())
+    } else {
+        Err(format!(
+            "{dist}: the range from min {min:e} to max {max:e} is too wide to calculate with"
+        ))
+    }
+}
+
 /// Quantile of the standard normal distribution.
 pub(crate) fn standard_normal_quantile(p: f64) -> f64 {
     StandardNormal::standard().inverse_cdf(p.clamp(P_EPSILON, 1.0 - P_EPSILON))
@@ -92,8 +122,9 @@ impl Distribution {
     ///
     /// # Errors
     ///
-    /// Returns an error if `stdev` is not positive.
+    /// Returns an error if a parameter is not finite or `stdev` is not positive.
     pub fn normal(mean: f64, stdev: f64) -> Result<Self, String> {
+        require_finite("MC.Normal", &[("mean", mean), ("stdev", stdev)])?;
         if stdev <= 0.0 {
             return Err("Normal distribution stdev must be > 0".to_string());
         }
@@ -106,13 +137,26 @@ impl Distribution {
     ///
     /// # Errors
     ///
-    /// Returns an error if `min >= max` or `mode` is outside `[min, max]`.
+    /// Returns an error if a parameter is not finite, `min >= max`, `mode` is
+    /// outside `[min, max]` or the range is too wide to calculate with.
     pub fn triangular(min: f64, mode: f64, max: f64) -> Result<Self, String> {
+        require_finite(
+            "MC.Triangular",
+            &[("min", min), ("mode", mode), ("max", max)],
+        )?;
         if min >= max {
             return Err("Triangular distribution requires min < max".to_string());
         }
         if mode < min || mode > max {
             return Err("Triangular distribution requires min <= mode <= max".to_string());
+        }
+        require_finite_range("MC.Triangular", min, max)?;
+        // Its quantile multiplies the range by itself
+        if !((max - min) * (max - min)).is_finite() {
+            return Err(format!(
+                "MC.Triangular: the range from min {min:e} to max {max:e} is too wide to \
+                 calculate with (its square overflows)"
+            ));
         }
         Ok(Self {
             dist_type: DistributionType::Triangular { min, mode, max },
@@ -123,11 +167,14 @@ impl Distribution {
     ///
     /// # Errors
     ///
-    /// Returns an error if `min >= max`.
+    /// Returns an error if a parameter is not finite, `min >= max` or the
+    /// range is too wide to calculate with.
     pub fn uniform(min: f64, max: f64) -> Result<Self, String> {
+        require_finite("MC.Uniform", &[("min", min), ("max", max)])?;
         if min >= max {
             return Err("Uniform distribution requires min < max".to_string());
         }
+        require_finite_range("MC.Uniform", min, max)?;
         Ok(Self {
             dist_type: DistributionType::Uniform { min, max },
         })
@@ -137,14 +184,17 @@ impl Distribution {
     ///
     /// # Errors
     ///
-    /// Returns an error if `min >= max` or `mode` is outside `[min, max]`.
+    /// Returns an error if a parameter is not finite, `min >= max`, `mode` is
+    /// outside `[min, max]` or the range is too wide to calculate with.
     pub fn pert(min: f64, mode: f64, max: f64) -> Result<Self, String> {
+        require_finite("MC.PERT", &[("min", min), ("mode", mode), ("max", max)])?;
         if min >= max {
             return Err("PERT distribution requires min < max".to_string());
         }
         if mode < min || mode > max {
             return Err("PERT distribution requires min <= mode <= max".to_string());
         }
+        require_finite_range("MC.PERT", min, max)?;
         Ok(Self {
             dist_type: DistributionType::PERT { min, mode, max },
         })
@@ -154,13 +204,22 @@ impl Distribution {
     ///
     /// # Errors
     ///
-    /// Returns an error if `stdev` is not positive or `mean` is not positive.
+    /// Returns an error if a parameter is not finite, `stdev` or `mean` is not
+    /// positive, or the underlying normal's parameters overflow.
     pub fn lognormal(mean: f64, stdev: f64) -> Result<Self, String> {
+        require_finite("MC.Lognormal", &[("mean", mean), ("stdev", stdev)])?;
         if stdev <= 0.0 {
             return Err("Lognormal distribution stdev must be > 0".to_string());
         }
         if mean <= 0.0 {
             return Err("Lognormal distribution mean must be > 0".to_string());
+        }
+        let (mu, sigma) = lognormal_params(mean, stdev);
+        if !(mu.is_finite() && sigma.is_finite()) {
+            return Err(format!(
+                "MC.Lognormal: mean {mean:e} and stdev {stdev:e} are too large to calculate \
+                 with (their squares overflow)"
+            ));
         }
         Ok(Self {
             dist_type: DistributionType::Lognormal { mean, stdev },
@@ -172,8 +231,18 @@ impl Distribution {
     /// # Errors
     ///
     /// Returns an error if `values` and `probabilities` have different lengths,
-    /// are empty, probabilities don't sum to 1.0, or any probability is negative.
+    /// are empty, any of them is not finite, probabilities don't sum to 1.0, or
+    /// any probability is negative.
     pub fn discrete(values: Vec<f64>, probabilities: Vec<f64>) -> Result<Self, String> {
+        for (i, (value, probability)) in values.iter().zip(&probabilities).enumerate() {
+            require_finite(
+                "MC.Discrete",
+                &[
+                    (&format!("value {}", i + 1), *value),
+                    (&format!("probability {}", i + 1), *probability),
+                ],
+            )?;
+        }
         if values.len() != probabilities.len() {
             return Err(
                 "Discrete distribution requires equal number of values and probabilities"
@@ -366,9 +435,12 @@ fn sample_pert<R: Rng>(rng: &mut R, min: f64, mode: f64, max: f64) -> f64 {
 /// Beta shape parameters of a PERT distribution with `max > min`
 fn pert_shape(min: f64, mode: f64, max: f64) -> (f64, f64) {
     let range = max - min;
+    // Divide before multiplying by 4: 4 * (max - mode) overflows when the
+    // range is near the largest finite number. Multiplying by 4 is exact, so
+    // the result is the same for every range that does not overflow.
     (
-        1.0 + 4.0 * (mode - min) / range,
-        1.0 + 4.0 * (max - mode) / range,
+        4.0f64.mul_add((mode - min) / range, 1.0),
+        4.0f64.mul_add((max - mode) / range, 1.0),
     )
 }
 
@@ -635,6 +707,140 @@ mod tests {
         assert!(parse_distribution("MC.Normal(100, -5)").is_err()); // Negative stdev
         assert!(parse_distribution("MC.Triangular(10, 5, 0)").is_err()); // min > max
         assert!(parse_distribution("MC.Unknown(1, 2)").is_err()); // Unknown type
+    }
+
+    /// T1-NONFINITE: an infinite or NaN parameter is refused with its name,
+    /// instead of panicking in sampling or giving NaN results.
+    #[test]
+    fn non_finite_parameters_are_refused_by_name() {
+        let cases = [
+            (
+                "MC.Normal(1E+400, 1)",
+                "MC.Normal: mean must be a finite number, got inf",
+            ),
+            (
+                "MC.Normal(0, 1E+400)",
+                "MC.Normal: stdev must be a finite number, got inf",
+            ),
+            (
+                "MC.Normal(NaN, 1)",
+                "MC.Normal: mean must be a number, got NaN",
+            ),
+            (
+                "MC.Triangular(-1E+400, 0, 1)",
+                "MC.Triangular: min must be a finite number, got -inf",
+            ),
+            (
+                "MC.Triangular(0, 1, 1E+400)",
+                "MC.Triangular: max must be a finite number, got inf",
+            ),
+            (
+                "MC.Triangular(0, NaN, 1)",
+                "MC.Triangular: mode must be a number, got NaN",
+            ),
+            (
+                "MC.Uniform(0, 1E+400)",
+                "MC.Uniform: max must be a finite number, got inf",
+            ),
+            (
+                "MC.Uniform(NaN, 1)",
+                "MC.Uniform: min must be a number, got NaN",
+            ),
+            (
+                "MC.PERT(0, 1, 1E+400)",
+                "MC.PERT: max must be a finite number, got inf",
+            ),
+            (
+                "MC.PERT(0, NaN, 2)",
+                "MC.PERT: mode must be a number, got NaN",
+            ),
+            (
+                "MC.Lognormal(1, 1E+400)",
+                "MC.Lognormal: stdev must be a finite number, got inf",
+            ),
+            (
+                "MC.Lognormal(1E+400, 1)",
+                "MC.Lognormal: mean must be a finite number, got inf",
+            ),
+        ];
+        for (formula, expected) in cases {
+            let err = parse_distribution(formula).err().unwrap_or_else(|| {
+                panic!("{formula} was accepted");
+            });
+            assert!(err.starts_with(expected), "{formula}: {err}");
+        }
+    }
+
+    /// Finite ends whose difference overflows, and a lognormal whose squared
+    /// parameters overflow, would give NaN when sampled.
+    #[test]
+    fn overflowing_ranges_and_lognormal_parameters_are_refused() {
+        for formula in [
+            "MC.Uniform(-1E+308, 1E+308)",
+            "MC.Triangular(-1E+308, 0, 1E+308)",
+            "MC.PERT(-1E+308, 0, 1E+308)",
+        ] {
+            let err = parse_distribution(formula).err().unwrap_or_else(|| {
+                panic!("{formula} was accepted");
+            });
+            assert!(
+                err.ends_with(
+                    "the range from min -1e308 to max 1e308 is too wide to calculate with"
+                ),
+                "{formula}: {err}"
+            );
+        }
+        let err = parse_distribution("MC.Triangular(0, 1, 1E+155)")
+            .err()
+            .expect("refused");
+        assert_eq!(
+            err,
+            "MC.Triangular: the range from min 0e0 to max 1e155 is too wide to calculate with \
+             (its square overflows)"
+        );
+        let err = parse_distribution("MC.Lognormal(1, 1E+200)")
+            .err()
+            .expect("refused");
+        assert_eq!(
+            err,
+            "MC.Lognormal: mean 1e0 and stdev 1e200 are too large to calculate with (their \
+             squares overflow)"
+        );
+    }
+
+    #[test]
+    fn discrete_refuses_non_finite_values_and_probabilities() {
+        let err = Distribution::discrete(vec![1.0, f64::INFINITY], vec![0.5, 0.5])
+            .err()
+            .expect("refused");
+        assert!(
+            err.starts_with("MC.Discrete: value 2 must be a finite number, got inf"),
+            "{err}"
+        );
+        // NaN passes the sum check (every comparison with NaN is false)
+        let err = Distribution::discrete(vec![1.0, 2.0], vec![f64::NAN, 1.0])
+            .err()
+            .expect("refused");
+        assert_eq!(err, "MC.Discrete: probability 1 must be a number, got NaN");
+    }
+
+    /// The largest finite parameters that still calculate are accepted, and
+    /// sample to finite values.
+    #[test]
+    fn large_finite_parameters_still_sample() {
+        let mut rng = seeded_rng();
+        for formula in [
+            "MC.Normal(1E+300, 1E+299)",
+            "MC.Uniform(0, 1E+308)",
+            "MC.Triangular(0, 1, 1E+154)",
+            "MC.PERT(0, 1, 1E+308)",
+            "MC.Lognormal(1E+100, 1E+100)",
+        ] {
+            let dist = parse_distribution(formula).expect(formula);
+            let x = dist.sample(&mut rng);
+            assert!(x.is_finite(), "{formula} sampled {x}");
+            assert!(dist.inverse_cdf(0.5).is_finite(), "{formula}");
+        }
     }
 
     #[test]
