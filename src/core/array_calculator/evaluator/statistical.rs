@@ -506,4 +506,84 @@ mod tests {
             Value::Number(1.0)
         );
     }
+
+    /// Tests of the functions added in 10.1: schedules, conveniences, percentiles.
+    /// Their expected values were computed outside Forge (R, Python, by hand); the
+    /// Gnumeric suite (`statistics_finance_batch.yaml`) checks the same functions
+    /// against two spreadsheet engines.
+    mod batch_10_1 {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn geomean_percentile_and_quartile_exclusive() {
+            let ctx = h::table(&[("v", h::numbers(&[3.5, 1.2, 9.9, 4.4, 7.7, 2.1, 8.8, 6.6]))]);
+            // exp(mean(log(v))) and quantile(v, p, type = 6) in R
+            assert!(h::near(h::number_in("GEOMEAN(0.5, 2, 8)", &ctx), 2.0));
+            assert!(h::near(
+                h::number_in("PERCENTILE.EXC(t.v, 0.3)", &ctx),
+                3.08
+            ));
+            assert!(h::near(h::number_in("QUARTILE.EXC(t.v, 1)", &ctx), 2.45));
+            assert!(h::near(
+                h::number_in("PERCENTILE.INC(t.v, 0.3)", &ctx),
+                3.59
+            ));
+            assert!(h::near(h::number_in("QUARTILE.INC(t.v, 2)", &ctx), 5.5));
+            assert!(h::error_in("GEOMEAN(1, 0, 2)", &ctx).contains("#NUM!"));
+            // With 8 values k has to lie between 1/9 and 8/9
+            assert!(h::error_in("PERCENTILE.EXC(t.v, 0.05)", &ctx).contains("#NUM!"));
+            assert!(h::error_in("PERCENTILE.EXC(t.v, 0.95)", &ctx).contains("#NUM!"));
+            assert!(h::error_in("QUARTILE.EXC(t.v, 0)", &ctx).contains("#NUM!"));
+            assert!(h::error_in("QUARTILE.EXC(t.v, 4)", &ctx).contains("#NUM!"));
+        }
+    }
+
+    /// The five answers Excel gave differently from Forge when 40 formulas were
+    /// checked in Excel on 2026-11-14
+    /// (`validation/gnumeric/tests/edge/edge_excel_checks.yaml`), and what
+    /// follows from each rule.
+    mod checked_in_excel {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn large_rounds_k_up_and_small_down() {
+            // Excel: LARGE(.., 1.5) is 5 and SMALL(.., 1.5) is 1
+            h::is_exactly("LARGE({5,1,3,3,8}, 1.5)", 5.0);
+            h::is_exactly("SMALL({5,1,3,3,8}, 1.5)", 1.0);
+            // Both engines: 1.2 is rounded up too, and 0.5 is the largest
+            h::is_exactly("LARGE({5,1,3,3,8}, 1.2)", 5.0);
+            h::is_exactly("LARGE({5,1,3,3,8}, 0.5)", 8.0);
+            h::fails("LARGE({5,1,3,3,8}, 5.5)");
+            h::fails("LARGE({5,1,3,3,8}, 0)");
+        }
+    }
+
+    /// Fixes for what the generated cases found (ADR-062) that the engines cannot
+    /// check: answers Forge gives on its own, with the reason, and the exact
+    /// values where every engine loses digits.
+    mod generated_cases {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::{EvalContext, Value};
+
+        #[test]
+        fn rank_counts_the_values_above_exactly() {
+            let mut ctx = EvalContext::new();
+            let v: Vec<Value> = [629.65, 1.005, 1e-12, -0.0, 0.0, -0.93]
+                .iter()
+                .map(|n| Value::Number(*n))
+                .collect();
+            ctx.tables.insert(
+                "t".to_string(),
+                std::iter::once(("v".to_string(), v.into())).collect(),
+            );
+            assert_eq!(
+                h::eval("RANK.EQ(0, t.v)", &ctx).unwrap(),
+                Value::Number(4.0)
+            );
+            assert_eq!(
+                h::eval("RANK.EQ(0, t.v, 1)", &ctx).unwrap(),
+                Value::Number(2.0)
+            );
+        }
+    }
 }

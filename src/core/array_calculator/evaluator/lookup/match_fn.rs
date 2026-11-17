@@ -679,4 +679,76 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         assert_eq!(result.scalars.get("result").unwrap().value, Some(1.0));
     }
+
+    /// Tests of the functions added in 10.1: schedules, conveniences, percentiles.
+    /// Their expected values were computed outside Forge (R, Python, by hand); the
+    /// Gnumeric suite (`statistics_finance_batch.yaml`) checks the same functions
+    /// against two spreadsheet engines.
+    mod batch_10_1 {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn xmatch_exact_nearest_and_from_the_end() {
+            let ctx = h::table(&[
+                ("ten", h::numbers(&[10.0, 20.0, 30.0, 40.0, 50.0])),
+                ("dup", h::numbers(&[5.0, 3.0, 5.0, 3.0, 5.0])),
+            ]);
+            assert!(h::near(h::number_in("XMATCH(30, t.ten)", &ctx), 3.0));
+            // 35 is not there: the next smaller is 30 (position 3), the next larger 40 (position 4)
+            assert!(h::near(h::number_in("XMATCH(35, t.ten, -1)", &ctx), 3.0));
+            assert!(h::near(h::number_in("XMATCH(35, t.ten, 1)", &ctx), 4.0));
+            assert!(h::error_in("XMATCH(35, t.ten)", &ctx).contains("not found"));
+            // The first or the last of equal values
+            assert!(h::near(h::number_in("XMATCH(5, t.dup)", &ctx), 1.0));
+            assert!(h::near(h::number_in("XMATCH(5, t.dup, 0, -1)", &ctx), 5.0));
+            // Of equal nearest values, the first met in the direction searched
+            assert!(h::near(h::number_in("XMATCH(4, t.dup, -1)", &ctx), 2.0));
+            assert!(h::near(h::number_in("XMATCH(4, t.dup, -1, -1)", &ctx), 4.0));
+            // What is not supported says so
+            // A wildcard match (mode 2) and a binary search of sorted values (2, -2)
+            assert!(h::near(h::number_in("XMATCH(30, t.ten, 2)", &ctx), 3.0));
+            assert!(h::near(h::number_in("XMATCH(30, t.ten, 0, 2)", &ctx), 3.0));
+            assert!(h::error_in("XMATCH(30, t.ten, 3)", &ctx).contains("match_mode"));
+            assert!(h::error_in("XMATCH(30, t.ten, 0, 3)", &ctx).contains("search_mode"));
+        }
+    }
+
+    /// The five answers Excel gave differently from Forge when 40 formulas were
+    /// checked in Excel on 2026-11-14
+    /// (`validation/gnumeric/tests/edge/edge_excel_checks.yaml`), and what
+    /// follows from each rule.
+    mod checked_in_excel {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn match_counts_a_type_by_its_sign() {
+            assert_eq!(h::number("MATCH(3, {1,3,5}, 2)"), 2.0); // Excel
+            assert_eq!(h::number("MATCH(3, {5,3,1}, -2)"), 2.0); // Gnumeric
+            assert_eq!(h::number("MATCH(3, {1,3,5}, 0.5)"), 2.0); // cut to 0: exact
+        }
+
+        #[test]
+        fn match_halves_the_range_as_excel_does() {
+            // Excel and both engines: 6, where a search from the first finds 1
+            assert_eq!(h::number("MATCH(0, {1,3,5,7,9,11}, -1)"), 6.0);
+            // The last of repeated values, in all three
+            assert_eq!(h::number("MATCH(3, {1,3,3,5}, 1)"), 3.0);
+            assert_eq!(h::number("MATCH(2, {1,2,2,2,3}, 1)"), 4.0);
+            // Sorted values give what they gave
+            assert_eq!(h::number("MATCH(6, {1,3,5,7,9,11}, 1)"), 3.0);
+            assert_eq!(h::number("MATCH(6, {11,9,7,5,3,1}, -1)"), 3.0);
+            assert_eq!(h::number("MATCH(\"b\", {\"a\",\"B\",\"c\"}, 1)"), 2.0);
+            h::fails("MATCH(0, {1,3,5}, 1)");
+            h::fails("MATCH(12, {11,9,7}, -1)");
+            // A text among numbers is passed over (as Gnumeric does)
+            assert_eq!(h::number("MATCH(4, {1,\"x\",3,5}, 1)"), 3.0);
+            // A date is its day number
+            assert_eq!(
+                h::number(
+                    "MATCH(DATE(2024,3,1), {\"2024-01-01\",\"2024-02-01\",\"2024-04-01\"}, 1)"
+                ),
+                2.0
+            );
+        }
+    }
 }

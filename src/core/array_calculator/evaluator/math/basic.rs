@@ -315,4 +315,22 @@ mod tests {
         let result = ArrayCalculator::new(model).calculate_all().unwrap();
         assert!((result.scalars.get("p").unwrap().value.unwrap() - 256.0).abs() < 0.0001);
     }
+
+    /// Fixes for what the generated cases found (ADR-062) that the engines cannot
+    /// check: answers Forge gives on its own, with the reason, and the exact
+    /// values where every engine loses digits.
+    mod generated_cases {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn mod_is_the_exact_remainder() {
+            // n - d * INT(n / d) in floating point gave -5.8E-16 and 0.0068 (above d)
+            let r = h::number("MOD(7.3, 0.1)");
+            assert!(r > 0.0 && r < 0.1, "{r}");
+            let r = h::number("MOD(1E15, 1E-12)");
+            assert!((0.0..1e-12).contains(&r), "{r}");
+            h::is_exactly("MOD(-7, 3)", 2.0);
+            h::is_exactly("MOD(7, -3)", -2.0);
+        }
+    }
 }

@@ -279,4 +279,65 @@ mod tests {
         let var = result.scalars.get("result").unwrap();
         assert_eq!(var.value, Some(6.0)); // "123.46"
     }
+
+    /// A date is a date (ADR-054): the text `2026-01-31` in a model, and its day
+    /// number wherever a formula reads a number. `+` adds and `&` joins, as in
+    /// Excel. Each result here is what Gnumeric and `LibreOffice` give for the
+    /// exported formula over a real date (forge-e2e-gnumeric,
+    /// `edge_real_dates.yaml`).
+    mod dates_as_dates {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::EvalContext;
+
+        /// `TEXT(d, "yyyy")` was the day number as text ("46053").
+        #[test]
+        fn text_formats_a_date() {
+            assert_eq!(h::text("TEXT(\"2026-01-31\", \"yyyy\")"), "2026");
+            assert_eq!(
+                h::text("TEXT(DATE(2026, 1, 31), \"mmm d, yyyy\")"),
+                "Jan 31, 2026"
+            );
+            assert_eq!(h::text("TEXT(1234.5, \"#,##0.00\")"), "1,234.50");
+            let error = h::eval("TEXT(1, \"h:mm\")", &EvalContext::new())
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains("is not one Forge reads"), "{error}");
+        }
+    }
+
+    /// The five answers Excel gave differently from Forge when 40 formulas were
+    /// checked in Excel on 2026-11-14
+    /// (`validation/gnumeric/tests/edge/edge_excel_checks.yaml`), and what
+    /// follows from each rule.
+    mod checked_in_excel {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn text_writes_no_minus_on_a_number_that_rounds_to_zero() {
+            assert_eq!(h::text("TEXT(-0.004, \"0.00\")"), "0.00"); // Excel
+            assert_eq!(h::text("TEXT(-0.006, \"0.00\")"), "-0.01");
+            assert_eq!(h::text("TEXT(-0.4, \"0\")"), "0");
+        }
+    }
+
+    /// Wrong answers found by sweeping the statistical, lookup, math and text
+    /// functions against Gnumeric and `LibreOffice` (`validation/sweep`), each pinned
+    /// to what both engines give, or to Excel's documentation where they differ.
+    mod sweep {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn value_reads_what_excel_reads() {
+            h::sweep_is_exactly("VALUE(\"50%\")", 0.5);
+            h::sweep_is_exactly("VALUE(\"$1,000\")", 1000.0);
+            h::sweep_is_exactly("VALUE(\"(5)\")", -5.0);
+            h::sweep_is_exactly("VALUE(\"5-\")", -5.0);
+            h::sweep_is_exactly("VALUE(\"$-5\")", -5.0);
+            h::sweep_is_exactly("VALUE(\"2024-01-15\")", 45306.0);
+            assert!((h::sweep_number("VALUE(\"12:30\")") - 12.5 / 24.0).abs() < 1e-15);
+            for bad in ["inf", "nan", "1,2,3", "", "TRUE", "1.2.3"] {
+                h::sweep_fails(&format!("VALUE(\"{bad}\")"), "#VALUE!");
+            }
+        }
+    }
 }

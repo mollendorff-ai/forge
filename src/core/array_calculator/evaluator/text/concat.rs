@@ -451,4 +451,49 @@ mod tests {
         // INDEX function returns text, which may be handled differently
         assert!(result.is_ok() || result.is_err());
     }
+
+    /// Tests of the functions added in 10.1: schedules, conveniences, percentiles.
+    /// Their expected values were computed outside Forge (R, Python, by hand); the
+    /// Gnumeric suite (`statistics_finance_batch.yaml`) checks the same functions
+    /// against two spreadsheet engines.
+    mod batch_10_1 {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::Value;
+
+        #[test]
+        fn textjoin_joins_values_and_columns_and_can_skip_the_empty() {
+            let ctx = h::table(&[(
+                "names",
+                vec![
+                    Value::Text("Ana".to_string()),
+                    Value::Text(String::new()),
+                    Value::Text("Bo".to_string()),
+                ],
+            )]);
+            let text = |f: &str| match h::eval(f, &ctx).unwrap() {
+                Value::Text(s) => s,
+                other => panic!("{f}: {other:?}"),
+            };
+            assert_eq!(text("TEXTJOIN(\", \", TRUE, t.names)"), "Ana, Bo");
+            assert_eq!(text("TEXTJOIN(\", \", FALSE, t.names)"), "Ana, , Bo");
+            assert_eq!(text("TEXTJOIN(\"-\", TRUE, \"a\", 2, \"c\")"), "a-2-c");
+            assert!(h::error_in("TEXTJOIN(\",\", TRUE)", &ctx).contains("at least 3"));
+        }
+    }
+
+    /// Wrong answers found by sweeping the statistical, lookup, math and text
+    /// functions against Gnumeric and `LibreOffice` (`validation/sweep`), each pinned
+    /// to what both engines give, or to Excel's documentation where they differ.
+    mod sweep {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn concat_joins_a_column_and_numbers_keep_fifteen_digits() {
+            assert_eq!(h::sweep_text("CONCAT(t.s)"), "abc");
+            assert_eq!(h::sweep_text("CONCAT(0.1 + 0.2)"), "0.3");
+            assert_eq!(h::sweep_text("CONCAT(1 / 3)"), "0.333333333333333");
+            assert_eq!(h::sweep_text("CONCAT(1E+20)"), "1E+20");
+            assert_eq!(h::sweep_number("LEN(2 / 3)"), 17.0);
+        }
+    }
 }

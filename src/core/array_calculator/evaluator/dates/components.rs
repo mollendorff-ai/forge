@@ -317,4 +317,65 @@ mod tests {
         let seconds = result.scalars.get("second_val").unwrap().value.unwrap();
         assert_eq!(seconds, 0.0);
     }
+
+    /// Tests of the functions added in 10.1: schedules, conveniences, percentiles.
+    /// Their expected values were computed outside Forge (R, Python, by hand); the
+    /// Gnumeric suite (`statistics_finance_batch.yaml`) checks the same functions
+    /// against two spreadsheet engines.
+    mod batch_10_1 {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::EvalContext;
+
+        #[test]
+        fn week_numbers() {
+            let ctx = EvalContext::new();
+            // 2026-01-01 is a Thursday; Sunday-first weeks: week 1 ends Saturday the 3rd
+            assert!(h::near(
+                h::number_in("WEEKNUM(DATE(2026, 1, 3))", &ctx),
+                1.0
+            ));
+            assert!(h::near(
+                h::number_in("WEEKNUM(DATE(2026, 1, 4))", &ctx),
+                2.0
+            ));
+            // Monday-first weeks (types 2 and 11): week 1 ends Sunday the 4th
+            assert!(h::near(
+                h::number_in("WEEKNUM(DATE(2026, 1, 4), 2)", &ctx),
+                1.0
+            ));
+            assert!(h::near(
+                h::number_in("WEEKNUM(DATE(2026, 1, 5), 11)", &ctx),
+                2.0
+            ));
+            // ISO weeks: 2021-01-03 is in week 53 of 2020, 2024-12-30 in week 1 of 2025
+            assert!(h::near(
+                h::number_in("ISOWEEKNUM(DATE(2021, 1, 3))", &ctx),
+                53.0
+            ));
+            assert!(h::near(
+                h::number_in("ISOWEEKNUM(DATE(2024, 12, 30))", &ctx),
+                1.0
+            ));
+            assert!(h::near(
+                h::number_in("WEEKNUM(DATE(2021, 1, 3), 21)", &ctx),
+                53.0
+            ));
+            assert!(h::error_in("WEEKNUM(DATE(2026, 1, 1), 5)", &ctx).contains("#NUM!"));
+        }
+    }
+
+    /// Fixes for what the generated cases found (ADR-062) that the engines cannot
+    /// check: answers Forge gives on its own, with the reason, and the exact
+    /// values where every engine loses digits.
+    mod generated_cases {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn a_negative_time_is_no_time() {
+            h::fails_with("HOUR(-0.5)", "#NUM!");
+            h::fails_with("MINUTE(-1E-12)", "#NUM!");
+            h::fails_with("SECOND(-2.5)", "#NUM!");
+            assert_eq!(h::number("HOUR(0.999999999)"), 0.0); // 24 before
+        }
+    }
 }

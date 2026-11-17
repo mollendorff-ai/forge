@@ -113,3 +113,26 @@ pub fn paired_numbers(
         .filter_map(|(x, y)| Some((x.as_number()?, y.as_number()?)))
         .unzip())
 }
+
+#[cfg(test)]
+mod tests {
+    /// Fixes for what the generated cases found (ADR-062) that the engines cannot
+    /// check: answers Forge gives on its own, with the reason, and the exact
+    /// values where every engine loses digits.
+    mod generated_cases {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::{EvalContext, Value};
+
+        #[test]
+        fn a_number_as_text_rounds_its_shortest_form() {
+            match h::eval("CONCAT(-985667.1985084685)", &EvalContext::new()).unwrap() {
+                Value::Text(t) => assert_eq!(t, "-985667.198508469"),
+                other => panic!("{other:?}"),
+            }
+            match h::eval("CONCAT(9.99999999999999999)", &EvalContext::new()).unwrap() {
+                Value::Text(t) => assert_eq!(t, "10"),
+                other => panic!("{other:?}"),
+            }
+        }
+    }
+}

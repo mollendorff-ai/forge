@@ -359,4 +359,51 @@ mod tests {
         assert_eq!(result.scalars.get("tp").unwrap().value, Some(5.0));
         assert_eq!(result.scalars.get("tn").unwrap().value, Some(-5.0));
     }
+
+    /// Tests of the functions added in 10.1: schedules, conveniences, percentiles.
+    /// Their expected values were computed outside Forge (R, Python, by hand); the
+    /// Gnumeric suite (`statistics_finance_batch.yaml`) checks the same functions
+    /// against two spreadsheet engines.
+    mod batch_10_1 {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::EvalContext;
+
+        #[test]
+        fn mround_rounds_a_half_away_from_zero() {
+            let ctx = EvalContext::new();
+            assert!(h::near(h::number_in("MROUND(10, 3)", &ctx), 9.0));
+            assert!(h::near(h::number_in("MROUND(-10, -3)", &ctx), -9.0));
+            assert!(h::near(h::number_in("MROUND(5, 2)", &ctx), 6.0));
+            assert!(h::near(h::number_in("MROUND(-5, -2)", &ctx), -6.0));
+            // Microsoft's example: 1.3 to a multiple of 0.2 is 1.4
+            assert!(h::near(h::number_in("MROUND(1.3, 0.2)", &ctx), 1.4));
+            assert!(h::near(h::number_in("MROUND(7.5, 0)", &ctx), 0.0));
+            assert!(h::error_in("MROUND(10, -3)", &ctx).contains("#NUM!"));
+        }
+    }
+
+    /// Wrong answers found by sweeping the statistical, lookup, math and text
+    /// functions against Gnumeric and `LibreOffice` (`validation/sweep`), each pinned
+    /// to what both engines give, or to Excel's documentation where they differ.
+    mod sweep {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        #[test]
+        fn rounding_works_on_fifteen_digits_as_excel_does() {
+            h::sweep_is_exactly("ROUND(1.005, 2)", 1.01);
+            h::sweep_is_exactly("ROUND(0.285, 2)", 0.29);
+            h::sweep_is_exactly("ROUND(-2.5, 0)", -3.0);
+            h::sweep_is_exactly("ROUNDDOWN(4.35, 2)", 4.35);
+            h::sweep_is_exactly("TRUNC(4.35, 2)", 4.35);
+            h::sweep_is_exactly("ROUNDUP(0.1 + 0.2, 1)", 0.3);
+            h::sweep_is_exactly("ROUND(1234.5678, -2)", 1200.0);
+            // 0.3 / 0.1 is 2.9999999999999996 in binary: 3 multiples, not 2
+            assert!((h::sweep_number("FLOOR(0.3, 0.1)") - 0.3).abs() < 1e-15);
+            h::sweep_fails("FLOOR(7.3, -1)", "#NUM!");
+            h::sweep_fails("CEILING(7.3, -2)", "#NUM!");
+            h::sweep_fails("FLOOR(7.3, 0)", "#DIV/0!");
+            h::sweep_is_exactly("CEILING(7.3, 0)", 0.0);
+            h::sweep_is_exactly("FLOOR(-7.3, -2)", -6.0);
+        }
+    }
 }

@@ -821,4 +821,30 @@ mod tests {
         let val = result.scalars.get("indirect_index").unwrap().value.unwrap();
         assert_eq!(val, 20.0);
     }
+
+    /// `ADDRESS` as Excel computes it: R1C1 brackets on the relative part,
+    /// `sheet_text`, and #VALUE! outside the sheet (it gave `$A$0`).
+    #[test]
+    fn address_matches_excel() {
+        let ctx = EvalContext::new();
+        for (formula, text) in [
+            ("ADDRESS(2, 3)", "$C$2"),
+            ("ADDRESS(2, 3, 2)", "C$2"),
+            ("ADDRESS(2, 3, 2, FALSE)", "R2C[3]"),
+            ("ADDRESS(2, 3, 3, FALSE)", "R[2]C3"),
+            ("ADDRESS(2, 3, 4, FALSE)", "R[2]C[3]"),
+            ("ADDRESS(1, 1, 1, TRUE, \"Sheet1\")", "Sheet1!$A$1"),
+            ("ADDRESS(1, 1, 1, TRUE, \"My Sheet\")", "'My Sheet'!$A$1"),
+            ("ADDRESS(2, 3, 1, FALSE, \"S\")", "S!R2C3"),
+        ] {
+            assert_eq!(
+                eval(formula, &ctx).unwrap(),
+                Value::Text(text.to_string()),
+                "{formula}"
+            );
+        }
+        for formula in ["ADDRESS(0, 1)", "ADDRESS(1048577, 1)", "ADDRESS(1, 1, 5)"] {
+            assert!(eval(formula, &ctx).is_err(), "{formula}");
+        }
+    }
 }
