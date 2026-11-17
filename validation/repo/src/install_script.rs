@@ -25,7 +25,7 @@ mod tests {
     fn prompts_are_the_text_blocks() {
         let doc = "intro\n```text\none\n```\nmore\n```text\ntwo\n```\n";
         assert_eq!(prompts(doc), ["one\n", "two\n"]);
-        assert!(prompts("no blocks").is_empty());
+        assert_eq!(prompts("no blocks"), [] as [&str; 0]);
     }
 
     #[test]
