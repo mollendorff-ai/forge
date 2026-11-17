@@ -170,8 +170,9 @@ tier1:
   # TIME, SEQUENCE, RANDARRAY, DB and PERCENTILE.EXC past an i32) and two
   # wrong answers (ISEVEN past 2^63, WORKDAY past the calendar), fixed test
   # first. Found on the way and not casts, so left for their own change:
-  # VLOOKUP and HLOOKUP ignore col_index and row_index
-  # (VLOOKUP(2, {1;2;3}, 5, FALSE) is 2, Excel #REF!); ROUND(x, -400) is
+  # VLOOKUP and HLOOKUP ignored col_index and row_index (fixed 2026-11-17:
+  # #VALUE! below 1, #REF! past the one column or row, and the approximate
+  # search is MATCH's); ROUND(x, -400) is
   # #NUM! (Gnumeric 0); DB with a fractional period cuts it (Gnumeric 0);
   # TIME(1, -30, 0) is 0:30 (Gnumeric #NUM!); HOUR(1E+20) is 0 (Gnumeric
   # #NUM!). Next: cast_precision_loss with its two Cargo.toml allows. 95
@@ -212,6 +213,12 @@ tier1:
     why: "Found 2026-11-16: docs/FEATURES.md, docs/FUNCTIONS.md, docs/MCP.md, docs/FPA-PREDICTION-METHODS.md and forge simulate --help list MC.Discrete(values, probabilities), but parse_distribution (src/monte_carlo/distributions.rs) has no branch for it: MC.Discrete(1, 0.5, 2, 0.5) gives 'Unknown distribution type: Discrete', and with array constants {1,2} or [1, 2] the arguments do not parse. Distribution::discrete exists, is checked, and is reached only from tests"
     how: "Decide the syntax (array constants, ADR-064, are the Excel way: MC.Discrete({1,2,3}, {0.2,0.5,0.3})) and parse it, with an example and a test against a hand calculation; or take MC.Discrete out of the five places that list it, until it is built"
     acceptance: "Either a model with MC.Discrete simulates and its probabilities are checked in a test, or no document or help text names it"
+
+  - id: T1-EQUAL-NEAR-ZERO
+    title: "Two numbers within 1E-10 of each other are equal in Forge, near zero too"
+    why: "Found 2026-11-17 by the generated HLOOKUP cases: values_equal (src/core/array_calculator/evaluator/operators.rs) compares numbers with an absolute tolerance of 1E-10, so -1E-12 = 0 is TRUE and MATCH(1E-12, {0,1}, 0) and VLOOKUP(1E-12, {0;1}, 1, FALSE) find 0, where LibreOffice 26.2 and Gnumeric 1.12 give FALSE and #N/A. For large numbers all three agree (1E+15 + 0.01 = 1E+15 is TRUE). The = operator, IF, the exact searches and COUNTIF-style criteria share it. validation/sweep/known.py (equal-near-zero) excuses the lookups until it is decided"
+    how: "Check in Excel how = and an exact MATCH compare numbers that differ in their last digits (0.1 + 0.2 = 0.3) and near zero (1E-12 = 0); decide a rule (exact, or relative to the larger of the two, as Excel's 15 digits suggest) in an ADR, and keep every example's result the same"
+    acceptance: "-1E-12 = 0 gives what Excel gives, the decision is written down, and the equal-near-zero rule in known.py is removed"
 
   - id: T1-SUPPLY-CHAIN
     title: "Workflow and dependency hygiene"

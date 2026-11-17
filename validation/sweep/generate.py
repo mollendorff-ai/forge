@@ -165,6 +165,11 @@ CATALOGUE = {
     "MATCH": (NUM, "sn scol c:0|1"), "XMATCH": (NUM, "sn anysorted ?c:0|-1|1 ?c:1|-1"),
     "XLOOKUP": (NUM, "sn scol col ?c:-1 ?c:0|-1|1 ?c:1|-1"), "INDEX": (NUM, "col i:0:9"), "CHOOSE": (NUM, "i:0:4 n n n"),
     "MATCHT": (NUM, "tpat tcol c:0"),
+    # One column or one row: the index is 1, below it #VALUE!, past it #REF!.
+    # HLOOKUP over a table column is written as its value (Excel's table would
+    # be a column), so it is judged over row constants only.
+    "VLOOKUP": (NUM, "sn scol i:0:2 ?c:TRUE|FALSE"),
+    "HLOOKUP": (NUM, "sn c:{-5,0,3,10,60}|{1,2,3}|{150} i:0:2 ?c:TRUE|FALSE"),
     # information
     "ISEVEN": (NUM, "n"), "ISODD": (NUM, "n"),
 }
