@@ -22,10 +22,10 @@ const BUDGET: [(&str, usize); 8] = [
     ("lint allow or expect attributes", 213),
     ("lints allowed in a Cargo.toml", 16),
     ("lint groups a crate does not enable", 2),
-    ("code compiled only for or only without coverage", 24),
+    ("code compiled only for or only without coverage", 8),
     ("ignored tests", 2),
     ("formatting skips", 0),
-    ("test files in a tests folder", 26),
+    ("test files in a tests folder", 9),
     ("test modules in a file of their own", 0),
 ];
 

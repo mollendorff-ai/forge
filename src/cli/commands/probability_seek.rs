@@ -295,4 +295,35 @@ mod tests {
             assert!(SeekGoal::parse(bad).is_err(), "{bad}");
         }
     }
+
+    mod printed_numbers {
+        //! The solution `forge simulate --seek` prints
+        //! follow `forge report`'s rule (Session Prompt part 1, item 5): two decimals
+        //! and thousands separators, four significant digits under 1, and money with
+        //! the sign before the `$`. JSON and files keep the raw numbers.
+
+        use crate::cli::forge;
+
+        #[test]
+        fn a_probability_seek_prints_the_solution_with_two_decimals() {
+            let text = forge(&[
+                "simulate",
+                "examples/bagel/bagel_simulate.yaml",
+                "--seek",
+                "P(year.profit > 0) = 0.8",
+                "--vary",
+                "price_per_dozen",
+                "--min",
+                "14",
+                "--max",
+                "24",
+            ])
+            .printed();
+            assert!(
+                text.contains("assumptions.price_per_dozen = 18.32\n"),
+                "{text}"
+            );
+            assert!(!text.contains("18.324083"), "{text}");
+        }
+    }
 }

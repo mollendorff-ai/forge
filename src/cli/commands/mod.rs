@@ -60,10 +60,9 @@ pub use update::update;
 pub use upgrade::upgrade;
 
 // Core function re-exports (return structured results, no printing)
-pub use analysis::{
-    compare_core, goal_seek_core, pct_is_meaningful, sensitivity_core, variance_core,
-};
+pub use analysis::{goal_seek_core, pct_is_meaningful, sensitivity_core, variance_core};
 pub use audit::audit_core;
+pub use compare::compare_core;
 pub use examples::examples_core;
 #[cfg(feature = "cli")]
 pub use excel_io::export_buffer_core;
@@ -1305,6 +1304,103 @@ mod tests {
                 assert!(r.error <= 0.0001);
                 assert!((r.solution - (target + 399_000.0) / 25_000.0).abs() < 1e-8);
             }
+        }
+    }
+
+    mod validate_gaps {
+        //! Two gaps `forge validate` had (T1-VALIDATE-GAPS): a table whose columns
+        //! have different lengths passed `validate` when no formula read it, and a scalar name
+        //! with a typo was reported as an unknown column with no suggestion.
+
+        use crate::cli::forge;
+        use std::path::Path;
+
+        const RAGGED: &str = r#"_forge_version: "5.1.0"
+sales:
+  month: [Jan, Feb, Mar]
+  units: [10, 20]
+"#;
+
+        const TYPO: &str = r#"_forge_version: "5.1.0"
+a:
+  prce: 100
+b:
+  total:
+    formula: "=a.price * 2"
+"#;
+
+        fn write(dir: &Path, name: &str, text: &str) -> String {
+            let path = dir.join(name);
+            std::fs::write(&path, text).expect("write");
+            path.to_string_lossy().into_owned()
+        }
+
+        #[test]
+        fn validate_refuses_a_table_with_columns_of_different_lengths() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "ragged.yaml", RAGGED);
+            let out = forge(&["validate", &file]);
+            let text = out.both();
+            assert_eq!(out.code, 1, "{text}");
+            assert!(!text.contains("All tables are valid"), "{text}");
+            assert!(text.contains("sales"), "names the table: {text}");
+            assert!(
+                text.contains("units") && text.contains("2 rows") && text.contains("3 rows"),
+                "names the column and both lengths: {text}"
+            );
+        }
+
+        #[test]
+        fn export_writes_a_table_with_columns_of_different_lengths_and_warns() {
+            // Columns of different lengths are ranges in the workbook (the Gnumeric
+            // suite's fixtures rely on it), so export warns instead of refusing.
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "ragged.yaml", RAGGED);
+            let output = dir.path().join("out.xlsx");
+            let out = forge(&["export", &file, output.to_str().expect("utf-8")]);
+            let text = out.both();
+            assert!(out.success(), "{text}");
+            assert!(output.exists(), "the workbook is written");
+            assert!(text.contains("units") && text.contains("2 rows"), "{text}");
+        }
+
+        #[test]
+        fn a_misspelled_scalar_suggests_the_closest_name() {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let file = write(dir.path(), "typo.yaml", TYPO);
+            let out = forge(&["validate", &file]);
+            let text = out.both();
+            assert_eq!(out.code, 1, "{text}");
+            assert!(text.contains("a.price"), "{text}");
+            assert!(
+                text.contains("a.prce"),
+                "suggests the name that exists: {text}"
+            );
+            assert!(
+                !text.contains("Unknown column"),
+                "it is a name, not a column: {text}"
+            );
+        }
+    }
+
+    mod printed_noise {
+        //! The bagel dry run printed `year.worst_month_profit = -7935.533406400002`:
+        //! binary rounding noise in the last digits. Numbers Forge prints have at
+        //! most 15 significant digits, as in Excel (`core::precision`).
+
+        use crate::cli::forge;
+
+        #[test]
+        fn the_bagel_dry_run_prints_the_worst_month_without_noise() {
+            let ran = forge(&["calculate", "examples/bagel/bagel.yaml", "--dry-run"]);
+            assert!(ran.success(), "{}", ran.both());
+            assert!(
+                ran.out
+                    .contains("year.worst_month_profit = -7935.5334064\n"),
+                "{}",
+                ran.out
+            );
+            assert!(!ran.out.contains("7935.533406400002"), "{}", ran.out);
         }
     }
 }

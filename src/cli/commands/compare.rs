@@ -7,6 +7,7 @@
 //! row per scenario when that needs fewer blocks (long scenario names). The
 //! numbers follow `forge report`'s rule, and so do the formats.
 
+use super::apply_scenario;
 use super::report::{
     csv_text, display_number, display_whole, markdown_text, shown_input, ReportFormat,
 };
@@ -14,6 +15,8 @@ use super::results::ComparisonResult;
 use crate::cli::console::{out, outln};
 use crate::cli::Console;
 use crate::core::precision::{to_15_digits, Rounded};
+use crate::core::ArrayCalculator;
+use crate::error::ForgeError;
 use crate::error::ForgeResult;
 use crate::parser;
 use colored::Colorize;
@@ -400,12 +403,82 @@ pub fn compare(
     out!(
         c,
         "{}",
-        render_comparison(&result, &inputs, format, terminal_width())
+        render_comparison(&result, &inputs, format, c.width)
     );
     if table {
         outln!(c, "\n{}", "✅ Comparison complete".bold().green());
     }
     Ok(())
+}
+
+/// Compare scenarios and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, a scenario does not exist,
+/// or calculation fails.
+pub fn compare_core(
+    file: &Path,
+    scenarios: &[String],
+) -> ForgeResult<crate::cli::commands::results::ComparisonResult> {
+    let base_model = parser::parse_model(file)?;
+
+    for scenario_name in scenarios {
+        if !base_model.scenarios.contains_key(scenario_name) {
+            let available: Vec<_> = base_model.scenarios.keys().collect();
+            return Err(ForgeError::Validation(format!(
+                "Scenario '{scenario_name}' not found. Available: {available:?}"
+            )));
+        }
+    }
+
+    let mut results: Vec<(String, crate::types::ParsedModel)> = Vec::new();
+    for scenario_name in scenarios {
+        let mut model = base_model.clone();
+        apply_scenario(&mut model, scenario_name)?;
+        let calculator = ArrayCalculator::new(model);
+        let calculated = calculator.calculate_all()?;
+        results.push((scenario_name.clone(), calculated));
+    }
+
+    // Model order, the same on every run
+    let mut all_scalars: Vec<String> = Vec::new();
+    for name in results.iter().flat_map(|(_, m)| m.scalars.keys()) {
+        if !all_scalars.contains(name) {
+            all_scalars.push(name.clone());
+        }
+    }
+
+    let mut values = indexmap::IndexMap::new();
+    let mut dates = std::collections::BTreeSet::new();
+    for scalar_name in &all_scalars {
+        let mut scenario_values = indexmap::IndexMap::new();
+        for (scenario_name, result_model) in &results {
+            let scalar = result_model.scalars.get(scalar_name);
+            if scalar.is_some_and(|v| v.is_date) {
+                dates.insert(scalar_name.clone());
+            }
+            scenario_values.insert(scenario_name.clone(), scalar.and_then(|v| v.value));
+        }
+        values.insert(scalar_name.clone(), scenario_values);
+    }
+
+    let descriptions = scenarios
+        .iter()
+        .filter_map(|name| {
+            let text = base_model.scenarios.get(name)?.description.clone()?;
+            Some((name.clone(), text))
+        })
+        .collect();
+
+    Ok(crate::cli::commands::results::ComparisonResult {
+        scenarios: scenarios.to_vec(),
+        variables: all_scalars,
+        values,
+        descriptions,
+        dates,
+        formats: crate::cli::commands::scalar_formats(&base_model),
+    })
 }
 
 #[cfg(test)]
@@ -621,6 +694,78 @@ mod tests {
             // No description, no legend and no field
             let plain = render_comparison(&eight(), &inputs(), ReportFormat::Json, None);
             assert!(!plain.contains("descriptions"));
+        }
+    }
+
+    mod command_line {
+        //! `forge compare` on the command line: the formats and the width of the
+        //! table (Session Prompt, compare column overflow).
+
+        use crate::cli::forge_at_width;
+
+        const MODEL: &str = r#"_forge_version: "5.1.0"
+living:
+  rent: 1200
+  total: {formula: "=living.rent + 450.5"}
+bankruptcy:
+  income: 3100
+  monthly_surplus_payment: {formula: "=MAX(0, (bankruptcy.income - living.total) * 0.5)"}
+scenarios:
+  rent_1100_prosupport_recognized:
+    probability: 0.5
+    scalars: {living.rent: 1100}
+  rent_1500_prosupport_not_recognized:
+    probability: 0.5
+    scalars: {living.rent: 1500, bankruptcy.income: 2800}
+"#;
+
+        const BOTH: &str = "rent_1100_prosupport_recognized,rent_1500_prosupport_not_recognized";
+
+        /// `forge compare` of both scenarios on a terminal `columns` wide
+        fn run(dir: &std::path::Path, columns: usize, args: &[&str]) -> String {
+            let file = dir.join("m.yaml");
+            std::fs::write(&file, MODEL).unwrap();
+            let mut all = vec!["compare", file.to_str().unwrap(), "--scenarios", BOTH];
+            all.extend(args);
+            let ran = forge_at_width(Some(columns), &all);
+            assert!(ran.success(), "{}", ran.err);
+            ran.out
+        }
+
+        #[test]
+        fn csv_is_the_numbers_alone_at_full_precision() {
+            let dir = tempfile::tempdir().unwrap();
+            // (3100 - 1550.5) * 0.5 = 774.75 and (2800 - 1950.5) * 0.5 = 424.75
+            assert_eq!(
+                run(dir.path(), 40, &["--format", "csv"]),
+                "variable,rent_1100_prosupport_recognized,rent_1500_prosupport_not_recognized\n\
+         living.rent,1100,1500\n\
+         living.total,1550.5,1950.5\n\
+         bankruptcy.income,3100,2800\n\
+         bankruptcy.monthly_surplus_payment,774.75,424.75\n"
+            );
+        }
+
+        #[test]
+        fn the_table_fits_the_terminal() {
+            let dir = tempfile::tempdir().unwrap();
+            let wide = run(dir.path(), 200, &[]);
+            assert!(wide
+                .contains("rent_1100_prosupport_recognized  rent_1500_prosupport_not_recognized"));
+            // 34 + 2 + 31 + 2 + 35 = 104 characters: two blocks in 80
+            let narrow = run(dir.path(), 80, &[]);
+            assert_eq!(narrow.matches("\nvariable ").count(), 2, "{narrow}");
+            let table: Vec<&str> = narrow
+                .lines()
+                .filter(|l| {
+                    l.starts_with("variable") || l.starts_with("scenario") || l.contains('.')
+                })
+                .filter(|l| !l.contains("File:") && !l.contains("Scenarios:"))
+                .collect();
+            assert!(!table.is_empty(), "{narrow}");
+            for line in table {
+                assert!(line.chars().count() <= 80, "{line}\n{narrow}");
+            }
         }
     }
 }
