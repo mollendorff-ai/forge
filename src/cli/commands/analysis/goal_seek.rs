@@ -331,4 +331,32 @@ mod tests {
             );
         }
     }
+
+    mod microgrid_break_even {
+        //! examples/microgrid: the diesel price at which the island's microgrid
+        //! is worth nothing. The `run` of the Python in prediction/scenarios.rs
+        //! (`microgrid_example`), bisected on the price: 0.5840419536912178.
+
+        use crate::cli::goal_seek_core;
+        use std::path::Path;
+
+        #[test]
+        fn diesel_would_have_to_fall_to_58_cents() {
+            let result = goal_seek_core(
+                Path::new("examples/microgrid/microgrid.yaml"),
+                "verdict.project_npv",
+                0.0,
+                "fuel.diesel_price",
+                (Some(0.1), Some(1.45)),
+                0.0001,
+            )
+            .unwrap();
+            assert!(result.converged);
+            assert!(
+                (result.solution - 0.584_041_953_691_217_8).abs() <= 1e-6,
+                "{}",
+                result.solution
+            );
+        }
+    }
 }
