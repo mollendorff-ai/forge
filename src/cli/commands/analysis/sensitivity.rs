@@ -7,6 +7,7 @@ use crate::core::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use colored::Colorize;
+use num_traits::ToPrimitive;
 use std::path::Path;
 
 use crate::cli::commands::display_number;
@@ -48,9 +49,12 @@ pub fn parse_range(range: &str) -> ForgeResult<Vec<f64>> {
     }
 
     // Use integer step count to avoid while-float comparison
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    // step count is always a small positive number
-    let num_steps = ((end - start) / step + 1.001).floor() as usize;
+    let num_steps = ((end - start) / step + 1.001)
+        .floor()
+        .to_usize()
+        .ok_or_else(|| {
+            ForgeError::Validation(format!("The range {range} has too many steps to calculate"))
+        })?;
     #[allow(clippy::cast_precision_loss)] // step index is always small enough for f64
     let values: Vec<f64> = (0..num_steps)
         .map(|i| step.mul_add(i as f64, start))
@@ -463,6 +467,19 @@ fn run_two_var_sensitivity(
 
 #[cfg(test)]
 mod tests {
+    use super::parse_range;
+
+    #[test]
+    fn a_range_with_more_steps_than_can_be_counted_is_refused() {
+        assert_eq!(parse_range("0,1,0.5").unwrap(), [0.0, 0.5, 1.0]);
+        for range in ["0,1e300,1e-300", "0,inf,1"] {
+            let err = parse_range(range).unwrap_err().to_string();
+            assert!(
+                err.contains(&format!("The range {range} has too many steps")),
+                "{err}"
+            );
+        }
+    }
 
     mod date_inputs {
         //! `forge sensitivity` refuses a date input however it is asked for (ADR-060):

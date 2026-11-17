@@ -1344,6 +1344,7 @@ dependencies = [
  "libc",
  "notify",
  "notify-debouncer-mini",
+ "num-traits",
  "petgraph",
  "predicates",
  "pretty_assertions",

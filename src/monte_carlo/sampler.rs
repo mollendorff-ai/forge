@@ -159,6 +159,7 @@ impl SampleStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use num_traits::ToPrimitive;
     use std::str::FromStr;
 
     #[test]
@@ -207,12 +208,11 @@ mod tests {
         let n = samples.len();
         let mut stratum_counts = vec![0; n];
         for &sample in &samples {
-            // cast_possible_truncation: stratum index is in [0, n) by construction
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            let stratum = (sample * n as f64).floor() as usize;
-            if stratum < n {
-                stratum_counts[stratum] += 1;
-            }
+            let stratum = (sample * n as f64)
+                .floor()
+                .to_usize()
+                .expect("a draw in 0..1");
+            stratum_counts[stratum] += 1;
         }
         // Each stratum should have approximately 1 sample
         // (May not be exactly 1 due to floating point)

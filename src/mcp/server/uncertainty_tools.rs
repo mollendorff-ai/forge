@@ -5,6 +5,7 @@ use super::{to_json, ForgeMcpServer};
 use crate::mcp::types::{
     BayesianRequest, BootstrapRequest, DecisionTreeRequest, RealOptionsRequest, SimulateRequest,
 };
+use num_traits::ToPrimitive;
 
 use crate::inline_model::resolve_model_input;
 use rmcp::handler::server::wrapper::Parameters;
@@ -27,12 +28,12 @@ fn compact_bootstrap(result: &crate::bootstrap::BootstrapResult) -> serde_json::
         map.remove("distribution");
         if !sorted.is_empty() {
             let at = |p: f64| {
-                #[allow(
-                    clippy::cast_possible_truncation,
-                    clippy::cast_sign_loss,
-                    clippy::cast_precision_loss
-                )]
-                let i = ((p * (sorted.len() - 1) as f64).round() as usize).min(sorted.len() - 1);
+                #[allow(clippy::cast_precision_loss)]
+                let i = (p * (sorted.len() - 1) as f64)
+                    .round()
+                    .to_usize()
+                    .unwrap_or(0)
+                    .min(sorted.len() - 1);
                 sorted[i]
             };
             let percentiles: Vec<serde_json::Value> = [1, 5, 10, 25, 50, 75, 90, 95, 99]
@@ -65,9 +66,7 @@ impl ForgeMcpServer {
             req.content.as_deref(),
             req.includes.as_ref(),
         )?;
-        // MCP iteration counts are always small, saturating cast is safe
-        #[allow(clippy::cast_possible_truncation)]
-        let iterations = req.iterations.map(|n| n as usize);
+        let iterations = req.iterations;
 
         let outputs = req.outputs.unwrap_or_default();
         if req.seek.is_some() && !outputs.is_empty() {
@@ -151,8 +150,7 @@ impl ForgeMcpServer {
             req.content.as_deref(),
             req.includes.as_ref(),
         )?;
-        #[allow(clippy::cast_possible_truncation)]
-        let iterations = req.iterations.map(|n| n as usize);
+        let iterations = req.iterations;
 
         let result = bootstrap_core(&path, iterations, req.seed, req.confidence_levels)
             .map_err(|e| format!("Bootstrap analysis failed: {e}"))?;

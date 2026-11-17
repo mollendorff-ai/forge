@@ -88,6 +88,9 @@ required-features = ["cli"]
 
 
 [dependencies]
+# Checked conversions from a float to an integer (`ToPrimitive`), which `as`
+# would saturate: already in the tree through statrs
+num-traits = "0.2.19"
 # YAML parsing
 serde = { version = "1.0", features = ["derive"] }
 yaml_serde = "0.10"

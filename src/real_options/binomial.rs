@@ -17,7 +17,7 @@ pub struct BinomialTree {
     /// Time to maturity (years)
     pub maturity: f64,
     /// Number of time steps
-    pub steps: usize,
+    pub steps: u16,
     /// Dividend yield (continuous)
     pub dividend_yield: f64,
 }
@@ -40,7 +40,7 @@ impl BinomialTree {
         rate: f64,
         volatility: f64,
         maturity: f64,
-        steps: usize,
+        steps: u16,
     ) -> Self {
         Self {
             spot,
@@ -61,10 +61,13 @@ impl BinomialTree {
     }
 
     /// Calculate time step
-    // Truncation is mathematically impossible: steps is bounded by practical tree sizes (< 2^52)
-    #[allow(clippy::cast_precision_loss)]
     fn dt(&self) -> f64 {
-        self.maturity / self.steps as f64
+        self.maturity / f64::from(self.steps)
+    }
+
+    /// The price at a node `ups` moves up and `downs` moves down from now
+    fn spot_at(&self, (u, d): (f64, f64), ups: u16, downs: u16) -> f64 {
+        self.spot * u.powi(i32::from(ups)) * d.powi(i32::from(downs))
     }
 
     /// Calculate up factor
@@ -104,19 +107,16 @@ impl BinomialTree {
     }
 
     /// General option pricing using backward induction
-    // Truncation is mathematically impossible: step indices are bounded by self.steps (< 2^31)
-    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
     fn price_option(&self, is_call: bool, style: OptionStyle) -> f64 {
         let n = self.steps;
-        let u = self.up();
-        let d = self.down();
+        let moves = (self.up(), self.down());
         let p = self.prob_up();
         let disc = self.discount();
 
         // Build terminal payoffs
-        let mut prices = vec![0.0; n + 1];
-        for (i, price) in prices.iter_mut().enumerate() {
-            let spot_t = self.spot * u.powi(i as i32) * d.powi((n - i) as i32);
+        let mut prices = vec![0.0; usize::from(n) + 1];
+        for (i, price) in (0..=n).zip(prices.iter_mut()) {
+            let spot_t = self.spot_at(moves, i, n - i);
             *price = if is_call {
                 (spot_t - self.strike).max(0.0)
             } else {
@@ -127,20 +127,21 @@ impl BinomialTree {
         // Backward induction
         for step in (0..n).rev() {
             for i in 0..=step {
+                let at = usize::from(i);
                 // Continuation value
-                let hold = disc * p.mul_add(prices[i + 1], (1.0 - p) * prices[i]);
+                let hold = disc * p.mul_add(prices[at + 1], (1.0 - p) * prices[at]);
 
                 if style == OptionStyle::American {
                     // Early exercise value
-                    let spot_t = self.spot * u.powi(i as i32) * d.powi((step - i) as i32);
+                    let spot_t = self.spot_at(moves, i, step - i);
                     let exercise = if is_call {
                         (spot_t - self.strike).max(0.0)
                     } else {
                         (self.strike - spot_t).max(0.0)
                     };
-                    prices[i] = hold.max(exercise);
+                    prices[at] = hold.max(exercise);
                 } else {
-                    prices[i] = hold;
+                    prices[at] = hold;
                 }
             }
         }
@@ -225,28 +226,20 @@ impl BinomialTree {
     }
 
     /// Get early exercise boundary (for American options)
-    // Truncation is mathematically impossible: step indices are bounded by self.steps (< 2^31)
-    // Truncation is mathematically impossible: step indices are bounded by self.steps (< 2^31)
-    #[allow(
-        clippy::cast_possible_truncation,
-        clippy::cast_possible_wrap,
-        clippy::cast_precision_loss
-    )]
     #[must_use]
     pub fn early_exercise_boundary(&self, is_call: bool) -> Vec<(f64, f64)> {
         let n = self.steps;
         let dt = self.dt();
-        let u = self.up();
-        let d = self.down();
+        let moves = (self.up(), self.down());
         let p = self.prob_up();
         let disc = self.discount();
 
         let mut boundary = Vec::new();
 
         // Build terminal payoffs
-        let mut prices = vec![0.0; n + 1];
-        for (i, price) in prices.iter_mut().enumerate() {
-            let spot_t = self.spot * u.powi(i as i32) * d.powi((n - i) as i32);
+        let mut prices = vec![0.0; usize::from(n) + 1];
+        for (i, price) in (0..=n).zip(prices.iter_mut()) {
+            let spot_t = self.spot_at(moves, i, n - i);
             *price = if is_call {
                 (spot_t - self.strike).max(0.0)
             } else {
@@ -256,12 +249,13 @@ impl BinomialTree {
 
         // Backward induction with boundary tracking
         for step in (0..n).rev() {
-            let time = step as f64 * dt;
+            let time = f64::from(step) * dt;
             let mut exercise_at = None;
 
             for i in 0..=step {
-                let hold = disc * p.mul_add(prices[i + 1], (1.0 - p) * prices[i]);
-                let spot_t = self.spot * u.powi(i as i32) * d.powi((step - i) as i32);
+                let at = usize::from(i);
+                let hold = disc * p.mul_add(prices[at + 1], (1.0 - p) * prices[at]);
+                let spot_t = self.spot_at(moves, i, step - i);
                 let exercise = if is_call {
                     (spot_t - self.strike).max(0.0)
                 } else {
@@ -272,7 +266,7 @@ impl BinomialTree {
                     exercise_at = Some(spot_t);
                 }
 
-                prices[i] = hold.max(exercise);
+                prices[at] = hold.max(exercise);
             }
 
             if let Some(spot_boundary) = exercise_at {

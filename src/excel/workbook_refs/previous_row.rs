@@ -13,6 +13,7 @@
 
 use super::local_names::Locals;
 use super::{matching_paren, split_arguments, Context, Token, WorkbookRefs};
+use num_traits::ToPrimitive;
 
 impl WorkbookRefs {
     /// Translate `PREV(value, first, [back])` whose name is `tokens[at]`.
@@ -34,11 +35,17 @@ impl WorkbookRefs {
         let Context::Row { table, row } = ctx else {
             return Err("PREV works only in a row formula".into());
         };
-        let back = match args.get(2) {
+        // A whole number of rows back, from 1 to 999,999
+        let rows_back = |arg: &[Token]| match arg {
+            [Token::Number(n)] if n.fract() == 0.0 => {
+                n.to_u32().filter(|b| (1..1_000_000).contains(b))
+            },
+            _ => None,
+        };
+        let back = match args.get(2).map(|arg| rows_back(arg)) {
             None => 1,
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            Some([Token::Number(n)]) if *n >= 1.0 && n.fract() == 0.0 && *n < 1e6 => *n as u32,
-            Some(_) => {
+            Some(Some(back)) => back,
+            Some(None) => {
                 return Err(
                     "PREV with a calculated number of rows back has no Excel form Forge writes"
                         .into(),
@@ -92,6 +99,19 @@ mod tests {
         refs()
             .to_excel(formula, Context::Row { table: "t", row })
             .map(|t| t.formula)
+    }
+
+    #[test]
+    fn the_rows_back_are_a_whole_number_from_1_to_999999() {
+        assert!(row("=PREV(closing, 0, 999999)", 2).is_ok());
+        assert!(row("=PREV(closing, 0, 1)", 3).is_ok());
+        for back in ["1000000", "0", "2.5", "-1", "4294967297"] {
+            let err = row(&format!("=PREV(closing, 0, {back})"), 2).unwrap_err();
+            assert!(
+                err.contains("calculated number of rows back"),
+                "{back}: {err}"
+            );
+        }
     }
 
     #[test]

@@ -128,8 +128,7 @@ pub struct WorkbookRefs {
 pub fn column_letter(mut index: usize) -> String {
     let mut letters = Vec::new();
     loop {
-        #[allow(clippy::cast_possible_truncation)] // index % 26 < 26
-        letters.push((b'A' + (index % 26) as u8) as char);
+        letters.push(char::from(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"[index % 26]));
         if index < 26 {
             break;
         }
@@ -188,9 +187,7 @@ impl WorkbookRefs {
             groups.entry(sheet.to_string()).or_default().push(path);
         }
         for (sheet, paths) in groups {
-            for (i, path) in paths.into_iter().enumerate() {
-                #[allow(clippy::cast_possible_truncation)] // far below u32::MAX scalars
-                let row = (i + 2) as u32;
+            for (row, path) in (2u32..=u32::MAX).zip(paths) {
                 refs.scalars.insert(path.to_string(), (sheet.clone(), row));
             }
         }
@@ -203,9 +200,7 @@ impl WorkbookRefs {
     /// order given, the layout `ExcelExporter` writes for an include.
     pub fn add_include<'a>(&mut self, namespace: &str, paths: impl IntoIterator<Item = &'a str>) {
         let sheet = include_sheet(namespace);
-        for (i, path) in paths.into_iter().enumerate() {
-            #[allow(clippy::cast_possible_truncation)] // far below u32::MAX scalars
-            let row = (i + 2) as u32;
+        for (row, path) in (2u32..=u32::MAX).zip(paths) {
             self.scalars
                 .insert(format!("@{namespace}.{path}"), (sheet.clone(), row));
         }
@@ -326,9 +321,7 @@ impl WorkbookRefs {
             refs.sheets
                 .insert(table.clone(), format!("{namespace}.{table}"));
         }
-        for (i, path) in paths.into_iter().enumerate() {
-            #[allow(clippy::cast_possible_truncation)] // far below u32::MAX scalars
-            let row = (i + 2) as u32;
+        for (row, path) in (2u32..=u32::MAX).zip(paths) {
             refs.scalars.insert(path.to_string(), (sheet.clone(), row));
         }
         refs

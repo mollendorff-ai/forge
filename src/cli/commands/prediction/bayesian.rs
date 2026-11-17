@@ -7,6 +7,7 @@ use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
 use crate::parser;
 use colored::Colorize;
+use num_traits::ToPrimitive;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -232,9 +233,8 @@ fn print_bayesian_var_result(
         .iter()
         .zip(var_result.probabilities.iter())
     {
-        // Truncation/sign-loss impossible: prob is in 0.0..=1.0, result in 0.0..=30.0
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let bar_width = (prob * 30.0) as usize;
+        // A probability is 0 to 1, so 0 to 30 characters; never under 1
+        let bar_width = (prob * 30.0).to_usize().unwrap_or(0);
         let bar = "█".repeat(bar_width.max(1));
         outln!(
             c,

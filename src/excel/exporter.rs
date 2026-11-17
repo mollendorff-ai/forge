@@ -205,7 +205,6 @@ impl ExcelExporter {
     }
 
     /// Export a single table to a worksheet
-    #[allow(clippy::cast_possible_truncation)] // column count and row count are within u16/u32 Excel limits
     /// Write a table to its sheet. `names` is (the sheet, the table's name in
     /// `refs`); they differ for a table of an included file.
     fn export_table(
@@ -252,12 +251,11 @@ impl ExcelExporter {
             }
         }
 
-        // Write data rows (starting at row 1)
-        for row_idx in 0..row_count {
-            let excel_row = (row_idx + 1) as u32 + 1; // Excel row of this data row (header is row 1)
-
-            for (col_idx, col_name) in column_names.iter().enumerate() {
-                let col = col_idx as u16;
+        // Write data rows (starting at row 1). `excel_row` is the row as Excel
+        // numbers it (the header is row 1); past Excel's limits the writer
+        // refuses the cell, long before the counters end.
+        for (row_idx, excel_row) in (0..row_count).zip(2u32..=u32::MAX) {
+            for (col, col_name) in (0u16..=u16::MAX).zip(&column_names) {
                 let formula = table.row_formulas.get(col_name);
                 if let (Some(formula), None) = (formula, untranslatable.get(col_name.as_str())) {
                     let ctx = Context::Row {

@@ -4,6 +4,7 @@
 use crate::error::{ForgeError, ForgeResult};
 use crate::excel::ExcelImporter;
 use crate::parser;
+use num_traits::ToPrimitive;
 // Printing the commands belongs to the command line (feature `cli`)
 use std::fmt::Write as _;
 use std::fs;
@@ -102,11 +103,12 @@ fn tables_to_value(
 
 /// A number as YAML: `16`, not `16.0`, when it is a whole number.
 fn number(n: f64) -> yaml_serde::Value {
-    #[allow(clippy::cast_possible_truncation)] // whole and in range
-    if n.fract() == 0.0 && n.abs() < 1e15 {
-        return yaml_serde::Value::Number((n as i64).into());
+    match n.to_i64() {
+        Some(whole) if n.fract() == 0.0 && n.abs() < 1e15 => {
+            yaml_serde::Value::Number(whole.into())
+        },
+        _ => yaml_serde::Value::Number(n.into()),
     }
-    yaml_serde::Value::Number(n.into())
 }
 
 /// Scalars in model format 5.1.0 (ADR-051): an input as a plain number, a
@@ -699,6 +701,19 @@ mod import_output_tests {
 
 #[cfg(test)]
 mod tests {
+    use super::number;
+
+    #[test]
+    fn a_whole_number_below_1e15_is_written_as_an_integer() {
+        assert_eq!(number(16.0), yaml_serde::Value::Number(16.into()));
+        assert_eq!(number(-3.0), yaml_serde::Value::Number((-3).into()));
+        assert_eq!(
+            number(999_999_999_999_999.0),
+            yaml_serde::Value::Number(999_999_999_999_999_i64.into())
+        );
+        assert_eq!(number(1e15), yaml_serde::Value::Number(1e15.into()));
+        assert_eq!(number(2.5), yaml_serde::Value::Number(2.5.into()));
+    }
 
     mod included_files {
         //! `forge import` says which included file it wrote (the end-to-end pass of
