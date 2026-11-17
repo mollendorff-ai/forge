@@ -5,6 +5,7 @@ use super::{collect_numeric_values, evaluate, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::day_count::{self, Basis};
 use crate::core::array_calculator::evaluator::{number_or, parse_date_value};
+use num_traits::ToPrimitive;
 
 /// Return an error unless the cash flows contain both signs.
 ///
@@ -237,16 +238,9 @@ fn dated_cash_flows(
 }
 
 /// Try to evaluate a financial function. Returns None if function not recognized.
-#[allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss,
-    clippy::cast_possible_wrap,
-    clippy::too_many_lines
-)]
-// Financial functions cast f64 period counts/rates to i32 — values are small bounded integers.
-// Array lengths cast to f64 for arithmetic are bounded well within f64 mantissa.
-// Splitting this 600-line match would fragment the function dispatch table.
+#[allow(clippy::cast_precision_loss, clippy::too_many_lines)]
+// A count of cash flows becomes a number. Splitting this 600-line match would
+// fragment the function dispatch table.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -337,10 +331,10 @@ pub fn try_evaluate(
             require_sign_change("IRR", &values)?;
             let scale: f64 = values.iter().map(|v| v.abs()).sum();
             let rate = solve_rate("IRR", guess, scale, |rate| {
-                values
-                    .iter()
-                    .enumerate()
-                    .map(|(i, cf)| cf / (1.0 + rate).powi(i as i32))
+                // Each cash flow's period, counted in an i32 for powi
+                (0..=i32::MAX)
+                    .zip(&values)
+                    .map(|(i, cf)| cf / (1.0 + rate).powi(i))
                     .sum()
             })?;
             Value::Number(rate)
@@ -526,10 +520,19 @@ pub fn try_evaluate(
             let mut depreciation = 0.0;
             let mut remaining = cost;
 
-            for p in 1..=(period as i32) {
+            // Whole periods, as the period is cut; the part year after the
+            // life is the one past its whole years. A period no i32 holds
+            // needs a life of as many years (#NUM!).
+            let Some(periods) = period.to_i32() else {
+                return Err(EvalError::new(format!(
+                    "#NUM!: DB: period {period} is more than it counts"
+                )));
+            };
+            let part_year = life.to_i64().map(|years| years + 1);
+            for p in 1..=periods {
                 if p == 1 {
                     depreciation = cost * rate * month / 12.0;
-                } else if p == (life as i32 + 1) {
+                } else if Some(i64::from(p)) == part_year {
                     depreciation = remaining * rate * (12.0 - month) / 12.0;
                 } else {
                     depreciation = remaining * rate;
@@ -598,14 +601,14 @@ pub fn try_evaluate(
             let mut npv_neg = 0.0;
             let mut npv_pos = 0.0;
 
-            for (i, &cf) in values.iter().enumerate() {
+            // Each cash flow's period and the periods after it to the last,
+            // counted in an i32 for powi
+            let last = i32::try_from(values.len() - 1).unwrap_or(i32::MAX);
+            for (i, &cf) in (0..=last).zip(&values) {
                 if cf < 0.0 {
-                    npv_neg += cf / (1.0 + finance_rate).powi(i as i32);
+                    npv_neg += cf / (1.0 + finance_rate).powi(i);
                 } else {
-                    npv_pos = cf.mul_add(
-                        (1.0 + reinvest_rate).powi((n - 1.0 - i as f64) as i32),
-                        npv_pos,
-                    );
+                    npv_pos = cf.mul_add((1.0 + reinvest_rate).powi(last - i), npv_pos);
                 }
             }
 
@@ -1392,5 +1395,31 @@ mod tests {
             h::exactly("CUMPRINC(0.05, 30, 1000, 1, 30, 1)", -1000.0);
             h::exactly("RATE(276, -100, 1E15)", -0.095_099_553_259_213_3);
         }
+    }
+
+    /// A life of 3E+9 years made `life + 1` overflow an i32 in DB's loop, a
+    /// crash; its rate rounds to 0.000, so Gnumeric gives 0. A period no i32
+    /// holds is #NUM!.
+    #[test]
+    fn db_counts_its_periods_past_any_i32_life() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("DB(1000, 100, 3E+9, 2)", 0.0);
+        h::is_exactly("DB(1000, 100, 5, 2)", 232.839);
+        h::fails_with("DB(1000, 100, 1E+10, 1E+10)", "#NUM!");
+    }
+
+    /// Negative cash flows are discounted at the finance rate, positive ones
+    /// grown at the reinvestment rate; Gnumeric's MIRR
+    #[test]
+    fn mirr_takes_each_side_at_its_rate() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        assert!(h::near(
+            h::number("MIRR({-100, 50, 60}, 0.1, 0.12)"),
+            0.077_032_961_426_900_75
+        ));
+        assert!(h::near(
+            h::number("MIRR({-100, -20, 50, 80}, 0.1, 0.12)"),
+            0.047_923_099_669_167_3
+        ));
     }
 }

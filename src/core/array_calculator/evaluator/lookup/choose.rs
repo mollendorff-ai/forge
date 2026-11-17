@@ -1,11 +1,9 @@
 //! CHOOSE function implementation
 
-// Choose casts: f64 index to usize (bounded, 1-based choice index).
-#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, EvalContext, EvalError, Expr, Value,
 };
+use num_traits::ToPrimitive;
 
 /// Evaluate CHOOSE function
 /// CHOOSE(index, value1, [value2], ...)
@@ -14,12 +12,13 @@ pub fn eval_choose(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError>
     require_args_range("CHOOSE", args, 2, 255)?;
     let index = evaluate(&args[0], ctx)?
         .as_cell_number()
-        .ok_or_else(|| EvalError::new("CHOOSE index must be a number"))? as usize;
+        .ok_or_else(|| EvalError::new("CHOOSE index must be a number"))?;
 
-    if index < 1 || index >= args.len() {
+    // From 1 to the number of values, cut to a whole number
+    let Some(at) = index.to_usize().filter(|&at| (1..args.len()).contains(&at)) else {
         return Err(EvalError::new(format!("CHOOSE index {index} out of range")));
-    }
-    evaluate(&args[index], ctx)
+    };
+    evaluate(&args[at], ctx)
 }
 
 #[cfg(test)]
@@ -229,5 +228,24 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         assert_eq!(result.scalars.get("result").unwrap().value, Some(4.0));
+    }
+
+    /// An index from 1 to the number of values, cut to a whole number
+    #[test]
+    fn an_index_is_a_whole_number_among_the_values() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        assert_eq!(h::text("CHOOSE(1.9, \"a\", \"b\")"), "a");
+        assert_eq!(h::text("CHOOSE(2.9, \"a\", \"b\")"), "b");
+        h::fails_with("CHOOSE(0.5, \"a\", \"b\")", "index 0.5 out of range");
+        h::fails_with("CHOOSE(3, \"a\", \"b\")", "out of range");
+        h::fails_with("CHOOSE(-1, \"a\", \"b\")", "out of range");
+        h::fails_with("CHOOSE(1E+20, \"a\", \"b\")", "out of range");
+    }
+
+    /// Text where a number goes, or an argument that is an error, is an error
+    #[test]
+    fn an_argument_that_is_no_number_fails() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::fails_with("CHOOSE(\"x\", 1, 2)", "index must be a number");
     }
 }

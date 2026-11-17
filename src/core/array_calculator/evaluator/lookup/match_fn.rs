@@ -1,12 +1,13 @@
 //! MATCH and XMATCH function implementations
 
-// Match casts: f64 match type to i32, array position to f64 (small bounded integers).
-#![allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+// A place in the array becomes a number.
+#![allow(clippy::cast_precision_loss)]
 
 use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, values_equal, EvalContext, EvalError, Expr, Value,
 };
 use crate::core::array_calculator::evaluator::{excel_date_serial, number_or, wildcard};
+use num_traits::ToPrimitive;
 
 /// Evaluate MATCH function
 /// `MATCH(lookup_value`, `lookup_array`, [`match_type`])
@@ -161,19 +162,17 @@ pub(super) fn xmatch_index(
     match_mode: f64,
     search_mode: f64,
 ) -> Result<Option<usize>, EvalError> {
-    let match_mode = match_mode.trunc();
-    let search_mode = search_mode.trunc();
-    if ![-1.0, 0.0, 1.0, 2.0].contains(&match_mode) {
+    // Each cut to a whole number, as Excel cuts them
+    let Some(match_mode) = match_mode.to_i8().filter(|m| [-1, 0, 1, 2].contains(m)) else {
         return Err(EvalError::new(format!(
             "#VALUE!: {name}: match_mode must be 0, -1, 1 or 2, not {match_mode}"
         )));
-    }
-    if ![-2.0, -1.0, 1.0, 2.0].contains(&search_mode) {
+    };
+    let Some(search_mode) = search_mode.to_i8().filter(|s| [-2, -1, 1, 2].contains(s)) else {
         return Err(EvalError::new(format!(
             "#VALUE!: {name}: search_mode must be 1, -1, 2 or -2, not {search_mode}"
         )));
-    }
-    let (match_mode, search_mode) = (match_mode as i32, search_mode as i32);
+    };
     // Positions in the order they are searched
     let order: Vec<usize> = if search_mode == -1 {
         (0..arr.len()).rev().collect()
@@ -749,5 +748,18 @@ mod tests {
                 2.0
             );
         }
+    }
+
+    /// The modes are cut to whole numbers, as Excel cuts them
+    #[test]
+    fn the_modes_are_whole_numbers() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[("v", h::numbers(&[10.0, 20.0, 30.0, 20.0]))]);
+        h::is_exactly_in("XMATCH(20, t.v, 0.9)", &ctx, 2.0);
+        h::is_exactly_in("XMATCH(20, t.v, 0, -1.5)", &ctx, 4.0);
+        h::is_exactly_in("XMATCH(25, t.v, 1.5)", &ctx, 3.0);
+        assert!(h::error_in("XMATCH(20, t.v, 1E+20)", &ctx).contains("match_mode"));
+        assert!(h::error_in("XMATCH(20, t.v, 0, 1E+20)", &ctx).contains("search_mode"));
+        assert!(h::error_in("XMATCH(20, t.v, 0, 0.5)", &ctx).contains("not 0.5"));
     }
 }

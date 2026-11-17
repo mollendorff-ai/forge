@@ -1,14 +1,11 @@
 //! Search functions: FIND, SEARCH
 
-// Text search casts: char position indices between f64 and usize (bounded by string length).
-#![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss
-)]
+// A place in the text becomes a number.
+#![allow(clippy::cast_precision_loss)]
 
 use super::super::{evaluate, require_args_range, EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::{number_or, wildcard};
+use num_traits::ToPrimitive;
 
 /// The 0-based character position to start at, from an optional 1-based
 /// `start_num`: #VALUE! below 1 or past the end of the text, as in Excel.
@@ -28,7 +25,8 @@ fn start_index(
             "#VALUE!: {name}: start_num {start} is outside the text (1 to {length})"
         )));
     }
-    Ok(start as usize - 1)
+    // From 1 to the length, so a usize holds it
+    Ok(start.to_usize().unwrap_or(1) - 1)
 }
 
 /// `FIND(find_text`, `within_text`, [`start_num`]) - Finds text within text
@@ -250,5 +248,15 @@ mod tests {
             h::sweep_fails("FIND(\"l\", \"hello\", 0)", "#VALUE!");
             h::sweep_fails("SEARCH(\"l\", \"hello\", 6)", "#VALUE!");
         }
+    }
+
+    /// `start_num` is cut to a whole number, as Excel cuts it
+    #[test]
+    fn start_num_is_a_whole_number() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("FIND(\"b\", \"abcb\", 2.9)", 2.0);
+        h::is_exactly("FIND(\"b\", \"abcb\", 3)", 4.0);
+        h::is_exactly("SEARCH(\"B\", \"abcb\", 4.9)", 4.0);
+        h::fails_with("FIND(\"b\", \"abcb\", 0.5)", "start_num 0");
     }
 }

@@ -9,7 +9,6 @@ use super::{collect_values_as_vec, EvalContext, EvalError, Expr};
 /// `0.333333333333333`; a whole number below 1E+16 in full; from 1E+15 on
 /// otherwise, and below 1E-10, in the form `1E+20`.
 #[must_use]
-#[allow(clippy::cast_possible_truncation)]
 pub fn number_text(n: f64) -> String {
     if !n.is_finite() {
         return format!("{n}");
@@ -17,9 +16,10 @@ pub fn number_text(n: f64) -> String {
     if n == 0.0 {
         return "0".to_string();
     }
-    // A whole number below 1E+16 is written in full, as both engines write it
+    // A whole number below 1E+16 is written in full, as both engines write
+    // it, and as Rust writes a whole float: no point, no exponent
     if n.fract() == 0.0 && n.abs() < 1e16 {
-        return format!("{}", n as i64);
+        return format!("{n}");
     }
     // The shortest decimal that is this double, rounded half up to 15
     // significant digits, as LibreOffice does (Excel keeps 15): rounding the
@@ -134,5 +134,18 @@ mod tests {
                 other => panic!("{other:?}"),
             }
         }
+    }
+
+    /// A whole number below 1E+16 is written in full, as Rust writes a whole
+    /// float
+    #[test]
+    fn a_whole_number_is_written_in_full() {
+        assert_eq!(super::number_text(1e15), "1000000000000000");
+        assert_eq!(
+            super::number_text(9_999_999_999_999_998.0),
+            "9999999999999998"
+        );
+        assert_eq!(super::number_text(-123.0), "-123");
+        assert_eq!(super::number_text(-0.0), "0");
     }
 }

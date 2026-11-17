@@ -164,10 +164,18 @@ tier1:
   # The calculator outside the evaluator is done too (2026-11-17): its 24
   # casts were all in core/array_calculator/dates.rs, 612 lines of older date
   # functions that nothing called, hidden by allow(dead_code), now deleted.
-  # Next: the evaluator, whose 104 casts (cast_possible_truncation,
-  # cast_sign_loss, cast_possible_wrap) one module-wide allow covers, so they
-  # go in one change; then cast_precision_loss with its two Cargo.toml
-  # allows. 114 allows left.
+  # The evaluator is done (2026-11-17): its 104 casts that could truncate,
+  # lose a sign or wrap are checked conversions, each edge tested, and the
+  # module-wide allow is gone. They hid six crashes (DATE, EDATE, EOMONTH,
+  # TIME, SEQUENCE, RANDARRAY, DB and PERCENTILE.EXC past an i32) and two
+  # wrong answers (ISEVEN past 2^63, WORKDAY past the calendar), fixed test
+  # first. Found on the way and not casts, so left for their own change:
+  # VLOOKUP and HLOOKUP ignore col_index and row_index
+  # (VLOOKUP(2, {1;2;3}, 5, FALSE) is 2, Excel #REF!); ROUND(x, -400) is
+  # #NUM! (Gnumeric 0); DB with a fractional period cuts it (Gnumeric 0);
+  # TIME(1, -30, 0) is 0:30 (Gnumeric #NUM!); HOUR(1E+20) is 0 (Gnumeric
+  # #NUM!). Next: cast_precision_loss with its two Cargo.toml allows. 95
+  # allows left.
   # T1-NO-SKIPPING, float_cmp is done (2026-11-17): no allow is left. Tests
   # assert an exact number with assert_exact! (the same bits, src/lib.rs),
   # and the ten exact comparisons in the engine (MODE, a variance on budget,

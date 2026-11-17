@@ -6,17 +6,12 @@ use super::{
 use crate::core::array_calculator::evaluator::{day_count, number_or};
 
 use super::require_args_range;
+use num_traits::ToPrimitive;
 
 /// Try to evaluate a date difference function.
-#[allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::too_many_lines
-)]
-// Date difference casts: u32 month/day from chrono to i32 for arithmetic (values 1-31),
-// i64 serial days to f64 for year fractions (date serials fit in f64 mantissa).
-// Splitting this match would fragment the date function dispatch table.
+#[allow(clippy::cast_precision_loss, clippy::too_many_lines)]
+// A day count becomes a number. Splitting this match would fragment the date
+// function dispatch table.
 pub fn try_evaluate(
     name: &str,
     args: &[Expr],
@@ -41,14 +36,15 @@ pub fn try_evaluate(
                 "D" => (end_date - start_date).num_days() as f64,
                 "M" => {
                     // Complete months between dates
-                    let years = end_date.year() - start_date.year();
-                    let months = end_date.month() as i32 - start_date.month() as i32;
-                    let mut total_months = years * 12 + months;
+                    // (whole numbers, exact as floats)
+                    let years = f64::from(end_date.year() - start_date.year());
+                    let months = f64::from(end_date.month()) - f64::from(start_date.month());
+                    let mut total_months = years.mul_add(12.0, months);
                     // Adjust if end day < start day (incomplete month)
                     if end_date.day() < start_date.day() {
-                        total_months -= 1;
+                        total_months -= 1.0;
                     }
-                    f64::from(total_months.max(0))
+                    total_months.max(0.0)
                 },
                 "Y" => {
                     // Complete years between dates
@@ -64,8 +60,8 @@ pub fn try_evaluate(
                 },
                 "MD" => {
                     // Days between dates, ignoring months and years
-                    let mut day_diff = end_date.day() as i32 - start_date.day() as i32;
-                    if day_diff < 0 {
+                    let mut day_diff = f64::from(end_date.day()) - f64::from(start_date.day());
+                    if day_diff < 0.0 {
                         // Get days in the previous month
                         let prev_month_date = if end_date.month() == 1 {
                             chrono::NaiveDate::from_ymd_opt(end_date.year() - 1, 12, 1)
@@ -81,20 +77,21 @@ pub fn try_evaluate(
                                 d.checked_add_months(chrono::Months::new(1))
                                     .and_then(|next| next.pred_opt())
                             })
-                            .map_or(30, |d| d.day() as i32);
+                            .map_or(30.0, |d| f64::from(d.day()));
                         day_diff += days_in_prev_month;
                     }
-                    f64::from(day_diff)
+                    day_diff
                 },
                 "YM" => {
                     // Months between dates, ignoring years
-                    let mut month_diff = end_date.month() as i32 - start_date.month() as i32;
+                    let mut month_diff =
+                        f64::from(end_date.month()) - f64::from(start_date.month());
                     // An incomplete last month does not count, also across a year
                     // end: 30 January to 1 January is 11 months
                     if end_date.day() < start_date.day() {
-                        month_diff -= 1;
+                        month_diff -= 1.0;
                     }
-                    f64::from(month_diff.rem_euclid(12))
+                    month_diff.rem_euclid(12.0)
                 },
                 "YD" => {
                     // Days between dates, ignoring years
@@ -147,26 +144,33 @@ pub fn try_evaluate(
             require_args(name, args, 3)?;
             let hour = evaluate(&args[0], ctx)?
                 .as_cell_number()
-                .ok_or_else(|| EvalError::new("TIME: hour must be a number"))?
-                as i32;
+                .ok_or_else(|| EvalError::new("TIME: hour must be a number"))?;
             let minute = evaluate(&args[1], ctx)?
                 .as_cell_number()
-                .ok_or_else(|| EvalError::new("TIME: minute must be a number"))?
-                as i32;
+                .ok_or_else(|| EvalError::new("TIME: minute must be a number"))?;
             let second = evaluate(&args[2], ctx)?
                 .as_cell_number()
-                .ok_or_else(|| EvalError::new("TIME: second must be a number"))?
-                as i32;
+                .ok_or_else(|| EvalError::new("TIME: second must be a number"))?;
 
-            // A fraction of a day, as Excel gives: past 24 hours it starts the
-            // day again (TIME(27, 0, 0) is TIME(3, 0, 0)); a negative time is #NUM!
-            let total_seconds = hour * 3600 + minute * 60 + second;
+            // A fraction of a day, as Excel gives: each part cut to a whole
+            // number, and past 24 hours it starts the day again (TIME(27, 0,
+            // 0) is TIME(3, 0, 0)); a negative time is #NUM!
+            let seconds = |part: f64, size: i64| part.to_i32().map(|n| i64::from(n) * size);
+            let Some(total_seconds) = seconds(hour, 3600)
+                .zip(seconds(minute, 60))
+                .zip(seconds(second, 1))
+                .map(|((h, m), s)| h + m + s)
+            else {
+                return Err(EvalError::new(format!(
+                    "#NUM!: TIME({hour}, {minute}, {second}) is past every time"
+                )));
+            };
             if total_seconds < 0 {
                 return Err(EvalError::new(format!(
                     "#NUM!: TIME({hour}, {minute}, {second}) is before midnight"
                 )));
             }
-            Value::Number(f64::from(total_seconds % 86_400) / 86400.0)
+            Value::Number(u32::try_from(total_seconds % 86_400).map_or(0.0, f64::from) / 86400.0)
         },
 
         _ => return Ok(None),
@@ -363,5 +367,33 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         let noon_val = result.scalars.get("noon").unwrap().value.unwrap();
         assert!((noon_val - 0.5).abs() < 0.001);
+    }
+
+    /// An hour, minute or second is cut to a whole number (TIME(1.9, 0, 0)
+    /// is 1:00, as in Excel; Gnumeric keeps the fraction). Their sum was an
+    /// i32, which a million hours overflowed: Gnumeric gives the time of day
+    /// it lands on. One no i32 holds is #NUM!, as in Excel (whose hours stop
+    /// at 32767).
+    #[test]
+    fn a_time_counts_whole_parts_past_any_day() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("TIME(1.9, 0, 0)", 3_600.0 / 86_400.0);
+        h::is_exactly("TIME(1000000, 0, 0)", 57_600.0 / 86_400.0);
+        h::is_exactly("TIME(0, 0, 2147483647)", 11_647.0 / 86_400.0);
+        h::fails_with("TIME(1E+10, 0, 0)", "#NUM!");
+        h::fails_with("TIME(0, -1E+10, 0)", "#NUM!");
+        h::fails_with("TIME(0, 0, -1)", "before midnight");
+    }
+
+    /// Text where a number goes, or an argument that is an error, is an error
+    #[test]
+    fn an_argument_that_is_no_number_fails() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::fails_with("TIME(\"x\", 0, 0)", "hour must be a number");
+        h::fails_with("TIME(0, \"x\", 0)", "minute must be a number");
+        h::fails_with("TIME(0, 0, \"x\")", "second must be a number");
+        // An incomplete last month does not count (M), also across a year end (YM)
+        h::is_exactly("DATEDIF(\"2020-01-31\", \"2020-03-01\", \"M\")", 1.0);
+        h::is_exactly("DATEDIF(\"2020-01-30\", \"2021-01-01\", \"YM\")", 11.0);
     }
 }

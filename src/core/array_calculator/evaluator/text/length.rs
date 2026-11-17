@@ -1,11 +1,7 @@
 //! String length and extraction functions: LEN, LEFT, RIGHT, MID
 
-// Text length casts: char counts and string indices (f64 to usize, bounded by string length).
-#![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss
-)]
+// A count of characters becomes a number.
+#![allow(clippy::cast_precision_loss)]
 
 use super::super::{
     evaluate, require_args, require_args_range, EvalContext, EvalError, Expr, Value,

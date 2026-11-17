@@ -22,6 +22,7 @@
 
 use super::super::{date_serial, EvalError, Value};
 use chrono::{Datelike, NaiveDate};
+use num_traits::ToPrimitive;
 use std::fmt::Write as _;
 
 /// One part of a format code.
@@ -331,14 +332,15 @@ const DAYS: [&str; 7] = [
 
 fn write_date(serial: f64, pieces: &[Piece], format: &str) -> Result<String, EvalError> {
     let days = serial.floor();
-    let date = if (0.0..=2_958_465.0).contains(&days) {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // checked range
-        NaiveDate::from_ymd_opt(1899, 12, 30)
-            .and_then(|base| base.checked_add_days(chrono::Days::new(days as u64)))
-    } else {
-        None
-    }
-    .ok_or_else(|| EvalError::new(format!("#VALUE!: TEXT: {serial} is not a date")))?;
+    // A day from 0 to 9999-12-31's, the days Excel holds
+    let date = days
+        .to_u64()
+        .filter(|&days| days <= 2_958_465)
+        .and_then(|days| {
+            NaiveDate::from_ymd_opt(1899, 12, 30)
+                .and_then(|base| base.checked_add_days(chrono::Days::new(days)))
+        })
+        .ok_or_else(|| EvalError::new(format!("#VALUE!: TEXT: {serial} is not a date")))?;
 
     let month = MONTHS[date.month0() as usize];
     let weekday = DAYS[date.weekday().num_days_from_monday() as usize];
@@ -875,5 +877,17 @@ mod tests {
         assert_eq!(text(1234.5, "0.00 \"units\""), "1234.50 units");
         assert_eq!(text(5.0, "\\x0"), "x5");
         assert_eq!(text(46053.0, "\"due \"d mmm"), "due 31 Jan");
+    }
+
+    /// A date is a day from 0 to 9999-12-31's (2958465), the fraction of a
+    /// day cut
+    #[test]
+    fn a_date_is_a_day_excel_holds() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        assert_eq!(h::text("TEXT(2958465.5, \"yyyy-mm-dd\")"), "9999-12-31");
+        assert_eq!(h::text("TEXT(45000.9, \"yyyy-mm-dd\")"), "2023-03-15");
+        h::fails_with("TEXT(2958466, \"yyyy\")", "is not a date");
+        h::fails_with("TEXT(-0.5, \"yyyy\")", "is not a date");
+        h::fails_with("TEXT(1E+20, \"yyyy\")", "is not a date");
     }
 }

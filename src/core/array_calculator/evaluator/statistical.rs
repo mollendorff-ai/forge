@@ -4,15 +4,10 @@ use super::{collect_numeric_values, evaluate, paired_numbers, require_args, requ
 use super::{EvalContext, EvalError, Expr, Value};
 use crate::core::array_calculator::evaluator::number_or;
 use crate::core::precision::same;
+use num_traits::ToPrimitive;
 
 /// Try to evaluate a statistical function. Returns None if function not recognized.
-#[allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::too_many_lines
-)]
-// Spreadsheet arrays are bounded well within f64 mantissa (< 2^52 elements).
-// Index/length casts between f64, usize, and i32 are safe for practical workloads.
+#[allow(clippy::too_many_lines)]
 // 10 statistical functions in a single dispatch — splitting would fragment related logic.
 pub fn try_evaluate(
     name: &str,
@@ -96,15 +91,7 @@ pub fn try_evaluate(
             if n == 1 {
                 return Ok(Some(Value::Number(values[0])));
             }
-            let pos = k * (n - 1) as f64;
-            let lower = pos.floor() as usize;
-            let upper = pos.ceil() as usize;
-            let frac = pos - lower as f64;
-            if lower == upper {
-                Value::Number(values[lower])
-            } else {
-                Value::Number(values[lower].mul_add(1.0 - frac, values[upper] * frac))
-            }
+            Value::Number(inclusive(&values, k))
         },
 
         "QUARTILE" | "QUARTILE.INC" => {
@@ -116,25 +103,17 @@ pub fn try_evaluate(
             let quart = evaluate(&args[1], ctx)?
                 .as_cell_number()
                 .ok_or_else(|| EvalError::new("QUARTILE quart must be a number"))?
-                as i32;
-            if !(0..=4).contains(&quart) {
+                .trunc();
+            if !(0.0..=4.0).contains(&quart) {
                 return Err(EvalError::new("QUARTILE quart must be 0, 1, 2, 3, or 4"));
             }
             values.sort_by(f64::total_cmp);
-            let k = f64::from(quart) / 4.0;
+            let k = quart / 4.0;
             let n = values.len();
             if n == 1 {
                 return Ok(Some(Value::Number(values[0])));
             }
-            let pos = k * (n - 1) as f64;
-            let lower = pos.floor() as usize;
-            let upper = pos.ceil() as usize;
-            let frac = pos - lower as f64;
-            if lower == upper {
-                Value::Number(values[lower])
-            } else {
-                Value::Number(values[lower].mul_add(1.0 - frac, values[upper] * frac))
-            }
+            Value::Number(inclusive(&values, k))
         },
 
         "PERCENTILE.EXC" | "QUARTILE.EXC" => {
@@ -166,14 +145,18 @@ pub fn try_evaluate(
                     "{name}: k must be between 1/(n+1) and n/(n+1) for {n} values (#NUM!)"
                 )));
             }
-            let rank = k * (n + 1.0);
+            // From 1 to n, so the value below it is at rank - 1 from 0. At
+            // k = 1/(n+1) the product can round to just below 1
+            // (0.9999999999999999 for 48 values), which is the first value.
+            let rank = (k * (n + 1.0)).clamp(1.0, n);
             let lower = rank.floor();
             let frac = rank - lower;
-            let low = values[lower as usize - 1];
+            let below = lower.to_usize().unwrap_or(1);
+            let low = values[below - 1];
             if frac == 0.0 {
                 Value::Number(low)
             } else {
-                Value::Number(low.mul_add(1.0 - frac, values[lower as usize] * frac))
+                Value::Number(low.mul_add(1.0 - frac, values[below] * frac))
             }
         },
 
@@ -227,16 +210,13 @@ pub fn try_evaluate(
             // SMALL: LARGE(k) is SMALL(n + 1 - k) with the index cut
             let k = evaluate(&args[1], ctx)?
                 .as_cell_number()
-                .ok_or_else(|| EvalError::new("LARGE: k must be a number"))?
-                .ceil();
-            let k = if k < 1.0 { 0 } else { k as usize };
-            if k == 0 || k > values.len() {
+                .ok_or_else(|| EvalError::new("LARGE: k must be a number"))?;
+            let Some(k) = rank_in(k.ceil(), values.len()) else {
                 return Err(EvalError::new(format!(
-                    "LARGE: k={} out of range (1..{})",
-                    k,
+                    "LARGE: k={k} out of range (1..{})",
                     values.len()
                 )));
-            }
+            };
             // Sort descending and get k-th largest
             values.sort_by(|a, b| b.total_cmp(a));
             Value::Number(values[k - 1])
@@ -250,15 +230,13 @@ pub fn try_evaluate(
             }
             let k = evaluate(&args[1], ctx)?
                 .as_cell_number()
-                .ok_or_else(|| EvalError::new("SMALL: k must be a number"))?
-                as usize;
-            if k == 0 || k > values.len() {
+                .ok_or_else(|| EvalError::new("SMALL: k must be a number"))?;
+            let Some(k) = rank_in(k.trunc(), values.len()) else {
                 return Err(EvalError::new(format!(
-                    "SMALL: k={} out of range (1..{})",
-                    k,
+                    "SMALL: k={k} out of range (1..{})",
                     values.len()
                 )));
-            }
+            };
             // Sort ascending and get k-th smallest
             values.sort_by(f64::total_cmp);
             Value::Number(values[k - 1])
@@ -273,10 +251,12 @@ pub fn try_evaluate(
             if values.is_empty() {
                 return Err(EvalError::new("RANK: array is empty"));
             }
-            let order = if args.len() > 2 {
-                number_or(&args[2], ctx, 0.0)? as i32
+            // Descending for 0 (the default), ascending for any other whole
+            // number: the order is cut to one, as Excel cuts it
+            let descending = if args.len() > 2 {
+                number_or(&args[2], ctx, 0.0)?.trunc() == 0.0
             } else {
-                0 // Default: descending (0)
+                true
             };
 
             // 1 + the values above it (below it, in ascending order), as in
@@ -287,7 +267,7 @@ pub fn try_evaluate(
             }
             let ahead = values
                 .iter()
-                .filter(|&&x| if order == 0 { x > number } else { x < number })
+                .filter(|&&x| if descending { x > number } else { x < number })
                 .count();
             Value::Number((ahead + 1) as f64)
         },
@@ -296,6 +276,27 @@ pub fn try_evaluate(
     };
 
     Ok(Some(result))
+}
+
+/// The value at rank `k * (n - 1)` of sorted values, counted from 0, between
+/// the two either side of it (PERCENTILE.INC, QUARTILE.INC); `k` is from 0
+/// to 1, so the rank is a place in the values.
+fn inclusive(sorted: &[f64], k: f64) -> f64 {
+    let pos = k * (sorted.len() - 1) as f64;
+    let lower = pos.floor();
+    let frac = pos - lower;
+    let at = lower.to_usize().unwrap_or(0);
+    if frac == 0.0 {
+        sorted[at]
+    } else {
+        sorted[at].mul_add(1.0 - frac, sorted[at + 1] * frac)
+    }
+}
+
+/// `k` as the place of one of `n` values, from 1 to `n` (LARGE, SMALL):
+/// `None` for any other number, which is #NUM! in Excel.
+fn rank_in(k: f64, n: usize) -> Option<usize> {
+    k.to_usize().filter(|k| (1..=n).contains(k))
 }
 
 #[cfg(test)]
@@ -585,5 +586,60 @@ mod tests {
                 Value::Number(2.0)
             );
         }
+    }
+
+    /// Each k is cut (SMALL), rounded up (LARGE) or cut to a quarter
+    /// (QUARTILE) as Excel does, and one no place holds is out of range,
+    /// named as it was written.
+    #[test]
+    fn a_k_is_a_place_in_the_values_or_none() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[("v", h::numbers(&[1.0, 2.0, 3.0, 4.0, 5.0]))]);
+        h::is_exactly_in("LARGE(t.v, 0.5)", &ctx, 5.0);
+        h::is_exactly_in("SMALL(t.v, 3.9)", &ctx, 3.0);
+        assert!(h::error_in("LARGE(t.v, -0.5)", &ctx).contains("k=-0.5 out of range"));
+        assert!(h::error_in("SMALL(t.v, 0.5)", &ctx).contains("k=0.5 out of range"));
+        assert!(h::error_in("SMALL(t.v, 1E+20)", &ctx).contains("out of range (1..5)"));
+        assert!(h::error_in("LARGE(t.v, 6)", &ctx).contains("out of range (1..5)"));
+        h::is_exactly_in("QUARTILE(t.v, 4.9)", &ctx, 5.0);
+        h::is_exactly_in("QUARTILE(t.v, -0.5)", &ctx, 1.0);
+        assert!(h::error_in("QUARTILE(t.v, 1E+20)", &ctx).contains("0, 1, 2, 3, or 4"));
+        assert!(h::error_in("QUARTILE(t.v, -1)", &ctx).contains("0, 1, 2, 3, or 4"));
+        h::is_exactly_in("PERCENTILE(t.v, 0.25)", &ctx, 2.0);
+        assert!(h::near(h::number_in("PERCENTILE(t.v, 0.3)", &ctx), 2.2));
+        // The order is cut too: 0.5 is 0, descending; -1 ascending
+        h::is_exactly_in("RANK(4, t.v, 0.5)", &ctx, 2.0);
+        h::is_exactly_in("RANK(4, t.v, -1)", &ctx, 4.0);
+    }
+
+    /// k = 1/(n+1) is the first value, as Excel gives, but k * (n + 1)
+    /// rounds to 0.9999999999999999 for 48 values: the rank was cut to 0 and
+    /// the value below it read at 0 - 1, which crashed.
+    #[test]
+    fn percentile_exc_at_its_lowest_k_is_the_first_value() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        h::is_exactly("PERCENTILE.EXC(SEQUENCE(48), 1/49)", 1.0);
+        h::is_exactly("PERCENTILE.EXC(SEQUENCE(48), 48/49)", 48.0);
+        h::is_exactly("PERCENTILE.EXC(SEQUENCE(5), 1/6)", 1.0);
+        h::is_exactly("PERCENTILE.EXC(SEQUENCE(5), 5/6)", 5.0);
+    }
+
+    /// Text where a number goes, or an argument that is an error, is an error
+    #[test]
+    fn an_argument_that_is_no_number_fails() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[("v", h::numbers(&[1.0, 2.0, 3.0]))]);
+        assert!(
+            h::error_in("LARGE(t.v, \"x\")", &ctx).contains("k must be a number"),
+            "LARGE(t.v, \"x\")"
+        );
+        assert!(
+            h::error_in("SMALL(t.v, \"x\")", &ctx).contains("k must be a number"),
+            "SMALL(t.v, \"x\")"
+        );
+        assert!(
+            h::error_in("RANK(2, t.v, 1/0)", &ctx).contains(""),
+            "RANK(2, t.v, 1/0)"
+        );
     }
 }
