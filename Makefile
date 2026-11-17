@@ -397,7 +397,7 @@ coverage:
 		echo "❌ cargo-llvm-cov not found. Installing..."; \
 		cargo install cargo-llvm-cov; \
 	fi
-	@cargo llvm-cov --ignore-filename-regex 'tests/' --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
+	@scripts/coverage.sh --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100
 	@echo ""
 	@echo "✅ 100% coverage (no skipping; CLAUDE.md)"
 
@@ -408,7 +408,7 @@ coverage-report:
 		echo "❌ cargo-llvm-cov not found. Installing..."; \
 		cargo install cargo-llvm-cov; \
 	fi
-	@cargo llvm-cov --html --ignore-filename-regex 'tests/' --output-dir coverage-report
+	@scripts/coverage.sh --html --output-dir coverage-report
 	@echo "✅ Coverage report generated: coverage-report/html/index.html"
 	@if command -v xdg-open >/dev/null 2>&1; then \
 		xdg-open coverage-report/html/index.html; \
@@ -422,7 +422,7 @@ coverage-report:
 coverage-ci:
 	@echo "📊 CI Coverage Analysis"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@cargo llvm-cov --ignore-filename-regex 'tests/' --lcov --output-path lcov.info
+	@scripts/coverage.sh --lcov --output-path lcov.info
 	@echo ""
 	@echo "✅ Coverage analysis complete"
 	@echo "📄 lcov.info generated for CI badge"

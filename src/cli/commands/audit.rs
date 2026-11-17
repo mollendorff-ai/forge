@@ -9,6 +9,8 @@
 //! Values are the calculated ones. A node that appears again further down is
 //! shown once, then marked as repeated.
 
+use crate::cli::console::{out, outln};
+use crate::cli::Console;
 use crate::core::array_calculator::tokenizer::{tokenize, Token};
 use crate::core::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
@@ -465,65 +467,67 @@ fn not_found(model: &ParsedModel, variable: &str) -> ForgeError {
 /// # Errors
 ///
 /// Returns an error if the file cannot be parsed or the variable is not found.
-pub fn audit(file: &Path, variable: &str) -> ForgeResult<()> {
-    println!("{}", "🔍 Forge - Audit Trail".bold().green());
-    println!("   File: {}", file.display());
-    println!("   Variable: {}\n", variable.bright_blue().bold());
+pub fn audit(c: &mut Console<'_>, file: &Path, variable: &str) -> ForgeResult<()> {
+    outln!(c, "{}", "🔍 Forge - Audit Trail".bold().green());
+    outln!(c, "   File: {}", file.display());
+    outln!(c, "   Variable: {}\n", variable.bright_blue().bold());
 
     let result = audit_core(file, variable)?;
-    println!("{}", "📋 Variable Information:".bold().cyan());
-    println!("   Name: {}", result.variable.bright_blue());
-    println!("   Type: {}", result.var_type.cyan());
+    outln!(c, "{}", "📋 Variable Information:".bold().cyan());
+    outln!(c, "   Name: {}", result.variable.bright_blue());
+    outln!(c, "   Type: {}", result.var_type.cyan());
     if let Some(ref f) = result.formula {
-        println!("   Formula: {}", f.bright_yellow());
+        outln!(c, "   Formula: {}", f.bright_yellow());
     }
     if let Some(value) = result.calculated_value {
         let shown = result
             .calculated_date
             .clone()
             .unwrap_or_else(|| format_number(value));
-        println!("   Calculated: {}", shown.bold().green());
+        outln!(c, "   Calculated: {}", shown.bold().green());
     }
     if let Some(values) = &result.calculated_values {
-        println!("   Calculated: {}", summarize(values).green());
+        outln!(c, "   Calculated: {}", summarize(values).green());
     }
     if let (Some(stored), Some(calculated)) = (result.current_value, result.calculated_value) {
         if result.is_valid {
-            println!("   {} The value in the file matches", "✅".green());
+            outln!(c, "   {} The value in the file matches", "✅".green());
         } else if (stored - calculated).abs() > 0.0 {
-            println!(
+            outln!(
+                c,
                 "   {} The value in the file is {}: run forge calculate to update it",
                 "⚠️".yellow(),
                 format_number(stored).red()
             );
         }
     }
-    println!();
+    outln!(c);
 
     for warning in &result.warnings {
-        println!("   {} {warning}", "⚠️".yellow());
+        outln!(c, "   {} {warning}", "⚠️".yellow());
     }
     if !result.warnings.is_empty() {
-        println!();
+        outln!(c);
     }
     if let Some(error) = &result.calculation_error {
-        println!(
+        outln!(
+            c,
             "   {} The model does not calculate, so values are the file's: {error}",
             "⚠️".yellow()
         );
-        println!();
+        outln!(c);
     }
     if result.formula.is_some() {
-        println!("{}", "🌳 Dependency Tree:".bold().cyan());
+        outln!(c, "{}", "🌳 Dependency Tree:".bold().cyan());
         if result.dependencies.is_empty() {
-            println!("   No dependencies (constant formula)");
+            outln!(c, "   No dependencies (constant formula)");
         }
         for dep in &result.dependencies {
-            print_dependency(dep, 1);
+            print_dependency(c, dep, 1);
         }
-        println!();
+        outln!(c);
     }
-    println!("{}", "✅ Audit complete".bold().green());
+    outln!(c, "{}", "✅ Audit complete".bold().green());
     Ok(())
 }
 
@@ -549,32 +553,33 @@ fn summarize(values: &[Option<f64>]) -> String {
 }
 
 /// Print a dependency with indentation
-fn print_dependency(dep: &AuditDep, indent: usize) {
+fn print_dependency(c: &mut Console<'_>, dep: &AuditDep, indent: usize) {
     let prefix = "   ".repeat(indent);
-    print!(
+    out!(
+        c,
         "{prefix}└─ {} ({})",
         dep.name.bright_blue(),
         dep.dep_type.cyan()
     );
     if let Some(val) = dep.value {
         let shown = dep.date.clone().unwrap_or_else(|| format_number(val));
-        print!(" = {}", shown.green());
+        out!(c, " = {}", shown.green());
     }
     if let Some(values) = &dep.values {
-        print!(" = {}", summarize(values).green());
+        out!(c, " = {}", summarize(values).green());
     }
     if let Some(ref f) = dep.formula {
-        print!(" {}", f.yellow());
+        out!(c, " {}", f.yellow());
     }
     if let Some(source) = &dep.source {
-        print!(" [{source}]");
+        out!(c, " [{source}]");
     }
     if dep.repeated && dep.formula.is_some() {
-        print!(" {}", "(see above)".dimmed());
+        out!(c, " {}", "(see above)".dimmed());
     }
-    println!();
+    outln!(c);
     for child in &dep.children {
-        print_dependency(child, indent + 1);
+        print_dependency(c, child, indent + 1);
     }
 }
 

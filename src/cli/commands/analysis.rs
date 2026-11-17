@@ -1,5 +1,7 @@
 //! Analysis commands: variance, sensitivity, `goal_seek`, `break_even`, compare
 
+use crate::cli::console::{out, outln};
+use crate::cli::Console;
 use crate::core::precision::to_15_digits;
 use crate::core::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
@@ -162,20 +164,21 @@ pub fn variance_core(
 /// Returns an error if the budget or actual files cannot be parsed, calculation fails,
 /// or the output file cannot be written.
 pub fn variance(
+    c: &mut Console<'_>,
     budget_path: &Path,
     actual_path: &Path,
     threshold: f64,
     output: Option<&Path>,
     (fail_on_alert, verbose): (bool, bool),
 ) -> ForgeResult<()> {
-    println!("{}", "🔥 Forge - Variance Analysis".bold().green());
-    println!("   Budget: {}", budget_path.display());
-    println!("   Actual: {}", actual_path.display());
-    println!("   Threshold: {threshold}%\n");
+    outln!(c, "{}", "🔥 Forge - Variance Analysis".bold().green());
+    outln!(c, "   Budget: {}", budget_path.display());
+    outln!(c, "   Actual: {}", actual_path.display());
+    outln!(c, "   Threshold: {threshold}%\n");
 
     // Parse both files
     if verbose {
-        println!("{}", "📖 Parsing YAML files...".cyan());
+        outln!(c, "{}", "📖 Parsing YAML files...".cyan());
     }
 
     let budget_model = parser::parse_model(budget_path)?;
@@ -183,7 +186,7 @@ pub fn variance(
 
     // Calculate both models
     if verbose {
-        println!("{}", "🧮 Calculating formulas...".cyan());
+        outln!(c, "{}", "🧮 Calculating formulas...".cyan());
     }
 
     let budget_calculator = ArrayCalculator::new(budget_model);
@@ -204,7 +207,8 @@ pub fn variance(
         match extension {
             "xlsx" => {
                 export_variance_to_excel(output_path, &variances, threshold)?;
-                println!(
+                outln!(
+                    c,
                     "{}",
                     format!("✅ Variance report exported to {}", output_path.display())
                         .bold()
@@ -213,7 +217,8 @@ pub fn variance(
             },
             "yaml" | "yml" => {
                 export_variance_to_yaml(output_path, &variances, threshold)?;
-                println!(
+                outln!(
+                    c,
                     "{}",
                     format!("✅ Variance report exported to {}", output_path.display())
                         .bold()
@@ -228,7 +233,7 @@ pub fn variance(
         }
     } else {
         // Print to terminal
-        print_variance_table(&variances, threshold);
+        print_variance_table(c, &variances, threshold);
     }
 
     // Summary
@@ -240,9 +245,8 @@ pub fn variance(
     };
     let alert_count = variances.iter().filter(|v| v.exceeds_threshold).count();
 
-    println!();
-    println!(
-        "   {} Favorable: {}  {} Unfavorable: {}  · No direction: {}  = On target: {}  {} Alerts (>{:.0}%): {}",
+    outln!(c);
+    outln!(c, "   {} Favorable: {}  {} Unfavorable: {}  · No direction: {}  = On target: {}  {} Alerts (>{:.0}%): {}",
         "✅".green(),
         count(Some(true)).to_string().green(),
         "❌".red(),
@@ -254,12 +258,12 @@ pub fn variance(
         alert_count.to_string().yellow()
     );
     if count(None) > 0 {
-        println!(
-            "   For a scalar with no direction, add `better: lower` (costs) or `better: higher` to it."
+        outln!(c, "   For a scalar with no direction, add `better: lower` (costs) or `better: higher` to it."
         );
     }
     if !not_compared.is_empty() {
-        println!(
+        outln!(
+            c,
             "   Not compared (missing or empty in one model, or a date): {}",
             not_compared.join(", ")
         );
@@ -470,7 +474,11 @@ fn variance_status(v: &VarianceResult) -> &'static str {
 }
 
 /// Print variance results as a table
-pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
+///
+/// # Errors
+///
+/// Returns an error if the output cannot be written.
+pub fn print_variance_table(c: &mut Console<'_>, variances: &[VarianceResult], threshold: f64) {
     // As wide as the longest name, so every column lines up
     let w = variances
         .iter()
@@ -479,11 +487,12 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
         .unwrap_or(0)
         .max(20);
     let rule = "─".repeat(w + 65);
-    println!("\n{}", "📊 Budget vs Actual Variance:".bold().cyan());
-    println!("{rule}");
+    outln!(c, "\n{}", "📊 Budget vs Actual Variance:".bold().cyan());
+    outln!(c, "{rule}");
 
     // Header
-    println!(
+    outln!(
+        c,
         "{:<w$} {:>12} {:>12} {:>12} {:>10} {:>8}",
         "Variable".bold(),
         "Budget".bold(),
@@ -492,7 +501,7 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
         "Var %".bold(),
         "Status".bold()
     );
-    println!("{rule}");
+    outln!(c, "{rule}");
 
     // Data rows
     for v in variances {
@@ -522,7 +531,8 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
             None => (var_str.normal(), pct_str.normal()),
         };
 
-        println!(
+        outln!(
+            c,
             "{:<w$} {:>12} {:>12} {:>12} {:>10} {:>8}",
             v.name.bright_blue(),
             display_number(v.budget),
@@ -533,11 +543,15 @@ pub fn print_variance_table(variances: &[VarianceResult], threshold: f64) {
         );
     }
 
-    println!("{rule}");
-    println!("   {} = exceeds {:.0}% threshold", "⚠️".yellow(), threshold);
+    outln!(c, "{rule}");
+    outln!(
+        c,
+        "   {} = exceeds {:.0}% threshold",
+        "⚠️".yellow(),
+        threshold
+    );
     if variances.iter().any(|v| !v.pct_meaningful) {
-        println!(
-            "   n/m = not meaningful: the budget is zero or the result changed sign; read the variance"
+        outln!(c, "   n/m = not meaningful: the budget is zero or the result changed sign; read the variance"
         );
     }
 }
@@ -898,25 +912,25 @@ pub fn sensitivity_core(
 /// Returns an error if the file cannot be parsed, variables are not found,
 /// ranges are invalid, or calculation fails.
 pub fn sensitivity(
+    c: &mut Console<'_>,
     file: &Path,
-    vary: &str,
-    range: &str,
-    vary2: Option<&str>,
-    range2: Option<&str>,
+    (vary, range): (&str, &str),
+    (vary2, range2): (Option<&str>, Option<&str>),
     output: &str,
     verbose: bool,
 ) -> ForgeResult<()> {
-    println!("{}", "🔥 Forge - Sensitivity Analysis".bold().green());
-    println!("   File: {}", file.display());
-    println!("   Vary: {} ({})", vary.bright_yellow(), range);
+    outln!(c, "{}", "🔥 Forge - Sensitivity Analysis".bold().green());
+    outln!(c, "   File: {}", file.display());
+    outln!(c, "   Vary: {} ({})", vary.bright_yellow(), range);
     if let Some(v2) = vary2 {
-        println!(
+        outln!(
+            c,
             "   Vary2: {} ({})",
             v2.bright_yellow(),
             range2.unwrap_or("?")
         );
     }
-    println!("   Output: {}\n", output.bright_blue());
+    outln!(c, "   Output: {}\n", output.bright_blue());
 
     let base_model = parser::parse_model(file)?;
     let vary = &super::names::scalar_name(&base_model, vary, false)?;
@@ -936,7 +950,8 @@ pub fn sensitivity(
     let values1 = parse_range(range)?;
 
     if verbose {
-        println!(
+        outln!(
+            c,
             "   Range 1: {} values from {} to {}",
             values1.len(),
             values1.first().unwrap_or(&0.0),
@@ -946,67 +961,80 @@ pub fn sensitivity(
 
     // Two-variable analysis
     if let (Some(v2), Some(r2)) = (vary2, range2) {
-        run_two_var_sensitivity(&base_model, vary, v2, r2, output, &values1, verbose)?;
+        run_two_var_sensitivity(c, &base_model, vary, (v2, r2), output, &values1, verbose)?;
     } else {
-        // One-variable analysis
-        println!(
-            "\n{} {} → {}",
-            "📊 Sensitivity Table:".bold().cyan(),
-            vary.yellow(),
-            output.bright_blue()
-        );
-        // Wide enough for the names and the numbers, so the header lines up
-        let rows: Vec<(String, Result<f64, String>)> = values1
-            .iter()
-            .map(|val| {
-                (
-                    format!("{val:.4}"),
-                    calculate_with_override(&base_model, vary, *val, output)
-                        .map_err(|e| e.to_string()),
-                )
-            })
-            .collect();
-        let shown = |result: &Result<f64, String>| match result {
-            Ok(v) => display_number(*v),
-            Err(e) => format!("ERR: {e}"),
-        };
-        let input_width = rows
-            .iter()
-            .map(|(input, _)| input.len())
-            .chain([vary.chars().count()])
-            .max()
-            .unwrap_or(12);
-        let output_width = rows
-            .iter()
-            .map(|(_, result)| shown(result).chars().count())
-            .chain([output.chars().count()])
-            .max()
-            .unwrap_or(15);
-        let rule = "─".repeat(input_width + 1 + output_width);
-        println!("{rule}");
-        println!(
-            "{:>input_width$} {:>output_width$}",
-            vary.bold(),
-            output.bold()
-        );
-        println!("{rule}");
-        for (input, result) in &rows {
-            let text = shown(result);
-            println!(
-                "{:>input_width$} {:>output_width$}",
-                input.bright_yellow(),
-                if result.is_ok() {
-                    text.green()
-                } else {
-                    text.red()
-                }
-            );
-        }
-        println!("{rule}");
+        print_one_var_sensitivity(c, &base_model, vary, output, &values1);
     }
 
-    println!("\n{}", "✅ Sensitivity analysis complete".bold().green());
+    outln!(c, "\n{}", "✅ Sensitivity analysis complete".bold().green());
     Ok(())
+}
+
+/// The table of a one-variable sensitivity: each input value and the output
+/// it gives, in columns wide enough for the names and the numbers.
+fn print_one_var_sensitivity(
+    c: &mut Console<'_>,
+    base_model: &crate::types::ParsedModel,
+    vary: &str,
+    output: &str,
+    values: &[f64],
+) {
+    outln!(
+        c,
+        "\n{} {} → {}",
+        "📊 Sensitivity Table:".bold().cyan(),
+        vary.yellow(),
+        output.bright_blue()
+    );
+    // Wide enough for the names and the numbers, so the header lines up
+    let rows: Vec<(String, Result<f64, String>)> = values
+        .iter()
+        .map(|val| {
+            (
+                format!("{val:.4}"),
+                calculate_with_override(base_model, vary, *val, output).map_err(|e| e.to_string()),
+            )
+        })
+        .collect();
+    let shown = |result: &Result<f64, String>| match result {
+        Ok(v) => display_number(*v),
+        Err(e) => format!("ERR: {e}"),
+    };
+    let input_width = rows
+        .iter()
+        .map(|(input, _)| input.len())
+        .chain([vary.chars().count()])
+        .max()
+        .unwrap_or(12);
+    let output_width = rows
+        .iter()
+        .map(|(_, result)| shown(result).chars().count())
+        .chain([output.chars().count()])
+        .max()
+        .unwrap_or(15);
+    let rule = "─".repeat(input_width + 1 + output_width);
+    outln!(c, "{rule}");
+    outln!(
+        c,
+        "{:>input_width$} {:>output_width$}",
+        vary.bold(),
+        output.bold()
+    );
+    outln!(c, "{rule}");
+    for (input, result) in &rows {
+        let text = shown(result);
+        outln!(
+            c,
+            "{:>input_width$} {:>output_width$}",
+            input.bright_yellow(),
+            if result.is_ok() {
+                text.green()
+            } else {
+                text.red()
+            }
+        );
+    }
+    outln!(c, "{rule}");
 }
 
 /// `forge sensitivity` in the format asked for: the table, or JSON for
@@ -1018,6 +1046,7 @@ pub fn sensitivity(
 /// Returns an error if the file cannot be parsed, variables are not found,
 /// ranges are invalid, or calculation fails.
 pub fn sensitivity_in_format(
+    c: &mut Console<'_>,
     file: &Path,
     (vary, range): (&str, &str),
     (vary2, range2): (Option<&str>, Option<&str>),
@@ -1025,12 +1054,12 @@ pub fn sensitivity_in_format(
     (format, verbose): (&str, bool),
 ) -> ForgeResult<()> {
     if format != "json" {
-        return sensitivity(file, vary, range, vary2, range2, output, verbose);
+        return sensitivity(c, file, (vary, range), (vary2, range2), output, verbose);
     }
     let result = sensitivity_core(file, vary, range, vary2, range2, output)?;
     let json = serde_json::to_string_pretty(&crate::core::precision::Rounded(&result))
         .map_err(|e| ForgeError::Validation(format!("Failed to write JSON: {e}")))?;
-    println!("{json}");
+    outln!(c, "{json}");
     Ok(())
 }
 
@@ -1172,28 +1201,28 @@ fn expand_search_range_quiet(
 /// Returns an error if the file cannot be parsed, variables are not found,
 /// or no solution exists in the search range.
 pub fn goal_seek(
+    c: &mut Console<'_>,
     file: &Path,
-    target: &str,
-    value: f64,
+    (target, value): (&str, f64),
     vary: &str,
     bounds: (Option<f64>, Option<f64>),
     tolerance: f64,
     verbose: bool,
 ) -> ForgeResult<()> {
-    println!("{}", "🔥 Forge - Goal Seek".bold().green());
-    println!("   File: {}", file.display());
-    println!("   Target: {} = {}", target.bright_blue(), value);
-    println!("   Vary: {}", vary.bright_yellow());
-    println!("   Tolerance: {tolerance}\n");
-    solve(file, target, value, vary, bounds, tolerance, verbose)
+    outln!(c, "{}", "🔥 Forge - Goal Seek".bold().green());
+    outln!(c, "   File: {}", file.display());
+    outln!(c, "   Target: {} = {}", target.bright_blue(), value);
+    outln!(c, "   Vary: {}", vary.bright_yellow());
+    outln!(c, "   Tolerance: {tolerance}\n");
+    solve(c, file, (target, value), vary, bounds, tolerance, verbose)
 }
 
 /// Find the input, then print the solution (the part goal-seek and
 /// break-even share, after their own headers).
 fn solve(
+    c: &mut Console<'_>,
     file: &Path,
-    target: &str,
-    value: f64,
+    (target, value): (&str, f64),
     vary: &str,
     bounds: (Option<f64>, Option<f64>),
     tolerance: f64,
@@ -1201,17 +1230,19 @@ fn solve(
 ) -> ForgeResult<()> {
     let result = goal_seek_core(file, target, value, vary, bounds, tolerance)?;
     if verbose {
-        println!(
+        outln!(
+            c,
             "   Bisection stopped after {} evaluations, error {}",
-            result.iterations, result.error
+            result.iterations,
+            result.error
         );
     }
     print_goal_seek_result(
+        c,
         vary,
-        target,
+        (target, value),
         result.solution,
         result.achieved,
-        value,
         tolerance,
         result.iterations,
     );
@@ -1220,10 +1251,10 @@ fn solve(
 
 /// Run two-variable sensitivity analysis matrix
 fn run_two_var_sensitivity(
+    c: &mut Console<'_>,
     base_model: &crate::types::ParsedModel,
     vary: &str,
-    v2: &str,
-    r2: &str,
+    (v2, r2): (&str, &str),
     output: &str,
     values1: &[f64],
     verbose: bool,
@@ -1244,7 +1275,8 @@ fn run_two_var_sensitivity(
     let values2 = parse_range(r2)?;
 
     if verbose {
-        println!(
+        outln!(
+            c,
             "   Range 2: {} values from {} to {}",
             values2.len(),
             values2.first().unwrap_or(&0.0),
@@ -1253,7 +1285,8 @@ fn run_two_var_sensitivity(
     }
 
     // Calculate matrix
-    println!(
+    outln!(
+        c,
         "\n{} {} → {}",
         "📊 Sensitivity Matrix:".bold().cyan(),
         format!("({vary}, {v2})").yellow(),
@@ -1306,46 +1339,48 @@ fn run_two_var_sensitivity(
         + 1;
 
     // Header row
-    print!("{:>first_width$}", vary.bright_yellow());
+    out!(c, "{:>first_width$}", vary.bright_yellow());
     for head in &heads {
-        print!("{:>width$}", head.dimmed());
+        out!(c, "{:>width$}", head.dimmed());
     }
-    println!();
-    println!("{}", "─".repeat(first_width + heads.len() * width));
+    outln!(c);
+    outln!(c, "{}", "─".repeat(first_width + heads.len() * width));
 
     // Data rows
     for (input, cells) in &rows {
-        print!("{:>first_width$}", input.bright_yellow());
+        out!(c, "{:>first_width$}", input.bright_yellow());
         for text in cells {
             match text.as_str() {
-                "ERR" | "?" => print!("{:>width$}", text.red()),
-                "-" => print!("{:>width$}", text.dimmed()),
-                _ => print!("{:>width$}", text.green()),
+                "ERR" | "?" => out!(c, "{:>width$}", text.red()),
+                "-" => out!(c, "{:>width$}", text.dimmed()),
+                _ => out!(c, "{:>width$}", text.green()),
             }
         }
-        println!();
+        outln!(c);
     }
     Ok(())
 }
 
 /// Print goal-seek result summary
 fn print_goal_seek_result(
+    c: &mut Console<'_>,
     vary: &str,
-    target: &str,
+    (target, value): (&str, f64),
     mid: f64,
     final_value: f64,
-    value: f64,
     tolerance: f64,
     iteration: i32,
 ) {
-    println!("{}", "─".repeat(50));
-    println!(
+    outln!(c, "{}", "─".repeat(50));
+    outln!(
+        c,
         "{}",
         format!("🎯 Solution found in {iteration} iterations:")
             .bold()
             .green()
     );
-    println!(
+    outln!(
+        c,
         "   {} = {} → {} = {}",
         vary.bright_yellow().bold(),
         display_number(mid).bold().green(),
@@ -1355,16 +1390,17 @@ fn print_goal_seek_result(
 
     let error = (final_value - value).abs();
     if error <= tolerance {
-        println!("   {} Within tolerance", "✅".green());
+        outln!(c, "   {} Within tolerance", "✅".green());
     } else {
-        println!(
+        outln!(
+            c,
             "   {} Error: {} (tolerance: {})",
             "⚠️".yellow(),
             error,
             tolerance
         );
     }
-    println!("{}", "─".repeat(50));
+    outln!(c, "{}", "─".repeat(50));
 }
 
 /// Execute the break-even command
@@ -1373,6 +1409,7 @@ fn print_goal_seek_result(
 ///
 /// Returns an error if goal-seek fails to find a zero-crossing point.
 pub fn break_even(
+    c: &mut Console<'_>,
     file: &Path,
     output: &str,
     vary: &str,
@@ -1380,17 +1417,17 @@ pub fn break_even(
     max: Option<f64>,
     verbose: bool,
 ) -> ForgeResult<()> {
-    println!("{}", "🔥 Forge - Break-Even Analysis".bold().green());
-    println!("   File: {}", file.display());
-    println!("   Finding where {} = 0", output.bright_blue());
-    println!("   Vary: {}", vary.bright_yellow());
-    println!("   Tolerance: {BREAK_EVEN_TOLERANCE}\n");
+    outln!(c, "{}", "🔥 Forge - Break-Even Analysis".bold().green());
+    outln!(c, "   File: {}", file.display());
+    outln!(c, "   Finding where {} = 0", output.bright_blue());
+    outln!(c, "   Vary: {}", vary.bright_yellow());
+    outln!(c, "   Tolerance: {BREAK_EVEN_TOLERANCE}\n");
 
     // Break-even is goal-seek with value = 0
     solve(
+        c,
         file,
-        output,
-        0.0,
+        (output, 0.0),
         vary,
         (min, max),
         BREAK_EVEN_TOLERANCE,

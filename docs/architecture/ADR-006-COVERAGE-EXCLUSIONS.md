@@ -1,5 +1,7 @@
 # ADR-006: Coverage Exclusions
 
+> **Note (2026-11-17):** Being retired: CLAUDE.md allows no coverage-only code (roadmap T1-NO-SKIPPING), and `tests/no_skipping.rs` counts what is left. `src/main.rs` and `forge mcp` are no longer excluded. The command line runs in-process through `cli::run_from` on a `Console` a test gives buffers, and `scripts/coverage.sh` runs the built program after the tests, for `main` and MCP over stdin and stdout. `run_api_server` is measured too; serving itself is not yet run by any test. Left: `shutdown_signal` in `src/api/server.rs`, `watch` in `src/cli/commands/mod.rs` and `update` in `src/cli/commands/update.rs`.
+
 > **Note (2026-11-08):** The mechanism (`cfg(coverage)`) is in force; the exclusions now live in `src/api/server.rs`, `src/cli/commands/mod.rs` (watch), `src/cli/commands/update.rs` and `src/main.rs`. The table of files below names files that no longer exist.
 
 **Status:** Accepted (Updated 2025-12-29)

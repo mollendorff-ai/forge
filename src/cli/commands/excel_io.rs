@@ -1,5 +1,7 @@
 //! Excel export and import commands
 
+use crate::cli::console::outln;
+use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
 use crate::excel::{ExcelExporter, ExcelImporter};
 use crate::parser;
@@ -615,19 +617,19 @@ fn write_split_files_quiet(
 ///
 /// Returns an error if the YAML file cannot be parsed or the Excel export fails.
 #[cfg(feature = "cli")]
-pub fn export(input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
-    println!("{}", "🔥 Forge - Excel Export".bold().green());
-    println!("   Input:  {}", input.display());
-    println!("   Output: {}\n", output.display());
+pub fn export(c: &mut Console<'_>, input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
+    outln!(c, "{}", "🔥 Forge - Excel Export".bold().green());
+    outln!(c, "   Input:  {}", input.display());
+    outln!(c, "   Output: {}\n", output.display());
 
     if verbose {
-        println!("{}", "📖 Parsing YAML file...".cyan());
+        outln!(c, "{}", "📖 Parsing YAML file...".cyan());
     }
     let (model, uncalculated) = load_for_export(input)?;
     if verbose {
         let (t, s) = (model.tables.len(), model.scalars.len());
-        println!("   Found {t} tables, {s} scalars\n");
-        println!("{}", "📊 Exporting to Excel...".cyan());
+        outln!(c, "   Found {t} tables, {s} scalars\n");
+        outln!(c, "{}", "📊 Exporting to Excel...".cyan());
     }
 
     let exporter = ExcelExporter::new(model);
@@ -635,17 +637,21 @@ pub fn export(input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
     warnings.extend(super::carried::yaml_only(input));
 
     if let Some(reason) = &uncalculated {
-        println!("{}", "⚠️  Exported, but not checked:".yellow());
-        println!("   - {reason}\n");
+        outln!(c, "{}", "⚠️  Exported, but not checked:".yellow());
+        outln!(c, "   - {reason}\n");
     }
-    println!("{}", "✅ Export Complete!".bold().green());
-    println!("   Excel file: {}\n", output.display());
+    outln!(c, "{}", "✅ Export Complete!".bold().green());
+    outln!(c, "   Excel file: {}\n", output.display());
     if !warnings.is_empty() {
-        println!("{}", "⚠️  Not exported, or not as Excel formulas:".yellow());
+        outln!(
+            c,
+            "{}",
+            "⚠️  Not exported, or not as Excel formulas:".yellow()
+        );
         for warning in &warnings {
-            println!("   - {warning}");
+            outln!(c, "   - {warning}");
         }
-        println!();
+        outln!(c);
     }
 
     Ok(())
@@ -658,62 +664,65 @@ pub fn export(input: &Path, output: &Path, verbose: bool) -> ForgeResult<()> {
 /// Returns an error if the Excel file cannot be read, imported, or written as YAML.
 #[cfg(feature = "cli")]
 pub fn import(
+    c: &mut Console<'_>,
     input: &Path,
     output: &Path,
     verbose: bool,
     split_files: bool,
     multi_doc: bool,
 ) -> ForgeResult<()> {
-    println!("{}", "🔥 Forge - Excel Import".bold().green());
-    println!("   Input:  {}", input.display());
-    println!("   Output: {}", output.display());
+    outln!(c, "{}", "🔥 Forge - Excel Import".bold().green());
+    outln!(c, "   Input:  {}", input.display());
+    outln!(c, "   Output: {}", output.display());
     if split_files {
-        println!("   Mode:   Split files (one YAML per sheet)");
+        outln!(c, "   Mode:   Split files (one YAML per sheet)");
     } else if multi_doc {
-        println!("   Mode:   Multi-document YAML");
+        outln!(c, "   Mode:   Multi-document YAML");
     }
-    println!();
+    outln!(c);
 
     if verbose {
-        println!("{}", "📖 Reading Excel file...".cyan());
+        outln!(c, "{}", "📖 Reading Excel file...".cyan());
     }
 
     let importer = ExcelImporter::new(input);
     let (model, warnings) = importer.import_with_warnings()?;
 
     if verbose {
-        println!("   Found {} tables", model.tables.len());
-        println!("   Found {} scalars\n", model.scalars.len());
+        outln!(c, "   Found {} tables", model.tables.len());
+        outln!(c, "   Found {} scalars\n", model.scalars.len());
         for (table_name, table) in &model.tables {
-            println!("   📊 Table: {}", table_name.bright_blue());
-            println!(
+            outln!(c, "   📊 Table: {}", table_name.bright_blue());
+            outln!(
+                c,
                 "      {} columns, {} rows",
                 table.columns.len(),
                 table.row_count()
             );
         }
-        println!();
-        println!("{}", "💾 Writing YAML file(s)...".cyan());
+        outln!(c);
+        outln!(c, "{}", "💾 Writing YAML file(s)...".cyan());
     }
 
     if split_files {
-        write_split_files(output, &model, verbose)?;
+        write_split_files(c, output, &model, verbose)?;
     } else if multi_doc {
-        write_multi_doc(output, &model)?;
+        write_multi_doc(c, output, &model)?;
     } else {
         let included = write_single(output, &model)?;
-        println!("{}", "✅ Import Complete!".bold().green());
-        println!("   YAML file: {}", output.display());
-        print_included_files(&included);
-        println!();
+        outln!(c, "{}", "✅ Import Complete!".bold().green());
+        outln!(c, "   YAML file: {}", output.display());
+        print_included_files(c, &included);
+        outln!(c);
     }
 
-    super::carried::print_import_formulas(&model, &warnings);
+    super::carried::print_import_formulas(c, &model, &warnings);
     Ok(())
 }
 
 #[cfg(feature = "cli")]
 fn write_split_files(
+    c: &mut Console<'_>,
     output: &Path,
     model: &crate::types::ParsedModel,
     verbose: bool,
@@ -721,11 +730,11 @@ fn write_split_files(
     let written = write_split_files_quiet(output, model)?;
     if verbose {
         for path in &written {
-            println!("   Created: {}", path.display());
+            outln!(c, "   Created: {}", path.display());
         }
     }
-    println!("{}", "✅ Import Complete!".bold().green());
-    println!("   Output directory: {}\n", output.display());
+    outln!(c, "{}", "✅ Import Complete!".bold().green());
+    outln!(c, "   Output directory: {}\n", output.display());
     Ok(())
 }
 
@@ -766,21 +775,25 @@ fn write_multi_doc_quiet(
 }
 
 #[cfg(feature = "cli")]
-fn write_multi_doc(output: &Path, model: &crate::types::ParsedModel) -> ForgeResult<()> {
+fn write_multi_doc(
+    c: &mut Console<'_>,
+    output: &Path,
+    model: &crate::types::ParsedModel,
+) -> ForgeResult<()> {
     let included = write_multi_doc_quiet(output, model)?;
-    println!("{}", "✅ Import Complete!".bold().green());
-    println!("   YAML file: {}", output.display());
-    print_included_files(&included);
-    println!();
+    outln!(c, "{}", "✅ Import Complete!".bold().green());
+    outln!(c, "   YAML file: {}", output.display());
+    print_included_files(c, &included);
+    outln!(c);
     Ok(())
 }
 
 /// Say which included files an import wrote beside the model: they hold the
 /// values of the sheets that belong to an included file.
 #[cfg(feature = "cli")]
-fn print_included_files(written: &[String]) {
+fn print_included_files(c: &mut Console<'_>, written: &[String]) {
     if !written.is_empty() {
-        println!("   Included files: {}", written.join(", "));
+        outln!(c, "   Included files: {}", written.join(", "));
     }
 }
 

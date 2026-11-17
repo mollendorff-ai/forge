@@ -1,5 +1,7 @@
 //! Upgrade command - migrate YAML files to latest schema version
 
+use crate::cli::console::outln;
+use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
 use colored::Colorize;
 use std::collections::HashSet;
@@ -12,46 +14,93 @@ use std::path::{Path, PathBuf};
 ///
 /// Returns an error if the file cannot be read, parsed, or written,
 /// or if any included files fail during recursive upgrade.
-pub fn upgrade(file: &Path, dry_run: bool, target_version: &str, verbose: bool) -> ForgeResult<()> {
-    println!("{}", "🔥 Forge - Schema Upgrade".bold().green());
-    println!();
-    println!("   File:    {}", file.display());
-    println!("   Target:  v{target_version}");
+pub fn upgrade(
+    c: &mut Console<'_>,
+    file: &Path,
+    dry_run: bool,
+    target_version: &str,
+    verbose: bool,
+) -> ForgeResult<()> {
+    outln!(c, "{}", "🔥 Forge - Schema Upgrade".bold().green());
+    outln!(c);
+    outln!(c, "   File:    {}", file.display());
+    outln!(c, "   Target:  v{target_version}");
     if dry_run {
-        println!("   Mode:    {} (no files modified)", "DRY RUN".yellow());
+        outln!(c, "   Mode:    {} (no files modified)", "DRY RUN".yellow());
     }
-    println!();
+    outln!(c);
 
     // Track upgraded files to avoid circular processing
     let mut upgraded_files: HashSet<PathBuf> = HashSet::new();
 
     // Perform upgrade recursively
-    let changes =
-        upgrade_file_recursive(file, target_version, dry_run, verbose, &mut upgraded_files)?;
+    let changes = upgrade_file_recursive(
+        c,
+        file,
+        target_version,
+        dry_run,
+        verbose,
+        &mut upgraded_files,
+    )?;
 
     // Summary
-    println!();
-    println!("{}", "═".repeat(70));
-    println!();
+    outln!(c);
+    outln!(c, "{}", "═".repeat(70));
+    outln!(c);
     if dry_run {
-        println!(
+        outln!(
+            c,
             "{} {} file(s) would be upgraded",
             "DRY RUN:".yellow().bold(),
             changes
         );
-        println!();
-        println!("   Run without --dry-run to apply changes.");
+        outln!(c);
+        outln!(c, "   Run without --dry-run to apply changes.");
     } else {
-        println!(
+        outln!(
+            c,
             "{} {} file(s) upgraded to v{}",
             "✅".green(),
             changes,
             target_version
         );
     }
-    println!();
+    outln!(c);
 
     Ok(())
+}
+
+/// Upgrade each file the model includes (`_includes`) that exists, and
+/// return how many were changed.
+fn upgrade_includes(
+    c: &mut Console<'_>,
+    file: &Path,
+    yaml: &yaml_serde::Value,
+    target_version: &str,
+    dry_run: bool,
+    verbose: bool,
+    upgraded_files: &mut HashSet<PathBuf>,
+) -> ForgeResult<usize> {
+    let mut changes = 0;
+    if let Some(yaml_serde::Value::Sequence(include_list)) = yaml.get("_includes") {
+        let parent_dir = file.parent().unwrap_or_else(|| Path::new("."));
+        for include in include_list {
+            if let Some(include_file) = include.get("file").and_then(|f| f.as_str()) {
+                let include_path = parent_dir.join(include_file);
+                if include_path.exists() {
+                    changes += upgrade_file_recursive(
+                        c,
+                        &include_path,
+                        target_version,
+                        dry_run,
+                        verbose,
+                        upgraded_files,
+                    )?;
+                }
+            }
+        }
+    }
+    Ok(changes)
 }
 
 /// Recursively upgrade a file and its includes.
@@ -60,6 +109,7 @@ pub fn upgrade(file: &Path, dry_run: bool, target_version: &str, verbose: bool) 
 ///
 /// Returns an error if any file cannot be read, parsed, or written during upgrade.
 pub fn upgrade_file_recursive(
+    c: &mut Console<'_>,
     file: &Path,
     target_version: &str,
     dry_run: bool,
@@ -72,7 +122,8 @@ pub fn upgrade_file_recursive(
     // Skip if already processed (circular include protection)
     if upgraded_files.contains(&canonical) {
         if verbose {
-            println!(
+            outln!(
+                c,
                 "   {} {} (already processed)",
                 "⏭️".dimmed(),
                 file.display()
@@ -90,26 +141,16 @@ pub fn upgrade_file_recursive(
     let mut yaml: yaml_serde::Value = yaml_serde::from_str(&content)
         .map_err(|e| ForgeError::Parse(format!("Failed to parse {}: {}", file.display(), e)))?;
 
-    let mut changes = 0;
-
     // First, recursively upgrade any included files
-    if let Some(yaml_serde::Value::Sequence(include_list)) = yaml.get("_includes").cloned() {
-        let parent_dir = file.parent().unwrap_or_else(|| Path::new("."));
-        for include in include_list {
-            if let Some(include_file) = include.get("file").and_then(|f| f.as_str()) {
-                let include_path = parent_dir.join(include_file);
-                if include_path.exists() {
-                    changes += upgrade_file_recursive(
-                        &include_path,
-                        target_version,
-                        dry_run,
-                        verbose,
-                        upgraded_files,
-                    )?;
-                }
-            }
-        }
-    }
+    let changes = upgrade_includes(
+        c,
+        file,
+        &yaml,
+        target_version,
+        dry_run,
+        verbose,
+        upgraded_files,
+    )?;
 
     // Get current version
     let current_version = yaml
@@ -120,7 +161,8 @@ pub fn upgrade_file_recursive(
     // Check if upgrade needed
     if current_version == target_version {
         if verbose {
-            println!(
+            outln!(
+                c,
                 "   {} {} (already v{})",
                 "✓".green(),
                 file.display(),
@@ -130,7 +172,8 @@ pub fn upgrade_file_recursive(
         return Ok(changes);
     }
 
-    println!(
+    outln!(
+        c,
         "   {} {} (v{} → v{})",
         if dry_run {
             "→".yellow()
@@ -149,7 +192,7 @@ pub fn upgrade_file_recursive(
     // a scalar (ADR-060), the same again.
     if matches!(target_version, "5.1.0" | "5.2.0" | "5.3.0" | "5.4.0") {
         let versions = (current_version, target_version);
-        upgrade_to_short_form(file, &content, &yaml, versions, dry_run, verbose)?;
+        upgrade_to_short_form(c, file, &content, &yaml, versions, dry_run, verbose)?;
         return Ok(changes + 1);
     }
     if target_version != "5.0.0" {
@@ -171,7 +214,7 @@ pub fn upgrade_file_recursive(
 
     // 2. Split scalars into inputs/outputs if upgrading to 5.0.0
     if target_version == "5.0.0" {
-        split_scalars_to_inputs_outputs(yaml_map, verbose);
+        split_scalars_to_inputs_outputs(c, yaml_map, verbose);
     }
 
     if !dry_run {
@@ -180,7 +223,12 @@ pub fn upgrade_file_recursive(
         fs::copy(file, &backup_path)
             .map_err(|e| ForgeError::IO(format!("Failed to create backup: {e}")))?;
         if verbose {
-            println!("      {} Backup: {}", "📋".dimmed(), backup_path.display());
+            outln!(
+                c,
+                "      {} Backup: {}",
+                "📋".dimmed(),
+                backup_path.display()
+            );
         }
 
         // Write upgraded content
@@ -204,6 +252,7 @@ pub fn upgrade_file_recursive(
 /// as text so its comments are kept. Other 1.0.0 files go through the 5.0.0
 /// restructuring first, which cannot keep comments; that is said on screen.
 fn upgrade_to_short_form(
+    c: &mut Console<'_>,
     file: &Path,
     content: &str,
     yaml: &yaml_serde::Value,
@@ -230,7 +279,8 @@ fn upgrade_to_short_form(
         _ if matches!(current_version, "5.1.0" | "5.2.0") => Ok(content.to_string()),
         Ok(text) => Ok(text),
         Err(_) if current_version != "5.0.0" => {
-            println!(
+            outln!(
+                c,
                 "      {} comments in {} cannot be kept: it needs the 1.0.0 to 5.0.0 restructuring",
                 "⚠️".yellow(),
                 file.display()
@@ -243,7 +293,7 @@ fn upgrade_to_short_form(
                 yaml_serde::Value::String("_forge_version".to_string()),
                 yaml_serde::Value::String("5.0.0".to_string()),
             );
-            split_scalars_to_inputs_outputs(map, verbose);
+            split_scalars_to_inputs_outputs(c, map, verbose);
             let text = yaml_serde::to_string(&yaml50)
                 .map_err(|e| ForgeError::IO(format!("Failed to serialize YAML: {e}")))?;
             crate::writer::in_place::to_short_form(&text)
@@ -268,7 +318,15 @@ fn upgrade_to_short_form(
 }
 
 /// Split scalars section into inputs and outputs based on formula presence.
-pub fn split_scalars_to_inputs_outputs(yaml_map: &mut yaml_serde::Mapping, verbose: bool) {
+///
+/// # Errors
+///
+/// Returns an error if the output cannot be written.
+pub fn split_scalars_to_inputs_outputs(
+    c: &mut Console<'_>,
+    yaml_map: &mut yaml_serde::Mapping,
+    verbose: bool,
+) {
     // Check if there's a top-level scalars-like structure (not in a table)
     // In v4.x, scalars are scattered at root level or in sections
     // We need to identify them and split into inputs/outputs
@@ -316,7 +374,8 @@ pub fn split_scalars_to_inputs_outputs(yaml_map: &mut yaml_serde::Mapping, verbo
                 if has_formula {
                     outputs.insert(key.clone(), value.clone());
                     if verbose {
-                        println!(
+                        outln!(
+                            c,
                             "      {} {} → outputs (has formula)",
                             "📤".dimmed(),
                             key_str
@@ -325,7 +384,12 @@ pub fn split_scalars_to_inputs_outputs(yaml_map: &mut yaml_serde::Mapping, verbo
                 } else {
                     inputs.insert(key.clone(), value.clone());
                     if verbose {
-                        println!("      {} {} → inputs (value only)", "📥".dimmed(), key_str);
+                        outln!(
+                            c,
+                            "      {} {} → inputs (value only)",
+                            "📥".dimmed(),
+                            key_str
+                        );
                     }
                 }
                 keys_to_remove.push(key.clone());

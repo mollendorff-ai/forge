@@ -11,6 +11,8 @@ use super::report::{
     csv_text, display_number, display_whole, markdown_text, shown_input, ReportFormat,
 };
 use super::results::ComparisonResult;
+use crate::cli::console::{out, outln};
+use crate::cli::Console;
 use crate::core::precision::{to_15_digits, Rounded};
 use crate::error::ForgeResult;
 use crate::parser;
@@ -364,6 +366,7 @@ fn render_csv(result: &ComparisonResult) -> String {
 /// Returns an error if the file cannot be parsed, a scenario does not exist,
 /// or calculation fails.
 pub fn compare(
+    c: &mut Console<'_>,
     file: &Path,
     scenarios: &[String],
     verbose: bool,
@@ -371,14 +374,15 @@ pub fn compare(
 ) -> ForgeResult<()> {
     let table = format == ReportFormat::Table;
     if table {
-        println!("{}", "🔥 Forge - Scenario Comparison".bold().green());
-        println!("   File: {}", file.display());
-        println!("   Scenarios: {}\n", scenarios.join(", "));
+        outln!(c, "{}", "🔥 Forge - Scenario Comparison".bold().green());
+        outln!(c, "   File: {}", file.display());
+        outln!(c, "   Scenarios: {}\n", scenarios.join(", "));
     }
 
     let model = parser::parse_model(file)?;
     if verbose && table {
-        println!(
+        outln!(
+            c,
             "   Found {} tables, {} scalars, {} scenarios\n",
             model.tables.len(),
             model.scalars.len(),
@@ -393,12 +397,13 @@ pub fn compare(
         .collect();
 
     let result = super::compare_core(file, scenarios)?;
-    print!(
+    out!(
+        c,
         "{}",
         render_comparison(&result, &inputs, format, terminal_width())
     );
     if table {
-        println!("\n{}", "✅ Comparison complete".bold().green());
+        outln!(c, "\n{}", "✅ Comparison complete".bold().green());
     }
     Ok(())
 }

@@ -2,6 +2,8 @@
 //! the parts of a model that stay only in the YAML file, and whether every
 //! formula of a workbook came in as a formula (roadmap T1-AGENT-FRICTION).
 
+use crate::cli::console::outln;
+use crate::cli::Console;
 use std::path::Path;
 
 /// Sections that run analyses from the YAML file. Excel has no counterpart,
@@ -75,7 +77,11 @@ fn has_comment(line: &str) -> bool {
 /// After `forge import`: the formulas brought in as values, or that every
 /// formula was kept as a formula.
 #[cfg(feature = "cli")]
-pub(super) fn print_import_formulas(model: &crate::types::ParsedModel, as_values: &[String]) {
+pub(super) fn print_import_formulas(
+    c: &mut Console<'_>,
+    model: &crate::types::ParsedModel,
+    as_values: &[String],
+) {
     use colored::Colorize;
     if as_values.is_empty() {
         let kept = model
@@ -89,22 +95,24 @@ pub(super) fn print_import_formulas(model: &crate::types::ParsedModel, as_values
                 .map(|t| t.row_formulas.len())
                 .sum::<usize>();
         if kept > 0 {
-            println!(
+            outln!(
+                c,
                 "{}",
                 format!("✅ All {kept} formula(s) kept as formulas").green()
             );
-            println!();
+            outln!(c);
         }
         return;
     }
-    println!(
+    outln!(
+        c,
         "{}",
         "⚠️  Imported as values, because Forge cannot express these formulas:".yellow()
     );
     for warning in as_values {
-        println!("   - {warning}");
+        outln!(c, "   - {warning}");
     }
-    println!();
+    outln!(c);
 }
 
 #[cfg(test)]

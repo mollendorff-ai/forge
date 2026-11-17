@@ -46,6 +46,7 @@ mod upgrade;
 pub use analysis::{break_even, goal_seek, sensitivity, sensitivity_in_format, variance};
 pub use audit::audit;
 pub use compare::{compare, comparison_json, render_comparison, terminal_width};
+#[cfg(feature = "cli")]
 pub use examples::examples;
 #[cfg(feature = "cli")]
 pub use excel_io::{export, import};
@@ -91,6 +92,8 @@ pub use analysis::{
 #[cfg(test)]
 pub use upgrade::split_scalars_to_inputs_outputs;
 
+use crate::cli::console::{errln, out, outln};
+use crate::cli::Console;
 use crate::core::precision::to_15_digits;
 use crate::core::{ArrayCalculator, UnitValidator};
 use crate::error::{ForgeError, ForgeResult};
@@ -331,20 +334,22 @@ fn reject_distributions(model: &crate::types::ParsedModel) -> ForgeResult<()> {
 /// or results cannot be written back to the file.
 #[allow(clippy::too_many_lines)]
 pub fn calculate(
+    c: &mut Console<'_>,
     file: &Path,
     dry_run: bool,
     verbose: bool,
     scenario: Option<&str>,
 ) -> ForgeResult<()> {
-    println!("{}", "🔥 Forge - Calculating formulas".bold().green());
-    println!("   File: {}", file.display());
+    outln!(c, "{}", "🔥 Forge - Calculating formulas".bold().green());
+    outln!(c, "   File: {}", file.display());
     if let Some(s) = scenario {
-        println!("   Scenario: {}", s.bright_yellow().bold());
+        outln!(c, "   Scenario: {}", s.bright_yellow().bold());
     }
-    println!();
+    outln!(c);
 
     if dry_run {
-        println!(
+        outln!(
+            c,
             "{}",
             "📋 DRY RUN MODE - No changes will be written\n".yellow()
         );
@@ -352,33 +357,39 @@ pub fn calculate(
 
     // Parse file
     if verbose {
-        println!("{}", "📖 Parsing YAML file...".cyan());
+        outln!(c, "{}", "📖 Parsing YAML file...".cyan());
     }
 
     let mut model = parser::parse_model(file)?;
     reject_distributions(&model)?;
 
     if verbose {
-        println!(
+        outln!(
+            c,
             "   Found {} tables, {} scalars",
             model.tables.len(),
             model.scalars.len()
         );
         if !model.scenarios.is_empty() {
-            println!(
+            outln!(
+                c,
                 "   Found {} scenarios: {:?}",
                 model.scenarios.len(),
                 model.scenario_names()
             );
         }
-        println!();
+        outln!(c);
     }
 
     // Apply scenario overrides if specified
     if let Some(scenario_name) = scenario {
         apply_scenario(&mut model, scenario_name)?;
         if verbose {
-            println!("{}", format!("📊 Applied scenario: {scenario_name}").cyan());
+            outln!(
+                c,
+                "{}",
+                format!("📊 Applied scenario: {scenario_name}").cyan()
+            );
         }
     }
 
@@ -386,28 +397,28 @@ pub fn calculate(
     let unit_validator = UnitValidator::new(&model);
     let unit_warnings = unit_validator.validate();
     if !unit_warnings.is_empty() {
-        println!("{}", "⚠️  Unit Consistency Warnings:".yellow().bold());
+        outln!(c, "{}", "⚠️  Unit Consistency Warnings:".yellow().bold());
         for warning in &unit_warnings {
-            println!("   {}", warning.to_string().yellow());
+            outln!(c, "   {}", warning.to_string().yellow());
         }
-        println!();
+        outln!(c);
     }
 
     // Calculate using ArrayCalculator
     if verbose {
-        println!("{}", "🧮 Calculating tables and scalars...".cyan());
+        outln!(c, "{}", "🧮 Calculating tables and scalars...".cyan());
     }
 
     let calculator = ArrayCalculator::new(model);
     let result = calculator.calculate_all()?;
 
     // Display results
-    println!("{}", "✅ Calculation Results:".bold().green());
+    outln!(c, "{}", "✅ Calculation Results:".bold().green());
 
     // Show table results in model order (the order of the file), which is the
     // same on every run
     for (table_name, table) in &result.tables {
-        println!("   📊 Table: {}", table_name.bright_blue().bold());
+        outln!(c, "   📊 Table: {}", table_name.bright_blue().bold());
         for col_name in table.column_names() {
             let Some(column) = table.columns.get(col_name) else {
                 continue;
@@ -419,21 +430,22 @@ pub fn calculate(
                 Some(format) => {
                     // `;` between values, since a format may put commas in them
                     let shown = formatted_column(&column.values, format).join("; ");
-                    println!("      {} = [{shown}]", col_name.cyan());
-                    println!(
+                    outln!(c, "      {} = [{shown}]", col_name.cyan());
+                    outln!(
+                        c,
                         "      {}   {}",
                         " ".repeat(col_name.chars().count()),
                         raw.dimmed()
                     );
                 },
-                None => println!("      {} = {raw}", col_name.cyan()),
+                None => outln!(c, "      {} = {raw}", col_name.cyan()),
             }
         }
     }
 
     // Show scalar results
     if !result.scalars.is_empty() {
-        println!("\n   📐 Scalars:");
+        outln!(c, "\n   📐 Scalars:");
         for (name, var) in &result.scalars {
             if let Some(value) = var.value {
                 let full = var
@@ -442,26 +454,28 @@ pub fn calculate(
                 // With a format (ADR-061): as it shows the value, then the
                 // full value when the two differ
                 match var.formatted().filter(|f| *f != full) {
-                    Some(shown) => println!(
+                    Some(shown) => outln!(
+                        c,
                         "      {} = {}  {}",
                         name.bright_blue(),
                         shown.bold(),
                         format!("({full})").dimmed()
                     ),
-                    None => println!("      {} = {}", name.bright_blue(), full.bold()),
+                    None => outln!(c, "      {} = {}", name.bright_blue(), full.bold()),
                 }
             }
         }
     }
-    println!();
+    outln!(c);
 
     // Write results back to file (v4.3.0)
     if dry_run {
-        println!("{}", "📋 Dry run complete - no changes written".yellow());
+        outln!(c, "{}", "📋 Dry run complete - no changes written".yellow());
     } else {
         match writer::write_calculated_results(file, &result)? {
             0 => {
-                println!(
+                outln!(
+                    c,
                     "{}",
                     format!(
                         "✅ {} is up to date (no stored result changed)",
@@ -471,7 +485,8 @@ pub fn calculate(
                 );
             },
             n => {
-                println!(
+                outln!(
+                    c,
                     "{}",
                     format!(
                         "💾 {n} value{} updated in {}",
@@ -481,7 +496,8 @@ pub fn calculate(
                     .bold()
                     .green()
                 );
-                println!(
+                outln!(
+                    c,
                     "{}",
                     format!("   Backup saved to {}.bak", file.display()).dimmed()
                 );
@@ -542,16 +558,17 @@ pub fn validate_core(file: &Path) -> ForgeResult<results::ValidationResult> {
 /// # Errors
 ///
 /// Returns an error if any file fails validation or cannot be parsed.
-pub fn validate(files: &[PathBuf]) -> ForgeResult<()> {
+pub fn validate(c: &mut Console<'_>, files: &[PathBuf]) -> ForgeResult<()> {
     let file_count = files.len();
     let is_batch = file_count > 1;
 
     if is_batch {
-        println!(
+        outln!(
+            c,
             "{}",
             format!("✅ Validating {file_count} files").bold().green()
         );
-        println!();
+        outln!(c);
     }
 
     let mut all_passed = true;
@@ -559,17 +576,17 @@ pub fn validate(files: &[PathBuf]) -> ForgeResult<()> {
 
     for file in files {
         if is_batch {
-            println!("{}", format!("─── {} ───", file.display()).cyan());
+            outln!(c, "{}", format!("─── {} ───", file.display()).cyan());
         } else {
-            println!("{}", "✅ Validating model".bold().green());
-            println!("   File: {}\n", file.display());
+            outln!(c, "{}", "✅ Validating model".bold().green());
+            outln!(c, "   File: {}\n", file.display());
         }
 
-        match validate_single_file(file) {
+        match validate_single_file(c, file) {
             Ok(()) => {
                 if is_batch {
-                    println!("{}", format!("   ✅ {} - OK", file.display()).green());
-                    println!();
+                    outln!(c, "{}", format!("   ✅ {} - OK", file.display()).green());
+                    outln!(c);
                 }
             },
             Err(e) => {
@@ -579,18 +596,19 @@ pub fn validate(files: &[PathBuf]) -> ForgeResult<()> {
                 }
                 all_passed = false;
                 failed_files.push(format!("{}: {}", file.display(), e));
-                println!("{}", format!("   ❌ {} - FAILED", file.display()).red());
-                println!("      {}", e.to_string().red());
-                println!();
+                outln!(c, "{}", format!("   ❌ {} - FAILED", file.display()).red());
+                outln!(c, "      {}", e.to_string().red());
+                outln!(c);
             },
         }
     }
 
     // Summary for batch validation
     if is_batch {
-        println!("{}", "─".repeat(50));
+        outln!(c, "{}", "─".repeat(50));
         let passed = file_count - failed_files.len();
-        println!(
+        outln!(
+            c,
             "   {} passed, {} failed out of {} files",
             passed.to_string().green(),
             failed_files.len().to_string().red(),
@@ -609,7 +627,7 @@ pub fn validate(files: &[PathBuf]) -> ForgeResult<()> {
 }
 
 /// Validate a single file
-fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
+fn validate_single_file(c: &mut Console<'_>, file: &std::path::Path) -> ForgeResult<()> {
     const TOLERANCE: f64 = 0.0001; // Floating point comparison tolerance
 
     // Parse YAML file
@@ -617,11 +635,16 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
     reject_distributions(&model)?;
 
     if model.tables.is_empty() && model.scalars.is_empty() {
-        println!("{}", "⚠️  No tables or scalars found in YAML file".yellow());
+        outln!(
+            c,
+            "{}",
+            "⚠️  No tables or scalars found in YAML file".yellow()
+        );
         return Ok(());
     }
 
-    println!(
+    outln!(
+        c,
         "   Found {} tables, {} scalars",
         model.tables.len(),
         model.scalars.len()
@@ -630,7 +653,7 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
     // A table nothing reads would otherwise pass with columns of different
     // lengths; a formula that reads one finds out when it runs.
     if let Err(e) = model.check_table_lengths() {
-        println!("\n{}", format!("❌ {e}").bold().red());
+        outln!(c, "\n{}", format!("❌ {e}").bold().red());
         return Err(ForgeError::Validation(e));
     }
 
@@ -639,7 +662,8 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
     let calculated = match calculator.calculate_all() {
         Ok(vals) => vals,
         Err(e) => {
-            println!(
+            outln!(
+                c,
                 "\n{}",
                 format!("❌ Formula validation failed: {e}").bold().red()
             );
@@ -670,44 +694,56 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
         }
     }
 
-    // Report results
-    println!();
+    report_validation(c, &mismatches, unstored)
+}
+
+/// What `forge validate` found: every stored value matches its formula, or
+/// each one that does not, with what it should be.
+fn report_validation(
+    c: &mut Console<'_>,
+    mismatches: &[(String, f64, f64, f64)],
+    unstored: usize,
+) -> ForgeResult<()> {
+    outln!(c);
     if mismatches.is_empty() {
-        println!("{}", "✅ All tables are valid!".bold().green());
+        outln!(c, "{}", "✅ All tables are valid!".bold().green());
         if unstored == 0 {
-            println!(
+            outln!(
+                c,
                 "{}",
                 "✅ All scalar values match their formulas!".bold().green()
             );
         } else {
-            println!("{}", "✅ The formulas are valid.".bold().green());
-            println!(
-                "   {unstored} formula(s) have no stored value yet; run 'forge calculate' to store them"
+            outln!(c, "{}", "✅ The formulas are valid.".bold().green());
+            outln!(c, "   {unstored} formula(s) have no stored value yet; run 'forge calculate' to store them"
             );
         }
         Ok(())
     } else {
-        println!(
+        outln!(
+            c,
             "{}",
             format!("❌ Found {} value mismatches!", mismatches.len())
                 .bold()
                 .red()
         );
-        println!(
+        outln!(
+            c,
             "{}",
             "   The formulas are valid; the stored values are out of date.\n".yellow()
         );
 
-        for (name, current, expected, diff) in &mismatches {
-            println!("   {}", name.bright_blue().bold());
+        for (name, current, expected, diff) in mismatches {
+            outln!(c, "   {}", name.bright_blue().bold());
             // Format numbers with reasonable precision (remove trailing zeros)
-            println!("      Current:  {}", format_number(*current).red());
-            println!("      Expected: {}", format_number(*expected).green());
-            println!("      Diff:     {}", format!("{diff:.6}").yellow());
-            println!();
+            outln!(c, "      Current:  {}", format_number(*current).red());
+            outln!(c, "      Expected: {}", format_number(*expected).green());
+            outln!(c, "      Diff:     {}", format!("{diff:.6}").yellow());
+            outln!(c);
         }
 
-        println!(
+        outln!(
+            c,
             "{}",
             "💡 Run 'forge calculate' to update values".bold().yellow()
         );
@@ -730,10 +766,16 @@ fn validate_single_file(file: &std::path::Path) -> ForgeResult<()> {
 /// Contains infinite loop waiting for file system events - cannot unit test.
 /// Tested via: `cli_integration_tests.rs` (manual termination after initial run)
 #[cfg(all(not(coverage), feature = "cli"))]
-pub fn watch(file: &Path, validate_only: bool, verbose: bool) -> ForgeResult<()> {
-    println!("{}", "👁️  Forge - Watch Mode".bold().green());
-    println!("   Watching: {}", file.display());
-    println!(
+pub fn watch(
+    c: &mut Console<'_>,
+    file: &Path,
+    validate_only: bool,
+    verbose: bool,
+) -> ForgeResult<()> {
+    outln!(c, "{}", "👁️  Forge - Watch Mode".bold().green());
+    outln!(c, "   Watching: {}", file.display());
+    outln!(
+        c,
         "   Mode: {}",
         if validate_only {
             "validate only"
@@ -741,7 +783,7 @@ pub fn watch(file: &Path, validate_only: bool, verbose: bool) -> ForgeResult<()>
             "calculate"
         }
     );
-    println!("   Press {} to stop\n", "Ctrl+C".bold().yellow());
+    outln!(c, "   Press {} to stop\n", "Ctrl+C".bold().yellow());
 
     // Verify file exists
     if !file.exists() {
@@ -771,7 +813,8 @@ pub fn watch(file: &Path, validate_only: bool, verbose: bool) -> ForgeResult<()>
         .map_err(|e| ForgeError::Validation(format!("Failed to watch directory: {e}")))?;
 
     if verbose {
-        println!(
+        outln!(
+            c,
             "   {} {}",
             "Watching directory:".cyan(),
             parent_dir.display()
@@ -779,9 +822,9 @@ pub fn watch(file: &Path, validate_only: bool, verbose: bool) -> ForgeResult<()>
     }
 
     // Run initial validation/calculation
-    println!("{}", "🔄 Initial run...".cyan());
-    run_watch_action(file, validate_only, verbose);
-    println!();
+    outln!(c, "{}", "🔄 Initial run...".cyan());
+    run_watch_action(c, file, validate_only, verbose);
+    outln!(c);
 
     // Watch loop
     loop {
@@ -818,22 +861,23 @@ pub fn watch(file: &Path, validate_only: bool, verbose: bool) -> ForgeResult<()>
                 if relevant {
                     // Clear screen for fresh output (optional, can be verbose mode only)
                     if verbose {
-                        print!("\x1B[2J\x1B[1;1H"); // ANSI clear screen
+                        out!(c, "\x1B[2J\x1B[1;1H"); // ANSI clear screen
                     }
-                    println!(
+                    outln!(
+                        c,
                         "\n{} {}",
                         "🔄 Change detected at".cyan(),
                         chrono_lite_timestamp().cyan()
                     );
-                    run_watch_action(file, validate_only, verbose);
-                    println!();
+                    run_watch_action(c, file, validate_only, verbose);
+                    outln!(c);
                 }
             },
             Ok(Err(error)) => {
-                eprintln!("{} Watch error: {}", "❌".red(), error);
+                errln!(c, "{} Watch error: {}", "❌".red(), error);
             },
             Err(e) => {
-                eprintln!("{} Channel error: {}", "❌".red(), e);
+                errln!(c, "{} Channel error: {}", "❌".red(), e);
                 break;
             },
         }
@@ -844,7 +888,12 @@ pub fn watch(file: &Path, validate_only: bool, verbose: bool) -> ForgeResult<()>
 
 /// Stub for coverage builds - see ADR-006
 #[cfg(all(coverage, feature = "cli"))]
-pub fn watch(file: &Path, _validate_only: bool, _verbose: bool) -> ForgeResult<()> {
+pub fn watch(
+    c: &mut Console<'_>,
+    file: &Path,
+    _validate_only: bool,
+    _verbose: bool,
+) -> ForgeResult<()> {
     // Validate file exists (testable error path)
     if !file.exists() {
         return Err(ForgeError::Validation(format!(
@@ -871,30 +920,31 @@ fn chrono_lite_timestamp() -> String {
 
 /// Run the watch action (validate or calculate)
 #[cfg(all(feature = "cli", any(not(coverage), test)))]
-fn run_watch_action(file: &Path, validate_only: bool, verbose: bool) {
+fn run_watch_action(c: &mut Console<'_>, file: &Path, validate_only: bool, verbose: bool) {
     if validate_only {
-        match validate_internal(file, verbose) {
-            Ok(()) => println!("{}", "✅ Validation passed".bold().green()),
-            Err(e) => println!("{} {}", "❌ Validation failed:".bold().red(), e),
+        match validate_internal(c, file, verbose) {
+            Ok(()) => outln!(c, "{}", "✅ Validation passed".bold().green()),
+            Err(e) => outln!(c, "{} {}", "❌ Validation failed:".bold().red(), e),
         }
     } else {
-        match calculate_internal(file, verbose) {
-            Ok(()) => println!("{}", "✅ Calculation complete".bold().green()),
-            Err(e) => println!("{} {}", "❌ Calculation failed:".bold().red(), e),
+        match calculate_internal(c, file, verbose) {
+            Ok(()) => outln!(c, "{}", "✅ Calculation complete".bold().green()),
+            Err(e) => outln!(c, "{} {}", "❌ Calculation failed:".bold().red(), e),
         }
     }
 }
 
 /// Internal validation function for watch mode
 #[cfg(all(feature = "cli", any(not(coverage), test)))]
-fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
+fn validate_internal(c: &mut Console<'_>, file: &Path, verbose: bool) -> ForgeResult<()> {
     const TOLERANCE: f64 = 0.0001;
 
     let model = parser::parse_model(file)?;
     reject_distributions(&model)?;
 
     if verbose {
-        println!(
+        outln!(
+            c,
             "   Found {} tables, {} scalars",
             model.tables.len(),
             model.scalars.len()
@@ -944,11 +994,12 @@ fn validate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
 
 /// Internal calculation function for watch mode
 #[cfg(all(feature = "cli", any(not(coverage), test)))]
-fn calculate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
+fn calculate_internal(c: &mut Console<'_>, file: &Path, verbose: bool) -> ForgeResult<()> {
     let model = parser::parse_model(file)?;
 
     if verbose {
-        println!(
+        outln!(
+            c,
             "   Found {} tables, {} scalars",
             model.tables.len(),
             model.scalars.len()
@@ -960,7 +1011,8 @@ fn calculate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
 
     // Show summary
     for (table_name, table) in &result.tables {
-        println!(
+        outln!(
+            c,
             "   📊 {} ({} columns)",
             table_name.bright_blue(),
             table.columns.len()
@@ -968,7 +1020,7 @@ fn calculate_internal(file: &Path, verbose: bool) -> ForgeResult<()> {
     }
 
     if !result.scalars.is_empty() && verbose {
-        println!("   📐 {} scalars calculated", result.scalars.len());
+        outln!(c, "   📐 {} scalars calculated", result.scalars.len());
     }
 
     Ok(())
@@ -1011,6 +1063,7 @@ pub fn apply_scenario(
 #[cfg(test)]
 mod calculate_tests {
     use super::*;
+    use crate::cli::console::capture;
     use std::io::Write;
 
     #[test]
@@ -1021,7 +1074,8 @@ mod calculate_tests {
             "_forge_version: \"5.0.0\"\nassumptions:\n  growth:\n    value: null\n    formula: \"=MC.Normal(0.15, 0.05)\"\n  doubled:\n    value: null\n    formula: \"=assumptions.growth * 2\"\n"
         )
         .unwrap();
-        let err = calculate(file.path(), true, false, None)
+        let err = capture(|c| calculate(c, file.path(), true, false, None))
+            .0
             .unwrap_err()
             .to_string();
         assert!(err.contains("assumptions.growth"), "{err}");
@@ -1039,7 +1093,8 @@ mod calculate_tests {
         let err = validate_core(file.path()).unwrap_err().to_string();
         assert!(err.contains("assumptions.growth"), "{err}");
         assert!(err.contains("forge simulate"), "{err}");
-        let err = validate_internal(file.path(), false)
+        let err = capture(|c| validate_internal(c, file.path(), false))
+            .0
             .unwrap_err()
             .to_string();
         assert!(err.contains("forge simulate"), "{err}");

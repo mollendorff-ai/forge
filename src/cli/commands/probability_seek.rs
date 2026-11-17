@@ -8,6 +8,8 @@
 //! reaches the target.
 
 use super::simulate::{prepare, run_model, SimulateOptions};
+use crate::cli::console::outln;
+use crate::cli::Console;
 use crate::error::{ForgeError, ForgeResult};
 use crate::monte_carlo::statistics::{evaluate_threshold, parse_threshold};
 use serde::Serialize;
@@ -218,6 +220,7 @@ pub fn probability_seek_core(
 ///
 /// Returns an error if the goal cannot be read or [`probability_seek_core`] fails.
 pub fn probability_seek(
+    c: &mut Console<'_>,
     file: &Path,
     options: SimulateOptions<'_>,
     seek: &str,
@@ -227,23 +230,26 @@ pub fn probability_seek(
 ) -> ForgeResult<()> {
     use colored::Colorize;
     let goal = SeekGoal::parse(seek).map_err(ForgeError::Validation)?;
-    println!("{}", "🎯 Forge - Probability Seek".bold().green());
-    println!("   File: {}", file.display());
-    println!(
+    outln!(c, "{}", "🎯 Forge - Probability Seek".bold().green());
+    outln!(c, "   File: {}", file.display());
+    outln!(
+        c,
         "   Goal: P({} {}) = {:.2}%",
         goal.output,
         goal.threshold,
         goal.probability * 100.0
     );
-    println!("   Vary: {vary} from {min} to {max}");
-    println!();
+    outln!(c, "   Vary: {vary} from {min} to {max}");
+    outln!(c);
     let result = probability_seek_core(file, options, &goal, vary, min, max)?;
-    println!(
+    outln!(
+        c,
         "   {} = {}",
         result.input.bright_blue().bold(),
         super::display_number(result.value).bold()
     );
-    println!(
+    outln!(
+        c,
         "   P({} {}) there: {:.2}%  ({:.2}% at {min}, {:.2}% at {max})",
         goal.output,
         goal.threshold,
@@ -251,11 +257,13 @@ pub fn probability_seek(
         result.probability_at_min * 100.0,
         result.probability_at_max * 100.0
     );
-    println!(
+    outln!(
+        c,
         "   {} simulations of {} iterations, the same draws each time",
-        result.simulations, result.iterations
+        result.simulations,
+        result.iterations
     );
-    println!();
+    outln!(c);
     Ok(())
 }
 

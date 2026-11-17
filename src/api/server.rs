@@ -237,22 +237,22 @@ pub fn build_router(config: &ApiConfig) -> Result<Router, String> {
 /// Returns an error if the server address cannot be parsed, the TCP listener
 /// fails to bind, or the server encounters a fatal runtime error.
 ///
-/// # Coverage Exclusion (ADR-006)
-/// This function binds to a real TCP port and runs forever until terminated.
-/// It is not unit tested; `build_router`, which holds the routes and layers, is.
-#[cfg(not(coverage))]
+/// A configuration it refuses (a host other than this machine without a
+/// token, any origin) returns its error before anything starts; a test runs
+/// that part. Serving binds a real port and runs until the process is
+/// stopped, which no test runs yet.
 pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
-    // Initialize tracing
+    let app = build_router(&config)
+        .map_err(anyhow::Error::msg)?
+        .layer(TraceLayer::new_for_http());
+
+    // The log starts once the configuration is accepted
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "forge=info,tower_http=info".into()),
         )
         .init();
-
-    let app = build_router(&config)
-        .map_err(anyhow::Error::msg)?
-        .layer(TraceLayer::new_for_http());
 
     let addr: SocketAddr = config.socket_address().parse()?;
     info!("🔥 Forge API Server starting on http://{}", addr);
@@ -281,12 +281,6 @@ pub async fn run_api_server(config: ApiConfig) -> anyhow::Result<()> {
         .await?;
 
     info!("Forge API Server shutdown complete");
-    Ok(())
-}
-
-/// Stub for coverage builds - see ADR-006
-#[cfg(coverage)]
-pub async fn run_api_server(_config: ApiConfig) -> anyhow::Result<()> {
     Ok(())
 }
 

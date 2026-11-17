@@ -59,6 +59,7 @@ default = ["cli"]
 cli = [
     "excel",
     "dep:clap",
+    "dep:anstream",
     "dep:notify",
     "dep:notify-debouncer-mini",
     "dep:tokio",
@@ -97,6 +98,8 @@ jsonschema = { version = "0.60", default-features = false, features = ["idna"] }
 
 # CLI
 clap = { version = "4.5.53", features = ["derive", "env"], optional = true }
+# Whether help and usage errors are in colour, decided as clap decides it
+anstream = { version = "1.0.0", optional = true }
 
 # Error handling
 anyhow = "1.0"
@@ -131,7 +134,7 @@ notify = { version = "8.2", optional = true }
 notify-debouncer-mini = { version = "0.7", optional = true }
 
 # Async runtime (API server, MCP server)
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "signal", "net"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "io-util", "signal", "net"], optional = true }
 
 # MCP server (Model Context Protocol via rmcp SDK)
 rmcp = { version = "3.8", features = ["server", "transport-io"], optional = true }

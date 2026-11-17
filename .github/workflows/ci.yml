@@ -459,7 +459,9 @@ jobs:
 
       - name: Generate coverage
         run: |
-          cargo llvm-cov --ignore-filename-regex 'tests/' --json --output-path cov.json
+          # The tests, then the built program for what only it runs (main,
+          # MCP over stdio): scripts/coverage.sh
+          scripts/coverage.sh --json --output-path cov.json
           for kind in lines functions regions; do
             echo "Coverage of $kind: $(jq ".data[0].totals.$kind.percent" cov.json)%"
           done

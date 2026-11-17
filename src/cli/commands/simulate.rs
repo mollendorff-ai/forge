@@ -2,6 +2,8 @@
 //!
 //! Runs probabilistic analysis using MC.* distribution functions.
 
+use crate::cli::console::outln;
+use crate::cli::Console;
 use crate::core::array_calculator::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
 use crate::monte_carlo::{MonteCarloConfig, MonteCarloEngine};
@@ -279,68 +281,43 @@ pub(super) fn run_model(
 /// Returns an error if the YAML file cannot be parsed, the Monte Carlo
 /// configuration is invalid, or the simulation fails.
 pub fn simulate(
+    c: &mut Console<'_>,
     file: &Path,
     options: SimulateOptions<'_>,
     output_file: Option<PathBuf>,
     verbose: bool,
 ) -> ForgeResult<()> {
-    simulate_to(
-        &mut std::io::stdout().lock(),
-        file,
-        options,
-        output_file,
-        verbose,
-    )
-}
-
-/// The simulate command, writing what it prints to `out`, so a test reads
-/// the same text a person sees, in-process
-///
-/// # Errors
-///
-/// As [`simulate`], and when `out` cannot be written.
-fn simulate_to(
-    out: &mut impl std::io::Write,
-    file: &Path,
-    options: SimulateOptions<'_>,
-    output_file: Option<PathBuf>,
-    verbose: bool,
-) -> ForgeResult<()> {
-    writeln!(
-        out,
-        "{}",
-        "🎲 Forge - Monte Carlo Simulation".bold().green()
-    )?;
-    writeln!(out, "   File: {}", file.display())?;
+    outln!(c, "{}", "🎲 Forge - Monte Carlo Simulation".bold().green());
+    outln!(c, "   File: {}", file.display());
     if let Some(scenario) = options.scenario {
-        writeln!(out, "   Scenario: {}", scenario.bright_blue())?;
+        outln!(c, "   Scenario: {}", scenario.bright_blue());
     }
-    writeln!(out)?;
+    outln!(c);
     if verbose {
-        writeln!(out, "{}", "🎲 Running simulation...".cyan())?;
+        outln!(c, "{}", "🎲 Running simulation...".cyan());
     }
 
     let result = simulate_core(file, options)?;
     let config = &result.config;
-    writeln!(out, "   {}", "Configuration:".bold())?;
-    writeln!(
-        out,
+    outln!(c, "   {}", "Configuration:".bold());
+    outln!(
+        c,
         "      Iterations: {}",
         config.iterations.to_string().bright_blue()
-    )?;
-    writeln!(out, "      Sampling:   {}", config.sampling.bright_blue())?;
+    );
+    outln!(c, "      Sampling:   {}", config.sampling.bright_blue());
     if let Some(seed) = config.seed {
-        writeln!(out, "      Seed:       {}", seed.to_string().bright_blue())?;
+        outln!(c, "      Seed:       {}", seed.to_string().bright_blue());
     }
-    writeln!(out)?;
+    outln!(c);
 
-    print_simulation_results(out, &result)?;
+    print_simulation_results(c, &result);
 
     if let Some(output_path) = output_file {
-        write_simulation_output(out, &result, &output_path)?;
+        write_simulation_output(c, &result, &output_path)?;
     }
 
-    writeln!(out, "{}", "✅ Simulation complete".bold().green())?;
+    outln!(c, "{}", "✅ Simulation complete".bold().green());
 
     Ok(())
 }
@@ -353,20 +330,17 @@ fn sorted_by_name<V>(map: &std::collections::HashMap<String, V>) -> Vec<(&String
 }
 
 /// Write the simulation results, as `forge simulate` prints them
-fn print_simulation_results(
-    out: &mut impl std::io::Write,
-    result: &crate::monte_carlo::SimulationResult,
-) -> std::io::Result<()> {
-    writeln!(out, "{}", "📊 Simulation Results:".bold().green())?;
-    writeln!(out, "   Iterations:     {}", result.iterations_completed)?;
-    writeln!(out, "   Execution time: {} ms", result.execution_time_ms)?;
-    writeln!(out)?;
+fn print_simulation_results(c: &mut Console<'_>, result: &crate::monte_carlo::SimulationResult) {
+    outln!(c, "{}", "📊 Simulation Results:".bold().green());
+    outln!(c, "   Iterations:     {}", result.iterations_completed);
+    outln!(c, "   Execution time: {} ms", result.execution_time_ms);
+    outln!(c);
 
-    print_input_distributions(out, result)?;
+    print_input_distributions(c, result);
 
     // Show output results
     if !result.outputs.is_empty() {
-        writeln!(out, "   {}", "Output Statistics:".bold())?;
+        outln!(c, "   {}", "Output Statistics:".bold());
         let rows_of = |name: &str| {
             result
                 .config
@@ -379,23 +353,19 @@ fn print_simulation_results(
         for (var_name, output) in &result.outputs {
             if let Some((column, _)) = rows_of(var_name) {
                 if !printed_columns.contains(&column) {
-                    print_column_rows(out, result, &column)?;
+                    print_column_rows(c, result, &column);
                     printed_columns.push(column);
                 }
                 continue;
             }
-            print_output(out, var_name, output)?;
+            print_output(c, var_name, output);
         }
     }
-    Ok(())
 }
 
 /// The sampled inputs: each one's mean, plan value, min and max
-fn print_input_distributions(
-    out: &mut impl std::io::Write,
-    result: &crate::monte_carlo::SimulationResult,
-) -> std::io::Result<()> {
-    writeln!(out, "   {}", "Input Distributions:".bold())?;
+fn print_input_distributions(c: &mut Console<'_>, result: &crate::monte_carlo::SimulationResult) {
+    outln!(c, "   {}", "Input Distributions:".bold());
     for (var_name, samples) in sorted_by_name(&result.input_samples) {
         let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
         let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
@@ -406,101 +376,96 @@ fn print_input_distributions(
             .map_or_else(String::new, |p| {
                 format!(" plan={} ({})", super::display_number(p.value), p.from)
             });
-        writeln!(
-            out,
+        outln!(
+            c,
             "      {} mean={}{plan} min={} max={}",
             var_name.bright_blue(),
             super::display_number(mean),
             super::display_number(min),
             super::display_number(max)
-        )?;
+        );
     }
-    writeln!(out)?;
-    Ok(())
+    outln!(c);
 }
 
 /// One output's statistics, thresholds, expected shortfall and drivers
-fn print_output(
-    out: &mut impl std::io::Write,
-    var_name: &str,
-    output: &crate::monte_carlo::OutputResult,
-) -> std::io::Result<()> {
+fn print_output(c: &mut Console<'_>, var_name: &str, output: &crate::monte_carlo::OutputResult) {
     let stats = &output.statistics;
-    writeln!(out, "      {}:", var_name.bright_blue().bold())?;
-    writeln!(
-        out,
+    outln!(c, "      {}:", var_name.bright_blue().bold());
+    outln!(
+        c,
         "         Mean:      {}",
         super::display_number(stats.mean)
-    )?;
+    );
     if let Some(at_plan) = output.at_plan {
-        writeln!(
-            out,
+        outln!(
+            c,
             "         At plan:   {}  (each uncertain input at its plan value)",
             super::display_number(at_plan)
-        )?;
+        );
         if let Some(note) = mean_versus_plan(stats.mean, at_plan, stats.std_dev) {
-            writeln!(out, "         {note}")?;
+            outln!(c, "         {note}");
         }
     }
-    writeln!(
-        out,
+    outln!(
+        c,
         "         Median:    {}",
         super::display_number(stats.median)
-    )?;
-    writeln!(
-        out,
+    );
+    outln!(
+        c,
         "         Std Dev:   {}",
         super::display_number(stats.std_dev)
-    )?;
-    writeln!(
-        out,
+    );
+    outln!(
+        c,
         "         Min:       {}",
         super::display_number(stats.min)
-    )?;
-    writeln!(
-        out,
+    );
+    outln!(
+        c,
         "         Max:       {}",
         super::display_number(stats.max)
-    )?;
+    );
 
     // Percentiles
-    writeln!(out, "         Percentiles:")?;
+    outln!(c, "         Percentiles:");
     for (p, v) in &stats.percentiles {
-        writeln!(out, "            P{p}: {}", super::display_number(*v))?;
+        outln!(c, "            P{p}: {}", super::display_number(*v));
     }
 
     // Thresholds, in the order configured
     for (threshold, prob) in &output.threshold_probabilities {
-        writeln!(
-            out,
+        outln!(
+            c,
             "         P({} {}) = {:.2}%",
             var_name,
             threshold,
             prob * 100.0
-        )?;
+        );
     }
 
     for (p, mean) in &output.expected_shortfall {
-        writeln!(
-            out,
+        outln!(
+            c,
             "         Mean of the worst {p}% (expected shortfall): {}",
             super::display_number(*mean)
-        )?;
+        );
     }
 
     // Which sampled inputs move it most
     if !output.drivers.is_empty() {
-        writeln!(out, "         Drivers (rank correlation with the output):")?;
+        outln!(c, "         Drivers (rank correlation with the output):");
         for driver in &output.drivers {
-            writeln!(
-                out,
+            outln!(
+                c,
                 "            {:+.3}  {}",
-                driver.rank_correlation, driver.input
-            )?;
+                driver.rank_correlation,
+                driver.input
+            );
         }
     }
-    writeln!(out)?;
-    Ok(())
+    outln!(c);
 }
 
 /// A note when an output's mean is far from its value at plan (more than a
@@ -523,10 +488,10 @@ fn mean_versus_plan(mean: f64, at_plan: f64, std_dev: f64) -> Option<String> {
 /// A table column output, one line per row: mean, P10, P50, P90, and each
 /// threshold's probability.
 fn print_column_rows(
-    out: &mut impl std::io::Write,
+    c: &mut Console<'_>,
     result: &crate::monte_carlo::SimulationResult,
     column: &str,
-) -> std::io::Result<()> {
+) {
     let rows: Vec<&crate::monte_carlo::OutputResult> = result
         .config
         .outputs
@@ -535,14 +500,14 @@ fn print_column_rows(
         .filter_map(|o| result.outputs.get(&o.variable))
         .collect();
     let Some(first) = rows.first() else {
-        return Ok(());
+        return;
     };
-    writeln!(
-        out,
+    outln!(
+        c,
         "      {} {}:",
         column.bright_blue().bold(),
         "by row".bold()
-    )?;
+    );
     let mut header = format!(
         "         {:>4} {:>14} {:>14} {:>14} {:>14} {:>14}",
         "row", "mean", "at plan", "P10", "P50", "P90"
@@ -550,7 +515,7 @@ fn print_column_rows(
     for threshold in first.threshold_probabilities.keys() {
         let _ = write!(header, " {:>10}", format!("P({threshold})"));
     }
-    writeln!(out, "{header}")?;
+    outln!(c, "{header}");
     for (row, output) in rows.iter().enumerate() {
         let p = |q: u8| {
             output
@@ -574,15 +539,14 @@ fn print_column_rows(
         for prob in output.threshold_probabilities.values() {
             let _ = write!(line, " {:>9.2}%", prob * 100.0);
         }
-        writeln!(out, "{line}")?;
+        outln!(c, "{line}");
     }
-    writeln!(out)?;
-    Ok(())
+    outln!(c);
 }
 
 /// Write simulation output to a file (YAML, JSON, or Excel)
 fn write_simulation_output(
-    out: &mut impl std::io::Write,
+    c: &mut Console<'_>,
     result: &crate::monte_carlo::SimulationResult,
     output_path: &Path,
 ) -> ForgeResult<()> {
@@ -610,13 +574,13 @@ fn write_simulation_output(
         },
     }
 
-    writeln!(
-        out,
+    outln!(
+        c,
         "{}",
         format!("💾 Results written to {}", output_path.display())
             .bold()
             .green()
-    )?;
+    );
     Ok(())
 }
 
@@ -639,6 +603,7 @@ fn parse_monte_carlo_config(yaml_content: &str) -> ForgeResult<MonteCarloConfig>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::console::capture;
     use std::io::Write;
     use tempfile::NamedTempFile;
 
@@ -1034,19 +999,9 @@ scenarios:
     /// What `forge simulate` prints for these options, without colour codes
     /// (an in-process run may see a terminal, which a piped binary did not)
     fn printed(options: SimulateOptions<'_>) -> ForgeResult<String> {
-        let mut out = Vec::new();
-        simulate_to(&mut out, Path::new(BAGEL_SIMULATE), options, None, false)?;
-        let text = String::from_utf8(out).expect("UTF-8");
-        let mut plain = String::with_capacity(text.len());
-        let mut chars = text.chars();
-        while let Some(c) = chars.next() {
-            if c == '\u{1b}' {
-                chars.by_ref().find(|&c| c == 'm');
-            } else {
-                plain.push(c);
-            }
-        }
-        Ok(plain)
+        let (result, printed) =
+            capture(|c| simulate(c, Path::new(BAGEL_SIMULATE), options, None, false));
+        result.map(|()| printed.out)
     }
 
     // The same draws give the same numbers, to the last bit

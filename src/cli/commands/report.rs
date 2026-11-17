@@ -5,6 +5,8 @@
 //! and never writes the file: the YAML stays the source of truth. A formula
 //! without a value is shown as `—` and named in a note.
 
+use crate::cli::console::{errln, out};
+use crate::cli::Console;
 use crate::core::array_calculator::evaluator::text::number_format::rounded_digits;
 use crate::core::precision::to_15_digits;
 use crate::error::{ForgeError, ForgeResult};
@@ -645,11 +647,16 @@ pub fn report_core(file: &Path, options: &ReportOptions) -> ForgeResult<Report> 
 ///
 /// Returns an error if the file cannot be read or parsed, or a chosen group or
 /// key is not in it.
-pub fn report(file: &Path, options: &ReportOptions, format: ReportFormat) -> ForgeResult<()> {
+pub fn report(
+    c: &mut Console<'_>,
+    file: &Path,
+    options: &ReportOptions,
+    format: ReportFormat,
+) -> ForgeResult<()> {
     let report = report_core(file, options)?;
-    print!("{}", render(&report, format));
+    out!(c, "{}", render(&report, format));
     for note in notes(&report, file) {
-        eprintln!("{note}");
+        errln!(c, "{note}");
     }
     Ok(())
 }
