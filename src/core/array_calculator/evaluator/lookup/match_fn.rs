@@ -213,7 +213,6 @@ pub(super) fn xmatch_index(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::*;
     use crate::core::array_calculator::evaluator::tests::eval;
     use crate::core::array_calculator::ArrayCalculator;
@@ -282,9 +281,9 @@ mod tests {
         let position = result_table.columns.get("position").unwrap();
         match &position.values {
             ColumnValue::Number(nums) => {
-                assert_eq!(nums[0], 2.0);
-                assert_eq!(nums[1], 4.0);
-                assert_eq!(nums[2], 1.0);
+                assert_exact!(nums[0], 2.0);
+                assert_exact!(nums[1], 4.0);
+                assert_exact!(nums[2], 1.0);
             },
             _ => panic!("Expected Number array"),
         }
@@ -385,7 +384,7 @@ mod tests {
         let table = model.tables.get("data").unwrap();
         if let Some(col) = table.columns.get("position") {
             if let ColumnValue::Number(vals) = &col.values {
-                assert_eq!(vals[0], 2.0);
+                assert_exact!(vals[0], 2.0);
             }
         }
     }
@@ -446,7 +445,7 @@ mod tests {
         let table = model.tables.get("data").unwrap();
         if let Some(col) = table.columns.get("position") {
             if let ColumnValue::Number(vals) = &col.values {
-                assert_eq!(vals[0], 2.0);
+                assert_exact!(vals[0], 2.0);
             }
         }
     }
@@ -480,7 +479,7 @@ mod tests {
         let table = model.tables.get("data").unwrap();
         if let Some(col) = table.columns.get("position") {
             if let ColumnValue::Number(vals) = &col.values {
-                assert_eq!(vals[0], 2.0);
+                assert_exact!(vals[0], 2.0);
             }
         }
     }
@@ -722,28 +721,28 @@ mod tests {
 
         #[test]
         fn match_counts_a_type_by_its_sign() {
-            assert_eq!(h::number("MATCH(3, {1,3,5}, 2)"), 2.0); // Excel
-            assert_eq!(h::number("MATCH(3, {5,3,1}, -2)"), 2.0); // Gnumeric
-            assert_eq!(h::number("MATCH(3, {1,3,5}, 0.5)"), 2.0); // cut to 0: exact
+            assert_exact!(h::number("MATCH(3, {1,3,5}, 2)"), 2.0); // Excel
+            assert_exact!(h::number("MATCH(3, {5,3,1}, -2)"), 2.0); // Gnumeric
+            assert_exact!(h::number("MATCH(3, {1,3,5}, 0.5)"), 2.0); // cut to 0: exact
         }
 
         #[test]
         fn match_halves_the_range_as_excel_does() {
             // Excel and both engines: 6, where a search from the first finds 1
-            assert_eq!(h::number("MATCH(0, {1,3,5,7,9,11}, -1)"), 6.0);
+            assert_exact!(h::number("MATCH(0, {1,3,5,7,9,11}, -1)"), 6.0);
             // The last of repeated values, in all three
-            assert_eq!(h::number("MATCH(3, {1,3,3,5}, 1)"), 3.0);
-            assert_eq!(h::number("MATCH(2, {1,2,2,2,3}, 1)"), 4.0);
+            assert_exact!(h::number("MATCH(3, {1,3,3,5}, 1)"), 3.0);
+            assert_exact!(h::number("MATCH(2, {1,2,2,2,3}, 1)"), 4.0);
             // Sorted values give what they gave
-            assert_eq!(h::number("MATCH(6, {1,3,5,7,9,11}, 1)"), 3.0);
-            assert_eq!(h::number("MATCH(6, {11,9,7,5,3,1}, -1)"), 3.0);
-            assert_eq!(h::number("MATCH(\"b\", {\"a\",\"B\",\"c\"}, 1)"), 2.0);
+            assert_exact!(h::number("MATCH(6, {1,3,5,7,9,11}, 1)"), 3.0);
+            assert_exact!(h::number("MATCH(6, {11,9,7,5,3,1}, -1)"), 3.0);
+            assert_exact!(h::number("MATCH(\"b\", {\"a\",\"B\",\"c\"}, 1)"), 2.0);
             h::fails("MATCH(0, {1,3,5}, 1)");
             h::fails("MATCH(12, {11,9,7}, -1)");
             // A text among numbers is passed over (as Gnumeric does)
-            assert_eq!(h::number("MATCH(4, {1,\"x\",3,5}, 1)"), 3.0);
+            assert_exact!(h::number("MATCH(4, {1,\"x\",3,5}, 1)"), 3.0);
             // A date is its day number
-            assert_eq!(
+            assert_exact!(
                 h::number(
                     "MATCH(DATE(2024,3,1), {\"2024-01-01\",\"2024-02-01\",\"2024-04-01\"}, 1)"
                 ),

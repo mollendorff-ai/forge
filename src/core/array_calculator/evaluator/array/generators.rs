@@ -92,9 +92,6 @@ pub fn eval_randarray(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalErr
 
 #[cfg(test)]
 mod tests {
-    // Exact float comparison validated against Excel/Gnumeric/R
-    #![allow(clippy::float_cmp)]
-
     use super::super::super::tests::eval;
     use crate::core::array_calculator::evaluator::{EvalContext, Value};
 
@@ -160,7 +157,7 @@ mod tests {
             for v in arr.iter() {
                 if let Value::Number(n) = *v {
                     assert!((1.0..=10.0).contains(&n));
-                    assert_eq!(n.fract(), 0.0); // whole number
+                    assert_exact!(n.fract(), 0.0); // whole number
                 } else {
                     panic!("Expected number");
                 }
@@ -173,8 +170,7 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant, clippy::float_cmp)]
-    // float_cmp: Financial math — exact float comparison validated against Excel/Gnumeric/R
+    #![allow(clippy::approx_constant)]
 
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{ParsedModel, Variable};
@@ -196,7 +192,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let sum_val = result.scalars.get("seq_sum").unwrap().value.unwrap();
-        assert_eq!(sum_val, 15.0, "SUM(SEQUENCE(5)) should return 15.0");
+        assert_exact!(sum_val, 15.0, "SUM(SEQUENCE(5)) should return 15.0");
     }
 
     #[test]
@@ -216,8 +212,9 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let sum_val = result.scalars.get("seq_custom").unwrap().value.unwrap();
-        assert_eq!(
-            sum_val, 70.0,
+        assert_exact!(
+            sum_val,
+            70.0,
             "SUM(SEQUENCE(4, 1, 10, 5)) should return 70.0"
         );
     }
@@ -239,14 +236,13 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let count_val = result.scalars.get("rand_count").unwrap().value.unwrap();
-        assert_eq!(count_val, 5.0, "COUNT(RANDARRAY(5)) should return 5.0");
+        assert_exact!(count_val, 5.0, "COUNT(RANDARRAY(5)) should return 5.0");
     }
 }
 
 #[cfg(test)]
 mod edge_case_tests {
     #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)]
 
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
@@ -353,7 +349,7 @@ mod edge_case_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let max_val = result.scalars.get("seq_max").unwrap().value.unwrap();
-        assert_eq!(max_val, 20.0);
+        assert_exact!(max_val, 20.0);
     }
 
     #[test]
@@ -389,7 +385,7 @@ mod edge_case_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let count_val = result.scalars.get("rand_count").unwrap().value.unwrap();
-        assert_eq!(count_val, 10.0);
+        assert_exact!(count_val, 10.0);
 
         let min_val = result.scalars.get("rand_min").unwrap().value.unwrap();
         assert!((1.0..=10.0).contains(&min_val));
@@ -420,7 +416,7 @@ mod edge_case_tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(count_val, 100.0);
+        assert_exact!(count_val, 100.0);
     }
 
     #[test]

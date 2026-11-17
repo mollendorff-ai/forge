@@ -65,8 +65,7 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    #![allow(clippy::approx_constant, clippy::float_cmp)]
-    // float_cmp: Financial math — exact float comparison validated against Excel/Gnumeric/R
+    #![allow(clippy::approx_constant)]
 
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
@@ -103,17 +102,16 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let min_val = result.scalars.get("min_value").unwrap().value.unwrap();
-        assert_eq!(min_val, 10.0, "MIN(SORT(...)) should return 10.0");
+        assert_exact!(min_val, 10.0, "MIN(SORT(...)) should return 10.0");
 
         let max_val = result.scalars.get("max_value").unwrap().value.unwrap();
-        assert_eq!(max_val, 40.0, "MAX(SORT(...)) should return 40.0");
+        assert_exact!(max_val, 40.0, "MAX(SORT(...)) should return 40.0");
     }
 }
 
 #[cfg(test)]
 mod edge_case_tests {
     #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)]
 
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
@@ -161,7 +159,7 @@ mod edge_case_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let min_val = result.scalars.get("min").unwrap().value.unwrap();
-        assert_eq!(min_val, 1.0);
+        assert_exact!(min_val, 1.0);
     }
 
     #[test]

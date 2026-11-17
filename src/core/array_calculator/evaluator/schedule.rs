@@ -2,11 +2,12 @@
 
 // Periods, types and lives are whole numbers held in f64, so comparing and counting
 // them is exact.
-#![allow(clippy::float_cmp, clippy::while_float)]
+#![allow(clippy::while_float)]
 
 use super::financial::{annuity_ipmt, annuity_pmt};
 use super::{evaluate, number_or, require_args, require_args_range};
 use super::{EvalContext, EvalError, Expr, Value};
+use crate::core::precision::same;
 
 /// The argument at `index` as a number
 fn number(name: &str, args: &[Expr], index: usize, ctx: &EvalContext) -> Result<f64, EvalError> {
@@ -95,7 +96,7 @@ fn cumulative_args(
             "the periods must satisfy 1 <= start <= end <= number of periods",
         ));
     }
-    if kind != 0.0 && kind != 1.0 {
+    if !(same(kind, 0.0) || same(kind, 1.0)) {
         return Err(num_error(name, "the type must be 0 or 1"));
     }
     Ok((rate, nper.trunc(), pv, start, end, kind))
@@ -106,7 +107,7 @@ pub(super) fn declining(cost: f64, salvage: f64, life: f64, period: f64, factor:
     let mut rate = factor / life;
     let before = if rate >= 1.0 {
         rate = 1.0;
-        if period == 1.0 {
+        if same(period, 1.0) {
             cost
         } else {
             0.0
@@ -152,7 +153,7 @@ fn switching(
                 fall
             }
         });
-        if period == whole {
+        if same(period, whole) {
             // The last period counts only as far as `periods` reaches into it
             term *= periods + 1.0 - whole;
         }
@@ -204,9 +205,9 @@ fn vdb(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<f64, EvalError> {
         while period <= last {
             let mut term = declining(cost, salvage, life, period, factor);
             // The first and the last period count only the part inside start..end
-            if period == first + 1.0 {
+            if same(period, first + 1.0) {
                 term *= end.min(first + 1.0) - start;
-            } else if period == last {
+            } else if same(period, last) {
                 term *= end + 1.0 - last;
             }
             total += term;
@@ -215,7 +216,7 @@ fn vdb(name: &str, args: &[Expr], ctx: &EvalContext) -> Result<f64, EvalError> {
         return Ok(total);
     }
     let mut remaining_life = life;
-    if start != start.floor() && factor > 1.0 && start >= life / 2.0 {
+    if start.fract() != 0.0 && factor > 1.0 && start >= life / 2.0 {
         let part = start - life / 2.0;
         start = life / 2.0;
         end -= part;

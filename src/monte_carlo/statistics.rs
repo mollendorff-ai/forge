@@ -312,7 +312,6 @@ pub fn evaluate_threshold(samples: &[f64], operator: &str, value: f64) -> f64 {
 }
 
 // Financial math: exact float comparison validated against Excel/Gnumeric/R
-#[allow(clippy::float_cmp)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -332,8 +331,8 @@ mod tests {
         assert_eq!(stats.count, 100);
         assert!((stats.mean - 50.5).abs() < 0.01);
         assert!((stats.median - 50.5).abs() < 0.5);
-        assert_eq!(stats.min, 1.0);
-        assert_eq!(stats.max, 100.0);
+        assert_exact!(stats.min, 1.0);
+        assert_exact!(stats.max, 100.0);
     }
 
     #[test]
@@ -392,15 +391,15 @@ mod tests {
     fn test_parse_threshold() {
         let (op, val) = parse_threshold("> 0").unwrap();
         assert_eq!(op, ">");
-        assert_eq!(val, 0.0);
+        assert_exact!(val, 0.0);
 
         let (op, val) = parse_threshold("<= 100000").unwrap();
         assert_eq!(op, "<=");
-        assert_eq!(val, 100_000.0);
+        assert_exact!(val, 100_000.0);
 
         let (op, val) = parse_threshold(">= -50.5").unwrap();
         assert_eq!(op, ">=");
-        assert_eq!(val, -50.5);
+        assert_exact!(val, -50.5);
 
         assert!(parse_threshold("invalid").is_err());
     }
@@ -409,10 +408,10 @@ mod tests {
     fn test_evaluate_threshold() {
         let samples = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 
-        assert_eq!(evaluate_threshold(&samples, ">", 3.0), 0.4); // 4, 5
-        assert_eq!(evaluate_threshold(&samples, ">=", 3.0), 0.6); // 3, 4, 5
-        assert_eq!(evaluate_threshold(&samples, "<", 3.0), 0.4); // 1, 2
-        assert_eq!(evaluate_threshold(&samples, "<=", 3.0), 0.6); // 1, 2, 3
+        assert_exact!(evaluate_threshold(&samples, ">", 3.0), 0.4); // 4, 5
+        assert_exact!(evaluate_threshold(&samples, ">=", 3.0), 0.6); // 3, 4, 5
+        assert_exact!(evaluate_threshold(&samples, "<", 3.0), 0.4); // 1, 2
+        assert_exact!(evaluate_threshold(&samples, "<=", 3.0), 0.6); // 1, 2, 3
     }
 
     #[test]
@@ -421,7 +420,7 @@ mod tests {
         let stats = Statistics::from_samples(&samples);
 
         assert_eq!(stats.count, 0);
-        assert_eq!(stats.mean, 0.0);
+        assert_exact!(stats.mean, 0.0);
     }
 
     #[test]
@@ -430,9 +429,9 @@ mod tests {
         let stats = Statistics::from_samples(&samples);
 
         assert_eq!(stats.count, 1);
-        assert_eq!(stats.mean, 42.0);
-        assert_eq!(stats.median, 42.0);
-        assert_eq!(stats.min, 42.0);
-        assert_eq!(stats.max, 42.0);
+        assert_exact!(stats.mean, 42.0);
+        assert_exact!(stats.median, 42.0);
+        assert_exact!(stats.min, 42.0);
+        assert_exact!(stats.max, 42.0);
     }
 }

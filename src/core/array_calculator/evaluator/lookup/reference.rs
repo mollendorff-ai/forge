@@ -215,7 +215,6 @@ pub fn col_to_letter(col: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::*;
     use crate::core::array_calculator::evaluator::tests::eval;
     use crate::core::array_calculator::ArrayCalculator;
@@ -400,7 +399,7 @@ mod tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(val, 60.0);
+        assert_exact!(val, 60.0);
     }
 
     #[test]
@@ -428,7 +427,7 @@ mod tests {
         );
         let model_result = result.unwrap();
         let val = model_result.scalars.get("total").unwrap().value.unwrap();
-        assert_eq!(val, 600.0);
+        assert_exact!(val, 600.0);
     }
 
     #[test]
@@ -464,7 +463,7 @@ mod tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(val, 20.0);
+        assert_exact!(val, 20.0);
     }
 
     #[test]
@@ -477,7 +476,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("row_num").unwrap().value.unwrap();
-        assert_eq!(val, 1.0);
+        assert_exact!(val, 1.0);
     }
 
     #[test]
@@ -490,7 +489,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("calc").unwrap().value.unwrap();
-        assert_eq!(val, 10.0);
+        assert_exact!(val, 10.0);
     }
 
     #[test]
@@ -503,7 +502,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("col_num").unwrap().value.unwrap();
-        assert_eq!(val, 1.0);
+        assert_exact!(val, 1.0);
     }
 
     #[test]
@@ -516,7 +515,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("calc").unwrap().value.unwrap();
-        assert_eq!(val, 6.0);
+        assert_exact!(val, 6.0);
     }
 
     #[test]
@@ -542,7 +541,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("row_count").unwrap().value.unwrap();
-        assert_eq!(val, 5.0);
+        assert_exact!(val, 5.0);
     }
 
     #[test]
@@ -568,7 +567,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("row_count").unwrap().value.unwrap();
-        assert_eq!(val, 1.0);
+        assert_exact!(val, 1.0);
     }
 
     #[test]
@@ -594,7 +593,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("calc").unwrap().value.unwrap();
-        assert_eq!(val, 30.0);
+        assert_exact!(val, 30.0);
     }
 
     #[test]
@@ -620,7 +619,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("col_count").unwrap().value.unwrap();
-        assert_eq!(val, 1.0);
+        assert_exact!(val, 1.0);
     }
 
     #[test]
@@ -637,7 +636,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("cell_ref").unwrap().value.unwrap();
-        assert_eq!(val, 4.0);
+        assert_exact!(val, 4.0);
     }
 
     #[test]
@@ -654,7 +653,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("cell_ref").unwrap().value.unwrap();
-        assert_eq!(val, 4.0);
+        assert_exact!(val, 4.0);
     }
 
     #[test]
@@ -671,7 +670,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("cell_ref").unwrap().value.unwrap();
-        assert_eq!(val, 2.0);
+        assert_exact!(val, 2.0);
     }
 
     #[test]
@@ -738,7 +737,7 @@ mod tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(val, 20.0);
+        assert_exact!(val, 20.0);
     }
 
     #[test]
@@ -764,7 +763,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("total").unwrap().value.unwrap();
-        assert_eq!(val, 600.0);
+        assert_exact!(val, 600.0);
     }
 
     #[test]
@@ -793,7 +792,7 @@ mod tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(val, 15.0);
+        assert_exact!(val, 15.0);
     }
 
     #[test]
@@ -819,7 +818,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let val = result.scalars.get("indirect_index").unwrap().value.unwrap();
-        assert_eq!(val, 20.0);
+        assert_exact!(val, 20.0);
     }
 
     /// `ADDRESS` as Excel computes it: R1C1 brackets on the relative part,

@@ -648,21 +648,20 @@ scenarios:
         }
 
         #[test]
-        #[allow(clippy::float_cmp)] // whole day numbers and years
         fn a_date_scalar_is_read_as_a_cell_of_a_date_column() {
             let dir = tempfile::tempdir().unwrap();
             let result = calculate_core(&write(dir.path(), "m.yaml", MODEL), true, None).unwrap();
             let number = |name: &str| result.scalars[name].unwrap();
             // Where a number is read, the day number (2026-10-31 is 46326)
-            assert_eq!(number("out.year"), 2026.0);
-            assert_eq!(number("out.plus_one"), 46327.0);
-            assert_eq!(number("out.days"), 213.0);
+            assert_exact!(number("out.year"), 2026.0);
+            assert_exact!(number("out.plus_one"), 46327.0);
+            assert_exact!(number("out.days"), 213.0);
             // November 2026 to October 2027
-            assert_eq!(number("out.open_months"), 12.0);
-            assert_eq!(number("out.same_day"), 1.0);
+            assert_exact!(number("out.open_months"), 12.0);
+            assert_exact!(number("out.same_day"), 1.0);
             // Where text is read, the date's text, as for a column (ADR-054)
-            assert_eq!(number("out.left"), 2026.0);
-            assert_eq!(number("out.is_number"), 0.0);
+            assert_exact!(number("out.left"), 2026.0);
+            assert_exact!(number("out.is_number"), 0.0);
             // A row formula reads it too
             let after = &result.tables["months"].values["after"];
             assert_eq!(after.iter().filter(|v| v.as_f64() == Some(1.0)).count(), 12);

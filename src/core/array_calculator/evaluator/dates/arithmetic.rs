@@ -172,7 +172,6 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::super::super::tests::eval;
     use super::super::{EvalContext, Value};
     use crate::core::array_calculator::ArrayCalculator;
@@ -346,9 +345,9 @@ mod tests {
         let year_val = result_table.columns.get("year_val").unwrap();
         match &year_val.values {
             ColumnValue::Number(nums) => {
-                assert_eq!(nums[0], 2025.0);
-                assert_eq!(nums[1], 2024.0);
-                assert_eq!(nums[2], 2023.0);
+                assert_exact!(nums[0], 2025.0);
+                assert_exact!(nums[1], 2024.0);
+                assert_exact!(nums[2], 2023.0);
             },
             _ => panic!("Expected Number array"),
         }
@@ -360,7 +359,7 @@ mod tests {
         // Leap year: DATE(2024, 2, 29) should be valid
         let result = eval("DATE(2024, 2, 29)", &ctx).unwrap();
         if let Some(serial) = result.as_number() {
-            assert_eq!(serial, 45351.0);
+            assert_exact!(serial, 45351.0);
         } else {
             panic!("Expected Number from DATE");
         }
@@ -372,7 +371,7 @@ mod tests {
         // Non-leap year: DATE(2023, 2, 29) should roll to March 1
         let result = eval("DATE(2023, 2, 29)", &ctx).unwrap();
         if let Some(serial) = result.as_number() {
-            assert_eq!(serial, 44986.0);
+            assert_exact!(serial, 44986.0);
         } else {
             panic!("Expected Number from DATE");
         }
@@ -384,7 +383,7 @@ mod tests {
         // Month zero: DATE(2024, 0, 1) should go to previous year December
         let result = eval("DATE(2024, 0, 1)", &ctx).unwrap();
         if let Some(serial) = result.as_number() {
-            assert_eq!(serial, 45261.0);
+            assert_exact!(serial, 45261.0);
         } else {
             panic!("Expected Number from DATE");
         }
@@ -396,7 +395,7 @@ mod tests {
         // Day zero: DATE(2024, 1, 0) should go to previous month's last day
         let result = eval("DATE(2024, 1, 0)", &ctx).unwrap();
         if let Some(serial) = result.as_number() {
-            assert_eq!(serial, 45291.0);
+            assert_exact!(serial, 45291.0);
         } else {
             panic!("Expected Number from DATE");
         }

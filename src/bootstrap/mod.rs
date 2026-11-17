@@ -37,7 +37,6 @@ mod tests {
         //! Bootstrap Integration Tests
 
         // Financial math: exact float comparison validated against Excel/Gnumeric/R
-        #![allow(clippy::float_cmp)]
 
         use super::*;
 
@@ -230,7 +229,7 @@ mod tests {
 
             let mut engine_min = BootstrapEngine::new(config_min).unwrap();
             let result_min = engine_min.analyze().unwrap();
-            assert_eq!(result_min.original_estimate, 1.0);
+            assert_exact!(result_min.original_estimate, 1.0);
 
             // Test max
             let config_max = BootstrapConfig::new()
@@ -241,7 +240,7 @@ mod tests {
 
             let mut engine_max = BootstrapEngine::new(config_max).unwrap();
             let result_max = engine_max.analyze().unwrap();
-            assert_eq!(result_max.original_estimate, 10.0);
+            assert_exact!(result_max.original_estimate, 10.0);
         }
 
         /// Test bias-corrected estimate

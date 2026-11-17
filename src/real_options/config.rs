@@ -300,7 +300,6 @@ impl RealOptionsConfig {
 
 #[cfg(test)]
 // Financial math: exact float comparison validated against Excel/Gnumeric/R
-#[allow(clippy::float_cmp)]
 mod config_tests {
     use super::*;
 
@@ -338,10 +337,10 @@ mod config_tests {
 
         let expand = OptionDefinition::expand("Scale up", 1.5, 500_000.0);
         assert_eq!(expand.option_type, OptionType::Expand);
-        assert_eq!(expand.expansion_factor, 1.5);
+        assert_exact!(expand.expansion_factor, 1.5);
 
         let abandon = OptionDefinition::abandon("Exit", 200_000.0);
         assert_eq!(abandon.option_type, OptionType::Abandon);
-        assert_eq!(abandon.salvage_value, 200_000.0);
+        assert_exact!(abandon.salvage_value, 200_000.0);
     }
 }

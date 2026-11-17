@@ -625,7 +625,6 @@ pub fn parse_distribution(formula: &str) -> Result<Distribution, String> {
 }
 
 // Financial math: exact float comparison validated against Excel/Gnumeric/R
-#[allow(clippy::float_cmp)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -808,15 +807,15 @@ mod tests {
     #[test]
     fn test_theoretical_values() {
         let normal = Distribution::normal(100.0, 15.0).unwrap();
-        assert_eq!(normal.theoretical_mean(), 100.0);
-        assert_eq!(normal.theoretical_variance(), 225.0);
+        assert_exact!(normal.theoretical_mean(), 100.0);
+        assert_exact!(normal.theoretical_variance(), 225.0);
 
         let uniform = Distribution::uniform(10.0, 20.0).unwrap();
-        assert_eq!(uniform.theoretical_mean(), 15.0);
+        assert_exact!(uniform.theoretical_mean(), 15.0);
         assert!((uniform.theoretical_variance() - 100.0 / 12.0).abs() < 0.001);
 
         let triangular = Distribution::triangular(0.0, 5.0, 10.0).unwrap();
-        assert_eq!(triangular.theoretical_mean(), 5.0);
+        assert_exact!(triangular.theoretical_mean(), 5.0);
     }
     // Non-finite parameters (roadmap T1-NONFINITE)
 

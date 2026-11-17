@@ -177,7 +177,6 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::super::super::tests::eval;
     use super::super::{EvalContext, Value};
     use crate::core::array_calculator::ArrayCalculator;
@@ -326,10 +325,10 @@ mod tests {
             .expect("Calculation should succeed");
 
         let years = result.scalars.get("years_diff").unwrap().value.unwrap();
-        assert_eq!(years, 1.0);
+        assert_exact!(years, 1.0);
 
         let months = result.scalars.get("months_diff").unwrap().value.unwrap();
-        assert_eq!(months, 12.0);
+        assert_exact!(months, 12.0);
     }
 
     #[test]

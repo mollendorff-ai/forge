@@ -67,7 +67,6 @@ pub fn eval_mid(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Table, Variable};
 
@@ -96,9 +95,9 @@ mod tests {
         let length = result_table.columns.get("length").unwrap();
         match &length.values {
             ColumnValue::Number(nums) => {
-                assert_eq!(nums[0], 5.0);
-                assert_eq!(nums[1], 2.0);
-                assert_eq!(nums[2], 7.0);
+                assert_exact!(nums[0], 5.0);
+                assert_exact!(nums[1], 2.0);
+                assert_exact!(nums[2], 7.0);
             },
             _ => panic!("Expected Number array"),
         }

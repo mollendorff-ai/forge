@@ -3,6 +3,7 @@
 
 use crate::cli::console::outln;
 use crate::cli::Console;
+use crate::core::precision::same;
 use crate::core::precision::to_15_digits;
 use crate::core::ArrayCalculator;
 use crate::error::{ForgeError, ForgeResult};
@@ -333,9 +334,8 @@ fn collect_variances(
         let better = better_direction(name, budget_scalar, actual_scalar);
         // A line on target is neither favorable nor unfavorable, so it is
         // not counted as either and says so (`null`), exactly as `on_target`
-        #[allow(clippy::float_cmp)]
         let is_favorable = match better {
-            _ if actual_val == budget_val => None,
+            _ if same(actual_val, budget_val) => None,
             "lower" => Some(actual_val < budget_val),
             "higher" => Some(actual_val > budget_val),
             _ => None,
@@ -376,7 +376,6 @@ fn collect_variances(
 /// a profit of 786 that became a loss of 28,314 is not "-3,700%" worse, it is
 /// 29,100 worse. The variance itself is always shown.
 #[must_use]
-#[allow(clippy::float_cmp)] // an actual of exactly zero is -100%, not a sign change
 pub fn pct_is_meaningful(budget: f64, actual: f64) -> bool {
     if budget.abs() <= 0.0001 {
         return false;
@@ -384,9 +383,8 @@ pub fn pct_is_meaningful(budget: f64, actual: f64) -> bool {
     actual == 0.0 || budget.is_sign_positive() == actual.is_sign_positive()
 }
 
-#[allow(clippy::float_cmp)] // exactly on budget, not "close"
 fn on_target(v: &VarianceResult) -> bool {
-    v.actual == v.budget
+    same(v.actual, v.budget)
 }
 
 /// The status word for a variance, for the terminal, Excel and YAML reports.

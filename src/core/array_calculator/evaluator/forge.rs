@@ -154,7 +154,6 @@ pub fn try_evaluate(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::super::tests::eval;
     use super::*;
     use std::collections::HashMap;
@@ -373,7 +372,6 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     #![allow(clippy::approx_constant)]
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
 
     use crate::core::array_calculator::ArrayCalculator;
     use crate::types::{Column, ColumnValue, ParsedModel, Scenario, Table, Variable};
@@ -408,7 +406,7 @@ mod integration_tests {
             .unwrap()
             .value
             .unwrap();
-        assert_eq!(variance, 20000.0);
+        assert_exact!(variance, 20000.0);
     }
 
     #[test]
@@ -464,7 +462,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let status = result.scalars.get("status").unwrap().value.unwrap();
-        assert_eq!(status, 1.0);
+        assert_exact!(status, 1.0);
     }
 
     #[test]
@@ -492,7 +490,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let status = result.scalars.get("status").unwrap().value.unwrap();
-        assert_eq!(status, 1.0);
+        assert_exact!(status, 1.0);
     }
 
     #[test]
@@ -524,7 +522,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let be_units = result.scalars.get("breakeven").unwrap().value.unwrap();
-        assert_eq!(be_units, 1250.0);
+        assert_exact!(be_units, 1250.0);
     }
 
     #[test]
@@ -552,7 +550,7 @@ mod integration_tests {
         let result = calculator.calculate_all().expect("Should calculate");
 
         let be_rev = result.scalars.get("breakeven_rev").unwrap().value.unwrap();
-        assert_eq!(be_rev, 250_000.0);
+        assert_exact!(be_rev, 250_000.0);
     }
 
     #[test]
@@ -638,7 +636,7 @@ mod integration_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let status = result.scalars.get("status").unwrap().value.unwrap();
-        assert_eq!(status, 1.0);
+        assert_exact!(status, 1.0);
     }
 
     #[test]
@@ -663,7 +661,7 @@ mod integration_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let status = result.scalars.get("status").unwrap().value.unwrap();
-        assert_eq!(status, -1.0);
+        assert_exact!(status, -1.0);
     }
 
     #[test]
@@ -688,7 +686,7 @@ mod integration_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let status = result.scalars.get("status").unwrap().value.unwrap();
-        assert_eq!(status, 1.0);
+        assert_exact!(status, 1.0);
     }
 
     #[test]
@@ -905,7 +903,7 @@ mod integration_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let var_val = result.scalars.get("var_result").unwrap().value.unwrap();
-        assert_eq!(var_val, 20.0, "VARIANCE(100, 80) should return 20");
+        assert_exact!(var_val, 20.0, "VARIANCE(100, 80) should return 20");
     }
 
     #[test]
@@ -922,8 +920,9 @@ mod integration_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let var_pct_val = result.scalars.get("var_pct").unwrap().value.unwrap();
-        assert_eq!(
-            var_pct_val, 0.25,
+        assert_exact!(
+            var_pct_val,
+            0.25,
             "VARIANCE_PCT(100, 80) should return 0.25"
         );
     }
@@ -942,8 +941,9 @@ mod integration_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let status_val = result.scalars.get("status").unwrap().value.unwrap();
-        assert_eq!(
-            status_val, 1.0,
+        assert_exact!(
+            status_val,
+            1.0,
             "VARIANCE_STATUS(100, 80, 0.1) should return 1"
         );
     }
@@ -962,8 +962,9 @@ mod integration_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let be_val = result.scalars.get("breakeven").unwrap().value.unwrap();
-        assert_eq!(
-            be_val, 500.0,
+        assert_exact!(
+            be_val,
+            500.0,
             "BREAKEVEN_UNITS(10000, 50, 30) should return 500"
         );
     }
@@ -985,8 +986,9 @@ mod integration_tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let scenario_val = result.scalars.get("scenario_val").unwrap().value.unwrap();
-        assert_eq!(
-            scenario_val, 0.05,
+        assert_exact!(
+            scenario_val,
+            0.05,
             "SCENARIO(\"base\", \"growth_rate\") should return 0.05"
         );
     }

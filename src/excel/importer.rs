@@ -1081,7 +1081,6 @@ impl ExcelImporter {
 
 #[cfg(test)]
 // Financial math: exact float comparison validated against Excel/Gnumeric/R
-#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
 
@@ -1114,10 +1113,10 @@ mod tests {
         match result {
             ColumnValue::Number(nums) => {
                 assert_eq!(nums.len(), 4);
-                assert_eq!(nums[0], 100.0);
-                assert_eq!(nums[1], 200.0);
-                assert_eq!(nums[2], 300.0);
-                assert_eq!(nums[3], 0.0);
+                assert_exact!(nums[0], 100.0);
+                assert_exact!(nums[1], 200.0);
+                assert_exact!(nums[2], 300.0);
+                assert_exact!(nums[3], 0.0);
             },
             _ => panic!("Expected Number column"),
         }
@@ -1322,10 +1321,10 @@ mod tests {
         match result {
             ColumnValue::Number(nums) => {
                 assert_eq!(nums.len(), 4);
-                assert_eq!(nums[0], 1.5);
-                assert_eq!(nums[1], 2.0);
-                assert_eq!(nums[2], 3.0);
-                assert_eq!(nums[3], 4.0);
+                assert_exact!(nums[0], 1.5);
+                assert_exact!(nums[1], 2.0);
+                assert_exact!(nums[2], 3.0);
+                assert_exact!(nums[3], 4.0);
             },
             _ => panic!("Expected Number column"),
         }

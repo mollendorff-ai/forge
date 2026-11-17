@@ -172,7 +172,6 @@ fn seconds_of_day(name: &str, n: f64) -> Result<i64, EvalError> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparison validated against Excel/Gnumeric/R
     use super::super::super::tests::eval;
     use super::super::{EvalContext, Value};
     use crate::core::array_calculator::ArrayCalculator;
@@ -251,8 +250,8 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         let wd1 = result.scalars.get("weekday_monday").unwrap().value.unwrap();
         let wd2 = result.scalars.get("weekday_type2").unwrap().value.unwrap();
-        assert_eq!(wd1, 2.0); // Monday = 2 in default (Sunday=1)
-        assert_eq!(wd2, 1.0); // Monday = 1 in type 2
+        assert_exact!(wd1, 2.0); // Monday = 2 in default (Sunday=1)
+        assert_exact!(wd2, 1.0); // Monday = 1 in type 2
     }
 
     #[test]
@@ -278,8 +277,8 @@ mod tests {
         let result = calculator.calculate_all().expect("Should calculate");
         let noon = result.scalars.get("hour_noon").unwrap().value.unwrap();
         let pm6 = result.scalars.get("hour_6pm").unwrap().value.unwrap();
-        assert_eq!(noon, 12.0);
-        assert_eq!(pm6, 18.0);
+        assert_exact!(noon, 12.0);
+        assert_exact!(pm6, 18.0);
     }
 
     #[test]
@@ -315,7 +314,7 @@ mod tests {
         let calculator = ArrayCalculator::new(model);
         let result = calculator.calculate_all().expect("Should calculate");
         let seconds = result.scalars.get("second_val").unwrap().value.unwrap();
-        assert_eq!(seconds, 0.0);
+        assert_exact!(seconds, 0.0);
     }
 
     /// Tests of the functions added in 10.1: schedules, conveniences, percentiles.
@@ -375,7 +374,7 @@ mod tests {
             h::fails_with("HOUR(-0.5)", "#NUM!");
             h::fails_with("MINUTE(-1E-12)", "#NUM!");
             h::fails_with("SECOND(-2.5)", "#NUM!");
-            assert_eq!(h::number("HOUR(0.999999999)"), 0.0); // 24 before
+            assert_exact!(h::number("HOUR(0.999999999)"), 0.0); // 24 before
         }
     }
 }
