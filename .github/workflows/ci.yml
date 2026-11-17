@@ -518,12 +518,13 @@ jobs:
       # 88.14%), as the inline tests moved in, and from PR #261's (91.91%,
       # 87.95%, 90.58%), when the command line ran in-process, and from PR
       # #262's (92.45%, 88.52%, 91.19%), when its tests ran under coverage, and
-      # from PR #263's regions (91.20%).
+      # from PR #263's regions (91.20%), and from PR #266's (93.18%, 89.20%,
+      # 91.97%), when 612 lines of dead date code were deleted.
       - name: Fail below the coverage floor
         env:
-          FLOOR_LINES: "92.4"
-          FLOOR_FUNCTIONS: "88.5"
-          FLOOR_REGIONS: "91.2"
+          FLOOR_LINES: "93.1"
+          FLOOR_FUNCTIONS: "89.2"
+          FLOOR_REGIONS: "91.9"
         run: |
           fail=0
           for kind in lines functions regions; do
