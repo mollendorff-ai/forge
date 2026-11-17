@@ -3,9 +3,10 @@
 //! number or a day number a date.
 
 use super::super::{Context, WorkbookRefs};
-use super::{
-    excel_date, join, passed_on, switch_results, Kind, Read, ANY_VALUES, CRITERIA, GIVE_A_DATE,
-    GIVE_TEXT, READ_NUMBERS,
+use super::excel_date;
+use super::kinds::{
+    join, passed_on, switch_results, Kind, Read, ANY_VALUES, CRITERIA, GIVE_A_DATE, GIVE_TEXT,
+    READ_NUMBERS,
 };
 use crate::core::array_calculator::parser::{Expr, Reference};
 use crate::core::array_calculator::whole_column::is_whole_column;

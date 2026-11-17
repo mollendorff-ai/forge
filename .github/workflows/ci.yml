@@ -69,7 +69,7 @@ jobs:
 
       # shell: bash runs with -o pipefail. Without it the step's status is
       # tee's, so failing tests passed the job (roadmap T1-PROPERTIES PR).
-      # The seed fixes the property tests' draws (tests/properties.rs).
+      # The seed fixes the property tests' draws (src/lib.rs (its properties tests)).
       - name: Run tests
         shell: bash
         env:

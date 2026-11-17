@@ -3,7 +3,7 @@
 # row's value. forge export writes the range as an absolute range and the
 # criterion as the row's cell, as on a summary sheet in Excel.
 #
-# Expected values, worked out by hand (tests/row_aggregates.rs has the same):
+# Expected values, worked out by hand (src/core/array_calculator/whole_column.rs (its row_aggregates tests) has the same):
 #   months: q = 1, 1, 2, 2, 3; revenue = 10, 20, 30, 40, 50
 #   by quarter: sums 30, 70, 50; counts 2, 2, 1; means 15, 35, 50;
 #     maxima 20, 40, 50; minima 10, 30, 50; with cat "a" only 10, 30, 50

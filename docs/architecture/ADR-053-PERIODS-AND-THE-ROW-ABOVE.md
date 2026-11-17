@@ -49,7 +49,7 @@ Three things were missing: a way to read the row above, a way to say "300 months
 
 ## Three worked examples
 
-Each is a file in `examples/`, and each number below is checked in `tests/demo_examples.rs` against the same calculation written in Python.
+Each is a file in `examples/`, and each number below is checked in `src/cli/commands/examples.rs` (its `demo_examples` tests) against the same calculation written in Python.
 
 **A loan schedule** (`examples/mortgage/mortgage.yaml`): 450,000 at 4.79% compounded twice a year, 2,863.69 a month.
 

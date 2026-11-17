@@ -913,7 +913,7 @@ mod tests {
             123_456.789,
             // Whole numbers past i64: written as digits alone, YAML read
             // them as an integer that does not fit (found by
-            // tests/properties.rs, calculating_again_changes_nothing)
+            // src/lib.rs (its properties tests), calculating_again_changes_nothing)
             1e20,
             -9_999_999_999_999_970_000.0,
             9.3e18,
@@ -953,5 +953,35 @@ mod tests {
             out,
             "_forge_version: \"5.1.0\"\n# inputs\nassumptions:\n  price: 16  # per dozen\n  rate: 0.03\n  rent:\n    value: 4800\n    unit: CAD\nyear:\n  total:\n    formula: \"=assumptions.price * 2\"\n"
         );
+    }
+
+    mod large_numbers {
+        //! A result that is a whole number too large for a 64-bit integer
+        //! (from about 9.2e18) is written back to the model so that it reads as the
+        //! same number. `forge calculate` wrote it as digits alone, which YAML reads
+        //! as an integer: the edited file did not parse, and Forge refused to write
+        //! any result ("results not written, the file is unchanged"). Found by
+        //! src/lib.rs (its properties tests) (`calculating_again_changes_nothing`).
+
+        use crate::cli::calculate_core;
+
+        #[test]
+        #[allow(clippy::float_cmp)] // the written number must read back exactly
+        fn a_whole_number_past_i64_is_written_and_read_back() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("big.yaml");
+            std::fs::write(
+                &path,
+                "_forge_version: \"5.1.0\"\ns:\n  x: 10000000000\n  big: {formula: \"=s.x * s.x\"}\n  neg: {formula: \"=-s.x * 999999999.999999\"}\n",
+            )
+            .unwrap();
+            let first = calculate_core(&path, false, None).unwrap();
+            assert_eq!(first.scalars["s.big"], Some(1e20));
+            let written = std::fs::read_to_string(&path).unwrap();
+            // The written file calculates again to the same numbers
+            let again = calculate_core(&path, true, None).unwrap();
+            assert_eq!(again.scalars["s.big"], Some(1e20), "{written}");
+            assert_eq!(again.scalars["s.neg"], first.scalars["s.neg"], "{written}");
+        }
     }
 }

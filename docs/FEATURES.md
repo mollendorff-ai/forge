@@ -179,7 +179,7 @@ month        opening   interest   paid        closing
 - `NPV`, `IRR` and `MIRR` skip it, so the cash flows after it are discounted a period earlier, as in Excel; `forge audit` warns when one reads a column with an empty cell. `XNPV` and `XIRR` leave out the cash flow with its date.
 - `forge calculate` keeps the nulls, JSON shows `null`, `forge export` writes an empty cell, and `forge import` reads one back as `null` (beside formulas that run further down, the last cells of a column of numbers are empty cells too). A column of text, dates or booleans cannot have an empty cell.
 
-`examples/mortgage` (a 300-month schedule with extra payments), `examples/periods/monthly_plan.yaml` (growth, seasons and running cash) and `examples/periods/dcf.yaml` (a five-year valuation) use them; their numbers are checked against Python in `tests/demo_examples.rs`.
+`examples/mortgage` (a 300-month schedule with extra payments), `examples/periods/monthly_plan.yaml` (growth, seasons and running cash) and `examples/periods/dcf.yaml` (a five-year valuation) use them; their numbers are checked against Python in `src/cli/commands/examples.rs` (its `demo_examples` tests).
 
 ### Values from Other Files (`_includes`)
 
@@ -372,7 +372,7 @@ An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}
 
 ### Seeking a probability
 
-`forge simulate model.yaml --seek "P(year.profit > 0) = 0.8" --vary price_per_dozen --min 14 --max 24` finds the value of one input at which an output meets a threshold with the probability asked for (`= 80%` works too). Every simulation uses the same seed, so the uncertain inputs are drawn the same way for every value tried; the probability then changes in steps, and bisection finds, to a millionth of the range, the value where it first reaches the goal. If the goal is not crossed between `--min` and `--max`, it says what the probability is at each end. On the bagel model (1,000 runs) the answer is a price of 18.354: just above the 800th lowest of the runs' break-even prices, which numpy computes from the same samples (`tests/bagel_example.rs`). The MCP `forge_simulate` tool takes `seek`, `vary`, `min` and `max`.
+`forge simulate model.yaml --seek "P(year.profit > 0) = 0.8" --vary price_per_dozen --min 14 --max 24` finds the value of one input at which an output meets a threshold with the probability asked for (`= 80%` works too). Every simulation uses the same seed, so the uncertain inputs are drawn the same way for every value tried; the probability then changes in steps, and bisection finds, to a millionth of the range, the value where it first reaches the goal. If the goal is not crossed between `--min` and `--max`, it says what the probability is at each end. On the bagel model (1,000 runs) the answer is a price of 18.354: just above the 800th lowest of the runs' break-even prices, which numpy computes from the same samples (`src/cli/commands/examples.rs` (its `bagel_example` tests)). The MCP `forge_simulate` tool takes `seek`, `vary`, `min` and `max`.
 
 ### Results
 
@@ -381,7 +381,7 @@ An `MC.*` formula is a scalar with a formula (`units: {formula: "=MC.PERT(...)"}
 - `-o results.json`, `.yaml` or `.xlsx`; the workbook also holds histograms and the first 1,000 samples of every input and output. The MCP `forge_simulate` tool returns the JSON, and takes `scenario` too.
 - A failed iteration stops the simulation with its number and the error; it is never counted as 0.
 
-Checked on `examples/bagel/bagel_simulate.yaml`: the outputs Forge calculates for its own input samples match a numpy re-implementation of the model to 1e-10, and the threshold probabilities and drivers match numpy and `scipy.stats.spearmanr` on those samples (`tests/bagel_example.rs`).
+Checked on `examples/bagel/bagel_simulate.yaml`: the outputs Forge calculates for its own input samples match a numpy re-implementation of the model to 1e-10, and the threshold probabilities and drivers match numpy and `scipy.stats.spearmanr` on those samples (`src/cli/commands/examples.rs` (its `bagel_example` tests)).
 
 Each iteration recalculates the model with the sampled values, including its included files; the formulas are parsed and ordered once for the whole simulation. The 12-month bagel model takes about 0.11 ms an iteration: 5,000 runs in about half a second, 100,000 in about 12 seconds.
 
