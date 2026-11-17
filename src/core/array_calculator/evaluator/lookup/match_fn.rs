@@ -7,6 +7,7 @@ use crate::core::array_calculator::evaluator::{
     evaluate, require_args_range, values_equal, EvalContext, EvalError, Expr, Value,
 };
 use crate::core::array_calculator::evaluator::{excel_date_serial, number_or, wildcard};
+use crate::core::precision::same;
 use num_traits::ToPrimitive;
 
 /// Evaluate MATCH function
@@ -151,7 +152,21 @@ pub(super) fn exact_match(lookup: &Value, val: &Value, wildcards: bool) -> bool 
             }
         }
     }
-    values_equal(lookup, val)
+    found_exactly(lookup, val)
+}
+
+/// Whether an exact lookup finds `lookup` in `val`: numbers, and a date and
+/// its day number, compared exactly, as Excel's lookups compare them (a
+/// calculated value off in its last binary digit is not found), where `=`
+/// rounds them to 15 digits (ADR-065); text and the rest as `=` compares them.
+fn found_exactly(lookup: &Value, val: &Value) -> bool {
+    match (lookup, val) {
+        (Value::Number(a), Value::Number(b)) => same(*a, *b),
+        (Value::Number(n), Value::Text(t)) | (Value::Text(t), Value::Number(n)) => {
+            excel_date_serial(t).is_some_and(|serial| same(serial, *n))
+        },
+        _ => values_equal(lookup, val),
+    }
 }
 
 /// The position XMATCH and XLOOKUP find, or None (#N/A)
@@ -212,6 +227,38 @@ pub(super) fn xmatch_index(
 
 #[cfg(test)]
 mod tests {
+
+    /// An exact lookup compares the numbers exactly, as `LibreOffice` 26.2 and
+    /// Gnumeric 1.12 do, and as a Microsoft Q&A answer reports for Excel
+    /// (a calculated value off in its last binary digit is #N/A): it does not
+    /// round to 15 digits as = does (ADR-065)
+    mod exact_numbers {
+        use crate::core::array_calculator::evaluator::tests as h;
+        use crate::core::array_calculator::evaluator::EvalContext;
+
+        #[test]
+        fn binary_noise_is_not_found() {
+            let ctx = EvalContext::new();
+            for formula in [
+                "MATCH(0.1 + 0.2, {0.3}, 0)",
+                "MATCH(1 + 1E-15, {1}, 0)",
+                "MATCH(-1E-12, {0}, 0)",
+                "XMATCH(0.1 + 0.2, {0.3})",
+                "XLOOKUP(0.1 + 0.2, {0.3}, {7})",
+                "VLOOKUP(0.1 + 0.2, {0.3}, 1, FALSE)",
+                "HLOOKUP(-1E-12, {0}, 1, FALSE)",
+            ] {
+                h::fails_in(formula, &ctx, "#N/A");
+            }
+            h::is_exactly("MATCH(0.3, {0.1, 0.3}, 0)", 2.0);
+            h::is_exactly("MATCH(-0, {0}, 0)", 1.0);
+            h::is_exactly("MATCH(\"2026-01-31\", {46053}, 0)", 1.0);
+            h::is_exactly("MATCH(46053, {\"2026-01-31\"}, 0)", 1.0);
+            // Text that is no date is never a number
+            h::fails_in("MATCH(\"abc\", {1}, 0)", &ctx, "#N/A");
+            h::is_exactly("MATCH(1, {\"abc\", 1}, 0)", 2.0);
+        }
+    }
     use super::*;
     use crate::core::array_calculator::evaluator::tests::eval;
     use crate::core::array_calculator::ArrayCalculator;

@@ -262,7 +262,11 @@ pub fn try_evaluate(
             // 1 + the values above it (below it, in ascending order), as in
             // Excel; the number must be one of the values (#N/A). Sorting with
             // total_cmp put -0 before 0 and ranked 0 one place too high.
-            if !values.iter().any(|&x| (x - number).abs() < 1e-10) {
+            // Found exactly, as an exact lookup finds a number (ADR-065)
+            if !values
+                .iter()
+                .any(|&x| crate::core::precision::same(x, number))
+            {
                 return Err(EvalError::new("#N/A: RANK: value not found in array"));
             }
             let ahead = values
@@ -301,6 +305,20 @@ fn rank_in(k: f64, n: usize) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
+
+    /// RANK finds the number in the list as an exact lookup does, as
+    /// `LibreOffice` 26.2 does (not checked in Excel; ADR-065)
+    #[test]
+    fn rank_finds_the_number_exactly() {
+        use crate::core::array_calculator::evaluator::tests as h;
+        let ctx = h::table(&[
+            ("v", h::numbers(&[0.3, 0.3])),
+            ("z", h::numbers(&[0.0, 5.0])),
+        ]);
+        h::fails_in("RANK(0.1 + 0.2, t.v)", &ctx, "#N/A");
+        h::fails_in("RANK(1E-12, t.z)", &ctx, "#N/A");
+        h::is_exactly_in("RANK(0, t.z)", &ctx, 2.0);
+    }
     use super::super::tests::eval;
     use super::*;
     use std::collections::HashMap;
