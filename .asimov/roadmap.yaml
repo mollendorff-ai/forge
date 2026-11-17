@@ -137,7 +137,7 @@ tier1:
 
   - id: T1-COVERAGE-GATE
     title: "100% coverage: lines, functions and regions, with nothing skipped"
-    why: "ADR-004 requires 100%, but its 2026-11-08 note made it a goal; P-COV100 was parked for the same reason, now overruled by the maintainer (2026-11-16: no exceptions, no skipping). Measured on PR #257's head (2026-11-16): lines 88.04%, functions 84.46%, regions 86.31%. Since then the Coverage job fails below floors of 88.0, 84.4 and 86.3 in ci.yml, which only rise, and make coverage fails below 100"
+    why: "ADR-004 requires 100%, but its 2026-11-08 note made it a goal; P-COV100 was parked for the same reason, now overruled by the maintainer (2026-11-16: no exceptions, no skipping). Measured on PR #257's head (2026-11-16): lines 88.04%, functions 84.46%, regions 86.31%. Since then the Coverage job fails below floors in ci.yml (88.0, 84.4 and 86.3 at first; 88.9, 85.4 and 87.3 since PR #258), which only rise, and make coverage fails below 100"
     how: "List each uncovered line by file (cargo llvm-cov --ignore-filename-regex 'tests/' --summary-only, then --show-missing-lines). Cover each with a test that asserts a result. A line no test can reach is a defensive branch that cannot happen: remove it, or make the type rule it out; never exclude it from the count. Raise the floors in ci.yml with each merge that raises coverage"
     acceptance: "The floors in ci.yml are 100 for lines, functions and regions, and the Coverage job passes on main; tests/no_skipping.rs counts no coverage-only code and no ignored test"
 
