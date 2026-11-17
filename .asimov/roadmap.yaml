@@ -170,8 +170,9 @@ tier1:
   # TIME, SEQUENCE, RANDARRAY, DB and PERCENTILE.EXC past an i32) and two
   # wrong answers (ISEVEN past 2^63, WORKDAY past the calendar), fixed test
   # first. Found on the way and not casts, so left for their own change:
-  # VLOOKUP and HLOOKUP ignore col_index and row_index
-  # (VLOOKUP(2, {1;2;3}, 5, FALSE) is 2, Excel #REF!); ROUND(x, -400) is
+  # VLOOKUP and HLOOKUP ignored col_index and row_index (fixed 2026-11-17:
+  # #VALUE! below 1, #REF! past the one column or row, and the approximate
+  # search is MATCH's); ROUND(x, -400) is
   # #NUM! (Gnumeric 0); DB with a fractional period cuts it (Gnumeric 0);
   # TIME(1, -30, 0) is 0:30 (Gnumeric #NUM!); HOUR(1E+20) is 0 (Gnumeric
   # #NUM!). Next: cast_precision_loss with its two Cargo.toml allows. 95

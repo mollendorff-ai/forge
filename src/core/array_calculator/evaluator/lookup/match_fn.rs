@@ -54,7 +54,7 @@ pub fn eval_match(args: &[Expr], ctx: &EvalContext) -> Result<Value, EvalError> 
 /// Only values of the lookup value's kind take part: numbers (a date
 /// counts as its day number, as it is one in the workbook) for a number,
 /// texts (ignoring case) for a text.
-fn approximate_match(lookup: &Value, arr: &[Value], descending: bool) -> Option<usize> {
+pub(super) fn approximate_match(lookup: &Value, arr: &[Value], descending: bool) -> Option<usize> {
     let lookup = Kind::of(lookup);
     let order = |val: &Value| -> Option<std::cmp::Ordering> {
         match (&lookup, Kind::of(val)) {
