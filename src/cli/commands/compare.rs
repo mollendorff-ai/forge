@@ -7,6 +7,7 @@
 //! row per scenario when that needs fewer blocks (long scenario names). The
 //! numbers follow `forge report`'s rule, and so do the formats.
 
+use super::apply_scenario;
 use super::report::{
     csv_text, display_number, display_whole, markdown_text, shown_input, ReportFormat,
 };
@@ -14,6 +15,8 @@ use super::results::ComparisonResult;
 use crate::cli::console::{out, outln};
 use crate::cli::Console;
 use crate::core::precision::{to_15_digits, Rounded};
+use crate::core::ArrayCalculator;
+use crate::error::ForgeError;
 use crate::error::ForgeResult;
 use crate::parser;
 use colored::Colorize;
@@ -400,12 +403,82 @@ pub fn compare(
     out!(
         c,
         "{}",
-        render_comparison(&result, &inputs, format, terminal_width())
+        render_comparison(&result, &inputs, format, c.width)
     );
     if table {
         outln!(c, "\n{}", "✅ Comparison complete".bold().green());
     }
     Ok(())
+}
+
+/// Compare scenarios and return structured results (no printing).
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be parsed, a scenario does not exist,
+/// or calculation fails.
+pub fn compare_core(
+    file: &Path,
+    scenarios: &[String],
+) -> ForgeResult<crate::cli::commands::results::ComparisonResult> {
+    let base_model = parser::parse_model(file)?;
+
+    for scenario_name in scenarios {
+        if !base_model.scenarios.contains_key(scenario_name) {
+            let available: Vec<_> = base_model.scenarios.keys().collect();
+            return Err(ForgeError::Validation(format!(
+                "Scenario '{scenario_name}' not found. Available: {available:?}"
+            )));
+        }
+    }
+
+    let mut results: Vec<(String, crate::types::ParsedModel)> = Vec::new();
+    for scenario_name in scenarios {
+        let mut model = base_model.clone();
+        apply_scenario(&mut model, scenario_name)?;
+        let calculator = ArrayCalculator::new(model);
+        let calculated = calculator.calculate_all()?;
+        results.push((scenario_name.clone(), calculated));
+    }
+
+    // Model order, the same on every run
+    let mut all_scalars: Vec<String> = Vec::new();
+    for name in results.iter().flat_map(|(_, m)| m.scalars.keys()) {
+        if !all_scalars.contains(name) {
+            all_scalars.push(name.clone());
+        }
+    }
+
+    let mut values = indexmap::IndexMap::new();
+    let mut dates = std::collections::BTreeSet::new();
+    for scalar_name in &all_scalars {
+        let mut scenario_values = indexmap::IndexMap::new();
+        for (scenario_name, result_model) in &results {
+            let scalar = result_model.scalars.get(scalar_name);
+            if scalar.is_some_and(|v| v.is_date) {
+                dates.insert(scalar_name.clone());
+            }
+            scenario_values.insert(scenario_name.clone(), scalar.and_then(|v| v.value));
+        }
+        values.insert(scalar_name.clone(), scenario_values);
+    }
+
+    let descriptions = scenarios
+        .iter()
+        .filter_map(|name| {
+            let text = base_model.scenarios.get(name)?.description.clone()?;
+            Some((name.clone(), text))
+        })
+        .collect();
+
+    Ok(crate::cli::commands::results::ComparisonResult {
+        scenarios: scenarios.to_vec(),
+        variables: all_scalars,
+        values,
+        descriptions,
+        dates,
+        formats: crate::cli::commands::scalar_formats(&base_model),
+    })
 }
 
 #[cfg(test)]

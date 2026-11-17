@@ -60,10 +60,9 @@ pub use update::update;
 pub use upgrade::upgrade;
 
 // Core function re-exports (return structured results, no printing)
-pub use analysis::{
-    compare_core, goal_seek_core, pct_is_meaningful, sensitivity_core, variance_core,
-};
+pub use analysis::{goal_seek_core, pct_is_meaningful, sensitivity_core, variance_core};
 pub use audit::audit_core;
+pub use compare::compare_core;
 pub use examples::examples_core;
 #[cfg(feature = "cli")]
 pub use excel_io::export_buffer_core;
