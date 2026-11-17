@@ -1,5 +1,6 @@
 //! `forge real-options`: what the choice to wait, expand or abandon is worth.
 
+use super::serialize_for_file;
 use crate::cli::console::outln;
 use crate::cli::Console;
 use crate::core::precision::money;
@@ -134,7 +135,7 @@ pub fn real_options(
 
     // Write output if specified
     if let Some(output_path) = output_file {
-        let output_str = result.to_yaml();
+        let output_str = serialize_for_file(&result, &output_path)?;
         fs::write(&output_path, output_str).map_err(ForgeError::Io)?;
         outln!(
             c,
@@ -272,6 +273,37 @@ mod tests {
                 "worth $4,605 more than deciding now",
             ] {
                 assert!(text.contains(expected), "{expected}\n{text}");
+            }
+        }
+    }
+
+    mod output_file {
+        //! `forge real-options -o results.json` wrote YAML into the JSON file;
+        //! the other analyses write JSON for a `.json` path and YAML otherwise.
+
+        use crate::cli::forge;
+
+        #[test]
+        fn a_json_path_gets_json_and_any_other_yaml() {
+            let dir = tempfile::tempdir().unwrap();
+            for (name, json) in [("ro.json", true), ("ro.yaml", false)] {
+                let path = dir.path().join(name);
+                let printed = forge(&[
+                    "real-options",
+                    "examples/real-options.yaml",
+                    "-o",
+                    path.to_str().unwrap(),
+                ])
+                .printed();
+                assert!(printed.contains("Results written to"), "{printed}");
+                let text = std::fs::read_to_string(&path).unwrap();
+                let value: serde_json::Value = if json {
+                    serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}: {text}"))
+                } else {
+                    yaml_serde::from_str(&text).unwrap()
+                };
+                assert_eq!(value["traditional_npv"], 2_000_000.0, "{name}");
+                assert!(value["options"]["Double capacity if demand high"]["value"].is_f64());
             }
         }
     }
