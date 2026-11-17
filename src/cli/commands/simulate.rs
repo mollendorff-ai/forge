@@ -284,36 +284,63 @@ pub fn simulate(
     output_file: Option<PathBuf>,
     verbose: bool,
 ) -> ForgeResult<()> {
-    println!("{}", "🎲 Forge - Monte Carlo Simulation".bold().green());
-    println!("   File: {}", file.display());
+    simulate_to(
+        &mut std::io::stdout().lock(),
+        file,
+        options,
+        output_file,
+        verbose,
+    )
+}
+
+/// The simulate command, writing what it prints to `out`, so a test reads
+/// the same text a person sees, in-process
+///
+/// # Errors
+///
+/// As [`simulate`], and when `out` cannot be written.
+fn simulate_to(
+    out: &mut impl std::io::Write,
+    file: &Path,
+    options: SimulateOptions<'_>,
+    output_file: Option<PathBuf>,
+    verbose: bool,
+) -> ForgeResult<()> {
+    writeln!(
+        out,
+        "{}",
+        "🎲 Forge - Monte Carlo Simulation".bold().green()
+    )?;
+    writeln!(out, "   File: {}", file.display())?;
     if let Some(scenario) = options.scenario {
-        println!("   Scenario: {}", scenario.bright_blue());
+        writeln!(out, "   Scenario: {}", scenario.bright_blue())?;
     }
-    println!();
+    writeln!(out)?;
     if verbose {
-        println!("{}", "🎲 Running simulation...".cyan());
+        writeln!(out, "{}", "🎲 Running simulation...".cyan())?;
     }
 
     let result = simulate_core(file, options)?;
     let config = &result.config;
-    println!("   {}", "Configuration:".bold());
-    println!(
+    writeln!(out, "   {}", "Configuration:".bold())?;
+    writeln!(
+        out,
         "      Iterations: {}",
         config.iterations.to_string().bright_blue()
-    );
-    println!("      Sampling:   {}", config.sampling.bright_blue());
+    )?;
+    writeln!(out, "      Sampling:   {}", config.sampling.bright_blue())?;
     if let Some(seed) = config.seed {
-        println!("      Seed:       {}", seed.to_string().bright_blue());
+        writeln!(out, "      Seed:       {}", seed.to_string().bright_blue())?;
     }
-    println!();
+    writeln!(out)?;
 
-    print_simulation_results(&result);
+    print_simulation_results(out, &result)?;
 
     if let Some(output_path) = output_file {
-        write_simulation_output(&result, &output_path)?;
+        write_simulation_output(out, &result, &output_path)?;
     }
 
-    println!("{}", "✅ Simulation complete".bold().green());
+    writeln!(out, "{}", "✅ Simulation complete".bold().green())?;
 
     Ok(())
 }
@@ -325,39 +352,21 @@ fn sorted_by_name<V>(map: &std::collections::HashMap<String, V>) -> Vec<(&String
     entries
 }
 
-/// Print simulation results to stdout
-fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
-    println!("{}", "📊 Simulation Results:".bold().green());
-    println!("   Iterations:     {}", result.iterations_completed);
-    println!("   Execution time: {} ms", result.execution_time_ms);
-    println!();
+/// Write the simulation results, as `forge simulate` prints them
+fn print_simulation_results(
+    out: &mut impl std::io::Write,
+    result: &crate::monte_carlo::SimulationResult,
+) -> std::io::Result<()> {
+    writeln!(out, "{}", "📊 Simulation Results:".bold().green())?;
+    writeln!(out, "   Iterations:     {}", result.iterations_completed)?;
+    writeln!(out, "   Execution time: {} ms", result.execution_time_ms)?;
+    writeln!(out)?;
 
-    // Show input distributions
-    println!("   {}", "Input Distributions:".bold());
-    for (var_name, samples) in sorted_by_name(&result.input_samples) {
-        #[allow(clippy::cast_precision_loss)] // sample counts are always small enough for f64
-        let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
-        let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
-        let max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        let plan = result
-            .plan_inputs
-            .get(var_name)
-            .map_or_else(String::new, |p| {
-                format!(" plan={} ({})", super::display_number(p.value), p.from)
-            });
-        println!(
-            "      {} mean={}{plan} min={} max={}",
-            var_name.bright_blue(),
-            super::display_number(mean),
-            super::display_number(min),
-            super::display_number(max)
-        );
-    }
-    println!();
+    print_input_distributions(out, result)?;
 
     // Show output results
     if !result.outputs.is_empty() {
-        println!("   {}", "Output Statistics:".bold());
+        writeln!(out, "   {}", "Output Statistics:".bold())?;
         let rows_of = |name: &str| {
             result
                 .config
@@ -370,70 +379,128 @@ fn print_simulation_results(result: &crate::monte_carlo::SimulationResult) {
         for (var_name, output) in &result.outputs {
             if let Some((column, _)) = rows_of(var_name) {
                 if !printed_columns.contains(&column) {
-                    print_column_rows(result, &column);
+                    print_column_rows(out, result, &column)?;
                     printed_columns.push(column);
                 }
                 continue;
             }
-            let stats = &output.statistics;
-            println!("      {}:", var_name.bright_blue().bold());
-            println!("         Mean:      {}", super::display_number(stats.mean));
-            if let Some(at_plan) = output.at_plan {
-                println!(
-                    "         At plan:   {}  (each uncertain input at its plan value)",
-                    super::display_number(at_plan)
-                );
-                if let Some(note) = mean_versus_plan(stats.mean, at_plan, stats.std_dev) {
-                    println!("         {note}");
-                }
-            }
-            println!(
-                "         Median:    {}",
-                super::display_number(stats.median)
-            );
-            println!(
-                "         Std Dev:   {}",
-                super::display_number(stats.std_dev)
-            );
-            println!("         Min:       {}", super::display_number(stats.min));
-            println!("         Max:       {}", super::display_number(stats.max));
-
-            // Percentiles
-            println!("         Percentiles:");
-            for (p, v) in &stats.percentiles {
-                println!("            P{p}: {}", super::display_number(*v));
-            }
-
-            // Thresholds, in the order configured
-            for (threshold, prob) in &output.threshold_probabilities {
-                println!(
-                    "         P({} {}) = {:.2}%",
-                    var_name,
-                    threshold,
-                    prob * 100.0
-                );
-            }
-
-            for (p, mean) in &output.expected_shortfall {
-                println!(
-                    "         Mean of the worst {p}% (expected shortfall): {}",
-                    super::display_number(*mean)
-                );
-            }
-
-            // Which sampled inputs move it most
-            if !output.drivers.is_empty() {
-                println!("         Drivers (rank correlation with the output):");
-                for driver in &output.drivers {
-                    println!(
-                        "            {:+.3}  {}",
-                        driver.rank_correlation, driver.input
-                    );
-                }
-            }
-            println!();
+            print_output(out, var_name, output)?;
         }
     }
+    Ok(())
+}
+
+/// The sampled inputs: each one's mean, plan value, min and max
+fn print_input_distributions(
+    out: &mut impl std::io::Write,
+    result: &crate::monte_carlo::SimulationResult,
+) -> std::io::Result<()> {
+    writeln!(out, "   {}", "Input Distributions:".bold())?;
+    for (var_name, samples) in sorted_by_name(&result.input_samples) {
+        let mean: f64 = samples.iter().sum::<f64>() / samples.len() as f64;
+        let min = samples.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let plan = result
+            .plan_inputs
+            .get(var_name)
+            .map_or_else(String::new, |p| {
+                format!(" plan={} ({})", super::display_number(p.value), p.from)
+            });
+        writeln!(
+            out,
+            "      {} mean={}{plan} min={} max={}",
+            var_name.bright_blue(),
+            super::display_number(mean),
+            super::display_number(min),
+            super::display_number(max)
+        )?;
+    }
+    writeln!(out)?;
+    Ok(())
+}
+
+/// One output's statistics, thresholds, expected shortfall and drivers
+fn print_output(
+    out: &mut impl std::io::Write,
+    var_name: &str,
+    output: &crate::monte_carlo::OutputResult,
+) -> std::io::Result<()> {
+    let stats = &output.statistics;
+    writeln!(out, "      {}:", var_name.bright_blue().bold())?;
+    writeln!(
+        out,
+        "         Mean:      {}",
+        super::display_number(stats.mean)
+    )?;
+    if let Some(at_plan) = output.at_plan {
+        writeln!(
+            out,
+            "         At plan:   {}  (each uncertain input at its plan value)",
+            super::display_number(at_plan)
+        )?;
+        if let Some(note) = mean_versus_plan(stats.mean, at_plan, stats.std_dev) {
+            writeln!(out, "         {note}")?;
+        }
+    }
+    writeln!(
+        out,
+        "         Median:    {}",
+        super::display_number(stats.median)
+    )?;
+    writeln!(
+        out,
+        "         Std Dev:   {}",
+        super::display_number(stats.std_dev)
+    )?;
+    writeln!(
+        out,
+        "         Min:       {}",
+        super::display_number(stats.min)
+    )?;
+    writeln!(
+        out,
+        "         Max:       {}",
+        super::display_number(stats.max)
+    )?;
+
+    // Percentiles
+    writeln!(out, "         Percentiles:")?;
+    for (p, v) in &stats.percentiles {
+        writeln!(out, "            P{p}: {}", super::display_number(*v))?;
+    }
+
+    // Thresholds, in the order configured
+    for (threshold, prob) in &output.threshold_probabilities {
+        writeln!(
+            out,
+            "         P({} {}) = {:.2}%",
+            var_name,
+            threshold,
+            prob * 100.0
+        )?;
+    }
+
+    for (p, mean) in &output.expected_shortfall {
+        writeln!(
+            out,
+            "         Mean of the worst {p}% (expected shortfall): {}",
+            super::display_number(*mean)
+        )?;
+    }
+
+    // Which sampled inputs move it most
+    if !output.drivers.is_empty() {
+        writeln!(out, "         Drivers (rank correlation with the output):")?;
+        for driver in &output.drivers {
+            writeln!(
+                out,
+                "            {:+.3}  {}",
+                driver.rank_correlation, driver.input
+            )?;
+        }
+    }
+    writeln!(out)?;
+    Ok(())
 }
 
 /// A note when an output's mean is far from its value at plan (more than a
@@ -455,7 +522,11 @@ fn mean_versus_plan(mean: f64, at_plan: f64, std_dev: f64) -> Option<String> {
 
 /// A table column output, one line per row: mean, P10, P50, P90, and each
 /// threshold's probability.
-fn print_column_rows(result: &crate::monte_carlo::SimulationResult, column: &str) {
+fn print_column_rows(
+    out: &mut impl std::io::Write,
+    result: &crate::monte_carlo::SimulationResult,
+    column: &str,
+) -> std::io::Result<()> {
     let rows: Vec<&crate::monte_carlo::OutputResult> = result
         .config
         .outputs
@@ -463,8 +534,15 @@ fn print_column_rows(result: &crate::monte_carlo::SimulationResult, column: &str
         .filter(|o| o.row.as_ref().is_some_and(|(c, _)| c == column))
         .filter_map(|o| result.outputs.get(&o.variable))
         .collect();
-    let Some(first) = rows.first() else { return };
-    println!("      {} {}:", column.bright_blue().bold(), "by row".bold());
+    let Some(first) = rows.first() else {
+        return Ok(());
+    };
+    writeln!(
+        out,
+        "      {} {}:",
+        column.bright_blue().bold(),
+        "by row".bold()
+    )?;
     let mut header = format!(
         "         {:>4} {:>14} {:>14} {:>14} {:>14} {:>14}",
         "row", "mean", "at plan", "P10", "P50", "P90"
@@ -472,7 +550,7 @@ fn print_column_rows(result: &crate::monte_carlo::SimulationResult, column: &str
     for threshold in first.threshold_probabilities.keys() {
         let _ = write!(header, " {:>10}", format!("P({threshold})"));
     }
-    println!("{header}");
+    writeln!(out, "{header}")?;
     for (row, output) in rows.iter().enumerate() {
         let p = |q: u8| {
             output
@@ -496,13 +574,15 @@ fn print_column_rows(result: &crate::monte_carlo::SimulationResult, column: &str
         for prob in output.threshold_probabilities.values() {
             let _ = write!(line, " {:>9.2}%", prob * 100.0);
         }
-        println!("{line}");
+        writeln!(out, "{line}")?;
     }
-    println!();
+    writeln!(out)?;
+    Ok(())
 }
 
 /// Write simulation output to a file (YAML, JSON, or Excel)
 fn write_simulation_output(
+    out: &mut impl std::io::Write,
     result: &crate::monte_carlo::SimulationResult,
     output_path: &Path,
 ) -> ForgeResult<()> {
@@ -530,12 +610,13 @@ fn write_simulation_output(
         },
     }
 
-    println!(
+    writeln!(
+        out,
         "{}",
         format!("💾 Results written to {}", output_path.display())
             .bold()
             .green()
-    );
+    )?;
     Ok(())
 }
 
@@ -916,5 +997,254 @@ scenarios:
                 .unwrap_err()
                 .to_string();
         assert!(err.contains("has a formula"), "{err}");
+    }
+    // From tests/simulate_outputs.rs and tests/simulate_plan.rs (roadmap
+    // T1-TESTS-INLINE). `--output-var` shows only the outputs named
+    // (T1-SIM-SHOW-ONE): the draws do not depend on the outputs, so an
+    // output's numbers are the same with the flag as without it. `forge
+    // simulate` shows each uncertain input's plan value beside its mean, and
+    // each output's value at plan beside its mean (T1-SIM-MEAN-VS-PLAN); the
+    // figures are checked against closed forms, not against Forge:
+    // - a triangular's mean is (min + mode + max) / 3, a uniform's
+    //   (min + max) / 2 and a PERT's (min + 4 mode + max) / 6;
+    // - profit is linear in staff hours, the wage and the flour price, drawn
+    //   independently, so the expected profit is the plan's profit plus each
+    //   input's (mean - plan) times its coefficient: labour (E[hours] E[wage]
+    //   - 32 x 18.50) x 30 days x 1.15 load x 12 months, flour the plan's year
+    //   of dozens x 12 / 9 bagels a kg x (E[flour] - 1.15). Opening demand is
+    //   a symmetric PERT (mean 55 = plan), so it adds nothing.
+
+    const BAGEL_SIMULATE: &str = "examples/bagel/bagel_simulate.yaml";
+
+    fn bagel_with(
+        outputs: &[String],
+        iterations: Option<usize>,
+    ) -> crate::monte_carlo::SimulationResult {
+        simulate_core(
+            Path::new(BAGEL_SIMULATE),
+            SimulateOptions {
+                iterations,
+                outputs,
+                ..SimulateOptions::default()
+            },
+        )
+        .expect("simulates")
+    }
+
+    /// What `forge simulate` prints for these options, without colour codes
+    /// (an in-process run may see a terminal, which a piped binary did not)
+    fn printed(options: SimulateOptions<'_>) -> ForgeResult<String> {
+        let mut out = Vec::new();
+        simulate_to(&mut out, Path::new(BAGEL_SIMULATE), options, None, false)?;
+        let text = String::from_utf8(out).expect("UTF-8");
+        let mut plain = String::with_capacity(text.len());
+        let mut chars = text.chars();
+        while let Some(c) = chars.next() {
+            if c == '\u{1b}' {
+                chars.by_ref().find(|&c| c == 'm');
+            } else {
+                plain.push(c);
+            }
+        }
+        Ok(plain)
+    }
+
+    // The same draws give the same numbers, to the last bit
+    #[test]
+    fn one_output_has_the_numbers_it_has_among_all() {
+        let all = bagel_with(&[], Some(500));
+        let one = bagel_with(&["year.profit".to_string()], Some(500));
+        assert_eq!(one.outputs.keys().collect::<Vec<_>>(), ["year.profit"]);
+        let (a, b) = (&all.outputs["year.profit"], &one.outputs["year.profit"]);
+        assert_eq!(a.samples, b.samples);
+        assert_eq!(a.statistics.mean.to_bits(), b.statistics.mean.to_bits());
+        assert_eq!(a.statistics.percentiles, b.statistics.percentiles);
+        assert_eq!(a.threshold_probabilities, b.threshold_probabilities);
+        assert_eq!(a.expected_shortfall, b.expected_shortfall);
+        let drivers = |r: &crate::monte_carlo::OutputResult| {
+            r.drivers
+                .iter()
+                .map(|d| (d.input.clone(), d.rank_correlation))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(drivers(a), drivers(b));
+    }
+
+    #[test]
+    fn a_name_without_its_group_and_a_column_choose_their_outputs() {
+        let worst = bagel_with(&["worst_month_profit".to_string()], Some(500));
+        assert_eq!(
+            worst.outputs.keys().collect::<Vec<_>>(),
+            ["year.worst_month_profit"]
+        );
+        // A table column is all its rows, in the order configured
+        let months = bagel_with(
+            &["months.profit".to_string(), "year.profit".to_string()],
+            Some(500),
+        );
+        let names: Vec<&String> = months.outputs.keys().collect();
+        assert_eq!(names.len(), 13, "{names:?}");
+        assert_eq!(names[0], "year.profit");
+        assert_eq!(names[1], "months.profit (row 1)");
+        assert_eq!(names[12], "months.profit (row 12)");
+    }
+
+    #[test]
+    fn an_unknown_or_ambiguous_name_is_refused_with_the_outputs() {
+        let err = |names: &[&str]| {
+            let names: Vec<String> = names.iter().map(ToString::to_string).collect();
+            simulate_core(
+                Path::new(BAGEL_SIMULATE),
+                SimulateOptions {
+                    iterations: Some(10),
+                    outputs: &names,
+                    ..SimulateOptions::default()
+                },
+            )
+            .expect_err("refused")
+            .to_string()
+        };
+        assert_eq!(
+            err(&["revenue"]),
+            "Validation error: --output-var revenue: not an output of monte_carlo (outputs: \
+             year.profit, year.worst_month_profit, months.profit)"
+        );
+        assert_eq!(
+            err(&["profit"]),
+            "Validation error: --output-var profit: more than one output ends with it \
+             (year.profit, months.profit); write the whole name"
+        );
+    }
+
+    #[test]
+    fn the_flag_prints_only_that_output() {
+        let outputs = ["year.profit".to_string()];
+        let text = printed(SimulateOptions {
+            iterations: Some(200),
+            outputs: &outputs,
+            ..SimulateOptions::default()
+        })
+        .expect("simulates");
+        assert!(text.contains("year.profit:"), "{text}");
+        assert!(text.contains("P(year.profit > 0) = "), "{text}");
+        assert!(!text.contains("year.worst_month_profit:"), "{text}");
+        assert!(!text.contains("months.profit by row"), "{text}");
+    }
+
+    #[test]
+    fn an_unknown_name_is_an_error_that_lists_the_outputs() {
+        // main prints any error as "Error: ..." and exits 1
+        let outputs = ["nope".to_string()];
+        let message = printed(SimulateOptions {
+            outputs: &outputs,
+            ..SimulateOptions::default()
+        })
+        .expect_err("refused")
+        .to_string();
+        assert!(
+            message.contains(
+                "--output-var nope: not an output of monte_carlo (outputs: year.profit, \
+                 year.worst_month_profit, months.profit)"
+            ),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn the_value_at_plan_is_the_plans_profit() {
+        let result = bagel_with(&["year.profit".to_string()], None);
+        let at_plan = result.outputs["year.profit"].at_plan.expect("calculated");
+        let plan =
+            crate::cli::calculate_core(Path::new("examples/bagel/bagel.yaml"), true, None).unwrap();
+        let planned = plan.scalars["year.profit"].unwrap();
+        assert!(
+            (at_plan - planned).abs() < 1e-9,
+            "{at_plan} against {planned}"
+        );
+        assert!((at_plan - 786.320_361_7).abs() < 1e-6, "{at_plan}");
+    }
+
+    #[test]
+    fn the_inputs_plan_values_and_means_are_the_closed_forms() {
+        let result = bagel_with(&["year.profit".to_string()], None);
+        let mean = |name: &str| {
+            let s = &result.input_samples[name];
+            let n = s.len() as f64;
+            s.iter().sum::<f64>() / n
+        };
+        let cases = [
+            // (input, plan, closed-form mean)
+            (
+                "assumptions.staff_hours_per_day",
+                32.0,
+                (28.0 + 32.0 + 38.0) / 3.0,
+            ),
+            (
+                "@costs.ingredients.flour_per_kg",
+                1.15,
+                (1.05 + 1.15 + 1.70) / 3.0,
+            ),
+            (
+                "@costs.labour.wage_per_hour",
+                18.50,
+                f64::midpoint(17.50, 20.50),
+            ),
+            (
+                "assumptions.opening_dozens_per_day",
+                55.0,
+                4.0f64.mul_add(55.0, 40.0 + 70.0) / 6.0,
+            ),
+        ];
+        for (name, plan, closed_form) in cases {
+            let p = &result.plan_inputs[name];
+            assert!((p.value - plan).abs() < 1e-12, "{name}: plan {}", p.value);
+            assert_eq!(p.from, "value", "{name}");
+            // Latin hypercube with 5,000 draws: the mean is within 0.1%
+            let m = mean(name);
+            assert!(
+                (m - closed_form).abs() <= closed_form * 1e-3,
+                "{name}: sampled mean {m}, closed form {closed_form}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_gap_between_mean_and_plan_is_the_inputs_means() {
+        let result = bagel_with(&["year.profit".to_string()], None);
+        let year = &result.outputs["year.profit"];
+        let at_plan = year.at_plan.expect("calculated");
+        let hours: f64 = (28.0 + 32.0 + 38.0) / 3.0;
+        let wage = f64::midpoint(17.50, 20.50);
+        let labour = hours.mul_add(wage, -32.0 * 18.50) * 30.0 * 1.15 * 12.0;
+        // The plan's year of dozens, from the independent Python in bagel_example.rs
+        let dozens = 24_176.715_596_114_2;
+        let flour = dozens * 12.0 / 9.0 * ((1.05 + 1.15 + 1.70) / 3.0 - 1.15);
+        let expected_gap = -(labour + flour); // -16,703.34
+        assert!((expected_gap + 16_703.34).abs() < 0.01, "{expected_gap}");
+        let gap = year.statistics.mean - at_plan;
+        // Sampling error of the mean: under 0.1% of a standard deviation of 38,058
+        assert!(
+            (gap - expected_gap).abs() < 40.0,
+            "simulated gap {gap}, closed form {expected_gap}"
+        );
+    }
+
+    #[test]
+    fn simulate_prints_the_plan_beside_the_mean() {
+        let outputs = ["year.profit".to_string()];
+        let text = printed(SimulateOptions {
+            outputs: &outputs,
+            ..SimulateOptions::default()
+        })
+        .expect("simulates");
+        for line in [
+            "assumptions.staff_hours_per_day mean=32.67 plan=32.00 (value)",
+            "@costs.ingredients.flour_per_kg mean=1.30 plan=1.15 (value)",
+            "@costs.labour.wage_per_hour mean=19.00 plan=18.50 (value)",
+            "At plan:   786.32  (each uncertain input at its plan value)",
+            "the uncertain inputs' means are not their plan values",
+        ] {
+            assert!(text.contains(line), "missing {line:?} in:\n{text}");
+        }
     }
 }

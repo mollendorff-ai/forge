@@ -460,9 +460,36 @@ jobs:
       - name: Generate coverage
         run: |
           cargo llvm-cov --ignore-filename-regex 'tests/' --json --output-path cov.json
+          for kind in lines functions regions; do
+            echo "Coverage of $kind: $(jq ".data[0].totals.$kind.percent" cov.json)%"
+          done
           COV=$(jq '.data[0].totals.functions.percent' cov.json | xargs printf '%.0f')
           echo "COVERAGE=$COV" >> $GITHUB_ENV
-          echo "Function coverage: ${COV}%"
+
+      # 100% coverage, no skipping (CLAUDE.md, roadmap T1-COVERAGE-GATE). Until
+      # the code is at 100%, these floors are the coverage of the last merge,
+      # rounded down to a tenth (the weekly run's new property-test seeds can
+      # move it by hundredths): raise them whenever coverage goes up, to 100,
+      # and never lower them. Set 2026-11-16 from PR #257's run: lines
+      # 88.04%, functions 84.46%, regions 86.31%.
+      - name: Fail below the coverage floor
+        env:
+          FLOOR_LINES: "88.0"
+          FLOOR_FUNCTIONS: "84.4"
+          FLOOR_REGIONS: "86.3"
+        run: |
+          fail=0
+          for kind in lines functions regions; do
+            floor_var="FLOOR_${kind^^}"
+            got=$(jq ".data[0].totals.$kind.percent" cov.json)
+            if jq -e --argjson floor "${!floor_var}" ".data[0].totals.$kind.percent >= \$floor" cov.json >/dev/null; then
+              echo "$kind: $got% (floor ${!floor_var}%)"
+            else
+              echo "::error::$kind coverage is $got%, below the floor of ${!floor_var}%: add tests, do not lower the floor"
+              fail=1
+            fi
+          done
+          exit $fail
 
       - name: Update coverage badge
         if: github.ref == 'refs/heads/main'
