@@ -1,6 +1,8 @@
 //! The criteria of SUMIF, COUNTIFS and the like (`">=5"`, `""`, `0`)
 
 use super::{criterion_number, date_serial, wildcard, Value};
+use crate::core::precision::{excel_equal, excel_order};
+use std::cmp::Ordering;
 
 /// A criterion of SUMIF, COUNTIFS and the like, read once and then tested
 /// against each value of the range (reading it for each value turned the
@@ -71,10 +73,19 @@ impl Criterion {
     pub fn matches(&self, val: &Value) -> bool {
         let v = val.as_number();
         match (&self.test, v) {
-            (Test::AtLeast(_, Some(c)), Some(v)) => return v >= *c,
-            (Test::AtMost(_, Some(c)), Some(v)) => return v <= *c,
-            (Test::Above(_, Some(c)), Some(v)) => return v > *c,
-            (Test::Below(_, Some(c)), Some(v)) => return v < *c,
+            // Numbers to 15 significant digits, as the operators (ADR-065)
+            (Test::AtLeast(_, Some(c)), Some(v)) => {
+                return excel_order(v, *c).is_some_and(Ordering::is_ge)
+            },
+            (Test::AtMost(_, Some(c)), Some(v)) => {
+                return excel_order(v, *c).is_some_and(Ordering::is_le)
+            },
+            (Test::Above(_, Some(c)), Some(v)) => {
+                return excel_order(v, *c).is_some_and(Ordering::is_gt)
+            },
+            (Test::Below(_, Some(c)), Some(v)) => {
+                return excel_order(v, *c).is_some_and(Ordering::is_lt)
+            },
             // A text criterion compares text with text, ignoring case, as in
             // Excel (">c" counts "date" and "x"); a number never meets it
             (Test::AtLeast(rest, None), _) => {
@@ -89,15 +100,15 @@ impl Criterion {
             (Test::Below(rest, None), _) => {
                 return text_order(rest, val).is_some_and(std::cmp::Ordering::is_lt)
             },
-            (Test::Not(_, Some(c)), Some(v)) => return (v - c).abs() > f64::EPSILON,
+            (Test::Not(_, Some(c)), Some(v)) => return !excel_equal(v, *c),
             (Test::Not(rest, _), _) => return !text_matches(rest, val),
-            (Test::Equal(_, Some(c)), Some(v)) => return (v - c).abs() < f64::EPSILON,
+            (Test::Equal(_, Some(c)), Some(v)) => return excel_equal(v, *c),
             (Test::Equal(rest, _), _) => return text_matches(rest, val),
             _ => {},
         }
         // Direct comparison (numeric or text)
         if let (Some(v), Some(c)) = (v, self.number) {
-            return (v - c).abs() < f64::EPSILON;
+            return excel_equal(v, c);
         }
         // Text comparison (case-insensitive, with wildcards)
         text_matches(&self.text, val)
@@ -127,5 +138,43 @@ fn text_order(criterion: &str, val: &Value) -> Option<std::cmp::Ordering> {
             Some(t.to_lowercase().cmp(&criterion.to_lowercase()))
         },
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::core::array_calculator::evaluator::tests as h;
+
+    /// A number criterion compares as the comparison operators do: rounded
+    /// to 15 significant digits (ADR-065), so COUNTIF counts 0.3 for 0.1 + 0.2,
+    /// as Excel's documentation says and `LibreOffice` 26.2 does
+    #[test]
+    fn number_criteria_compare_to_fifteen_digits() {
+        let ctx = h::table(&[
+            ("v", h::numbers(&[0.3, 0.3, 0.300_000_000_000_01])),
+            ("z", h::numbers(&[0.0, 1E-12])),
+            // 0.30000000000000004 and 110.00000000000001, as calculated
+            ("n", h::numbers(&[0.1 + 0.2, 100.0 * 1.1])),
+        ]);
+        for (formula, count) in [
+            ("COUNTIF(t.v, 0.1 + 0.2)", 2.0),
+            ("COUNTIF(t.v, \"=\" & (0.1 + 0.2))", 2.0),
+            ("COUNTIF(t.v, \"<>0.3\")", 1.0),
+            ("COUNTIF(t.v, \">0.3\")", 1.0),
+            ("COUNTIF(t.v, \"<=\" & (0.1 + 0.2))", 2.0),
+            ("COUNTIF(t.v, \">\" & (0.1 + 0.2))", 1.0),
+            ("COUNTIF(t.z, 0)", 1.0),
+            ("COUNTIF(t.z, -1E-12)", 0.0),
+            ("COUNTIF(t.z, \">0\")", 1.0),
+            // Off by more than the smallest step, the same to 15 digits
+            ("COUNTIF(t.n, 110)", 1.0),
+            ("COUNTIF(t.n, \"=110\")", 1.0),
+            ("COUNTIF(t.n, \"<=0.3\")", 1.0),
+            ("COUNTIF(t.n, \">0.3\")", 1.0),
+            ("COUNTIF(t.n, \"<>110\")", 1.0),
+            ("SUMIF(t.n, \">=110\")", 100.0 * 1.1),
+        ] {
+            h::is_exactly_in(formula, &ctx, count);
+        }
     }
 }

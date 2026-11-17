@@ -30,6 +30,34 @@ pub fn same(a: f64, b: f64) -> bool {
     a.partial_cmp(&b) == Some(std::cmp::Ordering::Equal)
 }
 
+/// How Excel's comparison operators order two numbers: each rounded to 15
+/// significant digits first (ADR-065).
+///
+/// So `0.1 + 0.2 = 0.3` and `100 * 1.1 <= 110` hold, while `1 + 1E-14 > 1`
+/// and `-1E-12 < 0` do too. The rounding is of each number, relative to its
+/// own size: there is no tolerance near zero. `None` when either is a NaN.
+///
+/// For `=`, `<>`, `<`, `<=`, `>`, `>=`, `SWITCH` and the criteria of
+/// `COUNTIF` and its family. An exact lookup (`MATCH` 0, `XLOOKUP`) compares
+/// exactly instead, with [`same`].
+#[must_use]
+pub fn excel_order(a: f64, b: f64) -> Option<std::cmp::Ordering> {
+    let exact = a.partial_cmp(&b);
+    // Rounding moves a number by at most half a unit in its 15th digit, under
+    // 5E-15 of it, and never past another, so two numbers further apart than
+    // 1E-13 of the larger keep their order; only nearer ones are rounded
+    if exact == Some(std::cmp::Ordering::Equal) || (a - b).abs() > 1e-13 * a.abs().max(b.abs()) {
+        return exact;
+    }
+    to_15_digits(a).partial_cmp(&to_15_digits(b))
+}
+
+/// Whether `a` and `b` are equal as Excel's `=` finds them: [`excel_order`].
+#[must_use]
+pub fn excel_equal(a: f64, b: f64) -> bool {
+    excel_order(a, b) == Some(std::cmp::Ordering::Equal)
+}
+
 /// `value` rounded to 15 significant digits: the number Forge writes and
 /// prints. Zero, infinities and NaN are returned as they are.
 #[must_use]
@@ -362,6 +390,73 @@ impl<C: SerializeStructVariant> SerializeStructVariant for Compound<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cmp::Ordering::{Equal, Greater, Less};
+
+    /// Excel's comparison: each number to 15 significant digits (ADR-065)
+    #[test]
+    fn excel_order_rounds_each_number_to_fifteen_digits() {
+        // Exactly equal, and zero of either sign
+        assert_eq!(excel_order(2.5, 2.5), Some(Equal));
+        assert_eq!(excel_order(0.0, -0.0), Some(Equal));
+        // Binary noise in the 17th digit
+        assert_eq!(excel_order(0.1 + 0.2, 0.3), Some(Equal));
+        assert_eq!(excel_order(0.3, 0.1 + 0.2), Some(Equal));
+        // The 15th digit counts, at every size
+        assert_eq!(excel_order(1.0 + 1e-14, 1.0), Some(Greater));
+        assert_eq!(excel_order(1e-300, 1.000_000_000_000_01e-300), Some(Less));
+        assert_eq!(excel_order(1e300, 1.000_000_000_000_01e300), Some(Less));
+        // No tolerance near zero, and far apart is the plain order
+        assert_eq!(excel_order(-1e-12, 0.0), Some(Less));
+        assert_eq!(excel_order(f64::MIN_POSITIVE, 0.0), Some(Greater));
+        assert_eq!(excel_order(-3.0, 2.0), Some(Less));
+        // Two numbers one binary step apart on either side of a 15th digit's
+        // halfway point (1.0000000000000049 and 1.000000000000005) are
+        // unequal: the rule rounds each, it does not measure the gap
+        assert_eq!(
+            excel_order(1.000_000_000_000_004_9, 1.000_000_000_000_005),
+            Some(Less)
+        );
+        // Infinities and NaN
+        assert_eq!(excel_order(f64::INFINITY, f64::INFINITY), Some(Equal));
+        assert_eq!(excel_order(f64::INFINITY, 1e308), Some(Greater));
+        assert_eq!(excel_order(f64::NAN, 1.0), None);
+        assert!(!excel_equal(f64::NAN, f64::NAN));
+        assert!(excel_equal(100.0 * 1.1, 110.0));
+    }
+
+    /// The shortcut for numbers far apart gives what rounding both would
+    #[test]
+    fn excel_order_shortcut_agrees_with_rounding() {
+        let values = [
+            0.0,
+            1e-300,
+            1e-15,
+            0.1,
+            0.3,
+            0.1 + 0.2,
+            1.0,
+            1.0 + 1e-14,
+            1.0 + 1e-13,
+            99.99,
+            110.0,
+            100.0 * 1.1,
+            1e15,
+            1e15 + 1.0,
+            1e15 + 10.0,
+            1e300,
+        ];
+        for &a in &values {
+            for &b in &values {
+                for (x, y) in [(a, b), (-a, b), (a, -b), (-a, -b)] {
+                    assert_eq!(
+                        excel_order(x, y),
+                        to_15_digits(x).partial_cmp(&to_15_digits(y)),
+                        "{x} and {y}"
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn same_is_ieee_equality_on_every_edge() {

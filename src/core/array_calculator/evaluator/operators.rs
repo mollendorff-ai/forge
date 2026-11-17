@@ -3,6 +3,8 @@
 //! reads as a number or a date included; `&` joins.
 
 use super::{date_serial, EvalError, Value};
+use crate::core::precision::{excel_equal, excel_order};
+use std::cmp::Ordering;
 
 /// Evaluate a binary operation, element by element when an operand is an array.
 ///
@@ -171,21 +173,16 @@ fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Va
         // Comparison operators
         "=" => Ok(Value::Boolean(values_equal(left, right))),
         "<>" => Ok(Value::Boolean(!values_equal(left, right))),
-        "<" => {
+        // To 15 significant digits, as `=` (ADR-065)
+        "<" | ">" | "<=" | ">=" => {
             let (l, r) = numbers(left, right)?;
-            Ok(Value::Boolean(l < r))
-        },
-        ">" => {
-            let (l, r) = numbers(left, right)?;
-            Ok(Value::Boolean(l > r))
-        },
-        "<=" => {
-            let (l, r) = numbers(left, right)?;
-            Ok(Value::Boolean(l <= r))
-        },
-        ">=" => {
-            let (l, r) = numbers(left, right)?;
-            Ok(Value::Boolean(l >= r))
+            let order = excel_order(l, r);
+            Ok(Value::Boolean(match op {
+                "<" => order == Some(Ordering::Less),
+                ">" => order == Some(Ordering::Greater),
+                "<=" => matches!(order, Some(Ordering::Less | Ordering::Equal)),
+                _ => matches!(order, Some(Ordering::Greater | Ordering::Equal)),
+            }))
         },
 
         _ => Err(EvalError::new(format!("Unknown operator: {op}"))),
@@ -195,7 +192,8 @@ fn evaluate_scalar_binary_op(op: &str, left: &Value, right: &Value) -> Result<Va
 /// Check if two values are equal
 pub fn values_equal(left: &Value, right: &Value) -> bool {
     match (left, right) {
-        (Value::Number(l), Value::Number(r)) => (l - r).abs() < 1e-10,
+        // Rounded to 15 significant digits, as Excel's `=` (ADR-065)
+        (Value::Number(l), Value::Number(r)) => excel_equal(*l, *r),
         (Value::Text(l), Value::Text(r)) => l.to_lowercase() == r.to_lowercase(),
         (Value::Boolean(l), Value::Boolean(r)) => l == r,
         (Value::Null, Value::Null) => true,
@@ -212,7 +210,7 @@ pub fn values_equal(left: &Value, right: &Value) -> bool {
         // A date is equal to its day number: `d = DATE(2026, 1, 31)` (ADR-054).
         // Other text is never equal to a number, as in Excel (`"5" = 5` is FALSE).
         (Value::Text(text), Value::Number(n)) | (Value::Number(n), Value::Text(text)) => {
-            date_serial(text).is_some_and(|serial| (serial - n).abs() < 1e-10)
+            date_serial(text).is_some_and(|serial| excel_equal(serial, *n))
         },
         // Boolean vs Number is never equal: in Excel and Gnumeric `TRUE = 1`
         // and `FALSE = 0` are FALSE (arithmetic still coerces: TRUE + 1 = 2).
@@ -245,6 +243,77 @@ pub(super) fn evaluate_unary_op(op: &str, operand: &Value) -> Result<Value, Eval
 
 #[cfg(test)]
 mod tests {
+
+    /// Excel's comparison operators compare two numbers rounded to 15
+    /// significant digits (ADR-065), all six alike: Microsoft's floating-point
+    /// article and Q&A. `LibreOffice` 26.2 gives each of these; Gnumeric 1.12
+    /// compares exactly.
+    mod fifteen_digits {
+        use crate::core::array_calculator::evaluator::tests as h;
+
+        fn holds(formula: &str) -> bool {
+            h::truth(formula)
+        }
+
+        #[test]
+        fn binary_noise_is_equal_and_neither_above_nor_below() {
+            for (a, b) in [
+                ("0.1 + 0.2", "0.3"),
+                ("100 * 1.1", "110"),
+                ("0.3 - 0.1", "0.2"),
+            ] {
+                assert!(holds(&format!("{a} = {b}")), "{a} = {b}");
+                assert!(!holds(&format!("{a} <> {b}")), "{a} <> {b}");
+                assert!(holds(&format!("{a} <= {b}")), "{a} <= {b}");
+                assert!(holds(&format!("{a} >= {b}")), "{a} >= {b}");
+                assert!(!holds(&format!("{a} < {b}")), "{a} < {b}");
+                assert!(!holds(&format!("{a} > {b}")), "{a} > {b}");
+            }
+        }
+
+        /// The sixteenth digit does not count, the fifteenth does
+        #[test]
+        fn the_fifteenth_digit_counts() {
+            assert!(holds("1 + 1E-15 = 1"));
+            assert!(!holds("1 + 1E-14 = 1"));
+            assert!(holds("1 + 1E-14 > 1"));
+            assert!(!holds("1 + 1E-13 = 1"));
+            assert!(!holds("1 + 5E-11 = 1"));
+            assert!(holds("1E15 + 0.2 = 1E15"));
+            assert!(holds("1E10 + 1E-6 = 1E10"));
+            assert!(holds("123456789.12345678 = 123456789.12345679"));
+            // 1000000000000001 is 1.00000000000000E+15 to 15 digits. LibreOffice
+            // and Gnumeric find it unequal; the rule as Microsoft describes it
+            // finds it equal (not checked in Excel: ADR-065)
+            assert!(holds("1E15 + 1 = 1E15"));
+            assert!(!holds("1E15 + 10 = 1E15"));
+        }
+
+        /// Fifteen digits of each number, however small: no tolerance near 0
+        #[test]
+        fn a_tiny_number_is_not_zero() {
+            assert!(!holds("-1E-12 = 0"));
+            assert!(holds("-1E-12 < 0"));
+            assert!(!holds("1E-12 = 2E-12"));
+            assert!(!holds("1E-300 = 0"));
+            assert!(holds("1E-300 > 0"));
+            assert!(holds("0 = -0"));
+        }
+
+        /// A date and its day number, by the same rule
+        #[test]
+        fn a_date_and_its_day_number() {
+            assert!(holds("\"2026-01-31\" = 46053"));
+            assert!(!holds("\"2026-01-31\" = 46053.0001"));
+        }
+
+        /// SWITCH matches as = does (`LibreOffice`; not checked in Excel)
+        #[test]
+        fn switch_matches_as_equals_does() {
+            h::is_exactly("SWITCH(0.1 + 0.2, 0.3, 1, 0)", 1.0);
+            h::is_exactly("SWITCH(-1E-12, 0, 1, 2)", 2.0);
+        }
+    }
     use super::*;
     use crate::core::array_calculator::evaluator::tests::{array_ctx, eval};
     use crate::core::array_calculator::evaluator::EvalContext;
@@ -395,10 +464,8 @@ mod tests {
     #[test]
     fn test_eval_floating_point_precision() {
         let ctx = EvalContext::new();
-        // Note: Forge uses epsilon comparison (1e-10) for floating point equality
-        // 0.1 + 0.2 = 0.3 = true (difference is ~5.5e-17, less than epsilon)
-        // In strict floating point: this would be false
-        // Forge's epsilon comparison makes this true to avoid precision issues
+        // Two numbers are compared to 15 significant digits, as in Excel
+        // (ADR-065): 0.1 + 0.2 is 0.30000000000000004, and 0.3 to 15 digits
         assert_eq!(eval("0.1 + 0.2 = 0.3", &ctx).unwrap(), Value::Boolean(true));
         // ROUND also ensures equality
         assert_eq!(

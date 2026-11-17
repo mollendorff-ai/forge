@@ -77,6 +77,7 @@ Technical documentation for Forge's architecture.
 | [ADR-062](ADR-062-GENERATED-CASES.md) | Generated Cases Against Gnumeric and LibreOffice, in CI | Accepted; built |
 | [ADR-063](ADR-063-ORIGIN-OF-FORGE.md) | Where Forge Came From, and Why It Is Not a Trading Engine | Accepted |
 | [ADR-064](ADR-064-ARRAY-CONSTANTS.md) | Array Constants in Formulas | Proposed; built |
+| [ADR-065](ADR-065-HOW-TWO-NUMBERS-COMPARE.md) | How Two Numbers Compare | Accepted by merging; Excel not checked by hand |
 
 ## Architecture Principles
 

@@ -214,11 +214,17 @@ tier1:
     how: "Decide the syntax (array constants, ADR-064, are the Excel way: MC.Discrete({1,2,3}, {0.2,0.5,0.3})) and parse it, with an example and a test against a hand calculation; or take MC.Discrete out of the five places that list it, until it is built"
     acceptance: "Either a model with MC.Discrete simulates and its probabilities are checked in a test, or no document or help text names it"
 
-  - id: T1-EQUAL-NEAR-ZERO
-    title: "Two numbers within 1E-10 of each other are equal in Forge, near zero too"
-    why: "Found 2026-11-17 by the generated HLOOKUP cases: values_equal (src/core/array_calculator/evaluator/operators.rs) compares numbers with an absolute tolerance of 1E-10, so -1E-12 = 0 is TRUE and MATCH(1E-12, {0,1}, 0) and VLOOKUP(1E-12, {0;1}, 1, FALSE) find 0, where LibreOffice 26.2 and Gnumeric 1.12 give FALSE and #N/A. For large numbers all three agree (1E+15 + 0.01 = 1E+15 is TRUE). The = operator, IF, the exact searches and COUNTIF-style criteria share it. validation/sweep/known.py (equal-near-zero) excuses the lookups until it is decided"
-    how: "Check in Excel how = and an exact MATCH compare numbers that differ in their last digits (0.1 + 0.2 = 0.3) and near zero (1E-12 = 0); decide a rule (exact, or relative to the larger of the two, as Excel's 15 digits suggest) in an ADR, and keep every example's result the same"
-    acceptance: "-1E-12 = 0 gives what Excel gives, the decision is written down, and the equal-near-zero rule in known.py is removed"
+  # T1-EQUAL-NEAR-ZERO is done (2026-11-17, ADR-065): the six operators and
+  # the COUNTIF-family criteria compare two numbers rounded to 15 significant
+  # digits, the exact lookups and RANK's membership exactly, as Microsoft's
+  # documentation and Q&A answers describe Excel; -1E-12 = 0 is FALSE. The
+  # equal-near-zero rule in known.py is gone. Without Excel at hand, the rule
+  # was taken from documentation: T1-EXCEL-EQUALITY checks it.
+  - id: T1-EXCEL-EQUALITY
+    title: "Check ADR-065's comparisons in Excel"
+    why: "ADR-065 follows Microsoft's description of Excel's comparison (15 significant digits for the operators and COUNTIF, exact for the lookups), not a check in Excel. Its table lists 13 formulas; 1E15+1=1E15 is TRUE in Forge by that rule and FALSE in LibreOffice and Gnumeric, and XLOOKUP over a range differs in LibreOffice. Also open: Excel sets a final subtraction near zero to 0 (=0.1+0.2-0.3, LibreOffice 0, Forge 5.55E-17)"
+    how: "Type ADR-065's table into Excel (desktop or the iPhone app) with 0.1+0.2-0.3 and 1E15+0.2-1E15; put Excel's answers into validation/gnumeric/tests/edge/edge_equality.yaml as edge_excel_checks*.yaml does; fix any difference test first; decide the subtraction separately"
+    acceptance: "ADR-065 says which rows Excel confirmed, edge_equality.yaml cites Excel for them, and a difference from Excel is fixed or written down"
 
   - id: T1-SUPPLY-CHAIN
     title: "Workflow and dependency hygiene"
