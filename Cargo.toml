@@ -79,7 +79,7 @@ excel = ["dep:rust_xlsxwriter", "dep:calamine", "dep:regex", "dep:zip"]
 # forge-wasm runs the same core functions in a browser (ADR-055); it is not
 # published and not part of this crate's package
 [workspace]
-members = ["forge-wasm", "validation/gnumeric", "validation/r"]
+members = ["forge-wasm", "validation/gnumeric", "validation/r", "validation/repo"]
 
 [[bin]]
 name = "forge"

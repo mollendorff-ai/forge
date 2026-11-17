@@ -1,5 +1,6 @@
-//! No skipping (the maintainer, 2026-11-16): 100% coverage, pedantic linting
-//! and formatting, with no exceptions. A lint switched off by an attribute
+//! No skipping (the maintainer, 2026-11-16).
+//!
+//! 100% coverage, pedantic linting and formatting, with no exceptions. A lint switched off by an attribute
 //! or in a Cargo.toml, a lint group a crate leaves out, code compiled only
 //! for (or only without) the coverage run, an ignored test and a formatting
 //! skip are each a way round a rule, and each is counted here. So are the
@@ -13,68 +14,42 @@
 //! it falls, so the budget below is lowered in the same change that removes
 //! one. Raising a budget is not allowed: fix the code instead.
 
+use crate::{root, rust_files, without_comment};
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
 
 /// What is left of each kind on 2026-11-16, when the rule was made. Lower a
 /// number when a change removes some; never raise one.
-const BUDGET: [(&str, usize); 8] = [
+pub const BUDGET: [(&str, usize); 8] = [
     ("lint allow or expect attributes", 213),
     ("lints allowed in a Cargo.toml", 16),
     ("lint groups a crate does not enable", 2),
-    ("code compiled only for or only without coverage", 8),
+    ("code compiled only for or only without coverage", 5),
     ("ignored tests", 2),
     ("formatting skips", 0),
-    ("test files in a tests folder", 9),
+    ("test files in a tests folder", 0),
     ("test modules in a file of their own", 0),
 ];
 
 /// The crates: their manifest, and the folders of their Rust code
-const CRATES: [(&str, &[&str]); 4] = [
-    ("Cargo.toml", &["src", "tests"]),
+pub const CRATES: [(&str, &[&str]); 5] = [
+    ("Cargo.toml", &["src"]),
     ("forge-wasm/Cargo.toml", &["forge-wasm"]),
     ("validation/gnumeric/Cargo.toml", &["validation/gnumeric"]),
     ("validation/r/Cargo.toml", &["validation/r"]),
+    ("validation/repo/Cargo.toml", &["validation/repo"]),
 ];
 
 /// The lint groups every crate turns on, as the main crate does
-const GROUPS: [&str; 3] = ["pedantic", "nursery", "cargo"];
-
-fn root() -> &'static Path {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-}
-
-fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in std::fs::read_dir(dir).unwrap() {
-        let path = entry.unwrap().path();
-        let name = path.file_name().unwrap_or_default();
-        if path.is_dir() {
-            if name != "target" && name != "node_modules" {
-                rust_files(&path, out);
-            }
-        } else if path.extension().is_some_and(|e| e == "rs") {
-            out.push(path);
-        }
-    }
-}
-
-/// A line without its `//` comment, unless the `//` is inside a string (as
-/// in a URL): a comment that names an attribute is not one
-fn without_comment(line: &str) -> &str {
-    let mut from = 0;
-    while let Some(at) = line[from..].find("//") {
-        let at = from + at;
-        if line[..at].matches('"').count().is_multiple_of(2) {
-            return &line[..at];
-        }
-        from = at + 2;
-    }
-    line
-}
+pub const GROUPS: [&str; 3] = ["pedantic", "nursery", "cargo"];
 
 /// Each Rust file of every crate, with its comments and spaces removed, so
 /// that an attribute written with spaces inside it counts as well
-fn compact_sources() -> Vec<(String, String)> {
+///
+/// # Panics
+///
+/// Panics if a file cannot be read.
+#[must_use]
+pub fn compact_sources() -> Vec<(String, String)> {
     let mut files = Vec::new();
     for (_, dirs) in CRATES {
         for dir in dirs {
@@ -103,12 +78,14 @@ fn compact_sources() -> Vec<(String, String)> {
 }
 
 /// The patterns are joined at run time, so this file does not count itself
-fn joined(parts: &[&str]) -> String {
+#[must_use]
+pub fn joined(parts: &[&str]) -> String {
     parts.concat()
 }
 
 /// `allow(` or `expect(` as an attribute, alone or inside a `cfg_attr`
-fn lint_attributes(text: &str) -> usize {
+#[must_use]
+pub fn lint_attributes(text: &str) -> usize {
     let plain: usize = ["allow(", "expect("]
         .iter()
         .flat_map(|lint| [joined(&["#[", lint]), joined(&["#![", lint])])
@@ -129,7 +106,8 @@ fn lint_attributes(text: &str) -> usize {
     plain + inside
 }
 
-fn coverage_only(text: &str) -> usize {
+#[must_use]
+pub fn coverage_only(text: &str) -> usize {
     [
         joined(&["cfg(not(", "coverage))"]),
         joined(&["cfg(", "coverage)"]),
@@ -141,7 +119,8 @@ fn coverage_only(text: &str) -> usize {
     .sum()
 }
 
-fn ignored_tests(text: &str) -> usize {
+#[must_use]
+pub fn ignored_tests(text: &str) -> usize {
     let plain = text.matches(joined(&["#[", "ignore"]).as_str()).count();
     let conditional = joined(&["cfg_", "attr("]);
     let inside = text
@@ -154,14 +133,16 @@ fn ignored_tests(text: &str) -> usize {
     plain + inside
 }
 
-fn formatting_skips(text: &str) -> usize {
+#[must_use]
+pub fn formatting_skips(text: &str) -> usize {
     text.matches(joined(&["rustfmt::", "skip"]).as_str())
         .count()
 }
 
 /// A `mod name;` with no body, under a `cfg` that names `test`: a test
 /// module kept in a file of its own
-fn test_modules_elsewhere(text: &str) -> usize {
+#[must_use]
+pub fn test_modules_elsewhere(text: &str) -> usize {
     let cfg = joined(&["#[", "cfg("]);
     text.match_indices(cfg.as_str())
         .filter(|(start, _)| {
@@ -194,7 +175,8 @@ fn test_modules_elsewhere(text: &str) -> usize {
 }
 
 /// The Rust files in each crate's `tests` folder
-fn test_folder_files() -> Vec<String> {
+#[must_use]
+pub fn test_folder_files() -> Vec<String> {
     let mut files = Vec::new();
     for (manifest, _) in CRATES {
         let folder = root()
@@ -220,7 +202,12 @@ fn test_folder_files() -> Vec<String> {
 
 /// The `[lints.clippy]` table of a manifest: the lints set to allow, and the
 /// lint groups it does not turn on
-fn manifest_lints(manifest: &str) -> (Vec<String>, Vec<&'static str>) {
+///
+/// # Panics
+///
+/// Panics if the manifest cannot be read or has no `[lints.clippy]` table.
+#[must_use]
+pub fn manifest_lints(manifest: &str) -> (Vec<String>, Vec<&'static str>) {
     let text = std::fs::read_to_string(root().join(manifest)).unwrap();
     let start = text
         .find("[lints.clippy]")
@@ -249,7 +236,12 @@ fn manifest_lints(manifest: &str) -> (Vec<String>, Vec<&'static str>) {
 }
 
 /// The count of each kind, and where each was found
-fn found() -> BTreeMap<&'static str, (usize, Vec<String>)> {
+///
+/// # Panics
+///
+/// Panics if a file cannot be read.
+#[must_use]
+pub fn found() -> BTreeMap<&'static str, (usize, Vec<String>)> {
     let mut found = BTreeMap::new();
     let mut add = |kind: &'static str, count: usize, place: String| {
         let entry: &mut (usize, Vec<String>) = found.entry(kind).or_default();
@@ -265,9 +257,9 @@ fn found() -> BTreeMap<&'static str, (usize, Vec<String>)> {
         add(BUDGET[5].0, formatting_skips(&text), file.clone());
         add(BUDGET[7].0, test_modules_elsewhere(&text), file);
     }
-    for file in test_folder_files() {
-        add(BUDGET[6].0, 1, file);
-    }
+    // Counted even when there are none, so the kind is known to be scanned
+    let files = test_folder_files();
+    add(BUDGET[6].0, files.len(), files.join(", "));
     for (manifest, _) in CRATES {
         let (allowed, missing) = manifest_lints(manifest);
         for lint in allowed {
@@ -292,32 +284,37 @@ fn found() -> BTreeMap<&'static str, (usize, Vec<String>)> {
     found
 }
 
-#[test]
-fn the_ways_round_a_rule_only_ever_get_fewer() {
-    let found = found();
-    let mut wrong = Vec::new();
-    for (kind, budget) in BUDGET {
-        let (count, places) = found.get(kind).cloned().unwrap_or_default();
-        if count > budget {
-            wrong.push(format!(
-                "{kind}: {count}, more than the {budget} left. Fix the code rather than \
-                 switch the rule off; the budget is never raised. Where: {places:#?}"
-            ));
-        } else if count < budget {
-            wrong.push(format!(
-                "{kind}: {count}, fewer than the {budget} in BUDGET. Good: lower it to \
-                 {count} in tests/no_skipping.rs, in this change"
-            ));
-        }
-    }
-    assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-fn every_kind_is_counted() {
-    // A kind that the scan never reports would pass at any budget
-    let found = found();
-    for (kind, _) in BUDGET {
-        assert!(found.contains_key(kind), "{kind} is not counted");
+    #[test]
+    fn the_ways_round_a_rule_only_ever_get_fewer() {
+        let found = found();
+        let mut wrong = Vec::new();
+        for (kind, budget) in BUDGET {
+            let (count, places) = found.get(kind).cloned().unwrap_or_default();
+            if count > budget {
+                wrong.push(format!(
+                    "{kind}: {count}, more than the {budget} left. Fix the code rather than \
+                 switch the rule off; the budget is never raised. Where: {places:#?}"
+                ));
+            } else if count < budget {
+                wrong.push(format!(
+                    "{kind}: {count}, fewer than the {budget} in BUDGET. Good: lower it to \
+                 {count} in validation/repo/src/no_skipping.rs, in this change"
+                ));
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n\n"));
+    }
+
+    #[test]
+    fn every_kind_is_counted() {
+        // A kind that the scan never reports would pass at any budget
+        let found = found();
+        for (kind, _) in BUDGET {
+            assert!(found.contains_key(kind), "{kind} is not counted");
+        }
     }
 }

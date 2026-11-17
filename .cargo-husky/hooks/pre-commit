@@ -17,6 +17,10 @@ make lint
 echo "🧪 Running tests..."
 cargo test --all-features
 
+echo "📄 Checking the repository against the binary (validation/repo)..."
+cargo build --bin forge
+cargo test -p mollendorff-forge-repo
+
 # Möllendorff AI Asimov checks (if installed and commands available)
 if command -v asimov &> /dev/null; then
     asimov validate 2>/dev/null || true

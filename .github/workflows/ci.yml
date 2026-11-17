@@ -126,10 +126,37 @@ jobs:
       # (ADR-057); here only their lint and their own unit tests. The
       # Validation workflow runs them against Gnumeric and R.
       - name: Lint the validation suites
-        run: cargo clippy -p mollendorff-forge-e2e-gnumeric -p mollendorff-forge-e2e-r --all-targets -- -D warnings
+        run: cargo clippy -p mollendorff-forge-e2e-gnumeric -p mollendorff-forge-e2e-r -p mollendorff-forge-repo --all-targets -- -D warnings
 
       - name: Unit tests of the validation suites
         run: cargo test -p mollendorff-forge-e2e-gnumeric -p mollendorff-forge-e2e-r
+
+  # What Forge says about itself is what it does (validation/repo): the docs,
+  # workflows and sources checked against the code and against what the
+  # release binary of the Build job prints, every command the docs show run
+  # as a reader types it, forge simulate --seek included
+  repo-checks:
+    name: Repository checks
+    timeout-minutes: 20
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: forge-binary
+          path: target/release
+
+      - name: Check the repository against the binary
+        env:
+          FORGE_BIN: target/release/forge
+        run: |
+          chmod +x target/release/forge
+          cargo test -p mollendorff-forge-repo
 
   # The oldest Rust Forge says it builds with (Cargo.toml rust-version,
   # clippy.toml msrv): a newer API used by accident breaks this job, not a
@@ -490,12 +517,13 @@ jobs:
       # PR #258's (88.94%, 85.47%, 87.35%) and PR #259's (89.62%, 86.14%,
       # 88.14%), as the inline tests moved in, and from PR #261's (91.91%,
       # 87.95%, 90.58%), when the command line ran in-process, and from PR
-      # #262's (92.45%, 88.52%, 91.19%), when its tests ran under coverage.
+      # #262's (92.45%, 88.52%, 91.19%), when its tests ran under coverage, and
+      # from PR #263's regions (91.20%).
       - name: Fail below the coverage floor
         env:
           FLOOR_LINES: "92.4"
           FLOOR_FUNCTIONS: "88.5"
-          FLOOR_REGIONS: "91.1"
+          FLOOR_REGIONS: "91.2"
         run: |
           fail=0
           for kind in lines functions regions; do
@@ -526,7 +554,7 @@ jobs:
   update-docs:
     name: Update Generated Docs
     timeout-minutes: 30
-    needs: [test, lint, build]
+    needs: [test, lint, build, repo-checks]
     runs-on: ubuntu-22.04
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     # One run at a time, so two merges close together do not push over each other
@@ -603,7 +631,7 @@ jobs:
   auto-release:
     name: Auto Release
     timeout-minutes: 15
-    needs: [test, lint, build]
+    needs: [test, lint, build, repo-checks]
     runs-on: ubuntu-22.04
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
