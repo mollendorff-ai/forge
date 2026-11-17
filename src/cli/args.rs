@@ -127,8 +127,8 @@ LAYOUT:
 
 Row formulas and scalar formulas become live Excel formulas. A formula Excel
 cannot express with the same meaning (MC.*, LET, COUNTUNIQUE, ...) is written
-as its value, with the Forge formula in a cell note, and listed. Scenarios
-are not exported (Excel has no equivalent).
+as its value (an MC.* input as its plan value), with the Forge formula in a
+cell note, and listed. Scenarios are not exported (Excel has no equivalent).
 
 EXAMPLE:
   forge export examples/bagel/bagel.yaml bagel.xlsx"
